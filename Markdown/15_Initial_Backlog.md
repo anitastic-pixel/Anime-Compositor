@@ -680,6 +680,8 @@ W-41c / The Map tab, Hand and Zoom: the third redesign screen, last part (D-248)
 
 W-42 / Effect controls B: the fourth redesign screen (D-248). Grey bars with twirls, stopwatches, previous key / key / next key, the blue effect switch and the chosen row's slider. Page only. No command ID, fixture or exported picture changes. Evidence is in `verification/W-42_effect_controls.md`. Next: W-43 Project panel and finder.
 
+W-43a / The Project panel: the first half of the fifth redesign screen (D-248). List, Pictures, Tree and By cut, the info line and the missing-drawings line; the Compose workspace's Project panel is 300 pixels wide. Page only, plus the fix for Ctrl+K's Apply making an empty copy of the composition (since B-124b). No command ID, fixture or exported picture changes. Thumbnails, label colours and cut status wait on engine proposals. Evidence is in `verification/W-43a_project_panel.md`. Next: W-43b the effect finder.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

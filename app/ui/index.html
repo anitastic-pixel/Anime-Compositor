@@ -1143,6 +1143,100 @@
     text-overflow: ellipsis; white-space: nowrap;
   }
   #inspector .tab #ecframe { margin-left: auto; text-transform: none; letter-spacing: 0; color: #8e8e96; white-space: nowrap; }
+  /* W-43 (D-248): the Project panel, Project A-D. One table with a line about the chosen item
+     above it, and the List / Pictures / Tree / By cut switch in the tab. */
+  #bin .body { padding: 0 0 8px; container-type: inline-size; }
+  #bin .body > h2.plist { display: none; }
+  #bin #newcomposition, #bin #prefs, #bin #relinking, #bin #noassets { margin: 8px; }
+  #bin .tab #pviews { margin-left: auto; display: flex; gap: 2px; white-space: nowrap; }
+  #pviews button {
+    font-size: 10.5px; text-transform: none; letter-spacing: 0; padding: 1px 6px; line-height: 14px;
+    background: transparent; border: 1px solid #3a3a40; color: #a8a8b0; border-radius: 3px;
+  }
+  #pviews button[aria-pressed="true"] { background: #2c3a52; border-color: #4a6ea8; color: #fff; }
+  #pinfo {
+    display: flex; gap: 10px; align-items: center; padding: 6px 8px; min-height: 48px; box-sizing: border-box;
+    background: #1a1a1c; border-bottom: 1px solid #2a2a2e;
+  }
+  #pinfo .ptxt { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 11.5px; }
+  #pinfo .ptxt > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #pinfo b { color: #fff; font-weight: 600; }
+  .ptile {
+    flex: none; width: 64px; height: 36px; border-radius: 3px; display: grid; place-items: center;
+    font-size: 18px; border: 1px solid #3a3a40; box-sizing: border-box;
+  }
+  .ptile.comp { background: #2e2a44; color: #b9a8f0; }
+  .ptile.drawings { background: #f3efe6; color: #3b3440; }
+  .ptile.sound { background: #18202c; color: #6ea8fe; }
+  .ptile.other { background: #26262a; color: #c8c8cc; }
+  .pdim { color: #8e8e96; }
+  .pmissing { color: #ff8a80; }
+  #phead, #bin ul.rows li, #pother .tw {
+    display: grid; grid-template-columns: minmax(0, 1fr) 6.4em 3.8em 4.6em; gap: 6px; align-items: center;
+    padding: 0 8px; min-height: 20px; font-size: 11.5px; border-radius: 0; position: relative;
+  }
+  #phead { color: #8e8e96; border-bottom: 1px solid #2a2a2e; }
+  #bin ul.rows li > span:not(.name):not(.acts) { color: #8e8e96; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #bin ul.rows li[aria-selected=true] { background: #2c3a52; }
+  /* A row's buttons sit over its right end while it is under the pointer, chosen or focused. */
+  #bin .acts {
+    position: absolute; right: 0; top: 0; bottom: 0; padding: 0 6px 0 10px; display: flex; gap: 2px;
+    align-items: center; visibility: hidden; background: #2a2a2a;
+  }
+  #bin li[aria-selected=true] .acts { background: #2c3a52; }
+  #bin li:hover .acts, #bin li:focus-within .acts, #bin li[aria-selected=true] .acts, #bin .acts.keep { visibility: visible; }
+  #bin .acts label { display: flex; align-items: center; gap: 3px; color: #8e8e96; font-size: 11px; white-space: nowrap; }
+  #bin .acts label .ptext { display: none; }
+  @container (min-width: 460px) { #bin .acts label .ptext { display: inline; } }
+  @container (max-width: 330px) {
+    #phead, #bin ul.rows li, #pother .tw { grid-template-columns: minmax(0, 1fr) 6.4em 4.6em; }
+    #phead > :nth-child(3), #bin ul.rows li > :nth-child(3), #pother .tw > :nth-child(3) { display: none; }
+  }
+  @container (max-width: 240px) {
+    #phead, #bin ul.rows li, #pother .tw { grid-template-columns: minmax(0, 1fr) 6.4em; }
+    #phead > :nth-child(4), #bin ul.rows li > :nth-child(4), #pother .tw > :nth-child(4) { display: none; }
+  }
+  #pmiss { background: #2a1c1b; padding: 4px 8px; margin-top: 2px; font-size: 11.5px; }
+  #pmiss > div { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+  #pmiss > div > span { flex: 1; min-width: 0; color: #ff8a80; }
+  #pmiss button { font-size: 11px; padding: 0 6px; border-color: #d9534f; color: #ffd0cc; background: transparent; }
+  #bin.pv-pics #phead, #bin.pv-pics ul.rows, #bin.pv-tree #phead, #bin.pv-tree ul.rows,
+  #bin.pv-cut #phead, #bin.pv-cut ul.rows, #bin:not(.pv-list) #noassets { display: none; }
+  #pother .sech { color: #8e8e96; font-size: 11px; margin: 8px 8px 4px; }
+  #pother .cards { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 8px; }
+  #pother .card {
+    width: 92px; padding: 3px; display: flex; flex-direction: column; gap: 3px; text-align: left;
+    background: transparent; border: 1px solid transparent; border-radius: 4px; color: #d0d0d4; font-size: 11px;
+  }
+  #pother .card[aria-current="true"] { border-color: #4a6ea8; background: #22293a; }
+  #pother .card .ptile { width: 100%; height: 50px; position: relative; }
+  #pother .card .ov {
+    position: absolute; font-size: 9.5px; line-height: 13px; padding: 0 3px; border-radius: 2px;
+    background: rgba(0, 0, 0, 0.6); color: #e8e8ec;
+  }
+  #pother .card .ov.b1 { left: 2px; top: 2px; }
+  #pother .card .ov.b2 { right: 2px; bottom: 2px; }
+  #pother .card .ov.miss { background: #8a2a24; color: #fff; }
+  #pother .card .cn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #pother .tw { width: 100%; box-sizing: border-box; background: transparent; border: 0; color: #d0d0d4; text-align: left; font: inherit; font-size: 11.5px; }
+  #pother .tw.head { color: #8e8e96; border-bottom: 1px solid #2a2a2e; cursor: default; }
+  #pother .tw.fold { color: #fff; font-weight: 600; background: #222226; }
+  #pother .tw[aria-current="true"] { background: #2c3a52; }
+  #pother .tw > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #pother .tw > span:not(:first-child) { color: #8e8e96; }
+  #pother .cuthead { display: flex; align-items: center; gap: 6px; padding: 6px 8px 2px; font-size: 12px; color: #fff; }
+  #pother .cuthead .chip { background: #26262a; border: 1px solid #3a3a40; border-radius: 4px; padding: 0 7px; }
+  #pother .cutc {
+    display: flex; gap: 8px; align-items: center; width: calc(100% - 16px); margin: 4px 8px; padding: 5px 6px;
+    background: #1f1f22; border: 1px solid #2a2a2e; border-radius: 4px; color: #d0d0d4; text-align: left; font-size: 11.5px;
+  }
+  #pother .cutc[aria-current="true"] { border-color: #4a6ea8; background: #22293a; }
+  #pother .cutc .ptile { width: 44px; height: 25px; font-size: 13px; }
+  #pother .cutc .ctx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  #pother .cutc .ctx > span { display: flex; gap: 6px; overflow: hidden; white-space: nowrap; }
+  #pother .cutc .ctx > .pdim { display: block; text-overflow: ellipsis; }
+  #pother .cutc .ctx .sum { margin-left: auto; }
+  #pother p.hint { margin: 8px; color: #8e8e96; font-size: 11px; line-height: 1.45; }
   #relinking { border: 1px solid #e8b06a; border-radius: 4px; padding: 6px; margin-top: 6px; }
   #newcomposition { border: 1px solid #7a8ba0; border-radius: 4px; padding: 6px; margin-top: 6px; }
   /* Five fields and two buttons in a column 220 pixels wide. Label beside field rather than
@@ -1428,9 +1522,11 @@
 <div id="work">
   <div class="place" id="left"><nav class="stack" hidden></nav>
   <section class="panel" id="bin">
-    <div class="tab">Project</div>
+    <div class="tab">Project<span id="pviews" role="group" aria-label="How the Project panel lists the project"><button type="button" data-pview="list">List</button><button type="button" data-pview="pics">Pictures</button><button type="button" data-pview="tree">Tree</button><button type="button" data-pview="cut">By cut</button></span></div>
     <div class="body">
-      <h2>Compositions</h2>
+      <div id="pinfo"></div>
+      <div id="phead" aria-hidden="true"><span>Name</span><span>Kind</span><span>Length</span><span>Drawings</span></div>
+      <h2 class="plist">Compositions</h2>
       <ul class="rows" id="comps"></ul>
       <div id="newcomposition" hidden>
         <p>A new composition is empty. It is the frame the drawings are laid into, so its size,
@@ -1499,9 +1595,11 @@
         <p id="diskuse"></p>
         <button id="closeprefs">Close</button>
       </div>
-      <h2>Drawings</h2>
+      <h2 class="plist">Drawings</h2>
       <ul class="rows" id="assets"></ul>
       <p class="empty" id="noassets" hidden>This project has no drawings in it.</p>
+      <div id="pmiss" hidden></div>
+      <div id="pother" hidden></div>
       <div id="relinking" hidden>
         <p id="proposal"></p>
         <button id="applyrelink">Apply the relink</button>
@@ -2420,42 +2518,240 @@ function drawCompTabs() {
 function drawComps() {
   const all = doc ? (doc.project.compositions || []) : [];
   $('comps').replaceChildren(...all.map((comp) => {
-    const size = document.createElement('span');
-    size.className = 'kind';
-    size.textContent = comp.width + '×' + comp.height;
     const li = row(doc.composition, comp.id, comp.name, []);
+    const fps = compFps(comp);
+    const acts = Object.assign(document.createElement('span'), { className: 'acts' });
+    li.append(...['Composition', secsFrames(comp.duration_frames, fps), '\u2014'].map((t) => Object.assign(document.createElement('span'), { textContent: t })), acts);
     // W-26: a copy of the composition, and deleting it, each one Ctrl+Z.
     // B-18c: D-67's composition layer, above the chosen layer or else at the front. The
     // composition on screen has no button: a composition cannot hold itself.
     if (comp.id !== doc.composition) {
       const at = layers().findIndex((l) => l.id === selectedLayer);
-      li.append(iconButton('\u2937', 'Add ' + comp.name + ' to this composition as a layer',
+      acts.append(iconButton('\u2937', 'Add ' + comp.name + ' to this composition as a layer',
         () => command('/layer.add_composition?of=' + encodeURIComponent(comp.id)
           + (at < 0 ? '' : '&to=' + (at + 1)))));
     }
-    li.append(size,
+    acts.append(
       iconButton('\u29c9', 'Duplicate ' + comp.name,
         () => command('/composition.duplicate?composition=' + encodeURIComponent(comp.id))),
       iconButton('\u2715', 'Delete ' + comp.name,
         () => command('/composition.delete?composition=' + encodeURIComponent(comp.id))));
-    li.onclick = () => command('/composition.open?composition=' + encodeURIComponent(comp.id));
+    li.onclick = () => { projShown = 'comp'; command('/composition.open?composition=' + encodeURIComponent(comp.id)); };
     return li;
   }));
 }
+
+// W-43 (D-248): the Project panel's four ways of listing the project (Project A-D). List is the
+// table of the two lists below; Pictures, Tree and By cut are drawn from the same project, and a
+// click in them is a click on that item's row in the list, so every view does what the list does.
+let projShown = 'comp';
+const projShut = new Set();
+const compFps = (comp) => Math.max(1, Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator));
+const secsFrames = (frames, fps) => Math.floor(frames / fps) + 's ' + (frames % fps) + 'f';
+function assetKind(asset) {
+  if (asset.kind === 'audio') return 'Sound';
+  if (asset.kind === 'lut') return 'Colour lookup';
+  if (asset.kind !== 'image_sequence') return 'Still';
+  return Object.keys(asset.frames || {}).length === 1 ? 'One drawing' : 'Drawings';
+}
+// How many drawings an asset holds, the numbers layers ask it for that it lacks (the timeline's
+// red blocks), and how many layers use it, across every composition.
+function assetFacts(asset) {
+  const have = new Set(Object.keys(asset.frames || {}).map(Number));
+  const missing = new Set();
+  let uses = 0;
+  for (const comp of doc.project.compositions || []) for (const layer of comp.layers || []) {
+    if (layer.asset_id !== asset.id) continue;
+    uses++;
+    if (asset.kind !== 'image_sequence') continue;
+    for (const span of layer.exposure_spans || []) if (!have.has(span.drawing_number)) missing.add(span.drawing_number);
+  }
+  const count = asset.kind === 'image_sequence' ? have.size : asset.kind === 'still' ? 1 : null;
+  return { count, missing: [...missing].sort((a, b) => a - b), uses };
+}
+const compUses = (id) => (doc.project.compositions || [])
+  .reduce((n, c) => n + (c.layers || []).filter((l) => l.kind === 'composition' && l.composition_id === id).length, 0);
+const missingWords = (list) => list.length === 1 ? 'drawing ' + list[0] + ' is missing'
+  : 'drawings ' + list.slice(0, 4).join(', ') + (list.length > 4 ? ' and ' + (list.length - 4) + ' more' : '') + ' are missing';
+function projTile(item, isComp) {
+  const [cls, glyph] = isComp ? ['comp', '▦'] : item.kind === 'audio' ? ['sound', '♪']
+    : item.kind === 'image_sequence' || item.kind === 'still' ? ['drawings', '✎'] : ['other', '◑'];
+  return Object.assign(document.createElement('span'), { className: 'ptile ' + cls, textContent: glyph });
+}
+function drawProject() {
+  const view = ({ list: 1, pics: 1, tree: 1, cut: 1 })[prefs.projView] ? prefs.projView : 'list';
+  $('bin').classList.remove('pv-list', 'pv-pics', 'pv-tree', 'pv-cut');
+  $('bin').classList.add('pv-' + view);
+  for (const b of $('pviews').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.pview === view));
+  const el = (tag, cls, text) => Object.assign(document.createElement(tag), { className: cls || '', textContent: text || '' });
+  if (!doc) { $('pinfo').replaceChildren(); $('pmiss').hidden = true; $('pother').replaceChildren(); return; }
+  const comps = doc.project.compositions || [];
+  const assets = doc.project.assets || [];
+  const layersWord = (n) => n + (n === 1 ? ' layer' : ' layers');
+  // The line about the chosen item: the drawings last clicked, or else the composition on screen.
+  const asset = projShown === 'asset' && assets.find((a) => a.id === selectedAsset);
+  const comp = asset ? null : composition();
+  const txt = el('span', 'ptxt');
+  if (asset) {
+    const f = assetFacts(asset);
+    const files = Object.entries(asset.frames || {}).sort((a, b) => a[0] - b[0]).map(([, p]) => String(p).split(/[\\/]/).pop());
+    txt.append(el('b', '', asset.name),
+      el('span', 'pdim', [assetKind(asset), f.count === null ? '' : f.count + (f.count === 1 ? ' file' : ' files'),
+        f.uses ? 'used by ' + layersWord(f.uses) : 'not used yet'].filter(Boolean).join(' · ')),
+      f.missing.length ? el('span', 'pmissing', missingWords(f.missing))
+        : el('span', 'pdim', files.length > 1 ? files[0] + ' to ' + files[files.length - 1] : files[0] || ''));
+    $('pinfo').replaceChildren(projTile(asset, false), txt);
+  } else if (comp) {
+    const uses = compUses(comp.id);
+    txt.append(el('b', '', comp.name),
+      el('span', 'pdim', 'Composition · ' + comp.width + ' × ' + comp.height + ' · ' + number(compFps(comp)) + ' fps'),
+      el('span', 'pdim', layersWord((comp.layers || []).length) + ' · ' + secsFrames(comp.duration_frames, compFps(comp))
+        + ' · ' + (uses ? 'used ' + (uses === 1 ? 'once' : uses + ' times') : 'top level')));
+    $('pinfo').replaceChildren(projTile(comp, true), txt);
+  } else $('pinfo').replaceChildren();
+  // A line for each drawings item that layers ask for drawings it does not have.
+  const short = assets.map((a) => [a, assetFacts(a)]).filter(([, f]) => f.missing.length);
+  $('pmiss').hidden = !short.length;
+  $('pmiss').replaceChildren(...short.map(([a, f]) => {
+    const line = el('div');
+    const relink = el('button', '', 'Relink…');
+    relink.type = 'button';
+    relink.title = 'Point ' + a.name + ' at the folder its drawings are in now';
+    relink.onclick = () => command('/media.relink?asset=' + encodeURIComponent(a.id));
+    line.append(el('span', '', a.name + ': ' + missingWords(f.missing)), relink);
+    return line;
+  }));
+  $('pother').hidden = view === 'list';
+  if (view === 'list') return;
+  const focused = $('pother').contains(document.activeElement) ? document.activeElement.dataset.key : null;
+  const pick = (list, id, twice) => {
+    const li = $(list).querySelector('li[data-id="' + CSS.escape(id) + '"]');
+    if (li) li.dispatchEvent(new MouseEvent(twice ? 'dblclick' : 'click', { bubbles: true }));
+  };
+  const item = (cls, key, isComp, id, current) => {
+    const b = el('button', cls);
+    b.type = 'button';
+    b.dataset.key = key;
+    b.setAttribute('aria-current', String(current));
+    b.onclick = () => pick(isComp ? 'comps' : 'assets', id, false);
+    if (!isComp) b.ondblclick = () => pick('assets', id, true);
+    return b;
+  };
+  const groups = [
+    ['Compositions', comps, true],
+    ['Drawings', assets.filter((a) => a.kind === 'image_sequence' || a.kind === 'still'), false],
+    ['Sound', assets.filter((a) => a.kind === 'audio'), false],
+    ['Other', assets.filter((a) => !['image_sequence', 'still', 'audio'].includes(a.kind)), false],
+  ];
+  const isCurrent = (x, isComp) => isComp ? x.id === doc.composition : projShown === 'asset' && x.id === selectedAsset;
+  const out = [];
+  if (view === 'pics') {
+    for (const [name, list, isComp] of groups) {
+      if (!list.length) continue;
+      out.push(el('div', 'sech', name + ' · ' + list.length));
+      const row = el('div', 'cards');
+      for (const x of list) {
+        const card = item('card', x.id, isComp, x.id, isCurrent(x, isComp));
+        const t = projTile(x, isComp);
+        const f = isComp ? null : assetFacts(x);
+        const b1 = isComp ? layersWord((x.layers || []).length) : f.count === null ? assetKind(x) : f.count + (f.count === 1 ? ' drawing' : ' drawings');
+        const b2 = isComp ? secsFrames(x.duration_frames, compFps(x)) : f.missing.length ? f.missing.length + ' missing'
+          : f.uses ? layersWord(f.uses) : 'not used';
+        t.append(el('span', 'ov b1', b1), el('span', 'ov b2' + (f && f.missing.length ? ' miss' : ''), b2));
+        card.title = x.name + ' · ' + b1 + ' · ' + b2;
+        card.append(t, el('span', 'cn', x.name));
+        row.append(card);
+      }
+      out.push(row);
+    }
+  } else if (view === 'tree') {
+    const head = el('div', 'tw head');
+    head.append(el('span', '', 'Name'), el('span', '', 'Type'), el('span', '', 'Length'), el('span', '', 'In use'));
+    out.push(head);
+    const folders = [['Compositions', comps.filter((c) => !compUses(c.id)), true], ['Precomps', comps.filter((c) => compUses(c.id)), true],
+      ...groups.slice(1)];
+    for (const [name, list, isComp] of folders) {
+      if (!list.length) continue;
+      const shut = projShut.has(name);
+      const fold = el('button', 'tw fold');
+      fold.type = 'button';
+      fold.dataset.key = 'folder ' + name;
+      fold.setAttribute('aria-expanded', String(!shut));
+      fold.append(el('span', '', (shut ? '▸ ' : '▾ ') + name), el('span', '', 'Folder'), el('span'),
+        el('span', '', list.length + (list.length === 1 ? ' item' : ' items')));
+      fold.onclick = () => { if (shut) projShut.delete(name); else projShut.add(name); drawProject(); };
+      out.push(fold);
+      if (shut) continue;
+      for (const x of list) {
+        const line = item('tw', x.id, isComp, x.id, isCurrent(x, isComp));
+        const f = isComp ? null : assetFacts(x);
+        const nm = el('span', f && f.missing.length ? 'pmissing' : '', x.name + (f && f.missing.length ? ' · ' + f.missing.length + ' missing' : ''));
+        nm.style.paddingLeft = '16px';
+        const uses = isComp ? compUses(x.id) : f.uses;
+        line.append(nm, el('span', '', isComp ? 'Composition' : assetKind(x)),
+          el('span', '', isComp ? secsFrames(x.duration_frames, compFps(x)) : '—'), el('span', '', uses ? String(uses) : '—'));
+        out.push(line);
+      }
+    }
+  } else {
+    const byGroup = new Map();
+    for (const c of comps) {
+      const d = c.sheet_details || {};
+      const key = [d.episode ? 'Episode ' + d.episode : '', d.scene ? 'Scene ' + d.scene : ''].filter(Boolean).join(' › ');
+      if (!byGroup.has(key)) byGroup.set(key, []);
+      byGroup.get(key).push(c);
+    }
+    // How many drawings the composition's layers ask for that are not there.
+    const missingIn = (c) => (c.layers || []).reduce((n, layer) => {
+      const a = assets.find((x) => x.id === layer.asset_id);
+      if (!a || a.kind !== 'image_sequence') return n;
+      const have = a.frames || {};
+      return n + new Set((layer.exposure_spans || []).map((sp) => sp.drawing_number).filter((k) => !(String(k) in have))).size;
+    }, 0);
+    for (const key of [...byGroup.keys()].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b))) {
+      const head = el('div', 'cuthead');
+      if (key) for (const [i, part] of key.split(' › ').entries()) head.append(...(i ? [el('span', 'pdim', '›')] : []), el('span', 'chip', part));
+      else head.append(el('span', 'pdim', 'No episode or scene written'));
+      out.push(head);
+      for (const c of byGroup.get(key)) {
+        const d = c.sheet_details || {};
+        const card = item('cutc', c.id, true, c.id, c.id === doc.composition);
+        const ctx = el('span', 'ctx');
+        const top = el('span');
+        const gone = missingIn(c);
+        top.append(el('b', '', d.cut ? 'Cut ' + d.cut : c.name), el('span', 'pdim', secsFrames(c.duration_frames, compFps(c))),
+          el('span', 'sum ' + (gone ? 'pmissing' : 'pdim'), gone ? gone + ' missing' : layersWord((c.layers || []).length)));
+        const sheet = [d.episode && 'Ep ' + d.episode, d.scene && 'Sc ' + d.scene, d.cut && 'Cut ' + d.cut, d.animator].filter(Boolean);
+        ctx.append(top, el('span', 'pdim', (d.cut ? c.name + ' · ' : '') + (sheet.length ? sheet.join(' · ') : 'no sheet details yet')));
+        card.append(projTile(c, true), ctx);
+        out.push(card);
+      }
+    }
+    out.push(el('p', 'hint', 'A cut’s episode, scene, cut and animator are written in Composition settings (Ctrl+K), under Sheet.'));
+  }
+  $('pother').replaceChildren(...out);
+  if (focused) { const again = $('pother').querySelector('[data-key="' + CSS.escape(focused) + '"]'); if (again) again.focus(); }
+}
+for (const b of document.querySelectorAll('#pviews button')) b.onclick = () => { prefs.projView = b.dataset.pview; savePrefs(); drawProject(); };
 
 function drawAssets() {
   const assets = doc ? (doc.project.assets || []) : [];
   const list = $('assets');
   $('noassets').hidden = assets.length > 0;
   list.replaceChildren(...assets.map((asset) => {
-    const kind = document.createElement('span');
-    kind.className = 'kind';
-    // "still" or "image_sequence", and for a sequence how many drawings are in it — which is
-    // the number a person checks a scan against before making a layer out of it.
-    kind.textContent = asset.kind === 'audio' ? 'sound' : asset.kind === 'lut' ? 'colour lookup'
-      : asset.kind === 'image_sequence'
-      ? Object.keys(asset.frames || {}).length + ' frames' : 'still';
+    // W-43: the kind, and for drawings how many there are — the number a person checks a scan
+    // against before making a layer out of it — with any a layer asks for that are not there.
+    const facts = assetFacts(asset);
+    const cell = (t, cls) => Object.assign(document.createElement('span'), { textContent: t, className: cls || '' });
     const li = row(selectedAsset, asset.id, asset.name, []);
+    li.append(cell(assetKind(asset)), cell('\u2014'),
+      cell(facts.count === null ? '\u2014' : String(facts.count)));
+    // The missing count goes after the name, as in the Tree, where a chosen row's tick cannot cover it.
+    if (facts.missing.length) {
+      const name = li.querySelector('.name');
+      name.classList.add('pmissing');
+      name.textContent += ' \u00b7 ' + facts.missing.length + ' missing';
+    }
     // D-61: whether Collect Files copies these drawings. Absent in the file means yes.
     const pass = document.createElement('label');
     pass.className = 'kind';
@@ -2469,10 +2765,11 @@ function drawAssets() {
     tick.onkeydown = (e) => e.stopPropagation();
     tick.onchange = () => command('/asset.set_redistribute?asset=' + encodeURIComponent(asset.id)
       + '&redistribute=' + tick.checked);
-    pass.append(tick, 'Can be passed on');
+    pass.append(tick, Object.assign(document.createElement('span'), { className: 'ptext', textContent: 'Can be passed on' }));
     pass.onclick = (e) => e.stopPropagation();
-    li.append(kind, pass);
-    li.onclick = () => { selectedAsset = asset.id; drawPanels(); };
+    li.append(Object.assign(document.createElement('span'), { className: 'acts' + (tick.checked ? '' : ' keep') }));
+    li.lastChild.append(pass);
+    li.onclick = () => { selectedAsset = asset.id; projShown = 'asset'; drawPanels(); };
     // W-22: a drawing dragged onto the layer list becomes a layer where it is let go: above a
     // row is in front of that layer, below it behind, anywhere else on the timeline in front.
     li.onpointerdown = (e) => {
@@ -11057,6 +11354,7 @@ function drawPanels() {
   drawCompTabs();
   drawMap();
   drawAssets();
+  drawProject();
   drawRuler();
   drawLayers();
   movePlayhead();
@@ -11738,7 +12036,7 @@ const PLACES = { left: 'the left', leftlow: 'the lower left', centre: 'the centr
 const BUILT_IN = {
   // W-40b (D-248): the Sheet stands in the side column, put away in Compose and out in Animate,
   // where the effect controls move to the left to give it the room, as the Sandbox has them.
-  Compose: { places: { left: ['bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'], side: ['sheetpanel'] }, sizes: {}, sideHidden: true },
+  Compose: { places: { left: ['bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'], side: ['sheetpanel'] }, sizes: { '--bin': 300 }, sideHidden: true },
   Animate: { places: { left: ['inspector', 'bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: [], bottom: ['timeline'], side: ['sheetpanel'] }, sizes: {} },
 };
 let savedWorkspaces = {};
@@ -12051,12 +12349,16 @@ $('makecomp').onclick = () => {
   $('makecomp').textContent = 'Create it';
   $('newcomposition').hidden = true;
   const sheet = SHEET_DETAILS.map(([k, box]) => '&' + k + '=' + encodeURIComponent($(box).value)).join('');
-  if (settings) command('/composition.set_settings?' + q + sheet + ($('compfps').value === settings.fps ? '' : fps));
-  if (settings && SHUTTER.map((box) => $(box).value).join() !== settings.shutter) {
-    command('/composition.set_motion_blur?angle=' + encodeURIComponent($('compangle').value)
-      + '&phase=' + encodeURIComponent($('compphase').value) + '&samples=' + encodeURIComponent($('compsamples').value));
+  // W-43 fix: the create is the other half of `if (settings)`. Hung off the shutter's test since
+  // B-124b, applying Ctrl+K without touching the shutter also made an empty copy of the composition.
+  if (!settings) command('/composition.create?' + q + fps);
+  else {
+    command('/composition.set_settings?' + q + sheet + ($('compfps').value === settings.fps ? '' : fps));
+    if (SHUTTER.map((box) => $(box).value).join() !== settings.shutter) {
+      command('/composition.set_motion_blur?angle=' + encodeURIComponent($('compangle').value)
+        + '&phase=' + encodeURIComponent($('compphase').value) + '&samples=' + encodeURIComponent($('compsamples').value));
+    }
   }
-  else command('/composition.create?' + q + fps);
 };
 // W-02's three steps, one request each: ask what to point at, read what would change, then agree
 // to it or not. The asset an Apply names is the one the proposal came back with, never the one
