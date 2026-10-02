@@ -126,6 +126,7 @@ const KEY_ORDER: &[&str] = &[
     "kind",
     "name",
     "solid",
+    "source_text",
     "color",
     "path",
     "pattern",
@@ -844,9 +845,10 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     // D-74: nor are they for a solid, whose drawing is its `solid` record.
     // D-78: nor for a shape layer, whose drawing is its `shapes` list.
     // D-82: nor for a null, which has none at all.
+    // D-263: nor for a text layer, whose drawing is its `source_text` record.
     if layer.is_adjustment()
         || layer.solid.is_some()
-        || matches!(layer.kind, LayerKind::Shape | LayerKind::Null)
+        || matches!(layer.kind, LayerKind::Shape | LayerKind::Null | LayerKind::Text)
     {
         owned.retain(|(key, _)| {
             !matches!(*key, "asset_id" | "source_offset_frames" | "exposure_spans")
@@ -874,6 +876,21 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         map.insert("width".into(), J::from(s.width));
         map.insert("height".into(), J::from(s.height));
         owned.push(("solid", J::Object(map)));
+    }
+    // D-263: merged over what the file held, so a field no build writes yet is kept.
+    if let Some(t) = &layer.text {
+        let mut map = base
+            .and_then(|b| b.get("source_text"))
+            .and_then(J::as_object)
+            .cloned()
+            .unwrap_or_default();
+        map.insert("text".into(), J::from(t.text.as_str()));
+        map.insert("font".into(), J::from(t.font.as_str()));
+        map.insert("size".into(), J::from(t.size));
+        map.insert("color".into(), J::from(t.color.to_vec()));
+        map.insert("at".into(), J::from(t.at.to_vec()));
+        map.insert("align".into(), J::from(t.align.as_str()));
+        owned.push(("source_text", J::Object(map)));
     }
     owned.push(("effects", J::Array(effects)));
     // D-57: written only when the layer has a parent, so a project that never had one is
@@ -4045,8 +4062,9 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     let kind = match as_enum(
         field(v, pointer, "kind")?,
         &format!("{pointer}/kind"),
-        &["raster", "adjustment", "composition", "audio", "solid", "shape", "null"],
+        &["raster", "adjustment", "composition", "audio", "solid", "shape", "null", "text"],
     )? {
+        "text" => LayerKind::Text,
         "null" => LayerKind::Null,
         "solid" => LayerKind::Solid,
         "shape" => LayerKind::Shape,
@@ -4191,6 +4209,28 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             "no shapes on a layer whose kind is not shape (D-78)",
         ));
     }
+    // D-263: a text layer's drawing is its `source_text` record, with no exposures or offset.
+    let text = if kind == LayerKind::Text {
+        for key in ["exposure_spans", "source_offset_frames"] {
+            if v.get(key).is_some() {
+                return Err(invalid(
+                    &format!("{pointer}/{key}"),
+                    &format!("no {key} on a text layer, whose drawing is its words (D-263)"),
+                ));
+            }
+        }
+        Some(parse_text(
+            field(v, pointer, "source_text")?,
+            &format!("{pointer}/source_text"),
+        )?)
+    } else if v.get("source_text").is_some() {
+        return Err(invalid(
+            &format!("{pointer}/source_text"),
+            "no source_text on a layer whose kind is not text (D-263)",
+        ));
+    } else {
+        None
+    };
     // D-82: a null has no drawing at all, so nothing about one.
     if kind == LayerKind::Null {
         for key in ["exposure_spans", "source_offset_frames"] {
@@ -4205,7 +4245,11 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     let source_offset_frames = match v.get("source_offset_frames") {
         None if matches!(
             kind,
-            LayerKind::Adjustment | LayerKind::Solid | LayerKind::Shape | LayerKind::Null
+            LayerKind::Adjustment
+                | LayerKind::Solid
+                | LayerKind::Shape
+                | LayerKind::Null
+                | LayerKind::Text
         ) =>
         {
             0
@@ -4557,6 +4601,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         gain_db: 0.0,
         solid,
         shapes,
+        text,
         timesheet,
         key_drawings,
         motion_blur,
@@ -4950,6 +4995,39 @@ fn parse_solid(v: &J, pointer: &str) -> Result<crate::model::Solid, Diagnostic> 
     match solid.problem() {
         Some(p) => Err(invalid(pointer, &p)),
         None => Ok(solid),
+    }
+}
+
+/// D-263's `source_text` record: words, a font's file name, a size, a colour, a place and an
+/// alignment, all present and inside `Text::problem`'s ranges, or the file is refused.
+fn parse_text(v: &J, pointer: &str) -> Result<crate::text::Text, Diagnostic> {
+    as_object(v, pointer)?;
+    let numbers = |key: &str, n: usize| -> Result<Vec<f64>, Diagnostic> {
+        let at = format!("{pointer}/{key}");
+        let list = as_array(field(v, pointer, key)?, &at)?;
+        if list.len() != n {
+            return Err(invalid(&at, &format!("{n} numbers (D-263)")));
+        }
+        list.iter().enumerate().map(|(i, x)| as_f64(x, &format!("{at}/{i}"))).collect()
+    };
+    let (color, at) = (numbers("color", 3)?, numbers("at", 2)?);
+    let align_at = format!("{pointer}/align");
+    let text = crate::text::Text {
+        text: as_str(field(v, pointer, "text")?, &format!("{pointer}/text"))?.to_string(),
+        font: as_str(field(v, pointer, "font")?, &format!("{pointer}/font"))?.to_string(),
+        size: as_f64(field(v, pointer, "size")?, &format!("{pointer}/size"))?,
+        color: [color[0], color[1], color[2]],
+        at: [at[0], at[1]],
+        align: crate::text::Align::parse(as_enum(
+            field(v, pointer, "align")?,
+            &align_at,
+            &["left", "center", "right"],
+        )?)
+        .expect("as_enum allows only the three"),
+    };
+    match text.problem() {
+        Some(p) => Err(invalid(pointer, &p)),
+        None => Ok(text),
     }
 }
 

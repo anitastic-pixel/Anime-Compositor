@@ -721,6 +721,8 @@ pub enum LayerKind {
     Shape,
     /// D-82: never drawn. It has a transform and is there to be a parent.
     Null,
+    /// D-263: words in a font, held in [`Layer::text`], in the composition's own space.
+    Text,
 }
 
 impl LayerKind {
@@ -733,6 +735,7 @@ impl LayerKind {
             LayerKind::Solid => "solid",
             LayerKind::Shape => "shape",
             LayerKind::Null => "null",
+            LayerKind::Text => "text",
         }
     }
 }
@@ -829,6 +832,9 @@ pub struct Layer {
     /// which is why nothing here says one. A shape's path is D-77's record unchanged, so it may
     /// move exactly as a mask's path does.
     pub shapes: Vec<crate::shape::Shape>,
+    /// D-263: a text layer's words, font, size, colour, place and alignment, and `None` on
+    /// every other kind.
+    pub text: Option<crate::text::Text>,
     /// D-84: the timesheet column an imported cut made this layer from, and `None` on every
     /// layer made any other way. A record of where the timing came from, which nothing reads
     /// back into the timing: the exposures are the layer's own. Saved as `timesheet` only when
@@ -895,6 +901,7 @@ impl Layer {
             gain_db: 0.0,
             solid: None,
             shapes: Vec::new(),
+            text: None,
             timesheet: None,
             key_drawings: Vec::new(),
             motion_blur: false,
@@ -1010,6 +1017,24 @@ impl Layer {
         layer
     }
 
+    /// D-263: a layer whose picture is its words, drawn into the composition's own space as a
+    /// shape layer's shapes are, so its anchor and position are both the composition's centre
+    /// and the words' place is in composition pixels.
+    pub fn text(
+        id: Id,
+        name: impl Into<String>,
+        text: crate::text::Text,
+        width: u32,
+        height: u32,
+        in_frame: i32,
+        out_frame: i32,
+    ) -> Self {
+        let mut layer = Layer::shape(id, name, Vec::new(), width, height, in_frame, out_frame);
+        layer.kind = LayerKind::Text;
+        layer.text = Some(text);
+        layer
+    }
+
     /// D-82: a layer that is never drawn, whose outline is 100 by 100 in its own space. Its
     /// anchor is the middle of that outline and its position the centre of the `width` by
     /// `height` composition it goes into.
@@ -1038,6 +1063,7 @@ impl Layer {
                 | LayerKind::Solid
                 | LayerKind::Shape
                 | LayerKind::Null
+                | LayerKind::Text
         )
     }
 

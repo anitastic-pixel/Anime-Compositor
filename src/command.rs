@@ -224,6 +224,12 @@ pub enum Command {
         layer_id: Id,
         solid: crate::model::Solid,
     },
+    /// D-263's `text.set`: a text layer's whole record, one step of history.
+    SetText {
+        composition: Id,
+        layer_id: Id,
+        text: crate::text::Text,
+    },
     /// W-25: After Effects' Composition Settings, Ctrl+K. A work area or a marker the new length
     /// leaves outside is cut back or dropped in the same entry to undo.
     SetCompositionSettings {
@@ -550,6 +556,7 @@ impl Command {
             Command::SetMarkers { .. } => "SET_MARKERS",
             Command::SetBlendMode { .. } => "SET_BLEND_MODE",
             Command::SetSolid { .. } => "SET_SOLID",
+            Command::SetText { .. } => "SET_TEXT",
             Command::SetCompositionSettings { .. } => "SET_COMPOSITION_SETTINGS",
             Command::ReorderLayer { .. } => "REORDER_LAYER",
             Command::ShiftLayer { .. } => "SHIFT_LAYER",
@@ -729,6 +736,7 @@ impl Command {
                 format!("Set the blend mode to {}", mode.as_str())
             }
             Command::SetSolid { .. } => "Set the solid's colour and size".to_string(),
+            Command::SetText { .. } => "Set the text".to_string(),
             Command::SetCompositionSettings { name, .. } => {
                 format!("Change the settings of {name}")
             }
@@ -888,6 +896,7 @@ impl Command {
             | Command::SetMarkers { composition, .. }
             | Command::SetBlendMode { composition, .. }
             | Command::SetSolid { composition, .. }
+            | Command::SetText { composition, .. }
             | Command::SetCompositionSettings { composition, .. }
             | Command::ReorderLayer { composition, .. }
             | Command::ShiftLayer { composition, .. }
@@ -946,6 +955,7 @@ impl Command {
             | Command::SetLayerLabel { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
             | Command::SetSolid { layer_id, .. }
+            | Command::SetText { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
             | Command::SetLayerMotionBlur { layer_id, .. }
             | Command::SetLayerTimeStretch { layer_id, .. }
@@ -1092,6 +1102,7 @@ impl Command {
             self,
             Command::SetBlendMode { .. }
                 | Command::SetSolid { .. }
+                | Command::SetText { .. }
                 | Command::SetMatte { .. }
                 | Command::SetParent { .. }
                 | Command::SetDepth { .. }
@@ -1123,6 +1134,7 @@ impl Command {
             | Command::SetLayerLabel { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
             | Command::SetSolid { layer_id, .. }
+            | Command::SetText { layer_id, .. }
             | Command::SetLayerShy { layer_id, .. }
             | Command::SetLayerMotionBlur { layer_id, .. }
             | Command::SetLayerTimeStretch { layer_id, .. }
@@ -2000,6 +2012,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 Command::SetMatte { matte, .. } => matte.is_some(),
                 Command::SetMasks { masks, .. } => !masks.is_empty(),
                 Command::SetSolid { .. }
+                | Command::SetText { .. }
                 | Command::SetExposureSpans { .. }
                 | Command::SetShapes { .. }
                 | Command::AddEffect { .. } => true,
@@ -2092,6 +2105,19 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     &format!("That solid cannot be made: it needs {p}."),
                     "D-74.",
                 ));
+            }
+            // D-263: a text layer carries its words, inside the ranges, and no other kind does.
+            if (layer.kind == crate::model::LayerKind::Text) != layer.text.is_some() {
+                return Err(reject(
+                    &format!(
+                        "\"{}\" needs words, a font and a size if, and only if, it is a text layer.",
+                        layer.name
+                    ),
+                    "D-263: a text layer's drawing is its text record.",
+                ));
+            }
+            if let Some(p) = layer.text.as_ref().and_then(|t| t.problem()) {
+                return Err(reject(&format!("That text cannot be made: it needs {p}."), "D-263."));
             }
             let asset_known =
                 layer.has_no_drawing() || project.assets.iter().any(|a| a.id == layer.asset_id);
@@ -2400,6 +2426,22 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 ));
             }
             layer.blend_mode = *mode;
+        }
+        Command::SetText {
+            layer_id, text, ..
+        } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            if layer.text.is_none() {
+                return Err(reject(
+                    &format!("\"{}\" is not a text layer, so it has no words.", layer.name),
+                    "D-263: only a text layer carries a text record.",
+                ));
+            }
+            // Refused, not clamped: a size taken and drawn as another would be a silent change.
+            if let Some(p) = text.problem() {
+                return Err(reject(&format!("That text cannot be drawn: it needs {p}."), "D-263."));
+            }
+            layer.text = Some(text.clone());
         }
         Command::SetSolid {
             layer_id, solid, ..

@@ -640,6 +640,7 @@ fn bypassed(ids: &[DiagnosticId]) -> bool {
         || ids.contains(&DiagnosticId::MaskInvalidOutline)
         || ids.contains(&DiagnosticId::EffectUnsupported)
         || ids.contains(&DiagnosticId::EffectParameterInvalid)
+        || ids.contains(&DiagnosticId::TextFontMissing)
 }
 
 /// The text tags an exported PNG carries.

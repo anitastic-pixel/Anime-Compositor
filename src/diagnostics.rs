@@ -131,6 +131,10 @@ pub enum DiagnosticId {
     /// say which side to keep, the even-odd rule says exactly what a crossed shape fills, so it
     /// is drawn.
     ShapeInvalidOutline,
+    /// Document 28, added by D-263: a text layer names a font this machine does not have, or a
+    /// file that is not a font. WARNING per frame; the words are kept and draw nothing, and no
+    /// other font is put in its place.
+    TextFontMissing,
     /// **Proposed (D-21).** A command named a composition, layer or keyframe that is not there.
     CommandTargetMissing,
     /// **Proposed (D-21).** A command carried a value the model cannot hold: the wrong value
@@ -252,6 +256,7 @@ impl DiagnosticId {
             DiagnosticId::CameraPlaneBehind => "CAMERA_PLANE_BEHIND",
             DiagnosticId::MaskInvalidOutline => "MASK_INVALID_OUTLINE",
             DiagnosticId::ShapeInvalidOutline => "SHAPE_INVALID_OUTLINE",
+            DiagnosticId::TextFontMissing => "TEXT_FONT_MISSING",
             DiagnosticId::CommandTargetMissing => "COMMAND_TARGET_MISSING",
             DiagnosticId::CommandInvalidValue => "COMMAND_INVALID_VALUE",
             DiagnosticId::CommandLayerLocked => "COMMAND_LAYER_LOCKED",
@@ -321,6 +326,7 @@ impl DiagnosticId {
                 | DiagnosticId::CameraPlaneBehind
                 | DiagnosticId::MaskInvalidOutline
                 | DiagnosticId::ShapeInvalidOutline
+                | DiagnosticId::TextFontMissing
                 | DiagnosticId::ExportWriteFailed
                 | DiagnosticId::ExportCancelled
                 | DiagnosticId::ExpressionSyntax

@@ -168,6 +168,11 @@ underneath one of them.
   and D-30. No encoder is shipped inside this program. It was already in the build underneath
   `tauri`, at the same version. `tests/b21d_mp4.rs` reads the written file's time numbers back
   and holds them to FX-FMT-030.
+- **`ttf-parser`** reads a font's outlines for text layers, by D-263 (built on 2026-10-02 at the
+  owner's request), with its default features off. It has no dependencies of its own. The outlines
+  are filled by `src/text.rs` through the same sixteen samples a pixel that masks and shapes use.
+  The font that comes with the program, M PLUS Rounded 1c, is under the SIL Open Font License,
+  beside the others in `docs/third_party/`. `tests/d263_text.rs` holds where the letters land.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the

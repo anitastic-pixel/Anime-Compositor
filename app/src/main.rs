@@ -1566,7 +1566,7 @@ fn serve_seen(
             cel_hits: counted.0,
             cel_misses: counted.1,
             effect_hits: counted.2,
-            warnings: finished.warnings.into_iter().chain(disk_notes).collect(),
+            warnings: finished.warnings.iter().cloned().chain(disk_notes).collect(),
         });
     }
     let reply = match part {
@@ -1588,6 +1588,20 @@ fn serve_seen(
         .header("x-on-screen", if on_screen { "1" } else { "0" })
         // B-154: 1 when the frame was sent from memory rather than made.
         .header("x-cached", if fresh { "0" } else { "1" })
+        // D-263: a font this frame could not find, said beside the window's notes, as a note
+        // is: its sentence, a tab, then its code and sentence for the error details. Missing
+        // drawings have their own Relink line and are not repeated here.
+        .header(
+            "x-frame-notes",
+            for_a_header(
+                &finished
+                    .warnings
+                    .iter()
+                    .filter_map(|w| w.strip_prefix("TEXT_FONT_MISSING: ").map(|said| format!("{said}\t{w}")))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            ),
+        )
         .body(pixels)
         .expect("build the frame response")
 }
@@ -4832,6 +4846,7 @@ const ANSWERS: &[&str] = &[
     "layer.add_null",
     "layer.add_shape",
     "layer.add_solid",
+    "layer.add_text",
     "layer.copy",
     "layer.create",
     "layer.delete",
@@ -4886,6 +4901,7 @@ const ANSWERS: &[&str] = &[
     "sketch.remove_layer",
     "sketch.set_layer",
     "solid.set",
+    "text.set",
     "timeline.set_markers",
     "timeline.set_work_end",
     "timeline.set_work_start",
@@ -6495,6 +6511,48 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     .and_then(|to| to.parse::<usize>().ok())
                     .unwrap_or(comp.len()),
             }
+        } else if id == "layer.add_text" {
+            // D-263: a text layer reading "Text" in the font that comes with the program, its
+            // first line starting at `x`, `y` in composition pixels (the composition's centre,
+            // centred, when not sent), named with the smallest `Text N` not yet taken. Above the
+            // chosen layer (`to`) or else at the front, as a new solid lands.
+            let centre = parameter(query, "x").is_none() && parameter(query, "y").is_none();
+            let start = anime_compositor::text::Text {
+                text: "Text".to_string(),
+                font: anime_compositor::text::Text::BUNDLED_FONT.to_string(),
+                size: (comp.height as f64 / 9.0).round().max(1.0),
+                color: [1.0; 3],
+                at: [comp.width as f64 / 2.0, comp.height as f64 / 2.0],
+                align: if centre {
+                    anime_compositor::text::Align::Center
+                } else {
+                    anime_compositor::text::Align::Left
+                },
+            };
+            let words = match text_from(query, start) {
+                Ok(words) => words,
+                Err(sentence) => return Some(sentence),
+            };
+            let name = (1..)
+                .map(|n| format!("Text {n}"))
+                .find(|name| comp.layers_in_order().all(|l| &l.name != name))
+                .expect("a name not yet taken");
+            let layer = Layer::text(
+                unused_layer_id(project),
+                parameter(query, "name").unwrap_or(name),
+                words,
+                comp.width,
+                comp.height,
+                comp.start_frame,
+                comp.start_frame + comp.duration_frames as i32,
+            );
+            Command::AddLayer {
+                composition,
+                layer: Box::new(layer),
+                index: parameter(query, "to")
+                    .and_then(|to| to.parse::<usize>().ok())
+                    .unwrap_or(comp.len()),
+            }
         } else if id == "layer.add_null" {
             // B-26c: D-82's null, named with the smallest `Null N` this composition does not
             // have yet, lasting the whole composition, at its centre. Above the chosen layer
@@ -6888,6 +6946,21 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             composition,
                             layer_id,
                             solid,
+                        },
+                        Err(sentence) => return Some(sentence),
+                    }
+                }
+                // D-263: the words and how they look, from Effect controls. What is not sent stays
+                // as it is; a layer that is not a text layer is the core's to refuse.
+                "text.set" => {
+                    let Some(now) = layer.text.clone() else {
+                        return Some(format!("\"{}\" is not a text layer, so it has no words.", layer.name));
+                    };
+                    match text_from(query, now) {
+                        Ok(text) => Command::SetText {
+                            composition,
+                            layer_id,
+                            text,
                         },
                         Err(sentence) => return Some(sentence),
                     }
@@ -9307,6 +9380,46 @@ fn solid_from(query: Option<&str>, mut solid: Solid) -> Result<Solid, String> {
         }
     }
     Ok(solid)
+}
+
+/// D-263: a text layer's `text`, `font`, `size`, `color` (`r,g,b`, linear), `x`, `y` and `align`
+/// from the query, each kept from `words` when it is not sent. Only what is not a number at all
+/// is refused here; a number outside D-263's ranges is the core's to refuse.
+fn text_from(
+    query: Option<&str>,
+    mut words: anime_compositor::text::Text,
+) -> Result<anime_compositor::text::Text, String> {
+    if let Some(text) = parameter(query, "text") {
+        words.text = text;
+    }
+    if let Some(font) = parameter(query, "font") {
+        words.font = font.trim().to_string();
+    }
+    if let Some(text) = parameter(query, "color") {
+        let numbers: Vec<f64> = text
+            .split(',')
+            .filter_map(|n| n.trim().parse::<f64>().ok())
+            .collect();
+        words.color = <[f64; 3]>::try_from(numbers).map_err(|_| {
+            format!("\"{text}\" is not a colour. A colour is three numbers from 0 to 1, red, green and blue.")
+        })?;
+    }
+    let [x, y] = &mut words.at;
+    for (name, value) in [("size", &mut words.size), ("x", x), ("y", y)] {
+        if let Some(text) = parameter(query, name) {
+            *value = text
+                .trim()
+                .parse::<f64>()
+                .ok()
+                .filter(|v| v.is_finite())
+                .ok_or_else(|| format!("\"{}\" is not a number of pixels.", text.trim()))?;
+        }
+    }
+    if let Some(text) = parameter(query, "align") {
+        words.align = anime_compositor::text::Align::parse(text.trim())
+            .ok_or_else(|| format!("\"{text}\" is not an alignment: left, center or right."))?;
+    }
+    Ok(words)
 }
 
 /// B-24e: one key on a mask's or a shape's path, named by its frame in `key`, moved along its
@@ -24905,6 +25018,7 @@ mod contract {
         "layer.add_null",
         "layer.add_shape",
         "layer.add_solid",
+        "layer.add_text",
         "layer.copy",
         "layer.create",
         "layer.delete",
@@ -24958,6 +25072,7 @@ mod contract {
         "sketch.remove_layer",
         "sketch.set_layer",
         "solid.set",
+        "text.set",
         "timeline.set_markers",
         "timeline.set_work_end",
         "timeline.set_work_start",
@@ -25400,6 +25515,9 @@ mod contract {
         // D-78, accepted on 2026-09-21 and built in the core by B-25b; B-25c put all six in the
         // window, each the twin of its mask command.
         ("layer.add_shape", "a command the window answers"),
+        // D-263, accepted on 2026-10-02: text layers.
+        ("layer.add_text", "a command the window answers"),
+        ("text.set", "a command the window answers"),
         ("shape.add", "a command the window answers"),
         ("shape.add_remove_key", "a command the window answers"),
         ("shape.set_path", "a command the window answers"),
@@ -26324,6 +26442,8 @@ mod contract {
         let before_cut = held(&viewer).composition.clone();
         import_cut(&viewer, &repo("Fixtures/xdts/fx_xdts_040"));
         show(&viewer, &before_cut);
+        // D-263: and a text layer, the only kind that carries `source_text`.
+        run(&viewer, "layer.add_text");
         // B-25c: and a shape layer with a shape, the only kind that carries `shapes`.
         run(&viewer, "layer.add_shape");
         let shape_id = held(&viewer)
@@ -26370,6 +26490,11 @@ mod contract {
         let shape = answer["project"]["compositions"][0]["layers"]
             .as_array()
             .and_then(|all| all.iter().find(|l| l["kind"] == "shape"))
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        let words = answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .and_then(|all| all.iter().find(|l| l["kind"] == "text"))
             .cloned()
             .unwrap_or(serde_json::Value::Null);
         let precomp = answer["project"]["compositions"][0]["layers"]
@@ -26441,6 +26566,7 @@ mod contract {
                         "gain_db" => sound.get(&field),
                         "solid" => solid.get(&field),
                         "shapes" => shape.get(&field),
+                        "source_text" => words.get(&field),
                         "timesheet" => from_sheet.get(&field),
                         "mix" => mixed.get(&field),
                         _ => None,

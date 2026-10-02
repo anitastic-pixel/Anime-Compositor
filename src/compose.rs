@@ -1281,6 +1281,34 @@ fn resolve_held(
             px[..3].copy_from_slice(&solid.color.map(|c| c as f32));
         }
         (std::sync::Arc::new(shape), None)
+    } else if let Some(words) = &layer.text {
+        // D-263: a text layer's step 1 is the composition's size in transparent black with its
+        // words drawn into it, as a shape layer's is. A font this machine does not have is said
+        // per frame, for the reason an undrawable shape is, and nothing is drawn in its place.
+        layer.timing().local_frame(frame)?;
+        let (w, h) = (comp.width as usize, comp.height as usize);
+        let picture = crate::text::draw(words, w, h).unwrap_or_else(|| {
+            log.record(
+                frame,
+                layer.name.clone(),
+                Diagnostic::new(
+                    DiagnosticId::TextFontMissing,
+                    Severity::Warning,
+                    format!(
+                        "Layer {}'s font \"{}\" is not on this computer, so its words are not drawn.",
+                        layer.name, words.font
+                    ),
+                    format!(
+                        "D-263: no other font is put in its place. Looked for it among the fonts \
+                         that come with the program and in {:?}. The words are kept as they are.",
+                        crate::text::installed_fonts()
+                    ),
+                )
+                .with_remediation("Install the font, or choose another in Effect controls."),
+            );
+            WorkingBuffer::transparent(w, h)
+        });
+        (std::sync::Arc::new(picture), None)
     } else if layer.kind == crate::model::LayerKind::Shape {
         // D-78: a shape layer's step 1 is the composition's size in transparent black with its
         // shapes drawn into it. It has no size of its own, which is why `comp` is asked and not

@@ -82,6 +82,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.add_null` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_shape` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_solid` can be asked for without a mouse | yes | yes | pass |
+| `layer.add_text` can be asked for without a mouse | yes | yes | pass |
 | `layer.copy` can be asked for without a mouse | yes | yes | pass |
 | `layer.create` can be asked for without a mouse | yes | yes | pass |
 | `layer.delete` can be asked for without a mouse | yes | yes | pass |
@@ -154,6 +155,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `sketch.set_layer` can be asked for without a mouse | yes | yes | pass |
 | `solid.set` can be asked for without a mouse | yes | yes | pass |
 | `sound` can be asked for without a mouse | yes | yes | pass |
+| `text.set` can be asked for without a mouse | yes | yes | pass |
 | `thumb` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_markers` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_work_end` can be asked for without a mouse | yes | yes | pass |
@@ -198,4 +200,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**168 of 168 checks pass.**
+**170 of 170 checks pass.**

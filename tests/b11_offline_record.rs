@@ -282,6 +282,7 @@ fn b11_nothing_in_this_build_needs_a_network_or_an_account() {
     // `color_quant` and `gif`; `weezl`, its LZW, was already here. D-72's MP4 added `windows`
     // and the ten `windows-*` crates under it: Microsoft's own bindings to Windows, already in
     // the shell under Tauri, and here only to reach the H.264 encoder Windows carries (D-30).
+    // D-263 added `ttf-parser`, which reads a font file and has no dependencies of its own.
     // B-44's `wgpu` (D-100) added the rest: its core, its shader compiler `naga`, the Direct3D 12
     // and Vulkan halves (`ash`, `gpu-*`, `libloading`), and their helpers. None opens a socket;
     // the check above says so.
@@ -298,7 +299,7 @@ fn b11_nothing_in_this_build_needs_a_network_or_an_account() {
          pulp-wasm-simd-flag, pxfm, quick-error, quote, range-alloc, raw-cpuid, \
          raw-window-handle, rayon, rayon-core, reborrow, renderdoc-sys, rustc-hash, scopeguard, \
          serde_core, serde_json, simd-adler32, smallvec, spirv, static_assertions, syn, \
-         thiserror, thiserror-impl, tiff, unicode-ident, unicode-width, weezl, wgpu, wgpu-core, \
+         thiserror, thiserror-impl, tiff, ttf-parser, unicode-ident, unicode-width, weezl, wgpu, wgpu-core, \
          wgpu-core-deps-windows-linux-android, wgpu-hal, wgpu-types, windows, \
          windows-collections, windows-core, windows-future, windows-implement, windows-interface, \
          windows-link, windows-numerics, windows-result, windows-strings, windows-targets, \

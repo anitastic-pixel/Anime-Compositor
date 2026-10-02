@@ -31,6 +31,7 @@ One row per identifier this build can print, and the table where a person can re
 | `COMPOSITION_CYCLE` | yes | `verification/B-18b_precomp_table.md` |
 | `MASK_INVALID_OUTLINE` | yes | `verification/B-06_mask_table.md` |
 | `SHAPE_INVALID_OUTLINE` | yes | `verification/B-25b_shape_table.md` |
+| `TEXT_FONT_MISSING` | yes | `verification/D-263_text_table.md` |
 | `COMMAND_TARGET_MISSING` | **no — added by a decision** | `verification/B-05_model_table.md` |
 | `COMMAND_INVALID_VALUE` | **no — added by a decision** | `verification/B-05_model_table.md` |
 | `COMMAND_LAYER_LOCKED` | **no — added by a decision** | `verification/B-05_model_table.md` |
@@ -101,7 +102,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 58 identifiers | 58 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 59 identifiers | 59 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |
@@ -171,6 +172,9 @@ One row per identifier this build can print, and the table where a person can re
 | SHAPE_INVALID_OUTLINE: the enum spells it the way the catalogue does | SHAPE_INVALID_OUTLINE | SHAPE_INVALID_OUTLINE | pass |
 | SHAPE_INVALID_OUTLINE: says truthfully whether document 28 lists it | true | true | pass |
 | SHAPE_INVALID_OUTLINE: a table somewhere shows a person this sentence | named in B-25b_shape_table.md | named in B-25b_shape_table.md | pass |
+| TEXT_FONT_MISSING: the enum spells it the way the catalogue does | TEXT_FONT_MISSING | TEXT_FONT_MISSING | pass |
+| TEXT_FONT_MISSING: says truthfully whether document 28 lists it | true | true | pass |
+| TEXT_FONT_MISSING: a table somewhere shows a person this sentence | named in D-263_text_table.md | named in D-263_text_table.md | pass |
 | COMMAND_TARGET_MISSING: the enum spells it the way the catalogue does | COMMAND_TARGET_MISSING | COMMAND_TARGET_MISSING | pass |
 | COMMAND_TARGET_MISSING: says truthfully whether document 28 lists it | false | false | pass |
 | COMMAND_TARGET_MISSING: a table somewhere shows a person this sentence | named in B-05_model_table.md | named in B-05_model_table.md | pass |
@@ -299,7 +303,7 @@ One row per identifier this build can print, and the table where a person can re
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**197 of 197 checks pass.**
+**200 of 200 checks pass.**
 
 ## What this cannot cover
 

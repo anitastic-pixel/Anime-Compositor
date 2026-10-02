@@ -292,6 +292,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `tracing` | 0.1.44 | MIT | transitive | linked | https://github.com/tokio-rs/tracing | `63e71662fa4b2a2c…` |
 | `tracing-core` | 0.1.36 | MIT | transitive | linked | https://github.com/tokio-rs/tracing | `db97caf9d906fbde…` |
 | `tray-icon` | 0.24.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/tauri-apps/tray-icon | `045979e3f037cd18…` |
+| `ttf-parser` | 0.25.1 | MIT OR Apache-2.0 | direct | linked | https://github.com/harfbuzz/ttf-parser | `d2df906b07856748…` |
 | `typeid` | 1.0.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/typeid | `bc7d623258602320…` |
 | `typenum` | 1.20.1 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/paholg/typenum | `b6f5e870be6c3b37…` |
 | `unic-char-property` | 0.9.0 | MIT/Apache-2.0 | transitive | linked | https://github.com/open-i18n/rust-unic/ | `a8c57a407d9b6fa0…` |
@@ -393,6 +394,11 @@ underneath one of them.
   and D-30. No encoder is shipped inside this program. It was already in the build underneath
   `tauri`, at the same version. `tests/b21d_mp4.rs` reads the written file's time numbers back
   and holds them to FX-FMT-030.
+- **`ttf-parser`** reads a font's outlines for text layers, by D-263 (built on 2026-10-02 at the
+  owner's request), with its default features off. It has no dependencies of its own. The outlines
+  are filled by `src/text.rs` through the same sixteen samples a pixel that masks and shapes use.
+  The font that comes with the program, M PLUS Rounded 1c, is under the SIL Open Font License,
+  beside the others in `docs/third_party/`. `tests/d263_text.rs` holds where the letters land.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the
@@ -406,7 +412,7 @@ underneath one of them.
 ## What the shell cost, in crates
 
 This is the honest number and it is worth stating plainly. Before the window, this record held
-**28** crates. With it, **337**. One dependency brought in roughly two hundred and thirty
+**28** crates. With it, **338**. One dependency brought in roughly two hundred and thirty
 others, which is what a browser engine, an async runtime, a CSS selector engine and a bundler
 amount to once they are counted rather than assumed.
 

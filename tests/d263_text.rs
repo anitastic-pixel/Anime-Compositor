@@ -75,6 +75,14 @@ fn ink(picture: &WorkingBuffer) -> Option<(usize, usize, usize, usize, usize)> {
     found
 }
 
+/// A PNG's pixels without its text notes, which say, among other things, whether it is complete.
+fn pixels(png_bytes: &[u8]) -> Vec<u8> {
+    let Ok(mut reader) = png::Decoder::new(std::io::Cursor::new(png_bytes)).read_info() else { return Vec::new() };
+    let mut out = vec![0; reader.output_buffer_size().unwrap_or(0)];
+    let _ = reader.next_frame(&mut out);
+    out
+}
+
 /// Frame 10 of the project's first composition as PNG bytes, and the report.
 fn frame_10(project: &Project, name: &str) -> (Vec<u8>, ExportReport) {
     let dir = repo("target/d263_text").join(name);
@@ -156,7 +164,7 @@ fn d263_text_layers_are_kept_drawn_and_said() {
     let on_file = value["compositions"][0]["layers"].as_array().unwrap().iter().find(|l| l["id"] == "layer-text").cloned().unwrap_or_default();
     row(
         "Saved, the layer is kind text with its words, font, size, colour, place and alignment",
-        "text, Cut 012\\nあいう, MPLUSRounded1c-Regular.ttf, 120, [1.0,0.9,0.2], [200.0,600.0], left",
+        "text, Cut 012\\nあいう, MPLUSRounded1c-Regular.ttf, 120, [1,0.9,0.2], [200,600], left",
         format!(
             "{}, {}, {}, {}, {}, {}, {}",
             on_file["kind"].as_str().unwrap_or("?"),
@@ -344,7 +352,11 @@ fn d263_text_layers_are_kept_drawn_and_said() {
             if report.fidelity_incomplete { "incomplete" } else { "complete" },
         ),
     );
-    row("Nothing is drawn in its place: the frame is the frame without the layer", "the same", if unfound == plain { "the same" } else { "different" }.into());
+    row(
+        "Nothing is drawn in its place: every pixel is the frame without the layer's",
+        "the same",
+        if !plain.is_empty() && pixels(&unfound) == pixels(&plain) { "the same" } else { "different" }.into(),
+    );
     row(
         "The font that comes with the program has its licence beside the others",
         "there",

@@ -816,6 +816,52 @@
               ]
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "text"
+              }
+            }
+          },
+          "then": {
+            "description": "D-263: a text layer's drawing is its source_text record, drawn in the composition's own space.",
+            "required": [
+              "source_text"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "asset_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "composition_id"
+                  ]
+                },
+                {
+                  "required": [
+                    "exposure_spans"
+                  ]
+                },
+                {
+                  "required": [
+                    "source_offset_frames"
+                  ]
+                }
+              ]
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "source_text"
+              ]
+            }
+          }
         }
       ],
       "properties": {
@@ -830,7 +876,8 @@
             "audio",
             "solid",
             "shape",
-            "null"
+            "null",
+            "text"
           ]
         },
         "name": {
@@ -865,6 +912,58 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 8192
+            }
+          }
+        },
+        "source_text": {
+          "type": "object",
+          "description": "D-263: a text layer's words, a font's file name (no folder), its em in pixels, a linear colour, where the first line's baseline meets its aligned end, and the alignment.",
+          "required": [
+            "text",
+            "font",
+            "size",
+            "color",
+            "at",
+            "align"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "font": {
+              "type": "string",
+              "pattern": "^[^./\\\\:][^/\\\\:]*\\.([Tt][Tt][FfCc]|[Oo][Tt][Ff])$"
+            },
+            "size": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 2000
+            },
+            "color": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "at": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "align": {
+              "enum": [
+                "left",
+                "center",
+                "right"
+              ]
             }
           }
         },

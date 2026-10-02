@@ -147,6 +147,11 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "B-25b_shape_table.md",
     ),
     (
+        DiagnosticId::TextFontMissing,
+        "TEXT_FONT_MISSING",
+        "D-263_text_table.md",
+    ),
+    (
         DiagnosticId::CommandTargetMissing,
         "COMMAND_TARGET_MISSING",
         "B-05_model_table.md",
@@ -422,7 +427,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "58 identifiers",
+        "59 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

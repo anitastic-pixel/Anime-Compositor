@@ -50,6 +50,7 @@ pub mod render;
 pub mod session_log;
 pub mod sha256;
 pub mod shape;
+pub mod text;
 pub mod time;
 pub mod timesheet;
 pub mod trace;

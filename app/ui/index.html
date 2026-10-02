@@ -1710,6 +1710,7 @@
     <button data-run="New solid"></button>
     <button data-run="New adjustment layer"></button>
     <button data-run="New shape layer"></button>
+    <button data-run="New text layer"></button>
     <button data-run="New null"></button>
     <hr>
     <button data-run="Rename layer"></button>
@@ -1820,6 +1821,7 @@
     <button class="ico" data-run="Zoom tool" data-tool="zoom" aria-pressed="false" aria-label="Zoom tool"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20M7.5 10h5M10 7.5v5"/></svg></button>
     <button class="ico" data-run="Pen tool" data-tool="pen" aria-pressed="false" aria-label="Pen tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 14l2.2-6.5L11 1l4 4-6.5 6.8z" fill="none" stroke="currentColor" stroke-linejoin="round"/><circle cx="6.6" cy="9.4" r="1.1" fill="currentColor"/></svg></button>
     <button class="ico" data-run="Shape tool" data-tool="rectangle ellipse" aria-pressed="false" aria-label="Shape tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="1.5" y="5.5" width="8" height="8" fill="none" stroke="currentColor"/><circle cx="10.5" cy="5.5" r="4" fill="none" stroke="currentColor"/></svg></button>
+    <button class="ico" data-run="Text tool" data-tool="text" aria-pressed="false" aria-label="Text tool: click the picture where the words start"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 5h14M12 5v14M9 19h6"/></svg></button>
   </span>
   <button id="findcommand" class="search" title="Find any command (Ctrl+Shift+P)"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor"/><path d="M10 10l4.5 4.5" stroke="currentColor" stroke-width="1.5"/></svg>Search <kbd>Ctrl+Shift+P</kbd></button>
   <button class="fx" data-run="Find an effect or preset"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 14L10 6M11 1.5v3M9.5 3h3M14 5.5v2M13 6.5h2" stroke="currentColor" stroke-linecap="round"/></svg>Effects</button>
@@ -2624,7 +2626,9 @@ async function show(url, keep = true) {
     }
     const notes = decodeURIComponent(h.get('x-notes') || '');
     const list = $('notes');
-    const lines = notes ? notes.split('\n') : [];
+    // D-263: and what this frame could not draw, a missing font, for as long as it is on screen.
+    const frameNotes = decodeURIComponent(h.get('x-frame-notes') || '');
+    const lines = [...(notes ? notes.split('\n') : []), ...(frameNotes ? frameNotes.split('\n') : [])];
     // W-25: a note is its sentence, then after a tab its code and detail for the error details.
     list.replaceChildren(...lines.map((line) => {
       const item = document.createElement('li');
@@ -3892,6 +3896,12 @@ function track(comp, layer, drawings) {
       + 'beneath it, from frame ' + layer.in_frame + ' up to frame ' + layer.out_frame + '.';
     return box;
   }
+  if (layer.kind === 'text') {
+    box.classList.add('adjust');
+    lifeBar.title = layer.name + ' is a text layer, "' + ((layer.source_text || {}).text || '').split('\n')[0]
+      + '", from frame ' + layer.in_frame + ' up to frame ' + layer.out_frame + '.';
+    return box;
+  }
   if (layer.kind === 'shape') {
     box.classList.add('adjust');
     lifeBar.title = layer.name + ' is a shape layer with ' + (layer.shapes || []).length
@@ -4216,6 +4226,7 @@ sheet.addEventListener('contextmenu', (e) => {
     ['New adjustment layer', 'Ctrl+Alt+Y', () => $('addadjust').click()],
     ['New solid', 'Ctrl+Y', () => $('addsolid').click()],
     ['New shape layer', '', () => $('addshape').click()],
+    ['New text layer', '', () => addText()],
     ['New null', 'Ctrl+Alt+Shift+Y', () => $('addnull').click()],
     ['Add a marker at frame ' + at, '*', () => addMarker(at)],
     ['Composition settings', 'Ctrl+K', compSettings],
@@ -4429,11 +4440,12 @@ function drawLayers() {
     const precomp = layer.kind === 'composition';
     const solid = layer.kind === 'solid' || layer.kind === 'shape';
     const nul = layer.kind === 'null';
+    const words = layer.kind === 'text';
     if (sound) twirl.style.visibility = 'hidden';
-    if (!layer.enabled || layer.locked || soloed || layer.shy || adjust || precomp || solid || sound || nul) {
+    if (!layer.enabled || layer.locked || soloed || layer.shy || adjust || precomp || solid || sound || nul || words) {
       const mark = document.createElement('span');
       mark.className = 'mark';
-      mark.textContent = [adjust ? 'adjustment' : null, precomp ? 'composition' : null, solid ? 'solid' : null, sound ? 'sound' : null, nul ? 'null' : null,
+      mark.textContent = [adjust ? 'adjustment' : null, precomp ? 'composition' : null, solid ? 'solid' : null, sound ? 'sound' : null, nul ? 'null' : null, words ? 'text' : null,
         !layer.enabled ? (sound ? 'muted' : 'hidden') : null, soloed ? 'soloed' : null,
         layer.locked ? 'locked' : null, layer.shy ? 'shy' : null]
         .filter(Boolean).join(', ');
@@ -4867,6 +4879,7 @@ function paletteLines() {
     ['New adjustment layer', 'Ctrl+Alt+Y', { key: 'y', ctrlKey: true, altKey: true }],
     ['New solid', 'Ctrl+Y', { key: 'y', ctrlKey: true }],
     ['New shape layer', '', () => $('addshape').click()],
+    ['New text layer', '', () => addText()],
     ['New null', 'Ctrl+Alt+Shift+Y', { key: 'Y', ctrlKey: true, altKey: true, shiftKey: true }],
     ['Pre-compose', 'Ctrl+Shift+C', { key: 'C', code: 'KeyC', ctrlKey: true, shiftKey: true }],
     ['Rename layer', 'F2', { key: 'F2' }],
@@ -4965,6 +4978,7 @@ function paletteLines() {
     ['Zoom tool', 'Z', { key: 'z' }],
     ['Pen tool', 'G', { key: 'g' }],
     ['Shape tool', 'Q', { key: 'q' }],
+    ['Text tool', '', () => useTool('text')],
     ['Compose workspace', 'Alt+1', { key: '1', code: 'Digit1', altKey: true }],
     ['Animate workspace', 'Alt+2', { key: '2', code: 'Digit2', altKey: true }],
     ['Render workspace', 'Alt+3', { key: '3', code: 'Digit3', altKey: true }],
@@ -6164,7 +6178,7 @@ function useTool(which) {
   tool = which;
   penDraft = null;
   // W-41c: the hand and the zoom, After Effects' H and Z, which move about the picture and change nothing.
-  const looking = { hand: 'grab', zoom: 'zoom-in' }[which];
+  const looking = { hand: 'grab', zoom: 'zoom-in', text: 'text' }[which];
   view.style.cursor = which === 'pen' ? PEN_CURSOR : which === 'select' ? '' : looking || 'crosshair';
   stage.style.cursor = which === 'pen' ? PEN_CURSOR : looking || '';
   if (which !== 'pen') penNib.style.display = 'none';
@@ -6175,6 +6189,7 @@ function useTool(which) {
   $('status').textContent = which === 'select' ? 'The selection tool.'
     : which === 'hand' ? 'The hand: drag to move about the picture. The middle button does this with any tool.'
     : which === 'zoom' ? 'The zoom: click to zoom in about that spot, Alt+click to zoom out.'
+    : which === 'text' ? 'The text tool: click the picture where the words should start.'
     : which === 'pen' ? (shapes
       ? 'The pen: click to place points; click the first point to close the shape, or Enter to leave it open.'
       : 'The pen: click to place points, and click the first point to close the mask.')
@@ -6642,6 +6657,12 @@ stage.onpointerdown = (e) => {
   // B-24c: the mask tools, first of all, because a press with one of them chosen means the mask
   // and nothing else — it must not select the layer under the pointer or move it.
   const shaping = layer && !layer.locked ? layerSpace(layer) : null;
+  if (tool === 'text') {
+    e.preventDefault();
+    useTool('select');
+    addText(Math.round(x * perFramePixel()), Math.round(y * perFramePixel()));
+    return;
+  }
   if (tool !== 'select') {
     e.preventDefault();
     if (!shaping) {
@@ -8047,6 +8068,7 @@ function drawInspector() {
   field(dl, 'Drawing', layer.kind === 'adjustment' ? 'none: an adjustment layer'
     : layer.kind === 'solid' ? 'none: a solid'
     : layer.kind === 'shape' ? 'none: a shape layer'
+    : layer.kind === 'text' ? 'none: a text layer'
     : layer.kind === 'null' ? 'none: a null, never drawn, there to be a parent'
     : layer.kind === 'composition' ? 'the composition ' + compName(layer.composition_id) : layer.asset_id);
   field(dl, 'Frames', layer.in_frame + ' to ' + layer.out_frame + ', exclusive'
@@ -8129,6 +8151,71 @@ function drawInspector() {
         commit: (v) => set(side + '=' + encodeURIComponent(v)),
       }));
     }
+  }
+  // D-263: the words and how they look. Each change is sent alone, so the rest stay as they are,
+  // and is one step of history; the words go when the box is left. The colour is picked on the
+  // screen's 256 levels and sent linear, as a solid's is.
+  if (layer.kind === 'text' && layer.source_text) {
+    const t = layer.source_text;
+    const set = (what) => command('/text.set?layer=' + encodeURIComponent(layer.id) + '&' + what);
+    field(dl, 'Text', '');
+    const words = document.createElement('textarea');
+    words.id = 'textwords';
+    words.rows = 3;
+    words.value = t.text;
+    words.setAttribute('aria-label', 'Words of ' + layer.name + '; Enter starts a new line, and leaving the box sends them');
+    words.onchange = () => set('text=' + encodeURIComponent(words.value));
+    dl.lastChild.append(words);
+    field(dl, 'Font', '');
+    const font = document.createElement('input');
+    font.id = 'textfont';
+    font.setAttribute('list', 'textfonts');
+    font.value = t.font;
+    font.title = 'A font file\'s name as it is in the Windows fonts folder, or the one that comes with the program';
+    font.setAttribute('aria-label', 'Font of ' + layer.name + ', a font file\'s name');
+    font.onchange = () => set('font=' + encodeURIComponent(font.value.trim()));
+    const fonts = document.createElement('datalist');
+    fonts.id = 'textfonts';
+    for (const name of ['MPLUSRounded1c-Regular.ttf', 'arial.ttf', 'arialbd.ttf', 'segoeui.ttf', 'segoeuib.ttf',
+      'times.ttf', 'impact.ttf', 'comic.ttf', 'msgothic.ttc', 'meiryo.ttc', 'YuGothM.ttc', 'BIZ-UDGothicR.ttc']) {
+      fonts.append(Object.assign(document.createElement('option'), { value: name }));
+    }
+    dl.lastChild.append(font, fonts);
+    field(dl, 'Size', '');
+    dl.lastChild.append(scrubValue({
+      value: t.size,
+      suffix: ' px',
+      title: 'Drag to change, or press to type. The size of the letters in pixels, 1 to 2000',
+      label: 'Size of ' + layer.name + ' in pixels, from 1 to 2000',
+      commit: (v) => set('size=' + encodeURIComponent(v)),
+    }));
+    field(dl, 'Colour', '');
+    const pick = document.createElement('input');
+    pick.id = 'textcolor';
+    pick.type = 'color';
+    pick.value = hexOf(t.color);
+    pick.setAttribute('aria-label', 'Colour of ' + layer.name);
+    pick.onchange = () => set('color=' + linearOf(pick.value).join(','));
+    dl.lastChild.append(pick);
+    for (const [side, at] of [['x', 0], ['y', 1]]) {
+      field(dl, 'Starts at ' + side.toUpperCase(), '');
+      dl.lastChild.append(scrubValue({
+        value: t.at[at],
+        suffix: ' px',
+        title: 'Drag to change, or press to type. Where the first line\'s baseline meets its aligned end, in composition pixels',
+        label: 'Where ' + layer.name + ' starts, ' + side + ', in composition pixels',
+        commit: (v) => set(side + '=' + encodeURIComponent(v)),
+      }));
+    }
+    field(dl, 'Align', '');
+    const align = document.createElement('select');
+    align.id = 'textalign';
+    for (const [value, named] of [['left', 'Left'], ['center', 'Centre'], ['right', 'Right']]) {
+      align.append(Object.assign(document.createElement('option'), { value, textContent: named, selected: t.align === value }));
+    }
+    align.setAttribute('aria-label', 'Alignment of ' + layer.name);
+    align.onchange = () => set('align=' + align.value);
+    dl.lastChild.append(align);
   }
   // B-25c: D-78's shapes, one block each: which one the picture draws points on, open or
   // closed, on or off, and its fill and stroke. A colour is picked on the screen's 256 levels
@@ -9544,7 +9631,7 @@ function drawExposures() {
     into.replaceChildren(Object.assign(document.createElement('p'),
       { className: 'empty', textContent: (layer.kind === 'composition' ? 'A composition layer'
         : layer.kind === 'audio' ? 'A sound' : layer.kind === 'solid' ? 'A solid'
-        : layer.kind === 'shape' ? 'A shape layer'
+        : layer.kind === 'shape' ? 'A shape layer' : layer.kind === 'text' ? 'A text layer'
         : 'An adjustment layer') + ' has no drawings to expose.' }));
     return;
   }
@@ -11942,6 +12029,7 @@ function newLayerMenu(button) {
     ['Adjustment layer', 'Ctrl+Alt+Y', () => $('addadjust').click(), !$('addadjust').disabled],
     ['Solid', 'Ctrl+Y', () => $('addsolid').click(), !$('addsolid').disabled],
     ['Shape layer', '', () => $('addshape').click(), !$('addshape').disabled],
+    ['Text', '', () => addText(), !$('addshape').disabled],
     ['Null', 'Ctrl+Alt+Shift+Y', () => $('addnull').click(), !$('addnull').disabled],
   ]);
 }
@@ -12692,6 +12780,19 @@ $('addshape').onclick = async () => {
   await command('/layer.add_shape' + (at < 0 ? '' : '?to=' + (at + 1)));
   useTool('pen');
 };
+// D-263: a text layer, on top, its first line starting at `x`, `y` on the frame, or centred on it
+// when the menu made it. It is then the one selected and its words are in hand, ready to type.
+async function addText(x, y) {
+  if (!composition()) return;
+  const before = new Set(layers().map((l) => l.id));
+  await command('/layer.add_text' + (x === undefined ? '' : '?x=' + x + '&y=' + y));
+  const made = layers().find((l) => !before.has(l.id));
+  if (!made) return;
+  choose([made.id]);
+  // Made by Effect controls when the layer is chosen, so it is not in the markup.
+  const words = document.getElementById('textwords');
+  if (words) { words.focus(); words.select(); }
+}
 // B-26c: D-82's null, placed as the solid is.
 $('addnull').onclick = () => {
   if (!composition()) return;

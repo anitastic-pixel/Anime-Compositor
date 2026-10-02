@@ -706,7 +706,7 @@ impl Ramp {
 /// and a stop opacity come from it, pixel by pixel.
 // ponytail: one thread and three sRGB curves a covered pixel; a 1080p gradient fill is some tens
 // of milliseconds. Run the rows across rayon, as the stroke field does, if that shows.
-fn paint(
+pub(crate) fn paint(
     picture: &mut [f32],
     field: &[f32],
     width: usize,
