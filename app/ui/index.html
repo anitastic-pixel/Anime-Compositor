@@ -214,7 +214,7 @@
      rather than the draft canvas's own 480 by 270, which is what "fit" used to leave on a big
      screen. Auto margins rather than centring, because a centred thing bigger than its box
      loses its left and top edges past where any scrollbar reaches, and auto margins do not. */
-  #stage > canvas, #stage > svg {
+  #stage > canvas, #stage > svg, #stage > #guides {
     grid-area: 1 / 1; place-self: start; margin: auto; max-width: none; max-height: none;
   }
   #boxes { max-width: 100%; max-height: 100%; pointer-events: none; overflow: visible; }
@@ -258,6 +258,69 @@
     vector-effect: non-scaling-stroke;
   }
   #zoomer { width: 110px; margin: 0 2px 0 4px; }
+  /* W-41 (D-248): the Sandbox's Viewer A. One row of small icons above the picture, the cut's
+     slate just above the picture, the guides over it and the sheet strip under it. */
+  #viewer { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+  #viewer .tab #compsize { margin-left: auto; text-transform: none; letter-spacing: 0; color: #8e8e96; white-space: nowrap; }
+  #viewbar {
+    display: flex; align-items: center; gap: 2px; flex-wrap: wrap; min-height: 34px; box-sizing: border-box;
+    padding: 2px 8px; background: #1b1b1d; border-bottom: 1px solid #2a2a2e; font-size: 11px;
+  }
+  #viewbar .vb {
+    width: 26px; height: 24px; padding: 0; border: 1px solid transparent; border-radius: 4px;
+    background: none; color: #b8b8c0; display: grid; place-items: center;
+  }
+  #viewbar .vb svg { width: 14px; height: 14px; }
+  #viewbar .vb:hover, #viewbar .mt:hover, #viewbar .mt[aria-expanded="true"], #gpu:hover { background: #26262a; }
+  #viewbar .vb.on { background: #2e3b52; border-color: #4a6fa8; color: #fff; }
+  #play .pause, #play.on .go { display: none; }
+  #play.on .pause { display: inline; }
+  #viewbar .mt, #gpu {
+    height: 24px; padding: 0 7px; border: 1px solid transparent; border-radius: 4px; background: none;
+    color: #c8c8d0; font: inherit; display: flex; align-items: center; gap: 5px; white-space: nowrap;
+  }
+  #gpu option { background: #26262a; }
+  #viewbar .gs { width: 1px; height: 16px; background: #34343a; margin: 0 6px; }
+  #frame { margin-left: 6px; font-size: 12.5px; font-weight: 600; }
+  #viewtime { color: #909096; margin: 0 4px; white-space: nowrap; }
+  #fps, #quality { display: inline-flex; align-items: center; gap: 5px; }
+  #fps::before, #quality::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #8fd6a0; }
+  #fps { color: #8fd6a0; margin-left: 4px; font-variant-numeric: tabular-nums; }
+  #fps.idle { color: #8e8e96; } #fps.idle::before { background: #55555c; }
+  #fps.slow { color: #e8b06a; } #fps.slow::before { background: #e8b06a; }
+  #quality.differs::before { background: #e8866a; }
+  #cpunote { color: #e8866a; }
+  #stage { padding-top: 22px; }
+  #stage > #guides { grid-area: 1 / 1; place-self: start; margin: auto; position: relative; pointer-events: none; }
+  #guides > * { position: absolute; }
+  #slate { bottom: 100%; left: 0; margin-bottom: 4px; font: 10.5px/14px Consolas, monospace; color: #9a9aa2; white-space: nowrap; }
+  #slate b { color: #e8b06a; }
+  #guides .grid, #guides .field { inset: 0; }
+  #guides .grid {
+    background-image: linear-gradient(to right, #ffffff38 1px, transparent 1px), linear-gradient(to bottom, #ffffff38 1px, transparent 1px);
+    background-size: calc(100% / 12) calc(100% / 12);
+  }
+  #guides .field div { position: absolute; border: 1.5px dotted #7fe0a0; }
+  #guides .field span { position: absolute; font-size: 10px; color: #7fe0a0; }
+  #guides .field .safe { border: 1px dashed #e8b06a; }
+  #guides .field .safe.title { border-color: #6ea8fe; }
+  #guides .field .cross { left: calc(50% - 8px); top: calc(50% - 8px); width: 16px; height: 16px; border: 0;
+    background: linear-gradient(#7fe0a0, #7fe0a0) center / 1px 100% no-repeat, linear-gradient(#7fe0a0, #7fe0a0) center / 100% 1px no-repeat; }
+  #strip {
+    display: flex; align-items: center; gap: 2px; padding: 4px 8px; overflow: hidden;
+    background: #1b1b1d; border-top: 1px solid #2a2a2e;
+  }
+  #strip[hidden] { display: none; }
+  #strip .what { width: 74px; flex: none; font-size: 11px; line-height: 1.2; color: #8e8e96; }
+  #strip button {
+    width: 28px; height: 32px; flex: none; padding: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 1px; border: 1px solid #2e2e33; border-radius: 3px; background: #202023; color: #c8c8d0;
+  }
+  #strip button span { font-size: 8.5px; color: #8e8e96; }
+  #strip button b { font-size: 11px; line-height: 13px; min-height: 13px; }
+  #strip button b.hold { width: 1px; background: #c8c8d0; }
+  #strip button.out { opacity: 0.35; }
+  #strip button.now { border-color: #e8b06a; }
   canvas {
     max-width: 100%; max-height: 100%; image-rendering: pixelated;
     background-color: #2a2a2e;
@@ -1158,6 +1221,11 @@
     <button data-run="Transparency grid"></button>
     <button data-run="Alpha only"></button>
     <hr>
+    <button data-run="Grid over the picture"></button>
+    <button data-run="Field guide and safe areas"></button>
+    <button data-run="Cut slate above the picture"></button>
+    <button data-run="Sheet strip under the picture"></button>
+    <hr>
     <button data-run="Zoom the timeline in"></button>
     <button data-run="Zoom the timeline out"></button>
     <button data-run="Fill the window with the panel"></button>
@@ -1303,7 +1371,46 @@
     aria-label="The border between the media bin and the viewer. Drag it, or use the arrow keys."></div>
   <div class="place" id="centre"><nav class="stack" hidden></nav>
   <section class="panel" id="viewer">
-    <div class="tab">Composition<span id="comp">&mdash;</span></div>
+    <div class="tab">Viewer<span id="comp">&mdash;</span><span id="compsize"></span></div>
+    <!-- W-41 (D-248): the Sandbox's Viewer A, in one row above the picture. Every control keeps
+         its name and what it sends; Full or Draft and the picture's size open as small menus,
+         the same menus the top bar has. -->
+    <div id="viewbar">
+      <button id="back" class="vb" title="Back one frame (Page Up)" aria-label="Back one frame"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M12.5 3.5L5.5 8l7 4.5z" fill="currentColor"/><rect x="3" y="3.5" width="1.6" height="9" fill="currentColor"/></svg></button>
+      <button id="play" class="vb" title="Play or stop (Space)" aria-label="Play or stop"><svg viewBox="0 0 16 16" aria-hidden="true"><path class="go" d="M4.5 3l8.5 5-8.5 5z" fill="currentColor"/><g class="pause" fill="currentColor"><rect x="4" y="3.5" width="2.6" height="9"/><rect x="9.4" y="3.5" width="2.6" height="9"/></g></svg></button>
+      <button id="fwd" class="vb" title="Forward one frame (Page Down)" aria-label="Forward one frame"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 3.5L10.5 8l-7 4.5z" fill="currentColor"/><rect x="11.4" y="3.5" width="1.6" height="9" fill="currentColor"/></svg></button>
+      <span id="frame">&mdash;</span><span id="viewtime"></span>
+      <span id="fps" class="idle"></span>
+      <span class="gs"></span>
+      <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false" id="qualitymenu"><span id="quality">&mdash;</span>&#9662;</button><div class="drop" role="menu" aria-label="Picture quality" hidden>
+        <button id="toggle" data-key="D">Full resolution</button>
+        <div class="opts" data-stay><label title="At Full: Draft while you drag or scrub, then the Full picture a fifth of a second after you stop"><input type="checkbox" id="refine" checked> Refine when idle</label></div>
+      </div></span>
+      <span id="refining" hidden title="This is a Draft stand-in; the Full picture replaces it when you stop">sharpening&hellip;</span>
+      <select id="gpu" aria-label="What the preview is drawn on" title="What the preview is drawn on. Exports are always drawn on the CPU">
+        <option value="auto">Auto</option>
+        <option value="gpu">GPU</option>
+        <option value="cpu">CPU</option>
+      </select>
+      <span id="cpunote" hidden>drawn on the CPU, not the card</span>
+      <span class="gs"></span>
+      <button id="checker" class="vb" title="Show see-through parts as a checkerboard (Alt+G)" aria-label="Checkerboard"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor"/><path d="M2.5 2.5h5.5v5.5H2.5zM8 8h5.5v5.5H8z" fill="currentColor" opacity=".55"/></svg></button>
+      <button id="alpha" class="vb" title="Alpha only: see-through parts black, solid parts white (Alt+A)" aria-label="Alpha only"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor"/><path d="M8 2.5a5.5 5.5 0 0 0 0 11z" fill="currentColor"/></svg></button>
+      <button id="gridbtn" class="vb" title="Grid over the picture" aria-label="Grid"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor"/><path d="M6.2 2.5v11M9.8 2.5v11M2.5 6.2h11M2.5 9.8h11" stroke="currentColor" stroke-width=".8"/></svg></button>
+      <button id="guidebtn" class="vb" title="Field guide (12F, 10F, 8F) and safe areas" aria-label="Field guide and safe areas"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" fill="none" stroke="currentColor"/><rect x="4.5" y="5.5" width="7" height="5" fill="none" stroke="currentColor" stroke-dasharray="1.5 1"/><path d="M8 7v2M7 8h2" stroke="currentColor"/></svg></button>
+      <span class="gs"></span>
+      <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false" id="sizemenu" title="Picture size"><span id="zoomlabel">&mdash;</span>&#9662;</button><div class="drop" role="menu" aria-label="Picture size" hidden>
+        <button id="fit" data-key="Shift+/" title="Fill the area">Fit</button>
+        <button id="fit100" title="Fill the area, but never past one pixel per pixel">Fit &le;100%</button>
+        <button data-run="Picture at 100%"></button>
+        <button data-run="Zoom the picture in"></button>
+        <button data-run="Zoom the picture out"></button>
+        <input id="zoomer" type="range" min="-600" max="500" step="1" value="0" aria-label="Zoom">
+      </div></span>
+      <span class="gs"></span>
+      <button id="slatebtn" class="vb" title="Cut slate above the picture" aria-label="Cut slate"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="6.5" width="12" height="7" rx=".5" fill="none" stroke="currentColor"/><path d="M2 6.5l1.2-3.5h10.5L13 6.5M6 3l-1 3.5M9.5 3l-1 3.5" fill="none" stroke="currentColor"/></svg></button>
+      <button id="stripbtn" class="vb" title="Sheet strip under the picture" aria-label="Sheet strip"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="5" width="13" height="6.5" fill="none" stroke="currentColor"/><path d="M4.8 5v6.5M8 5v6.5M11.2 5v6.5" stroke="currentColor"/></svg></button>
+    </div>
     <!-- The picture, and the selection drawn over it. The outline is a separate element
          rather than strokes painted into the canvas, because the canvas holds the frame the
          renderer made and nothing else: a box painted into it would be in the pixels the
@@ -1311,29 +1418,23 @@
     <div id="stage">
       <canvas id="view" width="480" height="270" tabindex="0"
         aria-label="The composition. Click a layer to select it; drag to move it; drag across nothing to select several."></canvas>
+      <!-- W-41: what is drawn over the picture for the eye alone, never into its pixels: the
+           cut's slate above it, a grid, and the field guide with the safe areas. -->
+      <div id="guides" aria-hidden="true">
+        <span id="slate"></span>
+        <div class="grid" hidden></div>
+        <div class="field" hidden>
+          <div style="inset: 2px"></div><span style="left: 6px; top: 4px">12F</span>
+          <div style="inset: 8.333%"></div><span style="left: 8.9%; top: 9.3%">10F</span>
+          <div style="inset: 16.667%"></div><span style="left: 17.2%; top: 17.6%">8F</span>
+          <div class="safe" style="inset: 5%" title="Action safe"></div>
+          <div class="safe title" style="inset: 10%" title="Title safe"></div>
+          <div class="cross"></div>
+        </div>
+      </div>
       <svg id="boxes" width="480" height="270" viewBox="0 0 480 270" aria-hidden="true"></svg>
     </div>
-    <div class="foot">
-      <button id="play">Play</button>
-      <button id="back">&#8592;</button>
-      <button id="fwd">&#8594;</button>
-      <span id="frame">frame &mdash;</span>
-      <span id="quality">&mdash;</span>
-      <button id="toggle">Full resolution</button>
-      <label title="At Full: Draft while you drag or scrub, then the Full picture a fifth of a second after you stop"><input type="checkbox" id="refine" checked> Refine when idle</label>
-      <span id="refining" hidden title="This is a Draft stand-in; the Full picture replaces it when you stop">sharpening&hellip;</span>
-      <select id="gpu" aria-label="What the preview is drawn on" title="What the preview is drawn on. Exports are always drawn on the CPU">
-        <option value="auto">Draw on: Auto</option>
-        <option value="gpu">Draw on: GPU</option>
-        <option value="cpu">Draw on: CPU</option>
-      </select>
-      <button id="alpha">Alpha only</button>
-      <button id="checker">Hide grid</button>
-      <button id="fit" title="Fill the area (Shift+/)">Fit</button>
-      <button id="fit100" title="Fill the area, but never past one pixel per pixel">Fit &le;100%</button>
-      <input id="zoomer" type="range" min="-600" max="500" step="1" value="0" aria-label="Zoom">
-      <span id="zoomlabel">&mdash;</span>
-    </div>
+    <div id="strip" hidden></div>
   </section>
   </div>
   <div class="split col" id="splitinspector" role="separator" aria-orientation="vertical" tabindex="0"
@@ -1666,7 +1767,7 @@ async function show(url, keep = true) {
       $('report').textContent = await response.text();
       $('report').className = 'dropped';
       playing = false;
-      $('play').textContent = 'Play';
+      $('play').classList.remove('on');
       return;
     }
     const h = response.headers;
@@ -1696,6 +1797,8 @@ async function show(url, keep = true) {
       dragWatch.paint.push(performance.now() - arrived);
     }
 
+    // W-41: a new frame on screen while playing, for the real-speed chip.
+    if (playing && +h.get('x-frame') !== frame) shownAt.push(performance.now());
     frame = +h.get('x-frame');
     // W-09: the answer to Play. The clock in Rust now counts from this frame, and the page's
     // own clock starts here rather than at the press, so that no instant of the wait for this
@@ -1721,8 +1824,14 @@ async function show(url, keep = true) {
     const label = $('quality');
     const drawnOn = h.get('x-drawn-on') || 'CPU';
     placing(drawnOn !== 'CPU');
-    label.textContent = h.get('x-quality') + ' — ' + width + '×' + height
-      + (differs ? ', not final pixels' : ', same as export') + ', drawn on ' + drawnOn;
+    // W-41: the chip says the quality, and "not final" in orange whenever it differs from the
+    // export (D-33); the whole sentence is its tip. Drawn on the CPU instead of the card is said
+    // beside it, never only in a tip.
+    label.textContent = h.get('x-quality') + (differs ? ', not final' : '');
+    $('qualitymenu').title = h.get('x-quality') + ' — ' + width + '×' + height
+      + (differs ? ', not final pixels' : ', same as export') + ', drawn on ' + drawnOn
+      + '. Click for Full or Draft and Refine when idle';
+    $('cpunote').hidden = drawnOn !== 'CPU, not GPU';
     // B-44: the choice's tooltip names the card, or why there is none. The label above says
     // which of the two drew this frame.
     const card = decodeURIComponent(h.get('x-card') || '');
@@ -1742,10 +1851,12 @@ async function show(url, keep = true) {
     // Which way the frame that just arrived is being looked at. The grid is a class on the
     // canvas and nothing more, and the alpha view arrived already applied to these pixels.
     const alphaOnly = h.get('x-alpha') === 'true';
-    $('alpha').textContent = alphaOnly ? 'Colour again' : 'Alpha only';
+    $('alpha').classList.toggle('on', alphaOnly);
+    $('alpha').setAttribute('aria-pressed', String(alphaOnly));
     const grid = h.get('x-checkerboard') === 'true';
     view.classList.toggle('grid', grid);
-    $('checker').textContent = grid ? 'Hide grid' : 'Show grid';
+    $('checker').classList.toggle('on', grid);
+    $('checker').setAttribute('aria-pressed', String(grid));
 
     // W-02: a relink that has been worked out but not agreed to. It rides on the frame, so the
     // panel offering it appears and disappears with the answer that describes it, and the page
@@ -1823,7 +1934,7 @@ async function show(url, keep = true) {
     $('report').textContent = 'the frame did not arrive: ' + e;
     $('report').className = 'dropped';
     playing = false;
-    $('play').textContent = 'Play';
+    $('play').classList.remove('on');
   } finally {
     inFlight = false;
     const next = pending;
@@ -1965,7 +2076,7 @@ function tick() {
 function seek(at) {
   stir();
   playing = false;
-  $('play').textContent = 'Play';
+  $('play').classList.remove('on');
   wanted = Math.round(at);
   show(FRAMES + '/frame/' + wanted + '?q=' + quality);
 }
@@ -2918,6 +3029,11 @@ function movePlayhead() {
   const fps = comp ? Math.max(1, Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator)) : 0;
   const into = comp ? frame - comp.start_frame : 0;
   $('nowtime').textContent = comp ? Math.floor(into / fps) + 's ' + (into % fps) + 'f · ' + fps + ' fps' : '';
+  // W-41: the viewer's own row says the same time, the slate the sheet's seconds and frames.
+  $('viewtime').textContent = comp ? Math.floor(into / fps) + 's ' + (into % fps) + 'f' : '';
+  drawSlate(comp, Math.floor(into / fps) + ' + ' + (into % fps));
+  drawFps();
+  drawStrip();
   // The graph has a playhead of its own and nothing else on it depends on the frame, so it is
   // redrawn from the samples already in hand rather than asked for again.
   if (graphing && plotted) drawGraph();
@@ -3229,7 +3345,7 @@ sheet.ondblclick = (e) => {
 // Each is a preference with its box in Preferences and its box in the new composition form.
 const PREF_FIELDS = [['width', 'prefwidth', 'compwidth'], ['height', 'prefheight', 'compheight'],
   ['fps', 'preffps', 'compfps'], ['frames', 'prefframes', 'compframes']];
-const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false, drawOn: 'auto', memory: 'auto', refine: true };
+const prefs = { width: 1920, height: 1080, fps: 24, frames: 240, hideShy: false, slate: true, strip: true, grid: false, guide: false, drawOn: 'auto', memory: 'auto', refine: true };
 try { Object.assign(prefs, JSON.parse(localStorage.getItem('prefs') || '{}')); } catch (e) { /* the defaults */ }
 function savePrefs() {
   try { localStorage.setItem('prefs', JSON.stringify(prefs)); } catch (e) { /* kept for this run only */ }
@@ -3783,6 +3899,10 @@ function paletteLines() {
     ['Preview on the CPU or the graphics card', '', () => $('gpu').focus()],
     ['Transparency grid', 'Alt+G', { key: 'g', altKey: true }],
     ['Alpha only', 'Alt+A', { key: 'a', altKey: true }],
+    ['Grid over the picture', '', () => $('gridbtn').click()],
+    ['Field guide and safe areas', '', () => $('guidebtn').click()],
+    ['Cut slate above the picture', '', () => $('slatebtn').click()],
+    ['Sheet strip under the picture', '', () => $('stripbtn').click()],
     ['Composition settings', 'Ctrl+K', { key: 'k', code: 'KeyK', ctrlKey: true }],
     ['Copy layers', 'Ctrl+C', copyLayers],
     ['Paste layers', 'Ctrl+V', pasteLayers],
@@ -6028,7 +6148,7 @@ function applyZoom() {
   const comp = composition();
   const fit = zoom === null;
   const scale = !comp ? 1 : fit ? fitScale(comp) : zoom;
-  for (const el of [view, $('boxes')]) {
+  for (const el of [view, $('boxes'), $('guides')]) {
     el.style.width = !comp ? '' : comp.width * scale + 'px';
     el.style.height = !comp ? '' : comp.height * scale + 'px';
   }
@@ -6374,7 +6494,7 @@ const frameBox = scrubValue({
   value: 0, whole: true, label: 'Current frame', live: (n) => seek(Math.max(0, n)), commit: (n) => seek(Math.max(0, n)),
   title: 'Drag to scrub, press to type a frame to go to, or use the arrow keys',
 });
-$('frame').replaceChildren('frame ', frameBox);
+$('frame').replaceChildren(frameBox);
 
 // W-18: a sentence's long decimals to hundredths where it is read at a glance. The file and the
 // history keep the numbers whole; this is only how they are shown.
@@ -10614,11 +10734,12 @@ function drawPanels() {
   // they are in and what it is. Without this the only evidence of a new composition would be
   // that the picture changed size.
   const comp = composition();
-  $('comp').textContent = comp
-    ? comp.name + ' \u2014 ' + comp.width + '\u00d7' + comp.height + ' at '
-      + Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator) + ' fps, '
-      + comp.duration_frames + ' frames'
-    : 'No composition is open.';
+  // W-41: the name in the tab, what it is at the tab's right, as the Sandbox has it.
+  $('comp').textContent = comp ? comp.name : 'No composition is open.';
+  $('compsize').textContent = comp ? comp.width + '\u00d7' + comp.height + ' \u00b7 '
+    + Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator) + ' fps \u00b7 '
+    + comp.duration_frames + ' frames' : '';
+  askStrip();
   $('addlayer').disabled = !selectedAsset;
   $('addadjust').disabled = !comp;
   $('addsolid').disabled = !comp;
@@ -10702,7 +10823,9 @@ function beginRename() {
 // start from, and the ticks begin when that frame has come back.
 $('play').onclick = () => {
   playing = !playing;
-  $('play').textContent = playing ? 'Pause' : 'Play';
+  $('play').classList.toggle('on', playing);
+  shownAt = [];
+  drawFps();
   if (playing) {
     started = null;
     show(FRAMES + '/play/' + wanted + '?q=' + quality);
@@ -10728,6 +10851,98 @@ $('gpu').onchange = () => {
   command('/gpu-switch?to=' + prefs.drawOn);
 };
 $('checker').onclick = () => command('/viewer.toggle_checkerboard');
+
+// W-41 (D-248): the viewer's looks, the window's like the views above and kept with the
+// preferences: the cut's slate, the sheet strip, a grid and the field guide. None of them is in
+// the picture's pixels, an export or the project.
+function look(which) {
+  prefs[which] = !prefs[which];
+  savePrefs();
+  drawLooks();
+}
+$('slatebtn').onclick = () => look('slate');
+$('stripbtn').onclick = () => look('strip');
+$('gridbtn').onclick = () => look('grid');
+$('guidebtn').onclick = () => look('guide');
+function drawLooks() {
+  for (const which of ['slate', 'strip', 'grid', 'guide']) {
+    const button = $(which + 'btn');
+    button.classList.toggle('on', prefs[which]);
+    button.setAttribute('aria-pressed', String(prefs[which]));
+  }
+  $('slate').hidden = !prefs.slate;
+  $('guides').querySelector('.grid').hidden = !prefs.grid;
+  $('guides').querySelector('.field').hidden = !prefs.guide;
+  askStrip();
+}
+
+// The slate: EP 03 · SC 12 · CUT 012 · sheet 4 + 11, from what Ctrl+K keeps for the printed
+// Sheet; the composition's name where no cut is written.
+function drawSlate(comp, sheetTime) {
+  const d = (comp && comp.sheet_details) || {};
+  const before = [d.episode && 'EP ' + d.episode, d.scene && 'SC ' + d.scene].filter(Boolean);
+  $('slate').replaceChildren(...!comp ? [] : [before.length ? before.join(' \u00b7 ') + ' \u00b7 ' : '',
+    Object.assign(document.createElement('b'), { textContent: d.cut ? 'CUT ' + d.cut : comp.name }),
+    ' \u00b7 sheet ' + sheetTime]);
+}
+
+// How fast it is really playing: the different frames shown in the last second. Stopped, the
+// composition's own rate, in grey.
+let shownAt = [];
+function drawFps() {
+  const comp = composition();
+  const rate = comp ? comp.frame_rate.numerator / comp.frame_rate.denominator : 0;
+  const now = performance.now();
+  shownAt = shownAt.filter((t) => now - t < 1000);
+  const real = playing && shownAt.length > 2
+    ? (shownAt.length - 1) * 1000 / (shownAt[shownAt.length - 1] - shownAt[0]) : null;
+  $('fps').textContent = real === null ? number(rate) : real.toFixed(1);
+  $('fps').className = real === null ? 'idle' : real < rate * 0.95 ? 'slow' : '';
+  $('fps').title = real === null
+    ? 'How fast it is really playing, while it plays. The composition is ' + number(rate) + ' fps'
+    : 'Playing at ' + real.toFixed(1) + ' of the composition\u2019s ' + number(rate) + ' frames a second';
+}
+
+// The sheet strip: the chosen layer's column of the Sheet (or the first one) around the playhead,
+// a frame number over the drawing exposed there. Clicking one goes to that frame.
+let stripGrid = null;
+async function askStrip() {
+  if (!prefs.strip || !composition()) { stripGrid = null; drawStrip(); return; }
+  try {
+    const answer = await fetch(FRAMES + '/sheet');
+    stripGrid = answer.ok ? await answer.json() : null;
+  } catch (e) {
+    stripGrid = null;
+  }
+  drawStrip();
+}
+function drawStrip() {
+  const strip = $('strip');
+  const columns = (stripGrid && stripGrid.columns) || [];
+  const comp = composition();
+  strip.hidden = !prefs.strip || !comp || !columns.length;
+  if (strip.hidden) return;
+  const column = columns.find((c) => selection.includes(c.layer)) || columns[0];
+  const layer = (comp.layers || []).find((l) => l.id === column.layer);
+  const spans = (layer && layer.exposure_spans) || [];
+  const what = Object.assign(document.createElement('span'), { className: 'what' });
+  what.append('Sheet \u00b7 ' + column.name, document.createElement('br'), spans.length ? timingOf(spans) : '');
+  const cells = [];
+  const first = Math.max(stripGrid.from, Math.min(frame - 7, stripGrid.from + column.cells.length - 16));
+  for (let at = first; at < first + 16; at++) {
+    const mark = column.cells[at - stripGrid.from];
+    const cell = document.createElement('button');
+    cell.className = (at === frame ? 'now' : '') + (mark === undefined || mark === null ? ' out' : '');
+    cell.title = 'Frame ' + at + (mark === '|' ? ': the drawing held' : mark === 'x' ? ': blank' : mark ? ': drawing ' + mark : '');
+    const drawn = document.createElement('b');
+    if (mark === '|') drawn.className = 'hold';
+    else drawn.textContent = mark === 'x' ? '\u00d7' : mark || '';
+    cell.append(Object.assign(document.createElement('span'), { textContent: at }), drawn);
+    cell.onclick = () => seek(at);
+    cells.push(cell);
+  }
+  strip.replaceChildren(what, ...cells);
+}
 
 // A command, then the project again, then the current frame — in that order, so that everything
 // the window says about the project comes back from the core rather than being guessed here.
@@ -10952,7 +11167,7 @@ function maximise() {
 // dragging its name or its title bar onto another place, or from the menu a right click on either
 // opens. A workspace is where each panel is and how big the places are, kept in the browser's
 // storage beside the sizes and never in the project, as W-13 keeps the sizes.
-const PANELS = { bin: 'Project', fxbrowser: 'Effects', viewer: 'Composition', inspector: 'Effect controls', timeline: 'Timeline', sheetpanel: 'Sheet' };
+const PANELS = { bin: 'Project', fxbrowser: 'Effects', viewer: 'Viewer', inspector: 'Effect controls', timeline: 'Timeline', sheetpanel: 'Sheet' };
 const PLACES = { left: 'the left', leftlow: 'the lower left', centre: 'the centre', right: 'the right', bottom: 'the bottom', side: 'the side' };
 const BUILT_IN = {
   // W-40b (D-248): the Sheet stands in the side column, put away in Compose and out in Animate,
@@ -11799,24 +12014,22 @@ function openMenu(title, focusFirst) {
 }
 const dropItems = () => [...openTitle.nextElementSibling.querySelectorAll('button, select, input')]
   .filter((el) => !el.disabled && !el.hidden && el.offsetParent);
-$('menubar').addEventListener('click', (e) => {
+for (const bar of [$('menubar'), $('viewbar')]) {
+bar.addEventListener('click', (e) => {
   const title = e.target.closest('.mt');
   if (title) return openTitle === title ? closeDrop(false) : openMenu(title, e.detail === 0);
   const line = e.target.closest('[data-run]');
   if (line) { closeDrop(false); return runLine(line.dataset.run); }
   if (e.target.closest('.drop button') && !e.target.closest('[data-stay]')) closeDrop(false);
 });
-$('menubar').addEventListener('change', (e) => {
+bar.addEventListener('change', (e) => {
   if (e.target.closest('.drop') && !e.target.closest('[data-stay]')) closeDrop(false);
 });
-$('menubar').addEventListener('pointerover', (e) => {
+bar.addEventListener('pointerover', (e) => {
   const title = e.target.closest('.mt');
   if (openTitle && title && title !== openTitle) openMenu(title, false);
 });
-addEventListener('pointerdown', (e) => {
-  if (openTitle && !(e.target instanceof Element && e.target.closest('.mi'))) closeDrop(false);
-}, true);
-$('menubar').addEventListener('keydown', (k) => {
+bar.addEventListener('keydown', (k) => {
   if (!openTitle) {
     if (k.key === 'ArrowDown' && k.target.classList.contains('mt')) {
       k.preventDefault();
@@ -11825,7 +12038,7 @@ $('menubar').addEventListener('keydown', (k) => {
     }
     return;
   }
-  const titles = [...document.querySelectorAll('#menubar .mt')];
+  const titles = [...bar.querySelectorAll('.mt')];
   const inField = k.target.matches('select, input');
   if (k.key === 'Escape') closeDrop(true);
   else if ((k.key === 'ArrowDown' || k.key === 'ArrowUp') && !inField) {
@@ -11843,6 +12056,10 @@ $('menubar').addEventListener('keydown', (k) => {
   k.preventDefault();
   k.stopPropagation();
 });
+}
+addEventListener('pointerdown', (e) => {
+  if (openTitle && !(e.target instanceof Element && e.target.closest('.mi'))) closeDrop(false);
+}, true);
 $('findcommand').onclick = palette;
 $('health').onclick = () => $('notedetails').click();
 // The checkbox travels with the command rather than being remembered anywhere: document 07's
@@ -12219,6 +12436,7 @@ addEventListener('contextmenu', (e) => {
 // D-35: at rest the viewer shows the work area's first frame. B-48: drawn as the kept
 // preferences say, so they are said first.
 $('gpu').value = prefs.drawOn;
+drawLooks();
 Promise.allSettled([fetch(PROJECT + '/gpu-switch?to=' + prefs.drawOn), memory()])
   .then(() => show(FRAMES + '/frame/0?q=draft'));
 refreshState();

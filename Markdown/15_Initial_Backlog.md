@@ -672,6 +672,8 @@ W-40b / The Sheet column: the second redesign screen, second part (D-248). A six
 
 W-40c / The ready frames: the second redesign screen, third part (D-249, accepted). The frame scheme answers `/ready` (the frames the memory holds for what is on screen, the bytes held and the memory setting) through a new `FrameCache::kept`; the timeline draws them as a green line under the work area and writes "N of M ready" beside the time. Checked first against a stub (46a01d2, 5 of 16), then built: 16 of 16 in `verification/W-40c_ready_frames_table.md`. No command ID, fixture or exported picture changes. Evidence is in `verification/W-40c_ready_frames.md`.
 
+W-41a / The viewer's row: the third redesign screen, first part (D-248). One row of icons above the picture, the slate above it, grid and field guide over it, the sheet strip under it, as the Sandbox's Viewer A. Page only; every control keeps its ID and what it sends; four new look buttons are in the wiring table. No command ID, fixture or exported picture changes. Evidence is in `verification/W-41a_viewer_row.md`. Next: W-41b (turn, mirror, snapshot and compare, which need the card to stop painting on request, checked first) and W-41c (the Map tab, Hand and Zoom tools).
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

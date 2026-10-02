@@ -27050,7 +27050,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 87] = [
+    const CONTROLS: [&str; 91] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -27091,6 +27091,8 @@ mod contract {
         "graphfit",
         "graphmode",
         "graphprop",
+        "gridbtn",
+        "guidebtn",
         "health",
         "import",
         "importcut",
@@ -27126,6 +27128,8 @@ mod contract {
         "sessionlogsave",
         "sheetcolumn",
         "shyswitch",
+        "slatebtn",
+        "stripbtn",
         "tabboth",
         "tabgraph",
         "tabsheet",
