@@ -3003,6 +3003,26 @@ fn thumbnail(viewer: &Mutex<Viewer>, item: &Id, frame: i32) -> Result<(usize, us
     Ok((w, h, small.to_srgb8_straight()))
 }
 
+/// D-258: one layer of the composition on screen at `frame`, drawn by itself as W-24's solo would
+/// draw it, for the onion skin. Solo is applied to a copy for this one picture: the window's own
+/// solo, the screen and the history are untouched, and nothing is cached or exported.
+fn alone(viewer: &Mutex<Viewer>, layer: &Id, frame: i32, quality: PreviewQuality) -> Result<(usize, usize, Vec<u8>), String> {
+    let (mut project, composition, root) = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        (held.document.project().clone(), held.composition.clone(), held.root.clone())
+    };
+    let comp = project
+        .compositions
+        .iter_mut()
+        .find(|c| c.id == composition)
+        .filter(|c| c.layer(layer).is_some())
+        .ok_or_else(|| format!("no layer {} in the composition on screen", layer.as_str()))?;
+    comp.solo(std::slice::from_ref(layer));
+    let picture = preview::preview_frame(&project, &composition, frame, &root, quality, DEFAULT_TILE_SIZE, &mut FrameLog::new(0))
+        .map_err(|d| d.to_string())?;
+    Ok((picture.width(), picture.height(), picture.to_srgb8_straight()))
+}
+
 /// The size of the drawings an asset points at now, or `None` when they cannot be read.
 ///
 /// Relinking is what a person does when the media has gone, so the usual case is that there is
@@ -10059,6 +10079,24 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .expect("build the thumbnail refusal"),
         };
     }
+    // D-258: one layer by itself, `?layer=&frame=&q=`, for the onion skin. Never on screen as it is.
+    if path == "alone" {
+        let layer = Id::new(parameter(query, "layer").unwrap_or_default());
+        let frame = parameter(query, "frame").and_then(|f| f.parse().ok()).unwrap_or(0);
+        let quality = quality_asked(query).unwrap_or_else(|| viewer.lock().expect("the viewer lock was poisoned").quality);
+        return match alone(&viewer, &layer, frame, quality) {
+            Ok((width, height, pixels)) => allow_the_page_to_read_this(Response::builder())
+                .header("content-type", "application/octet-stream")
+                .header("x-width", width.to_string())
+                .header("x-height", height.to_string())
+                .body(pixels)
+                .expect("build the layer alone response"),
+            Err(why) => allow_the_page_to_read_this(Response::builder().status(404))
+                .header("content-type", "text/plain; charset=utf-8")
+                .body(why.into_bytes())
+                .expect("build the layer alone refusal"),
+        };
+    }
     // An import with no files named is the button in the media bin, and what it needs is the
     // operating system's file dialog, which belongs to the app handle and not to the viewer.
     // Answered before `edit_command`, which would otherwise refuse it for naming no files.
@@ -10218,7 +10256,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
                       /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
-                      /files-gone, /thumb, /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
+                      /files-gone, /thumb, /alone, /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -24392,6 +24430,8 @@ mod contract {
         // property evaluated across a range, so the graph editor draws what the renderer will
         // do rather than its own idea of it. The clock is checked in
         // `verification/B-08_preview_table.md`.
+        // D-258: one layer by itself, for the onion skin.
+        "alone",
         "at",
         "boxes",
         "cancel-export",
@@ -27173,7 +27213,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 103] = [
+    const CONTROLS: [&str; 104] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -27228,6 +27268,7 @@ mod contract {
         "newcomp",
         "newlayer",
         "notedetails",
+        "onionbtn",
         "open",
         "play",
         "prefcard",

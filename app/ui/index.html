@@ -372,7 +372,8 @@
   #strip button.out { opacity: 0.35; }
   #strip button.now { border-color: #e8b06a; }
   /* W-41b: the view turned or mirrored, on screen only; the snapshot beside the picture. */
-  #stage > #view, #stage > #boxes, #guides .grid, #guides .field, #stage > #snapview { transform: var(--turn, none); }
+  #onion { pointer-events: none; }
+  #stage > #view, #stage > #onion, #stage > #boxes, #guides .grid, #guides .field, #stage > #snapview { transform: var(--turn, none); }
   #viewbar .vb:disabled { opacity: 0.35; }
   #turned { color: #e8b06a; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; }
   #turned[hidden] { display: none; }
@@ -1817,6 +1818,7 @@
       <span class="gs"></span>
       <button id="snapshot" class="vb" title="Snapshot: keep this picture, to compare with later" aria-label="Snapshot"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="5" width="12" height="8.5" rx="1" fill="none" stroke="currentColor"/><circle cx="8" cy="9.2" r="2.3" fill="none" stroke="currentColor"/><path d="M5.5 5l1-2h3l1 2" fill="none" stroke="currentColor"/></svg></button>
       <button id="comparebtn" class="vb" title="Compare: the snapshot left of the line, the picture now right of it. Drag the line" aria-label="Compare with the snapshot" disabled><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor"/><path d="M2.5 2.5H8v11H2.5z" fill="currentColor" opacity=".55"/><path d="M8 1v14" stroke="currentColor"/></svg></button>
+      <button id="onionbtn" class="vb" title="Onion skin: the selected layer two frames before in red and two after in green, faintly. On screen only, Export is not changed" aria-label="Onion skin" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="5.5" cy="8" r="4" fill="none" stroke="#ff6b6b"/><circle cx="10.5" cy="8" r="4" fill="none" stroke="#5fd38d"/><circle cx="8" cy="8" r="4" fill="none" stroke="currentColor"/></svg></button>
       <span class="gs"></span>
       <button id="slatebtn" class="vb" title="Cut slate above the picture" aria-label="Cut slate"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="6.5" width="12" height="7" rx=".5" fill="none" stroke="currentColor"/><path d="M2 6.5l1.2-3.5h10.5L13 6.5M6 3l-1 3.5M9.5 3l-1 3.5" fill="none" stroke="currentColor"/></svg></button>
       <button id="stripbtn" class="vb" title="Sheet strip under the picture" aria-label="Sheet strip"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="5" width="13" height="6.5" fill="none" stroke="currentColor"/><path d="M4.8 5v6.5M8 5v6.5M11.2 5v6.5" stroke="currentColor"/></svg></button>
@@ -1845,6 +1847,8 @@
       </div>
       <!-- W-41b: the snapshot, left of a line that can be dragged; the picture now is right of it. -->
       <div id="snapview" hidden><canvas></canvas><span class="tag then"></span><span class="tag now">Now</span><div class="split" title="Drag: the snapshot is left of the line, the picture now right of it"></div></div>
+      <!-- D-258: the onion skin, drawn by the page for the eye alone. -->
+      <canvas id="onion" width="480" height="270" aria-hidden="true" hidden></canvas>
       <svg id="boxes" width="480" height="270" viewBox="0 0 480 270" aria-hidden="true"></svg>
     </div>
     <div id="strip" hidden></div>
@@ -2386,7 +2390,7 @@ async function show(url, keep = true) {
     drawHealth();
     // D-260: the small picture of the composition on screen follows the playhead once it rests.
     clearTimeout(thumbRest);
-    if (!playing) thumbRest = setTimeout(drawProject, 400);
+    if (!playing) thumbRest = setTimeout(() => { drawProject(); drawOnion(); }, 400);
     if (!lines.length) $('notecodes').hidden = true;
   } catch (e) {
     $('report').textContent = 'the frame did not arrive: ' + e;
@@ -6913,7 +6917,7 @@ function applyZoom() {
   const comp = composition();
   const fit = zoom === null;
   const scale = !comp ? 1 : fit ? fitScale(comp) : zoom;
-  for (const el of [view, $('boxes'), $('guides'), $('snapview')]) {
+  for (const el of [view, $('onion'), $('boxes'), $('guides'), $('snapview')]) {
     el.style.width = !comp ? '' : comp.width * scale + 'px';
     el.style.height = !comp ? '' : comp.height * scale + 'px';
   }
@@ -11703,6 +11707,7 @@ function drawPanels() {
   drawMap();
   drawAssets();
   drawProject();
+  drawOnion();
   drawRuler();
   drawLayers();
   movePlayhead();
@@ -12128,6 +12133,57 @@ $('snapshot').onclick = async () => {
   }
   if (!needPixels()) await show(FRAMES + '/frame/' + frame + '?q=' + quality);
   $('status').textContent = 'Snapshot of frame ' + frame + ' kept. Compare shows it beside the picture now.';
+};
+// D-258: the onion skin. The selected layer alone, two and one frames before in red and one and two
+// after in green, each asked of the window as `/alone` (solo for one picture, nothing soloed) at the
+// quality on screen. Asked again only when the layer, the frame, the quality or the composition
+// changes; hidden while playing, and never in the picture's pixels or an export.
+let onionOn = false, onionStamp = '';
+async function drawOnion() {
+  const canvas = $('onion');
+  const comp = composition();
+  const layer = onionOn && !playing && comp && selected();
+  if (!layer) { canvas.hidden = true; onionStamp = ''; return; }
+  const stamp = layer.id + '@' + frame + '@' + quality + '@' + JSON.stringify(comp);
+  if (stamp === onionStamp) { canvas.hidden = false; return; }
+  onionStamp = stamp;
+  const last = comp.start_frame + comp.duration_frames - 1;
+  const sides = [[-2, '#ff3b3b', 0.22], [-1, '#ff3b3b', 0.4], [1, '#2fd36f', 0.4], [2, '#2fd36f', 0.22]]
+    .filter(([by]) => frame + by >= comp.start_frame && frame + by <= last);
+  const got = await Promise.all(sides.map(([by]) => fetch(PROJECT + '/alone?layer=' + encodeURIComponent(layer.id)
+    + '&frame=' + (frame + by) + '&q=' + quality)
+    .then(async (r) => r.ok ? new ImageData(new Uint8ClampedArray(await r.arrayBuffer()), +r.headers.get('x-width'), +r.headers.get('x-height')) : null)
+    .catch(() => null)));
+  if (stamp !== onionStamp) return; // something newer was asked for meanwhile
+  const first = got.find(Boolean);
+  if (!first) { canvas.hidden = true; return; }
+  canvas.width = first.width;
+  canvas.height = first.height;
+  const paint = canvas.getContext('2d');
+  const one = document.createElement('canvas');
+  [one.width, one.height] = [first.width, first.height];
+  const tint = one.getContext('2d');
+  got.forEach((picture, i) => {
+    if (!picture) return;
+    tint.globalCompositeOperation = 'copy';
+    tint.putImageData(picture, 0, 0);
+    tint.globalCompositeOperation = 'source-atop';
+    tint.fillStyle = sides[i][1];
+    tint.globalAlpha = 0.65;
+    tint.fillRect(0, 0, one.width, one.height);
+    tint.globalAlpha = 1;
+    paint.globalAlpha = sides[i][2];
+    paint.drawImage(one, 0, 0);
+  });
+  paint.globalAlpha = 1;
+  canvas.hidden = false;
+}
+$('onionbtn').onclick = () => {
+  onionOn = !onionOn;
+  $('onionbtn').classList.toggle('on', onionOn);
+  $('onionbtn').setAttribute('aria-pressed', String(onionOn));
+  if (onionOn) $('status').textContent = selected() ? 'Onion skin: ' + selected().name + ', two frames each side.' : 'Onion skin: select a layer to see it.';
+  drawOnion();
 };
 $('comparebtn').onclick = () => {
   snapview.hidden = !snapview.hidden;
