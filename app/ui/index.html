@@ -20,7 +20,7 @@
   :root { color-scheme: dark; }
   body {
     margin: 0; height: 100vh; display: flex; flex-direction: column;
-    background: #101010; color: #d0d0d4;
+    background: #101012; color: #d0d0d4;
     font: 13px/1.5 "Segoe UI", system-ui, sans-serif;
     user-select: none;
   }
@@ -38,7 +38,7 @@
   #menubar .sep { width: 1px; align-self: stretch; background: #3a3a40; margin: 0 6px; }
   #menubar .grow { flex: 1; }
   #menubar svg { flex: none; }
-  #menubar .logo { display: flex; padding: 0 6px; color: #6ea8fe; }
+  #menubar .logo { display: flex; padding: 0 6px; color: #e8b06a; }
   #menubar .mt, #menubar .ico, #menubar .wstabs button {
     border: 1px solid transparent; border-radius: 4px; background: none; color: #c8c8d0;
     padding: 2px 7px; font: inherit;
@@ -47,7 +47,16 @@
   #menubar .ico { display: flex; align-items: center; justify-content: center; width: 28px; height: 26px; padding: 0; }
   #menubar .ico[aria-pressed="true"] { background: #2e3b52; border-color: #6ea8fe; color: #fff; }
   #menubar .icons { display: flex; gap: 2px; margin-right: 6px; }
-  #project { font-weight: 600; color: #fff; white-space: nowrap; }
+  #menubar .cutnav { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+  #menubar .cutnav .dim { color: #8e8e96; }
+  #menubar .cutnav .step { border: 0; background: none; color: #8e8e96; padding: 0 4px; font: inherit; font-size: 15px; line-height: 20px; border-radius: 3px; }
+  #menubar .cutnav .step:hover:not(:disabled) { background: #2a2a2e; color: #fff; }
+  #menubar .cutnav .step:disabled { opacity: .35; }
+  #project { color: #c8c8d0; white-space: nowrap; }
+  #cutname { font-weight: 600; color: #fff; }
+  .cutnav .dim:has(+ #cutname:empty), #cutname:empty { display: none; }
+  #topstatus .cstatus { width: 26px; height: 22px; margin-left: 6px; padding: 0; border-radius: 12px; font-size: 0; display: flex; align-items: center; justify-content: center; }
+  #topstatus .cstatus::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
   #dirty { display: none; }
   #menubar [hidden], #menubar .chip:empty, #menubar .chip.exporting:has(#exportbar[hidden]) { display: none !important; }
   #menubar .chip {
@@ -69,7 +78,9 @@
     border: 1px solid #2e4468; border-radius: 4px; background: #1f2737; color: #c9d6ea; font: inherit; font-size: 12px;
   }
   #menubar .wstabs { display: flex; gap: 2px; margin: 0 6px; padding: 2px; border: 1px solid #2a2a2e; border-radius: 6px; background: #151517; }
-  #menubar .wstabs button { color: #a0a0a8; }
+  #menubar .wstabs button { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 30px; height: 24px; color: #a0a0a8; }
+  #menubar .wstabs button:not([aria-pressed="true"]) span { display: none; }
+  #menubar .wstabs button:hover { color: #fff; }
   #menubar .wstabs button[aria-pressed="true"] { background: #2e3b52; color: #fff; }
   /* Unsaved changes are an orange dot on Save, as the Sandbox has it; the words are still in #dirty
      for the new-project check to read. */
@@ -120,14 +131,14 @@
     grid-template-columns:
       var(--leftcol) var(--leftsplit) minmax(180px, 1fr) var(--rightsplit) var(--rightcol);
     grid-template-rows: minmax(0, 1fr) auto auto;
-    background: #101010; overflow-x: auto;
+    background: #101012; overflow-x: auto;
   }
   /* W-13: the borders between the panels, which the fourth sitting asked to be able to pull, as
      "most video/compositing applications" allow and document 24's workspace contract permits.
      The two 5px columns above and the strip above the timeline are the borders; pulling one
      sets the custom property its panel's column or row reads, and the sizes are kept in the
      browser's storage between runs. A double press puts a border back where it started. */
-  .split { background: #101010; }
+  .split { background: #101012; }
   .split.col { cursor: col-resize; }
   .split.row { height: 5px; flex: 0 0 auto; cursor: row-resize; }
   .split:hover, .split.held { background: #6ea8fe; }
@@ -148,7 +159,7 @@
   #splitfx { grid-column: 1; grid-row: 2; }
   #leftlow { grid-column: 1; grid-row: 3; height: var(--effects, 300px); min-height: 60px; }
   body.noleft #leftlow { grid-row: 1 / -1; height: auto; }
-  .place { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: #1e1e1e; }
+  .place { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: #1e1e20; }
   .place > .panel { flex: 1 1 0; }
   .place > .panel[hidden], .stack[hidden] { display: none; }
   #bottom { height: 33vh; min-height: 60px; }
@@ -159,9 +170,10 @@
   body.noleft #left, body.noleft.noleftlow #splitbin, body.noright #right, body.noright #splitinspector,
   body.noleft #splitfx, body.noleftlow #splitfx, body.noleftlow #leftlow,
   body.nobottom #bottom, body.nobottom #splitsheet { display: none; }
-  .stack { display: flex; gap: 2px; padding: 3px 4px 0; background: #181818; border-bottom: 1px solid #101010; }
-  .stack button { font-size: 11px; padding: 2px 10px; border-radius: 3px 3px 0 0; cursor: grab; }
-  .stack button[aria-pressed=true] { background: #2b2b2b; color: #e8e8ec; }
+  .stack { display: flex; gap: 0; padding: 0; background: #161618; border-bottom: 1px solid #0f0f11; }
+  .stack button { font-size: 12px; padding: 5px 12px; border: 0; border-radius: 0; background: transparent; color: #8e8e96; cursor: grab; }
+  .stack button:hover { background: #1c1c1f; color: #d4d4d8; }
+  .stack button[aria-pressed=true] { background: #1e1e20; color: #e8e8ec; box-shadow: inset 0 2px 0 #e8b06a; }
   .place > .panel > .tab { cursor: grab; }
   body.dropping, body.dropping * { cursor: grabbing !important; }
   .place.drop { outline: 2px solid #6ea8fe; outline-offset: -2px; }
@@ -176,13 +188,19 @@
        wider than the column it sits in and the overflow above cut the buttons off instead of
        letting them wrap. */
     grid-template-columns: minmax(0, 1fr);
-    background: #1e1e1e;
+    background: #1e1e20;
   }
   .tab {
     display: flex; align-items: center; gap: 8px;
     font-size: 12px; color: #e0e0e4;
-    background: #2b2b2b; border-bottom: 1px solid #101010; padding: 4px 8px;
+    background: #161618; border-bottom: 1px solid #0f0f11; padding: 4px 8px;
   }
+  .tab > .tl {
+    align-self: stretch; display: flex; align-items: center; margin: -4px 0 -5px -8px; padding: 0 12px;
+    background: #1e1e20; box-shadow: inset 0 2px 0 #e8b06a; color: #e8e8ec;
+  }
+  /* A panel in a stack has its tab in the strip above, so its own name is not a second tab. */
+  .stack:not([hidden]) ~ .panel > .tab > .tl { background: none; box-shadow: none; padding: 0 4px; }
   .tab #comp::before, #sheetname:not(:empty)::before { content: "\00b7  "; color: #77777f; }
   .tab .tools { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
   /* Which composition is on screen is named in the tab of the panel showing it, the way the
@@ -196,7 +214,7 @@
   .panel .body { min-width: 0; min-height: 0; overflow: auto; padding: 8px; }
   .panel .foot {
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-    padding: 5px 8px; background: #232323; border-top: 1px solid #101010;
+    padding: 5px 8px; background: #232327; border-top: 1px solid #101012;
   }
   .panel h2 {
     font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
@@ -205,7 +223,7 @@
   #stage {
     display: grid; place-items: center; min-height: 0; min-width: 0; padding: 12px;
     grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr);
-    background: #141414; overflow: auto;
+    background: #141416; overflow: auto;
   }
   /* Checkerboard, so a transparent frame reads as transparent rather than as black. Document
      05 line 31 makes it a view that can be turned off, and document 21 line 97 makes it
@@ -234,19 +252,19 @@
   #boxes polygon.null { stroke: #9aa3b2; stroke-dasharray: 2 3; }
   #boxes rect.handle { fill: #e8b06a; stroke: none; }
   #boxes line.arm { stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
-  #boxes circle.spin { fill: #141414; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  #boxes circle.spin { fill: #141416; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
   /* The anchor, drawn as After Effects draws it: a small circle with a cross through it. */
   #boxes .anchor { fill: none; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
   #boxes polyline.path { fill: none; stroke: #6ea8fe; stroke-width: 1; vector-effect: non-scaling-stroke; }
   #boxes rect.pathkey { fill: #6ea8fe; stroke: none; }
   #boxes line.patharm { stroke: #6ea8fe; stroke-width: 1; stroke-dasharray: 3 2; vector-effect: non-scaling-stroke; }
-  #boxes circle.pathgrab { fill: #141414; stroke: #6ea8fe; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+  #boxes circle.pathgrab { fill: #141416; stroke: #6ea8fe; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
   #boxes circle.pathgrab:focus-visible { outline: none; stroke: #ffffff; stroke-width: 3; }
   /* B-24c: a mask is yellow, as After Effects draws one, so that it is never mistaken for the
      layer's own box or for a motion path. The masks not being worked on are dashed. */
   #boxes .maskline { fill: none; stroke: #f2e04c; stroke-width: 1; vector-effect: non-scaling-stroke; }
   #boxes .maskline.other { stroke: #8a8340; stroke-dasharray: 4 3; }
-  #boxes rect.maskpoint { fill: #141414; stroke: #f2e04c; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+  #boxes rect.maskpoint { fill: #141416; stroke: #f2e04c; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
   #boxes rect.maskpoint:focus-visible { outline: none; stroke: #ffffff; stroke-width: 3; }
   /* B-24g: the point under the pointer, and the one last pressed, are filled rather than hollow,
      so that a press on a point says it landed before the hand has moved anywhere. */
@@ -256,7 +274,7 @@
   #boxes circle.pathgrab.picked { stroke: #ffffff; }
   /* B-24k: the free transform box, in the mask's yellow, with After Effects' eight squares. */
   #boxes polygon.freebox { fill: none; stroke: #f2e04c; stroke-width: 1; vector-effect: non-scaling-stroke; }
-  #boxes rect.freesquare { fill: #f2e04c; stroke: #141414; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  #boxes rect.freesquare { fill: #f2e04c; stroke: #141416; stroke-width: 1; vector-effect: non-scaling-stroke; }
   #boxes rect.marquee {
     fill: rgba(232, 176, 106, 0.12); stroke: #e8b06a; stroke-width: 1; stroke-dasharray: 4 3;
     vector-effect: non-scaling-stroke;
@@ -323,13 +341,20 @@
   }
   #gpu option { background: #26262a; }
   #viewbar .gs { width: 1px; height: 16px; background: #34343a; margin: 0 6px; }
-  #frame { margin-left: 6px; font-size: 12.5px; font-weight: 600; }
+  #frame {
+    margin-left: 6px; font-size: 12.5px; font-weight: 700; color: #6ea8fe; line-height: 20px;
+    background: #151517; border: 1px solid #3a3a40; border-radius: 3px; padding: 0 6px;
+  }
   #viewtime { color: #909096; margin: 0 4px; white-space: nowrap; }
   #fps, #quality { display: inline-flex; align-items: center; gap: 5px; }
   #fps::before, #quality::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #8fd6a0; }
-  #fps { color: #8fd6a0; margin-left: 4px; font-variant-numeric: tabular-nums; }
-  #fps.idle { color: #8e8e96; } #fps.idle::before { background: #55555c; }
-  #fps.slow { color: #e8b06a; } #fps.slow::before { background: #e8b06a; }
+  #fps {
+    color: #9fdcb6; margin-left: 4px; font-variant-numeric: tabular-nums; font-size: 11px; line-height: 18px;
+    background: #1d2b23; border: 1px solid #2f5a3f; border-radius: 3px; padding: 0 6px;
+  }
+  #fps:empty { display: none; }
+  #fps.idle { color: #8e8e96; background: #1e1e22; border-color: #3a3a40; } #fps.idle::before { background: #55555c; }
+  #fps.slow { color: #e8b06a; background: #2e2618; border-color: #5a4a2a; } #fps.slow::before { background: #e8b06a; }
   #quality.differs::before { background: #e8866a; }
   #cpunote { color: #e8866a; }
   #stage { padding-top: 22px; }
@@ -433,26 +458,29 @@
      halves, not as a second row of tabs; the frame on screen is large, in blue. */
   #timeline .tab { text-transform: none; letter-spacing: 0; font-size: 13px; flex-wrap: wrap; }
   #timeline .tab .tools { align-items: center; gap: 8px; }
-  .seg { display: inline-flex; border: 1px solid #454545; border-radius: 4px; overflow: hidden; }
-  .seg button { border: 0; border-radius: 0; background: #262626; padding: 2px 12px; }
-  .seg button[aria-pressed=true] { background: #3a3a3a; box-shadow: inset 0 -2px 0 #e8b06a; color: #fff; }
+  .seg { display: inline-flex; border: 1px solid #45454b; border-radius: 4px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: #26262a; padding: 2px 12px; }
+  .seg button[aria-pressed=true] { background: #3a3a40; box-shadow: inset 0 -2px 0 #e8b06a; color: #fff; }
   /* W-40 (D-248): the Sandbox's timeline header. A row of composition tabs over the controls, the
      graph under the rows when Both is chosen, and the composition's own switches as icons. */
   #timeline { grid-template-rows: auto minmax(0, 1fr) auto auto; }
   #timeline .ctabs {
     flex: 1 0 100%; display: flex; align-items: flex-end; gap: 2px; min-height: 26px;
-    margin: -4px -8px 2px; padding: 0 8px; background: #232323; border-bottom: 1px solid #101010;
+    margin: -4px -8px 2px; padding: 0 8px; background: #232327; border-bottom: 1px solid #101012;
   }
   #comptabs { display: flex; gap: 2px; min-width: 0; overflow: hidden; }
   #comptabs .ctab { display: inline-flex; align-items: center; border-radius: 3px 3px 0 0; }
-  #comptabs .ctab:has([aria-current=true]) { background: #2b2b2b; box-shadow: inset 0 2px 0 #e8b06a; }
+  #comptabs .ctab:has([aria-current=true]) { background: #2b2b2f; box-shadow: inset 0 2px 0 #e8b06a; }
   #comptabs button { border: 0; background: transparent; color: #909096; padding: 4px 4px 4px 12px; white-space: nowrap; }
   #comptabs button[aria-current=true] { color: #fff; }
   #comptabs button.x { padding: 0 8px 0 4px; color: #6a6a70; }
   #comptabs button.x:hover { color: #fff; }
   #holds { margin-left: auto; padding: 0 4px 5px 12px; font-size: 11px; color: #909096; white-space: nowrap; }
   #holds button { border: 0; background: none; padding: 0; font-size: 11px; color: #4fa3ad; }
-  #findlayer { width: 150px; font-size: 12px; }
+  .fbox { position: relative; display: inline-flex; align-items: center; }
+  .fbox svg { position: absolute; left: 8px; width: 13px; height: 13px; color: #6c6c74; pointer-events: none; }
+  #findlayer { width: 180px; height: 26px; box-sizing: border-box; padding-left: 27px; font-size: 12px; background: #161618; }
+  #findlayer::-webkit-search-cancel-button { filter: invert(0.6); }
   #addnote::before { content: ''; display: inline-block; width: 7px; height: 9px; margin-right: 5px; background: #e0a84a; clip-path: polygon(0 0, 100% 0, 100% 50%, 50% 100%, 0 50%); }
   #compinfo { margin-left: 10px; color: #909096; font-size: 12px; white-space: nowrap; }
   #sheetcolumn { margin-left: 8px; }
@@ -466,12 +494,12 @@
   #side { width: var(--side, 380px); min-width: 150px; flex: none; }
   body.noside #side, body.noside #splitside { display: none; }
   #timeline .tab .tools button.ic { width: 26px; height: 24px; border: 1px solid transparent; background: transparent; color: #b0b0b6; }
-  #timeline .tab .tools button.ic:hover { background: #333; }
+  #timeline .tab .tools button.ic:hover { background: #333339; }
   #timeline .tab .tools button.ic[aria-pressed=true] { background: #3a4a6a; border-color: #6ea8fe; color: #fff; }
   #timeline .now { display: inline-flex; align-items: baseline; gap: 6px; }
   #nowframe {
-    font-size: 17px; font-variant-numeric: tabular-nums; color: #6ea8fe; background: #181818;
-    border: 1px solid #454545; border-radius: 3px; padding: 0 8px; min-width: 3ch; text-align: right;
+    font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; color: #6ea8fe; background: #161618;
+    border: 1px solid #3a3a40; border-radius: 4px; padding: 1px 8px; min-width: 3ch; text-align: right;
   }
   #timeline .now small, .zoom { color: #909096; font-size: 12px; }
   .zoom { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
@@ -488,8 +516,11 @@
      arrow, name, shy, motion blur, mode, parent. */
   .rowhead.layerhead {
     display: grid; align-items: center; gap: 0 2px; padding-right: 6px; min-width: 0;
-    grid-template-columns: 22px 22px 22px 10px 24px 18px minmax(0, 1fr) 22px 22px 64px 84px;
+    grid-template-columns: 22px 22px 22px 0 24px 18px minmax(0, 1fr) 22px 22px 64px 84px;
   }
+  #layers li.lab { position: relative; }
+  #layers li.lab::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--lab); pointer-events: none; }
+  #layers li.lab > .rowhead { padding-left: 4px; }
   .ic { display: grid; place-items: center; width: 22px; height: 22px; padding: 0 !important; color: #6a6a70; }
   .ic svg { width: 14px; height: 14px; }
   .ic.on { color: #d0d0d4; }
@@ -506,8 +537,9 @@
   ul.rows button.relink { flex: none; font-size: 11px; padding: 0 6px; border-color: #d9534f; color: #ffd0cc; }
   #layers .rowhead.layerhead select.blend {
     margin: 0; min-width: 0; width: 100%; font-size: 11px; padding: 0; color: #909096;
-    background: transparent; border-color: transparent;
+    background: transparent; border-color: transparent; appearance: none; cursor: pointer;
   }
+  #layers .rowhead.layerhead select.blend:hover { color: #d4d4d8; }
   #layers .rowhead.layerhead select.blend.set { color: #e8b06a; }
   .parentcell {
     display: flex; align-items: center; min-width: 0; font-size: 11px; color: #909096;
@@ -515,7 +547,7 @@
   }
   .parentcell .whip { color: #909096; display: grid; place-items: center; }
   .parentcell .whip svg { width: 14px; height: 14px; }
-  #timeline.narrow .layerhead { grid-template-columns: 22px 22px 22px 10px 24px 18px minmax(0, 1fr) 22px 22px 60px 22px; }
+  #timeline.narrow .layerhead { grid-template-columns: 22px 22px 22px 0 24px 18px minmax(0, 1fr) 22px 22px 60px 22px; }
   #timeline.narrow .pname { display: none; }
   /* An empty composition says so and offers the two ways to start. */
   #nolayers { display: grid; place-items: center; gap: 10px; padding: 32px 16px; text-align: center; color: #909096; }
@@ -527,7 +559,7 @@
   #ruler { cursor: ew-resize; }
   #ruler {
     position: relative; height: 36px; margin-left: var(--gutter);
-    border-bottom: 1px solid #3a3a3a;
+    border-bottom: 1px solid #3a3a40;
   }
   /* W-24: the work area, a band along the top of the ruler whose two ends are pulled, and the
      markers, a small pennant each on the frame they are on with their name beside it. */
@@ -555,7 +587,7 @@
   .rowhead .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex: none; }
   .menu .swatches { display: flex; gap: 4px; padding: 4px 8px; }
   .menu .swatches button {
-    width: 16px; min-width: 0; height: 16px; padding: 0; border: 1px solid #555; border-radius: 3px;
+    width: 16px; min-width: 0; height: 16px; padding: 0; border: 1px solid #55555b; border-radius: 3px;
   }
   /* W-24: the command palette, Ctrl+Shift+P. */
   .menu.palette {
@@ -566,11 +598,11 @@
   .menu.palette [role="listbox"] { overflow: auto; }
   .menu.palette button.current { background: #3a4a6a; }
   #ruler .tick {
-    position: absolute; top: 10px; bottom: 0; border-left: 1px solid #3a3a3a; white-space: nowrap;
+    position: absolute; top: 10px; bottom: 0; border-left: 1px solid #3a3a40; white-space: nowrap;
     padding-left: 4px; font-size: 10px; line-height: 12px; color: #909096;
     font-variant-numeric: tabular-nums;
   }
-  #ruler .tick.second { top: 0; padding-top: 10px; border-left-color: #505050; color: #d0d0d4; }
+  #ruler .tick.second { top: 0; padding-top: 10px; border-left-color: #505056; color: #d0d0d4; }
   #tracks { position: relative; }
   /* D-52's graph editor, which shares the panel with the sheet rather than taking room from it:
      the two answer the same question - what happens to this layer over time - and a window that
@@ -580,34 +612,34 @@
      control. */
   .sheettab {
     font: inherit; text-transform: inherit; letter-spacing: inherit;
-    background: #232323; border: 1px solid #3a3a3a;
+    background: #232327; border: 1px solid #3a3a40;
     color: #b0b0b6; padding: 2px 10px 3px; border-radius: 3px; cursor: pointer;
   }
-  .sheettab:hover { background: #333; color: #e0e0e4; }
+  .sheettab:hover { background: #333339; color: #e0e0e4; }
   .sheettab[aria-pressed="true"] {
-    color: #1e1e1e; background: #e8b06a; border-color: #e8b06a;
+    color: #1e1e20; background: #e8b06a; border-color: #e8b06a;
   }
   .sheettab:focus-visible { outline: 2px solid #6ea8fe; outline-offset: 2px; }
   #graph { position: relative; overflow: hidden; padding: 6px 8px 8px; min-height: 180px; }
   /* D-84a: the Sheet tab, a paper timesheet: frames down, a column a drawing layer. */
   #xsheet { padding: 6px 8px 8px; overflow: auto; min-height: 0; }
   #xsheet table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
-  #xsheet th, #xsheet td { border: 1px solid #333; padding: 0 8px; min-width: 40px; height: 18px; text-align: center; }
-  #xsheet th { position: sticky; top: 0; background: #262626; font-weight: normal; }
+  #xsheet th, #xsheet td { border: 1px solid #333339; padding: 0 8px; min-width: 40px; height: 18px; text-align: center; }
+  #xsheet th { position: sticky; top: 0; background: #26262a; font-weight: normal; }
   #xsheet td:first-child { color: #8a8f98; text-align: right; }
   #xsheet tr { cursor: pointer; }
   #xsheet tr.second td { border-bottom: 2px solid #8a8f98; }
-  #xsheet td.hold { background: linear-gradient(#ccc, #ccc) center / 2px 100% no-repeat; }
-  #xsheet td.out { background: repeating-linear-gradient(45deg, #1a1a1a 0 4px, #222 4px 8px); }
+  #xsheet td.hold { background: linear-gradient(#ccccd0, #ccccd0) center / 2px 100% no-repeat; }
+  #xsheet td.out { background: repeating-linear-gradient(45deg, #1a1a1c 0 4px, #222226 4px 8px); }
   #xsheet tr.now td { background-color: #2b3f5c; }
   /* W-44 (D-248): a drawing the layer asks for that is not there, struck out as on the timeline. */
   #xsheet td.gone { color: #ff8a80; text-decoration: line-through; background-color: #4a2424; }
   #xsheet td.hold.gone { background: linear-gradient(#ff8a80, #ff8a80) center / 2px 100% no-repeat, #4a2424; }
-  #xsheet tr.now td.hold { background: linear-gradient(#ccc, #ccc) center / 2px 100% no-repeat, #2b3f5c; }
+  #xsheet tr.now td.hold { background: linear-gradient(#ccccd0, #ccccd0) center / 2px 100% no-repeat, #2b3f5c; }
   #xsheet:focus { outline: none; }
   #xsheet td.chosen { outline: 2px solid #6aa0ff; outline-offset: -2px; }
   #xsheet:focus td.chosen { outline-color: #9cc2ff; }
-  #xsheet td.typing { background: #1e1e1e; color: #fff; }
+  #xsheet td.typing { background: #1e1e20; color: #fff; }
   /* D-84c: a dialogue or camera column, its words in the cell where they start. */
   #xsheet td.words { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: #e8d9a8; }
   /* D-84g: a key drawing's number, circled wherever it is written. */
@@ -623,7 +655,7 @@
   #graph .keydot { fill: #e8b06a; cursor: grab; }
   #graph .keydot.selected { fill: #6ea8fe; }
   #graph .arm { stroke: #e8b06a; stroke-width: 1; stroke-dasharray: 3 2; }
-  #graph .grab { fill: #141414; stroke: #e8b06a; stroke-width: 1.5; cursor: grab; }
+  #graph .grab { fill: #141416; stroke: #e8b06a; stroke-width: 1.5; cursor: grab; }
   #graph .grab:focus-visible { outline: 2px solid #6ea8fe; }
   #graph .at { stroke: #e8b06a; stroke-width: 1; }
   #graph text { fill: #909096; font-size: 10px; font-variant-numeric: tabular-nums; }
@@ -635,7 +667,7 @@
      playhead, then the shape of the curve in front, and a line on what dragging does. */
   #graph .gside {
     position: absolute; left: 8px; top: 6px; bottom: 8px; width: calc(var(--gutter) - 12px);
-    overflow-y: auto; box-sizing: border-box; padding: 0 10px 6px 4px; background: #1e1e1e;
+    overflow-y: auto; box-sizing: border-box; padding: 0 10px 6px 4px; background: #1e1e20;
     border-right: 1px solid #2e2e32; font-size: 12px; scrollbar-width: thin;
   }
   #graph .gside h3 {
@@ -665,7 +697,11 @@
   #renderpanel .rhead { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #2a2a2e; }
   #renderpanel .rnow { flex: 1; min-width: 0; }
   #rendernow { font-weight: 600; color: #e0e0e4; margin-bottom: 5px; }
-  #renderbar { width: 100%; max-width: 760px; height: 6px; }
+  #renderbar { width: 100%; max-width: 860px; height: 4px; margin-top: 6px; appearance: none; border: 0; border-radius: 2px; overflow: hidden; background: #2a2a2e; display: block; }
+  #renderbar[hidden] { display: none; }
+  #renderbar::-webkit-progress-bar { background: #2a2a2e; }
+  #renderbar::-webkit-progress-value { background: #6ea8fe; border-radius: 2px; }
+  #rendernow { font-weight: 600; color: #fff; }
   #renderpanel button.pri { background: #2f5ea8; border-color: #4a7cc8; color: #fff; padding: 6px 18px; }
   #renderpanel button.pri:disabled { opacity: .45; cursor: default; }
   #renderpanel .rrow { display: grid; grid-template-columns: 56px minmax(100px, 200px) minmax(100px, 220px) minmax(140px, 1fr) 70px 24px; gap: 8px; padding: 6px 14px; align-items: center; }
@@ -769,7 +805,7 @@
   /* The shape clips an outline away, so the keyboard's key is lit instead. */
   #layers li.prop .track .key:focus-visible { background: #ffffff; }
   #layers li.prop .track .key.moving { cursor: grabbing; background: #f6d3a6; }
-  .track { position: relative; height: 26px; background: #171717; border-radius: 2px; }
+  .track { position: relative; height: 26px; background: #171719; border-radius: 2px; }
   /* Every bar can be pulled, and the ends of the layer's own bar can be pulled apart. The
      class is set by the row as the pointer nears an end, because where an end is on screen is
      not something a stylesheet can know. */
@@ -813,10 +849,10 @@
      chosen by the person still wins, and every kind also says what it is in words on its row. */
   .track.sound .life { background: #1f4a33; border-color: #3f8a5f; overflow: hidden; }
   .track.sound .life canvas { display: block; width: 100%; height: 100%; pointer-events: none; }
-  .track.precomp .life { background: #3d2f55; border-color: #6a4f96; }
+  .track.precomp .life { background: #24464b; border-color: #4fa3ad; }
   .track.camera .life { top: 4px; bottom: 4px; background: #6b5320; border-color: #a8842f; cursor: default; }
   .track.precomp .life { color: #cdd6e6; font-size: 11px; padding-left: 6px; overflow: hidden; white-space: nowrap; }
-  .track.adjust .life { background: repeating-linear-gradient(135deg, #2f3d55 0 6px, #46587a 6px 8px); }
+  .track.adjust .life { background: #3a3350; border-color: #6a5a94; }
   /* B-23c: a solid's bar is its own colour, set on the element, with a border that shows on any colour. */
   .track.solid .life { border-color: #cdd6e6; }
   /* B-26c: a null (D-82) is never drawn, so its bar is a thin grey strip, as the camera's is amber. */
@@ -843,7 +879,7 @@
   #timescroll {
     appearance: none; height: 10px; box-sizing: border-box; vertical-align: top;
     width: calc(100% - var(--gutter) - 16px); margin: 0 8px 4px calc(var(--gutter) + 8px);
-    background: #232323; border-radius: 3px;
+    background: #232327; border-radius: 3px;
   }
   #timescroll::-webkit-slider-thumb {
     appearance: none; width: var(--thumb, 40px); height: 10px;
@@ -894,14 +930,14 @@
   }
   #bar {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    padding: 6px 10px; border-top: 1px solid #101010; background: #232323;
+    padding: 6px 10px; border-top: 1px solid #101012; background: #232327;
   }
   button {
-    font: inherit; color: inherit; background: #383838;
-    border: 1px solid #4a4a4a; border-radius: 3px; padding: 2px 9px; cursor: pointer;
+    font: inherit; color: inherit; background: #2c2c30;
+    border: 1px solid #45454b; border-radius: 4px; padding: 2px 9px; cursor: pointer;
   }
-  button:hover { background: #454545; }
-  button:disabled { color: #6a6a6a; cursor: default; background: #2a2a2a; }
+  button:hover { background: #38383e; }
+  button:disabled { color: #6c6c74; cursor: default; background: #232326; border-color: #34343a; }
   /* Q-03: every control must be reachable by keyboard and it must be obvious which one has the
      keyboard. The ring is its own colour — orange already means a warning here and green already
      means a save happened, so a third meaning would have to borrow one of those. */
@@ -944,10 +980,12 @@
   #exported.running { color: #7fb37f; }
   label { display: inline-flex; align-items: center; gap: 5px; }
   input[type=checkbox]:focus-visible { outline: 2px solid #7aa7ff; outline-offset: 2px; }
-  select, input[type=text] {
-    font: inherit; color: inherit; background: #383838;
-    border: 1px solid #4a4a4a; border-radius: 3px; padding: 2px 6px; max-width: 260px;
+  select, input[type=text], input[type=search] {
+    font: inherit; color: inherit; background: #151517;
+    border: 1px solid #3a3a40; border-radius: 4px; padding: 2px 6px; max-width: 260px;
   }
+  select:hover, input[type=text]:hover, input[type=search]:hover { border-color: #4a4a50; }
+  input::placeholder { color: #6c6c74; }
   /* Document 28's warnings, one line each, in the words the core used. They are never folded
      away behind a count: a project that opened with something wrong with it says so for as
      long as it is open. */
@@ -980,7 +1018,7 @@
     display: flex; align-items: center; gap: 6px;
     padding: 2px 4px; border-radius: 3px; cursor: default;
   }
-  ul.rows li:hover { background: #2a2a2a; }
+  ul.rows li:hover { background: #2a2a2e; }
   ul.rows li[aria-selected=true] { background: #2c3a52; }
   ul.rows .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   /* A layer that is switched off or locked says so in text as well as in colour, because
@@ -996,8 +1034,8 @@
   #inspector dd { margin: 0; overflow-wrap: anywhere; }
   .empty { color: #75757c; }
   #inspector input[type=number] {
-    width: 5.5em; background: #141414; color: #e8e8ea;
-    border: 1px solid #4a4a4a; border-radius: 3px; padding: 1px 3px; font: inherit;
+    width: 5.5em; background: #141416; color: #e8e8ea;
+    border: 1px solid #4a4a50; border-radius: 3px; padding: 1px 3px; font: inherit;
   }
   /* W-14: every number this window can change is drawn the same way, which is the fifth
      sitting's "highlight any manipulatable value a light blue and allow click drag or click to
@@ -1016,7 +1054,7 @@
   .scrub:hover { color: #a8d0ff; border-bottom-color: #a8d0ff; }
   .scrub:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
   .scrub input {
-    width: 100%; min-width: 3em; font: inherit; color: #e8e8ea; background: #141414;
+    width: 100%; min-width: 3em; font: inherit; color: #e8e8ea; background: #141416;
     border: 1px solid #6ea8fe; border-radius: 2px; padding: 0; box-sizing: border-box;
   }
   /* In the inspector every number stands over a line of its own, and a property's two numbers
@@ -1038,7 +1076,7 @@
   #inspector #addeffect, #inspector #addexposure { margin-top: 8px; }
   /* W-29: the Effects panel. The search stays at the top while the folders scroll under it. */
   #fxbrowser .body { padding-top: 0; }
-  #fxbrowser .find { position: sticky; top: 0; background: #1e1e1e; padding: 8px 0 4px; z-index: 1; }
+  #fxbrowser .find { position: sticky; top: 0; background: #1e1e20; padding: 8px 0 4px; z-index: 1; }
   #fxsearch { width: 100%; box-sizing: border-box; }
   #fxtarget { margin: 4px 0 0; font-size: 11px; color: #909096; }
   #fxlist details { margin: 2px 0; }
@@ -1155,7 +1193,7 @@
   .exposure span { color: #909096; }
   .exposure input[type=number] { width: 4.5em; }
   .exposure .gone { color: #e8b06a; }
-  .effect { border: 1px solid #3a3a3a; border-radius: 4px; padding: 4px 6px; margin-bottom: 6px; }
+  .effect { border: 1px solid #3a3a40; border-radius: 4px; padding: 4px 6px; margin-bottom: 6px; }
   .effect .head { display: flex; align-items: center; gap: 6px; cursor: grab; }
   .effect .head .name { flex: 1; font-weight: 600; }
   .effect.lifted { opacity: 0.6; }
@@ -1202,7 +1240,7 @@
   }
   .effect input[type=color] {
     width: 2.4em; height: 1.7em; padding: 0 1px; vertical-align: middle;
-    border: 1px solid #4a4a4a; border-radius: 3px; background: #141414;
+    border: 1px solid #4a4a50; border-radius: 3px; background: #141416;
   }
   /* W-42 (D-248): the Sandbox's Effect controls B. Short rows in one tree: a grey bar for each
      group (the layer, its transform, its blend and masks, the camera, each effect) with its
@@ -1333,7 +1371,7 @@
   /* A row's buttons sit over its right end while it is under the pointer, chosen or focused. */
   #bin .acts {
     position: absolute; right: 0; top: 0; bottom: 0; padding: 0 6px 0 10px; display: flex; gap: 2px;
-    align-items: center; visibility: hidden; background: #2a2a2a;
+    align-items: center; visibility: hidden; background: #2a2a2e;
   }
   #bin li[aria-selected=true] .acts { background: #2c3a52; }
   #bin li:hover .acts, #bin li:focus-within .acts, #bin li[aria-selected=true] .acts, #bin .acts.keep { visibility: visible; }
@@ -1390,7 +1428,7 @@
   #pother .cutc .ctx .sum { margin-left: auto; }
   #pother p.hint { margin: 8px; color: #8e8e96; font-size: 11px; line-height: 1.45; }
   /* D-254: an item's label colour, before its name. */
-  .ldot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 1px; flex: none; }
+  .ldot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; flex: none; }
   /* D-253: a cut's status. In By cut it sits over the card's right end, outside the card's button. */
   .cstatus {
     flex: none; font-size: 10.5px; line-height: 15px; padding: 0 7px; border-radius: 8px; white-space: nowrap;
@@ -1425,7 +1463,7 @@
   #newcomposition input { width: 100%; box-sizing: border-box; }
   #prefs label { display: block; }
   #printdialog {
-    background: #1e1e1e; color: #d0d0d4; border: 1px solid #7a8ba0; border-radius: 4px;
+    background: #1e1e20; color: #d0d0d4; border: 1px solid #7a8ba0; border-radius: 4px;
     padding: 10px 14px;
   }
   #printdialog::backdrop { background: rgb(0 0 0 / 0.5); }
@@ -1434,13 +1472,13 @@
   #sessionlog {
     position: fixed; top: 40px; right: 16px; left: auto; margin: 0; z-index: 50;
     width: min(720px, calc(100vw - 32px)); max-height: 75vh; overflow: auto; box-sizing: border-box;
-    background: #1e1e1e; color: #d0d0d4; border: 1px solid #7a8ba0; border-radius: 4px;
+    background: #1e1e20; color: #d0d0d4; border: 1px solid #7a8ba0; border-radius: 4px;
     padding: 10px 14px;
   }
   #sessionlog h2 { margin-top: 0; }
   #sessionlog table { border-collapse: collapse; width: 100%; }
   #sessionlog caption { text-align: left; margin: 4px 0; }
-  #sessionlog th, #sessionlog td { text-align: left; vertical-align: top; padding: 2px 6px; border-top: 1px solid #333; }
+  #sessionlog th, #sessionlog td { text-align: left; vertical-align: top; padding: 2px 6px; border-top: 1px solid #333339; }
   #prefs input { width: 100%; box-sizing: border-box; }
   #relinking p { margin: 0 0 6px; }
 /* sheet paper: begin. D-84d: the Sheet on paper. Here, in the window's own style, since the
@@ -1460,7 +1498,7 @@
 /* D-84f: two rows. NAME, EPISODE, SCENE, CUT, ANIMATOR above; TIME, RATE, SHEET, MEMO below. */
 #paper header { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr 2fr; grid-template-rows: 9mm 9mm; flex: none; margin-bottom: 2mm; border: 1px solid #000; font-size: 10pt; }
 #paper header > * { display: flex; flex-direction: column; min-width: 0; overflow: hidden; padding: 1mm 2mm; border: 0 solid #000; border-width: 0 1px 1px 0; white-space: nowrap; }
-#paper header > ::before { font: normal 5.5pt sans-serif; color: #555; margin-bottom: auto; }
+#paper header > ::before { font: normal 5.5pt sans-serif; color: #55555b; margin-bottom: auto; }
 #paper header .name { grid-column: span 2; } #paper header .name::before { content: "NAME"; }
 #paper header .episode::before { content: "EPISODE"; }
 #paper header .scene::before { content: "SCENE"; }
@@ -1473,7 +1511,7 @@
 #paper header .memo { grid-column: span 3; border-right-width: 0; } #paper header .memo::before { content: "MEMO"; }
 #paper .halves { display: flex; gap: 4mm; flex: 1; min-height: 0; }
 #paper table { border-collapse: collapse; flex: 1; width: 0; table-layout: fixed; font-variant-numeric: tabular-nums; }
-#paper th, #paper td { border: 0.5px solid #666; padding: 0 2px; text-align: center; overflow: hidden; }
+#paper th, #paper td { border: 0.5px solid #66666e; padding: 0 2px; text-align: center; overflow: hidden; }
 #paper th { font-size: 7pt; height: 5mm; }
 #paper th.sec, #paper th.frame { font-size: 5.5pt; font-weight: normal; }
 #paper th.sec { width: 5mm; }
@@ -1482,19 +1520,19 @@
 #paper table:only-child th.words { width: 28mm; }
 #paper td { height: 2.4mm; line-height: 2.4mm; font-size: 7.5pt; font-weight: bold; }
 #paper td.sec { font-size: 6.5pt; padding: 0; }
-#paper td.frame { font-size: 6pt; font-weight: normal; color: #444; text-align: right; }
+#paper td.frame { font-size: 6pt; font-weight: normal; color: #44444a; text-align: right; }
 #paper td.words { font-size: 5.5pt; font-weight: normal; text-align: left; white-space: nowrap; }
 #paper tr.half td { border-bottom: 0.75px solid #000; }
 #paper tr.half td.sec::before { content: "\25B6"; font-size: 5pt; }
 #paper td.hold { background: linear-gradient(#000, #000) center / 1px 100% no-repeat; }
-#paper td.out { background: #ddd; }
+#paper td.out { background: #dddde1; }
 /* D-84g: a key drawing's number, circled as an animator circles it. */
 #paper td.key { position: relative; }
 #paper td.key::after { content: ""; position: absolute; left: 50%; top: 50%; width: 4.4mm; height: 2.9mm; transform: translate(-50%, -50%); border: 0.75px solid #000; border-radius: 50%; box-sizing: border-box; }
 #paper tr.second td { border-bottom: 2px solid #000; }
 #paper tr.second td.frame { font-weight: bold; color: #000; }
 #paper tr.end td { border-bottom: 3px double #000; }
-#paper tr.past td.frame, #paper tr.past td.sec { color: #aaa; }
+#paper tr.past td.frame, #paper tr.past td.sec { color: #aaaab2; }
 /* D-84e: red, as a studio's printed form: its rules, headings, frame and second numbers and
    title labels. What is written into it, the marks and the title entries, stays black. */
 #paper.red header, #paper.red header > *, #paper.red tr th, #paper.red tr td { border-color: #d6453a; }
@@ -1527,7 +1565,8 @@
   #sketch .skhead, #sketch .skfoot { display: flex; align-items: center; gap: 10px; color: #a0a0a8; flex: none; }
   #sketch .skhead b { color: #fff; font-weight: 600; }
   #sketch .skhead button { height: 30px; min-width: 30px; display: flex; align-items: center; justify-content: center; gap: 6px; background: #232326; border-color: #3a3a40; }
-  #skangle { width: 36px; text-align: center; color: #e8b06a; }
+  #skangle { width: 36px; text-align: center; color: #a0a0a8; }
+  #skangle.on { color: #e8b06a; }
   #sketch .skhead button[aria-pressed="true"], #sketch .skbar button[aria-pressed="true"], #sketch .skcut button[aria-pressed="true"], #sketch .seg2 button[aria-pressed="true"] { background: #2e3b52; border-color: #6ea8fe; color: #fff; }
   #sketch .skfoot { color: #6c6c74; font-size: 11px; }
   #sketch .sp { flex: 1; }
@@ -1586,6 +1625,18 @@
   #sketch .sknote { margin: 8px 10px; padding: 8px 10px; background: #1b1b1e; border: 1px solid #2e2e32; border-radius: 6px; font-size: 11px; line-height: 1.45; color: #a0a0a8; }
   #sketch .skkeys { padding: 10px; font-size: 11px; line-height: 1.5; border-top: 1px solid #26262a; }
   #sketchover { pointer-events: none; background: transparent; }
+  #bar {
+    flex-wrap: nowrap; gap: 16px; min-height: 26px; box-sizing: border-box; padding: 2px 10px;
+    background: #1a1a1c; border-top: 1px solid #0f0f11; font-size: 12px; overflow: hidden; flex-shrink: 0;
+  }
+  #bar > span, #bar > ul { flex: 0 1 auto; min-width: 0 !important; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; }
+  #bar > #notes:not(:empty) { display: flex; gap: 16px; flex: 0 2 auto; }
+  #bar > #notes li { overflow: hidden; text-overflow: ellipsis; }
+  #bar > #keys { flex: 1 1 0; text-align: right; font-size: 11px; }
+  #bar > #notedetails { flex: none; padding: 0 8px; font-size: 11px; line-height: 18px; }
+  #bar:has(#notecodes:not([hidden])) { flex-wrap: wrap; max-height: 40vh; overflow-y: auto; padding: 6px 10px; }
+  #bar:has(#notecodes:not([hidden])) > span, #bar:has(#notecodes:not([hidden])) > ul { min-width: 100% !important; white-space: pre-wrap !important; text-align: left; }
+  #bar:has(#notecodes:not([hidden])) > #notes { display: block; }
 </style>
 </head>
 <body>
@@ -1594,7 +1645,7 @@
        the controls themselves rather than copies of them. A menu line written as data-run is the
        command palette's line of that name, run the way the palette runs it, so the menus, the
        palette and the keys cannot come to disagree. -->
-  <span class="logo"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5" fill="none" stroke="currentColor"/><path d="M4.5 2.5v11M11.5 2.5v11M1.5 6h3M1.5 10h3M11.5 6h3M11.5 10h3" stroke="currentColor"/></svg></span>
+  <span class="logo"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M8 5l-2 4M13 5l-2 4M18 5l-2 4"/></svg></span>
   <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">File</button><div class="drop" role="menu" aria-label="File" hidden>
     <button data-run="New project"></button>
     <button id="open" data-key="Ctrl+O">Open project&hellip;</button>
@@ -1758,10 +1809,11 @@
     <button data-run="Error details"></button>
   </div></span>
   <span class="sep"></span>
-  <span id="project">&mdash;</span><span id="dirty"></span>
+  <span class="cutnav"><button id="prevcut" class="step" type="button" title="The composition before this one in the Project panel">&lsaquo;</button><span id="project">&mdash;</span><span class="dim">&rsaquo;</span><b id="cutname"></b><button id="nextcut" class="step" type="button" title="The composition after this one in the Project panel">&rsaquo;</button></span><span id="dirty"></span>
+  <span id="topstatus"></span>
   <button id="health" class="chip warn" hidden title="Warnings in this project: open the error details"></button>
   <span class="chip exporting"><progress id="exportbar" hidden></progress><span id="exportleft"></span><button id="cancelexport" hidden>Cancel export</button></span>
-  <span class="grow"></span>
+  <span class="sep"></span>
   <span class="icons">
     <button class="ico" data-run="Selection tool" data-tool="select" aria-pressed="true" aria-label="Selection tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 1.5v12l3-3 2 4.5 2-1-2-4.3h4.2z" fill="currentColor"/></svg></button>
     <button class="ico" data-run="Hand tool" data-tool="hand" aria-pressed="false" aria-label="Hand tool"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5V6a1.5 1.5 0 013 0v5M11 10.5V4.5a1.5 1.5 0 013 0v6M14 10.5V6a1.5 1.5 0 013 0v7.5c0 4-2.4 6.5-6 6.5-3 0-4.6-1.7-5.6-4L4 13a1.4 1.4 0 012.4-1.4L8 13.5"/></svg></button>
@@ -1771,7 +1823,8 @@
   </span>
   <button id="findcommand" class="search" title="Find any command (Ctrl+Shift+P)"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor"/><path d="M10 10l4.5 4.5" stroke="currentColor" stroke-width="1.5"/></svg>Search <kbd>Ctrl+Shift+P</kbd></button>
   <button class="fx" data-run="Find an effect or preset"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 14L10 6M11 1.5v3M9.5 3h3M14 5.5v2M13 6.5h2" stroke="currentColor" stroke-linecap="round"/></svg>Effects</button>
-  <span class="wstabs"><button data-run="Compose workspace" data-workspace="Compose">Compose</button><button data-run="Animate workspace" data-workspace="Animate">Animate</button><button data-run="Render workspace" data-workspace="Render">Render</button><button data-run="Sketch workspace" data-workspace="Sketch">Sketch</button></span>
+  <span class="grow"></span>
+  <span class="wstabs"><button data-run="Compose workspace" data-workspace="Compose" aria-label="Compose"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3zM3 9h18M9 9v10"/></svg><span>Compose</span></button><button data-run="Animate workspace" data-workspace="Animate" aria-label="Animate"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c4 0 4-10 9-10s5 10 9 10"/></svg><span>Animate</span></button><button data-run="Render workspace" data-workspace="Render" aria-label="Render"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M4 19h16"/></svg><span>Render</span></button><button data-run="Sketch workspace" data-workspace="Sketch" aria-label="Sketch"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-5L16 4l4 4L9 19z"/></svg><span>Sketch</span></button></span>
   <button id="save" data-key="Ctrl+S">Save</button>
 </div>
 <div id="middle"><div id="main">
@@ -2023,7 +2076,7 @@
     <span class="seg"><button id="tabsheet" aria-pressed="true">Timeline</button><button id="tabboth" aria-pressed="false"
       title="The rows and the graph together, the graph under the rows on the same frames">Both</button><button id="tabgraph" aria-pressed="false">Graph</button></span>
     <span class="now"><span id="nowframe">0</span><small id="nowtime"></small><span id="ready" hidden><i></i><span id="readycount"></span></span></span>
-    <input id="findlayer" type="search" placeholder="Find a layer" aria-label="Find a layer: show only the layers whose names have these letters">
+    <span class="fbox"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg><input id="findlayer" type="search" placeholder="Find a layer" aria-label="Find a layer: show only the layers whose names have these letters"></span>
     <button id="addnote" title="A note on the ruler at the playhead, as * adds. Double-click a note to name it, drag it to move it, Ctrl-click it to remove it.">Note</button>
     <span class="tools">
       <button id="newlayer" aria-haspopup="menu"
@@ -2989,6 +3042,13 @@ function drawProject() {
   if (!doc) { $('pinfo').replaceChildren(); $('pmiss').hidden = true; $('pother').replaceChildren(); return; }
   const comps = doc.project.compositions || [];
   const assets = doc.project.assets || [];
+  {
+    const on = composition(), at = comps.indexOf(on);
+    $('cutname').textContent = on ? on.name : '';
+    $('topstatus').replaceChildren(...(on ? [statusChip(on)] : []));
+    $('prevcut').disabled = at <= 0;
+    $('nextcut').disabled = at < 0 || at >= comps.length - 1;
+  }
   const layersWord = (n) => n + (n === 1 ? ' layer' : ' layers');
   // The line about the chosen item: the drawings last clicked, or else the composition on screen.
   const asset = projShown === 'asset' && assets.find((a) => a.id === selectedAsset);
@@ -4343,13 +4403,14 @@ function drawLayers() {
     solo.setAttribute('aria-pressed', String(soloed));
     const swatch = Object.assign(document.createElement('span'),
       { className: 'swatch', title: 'Label: ' + LABEL_NAMES[layer.label || 0] });
-    swatch.style.background = LABELS[layer.label || 0] || 'transparent';
     // W-26: After Effects' shy switch. A shy layer is left off this list while Hide shy is on;
     // the picture still draws it.
     const shy = icon(iconButton('', (layer.shy ? 'Not shy: ' : 'Shy: ') + layer.name,
       () => command('/layer.toggle_shy?layer=' + encodeURIComponent(layer.id))), 'shy', !!layer.shy);
     shy.setAttribute('aria-pressed', String(!!layer.shy));
     const li = row(selectedLayer, layer.id, layer.name, []);
+    li.classList.add('lab');
+    li.style.setProperty('--lab', LABELS[labelOf(layer)]);
     // W-26 fix: every chosen row lights up, not only the last one clicked, so a Shift-click range
     // and Ctrl-clicks can be seen.
     li.setAttribute('aria-selected', String(selection.includes(layer.id)));
@@ -4402,7 +4463,7 @@ function drawLayers() {
     const blend = document.createElement('select');
     blend.className = 'blend';
     blend.setAttribute('aria-label', 'Blend mode for ' + layer.name);
-    blend.append(...BLENDS.map((mode) => new Option(mode, mode)));
+    blend.append(...BLENDS.map((mode) => new Option(mode[0].toUpperCase() + mode.slice(1), mode)));
     blend.value = layer.blend_mode;
     blend.classList.toggle('set', blend.selectedIndex > 0);
     blend.onclick = (e) => e.stopPropagation();
@@ -4656,12 +4717,25 @@ function itemLabelMenu(e, id) {
     labelSwatches((n) => command('/item.set_label?item=' + encodeURIComponent(id) + '&label=' + n)));
 }
 function labelDot(x) {
-  const dot = Object.assign(document.createElement('span'), { className: 'ldot', title: 'Label: ' + LABEL_NAMES[x.label] });
-  dot.style.background = LABELS[x.label];
+  const n = labelOf(x);
+  const dot = Object.assign(document.createElement('span'), { className: 'ldot', title: 'Label: ' + LABEL_NAMES[n] + (x.label ? '' : ', by its kind') });
+  dot.style.background = LABELS[n];
   return dot;
 }
 // Before a name in the Project panel, when the item has a label.
-const withDot = (x, name) => { if (x.label) name.prepend(labelDot(x)); return name; };
+const withDot = (x, name) => { name.prepend(labelDot(x)); return name; };
+// W-47: the Sandbox gives every row a colour. A layer with no label of its own shows its
+// drawings', sound's or composition's label, and failing that the one its kind is given here, from
+// the same eight. Only the screen does this: the file still says 0 until a label is chosen.
+const KIND_LABEL = { composition: 5, raster: 3, audio: 7, adjustment: 4, solid: 1, shape: 2, null: 6, text: 8 };
+function labelOf(x) {
+  if (x.label) return x.label;
+  if (x.layers) return KIND_LABEL.composition;
+  if (x.in_frame === undefined) return x.kind === 'audio' || x.kind === 'lut' ? KIND_LABEL.audio : KIND_LABEL.raster;
+  const from = (x.asset_id && (doc.project.assets || []).find((a) => a.id === x.asset_id))
+    || (x.composition_id && (doc.project.compositions || []).find((c) => c.id === x.composition_id));
+  return (from && from.label) || KIND_LABEL[x.kind] || KIND_LABEL.raster;
+}
 
 // D-253: where a cut has got to. A word a later build writes is shown as it is.
 const STATUSES = [['not_started', 'Not started'], ['in_progress', 'In progress'], ['check', 'Check'], ['retake', 'Retake'], ['done', 'Done']];
@@ -8171,7 +8245,7 @@ function drawInspector() {
     field(dl, 'Blend', '');
     const blend = document.createElement('select');
     blend.setAttribute('aria-label', 'Blend mode for ' + layer.name);
-    blend.append(...BLENDS.map((mode) => new Option(mode, mode)));
+    blend.append(...BLENDS.map((mode) => new Option(mode[0].toUpperCase() + mode.slice(1), mode)));
     blend.value = layer.blend_mode;
     blend.onchange = () => blendLayers(blend.value);
     dl.lastChild.append(blend);
@@ -12801,7 +12875,7 @@ function drawSketch() {
   const th = sk.turn * Math.PI / 180;
   const across = comp.width * Math.abs(Math.cos(th)) + comp.height * Math.abs(Math.sin(th));
   const down = comp.width * Math.abs(Math.sin(th)) + comp.height * Math.abs(Math.cos(th));
-  const scale = Math.max(0.01, Math.min(desk.clientWidth / across, desk.clientHeight / down));
+  const scale = Math.max(0.01, 0.9 * Math.min(desk.clientWidth / across, desk.clientHeight / down));
   const pic = $('skpic');
   pic.style.width = comp.width * scale + 'px';
   pic.style.height = comp.height * scale + 'px';
@@ -12834,7 +12908,8 @@ function drawSketch() {
   const here = chosen ? chosen.strokes.filter((k) => skOn(chosen, k, frame)).length : 0;
   $('skcount').textContent = here + (here === 1 ? ' stroke' : ' strokes') + ' on ' + name
     + (chosen && chosen.whole_cut ? ', shown on every frame' : ' at frame ' + frame);
-  $('skangle').textContent = sk.turn ? sk.turn + '°' : '';
+  $('skangle').textContent = sk.turn + '°';
+  $('skangle').classList.toggle('on', !!sk.turn);
   for (const b of document.querySelectorAll('#sketch [data-sktool]')) b.setAttribute('aria-pressed', String(b.dataset.sktool === sk.tool));
   for (const b of document.querySelectorAll('#sketch [data-sksize]')) b.setAttribute('aria-pressed', String(+b.dataset.sksize === sk.size));
   for (const b of document.querySelectorAll('#sketch [data-skcolour]')) b.setAttribute('aria-pressed', String(b.dataset.skcolour === sk.colour));
@@ -13090,6 +13165,15 @@ $('sheetcolumn').onclick = toggleSheetColumn;
 $('sheetclose').onclick = toggleSheetColumn;
 // A form opened in a panel behind another, as the Project panel is in Animate, is brought into view.
 function toFront(id) { if ($(id).hidden) movePanel(id, $(id).parentElement.id); }
+// W-47: each panel's name is its own box, so the tab's orange line can sit over the name alone.
+for (const tab of document.querySelectorAll('.panel > .tab')) {
+  const name = tab.firstChild;
+  if (name && name.nodeType === Node.TEXT_NODE && name.textContent.trim()) {
+    const box = Object.assign(document.createElement('span'), { className: 'tl' });
+    name.replaceWith(box);
+    box.append(name);
+  }
+}
 const panelHandle = (target) => target instanceof Element
   && target.closest('.stack button, .place > .panel > .tab');
 const handlePanel = (handle) => handle.dataset.panel || handle.parentElement.id;
@@ -14285,8 +14369,22 @@ $('renderadd').onclick = () => $('addtoqueue').click();
 $('renderstop').onclick = () => $('cancelexport').click();
 $('anyway').addEventListener('change', drawRender);
 // The task in the top bar opens the Render workspace from anywhere, as the Sandbox's does.
+// W-47: a sentence cut short on the one-line strip has its whole text as its tooltip.
+{
+  const whole = () => { for (const x of $('bar').querySelectorAll(':scope > span, :scope > ul')) x.title = x.innerText; };
+  new MutationObserver(whole).observe($('bar'), { subtree: true, childList: true, characterData: true });
+  whole();
+}
 document.querySelector('#menubar .chip.exporting').title = 'The render. Click to open the Render workspace';
 document.querySelector('#menubar .chip.exporting').onclick = (e) => { if (!e.target.closest('button')) useWorkspace('Render'); };
+// W-47: the top bar's arrows either side of the cut open the composition before or after it.
+for (const [id, by] of [['prevcut', -1], ['nextcut', 1]]) {
+  $(id).onclick = () => {
+    const comps = (doc && doc.project.compositions) || [];
+    const next = comps[comps.indexOf(composition()) + by];
+    if (next) openComp(next.id);
+  };
+}
 $('recent').onchange = (e) => {
   const chosen = e.target.value;
   e.target.selectedIndex = 0;
