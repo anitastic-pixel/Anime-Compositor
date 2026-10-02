@@ -36,6 +36,7 @@ And the function itself. It needs a running application to be called, so what is
 | `/presets-builtin` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/presets-export` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/presets-import` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
+| `/ready` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/recent` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/recover` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/save` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
@@ -62,4 +63,4 @@ And the function itself. It needs a running application to be called, so what is
 | what an export asked for with `missing=` does with a missing drawing | Block | Block | pass |
 | what an export asked for with `no query at all` does with a missing drawing | Block | Block | pass |
 
-**41 of 41 checks pass.**
+**42 of 42 checks pass.**

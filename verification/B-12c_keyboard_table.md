@@ -128,6 +128,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `property.separate` can be asked for without a mouse | yes | yes | pass |
 | `property.set_base` can be asked for without a mouse | yes | yes | pass |
 | `property.set_expression` can be asked for without a mouse | yes | yes | pass |
+| `ready` can be asked for without a mouse | yes | yes | pass |
 | `recent` can be asked for without a mouse | yes | yes | pass |
 | `recover` can be asked for without a mouse | yes | yes | pass |
 | `save` can be asked for without a mouse | yes | yes | pass |
@@ -185,4 +186,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**155 of 155 checks pass.**
+**156 of 156 checks pass.**

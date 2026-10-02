@@ -1399,6 +1399,19 @@ impl FrameCache {
     pub fn held_bytes(&self) -> usize {
         self.held
     }
+
+    /// W-40c (D-249): the frames kept for a sight, in order, without looking at the disk: the
+    /// timeline's green line.
+    pub fn kept(&self, sight: &Sight) -> Vec<i32> {
+        let mut frames: Vec<i32> = self
+            .sights
+            .iter()
+            .filter(|(k, _)| k == sight)
+            .flat_map(|(_, frames)| frames.iter().map(|(n, _, _)| *n))
+            .collect();
+        frames.sort_unstable();
+        frames
+    }
 }
 
 #[cfg(test)]

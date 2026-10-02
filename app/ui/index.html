@@ -396,6 +396,10 @@
   /* W-24: the work area, a band along the top of the ruler whose two ends are pulled, and the
      markers, a small pennant each on the frame they are on with their name beside it. */
   #ruler .work { position: absolute; top: 0; height: 6px; background: #6f86b8; z-index: 1; }
+  /* W-40c (D-249): the frames in memory, a green line under the work area, and their count. */
+  #ruler .ready { position: absolute; top: 7px; height: 3px; background: #4fbf6a; pointer-events: none; }
+  #ready { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #8fd6a0; cursor: default; }
+  #ready i { width: 10px; height: 3px; background: #4fbf6a; border-radius: 1px; }
   #ruler .work .end { position: absolute; top: 0; width: 8px; height: 36px; cursor: col-resize; }
   #ruler .work .end::after {
     content: ''; position: absolute; left: 3px; top: 0; width: 2px; height: 10px; background: #b9c9ee;
@@ -1371,7 +1375,7 @@
     <div class="ctabs"><span id="comptabs"></span><span id="holds"></span></div>
     <span class="seg"><button id="tabsheet" aria-pressed="true">Timeline</button><button id="tabboth" aria-pressed="false"
       title="The rows and the graph together, the graph under the rows on the same frames">Both</button><button id="tabgraph" aria-pressed="false">Graph</button></span>
-    <span class="now"><span id="nowframe">0</span><small id="nowtime"></small></span>
+    <span class="now"><span id="nowframe">0</span><small id="nowtime"></small><span id="ready" hidden><i></i><span id="readycount"></span></span></span>
     <input id="findlayer" type="search" placeholder="Find a layer" aria-label="Find a layer: show only the layers whose names have these letters">
     <button id="addnote" title="A note on the ruler at the playhead, as * adds. Double-click a note to name it, drag it to move it, Ctrl-click it to remove it.">Note</button>
     <span class="tools">
@@ -1711,6 +1715,7 @@ async function show(url, keep = true) {
     const differs = h.get('x-differs') === 'true';
     drawnAt = differs ? 'draft' : 'full';
     askForBoxes();
+    askReady();
 
     // The indicator describes the render that just arrived, because it came back with it.
     const label = $('quality');
@@ -2383,6 +2388,7 @@ function drawRuler() {
         { className: 'markname', textContent: m.name, style: 'left:' + mark.style.left }));
     }
   }
+  drawReady();
   const whole = Math.max(1, comp.duration_frames);
   const range = Math.log(Math.max(1, whole / MIN_VIEW));
   $('timezoom').value = range ? Math.round(Math.log(whole / viewOf(comp).len) / range * 100) : 0;
@@ -2396,6 +2402,47 @@ function drawRuler() {
   bar.value = v.from - comp.start_frame;
   bar.style.setProperty('--thumb', Math.max(16, bar.clientWidth * v.len / whole) + 'px');
 }
+// W-40c (D-249): the frames the window's memory holds for what is on screen, which play at full
+// speed: a green line under the work area, and a count of them in the work area beside the time.
+// Asked at most four times a second as frames arrive, the last ask always made.
+let ready = { frames: [], held: 0, setting: 0 };
+let readyAsked = 0, readyLater = null;
+function askReady() {
+  const wait = readyAsked + 250 - performance.now();
+  if (wait > 0) {
+    readyLater ??= setTimeout(() => { readyLater = null; askReady(); }, wait);
+    return;
+  }
+  readyAsked = performance.now();
+  fetch(FRAMES + '/ready').then((r) => r.json()).then((said) => { ready = said; drawReady(); });
+}
+function drawReady() {
+  const comp = composition();
+  const ruler = $('ruler');
+  ruler.querySelectorAll('.ready').forEach((line) => line.remove());
+  $('ready').hidden = !comp;
+  if (!comp) return;
+  const view = viewOf(comp);
+  const runs = [];
+  for (const f of ready.frames) {
+    const last = runs[runs.length - 1];
+    if (last && last[1] === f - 1) last[1] = f; else runs.push([f, f]);
+  }
+  for (const [a, b] of runs) {
+    const from = Math.max(a, view.from), past = Math.min(b + 1, view.from + view.len);
+    if (past <= from) continue;
+    ruler.append(Object.assign(document.createElement('div'), { className: 'ready', style:
+      'left:' + percent(atFrame(comp, from)) + ';width:' + percent(atFrame(comp, past) - atFrame(comp, from)) }));
+  }
+  const [first, past] = workOf(comp);
+  const n = ready.frames.filter((f) => f >= first && f < past).length;
+  $('readycount').textContent = n + ' of ' + (past - first) + ' ready';
+  const mb = Math.round(ready.held / 1e6), gb = Math.round(ready.setting / 1e9);
+  $('ready').title = 'Green line: frames already in memory, they play at full speed · ' + n + ' of the '
+    + (past - first) + ' work-area frames · about ' + mb + ' MB of the ' + gb + ' GB memory setting'
+    + ' · an edit clears the line, undo brings it back';
+}
+
 $('timescroll').oninput = () => {
   const comp = composition();
   if (!comp || !timeView) return;

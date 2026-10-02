@@ -369,16 +369,26 @@ fn sheet(viewer: &Mutex<Viewer>) -> Response<Vec<u8>> {
         .expect("build the sheet response")
 }
 
-/// W-40c (D-249, proposed): `/ready`, which frames of the composition on screen the frame memory
+/// W-40c (D-249): `/ready`, which frames of the composition on screen the frame memory
 /// (B-154) holds for exactly what is on screen now: the project as shown, the quality and the
 /// processor a frame asked for now would be made with. The timeline draws them as a green line.
 /// `held` is the bytes the memory holds in all, `setting` the Preferences memory setting. A
 /// question whose answer changes nothing, like `sheet`.
-// W-40c check first: not built yet, so it says nothing is ready.
-#[allow(dead_code)]
 fn ready_frames(viewer: &Mutex<Viewer>, card: Option<&Mutex<Card>>) -> serde_json::Value {
-    let _ = (viewer, card);
-    serde_json::json!({ "frames": [], "held": 0, "setting": 0 })
+    let (mut sight, ram) = {
+        let v = viewer.lock().expect("the viewer lock was poisoned");
+        let sight = Sight {
+            project: shown(&v),
+            composition: v.composition.clone(),
+            root: v.root.clone(),
+            quality: v.quality,
+            card: None,
+        };
+        (sight, Arc::clone(&v.ram))
+    };
+    sight.card = card.and_then(|c| drawn_by(Some(&*c.lock().expect("the card lock was poisoned"))));
+    let ram = ram.lock().expect("the frame memory lock was poisoned");
+    serde_json::json!({ "frames": ram.frames.kept(&sight), "held": ram.frames.held_bytes(), "setting": ram_ceiling() })
 }
 
 /// D-84d: `/sheet/print?seconds=&colour=`, the Sheet as paper for the system's print dialog.
@@ -10244,6 +10254,14 @@ fn main() {
             // B-45: `/place?p=`, where the viewer's picture and what is under it lie in the window.
             if request.uri().path().trim_matches('/') == "place" {
                 return place(ctx.app_handle(), request.uri().query());
+            }
+            // W-40c (D-249): `/ready`, the frames the green line under the ruler marks.
+            if request.uri().path().trim_matches('/') == "ready" {
+                let card = ctx.app_handle().state::<Mutex<Card>>();
+                return allow_the_page_to_read_this(Response::builder())
+                    .header("content-type", "application/json; charset=utf-8")
+                    .body(ready_frames(&viewer, Some(&card)).to_string().into_bytes())
+                    .expect("build the ready response");
             }
             // D-84d: `/sheet/print`, the same grid as a page to print.
             if request.uri().path().trim_matches('/') == "sheet/print" {
@@ -24281,6 +24299,8 @@ mod contract {
         "presets-builtin",
         "presets-export",
         "presets-import",
+        // W-40c (D-249): the frames the memory holds, for the green line under the ruler.
+        "ready",
         "recent",
         "recover",
         "save",
@@ -24477,10 +24497,10 @@ mod contract {
         // checked is that the shell has an arm of that name. `frame` and `state` are not in
         // that match: one is the other scheme, one is answered before it.
         for route in &routes {
-            // `frame`, `at`, `play`, `boxes` and `curve` belong to the other scheme and are served
-            // beside `fn frame`, not by the command shell, so there is no arm of that name to
-            // look for.
-            if matches!(route.as_str(), "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound") {
+            // `frame`, `at`, `play`, `boxes`, `curve`, `sheet`, `sound` and `ready` belong to the
+            // other scheme and are served beside `fn frame`, not by the command shell, so there is
+            // no arm of that name to look for.
+            if matches!(route.as_str(), "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "ready") {
                 continue;
             }
             let arm = format!("\"{route}\"");
@@ -26682,7 +26702,7 @@ mod contract {
         };
         let shell: Vec<String> = ROUTES
             .iter()
-            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "place"))
+            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "place" | "ready"))
             .map(|route| route.to_string())
             .collect();
         report.check(
@@ -29268,7 +29288,7 @@ mod ram_preview {
     }
 }
 
-/// W-40c (D-249, proposed): `/ready`, the frames the green line under the ruler marks. Asked
+/// W-40c (D-249): `/ready`, the frames the green line under the ruler marks. Asked
 /// after frames are made through `serve_logged`, the function every frame on screen comes from,
 /// and after the render-ahead fills the loop. A frame is ready only for the project, quality and
 /// processor it was made with.
