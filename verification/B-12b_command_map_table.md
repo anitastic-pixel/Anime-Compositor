@@ -130,16 +130,16 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | `export.sequence` is reached by | a route the shell answers | a route the shell answers | pass |
 | `app.command_palette` is reached by | the page, with no request | the page, with no request | pass |
 | `app.effects_console` is reached by | the page, with no request | the page, with no request | pass |
-| document 24 gives `project.new` the shortcut | Ctrl+N | Ctrl+N | pass |
-| and Ctrl+N is bound | yes | yes | pass |
+| document 24 gives `project.new` the shortcut | Ctrl+Alt+N | Ctrl+Alt+N | pass |
+| and Ctrl+Alt+N is bound | yes | yes | pass |
 | document 24 gives `project.open` the shortcut | Ctrl+O | Ctrl+O | pass |
 | and Ctrl+O is bound | yes | yes | pass |
 | document 24 gives `project.save` the shortcut | Ctrl+S | Ctrl+S | pass |
 | and Ctrl+S is bound | yes | yes | pass |
 | document 24 gives `project.save_as` the shortcut | Ctrl+Shift+S | Ctrl+Shift+S | pass |
 | and Ctrl+Shift+S is bound | yes | yes | pass |
-| document 24 gives `composition.create` the shortcut | Ctrl+Shift+N | Ctrl+Shift+N | pass |
-| and Ctrl+Shift+N is bound | yes | yes | pass |
+| document 24 gives `composition.create` the shortcut | Ctrl+N | Ctrl+N | pass |
+| and Ctrl+N is bound | yes | yes | pass |
 | document 24 gives `edit.undo` the shortcut | Ctrl+Z | Ctrl+Z | pass |
 | and Ctrl+Z is bound | yes | yes | pass |
 | document 24 gives `edit.redo` the shortcut | Ctrl+Shift+Z | Ctrl+Shift+Z | pass |
@@ -216,7 +216,7 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and G for the pen, Q for the rectangle and the ellipse is bound | yes | yes | pass |
 | and Ctrl+M presses | $('export') | $('export') | pass |
 | and Ctrl+I presses | $('import') | $('import') | pass |
-| and Ctrl+Shift+N presses | $('newcomp') | $('newcomp') | pass |
+| and Ctrl+N presses | $('newcomp') | $('newcomp') | pass |
 | and Ctrl+Alt+L presses | $('addlayer') | $('addlayer') | pass |
 | and Ctrl+Alt+Y presses | $('addadjust') | $('addadjust') | pass |
 | and Ctrl+Alt+Shift+Y presses | $('addnull') | $('addnull') | pass |

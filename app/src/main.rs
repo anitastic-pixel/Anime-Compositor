@@ -14947,9 +14947,10 @@ mod editing {
          anyone who deliberately leaves an empty composition ready to work in and expects to \
          find it. Fixing it properly means adding a field to the project format, which is a \
          schema change and the owner's decision.\n\n**`project.new` came later.** W-24 built it on Ctrl+N, the shortcut document 24 \
-         promised it, and Ctrl+Shift+N stays the new composition.\n\n**The page.** Every \
+         promised it then, and Ctrl+Shift+N was the new composition. W-39 (D-248) moved them to \
+         After Effects' keys: Ctrl+N is the new composition and Ctrl+Alt+N the new project.\n\n**The page.** Every \
          row calls the same function the window's URL scheme calls. That the New composition \
-         button and its five fields send it, and that Ctrl+Shift+N reaches the button, are in \
+         button and its five fields send it, and that Ctrl+N reaches the button, are in \
          `verification/B-12b_page_table.md`, `verification/B-12c_keyboard_table.md` and the \
          photograph beside this table.",
     ];
@@ -24708,14 +24709,14 @@ mod contract {
     /// Only the identifiers document 24 gives a G1 shortcut appear here. `none` in that column
     /// is not a gap and is not listed.
     const SHORTCUTS: &[(&str, &str, &str)] = &[
-        ("project.new", "Ctrl+N", "e.preventDefault(); newProject();"),
+        ("project.new", "Ctrl+Alt+N", "e.preventDefault(); newProject();"),
         ("project.open", "Ctrl+O", "e.ctrlKey && (e.key === 'o'"),
         ("project.save", "Ctrl+S", "e.ctrlKey && (e.key === 's'"),
         ("project.save_as", "Ctrl+Shift+S", "e.shiftKey ? '/save-as'"),
         (
             "composition.create",
-            "Ctrl+Shift+N",
-            "e.shiftKey && (e.key === 'n'",
+            "Ctrl+N",
+            "!e.shiftKey && (e.key === 'n'",
         ),
         ("edit.undo", "Ctrl+Z", "e.key === 'z'"),
         ("edit.redo", "Ctrl+Shift+Z", "e.shiftKey ? $('redo')"),
@@ -24788,7 +24789,7 @@ mod contract {
     const PRESSES: &[(&str, &str, &str)] = &[
         ("Ctrl+M", "e.key === 'm'", "$('export')"),
         ("Ctrl+I", "e.key === 'i'", "$('import')"),
-        ("Ctrl+Shift+N", "e.key === 'n'", "$('newcomp')"),
+        ("Ctrl+N", "e.key === 'n'", "$('newcomp')"),
         ("Ctrl+Alt+L", "e.key === 'l'", "$('addlayer')"),
         ("Ctrl+Alt+Y", "e.key === 'y'", "$('addadjust')"),
         ("Ctrl+Alt+Shift+Y", "e.shiftKey && (e.key === 'Y'", "$('addnull')"),
@@ -26945,6 +26946,22 @@ mod contract {
             true,
             page.contains("const by = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1 }"),
         );
+        // W-39: a menu line or a top bar button written as data-run runs the command palette's
+        // line of that name, so a name the palette does not have would be a dead button.
+        let lost: Vec<&str> = page
+            .split("data-run=\"")
+            .skip(1)
+            .filter_map(|rest| rest.split('"').next())
+            .filter(|name| !page.contains(&format!("['{name}', ")))
+            .collect();
+        report.check(
+            "every menu line and top bar button the page runs by name is a line of the command palette",
+            "all of them are",
+            match lost.is_empty() {
+                true => "all of them are".to_string(),
+                false => lost.join(", "),
+            },
+        );
 
         report.check(
             "the keys the window answers with nothing focused are the ones written down here",
@@ -27001,7 +27018,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 81] = [
+    const CONTROLS: [&str; 83] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -27029,6 +27046,7 @@ mod contract {
         "exportformat",
         "fbswitch",
         "filmquality",
+        "findcommand",
         "fit",
         "fit100",
         "fwd",
@@ -27039,6 +27057,7 @@ mod contract {
         "graphfit",
         "graphmode",
         "graphprop",
+        "health",
         "import",
         "importcut",
         "makecomp",
@@ -27087,12 +27106,13 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 46] = [
+    const KEYS: [&str; 47] = [
         "*",
         ",",
         "-",
         ".",
         "1",
+        "2",
         "=",
         "?",
         "A",

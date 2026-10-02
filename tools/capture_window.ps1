@@ -18,7 +18,8 @@
 # waits that many milliseconds
 # afterwards, which is how the playback screenshot is taken; -Ctrl holds Control down while those
 # keys are pressed, which is how a Ctrl+S is photographed actually saving; -Shift does the same
-# with Shift, which is how Ctrl+Shift+N is photographed opening the new-composition fields; -Open
+# with Shift, which is how Ctrl+Shift+N is photographed opening the new-composition fields, and -Alt
+# with Alt, which is how Alt+2 is photographed switching to the Animate workspace; -Open
 # starts the shell on a project file, which is the same path a dropped file takes and the only one a script can
 # drive.
 #
@@ -34,6 +35,7 @@ param(
   [string]$Keys = '',
   [switch]$Ctrl,
   [switch]$Shift,
+  [switch]$Alt,
   [int]$Settle = 1500,
   [string]$Open = '',
   [double]$Scale = 0,
@@ -175,6 +177,7 @@ try {
     # a person's hand does and what a webview's keydown reports.
     if ($Ctrl) { [Win]::keybd_event(0x11, 0, 0, [UIntPtr]::Zero) }
     if ($Shift) { [Win]::keybd_event(0x10, 0, 0, [UIntPtr]::Zero) }
+    if ($Alt) { [Win]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero) }
     # A key with no printable character has no code for VkKeyScan to look up, so it is written by
     # name instead: -Keys "{RIGHT}{RIGHT}" steps two frames. Before this existed those braces went
     # through as the seven characters they are spelled with, and the picture showed a window that
@@ -201,6 +204,7 @@ try {
       [Win]::keybd_event($vk, $scan, $flags -bor 2, [UIntPtr]::Zero)
       Start-Sleep -Milliseconds 80
     }
+    if ($Alt) { [Win]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero) }
     if ($Shift) { [Win]::keybd_event(0x10, 0, 2, [UIntPtr]::Zero) }
     if ($Ctrl) { [Win]::keybd_event(0x11, 0, 2, [UIntPtr]::Zero) }
     Start-Sleep -Milliseconds $Settle

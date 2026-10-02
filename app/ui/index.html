@@ -24,21 +24,72 @@
     font: 13px/1.5 "Segoe UI", system-ui, sans-serif;
     user-select: none;
   }
-  /* The command strip. What a menu bar holds: the project it is working on, and the commands
-     that act on the whole of it rather than on one layer. */
+  /* W-39 (D-248): the top bar, the Sandbox's one row. Menus, the project, its warnings and the
+     running export, the tools, the search, the effects finder, the workspaces and Save. */
   #menubar {
-    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-    padding: 5px 8px; background: #2b2b2b; border-bottom: 1px solid #101010;
+    display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+    padding: 4px 8px 4px 4px; background: #1a1a1c; border-bottom: 1px solid #0f0f11;
     max-height: 20vh; overflow-y: auto;
-    /* It keeps whatever those twenty per cent give it. It is the smallest of the three strips
-       and the only one whose rows are all commands, so squeezing it below its own two lines to
-       find room for the panels cut a checkbox in half and bought almost nothing; the timeline
-       and the diagnostics strip below give way instead, and both scroll. */
+    /* It keeps whatever those twenty per cent give it. At 200% the one row wraps onto a second
+       rather than cutting anything; the timeline and the diagnostics strip below give way
+       instead, and both scroll. */
     flex-shrink: 0;
   }
-  #menubar .sep {
-    width: 1px; align-self: stretch; background: #4a4a4a; margin: 0 4px;
+  #menubar .sep { width: 1px; align-self: stretch; background: #3a3a40; margin: 0 6px; }
+  #menubar .grow { flex: 1; }
+  #menubar svg { flex: none; }
+  #menubar .logo { display: flex; padding: 0 6px; color: #6ea8fe; }
+  #menubar .mt, #menubar .ico, #menubar .wstabs button {
+    border: 1px solid transparent; border-radius: 4px; background: none; color: #c8c8d0;
+    padding: 2px 7px; font: inherit;
   }
+  #menubar .mt:hover, #menubar .mt[aria-expanded="true"], #menubar .ico:hover { background: #2a2a2e; }
+  #menubar .ico { display: flex; align-items: center; justify-content: center; width: 28px; height: 26px; padding: 0; }
+  #menubar .ico[aria-pressed="true"] { background: #2e3b52; border-color: #6ea8fe; color: #fff; }
+  #menubar .icons { display: flex; gap: 2px; margin-right: 6px; }
+  #project { font-weight: 600; color: #fff; white-space: nowrap; }
+  #dirty { display: none; }
+  #menubar [hidden], #menubar .chip:empty, #menubar .chip.exporting:has(#exportbar[hidden]) { display: none !important; }
+  #menubar .chip {
+    display: flex; align-items: center; gap: 6px; margin-left: 6px; padding: 1px 8px;
+    border: 1px solid #3a3a40; border-radius: 12px; background: #151517; font-size: 12px; white-space: nowrap;
+  }
+  #menubar .chip.warn { color: #ffb84d; border-color: #5a4520; }
+  #menubar .chip progress { width: 70px; }
+  #menubar .search {
+    display: flex; align-items: center; gap: 6px; width: 240px; height: 24px; margin-right: 6px;
+    padding: 0 6px; border: 1px solid #3a3a40; border-radius: 4px; background: #151517; color: #8e8e96; font: inherit;
+    font-size: 12px; text-align: left;
+  }
+  #menubar .search kbd { margin-left: auto; font: inherit; font-size: 11px; }
+  /* A narrow window keeps the bar on one row a while longer: the key is in the box's tip. */
+  @media (max-width: 1400px) { #menubar .search { width: 130px; } #menubar .search kbd { display: none; } }
+  #menubar .fx {
+    display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px;
+    border: 1px solid #2e4468; border-radius: 4px; background: #1f2737; color: #c9d6ea; font: inherit; font-size: 12px;
+  }
+  #menubar .wstabs { display: flex; gap: 2px; margin: 0 6px; padding: 2px; border: 1px solid #2a2a2e; border-radius: 6px; background: #151517; }
+  #menubar .wstabs button { color: #a0a0a8; }
+  #menubar .wstabs button[aria-pressed="true"] { background: #2e3b52; color: #fff; }
+  /* Unsaved changes are an orange dot on Save, as the Sandbox has it; the words are still in #dirty
+     for the new-project check to read. */
+  #save.unsaved::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #ff9f43; }
+  /* A menu is the strip's own controls in a column, opened from its name. */
+  .drop {
+    position: fixed; z-index: 30; display: flex; flex-direction: column; min-width: 17em;
+    padding: 4px; overflow-y: auto; border: 1px solid #45454b; border-radius: 4px; background: #26262a;
+    box-shadow: 0 8px 24px #0009;
+  }
+  .drop[hidden] { display: none; }
+  .drop > button {
+    display: flex; justify-content: space-between; gap: 24px; padding: 3px 10px; text-align: left;
+    border: 0; border-radius: 3px; background: none; color: inherit; font: inherit;
+  }
+  .drop > button:hover:not(:disabled), .drop > button:focus { background: #2f4f7f; outline: none; }
+  .drop > button[data-key]::after { content: attr(data-key); color: #909096; font-size: 11px; }
+  .drop > select, .drop > input, .drop .opts > * { margin: 3px 10px; }
+  .drop .opts { display: flex; flex-direction: column; align-items: flex-start; }
+  .drop hr { width: 100%; margin: 4px 0; border: 0; border-top: 1px solid #3a3a40; }
   /* Document 24's G1 default layout: "media bin left, composition viewer center,
      inspector/effects right, timeline bottom, status/diagnostics strip". The three columns are
      one row, the timeline is under them and the strip is under that.
@@ -938,46 +989,167 @@
 </head>
 <body>
 <div id="menubar">
+  <!-- W-39 (D-248): the Sandbox's top bar, in one row. What the command strip held is in the menus,
+       the controls themselves rather than copies of them. A menu line written as data-run is the
+       command palette's line of that name, run the way the palette runs it, so the menus, the
+       palette and the keys cannot come to disagree. -->
+  <span class="logo"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5" fill="none" stroke="currentColor"/><path d="M4.5 2.5v11M11.5 2.5v11M1.5 6h3M1.5 10h3M11.5 6h3M11.5 10h3" stroke="currentColor"/></svg></span>
+  <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">File</button><div class="drop" role="menu" aria-label="File" hidden>
+    <button data-run="New project"></button>
+    <button id="open" data-key="Ctrl+O">Open project&hellip;</button>
+    <select id="recent"><option value="">Open recent&hellip;</option></select>
+    <select id="recovery" hidden><option value="">Recover unsaved work&hellip;</option></select>
+    <hr>
+    <button data-run="Save"></button>
+    <button id="saveas" data-key="Ctrl+Shift+S">Save As&hellip;</button>
+    <!-- D-61: After Effects' File > Collect Files and a check of what was collected. -->
+    <button id="collect" title="Copy the project and every drawing it uses into an empty folder">Collect Files&hellip;</button>
+    <button id="checkpackage" title="Compare the drawings beside this project with its package manifest">Check Package</button>
+    <hr>
+    <button data-run="Import drawings"></button>
+    <button data-run="Print the Sheet"></button>
+    <button id="sessionlogbutton" title="Where each frame's time goes, kept only while this window is open">Session log&hellip;</button>
+  </div></span>
+  <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Edit</button><div class="drop" role="menu" aria-label="Edit" hidden>
+    <button id="undo" data-key="Ctrl+Z">Undo</button>
+    <button id="redo" data-key="Ctrl+Shift+Z">Redo</button>
+    <hr>
+    <button data-run="Copy layers"></button>
+    <button data-run="Paste layers"></button>
+    <button data-run="Duplicate layers"></button>
+    <button data-run="Delete layer or keys"></button>
+    <hr>
+    <button data-run="Select all layers"></button>
+    <button data-run="Select nothing"></button>
+    <hr>
+    <button id="preferences">Preferences&hellip;</button>
+  </div></span>
+  <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Composition</button><div class="drop" role="menu" aria-label="Composition" hidden>
+    <button data-run="New composition"></button>
+    <button data-run="Composition settings"></button>
+    <button data-run="Pre-compose"></button>
+    <hr>
+    <button data-run="Duplicate the composition"></button>
+    <button data-run="Delete the composition"></button>
+    <hr>
+    <button id="export" data-key="Ctrl+M">Export&hellip;</button>
+    <div class="opts" data-stay>
+    <select id="exportformat" title="What the export is written as: a file a frame, or one animated file. Lossless: the file keeps every value it is given, so there is no quality to choose">
+      <option value="png">PNG, 8-bit, lossless</option>
+      <option value="exr-half">EXR, half float</option>
+      <option value="exr-float">EXR, full float, lossless</option>
+      <option value="apng">Animated PNG, 8-bit, lossless</option>
+      <option value="gif">GIF, a preview: 256 colours</option>
+      <option value="mp4">MP4 (H.264), over black, no sound</option>
+    </select>
+    <select id="filmquality" hidden title="How many bits the MP4 may spend. High is for flat colour, where a low number shows as blocks; Preview is a small file to send someone">
+      <option value="preview">Preview, smallest</option>
+      <option value="standard" selected>Standard</option>
+      <option value="high">High, largest</option>
+    </select>
+    <label id="ditherlabel" hidden title="Mixes dots of the 256 colours so soft shading does not fall into bands. A bigger file, and a fine grain in the picture"><input type="checkbox" id="gifdither">Dither</label>
+    <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
+    </div>
+  </div></span>
+  <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Layer</button><div class="drop" role="menu" aria-label="Layer" hidden>
+    <button data-run="Add layer"></button>
+    <button data-run="New solid"></button>
+    <button data-run="New adjustment layer"></button>
+    <button data-run="New shape layer"></button>
+    <button data-run="New null"></button>
+    <hr>
+    <button data-run="Rename layer"></button>
+    <button data-run="Split layers at the playhead"></button>
+    <button data-run="Sequence the selected layers end to end"></button>
+    <hr>
+    <button data-run="Bring layer forward"></button>
+    <button data-run="Send layer backward"></button>
+    <button data-run="Bring layer to front"></button>
+    <button data-run="Send layer to back"></button>
+    <hr>
+    <button data-run="Lock or unlock the selected layers"></button>
+    <button data-run="Hide or show the selected layers"></button>
+    <button data-run="Solo or unsolo the selected layers"></button>
+    <button data-run="Shy or not shy the selected layers"></button>
+    <hr>
+    <button data-run="Centre the selected layers"></button>
+    <button data-run="Centre the anchor in the layer"></button>
+    <button data-run="Fit the layer to the composition"></button>
+  </div></span>
+  <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Effect</button><div class="drop" role="menu" aria-label="Effect" hidden>
+    <button data-run="Find an effect or preset"></button>
+    <button data-run="Show effect controls"></button>
+    <button data-run="Paste effects"></button>
+    <hr>
+    <button data-run="Save the effects as a preset"></button>
+    <button data-run="Export presets"></button>
+    <button data-run="Import presets"></button>
+  </div></span>
+  <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Animation</button><div class="drop" role="menu" aria-label="Animation" hidden>
+    <button data-run="Easy ease"></button>
+    <button data-run="Hold keys"></button>
+    <button data-run="Key speed and influence"></button>
+    <hr>
+    <button data-run="Copy keys"></button>
+    <button data-run="Paste keys"></button>
+    <button data-run="Previous key"></button>
+    <button data-run="Next key"></button>
+    <hr>
+    <button data-run="Add a marker"></button>
+    <button data-run="Name the marker at the playhead"></button>
+    <button data-run="Remove the marker at the playhead"></button>
+    <hr>
+    <button data-run="Set the work area start"></button>
+    <button data-run="Set the work area end"></button>
+    <button data-run="Reset the work area"></button>
+    <hr>
+    <button data-run="Show animated properties"></button>
+    <button data-run="Show changed properties"></button>
+    <button data-run="Timeline or graph"></button>
+  </div></span>
+  <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">View</button><div class="drop" role="menu" aria-label="View" hidden>
+    <button data-run="Fit the picture"></button>
+    <button data-run="Picture at 100%"></button>
+    <button data-run="Zoom the picture in"></button>
+    <button data-run="Zoom the picture out"></button>
+    <hr>
+    <button data-run="Draft or full quality"></button>
+    <button data-run="Transparency grid"></button>
+    <button data-run="Alpha only"></button>
+    <hr>
+    <button data-run="Zoom the timeline in"></button>
+    <button data-run="Zoom the timeline out"></button>
+    <button data-run="Fill the window with the panel"></button>
+  </div></span>
+  <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Window</button><div class="drop" role="menu" aria-label="Window" hidden>
+    <button data-run="Compose workspace"></button>
+    <button data-run="Animate workspace"></button>
+    <!-- D-85: which panel is where, and how big the places are. Kept on this machine, not in the project. -->
+    <select id="workspace" aria-label="Workspace" title="Workspace: where each panel is. Right-click a panel's name or title bar to move it, or drag it onto another place"></select>
+    <button id="saveworkspace" data-stay title="Keep this arrangement of panels and sizes under a name">Save workspace&hellip;</button>
+    <input id="workspacename" hidden placeholder="Name it, then Enter" aria-label="The new workspace's name">
+    <button id="resetworkspace" title="Put this workspace back as it was built or saved">Reset workspace</button>
+    <hr>
+    <button data-run="Find any command"></button>
+  </div></span>
+  <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Help</button><div class="drop" role="menu" aria-label="Help" hidden>
+    <button data-run="Find any command"></button>
+    <button data-run="Error details"></button>
+  </div></span>
+  <span class="sep"></span>
   <span id="project">&mdash;</span><span id="dirty"></span>
-  <span class="sep"></span>
-  <button id="open">Open&hellip;</button>
-  <button id="save">Save</button>
-  <button id="saveas">Save As&hellip;</button>
-  <!-- D-61: After Effects' File > Collect Files and a check of what was collected. -->
-  <button id="collect" title="Copy the project and every drawing it uses into an empty folder">Collect Files&hellip;</button>
-  <button id="checkpackage" title="Compare the drawings beside this project with its package manifest">Check Package</button>
-  <select id="recent"><option value="">Recent&hellip;</option></select>
-  <select id="recovery" hidden><option value="">Recover unsaved work&hellip;</option></select>
-  <button id="preferences">Preferences&hellip;</button>
-  <button id="sessionlogbutton" title="Where each frame's time goes, kept only while this window is open">Session log&hellip;</button>
-  <span class="sep"></span>
-  <!-- D-85: which panel is where, and how big the places are. Kept on this machine, not in the project. -->
-  <select id="workspace" aria-label="Workspace" title="Workspace: where each panel is. Right-click a panel's name or title bar to move it, or drag it onto another place"></select>
-  <button id="saveworkspace" title="Keep this arrangement of panels and sizes under a name">Save workspace&hellip;</button>
-  <input id="workspacename" hidden placeholder="Name it, then Enter" aria-label="The new workspace's name">
-  <button id="resetworkspace" title="Put this workspace back as it was built or saved">Reset workspace</button>
-  <span class="sep"></span>
-  <button id="undo">Undo</button>
-  <button id="redo">Redo</button>
-  <span class="sep"></span>
-  <button id="export">Export&hellip;</button>
-  <select id="exportformat" title="What the export is written as: a file a frame, or one animated file. Lossless: the file keeps every value it is given, so there is no quality to choose">
-    <option value="png">PNG, 8-bit, lossless</option>
-    <option value="exr-half">EXR, half float</option>
-    <option value="exr-float">EXR, full float, lossless</option>
-    <option value="apng">Animated PNG, 8-bit, lossless</option>
-    <option value="gif">GIF, a preview: 256 colours</option>
-    <option value="mp4">MP4 (H.264), over black, no sound</option>
-  </select>
-  <select id="filmquality" hidden title="How many bits the MP4 may spend. High is for flat colour, where a low number shows as blocks; Preview is a small file to send someone">
-    <option value="preview">Preview, smallest</option>
-    <option value="standard" selected>Standard</option>
-    <option value="high">High, largest</option>
-  </select>
-  <label id="ditherlabel" hidden title="Mixes dots of the 256 colours so soft shading does not fall into bands. A bigger file, and a fine grain in the picture"><input type="checkbox" id="gifdither">Dither</label>
-  <button id="cancelexport" hidden>Cancel export</button>
-  <progress id="exportbar" hidden></progress><span id="exportleft"></span>
-  <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
+  <button id="health" class="chip warn" hidden title="Warnings in this project: open the error details"></button>
+  <span class="chip exporting"><progress id="exportbar" hidden></progress><span id="exportleft"></span><button id="cancelexport" hidden>Cancel export</button></span>
+  <span class="grow"></span>
+  <span class="icons">
+    <button class="ico" data-run="Selection tool" data-tool="select" aria-pressed="true" aria-label="Selection tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 1.5v12l3-3 2 4.5 2-1-2-4.3h4.2z" fill="currentColor"/></svg></button>
+    <button class="ico" data-run="Pen tool" data-tool="pen" aria-pressed="false" aria-label="Pen tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 14l2.2-6.5L11 1l4 4-6.5 6.8z" fill="none" stroke="currentColor" stroke-linejoin="round"/><circle cx="6.6" cy="9.4" r="1.1" fill="currentColor"/></svg></button>
+    <button class="ico" data-run="Shape tool" data-tool="rectangle ellipse" aria-pressed="false" aria-label="Shape tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="1.5" y="5.5" width="8" height="8" fill="none" stroke="currentColor"/><circle cx="10.5" cy="5.5" r="4" fill="none" stroke="currentColor"/></svg></button>
+  </span>
+  <button id="findcommand" class="search" title="Find any command (Ctrl+Shift+P)"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor"/><path d="M10 10l4.5 4.5" stroke="currentColor" stroke-width="1.5"/></svg>Search <kbd>Ctrl+Shift+P</kbd></button>
+  <button class="fx" data-run="Find an effect or preset"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 14L10 6M11 1.5v3M9.5 3h3M14 5.5v2M13 6.5h2" stroke="currentColor" stroke-linecap="round"/></svg>Effects</button>
+  <span class="wstabs"><button data-run="Compose workspace" data-workspace="Compose">Compose</button><button data-run="Animate workspace" data-workspace="Animate">Animate</button></span>
+  <button id="save" data-key="Ctrl+S">Save</button>
 </div>
 <div id="work">
   <div class="place" id="left"><nav class="stack" hidden></nav>
@@ -1254,7 +1426,7 @@
   <ul id="notes"></ul>
   <button id="notedetails" type="button" aria-expanded="false" hidden>Error details</button>
   <ul id="notecodes" hidden></ul>
-  <span class="hint" id="keys">space, arrows, D, Alt+G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Shift+N, Ctrl+I, Ctrl+M &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click keys or an empty place on the timeline for speed, ease, hold, copy, paste here and more, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file, or drawings, here</span>
+  <span class="hint" id="keys">space, arrows, D, Alt+G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N new composition, Ctrl+Alt+N new project, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+I, Ctrl+M &middot; Alt+1 and Alt+2 the workspaces &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click keys or an empty place on the timeline for speed, ease, hold, copy, paste here and more, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file, or drawings, here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -1537,6 +1709,8 @@ async function show(url, keep = true) {
     // Document 26's dirty state, as the core answers it. A dot, because it has to be visible
     // without being read.
     $('dirty').textContent = h.get('x-dirty') === 'true' ? ' • unsaved' : '';
+    // W-39: the top bar shows it as an orange dot on Save.
+    $('save').classList.toggle('unsaved', h.get('x-dirty') === 'true');
     $('status').textContent = brief(decodeURIComponent(h.get('x-status') || ''));
     $('autosaved').textContent = decodeURIComponent(h.get('x-autosaved') || '');
     // The export writes on a thread in Rust and says nothing until asked, so while one is
@@ -1585,6 +1759,9 @@ async function show(url, keep = true) {
     $('notecodes').replaceChildren(...lines.map((line) => Object.assign(document.createElement('li'),
       { textContent: line.split('\t')[1] || line })));
     $('notedetails').hidden = !lines.length;
+    // W-39: the top bar's warning chip, a count that opens the same error details.
+    $('health').hidden = !lines.length;
+    $('health').textContent = '⚠ ' + lines.length;
     if (!lines.length) $('notecodes').hidden = true;
   } catch (e) {
     $('report').textContent = 'the frame did not arrive: ' + e;
@@ -3377,14 +3554,15 @@ function soloLayers() {
   });
 }
 
-// W-24: document 24's Ctrl+N. Unsaved work is asked about by a second press within three seconds
-// rather than a dialog, and is still in its recovery snapshot either way.
+// W-24: document 24's `project.new`, on Ctrl+Alt+N since D-248. Unsaved work is asked about by a
+// second press within three seconds rather than a dialog, and is still in its recovery snapshot
+// either way.
 let newAsked = 0;
 function newProject() {
   if ($('dirty').textContent && performance.now() - newAsked > 3000) {
     newAsked = performance.now();
-    $('status').textContent = 'This project has unsaved changes. Press Ctrl+N again within three '
-      + 'seconds for a new project anyway, or Ctrl+S to save first.';
+    $('status').textContent = 'This project has unsaved changes. Choose New project (Ctrl+Alt+N) again '
+      + 'within three seconds for a new project anyway, or Ctrl+S to save first.';
     return;
   }
   newAsked = 0;
@@ -3394,14 +3572,14 @@ function newProject() {
 // W-24: document 24's command palette, Ctrl+Shift+P. Each line presses the key it names on the
 // window, so a line and its shortcut cannot come to disagree; the few with no key call what the
 // menus call. Typed words narrow the list, the arrows move through it, Enter runs, Escape closes.
-function palette() {
-  if (document.querySelector('.palette')) return;
-  const entries = [
-    ['New project', 'Ctrl+N', { key: 'n', ctrlKey: true }],
+// W-39: the top bar's menus run these same lines by name (`runLine`).
+function paletteLines() {
+  return [
+    ['New project', 'Ctrl+Alt+N', { key: 'n', code: 'KeyN', ctrlKey: true, altKey: true }],
     ['Open project', 'Ctrl+O', { key: 'o', ctrlKey: true }],
     ['Save', 'Ctrl+S', { key: 's', ctrlKey: true }],
     ['Save as', 'Ctrl+Shift+S', { key: 'S', ctrlKey: true, shiftKey: true }],
-    ['New composition', 'Ctrl+Shift+N', { key: 'N', ctrlKey: true, shiftKey: true }],
+    ['New composition', 'Ctrl+N', { key: 'n', ctrlKey: true }],
     ['Import drawings', 'Ctrl+I', { key: 'i', ctrlKey: true }],
     ['Export PNG sequence', 'Ctrl+M', { key: 'm', ctrlKey: true }],
     ['Print the Sheet', 'Ctrl+P', { key: 'p', ctrlKey: true }],
@@ -3489,9 +3667,28 @@ function palette() {
     ['Delete the composition', '', () => doc && command('/composition.delete?composition=' + encodeURIComponent(doc.composition))],
     ['Preferences', '', () => $('preferences').click()],
     ['Session log', '', () => $('sessionlogbutton').click()],
+    // W-39: the top bar's tools and workspaces, and the palette itself for the Help menu.
+    ['Selection tool', 'V', { key: 'v' }],
+    ['Pen tool', 'G', { key: 'g' }],
+    ['Shape tool', 'Q', { key: 'q' }],
+    ['Compose workspace', 'Alt+1', { key: '1', code: 'Digit1', altKey: true }],
+    ['Animate workspace', 'Alt+2', { key: '2', code: 'Digit2', altKey: true }],
+    ['Find any command', 'Ctrl+Shift+P', { key: 'P', code: 'KeyP', ctrlKey: true, shiftKey: true }],
     ...PROPS.map((prop) => ['Reset ' + prop, '', () => resetProp(prop)]),
     ...BLENDS.map((mode) => ['Blend mode ' + mode, '', () => blendLayers(mode)]),
   ];
+}
+function runAct(act) {
+  if (typeof act === 'function') act();
+  else dispatchEvent(new KeyboardEvent('keydown', { cancelable: true, ...act }));
+}
+function runLine(label) {
+  const line = paletteLines().find(([name]) => name === label);
+  if (line) runAct(line[2]);
+}
+function palette() {
+  if (document.querySelector('.palette')) return;
+  const entries = paletteLines();
   const box = document.createElement('div');
   box.className = 'menu palette';
   box.setAttribute('role', 'dialog');
@@ -3507,11 +3704,7 @@ function palette() {
   let at = 0;
   const away = (p) => { if (!box.contains(p.target)) close(); };
   const close = () => { box.remove(); removeEventListener('pointerdown', away, true); };
-  const run = ([, , act]) => {
-    close();
-    if (typeof act === 'function') act();
-    else dispatchEvent(new KeyboardEvent('keydown', { cancelable: true, ...act }));
-  };
+  const run = ([, , act]) => { close(); runAct(act); };
   const draw = () => {
     const words = input.value.toLowerCase().split(/\s+/).filter(Boolean);
     matches = entries.filter(([label, key]) => words.every((w) => (label + ' ' + key).toLowerCase().includes(w)));
@@ -4688,6 +4881,9 @@ function useTool(which) {
   view.style.cursor = which === 'pen' ? PEN_CURSOR : which === 'select' ? '' : 'crosshair';
   stage.style.cursor = which === 'pen' ? PEN_CURSOR : '';
   if (which !== 'pen') penNib.style.display = 'none';
+  for (const icon of document.querySelectorAll('[data-tool]')) {
+    icon.setAttribute('aria-pressed', String(icon.dataset.tool.split(' ').includes(which)));
+  }
   const shapes = drawsShapes(selected());
   $('status').textContent = which === 'select' ? 'The selection tool.'
     : which === 'pen' ? (shapes
@@ -10599,18 +10795,20 @@ function maximise() {
 const PANELS = { bin: 'Project', fxbrowser: 'Effects', viewer: 'Composition', inspector: 'Effect controls', timeline: 'Timeline', sheetpanel: 'Sheet' };
 const PLACES = { left: 'the left', leftlow: 'the lower left', centre: 'the centre', right: 'the right', bottom: 'the bottom' };
 const BUILT_IN = {
-  Standard: { places: { left: ['bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline', 'sheetpanel'] }, sizes: {} },
-  Timing: { places: { left: ['sheetpanel', 'bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'] }, sizes: { '--bin': 320 } },
+  Compose: { places: { left: ['bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline', 'sheetpanel'] }, sizes: {} },
+  Animate: { places: { left: ['sheetpanel', 'bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'] }, sizes: { '--bin': 320 } },
 };
 let savedWorkspaces = {};
 try { savedWorkspaces = JSON.parse(localStorage.getItem('workspaces') || '{}') || {}; } catch (e) { savedWorkspaces = {}; }
 let workspace = null;
 try { workspace = JSON.parse(localStorage.getItem('workspace')); } catch (e) { workspace = null; }
+// W-39 (D-248): Standard and Timing were renamed Compose and Animate, the Sandbox's names.
+if (workspace && ({ Standard: 1, Timing: 1 })[workspace.name]) workspace.name = workspace.name === 'Standard' ? 'Compose' : 'Animate';
 if (!workspace || !(BUILT_IN[workspace.name] || savedWorkspaces[workspace.name])) {
-  workspace = { name: 'Standard', places: BUILT_IN.Standard.places };
+  workspace = { name: 'Compose', places: BUILT_IN.Compose.places };
 }
 // Every panel once: one listed twice keeps its first place, and one missing, as a panel added
-// since the workspace was saved would be, goes where Standard has it.
+// since the workspace was saved would be, goes where Compose has it.
 function settle(places) {
   const out = { left: [], leftlow: [], centre: [], right: [], bottom: [] };
   const seen = new Set();
@@ -10619,7 +10817,7 @@ function settle(places) {
       if (PANELS[id] && !seen.has(id)) { seen.add(id); out[place].push(id); }
     }
   }
-  for (const [place, ids] of Object.entries(BUILT_IN.Standard.places)) {
+  for (const [place, ids] of Object.entries(BUILT_IN.Compose.places)) {
     for (const id of ids) if (!seen.has(id)) out[place].push(id);
   }
   return out;
@@ -10656,7 +10854,7 @@ function movePanel(id, place) {
   workspace.places[place].unshift(id);
   arrange();
 }
-// A form opened in a panel behind another, as the Project panel is in Timing, is brought into view.
+// A form opened in a panel behind another, as the Project panel is in Animate, is brought into view.
 function toFront(id) { if ($(id).hidden) movePanel(id, $(id).parentElement.id); }
 const panelHandle = (target) => target instanceof Element
   && target.closest('.stack button, .place > .panel > .tab');
@@ -10707,6 +10905,9 @@ function fillWorkspaces() {
   for (const name of [...Object.keys(BUILT_IN), ...Object.keys(savedWorkspaces)]) {
     box.add(new Option('Workspace: ' + name, name, false, name === workspace.name));
   }
+  for (const tab of document.querySelectorAll('[data-workspace]')) {
+    tab.setAttribute('aria-pressed', String(tab.dataset.workspace === workspace.name));
+  }
 }
 // Lays a workspace out as it was built or saved, sizes and all.
 function useWorkspace(name) {
@@ -10734,7 +10935,7 @@ $('workspacename').onkeydown = (e) => {
   const name = box.value.trim();
   if (e.key === 'Escape') { box.hidden = true; return; }
   if (e.key !== 'Enter' || !name) return;
-  // A built-in workspace cannot be saved over, so Standard can always be had back.
+  // A built-in workspace cannot be saved over, so Compose can always be had back.
   if (BUILT_IN[name]) {
     $('status').textContent = name + ' is built in and cannot be saved over. Give this one another name.';
     return;
@@ -11392,6 +11593,85 @@ $('save').onclick = () => command('/save');
 $('saveas').onclick = () => command('/save-as');
 $('collect').onclick = () => command('/collect');
 $('checkpackage').onclick = () => command('/check-package');
+
+// W-39 (D-248): the top bar. A data-run line is the command palette's line of that name: it
+// takes the palette's key, and a name the palette has lost shows as missing rather than as a
+// button that does nothing.
+for (const button of document.querySelectorAll('[data-run]')) {
+  const line = paletteLines().find(([name]) => name === button.dataset.run);
+  if (!button.firstChild) button.textContent = line ? line[0] : button.dataset.run + ' (missing)';
+  if (!line) { button.disabled = true; continue; }
+  if (line[1]) button.dataset.key = line[1];
+  if (!button.closest('.drop')) button.title = line[0] + (line[1] ? ' (' + line[1] + ')' : '');
+}
+let openTitle = null;
+function closeDrop(focusTitle) {
+  if (!openTitle) return;
+  openTitle.nextElementSibling.hidden = true;
+  openTitle.setAttribute('aria-expanded', 'false');
+  if (focusTitle) openTitle.focus();
+  openTitle = null;
+}
+function openMenu(title, focusFirst) {
+  closeDrop(false);
+  const drop = title.nextElementSibling;
+  const at = title.getBoundingClientRect();
+  drop.hidden = false;
+  drop.style.maxHeight = (innerHeight - at.bottom - 8) + 'px';
+  drop.style.top = at.bottom + 'px';
+  drop.style.left = Math.max(0, Math.min(at.left, innerWidth - drop.offsetWidth)) + 'px';
+  title.setAttribute('aria-expanded', 'true');
+  openTitle = title;
+  if (focusFirst) drop.querySelector('button:not([disabled]), select, input')?.focus();
+}
+const dropItems = () => [...openTitle.nextElementSibling.querySelectorAll('button, select, input')]
+  .filter((el) => !el.disabled && !el.hidden && el.offsetParent);
+$('menubar').addEventListener('click', (e) => {
+  const title = e.target.closest('.mt');
+  if (title) return openTitle === title ? closeDrop(false) : openMenu(title, e.detail === 0);
+  const line = e.target.closest('[data-run]');
+  if (line) { closeDrop(false); return runLine(line.dataset.run); }
+  if (e.target.closest('.drop button') && !e.target.closest('[data-stay]')) closeDrop(false);
+});
+$('menubar').addEventListener('change', (e) => {
+  if (e.target.closest('.drop') && !e.target.closest('[data-stay]')) closeDrop(false);
+});
+$('menubar').addEventListener('pointerover', (e) => {
+  const title = e.target.closest('.mt');
+  if (openTitle && title && title !== openTitle) openMenu(title, false);
+});
+addEventListener('pointerdown', (e) => {
+  if (openTitle && !(e.target instanceof Element && e.target.closest('.mi'))) closeDrop(false);
+}, true);
+$('menubar').addEventListener('keydown', (k) => {
+  if (!openTitle) {
+    if (k.key === 'ArrowDown' && k.target.classList.contains('mt')) {
+      k.preventDefault();
+      k.stopPropagation();
+      openMenu(k.target, true);
+    }
+    return;
+  }
+  const titles = [...document.querySelectorAll('#menubar .mt')];
+  const inField = k.target.matches('select, input');
+  if (k.key === 'Escape') closeDrop(true);
+  else if ((k.key === 'ArrowDown' || k.key === 'ArrowUp') && !inField) {
+    const items = dropItems();
+    const at = items.indexOf(k.target);
+    const next = at < 0 ? (k.key === 'ArrowDown' ? 0 : items.length - 1)
+      : (at + (k.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length;
+    items[next]?.focus();
+  }
+  else if ((k.key === 'ArrowLeft' || k.key === 'ArrowRight') && !k.target.matches('input')) {
+    const at = titles.indexOf(openTitle);
+    openMenu(titles[(at + (k.key === 'ArrowRight' ? 1 : titles.length - 1)) % titles.length], true);
+  }
+  else return;
+  k.preventDefault();
+  k.stopPropagation();
+});
+$('findcommand').onclick = palette;
+$('health').onclick = () => $('notedetails').click();
 // The checkbox travels with the command rather than being remembered anywhere: document 07's
 // default is that a missing drawing blocks the export, and an override has to be a thing the
 // person did this time, in front of the words that say what it does.
@@ -11514,13 +11794,10 @@ addEventListener('keydown', (e) => {
     e.preventDefault();
     $('import').click();
   }
-  // Document 24 gives Ctrl+N to `project.new` and B-12d gave Ctrl+Shift+N to `composition.create`
-  // beside it, so the two stay apart. W-24 built the new project.
-  else if (e.ctrlKey && e.shiftKey && (e.key === 'n' || e.key === 'N')) {
-    e.preventDefault();
-    $('newcomp').click();
-  }
-  else if (e.ctrlKey && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); newProject(); }
+  // D-248 (W-39): After Effects' keys. Ctrl+N is a new composition and Ctrl+Alt+N a new project,
+  // which W-24 built; Ctrl+Shift+N, B-12d's old key for the composition, is no longer bound.
+  else if (e.ctrlKey && e.altKey && e.code === 'KeyN') { e.preventDefault(); newProject(); }
+  else if (e.ctrlKey && !e.shiftKey && (e.key === 'n' || e.key === 'N')) { e.preventDefault(); $('newcomp').click(); }
   // W-24: document 24's command palette. By the key's place, as Shift changes the letter.
   else if (e.ctrlKey && e.shiftKey && e.code === 'KeyP') { e.preventDefault(); palette(); }
   // W-30: Video Copilot's FX Console key, a search for an effect or preset.
@@ -11636,6 +11913,9 @@ addEventListener('keydown', (e) => {
     });
   }
   else if (e.ctrlKey) { /* leave every other accelerator alone */ }
+  // W-39 (D-248): the workspaces by number, as the top bar's tabs show them.
+  else if (e.altKey && e.key === '1') { e.preventDefault(); useWorkspace('Compose'); }
+  else if (e.altKey && e.key === '2') { e.preventDefault(); useWorkspace('Animate'); }
   // W-22: Shift+F3 swaps the timeline and the graph, as After Effects' does.
   else if (e.shiftKey && e.key === 'F3') { e.preventDefault(); showSheet(graphing ? 'sheet' : 'graph'); }
   else if (e.altKey && e.shiftKey && ['KeyA', 'KeyP', 'KeyS', 'KeyR', 'KeyT'].includes(e.code)) {
