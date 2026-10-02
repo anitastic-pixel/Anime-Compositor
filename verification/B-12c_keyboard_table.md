@@ -145,6 +145,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `sheet.write_action` can be asked for without a mouse | yes | yes | pass |
 | `solid.set` can be asked for without a mouse | yes | yes | pass |
 | `sound` can be asked for without a mouse | yes | yes | pass |
+| `thumb` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_markers` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_work_end` can be asked for without a mouse | yes | yes | pass |
 | `timeline.set_work_start` can be asked for without a mouse | yes | yes | pass |
@@ -188,4 +189,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**158 of 158 checks pass.**
+**159 of 159 checks pass.**

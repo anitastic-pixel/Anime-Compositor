@@ -268,6 +268,8 @@ D-253 and D-254, cut status and item labels. A cut's status is `sheet_details.st
 
 D-257, files gone, with no new command ID. The window's own route `/files-gone` changes nothing. It lists every file the project names that is not on the disk now, each with its footage item. The page asks every 5 seconds and on window focus. The top bar's health chip adds "N files gone" to its warning count, and a click lists each one with Relink… (`media.relink?asset=`), then Error details. With no gone files it opens Error details as before.
 
+D-260, the Project panel's small pictures, with no new command ID. The window's own route `/thumb?item=&frame=` changes nothing. For a composition it gives the frame asked for, and for footage (still or drawings) its first drawing. Each side is a whole number of times smaller, at most 160 pixels across. Each block is averaged in linear light, premultiplied, and sent as 8-bit sRGB RGBA with `x-width` and `x-height`, as frames are. It is drawn on a copy of the project, outside the viewer's lock. Sound, lookup files and unknown items are refused with a 404 and a sentence. The page keeps each picture until the item changes, or, for the composition on screen, until the playhead rests on another frame.
+
 ## Focus and selection
 
 One primary selection context exists at a time: media, layer, property/keyframe or effect. Viewer selection and timeline selection must resolve to the same layer ID. Deleting uses the focused context and must show the target clearly before destructive commands.

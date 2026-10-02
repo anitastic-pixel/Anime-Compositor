@@ -2943,11 +2943,6 @@ struct PendingRelink {
     candidate: persist::RelinkCandidate,
 }
 
-/// The size of the drawings an asset points at now, or `None` when they cannot be read.
-///
-/// Relinking is what a person does when the media has gone, so the usual case is that there is
-/// nothing to compare against. Saying that is the point: an unanswerable comparison presented as
-/// "unchanged" would be a lie in the one place W-02 asks for the truth.
 /// D-257: every file the project names that is not on the disk now, with the footage item to
 /// relink. Changes nothing. A file replaced under the same name is not gone.
 fn files_gone(viewer: &Mutex<Viewer>) -> serde_json::Value {
@@ -2968,6 +2963,51 @@ fn files_gone(viewer: &Mutex<Viewer>) -> serde_json::Value {
         .collect()
 }
 
+/// D-260: a small picture of a composition's `frame`, or of a footage item's first drawing, each
+/// side a whole number of times smaller so it is at most 160 pixels across. Every block of pixels
+/// is averaged in linear light, premultiplied, then made 8-bit sRGB as frames are. Drawn on a
+/// copy, outside the lock, so the viewer is not held and nothing changes. Sound and lookup files
+/// have no picture and are refused.
+fn thumbnail(viewer: &Mutex<Viewer>, item: &Id, frame: i32) -> Result<(usize, usize, Vec<u8>), String> {
+    let (project, root) = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        (held.document.project().clone(), held.root.clone())
+    };
+    let full = if project.composition(item).is_some() {
+        anime_compositor::compose::render_frame(&project, item, frame, &root, DEFAULT_TILE_SIZE, &mut FrameLog::new(0))
+            .map_err(|d| d.to_string())?
+    } else {
+        let asset = project.assets.iter().find(|a| &a.id == item).ok_or_else(|| format!("no item {}", item.as_str()))?;
+        if !matches!(asset.kind, AssetKind::Still | AssetKind::ImageSequence) {
+            return Err(format!("{} has no picture", asset.name));
+        }
+        let first = asset.files().first().map(|f| root.join(f)).ok_or_else(|| format!("{} has no files", asset.name))?;
+        media::decode(&first).map_err(|d| d.to_string())?.into_working()
+    };
+    let by = full.width().max(full.height()).div_ceil(160).max(1);
+    let (w, h) = ((full.width() / by).max(1), (full.height() / by).max(1));
+    let mut small = anime_compositor::WorkingBuffer::transparent(w, h);
+    let (source, stride) = (full.data(), full.width());
+    for (i, out) in small.data_mut().chunks_mut(4).enumerate() {
+        let (x, y) = (i % w, i / w);
+        for c in 0..4 {
+            let mut sum = 0.0f32;
+            for dy in 0..by.min(full.height()) {
+                for dx in 0..by.min(full.width()) {
+                    sum += source[((y * by + dy) * stride + x * by + dx) * 4 + c];
+                }
+            }
+            out[c] = sum / (by.min(full.height()) * by.min(full.width())) as f32;
+        }
+    }
+    Ok((w, h, small.to_srgb8_straight()))
+}
+
+/// The size of the drawings an asset points at now, or `None` when they cannot be read.
+///
+/// Relinking is what a person does when the media has gone, so the usual case is that there is
+/// nothing to compare against. Saying that is the point: an unanswerable comparison presented as
+/// "unchanged" would be a lie in the one place W-02 asks for the truth.
 fn size_now(root: &Path, asset: &Asset) -> Option<(usize, usize)> {
     asset
         .frames
@@ -10002,6 +10042,23 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             .body(files_gone(&viewer).to_string().into_bytes())
             .expect("build the files gone response");
     }
+    // D-260: the Project panel's small pictures, `?item=` and, for a composition, `&frame=`.
+    if path == "thumb" {
+        let item = Id::new(parameter(query, "item").unwrap_or_default());
+        let frame = parameter(query, "frame").and_then(|f| f.parse().ok()).unwrap_or(0);
+        return match thumbnail(&viewer, &item, frame) {
+            Ok((width, height, pixels)) => allow_the_page_to_read_this(Response::builder())
+                .header("content-type", "application/octet-stream")
+                .header("x-width", width.to_string())
+                .header("x-height", height.to_string())
+                .body(pixels)
+                .expect("build the thumbnail response"),
+            Err(why) => allow_the_page_to_read_this(Response::builder().status(404))
+                .header("content-type", "text/plain; charset=utf-8")
+                .body(why.into_bytes())
+                .expect("build the thumbnail refusal"),
+        };
+    }
     // An import with no files named is the button in the media bin, and what it needs is the
     // operating system's file dialog, which belongs to the app handle and not to the viewer.
     // Answered before `edit_command`, which would otherwise refuse it for naming no files.
@@ -10161,7 +10218,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
                       /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
-                      /files-gone, /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
+                      /files-gone, /thumb, /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -24374,6 +24431,8 @@ mod contract {
         // D-71: the sixth on the frame scheme, one sound file's bytes for the page's decoder.
         "sound",
         "state",
+        // D-260: the Project panel's small pictures.
+        "thumb",
     ];
 
     /// A control, the identifier it must send, and the text in the page that says it does.

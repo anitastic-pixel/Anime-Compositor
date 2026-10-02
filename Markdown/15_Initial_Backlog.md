@@ -700,6 +700,8 @@ D-253 / Cut status and D-254 / Item labels: accepted on 2026-10-02. Check first:
 
 D-257 / Files gone in the health chip: accepted on 2026-10-02. Check first: `d257_a_deleted_drawing_is_named_and_a_restored_one_is_not` in `app/src/main.rs` (50ab823). On a copied reference shot, a deleted drawing is named and a restored one is not, and asking changes nothing. No command ID, fixture or exported picture changes; `/files-gone` is added to the window's routes. Evidence is in `verification/D-257_files_gone.md`.
 
+D-260 / Small pictures in the Project panel: accepted on 2026-10-02. Check first: `d260_a_small_picture_is_its_full_picture_shrunk` in `app/src/main.rs` (b6df33c). A drawing's small picture and a composition's frame 10 are each their full picture shrunk a twelfth each way, every byte the same. An unknown item is refused, and asking changes nothing. No command ID, fixture or exported picture changes; `/thumb` is added to the window's routes. Evidence is in `verification/D-260_thumbnails.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

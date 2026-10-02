@@ -1288,6 +1288,8 @@
   .ptile.drawings { background: #f3efe6; color: #3b3440; }
   .ptile.sound { background: #18202c; color: #6ea8fe; }
   .ptile.other { background: #26262a; color: #c8c8cc; }
+  .ptile.pic { background: #000 conic-gradient(#2a2a2e 25%, #1e1e22 0 50%, #2a2a2e 0 75%, #1e1e22 0) 0 0 / 8px 8px; overflow: hidden; }
+  .ptile.pic canvas { grid-area: 1 / 1; width: 100%; height: 100%; object-fit: contain; }
   .pdim { color: #8e8e96; }
   .pmissing { color: #ff8a80; }
   #phead, #bin ul.rows li, #pother .tw {
@@ -2382,6 +2384,9 @@ async function show(url, keep = true) {
     // W-39: the top bar's warning chip, a count that opens the same error details.
     noteCount = lines.length;
     drawHealth();
+    // D-260: the small picture of the composition on screen follows the playhead once it rests.
+    clearTimeout(thumbRest);
+    if (!playing) thumbRest = setTimeout(drawProject, 400);
     if (!lines.length) $('notecodes').hidden = true;
   } catch (e) {
     $('report').textContent = 'the frame did not arrive: ' + e;
@@ -2745,10 +2750,35 @@ const compUses = (id) => (doc.project.compositions || [])
   .reduce((n, c) => n + (c.layers || []).filter((l) => l.kind === 'composition' && l.composition_id === id).length, 0);
 const missingWords = (list) => list.length === 1 ? 'drawing ' + list[0] + ' is missing'
   : 'drawings ' + list.slice(0, 4).join(', ') + (list.length > 4 ? ' and ' + (list.length - 4) + ' more' : '') + ' are missing';
+// D-260: each drawing's first picture and each composition's frame (the playhead's for the one on
+// screen, frame 0 for the rest), asked once and kept until the item or that frame changes. The
+// symbol shows until the picture comes, and stays for sound, lookup files and refusals.
+const thumbs = new Map();
+let thumbRest = 0;
 function projTile(item, isComp) {
   const [cls, glyph] = isComp ? ['comp', '▦'] : item.kind === 'audio' ? ['sound', '♪']
     : item.kind === 'image_sequence' || item.kind === 'still' ? ['drawings', '✎'] : ['other', '◑'];
-  return Object.assign(document.createElement('span'), { className: 'ptile ' + cls, textContent: glyph });
+  const tile = Object.assign(document.createElement('span'), { className: 'ptile ' + cls, textContent: glyph });
+  if (cls !== 'comp' && cls !== 'drawings') return tile;
+  const at = isComp && item.id === doc.composition ? frame : 0;
+  const stamp = JSON.stringify(item) + '@' + at;
+  let had = thumbs.get(item.id);
+  // While playing, the composition on screen keeps the picture it has rather than asking every frame.
+  if (!had || (had.stamp !== stamp && !(playing && isComp))) {
+    had = { stamp, got: fetch(PROJECT + '/thumb?item=' + encodeURIComponent(item.id) + '&frame=' + at)
+      .then(async (r) => r.ok ? new ImageData(new Uint8ClampedArray(await r.arrayBuffer()), +r.headers.get('x-width'), +r.headers.get('x-height')) : null)
+      .catch(() => null) };
+    thumbs.set(item.id, had);
+  }
+  const symbol = tile.firstChild;
+  had.got.then((picture) => {
+    if (!picture) return;
+    const c = Object.assign(document.createElement('canvas'), { width: picture.width, height: picture.height });
+    c.getContext('2d').putImageData(picture, 0, 0);
+    symbol.replaceWith(c);
+    tile.classList.add('pic');
+  });
+  return tile;
 }
 function drawProject() {
   const view = ({ list: 1, pics: 1, tree: 1, cut: 1 })[prefs.projView] ? prefs.projView : 'list';
