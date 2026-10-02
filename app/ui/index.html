@@ -87,6 +87,7 @@
   }
   .drop > button:hover:not(:disabled), .drop > button:focus { background: #2f4f7f; outline: none; }
   .drop > button[data-key]::after { content: attr(data-key); color: #909096; font-size: 11px; }
+  .drop > button.on { color: #e8b06a; } /* D-259: the quality in use */
   .drop > select, .drop > input, .drop .opts > * { margin: 3px 10px; }
   .drop .opts { display: flex; flex-direction: column; align-items: flex-start; }
   .drop hr { width: 100%; margin: 4px 0; border: 0; border-top: 1px solid #3a3a40; }
@@ -1584,6 +1585,7 @@
     <button data-run="Zoom the picture out"></button>
     <hr>
     <button data-run="Draft or full quality"></button>
+    <button data-run="Half quality"></button>
     <button data-run="Transparency grid"></button>
     <button data-run="Alpha only"></button>
     <hr>
@@ -1765,6 +1767,7 @@
       <span class="gs"></span>
       <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false" id="qualitymenu"><span id="quality">&mdash;</span>&#9662;</button><div class="drop" role="menu" aria-label="Picture quality" hidden>
         <button id="toggle" data-key="D">Full resolution</button>
+        <button id="halfq" title="Half the size each way: sharper than Draft, quicker than Full, not final pixels">Half resolution</button>
         <div class="opts" data-stay><label title="At Full: Draft while you drag or scrub, then the Full picture a fifth of a second after you stop"><input type="checkbox" id="refine" checked> Refine when idle</label></div>
       </div></span>
       <span id="refining" hidden title="This is a Draft stand-in; the Full picture replaces it when you stop">sharpening&hellip;</span>
@@ -2247,7 +2250,7 @@ async function show(url, keep = true) {
     // it: a shot playing at twenty-four frames a second wants no outline and should pay for
     // none, and `askForBoxes` is what decides that.
     const differs = h.get('x-differs') === 'true';
-    drawnAt = differs ? 'draft' : 'full';
+    drawnAt = (h.get('x-quality') || (differs ? 'Draft' : 'Full')).toLowerCase(); // D-259: draft, half or full
     askForBoxes();
     askReady();
 
@@ -2261,7 +2264,7 @@ async function show(url, keep = true) {
     label.textContent = h.get('x-quality') + (differs ? ', not final' : '');
     $('qualitymenu').title = h.get('x-quality') + ' — ' + width + '×' + height
       + (differs ? ', not final pixels' : ', same as export') + ', drawn on ' + drawnOn
-      + '. Click for Full or Draft and Refine when idle';
+      + '. Click for Full, Half or Draft and Refine when idle';
     $('cpunote').hidden = drawnOn !== 'CPU, not GPU';
     // B-44: the choice's tooltip names the card, or why there is none. The label above says
     // which of the two drew this frame.
@@ -2275,6 +2278,7 @@ async function show(url, keep = true) {
     if (!rough) quality = drawnAt;
     $('toggle').textContent = quality === 'draft' ? 'Full resolution' : 'Draft resolution';
     $('refine').disabled = quality !== 'full';
+    $('halfq').classList.toggle('on', quality === 'half');
     $('refining').hidden = !rough;
     clearTimeout(settling);
     if (rough) settling = setTimeout(sharpen, Math.max(0, stirred + SETTLE_MS - performance.now()));
@@ -4539,6 +4543,7 @@ function paletteLines() {
     ['Zoom the picture in', '.', { key: '.' }],
     ['Zoom the picture out', ',', { key: ',' }],
     ['Draft or full quality', 'D', { key: 'd' }],
+    ['Half quality', '', () => $('halfq').click()],
     ['Preview on the CPU or the graphics card', '', () => $('gpu').focus()],
     ['Transparency grid', 'Alt+G', { key: 'g', altKey: true }],
     ['Alpha only', 'Alt+A', { key: 'a', altKey: true }],
@@ -11727,6 +11732,11 @@ $('back').onclick = () => step(-1);
 $('fwd').onclick = () => step(1);
 $('toggle').onclick = () => {
   quality = quality === 'draft' ? 'full' : 'draft';
+  show(FRAMES + '/frame/' + frame + '?q=' + quality);
+};
+// D-259: Half, between the two. D and the button above leave it for Draft or Full.
+$('halfq').onclick = () => {
+  quality = 'half';
   show(FRAMES + '/frame/' + frame + '?q=' + quality);
 };
 // B-163: the window's, kept with the preferences, and on unless it has been unticked.

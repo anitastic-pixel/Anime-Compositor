@@ -52,6 +52,8 @@ pub enum PreviewQuality {
     /// A quarter of the composition on each axis. Fast enough to scrub, and not final pixels.
     #[default]
     Draft,
+    /// D-259: half the composition on each axis, between the two. Not final pixels either.
+    Half,
     /// The composition's own extent. Identical to what an export of the same frame produces.
     Full,
 }
@@ -62,6 +64,7 @@ impl PreviewQuality {
     pub fn label(self) -> &'static str {
         match self {
             PreviewQuality::Draft => "Draft",
+            PreviewQuality::Half => "Half",
             PreviewQuality::Full => "Full",
         }
     }
@@ -79,6 +82,7 @@ impl PreviewQuality {
     pub fn divisor(self) -> usize {
         match self {
             PreviewQuality::Draft => DRAFT_DIVISOR,
+            PreviewQuality::Half => 2,
             PreviewQuality::Full => 1,
         }
     }
@@ -245,7 +249,7 @@ pub fn preview_part(
 /// through the renderer identically.
 fn tiles_for(quality: PreviewQuality, tile_size: usize) -> usize {
     match quality {
-        PreviewQuality::Full => tile_size,
+        PreviewQuality::Full | PreviewQuality::Half => tile_size,
         PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
     }
 }

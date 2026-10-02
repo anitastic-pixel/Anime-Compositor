@@ -197,7 +197,7 @@ fn parse(path: &str, query: Option<&str>) -> Option<(Ask, Option<PreviewQuality>
     Some((ask, quality_asked(query)))
 }
 
-/// The `?q=draft|full` half of a frame request, shared by `/frame`, `/at` and `/boxes`.
+/// The `?q=draft|half|full` half of a frame request, shared by `/frame`, `/at` and `/boxes`.
 ///
 /// `None` means "leave it as it is": a typo in a query string should not silently switch the
 /// preview to a resolution nobody asked for, and a selection outline asking for the wrong one
@@ -207,6 +207,7 @@ fn quality_asked(query: Option<&str>) -> Option<PreviewQuality> {
         .and_then(|q| q.split('&').find_map(|pair| pair.strip_prefix("q=")))
         .and_then(|value| match value {
             "draft" => Some(PreviewQuality::Draft),
+            "half" => Some(PreviewQuality::Half),
             "full" => Some(PreviewQuality::Full),
             _ => None,
         })
@@ -27055,7 +27056,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 102] = [
+    const CONTROLS: [&str; 103] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -27099,6 +27100,7 @@ mod contract {
         "graphmode",
         "gridbtn",
         "guidebtn",
+        "halfq",
         "health",
         "import",
         "importcut",

@@ -32,7 +32,7 @@ const BEFORE: [(PreviewQuality, i32, &str); 4] = [
 ];
 
 /// Half's frame 10, recorded from the first build with Half.
-const HALF_10: &str = "recorded on the first build with Half";
+const HALF_10: &str = "1888530bc056fd7456c2302f1842539f954e48b0788ec33056d90ba4458a3df8";
 
 fn repo(rel: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel)

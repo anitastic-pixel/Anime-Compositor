@@ -1229,7 +1229,7 @@ fn resolve_held(
                     }
                 };
                 let tile = match quality {
-                    PreviewQuality::Full => DEFAULT_TILE_SIZE,
+                    PreviewQuality::Full | PreviewQuality::Half => DEFAULT_TILE_SIZE,
                     PreviewQuality::Draft => DRAFT_TILE_SIZE,
                 };
                 Some((std::sync::Arc::new(render::render(&plan, tile)), quiet))
@@ -1509,7 +1509,14 @@ fn resolve_rest(
     // D-191: each layer setting's map, made at the size the effects run at. An adjustment
     // layer's are made where its stack runs, on the frame.
     if !layer.is_adjustment() {
-        let quality = if pre == 1.0 { PreviewQuality::Full } else { PreviewQuality::Draft };
+        // D-259: `pre` is one over the divisor, so it names the quality it came from.
+        let quality = if pre == 1.0 {
+            PreviewQuality::Full
+        } else if pre == 0.5 {
+            PreviewQuality::Half
+        } else {
+            PreviewQuality::Draft
+        };
         fill_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_echoes(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
     }
