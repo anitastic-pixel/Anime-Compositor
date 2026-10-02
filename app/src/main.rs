@@ -4675,6 +4675,7 @@ const ANSWERS: &[&str] = &[
     "exposure.set_span",
     "exposure.toggle_key",
     "exposure.write",
+    "item.set_label",
     "keyframe.add_remove",
     "keyframe.move",
     "keyframe.set_interp",
@@ -5014,6 +5015,16 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 },
             ));
         }
+        // D-254: a composition's or a footage item's label, from the Project panel's right-click.
+        "item.set_label" => {
+            let Some(item) = parameter(query, "item") else {
+                return Some("Which item? Right-click it in the Project panel.".to_string());
+            };
+            let Some(label) = parameter(query, "label").and_then(|n| n.parse::<u8>().ok()) else {
+                return Some("Which colour? Send a label from 0, none, to 8.".to_string());
+            };
+            return Some(edit(viewer, Command::SetItemLabel { item: Id::new(&item), label }));
+        }
         // W-01 step 3, which had no command until B-12d. Answered here rather than below
         // because everything below reads the composition on screen first, and this is the one
         // command whose whole purpose is that there may not be one worth working in yet.
@@ -5102,10 +5113,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             ));
         }
         "composition.set_settings" => {
-            let comp = {
+            // D-253: By cut sets a status on any cut, so it may name one; otherwise the one on screen.
+            let (comp, on_screen) = {
                 let held = viewer.lock().expect("the viewer lock was poisoned");
-                match held.document.project().composition(&held.composition) {
-                    Some(comp) => comp.clone(),
+                let wanted = parameter(query, "composition").map(|c| Id::new(&c)).unwrap_or(held.composition.clone());
+                match held.document.project().composition(&wanted) {
+                    Some(comp) => (comp.clone(), wanted == held.composition),
                     None => {
                         return Some("There is no composition on screen to change.".to_string())
                     }
@@ -5143,6 +5156,16 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     }
                 },
             };
+            // D-253: one of the five, or what the composition says now.
+            let status = match parameter(query, "status") {
+                None => comp.sheet_details.status.clone(),
+                Some(s) if anime_compositor::model::CUT_STATUSES.contains(&s.as_str()) => s,
+                Some(s) => {
+                    return Some(format!(
+                        "\"{s}\" is not a cut status. Send not_started, in_progress, check, retake or done."
+                    ))
+                }
+            };
             let said = edit(
                 viewer,
                 Command::SetCompositionSettings {
@@ -5158,11 +5181,14 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         scene: parameter(query, "scene").unwrap_or(comp.sheet_details.scene),
                         cut: parameter(query, "cut").unwrap_or(comp.sheet_details.cut),
                         animator: parameter(query, "animator").unwrap_or(comp.sheet_details.animator),
+                        status,
                     },
                 },
             );
             // The clock is rebuilt from the new rate and length, as opening the composition does.
-            show(viewer, &comp.id);
+            if on_screen {
+                show(viewer, &comp.id);
+            }
             return Some(said);
         }
         // D-58's camera. One command for three properties, as document 24 has it: the
@@ -24203,6 +24229,7 @@ mod contract {
         "exposure.set_span",
         "exposure.toggle_key",
         "exposure.write",
+        "item.set_label",
         "keyframe.add_remove",
         "keyframe.move",
         "keyframe.set_interp",
@@ -24628,6 +24655,8 @@ mod contract {
         ("media.relink", "a command the window answers"),
         // D-61, B-15c: the tick on a drawing, and File > Collect Files and Check Package.
         ("asset.set_redistribute", "a command the window answers"),
+        // D-253 and D-254, accepted on 2026-10-02.
+        ("item.set_label", "a command the window answers"),
         ("project.collect", "a route the shell answers"),
         ("package.check", "a route the shell answers"),
         ("layer.create", "a command the window answers"),

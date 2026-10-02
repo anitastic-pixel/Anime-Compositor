@@ -696,6 +696,8 @@ D-255 / The region box: accepted on 2026-10-02. Page only. No command ID, fixtur
 
 D-259 / Half: accepted on 2026-10-02. Check first: `tests/d259_half.rs` (f9cbfab). Full and Draft are byte for byte as before, Half's frame 10 is recorded as `verification/D-259_half_frame_10.png`, and Half is measured quicker than Full on the CPU. No command ID, fixture or exported picture changes; `halfq` added to the wired controls. Evidence is in `verification/D-259_half.md`.
 
+D-253 / Cut status and D-254 / Item labels: accepted on 2026-10-02. Check first: `tests/d253_d254_roundtrip.rs` (ecae666). A status and both labels read back after save and open, and a later build's values are kept. All 2297 fixture projects save byte for byte as on e395d8b, because a status and labels are written only when set. New command ID `item.set_label`; no fixture changes. Evidence is in `verification/D-253_D-254_cut_status_and_labels.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

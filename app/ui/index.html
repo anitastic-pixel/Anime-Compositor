@@ -1356,6 +1356,21 @@
   #pother .cutc .ctx > .pdim { display: block; text-overflow: ellipsis; }
   #pother .cutc .ctx .sum { margin-left: auto; }
   #pother p.hint { margin: 8px; color: #8e8e96; font-size: 11px; line-height: 1.45; }
+  /* D-254: an item's label colour, before its name. */
+  .ldot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 1px; flex: none; }
+  /* D-253: a cut's status. In By cut it sits over the card's right end, outside the card's button. */
+  .cstatus {
+    flex: none; font-size: 10.5px; line-height: 15px; padding: 0 7px; border-radius: 8px; white-space: nowrap;
+    border: 1px solid #3a3a40; background: #26262a; color: #c8c8cc; text-transform: none; letter-spacing: 0;
+  }
+  .cstatus.st-in_progress { background: #1d2a40; border-color: #4a6ea8; color: #a9c4f5; }
+  .cstatus.st-check { background: #3a2e18; border-color: #b8893e; color: #f0c987; }
+  .cstatus.st-retake { background: #3a1e1c; border-color: #c8554f; color: #ffb3ad; }
+  .cstatus.st-done { background: #1c3324; border-color: #5f9e6e; color: #a8dcb4; }
+  #pother .cutrow { position: relative; }
+  #pother .cutrow .cutc { padding-right: 96px; }
+  #pother .cutrow > .cstatus { position: absolute; right: 16px; top: 9px; }
+  #pinfo .cstatus { margin-left: auto; }
   #relinking { border: 1px solid #e8b06a; border-radius: 4px; padding: 6px; margin-top: 6px; }
   #newcomposition { border: 1px solid #7a8ba0; border-radius: 4px; padding: 6px; margin-top: 6px; }
   /* Five fields and two buttons in a column 220 pixels wide. Label beside field rather than
@@ -2674,6 +2689,8 @@ function drawComps() {
   const all = doc ? (doc.project.compositions || []) : [];
   $('comps').replaceChildren(...all.map((comp) => {
     const li = row(doc.composition, comp.id, comp.name, []);
+    withDot(comp, li.querySelector('.name'));
+    li.oncontextmenu = (e) => itemLabelMenu(e, comp.id);
     const fps = compFps(comp);
     const acts = Object.assign(document.createElement('span'), { className: 'acts' });
     li.append(...['Composition', secsFrames(comp.duration_frames, fps), '\u2014'].map((t) => Object.assign(document.createElement('span'), { textContent: t })), acts);
@@ -2750,7 +2767,7 @@ function drawProject() {
   if (asset) {
     const f = assetFacts(asset);
     const files = Object.entries(asset.frames || {}).sort((a, b) => a[0] - b[0]).map(([, p]) => String(p).split(/[\\/]/).pop());
-    txt.append(el('b', '', asset.name),
+    txt.append(withDot(asset, el('b', '', asset.name)),
       el('span', 'pdim', [assetKind(asset), f.count === null ? '' : f.count + (f.count === 1 ? ' file' : ' files'),
         f.uses ? 'used by ' + layersWord(f.uses) : 'not used yet'].filter(Boolean).join(' · ')),
       f.missing.length ? el('span', 'pmissing', missingWords(f.missing))
@@ -2758,11 +2775,11 @@ function drawProject() {
     $('pinfo').replaceChildren(projTile(asset, false), txt);
   } else if (comp) {
     const uses = compUses(comp.id);
-    txt.append(el('b', '', comp.name),
+    txt.append(withDot(comp, el('b', '', comp.name)),
       el('span', 'pdim', 'Composition · ' + comp.width + ' × ' + comp.height + ' · ' + number(compFps(comp)) + ' fps'),
       el('span', 'pdim', layersWord((comp.layers || []).length) + ' · ' + secsFrames(comp.duration_frames, compFps(comp))
         + ' · ' + (uses ? 'used ' + (uses === 1 ? 'once' : uses + ' times') : 'top level')));
-    $('pinfo').replaceChildren(projTile(comp, true), txt);
+    $('pinfo').replaceChildren(projTile(comp, true), txt, statusChip(comp));
   } else $('pinfo').replaceChildren();
   // A line for each drawings item that layers ask for drawings it does not have.
   const short = assets.map((a) => [a, assetFacts(a)]).filter(([, f]) => f.missing.length);
@@ -2790,6 +2807,7 @@ function drawProject() {
     b.setAttribute('aria-current', String(current));
     b.onclick = () => pick(isComp ? 'comps' : 'assets', id, false);
     if (!isComp) b.ondblclick = () => pick('assets', id, true);
+    b.oncontextmenu = (e) => itemLabelMenu(e, id);
     return b;
   };
   const groups = [
@@ -2814,7 +2832,7 @@ function drawProject() {
           : f.uses ? layersWord(f.uses) : 'not used';
         t.append(el('span', 'ov b1', b1), el('span', 'ov b2' + (f && f.missing.length ? ' miss' : ''), b2));
         card.title = x.name + ' · ' + b1 + ' · ' + b2;
-        card.append(t, el('span', 'cn', x.name));
+        card.append(t, withDot(x, el('span', 'cn', x.name)));
         row.append(card);
       }
       out.push(row);
@@ -2840,7 +2858,7 @@ function drawProject() {
       for (const x of list) {
         const line = item('tw', x.id, isComp, x.id, isCurrent(x, isComp));
         const f = isComp ? null : assetFacts(x);
-        const nm = el('span', f && f.missing.length ? 'pmissing' : '', x.name + (f && f.missing.length ? ' · ' + f.missing.length + ' missing' : ''));
+        const nm = withDot(x, el('span', f && f.missing.length ? 'pmissing' : '', x.name + (f && f.missing.length ? ' · ' + f.missing.length + ' missing' : '')));
         nm.style.paddingLeft = '16px';
         const uses = isComp ? compUses(x.id) : f.uses;
         line.append(nm, el('span', '', isComp ? 'Composition' : assetKind(x)),
@@ -2874,15 +2892,17 @@ function drawProject() {
         const ctx = el('span', 'ctx');
         const top = el('span');
         const gone = missingIn(c);
-        top.append(el('b', '', d.cut ? 'Cut ' + d.cut : c.name), el('span', 'pdim', secsFrames(c.duration_frames, compFps(c))),
+        top.append(withDot(c, el('b', '', d.cut ? 'Cut ' + d.cut : c.name)), el('span', 'pdim', secsFrames(c.duration_frames, compFps(c))),
           el('span', 'sum ' + (gone ? 'pmissing' : 'pdim'), gone ? gone + ' missing' : layersWord((c.layers || []).length)));
         const sheet = [d.episode && 'Ep ' + d.episode, d.scene && 'Sc ' + d.scene, d.cut && 'Cut ' + d.cut, d.animator].filter(Boolean);
         ctx.append(top, el('span', 'pdim', (d.cut ? c.name + ' · ' : '') + (sheet.length ? sheet.join(' · ') : 'no sheet details yet')));
         card.append(projTile(c, true), ctx);
-        out.push(card);
+        const line = el('div', 'cutrow');
+        line.append(card, statusChip(c));
+        out.push(line);
       }
     }
-    out.push(el('p', 'hint', 'A cut’s episode, scene, cut and animator are written in Composition settings (Ctrl+K), under Sheet.'));
+    out.push(el('p', 'hint', 'A cut’s episode, scene, cut and animator are written in Composition settings (Ctrl+K), under Sheet. Click a cut’s status to change it; right-click anything here for a label colour.'));
   }
   $('pother').replaceChildren(...out);
   if (focused) { const again = $('pother').querySelector('[data-key="' + CSS.escape(focused) + '"]'); if (again) again.focus(); }
@@ -2899,6 +2919,7 @@ function drawAssets() {
     const facts = assetFacts(asset);
     const cell = (t, cls) => Object.assign(document.createElement('span'), { textContent: t, className: cls || '' });
     const li = row(selectedAsset, asset.id, asset.name, []);
+    li.oncontextmenu = (e) => itemLabelMenu(e, asset.id);
     li.append(cell(assetKind(asset)), cell('\u2014'),
       cell(facts.count === null ? '\u2014' : String(facts.count)));
     // The missing count goes after the name, as in the Tree, where a chosen row's tick cannot cover it.
@@ -2907,6 +2928,7 @@ function drawAssets() {
       name.classList.add('pmissing');
       name.textContent += ' \u00b7 ' + facts.missing.length + ' missing';
     }
+    withDot(asset, li.querySelector('.name'));
     // D-61: whether Collect Files copies these drawings. Absent in the file means yes.
     const pass = document.createElement('label');
     pass.className = 'kind';
@@ -4379,6 +4401,55 @@ function shiftLayers(by) {
 const LABELS = [null, '#c8554f', '#d9c75b', '#79b8b0', '#d99bb5', '#9f96c9', '#d9a878', '#8fb58f', '#6d86d9'];
 const LABEL_NAMES = ['none', 'red', 'yellow', 'aqua', 'pink', 'lavender', 'peach', 'sea foam', 'blue'];
 
+// W-24's row of label squares under a right-click menu; `pick` is given the colour's number.
+function labelSwatches(pick) {
+  const swatches = document.createElement('div');
+  swatches.className = 'swatches';
+  LABELS.forEach((colour, n) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.setAttribute('role', 'menuitem');
+    b.title = n ? 'Label ' + LABEL_NAMES[n] : 'No label';
+    b.setAttribute('aria-label', b.title);
+    b.style.background = colour || 'transparent';
+    b.onclick = () => { swatches.parentElement.__close(); pick(n); };
+    swatches.append(b);
+  });
+  return swatches;
+}
+
+// D-254: a composition's or a footage item's label, from a right-click in the Project panel.
+function itemLabelMenu(e, id) {
+  e.preventDefault();
+  e.stopPropagation();
+  popMenu(e.clientX, e.clientY, [],
+    labelSwatches((n) => command('/item.set_label?item=' + encodeURIComponent(id) + '&label=' + n)));
+}
+function labelDot(x) {
+  const dot = Object.assign(document.createElement('span'), { className: 'ldot', title: 'Label: ' + LABEL_NAMES[x.label] });
+  dot.style.background = LABELS[x.label];
+  return dot;
+}
+// Before a name in the Project panel, when the item has a label.
+const withDot = (x, name) => { if (x.label) name.prepend(labelDot(x)); return name; };
+
+// D-253: where a cut has got to. A word a later build writes is shown as it is.
+const STATUSES = [['not_started', 'Not started'], ['in_progress', 'In progress'], ['check', 'Check'], ['retake', 'Retake'], ['done', 'Done']];
+function statusChip(comp) {
+  const now = (comp.sheet_details || {}).status || 'not_started';
+  const chip = Object.assign(document.createElement('button'), {
+    type: 'button', className: 'cstatus st-' + now, textContent: (STATUSES.find(([k]) => k === now) || [now, now])[1],
+    title: 'Where ' + comp.name + ' has got to. Click to change it',
+  });
+  chip.onclick = (e) => {
+    e.stopPropagation();
+    const r = chip.getBoundingClientRect();
+    popMenu(r.left, r.bottom + 2, STATUSES.map(([k, words]) => [words, k === now ? '\u2713' : '',
+      () => command('/composition.set_settings?composition=' + encodeURIComponent(comp.id) + '&status=' + k)]));
+  };
+  return chip;
+}
+
 // The selected layers' label, as one entry to undo however many are selected.
 function labelLayers(n) {
   const ids = selection.slice();
@@ -4680,19 +4751,7 @@ function layerMenu(x, y, first = []) {
     ['Delete', 'Delete', () => $('dellayer').click()],
   ];
   // W-24: the label colours, a row of squares under the lines.
-  const swatches = document.createElement('div');
-  swatches.className = 'swatches';
-  LABELS.forEach((colour, n) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.setAttribute('role', 'menuitem');
-    b.title = n ? 'Label ' + LABEL_NAMES[n] : 'No label';
-    b.setAttribute('aria-label', b.title);
-    b.style.background = colour || 'transparent';
-    b.onclick = () => { swatches.parentElement.__close(); labelLayers(n); };
-    swatches.append(b);
-  });
-  popMenu(x, y, lines, swatches);
+  popMenu(x, y, lines, labelSwatches(labelLayers));
 }
 
 // W-25 fix: the menu a right click on a chosen key opens, for the chosen keys. Key speed lives

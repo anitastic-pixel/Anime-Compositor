@@ -80,6 +80,12 @@ pub enum Command {
         asset: Id,
         redistribute: bool,
     },
+    /// Document 24's `item.set_label`, D-254: a composition's or a footage item's label colour,
+    /// as a layer's (W-24). 0 for none.
+    SetItemLabel {
+        item: Id,
+        label: u8,
+    },
     /// Document 24's `composition.create`. B-12d.
     ///
     /// W-01 lists "creates a composition" third of thirteen and no command reached it: the
@@ -495,6 +501,7 @@ impl Command {
             Command::AddAsset { .. } => "ADD_ASSET",
             Command::RelinkAsset { .. } => "RELINK_ASSET",
             Command::SetAssetRedistribute { .. } => "SET_ASSET_REDISTRIBUTE",
+            Command::SetItemLabel { .. } => "SET_ITEM_LABEL",
             Command::AddComposition { .. } => "ADD_COMPOSITION",
             Command::RemoveComposition { .. } => "REMOVE_COMPOSITION",
             Command::AddLayer { .. } => "ADD_LAYER",
@@ -620,6 +627,10 @@ impl Command {
             } => match redistribute {
                 true => format!("Let {asset} be passed on"),
                 false => format!("Keep {asset} out of packages"),
+            },
+            Command::SetItemLabel { item, label } => match label {
+                0 => format!("Clear {item}'s label"),
+                n => format!("Set {item}'s label to colour {n}"),
             },
             Command::AddComposition { composition } => {
                 format!("New composition {}", composition.name)
@@ -813,6 +824,7 @@ impl Command {
             Command::AddAsset { .. }
             | Command::RelinkAsset { .. }
             | Command::SetAssetRedistribute { .. }
+            | Command::SetItemLabel { .. }
             | Command::AddComposition { .. }
             | Command::RemoveComposition { .. } => None,
             Command::AddLayer { composition, .. }
@@ -872,6 +884,7 @@ impl Command {
             Command::AddAsset { asset } => ids.push(asset.id.clone()),
             Command::RelinkAsset { asset } => ids.push(asset.id.clone()),
             Command::SetAssetRedistribute { asset, .. } => ids.push(asset.clone()),
+            Command::SetItemLabel { item, .. } => ids.push(item.clone()),
             Command::AddComposition { composition } => ids.push(composition.id.clone()),
             Command::RemoveComposition { composition } => ids.push(composition.clone()),
             Command::AddLayer { layer, .. } => ids.push(layer.id.clone()),
@@ -1014,6 +1027,7 @@ impl Command {
                 | Command::AddAsset { .. }
                 | Command::RelinkAsset { .. }
                 | Command::SetAssetRedistribute { .. }
+                | Command::SetItemLabel { .. }
                 | Command::AddComposition { .. }
                 | Command::AddLayer { .. }
                 // The camera belongs to the composition; a locked layer has no say in it.
@@ -1772,6 +1786,26 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         return Ok(());
     }
 
+    if let Command::SetItemLabel { item, label } = command {
+        if *label > 8 {
+            return Err(reject(
+                &format!("There is no label colour {label}; the colours are 1 to 8."),
+                "D-254: a label is 0 for none or one of eight colours, as a layer's.",
+            ));
+        }
+        if let Some(comp) = project.compositions.iter_mut().find(|c| c.id == *item) {
+            comp.label = *label;
+        } else if let Some(asset) = project.assets.iter_mut().find(|a| a.id == *item) {
+            asset.label = *label;
+        } else {
+            return Err(missing(
+                format!("{item} is not in this project."),
+                "A label names a composition or a footage item; that ID is not present.".to_string(),
+            ));
+        }
+        return Ok(());
+    }
+
     if let Command::AddComposition { composition } = command {
         check_a_new_composition(project, composition)?;
         project.compositions.push((**composition).clone());
@@ -1930,6 +1964,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         Command::AddAsset { .. }
         | Command::RelinkAsset { .. }
         | Command::SetAssetRedistribute { .. }
+        | Command::SetItemLabel { .. }
         | Command::AddComposition { .. }
         | Command::RemoveComposition { .. } => {
             unreachable!("handled above")

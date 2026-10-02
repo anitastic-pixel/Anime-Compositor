@@ -306,6 +306,7 @@ fn shot_asset() -> Asset {
         frames,
         interpretation: Interpretation::default(),
         redistribute: true,
+        label: 0,
     }
 }
 

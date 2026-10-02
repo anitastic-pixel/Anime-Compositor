@@ -26,6 +26,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | media.import | Import still/sequence | Ctrl+I | yes |
 | media.relink | Relink missing asset | none | yes |
 | asset.set_redistribute | Mark whether an asset's drawings may be passed on in a package (D-61) | none | yes |
+| item.set_label | A composition's or a footage item's label colour, 0 for none (D-254) | none | yes |
 | project.collect | Collect the project and its media into one folder with a manifest (D-61) | none | no history item |
 | package.check | Check the files of the open package against its manifest (D-61) | none | no |
 | layer.create | Add raster layer | Ctrl+Alt+L | yes |
@@ -262,6 +263,8 @@ D-262, workspaces and curves behind, with no new command IDs. Each workspace kee
 D-255, the region box, with no new command ID. The viewer bar's `regionbtn` (Region of interest; also View › Region of interest and the command finder) arms a drag on the picture, taken before the picture's own press; the box is kept as fractions of the picture and every still frame's part (`v=`, B-158) is cut to it, so only the box is drawn on the CPU; outside it the page greys over the picture. A click without a drag, or Escape, draws none; pressing the button with a box clears it; turning or mirroring the view clears it and greys the button. Play and the card draw the whole picture, greyed outside the box.
 
 D-259, Half, with no new command ID. The viewer's quality menu has `halfq` (Half resolution; also View › Half quality and the command finder), which asks for frames with `?q=half`: `PreviewQuality::Half`, half the composition each way, not final pixels like Draft. D and the Full/Draft button go on switching Draft and Full, and from Half the button goes to Draft. Refine when idle stays Full's alone. The quality on screen is read from the frame's own `x-quality`.
+
+D-253 and D-254, cut status and item labels. A cut's status is `sheet_details.status`, one of not_started, in_progress, check, retake or done. It is set with `composition.set_settings?status=`, which may now name any composition with `composition=`; without it the composition on screen is changed, as before. Its chip sits beside each By cut card and on the Project panel's top line, and a click opens the five choices. `item.set_label` (new) gives a composition or a footage item a label colour, 1 to 8, or 0 for none. It is reached by right-clicking any item in the Project panel, with the same squares as the layer menu. A labelled item shows a square before its name in every Project view. Both can be undone.
 
 ## Focus and selection
 

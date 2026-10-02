@@ -566,6 +566,10 @@ fn asset_json(base: Option<&J>, asset: &Asset) -> J {
         }
         owned.push(("frames", J::Object(frames)));
     }
+    // D-254: as a layer's label.
+    if asset.label != 0 || base.is_some_and(|b| b.get("label").is_some()) {
+        owned.push(("label", J::from(asset.label)));
+    }
     let mut json = merge(base, owned);
     // The schema makes `path`, `pattern` and `frames` optional rather than nullable, so an
     // absent one is written as absent rather than as null.
@@ -2290,16 +2294,25 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
         ("animator", &details.animator),
     ];
     let held = base.and_then(|b| b.get("sheet_details"));
+    // D-253: the status is written only when set or when the file had it, so a title block
+    // saved before it gains no empty line.
+    let status = !details.status.is_empty() || held.is_some_and(|h| h.get("status").is_some());
     let unknown = held
         .and_then(J::as_object)
-        .is_some_and(|o| o.keys().any(|k| !four.iter().any(|(name, _)| name == k)));
-    let written = four.iter().any(|(_, text)| !text.is_empty());
+        .is_some_and(|o| o.keys().any(|k| k != "status" && !four.iter().any(|(name, _)| name == k)));
+    let written = four.iter().any(|(_, text)| !text.is_empty()) || !details.status.is_empty();
+    // D-254: as a layer's label.
+    if composition.label != 0 || base.is_some_and(|b| b.get("label").is_some()) {
+        owned.push(("label", J::from(composition.label)));
+    }
     let mut merged = merge(base, owned);
-    if written || unknown {
-        let object = merge(
-            held,
-            four.iter().map(|(name, text)| (*name, J::from(text.as_str()))).collect(),
-        );
+    if written || unknown || status {
+        let mut lines: Vec<(&str, J)> =
+            four.iter().map(|(name, text)| (*name, J::from(text.as_str()))).collect();
+        if status {
+            lines.push(("status", J::from(details.status.as_str())));
+        }
+        let object = merge(held, lines);
         merged["sheet_details"] = object;
     } else if let Some(map) = merged.as_object_mut() {
         map.remove("sheet_details");
@@ -3054,6 +3067,7 @@ fn parse_asset(v: &J, pointer: &str) -> Result<Asset, Diagnostic> {
             Some(r) => as_bool(r, &format!("{pointer}/redistribute"))?,
             None => true,
         },
+        label: parse_label(v, pointer)?,
     })
 }
 
@@ -5112,6 +5126,7 @@ fn parse_composition(
     if let Some(shutter) = v.get("motion_blur") {
         composition.motion_blur = parse_motion_blur(shutter, &format!("{pointer}/motion_blur"))?;
     }
+    composition.label = parse_label(v, pointer)?;
     // D-216 (FX-FBLEND-056).
     if let Some(on) = v.get("frame_blending") {
         composition.frame_blending = as_bool(on, &format!("{pointer}/frame_blending"))?;
@@ -5196,6 +5211,7 @@ fn parse_composition(
             scene: text("scene")?,
             cut: text("cut")?,
             animator: text("animator")?,
+            status: text("status")?,
         };
     }
 
@@ -6297,6 +6313,7 @@ pub fn relink_candidate(
         // to a default that would silently change how the pixels are read.
         interpretation,
         redistribute: existing.redistribute,
+        label: existing.label,
     };
 
     Ok(RelinkCandidate {

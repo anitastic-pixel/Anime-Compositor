@@ -1125,6 +1125,9 @@ pub struct Composition {
     /// D-216: the composition's frame-blending switch, which a layer's Frame Mix waits on.
     /// Saved as `frame_blending` only when on.
     pub frame_blending: bool,
+    /// D-254: the label colour a layer has (W-24), 1 to 8, 0 for none. Saved as `label` only
+    /// when set or when the file already had the key.
+    pub label: u8,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
 }
@@ -1169,7 +1172,13 @@ pub struct SheetDetails {
     pub scene: String,
     pub cut: String,
     pub animator: String,
+    /// D-253: where the cut has got to: one of [`CUT_STATUSES`], or empty for Not started. A
+    /// word a later build writes is kept as it is.
+    pub status: String,
 }
+
+/// D-253: the statuses a cut can be given, in the order they are worked through.
+pub const CUT_STATUSES: [&str; 5] = ["not_started", "in_progress", "check", "retake", "done"];
 
 /// D-84c: one text column of a timesheet: dialogue, camerawork, or a kind a later version
 /// writes, which is kept as it is.
@@ -1222,6 +1231,7 @@ impl Composition {
             sheet_details: SheetDetails::default(),
             motion_blur: MotionBlur::default(),
             frame_blending: false,
+            label: 0,
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }
@@ -1488,6 +1498,8 @@ pub struct Asset {
     /// D-61: whether collecting copies this asset's files. False for media the project may use
     /// but may not pass on; its files are then listed in the package but not copied.
     pub redistribute: bool,
+    /// D-254: the label colour a layer has (W-24), 1 to 8, 0 for none.
+    pub label: u8,
 }
 
 impl Asset {
@@ -1503,6 +1515,7 @@ impl Asset {
             pattern: Some(pattern),
             frames: BTreeMap::new(),
             redistribute: true,
+            label: 0,
         }
     }
 
@@ -1518,6 +1531,7 @@ impl Asset {
             pattern: None,
             frames: BTreeMap::new(),
             redistribute: true,
+            label: 0,
         }
     }
 

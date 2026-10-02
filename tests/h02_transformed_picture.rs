@@ -342,6 +342,7 @@ fn asset_for(layer: u32) -> Asset {
         frames,
         interpretation: Default::default(),
         redistribute: true,
+        label: 0,
     }
 }
 

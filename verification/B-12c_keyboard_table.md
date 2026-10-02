@@ -66,6 +66,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `exposure.toggle_key` can be asked for without a mouse | yes | yes | pass |
 | `exposure.write` can be asked for without a mouse | yes | yes | pass |
 | `gpu-switch` can be asked for without a mouse | yes | yes | pass |
+| `item.set_label` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.add_remove` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.move` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.set_interp` can be asked for without a mouse | yes | yes | pass |
@@ -186,4 +187,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**156 of 156 checks pass.**
+**157 of 157 checks pass.**
