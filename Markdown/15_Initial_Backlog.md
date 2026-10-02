@@ -692,6 +692,8 @@ W-46 proposals: the Sandbox's remaining engine items written up as D-251 to D-26
 
 D-262 / Workspaces keep their own changes; curves behind at their own height: the owner's answers (1) and (3) to the W-46 questions. Page only. No command ID, fixture or exported picture changes. Evidence is in `verification/D-262_workspaces_and_curves.md`.
 
+D-255 / The region box: accepted on 2026-10-02. Page only. No command ID, fixture or exported picture changes; `regionbtn` added to the wired controls. Evidence is in `verification/D-255_region_box.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

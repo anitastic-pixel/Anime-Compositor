@@ -259,6 +259,8 @@ W-45, the Render workspace (D-248), with no new command IDs. A third built-in wo
 
 D-262, workspaces and curves behind, with no new command IDs. Each workspace keeps the changes made in it (places, border sizes, the side column) in the browser's storage under `workspaceEdits`, only while it differs from how it was built or saved; switching lays a workspace out as it was left; Reset workspace forgets that workspace's changes; Save workspace moves them into the saved one. In the value graph each property drawn behind fills the height on its own scale; the side numbers stay the front property's.
 
+D-255, the region box, with no new command ID. The viewer bar's `regionbtn` (Region of interest; also View › Region of interest and the command finder) arms a drag on the picture, taken before the picture's own press; the box is kept as fractions of the picture and every still frame's part (`v=`, B-158) is cut to it, so only the box is drawn on the CPU; outside it the page greys over the picture. A click without a drag, or Escape, draws none; pressing the button with a box clears it; turning or mirroring the view clears it and greys the button. Play and the card draw the whole picture, greyed outside the box.
+
 ## Focus and selection
 
 One primary selection context exists at a time: media, layer, property/keyframe or effect. Viewer selection and timeline selection must resolve to the same layer ID. Deleting uses the focused context and must show the target clearly before destructive commands.

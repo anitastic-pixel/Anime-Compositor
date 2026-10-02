@@ -27055,7 +27055,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 101] = [
+    const CONTROLS: [&str; 102] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -27123,6 +27123,7 @@ mod contract {
         "recovery",
         "redo",
         "refine",
+        "regionbtn",
         "relink",
         "renderstart",
         "renderstop",

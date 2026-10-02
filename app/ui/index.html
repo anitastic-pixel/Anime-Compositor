@@ -349,6 +349,10 @@
   #guides .field .f12 { inset: 2px; } #guides .field .l12 { left: 6px; top: 4px; }
   #guides .field .f10 { inset: 8.333%; } #guides .field .l10 { left: 8.9%; top: 9.3%; }
   #guides .field .f8 { inset: 16.667%; } #guides .field .l8 { left: 17.2%; top: 17.6%; }
+  /* D-255: the region box, grey outside it; nothing outside it is drawn on a still frame. */
+  #guides .roi { inset: 0; overflow: hidden; }
+  #stage.roiarm, #stage.roiarm > * { cursor: crosshair !important; }
+  #guides .roi i { position: absolute; box-shadow: 0 0 0 100vmax #2a2a2ed9; outline: 1px dashed #e8b06a; }
   #guides .field .cross { left: calc(50% - 8px); top: calc(50% - 8px); width: 16px; height: 16px; border: 0;
     background: linear-gradient(#7fe0a0, #7fe0a0) center / 1px 100% no-repeat, linear-gradient(#7fe0a0, #7fe0a0) center / 100% 1px no-repeat; }
   #strip {
@@ -1585,6 +1589,7 @@
     <hr>
     <button data-run="Grid over the picture"></button>
     <button data-run="Field guide and safe areas"></button>
+    <button data-run="Region of interest"></button>
     <button data-run="Cut slate above the picture"></button>
     <button data-run="Sheet strip under the picture"></button>
     <hr>
@@ -1774,6 +1779,7 @@
       <button id="alpha" class="vb" title="Alpha only: see-through parts black, solid parts white (Alt+A)" aria-label="Alpha only"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor"/><path d="M8 2.5a5.5 5.5 0 0 0 0 11z" fill="currentColor"/></svg></button>
       <button id="gridbtn" class="vb" title="Grid over the picture" aria-label="Grid"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" fill="none" stroke="currentColor"/><path d="M6.2 2.5v11M9.8 2.5v11M2.5 6.2h11M2.5 9.8h11" stroke="currentColor" stroke-width=".8"/></svg></button>
       <button id="guidebtn" class="vb" title="Field guide (12F, 10F, 8F) and safe areas" aria-label="Field guide and safe areas"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" fill="none" stroke="currentColor"/><rect x="4.5" y="5.5" width="7" height="5" fill="none" stroke="currentColor" stroke-dasharray="1.5 1"/><path d="M8 7v2M7 8h2" stroke="currentColor"/></svg></button>
+      <button id="regionbtn" class="vb" title="Region of interest: drag a box on the picture and only it is drawn; click again for all of it" aria-label="Region of interest" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" fill="currentColor" opacity=".3"/><rect x="5" y="5.5" width="6.5" height="5" fill="#1e1e21" stroke="currentColor" stroke-dasharray="1.5 1"/></svg></button>
       <span class="gs"></span>
       <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false" id="sizemenu" title="Picture size"><span id="zoomlabel">&mdash;</span>&#9662;</button><div class="drop" role="menu" aria-label="Picture size" hidden>
         <button id="fit" data-key="Shift+/" title="Fill the area">Fit</button>
@@ -1815,6 +1821,7 @@
           <div class="safe title" title="Title safe"></div>
           <div class="cross"></div>
         </div>
+        <div class="roi" hidden><i></i></div>
       </div>
       <!-- W-41b: the snapshot, left of a line that can be dragged; the picture now is right of it. -->
       <div id="snapview" hidden><canvas></canvas><span class="tag then"></span><span class="tag now">Now</span><div class="split" title="Drag: the snapshot is left of the line, the picture now right of it"></div></div>
@@ -2147,15 +2154,25 @@ function seenPart() {
   const f = showing();
   if (!f || f[2] <= f[0] || f[3] <= f[1]) return null;
   const gx = (f[2] - f[0]) / 10, gy = (f[3] - f[1]) / 10;
-  const part = [Math.floor((f[0] - gx) * 1e4) / 1e4, Math.floor((f[1] - gy) * 1e4) / 1e4,
+  const part = inRegion([Math.floor((f[0] - gx) * 1e4) / 1e4, Math.floor((f[1] - gy) * 1e4) / 1e4,
     Math.ceil((f[2] + gx) * 1e4) / 1e4, Math.ceil((f[3] + gy) * 1e4) / 1e4]
-    .map((v) => Math.min(1, Math.max(0, v)));
+    .map((v) => Math.min(1, Math.max(0, v))));
   return part.join() === '0,0,1,1' ? null : part;
+}
+// D-255: the region box, fractions of the picture like a part; null for none. A part asked for
+// is cut to it, and a box scrolled out of sight asks for the box itself, which is small.
+let regionBox = null;
+function inRegion(part) {
+  if (!regionBox) return part;
+  const cut = [Math.max(part[0], regionBox[0]), Math.max(part[1], regionBox[1]),
+    Math.min(part[2], regionBox[2]), Math.min(part[3], regionBox[3])];
+  return cut[2] > cut[0] && cut[3] > cut[1] ? cut : regionBox.slice();
 }
 // B-158: after a scroll or a zoom, a still frame is asked again when what shows has left the part drawn.
 function partStillDrawn() {
-  const f = drawnPart && !playing && !inFlight && showing();
+  const f = drawnPart && !playing && !inFlight && !needPixels() && showing();
   if (!f) return;
+  if (regionBox) f.splice(0, 4, ...inRegion(f));
   const [l, t, r, b] = drawnPart;
   if (f[0] < l || f[1] < t || f[2] > r || f[3] > b) show(FRAMES + '/frame/' + frame + '?q=' + quality);
 }
@@ -4527,6 +4544,7 @@ function paletteLines() {
     ['Alpha only', 'Alt+A', { key: 'a', altKey: true }],
     ['Grid over the picture', '', () => $('gridbtn').click()],
     ['Field guide and safe areas', '', () => $('guidebtn').click()],
+    ['Region of interest', '', () => $('regionbtn').click()],
     ['Cut slate above the picture', '', () => $('slatebtn').click()],
     ['Sheet strip under the picture', '', () => $('stripbtn').click()],
     ['Turn the view left', '', () => $('turnleft').click()],
@@ -11738,6 +11756,66 @@ $('slatebtn').onclick = () => look('slate');
 $('stripbtn').onclick = () => look('strip');
 $('gridbtn').onclick = () => look('grid');
 $('guidebtn').onclick = () => look('guide');
+// D-255: the region box. The button arms a drag on the picture, or clears the box there is; the
+// box is the window's alone, like the looks, and is off while the view is turned (`drawRegion`).
+let regionArmed = false;
+function setRegion(box) {
+  regionBox = box && box.map((v) => Math.round(v * 1e4) / 1e4);
+  regionArmed = false;
+  drawRegion();
+  if (!playing) show(FRAMES + '/frame/' + frame + '?q=' + quality);
+}
+function drawRegion() {
+  const turned = viewTurn.angle !== 0 || viewTurn.mirror;
+  if (turned) regionBox = null;
+  const button = $('regionbtn');
+  const on = !!regionBox || regionArmed;
+  button.disabled = turned;
+  button.classList.toggle('on', on);
+  button.setAttribute('aria-pressed', String(on));
+  stage.classList.toggle('roiarm', regionArmed);
+  const roi = $('guides').querySelector('.roi');
+  roi.hidden = !regionBox;
+  if (regionBox) {
+    const [l, t, r, b] = regionBox;
+    Object.assign(roi.firstElementChild.style, { left: l * 100 + '%', top: t * 100 + '%', width: (r - l) * 100 + '%', height: (b - t) * 100 + '%' });
+  }
+}
+$('regionbtn').onclick = () => {
+  if (regionBox) setRegion(null);
+  else { regionArmed = !regionArmed; drawRegion(); }
+};
+// The press that draws the box is taken before the picture's own (selecting, moving, the
+// marquee), and goes nowhere else.
+stage.addEventListener('pointerdown', (e) => {
+  if (!regionArmed || e.button !== 0) return;
+  e.stopImmediatePropagation();
+  e.preventDefault();
+  const r = view.getBoundingClientRect();
+  const at = (m) => [Math.min(1, Math.max(0, (m.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (m.clientY - r.top) / r.height))];
+  const from = at(e);
+  const boxTo = (m) => { const to = at(m); return [Math.min(from[0], to[0]), Math.min(from[1], to[1]), Math.max(from[0], to[0]), Math.max(from[1], to[1])]; };
+  try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+  const roi = $('guides').querySelector('.roi');
+  const move = (m) => {
+    const [l, t, rt, b] = boxTo(m);
+    roi.hidden = false;
+    Object.assign(roi.firstElementChild.style, { left: l * 100 + '%', top: t * 100 + '%', width: (rt - l) * 100 + '%', height: (b - t) * 100 + '%' });
+  };
+  const stop = (m) => {
+    stage.removeEventListener('pointermove', move);
+    stage.removeEventListener('pointerup', stop);
+    removeEventListener('keydown', escape, true);
+    const box = m && boxTo(m);
+    // A click, or a box under a hundredth of the picture either way, draws no box.
+    if (box && box[2] - box[0] > 0.01 && box[3] - box[1] > 0.01) setRegion(box);
+    else { regionArmed = false; drawRegion(); }
+  };
+  const escape = (k) => { if (k.key === 'Escape') { k.stopPropagation(); stop(null); } };
+  stage.addEventListener('pointermove', move);
+  stage.addEventListener('pointerup', stop);
+  addEventListener('keydown', escape, true);
+}, true);
 function drawLooks() {
   for (const which of ['slate', 'strip', 'grid', 'guide']) {
     const button = $(which + 'btn');
@@ -11785,6 +11863,7 @@ function turnView(by, flip) {
   viewTurn.angle = (((viewTurn.angle + by) % 360) + 540) % 360 - 180;
   if (flip) viewTurn.mirror = !viewTurn.mirror;
   drawTurn();
+  drawRegion();
   $('mirror').classList.toggle('on', viewTurn.mirror);
   $('mirror').setAttribute('aria-pressed', String(viewTurn.mirror));
   const said = [viewTurn.angle && Math.abs(viewTurn.angle) + '\u00b0 ' + (viewTurn.angle < 0 ? 'left' : 'right'),
