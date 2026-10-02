@@ -4881,6 +4881,10 @@ const ANSWERS: &[&str] = &[
     "shape.set",
     "shape.set_path",
     "sheet.write_action",
+    "sketch.add_stroke",
+    "sketch.clear",
+    "sketch.remove_layer",
+    "sketch.set_layer",
     "solid.set",
     "timeline.set_markers",
     "timeline.set_work_end",
@@ -5256,6 +5260,77 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     value,
                 },
             ));
+        }
+        // D-261: the Sketch workspace's layers and strokes, on the composition on screen. Never
+        // drawn into a frame or an export; the page draws them over the picture for the eye.
+        "sketch.set_layer" | "sketch.remove_layer" | "sketch.add_stroke" | "sketch.clear" => {
+            let composition = {
+                let held = viewer.lock().expect("the viewer lock was poisoned");
+                match held.document.project().composition(&held.composition) {
+                    Some(comp) => comp.id.clone(),
+                    None => {
+                        return Some("There is no composition on screen to change.".to_string())
+                    }
+                }
+            };
+            let Some(sketch) = parameter(query, "sketch").filter(|s| !s.is_empty()) else {
+                return Some("Which sketch layer? Send sketch=<its id>.".to_string());
+            };
+            let sketch = anime_compositor::model::Id::new(sketch);
+            let frame = match parameter(query, "frame") {
+                None => None,
+                Some(text) => match text.parse::<i32>() {
+                    Ok(f) => Some(f),
+                    Err(_) => return Some(format!("\"{text}\" is not a frame number.")),
+                },
+            };
+            let command = match id {
+                "sketch.set_layer" => Command::SetSketchLayer {
+                    composition,
+                    sketch,
+                    name: parameter(query, "name").unwrap_or_default(),
+                    visible: parameter(query, "visible").as_deref() != Some("false"),
+                    whole_cut: parameter(query, "whole_cut").as_deref() == Some("true"),
+                },
+                "sketch.remove_layer" => Command::RemoveSketchLayer {
+                    composition,
+                    sketch,
+                },
+                "sketch.clear" => Command::ClearSketch {
+                    composition,
+                    sketch,
+                    frame,
+                },
+                _ => {
+                    // The page sends a stroke's points as x,y;x,y in composition pixels.
+                    let points: Option<Vec<[f64; 2]>> = parameter(query, "points")
+                        .unwrap_or_default()
+                        .split(';')
+                        .map(|pair| {
+                            let (x, y) = pair.split_once(',')?;
+                            Some([x.trim().parse().ok()?, y.trim().parse().ok()?])
+                        })
+                        .collect();
+                    let Some(points) = points else {
+                        return Some("The stroke's points are written x,y;x,y.".to_string());
+                    };
+                    Command::AddSketchStroke {
+                        composition,
+                        sketch,
+                        stroke: anime_compositor::model::Stroke {
+                            frame,
+                            tool: parameter(query, "tool").unwrap_or_default(),
+                            size: parameter(query, "size")
+                                .and_then(|s| s.parse().ok())
+                                .unwrap_or(f64::NAN),
+                            colour: parameter(query, "colour").unwrap_or_default(),
+                            points,
+                            ..Default::default()
+                        },
+                    }
+                }
+            };
+            return Some(edit(viewer, command));
         }
         "composition.set_settings" => {
             // D-253: By cut sets a status on any cut, so it may name one; otherwise the one on screen.
@@ -24878,6 +24953,10 @@ mod contract {
         "shape.set",
         "shape.set_path",
         "sheet.write_action",
+        "sketch.add_stroke",
+        "sketch.clear",
+        "sketch.remove_layer",
+        "sketch.set_layer",
         "solid.set",
         "timeline.set_markers",
         "timeline.set_work_end",
@@ -25083,6 +25162,13 @@ mod contract {
             "return ['Parent: ' + parent.name, '/layer.set_parent?layer=' + encodeURIComponent(layer.id)",
         ),
     ];
+
+    /// D-261: the window's security policy drops a style written into the markup, so a colour or
+    /// size put there never shows; the page's look lives in its stylesheet.
+    #[test]
+    fn the_page_writes_no_style_into_its_markup() {
+        assert_eq!(page().matches(" style=\"").count(), 0, "a style=\"...\" in the page is refused by the window");
+    }
 
     #[test]
     fn the_page_asks_for_nothing_the_window_cannot_answer() {
@@ -25343,6 +25429,11 @@ mod contract {
         // D-84g, accepted on 2026-09-24; B-28j built both, from the Sheet.
         ("exposure.toggle_key", "a command the window answers"),
         ("sheet.write_action", "a command the window answers"),
+        // D-261, accepted on 2026-10-02: the Sketch workspace.
+        ("sketch.set_layer", "a command the window answers"),
+        ("sketch.remove_layer", "a command the window answers"),
+        ("sketch.add_stroke", "a command the window answers"),
+        ("sketch.clear", "a command the window answers"),
         ("property.set_base", "a command the window answers"),
         ("keyframe.add_remove", "a command the window answers"),
         ("keyframe.move", "a command the window answers"),
@@ -26196,6 +26287,9 @@ mod contract {
             "layer.precompose?layer=layer-1",
             // B-28i: and D-84f's title block, written only when one of its four is.
             "composition.set_settings?episode=3",
+            // D-261: and a sketch layer with a stroke, written only when there is one.
+            "sketch.set_layer?sketch=sketch-a&name=Notes",
+            "sketch.add_stroke?sketch=sketch-a&frame=0&tool=brush&size=4&colour=%23c8302c&points=1,2;3,4",
         ] {
             run(&viewer, edit);
         }
@@ -27686,7 +27780,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 107] = [
+    const CONTROLS: [&str; 108] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -27776,6 +27870,7 @@ mod contract {
         "sheetclose",
         "sheetcolumn",
         "shyswitch",
+        "skover",
         "slatebtn",
         "snapshot",
         "stripbtn",
@@ -27798,7 +27893,7 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 49] = [
+    const KEYS: [&str; 50] = [
         "*",
         ",",
         "-",
@@ -27806,6 +27901,7 @@ mod contract {
         "1",
         "2",
         "3",
+        "4",
         "=",
         "?",
         "A",
@@ -27867,7 +27963,8 @@ mod contract {
     /// `layer.move` joined it in W-22, the same drop for a layer's row, and left again in W-23
     /// when Ctrl+Shift+] and Ctrl+Shift+[ sent it to take a layer to the very front or back.
     // B-27c: the value whip is a drag. What it writes can be typed into the expression box.
-    const MOUSE_ONLY: [&str; 2] = ["effect.move", "property.link"];
+    // D-261: a stroke is drawn with a mouse or a pen; there is nothing to draw it with otherwise.
+    const MOUSE_ONLY: [&str; 3] = ["effect.move", "property.link", "sketch.add_stroke"];
 
     /// A mouse gesture, what it does, and the text in the page that does the same job without one.
     const MOUSE_GESTURES: [(&str, &str, &str); 36] = [

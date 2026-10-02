@@ -26,7 +26,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `doc.redo` is in the answer | present | present | pass |
 | `doc.solo` is in the answer | present | present | pass |
 | `doc.undo` is in the answer | present | present | pass |
-| the panels read 14 fields out of the composition on screen | true | true | pass |
+| the panels read 15 fields out of the composition on screen | true | true | pass |
 | `comp.camera` is in the answer | present | present | pass |
 | `comp.duration_frames` is in the answer | present | present | pass |
 | `comp.frame_blending` is in the answer | present | present | pass |
@@ -38,6 +38,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `comp.motion_blur` is in the answer | present | present | pass |
 | `comp.name` is in the answer | present | present | pass |
 | `comp.sheet_details` is in the answer | present | present | pass |
+| `comp.sketches` is in the answer | present | present | pass |
 | `comp.start_frame` is in the answer | present | present | pass |
 | `comp.width` is in the answer | present | present | pass |
 | `comp.work_area` is in the answer | present | present | pass |
@@ -281,4 +282,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**260 of 260 checks pass.**
+**261 of 261 checks pass.**

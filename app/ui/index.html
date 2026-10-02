@@ -373,7 +373,7 @@
   #strip button.now { border-color: #e8b06a; }
   /* W-41b: the view turned or mirrored, on screen only; the snapshot beside the picture. */
   #onion { pointer-events: none; }
-  #stage > #view, #stage > #onion, #stage > #boxes, #guides .grid, #guides .field, #stage > #snapview { transform: var(--turn, none); }
+  #stage > #view, #stage > #onion, #stage > #boxes, #stage > #sketchover, #guides .grid, #guides .field, #stage > #snapview { transform: var(--turn, none); }
   #viewbar .vb:disabled { opacity: 0.35; }
   #turned { color: #e8b06a; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; }
   #turned[hidden] { display: none; }
@@ -1502,6 +1502,90 @@
 #paper.red tr.past td.frame, #paper.red tr.past td.sec { color: #eeaaa4; }
 #paper * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 /* sheet paper: end */
+  /* D-261: the Sketch workspace, as the Sandbox lays it out: the tools down the left, the picture
+     on a dotted desk, the frames under it and the layers on the right. Drawn for the eye alone;
+     sketches are saved with the project and never reach a frame or an export. */
+  #sketch { display: none; }
+  body[data-workspace="Sketch"] #main, body[data-workspace="Sketch"] #splitside, body[data-workspace="Sketch"] #side { display: none !important; }
+  body[data-workspace="Sketch"] #sketch {
+    display: grid; flex: 1; min-width: 0; min-height: 0;
+    grid-template-columns: 52px minmax(0, 1fr) 320px; grid-template-rows: minmax(0, 1fr) 44px;
+  }
+  #sketch .skt { grid-row: 1 / -1; background: #1a1a1c; border-right: 1px solid #0f0f11; display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 10px; overflow-y: auto; }
+  #sketch .skt hr { width: 28px; height: 1px; border: 0; background: #3a3a40; margin: 6px 0; flex: none; }
+  #sketch .skb { width: 38px; height: 38px; padding: 0; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid transparent; color: #c8c8d0; flex: none; }
+  #sketch .skb:hover { border-color: #3a3a40; }
+  #sketch .skb[aria-pressed="true"] { background: #3a2420; border-color: #e0604a; color: #fff; }
+  #sketch .skb .dot { border-radius: 50%; background: #d4d4d8; }
+  #sketch .sw2 { width: 20px; height: 20px; border-radius: 4px; padding: 0; border: 2px solid #1a1a1c; box-shadow: 0 0 0 1px #45454b; flex: none; margin: 2px 0; }
+  #sketch .sw2[aria-pressed="true"] { border-color: #fff; }
+  #sketch svg.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  #sketch .skc {
+    display: flex; flex-direction: column; gap: 10px; padding: 16px 44px 12px; min-width: 0; min-height: 0; overflow: hidden;
+    background: #121214 radial-gradient(#1f1f23 1px, transparent 1px) 0 0 / 20px 20px;
+  }
+  #sketch .skhead, #sketch .skfoot { display: flex; align-items: center; gap: 10px; color: #a0a0a8; flex: none; }
+  #sketch .skhead b { color: #fff; font-weight: 600; }
+  #sketch .skhead button { height: 30px; min-width: 30px; display: flex; align-items: center; justify-content: center; gap: 6px; background: #232326; border-color: #3a3a40; }
+  #skangle { width: 36px; text-align: center; color: #e8b06a; }
+  #sketch .skhead button[aria-pressed="true"], #sketch .skbar button[aria-pressed="true"], #sketch .skcut button[aria-pressed="true"], #sketch .seg2 button[aria-pressed="true"] { background: #2e3b52; border-color: #6ea8fe; color: #fff; }
+  #sketch .skfoot { color: #6c6c74; font-size: 11px; }
+  #sketch .sp { flex: 1; }
+  #sketch .skdesk { flex: 1; min-height: 0; display: grid; place-items: center; }
+  #skpic { position: relative; background: #f4f1ea; box-shadow: 0 0 0 1px #3a3a40, 0 10px 40px rgba(0, 0, 0, .6); cursor: crosshair; touch-action: none; transition: transform .25s; }
+  #skpic.erasing { cursor: cell; }
+  #skpic > canvas { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; }
+  /* The window refuses a style written in the markup, so the sizes and colours live here. */
+  #sketch [data-sksize="0"] .dot { width: 4px; height: 4px; }
+  #sketch [data-sksize="1"] .dot { width: 8px; height: 8px; }
+  #sketch [data-sksize="2"] .dot { width: 14px; height: 14px; }
+  #sketch .sw2[data-skcolour="#c8302c"] { background: #c8302c; }
+  #sketch .sw2[data-skcolour="#3f7fd8"] { background: #3f7fd8; }
+  #sketch .sw2[data-skcolour="#2f8f4f"] { background: #2f8f4f; }
+  #sketch .sw2[data-skcolour="#1a1a2a"] { background: #1a1a2a; }
+  #sketch .sw2[data-skcolour="#ffffff"] { background: #ffffff; }
+  #sketch .skbar .hint { font-size: 11px; }
+  #sketch .lyr2.under svg { color: #6c6c74; margin: 0 2px; }
+  #sketch .lyr2.under .pick { color: #c4c4cc; }
+  #sketch .skempty { padding: 8px 10px; margin: 0; }
+  #sketch .skbar { grid-column: 2; display: flex; align-items: center; gap: 6px; padding: 0 12px; background: #1a1a1c; border-top: 1px solid #0f0f11; overflow: hidden; white-space: nowrap; }
+  #sketch .skbar > button { height: 26px; padding: 0 7px; font-size: 11.5px; display: flex; align-items: center; gap: 5px; background: #232326; border-color: #3a3a40; }
+  #sketch .skbar .gs { width: 1px; height: 26px; background: #3a3a40; margin: 0 4px; }
+  #skstrip { display: flex; gap: 3px; }
+  #sketch .scell { width: 28px; height: 34px; padding: 0; border-radius: 2px; background: #232326; border: 1px solid #3a3a40; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; font-size: 8.5px; color: #8e8e96; }
+  #sketch .scell b { font-size: 11px; color: #fff; font-weight: 600; }
+  #sketch .scell[aria-pressed="true"] { border: 2px solid #e8b06a; background: #3a2f1a; }
+  #sketch .skl { grid-column: 3; grid-row: 1 / -1; background: #1e1e20; border-left: 1px solid #0f0f11; display: flex; flex-direction: column; overflow-y: auto; }
+  #sketch .skph { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border-bottom: 1px solid #26262a; flex: none; }
+  #sketch .skph b { color: #fff; font-weight: 600; }
+  #sketch .skl .sh, #sketch .skcut button { padding: 1px 8px; font-size: 11px; }
+  #sketch .lyr2 { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px; border-bottom: 1px solid #26262a; flex: none; }
+  #sketch .lyr2.on { background: #2e3b52; }
+  #sketch .lyr2.under { background: #1a1a1c; color: #c4c4cc; }
+  #sketch .lyr2 .pick { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; background: none; border: 0; padding: 0; text-align: left; color: #fff; }
+  #sketch .lyr2 small { font-size: 10.5px; color: #75757c; white-space: nowrap; }
+  #sketch .eye { border: 0; background: none; padding: 0; width: 20px; height: 20px; color: #d4d4d8; display: flex; align-items: center; justify-content: center; }
+  #sketch .eye[aria-pressed="false"] { color: #4a4a50; }
+  #sketch .sw3 { width: 14px; height: 14px; border-radius: 3px; flex: none; border: 1px solid rgba(255, 255, 255, .3); }
+  #sketch .skcut { display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-bottom: 1px solid #26262a; }
+  #sketch .skcut > span { margin-right: 4px; color: #75757c; }
+  #sketch .fsec { font-size: 10px; letter-spacing: .08em; color: #77777f; padding: 7px 10px 3px; text-transform: uppercase; }
+  #sketch .sksel { padding: 0 10px 8px; display: flex; flex-direction: column; gap: 6px; }
+  #sketch .sksel .row { display: flex; align-items: center; gap: 6px; }
+  #sketch .sksel .row > span:first-child, #sketch .sksel .row > label:first-child { width: 70px; color: #75757c; flex: none; }
+  #sketch .sksel .row input { flex: 1; min-width: 0; }
+  #sketch .sksel .hint { font-size: 11px; margin-left: 76px; line-height: 1.35; }
+  #sketch .sksel .row.go { margin-left: 76px; }
+  #sketch .seg2 { display: flex; }
+  #sketch .seg2 button { padding: 1px 10px; border-radius: 0; font-size: 11px; background: #232326; border-color: #3a3a40; white-space: nowrap; }
+  #sketch .seg2 button:first-child { border-radius: 3px 0 0 3px; }
+  #sketch .seg2 button:last-child { border-radius: 0 3px 3px 0; }
+  #sketch .gtick { display: flex; align-items: flex-start; gap: 7px; padding: 4px 10px; font-size: 11.5px; line-height: 1.4; }
+  #sketch .gtick input { margin-top: 3px; }
+  #sketch .gtick small { color: #75757c; font-size: 11px; }
+  #sketch .sknote { margin: 8px 10px; padding: 8px 10px; background: #1b1b1e; border: 1px solid #2e2e32; border-radius: 6px; font-size: 11px; line-height: 1.45; color: #a0a0a8; }
+  #sketch .skkeys { padding: 10px; font-size: 11px; line-height: 1.5; border-top: 1px solid #26262a; }
+  #sketchover { pointer-events: none; background: transparent; }
 </style>
 </head>
 <body>
@@ -1659,6 +1743,7 @@
     <button data-run="Compose workspace"></button>
     <button data-run="Animate workspace"></button>
     <button data-run="Render workspace"></button>
+    <button data-run="Sketch workspace"></button>
     <button data-run="Show or hide the Sheet"></button>
     <!-- D-85: which panel is where, and how big the places are. Kept on this machine, not in the project. -->
     <select id="workspace" aria-label="Workspace" title="Workspace: where each panel is. Right-click a panel's name or title bar to move it, or drag it onto another place"></select>
@@ -1686,7 +1771,7 @@
   </span>
   <button id="findcommand" class="search" title="Find any command (Ctrl+Shift+P)"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor"/><path d="M10 10l4.5 4.5" stroke="currentColor" stroke-width="1.5"/></svg>Search <kbd>Ctrl+Shift+P</kbd></button>
   <button class="fx" data-run="Find an effect or preset"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 14L10 6M11 1.5v3M9.5 3h3M14 5.5v2M13 6.5h2" stroke="currentColor" stroke-linecap="round"/></svg>Effects</button>
-  <span class="wstabs"><button data-run="Compose workspace" data-workspace="Compose">Compose</button><button data-run="Animate workspace" data-workspace="Animate">Animate</button><button data-run="Render workspace" data-workspace="Render">Render</button></span>
+  <span class="wstabs"><button data-run="Compose workspace" data-workspace="Compose">Compose</button><button data-run="Animate workspace" data-workspace="Animate">Animate</button><button data-run="Render workspace" data-workspace="Render">Render</button><button data-run="Sketch workspace" data-workspace="Sketch">Sketch</button></span>
   <button id="save" data-key="Ctrl+S">Save</button>
 </div>
 <div id="middle"><div id="main">
@@ -1880,6 +1965,8 @@
       <div id="snapview" hidden><canvas></canvas><span class="tag then"></span><span class="tag now">Now</span><div class="split" title="Drag: the snapshot is left of the line, the picture now right of it"></div></div>
       <!-- D-258: the onion skin, drawn by the page for the eye alone. -->
       <canvas id="onion" width="480" height="270" aria-hidden="true" hidden></canvas>
+      <!-- D-261: the sketches over the picture, when the Sketch workspace says so. -->
+      <canvas id="sketchover" width="480" height="270" aria-hidden="true" hidden></canvas>
       <svg id="boxes" width="480" height="270" viewBox="0 0 480 270" aria-hidden="true"></svg>
     </div>
     <div id="strip" hidden></div>
@@ -2029,6 +2116,68 @@
 </section>
 </div>
 </div>
+<!-- D-261: the Sketch workspace. Drawings over the cut for the eye alone: saved with the project
+     through the sketch commands, never drawn into a frame or an export. -->
+<section id="sketch" aria-label="Sketch">
+  <div class="skt" role="toolbar" aria-label="Sketch tools">
+    <button class="skb" data-sktool="brush" title="Brush, B" aria-label="Brush"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M18 3l3 3-9 9-3-3zM9 12c-3 0-5 2-5 5 0 1-1 2-2 2 2 2 7 2 8-1 1-2 1-4-1-6"/></svg></button>
+    <button class="skb" data-sktool="pencil" title="Pencil, P" aria-label="Pencil"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M4 20l1-5L16 4l4 4L9 19zM14 6l4 4"/></svg></button>
+    <button class="skb" data-sktool="eraser" title="Eraser, E: rubs out on the chosen layer" aria-label="Eraser"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M8 20h12M5 16l9-9 5 5-6 6H8z"/></svg></button>
+    <hr>
+    <button class="skb" data-sksize="0" title="Thin · [ and ] change it" aria-label="Thin"><span class="dot"></span></button>
+    <button class="skb" data-sksize="1" title="Medium · [ and ] change it" aria-label="Medium"><span class="dot"></span></button>
+    <button class="skb" data-sksize="2" title="Thick · [ and ] change it" aria-label="Thick"><span class="dot"></span></button>
+    <hr>
+    <button class="sw2" data-skcolour="#c8302c" title="Red" aria-label="Red"></button>
+    <button class="sw2" data-skcolour="#3f7fd8" title="Blue" aria-label="Blue"></button>
+    <button class="sw2" data-skcolour="#2f8f4f" title="Green" aria-label="Green"></button>
+    <button class="sw2" data-skcolour="#1a1a2a" title="Black" aria-label="Black"></button>
+    <button class="sw2" data-skcolour="#ffffff" title="White" aria-label="White"></button>
+    <hr>
+    <button class="skb" data-skundo title="Undo the last stroke, Ctrl+Z" aria-label="Undo the last stroke"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg></button>
+  </div>
+  <div class="skc">
+    <div class="skhead">
+      <b id="skwhere"></b><span id="skhow"></span><span class="sp"></span>
+      <button data-skturn="-15" title="Turn the paper 15° left" aria-label="Turn the paper 15 degrees left"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 2 7"/><path d="M4 4v6h6"/></svg></button>
+      <button data-skturn="15" title="Turn the paper 15° right" aria-label="Turn the paper 15 degrees right"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M20 10a8 8 0 1 0-2 7"/><path d="M20 4v6h-6"/></svg></button>
+      <button data-skflip aria-pressed="false" title="Flip left-right" aria-label="Flip the paper left-right"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M9 7L3 17h6zM15 7l6 10h-6z"/></svg></button>
+      <span id="skangle"></span>
+      <button data-skturn="0" title="Put the paper back straight">Reset</button>
+    </div>
+    <div class="skdesk"><div id="skpic"><canvas id="skunder" width="480" height="270"></canvas><canvas id="skdraw" width="480" height="270"></canvas></div></div>
+    <div class="skfoot"><span>Draw on the picture with the mouse or a pen.</span><span class="sp"></span><span id="skcount"></span></div>
+  </div>
+  <div class="skbar">
+    <button data-skstep="-1" title="Back one frame, Page Up" aria-label="Back one frame">&#9664;</button>
+    <span id="skstrip"></span>
+    <button data-skstep="1" title="Forward one frame, Page Down" aria-label="Forward one frame">&#9654;</button>
+    <span class="gs"></span>
+    <button data-skonion aria-pressed="false" title="The nearest sketched frames before, in red, and after, in green"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg>Onion skin</button>
+    <span class="hint">a &#9679; marks a frame with its own sketch</span>
+  </div>
+  <div class="skl">
+    <div class="skph"><b>Layers</b><span class="sp"></span><button class="sh" data-sknew>+ New layer</button></div>
+    <div id="sklayers"></div>
+    <div class="lyr2 under">
+      <svg class="ic" width="15" height="15" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="1"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+      <div class="pick"><span id="skunderlabel"></span><small>the cut itself, for reference · locked</small></div>
+    </div>
+    <div class="skcut"><span>Show the cut</span><button data-skcut="0">Off</button><button data-skcut="0.3">30%</button><button data-skcut="0.6">60%</button><button data-skcut="1">100%</button></div>
+    <div class="fsec" id="skselname">Selected layer</div>
+    <div class="sksel" id="sksel">
+      <div class="row"><label for="skname">Name</label><input id="skname" type="text" aria-label="The sketch layer's name"></div>
+      <div class="row"><span>Draws on</span><div class="seg2"><button data-skspan="frame">This frame</button><button data-skspan="all">Whole cut</button></div></div>
+      <div class="hint" id="skspanhint"></div>
+      <div class="row go"><button class="sh" data-skclear id="skclear"></button><button class="sh" data-skdelete>Delete layer</button></div>
+    </div>
+    <div class="fsec">Where sketches show</div>
+    <label class="gtick"><input type="checkbox" id="skover"><span>Also over the Compose viewer<br><small>to check an idea against the finished picture</small></span></label>
+    <div class="sknote" id="sknote"></div>
+    <span class="sp"></span>
+    <div class="hint skkeys">B brush · P pencil · E eraser · [ and ] size · Ctrl+Z undo · Page Up and Page Down step frames</div>
+  </div>
+</section>
 <div class="split col" id="splitside" role="separator" aria-orientation="vertical" tabindex="0"
   aria-label="The border beside the side column. Drag it, or use the arrow keys."></div>
 <div class="place" id="side"><nav class="stack" hidden></nav></div>
@@ -2070,7 +2219,7 @@
   <ul id="notes"></ul>
   <button id="notedetails" type="button" aria-expanded="false" hidden>Error details</button>
   <ul id="notecodes" hidden></ul>
-  <span class="hint" id="keys">space, arrows, D, Alt+G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N new composition, Ctrl+Alt+N new project, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+I, Ctrl+M &middot; Alt+1, Alt+2 and Alt+3 the workspaces &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click keys or an empty place on the timeline for speed, ease, hold, copy, paste here and more, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file, or drawings, here</span>
+  <span class="hint" id="keys">space, arrows, D, Alt+G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N new composition, Ctrl+Alt+N new project, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+I, Ctrl+M &middot; Alt+1 to Alt+4 the workspaces &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click keys or an empty place on the timeline for speed, ease, hold, copy, paste here and more, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file, or drawings, here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -2311,6 +2460,7 @@ async function show(url, keep = true) {
     if (!pending) wanted = frame;
     frameBox.value = frame;
     movePlayhead();
+    drawSketch();
     // Where the selected layers are on this frame, asked for beside the frame rather than with
     // it: a shot playing at twenty-four frames a second wants no outline and should pay for
     // none, and `askForBoxes` is what decides that.
@@ -4744,6 +4894,7 @@ function paletteLines() {
     ['Compose workspace', 'Alt+1', { key: '1', code: 'Digit1', altKey: true }],
     ['Animate workspace', 'Alt+2', { key: '2', code: 'Digit2', altKey: true }],
     ['Render workspace', 'Alt+3', { key: '3', code: 'Digit3', altKey: true }],
+    ['Sketch workspace', 'Alt+4', { key: '4', code: 'Digit4', altKey: true }],
     ['Show or hide the Sheet', '', toggleSheetColumn],
     ['Find any command', 'Ctrl+Shift+P', { key: 'P', code: 'KeyP', ctrlKey: true, shiftKey: true }],
     ...PROPS.map((prop) => ['Reset ' + prop, '', () => resetProp(prop)]),
@@ -6963,7 +7114,7 @@ function applyZoom() {
   const comp = composition();
   const fit = zoom === null;
   const scale = !comp ? 1 : fit ? fitScale(comp) : zoom;
-  for (const el of [view, $('onion'), $('boxes'), $('guides'), $('snapview')]) {
+  for (const el of [view, $('onion'), $('sketchover'), $('boxes'), $('guides'), $('snapview')]) {
     el.style.width = !comp ? '' : comp.width * scale + 'px';
     el.style.height = !comp ? '' : comp.height * scale + 'px';
   }
@@ -11807,6 +11958,7 @@ async function refreshState() {
     return;
   }
   drawPanels();
+  drawSketch();
 }
 
 // -------------------------------------------------------------------------------------------
@@ -11985,8 +12137,9 @@ function drawLooks() {
 const viewTurn = { angle: 0, mirror: false };
 let holdingPixels = 0;
 let mapShown = false; // W-41c: the map in front of the picture
+let sketchShown = false; // D-261: the Sketch board is out, and draws the picture under the sketches
 function needPixels() {
-  return viewTurn.angle !== 0 || viewTurn.mirror || holdingPixels > 0 || mapShown;
+  return viewTurn.angle !== 0 || viewTurn.mirror || holdingPixels > 0 || mapShown || sketchShown;
 }
 // The picture's pixels on the page's canvas, all of it, before going on.
 async function pixelsHere() {
@@ -12119,7 +12272,7 @@ function drawMap() {
   // The flowchart: a column for each depth, an arrow from each composition to each it holds.
   const [W, H, GX, GY] = [200, 68, 250, 84];
   const xy = (id) => [16 + m.depth.get(id) * GX, 16 + m.row.get(id) * GY];
-  const NS = 'http://www.w3.org/2000/svg';
+  const NS = document.querySelector('svg').namespaceURI; // the page's own SVG; B-11 keeps addresses out of the page
   const svg = document.createElementNS(NS, 'svg');
   const right = Math.max(0, ...m.all.map((c) => xy(c.id)[0])) + W + 16;
   const bottom = Math.max(0, ...m.all.map((c) => xy(c.id)[1])) + H + 16;
@@ -12543,6 +12696,301 @@ function maximise() {
   applyZoom();
 }
 
+// D-261: the Sketch workspace. Sketch layers belong to the composition and are saved with the
+// project; each stroke, layer change and clear is one command, so Ctrl+Z takes back the last
+// stroke. The page draws them, over the cut on the board and over the viewer when asked; the
+// renderer never reads them, so no frame and no export can carry one.
+const SK_SIZES = [4, 10, 22];
+const sk = { tool: 'brush', size: 1, colour: '#c8302c', layer: null, cut: 0.6, onion: false, turn: 0, flip: false, over: false };
+try { sk.over = localStorage.getItem('sketchOver') === '1'; } catch (e) { /* off for this run */ }
+let skDrawing = null; // the stroke under the hand: its layer, frame, tool, size, colour and points
+const skSheet = document.createElement('canvas'); // one layer at a time, so the eraser rubs out only its own
+function skSet(change) {
+  Object.assign(sk, change);
+  drawSketch();
+}
+const skLayers = (comp) => (comp && comp.sketches) || [];
+function skChosen(comp) {
+  const all = skLayers(comp);
+  return all.find((s) => s.id === sk.layer) || all[all.length - 1] || null;
+}
+const skOn = (s, k, at) => s.whole_cut || k.frame == null || k.frame === at;
+const skOwnFrame = (comp, at) => skLayers(comp).some((s) => !s.whole_cut && s.strokes.some((k) => k.frame === at));
+const skQuery = (s, change) => {
+  const v = Object.assign({ name: s.name, visible: s.visible, whole_cut: s.whole_cut }, change);
+  return 'sketch=' + encodeURIComponent(s.id) + '&name=' + encodeURIComponent(v.name)
+    + '&visible=' + v.visible + '&whole_cut=' + v.whole_cut;
+};
+const skNewId = () => 'sketch-' + Date.now().toString(36);
+// A stroke as the Sandbox draws one: through the midpoints, so a quick line comes out smooth.
+function skStroke(ctx, k, tint, alpha) {
+  const pts = k.points;
+  if (!pts || !pts.length) return;
+  ctx.globalCompositeOperation = k.tool === 'eraser' ? 'destination-out' : 'source-over';
+  ctx.globalAlpha = k.tool === 'eraser' ? 1 : alpha || (k.tool === 'pencil' ? 0.8 : 0.95);
+  ctx.strokeStyle = tint || k.colour;
+  ctx.lineWidth = k.size;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  if (pts.length === 1) ctx.lineTo(pts[0][0] + 0.1, pts[0][1]);
+  for (let i = 1; i < pts.length - 1; i++) {
+    ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
+  }
+  if (pts.length > 1) ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
+  ctx.stroke();
+}
+// Every shown sketch layer on frame `at`, bottom first, onto `ctx`, in composition pixels.
+// `onion` is the frames to show faintly first, each with its tint; `live` the stroke being drawn.
+function paintSketches(ctx, comp, at, onion, live) {
+  const [w, h] = [comp.width, comp.height];
+  if (ctx.canvas.width !== w || ctx.canvas.height !== h) [ctx.canvas.width, ctx.canvas.height] = [w, h];
+  else ctx.clearRect(0, 0, w, h);
+  if (skSheet.width !== w || skSheet.height !== h) [skSheet.width, skSheet.height] = [w, h];
+  const sheet = skSheet.getContext('2d');
+  const put = () => {
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(skSheet, 0, 0);
+    sheet.globalCompositeOperation = 'source-over';
+    sheet.clearRect(0, 0, w, h);
+  };
+  sheet.clearRect(0, 0, w, h);
+  for (const [f, tint] of onion || []) {
+    for (const s of skLayers(comp)) {
+      if (!s.visible || s.whole_cut) continue;
+      for (const k of s.strokes) if (k.frame === f) skStroke(sheet, k, tint, 0.35);
+      put();
+    }
+  }
+  let liveDrawn = !live;
+  for (const s of skLayers(comp)) {
+    if (!s.visible && !(live && live.sketch === s.id)) continue;
+    for (const k of s.strokes) if (skOn(s, k, at)) skStroke(sheet, k);
+    if (live && live.sketch === s.id) { skStroke(sheet, live); liveDrawn = true; }
+    put();
+  }
+  if (!liveDrawn) { skStroke(sheet, live); put(); } // the first stroke, before its layer exists
+}
+// Where on the composition a press lands, through the paper's turn and flip.
+function skPoint(e, comp) {
+  const pic = $('skpic');
+  const r = pic.getBoundingClientRect();
+  const [w, h] = [pic.offsetWidth, pic.offsetHeight];
+  const th = sk.turn * Math.PI / 180;
+  const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  let x = dx * Math.cos(-th) - dy * Math.sin(-th);
+  const y = dx * Math.sin(-th) + dy * Math.cos(-th);
+  if (sk.flip) x = -x;
+  return [Math.round((x + w / 2) / w * comp.width), Math.round((y + h / 2) / h * comp.height)];
+}
+// The Sketch board, and the sketches over the viewer when that is ticked.
+function drawSketch() {
+  const comp = composition();
+  const over = $('sketchover');
+  const overOn = !!comp && sk.over && !sketchShown && skLayers(comp).some((s) => s.visible);
+  over.hidden = !overOn;
+  if (overOn) paintSketches(over.getContext('2d'), comp, frame);
+  if (!sketchShown || !comp) return;
+  const chosen = skChosen(comp);
+  if (chosen) sk.layer = chosen.id;
+  const erasing = sk.tool === 'eraser';
+  // The paper, fitted to the desk whichever way it is turned.
+  const desk = document.querySelector('#sketch .skdesk');
+  const th = sk.turn * Math.PI / 180;
+  const across = comp.width * Math.abs(Math.cos(th)) + comp.height * Math.abs(Math.sin(th));
+  const down = comp.width * Math.abs(Math.sin(th)) + comp.height * Math.abs(Math.cos(th));
+  const scale = Math.max(0.01, Math.min(desk.clientWidth / across, desk.clientHeight / down));
+  const pic = $('skpic');
+  pic.style.width = comp.width * scale + 'px';
+  pic.style.height = comp.height * scale + 'px';
+  pic.style.transform = 'rotate(' + sk.turn + 'deg) scale(' + (sk.flip ? -1 : 1) + ', 1)';
+  pic.classList.toggle('erasing', erasing);
+  // The cut underneath, as the viewer last drew it, at the strength chosen.
+  const under = $('skunder');
+  if (under.width !== comp.width || under.height !== comp.height) [under.width, under.height] = [comp.width, comp.height];
+  const paper = under.getContext('2d');
+  paper.clearRect(0, 0, under.width, under.height);
+  if (sk.cut > 0 && view.width > 1) {
+    paper.globalAlpha = sk.cut;
+    paper.drawImage(view, 0, 0, under.width, under.height);
+    paper.globalAlpha = 1;
+  }
+  const first = comp.start_frame, last = comp.start_frame + comp.duration_frames - 1;
+  const onion = [];
+  if (sk.onion) {
+    let before = null, after = null;
+    for (let f = frame - 1; f >= first && before === null; f--) if (skOwnFrame(comp, f)) before = f;
+    for (let f = frame + 1; f <= last && after === null; f++) if (skOwnFrame(comp, f)) after = f;
+    if (before !== null) onion.push([before, '#e0604a']);
+    if (after !== null) onion.push([after, '#2f8f4f']);
+  }
+  paintSketches($('skdraw').getContext('2d'), comp, frame, onion, skDrawing);
+  // The words around it.
+  const name = chosen ? chosen.name : 'Layer 1';
+  $('skwhere').textContent = comp.name + ' · frame ' + frame;
+  $('skhow').textContent = (erasing ? 'rubbing out on ' : 'drawing on ') + name + (erasing ? '' : ' with the ' + sk.tool);
+  const here = chosen ? chosen.strokes.filter((k) => skOn(chosen, k, frame)).length : 0;
+  $('skcount').textContent = here + (here === 1 ? ' stroke' : ' strokes') + ' on ' + name
+    + (chosen && chosen.whole_cut ? ', shown on every frame' : ' at frame ' + frame);
+  $('skangle').textContent = sk.turn ? sk.turn + '°' : '';
+  for (const b of document.querySelectorAll('#sketch [data-sktool]')) b.setAttribute('aria-pressed', String(b.dataset.sktool === sk.tool));
+  for (const b of document.querySelectorAll('#sketch [data-sksize]')) b.setAttribute('aria-pressed', String(+b.dataset.sksize === sk.size));
+  for (const b of document.querySelectorAll('#sketch [data-skcolour]')) b.setAttribute('aria-pressed', String(b.dataset.skcolour === sk.colour));
+  for (const b of document.querySelectorAll('#sketch [data-skcut]')) b.setAttribute('aria-pressed', String(+b.dataset.skcut === sk.cut));
+  document.querySelector('#sketch [data-skflip]').setAttribute('aria-pressed', String(sk.flip));
+  document.querySelector('#sketch [data-skonion]').setAttribute('aria-pressed', String(sk.onion));
+  // Sixteen frames around the one on screen, a dot on each with a drawing of its own.
+  const k0 = Math.max(first, Math.min(frame - 7, last - 15));
+  const cells = [];
+  for (let f = k0; f < k0 + 16 && f <= last; f++) {
+    const cell = document.createElement('button');
+    cell.className = 'scell';
+    cell.dataset.skframe = f;
+    cell.setAttribute('aria-pressed', String(f === frame));
+    cell.setAttribute('aria-label', 'Frame ' + f + (skOwnFrame(comp, f) ? ', sketched' : ''));
+    cell.append(Object.assign(document.createElement('span'), { textContent: f }),
+      Object.assign(document.createElement('b'), { textContent: skOwnFrame(comp, f) ? '●' : '·' }));
+    cells.push(cell);
+  }
+  $('skstrip').replaceChildren(...cells);
+  // The layers, the top one first, as a stack is read.
+  const rows = skLayers(comp).slice().reverse().map((s) => {
+    const row = document.createElement('div');
+    row.className = 'lyr2' + (chosen && s.id === chosen.id ? ' on' : '');
+    const eye = document.createElement('button');
+    eye.className = 'eye';
+    eye.dataset.skeye = s.id;
+    eye.title = 'Show or hide';
+    eye.setAttribute('aria-label', 'Show or hide ' + s.name);
+    eye.setAttribute('aria-pressed', String(s.visible));
+    eye.innerHTML = '<svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+    const drawn = s.strokes.filter((k) => k.tool !== 'eraser');
+    const swatch = Object.assign(document.createElement('span'), { className: 'sw3' });
+    swatch.style.background = drawn.length ? drawn[drawn.length - 1].colour : '#6a6a72';
+    const pick = document.createElement('button');
+    pick.className = 'pick';
+    pick.dataset.skpick = s.id;
+    const all = s.strokes.length, onThis = s.strokes.filter((k) => skOn(s, k, frame)).length;
+    pick.append(Object.assign(document.createElement('span'), { textContent: s.name }),
+      Object.assign(document.createElement('small'), {
+        textContent: s.whole_cut ? 'whole cut · ' + all + ' marks' : onThis + ' on this frame · ' + all + ' in all',
+      }));
+    row.append(eye, swatch, pick);
+    return row;
+  });
+  if (!rows.length) rows.push(Object.assign(document.createElement('p'), { className: 'hint skempty', textContent: 'No sketch layers yet. Draw, and Layer 1 is made for you.' }));
+  $('sklayers').replaceChildren(...rows);
+  $('skunderlabel').textContent = 'Under: ' + comp.name + ', frame ' + frame;
+  $('skselname').textContent = 'Selected layer' + (chosen ? ' · ' + chosen.name : '');
+  $('sksel').hidden = !chosen;
+  if (chosen) {
+    if (document.activeElement !== $('skname')) $('skname').value = chosen.name;
+    for (const b of document.querySelectorAll('#sketch [data-skspan]')) b.setAttribute('aria-pressed', String((b.dataset.skspan === 'all') === chosen.whole_cut));
+    $('skspanhint').textContent = chosen.whole_cut ? 'One drawing shown on every frame, for notes that stay.'
+      : 'Each frame keeps its own drawing, like paper on a peg bar.';
+    $('skclear').textContent = 'Clear ' + chosen.name + (chosen.whole_cut ? '' : ' on frame ' + frame);
+  }
+  $('skover').checked = sk.over;
+  $('sknote').textContent = 'Sketches are never exported. They are saved with the project, beside ' + comp.name + '.';
+}
+// Into the board and out of it. While it is out the picture's pixels stay on the page, which is
+// where the board copies the cut from.
+function sketchEnter(on) {
+  if (on !== sketchShown) {
+    const before = needPixels();
+    sketchShown = on;
+    if (needPixels() !== before) {
+      if (needPixels()) pixelsHere();
+      else show(FRAMES + '/frame/' + frame + '?q=' + quality);
+    }
+  }
+  drawSketch();
+}
+addEventListener('resize', () => { if (sketchShown) drawSketch(); });
+$('sketch').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const d = b.dataset;
+  const comp = composition();
+  const chosen = skChosen(comp);
+  if (d.sktool) skSet({ tool: d.sktool });
+  else if (d.sksize) skSet({ size: +d.sksize });
+  else if (d.skcolour) skSet({ colour: d.skcolour, tool: sk.tool === 'eraser' ? 'brush' : sk.tool });
+  else if ('skundo' in d) $('undo').click();
+  else if (d.skturn) skSet(d.skturn === '0' ? { turn: 0, flip: false } : { turn: (((sk.turn + +d.skturn) % 360) + 540) % 360 - 180 });
+  else if ('skflip' in d) skSet({ flip: !sk.flip });
+  else if (d.skstep) step(+d.skstep);
+  else if (d.skframe) seek(+d.skframe);
+  else if ('skonion' in d) skSet({ onion: !sk.onion });
+  else if (d.skcut) skSet({ cut: +d.skcut });
+  else if ('sknew' in d) {
+    const s = { id: skNewId(), name: 'Layer ' + (skLayers(comp).length + 1), visible: true, whole_cut: false };
+    sk.layer = s.id;
+    command('/sketch.set_layer?' + skQuery(s, {}));
+  } else if (d.skeye) {
+    const s = skLayers(comp).find((x) => x.id === d.skeye);
+    if (s) command('/sketch.set_layer?' + skQuery(s, { visible: !s.visible }));
+  } else if (d.skpick) skSet({ layer: d.skpick });
+  else if (d.skspan && chosen) command('/sketch.set_layer?' + skQuery(chosen, { whole_cut: d.skspan === 'all' }));
+  else if ('skclear' in d && chosen) {
+    command('/sketch.clear?sketch=' + encodeURIComponent(chosen.id) + (chosen.whole_cut ? '' : '&frame=' + frame));
+  } else if ('skdelete' in d && chosen) command('/sketch.remove_layer?sketch=' + encodeURIComponent(chosen.id));
+});
+$('sketch').addEventListener('change', (e) => {
+  const chosen = skChosen(composition());
+  if (e.target.id === 'skname' && chosen && e.target.value.trim()) {
+    command('/sketch.set_layer?' + skQuery(chosen, { name: e.target.value.trim() }));
+  } else if (e.target.id === 'skover') {
+    sk.over = e.target.checked;
+    try { localStorage.setItem('sketchOver', sk.over ? '1' : '0'); } catch (err) { /* kept for this run only */ }
+    drawSketch();
+  }
+});
+// Drawing: a press starts a stroke, the hand adds a point each time it has moved four pixels on
+// screen, and letting go sends the stroke as one command. A drag is a mouse or a pen; there is no
+// other way to draw one.
+const skPic = $('skpic');
+skPic.onpointerdown = (e) => {
+  const comp = composition();
+  if (e.button !== 0 || !comp) return;
+  skPic.setPointerCapture(e.pointerId);
+  const chosen = skChosen(comp);
+  const size = sk.tool === 'pencil' ? Math.max(2, SK_SIZES[sk.size] * 0.5) : SK_SIZES[sk.size];
+  skDrawing = {
+    sketch: chosen ? chosen.id : null, frame, tool: sk.tool, size, colour: sk.colour,
+    points: [skPoint(e, comp)], at: [e.clientX, e.clientY],
+  };
+  drawSketch();
+};
+skPic.onpointermove = (e) => {
+  const comp = composition();
+  if (!skDrawing || !comp) return;
+  if (Math.hypot(e.clientX - skDrawing.at[0], e.clientY - skDrawing.at[1]) < 4) return;
+  skDrawing.at = [e.clientX, e.clientY];
+  skDrawing.points.push(skPoint(e, comp));
+  drawSketch();
+};
+skPic.onpointerup = async () => {
+  const d = skDrawing;
+  if (!d) return;
+  const comp = composition();
+  let s = skLayers(comp).find((x) => x.id === d.sketch);
+  if (!s) {
+    s = { id: skNewId(), name: 'Layer 1', visible: true, whole_cut: false };
+    sk.layer = s.id;
+    d.sketch = s.id;
+    await command('/sketch.set_layer?' + skQuery(s, {}));
+  } else if (!s.visible) await command('/sketch.set_layer?' + skQuery(s, { visible: true }));
+  await command('/sketch.add_stroke?sketch=' + encodeURIComponent(s.id) + (s.whole_cut ? '' : '&frame=' + d.frame)
+    + '&tool=' + d.tool + '&size=' + d.size + '&colour=' + encodeURIComponent(d.colour)
+    + '&points=' + d.points.map((p) => p.join(',')).join(';'));
+  if (skDrawing === d) skDrawing = null;
+  drawSketch();
+};
+skPic.onpointercancel = () => { skDrawing = null; drawSketch(); };
+
 // D-85: workspaces. Four places, each holding panels with the first in front. A panel moves by
 // dragging its name or its title bar onto another place, or from the menu a right click on either
 // opens. A workspace is where each panel is and how big the places are, kept in the browser's
@@ -12558,6 +13006,8 @@ const BUILT_IN = {
   // Project and Effects panels behind it, the timeline the lower half and on Both.
   Animate: { places: { left: ['inspector', 'bin', 'fxbrowser'], leftlow: [], centre: ['viewer'], right: [], bottom: ['timeline'], side: ['sheetpanel'], parked: ['renderpanel'] }, sizes: { '--bin': 340 } },
   // W-45: as the Sandbox's Render board: the Project panel and the render, nothing else.
+  // D-261: the Sketch board stands in place of the panels, which keep Compose's places behind it.
+  Sketch: { places: { left: ['bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'], side: ['sheetpanel'], parked: ['renderpanel'] }, sizes: { '--bin': 300 }, sideHidden: true },
   Render: { places: { left: ['bin'], leftlow: [], centre: ['renderpanel'], right: [], bottom: [], side: [], parked: ['viewer', 'timeline', 'inspector', 'fxbrowser', 'sheetpanel'] }, sizes: { '--bin': 340 } },
 };
 let savedWorkspaces = {};
@@ -12609,6 +13059,7 @@ function arrange() {
   // The viewer's strip is the Sheet's chosen column, so it gives its room up while the Sheet is out.
   document.body.classList.toggle('sheetout', sheetInSide());
   document.body.dataset.workspace = workspace.name;
+  sketchEnter(workspace.name === 'Sketch');
   try { localStorage.setItem('workspace', JSON.stringify(workspace)); } catch (e) { /* kept for this run only */ }
   const was = xsheeting;
   xsheeting = !$('sheetpanel').hidden && $('sheetpanel').parentElement.id !== 'parked'
@@ -13900,6 +14351,15 @@ addEventListener('keydown', (e) => {
     || el.tagName === 'TEXTAREA'));
   if (typing && !e.ctrlKey) return;
   if (el && !e.ctrlKey && (e.key === ' ' || e.key.startsWith('Arrow'))) return;
+  // D-261: on the Sketch board B, P and E choose the brush, the pencil and the eraser, and [ and ]
+  // the size, as the Sandbox has them; everywhere else these keys keep their own jobs.
+  if (sketchShown && !e.ctrlKey && !e.altKey && !e.metaKey
+    && (e.key === 'b' || e.key === 'p' || e.key === 'e' || e.code === 'BracketLeft' || e.code === 'BracketRight')) {
+    e.preventDefault();
+    if (e.key === 'b' || e.key === 'p' || e.key === 'e') skSet({ tool: { b: 'brush', p: 'pencil', e: 'eraser' }[e.key] });
+    else skSet({ size: Math.max(0, Math.min(2, sk.size + (e.code === 'BracketRight' ? 1 : -1))) });
+    return;
+  }
 
   if (e.ctrlKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); command('/open'); }
   else if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
@@ -14040,6 +14500,7 @@ addEventListener('keydown', (e) => {
   else if (e.altKey && e.key === '1') { e.preventDefault(); useWorkspace('Compose'); }
   else if (e.altKey && e.key === '2') { e.preventDefault(); useWorkspace('Animate'); }
   else if (e.altKey && e.key === '3') { e.preventDefault(); useWorkspace('Render'); }
+  else if (e.altKey && e.key === '4') { e.preventDefault(); useWorkspace('Sketch'); }
   // W-22: Shift+F3 swaps the timeline and the graph, as After Effects' does.
   else if (e.shiftKey && e.key === 'F3') { e.preventDefault(); showSheet(graphing ? 'sheet' : 'graph'); }
   else if (e.altKey && e.shiftKey && ['KeyA', 'KeyP', 'KeyS', 'KeyR', 'KeyT'].includes(e.code)) {

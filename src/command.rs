@@ -18,7 +18,7 @@ use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::keykind::{self, Side};
 use crate::model::{
     Asset, BlendMode, Composition, Expression, Id, Interp, Keyframe, Kind, Layer, MatteReference,
-    Project, Prop, Value,
+    Project, Prop, Stroke, Value,
 };
 use crate::time::{ExposureMap, ExposureSpan, FrameRate};
 
@@ -172,6 +172,32 @@ pub enum Command {
     SetFrameBlending {
         composition: Id,
         value: bool,
+    },
+    /// Document 24's `sketch.set_layer`, D-261: a sketch layer made, or its name, whether it is
+    /// shown and whether it covers the whole cut set. Its strokes are kept.
+    SetSketchLayer {
+        composition: Id,
+        sketch: Id,
+        name: String,
+        visible: bool,
+        whole_cut: bool,
+    },
+    /// Document 24's `sketch.remove_layer`, D-261.
+    RemoveSketchLayer {
+        composition: Id,
+        sketch: Id,
+    },
+    /// Document 24's `sketch.add_stroke`, D-261: one stroke, so one undo takes it back.
+    AddSketchStroke {
+        composition: Id,
+        sketch: Id,
+        stroke: Stroke,
+    },
+    /// Document 24's `sketch.clear`, D-261: a layer's strokes on one frame, or all of them.
+    ClearSketch {
+        composition: Id,
+        sketch: Id,
+        frame: Option<i32>,
     },
     /// Document 24's `timeline.set_work_start` and `set_work_end`, W-24. Both ends at once, so a
     /// drag that moves one end replaces its earlier reading whole.
@@ -516,6 +542,10 @@ impl Command {
             Command::SetLayerFrameBlend { .. } => "SET_LAYER_FRAME_BLEND",
             Command::SetDrawingDissolve { .. } => "SET_DRAWING_DISSOLVE",
             Command::SetFrameBlending { .. } => "SET_FRAME_BLENDING",
+            Command::SetSketchLayer { .. } => "SET_SKETCH_LAYER",
+            Command::RemoveSketchLayer { .. } => "REMOVE_SKETCH_LAYER",
+            Command::AddSketchStroke { .. } => "ADD_SKETCH_STROKE",
+            Command::ClearSketch { .. } => "CLEAR_SKETCH",
             Command::SetWorkArea { .. } => "SET_WORK_AREA",
             Command::SetMarkers { .. } => "SET_MARKERS",
             Command::SetBlendMode { .. } => "SET_BLEND_MODE",
@@ -667,6 +697,16 @@ impl Command {
             Command::SetFrameBlending { value, .. } => match value {
                 true => "Turn on frame blending".to_string(),
                 false => "Turn off frame blending".to_string(),
+            },
+            Command::SetSketchLayer { name, .. } => format!("Set sketch layer {name}"),
+            Command::RemoveSketchLayer { .. } => "Delete a sketch layer".to_string(),
+            Command::AddSketchStroke { stroke, .. } => match stroke.tool.as_str() {
+                "eraser" => "Erase in a sketch".to_string(),
+                _ => "Draw in a sketch".to_string(),
+            },
+            Command::ClearSketch { frame, .. } => match frame {
+                Some(f) => format!("Clear the sketch on frame {f}"),
+                None => "Clear the sketch".to_string(),
             },
             Command::SetLayerLabel { label, .. } => match label {
                 0 => "Clear the layer's label".to_string(),
@@ -839,6 +879,10 @@ impl Command {
             | Command::SetLayerFrameBlend { composition, .. }
             | Command::SetDrawingDissolve { composition, .. }
             | Command::SetFrameBlending { composition, .. }
+            | Command::SetSketchLayer { composition, .. }
+            | Command::RemoveSketchLayer { composition, .. }
+            | Command::AddSketchStroke { composition, .. }
+            | Command::ClearSketch { composition, .. }
             | Command::SetMotionBlur { composition, .. }
             | Command::SetWorkArea { composition, .. }
             | Command::SetMarkers { composition, .. }
@@ -894,6 +938,10 @@ impl Command {
             | Command::SetMotionBlur { .. }
             | Command::SetFrameBlending { .. }
             | Command::SetCompositionSettings { .. } => {}
+            Command::SetSketchLayer { sketch, .. }
+            | Command::RemoveSketchLayer { sketch, .. }
+            | Command::AddSketchStroke { sketch, .. }
+            | Command::ClearSketch { sketch, .. } => ids.push(sketch.clone()),
             Command::RemoveLayer { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
@@ -1649,6 +1697,50 @@ fn reject(message: &str, detail: &str) -> Diagnostic {
     )
 }
 
+/// D-261: the sketch layer a stroke or Clear names.
+fn sketch_mut<'a>(
+    comp: &'a mut crate::model::Composition,
+    sketch: &Id,
+) -> Result<&'a mut crate::model::SketchLayer, Diagnostic> {
+    comp.sketches.iter_mut().find(|s| s.id == *sketch).ok_or_else(|| {
+        missing(
+            format!("There is no sketch layer {sketch} in this composition."),
+            "A sketch command names the sketch layer it changes; that ID is not present.".to_string(),
+        )
+    })
+}
+
+/// D-261: a stroke the file format can hold: a known tool, a size, a `#rrggbb` colour and at
+/// least one point, every number finite.
+fn check_stroke(stroke: &Stroke) -> Result<(), Diagnostic> {
+    if !crate::model::SKETCH_TOOLS.contains(&stroke.tool.as_str()) {
+        return Err(reject(
+            &format!("There is no sketch tool called {}; the tools are brush, pencil and eraser.", stroke.tool),
+            "D-261: a stroke is drawn with the brush, the pencil or the eraser.",
+        ));
+    }
+    if !(stroke.size.is_finite() && stroke.size > 0.0 && stroke.size <= 1000.0) {
+        return Err(reject(
+            "A stroke's size is more than 0 and at most 1000 pixels.",
+            "D-261: the size is the stroke's width in composition pixels.",
+        ));
+    }
+    let colour = stroke.colour.as_bytes();
+    if colour.len() != 7 || colour[0] != b'#' || !colour[1..].iter().all(u8::is_ascii_hexdigit) {
+        return Err(reject(
+            &format!("{} is not a colour written as #rrggbb.", stroke.colour),
+            "D-261: a stroke's colour is written as #rrggbb.",
+        ));
+    }
+    if stroke.points.is_empty() || stroke.points.iter().flatten().any(|v| !v.is_finite()) {
+        return Err(reject(
+            "A stroke needs at least one point, each a pair of numbers.",
+            "D-261: a point that is not a number cannot be saved or drawn.",
+        ));
+    }
+    Ok(())
+}
+
 fn missing(message: String, detail: String) -> Diagnostic {
     Diagnostic::new(
         DiagnosticId::CommandTargetMissing,
@@ -2201,6 +2293,42 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         }
         Command::SetFrameBlending { value, .. } => {
             comp_mut(project, &comp_id)?.frame_blending = *value;
+        }
+        Command::SetSketchLayer { sketch, name, visible, whole_cut, .. } => {
+            let comp = comp_mut(project, &comp_id)?;
+            let layer = match comp.sketches.iter().position(|s| s.id == *sketch) {
+                Some(i) => &mut comp.sketches[i],
+                None => {
+                    comp.sketches.push(crate::model::SketchLayer {
+                        id: sketch.clone(),
+                        name: String::new(),
+                        visible: true,
+                        whole_cut: false,
+                        strokes: Vec::new(),
+                        rest: Default::default(),
+                    });
+                    comp.sketches.last_mut().expect("just pushed")
+                }
+            };
+            layer.name = name.clone();
+            layer.visible = *visible;
+            layer.whole_cut = *whole_cut;
+        }
+        Command::RemoveSketchLayer { sketch, .. } => {
+            let comp = comp_mut(project, &comp_id)?;
+            sketch_mut(comp, sketch)?;
+            comp.sketches.retain(|s| s.id != *sketch);
+        }
+        Command::AddSketchStroke { sketch, stroke, .. } => {
+            check_stroke(stroke)?;
+            sketch_mut(comp_mut(project, &comp_id)?, sketch)?.strokes.push(stroke.clone());
+        }
+        Command::ClearSketch { sketch, frame, .. } => {
+            let layer = sketch_mut(comp_mut(project, &comp_id)?, sketch)?;
+            match frame {
+                Some(f) => layer.strokes.retain(|s| s.frame != Some(*f)),
+                None => layer.strokes.clear(),
+            }
         }
         Command::SetLayerLabel {
             layer_id, label, ..

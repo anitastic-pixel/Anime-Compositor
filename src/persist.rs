@@ -2337,7 +2337,78 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
     } else if let Some(map) = merged.as_object_mut() {
         map.remove("frame_blending");
     }
+    // D-261: written only when there are some or the file had the key.
+    if !composition.sketches.is_empty() || base.is_some_and(|b| b.get("sketches").is_some()) {
+        merged["sketches"] = J::Array(composition.sketches.iter().map(sketch_json).collect());
+    }
     merged
+}
+
+/// D-261: a sketch layer, over the lines in it this build does not know.
+fn sketch_json(sketch: &crate::model::SketchLayer) -> J {
+    let mut map = sketch.rest.clone();
+    map.insert("id".into(), J::from(sketch.id.as_str()));
+    map.insert("name".into(), J::from(sketch.name.as_str()));
+    map.insert("visible".into(), J::from(sketch.visible));
+    map.insert("whole_cut".into(), J::from(sketch.whole_cut));
+    let strokes = sketch.strokes.iter().map(|stroke| {
+        let mut map = stroke.rest.clone();
+        if let Some(frame) = stroke.frame {
+            map.insert("frame".into(), J::from(frame));
+        }
+        map.insert("tool".into(), J::from(stroke.tool.as_str()));
+        map.insert("size".into(), num(stroke.size));
+        map.insert("colour".into(), J::from(stroke.colour.as_str()));
+        map.insert(
+            "points".into(),
+            J::Array(stroke.points.iter().map(|[x, y]| J::Array(vec![num(*x), num(*y)])).collect()),
+        );
+        J::Object(map)
+    });
+    map.insert("strokes".into(), J::Array(strokes.collect()));
+    J::Object(map)
+}
+
+/// D-261: one entry of a composition's `sketches`. Lines it does not know go into `rest`.
+fn parse_sketch(v: &J, pointer: &str) -> Result<crate::model::SketchLayer, Diagnostic> {
+    let mut rest = as_object(v, pointer)?.clone();
+    for key in ["id", "name", "visible", "whole_cut", "strokes"] {
+        rest.remove(key);
+    }
+    let mut sketch = crate::model::SketchLayer {
+        id: as_id(field(v, pointer, "id")?, &format!("{pointer}/id"))?,
+        name: as_str(field(v, pointer, "name")?, &format!("{pointer}/name"))?.to_string(),
+        visible: as_bool(field(v, pointer, "visible")?, &format!("{pointer}/visible"))?,
+        whole_cut: as_bool(field(v, pointer, "whole_cut")?, &format!("{pointer}/whole_cut"))?,
+        strokes: Vec::new(),
+        rest,
+    };
+    let at = format!("{pointer}/strokes");
+    for (i, s) in as_array(field(v, pointer, "strokes")?, &at)?.iter().enumerate() {
+        let here = format!("{at}/{i}");
+        let mut rest = as_object(s, &here)?.clone();
+        for key in ["frame", "tool", "size", "colour", "points"] {
+            rest.remove(key);
+        }
+        let mut points = Vec::new();
+        let points_at = format!("{here}/points");
+        for (j, p) in as_array(field(s, &here, "points")?, &points_at)?.iter().enumerate() {
+            let point_at = format!("{points_at}/{j}");
+            match as_array(p, &point_at)?.as_slice() {
+                [x, y] => points.push([as_f64(x, &point_at)?, as_f64(y, &point_at)?]),
+                _ => return Err(invalid(&point_at, "a point, as two numbers")),
+            }
+        }
+        sketch.strokes.push(crate::model::Stroke {
+            frame: s.get("frame").map(|f| as_i32(f, &format!("{here}/frame"))).transpose()?,
+            tool: as_enum(field(s, &here, "tool")?, &format!("{here}/tool"), &crate::model::SKETCH_TOOLS)?.to_string(),
+            size: as_f64(field(s, &here, "size")?, &format!("{here}/size"))?,
+            colour: as_str(field(s, &here, "colour")?, &format!("{here}/colour"))?.to_string(),
+            points,
+            rest,
+        });
+    }
+    Ok(sketch)
 }
 
 /// The project as the text that would be written to disk.
@@ -5130,6 +5201,12 @@ fn parse_composition(
     // D-216 (FX-FBLEND-056).
     if let Some(on) = v.get("frame_blending") {
         composition.frame_blending = as_bool(on, &format!("{pointer}/frame_blending"))?;
+    }
+    if let Some(sketches) = v.get("sketches") {
+        let at = format!("{pointer}/sketches");
+        for (i, sketch) in as_array(sketches, &at)?.iter().enumerate() {
+            composition.sketches.push(parse_sketch(sketch, &format!("{at}/{i}"))?);
+        }
     }
     if let Some(markers) = v.get("markers") {
         let at = format!("{pointer}/markers");

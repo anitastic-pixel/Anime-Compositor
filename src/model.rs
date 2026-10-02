@@ -1128,8 +1128,41 @@ pub struct Composition {
     /// D-254: the label colour a layer has (W-24), 1 to 8, 0 for none. Saved as `label` only
     /// when set or when the file already had the key.
     pub label: u8,
+    /// D-261: notes drawn over the cut, in the order the Sketch workspace lists them. Nothing
+    /// that draws a frame reads them. Saved as `sketches` only when there are some or the file
+    /// already had the key.
+    pub sketches: Vec<SketchLayer>,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
+}
+
+/// D-261: the tools a sketch stroke is drawn with.
+pub const SKETCH_TOOLS: [&str; 3] = ["brush", "pencil", "eraser"];
+
+/// D-261: one sketch layer. `whole_cut` layers show their strokes on every frame; the others
+/// show each stroke on its own frame.
+#[derive(Clone, PartialEq, Debug)]
+pub struct SketchLayer {
+    pub id: Id,
+    pub name: String,
+    pub visible: bool,
+    pub whole_cut: bool,
+    pub strokes: Vec<Stroke>,
+    /// Lines in the file this build does not know, kept as they were (ADR-008).
+    pub rest: serde_json::Map<String, serde_json::Value>,
+}
+
+/// D-261: one stroke, its points in composition pixels. `frame` is `None` on a whole-cut layer.
+#[derive(Clone, PartialEq, Debug, Default)]
+pub struct Stroke {
+    pub frame: Option<i32>,
+    pub tool: String,
+    pub size: f64,
+    /// `#rrggbb`.
+    pub colour: String,
+    pub points: Vec<[f64; 2]>,
+    /// Lines in the file this build does not know, kept as they were (ADR-008).
+    pub rest: serde_json::Map<String, serde_json::Value>,
 }
 
 /// D-188: a composition's shutter. None of it is animated.
@@ -1232,6 +1265,7 @@ impl Composition {
             motion_blur: MotionBlur::default(),
             frame_blending: false,
             label: 0,
+            sketches: Vec::new(),
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }

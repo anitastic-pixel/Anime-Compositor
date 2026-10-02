@@ -423,7 +423,7 @@ fn b44_gpu_timing() {
                         let t = Instant::now();
                         // The tile size the window's CPU path uses at this quality.
                         let tile = match quality {
-                            PreviewQuality::Full => DEFAULT_TILE_SIZE,
+                            PreviewQuality::Full | PreviewQuality::Half => DEFAULT_TILE_SIZE,
                             PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
                         };
                         drop(render::render(&p, tile).to_srgb8_straight());

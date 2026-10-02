@@ -73,21 +73,22 @@ fn exported(project: &Project, name: &str) -> Vec<(String, Vec<u8>)> {
 }
 
 /// The reference shot with two sketch layers written as text, the way this build will write
-/// them, plus a line on a layer and on a stroke that no build writes yet.
+/// them, plus a line on a layer and on a stroke that no build writes yet. Whole numbers are
+/// written without a point, as the project writer has always written them.
 fn with_sketches_as_text() -> (String, serde_json::Value) {
     let mut root: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(repo("verification/B-08a_project.json")).unwrap()).unwrap();
     let sketches = serde_json::json!([
         { "id": "sketch-1", "name": "Timing notes", "visible": true, "whole_cut": false,
           "strokes": [
-            { "frame": 10, "tool": "pencil", "size": 2.0, "colour": "#e84a5f",
-              "points": [[120.5, 300.0], [180.25, 320.0], [240.0, 360.75]] },
-            { "frame": 10, "tool": "eraser", "size": 12.0, "colour": "#ffffff",
-              "points": [[150.0, 310.0]], "pressure": [0.4] } ] },
+            { "frame": 10, "tool": "pencil", "size": 2, "colour": "#e84a5f",
+              "points": [[120.5, 300], [180.25, 320], [240, 360.75]] },
+            { "frame": 10, "tool": "eraser", "size": 12, "colour": "#ffffff",
+              "points": [[150, 310]], "pressure": [0.4] } ] },
         { "id": "sketch-2", "name": "Layout", "visible": false, "whole_cut": true, "opacity": 0.5,
           "strokes": [
-            { "tool": "brush", "size": 5.0, "colour": "#3a8ee8",
-              "points": [[960.0, 0.0], [960.0, 1080.0]] } ] }
+            { "tool": "brush", "size": 5, "colour": "#3a8ee8",
+              "points": [[960, 0], [960, 1080]] } ] }
     ]);
     root["compositions"][0]["sketches"] = sketches.clone();
     (root.to_string(), sketches)
