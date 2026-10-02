@@ -9847,6 +9847,11 @@ fn place(app: &AppHandle, query: Option<&str>) -> Response<Vec<u8>> {
             .body(said.as_bytes().to_vec())
             .expect("build the place response")
     };
+    // W-41b (D-250): nothing to paint is the page asking for the picture's pixels again (a turned
+    // or mirrored view, a snapshot, a compare). The card stops painting until the next place.
+    if paints.is_empty() {
+        app.state::<Mutex<Card>>().lock().expect("the card lock was poisoned").paints.clear();
+    }
     let (Some(window), false) = (app.get_webview_window("main"), paints.is_empty()) else {
         return answer("off");
     };
@@ -27050,7 +27055,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 91] = [
+    const CONTROLS: [&str; 97] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -27071,6 +27076,7 @@ mod contract {
         "checkpackage",
         "closeprefs",
         "collect",
+        "comparebtn",
         "dellayer",
         "down",
         "emptyimport",
@@ -27098,6 +27104,7 @@ mod contract {
         "importcut",
         "makecomp",
         "mbswitch",
+        "mirror",
         "newcomp",
         "newlayer",
         "notedetails",
@@ -27129,6 +27136,7 @@ mod contract {
         "sheetcolumn",
         "shyswitch",
         "slatebtn",
+        "snapshot",
         "stripbtn",
         "tabboth",
         "tabgraph",
@@ -27136,7 +27144,10 @@ mod contract {
         "timescroll",
         "timezoom",
         "toggle",
+        "turnleft",
+        "turnright",
         "undo",
+        "unturn",
         "up",
         "workspace",
         "workspacename",
