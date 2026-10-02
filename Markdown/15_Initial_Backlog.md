@@ -684,6 +684,8 @@ W-43a / The Project panel: the first half of the fifth redesign screen (D-248). 
 
 W-43b / The effect finder: the second half of the fifth redesign screen (D-248). Ctrl+Space's finder laid out as the Sandbox's: Yours and the family tree on the left, grouped matches on the right, the about line with Add and Esc along the bottom. A click on a match now chooses it and a double click adds. Page only. No command ID, fixture or exported picture changes. Evidence is in `verification/W-43b_effect_finder.md`. Next: W-44 Animate.
 
+W-44 / Animate: the sixth redesign screen (D-248). The Animate workspace laid out as the Sandbox board, Timeline / Both / Graph remembered per workspace, the graph sidebar with ticks, names, values and the three curve shapes, the graph filling its half, and the Sheet's name, × and struck-out missing drawings. Page only. No command ID, fixture or exported picture changes. Evidence is in `verification/W-44_animate.md`. Next: W-45 Render.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

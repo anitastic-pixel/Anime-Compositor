@@ -151,6 +151,8 @@
   .place > .panel { flex: 1 1 0; }
   .place > .panel[hidden], .stack[hidden] { display: none; }
   #bottom { height: 33vh; min-height: 60px; }
+  body[data-workspace="Animate"]:not(.sized) #bottom { height: 50vh; }
+  body[data-workspace="Animate"] #work { min-height: 30vh; }
   body.noleft.noleftlow #work { --leftcol: 0px; --leftsplit: 0px; }
   body.noright #work { --rightcol: 0px; --rightsplit: 0px; }
   body.noleft #left, body.noleft.noleftlow #splitbin, body.noright #right, body.noright #splitinspector,
@@ -177,9 +179,10 @@
   }
   .tab {
     display: flex; align-items: center; gap: 8px;
-    font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #c8c8cc;
+    font-size: 12px; color: #e0e0e4;
     background: #2b2b2b; border-bottom: 1px solid #101010; padding: 4px 8px;
   }
+  .tab #comp::before, #sheetname:not(:empty)::before { content: "\00b7  "; color: #77777f; }
   .tab .tools { margin-left: auto; display: flex; gap: 4px; flex-wrap: wrap; }
   /* Which composition is on screen is named in the tab of the panel showing it, the way the
      program this is shaped after names it, and not in the project panel — the project panel
@@ -591,6 +594,9 @@
   #xsheet td.hold { background: linear-gradient(#ccc, #ccc) center / 2px 100% no-repeat; }
   #xsheet td.out { background: repeating-linear-gradient(45deg, #1a1a1a 0 4px, #222 4px 8px); }
   #xsheet tr.now td { background-color: #2b3f5c; }
+  /* W-44 (D-248): a drawing the layer asks for that is not there, struck out as on the timeline. */
+  #xsheet td.gone { color: #ff8a80; text-decoration: line-through; background-color: #4a2424; }
+  #xsheet td.hold.gone { background: linear-gradient(#ff8a80, #ff8a80) center / 2px 100% no-repeat, #4a2424; }
   #xsheet tr.now td.hold { background: linear-gradient(#ccc, #ccc) center / 2px 100% no-repeat, #2b3f5c; }
   #xsheet:focus { outline: none; }
   #xsheet td.chosen { outline: 2px solid #6aa0ff; outline-offset: -2px; }
@@ -605,8 +611,8 @@
   #xsheet td.key::after { content: ""; position: absolute; left: 50%; top: 50%; width: 24px; height: 16px; transform: translate(-50%, -50%); border: 1px solid #e8d9a8; border-radius: 50%; pointer-events: none; }
   #graph svg { display: block; width: 100%; height: 170px; touch-action: none; }
   #graph .plot { fill: none; stroke: #6ea8fe; stroke-width: 1.5; }
-  #graph .plot.second { stroke: #7bd88f; }
-  #graph .plot.other { stroke: #8a8f98; stroke-width: 1; stroke-dasharray: 4 3; pointer-events: stroke; cursor: pointer; }
+  #graph .plot.second { stroke-dasharray: 6 3; }
+  #graph .plot.other { stroke: #8a8f98; stroke-width: 1; opacity: .8; pointer-events: stroke; cursor: pointer; }
   #graph .otherdot { fill: #8a8f98; cursor: pointer; }
   #graph .keydot { fill: #e8b06a; cursor: grab; }
   #graph .keydot.selected { fill: #6ea8fe; }
@@ -617,6 +623,38 @@
   #graph text { fill: #909096; font-size: 10px; font-variant-numeric: tabular-nums; }
   #graph .tick { stroke: #2e2e32; stroke-width: 1; }
   #graph text.mode { fill: #c8c8cc; }
+  #graph text.axis { text-anchor: end; }
+  /* W-44 (D-248): the Sandbox's graph, its list in the gutter where the layer names are above it:
+     the layer's keyed properties, ticked to be drawn, each in its own colour with its value at the
+     playhead, then the shape of the curve in front, and a line on what dragging does. */
+  #graph .gside {
+    position: absolute; left: 8px; top: 6px; bottom: 8px; width: calc(var(--gutter) - 12px);
+    overflow-y: auto; box-sizing: border-box; padding: 0 10px 6px 4px; background: #1e1e1e;
+    border-right: 1px solid #2e2e32; font-size: 12px; scrollbar-width: thin;
+  }
+  #graph .gside h3 {
+    font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #77777f;
+    font-weight: 400; margin: 6px 0 4px;
+  }
+  #graph .gp { display: flex; align-items: center; gap: 7px; min-height: 22px; padding: 0 4px; border-radius: 3px; }
+  #graph .gp.front { background: #26303f; }
+  #graph .gp input { margin: 0; accent-color: #6ea8fe; }
+  #graph .gp .sw { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+  #graph .gp button {
+    flex: 1; min-width: 0; text-align: left; border: 0; background: none; padding: 0; color: #d0d0d4;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #graph .gp.front button { color: #fff; font-weight: 600; }
+  #graph .gp .gv { color: #a0a0a8; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #graph .gshape { display: flex; gap: 4px; flex-wrap: wrap; }
+  #graph .gshape button { padding: 2px 9px; font-size: 11.5px; }
+  #graph .gshape button[aria-pressed=true] { background: #2e3b52; border-color: #6ea8fe; color: #fff; }
+  #graph .gside p { color: #8e8e96; font-size: 11px; margin: 8px 0 0; line-height: 1.35; }
+  body.sheetout #strip { display: none; }
+  #sheetname { white-space: nowrap; }
+  #sheetpanel .tab .hint { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  /* Both: the rows and the graph share the panel's height. */
+  #timeline.both { grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr) auto; }
   #graph .band { fill: rgba(110, 168, 254, 0.15); stroke: #6ea8fe; stroke-width: 1; }
   #timezoom { width: 90px; }
   /* The bar starts exactly at the gutter, with no gap or padding before it and none after, so a
@@ -1816,11 +1854,10 @@
     <span class="tools">
       <button id="newlayer" aria-haspopup="menu"
         title="Drawings, an adjustment layer, a solid, a shape layer or a null">+ New layer &#9662;</button>
-      <select id="graphprop" aria-label="Which property the graph draws" hidden></select>
       <button id="graphmode" class="sheettab" aria-pressed="false" hidden
         title="Draw how fast the property changes, as After Effects' speed graph does">Speed</button>
       <button id="graphall" class="sheettab" aria-pressed="false" hidden
-        title="Draw the layer's other keyed properties behind the one being edited. Press one of them to edit it instead.">All</button>
+        title="Tick every keyed property of the layer to draw it behind the one in front, or untick them all. Press one of them to put it in front.">All</button>
       <button id="graphfit" class="sheettab" hidden
         title="Fit the graph to the chosen keys, or to the whole curve when none is chosen. The mouse wheel zooms the values; drag with the middle button to slide them.">Fit</button>
       <button id="shyswitch" class="ic" aria-pressed="false" aria-label="Hide shy layers"
@@ -1869,9 +1906,10 @@
 </section>
 <!-- D-85: the Sheet is a panel of its own, so it can stand as a column beside the viewer. -->
 <section class="panel" id="sheetpanel">
-  <div class="tab">Sheet<span class="hint">the timing as a paper timesheet: click a cell, then type a number and Enter, x for a cross, or Delete to erase</span>
+  <div class="tab">Sheet<span id="sheetname"></span><span class="hint" title="Click a cell, then type a number and Enter, x for a cross, or Delete to erase">lit row = the playhead &middot; click a row to go there</span>
     <span class="tools"><button id="printsheet" class="sheettab" hidden
-      title="Print the Sheet as a paper timesheet, or save it as a PDF (Ctrl+P)">Print&hellip;</button></span></div>
+      title="Print the Sheet as a paper timesheet, or save it as a PDF (Ctrl+P)">Print&hellip;</button><button id="sheetclose" class="ic" hidden
+      title="Put the Sheet away. The Sheet button on the timeline brings it back." aria-label="Put the Sheet away">&times;</button></span></div>
   <div id="xsheet" tabindex="0"></div>
 </section>
 </div>
@@ -10177,8 +10215,17 @@ let pulling = null;      // the handle under the pointer, while it is being pull
 let speedGraph = false;  // After Effects' speed graph is showing rather than its value graph
 // B-19d: the layer's other keyed properties drawn behind the one being edited, on its scale.
 // `others` is the window's answer for each, as `plotted` is for the one in front.
-let graphAll = false;
+// W-44 (D-248): which of them are ticked to be drawn, by property, kept from layer to layer.
+const graphWith = new Set();
 let others = [];
+const GRAPH_COLOURS = ['#6ea8fe', '#7bd88f', '#e07fb8', '#e8c46a', '#b08fe8', '#7fd0d9', '#d98f7f'];
+// Another property put in front; the one that was there stays drawn behind it.
+function graphFront(prop) {
+  const was = graphLayer();
+  if (was && was.prop !== prop) graphWith.add(was.prop);
+  graphProp = prop;
+  askForCurve();
+}
 // B-19a: the values in view once somebody has zoomed or slid them, as `{ of, low, high }`, and
 // null while the graph fits itself to the whole curve. `of` is what it was set for: another
 // layer, property or kind of graph has other numbers, and starts fitted.
@@ -10310,7 +10357,7 @@ async function askForCurve() {
       + '&prop=' + pick.prop + '&from=' + from + '&to=' + to);
     plotted = answer.ok ? await answer.json() : null;
     others = [];
-    for (const prop of graphAll ? pick.withKeys.filter((q) => q !== pick.prop) : []) {
+    for (const prop of pick.withKeys.filter((q) => q !== pick.prop)) {
       const more = await fetch(FRAMES + '/curve?' + whose(pick.layer)
         + '&prop=' + encodeURIComponent(prop) + '&from=' + from + '&to=' + to);
       if (more.ok) others.push({ prop, samples: (await more.json()).samples });
@@ -10550,25 +10597,11 @@ function drawGraph() {
   const same = (arm) => held && held.arm.key.frame === arm.key.frame
     && held.arm.which === arm.which;
   let refocus = null;
-  const chooser = $('graphprop');
-  chooser.hidden = !graphing || !pick;
   $('graphmode').hidden = !graphing || !pick;
   $('graphmode').setAttribute('aria-pressed', String(speedGraph));
   $('graphfit').hidden = !graphing || !pick;
   $('graphall').hidden = !graphing || !pick || pick.withKeys.length < 2;
-  $('graphall').setAttribute('aria-pressed', String(graphAll));
-  if (pick) {
-    chooser.replaceChildren(...pick.withKeys.map((prop) => Object.assign(
-      document.createElement('option'),
-      {
-        value: prop,
-        textContent: pick.layer.id === CAMERA_ROW
-          ? 'Camera ' + CAMERA_WORDS[prop]
-          : propLabel(pick.layer, prop).replace(/^./, (c) => c.toUpperCase()),
-        selected: prop === pick.prop,
-      }
-    )));
-  }
+  $('graphall').setAttribute('aria-pressed', String(!!pick && pick.withKeys.every((p) => p === pick.prop || graphWith.has(p))));
   if (!graphing) return;
   if (!plotted || !plotted.samples.length || !pick || !comp) {
     into.replaceChildren(Object.assign(document.createElement('p'), {
@@ -10585,7 +10618,9 @@ function drawGraph() {
     parent.append(node);
     return node;
   };
-  const box = { width: Math.max(160, into.clientWidth - 16), height: 170 };
+  // W-44: as tall as the panel gives it, so in Both the graph has half the timeline.
+  const box = { width: Math.max(160, into.clientWidth - 16), height: Math.max(150, into.clientHeight - 14) };
+  svg.style.height = box.height + 'px';
   svg.setAttribute('viewBox', '0 0 ' + box.width + ' ' + box.height);
   svg.setAttribute('preserveAspectRatio', 'none');
   svg.onpointerdown = grabDown;
@@ -10608,6 +10643,8 @@ function drawGraph() {
 
   const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
   const parts = plotted.samples[0].length;
+  const colour = (prop) => GRAPH_COLOURS[pick.withKeys.indexOf(prop) % GRAPH_COLOURS.length];
+  const behind = others.filter((o) => graphWith.has(o.prop));
   const part = (f, c) => (plotted.samples[f - plotted.from] || [])[c] || 0;
   const at = (f) => part(f, 0);
   const keys = keysOf(pick.layer, pick.prop);
@@ -10637,7 +10674,7 @@ function drawGraph() {
     low = Math.min(0, ...shown);
     high = Math.max(...shown);
   } else {
-    const shown = plotted.samples.flat().concat(others.flatMap((o) => o.samples.flat()));
+    const shown = plotted.samples.flat().concat(behind.flatMap((o) => o.samples.flat()));
     low = Math.min(...shown);
     high = Math.max(...shown);
     const spare = (high > low ? high - low : 1) / 4;
@@ -10664,17 +10701,18 @@ function drawGraph() {
     const y = space.y(val);
     if (y < GRAPH_TOP + 4 || y > box.height - 2) continue;
     el('line', { class: 'tick', x1: space.gutter, y1: y, x2: box.width, y2: y }, plot);
-    el('text', { x: 4, y: y + 3 }).textContent = axis(val);
+    el('text', { x: box.width - 4, y: y - 3, class: 'axis' }).textContent = axis(val);
   }
   // B-19d: the other properties behind, each a press away from being the one in front.
   if (!speedGraph) {
-    for (const other of others) {
+    for (const other of behind) {
       const words = propLabel(pick.layer, other.prop);
       for (let c = 0; c < (other.samples[0] || []).length; c += 1) {
         const line = el('polyline', {
-          class: 'plot other', 'data-prop': other.prop,
+          class: 'plot other' + (c ? ' second' : ''), 'data-prop': other.prop,
           points: pointsOf(other.samples.map((q, i) => [plotted.from + i + 0.5, q[c]]), space, v),
         }, plot);
+        line.style.stroke = colour(other.prop);
         el('title', {}, line).textContent = words + '. Press to edit it.';
       }
       for (const key of keysOf(pick.layer, other.prop)) {
@@ -10684,6 +10722,7 @@ function drawGraph() {
             class: 'otherdot', 'data-prop': other.prop,
             cx: space.x(key.frame + 0.5), cy: space.y(val), r: 3,
           }, plot);
+          dot.style.fill = colour(other.prop);
           el('title', {}, dot).textContent = words + ' at frame ' + key.frame + '. Press to edit it.';
         }
       }
@@ -10692,6 +10731,7 @@ function drawGraph() {
   const polylines = lines.map((points, c) => el('polyline', {
     class: 'plot' + (c ? ' second' : ''), points: pointsOf(points, space, v),
   }, plot));
+  for (const line of polylines) line.style.stroke = colour(pick.prop);
   svg.__plot = { polylines, space, v, fps, of };
   // The value at a frame comes out of the answer rather than out of the keyframe, so that a
   // keyframe drawn on this line is drawn where the renderer puts it. Every part of the property,
@@ -10745,8 +10785,75 @@ function drawGraph() {
   }
   el('text', { x: space.gutter + 6, y: GRAPH_TOP + 10, class: 'mode' }).textContent =
     propLabel(pick.layer, pick.prop) + (speedGraph ? ' speed' : ' value');
-  into.replaceChildren(svg);
+  into.replaceChildren(graphSide(pick, colour), svg);
   if (refocus) refocus.focus();
+}
+
+// W-44 (D-248): the list in the graph's gutter. A tick draws a property behind the one in front;
+// a name puts it in front; the value is the one at the playhead. Easy ease, Linear and Hold
+// shape the chosen keys of the property in front, or all of its keys when none is chosen, with
+// the same commands as F9 and the keys' right-click menu.
+function graphSide(pick, colour) {
+  const el = (tag, cls, text) => Object.assign(document.createElement(tag), { className: cls || '', textContent: text || '' });
+  const side = el('div', 'gside');
+  side.onwheel = (e) => e.stopPropagation();
+  const label = (prop) => (pick.layer.id === CAMERA_ROW ? 'Camera ' + CAMERA_WORDS[prop]
+    : propLabel(pick.layer, prop).replace(/^./, (c) => c.toUpperCase()));
+  const valueOf = (prop) => {
+    const from = prop === pick.prop ? plotted : others.find((o) => o.prop === prop);
+    const at = from && from.samples[frame - plotted.from];
+    return at ? at.map((n) => (Math.round(n * 10) / 10).toFixed(1)).join(', ') : '';
+  };
+  side.append(el('h3', '', 'In the graph \u00b7 tick to add'));
+  for (const prop of pick.withKeys) {
+    const row = el('div', 'gp' + (prop === pick.prop ? ' front' : ''));
+    const tick = el('input');
+    tick.type = 'checkbox';
+    tick.checked = prop === pick.prop || graphWith.has(prop);
+    tick.disabled = prop === pick.prop;
+    tick.setAttribute('aria-label', 'Draw ' + label(prop) + ' in the graph');
+    tick.onchange = () => { if (tick.checked) graphWith.add(prop); else graphWith.delete(prop); drawGraph(); };
+    const sw = el('span', 'sw');
+    sw.style.background = colour(prop);
+    const name = el('button', '', label(prop));
+    name.type = 'button';
+    name.title = prop === pick.prop ? 'In front: its keys and handles can be dragged' : 'Put ' + label(prop) + ' in front, to edit its curve';
+    name.onclick = () => graphFront(prop);
+    row.append(tick, sw, name, el('span', 'gv', valueOf(prop)));
+    side.append(row);
+  }
+  // The keys the buttons act on, and the shape they share, if they share one.
+  const mine = keysOf(pick.layer, pick.prop).map((k) => keyId(pick.layer, pick.prop, k.frame));
+  const chosen = mine.filter((id) => pickedKeys.has(id));
+  // The last key starts no curve, so its shape does not count unless it is all there is.
+  const counted = (chosen.length ? chosen : mine).filter((id, i, all) => all.length === 1 || id !== mine[mine.length - 1]);
+  const shapes = new Set(counted.map((id) => {
+    const key = keysOf(pick.layer, pick.prop).find((k) => keyId(pick.layer, pick.prop, k.frame) === id);
+    return key.interp === 'ease' ? 'ease' : key.interp;
+  }));
+  side.append(el('h3', '', 'Shape of the curve \u00b7 ' + label(pick.prop)));
+  const shape = el('div', 'gshape');
+  // F9 leaves held keys alone; here Easy ease is one of three shapes, so a held key lets go first.
+  const easy = () => {
+    if (!shapes.has('hold')) return easeKeys('both');
+    holdKeys('linear');
+    nudge = nudge.then(() => easeKeys('both'));
+  };
+  for (const [words, kind, run] of [['Easy ease \u00b7 F9', 'ease', easy],
+    ['Linear', 'linear', () => holdKeys('linear')], ['Hold', 'hold', () => holdKeys('hold')]]) {
+    const b = el('button', '', words);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(shapes.size === 1 && shapes.has(kind)));
+    b.title = (chosen.length ? 'The chosen keys' : 'Every key of ' + label(pick.prop)) + ': ' + words.split(' \u00b7')[0].toLowerCase();
+    b.onclick = () => {
+      if (!chosen.length) { pickKey(null, false); for (const id of mine) pickKey(id, true); }
+      run();
+    };
+    shape.append(b);
+  }
+  side.append(shape, el('p', '', 'Drag a key sideways to move it in time, or a round handle to bend the curve. '
+    + 'The frames are the same as the rows\u2019 above.'));
+  return side;
 }
 
 // Pulling a handle. The shape on screen follows the pointer, and the file is not touched until
@@ -10851,8 +10958,7 @@ function grabDown(e) {
   if (e.button !== 0) return;
   // B-19d: a press on a property drawn behind brings it to the front to be edited.
   if (e.target.dataset && e.target.dataset.prop) {
-    graphProp = e.target.dataset.prop;
-    askForCurve();
+    graphFront(e.target.dataset.prop);
     return;
   }
   const what = e.target.__arm;
@@ -11075,7 +11181,15 @@ function easeKeys(sides) {
 
 // W-40 (D-248): 'sheet' is the rows alone, 'graph' the graph alone, and 'both' the graph under the
 // rows. The two share the gutter and the frames in view, so one frame is in one place in both.
+// W-44 (D-248): each workspace remembers its own choice; Animate starts on Both.
+const sheetModeOf = (name) => ({ sheet: 1, both: 1, graph: 1 })[(prefs.timelineModes || {})[name]]
+  ? prefs.timelineModes[name] : name === 'Animate' ? 'both' : 'sheet';
 function showSheet(which) {
+  if (workspace && sheetModeOf(workspace.name) !== which) {
+    prefs.timelineModes = { ...(prefs.timelineModes || {}), [workspace.name]: which };
+    savePrefs();
+  }
+  $('timeline').classList.toggle('both', which === 'both');
   graphing = which !== 'sheet';
   $('sheet').hidden = which === 'graph';
   $('graph').hidden = !graphing;
@@ -11114,6 +11228,7 @@ function drawXsheet(grid) {
   box.textContent = '';
   lastGrid = grid;
   const comp = composition();
+  $('sheetname').textContent = comp ? comp.name : '';
   $('printsheet').hidden = !comp || !grid || !grid.columns.length;
   if (!comp || !grid || !grid.columns.length) {
     const hint = document.createElement('span');
@@ -11130,7 +11245,7 @@ function drawXsheet(grid) {
   const text = grid.text || [];
   const left = [...text.filter((c) => c.kind === 'action'), ...text.filter((c) => c.kind === 'dialogue')];
   const right = text.filter((c) => c.kind !== 'dialogue' && c.kind !== 'action');
-  for (const name of ['frame', ...[...left, ...grid.columns, ...right].map((c) => c.name)]) {
+  for (const name of ['Frame', ...[...left, ...grid.columns, ...right].map((c) => c.name)]) {
     const th = document.createElement('th');
     th.textContent = name;
     head.append(th);
@@ -11149,6 +11264,12 @@ function drawXsheet(grid) {
   };
   // W-40b (D-248): the ruler's notes, by frame, for the Action column.
   const notes = new Map(markersOf(comp).map((m) => [m.frame, m.name]));
+  // W-44 (D-248): each column's drawings, and whether the drawing being held is missing.
+  const have = new Map(grid.columns.map((c) => {
+    const layer = layers().find((l) => l.id === c.layer);
+    return [c, layer && layer.kind !== 'composition' ? drawingsOf(layer) : null];
+  }));
+  const gone = new Map();
   for (let i = 0; i < grid.columns[0].cells.length; i++) {
     const at = grid.from + i;
     const row = table.insertRow();
@@ -11182,6 +11303,11 @@ function drawXsheet(grid) {
       if (mark === null) cell.className = 'out';
       else if (mark === '|') cell.className = 'hold';
       else cell.textContent = mark === 'x' ? '\u00d7' : mark;
+      if (mark !== '|') gone.set(column, !!have.get(column) && /^\d+$/.test(mark || '') && !have.get(column).has(Number(mark)));
+      if (mark !== null && gone.get(column)) {
+        cell.classList.add('gone');
+        cell.title = 'Drawing ' + (mark === '|' ? 'held here' : mark) + ' is missing';
+      }
       // D-84g: a key drawing's number is circled wherever it is written.
       if ((column.keys || []).some((n) => String(n) === mark)) cell.classList.add('key');
       cell.dataset.layer = column.layer;
@@ -11354,13 +11480,20 @@ $('xsheet').onkeydown = (e) => {
   else return;
   e.preventDefault();
 };
-$('graphprop').onchange = (e) => { graphProp = e.target.value; askForCurve(); };
 $('graphmode').onclick = () => { speedGraph = !speedGraph; drawGraph(); };
-$('graphall').onclick = () => { graphAll = !graphAll; askForCurve(); };
+$('graphall').onclick = () => {
+  const pick = graphLayer();
+  if (!pick) return;
+  const rest = pick.withKeys.filter((p) => p !== pick.prop);
+  const all = rest.every((p) => graphWith.has(p));
+  for (const p of rest) { if (all) graphWith.delete(p); else graphWith.add(p); }
+  drawGraph();
+};
 $('graphfit').onclick = fitGraph;
 // The plot is stretched to the panel's width, so a resize leaves the curve right and the round
 // handles as ovals. Drawing it again at the new width is the whole of the fix.
-addEventListener('resize', () => { if (graphing && plotted) drawGraph(); });
+// W-44: and at a new height, which pulling the timeline's border gives it.
+new ResizeObserver(() => { if (graphing && plotted) drawGraph(); }).observe($('graph'));
 
 // W-31b: the five ways to make a layer, in one menu under the button that opened it.
 function newLayerMenu(button) {
@@ -12089,7 +12222,9 @@ const BUILT_IN = {
   // W-40b (D-248): the Sheet stands in the side column, put away in Compose and out in Animate,
   // where the effect controls move to the left to give it the room, as the Sandbox has them.
   Compose: { places: { left: ['bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'], side: ['sheetpanel'] }, sizes: { '--bin': 300 }, sideHidden: true },
-  Animate: { places: { left: ['inspector', 'bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: [], bottom: ['timeline'], side: ['sheetpanel'] }, sizes: {} },
+  // W-44: as the Sandbox's Animate board: Effect controls at the top left, 340 wide, with the
+  // Project and Effects panels behind it, the timeline the lower half and on Both.
+  Animate: { places: { left: ['inspector', 'bin', 'fxbrowser'], leftlow: [], centre: ['viewer'], right: [], bottom: ['timeline'], side: ['sheetpanel'] }, sizes: { '--bin': 340 } },
 };
 let savedWorkspaces = {};
 try { savedWorkspaces = JSON.parse(localStorage.getItem('workspaces') || '{}') || {}; } catch (e) { savedWorkspaces = {}; }
@@ -12136,6 +12271,10 @@ function arrange() {
     document.body.classList.toggle('no' + place, !ids.length || (place === 'side' && !!workspace.sideHidden));
   }
   $('sheetcolumn').setAttribute('aria-pressed', String(sheetInSide()));
+  $('sheetclose').hidden = !sheetInSide();
+  // The viewer's strip is the Sheet's chosen column, so it gives its room up while the Sheet is out.
+  document.body.classList.toggle('sheetout', sheetInSide());
+  document.body.dataset.workspace = workspace.name;
   try { localStorage.setItem('workspace', JSON.stringify(workspace)); } catch (e) { /* kept for this run only */ }
   const was = xsheeting;
   xsheeting = !$('sheetpanel').hidden && !document.body.classList.contains('no' + $('sheetpanel').parentElement.id);
@@ -12158,6 +12297,7 @@ function toggleSheetColumn() {
   arrange();
 }
 $('sheetcolumn').onclick = toggleSheetColumn;
+$('sheetclose').onclick = toggleSheetColumn;
 // A form opened in a panel behind another, as the Project panel is in Animate, is brought into view.
 function toFront(id) { if ($(id).hidden) movePanel(id, $(id).parentElement.id); }
 const panelHandle = (target) => target instanceof Element
@@ -12225,6 +12365,7 @@ function useWorkspace(name) {
   saveLayout();
   arrange();
   fillWorkspaces();
+  showSheet(sheetModeOf(name));
 }
 $('workspace').onchange = (e) => useWorkspace(e.target.value);
 $('resetworkspace').onclick = () => useWorkspace(workspace.name);
@@ -12254,6 +12395,7 @@ $('workspacename').onkeydown = (e) => {
 };
 arrange();
 fillWorkspaces();
+showSheet(sheetModeOf(workspace.name));
 
 $('notedetails').onclick = () => {
   const codes = $('notecodes');
