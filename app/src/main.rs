@@ -2948,6 +2948,26 @@ struct PendingRelink {
 /// Relinking is what a person does when the media has gone, so the usual case is that there is
 /// nothing to compare against. Saying that is the point: an unanswerable comparison presented as
 /// "unchanged" would be a lie in the one place W-02 asks for the truth.
+/// D-257: every file the project names that is not on the disk now, with the footage item to
+/// relink. Changes nothing. A file replaced under the same name is not gone.
+fn files_gone(viewer: &Mutex<Viewer>) -> serde_json::Value {
+    let held = viewer.lock().expect("the viewer lock was poisoned");
+    let root = held.root.clone();
+    held.document
+        .project()
+        .assets
+        .iter()
+        .flat_map(|asset| {
+            asset
+                .files()
+                .into_iter()
+                .filter(|relative| !root.join(relative).exists())
+                .map(|file| serde_json::json!({ "asset": asset.id.as_str(), "name": asset.name, "file": file }))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
 fn size_now(root: &Path, asset: &Asset) -> Option<(usize, usize)> {
     asset
         .frames
@@ -9975,6 +9995,13 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             .body(memory(app, &viewer, query).into_bytes())
             .expect("build the memory response");
     }
+    // D-257: the files gone from the disk, asked every few seconds for the health chip.
+    if path == "files-gone" {
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "application/json; charset=utf-8")
+            .body(files_gone(&viewer).to_string().into_bytes())
+            .expect("build the files gone response");
+    }
     // An import with no files named is the button in the media bin, and what it needs is the
     // operating system's file dialog, which belongs to the app handle and not to the viewer.
     // Answered before `edit_command`, which would otherwise refuse it for naming no files.
@@ -10134,7 +10161,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
                       /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
-                      /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
+                      /files-gone, /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -24315,6 +24342,8 @@ mod contract {
         "collect",
         "curve",
         "export",
+        // D-257: the files gone from the disk, for the health chip.
+        "files-gone",
         "frame",
         // B-44: the CPU / GPU switch. A route rather than a `viewer.` command because the card
         // belongs to the window, not to the viewer `edit_command` is handed.
@@ -29865,14 +29894,12 @@ mod files_gone_check {
         let undo_before = viewer.lock().unwrap().document.undo_labels().len();
         let notes_before = viewer.lock().unwrap().notes.clone();
         files_gone(&viewer);
+        let undo_after = viewer.lock().unwrap().document.undo_labels().len();
+        let notes_same = viewer.lock().unwrap().notes == notes_before;
         row(
             "asking changes nothing: no undo step, no new note",
             "0 undo steps, notes as before",
-            format!(
-                "{} undo steps, notes {}",
-                viewer.lock().unwrap().document.undo_labels().len() - undo_before,
-                if viewer.lock().unwrap().notes == notes_before { "as before" } else { "changed" }
-            ),
+            format!("{} undo steps, notes {}", undo_after - undo_before, if notes_same { "as before" } else { "changed" }),
         );
         let gone = files_gone(&viewer);
         row("the answer names the footage item to relink", "asset-layer2", gone[0]["asset"].as_str().unwrap_or("none").to_string());

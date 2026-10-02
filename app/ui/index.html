@@ -2380,8 +2380,8 @@ async function show(url, keep = true) {
       { textContent: line.split('\t')[1] || line })));
     $('notedetails').hidden = !lines.length;
     // W-39: the top bar's warning chip, a count that opens the same error details.
-    $('health').hidden = !lines.length;
-    $('health').textContent = '⚠ ' + lines.length;
+    noteCount = lines.length;
+    drawHealth();
     if (!lines.length) $('notecodes').hidden = true;
   } catch (e) {
     $('report').textContent = 'the frame did not arrive: ' + e;
@@ -13474,7 +13474,30 @@ addEventListener('pointerdown', (e) => {
   if (openTitle && !(e.target instanceof Element && e.target.closest('.mi'))) closeDrop(false);
 }, true);
 $('findcommand').onclick = palette;
-$('health').onclick = () => $('notedetails').click();
+// D-257: the top bar's warning chip also counts files gone from the disk. They are asked for
+// every few seconds and when the window gets focus back; a click lists them, each with Relink.
+let noteCount = 0, gone = [];
+function drawHealth() {
+  const chip = $('health');
+  chip.hidden = !noteCount && !gone.length;
+  chip.textContent = '⚠ ' + [noteCount ? noteCount : '',
+    gone.length ? gone.length + (gone.length === 1 ? ' file gone' : ' files gone') : ''].filter(Boolean).join(' · ');
+}
+async function checkGone() {
+  try { gone = await (await fetch(PROJECT + '/files-gone')).json(); } catch (e) { return; }
+  drawHealth();
+}
+setInterval(checkGone, 5000);
+addEventListener('focus', checkGone);
+$('health').onclick = () => {
+  if (!gone.length) return $('notedetails').click();
+  const r = $('health').getBoundingClientRect();
+  popMenu(r.left, r.bottom + 2, [
+    ...gone.map((f) => [f.name + ': ' + f.file.split(/[\\/]/).pop() + ' is gone', 'Relink…',
+      () => command('/media.relink?asset=' + encodeURIComponent(f.asset))]),
+    ...(noteCount ? [['Error details', '', () => $('notedetails').click()]] : []),
+  ]);
+};
 // The checkbox travels with the command rather than being remembered anywhere: document 07's
 // default is that a missing drawing blocks the export, and an override has to be a thing the
 // person did this time, in front of the words that say what it does.

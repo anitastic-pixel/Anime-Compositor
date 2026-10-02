@@ -698,6 +698,8 @@ D-259 / Half: accepted on 2026-10-02. Check first: `tests/d259_half.rs` (f9cbfab
 
 D-253 / Cut status and D-254 / Item labels: accepted on 2026-10-02. Check first: `tests/d253_d254_roundtrip.rs` (ecae666). A status and both labels read back after save and open, and a later build's values are kept. All 2297 fixture projects save byte for byte as on e395d8b, because a status and labels are written only when set. New command ID `item.set_label`; no fixture changes. Evidence is in `verification/D-253_D-254_cut_status_and_labels.md`.
 
+D-257 / Files gone in the health chip: accepted on 2026-10-02. Check first: `d257_a_deleted_drawing_is_named_and_a_restored_one_is_not` in `app/src/main.rs` (50ab823). On a copied reference shot, a deleted drawing is named and a restored one is not, and asking changes nothing. No command ID, fixture or exported picture changes; `/files-gone` is added to the window's routes. Evidence is in `verification/D-257_files_gone.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

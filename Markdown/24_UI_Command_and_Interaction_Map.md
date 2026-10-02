@@ -266,6 +266,8 @@ D-259, Half, with no new command ID. The viewer's quality menu has `halfq` (Half
 
 D-253 and D-254, cut status and item labels. A cut's status is `sheet_details.status`, one of not_started, in_progress, check, retake or done. It is set with `composition.set_settings?status=`, which may now name any composition with `composition=`; without it the composition on screen is changed, as before. Its chip sits beside each By cut card and on the Project panel's top line, and a click opens the five choices. `item.set_label` (new) gives a composition or a footage item a label colour, 1 to 8, or 0 for none. It is reached by right-clicking any item in the Project panel, with the same squares as the layer menu. A labelled item shows a square before its name in every Project view. Both can be undone.
 
+D-257, files gone, with no new command ID. The window's own route `/files-gone` changes nothing. It lists every file the project names that is not on the disk now, each with its footage item. The page asks every 5 seconds and on window focus. The top bar's health chip adds "N files gone" to its warning count, and a click lists each one with Relink… (`media.relink?asset=`), then Error details. With no gone files it opens Error details as before.
+
 ## Focus and selection
 
 One primary selection context exists at a time: media, layer, property/keyframe or effect. Viewer selection and timeline selection must resolve to the same layer ID. Deleting uses the focused context and must show the target clearly before destructive commands.

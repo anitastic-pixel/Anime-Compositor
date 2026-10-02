@@ -26,6 +26,7 @@ And the function itself. It needs a running application to be called, so what is
 | `/collect` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/curve` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/export` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
+| `/files-gone` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/gpu-switch` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/lut-choose` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/memory` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
@@ -49,7 +50,7 @@ And the function itself. It needs a running application to be called, so what is
 | `/save-it`, which is nothing this window has, is refused | not mine | not mine | pass |
 | `/`, which is nothing this window has, is refused | not mine | not mine | pass |
 | `/state/../save`, which is nothing this window has, is refused | not mine | not mine | pass |
-| the answer to a route that does not exist names the routes that do | cancel-export, check-package, collect, export, gpu-switch, lut-choose, memory, new, open, presets-builtin, presets-export, presets-import, recent, recover, save, save-as, session-log, state | cancel-export, check-package, collect, export, gpu-switch, lut-choose, memory, new, open, presets-builtin, presets-export, presets-import, recent, recover, save, save-as, session-log, state | pass |
+| the answer to a route that does not exist names the routes that do | cancel-export, check-package, collect, export, files-gone, gpu-switch, lut-choose, memory, new, open, presets-builtin, presets-export, presets-import, recent, recover, save, save-as, session-log, state | cancel-export, check-package, collect, export, files-gone, gpu-switch, lut-choose, memory, new, open, presets-builtin, presets-export, presets-import, recent, recover, save, save-as, session-log, state | pass |
 | `?layer=layer%201` gives `layer` | layer 1 | layer 1 | pass |
 | `?name=a%26b` gives `name` | a&b | a&b | pass |
 | `?name=%E7%8C%AB` gives `name` | 猫 | 猫 | pass |
@@ -63,4 +64,4 @@ And the function itself. It needs a running application to be called, so what is
 | what an export asked for with `missing=` does with a missing drawing | Block | Block | pass |
 | what an export asked for with `no query at all` does with a missing drawing | Block | Block | pass |
 
-**42 of 42 checks pass.**
+**43 of 43 checks pass.**
