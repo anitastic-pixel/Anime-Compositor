@@ -1054,6 +1054,95 @@
     width: 2.4em; height: 1.7em; padding: 0 1px; vertical-align: middle;
     border: 1px solid #4a4a4a; border-radius: 3px; background: #141414;
   }
+  /* W-42 (D-248): the Sandbox's Effect controls B. Short rows in one tree: a grey bar for each
+     group (the layer, its transform, its blend and masks, the camera, each effect) with its
+     twirl, and under it one line per setting, its name on the left and its blue numbers beside
+     it. A setting's stopwatch is in front of its name, lit blue while it has keys; its diamond
+     is at the row's right end between the arrows to the key before and after, which show on the
+     row under the hand, on the chosen row and where there is a key on this frame. The chosen
+     row, clicked by its name, is marked in blue, and an effect's one-number setting gets a
+     slider there. An effect's on and off is the blue switch. */
+  #inspector .body { padding: 0 0 10px; }
+  #inspector h2, #inspector dt.grp {
+    display: flex; align-items: center; gap: 5px; height: 20px; margin: 0; padding: 0 6px 0 4px;
+    background: #252529; color: #fff; font-size: 11.5px; font-weight: 600; letter-spacing: 0;
+    text-transform: none; border-bottom: 1px solid #232326; box-sizing: border-box; cursor: default;
+  }
+  #inspector h2 ~ h2 { margin-top: 0; }
+  #inspector dt.grp { grid-column: 1 / -1; }
+  #inspector .etw {
+    border: 0; background: none; padding: 0; width: 12px; color: #8e8e96; font-size: 10px; flex-shrink: 0;
+  }
+  #inspector.shut-layer #detail, #inspector.shut-layer #sheetlist, #inspector.shut-camera #camera,
+  #inspector.shut-effects #effects, #inspector .shut { display: none; }
+  #inspector dl, #inspector .effect dl {
+    grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr); gap: 0; margin: 0;
+  }
+  #inspector dt, #inspector dd {
+    display: flex; align-items: center; gap: 4px; min-height: 20px; box-sizing: border-box;
+    font-size: 11.5px; border-bottom: 1px solid #232326;
+  }
+  #inspector dt { padding-left: 10px; color: #c8c8cc; white-space: nowrap; overflow: hidden; }
+  #inspector dd { display: block; min-width: 0; padding: 2px 6px 1px 0; line-height: 16px; }
+  #inspector .effect dt { padding-left: 22px; }
+  #inspector .effect dd, #inspector .effect dd .scrub { text-align: left; }
+  #inspector dd .scrub, #inspector .effect dd .scrub {
+    display: inline-block; min-width: 0; color: #6ea8fe; border-bottom: 1px dotted #6ea8fe; padding: 0 1px;
+  }
+  #inspector dd .scrub:hover, #inspector dd .scrub:focus { color: #a8d0ff; border-bottom-color: #a8d0ff; }
+  #inspector dd.numbers { display: flex; gap: 0 10px; }
+  #inspector .effect { border: 0; border-radius: 0; padding: 0; margin: 0; }
+  #inspector .effect .head {
+    height: 20px; padding: 0 6px 0 4px; gap: 5px; background: #252529; color: #fff;
+    border-bottom: 1px solid #232326; font-size: 11.5px; box-sizing: border-box;
+  }
+  #inspector .effect .head .mark { color: #b0b0b8; font-weight: 400; }
+  #inspector .effect > p.empty { margin: 2px 0 2px 22px; color: #ffb869; font-size: 11px; }
+  #inspector .effect .head button.tg, #inspector button.tg {
+    width: 26px; height: 14px; border-radius: 7px; background: #4a6ea8; position: relative;
+    padding: 0; border: 0; flex-shrink: 0;
+  }
+  #inspector .tg span {
+    position: absolute; right: 2px; top: 2px; width: 10px; height: 10px; border-radius: 5px; background: #fff;
+  }
+  #inspector .effect .head button.tg.off { background: #3a3a40; }
+  #inspector .tg.off span { right: auto; left: 2px; background: #8e8e96; }
+  #inspector .esw {
+    width: 11px; height: 11px; box-sizing: border-box; border: 1.4px solid #6a6a72; border-radius: 50%;
+    position: relative; flex-shrink: 0; padding: 0; background: none; cursor: pointer;
+  }
+  #inspector .esw::after {
+    content: ""; position: absolute; left: 3.5px; top: 1px; width: 1.4px; height: 4px; background: #6a6a72;
+  }
+  #inspector .esw.on { border-color: #6ea8fe; background: #2e3b52; }
+  #inspector .esw.on::after { background: #6ea8fe; }
+  #inspector .enav { float: right; margin-left: auto; display: flex; align-items: center; opacity: 0; }
+  #inspector dt:hover + dd .enav, #inspector dd:hover .enav, #inspector dd.sel .enav,
+  #inspector .enav:focus-within, #inspector .enav:has(.key[aria-pressed="true"]) { opacity: 1; }
+  #inspector .nb { border: 0; background: none; padding: 0 3px; color: #4a4a50; font-size: 9px; line-height: 16px; }
+  #inspector .nb.lit { color: #d4d4d8; }
+  #inspector dt[data-row] { cursor: pointer; }
+  #inspector dt.sel, #inspector dd.sel { background: #22293a; }
+  #inspector dt.sel { box-shadow: inset 2px 0 0 #6ea8fe; }
+  #inspector input.etr {
+    appearance: none; display: block; width: 100%; height: 3px; margin: 7px 0 6px; border-radius: 2px;
+    background: #3a3a40; cursor: pointer;
+  }
+  #inspector input.etr::-webkit-slider-thumb {
+    appearance: none; width: 10px; height: 10px; border-radius: 50%; background: #d4d4d8; border: 0;
+  }
+  #inspector p.empty { margin: 4px 10px; }
+  #inspector details { margin: 0; }
+  #inspector summary { padding: 2px 10px; font-size: 11.5px; border-bottom: 1px solid #232326; }
+  #inspector #exposures { padding: 4px 10px 0; }
+  #inspector #addexposure { margin: 6px 10px; }
+  #inspector #addeffect { margin: 8px 0 0 10px; }
+  #inspector .echint { margin: 8px 10px 0; font-size: 11px; color: #8e8e96; line-height: 1.45; }
+  #inspector .tab #ecwho {
+    text-transform: none; letter-spacing: 0; color: #d0d0d4; min-width: 0; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+  #inspector .tab #ecframe { margin-left: auto; text-transform: none; letter-spacing: 0; color: #8e8e96; white-space: nowrap; }
   #relinking { border: 1px solid #e8b06a; border-radius: 4px; padding: 6px; margin-top: 6px; }
   #newcomposition { border: 1px solid #7a8ba0; border-radius: 4px; padding: 6px; margin-top: 6px; }
   /* Five fields and two buttons in a column 220 pixels wide. Label beside field rather than
@@ -1535,9 +1624,9 @@
     aria-label="The border between the viewer and the inspector. Drag it, or use the arrow keys."></div>
   <div class="place" id="right"><nav class="stack" hidden></nav>
   <section class="panel" id="inspector">
-    <div class="tab">Effect controls</div>
+    <div class="tab">Effect controls<span id="ecwho"></span><span id="ecframe"></span></div>
     <div class="body">
-      <h2>Layer</h2>
+      <h2 data-fold="layer"><button class="etw" aria-expanded="true" aria-label="Hide the layer's settings">&#9662;</button>Layer</h2>
       <div id="detail"><p class="empty">No layer is selected.</p></div>
       <!-- Folded shut, because the exposure sheet across the middle of the window is the one
            a person reads and this is the same spans written out. It is kept rather than removed:
@@ -1550,12 +1639,13 @@
       </details>
       <!-- D-58. The composition's, not the selected layer's, which is why it sits under its own
            heading rather than among the layer's fields. -->
-      <h2>Camera</h2>
+      <h2 data-fold="camera"><button class="etw" aria-expanded="true" aria-label="Hide the camera's settings">&#9662;</button>Camera</h2>
       <div id="camera"><p class="empty">No composition is open.</p></div>
-      <h2>Effects</h2>
+      <h2 data-fold="effects"><button class="etw" aria-expanded="true" aria-label="Hide the effects">&#9662;</button>Effects</h2>
       <div id="effects"><p class="empty">No layer is selected.</p></div>
       <button id="addeffect" title="Opens the Effects panel with its search ready to type into">Add effect&hellip;</button>
       <button id="savepreset" title="Keeps this layer's effects and their settings under a name, in the Effects panel's Presets folder">Save as preset&hellip;</button>
+      <p class="echint">Drag a blue number left or right, or click it to type. With the stopwatch on, a change makes a key at the playhead. Click a setting's name for its slider. Ctrl+Space adds an effect.</p>
     </div>
   </section>
   </div>
@@ -2259,6 +2349,15 @@ function timingOf(spans) {
   if (spans.length === 1) return 'held';
   const lengths = new Set(spans.slice(0, -1).map((sp) => sp.end_frame_exclusive - sp.start_frame));
   return lengths.size === 1 ? 'on ' + [...lengths][0] + 's' : 'irregular';
+}
+
+// W-42: an on and off switch, as the Sandbox draws one: blue with the knob right when on.
+function switchButton(on, title, onClick) {
+  const b = iconButton('', title, onClick);
+  b.className = on ? 'tg' : 'tg off';
+  b.setAttribute('aria-pressed', on);
+  b.append(document.createElement('span'));
+  return b;
 }
 
 function iconButton(text, title, onClick) {
@@ -3121,6 +3220,7 @@ function movePlayhead() {
   // W-31b: the frame on the playhead's flag and, large, in the header, with seconds beside it.
   $('playhead').dataset.frame = frame;
   $('nowframe').textContent = frame;
+  $('ecframe').textContent = 'frame ' + frame;
   const fps = comp ? Math.max(1, Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator)) : 0;
   const into = comp ? frame - comp.start_frame : 0;
   $('nowtime').textContent = comp ? Math.floor(into / fps) + 's ' + (into % fps) + 'f · ' + fps + ' fps' : '';
@@ -6809,6 +6909,7 @@ function keyButton(layer, prop) {
   const on = keys.some((k) => k.frame === frame);
   const button = document.createElement('button');
   button.className = 'key' + (keys.length ? ' animated' : '');
+  button.__of = [layer, prop];
   button.textContent = on ? '◆' : '◇';
   button.title = (on ? 'Remove the ' : 'Add a ') + propLabel(layer, prop) + ' keyframe at frame ' + frame
     + (keys.length ? ' (' + keys.length + ' keyframe' + (keys.length === 1 ? '' : 's') + ')' : '');
@@ -7097,6 +7198,17 @@ function parentRow(into, layer) {
 // the composition is drawn at when it has no parent. A layer that has never been given one is
 // shown as 0, which is what having none means.
 //
+// W-42: the Layer, Camera and Effects bars fold what is under them.
+for (const bar of document.querySelectorAll('#inspector h2[data-fold]')) {
+  bar.onclick = () => {
+    const shut = $('inspector').classList.toggle('shut-' + bar.dataset.fold);
+    const twirl = bar.querySelector('.etw');
+    twirl.textContent = shut ? '▸' : '▾';
+    twirl.setAttribute('aria-expanded', !shut);
+    twirl.setAttribute('aria-label', twirl.getAttribute('aria-label').replace(/^(Hide|Show)/, shut ? 'Show' : 'Hide'));
+  };
+}
+
 function drawInspector() {
   // Rebuilding these fields under a pointer that is holding one of them would take the drag's
   // own element away mid-gesture, and the value would stop following the mouse with nothing on
@@ -7104,6 +7216,7 @@ function drawInspector() {
   if (dragging || typingExpression()) return;
   const layer = selected();
   const into = $('detail');
+  $('ecwho').textContent = layer ? layer.name : '';
   if (!layer) {
     into.replaceChildren(Object.assign(document.createElement('p'),
       { className: 'empty', textContent: 'No layer is selected.' }));
@@ -7300,11 +7413,13 @@ function drawInspector() {
       if (shape.trim) for (const name of ['start', 'end', 'offset']) propRow(dl, layer, 'shape:' + at + ':trim_' + name);
     }
   }
+  ecGroup(dl, 'Transform');
   propRow(dl, layer, 'anchor');
   for (const prop of isSplit(layer) ? ['position_x', 'position_y'] : ['position']) propRow(dl, layer, prop);
   propRow(dl, layer, 'scale');
   propRow(dl, layer, 'rotation');
   propRow(dl, layer, 'opacity');
+  ecGroup(dl, 'Blend, masks and parent');
   // W-25: the blend mode, which the owner asked to change, from a list. B-17c: not offered on
   // an adjustment layer, which has normal only (D-66), nor on a null, which is never drawn (D-82).
   if (layer.kind !== 'adjustment' && layer.kind !== 'null') {
@@ -7397,7 +7512,90 @@ function drawInspector() {
   // `layer.<field>` this page names and checks it is a field the window really answers with,
   // and the command's name spelled out in a comment reads to it as a field that does not exist.
   propRow(dl, layer, 'depth');
+  ecRows(dl);
   into.replaceChildren(dl);
+}
+
+// W-42 (D-248): the Sandbox's Effect controls B, over the rows the panel already builds. A group's
+// grey bar folds the rows under it. Each property row's diamond moves to the row's right end,
+// between the arrows to the key before and after, and a stopwatch takes its place in front of the
+// name: lit while the property has keys; a click on it unlit makes a key here, as the diamond does,
+// and a click on it lit takes every key off in one step to undo, as After Effects' does; Alt with
+// it is the diamond's Alt. A click on a row's name chooses the row. Nothing is sent that the
+// diamond, the playhead or `/keyframe.add_remove` did not already send.
+let ecChosen = null;      // the chosen row, as 'layer id' + ' ' + property
+const ecShut = new Set(); // the groups folded shut, by name, until the window closes
+
+function ecGroup(into, name) {
+  const dt = document.createElement('dt');
+  dt.className = 'grp';
+  dt.dataset.group = name;
+  const shut = ecShut.has(name);
+  const fold = () => { if (shut) ecShut.delete(name); else ecShut.add(name); drawInspector(); };
+  const twirl = iconButton(shut ? '▸' : '▾', (shut ? 'Show ' : 'Hide ') + name, fold);
+  twirl.className = 'etw';
+  twirl.setAttribute('aria-expanded', !shut);
+  dt.append(twirl, name);
+  dt.onclick = fold;
+  into.append(dt);
+}
+
+function ecRows(dl) {
+  let shut = false;
+  for (const el of [...dl.children]) {
+    if (el.classList.contains('grp')) shut = ecShut.has(el.dataset.group);
+    else if (shut) el.classList.add('shut');
+  }
+  // The scale's link and the position's split are drawn as keys too; only a diamond knows whose it is.
+  for (const key of [...dl.querySelectorAll(':scope > dt > button.key')].filter((k) => k.__of)) {
+    const [layer, prop] = key.__of;
+    const dt = key.parentElement;
+    const dd = dt.nextElementSibling;
+    const keys = keysOf(layer, prop);
+    const named = propLabel(layer, prop);
+    const watch = document.createElement('button');
+    watch.className = 'esw' + (keys.length ? ' on' : '');
+    watch.title = keys.length
+      ? 'Stopwatch on: ' + named + ' has ' + keys.length + ' key' + (keys.length === 1 ? '' : 's') + '. Click to take them all off'
+      : 'Stopwatch: animate ' + named + ', starting with a key at frame ' + frame;
+    watch.setAttribute('aria-label', watch.title);
+    watch.setAttribute('aria-pressed', keys.length > 0);
+    watch.onclick = (e) => {
+      e.stopPropagation();
+      const now = keysOf(layer, prop);
+      if (e.altKey || !now.length) key.onclick(e);
+      else command('/keyframe.add_remove?' + now.map((k) => 'key=' + encodeURIComponent(keyId(layer, prop, k.frame))).join('&'));
+    };
+    key.replaceWith(watch);
+    // Worked out on the click, because the playhead moves without this row being drawn again.
+    const go = (glyph, later) => {
+      const b = document.createElement('button');
+      const near = () => {
+        const frames = keysOf(layer, prop).map((k) => k.frame);
+        return later ? Math.min(...frames.filter((f) => f > frame)) : Math.max(...frames.filter((f) => f < frame));
+      };
+      b.className = 'nb' + (Number.isFinite(near()) ? ' lit' : '');
+      b.textContent = glyph;
+      b.title = (later ? 'The next ' : 'The previous ') + named + ' key';
+      b.setAttribute('aria-label', b.title);
+      b.onclick = (e) => { e.stopPropagation(); const to = near(); if (Number.isFinite(to)) seek(to); };
+      return b;
+    };
+    const nav = document.createElement('span');
+    nav.className = 'enav';
+    nav.append(go('◀', false), key, go('▶', true));
+    dd.insertBefore(nav, dd.querySelector(':scope > .etr'));
+    const id = layer.id + ' ' + prop;
+    dt.dataset.row = id;
+    if (ecChosen === id) { dt.classList.add('sel'); dd.classList.add('sel'); }
+    dt.onclick = (e) => {
+      if (e.target.closest('button, input, select')) return;
+      ecChosen = ecChosen === id ? null : id;
+      drawInspector();
+      drawCamera();
+      drawEffects();
+    };
+  }
 }
 
 // D-58's camera, which belongs to the composition and not to the layer that happens to be
@@ -7476,6 +7674,7 @@ function drawCamera() {
     + encodeURIComponent(chooser.value) + '&frame=' + frame);
   dd.append(chooser);
   dl.append(dt, dd);
+  ecRows(dl);
   into.replaceChildren(dl);
 }
 
@@ -9221,17 +9420,17 @@ function effectRow(layer, fx, at, of) {
   };
   const folded = foldedEffects.has(fx.instance_id);
   head.append(
-    iconButton(folded ? '▸' : '▾', (folded ? 'Show ' : 'Hide ') + label + "'s settings", () => {
+    Object.assign(iconButton(folded ? '▸' : '▾', (folded ? 'Show ' : 'Hide ') + label + "'s settings", () => {
       if (folded) foldedEffects.delete(fx.instance_id); else foldedEffects.add(fx.instance_id);
       drawEffects();
-    }),
-    iconButton(fx.enabled ? '●' : '○',
-      (fx.enabled ? 'Bypass ' : 'Switch on ') + label,
+    }), { className: 'etw' }),
+    // W-42: the Sandbox's blue switch, which sends what the dot did.
+    switchButton(fx.enabled, (fx.enabled ? 'Switch off ' : 'Switch on ') + label,
       () => command('/effect.toggle_bypass' + where)),
     name,
-    // Colour is not the only carrier: a bypassed effect says so in a word as well as a symbol.
+    // Colour is not the only carrier: a bypassed effect says so in words as well as by its switch.
     Object.assign(document.createElement('span'),
-      { className: 'mark', textContent: fx.enabled ? '' : 'bypassed' }),
+      { className: 'mark', textContent: fx.enabled ? '' : 'switched off' }),
     // Up is earlier, because this list is drawn in the order the stack is evaluated and the
     // first thing evaluated is at the top. The end of the stack has no arrow rather than a dead
     // one: a button that cannot do anything is a button somebody presses twice.
@@ -9352,6 +9551,23 @@ function effectRow(layer, fx, at, of) {
       } else dd.append(input);
       fields[name].push(input);
     });
+    // W-42: the chosen row's slider, for a one-number setting with a range, which drags the
+    // number as the hand on it does: live while it moves, one step to undo when let go.
+    const ends = /^(-?[\d.]+) to (-?[\d.]+)/.exec(range);
+    if (count === 1 && ends && ecChosen === layer.id + ' ' + fxName(fx, name)) {
+      const [low, high] = [Number(ends[1]), Number(ends[2])];
+      const slide = Object.assign(document.createElement('input'),
+        { type: 'range', className: 'etr', min: low, max: high, step: 'any', value: values[0] });
+      slide.setAttribute('aria-label', label + ' ' + words + ', ' + range);
+      const paint = () => {
+        const at = Math.min(100, Math.max(0, (slide.value - low) / (high - low) * 100));
+        slide.style.background = 'linear-gradient(90deg, #6ea8fe ' + at + '%, #3a3a40 ' + at + '%)';
+      };
+      paint();
+      slide.oninput = () => { fields[name][0].value = slide.value; paint(); live(name); };
+      slide.onchange = () => close(false);
+      dd.append(slide);
+    }
     dl.append(dt, dd, ...(rgb ? [rgb] : []));
   }
   // The card's picture, above its numbers, as After Effects puts it.
@@ -9569,6 +9785,7 @@ function effectRow(layer, fx, at, of) {
     dd.append(input);
     dl.append(dt, dd);
   }
+  ecRows(dl);
   box.append(dl);
   return box;
 }

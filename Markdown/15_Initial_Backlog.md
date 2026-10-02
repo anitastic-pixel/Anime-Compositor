@@ -678,6 +678,8 @@ W-41b / Turn, mirror, snapshot and compare: the third redesign screen, second pa
 
 W-41c / The Map tab, Hand and Zoom: the third redesign screen, last part (D-248). The viewer's Map tab (tree, flowchart, both) read from the project, a click opening that composition; the Hand (H) and Zoom (Z) tools beside the selection tool. Page only. No command ID, fixture or exported picture changes. Evidence is in `verification/W-41c_map_and_tools.md`. Next: W-42 effect controls (Effect controls B).
 
+W-42 / Effect controls B: the fourth redesign screen (D-248). Grey bars with twirls, stopwatches, previous key / key / next key, the blue effect switch and the chosen row's slider. Page only. No command ID, fixture or exported picture changes. Evidence is in `verification/W-42_effect_controls.md`. Next: W-43 Project panel and finder.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28
