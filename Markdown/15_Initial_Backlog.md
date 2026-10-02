@@ -688,6 +688,8 @@ W-44 / Animate: the sixth redesign screen (D-248). The Animate workspace laid ou
 
 W-45 / Render: the seventh redesign screen (D-248). The Render workspace as the Sandbox board as far as the engine goes: Project and the Render queue panel, one row with status, output and time, the export's options inside the panel, Render and Stop driving the existing export, and the top bar's export task opening it. Page only; key Alt+3 and buttons `renderstart`, `renderstop` added to the pinned tables. No command ID, fixture or exported picture changes. Evidence is in `verification/W-45_render.md`. Next: the engine proposals, then W-46 Sketch.
 
+W-46 proposals: the Sandbox's remaining engine items written up as D-251 to D-261 (render queue, watch and Pause, cut status, label colours on compositions and footage, region box, recovery copies of never-saved projects, deleted files in the health chip, one-layer onion skin, Half quality, real Project pictures, and Sketch), with D-250 and five owner questions, in `verification/W-46_proposals_for_the_owner.md`. Nothing built; each accepted item gets its check first, then its build.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28
