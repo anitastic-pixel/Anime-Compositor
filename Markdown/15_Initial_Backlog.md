@@ -676,6 +676,8 @@ W-41a / The viewer's row: the third redesign screen, first part (D-248). One row
 
 W-41b / Turn, mirror, snapshot and compare: the third redesign screen, second part (D-248). Turn by 15°, mirror, a readout with Reset, snapshot and a split compare, as the Sandbox's Viewer A; the field guide's boxes are fixed (W-41a's placement was dropped by the window's security rule). One engine change, D-250 (proposed): an empty place stops the card painting, so the page gets the pixels; checked first in `verification/W-41b_place_table.md`. No command ID, fixture or exported picture changes. Evidence is in `verification/W-41b_turn_and_snapshot.md`. Next: W-41c (the Map tab, Hand and Zoom tools).
 
+W-41c / The Map tab, Hand and Zoom: the third redesign screen, last part (D-248). The viewer's Map tab (tree, flowchart, both) read from the project, a click opening that composition; the Hand (H) and Zoom (Z) tools beside the selection tool. Page only. No command ID, fixture or exported picture changes. Evidence is in `verification/W-41c_map_and_tools.md`. Next: W-42 effect controls (Effect controls B).
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

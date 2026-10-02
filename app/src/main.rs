@@ -27055,7 +27055,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 97] = [
+    const CONTROLS: [&str; 99] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -27074,6 +27074,7 @@ mod contract {
         "cancelrelink",
         "checker",
         "checkpackage",
+        "closemap",
         "closeprefs",
         "collect",
         "comparebtn",
@@ -27103,6 +27104,7 @@ mod contract {
         "import",
         "importcut",
         "makecomp",
+        "maptab",
         "mbswitch",
         "mirror",
         "newcomp",
@@ -27157,7 +27159,7 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 47] = [
+    const KEYS: [&str; 48] = [
         "*",
         ",",
         "-",
@@ -27183,6 +27185,7 @@ mod contract {
         "F3",
         "F9",
         "G",
+        "H",
         "Home",
         "I",
         "J",

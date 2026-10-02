@@ -262,6 +262,44 @@
      slate just above the picture, the guides over it and the sheet strip under it. */
   #viewer { grid-template-rows: auto auto minmax(0, 1fr) auto; }
   #viewer .tab #compsize { margin-left: auto; text-transform: none; letter-spacing: 0; color: #8e8e96; white-space: nowrap; }
+  /* W-41c (D-248): the Map, the Sandbox's second tab in the viewer: which composition holds which. */
+  #maptabs { display: flex; align-items: center; gap: 2px; margin-left: 6px; }
+  #maptabs[hidden] { display: none; }
+  #maptabs button { border: 0; background: none; padding: 1px 6px; font-size: 11px; color: #8e8e96; letter-spacing: 0.06em; text-transform: uppercase; }
+  #maptab[aria-pressed="true"] { color: #fff; box-shadow: inset 0 -2px 0 #e8b06a; }
+  #viewer.mapping { grid-template-rows: auto minmax(0, 1fr); }
+  #viewer.mapping > #viewbar, #viewer.mapping > #stage, #viewer.mapping > #strip, #viewer:not(.mapping) > #map { display: none; }
+  #map { display: flex; min-width: 0; min-height: 0; }
+  #map .mtree { width: 220px; flex-shrink: 0; overflow: auto; background: #1a1a1c; border-right: 1px solid #2a2a2e; padding: 6px 0; box-sizing: border-box; }
+  #map .mtree h3 { margin: 4px 10px 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #8e8e96; }
+  #map .mtree p { margin: 8px 10px; font-size: 11px; line-height: 1.45; }
+  #map .ti { display: flex; align-items: center; gap: 6px; width: 100%; height: 24px; border: 0; border-radius: 0; background: none; padding: 0 10px; text-align: left; font-size: 11.5px; white-space: nowrap; }
+  #map .ti:hover { background: #26262c; }
+  #map .ti[aria-current="true"] { background: #2e3b52; color: #fff; }
+  #map .ti .tw { width: 10px; color: #75757c; }
+  #map .ti .note { margin-left: auto; font-size: 10.5px; color: #75757c; }
+  #map .ti .note.miss { color: #e8b06a; }
+  #map .sq { width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0; background: #8f7bd6; }
+  #map .sq.held { background: #7fc4cf; }
+  #map .mside { position: relative; flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: #18181a; }
+  #map .mbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 36px; padding: 0 12px; background: #1b1b1d; border-bottom: 1px solid #2a2a2e; font-size: 11px; }
+  #map .seg2 { display: flex; }
+  #map .seg2 button { padding: 1px 10px; border-radius: 0; font-size: 11px; background: #232326; border-color: #3a3a40; white-space: nowrap; }
+  #map .seg2 button:first-child { border-radius: 3px 0 0 3px; }
+  #map .seg2 button:last-child { border-radius: 0 3px 3px 0; }
+  #map .seg2 button[aria-pressed="true"] { background: #2e3b52; border-color: #6ea8fe; color: #fff; }
+  #map .mflow { position: relative; flex-grow: 1; overflow: auto; background-image: radial-gradient(#2a2a2e 1px, transparent 1px); background-size: 16px 16px; }
+  #map .mflow svg { position: absolute; left: 0; top: 0; }
+  #map .mflow path { fill: none; stroke: #7a7a84; stroke-width: 1.6; }
+  #map .mflow marker path { fill: #7a7a84; stroke: none; }
+  #map .mn { position: absolute; width: 200px; height: 68px; box-sizing: border-box; padding: 0; text-align: left; background: #232327; border: 1px solid #45454b; border-radius: 8px; overflow: hidden; font-size: 11.5px; }
+  #map .mn .hd { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; background: #2a2a2e; color: #fff; font-weight: 600; white-space: nowrap; overflow: hidden; }
+  #map .mn .hd .note { margin-left: auto; font-weight: 400; font-size: 10.5px; color: #8e8e96; }
+  #map .mn .bd { padding: 4px 10px; color: #a0a0a8; line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #map .mn[aria-current="true"] { border: 2px solid #8fd6a0; box-shadow: 0 0 0 3px rgba(143, 214, 160, 0.22); }
+  #map .mn.off { opacity: 0.6; border-style: dashed; }
+  #map .mnone { position: absolute; left: 20px; top: 56px; width: 360px; line-height: 1.5; }
+  #map:not(.tree) .mnone, #map.tree .mflow, #map.flow .mtree { display: none; }
   #viewbar {
     display: flex; align-items: center; gap: 2px; flex-wrap: wrap; min-height: 34px; box-sizing: border-box;
     padding: 2px 8px; background: #1b1b1d; border-bottom: 1px solid #2a2a2e; font-size: 11px;
@@ -1157,6 +1195,7 @@
     <button data-run="New composition"></button>
     <button data-run="Composition settings"></button>
     <button data-run="Pre-compose"></button>
+    <button data-run="Map of compositions"></button>
     <hr>
     <button data-run="Duplicate the composition"></button>
     <button data-run="Delete the composition"></button>
@@ -1286,6 +1325,8 @@
   <span class="grow"></span>
   <span class="icons">
     <button class="ico" data-run="Selection tool" data-tool="select" aria-pressed="true" aria-label="Selection tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 1.5v12l3-3 2 4.5 2-1-2-4.3h4.2z" fill="currentColor"/></svg></button>
+    <button class="ico" data-run="Hand tool" data-tool="hand" aria-pressed="false" aria-label="Hand tool"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5V6a1.5 1.5 0 013 0v5M11 10.5V4.5a1.5 1.5 0 013 0v6M14 10.5V6a1.5 1.5 0 013 0v7.5c0 4-2.4 6.5-6 6.5-3 0-4.6-1.7-5.6-4L4 13a1.4 1.4 0 012.4-1.4L8 13.5"/></svg></button>
+    <button class="ico" data-run="Zoom tool" data-tool="zoom" aria-pressed="false" aria-label="Zoom tool"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20M7.5 10h5M10 7.5v5"/></svg></button>
     <button class="ico" data-run="Pen tool" data-tool="pen" aria-pressed="false" aria-label="Pen tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 14l2.2-6.5L11 1l4 4-6.5 6.8z" fill="none" stroke="currentColor" stroke-linejoin="round"/><circle cx="6.6" cy="9.4" r="1.1" fill="currentColor"/></svg></button>
     <button class="ico" data-run="Shape tool" data-tool="rectangle ellipse" aria-pressed="false" aria-label="Shape tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="1.5" y="5.5" width="8" height="8" fill="none" stroke="currentColor"/><circle cx="10.5" cy="5.5" r="4" fill="none" stroke="currentColor"/></svg></button>
   </span>
@@ -1404,7 +1445,7 @@
     aria-label="The border between the media bin and the viewer. Drag it, or use the arrow keys."></div>
   <div class="place" id="centre"><nav class="stack" hidden></nav>
   <section class="panel" id="viewer">
-    <div class="tab">Viewer<span id="comp">&mdash;</span><span id="compsize"></span></div>
+    <div class="tab">Viewer<span id="comp">&mdash;</span><span id="maptabs" hidden><button id="maptab" aria-pressed="false" title="The map of compositions. Click again for the picture">Map</button><button id="closemap" title="Close the map" aria-label="Close the map">&times;</button></span><span id="compsize"></span></div>
     <!-- W-41 (D-248): the Sandbox's Viewer A, in one row above the picture. Every control keeps
          its name and what it sends; Full or Draft and the picture's size open as small menus,
          the same menus the top bar has. -->
@@ -1478,6 +1519,16 @@
       <svg id="boxes" width="480" height="270" viewBox="0 0 480 270" aria-hidden="true"></svg>
     </div>
     <div id="strip" hidden></div>
+    <!-- W-41c (D-248): the Map. Which composition holds which, as a tree, as boxes joined by
+         arrows, or both; read from the project, and a click opens that composition. -->
+    <div id="map">
+      <div class="mtree"><h3>Composition tree</h3><div></div><p class="hint">Click a name to open it in the timeline. The tree and the flowchart light up the same composition.</p></div>
+      <div class="mside">
+        <div class="mbar"><span class="seg2" role="group" aria-label="How the map is shown"><button data-map="flow">Flowchart</button><button data-map="tree">Tree</button><button data-map="both">Both</button></span><span class="hint">An arrow means "holds". Click a box to open it in the timeline.</span></div>
+        <div class="mflow"></div>
+        <p class="mnone hint">Flowchart hidden. The tree on the left is the whole map; switch to Both to see the boxes and arrows again.</p>
+      </div>
+    </div>
   </section>
   </div>
   <div class="split col" id="splitinspector" role="separator" aria-orientation="vertical" tabindex="0"
@@ -3953,6 +4004,7 @@ function paletteLines() {
     ['Turn the view back', '', () => $('unturn').click()],
     ['Snapshot of the picture', '', () => $('snapshot').click()],
     ['Compare with the snapshot', '', () => $('comparebtn').click()],
+    ['Map of compositions', '', () => openMap()],
     ['Composition settings', 'Ctrl+K', { key: 'k', code: 'KeyK', ctrlKey: true }],
     ['Copy layers', 'Ctrl+C', copyLayers],
     ['Paste layers', 'Ctrl+V', pasteLayers],
@@ -3980,6 +4032,8 @@ function paletteLines() {
     ['Session log', '', () => $('sessionlogbutton').click()],
     // W-39: the top bar's tools and workspaces, and the palette itself for the Help menu.
     ['Selection tool', 'V', { key: 'v' }],
+    ['Hand tool', 'H', { key: 'h' }],
+    ['Zoom tool', 'Z', { key: 'z' }],
     ['Pen tool', 'G', { key: 'g' }],
     ['Shape tool', 'Q', { key: 'q' }],
     ['Compose workspace', 'Alt+1', { key: '1', code: 'Digit1', altKey: true }],
@@ -5190,14 +5244,18 @@ let turning = false;
 function useTool(which) {
   tool = which;
   penDraft = null;
-  view.style.cursor = which === 'pen' ? PEN_CURSOR : which === 'select' ? '' : 'crosshair';
-  stage.style.cursor = which === 'pen' ? PEN_CURSOR : '';
+  // W-41c: the hand and the zoom, After Effects' H and Z, which move about the picture and change nothing.
+  const looking = { hand: 'grab', zoom: 'zoom-in' }[which];
+  view.style.cursor = which === 'pen' ? PEN_CURSOR : which === 'select' ? '' : looking || 'crosshair';
+  stage.style.cursor = which === 'pen' ? PEN_CURSOR : looking || '';
   if (which !== 'pen') penNib.style.display = 'none';
   for (const icon of document.querySelectorAll('[data-tool]')) {
     icon.setAttribute('aria-pressed', String(icon.dataset.tool.split(' ').includes(which)));
   }
   const shapes = drawsShapes(selected());
   $('status').textContent = which === 'select' ? 'The selection tool.'
+    : which === 'hand' ? 'The hand: drag to move about the picture. The middle button does this with any tool.'
+    : which === 'zoom' ? 'The zoom: click to zoom in about that spot, Alt+click to zoom out.'
     : which === 'pen' ? (shapes
       ? 'The pen: click to place points; click the first point to close the shape, or Enter to leave it open.'
       : 'The pen: click to place points, and click the first point to close the mask.')
@@ -5635,12 +5693,21 @@ stage.onpointerdown = (e) => {
     window.addEventListener('keydown', escape, true);
   };
   // W-23: the middle button drags a picture bigger than the stage about, as a hand tool does.
-  if (e.button === 1 && doc) {
+  // W-41c: and so does the hand tool's left button.
+  if ((e.button === 1 || (e.button === 0 && tool === 'hand')) && doc) {
     e.preventDefault();
     const [x0, y0, sx, sy] = [e.clientX, e.clientY, stage.scrollLeft, stage.scrollTop];
+    const was = stage.style.cursor;
+    stage.style.cursor = 'grabbing';
     stage.setPointerCapture(e.pointerId);
     stage.onpointermove = (m) => { stage.scrollLeft = sx + x0 - m.clientX; stage.scrollTop = sy + y0 - m.clientY; };
-    stage.onpointerup = () => { stage.onpointermove = null; stage.onpointerup = null; };
+    stage.onpointerup = () => { stage.onpointermove = null; stage.onpointerup = null; stage.style.cursor = was; };
+    return;
+  }
+  // W-41c: the zoom tool, twice as big about the spot clicked, or half with Alt.
+  if (e.button === 0 && tool === 'zoom' && doc) {
+    e.preventDefault();
+    zoomTo(shownScale() * (e.altKey ? 0.5 : 2), e.clientX, e.clientY);
     return;
   }
   if (e.button !== 0 || !doc) return;
@@ -10771,6 +10838,7 @@ function drawPanels() {
   applyZoom();
   drawComps();
   drawCompTabs();
+  drawMap();
   drawAssets();
   drawRuler();
   drawLayers();
@@ -10937,8 +11005,9 @@ function drawLooks() {
 // own canvas; the card paints again once the view is back. Edits by hand wait for the Reset.
 const viewTurn = { angle: 0, mirror: false };
 let holdingPixels = 0;
+let mapShown = false; // W-41c: the map in front of the picture
 function needPixels() {
-  return viewTurn.angle !== 0 || viewTurn.mirror || holdingPixels > 0;
+  return viewTurn.angle !== 0 || viewTurn.mirror || holdingPixels > 0 || mapShown;
 }
 // The picture's pixels on the page's canvas, all of it, before going on.
 async function pixelsHere() {
@@ -10979,6 +11048,138 @@ $('turnleft').onclick = () => turnView(-15, false);
 $('turnright').onclick = () => turnView(15, false);
 $('mirror').onclick = () => turnView(0, true);
 $('unturn').onclick = () => turnView(-viewTurn.angle, viewTurn.mirror);
+
+// W-41c (D-248): the Map, the viewer's second tab. Read from the project as it stands; a click
+// opens that composition, as its tab above the timeline does, and nothing here changes the
+// project. While the map is in front the card stops painting the picture it covers.
+function showMap(open, inFront) {
+  const before = needPixels();
+  $('maptabs').hidden = !open;
+  mapShown = open && inFront;
+  $('viewer').classList.toggle('mapping', mapShown);
+  $('maptab').setAttribute('aria-pressed', String(mapShown));
+  drawMap();
+  if (needPixels() === before) return;
+  if (needPixels()) pixelsHere();
+  else show(FRAMES + '/frame/' + frame + '?q=' + quality);
+}
+function openMap() {
+  toFront('viewer');
+  showMap(true, true);
+}
+$('maptab').onclick = () => showMap(true, !mapShown);
+$('closemap').onclick = () => showMap(false, false);
+for (const b of $('map').querySelectorAll('[data-map]')) {
+  b.onclick = () => { prefs.mapMode = b.dataset.map; savePrefs(); drawMap(); };
+}
+// Which composition holds which. A composition held at two depths goes in the deeper column, so
+// every arrow points right; rows are laid out as a tree, each box beside the middle of what it holds.
+// ponytail: one held by two parents sits under the first; a crossing arrow is possible then.
+function mapOfComps() {
+  const all = doc ? (doc.project.compositions || []) : [];
+  const ids = new Set(all.map((c) => c.id));
+  const holds = new Map(all.map((c) => [c.id, [...new Set((c.layers || [])
+    .filter((l) => l.kind === 'composition' && ids.has(l.composition_id)).map((l) => l.composition_id))]]));
+  const inside = new Map(all.map((c) => [c.id, []]));
+  for (const c of all) for (const id of holds.get(c.id)) inside.get(id).push(c.id);
+  const depth = new Map();
+  const path = new Set();
+  const depthOf = (id) => {
+    if (depth.has(id)) return depth.get(id);
+    if (path.has(id)) return 0;
+    path.add(id);
+    const d = Math.max(0, ...inside.get(id).map((p) => depthOf(p) + 1));
+    path.delete(id);
+    depth.set(id, d);
+    return d;
+  };
+  all.forEach((c) => depthOf(c.id));
+  const row = new Map();
+  let next = 0;
+  const rowOf = (id) => {
+    row.set(id, -1);
+    const under = holds.get(id).filter((k) => !row.has(k)).map(rowOf);
+    const r = under.length ? (under[0] + under[under.length - 1]) / 2 : next++;
+    row.set(id, r);
+    return r;
+  };
+  for (const c of all) if (!inside.get(c.id).length && !row.has(c.id)) rowOf(c.id);
+  for (const c of all) if (!row.has(c.id)) rowOf(c.id);
+  return { all, holds, inside, depth, row, nesting: all.some((c) => holds.get(c.id).length) };
+}
+function drawMap() {
+  const mode = ({ flow: 1, tree: 1, both: 1 })[prefs.mapMode] ? prefs.mapMode : 'both';
+  $('map').className = mode;
+  for (const b of $('map').querySelectorAll('[data-map]')) b.setAttribute('aria-pressed', String(b.dataset.map === mode));
+  if (!mapShown) return;
+  const focused = document.activeElement && $('map').contains(document.activeElement) ? document.activeElement.dataset.comp : null;
+  const m = mapOfComps();
+  const go = (id) => () => { if (id !== doc.composition) openComp(id); };
+  const span = (cls, text) => Object.assign(document.createElement('span'), { className: cls, textContent: text });
+  const unused = (id) => m.nesting && !m.inside.get(id).length && !m.holds.get(id).length;
+  // The tree: every composition under each that holds it, as many times as it is held.
+  const lines = [];
+  const walk = (id, level, under, trail) => {
+    const comp = m.all.find((c) => c.id === id);
+    const b = document.createElement('button');
+    b.className = 'ti';
+    b.dataset.comp = id;
+    b.style.paddingLeft = 10 + level * 14 + 'px';
+    b.setAttribute('aria-current', String(id === doc.composition));
+    const at = under ? (under.layers || []).findIndex((l) => l.kind === 'composition' && l.composition_id === id) : -1;
+    b.append(span('tw', m.holds.get(id).length ? '\u25be' : ''), span('sq' + (under ? ' held' : ''), ''), comp.name,
+      span('note' + (unused(id) ? ' miss' : ''), under ? 'layer ' + ((under.layers || []).length - at) : unused(id) ? 'not used' : 'top level'));
+    b.onclick = go(id);
+    lines.push(b);
+    if (!trail.includes(id)) for (const k of m.holds.get(id)) walk(k, level + 1, comp, [...trail, id]);
+  };
+  for (const c of m.all) if (!m.inside.get(c.id).length) walk(c.id, 0, null, []);
+  if (!m.all.length) lines.push(Object.assign(document.createElement('p'), { className: 'hint', textContent: 'No compositions yet.' }));
+  $('map').querySelector('.mtree > div').replaceChildren(...lines);
+  // The flowchart: a column for each depth, an arrow from each composition to each it holds.
+  const [W, H, GX, GY] = [200, 68, 250, 84];
+  const xy = (id) => [16 + m.depth.get(id) * GX, 16 + m.row.get(id) * GY];
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  const right = Math.max(0, ...m.all.map((c) => xy(c.id)[0])) + W + 16;
+  const bottom = Math.max(0, ...m.all.map((c) => xy(c.id)[1])) + H + 16;
+  svg.setAttribute('width', right);
+  svg.setAttribute('height', bottom);
+  svg.innerHTML = '<defs><marker id="maphead" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z"/></marker></defs>';
+  const boxes = [svg];
+  for (const c of m.all) {
+    const [x, y] = xy(c.id);
+    for (const k of m.holds.get(c.id)) {
+      const [kx, ky] = xy(k);
+      const [ax, ay, bx, by] = [x + W, y + H / 2, kx - 2, ky + H / 2];
+      const arrow = document.createElementNS(NS, 'path');
+      arrow.setAttribute('d', 'M' + ax + ' ' + ay + ' C' + (ax + bx) / 2 + ' ' + ay + ' ' + (ax + bx) / 2 + ' ' + by + ' ' + bx + ' ' + by);
+      arrow.setAttribute('marker-end', 'url(#maphead)');
+      svg.append(arrow);
+    }
+    const fps = Math.max(1, Math.round(c.frame_rate.numerator / c.frame_rate.denominator));
+    const parents = m.inside.get(c.id).map(compName);
+    const b = document.createElement('button');
+    b.className = 'mn' + (unused(c.id) ? ' off' : '');
+    b.dataset.comp = c.id;
+    b.style.left = x + 'px';
+    b.style.top = y + 'px';
+    b.setAttribute('aria-current', String(c.id === doc.composition));
+    const hd = Object.assign(document.createElement('div'), { className: 'hd' });
+    hd.append(span('sq' + (parents.length ? ' held' : ''), ''), c.name, span('note', parents.length || unused(c.id) ? '' : 'top level'));
+    const bd = Object.assign(document.createElement('div'), { className: 'bd' });
+    const n = (c.layers || []).length;
+    bd.append(n + (n === 1 ? ' layer' : ' layers') + ' \u00b7 ' + Math.floor(c.duration_frames / fps) + 's ' + (c.duration_frames % fps) + 'f',
+      document.createElement('br'),
+      parents.length ? 'inside ' + parents.join(', ') : unused(c.id) ? 'not used anywhere yet' : c.width + '\u00d7' + c.height);
+    b.append(hd, bd);
+    b.title = bd.textContent;
+    b.onclick = go(c.id);
+    boxes.push(b);
+  }
+  $('map').querySelector('.mflow').replaceChildren(...boxes);
+  if (focused) { const again = $('map').querySelector('[data-comp="' + CSS.escape(focused) + '"]'); if (again) again.focus(); }
+}
 
 // W-41b: a snapshot of the picture on screen, kept in the page until the window closes, and the
 // snapshot and the picture now side by side across a line that can be dragged.
@@ -12551,6 +12752,8 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'g' || e.key === 'G') { e.preventDefault(); useTool('pen'); }
   else if (e.key === 'q' || e.key === 'Q') { e.preventDefault(); useTool(tool === 'rectangle' ? 'ellipse' : 'rectangle'); }
   else if (e.key === 'v' || e.key === 'V') { e.preventDefault(); useTool('select'); }
+  else if (e.key === 'h' || e.key === 'H') { e.preventDefault(); useTool('hand'); }
+  else if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); useTool('zoom'); }
   // W-24: After Effects' B and N set the work area's ends at the playhead, and * adds a marker.
   else if (e.key === 'b' || e.key === 'B') setWork('start');
   else if (e.key === 'n' || e.key === 'N') setWork('end');
