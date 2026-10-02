@@ -668,7 +668,22 @@
   #renderbar { width: 100%; max-width: 760px; height: 6px; }
   #renderpanel button.pri { background: #2f5ea8; border-color: #4a7cc8; color: #fff; padding: 6px 18px; }
   #renderpanel button.pri:disabled { opacity: .45; cursor: default; }
-  #renderpanel .rrow { display: grid; grid-template-columns: 56px minmax(100px, 200px) minmax(100px, 220px) minmax(140px, 1fr) 70px; gap: 8px; padding: 6px 14px; align-items: center; }
+  #renderpanel .rrow { display: grid; grid-template-columns: 56px minmax(100px, 200px) minmax(100px, 220px) minmax(140px, 1fr) 70px 24px; gap: 8px; padding: 6px 14px; align-items: center; }
+  /* D-251: the queue's rows. */
+  #renderrows .ritem { background: #1e1e22; border-bottom: 1px solid #2a2a2e; cursor: grab; }
+  #renderrows .ritem.on { background: #232a36; }
+  #renderrows .ritem.over { box-shadow: inset 0 2px 0 #6ea8fe; }
+  #renderrows .ritem > span:first-child { display: flex; align-items: center; gap: 6px; }
+  #renderrows .ritem > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  #renderrows .sub { display: block; color: #8e8e96; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #renderrows .sub.stale { color: #e8c46a; white-space: normal; }
+  #renderrows .sub.stale button { margin-left: 6px; padding: 0 6px; font-size: 11px; }
+  #renderrows .run { color: #6ea8fe; }
+  #renderrows .done { color: #7bd88f; }
+  #renderrows .stop { color: #e8c46a; }
+  #renderrows .rtime { text-align: right; font-variant-numeric: tabular-nums; }
+  #renderrows button.x { padding: 0 6px; background: none; border: 0; color: #8e8e96; font-size: 15px; }
+  #renderrows button.x:hover:not(:disabled) { color: #fff; }
   #renderpanel .rtitles { color: #8e8e96; font-size: 11px; border-bottom: 1px solid #2a2a2e; }
   #renderpanel .ritem { background: #232a36; color: #e0e0e4; }
   #renderstatus.run { color: #6ea8fe; }
@@ -1521,6 +1536,7 @@
     <button data-run="Delete the composition"></button>
     <hr>
     <button id="export" data-key="Ctrl+M">Export&hellip;</button>
+    <button id="addtoqueue" title="Keep this composition, as it is now, in the Render panel's queue, to be written later with the others">Add to Render queue&hellip;</button>
     <div class="opts" data-stay>
     <select id="exportformat" title="What the export is written as: a file a frame, or one animated file. Lossless: the file keeps every value it is given, so there is no quality to choose">
       <option value="png">PNG, 8-bit, lossless</option>
@@ -1974,10 +1990,12 @@
   <div class="rhead">
     <div class="rnow"><div id="rendernow">Not rendering</div><progress id="renderbar" max="1" value="0" hidden></progress></div>
     <button id="renderstop" hidden title="Stop the render. The frames already written are kept">Stop</button>
+    <button id="renderadd" title="Add the open composition to the queue, written as the Output choices below say: asks which folder">Add to queue</button>
     <button id="renderstart" class="pri" title="Render the open composition: asks where, then writes it (Ctrl+M)">&#9655; Render</button>
   </div>
-  <div class="rrow rtitles"><span>Render #</span><span>Composition</span><span>Status</span><span>Output</span><span>Time</span></div>
-  <div class="rrow ritem"><span>1</span><span id="rendercomp"></span><span id="renderstatus"></span><span id="renderout"></span><span id="rendertime"></span></div>
+  <div class="rrow rtitles"><span>Render #</span><span>Composition</span><span>Status</span><span>Output</span><span>Time</span><span></span></div>
+  <div class="rrow ritem" id="renderone"><span>1</span><span id="rendercomp"></span><span id="renderstatus"></span><span id="renderout"></span><span id="rendertime"></span><span></span></div>
+  <div id="renderrows"></div>
   <div class="ropen">
     <div id="renderopts"><h3>Output</h3></div>
     <div><h3>How it went</h3><div id="rendergot"></div><p id="renderleft"></p></div>
@@ -2357,6 +2375,7 @@ async function show(url, keep = true) {
       : '0 of ' + total + ' frames, checking the drawings first';
     $('export').disabled = exporting;
     renderState = { exporting, done: done || 0, total: total || 0, report: exported.textContent };
+    if (h.get('x-queue') !== queueSeen) { queueSeen = h.get('x-queue'); askQueue(); }
     if (exporting) renderMs = ms || 0;
     drawRender();
     clearTimeout(watching);
@@ -13591,12 +13610,14 @@ $('health').onclick = () => {
 // written as the working buffer holds it, linear light with premultiplied alpha.
 // Unlike the tick, the format is kept for the rest of the sitting: starting an export reloads the
 // page, and the owner's B-16c playtest found the list back on PNG afterwards.
-$('export').onclick = () =>
-  command('/export?format=' + $('exportformat').value
-    // D-73: each choice travels only with the format it belongs to.
-    + ($('exportformat').value === 'mp4' ? '&quality=' + $('filmquality').value : '')
-    + ($('exportformat').value === 'gif' && $('gifdither').checked ? '&dither=on' : '')
-    + ($('anyway').checked ? '&missing=write' : ''));
+const exportChoices = () => 'format=' + $('exportformat').value
+  // D-73: each choice travels only with the format it belongs to.
+  + ($('exportformat').value === 'mp4' ? '&quality=' + $('filmquality').value : '')
+  + ($('exportformat').value === 'gif' && $('gifdither').checked ? '&dither=on' : '')
+  + ($('anyway').checked ? '&missing=write' : '');
+$('export').onclick = () => command('/export?' + exportChoices());
+// D-251: the same choices, kept in a row of the Render panel's queue rather than written now.
+$('addtoqueue').onclick = () => askQueue('do=add&' + exportChoices());
 // D-73: the quality list shows beside MP4 only, the dither tick beside GIF only.
 const showExportChoices = () => {
   $('filmquality').hidden = $('exportformat').value !== 'mp4';
@@ -13628,10 +13649,58 @@ $('gifdither').onchange = (e) => {
 $('cancelexport').onclick = () => command('/cancel-export');
 // W-45 (D-248): the Render panel. One item, the open composition, rendered by the same Export and
 // stopped by the same Cancel. The status is read from the first sentence of the core's report;
-// the page decides nothing about what was written. A queue of several, Pause and watching each
-// frame as it is written are engine work, proposed on their own.
+// the page decides nothing about what was written. D-251 added the queue below; Pause and
+// watching each frame as it is written are D-252.
 let renderState = { exporting: false, done: 0, total: 0, report: '' };
 let renderMs = 0;
+// D-251: the render queue. The rows are the window's, each with the project as it was when it was
+// added; the page draws them and sends what was clicked. With no rows, Render is Export as before.
+let queueRows = [];
+let queueSeen = null;
+let dragged = null;
+async function askQueue(what) {
+  try {
+    queueRows = await (await fetch(PROJECT + '/queue' + (what ? '?' + what : ''))).json();
+  } catch (e) { return; }
+  drawRender();
+  // What the window said about it rides on the next frame's headers.
+  if (what) show(FRAMES + '/frame/' + frame + '?q=' + quality);
+}
+const clock = (ms) => { const s = Math.round(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function queueRow(row, n) {
+  const { exporting, done, total } = renderState;
+  const el = (tag, props, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+  const tick = el('input', { type: 'checkbox', checked: row.ticked, title: 'Write this row when Render is pressed' });
+  tick.onchange = () => askQueue('do=tick&row=' + row.id + '&on=' + (tick.checked ? 1 : 0));
+  const kind = row.status === 'Rendering' ? 'run' : row.status === 'Done' ? 'done' : /Stopped|Failed|Not started/.test(row.status) ? 'stop' : '';
+  const words = row.running && exporting && total ? 'Rendering \u00b7 ' + Math.floor(done / total * 100) + '%' : row.status;
+  const added = new Date(row.added).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const output = el('span', { title: row.said || row.output },
+    row.format + ' \u00b7 ' + row.frames + ' frames',
+    el('span', { className: 'sub', textContent: row.output }));
+  if (row.stale) {
+    const again = el('button', { textContent: 'Refresh', disabled: exporting, title: 'Take the project as it is now for this row' });
+    again.onclick = () => askQueue('do=refresh&row=' + row.id);
+    output.append(el('span', { className: 'sub stale' }, 'Added at ' + added + ', before your last edits.', again));
+  } else {
+    output.append(el('span', { className: 'sub', textContent: 'Added at ' + added }));
+  }
+  const gone = el('button', { className: 'x', textContent: '\u00d7', disabled: exporting, title: 'Remove this row from the queue' });
+  gone.onclick = () => askQueue('do=remove&row=' + row.id);
+  const line = el('div', { className: 'rrow ritem' + (row.running ? ' on' : ''), draggable: true },
+    el('span', {}, tick, String(n + 1)),
+    el('span', { textContent: row.name, title: row.name }),
+    el('span', { className: kind, textContent: words }),
+    output,
+    el('span', { className: 'rtime', textContent: row.running && renderMs ? clock(renderMs) : row.took ? clock(row.took) : '\u2014' }),
+    el('span', {}, gone));
+  // Drag a row onto another to put it in that one's place.
+  line.ondragstart = () => { dragged = row.id; };
+  line.ondragover = (e) => { e.preventDefault(); line.classList.add('over'); };
+  line.ondragleave = () => line.classList.remove('over');
+  line.ondrop = (e) => { e.preventDefault(); line.classList.remove('over'); if (dragged !== null && dragged !== row.id) askQueue('do=move&row=' + dragged + '&to=' + n); };
+  return line;
+}
 function drawRender() {
   const { exporting, done, total, report } = renderState;
   const first = report.split('\n')[0];
@@ -13648,17 +13717,31 @@ function drawRender() {
     + ($('anyway').checked ? ', missing drawings written' : '');
   const secs = Math.round(renderMs / 1000);
   $('rendertime').textContent = renderMs ? Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0') : '\u2014';
-  $('rendernow').textContent = exporting ? 'Rendering 1 of 1 \u00b7 ' + name + ' \u00b7 ' + done + ' of ' + total : 'Not rendering';
+  const queued = queueRows.length > 0;
+  const running = queueRows.find((r) => r.running);
+  $('renderone').style.display = queued ? 'none' : '';
+  $('renderrows').replaceChildren(...queueRows.map(queueRow));
+  $('rendernow').textContent = !exporting ? 'Not rendering'
+    : running ? report.split('\n')[0].replace(/\.$/, '') + ' \u00b7 ' + done + ' of ' + total
+    : queued ? 'Starting the queue'
+    : 'Rendering 1 of 1 \u00b7 ' + name + ' \u00b7 ' + done + ' of ' + total;
   $('renderbar').hidden = !exporting;
   $('renderbar').max = total || 1;
   $('renderbar').value = done;
   $('renderstop').hidden = !exporting;
   $('renderstart').disabled = exporting || !doc;
-  $('renderleft').textContent = exporting ? $('exportleft').textContent : 'Render asks which folder to write into, then writes there.';
-  $('rendergot').replaceChildren(...(report ? report.split('\n') : ['Nothing has been rendered yet in this sitting.'])
+  $('renderadd').disabled = !doc;
+  $('renderstart').title = queued ? 'Write the ticked rows in turn, each into its own folder'
+    : 'Render the open composition: asks where, then writes it (Ctrl+M)';
+  $('renderleft').textContent = exporting ? $('exportleft').textContent
+    : queued ? 'Render writes the ticked rows in turn. Drag a row to change the order.'
+    : 'Render asks which folder to write into, then writes there. Add to queue keeps it for later instead.';
+  const rows = queueRows.filter((r) => r.said).map((r) => r.name + ', row ' + (queueRows.indexOf(r) + 1) + ': ' + r.said);
+  $('rendergot').replaceChildren(...(report || rows.length ? [...report.split('\n').filter(Boolean), ...rows] : ['Nothing has been rendered yet in this sitting.'])
     .map((line) => Object.assign(document.createElement('p'), { textContent: line })));
 }
-$('renderstart').onclick = () => $('export').click();
+$('renderstart').onclick = () => (queueRows.length ? askQueue('do=render') : $('export').click());
+$('renderadd').onclick = () => $('addtoqueue').click();
 $('renderstop').onclick = () => $('cancelexport').click();
 $('anyway').addEventListener('change', drawRender);
 // The task in the top bar opens the Render workspace from anywhere, as the Sandbox's does.

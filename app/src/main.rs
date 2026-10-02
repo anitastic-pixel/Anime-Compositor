@@ -1263,7 +1263,7 @@ fn serve_seen(
             export.total,
             export.started.map_or(0, |t| t.elapsed().as_millis())
         );
-        (export.cancel.is_some(), export.said.clone(), progress)
+        (export.cancel.is_some(), export.said.clone(), (progress, export.changes))
     };
     // P-01: how long the page waited for the frame already in flight. The guard outlives this
     // statement, so the duration is recorded rather than wrapped around a closure.
@@ -1334,7 +1334,9 @@ fn serve_seen(
             skipped,
             ahead,
             reply: said_about(viewer, ask, frame, skipped, exporting, &exported)
-                .header("x-export-progress", progress),
+                .header("x-export-progress", progress.0)
+                // D-251: the queue's changes and the document's, so an edit marks rows stale.
+                .header("x-queue", format!("{} {}", progress.1, viewer.document.revision())),
         }
     };
 
@@ -8191,6 +8193,11 @@ struct Export {
     done: Arc<AtomicUsize>,
     total: usize,
     started: Option<Instant>,
+    /// D-251: the render queue's rows, the row being written, and a count that goes up with every
+    /// change to them, so the page asks for the list again only when it has changed.
+    queue: Vec<QueueRow>,
+    row: Option<u64>,
+    changes: u64,
 }
 
 /// PNG depth and alpha for an export from the window.
@@ -8615,6 +8622,318 @@ fn cancel_export(app: &AppHandle) -> String {
         }
         None => "No export is running.".to_string(),
     }
+}
+
+// -------------------------------------------------------------------------------------------
+// D-251: the render queue
+// -------------------------------------------------------------------------------------------
+
+/// One row of the render queue: a job exactly as Export would start it, kept until ▷ Render.
+///
+/// The job is B-10's snapshot, taken when the row was added, so later edits do not reach it until
+/// the person asks for Refresh; the list says when the project has changed since.
+struct QueueRow {
+    id: u64,
+    ticked: bool,
+    /// The composition's name, and when the row was added in milliseconds since 1970, which the
+    /// page shows as a time of day.
+    name: String,
+    added: u128,
+    job: Arc<(Project, PathBuf, ExportRequest)>,
+    /// Queued, Rendering, Done, Stopped, Not started or Failed.
+    status: &'static str,
+    /// What the row's export did, in the core's words.
+    said: String,
+    took: u128,
+}
+
+/// The row's format as the panel names it, with the choice that was made.
+fn format_name(format: OutputFormat, choices: ExportChoices) -> String {
+    match format {
+        OutputFormat::Png => "PNG sequence".into(),
+        OutputFormat::Exr(ExrSamples::Half) => "EXR sequence, half float".into(),
+        OutputFormat::Exr(ExrSamples::Float) => "EXR sequence, full float".into(),
+        OutputFormat::Gif if choices.gif_dither => "GIF, dithered".into(),
+        OutputFormat::Gif => "GIF".into(),
+        OutputFormat::Apng => "Animated PNG".into(),
+        OutputFormat::Mp4 => format!("MP4, {:?}", choices.mp4_quality),
+    }
+}
+
+fn locked(export: &Mutex<Export>) -> std::sync::MutexGuard<'_, Export> {
+    export.lock().expect("the export lock was poisoned")
+}
+
+/// Add the open composition to the queue as Export would write it now. Returns what the status
+/// line says.
+fn queue_add(
+    export: &Mutex<Export>,
+    viewer: &Viewer,
+    into: &Path,
+    missing: MissingSource,
+    format: OutputFormat,
+    choices: ExportChoices,
+) -> String {
+    let (project, root, mut request) = export_job(viewer, into, missing, format);
+    request.choices = choices;
+    let name = project.composition(&request.composition).map_or_else(String::new, |c| c.name.clone());
+    let said = format!(
+        "Added {name} to the render queue{}, into {}. \u{25b7} Render writes it.",
+        written_as(format, choices),
+        into.display()
+    );
+    let mut held = locked(export);
+    held.changes += 1;
+    let id = held.changes;
+    held.queue.push(QueueRow {
+        id,
+        ticked: true,
+        name,
+        added: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis()),
+        job: Arc::new((project, root, request)),
+        status: "Queued",
+        said: String::new(),
+        took: 0,
+    });
+    said
+}
+
+/// The queue as the Render panel draws it. `stale` is true when the open project is no longer
+/// the one the row copied.
+fn queue_list(export: &Mutex<Export>, viewer: &Mutex<Viewer>) -> serde_json::Value {
+    let viewer = viewer.lock().expect("the viewer lock was poisoned");
+    let held = locked(export);
+    held.queue
+        .iter()
+        .map(|row| {
+            let (project, _, request) = &*row.job;
+            serde_json::json!({
+                "id": row.id,
+                "ticked": row.ticked,
+                "name": row.name,
+                "format": format_name(request.format, request.choices),
+                "frames": request.last_frame - request.first_frame + 1,
+                "output": request.output_dir.display().to_string(),
+                "added": row.added as u64,
+                "status": row.status,
+                "said": row.said,
+                "took": row.took as u64,
+                "running": held.row == Some(row.id),
+                "stale": project != viewer.document.project(),
+            })
+        })
+        .collect()
+}
+
+/// Tick, remove, move or refresh one row, `?do=&row=`. Returns what the status line says, or
+/// nothing for a tick.
+fn queue_change(export: &Mutex<Export>, viewer: &Mutex<Viewer>, query: Option<&str>) -> String {
+    let id = parameter(query, "row").and_then(|r| r.parse::<u64>().ok()).unwrap_or(0);
+    let what = parameter(query, "do");
+    // Taken before the queue's lock, in the order queue_list takes them.
+    let project = (what.as_deref() == Some("refresh"))
+        .then(|| {
+            let viewer = viewer.lock().expect("the viewer lock was poisoned");
+            (viewer.document.project().clone(), viewer.root.clone())
+        });
+    let mut held = locked(export);
+    let running = held.cancel.is_some();
+    let Some(at) = held.queue.iter().position(|r| r.id == id) else {
+        return "That row is no longer in the render queue.".into();
+    };
+    let said = match what.as_deref() {
+        Some("tick") => {
+            held.queue[at].ticked = parameter(query, "on").as_deref() != Some("0");
+            String::new()
+        }
+        Some("remove") if running => "The render queue is rendering. Stop it before removing a row.".into(),
+        Some("remove") => {
+            let row = held.queue.remove(at);
+            format!("Removed {} from the render queue.", row.name)
+        }
+        Some("move") => {
+            let row = held.queue.remove(at);
+            let to = parameter(query, "to").and_then(|t| t.parse::<usize>().ok()).unwrap_or(at).min(held.queue.len());
+            held.queue.insert(to, row);
+            String::new()
+        }
+        Some("refresh") if running => "The render queue is rendering. Stop it before refreshing a row.".into(),
+        Some("refresh") => {
+            let (project, root) = project.expect("taken above for a refresh");
+            let row = &mut held.queue[at];
+            let old = &row.job.2;
+            let Some((first, last)) = project.composition(&old.composition).map(|c| c.work_frames()) else {
+                return format!("{} is no longer in the project, so its row cannot be refreshed.", row.name);
+            };
+            let request = ExportRequest {
+                composition: old.composition.clone(),
+                first_frame: first,
+                last_frame: last,
+                output_dir: old.output_dir.clone(),
+                naming: old.naming.clone(),
+                depth: old.depth,
+                alpha: old.alpha,
+                tile_size: old.tile_size,
+                missing: old.missing,
+                format: old.format,
+                choices: old.choices,
+            };
+            row.name = project.composition(&request.composition).map_or_else(String::new, |c| c.name.clone());
+            row.job = Arc::new((project, root, request));
+            format!("{} in the render queue now has the project as it is.", row.name)
+        }
+        _ => "The render queue can tick, remove, move or refresh a row.".into(),
+    };
+    held.changes += 1;
+    said
+}
+
+/// Write every ticked row in turn, as Export would write each, and say how it went.
+///
+/// Stop is `cancel`, read between frames as Export reads it: the row being written keeps the
+/// frames that finished, and the rows after it are not started.
+fn render_queue(export: &Mutex<Export>, cancel: &AtomicBool) -> String {
+    let ids: Vec<u64> = {
+        let mut held = locked(export);
+        held.changes += 1;
+        for row in held.queue.iter_mut().filter(|r| r.ticked) {
+            row.status = "Queued";
+            row.said.clear();
+            row.took = 0;
+        }
+        held.queue.iter().filter(|r| r.ticked).map(|r| r.id).collect()
+    };
+    if ids.is_empty() {
+        return "Nothing in the render queue is ticked.".into();
+    }
+    let mut rendered = 0;
+    let mut stopped = None;
+    for (n, id) in ids.iter().enumerate() {
+        let (job, done) = {
+            let mut held = locked(export);
+            held.changes += 1;
+            let Some(row) = held.queue.iter_mut().find(|r| r.id == *id) else { continue };
+            if stopped.is_some() || cancel.load(Ordering::SeqCst) {
+                row.status = "Not started";
+                stopped.get_or_insert(n);
+                continue;
+            }
+            row.status = "Rendering";
+            let job = Arc::clone(&row.job);
+            let said = format!("Rendering row {} of {}, {}{}.", n + 1, ids.len(), row.name, written_as(job.2.format, job.2.choices).trim_end_matches(','));
+            held.row = Some(*id);
+            held.done = Arc::new(AtomicUsize::new(0));
+            held.total = (job.2.last_frame - job.2.first_frame + 1).max(0) as usize;
+            held.started = Some(Instant::now());
+            held.said = said;
+            (job, Arc::clone(&held.done))
+        };
+        let (project, root, request) = &*job;
+        let began = Instant::now();
+        let report = export::export_sequence_counting(project, root, request, cancel, &done);
+        let mut held = locked(export);
+        held.changes += 1;
+        held.row = None;
+        if let Some(row) = held.queue.iter_mut().find(|r| r.id == *id) {
+            row.said = what_the_export_did(&report, &request.output_dir);
+            row.took = began.elapsed().as_millis();
+            row.status = match report.status {
+                _ if report.succeeded() => {
+                    row.ticked = false;
+                    rendered += 1;
+                    "Done"
+                }
+                ExportStatus::Cancelled => "Stopped",
+                _ => "Failed",
+            };
+        }
+        if report.status == ExportStatus::Cancelled {
+            stopped = Some(n);
+        }
+    }
+    match stopped {
+        Some(n) => format!("Stopped during row {} of {}.", n + 1, ids.len()),
+        None => format!("Rendered {rendered} of {} rows.", ids.len()),
+    }
+}
+
+/// ▷ Render with rows in the queue: write them on a thread, as Export does, or say why not.
+fn start_queue(app: &AppHandle) -> String {
+    let state = app.state::<Mutex<Export>>();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let said = {
+        let mut export = locked(&state);
+        if export.cancel.is_some() {
+            return "An export is already running. Cancel it, or wait for it to finish.".to_string();
+        }
+        let ticked = export.queue.iter().filter(|r| r.ticked).count();
+        if ticked == 0 {
+            return "Nothing in the render queue is ticked.".to_string();
+        }
+        export.cancel = Some(Arc::clone(&cancel));
+        export.said = format!(
+            "Rendering the {ticked} ticked {} of the render queue. The window stays usable while it writes.",
+            if ticked == 1 { "row" } else { "rows" }
+        );
+        export.said.clone()
+    };
+    announce(&app.state::<Mutex<Viewer>>(), said.clone());
+    let handle = app.clone();
+    let started = said.clone();
+    std::thread::spawn(move || {
+        let state = handle.state::<Mutex<Export>>();
+        let done = render_queue(&state, &cancel);
+        {
+            let mut export = locked(&state);
+            export.cancel = None;
+            export.said = done;
+            export.changes += 1;
+        }
+        let viewer = handle.state::<Mutex<Viewer>>();
+        let mut viewer = viewer.lock().expect("the viewer lock was poisoned");
+        if viewer.status == started {
+            viewer.status = EXPORT_ENDED.to_string();
+        }
+    });
+    said
+}
+
+/// `/queue`: the list, after `?do=` if one is asked. `add` asks for a folder first, as Export does.
+fn queue(app: &AppHandle, query: Option<&str>) -> serde_json::Value {
+    let viewer = app.state::<Mutex<Viewer>>();
+    let export = app.state::<Mutex<Export>>();
+    let said = match parameter(query, "do").as_deref() {
+        None => String::new(),
+        Some("add") => match output_format(query).and_then(|f| Ok((f, export_choices(query)?))) {
+            Ok((format, choices)) => {
+                let missing = missing_source(query);
+                let handle = app.clone();
+                app.dialog()
+                    .file()
+                    .set_title("Render this row into a folder")
+                    .pick_folder(move |chosen| {
+                        let Some(into) = chosen.and_then(|c| c.into_path().ok()) else {
+                            return;
+                        };
+                        let said = {
+                            let viewer = handle.state::<Mutex<Viewer>>();
+                            let held = viewer.lock().expect("the viewer lock was poisoned");
+                            queue_add(&handle.state::<Mutex<Export>>(), &held, &into, missing, format, choices)
+                        };
+                        announce(&handle.state::<Mutex<Viewer>>(), said);
+                        refresh(&handle);
+                    });
+                String::new()
+            }
+            Err(refused) => refused.replacen("Nothing was exported", "Nothing was added", 1),
+        },
+        Some("render") => start_queue(app),
+        Some(_) => queue_change(&export, &viewer, query),
+    };
+    if !said.is_empty() {
+        announce(&viewer, said);
+    }
+    queue_list(&export, &viewer)
 }
 
 // -------------------------------------------------------------------------------------------
@@ -10141,6 +10460,13 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             .body(files_gone(&viewer).to_string().into_bytes())
             .expect("build the files gone response");
     }
+    // D-251: the render queue, `?do=` add, tick, remove, move, refresh or render; the list after.
+    if path == "queue" {
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "application/json; charset=utf-8")
+            .body(queue(app, query).to_string().into_bytes())
+            .expect("build the render queue response");
+    }
     // D-260: the Project panel's small pictures, `?item=` and, for a composition, `&frame=`.
     if path == "thumb" {
         let item = Id::new(parameter(query, "item").unwrap_or_default());
@@ -10335,7 +10661,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
                       /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
-                      /files-gone, /thumb, /alone, /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
+                      /files-gone, /thumb, /alone, /queue, /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -24543,6 +24869,8 @@ mod contract {
         "presets-builtin",
         "presets-export",
         "presets-import",
+        // D-251: the render queue.
+        "queue",
         // W-40c (D-249): the frames the memory holds, for the green line under the ruler.
         "ready",
         "recent",
@@ -27298,7 +27626,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 104] = [
+    const CONTROLS: [&str; 106] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -27307,6 +27635,7 @@ mod contract {
         "addnull",
         "addshape",
         "addsolid",
+        "addtoqueue",
         "alpha",
         "anyway",
         "applyrelink",
@@ -27370,6 +27699,7 @@ mod contract {
         "refine",
         "regionbtn",
         "relink",
+        "renderadd",
         "renderstart",
         "renderstop",
         "resetworkspace",
@@ -30484,6 +30814,22 @@ mod render_queue_check {
         }
     }
 
+    /// An MP4 carries the second it was written, twice in each of its `mvhd`, `tkhd` and `mdhd`
+    /// boxes, so two films of the same frames written a second apart differ in those bytes alone.
+    /// They are blanked here, and nothing else is.
+    fn unstamped(mut files: Vec<(String, Vec<u8>)>) -> Vec<(String, Vec<u8>)> {
+        for (_, bytes) in &mut files {
+            for name in [&b"mvhd"[..], b"tkhd", b"mdhd"] {
+                if let Some(at) = bytes.windows(4).position(|w| w == name) {
+                    if bytes.get(at + 4) == Some(&0) && bytes.len() >= at + 16 {
+                        bytes[at + 8..at + 16].fill(0);
+                    }
+                }
+            }
+        }
+        files
+    }
+
     fn statuses(export: &Mutex<Export>, viewer: &Mutex<Viewer>) -> String {
         queue_list(export, viewer)
             .as_array()
@@ -30539,7 +30885,12 @@ mod render_queue_check {
         row("Render writes the ticked rows in turn", "Rendered 3 of 3 rows.", said);
         row("row 1, PNG, is what one Export writes", &same(&one_png, &one_png), same(&folder(&scratch.join("png")), &one_png));
         row("row 2, GIF, is what one Export writes", &same(&one_gif, &one_gif), same(&folder(&scratch.join("gif")), &one_gif));
-        row("row 3, MP4, is what one Export writes", &same(&one_mp4, &one_mp4), same(&folder(&scratch.join("mp4")), &one_mp4));
+        let one_mp4 = unstamped(one_mp4);
+        row(
+            "row 3, MP4, is what one Export writes, but for the second each was written at",
+            &same(&one_mp4, &one_mp4),
+            same(&unstamped(folder(&scratch.join("mp4"))), &one_mp4),
+        );
         row("the unticked row writes nothing", "empty", same(&folder(&scratch.join("unticked")), &one_png));
         row("after: the three are done and unticked, the fourth still waits", "[ ] Done, [ ] Done, [ ] Done, [ ] Queued", statuses(&export, &viewer));
 
