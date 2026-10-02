@@ -2058,6 +2058,9 @@ fn save_as(viewer: &Mutex<Viewer>, path: &Path) -> String {
         if let Err(diagnostic) = persist::save(path, &mut copy, &viewer.preserved) {
             return sentence(&diagnostic);
         }
+        if let (None, Some(folder)) = (&viewer.path, unsaved_folder()) {
+            forget_unsaved(&folder);
+        }
     }
     let said = format!("Saved to {}", path.display());
     take(viewer, path);
@@ -2114,11 +2117,35 @@ const AUTOSAVE_TICK: Duration = Duration::from_secs(10);
 /// canonical manual-save path." Nothing here calls `mark_saved` and nothing here can — the core's
 /// `autosave` takes the document by shared reference for exactly that reason.
 fn autosave_tick(viewer: &mut Viewer, now: Instant) -> Option<String> {
-    // A project with no file of its own has nowhere to put a snapshot: recovery files live beside
-    // the project, and there is no project. The built-in reference shot is in this state.
-    let Some(path) = viewer.path.clone() else {
-        viewer.dirty_since = None;
-        return None;
+    autosave_tick_in(viewer, now, unsaved_folder().as_deref())
+}
+
+/// D-256: the app's own folder for copies of a project that was never saved, set once the window
+/// knows where `%LOCALAPPDATA%` is. Unset, such a project gets no copies, as before D-256.
+static UNSAVED: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+fn unsaved_folder() -> Option<PathBuf> {
+    UNSAVED.lock().expect("the unsaved folder lock was poisoned").clone()
+}
+
+/// The file a never-saved project's copies are named after. It is never written itself; its
+/// copies sit beside it as `Unsaved project.autosave-N.json`, as a saved project's do.
+fn unsaved_copy(folder: &Path) -> PathBuf {
+    folder.join("Unsaved project.json")
+}
+
+/// [`autosave_tick`] with the folder for a never-saved project's copies handed in.
+fn autosave_tick_in(viewer: &mut Viewer, now: Instant, unsaved: Option<&Path>) -> Option<String> {
+    // D-256: a project with no file of its own puts its copies in the app's own folder, its
+    // drawings' paths rewritten for there as Save As would. With no such folder there is nowhere
+    // to put one.
+    let path = match (viewer.path.clone(), unsaved) {
+        (Some(path), _) => path,
+        (None, Some(folder)) => unsaved_copy(folder),
+        (None, None) => {
+            viewer.dirty_since = None;
+            return None;
+        }
     };
     if !viewer.document.is_dirty() {
         viewer.dirty_since = None;
@@ -2131,8 +2158,12 @@ fn autosave_tick(viewer: &mut Viewer, now: Instant) -> Option<String> {
     // Measured from this snapshot, not from when the work began, so a document left dirty writes
     // one snapshot every two minutes rather than one on every tick after the first two.
     viewer.dirty_since = Some(now);
+    let rebased = unsaved.filter(|_| viewer.path.is_none()).map(|folder| {
+        let _ = std::fs::create_dir_all(folder);
+        Document::new(persist::rebased(viewer.document.project(), &viewer.root, folder))
+    });
     Some(
-        match persist::autosave(&path, &viewer.document, &viewer.preserved) {
+        match persist::autosave(&path, rebased.as_ref().unwrap_or(&viewer.document), &viewer.preserved) {
             Ok(written) => {
                 viewer.recovery = persist::recovery_candidates(&path)
                     .into_iter()
@@ -2156,14 +2187,37 @@ fn autosave_tick(viewer: &mut Viewer, now: Instant) -> Option<String> {
 /// exactly as it was, which is why the document opens dirty — the difference between what is on
 /// screen and what is in the file is the work being recovered.
 fn recover(viewer: &Mutex<Viewer>, snapshot: &Path) -> String {
-    let project = match viewer
-        .lock()
-        .expect("the viewer lock was poisoned")
-        .path
-        .clone()
-    {
+    recover_in(viewer, snapshot, unsaved_folder().as_deref())
+}
+
+/// [`recover`] with the folder for a never-saved project's copies handed in.
+fn recover_in(viewer: &Mutex<Viewer>, snapshot: &Path, unsaved: Option<&Path>) -> String {
+    // Bound first: a lock taken in the `match` itself would be held through the arms below.
+    let path = viewer.lock().expect("the viewer lock was poisoned").path.clone();
+    let project = match path {
         Some(path) => path,
-        None => return "There is no project to recover into.".to_string(),
+        // D-256: a copy of a project that was never saved opens as one, still unsaved. Its
+        // drawings' paths were written for the folder it is in, which `open` makes its root.
+        None => match unsaved.filter(|folder| snapshot.parent() == Some(folder)) {
+            Some(folder) => {
+                let mut taken = match open(snapshot) {
+                    Ok(taken) => taken,
+                    Err(diagnostic) => return sentence(&diagnostic),
+                };
+                let project = taken.document.project().clone();
+                taken.document = Document::recovered(project.clone(), Project::new(project.id));
+                taken.path = None;
+                taken.name = "Untitled project (recovered)".to_string();
+                taken.recovery = persist::recovery_candidates(&unsaved_copy(folder)).into_iter().map(|c| c.path).collect();
+                taken.notes.push(format!(
+                    "This is the recovery copy {} of a project that was never saved. Save As gives it a file.",
+                    snapshot.display()
+                ));
+                *viewer.lock().expect("the viewer lock was poisoned") = taken;
+                return format!("Recovered {}", snapshot.display());
+            }
+            None => return "There is no project to recover into.".to_string(),
+        },
     };
     let mut taken = match open(snapshot) {
         Ok(taken) => taken,
@@ -2198,6 +2252,31 @@ fn recover(viewer: &Mutex<Viewer>, snapshot: &Path) -> String {
     let said = format!("Recovered {}", snapshot.display());
     *viewer.lock().expect("the viewer lock was poisoned") = taken;
     said
+}
+
+/// D-256: at the start, a window with no project file of its own offers the copies of the last
+/// project that was never saved, as an opened project offers its own.
+fn offer_unsaved(viewer: &mut Viewer, folder: &Path) {
+    if viewer.path.is_some() {
+        return;
+    }
+    viewer.recovery = persist::recovery_candidates(&unsaved_copy(folder)).into_iter().map(|c| c.path).collect();
+    // Its own sentence: document 28's speaks of a saved project still on disk, and there is none.
+    match viewer.recovery.len() {
+        0 => {}
+        n => viewer.notes.push(format!(
+            "There {} {n} recovery {} of a project that was never saved. File > Recover unsaved work opens one.",
+            if n == 1 { "is" } else { "are" },
+            if n == 1 { "snapshot" } else { "snapshots" },
+        )),
+    }
+}
+
+/// D-256: once a never-saved project has a file, its copies go beside it and the old ones go.
+fn forget_unsaved(folder: &Path) {
+    for slot in 0..persist::AUTOSAVE_SLOTS {
+        let _ = std::fs::remove_file(persist::autosave_path(&unsaved_copy(folder), slot));
+    }
 }
 
 /// Say something in the window's status line, replacing whatever it said before.
@@ -10331,6 +10410,12 @@ fn main() {
         // interruption than the one it is protecting them from — so what it did appears with
         // the next frame, which is within a sixtieth of a second of it happening.
         .setup(|app| {
+            // D-256: where a project that was never saved keeps its copies.
+            if let Ok(dir) = app.path().app_local_data_dir() {
+                let folder = dir.join("Unsaved");
+                offer_unsaved(&mut app.state::<Mutex<Viewer>>().lock().expect("the viewer lock was poisoned"), &folder);
+                *UNSAVED.lock().expect("the unsaved folder lock was poisoned") = Some(folder);
+            }
             let handle = app.handle().clone();
             std::thread::spawn(move || loop {
                 std::thread::sleep(AUTOSAVE_TICK);
@@ -30357,7 +30442,7 @@ mod unsaved_recovery_check {
              **{passed} of {} checks pass.**\n\n| Check | Expected | Actual | Result |\n|---|---|---|---|\n",
             rows.len()
         );
-        let tidy = |s: &str| s.replace(&repo.display().to_string(), "").replace('|', "/");
+        let tidy = |s: &str| s.replace(&repo.display().to_string(), "").replace(['|', '\\'], "/");
         for (what, expected, actual) in &rows {
             text.push_str(&format!("| {what} | {} | {} | {} |\n", tidy(expected), tidy(actual), if expected == actual { "PASS" } else { "FAIL" }));
         }
