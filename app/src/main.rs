@@ -27018,11 +27018,12 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 83] = [
+    const CONTROLS: [&str; 86] = [
         "addadjust",
         "addeffect",
         "addexposure",
         "addlayer",
+        "addnote",
         "addnull",
         "addshape",
         "addsolid",
@@ -27047,6 +27048,7 @@ mod contract {
         "fbswitch",
         "filmquality",
         "findcommand",
+        "findlayer",
         "fit",
         "fit100",
         "fwd",
@@ -27091,6 +27093,7 @@ mod contract {
         "sessionlogon",
         "sessionlogsave",
         "shyswitch",
+        "tabboth",
         "tabgraph",
         "tabsheet",
         "timescroll",
