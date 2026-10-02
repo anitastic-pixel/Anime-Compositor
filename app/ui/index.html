@@ -10258,7 +10258,8 @@ let plotted = null;      // the last answer from `/curve`, or null
 let pulling = null;      // the handle under the pointer, while it is being pulled
 
 let speedGraph = false;  // After Effects' speed graph is showing rather than its value graph
-// B-19d: the layer's other keyed properties drawn behind the one being edited, on its scale.
+// B-19d: the layer's other keyed properties drawn behind the one being edited, each on its own
+// scale since D-262 (3).
 // `others` is the window's answer for each, as `plotted` is for the one in front.
 // W-44 (D-248): which of them are ticked to be drawn, by property, kept from layer to layer.
 const graphWith = new Set();
@@ -10719,7 +10720,8 @@ function drawGraph() {
     low = Math.min(0, ...shown);
     high = Math.max(...shown);
   } else {
-    const shown = plotted.samples.flat().concat(behind.flatMap((o) => o.samples.flat()));
+    // D-262 (3): the curves behind have their own heights, so only the front one sets the numbers.
+    const shown = plotted.samples.flat();
     low = Math.min(...shown);
     high = Math.max(...shown);
     const spare = (high > low ? high - low : 1) / 4;
@@ -10748,14 +10750,18 @@ function drawGraph() {
     el('line', { class: 'tick', x1: space.gutter, y1: y, x2: box.width, y2: y }, plot);
     el('text', { x: box.width - 4, y: y - 3, class: 'axis' }).textContent = axis(val);
   }
-  // B-19d: the other properties behind, each a press away from being the one in front.
+  // B-19d: the other properties behind, each a press away from being the one in front. D-262 (3):
+  // each fills the graph's height on its own scale, as the Sandbox draws them; the numbers at the
+  // side are the front curve's.
   if (!speedGraph) {
     for (const other of behind) {
       const words = propLabel(pick.layer, other.prop);
+      const all = other.samples.flat();
+      const own = graphSpace(box, Math.min(...all), Math.max(...all));
       for (let c = 0; c < (other.samples[0] || []).length; c += 1) {
         const line = el('polyline', {
           class: 'plot other' + (c ? ' second' : ''), 'data-prop': other.prop,
-          points: pointsOf(other.samples.map((q, i) => [plotted.from + i + 0.5, q[c]]), space, v),
+          points: pointsOf(other.samples.map((q, i) => [plotted.from + i + 0.5, q[c]]), own, v),
         }, plot);
         line.style.stroke = colour(other.prop);
         el('title', {}, line).textContent = words + '. Press to edit it.';
@@ -10765,7 +10771,7 @@ function drawGraph() {
         for (const val of sample || []) {
           const dot = el('circle', {
             class: 'otherdot', 'data-prop': other.prop,
-            cx: space.x(key.frame + 0.5), cy: space.y(val), r: 3,
+            cx: own.x(key.frame + 0.5), cy: own.y(val), r: 3,
           }, plot);
           dot.style.fill = colour(other.prop);
           el('title', {}, dot).textContent = words + ' at frame ' + key.frame + '. Press to edit it.';
@@ -12406,10 +12412,30 @@ function fillWorkspaces() {
     tab.setAttribute('aria-pressed', String(tab.dataset.workspace === workspace.name));
   }
 }
-// Lays a workspace out as it was built or saved, sizes and all.
-function useWorkspace(name) {
-  const chosen = BUILT_IN[name] || savedWorkspaces[name];
-  if (!chosen) return;
+// D-262 (1): each workspace keeps the changes made in it, the places, the sizes and the side
+// column, so leaving it and coming back finds it as it was left. Only a workspace that differs from
+// how it was built or saved is kept, so a later build's layout still reaches the untouched ones.
+let workspaceEdits = {};
+try { workspaceEdits = JSON.parse(localStorage.getItem('workspaceEdits') || '{}') || {}; } catch (e) { workspaceEdits = {}; }
+function keepEdits() {
+  const built = BUILT_IN[workspace.name] || savedWorkspaces[workspace.name];
+  if (!built) return;
+  const sizes = (from) => Object.values(BORDERS).map(([prop]) => (from && from[prop]) || null);
+  const now = { places: JSON.parse(JSON.stringify(workspace.places)), sizes: { ...layout }, sideHidden: !!workspace.sideHidden };
+  const same = JSON.stringify(settle(built.places)) === JSON.stringify(settle(now.places))
+    && JSON.stringify(sizes(built.sizes)) === JSON.stringify(sizes(now.sizes)) && !!built.sideHidden === now.sideHidden;
+  if (same) delete workspaceEdits[workspace.name];
+  else workspaceEdits[workspace.name] = now;
+  try { localStorage.setItem('workspaceEdits', JSON.stringify(workspaceEdits)); } catch (e) { /* kept for this run only */ }
+}
+// Lays a workspace out as it was left, or, when fresh (Reset workspace) or never changed, as it
+// was built or saved, sizes and all.
+function useWorkspace(name, fresh) {
+  if (!(BUILT_IN[name] || savedWorkspaces[name])) return;
+  keepEdits();
+  if (fresh) delete workspaceEdits[name];
+  try { localStorage.setItem('workspaceEdits', JSON.stringify(workspaceEdits)); } catch (e) { /* kept for this run only */ }
+  const chosen = workspaceEdits[name] || BUILT_IN[name] || savedWorkspaces[name];
   workspace = { name, places: JSON.parse(JSON.stringify(chosen.places || {})), sideHidden: !!chosen.sideHidden };
   for (const [prop] of Object.values(BORDERS)) {
     const px = chosen.sizes && chosen.sizes[prop];
@@ -12421,7 +12447,7 @@ function useWorkspace(name) {
   showSheet(sheetModeOf(name));
 }
 $('workspace').onchange = (e) => useWorkspace(e.target.value);
-$('resetworkspace').onclick = () => useWorkspace(workspace.name);
+$('resetworkspace').onclick = () => useWorkspace(workspace.name, true);
 $('saveworkspace').onclick = () => {
   const box = $('workspacename');
   box.hidden = false;
@@ -12440,6 +12466,10 @@ $('workspacename').onkeydown = (e) => {
   }
   savedWorkspaces[name] = { places: JSON.parse(JSON.stringify(workspace.places)), sizes: { ...layout }, sideHidden: !!workspace.sideHidden };
   try { localStorage.setItem('workspaces', JSON.stringify(savedWorkspaces)); } catch (err) { /* kept for this run only */ }
+  // The changes now live in the saved one, so the workspace they were made in goes back as built.
+  delete workspaceEdits[workspace.name];
+  delete workspaceEdits[name];
+  try { localStorage.setItem('workspaceEdits', JSON.stringify(workspaceEdits)); } catch (err) { /* kept for this run only */ }
   workspace.name = name;
   box.hidden = true;
   arrange();

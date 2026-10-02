@@ -690,6 +690,8 @@ W-45 / Render: the seventh redesign screen (D-248). The Render workspace as the 
 
 W-46 proposals: the Sandbox's remaining engine items written up as D-251 to D-261 (render queue, watch and Pause, cut status, label colours on compositions and footage, region box, recovery copies of never-saved projects, deleted files in the health chip, one-layer onion skin, Half quality, real Project pictures, and Sketch), with D-250 and five owner questions, in `verification/W-46_proposals_for_the_owner.md`. Nothing built; each accepted item gets its check first, then its build.
 
+D-262 / Workspaces keep their own changes; curves behind at their own height: the owner's answers (1) and (3) to the W-46 questions. Page only. No command ID, fixture or exported picture changes. Evidence is in `verification/D-262_workspaces_and_curves.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28
