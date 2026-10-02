@@ -3065,23 +3065,7 @@ fn thumbnail(viewer: &Mutex<Viewer>, item: &Id, frame: i32) -> Result<(usize, us
         let first = asset.files().first().map(|f| root.join(f)).ok_or_else(|| format!("{} has no files", asset.name))?;
         media::decode(&first).map_err(|d| d.to_string())?.into_working()
     };
-    let by = full.width().max(full.height()).div_ceil(160).max(1);
-    let (w, h) = ((full.width() / by).max(1), (full.height() / by).max(1));
-    let mut small = anime_compositor::WorkingBuffer::transparent(w, h);
-    let (source, stride) = (full.data(), full.width());
-    for (i, out) in small.data_mut().chunks_mut(4).enumerate() {
-        let (x, y) = (i % w, i / w);
-        for c in 0..4 {
-            let mut sum = 0.0f32;
-            for dy in 0..by.min(full.height()) {
-                for dx in 0..by.min(full.width()) {
-                    sum += source[((y * by + dy) * stride + x * by + dx) * 4 + c];
-                }
-            }
-            out[c] = sum / (by.min(full.height()) * by.min(full.width())) as f32;
-        }
-    }
-    Ok((w, h, small.to_srgb8_straight()))
+    Ok(export::small(&full, 160))
 }
 
 /// D-258: one layer of the composition on screen at `frame`, drawn by itself as W-24's solo would
@@ -8198,6 +8182,11 @@ struct Export {
     queue: Vec<QueueRow>,
     row: Option<u64>,
     changes: u64,
+    /// D-252: what the page shows of the job being written, and its Pause; a new one for every
+    /// job, so the last job's frames stay to be looked at until the next begins. `first` is the
+    /// job's first frame, where the page's bar begins.
+    watch: Arc<export::Watch>,
+    first: i32,
 }
 
 /// PNG depth and alpha for an export from the window.
@@ -8420,8 +8409,13 @@ fn start_export(
         export.done = Arc::new(AtomicUsize::new(0));
         export.total = (request.last_frame - request.first_frame + 1) as usize;
         export.started = Some(Instant::now());
+        export.watch = Arc::new(export::Watch::default());
+        export.first = request.first_frame;
     }
-    let done = Arc::clone(&state.lock().expect("the export lock was poisoned").done);
+    let (done, watch) = {
+        let export = state.lock().expect("the export lock was poisoned");
+        (Arc::clone(&export.done), Arc::clone(&export.watch))
+    };
     // A thread, so the window keeps answering for frames while a shot is being written: an
     // export of the reference shot takes minutes, and a viewer frozen for minutes is a viewer
     // that looks broken.
@@ -8432,7 +8426,7 @@ fn start_export(
     let started = said.clone();
     std::thread::spawn(move || {
         let done = what_the_export_did(
-            &export::export_sequence_counting(&project, &root, &request, &cancel, &done),
+            &export::export_sequence_watched(&project, &root, &request, &cancel, &done, &watch),
             &request.output_dir,
         );
         {
@@ -8624,6 +8618,43 @@ fn cancel_export(app: &AppHandle) -> String {
     }
 }
 
+/// D-252: Pause, and Pause again to go on. The export waits before its next frame is written, so
+/// what it writes is unchanged; Cancel still stops it while it waits.
+fn pause_export(export: &Mutex<Export>) -> String {
+    let held = locked(export);
+    if held.cancel.is_none() {
+        return "No export is running.".into();
+    }
+    if held.watch.pause.fetch_xor(true, Ordering::SeqCst) {
+        "Going on.".into()
+    } else {
+        "Pausing after the frame being written. Press Pause again to go on.".into()
+    }
+}
+
+/// D-252: what the page draws of the job being written: the frames it last wrote, the frames so
+/// far whose drawing was missing, and whether it is paused.
+fn watching(export: &Mutex<Export>) -> serde_json::Value {
+    let held = locked(export);
+    let frames: Vec<i32> = held.watch.written.lock().expect("the watch lock was poisoned").iter().map(|w| w.0).collect();
+    let missing = held.watch.missing.lock().expect("the watch lock was poisoned").clone();
+    serde_json::json!({
+        "running": held.cancel.is_some(),
+        "paused": held.cancel.is_some() && held.watch.pause.load(Ordering::SeqCst),
+        "first": held.first,
+        "total": held.total,
+        "frames": frames,
+        "missing": missing,
+    })
+}
+
+/// D-252: one of the frames the job last wrote, small, as 8-bit sRGB with straight alpha.
+fn watched_frame(export: &Mutex<Export>, frame: i32) -> Option<(usize, usize, Vec<u8>)> {
+    let watch = Arc::clone(&locked(export).watch);
+    let written = watch.written.lock().expect("the watch lock was poisoned");
+    written.iter().find(|w| w.0 == frame).map(|w| (w.1, w.2, w.3.clone()))
+}
+
 // -------------------------------------------------------------------------------------------
 // D-251: the render queue
 // -------------------------------------------------------------------------------------------
@@ -8809,7 +8840,7 @@ fn render_queue(export: &Mutex<Export>, cancel: &AtomicBool) -> String {
     let mut rendered = 0;
     let mut stopped = None;
     for (n, id) in ids.iter().enumerate() {
-        let (job, done) = {
+        let (job, done, watch) = {
             let mut held = locked(export);
             held.changes += 1;
             let Some(row) = held.queue.iter_mut().find(|r| r.id == *id) else { continue };
@@ -8826,11 +8857,13 @@ fn render_queue(export: &Mutex<Export>, cancel: &AtomicBool) -> String {
             held.total = (job.2.last_frame - job.2.first_frame + 1).max(0) as usize;
             held.started = Some(Instant::now());
             held.said = said;
-            (job, Arc::clone(&held.done))
+            held.watch = Arc::new(export::Watch::default());
+            held.first = job.2.first_frame;
+            (job, Arc::clone(&held.done), Arc::clone(&held.watch))
         };
         let (project, root, request) = &*job;
         let began = Instant::now();
-        let report = export::export_sequence_counting(project, root, request, cancel, &done);
+        let report = export::export_sequence_watched(project, root, request, cancel, &done, &watch);
         let mut held = locked(export);
         held.changes += 1;
         held.row = None;
@@ -10468,6 +10501,28 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             .expect("build the render queue response");
     }
     // D-260: the Project panel's small pictures, `?item=` and, for a composition, `&frame=`.
+    // D-252: the job being written, as the Render panel watches it, and its frames, `?frame=`.
+    if path == "export-watch" {
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "application/json; charset=utf-8")
+            .body(watching(&app.state::<Mutex<Export>>()).to_string().into_bytes())
+            .expect("build the export watch response");
+    }
+    if path == "export-frame" {
+        let frame = parameter(query, "frame").and_then(|f| f.parse().ok()).unwrap_or(0);
+        return match watched_frame(&app.state::<Mutex<Export>>(), frame) {
+            Some((width, height, pixels)) => allow_the_page_to_read_this(Response::builder())
+                .header("content-type", "application/octet-stream")
+                .header("x-width", width.to_string())
+                .header("x-height", height.to_string())
+                .body(pixels)
+                .expect("build the watched frame response"),
+            None => allow_the_page_to_read_this(Response::builder().status(404))
+                .header("content-type", "text/plain; charset=utf-8")
+                .body(format!("frame {frame} is not one of the frames last written").into_bytes())
+                .expect("build the watched frame refusal"),
+        };
+    }
     if path == "thumb" {
         let item = Id::new(parameter(query, "item").unwrap_or_default());
         let frame = parameter(query, "frame").and_then(|f| f.parse().ok()).unwrap_or(0);
@@ -10638,6 +10693,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             Err(refused) => refused,
         },
         "cancel-export" => cancel_export(app),
+        "pause-export" => pause_export(&app.state::<Mutex<Export>>()),
         "collect" => {
             ask_where_to_collect(app);
             String::new()
@@ -10660,7 +10716,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
-                      /cancel-export, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
+                      /cancel-export, /pause-export, /export-watch, /export-frame, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
                       /files-gone, /thumb, /alone, /queue, /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
                       document 24's command IDs"
                         .to_vec(),
@@ -24850,6 +24906,9 @@ mod contract {
         "collect",
         "curve",
         "export",
+        // D-252: the job being written, and its frames, for the Render panel.
+        "export-frame",
+        "export-watch",
         // D-257: the files gone from the disk, for the health chip.
         "files-gone",
         "frame",
@@ -24862,6 +24921,7 @@ mod contract {
         "memory",
         "new",
         "open",
+        "pause-export",
         // B-45: where the viewer's picture lies in the window, for the card to paint it there.
         "place",
         "play",
@@ -27626,7 +27686,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 106] = [
+    const CONTROLS: [&str; 107] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -27700,6 +27760,7 @@ mod contract {
         "regionbtn",
         "relink",
         "renderadd",
+        "renderpause",
         "renderstart",
         "renderstop",
         "resetworkspace",

@@ -24,8 +24,10 @@
 //! [`crate::WorkingBuffer::encode`]'s output, so an exported frame cannot drift from the frame
 //! the build says it rendered.
 
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::Mutex;
 
 use rayon::prelude::*;
 
@@ -164,6 +166,57 @@ pub fn export_sequence_counting(
     request: &ExportRequest,
     cancel: &AtomicBool,
     done: &AtomicUsize,
+) -> ExportReport {
+    export_sequence_watched(project, root, request, cancel, done, &Watch::default())
+}
+
+/// D-252: what a window watching a running export sees of it, and its Pause.
+#[derive(Default)]
+pub struct Watch {
+    /// While set, the export waits before writing its next frame, and goes on when it is cleared.
+    /// Cancel still stops a paused export.
+    pub pause: AtomicBool,
+    /// The last [`WATCHED`] frames written, oldest first, each [`small`] at most 480 across.
+    pub written: Mutex<VecDeque<(i32, usize, usize, Vec<u8>)>>,
+    /// The frames written so far whose drawing was missing, in order.
+    pub missing: Mutex<Vec<i32>>,
+}
+
+/// How many written frames a [`Watch`] keeps.
+pub const WATCHED: usize = 5;
+
+/// A picture each side a whole number of times smaller, so it is at most `most` pixels across.
+/// Every block of pixels is averaged in linear light, premultiplied, then made 8-bit sRGB with
+/// straight alpha as frames are. D-260's thumbnails and D-252's watched frames are made with it.
+pub fn small(full: &WorkingBuffer, most: usize) -> (usize, usize, Vec<u8>) {
+    let by = full.width().max(full.height()).div_ceil(most).max(1);
+    let (w, h) = ((full.width() / by).max(1), (full.height() / by).max(1));
+    let mut small = WorkingBuffer::transparent(w, h);
+    let (source, stride) = (full.data(), full.width());
+    for (i, out) in small.data_mut().chunks_mut(4).enumerate() {
+        let (x, y) = (i % w, i / w);
+        for c in 0..4 {
+            let mut sum = 0.0f32;
+            for dy in 0..by.min(full.height()) {
+                for dx in 0..by.min(full.width()) {
+                    sum += source[((y * by + dy) * stride + x * by + dx) * 4 + c];
+                }
+            }
+            out[c] = sum / (by.min(full.height()) * by.min(full.width())) as f32;
+        }
+    }
+    (w, h, small.to_srgb8_straight())
+}
+
+/// [`export_sequence_counting`], telling `watch` about each frame it writes and waiting while
+/// `watch.pause` is set. Pausing changes when frames are written, never what is written.
+pub fn export_sequence_watched(
+    project: &Project,
+    root: &Path,
+    request: &ExportRequest,
+    cancel: &AtomicBool,
+    done: &AtomicUsize,
+    watch: &Watch,
 ) -> ExportReport {
     let mut report = ExportReport {
         status: ExportStatus::Completed,
@@ -322,6 +375,11 @@ pub fn export_sequence_counting(
             .collect::<Vec<_>>()
             .into_iter();
         for &frame in chunk {
+            // D-252: Pause waits here, between frames as Cancel does, so the frames already drawn
+            // in this chunk are held, not written, until it is pressed again.
+            while watch.pause.load(Ordering::SeqCst) && !cancel.load(Ordering::SeqCst) {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
             // Between frames, not during one: a cancelled job leaves whole files behind.
             if cancel.load(Ordering::SeqCst) {
                 report.status = ExportStatus::Cancelled;
@@ -364,7 +422,7 @@ pub fn export_sequence_counting(
                 .flatten()
                 .expect("a frame is left undrawn only once cancelled, which the check above stops at");
             journal.replay_into(&mut log);
-            let Drawn { buffer, bypassed: drew_bypassed, encoded } = match drawn {
+            let Drawn { buffer, bypassed: drew_bypassed, encoded, small } = match drawn {
                 Ok(drawn) => drawn,
                 Err(d) => {
                     report.status = ExportStatus::Failed;
@@ -463,6 +521,16 @@ pub fn export_sequence_counting(
             if !one_file {
                 report.written.push(path);
             }
+            if log.ids_at(frame).iter().any(|id| is_unresolved_source(*id)) {
+                watch.missing.lock().expect("the watch lock was poisoned").push(frame);
+            }
+            {
+                let mut written = watch.written.lock().expect("the watch lock was poisoned");
+                if written.len() == WATCHED {
+                    written.pop_front();
+                }
+                written.push_back((frame, small.0, small.1, small.2));
+            }
             done.fetch_add(1, Ordering::SeqCst);
         }
     }
@@ -507,6 +575,8 @@ struct Drawn {
     /// encoded with.
     bypassed: bool,
     encoded: Encoded,
+    /// D-252: the frame [`small`], for a window watching.
+    small: (usize, usize, Vec<u8>),
 }
 
 /// The file a frame becomes, made beside the other frames' so that writing it is only writing.
@@ -555,7 +625,8 @@ fn draw(
                 samples: buffer.encode(request.depth, request.alpha),
             },
         };
-        Drawn { buffer, bypassed, encoded }
+        let small = small(&buffer, 480);
+        Drawn { buffer, bypassed, encoded, small }
     });
     Some((journal, drawn))
 }
@@ -656,7 +727,7 @@ fn expand(pattern: &str, frame: i32) -> String {
 
 /// "14 to 15, 20" - the same shape [`FrameLog`] uses, so a reader sees one spelling of a frame
 /// range in the whole build.
-fn ranges(frames: &[i32]) -> String {
+pub fn ranges(frames: &[i32]) -> String {
     let mut out: Vec<String> = Vec::new();
     let mut i = 0;
     while i < frames.len() {
