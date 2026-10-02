@@ -25,9 +25,9 @@ Drawings of each screen, one self-contained HTML file each, opened in any browse
 
 Their pictures are in `verification/W-3N pictures/`, and the owner's sheets are `verification/W-31a_timeline_proposal.md` and `verification/W-32_to_W-37_design_drafts.md`.
 
-## The Sandbox (W-38, D-248 proposed)
+## The Sandbox (W-38, D-248 accepted 2026-10-02)
 
-The whole window put together from the owner's picks on the design canvas (https://claude.ai/artifact/2YhV55os2pp7rtiJFLuyFh, version 25 of 2026-10-02). If D-248 is accepted, it replaces the W-32 to W-37 drafts above as what the redesign builds.
+The whole window put together from the owner's picks on the design canvas (https://claude.ai/artifact/2YhV55os2pp7rtiJFLuyFh, version 25 of 2026-10-02). D-248 makes it replace the W-32 to W-37 drafts above as what the redesign builds.
 
 - `W-38_sandbox/still_*.html`: one still picture of each board (Compose, Compose with the effects finder open, the map of compositions, Animate, Sketch, Render), opened in any browser. Nothing in them can be clicked.
 - `W-38_sandbox/Sandbox.dc.html`: the canvas source of the board, the one the live canvas shows. The six boards differ only in the `START` line near the top of its script.

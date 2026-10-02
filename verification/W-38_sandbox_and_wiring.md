@@ -1,6 +1,6 @@
 # W-38: the Sandbox as the redesign's target, and its wiring table
 
-2026-10-02. **PROPOSED**: D-248 waits for the owner. Nothing in `app/` or `src/` has changed.
+2026-10-02. **ACCEPTED** by the owner the same day: "1 - yes; 2 - let's treat as a feature/extra surface so we can add it in last/hidden at first as you say; 3 - proceed; 4 - yes" (D-248). Nothing in `app/` or `src/` has changed.
 
 This is Step 0 of the plan the owner agreed on 2026-10-02 ("agreed"). It has four parts:
 

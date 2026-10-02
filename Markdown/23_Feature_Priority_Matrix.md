@@ -82,6 +82,8 @@ The GPU path was listed as trigger-gated rather than scheduled, its trigger a st
 
 A feature does not enter a build because its value score is high. It must identify a blocked or repeated workflow, its smallest useful behavior, its dependencies, its fixture and its milestone impact.
 
+D-248 (2026-10-02) promotes one narrow surface beside the excluded drawing line: Sketch, notes drawn over the cut that are never exported, built last in the redesign (W-46) and hidden at first. Drawing as a way of making the picture stays excluded.
+
 Implementation agents may not build anything on the parked or excluded lists. Promotion is an owner decision recorded in document 14, never a judgment call made inside an implementation task.
 
 ## Review cadence
