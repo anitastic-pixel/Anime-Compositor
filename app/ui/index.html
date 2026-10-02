@@ -653,6 +653,30 @@
   body.sheetout #strip { display: none; }
   #sheetname { white-space: nowrap; }
   #sheetpanel .tab .hint { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  /* W-45 (D-248): panels a workspace leaves out wait here, unseen. */
+  #parked { display: none !important; }
+  #renderpanel { display: flex; flex-direction: column; overflow: auto; }
+  #renderpanel .rhead { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #2a2a2e; }
+  #renderpanel .rnow { flex: 1; min-width: 0; }
+  #rendernow { font-weight: 600; color: #e0e0e4; margin-bottom: 5px; }
+  #renderbar { width: 100%; max-width: 760px; height: 6px; }
+  #renderpanel button.pri { background: #2f5ea8; border-color: #4a7cc8; color: #fff; padding: 6px 18px; }
+  #renderpanel button.pri:disabled { opacity: .45; cursor: default; }
+  #renderpanel .rrow { display: grid; grid-template-columns: 56px minmax(100px, 200px) minmax(100px, 220px) minmax(140px, 1fr) 70px; gap: 8px; padding: 6px 14px; align-items: center; }
+  #renderpanel .rtitles { color: #8e8e96; font-size: 11px; border-bottom: 1px solid #2a2a2e; }
+  #renderpanel .ritem { background: #232a36; color: #e0e0e4; }
+  #renderstatus.run { color: #6ea8fe; }
+  #renderstatus.done { color: #7bd88f; }
+  #renderstatus.stop { color: #e8c46a; }
+  #rendertime { text-align: right; font-variant-numeric: tabular-nums; }
+  #renderpanel .ropen { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 640px); gap: 24px; padding: 12px 14px 14px 78px; border-bottom: 1px solid #2a2a2e; }
+  #renderpanel h3 { margin: 0 0 6px; font-size: 11px; font-weight: 600; color: #8e8e96; text-transform: uppercase; letter-spacing: .04em; }
+  #renderopts .opts { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+  #renderpanel .rhint, #renderleft { color: #8e8e96; font-size: 11px; margin: 8px 0 0; }
+  #rendergot { border: 1px solid #2a2a2e; border-radius: 4px; padding: 8px 10px; background: #1a1a1c; color: #d0d0d4; }
+  #rendergot p { margin: 0 0 4px; }
+  #rendergot p:first-child { color: #fff; font-weight: 600; }
+  #menubar .chip.exporting { cursor: pointer; }
   /* Both: the rows and the graph share the panel's height. */
   #timeline.both { grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr) auto; }
   #graph .band { fill: rgba(110, 168, 254, 0.15); stroke: #6ea8fe; stroke-width: 1; }
@@ -1578,6 +1602,7 @@
   <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Window</button><div class="drop" role="menu" aria-label="Window" hidden>
     <button data-run="Compose workspace"></button>
     <button data-run="Animate workspace"></button>
+    <button data-run="Render workspace"></button>
     <button data-run="Show or hide the Sheet"></button>
     <!-- D-85: which panel is where, and how big the places are. Kept on this machine, not in the project. -->
     <select id="workspace" aria-label="Workspace" title="Workspace: where each panel is. Right-click a panel's name or title bar to move it, or drag it onto another place"></select>
@@ -1605,7 +1630,7 @@
   </span>
   <button id="findcommand" class="search" title="Find any command (Ctrl+Shift+P)"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor"/><path d="M10 10l4.5 4.5" stroke="currentColor" stroke-width="1.5"/></svg>Search <kbd>Ctrl+Shift+P</kbd></button>
   <button class="fx" data-run="Find an effect or preset"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 14L10 6M11 1.5v3M9.5 3h3M14 5.5v2M13 6.5h2" stroke="currentColor" stroke-linecap="round"/></svg>Effects</button>
-  <span class="wstabs"><button data-run="Compose workspace" data-workspace="Compose">Compose</button><button data-run="Animate workspace" data-workspace="Animate">Animate</button></span>
+  <span class="wstabs"><button data-run="Compose workspace" data-workspace="Compose">Compose</button><button data-run="Animate workspace" data-workspace="Animate">Animate</button><button data-run="Render workspace" data-workspace="Render">Render</button></span>
   <button id="save" data-key="Ctrl+S">Save</button>
 </div>
 <div id="middle"><div id="main">
@@ -1912,11 +1937,27 @@
       title="Put the Sheet away. The Sheet button on the timeline brings it back." aria-label="Put the Sheet away">&times;</button></span></div>
   <div id="xsheet" tabindex="0"></div>
 </section>
+<!-- W-45 (D-248): the Render panel. One item, the open composition, rendered as Export renders it. -->
+<section class="panel" id="renderpanel">
+  <div class="tab">Render queue</div>
+  <div class="rhead">
+    <div class="rnow"><div id="rendernow">Not rendering</div><progress id="renderbar" max="1" value="0" hidden></progress></div>
+    <button id="renderstop" hidden title="Stop the render. The frames already written are kept">Stop</button>
+    <button id="renderstart" class="pri" title="Render the open composition: asks where, then writes it (Ctrl+M)">&#9655; Render</button>
+  </div>
+  <div class="rrow rtitles"><span>Render #</span><span>Composition</span><span>Status</span><span>Output</span><span>Time</span></div>
+  <div class="rrow ritem"><span>1</span><span id="rendercomp"></span><span id="renderstatus"></span><span id="renderout"></span><span id="rendertime"></span></div>
+  <div class="ropen">
+    <div id="renderopts"><h3>Output</h3></div>
+    <div><h3>How it went</h3><div id="rendergot"></div><p id="renderleft"></p></div>
+  </div>
+</section>
 </div>
 </div>
 <div class="split col" id="splitside" role="separator" aria-orientation="vertical" tabindex="0"
   aria-label="The border beside the side column. Drag it, or use the arrow keys."></div>
 <div class="place" id="side"><nav class="stack" hidden></nav></div>
+<div class="place" id="parked"><nav class="stack" hidden></nav></div>
 </div>
 <!-- D-84e: how to print the Sheet. The browser's own dialog, so Escape leaves it. -->
 <dialog id="printdialog" aria-labelledby="printtitle">
@@ -1954,7 +1995,7 @@
   <ul id="notes"></ul>
   <button id="notedetails" type="button" aria-expanded="false" hidden>Error details</button>
   <ul id="notecodes" hidden></ul>
-  <span class="hint" id="keys">space, arrows, D, Alt+G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N new composition, Ctrl+Alt+N new project, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+I, Ctrl+M &middot; Alt+1 and Alt+2 the workspaces &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click keys or an empty place on the timeline for speed, ease, hold, copy, paste here and more, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file, or drawings, here</span>
+  <span class="hint" id="keys">space, arrows, D, Alt+G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N new composition, Ctrl+Alt+N new project, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+I, Ctrl+M &middot; Alt+1, Alt+2 and Alt+3 the workspaces &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click keys or an empty place on the timeline for speed, ease, hold, copy, paste here and more, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file, or drawings, here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -2273,6 +2314,9 @@ async function show(url, keep = true) {
         + (left >= 60 ? Math.floor(left / 60) + ' min ' : '') + (left % 60) + ' s left'
       : '0 of ' + total + ' frames, checking the drawings first';
     $('export').disabled = exporting;
+    renderState = { exporting, done: done || 0, total: total || 0, report: exported.textContent };
+    if (exporting) renderMs = ms || 0;
+    drawRender();
     clearTimeout(watching);
     if (exporting && !playing) {
       watching = setTimeout(() => show(FRAMES + '/frame/' + frame + '?q=' + quality), 1000);
@@ -4525,6 +4569,7 @@ function paletteLines() {
     ['Shape tool', 'Q', { key: 'q' }],
     ['Compose workspace', 'Alt+1', { key: '1', code: 'Digit1', altKey: true }],
     ['Animate workspace', 'Alt+2', { key: '2', code: 'Digit2', altKey: true }],
+    ['Render workspace', 'Alt+3', { key: '3', code: 'Digit3', altKey: true }],
     ['Show or hide the Sheet', '', toggleSheetColumn],
     ['Find any command', 'Ctrl+Shift+P', { key: 'P', code: 'KeyP', ctrlKey: true, shiftKey: true }],
     ...PROPS.map((prop) => ['Reset ' + prop, '', () => resetProp(prop)]),
@@ -12216,15 +12261,18 @@ function maximise() {
 // dragging its name or its title bar onto another place, or from the menu a right click on either
 // opens. A workspace is where each panel is and how big the places are, kept in the browser's
 // storage beside the sizes and never in the project, as W-13 keeps the sizes.
-const PANELS = { bin: 'Project', fxbrowser: 'Effects', viewer: 'Viewer', inspector: 'Effect controls', timeline: 'Timeline', sheetpanel: 'Sheet' };
+const PANELS = { bin: 'Project', fxbrowser: 'Effects', viewer: 'Viewer', inspector: 'Effect controls', timeline: 'Timeline', sheetpanel: 'Sheet', renderpanel: 'Render queue' };
 const PLACES = { left: 'the left', leftlow: 'the lower left', centre: 'the centre', right: 'the right', bottom: 'the bottom', side: 'the side' };
 const BUILT_IN = {
   // W-40b (D-248): the Sheet stands in the side column, put away in Compose and out in Animate,
   // where the effect controls move to the left to give it the room, as the Sandbox has them.
-  Compose: { places: { left: ['bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'], side: ['sheetpanel'] }, sizes: { '--bin': 300 }, sideHidden: true },
+  // W-45: 'parked' is not a place on screen. A panel there waits until it is moved somewhere.
+  Compose: { places: { left: ['bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'], side: ['sheetpanel'], parked: ['renderpanel'] }, sizes: { '--bin': 300 }, sideHidden: true },
   // W-44: as the Sandbox's Animate board: Effect controls at the top left, 340 wide, with the
   // Project and Effects panels behind it, the timeline the lower half and on Both.
-  Animate: { places: { left: ['inspector', 'bin', 'fxbrowser'], leftlow: [], centre: ['viewer'], right: [], bottom: ['timeline'], side: ['sheetpanel'] }, sizes: { '--bin': 340 } },
+  Animate: { places: { left: ['inspector', 'bin', 'fxbrowser'], leftlow: [], centre: ['viewer'], right: [], bottom: ['timeline'], side: ['sheetpanel'], parked: ['renderpanel'] }, sizes: { '--bin': 340 } },
+  // W-45: as the Sandbox's Render board: the Project panel and the render, nothing else.
+  Render: { places: { left: ['bin'], leftlow: [], centre: ['renderpanel'], right: [], bottom: [], side: [], parked: ['viewer', 'timeline', 'inspector', 'fxbrowser', 'sheetpanel'] }, sizes: { '--bin': 340 } },
 };
 let savedWorkspaces = {};
 try { savedWorkspaces = JSON.parse(localStorage.getItem('workspaces') || '{}') || {}; } catch (e) { savedWorkspaces = {}; }
@@ -12238,7 +12286,7 @@ if (!workspace || !(BUILT_IN[workspace.name] || savedWorkspaces[workspace.name])
 // Every panel once: one listed twice keeps its first place, and one missing, as a panel added
 // since the workspace was saved would be, goes where Compose has it.
 function settle(places) {
-  const out = { left: [], leftlow: [], centre: [], right: [], bottom: [], side: [] };
+  const out = { left: [], leftlow: [], centre: [], right: [], bottom: [], side: [], parked: [] };
   const seen = new Set();
   for (const place of Object.keys(out)) {
     for (const id of (places && Array.isArray(places[place]) && places[place]) || []) {
@@ -12277,7 +12325,12 @@ function arrange() {
   document.body.dataset.workspace = workspace.name;
   try { localStorage.setItem('workspace', JSON.stringify(workspace)); } catch (e) { /* kept for this run only */ }
   const was = xsheeting;
-  xsheeting = !$('sheetpanel').hidden && !document.body.classList.contains('no' + $('sheetpanel').parentElement.id);
+  xsheeting = !$('sheetpanel').hidden && $('sheetpanel').parentElement.id !== 'parked'
+    && !document.body.classList.contains('no' + $('sheetpanel').parentElement.id);
+  // W-45: the export's choices stand in the Render panel when it is out, else under Export in the menu.
+  const opts = $('exportformat').parentElement;
+  if ($('renderpanel').parentElement.id !== 'parked') $('renderopts').append(opts);
+  else $('export').after(opts);
   if (xsheeting && !was) askForXsheet();
   applyZoom();
 }
@@ -13276,6 +13329,7 @@ try {
 showExportChoices();
 $('exportformat').onchange = (e) => {
   showExportChoices();
+  drawRender();
   try { sessionStorage.setItem('exportformat', e.target.value); } catch (err) { /* as above */ }
 };
 $('filmquality').onchange = (e) => {
@@ -13285,6 +13339,44 @@ $('gifdither').onchange = (e) => {
   try { sessionStorage.setItem('gifdither', e.target.checked ? 'on' : 'off'); } catch (err) { /* as above */ }
 };
 $('cancelexport').onclick = () => command('/cancel-export');
+// W-45 (D-248): the Render panel. One item, the open composition, rendered by the same Export and
+// stopped by the same Cancel. The status is read from the first sentence of the core's report;
+// the page decides nothing about what was written. A queue of several, Pause and watching each
+// frame as it is written are engine work, proposed on their own.
+let renderState = { exporting: false, done: 0, total: 0, report: '' };
+let renderMs = 0;
+function drawRender() {
+  const { exporting, done, total, report } = renderState;
+  const first = report.split('\n')[0];
+  const [words, kind] = exporting ? [done ? 'Rendering \u00b7 ' + Math.floor(done / total * 100) + '%' : 'Checking the drawings', 'run']
+    : /^Exported/.test(first) ? ['Done', 'done']
+    : /^The \d+ frames that finished/.test(first) ? ['Stopped', 'stop']
+    : /^The export stopped/.test(first) ? ['Stopped on a problem', 'stop']
+    : /^Nothing was exported/.test(first) ? ['Nothing written', 'stop'] : ['Ready', ''];
+  const name = doc ? $('comp').textContent : '\u2014';
+  $('rendercomp').textContent = name;
+  $('renderstatus').textContent = words;
+  $('renderstatus').className = kind;
+  $('renderout').textContent = $('exportformat').selectedOptions[0].textContent
+    + ($('anyway').checked ? ', missing drawings written' : '');
+  const secs = Math.round(renderMs / 1000);
+  $('rendertime').textContent = renderMs ? Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0') : '\u2014';
+  $('rendernow').textContent = exporting ? 'Rendering 1 of 1 \u00b7 ' + name + ' \u00b7 ' + done + ' of ' + total : 'Not rendering';
+  $('renderbar').hidden = !exporting;
+  $('renderbar').max = total || 1;
+  $('renderbar').value = done;
+  $('renderstop').hidden = !exporting;
+  $('renderstart').disabled = exporting || !doc;
+  $('renderleft').textContent = exporting ? $('exportleft').textContent : 'Render asks which folder to write into, then writes there.';
+  $('rendergot').replaceChildren(...(report ? report.split('\n') : ['Nothing has been rendered yet in this sitting.'])
+    .map((line) => Object.assign(document.createElement('p'), { textContent: line })));
+}
+$('renderstart').onclick = () => $('export').click();
+$('renderstop').onclick = () => $('cancelexport').click();
+$('anyway').addEventListener('change', drawRender);
+// The task in the top bar opens the Render workspace from anywhere, as the Sandbox's does.
+document.querySelector('#menubar .chip.exporting').title = 'The render. Click to open the Render workspace';
+document.querySelector('#menubar .chip.exporting').onclick = (e) => { if (!e.target.closest('button')) useWorkspace('Render'); };
 $('recent').onchange = (e) => {
   const chosen = e.target.value;
   e.target.selectedIndex = 0;
@@ -13488,6 +13580,7 @@ addEventListener('keydown', (e) => {
   // W-39 (D-248): the workspaces by number, as the top bar's tabs show them.
   else if (e.altKey && e.key === '1') { e.preventDefault(); useWorkspace('Compose'); }
   else if (e.altKey && e.key === '2') { e.preventDefault(); useWorkspace('Animate'); }
+  else if (e.altKey && e.key === '3') { e.preventDefault(); useWorkspace('Render'); }
   // W-22: Shift+F3 swaps the timeline and the graph, as After Effects' does.
   else if (e.shiftKey && e.key === 'F3') { e.preventDefault(); showSheet(graphing ? 'sheet' : 'graph'); }
   else if (e.altKey && e.shiftKey && ['KeyA', 'KeyP', 'KeyS', 'KeyR', 'KeyT'].includes(e.code)) {

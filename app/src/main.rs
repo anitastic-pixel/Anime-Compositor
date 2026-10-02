@@ -27055,7 +27055,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 99] = [
+    const CONTROLS: [&str; 101] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -27124,6 +27124,8 @@ mod contract {
         "redo",
         "refine",
         "relink",
+        "renderstart",
+        "renderstop",
         "resetworkspace",
         "save",
         "saveas",
@@ -27159,13 +27161,14 @@ mod contract {
 
     /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
     /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-    const KEYS: [&str; 48] = [
+    const KEYS: [&str; 49] = [
         "*",
         ",",
         "-",
         ".",
         "1",
         "2",
+        "3",
         "=",
         "?",
         "A",
