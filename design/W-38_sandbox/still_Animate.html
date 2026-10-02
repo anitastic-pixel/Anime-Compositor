@@ -1,0 +1,1163 @@
+<!doctype html><meta charset="utf-8"><style>
+body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:#101012}
+button{font:inherit;color:#d4d4d8;background:#2c2c30;border:1px solid #45454b;border-radius:4px;padding:3px 10px;cursor:pointer}
+.mock{position:relative;width:1580px;height:1100px;flex-shrink:0;overflow:hidden;background:#141416;color:#d4d4d8;font-size:12px}
+.pnl{position:absolute;box-sizing:border-box;background:#1e1e20;border-right:1px solid #0f0f11;border-bottom:1px solid #0f0f11;overflow:hidden;display:flex;flex-direction:column}
+.ph{height:26px;flex-shrink:0;display:flex;align-items:center;gap:4px;background:#161618;border-bottom:1px solid #0f0f11;padding-right:6px;box-sizing:border-box}
+.pt{align-self:stretch;display:flex;align-items:center;padding:0 12px;color:#fff;background:#1e1e20;box-shadow:inset 0 2px 0 #e8b06a;white-space:nowrap}
+.dim{color:#8e8e96}
+.sp{flex-grow:1}
+.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.kb{display:inline-block;font-size:10.5px;color:#d4d4d8;background:#34343a;border:1px solid #4a4a50;border-bottom-width:2px;border-radius:3px;padding:0 5px;line-height:15px;white-space:nowrap}
+.miss{color:#e0604a}
+.mb{position:absolute;left:0;top:0;width:1580px;height:30px;box-sizing:border-box;background:#1a1a1c;border-bottom:1px solid #0f0f11;display:flex;align-items:center;padding:0 6px;z-index:20}
+.mw{position:relative}
+.m{border:0;background:none;height:24px;padding:0 9px;color:#d4d4d8;border-radius:3px}
+.m.on{background:#2e3b52;color:#fff}
+.menu{position:absolute;left:0;top:27px;width:280px;background:#26262a;border:1px solid #45454b;border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.6);padding:4px 0;z-index:30}
+.mi{display:flex;width:100%;border:0;border-radius:0;background:none;padding:6px 14px;gap:16px;text-align:left}
+.mi:hover{background:#2e3b52;color:#fff}
+.sc{margin-left:auto;color:#8e8e96;white-space:nowrap}
+.srch{display:flex;align-items:center;gap:6px;height:22px;width:270px;box-sizing:border-box;background:#151517;border:1px solid #3a3a40;border-radius:4px;padding:0 6px;color:#8e8e96;font-size:11.5px}
+.pal{position:absolute;right:6px;top:28px;width:380px;background:#232327;border:1px solid #4a4a52;border-radius:8px;box-shadow:0 16px 40px rgba(0,0,0,.7);overflow:hidden;z-index:30}
+.pr{display:flex;align-items:center;gap:10px;width:100%;height:32px;border:0;border-radius:0;background:none;padding:0 14px;text-align:left}
+.pr:hover{background:#2e3b52;color:#fff}
+.tr{position:absolute;left:0;top:30px;width:1580px;height:36px;box-sizing:border-box;background:#202023;border-bottom:1px solid #0f0f11;display:flex;align-items:center;gap:2px;padding:0 8px}
+.tb{width:30px;height:30px;padding:0;border:1px solid transparent;background:none;display:flex;align-items:center;justify-content:center;color:#c8c8d0}
+.tb.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.vsep{width:1px;height:20px;background:#3a3a40;margin:0 8px}
+.vw{display:flex;gap:2px;margin-left:auto}
+.vb{font-size:11px;padding:1px 7px;border-color:#3a3a40;background:#232326}
+.vb.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.lh{display:grid;grid-template-columns:minmax(0,1fr) 84px 52px 54px;gap:6px;align-items:center;padding:0 10px;height:22px;font-size:11px}
+.lr{display:grid;grid-template-columns:minmax(0,1fr) 84px 52px 54px;gap:6px;align-items:center;padding:0 10px;height:22px;cursor:pointer;font-size:11.5px}
+.lr.on,.tw.on{background:#2e3b52}
+.nm{display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
+.lab{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.thumb{position:relative;overflow:hidden;flex-shrink:0;border:1px solid #333338;border-radius:3px;box-sizing:border-box}
+.card{width:78px;cursor:pointer}
+.card .thumb{width:78px;height:44px}
+.card.on .thumb{border:2px solid #6ea8fe}
+.ov{position:absolute;font-size:9px;line-height:13px;padding:0 3px;border-radius:2px;background:rgba(0,0,0,.65);color:#fff;white-space:nowrap}
+.ov.r{background:rgba(120,30,26,.9)}
+.ov.g{background:rgba(30,90,50,.9)}
+.cn{font-size:10.5px;margin-top:2px;white-space:nowrap;overflow:hidden}
+.sech{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6c6c74;margin:6px 0 4px}
+.tw{display:grid;grid-template-columns:minmax(0,1fr) 12px 80px 50px 40px;gap:6px;align-items:center;padding:0 10px;height:22px;cursor:pointer;font-size:11.5px}
+.tw.fold{color:#b8b8c0;font-weight:600}
+.twl{width:10px;color:#8e8e96;flex-shrink:0}
+.cutc{margin:0 8px 5px;border:1px solid #333338;border-radius:5px;background:#222225;padding:6px;cursor:pointer}
+.cutc.open{border-color:#6ea8fe;background:#1f2633;cursor:default}
+.pills{display:flex;gap:3px;margin-top:5px}
+.pl{flex:1;border-radius:2px;font-size:9.5px;text-align:center;white-space:nowrap;overflow:hidden}
+.pl.pthin{height:5px;line-height:5px}
+.pl.pbig{line-height:17px}
+.pl.done{background:#2c4a3c;color:#9fdcb6}
+.pl.doing{background:#4a3a1e;color:#f0c888}
+.pl.todo{background:#2c2c30;color:#6c6c74}
+.relink{border-color:#e0604a;color:#ffb3a6;background:#3a2220;font-size:10.5px;padding:0 7px;line-height:16px}
+.grp-row{display:flex;align-items:center;height:22px;padding:0 8px;gap:6px;background:#252529;border-bottom:1px solid #1a1a1c}
+.grp-row.off{color:#7a7a82}
+.tg{width:26px;height:14px;border-radius:7px;background:#4a6ea8;position:relative;padding:0;border:0;flex-shrink:0}
+.tg span{position:absolute;right:2px;top:2px;width:10px;height:10px;border-radius:5px;background:#fff}
+.tg.off{background:#3a3a40}
+.tg.off span{right:auto;left:2px;background:#8e8e96}
+.prow{display:grid;grid-template-columns:96px minmax(0,1fr) 50px 52px;gap:8px;align-items:center;height:32px;padding:0 10px 0 26px;border-bottom:1px solid #232327}
+.track{height:3px;border-radius:2px;background:#3a3a40;position:relative}
+.fill{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:#6ea8fe}
+.knob{position:absolute;top:-4px;width:10px;height:10px;margin-left:-5px;border-radius:5px;background:#d4d4d8}
+.num{background:#151517;border:1px solid #3a3a40;border-radius:3px;text-align:right;padding:1px 5px;color:#6ea8fe}
+.kn{display:flex;align-items:center;justify-content:space-between;color:#8e8e96}
+.dia{width:8px;height:8px;transform:rotate(45deg);border:1.5px solid #5a5a62;box-sizing:border-box}
+.dia.has{border-color:#e8b06a}
+.dia.on{border-color:#e8b06a;background:#e8b06a}
+.vt{display:flex;align-items:flex-end;gap:0;height:48px;flex-shrink:0;padding:0 10px 5px;box-sizing:border-box;border-bottom:1px solid #2a2a2e;background:#1b1b1d}
+.vt2{display:flex;align-items:flex-end;gap:0;height:62px;flex-shrink:0;padding:0 10px 5px 34px;box-sizing:border-box;border-bottom:1px solid #2a2a2e;background:#1b1b1d}
+.grp{display:flex;flex-direction:column;gap:3px}
+.gc{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#6c6c74;white-space:nowrap}
+.gr{display:flex;align-items:center;gap:4px}
+.gs{width:1px;align-self:stretch;background:#2e2e33;margin:4px 10px 0}
+.ib{height:26px;padding:0 7px;font-size:11.5px;display:flex;align-items:center;gap:5px;background:#232326;border-color:#3a3a40;white-space:nowrap}
+.ib.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.pb{height:40px;min-width:40px;padding:0 10px;display:flex;align-items:center;justify-content:center;gap:6px;background:#232326;border-color:#3a3a40;white-space:nowrap}
+.pb.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.fr{color:#6ea8fe;font-weight:700;font-size:14px;background:#151517;border:1px solid #3a3a40;border-radius:3px;padding:0 6px;line-height:22px}
+.fps{display:flex;align-items:center;gap:5px;font-size:11px;color:#9fdcb6;background:#1d2b23;border:1px solid #2f5a3f;border-radius:3px;padding:0 6px;line-height:20px}
+.pa{position:relative;flex-grow:1;background:#18181a;overflow:hidden}
+.pic{position:absolute;left:76px;top:12px;width:768px;height:432px;overflow:hidden;box-shadow:0 0 0 1px #3a3a40}
+.full{position:absolute;left:0;top:0;width:100%;height:100%}
+.slate{position:absolute;left:84px;top:20px;display:flex;align-items:center;gap:8px;background:rgba(10,10,14,.78);border:1px solid #45454b;border-radius:3px;padding:3px 8px;font-family:Consolas,monospace;font-size:11.5px;color:#fff;z-index:2}
+.pnote{position:absolute;right:84px;top:20px;width:270px;background:#3a2f12;border:1px solid #e8b06a;border-radius:4px;color:#f4dca8;padding:6px 8px;font-size:11px;line-height:1.35;z-index:2}
+.sknote{position:absolute;left:84px;top:410px;display:flex;align-items:center;gap:6px;background:rgba(10,10,14,.78);border:1px solid #c0504a;border-radius:3px;padding:2px 8px;font-size:11px;color:#ffc9c4;z-index:2}
+.strip{position:absolute;left:76px;top:452px;width:768px;display:flex;align-items:center;gap:2px}
+.scell{width:30px;height:38px;padding:0;border-radius:2px;background:#232326;border:1px solid #3a3a40;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;font-size:9px;color:#8e8e96}
+.scell b{font-size:12px;color:#fff;font-weight:600}
+.scell.on{border:2px solid #e8b06a;background:#3a2f1a}
+.fam{display:flex;align-items:center;gap:5px;width:100%;text-align:left;border:0;border-radius:3px;background:none;padding:4px 6px;font-size:11.5px;white-space:nowrap}
+.fam .c{margin-left:auto;color:#6c6c74;font-size:10.5px}
+.fam.on{background:#2e3b52;color:#fff}
+.eit{display:grid;grid-template-columns:14px minmax(0,1fr);gap:5px;padding:5px 8px;border-bottom:1px solid #26262a}
+.eit .t{color:#fff;font-size:11.5px}
+.eit .d{color:#8e8e96;font-size:10.5px;line-height:1.3}
+.star{color:#4a4a50;padding-top:2px}
+.star.on{color:#e8b06a}
+.qf{display:flex;align-items:center;gap:8px;height:44px;margin:8px;padding:0 12px;background:#2a3346;border-color:#6ea8fe;color:#fff;font-size:12.5px}
+.tt{display:flex;align-items:flex-end;gap:2px;height:36px;flex-shrink:0;padding:0 8px;background:#161618;border-bottom:1px solid #0f0f11;box-sizing:border-box}
+.ct{display:flex;align-items:center;gap:6px;height:30px;border:0;border-radius:4px 4px 0 0;background:#1a1a1c;color:#8e8e96;padding:0 14px}
+.ct.on{background:#1e1e20;color:#fff;box-shadow:inset 0 2px 0 #e8b06a}
+.cnt{font-size:10px;background:#3a3a40;color:#d4d4d8;border-radius:7px;padding:0 5px;line-height:14px}
+.wb{align-self:center;display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;background:#26303f;border-color:#4a6a9a;color:#fff}
+.tlbar{display:flex;align-items:center;gap:10px;height:32px;flex-shrink:0;padding:0 10px;border-bottom:1px solid #2a2a2e;box-sizing:border-box}
+.seg{display:flex}
+.seg span{padding:1px 9px;border:1px solid #3a3a40;font-size:11px;background:#232326}
+.seg span.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.fbox{display:flex;align-items:center;gap:6px;width:200px;background:#151517;border:1px solid #3a3a40;border-radius:4px;padding:2px 8px;color:#6c6c74;font-size:11.5px}
+.tlb{position:relative;flex-grow:1}
+.rul{display:flex;height:36px;border-bottom:1px solid #2a2a2e;box-sizing:border-box;background:#1a1a1c}
+.lcol{width:400px;flex-shrink:0;box-sizing:border-box;border-right:1px solid #2a2a2e}
+.rcol{position:relative;flex-grow:1}
+.lyr{display:flex;height:26px;border-bottom:1px solid #232327;box-sizing:border-box}
+.lyr.sel{background:#262c38}
+.lg{display:grid;grid-template-columns:18px 18px 5px 20px minmax(0,1fr) 112px 70px;gap:5px;align-items:center;padding:0 8px;height:25px;font-size:11.5px}
+.tag{font-size:10px;color:#e8b06a;border:1px solid #6a5634;border-radius:3px;padding:0 4px;line-height:14px;white-space:nowrap}
+.cel{position:absolute;top:4px;height:17px;box-sizing:border-box;border-right:1px solid #1e1e20;border-radius:2px;background:#3d5a86;color:#e8eefc;font-size:10px;line-height:17px;padding-left:3px;overflow:hidden;white-space:nowrap}
+.cel.odd{background:#4e6f9f}
+.cel.miss{background:repeating-linear-gradient(45deg,#7a2a26 0 4px,#4a1e1c 4px 8px);color:#ffc9c4}
+.cel.glow{background:#5a4a7a}
+.cel.pre{background:#2f6f73}
+.cel.cam{top:10px;height:5px;background:#55555c}
+.wv{position:absolute;background:#6ea8fe;border-radius:1px}
+.kd{position:absolute;top:8px;width:9px;height:9px;transform:rotate(45deg);background:#e8b06a;border:1px solid #1e1e20;box-sizing:border-box}
+.tick{position:absolute;bottom:12px;width:1px;background:#4a4a50}
+.tl{position:absolute;font-size:10px;color:#8e8e96}
+.ph-line{position:absolute;top:0;bottom:0;width:2px;background:#e0604a;z-index:3;pointer-events:none}
+.ph-flag{position:absolute;top:12px;height:14px;padding:0 4px;background:#e0604a;color:#fff;font-size:10px;font-weight:700;line-height:14px;border-radius:2px;z-index:4}
+.rqbar{display:flex;align-items:center;gap:10px;height:48px;flex-shrink:0;padding:0 14px;border-bottom:1px solid #2e2e32;box-sizing:border-box}
+.rqc{display:grid;grid-template-columns:28px 24px 150px 220px minmax(0,1fr) 60px;align-items:center;padding:0 14px}
+.rqr{width:100%;height:30px;padding:0;border:0;border-bottom:1px solid #26262a;border-radius:0;background:none;text-align:left;color:#d4d4d8}
+.rqr.on{background:#25303f}
+.cb{width:12px;height:12px;border:1px solid #6a6a72;border-radius:2px;display:inline-block;background:#151517;box-sizing:border-box}
+.cb.on{background:#6ea8fe;border-color:#6ea8fe}
+.rd{width:12px;height:12px;border:1px solid #6a6a72;border-radius:7px;display:inline-block;background:#151517;box-sizing:border-box}
+.rd.on{border:4px solid #6ea8fe;background:#fff}
+.sh{padding:1px 8px;font-size:11px}
+.sh.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.dl{display:flex;align-items:center;gap:6px;height:24px}
+.dlb{width:150px;color:#a0a0a8;flex-shrink:0}
+.pri{background:#3a5a8c;border-color:#6ea8fe;color:#fff}
+.big{height:36px;padding:0 16px;display:flex;align-items:center;gap:6px}
+.stb{position:absolute;left:0;top:1072px;width:1580px;height:28px;box-sizing:border-box;background:#18181b;border-top:1px solid #0f0f11;display:flex;align-items:center;gap:8px;padding:0 8px;font-size:11.5px}
+.chp{display:flex;align-items:center;gap:6px;height:22px;padding:0 9px;background:#202024;border:1px solid #33333a;border-radius:4px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:4px;flex-shrink:0}
+.mini{width:60px;height:4px;border-radius:2px;background:#151517;position:relative;overflow:hidden}
+.scrim{position:absolute;background:rgba(0,0,0,.45);z-index:15}
+.finder{position:absolute;left:590px;top:180px;width:460px;background:#232327;border:1px solid #4a4a52;border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,.7);overflow:hidden;z-index:16}
+.fh{color:#6c6c74;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:0 14px;height:22px;line-height:22px}
+.fr2{display:flex;align-items:center;gap:10px;height:30px;padding:0 14px}
+.fr2.sel{background:#2e3b52}
+.fr2 .m2{color:#6ea8fe;font-weight:700}
+.fdot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.ffm{margin-left:auto;color:#8e8e96;font-size:11px}
+.fent{margin-left:auto;font-size:11px;color:#c9d6ea;border:1px solid #6ea8fe;border-radius:3px;padding:0 5px}
+.ftag{font-size:10px;color:#e8b06a;border:1px solid #6a5634;border-radius:3px;padding:0 4px;line-height:14px}
+.wscrim{position:absolute;left:0;top:0;width:1580px;height:1100px;background:rgba(0,0,0,.6);z-index:40}
+.dlg{position:absolute;left:370px;top:190px;width:840px;background:#232326;border:1px solid #4a4a50;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.7);overflow:hidden;z-index:41}
+.dt{height:40px;display:flex;align-items:center;gap:8px;padding:0 14px;background:#2a2a2e;border-bottom:1px solid #1a1a1c;color:#fff;font-weight:600;font-size:13px;box-sizing:border-box}
+.wcell{width:37px;height:46px;padding:0;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;font-size:10px;box-sizing:border-box;overflow:hidden}
+.note{display:flex;gap:7px;align-items:flex-start;width:100%;text-align:left;background:#1b1b1e;border:1px solid #33333a;border-radius:5px;padding:7px 8px;margin-bottom:6px;line-height:1.4;font-size:11.5px}
+.ft{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 14px;height:56px;border-top:1px solid #2e2e32;box-sizing:border-box}
+.pin{position:absolute;width:22px;height:22px;box-sizing:border-box;border-radius:11px;background:#d6336c;color:#fff;font-weight:700;font-size:12px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);z-index:25;display:flex;align-items:center;justify-content:center;line-height:1}
+.new{font-size:9px;font-weight:700;letter-spacing:.06em;color:#1a1a1a;background:#8fd6a0;border-radius:3px;padding:0 4px;line-height:14px;display:inline-block;vertical-align:middle}
+.key{width:340px;flex-shrink:0;box-sizing:border-box;background:#f4efe6;color:#222;padding:20px;font-size:11.5px;line-height:1.32;overflow:hidden}
+.kl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8a7f70}
+.kt{font-size:20px;font-weight:700;margin:4px 0 8px}
+.chip{display:inline-block;font-size:11px;border:1px solid #cbbfae;background:#fffaf2;border-radius:10px;padding:0 8px;margin:0 4px 4px 0}
+.kh{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b6152;margin:10px 0 4px}
+.ki{display:grid;grid-template-columns:24px 1fr;gap:6px;margin-bottom:6px}
+.kn2{width:20px;height:20px;border-radius:10px;background:#d6336c;color:#fff;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center}
+.ks{color:#2f7d4f}
+.to{background:#fff3d6;color:#7a5200;border-radius:6px;padding:8px 10px;margin-top:8px}
+.lcol{width:460px}
+.tr{z-index:19}
+.wst{display:flex;gap:2px;padding:2px;background:#151517;border:1px solid #2a2a2e;border-radius:6px}
+.wt{height:24px;min-width:28px;justify-content:center;border:0;border-radius:4px;background:none;color:#a0a0a8;padding:0 7px;display:flex;align-items:center;gap:6px;font-size:12px}
+.wt.on{background:#2e3b52;color:#fff}
+.sbw{display:flex;width:230px;align-items:center;gap:6px;height:28px;box-sizing:border-box;background:#151517;border:1px solid #3a3a40;border-radius:5px;padding:0 6px 0 8px;color:#8e8e96}
+.sbw.on{border-color:#6ea8fe}
+.sbin{flex-grow:1;min-width:0;border:0;outline:0;background:none;color:#fff;font:inherit;font-size:12px;padding:0}
+.sbin::placeholder{color:#6c6c74}
+.fxb{height:26px;margin-left:6px;display:flex;align-items:center;gap:6px;padding:0 9px;background:#1f2737;border-color:#2e4468;color:#c9d6ea;font-size:11.5px;white-space:nowrap}
+.sdrop{position:absolute;top:34px;width:560px;background:#232327;border:1px solid #4a4a52;border-radius:8px;box-shadow:0 16px 40px rgba(0,0,0,.7);overflow:hidden;z-index:35}
+.sc2{display:flex;align-items:center;gap:4px;padding:8px 12px;border-bottom:1px solid #34343a}
+.scp{font-size:11px;padding:1px 10px;border-radius:10px;background:#26262a;border-color:#3a3a40}
+.scp.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.sres{display:flex;align-items:center;gap:10px;width:100%;height:28px;border:0;border-radius:0;background:none;padding:0 14px;text-align:left}
+.sres:hover{background:#2e3b52;color:#fff}
+.hand{display:flex;align-items:center;gap:8px;width:100%;height:40px;border:0;border-top:1px solid #34343a;border-radius:0;background:#26303f;color:#fff;padding:0 14px;text-align:left}
+.hand:hover{background:#2e3b52}
+.cutnav{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.ib3{border:0;background:none;padding:0 4px;color:#8e8e96;font-size:14px;line-height:20px}
+.vtab{align-self:stretch;display:flex;align-items:center;gap:6px;padding:0 12px;color:#8e8e96;cursor:pointer;white-space:nowrap}
+.vtab.on{color:#fff;background:#1e1e20;box-shadow:inset 0 2px 0 #e8b06a}
+.vx{color:#8e8e96;padding:0 4px;border-radius:3px;line-height:16px}
+.vx:hover{background:#3a3a40;color:#fff}
+.pt2{align-self:stretch;display:flex;align-items:center;padding:0 12px;color:#8e8e96;cursor:pointer;white-space:nowrap}
+.er{position:relative;display:grid;grid-template-columns:150px minmax(0,1fr) 54px;align-items:center;height:20px;border-bottom:1px solid #232326;padding-right:6px;font-size:11.5px;box-sizing:border-box}
+.er:hover{background:#242428}
+.er.grp{background:#252529;color:#fff;font-weight:600}
+.er.dim{color:#7c7c84}
+.er.sel{height:44px;background:#22293a;box-shadow:inset 2px 0 0 #6ea8fe}
+.el{display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden}
+.etw{border:0;background:none;padding:0;width:12px;color:#8e8e96;font-size:10px;flex-shrink:0}
+.epk{border:0;background:none;padding:0;color:inherit;text-align:left;white-space:nowrap;font:inherit}
+.epk:hover{text-decoration:underline}
+.esw{width:11px;height:11px;box-sizing:border-box;border:1.4px solid #6a6a72;border-radius:50%;position:relative;flex-shrink:0;cursor:pointer}
+.esw::after{content:"";position:absolute;left:3.5px;top:1px;width:1.4px;height:4px;background:#6a6a72}
+.esw.on{border-color:#6ea8fe;background:#2e3b52}
+.esw.on::after{background:#6ea8fe}
+.esw.none{visibility:hidden}
+.evc{display:flex;flex-direction:column;justify-content:center;min-width:0;white-space:nowrap}
+.ev{color:#6ea8fe;border-bottom:1px dotted #6ea8fe;cursor:ew-resize;font-variant-numeric:tabular-nums}
+.er.dim .ev{color:#5a6f92;border-bottom-color:#5a6f92}
+.eu{color:#8e8e96;margin-left:4px}
+.eplain{color:#b0b0b8;font-weight:400}
+.ewarn{color:#ffb869;font-weight:400;font-size:10.5px}
+.lnk{color:#8e8e96;text-decoration:underline;font-weight:400;font-size:11px}
+.etr{width:150px;height:3px;background:#3a3a40;border-radius:2px;position:relative;margin-top:8px}
+.enav{display:flex;align-items:center;justify-content:space-between;visibility:hidden}
+.er:hover .enav,.er.sel .enav{visibility:visible}
+.nb{border:0;background:none;padding:0 3px;color:#4a4a50;font-size:9px;line-height:16px}
+.nb.lit{color:#d4d4d8}
+.lg2{display:grid;grid-template-columns:12px 16px 5px 16px minmax(0,1fr) 104px 50px;gap:5px;align-items:center;padding:0 8px;font-size:11.5px;height:100%;box-sizing:border-box}
+.twb{border:0;background:none;padding:0;color:#b8b8c0;font-size:10px;width:12px}
+.lyr.cmp .cel{top:2px}
+.lyr.cmp .kd{top:6px}
+.prw{display:flex;height:22px;border-bottom:1px solid #202023;box-sizing:border-box;background:#1b1b1e}
+.prw .kd{top:6px}
+.pl2{display:grid;grid-template-columns:minmax(0,1fr) 62px 50px;gap:6px;align-items:center;padding:0 8px 0 40px;font-size:11px;height:100%;box-sizing:border-box}
+.tag2{font-size:10px;color:#7fc4cf;border:1px solid #2f6f73;border-radius:3px;padding:0 4px;line-height:14px;white-space:nowrap}
+.seg2{display:flex}
+.seg2 button{padding:1px 10px;border-radius:0;font-size:11px;background:#232326;border-color:#3a3a40;white-space:nowrap}
+.seg2 button:first-child{border-radius:3px 0 0 3px}
+.seg2 button:last-child{border-radius:0 3px 3px 0}
+.seg2 button.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.shb{display:flex;align-items:center;gap:6px;height:24px;padding:0 10px;font-size:11.5px}
+.shb.on{background:#3a2f1a;border-color:#e8b06a;color:#f4dca8}
+.gtick{display:flex;align-items:center;gap:7px;height:24px;padding:0 10px;font-size:11.5px;border:0;background:none;width:100%;text-align:left;border-radius:0}
+.gtick:hover{background:#242428}
+.gk{position:absolute;width:9px;height:9px;margin:-5px 0 0 -5px;transform:rotate(45deg);border:1px solid #fff2d8;box-sizing:border-box;z-index:2}
+.fsec{font-size:10px;letter-spacing:.08em;color:#77777f;padding:7px 10px 3px;text-transform:uppercase}
+.shr{display:grid;grid-template-columns:40px 52px 52px 34px 104px 1fr;height:18px;font-size:11px;box-sizing:border-box;border-bottom:1px solid #232326;cursor:pointer}
+.shr>span{border-right:1px solid #2a2a2e;text-align:center;color:#c4c4cc;overflow:hidden;white-space:nowrap;line-height:17px}
+.shr.hd{height:22px;background:#1a1a1c;cursor:default}
+.shr.hd>span{color:#8e8e96;font-size:10.5px;line-height:21px}
+.shr>span.f{color:#77777f;font-size:10px}
+.shr.lit>span{background:#28344a;color:#fff}
+.shr.lit>span.f{box-shadow:inset 3px 0 #e0604a;color:#fff}
+.shr.sec{border-top:2px solid #5a5a62}
+.shr>span.gone{background:repeating-linear-gradient(45deg,#7a2c2c 0 4px,#4a1c1c 4px 8px);color:#ffb0a0}
+.shr>span.hl{color:#6c6c74}
+.exr{display:grid;grid-template-columns:70px 90px 1fr;height:22px;align-items:center;padding:0 12px;border-bottom:1px solid #232326;font-size:11.5px}
+.fcon{position:absolute;width:720px;background:#232327;border:1px solid #4a4a52;border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,.75);overflow:hidden;z-index:36}
+.fin{flex-grow:1;min-width:0;border:0;outline:0;background:none;color:#fff;font:inherit;font-size:15px;padding:0}
+.fin::placeholder{color:#6c6c74}
+.fleft{width:280px;flex-shrink:0;border-right:1px solid #34343a;overflow-y:auto;box-sizing:border-box;padding-bottom:8px}
+.famr{display:flex;align-items:center;gap:8px;height:22px;padding:0 10px;font-size:11.5px;color:#c4c4cc;width:100%;border:0;border-radius:0;background:none;text-align:left}
+.famr:hover{background:#2a2a30}
+.famr .c{margin-left:auto;color:#77777f;font-size:10.5px}
+.famr.on{background:#2a2a30;color:#fff}
+.fe{display:flex;gap:6px;padding:3px 10px 4px 28px;font-size:11.5px;background:#1e1e22;width:100%;border:0;border-radius:0;text-align:left}
+.fe:hover{background:#26262c}
+.fe.sel{background:#2e3b52;color:#fff}
+.fe .d{color:#8e8e96;font-size:10.5px}
+.pillb{font-size:11px;padding:0 8px;border-radius:10px;background:#26262a;border-color:#3a3a40;line-height:18px}
+.pillb.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.fdr{display:flex;align-items:center;gap:8px;height:28px;padding:0 14px;border:0;background:none;width:100%;text-align:left;font-size:12.5px;border-radius:0;white-space:nowrap}
+.fdr:hover{background:#2a2a30}
+.fdr.sel{background:#2e3b52;color:#fff}
+.fdr .mt{color:#6ea8fe;font-weight:700}
+.owin{position:absolute;width:760px;background:#202022;border:1px solid #5a5a60;border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,.85);overflow:hidden;z-index:42}
+.otb{height:32px;display:flex;align-items:center;gap:8px;padding-left:12px;background:#2b2b2e;color:#e8e8ec;font-size:12px}
+.ob2{width:44px;height:32px;border:0;border-radius:0;background:none;display:flex;align-items:center;justify-content:center;color:#c8c8d0;padding:0}
+.ob2:hover{background:#3a3a40}
+.ob2.x:hover{background:#c42b1c;color:#fff}
+.iw{padding:10px 14px 12px 66px;background:#161a22;border-bottom:1px solid #26262a}
+.skt{position:absolute;left:0;top:40px;width:52px;height:1060px;background:#1a1a1c;border-right:1px solid #0f0f11;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:10px;box-sizing:border-box}
+.skb{width:38px;height:38px;padding:0;display:flex;align-items:center;justify-content:center;background:none;border:1px solid transparent;color:#c8c8d0;flex-shrink:0}
+.skb:hover{border-color:#3a3a40}
+.skb.on{background:#3a2420;border-color:#e0604a;color:#fff}
+.skc{position:absolute;left:52px;top:40px;width:1208px;height:1016px;background:#121214;background-image:radial-gradient(#1f1f23 1px,transparent 1px);background-size:20px 20px;overflow:hidden}
+.skpic{position:absolute;left:44px;top:180px;width:1120px;height:630px;overflow:hidden;box-shadow:0 0 0 1px #3a3a40,0 10px 40px rgba(0,0,0,.6);cursor:crosshair;touch-action:none;background:#f4f1ea}
+.skl{position:absolute;left:1260px;top:40px;width:320px;height:1060px;background:#1e1e20;border-left:1px solid #0f0f11;display:flex;flex-direction:column;box-sizing:border-box}
+.lyr2{display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;border-bottom:1px solid #26262a;cursor:pointer;flex-shrink:0;box-sizing:border-box}
+.lyr2.on{background:#2e3b52}
+.eye{border:0;background:none;padding:0;width:20px;height:20px;color:#d4d4d8;display:flex;align-items:center;justify-content:center}
+.eye.off{color:#4a4a50}
+.sw3{width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(255,255,255,.3)}
+.sw2{width:20px;height:20px;border-radius:4px;padding:0;border:2px solid #1a1a1c;box-shadow:0 0 0 1px #45454b}
+.sw2.on{border-color:#fff}
+.opb{padding:0 6px;font-size:11.5px;height:20px;line-height:16px}
+.skbar{position:absolute;left:52px;top:1056px;width:1208px;height:44px;background:#1a1a1c;border-top:1px solid #0f0f11;display:flex;align-items:center;gap:10px;padding:0 12px;box-sizing:border-box}
+.mn{position:absolute;box-sizing:border-box;background:#232327;border:1px solid #45454b;border-radius:8px;overflow:hidden;font-size:11.5px}
+.mn .hd{display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;background:#2a2a2e;color:#fff;font-weight:600;white-space:nowrap}
+.mn .bd{padding:6px 10px;color:#a0a0a8;line-height:1.45}
+.mn.hot{border:2px solid #8fd6a0;box-shadow:0 0 0 3px rgba(143,214,160,.22)}
+.mn.off{opacity:.6;border-style:dashed}
+.sq{width:9px;height:9px;border-radius:2px;flex-shrink:0;display:inline-block}
+.pill{display:inline-flex;align-items:center;gap:4px;background:#26262a;border:1px solid #3a3a40;border-radius:10px;padding:0 7px;margin:2px 3px 0 0;color:#d4d4d8;font-size:10.5px;line-height:16px}
+.ti{display:flex;align-items:center;gap:6px;width:100%;height:24px;border:0;border-radius:0;background:none;padding:0 10px;text-align:left;font-size:11.5px;white-space:nowrap}
+.ti:hover{background:#26262c}
+.ti.on{background:#2e3b52;color:#fff}
+.mr{background:#ece4f7;color:#3e2a66;border-radius:6px;padding:8px 10px;margin-top:8px}
+
+/* ---- one-row top bar, hover tips ---- */
+.mb{height:40px;gap:2px;padding:0 8px 0 4px}
+.m{padding:0 7px;font-size:12px}
+.menu{top:32px}
+.tr{display:none}
+.tb{width:28px;height:28px;border-radius:4px}
+.vsep{margin:0 6px}
+.tico{display:flex;align-items:center;gap:5px;height:24px;padding:0 7px;border:1px solid #33333a;border-radius:12px;background:#202023;color:#c8c8d0;font-size:11px;margin-left:4px;white-space:nowrap}
+.tico .mini{width:34px}
+[data-tip]{position:relative}
+[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);background:#0e0e10;color:#e4e4e8;border:1px solid #3a3a40;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:400;line-height:16px;white-space:nowrap;z-index:60;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.tipr[data-tip]:hover::after,.wst [data-tip]:hover::after{left:auto;right:0;transform:none}
+/* ---- one-row viewer toolbar; slate above the picture ---- */
+.vt1{display:flex;align-items:center;gap:2px;height:34px;flex-shrink:0;padding:0 8px;box-sizing:border-box;border-bottom:1px solid #2a2a2e;background:#1b1b1d}
+.vb2{width:26px;height:24px;padding:0;border:1px solid transparent;border-radius:4px;background:none;color:#b8b8c0;display:grid;place-items:center}
+.vb2:hover{background:#26262a}
+.vb2.on{background:#2e3b52;border-color:#4a6fa8;color:#fff}
+.vb3{height:24px;padding:0 7px;border:1px solid transparent;border-radius:4px;background:none;color:#c8c8d0;font-size:11px;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.vb3:hover{background:#26262a}
+.gs2{width:1px;height:16px;background:#34343a;margin:0 6px}
+.vt1 .fr{font-size:12.5px;line-height:20px;margin-left:6px}
+.vt1 .fps{line-height:18px;margin-left:4px}
+.slate2{position:absolute;display:flex;align-items:center;gap:5px;font-family:Consolas,monospace;font-size:10.5px;line-height:14px;color:#9a9aa2;white-space:nowrap;z-index:2}
+.scell{width:28px;height:32px;font-size:8.5px}
+.scell b{font-size:11px}
+/* ---- timeline, Timeline A Balanced look ---- */
+.tt2{display:flex;align-items:stretch;height:30px;flex-shrink:0;background:#161618;border-bottom:1px solid #0f0f11;box-sizing:border-box}
+.tt2 .sp{align-self:center}
+.tt2>.dim{align-self:center}
+.tab{display:flex;align-items:center;gap:8px;padding:0 12px;height:30px;color:#8e8e96;border-right:1px solid #0f0f11;font-size:12px;cursor:pointer;white-space:nowrap}
+.tab.on{background:#1e1e20;color:#fff;box-shadow:inset 0 2px 0 #e8b06a}
+.x{color:#6c6c73;font-size:13px}
+.tlbar2{display:flex;align-items:center;gap:10px;height:44px;flex-shrink:0;padding:0 12px;border-bottom:1px solid #2a2a2e;box-sizing:border-box;font-size:12px}
+.tms{display:inline-flex;align-items:stretch;height:28px;box-sizing:border-box;border-radius:4px;overflow:hidden;background:#2a2a2f}
+.tlbar2 .tms button{height:28px;border:0;border-radius:0;background:#2a2a2f;box-shadow:none;margin:0;padding:0 14px;font-size:12px;color:#c4c4ca;outline:none}
+.tlbar2 .tms button+button{border-left:1px solid #1c1c1f}
+.tlbar2 .tms button:hover{background:#323238;color:#e4e4e7}
+.tlbar2 .tms button.on{background:#3d3d44;color:#fff;box-shadow:inset 0 -2px 0 #e8b06a}
+.tcb{height:28px;box-sizing:border-box;min-width:46px;text-align:center;font-size:16px;color:#6ea8fe;background:#161618;border:1px solid #2f2f34;border-radius:6px;padding:0 9px;font-variant-numeric:tabular-nums;line-height:26px}
+.fbox2{display:flex;align-items:center;gap:6px;margin-left:14px;background:#161618;border:1px solid #3a3a40;border-radius:4px;padding:3px 8px;width:180px;color:#6c6c73;font-size:12px}
+.nflag{display:inline-block;width:9px;height:11px;background:#e8b06a;clip-path:polygon(0 0,100% 0,100% 65%,50% 100%,0 65%);flex-shrink:0}
+.rul{height:44px}
+.lg3{display:grid;grid-template-columns:6px 22px 22px 22px 22px 14px minmax(0,1fr) 22px 56px 92px;gap:2px;align-items:center;padding:0 8px 0 0;height:100%;font-size:12px;box-sizing:border-box}
+.lgh{align-items:end;padding-bottom:6px;color:#8e8e96;font-size:11px}
+.ic2{display:grid;place-items:center;width:22px;height:22px;padding:0;border:0;background:none;color:#5c5c63;border-radius:3px}
+.ic2.on{color:#d4d4d8}
+.badge{font-size:11px;line-height:16px;color:#c9d6ea;background:#2e3b52;border-radius:8px;padding:0 7px;white-space:nowrap}
+.lyr{height:30px;border-bottom-color:#26262a}
+.lyr.sel{background:#222a38}
+.lyr.sel .lcol{background:#28344a}
+.cel{top:3px;bottom:3px;height:auto;line-height:normal;border-right:0;padding:2px 0 0;font-size:11px;color:#e6ecf5;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+.cel.gone{background:repeating-linear-gradient(45deg,#5a2a28 0 4px,#7a3230 4px 8px);outline:1px solid #d9534f;outline-offset:-1px;color:#ffd0cc}
+.bar{position:absolute;top:3px;bottom:3px;border:1px solid;border-radius:2px;box-sizing:border-box;font-size:11px;line-height:22px;padding-left:6px;overflow:hidden;white-space:nowrap}
+.kd{position:absolute;bottom:1px;width:7px;height:7px;margin-left:-3.5px;background:#e8b06a;transform:rotate(45deg)}
+.wvb{position:absolute;top:3px;bottom:3px;background:#24382f;border-radius:2px;overflow:hidden}
+.wbar{position:absolute;top:0;height:6px;background:#6f8fc8;border-radius:1px}
+.tick2{position:absolute;bottom:0;width:1px}
+.tl2{position:absolute;top:9px;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ph-flag2{position:absolute;bottom:3px;transform:translateX(-50%);background:#e0604a;color:#fff;font-size:11px;line-height:15px;padding:0 5px;border-radius:2px;font-variant-numeric:tabular-nums;z-index:2}
+.nmark{position:absolute;bottom:3px;display:flex;align-items:flex-end;cursor:pointer;z-index:3}
+.ntx{font-size:11px;color:#e8b06a;margin-left:5px;white-space:nowrap;line-height:11px}
+.nted{position:absolute;top:46px;width:240px;display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:#232327;border:1px solid #e8b06a;border-radius:6px;box-shadow:0 10px 28px rgba(0,0,0,.6);z-index:12;box-sizing:border-box}
+.ntin{background:#151517;border:1px solid #45454b;border-radius:4px;color:#fff;font-size:12px;padding:4px 7px;outline:none}
+.ntin:focus{border-color:#e8b06a}
+.shr>span.nt{color:#e8b06a}
+.prw{height:22px}
+.tab .x{opacity:0}
+.tab.on .x,.tab:hover .x{opacity:1}
+.tab.on{font-weight:500}
+.rdy{position:absolute;top:7px;height:3px;background:#4fbf6a;pointer-events:none}
+.rdyv{display:flex;align-items:center;gap:5px;font-size:11px;color:#8fd6a0;margin-left:4px;cursor:default}
+.rdyd{width:10px;height:3px;background:#4fbf6a;border-radius:1px}
+</style><body style="margin:0"><div style="width: 1920px; height: 1100px; display: flex; background: #101012">
+<div class="mock">
+
+<!-- ===== Top bar, one row: menus, the cut and its status as icons, tools, search (Search B), effects, workspaces (Whole app B), save ===== -->
+<div class="mb">
+<svg class="ic" width="18" height="18" viewBox="0 0 24 24" style="color: #e8b06a; margin: 0 6px 0 4px"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M8 5l-2 4M13 5l-2 4M18 5l-2 4"/></svg>
+
+<div class="mw">
+<button class="m">File</button>
+
+</div>
+
+<div class="mw">
+<button class="m">Edit</button>
+
+</div>
+
+<div class="mw">
+<button class="m">Composition</button>
+
+</div>
+
+<div class="mw">
+<button class="m">Layer</button>
+
+</div>
+
+<div class="mw">
+<button class="m">Effect</button>
+
+</div>
+
+<div class="mw">
+<button class="m">Animation</button>
+
+</div>
+
+<div class="mw">
+<button class="m">View</button>
+
+</div>
+
+<div class="mw">
+<button class="m">Window</button>
+
+</div>
+
+<div class="mw">
+<button class="m">Help</button>
+
+</div>
+
+<span class="vsep"></span>
+<div class="cutnav"><button class="ib3" data-tip="Previous cut">‹</button><span>Ep 03</span><span class="dim">›</span><span style="color: #fff; font-weight: 600">Cut 012</span><button class="ib3" data-tip="Next cut">›</button></div>
+<button class="tico" style="margin-left: 6px" data-tip="Cut status: In progress · click to change"><span class="dot" style="background: #6ea8fe"></span></button>
+<button class="tico" style="color: #e8b06a; border-color: #5a4426" data-tip="1 drawing missing · Body 42 · click to show it"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg>1</button>
+<button class="tico" style="color:#d4d4d8" data-tip="Exporting Cut 012 · 49% · click to watch it write"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 19h16"/></svg><span class="mini" style="width: 34px"><span style="position:absolute;left:0;top:0;bottom:0;width:49%;background:#6ea8fe"></span></span>49%</button>
+<span class="vsep"></span>
+
+<button class="tb on" data-tip="Selection tool · V"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="M6 3l12 8.5-5.5 1.2L10 19z"/></svg></button>
+<button class="tb" data-tip="Hand tool · H"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="M8 12.5V6a1.5 1.5 0 013 0v5M11 10.5V4.5a1.5 1.5 0 013 0v6M14 10.5V6a1.5 1.5 0 013 0v7.5c0 4-2.4 6.5-6 6.5-3 0-4.6-1.7-5.6-4L4 13a1.4 1.4 0 012.4-1.4L8 13.5"/></svg></button>
+<button class="tb" data-tip="Zoom tool · Z"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20M7.5 10h5M10 7.5v5"/></svg></button>
+<button class="tb" data-tip="Pen tool · G" style="margin-left: 6px"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="M12 21l-6-9 6-9 6 9z"/><path d="M12 3v7"/><circle cx="12" cy="12" r="1.6"/></svg></button>
+<button class="tb" data-tip="Shape tool · Q"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="10" height="10" rx="1"/><circle cx="15" cy="15" r="5.5"/></svg></button>
+<button class="tb" data-tip="Text tool · Ctrl+T"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="M5 5h14M12 5v14M9 19h6"/></svg></button>
+<span class="vsep"></span>
+
+
+<div style="position: relative">
+<div class="sbw">
+<svg class="ic" width="14" height="14" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20"/></svg>
+<input class="sbin" value="" placeholder="Search  ·  Ctrl+Shift+P" />
+
+</div>
+
+</div>
+
+<button class="fxb" data-tip="Find an effect · Ctrl+Space"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" style="color: #6ea8fe"><path d="M5 19l6-6M13 5l1.5 3.5L18 10l-3.5 1.5L13 15l-1.5-3.5L8 10l3.5-1.5z"/></svg>Effects</button>
+
+<span class="sp"></span>
+<div class="wst">
+<button class="wt" data-tip="Compose workspace · Shift+F1"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 9h18M9 9v10"/></svg></button><button class="wt on" data-tip="Animate workspace · Shift+F2"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M3 17c4 0 4-10 9-10s5 10 9 10"/></svg>Animate</button><button class="wt" data-tip="Sketch workspace · Shift+F3"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M4 20l1-5L16 4l4 4L9 19z"/></svg></button><button class="wt" data-tip="Render workspace · Shift+F4"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 19h16"/></svg></button>
+</div>
+<button class="sh tipr" style="margin-left: 8px; height: 26px; display: flex; align-items: center; gap: 6px" data-tip="Not saved yet · a recovery copy was kept at 14:32 · Ctrl+S"><span class="dot" style="background: #e8b06a"></span>Save</button>
+</div>
+
+
+
+<!-- ===== Project ===== -->
+
+
+<!-- ===== Effect controls (Effect controls B) ===== -->
+
+<div class="pnl" style="left:0px;top:40px;width:340px;height:460px">
+<div class="ph"><span class="pt">Effect controls · Hair</span><span class="sp"></span><span class="dim" style="font-size: 11px">Cut 012 · frame 107</span></div>
+<div style="flex-grow: 1; min-height: 0; overflow-y: auto">
+
+<div class="er grp">
+<span class="el" style="">
+<button class="etw">▸</button>
+
+
+<span>Masks</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+
+<span class="eplain">none</span>
+</div>
+
+</div>
+<span class="enav">
+
+</span>
+</div>
+
+<div class="er grp">
+<span class="el" style="">
+<button class="etw">▾</button>
+
+
+<span>Transform</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+
+<span class="lnk">Reset</span>
+</div>
+
+</div>
+<span class="enav">
+
+</span>
+</div>
+
+<div class="er">
+<span class="el" style="padding-left:22px">
+
+
+<span class="esw none" title="Stopwatch: animate this setting"></span>
+<span>Anchor Point</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+<span class="ev" title="Drag left or right">960.0, 540.0</span><span class="eu"></span>
+
+</div>
+
+</div>
+<span class="enav">
+
+</span>
+</div>
+
+<div class="er">
+<span class="el" style="padding-left:22px">
+
+
+<span class="esw on" title="Stopwatch: animate this setting"></span>
+<span>Position</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+<span class="ev" title="Drag left or right">1016.0, 540.0</span><span class="eu"></span>
+
+</div>
+
+</div>
+<span class="enav">
+<button class="nb lit" title="Previous key">◀</button><button class="nb" title="Add or remove a key here"><span class="dia has" style="display: inline-block"></span></button><button class="nb lit" title="Next key">▶</button>
+</span>
+</div>
+
+<div class="er">
+<span class="el" style="padding-left:22px">
+
+
+<span class="esw" title="Stopwatch: animate this setting"></span>
+<span>Scale</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+<span class="ev" title="Drag left or right">100.0, 100.0</span><span class="eu">%</span>
+
+</div>
+
+</div>
+<span class="enav">
+<button class="nb" title="Previous key">◀</button><button class="nb" title="Add or remove a key here"><span class="dia" style="display: inline-block"></span></button><button class="nb" title="Next key">▶</button>
+</span>
+</div>
+
+<div class="er">
+<span class="el" style="padding-left:22px">
+
+
+<span class="esw on" title="Stopwatch: animate this setting"></span>
+<span>Rotation</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+<span class="ev" title="Drag left or right">0x +15.5</span><span class="eu">°</span>
+
+</div>
+
+</div>
+<span class="enav">
+<button class="nb lit" title="Previous key">◀</button><button class="nb" title="Add or remove a key here"><span class="dia has" style="display: inline-block"></span></button><button class="nb lit" title="Next key">▶</button>
+</span>
+</div>
+
+<div class="er">
+<span class="el" style="padding-left:22px">
+
+
+<span class="esw" title="Stopwatch: animate this setting"></span>
+<span>Opacity</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+<span class="ev" title="Drag left or right">100</span><span class="eu">%</span>
+
+</div>
+
+</div>
+<span class="enav">
+<button class="nb" title="Previous key">◀</button><button class="nb" title="Add or remove a key here"><span class="dia" style="display: inline-block"></span></button><button class="nb" title="Next key">▶</button>
+</span>
+</div>
+
+<div class="er grp">
+<span class="el" style="">
+<button class="etw">▾</button>
+<button class="tg" title="Turn the effect on or off"><span></span></button>
+
+<span>Glow</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+
+<span class="lnk">Reset · About…</span>
+</div>
+
+</div>
+<span class="enav">
+
+</span>
+</div>
+
+<div class="er">
+<span class="el" style="padding-left:22px">
+
+
+<span class="esw" title="Stopwatch: animate this setting"></span>
+<span>Threshold</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+<span class="ev" title="Drag left or right">60</span><span class="eu">%</span>
+
+</div>
+
+</div>
+<span class="enav">
+<button class="nb" title="Previous key">◀</button><button class="nb" title="Add or remove a key here"><span class="dia" style="display: inline-block"></span></button><button class="nb" title="Next key">▶</button>
+</span>
+</div>
+
+<div class="er sel">
+<span class="el" style="padding-left:22px">
+
+
+<span class="esw on" title="Stopwatch: animate this setting"></span>
+<span>Radius</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+<span class="ev" title="Drag left or right">12.0</span><span class="eu">px</span>
+
+</div>
+<div class="etr"><div class="fill" style="width:40%"></div><div class="knob" style="left:40%"></div></div>
+</div>
+<span class="enav">
+<button class="nb lit" title="Previous key">◀</button><button class="nb" title="Add or remove a key here"><span class="dia on" style="display: inline-block"></span></button><button class="nb lit" title="Next key">▶</button>
+</span>
+</div>
+
+<div class="er">
+<span class="el" style="padding-left:22px">
+
+
+<span class="esw" title="Stopwatch: animate this setting"></span>
+<span>Intensity</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+<span class="ev" title="Drag left or right">1.00</span><span class="eu"></span>
+
+</div>
+
+</div>
+<span class="enav">
+<button class="nb" title="Previous key">◀</button><button class="nb" title="Add or remove a key here"><span class="dia" style="display: inline-block"></span></button><button class="nb" title="Next key">▶</button>
+</span>
+</div>
+
+<div class="er">
+<span class="el" style="padding-left:22px">
+
+
+<span class="esw none" title="Stopwatch: animate this setting"></span>
+<span>Colours</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+
+<span class="eplain">A &amp; B colours</span>
+</div>
+
+</div>
+<span class="enav">
+
+</span>
+</div>
+
+<div class="er grp">
+<span class="el" style="">
+<button class="etw">▸</button>
+<button class="tg off" title="Turn the effect on or off"><span></span></button>
+
+<span>Gaussian Blur</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+
+<span class="eplain">switched off</span>
+</div>
+
+</div>
+<span class="enav">
+
+</span>
+</div>
+
+<div class="er grp dim">
+<span class="el" style="">
+<button class="etw">▸</button>
+
+
+<span>Particle World</span>
+
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+
+<span class="ewarn">not in this build · kept as written</span>
+</div>
+
+</div>
+<span class="enav">
+
+</span>
+</div>
+
+<div class="dim" style="padding: 8px 10px; font-size: 11px; line-height: 1.45">Drag a blue number left or right. With the stopwatch on, a change makes a key at the playhead. Ctrl+Space adds an effect to Hair.</div>
+</div>
+</div>
+
+
+<!-- ===== Viewer (Viewer A, no Sketch group) with the Map tab ===== -->
+
+<div class="pnl" style="left:340px;top:40px;width:840px;height:460px">
+<div class="ph">
+<div class="vtab on">Viewer · Cut 012</div>
+
+<span class="sp"></span><span class="dim" style="font-size: 11px">Full quality · fit 34%</span>
+</div>
+
+
+<div class="vt1">
+<button class="vb2" data-tip="Back one frame · Page Up"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="M18 5L8 12l10 7zM6 5v14"/></svg></button>
+<button class="vb2" data-tip="Play or stop · Space"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg></button>
+<button class="vb2" data-tip="Forward one frame · Page Down"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="M6 5l10 7-10 7zM18 5v14"/></svg></button>
+<span class="fr">107</span><span class="dim" style="font-size: 11px">4s 11f</span>
+<span class="fps" data-tip="How fast it is really playing"><span class="dot" style="background: #8fd6a0"></span>24.0</span>
+<span class="gs2"></span>
+<button class="vb3" data-tip="Picture quality: Full"><span class="dot" style="background: #8fd6a0"></span>Full ▾</button>
+<button class="vb3" data-tip="Drawn on: Auto (graphics card when it can)">Auto ▾</button>
+<span class="gs2"></span>
+<button class="vb2" data-tip="Show see-through parts as a checkerboard"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/><path d="M4 12h16M12 4v16" /><rect x="4" y="4" width="8" height="8" fill="currentColor" stroke="none" opacity=".5"/><rect x="12" y="12" width="8" height="8" fill="currentColor" stroke="none" opacity=".5"/></svg></button>
+<button class="vb2" data-tip="Grid"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></button>
+<button class="vb2" data-tip="Region box: draw only part of the picture"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" stroke-dasharray="3 2"/></svg></button>
+<span class="gs2"></span>
+<button class="vb2" data-tip="Take a snapshot"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+<button class="vb2" data-tip="Compare with the snapshot"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14"/><path d="M12 3v18"/></svg></button>
+<button class="vb3" data-tip="Picture size">Fit ▾</button>
+
+</div>
+<div class="pa">
+<div class="pic" style="left:93px;top:26px;width:652px;height:367px;transition:transform .25s;transform:rotate(0deg) scale(1,1)">
+<svg class="full" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+<defs><linearGradient id="skyS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7b78f"/><stop offset=".45" stop-color="#e98aa0"/><stop offset="1" stop-color="#6a74b8"/></linearGradient></defs>
+<rect x="0" y="0" width="1920" height="1080" fill="url(#skyS)"/>
+<circle cx="1450" cy="260" r="170" fill="#fff2c4" opacity=".25"/>
+<circle cx="1450" cy="260" r="92" fill="#fff2c4"/>
+<path d="M0 820 Q480 690 960 770 T1920 730 V1080 H0 Z" fill="#3b2f5c"/>
+</svg>
+
+<svg class="full" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+<g style="">
+<path d="M760 1080 Q770 820 900 790 Q1030 820 1040 1080 Z" fill="#2c3a63" stroke="#1a1a2a" stroke-width="5"/>
+<g style="">
+<ellipse cx="900" cy="680" rx="92" ry="108" fill="#f1d3bd" stroke="#1a1a2a" stroke-width="5"/>
+<path d="M800 690 Q790 540 900 540 Q1010 540 1000 690 L975 620 L955 680 L930 610 L900 670 L870 610 L845 680 L825 620 Z" fill="#2b2140" stroke="#1a1a2a" stroke-width="5" stroke-linejoin="round" style="transform-origin:900px 650px;transform:translate(9.6px,0) rotate(7.77deg);filter:drop-shadow(0 0 7.2px #ffd27a) drop-shadow(0 0 3.6px #fff2c4)"/>
+<rect x="862" y="690" width="10" height="22" rx="4" fill="#1a1a2a"/>
+<rect x="928" y="690" width="10" height="22" rx="4" fill="#1a1a2a"/>
+</g>
+</g>
+</svg>
+
+
+</div>
+
+<div class="slate2" style="left:93px;top:9px"><span>EP 03 · SC 12 ·</span><span style="color: #e8b06a; font-weight: 700">CUT 012</span><span>· sheet 4 + 11</span></div>
+
+
+
+</div>
+
+
+
+</div>
+
+
+<!-- ===== Timeline (Timeline A + B): rows, the graph below them, one playhead ===== -->
+
+<div class="pnl" style="left:0px;top:500px;width:1180px;height:600px">
+<div class="tt2">
+<div class="tab on">Cut 012<span class="x">×</span></div><div class="tab">Precomp 1<span class="x">×</span></div><div class="tab">Rain overlay<span class="x">×</span></div>
+<span class="sp"></span>
+<span class="dim" style="font-size: 11px; padding-right: 12px">Cut 012 holds <span style="color: #4fa3ad; cursor: pointer">Precomp 1</span></span>
+</div>
+<div class="tlbar2">
+<div class="tms"><button class="">Timeline</button><button class="on">Both</button><button class="">Graph</button></div>
+<span class="tcb">107</span><span class="dim">4s 11f · 24 fps</span><span class="rdyv" data-tip="Green line: frames already in memory, they play at full speed · 21 of the 36 work-area frames · about 174 MB of the 8 GB memory setting · an edit clears the frames it changes"><span class="rdyd"></span>21 of 36 ready</span>
+<span class="fbox2"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>Find a layer</span>
+<button class="sh" data-tip="Add a note on the ruler at the playhead · or double-click the ruler" style="height: 24px; display: flex; align-items: center; gap: 5px"><span class="nflag"></span>Note</button>
+<span class="sp"></span>
+<span class="dim">Cut 012 · 8 layers · 10s 0f</span>
+<button class="shb on" data-tip="Hide the sheet on the right" style="margin-left: 4px"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M4 8h16M9 3v18M14 3v18"/></svg>Sheet</button>
+</div>
+<div class="tlb">
+<div class="rul">
+<div class="lcol lg3 lgh">
+<span></span>
+<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="justify-self: center"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>
+<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="justify-self: center"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>
+<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="justify-self: center"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+<span>#</span><span></span><span>Layer name</span>
+<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="justify-self: center"><circle cx="8" cy="8" r="6"/><path d="M5 10c1.5 1.3 4.5 1.3 6 0M5 6.5h1.5M9.5 6.5H11"/></svg>
+<span>Mode</span><span>Parent</span>
+</div>
+<div class="rcol" style="cursor: ew-resize; touch-action: none" title="Drag to move the playhead · double-click to add a note">
+<div style="position: absolute; left: 0; right: 0; top: 0; height: 6px; background: #2a2a30"></div>
+<div class="wbar" style="left:94px;width:504px" title="Work area: the frames that preview and render"></div><div class="rdy" style="left:94px;width:294px"></div>
+<span class="tick2" style="left:17px;height:10px;background:#44444a"></span><span class="tl2" style="left:21px;color:#7c7c84">84</span><span class="tick2" style="left:45px;height:5px;background:#44444a"></span><span class="tick2" style="left:73px;height:5px;background:#44444a"></span><span class="tick2" style="left:101px;height:10px;background:#44444a"></span><span class="tl2" style="left:105px;color:#7c7c84">90</span><span class="tick2" style="left:129px;height:5px;background:#44444a"></span><span class="tick2" style="left:157px;height:5px;background:#44444a"></span><span class="tick2" style="left:185px;height:26px;background:#6a6a72"></span><span class="tl2" style="left:189px;color:#e4e4e8;font-weight:600">4s · 96</span><span class="tick2" style="left:213px;height:5px;background:#44444a"></span><span class="tick2" style="left:241px;height:5px;background:#44444a"></span><span class="tick2" style="left:269px;height:10px;background:#44444a"></span><span class="tl2" style="left:273px;color:#7c7c84">102</span><span class="tick2" style="left:297px;height:5px;background:#44444a"></span><span class="tick2" style="left:325px;height:5px;background:#44444a"></span><span class="tick2" style="left:353px;height:10px;background:#44444a"></span><span class="tl2" style="left:357px;color:#7c7c84">108</span><span class="tick2" style="left:381px;height:5px;background:#44444a"></span><span class="tick2" style="left:409px;height:5px;background:#44444a"></span><span class="tick2" style="left:437px;height:10px;background:#44444a"></span><span class="tl2" style="left:441px;color:#7c7c84">114</span><span class="tick2" style="left:465px;height:5px;background:#44444a"></span><span class="tick2" style="left:493px;height:5px;background:#44444a"></span><span class="tick2" style="left:521px;height:26px;background:#6a6a72"></span><span class="tl2" style="left:525px;color:#e4e4e8;font-weight:600">5s · 120</span><span class="tick2" style="left:549px;height:5px;background:#44444a"></span><span class="tick2" style="left:577px;height:5px;background:#44444a"></span><span class="tick2" style="left:605px;height:10px;background:#44444a"></span><span class="tl2" style="left:609px;color:#7c7c84">126</span><span class="tick2" style="left:633px;height:5px;background:#44444a"></span><span class="tick2" style="left:661px;height:5px;background:#44444a"></span>
+<span class="nmark" style="left:96.5px" title="Frame 90 · click to edit"><span class="nflag"></span><span class="ntx">Key pose</span></span>
+<span class="ph-flag2" style="left:339px">107</span>
+</div>
+</div>
+
+
+<div style="height:240px;overflow-y:auto;overflow-x:hidden">
+
+
+<div class="lyr" title="">
+<div class="lcol lg3">
+<span style="align-self:stretch;background:transparent"></span>
+<button class="ic2 on" style="visibility:hidden" title="Show or hide"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+<button class="ic2" style="visibility:hidden" title="Solo"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg></button>
+<button class="ic2" style="visibility:hidden" title="Lock"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></button>
+<span class="dim" style="text-align: right; font-size: 11px"></span>
+<button class="twb">▸</button>
+<span style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:62%">Camera</span><span class="badge">the composition’s</span></span>
+<button class="ic2" style="visibility:hidden" title="Shy: hide this row"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M5 10c1.5 1.3 4.5 1.3 6 0M5 6.5h1.5M9.5 6.5H11"/></svg></button>
+<span style="font-size:11px;color:#8e8e96"></span>
+<span style="display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11px; color: #8e8e96"><span style="white-space:nowrap;overflow:hidden"></span></span>
+</div>
+<div class="rcol">
+<div class="bar" style="left:10px;width:671px;background:#3b3320;border-color:#8a7440;color:#e8d3a0"></div>
+<span class="kd" style="left:185px"></span><span class="kd" style="left:521px"></span>
+
+</div>
+</div>
+
+
+
+
+<div class="lyr" title="">
+<div class="lcol lg3">
+<span style="align-self:stretch;background:#b08a5a"></span>
+<button class="ic2 on" style="" title="Show or hide"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+<button class="ic2" style="" title="Solo"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg></button>
+<button class="ic2" style="" title="Lock"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></button>
+<span class="dim" style="text-align: right; font-size: 11px">1</span>
+<button class="twb">▸</button>
+<span style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:62%">BOOK</span><span class="badge">held</span></span>
+<button class="ic2" style="" title="Shy: hide this row"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M5 10c1.5 1.3 4.5 1.3 6 0M5 6.5h1.5M9.5 6.5H11"/></svg></button>
+<span style="font-size:11px;color:#8e8e96">Normal</span>
+<span style="display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11px; color: #8e8e96"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="flex-shrink: 0"><circle cx="8" cy="8" r="5.5"/><path d="M8 8c0-2 3-2 3 0s-3 3-5 2-2-4 1-5"/></svg><span style="white-space:nowrap;overflow:hidden">None</span></span>
+</div>
+<div class="rcol">
+<div class="bar" style="left:10px;width:671px;background:#463b2a;border-color:#8a7450;color:#f0e4cc">1</div>
+
+
+</div>
+</div>
+
+
+
+
+<div class="lyr" title="">
+<div class="lcol lg3">
+<span style="align-self:stretch;background:#8e6fc4"></span>
+<button class="ic2 on" style="" title="Show or hide"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+<button class="ic2" style="" title="Solo"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg></button>
+<button class="ic2" style="" title="Lock"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></button>
+<span class="dim" style="text-align: right; font-size: 11px">2</span>
+<button class="twb">▸</button>
+<span style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:62%">Glow pass</span><span class="badge">adjustment</span></span>
+<button class="ic2" style="" title="Shy: hide this row"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M5 10c1.5 1.3 4.5 1.3 6 0M5 6.5h1.5M9.5 6.5H11"/></svg></button>
+<span style="font-size:11px;color:#e8b06a">Screen</span>
+<span style="display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11px; color: #8e8e96"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="flex-shrink: 0"><circle cx="8" cy="8" r="5.5"/><path d="M8 8c0-2 3-2 3 0s-3 3-5 2-2-4 1-5"/></svg><span style="white-space:nowrap;overflow:hidden">None</span></span>
+</div>
+<div class="rcol">
+<div class="bar" style="left:10px;width:671px;background:#3a3350;border-color:#6a5a94;color:#d9d0f0">Glow · Light Wrap</div>
+
+
+</div>
+</div>
+
+
+
+
+<div class="lyr sel" title="Twirl ▸ to see the settings that move">
+<div class="lcol lg3">
+<span style="align-self:stretch;background:#c46a6a"></span>
+<button class="ic2 on" style="" title="Show or hide"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+<button class="ic2" style="" title="Solo"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg></button>
+<button class="ic2" style="" title="Lock"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></button>
+<span class="dim" style="text-align: right; font-size: 11px">3</span>
+<button class="twb">▾</button>
+<span style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:62%;color:#fff;font-weight:600">Hair</span><span class="badge">irregular</span></span>
+<button class="ic2" style="" title="Shy: hide this row"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M5 10c1.5 1.3 4.5 1.3 6 0M5 6.5h1.5M9.5 6.5H11"/></svg></button>
+<span style="font-size:11px;color:#8e8e96">Normal</span>
+<span style="display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11px; color: #8e8e96"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="flex-shrink: 0"><circle cx="8" cy="8" r="5.5"/><path d="M8 8c0-2 3-2 3 0s-3 3-5 2-2-4 1-5"/></svg><span style="white-space:nowrap;overflow:hidden;color:#d4d4d8">4 Body</span></span>
+</div>
+<div class="rcol">
+<div class="cel" style="left:10px;width:41px">27</div><div class="cel odd" style="left:52px;width:27px">28</div><div class="cel" style="left:80px;width:27px">29</div><div class="cel odd" style="left:108px;width:41px">30</div><div class="cel" style="left:150px;width:13px"></div><div class="cel odd" style="left:164px;width:27px">32</div><div class="cel" style="left:192px;width:55px">33</div><div class="cel odd" style="left:248px;width:27px">34</div><div class="cel" style="left:276px;width:41px">35</div><div class="cel odd" style="left:318px;width:27px">36</div><div class="cel" style="left:346px;width:27px">37</div><div class="cel odd" style="left:374px;width:41px">38</div><div class="cel" style="left:416px;width:27px">39</div><div class="cel odd" style="left:444px;width:13px"></div><div class="cel" style="left:458px;width:41px">41</div><div class="cel odd" style="left:500px;width:41px">42</div><div class="cel" style="left:542px;width:27px">43</div><div class="cel odd" style="left:570px;width:27px">44</div><div class="cel" style="left:598px;width:41px">45</div><div class="cel odd" style="left:640px;width:13px"></div><div class="cel" style="left:654px;width:27px">47</div>
+<span class="kd" style="left:101px"></span><span class="kd" style="left:521px"></span><span class="kd" style="left:17px"></span><span class="kd" style="left:241px"></span><span class="kd" style="left:577px"></span><span class="kd" style="left:185px"></span><span class="kd" style="left:339px"></span><span class="kd" style="left:493px"></span>
+
+</div>
+</div>
+
+
+
+
+
+<div class="prw">
+<div class="lcol pl2"><span style="display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden"><span class="esw on"></span><span class="sq" style="background:#8fd6a0"></span>Position</span><span class="ev" style="font-size: 11px">1016.0, 540.0</span><span style="display: flex; align-items: center"><button class="nb lit">◀</button><button class="nb"><span class="dia has" style="display: inline-block"></span></button><button class="nb lit">▶</button></span></div>
+<div class="rcol">
+<span class="kd" style="left:96px" title="Go to this key"></span><span class="kd" style="left:516px" title="Go to this key"></span>
+</div>
+</div>
+
+
+
+
+<div class="prw">
+<div class="lcol pl2"><span style="display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden"><span class="esw on"></span><span class="sq" style="background:#6ea8fe"></span>Rotation</span><span class="ev" style="font-size: 11px">0x +15.5 °</span><span style="display: flex; align-items: center"><button class="nb lit">◀</button><button class="nb"><span class="dia has" style="display: inline-block"></span></button><button class="nb lit">▶</button></span></div>
+<div class="rcol">
+<span class="kd" style="left:12px" title="Go to this key"></span><span class="kd" style="left:236px" title="Go to this key"></span><span class="kd" style="left:572px" title="Go to this key"></span>
+</div>
+</div>
+
+
+
+
+<div class="prw">
+<div class="lcol pl2"><span style="display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden"><span class="esw on"></span><span class="sq" style="background:#d97fb8"></span>Glow › Radius</span><span class="ev" style="font-size: 11px">12.0 px</span><span style="display: flex; align-items: center"><button class="nb lit">◀</button><button class="nb"><span class="dia on" style="display: inline-block"></span></button><button class="nb lit">▶</button></span></div>
+<div class="rcol">
+<span class="kd" style="left:180px" title="Go to this key"></span><span class="kd" style="left:334px" title="Go to this key"></span><span class="kd" style="left:488px" title="Go to this key"></span>
+</div>
+</div>
+
+
+
+<div class="lyr" title="">
+<div class="lcol lg3">
+<span style="align-self:stretch;background:#d99a4e"></span>
+<button class="ic2 on" style="" title="Show or hide"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+<button class="ic2" style="" title="Solo"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg></button>
+<button class="ic2" style="" title="Lock"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></button>
+<span class="dim" style="text-align: right; font-size: 11px">4</span>
+<button class="twb">▸</button>
+<span style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:62%">Body</span><span class="badge">on 2s</span><button class="relink">Relink…</button></span>
+<button class="ic2" style="" title="Shy: hide this row"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M5 10c1.5 1.3 4.5 1.3 6 0M5 6.5h1.5M9.5 6.5H11"/></svg></button>
+<span style="font-size:11px;color:#8e8e96">Normal</span>
+<span style="display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11px; color: #8e8e96"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="flex-shrink: 0"><circle cx="8" cy="8" r="5.5"/><path d="M8 8c0-2 3-2 3 0s-3 3-5 2-2-4 1-5"/></svg><span style="white-space:nowrap;overflow:hidden">None</span></span>
+</div>
+<div class="rcol">
+<div class="cel gone" style="left:10px;width:27px">42</div><div class="cel odd" style="left:38px;width:27px">43</div><div class="cel" style="left:66px;width:27px">44</div><div class="cel odd" style="left:94px;width:27px">45</div><div class="cel" style="left:122px;width:27px">46</div><div class="cel odd" style="left:150px;width:27px">47</div><div class="cel" style="left:178px;width:27px">48</div><div class="cel odd" style="left:206px;width:27px">49</div><div class="cel" style="left:234px;width:27px">50</div><div class="cel odd" style="left:262px;width:27px">51</div><div class="cel" style="left:290px;width:27px">52</div><div class="cel odd" style="left:318px;width:27px">53</div><div class="cel" style="left:346px;width:27px">54</div><div class="cel odd" style="left:374px;width:27px">55</div><div class="cel" style="left:402px;width:27px">56</div><div class="cel odd" style="left:430px;width:27px">57</div><div class="cel" style="left:458px;width:27px">58</div><div class="cel odd" style="left:486px;width:27px">59</div><div class="cel" style="left:514px;width:27px">60</div><div class="cel odd" style="left:542px;width:27px">61</div><div class="cel" style="left:570px;width:27px">62</div><div class="cel odd" style="left:598px;width:27px">63</div><div class="cel" style="left:626px;width:27px">64</div><div class="cel odd" style="left:654px;width:27px">65</div>
+
+
+</div>
+</div>
+
+
+
+
+<div class="lyr" title="Double-click to open its map in the viewer">
+<div class="lcol lg3">
+<span style="align-self:stretch;background:#4fa3ad"></span>
+<button class="ic2 on" style="" title="Show or hide"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+<button class="ic2" style="" title="Solo"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg></button>
+<button class="ic2" style="" title="Lock"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></button>
+<span class="dim" style="text-align: right; font-size: 11px">5</span>
+<button class="twb">▸</button>
+<span style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:62%">Precomp 1</span><span class="badge">composition</span></span>
+<button class="ic2" style="" title="Shy: hide this row"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M5 10c1.5 1.3 4.5 1.3 6 0M5 6.5h1.5M9.5 6.5H11"/></svg></button>
+<span style="font-size:11px;color:#8e8e96">Normal</span>
+<span style="display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11px; color: #8e8e96"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="flex-shrink: 0"><circle cx="8" cy="8" r="5.5"/><path d="M8 8c0-2 3-2 3 0s-3 3-5 2-2-4 1-5"/></svg><span style="white-space:nowrap;overflow:hidden">None</span></span>
+</div>
+<div class="rcol">
+<div class="bar" style="left:10px;width:671px;background:#24464b;border-color:#4fa3ad;color:#cdeef2">▣  Precomp 1 · 2 layers · double-click to open its map</div>
+
+
+</div>
+</div>
+
+
+
+
+<div class="lyr" title="">
+<div class="lcol lg3">
+<span style="align-self:stretch;background:#7a9a5a"></span>
+<button class="ic2 on" style="" title="Show or hide"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+<button class="ic2" style="" title="Solo"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg></button>
+<button class="ic2 on" style="" title="Lock"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></button>
+<span class="dim" style="text-align: right; font-size: 11px">6</span>
+<button class="twb">▸</button>
+<span style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:62%">BG</span><span class="badge">held</span></span>
+<button class="ic2" style="" title="Shy: hide this row"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M5 10c1.5 1.3 4.5 1.3 6 0M5 6.5h1.5M9.5 6.5H11"/></svg></button>
+<span style="font-size:11px;color:#8e8e96">Normal</span>
+<span style="display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11px; color: #8e8e96"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="flex-shrink: 0"><circle cx="8" cy="8" r="5.5"/><path d="M8 8c0-2 3-2 3 0s-3 3-5 2-2-4 1-5"/></svg><span style="white-space:nowrap;overflow:hidden">None</span></span>
+</div>
+<div class="rcol">
+<div class="bar" style="left:10px;width:671px;background:#3f6a5a;border-color:#5a8a76;color:#e0f0e8">1</div>
+
+
+</div>
+</div>
+
+
+
+
+<div class="lyr" title="">
+<div class="lcol lg3">
+<span style="align-self:stretch;background:#5a8ac4"></span>
+<button class="ic2 on" style="" title="Show or hide"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+<button class="ic2" style="" title="Solo"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg></button>
+<button class="ic2" style="" title="Lock"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></button>
+<span class="dim" style="text-align: right; font-size: 11px">7</span>
+<button class="twb">▸</button>
+<span style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:62%">dialogue_012.wav</span><span class="badge">sound</span></span>
+<button class="ic2" style="" title="Shy: hide this row"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M5 10c1.5 1.3 4.5 1.3 6 0M5 6.5h1.5M9.5 6.5H11"/></svg></button>
+<span style="font-size:11px;color:#8e8e96"></span>
+<span style="display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11px; color: #8e8e96"><span style="white-space:nowrap;overflow:hidden"></span></span>
+</div>
+<div class="rcol">
+
+
+<div class="wvb" style="left:10px;width:672px"><svg width="672" height="24" style="display: block; margin-top: -0px"><path d="M0 11.6 L3 11.6 L6 11.6 L9 11.6 L12 11.6 L15 11.6 L18 11.6 L21 11.6 L24 11.6 L27 11.6 L30 11.6 L33 11.6 L36 11.6 L39 11.6 L42 11.6 L45 11.6 L48 11.6 L51 11.6 L54 11.6 L57 11.6 L60 11.6 L63 11.6 L66 11.6 L69 11.6 L72 11.6 L75 11.6 L78 11.6 L81 11.6 L84 11.6 L87 11.6 L90 11.6 L93 11.6 L96 11.6 L99 11.6 L102 11.6 L105 11.6 L108 11.6 L111 11.6 L114 11.6 L117 11.6 L120 11.6 L123 11.6 L126 11.6 L129 11.6 L132 11.6 L135 11.6 L138 11.6 L141 11.6 L144 11.6 L147 11.6 L150 11.6 L153 11.6 L156 11.6 L159 11.6 L162 11.6 L165 11.6 L168 11.6 L171 11.6 L174 11.6 L177 11.6 L180 11.6 L183 11.6 L186 11.6 L189 11.6 L192 11.6 L195 11.6 L198 11.6 L201 11.6 L204 11.6 L207 11.6 L210 11.6 L213 11.6 L216 11.6 L219 11.6 L222 11.6 L225 11.6 L228 11.6 L231 11.6 L234 11.6 L237 11.6 L240 11.6 L243 11.6 L246 11.6 L249 11.6 L252 11.6 L255 11.6 L258 11.6 L261 11.6 L264 11.6 L267 3.8 L270 4.2 L273 4.8 L276 5.4 L279 6.2 L282 7.0 L285 8.0 L288 9.0 L291 10.1 L294 9.9 L297 8.8 L300 7.7 L303 6.7 L306 5.8 L309 4.9 L312 4.1 L315 3.5 L318 2.9 L321 2.5 L324 2.3 L327 2.2 L330 2.2 L333 2.4 L336 2.7 L339 3.2 L342 3.8 L345 4.5 L348 5.2 L351 6.1 L354 7.0 L357 7.9 L360 8.9 L363 9.8 L366 10.3 L369 9.4 L372 8.6 L375 7.9 L378 7.3 L381 6.7 L384 6.3 L387 6.0 L390 5.8 L393 5.7 L396 5.7 L399 5.8 L402 6.0 L405 6.3 L408 6.6 L411 7.0 L414 7.4 L417 7.9 L420 8.4 L423 8.8 L426 9.2 L429 9.6 L432 10.0 L435 10.3 L438 10.5 L441 10.4 L444 10.3 L447 10.3 L450 9.8 L453 9.8 L456 9.8 L459 9.8 L462 9.8 L465 9.8 L468 9.8 L471 9.8 L474 9.8 L477 9.8 L480 9.8 L483 9.8 L486 9.8 L489 9.8 L492 11.6 L495 11.6 L498 11.6 L501 11.6 L504 11.6 L507 11.6 L510 11.6 L513 11.6 L516 11.6 L519 11.6 L522 11.6 L525 11.6 L528 11.6 L531 11.6 L534 11.6 L537 11.6 L540 11.6 L543 11.6 L546 11.6 L549 11.6 L552 11.6 L555 11.6 L558 11.6 L561 11.6 L564 11.6 L567 11.6 L570 11.6 L573 11.6 L576 11.6 L579 11.6 L582 11.6 L585 11.6 L588 11.6 L591 11.6 L594 11.6 L597 11.6 L600 11.6 L603 11.6 L606 11.6 L609 11.6 L612 11.6 L615 11.6 L618 11.6 L621 11.6 L624 11.6 L627 11.6 L630 11.6 L633 11.6 L636 11.6 L639 11.6 L642 11.6 L645 11.6 L648 11.6 L651 11.6 L654 11.6 L657 11.6 L660 11.6 L663 11.6 L666 11.6 L669 11.6 L672 11.6 L672 12.4 L669 12.4 L666 12.4 L663 12.4 L660 12.4 L657 12.4 L654 12.4 L651 12.4 L648 12.4 L645 12.4 L642 12.4 L639 12.4 L636 12.4 L633 12.4 L630 12.4 L627 12.4 L624 12.4 L621 12.4 L618 12.4 L615 12.4 L612 12.4 L609 12.4 L606 12.4 L603 12.4 L600 12.4 L597 12.4 L594 12.4 L591 12.4 L588 12.4 L585 12.4 L582 12.4 L579 12.4 L576 12.4 L573 12.4 L570 12.4 L567 12.4 L564 12.4 L561 12.4 L558 12.4 L555 12.4 L552 12.4 L549 12.4 L546 12.4 L543 12.4 L540 12.4 L537 12.4 L534 12.4 L531 12.4 L528 12.4 L525 12.4 L522 12.4 L519 12.4 L516 12.4 L513 12.4 L510 12.4 L507 12.4 L504 12.4 L501 12.4 L498 12.4 L495 12.4 L492 12.4 L489 14.2 L486 14.2 L483 14.2 L480 14.2 L477 14.2 L474 14.2 L471 14.2 L468 14.2 L465 14.2 L462 14.2 L459 14.2 L456 14.2 L453 14.2 L450 14.2 L447 13.7 L444 13.7 L441 13.6 L438 13.5 L435 13.7 L432 14.0 L429 14.4 L426 14.8 L423 15.2 L420 15.6 L417 16.1 L414 16.6 L411 17.0 L408 17.4 L405 17.7 L402 18.0 L399 18.2 L396 18.3 L393 18.3 L390 18.2 L387 18.0 L384 17.7 L381 17.3 L378 16.7 L375 16.1 L372 15.4 L369 14.6 L366 13.7 L363 14.2 L360 15.1 L357 16.1 L354 17.0 L351 17.9 L348 18.8 L345 19.5 L342 20.2 L339 20.8 L336 21.3 L333 21.6 L330 21.8 L327 21.8 L324 21.7 L321 21.5 L318 21.1 L315 20.5 L312 19.9 L309 19.1 L306 18.2 L303 17.3 L300 16.3 L297 15.2 L294 14.1 L291 13.9 L288 15.0 L285 16.0 L282 17.0 L279 17.8 L276 18.6 L273 19.2 L270 19.8 L267 20.2 L264 12.4 L261 12.4 L258 12.4 L255 12.4 L252 12.4 L249 12.4 L246 12.4 L243 12.4 L240 12.4 L237 12.4 L234 12.4 L231 12.4 L228 12.4 L225 12.4 L222 12.4 L219 12.4 L216 12.4 L213 12.4 L210 12.4 L207 12.4 L204 12.4 L201 12.4 L198 12.4 L195 12.4 L192 12.4 L189 12.4 L186 12.4 L183 12.4 L180 12.4 L177 12.4 L174 12.4 L171 12.4 L168 12.4 L165 12.4 L162 12.4 L159 12.4 L156 12.4 L153 12.4 L150 12.4 L147 12.4 L144 12.4 L141 12.4 L138 12.4 L135 12.4 L132 12.4 L129 12.4 L126 12.4 L123 12.4 L120 12.4 L117 12.4 L114 12.4 L111 12.4 L108 12.4 L105 12.4 L102 12.4 L99 12.4 L96 12.4 L93 12.4 L90 12.4 L87 12.4 L84 12.4 L81 12.4 L78 12.4 L75 12.4 L72 12.4 L69 12.4 L66 12.4 L63 12.4 L60 12.4 L57 12.4 L54 12.4 L51 12.4 L48 12.4 L45 12.4 L42 12.4 L39 12.4 L36 12.4 L33 12.4 L30 12.4 L27 12.4 L24 12.4 L21 12.4 L18 12.4 L15 12.4 L12 12.4 L9 12.4 L6 12.4 L3 12.4 L0 12.4 Z" fill="#6fbf8f"/></svg></div>
+</div>
+</div>
+
+
+
+</div>
+
+
+<div style="display:flex;height:241px;border-top:2px solid #34343a;box-sizing:border-box">
+<div class="lcol" style="display: flex; flex-direction: column; background: #1b1b1e">
+<div class="fsec">In the graph · tick to add</div>
+<button class="gtick"><span class="cb on"></span><span class="sq" style="background:#8fd6a0"></span><span style="">Position</span><span class="sp"></span><span class="dim">1016.0, 540.0</span></button><button class="gtick"><span class="cb on"></span><span class="sq" style="background:#6ea8fe"></span><span style="">Rotation</span><span class="sp"></span><span class="dim">0x +15.5</span></button><button class="gtick"><span class="cb on"></span><span class="sq" style="background:#d97fb8"></span><span style="color:#fff;font-weight:600">Glow › Radius</span><span class="sp"></span><span class="dim">12.0</span></button>
+<div class="fsec" style="margin-top: 4px">Shape of the curve · Glow › Radius</div>
+<div style="display: flex; gap: 4px; padding: 0 10px"><button class="sh on">Easy ease · F9</button><button class="sh">Linear</button><button class="sh">Hold</button></div>
+<div class="dim" style="padding: 8px 10px; font-size: 11px; line-height: 1.4">Drag a diamond: up and down changes the value, sideways moves the key. Same frames as the rows above.</div>
+</div>
+<div class="rcol" style="position:relative;flex-grow:1;overflow:hidden;touch-action:none;background:#17171a">
+<div style="position:absolute;left:0;right:0;top:68px;height:1px;background:#232329"></div><div style="position:absolute;left:0;right:0;top:120px;height:1px;background:#232329"></div><div style="position:absolute;left:0;right:0;top:171px;height:1px;background:#232329"></div><div style="position:absolute;top:0;bottom:0;left:185px;width:1px;background:#26262c"></div><div style="position:absolute;top:0;bottom:0;left:521px;width:1px;background:#26262c"></div>
+<svg style="position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none"><path d="M0 140.2 H101 C241.0 140.2 381.0 78.1 521 78.1 H720" fill="none" stroke="#8fd6a0" stroke-width="2"/></svg><svg style="position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none"><path d="M0 171.3 H17 C91.7 171.3 166.3 78.1 241 78.1 C353.0 78.1 465.0 140.2 577 140.2 H720" fill="none" stroke="#6ea8fe" stroke-width="2"/></svg><svg style="position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none"><path d="M0 167.8 H185 C236.3 167.8 287.7 140.2 339 140.2 C390.3 140.2 441.7 85.0 493 85.0 H720" fill="none" stroke="#d97fb8" stroke-width="2"/></svg>
+<span class="gk" style="left:101px;top:140.2px;background:#8fd6a0;cursor:grab;opacity:.85" title="Position 980.0, 540.0 at frame 90 · drag it"></span><span class="gk" style="left:521px;top:78.1px;background:#8fd6a0;cursor:grab;opacity:.85" title="Position 1040.0, 540.0 at frame 120 · drag it"></span><span class="gk" style="left:17px;top:171.3px;background:#6ea8fe;cursor:grab;opacity:.85" title="Rotation 0x +0.0 at frame 84 · drag it"></span><span class="gk" style="left:241px;top:78.1px;background:#6ea8fe;cursor:grab;opacity:.85" title="Rotation 0x +18.0 at frame 100 · drag it"></span><span class="gk" style="left:577px;top:140.2px;background:#6ea8fe;cursor:grab;opacity:.85" title="Rotation 0x +6.0 at frame 124 · drag it"></span><span class="gk" style="left:185px;top:167.8px;background:#d97fb8;width:11px;height:11px;margin:-6px 0 0 -6px;cursor:grab" title="Glow › Radius 8.0 at frame 96 · drag it"></span><span class="gk" style="left:339px;top:140.2px;background:#d97fb8;width:11px;height:11px;margin:-6px 0 0 -6px;cursor:grab;box-shadow:0 0 0 2px #e0604a" title="Glow › Radius 12.0 at frame 107 · drag it"></span><span class="gk" style="left:493px;top:85.0px;background:#d97fb8;width:11px;height:11px;margin:-6px 0 0 -6px;cursor:grab" title="Glow › Radius 20.0 at frame 118 · drag it"></span>
+<span style="position:absolute;left:6px;top:9px;font-size:10px;color:#d97fb8">Radius 30 px</span><span style="position:absolute;left:6px;top:216px;font-size:10px;color:#d97fb8">0</span>
+</div>
+</div>
+
+<div class="ph-line" style="left:798px"></div>
+</div>
+</div>
+
+
+<!-- ===== Sheet, shown or hidden on the side (Timeline B) ===== -->
+
+<div class="pnl" style="left:1180px;top:40px;width:400px;height:1060px">
+<div class="ph"><span class="pt">Sheet · Cut 012</span><span class="sp"></span><span class="dim" style="font-size: 11px">lit row = the playhead · click a row to go there</span><button class="ib3" title="Hide the sheet" style="margin-left: 6px">×</button></div>
+<div class="shr hd"><span>Frame</span><span>Hair</span><span>Body</span><span>BG</span><span>Action</span><span>Dialogue</span></div>
+<div class="shr"><span class="f">84</span><span class="">27</span><span class="gone">42</span><span class="hl">1</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">85</span><span class="hl">│</span><span class="gone">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">86</span><span class="hl">│</span><span class="">43</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">87</span><span class="">28</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">88</span><span class="hl">│</span><span class="">44</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">89</span><span class="">29</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">90</span><span class="hl">│</span><span class="">45</span><span class="hl">│</span><span class="nt">Key pose</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">91</span><span class="">30</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">92</span><span class="hl">│</span><span class="">46</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">93</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">94</span><span class="">31</span><span class="">47</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">95</span><span class="">32</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr sec"><span class="f">96</span><span class="hl">│</span><span class="">48</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">97</span><span class="">33</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">98</span><span class="hl">│</span><span class="">49</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">99</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">100</span><span class="hl">│</span><span class="">50</span><span class="hl">│</span><span class="">push in ▼</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">101</span><span class="">34</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">102</span><span class="hl">│</span><span class="">51</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">103</span><span class="">35</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">104</span><span class="hl">│</span><span class="">52</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8">Wait</span></div><div class="shr"><span class="f">105</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">106</span><span class="">36</span><span class="">53</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr lit"><span class="f">107</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">108</span><span class="">37</span><span class="">54</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8">for</span></div><div class="shr"><span class="f">109</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">110</span><span class="">38</span><span class="">55</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">111</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8">me!</span></div><div class="shr"><span class="f">112</span><span class="hl">│</span><span class="">56</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">113</span><span class="">39</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">114</span><span class="hl">│</span><span class="">57</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">115</span><span class="">40</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">116</span><span class="">41</span><span class="">58</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8">(breath)</span></div><div class="shr"><span class="f">117</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">118</span><span class="hl">│</span><span class="">59</span><span class="hl">│</span><span class="">stop ▲</span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">119</span><span class="">42</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr sec"><span class="f">120</span><span class="hl">│</span><span class="">60</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">121</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">122</span><span class="">43</span><span class="">61</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">123</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">124</span><span class="">44</span><span class="">62</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">125</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">126</span><span class="">45</span><span class="">63</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">127</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">128</span><span class="hl">│</span><span class="">64</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">129</span><span class="">46</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">130</span><span class="">47</span><span class="">65</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div><div class="shr"><span class="f">131</span><span class="hl">│</span><span class="hl">│</span><span class="hl">│</span><span class=""></span><span style="text-align: left; padding-left: 6px; color: #f4dca8"></span></div>
+</div>
+
+
+<!-- ===== Render workspace: queue (Export A) whose running item grows into the watcher (Export B) ===== -->
+
+
+<!-- ===== Sketch workspace ===== -->
+
+
+<!-- ===== Effects finder, Ctrl+Space, centred (Effects C with Whole app B's family tree) ===== -->
+
+
+<!-- ===== Watch it write as a popup (Export A/D) ===== -->
+
+
+<!-- ===== Watch it write in its own window (Export B), movable, stays across workspaces ===== -->
+
+
+<span class="pin" style="left:760px;top:534px;pointer-events:none">1</span><span class="pin" style="left:160px;top:740px;pointer-events:none">2</span><span class="pin" style="left:300px;top:864px;pointer-events:none">3</span><span class="pin" style="left:1280px;top:44px;pointer-events:none">4</span><span class="pin" style="left:346px;top:70px;pointer-events:none">5</span><span class="pin" style="left:300px;top:64px;pointer-events:none">6</span>
+</div>
+
+<div class="key">
+<div class="kl">Sandbox · Animate workspace</div>
+<div class="kt">Rows, graph and sheet together</div>
+<div><span class="chip">Timeline A</span><span class="chip">Timeline B</span><span class="chip">Effect controls B</span><span class="chip">Viewer A</span><span class="chip">Whole app B (workspaces)</span></div>
+<div class="kh">The idea</div>
+<div>Timeline A and B combined. The rows stay on top, the graph sits right under them on the same frames, and one red playhead runs through both. The sheet stands on the side and hides with one button.</div>
+<div class="kh">What the numbers point at</div>
+
+<div class="ki"><span class="kn2">1</span><div><b>Timeline, Both, Graph</b><div>Beside the frame number. Both is the default here. Each workspace remembers its own choice.</div></div></div>
+
+<div class="ki"><span class="kn2">2</span><div><b>Hair, twirled open</b><div>Position, Rotation and Glow › Radius, with ◀ ◆ ▶ to step and set keys.</div></div></div>
+
+<div class="ki"><span class="kn2">3</span><div><b>The graph</b><div>Tick which settings to show. Drag a diamond: up and down changes the value, sideways moves the key. Easy ease, Linear and Hold change the curve.</div></div></div>
+
+<div class="ki"><span class="kn2">4</span><div><b>The sheet</b><div>Frame by frame: Hair, Body, BG, Action and Dialogue. The lit row is the playhead; click a row to go there. Body 42 is struck out: it is missing. The Sheet button at the right of the timeline shows or hides it.</div></div></div>
+
+<div class="ki"><span class="kn2">5</span><div><b>A smaller viewer</b><div>Only the play row, so timing has the room.</div></div></div>
+
+<div class="ki"><span class="kn2">6</span><div><b>Effect controls</b><div>The same settings, so you can type an exact value.</div></div></div>
+
+<div class="kh">Try it</div>
+<div>Drag the pink Radius diamond at frame 118 up: the glow grows in the viewer. Click Linear, then Hold, and watch the curve change shape. Press the Sheet button to hide the sheet.</div>
+<div class="to"><b>Trade-off.</b> Rows and graph share the height, so each gets about half. Graph alone gives the curves the whole panel.</div>
+<div class="mr"><b>My reading.</b> I put the sheet as a full-height column on the right so its 48 frames fit without scrolling. It is on in Animate and off in Compose.</div>
+</div>
+</div>
+</body>

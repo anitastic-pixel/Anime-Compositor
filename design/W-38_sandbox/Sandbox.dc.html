@@ -1,0 +1,2233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sandbox · Compose workspace</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;font-family:"Segoe UI",system-ui,sans-serif;background:#101012}
+button{font:inherit;color:#d4d4d8;background:#2c2c30;border:1px solid #45454b;border-radius:4px;padding:3px 10px;cursor:pointer}
+.mock{position:relative;width:1580px;height:1100px;flex-shrink:0;overflow:hidden;background:#141416;color:#d4d4d8;font-size:12px}
+.pnl{position:absolute;box-sizing:border-box;background:#1e1e20;border-right:1px solid #0f0f11;border-bottom:1px solid #0f0f11;overflow:hidden;display:flex;flex-direction:column}
+.ph{height:26px;flex-shrink:0;display:flex;align-items:center;gap:4px;background:#161618;border-bottom:1px solid #0f0f11;padding-right:6px;box-sizing:border-box}
+.pt{align-self:stretch;display:flex;align-items:center;padding:0 12px;color:#fff;background:#1e1e20;box-shadow:inset 0 2px 0 #e8b06a;white-space:nowrap}
+.dim{color:#8e8e96}
+.sp{flex-grow:1}
+.ic{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.kb{display:inline-block;font-size:10.5px;color:#d4d4d8;background:#34343a;border:1px solid #4a4a50;border-bottom-width:2px;border-radius:3px;padding:0 5px;line-height:15px;white-space:nowrap}
+.miss{color:#e0604a}
+.mb{position:absolute;left:0;top:0;width:1580px;height:30px;box-sizing:border-box;background:#1a1a1c;border-bottom:1px solid #0f0f11;display:flex;align-items:center;padding:0 6px;z-index:20}
+.mw{position:relative}
+.m{border:0;background:none;height:24px;padding:0 9px;color:#d4d4d8;border-radius:3px}
+.m.on{background:#2e3b52;color:#fff}
+.menu{position:absolute;left:0;top:27px;width:280px;background:#26262a;border:1px solid #45454b;border-radius:4px;box-shadow:0 8px 24px rgba(0,0,0,.6);padding:4px 0;z-index:30}
+.mi{display:flex;width:100%;border:0;border-radius:0;background:none;padding:6px 14px;gap:16px;text-align:left}
+.mi:hover{background:#2e3b52;color:#fff}
+.sc{margin-left:auto;color:#8e8e96;white-space:nowrap}
+.srch{display:flex;align-items:center;gap:6px;height:22px;width:270px;box-sizing:border-box;background:#151517;border:1px solid #3a3a40;border-radius:4px;padding:0 6px;color:#8e8e96;font-size:11.5px}
+.pal{position:absolute;right:6px;top:28px;width:380px;background:#232327;border:1px solid #4a4a52;border-radius:8px;box-shadow:0 16px 40px rgba(0,0,0,.7);overflow:hidden;z-index:30}
+.pr{display:flex;align-items:center;gap:10px;width:100%;height:32px;border:0;border-radius:0;background:none;padding:0 14px;text-align:left}
+.pr:hover{background:#2e3b52;color:#fff}
+.tr{position:absolute;left:0;top:30px;width:1580px;height:36px;box-sizing:border-box;background:#202023;border-bottom:1px solid #0f0f11;display:flex;align-items:center;gap:2px;padding:0 8px}
+.tb{width:30px;height:30px;padding:0;border:1px solid transparent;background:none;display:flex;align-items:center;justify-content:center;color:#c8c8d0}
+.tb.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.vsep{width:1px;height:20px;background:#3a3a40;margin:0 8px}
+.vw{display:flex;gap:2px;margin-left:auto}
+.vb{font-size:11px;padding:1px 7px;border-color:#3a3a40;background:#232326}
+.vb.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.lh{display:grid;grid-template-columns:minmax(0,1fr) 84px 52px 54px;gap:6px;align-items:center;padding:0 10px;height:22px;font-size:11px}
+.lr{display:grid;grid-template-columns:minmax(0,1fr) 84px 52px 54px;gap:6px;align-items:center;padding:0 10px;height:22px;cursor:pointer;font-size:11.5px}
+.lr.on,.tw.on{background:#2e3b52}
+.nm{display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden}
+.lab{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.thumb{position:relative;overflow:hidden;flex-shrink:0;border:1px solid #333338;border-radius:3px;box-sizing:border-box}
+.card{width:78px;cursor:pointer}
+.card .thumb{width:78px;height:44px}
+.card.on .thumb{border:2px solid #6ea8fe}
+.ov{position:absolute;font-size:9px;line-height:13px;padding:0 3px;border-radius:2px;background:rgba(0,0,0,.65);color:#fff;white-space:nowrap}
+.ov.r{background:rgba(120,30,26,.9)}
+.ov.g{background:rgba(30,90,50,.9)}
+.cn{font-size:10.5px;margin-top:2px;white-space:nowrap;overflow:hidden}
+.sech{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#6c6c74;margin:6px 0 4px}
+.tw{display:grid;grid-template-columns:minmax(0,1fr) 12px 80px 50px 40px;gap:6px;align-items:center;padding:0 10px;height:22px;cursor:pointer;font-size:11.5px}
+.tw.fold{color:#b8b8c0;font-weight:600}
+.twl{width:10px;color:#8e8e96;flex-shrink:0}
+.cutc{margin:0 8px 5px;border:1px solid #333338;border-radius:5px;background:#222225;padding:6px;cursor:pointer}
+.cutc.open{border-color:#6ea8fe;background:#1f2633;cursor:default}
+.pills{display:flex;gap:3px;margin-top:5px}
+.pl{flex:1;border-radius:2px;font-size:9.5px;text-align:center;white-space:nowrap;overflow:hidden}
+.pl.pthin{height:5px;line-height:5px}
+.pl.pbig{line-height:17px}
+.pl.done{background:#2c4a3c;color:#9fdcb6}
+.pl.doing{background:#4a3a1e;color:#f0c888}
+.pl.todo{background:#2c2c30;color:#6c6c74}
+.relink{border-color:#e0604a;color:#ffb3a6;background:#3a2220;font-size:10.5px;padding:0 7px;line-height:16px}
+.grp-row{display:flex;align-items:center;height:22px;padding:0 8px;gap:6px;background:#252529;border-bottom:1px solid #1a1a1c}
+.grp-row.off{color:#7a7a82}
+.tg{width:26px;height:14px;border-radius:7px;background:#4a6ea8;position:relative;padding:0;border:0;flex-shrink:0}
+.tg span{position:absolute;right:2px;top:2px;width:10px;height:10px;border-radius:5px;background:#fff}
+.tg.off{background:#3a3a40}
+.tg.off span{right:auto;left:2px;background:#8e8e96}
+.prow{display:grid;grid-template-columns:96px minmax(0,1fr) 50px 52px;gap:8px;align-items:center;height:32px;padding:0 10px 0 26px;border-bottom:1px solid #232327}
+.track{height:3px;border-radius:2px;background:#3a3a40;position:relative}
+.fill{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:#6ea8fe}
+.knob{position:absolute;top:-4px;width:10px;height:10px;margin-left:-5px;border-radius:5px;background:#d4d4d8}
+.num{background:#151517;border:1px solid #3a3a40;border-radius:3px;text-align:right;padding:1px 5px;color:#6ea8fe}
+.kn{display:flex;align-items:center;justify-content:space-between;color:#8e8e96}
+.dia{width:8px;height:8px;transform:rotate(45deg);border:1.5px solid #5a5a62;box-sizing:border-box}
+.dia.has{border-color:#e8b06a}
+.dia.on{border-color:#e8b06a;background:#e8b06a}
+.vt{display:flex;align-items:flex-end;gap:0;height:48px;flex-shrink:0;padding:0 10px 5px;box-sizing:border-box;border-bottom:1px solid #2a2a2e;background:#1b1b1d}
+.vt2{display:flex;align-items:flex-end;gap:0;height:62px;flex-shrink:0;padding:0 10px 5px 34px;box-sizing:border-box;border-bottom:1px solid #2a2a2e;background:#1b1b1d}
+.grp{display:flex;flex-direction:column;gap:3px}
+.gc{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#6c6c74;white-space:nowrap}
+.gr{display:flex;align-items:center;gap:4px}
+.gs{width:1px;align-self:stretch;background:#2e2e33;margin:4px 10px 0}
+.ib{height:26px;padding:0 7px;font-size:11.5px;display:flex;align-items:center;gap:5px;background:#232326;border-color:#3a3a40;white-space:nowrap}
+.ib.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.pb{height:40px;min-width:40px;padding:0 10px;display:flex;align-items:center;justify-content:center;gap:6px;background:#232326;border-color:#3a3a40;white-space:nowrap}
+.pb.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.fr{color:#6ea8fe;font-weight:700;font-size:14px;background:#151517;border:1px solid #3a3a40;border-radius:3px;padding:0 6px;line-height:22px}
+.fps{display:flex;align-items:center;gap:5px;font-size:11px;color:#9fdcb6;background:#1d2b23;border:1px solid #2f5a3f;border-radius:3px;padding:0 6px;line-height:20px}
+.pa{position:relative;flex-grow:1;background:#18181a;overflow:hidden}
+.pic{position:absolute;left:76px;top:12px;width:768px;height:432px;overflow:hidden;box-shadow:0 0 0 1px #3a3a40}
+.full{position:absolute;left:0;top:0;width:100%;height:100%}
+.slate{position:absolute;left:84px;top:20px;display:flex;align-items:center;gap:8px;background:rgba(10,10,14,.78);border:1px solid #45454b;border-radius:3px;padding:3px 8px;font-family:Consolas,monospace;font-size:11.5px;color:#fff;z-index:2}
+.pnote{position:absolute;right:84px;top:20px;width:270px;background:#3a2f12;border:1px solid #e8b06a;border-radius:4px;color:#f4dca8;padding:6px 8px;font-size:11px;line-height:1.35;z-index:2}
+.sknote{position:absolute;left:84px;top:410px;display:flex;align-items:center;gap:6px;background:rgba(10,10,14,.78);border:1px solid #c0504a;border-radius:3px;padding:2px 8px;font-size:11px;color:#ffc9c4;z-index:2}
+.strip{position:absolute;left:76px;top:452px;width:768px;display:flex;align-items:center;gap:2px}
+.scell{width:30px;height:38px;padding:0;border-radius:2px;background:#232326;border:1px solid #3a3a40;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;font-size:9px;color:#8e8e96}
+.scell b{font-size:12px;color:#fff;font-weight:600}
+.scell.on{border:2px solid #e8b06a;background:#3a2f1a}
+.fam{display:flex;align-items:center;gap:5px;width:100%;text-align:left;border:0;border-radius:3px;background:none;padding:4px 6px;font-size:11.5px;white-space:nowrap}
+.fam .c{margin-left:auto;color:#6c6c74;font-size:10.5px}
+.fam.on{background:#2e3b52;color:#fff}
+.eit{display:grid;grid-template-columns:14px minmax(0,1fr);gap:5px;padding:5px 8px;border-bottom:1px solid #26262a}
+.eit .t{color:#fff;font-size:11.5px}
+.eit .d{color:#8e8e96;font-size:10.5px;line-height:1.3}
+.star{color:#4a4a50;padding-top:2px}
+.star.on{color:#e8b06a}
+.qf{display:flex;align-items:center;gap:8px;height:44px;margin:8px;padding:0 12px;background:#2a3346;border-color:#6ea8fe;color:#fff;font-size:12.5px}
+.tt{display:flex;align-items:flex-end;gap:2px;height:36px;flex-shrink:0;padding:0 8px;background:#161618;border-bottom:1px solid #0f0f11;box-sizing:border-box}
+.ct{display:flex;align-items:center;gap:6px;height:30px;border:0;border-radius:4px 4px 0 0;background:#1a1a1c;color:#8e8e96;padding:0 14px}
+.ct.on{background:#1e1e20;color:#fff;box-shadow:inset 0 2px 0 #e8b06a}
+.cnt{font-size:10px;background:#3a3a40;color:#d4d4d8;border-radius:7px;padding:0 5px;line-height:14px}
+.wb{align-self:center;display:flex;align-items:center;gap:6px;height:30px;padding:0 12px;background:#26303f;border-color:#4a6a9a;color:#fff}
+.tlbar{display:flex;align-items:center;gap:10px;height:32px;flex-shrink:0;padding:0 10px;border-bottom:1px solid #2a2a2e;box-sizing:border-box}
+.seg{display:flex}
+.seg span{padding:1px 9px;border:1px solid #3a3a40;font-size:11px;background:#232326}
+.seg span.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.fbox{display:flex;align-items:center;gap:6px;width:200px;background:#151517;border:1px solid #3a3a40;border-radius:4px;padding:2px 8px;color:#6c6c74;font-size:11.5px}
+.tlb{position:relative;flex-grow:1}
+.rul{display:flex;height:36px;border-bottom:1px solid #2a2a2e;box-sizing:border-box;background:#1a1a1c}
+.lcol{width:400px;flex-shrink:0;box-sizing:border-box;border-right:1px solid #2a2a2e}
+.rcol{position:relative;flex-grow:1}
+.lyr{display:flex;height:26px;border-bottom:1px solid #232327;box-sizing:border-box}
+.lyr.sel{background:#262c38}
+.lg{display:grid;grid-template-columns:18px 18px 5px 20px minmax(0,1fr) 112px 70px;gap:5px;align-items:center;padding:0 8px;height:25px;font-size:11.5px}
+.tag{font-size:10px;color:#e8b06a;border:1px solid #6a5634;border-radius:3px;padding:0 4px;line-height:14px;white-space:nowrap}
+.cel{position:absolute;top:4px;height:17px;box-sizing:border-box;border-right:1px solid #1e1e20;border-radius:2px;background:#3d5a86;color:#e8eefc;font-size:10px;line-height:17px;padding-left:3px;overflow:hidden;white-space:nowrap}
+.cel.odd{background:#4e6f9f}
+.cel.miss{background:repeating-linear-gradient(45deg,#7a2a26 0 4px,#4a1e1c 4px 8px);color:#ffc9c4}
+.cel.glow{background:#5a4a7a}
+.cel.pre{background:#2f6f73}
+.cel.cam{top:10px;height:5px;background:#55555c}
+.wv{position:absolute;background:#6ea8fe;border-radius:1px}
+.kd{position:absolute;top:8px;width:9px;height:9px;transform:rotate(45deg);background:#e8b06a;border:1px solid #1e1e20;box-sizing:border-box}
+.tick{position:absolute;bottom:12px;width:1px;background:#4a4a50}
+.tl{position:absolute;font-size:10px;color:#8e8e96}
+.ph-line{position:absolute;top:0;bottom:0;width:2px;background:#e0604a;z-index:3;pointer-events:none}
+.ph-flag{position:absolute;top:12px;height:14px;padding:0 4px;background:#e0604a;color:#fff;font-size:10px;font-weight:700;line-height:14px;border-radius:2px;z-index:4}
+.rqbar{display:flex;align-items:center;gap:10px;height:48px;flex-shrink:0;padding:0 14px;border-bottom:1px solid #2e2e32;box-sizing:border-box}
+.rqc{display:grid;grid-template-columns:28px 24px 150px 220px minmax(0,1fr) 60px;align-items:center;padding:0 14px}
+.rqr{width:100%;height:30px;padding:0;border:0;border-bottom:1px solid #26262a;border-radius:0;background:none;text-align:left;color:#d4d4d8}
+.rqr.on{background:#25303f}
+.cb{width:12px;height:12px;border:1px solid #6a6a72;border-radius:2px;display:inline-block;background:#151517;box-sizing:border-box}
+.cb.on{background:#6ea8fe;border-color:#6ea8fe}
+.rd{width:12px;height:12px;border:1px solid #6a6a72;border-radius:7px;display:inline-block;background:#151517;box-sizing:border-box}
+.rd.on{border:4px solid #6ea8fe;background:#fff}
+.sh{padding:1px 8px;font-size:11px}
+.sh.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.dl{display:flex;align-items:center;gap:6px;height:24px}
+.dlb{width:150px;color:#a0a0a8;flex-shrink:0}
+.pri{background:#3a5a8c;border-color:#6ea8fe;color:#fff}
+.big{height:36px;padding:0 16px;display:flex;align-items:center;gap:6px}
+.stb{position:absolute;left:0;top:1072px;width:1580px;height:28px;box-sizing:border-box;background:#18181b;border-top:1px solid #0f0f11;display:flex;align-items:center;gap:8px;padding:0 8px;font-size:11.5px}
+.chp{display:flex;align-items:center;gap:6px;height:22px;padding:0 9px;background:#202024;border:1px solid #33333a;border-radius:4px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:4px;flex-shrink:0}
+.mini{width:60px;height:4px;border-radius:2px;background:#151517;position:relative;overflow:hidden}
+.scrim{position:absolute;background:rgba(0,0,0,.45);z-index:15}
+.finder{position:absolute;left:590px;top:180px;width:460px;background:#232327;border:1px solid #4a4a52;border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,.7);overflow:hidden;z-index:16}
+.fh{color:#6c6c74;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:0 14px;height:22px;line-height:22px}
+.fr2{display:flex;align-items:center;gap:10px;height:30px;padding:0 14px}
+.fr2.sel{background:#2e3b52}
+.fr2 .m2{color:#6ea8fe;font-weight:700}
+.fdot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.ffm{margin-left:auto;color:#8e8e96;font-size:11px}
+.fent{margin-left:auto;font-size:11px;color:#c9d6ea;border:1px solid #6ea8fe;border-radius:3px;padding:0 5px}
+.ftag{font-size:10px;color:#e8b06a;border:1px solid #6a5634;border-radius:3px;padding:0 4px;line-height:14px}
+.wscrim{position:absolute;left:0;top:0;width:1580px;height:1100px;background:rgba(0,0,0,.6);z-index:40}
+.dlg{position:absolute;left:370px;top:190px;width:840px;background:#232326;border:1px solid #4a4a50;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.7);overflow:hidden;z-index:41}
+.dt{height:40px;display:flex;align-items:center;gap:8px;padding:0 14px;background:#2a2a2e;border-bottom:1px solid #1a1a1c;color:#fff;font-weight:600;font-size:13px;box-sizing:border-box}
+.wcell{width:37px;height:46px;padding:0;border-radius:3px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;font-size:10px;box-sizing:border-box;overflow:hidden}
+.note{display:flex;gap:7px;align-items:flex-start;width:100%;text-align:left;background:#1b1b1e;border:1px solid #33333a;border-radius:5px;padding:7px 8px;margin-bottom:6px;line-height:1.4;font-size:11.5px}
+.ft{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:0 14px;height:56px;border-top:1px solid #2e2e32;box-sizing:border-box}
+.pin{position:absolute;width:22px;height:22px;box-sizing:border-box;border-radius:11px;background:#d6336c;color:#fff;font-weight:700;font-size:12px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);z-index:25;display:flex;align-items:center;justify-content:center;line-height:1}
+.new{font-size:9px;font-weight:700;letter-spacing:.06em;color:#1a1a1a;background:#8fd6a0;border-radius:3px;padding:0 4px;line-height:14px;display:inline-block;vertical-align:middle}
+.key{width:340px;flex-shrink:0;box-sizing:border-box;background:#f4efe6;color:#222;padding:20px;font-size:11.5px;line-height:1.32;overflow:hidden}
+.kl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8a7f70}
+.kt{font-size:20px;font-weight:700;margin:4px 0 8px}
+.chip{display:inline-block;font-size:11px;border:1px solid #cbbfae;background:#fffaf2;border-radius:10px;padding:0 8px;margin:0 4px 4px 0}
+.kh{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b6152;margin:10px 0 4px}
+.ki{display:grid;grid-template-columns:24px 1fr;gap:6px;margin-bottom:6px}
+.kn2{width:20px;height:20px;border-radius:10px;background:#d6336c;color:#fff;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center}
+.ks{color:#2f7d4f}
+.to{background:#fff3d6;color:#7a5200;border-radius:6px;padding:8px 10px;margin-top:8px}
+.lcol{width:460px}
+.tr{z-index:19}
+.wst{display:flex;gap:2px;padding:2px;background:#151517;border:1px solid #2a2a2e;border-radius:6px}
+.wt{height:24px;min-width:28px;justify-content:center;border:0;border-radius:4px;background:none;color:#a0a0a8;padding:0 7px;display:flex;align-items:center;gap:6px;font-size:12px}
+.wt.on{background:#2e3b52;color:#fff}
+.sbw{display:flex;width:230px;align-items:center;gap:6px;height:28px;box-sizing:border-box;background:#151517;border:1px solid #3a3a40;border-radius:5px;padding:0 6px 0 8px;color:#8e8e96}
+.sbw.on{border-color:#6ea8fe}
+.sbin{flex-grow:1;min-width:0;border:0;outline:0;background:none;color:#fff;font:inherit;font-size:12px;padding:0}
+.sbin::placeholder{color:#6c6c74}
+.fxb{height:26px;margin-left:6px;display:flex;align-items:center;gap:6px;padding:0 9px;background:#1f2737;border-color:#2e4468;color:#c9d6ea;font-size:11.5px;white-space:nowrap}
+.sdrop{position:absolute;top:34px;width:560px;background:#232327;border:1px solid #4a4a52;border-radius:8px;box-shadow:0 16px 40px rgba(0,0,0,.7);overflow:hidden;z-index:35}
+.sc2{display:flex;align-items:center;gap:4px;padding:8px 12px;border-bottom:1px solid #34343a}
+.scp{font-size:11px;padding:1px 10px;border-radius:10px;background:#26262a;border-color:#3a3a40}
+.scp.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.sres{display:flex;align-items:center;gap:10px;width:100%;height:28px;border:0;border-radius:0;background:none;padding:0 14px;text-align:left}
+.sres:hover{background:#2e3b52;color:#fff}
+.hand{display:flex;align-items:center;gap:8px;width:100%;height:40px;border:0;border-top:1px solid #34343a;border-radius:0;background:#26303f;color:#fff;padding:0 14px;text-align:left}
+.hand:hover{background:#2e3b52}
+.cutnav{display:flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.ib3{border:0;background:none;padding:0 4px;color:#8e8e96;font-size:14px;line-height:20px}
+.vtab{align-self:stretch;display:flex;align-items:center;gap:6px;padding:0 12px;color:#8e8e96;cursor:pointer;white-space:nowrap}
+.vtab.on{color:#fff;background:#1e1e20;box-shadow:inset 0 2px 0 #e8b06a}
+.vx{color:#8e8e96;padding:0 4px;border-radius:3px;line-height:16px}
+.vx:hover{background:#3a3a40;color:#fff}
+.pt2{align-self:stretch;display:flex;align-items:center;padding:0 12px;color:#8e8e96;cursor:pointer;white-space:nowrap}
+.er{position:relative;display:grid;grid-template-columns:150px minmax(0,1fr) 54px;align-items:center;height:20px;border-bottom:1px solid #232326;padding-right:6px;font-size:11.5px;box-sizing:border-box}
+.er:hover{background:#242428}
+.er.grp{background:#252529;color:#fff;font-weight:600}
+.er.dim{color:#7c7c84}
+.er.sel{height:44px;background:#22293a;box-shadow:inset 2px 0 0 #6ea8fe}
+.el{display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden}
+.etw{border:0;background:none;padding:0;width:12px;color:#8e8e96;font-size:10px;flex-shrink:0}
+.epk{border:0;background:none;padding:0;color:inherit;text-align:left;white-space:nowrap;font:inherit}
+.epk:hover{text-decoration:underline}
+.esw{width:11px;height:11px;box-sizing:border-box;border:1.4px solid #6a6a72;border-radius:50%;position:relative;flex-shrink:0;cursor:pointer}
+.esw::after{content:"";position:absolute;left:3.5px;top:1px;width:1.4px;height:4px;background:#6a6a72}
+.esw.on{border-color:#6ea8fe;background:#2e3b52}
+.esw.on::after{background:#6ea8fe}
+.esw.none{visibility:hidden}
+.evc{display:flex;flex-direction:column;justify-content:center;min-width:0;white-space:nowrap}
+.ev{color:#6ea8fe;border-bottom:1px dotted #6ea8fe;cursor:ew-resize;font-variant-numeric:tabular-nums}
+.er.dim .ev{color:#5a6f92;border-bottom-color:#5a6f92}
+.eu{color:#8e8e96;margin-left:4px}
+.eplain{color:#b0b0b8;font-weight:400}
+.ewarn{color:#ffb869;font-weight:400;font-size:10.5px}
+.lnk{color:#8e8e96;text-decoration:underline;font-weight:400;font-size:11px}
+.etr{width:150px;height:3px;background:#3a3a40;border-radius:2px;position:relative;margin-top:8px}
+.enav{display:flex;align-items:center;justify-content:space-between;visibility:hidden}
+.er:hover .enav,.er.sel .enav{visibility:visible}
+.nb{border:0;background:none;padding:0 3px;color:#4a4a50;font-size:9px;line-height:16px}
+.nb.lit{color:#d4d4d8}
+.lg2{display:grid;grid-template-columns:12px 16px 5px 16px minmax(0,1fr) 104px 50px;gap:5px;align-items:center;padding:0 8px;font-size:11.5px;height:100%;box-sizing:border-box}
+.twb{border:0;background:none;padding:0;color:#b8b8c0;font-size:10px;width:12px}
+.lyr.cmp .cel{top:2px}
+.lyr.cmp .kd{top:6px}
+.prw{display:flex;height:22px;border-bottom:1px solid #202023;box-sizing:border-box;background:#1b1b1e}
+.prw .kd{top:6px}
+.pl2{display:grid;grid-template-columns:minmax(0,1fr) 62px 50px;gap:6px;align-items:center;padding:0 8px 0 40px;font-size:11px;height:100%;box-sizing:border-box}
+.tag2{font-size:10px;color:#7fc4cf;border:1px solid #2f6f73;border-radius:3px;padding:0 4px;line-height:14px;white-space:nowrap}
+.seg2{display:flex}
+.seg2 button{padding:1px 10px;border-radius:0;font-size:11px;background:#232326;border-color:#3a3a40;white-space:nowrap}
+.seg2 button:first-child{border-radius:3px 0 0 3px}
+.seg2 button:last-child{border-radius:0 3px 3px 0}
+.seg2 button.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.shb{display:flex;align-items:center;gap:6px;height:24px;padding:0 10px;font-size:11.5px}
+.shb.on{background:#3a2f1a;border-color:#e8b06a;color:#f4dca8}
+.gtick{display:flex;align-items:center;gap:7px;height:24px;padding:0 10px;font-size:11.5px;border:0;background:none;width:100%;text-align:left;border-radius:0}
+.gtick:hover{background:#242428}
+.gk{position:absolute;width:9px;height:9px;margin:-5px 0 0 -5px;transform:rotate(45deg);border:1px solid #fff2d8;box-sizing:border-box;z-index:2}
+.fsec{font-size:10px;letter-spacing:.08em;color:#77777f;padding:7px 10px 3px;text-transform:uppercase}
+.shr{display:grid;grid-template-columns:40px 52px 52px 34px 104px 1fr;height:18px;font-size:11px;box-sizing:border-box;border-bottom:1px solid #232326;cursor:pointer}
+.shr>span{border-right:1px solid #2a2a2e;text-align:center;color:#c4c4cc;overflow:hidden;white-space:nowrap;line-height:17px}
+.shr.hd{height:22px;background:#1a1a1c;cursor:default}
+.shr.hd>span{color:#8e8e96;font-size:10.5px;line-height:21px}
+.shr>span.f{color:#77777f;font-size:10px}
+.shr.lit>span{background:#28344a;color:#fff}
+.shr.lit>span.f{box-shadow:inset 3px 0 #e0604a;color:#fff}
+.shr.sec{border-top:2px solid #5a5a62}
+.shr>span.gone{background:repeating-linear-gradient(45deg,#7a2c2c 0 4px,#4a1c1c 4px 8px);color:#ffb0a0}
+.shr>span.hl{color:#6c6c74}
+.exr{display:grid;grid-template-columns:70px 90px 1fr;height:22px;align-items:center;padding:0 12px;border-bottom:1px solid #232326;font-size:11.5px}
+.fcon{position:absolute;width:720px;background:#232327;border:1px solid #4a4a52;border-radius:10px;box-shadow:0 18px 50px rgba(0,0,0,.75);overflow:hidden;z-index:36}
+.fin{flex-grow:1;min-width:0;border:0;outline:0;background:none;color:#fff;font:inherit;font-size:15px;padding:0}
+.fin::placeholder{color:#6c6c74}
+.fleft{width:280px;flex-shrink:0;border-right:1px solid #34343a;overflow-y:auto;box-sizing:border-box;padding-bottom:8px}
+.famr{display:flex;align-items:center;gap:8px;height:22px;padding:0 10px;font-size:11.5px;color:#c4c4cc;width:100%;border:0;border-radius:0;background:none;text-align:left}
+.famr:hover{background:#2a2a30}
+.famr .c{margin-left:auto;color:#77777f;font-size:10.5px}
+.famr.on{background:#2a2a30;color:#fff}
+.fe{display:flex;gap:6px;padding:3px 10px 4px 28px;font-size:11.5px;background:#1e1e22;width:100%;border:0;border-radius:0;text-align:left}
+.fe:hover{background:#26262c}
+.fe.sel{background:#2e3b52;color:#fff}
+.fe .d{color:#8e8e96;font-size:10.5px}
+.pillb{font-size:11px;padding:0 8px;border-radius:10px;background:#26262a;border-color:#3a3a40;line-height:18px}
+.pillb.on{background:#2e3b52;border-color:#6ea8fe;color:#fff}
+.fdr{display:flex;align-items:center;gap:8px;height:28px;padding:0 14px;border:0;background:none;width:100%;text-align:left;font-size:12.5px;border-radius:0;white-space:nowrap}
+.fdr:hover{background:#2a2a30}
+.fdr.sel{background:#2e3b52;color:#fff}
+.fdr .mt{color:#6ea8fe;font-weight:700}
+.owin{position:absolute;width:760px;background:#202022;border:1px solid #5a5a60;border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,.85);overflow:hidden;z-index:42}
+.otb{height:32px;display:flex;align-items:center;gap:8px;padding-left:12px;background:#2b2b2e;color:#e8e8ec;font-size:12px}
+.ob2{width:44px;height:32px;border:0;border-radius:0;background:none;display:flex;align-items:center;justify-content:center;color:#c8c8d0;padding:0}
+.ob2:hover{background:#3a3a40}
+.ob2.x:hover{background:#c42b1c;color:#fff}
+.iw{padding:10px 14px 12px 66px;background:#161a22;border-bottom:1px solid #26262a}
+.skt{position:absolute;left:0;top:40px;width:52px;height:1060px;background:#1a1a1c;border-right:1px solid #0f0f11;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:10px;box-sizing:border-box}
+.skb{width:38px;height:38px;padding:0;display:flex;align-items:center;justify-content:center;background:none;border:1px solid transparent;color:#c8c8d0;flex-shrink:0}
+.skb:hover{border-color:#3a3a40}
+.skb.on{background:#3a2420;border-color:#e0604a;color:#fff}
+.skc{position:absolute;left:52px;top:40px;width:1208px;height:1016px;background:#121214;background-image:radial-gradient(#1f1f23 1px,transparent 1px);background-size:20px 20px;overflow:hidden}
+.skpic{position:absolute;left:44px;top:180px;width:1120px;height:630px;overflow:hidden;box-shadow:0 0 0 1px #3a3a40,0 10px 40px rgba(0,0,0,.6);cursor:crosshair;touch-action:none;background:#f4f1ea}
+.skl{position:absolute;left:1260px;top:40px;width:320px;height:1060px;background:#1e1e20;border-left:1px solid #0f0f11;display:flex;flex-direction:column;box-sizing:border-box}
+.lyr2{display:flex;align-items:center;gap:8px;height:40px;padding:0 10px;border-bottom:1px solid #26262a;cursor:pointer;flex-shrink:0;box-sizing:border-box}
+.lyr2.on{background:#2e3b52}
+.eye{border:0;background:none;padding:0;width:20px;height:20px;color:#d4d4d8;display:flex;align-items:center;justify-content:center}
+.eye.off{color:#4a4a50}
+.sw3{width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(255,255,255,.3)}
+.sw2{width:20px;height:20px;border-radius:4px;padding:0;border:2px solid #1a1a1c;box-shadow:0 0 0 1px #45454b}
+.sw2.on{border-color:#fff}
+.opb{padding:0 6px;font-size:11.5px;height:20px;line-height:16px}
+.skbar{position:absolute;left:52px;top:1056px;width:1208px;height:44px;background:#1a1a1c;border-top:1px solid #0f0f11;display:flex;align-items:center;gap:10px;padding:0 12px;box-sizing:border-box}
+.mn{position:absolute;box-sizing:border-box;background:#232327;border:1px solid #45454b;border-radius:8px;overflow:hidden;font-size:11.5px}
+.mn .hd{display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;background:#2a2a2e;color:#fff;font-weight:600;white-space:nowrap}
+.mn .bd{padding:6px 10px;color:#a0a0a8;line-height:1.45}
+.mn.hot{border:2px solid #8fd6a0;box-shadow:0 0 0 3px rgba(143,214,160,.22)}
+.mn.off{opacity:.6;border-style:dashed}
+.sq{width:9px;height:9px;border-radius:2px;flex-shrink:0;display:inline-block}
+.pill{display:inline-flex;align-items:center;gap:4px;background:#26262a;border:1px solid #3a3a40;border-radius:10px;padding:0 7px;margin:2px 3px 0 0;color:#d4d4d8;font-size:10.5px;line-height:16px}
+.ti{display:flex;align-items:center;gap:6px;width:100%;height:24px;border:0;border-radius:0;background:none;padding:0 10px;text-align:left;font-size:11.5px;white-space:nowrap}
+.ti:hover{background:#26262c}
+.ti.on{background:#2e3b52;color:#fff}
+.mr{background:#ece4f7;color:#3e2a66;border-radius:6px;padding:8px 10px;margin-top:8px}
+
+/* ---- one-row top bar, hover tips ---- */
+.mb{height:40px;gap:2px;padding:0 8px 0 4px}
+.m{padding:0 7px;font-size:12px}
+.menu{top:32px}
+.tr{display:none}
+.tb{width:28px;height:28px;border-radius:4px}
+.vsep{margin:0 6px}
+.tico{display:flex;align-items:center;gap:5px;height:24px;padding:0 7px;border:1px solid #33333a;border-radius:12px;background:#202023;color:#c8c8d0;font-size:11px;margin-left:4px;white-space:nowrap}
+.tico .mini{width:34px}
+[data-tip]{position:relative}
+[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);background:#0e0e10;color:#e4e4e8;border:1px solid #3a3a40;border-radius:4px;padding:3px 8px;font-size:11px;font-weight:400;line-height:16px;white-space:nowrap;z-index:60;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.5)}
+.tipr[data-tip]:hover::after,.wst [data-tip]:hover::after{left:auto;right:0;transform:none}
+/* ---- one-row viewer toolbar; slate above the picture ---- */
+.vt1{display:flex;align-items:center;gap:2px;height:34px;flex-shrink:0;padding:0 8px;box-sizing:border-box;border-bottom:1px solid #2a2a2e;background:#1b1b1d}
+.vb2{width:26px;height:24px;padding:0;border:1px solid transparent;border-radius:4px;background:none;color:#b8b8c0;display:grid;place-items:center}
+.vb2:hover{background:#26262a}
+.vb2.on{background:#2e3b52;border-color:#4a6fa8;color:#fff}
+.vb3{height:24px;padding:0 7px;border:1px solid transparent;border-radius:4px;background:none;color:#c8c8d0;font-size:11px;display:flex;align-items:center;gap:5px;white-space:nowrap}
+.vb3:hover{background:#26262a}
+.gs2{width:1px;height:16px;background:#34343a;margin:0 6px}
+.vt1 .fr{font-size:12.5px;line-height:20px;margin-left:6px}
+.vt1 .fps{line-height:18px;margin-left:4px}
+.slate2{position:absolute;display:flex;align-items:center;gap:5px;font-family:Consolas,monospace;font-size:10.5px;line-height:14px;color:#9a9aa2;white-space:nowrap;z-index:2}
+.scell{width:28px;height:32px;font-size:8.5px}
+.scell b{font-size:11px}
+/* ---- timeline, Timeline A Balanced look ---- */
+.tt2{display:flex;align-items:stretch;height:30px;flex-shrink:0;background:#161618;border-bottom:1px solid #0f0f11;box-sizing:border-box}
+.tt2 .sp{align-self:center}
+.tt2>.dim{align-self:center}
+.tab{display:flex;align-items:center;gap:8px;padding:0 12px;height:30px;color:#8e8e96;border-right:1px solid #0f0f11;font-size:12px;cursor:pointer;white-space:nowrap}
+.tab.on{background:#1e1e20;color:#fff;box-shadow:inset 0 2px 0 #e8b06a}
+.x{color:#6c6c73;font-size:13px}
+.tlbar2{display:flex;align-items:center;gap:10px;height:44px;flex-shrink:0;padding:0 12px;border-bottom:1px solid #2a2a2e;box-sizing:border-box;font-size:12px}
+.tms{display:inline-flex;align-items:stretch;height:28px;box-sizing:border-box;border-radius:4px;overflow:hidden;background:#2a2a2f}
+.tlbar2 .tms button{height:28px;border:0;border-radius:0;background:#2a2a2f;box-shadow:none;margin:0;padding:0 14px;font-size:12px;color:#c4c4ca;outline:none}
+.tlbar2 .tms button+button{border-left:1px solid #1c1c1f}
+.tlbar2 .tms button:hover{background:#323238;color:#e4e4e7}
+.tlbar2 .tms button.on{background:#3d3d44;color:#fff;box-shadow:inset 0 -2px 0 #e8b06a}
+.tcb{height:28px;box-sizing:border-box;min-width:46px;text-align:center;font-size:16px;color:#6ea8fe;background:#161618;border:1px solid #2f2f34;border-radius:6px;padding:0 9px;font-variant-numeric:tabular-nums;line-height:26px}
+.fbox2{display:flex;align-items:center;gap:6px;margin-left:14px;background:#161618;border:1px solid #3a3a40;border-radius:4px;padding:3px 8px;width:180px;color:#6c6c73;font-size:12px}
+.nflag{display:inline-block;width:9px;height:11px;background:#e8b06a;clip-path:polygon(0 0,100% 0,100% 65%,50% 100%,0 65%);flex-shrink:0}
+.rul{height:44px}
+.lg3{display:grid;grid-template-columns:6px 22px 22px 22px 22px 14px minmax(0,1fr) 22px 56px 92px;gap:2px;align-items:center;padding:0 8px 0 0;height:100%;font-size:12px;box-sizing:border-box}
+.lgh{align-items:end;padding-bottom:6px;color:#8e8e96;font-size:11px}
+.ic2{display:grid;place-items:center;width:22px;height:22px;padding:0;border:0;background:none;color:#5c5c63;border-radius:3px}
+.ic2.on{color:#d4d4d8}
+.badge{font-size:11px;line-height:16px;color:#c9d6ea;background:#2e3b52;border-radius:8px;padding:0 7px;white-space:nowrap}
+.lyr{height:30px;border-bottom-color:#26262a}
+.lyr.sel{background:#222a38}
+.lyr.sel .lcol{background:#28344a}
+.cel{top:3px;bottom:3px;height:auto;line-height:normal;border-right:0;padding:2px 0 0;font-size:11px;color:#e6ecf5;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+.cel.gone{background:repeating-linear-gradient(45deg,#5a2a28 0 4px,#7a3230 4px 8px);outline:1px solid #d9534f;outline-offset:-1px;color:#ffd0cc}
+.bar{position:absolute;top:3px;bottom:3px;border:1px solid;border-radius:2px;box-sizing:border-box;font-size:11px;line-height:22px;padding-left:6px;overflow:hidden;white-space:nowrap}
+.kd{position:absolute;bottom:1px;width:7px;height:7px;margin-left:-3.5px;background:#e8b06a;transform:rotate(45deg)}
+.wvb{position:absolute;top:3px;bottom:3px;background:#24382f;border-radius:2px;overflow:hidden}
+.wbar{position:absolute;top:0;height:6px;background:#6f8fc8;border-radius:1px}
+.tick2{position:absolute;bottom:0;width:1px}
+.tl2{position:absolute;top:9px;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.ph-flag2{position:absolute;bottom:3px;transform:translateX(-50%);background:#e0604a;color:#fff;font-size:11px;line-height:15px;padding:0 5px;border-radius:2px;font-variant-numeric:tabular-nums;z-index:2}
+.nmark{position:absolute;bottom:3px;display:flex;align-items:flex-end;cursor:pointer;z-index:3}
+.ntx{font-size:11px;color:#e8b06a;margin-left:5px;white-space:nowrap;line-height:11px}
+.nted{position:absolute;top:46px;width:240px;display:flex;flex-direction:column;gap:6px;padding:8px 10px;background:#232327;border:1px solid #e8b06a;border-radius:6px;box-shadow:0 10px 28px rgba(0,0,0,.6);z-index:12;box-sizing:border-box}
+.ntin{background:#151517;border:1px solid #45454b;border-radius:4px;color:#fff;font-size:12px;padding:4px 7px;outline:none}
+.ntin:focus{border-color:#e8b06a}
+.shr>span.nt{color:#e8b06a}
+.prw{height:22px}
+.tab .x{opacity:0}
+.tab.on .x,.tab:hover .x{opacity:1}
+.tab.on{font-weight:500}
+.rdy{position:absolute;top:7px;height:3px;background:#4fbf6a;pointer-events:none}
+.rdyv{display:flex;align-items:center;gap:5px;font-size:11px;color:#8fd6a0;margin-left:4px;cursor:default}
+.rdyd{width:10px;height:3px;background:#4fbf6a;border-radius:1px}
+</style>
+</helmet>
+<div style="width: 1920px; height: 1100px; display: flex; background: #101012">
+<div class="mock">
+
+<!-- ===== Top bar, one row: menus, the cut and its status as icons, tools, search (Search B), effects, workspaces (Whole app B), save ===== -->
+<div class="mb">
+<svg class="ic" width="18" height="18" viewBox="0 0 24 24" style="color: #e8b06a; margin: 0 6px 0 4px"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M8 5l-2 4M13 5l-2 4M18 5l-2 4"/></svg>
+<sc-for list="{{menus}}" as="m" hint-placeholder-count="9">
+<div class="mw">
+<button class="{{m.cls}}" onClick="{{m.toggle}}">{{m.name}}</button>
+<sc-if value="{{m.open}}" hint-placeholder-val="{{false}}">
+<div class="menu">
+<sc-for list="{{m.items}}" as="i" hint-placeholder-count="5">
+<button class="mi" onClick="{{i.go}}"><span>{{i.t}}</span><span class="sc">{{i.sc}}</span></button>
+</sc-for>
+</div>
+</sc-if>
+</div>
+</sc-for>
+<span class="vsep"></span>
+<div class="cutnav"><button class="ib3" data-tip="Previous cut">‹</button><span>Ep 03</span><span class="dim">›</span><span style="color: #fff; font-weight: 600">Cut 012</span><button class="ib3" data-tip="Next cut">›</button></div>
+<button class="tico" style="margin-left: 6px" data-tip="Cut status: In progress · click to change"><span class="dot" style="background: #6ea8fe"></span></button>
+<button class="tico" onClick="{{goHealth}}" style="color: #e8b06a; border-color: #5a4426" data-tip="1 drawing missing · Body 42 · click to show it"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/></svg>1</button>
+<button class="tico" onClick="{{openWatch}}" style="{{task.st}}" data-tip="{{task.tip}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 19h16"/></svg><span class="mini" style="width: 34px"><span style="{{task.bar}}"></span></span>{{task.pct}}</button>
+<span class="vsep"></span>
+<sc-if value="{{notSketch}}" hint-placeholder-val="{{true}}">
+<button class="{{tools.sel}}" onClick="{{tools.pSel}}" data-tip="Selection tool · V"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="M6 3l12 8.5-5.5 1.2L10 19z"/></svg></button>
+<button class="{{tools.hand}}" onClick="{{tools.pHand}}" data-tip="Hand tool · H"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="M8 12.5V6a1.5 1.5 0 013 0v5M11 10.5V4.5a1.5 1.5 0 013 0v6M14 10.5V6a1.5 1.5 0 013 0v7.5c0 4-2.4 6.5-6 6.5-3 0-4.6-1.7-5.6-4L4 13a1.4 1.4 0 012.4-1.4L8 13.5"/></svg></button>
+<button class="{{tools.zoom}}" onClick="{{tools.pZoom}}" data-tip="Zoom tool · Z"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20M7.5 10h5M10 7.5v5"/></svg></button>
+<button class="{{tools.pen}}" onClick="{{tools.pPen}}" data-tip="Pen tool · G" style="margin-left: 6px"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="M12 21l-6-9 6-9 6 9z"/><path d="M12 3v7"/><circle cx="12" cy="12" r="1.6"/></svg></button>
+<button class="{{tools.shape}}" onClick="{{tools.pShape}}" data-tip="Shape tool · Q"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="10" height="10" rx="1"/><circle cx="15" cy="15" r="5.5"/></svg></button>
+<button class="{{tools.text}}" onClick="{{tools.pText}}" data-tip="Text tool · Ctrl+T"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="M5 5h14M12 5v14M9 19h6"/></svg></button>
+<span class="vsep"></span>
+</sc-if>
+
+<div style="position: relative">
+<div class="{{s.boxCls}}">
+<svg class="ic" width="14" height="14" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20"/></svg>
+<input class="sbin" ref="{{s.ref}}" value="{{s.q}}" onChange="{{s.onChange}}" onFocus="{{s.onFocus}}" onKeyDown="{{s.onKey}}" placeholder="Search  ·  Ctrl+Shift+P" />
+<sc-if value="{{s.hasQ}}" hint-placeholder-val="{{false}}"><button class="ib3" onClick="{{s.clear}}" title="Clear">×</button></sc-if>
+</div>
+<sc-if value="{{s.open}}" hint-placeholder-val="{{false}}">
+<div class="sdrop" style="left: -60px">
+<div class="sc2">
+<sc-for list="{{s.scopes}}" as="c" hint-placeholder-count="5"><button class="{{c.cls}}" onClick="{{c.pick}}">{{c.t}}</button></sc-for>
+<span class="sp"></span><span class="dim" style="font-size: 11px">Esc closes</span>
+</div>
+<sc-for list="{{s.groups}}" as="g" hint-placeholder-count="2">
+<div class="fh">{{g.t}}</div>
+<sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+<button class="sres" onClick="{{r.go}}"><span class="fdot" style="{{r.dot}}"></span><span><span>{{r.pre}}</span><span class="mt2">{{r.mid}}</span><span>{{r.post}}</span></span><span class="dim" style="font-size: 11px">{{r.where}}</span><span class="sc">{{r.sc}}</span></button>
+</sc-for>
+</sc-for>
+<sc-if value="{{s.empty}}" hint-placeholder-val="{{false}}"><div class="dim" style="padding: 10px 14px">Type to search. Commands, menu items, layers in any composition and help pages all come up here.</div></sc-if>
+<sc-if value="{{s.none}}" hint-placeholder-val="{{false}}"><div class="dim" style="padding: 10px 14px">No command, menu item, layer or help page matches "{{s.q}}".</div></sc-if>
+<sc-if value="{{s.hand}}" hint-placeholder-val="{{false}}">
+<button class="hand" onClick="{{s.toFinder}}"><svg class="ic" width="15" height="15" viewBox="0 0 24 24" style="color: #6ea8fe"><path d="M5 19l6-6M13 5l1.5 3.5L18 10l-3.5 1.5L13 15l-1.5-3.5L8 10l3.5-1.5z"/></svg><span>{{s.handText}}</span><span class="sp"></span><span class="dim" style="font-size: 11px">open the effects finder</span><span class="kb">Ctrl+Space</span></button>
+</sc-if>
+</div>
+</sc-if>
+</div>
+
+<button class="fxb" onClick="{{openFinder}}" data-tip="Find an effect · Ctrl+Space"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" style="color: #6ea8fe"><path d="M5 19l6-6M13 5l1.5 3.5L18 10l-3.5 1.5L13 15l-1.5-3.5L8 10l3.5-1.5z"/></svg>Effects</button>
+
+<span class="sp"></span>
+<div class="wst">
+<sc-for list="{{wsTabs}}" as="t" hint-placeholder-count="4"><button class="{{t.cls}}" onClick="{{t.pick}}" data-tip="{{t.tip}}"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{t.icon}}"/></svg>{{t.lab}}</button></sc-for>
+</div>
+<button class="sh tipr" style="margin-left: 8px; height: 26px; display: flex; align-items: center; gap: 6px" data-tip="Not saved yet · a recovery copy was kept at 14:32 · Ctrl+S"><span class="dot" style="background: #e8b06a"></span>Save</button>
+</div>
+
+<sc-if value="{{clickAway}}" hint-placeholder-val="{{false}}"><div style="position: absolute; left: 0; top: 0; width: 1580px; height: 1100px; z-index: 18" onClick="{{closeAll}}"></div></sc-if>
+
+<!-- ===== Project ===== -->
+<sc-if value="{{show.proj}}" hint-placeholder-val="{{true}}">
+<div class="pnl" style="{{geo.proj}}">
+<div class="ph"><span class="pt">Project</span>
+<div class="vw">
+<sc-for list="{{pviews}}" as="p" hint-placeholder-count="4"><button class="{{p.cls}}" onClick="{{p.pick}}">{{p.t}}</button></sc-for>
+</div>
+</div>
+<sc-if value="{{pv.list}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; gap: 10px; height: 60px; padding: 6px 10px; box-sizing: border-box; border-bottom: 1px solid #2a2a2e; background: #1a1a1c; flex-shrink: 0">
+<div class="thumb" style="{{psel.box}}"><div style="{{psel.fig}}"></div></div>
+<div style="display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: 11.5px"><span style="color: #fff; font-weight: 600">{{psel.name}}</span><span class="dim">{{psel.kind}} · 1920 × 1080 · 24 fps</span><span class="{{psel.lineCls}}">{{psel.line}}</span></div>
+</div>
+<div class="lh dim" style="border-bottom: 1px solid #2a2a2e; flex-shrink: 0"><span>Name</span><span>Kind</span><span>Length</span><span>Drawings</span></div>
+<sc-for list="{{plist}}" as="r" hint-placeholder-count="8">
+<div class="{{r.cls}}" onClick="{{r.pick}}"><span class="nm"><span class="lab" style="{{r.labSt}}"></span><span class="{{r.nameCls}}">{{r.name}}</span></span><span class="dim">{{r.kind}}</span><span class="dim">{{r.len}}</span><span class="{{r.drCls}}">{{r.dr}}</span></div>
+</sc-for>
+<div style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; margin-top: 2px; background: #2a1c1b; flex-shrink: 0"><span class="miss">Body: drawing 42 is missing</span><span class="sp"></span><button class="relink">Relink…</button></div>
+</sc-if>
+<sc-if value="{{pv.pics}}" hint-placeholder-val="{{false}}">
+<div style="padding: 0 10px">
+<sc-for list="{{psecs}}" as="s" hint-placeholder-count="3">
+<div class="sech">{{s.t}}</div>
+<div style="display: flex; gap: 6px">
+<sc-for list="{{s.cards}}" as="c" hint-placeholder-count="4">
+<div class="{{c.cls}}" onClick="{{c.pick}}">
+<div class="thumb" style="{{c.box}}"><div style="{{c.fig}}"></div><span class="ov" style="left: 2px; top: 2px">{{c.b1}}</span><span class="{{c.b2Cls}}" style="right: 2px; bottom: 2px">{{c.b2}}</span></div>
+<div class="cn">{{c.name}}</div>
+</div>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{pv.tree}}" hint-placeholder-val="{{false}}">
+<div class="tw dim" style="cursor: default; border-bottom: 1px solid #2a2a2e; font-weight: 400"><span>Name</span><span></span><span>Type</span><span>Length</span><span>In use</span></div>
+<sc-for list="{{ptree}}" as="r" hint-placeholder-count="11">
+<div class="{{r.cls}}" onClick="{{r.pick}}"><span class="nm" style="{{r.ind}}"><span class="twl">{{r.tw}}</span><span class="{{r.nameCls}}">{{r.name}}</span></span><span class="lab" style="{{r.labSt}}"></span><span class="dim">{{r.type}}</span><span class="dim">{{r.len}}</span><span class="dim">{{r.use}}</span></div>
+</sc-for>
+</sc-if>
+<sc-if value="{{pv.cut}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; font-size: 12px; color: #fff"><span style="background: #26262a; border: 1px solid #3a3a40; border-radius: 4px; padding: 0 7px">Episode 03</span><span class="dim">›</span><span style="background: #26262a; border: 1px solid #3a3a40; border-radius: 4px; padding: 0 7px">Scene 12</span><span class="sp"></span><span class="dim" style="font-size: 11px">click a cut</span></div>
+<sc-for list="{{pcuts}}" as="c" hint-placeholder-count="4">
+<div class="{{c.cls}}" onClick="{{c.pick}}">
+<div style="display: flex; gap: 8px; align-items: center">
+<div class="thumb" style="{{c.box}}"></div>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px">
+<div style="display: flex; align-items: center; gap: 6px"><span style="color: #fff; font-weight: 600">{{c.name}}</span><span class="dim">{{c.len}}</span><span class="sp"></span><span class="{{c.sumCls}}" style="font-size: 11px">{{c.sum}}</span></div>
+<span class="dim" style="font-size: 10.5px">{{c.sheet}}</span>
+</div>
+</div>
+<div class="pills"><sc-for list="{{c.pills}}" as="p" hint-placeholder-count="5"><span class="{{p.cls}}">{{p.t}}</span></sc-for></div>
+</div>
+</sc-for>
+</sc-if>
+</div>
+</sc-if>
+
+<!-- ===== Effect controls (Effect controls B) ===== -->
+<sc-if value="{{show.ec}}" hint-placeholder-val="{{true}}">
+<div class="pnl" style="{{geo.ec}}">
+<div class="ph"><span class="pt">Effect controls · {{selLayer}}</span><span class="sp"></span><span class="dim" style="font-size: 11px">Cut 012 · frame {{frame}}</span></div>
+<div style="flex-grow: 1; min-height: 0; overflow-y: auto">
+<sc-for list="{{ecRows}}" as="r" hint-placeholder-count="14">
+<div class="{{r.cls}}" onClick="{{r.pick}}">
+<span class="el" style="{{r.ind}}">
+<sc-if value="{{r.isGrp}}" hint-placeholder-val="{{false}}"><button class="etw" onClick="{{r.twirl}}">{{r.tw}}</button></sc-if>
+<sc-if value="{{r.hasSwitch}}" hint-placeholder-val="{{false}}"><button class="{{r.tgCls}}" onClick="{{r.tSwitch}}" title="Turn the effect on or off"><span></span></button></sc-if>
+<sc-if value="{{r.isProp}}" hint-placeholder-val="{{true}}"><span class="{{r.swCls}}" onClick="{{r.tWatch}}" title="Stopwatch: animate this setting"></span></sc-if>
+<span>{{r.name}}</span>
+<sc-if value="{{r.isNew}}" hint-placeholder-val="{{false}}"><span class="new">JUST ADDED</span></sc-if>
+</span>
+<div class="evc">
+<div style="display: flex; align-items: center; min-width: 0">
+<sc-if value="{{r.hasVal}}" hint-placeholder-val="{{true}}"><span class="ev" onPointerDown="{{r.sDown}}" onPointerMove="{{r.sMove}}" onPointerUp="{{r.sUp}}" title="Drag left or right">{{r.val}}</span><span class="eu">{{r.unit}}</span></sc-if>
+<sc-if value="{{r.hasNote}}" hint-placeholder-val="{{false}}"><span class="{{r.noteCls}}">{{r.note}}</span></sc-if>
+</div>
+<sc-if value="{{r.slider}}" hint-placeholder-val="{{false}}"><div class="etr"><div class="fill" style="{{r.fill}}"></div><div class="knob" style="{{r.knob}}"></div></div></sc-if>
+</div>
+<span class="enav">
+<sc-if value="{{r.isKeyed}}" hint-placeholder-val="{{false}}"><button class="{{r.pc}}" onClick="{{r.prev}}" title="Previous key">◀</button><button class="nb" onClick="{{r.tKey}}" title="Add or remove a key here"><span class="{{r.dia}}" style="display: inline-block"></span></button><button class="{{r.nc}}" onClick="{{r.next}}" title="Next key">▶</button></sc-if>
+</span>
+</div>
+</sc-for>
+<div class="dim" style="padding: 8px 10px; font-size: 11px; line-height: 1.45">Drag a blue number left or right. With the stopwatch on, a change makes a key at the playhead. Ctrl+Space adds an effect to {{selLayer}}.</div>
+</div>
+</div>
+</sc-if>
+
+<!-- ===== Viewer (Viewer A, no Sketch group) with the Map tab ===== -->
+<sc-if value="{{show.view}}" hint-placeholder-val="{{true}}">
+<div class="pnl" style="{{geo.view}}">
+<div class="ph">
+<div class="{{vtabs.cutCls}}" onClick="{{vtabs.goCut}}">Viewer · Cut 012</div>
+<sc-if value="{{mapOpen}}" hint-placeholder-val="{{false}}">
+<div class="{{vtabs.mapCls}}" onClick="{{vtabs.goMap}}"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><rect x="2" y="9" width="6" height="6" rx="1"/><rect x="16" y="3" width="6" height="6" rx="1"/><rect x="16" y="15" width="6" height="6" rx="1"/><path d="M8 12h4M12 6v12M12 6h4M12 18h4"/></svg>Map · {{mapName}}<span class="vx" onClick="{{vtabs.closeMap}}" title="Close the map">×</span></div>
+</sc-if>
+<span class="sp"></span><span class="dim" style="font-size: 11px">{{viewInfo}}</span>
+</div>
+
+<sc-if value="{{vtabs.isCut}}" hint-placeholder-val="{{true}}">
+<div class="vt1">
+<button class="vb2" onClick="{{stepBack}}" data-tip="Back one frame · Page Up"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="M18 5L8 12l10 7zM6 5v14"/></svg></button>
+<button class="{{playCls}}" onClick="{{togglePlay}}" data-tip="Play or stop · Space"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{playIcon}}"/></svg></button>
+<button class="vb2" onClick="{{stepFwd}}" data-tip="Forward one frame · Page Down"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="M6 5l10 7-10 7zM18 5v14"/></svg></button>
+<span class="fr">{{frame}}</span><span class="dim" style="font-size: 11px">{{tcTxt}}</span>
+<span class="fps" data-tip="How fast it is really playing"><span class="dot" style="background: #8fd6a0"></span>24.0</span>
+<span class="gs2"></span>
+<button class="vb3" data-tip="Picture quality: Full"><span class="dot" style="background: #8fd6a0"></span>Full ▾</button>
+<button class="vb3" data-tip="Drawn on: Auto (graphics card when it can)">Auto ▾</button>
+<span class="gs2"></span>
+<button class="vb2" data-tip="Show see-through parts as a checkerboard"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/><path d="M4 12h16M12 4v16" /><rect x="4" y="4" width="8" height="8" fill="currentColor" stroke="none" opacity=".5"/><rect x="12" y="12" width="8" height="8" fill="currentColor" stroke="none" opacity=".5"/></svg></button>
+<button class="vb2" data-tip="Grid"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></button>
+<button class="vb2" data-tip="Region box: draw only part of the picture"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" stroke-dasharray="3 2"/></svg></button>
+<span class="gs2"></span>
+<button class="vb2" data-tip="Take a snapshot"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+<button class="vb2" data-tip="Compare with the snapshot"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14"/><path d="M12 3v18"/></svg></button>
+<button class="vb3" data-tip="Picture size">Fit ▾</button>
+<sc-if value="{{showVt2}}" hint-placeholder-val="{{true}}">
+<span class="gs2"></span>
+<button class="vb2" onClick="{{paper.left}}" data-tip="Turn the view 15° left, like paper"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 2 7"/><path d="M4 4v6h6"/></svg></button>
+<button class="vb2" onClick="{{paper.right}}" data-tip="Turn the view 15° right"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M20 10a8 8 0 1 0-2 7"/><path d="M20 4v6h-6"/></svg></button>
+<button class="{{paper.fhCls}}" onClick="{{paper.tFh}}" data-tip="Mirror the view left-right"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M9 7L3 17h6zM15 7l6 10h-6z"/></svg></button>
+<button class="vb3" onClick="{{paper.reset}}" style="color: #e8b06a; min-width: 34px" data-tip="{{paper.tip}}">{{paper.ang}}</button>
+<span class="gs2"></span>
+<button class="{{ovc.slate}}" onClick="{{ovt.slate}}" data-tip="Cut slate above the picture"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="11" rx="1"/><path d="M3 9l2-5 16 0-2 5M8 4l-1.5 5M13 4l-1.5 5"/></svg></button>
+<button class="{{ovc.guide}}" onClick="{{ovt.guide}}" data-tip="Field guide and safe areas"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="15"/><rect x="6.5" y="7.5" width="11" height="9"/><path d="M12 10v4M10 12h4"/></svg></button>
+<button class="{{ovc.onion}}" onClick="{{ovt.onion}}" data-tip="Onion skin: the drawings before and after"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg></button>
+<button class="{{ovc.strip}}" onClick="{{ovt.strip}}" data-tip="Sheet strip under the picture"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><rect x="2.5" y="7" width="19" height="10"/><path d="M7 7v10M11.5 7v10M16 7v10"/></svg></button>
+<sc-if value="{{skOverOn}}" hint-placeholder-val="{{false}}"><button class="vb2 on" onClick="{{tSkOver}}" data-tip="Sketches from the Sketch workspace are shown · click to hide"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M4 20l1-5L16 4l4 4L9 19z"/></svg></button></sc-if>
+</sc-if>
+</div>
+<div class="pa">
+<div class="pic" style="{{picSt}}">
+<svg class="full" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+<defs><linearGradient id="skyS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7b78f"/><stop offset=".45" stop-color="#e98aa0"/><stop offset="1" stop-color="#6a74b8"/></linearGradient></defs>
+<rect x="0" y="0" width="1920" height="1080" fill="url(#skyS)"/>
+<circle cx="1450" cy="260" r="170" fill="#fff2c4" opacity=".25"/>
+<circle cx="1450" cy="260" r="92" fill="#fff2c4"/>
+<path d="M0 820 Q480 690 960 770 T1920 730 V1080 H0 Z" fill="#3b2f5c"/>
+</svg>
+<sc-if value="{{ov.onion}}" hint-placeholder-val="{{false}}">
+<svg class="full" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+<g transform="translate(-80 6)" fill="#e0604a" opacity=".45"><path d="M760 1080 Q770 820 900 790 Q1030 820 1040 1080 Z"/><ellipse cx="900" cy="680" rx="92" ry="108"/><path d="M800 690 Q790 540 900 540 Q1010 540 1000 690 L975 620 L955 680 L930 610 L900 670 L870 610 L845 680 L825 620 Z"/></g>
+<g transform="translate(80 -6)" fill="#5fbf7a" opacity=".45"><path d="M760 1080 Q770 820 900 790 Q1030 820 1040 1080 Z"/><ellipse cx="900" cy="680" rx="92" ry="108"/><path d="M800 690 Q790 540 900 540 Q1010 540 1000 690 L975 620 L955 680 L930 610 L900 670 L870 610 L845 680 L825 620 Z"/></g>
+</svg>
+</sc-if>
+<svg class="full" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+<g style="{{charSt}}">
+<path d="M760 1080 Q770 820 900 790 Q1030 820 1040 1080 Z" fill="#2c3a63" stroke="#1a1a2a" stroke-width="5"/>
+<g style="{{headSt}}">
+<ellipse cx="900" cy="680" rx="92" ry="108" fill="#f1d3bd" stroke="#1a1a2a" stroke-width="5"/>
+<path d="M800 690 Q790 540 900 540 Q1010 540 1000 690 L975 620 L955 680 L930 610 L900 670 L870 610 L845 680 L825 620 Z" fill="#2b2140" stroke="#1a1a2a" stroke-width="5" stroke-linejoin="round" style="{{hairSt}}"/>
+<rect x="862" y="690" width="10" height="22" rx="4" fill="#1a1a2a"/>
+<rect x="928" y="690" width="10" height="22" rx="4" fill="#1a1a2a"/>
+</g>
+</g>
+</svg>
+<sc-if value="{{ov.guide}}" hint-placeholder-val="{{false}}">
+<div class="full">
+<div style="position: absolute; left: 2px; top: 2px; right: 2px; bottom: 2px; border: 1.5px dotted #7fe0a0"></div>
+<div style="position: absolute; left: 8.33%; top: 8.33%; right: 8.33%; bottom: 8.33%; border: 1.5px dotted #7fe0a0"></div>
+<div style="position: absolute; left: 16.67%; top: 16.67%; right: 16.67%; bottom: 16.67%; border: 1.5px dotted #7fe0a0"></div>
+<span style="position: absolute; left: 6px; top: 4px; font-size: 10px; color: #7fe0a0">12F</span>
+<span style="position: absolute; left: 8.9%; top: 9.3%; font-size: 10px; color: #7fe0a0">10F</span>
+<span style="position: absolute; left: 17.2%; top: 17.6%; font-size: 10px; color: #7fe0a0">8F</span>
+<div style="position: absolute; left: 5%; top: 5%; right: 5%; bottom: 5%; border: 1px dashed #e8b06a"></div>
+<div style="position: absolute; left: 10%; top: 10%; right: 10%; bottom: 10%; border: 1px dashed #6ea8fe"></div>
+</div>
+</sc-if>
+<sc-if value="{{skOverOn}}" hint-placeholder-val="{{false}}">
+<sc-for list="{{vStrokes}}" as="k" hint-placeholder-count="4"><svg class="full" viewBox="0 0 1920 1080" preserveAspectRatio="none" style="pointer-events: none"><path d="{{k.d}}" fill="none" stroke="{{k.c}}" stroke-width="{{k.w}}" stroke-linecap="round" stroke-linejoin="round" opacity="{{k.o}}"/></svg></sc-for>
+<sc-for list="{{vTexts}}" as="t" hint-placeholder-count="2"><svg class="full" viewBox="0 0 1920 1080" preserveAspectRatio="none" style="pointer-events: none"><text x="{{t.x}}" y="{{t.y}}" transform="{{t.tr}}" fill="{{t.c}}" font-size="{{t.size}}" font-style="italic" font-family="'Segoe Print','Comic Sans MS',cursive">{{t.t}}</text></svg></sc-for>
+</sc-if>
+</div>
+<sc-if value="{{ov.slate}}" hint-placeholder-val="{{true}}">
+<div class="slate2" style="{{slateSt}}"><span>EP 03 · SC 12 ·</span><span style="color: #e8b06a; font-weight: 700">CUT 012</span><span>· sheet {{sheetTime}}</span></div>
+</sc-if>
+<sc-if value="{{turned}}" hint-placeholder-val="{{false}}">
+<div class="slate2" style="{{pnoteSt}}"><span style="color: #e8b06a">{{paper.note}}</span> On screen only, Export is not changed.</div>
+</sc-if>
+<sc-if value="{{showStrip}}" hint-placeholder-val="{{true}}">
+<div class="strip" style="{{stripSt}}">
+<span class="dim" style="width: 74px; font-size: 11px; line-height: 1.2; flex-shrink: 0">Sheet · Body<br/>on 2s</span>
+<sc-for list="{{strip}}" as="c" hint-placeholder-count="16"><button class="{{c.cls}}" onClick="{{c.pick}}"><span>{{c.f}}</span><b>{{c.d}}</b></button></sc-for>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{vtabs.isMap}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-grow: 1; min-height: 0">
+<sc-if value="{{map.showTree}}" hint-placeholder-val="{{true}}">
+<div style="width: 220px; flex-shrink: 0; background: #1a1a1c; border-right: 1px solid #2a2a2e; padding: 6px 0; box-sizing: border-box">
+<div class="fsec">Composition tree</div>
+<sc-for list="{{map.tree}}" as="t" hint-placeholder-count="7"><button class="{{t.cls}}" onClick="{{t.pick}}" style="{{t.ind}}"><span class="dim" style="width: 10px">{{t.tw}}</span><span class="sq" style="{{t.sq}}"></span><span>{{t.name}}</span><span class="sp"></span><span class="{{t.noteCls}}" style="font-size: 10.5px">{{t.note}}</span></button></sc-for>
+<div class="dim" style="padding: 10px; font-size: 11px; line-height: 1.45">Click a name to open it in the timeline. The tree and the flowchart light up the same composition.</div>
+</div>
+</sc-if>
+<div style="position: relative; flex-grow: 1; min-width: 0; overflow: hidden; background: #18181a; background-image: radial-gradient(#2a2a2e 1px, transparent 1px); background-size: 16px 16px">
+<div style="position: absolute; left: 0; right: 0; top: 0; height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: #1b1b1d; border-bottom: 1px solid #2a2a2e; z-index: 2">
+<div class="seg2"><sc-for list="{{map.modes}}" as="m" hint-placeholder-count="3"><button class="{{m.cls}}" onClick="{{m.pick}}">{{m.t}}</button></sc-for></div>
+<span class="dim" style="font-size: 11px">An arrow means "holds". Click a box to open it in the timeline.</span>
+<span class="sp"></span>
+<span class="dim" style="font-size: 11px">opened by double-clicking Precomp 1</span>
+</div>
+<sc-if value="{{map.showFlow}}" hint-placeholder-val="{{true}}">
+<div style="position: absolute; left: 0; top: 36px; width: 660px; height: 440px">
+<svg width="660" height="440" style="position: absolute; left: 0; top: 0">
+<defs><marker id="ahS" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7a7a84"></path></marker></defs>
+<g fill="none" stroke="#7a7a84" stroke-width="1.6" marker-end="url(#ahS)">
+<path d="M206 176 C222 176 222 92 238 92"></path>
+<path d="M206 196 C222 196 222 222 238 222"></path>
+<path d="M440 210 C454 210 454 182 468 182"></path>
+<path d="M440 232 C454 232 454 262 468 262"></path>
+</g>
+</svg>
+<div class="{{map.nCut}}" style="left: 16px; top: 140px; width: 190px; height: 92px" onClick="{{map.goCut}}"><div class="hd"><span class="sq" style="background: #8f7bd6"></span>Cut 012<span class="dim" style="margin-left: auto; font-weight: 400; font-size: 10.5px">top level</span></div><div class="bd">8 layers · 10s 0f<br/>Ep 03 · Sc 12</div></div>
+<div class="mn" style="left: 240px; top: 40px; width: 200px; height: 104px"><div class="hd"><span class="sq" style="background: #6a6a72"></span>Its other layers · 6</div><div class="bd" style="padding-top: 4px"><span class="pill">BOOK</span><span class="pill">Glow pass</span><span class="pill">Hair</span><span class="pill" style="border-color: #e0604a; color: #ffb3a6">Body · 1 missing</span><span class="pill">BG</span><span class="pill">dialogue</span></div></div>
+<div class="{{map.nPre}}" style="left: 240px; top: 180px; width: 200px; height: 80px" onClick="{{map.goPre}}"><div class="hd"><span class="sq" style="background: #7fc4cf"></span>Precomp 1<span class="dim" style="margin-left: auto; font-weight: 400; font-size: 10.5px">layer 5</span></div><div class="bd">2 layers · 4s 0f<br/>used once, in Cut 012</div></div>
+<div class="mn" style="left: 470px; top: 156px; width: 170px; height: 52px; cursor: pointer" onClick="{{map.goPre}}"><div class="hd" style="height: 24px"><span class="sq" style="background: #c46a6a"></span>Hair (copy)</div><div class="bd" style="padding: 3px 10px">drawings · on 3s</div></div>
+<div class="mn" style="left: 470px; top: 236px; width: 170px; height: 52px; cursor: pointer" onClick="{{map.goPre}}"><div class="hd" style="height: 24px"><span class="sq" style="background: #e8c46a"></span>Sparkles</div><div class="bd" style="padding: 3px 10px">drawings · on 2s</div></div>
+<div class="{{map.nRain}}" style="left: 16px; top: 320px; width: 190px; height: 64px" onClick="{{map.goRain}}"><div class="hd"><span class="sq" style="background: #8f7bd6"></span>Rain overlay</div><div class="bd">2 layers · not used anywhere yet</div></div>
+</div>
+</sc-if>
+<sc-if value="{{map.treeOnly}}" hint-placeholder-val="{{false}}">
+<div class="dim" style="position: absolute; left: 20px; top: 60px; width: 360px; line-height: 1.5">Flowchart hidden. The tree on the left is the whole map; switch to Both to see the boxes and arrows again.</div>
+</sc-if>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<!-- ===== Timeline (Timeline A + B): rows, the graph below them, one playhead ===== -->
+<sc-if value="{{show.tl}}" hint-placeholder-val="{{true}}">
+<div class="pnl" style="{{geo.tl}}">
+<div class="tt2">
+<sc-for list="{{ctabs}}" as="t" hint-placeholder-count="3"><div class="{{t.cls}}" onClick="{{t.pick}}">{{t.name}}<span class="x">×</span></div></sc-for>
+<span class="sp"></span>
+<span class="dim" style="font-size: 11px; padding-right: 12px">{{holds.pre}} <span style="color: #4fa3ad; cursor: pointer" onClick="{{holds.go}}">{{holds.name}}</span></span>
+</div>
+<div class="tlbar2">
+<div class="tms"><sc-for list="{{tlModes}}" as="m" hint-placeholder-count="3"><button class="{{m.cls}}" onClick="{{m.pick}}">{{m.t}}</button></sc-for></div>
+<span class="tcb">{{frame}}</span><span class="dim">{{tcTxt}} · 24 fps</span><span class="rdyv" data-tip="{{ready.tip}}"><span class="rdyd"></span>{{ready.n}} ready</span>
+<span class="fbox2"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>Find a layer</span>
+<button class="sh" onClick="{{addNote}}" data-tip="Add a note on the ruler at the playhead · or double-click the ruler" style="height: 24px; display: flex; align-items: center; gap: 5px"><span class="nflag"></span>Note</button>
+<span class="sp"></span>
+<span class="dim">{{compInfo}}</span>
+<button class="{{sheetBtn.cls}}" onClick="{{sheetBtn.toggle}}" data-tip="{{sheetBtn.tip}}" style="margin-left: 4px"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M4 8h16M9 3v18M14 3v18"/></svg>{{sheetBtn.t}}</button>
+</div>
+<div class="tlb">
+<div class="rul">
+<div class="lcol lg3 lgh">
+<span></span>
+<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="justify-self: center"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>
+<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="justify-self: center"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg>
+<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="justify-self: center"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg>
+<span>#</span><span></span><span>Layer name</span>
+<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="justify-self: center"><circle cx="8" cy="8" r="6"/><path d="M5 10c1.5 1.3 4.5 1.3 6 0M5 6.5h1.5M9.5 6.5H11"/></svg>
+<span>Mode</span><span>Parent</span>
+</div>
+<div class="rcol" style="cursor: ew-resize; touch-action: none" onPointerDown="{{rulDown}}" onPointerMove="{{rulMove}}" onDoubleClick="{{rulDbl}}" title="Drag to move the playhead · double-click to add a note">
+<div style="position: absolute; left: 0; right: 0; top: 0; height: 6px; background: #2a2a30"></div>
+<div class="wbar" style="{{ruler.work}}" title="Work area: the frames that preview and render"></div><sc-for list="{{ready.runs}}" as="g" hint-placeholder-count="1"><div class="rdy" style="{{g.st}}"></div></sc-for>
+<sc-for list="{{ruler.ticks}}" as="k" hint-placeholder-count="48"><span class="tick2" style="{{k.st}}"></span><sc-if value="{{k.lab}}" hint-placeholder-val="{{false}}"><span class="tl2" style="{{k.lst}}">{{k.t}}</span></sc-if></sc-for>
+<sc-for list="{{ruler.notes}}" as="m" hint-placeholder-count="1"><span class="nmark" style="{{m.st}}" onPointerDown="{{m.down}}" onClick="{{m.go}}" title="{{m.tip}}"><span class="nflag"></span><span class="ntx">{{m.t}}</span></span></sc-for>
+<span class="ph-flag2" style="{{ruler.flag}}">{{frame}}</span>
+</div>
+</div>
+<sc-if value="{{nEd.open}}" hint-placeholder-val="{{false}}">
+<div class="nted" style="{{nEd.st}}" onPointerDown="{{nEd.stop}}" onClick="{{nEd.stop}}">
+<span class="dim" style="font-size: 11px">Note at frame {{nEd.f}}</span>
+<input class="ntin" ref="{{nEd.ref}}" value="{{nEd.t}}" onChange="{{nEd.onChange}}" onKeyDown="{{nEd.onKey}}" />
+<div style="display: flex; gap: 6px"><button class="sh" onClick="{{nEd.del}}">Delete</button><span class="sp"></span><button class="sh" onClick="{{nEd.done}}" style="color: #fff">Done</button></div>
+</div>
+</sc-if>
+<sc-if value="{{tl.showRows}}" hint-placeholder-val="{{true}}">
+<div style="{{tl.rowsSt}}">
+<sc-for list="{{tlRows}}" as="r" hint-placeholder-count="10">
+<sc-if value="{{r.isLayer}}" hint-placeholder-val="{{true}}">
+<div class="{{r.cls}}" onClick="{{r.pick}}" onDoubleClick="{{r.dbl}}" title="{{r.tip}}">
+<div class="lcol lg3">
+<span style="{{r.stripSt}}"></span>
+<button class="ic2 on" style="{{r.swSt}}" title="Show or hide"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+<button class="ic2" style="{{r.swSt}}" title="Solo"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2" fill="currentColor"/></svg></button>
+<button class="{{r.lockCls}}" style="{{r.swSt}}" title="Lock"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="7" width="9" height="6.5" rx="1"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg></button>
+<span class="dim" style="text-align: right; font-size: 11px">{{r.num}}</span>
+<button class="twb" onClick="{{r.twirl}}">{{r.tw}}</button>
+<span style="display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden"><span style="{{r.nameSt}}">{{r.name}}</span><span class="badge">{{r.tag}}</span><sc-if value="{{r.relink}}" hint-placeholder-val="{{false}}"><button class="relink">Relink…</button></sc-if></span>
+<button class="ic2" style="{{r.swSt}}" title="Shy: hide this row"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6"/><path d="M5 10c1.5 1.3 4.5 1.3 6 0M5 6.5h1.5M9.5 6.5H11"/></svg></button>
+<span style="{{r.modeSt}}">{{r.mode}}</span>
+<span style="display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 11px; color: #8e8e96"><sc-if value="{{r.hasParent}}" hint-placeholder-val="{{true}}"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" style="flex-shrink: 0"><circle cx="8" cy="8" r="5.5"/><path d="M8 8c0-2 3-2 3 0s-3 3-5 2-2-4 1-5"/></svg></sc-if><span style="{{r.parentSt}}">{{r.parent}}</span></span>
+</div>
+<div class="rcol">
+<sc-for list="{{r.segs}}" as="s" hint-placeholder-count="12"><div class="{{s.cls}}" style="{{s.st}}">{{s.t}}</div></sc-for>
+<sc-for list="{{r.keys}}" as="k" hint-placeholder-count="2"><span class="kd" style="{{k.st}}"></span></sc-for>
+<sc-if value="{{r.isWave}}" hint-placeholder-val="{{false}}"><div class="wvb" style="{{r.waveSt}}"><svg width="{{r.waveW}}" height="24" style="display: block; margin-top: -0px"><path d="{{r.wave}}" fill="#6fbf8f"/></svg></div></sc-if>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{r.isProp}}" hint-placeholder-val="{{false}}">
+<div class="prw">
+<div class="lcol pl2"><span style="display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden"><span class="{{r.swCls}}"></span><span class="sq" style="{{r.sq}}"></span>{{r.name}}</span><span class="ev" style="font-size: 11px">{{r.val}}</span><span style="display: flex; align-items: center"><button class="{{r.pc}}" onClick="{{r.prev}}">◀</button><button class="nb" onClick="{{r.tKey}}"><span class="{{r.dia}}" style="display: inline-block"></span></button><button class="{{r.nc}}" onClick="{{r.next}}">▶</button></span></div>
+<div class="rcol">
+<sc-for list="{{r.keys}}" as="k" hint-placeholder-count="3"><span class="kd" style="{{k.st}}" onClick="{{k.go}}" title="Go to this key"></span></sc-for>
+</div>
+</div>
+</sc-if>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{tl.showGraph}}" hint-placeholder-val="{{false}}">
+<div style="{{tl.graphSt}}">
+<div class="lcol" style="display: flex; flex-direction: column; background: #1b1b1e">
+<div class="fsec">In the graph · tick to add</div>
+<sc-for list="{{gp}}" as="g" hint-placeholder-count="4"><button class="gtick" onClick="{{g.toggle}}"><span class="{{g.cb}}"></span><span class="sq" style="{{g.sq}}"></span><span style="{{g.nameSt}}">{{g.name}}</span><span class="sp"></span><span class="dim">{{g.val}}</span></button></sc-for>
+<div class="fsec" style="margin-top: 4px">Shape of the curve · {{gApplies}}</div>
+<div style="display: flex; gap: 4px; padding: 0 10px"><sc-for list="{{interpBtns}}" as="b" hint-placeholder-count="3"><button class="{{b.cls}}" onClick="{{b.pick}}">{{b.t}}</button></sc-for></div>
+<div class="dim" style="padding: 8px 10px; font-size: 11px; line-height: 1.4">Drag a diamond: up and down changes the value, sideways moves the key. Same frames as the rows above.</div>
+</div>
+<div class="rcol" style="{{gBoxSt}}" onPointerMove="{{gMove}}" onPointerUp="{{gUp}}" onPointerLeave="{{gUp}}">
+<sc-for list="{{gGrid}}" as="l" hint-placeholder-count="3"><div style="{{l.st}}"></div></sc-for>
+<sc-for list="{{gCurves}}" as="c" hint-placeholder-count="3"><svg style="{{gSvgSt}}"><path d="{{c.d}}" fill="none" stroke="{{c.col}}" stroke-width="2"/></svg></sc-for>
+<sc-for list="{{gKeys}}" as="k" hint-placeholder-count="8"><span class="gk" style="{{k.st}}" onPointerDown="{{k.down}}" title="{{k.tip}}"></span></sc-for>
+<sc-for list="{{gLabels}}" as="l" hint-placeholder-count="3"><span style="{{l.st}}">{{l.t}}</span></sc-for>
+</div>
+</div>
+</sc-if>
+<div class="ph-line" style="{{phLine}}"></div>
+</div>
+</div>
+</sc-if>
+
+<!-- ===== Sheet, shown or hidden on the side (Timeline B) ===== -->
+<sc-if value="{{show.sheet}}" hint-placeholder-val="{{false}}">
+<div class="pnl" style="{{geo.sheet}}">
+<div class="ph"><span class="pt">Sheet · Cut 012</span><span class="sp"></span><span class="dim" style="font-size: 11px">lit row = the playhead · click a row to go there</span><button class="ib3" onClick="{{sheetBtn.toggle}}" title="Hide the sheet" style="margin-left: 6px">×</button></div>
+<div class="shr hd"><span>Frame</span><span>Hair</span><span>Body</span><span>BG</span><span>Action</span><span>Dialogue</span></div>
+<sc-for list="{{sheetRows}}" as="r" hint-placeholder-count="50"><div class="{{r.cls}}" onClick="{{r.go}}"><span class="f">{{r.f}}</span><span class="{{r.hc}}">{{r.h}}</span><span class="{{r.bc}}">{{r.b}}</span><span class="hl">{{r.g}}</span><span class="{{r.ac}}">{{r.a}}</span><span style="text-align: left; padding-left: 6px; color: #f4dca8">{{r.d}}</span></div></sc-for>
+</div>
+</sc-if>
+
+<!-- ===== Render workspace: queue (Export A) whose running item grows into the watcher (Export B) ===== -->
+<sc-if value="{{show.rq}}" hint-placeholder-val="{{false}}">
+<div class="pnl" style="{{geo.rq}}">
+<div class="ph"><span class="pt">Render queue</span><span class="sp"></span>
+<span class="dim" style="font-size: 11.5px; margin-right: 6px">Watch it write opens</span>
+<div class="seg2"><sc-for list="{{wModes}}" as="m" hint-placeholder-count="2"><button class="{{m.cls}}" onClick="{{m.pick}}">{{m.t}}</button></sc-for></div>
+</div>
+<div class="rqbar">
+<div style="flex-grow: 1"><div style="{{rqHead.st}}">{{rqHead.t}}</div><div style="height: 5px; margin-top: 5px; background: #151517; border-radius: 3px"><div style="{{rqHead.bar}}"></div></div></div>
+<span style="display: flex; align-items: center; gap: 6px"><span class="cb on"></span>Keep animating while it renders</span>
+<button class="big" onClick="{{stopRun}}">Stop</button>
+<button class="pri big" onClick="{{goRun}}" style="font-weight: 600"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>Render</button>
+</div>
+<div class="rqc dim" style="height: 22px; font-size: 11px; border-bottom: 1px solid #2e2e32"><span>Render</span><span>#</span><span>Composition</span><span>Status</span><span>Output</span><span>Time</span></div>
+<sc-for list="{{rq}}" as="it" hint-placeholder-count="4">
+<button class="{{it.rowCls}}" onClick="{{it.toggle}}">
+<span class="rqc"><span class="{{it.tick}}"></span><span class="dim">{{it.num}}</span><span style="color: #fff">{{it.tw}} {{it.comp}}</span><span style="{{it.statusSt}}">{{it.status}}</span><span class="dim">{{it.outShort}}</span><span class="dim">{{it.time}}</span></span>
+</button>
+<sc-if value="{{it.showDetail}}" hint-placeholder-val="{{false}}">
+<div class="iw">
+<div class="dl"><span class="dlb">Output module</span><sc-for list="{{it.fmts}}" as="f" hint-placeholder-count="6"><button class="{{f.cls}}" onClick="{{f.pick}}">{{f.t}}</button></sc-for><span class="dim" style="margin-left: 8px">{{it.full}}</span></div>
+<div class="dl"><span class="dlb">Output to</span><span style="color: #fff; font-family: Consolas, monospace; font-size: 11.5px">{{it.to}}</span></div>
+<div class="dl"><span class="dlb">If a drawing is missing</span><button class="sh" onClick="{{it.mStop}}" style="display: flex; align-items: center; gap: 6px"><span class="{{it.rdStop}}"></span>Stop and list them</button><button class="sh" onClick="{{it.mWrite}}" style="display: flex; align-items: center; gap: 6px"><span class="{{it.rdWrite}}"></span>Write the frames with the gap</button><span class="dim" style="margin-left: 12px">{{it.disk}}</span></div>
+</div>
+</sc-if>
+<sc-if value="{{it.showWatch}}" hint-placeholder-val="{{false}}">
+<div class="iw" style="display: flex; gap: 18px">
+<div style="width: 488px; flex-shrink: 0">
+<div style="position: relative; width: 488px; height: 274px; overflow: hidden; border: 1px solid #3a3a40; box-sizing: border-box; background: linear-gradient(#f7b78f, #e98aa0 45%, #6a74b8)">
+<div style="position: absolute; left: 340px; top: 34px; width: 46px; height: 46px; border-radius: 23px; background: #fff2c4; box-shadow: 0 0 30px #fff2c4"></div>
+<div style="position: absolute; left: -40px; right: -40px; top: 200px; height: 140px; border-radius: 50% 50% 0 0; background: #3b2f5c"></div>
+<div style="{{w.body}}"></div><div style="{{w.face}}"></div><div style="{{w.hair}}"></div>
+<div style="{{w.gap}}">{{w.gapText}}</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; height: 26px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: rgba(0,0,0,.55); color: #fff">{{w.label}}<span class="sp"></span><span class="dim">{{w.hint}}</span></div>
+</div>
+<div style="display: flex; gap: 4px; margin-top: 10px; height: 46px"><sc-for list="{{w.cells}}" as="c" hint-placeholder-count="12"><button class="wcell" style="{{c.st}}" onClick="{{c.pick}}">{{c.t}}</button></sc-for></div>
+<div style="{{w.bar}}"></div>
+<div class="dim" style="display: flex; justify-content: space-between; font-size: 10px; margin-top: 3px"><span>0</span><span>orange: a drawing was missing on that frame</span><span>239</span></div>
+<div style="margin-top: 6px; color: #fff">{{w.progress}}</div>
+</div>
+<div style="width: 300px; flex-shrink: 0">
+<div class="sech" style="margin-top: 0">Notes, in frame order · 1 so far</div>
+<button class="note" onClick="{{w.pickNote}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" style="color: #e8b06a; margin-top: 2px"><path d="M12 3l10 18H2z"/><path d="M12 10v5"/></svg><span><b style="color: #fff">Frames 84 to 85</b><br/>Body drawing 42 (body_0042.png) is missing. Written with the gap, as chosen.</span></button>
+<div style="display: flex; gap: 6px; margin-top: 8px"><button class="big" onClick="{{w.tPause}}">{{w.pauseLabel}}</button><button class="big">Cancel export</button></div>
+<div class="dim" style="font-size: 11px; margin-top: 4px">Cancel keeps the frames already written.</div>
+</div>
+<div style="flex-grow: 1; min-width: 0">
+<div style="background: #1b1b1e; border: 1px solid #2e2e32; border-radius: 6px; padding: 8px 10px; line-height: 1.55; font-size: 11.5px">
+<div><span class="dim">Into</span> D:\Shots\Ep03\Cut012\</div>
+<div><span class="dim">Drawn</span> Full quality, on the processor</div>
+<div><span class="dim">Missing drawings</span> written with the gap</div>
+</div>
+<button class="pri big" onClick="{{openWatch}}" style="margin-top: 10px"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-8 8M18 14v6H4V6h6"/></svg>{{popOutLabel}}</button>
+<div class="dim" style="font-size: 11px; margin-top: 6px; line-height: 1.4">{{popOutHint}}</div>
+</div>
+</div>
+</sc-if>
+</sc-for>
+<div style="display: flex; align-items: center; gap: 6px; margin: 12px 14px; padding: 6px 10px; border: 1px dashed #55555c; border-radius: 6px; color: #8e8e96; font-size: 11px; align-self: flex-start">Prototype:<button class="sh" onClick="{{stepAt}}">Step: write 24 more frames</button><button class="sh" onClick="{{resetAt}}">Start again</button></div>
+</div>
+</sc-if>
+
+<!-- ===== Sketch workspace ===== -->
+<sc-if value="{{isSketch}}" hint-placeholder-val="{{false}}">
+<div class="skt">
+<sc-for list="{{sk.tools}}" as="t" hint-placeholder-count="3"><button class="{{t.cls}}" onClick="{{t.pick}}" title="{{t.tip}}"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="{{t.d}}"/></svg></button></sc-for>
+<span style="width: 28px; height: 1px; background: #3a3a40; margin: 6px 0"></span>
+<sc-for list="{{sk.sizes}}" as="z" hint-placeholder-count="3"><button class="{{z.cls}}" onClick="{{z.pick}}" title="{{z.tip}}"><span style="{{z.dot}}"></span></button></sc-for>
+<span style="width: 28px; height: 1px; background: #3a3a40; margin: 6px 0"></span>
+<sc-for list="{{sk.colors}}" as="c" hint-placeholder-count="5"><button class="{{c.cls}}" onClick="{{c.pick}}" style="{{c.st}}" title="{{c.tip}}"></button></sc-for>
+<span style="width: 28px; height: 1px; background: #3a3a40; margin: 6px 0"></span>
+<button class="skb" onClick="{{sk.undo}}" title="Undo the last stroke, Ctrl+Z"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg></button>
+</div>
+<div class="skc">
+<div style="position: absolute; left: 44px; top: 132px; right: 44px; display: flex; align-items: center; gap: 10px; color: #a0a0a8">
+<span style="color: #fff; font-weight: 600">{{sk.where}}</span><span class="dim">{{sk.how}}</span>
+<span class="sp"></span>
+<button class="pb" onClick="{{paper.left}}" title="Turn the paper 15° left" style="height: 30px"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 2 7"/><path d="M4 4v6h6"/></svg></button>
+<button class="pb" onClick="{{paper.right}}" title="Turn the paper 15° right" style="height: 30px"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M20 10a8 8 0 1 0-2 7"/><path d="M20 4v6h-6"/></svg></button>
+<button class="{{paper.fhCls}}" onClick="{{paper.tFh}}" title="Flip left-right" style="height: 30px"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M9 7L3 17h6zM15 7l6 10h-6z"/></svg></button>
+<span style="width: 36px; text-align: center; color: #e8b06a">{{paper.ang}}</span>
+<button class="pb" onClick="{{paper.reset}}" style="height: 30px">Reset</button>
+</div>
+<div class="skpic" style="{{sk.picSt}}" onPointerDown="{{sk.down}}" onPointerMove="{{sk.move}}" onPointerUp="{{sk.up}}">
+<div class="full" style="{{sk.underSt}}">
+<svg class="full" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+<defs><linearGradient id="skyK" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7b78f"/><stop offset=".45" stop-color="#e98aa0"/><stop offset="1" stop-color="#6a74b8"/></linearGradient></defs>
+<rect x="0" y="0" width="1920" height="1080" fill="url(#skyK)"/>
+<circle cx="1450" cy="260" r="92" fill="#fff2c4"/>
+<path d="M0 820 Q480 690 960 770 T1920 730 V1080 H0 Z" fill="#3b2f5c"/>
+<path d="M760 1080 Q770 820 900 790 Q1030 820 1040 1080 Z" fill="#2c3a63" stroke="#1a1a2a" stroke-width="5"/>
+<ellipse cx="900" cy="680" rx="92" ry="108" fill="#f1d3bd" stroke="#1a1a2a" stroke-width="5"/>
+<path d="M800 690 Q790 540 900 540 Q1010 540 1000 690 L975 620 L955 680 L930 610 L900 670 L870 610 L845 680 L825 620 Z" fill="#2b2140" stroke="#1a1a2a" stroke-width="5" stroke-linejoin="round"/>
+</svg>
+</div>
+<sc-for list="{{sk.strokes}}" as="k" hint-placeholder-count="6"><svg class="full" viewBox="0 0 1920 1080" preserveAspectRatio="none" style="pointer-events: none"><path d="{{k.d}}" fill="none" stroke="{{k.c}}" stroke-width="{{k.w}}" stroke-linecap="round" stroke-linejoin="round" opacity="{{k.o}}"/></svg></sc-for>
+<sc-for list="{{sk.texts}}" as="t" hint-placeholder-count="2"><svg class="full" viewBox="0 0 1920 1080" preserveAspectRatio="none" style="pointer-events: none"><text x="{{t.x}}" y="{{t.y}}" transform="{{t.tr}}" fill="{{t.c}}" font-size="{{t.size}}" font-style="italic" font-family="'Segoe Print','Comic Sans MS',cursive">{{t.t}}</text></svg></sc-for>
+</div>
+<div style="position: absolute; left: 44px; top: 822px; right: 44px; display: flex; gap: 10px; color: #6c6c74; font-size: 11px"><span>Draw on the picture with the mouse or a pen.</span><span class="sp"></span><span>{{sk.count}}</span></div>
+</div>
+<div class="skbar">
+<button class="ib" onClick="{{stepBack}}" title="Back one frame">◀</button>
+<sc-for list="{{sk.strip}}" as="c" hint-placeholder-count="16"><button class="{{c.cls}}" onClick="{{c.pick}}" style="height: 34px; position: relative"><span>{{c.f}}</span><b>{{c.mark}}</b></button></sc-for>
+<button class="ib" onClick="{{stepFwd}}" title="Forward one frame">▶</button>
+<span class="gs" style="margin: 6px 4px"></span>
+<button class="{{sk.onionCls}}" onClick="{{sk.tOnion}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg>Onion skin</button>
+<span class="dim" style="font-size: 11px">a ● marks a frame with its own sketch</span>
+</div>
+<div class="skl">
+<div class="ph"><span class="pt">Layers</span><span class="sp"></span><button class="sh" onClick="{{sk.addLayer}}">+ New layer</button></div>
+<sc-for list="{{sk.layers}}" as="l" hint-placeholder-count="3">
+<div class="{{l.cls}}" onClick="{{l.pick}}">
+<button class="{{l.eyeCls}}" onClick="{{l.tEye}}" title="Show or hide"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+<span class="sw3" style="{{l.sw}}"></span>
+<div style="display: flex; flex-direction: column; min-width: 0; flex-grow: 1"><span style="color: #fff; white-space: nowrap">{{l.name}}</span><span class="dim" style="font-size: 10.5px; white-space: nowrap">{{l.sub}}</span></div>
+</div>
+</sc-for>
+<div class="lyr2" style="cursor: default; background: #1a1a1c">
+<svg class="ic" width="15" height="15" viewBox="0 0 24 24" style="color: #6c6c74; margin: 0 2px"><rect x="5" y="11" width="14" height="9" rx="1"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+<div style="display: flex; flex-direction: column; min-width: 0; flex-grow: 1"><span style="color: #c4c4cc">Under: Cut 012, frame {{frame}}</span><span class="dim" style="font-size: 10.5px">the cut itself, for reference · locked</span></div>
+</div>
+<div style="display: flex; align-items: center; gap: 4px; padding: 8px 10px; border-bottom: 1px solid #26262a"><span class="dim" style="margin-right: 4px">Show the cut</span><sc-for list="{{sk.unders}}" as="u" hint-placeholder-count="4"><button class="{{u.cls}}" onClick="{{u.pick}}">{{u.t}}</button></sc-for></div>
+<div class="fsec">Selected layer · {{sk.aName}}</div>
+<div style="padding: 0 10px 8px">
+<div style="display: flex; align-items: center; gap: 6px"><span class="dim" style="width: 70px">Draws on</span><div class="seg2"><sc-for list="{{sk.spans}}" as="m" hint-placeholder-count="2"><button class="{{m.cls}}" onClick="{{m.pick}}">{{m.t}}</button></sc-for></div></div>
+<div class="dim" style="font-size: 11px; margin: 6px 0 0 76px; line-height: 1.35">{{sk.spanHint}}</div>
+<button class="sh" onClick="{{sk.clear}}" style="margin: 8px 0 0 76px">{{sk.clearLabel}}</button>
+</div>
+<div class="fsec">Where sketches show</div>
+<button class="gtick" onClick="{{tSkOver}}" style="height: auto; padding: 4px 10px; align-items: flex-start"><span class="{{sk.overCb}}" style="margin-top: 2px; flex-shrink: 0"></span><span style="line-height: 1.4">Also over the Compose viewer<br/><span class="dim" style="font-size: 11px">to check an idea against the finished picture</span></span></button>
+<div style="margin: 8px 10px; padding: 8px 10px; background: #1b1b1e; border: 1px solid #2e2e32; border-radius: 6px; font-size: 11px; line-height: 1.45; color: #a0a0a8">Sketches are never exported. They are saved with the project, beside Cut 012.</div>
+<span class="sp"></span>
+<div class="dim" style="padding: 10px; font-size: 11px; line-height: 1.5; border-top: 1px solid #26262a">B brush · P pencil · E eraser · [ and ] size · Ctrl+Z undo · Page Up and Page Down step frames</div>
+</div>
+</sc-if>
+
+<!-- ===== Effects finder, Ctrl+Space, centred (Effects C with Whole app B's family tree) ===== -->
+<sc-if value="{{finder}}" hint-placeholder-val="{{false}}">
+<div class="scrim" style="left: 0px; top: 40px; width: 1580px; height: 1060px; z-index: 34" onClick="{{closeFinder}}"></div>
+<div class="fcon" style="left: 430px; top: 104px">
+<div style="display: flex; align-items: center; gap: 8px; height: 50px; padding: 0 14px; border-bottom: 1px solid #34343a">
+<svg class="ic" width="16" height="16" viewBox="0 0 24 24" style="color: #6ea8fe"><path d="M5 19l6-6M13 5l1.5 3.5L18 10l-3.5 1.5L13 15l-1.5-3.5L8 10l3.5-1.5z"/></svg>
+<input class="fin" value="{{f.q}}" onChange="{{f.onChange}}" onKeyDown="{{f.onKey}}" autoFocus="{{true}}" placeholder="Type an effect or a preset" />
+<span class="dim">Adds to</span>
+<span style="display: flex; align-items: center; gap: 5px; background: #2e2e33; border: 1px solid #45454b; border-radius: 4px; padding: 1px 7px; color: #fff"><span style="width: 4px; height: 12px; background: #c46a6a; border-radius: 2px"></span>{{selLayer}}</span>
+</div>
+<div style="display: flex; height: 430px">
+<div class="fleft">
+<div class="fsec">Yours</div>
+<div style="display: flex; gap: 4px; padding: 0 10px 4px; flex-wrap: wrap"><sc-for list="{{f.yours}}" as="y" hint-placeholder-count="3"><button class="{{y.cls}}" onClick="{{y.pick}}">{{y.t}}</button></sc-for></div>
+<div class="fsec">Families · click to open</div>
+<sc-for list="{{f.fams}}" as="x" hint-placeholder-count="9">
+<button class="{{x.cls}}" onClick="{{x.toggle}}"><span class="twl">{{x.tw}}</span><span class="fdot" style="{{x.dot}}"></span><span>{{x.name}}</span><span class="c">{{x.count}}</span></button>
+<sc-if value="{{x.open}}" hint-placeholder-val="{{false}}">
+<sc-for list="{{x.items}}" as="e" hint-placeholder-count="5"><button class="{{e.cls}}" onClick="{{e.pick}}" onDoubleClick="{{e.add}}"><span class="{{e.star}}" style="padding-top: 0">★</span><span style="display: flex; flex-direction: column"><span>{{e.name}}</span><span class="d">{{e.desc}}</span></span></button></sc-for>
+</sc-if>
+</sc-for>
+</div>
+<div style="flex-grow: 1; min-width: 0; overflow-y: auto; padding-bottom: 6px">
+<sc-for list="{{f.groups}}" as="g" hint-placeholder-count="2">
+<div class="fh">{{g.t}}</div>
+<sc-for list="{{g.rows}}" as="r" hint-placeholder-count="4"><button class="{{r.cls}}" onClick="{{r.pick}}" onDoubleClick="{{r.add}}"><span class="fdot" style="{{r.dot}}"></span><span><span>{{r.pre}}</span><span class="mt">{{r.mid}}</span><span>{{r.post}}</span></span><sc-if value="{{r.tag}}" hint-placeholder-val="{{false}}"><span class="ftag">{{r.tag}}</span></sc-if><span class="ffm">{{r.right}}</span><sc-if value="{{r.isSel}}" hint-placeholder-val="{{false}}"><span class="fent">Enter</span></sc-if></button></sc-for>
+</sc-for>
+<sc-if value="{{f.none}}" hint-placeholder-val="{{false}}">
+<div class="dim" style="padding: 16px 14px 8px; line-height: 1.45">No effect or preset is called "{{f.q}}".</div>
+<button class="hand" onClick="{{f.toSearch}}" style="border-top: 0; margin: 0 14px; width: calc(100% - 28px); border-radius: 6px"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20"/></svg>Look for "{{f.q}}" in commands, menus, layers and help</button>
+</sc-if>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 14px; border-top: 1px solid #34343a; background: #1c1c20; box-sizing: border-box">
+<div style="flex-grow: 1; min-width: 0; line-height: 1.35"><div style="color: #fff">{{f.aboutName}} <span class="dim" style="font-size: 11px">{{f.aboutFam}}</span></div><div class="dim" style="font-size: 11px">{{f.aboutDesc}}</div></div>
+<span class="kb">↑</span><span class="kb">↓</span><span class="dim" style="font-size: 11px">choose</span>
+<button class="pri big" onClick="{{f.addSel}}">Add to {{selLayer}} · Enter</button>
+<button class="big" onClick="{{closeFinder}}">Esc</button>
+</div>
+</div>
+</sc-if>
+
+<!-- ===== Watch it write as a popup (Export A/D) ===== -->
+<sc-if value="{{watchPop}}" hint-placeholder-val="{{false}}">
+<div class="wscrim" onClick="{{closeWatch}}"></div>
+<div class="dlg">
+<div class="dt"><svg class="ic" width="16" height="16" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 19h16"/></svg>{{w.title}}<span class="sp"></span><span class="dim" style="font-weight: 400; font-size: 12px">PNG, 8-bit, lossless · work area 0–239</span></div>
+<div style="display: flex; height: 410px">
+<div style="width: 516px; flex-shrink: 0; padding: 14px; box-sizing: border-box; border-right: 1px solid #2e2e32">
+<div style="position: relative; width: 488px; height: 274px; overflow: hidden; border: 1px solid #3a3a40; box-sizing: border-box; background: linear-gradient(#f7b78f, #e98aa0 45%, #6a74b8)">
+<div style="position: absolute; left: 340px; top: 34px; width: 46px; height: 46px; border-radius: 23px; background: #fff2c4; box-shadow: 0 0 30px #fff2c4"></div>
+<div style="position: absolute; left: -40px; right: -40px; top: 200px; height: 140px; border-radius: 50% 50% 0 0; background: #3b2f5c"></div>
+<div style="{{w.body}}"></div><div style="{{w.face}}"></div><div style="{{w.hair}}"></div>
+<div style="{{w.gap}}">{{w.gapText}}</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; height: 26px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: rgba(0,0,0,.55); color: #fff">{{w.label}}<span class="sp"></span><span class="dim">{{w.hint}}</span></div>
+</div>
+<div style="display: flex; gap: 4px; margin-top: 12px; height: 46px"><sc-for list="{{w.cells}}" as="c" hint-placeholder-count="12"><button class="wcell" style="{{c.st}}" onClick="{{c.pick}}">{{c.t}}</button></sc-for></div>
+<div style="{{w.bar}}"></div>
+<div style="margin-top: 8px; color: #fff">{{w.progress}}</div>
+</div>
+<div style="flex-grow: 1; padding: 14px; box-sizing: border-box; display: flex; flex-direction: column">
+<div class="sech" style="margin-top: 0">Notes, in frame order · 1 so far</div>
+<button class="note" onClick="{{w.pickNote}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" style="color: #e8b06a; margin-top: 2px"><path d="M12 3l10 18H2z"/><path d="M12 10v5"/></svg><span><b style="color: #fff">Frames 84 to 85</b><br/>Body drawing 42 (body_0042.png) is missing. Written with the gap, as chosen in the queue.</span></button>
+<span class="sp"></span>
+<button class="big" onClick="{{toWin}}" style="align-self: flex-start"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="10" rx="1"/><rect x="9" y="10" width="12" height="9" rx="1"/></svg>Move to its own window</button>
+<div class="dim" style="font-size: 11px; margin-top: 6px; line-height: 1.4">Its own window can go on a second monitor and stays open while you work.</div>
+</div>
+</div>
+<div class="ft">
+<span class="dim" style="flex-grow: 1">Close only hides this; the export goes on. The task in the top bar opens it again.</span>
+<button class="big" onClick="{{w.tPause}}">{{w.pauseLabel}}</button>
+<button class="big">Cancel export</button>
+<button class="pri big" onClick="{{closeWatch}}">Close</button>
+</div>
+</div>
+</sc-if>
+
+<!-- ===== Watch it write in its own window (Export B), movable, stays across workspaces ===== -->
+<sc-if value="{{watchWin}}" hint-placeholder-val="{{false}}">
+<div class="owin" style="{{owin.st}}">
+<div class="otb" onPointerDown="{{owin.down}}" onPointerMove="{{owin.move}}" onPointerUp="{{owin.up}}" style="cursor: move; touch-action: none">
+<svg class="ic" width="14" height="14" viewBox="0 0 24 24" style="color: #e8b06a"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>
+<span style="white-space: nowrap">{{owin.title}}</span>
+<span class="sp"></span>
+<button class="ob2" onClick="{{owin.tMin}}" title="Minimise"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+<button class="ob2" onClick="{{toPop}}" title="Show as a popup instead"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14"/></svg></button>
+<button class="ob2 x" onClick="{{closeWatch}}" title="Close"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+</div>
+<sc-if value="{{owin.full}}" hint-placeholder-val="{{true}}">
+<div style="padding: 6px 12px; background: #1f2633; color: #c9d6ea; font-size: 11px; border-bottom: 1px solid #2a2a2e">Its own window: drag the title bar, or put it on your second monitor. It stays open when you change workspace.</div>
+<div style="display: flex; gap: 14px; padding: 12px">
+<div style="width: 362px; flex-shrink: 0">
+<div style="width: 362px; height: 204px; overflow: hidden; position: relative">
+<div style="position: absolute; left: 0; top: 0; width: 488px; height: 274px; transform: scale(.7418); transform-origin: 0 0; overflow: hidden; border: 1px solid #3a3a40; box-sizing: border-box; background: linear-gradient(#f7b78f, #e98aa0 45%, #6a74b8)">
+<div style="position: absolute; left: 340px; top: 34px; width: 46px; height: 46px; border-radius: 23px; background: #fff2c4; box-shadow: 0 0 30px #fff2c4"></div>
+<div style="position: absolute; left: -40px; right: -40px; top: 200px; height: 140px; border-radius: 50% 50% 0 0; background: #3b2f5c"></div>
+<div style="{{w.body}}"></div><div style="{{w.face}}"></div><div style="{{w.hair}}"></div>
+<div style="{{w.gap}}">{{w.gapText}}</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; height: 26px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: rgba(0,0,0,.55); color: #fff">{{w.label}}</div>
+</div>
+</div>
+<div style="display: flex; gap: 3px; margin-top: 8px; height: 40px; overflow: hidden"><sc-for list="{{w.cells}}" as="c" hint-placeholder-count="12"><button class="wcell" style="{{c.stSm}}" onClick="{{c.pick}}">{{c.t}}</button></sc-for></div>
+<div style="{{w.bar}}"></div>
+<div style="margin-top: 6px; color: #fff; font-size: 11.5px">{{w.progress}}</div>
+</div>
+<div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column">
+<div class="sech" style="margin-top: 0">Notes · 1 so far</div>
+<button class="note" onClick="{{w.pickNote}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" style="color: #e8b06a; margin-top: 2px"><path d="M12 3l10 18H2z"/><path d="M12 10v5"/></svg><span><b style="color: #fff">Frames 84 to 85</b><br/>Body drawing 42 is missing. Written with the gap.</span></button>
+<span class="sp"></span>
+<div style="display: flex; gap: 6px"><button class="big" onClick="{{w.tPause}}">{{w.pauseLabel}}</button><button class="big">Cancel</button></div>
+</div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-for list="{{pins}}" as="p" hint-placeholder-count="8"><span class="pin" style="{{p.st}}">{{p.n}}</span></sc-for>
+</div>
+
+<div class="key">
+<div class="kl">Sandbox · {{kw.label}}</div>
+<div class="kt">{{kw.title}}</div>
+<div><sc-for list="{{kw.chips}}" as="c" hint-placeholder-count="8"><span class="chip">{{c.t}}</span></sc-for></div>
+<div class="kh">The idea</div>
+<div>{{kw.idea}}</div>
+<div class="kh">What the numbers point at</div>
+<sc-for list="{{kw.items}}" as="k" hint-placeholder-count="7">
+<div class="ki"><span class="kn2">{{k.n}}</span><div><b>{{k.name}}</b><div>{{k.what}}</div></div></div>
+</sc-for>
+<div class="kh">Try it</div>
+<div>{{kw.tryIt}}</div>
+<div class="to"><b>Trade-off.</b> {{kw.trade}}</div>
+<div class="mr"><b>My reading.</b> {{kw.reading}}</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1920,"height":1100}}'>
+class Component extends DCLogic {
+  componentDidMount() {
+    this.onKeyWin = (e) => {
+      const r = this.rv || {};
+      const tag = e.target && e.target.tagName;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA';
+      if (e.ctrlKey && (e.code === 'Space' || e.key === ' ')) {
+        e.preventDefault();
+        if (!r.finder) this.setState({ finder: true, fq: r.sOpen ? r.sq : '', fSel: 0, fPick: '', fYours: '', sOpen: false, menu: '' });
+        return;
+      }
+      if (e.ctrlKey && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+        e.preventDefault();
+        if (this.sInput) this.sInput.focus();
+        this.setState({ sOpen: true, sScope: 'cmd', finder: false, menu: '' });
+        return;
+      }
+      if (e.key === 'Escape') { this.setState({ finder: false, sOpen: false, menu: '', noteEd: '' }); if (typing) e.target.blur(); return; }
+      if (typing) return;
+      if (e.key === 'PageUp') { e.preventDefault(); this.step(-1); return; }
+      if (e.key === 'PageDown') { e.preventDefault(); this.step(1); return; }
+      if (e.key === 'F9') { this.setState({ interp: Object.assign({}, r.interp, { [r.gSel]: 'ease' }) }); return; }
+      if (r.ws !== 'sketch') return;
+      const k = e.key.toLowerCase();
+      if (e.ctrlKey && k === 'z') { e.preventDefault(); this.setState({ strokes: r.strokes.slice(0, -1) }); }
+      else if (k === 'b') this.setState({ skTool: 'brush' });
+      else if (k === 'p') this.setState({ skTool: 'pencil' });
+      else if (k === 'e') this.setState({ skTool: 'eraser' });
+      else if (k === '[') this.setState({ skSize: Math.max(0, r.skSize - 1) });
+      else if (k === ']') this.setState({ skSize: Math.min(2, r.skSize + 1) });
+    };
+    window.addEventListener('keydown', this.onKeyWin);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('keydown', this.onKeyWin);
+    clearInterval(this.timer);
+  }
+
+  step(d) {
+    const f = (this.rv && this.rv.frame) || 107;
+    let n = f + d;
+    if (n >= 132) n = 84;
+    if (n < 84) n = 131;
+    const rdy = Object.assign({}, this.state.rdy || {});
+    rdy[n] = 1;
+    if (this.timer) for (let k = 1; k <= 3; k++) if (n + k <= 131) rdy[n + k] = 1;
+    this.setState({ frame: n, rdy });
+  }
+
+  renderVals() {
+    const START = {"ws":"compose"};
+    const st = this.state || {};
+    const v = (k, d) => (st[k] !== undefined ? st[k] : (START[k] !== undefined ? START[k] : d));
+    const set = (o) => () => this.setState(o);
+    const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
+    const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+    const F0 = 84, F1 = 132, X0 = 10;
+
+    // ---------- state
+    const ws = v('ws', 'compose');
+    const isC = ws === 'compose', isA = ws === 'animate', isS = ws === 'sketch', isR = ws === 'render';
+    const frame = v('frame', 107);
+    const playing = v('playing', false);
+    const menu = v('menu', '');
+    const tool = v('tool', 'sel');
+    const sq = v('sq', ''), sOpen = v('sOpen', false), sScope = v('sScope', 'all');
+    const finder = v('finder', false);
+    const fq = v('fq', ''), fSel = v('fSel', 0), fPick = v('fPick', ''), fYours = v('fYours', '');
+    const fFams = v('fFams', { 'Light & Glow': true });
+    const recent = v('recent', ['Glow', 'Curves', 'Light Wrap']);
+    const pview = v('pview', 'list'), pselId = v('psel', 'hair'), pClosed = v('pClosed', { snd: true }), cutOpen = v('cutOpen', 'c012');
+    const comp = v('comp', 'cut');
+    const lsel = v('lsel', 'Hair');
+    const mapOpen = v('mapOpen', false), vtab = v('vtab', 'cut'), mapMode = v('mapMode', 'both');
+    const tlm = Object.assign({ compose: 'timeline', animate: 'both' }, v('tlm', {}));
+    const mode = tlm[ws] || 'timeline';
+    const shOn = Object.assign({ compose: false, animate: true }, v('shOn', {}));
+    const hairOpenWs = Object.assign({ compose: false, animate: true }, v('hairOpen', {}));
+    const hairOpen = hairOpenWs[ws];
+    const rot = v('rot', 0), fh = v('fh', false);
+    const ov = { slate: v('ovSlate', true), guide: v('ovGuide', false), onion: v('ovOnion', false), strip: v('ovStrip', true) };
+    const keys = v('keys', { pos: { 90: 980, 120: 1040 }, rot: { 84: 0, 100: 18, 124: 6 }, rad: { 96: 8, 107: 12, 118: 20 } });
+    const vals = v('vals', { pos: 1000, scale: 100, rot: 0, op: 100, thr: 60, rad: 12, int: 1, blur: 4 });
+    const interpM = v('interp', {});
+    const gHide = v('gHide', {});
+    const gSel = v('gSel', 'rad');
+    const ecOpen = Object.assign({ masks: false, transform: true, glow: true, blur: false, pw: false }, v('ecOpen', {}));
+    const ecSel = v('ecSel', 'rad');
+    const sw = Object.assign({ glow: true, blur: false }, v('sw', {}));
+    const added = v('added', []);
+    const run = v('run', true);
+    const at = v('at', 118);
+    const wselRaw = v('wsel', null);
+    const watch = v('watch', false), wMode = v('wMode', 'pop');
+    const owX = v('owX', 790), owY = v('owY', 560), owMin = v('owMin', false);
+    const rqOpen = v('rqOpen', 0);
+    const rqFmt = v('rqFmt', {}), rqMiss = v('rqMiss', {});
+    const skTool = v('skTool', 'brush'), skSize = v('skSize', 1), skCol = v('skCol', '#e0604a');
+    const skLayer = v('skLayer', 'ideas');
+    const skLayers = v('skLayers', [
+      { id: 'notes', name: 'Notes', col: '#2f8f4f', vis: true, span: 'all' },
+      { id: 'pose', name: 'Pose fix', col: '#3f7fd8', vis: true, span: 'frame' },
+      { id: 'ideas', name: 'Ideas', col: '#c8302c', vis: true, span: 'frame' }
+    ]);
+    const strokes = v('strokes', [
+      { layer: 'ideas', frame: 107, c: '#c8302c', w: 7, o: 0.9, d: 'M1342 196 C1380 132 1540 136 1562 228 C1584 330 1462 372 1392 342 C1330 312 1318 244 1366 186', pts: [[1342, 196], [1460, 150], [1562, 228], [1480, 360], [1366, 186]] },
+      { layer: 'ideas', frame: 107, c: '#c8302c', w: 7, o: 0.9, d: 'M1010 560 Q1150 420 1320 318 M1276 308 L1324 316 L1306 362', pts: [[1010, 560], [1160, 440], [1320, 318], [1306, 362]] },
+      { layer: 'ideas', frame: 107, c: '#c8302c', w: 6, o: 0.85, d: 'M1018 606 q60 -14 112 6 M1024 646 q72 -8 124 18 M1020 690 q50 -2 84 12', pts: [[1018, 606], [1130, 612], [1024, 646], [1148, 664], [1020, 690], [1104, 702]] },
+      { layer: 'pose', frame: 107, c: '#3f7fd8', w: 5, o: 0.9, d: 'M806 640 C800 540 990 520 1004 620 C1014 720 920 790 852 752 C820 732 808 690 806 640', pts: [[806, 640], [900, 545], [1004, 620], [920, 780], [852, 752]] },
+      { layer: 'pose', frame: 107, c: '#3f7fd8', w: 5, o: 0.9, d: 'M880 860 L930 790 M906 794 L930 790 L934 816', pts: [[880, 860], [930, 790]] },
+      { layer: 'notes', frame: 0, c: '#2f8f4f', w: 5, o: 0.9, d: 'M150 990 q120 -12 260 4', pts: [[150, 990], [410, 994]] }
+    ]);
+    const texts = v('texts', [
+      { layer: 'ideas', frame: 107, x: 1060, y: 470, r: -14, t: 'more rim light?', size: 58, c: '#c8302c' },
+      { layer: 'pose', frame: 107, x: 1030, y: 830, r: 0, t: 'chin up a little', size: 44, c: '#3f7fd8' },
+      { layer: 'notes', frame: 0, x: 150, y: 970, r: 0, t: 'hold 6 frames, then look up', size: 50, c: '#2f8f4f' }
+    ]);
+    const skLive = v('skLive', null);
+    const skUnder = v('skUnder', 0.6), skOnion = v('skOnion', false), skOver = v('skOver', false);
+
+    // ---------- layout: the sheet takes a full-height column on the right when shown
+    const sheetShown = (isC || isA) && shOn[ws];
+    const mainW = sheetShown ? 1180 : 1580;
+    const LC = 460, rcolW = mainW - LC;
+    const PX = Math.floor((rcolW - 20) / 48);
+    const fx = (f) => X0 + (f - F0) * PX;
+    const tlTop = isA ? 500 : (mode === 'timeline' ? 760 : 620);
+    const box = (x, y, w, h) => 'left:' + x + 'px;top:' + y + 'px;width:' + w + 'px;height:' + h + 'px';
+    const TOP = 40;
+    const viewH = tlTop - TOP;
+    const geo = {
+      proj: box(0, TOP, 340, isR ? 1100 - TOP : 300),
+      ec: isA ? box(0, TOP, 340, viewH) : box(0, TOP + 300, 340, tlTop - TOP - 300),
+      view: box(340, TOP, mainW - 340, viewH),
+      tl: box(0, tlTop, mainW, 1100 - tlTop),
+      sheet: box(mainW, TOP, 1580 - mainW, 1100 - TOP),
+      rq: box(340, TOP, 1240, 1100 - TOP)
+    };
+    const show = { proj: isC || isR, ec: isC || isA, view: isC || isA, tl: isC || isA, sheet: sheetShown, rq: isR };
+
+    // ---------- the animated settings of Hair, shared by Effect controls, the timeline and the graph
+    const PR = {
+      pos: { name: 'Position', grp: 'transform', unit: '', min: 900, max: 1100, step: 1, col: '#8fd6a0', fmt: (x) => x.toFixed(1) + ', 540.0' },
+      scale: { name: 'Scale', grp: 'transform', unit: '%', min: 0, max: 200, step: 0.5, col: '#e8b06a', fmt: (x) => x.toFixed(1) + ', ' + x.toFixed(1) },
+      rot: { name: 'Rotation', grp: 'transform', unit: '°', min: -10, max: 30, step: 0.2, col: '#6ea8fe', fmt: (x) => '0x ' + (x >= 0 ? '+' : '') + x.toFixed(1) },
+      op: { name: 'Opacity', grp: 'transform', unit: '%', min: 0, max: 100, step: 0.5, col: '#7fd0d9', fmt: (x) => String(Math.round(x)) },
+      thr: { name: 'Threshold', grp: 'glow', unit: '%', min: 0, max: 100, step: 0.5, col: '#a6d97f', fmt: (x) => String(Math.round(x)) },
+      rad: { name: 'Radius', grp: 'glow', unit: 'px', min: 0, max: 30, step: 0.1, col: '#d97fb8', fmt: (x) => x.toFixed(1) },
+      int: { name: 'Intensity', grp: 'glow', unit: '', min: 0, max: 4, step: 0.02, col: '#e8c46a', fmt: (x) => x.toFixed(2) },
+      blur: { name: 'Blurriness', grp: 'blur', unit: '', min: 0, max: 50, step: 0.2, col: '#7fa7d9', fmt: (x) => x.toFixed(1) }
+    };
+    added.forEach((a) => { PR[a.id] = { name: 'Amount', grp: a.id, gname: a.name, unit: '%', min: 0, max: 100, step: 0.5, col: '#9f7fd9', fmt: (x) => String(Math.round(x)) }; });
+    const GN = { transform: '', glow: 'Glow › ', blur: 'Gaussian Blur › ' };
+    const pName = (p) => (GN[PR[p].grp] !== undefined ? GN[PR[p].grp] : PR[p].gname + ' › ') + PR[p].name;
+    const kOf = (p) => keys[p] || {};
+    const kFrames = (p) => Object.keys(kOf(p)).map(Number).sort((a, b) => a - b);
+    const animated = (p) => kFrames(p).length > 0;
+    const im = (p) => interpM[p] || 'ease';
+    const valAt = (p, f) => {
+      const fs = kFrames(p), ks = kOf(p);
+      if (!fs.length) return vals[p] !== undefined ? vals[p] : 50;
+      if (f <= fs[0]) return ks[fs[0]];
+      if (f >= fs[fs.length - 1]) return ks[fs[fs.length - 1]];
+      let i = 0;
+      while (fs[i + 1] <= f) i += 1;
+      const a = fs[i], b = fs[i + 1], va = ks[a], vb = ks[b], t = (f - a) / (b - a);
+      if (im(p) === 'hold') return va;
+      if (im(p) === 'linear') return va + (vb - va) * t;
+      return va + (vb - va) * (3 * t * t - 2 * t * t * t);
+    };
+    const val = (p) => valAt(p, frame);
+    const setVal = (p, nv) => {
+      const x = clamp(nv, PR[p].min, PR[p].max);
+      if (animated(p)) this.setState({ keys: Object.assign({}, keys, { [p]: Object.assign({}, kOf(p), { [frame]: x }) }) });
+      else this.setState({ vals: Object.assign({}, vals, { [p]: x }) });
+    };
+    const toggleKey = (p) => {
+      const ks = Object.assign({}, kOf(p));
+      if (ks[frame] !== undefined) delete ks[frame]; else ks[frame] = val(p);
+      this.setState({ keys: Object.assign({}, keys, { [p]: ks }) });
+    };
+    const toggleWatch = (p) => {
+      if (animated(p)) this.setState({ keys: Object.assign({}, keys, { [p]: {} }), vals: Object.assign({}, vals, { [p]: val(p) }) });
+      else this.setState({ keys: Object.assign({}, keys, { [p]: { [frame]: val(p) } }) });
+    };
+    const prevKey = (p) => kFrames(p).filter((f) => f < frame).pop();
+    const nextKey = (p) => kFrames(p).filter((f) => f > frame)[0];
+    const keyNav = (p) => {
+      const pk = prevKey(p), nk = nextKey(p), has = kOf(p)[frame] !== undefined;
+      return {
+        pc: pk !== undefined ? 'nb lit' : 'nb', nc: nk !== undefined ? 'nb lit' : 'nb',
+        prev: stop(() => { if (pk !== undefined) this.setState({ frame: pk }); }),
+        next: stop(() => { if (nk !== undefined) this.setState({ frame: nk }); }),
+        tKey: stop(() => toggleKey(p)),
+        dia: has ? 'dia on' : (animated(p) ? 'dia has' : 'dia')
+      };
+    };
+    const animList = Object.keys(PR).filter(animated);
+
+    // ---------- menus (Top bar A, item 1)
+    const shut = { menu: '', sOpen: false };
+    const goWs = (w) => () => this.setState(Object.assign({}, shut, { ws: w, finder: false }));
+    const openWatch = () => this.setState(Object.assign({}, shut, { watch: true, owMin: false, wsel: null }));
+    const act = {
+      none: () => this.setState(shut),
+      finder: () => this.setState(Object.assign({}, shut, { finder: true, fq: '', fSel: 0, fPick: '', fYours: '' })),
+      pal: () => { if (this.sInput) this.sInput.focus(); this.setState({ menu: '', sOpen: true, sScope: 'cmd' }); },
+      rq: goWs('render'), watch: openWatch,
+      wsC: goWs('compose'), wsA: goWs('animate'), wsS: goWs('sketch'), wsR: goWs('render'),
+      turn: () => this.setState(Object.assign({}, shut, { rot: (rot + 15) % 360 })),
+      flip: () => this.setState(Object.assign({}, shut, { fh: !fh })),
+      skOver: () => this.setState(Object.assign({}, shut, { skOver: !skOver })),
+      guide: () => this.setState(Object.assign({}, shut, { ovGuide: !ov.guide })),
+      onion: () => this.setState(Object.assign({}, shut, { ovOnion: !ov.onion })),
+      sheet: () => this.setState(Object.assign({}, shut, { shOn: Object.assign({}, shOn, { [ws]: !shOn[ws] }) })),
+      both: () => this.setState(Object.assign({}, shut, { tlm: Object.assign({}, tlm, { [ws]: 'both' }) })),
+      map: () => this.setState(Object.assign({}, shut, { ws: isA ? 'animate' : 'compose', mapOpen: true, vtab: 'map', finder: false })),
+      ease: () => this.setState(Object.assign({}, shut, { interp: Object.assign({}, interpM, { [gSel]: 'ease' }) })),
+      health: () => this.setState(Object.assign({}, shut, { ws: isR ? 'render' : 'compose', psel: 'body', pview: 'list' }))
+    };
+    const MENUS = [
+      ['File', [['New project…', 'Ctrl+Alt+N'], ['Open project…', 'Ctrl+O'], ['Save', 'Ctrl+S'], ['Import…', 'Ctrl+I'], ['Relink missing files…', '', 'health']]],
+      ['Edit', [['Undo', 'Ctrl+Z'], ['Redo', 'Ctrl+Shift+Z'], ['Copy', 'Ctrl+C'], ['Paste', 'Ctrl+V'], ['Preferences…', '']]],
+      ['Composition', [['New composition…', 'Ctrl+N'], ['Composition settings…', 'Ctrl+K'], ['Pre-compose…', 'Ctrl+Shift+C'], ['Map of compositions', '', 'map'], ['Add to Render queue', 'Ctrl+M', 'rq']]],
+      ['Layer', [['New solid…', 'Ctrl+Y'], ['Timing tag…', ''], ['Posterize Time', ''], ['Parent to…', '']]],
+      ['Effect', [['Find an effect or preset', 'Ctrl+Space', 'finder'], ['Effect presets…', ''], ['Remove all effects', '']]],
+      ['Animation', [['Easy ease', 'F9', 'ease'], ['Show the graph under the timeline', '', 'both'], ['Sheet on / off', '', 'sheet']]],
+      ['View', [['Turn view 15°', '', 'turn'], ['Flip view left-right', '', 'flip'], ['Sketches over the viewer on / off', '', 'skOver'], ['Field guide on / off', '', 'guide'], ['Onion skin on / off', '', 'onion']]],
+      ['Window', [['Compose workspace', 'Shift+F1', 'wsC'], ['Animate workspace', 'Shift+F2', 'wsA'], ['Sketch workspace', 'Shift+F3', 'wsS'], ['Render workspace', 'Shift+F4', 'wsR'], ['Find any command…', 'Ctrl+Shift+P', 'pal'], ['Watch it write', '', 'watch']]],
+      ['Help', [['Keyboard shortcuts…', ''], ['About Anime Compositor', '']]]
+    ];
+    const menus = MENUS.map(([name, items]) => ({
+      name, cls: menu === name ? 'm on' : 'm', open: menu === name,
+      toggle: () => this.setState({ menu: menu === name ? '' : name, sOpen: false }),
+      items: items.map(([t, sc, a]) => ({ t, sc, go: act[a || 'none'] }))
+    }));
+
+    // ---------- tools
+    const TN = { sel: 'Selection tool · V', hand: 'Hand tool · H', zoom: 'Zoom tool · Z', pen: 'Pen tool · G', shape: 'Shape tool · Q', text: 'Text tool · Ctrl+T' };
+    const tc = (k) => (tool === k ? 'tb on' : 'tb');
+    const tools = {
+      sel: tc('sel'), hand: tc('hand'), zoom: tc('zoom'), pen: tc('pen'), shape: tc('shape'), text: tc('text'), name: TN[tool],
+      pSel: set({ tool: 'sel' }), pHand: set({ tool: 'hand' }), pZoom: set({ tool: 'zoom' }), pPen: set({ tool: 'pen' }), pShape: set({ tool: 'shape' }), pText: set({ tool: 'text' })
+    };
+
+    // ---------- effects (Whole app B's families, used inside the finder)
+    const FC = { 'Blur & Sharpen': '#7fa7d9', 'Color Correction': '#d98f7f', 'Light & Glow': '#e8c46a', 'Lines & Mattes': '#b0b0b8', 'Distort': '#9f7fd9', 'Generate': '#7fd9b5', 'Stylize': '#d97fb8', 'Camera & Lens': '#7fd0d9', 'Transition': '#a6d97f', 'Your presets': '#e8b06a' };
+    const E = {
+      'Blur & Sharpen': [['Gaussian Blur', 'Softens the whole layer evenly'], ['Directional Blur', 'Smears along one angle, for speed'], ['Radial Blur', 'Spins or zooms from a centre'], ['Lens Blur', 'Out of focus, round highlights'], ['Selective Color Blur', 'Blurs only the colours you pick'], ['Sharpen', 'Crisps edges'], ['Diffusion', 'Soft dreamy haze']],
+      'Color Correction': [['Brightness & Contrast', 'Lighter, darker, more punch'], ['Curves', 'Shape the tones with a curve'], ['Levels', 'Black, grey and white points'], ['Exposure', 'Brightens like opening the lens'], ['Hue/Saturation', 'Shift or strip colour'], ['Vibrance', 'Boosts dull colours, spares skin'], ['Color Balance', 'Warmer or cooler per tone'], ['Channel Mixer', 'Blend red, green and blue'], ['Black & White', 'Grey, with control per colour'], ['Tint', 'Map dark and light to two colours'], ['Gradient Map', 'Recolour by brightness'], ['Leave Color', 'Grey all but one colour'], ['Invert', 'Flip every colour']],
+      'Light & Glow': [['Glow', 'Bright parts bleed light around them'], ['Bloom', 'Soft wide haze from highlights'], ['Light Rays', 'Beams streaming from a point'], ['Rim Light', 'A lit edge on one side'], ['Light Wrap', 'Background light spills over edges'], ['Cross Glare', 'Star-shaped glints on highlights'], ['Exposure Flicker', 'Brightness flutters over time']],
+      'Lines & Mattes': [['Line Smooth', 'Cleans jaggy linework'], ['Line Width', 'Thickens or thins lines'], ['Line Recolor', 'Recolours the lines only'], ['Outline', 'A line around the shape'], ['Simple Choker', 'Shrinks or grows the matte edge'], ['Select Color', 'Keeps only chosen colours'], ['Color Key', 'Makes one colour transparent']],
+      'Distort': [['Turbulent Displace', 'Wobbles the picture with noise'], ['Wave Warp', 'Ripples in regular waves'], ['Ripple', 'Rings from a point'], ['Twirl', 'Twists around a centre'], ['Bulge', 'Swells or pinches an area'], ['Mirror', 'Reflects across a line'], ['Offset', 'Slides and wraps'], ['Motion Tile', 'Repeats as tiles']],
+      'Generate': [['Gradient', 'A smooth ramp of colour'], ['Fractal Noise', 'Clouds, smoke, textures'], ['Noise', 'Film grain'], ['Speed Lines', 'Anime action lines'], ['Rain', 'Falling streaks']],
+      'Stylize': [['Drop Shadow', 'A shadow behind the layer'], ['Halftone', 'Printed-dot look'], ['Mosaic', 'Big square pixels'], ['Emboss', 'Raised, stamped look'], ['Find Edges', 'Keeps only the outlines'], ['Posterize', 'Fewer colour steps'], ['Threshold', 'Pure black and white'], ['Solarize', 'Part-inverted photo look']],
+      'Camera & Lens': [['Vignette', 'Darker corners'], ['Chromatic Aberration', 'Colour fringes at the edges'], ['Distance Gradation', 'Fades toward a colour'], ['Camera Shake', 'Jolts the frame']],
+      'Transition': [['Linear Wipe', 'Wipes across along a line'], ['Radial Wipe', 'Wipes round like a clock hand'], ['Venetian Blinds', 'Reveals in stripes'], ['Iris Wipe', 'Opens or closes in a shape']]
+    };
+    const FAV = ['Glow', 'Gaussian Blur', 'Drop Shadow', 'Line Smooth'];
+    const allE = [];
+    Object.keys(E).forEach((fam) => E[fam].forEach(([n, d]) => allE.push({ n, d, fam })));
+    const PRESETS = [{ n: 'Soft anime glow', d: 'Glow + Bloom, saved by you', fam: 'Your presets' }, { n: 'Night grade', d: 'Curves + Tint + Vignette, saved by you', fam: 'Your presets' }];
+    const findE = (n) => allE.find((x) => x.n === n) || PRESETS.find((x) => x.n === n);
+    const hl = (text, q) => { const i = q ? text.toLowerCase().indexOf(q) : -1; return i < 0 ? { pre: text, mid: '', post: '' } : { pre: text.slice(0, i), mid: text.slice(i, i + q.length), post: text.slice(i + q.length) }; };
+
+    const selLayer = lsel;
+    const addFx = (x) => () => {
+      const id = 'a' + (added.length + 1);
+      this.setState({
+        added: added.concat([{ id, name: x.n, fam: x.fam }]),
+        ecOpen: Object.assign({}, ecOpen, { [id]: true }), ecSel: id,
+        vals: Object.assign({}, vals, { [id]: 50 }),
+        sw: Object.assign({}, sw, { [id]: true }),
+        recent: [x.n].concat(recent.filter((n) => n !== x.n)).slice(0, 4),
+        finder: false, fq: '', fPick: '', fSel: 0,
+        lsel: 'Hair'
+      });
+    };
+
+    // ---------- the effects finder, Ctrl+Space (Effects C + Whole app B's family tree)
+    const q = fq.trim().toLowerCase();
+    let fGroups;
+    if (q) {
+      const rec = recent.map(findE).filter((x) => x && x.n.toLowerCase().indexOf(q) >= 0);
+      const eff = allE.filter((x) => x.n.toLowerCase().indexOf(q) >= 0 && recent.indexOf(x.n) < 0).slice(0, 9);
+      const pre = PRESETS.filter((x) => x.n.toLowerCase().indexOf(q) >= 0);
+      fGroups = [['Recently used', rec], ['Effects', eff], ['Your presets', pre]];
+    } else if (fYours === 'fav') fGroups = [['Favourites', FAV.map(findE)]];
+    else if (fYours === 'recent') fGroups = [['Recently used', recent.map(findE)]];
+    else if (fYours === 'presets') fGroups = [['Your presets', PRESETS]];
+    else fGroups = [['Recently used', recent.map(findE)], ['Favourites', FAV.filter((n) => recent.indexOf(n) < 0).map(findE)]];
+    fGroups = fGroups.filter((g) => g[1].length);
+    const flat = [];
+    fGroups.forEach((g) => g[1].forEach((x) => flat.push(x)));
+    const fSelC = clamp(fSel, 0, Math.max(0, flat.length - 1));
+    const chosen = fPick ? findE(fPick) : flat[fSelC];
+    let fi = 0;
+    const f = {
+      q: fq,
+      onChange: (e) => this.setState({ fq: e.target.value, fSel: 0, fPick: '', fYours: '' }),
+      onKey: (e) => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); this.setState({ fSel: Math.min(flat.length - 1, fSelC + 1), fPick: '' }); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); this.setState({ fSel: Math.max(0, fSelC - 1), fPick: '' }); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (chosen) addFx(chosen)(); else if (q) f.toSearch(); }
+        else if (e.key === 'Escape') this.setState({ finder: false });
+      },
+      yours: [['fav', 'Favourites'], ['recent', 'Recent'], ['presets', 'Presets']].map(([id, t]) => ({ t, cls: fYours === id && !q ? 'pillb on' : 'pillb', pick: set({ fYours: fYours === id ? '' : id, fq: '', fSel: 0, fPick: '' }) })),
+      fams: Object.keys(E).map((name) => {
+        const open = !!fFams[name];
+        return {
+          name, open, count: E[name].length, cls: open ? 'famr on' : 'famr', tw: open ? '▾' : '▸', dot: 'background:' + FC[name],
+          toggle: set({ fFams: Object.assign({}, fFams, { [name]: !open }) }),
+          items: E[name].map(([n, d]) => ({ name: n, desc: d, cls: fPick === n ? 'fe sel' : 'fe', star: FAV.indexOf(n) >= 0 ? 'star on' : 'star', pick: set({ fPick: n }), add: addFx({ n, d, fam: name }) }))
+        };
+      }),
+      groups: fGroups.map(([t, xs]) => ({
+        t,
+        rows: xs.map((x) => {
+          const i = fi; fi += 1;
+          const h = hl(x.n, q);
+          const isSel = !fPick && i === fSelC;
+          return Object.assign(h, { cls: isSel ? 'fdr sel' : 'fdr', isSel, pick: set({ fSel: i, fPick: '' }), add: addFx(x), dot: 'background:' + FC[x.fam], tag: FAV.indexOf(x.n) >= 0 ? '★ favourite' : '', right: x.fam });
+        })
+      })),
+      none: !!q && flat.length === 0,
+      toSearch: () => { this.setState({ finder: false, sq: fq, sOpen: true, sScope: 'all' }); if (this.sInput) this.sInput.focus(); },
+      aboutName: chosen ? chosen.n : 'Nothing chosen', aboutFam: chosen ? chosen.fam : '', aboutDesc: chosen ? chosen.d : 'Type a few letters, or open a family on the left.',
+      addSel: () => { if (chosen) addFx(chosen)(); }
+    };
+
+    // ---------- Search B: the top-bar box for everything except effects
+    const sqq = sq.trim().toLowerCase();
+    const COMPS_L = [['Cut 012', ['Camera', 'BOOK', 'Glow pass', 'Hair', 'Body', 'Precomp 1', 'BG', 'dialogue_012.wav'], 'cut'], ['Precomp 1', ['Hair (copy)', 'Sparkles'], 'pre'], ['Rain overlay', ['Rain streaks', 'Splash'], 'rain']];
+    const LABC = { Camera: '#8e8e96', BOOK: '#a08a6a', 'Glow pass': '#8f7bd6', Hair: '#c46a6a', Body: '#c4a46a', 'Precomp 1': '#7fc4cf', BG: '#6aa87a', 'dialogue_012.wav': '#6ea8fe', 'Hair (copy)': '#c46a6a', Sparkles: '#e8c46a', 'Rain streaks': '#6ea8fe', Splash: '#7fc4cf' };
+    const SRC = [];
+    [['Find an effect or preset', 'Ctrl+Space', 'finder'], ['Switch to the Compose workspace', 'Shift+F1', 'wsC'], ['Switch to the Animate workspace', 'Shift+F2', 'wsA'], ['Switch to the Sketch workspace', 'Shift+F3', 'wsS'], ['Switch to the Render workspace', 'Shift+F4', 'wsR'],
+      ['Show or hide the sheet', 'Timeline', 'sheet'], ['Show the graph under the timeline', 'Timeline', 'both'], ['Open the map of Precomp 1', 'Viewer', 'map'], ['Easy ease the chosen keys', 'F9', 'ease'],
+      ['Turn view 15°', 'View', 'turn'], ['Flip view left-right', 'View', 'flip'], ['Field guide on / off', 'View', 'guide'], ['Onion skin on / off', 'View', 'onion'], ['Glow on / off', 'Effect', 'glowT'], ['Add to Render queue', 'Ctrl+M', 'rq'], ['Watch it write', 'Window', 'watch'], ['Relink the missing drawing', 'File', 'health']]
+      .forEach(([t, where, a]) => SRC.push({ type: 'cmd', t, where: '', sc: where, go: a === 'glowT' ? () => this.setState(Object.assign({}, shut, { sw: Object.assign({}, sw, { glow: !sw.glow }) })) : act[a], dot: 'background:#6ea8fe' }));
+    MENUS.forEach(([mn, items]) => items.forEach(([t, sc, a]) => SRC.push({ type: 'menu', t, where: mn + ' menu', sc, go: a ? act[a] : () => this.setState({ sOpen: false, menu: mn }), dot: 'background:#8e8e96' })));
+    COMPS_L.forEach(([cn, ls, cid]) => ls.forEach((ln, i) => SRC.push({ type: 'layer', t: ln, where: cn + ' · layer ' + (cid === 'cut' && i === 0 ? 'camera' : (cid === 'cut' ? i : i + 1)), sc: '', go: () => this.setState(Object.assign({}, shut, { comp: cid, lsel: ln, ws: isC || isA ? ws : 'compose' })), dot: 'background:' + LABC[ln] })));
+    [['Timing tags: on 2s, on 3s, irregular'], ['Missing drawings and how Relink works'], ['Reading the sheet: frames and drawings'], ['Keyboard shortcuts'], ['Sketches are never exported'], ['Glow: what Threshold and Radius do'], ['Workspaces: what each one is for'], ['The graph: easy ease, linear and hold']]
+      .forEach(([t]) => SRC.push({ type: 'help', t, where: 'Help page', sc: '', go: () => this.setState({ sOpen: false }), dot: 'background:#8fd6a0' }));
+    const SC = [['all', 'All'], ['cmd', 'Commands'], ['menu', 'Menus'], ['layer', 'Layers'], ['help', 'Help']];
+    const sMatch = SRC.filter((x) => sqq && x.t.toLowerCase().indexOf(sqq) >= 0);
+    const inScope = sMatch.filter((x) => sScope === 'all' || x.type === sScope);
+    const effN = sqq ? allE.filter((x) => x.n.toLowerCase().indexOf(sqq) >= 0).length + PRESETS.filter((x) => x.n.toLowerCase().indexOf(sqq) >= 0).length : 0;
+    const TYPE_T = { cmd: 'Commands', menu: 'Menu items', layer: 'Layers', help: 'Help' };
+    const sGroups = ['cmd', 'menu', 'layer', 'help'].map((ty) => {
+      const xs = inScope.filter((x) => x.type === ty).slice(0, sScope === 'all' ? 4 : 10);
+      return { t: TYPE_T[ty], rows: xs.map((x) => Object.assign(hl(x.t, sqq), { where: x.where, sc: x.sc, dot: x.dot, go: () => { x.go(); this.setState({ sOpen: false, sq: '' }); } })) };
+    }).filter((g) => g.rows.length);
+    const firstHit = inScope[0];
+    const s = {
+      q: sq, hasQ: !!sq, open: sOpen, boxCls: sOpen ? 'sbw on' : 'sbw',
+      ref: (el) => { this.sInput = el; },
+      onChange: (e) => this.setState({ sq: e.target.value, sOpen: true }),
+      onFocus: () => this.setState({ sOpen: true, menu: '' }),
+      onKey: (e) => {
+        if (e.key === 'Enter' && firstHit) { firstHit.go(); this.setState({ sOpen: false, sq: '' }); e.target.blur(); }
+        else if (e.key === 'Enter' && effN) this.setState({ sOpen: false, finder: true, fq: sq, fSel: 0, fPick: '', fYours: '' });
+      },
+      clear: () => this.setState({ sq: '' }),
+      scopes: SC.map(([id, t]) => ({ t: t + (sqq ? ' ' + (id === 'all' ? sMatch.length : sMatch.filter((x) => x.type === id).length) : ''), cls: sScope === id ? 'scp on' : 'scp', pick: set({ sScope: id }) })),
+      groups: sGroups,
+      empty: !sqq, none: !!sqq && inScope.length === 0,
+      hand: effN > 0, handText: effN + (effN === 1 ? ' effect matches' : ' effects match') + ' "' + sq.trim() + '"',
+      toFinder: () => this.setState({ sOpen: false, finder: true, fq: sq, fSel: 0, fPick: '', fYours: '' })
+    };
+
+    // ---------- Project (Project A-D, unchanged from Whole app A)
+    const paperBg = 'background:#f3efe6';
+    const CUTBG = 'background:linear-gradient(180deg,#f7b78f 0%,#e98aa0 45%,#6a74b8 76%,#3b2f5c 76%)';
+    const P = [
+      { id: 'cut', name: 'Cut 012', kind: 'Composition', len: '10s 0f', dr: '—', lab: '#8f7bd6', box: CUTBG, fig: 'position:absolute;left:44%;top:30%;width:14%;height:70%;background:#2c3a63;border-radius:40% 40% 0 0', b1: '8 layers', b2: '10s 0f', line: 'Composition · 8 layers', use: '—' },
+      { id: 'rain', name: 'Rain overlay', kind: 'Composition', len: '10s 0f', dr: '—', lab: '#8f7bd6', box: 'background:repeating-linear-gradient(105deg,rgba(200,220,255,.35) 0 1px,transparent 1px 9px),#1c2433', fig: 'display:none', b1: '2 layers', b2: 'not used', line: 'Composition · 2 layers · not used yet', use: '—' },
+      { id: 'pre', name: 'Precomp 1', kind: 'Composition', len: '4s 0f', dr: '—', lab: '#7fc4cf', box: 'background:linear-gradient(135deg,#3a2f55,#6a4f8f)', fig: 'display:none', b1: '2 layers', b2: '4s 0f', line: 'Composition · 2 layers · used once', use: '1' },
+      { id: 'hair', name: 'Hair', kind: 'Drawings', len: '10s 0f', dr: '75', lab: '#c46a6a', box: paperBg, fig: 'position:absolute;left:36%;top:14%;width:30%;height:52%;background:#3b3440;border-radius:50% 50% 30% 60%', b1: '75 drawings', b2: 'irregular', line: '75 files · hair_0001 to hair_0075.png', use: '2' },
+      { id: 'body', name: 'Body', kind: 'Drawings', len: '10s 0f', dr: '120', miss: true, lab: '#c4a46a', box: paperBg, fig: 'position:absolute;left:36%;top:18%;width:26%;height:70%;border:2px solid #555;border-radius:40% 40% 8% 8%;box-sizing:border-box', b1: '120 drawings', b2: '1 missing', line: '120 files, on 2s · body_0042.png is missing', use: '1' },
+      { id: 'bg', name: 'BG', kind: 'Drawing, held', len: '10s 0f', dr: '1', lab: '#6aa87a', box: 'background:linear-gradient(180deg,#f7b78f 0%,#e98aa0 50%,#3b2f5c 70%)', fig: 'display:none', b1: '1 drawing', b2: 'held', line: 'One drawing · bg_012.png', use: '1' },
+      { id: 'book', name: 'BOOK', kind: 'Drawing, held', len: '10s 0f', dr: '1', lab: '#a08a6a', box: paperBg, fig: 'position:absolute;left:0;right:0;bottom:0;height:34%;background:#4a3a5a;border-radius:30% 60% 0 0', b1: '1 drawing', b2: 'held', line: 'One drawing, in front of the characters · book_012.png', use: '1' },
+      { id: 'snd', name: 'dialogue_012.wav', kind: 'Sound', len: '10s 0f', dr: '—', lab: '#6ea8fe', box: 'background:#18202c', fig: 'position:absolute;left:8%;right:8%;top:30%;bottom:30%;background:repeating-linear-gradient(90deg,#6ea8fe 0 2px,transparent 2px 5px)', b1: '48 kHz', b2: '10s 0f', line: 'Sound · stereo, 48 kHz', use: '1' }
+    ];
+    const byId = {}; P.forEach((p) => { byId[p.id] = p; });
+    const cur = byId[pselId];
+    const pickP = (id) => () => this.setState({ psel: id });
+    const plist = P.map((p) => ({
+      name: p.name, kind: p.kind, len: p.len, dr: p.miss ? p.dr + ', 1 missing' : p.dr, drCls: p.miss ? 'miss' : 'dim',
+      nameCls: p.miss ? 'miss' : '', labSt: 'background:' + p.lab, cls: p.id === pselId ? 'lr on' : 'lr', pick: pickP(p.id)
+    }));
+    const card = (id) => { const p = byId[id]; return {
+      name: p.name, box: p.box, fig: p.fig, b1: p.b1, b2: p.b2,
+      b2Cls: p.miss ? 'ov r' : (p.b2 === 'held' ? 'ov g' : 'ov'), cls: id === pselId ? 'card on' : 'card', pick: pickP(id) }; };
+    const psecs = [
+      { t: 'Compositions · 3', cards: ['cut', 'rain', 'pre'].map(card) },
+      { t: 'Drawings · 4', cards: ['hair', 'body', 'bg', 'book'].map(card) },
+      { t: 'Sound · 1', cards: ['snd'].map(card) }
+    ];
+    const FOLD = [['comps', 'Compositions', ['cut', 'rain']], ['pre', 'Precomps', ['pre']], ['dr', 'Drawings', ['hair', 'body', 'bg', 'book']], ['snd', 'Sound', ['snd']]];
+    const ptree = [];
+    FOLD.forEach(([fid, fname, ids]) => {
+      const isClosed = !!pClosed[fid];
+      ptree.push({ cls: 'tw fold', ind: '', tw: isClosed ? '▸' : '▾', name: fname, nameCls: '', labSt: '', type: 'Folder', len: '', use: ids.length + ' items',
+        pick: () => this.setState({ pClosed: Object.assign({}, pClosed, { [fid]: !isClosed }) }) });
+      if (isClosed) return;
+      ids.forEach((id) => { const p = byId[id]; ptree.push({ cls: id === pselId ? 'tw on' : 'tw', ind: 'padding-left:16px', tw: '', name: p.miss ? p.name + ' · 1 missing' : p.name,
+        nameCls: p.miss ? 'miss' : '', labSt: 'width:9px;height:9px;border-radius:2px;background:' + p.lab, type: p.kind, len: p.len, use: p.use, pick: pickP(id) }); });
+    });
+    const SN = ['Layout', 'Key animation', 'In-between', 'Paint', 'Compositing'];
+    const CUTS = [
+      { id: 'c010', name: 'Cut 010', len: '6s 12f', who: 'K. Mori', s: ['done', 'done', 'done', 'done', 'done'], box: 'background:linear-gradient(180deg,#3e3050 0%,#8a6a8f 60%,#4a3a3a 60%,#2e2424 100%)' },
+      { id: 'c011', name: 'Cut 011', len: '3s 0f', who: 'K. Mori', s: ['done', 'done', 'done', 'done', 'doing'], box: 'background:linear-gradient(180deg,#2d4466 0%,#5f7fae 58%,#3c5b3f 58%,#2a3f2c 100%)' },
+      { id: 'c012', name: 'Cut 012', len: '10s 0f', who: 'A. Tanaka', s: ['done', 'done', 'doing', 'todo', 'doing'], miss: true, box: CUTBG },
+      { id: 'c013', name: 'Cut 013', len: '4s 6f', who: 'not filled in', s: ['done', 'doing', 'todo', 'todo', 'todo'], box: 'background:#26262a' }
+    ];
+    const pcuts = CUTS.map((c) => {
+      const open = c.id === cutOpen;
+      const done = c.s.filter((x) => x === 'done').length;
+      return {
+        name: c.name, len: c.len, cls: open ? 'cutc open' : 'cutc', pick: () => this.setState({ cutOpen: c.id }),
+        box: c.box + (open ? ';width:64px;height:36px' : ';width:44px;height:25px'),
+        sheet: open ? 'Ep 03 · Sc 12 · ' + c.name + ' · ' + c.who : '',
+        sum: c.miss ? '1 drawing missing' : (done === 5 ? 'Done' : done + ' of 5 stages done'), sumCls: c.miss ? 'miss' : 'dim',
+        pills: c.s.map((x, i) => ({ cls: 'pl ' + (open ? 'pbig ' : 'pthin ') + x, t: open ? SN[i] : '' }))
+      };
+    });
+
+    // ---------- Effect controls B
+    const ecRows = [];
+    const scrub = (p) => ({
+      sDown: (e) => { e.currentTarget.setPointerCapture(e.pointerId); this.scrub = { p, x0: e.clientX, v0: val(p) }; this.setState({ ecSel: p }); },
+      sMove: (e) => { const d = this.scrub; if (!d || d.p !== p) return; setVal(p, d.v0 + (e.clientX - d.x0) * PR[p].step); },
+      sUp: () => { this.scrub = null; }
+    });
+    const grpRow = (g) => Object.assign({
+      cls: 'er grp' + (g.dim ? ' dim' : ''), ind: '', isGrp: true, tw: ecOpen[g.id] ? '▾' : '▸',
+      twirl: stop(() => this.setState({ ecOpen: Object.assign({}, ecOpen, { [g.id]: !ecOpen[g.id] }) })),
+      hasSwitch: g.sw !== undefined, tgCls: sw[g.id] ? 'tg' : 'tg off', tSwitch: stop(() => this.setState({ sw: Object.assign({}, sw, { [g.id]: !sw[g.id] }) })),
+      isProp: false, name: g.name, isNew: !!g.isNew, hasVal: false, hasNote: !!g.note, note: g.note, noteCls: g.noteCls,
+      slider: false, isKeyed: false, pick: () => this.setState({ ecOpen: Object.assign({}, ecOpen, { [g.id]: !ecOpen[g.id] }) })
+    });
+    const propRow = (p, off) => {
+      const d = PR[p], x = val(p), pct = clamp((x - d.min) / (d.max - d.min) * 100, 0, 100);
+      return Object.assign({
+        cls: 'er' + (ecSel === p ? ' sel' : '') + (off ? ' dim' : ''), ind: 'padding-left:22px', isGrp: false, hasSwitch: false, isProp: true,
+        swCls: animated(p) ? 'esw on' : 'esw', tWatch: stop(() => toggleWatch(p)), name: d.name, isNew: false,
+        hasVal: true, val: d.fmt(x), unit: d.unit, hasNote: false, slider: ecSel === p, fill: 'width:' + pct + '%', knob: 'left:' + pct + '%',
+        isKeyed: true, pick: set({ ecSel: p })
+      }, keyNav(p), scrub(p));
+    };
+    const plainRow = (name, text, off) => ({
+      cls: 'er' + (off ? ' dim' : ''), ind: 'padding-left:22px', isGrp: false, hasSwitch: false, isProp: true, swCls: 'esw none', name, isNew: false,
+      hasVal: false, hasNote: true, note: text, noteCls: 'eplain', slider: false, isKeyed: false, pick: () => null, tWatch: () => null
+    });
+    if (lsel !== 'Hair') {
+      ecRows.push({ cls: 'er dim', ind: 'padding-left:10px', isGrp: false, hasSwitch: false, isProp: false, name: lsel, isNew: false, hasVal: false, hasNote: true, note: 'only Hair is wired up in this sandbox', noteCls: 'ewarn', slider: false, isKeyed: false, pick: set({ lsel: 'Hair' }) });
+    } else {
+      ecRows.push(grpRow({ id: 'masks', name: 'Masks', note: 'none', noteCls: 'eplain' }));
+      ecRows.push(grpRow({ id: 'transform', name: 'Transform', note: 'Reset', noteCls: 'lnk' }));
+      if (ecOpen.transform) {
+        ecRows.push(Object.assign(plainRow('Anchor Point', ''), { hasVal: true, hasNote: false, val: '960.0, 540.0', unit: '', sDown: () => null, sMove: () => null, sUp: () => null }));
+        ['pos', 'scale', 'rot', 'op'].forEach((p) => ecRows.push(propRow(p, false)));
+      }
+      ecRows.push(grpRow({ id: 'glow', name: 'Glow', sw: true, note: 'Reset · About…', noteCls: 'lnk' }));
+      if (ecOpen.glow) { ['thr', 'rad', 'int'].forEach((p) => ecRows.push(propRow(p, !sw.glow))); ecRows.push(plainRow('Colours', 'A & B colours', !sw.glow)); }
+      ecRows.push(grpRow({ id: 'blur', name: 'Gaussian Blur', sw: true, note: sw.blur ? 'Reset · About…' : 'switched off', noteCls: sw.blur ? 'lnk' : 'eplain' }));
+      if (ecOpen.blur) { ecRows.push(propRow('blur', !sw.blur)); ecRows.push(plainRow('Blur dimensions', 'Horizontal and vertical', !sw.blur)); }
+      ecRows.push(grpRow({ id: 'pw', name: 'Particle World', dim: true, note: 'not in this build · kept as written', noteCls: 'ewarn' }));
+      if (ecOpen.pw) ecRows.push(plainRow('Its settings', '14 settings, saved unchanged', true));
+      added.forEach((a) => {
+        ecRows.push(grpRow({ id: a.id, name: a.name, sw: true, isNew: true, note: '', noteCls: '' }));
+        if (ecOpen[a.id]) { ecRows.push(propRow(a.id, !sw[a.id])); ecRows.push(plainRow('Blend with original', '0 %', !sw[a.id])); }
+      });
+    }
+
+    // ---------- viewer: the picture follows Hair's keys
+    const sec = Math.floor(frame / 24), fr = frame % 24;
+    const showVt2 = isC;
+    const showStrip = isC && ov.strip;
+    const viewW = mainW - 340;
+    const paW = viewW - 2;
+    const paH = viewH - 1 - 26 - 34;
+    // a 20px caption line above the picture holds the slate and the turned-view note, so no text sits on the picture
+    const capH = 20;
+    const ph = Math.max(80, Math.min(paH - (showStrip ? 48 : 12) - capH, Math.floor((paW - 40) * 9 / 16)));
+    const pw = Math.round(ph * 16 / 9);
+    const pl = Math.round((paW - pw) / 2), pt = showStrip ? 4 + capH : Math.round((paH - ph + capH) / 2);
+    const glowOn = sw.glow;
+    const hairSt = 'transform-origin:900px 650px;transform:translate(' + ((val('pos') - 1000) * 0.6).toFixed(1) + 'px,0) rotate(' + (val('rot') * 0.5).toFixed(2) + 'deg);'
+      + (glowOn ? 'filter:drop-shadow(0 0 ' + (val('rad') * 0.6).toFixed(1) + 'px #ffd27a) drop-shadow(0 0 ' + (val('rad') * 0.3).toFixed(1) + 'px #fff2c4)' : '');
+    const ovKey = { slate: 'ovSlate', guide: 'ovGuide', onion: 'ovOnion', strip: 'ovStrip' };
+    const ovc = {}, ovt = {};
+    Object.keys(ovKey).forEach((k) => { ovc[k] = ov[k] ? 'vb2 on' : 'vb2'; ovt[k] = set({ [ovKey[k]]: !ov[k] }); });
+    const s0 = clamp(frame - 7 - ((frame - 7 - F0) % 2 + 2) % 2, F0, F1 - 16);
+    const strip = [];
+    for (let k = s0; k < s0 + 16; k += 1) strip.push({ f: String(k), d: (k - F0) % 2 === 0 ? String(42 + (k - F0) / 2) : '│', cls: k === frame ? 'scell on' : 'scell', pick: set({ frame: k }) });
+    const angN = rot > 180 ? rot - 360 : rot;
+    const paper = {
+      left: set({ rot: (rot + 345) % 360 }), right: set({ rot: (rot + 15) % 360 }),
+      fhCls: fh ? 'vb2 on' : 'vb2', tFh: set({ fh: !fh }), reset: set({ rot: 0, fh: false }),
+      ang: angN + '°', tip: angN || fh ? 'Turned ' + angN + '°' + (fh ? ', mirrored' : '') + ' · click to put it straight' : 'Straight', note: 'View turned ' + angN + '°' + (fh ? ', mirrored left-right' : '') + '.'
+    };
+    const turned = rot !== 0 || fh;
+    const isMap = mapOpen && vtab === 'map';
+    const vtabs = {
+      cutCls: isMap ? 'vtab' : 'vtab on', mapCls: isMap ? 'vtab on' : 'vtab', isCut: !isMap, isMap,
+      goCut: set({ vtab: 'cut' }), goMap: set({ vtab: 'map' }),
+      closeMap: stop(() => this.setState({ mapOpen: false, vtab: 'cut' }))
+    };
+    const mapGo = (c) => () => this.setState({ comp: c });
+    const map = {
+      showTree: mapMode !== 'flow', showFlow: mapMode !== 'tree', treeOnly: mapMode === 'tree',
+      modes: [['flow', 'Flowchart'], ['tree', 'Tree'], ['both', 'Both']].map(([id, t]) => ({ t, cls: mapMode === id ? 'on' : '', pick: set({ mapMode: id }) })),
+      nCut: comp === 'cut' ? 'mn hot' : 'mn', nPre: comp === 'pre' ? 'mn hot' : 'mn', nRain: comp === 'rain' ? 'mn off hot' : 'mn off',
+      goCut: mapGo('cut'), goPre: mapGo('pre'), goRain: mapGo('rain'),
+      tree: [
+        ['Episode 03', '▾', 0, '#6c6c74', '', '', null],
+        ['Cut 012', '▾', 1, '#8f7bd6', 'top level', 'dim', 'cut'],
+        ['Precomp 1', '▾', 2, '#7fc4cf', 'layer 5', 'dim', 'pre'],
+        ['Hair (copy)', '', 3, '#c46a6a', '', '', 'pre'],
+        ['Sparkles', '', 3, '#e8c46a', '', '', 'pre'],
+        ['Rain overlay', '', 1, '#8f7bd6', 'not used', 'miss', 'rain']
+      ].map(([name, tw, d, c, note, noteCls, cid]) => ({
+        name, tw, note, noteCls, sq: 'background:' + c, ind: 'padding-left:' + (10 + d * 14) + 'px',
+        cls: cid && comp === cid && (name === 'Cut 012' || name === 'Precomp 1' || name === 'Rain overlay') ? 'ti on' : 'ti', pick: cid ? mapGo(cid) : () => null
+      }))
+    };
+
+    // ---------- sketches (shared by the Sketch workspace and, if wanted, the Compose viewer)
+    const layerById = {}; skLayers.forEach((l) => { layerById[l.id] = l; });
+    const onFrame = (x, fN) => { const l = layerById[x.layer]; return l && (l.span === 'all' || x.frame === fN); };
+    const ptsToD = (pts) => {
+      if (!pts.length) return '';
+      let d = 'M' + pts[0][0] + ' ' + pts[0][1];
+      if (pts.length === 1) return d + ' l0.1 0';
+      for (let i = 1; i < pts.length - 1; i += 1) d += ' Q' + pts[i][0] + ' ' + pts[i][1] + ' ' + ((pts[i][0] + pts[i + 1][0]) / 2) + ' ' + ((pts[i][1] + pts[i + 1][1]) / 2);
+      const L = pts[pts.length - 1];
+      return d + ' L' + L[0] + ' ' + L[1];
+    };
+    const drawn = (fN, extra) => {
+      const order = skLayers.slice().reverse();
+      const out = [];
+      order.forEach((l) => { if (!l.vis) return; strokes.forEach((k) => { if (k.layer === l.id && onFrame(k, fN)) out.push({ d: k.d || ptsToD(k.pts), c: k.c, w: k.w, o: k.o }); }); });
+      return out.concat(extra || []);
+    };
+    const textsOn = (fN) => texts.filter((t) => layerById[t.layer] && layerById[t.layer].vis && onFrame(t, fN)).map((t) => ({ x: t.x, y: t.y, tr: 'rotate(' + t.r + ' ' + t.x + ' ' + t.y + ')', c: t.c, size: t.size, t: t.t }));
+    const perFrame = (fN) => strokes.some((k) => layerById[k.layer] && layerById[k.layer].span === 'frame' && k.frame === fN) || texts.some((t) => layerById[t.layer] && layerById[t.layer].span === 'frame' && t.frame === fN);
+    const skSizes = [4, 10, 22];
+    const aL = layerById[skLayer] || skLayers[0];
+    const W = 1120, H = 630;
+    const toPic = (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      const th = rot * Math.PI / 180, c = Math.abs(Math.cos(th)), si = Math.abs(Math.sin(th));
+      const sc = r.width / (W * c + H * si);
+      const dx = (e.clientX - (r.left + r.width / 2)) / sc, dy = (e.clientY - (r.top + r.height / 2)) / sc;
+      const x = dx * Math.cos(-th) - dy * Math.sin(-th), y = dx * Math.sin(-th) + dy * Math.cos(-th);
+      return [Math.round(((fh ? -x : x) + W / 2) / W * 1920), Math.round((y + H / 2) / H * 1080)];
+    };
+    const erase = (pt) => {
+      const R = 40 + skSizes[skSize] * 2;
+      const near = (q2) => Math.hypot(q2[0] - pt[0], q2[1] - pt[1]) < R;
+      const hitS = (k) => k.layer === aL.id && onFrame(k, frame) && k.pts.some(near);
+      const hitT = (t) => t.layer === aL.id && onFrame(t, frame) && pt[0] > t.x - 20 && pt[0] < t.x + t.t.length * t.size * 0.5 && pt[1] > t.y - t.size && pt[1] < t.y + 20;
+      const ns = strokes.filter((k) => !hitS(k)), nt = texts.filter((t) => !hitT(t));
+      if (ns.length !== strokes.length || nt.length !== texts.length) this.setState({ strokes: ns, texts: nt });
+    };
+    let onionStrokes = [];
+    if (skOnion) {
+      const sketched = [];
+      for (let k = F0; k < F1; k += 1) if (k !== frame && perFrame(k)) sketched.push(k);
+      const before = sketched.filter((k) => k < frame).pop(), after = sketched.filter((k) => k > frame)[0];
+      const tint = (fN, col) => strokes.filter((k) => layerById[k.layer] && layerById[k.layer].vis && layerById[k.layer].span === 'frame' && k.frame === fN).map((k) => ({ d: k.d || ptsToD(k.pts), c: col, w: k.w, o: 0.35 }));
+      if (before !== undefined) onionStrokes = onionStrokes.concat(tint(before, '#e0604a'));
+      if (after !== undefined) onionStrokes = onionStrokes.concat(tint(after, '#2f8f4f'));
+    }
+    const live = skLive ? [{ d: ptsToD(skLive), c: skTool === 'eraser' ? 'transparent' : skCol, w: skTool === 'pencil' ? Math.max(2, skSizes[skSize] * 0.5) : skSizes[skSize], o: skTool === 'pencil' ? 0.8 : 0.95 }] : [];
+    const curStrokes = strokes.filter((k) => k.layer === aL.id && onFrame(k, frame)).length;
+    const k0 = clamp(frame - 7, F0, F1 - 16);
+    const skStrip = [];
+    for (let k = k0; k < k0 + 16; k += 1) skStrip.push({ f: String(k), mark: perFrame(k) ? '●' : '·', cls: k === frame ? 'scell on' : 'scell', pick: set({ frame: k }) });
+    const SKT = [
+      ['brush', 'Brush, B', 'M18 3l3 3-9 9-3-3zM9 12c-3 0-5 2-5 5 0 1-1 2-2 2 2 2 7 2 8-1 1-2 1-4-1-6'],
+      ['pencil', 'Pencil, P', 'M4 20l1-5L16 4l4 4L9 19zM14 6l4 4'],
+      ['eraser', 'Eraser, E: rubs out strokes on the chosen layer', 'M8 20h12M5 16l9-9 5 5-6 6H8z']
+    ];
+    const SKC = [['#c8302c', 'Red'], ['#3f7fd8', 'Blue'], ['#2f8f4f', 'Green'], ['#1a1a2a', 'Black'], ['#ffffff', 'White']];
+    const sk = {
+      tools: SKT.map(([id, tip, d]) => ({ cls: skTool === id ? 'skb on' : 'skb', pick: set({ skTool: id }), tip, d })),
+      sizes: skSizes.map((n, i) => ({ cls: skSize === i ? 'skb on' : 'skb', pick: set({ skSize: i }), tip: ['Thin', 'Medium', 'Thick'][i] + ' · [ and ] change it', dot: 'width:' + [4, 8, 14][i] + 'px;height:' + [4, 8, 14][i] + 'px;border-radius:50%;background:#d4d4d8' })),
+      colors: SKC.map(([c, t]) => ({ cls: skCol === c ? 'sw2 on' : 'sw2', st: 'background:' + c, tip: t, pick: set({ skCol: c, skTool: skTool === 'eraser' ? 'brush' : skTool }) })),
+      undo: () => this.setState({ strokes: strokes.slice(0, -1) }),
+      where: 'Cut 012 · frame ' + frame,
+      how: (skTool === 'eraser' ? 'rubbing out on ' : 'drawing on ') + aL.name + (skTool === 'eraser' ? '' : ' with the ' + skTool),
+      picSt: 'transition:transform .25s;transform:rotate(' + rot + 'deg) scale(' + (fh ? -1 : 1) + ',1)' + (skTool === 'eraser' ? ';cursor:cell' : ''),
+      underSt: 'opacity:' + skUnder,
+      strokes: drawn(frame, onionStrokes.concat(live)),
+      texts: textsOn(frame),
+      count: curStrokes + (curStrokes === 1 ? ' stroke' : ' strokes') + ' on ' + aL.name + (aL.span === 'all' ? ', shown on every frame' : ' at frame ' + frame),
+      down: (e) => {
+        if (e.button !== 0) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        const p = toPic(e);
+        if (skTool === 'eraser') { this.drawing = { erase: true }; erase(p); return; }
+        this.drawing = { pts: [p] };
+        const upd = { skLive: [p] };
+        if (!aL.vis) upd.skLayers = skLayers.map((l) => (l.id === aL.id ? Object.assign({}, l, { vis: true }) : l));
+        this.setState(upd);
+      },
+      move: (e) => {
+        const d = this.drawing; if (!d) return;
+        const p = toPic(e);
+        if (d.erase) { erase(p); return; }
+        const L = d.pts[d.pts.length - 1];
+        if (Math.hypot(p[0] - L[0], p[1] - L[1]) < 4) return;
+        d.pts.push(p);
+        this.setState({ skLive: d.pts.slice() });
+      },
+      up: () => {
+        const d = this.drawing; this.drawing = null;
+        if (!d || d.erase) return;
+        const w = skTool === 'pencil' ? Math.max(2, skSizes[skSize] * 0.5) : skSizes[skSize];
+        this.setState({ skLive: null, strokes: strokes.concat([{ layer: aL.id, frame, pts: d.pts, c: skCol, w, o: skTool === 'pencil' ? 0.8 : 0.95 }]) });
+      },
+      strip: skStrip,
+      onionCls: skOnion ? 'ib on' : 'ib', tOnion: set({ skOnion: !skOnion }),
+      addLayer: () => {
+        const n = skLayers.length + 1, id = 'l' + Date.now();
+        const col = ['#b0569a', '#d08a1e', '#1f8f8f'][n % 3];
+        this.setState({ skLayers: [{ id, name: 'Layer ' + n, col, vis: true, span: 'frame' }].concat(skLayers), skLayer: id, skCol: col });
+      },
+      layers: skLayers.map((l) => {
+        const here = strokes.filter((k) => k.layer === l.id && onFrame(k, frame)).length + texts.filter((t) => t.layer === l.id && onFrame(t, frame)).length;
+        const tot = strokes.filter((k) => k.layer === l.id).length + texts.filter((t) => t.layer === l.id).length;
+        return {
+          name: l.name, cls: l.id === aL.id ? 'lyr2 on' : 'lyr2', sw: 'background:' + l.col,
+          sub: l.span === 'all' ? 'whole cut · ' + tot + ' marks' : here + ' on this frame · ' + tot + ' in all',
+          eyeCls: l.vis ? 'eye' : 'eye off',
+          tEye: stop(() => this.setState({ skLayers: skLayers.map((x) => (x.id === l.id ? Object.assign({}, x, { vis: !x.vis }) : x)) })),
+          pick: set({ skLayer: l.id, skCol: l.col, skTool: skTool === 'eraser' ? 'eraser' : skTool })
+        };
+      }),
+      unders: [[0, 'Off'], [0.3, '30%'], [0.6, '60%'], [1, '100%']].map(([o, t]) => ({ t, cls: skUnder === o ? 'sh on' : 'sh', pick: set({ skUnder: o }) })),
+      aName: aL.name,
+      spans: [['frame', 'This frame'], ['all', 'Whole cut']].map(([id, t]) => ({ t, cls: aL.span === id ? 'on' : '', pick: set({ skLayers: skLayers.map((x) => (x.id === aL.id ? Object.assign({}, x, { span: id }) : x)) }) })),
+      spanHint: aL.span === 'all' ? 'One drawing shown on every frame, for notes that stay.' : 'Each frame keeps its own drawing, like paper on a peg bar.',
+      clear: () => this.setState({ strokes: strokes.filter((k) => !(k.layer === aL.id && onFrame(k, frame))), texts: texts.filter((t) => !(t.layer === aL.id && onFrame(t, frame))) }),
+      clearLabel: 'Clear ' + aL.name + (aL.span === 'all' ? '' : ' on frame ' + frame),
+      overCb: skOver ? 'cb on' : 'cb'
+    };
+
+    // ---------- timeline (Timeline A rows + Timeline B graph and sheet)
+    const seg = (cls, t, a, b) => { const w = (b - a) * PX - 1; return { cls, t: w >= 16 ? t : '', st: 'left:' + fx(a) + 'px;width:' + w + 'px' }; };
+    const bar = (a, b, bg, bd, col, t) => ({ cls: 'bar', t, st: 'left:' + fx(a) + 'px;width:' + ((b - a) * PX - 1) + 'px;background:' + bg + ';border-color:' + bd + ';color:' + col });
+    const hairD = {};
+    const cels = (runs, n0, missN, rec) => {
+      const out = []; let fN = F0, n = n0, i = 0;
+      while (fN < F1) {
+        const len = runs[i % runs.length], w = Math.min(len, F1 - fN), miss = n === missN;
+        if (rec) for (let j = fN; j < fN + w; j += 1) rec[j] = { n, start: j === fN };
+        out.push(seg(miss ? 'cel gone' : (i % 2 ? 'cel odd' : 'cel'), String(n), fN, fN + w));
+        fN += len; n += 1; i += 1;
+      }
+      return out;
+    };
+    const diaSt = (fs) => fs.map((fN) => ({ st: 'left:' + (fx(fN) + PX / 2 - 5) + 'px', go: set({ frame: fN }) }));
+    const keyMarks = (fs) => fs.map((fN) => ({ st: 'left:' + (fx(fN) + PX / 2) + 'px' }));
+    // the dialogue as a wave (Timeline A Balanced), loud where the sheet has words
+    const waveW = (F1 - F0) * PX, waveH = 24;
+    let wTop = '', wBot = '';
+    for (let x = 0; x <= waveW; x += 3) {
+      const f = F0 + x / PX, loud = f >= 103 && f < 116, breath = f >= 116 && f < 119;
+      const a = loud ? 0.15 + 0.85 * Math.abs(Math.sin(x * 0.043) * Math.sin(x * 0.011 + 1.3)) : (breath ? 0.22 : 0.04);
+      const h = a * (waveH / 2 - 2);
+      wTop += (x === 0 ? 'M' : 'L') + x + ' ' + (waveH / 2 - h).toFixed(1) + ' ';
+      wBot = 'L' + x + ' ' + (waveH / 2 + h).toFixed(1) + ' ' + wBot;
+    }
+    const hairKeys = [];
+    animList.forEach((p) => kFrames(p).forEach((fN) => { if (hairKeys.indexOf(fN) < 0 && fN >= F0 && fN < F1) hairKeys.push(fN); }));
+    const L = (num, name, lab, tag, o) => Object.assign({
+      isLayer: true, isProp: false, num, name, tag, relink: false, segs: [], keys: [],
+      isWave: false, wave: '', waveW, waveSt: 'left:' + fx(F0) + 'px;width:' + waveW + 'px',
+      mode: 'Normal', modeSt: 'font-size:11px;color:#8e8e96', parent: 'None', parentSt: 'white-space:nowrap;overflow:hidden', hasParent: true,
+      swSt: '', lockCls: 'ic2',
+      cls: lsel === name ? 'lyr sel' : 'lyr', pick: set({ lsel: name }), dbl: () => null, tip: '', tw: '▸', twirl: () => null,
+      stripSt: 'align-self:stretch;background:' + (lab || 'transparent'),
+      nameSt: 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:62%' + (lsel === name ? ';color:#fff;font-weight:600' : '')
+    }, o || {});
+    const noSw = { swSt: 'visibility:hidden', mode: '', parent: '', hasParent: false };
+    const COMPS = {
+      cut: { name: 'Cut 012', info: '8 layers · 10s 0f', layers: [
+        L('', 'Camera', '', 'the composition’s', Object.assign({ segs: [bar(F0, F1, '#3b3320', '#8a7440', '#e8d3a0', '')], keys: keyMarks([96, 120]) }, noSw)),
+        L('1', 'BOOK', '#b08a5a', 'held', { segs: [bar(F0, F1, '#463b2a', '#8a7450', '#f0e4cc', '1')] }),
+        L('2', 'Glow pass', '#8e6fc4', 'adjustment', { mode: 'Screen', modeSt: 'font-size:11px;color:#e8b06a', segs: [bar(F0, F1, '#3a3350', '#6a5a94', '#d9d0f0', 'Glow · Light Wrap')] }),
+        L('3', 'Hair', '#c46a6a', 'irregular', {
+          parent: '4 Body', parentSt: 'white-space:nowrap;overflow:hidden;color:#d4d4d8',
+          segs: cels([3, 2, 2, 3, 1, 2, 4, 2, 3, 2, 2, 3, 2, 1, 3], 27, -1, hairD), keys: keyMarks(hairKeys),
+          tw: hairOpen ? '▾' : '▸',
+          twirl: stop(() => this.setState({ hairOpen: Object.assign({}, hairOpenWs, { [ws]: !hairOpen }) })),
+          tip: 'Twirl ▸ to see the settings that move'
+        }),
+        L('4', 'Body', '#d99a4e', 'on 2s', { segs: cels([2], 42, 42), relink: true }),
+        L('5', 'Precomp 1', '#4fa3ad', 'composition', {
+          segs: [bar(F0, F1, '#24464b', '#4fa3ad', '#cdeef2', '▣  Precomp 1 · 2 layers · double-click to open its map')],
+          tip: 'Double-click to open its map in the viewer',
+          dbl: () => this.setState({ mapOpen: true, vtab: 'map' })
+        }),
+        L('6', 'BG', '#7a9a5a', 'held', { lockCls: 'ic2 on', segs: [bar(F0, F1, '#3f6a5a', '#5a8a76', '#e0f0e8', '1')] }),
+        L('7', 'dialogue_012.wav', '#5a8ac4', 'sound', Object.assign({ isWave: true, wave: wTop + wBot + 'Z' }, noSw, { swSt: '' }))
+      ] },
+      pre: { name: 'Precomp 1', info: '2 layers · 4s 0f', layers: [
+        L('1', 'Hair (copy)', '#c46a6a', 'on 3s', { segs: cels([3], 9) }),
+        L('2', 'Sparkles', '#e8c46a', 'on 2s', { segs: cels([2], 1) })
+      ] },
+      rain: { name: 'Rain overlay', info: '2 layers · 10s 0f · not used yet', layers: [
+        L('1', 'Rain streaks', '#5a8ac4', 'on 1s', { segs: cels([1], 85) }),
+        L('2', 'Splash', '#4fa3ad', 'held', { segs: [bar(F0, F1, '#24464b', '#4fa3ad', '#cdeef2', '1')] })
+      ] }
+    };
+    const C = COMPS[comp] || COMPS.cut;
+    const tlRows = [];
+    C.layers.forEach((l) => {
+      tlRows.push(l);
+      if (comp === 'cut' && l.name === 'Hair' && hairOpen) {
+        animList.forEach((p) => tlRows.push(Object.assign({
+          isLayer: false, isProp: true, swCls: 'esw on', sq: 'background:' + PR[p].col, name: pName(p), val: PR[p].fmt(val(p)) + (PR[p].unit ? ' ' + PR[p].unit : ''),
+          keys: diaSt(kFrames(p).filter((fN) => fN >= F0 && fN < F1))
+        }, keyNav(p))));
+      }
+    });
+    const ctabs = ['cut', 'pre', 'rain'].map((id) => ({ name: COMPS[id].name, cls: comp === id ? 'tab on' : 'tab', pick: set({ comp: id }) }));
+    const HOLDS = { cut: ['Cut 012 holds', 'Precomp 1', 'pre'], pre: ['Precomp 1 is inside', 'Cut 012', 'cut'], rain: ['Rain overlay is', 'not used yet', ''] };
+    const hd0 = HOLDS[comp] || HOLDS.cut;
+    const holds = { pre: hd0[0], name: hd0[1], go: hd0[2] ? set({ comp: hd0[2] }) : () => null };
+
+    // notes on the ruler, like Timeline A Balanced's "Key pose"; each composition has its own
+    const notes = v('notes', [{ id: 'n1', comp: 'cut', f: 90, t: 'Key pose' }]);
+    const noteEd = v('noteEd', '');
+    const edN = notes.find((n) => n.id === noteEd);
+    const putNote = (fN) => {
+      const id = 'n' + Date.now();
+      this.focusNote = true;
+      this.setState({ notes: notes.concat([{ id, comp, f: fN, t: 'Note' }]), noteEd: id, frame: fN });
+    };
+    const keepN = (list) => list.filter((n) => n.t.trim() !== '');
+    const noteMarks = notes.filter((n) => n.comp === comp && n.f >= F0 && n.f < F1).map((n) => ({
+      t: n.t, st: 'left:' + (fx(n.f) + PX / 2 - 4.5) + 'px' + (n.id === noteEd ? ';outline:1px solid #e8b06a;outline-offset:2px' : ''),
+      tip: 'Frame ' + n.f + ' · click to edit',
+      down: (e) => e.stopPropagation(), go: (e) => { e.stopPropagation(); this.focusNote = true; this.setState({ frame: n.f, noteEd: n.id, notes: keepN(notes) }); }
+    }));
+    const nEd = {
+      open: !!edN && edN.comp === comp,
+      f: edN ? edN.f : 0, t: edN ? edN.t : '',
+      st: edN ? 'left:' + Math.min(LC + fx(edN.f) - 8, mainW - 250) + 'px' : '',
+      ref: (el) => { if (el && this.focusNote) { this.focusNote = false; el.focus(); el.select(); } },
+      onChange: (e) => this.setState({ notes: notes.map((n) => (n.id === noteEd ? Object.assign({}, n, { t: e.target.value }) : n)) }),
+      onKey: (e) => { if (e.key === 'Enter') { e.target.blur(); this.setState({ noteEd: '', notes: keepN(notes) }); } },
+      del: () => this.setState({ notes: notes.filter((n) => n.id !== noteEd), noteEd: '' }),
+      done: () => this.setState({ noteEd: '', notes: keepN(notes) }),
+      stop: (e) => e.stopPropagation()
+    };
+
+    const ticks = [];
+    for (let k = F0; k < F1; k += 2) {
+      const secT = k % 24 === 0, six = k % 6 === 0, x = fx(k) + PX / 2;
+      ticks.push({
+        st: 'left:' + x + 'px;height:' + (secT ? 26 : six ? 10 : 5) + 'px;background:' + (secT ? '#6a6a72' : '#44444a'),
+        lab: six, t: secT ? (k / 24) + 's · ' + k : String(k),
+        lst: 'left:' + (x + 4) + 'px;color:' + (secT ? '#e4e4e8;font-weight:600' : '#7c7c84')
+      });
+    }
+    // Frames held in memory (the RAM preview): green line under the work area, as After Effects does.
+    const rdySet = Object.assign({}, v('rdy', null) || (() => { const o = {}; for (let k = 90; k <= 110; k++) o[k] = 1; return o; })(), { [frame]: 1 });
+    const rdyRuns = [];
+    for (let k = F0; k <= 131; k++) if (rdySet[k]) { const last = rdyRuns[rdyRuns.length - 1]; if (last && last[1] === k - 1) last[1] = k; else rdyRuns.push([k, k]); }
+    const rdyN = Object.keys(rdySet).filter((k) => k >= 90 && k < 126).length;
+    const ready = {
+      runs: rdyRuns.map(([a, b]) => ({ st: 'left:' + fx(a) + 'px;width:' + ((b - a + 1) * PX) + 'px' })),
+      n: rdyN + ' of 36',
+      tip: 'Green line: frames already in memory, they play at full speed · ' + rdyN + ' of the 36 work-area frames · about ' + Math.round(rdyN * 8.3) + ' MB of the 8 GB memory setting · an edit clears the frames it changes'
+    };
+    const ruler = {
+      ticks, notes: noteMarks,
+      work: 'left:' + fx(90) + 'px;width:' + (36 * PX) + 'px',
+      flag: 'left:' + (fx(frame) + PX / 2) + 'px'
+    };
+    const frameAt = (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width * rcolW;
+      return clamp(F0 + Math.floor((x - X0) / PX), F0, F1 - 1);
+    };
+    const scrubTo = (e) => this.setState({ frame: frameAt(e) });
+    const tlH = 1100 - tlTop - 1;
+    const avail = tlH - 30 - 44 - 44;
+    const rowsNeeded = tlRows.reduce((a, r) => a + (r.isProp ? 22 : 30), 0) + 2;
+    const rowsH = mode === 'graph' ? 0 : (mode === 'both' ? Math.min(rowsNeeded, Math.floor(avail * 0.5)) : avail);
+    const graphH = avail - rowsH;
+    const tl = {
+      showRows: mode !== 'graph', showGraph: mode !== 'timeline',
+      rowsSt: 'height:' + rowsH + 'px;overflow-y:auto;overflow-x:hidden',
+      graphSt: 'display:flex;height:' + graphH + 'px;border-top:2px solid #34343a;box-sizing:border-box'
+    };
+    const tlModes = [['timeline', 'Timeline'], ['both', 'Both'], ['graph', 'Graph']].map(([id, t]) => ({ t, cls: mode === id ? 'on' : '', pick: set({ tlm: Object.assign({}, tlm, { [ws]: id }) }) }));
+    const sheetBtn = { cls: sheetShown ? 'shb on' : 'shb', t: 'Sheet', tip: sheetShown ? 'Hide the sheet on the right' : 'Show the sheet on the right, frame by frame', toggle: set({ shOn: Object.assign({}, shOn, { [ws]: !shOn[ws] }) }) };
+
+    // the graph, on the same frames as the rows
+    const Hg = graphH - 2, pad = 16;
+    const gVis = comp === 'cut' ? animList.filter((p) => !gHide[p]) : [];
+    const yOf = (p, x) => pad + (1 - (x - PR[p].min) / (PR[p].max - PR[p].min)) * (Hg - 2 * pad);
+    const kx = (fN) => fx(fN) + PX / 2;
+    const gCurves = gVis.map((p) => {
+      const fs = kFrames(p), ks = kOf(p);
+      let d = 'M0 ' + yOf(p, ks[fs[0]]).toFixed(1) + ' H' + kx(fs[0]);
+      for (let i = 0; i < fs.length - 1; i += 1) {
+        const a = fs[i], b = fs[i + 1], xa = kx(a), xb = kx(b), ya = yOf(p, ks[a]), yb = yOf(p, ks[b]), dx = (xb - xa) / 3;
+        if (im(p) === 'hold') d += ' H' + xb + ' V' + yb.toFixed(1);
+        else if (im(p) === 'linear') d += ' L' + xb + ' ' + yb.toFixed(1);
+        else d += ' C' + (xa + dx).toFixed(1) + ' ' + ya.toFixed(1) + ' ' + (xb - dx).toFixed(1) + ' ' + yb.toFixed(1) + ' ' + xb + ' ' + yb.toFixed(1);
+      }
+      d += ' H' + rcolW;
+      return { d, col: PR[p].col };
+    });
+    const gKeys = [];
+    gVis.forEach((p) => kFrames(p).forEach((fN) => {
+      const on = gSel === p;
+      gKeys.push({
+        st: 'left:' + kx(fN) + 'px;top:' + yOf(p, kOf(p)[fN]).toFixed(1) + 'px;background:' + PR[p].col + (on ? ';width:11px;height:11px;margin:-6px 0 0 -6px;cursor:grab' : ';cursor:grab;opacity:.85') + (fN === frame ? ';box-shadow:0 0 0 2px #e0604a' : ''),
+        tip: pName(p) + ' ' + PR[p].fmt(kOf(p)[fN]) + ' at frame ' + fN + ' · drag it',
+        down: (e) => {
+          e.stopPropagation();
+          e.currentTarget.setPointerCapture(e.pointerId);
+          const r = e.currentTarget.parentElement.getBoundingClientRect();
+          this.gd = { p, f: fN, f0: fN, v0: kOf(p)[fN], x0: e.clientX, y0: e.clientY, s: r.width / rcolW };
+          this.setState({ gSel: p, ecSel: p, frame: fN });
+        }
+      });
+    }));
+    const gMove = (e) => {
+      const d = this.gd; if (!d) return;
+      const ks = Object.assign({}, kOf(d.p));
+      let nf = clamp(Math.round(d.f0 + (e.clientX - d.x0) / d.s / PX), F0, F1 - 1);
+      if (nf !== d.f && ks[nf] !== undefined) nf = d.f;
+      const nv = clamp(d.v0 - (e.clientY - d.y0) / d.s / (Hg - 2 * pad) * (PR[d.p].max - PR[d.p].min), PR[d.p].min, PR[d.p].max);
+      delete ks[d.f];
+      ks[nf] = Math.round(nv * 100) / 100;
+      d.f = nf;
+      this.setState({ keys: Object.assign({}, keys, { [d.p]: ks }), frame: nf });
+    };
+    const gGrid = [0.25, 0.5, 0.75].map((t) => ({ st: 'position:absolute;left:0;right:0;top:' + Math.round(pad + t * (Hg - 2 * pad)) + 'px;height:1px;background:#232329' }))
+      .concat([96, 120].map((k) => ({ st: 'position:absolute;top:0;bottom:0;left:' + kx(k) + 'px;width:1px;background:#26262c' })));
+    const gs = PR[gSel] && animated(gSel) ? gSel : (animList[0] || 'rad');
+    const gLabels = comp !== 'cut'
+      ? [{ t: 'Nothing in ' + C.name + ' is animated yet.', st: 'position:absolute;left:20px;top:20px;color:#8e8e96' }]
+      : (gVis.indexOf(gs) >= 0 ? [
+        { t: PR[gs].name + ' ' + PR[gs].max + (PR[gs].unit ? ' ' + PR[gs].unit : ''), st: 'position:absolute;left:6px;top:' + (pad - 7) + 'px;font-size:10px;color:' + PR[gs].col },
+        { t: String(PR[gs].min), st: 'position:absolute;left:6px;top:' + (Hg - pad - 7) + 'px;font-size:10px;color:' + PR[gs].col }
+      ] : []);
+    const gp = comp === 'cut' ? animList.map((p) => ({
+      name: pName(p), val: PR[p].fmt(val(p)), cb: gHide[p] ? 'cb' : 'cb on', sq: 'background:' + PR[p].col,
+      nameSt: gs === p ? 'color:#fff;font-weight:600' : '',
+      toggle: () => this.setState({ gHide: Object.assign({}, gHide, { [p]: !gHide[p] }), gSel: gHide[p] ? p : gSel })
+    })) : [];
+    const interpBtns = [['ease', 'Easy ease · F9'], ['linear', 'Linear'], ['hold', 'Hold']].map(([id, t]) => ({ t, cls: im(gs) === id ? 'sh on' : 'sh', pick: set({ interp: Object.assign({}, interpM, { [gs]: id }) }) }));
+
+    // the sheet, frame by frame
+    const DIA = { 104: 'Wait', 108: 'for', 111: 'me!', 116: '(breath)' };
+    const sheetRows = [];
+    for (let k = F0; k < F1; k += 1) {
+      const hd = hairD[k] || { n: '', start: false };
+      const bn = 42 + Math.floor((k - F0) / 2), bStart = (k - F0) % 2 === 0;
+      const nt = notes.find((n) => n.comp === 'cut' && n.f === k);
+      const act2 = nt ? nt.t : (k === 100 ? 'push in ▼' : (k === 118 ? 'stop ▲' : (k > 100 && k < 118 ? '│' : '')));
+      sheetRows.push({
+        f: String(k), cls: 'shr' + (k % 24 === 0 ? ' sec' : '') + (k === frame ? ' lit' : ''), go: set({ frame: k }),
+        h: hd.start ? String(hd.n) : '│', hc: hd.start ? '' : 'hl',
+        b: bStart ? String(bn) : '│', bc: bn === 42 ? 'gone' : (bStart ? '' : 'hl'),
+        g: k === F0 ? '1' : '│', a: act2, ac: nt ? 'nt' : (act2 === '│' ? 'hl' : ''), d: DIA[k] || ''
+      });
+    }
+
+    // ---------- render queue (Export A) and watching it write (Export B / D)
+    const pctN = Math.round(at / 240 * 100);
+    const done = at >= 240;
+    const wsel = wselRaw === null || wselRaw >= at ? Math.max(0, at - 1) : wselRaw;
+    const MISS = { 84: 1, 85: 1 };
+    const missing = !!MISS[wsel];
+    const cells = [];
+    const c0 = clamp(at - 6, 0, 228);
+    for (let k = c0; k < c0 + 12; k += 1) {
+      const written = k < at, drawing = !written && run && k < at + 6, isSel = k === wsel, gap = !!MISS[k];
+      const bg = written ? (gap ? 'background:repeating-linear-gradient(45deg,#7a4a1a 0 4px,#4a2e12 4px 8px);color:#ffd9a8;' : 'background:linear-gradient(#f7b78f,#e98aa0 45%,#6a74b8);color:#fff;') : 'background:#1b1b1e;color:#6ea8fe;';
+      const bd = isSel ? 'border:2px solid #fff' : written ? 'border:1px solid #3a3a40' : drawing ? 'border:1px dashed #6ea8fe' : 'border:1px solid #33333a';
+      cells.push({ t: written ? String(k) : (drawing ? k + ' …' : String(k)), st: bg + bd, stSm: bg + bd + ';width:27px;height:40px;font-size:9px', pick: written ? set({ wsel: k }) : () => null });
+    }
+    const pct = (k) => (k / 240 * 100).toFixed(2) + '%';
+    const segs = [];
+    const push = (a, b, c) => { if (b > a) segs.push(c + ' ' + pct(a), c + ' ' + pct(b)); };
+    const atC = Math.min(at, 240);
+    push(0, Math.min(84, atC), '#4a7bc4'); if (atC > 84) push(84, Math.min(86, atC), '#e8a040'); if (atC > 86) push(86, atC, '#4a7bc4');
+    push(atC, Math.min(atC + 6, 240), run ? '#cfe0ff' : '#3a3a40'); push(Math.min(atC + 6, 240), 240, '#2a2a2e');
+    const cx = 200 + (wsel % 6) * 4;
+    const w = {
+      title: done ? 'Exported Cut 012' : (run ? 'Exporting Cut 012' : 'Exporting Cut 012, paused'),
+      body: missing ? 'display:none' : 'position:absolute;left:' + (cx - 30) + 'px;top:178px;width:88px;height:100px;border-radius:44px 44px 0 0;background:#2c3a63',
+      face: 'position:absolute;left:' + (cx - 6) + 'px;top:120px;width:40px;height:50px;border-radius:20px;background:#f1d3bd',
+      hair: 'position:absolute;left:' + (cx - 9) + 'px;top:112px;width:46px;height:26px;border-radius:23px 23px 6px 6px;background:#2b2140',
+      gap: missing ? 'position:absolute;left:' + (cx - 40) + 'px;top:176px;width:120px;height:72px;border:2px dashed #e8a040;color:#e8a040;font-size:11px;padding:6px;box-sizing:border-box' : 'display:none',
+      gapText: missing ? 'Body drawing 42 missing: body_0042.png' : '',
+      label: 'Frame ' + wsel + (missing ? ' · written with a gap' : wsel === at - 1 ? ' · just written' : ' · written'),
+      hint: wsel === at - 1 ? 'the final pixels, as saved' : 'click the newest frame to follow again',
+      cells,
+      bar: 'height:12px;margin-top:12px;border-radius:3px;background:linear-gradient(90deg,' + segs.join(',') + ')',
+      progress: done ? 'All 240 written · 1 note' : (run ? at + ' of 240 written · 6 frames drawing at once · about ' + Math.round((240 - at) * 0.43) + ' s left' : at + ' of 240 written · paused: nothing is being drawn · the ' + at + ' files are already safe'),
+      pickNote: set({ wsel: 84 }),
+      pauseLabel: run ? 'Pause' : 'Go on', tPause: set({ run: !run })
+    };
+    const FM = ['PNG', 'EXR half', 'EXR full', 'Animated PNG', 'GIF', 'MP4'];
+    const FULL = ['PNG, 8-bit, lossless', 'EXR, 16-bit half float', 'EXR, 32-bit full float', 'Animated PNG, 8-bit', 'GIF, 256 colours', 'MP4 (H.264), Standard, no sound'];
+    const RQ = [
+      { comp: 'Cut 012', f: 0, out: '→ Ep03 › Cut012', to: 'D:\\Shots\\Ep03\\Cut012\\cut012_0000.png  …  cut012_0239.png', s: 'run', disk: '180 frames unchanged since last time: 60 to draw', write: true },
+      { comp: 'Cut 012', f: 5, out: '→ Ep03 › Review', to: 'D:\\Shots\\Ep03\\Review\\cut012.mp4', s: 'q', disk: 'one file, written whole', write: true },
+      { comp: 'Cut 013', f: 0, out: '→ Ep03 › Cut013', to: 'D:\\Shots\\Ep03\\Cut013\\cut013_0000.png  …  cut013_0239.png', s: 'stop', disk: 'frames 0 to 95 written: resumes at 96', write: false },
+      { comp: 'Cut 011', f: 4, out: '→ Ep03 › Review', to: 'D:\\Shots\\Ep03\\Review\\cut011.gif', s: 'done', disk: '', write: true }
+    ];
+    const rq = RQ.map((b, i) => {
+      const open = rqOpen === i, isDone = b.s === 'done' || (b.s === 'run' && done);
+      const fm = rqFmt[i] !== undefined ? rqFmt[i] : b.f;
+      const wr = rqMiss[i] !== undefined ? rqMiss[i] : b.write;
+      let status = 'Queued', ss = 'color:#a0a0a8';
+      if (b.s === 'run' && !done) { status = run ? 'Rendering · ' + pctN + '%' : 'Stopped at ' + at + ' · resumes there'; ss = run ? 'color:#6ea8fe' : 'color:#e8b06a'; }
+      if (b.s === 'stop') { status = 'Stopped at 96 · resumes there'; ss = 'color:#e8b06a'; }
+      if (isDone) { status = b.s === 'run' ? 'Done · 1 note' : 'Done · 2 notes'; ss = 'color:#8fd6a0'; }
+      return {
+        num: i + 1, comp: b.comp, tw: open ? '▾' : '▸', status, statusSt: ss, outShort: FM[fm] + ' ' + b.out,
+        time: isDone ? '0:41' : (b.s === 'run' && run ? '0:48' : '—'), tick: b.s === 'done' ? 'cb' : 'cb on',
+        rowCls: open ? 'rqr on' : 'rqr', toggle: set({ rqOpen: open ? -1 : i }),
+        showWatch: open && b.s === 'run', showDetail: open && b.s !== 'run',
+        fmts: FM.map((t, j) => ({ t, cls: j === fm ? 'sh on' : 'sh', pick: set({ rqFmt: Object.assign({}, rqFmt, { [i]: j }) }) })), full: FULL[fm], to: b.to, disk: b.disk || 'written 2026-09-30 21:14',
+        rdStop: wr ? 'rd' : 'rd on', rdWrite: wr ? 'rd on' : 'rd',
+        mStop: set({ rqMiss: Object.assign({}, rqMiss, { [i]: false }) }), mWrite: set({ rqMiss: Object.assign({}, rqMiss, { [i]: true }) })
+      };
+    });
+    const ow = {
+      st: 'left:' + owX + 'px;top:' + owY + 'px',
+      title: 'Watch it write · Cut 012 · ' + (done ? 'done' : pctN + '%' + (run ? '' : ', paused')),
+      full: !owMin,
+      tMin: set({ owMin: !owMin }),
+      down: (e) => {
+        if (e.target.closest && e.target.closest('button')) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        const r = e.currentTarget.parentElement.getBoundingClientRect();
+        this.ow = { x0: e.clientX, y0: e.clientY, l0: owX, t0: owY, s: r.width / 760 };
+      },
+      move: (e) => {
+        const d = this.ow; if (!d) return;
+        this.setState({ owX: Math.round(clamp(d.l0 + (e.clientX - d.x0) / d.s, -600, 1500)), owY: Math.round(clamp(d.t0 + (e.clientY - d.y0) / d.s, 0, 1068)) });
+      },
+      up: () => { this.ow = null; }
+    };
+
+    // ---------- top-bar task (Top bar A, item 5)
+    const task = {
+      t: done ? 'Export done · Cut 012' : (run ? 'Exporting Cut 012 · ' + pctN + '%' : 'Export paused at ' + pctN + '%'),
+      tip: (done ? 'Export done · Cut 012' : (run ? 'Exporting Cut 012 · ' + pctN + '%' : 'Export paused at ' + pctN + '%')) + ' · click to watch it write',
+      pct: pctN + '%',
+      st: 'color:' + (run || done ? '#d4d4d8' : '#e8b06a'),
+      bar: 'position:absolute;left:0;top:0;bottom:0;width:' + pctN + '%;background:' + (done ? '#8fd6a0' : '#6ea8fe')
+    };
+
+    // ---------- workspaces (Whole app B)
+    const WS = [
+      ['compose', 'Compose', 'M3 5h18v14H3zM3 9h18M9 9v10'],
+      ['animate', 'Animate', 'M3 17c4 0 4-10 9-10s5 10 9 10'],
+      ['sketch', 'Sketch', 'M4 20l1-5L16 4l4 4L9 19z'],
+      ['render', 'Render', 'M12 4v11M7 10l5 5 5-5M4 19h16']
+    ];
+    const wsTabs = WS.map(([id, t, icon], i) => ({ t, icon, lab: ws === id ? t : '', tip: t + ' workspace · Shift+F' + (i + 1), cls: ws === id ? 'wt on' : 'wt', pick: goWs(id) }));
+
+    // ---------- key panel and pins, for what is in front
+    const pin = (n, x, y) => ({ n, st: 'left:' + x + 'px;top:' + y + 'px;pointer-events:none' });
+    const K = (n, name, what) => ({ n, name, what });
+    let kw, pins;
+    if (finder) {
+      kw = {
+        label: 'Effects finder', title: 'Ctrl+Space, in the middle of the screen',
+        chips: ['Effects C', 'Whole app B (families)', 'Search B'].map((t) => ({ t })),
+        idea: 'No effects list is docked any more. Ctrl+Space, or the Effects button in the top bar, opens this finder in the middle of the screen. Its left half is Whole app B\'s family tree for browsing; its right half is the typed search. Both add to the chosen layer.',
+        items: [
+          K(1, 'Type here', 'Starts empty with your recent effects listed. Two letters are usually enough. "Adds to Hair" says which layer gets it.'),
+          K(2, 'Yours', 'Favourites, Recent and your saved Presets, one click each.'),
+          K(3, 'Families', 'Whole app B\'s tree: a colour dot and count per family. Open one to see every effect with a line on what it does. Double-click adds.'),
+          K(4, 'Matches', 'Grouped as Recently used, Effects and Your presets, with the typed letters lit and the family on the right. ↑ ↓ choose, Enter adds.'),
+          K(5, 'About and Add', 'A line on the chosen effect, and the Add button. If nothing matches, the finder offers to look in commands and help instead.')
+        ],
+        tryIt: 'Type "bl" and press ↓ twice, then Enter: the effect appears in Effect controls, open and tagged JUST ADDED. Press Esc and Ctrl+Space to open it again.',
+        trade: 'It covers the middle of the screen while it is open. It closes the moment you add, so it is in the way for a second or two.',
+        reading: 'You said "the effects bar centered". Search B put the finder at the mouse; I centred it instead.'
+      };
+      pins = [pin(1, 418, 116), pin(2, 418, 186), pin(3, 418, 250), pin(4, 1138, 176), pin(5, 418, 594)];
+    } else if ((isC || isA) && isMap) {
+      kw = {
+        label: 'Map of compositions', title: 'Double-click a precomp to see what holds what',
+        chips: ['Pre-compose A', 'Viewer A (tabs)', 'Timeline A'].map((t) => ({ t })),
+        idea: 'Pre-compose A\'s map lives as a second tab in the viewer. Double-click the Precomp 1 layer and it opens; the picture is one click away on the first tab.',
+        items: [
+          K(1, 'Viewer tab', 'Sits beside the picture tab. × closes it.'),
+          K(2, 'Tree', 'Episode › cut › precomp › layers, indented. The lit line is the composition open in the timeline.'),
+          K(3, 'Flowchart', 'Boxes and arrows. An arrow means "holds". The green ring marks the open composition; a dashed box is not used anywhere yet.'),
+          K(4, 'Flowchart, Tree or Both', 'Pick how much map you want.')
+        ],
+        tryIt: 'Click Precomp 1 in the flowchart: the timeline below switches to its tab. Click Cut 012 to go back. Close the map with ×, then double-click Precomp 1 in the timeline to open it again.',
+        trade: 'While the map is showing, the picture is not. A third tab, or a split, could show both later.',
+        reading: 'You said Pre-compose A is "perfect". Its dialog is unchanged, on its own board to the right. This tab is the map part of it, made into a viewer as you asked.'
+      };
+      pins = [pin(1, 470, 68), pin(2, 346, 132), pin(3, 800, 300), pin(4, 572, 134)];
+    } else if (isC) {
+      kw = {
+        label: 'Compose workspace', title: 'One screen, everything docked',
+        chips: ['Whole app A', 'Whole app B (workspaces)', 'Top bar A', 'Search B', 'Effect controls B', 'Viewer A', 'Timeline A + B', 'Project A–D', 'Effects C'].map((t) => ({ t })),
+        idea: 'Whole app A\'s single docked screen, close to After Effects, with the film icon top left. Whole app B\'s workspaces are the tabs at the top right. No effects list is docked: Ctrl+Space opens the finder in the middle, so the viewer gets the room.',
+        items: [
+          K(1, 'Top bar A, items 1 to 5, in one row', 'Menus; the cut with ‹ ›; then three small icons: its status, the health warning (click it) and the running export (click it to watch). Save shows an orange dot until saved. Hover any icon for its name.'),
+          K(2, 'Search B, item 8 of Top bar A', 'One box for commands, menus, layers and help, with scope chips. When your letters also match effects, its last line hands you to the finder.'),
+          K(3, 'Effects, Ctrl+Space', 'Opens the effects finder in the middle of the screen.'),
+          K(4, 'Workspaces', 'Compose, Animate, Sketch and Render. Each keeps its own layout. Frame, keys and sketches are shared.'),
+          K(5, 'Effect controls B', 'Short rows in one tree, the blue switch, a slider on the chosen row only, ◀ ◆ ▶ on demand. Drag a blue number.'),
+          K(6, 'Viewer A, in one row', 'Play, quality, Show, Compare, Size, Paper and the overlays as small icons; hover for the name. The slate sits just above the picture, never on it.'),
+          K(7, 'Timeline, Balanced look', 'A tab per composition. Timeline, Both or Graph sit beside the frame number; the Sheet button is at the right, by "Cut 012 · 8 layers". Switches, Mode and Parent columns, a green sound wave. Double-click Precomp 1 for the map.'),
+          K(8, 'Notes on the ruler', 'Like Balanced’s "Key pose". The Note button adds one at the playhead, or double-click the ruler. Click a note to rename or delete it. Notes also show in the sheet’s Action column.'),
+          K(9, 'Ready frames', 'The green line under the work area marks frames already in memory: they play at full speed. Play or step and it grows; an edit clears the frames it changes. The count beside the timecode says how many, and hovering it says how much memory.')
+        ],
+        tryIt: 'Double-click the ruler near frame 110, type "hair settles" and press Enter. Drag along the ruler. Twirl Hair (▸). Click Both, then drag a diamond in the graph: the hair moves in the viewer and the number in Effect controls follows. Type "gl" in the search box.',
+        trade: 'Browsing effects needs the finder open; nothing lists them on screen all the time.',
+        reading: '"The side sheet toggle by the Cut 012 side": I put it at the right end of the row that reads "Cut 012 · 8 layers". If you meant beside the Cut 012 tab, that is a small move. The top bar and the viewer toolbar are one row each now; their words became hover tips.'
+      };
+      pins = [pin(1, 600, 27), pin(2, 1000, 27), pin(3, 1272, 27), pin(4, 1405, 27), pin(5, 316, 346), pin(6, 346, 70), pin(7, 790, tlTop + 34), pin(8, 640, tlTop + 76), pin(9, LC + fx(112) + 4, tlTop + 70)];
+    } else if (isA) {
+      const rowsTop = 500 + 30 + 44 + 44;
+      kw = {
+        label: 'Animate workspace', title: 'Rows, graph and sheet together',
+        chips: ['Timeline A', 'Timeline B', 'Effect controls B', 'Viewer A', 'Whole app B (workspaces)'].map((t) => ({ t })),
+        idea: 'Timeline A and B combined. The rows stay on top, the graph sits right under them on the same frames, and one red playhead runs through both. The sheet stands on the side and hides with one button.',
+        items: [
+          K(1, 'Timeline, Both, Graph', 'Beside the frame number. Both is the default here. Each workspace remembers its own choice.'),
+          K(2, 'Hair, twirled open', 'Position, Rotation and Glow › Radius, with ◀ ◆ ▶ to step and set keys.'),
+          K(3, 'The graph', 'Tick which settings to show. Drag a diamond: up and down changes the value, sideways moves the key. Easy ease, Linear and Hold change the curve.'),
+          K(4, 'The sheet', 'Frame by frame: Hair, Body, BG, Action and Dialogue. The lit row is the playhead; click a row to go there. Body 42 is struck out: it is missing. The Sheet button at the right of the timeline shows or hides it.'),
+          K(5, 'A smaller viewer', 'Only the play row, so timing has the room.'),
+          K(6, 'Effect controls', 'The same settings, so you can type an exact value.')
+        ],
+        tryIt: 'Drag the pink Radius diamond at frame 118 up: the glow grows in the viewer. Click Linear, then Hold, and watch the curve change shape. Press the Sheet button to hide the sheet.',
+        trade: 'Rows and graph share the height, so each gets about half. Graph alone gives the curves the whole panel.',
+        reading: 'I put the sheet as a full-height column on the right so its 48 frames fit without scrolling. It is on in Animate and off in Compose.'
+      };
+      pins = [pin(1, 760, 534), pin(2, 160, rowsTop + 30 * 3 + 32), pin(3, 300, rowsTop + rowsH + 6), pin(4, sheetShown ? mainW + 100 : mainW - 14, sheetShown ? 44 : 536), pin(5, 346, 70), pin(6, 300, 64)];
+    } else if (isS) {
+      kw = {
+        label: 'Sketch workspace', title: 'A quiet page for drawing ideas',
+        chips: ['Viewer A (its Sketch group)', 'Whole app B (workspaces)', 'Your wish: minimal, with layers'].map((t) => ({ t })),
+        idea: 'Sketching left the viewer and has its own workspace. The panels and the timeline are gone: tools on the left, the page in the middle, layers on the right, frames along the bottom.',
+        items: [
+          K(1, 'Tools', 'Brush, pencil, eraser; three sizes; five colours; undo.'),
+          K(2, 'The page', 'The cut\'s frame shows faintly underneath. Turn it like paper with the buttons above it.'),
+          K(3, 'Layers', 'Show or hide each, pick the one you draw on, add more. A layer draws on one frame, or on the whole cut (for notes that stay).'),
+          K(4, 'Frames', 'Step through the cut. ● marks a frame with its own sketch. Onion skin shows the sketched frames either side in red and green.'),
+          K(5, 'Where sketches show', 'Optionally over the Compose viewer too. Never exported.')
+        ],
+        tryIt: 'Draw on the picture. Pick Pose fix and draw again: it is a separate layer you can hide. Step to frame 108 and turn on Onion skin to see frame 107\'s sketch faintly.',
+        trade: 'To sketch you switch workspace, and to see the result you switch back, unless "Also over the Compose viewer" is ticked.',
+        reading: 'You asked for minimal, with layers and no clutter. I kept only the frame strip, because a sketch belongs to a frame.'
+      };
+      pins = [pin(1, 30, 46), pin(2, 86, 210), pin(3, 1268, 74), pin(4, 60, 1050), pin(5, 1262, 406)];
+    } else {
+      kw = {
+        label: 'Render workspace', title: 'The queue, and watching it write',
+        chips: ['Export A', 'Export B', 'Export D', 'Top bar A, items 5 to 7', 'Project A'].map((t) => ({ t })),
+        idea: 'Export A\'s queue fills the workspace. The running item opens in place into Export B\'s watcher. Watching full-size can be a popup (Export A/D) or a separate window (Export B). You choose which.',
+        items: [
+          K(1, 'Popup or its own window', 'This switch decides what "watch" opens, here and from the task in the top bar.'),
+          K(2, 'The queue', 'Click a waiting item for Top bar A\'s items 6 and 7: the output format and what to do about a missing drawing.'),
+          K(3, 'The running item, grown', 'Export B: the newest frame, the frames around it, a bar with the gap in orange, and notes.'),
+          K(4, 'Open it bigger', 'As a popup over the app, or as its own window you can drag aside or onto a second monitor.'),
+          K(5, 'The task in the top bar', 'Shows progress from every workspace and opens the watcher.')
+        ],
+        tryIt: 'Pick "In its own window", then click "Open in its own window". Drag the window by its title bar, then switch to Compose: it stays. Press "Step: write 24 more frames" to watch it advance.',
+        trade: 'A separate window can be lost behind the app on one screen. The task in the top bar always brings it back.',
+        reading: 'Your "both, as choices": the switch at the top right of the queue. Its own window is drawn inside this board; in the real program it would be a separate window you can put on your other monitor.'
+      };
+      pins = [pin(1, 1248, 42), pin(2, 346, 140), pin(3, 380, 180), pin(4, 1226, 180), pin(5, 750, 27)];
+    }
+
+    this.rv = { ws, frame, sq, sOpen, finder, interp: interpM, gSel: gs, strokes, skSize };
+
+    return {
+      menus, tools, notSketch: !isS, isSketch: isS, s, wsTabs,
+      openFinder: act.finder, closeFinder: set({ finder: false }), finder, f, selLayer,
+      clickAway: !!menu || sOpen, closeAll: set({ menu: '', sOpen: false }),
+      goHealth: act.health, openWatch, closeWatch: set({ watch: false }), task,
+      show, geo,
+      pviews: [['list', 'List'], ['pics', 'Pictures'], ['tree', 'Tree'], ['cut', 'By cut']].map(([id, t]) => ({ t, cls: pview === id ? 'vb on' : 'vb', pick: set({ pview: id }) })),
+      pv: { list: pview === 'list', pics: pview === 'pics', tree: pview === 'tree', cut: pview === 'cut' },
+      psel: { name: cur.name, kind: cur.kind, line: cur.line, lineCls: cur.miss ? 'miss' : 'dim', box: cur.box + ';width:86px;height:48px', fig: cur.fig },
+      plist, psecs, ptree, pcuts,
+      ecRows, frame, tcTxt: sec + 's ' + fr + 'f', sheetTime: sec + ' + ' + fr,
+      vtabs, mapOpen, mapName: 'Precomp 1', map,
+      viewInfo: isMap ? 'Cut 012 holds 1 precomp' : 'Full quality · fit ' + Math.round(pw / 1920 * 100) + '%',
+      stepBack: () => this.step(-1), stepFwd: () => this.step(1),
+      togglePlay: () => {
+        if (this.timer) { clearInterval(this.timer); this.timer = null; this.setState({ playing: false }); }
+        else { this.timer = setInterval(() => this.step(1), 1000 / 24); this.setState({ playing: true }); }
+      },
+      playCls: playing ? 'vb2 on' : 'vb2', playIcon: playing ? 'M7 5h3v14H7zM14 5h3v14h-3z' : 'M7 4l13 8-13 8z',
+      showVt2, paper, ovc, ovt, ov, turned,
+      skOverOn: skOver, tSkOver: set({ skOver: !skOver }),
+      vStrokes: drawn(frame).map((k) => Object.assign({}, k, { o: Math.min(k.o, 0.85) })), vTexts: textsOn(frame),
+      picSt: box(pl, pt, pw, ph) + ';transition:transform .25s;transform:rotate(' + rot + 'deg) scale(' + (fh ? -1 : 1) + ',1)',
+      charSt: '', headSt: '', hairSt,
+      slateSt: 'left:' + pl + 'px;top:' + (pt - 17) + 'px',
+      pnoteSt: 'right:' + (paW - pl - pw) + 'px;top:' + (pt - 17) + 'px',
+      showStrip, stripSt: 'left:' + Math.max(8, pl) + 'px;top:' + (pt + ph + 6) + 'px;width:auto', strip,
+      ctabs, holds, tlModes, sheetBtn, ready, compInfo: C.name + ' · ' + C.info, ruler, nEd,
+      addNote: () => putNote(frame), rulDbl: (e) => putNote(frameAt(e)),
+      rulDown: (e) => { e.currentTarget.setPointerCapture(e.pointerId); scrubTo(e); },
+      rulMove: (e) => { if (e.buttons & 1) scrubTo(e); },
+      tl, tlRows,
+      gp, gApplies: pName(gs), interpBtns, gBoxSt: 'position:relative;flex-grow:1;overflow:hidden;touch-action:none;background:#17171a',
+      gMove, gUp: () => { this.gd = null; }, gGrid, gCurves, gSvgSt: 'position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none', gKeys, gLabels,
+      phLine: 'left:' + (LC + fx(frame) + PX / 2 - 1) + 'px',
+      sheetRows,
+      wModes: [['pop', 'In a popup'], ['win', 'In its own window']].map(([id, t]) => ({ t, cls: wMode === id ? 'on' : '', pick: set({ wMode: id }) })),
+      rqHead: {
+        t: done ? 'Cut 012 done · 2 items still queued' : (run ? 'Rendering 1 of 3 · Cut 012 · ' + at + ' of 240' : 'Stopped · Cut 012 resumes at ' + at),
+        st: 'color:#fff;font-size:12.5px',
+        bar: 'height:5px;border-radius:3px;background:' + (done ? '#8fd6a0' : '#6ea8fe') + ';width:' + pctN + '%'
+      },
+      stopRun: set({ run: false }), goRun: set({ run: true }), rq, w,
+      popOutLabel: wMode === 'win' ? 'Open in its own window' : 'Open as a popup',
+      popOutHint: 'The switch at the top right of the queue chooses which. The task in the top bar opens the same from any workspace.',
+      stepAt: set({ at: Math.min(240, at + 24), wsel: null }), resetAt: set({ at: 118, wsel: null, run: true }),
+      watchPop: watch && wMode === 'pop', watchWin: watch && wMode === 'win', owin: ow,
+      toWin: set({ wMode: 'win', owMin: false }), toPop: set({ wMode: 'pop' }),
+      sk,
+      pins, kw
+    };
+  }
+}
+</script>
+</body>
+</html>
