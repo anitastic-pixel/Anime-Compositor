@@ -319,15 +319,25 @@
   #findlayer { width: 150px; font-size: 12px; }
   #addnote::before { content: ''; display: inline-block; width: 7px; height: 9px; margin-right: 5px; background: #e0a84a; clip-path: polygon(0 0, 100% 0, 100% 50%, 50% 100%, 0 50%); }
   #compinfo { margin-left: 10px; color: #909096; font-size: 12px; white-space: nowrap; }
+  #sheetcolumn { margin-left: 8px; }
+  #sheetcolumn[aria-pressed=true] { border-color: #e8b06a; color: #e8b06a; }
+  /* W-40b (D-248): the side, a sixth place standing the full height beside the other panels and
+     the timeline, where the Sandbox keeps the Sheet. The Sheet button shows or puts away the
+     whole column; put away it folds like an empty place. */
+  #middle { flex: 1; display: flex; }
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #splitside { width: 5px; flex: none; }
+  #side { width: var(--side, 380px); min-width: 150px; flex: none; }
+  body.noside #side, body.noside #splitside { display: none; }
   #timeline .tab .tools button.ic { width: 26px; height: 24px; border: 1px solid transparent; background: transparent; color: #b0b0b6; }
   #timeline .tab .tools button.ic:hover { background: #333; }
   #timeline .tab .tools button.ic[aria-pressed=true] { background: #3a4a6a; border-color: #6ea8fe; color: #fff; }
-  .now { display: inline-flex; align-items: baseline; gap: 6px; }
+  #timeline .now { display: inline-flex; align-items: baseline; gap: 6px; }
   #nowframe {
     font-size: 17px; font-variant-numeric: tabular-nums; color: #6ea8fe; background: #181818;
     border: 1px solid #454545; border-radius: 3px; padding: 0 8px; min-width: 3ch; text-align: right;
   }
-  .now small, .zoom { color: #909096; font-size: 12px; }
+  #timeline .now small, .zoom { color: #909096; font-size: 12px; }
   .zoom { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
   #shyswitch[aria-pressed=true], #mbswitch[aria-pressed=true], #fbswitch[aria-pressed=true] { background: #3a4a6a; border-color: #6ea8fe; color: #fff; }
   /* The headings over the switches, in the gutter beside the ruler. */
@@ -459,6 +469,8 @@
   #xsheet td.words { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: #e8d9a8; }
   /* D-84g: a key drawing's number, circled wherever it is written. */
   #xsheet td.key { position: relative; }
+  /* W-40b (D-248): a note on the ruler, shown grey where the Action column has nothing written. */
+  #xsheet td.rulernote { color: #808086; font-style: italic; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #xsheet td.key::after { content: ""; position: absolute; left: 50%; top: 50%; width: 24px; height: 16px; transform: translate(-50%, -50%); border: 1px solid #e8d9a8; border-radius: 50%; pointer-events: none; }
   #graph svg { display: block; width: 100%; height: 170px; touch-action: none; }
   #graph .plot { fill: none; stroke: #6ea8fe; stroke-width: 1.5; }
@@ -727,6 +739,8 @@
   body.maxed #work > .max { grid-column: 1 / -1; grid-row: 1 / -1; height: auto; }
   body.maxed #bottom.max { flex: 1; height: auto; }
   body.maxed #bottom:not(.max) { display: none; }
+  body.maxed #main:not(:has(.max)), body.maxed #side:not(.max) { display: none; }
+  body.maxed #side.max { flex: 1; width: auto; }
   body.maxed #work { min-height: 0; }
   #layers .rowhead select.blend { margin-left: auto; flex: none; font-size: 11px; padding: 0; }
 
@@ -1147,6 +1161,7 @@
   <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Window</button><div class="drop" role="menu" aria-label="Window" hidden>
     <button data-run="Compose workspace"></button>
     <button data-run="Animate workspace"></button>
+    <button data-run="Show or hide the Sheet"></button>
     <!-- D-85: which panel is where, and how big the places are. Kept on this machine, not in the project. -->
     <select id="workspace" aria-label="Workspace" title="Workspace: where each panel is. Right-click a panel's name or title bar to move it, or drag it onto another place"></select>
     <button id="saveworkspace" data-stay title="Keep this arrangement of panels and sizes under a name">Save workspace&hellip;</button>
@@ -1174,6 +1189,7 @@
   <span class="wstabs"><button data-run="Compose workspace" data-workspace="Compose">Compose</button><button data-run="Animate workspace" data-workspace="Animate">Animate</button></span>
   <button id="save" data-key="Ctrl+S">Save</button>
 </div>
+<div id="middle"><div id="main">
 <div id="work">
   <div class="place" id="left"><nav class="stack" hidden></nav>
   <section class="panel" id="bin">
@@ -1380,6 +1396,7 @@
           title="Zoom in on time: = and -, or Alt with the mouse wheel. Shift with the wheel slides along.">
         +<span id="inview"></span></span>
       <span id="compinfo"></span>
+      <button id="sheetcolumn" aria-pressed="false" title="Show or hide the Sheet, as a column beside the timeline">Sheet</button>
       <!-- W-31b: out of the header, and still what the New layer menu, the layer's right-click
            menu, the shortcuts and the command finder press. -->
       <button id="addlayer" hidden>Add layer</button>
@@ -1418,6 +1435,11 @@
       title="Print the Sheet as a paper timesheet, or save it as a PDF (Ctrl+P)">Print&hellip;</button></span></div>
   <div id="xsheet" tabindex="0"></div>
 </section>
+</div>
+</div>
+<div class="split col" id="splitside" role="separator" aria-orientation="vertical" tabindex="0"
+  aria-label="The border beside the side column. Drag it, or use the arrow keys."></div>
+<div class="place" id="side"><nav class="stack" hidden></nav></div>
 </div>
 <!-- D-84e: how to print the Sheet. The browser's own dialog, so Escape leaves it. -->
 <dialog id="printdialog" aria-labelledby="printtitle">
@@ -3745,6 +3767,7 @@ function paletteLines() {
     ['Shape tool', 'Q', { key: 'q' }],
     ['Compose workspace', 'Alt+1', { key: '1', code: 'Digit1', altKey: true }],
     ['Animate workspace', 'Alt+2', { key: '2', code: 'Digit2', altKey: true }],
+    ['Show or hide the Sheet', '', toggleSheetColumn],
     ['Find any command', 'Ctrl+Shift+P', { key: 'P', code: 'KeyP', ctrlKey: true, shiftKey: true }],
     ...PROPS.map((prop) => ['Reset ' + prop, '', () => resetProp(prop)]),
     ...BLENDS.map((mode) => ['Blend mode ' + mode, '', () => blendLayers(mode)]),
@@ -6096,6 +6119,7 @@ const BORDERS = {
   splitinspector: ['--inspector', 'right', 150, -1],
   splitsheet: ['--sheet', 'bottom', 80, -1],
   splitfx: ['--effects', 'leftlow', 60, -1],
+  splitside: ['--side', 'side', 150, -1],
 };
 let layout = {};
 try { layout = JSON.parse(localStorage.getItem('layout') || '{}') || {}; } catch (e) { layout = {}; }
@@ -6114,6 +6138,7 @@ for (const [id, [prop, panel, min, sign]] of Object.entries(BORDERS)) {
   // The most a panel may take: the viewer keeps its 180px column beside the other side panel,
   // and the panels above the timeline keep the 120px floor the stylesheet gives them.
   const most = () => prop === '--effects' ? $('work').getBoundingClientRect().height - 60
+    : prop === '--side' ? $('middle').clientWidth - 300
     : vertical
     ? $('work').getBoundingClientRect().height + $('bottom').getBoundingClientRect().height - 120
     : $('work').clientWidth - 180 - 10
@@ -10267,6 +10292,8 @@ function drawXsheet(grid) {
       cell.title = column.name + ': ' + said;
     }
   };
+  // W-40b (D-248): the ruler's notes, by frame, for the Action column.
+  const notes = new Map(markersOf(comp).map((m) => [m.frame, m.name]));
   for (let i = 0; i < grid.columns[0].cells.length; i++) {
     const at = grid.from + i;
     const row = table.insertRow();
@@ -10279,6 +10306,13 @@ function drawXsheet(grid) {
       if (column.kind !== 'action') continue;
       const cell = row.cells[row.cells.length - 1];
       cell.dataset.layer = ACTION;
+      // Grey, and only where nothing is written: the note is the ruler's, not the Sheet's, so it
+      // is not printed and typing here writes over it on the Sheet alone.
+      if (notes.has(at) && !cell.className) {
+        cell.className = 'rulernote';
+        cell.textContent = notes.get(at) || 'note';
+        cell.title = 'A note on the ruler at frame ' + at + '. Rename or move it on the ruler.';
+      }
       cell.dataset.mark = cell.textContent;
       cell.onclick = () => {
         sheetCell = { layer: ACTION, frame: at };
@@ -10872,10 +10906,12 @@ function maximise() {
 // opens. A workspace is where each panel is and how big the places are, kept in the browser's
 // storage beside the sizes and never in the project, as W-13 keeps the sizes.
 const PANELS = { bin: 'Project', fxbrowser: 'Effects', viewer: 'Composition', inspector: 'Effect controls', timeline: 'Timeline', sheetpanel: 'Sheet' };
-const PLACES = { left: 'the left', leftlow: 'the lower left', centre: 'the centre', right: 'the right', bottom: 'the bottom' };
+const PLACES = { left: 'the left', leftlow: 'the lower left', centre: 'the centre', right: 'the right', bottom: 'the bottom', side: 'the side' };
 const BUILT_IN = {
-  Compose: { places: { left: ['bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline', 'sheetpanel'] }, sizes: {} },
-  Animate: { places: { left: ['sheetpanel', 'bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'] }, sizes: { '--bin': 320 } },
+  // W-40b (D-248): the Sheet stands in the side column, put away in Compose and out in Animate,
+  // where the effect controls move to the left to give it the room, as the Sandbox has them.
+  Compose: { places: { left: ['bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: ['inspector'], bottom: ['timeline'], side: ['sheetpanel'] }, sizes: {}, sideHidden: true },
+  Animate: { places: { left: ['inspector', 'bin'], leftlow: ['fxbrowser'], centre: ['viewer'], right: [], bottom: ['timeline'], side: ['sheetpanel'] }, sizes: {} },
 };
 let savedWorkspaces = {};
 try { savedWorkspaces = JSON.parse(localStorage.getItem('workspaces') || '{}') || {}; } catch (e) { savedWorkspaces = {}; }
@@ -10884,12 +10920,12 @@ try { workspace = JSON.parse(localStorage.getItem('workspace')); } catch (e) { w
 // W-39 (D-248): Standard and Timing were renamed Compose and Animate, the Sandbox's names.
 if (workspace && ({ Standard: 1, Timing: 1 })[workspace.name]) workspace.name = workspace.name === 'Standard' ? 'Compose' : 'Animate';
 if (!workspace || !(BUILT_IN[workspace.name] || savedWorkspaces[workspace.name])) {
-  workspace = { name: 'Compose', places: BUILT_IN.Compose.places };
+  workspace = { name: 'Compose', places: BUILT_IN.Compose.places, sideHidden: true };
 }
 // Every panel once: one listed twice keeps its first place, and one missing, as a panel added
 // since the workspace was saved would be, goes where Compose has it.
 function settle(places) {
-  const out = { left: [], leftlow: [], centre: [], right: [], bottom: [] };
+  const out = { left: [], leftlow: [], centre: [], right: [], bottom: [], side: [] };
   const seen = new Set();
   for (const place of Object.keys(out)) {
     for (const id of (places && Array.isArray(places[place]) && places[place]) || []) {
@@ -10919,11 +10955,12 @@ function arrange() {
       name.onclick = () => movePanel(id, place);
       strip.append(name);
     });
-    document.body.classList.toggle('no' + place, !ids.length);
+    document.body.classList.toggle('no' + place, !ids.length || (place === 'side' && !!workspace.sideHidden));
   }
+  $('sheetcolumn').setAttribute('aria-pressed', String(sheetInSide()));
   try { localStorage.setItem('workspace', JSON.stringify(workspace)); } catch (e) { /* kept for this run only */ }
   const was = xsheeting;
-  xsheeting = !$('sheetpanel').hidden;
+  xsheeting = !$('sheetpanel').hidden && !document.body.classList.contains('no' + $('sheetpanel').parentElement.id);
   if (xsheeting && !was) askForXsheet();
   applyZoom();
 }
@@ -10931,8 +10968,18 @@ function arrange() {
 function movePanel(id, place) {
   for (const ids of Object.values(workspace.places)) if (ids.includes(id)) ids.splice(ids.indexOf(id), 1);
   workspace.places[place].unshift(id);
+  if (place === 'side') workspace.sideHidden = false;
   arrange();
 }
+// W-40b (D-248): the Sheet button. The Sheet comes forward in the side column, or, when it is
+// already there, the column is put away. Nothing moves in the project.
+const sheetInSide = () => workspace.places.side[0] === 'sheetpanel' && !workspace.sideHidden;
+function toggleSheetColumn() {
+  if (!sheetInSide()) return movePanel('sheetpanel', 'side');
+  workspace.sideHidden = true;
+  arrange();
+}
+$('sheetcolumn').onclick = toggleSheetColumn;
 // A form opened in a panel behind another, as the Project panel is in Animate, is brought into view.
 function toFront(id) { if ($(id).hidden) movePanel(id, $(id).parentElement.id); }
 const panelHandle = (target) => target instanceof Element
@@ -10992,7 +11039,7 @@ function fillWorkspaces() {
 function useWorkspace(name) {
   const chosen = BUILT_IN[name] || savedWorkspaces[name];
   if (!chosen) return;
-  workspace = { name, places: JSON.parse(JSON.stringify(chosen.places || {})) };
+  workspace = { name, places: JSON.parse(JSON.stringify(chosen.places || {})), sideHidden: !!chosen.sideHidden };
   for (const [prop] of Object.values(BORDERS)) {
     const px = chosen.sizes && chosen.sizes[prop];
     setSize(prop, Number.isFinite(px) && px > 0 ? px : null);
@@ -11019,7 +11066,7 @@ $('workspacename').onkeydown = (e) => {
     $('status').textContent = name + ' is built in and cannot be saved over. Give this one another name.';
     return;
   }
-  savedWorkspaces[name] = { places: JSON.parse(JSON.stringify(workspace.places)), sizes: { ...layout } };
+  savedWorkspaces[name] = { places: JSON.parse(JSON.stringify(workspace.places)), sizes: { ...layout }, sideHidden: !!workspace.sideHidden };
   try { localStorage.setItem('workspaces', JSON.stringify(savedWorkspaces)); } catch (err) { /* kept for this run only */ }
   workspace.name = name;
   box.hidden = true;
