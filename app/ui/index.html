@@ -176,7 +176,8 @@
   .stack button[aria-pressed=true] { background: #1e1e20; color: #e8e8ec; box-shadow: inset 0 2px 0 #e8b06a; }
   .place > .panel > .tab { cursor: grab; }
   body.dropping, body.dropping * { cursor: grabbing !important; }
-  .place.drop { outline: 2px solid #6ea8fe; outline-offset: -2px; }
+  /* D-265: not .drop, which is a menu and would lift the place out of the window. */
+  .place.dropat { outline: 2px solid #6ea8fe; outline-offset: -2px; }
   /* A panel: a tab across the top saying what it is, a body that scrolls, and for two of them a
      row of controls along the bottom that act on what the panel holds. */
   .panel {
@@ -13004,7 +13005,13 @@ async function editWords(id) {
     const descent = m.fontBoundingBoxDescent || t.size * 0.12;
     const line = t.leading > 0 ? t.leading : ascent + descent;
     box.style.lineHeight = line + 'px';
-    const width = boxed ? t.box_width : comp.width * 2;
+    // D-265: point text's box is as wide as its longest line and a little room for the caret,
+    // not twice the frame; its letters keep their place by the alignment.
+    let width = t.box_width;
+    if (!boxed) {
+      box.style.width = '1px';
+      width = box.scrollWidth + Math.ceil(t.size / 4);
+    }
     const left = t.at[0] - (boxed ? 0 : t.align === 'center' ? width / 2 : t.align === 'right' ? width : 0);
     // The first baseline is the point itself, or a box's top and the ascent below it; a line of
     // the box puts its baseline half the room the font does not fill below the line's top.
@@ -13536,8 +13543,8 @@ addEventListener('pointerdown', (e) => {
     const under = document.elementFromPoint(m.clientX, m.clientY);
     const place = (under && under.closest('.place')) || null;
     if (over !== place) {
-      if (over) over.classList.remove('drop');
-      if (place) place.classList.add('drop');
+      if (over) over.classList.remove('dropat');
+      if (place) place.classList.add('dropat');
       over = place;
     }
   };
@@ -13545,7 +13552,7 @@ addEventListener('pointerdown', (e) => {
     removeEventListener('pointermove', move, true);
     removeEventListener('pointerup', up, true);
     document.body.classList.remove('dropping');
-    if (over) over.classList.remove('drop');
+    if (over) over.classList.remove('dropat');
     if (lifted && over) movePanel(id, over.id);
   };
   addEventListener('pointermove', move, true);

@@ -736,6 +736,14 @@ The page side:
 
 Evidence is in `verification/D-264_text_styles.md`.
 
+D-265 / Text speed, typing box, panel drop line: built on 2026-10-02 at the owner's request.
+- The styled text sample draws in 28 ms, down from 93 ms, and a repeat frame takes no time.
+- Eight styled pictures are byte for byte as on 5516fa7.
+- Point text's typing box fits its words.
+- The panel-drag outline stays inside its place.
+
+Evidence is in `verification/D-265_text_speed_and_drop_line.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

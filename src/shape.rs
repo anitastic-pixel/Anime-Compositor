@@ -802,6 +802,11 @@ pub fn draw(shapes: &[Shape], width: usize, height: usize) -> WorkingBuffer {
 /// nearest of them is the same nearest, so the answer is the one a sample at a time gave, not an
 /// approximation; `the_fast_fields_are_the_slow_ones` below holds it to that. Rows run across the
 /// thread pool, each writing only its own pixels.
+///
+/// Along a sample row the samples move right, so the band is swept in order of its left ends: an
+/// edge joins the ones asked when a sample comes within `reach` of its left end and leaves for
+/// good once the samples are past its right end by more than `reach`. The nearest of the same
+/// edges is the same nearest, whatever order they are asked in.
 pub(crate) fn stroke_field(segments: &[Segment], w: usize, h: usize, reach: f64) -> Vec<f32> {
     use rayon::prelude::*;
     let n = SAMPLES_PER_SIDE;
@@ -810,8 +815,8 @@ pub(crate) fn stroke_field(segments: &[Segment], w: usize, h: usize, reach: f64)
         return field;
     }
     field.par_chunks_mut(w).enumerate().for_each_init(
-        || (Vec::new(), vec![0u32; w]),
-        |(band, hits), (yi, row)| {
+        || (Vec::new(), vec![0u32; w], Vec::new()),
+        |(band, hits, near), (yi, row)| {
             hits.iter_mut().for_each(|hit| *hit = 0);
             for j in 0..n {
                 let sy = yi as f64 + (j as f64 + 0.5) / n as f64;
@@ -826,14 +831,19 @@ pub(crate) fn stroke_field(segments: &[Segment], w: usize, h: usize, reach: f64)
                 if band.is_empty() {
                     continue;
                 }
+                band.sort_by(|p: &(_, _, f64, f64), q| p.2.total_cmp(&q.2));
+                near.clear();
+                let mut next = 0;
                 for (xi, hit) in hits.iter_mut().enumerate() {
                     for i in 0..n {
                         let sx = xi as f64 + (i as f64 + 0.5) / n as f64;
+                        while next < band.len() && !(band[next].2 - reach > sx) {
+                            near.push(band[next]);
+                            next += 1;
+                        }
+                        near.retain(|p: &(_, _, f64, f64)| sx <= p.3 + reach);
                         let mut nearest = f64::INFINITY;
-                        for &(a, b, left, right) in band.iter() {
-                            if sx < left - reach || sx > right + reach {
-                                continue;
-                            }
+                        for &(a, b, _, _) in near.iter() {
                             nearest = nearest.min(crate::mask::distance_to_segment(a, b, sx, sy));
                         }
                         if nearest <= reach {

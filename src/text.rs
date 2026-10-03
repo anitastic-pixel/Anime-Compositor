@@ -17,7 +17,7 @@
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use rayon::prelude::*;
 
@@ -419,23 +419,31 @@ pub fn draw(text: &Text, width: usize, height: usize) -> Option<WorkingBuffer> {
         f
     });
     if let Some(s) = &text.shadow {
-        let mut under = lined.clone().unwrap_or_else(|| ink.clone());
+        let under = lined.as_ref().unwrap_or(&ink);
         // After Effects' compass: 0 is up, 90 is right, and y grows downwards in pixels.
         let a = s.angle.to_radians();
         let (dx, dy) = (a.sin() * s.distance, -a.cos() * s.distance);
-        under = shifted(&under, w, h, dx, dy);
-        let mut shadow = WorkingBuffer::transparent(w, h);
-        crate::shape::paint(shadow.data_mut(), &under, w, s.color, s.opacity, None);
-        // ponytail: the whole picture is blurred, some tens of milliseconds at 1080p; blur only
-        // the words' box, grown by three sigmas, if a long title shows it.
-        // The blur grows the picture by its radius on every side; the frame is its middle.
-        let r = if s.softness > 0.0 { crate::effects::blur(&mut shadow, s.softness / 2.0) } else { 0 };
-        let sw = shadow.width();
-        let sh = shadow.data();
-        for (i, px) in picture.data_mut().chunks_exact_mut(4).enumerate() {
-            let j = ((i / w + r) * sw + i % w + r) * 4;
-            for c in 0..4 {
-                px[c] = sh[j + c] + px[c] * (1.0 - sh[j + 3]);
+        // D-265: only the part of the frame the moved letters reach is worked. Outside it the
+        // shadow is empty, the blur skips empty pixels and adds its taps in the same order
+        // wherever the part starts, so every pixel is the one the whole frame gave.
+        if let Some([l, t, r, b]) = moved_box(under, w, h, dx, dy) {
+            let pw = r - l;
+            let mut shadow = WorkingBuffer::transparent(pw, b - t);
+            let part = shifted(under, w, h, dx, dy, [l, t, r, b]);
+            crate::shape::paint(shadow.data_mut(), &part, pw, s.color, s.opacity, None);
+            // The blur grows the part by its radius on every side.
+            let grow = if s.softness > 0.0 { crate::effects::blur(&mut shadow, s.softness / 2.0) } else { 0 };
+            let sw = shadow.width();
+            let sh = shadow.data();
+            let data = picture.data_mut();
+            for y in t.saturating_sub(grow)..(b + grow).min(h) {
+                for x in l.saturating_sub(grow)..(r + grow).min(w) {
+                    let j = ((y + grow - t) * sw + x + grow - l) * 4;
+                    let px = &mut data[(y * w + x) * 4..(y * w + x) * 4 + 4];
+                    for c in 0..4 {
+                        px[c] = sh[j + c] + px[c] * (1.0 - sh[j + 3]);
+                    }
+                }
             }
         }
     }
@@ -443,6 +451,34 @@ pub fn draw(text: &Text, width: usize, height: usize) -> Option<WorkingBuffer> {
         crate::shape::paint(picture.data_mut(), f, w, s.color, 1.0, None);
     }
     crate::shape::paint(picture.data_mut(), &ink, w, text.color, 1.0, None);
+    Some(picture)
+}
+
+/// D-265: [`draw`], keeping the last few pictures drawn. Text settings have no keys, so a text
+/// layer is the same picture on every frame, and playing or scrubbing it draws it once. A
+/// picture is handed out shared; the render copies it before an effect or mask changes it.
+// ponytail: four 1080p pictures, about 130 MB; key by layer if a project shows more text layers
+// than that redrawing on every frame.
+pub fn drawn(text: &Text, width: usize, height: usize) -> Option<Arc<WorkingBuffer>> {
+    static KEPT: Mutex<Vec<(Text, usize, usize, Arc<WorkingBuffer>)>> = Mutex::new(Vec::new());
+    let hit = |kept: &mut Vec<(Text, usize, usize, Arc<WorkingBuffer>)>| {
+        let i = kept.iter().position(|(t, w, h, _)| t == text && *w == width && *h == height)?;
+        let found = kept.remove(i);
+        let picture = found.3.clone();
+        kept.push(found);
+        Some(picture)
+    };
+    if let Some(p) = hit(&mut KEPT.lock().unwrap_or_else(|e| e.into_inner())) {
+        return Some(p);
+    }
+    let picture = Arc::new(draw(text, width, height)?);
+    let mut kept = KEPT.lock().unwrap_or_else(|e| e.into_inner());
+    if hit(&mut kept).is_none() {
+        if kept.len() == 4 {
+            kept.remove(0);
+        }
+        kept.push((text.clone(), width, height, picture.clone()));
+    }
     Some(picture)
 }
 
@@ -687,16 +723,34 @@ fn union(into: &mut [f32], other: &[f32]) {
     into.iter_mut().zip(other).for_each(|(a, b)| *a = a.max(*b));
 }
 
+/// D-265: the part of the frame, left, top, right, bottom, that a field moved by (dx, dy) can
+/// cover: its covered pixels' box, moved, and one more pixel right and down for the sampling
+/// between pixels. `None` when nothing is covered or it all moves out of the frame.
+fn moved_box(field: &[f32], w: usize, h: usize, dx: f64, dy: f64) -> Option<[usize; 4]> {
+    let rows: Vec<usize> = (0..h).filter(|y| field[y * w..(y + 1) * w].iter().any(|v| *v != 0.0)).collect();
+    let (&top, &bottom) = (rows.first()?, rows.last()?);
+    let row = |y: usize| &field[y * w..(y + 1) * w];
+    let left = rows.iter().filter_map(|y| row(*y).iter().position(|v| *v != 0.0)).min()?;
+    let right = rows.iter().filter_map(|y| row(*y).iter().rposition(|v| *v != 0.0)).max()?;
+    let (fx, fy) = (dx.floor() as i64, dy.floor() as i64);
+    let clamp = |v: i64, most: usize| v.clamp(0, most as i64) as usize;
+    let (l, t) = (clamp(left as i64 + fx, w), clamp(top as i64 + fy, h));
+    let (r, b) = (clamp(right as i64 + fx + 2, w), clamp(bottom as i64 + fy + 2, h));
+    (r > l && b > t).then_some([l, t, r, b])
+}
+
 /// A field moved by (dx, dy) pixels, sampled between pixels bilinearly; what moves in from
-/// outside is empty.
-fn shifted(field: &[f32], w: usize, h: usize, dx: f64, dy: f64) -> Vec<f32> {
+/// outside is empty. Only the part `[l, t, r, b]` of the frame is given, row by row.
+fn shifted(field: &[f32], w: usize, h: usize, dx: f64, dy: f64, [l, t, r, b]: [usize; 4]) -> Vec<f32> {
     let (fx, fy) = (dx.floor(), dy.floor());
     let (tx, ty) = ((dx - fx) as f32, (dy - fy) as f32);
     let at = |x: i64, y: i64| if x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h { field[y as usize * w + x as usize] } else { 0.0 };
     let (fx, fy) = (fx as i64, fy as i64);
-    let mut out = vec![0.0f32; w * h];
-    out.par_chunks_mut(w).enumerate().for_each(|(y, row)| {
-        for (x, v) in row.iter_mut().enumerate() {
+    let mut out = vec![0.0f32; (r - l) * (b - t)];
+    out.par_chunks_mut(r - l).enumerate().for_each(|(k, row)| {
+        let y = t + k;
+        for (i, v) in row.iter_mut().enumerate() {
+            let x = l + i;
             let (sx, sy) = (x as i64 - fx, y as i64 - fy);
             let top = at(sx, sy) * (1.0 - tx) + at(sx - 1, sy) * tx;
             let low = at(sx, sy - 1) * (1.0 - tx) + at(sx - 1, sy - 1) * tx;

@@ -610,6 +610,15 @@ Not in this decision:
 
 No fixture or existing picture changes. Check: `tests/d264_text_styles.rs`; evidence in `verification/D-264_text_styles.md`.
 
+D-265 / Text speed, the typing box and the panel drop line / **ACCEPTED on 2026-10-02 by the owner** ("long boundary when selected; improve realtime performance" and "when dragging a panel to another, the placement highlight is too big and not contained in it's own section"). Every picture stays the same, bit for bit:
+- The stroke and faux bold find the outline's nearby edges by a sweep along each row, not by testing every edge.
+- The shadow is worked only over the part of the frame the moved letters reach.
+- The last four text pictures drawn are kept, so a text layer is drawn once while playing or scrubbing, not on every frame.
+
+On the page, point text's typing box is as wide as its longest line, not twice the frame. While a panel is dragged, the place it would land in is outlined inside its own edges. The outline used the menus' class name before, which lifted the place out of the window.
+
+Evidence in `verification/D-265_text_speed_and_drop_line.md`.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

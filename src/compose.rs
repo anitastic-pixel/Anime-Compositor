@@ -1287,7 +1287,7 @@ fn resolve_held(
         // per frame, for the reason an undrawable shape is, and nothing is drawn in its place.
         layer.timing().local_frame(frame)?;
         let (w, h) = (comp.width as usize, comp.height as usize);
-        let picture = crate::text::draw(words, w, h).unwrap_or_else(|| {
+        let picture = crate::text::drawn(words, w, h).unwrap_or_else(|| {
             log.record(
                 frame,
                 layer.name.clone(),
@@ -1306,9 +1306,9 @@ fn resolve_held(
                 )
                 .with_remediation("Install the font, or choose another in Effect controls."),
             );
-            WorkingBuffer::transparent(w, h)
+            std::sync::Arc::new(WorkingBuffer::transparent(w, h))
         });
-        (std::sync::Arc::new(picture), None)
+        (picture, None)
     } else if layer.kind == crate::model::LayerKind::Shape {
         // D-78: a shape layer's step 1 is the composition's size in transparent black with its
         // shapes drawn into it. It has no size of its own, which is why `comp` is asked and not
