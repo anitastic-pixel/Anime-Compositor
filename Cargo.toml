@@ -42,7 +42,7 @@ bytemuck = "1.25.2"
 half = { version = "2.7.1", features = ["bytemuck"] }
 # D-263: text layers. Reads a font's outlines, which `src/text.rs` fills itself. No dependencies
 # of its own; default features off, which drops the layout tables a shaper would need.
-ttf-parser = { version = "0.25.1", default-features = false, features = ["std"] }
+ttf-parser = { version = "0.25.1", default-features = false, features = ["std", "opentype-layout"] }
 
 # D-72 and D-30: MP4 goes out through the encoder Windows carries. Already in the tree under Tauri.
 [target.'cfg(windows)'.dependencies]

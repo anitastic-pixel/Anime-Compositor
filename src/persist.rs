@@ -890,6 +890,62 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         map.insert("color".into(), J::from(t.color.to_vec()));
         map.insert("at".into(), J::from(t.at.to_vec()));
         map.insert("align".into(), J::from(t.align.as_str()));
+        // D-264: each written only when it is not its default, and taken out when it returns to
+        // it, so a D-263 record is written as it was.
+        let mut put = |key: &str, value: Option<J>| match value {
+            Some(v) => {
+                map.insert(key.into(), v);
+            }
+            None => {
+                map.remove(key);
+            }
+        };
+        put("tracking", (t.tracking != 0.0).then(|| J::from(t.tracking)));
+        put("leading", (t.leading != 0.0).then(|| J::from(t.leading)));
+        put("kerning", t.kerning.then(|| J::from(true)));
+        put("all_caps", t.all_caps.then(|| J::from(true)));
+        put("faux_bold", t.faux_bold.then(|| J::from(true)));
+        put("faux_italic", t.faux_italic.then(|| J::from(true)));
+        put("box_width", (t.box_width != 0.0).then(|| J::from(t.box_width)));
+        // A record is merged over the file's own, so a line inside it no build writes is kept.
+        let old = |key: &str| base.and_then(|b| b.get("source_text")).and_then(|s| s.get(key)).and_then(J::as_object).cloned().unwrap_or_default();
+        let merged = |key: &str, pairs: Vec<(&str, J)>| {
+            let mut m = old(key);
+            for (k, v) in pairs {
+                m.insert(k.into(), v);
+            }
+            J::Object(m)
+        };
+        put("stroke", t.stroke.as_ref().map(|s| merged("stroke", vec![("color", J::from(s.color.to_vec())), ("width", J::from(s.width))])));
+        put(
+            "background",
+            t.background.as_ref().map(|b| {
+                merged(
+                    "background",
+                    vec![
+                        ("color", J::from(b.color.to_vec())),
+                        ("opacity", J::from(b.opacity)),
+                        ("padding", J::from(b.padding)),
+                        ("roundness", J::from(b.roundness)),
+                    ],
+                )
+            }),
+        );
+        put(
+            "shadow",
+            t.shadow.as_ref().map(|s| {
+                merged(
+                    "shadow",
+                    vec![
+                        ("angle", J::from(s.angle)),
+                        ("color", J::from(s.color.to_vec())),
+                        ("distance", J::from(s.distance)),
+                        ("opacity", J::from(s.opacity)),
+                        ("softness", J::from(s.softness)),
+                    ],
+                )
+            }),
+        );
         owned.push(("source_text", J::Object(map)));
     }
     owned.push(("effects", J::Array(effects)));
@@ -4999,18 +5055,56 @@ fn parse_solid(v: &J, pointer: &str) -> Result<crate::model::Solid, Diagnostic> 
 }
 
 /// D-263's `source_text` record: words, a font's file name, a size, a colour, a place and an
-/// alignment, all present and inside `Text::problem`'s ranges, or the file is refused.
+/// alignment, all present and inside `Text::problem`'s ranges, or the file is refused. D-264's
+/// settings may follow, each optional and each its default when absent.
 fn parse_text(v: &J, pointer: &str) -> Result<crate::text::Text, Diagnostic> {
     as_object(v, pointer)?;
-    let numbers = |key: &str, n: usize| -> Result<Vec<f64>, Diagnostic> {
+    fn numbers(v: &J, pointer: &str, key: &str, n: usize) -> Result<Vec<f64>, Diagnostic> {
         let at = format!("{pointer}/{key}");
         let list = as_array(field(v, pointer, key)?, &at)?;
         if list.len() != n {
             return Err(invalid(&at, &format!("{n} numbers (D-263)")));
         }
         list.iter().enumerate().map(|(i, x)| as_f64(x, &format!("{at}/{i}"))).collect()
+    }
+    let colour = |v: &J, pointer: &str| numbers(v, pointer, "color", 3).map(|c| [c[0], c[1], c[2]]);
+    let number = |v: &J, pointer: &str, key: &str| as_f64(field(v, pointer, key)?, &format!("{pointer}/{key}"));
+    let (color, at) = (numbers(v, pointer, "color", 3)?, numbers(v, pointer, "at", 2)?);
+    let optional = |key: &str, default: f64| v.get(key).map_or(Ok(default), |x| as_f64(x, &format!("{pointer}/{key}")));
+    let flag = |key: &str| v.get(key).map_or(Ok(false), |x| as_bool(x, &format!("{pointer}/{key}")));
+    let record = |key: &str| -> Result<Option<(&J, String)>, Diagnostic> {
+        match v.get(key) {
+            None => Ok(None),
+            Some(r) => {
+                let at = format!("{pointer}/{key}");
+                as_object(r, &at)?;
+                Ok(Some((r, at)))
+            }
+        }
     };
-    let (color, at) = (numbers("color", 3)?, numbers("at", 2)?);
+    let stroke = match record("stroke")? {
+        None => None,
+        Some((r, at)) => Some(crate::text::Stroke { color: colour(r, &at)?, width: number(r, &at, "width")? }),
+    };
+    let background = match record("background")? {
+        None => None,
+        Some((r, at)) => Some(crate::text::Background {
+            color: colour(r, &at)?,
+            opacity: number(r, &at, "opacity")?,
+            padding: number(r, &at, "padding")?,
+            roundness: number(r, &at, "roundness")?,
+        }),
+    };
+    let shadow = match record("shadow")? {
+        None => None,
+        Some((r, at)) => Some(crate::text::Shadow {
+            color: colour(r, &at)?,
+            opacity: number(r, &at, "opacity")?,
+            angle: number(r, &at, "angle")?,
+            distance: number(r, &at, "distance")?,
+            softness: number(r, &at, "softness")?,
+        }),
+    };
     let align_at = format!("{pointer}/align");
     let text = crate::text::Text {
         text: as_str(field(v, pointer, "text")?, &format!("{pointer}/text"))?.to_string(),
@@ -5021,9 +5115,19 @@ fn parse_text(v: &J, pointer: &str) -> Result<crate::text::Text, Diagnostic> {
         align: crate::text::Align::parse(as_enum(
             field(v, pointer, "align")?,
             &align_at,
-            &["left", "center", "right"],
+            &["left", "center", "right", "justify"],
         )?)
-        .expect("as_enum allows only the three"),
+        .expect("as_enum allows only the four"),
+        tracking: optional("tracking", 0.0)?,
+        leading: optional("leading", 0.0)?,
+        kerning: flag("kerning")?,
+        all_caps: flag("all_caps")?,
+        faux_bold: flag("faux_bold")?,
+        faux_italic: flag("faux_italic")?,
+        box_width: optional("box_width", 0.0)?,
+        stroke,
+        background,
+        shadow,
     };
     match text.problem() {
         Some(p) => Err(invalid(pointer, &p)),

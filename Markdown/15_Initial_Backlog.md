@@ -714,6 +714,28 @@ D-261 / Sketch: accepted on 2026-10-02 as choice (a), sketch layers saved with t
 
 D-263 / Text layers: accepted on 2026-10-02 at the owner's request. Check first: `tests/d263_text.rs` (c464052). A text layer made and changed through the commands the page sends, with sizes, colours, places and font names outside the ranges refused and undo putting the words back; it saves and reads back exactly and keeps lines no build writes yet; the letters land where they were placed, the same every time, aligned left, right or centred, a second line below the first, overlapping outlines filled and holes kept; frame 10 changes with the layer on and is byte for byte unchanged with it off; a font the machine does not have is said as `TEXT_FONT_MISSING` and nothing is drawn in its place; every fixture project saves byte for byte as on e395d8b. One new dependency, `ttf-parser` 0.25.1, with no dependencies of its own; it reads outlines in place of the `skrifa` named below. One bundled font, M PLUS Rounded 1c, under the SIL Open Font License (`assets/fonts/`, licence in `docs/third_party/`). Evidence is in `verification/D-263_text.md`.
 
+D-264 / Text styles: accepted on 2026-10-02 at the owner's request. Check first: `tests/d264_text_styles.rs` (f6546de). It covers:
+- Tracking, the font's own kerning, leading, all caps, faux bold and faux italic each move or change the letters as they say.
+- A box the words wrap in, with Japanese broken between any two characters and a long word broken, and left, centre, right and justified lines.
+- A stroke, a background box with rounded corners and a soft shadow, drawn in that order under the fill.
+- The new settings save and read back exactly, are written only when used, and keep lines no build writes yet. Out-of-range values are refused.
+- Three D-263 pictures are byte for byte as on 2edc62d.
+- Fonts are listed by family and style.
+- A styled layer reaches exported frame 10.
+- Every fixture project saves byte for byte as on e395d8b.
+
+After the check went in, two of its expected wordings were corrected, both errors in the check itself:
+- The justify sample was changed, because its first line already filled the box.
+- The bundled font's name is now its own, "Rounded Mplus 1c".
+
+The page side:
+- Effect controls' Text section has Source text, Character, Paragraph and Appearance.
+- The Text tool's drag draws a box. A click on words types into them, as does a double-click with Select.
+- The words are typed on the picture itself.
+- `/fonts` and `/font` are new window routes.
+
+Evidence is in `verification/D-264_text_styles.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

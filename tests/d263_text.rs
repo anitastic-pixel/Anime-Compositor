@@ -56,6 +56,7 @@ fn words(text: &str, size: f64, at: [f64; 2], align: Align) -> Text {
         color: [1.0, 0.9, 0.2],
         at,
         align,
+        ..Text::default()
     }
 }
 

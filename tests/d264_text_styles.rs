@@ -356,7 +356,7 @@ fn d264_text_is_styled_as_the_editors_style_it() {
     row("Centred in the box, a line's middle is the box's middle, 300", "yes", yes(near(centred, 300.0, 6.0), format!("{centred}")));
     let righted = right_end(&boxed("Hi", Align::Right));
     row("Aligned right in the box, a line ends at the box's right side, 500", "yes", yes(near(righted, 500.0, 8.0), format!("{righted}")));
-    let spaced = "one two three four five six seven";
+    let spaced = "the quick brown fox jumps over the lazy dog";
     let justified = draw(&boxed(spaced, Align::Justify));
     let lefted = draw(&boxed(spaced, Align::Left));
     let first_line = |p: &WorkingBuffer| ink(p).and_then(|(_, _, t, ..)| row_ink(p, t + (size * 0.6 * 0.3) as usize));
@@ -461,8 +461,8 @@ fn d264_text_is_styled_as_the_editors_style_it() {
     }
     let fonts = text::fonts();
     row(
-        "The fonts are listed by name: the one that comes with the program is M PLUS Rounded 1c, Regular",
-        "M PLUS Rounded 1c, Regular",
+        "The fonts are listed by the names they give themselves: the one that comes with the program is Rounded Mplus 1c, Regular",
+        "Rounded Mplus 1c, Regular",
         fonts.iter().find(|f| f.file == Text::BUNDLED_FONT).map(|f| format!("{}, {}", f.family, f.style)).unwrap_or("not listed".into()),
     );
     row(

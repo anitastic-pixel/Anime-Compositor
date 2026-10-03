@@ -917,7 +917,7 @@
         },
         "source_text": {
           "type": "object",
-          "description": "D-263: a text layer's words, a font's file name (no folder), its em in pixels, a linear colour, where the first line's baseline meets its aligned end, and the alignment.",
+          "description": "D-263: a text layer's words, a font's file name (no folder), its em in pixels, a linear colour, where the first line's baseline meets its aligned end (in a box, the box's top left corner), and the alignment. D-264: tracking, leading, kerning, all caps, faux bold and italic, a box to wrap in, and a stroke, background and shadow, each written only when not its default.",
           "required": [
             "text",
             "font",
@@ -962,8 +962,144 @@
               "enum": [
                 "left",
                 "center",
-                "right"
+                "right",
+                "justify"
               ]
+            },
+            "tracking": {
+              "type": "number",
+              "minimum": -1000,
+              "maximum": 1000
+            },
+            "leading": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "kerning": {
+              "type": "boolean"
+            },
+            "all_caps": {
+              "type": "boolean"
+            },
+            "faux_bold": {
+              "type": "boolean"
+            },
+            "faux_italic": {
+              "type": "boolean"
+            },
+            "box_width": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 16384
+            },
+            "stroke": {
+              "type": "object",
+              "description": "D-264: a line round the letters, width pixels out from their edge, under the fill.",
+              "required": [
+                "color",
+                "width"
+              ],
+              "additionalProperties": true,
+              "properties": {
+                "color": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "width": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 500
+                }
+              }
+            },
+            "background": {
+              "type": "object",
+              "description": "D-264: a box behind the words, padding pixels out from them, corners rounded by roundness pixels.",
+              "required": [
+                "color",
+                "opacity",
+                "padding",
+                "roundness"
+              ],
+              "additionalProperties": true,
+              "properties": {
+                "color": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "opacity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "padding": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1000
+                },
+                "roundness": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1000
+                }
+              }
+            },
+            "shadow": {
+              "type": "object",
+              "description": "D-264: the letters and stroke again, distance pixels away at angle degrees (90 right, 135 down and right), blurred by softness.",
+              "required": [
+                "angle",
+                "color",
+                "distance",
+                "opacity",
+                "softness"
+              ],
+              "additionalProperties": true,
+              "properties": {
+                "angle": {
+                  "type": "number",
+                  "minimum": -36000,
+                  "maximum": 36000
+                },
+                "color": {
+                  "type": "array",
+                  "items": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "distance": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1000
+                },
+                "opacity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "softness": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 500
+                }
+              }
             }
           }
         },

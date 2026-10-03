@@ -587,6 +587,29 @@ D-262 / The owner's answers to the W-46 questions / **ACCEPTED on 2026-10-02 by 
 
 D-263 / Text layers / **ACCEPTED on 2026-10-02 by the owner** ("implement the text tool as well"), which lifts D-262 (5); Ctrl+T stays the free-transform box. A new layer kind, `text`, whose drawing is its `source_text` record: the words (a line break starts a line below), a font's file name, a size from 1 to 2000 pixels to the em, a linear colour, the place where the first line's baseline meets its aligned end, in composition pixels, and left, centre or right alignment. Like a shape layer it is drawn in the composition's own space and has the transform, masks, effects, blend modes and motion blur of any drawn layer, and no asset, exposures or source offset. The outlines are read by `ttf-parser` and filled by the program's own sixteen samples a pixel, under the nonzero rule, so overlapping outlines are ink and an O keeps its hole. A font is named, never pointed at: a folder in the name is refused. It is looked for among the fonts that come with the program, M PLUS Rounded 1c (SIL Open Font License; Latin, kana and kanji), then in the Windows fonts folders. A font this machine does not have is kept, draws nothing, and is said per frame as `TEXT_FONT_MISSING`, with the frame marked incomplete; no other font is put in its place. Not in this decision: kerning and shaping (Latin and Japanese read correctly without them; Arabic and the Indic scripts would need `harfrust`), animating the words, the size or the colour, and text on a path. No fixture or existing exported picture changes. Check: `tests/d263_text.rs`; evidence in `verification/D-263_text.md`.
 
+D-264 / Text styles / **ACCEPTED on 2026-10-02 by the owner** ("let's build the text tool/text properties and modify section to be similar to Premiere/Davinci/AE's text tools"). D-263's `source_text` gains ten settings. Each is optional and written only when it is not its default, so a file using none of them is unchanged:
+- `tracking`: -1000 to 1000 thousandths of the size, added between every two letters.
+- `leading`: 0 to 10000 pixels from baseline to baseline. 0 means the font's own spacing.
+- `kerning`: true moves letter pairs by the room the font asks for. It reads the font's GPOS pair kerning, else its old kern table.
+- `all_caps`: draws every letter as a capital and keeps the words as typed.
+- `faux_bold`: thickens the letters by a fiftieth of the size.
+- `faux_italic`: slants the letters by 12 degrees.
+- `box_width`: 0 to 16384. Above 0, the words wrap in a box that wide whose top left corner is `at`. Lines break after spaces and between any two Japanese characters, and a word longer than the box is broken where it overflows. `align` gains `justify`, which spreads every line of a box except a paragraph's last to both edges.
+- `stroke`: a line round the letters, `{color, width}`, with the width above 0 and up to 500.
+- `background`: a box behind the words, `{color, opacity, padding, roundness}`, padding and roundness each 0 to 1000.
+- `shadow`: `{color, opacity, angle, distance, softness}`. The angle is -36000 to 36000 degrees (90 right, 135 down and right, 180 down), the distance 0 to 1000 and the softness 0 to 500.
+
+They are drawn in the order background, shadow, stroke, fill. Unknown keys inside the three records are kept. A font is chosen by family and style, read from each font file's own name table. `ttf-parser`'s `opentype-layout` feature is switched on, and no new dependency is added. A text layer is outlined and picked on the picture by its words' box, not by the whole composition.
+
+Not in this decision:
+- Japanese line-break rules for punctuation (kinsoku).
+- Styles on only part of the words.
+- Animating any text setting.
+- Shaping: ligatures, Arabic and the Indic scripts.
+- Text on a path.
+
+No fixture or existing picture changes. Check: `tests/d264_text_styles.rs`; evidence in `verification/D-264_text_styles.md`.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

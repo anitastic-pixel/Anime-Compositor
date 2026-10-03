@@ -664,8 +664,8 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             layers: Vec::new(),
         },
     };
-    let outline = |id: &str, w: f64, h: f64, map: &dyn Fn(f64, f64) -> (f64, f64)| {
-        let corners: Vec<f64> = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)]
+    let boxed = |id: &str, [l, t, r, b]: [f64; 4], map: &dyn Fn(f64, f64) -> (f64, f64)| {
+        let corners: Vec<f64> = [(l, t), (r, t), (r, b), (l, b)]
             .iter()
             .flat_map(|&(x, y)| {
                 let (x, y) = map(x, y);
@@ -674,12 +674,37 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             .collect();
         serde_json::json!({ "layer": id, "corners": corners })
     };
+    let outline = |id: &str, w: f64, h: f64, map: &dyn Fn(f64, f64) -> (f64, f64)| {
+        boxed(id, [0.0, 0.0, w, h], map)
+    };
+    let comp_now = taken.project.composition(&taken.composition);
     let mut found: Vec<serde_json::Value> = plan
         .layers
         .iter()
         .map(|layer| {
             let (w, h) = (layer.source.width() as f64, layer.source.height() as f64);
-            outline(layer.id.as_str(), w, h, &|x, y| layer.transform.apply(x, y))
+            // D-264: a text layer's source is the whole composition; its outline, and so what a
+            // press on the picture picks, is its words' box. An effect that grew the source
+            // (a blur's margin) keeps the whole source, whose corners are then not the words'.
+            // The source is drawn at the composition's size at every quality; a draft's smaller
+            // frame is in the layer's transform, so the words' box goes through it as it is.
+            let words = comp_now.and_then(|c| {
+                let text = c.layer(&layer.id)?.text.as_ref()?;
+                let grown = w != c.width as f64 || h != c.height as f64;
+                // Empty words have no width, and are outlined and picked by the whole layer.
+                anime_compositor::text::bounds(text)
+                    .filter(|[l, t, r, b]| !grown && r - l >= 1.0 && b - t >= 1.0)
+            });
+            // `words` is the same box in the layer's own (composition) pixels, so that the page
+            // can still carry a mask point or a free transform between the layer and the screen.
+            match words {
+                Some(own) => {
+                    let mut found = boxed(layer.id.as_str(), own, &|x, y| layer.transform.apply(x, y));
+                    found["words"] = serde_json::json!(own);
+                    found
+                }
+                None => outline(layer.id.as_str(), w, h, &|x, y| layer.transform.apply(x, y)),
+            }
         })
         .collect();
     // B-26c: a null (D-82) is in no plan, because it is never drawn. Its outline is the 100 by
@@ -6517,6 +6542,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             // centred, when not sent), named with the smallest `Text N` not yet taken. Above the
             // chosen layer (`to`) or else at the front, as a new solid lands.
             let centre = parameter(query, "x").is_none() && parameter(query, "y").is_none();
+            // D-264: kerning on, as the editors start a new layer; `box` makes it paragraph text.
             let start = anime_compositor::text::Text {
                 text: "Text".to_string(),
                 font: anime_compositor::text::Text::BUNDLED_FONT.to_string(),
@@ -6528,6 +6554,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 } else {
                     anime_compositor::text::Align::Left
                 },
+                kerning: true,
+                ..Default::default()
             };
             let words = match text_from(query, start) {
                 Ok(words) => words,
@@ -9385,25 +9413,58 @@ fn solid_from(query: Option<&str>, mut solid: Solid) -> Result<Solid, String> {
 /// D-263: a text layer's `text`, `font`, `size`, `color` (`r,g,b`, linear), `x`, `y` and `align`
 /// from the query, each kept from `words` when it is not sent. Only what is not a number at all
 /// is refused here; a number outside D-263's ranges is the core's to refuse.
+///
+/// D-264: `tracking`, `leading`, `box`, `kerning`, `caps`, `bold` and `italic` (`on` or `off`),
+/// and the stroke, background and shadow: `stroke=off` takes the stroke away and `stroke=on`
+/// or any of `stroke_color` and `stroke_width` gives one, starting from black a twentieth of the
+/// size wide; `bg` with `bg_color`, `bg_opacity`, `bg_padding` and `bg_round`, and `shadow` with
+/// `shadow_color`, `shadow_opacity`, `shadow_angle`, `shadow_distance` and `shadow_softness`, the
+/// same way.
 fn text_from(
     query: Option<&str>,
     mut words: anime_compositor::text::Text,
 ) -> Result<anime_compositor::text::Text, String> {
+    use anime_compositor::text::{Background, Shadow, Stroke};
     if let Some(text) = parameter(query, "text") {
         words.text = text;
     }
     if let Some(font) = parameter(query, "font") {
         words.font = font.trim().to_string();
     }
-    if let Some(text) = parameter(query, "color") {
-        let numbers: Vec<f64> = text
-            .split(',')
-            .filter_map(|n| n.trim().parse::<f64>().ok())
-            .collect();
-        words.color = <[f64; 3]>::try_from(numbers).map_err(|_| {
-            format!("\"{text}\" is not a colour. A colour is three numbers from 0 to 1, red, green and blue.")
-        })?;
-    }
+    let colour = |name: &str, into: &mut [f64; 3]| -> Result<(), String> {
+        if let Some(text) = parameter(query, name) {
+            let numbers: Vec<f64> = text
+                .split(',')
+                .filter_map(|n| n.trim().parse::<f64>().ok())
+                .collect();
+            *into = <[f64; 3]>::try_from(numbers).map_err(|_| {
+                format!("\"{text}\" is not a colour. A colour is three numbers from 0 to 1, red, green and blue.")
+            })?;
+        }
+        Ok(())
+    };
+    let number = |name: &str, into: &mut f64| -> Result<(), String> {
+        if let Some(text) = parameter(query, name) {
+            *into = text
+                .trim()
+                .parse::<f64>()
+                .ok()
+                .filter(|v| v.is_finite())
+                .ok_or_else(|| format!("\"{}\" is not a number.", text.trim()))?;
+        }
+        Ok(())
+    };
+    let switch = |name: &str, into: &mut bool| -> Result<(), String> {
+        if let Some(text) = parameter(query, name) {
+            *into = match text.trim() {
+                "on" => true,
+                "off" => false,
+                other => return Err(format!("{name} is on or off, not \"{other}\".")),
+            };
+        }
+        Ok(())
+    };
+    colour("color", &mut words.color)?;
     let [x, y] = &mut words.at;
     for (name, value) in [("size", &mut words.size), ("x", x), ("y", y)] {
         if let Some(text) = parameter(query, name) {
@@ -9417,7 +9478,71 @@ fn text_from(
     }
     if let Some(text) = parameter(query, "align") {
         words.align = anime_compositor::text::Align::parse(text.trim())
-            .ok_or_else(|| format!("\"{text}\" is not an alignment: left, center or right."))?;
+            .ok_or_else(|| format!("\"{text}\" is not an alignment: left, center, right or justify."))?;
+    }
+    number("tracking", &mut words.tracking)?;
+    number("leading", &mut words.leading)?;
+    number("box", &mut words.box_width)?;
+    switch("kerning", &mut words.kerning)?;
+    switch("caps", &mut words.all_caps)?;
+    switch("bold", &mut words.faux_bold)?;
+    switch("italic", &mut words.faux_italic)?;
+    // A record is asked for by its switch or by any of its settings, and starts from the
+    // editors' usual look at this size.
+    let size = words.size;
+    let wanted = |name: &str, parts: &[&str]| -> Result<Option<bool>, String> {
+        match parameter(query, name).as_deref().map(str::trim) {
+            Some("on") => Ok(Some(true)),
+            Some("off") => Ok(Some(false)),
+            Some(other) => Err(format!("{name} is on or off, not \"{other}\".")),
+            None => Ok(parts.iter().any(|p| parameter(query, &format!("{name}_{p}")).is_some()).then_some(true)),
+        }
+    };
+    match wanted("stroke", &["color", "width"])? {
+        Some(false) => words.stroke = None,
+        Some(true) => {
+            let mut s = words.stroke.take().unwrap_or(Stroke { color: [0.0; 3], width: (size * 0.05).round().max(1.0) });
+            colour("stroke_color", &mut s.color)?;
+            number("stroke_width", &mut s.width)?;
+            words.stroke = Some(s);
+        }
+        None => {}
+    }
+    match wanted("bg", &["color", "opacity", "padding", "round"])? {
+        Some(false) => words.background = None,
+        Some(true) => {
+            let mut b = words.background.take().unwrap_or(Background {
+                color: [0.0; 3],
+                opacity: 0.75,
+                padding: (size * 0.2).round(),
+                roundness: 0.0,
+            });
+            colour("bg_color", &mut b.color)?;
+            number("bg_opacity", &mut b.opacity)?;
+            number("bg_padding", &mut b.padding)?;
+            number("bg_round", &mut b.roundness)?;
+            words.background = Some(b);
+        }
+        None => {}
+    }
+    match wanted("shadow", &["color", "opacity", "angle", "distance", "softness"])? {
+        Some(false) => words.shadow = None,
+        Some(true) => {
+            let mut s = words.shadow.take().unwrap_or(Shadow {
+                color: [0.0; 3],
+                opacity: 0.75,
+                angle: 135.0,
+                distance: (size * 0.05).round().max(1.0),
+                softness: (size * 0.05).round(),
+            });
+            colour("shadow_color", &mut s.color)?;
+            number("shadow_opacity", &mut s.opacity)?;
+            number("shadow_angle", &mut s.angle)?;
+            number("shadow_distance", &mut s.distance)?;
+            number("shadow_softness", &mut s.softness)?;
+            words.shadow = Some(s);
+        }
+        None => {}
     }
     Ok(words)
 }
@@ -10681,6 +10806,31 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             .body(files_gone(&viewer).to_string().into_bytes())
             .expect("build the files gone response");
     }
+    // D-264: every font the text layer can draw, by file, family and style, for the Character
+    // section's two lists; and one font's bytes, for the page to show the words being typed in it.
+    if path == "fonts" {
+        let list: Vec<serde_json::Value> = anime_compositor::text::fonts()
+            .iter()
+            .map(|f| serde_json::json!({ "file": f.file, "family": f.family, "style": f.style }))
+            .collect();
+        return allow_the_page_to_read_this(Response::builder())
+            .header("content-type", "application/json; charset=utf-8")
+            .body(serde_json::Value::from(list).to_string().into_bytes())
+            .expect("build the fonts response");
+    }
+    if path == "font" {
+        let name = parameter(query, "name").unwrap_or_default();
+        return match anime_compositor::text::font_bytes(name.trim()) {
+            Some(bytes) => allow_the_page_to_read_this(Response::builder())
+                .header("content-type", "font/ttf")
+                .body(bytes.to_vec())
+                .expect("build the font response"),
+            None => allow_the_page_to_read_this(Response::builder().status(404))
+                .header("content-type", "text/plain; charset=utf-8")
+                .body(format!("This computer has no font \"{}\".", name.trim()).into_bytes())
+                .expect("build the font-missing response"),
+        };
+    }
     // D-251: the render queue, `?do=` add, tick, remove, move, refresh or render; the list after.
     if path == "queue" {
         return allow_the_page_to_read_this(Response::builder())
@@ -10905,7 +11055,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
                       /cancel-export, /pause-export, /export-watch, /export-frame, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
-                      /files-gone, /thumb, /alone, /queue, /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
+                      /files-gone, /fonts, /font, /thumb, /alone, /queue, /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -25105,6 +25255,9 @@ mod contract {
         "export-watch",
         // D-257: the files gone from the disk, for the health chip.
         "files-gone",
+        // D-264: the fonts for the Character section, and one font's bytes for the typing box.
+        "font",
+        "fonts",
         "frame",
         // B-44: the CPU / GPU switch. A route rather than a `viewer.` command because the card
         // belongs to the window, not to the viewer `edit_command` is handed.

@@ -802,7 +802,7 @@ pub fn draw(shapes: &[Shape], width: usize, height: usize) -> WorkingBuffer {
 /// nearest of them is the same nearest, so the answer is the one a sample at a time gave, not an
 /// approximation; `the_fast_fields_are_the_slow_ones` below holds it to that. Rows run across the
 /// thread pool, each writing only its own pixels.
-fn stroke_field(segments: &[Segment], w: usize, h: usize, reach: f64) -> Vec<f32> {
+pub(crate) fn stroke_field(segments: &[Segment], w: usize, h: usize, reach: f64) -> Vec<f32> {
     use rayon::prelude::*;
     let n = SAMPLES_PER_SIDE;
     let mut field = vec![0.0f32; w * h];
@@ -854,7 +854,7 @@ type Segment = ((f64, f64), (f64, f64));
 
 /// The straight pieces of a flattened path in order, a closed one's closing side last. One point
 /// is a segment from it to itself, which is what `distance_to_path` measures then.
-fn path_segments(path: &[(f64, f64)], closed: bool) -> Vec<Segment> {
+pub(crate) fn path_segments(path: &[(f64, f64)], closed: bool) -> Vec<Segment> {
     match path.len() {
         0 => Vec::new(),
         1 => vec![(path[0], path[0])],
