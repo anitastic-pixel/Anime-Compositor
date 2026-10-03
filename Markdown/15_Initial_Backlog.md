@@ -744,6 +744,14 @@ D-265 / Text speed, typing box, panel drop line: built on 2026-10-02 at the owne
 
 Evidence is in `verification/D-265_text_speed_and_drop_line.md`.
 
+D-266 / Live text numbers, capped drags, anchor point tool: built on 2026-10-03 at the owner's request.
+- A Size drag was seen changing the size 40 times before the hand let go.
+- Opacity stops at 100% and 0%.
+- The Y tool moved, snapped and re-centred a text layer's anchor with the words not moving.
+- A new layer from a 1920 x 1080 drawing gets anchor and position 960, 540.
+
+Evidence is in `verification/D-266_live_text_caps_anchor_tool.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

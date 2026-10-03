@@ -6472,6 +6472,20 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             if sound {
                 layer.kind = LayerKind::Audio;
             }
+            // D-266: its anchor is the middle of its drawing and it stands at the composition's
+            // centre, as After Effects places a new layer. A drawing that cannot be read is left
+            // at the top left as before, rather than given a size it might not have.
+            let size = project
+                .assets
+                .iter()
+                .find(|a| a.id == layer.asset_id && matches!(a.kind, AssetKind::Still | AssetKind::ImageSequence))
+                .and_then(|a| a.files().first().and_then(|f| media::decode(&held.root.join(f)).ok()))
+                .map(|image| (image.width() as f64, image.height() as f64));
+            if let Some((w, h)) = size {
+                layer.transform.anchor = Property::constant(Value::Vec2(w / 2.0, h / 2.0));
+                layer.transform.position =
+                    Property::constant(Value::Vec2(comp.width as f64 / 2.0, comp.height as f64 / 2.0));
+            }
             // The end of the order is the front of the picture -- `layers_in_order` is bottom
             // first -- and the front is where somebody who has just added a layer looks for it.
             // W-22: a drawing dropped on the layer list says where in the stack it landed.
@@ -11739,6 +11753,14 @@ mod editing {
             })
             .unwrap_or_default(),
         );
+        report.check(
+            "D-266: a drawing whose files are not on this machine has no size to centre by, so it keeps the top left",
+            "anchor Vec2(0.0, 0.0), position Vec2(0.0, 0.0)",
+            layer(&viewer, "layer-1", |l| {
+                format!("anchor {:?}, position {:?}", l.transform.anchor.base(), l.transform.position.base())
+            })
+            .unwrap_or_default(),
+        );
         run(&viewer, "layer.create?asset=asset-cel&name=Highlight");
         report.check(
             "a second new layer gets an identifier of its own",
@@ -15801,6 +15823,19 @@ mod editing {
         let drawings = drawings_in("layer1");
         run(&viewer, &import_of(&drawings));
         run(&viewer, "layer.create?asset=asset-1&name=Background");
+        report.check(
+            "D-266: a new layer's anchor is the middle of its 1920 by 1080 drawing and it stands at the composition's centre",
+            "anchor Vec2(960.0, 540.0), position Vec2(960.0, 540.0) in a 1920 by 1080 composition",
+            {
+                let held = held(&viewer);
+                let comp = held.document.project().composition(&held.composition).expect("the composition on screen");
+                let said = comp.layers_in_order().find(|l| l.name == "Background").map(|l| format!(
+                    "anchor {:?}, position {:?} in a {} by {} composition",
+                    l.transform.anchor.base(), l.transform.position.base(), comp.width, comp.height
+                )).unwrap_or_default();
+                said
+            },
+        );
         let file = folder.join("reopened.json");
         save_as(&viewer, &file);
         // A row rather than a panic. A project this test wrote that will not open again is a
@@ -28265,7 +28300,7 @@ mod contract {
         (
             "dragging a transform value",
             "change it",
-            "held = round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e)));",
+            "held = fit(round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e))));",
         ),
         (
             "dragging a layer on the picture",
@@ -28275,7 +28310,7 @@ mod contract {
         (
             "pulling a corner or the rotation arm on the picture",
             "scale or turn the layer",
-            "held = round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e)));",
+            "held = fit(round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e))));",
         ),
         (
             "dragging along the ruler",
@@ -28315,7 +28350,7 @@ mod contract {
         (
             "dragging the handle beside an effect's setting",
             "change the setting",
-            "held = round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e)));",
+            "held = fit(round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e))));",
         ),
         (
             "moving over the tint's colour picker",

@@ -31,6 +31,7 @@ The transform and the effect stack are edited from the same inspector and are ch
 | a new layer is added in front of the ones already there | Cel, Shadow | Cel, Shadow | pass |
 | its identifier is not one the project was already using | layer-cel, layer-1 | layer-cel, layer-1 | pass |
 | it covers the whole composition, which is five frames from zero | 0 to 5 | 0 to 5 | pass |
+| D-266: a drawing whose files are not on this machine has no size to centre by, so it keeps the top left | anchor Vec2(0.0, 0.0), position Vec2(0.0, 0.0) | anchor Vec2(0.0, 0.0), position Vec2(0.0, 0.0) | pass |
 | a second new layer gets an identifier of its own | layer-cel, layer-1, layer-2 | layer-cel, layer-1, layer-2 | pass |
 | renaming with no name is refused | A layer needs a name. | A layer needs a name. | pass |
 | renaming changes the name and nothing else | Cel, Cast shadow, Highlight | Cel, Cast shadow, Highlight | pass |
@@ -70,4 +71,4 @@ The transform and the effect stack are edited from the same inspector and are ch
 | there is nothing left to undo, and it says so | There is nothing to undo. | There is nothing to undo. | pass |
 | after all of the above, a save would write the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**48 of 48 checks pass.**
+**49 of 49 checks pass.**

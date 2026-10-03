@@ -619,6 +619,14 @@ On the page, point text's typing box is as wide as its longest line, not twice t
 
 Evidence in `verification/D-265_text_speed_and_drop_line.md`.
 
+D-266 / Live text numbers, capped drags and the anchor point tool / **ACCEPTED on 2026-10-03 by the owner** (asked for the text numbers to change the picture during the drag, for a drag past a range's end to stop at the end instead of being refused, and for "a anchor point mover tool like AE does" with centred anchors). Page and command layer only; the core is unchanged.
+- The Text section's numbers and colours send live drag updates; one drag is one undo step.
+- `scrubValue` takes a range and holds a drag, a typed number and the arrow keys inside it. The ranges are those the program already refuses outside of: opacity, trims, mask and effect settings (from their range text), text settings.
+- The anchor point tool (Y, beside Selection) moves the anchor and the position together so the picture stays put. Ctrl lands it on the outline's corners, side middles or middle, and a double-click on the button centres it.
+- A new layer from a drawing has its anchor at the drawing's middle and stands at the composition's centre; a drawing whose files are missing keeps 0, 0. A new text layer's anchor goes to its words' middle when the first typing ends, in the same undo step.
+
+Evidence in `verification/D-266_live_text_caps_anchor_tool.md`.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

@@ -44,6 +44,7 @@ It is a new capability rather than a correction of an omission, which is written
 | and the window is showing it again | comp-1 New composition 1920x1080 at 24 fps, 240 frames | comp-1 New composition 1920x1080 at 24 fps, 240 frames | pass |
 | a second composition gets an identifier the first one is not using | comp-main, comp-1, comp-2 | comp-main, comp-1, comp-2 | pass |
 | and a composition whose identifier is already in the project is refused | A composition with the ID comp-1 is already in the project. | A composition with the ID comp-1 is already in the project. | pass |
+| D-266: a new layer's anchor is the middle of its 1920 by 1080 drawing and it stands at the composition's centre | anchor Vec2(960.0, 540.0), position Vec2(960.0, 540.0) in a 1920 by 1080 composition | anchor Vec2(960.0, 540.0), position Vec2(960.0, 540.0) in a 1920 by 1080 composition | pass |
 | a saved project reopens looking at the composition with work in it | comp-2 Second 1920x1080 at 24 fps, 48 frames | comp-2 Second 1920x1080 at 24 fps, 48 frames | pass |
 | and the empty compositions are still there, because none of them was thrown away | comp-main, comp-1, comp-2 | comp-main, comp-1, comp-2 | pass |
 | a composition exactly at the pixel budget is made rather than refused | New composition Biggest, 16384x4096 at 24 fps, 240 frames. It is empty; import drawings and add layers to fill it. | New composition Biggest, 16384x4096 at 24 fps, 240 frames. It is empty; import drawings and add layers to fill it. | pass |
@@ -54,4 +55,4 @@ It is a new capability rather than a correction of an omission, which is written
 | and the window is still looking at the one it was | comp-main Main 1920x1080 at 24 fps, 24 frames | comp-main Main 1920x1080 at 24 fps, 24 frames | pass |
 | asking with no composition named says what to do rather than moving the window | Which composition should be opened? Choose one in the project panel. | Which composition should be opened? Choose one in the project panel. | pass |
 
-**30 of 30 checks pass.**
+**31 of 31 checks pass.**

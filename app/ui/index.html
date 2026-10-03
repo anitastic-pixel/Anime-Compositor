@@ -255,7 +255,8 @@
   #boxes line.arm { stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
   #boxes circle.spin { fill: #141416; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
   /* The anchor, drawn as After Effects draws it: a small circle with a cross through it. */
-  #boxes .anchor { fill: none; stroke: #e8b06a; stroke-width: 1; vector-effect: non-scaling-stroke; }
+  /* D-266: a dark edge round the light mark, so the anchor reads on any picture, as After Effects draws it. */
+  #boxes .anchor { fill: none; stroke: #ffd59a; stroke-width: 1.5; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000); }
   #boxes polyline.path { fill: none; stroke: #6ea8fe; stroke-width: 1; vector-effect: non-scaling-stroke; }
   #boxes rect.pathkey { fill: #6ea8fe; stroke: none; }
   #boxes line.patharm { stroke: #6ea8fe; stroke-width: 1; stroke-dasharray: 3 2; vector-effect: non-scaling-stroke; }
@@ -1832,6 +1833,7 @@
   <span class="sep"></span>
   <span class="icons">
     <button class="ico" data-run="Selection tool" data-tool="select" aria-pressed="true" aria-label="Selection tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 1.5v12l3-3 2 4.5 2-1-2-4.3h4.2z" fill="currentColor"/></svg></button>
+    <button class="ico" data-run="Anchor point tool" data-tool="anchor" aria-pressed="false" aria-label="Anchor point tool: drag a layer to move its anchor without moving the picture, Ctrl to land it on a corner, side or the middle; double-click to centre it"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="3.6"/><path d="M8 1v4.4M8 10.6V15M1 8h4.4M10.6 8H15"/></svg></button>
     <button class="ico" data-run="Hand tool" data-tool="hand" aria-pressed="false" aria-label="Hand tool"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5V6a1.5 1.5 0 013 0v5M11 10.5V4.5a1.5 1.5 0 013 0v6M14 10.5V6a1.5 1.5 0 013 0v7.5c0 4-2.4 6.5-6 6.5-3 0-4.6-1.7-5.6-4L4 13a1.4 1.4 0 012.4-1.4L8 13.5"/></svg></button>
     <button class="ico" data-run="Zoom tool" data-tool="zoom" aria-pressed="false" aria-label="Zoom tool"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><path d="M14.5 14.5L20 20M7.5 10h5M10 7.5v5"/></svg></button>
     <button class="ico" data-run="Pen tool" data-tool="pen" aria-pressed="false" aria-label="Pen tool"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 14l2.2-6.5L11 1l4 4-6.5 6.8z" fill="none" stroke="currentColor" stroke-linejoin="round"/><circle cx="6.6" cy="9.4" r="1.1" fill="currentColor"/></svg></button>
@@ -4989,6 +4991,7 @@ function paletteLines() {
     ['Session log', '', () => $('sessionlogbutton').click()],
     // W-39: the top bar's tools and workspaces, and the palette itself for the Help menu.
     ['Selection tool', 'V', { key: 'v' }],
+    ['Anchor point tool', 'Y', { key: 'y' }],
     ['Hand tool', 'H', { key: 'h' }],
     ['Zoom tool', 'Z', { key: 'z' }],
     ['Pen tool', 'G', { key: 'g' }],
@@ -6205,6 +6208,7 @@ function useTool(which) {
     : which === 'hand' ? 'The hand: drag to move about the picture. The middle button does this with any tool.'
     : which === 'zoom' ? 'The zoom: click to zoom in about that spot, Alt+click to zoom out.'
     : which === 'text' ? 'The text tool: click where the words should start, drag a box for words that wrap, or click words to type in them.'
+    : which === 'anchor' ? 'The anchor point tool: drag a layer to move its anchor; the picture stays where it is. Ctrl lands it on a corner, a side or the middle; double-click the tool to centre it.'
     : which === 'pen' ? (shapes
       ? 'The pen: click to place points; click the first point to close the shape, or Enter to leave it open.'
       : 'The pen: click to place points, and click the first point to close the mask.')
@@ -6485,11 +6489,11 @@ function movable() {
 // the middle of its drawing without moving the picture, Ctrl+Alt+F scales it to the composition.
 // The drawing's size is only the renderer's, so it is read back out of where the layer's box
 // landed: its two edges, divided by the scale, are the drawing's width and height.
-function alignLayers(how) {
+function alignLayers(how, chosen = movable()) {
   const comp = composition();
   const k = perFramePixel();
   const sends = [];
-  for (const layer of comp ? movable() : []) {
+  for (const layer of comp ? chosen : []) {
     const box = boxes.find((b) => b.layer === layer.id);
     if (!box) continue;
     const c = box.corners.map((v) => v * k);
@@ -6507,7 +6511,15 @@ function alignLayers(how) {
     const q = '/property.set_base?layer=' + encodeURIComponent(layer.id) + '&frame=' + frame + '&drag=1&prop=';
     const v = (xs) => '&value=' + encodeURIComponent(xs.map(number).join(','));
     if (how === 'layer') sends.push(q + 'position' + v([px + cx - mid[0], py + cy - mid[1]]));
-    else if (how === 'anchor') sends.push(q + 'anchor' + v([w / 2, h / 2]), q + 'position' + v(mid));
+    else if (how === 'anchor') {
+      // D-266: the point of the layer under the box's middle, back through its turn and scale, as
+      // the anchor tool works. A drawing's is the middle of the drawing as before; a text layer's
+      // is the middle of its words, which are not at its own top left.
+      const r = -transformValue(layer, 'rotation')[0] * Math.PI / 180;
+      const [dx, dy] = [mid[0] - px, mid[1] - py];
+      sends.push(q + 'anchor' + v([ax + (dx * Math.cos(r) - dy * Math.sin(r)) / (sx / 100),
+        ay + (dx * Math.sin(r) + dy * Math.cos(r)) / (sy / 100)]), q + 'position' + v(mid));
+    }
     else {
       const s = [100 * comp.width / w * Math.sign(sx), 100 * comp.height / h * Math.sign(sy)];
       const [rx, ry] = [s[0] / sx, s[1] / sy];
@@ -6517,8 +6529,8 @@ function alignLayers(how) {
     }
   }
   $('status').textContent = sends.length ? '' : 'Select an unlocked layer that is on screen first.';
-  if (!sends.length) return;
-  nudge = nudge.then(async () => {
+  if (!sends.length) return null;
+  return nudge = nudge.then(async () => {
     for (const request of sends) await command(request);
     await command('/property.drag_end');
   });
@@ -6703,6 +6715,36 @@ stage.onpointerdown = (e) => {
       if (wide) addText(Math.round(x0 * per), Math.round(y0 * per), wide);
       else addText(Math.round(x * per), Math.round(y * per));
     };
+    return;
+  }
+  // D-266: After Effects' Pan Behind tool, its anchor point tool. A press takes the layer under it
+  // (or the selected one, on its anchor mark), and the drag moves that layer's anchor by the hand's
+  // travel while the picture stays where it is. Ctrl lands the anchor on the nearest corner, side
+  // middle or middle of the layer's box. One drag is one step to undo; Escape takes it back.
+  if (tool === 'anchor') {
+    e.preventDefault();
+    const onMark = one && layer && Math.hypot(x - anchorOnScreen(layer)[0], y - anchorOnScreen(layer)[1]) <= 6 * unit;
+    const id = onMark || (one && inside(one, x, y)) ? selectedLayer : layerUnder(x, y);
+    const taken = id && layers().find((l) => l.id === id);
+    if (!taken) { $('status').textContent = 'Press on a layer to move its anchor.'; return; }
+    if (taken.locked) { $('status').textContent = '"' + taken.name + '" is locked.'; return; }
+    if (id !== selectedLayer) choose([id]);
+    const box = boxOf(id);
+    const c = box.corners;
+    const marks = [0, 1, 2, 3].flatMap((i) => {
+      const j = (i + 1) % 4;
+      return [[c[i * 2], c[i * 2 + 1]], [(c[i * 2] + c[j * 2]) / 2, (c[i * 2 + 1] + c[j * 2 + 1]) / 2]];
+    }).concat([[(c[0] + c[4]) / 2, (c[1] + c[5]) / 2]]);
+    const was = anchorOnScreen(taken);
+    beginStageDrag(e, [taken], (start, from, at, m, during) => {
+      if (m.ctrlKey) {
+        const want = [was[0] + at[0] - from[0], was[1] + at[1] - from[1]];
+        const near = marks.reduce((a, b) => (Math.hypot(b[0] - want[0], b[1] - want[1])
+          < Math.hypot(a[0] - want[0], a[1] - want[1]) ? b : a));
+        at = [from[0] + near[0] - was[0], from[1] + near[1] - was[1]];
+      }
+      panBehind(start, from, at, m, during);
+    });
     return;
   }
   if (tool !== 'select') {
@@ -7481,7 +7523,11 @@ const number = (n) => String(Math.round(n * 1e6) / 1e6);
 //
 // The element answers to `.value` like the field it replaced, so a caller that gathers several
 // numbers at once does not have to know which of the two it is holding.
-function scrubValue({ value, suffix = '', title, label, step = 1, whole = false, live, done, commit }) {
+//
+// D-266: `min` and `max` are the range the core takes. A drag, a typed number or a key step past
+// an end stops at that end, as After Effects' numbers do, where before the core refused it and
+// the drag was lost. Pulled back from past an end, the number moves at once.
+function scrubValue({ value, suffix = '', title, label, step = 1, whole = false, min = -Infinity, max = Infinity, live, done, commit }) {
   const handle = document.createElement('span');
   handle.className = 'scrub';
   handle.tabIndex = 0;
@@ -7494,6 +7540,7 @@ function scrubValue({ value, suffix = '', title, label, step = 1, whole = false,
   // where only a whole number means anything. A number nobody touched is shown to hundredths and
   // kept as the file has it.
   const round = (n) => (whole ? Math.round(n) : Math.round(n * 100) / 100);
+  const fit = (n) => Math.min(max, Math.max(min, n));
   // Shift for big steps and Ctrl for fine ones, as in After Effects.
   const pace = (m) => (m.shiftKey ? 10 : m.ctrlKey ? 0.1 : 1);
   const show = () => {
@@ -7527,7 +7574,7 @@ function scrubValue({ value, suffix = '', title, label, step = 1, whole = false,
       box = null;
       dragging = false;
       scrubbed = null;
-      if (take) held = round(said);
+      if (take) held = fit(round(said));
       show();
       if (back) handle.focus();
       if (take) commit(held);
@@ -7574,9 +7621,9 @@ function scrubValue({ value, suffix = '', title, label, step = 1, whole = false,
       moved = true;
       dragging = true;
       scrubbed = handle;
-      raw += (m.clientX - last) * step * pace(m);
+      raw = fit(raw + (m.clientX - last) * step * pace(m));
       last = m.clientX;
-      held = round(raw);
+      held = fit(round(raw));
       show();
       if (live) live(held);
     };
@@ -7590,7 +7637,7 @@ function scrubValue({ value, suffix = '', title, label, step = 1, whole = false,
     const by = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -1, ArrowUp: 1 }[e.key];
     if (by === undefined) return;
     e.preventDefault();
-    held = round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e)));
+    held = fit(round(held + by * step * (whole && !e.shiftKey ? 1 : pace(e))));
     show();
     commit(held);
   };
@@ -7601,7 +7648,7 @@ function scrubValue({ value, suffix = '', title, label, step = 1, whole = false,
 // frame to go to, stepped with the arrow keys.
 const frameBox = scrubValue({
   // The core stops a frame past the end at the last one, but a frame before 0 is no address at all.
-  value: 0, whole: true, label: 'Current frame', live: (n) => seek(Math.max(0, n)), commit: (n) => seek(Math.max(0, n)),
+  value: 0, whole: true, min: 0, label: 'Current frame', live: seek, commit: seek,
   title: 'Drag to scrub, press to type a frame to go to, or use the arrow keys',
 });
 $('frame').replaceChildren(frameBox);
@@ -7997,6 +8044,8 @@ function propScrubs(layer, prop) {
     return scrubValue({
       value: v,
       suffix: SUFFIX[prop] || '',
+      ...(per === 100 || /^shape:\d+:trim_(start|end)$/.test(prop) ? { min: 0, max: 100 }
+        : prop === 'zoom' ? { min: 0.01 } : {}),
       label: prop + (held.length > 1 ? ' ' + 'xy'[i] : ''),
       title: 'Drag to change ' + prop + ', press to type it, or use the arrow keys',
       step: STEP[prop],
@@ -8194,6 +8243,8 @@ function drawInspector() {
         value: layer.solid[side],
         suffix: ' px',
         whole: true,
+        min: 1,
+        max: 8192,
         title: 'Drag to change, or press to type. ' + named + ' of the solid in pixels, 1 to 8192',
         label: named + ' of ' + layer.name + ' in pixels, from 1 to 8192',
         commit: (v) => set(side + '=' + encodeURIComponent(v)),
@@ -8211,18 +8262,37 @@ function drawInspector() {
   if (layer.kind === 'text' && layer.source_text) {
     const t = layer.source_text;
     const set = (what) => command('/text.set?layer=' + encodeURIComponent(layer.id) + '&' + what);
-    const scrub = (named, value, suffix, title, commit, whole = false) => {
-      field(dl, named, '');
-      dl.lastChild.append(scrubValue({ value, suffix, whole, title: 'Drag to change, or press to type. ' + title,
-        label: named + ' of ' + layer.name + ': ' + title, commit }));
+    // D-266: a drag or a colour being picked changes the picture as the hand moves, and letting go
+    // makes it one step of history, as a mask's numbers do.
+    const pull = (what) => {
+      dragging = true;
+      dragSend('/text.set?layer=' + encodeURIComponent(layer.id) + '&drag=1&' + what, layer.id + ' ' + what.split('=')[0]);
     };
-    const colour = (id, value, label, send) => {
+    const scrub = (named, value, suffix, title, key, { scale = 1, min, max } = {}) => {
+      field(dl, named, '');
+      const what = (v) => key + '=' + encodeURIComponent(v / scale);
+      dl.lastChild.append(scrubValue({ value: value * scale, suffix, min, max, title: 'Drag to change, or press to type. ' + title,
+        label: named + ' of ' + layer.name + ': ' + title,
+        live: (v) => pull(what(v)),
+        done: (cancelled) => afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end'),
+        commit: (v) => set(what(v)) }));
+    };
+    const colour = (id, value, label, key) => {
       const pick = document.createElement('input');
       pick.id = id;
       pick.type = 'color';
       pick.value = hexOf(value);
       pick.setAttribute('aria-label', label + ' of ' + layer.name);
-      pick.onchange = () => send(linearOf(pick.value).join(','));
+      let open = false;
+      pick.oninput = () => { open = true; pull(key + '=' + linearOf(pick.value).join(',')); };
+      const close = () => {
+        if (!open) return;
+        open = false;
+        dragging = false;
+        afterDrag('/property.drag_end');
+      };
+      pick.onchange = close;
+      pick.onblur = close;
       return pick;
     };
     const toggle = (text, label, on, click, look = '') => {
@@ -8271,12 +8341,11 @@ function drawInspector() {
       };
       style.onchange = () => { if (style.value) set('font=' + encodeURIComponent(style.value)); };
     });
-    scrub('Size', t.size, ' px', 'the size of the letters in pixels, 1 to 2000',
-      (v) => set('size=' + encodeURIComponent(v)));
+    scrub('Size', t.size, ' px', 'the size of the letters in pixels, 1 to 2000', 'size', { min: 1, max: 2000 });
     scrub('Tracking', t.tracking || 0, '', 'the room added between every two letters, in thousandths of the size, -1000 to 1000',
-      (v) => set('tracking=' + encodeURIComponent(v)));
+      'tracking', { min: -1000, max: 1000 });
     scrub('Leading', t.leading || 0, ' px', 'from one line\'s baseline to the next in pixels; 0 is Auto, the font\'s own',
-      (v) => set('leading=' + encodeURIComponent(v)));
+      'leading', { min: 0, max: 10000 });
     field(dl, 'Kerning', '');
     const kerning = document.createElement('select');
     kerning.id = 'textkerning';
@@ -8302,16 +8371,15 @@ function drawInspector() {
       dl.lastChild.append(b);
     }
     scrub('Box width', t.box_width || 0, ' px', '0 is point text, one line until Enter; above 0 the words wrap in a box that wide whose top left is Starts at',
-      (v) => set('box=' + encodeURIComponent(v)));
+      'box', { min: 0, max: 16384 });
     for (const [side, at] of [['x', 0], ['y', 1]]) {
       scrub('Starts at ' + side.toUpperCase(), t.at[at], ' px', t.box_width > 0
         ? 'the box\'s top left corner, in composition pixels'
-        : 'where the first line\'s baseline meets its aligned end, in composition pixels',
-      (v) => set(side + '=' + encodeURIComponent(v)));
+        : 'where the first line\'s baseline meets its aligned end, in composition pixels', side);
     }
     ecGroup(dl, 'Appearance');
     field(dl, 'Fill', '');
-    dl.lastChild.append(colour('textcolor', t.color, 'Fill colour', (c) => set('color=' + c)));
+    dl.lastChild.append(colour('textcolor', t.color, 'Fill colour', 'color'));
     // One row with its box and colour; its numbers below it while it is on.
     const record = (named, key, now, id, numbers) => {
       field(dl, named, '');
@@ -8323,25 +8391,24 @@ function drawInspector() {
       on.onchange = () => set(key + '=' + (on.checked ? 'on' : 'off'));
       dl.lastChild.append(on);
       if (!now) return;
-      dl.lastChild.append(colour(id + 'color', now.color, named + ' colour', (c) => set(key + '_color=' + c)));
-      for (const [label, name, value, suffix, title, scale = 1] of numbers) {
-        scrub(' ' + label, value * scale, suffix, title,
-          (v) => set(key + '_' + name + '=' + encodeURIComponent(v / scale)));
+      dl.lastChild.append(colour(id + 'color', now.color, named + ' colour', key + '_color'));
+      for (const [label, name, value, suffix, title, range] of numbers) {
+        scrub(' ' + label, value, suffix, title, key + '_' + name, range);
       }
     };
     record('Stroke', 'stroke', t.stroke, 'textstroke', t.stroke ? [
-      ['Width', 'width', t.stroke.width, ' px', 'how far the line reaches out from the letters\' edge, above 0 to 500'],
+      ['Width', 'width', t.stroke.width, ' px', 'how far the line reaches out from the letters\' edge, above 0 to 500', { min: 0.01, max: 500 }],
     ] : []);
     record('Background', 'bg', t.background, 'textbg', t.background ? [
-      ['Opacity', 'opacity', t.background.opacity, '%', 'how much of the box shows, 0 to 100', 100],
-      ['Padding', 'padding', t.background.padding, ' px', 'how far the box reaches past the words, 0 to 1000'],
-      ['Roundness', 'round', t.background.roundness, ' px', 'the radius of the box\'s corners, 0 to 1000'],
+      ['Opacity', 'opacity', t.background.opacity, '%', 'how much of the box shows, 0 to 100', { scale: 100, min: 0, max: 100 }],
+      ['Padding', 'padding', t.background.padding, ' px', 'how far the box reaches past the words, 0 to 1000', { min: 0, max: 1000 }],
+      ['Roundness', 'round', t.background.roundness, ' px', 'the radius of the box\'s corners, 0 to 1000', { min: 0, max: 1000 }],
     ] : []);
     record('Shadow', 'shadow', t.shadow, 'textshadow', t.shadow ? [
-      ['Opacity', 'opacity', t.shadow.opacity, '%', 'how dark the shadow is, 0 to 100', 100],
-      ['Angle', 'angle', t.shadow.angle, '°', 'which way the shadow falls: 90 is right, 135 down and right, 180 down'],
-      ['Distance', 'distance', t.shadow.distance, ' px', 'how far the shadow falls, 0 to 1000'],
-      ['Softness', 'softness', t.shadow.softness, ' px', 'how blurred the shadow is, 0 to 500'],
+      ['Opacity', 'opacity', t.shadow.opacity, '%', 'how dark the shadow is, 0 to 100', { scale: 100, min: 0, max: 100 }],
+      ['Angle', 'angle', t.shadow.angle, '°', 'which way the shadow falls: 90 is right, 135 down and right, 180 down', { min: -36000, max: 36000 }],
+      ['Distance', 'distance', t.shadow.distance, ' px', 'how far the shadow falls, 0 to 1000', { min: 0, max: 1000 }],
+      ['Softness', 'softness', t.shadow.softness, ' px', 'how blurred the shadow is, 0 to 500', { min: 0, max: 500 }],
     ] : []);
   }
   // B-25c: D-78's shapes, one block each: which one the picture draws points on, open or
@@ -8400,6 +8467,8 @@ function drawInspector() {
           }
           dl.lastChild.append('mitre limit ', scrubValue({
             value: paint.miter_limit || 4,
+            min: 1,
+            max: 100,
             title: 'Drag to change, or press to type. How far a mitred corner may reach, in stroke widths, 1 to 100',
             label: 'Mitre limit of ' + shape.name + ' on ' + layer.name + ', 1 to 100',
             commit: (v) => set('miter_limit=' + encodeURIComponent(v)),
@@ -8426,6 +8495,8 @@ function drawInspector() {
           dl.lastChild.append(c, ...[['offset', 'at ', s.offset], ['opacity', '', s.opacity]].flatMap(([word, before, value]) => [' ' + before, scrubValue({
             value: value * 100,
             suffix: '%',
+            min: 0,
+            max: 100,
             title: 'Drag to change, or press to type. ' + called + ' ' + word + ', 0 to 100',
             label: called + ' ' + word + ' of ' + shape.name + ' on ' + layer.name + ', 0 to 100',
             commit: (v) => { s[word] = v / 100; sendStops(); },
@@ -8515,15 +8586,17 @@ function drawInspector() {
     // The three numbers, each dragged, typed or stepped like every other number in this window.
     // Opacity is counted in percent here and sent in percent; the window divides by a hundred,
     // because D-77 holds it from zero to one.
-    for (const [what, named, value, suffix, range] of [
-      ['opacity', 'Opacity', mask.opacity * 100, '%', '0 to 100'],
-      ['feather', 'Feather', mask.feather_px, ' px', '0 or more'],
-      ['expansion', 'Expansion', mask.expansion_px, ' px', '-8192 to 8192'],
+    for (const [what, named, value, suffix, range, min, max] of [
+      ['opacity', 'Opacity', mask.opacity * 100, '%', '0 to 100', 0, 100],
+      ['feather', 'Feather', mask.feather_px, ' px', '0 or more', 0, Infinity],
+      ['expansion', 'Expansion', mask.expansion_px, ' px', '-8192 to 8192', -8192, 8192],
     ]) {
       field(dl, named, '');
       dl.lastChild.append(scrubValue({
         value,
         suffix,
+        min,
+        max,
         title: 'Drag to change, or press to type. ' + named + ' of ' + mask.name + ', ' + range,
         label: named + ' of ' + mask.name + ' on ' + layer.name + ', ' + range,
         live: (v) => pull(what + '=' + encodeURIComponent(v)),
@@ -10567,6 +10640,7 @@ function effectRow(layer, fx, at, of) {
       const part = count === 3 ? 'rgb'[i] : count === 2 ? 'xy'[i] : '';
       const input = scrubValue({
         value,
+        ...rangeOf(range),
         suffix: turn ? '°' : '',
         label: label + ' ' + words + (part ? ' ' + part : ''),
         title: 'Drag to change ' + words + ' (' + range + '), press to type it, or use the '
@@ -10808,6 +10882,8 @@ function effectRow(layer, fx, at, of) {
     const input = scrubValue({
       value: transformValue(layer, prop)[0] ?? 100,
       suffix: '%',
+      min: 0,
+      max: 100,
       label: label + ' Mix',
       title: 'Drag to change the Mix (0 to 100 per cent), press to type it, or use the arrow keys',
       live: () => live('mix'),
@@ -10821,6 +10897,14 @@ function effectRow(layer, fx, at, of) {
   ecRows(dl);
   box.append(dl);
   return box;
+}
+
+// D-266: an effect setting's ends, read from the words that tell them, "0 to 100" or "1 to 10000"
+// among the rest. A setting whose words give no "a to b" has none here, and the core still says
+// when a number is outside what it takes.
+function rangeOf(words) {
+  const ends = /(-?\d+(?:\.\d+)?) to (-?\d+(?:\.\d+)?)/.exec(words);
+  return ends ? { min: Number(ends[1]), max: Number(ends[2]) } : {};
 }
 
 // Document 21 evaluates the stack in order, so it is listed in order, top to bottom.
@@ -12918,7 +13002,7 @@ async function addText(x, y, wide) {
   const made = layers().find((l) => !before.has(l.id));
   if (!made) return;
   choose([made.id]);
-  editWords(made.id);
+  editWords(made.id, true);
 }
 
 // D-264: every font the text layer can draw, asked for once.
@@ -12945,7 +13029,7 @@ const measurer = document.createElement('canvas').getContext('2d');
 
 // D-264: words typed into a box go to the picture as they are typed, sent as a drag is, so all of
 // one typing is one step of history, closed when the box is left. `left` runs after that.
-function typeWords(layer, box, left) {
+function typeWords(layer, box, left, closing = null) {
   let typing = false;
   box.addEventListener('input', () => {
     typing = true;
@@ -12957,7 +13041,7 @@ function typeWords(layer, box, left) {
     if (typing) {
       typing = false;
       dragging = false;
-      await afterDrag('/property.drag_end');
+      await (closing ? closing() : afterDrag('/property.drag_end'));
     }
     if (left) left();
   });
@@ -12970,7 +13054,7 @@ function typeWords(layer, box, left) {
 // ponytail: the box is placed once and as it grows; a zoom or scroll while typing leaves it where
 // it was until the next edit.
 let wordsBox = null;
-async function editWords(id) {
+async function editWords(id, fresh = false) {
   if (wordsBox) wordsBox.blur();
   await askForBoxes();
   const layer = layers().find((l) => l.id === id);
@@ -13040,7 +13124,15 @@ async function editWords(id) {
   typeWords(layer, box, () => {
     box.remove();
     if (wordsBox === box) wordsBox = null;
-  });
+  }, fresh ? async () => {
+    // D-266: a new text layer's anchor is the middle of its words, as every new layer's is.
+    if (dragFlight) await dragFlight;
+    await askForBoxes();
+    const now = layers().find((l) => l.id === id);
+    const done = now && alignLayers('anchor', [now]);
+    if (done) await done;
+    else await afterDrag('/property.drag_end');
+  } : null);
 }
 // B-26c: D-82's null, placed as the solid is.
 $('addnull').onclick = () => {
@@ -14422,6 +14514,9 @@ for (const button of document.querySelectorAll('[data-run]')) {
   if (line[1]) button.dataset.key = line[1];
   if (!button.closest('.drop')) button.title = line[0] + (line[1] ? ' (' + line[1] + ')' : '');
 }
+// D-266: a double-click on the anchor point tool centres the selected layers' anchors, as a
+// double-click on After Effects' Pan Behind tool does.
+document.querySelector('[data-tool="anchor"]').ondblclick = () => alignLayers('anchor');
 let openTitle = null;
 function closeDrop(focusTitle) {
   if (!openTitle) return;
@@ -15048,6 +15143,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'v' || e.key === 'V') { e.preventDefault(); useTool('select'); }
   else if (e.key === 'h' || e.key === 'H') { e.preventDefault(); useTool('hand'); }
   else if (e.key === 'z' || e.key === 'Z') { e.preventDefault(); useTool('zoom'); }
+  else if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); useTool('anchor'); }
   // W-24: After Effects' B and N set the work area's ends at the playhead, and * adds a marker.
   else if (e.key === 'b' || e.key === 'B') setWork('start');
   else if (e.key === 'n' || e.key === 'N') setWork('end');
