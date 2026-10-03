@@ -826,25 +826,71 @@ fn mask_field(mask: &Mask, width: usize, height: usize) -> Vec<f32> {
     }
     // P-15: both passes a row at a time across the threads. Each row reads the pass before it and
     // writes only its own pixels, so this is the same blur split up, not a different one.
+    //
+    // P-25: most of a mask is wholly in or wholly out, where every sample a pixel's window reads
+    // is the same value. Its sum is then that value times each weight, added in the same order,
+    // which is the same for every such pixel: it is added up once and reused, so the result is
+    // bit for bit the loop's. `run` says how far the same value goes on from each sample.
+    let same = |run: &[u32], from: usize, to: usize| run[from] as usize >= to;
+    let constant = |memo: &mut Option<(u32, f32)>, c: f32| match *memo {
+        Some((bits, sum)) if bits == c.to_bits() => sum,
+        _ => {
+            let mut acc = 0.0;
+            for weight in &weights {
+                acc += c * weight;
+            }
+            *memo = Some((c.to_bits(), acc));
+            acc
+        }
+    };
     let mut across = vec![0.0f32; w * h];
     across
         .par_chunks_mut(w)
         .enumerate()
         .for_each(|(y, row)| {
+            let line = &field[y * w..(y + 1) * w];
+            let mut run = vec![0u32; w];
+            for i in (0..w).rev() {
+                run[i] = if i + 1 < w && line[i + 1].to_bits() == line[i].to_bits() { run[i + 1] } else { i as u32 };
+            }
+            let mut memo = None;
             for (x, out) in row.iter_mut().enumerate() {
+                // The window reads every sample from `lo` to `hi`, the ends repeated at the edge.
+                let (lo, hi) = (x.saturating_sub(radius).min(w - 1), (x + radius).min(w - 1));
+                if same(&run, lo, hi) {
+                    *out = constant(&mut memo, line[lo]);
+                    continue;
+                }
                 let mut acc = 0.0;
                 for (k, weight) in weights.iter().enumerate() {
                     let sx = (x + k).saturating_sub(radius).min(w - 1);
-                    acc += field[y * w + sx] * weight;
+                    acc += line[sx] * weight;
                 }
                 *out = acc;
             }
         });
+    // The same down each column, held a column at a time so each is worked on its own thread.
+    let mut down = vec![0u32; w * h];
+    down.par_chunks_mut(h).enumerate().for_each(|(x, column)| {
+        for y in (0..h).rev() {
+            column[y] = if y + 1 < h && across[(y + 1) * w + x].to_bits() == across[y * w + x].to_bits() {
+                column[y + 1]
+            } else {
+                y as u32
+            };
+        }
+    });
     let mut done = vec![0.0f32; width * height];
     done.par_chunks_mut(width)
         .enumerate()
         .for_each(|(y, row)| {
+            let mut memo = None;
             for (x, out) in row.iter_mut().enumerate() {
+                let column = &down[(x + radius) * h..(x + radius + 1) * h];
+                if same(column, y, y + 2 * radius) {
+                    *out = constant(&mut memo, across[y * w + x + radius]);
+                    continue;
+                }
                 let mut acc = 0.0;
                 for (k, weight) in weights.iter().enumerate() {
                     acc += across[(y + k) * w + (x + radius)] * weight;

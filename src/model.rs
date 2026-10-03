@@ -1635,6 +1635,21 @@ impl Project {
         self.compositions.iter().find(|c| &c.id == id)
     }
 
+    /// P-25: this project with the masks taken off every layer whose effects are all off. Such
+    /// a mask changes which of the layer's pixels show, never how big its picture is, so the
+    /// viewer's outlines come out the same without the mask being drawn for them.
+    pub fn without_plain_masks(&self) -> Project {
+        let mut project = self.clone();
+        for comp in &mut project.compositions {
+            for layer in comp.layers.values_mut() {
+                if layer.effects.iter().all(|e| !e.enabled) {
+                    layer.masks.clear();
+                }
+            }
+        }
+        project
+    }
+
     /// D-67: whether `to` is `from` or is shown somewhere inside it, at any depth. A composition
     /// layer showing `from` inside `to` would therefore close a loop. A reference to a
     /// composition the project does not have leads nowhere.

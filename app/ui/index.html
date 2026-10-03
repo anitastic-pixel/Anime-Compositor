@@ -731,7 +731,7 @@
   #renderpanel .ropen { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 640px); gap: 24px; padding: 12px 14px 14px 78px; border-bottom: 1px solid #2a2a2e; }
   #renderpanel h3 { margin: 0 0 6px; font-size: 11px; font-weight: 600; color: #8e8e96; text-transform: uppercase; letter-spacing: .04em; }
   #renderopts .opts { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-  #renderpanel .rhint, #renderleft { color: #8e8e96; font-size: 11px; margin: 8px 0 0; }
+  #renderleft { color: #8e8e96; font-size: 11px; margin: 8px 0 0; }
   #rendergot { border: 1px solid #2a2a2e; border-radius: 4px; padding: 8px 10px; background: #1a1a1c; color: #d0d0d4; }
   #rendergot p { margin: 0 0 4px; }
   #rendergot p:first-child { color: #fff; font-weight: 600; }
@@ -2539,7 +2539,7 @@ async function show(url, keep = true) {
     const differs = h.get('x-differs') === 'true';
     drawnAt = (h.get('x-quality') || (differs ? 'Draft' : 'Full')).toLowerCase(); // D-259: draft, half or full
     askForBoxes();
-    askReady();
+    if (!dragFlight && !dragging) askReady(); // P-25: the green line can wait for the hand
 
     // The indicator describes the render that just arrived, because it came back with it.
     const label = $('quality');
@@ -2660,7 +2660,7 @@ async function show(url, keep = true) {
     drawHealth();
     // D-260: the small picture of the composition on screen follows the playhead once it rests.
     clearTimeout(thumbRest);
-    if (!playing) thumbRest = setTimeout(() => { drawProject(); drawOnion(); }, 400);
+    if (!playing) thumbRest = setTimeout(() => { thumbNow = true; drawProject(); thumbNow = false; drawOnion(); }, 400);
     if (!lines.length) $('notecodes').hidden = true;
   } catch (e) {
     $('report').textContent = 'the frame did not arrive: ' + e;
@@ -3029,6 +3029,10 @@ const missingWords = (list) => list.length === 1 ? 'drawing ' + list[0] + ' is m
 // symbol shows until the picture comes, and stays for sound, lookup files and refusals.
 const thumbs = new Map();
 let thumbRest = 0;
+// P-25: true only inside the rest timer, the one place the composition on screen asks for a new
+// thumbnail. Asked from every redraw, it was a whole render in the window's one line of requests
+// with every number dragged and again as the hand let go, ahead of the sharp frame.
+let thumbNow = false;
 function projTile(item, isComp) {
   const [cls, glyph] = isComp ? ['comp', '▦'] : item.kind === 'audio' ? ['sound', '♪']
     : item.kind === 'image_sequence' || item.kind === 'still' ? ['drawings', '✎'] : ['other', '◑'];
@@ -3038,7 +3042,7 @@ function projTile(item, isComp) {
   const stamp = JSON.stringify(item) + '@' + at;
   let had = thumbs.get(item.id);
   // While playing, the composition on screen keeps the picture it has rather than asking every frame.
-  if (!had || (had.stamp !== stamp && !(playing && isComp))) {
+  if (!had || (had.stamp !== stamp && !(playing && isComp) && (thumbNow || !isComp || item.id !== doc.composition))) {
     had = { stamp, got: fetch(PROJECT + '/thumb?item=' + encodeURIComponent(item.id) + '&frame=' + at)
       .then(async (r) => r.ok ? new ImageData(new Uint8ClampedArray(await r.arrayBuffer()), +r.headers.get('x-width'), +r.headers.get('x-height')) : null)
       .catch(() => null) };
@@ -5605,8 +5609,8 @@ async function askForBoxes() {
   }
   const camera = cameraRow();
   if (camera && CAMERA_PROPS.some((prop) => exprOf(camera, prop))) drawCamera();
-  if (layers().some((l) => PROPS.some((prop) => exprOf(l, prop)))
-    || (camera && CAMERA_PROPS.some((prop) => exprOf(camera, prop)))) drawLayers();
+  if (!dragFlight && !dragging && (layers().some((l) => PROPS.some((prop) => exprOf(l, prop)))
+    || (camera && CAMERA_PROPS.some((prop) => exprOf(camera, prop))))) drawLayers();
 }
 
 const boxOf = (id) => boxes.find((box) => box.layer === id) || null;
@@ -8039,9 +8043,10 @@ function propScrubs(layer, prop) {
   const held = transformValue(layer, prop).map((v) => v * per);
   // The frame goes with every value since W-10: on a keyframed property the window makes the
   // value a key on that frame, and on any other it sets the base as it always has.
-  const send = (id, values) => command('/' + id + '?' + whose(layer)
+  const address = (id, values) => '/' + id + '?' + whose(layer)
     + '&prop=' + prop + '&value='
-    + encodeURIComponent(values.map((v) => number(v / per)).join(',')) + '&frame=' + frame);
+    + encodeURIComponent(values.map((v) => number(v / per)).join(',')) + '&frame=' + frame;
+  const send = (id, values) => command(address(id, values));
   return held.map((v, i) => {
     const with_ = (x) => {
       const next = held.slice();
@@ -8060,8 +8065,11 @@ function propScrubs(layer, prop) {
       label: prop + (held.length > 1 ? ' ' + 'xy'[i] : ''),
       title: 'Drag to change ' + prop + ', press to type it, or use the arrow keys',
       step: STEP[prop],
-      live: (x) => send('property.drag_update', with_(x)),
-      done: (cancelled) => command(cancelled ? '/property.drag_cancel' : '/property.drag_end'),
+      // P-25: through the drag queue, as the viewer's drags are: the newest value goes, the ones
+      // the hand overtook are dropped, and the project is read back once, when the hand lets go,
+      // rather than with every pixel of the drag.
+      live: (x) => dragSend(address('property.drag_update', with_(x)), layer.id + ' ' + prop),
+      done: (cancelled) => afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end'),
       commit: (x) => send('property.set_base', with_(x)),
     });
   });
@@ -8236,13 +8244,14 @@ function drawInspector() {
   // speaks the screen's 256 levels; the colour goes to the core linear, by document 21's curve.
   if (layer.kind === 'solid') {
     const set = (what) => command('/solid.set?layer=' + encodeURIComponent(layer.id) + '&' + what);
+    const pull = (what) => '/solid.set?layer=' + encodeURIComponent(layer.id) + '&drag=1&' + what;
     field(dl, 'Colour', '');
     const pick = document.createElement('input');
     pick.id = 'solidcolor';
     pick.type = 'color';
     pick.value = hexOf(layer.solid.color);
     pick.setAttribute('aria-label', 'Colour of ' + layer.name);
-    pick.onchange = () => set('color=' + linearOf(pick.value).join(','));
+    livePick(pick, () => pull('color=' + linearOf(pick.value).join(',')), layer.id + ' solid color');
     dl.lastChild.append(pick);
     // B-23c, at the owner's word after the playtest: a size is dragged, typed or stepped with
     // the arrow keys like every other number in this window, and one drag is one step of history.
@@ -8258,6 +8267,8 @@ function drawInspector() {
         max: 8192,
         title: 'Drag to change, or press to type. ' + named + ' of the solid in pixels, 1 to 8192',
         label: named + ' of ' + layer.name + ' in pixels, from 1 to 8192',
+        live: (v) => dragSend(pull(side + '=' + encodeURIComponent(v)), layer.id + ' solid ' + side),
+        done: dragDone,
         commit: (v) => set(side + '=' + encodeURIComponent(v)),
       }));
     }
@@ -8432,6 +8443,8 @@ function drawInspector() {
     for (const [at, shape] of shapes.entries()) {
       const set = (what) => command('/shape.set?layer=' + encodeURIComponent(layer.id)
         + '&shape=' + at + '&' + what);
+      const pull = (what) => dragSend('/shape.set?layer=' + encodeURIComponent(layer.id)
+        + '&shape=' + at + '&drag=1&' + what, layer.id + ' shape ' + at + ' ' + what.split('=')[0]);
       const labelled = (el, text) => { el.setAttribute('aria-label', text + ' of ' + shape.name + ' on ' + layer.name); return el; };
       const button = (text, on, click) => {
         const b = labelled(document.createElement('button'), text);
@@ -8456,10 +8469,12 @@ function drawInspector() {
         // shows the colour on this frame and sets it the way the three numbers under it do.
         const colour = 'shape:' + at + ':' + what + '_color';
         pick.value = hexOf(paint ? transformValue(layer, colour) : [1, 1, 1]);
-        pick.onchange = () => (paint
-          ? command('/property.set_base?' + whose(layer) + '&prop=' + colour + '&value='
-            + linearOf(pick.value).join(',') + '&frame=' + frame)
-          : set(what + '=' + linearOf(pick.value).join(',')));
+        if (paint) {
+          livePick(pick, () => '/property.drag_update?' + whose(layer) + '&prop=' + colour + '&value='
+            + linearOf(pick.value).join(',') + '&frame=' + frame, layer.id + ' ' + colour);
+        } else {
+          pick.onchange = () => set(what + '=' + linearOf(pick.value).join(','));
+        }
         dl.lastChild.append(pick, button(paint ? 'No ' + what : 'Add ' + what, !paint,
           () => set(what + '=' + (paint ? 'none' : linearOf(pick.value).join(',')))));
         if (!paint) continue;
@@ -8482,6 +8497,8 @@ function drawInspector() {
             max: 100,
             title: 'Drag to change, or press to type. How far a mitred corner may reach, in stroke widths, 1 to 100',
             label: 'Mitre limit of ' + shape.name + ' on ' + layer.name + ', 1 to 100',
+            live: (v) => pull('miter_limit=' + encodeURIComponent(v)),
+            done: dragDone,
             commit: (v) => set('miter_limit=' + encodeURIComponent(v)),
           }));
         }
@@ -8494,15 +8511,19 @@ function drawInspector() {
         dl.lastChild.append(' ', kind);
         if (!g) continue;
         const stops = g.stops.map((s) => ({ ...s }));
-        const sendStops = () => set(what + '_stops=' + encodeURIComponent(stops
-          .map((s) => [s.offset, ...s.color, s.opacity].map(number).join(',')).join(';')));
+        const stopsWord = () => what + '_stops=' + encodeURIComponent(stops
+          .map((s) => [s.offset, ...s.color, s.opacity].map(number).join(',')).join(';'));
+        const sendStops = () => set(stopsWord());
         stops.forEach((s, i) => {
           const called = named + ' stop ' + (i + 1);
           field(dl, called, '');
           const c = labelled(document.createElement('input'), called + ' colour');
           c.type = 'color';
           c.value = hexOf(s.color);
-          c.onchange = () => { s.color = linearOf(c.value); sendStops(); };
+          livePick(c, () => {
+            s.color = linearOf(c.value);
+            return '/shape.set?layer=' + encodeURIComponent(layer.id) + '&shape=' + at + '&drag=1&' + stopsWord();
+          }, layer.id + ' shape ' + at + ' ' + what + '_stops');
           dl.lastChild.append(c, ...[['offset', 'at ', s.offset], ['opacity', '', s.opacity]].flatMap(([word, before, value]) => [' ' + before, scrubValue({
             value: value * 100,
             suffix: '%',
@@ -8510,6 +8531,8 @@ function drawInspector() {
             max: 100,
             title: 'Drag to change, or press to type. ' + called + ' ' + word + ', 0 to 100',
             label: called + ' ' + word + ' of ' + shape.name + ' on ' + layer.name + ', 0 to 100',
+            live: (v) => { s[word] = v / 100; pull(stopsWord()); },
+            done: dragDone,
             commit: (v) => { s[word] = v / 100; sendStops(); },
           })]), ' ', button('Remove', false, () => { stops.splice(i, 1); sendStops(); }));
           dl.lastChild.lastChild.disabled = stops.length <= 2;
@@ -9214,7 +9237,7 @@ const EFFECT_PARAMS = {
   // D-126: the centre as a share of the drawing, as Radial Blur's is.
   'core.vignette': [['amount', 'Amount', 1, 0.5, '0 to 100'],
     ['size', 'Size', 1, 0.5, '100 reaches the corners, 1 to 200'],
-    ['roundness', 'Roundness', 1, 0.5, '0 an ellipse, 100 a circle'],
+    ['roundness', 'Roundness', 1, 0.5, '0 to 100, 0 an ellipse, 100 a circle'],
     ['softness', 'Softness', 1, 0.5, '0 a hard edge, 0 to 100'],
     ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000']],
   // D-127.
@@ -9248,7 +9271,7 @@ const EFFECT_PARAMS = {
   // D-134.
   'core.invert': [['amount', 'Amount', 1, 1, '% of the way to the opposite, 0 to 100']],
   // D-135.
-  'core.brightness_contrast': [['brightness', 'Brightness', 1, 1, 'levels of 255 added, -150 to 150'], ['contrast', 'Contrast', 1, 1, '-100 flat grey to 100 pushed fully apart']],
+  'core.brightness_contrast': [['brightness', 'Brightness', 1, 1, 'levels of 255 added, -150 to 150'], ['contrast', 'Contrast', 1, 1, '-100 to 100, -100 flat grey, 100 pushed fully apart']],
   // D-136.
   'core.black_white': [['reds', 'Reds', 1, 1, '% lightness, -200 to 300'], ['yellows', 'Yellows', 1, 1, '% lightness, -200 to 300'], ['greens', 'Greens', 1, 1, '% lightness, -200 to 300'], ['cyans', 'Cyans', 1, 1, '% lightness, -200 to 300'], ['blues', 'Blues', 1, 1, '% lightness, -200 to 300'], ['magentas', 'Magentas', 1, 1, '% lightness, -200 to 300']],
   // D-137.
@@ -9260,7 +9283,7 @@ const EFFECT_PARAMS = {
     ['green', 'Green', 4, 1, 'from red, green, blue and a constant, -200 to 200'],
     ['blue', 'Blue', 4, 1, 'from red, green, blue and a constant, -200 to 200']],
   // D-140.
-  'core.vibrance': [['vibrance', 'Vibrance', 1, 1, '-100 to 100, the dull colours moved most'], ['saturation', 'Saturation', 1, 1, '-100 all grey to 100 twice as far from grey']],
+  'core.vibrance': [['vibrance', 'Vibrance', 1, 1, '-100 to 100, the dull colours moved most'], ['saturation', 'Saturation', 1, 1, '-100 to 100, -100 all grey, 100 twice as far from grey']],
   // D-141.
   'core.leave_color': [['tolerance', 'Tolerance', 1, 1, '0 to 100, how far round the colour wheel is kept whole'],
     ['softness', 'Softness', 1, 1, '0 to 100, the fade past the tolerance'],
@@ -9297,7 +9320,7 @@ const EFFECT_PARAMS = {
     ['wavelength', 'Wavelength', 1, 1, 'pixels between rings, 1 to 10000'],
     ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360, outward when above 0'],
     ['phase', 'Phase', 1, 1, 'degrees'],
-    ['fade', 'Fade', 1, 1, 'pixels out where the rings die away, 0 for never']],
+    ['fade', 'Fade', 1, 1, 'pixels out where the rings die away, 0 to 100000, 0 for never']],
   // D-151.
   'core.twirl': [['angle', 'Angle', 1, 1, 'degrees at the middle, clockwise when above 0', 'dial'],
     ['radius', 'Radius', 1, 1, 'pixels, 0 to 10000, how far out it twists'],
@@ -10591,11 +10614,13 @@ function effectRow(layer, fx, at, of) {
   // The pictures on the card follow every change the hand makes, from whichever control.
   const redraws = [];
   const sendParameters = (extra = '', changed = null) => {
+    // P-25: a send inside a drag goes through the drag queue, as a transform's does.
+    const go = extra ? (what) => dragSend(what, 'fx ' + fx.instance_id + ' ' + (changed && (keyed(changed) || changed === 'mix') ? changed : '')) : command;
     redraws.forEach((draw) => draw());
     if (pick) pick.value = hexOf(fields.color.map((f) => Number(f.value) || 0));
     // D-202: the Mix is not one of the settings, so it always travels alone.
     if (changed && (keyed(changed) || changed === 'mix')) {
-      command('/property.set_base?' + whose(layer) + '&prop=' + encodeURIComponent(fxName(fx, changed))
+      go('/property.set_base?' + whose(layer) + '&prop=' + encodeURIComponent(fxName(fx, changed))
         + '&value=' + encodeURIComponent(typed(changed)) + '&frame=' + frame + extra);
       return;
     }
@@ -10603,7 +10628,7 @@ function effectRow(layer, fx, at, of) {
       ? [].concat(propOf(layer, fxName(fx, name)).base).join(',') : typed(name)));
     if (chosen) parts.push('&colors=' + encodeURIComponent(chosen.join(',')));
     for (const w in words) parts.push('&' + w + '=' + encodeURIComponent(words[w]));
-    command('/effect.set_parameters' + where + parts.join('') + extra);
+    go('/effect.set_parameters' + where + parts.join('') + extra);
   };
   // W-07: the fields are live. A keystroke, a pixel of drag on a handle and a move over the
   // colour picker each send inside one drag transaction, so the picture follows the hand, and
@@ -10617,7 +10642,7 @@ function effectRow(layer, fx, at, of) {
     if (!open) return;
     open = false;
     dragging = false;
-    command(cancelled ? '/property.drag_cancel' : '/property.drag_end');
+    afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end');
   };
   for (const [name, words, count, step, range, turn, start] of known) {
     const dt = document.createElement('dt');
@@ -12937,6 +12962,23 @@ function dragSend(what, key = '', drawn = true) {
   })();
   return dragFlight;
 }
+// P-25: a colour picker changes the picture while it is open, and closing it is one step of
+// history, as a text colour is (D-266). `address` is asked for the request each time it moves.
+function livePick(pick, address, key) {
+  let open = false;
+  pick.oninput = () => { open = true; dragging = true; dragSend(address(), key); };
+  const close = () => {
+    if (!open) return;
+    open = false;
+    dragging = false;
+    afterDrag('/property.drag_end');
+  };
+  pick.onchange = close;
+  pick.onblur = close;
+}
+// P-25: what a scrub's `done` is for a scrub with `live`, so the drag becomes one step.
+const dragDone = (cancelled) => afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end');
+
 async function afterDrag(what) {
   if (dragFlight) await dragFlight;
   const watch = dragWatch;
@@ -12971,10 +13013,6 @@ async function command(what) {
 
 // The layer commands. Each sends the selection it was clicked with; Rust looks the layer up
 // again and refuses if it has gone, because this list can be older than the document.
-const onSelected = (id) => () => {
-  if (!selectedLayer) return;
-  command('/' + id + '?layer=' + encodeURIComponent(selectedLayer));
-};
 $('addlayer').onclick = () => {
   if (!selectedAsset) return;
   const asset = (doc.project.assets || []).find((a) => a.id === selectedAsset);
@@ -14612,6 +14650,7 @@ function drawHealth() {
     gone.length ? gone.length + (gone.length === 1 ? ' file gone' : ' files gone') : ''].filter(Boolean).join(' · ');
 }
 async function checkGone() {
+  if (dragFlight || dragging || playing) return; // P-25: every file looked at is a hitch in a drag
   try { gone = await (await fetch(PROJECT + '/files-gone')).json(); } catch (e) { return; }
   drawHealth();
 }

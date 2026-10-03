@@ -754,6 +754,14 @@ D-266 / Live text numbers, capped drags, anchor point tool: built on 2026-10-03 
 
 Evidence is in `verification/D-266_live_text_caps_anchor_tool.md`.
 
+P-25 / Realtime audit, D-267: built on 2026-10-03 at the owner's request. **Awaiting the owner's playtest.**
+- Hand-to-picture delay against 73d9662: scale 137 → 18 ms, rotation 110 → 19 ms, opacity 128 → 10 ms, Gaussian radius 153 → 22 ms, mask feather 119 → 43 ms, mask point 121 → 52 ms, text size 41 → 32 ms, Full blur radius 492 → 23 ms.
+- Feathered masks are about twice as fast, with 288 fingerprints unchanged.
+- More controls are live; six security fixes, each with a check; four unused pieces removed.
+- D-268 (network paths, Collect Files), D-269 (further speed) and D-270 (tidy-ups) are proposed.
+
+Evidence is in `verification/P-25_realtime_audit.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

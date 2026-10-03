@@ -1776,11 +1776,11 @@ fn missing(message: String, detail: String) -> Diagnostic {
 ///
 /// Both are provisional and neither is in document 14. See
 /// `verification/B-12d_new_composition_table.md`.
-const LARGEST_SIDE: u32 = 16_384;
-const LARGEST_PIXELS: u64 = 67_108_864;
+pub(crate) const LARGEST_SIDE: u32 = 16_384;
+pub(crate) const LARGEST_PIXELS: u64 = 67_108_864;
 
 /// Ten thousand frames is nearly seven minutes at 24 fps. A composition is a shot.
-const LONGEST_COMPOSITION: u32 = 10_000;
+pub(crate) const LONGEST_COMPOSITION: u32 = 10_000;
 
 /// Document 19 line 52's positivity and safety bounds, and document 19 line 13's unique IDs.
 ///

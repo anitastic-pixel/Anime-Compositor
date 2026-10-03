@@ -269,9 +269,6 @@ impl WorkingBuffer {
     pub fn as_image(&self) -> &ImageBuffer {
         &self.0
     }
-    pub fn into_image(self) -> ImageBuffer {
-        self.0
-    }
     pub fn width(&self) -> usize {
         self.0.width
     }

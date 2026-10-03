@@ -629,6 +629,34 @@ D-266b (owner: the anchor tool "rapidly vibrate[s]"): the anchor drag sent posit
 
 Evidence in `verification/D-266_live_text_caps_anchor_tool.md`.
 
+D-267 / Realtime audit: drags show their change within about one move of the hand / **BUILT on 2026-10-03 at the owner's request** ("a full performance/optimization audit focused goal towards realtime latency for any value/data manipulation ... do a sprawl, wiring, security audit as well", then "I'll let you handle this to your recommendations and full discretion"). **Awaiting the owner's playtest.** Measured on the D-01 machine, release builds, the reference shot in Draft with the picture drawn in the window, against 73d9662:
+- The page's number drags use the drag path: newest value only, one request at a time, one undo step. The project, thumbnail and sheet are asked for once on release (60, 30 and 57 times per drag before), and the ready check, the expression layer list and the missing-file check wait for the drag to end.
+- `mask_field`'s two blur passes fill windows of equal values directly, adding the same terms in the same order. 288 mask fingerprints are bit for bit as before, and feather 60 at 1080p takes 17.7 ms (38.9 before).
+- The outlines (`/boxes`) plan without masks on layers with no enabled effects, since a mask never changes a box.
+- A frame asked for during a drag is not looked up in, read back for, or stored in the frame memory.
+- Solid colour and size, shape fill and stroke colour, the mitre limit and gradient stops change the picture during the drag. Four effect range descriptions now say "a to b", so their drags stop at the end.
+- Delay from hand to picture, before → now: scale 137 → 18 ms, opacity 128 → 10 ms, Gaussian radius 153 → 22 ms, mask feather 119 → 43 ms, mask point 121 → 52 ms, Full blur radius 492 → 23 ms. Every drag now shows 20 to 24 pictures a second of the test hand's 22 to 23 moves.
+- Security, fixed: a project file is held to the new-composition limits (16384 a side, 67,108,864 pixels, 10000 frames); a saved font name must be a font name; the Open route opens only the recent list; expressions nest at most 64 deep; Check Package refuses `\\`, drive and `:` paths; a PNG past 16384 by 16384 is refused before its buffer is asked for. Each has a check.
+- Sprawl, removed: `onSelected`, `.rhint`, `WorkingBuffer::into_image`, `perf::total_nanos`.
+
+D-268 / Network paths and Collect Files / **PROPOSED on 2026-10-03** by the P-25 security pass. (M2) A project naming media as `\\server\share\...` makes Windows contact that server and offer the user's sign-in proof when the file is read. Choose: refuse such paths, ask before reading them, or leave them, since real network folders use the same form. (L1) Collect Files copies whatever file a project lists, so a crafted project could carry a private file into a package that is then shared. Choose: copy only image, video and audio files, or list the files before copying.
+
+D-269 / Further drag speed / **PROPOSED on 2026-10-03** by P-25, none built:
+- Masks at Draft resolution (changes Draft pixels).
+- Requests answered side by side rather than one at a time (changes the page/window protocol).
+- A size rule for the outlines of layers with card effects or text, so they stop running the effects and drawing the words.
+- `update_drag` copies the project on every move (not measured; it grows with the project).
+- Exposure spans live during a drag (the command names a span by the start frame the drag is moving).
+
+D-270 / Tidy-ups with nothing to see / **PROPOSED on 2026-10-03** by the P-25 sprawl pass:
+- Twelve tracked tables and pictures are rewritten by every test run; write them to a scratch folder or drop their changing lines.
+- Repeated page helpers (`el` three times, 58 hand-built `layer=` addresses beside `whose()`).
+- Per-effect code spread over about ten match statements.
+- The commands only tests use (`camera.set_property`, `layer.set_depth`).
+- The repository is 323 MB, with 187 duplicate files.
+
+Evidence in `verification/P-25_realtime_audit.md`.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

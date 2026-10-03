@@ -20,6 +20,10 @@ use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::model::{Camera, Composition, Id, Prop, Property, Value};
 
 const MAX_TEXT_BYTES: usize = 4096;
+/// P-25: how deep brackets and signs may nest. Reading, working out and letting go of an
+/// expression each go down once a level, and four thousand bytes of "(" or "-" went deeper than
+/// the window's stack, which ended the program rather than refusing the expression.
+const MAX_NESTING: usize = 64;
 const MAX_STEPS: u32 = 10_000;
 const MAX_DEPTH: usize = 16;
 const MAX_OCTAVES: f64 = 16.0;
@@ -447,6 +451,7 @@ struct Reader {
     toks: Vec<Tok>,
     at: usize,
     locals: Vec<String>,
+    depth: usize,
 }
 
 impl Reader {
@@ -551,7 +556,20 @@ impl Reader {
         Ok(node)
     }
 
+    // Every way down, a bracket, a call, an index or a sign, comes through here.
     fn unary(&mut self) -> R<Node> {
+        if self.depth == MAX_NESTING {
+            return Err(syntax(format!(
+                "An expression nests at most {MAX_NESTING} brackets and signs deep"
+            )));
+        }
+        self.depth += 1;
+        let node = self.signed();
+        self.depth -= 1;
+        node
+    }
+
+    fn signed(&mut self) -> R<Node> {
         if self.is_op('-') {
             self.at += 1;
             return Ok(Node::Neg(Box::new(self.unary()?)));
@@ -633,6 +651,7 @@ fn read(text: &str) -> R<Vec<Stmt>> {
         toks: tokens(text)?,
         at: 0,
         locals: Vec::new(),
+        depth: 0,
     }
     .program()
 }
@@ -1479,5 +1498,15 @@ mod tests {
         assert_eq!(wrap_u64(-1.0), u64::MAX);
         assert_eq!(wrap_u64(-(2f64.powi(64)) - 4096.0), u64::MAX - 4095);
         assert_eq!(wrap_u64(2f64.powi(64) + 4096.0), 4096);
+    }
+
+    /// P-25: four thousand brackets or signs are refused, not a stack overflow; 64 still read.
+    #[test]
+    fn nesting_is_refused_past_its_limit() {
+        let deep = |n: usize| format!("{}1{}", "(".repeat(n), ")".repeat(n));
+        assert!(read(&deep(60)).is_ok());
+        assert!(read(&deep(2000)).is_err());
+        assert!(read(&format!("{}1", "-".repeat(4000))).is_err());
+        assert!(read(&format!("{}1", "-".repeat(60))).is_ok());
     }
 }

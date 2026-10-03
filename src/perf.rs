@@ -608,11 +608,6 @@ pub fn snapshot() -> Vec<(Stage, u64, u64)> {
         .collect()
 }
 
-/// The sum of every stage, in nanoseconds. The frame time minus this is P-01's residual.
-pub fn total_nanos() -> u64 {
-    Stage::ALL.iter().map(|&s| read(s).0).sum()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

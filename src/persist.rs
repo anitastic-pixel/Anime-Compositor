@@ -5284,6 +5284,19 @@ fn parse_composition(
     if width == 0 || height == 0 {
         return Err(invalid(pointer, "a width and height of at least one pixel"));
     }
+    // P-25: the limits a new or changed composition is held to (B-12d), held to on loading too.
+    // A file is not a way round them: a size past them was a frame buffer too big to allocate,
+    // which ended the program rather than saying why.
+    use crate::command::{LARGEST_PIXELS, LARGEST_SIDE, LONGEST_COMPOSITION};
+    if width > LARGEST_SIDE || height > LARGEST_SIDE || width as u64 * height as u64 > LARGEST_PIXELS {
+        return Err(invalid(
+            pointer,
+            &format!(
+                "a size this build will make, no side past {LARGEST_SIDE} and no more than \
+                 {LARGEST_PIXELS} pixels in all; it is {width}x{height}"
+            ),
+        ));
+    }
     let duration = as_u32(
         field(v, pointer, "duration_frames")?,
         &format!("{pointer}/duration_frames"),
@@ -5292,6 +5305,12 @@ fn parse_composition(
         return Err(invalid(
             &format!("{pointer}/duration_frames"),
             "a duration of at least one frame",
+        ));
+    }
+    if duration > LONGEST_COMPOSITION {
+        return Err(invalid(
+            &format!("{pointer}/duration_frames"),
+            &format!("a length of no more than {LONGEST_COMPOSITION} frames; it is {duration}"),
         ));
     }
     let mut composition = Composition::new(
@@ -6592,5 +6611,24 @@ pub fn relink_candidate(
 pub fn relink_command(candidate: &RelinkCandidate) -> Command {
     Command::RelinkAsset {
         asset: Box::new(candidate.asset.clone()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// P-25: a file is held to the size and length a new composition is; one inside them opens.
+    #[test]
+    fn a_file_is_held_to_the_composition_limits() {
+        let fixture = include_str!("../Fixtures/projects/minimal_project.json");
+        let with = |from: &str, to: &str| load_str(&fixture.replace(from, to));
+        assert!(with("\"width\": 1920", "\"width\": 16384").is_ok());
+        assert!(with("\"duration_frames\": 24", "\"duration_frames\": 10000").is_ok());
+        assert!(with("\"width\": 1920", "\"width\": 16385").is_err());
+        assert!(with("\"height\": 1080", "\"height\": 100000").is_err());
+        assert!(with("\"duration_frames\": 24", "\"duration_frames\": 10001").is_err());
+        let both = fixture.replace("\"width\": 1920", "\"width\": 16384").replace("\"height\": 1080", "\"height\": 16384");
+        assert!(load_str(&both).is_err(), "16384 x 16384 is past the pixel limit");
     }
 }

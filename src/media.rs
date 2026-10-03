@@ -521,13 +521,24 @@ pub fn decode_png(path: &Path) -> Result<ImageBuffer, Diagnostic> {
     from_8bit(path, w, h, &rgba)
 }
 
+/// P-25: the largest drawing read, a 16384 by 16384 square, four times what a composition may
+/// be so a long pan still opens. A header claiming more asked for its buffer before a single
+/// pixel was read, and past the memory there is that ended the program rather than saying why.
+const LARGEST_DRAWING_PIXELS: u64 = 16_384 * 16_384;
+
 fn png_8bit(path: &Path) -> Result<(usize, usize, Vec<u8>), Diagnostic> {
     let mut reader = open_png(path)?;
-    let (color, depth) = {
+    let (color, depth, w, h) = {
         let info = reader.info();
-        (info.color_type, info.bit_depth)
+        (info.color_type, info.bit_depth, info.width as u64, info.height as u64)
     };
     check_format(path, color, depth)?;
+    if w * h > LARGEST_DRAWING_PIXELS {
+        return Err(decode_failed(
+            path,
+            &format!("it says it is {w}x{h}, past the {LARGEST_DRAWING_PIXELS} pixels this build reads"),
+        ));
+    }
 
     crate::perf::time(crate::perf::Stage::FileRead, || {
         let mut raw = vec![0u8; reader.output_buffer_size().unwrap_or(0)];
@@ -608,4 +619,27 @@ fn ranges(numbers: &[u32]) -> String {
         i += 1;
     }
     out.join(", ")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// P-25: a header claiming more than the largest drawing is refused before its buffer is
+    /// asked for, and says so; the pixels are never read.
+    #[test]
+    fn a_drawing_past_the_largest_is_refused() {
+        let path = std::env::temp_dir().join(format!("p25_huge_{}.png", std::process::id()));
+        {
+            let file = File::create(&path).unwrap();
+            let mut encoder = png::Encoder::new(file, 20_000, 20_000);
+            encoder.set_color(png::ColorType::Rgba);
+            encoder.set_depth(png::BitDepth::Eight);
+            let mut writer = encoder.write_header().unwrap();
+            writer.write_chunk(png::chunk::IDAT, &[0x78, 0x9c, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01]).unwrap();
+        }
+        let said = png_8bit(&path).err().expect("a 20000 x 20000 drawing is refused");
+        std::fs::remove_file(&path).unwrap();
+        assert!(said.detail.contains("20000x20000"), "{}", said.detail);
+    }
 }

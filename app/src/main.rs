@@ -640,14 +640,17 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
             frame,
             skipped: 0,
             ahead: None,
+            dragging: false,
             reply: Response::builder(),
         }
     };
     let mut log = FrameLog::new(0);
     // B-18b: planned at the viewer's quality, so that a composition layer's picture (D-67) is
     // not rendered at full size to outline a draft frame.
+    // P-25: and without the masks that cannot change an outline, which with a feather were a
+    // whole mask drawn again for each outline asked for in a mask's drag.
     let plan = match anime_compositor::compose::plan_frame_at(
-        &taken.project,
+        &taken.project.without_plain_masks(),
         &taken.composition,
         taken.frame,
         &taken.root,
@@ -1128,6 +1131,9 @@ struct Snapshot {
     /// P-18: the frame playback will ask for next, when this one came from the clock. Its
     /// drawings are read while the page is still busy with this one.
     ahead: Option<i32>,
+    /// P-25: a drag is under way. Each of its frames is of a project that lasts one move of the
+    /// hand, so none is looked for in the frame memory, read back from the card or kept there.
+    dragging: bool,
     /// Everything the window has to say about this frame, already written into the response.
     /// Built under the lock rather than after the render, so that it describes the document the
     /// pixels were made from even if an edit lands while they are being made.
@@ -1358,6 +1364,7 @@ fn serve_seen(
             frame,
             skipped,
             ahead,
+            dragging: viewer.document.drag_in_progress(),
             reply: said_about(viewer, ask, frame, skipped, exporting, &exported)
                 .header("x-export-progress", progress.0)
                 // D-251: the queue's changes and the document's, so an edit marks rows stale.
@@ -1376,7 +1383,11 @@ fn serve_seen(
         card: card.and_then(|c| drawn_by(Some(&*c.lock().expect("the card lock was poisoned")))),
     };
     // A frame already made for this same sight is sent from memory, without waiting for the cels.
-    let kept = taken.ram.lock().expect("the frame memory lock was poisoned").frames.get(&sight, taken.frame);
+    let kept = if taken.dragging {
+        None
+    } else {
+        taken.ram.lock().expect("the frame memory lock was poisoned").frames.get(&sight, taken.frame)
+    };
 
     let mut log = FrameLog::new(3);
     let mut cache = kept.is_none().then(|| taken.cache.lock().expect("the cel cache lock was poisoned"));
@@ -1440,7 +1451,9 @@ fn serve_seen(
                     gpu,
                 )
                 .and_then(|(width, height)| {
-                    let pixels = gpu.picture().unwrap_or_default();
+                    // P-25: in a drag the picture is only painted; it is read back once the
+                    // hand lets go, for the frame that is kept.
+                    let pixels = if taken.dragging { Vec::new() } else { gpu.picture().unwrap_or_default() };
                     match gpu.show(*size, paints, taken.alpha_only) {
                         Ok(()) => Ok(Made::Shown(pixels, width, height)),
                         // No silent fallback: the card stops painting the window, the status line
@@ -1540,10 +1553,10 @@ fn serve_seen(
     };
     {
         let mut ram = taken.ram.lock().expect("the frame memory lock was poisoned");
-        if on_screen {
+        if on_screen && !finished.pixels.is_empty() {
             ram.shown = Some(finished.clone());
         }
-        if fresh && !card_failed && drawn_part.is_none() && finished.pixels.len() == finished.width * finished.height * 4 {
+        if fresh && !taken.dragging && !card_failed && drawn_part.is_none() && finished.pixels.len() == finished.width * finished.height * 4 {
             ram.frames.store(sight.clone(), taken.frame, files, finished.clone());
         }
     }
@@ -10956,7 +10969,12 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
     let said = match path {
         "recent" => recent(app).join("\n"),
         // With a path, the recent list chose it. Without one, ask. Both end at `take`.
+        // P-25: a path not on the recent list is refused, as `recover` refuses one it did not
+        // offer: a command scheme is reachable by anything running in the page.
         "open" => match parameter(query, "path") {
+            Some(chosen) if !recent(app).contains(&chosen) => {
+                format!("{chosen} is not on the recent list. Choose it with the Open button instead.")
+            }
             Some(chosen) => {
                 let chosen = PathBuf::from(chosen);
                 if take(&viewer, &chosen) {
@@ -25107,9 +25125,9 @@ mod contract {
 
     /// Everything that follows `needle`, up to the first character a route cannot contain.
     ///
-    /// A route is written in the page in one of three shapes, and this reads all three by being
-    /// given each opening in turn: a quoted string beginning with a slash, the identifier handed
-    /// to `onSelected`, and the one handed to `send`.
+    /// A route is written in the page in one of two shapes, and this reads both by being given
+    /// each opening in turn: a quoted string beginning with a slash, and the identifier handed to
+    /// `send`.
     fn after(text: &str, needle: &str) -> Vec<String> {
         text.match_indices(needle)
             .map(|(at, _)| {
@@ -25132,7 +25150,6 @@ mod contract {
     /// Every route the page can ask the window for.
     fn asked_for(page: &str) -> Vec<String> {
         let mut found = after(page, "'/");
-        found.extend(after(page, "onSelected('"));
         found.extend(after(page, "send('"));
         sorted(found)
     }
@@ -26460,7 +26477,7 @@ mod contract {
     /// Every `<var>.<field>` the page reads, for one variable name.
     ///
     /// The character in front of the name is what separates a field read from a command
-    /// identifier: `layer.move_up` inside `onSelected('layer.move_up')` follows a quote, and
+    /// identifier: `layer.move_up` inside `send('layer.move_up')` follows a quote, and
     /// `'/layer.create?asset='` follows a slash. Neither is a field.
     fn fields_read(page: &str, var: &str) -> Vec<String> {
         let needle = format!("{var}.");

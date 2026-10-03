@@ -390,7 +390,9 @@ pub fn check(project_file: &Path) -> Result<Vec<Row>, Diagnostic> {
     for f in files.into_iter().flatten() {
         let path = f["path"]
             .as_str()
-            .filter(|p| !p.split('/').any(|s| s == ".." || s.is_empty()))
+            // P-25: split on both separators, and no drive or stream colon, so that a manifest
+            // naming \\host\share or C:\ is refused rather than joined onto the package.
+            .filter(|p| !p.split(['/', '\\']).any(|s| s == ".." || s.is_empty() || s.contains(':')))
             .ok_or_else(|| invalid("a file has no usable path".into()))?;
         let data = fs::read(root.join(path)).ok();
         let (answer, id, severity, message) = match (&data, f["sha256"].as_str()) {
@@ -432,4 +434,30 @@ pub fn check(project_file: &Path) -> Result<Vec<Row>, Diagnostic> {
         });
     }
     Ok(rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// P-25: a manifest path that leaves the package folder, by either separator, a network
+    /// share or a drive, is refused; one inside it is checked.
+    #[test]
+    fn paths_stay_in_the_package() {
+        let dir = std::env::temp_dir().join(format!("p25_package_{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let checked = |path: &str| {
+            let manifest = serde_json::json!({
+                "format": FORMAT, "version": 1,
+                "assets": [{ "files": [{ "path": path }] }],
+            });
+            fs::write(dir.join(MANIFEST), manifest.to_string()).unwrap();
+            check(&dir.join("shot.json")).is_ok()
+        };
+        assert!(checked("media/a.png"));
+        for bad in ["../a.png", r"media\..\..\a.png", r"\\host\share\a.png", "//host/share/a.png", r"C:\a.png", "C:a.png", "media/a.png:stream"] {
+            assert!(!checked(bad), "{bad} was not refused");
+        }
+        fs::remove_dir_all(&dir).unwrap();
+    }
 }

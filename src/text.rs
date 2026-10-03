@@ -218,6 +218,11 @@ pub fn font_bytes(name: &str) -> Option<&'static [u8]> {
     if name == Text::BUNDLED_FONT {
         return Some(BUNDLED);
     }
+    // P-25: named, never pointed at, by the window as by a project: a name the project could
+    // not hold reads nothing.
+    if (Text { font: name.to_string(), ..Text::default() }).problem().is_some() {
+        return None;
+    }
     static READ: OnceLock<Mutex<HashMap<String, &'static [u8]>>> = OnceLock::new();
     let mut read = READ.get_or_init(Default::default).lock().ok()?;
     if let Some(bytes) = read.get(name) {
