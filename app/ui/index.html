@@ -6600,18 +6600,25 @@ function rotateAbout(anchorAt) {
 // does: the mark follows the pointer, the position moves with it, and the anchor moves the same
 // distance in the layer's own pixels — back through the layer's turn and scale, since document
 // 21 has the anchor on the far side of both. A scale of zero has no far side and is left alone.
+//
+// D-266: the picture does not change while the anchor moves, so no frame is drawn until the
+// hand lets go; the two values go together in one send, and the mark is moved on the page at
+// once from `panAt`, which `beginStageDrag` clears when the drag is over.
+let panAt = null;
 const panBehind = (start, from, at, m, during) => {
   const [layer, one] = start[0];
   const per = perFramePixel();
   const dx = (at[0] - from[0]) * per, dy = (at[1] - from[1]) * per;
-  during(layer, 'position', [one.position[0] + dx, one.position[1] + dy]);
+  const position = [one.position[0] + dx, one.position[1] + dy];
   const turn = -one.rotation[0] * Math.PI / 180;
   const lx = dx * Math.cos(turn) - dy * Math.sin(turn);
   const ly = dx * Math.sin(turn) + dy * Math.cos(turn);
-  during(layer, 'anchor', [
+  during(layer, ['position', 'anchor'], [position, [
     one.anchor[0] + lx / (one.scale[0] / 100 || 1),
     one.anchor[1] + ly / (one.scale[1] / 100 || 1),
-  ]);
+  ]], false);
+  panAt = { layer: layer.id, position };
+  drawBoxes();
 };
 
 // A press on the picture, or on the dark around it. In order: a handle of the layer already
@@ -6641,17 +6648,21 @@ stage.onpointerdown = (e) => {
     }]);
     dragging = true;
     stage.setPointerCapture(down.pointerId);
-    const during = (layer, prop, values) => dragSend('/property.drag_update?layer='
+    // D-266: or several properties at once, `prop` and `values` then lists side by side.
+    const update = (layer, prop, values) => '/property.drag_update?layer='
       + encodeURIComponent(layer.id) + '&prop=' + prop
-      + '&value=' + encodeURIComponent(values.map(number).join(',')) + '&frame=' + frame,
-    layer.id + ' ' + prop);
+      + '&value=' + encodeURIComponent(values.map(number).join(',')) + '&frame=' + frame;
+    const during = (layer, prop, values, drawn = true) => dragSend(Array.isArray(prop)
+      ? prop.map((p, i) => update(layer, p, values[i])) : update(layer, prop, values),
+    layer.id + ' ' + prop, drawn);
     const escape = (k) => { if (k.key === 'Escape') stop(true); };
     const stop = (cancelled) => {
       dragging = false;
       stage.onpointermove = null;
       stage.onpointerup = null;
       window.removeEventListener('keydown', escape, true);
-      afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end');
+      afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end')
+        .then(() => { if (panAt) { panAt = null; drawBoxes(); } });
     };
     stage.onpointermove = (m) => apply(start, from, atCanvas(m), m, during);
     stage.onpointerup = () => stop(false);
@@ -7243,7 +7254,7 @@ stage.addEventListener('pointerleave', () => { turnNib.style.display = 'none'; }
 // layer's own position in composition pixels, brought into the frame's pixels.
 function anchorOnScreen(layer) {
   const per = perFramePixel();
-  const position = held(layer, 'position');
+  const position = panAt && panAt.layer === layer.id ? panAt.position : held(layer, 'position');
   return [position[0] / per, position[1] / per];
 }
 
@@ -12896,25 +12907,30 @@ const dragNext = new Map();
 // until a drag ends, so an ordinary sitting never sees it.
 let dragWatch = null;
 const middle = (xs) => xs.length ? [...xs].sort((a, b) => a - b)[xs.length >> 1] : 0;
-function dragSend(what, key = '') {
+// D-266: `what` may be a list, sent one after another before the one frame, so that two values
+// that only make sense together (the anchor tool's position and anchor) are never drawn half
+// changed. `drawn` false asks for no frame at all, for a change that leaves the picture as it is.
+function dragSend(what, key = '', drawn = true) {
   stir();
-  if (dragFlight) { dragNext.set(key, what); return dragFlight; }
+  if (dragFlight) { dragNext.set(key, [what, drawn]); return dragFlight; }
   dragWatch = { command: [], window: [], trip: [], paint: [] };
   dragFlight = (async () => {
-    let request = what;
-    while (request) {
-      try {
-        const sent = performance.now();
-        const said = await (await fetch(PROJECT + request)).text();
-        if (dragWatch) dragWatch.command.push(performance.now() - sent);
-        if (said) $('status').textContent = brief(said);
-      } catch (e) {
-        $('report').textContent = 'the command did not arrive: ' + e;
-        $('report').className = 'dropped';
+    let next = [what, drawn];
+    while (next) {
+      for (const request of [].concat(next[0])) {
+        try {
+          const sent = performance.now();
+          const said = await (await fetch(PROJECT + request)).text();
+          if (dragWatch) dragWatch.command.push(performance.now() - sent);
+          if (said) $('status').textContent = brief(said);
+        } catch (e) {
+          $('report').textContent = 'the command did not arrive: ' + e;
+          $('report').className = 'dropped';
+        }
       }
-      show(FRAMES + '/frame/' + frame + '?q=' + quality);
+      if (next[1]) show(FRAMES + '/frame/' + frame + '?q=' + quality);
       const [waiting] = dragNext.keys();
-      request = dragNext.get(waiting);
+      next = dragNext.get(waiting);
       dragNext.delete(waiting);
     }
     dragFlight = null;

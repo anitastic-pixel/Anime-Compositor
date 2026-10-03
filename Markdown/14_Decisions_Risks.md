@@ -625,6 +625,8 @@ D-266 / Live text numbers, capped drags and the anchor point tool / **ACCEPTED o
 - The anchor point tool (Y, beside Selection) moves the anchor and the position together so the picture stays put. Ctrl lands it on the outline's corners, side middles or middle, and a double-click on the button centres it.
 - A new layer from a drawing has its anchor at the drawing's middle and stands at the composition's centre; a drawing whose files are missing keeps 0, 0. A new text layer's anchor goes to its words' middle when the first typing ends, in the same undo step.
 
+D-266b (owner: the anchor tool "rapidly vibrate[s]"): the anchor drag sent position and anchor as two updates with a frame after each, so every other frame was half changed. They now go in one send with no frame until release, since the picture does not change, and the mark is drawn on the page from the live position.
+
 Evidence in `verification/D-266_live_text_caps_anchor_tool.md`.
 
 ## Assumptions and change log

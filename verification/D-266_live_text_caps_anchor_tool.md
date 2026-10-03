@@ -59,6 +59,30 @@ The anchor mark is now a light cross with a dark edge, so it can be seen on any 
 
 Ctrl+Z then undid one step at a time: the double-click, the snap, the drag, then the typing with its centring, then the layer itself. No errors on the page.
 
+## 3b. The anchor tool no longer shakes the picture (D-266b)
+
+You then said: "improve performance of anchor tool, and when dragging the point, the layer rapidly vibrate like it moves, but corrects it self in repeat".
+
+The cause: every move of the hand sent two changes, the position and then the anchor, and drew a frame after each. The frame between the two had the new position but the old anchor, so the picture jumped by the distance moved, then jumped back. That happened twice per move, and so did the cost of drawing.
+
+Now:
+- both changes go together;
+- no frame is drawn while you drag, since moving the anchor this way leaves the picture exactly where it was;
+- the frame is drawn once when you let go;
+- the anchor cross follows your hand straight away; before, it stayed put and jumped when you let go.
+
+**In the window**, the same 41-step drag on layer4 with the Y tool, on each build:
+
+| | Last build (a76080c) | This build |
+|---|---|---|
+| Frames drawn during the drag | 80 | 0 |
+| Order of requests | position, frame, anchor, frame, … | position, anchor, position, anchor, … |
+| Places the anchor cross was drawn while dragging | 2 (start and end) | 41 (every step) |
+| Where the layer ended | anchor 290, 116, position 290, 116 | the same |
+| One Ctrl+Z | back to 0, 0 | back to 0, 0 |
+
+The Selection tool's drag of the anchor cross goes through the same path, so it is fixed too.
+
 ## Pictures (`verification/D-266 pictures/`)
 
 - `new_text_centred.png`: a new text layer after typing; its anchor cross is in the middle of the words.
@@ -88,3 +112,4 @@ Your own window was open, so it was left alone. A second copy of this build was 
 | 5 | Hold Ctrl while dragging with Y | The cross jumps to the nearest corner, side middle or middle | |
 | 6 | Double-click the anchor point tool's button | The anchor goes back to the middle | |
 | 7 | Import a drawing and make a layer from it | Its anchor cross is in the middle of the drawing, and the drawing is centred in the frame | |
+| 8 | Press Y and drag a layer's anchor around quickly | The picture stays perfectly still and the cross keeps up with your hand | |

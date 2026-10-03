@@ -750,6 +750,8 @@ D-266 / Live text numbers, capped drags, anchor point tool: built on 2026-10-03 
 - The Y tool moved, snapped and re-centred a text layer's anchor with the words not moving.
 - A new layer from a 1920 x 1080 drawing gets anchor and position 960, 540.
 
+- D-266b: an anchor drag draws no frames until release (80 before on the same drag) and the cross follows every step.
+
 Evidence is in `verification/D-266_live_text_caps_anchor_tool.md`.
 
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
