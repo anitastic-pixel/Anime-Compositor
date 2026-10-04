@@ -459,11 +459,14 @@ pub enum Effect {
     },
     /// D-113: `hue`, -180 to 180 degrees the hue is turned; `saturation`, -100 to 100 per cent
     /// it is scaled by; and `lightness`, -100 to 100 per cent of the way to white, or to black
-    /// below 0.
+    /// below 0. D-307: `ranges`, After Effects' Reds, Yellows, Greens, Cyans, Blues and Magentas
+    /// in that order ([`HUE_RANGES`]), each a hue, saturation and lightness added to the three
+    /// above where a pixel's hue lies in that range.
     HueSaturation {
         hue: f64,
         saturation: f64,
         lightness: f64,
+        ranges: [[f64; 3]; 6],
     },
     /// D-114: `shape`, "linear" or "radial"; `start` and `end`, per cent of the drawing's width
     /// and height, each -1000 to 1000; `start_color` and `end_color`, `#rrggbb`;
@@ -1366,6 +1369,8 @@ pub const BEVEL_ALPHA: &str = "core.bevel_alpha";
 pub const BEVEL_EDGES: &str = "core.bevel_edges";
 pub const BLOCK_DISSOLVE: &str = "core.block_dissolve";
 pub const SHIFT_CHANNELS: &str = "core.shift_channels";
+/// D-307: Hue/Saturation's colour ranges as the file names them, centred 0, 60 ... 300 degrees.
+pub const HUE_RANGES: [&str; 6] = ["reds_hsl", "yellows_hsl", "greens_hsl", "cyans_hsl", "blues_hsl", "magentas_hsl"];
 /// D-305: what Shift Channels can take a channel from.
 pub const SHIFT_CHANNELS_FROM: [&str; 11] =
     ["alpha", "red", "green", "blue", "luminance", "hue", "lightness", "saturation", "full", "half", "off"];
@@ -1484,11 +1489,17 @@ impl Effect {
                 hue,
                 saturation,
                 lightness,
-            } => vec![
-                ("hue", vec![hue], -180.0, 180.0),
-                ("saturation", vec![saturation], -100.0, 100.0),
-                ("lightness", vec![lightness], -100.0, 100.0),
-            ],
+                ranges,
+            } => {
+                let mut n = vec![
+                    ("hue", vec![hue], -180.0, 180.0),
+                    ("saturation", vec![saturation], -100.0, 100.0),
+                    ("lightness", vec![lightness], -100.0, 100.0),
+                ];
+                // D-307: one range for all three; saturation and lightness are held to 100 where used.
+                n.extend(HUE_RANGES.into_iter().zip(ranges.iter_mut()).map(|(k, r)| (k, r.iter_mut().collect(), -180.0, 180.0)));
+                n
+            }
             Effect::Gradient {
                 start,
                 end,
@@ -3738,8 +3749,9 @@ pub(crate) fn apply_stack_at(
                 hue,
                 saturation,
                 lightness,
+                ranges,
             } => crate::perf::time(crate::perf::Stage::EffectHueSaturation, || {
-                crate::grade::hue_saturation(source, *hue, *saturation, *lightness)
+                crate::grade::hue_saturation(source, *hue, *saturation, *lightness, ranges)
             }),
             // D-114: the two points are shares of the drawing's own size, as Radial Blur's
             // centre is.

@@ -921,6 +921,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
         // ponytail: teach the card's tile pass a size and centre if a sized tile is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::MotionTile { tile_center, tile_width, tile_height, .. }
             if (*tile_center, *tile_width, *tile_height) != (crate::layer_fx::PLAIN_TILE, 100.0, 100.0))
+        // D-307: the card turns the master only.
+        && !matches!(&instance.effect, crate::effects::Effect::HueSaturation { ranges, .. } if *ranges != [[0.0; 3]; 6])
         // D-306: the card pushes both ways, unpinned, only.
         && !matches!(&instance.effect, crate::effects::Effect::TurbulentDisplace { displacement, pinning, .. }
             if displacement != "turbulent" || pinning != "none")
@@ -981,7 +983,9 @@ fn card_effect(
                 E::Levels { input_black, input_white, gamma, output_black, output_white } => {
                     [*input_black, *input_white, *gamma, *output_black, *output_white] == [0.0, 255.0, 1.0, 0.0, 255.0]
                 }
-                E::HueSaturation { hue, saturation, lightness } => [*hue, *saturation, *lightness] == [0.0; 3],
+                E::HueSaturation { hue, saturation, lightness, ranges } => {
+                    [*hue, *saturation, *lightness] == [0.0; 3] && *ranges == [[0.0; 3]; 6]
+                }
                 E::Gradient { start_opacity, end_opacity, .. } => [*start_opacity, *end_opacity] == [0.0; 2],
                 E::RimLight { intensity, .. } => *intensity == 0.0,
                 E::Outline { width, .. } => *width == 0.0,

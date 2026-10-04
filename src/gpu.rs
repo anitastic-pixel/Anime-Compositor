@@ -4718,7 +4718,7 @@ impl Gpu {
                 let k = [*input_black, *input_white, 1.0 / gamma, *output_black, *output_white];
                 same(steps, &passes.grade, FxParams { mode: 1, ..Default::default() }, &k, None)
             }
-            E::HueSaturation { hue, saturation, lightness } => {
+            E::HueSaturation { hue, saturation, lightness, .. } => {
                 same(steps, &passes.grade, FxParams { mode: 2, ..Default::default() }, &[*hue, *saturation, *lightness], None)
             }
             E::Gradient { shape, start, end, start_color, end_color, start_opacity, end_opacity, blend: b } => {

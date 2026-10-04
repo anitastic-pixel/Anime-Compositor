@@ -171,6 +171,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 hue: 60.0,
                 saturation: -50.0,
                 lightness: 20.0,
+                ranges: [[0.0; 3]; 6],
             },
         ),
         (

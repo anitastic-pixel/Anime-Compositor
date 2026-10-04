@@ -9544,7 +9544,10 @@ const EFFECT_PARAMS = {
   // D-113, named as After Effects names them.
   'core.hue_saturation': [['hue', 'Hue', 1, 1, '-180 to 180 degrees', 'hue'],
     ['saturation', 'Saturation', 1, 0.5, '-100 to 100'],
-    ['lightness', 'Lightness', 1, 0.5, '-100 to 100']],
+    ['lightness', 'Lightness', 1, 0.5, '-100 to 100'],
+    // D-307: After Effects' Channel Control ranges, each added where a colour's hue lies in it.
+    ...[['reds', 'Reds'], ['yellows', 'Yellows'], ['greens', 'Greens'], ['cyans', 'Cyans'], ['blues', 'Blues'], ['magentas', 'Magentas']]
+      .map(([n, w]) => [n + '_hsl', w, 3, 1, 'hue -180 to 180, saturation and lightness -100 to 100', '', [0, 0, 0]])],
   // D-114: the two points as shares of the drawing, as Radial Blur's centre is.
   'core.gradient': [['start', 'Start Point', 2, 1, '% of the width and height, -1000 to 1000'],
     ['end', 'End Point', 2, 1, '% of the width and height, -1000 to 1000'],
@@ -10594,11 +10597,22 @@ function fxHues(k, label) {
   c.title = 'Top: the colours going in. Under it: what each one becomes';
   const g = c.getContext('2d');
   const draw = () => {
-    const [hue, sat, light] = ['hue', 'saturation', 'lightness'].map((n) => Number(k.fields[n][0].value));
-    const s = Math.min(1, Math.max(0, 1 + sat / 100)) * 100;
-    const l = (light >= 0 ? 0.5 + (0.5 * light) / 100 : 0.5 * (1 + light / 100)) * 100;
+    const master = ['hue', 'saturation', 'lightness'].map((n) => Number(k.fields[n][0].value));
+    // D-307: each range's three, weighted as `src/grade.rs` weighs them.
+    const ranges = ['reds', 'yellows', 'greens', 'cyans', 'blues', 'magentas']
+      .map((n) => (k.fields[n + '_hsl'] || []).map((f) => Number(f.value) || 0));
+    const clamp = (v) => Math.min(100, Math.max(-100, v));
     for (let x = 0; x < W; x++) {
       const h = (x / W) * 360;
+      const [hue, sat, light] = ranges.reduce((t, r, i) => {
+        if (r.length < 3) return t;
+        const d = (((h - 60 * i) % 360) + 360) % 360;
+        const w = Math.min(1, Math.max(0, (45 - Math.min(d, 360 - d)) / 30));
+        return [t[0] + w * r[0], t[1] + w * clamp(r[1]), t[2] + w * clamp(r[2])];
+      }, master.slice());
+      const s = Math.min(1, Math.max(0, 1 + sat / 100)) * 100;
+      const lt = clamp(light);
+      const l = (lt >= 0 ? 0.5 + (0.5 * lt) / 100 : 0.5 * (1 + lt / 100)) * 100;
       g.fillStyle = 'hsl(' + h + ',100%,50%)';
       g.fillRect(x, 2, 1.5, 13);
       g.fillStyle = 'hsl(' + (h + hue) + ',' + s + '%,' + l + '%)';
@@ -11062,7 +11076,7 @@ function effectRow(layer, fx, at, of) {
       dd.append(pick);
     }
     values.forEach((value, i) => {
-      const part = count === 3 ? 'rgb'[i] : count === 2 ? 'xy'[i] : '';
+      const part = count === 3 ? (fx.type_id === 'core.hue_saturation' ? 'hsl' : 'rgb')[i] : count === 2 ? 'xy'[i] : '';
       const input = scrubValue({
         value,
         ...rangeOf(range),

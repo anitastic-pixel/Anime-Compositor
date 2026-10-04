@@ -861,6 +861,34 @@ D-306 / Turbulent Displace's Displacement and Pinning / **BUILT on 2026-10-04** 
 - B-191 checks it: pushed sideways only, a picture of horizontal bands is unchanged away from its sides; unpinned, a solid's edge frays, pinned it stays above 99% covering and nothing spills past it, while the middle is pushed the same; the file keeps both and reports a wrong word.
 - FX-TURB-001 to 026 are unchanged and still pass.
 
+D-307 / Hue/Saturation's colour ranges / **BUILT on 2026-10-04** (B-192), from P-26: the colourful glitch tutorial uses After Effects' Hue/Saturation Channel Control to change only the reds; here it could only change every colour at once. **Awaiting the owner's playtest.**
+- Six new rows on Hue/Saturation, Reds, Yellows, Greens, Cyans, Blues and Magentas, each a hue, saturation and lightness added to the master three where a colour's hue lies in that range: fully within 15 degrees of its centre (0, 60 ... 300), fading to nothing at 45, so neighbouring ranges share the hues between them. A grey takes none of them. Each is keyable.
+- After Effects' movable range edges and its Colorize are not built; the ranges here have fixed edges. A later unit if wanted.
+- An old file reads every range at 0 and is saved as it was; only a moved, keyed or already-written range is written. A range without three numbers refuses the file with a message.
+- The card draws the master only; a moved range is drawn on the CPU, so the preview and the export match.
+- B-192 checks it: a range turns its centre's colour as the master would and a colour 30 degrees off half as far, leaves a colour 60 degrees off and a grey alone, adds its saturation and lightness to the master's, and saves only a moved range.
+- FX-HUESAT-001 to 023 are unchanged and still pass.
+
+D-308 / After Effects differences that would change existing pictures / **PROPOSED on 2026-10-04** by P-26, none built. Each changes what an existing project draws, a range or a fixture, so each is the owner's decision:
+- (T1-1) Polar Coordinates on a non-square layer makes an ellipse; After Effects makes a circle of half the shorter side. D-201 documents the ellipse and FX-POLAR pins it. Choose: circle, or keep the ellipse.
+- (T2-3) Add and Screen stop at full white per channel; After Effects in 32-bit adds light without a ceiling. This is the main reason the Advanced Electric look failed. Needs a document 21 change and new fixtures.
+- (T4-1) Gaussian Blur's radius is a spread in pixels, not After Effects' Blurriness, so the same number gives a narrower glow. Measure against After Effects first, then match it or document the difference.
+- (T3-10) Glow at the tutorials' values is 5 to 10 times weaker than After Effects'. Measure first, as T4-1.
+- (T1-3, T3-1) Fractal Noise: Complexity up to 20 (now 8), Brightness to -200..200 (now -100..100), and values past white for 32-bit overdrive.
+- (T1-4) Time Remapping, a keyable source frame on composition and sequence layers. Document 20 says not proposed; P-26 found two tutorials using it.
+- (T2-2) Advanced Lightning's extras: Alpha Obstacle, lightning types, turbulence, decay and conductivity.
+- (T2-7) Exposure past -20..20.
+
+D-309 / P-26 gaps that would add to the app only / **PROPOSED on 2026-10-04** by P-26, not yet built. Each would default to today's picture, as D-290 to D-307 do, so they need no picture decision, only the go-ahead and a turn:
+- (T3-2) Displacement Map's Expand Output, so a push can carry the picture past a layer's edge. The map outside the layer reads as no push today, so it needs a rule for what the map says there.
+- (T3-4) Colorama, reduced: a colour ring of 2 to 5 stops, its phase taken from a layer's brightness.
+- (T1-5) Bulge with separate across and down radii and a taper.
+- (T1-8) A composition background colour, shown in the viewer and used by export.
+- (T2-9, T3-9) Solid Composite and Channel Blur.
+- (T2-10) Freeze Frame and Time-Reverse Keyframes.
+- (T1-6) CC Glass and Unsharp Mask; the stand-ins were close enough.
+- Left out by the charter: video import, the tracker, particles (Pixel Polly), 3D layers and lights, the two-node camera.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

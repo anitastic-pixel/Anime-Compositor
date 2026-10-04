@@ -226,12 +226,36 @@ fn from_hsl([h, s, l]: [f64; 3]) -> [f64; 3] {
 /// D-113: the hue turned by `hue` degrees, the saturation scaled by `saturation` per cent and
 /// held inside 0 to 1, and the lightness taken `lightness` per cent of the way to white, or to
 /// black below 0. The settings are already valid and held; all three 0 changes nothing.
-pub(crate) fn hue_saturation(source: &mut WorkingBuffer, hue: f64, saturation: f64, lightness: f64) {
-    if hue == 0.0 && saturation == 0.0 && lightness == 0.0 {
+///
+/// D-307: each of `ranges` adds its hue, saturation and lightness, weighted by how far the
+/// pixel's hue lies inside it: fully within 15 degrees of its centre, fading to nothing at 45, so
+/// neighbouring ranges share the hues between them. A grey has no hue and takes none of them.
+pub(crate) fn hue_saturation(
+    source: &mut WorkingBuffer,
+    hue: f64,
+    saturation: f64,
+    lightness: f64,
+    ranges: &[[f64; 3]; 6],
+) {
+    let plain = *ranges == [[0.0; 3]; 6];
+    if hue == 0.0 && saturation == 0.0 && lightness == 0.0 && plain {
         return;
     }
     grade_pixels(source, false, |_, e| {
         let [h, s, l] = to_hsl(e);
+        let [hue, saturation, lightness] = if plain || s == 0.0 {
+            [hue, saturation, lightness]
+        } else {
+            let mut t = [hue, saturation, lightness];
+            for (i, r) in ranges.iter().enumerate() {
+                let d = (h - 60.0 * i as f64).rem_euclid(360.0);
+                let w = ((45.0 - d.min(360.0 - d)) / 30.0).clamp(0.0, 1.0);
+                t[0] += w * r[0];
+                t[1] += w * r[1].clamp(-100.0, 100.0);
+                t[2] += w * r[2].clamp(-100.0, 100.0);
+            }
+            [t[0], t[1], t[2].clamp(-100.0, 100.0)]
+        };
         let l = if lightness >= 0.0 {
             l + (1.0 - l) * lightness / 100.0
         } else {

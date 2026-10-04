@@ -17,6 +17,7 @@ fn hs(hue: f64, saturation: f64, lightness: f64) -> Effect {
         hue,
         saturation,
         lightness,
+        ranges: [[0.0; 3]; 6],
     }
 }
 

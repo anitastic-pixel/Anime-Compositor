@@ -1259,10 +1259,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             hue,
             saturation,
             lightness,
+            ranges,
         } => {
             params.insert("hue".into(), num(*hue));
             params.insert("saturation".into(), num(*saturation));
             params.insert("lightness".into(), num(*lightness));
+            // D-307: a range is written only once it is moved or keyed, or is in the file already.
+            for (key, r) in crate::effects::HUE_RANGES.into_iter().zip(ranges) {
+                if *r != [0.0; 3] || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), J::Array(r.iter().map(|v| num(*v)).collect()));
+                }
+            }
         }
         Effect::Gradient {
             shape,
@@ -2892,6 +2899,12 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "cyans",
         "blues",
         "magentas",
+        "reds_hsl",
+        "yellows_hsl",
+        "greens_hsl",
+        "cyans_hsl",
+        "blues_hsl",
+        "magentas_hsl",
         "levels",
         "level",
         "red",
@@ -2989,6 +3002,9 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         let (count, what) = match name {
             "color" => (3, "a linear RGB triple"),
             "shadows" | "midtones" | "highlights" => (3, "three numbers, red, green and blue"),
+            "reds_hsl" | "yellows_hsl" | "greens_hsl" | "cyans_hsl" | "blues_hsl" | "magentas_hsl" => {
+                (3, "three numbers, hue, saturation and lightness")
+            }
             "red" | "green" | "blue" => (4, "four numbers, from red, green, blue and a constant"),
             "center" | "start" | "end" | "shift" | "upper_left" | "upper_right" | "lower_left"
             | "lower_right" | "producer_point" | "point_1" | "point_2" | "point_3" | "point_4" | "light" => {
@@ -3600,6 +3616,16 @@ fn parse_effect(
             hue: effect_number(params, "hue", &at)?,
             saturation: effect_number(params, "saturation", &at)?,
             lightness: effect_number(params, "lightness", &at)?,
+            // D-307: a file from before the ranges leaves them all at 0, as it drew.
+            ranges: {
+                let mut ranges = [[0.0; 3]; 6];
+                for (r, key) in ranges.iter_mut().zip(crate::effects::HUE_RANGES) {
+                    if params.and_then(|p| p.get(key)).is_some() {
+                        *r = effect_array(params, key, "three numbers, hue, saturation and lightness", &at)?;
+                    }
+                }
+                ranges
+            },
         }),
         // D-114: the colours are read in small letters, as a new colour is.
         crate::effects::GRADIENT => Some(crate::effects::Effect::Gradient {
