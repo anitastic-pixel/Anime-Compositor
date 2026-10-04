@@ -1149,6 +1149,21 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
             for (var c = 0u; c < 3u; c++) {
                 o[c] = e[c] + (ws * k[c] + wm * k[3u + c] + wh * k[6u + c]) / 200.0lf;
             }
+            // k[9]: D-295's Preserve Luminosity, as grade::color_balance.
+            if k[9] == 1.0lf {
+                let d = l - (0.2126lf * o.x + 0.7152lf * o.y + 0.0722lf * o.z);
+                o = o + vec3(d, d, d);
+                let n = min(o.x, min(o.y, o.z));
+                let x = max(o.x, max(o.y, o.z));
+                var s = 1.0lf;
+                if n < 0.0lf {
+                    s = l / (l - n);
+                }
+                if x > 1.0lf {
+                    s = min(s, (1.0lf - l) / (x - l));
+                }
+                o = vec3(l, l, l) + (o - vec3(l, l, l)) * s;
+            }
         }
         default: {
             // k: amount over 200. `flag` is colour.
@@ -4751,8 +4766,9 @@ impl Gpu {
                 let gain = 2f64.powf(crate::effects::flicker_stops(*amount, *hold, *seed, *frame)) as f32;
                 same(steps, &passes.grade, FxParams { mode: 5, ..Default::default() }, &[gain as f64], None)
             }
-            E::ColorBalance { shadows, midtones, highlights } => {
-                let k: Vec<f64> = [shadows, midtones, highlights].iter().flat_map(|t| t[..3].to_vec()).collect();
+            E::ColorBalance { shadows, midtones, highlights, preserve_luminosity } => {
+                let mut k: Vec<f64> = [shadows, midtones, highlights].iter().flat_map(|t| t[..3].to_vec()).collect();
+                k.push(if preserve_luminosity == "on" { 1.0 } else { 0.0 });
                 same(steps, &passes.grade, FxParams { mode: 6, ..Default::default() }, &k, None)
             }
             E::GradientMap { shadow_color, midtone_color, highlight_color, midpoint, amount } => {
@@ -5311,6 +5327,14 @@ impl Gpu {
                 Severity::Info,
                 "The CPU drew this frame: its adjustment layer has an effect the GPU does not draw there.".into(),
                 "B-156 draws an adjustment layer (D-66) on the card when the card draws each of its effects on the frame (D-225); Bloom, Glow, Paraffin, Kira-kira and HSV Key stay the CPU's.".into(),
+            ));
+        }
+        // D-297: an adjustment layer in a blend mode other than normal is the CPU's.
+        if plan.layers.iter().any(|l| l.adjust.is_some() && l.blend != crate::model::BlendMode::Normal) {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: its adjustment layer has a blend mode other than normal.".into(),
+                "D-297 lays an adjusted frame on the one beneath in its blend mode on the CPU only.".into(),
             ));
         }
         // B-152: a motion-blurred, frame-mixed or dissolved layer arrives already built by the

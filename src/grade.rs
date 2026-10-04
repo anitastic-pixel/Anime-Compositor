@@ -630,16 +630,29 @@ pub(crate) fn gradient_map(source: &mut WorkingBuffer, colors: [[f64; 3]; 3], mi
 /// D-130: red, green and blue pushed by `shadows`, `midtones` and `highlights`, each -100..100,
 /// through the sRGB curve, weighted by how dark or light the pixel is. The settings are already
 /// valid; all nine 0 changes nothing.
-pub(crate) fn color_balance(source: &mut WorkingBuffer, shadows: [f64; 3], midtones: [f64; 3], highlights: [f64; 3]) {
+///
+/// D-295: with `keep` (Preserve Luminosity), the pushed colour is moved back to the pixel's own
+/// luma and pulled in toward that grey until it fits 0 to 1, by the compositing spec's SetLum
+/// and ClipColor with these weights. Black and white stay black and white.
+pub(crate) fn color_balance(source: &mut WorkingBuffer, shadows: [f64; 3], midtones: [f64; 3], highlights: [f64; 3], keep: bool) {
     if [shadows, midtones, highlights] == [[0.0; 3]; 3] {
         return;
     }
+    let luma = |e: [f64; 3]| 0.2126 * e[0] + 0.7152 * e[1] + 0.0722 * e[2];
     grade_pixels(source, false, |_, e| {
-        let l = 0.2126 * e[0] + 0.7152 * e[1] + 0.0722 * e[2];
+        let l = luma(e);
         let ws = (1.0 - 2.0 * l).clamp(0.0, 1.0);
         let wh = (2.0 * l - 1.0).clamp(0.0, 1.0);
         let wm = 1.0 - ws - wh;
-        std::array::from_fn(|c| e[c] + (ws * shadows[c] + wm * midtones[c] + wh * highlights[c]) / 200.0)
+        let o: [f64; 3] = std::array::from_fn(|c| e[c] + (ws * shadows[c] + wm * midtones[c] + wh * highlights[c]) / 200.0);
+        if !keep {
+            return o;
+        }
+        let d = l - luma(o);
+        let o = o.map(|v| v + d);
+        let (n, x) = (o[0].min(o[1]).min(o[2]), o[0].max(o[1]).max(o[2]));
+        let s = if n < 0.0 { l / (l - n) } else { 1.0 }.min(if x > 1.0 { (1.0 - l) / (x - l) } else { 1.0 });
+        o.map(|v| l + (v - l) * s)
     });
 }
 

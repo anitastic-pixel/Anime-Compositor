@@ -325,10 +325,11 @@ fn plan_inside(
                         motion_blur |= !m.moments.is_empty();
                         mixed |= m.mixed;
                         let m = settle(m, comp, quality, true);
-                        Box::new(render::MatteDraw {
-                            source: m.source,
-                            transform: m.transform,
-                        })
+                        Box::new(matte_coverage(
+                            render::MatteDraw { source: m.source, transform: m.transform },
+                            reference.mode,
+                            comp,
+                        ))
                     })
                 }
                 None => {
@@ -375,7 +376,11 @@ fn plan_inside(
                 // D-182: with each lookup file read. What kept one from being read was said by
                 // `resolve_rest`, which an adjustment layer goes through as well.
                 adjust: layer.is_adjustment().then(|| {
-                    let mut effects: Vec<_> = layer.effects.iter().map(|i| i.at(frame)).collect();
+                    let mut effects: Vec<_> = layer
+                        .effects
+                        .iter()
+                        .map(|i| effect_now(comp, layer, i, frame, frame, frame as f64, log))
+                        .collect();
                     crate::lut::fill(&mut effects, project, root, &layer.name);
                     // D-191: an adjustment layer's maps lie on the frame it runs on.
                     let size = quality.extent(comp.width as usize, comp.height as usize);
@@ -396,7 +401,7 @@ fn plan_inside(
                         .filter(|i| matches!(i.effect, crate::effects::Effect::LightWrap { .. }))
                         .map(|i| {
                             let at = posterized(comp, layer, frame);
-                            i.at_time(at, layer.key_time(at as f64))
+                            crate::expr::effect_at(comp, &layer.id, i, at, layer.key_time(at as f64)).0
                         })
                         .collect()
                 },
@@ -455,6 +460,35 @@ struct ResolvedLayer {
 /// The caller decides what to do with `opacity`: a drawn layer applies it at step 6, and a matte
 /// ignores it, because step 5 asks for the matte layer's post-transform *alpha* and opacity is a
 /// later step about how a layer joins the stack.
+/// D-293: a luma or inverted matte as the cover it gives, drawn once at the composition's size
+/// through its own transform and kept as alpha, so every renderer reads it as it reads an alpha
+/// matte. An alpha matte is returned as it is, so it draws exactly as before D-293.
+fn matte_coverage(
+    matte: render::MatteDraw,
+    mode: crate::model::MatteMode,
+    comp: &crate::model::Composition,
+) -> render::MatteDraw {
+    use crate::model::MatteMode as M;
+    use rayon::prelude::*;
+    if mode == M::Alpha {
+        return matte;
+    }
+    let (w, h) = (comp.width as usize, comp.height as usize);
+    let mut flat = render::average(&matte.source, &[Some(matte.transform)], w, h);
+    flat.data_mut().par_chunks_exact_mut(4).for_each(|p| {
+        let v = match mode {
+            // The picture luma of a premultiplied pixel: its colour over black, encoded.
+            M::Luma | M::LumaInverted => crate::grade::to_srgb(
+                (0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64).clamp(0.0, 1.0),
+            ),
+            M::Alpha | M::AlphaInverted => p[3] as f64,
+        };
+        let v = if matches!(mode, M::AlphaInverted | M::LumaInverted) { 1.0 - v } else { v };
+        p.copy_from_slice(&[0.0, 0.0, 0.0, v as f32]);
+    });
+    render::MatteDraw { source: std::sync::Arc::new(flat), transform: Affine::IDENTITY }
+}
+
 /// D-42: the layers some other layer uses as a matte-only source. They are still resolved as
 /// mattes; what the flag buys is that they are not also drawn in their own right, which is
 /// document 21's "not separately composited into the final stack".
@@ -946,7 +980,7 @@ fn card_effect(
                 | E::TurbulentDisplace { amount, .. }
                 | E::GradientMap { amount, .. } => *amount == 0.0,
                 E::FractalNoise { opacity, .. } => *opacity == 0.0,
-                E::ColorBalance { shadows, midtones, highlights } => {
+                E::ColorBalance { shadows, midtones, highlights, .. } => {
                     [shadows, midtones, highlights].iter().all(|t| t.iter().all(|v| *v == 0.0))
                 }
                 E::Offset { shift } => *shift == [0.0, 0.0],
@@ -1096,7 +1130,7 @@ pub(crate) fn posterized(comp: &crate::model::Composition, layer: &crate::model:
     let start = comp.start_frame as f64;
     let mut h = frame;
     for i in layer.effects.iter().filter(|i| i.enabled && matches!(i.effect, crate::effects::Effect::PosterizeTime { .. })) {
-        let now = i.at_time(h, layer.key_time(h as f64));
+        let now = crate::expr::effect_at(comp, &layer.id, i, h, layer.key_time(h as f64)).0;
         if !now.is_valid() {
             continue;
         }
@@ -1502,6 +1536,25 @@ fn decode_cel(
 /// `at` (D-196) is the frame the masks and effects are taken at, `frame` unless the layer is
 /// held by a Posterize Time.
 #[allow(clippy::too_many_arguments)]
+/// D-291: one effect as it is at the frame `at` (its keys read at `u`), its expressions run, and
+/// each that fails reported against the composition frame `frame`, as a layer's property is.
+fn effect_now(
+    comp: &crate::model::Composition,
+    layer: &crate::model::Layer,
+    instance: &crate::effects::EffectInstance,
+    frame: i32,
+    at: i32,
+    u: f64,
+    log: &mut FrameLog,
+) -> crate::effects::EffectInstance {
+    let (now, failed) = crate::expr::effect_at(comp, &layer.id, instance, at, u);
+    for (name, e) in failed {
+        let what = format!("{} {name}", instance.effect.name());
+        log.record(frame, format!("{}/{what}", layer.name), e.diagnostic(&layer.name, &what, frame));
+    }
+    now
+}
+
 fn resolve_rest(
     project: &Project,
     root: &Path,
@@ -1528,8 +1581,9 @@ fn resolve_rest(
     let card = card && times.len() < 2;
     // D-68: every setting is its value at this composition frame, so the stack below, its
     // bounds and the effect cache's key all hold plain numbers.
+    // D-291: and each setting with an expression, what it gives on that frame.
     let mut effects: Vec<crate::effects::EffectInstance> =
-        layer.effects.iter().map(|i| i.at_time(at, layer.key_time(at as f64))).collect();
+        layer.effects.iter().map(|i| effect_now(comp, layer, i, frame, at, layer.key_time(at as f64), log)).collect();
     // D-182: each Color Lookup's file, read, and what kept one from being read said once a frame.
     for d in crate::lut::fill(&mut effects, project, root, &layer.name) {
         log.record(frame, layer.name.clone(), d);

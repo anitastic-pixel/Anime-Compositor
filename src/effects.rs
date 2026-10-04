@@ -158,11 +158,14 @@ impl EffectInstance {
         let Some(count) = self.arity(name) else {
             return;
         };
-        if keys.is_empty() {
+        // D-291: an expression on the setting stays through any change of its keys.
+        let expression = self.tracks.get(name).and_then(|t| t[0].expression().cloned());
+        let mut track = vec![Property::constant(Value::Scalar(0.0)); count];
+        track[0].set_expression(expression);
+        if keys.is_empty() && track[0].expression().is_none() {
             self.tracks.remove(name);
             return;
         }
-        let mut track = vec![Property::constant(Value::Scalar(0.0)); count];
         for key in keys {
             for (c, property) in track.iter_mut().enumerate() {
                 property.set_keyframe(Keyframe {
@@ -176,6 +179,35 @@ impl EffectInstance {
             }
         }
         self.tracks.insert(name.to_string(), track);
+    }
+
+    /// D-291: the expression on the number setting `name`, or none. Its keys are kept, and a
+    /// setting with neither keys nor an expression is constant again.
+    pub(crate) fn set_expression(&mut self, name: &str, expression: Option<crate::model::Expression>) {
+        let track = self
+            .tracks
+            .entry(name.to_string())
+            .or_insert_with(|| vec![Property::constant(Value::Scalar(0.0))]);
+        track[0].set_expression(expression);
+        if track[0].keyframes().is_empty() && track[0].expression().is_none() {
+            self.tracks.remove(name);
+        }
+    }
+
+    /// D-291: one number setting of an instance already at its frame given an expression's
+    /// value, held in the setting's range as a key's is.
+    pub(crate) fn set_held(&mut self, name: &str, v: f64) {
+        self.set(name, &[v]);
+        for (_, slots, low, high) in self.effect.numbers() {
+            for v in slots {
+                *v = v.clamp(low, high);
+            }
+        }
+    }
+
+    /// D-291: the expression on the setting `name`, switched on or off.
+    pub fn expression(&self, name: &str) -> Option<&crate::model::Expression> {
+        self.tracks.get(name).and_then(|t| t[0].expression())
     }
 
     /// Every key of every setting `by` frames later, as a layer's other keys go with it.
@@ -217,7 +249,9 @@ impl EffectInstance {
         if let Some(bad) = self.invalid() {
             effect = bad;
         } else {
-            for (name, track) in &self.tracks {
+            // D-291: a setting with an expression and no keys is its constant until the
+            // expression is run, which needs the composition, in `expr::effect_at`.
+            for (name, track) in self.tracks.iter().filter(|(_, t)| !t[0].keyframes().is_empty()) {
                 let v: Vec<f64> = track
                     .iter()
                     .map(|p| p.value_at_time(u).as_scalar().unwrap_or(0.0))
@@ -589,10 +623,13 @@ pub enum Effect {
     },
     /// D-130: `shadows`, `midtones` and `highlights`, each red, green and blue, -100 to 100.
     /// Kept as written, so a tone of the wrong count is reported rather than refusing the file.
+    /// D-295: `preserve_luminosity`, "off" or "on", kept as written; a file from before it is
+    /// "off".
     ColorBalance {
         shadows: Vec<f64>,
         midtones: Vec<f64>,
         highlights: Vec<f64>,
+        preserve_luminosity: String,
     },
     /// D-131: `shift`, x then y in pixels, each -100000 to 100000, slid with wrap-around.
     Offset { shift: [f64; 2] },
@@ -1567,6 +1604,7 @@ impl Effect {
                 shadows,
                 midtones,
                 highlights,
+                ..
             } => vec![
                 ("shadows", shadows.iter_mut().collect(), -100.0, 100.0),
                 ("midtones", midtones.iter_mut().collect(), -100.0, 100.0),
@@ -2930,6 +2968,7 @@ impl Effect {
                 shadows,
                 midtones,
                 highlights,
+                preserve_luminosity,
             } => [("shadows", shadows), ("midtones", midtones), ("highlights", highlights)]
                 .into_iter()
                 .find(|(_, tone)| tone.len() != 3)
@@ -2938,6 +2977,11 @@ impl Effect {
                         "{name}'s {what} are three numbers, red, green and blue, and this has {}.",
                         tone.len()
                     )
+                })
+                .or_else(|| {
+                    (!["off", "on"].contains(&preserve_luminosity.as_str())).then(|| {
+                        format!("{name}'s preserve luminosity is \"off\" or \"on\", and this is \"{preserve_luminosity}\".")
+                    })
                 }),
             Effect::LightWrap { blend, .. } if !["screen", "add"].contains(&blend.as_str()) => {
                 Some(format!(
@@ -3865,9 +3909,16 @@ pub(crate) fn apply_stack_at(
                 shadows,
                 midtones,
                 highlights,
+                preserve_luminosity,
             } => crate::perf::time(crate::perf::Stage::EffectColorBalance, || {
                 let tone = |t: &[f64]| [t[0], t[1], t[2]];
-                crate::grade::color_balance(source, tone(shadows), tone(midtones), tone(highlights))
+                crate::grade::color_balance(
+                    source,
+                    tone(shadows),
+                    tone(midtones),
+                    tone(highlights),
+                    preserve_luminosity == "on",
+                )
             }),
             Effect::Offset { shift } => crate::perf::time(crate::perf::Stage::EffectOffset, || {
                 crate::layer_fx::offset(source, *shift)

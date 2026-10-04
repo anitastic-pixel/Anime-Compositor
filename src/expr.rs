@@ -69,7 +69,7 @@ impl ExprError {
     /// Document 28's shape, naming the property and the frame. An ERROR, as document 28 lists
     /// it, though the frame is still drawn with the property at its keyed value; it is the export
     /// that is refused.
-    pub fn diagnostic(&self, owner: &str, prop: Prop, frame: i32) -> Diagnostic {
+    pub fn diagnostic(&self, owner: &str, prop: impl std::fmt::Display, frame: i32) -> Diagnostic {
         Diagnostic::new(
             self.id,
             Severity::Error,
@@ -737,6 +737,7 @@ impl<'a> Run<'a> {
             wiggles: 0,
             randoms: 0,
             locals: HashMap::new(),
+            setting: None,
         };
         let out = scope.outcome(&text);
         self.stack.pop();
@@ -755,6 +756,67 @@ struct Scope<'r, 'a> {
     wiggles: u64,
     randoms: u64,
     locals: HashMap<String, V>,
+    /// D-291: the effect setting being run, when it is one rather than `prop`.
+    setting: Option<Setting<'a>>,
+}
+
+/// D-291: one number setting of an effect, its keys, its constant and its name, `fx/setting`.
+struct Setting<'a> {
+    property: &'a Property,
+    constant: f64,
+    name: String,
+}
+
+/// D-291: `instance` as it is at `frame` (keys read at `u`, as `EffectInstance::at_time` reads
+/// them), with each number setting that carries a switched-on expression set to what it gives,
+/// held in the setting's range as a key's value is. A failing expression leaves the setting at
+/// its keyed value and is given back by the setting's name, to be reported.
+pub fn effect_at(
+    comp: &Composition,
+    layer: &Id,
+    instance: &crate::effects::EffectInstance,
+    frame: i32,
+    u: f64,
+) -> (crate::effects::EffectInstance, Vec<(String, ExprError)>) {
+    let mut out = instance.at_time(frame, u);
+    let mut failed = Vec::new();
+    if !instance.is_valid() {
+        return (out, failed);
+    }
+    for (name, track) in &instance.tracks {
+        let Some(text) = track[0].live_expression() else {
+            continue;
+        };
+        let mut run = Run {
+            comp,
+            steps: 0,
+            stack: Vec::new(),
+        };
+        let mut scope = Scope {
+            run: &mut run,
+            target: Target::Layer(layer.clone()),
+            // Not read while `setting` is there; a one-number property that is no percentage.
+            prop: Prop::Rotation,
+            frame,
+            posterize: None,
+            user_seed: 0,
+            timeless: false,
+            wiggles: 0,
+            randoms: 0,
+            locals: HashMap::new(),
+            setting: Some(Setting {
+                property: &track[0],
+                constant: instance.effect.get(name).map_or(0.0, |v| v[0]),
+                name: format!("{}/{name}", instance.instance_id.as_str()),
+            }),
+        };
+        match scope.outcome(text) {
+            Ok(V::Num(n)) => out.set_held(name, n),
+            Ok(_) => unreachable!("a setting is one number, which the result check holds to"),
+            Err(e) => failed.push((name.clone(), e)),
+        }
+    }
+    (out, failed)
 }
 
 impl Scope<'_, '_> {
@@ -771,7 +833,7 @@ impl Scope<'_, '_> {
             }
         }
         let result = self.plain(result)?;
-        let dims = dims(self.prop);
+        let dims = self.dims();
         let numbers = match &result {
             V::Nothing => return Err(type_error("The expression ends without a value")),
             V::Text(_) => return Err(type_error("The expression ends on a text, not a number")),
@@ -780,7 +842,7 @@ impl Scope<'_, '_> {
             V::List(l) if dims == 1 => {
                 return Err(type_error(format!(
                     "{} is one number and the expression gives {}",
-                    self.prop,
+                    self.what(),
                     l.len()
                 )))
             }
@@ -817,6 +879,23 @@ impl Scope<'_, '_> {
             return Ok(V::Num(if r < 100.0 { r } else { 100.0 }));
         }
         Ok(result)
+    }
+
+    /// D-291: how many numbers the property being run is; a setting is one.
+    fn dims(&self) -> usize {
+        if self.setting.is_some() {
+            1
+        } else {
+            dims(self.prop)
+        }
+    }
+
+    /// The name of the property being run, in a sentence.
+    fn what(&self) -> String {
+        match &self.setting {
+            Some(s) => s.name.rsplit('/').next().unwrap_or_default().to_string(),
+            None => self.prop.to_string(),
+        }
     }
 
     fn step(&mut self) -> R<()> {
@@ -856,13 +935,21 @@ impl Scope<'_, '_> {
             Target::Camera => format!("{}/camera", self.run.comp.id.as_str()),
             Target::Layer(id) => id.as_str().to_string(),
         };
-        mix(
-            fnv1a64(&format!("{owner}/{}", self.prop.as_str())),
-            self.user_seed,
-        )
+        let name = match &self.setting {
+            Some(s) => s.name.as_str(),
+            None => self.prop.as_str(),
+        };
+        mix(fnv1a64(&format!("{owner}/{name}")), self.user_seed)
     }
 
     fn pre(&self, frame: i32) -> R<V> {
+        if let Some(s) = &self.setting {
+            return Ok(V::Num(if s.property.keyframes().is_empty() {
+                s.constant
+            } else {
+                s.property.value_at(frame).as_scalar().unwrap_or(s.constant)
+            }));
+        }
         self.run.keyed(&self.target, self.prop, frame)
     }
 
@@ -909,6 +996,13 @@ impl Scope<'_, '_> {
                 Ok(match name.as_str() {
                     "time" => V::Num(self.time()),
                     "value" => self.pre(self.frame)?,
+                    // D-291: an effect's setting is read as `value`; it is not a property
+                    // another expression can name, so it has no handle to give.
+                    "thisProperty" if self.setting.is_some() => {
+                        return Err(syntax(
+                            "On an effect's setting, use value for the setting's own number",
+                        ))
+                    }
                     "thisProperty" => V::Prop(self.target.clone(), self.prop, true),
                     "thisLayer" => match &self.target {
                         Target::Camera => {
@@ -1262,7 +1356,7 @@ impl Scope<'_, '_> {
                 v + amp * total
             })
             .collect();
-        Ok(if dims(self.prop) > 1 {
+        Ok(if self.dims() > 1 {
             V::List(out)
         } else {
             V::Num(out[0])
@@ -1397,7 +1491,10 @@ impl Scope<'_, '_> {
                 "loopOut's keyframe count is a whole number, zero or more",
             ));
         }
-        let keys: Vec<i64> = property(self.run.comp, &self.target, self.prop)?
+        let keys: Vec<i64> = match &self.setting {
+            Some(s) => Cow::Borrowed(s.property),
+            None => property(self.run.comp, &self.target, self.prop)?,
+        }
             .keyframes()
             .iter()
             .map(|k| k.frame as i64)

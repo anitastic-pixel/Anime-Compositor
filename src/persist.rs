@@ -61,7 +61,7 @@ use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::media::{self, SequenceAsset};
 use crate::model::{
     Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Keyframe,
-    Layer, LayerKind, MatteReference, Project, Prop, Property, Value,
+    Layer, LayerKind, MatteMode, MatteReference, Project, Prop, Property, Value,
 };
 use crate::time::{ExposureMap, ExposureSpan, FrameRate};
 use crate::{AlphaMode, ColorSpace};
@@ -622,7 +622,7 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
                 .cloned()
                 .unwrap_or_else(Map::new);
             map.insert("layer_id".into(), J::from(m.layer_id.as_str()));
-            map.insert("mode".into(), J::from("alpha"));
+            map.insert("mode".into(), J::from(m.mode.as_str()));
             map.insert("matte_only".into(), J::from(m.matte_only));
             J::Object(map)
         }
@@ -1470,9 +1470,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             shadows,
             midtones,
             highlights,
+            preserve_luminosity,
         } => {
             for (name, tone) in [("shadows", shadows), ("midtones", midtones), ("highlights", highlights)] {
                 params.insert(name.into(), J::Array(tone.iter().map(|v| num(*v)).collect()));
+            }
+            // D-295: written only when it is not "off", so a file that never turned it on saves
+            // as before.
+            if preserve_luminosity != "off" {
+                params.insert("preserve_luminosity".into(), J::from(preserve_luminosity.as_str()));
             }
         }
         Effect::Offset { shift } => {
@@ -2897,12 +2903,6 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
             continue;
         };
         let at = format!("{at}/parameters/{name}");
-        if record.get("expression").is_some() {
-            return Err(invalid(
-                &at,
-                "no expression: an effect's setting takes keys only",
-            ));
-        }
         let (count, what) = match name {
             "color" => (3, "a linear RGB triple"),
             "shadows" | "midtones" | "highlights" => (3, "three numbers, red, green and blue"),
@@ -2913,9 +2913,22 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
             }
             _ => (1, ""),
         };
-        let (base, track) = channel_track(record, &at, count, what)?;
+        // D-291: a number setting may carry D-59's expression; a colour or a point takes keys
+        // only.
+        let expression = match record.get("expression") {
+            Some(_) if count > 1 => {
+                return Err(invalid(
+                    &at,
+                    "no expression: a colour or a point takes keys only",
+                ))
+            }
+            Some(e) => Some(parse_expression(e, &format!("{at}/expression"))?),
+            None => None,
+        };
+        let (base, mut track) = channel_track(record, &at, count, what)?;
         plain.insert(name.into(), base);
-        if track[0].is_animated() {
+        track[0].set_expression(expression);
+        if track[0].is_animated() || track[0].expression().is_some() {
             tracks.insert(name.into(), track);
         }
     }
@@ -3631,6 +3644,11 @@ fn parse_effect(
             shadows: effect_list(params, "shadows", &at)?,
             midtones: effect_list(params, "midtones", &at)?,
             highlights: effect_list(params, "highlights", &at)?,
+            // D-295: a file from before Preserve Luminosity is "off", as it drew.
+            preserve_luminosity: match params.and_then(|p| p.get("preserve_luminosity")) {
+                Some(_) => effect_word(params, "preserve_luminosity", &at)?,
+                None => "off".to_string(),
+            },
         }),
         crate::effects::OFFSET => Some(crate::effects::Effect::Offset {
             shift: effect_array(params, "shift", "two numbers, x then y", &at)?,
@@ -4500,8 +4518,10 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         Some(m) => {
             let at = format!("{pointer}/matte");
             as_object(m, &at)?;
-            as_enum(field(m, &at, "mode")?, &format!("{at}/mode"), &["alpha"])?;
+            let words = MatteMode::ALL.map(MatteMode::as_str);
+            let mode = as_enum(field(m, &at, "mode")?, &format!("{at}/mode"), &words)?;
             Some(MatteReference {
+                mode: MatteMode::parse(mode).expect("as_enum kept it to the four words"),
                 layer_id: as_id(field(m, &at, "layer_id")?, &format!("{at}/layer_id"))?,
                 // D-42's flag. Absent means false, so a project written before it existed keeps
                 // rendering the way it did: the matte layer stays in the visible stack.
@@ -4653,12 +4673,6 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         "add" => BlendMode::Add,
         _ => BlendMode::Normal,
     };
-    if kind == LayerKind::Adjustment && blend_mode != BlendMode::Normal {
-        return Err(invalid(
-            &format!("{pointer}/blend_mode"),
-            "normal, the one blend mode an adjustment layer has (D-66)",
-        ));
-    }
     // D-82: a null has no picture, so nothing that works on one (FX-NULL-025 to 028).
     if kind == LayerKind::Null {
         let carried = [

@@ -130,6 +130,35 @@ impl FrameRate {
         i32::try_from(rounded).ok()
     }
 
+    /// A rate as a person types it: `24`, `12.5`, `24000/1001`, or a broadcast decimal such as
+    /// `23.976`, `29.97` or `59.94`, which is read as the exact n×1000/1001 it stands for
+    /// (document 20). Any other decimal is taken exactly, so `12.5` is 25/2. `None` for anything
+    /// that is not a rate above nought.
+    pub fn parse(text: &str) -> Option<Self> {
+        let text = text.trim();
+        if let Some((n, d)) = text.split_once('/') {
+            return Self::new(n.trim().parse().ok()?, d.trim().parse().ok()?).ok();
+        }
+        if let Ok(whole) = text.parse::<u32>() {
+            return Self::new(whole, 1).ok();
+        }
+        let value: f64 = text.parse().ok()?;
+        if !(value.is_finite() && value > 0.0 && value < 1_000_000.0) {
+            return None;
+        }
+        // 23.976 × 1.001 is 23.999976, and 23.98 × 1.001 is 24.004: that close to a whole
+        // number is a 1001 rate.
+        let broadcast = value * 1.001;
+        if (broadcast - broadcast.round()).abs() < 0.005 {
+            return Self::new(broadcast.round() as u32 * 1000, 1001).ok();
+        }
+        let (whole, fraction) = text.split_once('.')?;
+        let digits = fraction.len().min(6) as u32;
+        let scale = 10u32.pow(digits);
+        let fraction: u32 = fraction.get(..digits as usize)?.parse().ok()?;
+        Self::new(whole.parse::<u32>().ok()?.checked_mul(scale)?.checked_add(fraction)?, scale).ok()
+    }
+
     /// The conventional decimal label, for display only. Never stored, never read back.
     pub fn label(&self) -> String {
         if self.denominator == 1 {

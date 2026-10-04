@@ -27,7 +27,7 @@ What the solid looks like in the viewer, on the timeline and in the panels, and 
 | and after the three refusals it is as it was | [1,0,0] 960x1080, anchor [480,540] | [1,0,0] 960x1080, anchor [480,540] | pass |
 | one Undo takes back the width, anchor and all | [1,0,0] 1920x1080, anchor [960,540] | [1,0,0] 1920x1080, anchor [960,540] | pass |
 | a drawing's layer has no colour to set, and says so | "Cel" is not a solid, so it has no colour and size. | "Cel" is not a solid, so it has no colour and size. | pass |
-| unlike an adjustment layer, a solid takes any blend mode | multiply | multiply | pass |
+| a solid takes any blend mode | multiply | multiply | pass |
 | Delete layer takes it out | Cel, Solid 1 | Cel, Solid 1 | pass |
 | and Undo brings it back as the same solid | Cel, Solid 2, Solid 1; solid [1,0,0] 1920x1080, anchor [960,540] | Cel, Solid 2, Solid 1; solid [1,0,0] 1920x1080, anchor [960,540] | pass |
 

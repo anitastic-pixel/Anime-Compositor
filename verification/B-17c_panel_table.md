@@ -19,9 +19,8 @@ What the layer looks like on the timeline and in the panels, and whether the pic
 | Undo says what it would take back | Add layer Adjustment layer | Add layer Adjustment layer | pass |
 | with a layer chosen, the new one lands just above it | Cel, Grade, Adjustment layer | Cel, Grade, Adjustment layer | pass |
 | an effect is added to it as to any layer | 1 effect(s): core.exposure | 1 effect(s): core.exposure | pass |
-| a blend mode other than normal is refused, with the reason | "Grade" is an adjustment layer, which has no blend mode but normal. | "Grade" is an adjustment layer, which has no blend mode but normal. | pass |
-| and the layer still reads normal | normal | normal | pass |
+| a blend mode other than normal is taken (D-297) | multiply | multiply | pass |
 | Delete layer takes it out | Cel, Adjustment layer | Cel, Adjustment layer | pass |
 | and Undo brings it back as an adjustment layer, effect and all | Cel, Grade, Adjustment layer; adjustment with 1 effect(s) | Cel, Grade, Adjustment layer; adjustment with 1 effect(s) | pass |
 
-**11 of 11 checks pass.**
+**10 of 10 checks pass.**

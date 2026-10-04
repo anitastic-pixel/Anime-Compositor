@@ -358,6 +358,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 shadows: vec![0.0, 0.0, 40.0],
                 midtones: vec![-10.0, 5.0, 0.0],
                 highlights: vec![30.0, 10.0, -20.0],
+                preserve_luminosity: "off".to_string(),
             },
         ),
         (

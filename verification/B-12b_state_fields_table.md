@@ -157,7 +157,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.gradient_map` is an effect this build has | added | added | pass |
 | and the settings it sends for it - shadow_color, midtone_color, highlight_color, midpoint, amount - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.color_balance` is an effect this build has | added | added | pass |
-| and the settings it sends for it - shadows, midtones, highlights - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - shadows, midtones, highlights, preserve_luminosity - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.offset` is an effect this build has | added | added | pass |
 | and the settings it sends for it - shift - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.light_wrap` is an effect this build has | added | added | pass |

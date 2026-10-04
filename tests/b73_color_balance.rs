@@ -17,6 +17,7 @@ fn balance(shadows: &[f64], midtones: &[f64], highlights: &[f64]) -> Effect {
         shadows: shadows.to_vec(),
         midtones: midtones.to_vec(),
         highlights: highlights.to_vec(),
+        preserve_luminosity: "off".to_string(),
     }
 }
 

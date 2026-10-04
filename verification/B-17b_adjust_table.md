@@ -58,13 +58,13 @@ D-66, accepted by the owner on 2026-09-17. Every expected pixel is `Fixtures/adj
 | written back: `kind` is adjustment and there is no asset_id, source_offset_frames or exposure_spans | kind "adjustment", keys present: ["kind"] | yes |
 | and it opens again as the same layer | equal | yes |
 | an adjustment layer given an asset_id: PROJECT_SCHEMA_INVALID | Some(ProjectSchemaInvalid) | yes |
-| an adjustment layer with blend_mode multiply: PROJECT_SCHEMA_INVALID | Some(ProjectSchemaInvalid) | yes |
+| an adjustment layer with blend_mode multiply: opens (D-297) | opens | yes |
 
 ## Commands (document 24)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| layer.set_blend_mode multiply on an adjustment layer: COMMAND_INVALID_VALUE | Some(CommandInvalidValue) | yes |
+| layer.set_blend_mode multiply on an adjustment layer: accepted (D-297) | accepted | yes |
 | layer.set_blend_mode normal on one: accepted | accepted | yes |
 | a new adjustment layer needs no asset, and its anchor and position are the centre of the composition | added true, anchor Vec2(3.0, 1.0), position Vec2(3.0, 1.0) | yes |
 

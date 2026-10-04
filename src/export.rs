@@ -297,6 +297,38 @@ pub fn export_sequence_watched(
                 .with_remediation("Correct the expression, or switch it off, and export again."),
             );
         }
+        // D-291: and so does one on an effect's setting.
+        for layer in comp.layers_in_order() {
+            for i in layer.effects.iter().filter(|i| {
+                i.tracks.values().any(|t| t[0].live_expression().is_some())
+            }) {
+                let mut failing: Vec<(i32, String, crate::expr::ExprError)> = Vec::new();
+                for &f in &frames {
+                    let (_, failed) =
+                        crate::expr::effect_at(comp, &layer.id, i, f, layer.key_time(f as f64));
+                    failing.extend(failed.into_iter().map(|(name, e)| (f, name, e)));
+                }
+                let Some((first, name, e)) = failing.first() else {
+                    continue;
+                };
+                refused = true;
+                let at: Vec<i32> = failing.iter().map(|(f, ..)| *f).collect();
+                report.diagnostics.push(
+                    Diagnostic::new(
+                        e.id,
+                        Severity::Error,
+                        format!(
+                            "The expression on {}'s {} {name} does not work at frame {first}, so \
+                             nothing was exported.",
+                            layer.name,
+                            i.effect.name()
+                        ),
+                        format!("{}. It fails on frames {}.", e.message, ranges(&at)),
+                    )
+                    .with_remediation("Correct the expression, or switch it off, and export again."),
+                );
+            }
+        }
         if refused {
             report.status = ExportStatus::Blocked;
             return report;

@@ -1556,6 +1556,10 @@
   .cdlg .sample.plus { height: auto; border: 0; text-align: center; color: #8e8e96; }
   .cdlg .readback { height: 32px; display: flex; align-items: center; margin-top: 4px; color: #fff; }
   .cdlg .preview { margin-right: auto; gap: 8px; }
+  .sdlg { width: 360px; }
+  .sdlg .sb { padding: 8px 14px 10px; }
+  .sdlg #solidname { flex-grow: 1; }
+  .sdlg input[type=color] { width: 64px; height: 26px; padding: 0 2px; background: #151517; border: 1px solid #3a3a40; border-radius: 4px; }
   .pdlg { width: 860px; border-color: #45454b; }
   .pdlg .ph { height: 44px; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #333338; box-sizing: border-box; }
   .pdlg #precomptitle { color: #fff; font-size: 15px; font-weight: 600; }
@@ -1994,7 +1998,7 @@
         <label for="prefheight">Height in pixels</label>
         <input id="prefheight" type="number" min="1" value="1080">
         <label for="preffps">Frames per second</label>
-        <input id="preffps" type="number" min="1" value="24">
+        <input id="preffps" type="number" min="1" step="any" value="24">
         <label for="prefframes">Length in frames</label>
         <input id="prefframes" type="number" min="1" value="240">
         <h3>Memory</h3>
@@ -2388,8 +2392,8 @@
         <div class="fr"><label class="lb" for="compheight">Height</label><input id="compheight" type="number" min="1" value="1080"><span class="dim">px</span>
           <label class="lock"><input id="complock" type="checkbox" checked> Lock shape to <span id="compaspect">16:9 (1.78)</span></label></div>
         <div class="fr"><span class="lb">Pixel shape</span><select disabled><option>Square pixels</option></select><span class="dim">frame is <span id="compaspect2">16:9 (1.78)</span></span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-275. Every pixel is square today.">proposed</span></div>
-        <div class="fr"><label class="lb" for="compfps">Frame rate</label><input id="compfps" type="number" min="1" value="24" list="compfpslist"><span class="dim">frames per second</span>
-          <datalist id="compfpslist"><option value="12"><option value="24"><option value="25"><option value="30"><option value="48"><option value="60"></datalist></div>
+        <div class="fr"><label class="lb" for="compfps">Frame rate</label><input id="compfps" type="number" min="1" step="any" value="24" list="compfpslist"><span class="dim">frames per second</span>
+          <datalist id="compfpslist"><option value="12"><option value="23.976"><option value="24"><option value="25"><option value="29.97"><option value="30"><option value="48"><option value="59.94"><option value="60"></datalist></div>
         <div class="fr"><span class="lb">Resolution</span><select disabled><option>Full</option></select><span class="dim" id="compres"></span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-275. The viewer's Draft button sets it for every composition today.">proposed</span></div>
         <div class="fr"><span class="lb">Start frame</span><input id="compstart" type="number" value="0" disabled><span class="dim">the ruler's first number</span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-275.">proposed</span></div>
         <div class="fr"><label class="lb" for="compframes">Length</label><input id="compframes" type="number" min="1" value="240"><span class="dim">frames</span><span id="complength" class="blue"></span></div>
@@ -2452,6 +2456,18 @@
     <label><input id="precompmap" type="checkbox"> Show the flowchart after</label>
   </div>
   <div class="ft"><span class="dim legend"><span class="fx">fx</span> an effect &nbsp; <span class="dia"></span> a key</span><span class="grow"></span><button id="cancelprecomp">Cancel <span class="dim">Esc</span></button><button id="makeprecomp" class="pri">Pre-compose <span class="k">Enter</span></button></div>
+</dialog>
+<!-- D-296: After Effects' Solid Settings, asked before a new solid is made: its name, size and colour. -->
+<dialog id="soliddialog" class="dlg sdlg" aria-labelledby="solidtitle">
+  <div class="dt"><span id="solidtitle">Solid Settings</span><span class="grow"></span><span class="dim">Ctrl+Y</span></div>
+  <div class="sb">
+    <div class="fr"><label class="lb" for="solidname">Name</label><input id="solidname" type="text"></div>
+    <div class="fr"><label class="lb" for="solidwidth">Width</label><input id="solidwidth" type="number" min="1" max="8192" step="1"><span class="dim">px</span></div>
+    <div class="fr"><label class="lb" for="solidheight">Height</label><input id="solidheight" type="number" min="1" max="8192" step="1"><span class="dim">px</span></div>
+    <div class="fr"><span class="lb"></span><button id="solidcompsize">Make Comp Size</button></div>
+    <div class="fr"><label class="lb" for="solidcolour">Colour</label><input id="solidcolour" type="color" value="#808080"></div>
+  </div>
+  <div class="ft"><button id="cancelsolid">Cancel <span class="dim">Esc</span></button><button id="makesolid" class="pri">OK <span class="k">Enter</span></button></div>
 </dialog>
 <!-- D-84e: how to print the Sheet. The browser's own dialog, so Escape leaves it. -->
 <dialog id="printdialog" aria-labelledby="printtitle">
@@ -4763,7 +4779,7 @@ function drawLayers() {
       blur.setAttribute('aria-pressed', String(!!layer.motion_blur));
     }
     // B-17c: an adjustment layer has normal and no list to choose from (D-66).
-    head.append(eye, solo, lock, swatch, num, twirl, cell, shy, blur, !adjust && !sound && !nul ? blend : blank(), parent);
+    head.append(eye, solo, lock, swatch, num, twirl, cell, shy, blur, !sound && !nul ? blend : blank(), parent);
     li.append(head);
     if (comp) li.append(track(comp, layer, drawingsOf(layer)));
     grabRow(li, head, all, layer);
@@ -5631,7 +5647,7 @@ function layerGroups(comp, layer) {
   if (fx.length) group('effects', 'Effects', () => tracks(fx, 1));
   if (layer.kind !== 'null') {
     group('blending', 'Blending', () => [
-      ...(layer.kind !== 'adjustment' ? [plainRow(layer, 'Blend mode', [blendSelect(layer)], 1)] : []),
+      plainRow(layer, 'Blend mode', [blendSelect(layer)], 1),
       plainRow(layer, 'Track matte', matteControls(layer), 1),
     ]);
   }
@@ -5794,7 +5810,8 @@ function propTrack(comp, layer, prop) {
   const label = document.createElement('span');
   label.className = 'name';
   label.textContent = 'Expression';
-  rowHead.append(expr.toggle, whip(layer, prop), label);
+  // D-83's value whip links transforms; an effect's setting has its expression typed.
+  rowHead.append(expr.toggle, ...(isFx(prop) ? [] : [whip(layer, prop)]), label);
   const rowBody = document.createElement('div');
   rowBody.className = 'exprtrack';
   rowBody.append(expr.box);
@@ -5997,10 +6014,12 @@ async function askForBoxes() {
   // B-14c: and so do an expression's, and whether it is failing on this frame.
   if (layer && propsOf(layer).some((prop) => keysOf(layer, prop).length || exprOf(layer, prop))) {
     drawInspector();
+    // D-291: and Effect Controls, whose keyed and expression settings change with the frame too.
+    if (propsOf(layer).some(isFx) && !typingExpression()) drawEffects();
   }
   const camera = cameraRow();
   if (camera && CAMERA_PROPS.some((prop) => exprOf(camera, prop))) drawCamera();
-  if (!dragFlight && !dragging && (layers().some((l) => PROPS.some((prop) => exprOf(l, prop)))
+  if (!dragFlight && !dragging && (layers().some((l) => propsOf(l).some((prop) => exprOf(l, prop)))
     || (camera && CAMERA_PROPS.some((prop) => exprOf(camera, prop))))) drawLayers();
 }
 
@@ -8154,7 +8173,8 @@ const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
   : layer.kind === 'audio' ? []
   : PROPS.flatMap((prop) => (prop === 'position' && isSplit(layer) ? ['position_x', 'position_y'] : [prop]))
     .concat((layer.effects || []).flatMap((fx) => Object.keys(fx.parameters || {}).concat('mix')
-    .filter((name) => keysOf(layer, fxName(fx, name)).length).map((name) => fxName(fx, name))))
+    .filter((name) => keysOf(layer, fxName(fx, name)).length || exprOf(layer, fxName(fx, name)))
+    .map((name) => fxName(fx, name))))
     .concat(['mask', 'shape'].flatMap((kind) => pathsNamed(layer, kind).map((_, at) => kind + ':' + at))
       .filter((prop) => keysOf(layer, prop).length))
     .concat((layer.shapes || []).flatMap((_, at) => SHAPE_PROPS
@@ -8252,6 +8272,16 @@ function transformValue(layer, prop) {
   return Array.isArray(held) ? held.slice() : [held];
 }
 
+// D-291: what can carry an expression. A shape's numbers (D-168..D-170) take keys only; an effect's
+// setting takes one when it is a single number, and its colours, points and Mix take keys only.
+function takesExpr(layer, prop) {
+  if (isGrad(prop) || isPath(prop)) return false;
+  if (!isFx(prop)) return true;
+  const [fx, name] = fxParts(layer, prop);
+  const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
+  return !!known && known[2] === 1;
+}
+
 // W-10: the diamond beside a property. Document 24's `keyframe.add_remove`: hollow where the
 // frame on screen has no key for this property and a press sets one, filled where it has and
 // a press removes it. Which of the two is the window's reading of the document, not the page's.
@@ -8264,8 +8294,8 @@ function keyButton(layer, prop) {
   button.textContent = on ? '◆' : '◇';
   button.title = (on ? 'Remove the ' : 'Add a ') + propLabel(layer, prop) + ' keyframe at frame ' + frame
     + (keys.length ? ' (' + keys.length + ' keyframe' + (keys.length === 1 ? '' : 's') + ')' : '');
-  // B-19d: D-68 gives an effect's setting keys and no expression.
-  if (!isFx(prop) && !isGrad(prop)) button.title += exprOf(layer, prop)
+  // D-291: an effect's one-number setting takes an expression as well as keys.
+  if (takesExpr(layer, prop)) button.title += exprOf(layer, prop)
     ? '. Alt-click removes the expression' : '. Alt-click adds an expression';
   button.setAttribute('aria-label', button.title);
   button.setAttribute('aria-pressed', on);
@@ -8273,7 +8303,7 @@ function keyButton(layer, prop) {
     // B-14c: Alt with it adds an expression to the property, or takes it away, as Alt on
     // After Effects' stopwatch does. The owner asked for this on 2026-09-16. W-23 had Alt take
     // every key off; pressing the property's name and then Delete still does that.
-    if (e.altKey && !isFx(prop) && !isGrad(prop)) {
+    if (e.altKey && takesExpr(layer, prop)) {
       toggleExpression(layer, prop, button.closest('#layers') ? 'track' : 'panel');
       return;
     }
@@ -8281,7 +8311,7 @@ function keyButton(layer, prop) {
   };
   // After Effects' Alt+Shift+= on the diamond that has the keyboard does the same.
   button.onkeydown = (e) => {
-    if (e.altKey && e.shiftKey && (e.key === '=' || e.key === '+') && !isFx(prop) && !isGrad(prop)) {
+    if (e.altKey && e.shiftKey && (e.key === '=' || e.key === '+') && takesExpr(layer, prop)) {
       e.preventDefault();
       e.stopPropagation();
       toggleExpression(layer, prop, button.closest('#layers') ? 'track' : 'panel');
@@ -8318,10 +8348,11 @@ function exprParts(layer, prop, where) {
   const expression = exprOf(layer, prop);
   if (!expression) return null;
   const on = expression.enabled !== false;
+  const named = isFx(prop) ? propLabel(layer, prop) : prop;
   const toggle = document.createElement('button');
   toggle.className = 'exprswitch' + (on ? '' : ' off');
   toggle.textContent = on ? '=' : '≠';
-  toggle.title = (on ? 'Switch off' : 'Switch on') + ' the ' + prop
+  toggle.title = (on ? 'Switch off' : 'Switch on') + ' the ' + named
     + ' expression. Switched off, it is kept and the property is its keyed value';
   toggle.setAttribute('aria-label', toggle.title);
   toggle.setAttribute('aria-pressed', String(on));
@@ -8335,9 +8366,9 @@ function exprParts(layer, prop, where) {
   const fit = () => { text.rows = Math.max(1, text.value.split('\n').length); };
   fit();
   text.spellcheck = false;
-  text.title = 'The ' + prop + ' expression. Click away or press Ctrl+Enter to apply it, '
+  text.title = 'The ' + named + ' expression. Click away or press Ctrl+Enter to apply it, '
     + 'Escape to put it back. Emptied, it is removed';
-  text.setAttribute('aria-label', 'Expression on ' + prop);
+  text.setAttribute('aria-label', 'Expression on ' + named);
   const apply = () => {
     if (text.value === expression.text) return Promise.resolve();
     return setExpression(layer, prop, text.value.trim() === '' ? null : text.value, on);
@@ -8370,7 +8401,7 @@ function exprParts(layer, prop, where) {
     const said = document.createElement('p');
     said.className = 'exprerror';
     said.setAttribute('role', 'status');
-    said.textContent = '⚠ ' + failing + ' The ' + prop + ' is drawn at its keyed value.';
+    said.textContent = '⚠ ' + failing + ' The ' + named + ' is drawn at its keyed value.';
     box.append(said);
   }
   return { toggle, box };
@@ -8527,7 +8558,18 @@ function matteControls(layer) {
   label.append(only, 'matte only');
   label.title = 'Keep the matte layer out of the visible stack';
   label.onclick = (e) => e.stopPropagation();
-  return [chooser, ' ', label];
+  if (!held) return [chooser, ' ', label];
+  // D-293: what of the matte covers, as After Effects' Track Matte mode.
+  const mode = document.createElement('select');
+  mode.className = 'blend';
+  mode.setAttribute('aria-label', 'Matte mode for ' + layer.name);
+  mode.append(new Option('Alpha', 'alpha'), new Option('Alpha inverted', 'alpha_inverted'),
+    new Option('Luma', 'luma'), new Option('Luma inverted', 'luma_inverted'));
+  mode.value = held.mode || 'alpha';
+  mode.onclick = (e) => e.stopPropagation();
+  mode.onchange = () => command('/layer.set_matte_mode?layer=' + encodeURIComponent(layer.id)
+    + '&mode=' + mode.value);
+  return [chooser, ' ', mode, ' ', label];
 }
 
 // D-57: which layer this one rides on. The frame goes with it because document 21 works the
@@ -9945,6 +9987,8 @@ const EFFECT_WORDS = {
   'core.gradient_map': {
     colours: [['shadow_color', 'Shadow Colour'], ['midtone_color', 'Midtone Colour'], ['highlight_color', 'Highlight Colour']],
   },
+  // D-295.
+  'core.color_balance': { choices: [['preserve_luminosity', 'Preserve Luminosity', [['off', 'Off'], ['on', 'On']]]] },
   // D-132.
   'core.light_wrap': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['add', 'Add']]]] },
   // D-134.
@@ -11021,6 +11065,12 @@ function effectRow(layer, fx, at, of) {
       dd.append(slide);
     }
     dl.append(dt, dd, ...(rgb ? [rgb] : []));
+    // D-291: its expression, under it as under a transform's property.
+    const expr = exprParts(layer, fxName(fx, name), 'panel');
+    if (expr) {
+      dt.append(' ', expr.toggle);
+      dl.append(expr.box);
+    }
   }
   // The card's picture, above its numbers, as After Effects puts it.
   const k = { fields, words, live, close, send: () => sendParameters(), redraws };
@@ -12643,7 +12693,8 @@ function drawPanels() {
   // W-41: the name in the tab, what it is at the tab's right, as the Sandbox has it.
   $('comp').textContent = comp ? comp.name : 'No composition is open.';
   $('compsize').textContent = comp ? comp.width + '\u00d7' + comp.height + ' \u00b7 '
-    + Math.round(comp.frame_rate.numerator / comp.frame_rate.denominator) + ' fps \u00b7 '
+    + (comp.frame_rate.denominator === 1 ? comp.frame_rate.numerator
+      : (comp.frame_rate.numerator / comp.frame_rate.denominator).toFixed(3)) + ' fps \u00b7 '
     + comp.duration_frames + ' frames' : '';
   askStrip();
   $('addlayer').disabled = !selectedAsset;
@@ -13345,13 +13396,40 @@ $('addadjust').onclick = () => {
   const at = layers().findIndex((l) => l.id === selectedLayer);
   command('/layer.add_adjustment' + (at < 0 ? '' : '?to=' + (at + 1)));
 };
-// B-23c: D-74's solid, placed as the adjustment layer is. Its colour and size are then the
-// layer panel's.
+// B-23c: D-74's solid, placed as the adjustment layer is. D-296: asked first in After Effects'
+// Solid Settings, its name, size and colour; the size starts at the composition's, and the colour at
+// the last one made this session.
+let solidAt = -1;
 $('addsolid').onclick = () => {
-  if (!composition()) return;
-  const at = layers().findIndex((l) => l.id === selectedLayer);
-  command('/layer.add_solid' + (at < 0 ? '' : '?to=' + (at + 1)));
+  const comp = composition();
+  if (!comp) return;
+  solidAt = layers().findIndex((l) => l.id === selectedLayer);
+  const taken = new Set(layers().map((l) => l.name));
+  let n = 1;
+  while (taken.has('Solid ' + n)) n++;
+  $('solidname').value = 'Solid ' + n;
+  $('solidwidth').value = comp.width;
+  $('solidheight').value = comp.height;
+  $('soliddialog').showModal();
+  $('solidname').select();
 };
+$('solidcompsize').onclick = () => {
+  $('solidwidth').value = composition().width;
+  $('solidheight').value = composition().height;
+};
+$('cancelsolid').onclick = () => $('soliddialog').close();
+$('makesolid').onclick = () => {
+  const name = $('solidname').value.trim();
+  if (!name) { $('solidname').focus(); return; }
+  $('soliddialog').close();
+  const at = solidAt;
+  command('/layer.add_solid?' + (at < 0 ? '' : 'to=' + (at + 1) + '&') + 'name=' + encodeURIComponent(name)
+    + '&width=' + encodeURIComponent($('solidwidth').value) + '&height=' + encodeURIComponent($('solidheight').value)
+    + '&color=' + linearOf($('solidcolour').value).join(','));
+};
+$('soliddialog').addEventListener('keydown', (k) => {
+  if (k.key === 'Enter' && !k.isComposing && k.target.tagName !== 'BUTTON') { k.preventDefault(); $('makesolid').click(); }
+});
 // B-25c: D-78's shape layer, placed as the solid is, and empty: its shapes are drawn on the
 // picture with the pen, the rectangle and the ellipse, so the pen is put in hand.
 $('addshape').onclick = async () => {
@@ -13548,7 +13626,9 @@ function compSettings() {
   $('compname').value = comp.name;
   $('compwidth').value = comp.width;
   $('compheight').value = comp.height;
-  $('compfps').value = number(comp.frame_rate.numerator / comp.frame_rate.denominator);
+  // D-290: 24000/1001 shows as 23.976, which reads back as the same exact rate.
+  const rate = comp.frame_rate.numerator / comp.frame_rate.denominator;
+  $('compfps').value = comp.frame_rate.denominator === 1 ? String(rate) : rate.toFixed(3);
   $('compframes').value = comp.duration_frames;
   const details = comp.sheet_details || {};
   for (const [k, box] of SHEET_DETAILS) $(box).value = typeof details[k] === 'string' ? details[k] : '';
@@ -14657,7 +14737,8 @@ $('preferences').onclick = () => {
 for (const [f, box] of PREF_FIELDS) {
   $(box).addEventListener('input', (e) => {
     const n = Number(e.target.value);
-    if (Number.isInteger(n) && n > 0) { prefs[f] = n; savePrefs(); }
+    // D-290: the frame rate may be 23.976 and the like; the others are whole numbers.
+    if ((f === 'fps' || Number.isInteger(n)) && n > 0) { prefs[f] = n; savePrefs(); }
   });
 }
 $('closeprefs').onclick = () => { $('prefs').hidden = true; };
@@ -15737,7 +15818,7 @@ addEventListener('keydown', (e) => {
     if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) e.preventDefault();
     return;
   }
-  if ($('newcomposition').open || $('precompdialog').open) return;
+  if ($('newcomposition').open || $('precompdialog').open || $('soliddialog').open) return;
   const el = e.target instanceof Element
     ? e.target.closest('button, select, input, textarea, .scrub, [contenteditable]') : null;
   const typing = renaming || (el && ((el.tagName === 'INPUT' && el.type !== 'checkbox')

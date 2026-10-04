@@ -704,6 +704,39 @@ pub struct MatteReference {
     /// False is the neutral value and the one a file that predates D-42 gets, which leaves such
     /// a project rendering exactly as it did before.
     pub matte_only: bool,
+    /// D-293: what of the matte layer covers. Alpha is the only mode before D-293 and the one a
+    /// file without a mode, or a matte set without one, gets.
+    pub mode: MatteMode,
+}
+
+/// D-293: After Effects' four track matte modes. Luma is the matte's picture luma, its colour
+/// over black in display values, as Gradient Wipe reads a map; inverted is one minus the value,
+/// so where the matte layer has nothing an inverted matte covers fully.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum MatteMode {
+    #[default]
+    Alpha,
+    AlphaInverted,
+    Luma,
+    LumaInverted,
+}
+
+impl MatteMode {
+    pub const ALL: [MatteMode; 4] = [MatteMode::Alpha, MatteMode::AlphaInverted, MatteMode::Luma, MatteMode::LumaInverted];
+
+    /// The word the file and the window use.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            MatteMode::Alpha => "alpha",
+            MatteMode::AlphaInverted => "alpha_inverted",
+            MatteMode::Luma => "luma",
+            MatteMode::LumaInverted => "luma_inverted",
+        }
+    }
+
+    pub fn parse(word: &str) -> Option<MatteMode> {
+        MatteMode::ALL.into_iter().find(|m| m.as_str() == word)
+    }
 }
 
 /// Document 19's layer kind: `raster` shows a drawing, `adjustment` (D-66) has none, and

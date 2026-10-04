@@ -61,7 +61,7 @@ use anime_compositor::audio;
 use anime_compositor::media;
 use anime_compositor::lut;
 use anime_compositor::model::{
-    Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Keyframe, Layer, LayerKind, Marker, Project,
+    Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Interpretation, Keyframe, Layer, LayerKind, Marker, MatteMode, Project,
     Prop, Property, Solid, Value,
 };
 use anime_compositor::package::{self, Answer};
@@ -753,11 +753,11 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
         .composition(&taken.composition)
         .map(|comp| {
             use anime_compositor::expr;
-            let mut failed = |row: &str, prop: Prop, e: Option<expr::ExprError>| {
+            let mut failed = |row: &str, prop: &str, e: Option<expr::ExprError>| {
                 if let Some(e) = e {
                     errors
                         .entry(row.to_string())
-                        .or_insert_with(|| serde_json::json!({}))[prop.as_str()] =
+                        .or_insert_with(|| serde_json::json!({}))[prop] =
                         serde_json::json!(format!("{}: {}.", e.id.as_str(), e.message));
                 }
             };
@@ -774,7 +774,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                             // B-19g: `resolve` costs a read of the keys where there is no
                             // expression, and knows a separated position's halves may have one.
                             let (value, e) = expr::resolve(comp, property, target, prop, frame);
-                            failed(layer.id.as_str(), prop, e);
+                            failed(layer.id.as_str(), prop.as_str(), e);
                             // D-22: the file holds a scale as a percentage, and a whole
                             // number as a whole number, so the panel reads 100 and not 100.0.
                             let factor = if prop == Prop::Scale { 100.0 } else { 1.0 };
@@ -804,7 +804,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                     }
                     let plane = layer.depth.as_ref().map_or(0.0, |d| {
                         let (v, e) = expr::resolve(comp, d, target, Prop::Depth, frame);
-                        failed(layer.id.as_str(), Prop::Depth, e);
+                        failed(layer.id.as_str(), Prop::Depth.as_str(), e);
                         v.as_scalar().unwrap_or(0.0)
                     });
                     at.insert(
@@ -817,10 +817,17 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                         },
                     );
                     // B-19d: and every keyed setting of its effects, under the name the page
-                    // gives it, for the reason the depth is here.
-                    for fx in &layer.effects {
+                    // gives it, for the reason the depth is here. D-291: and every one with an
+                    // expression, after it, with the reason beside one that fails.
+                    for fx in layer.effects.iter().filter(|fx| !fx.tracks.is_empty()) {
+                        let (now, failures) =
+                            expr::effect_at(comp, &layer.id, fx, frame, frame as f64);
+                        for (name, e) in failures {
+                            let prop = format!("fx:{}:{name}", fx.instance_id);
+                            failed(layer.id.as_str(), &prop, Some(e));
+                        }
                         for name in fx.tracks.keys() {
-                            if let Some(v) = fx.at(frame).get(name) {
+                            if let Some(v) = now.get(name) {
                                 at.insert(
                                     format!("fx:{}:{name}", fx.instance_id),
                                     serde_json::json!(v),
@@ -925,7 +932,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                     prop,
                     frame,
                 );
-                failed(CAMERA_ROW, prop, e);
+                failed(CAMERA_ROW, prop.as_str(), e);
                 let value = match value {
                     Value::Scalar(v) => nice(v),
                     Value::Vec2(x, y) => serde_json::json!([nice(x), nice(y)]),
@@ -3518,11 +3525,13 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             midpoint: 50.0,
             amount: 100.0,
         }),
-        // D-130: all nine at 0, which changes nothing.
+        // D-130: all nine at 0, which changes nothing. D-295: Preserve Luminosity on, as After
+        // Effects starts it.
         COLOR_BALANCE => Some(Effect::ColorBalance {
             shadows: vec![0.0; 3],
             midtones: vec![0.0; 3],
             highlights: vec![0.0; 3],
+            preserve_luminosity: "on".to_string(),
         }),
         // D-131: no shift, which changes nothing.
         OFFSET => Some(Effect::Offset { shift: [0.0, 0.0] }),
@@ -4342,6 +4351,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                 shadows: tone("shadows")?,
                 midtones: tone("midtones")?,
                 highlights: tone("highlights")?,
+                preserve_luminosity: word("preserve_luminosity")?,
             })
         }
         OFFSET => Ok(Effect::Offset {
@@ -4901,6 +4911,7 @@ const ANSWERS: &[&str] = &[
     "layer.set_gain",
     "layer.set_label",
     "layer.set_matte",
+    "layer.set_matte_mode",
     "layer.set_parent",
     "layer.set_time_stretch",
     "layer.shift",
@@ -5470,11 +5481,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             };
             let frame_rate = match parameter(query, "fps") {
                 None => comp.frame_rate,
-                Some(text) => match text.trim().parse::<u32>().map(|r| FrameRate::new(r, 1)) {
-                    Ok(Ok(rate)) => rate,
-                    _ => {
+                // D-290: 23.976 and the other broadcast rates are their exact 1001 fractions.
+                Some(text) => match FrameRate::parse(&text) {
+                    Some(rate) => rate,
+                    None => {
                         return Some(format!(
-                            "\"{}\" is not a frame rate. Send a whole number above nought.",
+                            "\"{}\" is not a frame rate. Send a number above nought, such as \
+                             24, 23.976 or 29.97.",
                             text.trim()
                         ))
                     }
@@ -5669,6 +5682,14 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             matte: Some(target),
                             matte_only: matte.matte_only,
                         });
+                        // D-293: and its mode, which a new matte starts without.
+                        if matte.mode != MatteMode::Alpha {
+                            mattes.push(Command::SetMatteMode {
+                                composition: composition.clone(),
+                                layer_id: new_id(at),
+                                mode: matte.mode,
+                            });
+                        }
                     }
                 }
                 commands.push(Command::AddLayer {
@@ -5801,6 +5822,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                 matte: Some(new_id(other)),
                                 matte_only: matte.matte_only,
                             });
+                            if matte.mode != MatteMode::Alpha {
+                                mattes.push(Command::SetMatteMode {
+                                    composition: copy.clone(),
+                                    layer_id: new_id(at),
+                                    mode: matte.mode,
+                                });
+                            }
                         }
                     }
                     if let Some(parent) = &layer.parent {
@@ -5852,26 +5880,30 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     }),
                 }
             };
-            let (width, height, rate, frames) = match (
+            let (width, height, frames) = match (
                 number("width", 1920),
                 number("height", 1080),
-                number("fps", 24),
                 number("frames", 240),
             ) {
-                (Ok(w), Ok(h), Ok(r), Ok(f)) => (w, h, r, f),
-                (Err(said), _, _, _)
-                | (_, Err(said), _, _)
-                | (_, _, Err(said), _)
-                | (_, _, _, Err(said)) => return Some(said),
+                (Ok(w), Ok(h), Ok(f)) => (w, h, f),
+                (Err(said), _, _) | (_, Err(said), _) | (_, _, Err(said)) => return Some(said),
             };
-            // The rate goes through the core's own constructor, so a zero is refused by the
-            // rule that owns it rather than by a second copy of that rule written here.
-            let Ok(frame_rate) = FrameRate::new(rate, 1) else {
-                return Some(
+            // The rate goes through the core's own reader, so a zero is refused by the rule that
+            // owns it rather than by a second copy of that rule written here. D-290: 23.976 and
+            // the other broadcast rates are their exact 1001 fractions.
+            let fps = parameter(query, "fps").unwrap_or_else(|| "24".to_string());
+            let Some(frame_rate) = FrameRate::parse(&fps) else {
+                return Some(if fps.trim().parse::<f64>() == Ok(0.0) {
                     "A frame rate of zero is not a frame rate. Twenty-four is the one the \
                      reference shot uses."
-                        .to_string(),
-                );
+                        .to_string()
+                } else {
+                    format!(
+                        "\"{}\" is not a frame rate. Send a number above nought, such as 24, \
+                         23.976 or 29.97.",
+                        fps.trim()
+                    )
+                });
             };
             let composition = {
                 let held = viewer.lock().expect("the viewer lock was poisoned");
@@ -5905,8 +5937,9 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             if made {
                 show(viewer, &id);
                 return Some(format!(
-                    "{said}, {width}x{height} at {rate} fps, {frames} frames. It is empty; \
-                     import drawings and add layers to fill it."
+                    "{said}, {width}x{height} at {} fps, {frames} frames. It is empty; \
+                     import drawings and add layers to fill it.",
+                    frame_rate.label()
                 ));
             }
             return Some(said);
@@ -6446,35 +6479,58 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             // lost: its error is shown beside the property until it is fixed or switched off.
             let camera = parameter(query, "target").as_deref() == Some("camera");
             let name = parameter(query, "prop").unwrap_or_default();
-            let chosen = if camera {
-                anime_compositor::model::CameraProp::from_str(&name).map(prop_of_camera)
-            } else {
-                property(&name)
-            };
-            let Some(prop) = chosen else {
-                return Some(format!(
-                    "\"{name}\" is not a property that can carry an expression."
-                ));
-            };
-            let target = if camera {
-                Target::Camera
-            } else {
+            // D-291: an effect's number setting, named `fx:<instance>:<setting>` as for its keys.
+            if let Some((instance_id, setting)) = effect_setting(&name) {
                 let Some(layer_id) = parameter(query, "layer").map(Id::new) else {
                     return Some("Which layer? Choose one in the layer list.".to_string());
                 };
-                if comp.layer(&layer_id).is_none() {
+                let Some(layer) = comp.layer(&layer_id) else {
                     return Some(format!("{layer_id} is not a layer in this composition."));
+                };
+                if !layer.effects.iter().any(|e| e.instance_id == instance_id) {
+                    return Some(format!("{instance_id} is not an effect on this layer."));
                 }
-                Target::Layer(layer_id)
-            };
-            Command::SetExpression {
-                composition,
-                target,
-                prop,
-                expression: parameter(query, "text").map(|text| Expression {
-                    text,
-                    enabled: parameter(query, "on").as_deref() != Some("false"),
-                }),
+                Command::SetEffectExpression {
+                    composition,
+                    layer_id,
+                    instance_id,
+                    setting,
+                    expression: parameter(query, "text").map(|text| Expression {
+                        text,
+                        enabled: parameter(query, "on").as_deref() != Some("false"),
+                    }),
+                }
+            } else {
+                let chosen = if camera {
+                    anime_compositor::model::CameraProp::from_str(&name).map(prop_of_camera)
+                } else {
+                    property(&name)
+                };
+                let Some(prop) = chosen else {
+                    return Some(format!(
+                        "\"{name}\" is not a property that can carry an expression."
+                    ));
+                };
+                let target = if camera {
+                    Target::Camera
+                } else {
+                    let Some(layer_id) = parameter(query, "layer").map(Id::new) else {
+                        return Some("Which layer? Choose one in the layer list.".to_string());
+                    };
+                    if comp.layer(&layer_id).is_none() {
+                        return Some(format!("{layer_id} is not a layer in this composition."));
+                    }
+                    Target::Layer(layer_id)
+                };
+                Command::SetExpression {
+                    composition,
+                    target,
+                    prop,
+                    expression: parameter(query, "text").map(|text| Expression {
+                        text,
+                        enabled: parameter(query, "on").as_deref() != Some("false"),
+                    }),
+                }
             }
         } else if id == "property.link" {
             // B-27c: D-83's value whip. `layer` or `target=camera` and `prop` name the property
@@ -6540,6 +6596,20 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             );
             if sound {
                 layer.kind = LayerKind::Audio;
+            }
+            // D-292: a sequence's drawings are exposed on ones in number order from the layer's
+            // first frame, as After Effects lays footage in; past the last one it is transparent.
+            // Before, its sheet was empty and the layer drew nothing until it was filled.
+            if let Some(numbers) = project
+                .assets
+                .iter()
+                .find(|a| a.id == layer.asset_id && a.kind == AssetKind::ImageSequence)
+                .map(|a| a.frames.keys().copied().collect::<Vec<u32>>())
+                .filter(|n| !n.is_empty())
+            {
+                let spans = anime_compositor::time::ExposureMap::on_twos_style(&numbers, 1)
+                    .expect("one-frame spans in a row never overlap");
+                layer.exposure_spans = spans.spans().to_vec();
             }
             // D-266: its anchor is the middle of its drawing and it stands at the composition's
             // centre, as After Effects places a new layer. A drawing that cannot be read is left
@@ -7797,6 +7867,17 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         .map(Id::new),
                     matte_only: parameter(query, "only").as_deref() == Some("true"),
                 },
+                // D-293: After Effects' Track Matte mode, kept apart from the matte layer as its
+                // switch is. A word that is not one of the four is refused rather than read as alpha.
+                "layer.set_matte_mode" => {
+                    let word = parameter(query, "mode").unwrap_or_default();
+                    let Some(mode) = MatteMode::parse(&word) else {
+                        return Some(format!(
+                            "\"{word}\" is not a matte mode. Choose alpha, alpha_inverted, luma or luma_inverted."
+                        ));
+                    };
+                    Command::SetMatteMode { composition, layer_id, mode }
+                }
                 // D-57's parenting. No layer named means no parent, which is what the "none"
                 // entry in the list sends; a layer that is not here is refused by the core.
                 //
@@ -11888,6 +11969,16 @@ mod editing {
             })
             .unwrap_or_default(),
         );
+        report.check(
+            "D-292: the sequence's two drawings are exposed on ones from its first frame, so it shows at once",
+            "[(0, 1, 1), (1, 2, 2)]",
+            layer(&viewer, "layer-1", |l| {
+                format!("{:?}", l.exposure_spans.iter()
+                    .map(|s| (s.start_frame, s.end_frame_exclusive, s.drawing_number))
+                    .collect::<Vec<_>>())
+            })
+            .unwrap_or_default(),
+        );
         run(&viewer, "layer.create?asset=asset-cel&name=Highlight");
         report.check(
             "a second new layer gets an identifier of its own",
@@ -13207,6 +13298,41 @@ mod editing {
             .unwrap_or_else(|| "(no such effect)".to_string())
     }
 
+    /// D-291: an effect's number setting takes an expression by the route a transform's does,
+    /// and a colour, which takes keys only, is refused in a sentence.
+    #[test]
+    fn an_effect_setting_takes_an_expression() {
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        run(&viewer, "effect.add?layer=layer-cel&type=core.tint");
+        let expression = || {
+            let held = held(&viewer);
+            let comp = held.document.project().composition(&held.composition).cloned().unwrap();
+            let fx = comp.layer(&Id::new("layer-cel")).unwrap().effects.iter()
+                .find(|e| e.instance_id.as_str() == "fx-1").cloned().unwrap();
+            fx.expression("amount").map(|e| (e.text.clone(), e.enabled))
+        };
+        assert_eq!(
+            run(&viewer, "property.set_expression?layer=layer-cel&prop=fx:fx-1:amount&text=time&on=true"),
+            "Change the expression of Tint's amount"
+        );
+        assert_eq!(expression(), Some(("time".to_string(), true)));
+        run(&viewer, "property.set_expression?layer=layer-cel&prop=fx:fx-1:amount&text=time&on=false");
+        assert_eq!(expression(), Some(("time".to_string(), false)), "switched off and kept");
+        run(&viewer, "property.set_expression?layer=layer-cel&prop=fx:fx-1:amount");
+        assert_eq!(expression(), None, "no text removes it");
+        assert_eq!(
+            run(&viewer, "property.set_expression?layer=layer-cel&prop=fx:fx-1:color&text=1&on=true"),
+            "Tint's color cannot carry an expression; it takes keys only."
+        );
+        assert_eq!(
+            run(&viewer, "property.set_expression?layer=layer-cel&prop=fx:fx-9:amount&text=1&on=true"),
+            "fx-9 is not an effect on this layer."
+        );
+    }
+
     /// W-31: effects pasted from a copy or a preset arrive whole, keys and all, as one entry to
     /// undo, and what this build would drop is refused rather than pasted in part.
     #[test]
@@ -13822,6 +13948,27 @@ mod editing {
             true,
             layer(&viewer, "layer-1", |l| l.enabled).unwrap_or(false),
         );
+        // D-293: the Track Matte mode, its own switch.
+        report.check(
+            "D-293: choosing luma says so in the words undo will use",
+            "Set matte mode to luma inverted",
+            run(&viewer, "layer.set_matte_mode?layer=layer-cel&mode=luma_inverted"),
+        );
+        report.check(
+            "D-293: changing the matte layer keeps the mode",
+            r#"{"layer_id":"layer-1","matte_only":false,"mode":"luma_inverted"}"#,
+            {
+                run(&viewer, "layer.set_matte?layer=layer-cel&matte=layer-1&only=false");
+                matte(&viewer, "layer-cel")
+            },
+        );
+        report.check(
+            "D-293: a word that is not a mode is refused, not read as alpha",
+            "\"lumen\" is not a matte mode. Choose alpha, alpha_inverted, luma or luma_inverted.",
+            run(&viewer, "layer.set_matte_mode?layer=layer-cel&mode=lumen"),
+        );
+        run(&viewer, "layer.set_matte_mode?layer=layer-cel&mode=alpha");
+        run(&viewer, "layer.set_matte?layer=layer-cel&matte=layer-1&only=true");
 
         // ---- clearing it ---------------------------------------------------------------------------
         report.check(
@@ -15780,7 +15927,7 @@ mod editing {
                 comp.name,
                 comp.width,
                 comp.height,
-                comp.frame_rate.numerator() / comp.frame_rate.denominator(),
+                comp.frame_rate.label(),
                 comp.duration_frames
             ),
         }
@@ -15938,6 +16085,25 @@ mod editing {
                 )
             },
         );
+        // D-290: the rate the After Effects tutorials ask for, kept as its exact fraction.
+        report.check(
+            "a composition at 23.976 fps is made, not refused",
+            "New composition Film, 1920x1080 at 23.976 fps, 48 frames. It is empty; import \
+             drawings and add layers to fill it.",
+            run(&viewer, "composition.create?name=Film&frames=48&fps=23.976"),
+        );
+        report.check(
+            "and its rate is the exact 24000/1001, not a rounded decimal",
+            "24000/1001",
+            held(&viewer)
+                .document
+                .project()
+                .composition(&Id::new("comp-3"))
+                .map(|comp| comp.frame_rate.to_string())
+                .unwrap_or_default(),
+        );
+        undo(&viewer);
+        run(&viewer, "composition.open?composition=comp-2");
 
         // ---- which composition a reopened project shows --------------------------------------
         // The defect the W-01 walkthrough found. Everything above happens in a project whose
@@ -17305,14 +17471,11 @@ mod editing {
                 )
             },
         );
+        // D-297: an adjustment layer takes any blend mode, as in After Effects (D-66 refused).
+        run(&viewer, &format!("layer.set_blend_mode?layer={id}&mode=multiply"));
         report.check(
-            "a blend mode other than normal is refused, with the reason",
-            "\"Grade\" is an adjustment layer, which has no blend mode but normal.",
-            run(&viewer, &format!("layer.set_blend_mode?layer={id}&mode=multiply")),
-        );
-        report.check(
-            "and the layer still reads normal",
-            "normal",
+            "a blend mode other than normal is taken (D-297)",
+            "multiply",
             shown_layer(&viewer, "Grade")["blend_mode"].as_str().unwrap_or("(none)"),
         );
 
@@ -19340,7 +19503,7 @@ mod editing {
         );
         run(&viewer, &format!("layer.set_blend_mode?layer={id}&mode=multiply"));
         report.check(
-            "unlike an adjustment layer, a solid takes any blend mode",
+            "a solid takes any blend mode",
             "multiply",
             shown_layer(&viewer, "Solid 2")["blend_mode"].as_str().unwrap_or("(none)"),
         );
@@ -25363,6 +25526,7 @@ mod contract {
         "layer.set_gain",
         "layer.set_label",
         "layer.set_matte",
+        "layer.set_matte_mode",
         "layer.set_parent",
         "layer.set_time_stretch",
         "layer.shift",
@@ -25494,7 +25658,7 @@ mod contract {
         (
             "New solid",
             "layer.add_solid",
-            "command('/layer.add_solid' + (at < 0 ? '' : '?to=' + (at + 1)))",
+            "command('/layer.add_solid?' + (at < 0 ? '' : 'to=' + (at + 1) + '&') + 'name=' + encodeURIComponent(name)",
         ),
         (
             "New shape layer",
@@ -27319,13 +27483,14 @@ mod contract {
                 ("amount", "80"),
             ],
         ),
-        // D-130: the three tones.
+        // D-130: the three tones. D-295: and Preserve Luminosity.
         (
             "core.color_balance",
             &[
                 ("shadows", "0, 0, 40"),
                 ("midtones", "-10, 5, 0"),
                 ("highlights", "30, 10, -20"),
+                ("preserve_luminosity", "on"),
             ],
         ),
         // D-131: the shift.
@@ -28250,7 +28415,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 125] = [
+    const CONTROLS: [&str; 128] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -28269,6 +28434,7 @@ mod contract {
         "cancelprecomp",
         "cancelprint",
         "cancelrelink",
+        "cancelsolid",
         "checker",
         "checkpackage",
         "closecomp",
@@ -28313,6 +28479,7 @@ mod contract {
         "importcut",
         "makecomp",
         "makeprecomp",
+        "makesolid",
         "maptab",
         "mbswitch",
         "mirror",
@@ -28360,6 +28527,7 @@ mod contract {
         "skover",
         "slatebtn",
         "snapshot",
+        "solidcompsize",
         "stripbtn",
         "tabboth",
         "tabgraph",
@@ -28644,7 +28812,7 @@ mod contract {
         (
             "dragging a property's pick whip onto another property",
             "link one to the other",
-            "text.title = 'The ' + prop + ' expression. Click away or press Ctrl+Enter to apply it, '",
+            "text.title = 'The ' + named + ' expression. Click away or press Ctrl+Enter to apply it, '",
         ),
         (
             "dragging a layer's pick whip onto another layer",
@@ -29057,7 +29225,7 @@ mod acceptance {
                     comp.name,
                     comp.width,
                     comp.height,
-                    comp.frame_rate.numerator() / comp.frame_rate.denominator(),
+                    comp.frame_rate.label(),
                     comp.duration_frames
                 )
             },

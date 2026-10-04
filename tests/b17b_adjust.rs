@@ -17,8 +17,8 @@
 //! are not adjusted; that two adjustment layers stack in order; that a switched-off effect, a
 //! layer behind everything in depth and a layer outside its in and out frames change nothing;
 //! that the frame is the same frame whatever tile size it is cut into; that the kind survives a
-//! file without an asset, and a file that gives it one, or another blend mode, is refused; that
-//! the blend list refuses one; that the draft preview scales its blur; and that the trace names
+//! file without an asset, and a file that gives it one is refused, while another blend mode opens
+//! and the blend list takes one (D-297); that the draft preview scales its blur; and that the trace names
 //! the adjusted frame.
 //!
 //! # What is deliberately not here
@@ -286,31 +286,31 @@ fn b17b_adjust() {
         &format!("{refused:?}"),
         refused == Some(DiagnosticId::ProjectSchemaInvalid),
     );
+    // D-297 replaced D-66's refusal: an adjustment layer in multiply opens (B-182 checks its pixels).
     let with_blend = layer_json(&text, "adj", |l| {
         l["blend_mode"] = J::from("multiply");
     });
-    let refused = persist::load_str(&with_blend).err().map(|d| d.id);
+    let opened = persist::load_str(&with_blend).is_ok();
     t.row(
-        "an adjustment layer with blend_mode multiply: PROJECT_SCHEMA_INVALID",
-        &format!("{refused:?}"),
-        refused == Some(DiagnosticId::ProjectSchemaInvalid),
+        "an adjustment layer with blend_mode multiply: opens (D-297)",
+        if opened { "opens" } else { "refused" },
+        opened,
     );
 
     // -----------------------------------------------------------------------------------
     t.heading("Commands (document 24)");
     let mut document = load("fx_adj_001.json");
-    let refused = document
+    let taken = document
         .apply(Command::SetBlendMode {
             composition: Id::new(COMP),
             layer_id: Id::new("adj"),
             mode: BlendMode::Multiply,
         })
-        .err()
-        .map(|d| d.id);
+        .is_ok();
     t.row(
-        "layer.set_blend_mode multiply on an adjustment layer: COMMAND_INVALID_VALUE",
-        &format!("{refused:?}"),
-        refused == Some(DiagnosticId::CommandInvalidValue),
+        "layer.set_blend_mode multiply on an adjustment layer: accepted (D-297)",
+        if taken { "accepted" } else { "refused" },
+        taken,
     );
     let accepted = document
         .apply(Command::SetBlendMode {

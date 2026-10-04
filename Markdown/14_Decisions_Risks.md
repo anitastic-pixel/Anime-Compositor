@@ -753,6 +753,48 @@ D-289 / Save a sketch as a picture / **BUILT on 2026-10-03**, from the owner's l
 
 Evidence for D-282 to D-289 in `verification/D-282_sketch_tools_and_layers.md` and `verification/D-282_sketch_edits_table.md`.
 
+D-290 / A frame rate of 23.976 can be typed / **BUILT on 2026-10-04** (B-175), from P-26, the After Effects tutorial playtest: three of the five tutorials start with a 23.976 composition and the window refused it. **Awaiting the owner's playtest.**
+- New composition, Composition settings and the preference for new compositions take 23.976, 29.97, 59.94 or 47.952 (and 23.98) and keep them as document 20's exact fractions, 24000/1001 and so on, never the rounded decimal.
+- Other decimals are kept exactly (12.5 is 25/2); a fraction such as 24000/1001 can be typed too. Zero, negatives and words are refused with a sentence.
+- The rate list offers 23.976, 29.97 and 59.94. The header and the windows show 23.976.
+- Saved files are unchanged: a rate was always saved as its fraction.
+
+D-291 / Expressions on an effect's number settings / **BUILT on 2026-10-04** (B-176), from P-26: the tutorials put `wiggle` on Turbulent Displace's evolution and `time*` on Fractal Noise and blur settings, and a file or a window could not hold an expression there (D-68 gave effect settings keys only). **Awaiting the owner's playtest.**
+- Alt-click a setting's diamond in Effect Controls, or on the timeline, to add an expression, exactly as on a transform property. The box opens under the setting; `value` is its keyed or typed number, and `time`, `wiggle`, `loopOut` and the rest of document 09's language work.
+- An expression's answer is held within the setting's range, as a dragged number is. A colour, a point and the Mix take keys only, and an expression on one is refused in a sentence.
+- An expression that fails is shown in red under the setting, the frame is drawn with the setting's own number, and an export over that frame is refused, as for a transform. The number beside a keyed or expression setting in Effect Controls now follows the playhead; before, it stayed at the number from when the panel was drawn.
+- Files without one are unchanged; a file with one is written as document 19 now says. Keys and the expression keep each other: changing the keys never removes the expression.
+- Not in this step: expressions on a mask's feather, opacity and expansion (P-26 T1-2), and the value whip from an effect setting.
+
+D-292 / A footage layer shows its pictures at once / **BUILT on 2026-10-04** (B-177), from P-26: the tutorials bring in a picture sequence and it plays, but a layer made from a sequence here drew nothing until its sheet was filled by hand. **Awaiting the owner's playtest.**
+- A layer made from a picture sequence is exposed on ones: its first picture at the layer's first frame, the next at the next, in number order, as After Effects lays footage in. Past the last picture the layer is transparent.
+- The layer still spans the composition, as before; only its sheet is filled. A still picture and every other kind of layer are unchanged, and so is a sheet once someone edits it.
+
+D-293 / Track matte modes: alpha inverted, luma and luma inverted / **BUILT on 2026-10-04** (B-178), from P-26: the Advanced Electric and Colorful Glitch tutorials use a luma matte, and a matte here could only be alpha; a `mode` sent from the window was not read. **Awaiting the owner's playtest.**
+- Beside a layer's matte, on the timeline's Blending group, a list chooses Alpha, Alpha inverted, Luma or Luma inverted, as After Effects' Track Matte switch.
+- Luma is the matte's picture luma, its colour over black in display values, the same reading Gradient Wipe and Compound Blur make. Inverted is one minus the value, so where the matte layer has nothing an inverted matte covers fully.
+- Changing the matte layer keeps the mode; copying, pasting and pre-composing keep it. A mode word the window does not know is refused in a sentence, and a file holding one is refused on load, as before.
+- Files with an alpha matte are unchanged and draw exactly as before.
+
+D-294 / A mask key that crosses itself is refused / **BUILT on 2026-10-04** (B-179), from P-26: the Chris Connor lightsaber tutorial's wedge was refused by Draw for crossing itself, but the same outline set as a mask key was taken, and the layer then drew unmasked on those frames. **Awaiting the owner's playtest.**
+- Every key of a mask path is now held to the rule the path is held to: an outline that crosses itself is refused, and the sentence names the key's frame. Nothing is changed when it is refused.
+- An outline that crosses only between two keys, while the points move, is still drawn without that mask for those frames and logged on each, as before. Drawing crossing masks the way After Effects fills them is a separate gap, not built.
+
+D-295 / Color Balance keeps each pixel's brightness / **BUILT on 2026-10-04** (B-180), from P-26: in the Film Riot lightsaber tutorial, shadows pushed +100 blue turned the black backing solid mid-blue, so Screen flooded the whole frame blue. After Effects' Color Balance has Preserve Luminosity, ticked when the effect is added, which keeps black black. **Awaiting the owner's playtest.**
+- Color Balance has a Preserve Luminosity switch, Off or On. On, each pixel keeps its brightness after the push: the colour changes but the pixel gets no lighter or darker, and black and white stay black and white.
+- A new Color Balance starts On, as After Effects starts it. Files saved before this read Off and draw exactly as before; only On is written to a file.
+- The card draws it as the computer does.
+
+D-296 / New solid asks for its name, size and colour first / **BUILT on 2026-10-04** (B-181), from P-26: the Chris Connor lightsaber tutorial makes a white solid from After Effects' Solid Settings window; here New solid (Ctrl+Y) made a grey "Solid N" at once, and the colour and size had to be set afterwards in the layer panel. **Awaiting the owner's playtest.**
+- New solid, from the button, the right-click menu, the command list or Ctrl+Y, opens Solid Settings: Name (the next free "Solid N"), Width and Height (the composition's size), Make Comp Size, and Colour. OK or Enter makes it; Cancel or Escape makes nothing.
+- The colour starts at mid grey and then remembers the last one chosen while the window is open. The solid itself, its file record and the undo step are unchanged from D-74.
+
+D-297 / An adjustment layer takes a blend mode / **BUILT on 2026-10-04** (B-182), from P-26: the Colorful Glitch tutorial puts an adjustment layer in Add; D-66 allowed normal only, refusing the mode in the file and in the list. **Awaiting the owner's playtest.**
+- Supersedes D-66's "normal only". The adjusted frame is laid over the frame beneath in the layer's blend mode (normal, multiply, screen or add), then mixed in by coverage and opacity as before (document 21). Normal is unchanged, bit for bit.
+- The timeline's Mode list and the Blending group now show for an adjustment layer. A file with an adjustment layer in another mode opens instead of being refused.
+- The graphics card does not draw this case: such a frame is drawn on the CPU, with an Info line saying so.
+- B-182 checks grey 0.2 under Exposure +1 by hand: normal 0.4, multiply 0.08, screen 0.52, add 0.6, and halfway back to 0.2 at 50% opacity.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

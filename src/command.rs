@@ -17,7 +17,7 @@
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::keykind::{self, Side};
 use crate::model::{
-    Asset, BlendMode, Composition, Expression, Id, Interp, Keyframe, Kind, Layer, MatteReference,
+    Asset, BlendMode, Composition, Expression, Id, Interp, Keyframe, Kind, Layer, MatteMode, MatteReference,
     Project, Prop, Stroke, Value,
 };
 use crate::time::{ExposureMap, ExposureSpan, FrameRate};
@@ -380,6 +380,12 @@ pub enum Command {
         /// Ignored when `matte` is `None`, since there is then no layer to keep out of the stack.
         matte_only: bool,
     },
+    /// D-293: what of its matte layer covers this layer. Refused on a layer with no matte.
+    SetMatteMode {
+        composition: Id,
+        layer_id: Id,
+        mode: MatteMode,
+    },
     /// D-57's parenting: the layer rides on `parent`, or on nothing when that is `None`.
     SetParent {
         composition: Id,
@@ -544,6 +550,15 @@ pub enum Command {
         setting: String,
         keys: Vec<crate::effects::EffectKey>,
     },
+    /// D-291: D-59's expression on one number setting of one effect, set, switched off or
+    /// cleared (`None`), as `SetExpression` is for a layer's property. Its keys are kept.
+    SetEffectExpression {
+        composition: Id,
+        layer_id: Id,
+        instance_id: Id,
+        setting: String,
+        expression: Option<Expression>,
+    },
     /// D-202: one effect's Mix, 0 to 100 per cent, as a number with no keys. Keys on it are
     /// `SetEffectKeys` on the setting `mix`.
     SetEffectMix {
@@ -602,6 +617,7 @@ impl Command {
             Command::SetKeyRoving { .. } => "SET_KEY_ROVING",
             Command::SeparatePosition { .. } => "SEPARATE_POSITION",
             Command::SetMatte { .. } => "SET_MATTE",
+            Command::SetMatteMode { .. } => "SET_MATTE_MODE",
             Command::SetParent { .. } => "SET_PARENT",
             Command::SetDepth { .. } => "SET_DEPTH",
             Command::SetAudioGain { .. } => "SET_AUDIO_GAIN",
@@ -619,6 +635,7 @@ impl Command {
             Command::SetEffectEnabled { .. } => "SET_EFFECT_ENABLED",
             Command::SetEffectParameters { .. } => "SET_EFFECT_PARAMETERS",
             Command::SetEffectKeys { .. } => "SET_EFFECT_KEYS",
+            Command::SetEffectExpression { .. } => "SET_EFFECT_EXPRESSION",
             Command::SetEffectMix { .. } => "SET_EFFECT_MIX",
         }
     }
@@ -665,6 +682,12 @@ impl Command {
                 ..
             }
             | Command::SetEffectKeys {
+                composition,
+                layer_id,
+                instance_id,
+                ..
+            }
+            | Command::SetEffectExpression {
                 composition,
                 layer_id,
                 instance_id,
@@ -826,6 +849,7 @@ impl Command {
                 Some(id) => format!("Set matte to {id}"),
                 None => "Clear matte".to_string(),
             },
+            Command::SetMatteMode { mode, .. } => format!("Set matte mode to {}", mode.as_str().replace('_', " ")),
             Command::SetParent { parent, .. } => match parent {
                 Some(id) => format!("Set parent to {id}"),
                 None => "Clear parent".to_string(),
@@ -885,6 +909,9 @@ impl Command {
                 format!("Change {} settings", effect.name())
             }
             Command::SetEffectKeys { setting, .. } => format!("Change the keys of {setting}"),
+            Command::SetEffectExpression { setting, .. } => {
+                format!("Change the expression of {setting}")
+            }
             Command::SetEffectMix { mix, .. } => format!("Set an effect's Mix to {mix}%"),
         }
     }
@@ -900,6 +927,9 @@ impl Command {
             Command::SetEffectEnabled { enabled: false, .. } => format!("Bypass {name}"),
             Command::SetEffectKeys { setting, .. } => {
                 format!("Change the keys of {name}'s {setting}")
+            }
+            Command::SetEffectExpression { setting, .. } => {
+                format!("Change the expression of {name}'s {setting}")
             }
             Command::SetEffectMix { mix, .. } => format!("Set {name}'s Mix to {mix}%"),
             _ => self.label(),
@@ -953,6 +983,7 @@ impl Command {
             | Command::SetKeyRoving { composition, .. }
             | Command::SeparatePosition { composition, .. }
             | Command::SetMatte { composition, .. }
+            | Command::SetMatteMode { composition, .. }
             | Command::SetParent { composition, .. }
             | Command::SetDepth { composition, .. }
             | Command::SetAudioGain { composition, .. }
@@ -969,6 +1000,7 @@ impl Command {
             | Command::SetEffectEnabled { composition, .. }
             | Command::SetEffectParameters { composition, .. }
             | Command::SetEffectKeys { composition, .. }
+            | Command::SetEffectExpression { composition, .. }
             | Command::SetEffectMix { composition, .. } => Some(composition),
         }
     }
@@ -1023,6 +1055,7 @@ impl Command {
             | Command::SetEffectEnabled { layer_id, .. }
             | Command::SetEffectParameters { layer_id, .. }
             | Command::SetEffectKeys { layer_id, .. }
+            | Command::SetEffectExpression { layer_id, .. }
             | Command::SetEffectMix { layer_id, .. } => ids.push(layer_id.clone()),
             // B-13e: these four name a target. A layer goes in the affected list as it always
             // did; the camera adds nothing, because it belongs to the composition and the
@@ -1034,7 +1067,9 @@ impl Command {
             | Command::MoveKeyframe { target, .. }
             | Command::SetKeyKind { target, .. }
             | Command::SetKeyRoving { target, .. } => ids.extend(target.layer().cloned()),
-            Command::SeparatePosition { layer_id, .. } => ids.push(layer_id.clone()),
+            Command::SeparatePosition { layer_id, .. } | Command::SetMatteMode { layer_id, .. } => {
+                ids.push(layer_id.clone())
+            }
             Command::AddEffect {
                 layer_id, effect, ..
             } => {
@@ -1151,6 +1186,7 @@ impl Command {
                 | Command::SetSolid { .. }
                 | Command::SetText { .. }
                 | Command::SetMatte { .. }
+                | Command::SetMatteMode { .. }
                 | Command::SetParent { .. }
                 | Command::SetDepth { .. }
                 | Command::SetExposureSpans { .. }
@@ -1188,6 +1224,7 @@ impl Command {
             | Command::SetLayerFrameBlend { layer_id, .. }
             | Command::SetDrawingDissolve { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
+            | Command::SetMatteMode { layer_id, .. }
             | Command::SetParent { layer_id, .. }
             | Command::SetDepth { layer_id, .. }
             | Command::SetAudioGain { layer_id, .. }
@@ -1202,6 +1239,7 @@ impl Command {
             | Command::SetEffectParameters { layer_id, .. }
             | Command::SeparatePosition { layer_id, .. }
             | Command::SetEffectKeys { layer_id, .. }
+            | Command::SetEffectExpression { layer_id, .. }
             | Command::SetEffectMix { layer_id, .. } => Some(layer_id),
             // B-13e: a property command on a layer is still blocked by that layer's lock. On
             // the camera it is not, for the reason `blocked_by_lock` already gives
@@ -2546,18 +2584,8 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         }
         Command::SetBlendMode { layer_id, mode, .. } => {
             let layer = layer_mut(project, &comp_id, layer_id)?;
-            // D-66: an adjustment layer mixes its adjusted frame back in; it has no blend mode
-            // but normal, and the window does not offer the list for one.
-            if layer.is_adjustment() && *mode != BlendMode::Normal {
-                return Err(reject(
-                    &format!(
-                        "\"{}\" is an adjustment layer, which has no blend mode but normal.",
-                        layer.name
-                    ),
-                    "D-66: an adjustment layer's result is mixed into the frame by its coverage, \
-                     not blended.",
-                ));
-            }
+            // D-297: an adjustment layer takes every mode, as After Effects' does; D-66 refused
+            // all but normal.
             layer.blend_mode = *mode;
         }
         Command::SetText {
@@ -3000,11 +3028,14 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     ));
                 }
             }
-            let matte_ref = matte.clone().map(|layer_id| MatteReference {
+            // D-293: a new matte layer keeps the mode the old one had.
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            let mode = layer.matte.as_ref().map_or(MatteMode::Alpha, |m| m.mode);
+            layer.matte = matte.clone().map(|layer_id| MatteReference {
                 layer_id,
                 matte_only: *matte_only,
+                mode,
             });
-            layer_mut(project, &comp_id, layer_id)?.matte = matte_ref;
             // Checked after the write, then rolled back by the caller's working clone if bad.
             let comp = project.composition(&comp_id).expect("checked above");
             if comp.matte_cycle_from(layer_id) {
@@ -3015,6 +3046,21 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     format!("Setting the matte of {layer_id} to {matte:?} closes a cycle in the matte graph."),
                 )
                 .with_remediation("Choose a layer that does not already use this one as its matte."));
+            }
+        }
+        Command::SetMatteMode { layer_id, mode, .. } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            let name = layer.name.clone();
+            match &mut layer.matte {
+                Some(m) => m.mode = *mode,
+                None => {
+                    return Err(Diagnostic::new(
+                        DiagnosticId::MatteReferenceMissing,
+                        Severity::Error,
+                        format!("{name} has no matte, so it has no matte mode to set."),
+                        "D-293: the mode belongs to a matte. Choose the matte layer first.".to_string(),
+                    ));
+                }
             }
         }
         Command::SetParent {
@@ -3271,11 +3317,20 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                         ));
                     }
                 }
-                if !crate::mask::is_simple(&m.vertices()) {
+                // D-294: a key's outline is refused for crossing just as the path's is. P-26 set
+                // a crossing wedge as a key, which the layer then drew unmasked on those frames.
+                let crossing = std::iter::once(m.vertices())
+                    .chain(m.keys.iter().map(|k| k.points.iter().map(|p| p.point).collect()))
+                    .position(|v| !crate::mask::is_simple(&v));
+                if let Some(at) = crossing {
+                    let which = match at {
+                        0 => String::new(),
+                        n => format!(" at its key on frame {}", m.keys[n - 1].frame),
+                    };
                     return Err(Diagnostic::new(
                         DiagnosticId::MaskInvalidOutline,
                         Severity::Error,
-                        "The mask crosses itself, which this build does not draw.".to_string(),
+                        format!("The mask crosses itself{which}, which this build does not draw."),
                         "Document 19: self-intersection is unsupported in G1 and must be \
                          rejected, never normalized silently, because a normalized polygon is a \
                          different shape from the one that was drawn."
@@ -3561,6 +3616,33 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 }
             }
             existing.set_keys(setting, keys);
+        }
+        Command::SetEffectExpression {
+            layer_id,
+            instance_id,
+            setting,
+            expression,
+            ..
+        } => {
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            let Some(existing) = layer
+                .effects
+                .iter_mut()
+                .find(|e| &e.instance_id == instance_id)
+            else {
+                return Err(missing_effect(layer_id, instance_id));
+            };
+            if setting == "mix" || existing.effect.arity(setting) != Some(1) {
+                return Err(reject(
+                    &format!(
+                        "{}'s {setting} cannot carry an expression; it takes keys only.",
+                        existing.effect.name()
+                    ),
+                    "D-291: an expression gives one number, so it goes on an effect's number \
+                     settings; a colour or a point takes keys only, and so does the Mix.",
+                ));
+            }
+            existing.set_expression(setting, expression.clone());
         }
         Command::SetEffectMix {
             layer_id,

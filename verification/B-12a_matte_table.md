@@ -27,6 +27,9 @@ Which channel the matte uses. Document 21 defines an alpha matte and this build 
 | keeping the matte layer out of the picture is said in the words undo will use | Set matte to layer-1, matte only | Set matte to layer-1, matte only | pass |
 | and it is that setting that changed, not the matte layer's own switch | {"layer_id":"layer-1","matte_only":true,"mode":"alpha"} | {"layer_id":"layer-1","matte_only":true,"mode":"alpha"} | pass |
 | the layer used as a matte is still switched on, which is D-42's whole point | true | true | pass |
+| D-293: choosing luma says so in the words undo will use | Set matte mode to luma inverted | Set matte mode to luma inverted | pass |
+| D-293: changing the matte layer keeps the mode | {"layer_id":"layer-1","matte_only":false,"mode":"luma_inverted"} | {"layer_id":"layer-1","matte_only":false,"mode":"luma_inverted"} | pass |
+| D-293: a word that is not a mode is refused, not read as alpha | "lumen" is not a matte mode. Choose alpha, alpha_inverted, luma or luma_inverted. | "lumen" is not a matte mode. Choose alpha, alpha_inverted, luma or luma_inverted. | pass |
 | clearing the matte says so | Clear matte | Clear matte | pass |
 | and the layer is shaped by nothing again | null | null | pass |
 | undo puts back the matte that was cleared, and its setting with it | {"layer_id":"layer-1","matte_only":true,"mode":"alpha"} | {"layer_id":"layer-1","matte_only":true,"mode":"alpha"} | pass |
@@ -34,13 +37,13 @@ Which channel the matte uses. Document 21 defines an alpha matte and this build 
 | a layer cannot be its own matte | That matte would make two layers depend on each other. Choose a layer that does not already use this one as its matte. | That matte would make two layers depend on each other. Choose a layer that does not already use this one as its matte. | pass |
 | and two layers cannot shape each other | That matte would make two layers depend on each other. Choose a layer that does not already use this one as its matte. | That matte would make two layers depend on each other. Choose a layer that does not already use this one as its matte. | pass |
 | no layer named at all is asked for | Which layer? Choose one in the layer list. | Which layer? Choose one in the layer list. | pass |
-| none of those four refusals put anything in the history | 3 | 3 | pass |
+| none of those four refusals put anything in the history | 7 | 7 | pass |
 | and the matte is the one that was chosen | {"layer_id":"layer-1","matte_only":true,"mode":"alpha"} | {"layer_id":"layer-1","matte_only":true,"mode":"alpha"} | pass |
 | a locked layer refuses a matte, and says which rule stopped it | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | The layer "Cel" is locked, so it was not changed. Unlock the layer to edit it. | pass |
-| which changed nothing | 4 | 4 | pass |
+| which changed nothing | 8 | 8 | pass |
 | deleting the layer used as a matte says what it did to the layer it was shaping | Delete layer layer-1 "Cel" is now shaped by a layer that is not here; undo puts it back. | Delete layer layer-1 "Cel" is now shaped by a layer that is not here; undo puts it back. | pass |
 | and the reference is kept, which is what the project loader expects to find | {"layer_id":"layer-1","matte_only":true,"mode":"alpha"} | {"layer_id":"layer-1","matte_only":true,"mode":"alpha"} | pass |
 | and undo brings the layer back, with the matte pointing at it again | Cel, Shape | Cel, Shape | pass |
 | undoing everything gives back the file that was opened | identical, including the effect this build cannot model | identical, including the effect this build cannot model | pass |
 
-**21 of 21 checks pass.**
+**24 of 24 checks pass.**

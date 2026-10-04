@@ -62,7 +62,7 @@ D-130, accepted by the owner on 2026-09-26, the eighth of the second batch of te
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing | 0 | yes |
-| a half-size draft preview changes nothing: it has no distances | ColorBalance { shadows: [0.0, 0.0, 40.0], midtones: [-10.0, 5.0, 0.0], highlights: [30.0, 10.0, -20.0] } | yes |
+| a half-size draft preview changes nothing: it has no distances | ColorBalance { shadows: [0.0, 0.0, 40.0], midtones: [-10.0, 5.0, 0.0], highlights: [30.0, 10.0, -20.0], preserve_luminosity: "off" } | yes |
 
 ## The file
 

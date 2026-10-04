@@ -754,8 +754,10 @@ fn same_draw(a: &LayerDraw, b: &LayerDraw) -> bool {
 
 /// D-66: `frame = B + c*(E(B) - B)`, with `B` the frame as drawn so far, `E(B)` its pixels
 /// through the adjustment layer's stack, and `c` the layer's coverage at the pixel times its
-/// opacity. The stack runs on the whole frame, as a layer's stack runs on the whole layer
-/// (ADR-017); the mix is per pixel, one row at a time in parallel.
+/// opacity. D-297: in a blend mode other than normal, `E(B)` is first laid on `B` in that mode at
+/// full cover; the card leaves such a layer to the CPU. The stack runs on the whole frame, as a
+/// layer's stack runs on the whole layer (ADR-017); the mix is per pixel, one row at a time in
+/// parallel.
 ///
 /// The bypasses `apply_stack` reports were already reported when the plan was made
 /// (`compose::resolve_layer`), so the callback here is deliberately empty.
@@ -795,8 +797,11 @@ fn adjust_frame(
                 if c == 0.0 {
                     continue;
                 }
-                let e = effected.pixel(x + ox, y + oy);
                 let i = x * 4;
+                let e = match layer.blend {
+                    crate::model::BlendMode::Normal => effected.pixel(x + ox, y + oy),
+                    mode => crate::composite::blend_pixel(mode, effected.pixel(x + ox, y + oy), [row[i], row[i + 1], row[i + 2], row[i + 3]]),
+                };
                 // D-90: at full cover the answer is `E(B)` exactly. `b + (e - b)` rounds at
                 // `b`'s size, which is most of a value as small as 20 stops down leaves.
                 if c == 1.0 {
