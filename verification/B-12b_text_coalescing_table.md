@@ -23,9 +23,9 @@ The last three rows are not about text at all. They drag a position through seve
 | committing a new name is one entry in the undo list | undo list 1 | undo list 1 | pass |
 | and the entry says what it will undo | Rename layer to the background | Rename layer to the background | pass |
 | three settings committed one after another are three entries, not one and not thirty | undo list 5 | undo list 5 | pass |
-| so undoing once goes back one commit, not back to before the field was touched | GaussianBlur { sigma_px: 6.0, edges: "transparent" } | GaussianBlur { sigma_px: 6.0, edges: "transparent" } | pass |
+| so undoing once goes back one commit, not back to before the field was touched | GaussianBlur { sigma_px: 6.0, edges: "transparent", dimensions: "both" } | GaussianBlur { sigma_px: 6.0, edges: "transparent", dimensions: "both" } | pass |
 | a setting typed in three keystrokes, each sent as it lands, is one entry | undo list 5 | undo list 5 | pass |
-| and the entry holds the last keystroke, not the first | GaussianBlur { sigma_px: 3.5, edges: "transparent" } | GaussianBlur { sigma_px: 3.5, edges: "transparent" } | pass |
+| and the entry holds the last keystroke, not the first | GaussianBlur { sigma_px: 3.5, edges: "transparent", dimensions: "both" } | GaussianBlur { sigma_px: 3.5, edges: "transparent", dimensions: "both" } | pass |
 | and a drag of three steps is one entry, which is the same rule for a number | undo list 6 | undo list 6 | pass |
 | a drag holding two layers is one entry that says it moved more than one | undo list 7, Set position to (300, 0) and 1 more | undo list 7, Set position to (300, 0) and 1 more | pass |
 | and undoing that one entry puts both layers back, not just the first | layer-1 (0, 0), layer-2 (180, 0) | layer-1 (0, 0), layer-2 (180, 0) | pass |

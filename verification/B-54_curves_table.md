@@ -59,7 +59,7 @@ D-111, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing: each pixel is regraded where it is | 0 | yes |
-| a half-size draft preview changes nothing: a curve is colours, not distances | Curves { master: [[0.0, 0.0], [128.0, 180.0], [255.0, 255.0]], red: [[0.0, 0.0], [255.0, 255.0]], green: [[0.0, 0.0], [255.0, 255.0]], blue: [[0.0, 0.0], [255.0, 255.0]] } | yes |
+| a half-size draft preview changes nothing: a curve is colours, not distances | Curves { master: [[0.0, 0.0], [128.0, 180.0], [255.0, 255.0]], red: [[0.0, 0.0], [255.0, 255.0]], green: [[0.0, 0.0], [255.0, 255.0]], blue: [[0.0, 0.0], [255.0, 255.0]], alpha: [[0.0, 0.0], [255.0, 255.0]] } | yes |
 
 ## The file
 

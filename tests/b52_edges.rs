@@ -13,7 +13,7 @@ use effect_table::{set, Table};
 use anime_compositor::effects::Effect;
 
 fn gauss(sigma_px: f64, edges: &str) -> Effect {
-    Effect::GaussianBlur { sigma_px, edges: edges.into() }
+    Effect::GaussianBlur { sigma_px, edges: edges.into(), dimensions: "both".into() }
 }
 
 fn streak(direction: f64, length: f64, edges: &str) -> Effect {

@@ -1069,9 +1069,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::Exposure { stops } => {
             params.insert("stops".into(), num(*stops));
         }
-        Effect::GaussianBlur { sigma_px, edges } => {
+        Effect::GaussianBlur { sigma_px, edges, dimensions } => {
             params.insert("sigma_px".into(), num(*sigma_px));
             put_edges(&mut params, edges);
+            // D-303: written only when not both or when the file had it.
+            if dimensions != "both" || params.contains_key("dimensions") {
+                params.insert("dimensions".into(), J::from(dimensions.as_str()));
+            }
         }
         Effect::Tint { color, amount } => {
             params.insert(
@@ -1221,8 +1225,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             red,
             green,
             blue,
+            alpha,
         } => {
-            for (name, points) in [("master", master), ("red", red), ("green", green), ("blue", blue)] {
+            // D-302: alpha written only when it bends or the file had it, so a file that never
+            // changed it saves as before.
+            let alpha = (!crate::grade::is_straight(alpha) || params.contains_key("alpha")).then_some(("alpha", alpha));
+            for (name, points) in [("master", master), ("red", red), ("green", green), ("blue", blue)].into_iter().chain(alpha) {
                 params.insert(
                     name.into(),
                     J::Array(
@@ -1444,8 +1452,30 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             light_color,
             opacity,
             blend,
+            fractal_type,
+            noise_type,
+            invert,
+            offset,
+            scale_width,
+            scale_height,
+            cycle,
             ..
         } => {
+            // D-299: as D-121, each at its start, without keys, written only if the file had
+            // it, so a file that never changed them saves as before.
+            for (key, value, start) in [
+                ("fractal_type", J::from(fractal_type.as_str()), fractal_type == "basic"),
+                ("noise_type", J::from(noise_type.as_str()), noise_type == "smooth"),
+                ("invert", J::from(invert.as_str()), invert == "off"),
+                ("offset", J::Array(offset.iter().map(|v| num(*v)).collect()), *offset == [0.0, 0.0]),
+                ("scale_width", num(*scale_width), *scale_width == 100.0),
+                ("scale_height", num(*scale_height), *scale_height == 100.0),
+                ("cycle", num(*cycle), *cycle == 0.0),
+            ] {
+                if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), value);
+                }
+            }
             params.insert("size".into(), num(*size));
             params.insert("complexity".into(), num(*complexity));
             params.insert("contrast".into(), num(*contrast));
@@ -1480,9 +1510,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             for (name, tone) in [("shadows", shadows), ("midtones", midtones), ("highlights", highlights)] {
                 params.insert(name.into(), J::Array(tone.iter().map(|v| num(*v)).collect()));
             }
-            // D-295: written only when it is not "off", so a file that never turned it on saves
-            // as before.
-            if preserve_luminosity != "off" {
+            // D-295: written only when it is not "off" or the file had it, so a file that never
+            // turned it on saves as before.
+            if preserve_luminosity != "off" || params.contains_key("preserve_luminosity") {
                 params.insert("preserve_luminosity".into(), J::from(preserve_luminosity.as_str()));
             }
         }
@@ -1876,8 +1906,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             seed,
             color,
             glow_color,
+            composite,
             ..
         } => {
+            // D-300: written only when off or the file had it, so a file that never changed it
+            // saves as before.
+            if composite != "on" || params.contains_key("composite") {
+                params.insert("composite".into(), J::from(composite.as_str()));
+            }
             params.insert("start".into(), J::Array(start.iter().map(|c| num(*c)).collect()));
             params.insert("end".into(), J::Array(end.iter().map(|c| num(*c)).collect()));
             params.insert("jagged".into(), num(*jagged));
@@ -2708,6 +2744,14 @@ fn effect_word(params: Option<&J>, key: &str, at: &str) -> Result<String, Diagno
     Ok(as_str(field(params, &at, key)?, &at)?.to_string())
 }
 
+/// D-299: a word added after its effect, as [`effect_number_or`] is a number.
+fn effect_word_or(params: Option<&J>, key: &str, at: &str, start: &str) -> Result<String, Diagnostic> {
+    match params.and_then(|p| p.get(key)) {
+        Some(_) => effect_word(params, key, at),
+        None => Ok(start.to_string()),
+    }
+}
+
 fn effect_colors(params: Option<&J>, at: &str) -> Result<Vec<String>, Diagnostic> {
     let params = effect_params(params, at)?;
     let at = format!("{at}/parameters/colors");
@@ -3422,6 +3466,8 @@ fn parse_effect(
         crate::effects::GAUSSIAN_BLUR => Some(crate::effects::Effect::GaussianBlur {
             sigma_px: effect_number(params, "sigma_px", &at)?,
             edges: effect_edges(params, &at)?,
+            // D-303: a file from before it blurs both ways, as it did.
+            dimensions: effect_word_or(params, "dimensions", &at, "both")?,
         }),
         crate::effects::TINT => Some(crate::effects::Effect::Tint {
             color: effect_array(params, "color", "a linear RGB triple", &at)?,
@@ -3502,6 +3548,11 @@ fn parse_effect(
             red: effect_points(params, "red", &at)?,
             green: effect_points(params, "green", &at)?,
             blue: effect_points(params, "blue", &at)?,
+            // D-302: a file from before it, or one that never bent it, draws as it did.
+            alpha: match params.and_then(|p| p.get("alpha")) {
+                Some(_) => effect_points(params, "alpha", &at)?,
+                None => vec![vec![0.0, 0.0], vec![255.0, 255.0]],
+            },
         }),
         crate::effects::LEVELS => Some(crate::effects::Effect::Levels {
             input_black: effect_number(params, "input_black", &at)?,
@@ -3633,6 +3684,17 @@ fn parse_effect(
             light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
             opacity: effect_number(params, "opacity", &at)?,
             blend: effect_word(params, "blend", &at)?,
+            // D-299: a file from before these, or one that never changed them, draws as it did.
+            fractal_type: effect_word_or(params, "fractal_type", &at, "basic")?,
+            noise_type: effect_word_or(params, "noise_type", &at, "smooth")?,
+            invert: effect_word_or(params, "invert", &at, "off")?,
+            offset: match params.and_then(|p| p.get("offset")) {
+                Some(_) => effect_array(params, "offset", "two numbers, x then y", &at)?,
+                None => [0.0, 0.0],
+            },
+            scale_width: effect_number_or(params, "scale_width", &at, 100.0)?,
+            scale_height: effect_number_or(params, "scale_height", &at, 100.0)?,
+            cycle: effect_number_or(params, "cycle", &at, 0.0)?,
             frame: 0,
         }),
         // D-129: the colours are read in small letters, as a new colour is.
@@ -3893,6 +3955,7 @@ fn parse_effect(
             seed: effect_number(params, "seed", &at)?,
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             glow_color: effect_word(params, "glow_color", &at)?.to_ascii_lowercase(),
+            composite: effect_word_or(params, "composite", &at, "on")?,
             frame: 0,
         }),
         // D-191: the layer is kept as written, a word or not; a setting check says which.
@@ -4668,16 +4731,12 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         }
     }
 
-    let blend_mode = match as_enum(
+    let blend_mode = BlendMode::from_str(as_enum(
         field(v, pointer, "blend_mode")?,
         &format!("{pointer}/blend_mode"),
-        &["normal", "multiply", "screen", "add"],
-    )? {
-        "multiply" => BlendMode::Multiply,
-        "screen" => BlendMode::Screen,
-        "add" => BlendMode::Add,
-        _ => BlendMode::Normal,
-    };
+        &BlendMode::ALL.map(BlendMode::as_str),
+    )?)
+    .expect("as_enum allowed only these");
     // D-82: a null has no picture, so nothing that works on one (FX-NULL-025 to 028).
     if kind == LayerKind::Null {
         let carried = [

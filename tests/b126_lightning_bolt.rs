@@ -38,6 +38,7 @@ fn bolt(n: [f64; 12], color: &str, glow_color: &str) -> Effect {
         seed: n[11],
         color: color.to_string(),
         glow_color: glow_color.to_string(),
+        composite: "on".to_string(),
         frame: 0,
     }
 }

@@ -84,9 +84,9 @@ fn cases() -> Vec<(&'static str, Effect)> {
     vec![
         ("Exposure +1", Effect::Exposure { stops: 1.0 }),
         ("Tint 50%", Effect::Tint { color: [1.0, 0.5, 0.25], amount: 0.5 }),
-        ("Gaussian Blur 4", Effect::GaussianBlur { sigma_px: 4.0, edges: "transparent".into() }),
-        ("Gaussian Blur 10", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into() }),
-        ("Gaussian Blur 40", Effect::GaussianBlur { sigma_px: 40.0, edges: "transparent".into() }),
+        ("Gaussian Blur 4", Effect::GaussianBlur { sigma_px: 4.0, edges: "transparent".into(), dimensions: "both".into() }),
+        ("Gaussian Blur 10", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into(), dimensions: "both".into() }),
+        ("Gaussian Blur 40", Effect::GaussianBlur { sigma_px: 40.0, edges: "transparent".into(), dimensions: "both".into() }),
         ("Line Smooth", Effect::LineSmooth { softness: 50.0, threshold: 16.0 }),
         (
             "Selective Colour Blur 12",
@@ -138,7 +138,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
         ("Colour Key rgb", color_key("rgb")),
         ("Colour Key hue", color_key("hue")),
         // P-20: Repeat Edge Pixels (D-109), which walks every pixel a transparent edge could skip.
-        ("Gaussian Blur 10, edges repeat", Effect::GaussianBlur { sigma_px: 10.0, edges: "repeat".into() }),
+        ("Gaussian Blur 10, edges repeat", Effect::GaussianBlur { sigma_px: 10.0, edges: "repeat".into(), dimensions: "both".into() }),
         ("Directional Blur 100, edges repeat", Effect::DirectionalBlur { direction: 30.0, length: 100.0, edges: "repeat".into() }),
         (
             "Radial Blur zoom 20, edges repeat",
@@ -152,6 +152,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 red: vec![vec![0.0, 0.0], vec![64.0, 40.0], vec![192.0, 215.0], vec![255.0, 255.0]],
                 green: vec![vec![0.0, 0.0], vec![255.0, 128.0]],
                 blue: vec![vec![0.0, 255.0], vec![255.0, 0.0]],
+                alpha: vec![vec![0.0, 0.0], vec![255.0, 255.0]],
             },
         ),
         (
@@ -339,6 +340,13 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 light_color: "#ffffff".to_string(),
                 opacity: 100.0,
                 blend: "normal".to_string(),
+                fractal_type: "basic".to_string(),
+                noise_type: "smooth".to_string(),
+                invert: "off".to_string(),
+                offset: [0.0, 0.0],
+                scale_width: 100.0,
+                scale_height: 100.0,
+                cycle: 0.0,
                 frame: 5,
             },
         ),
@@ -679,6 +687,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 seed: 0.0,
                 color: "#ffffff".into(),
                 glow_color: "#6e8cff".into(),
+                composite: "on".into(),
                 frame: 0,
             },
         ),
@@ -872,7 +881,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
             Effect::BlockDissolve { completion: 50.0, block_width: 8.0, block_height: 8.0, feather: 4.0 },
         ),
         // D-202: Mix, the given picture laid back under the result.
-        ("Gaussian Blur 10 at Mix 50%", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into() }),
+        ("Gaussian Blur 10 at Mix 50%", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into(), dimensions: "both".into() }),
     ]
 }
 

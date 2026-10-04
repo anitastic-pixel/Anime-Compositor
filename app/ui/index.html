@@ -5056,8 +5056,10 @@ function labelLayers(n) {
   });
 }
 
-// W-25: the four blend modes the renderer draws, set on every selected layer as one entry to undo.
-const BLENDS = ['normal', 'multiply', 'screen', 'add'];
+// W-25: the blend modes the renderer draws, set on every selected layer as one entry to undo.
+// D-301: and four more from After Effects.
+const BLENDS = ['normal', 'multiply', 'screen', 'add', 'overlay', 'soft_light', 'stencil_alpha', 'stencil_luma'];
+const blendName = (mode) => (mode[0].toUpperCase() + mode.slice(1)).replace('_', ' ');
 
 // B-24c: D-77's five mask modes, in the order that document 19 writes them.
 const MASK_MODES = ['add', 'subtract', 'intersect', 'difference', 'none'];
@@ -5265,7 +5267,7 @@ function paletteLines() {
     ['Show or hide the Sheet', '', toggleSheetColumn],
     ['Find any command', 'Ctrl+Shift+P', { key: 'P', code: 'KeyP', ctrlKey: true, shiftKey: true }],
     ...PROPS.map((prop) => ['Reset ' + prop, '', () => resetProp(prop)]),
-    ...BLENDS.map((mode) => ['Blend mode ' + mode, '', () => blendLayers(mode)]),
+    ...BLENDS.map((mode) => ['Blend mode ' + blendName(mode), '', () => blendLayers(mode)]),
   ];
 }
 function runAct(act) {
@@ -5345,7 +5347,7 @@ function layerMenu(x, y, first = []) {
     ['Copy', 'Ctrl+C', copyLayers],
     ['Paste', 'Ctrl+V', pasteLayers],
     ['Paste effects', 'Ctrl+V', pasteCopiedEffects, clip === 'effects' && copiedEffects.length > 0],
-    ...BLENDS.map((mode) => ['Blend: ' + mode, '', () => blendLayers(mode)]),
+    ...BLENDS.map((mode) => ['Blend: ' + blendName(mode), '', () => blendLayers(mode)]),
     ['Delete', 'Delete', () => $('dellayer').click()],
   ];
   // W-24: the label colours, a row of squares under the lines.
@@ -5565,7 +5567,7 @@ function blendSelect(layer) {
   const blend = document.createElement('select');
   blend.className = 'blend';
   blend.setAttribute('aria-label', 'Blend mode for ' + layer.name);
-  blend.append(...BLENDS.map((mode) => new Option(mode[0].toUpperCase() + mode.slice(1), mode)));
+  blend.append(...BLENDS.map((mode) => new Option(blendName(mode), mode)));
   blend.value = layer.blend_mode;
   blend.classList.toggle('set', blend.selectedIndex > 0);
   blend.onclick = (e) => e.stopPropagation();
@@ -9606,7 +9608,12 @@ const EFFECT_PARAMS = {
     ['evolution', 'Evolution', 1, 1, 'degrees'],
     ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360'],
     ['seed', 'Seed', 1, 1, '0 to 100000'],
-    ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
+    ['opacity', 'Opacity', 1, 0.5, '0 to 100'],
+    // D-299.
+    ['offset', 'Offset Turbulence', 2, 1, 'pixels, x then y, -100000 to 100000'],
+    ['scale_width', 'Scale Width', 1, 0.5, 'per cent of the size, 1 to 10000', '', 100],
+    ['scale_height', 'Scale Height', 1, 0.5, 'per cent of the size, 1 to 10000', '', 100],
+    ['cycle', 'Cycle Evolution', 1, 1, 'turns before it repeats, 0 for never, 0 to 1000']],
   // D-129.
   'core.gradient_map': [['midpoint', 'Midpoint', 1, 0.5, 'brightness of the midtone, 1 to 99'],
     ['amount', 'Amount', 1, 0.5, '0 to 100']],
@@ -9903,7 +9910,9 @@ const MAP_CHANNELS = [['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['al
   ['luminance', 'Luminance'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'],
   ['full', 'Full'], ['off', 'Off']];
 const EFFECT_WORDS = {
-  'core.gaussian_blur': { choices: [EDGES] },
+  // D-303: After Effects' Blur Dimensions; both first, as it starts.
+  'core.gaussian_blur': { choices: [EDGES, ['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],
+    ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]]] },
   'core.directional_blur': { choices: [EDGES] },
   'core.selective_color_blur': { chosen: () => true },
   // D-89. The colours show only when a glow is based on them, and are kept when it is not.
@@ -9939,7 +9948,7 @@ const EFFECT_WORDS = {
   },
   // D-111. Each curve's points, typed.
   'core.curves': {
-    lists: [['master', 'Master'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue']],
+    lists: [['master', 'Master'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']],
   },
   // D-114.
   'core.gradient': {
@@ -9980,7 +9989,11 @@ const EFFECT_WORDS = {
   'core.turbulent_displace': { choices: [EDGES] },
   // D-128.
   'core.fractal_noise': {
-    choices: [['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
+    choices: [['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]],
+      // D-299.
+      ['fractal_type', 'Fractal Type', [['basic', 'Basic'], ['turbulent', 'Turbulent']]],
+      ['noise_type', 'Noise Type', [['smooth', 'Smooth'], ['block', 'Block']]],
+      ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
     colours: [['dark_color', 'Dark Colour'], ['light_color', 'Light Colour']],
   },
   // D-129.
@@ -10101,6 +10114,8 @@ const EFFECT_WORDS = {
   // D-190.
   'core.lightning_bolt': {
     colours: [['color', 'Colour'], ['glow_color', 'Glow Colour']],
+    // D-300: the file leaves it out when on, so on is first.
+    choices: [['composite', 'Composite on Original', [['on', 'On'], ['off', 'Off']]]],
   },
   // D-191, After Effects' own words.
   'core.compound_blur': {
@@ -10361,7 +10376,7 @@ const fxTextOf = (pts) => pts.map((p) => p.map(number).join(' ')).join(', ');
 
 // The curve each Curves card shows, by instance, for as long as the window is open.
 const curvesShown = new Map();
-const CURVE_COLOURS = { master: '#d8d8dc', red: '#e0605a', green: '#5ac06a', blue: '#5a8ae0' };
+const CURVE_COLOURS = { master: '#d8d8dc', red: '#e0605a', green: '#5ac06a', blue: '#5a8ae0', alpha: '#a0a0a8' };
 
 // D-111's graph, in against out on 0 to 255, one curve at a time. A press on the graph adds a
 // point on the line there and drags it; a point is dragged by itself, cannot pass its
@@ -10956,7 +10971,8 @@ function effectRow(layer, fx, at, of) {
   // A switch the file leaves out is at its first choice (D-109's edges).
   for (const [w, , options] of spec.choices || []) words[w] = fx.parameters[w] ?? options[0][0];
   for (const [w] of spec.colours || []) words[w] = fx.parameters[w];
-  for (const [w] of spec.lists || []) words[w] = (fx.parameters[w] || []).map((p) => p.join(' ')).join(', ');
+  // D-302: a curve the file leaves out, as alpha when straight, is the straight line.
+  for (const [w] of spec.lists || []) words[w] = (fx.parameters[w] || [[0, 0], [255, 255]]).map((p) => p.join(' ')).join(', ');
   for (const [w] of spec.files || []) words[w] = fx.parameters[w] ?? '';
   for (const [w, , sent] of spec.layers || []) words[sent] = fx.parameters[w] ?? '';
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
@@ -11074,8 +11090,9 @@ function effectRow(layer, fx, at, of) {
   }
   // The card's picture, above its numbers, as After Effects puts it.
   const k = { fields, words, live, close, send: () => sendParameters(), redraws };
-  // A shift is pixels, not a place on the drawing, so the offset has no point box.
-  const pairs = fx.type_id === 'core.offset' ? [] : known.filter((p) => p[2] === 2).map(([n, w]) => [n, w]);
+  // A shift is pixels, not a place on the drawing, so the offset has no point box; nor has
+  // Fractal Noise's (D-299).
+  const pairs = ['core.offset', 'core.fractal_noise'].includes(fx.type_id) ? [] : known.filter((p) => p[2] === 2).map(([n, w]) => [n, w]);
   const picture = fx.type_id === 'core.levels' ? fxLevels(k, label)
     : fx.type_id === 'core.hue_saturation' ? fxHues(k, label)
       : fx.type_id === 'core.lens_blur' ? fxIris(k, label)

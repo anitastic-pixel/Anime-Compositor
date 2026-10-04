@@ -123,7 +123,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.color_key` is an effect this build has | added | added | pass |
 | and the settings it sends for it - tolerance, softness, colors, match - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.curves` is an effect this build has | added | added | pass |
-| and the settings it sends for it - master, red, green, blue - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - master, red, green, blue, alpha - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.levels` is an effect this build has | added | added | pass |
 | and the settings it sends for it - input_black, input_white, gamma, output_black, output_white - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.hue_saturation` is an effect this build has | added | added | pass |
@@ -153,7 +153,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.turbulent_displace` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, size, complexity, evolution, speed, seed, edges - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.fractal_noise` is an effect this build has | added | added | pass |
-| and the settings it sends for it - size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.gradient_map` is an effect this build has | added | added | pass |
 | and the settings it sends for it - shadow_color, midtone_color, highlight_color, midpoint, amount - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.color_balance` is an effect this build has | added | added | pass |
@@ -233,7 +233,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.kira_kira` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, spacing, density, size, shape, angle, twinkle, period, seed, opacity, color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.lightning_bolt` is an effect this build has | added | added | pass |
-| and the settings it sends for it - start, end, jagged, detail, branches, width, glow, opacity, hold, seed, color, glow_color - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - start, end, jagged, detail, branches, width, glow, opacity, hold, seed, color, glow_color, composite - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.compound_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - blur_layer, fit, max_blur, invert, edges - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.displacement_map` is an effect this build has | added | added | pass |

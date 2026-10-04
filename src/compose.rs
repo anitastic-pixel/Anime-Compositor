@@ -917,6 +917,12 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
         && !matches!(instance.effect, crate::effects::Effect::Levels { input_black, input_white, .. } if input_black == input_white)
+        // D-303: the card blurs along both axes only.
+        // ponytail: give the card's two passes a still one if a one-way blur is slow here.
+        && !matches!(&instance.effect, crate::effects::Effect::GaussianBlur { dimensions, .. } if dimensions != "both")
+        // D-302: the card bends the colour only, so a Curves whose alpha curve bends is drawn here.
+        // ponytail: give the card's grade a fifth curve if one is slow here.
+        && !matches!(&instance.effect, crate::effects::Effect::Curves { alpha, .. } if !crate::grade::is_straight(alpha))
         // B-107: valid as it runs, at the draft's distances, since a draft can take a
         // distance below its least (a Rain's spacing), which the CPU then reports and skips.
         && {
@@ -949,7 +955,7 @@ fn card_effect(
             render::OnCard::Directional(d)
         }),
         // B-50: a sigma too small to reach a neighbour changes nothing, so it is not left either.
-        crate::effects::Effect::GaussianBlur { sigma_px, edges } => {
+        crate::effects::Effect::GaussianBlur { sigma_px, edges, .. } => {
             (crate::effects::kernel_radius(sigma_px) != 0).then(|| {
                 let g = render::Gaussian { sigma: sigma_px, repeat: edges == "repeat" };
                 *offset = (offset.0 + g.grow(), offset.1 + g.grow());
@@ -962,8 +968,8 @@ fn card_effect(
         effect => {
             use crate::effects::Effect as E;
             let nothing = match &effect {
-                E::Curves { master, red, green, blue } => {
-                    [master, red, green, blue].iter().all(|c| crate::grade::is_straight(c))
+                E::Curves { master, red, green, blue, alpha } => {
+                    [master, red, green, blue, alpha].iter().all(|c| crate::grade::is_straight(c))
                 }
                 E::Levels { input_black, input_white, gamma, output_black, output_white } => {
                     [*input_black, *input_white, *gamma, *output_black, *output_white] == [0.0, 255.0, 1.0, 0.0, 255.0]

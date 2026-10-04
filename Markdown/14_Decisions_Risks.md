@@ -801,6 +801,38 @@ D-298 / A mask's feather, opacity and expansion take keys / **BUILT on 2026-10-0
 - The file writes a number with no keys as the plain number it always was, so older files and older builds are unchanged; a keyed one is a property record (document 19).
 - Found on the way: the timeline's numbers on keyed rows showed the frame before after a step; they now follow the frame, as the expression rows already did.
 - B-183 checks by hand on an 8x8 white solid: opacity keyed 1 to 0 over 10 frames is 0.5 at frame 5; feather 0 to 8 and expansion -2 to 2 draw at frame 5 the same picture, pixel for pixel, as plain 4 and 0.
+D-299 / Fractal Noise has After Effects' Fractal Type, Noise Type, Invert, Offset, Scale Width and Height, and Cycle Evolution / **BUILT on 2026-10-04** (B-184), from P-26: the Shockwave tutorial sets Fractal Type to Turbulent and stretches the noise with Scale Width; the Colorful Glitch tutorial uses Noise Type Block, Offset Turbulence and Cycle Evolution for its looping blocks. D-128's Fractal Noise had none of them. **Awaiting the owner's playtest.**
+- Seven settings, each starting where D-128's noise was, so every older file and every FX-FRACTAL fixture draws as before; the file writes one only when it has moved (document 21).
+- Turbulent folds the noise at its middle into sharp creases; Block draws one grey a cell; Invert swaps dark and light; Offset moves the clouds in pixels; Scale Width and Height stretch them; Cycle Evolution makes the evolution repeat after that many turns, so a loop can be seamless.
+- The card draws all seven, the same as the CPU in the card's check table (`verification/B-155_gpu_chain_table.md`, 846 of 846).
+- B-184 checks by hand on an 8x8 solid: inverted grey is 1 - v, turbulent is |2v - 1|, block is one grey over each 4x4 cell, offset (3, 0) is the plain picture moved 3 pixels right, Scale Width 50% of 100 equals Size 50 at Scale Height 200%, and Cycle 2 draws 90 and 810 degrees the same.
+- Still PROPOSED, since each changes FX-FRACTAL fixtures or the range rule: Complexity above 8 (After Effects goes to 20), Brightness past +-100 (After Effects +-200), and values above white kept for a later Glow (After Effects in 32-bit).
+D-300 / Lightning Bolt has Composite on Original / **BUILT on 2026-10-04** (B-185), from P-26: the Advanced Electric tutorial puts Advanced Lightning on a black solid, and the bolt shows over the shot straight away, in Normal mode, because After Effects starts Composite on Original off, so the layer is the bolt alone. D-190 always painted the bolt onto the layer, so the black solid stayed and hid the shot until the layer was set to Add. **Awaiting the owner's playtest.**
+- A new switch, Composite on Original. Off, the layer's own picture is cleared and only the bolt shows; on, the bolt is painted over the layer as before.
+- A file without it is on, so every older file and FX-BOLT-001 to 032 draw as before; only off is written. The window adds a new Lightning Bolt with it off, as After Effects does.
+- B-185 checks by hand on an opaque red solid: with it on, each pixel is exactly the red plus what it is with it off, and a pixel the bolt misses is clear with it off.
+- Still PROPOSED, from the same tutorial: Advanced Lightning's Turbulence, Decay, Conductivity and its lightning types.
+
+D-301 / Four more blend modes: Overlay, Soft Light, Stencil Alpha and Stencil Luma / **BUILT on 2026-10-04** (B-186), from P-26: the Advanced Electric and Colorful Glitch tutorials put layers in Overlay and Soft Light, and cut a picture to a shape with Stencil Alpha; a layer here could be normal, multiply, screen or add only. **Awaiting the owner's playtest.**
+- The Blend list in the timeline, the right-click menu and the command bar now have all eight. Every older file is unchanged, since none could name the new four; a file naming a mode that is not one of the eight is still refused, and the reason lists the eight.
+- Overlay and Soft Light mix on the encoded colours, as After Effects does, so a 50% grey changes nothing. A stencil keeps what is beneath it only where it is, by its alpha or by its brightness, and clears the rest of the frame (document 21).
+- B-186 checks by hand: the 50% grey; overlay and soft light of (0.25, 0.75, 0.5) under (0.8, 0.3, 0.5) are (0.4, 0.65, 0.5) and (0.4, 0.675, 0.5); a 50% Stencil Alpha in one quarter keeps half the backdrop there and nothing elsewhere; a Stencil Luma of linear grey 0.2 keeps 0.4845 of it. FX-BLEND's fixtures (`tests/b05c_blend.rs`) and P-05's culling table still pass.
+- The graphics card does not draw the four; a frame with one is drawn on the CPU and the viewer says so. Teaching the card them is a later speed-up, not needed for the pictures to be right.
+- After Effects' other modes (Color Dodge, Linear Light, Difference, Hue and the rest) stay out until a tutorial needs one; Silhouette Alpha and Luma are the stencils' inverses and would be one line each when asked for.
+
+D-302 / Curves has an Alpha curve / **BUILT on 2026-10-04** (B-187), from P-26: the Colorful Glitch tutorial bends Curves' Alpha channel to thin a layer's covering; D-111's Curves bent the colour only. **Awaiting the owner's playtest.**
+- A fifth curve, Alpha, in the curve list beside Master, Red, Green and Blue. It runs after the colour curves, on the covering from 0 to 255, and keeps each pixel's colour; a pixel that did not show has no colour, so one the curve makes show is black.
+- Straight unless bent, so every older file and FX-CURVES-001 to 020 draw as before; the file writes it only when bent or when the file had it.
+- The card bends colour only, so a Curves whose alpha curve bends is drawn on the CPU, as a Levels threshold is; teaching the card a fifth curve is a later speed-up.
+- B-187 checks by hand on an opaque solid: alpha through [[0, 0], [255, 128]] is 128/255 with the colour kept; then through [[0, 0], [128, 255]] it is opaque with the colour back; cleared, then lifted to 64, it is black at 64/255.
+- Found on the way, and fixed: a setting added by D-295, D-299 or D-300, put back to its start in the window, saved the file's old value instead, since only a moved value was written; and a keyed Fractal Noise Offset, Scale or Cycle whose plain value was at its start lost its keys on save. Each is now written, as D-121's settings are, when moved, keyed or in the file already. B-187 checks both.
+
+D-303 / Gaussian Blur takes Blur Dimensions / **BUILT on 2026-10-04** (B-188), from P-26: the Colorful Glitch and Lightsaber tutorials blur along one axis only, After Effects' Blur Dimensions, for streaks; here a Gaussian Blur blurred both ways. **Awaiting the owner's playtest.**
+- A choice, Blur Dimensions: Horizontal and Vertical (as before, and where it starts), Horizontal, or Vertical. A one-way blur spreads each pixel along that axis only, with the same weights as before.
+- A file without it blurs both ways, and "both" is written only when the file had it, so every older file and every FX-BLUR fixture draws and saves as before. Any other word is reported, and the effect left out, as a wrong Edges word is.
+- The layer still grows by the blur's reach on every side, so a one-way blur takes the same room as before; only its pixels differ.
+- The card blurs both ways only, so a one-way Gaussian Blur is drawn on the CPU; teaching the card is a later speed-up if one is slow.
+- B-188 checks by hand on one white pixel, sigma 1: horizontal lights only its row, with document 21's seven taps; vertical only its column; both, the products, as before; and the card's picture matches.
 
 ## Assumptions and change log
 

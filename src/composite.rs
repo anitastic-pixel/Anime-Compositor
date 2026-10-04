@@ -111,6 +111,17 @@ pub fn blend_pixel(mode: BlendMode, src: [f32; 4], dst: [f32; 4]) -> [f32; 4] {
     if mode == BlendMode::Normal {
         return over_pixel(src, dst);
     }
+    // D-301: a stencil is not drawn; it keeps what is under it by its alpha, or by its picture
+    // luma as a Luma matte reads one (its colour over black, encoded).
+    if matches!(mode, BlendMode::StencilAlpha | BlendMode::StencilLuma) {
+        let k = if mode == BlendMode::StencilAlpha {
+            src[3]
+        } else {
+            let luma = 0.2126 * src[0] as f64 + 0.7152 * src[1] as f64 + 0.0722 * src[2] as f64;
+            crate::grade::to_srgb(luma.clamp(0.0, 1.0)) as f32
+        };
+        return dst.map(|v| v * k);
+    }
     // Document 21: "first recover straight colors cs and cd where alpha is nonzero", and
     // "Zero-alpha straight colors are zero", which is what `unpremultiply` already does.
     let cs = unpremultiply(src);
@@ -122,7 +133,14 @@ pub fn blend_pixel(mode: BlendMode, src: [f32; 4], dst: [f32; 4]) -> [f32; 4] {
             BlendMode::Multiply => cs[c] * cd[c],
             BlendMode::Screen => cs[c] + cd[c] - cs[c] * cd[c],
             BlendMode::Add => (cs[c] + cd[c]).min(1.0),
-            BlendMode::Normal => unreachable!("handled above"),
+            // D-301: on the encoded colours, held to 0..1, as After Effects blends them, so a
+            // 50% grey is the neutral one; `mixer` takes the colour beneath first.
+            BlendMode::Overlay | BlendMode::SoftLight => {
+                let mix = crate::grade::mixer(if mode == BlendMode::Overlay { "overlay" } else { "soft_light" });
+                let e = |v: f32| crate::grade::to_srgb((v as f64).clamp(0.0, 1.0));
+                crate::grade::to_linear(mix(e(cd[c]), e(cs[c]))) as f32
+            }
+            BlendMode::Normal | BlendMode::StencilAlpha | BlendMode::StencilLuma => unreachable!("handled above"),
         };
         out[c] = (1.0 - a_s) * dst[c] + (1.0 - a_d) * src[c] + a_s * a_d * b;
     }

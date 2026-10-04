@@ -464,6 +464,10 @@ pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
     )
 }
 
+fn stencil(layer: &LayerDraw) -> bool {
+    matches!(layer.blend, crate::model::BlendMode::StencilAlpha | crate::model::BlendMode::StencilLuma)
+}
+
 /// Whether a layer's box meets a tile. Public so that `tests/p05_culling.rs` can count how many
 /// layer-and-tile pairs the box actually excludes: a table saying the frame is unchanged reads
 /// the same whether the skip works or never fires, and the count is what tells those two apart.
@@ -915,8 +919,13 @@ fn light_wrap(l: &mut WorkingBuffer, b: &WorkingBuffer, width: f64, intensity: f
 fn render_layers(layers: &[LayerDraw], frame: &mut WorkingBuffer, tile_size: usize, cull: bool, at: (usize, usize)) {
     let (width, height) = (frame.width(), frame.height());
     let tiles = tiles(width, height, tile_size);
-    let boxes: Option<Vec<(f64, f64, f64, f64)>> =
-        cull.then(|| layers.iter().map(bounds).collect());
+    // D-301: a stencil clears what is under it where it is empty, so it reaches every tile.
+    let boxes: Option<Vec<(f64, f64, f64, f64)>> = cull.then(|| {
+        layers
+            .iter()
+            .map(|l| if stencil(l) { (f64::NEG_INFINITY, f64::NEG_INFINITY, f64::INFINITY, f64::INFINITY) } else { bounds(l) })
+            .collect()
+    });
 
     // The carve-up is what is left of the assembly step, and it is where every destination is
     // decided. It is serial on purpose: it hands out borrows, it does not touch a pixel.
@@ -967,7 +976,14 @@ fn render_tile(
     boxes: Option<&[(f64, f64, f64, f64)]>,
 ) {
     for (index, layer) in layers.iter().enumerate() {
+        // D-301: a stencil that has collapsed to nothing keeps nothing under it.
+        let nothing = |rows: &mut Vec<&mut [f32]>| {
+            if stencil(layer) {
+                rows.iter_mut().for_each(|out| out.fill(0.0));
+            }
+        };
         let Some(inverse) = layer.transform.invert() else {
+            nothing(&mut rows);
             continue;
         };
         // P-05: a tile the layer cannot reach is a tile the layer cannot change. Every pixel of
@@ -988,7 +1004,10 @@ fn render_tile(
             None => None,
             Some(m) => match m.transform.invert() {
                 Some(inv) => Some((m, inv)),
-                None => continue,
+                None => {
+                    nothing(&mut rows);
+                    continue;
+                }
             },
         };
         for (row, out) in rows.iter_mut().enumerate() {

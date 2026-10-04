@@ -355,7 +355,8 @@ pub enum Effect {
     Exposure { stops: f64 },
     /// Document 21: "parameter `sigma_px >= 0` ... kernel radius `ceil(3*sigma_px)`."
     /// D-109: `edges`, "transparent" or "repeat", as Directional and Radial Blur have.
-    GaussianBlur { sigma_px: f64, edges: String },
+    /// D-303: `dimensions`, "both", "horizontal" or "vertical", the axes it blurs along.
+    GaussianBlur { sigma_px: f64, edges: String, dimensions: String },
     /// Document 21: "parameter color is linear RGB and amount `t` in 0..1."
     Tint { color: [f64; 3], amount: f64 },
     /// D-86: "`softness`, 0 to 100 ... and `threshold`, 0 to 255". Document 21's line smoothing.
@@ -438,11 +439,13 @@ pub enum Effect {
     },
     /// D-111: `master`, `red`, `green` and `blue`, each a curve of 2 to 16 points `[in, out]`,
     /// 0 to 255, in rising order of in. Kept as written, so a file's wrong point is reported.
+    /// D-302: and `alpha`, the covering's curve, straight unless set.
     Curves {
         master: Vec<Vec<f64>>,
         red: Vec<Vec<f64>>,
         green: Vec<Vec<f64>>,
         blue: Vec<Vec<f64>>,
+        alpha: Vec<Vec<f64>>,
     },
     /// D-112: `input_black` and `input_white`, 0 to 255, the range taken to 0..1; `gamma`, 0.1
     /// to 10, above 1 lightening the middle; and `output_black` and `output_white`, 0 to 255,
@@ -597,7 +600,11 @@ pub enum Effect {
     /// counted; `dark_color` and `light_color`, `#rrggbb`; `opacity`, 0 to 100; and `blend`,
     /// "normal", "multiply", "screen" or "add". The words and the colours are kept as written,
     /// so a wrong one is reported. `frame` is not a setting and is never saved: it is the
-    /// composition frame, as Noise's is.
+    /// composition frame, as Noise's is. D-299, each kept as written and drawing as before at
+    /// its start: `fractal_type`, "basic" or "turbulent"; `noise_type`, "smooth" or "block";
+    /// `invert`, "off" or "on"; `offset`, x then y in pixels, -100000 to 100000; `scale_width`
+    /// and `scale_height`, 1 to 10000 per cent of the size, 100 at the start; and `cycle`, 0 to
+    /// 1000 turns of evolution after which it repeats, its whole part counted, 0 for never.
     FractalNoise {
         size: f64,
         complexity: f64,
@@ -610,6 +617,13 @@ pub enum Effect {
         light_color: String,
         opacity: f64,
         blend: String,
+        fractal_type: String,
+        noise_type: String,
+        invert: String,
+        offset: [f64; 2],
+        scale_width: f64,
+        scale_height: f64,
+        cycle: f64,
         frame: i32,
     },
     /// D-129: `shadow_color`, `midtone_color` and `highlight_color`, `#rrggbb`, kept as written
@@ -932,8 +946,10 @@ pub enum Effect {
     /// D-190: `start` and `end`, per cent of the drawing's width and height, each -1000 to 1000;
     /// `jagged`, `branches` and `opacity`, 0 to 100; `detail`, 1 to 8; `width`, 0 to 100 pixels;
     /// `glow`, 0 to 500 pixels; `hold`, 1 to 100 frames; `seed`, 0 to 100000; detail, hold and
-    /// seed by their whole parts; and `color` and `glow_color`, `#rrggbb`. `frame` is not a
-    /// setting and is never saved: it is the composition frame, as Kira-kira's is.
+    /// seed by their whole parts; and `color` and `glow_color`, `#rrggbb`. D-300: `composite`,
+    /// "on" or "off", After Effects' Composite on Original; a file from before it is "on", and
+    /// "off" draws the bolt alone on a clear layer. `frame` is not a setting and is never saved:
+    /// it is the composition frame, as Kira-kira's is.
     LightningBolt {
         start: [f64; 2],
         end: [f64; 2],
@@ -947,6 +963,7 @@ pub enum Effect {
         seed: f64,
         color: String,
         glow_color: String,
+        composite: String,
         frame: i32,
     },
     /// D-191: `layer`, D-189's layer setting as written (a word, or kept as found and refused
@@ -1583,6 +1600,10 @@ impl Effect {
                 speed,
                 seed,
                 opacity,
+                offset,
+                scale_width,
+                scale_height,
+                cycle,
                 ..
             } => vec![
                 ("size", vec![size], 1.0, 1000.0),
@@ -1593,6 +1614,10 @@ impl Effect {
                 ("speed", vec![speed], -360.0, 360.0),
                 ("seed", vec![seed], 0.0, 100000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
+                ("offset", offset.iter_mut().collect(), -100000.0, 100000.0),
+                ("scale_width", vec![scale_width], 1.0, 10000.0),
+                ("scale_height", vec![scale_height], 1.0, 10000.0),
+                ("cycle", vec![cycle], 0.0, 1000.0),
             ],
             Effect::GradientMap {
                 midpoint, amount, ..
@@ -2281,7 +2306,11 @@ impl Effect {
                 *size = scale(*size).max(1.0);
             }
             // D-128: held at one in a draft, as D-127's wave is.
-            Effect::FractalNoise { size, .. } => *size = scale(*size).max(1.0),
+            Effect::FractalNoise { size, offset, .. } => {
+                *size = scale(*size).max(1.0);
+                // D-299: the slide in pixels, as Offset's.
+                *offset = offset.map(&scale);
+            }
             Effect::CellPattern { size, .. } => *size = scale(*size).max(1.0),
             // D-143: held at its smallest, two, rather than bypassed.
             Effect::Halftone { size, .. } => *size = scale(*size).max(2.0),
@@ -2825,9 +2854,12 @@ impl Effect {
             })
         };
         let own = match self {
-            Effect::GaussianBlur { edges: e, .. } | Effect::DirectionalBlur { edges: e, .. } => {
-                edges(e)
-            }
+            Effect::GaussianBlur { edges: e, dimensions, .. } => edges(e).or_else(|| {
+                (!["both", "horizontal", "vertical"].contains(&dimensions.as_str())).then(|| {
+                    format!("{name}'s dimensions are \"both\", \"horizontal\" or \"vertical\", and this is \"{dimensions}\".")
+                })
+            }),
+            Effect::DirectionalBlur { edges: e, .. } => edges(e),
             Effect::LineRecolor {
                 colors, new_color, ..
             } => chosen(colors).or_else(|| one("new colour", new_color)),
@@ -2868,7 +2900,8 @@ impl Effect {
                 red,
                 green,
                 blue,
-            } => [("master", master), ("red", red), ("green", green), ("blue", blue)]
+                alpha,
+            } => [("master", master), ("red", red), ("green", green), ("blue", blue), ("alpha", alpha)]
                 .into_iter()
                 .find_map(|(curve, points)| curve_fault(curve, points)),
             Effect::Gradient {
@@ -2953,9 +2986,25 @@ impl Effect {
             Effect::FractalNoise {
                 dark_color,
                 light_color,
+                fractal_type,
+                noise_type,
+                invert,
                 ..
             } => hex_fault("Fractal Noise", "dark colour", dark_color)
-                .or_else(|| hex_fault("Fractal Noise", "light colour", light_color)),
+                .or_else(|| hex_fault("Fractal Noise", "light colour", light_color))
+                .or_else(|| {
+                    // D-299.
+                    [
+                        ("fractal type", fractal_type, ["basic", "turbulent"]),
+                        ("noise type", noise_type, ["smooth", "block"]),
+                        ("invert", invert, ["off", "on"]),
+                    ]
+                    .into_iter()
+                    .find(|(_, word, allowed)| !allowed.contains(&word.as_str()))
+                    .map(|(what, word, [a, b])| {
+                        format!("Fractal Noise's {what} is \"{a}\" or \"{b}\", and this is \"{word}\".")
+                    })
+                }),
             Effect::GradientMap {
                 shadow_color,
                 midtone_color,
@@ -3184,6 +3233,9 @@ impl Effect {
                 "Kira-kira's shape is \"cross\" or \"star\", and this is \"{shape}\"."
             )),
             Effect::KiraKira { color, .. } => hex_fault("Kira-kira", "colour", color),
+            Effect::LightningBolt { composite, .. } if !["off", "on"].contains(&composite.as_str()) => Some(format!(
+                "Lightning Bolt's composite on original is \"off\" or \"on\", and this is \"{composite}\"."
+            )),
             Effect::LightningBolt { color, glow_color, .. } => hex_fault("Lightning Bolt", "colour", color)
                 .or_else(|| hex_fault("Lightning Bolt", "glow colour", glow_color)),
             Effect::CompoundBlur { layer, .. } if !layer.is_string() => Some(format!(
@@ -3475,13 +3527,14 @@ pub(crate) fn apply_stack_at(
                     tint(source, *color, *amount)
                 })
             }
-            Effect::GaussianBlur { sigma_px, edges } => {
+            Effect::GaussianBlur { sigma_px, edges, dimensions } => {
+                let axes = (dimensions != "vertical", dimensions != "horizontal");
                 let r = crate::perf::time(crate::perf::Stage::EffectBlur, || {
                     if edges == "repeat" {
-                        held_blur(source, *sigma_px);
+                        held_blur_axes(source, *sigma_px, axes);
                         0
                     } else {
-                        blur(source, *sigma_px)
+                        blur_axes(source, *sigma_px, axes)
                     }
                 });
                 ox += r;
@@ -3613,8 +3666,9 @@ pub(crate) fn apply_stack_at(
                 red,
                 green,
                 blue,
+                alpha,
             } => crate::perf::time(crate::perf::Stage::EffectCurves, || {
-                crate::grade::curves(source, master, [red, green, blue])
+                crate::grade::curves(source, master, [red, green, blue], alpha)
             }),
             Effect::Levels {
                 input_black,
@@ -3874,10 +3928,21 @@ pub(crate) fn apply_stack_at(
                 light_color,
                 opacity,
                 blend,
+                fractal_type,
+                noise_type,
+                invert,
+                offset,
+                scale_width,
+                scale_height,
+                cycle,
                 frame,
             } => {
                 let f = crate::grade::Fractal {
-                    size: *size,
+                    size: size * (scale_width / 100.0),
+                    size_y: size * (scale_height / 100.0),
+                    offset: *offset,
+                    invert: invert == "on",
+                    look: fractal_look(fractal_type, noise_type, *cycle),
                     octaves: complexity.floor() as usize,
                     seed: *seed,
                     z: depth(*evolution, *speed, *frame),
@@ -4578,8 +4643,13 @@ pub(crate) fn apply_stack_at(
                 seed,
                 color,
                 glow_color,
+                composite,
                 frame,
             } => crate::perf::time(crate::perf::Stage::EffectLightningBolt, || {
+                // D-300: off, the layer's own picture goes and the bolt is all there is.
+                if composite == "off" {
+                    source.data_mut().fill(0.0);
+                }
                 let colours = [encoded(color), encoded(glow_color)].map(|c| c.map(crate::grade::to_linear));
                 let ends = [radial_center(*start, (source.width(), source.height()), (ox, oy)), radial_center(*end, (source.width(), source.height()), (ox, oy))];
                 let numbers = [*jagged, *detail, *branches, *width, *glow, *opacity, *hold, *seed];
@@ -4662,6 +4732,11 @@ pub(crate) fn flicker_stops(amount: f64, hold: f64, seed: f64, frame: i32) -> f6
 /// D-127 and D-128: one full turn of evolution moves the field one cell.
 pub(crate) fn depth(evolution: f64, speed: f64, frame: i32) -> f64 {
     (evolution + speed * frame as f64) / 360.0
+}
+
+/// D-299: Fractal Noise's type, noise type and cycle as the noise reads them.
+pub(crate) fn fractal_look(fractal_type: &str, noise_type: &str, cycle: f64) -> crate::grade::Look {
+    crate::grade::Look { turbulent: fractal_type == "turbulent", block: noise_type == "block", cycle: cycle.floor() as i64 }
 }
 
 /// D-126: the ellipse in the drawing's own size, however far the layer has grown (its corner at
@@ -4756,11 +4831,27 @@ fn tint(source: &mut WorkingBuffer, color: [f64; 3], amount: f64) {
 /// nothing -- and because the weights are not renormalised for them, an edge fades out rather
 /// than staying artificially bright.
 pub(crate) fn blur(source: &mut WorkingBuffer, sigma_px: f64) -> usize {
+    blur_axes(source, sigma_px, (true, true))
+}
+
+/// D-303: the taps of an axis not blurred along, which take each pixel as it is.
+fn still_weights(sigma_px: f64) -> Vec<f32> {
+    let r = kernel_radius(sigma_px);
+    let mut w = vec![0.0; 2 * r + 1];
+    w[r] = 1.0;
+    w
+}
+
+/// D-303: [`blur`] along across (`axes.0`), down (`axes.1`) or both. An axis not blurred along
+/// takes [`still_weights`], so the buffer grows the same either way.
+fn blur_axes(source: &mut WorkingBuffer, sigma_px: f64, axes: (bool, bool)) -> usize {
     let radius = kernel_radius(sigma_px);
     if radius == 0 {
         return 0;
     }
-    let weights = gaussian_weights(sigma_px);
+    let blurred = gaussian_weights(sigma_px);
+    let still = still_weights(sigma_px);
+    let (weights, down) = (if axes.0 { &blurred } else { &still }, if axes.1 { &blurred } else { &still });
     let (w, h) = (source.width(), source.height());
 
     // Horizontal, into a buffer wider by the radius on each side.
@@ -4772,7 +4863,7 @@ pub(crate) fn blur(source: &mut WorkingBuffer, sigma_px: f64) -> usize {
         wide.data_mut(),
         wide_w,
         radius,
-        &weights,
+        weights,
         Axis::X,
     );
 
@@ -4785,7 +4876,7 @@ pub(crate) fn blur(source: &mut WorkingBuffer, sigma_px: f64) -> usize {
         tall.data_mut(),
         wide_w,
         radius,
-        &weights,
+        down,
         Axis::Y,
     );
 
@@ -4802,11 +4893,18 @@ pub(crate) fn blur(source: &mut WorkingBuffer, sigma_px: f64) -> usize {
 /// down, a tap reads one whole held row. Each pixel still starts at zero and takes its taps in
 /// ascending order, so the bits are the pixel-at-a-time loop's.
 pub(crate) fn held_blur(source: &mut WorkingBuffer, sigma_px: f64) {
+    held_blur_axes(source, sigma_px, (true, true))
+}
+
+/// D-303: [`held_blur`] along across, down or both, as [`blur_axes`].
+fn held_blur_axes(source: &mut WorkingBuffer, sigma_px: f64, axes: (bool, bool)) {
     let r = kernel_radius(sigma_px);
     if r == 0 {
         return;
     }
-    let weights = gaussian_weights(sigma_px);
+    let blurred = gaussian_weights(sigma_px);
+    let still = still_weights(sigma_px);
+    let (weights, down) = (if axes.0 { &blurred } else { &still }, if axes.1 { &blurred } else { &still });
     let (w, h) = (source.width(), source.height());
     let add = |out: &mut [f32], from: &[f32], weight: f32| {
         for (o, &v) in out.iter_mut().zip(from) {
@@ -4840,7 +4938,7 @@ pub(crate) fn held_blur(source: &mut WorkingBuffer, sigma_px: f64) {
         .par_chunks_mut(w * 4)
         .enumerate()
         .for_each(|(y, out)| {
-            for (k, &weight) in weights.iter().enumerate() {
+            for (k, &weight) in down.iter().enumerate() {
                 let sy = (y + k).saturating_sub(r).min(h - 1);
                 add(out, &src[sy * w * 4..(sy + 1) * w * 4], weight);
             }

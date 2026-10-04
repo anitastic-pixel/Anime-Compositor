@@ -24,6 +24,7 @@ fn master(points: Vec<Vec<f64>>) -> Effect {
         red: line(STRAIGHT),
         green: line(STRAIGHT),
         blue: line(STRAIGHT),
+        alpha: line(STRAIGHT),
     }
 }
 

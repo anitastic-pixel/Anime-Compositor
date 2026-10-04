@@ -2,13 +2,13 @@
 
 Written by `tests/b155_gpu_chain.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
-Each of the 69 effects the card can draw is put on the reference shot's first three layers twice: last, after two others the card can draw, and first, before two. A last stack puts Kaleidoscope, which the card does not draw (D-240), in the middle. The card is to draw each layer's whole run from the last effect it cannot draw to the end of the stack, one effect after another on the card (D-224). Bloom, Glow, Paraffin and Kira-kira look at the drawing they are given before the card is asked, so they only begin a run: last in a stack, the card has only them. So does an HSV Key: the hue of a nearly grey pixel swings with the smallest change, and given the card's picture after two others it keyed pixels the CPU did not, 255 levels apart, in this table's first run after the build (D-224).
+Each of the 70 effects the card can draw is put on the reference shot's first three layers twice: last, after two others the card can draw, and first, before two. A last stack puts Kaleidoscope, which the card does not draw (D-240), in the middle. The card is to draw each layer's whole run from the last effect it cannot draw to the end of the stack, one effect after another on the card (D-224). Bloom, Glow, Paraffin and Kira-kira look at the drawing they are given before the card is asked, so they only begin a run: last in a stack, the card has only them. So does an HSV Key: the hue of a nearly grey pixel swings with the smallest change, and given the card's picture after two others it keyed pixels the CPU did not, 255 levels apart, in this table's first run after the build (D-224).
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU. **The rule: no channel of any pixel more than 1 level of 255 apart**, the same warnings on both, the card drawing the frame itself, and at Full the first layer's whole run on the card. At Draft an effect whose distance the draft cannot take stays on the CPU (B-107), so only the pictures are held there.
 
-**834 of 834 checks pass.**
+**846 of 846 checks pass.**
 
-The CPU drawing each plan made for the card, as it does when the card refuses a frame, draws the plan made for the CPU byte for byte in 278 of 278 (frame 100, Full and Draft); a failing one is listed below.
+The CPU drawing each plan made for the card, as it does when the card refuses a frame, draws the plan made for the CPU byte for byte in 282 of 282 (frame 100, Full and Draft); a failing one is listed below.
 
 The worst comparison is "Halftone first, before Hue/Saturation and a Vignette frame 0, Full": largest difference 1 of 255, pixels differing: 138934. Its pictures are in `verification/B-155 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
@@ -16,8 +16,8 @@ The worst comparison is "Halftone first, before Hue/Saturation and a Vignette fr
 
 | Where | Frames compared | Largest difference (of 255) | Pass |
 |---|---:|---:|---|
-| first, before two | 276 | 1 | 276 of 276 |
-| last, after two | 276 | 1 | 276 of 276 |
+| first, before two | 280 | 1 | 280 of 280 |
+| last, after two | 280 | 1 | 280 of 280 |
 | split by Kaleidoscope | 4 | 1 | 4 of 4 |
 
 ## Every frame
@@ -194,6 +194,14 @@ Effects left to the card on the first three layers, and the number the first lay
 | Fractal Noise first, before Hue/Saturation and a Vignette frame 100, Full | 3 / 3 / 2 | 3 | 1 | 1143 | none | PASS |
 | Fractal Noise first, before Hue/Saturation and a Vignette frame 0, Draft | 3 / 3 / 2 | — | 1 | 53 | none | PASS |
 | Fractal Noise first, before Hue/Saturation and a Vignette frame 100, Draft | 3 / 3 / 2 | — | 1 | 67 | none | PASS |
+| Fractal Noise, turbulent block last, after Levels and a Gaussian Blur frame 0, Full | 3 / 3 / 2 | 3 | 1 | 1030 | none | PASS |
+| Fractal Noise, turbulent block last, after Levels and a Gaussian Blur frame 100, Full | 3 / 3 / 2 | 3 | 1 | 956 | none | PASS |
+| Fractal Noise, turbulent block last, after Levels and a Gaussian Blur frame 0, Draft | 3 / 3 / 2 | — | 1 | 53 | none | PASS |
+| Fractal Noise, turbulent block last, after Levels and a Gaussian Blur frame 100, Draft | 3 / 3 / 2 | — | 1 | 49 | none | PASS |
+| Fractal Noise, turbulent block first, before Hue/Saturation and a Vignette frame 0, Full | 3 / 3 / 2 | 3 | 1 | 1011 | none | PASS |
+| Fractal Noise, turbulent block first, before Hue/Saturation and a Vignette frame 100, Full | 3 / 3 / 2 | 3 | 1 | 1054 | none | PASS |
+| Fractal Noise, turbulent block first, before Hue/Saturation and a Vignette frame 0, Draft | 3 / 3 / 2 | — | 1 | 57 | none | PASS |
+| Fractal Noise, turbulent block first, before Hue/Saturation and a Vignette frame 100, Draft | 3 / 3 / 2 | — | 1 | 67 | none | PASS |
 | Gradient Map last, after Levels and a Gaussian Blur frame 0, Full | 3 / 3 / 2 | 3 | 1 | 1275 | none | PASS |
 | Gradient Map last, after Levels and a Gaussian Blur frame 100, Full | 3 / 3 / 2 | 3 | 1 | 2072 | none | PASS |
 | Gradient Map last, after Levels and a Gaussian Blur frame 0, Draft | 3 / 3 / 2 | — | 1 | 79 | none | PASS |

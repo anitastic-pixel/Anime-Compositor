@@ -27,6 +27,13 @@ fn fractal(n: [f64; 8], dark: &str, light: &str, blend: &str) -> Effect {
         light_color: light.to_string(),
         opacity: n[7],
         blend: blend.to_string(),
+        fractal_type: "basic".to_string(),
+        noise_type: "smooth".to_string(),
+        invert: "off".to_string(),
+        offset: [0.0, 0.0],
+        scale_width: 100.0,
+        scale_height: 100.0,
+        cycle: 0.0,
         frame: 0,
     }
 }

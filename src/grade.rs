@@ -148,14 +148,26 @@ fn spline(points: &[Vec<f64>]) -> impl Fn(f64) -> f64 {
 }
 
 /// D-111: each channel through its own curve, then through the master. The settings are
-/// already valid; all four curves straight changes nothing.
-pub(crate) fn curves(source: &mut WorkingBuffer, master: &[Vec<f64>], rgb: [&[Vec<f64>]; 3]) {
-    if is_straight(master) && rgb.iter().all(|c| is_straight(c)) {
-        return;
+/// already valid; all five curves straight changes nothing.
+pub(crate) fn curves(source: &mut WorkingBuffer, master: &[Vec<f64>], rgb: [&[Vec<f64>]; 3], alpha: &[Vec<f64>]) {
+    if !(is_straight(master) && rgb.iter().all(|c| is_straight(c))) {
+        let m = spline(master);
+        let c = rgb.map(spline);
+        grade(source, |i, x| m(c[i](x).clamp(0.0, 255.0)).clamp(0.0, 255.0));
     }
-    let m = spline(master);
-    let c = rgb.map(spline);
-    grade(source, |i, x| m(c[i](x).clamp(0.0, 255.0)).clamp(0.0, 255.0));
+    // D-302: then the covering through its own curve, 0 to 255, the colour kept. A pixel that
+    // did not show has no colour, so one the curve makes show is black.
+    if !is_straight(alpha) {
+        let f = spline(alpha);
+        each_pixel(source, |px| {
+            let a = px[3] as f64;
+            let to = f(a * 255.0).clamp(0.0, 255.0) / 255.0;
+            for c in 0..3 {
+                px[c] = if a > 0.0 { (px[c] as f64 / a * to) as f32 } else { 0.0 };
+            }
+            px[3] = to as f32;
+        });
+    }
 }
 
 /// D-112: each channel from the input range to 0..1, held there, bent by the gamma and laid on
@@ -435,40 +447,67 @@ pub(crate) fn unit(base: u64, x: i64, y: i64, f: i64, ch: u64) -> f64 {
 }
 
 /// D-127 and D-128's smooth value noise in -1..1: [`unit`] at the eight corners of the cell
-/// round `(x, y, z)`, mixed by the smoothed place inside it.
-fn value(base: u64, ch: u64, x: f64, y: f64, z: f64) -> f64 {
+/// round `(x, y, z)`, mixed by the smoothed place inside it. D-299: `block`, each cell one
+/// number across and down, the depth still mixed so it evolves smoothly; `period`, when not 0,
+/// the depth's cells repeat after that many.
+fn value(base: u64, ch: u64, x: f64, y: f64, z: f64, block: bool, period: i64) -> f64 {
     let (i, j, k) = (x.floor(), y.floor(), z.floor());
     let fade = |t: f64| t * t * t * (t * (6.0 * t - 15.0) + 10.0);
-    let s = [fade(x - i), fade(y - j), fade(z - k)];
+    let s = if block { [0.0, 0.0, fade(z - k)] } else { [fade(x - i), fade(y - j), fade(z - k)] };
     let (i, j, k) = (i as i64, j as i64, k as i64);
+    let depth = |k: i64| if period > 0 { k.rem_euclid(period) } else { k };
     let mut v = 0.0;
     for corner in 0..8 {
         let d = [corner & 1, (corner >> 1) & 1, corner >> 2];
         let w: f64 = (0..3).map(|a| if d[a] == 1 { s[a] } else { 1.0 - s[a] }).product();
-        v += w * unit(base, i + d[0] as i64, j + d[1] as i64, k + d[2] as i64, ch);
+        v += w * unit(base, i + d[0] as i64, j + d[1] as i64, depth(k + d[2] as i64), ch);
     }
     v
+}
+
+/// D-299: After Effects' Fractal Type, Noise Type and Cycle Evolution. The default is D-128's
+/// basic, smooth noise that never repeats.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(crate) struct Look {
+    /// Each octave's distance from the middle, so the clouds crease where it is nought.
+    pub turbulent: bool,
+    pub block: bool,
+    /// Whole turns of evolution after which it repeats, 0 for never.
+    pub cycle: i64,
 }
 
 /// D-127 and D-128's fractal noise: `octaves` of [`value`], each half the last's strength at
 /// twice its fineness, over the sum of the strengths. Channel `ch`'s octave `o` is channel
 /// `8 o + ch` of the value noise.
-pub(crate) fn fractal(base: u64, ch: u64, (x, y, z): (f64, f64, f64), octaves: usize) -> f64 {
+pub(crate) fn fractal(base: u64, ch: u64, p: (f64, f64, f64), octaves: usize) -> f64 {
+    fractal_with(base, ch, p, octaves, Look::default())
+}
+
+/// D-299: [`fractal`] with its look. Turbulent sums each octave's size, 0 to 1, and maps the
+/// share back to -1..1; octave `o`'s depth is `2^o` times finer, so it repeats after `2^o`
+/// times the cycle's cells.
+pub(crate) fn fractal_with(base: u64, ch: u64, (x, y, z): (f64, f64, f64), octaves: usize, look: Look) -> f64 {
     let (mut sum, mut total, mut amp, mut fine) = (0.0, 0.0, 1.0, 1.0);
     for o in 0..octaves {
-        sum += amp * value(base, 8 * o as u64 + ch, x * fine, y * fine, z * fine);
+        let v = value(base, 8 * o as u64 + ch, x * fine, y * fine, z * fine, look.block, look.cycle << o);
+        sum += amp * if look.turbulent { v.abs() } else { v };
         total += amp;
         amp *= 0.5;
         fine *= 2.0;
     }
-    sum / total
+    if look.turbulent { 2.0 * sum / total - 1.0 } else { sum / total }
 }
 
 /// D-128's settings, read once for a frame: the noise's size, octaves and depth (`z`, the
 /// evolution and the frame's turns), its contrast and brightness, the two colours encoded 0 to
-/// 1, and how it is mixed in.
+/// 1, and how it is mixed in. D-299: `size` is across and `size_y` down; `offset` slides the
+/// clouds, in pixels; `invert` turns them over before the contrast.
 pub(crate) struct Fractal {
     pub size: f64,
+    pub size_y: f64,
+    pub offset: [f64; 2],
+    pub invert: bool,
+    pub look: Look,
     pub octaves: usize,
     pub seed: f64,
     pub z: f64,
@@ -498,9 +537,10 @@ pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (
             if a <= 0.0 {
                 return;
             }
-            let x = ((i % w) as f64 - ox as f64 + 0.5) / f.size;
-            let y = ((i / w) as f64 - oy as f64 + 0.5) / f.size;
-            let n = fractal(base, 0, (x, y, f.z), f.octaves);
+            let x = ((i % w) as f64 - ox as f64 + 0.5 - f.offset[0]) / f.size;
+            let y = ((i / w) as f64 - oy as f64 + 0.5 - f.offset[1]) / f.size_y;
+            let n = fractal_with(base, 0, (x, y, f.z), f.octaves, f.look);
+            let n = if f.invert { -n } else { n };
             let v = (0.5 + 0.5 * n * f.contrast / 100.0 + f.brightness / 100.0).clamp(0.0, 1.0);
             for c in 0..3 {
                 let [d, l] = [f.colors[0][c], f.colors[1][c]];

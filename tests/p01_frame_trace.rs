@@ -758,7 +758,7 @@ fn p14_blur_drag() {
                     composition: Id::new(COMP),
                     layer_id: Id::new("layer-6"),
                     instance_id: Id::new("fx-blur"),
-                    effect: Effect::GaussianBlur { sigma_px: sigma, edges: "transparent".into() },
+                    effect: Effect::GaussianBlur { sigma_px: sigma, edges: "transparent".into(), dimensions: "both".into() },
                 })
                 .expect("the window sends this command on every pointer move of a drag");
             workload.project = document.project().clone();

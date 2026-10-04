@@ -676,16 +676,42 @@ pub enum BlendMode {
     Multiply,
     Screen,
     Add,
+    /// D-301.
+    Overlay,
+    SoftLight,
+    StencilAlpha,
+    StencilLuma,
 }
 
 impl BlendMode {
+    /// Every mode, in the order the window lists them.
+    pub const ALL: [BlendMode; 8] = [
+        BlendMode::Normal,
+        BlendMode::Multiply,
+        BlendMode::Screen,
+        BlendMode::Add,
+        BlendMode::Overlay,
+        BlendMode::SoftLight,
+        BlendMode::StencilAlpha,
+        BlendMode::StencilLuma,
+    ];
+
     pub fn as_str(self) -> &'static str {
         match self {
             BlendMode::Normal => "normal",
             BlendMode::Multiply => "multiply",
             BlendMode::Screen => "screen",
             BlendMode::Add => "add",
+            BlendMode::Overlay => "overlay",
+            BlendMode::SoftLight => "soft_light",
+            BlendMode::StencilAlpha => "stencil_alpha",
+            BlendMode::StencilLuma => "stencil_luma",
         }
+    }
+
+    /// The mode a file or a command names, if it is one.
+    pub fn from_str(word: &str) -> Option<BlendMode> {
+        BlendMode::ALL.into_iter().find(|m| m.as_str() == word)
     }
 }
 

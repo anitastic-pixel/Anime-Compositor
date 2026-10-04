@@ -3328,6 +3328,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         GAUSSIAN_BLUR => Some(Effect::GaussianBlur {
             sigma_px: 0.0,
             edges: "transparent".to_string(),
+            dimensions: "both".to_string(),
         }),
         TINT => Some(Effect::Tint {
             color: [0.0, 0.0, 0.0],
@@ -3406,6 +3407,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
                 red: straight(),
                 green: straight(),
                 blue: straight(),
+                alpha: straight(),
             })
         }
         // D-112: the full ranges and gamma 1, which change nothing.
@@ -3537,6 +3539,13 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             light_color: "#ffffff".to_string(),
             opacity: 100.0,
             blend: "normal".to_string(),
+            fractal_type: "basic".to_string(),
+            noise_type: "smooth".to_string(),
+            invert: "off".to_string(),
+            offset: [0.0, 0.0],
+            scale_width: 100.0,
+            scale_height: 100.0,
+            cycle: 0.0,
             frame: 0,
         }),
         // D-129: black, grey and white, which turns the picture grey.
@@ -3813,6 +3822,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             seed: 0.0,
             color: "#ffffff".to_string(),
             glow_color: "#6e8cff".to_string(),
+            // D-300: After Effects' Composite on Original is off when added.
+            composite: "off".to_string(),
             frame: 0,
         }),
         // D-191: After Effects' Stretch Map to Fit is on when added.
@@ -4121,6 +4132,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         GAUSSIAN_BLUR => Ok(Effect::GaussianBlur {
             sigma_px: number("sigma_px")?,
             edges: edges(),
+            // D-303: both when the command does not say.
+            dimensions: word("dimensions").unwrap_or_else(|_| "both".to_string()),
         }),
         TINT => {
             let Some(text) = parameter(query, "color") else {
@@ -4235,6 +4248,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             red: points("red")?,
             green: points("green")?,
             blue: points("blue")?,
+            // D-302: straight when the command does not say.
+            alpha: if parameter(query, "alpha").is_some() { points("alpha")? } else { vec![vec![0.0, 0.0], vec![255.0, 255.0]] },
         }),
         LEVELS => Ok(Effect::Levels {
             input_black: number("input_black")?,
@@ -4350,6 +4365,14 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             light_color: word("light_color")?,
             opacity: number("opacity")?,
             blend: word("blend")?,
+            // D-299: each where it starts when the command does not say, as edges are.
+            fractal_type: word("fractal_type").unwrap_or_else(|_| "basic".to_string()),
+            noise_type: word("noise_type").unwrap_or_else(|_| "smooth".to_string()),
+            invert: word("invert").unwrap_or_else(|_| "off".to_string()),
+            offset: if parameter(query, "offset").is_some() { pair("offset")? } else { [0.0, 0.0] },
+            scale_width: if parameter(query, "scale_width").is_some() { number("scale_width")? } else { 100.0 },
+            scale_height: if parameter(query, "scale_height").is_some() { number("scale_height")? } else { 100.0 },
+            cycle: if parameter(query, "cycle").is_some() { number("cycle")? } else { 0.0 },
             frame: 0,
         }),
         GRADIENT_MAP => Ok(Effect::GradientMap {
@@ -4625,6 +4648,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             seed: number("seed")?,
             color: word("color")?,
             glow_color: word("glow_color")?,
+            // D-300: on, as before, when the command does not say.
+            composite: word("composite").unwrap_or_else(|_| "on".to_string()),
             frame: 0,
         }),
         // D-189: the request's own `layer` is the layer holding the effect, so the setting
@@ -7505,14 +7530,11 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 "layer.set_blend_mode" => Command::SetBlendMode {
                     composition,
                     layer_id,
-                    mode: match parameter(query, "mode").as_deref() {
-                        Some("normal") => BlendMode::Normal,
-                        Some("multiply") => BlendMode::Multiply,
-                        Some("screen") => BlendMode::Screen,
-                        Some("add") => BlendMode::Add,
+                    mode: match parameter(query, "mode").as_deref().and_then(BlendMode::from_str) {
+                        Some(mode) => mode,
                         _ => {
                             return Some(
-                                "Which blend mode? Send mode=normal, multiply, screen or add."
+                                "Which blend mode? Send mode=normal, multiply, screen, add, overlay, soft_light, stencil_alpha or stencil_luma."
                                     .to_string(),
                             )
                         }
@@ -26666,7 +26688,7 @@ mod contract {
         run(&viewer, "edit.undo");
         report.check(
             "so undoing once goes back one commit, not back to before the field was touched",
-            "GaussianBlur { sigma_px: 6.0, edges: \"transparent\" }",
+            "GaussianBlur { sigma_px: 6.0, edges: \"transparent\", dimensions: \"both\" }",
             layer(&viewer, "layer-1", |l| {
                 l.effects
                     .iter()
@@ -26694,7 +26716,7 @@ mod contract {
         );
         report.check(
             "and the entry holds the last keystroke, not the first",
-            "GaussianBlur { sigma_px: 3.5, edges: \"transparent\" }",
+            "GaussianBlur { sigma_px: 3.5, edges: \"transparent\", dimensions: \"both\" }",
             layer(&viewer, "layer-1", |l| {
                 l.effects
                     .iter()
@@ -27431,6 +27453,7 @@ mod contract {
                 ("red", "0%200,255%20255"),
                 ("green", "0%200,255%20128"),
                 ("blue", "0%2064,255%20255"),
+                ("alpha", "0%200,128%2064,255%20255"),
             ],
         ),
         // D-112: the five numbers.
@@ -27577,10 +27600,17 @@ mod contract {
                 ("edges", "repeat"),
             ],
         ),
-        // D-128: the eight numbers, the two colours and the blend.
+        // D-128: the eight numbers, the two colours and the blend. D-299: and the look.
         (
             "core.fractal_noise",
             &[
+                ("fractal_type", "turbulent"),
+                ("noise_type", "block"),
+                ("invert", "on"),
+                ("offset", "15, -8"),
+                ("scale_width", "150"),
+                ("scale_height", "60"),
+                ("cycle", "4"),
                 ("size", "40"),
                 ("complexity", "6"),
                 ("contrast", "170"),
@@ -27840,6 +27870,7 @@ mod contract {
                 ("seed", "8"),
                 ("color", "%23fff0c0"),
                 ("glow_color", "%23ff4a1a"),
+                ("composite", "off"),
             ],
         ),
         (

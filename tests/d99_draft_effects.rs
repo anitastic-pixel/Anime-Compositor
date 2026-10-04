@@ -92,7 +92,7 @@ fn d99_draft_effects() {
         (
             "gaussian_blur",
             "Gaussian Blur, sigma 8",
-            Effect::GaussianBlur { sigma_px: 8.0, edges: "transparent".into() },
+            Effect::GaussianBlur { sigma_px: 8.0, edges: "transparent".into(), dimensions: "both".into() },
         ),
         (
             "glow",

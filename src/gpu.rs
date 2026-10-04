@@ -968,6 +968,49 @@ fn fractal(ch: u32, p: vec3<f64>, octaves: u32) -> f64 {
     return sum / total;
 }
 
+// D-299: grade::value with its block and period, and grade::fractal_with. Kept apart from
+// `cell_noise` and `fractal`, which draw D-128's noise and Turbulent Displace as before.
+fn cell_noise_look(ch: u32, p: vec3<f64>, block: bool, period: i32) -> f64 {
+    let c = floor(p);
+    var s = vec3(fade(p.x - c.x), fade(p.y - c.y), fade(p.z - c.z));
+    if block {
+        s = vec3(0.0lf, 0.0lf, s.z);
+    }
+    let i = vec3<i32>(c);
+    var v = 0.0lf;
+    for (var corner = 0u; corner < 8u; corner++) {
+        let d = vec3(corner & 1u, (corner >> 1u) & 1u, corner >> 2u);
+        let w = select(vec3(1.0lf) - s, s, d == vec3(1u));
+        var z = i.z + i32(d.z);
+        if period > 0 {
+            z = ((z % period) + period) % period;
+        }
+        v += w.x * w.y * w.z * hashed(i.x + i32(d.x), i.y + i32(d.y), z, ch);
+    }
+    return v;
+}
+
+fn fractal_look(ch: u32, p: vec3<f64>, octaves: u32, turbulent: bool, block: bool, cycle: i32) -> f64 {
+    var sum = 0.0lf;
+    var total = 0.0lf;
+    var amp = 1.0lf;
+    var fine = 1.0lf;
+    for (var o = 0u; o < octaves; o++) {
+        var v = cell_noise_look(8u * o + ch, p * fine, block, cycle << o);
+        if turbulent {
+            v = abs(v);
+        }
+        sum += amp * v;
+        total += amp;
+        amp *= 0.5lf;
+        fine *= 2.0lf;
+    }
+    if turbulent {
+        return 2.0lf * sum / total - 1.0lf;
+    }
+    return sum / total;
+}
+
 // B-157 (G6): `hashed`, `cell_noise` and `fractal` in single precision, for Turbulent Displace,
 // where the noise only moves where a pixel is read from, by far less than a pixel's rounding.
 // `hashed`'s 53 bits are (h.y 2^32 + h.x) / 2^52 - 1, h.y's 21 bits exact in single precision.
@@ -1068,10 +1111,19 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     if F.mode == 9u {
         // k: the size, the depth, the contrast and brightness, the opacity as a share, the dark
-        // and light colours encoded. `count` is the octaves.
-        let x = (f64(i32(id.x) - F.ox) + 0.5lf) / k[0];
-        let y = (f64(i32(id.y) - F.oy) + 0.5lf) / k[0];
-        let n = fractal(0u, vec3(x, y, k[1]), F.count);
+        // and light colours encoded. `count` is the octaves. D-299: then the size down, the
+        // offset, turbulent, block, the cycle and invert, each 1 when on.
+        let x = (f64(i32(id.x) - F.ox) + 0.5lf - k[12]) / k[0];
+        let y = (f64(i32(id.y) - F.oy) + 0.5lf - k[13]) / k[11];
+        var n = 0.0lf;
+        if k[14] == 0.0lf && k[15] == 0.0lf && k[16] == 0.0lf {
+            n = fractal(0u, vec3(x, y, k[1]), F.count);
+        } else {
+            n = fractal_look(0u, vec3(x, y, k[1]), F.count, k[14] == 1.0lf, k[15] == 1.0lf, i32(k[16]));
+        }
+        if k[17] == 1.0lf {
+            n = -n;
+        }
         let v = clamp(0.5lf + 0.5lf * n * k[2] / 100.0lf + k[3] / 100.0lf, 0.0lf, 1.0lf);
         var out = p;
         for (var c = 0u; c < 3u; c++) {
@@ -4651,7 +4703,7 @@ impl Gpu {
         };
         let (ox, oy) = f.origin;
         match &f.instance.effect {
-            E::Curves { master, red, green, blue } => {
+            E::Curves { master, red, green, blue, .. } => {
                 // Where each curve starts, then each curve's count, ins, outs and second derivatives.
                 let mut k = vec![0.0; 4];
                 for (i, c) in [red, green, blue, master].into_iter().enumerate() {
@@ -4784,11 +4836,15 @@ impl Gpu {
                 k.extend(v.color.map(crate::grade::to_linear));
                 same(steps, &passes.grade, FxParams { mode: 8, ..Default::default() }, &k, None)
             }
-            E::FractalNoise { size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend: b, frame } => {
+            E::FractalNoise { size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend: b, fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, frame } => {
                 let base = crate::grade::mix(seed.floor() as u64);
-                let mut k = vec![*size, crate::effects::depth(*evolution, *speed, *frame), *contrast, *brightness, opacity / 100.0];
+                let mut k = vec![size * (scale_width / 100.0), crate::effects::depth(*evolution, *speed, *frame), *contrast, *brightness, opacity / 100.0];
                 k.extend(crate::effects::encoded(dark_color));
                 k.extend(crate::effects::encoded(light_color));
+                // D-299.
+                let look = crate::effects::fractal_look(fractal_type, noise_type, *cycle);
+                let on = |b: bool| b as u8 as f64;
+                k.extend([size * (scale_height / 100.0), offset[0], offset[1], on(look.turbulent), on(look.block), look.cycle as f64, on(invert == "on")]);
                 let p = FxParams {
                     mode: 9,
                     blend: blend(b),
@@ -5329,6 +5385,15 @@ impl Gpu {
                 "B-156 draws an adjustment layer (D-66) on the card when the card draws each of its effects on the frame (D-225); Bloom, Glow, Paraffin, Kira-kira and HSV Key stay the CPU's.".into(),
             ));
         }
+        // D-301: the four modes after add are the CPU's.
+        // ponytail: a frame with one draws on the CPU; give the layer shader them if it is slow.
+        if plan.layers.iter().any(|l| !matches!(l.blend, BlendMode::Normal | BlendMode::Multiply | BlendMode::Screen | BlendMode::Add)) {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: a layer has a blend mode the GPU does not draw.".into(),
+                "D-301's Overlay, Soft Light, Stencil Alpha and Stencil Luma are drawn on the CPU only.".into(),
+            ));
+        }
         // D-297: an adjustment layer in a blend mode other than normal is the CPU's.
         if plan.layers.iter().any(|l| l.adjust.is_some() && l.blend != crate::model::BlendMode::Normal) {
             return Some(on_cpu(
@@ -5664,6 +5729,8 @@ impl Gpu {
                     BlendMode::Multiply => 1,
                     BlendMode::Screen => 2,
                     BlendMode::Add => 3,
+                    // D-301: refused above.
+                    BlendMode::Overlay | BlendMode::SoftLight | BlendMode::StencilAlpha | BlendMode::StencilLuma => 0,
                 };
                 let mut numbers = [
                     f(s0.0), f(s0.1), f(inverse.a), f(inverse.b), f(inverse.c), f(inverse.d),

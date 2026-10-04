@@ -166,7 +166,7 @@ fn key_notices_its_inputs() -> Vec<Check> {
     let stack = |sigma: f64| {
         vec![EffectInstance::new(
             Id::new("fx"),
-            Effect::GaussianBlur { sigma_px: sigma, edges: "transparent".into() },
+            Effect::GaussianBlur { sigma_px: sigma, edges: "transparent".into(), dimensions: "both".into() },
         )]
     };
     let square = [Mask::polygon(vec![(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)])];

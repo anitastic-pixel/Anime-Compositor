@@ -66,6 +66,8 @@ fn effects() -> Vec<(&'static str, &'static str, Value)> {
         ("Vignette", "core.vignette", json!({"amount": 60, "color": "#201030", "size": 90, "roundness": 50, "softness": 60, "center": [45, 55]})),
         ("Turbulent Displace", "core.turbulent_displace", json!({"amount": 12, "size": 50, "complexity": 3, "evolution": 30, "speed": 10, "seed": 5, "edges": "transparent"})),
         ("Fractal Noise", "core.fractal_noise", json!({"size": 80, "complexity": 5, "contrast": 130, "brightness": 5, "evolution": 0, "speed": 15, "seed": 3, "dark_color": "#102030", "light_color": "#ffe8c0", "opacity": 60, "blend": "screen"})),
+        // D-299: and its look, every setting away from its start.
+        ("Fractal Noise, turbulent block", "core.fractal_noise", json!({"size": 30, "complexity": 4, "contrast": 160, "brightness": -5, "evolution": 100, "speed": 15, "seed": 3, "dark_color": "#102030", "light_color": "#ffe8c0", "opacity": 70, "blend": "screen", "fractal_type": "turbulent", "noise_type": "block", "invert": "on", "offset": [17.5, -6], "scale_width": 180, "scale_height": 40, "cycle": 2})),
         ("Gradient Map", "core.gradient_map", json!({"shadow_color": "#1a0a40", "midtone_color": "#c05060", "highlight_color": "#fff0c0", "midpoint": 40, "amount": 80})),
         ("Color Balance", "core.color_balance", json!({"shadows": [-20, 10, 30], "midtones": [15, -5, -10], "highlights": [10, 5, -25]})),
         ("Offset", "core.offset", json!({"shift": [37.5, -21.25]})),
