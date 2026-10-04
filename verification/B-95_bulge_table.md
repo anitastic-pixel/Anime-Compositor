@@ -72,7 +72,7 @@ D-152, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing | 0 | yes |
-| a half-size draft preview halves the radius, 50 to 25, and nothing else | Bulge { center: [50.0, 50.0], radius: 25.0, height: 1.0 } | yes |
+| a half-size draft preview halves the radius, 50 to 25, and nothing else | Bulge { center: [50.0, 50.0], radius: 25.0, height: 1.0, vertical_radius: 0.0, taper_radius: 0.0 } | yes |
 
 ## The file
 

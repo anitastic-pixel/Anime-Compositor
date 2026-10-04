@@ -17,6 +17,8 @@ fn bulge(center: [f64; 2], radius: f64, height: f64) -> Effect {
         center,
         radius,
         height,
+        vertical_radius: 0.0,
+        taper_radius: 0.0,
     }
 }
 

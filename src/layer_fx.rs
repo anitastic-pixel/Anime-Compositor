@@ -1141,10 +1141,12 @@ pub(crate) fn twirl(source: &mut WorkingBuffer, angle: f64, radius: f64, center:
 /// D-152: each pixel within `radius` of `center`, a point in the buffer, read from a place
 /// drawn toward the centre when `height` is above 0, a swell, or pushed away from it when
 /// below, a pinch, most at the middle. The settings are already valid.
-pub(crate) fn bulge(source: &mut WorkingBuffer, radius: f64, height: f64, center: (f64, f64)) {
+pub(crate) fn bulge(source: &mut WorkingBuffer, [radius, vertical, taper]: [f64; 3], height: f64, center: (f64, f64)) {
     if height == 0.0 || radius <= 0.0 {
         return;
     }
+    // D-310: 0 follows the radius, a circle as before.
+    let tall = if vertical > 0.0 { vertical } else { radius };
     let w = source.width();
     let drawing = source.clone();
     source
@@ -1155,11 +1157,27 @@ pub(crate) fn bulge(source: &mut WorkingBuffer, radius: f64, height: f64, center
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
             let (vx, vy) = (x - center.0, y - center.1);
             let d = vx.hypot(vy);
-            if d >= radius {
-                return;
-            }
-            let t = 1.0 - d / radius;
-            let m = (1.0 - height * t * t / 2.0).max(0.0);
+            let t = if tall == radius {
+                if d >= radius {
+                    return;
+                }
+                1.0 - d / radius
+            } else {
+                let n = (vx / radius).hypot(vy / tall);
+                if n >= 1.0 {
+                    return;
+                }
+                1.0 - n
+            };
+            // D-310: the swell fades by smoothstep over `taper` pixels in from the edge, the
+            // edge's distance along this pixel's ray from the centre, d (1 - n) / n.
+            let h = if taper > 0.0 && t < 1.0 {
+                let s = (d * t / (1.0 - t) / taper).min(1.0);
+                height * s * s * (3.0 - 2.0 * s)
+            } else {
+                height
+            };
+            let m = (1.0 - h * t * t / 2.0).max(0.0);
             px.copy_from_slice(&sample_bilinear(&drawing, center.0 + m * vx, center.1 + m * vy));
         });
 }

@@ -3684,6 +3684,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             center: [50.0, 50.0],
             radius: 50.0,
             height: 1.0,
+            vertical_radius: 0.0,
+            taper_radius: 0.0,
         }),
         // D-153: the line straight down the middle, the right half kept.
         MIRROR => Some(Effect::Mirror {
@@ -4550,6 +4552,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             center: pair("center")?,
             radius: number("radius")?,
             height: number("height")?,
+            vertical_radius: if parameter(query, "vertical_radius").is_some() { number("vertical_radius")? } else { 0.0 },
+            taper_radius: if parameter(query, "taper_radius").is_some() { number("taper_radius")? } else { 0.0 },
         }),
         MIRROR => Ok(Effect::Mirror {
             center: pair("center")?,
@@ -27789,7 +27793,7 @@ mod contract {
         // D-151: the two numbers and the centre.
         ("core.twirl", &[("angle", "-270"), ("radius", "120"), ("center", "40,60")]),
         // D-152: the centre and the two numbers.
-        ("core.bulge", &[("center", "40,60"), ("radius", "120"), ("height", "-2")]),
+        ("core.bulge", &[("center", "40,60"), ("radius", "120"), ("height", "-2"), ("vertical_radius", "80"), ("taper_radius", "30")]),
         // D-153: the centre and the angle.
         ("core.mirror", &[("center", "40,60"), ("angle", "90")]),
         // D-154: the two sizes and the choice.

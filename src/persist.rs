@@ -1688,6 +1688,8 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             center,
             radius,
             height,
+            vertical_radius,
+            taper_radius,
         } => {
             params.insert(
                 "center".into(),
@@ -1695,6 +1697,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             );
             params.insert("radius".into(), num(*radius));
             params.insert("height".into(), num(*height));
+            // D-310: as D-304, written only if moved, keyed or already in the file.
+            for (key, value) in [("vertical_radius", *vertical_radius), ("taper_radius", *taper_radius)] {
+                if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(value));
+                }
+            }
         }
         Effect::Mirror { center, angle } => {
             params.insert(
@@ -3886,6 +3894,8 @@ fn parse_effect(
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
             radius: effect_number(params, "radius", &at)?,
             height: effect_number(params, "height", &at)?,
+            vertical_radius: effect_number_or(params, "vertical_radius", &at, 0.0)?,
+            taper_radius: effect_number_or(params, "taper_radius", &at, 0.0)?,
         }),
         crate::effects::MIRROR => Some(crate::effects::Effect::Mirror {
             center: effect_array(params, "center", "two numbers, x then y", &at)?,

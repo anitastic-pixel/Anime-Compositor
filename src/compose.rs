@@ -921,6 +921,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
         // ponytail: teach the card's tile pass a size and centre if a sized tile is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::MotionTile { tile_center, tile_width, tile_height, .. }
             if (*tile_center, *tile_width, *tile_height) != (crate::layer_fx::PLAIN_TILE, 100.0, 100.0))
+        // D-310: the card swells a circle without a taper only.
+        && !matches!(&instance.effect, crate::effects::Effect::Bulge { vertical_radius, taper_radius, .. }
+            if *vertical_radius != 0.0 || *taper_radius != 0.0)
         // D-307: the card turns the master only.
         && !matches!(&instance.effect, crate::effects::Effect::HueSaturation { ranges, .. } if *ranges != [[0.0; 3]; 6])
         // D-306: the card pushes both ways, unpinned, only.

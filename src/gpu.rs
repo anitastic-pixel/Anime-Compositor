@@ -5017,7 +5017,7 @@ impl Gpu {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 same(steps, &passes.warp, FxParams { mode: 2, ..Default::default() }, &[cx, cy, angle.to_radians(), *radius], None)
             }
-            E::Bulge { center, radius, height } => {
+            E::Bulge { center, radius, height, .. } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 same(steps, &passes.warp, FxParams { mode: 3, ..Default::default() }, &[cx, cy, *height, *radius], None)
             }

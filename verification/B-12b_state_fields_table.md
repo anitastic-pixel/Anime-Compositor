@@ -199,7 +199,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.twirl` is an effect this build has | added | added | pass |
 | and the settings it sends for it - angle, radius, center - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.bulge` is an effect this build has | added | added | pass |
-| and the settings it sends for it - center, radius, height - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - center, radius, height, vertical_radius, taper_radius - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.mirror` is an effect this build has | added | added | pass |
 | and the settings it sends for it - center, angle - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.motion_tile` is an effect this build has | added | added | pass |

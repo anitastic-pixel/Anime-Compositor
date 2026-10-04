@@ -888,6 +888,15 @@ D-309 / P-26 gaps that would add to the app only / **PROPOSED on 2026-10-04** by
 - (T2-10) Freeze Frame and Time-Reverse Keyframes.
 - (T1-6) CC Glass and Unsharp Mask; the stand-ins were close enough.
 - Left out by the charter: video import, the tracker, particles (Pixel Polly), 3D layers and lights, the two-node camera.
+- The owner asked for all of it on 2026-10-04 ("go ahead and build all of D-309"). Built as D-310 onward.
+
+D-310 / Bulge's Vertical Radius and Taper Radius / **BUILT on 2026-10-04** (B-193), from D-309 and P-26: the Shockwave tutorial (1) swells a tall oval with a soft edge; here a bulge was always a circle with a fixed edge. **Awaiting the owner's playtest.**
+- Two new rows on Bulge. **Vertical Radius**, 0 to 10000 pixels, is the reach up and down; at 0 it follows Radius, so the bulge stays a circle. **Taper Radius**, 0 to 10000 pixels, fades the swell to nothing over that many pixels in from the edge; at 0 the edge is as before. Both are keyable.
+- One edge case: a keyed Vertical Radius that passes through 0 snaps to a circle for that frame, because 0 means "follow Radius".
+- An old file reads both at 0 and is saved as it was; only a moved, keyed or already-written one is written.
+- The card draws the plain circle only; an oval or a taper is drawn on the CPU, so the preview and the export match.
+- B-193 checks it: at 0 both draw exactly as D-152, a pixel inside the oval is read from where the rule says and one outside it is left alone, a taper halves the swell where the rule says and leaves the middle alone, a draft halves both, and the file keeps them only when set.
+- FX-BULGE-001 to 023 are unchanged and still pass.
 
 ## Assumptions and change log
 

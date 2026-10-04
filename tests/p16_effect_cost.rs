@@ -522,6 +522,8 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 center: [50.0, 50.0],
                 radius: 50.0,
                 height: 1.0,
+                vertical_radius: 0.0,
+                taper_radius: 0.0,
             },
         ),
         (

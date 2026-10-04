@@ -790,11 +790,15 @@ pub enum Effect {
     },
     /// D-152: `center`, per cent of the drawing's width and height, -1000 to 1000 each;
     /// `radius`, 0 to 10000 pixels, how far out it reaches; `height`, -4 to 4, a swell above 0
-    /// and a pinch below.
+    /// and a pinch below. D-310: `vertical_radius`, 0 to 10000 pixels, the reach up and down,
+    /// 0 following `radius`; `taper_radius`, 0 to 10000 pixels, how far in from the edge the
+    /// swell fades to nothing, 0 keeping D-152's rule.
     Bulge {
         center: [f64; 2],
         radius: f64,
         height: f64,
+        vertical_radius: f64,
+        taper_radius: f64,
     },
     /// D-153: `center`, per cent of the drawing's width and height, -1000 to 1000 each, a point
     /// on the line; `angle`, -3600 to 3600 degrees, the line's turn from straight up and down.
@@ -1784,10 +1788,14 @@ impl Effect {
                 center,
                 radius,
                 height,
+                vertical_radius,
+                taper_radius,
             } => vec![
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("radius", vec![radius], 0.0, 10000.0),
                 ("height", vec![height], -4.0, 4.0),
+                ("vertical_radius", vec![vertical_radius], 0.0, 10000.0),
+                ("taper_radius", vec![taper_radius], 0.0, 10000.0),
             ],
             Effect::Mirror { center, angle } => vec![
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
@@ -2386,7 +2394,11 @@ impl Effect {
                 *fade = scale(*fade);
             }
             Effect::Twirl { radius, .. } => *radius = scale(*radius),
-            Effect::Bulge { radius, .. } => *radius = scale(*radius),
+            Effect::Bulge { radius, vertical_radius, taper_radius, .. } => {
+                *radius = scale(*radius);
+                *vertical_radius = scale(*vertical_radius);
+                *taper_radius = scale(*taper_radius);
+            }
             Effect::LinearWipe { feather, .. } => *feather = scale(*feather),
             Effect::IrisWipe { feather, .. } => *feather = scale(*feather),
             Effect::SimpleChoker { choke } => *choke = scale(*choke),
@@ -4274,10 +4286,12 @@ pub(crate) fn apply_stack_at(
                 center,
                 radius,
                 height,
+                vertical_radius,
+                taper_radius,
             } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectBulge, || {
-                    crate::layer_fx::bulge(source, *radius, *height, c)
+                    crate::layer_fx::bulge(source, [*radius, *vertical_radius, *taper_radius], *height, c)
                 })
             }
             // D-153: the centre is a share of the drawing's own size, as Radial Blur's is.
