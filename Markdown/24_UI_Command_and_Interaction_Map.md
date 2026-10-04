@@ -94,6 +94,10 @@ Every state-changing UI action invokes a stable command ID through the command l
 | sketch.remove_layer | Delete a sketch layer and everything drawn on it (D-261) | Delete layer in the Sketch workspace | yes |
 | sketch.add_stroke | Draw one stroke on a sketch layer with the brush, pencil or eraser, with a pen's pressure at each point when drawn with a pen (D-271); never exported (D-261) | a drag on the picture in the Sketch workspace | yes |
 | sketch.clear | Clear a sketch layer on one frame, or all of a whole-cut layer (D-261) | Clear in the Sketch workspace | yes |
+| sketch.set_look | Set a sketch layer's opacity and lock; a locked layer refuses every change to what is drawn on it (D-283) | the Opacity slider and Lock in the Sketch workspace | yes |
+| sketch.move_layer | Move a sketch layer up or down the list (D-283) | Up and Down in the Sketch workspace | yes |
+| sketch.remove_strokes | Take whole strokes off a sketch layer, by their places, in one undo step (D-282, D-284) | the stroke eraser; Delete with strokes chosen by the lasso | yes |
+| sketch.move_strokes | Move the chosen strokes of a sketch layer by one amount, in one undo step (D-284) | a drag inside the lasso's box; the arrow keys with strokes chosen | yes |
 | property.set_base | Set a transform property's base value | none | yes |
 | keyframe.add_remove | Toggle keyframe for focused property | none | yes |
 | keyframe.move | Move a keyframe to another frame | none | yes |
@@ -334,6 +338,14 @@ D-281, Sketch views, with no new command ID.
 - Reset puts the turn, flip, zoom and move back.
 - The colour picker after the swatches sets the drawing colour.
 - None of these change what `sketch.add_stroke` saves.
+
+D-282 to D-289, Sketch, with four new command IDs: `sketch.set_look`, `sketch.move_layer`, `sketch.remove_strokes` and `sketch.move_strokes` (the rows above).
+- The stroke eraser (Shift+E) takes away each whole stroke it touches.
+- The lasso (L) chooses strokes; a drag inside its box or the arrows move them, Delete takes them away, Esc lets them go.
+- Line, Rectangle and Ellipse (U steps through them) and the Fill toggle; `sketch.add_stroke` takes `filled=true`, and `pressure_opacity=true` for a pen stroke drawn with "Size and see-through".
+- A size slider, Smoothing, the onion count (1, 2, 3 or 5 each way) and Flipbook (Esc stops it) are views and settings on this machine.
+- Each layer has Opacity, Lock, and Up and Down.
+- "Save as picture…" sends the sketch on this frame as PNG bytes to the window's `/sketch-png` route, which asks where to save it. Frames and exports still never include sketches.
 
 ## Workspace wireframe contract
 

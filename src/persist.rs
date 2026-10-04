@@ -2424,6 +2424,13 @@ fn sketch_json(sketch: &crate::model::SketchLayer) -> J {
     map.insert("name".into(), J::from(sketch.name.as_str()));
     map.insert("visible".into(), J::from(sketch.visible));
     map.insert("whole_cut".into(), J::from(sketch.whole_cut));
+    // D-283: written only when they differ from a plain layer.
+    if sketch.opacity != 1.0 {
+        map.insert("opacity".into(), num(sketch.opacity));
+    }
+    if sketch.locked {
+        map.insert("locked".into(), J::from(true));
+    }
     let strokes = sketch.strokes.iter().map(|stroke| {
         let mut map = stroke.rest.clone();
         if let Some(frame) = stroke.frame {
@@ -2439,6 +2446,13 @@ fn sketch_json(sketch: &crate::model::SketchLayer) -> J {
         if !stroke.pressure.is_empty() {
             map.insert("pressure".into(), J::Array(stroke.pressure.iter().map(|p| num(*p)).collect()));
         }
+        // D-286, D-287: written only when on.
+        if stroke.pressure_opacity {
+            map.insert("pressure_opacity".into(), J::from(true));
+        }
+        if stroke.filled {
+            map.insert("filled".into(), J::from(true));
+        }
         J::Object(map)
     });
     map.insert("strokes".into(), J::Array(strokes.collect()));
@@ -2448,14 +2462,25 @@ fn sketch_json(sketch: &crate::model::SketchLayer) -> J {
 /// D-261: one entry of a composition's `sketches`. Lines it does not know go into `rest`.
 fn parse_sketch(v: &J, pointer: &str) -> Result<crate::model::SketchLayer, Diagnostic> {
     let mut rest = as_object(v, pointer)?.clone();
-    for key in ["id", "name", "visible", "whole_cut", "strokes"] {
+    for key in ["id", "name", "visible", "whole_cut", "opacity", "locked", "strokes"] {
         rest.remove(key);
     }
+    // D-283: a plain layer when absent.
+    let opacity = match v.get("opacity") {
+        None => 1.0,
+        Some(o) => match as_f64(o, &format!("{pointer}/opacity"))? {
+            o if (0.0..=1.0).contains(&o) => o,
+            _ => return Err(invalid(&format!("{pointer}/opacity"), "an opacity from 0 to 1")),
+        },
+    };
+    let locked = v.get("locked").map(|l| as_bool(l, &format!("{pointer}/locked"))).transpose()?.unwrap_or(false);
     let mut sketch = crate::model::SketchLayer {
         id: as_id(field(v, pointer, "id")?, &format!("{pointer}/id"))?,
         name: as_str(field(v, pointer, "name")?, &format!("{pointer}/name"))?.to_string(),
         visible: as_bool(field(v, pointer, "visible")?, &format!("{pointer}/visible"))?,
         whole_cut: as_bool(field(v, pointer, "whole_cut")?, &format!("{pointer}/whole_cut"))?,
+        opacity,
+        locked,
         strokes: Vec::new(),
         rest,
     };
@@ -2463,7 +2488,7 @@ fn parse_sketch(v: &J, pointer: &str) -> Result<crate::model::SketchLayer, Diagn
     for (i, s) in as_array(field(v, pointer, "strokes")?, &at)?.iter().enumerate() {
         let here = format!("{at}/{i}");
         let mut rest = as_object(s, &here)?.clone();
-        for key in ["frame", "tool", "size", "colour", "points", "pressure"] {
+        for key in ["frame", "tool", "size", "colour", "points", "pressure", "pressure_opacity", "filled"] {
             rest.remove(key);
         }
         let mut points = Vec::new();
@@ -2497,6 +2522,8 @@ fn parse_sketch(v: &J, pointer: &str) -> Result<crate::model::SketchLayer, Diagn
             colour: as_str(field(s, &here, "colour")?, &format!("{here}/colour"))?.to_string(),
             points,
             pressure,
+            pressure_opacity: s.get("pressure_opacity").map(|b| as_bool(b, &format!("{here}/pressure_opacity"))).transpose()?.unwrap_or(false),
+            filled: s.get("filled").map(|b| as_bool(b, &format!("{here}/filled"))).transpose()?.unwrap_or(false),
             rest,
         });
     }

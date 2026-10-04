@@ -712,11 +712,46 @@ D-281 / Sketch paper zoom and move, a ring for every tool, any colour, smoother 
 
 Evidence in `verification/D-281_sketch_paper_tools.md`.
 
-D-282 / A stroke eraser / **PROPOSED on 2026-10-03** from D-281. A second eraser would remove whole strokes it touches, as most sketch tools offer. It needs a sketch command that removes one stroke by its place (document 24), and an undo entry for it.
+D-282 / A stroke eraser / **BUILT on 2026-10-03**, accepted by the owner ("go ahead with D-282 to D-284; also unsure it was done, but I did like these", followed by the sketch list). **Awaiting the owner's playtest.**
+- A second eraser (Shift+E) takes away each whole stroke its circle touches, on a tap or along a drag. The touched strokes turn grey until the hand lets go.
+- New command `sketch.remove_strokes` (document 24): the strokes by their places, all in one undo step.
 
-D-283 / Sketch layer opacity, lock and order / **PROPOSED on 2026-10-03** from D-281. Each sketch layer would save an opacity and a lock, and the layers could be reordered. It needs new saved fields on a sketch layer (document 19) and either a change to `sketch.set_layer` or a new command to move a layer.
+D-283 / Sketch layer opacity, lock and order / **BUILT on 2026-10-03**, accepted in the same message. **Awaiting the owner's playtest.**
+- Each sketch layer has an Opacity slider, a Lock, and Up and Down. The list shows the top layer first.
+- A locked layer refuses every stroke, erase, move, Clear and Delete, saying "Unlock it to change what is drawn on it".
+- A sketch layer saves `opacity` (0 to 1) only when below 1, and `locked` only when on. A file without them saves byte for byte as before. A file with an opacity outside 0 to 1, or a lock that is not true or false, is refused at that pointer (document 28).
+- New commands `sketch.set_look` and `sketch.move_layer` (document 24). `sketch.set_layer` is unchanged.
 
-D-284 / A lasso to select and move strokes / **PROPOSED on 2026-10-03** from D-281. The owner would draw round strokes to choose them, then drag them as one. Moving them needs a sketch command that rewrites the chosen strokes' points as one undo step.
+D-284 / A lasso to select and move strokes / **BUILT on 2026-10-03**, accepted in the same message. **Awaiting the owner's playtest.**
+- The lasso (L) chooses every stroke with at least half its points inside the loop and shows a dashed box round them.
+- Dragging inside the box moves them; the arrows nudge them 1 pixel (Shift, 10); Delete takes them away; Esc lets them go.
+- New command `sketch.move_strokes` (document 24): one move for all the chosen strokes, in one undo step.
+
+D-285 / A size slider and smoothing / **BUILT on 2026-10-03**, accepted by the owner's list in the same message. **Awaiting the owner's playtest.**
+- A slider under the three sizes sets any size from 1 to 120 pixels. [ and ] now step it by a quarter.
+- Smoothing, from Off to 10, pulls each point only part of the way to the hand, which steadies a wobbly line. The saved points are the steadied ones.
+- The size, smoothing, Fill, pen setting and onion count are remembered on this machine, not in the project.
+
+D-286 / Pen pressure sets how see-through a stroke is / **BUILT on 2026-10-03**, from the owner's list. **Awaiting the owner's playtest.**
+- "Pen presses: Size and see-through" makes a pen stroke fainter where pressed lightly, as well as thinner (the same 15% to 100% as D-271).
+- A stroke saves `pressure_opacity` only when drawn that way. A mouse stroke never has it.
+
+D-287 / Simple shapes and filled outlines / **BUILT on 2026-10-03**, from the owner's list. **Awaiting the owner's playtest.**
+- Line, Rectangle and Ellipse (U steps through them) draw from where the drag starts to where it ends. Each is saved as an ordinary brush stroke made of points, so everything else treats it as one.
+- Fill, a toggle, fills a shape or a drawn outline with its colour. A stroke saves `filled` only when on.
+- Not built: a paint bucket that floods an area bounded by other strokes. It needs its own decision on how gaps are closed.
+
+D-288 / More onion-skin frames and a flipbook / **BUILT on 2026-10-03**, from the owner's list. **Awaiting the owner's playtest.**
+- The onion skin shows 1, 2, 3 or 5 sketched frames each way, the farther ones fainter.
+- Flipbook plays the drawings at the composition's speed, round and round, each held until the next drawing, without the cut underneath. Esc, the button, a click on the paper or leaving the workspace stops it.
+- Views only: nothing saved changes.
+
+D-289 / Save a sketch as a picture / **BUILT on 2026-10-03**, from the owner's list. This changes D-261's rule that sketches never leave the project, by the owner's choice of the item. **Awaiting the owner's playtest.**
+- "Save as picture…" saves the sketch on this frame, every shown layer at its opacity, as a PNG the size of the composition, see-through where nothing is drawn. The window asks where.
+- It is a separate save only. Composition frames, previews and exports still never include sketches.
+- The window writes only PNG bytes of at most 256 MB, and only to a file picked in the Save dialog.
+
+Evidence for D-282 to D-289 in `verification/D-282_sketch_tools_and_layers.md` and `verification/D-282_sketch_edits_table.md`.
 
 ## Assumptions and change log
 

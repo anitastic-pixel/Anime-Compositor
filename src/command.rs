@@ -199,6 +199,34 @@ pub enum Command {
         sketch: Id,
         frame: Option<i32>,
     },
+    /// Document 24's `sketch.set_look`, D-283: a layer's opacity, 0 to 1, and its lock.
+    SetSketchLook {
+        composition: Id,
+        sketch: Id,
+        opacity: f64,
+        locked: bool,
+    },
+    /// Document 24's `sketch.move_layer`, D-283: a layer to place `to` in the list, 0 the bottom.
+    MoveSketchLayer {
+        composition: Id,
+        sketch: Id,
+        to: usize,
+    },
+    /// Document 24's `sketch.remove_strokes`, D-282: strokes by their place in the layer's list,
+    /// so one undo puts them all back.
+    RemoveSketchStrokes {
+        composition: Id,
+        sketch: Id,
+        strokes: Vec<usize>,
+    },
+    /// Document 24's `sketch.move_strokes`, D-284: strokes by their place, every point moved by
+    /// the same amount in composition pixels.
+    MoveSketchStrokes {
+        composition: Id,
+        sketch: Id,
+        strokes: Vec<usize>,
+        by: [f64; 2],
+    },
     /// Document 24's `timeline.set_work_start` and `set_work_end`, W-24. Both ends at once, so a
     /// drag that moves one end replaces its earlier reading whole.
     SetWorkArea {
@@ -552,6 +580,10 @@ impl Command {
             Command::RemoveSketchLayer { .. } => "REMOVE_SKETCH_LAYER",
             Command::AddSketchStroke { .. } => "ADD_SKETCH_STROKE",
             Command::ClearSketch { .. } => "CLEAR_SKETCH",
+            Command::SetSketchLook { .. } => "SET_SKETCH_LOOK",
+            Command::MoveSketchLayer { .. } => "MOVE_SKETCH_LAYER",
+            Command::RemoveSketchStrokes { .. } => "REMOVE_SKETCH_STROKES",
+            Command::MoveSketchStrokes { .. } => "MOVE_SKETCH_STROKES",
             Command::SetWorkArea { .. } => "SET_WORK_AREA",
             Command::SetMarkers { .. } => "SET_MARKERS",
             Command::SetBlendMode { .. } => "SET_BLEND_MODE",
@@ -715,6 +747,13 @@ impl Command {
                 Some(f) => format!("Clear the sketch on frame {f}"),
                 None => "Clear the sketch".to_string(),
             },
+            Command::SetSketchLook { locked: true, .. } => "Lock a sketch layer".to_string(),
+            Command::SetSketchLook { opacity, .. } => format!("Set a sketch layer's opacity to {}%", (opacity * 100.0).round()),
+            Command::MoveSketchLayer { .. } => "Reorder the sketch layers".to_string(),
+            Command::RemoveSketchStrokes { strokes, .. } if strokes.len() == 1 => "Erase a sketch stroke".to_string(),
+            Command::RemoveSketchStrokes { strokes, .. } => format!("Erase {} sketch strokes", strokes.len()),
+            Command::MoveSketchStrokes { strokes, .. } if strokes.len() == 1 => "Move a sketch stroke".to_string(),
+            Command::MoveSketchStrokes { strokes, .. } => format!("Move {} sketch strokes", strokes.len()),
             Command::SetLayerLabel { label, .. } => match label {
                 0 => "Clear the layer's label".to_string(),
                 n => format!("Set the layer's label to colour {n}"),
@@ -891,6 +930,10 @@ impl Command {
             | Command::RemoveSketchLayer { composition, .. }
             | Command::AddSketchStroke { composition, .. }
             | Command::ClearSketch { composition, .. }
+            | Command::SetSketchLook { composition, .. }
+            | Command::MoveSketchLayer { composition, .. }
+            | Command::RemoveSketchStrokes { composition, .. }
+            | Command::MoveSketchStrokes { composition, .. }
             | Command::SetMotionBlur { composition, .. }
             | Command::SetWorkArea { composition, .. }
             | Command::SetMarkers { composition, .. }
@@ -950,7 +993,11 @@ impl Command {
             Command::SetSketchLayer { sketch, .. }
             | Command::RemoveSketchLayer { sketch, .. }
             | Command::AddSketchStroke { sketch, .. }
-            | Command::ClearSketch { sketch, .. } => ids.push(sketch.clone()),
+            | Command::ClearSketch { sketch, .. }
+            | Command::SetSketchLook { sketch, .. }
+            | Command::MoveSketchLayer { sketch, .. }
+            | Command::RemoveSketchStrokes { sketch, .. }
+            | Command::MoveSketchStrokes { sketch, .. } => ids.push(sketch.clone()),
             Command::RemoveLayer { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
@@ -1722,6 +1769,33 @@ fn sketch_mut<'a>(
     })
 }
 
+/// D-283: the sketch layer a change to its drawing names, refused while it is locked.
+fn sketch_unlocked<'a>(
+    comp: &'a mut crate::model::Composition,
+    sketch: &Id,
+) -> Result<&'a mut crate::model::SketchLayer, Diagnostic> {
+    let layer = sketch_mut(comp, sketch)?;
+    if layer.locked {
+        return Err(reject(
+            &format!("{} is locked. Unlock it to change what is drawn on it.", layer.name),
+            "D-283: a locked sketch layer takes no strokes, erasing, moving, clearing or deleting.",
+        ));
+    }
+    Ok(layer)
+}
+
+/// D-282, D-284: strokes named by their place in a layer's list: at least one, each there once.
+fn check_strokes(layer: &crate::model::SketchLayer, strokes: &[usize]) -> Result<(), Diagnostic> {
+    let mut seen = std::collections::BTreeSet::new();
+    if strokes.is_empty() || strokes.iter().any(|&i| i >= layer.strokes.len() || !seen.insert(i)) {
+        return Err(reject(
+            &format!("{} has {} strokes; name each stroke once, from 0 to one less than that.", layer.name, layer.strokes.len()),
+            "D-282: a stroke is named by its place in its layer's list.",
+        ));
+    }
+    Ok(())
+}
+
 /// D-261: a stroke the file format can hold: a known tool, a size, a `#rrggbb` colour and at
 /// least one point, every number finite.
 fn check_stroke(stroke: &Stroke) -> Result<(), Diagnostic> {
@@ -2338,6 +2412,8 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                         name: String::new(),
                         visible: true,
                         whole_cut: false,
+                        opacity: 1.0,
+                        locked: false,
                         strokes: Vec::new(),
                         rest: Default::default(),
                     });
@@ -2350,18 +2426,67 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         }
         Command::RemoveSketchLayer { sketch, .. } => {
             let comp = comp_mut(project, &comp_id)?;
-            sketch_mut(comp, sketch)?;
+            sketch_unlocked(comp, sketch)?;
             comp.sketches.retain(|s| s.id != *sketch);
         }
         Command::AddSketchStroke { sketch, stroke, .. } => {
             check_stroke(stroke)?;
-            sketch_mut(comp_mut(project, &comp_id)?, sketch)?.strokes.push(stroke.clone());
+            sketch_unlocked(comp_mut(project, &comp_id)?, sketch)?.strokes.push(stroke.clone());
         }
         Command::ClearSketch { sketch, frame, .. } => {
-            let layer = sketch_mut(comp_mut(project, &comp_id)?, sketch)?;
+            let layer = sketch_unlocked(comp_mut(project, &comp_id)?, sketch)?;
             match frame {
                 Some(f) => layer.strokes.retain(|s| s.frame != Some(*f)),
                 None => layer.strokes.clear(),
+            }
+        }
+        Command::SetSketchLook { sketch, opacity, locked, .. } => {
+            if !(0.0..=1.0).contains(opacity) {
+                return Err(reject(
+                    "A sketch layer's opacity is from 0 to 1.",
+                    "D-283: 1 draws the layer at full strength, 0 not at all.",
+                ));
+            }
+            let layer = sketch_mut(comp_mut(project, &comp_id)?, sketch)?;
+            layer.opacity = *opacity;
+            layer.locked = *locked;
+        }
+        Command::MoveSketchLayer { sketch, to, .. } => {
+            let comp = comp_mut(project, &comp_id)?;
+            sketch_mut(comp, sketch)?;
+            if *to >= comp.sketches.len() {
+                return Err(reject(
+                    &format!("There are {} sketch layers; a layer's place is from 0 to one less than that.", comp.sketches.len()),
+                    "D-283: place 0 is the bottom of the list.",
+                ));
+            }
+            let from = comp.sketches.iter().position(|s| s.id == *sketch).expect("just found");
+            let layer = comp.sketches.remove(from);
+            comp.sketches.insert(*to, layer);
+        }
+        Command::RemoveSketchStrokes { sketch, strokes, .. } => {
+            let layer = sketch_unlocked(comp_mut(project, &comp_id)?, sketch)?;
+            check_strokes(layer, strokes)?;
+            let mut i = 0;
+            layer.strokes.retain(|_| {
+                i += 1;
+                !strokes.contains(&(i - 1))
+            });
+        }
+        Command::MoveSketchStrokes { sketch, strokes, by, .. } => {
+            if !by.iter().all(|v| v.is_finite()) {
+                return Err(reject(
+                    "A move is two numbers.",
+                    "D-284: strokes move by a number of composition pixels across and down.",
+                ));
+            }
+            let layer = sketch_unlocked(comp_mut(project, &comp_id)?, sketch)?;
+            check_strokes(layer, strokes)?;
+            for &i in strokes {
+                for p in &mut layer.strokes[i].points {
+                    p[0] += by[0];
+                    p[1] += by[1];
+                }
             }
         }
         Command::SetLayerLabel {

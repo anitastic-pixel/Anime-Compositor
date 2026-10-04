@@ -1704,6 +1704,14 @@
   #sketch .skdesk.panning #skpic { cursor: grabbing; }
   #skpic { position: absolute; left: 50%; top: 50%; background: #f4f1ea; box-shadow: 0 0 0 1px #3a3a40, 0 10px 40px rgba(0, 0, 0, .6); cursor: crosshair; touch-action: none; transition: transform .25s; }
   #skpic.erasing { cursor: none; }
+  #sksize { writing-mode: vertical-lr; direction: rtl; width: 22px; height: 90px; margin: 2px 0; flex: none; }
+  #sketch .skb[data-skfill] svg path { fill: currentColor; fill-opacity: .25; }
+  #sketch .skb[data-skfill][aria-pressed="true"] svg path { fill-opacity: .9; }
+  #sketch .sksel .row .skv { width: 34px; flex: none; text-align: right; color: #a0a0a8; font-variant-numeric: tabular-nums; }
+  #sketch .skbar select { height: 26px; font-size: 11.5px; background: #232326; border-color: #3a3a40; }
+  #sketch #skselbar { display: flex; align-items: center; gap: 6px; color: #e8b06a; }
+  #sketch #skselbar[hidden] { display: none; }
+  #sketch #skselbar button { height: 22px; padding: 0 8px; font-size: 11px; background: #232326; border-color: #3a3a40; }
   /* D-271: the eraser's ring, as wide as it rubs out; light and dark edges so it shows on both. */
   #skring { position: fixed; pointer-events: none; box-sizing: border-box; border-radius: 50%; border: 1px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .7), inset 0 0 0 1px rgba(0, 0, 0, .7); z-index: 5; }
   #skring[hidden] { display: none; }
@@ -2282,10 +2290,18 @@
     <button class="skb" data-sktool="brush" title="Brush, B" aria-label="Brush"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M18 3l3 3-9 9-3-3zM9 12c-3 0-5 2-5 5 0 1-1 2-2 2 2 2 7 2 8-1 1-2 1-4-1-6"/></svg></button>
     <button class="skb" data-sktool="pencil" title="Pencil, P" aria-label="Pencil"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M4 20l1-5L16 4l4 4L9 19zM14 6l4 4"/></svg></button>
     <button class="skb" data-sktool="eraser" title="Eraser, E: rubs out on the chosen layer" aria-label="Eraser"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M8 20h12M5 16l9-9 5 5-6 6H8z"/></svg></button>
+    <button class="skb" data-sktool="strokes" title="Stroke eraser, Shift+E: a tap or a drag takes away each whole stroke it touches" aria-label="Stroke eraser"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M3 16c4-6 7 2 11-4"/><path d="M15 15l6 6M21 15l-6 6"/></svg></button>
+    <button class="skb" data-sktool="lasso" title="Lasso, L: draw round strokes to choose them, then drag them; the arrows nudge them and Delete takes them away" aria-label="Lasso"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M12 15c5 0 9-2.2 9-5.5S17 4 12 4 3 6.2 3 9.5c0 1.8 1.2 3.4 3 4.4"/><path d="M6 14c-1 2 0 4 2 4s2 3 0 3"/></svg></button>
     <hr>
-    <button class="skb" data-sksize="0" title="Thin · [ and ] change it" aria-label="Thin"><span class="dot"></span></button>
-    <button class="skb" data-sksize="1" title="Medium · [ and ] change it" aria-label="Medium"><span class="dot"></span></button>
-    <button class="skb" data-sksize="2" title="Thick · [ and ] change it" aria-label="Thick"><span class="dot"></span></button>
+    <button class="skb" data-sktool="line" title="Line, U steps through the shapes" aria-label="Line"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M5 19L19 5"/></svg></button>
+    <button class="skb" data-sktool="rect" title="Rectangle, U steps through the shapes" aria-label="Rectangle"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+    <button class="skb" data-sktool="ellipse" title="Ellipse, U steps through the shapes" aria-label="Ellipse"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="6.5"/></svg></button>
+    <button class="skb" data-skfill aria-pressed="false" title="Fill: shapes and drawn outlines are filled with the colour" aria-label="Fill"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="M5 11l7-7 7 7-7 7z"/><path d="M20 15c0 1.5 1 2.5 1 3.5a1 1 0 01-2 0c0-1 1-2 1-3.5z"/></svg></button>
+    <hr>
+    <button class="skb" data-sksize="0" title="Thin · [ and ] change the size" aria-label="Thin"><span class="dot"></span></button>
+    <button class="skb" data-sksize="1" title="Medium · [ and ] change the size" aria-label="Medium"><span class="dot"></span></button>
+    <button class="skb" data-sksize="2" title="Thick · [ and ] change the size" aria-label="Thick"><span class="dot"></span></button>
+    <input type="range" id="sksize" min="1" max="120" value="10" title="Size in pixels" aria-label="Size in pixels">
     <hr>
     <button class="sw2" data-skcolour="#c8302c" title="Red" aria-label="Red"></button>
     <button class="sw2" data-skcolour="#3f7fd8" title="Blue" aria-label="Blue"></button>
@@ -2306,7 +2322,7 @@
       <button data-skturn="0" title="Put the paper back straight, unzoomed, in the middle">Reset</button>
     </div>
     <div class="skdesk"><div id="skpic"><canvas id="skunder" width="480" height="270"></canvas><canvas id="skdraw" width="480" height="270"></canvas></div><div id="skring" hidden></div></div>
-    <div class="skfoot"><span>Draw on the picture with the mouse or a pen; a pen presses thin to thick. The wheel zooms; the middle button, or Space held, moves the paper.</span><span class="sp"></span><span id="skcount"></span></div>
+    <div class="skfoot"><span>Draw on the picture with the mouse or a pen; a pen presses thin to thick, and see-through too when chosen. The wheel zooms; the middle button, or Space held, moves the paper.</span><span id="skselbar" hidden><span id="skseltext"></span><button data-skseldel>Delete</button><button data-skselnone>Deselect</button></span><span class="sp"></span><span id="skcount"></span></div>
   </div>
   <div class="skbar">
     <button data-skstep="-1" title="Back one frame, Page Up" aria-label="Back one frame">&#9664;</button>
@@ -2314,6 +2330,8 @@
     <button data-skstep="1" title="Forward one frame, Page Down" aria-label="Forward one frame">&#9654;</button>
     <span class="gs"></span>
     <button data-skonion aria-pressed="false" title="The nearest sketched frames before, in red, and after, in green"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg>Onion skin</button>
+    <select id="skonionn" title="How many sketched frames each way the onion skin shows, the farther ones fainter" aria-label="Onion skin frames each way"><option value="1">1 each way</option><option value="2">2 each way</option><option value="3">3 each way</option><option value="5">5 each way</option></select>
+    <button data-skflipbook aria-pressed="false" title="Flipbook: flip through the cut at its speed, each drawing held until the next, without the picture. Esc or a click stops it"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M5 4h11v16H5z"/><path d="M8 4v-1h11v16h-3"/></svg>Flipbook</button>
     <span class="hint">a &#9679; marks a frame with its own sketch</span>
   </div>
   <div class="skl">
@@ -2329,13 +2347,21 @@
       <div class="row"><label for="skname">Name</label><input id="skname" type="text" aria-label="The sketch layer's name"></div>
       <div class="row"><span>Draws on</span><div class="seg2"><button data-skspan="frame">This frame</button><button data-skspan="all">Whole cut</button></div></div>
       <div class="hint" id="skspanhint"></div>
+      <div class="row"><label for="skopacity">Opacity</label><input id="skopacity" type="range" min="0" max="100" value="100" aria-label="The sketch layer's opacity"><span class="skv" id="skopacityv"></span></div>
+      <div class="row"><span>Order</span><div class="seg2"><button data-skmove="1" title="Move the layer up the list, over the others">Up</button><button data-skmove="-1" title="Move the layer down the list, under the others">Down</button></div><button class="sh" data-sklock aria-pressed="false" title="Lock: nothing can be drawn, erased, moved, cleared or deleted on it">Lock</button></div>
       <div class="row go"><button class="sh" data-skclear id="skclear"></button><button class="sh" data-skdelete>Delete layer</button></div>
+      <div class="row go"><button class="sh" data-skpng title="Save the sketch on this frame as a PNG picture, see-through where nothing is drawn. Frames and exports still never include sketches">Save as picture…</button></div>
+    </div>
+    <div class="fsec">Drawing</div>
+    <div class="sksel">
+      <div class="row"><label for="sksmooth">Smoothing</label><input id="sksmooth" type="range" min="0" max="10" value="0" aria-label="Smoothing: steadies a wobbly line"><span class="skv" id="sksmoothv"></span></div>
+      <div class="row"><span>Pen presses</span><div class="seg2"><button data-skpress="size">Size</button><button data-skpress="both">Size and see-through</button></div></div>
     </div>
     <div class="fsec">Where sketches show</div>
     <label class="gtick"><input type="checkbox" id="skover"><span>Also over the Compose viewer<br><small>to check an idea against the finished picture</small></span></label>
     <div class="sknote" id="sknote"></div>
     <span class="sp"></span>
-    <div class="hint skkeys">B brush · P pencil · E eraser, or a pen's eraser end · [ and ] size · Ctrl+Z undo · Page Up and Page Down step frames</div>
+    <div class="hint skkeys">B brush · P pencil · E eraser, or a pen's eraser end · Shift+E stroke eraser · L lasso · U shapes · [ and ] size · Ctrl+Z undo · Page Up and Page Down step frames</div>
   </div>
 </section>
 <div class="split col" id="splitside" role="separator" aria-orientation="vertical" tabindex="0"
@@ -13680,19 +13706,35 @@ function maximise() {
 // stroke. The page draws them, over the cut on the board and over the viewer when asked; the
 // renderer never reads them, so no frame and no export can carry one.
 const SK_SIZES = [4, 10, 22];
-const sk = { tool: 'brush', size: 1, colour: '#c8302c', layer: null, cut: 0.6, onion: false, turn: 0, flip: false, over: false, zoom: 1, pan: [0, 0] };
-try { sk.over = localStorage.getItem('sketchOver') === '1'; } catch (e) { /* off for this run */ }
+const sk = { tool: 'brush', px: 10, colour: '#c8302c', layer: null, cut: 0.6, onion: false, turn: 0, flip: false, over: false, zoom: 1, pan: [0, 0],
+  fill: false, smooth: 0, pressAlpha: false, onionN: 1 };
+const SK_KEPT = ['px', 'fill', 'smooth', 'pressAlpha', 'onionN']; // D-285 to D-288: remembered on this machine
+try {
+  sk.over = localStorage.getItem('sketchOver') === '1';
+  const kept = JSON.parse(localStorage.getItem('sketchPen') || '{}') || {};
+  for (const key of SK_KEPT) if (typeof kept[key] === typeof sk[key]) sk[key] = kept[key];
+} catch (e) { /* the defaults for this run */ }
 let skDrawing = null; // the stroke under the hand: its layer, frame, tool, size, colour and points
 let skHover = null; // where the hand is over the paper, on screen, for the tool's ring
 let skSpace = false; // D-281: Space is held over the desk, so a left drag moves the paper
 let skPan = null; // D-281: the move under the hand: where it started and the move then
-const skWidth = (tool) => tool === 'pencil' ? Math.max(2, SK_SIZES[sk.size] * 0.5) : SK_SIZES[sk.size];
+let skSel = null; // D-284: the strokes the lasso chose: their layer, frame, places and the layer's count then
+let skLasso = null; // D-284: the lasso being drawn, in composition pixels
+let skMove = null; // D-284: the chosen strokes being dragged: where from and by how much
+let skErase = null; // D-282: the strokes the stroke eraser has touched in this drag
+let skBook = null; // D-288: the flipbook's timer and the frame it is on
+const skWidth = (tool) => tool === 'pencil' ? Math.max(2, sk.px * 0.5) : sk.px;
+const SK_TOOL_NAMES = { strokes: 'stroke eraser', rect: 'rectangle' };
 const skRing = $('skring');
 const skSheet = document.createElement('canvas'); // one layer at a time, so the eraser rubs out only its own
 function skSet(change) {
   Object.assign(sk, change);
+  if (change.tool && change.tool !== 'lasso') skSel = null;
+  try { localStorage.setItem('sketchPen', JSON.stringify(Object.fromEntries(SK_KEPT.map((key) => [key, sk[key]])))); } catch (e) { /* kept for this run only */ }
   drawSketch();
 }
+// D-285: [ and ] make the size a quarter bigger or smaller, by a pixel at least.
+const skStep = (up) => Math.max(1, Math.min(120, up ? Math.max(sk.px + 1, Math.round(sk.px * 1.25)) : Math.min(sk.px - 1, Math.round(sk.px / 1.25))));
 const skLayers = (comp) => (comp && comp.sketches) || [];
 function skChosen(comp) {
   const all = skLayers(comp);
@@ -13708,30 +13750,37 @@ const skQuery = (s, change) => {
 const skNewId = () => 'sketch-' + Date.now().toString(36);
 const skInk = document.createElement('canvas'); // a pen stroke's pieces, before they go on at its strength
 const skPress = (p) => 0.15 + 0.85 * p; // D-271: the share of the full size a pen's pressure gives
-// A stroke as the Sandbox draws one: through the midpoints, so a quick line comes out smooth.
+// A stroke as the Sandbox draws one: through the midpoints, so a quick line comes out smooth. It is
+// laid down at full strength on a sheet of its own and put on at the stroke's strength, so the
+// round ends where a pen's pieces overlap, and a fill under its outline (D-287), do not show darker.
 function skStroke(ctx, k, tint, alpha) {
   const pts = k.points;
   if (!pts || !pts.length) return;
-  ctx.globalCompositeOperation = k.tool === 'eraser' ? 'destination-out' : 'source-over';
-  ctx.globalAlpha = k.tool === 'eraser' ? 1 : alpha || (k.tool === 'pencil' ? 0.8 : 0.95);
-  if (k.pressure && k.pressure.length === pts.length) {
-    // D-271: a pen stroke, one piece around each point as wide as its pressure says, laid down at
-    // full strength on a sheet of its own and put on at the stroke's strength, so the round ends
-    // where the pieces overlap do not show darker.
-    const [w, h] = [ctx.canvas.width, ctx.canvas.height];
-    if (skInk.width !== w || skInk.height !== h) [skInk.width, skInk.height] = [w, h];
-    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]), pad = k.size / 2 + 2;
-    const x0 = Math.max(0, Math.floor(Math.min(...xs) - pad)), y0 = Math.max(0, Math.floor(Math.min(...ys) - pad));
-    const x1 = Math.min(w, Math.ceil(Math.max(...xs) + pad)), y1 = Math.min(h, Math.ceil(Math.max(...ys) + pad));
-    if (x1 <= x0 || y1 <= y0) return;
-    const box = [x0, y0, x1 - x0, y1 - y0];
-    const c = skInk.getContext('2d');
-    c.globalAlpha = 1;
-    c.globalCompositeOperation = 'source-over';
-    c.clearRect(...box);
-    c.strokeStyle = tint || k.colour;
-    c.lineCap = 'round';
-    const n = pts.length;
+  const [w, h] = [ctx.canvas.width, ctx.canvas.height];
+  if (skInk.width !== w || skInk.height !== h) [skInk.width, skInk.height] = [w, h];
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]), pad = k.size / 2 + 2;
+  const x0 = Math.max(0, Math.floor(Math.min(...xs) - pad)), y0 = Math.max(0, Math.floor(Math.min(...ys) - pad));
+  const x1 = Math.min(w, Math.ceil(Math.max(...xs) + pad)), y1 = Math.min(h, Math.ceil(Math.max(...ys) + pad));
+  if (x1 <= x0 || y1 <= y0) return;
+  const box = [x0, y0, x1 - x0, y1 - y0];
+  const c = skInk.getContext('2d');
+  c.globalAlpha = 1;
+  c.globalCompositeOperation = 'source-over';
+  c.clearRect(...box);
+  c.strokeStyle = c.fillStyle = tint || k.colour;
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  const n = pts.length;
+  if (k.filled && n > 2) {
+    c.beginPath();
+    c.moveTo(pts[0][0], pts[0][1]);
+    for (const p of pts) c.lineTo(p[0], p[1]);
+    c.closePath();
+    c.fill();
+  }
+  if (k.pressure && k.pressure.length === n) {
+    // D-271: a pen stroke, one piece around each point as wide as its pressure says. D-286: and,
+    // when chosen, as strong: each piece first clears where it goes, so the overlaps do not build up.
     const mid = (i) => [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2];
     for (let i = 0; i < n; i++) {
       c.lineWidth = k.size * skPress(k.pressure[i]);
@@ -13742,53 +13791,66 @@ function skStroke(ctx, k, tint, alpha) {
       else if (i === 0) c.lineTo(...mid(0));
       else if (i === n - 1) c.lineTo(pts[i][0], pts[i][1]);
       else c.quadraticCurveTo(pts[i][0], pts[i][1], ...mid(i));
+      if (k.pressure_opacity) {
+        c.globalAlpha = 1;
+        c.globalCompositeOperation = 'destination-out';
+        c.stroke();
+        c.globalAlpha = skPress(k.pressure[i]);
+        c.globalCompositeOperation = 'source-over';
+      }
       c.stroke();
     }
-    ctx.drawImage(skInk, ...box, ...box);
-    return;
+  } else {
+    c.lineWidth = k.size;
+    c.beginPath();
+    c.moveTo(pts[0][0], pts[0][1]);
+    if (n === 1) c.lineTo(pts[0][0] + 0.1, pts[0][1]);
+    for (let i = 1; i < n - 1; i++) {
+      c.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
+    }
+    if (n > 1) c.lineTo(pts[n - 1][0], pts[n - 1][1]);
+    c.stroke();
   }
-  ctx.strokeStyle = tint || k.colour;
-  ctx.lineWidth = k.size;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(pts[0][0], pts[0][1]);
-  if (pts.length === 1) ctx.lineTo(pts[0][0] + 0.1, pts[0][1]);
-  for (let i = 1; i < pts.length - 1; i++) {
-    ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
-  }
-  if (pts.length > 1) ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
-  ctx.stroke();
+  ctx.globalCompositeOperation = k.tool === 'eraser' ? 'destination-out' : 'source-over';
+  ctx.globalAlpha = k.tool === 'eraser' ? 1 : alpha || (k.tool === 'pencil' ? 0.8 : 0.95);
+  ctx.drawImage(skInk, ...box, ...box);
 }
 // Every shown sketch layer on frame `at`, bottom first, onto `ctx`, in composition pixels.
-// `onion` is the frames to show faintly first, each with its tint; `live` the stroke being drawn.
-function paintSketches(ctx, comp, at, onion, live) {
+// `onion` is the frames to show faintly first, each with its tint and strength; `live` the stroke
+// being drawn; `mark` strokes of one layer drawn moved by `by` (D-284) or faint (D-282).
+function paintSketches(ctx, comp, at, onion, live, mark) {
   const [w, h] = [comp.width, comp.height];
   if (ctx.canvas.width !== w || ctx.canvas.height !== h) [ctx.canvas.width, ctx.canvas.height] = [w, h];
   else ctx.clearRect(0, 0, w, h);
   if (skSheet.width !== w || skSheet.height !== h) [skSheet.width, skSheet.height] = [w, h];
   const sheet = skSheet.getContext('2d');
-  const put = () => {
-    ctx.globalAlpha = 1;
+  const put = (alpha = 1) => {
+    ctx.globalAlpha = alpha;
     ctx.globalCompositeOperation = 'source-over';
     ctx.drawImage(skSheet, 0, 0);
     sheet.globalCompositeOperation = 'source-over';
     sheet.clearRect(0, 0, w, h);
   };
   sheet.clearRect(0, 0, w, h);
-  for (const [f, tint] of onion || []) {
+  for (const [f, tint, strength] of onion || []) {
     for (const s of skLayers(comp)) {
       if (!s.visible || s.whole_cut) continue;
-      for (const k of s.strokes) if (k.frame === f) skStroke(sheet, k, tint, 0.35);
+      for (const k of s.strokes) if (k.frame === f) skStroke(sheet, k, tint, strength || 0.35);
       put();
     }
   }
   let liveDrawn = !live;
   for (const s of skLayers(comp)) {
     if (!s.visible && !(live && live.sketch === s.id)) continue;
-    for (const k of s.strokes) if (skOn(s, k, at)) skStroke(sheet, k);
+    const marked = mark && mark.sketch === s.id ? mark : null;
+    s.strokes.forEach((k, i) => {
+      if (!skOn(s, k, at)) return;
+      if (!marked || !marked.idx.includes(i)) skStroke(sheet, k);
+      else if (marked.faint) skStroke(sheet, Object.assign({}, k, { tool: 'brush' }), '#9a9aa2', 0.25);
+      else skStroke(sheet, Object.assign({}, k, { points: k.points.map((p) => [p[0] + marked.by[0], p[1] + marked.by[1]]) }));
+    });
     if (live && live.sketch === s.id) { skStroke(sheet, live); liveDrawn = true; }
-    put();
+    put(s.opacity ?? 1);
   }
   if (!liveDrawn) { skStroke(sheet, live); put(); } // the first stroke, before its layer exists
 }
@@ -13814,7 +13876,9 @@ function drawSketch() {
   if (!sketchShown || !comp) return;
   const chosen = skChosen(comp);
   if (chosen) sk.layer = chosen.id;
-  const erasing = sk.tool === 'eraser';
+  // D-284: a choice lasts while its layer, frame and number of strokes stay as they were.
+  if (skSel && !(chosen && chosen.id === skSel.sketch && frame === skSel.frame && chosen.strokes.length === skSel.count)) skSel = null;
+  const erasing = sk.tool === 'eraser' || sk.tool === 'strokes';
   // The paper, fitted to the desk whichever way it is turned.
   const desk = document.querySelector('#sketch .skdesk');
   const th = sk.turn * Math.PI / 180;
@@ -13834,25 +13898,53 @@ function drawSketch() {
   if (under.width !== comp.width || under.height !== comp.height) [under.width, under.height] = [comp.width, comp.height];
   const paper = under.getContext('2d');
   paper.clearRect(0, 0, under.width, under.height);
-  if (sk.cut > 0 && view.width > 1) {
+  if (sk.cut > 0 && view.width > 1 && !skBook) {
     paper.globalAlpha = sk.cut;
     paper.drawImage(view, 0, 0, under.width, under.height);
     paper.globalAlpha = 1;
   }
   const first = comp.start_frame, last = comp.start_frame + comp.duration_frames - 1;
+  // D-288: the flipbook shows each frame's drawing, held on the frames after it that have none.
+  let at = frame;
+  if (skBook) for (at = skBook.at; at > first && !skOwnFrame(comp, at); at--);
+  if (skBook && !skOwnFrame(comp, at)) at = skBook.at;
   const onion = [];
-  if (sk.onion) {
-    let before = null, after = null;
-    for (let f = frame - 1; f >= first && before === null; f--) if (skOwnFrame(comp, f)) before = f;
-    for (let f = frame + 1; f <= last && after === null; f++) if (skOwnFrame(comp, f)) after = f;
-    if (before !== null) onion.push([before, '#e0604a']);
-    if (after !== null) onion.push([after, '#2f8f4f']);
+  if (sk.onion && !skBook) {
+    // D-288: up to onionN sketched frames each way, the farther ones fainter.
+    let before = 0, after = 0;
+    for (let f = frame - 1; f >= first && before < sk.onionN; f--) if (skOwnFrame(comp, f)) onion.push([f, '#e0604a', 0.35 * (1 - before++ / (sk.onionN + 1))]);
+    for (let f = frame + 1; f <= last && after < sk.onionN; f++) if (skOwnFrame(comp, f)) onion.push([f, '#2f8f4f', 0.35 * (1 - after++ / (sk.onionN + 1))]);
+    onion.reverse();
   }
-  paintSketches($('skdraw').getContext('2d'), comp, frame, onion, skDrawing);
+  const mark = skErase ? { sketch: skErase.sketch, idx: skErase.idx, faint: true }
+    : skSel ? { sketch: skSel.sketch, idx: skSel.idx, by: skMove ? skMove.by : [0, 0] } : null;
+  const drawCtx = $('skdraw').getContext('2d');
+  paintSketches(drawCtx, comp, at, onion, skBook ? null : skDrawing, mark);
+  // D-284: the lasso as it is drawn, and a dashed box round what it chose.
+  const px = comp.width / Math.max(1, pic.offsetWidth);
+  drawCtx.globalAlpha = 1;
+  drawCtx.globalCompositeOperation = 'source-over';
+  drawCtx.lineWidth = 1.5 * px;
+  drawCtx.setLineDash([5 * px, 4 * px]);
+  drawCtx.strokeStyle = '#2f6fd8';
+  if (skLasso && skLasso.length > 1) {
+    drawCtx.beginPath();
+    skLasso.forEach((p, i) => i ? drawCtx.lineTo(p[0], p[1]) : drawCtx.moveTo(p[0], p[1]));
+    drawCtx.stroke();
+  }
+  const box = skSelBox(comp);
+  if (box) drawCtx.strokeRect(box[0], box[1], box[2] - box[0], box[3] - box[1]);
+  drawCtx.setLineDash([]);
   // The words around it.
   const name = chosen ? chosen.name : 'Layer 1';
-  $('skwhere').textContent = comp.name + ' · frame ' + frame;
-  $('skhow').textContent = (erasing ? 'rubbing out on ' : 'drawing on ') + name + (erasing ? '' : ' with the ' + sk.tool);
+  $('skwhere').textContent = comp.name + ' · frame ' + (skBook ? skBook.at + ' · flipbook' : frame);
+  const toolName = SK_TOOL_NAMES[sk.tool] || sk.tool;
+  $('skhow').textContent = chosen && chosen.locked ? name + ' is locked'
+    : sk.tool === 'lasso' ? 'choosing strokes on ' + name
+    : sk.tool === 'strokes' ? 'taking whole strokes off ' + name
+    : (erasing ? 'rubbing out on ' : 'drawing on ') + name + (erasing ? '' : ' with the ' + toolName + (sk.fill ? ', filled' : ''));
+  $('skselbar').hidden = !skSel;
+  if (skSel) $('skseltext').textContent = skSel.idx.length + (skSel.idx.length === 1 ? ' stroke' : ' strokes') + ' chosen: drag to move, arrows nudge';
   const here = chosen ? chosen.strokes.filter((k) => skOn(chosen, k, frame)).length : 0;
   $('skcount').textContent = here + (here === 1 ? ' stroke' : ' strokes') + ' on ' + name
     + (chosen && chosen.whole_cut ? ', shown on every frame' : ' at frame ' + frame);
@@ -13860,7 +13952,15 @@ function drawSketch() {
   $('skangle').classList.toggle('on', !!sk.turn || sk.zoom !== 1 || !!sk.pan[0] || !!sk.pan[1]);
   if (document.activeElement !== $('skpickcolour')) $('skpickcolour').value = sk.colour;
   for (const b of document.querySelectorAll('#sketch [data-sktool]')) b.setAttribute('aria-pressed', String(b.dataset.sktool === sk.tool));
-  for (const b of document.querySelectorAll('#sketch [data-sksize]')) b.setAttribute('aria-pressed', String(+b.dataset.sksize === sk.size));
+  for (const b of document.querySelectorAll('#sketch [data-sksize]')) b.setAttribute('aria-pressed', String(SK_SIZES[+b.dataset.sksize] === sk.px));
+  if (document.activeElement !== $('sksize')) $('sksize').value = sk.px;
+  $('sksize').title = 'Size: ' + sk.px + ' px';
+  document.querySelector('#sketch [data-skfill]').setAttribute('aria-pressed', String(sk.fill));
+  for (const b of document.querySelectorAll('#sketch [data-skpress]')) b.setAttribute('aria-pressed', String((b.dataset.skpress === 'both') === sk.pressAlpha));
+  if (document.activeElement !== $('sksmooth')) $('sksmooth').value = sk.smooth;
+  $('sksmoothv').textContent = sk.smooth ? sk.smooth : 'Off';
+  $('skonionn').value = sk.onionN;
+  document.querySelector('#sketch [data-skflipbook]').setAttribute('aria-pressed', String(!!skBook));
   for (const b of document.querySelectorAll('#sketch [data-skcolour]')) b.setAttribute('aria-pressed', String(b.dataset.skcolour === sk.colour));
   for (const b of document.querySelectorAll('#sketch [data-skcut]')) b.setAttribute('aria-pressed', String(+b.dataset.skcut === sk.cut));
   document.querySelector('#sketch [data-skflip]').setAttribute('aria-pressed', String(sk.flip));
@@ -13872,7 +13972,7 @@ function drawSketch() {
     const cell = document.createElement('button');
     cell.className = 'scell';
     cell.dataset.skframe = f;
-    cell.setAttribute('aria-pressed', String(f === frame));
+    cell.setAttribute('aria-pressed', String(f === (skBook ? skBook.at : frame)));
     cell.setAttribute('aria-label', 'Frame ' + f + (skOwnFrame(comp, f) ? ', sketched' : ''));
     cell.append(Object.assign(document.createElement('span'), { textContent: f }),
       Object.assign(document.createElement('b'), { textContent: skOwnFrame(comp, f) ? '●' : '·' }));
@@ -13899,7 +13999,8 @@ function drawSketch() {
     const all = s.strokes.length, onThis = s.strokes.filter((k) => skOn(s, k, frame)).length;
     pick.append(Object.assign(document.createElement('span'), { textContent: s.name }),
       Object.assign(document.createElement('small'), {
-        textContent: s.whole_cut ? 'whole cut · ' + all + ' marks' : onThis + ' on this frame · ' + all + ' in all',
+        textContent: (s.whole_cut ? 'whole cut · ' + all + ' marks' : onThis + ' on this frame · ' + all + ' in all')
+          + ((s.opacity ?? 1) < 1 ? ' · ' + Math.round(s.opacity * 100) + '%' : '') + (s.locked ? ' · locked' : ''),
       }));
     row.append(eye, swatch, pick);
     return row;
@@ -13915,6 +14016,15 @@ function drawSketch() {
     $('skspanhint').textContent = chosen.whole_cut ? 'One drawing shown on every frame, for notes that stay.'
       : 'Each frame keeps its own drawing, like paper on a peg bar.';
     $('skclear').textContent = 'Clear ' + chosen.name + (chosen.whole_cut ? '' : ' on frame ' + frame);
+    // D-283: the opacity, the lock and the place in the list.
+    const i = skLayers(comp).indexOf(chosen);
+    if (document.activeElement !== $('skopacity')) $('skopacity').value = Math.round((chosen.opacity ?? 1) * 100);
+    $('skopacityv').textContent = Math.round((chosen.opacity ?? 1) * 100) + '%';
+    document.querySelector('#sketch [data-sklock]').setAttribute('aria-pressed', String(!!chosen.locked));
+    document.querySelector('#sketch [data-sklock]').textContent = chosen.locked ? 'Locked' : 'Lock';
+    document.querySelector('#sketch [data-skmove="1"]').disabled = i === skLayers(comp).length - 1;
+    document.querySelector('#sketch [data-skmove="-1"]').disabled = i === 0;
+    $('skclear').disabled = document.querySelector('#sketch [data-skdelete]').disabled = !!chosen.locked;
   }
   $('skover').checked = sk.over;
   $('sknote').textContent = 'Sketches are never exported. They are saved with the project, beside ' + comp.name + '.';
@@ -13923,6 +14033,7 @@ function drawSketch() {
 // Into the board and out of it. While it is out the picture's pixels stay on the page, which is
 // where the board copies the cut from.
 function sketchEnter(on) {
+  if (!on && skBook) skFlipbook(false);
   if (on !== sketchShown) {
     const before = needPixels();
     sketchShown = on;
@@ -13941,7 +14052,15 @@ $('sketch').addEventListener('click', (e) => {
   const comp = composition();
   const chosen = skChosen(comp);
   if (d.sktool) skSet({ tool: d.sktool });
-  else if (d.sksize) skSet({ size: +d.sksize });
+  else if (d.sksize) skSet({ px: SK_SIZES[+d.sksize] });
+  else if ('skfill' in d) skSet({ fill: !sk.fill });
+  else if (d.skpress) skSet({ pressAlpha: d.skpress === 'both' });
+  else if ('skflipbook' in d) skFlipbook(!skBook);
+  else if ('skseldel' in d) skSelDelete();
+  else if ('skselnone' in d) { skSel = null; drawSketch(); }
+  else if ('skpng' in d) skSavePng();
+  else if ('sklock' in d && chosen) command('/sketch.set_look?sketch=' + encodeURIComponent(chosen.id) + '&opacity=' + (chosen.opacity ?? 1) + '&locked=' + !chosen.locked);
+  else if (d.skmove && chosen) command('/sketch.move_layer?sketch=' + encodeURIComponent(chosen.id) + '&to=' + (skLayers(comp).indexOf(chosen) + +d.skmove));
   else if (d.skcolour) skSet({ colour: d.skcolour, tool: sk.tool === 'eraser' ? 'brush' : sk.tool });
   else if ('skundo' in d) $('undo').click();
   else if (d.skturn) skSet(d.skturn === '0' ? { turn: 0, flip: false, zoom: 1, pan: [0, 0] } : { turn: (((sk.turn + +d.skturn) % 360) + 540) % 360 - 180 });
@@ -13969,6 +14088,14 @@ $('sketch').addEventListener('change', (e) => {
     command('/sketch.set_layer?' + skQuery(chosen, { name: e.target.value.trim() }));
   } else if (e.target.id === 'skpickcolour') {
     skSet({ colour: e.target.value, tool: sk.tool === 'eraser' ? 'brush' : sk.tool });
+  } else if (e.target.id === 'sksize') {
+    skSet({ px: +e.target.value });
+  } else if (e.target.id === 'sksmooth') {
+    skSet({ smooth: +e.target.value });
+  } else if (e.target.id === 'skonionn') {
+    skSet({ onionN: +e.target.value, onion: true });
+  } else if (e.target.id === 'skopacity' && chosen) {
+    command('/sketch.set_look?sketch=' + encodeURIComponent(chosen.id) + '&opacity=' + (+e.target.value / 100) + '&locked=' + !!chosen.locked);
   } else if (e.target.id === 'skover') {
     sk.over = e.target.checked;
     try { localStorage.setItem('sketchOver', sk.over ? '1' : '0'); } catch (err) { /* kept for this run only */ }
@@ -13985,7 +14112,7 @@ const skPen = (e) => Math.round(Math.min(1, Math.max(0, e.pressure)) * 1000) / 1
 // while a pen presses, at the width its pressure gives. D-281: every tool shows its ring.
 function skRingAt() {
   const comp = composition();
-  skRing.hidden = !(sketchShown && comp && skHover && !skSpace && !skPan);
+  skRing.hidden = !(sketchShown && comp && skHover && !skSpace && !skPan && sk.tool !== 'lasso');
   if (skRing.hidden) return;
   const pressed = skDrawing && skDrawing.pressure ? skPress(skDrawing.pressure[skDrawing.pressure.length - 1]) : 1;
   const across = (skDrawing ? skDrawing.size : skWidth(sk.tool)) * pressed * $('skpic').offsetWidth / comp.width;
@@ -13993,42 +14120,191 @@ function skRingAt() {
   skRing.style.left = skHover[0] - across / 2 + 'px';
   skRing.style.top = skHover[1] - across / 2 + 'px';
 }
+// D-284: whether a point is inside the lasso, and D-282: how far a point is from a stroke's piece.
+function skInside(p, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [a, b] = [poly[i], poly[j]];
+    if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) inside = !inside;
+  }
+  return inside;
+}
+function skNear(p, a, b) {
+  const [dx, dy] = [b[0] - a[0], b[1] - a[1]];
+  const t = dx || dy ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy))) : 0;
+  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+}
+// D-282: every stroke on this frame the stroke eraser's circle at `p` touches.
+function skEraseAt(comp, p) {
+  const s = skLayers(comp).find((x) => x.id === skErase.sketch);
+  if (!s) return;
+  const r = skWidth('strokes') / 2;
+  s.strokes.forEach((k, i) => {
+    if (!skOn(s, k, frame) || skErase.idx.includes(i)) return;
+    const pts = k.points, reach = r + k.size / 2;
+    if (pts.some((q, j) => skNear(p, q, pts[Math.min(j + 1, pts.length - 1)]) <= reach)
+      || (k.filled && pts.length > 2 && skInside(p, pts))) skErase.idx.push(i);
+  });
+}
+// D-284: the box round the chosen strokes, as they are dragged, in composition pixels.
+function skSelBox(comp) {
+  const s = skSel && skLayers(comp).find((x) => x.id === skSel.sketch);
+  if (!s) return null;
+  const by = skMove ? skMove.by : [0, 0];
+  const box = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const i of skSel.idx) {
+    const k = s.strokes[i], r = k.size / 2;
+    for (const [x, y] of k.points) {
+      box[0] = Math.min(box[0], x - r + by[0]); box[1] = Math.min(box[1], y - r + by[1]);
+      box[2] = Math.max(box[2], x + r + by[0]); box[3] = Math.max(box[3], y + r + by[1]);
+    }
+  }
+  return box;
+}
+// D-287: a shape's points from where the drag began to where the hand is. A rectangle's sides go
+// in 4-pixel steps, so drawing through the midpoints keeps its corners square.
+function skShape(shape, a, b) {
+  if (shape === 'line') return [a, b];
+  const [x0, y0, x1, y1] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
+  const out = [];
+  const tenth = (v) => Math.round(v * 10) / 10;
+  if (shape === 'ellipse') {
+    const [cx, cy, rx, ry] = [(x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2, (y1 - y0) / 2];
+    const n = Math.max(24, Math.ceil(Math.PI * (rx + ry) / 4));
+    for (let i = 0; i <= n; i++) out.push([tenth(cx + rx * Math.cos(2 * Math.PI * i / n)), tenth(cy + ry * Math.sin(2 * Math.PI * i / n))]);
+    return out;
+  }
+  const corners = [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+  for (let c = 0; c < 4; c++) {
+    const [p, q] = [corners[c], corners[c + 1]];
+    const n = Math.max(1, Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) / 4));
+    for (let i = 0; i < n; i++) out.push([tenth(p[0] + (q[0] - p[0]) * i / n), tenth(p[1] + (q[1] - p[1]) * i / n)]);
+  }
+  out.push([x0, y0]);
+  return out;
+}
+// D-282, D-284: the commands, which the buttons and keys send as well as the hand.
+const skRemove = (sketch, idx) => command('/sketch.remove_strokes?sketch=' + encodeURIComponent(sketch) + '&strokes=' + idx.slice().sort((a, b) => a - b).join(','));
+function skSelMove(by) {
+  if (skSel && (by[0] || by[1])) command('/sketch.move_strokes?sketch=' + encodeURIComponent(skSel.sketch) + '&strokes=' + skSel.idx.join(',') + '&dx=' + by[0] + '&dy=' + by[1]);
+}
+function skSelDelete() {
+  if (skSel) skRemove(skSel.sketch, skSel.idx);
+}
+// D-288: the flipbook, at the cut's speed from the frame on screen, round and round.
+function skFlipbook(on) {
+  if (skBook) clearInterval(skBook.timer);
+  skBook = null;
+  const comp = composition();
+  if (on && comp) {
+    const first = comp.start_frame, last = first + comp.duration_frames - 1;
+    skBook = { at: frame, timer: setInterval(() => { skBook.at = skBook.at >= last ? first : skBook.at + 1; drawSketch(); }, 1000 / compFps(comp)) };
+  }
+  drawSketch();
+}
+// D-289: the sketch on this frame as a PNG, every shown layer at its opacity, see-through where
+// nothing is drawn; the window asks where to save it. Frames and exports still never carry sketches.
+async function skSavePng() {
+  const comp = composition();
+  if (!comp) return;
+  const sheet = document.createElement('canvas');
+  paintSketches(sheet.getContext('2d'), comp, frame);
+  const png = await new Promise((done) => sheet.toBlob(done, 'image/png'));
+  const said = await (await fetch(PROJECT + '/sketch-png?name=' + encodeURIComponent(comp.name + ' sketch ' + frame), { method: 'POST', body: png })).text();
+  if (said) $('status').textContent = said;
+}
 skPic.onpointerdown = (e) => {
   const comp = composition();
   // Button 5 is a pen's eraser end.
   if ((e.button !== 0 && e.button !== 5) || !comp || skSpace) return;
-  skPic.setPointerCapture(e.pointerId);
+  if (skBook) { skFlipbook(false); return; }
   const chosen = skChosen(comp);
+  if (chosen && chosen.locked) { $('status').textContent = chosen.name + ' is locked. Unlock it to change what is drawn on it.'; return; }
+  skPic.setPointerCapture(e.pointerId);
   const tool = e.button === 5 ? 'eraser' : sk.tool;
-  const size = skWidth(tool);
-  skDrawing = {
-    sketch: chosen ? chosen.id : null, frame, tool, size, colour: sk.colour,
-    points: [skPoint(e, comp)], at: [e.clientX, e.clientY],
-    pressure: e.pointerType === 'pen' ? [skPen(e)] : null,
-  };
+  const p = skPoint(e, comp);
   skHover = [e.clientX, e.clientY];
+  if (tool === 'strokes' || tool === 'lasso') {
+    if (!chosen) return;
+    const box = tool === 'lasso' && skSelBox(comp);
+    const slack = 6 * comp.width / skPic.offsetWidth;
+    if (tool === 'strokes') { skErase = { sketch: chosen.id, idx: [] }; skEraseAt(comp, p); }
+    else if (box && p[0] >= box[0] - slack && p[0] <= box[2] + slack && p[1] >= box[1] - slack && p[1] <= box[3] + slack) skMove = { from: p, by: [0, 0] };
+    else { skSel = null; skLasso = [p]; }
+    drawSketch();
+    return;
+  }
+  const shape = ['line', 'rect', 'ellipse'].includes(tool) ? tool : null;
+  skDrawing = {
+    sketch: chosen ? chosen.id : null, frame, tool: shape ? 'brush' : tool, size: skWidth(shape ? 'brush' : tool), colour: sk.colour,
+    points: [p], at: [e.clientX, e.clientY], shape, from: p, raw: p, filled: sk.fill,
+    pressure: e.pointerType === 'pen' && !shape ? [skPen(e)] : null,
+  };
+  skDrawing.pressure_opacity = !!skDrawing.pressure && sk.pressAlpha;
   drawSketch();
 };
 skPic.onpointermove = (e) => {
   const comp = composition();
   skHover = [e.clientX, e.clientY];
-  if (!skDrawing || !comp) { skRingAt(); return; }
+  if (!comp || !(skDrawing || skErase || skMove || skLasso)) { skRingAt(); return; }
   // D-281: a fast line gets every point the pen or mouse reported between two screen refreshes.
+  const all = e.getCoalescedEvents && e.getCoalescedEvents().length ? e.getCoalescedEvents() : [e];
+  if (skErase) { for (const q of all) skEraseAt(comp, skPoint(q, comp)); drawSketch(); return; }
+  if (skMove) { const p = skPoint(e, comp); skMove.by = [p[0] - skMove.from[0], p[1] - skMove.from[1]]; drawSketch(); return; }
+  if (skLasso) { skLasso.push(skPoint(e, comp)); drawSketch(); return; }
+  if (skDrawing.shape) { skDrawing.points = skShape(skDrawing.shape, skDrawing.from, skPoint(e, comp)); drawSketch(); return; }
   let moved = false;
-  for (const p of (e.getCoalescedEvents && e.getCoalescedEvents().length ? e.getCoalescedEvents() : [e])) {
-    if (Math.hypot(p.clientX - skDrawing.at[0], p.clientY - skDrawing.at[1]) < 4) continue;
-    skDrawing.at = [p.clientX, p.clientY];
-    skDrawing.points.push(skPoint(p, comp));
-    if (skDrawing.pressure) skDrawing.pressure.push(skPen(p));
+  // D-285: smoothing pulls each point only part of the way to the hand, which steadies a wobble.
+  const pull = 1 - sk.smooth / 12;
+  for (const q of all) {
+    if (Math.hypot(q.clientX - skDrawing.at[0], q.clientY - skDrawing.at[1]) < 4) continue;
+    skDrawing.at = [q.clientX, q.clientY];
+    skDrawing.raw = skPoint(q, comp);
+    const last = skDrawing.points[skDrawing.points.length - 1];
+    skDrawing.points.push(pull === 1 ? skDrawing.raw
+      : [0, 1].map((j) => Math.round((last[j] + (skDrawing.raw[j] - last[j]) * pull) * 10) / 10));
+    if (skDrawing.pressure) skDrawing.pressure.push(skPen(q));
     moved = true;
   }
   if (moved) drawSketch(); else skRingAt();
 };
 skPic.onpointerleave = () => { skHover = null; skRingAt(); };
 skPic.onpointerup = async () => {
+  const comp = composition();
+  if (skErase) {
+    const done = skErase;
+    skErase = null;
+    if (done.idx.length) await skRemove(done.sketch, done.idx);
+    drawSketch();
+    return;
+  }
+  if (skMove) {
+    const by = skMove.by;
+    skMove = null;
+    await skSelMove(by);
+    drawSketch();
+    return;
+  }
+  if (skLasso) {
+    // D-284: a stroke is chosen when half or more of its points are inside the lasso.
+    const lasso = skLasso, s = skChosen(comp);
+    skLasso = null;
+    const idx = [];
+    if (s && lasso.length > 2) s.strokes.forEach((k, i) => {
+      if (skOn(s, k, frame) && k.points.filter((p) => skInside(p, lasso)).length * 2 >= k.points.length) idx.push(i);
+    });
+    skSel = idx.length ? { sketch: s.id, frame, idx, count: s.strokes.length } : null;
+    drawSketch();
+    return;
+  }
   const d = skDrawing;
   if (!d) return;
-  const comp = composition();
+  // D-287: a shape needs a drag; D-285: a smoothed line ends where the hand let go.
+  if (d.shape && d.points.length < 3 && (d.points.length < 2 || skNear(d.points[0], d.points[1], d.points[1]) < 1)) { skDrawing = null; drawSketch(); return; }
+  if (!d.shape && sk.smooth && d.points.length > 1) {
+    d.points.push(d.raw);
+    if (d.pressure) d.pressure.push(d.pressure[d.pressure.length - 1]);
+  }
   let s = skLayers(comp).find((x) => x.id === d.sketch);
   if (!s) {
     s = { id: skNewId(), name: 'Layer 1', visible: true, whole_cut: false };
@@ -14038,11 +14314,12 @@ skPic.onpointerup = async () => {
   } else if (!s.visible) await command('/sketch.set_layer?' + skQuery(s, { visible: true }));
   await command('/sketch.add_stroke?sketch=' + encodeURIComponent(s.id) + (s.whole_cut ? '' : '&frame=' + d.frame)
     + '&tool=' + d.tool + '&size=' + d.size + '&colour=' + encodeURIComponent(d.colour)
-    + '&points=' + d.points.map((p) => p.join(',')).join(';') + (d.pressure ? '&pressure=' + d.pressure.join(';') : ''));
+    + '&points=' + d.points.map((p) => p.join(',')).join(';') + (d.pressure ? '&pressure=' + d.pressure.join(';') : '')
+    + (d.pressure_opacity ? '&pressure_opacity=true' : '') + (d.filled ? '&filled=true' : ''));
   if (skDrawing === d) skDrawing = null;
   drawSketch();
 };
-skPic.onpointercancel = () => { skDrawing = null; drawSketch(); };
+skPic.onpointercancel = () => { skDrawing = skErase = skMove = skLasso = null; drawSketch(); };
 // D-281: the wheel zooms the paper about the point under the hand; the middle button, or a left
 // drag with Space held over the desk, moves it. Only the view changes; Reset puts it back.
 const skDesk = document.querySelector('#sketch .skdesk');
@@ -15469,11 +15746,28 @@ addEventListener('keydown', (e) => {
   if (el && !e.ctrlKey && (e.key === ' ' || e.key.startsWith('Arrow'))) return;
   // D-261: on the Sketch board B, P and E choose the brush, the pencil and the eraser, and [ and ]
   // the size, as the Sandbox has them; everywhere else these keys keep their own jobs.
-  if (sketchShown && !e.ctrlKey && !e.altKey && !e.metaKey
-    && (e.key === 'b' || e.key === 'p' || e.key === 'e' || e.code === 'BracketLeft' || e.code === 'BracketRight')) {
+  // D-282 to D-288: Shift+E the stroke eraser, L the lasso, U the shapes in turn; with strokes chosen,
+  // Delete takes them away, the arrows nudge them (Shift, ten pixels) and Esc lets them go; Esc
+  // stops the flipbook. These go by lookups, so the page's own arms for L and Delete stay the
+  // first that name those keys, as the keyboard check reads them.
+  if (sketchShown && skBook && e.key === 'Escape') { e.preventDefault(); skFlipbook(false); return; }
+  const skBy = e.shiftKey ? 10 : 1;
+  const skNudge = { ArrowLeft: [-skBy, 0], ArrowRight: [skBy, 0], ArrowUp: [0, -skBy], ArrowDown: [0, skBy] }[e.key];
+  if (sketchShown && skSel && !e.ctrlKey && !e.altKey && !e.metaKey && (skNudge || e.code === 'Delete' || e.key === 'Escape')) {
     e.preventDefault();
-    if (e.key === 'b' || e.key === 'p' || e.key === 'e') skSet({ tool: { b: 'brush', p: 'pencil', e: 'eraser' }[e.key] });
-    else skSet({ size: Math.max(0, Math.min(2, sk.size + (e.code === 'BracketRight' ? 1 : -1))) });
+    if (skNudge) skSelMove(skNudge);
+    else if (e.code === 'Delete') skSelDelete();
+    else { skSel = null; drawSketch(); }
+    return;
+  }
+  const skTool = { E: 'strokes', l: 'lasso' }[e.key];
+  if (sketchShown && !e.ctrlKey && !e.altKey && !e.metaKey
+    && (e.key === 'b' || e.key === 'p' || e.key === 'e' || skTool || e.code === 'KeyU'
+      || e.code === 'BracketLeft' || e.code === 'BracketRight')) {
+    e.preventDefault();
+    if (e.code === 'KeyU') skSet({ tool: { line: 'rect', rect: 'ellipse' }[sk.tool] || 'line' });
+    else if (e.code === 'BracketLeft' || e.code === 'BracketRight') skSet({ px: skStep(e.code === 'BracketRight') });
+    else skSet({ tool: skTool || { b: 'brush', p: 'pencil', e: 'eraser' }[e.key] });
     return;
   }
 

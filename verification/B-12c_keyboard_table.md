@@ -151,10 +151,15 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `shape.set_path` can be asked for without a mouse | yes | yes | pass |
 | `sheet` can be asked for without a mouse | yes | yes | pass |
 | `sheet.write_action` can be asked for without a mouse | yes | yes | pass |
+| `sketch-png` can be asked for without a mouse | yes | yes | pass |
 | `sketch.add_stroke` can be asked for without a mouse | no - it is a drag, and a drag is a mouse | no - it is a drag, and a drag is a mouse | pass |
 | `sketch.clear` can be asked for without a mouse | yes | yes | pass |
+| `sketch.move_layer` can be asked for without a mouse | yes | yes | pass |
+| `sketch.move_strokes` can be asked for without a mouse | yes | yes | pass |
 | `sketch.remove_layer` can be asked for without a mouse | yes | yes | pass |
+| `sketch.remove_strokes` can be asked for without a mouse | yes | yes | pass |
 | `sketch.set_layer` can be asked for without a mouse | yes | yes | pass |
+| `sketch.set_look` can be asked for without a mouse | yes | yes | pass |
 | `solid.set` can be asked for without a mouse | yes | yes | pass |
 | `sound` can be asked for without a mouse | yes | yes | pass |
 | `text.set` can be asked for without a mouse | yes | yes | pass |
@@ -202,4 +207,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**172 of 172 checks pass.**
+**177 of 177 checks pass.**

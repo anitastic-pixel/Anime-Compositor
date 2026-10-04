@@ -1173,6 +1173,11 @@ pub struct SketchLayer {
     pub name: String,
     pub visible: bool,
     pub whole_cut: bool,
+    /// D-283: how strongly the layer is drawn, 0 to 1. Saved as `opacity` only when below 1.
+    pub opacity: f64,
+    /// D-283: a locked layer takes no strokes, erasing, moving, clearing or deleting. Saved as
+    /// `locked` only when on.
+    pub locked: bool,
     pub strokes: Vec<Stroke>,
     /// Lines in the file this build does not know, kept as they were (ADR-008).
     pub rest: serde_json::Map<String, serde_json::Value>,
@@ -1190,6 +1195,12 @@ pub struct Stroke {
     /// D-271: the pen's pressure at each point, 0 to 1, or empty for a stroke drawn without one
     /// (a mouse), which is drawn at its full size. Saved as `pressure` only when there is one.
     pub pressure: Vec<f64>,
+    /// D-286: the pen's pressure also sets how see-through the stroke is at each point. Saved as
+    /// `pressure_opacity` only when on.
+    pub pressure_opacity: bool,
+    /// D-287: the stroke's outline is filled with its colour, as a closed shape. Saved as
+    /// `filled` only when on.
+    pub filled: bool,
     /// Lines in the file this build does not know, kept as they were (ADR-008).
     pub rest: serde_json::Map<String, serde_json::Value>,
 }

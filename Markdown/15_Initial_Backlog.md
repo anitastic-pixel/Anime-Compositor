@@ -795,6 +795,12 @@ D-281 / Sketch paper zoom and move, rings, any colour, smoother lines: built on 
 
 Evidence is in `verification/D-281_sketch_paper_tools.md`.
 
+D-282 to D-289 / Sketch: stroke eraser, layer opacity, lock and order, lasso, size slider, smoothing, see-through pressure, shapes and fill, more onion skin, flipbook, save as picture: built on 2026-10-03 at the owner's request. **Awaiting the owner's playtest.**
+- 30 of 30 checks pass in `verification/D-282_sketch_edits_table.md`. The D-261 and D-271 checks still pass.
+- In the window, every step of `verification/D-282_sketch_tools_and_layers.md` behaved as written, with no page errors.
+
+Evidence is in `verification/D-282_sketch_tools_and_layers.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

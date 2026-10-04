@@ -4936,8 +4936,12 @@ const ANSWERS: &[&str] = &[
     "sheet.write_action",
     "sketch.add_stroke",
     "sketch.clear",
+    "sketch.move_layer",
+    "sketch.move_strokes",
     "sketch.remove_layer",
+    "sketch.remove_strokes",
     "sketch.set_layer",
+    "sketch.set_look",
     "solid.set",
     "text.set",
     "timeline.set_markers",
@@ -5317,7 +5321,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         }
         // D-261: the Sketch workspace's layers and strokes, on the composition on screen. Never
         // drawn into a frame or an export; the page draws them over the picture for the eye.
-        "sketch.set_layer" | "sketch.remove_layer" | "sketch.add_stroke" | "sketch.clear" => {
+        "sketch.set_layer" | "sketch.remove_layer" | "sketch.add_stroke" | "sketch.clear" | "sketch.set_look"
+        | "sketch.move_layer" | "sketch.remove_strokes" | "sketch.move_strokes" => {
             let composition = {
                 let held = viewer.lock().expect("the viewer lock was poisoned");
                 match held.document.project().composition(&held.composition) {
@@ -5338,7 +5343,40 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     Err(_) => return Some(format!("\"{text}\" is not a frame number.")),
                 },
             };
+            // D-282, D-284: strokes by their place in the layer's list, as 0,3,4.
+            let strokes = || -> Result<Vec<usize>, String> {
+                parameter(query, "strokes")
+                    .unwrap_or_default()
+                    .split(',')
+                    .map(|i| i.trim().parse().map_err(|_| "Which strokes? Send strokes=0,3,4.".to_string()))
+                    .collect()
+            };
+            let number = |key: &str| -> Result<f64, String> {
+                let text = parameter(query, key).unwrap_or_default();
+                text.parse().map_err(|_| format!("\"{text}\" is not a number for {key}."))
+            };
             let command = match id {
+                "sketch.set_look" => match number("opacity") {
+                    Ok(opacity) => Command::SetSketchLook {
+                        composition,
+                        sketch,
+                        opacity,
+                        locked: parameter(query, "locked").as_deref() == Some("true"),
+                    },
+                    Err(said) => return Some(said),
+                },
+                "sketch.move_layer" => match parameter(query, "to").and_then(|t| t.parse().ok()) {
+                    Some(to) => Command::MoveSketchLayer { composition, sketch, to },
+                    None => return Some("Where to? Send to=<its place>, 0 the bottom.".to_string()),
+                },
+                "sketch.remove_strokes" => match strokes() {
+                    Ok(strokes) => Command::RemoveSketchStrokes { composition, sketch, strokes },
+                    Err(said) => return Some(said),
+                },
+                "sketch.move_strokes" => match (strokes(), number("dx"), number("dy")) {
+                    (Ok(strokes), Ok(dx), Ok(dy)) => Command::MoveSketchStrokes { composition, sketch, strokes, by: [dx, dy] },
+                    (Err(said), _, _) | (_, Err(said), _) | (_, _, Err(said)) => return Some(said),
+                },
                 "sketch.set_layer" => Command::SetSketchLayer {
                     composition,
                     sketch,
@@ -5388,6 +5426,9 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             colour: parameter(query, "colour").unwrap_or_default(),
                             points,
                             pressure,
+                            // D-286, D-287.
+                            pressure_opacity: parameter(query, "pressure_opacity").as_deref() == Some("true"),
+                            filled: parameter(query, "filled").as_deref() == Some("true"),
                             ..Default::default()
                         },
                     }
@@ -10514,6 +10555,47 @@ fn ask_where_to_export_presets(app: &AppHandle, name: &str, presets: &str) -> St
     String::new()
 }
 
+/// D-289: a sketch, drawn by the page, saved as a PNG file where the person chooses. Only PNG
+/// bytes are written, at most 256 MB, and only to a file picked in the Save dialog.
+fn ask_where_to_save_sketch(app: &AppHandle, name: &str, png: Vec<u8>) -> String {
+    if let Err(said) = sketch_png_ok(&png) {
+        return said;
+    }
+    let name: String = name.chars().filter(|c| !r#"\/:*?"<>|"#.contains(*c) && !c.is_control()).take(120).collect();
+    let handle = app.clone();
+    app.dialog()
+        .file()
+        .set_title("Save the sketch as a picture")
+        .set_file_name(format!("{}.png", if name.trim().is_empty() { "sketch" } else { name.trim() }))
+        .add_filter("PNG picture", &["png"])
+        .save_file(move |chosen| {
+            let Some(path) = chosen.and_then(|c| c.into_path().ok()) else {
+                return;
+            };
+            let said = match std::fs::write(&path, &png) {
+                Ok(()) => format!("Saved the sketch as {}.", path.display()),
+                Err(e) => format!("The sketch could not be saved to {}: {e}.", path.display()),
+            };
+            announce(&handle.state::<Mutex<Viewer>>(), said.clone());
+            if let Some(page) = handle.get_webview_window("main") {
+                let _ = page.eval(format!("$('status').textContent = {}", serde_json::Value::String(said)));
+            }
+        });
+    String::new()
+}
+
+/// D-289: what the page sent is a PNG picture of a size a sketch can be.
+fn sketch_png_ok(png: &[u8]) -> Result<(), String> {
+    const SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+    if !png.starts_with(&SIGNATURE) {
+        return Err("The sketch did not arrive as a PNG picture, so nothing was saved.".to_string());
+    }
+    if png.len() > 256 << 20 {
+        return Err("The sketch picture is over 256 MB, so nothing was saved.".to_string());
+    }
+    Ok(())
+}
+
 /// D-180: Import presets. `have` is the names the window already has, which an imported preset
 /// never replaces.
 fn ask_which_presets_to_import(app: &AppHandle, have: Vec<String>) {
@@ -11102,7 +11184,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
                 .body(
                     b"ask for /state, /open, /save, /save-as, /recover, /export, \
                       /cancel-export, /pause-export, /export-watch, /export-frame, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
-                      /files-gone, /fonts, /font, /thumb, /alone, /queue, /presets-builtin, /presets-export, /presets-import, /lut-choose, or one of \
+                      /files-gone, /fonts, /font, /thumb, /alone, /queue, /presets-builtin, /presets-export, /presets-import, /lut-choose, /sketch-png, or one of \
                       document 24's command IDs"
                         .to_vec(),
                 )
@@ -11223,6 +11305,18 @@ fn main() {
             refresh(window.app_handle());
         })
         .register_uri_scheme_protocol("project", |ctx, request: Request<Vec<u8>>| {
+            // D-289: the page sends the sketch's PNG bytes as the body; the person chooses where.
+            if request.uri().path().trim_matches('/') == "sketch-png" {
+                let said = ask_where_to_save_sketch(
+                    ctx.app_handle(),
+                    &parameter(request.uri().query(), "name").unwrap_or_else(|| "sketch".to_string()),
+                    request.body().clone(),
+                );
+                return allow_the_page_to_read_this(Response::builder())
+                    .header("content-type", "text/plain; charset=utf-8")
+                    .body(said.into_bytes())
+                    .expect("build the sketch response");
+            }
             command(
                 ctx.app_handle(),
                 request.uri().path(),
@@ -25304,8 +25398,12 @@ mod contract {
         "sheet.write_action",
         "sketch.add_stroke",
         "sketch.clear",
+        "sketch.move_layer",
+        "sketch.move_strokes",
         "sketch.remove_layer",
+        "sketch.remove_strokes",
         "sketch.set_layer",
+        "sketch.set_look",
         "solid.set",
         "text.set",
         "timeline.set_markers",
@@ -25373,6 +25471,8 @@ mod contract {
         "session-log",
         // D-84a: the seventh on the frame scheme, the Sheet tab's grid.
         "sheet",
+        // D-289: a sketch saved as a picture file, its PNG bytes sent by the page.
+        "sketch-png",
         // D-71: the sixth on the frame scheme, one sound file's bytes for the page's decoder.
         "sound",
         "state",
@@ -25790,6 +25890,11 @@ mod contract {
         ("sketch.remove_layer", "a command the window answers"),
         ("sketch.add_stroke", "a command the window answers"),
         ("sketch.clear", "a command the window answers"),
+        // D-282 to D-284, accepted on 2026-10-03.
+        ("sketch.set_look", "a command the window answers"),
+        ("sketch.move_layer", "a command the window answers"),
+        ("sketch.remove_strokes", "a command the window answers"),
+        ("sketch.move_strokes", "a command the window answers"),
         ("property.set_base", "a command the window answers"),
         ("keyframe.add_remove", "a command the window answers"),
         ("keyframe.move", "a command the window answers"),
