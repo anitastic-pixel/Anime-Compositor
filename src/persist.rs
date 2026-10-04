@@ -2436,6 +2436,9 @@ fn sketch_json(sketch: &crate::model::SketchLayer) -> J {
             "points".into(),
             J::Array(stroke.points.iter().map(|[x, y]| J::Array(vec![num(*x), num(*y)])).collect()),
         );
+        if !stroke.pressure.is_empty() {
+            map.insert("pressure".into(), J::Array(stroke.pressure.iter().map(|p| num(*p)).collect()));
+        }
         J::Object(map)
     });
     map.insert("strokes".into(), J::Array(strokes.collect()));
@@ -2460,7 +2463,7 @@ fn parse_sketch(v: &J, pointer: &str) -> Result<crate::model::SketchLayer, Diagn
     for (i, s) in as_array(field(v, pointer, "strokes")?, &at)?.iter().enumerate() {
         let here = format!("{at}/{i}");
         let mut rest = as_object(s, &here)?.clone();
-        for key in ["frame", "tool", "size", "colour", "points"] {
+        for key in ["frame", "tool", "size", "colour", "points", "pressure"] {
             rest.remove(key);
         }
         let mut points = Vec::new();
@@ -2472,12 +2475,28 @@ fn parse_sketch(v: &J, pointer: &str) -> Result<crate::model::SketchLayer, Diagn
                 _ => return Err(invalid(&point_at, "a point, as two numbers")),
             }
         }
+        // D-271: one pressure from 0 to 1 per point, when the stroke was drawn with a pen.
+        let mut pressure = Vec::new();
+        if let Some(p) = s.get("pressure") {
+            let pressure_at = format!("{here}/pressure");
+            for (j, v) in as_array(p, &pressure_at)?.iter().enumerate() {
+                let p = as_f64(v, &format!("{pressure_at}/{j}"))?;
+                if !(0.0..=1.0).contains(&p) {
+                    return Err(invalid(&format!("{pressure_at}/{j}"), "a pressure from 0 to 1"));
+                }
+                pressure.push(p);
+            }
+            if pressure.len() != points.len() {
+                return Err(invalid(&pressure_at, "one pressure for each point"));
+            }
+        }
         sketch.strokes.push(crate::model::Stroke {
             frame: s.get("frame").map(|f| as_i32(f, &format!("{here}/frame"))).transpose()?,
             tool: as_enum(field(s, &here, "tool")?, &format!("{here}/tool"), &crate::model::SKETCH_TOOLS)?.to_string(),
             size: as_f64(field(s, &here, "size")?, &format!("{here}/size"))?,
             colour: as_str(field(s, &here, "colour")?, &format!("{here}/colour"))?.to_string(),
             points,
+            pressure,
             rest,
         });
     }

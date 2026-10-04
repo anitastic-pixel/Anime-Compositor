@@ -5368,6 +5368,14 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     let Some(points) = points else {
                         return Some("The stroke's points are written x,y;x,y.".to_string());
                     };
+                    // D-271: a pen's pressure at each point as p;p, none for a mouse.
+                    let pressure: Option<Vec<f64>> = match parameter(query, "pressure") {
+                        None => Some(Vec::new()),
+                        Some(text) => text.split(';').map(|p| p.trim().parse().ok()).collect(),
+                    };
+                    let Some(pressure) = pressure else {
+                        return Some("The stroke's pressure is written p;p, one per point.".to_string());
+                    };
                     Command::AddSketchStroke {
                         composition,
                         sketch,
@@ -5379,6 +5387,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                 .unwrap_or(f64::NAN),
                             colour: parameter(query, "colour").unwrap_or_default(),
                             points,
+                            pressure,
                             ..Default::default()
                         },
                     }
@@ -26610,9 +26619,10 @@ mod contract {
             "layer.precompose?layer=layer-1",
             // B-28i: and D-84f's title block, written only when one of its four is.
             "composition.set_settings?episode=3",
-            // D-261: and a sketch layer with a stroke, written only when there is one.
+            // D-261: and a sketch layer with a stroke, written only when there is one. D-271:
+            // drawn with a pen, since its pressure is written only then.
             "sketch.set_layer?sketch=sketch-a&name=Notes",
-            "sketch.add_stroke?sketch=sketch-a&frame=0&tool=brush&size=4&colour=%23c8302c&points=1,2;3,4",
+            "sketch.add_stroke?sketch=sketch-a&frame=0&tool=brush&size=4&colour=%23c8302c&points=1,2;3,4&pressure=0.25;1",
         ] {
             run(&viewer, edit);
         }

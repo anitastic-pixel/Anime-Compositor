@@ -791,6 +791,14 @@
   .twirl:focus { outline: 2px solid #6ea8fe; outline-offset: 1px; }
   #layers li.prop { color: #b0b0b6; }
   #layers li.prop .rowhead { padding-left: 24px; }
+  /* D-272: a group's row under a twirled-open layer (Masks, Transform, ...), and a mask's Invert. */
+  #layers li.prop.pgroup .name { color: #d4d4d8; }
+  #layers li.prop .value select.blend { margin-left: 0; color: #c9c9ce; background: transparent; border-color: #3a3a40; }
+  #layers li.prop .mflag {
+    font: inherit; font-size: 11px; padding: 0 6px; border: 1px solid #3a3a40; border-radius: 3px;
+    background: none; color: #909096; cursor: pointer;
+  }
+  #layers li.prop .mflag[aria-pressed="true"] { color: #e8b06a; border-color: #e8b06a; }
   #layers li.prop .value {
     margin-left: auto; color: #909096; white-space: nowrap;
     font-variant-numeric: tabular-nums; font-size: 11px;
@@ -1588,7 +1596,10 @@
   #sketch .sp { flex: 1; }
   #sketch .skdesk { flex: 1; min-height: 0; display: grid; place-items: center; }
   #skpic { position: relative; background: #f4f1ea; box-shadow: 0 0 0 1px #3a3a40, 0 10px 40px rgba(0, 0, 0, .6); cursor: crosshair; touch-action: none; transition: transform .25s; }
-  #skpic.erasing { cursor: cell; }
+  #skpic.erasing { cursor: none; }
+  /* D-271: the eraser's ring, as wide as it rubs out; light and dark edges so it shows on both. */
+  #skring { position: fixed; pointer-events: none; box-sizing: border-box; border-radius: 50%; border: 1px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .7), inset 0 0 0 1px rgba(0, 0, 0, .7); z-index: 5; }
+  #skring[hidden] { display: none; }
   #skpic > canvas { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; }
   /* The window refuses a style written in the markup, so the sizes and colours live here. */
   #sketch [data-sksize="0"] .dot { width: 4px; height: 4px; }
@@ -2217,8 +2228,8 @@
       <span id="skangle"></span>
       <button data-skturn="0" title="Put the paper back straight">Reset</button>
     </div>
-    <div class="skdesk"><div id="skpic"><canvas id="skunder" width="480" height="270"></canvas><canvas id="skdraw" width="480" height="270"></canvas></div></div>
-    <div class="skfoot"><span>Draw on the picture with the mouse or a pen.</span><span class="sp"></span><span id="skcount"></span></div>
+    <div class="skdesk"><div id="skpic"><canvas id="skunder" width="480" height="270"></canvas><canvas id="skdraw" width="480" height="270"></canvas></div><div id="skring" hidden></div></div>
+    <div class="skfoot"><span>Draw on the picture with the mouse or a pen; a pen presses thin to thick.</span><span class="sp"></span><span id="skcount"></span></div>
   </div>
   <div class="skbar">
     <button data-skstep="-1" title="Back one frame, Page Up" aria-label="Back one frame">&#9664;</button>
@@ -2247,7 +2258,7 @@
     <label class="gtick"><input type="checkbox" id="skover"><span>Also over the Compose viewer<br><small>to check an idea against the finished picture</small></span></label>
     <div class="sknote" id="sknote"></div>
     <span class="sp"></span>
-    <div class="hint skkeys">B brush · P pencil · E eraser · [ and ] size · Ctrl+Z undo · Page Up and Page Down step frames</div>
+    <div class="hint skkeys">B brush · P pencil · E eraser, or a pen's eraser end · [ and ] size · Ctrl+Z undo · Page Up and Page Down step frames</div>
   </div>
 </section>
 <div class="split col" id="splitside" role="separator" aria-orientation="vertical" tabindex="0"
@@ -2291,7 +2302,7 @@
   <ul id="notes"></ul>
   <button id="notedetails" type="button" aria-expanded="false" hidden>Error details</button>
   <ul id="notecodes" hidden></ul>
-  <span class="hint" id="keys">space, arrows, D, Alt+G, Alt+A &middot; A, P, S, R, T, U on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N new composition, Ctrl+Alt+N new project, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+I, Ctrl+M &middot; Alt+1 to Alt+4 the workspaces &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click keys or an empty place on the timeline for speed, ease, hold, copy, paste here and more, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file, or drawings, here</span>
+  <span class="hint" id="keys">space, arrows, D, Alt+G, Alt+A &middot; A, P, S, R, T, U, M on a selected layer &middot; Ctrl+Z, Ctrl+Shift+Z, Ctrl+Alt+L, F2, Delete, Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[, Ctrl+D, Ctrl+Shift+D, Ctrl+A, Enter, Esc &middot; Alt+Shift+P sets a key &middot; Alt+PageUp/Down moves a layer in time &middot; Shift+F3 graph &middot; right-click a layer for its menu &middot; B and N set the work area, * adds a marker, Shift+Home/End go to the work area &middot; Ctrl+N new composition, Ctrl+Alt+N new project, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+I, Ctrl+M &middot; Alt+1 to Alt+4 the workspaces &middot; Ctrl+Shift+P finds any command &middot; Ctrl+K composition settings, Ctrl+C and Ctrl+V layers, Ctrl+L lock, Ctrl+Alt+V hide, Ctrl+Home centre, Ctrl+Alt+Home centre the anchor, Ctrl+Alt+F fit, right-click keys or an empty place on the timeline for speed, ease, hold, copy, paste here and more, E effects, UU changed properties, ` fills the window with a panel, right-click a property's name to reset it &middot; or drop a project file, or drawings, here</span>
 </div>
 <script>
 // Any error at all goes on screen. A viewer that fails silently is worse than one that fails.
@@ -4418,14 +4429,16 @@ function drawLayers() {
       () => command('/layer.toggle_visibility?layer=' + encodeURIComponent(layer.id))), sound ? 'speaker' : 'eye', layer.enabled);
     const lock = icon(iconButton('', layer.locked ? 'Unlock ' + layer.name : 'Lock ' + layer.name,
       () => command('/layer.toggle_lock?layer=' + encodeURIComponent(layer.id))), 'lock', layer.locked);
-    // W-12: the arrow that opens the layer's properties under it, as After Effects does. All
-    // five or none; the letters A, P, S, R, T and U open them one at a time.
+    // W-12: the arrow that opens the layer's properties under it, as After Effects does; the
+    // letters A, P, S, R, T, U and M open them one at a time. D-272: open, it shows After Effects'
+    // groups; closed, nothing is left under the layer, masks included.
     const open = shownOf(layer.id);
-    const twirl = iconButton(open.size ? '\u25be' : '\u25b8',
-      (open.size ? 'Hide the properties of ' : 'Show the properties of ') + layer.name,
-      () => { shown.set(layer.id, open.size ? new Set() : new Set(propsOf(layer))); drawLayers(); });
+    const opened = twirled.has(layer.id) || open.size > 0;
+    const twirl = iconButton(opened ? '\u25be' : '\u25b8',
+      (opened ? 'Hide the properties of ' : 'Show the properties of ') + layer.name,
+      () => { shown.delete(layer.id); if (opened) twirled.delete(layer.id); else twirled.add(layer.id); drawLayers(); });
     twirl.className = 'twirl';
-    twirl.setAttribute('aria-expanded', String(open.size > 0));
+    twirl.setAttribute('aria-expanded', String(opened));
     // W-24: After Effects' solo switch, which the preview obeys and the file never hears of, and
     // the layer's label colour.
     const soloed = (doc.solo || []).includes(layer.id);
@@ -4491,20 +4504,7 @@ function drawLayers() {
     // W-23: the layer's number, the front one first, as After Effects numbers them.
     const num = Object.assign(document.createElement('span'),
       { className: 'rownum', textContent: all.length - all.indexOf(layer) });
-    // W-25 fix: the blend mode on the row, as After Effects' Mode column has it. W-31b: quiet
-    // text, orange when it is not Normal.
-    const blend = document.createElement('select');
-    blend.className = 'blend';
-    blend.setAttribute('aria-label', 'Blend mode for ' + layer.name);
-    blend.append(...BLENDS.map((mode) => new Option(mode[0].toUpperCase() + mode.slice(1), mode)));
-    blend.value = layer.blend_mode;
-    blend.classList.toggle('set', blend.selectedIndex > 0);
-    blend.onclick = (e) => e.stopPropagation();
-    blend.onchange = () => {
-      const mode = blend.value;
-      if (!selection.includes(layer.id)) select(layer.id, false);
-      blendLayers(mode);
-    };
+    const blend = blendSelect(layer);
     // The parent, by name, beside the whip that sets it.
     const parent = document.createElement('span');
     parent.className = 'parentcell';
@@ -4549,9 +4549,12 @@ function drawLayers() {
     li.ondblclick = () => (precomp
       ? command('/composition.open?composition=' + encodeURIComponent(layer.composition_id))
       : beginRename());
+    if (twirled.has(layer.id)) return [li, ...layerGroups(comp, layer)];
     const isOpen = (prop) => open.has(prop) || (prop.startsWith('position') && ['position', 'position_x', 'position_y']
       .some((p) => p !== prop && (p === 'position' || prop === 'position') && open.has(p)));
-    return [li, ...shapeRows(comp, layer), ...maskRows(comp, layer), ...propsOf(layer).filter((prop) => !isPath(prop) && isOpen(prop)).flatMap((prop) => propTrack(comp, layer, prop))];
+    // A path opened by U or M is its mask's or shape's row.
+    const paths = (kind) => maskRows(comp, layer, kind === 'shape').filter((_, at) => open.has(kind + ':' + at));
+    return [li, ...paths('shape'), ...paths('mask'), ...propsOf(layer).filter((prop) => !isPath(prop) && isOpen(prop)).flatMap((prop) => propTrack(comp, layer, prop))];
   }));
 }
 
@@ -5296,6 +5299,134 @@ function maskRows(comp, layer, shapes = false) {
     }
     li.append(box);
     return li;
+  });
+}
+
+// W-25 fix: the blend mode on a layer's row, as After Effects' Mode column has it. W-31b: quiet
+// text, orange when it is not Normal. D-272: and in the layer's Blending group.
+function blendSelect(layer) {
+  const blend = document.createElement('select');
+  blend.className = 'blend';
+  blend.setAttribute('aria-label', 'Blend mode for ' + layer.name);
+  blend.append(...BLENDS.map((mode) => new Option(mode[0].toUpperCase() + mode.slice(1), mode)));
+  blend.value = layer.blend_mode;
+  blend.classList.toggle('set', blend.selectedIndex > 0);
+  blend.onclick = (e) => e.stopPropagation();
+  blend.onchange = () => {
+    const mode = blend.value;
+    if (!selection.includes(layer.id)) select(layer.id, false);
+    blendLayers(mode);
+  };
+  return blend;
+}
+
+// D-272: a twirled-open layer shows After Effects' groups, each with its own arrow: Masks (each
+// mask opens to its feather, opacity and expansion, with its mode and Invert on its row),
+// Contents, Effects (the settings that have keys), Blending and Transform. Page state, as `shown`
+// is: which layers are open and which of their groups, kept while the window is open, so a layer
+// opened again shows the groups it had. Nothing new is sent: every control sends what the same
+// control in the effect controls sends.
+const twirled = new Set();
+const groupsOpen = new Map();
+const groupOpen = (id, g) => (groupsOpen.get(id) || new Set()).has(g);
+function toggleGroup(id, g) {
+  const open = new Set(groupsOpen.get(id) || []);
+  if (open.has(g)) open.delete(g); else open.add(g);
+  groupsOpen.set(id, open);
+  drawLayers();
+}
+const indent = (rows, depth) => {
+  for (const li of rows) li.querySelector('.rowhead').style.paddingLeft = (24 + 16 * depth) + 'px';
+  return rows;
+};
+function groupTwirl(layer, g, label) {
+  const on = groupOpen(layer.id, g);
+  const twirl = iconButton(on ? '\u25be' : '\u25b8', (on ? 'Hide ' : 'Show ') + label + ' on ' + layer.name,
+    () => toggleGroup(layer.id, g));
+  twirl.className = 'twirl';
+  twirl.setAttribute('aria-expanded', String(on));
+  return twirl;
+}
+// A row under a layer with a name and, at its right, whatever controls it carries; with `g`, a
+// group's row, whose arrow and name open and close it.
+function plainRow(layer, label, controls, depth, g = null) {
+  const li = document.createElement('li');
+  li.className = 'prop' + (g ? ' pgroup' : '');
+  li.dataset.id = layer.id;
+  const head = document.createElement('div');
+  head.className = 'rowhead';
+  const name = Object.assign(document.createElement('span'), { className: 'name', textContent: label });
+  const value = document.createElement('span');
+  value.className = 'value';
+  value.append(...controls);
+  head.append(...(g ? [groupTwirl(layer, g, label)] : []), name, value);
+  if (g) name.onclick = (e) => { e.stopPropagation(); toggleGroup(layer.id, g); };
+  li.append(head, Object.assign(document.createElement('div'), { className: 'track' }));
+  li.onclick = (e) => { if (!e.shiftKey) pickKey(null, false); select(layer.id, e.shiftKey); };
+  return indent([li], depth)[0];
+}
+function layerGroups(comp, layer) {
+  if (layer.kind === 'audio') return [];
+  const rows = [];
+  const group = (g, label, inside) => {
+    rows.push(plainRow(layer, label, [], 0, g));
+    if (groupOpen(layer.id, g)) rows.push(...inside());
+  };
+  const tracks = (props, depth) => indent(props.flatMap((prop) => propTrack(comp, layer, prop)), depth);
+  if (masksOf(layer).length && layer.kind !== 'null') group('masks', 'Masks', () => maskGroup(comp, layer));
+  if ((layer.shapes || []).length) {
+    group('contents', 'Contents', () => [...indent(shapeRows(comp, layer), 1), ...tracks(propsOf(layer).filter(isGrad), 1)]);
+  }
+  const fx = propsOf(layer).filter(isFx);
+  if (fx.length) group('effects', 'Effects', () => tracks(fx, 1));
+  if (layer.kind !== 'adjustment' && layer.kind !== 'null') {
+    group('blending', 'Blending', () => [plainRow(layer, 'Blend mode', [blendSelect(layer)], 1)]);
+  }
+  group('transform', 'Transform', () => tracks(propsOf(layer).filter((prop) => PROPS.includes(prop)
+    || prop === 'position_x' || prop === 'position_y'), 1));
+  return rows;
+}
+// A mask's own row with its arrow, its mode and Invert, and under it, open, its three numbers,
+// each dragged, typed or stepped as in the effect controls (P-15: they follow the hand).
+function maskGroup(comp, layer) {
+  return maskRows(comp, layer).flatMap((li, at) => {
+    const mask = masksOf(layer)[at];
+    const g = 'mask:' + at;
+    const set = (what) => command('/mask.set?layer=' + encodeURIComponent(layer.id) + '&mask=' + at + '&' + what);
+    const pull = (what) => dragSend('/mask.set?layer=' + encodeURIComponent(layer.id) + '&mask=' + at + '&drag=1&' + what);
+    const head = li.querySelector('.rowhead');
+    head.prepend(groupTwirl(layer, g, mask.name));
+    const mode = document.createElement('select');
+    mode.className = 'blend';
+    mode.setAttribute('aria-label', 'Mode of ' + mask.name + ' on ' + layer.name);
+    mode.append(...MASK_MODES.map((m) => new Option(m[0].toUpperCase() + m.slice(1), m)));
+    mode.value = mask.mode;
+    mode.onclick = (e) => e.stopPropagation();
+    mode.onchange = () => set('mode=' + mode.value);
+    const invert = iconButton('Inverted', (mask.inverted ? 'Do not invert ' : 'Invert ') + mask.name, () => set('inverted=1'));
+    invert.className = 'mflag';
+    invert.setAttribute('aria-pressed', String(!!mask.inverted));
+    head.querySelector('.value').replaceChildren(mode, ' ', invert, mask.enabled ? '' : ', off');
+    const rows = indent([li], 1);
+    if (!groupOpen(layer.id, g)) return rows;
+    for (const [what, named, v, suffix, range, min, max] of [
+      ['feather', 'Mask feather', mask.feather_px, ' px', '0 or more', 0, Infinity],
+      ['opacity', 'Mask opacity', mask.opacity * 100, '%', '0 to 100', 0, 100],
+      ['expansion', 'Mask expansion', mask.expansion_px, ' px', '-8192 to 8192', -8192, 8192],
+    ]) {
+      rows.push(plainRow(layer, named, [scrubValue({
+        value: v,
+        suffix,
+        min,
+        max,
+        title: 'Drag to change, or press to type. ' + named + ' of ' + mask.name + ', ' + range,
+        label: named + ' of ' + mask.name + ' on ' + layer.name + ', ' + range,
+        live: (n) => pull(what + '=' + encodeURIComponent(n)),
+        done: (cancelled) => afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end'),
+        commit: (n) => set(what + '=' + encodeURIComponent(n)),
+      })], 2));
+    }
+    return rows;
   });
 }
 
@@ -6397,6 +6528,12 @@ function sendMaskPath(layer, at, points, how = '') {
 function addMask(layer, points, closed = true) {
   maskPicked = pathsOf(layer).length;
   useTool('select');
+  // D-272: the new path's group opens under the layer, as After Effects shows a mask just drawn;
+  // the layer's arrow closes it again.
+  const g = drawsShapes(layer) ? 'contents' : 'masks';
+  twirled.add(layer.id);
+  shown.delete(layer.id);
+  if (!groupOpen(layer.id, g)) toggleGroup(layer.id, g);
   return command((drawsShapes(layer) ? '/shape.add?closed=' + (closed ? 1 : 0) + '&' : '/mask.add?')
     + 'layer=' + encodeURIComponent(layer.id) + maskQuery(points));
 }
@@ -7824,17 +7961,21 @@ function showProps(props, add) {
   if (!selection.length) return;
   for (const id of selection) {
     const layer = layers().find((l) => l.id === id);
+    // D-272: a letter closes the layer's groups and shows only what it names, as After Effects'
+    // letters do; M names the layer's masks.
+    twirled.delete(id);
+    const asked = props === 'masks' ? masksOf(layer).map((_, at) => 'mask:' + at) : props;
     const open = shownOf(id);
-    const want = props === 'animated'
+    const want = asked === 'animated'
       ? new Set(propsOf(layer).filter((prop) => keysOf(layer, prop).length))
-      : props === 'changed' ? new Set(PROPS.filter((prop) => changed(layer, prop))) : new Set(props);
+      : asked === 'changed' ? new Set(PROPS.filter((prop) => changed(layer, prop))) : new Set(asked);
     const same = open.size === want.size && [...want].every((prop) => open.has(prop));
     let next;
     if (add) {
       next = new Set(open);
-      for (const prop of props) { if (next.has(prop)) next.delete(prop); else next.add(prop); }
+      for (const prop of asked) { if (next.has(prop)) next.delete(prop); else next.add(prop); }
     // W-25: UU opens what has changed and does not close it again, as U's second press would.
-    } else next = same && props !== 'changed' ? new Set() : want;
+    } else next = same && asked !== 'changed' ? new Set() : want;
     shown.set(id, next);
   }
   drawLayers();
@@ -13274,6 +13415,8 @@ const SK_SIZES = [4, 10, 22];
 const sk = { tool: 'brush', size: 1, colour: '#c8302c', layer: null, cut: 0.6, onion: false, turn: 0, flip: false, over: false };
 try { sk.over = localStorage.getItem('sketchOver') === '1'; } catch (e) { /* off for this run */ }
 let skDrawing = null; // the stroke under the hand: its layer, frame, tool, size, colour and points
+let skHover = null; // where the hand is over the paper, on screen, for the eraser's ring
+const skRing = $('skring');
 const skSheet = document.createElement('canvas'); // one layer at a time, so the eraser rubs out only its own
 function skSet(change) {
   Object.assign(sk, change);
@@ -13292,12 +13435,47 @@ const skQuery = (s, change) => {
     + '&visible=' + v.visible + '&whole_cut=' + v.whole_cut;
 };
 const skNewId = () => 'sketch-' + Date.now().toString(36);
+const skInk = document.createElement('canvas'); // a pen stroke's pieces, before they go on at its strength
+const skPress = (p) => 0.15 + 0.85 * p; // D-271: the share of the full size a pen's pressure gives
 // A stroke as the Sandbox draws one: through the midpoints, so a quick line comes out smooth.
 function skStroke(ctx, k, tint, alpha) {
   const pts = k.points;
   if (!pts || !pts.length) return;
   ctx.globalCompositeOperation = k.tool === 'eraser' ? 'destination-out' : 'source-over';
   ctx.globalAlpha = k.tool === 'eraser' ? 1 : alpha || (k.tool === 'pencil' ? 0.8 : 0.95);
+  if (k.pressure && k.pressure.length === pts.length) {
+    // D-271: a pen stroke, one piece around each point as wide as its pressure says, laid down at
+    // full strength on a sheet of its own and put on at the stroke's strength, so the round ends
+    // where the pieces overlap do not show darker.
+    const [w, h] = [ctx.canvas.width, ctx.canvas.height];
+    if (skInk.width !== w || skInk.height !== h) [skInk.width, skInk.height] = [w, h];
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]), pad = k.size / 2 + 2;
+    const x0 = Math.max(0, Math.floor(Math.min(...xs) - pad)), y0 = Math.max(0, Math.floor(Math.min(...ys) - pad));
+    const x1 = Math.min(w, Math.ceil(Math.max(...xs) + pad)), y1 = Math.min(h, Math.ceil(Math.max(...ys) + pad));
+    if (x1 <= x0 || y1 <= y0) return;
+    const box = [x0, y0, x1 - x0, y1 - y0];
+    const c = skInk.getContext('2d');
+    c.globalAlpha = 1;
+    c.globalCompositeOperation = 'source-over';
+    c.clearRect(...box);
+    c.strokeStyle = tint || k.colour;
+    c.lineCap = 'round';
+    const n = pts.length;
+    const mid = (i) => [(pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2];
+    for (let i = 0; i < n; i++) {
+      c.lineWidth = k.size * skPress(k.pressure[i]);
+      const from = i === 0 ? pts[0] : mid(i - 1);
+      c.beginPath();
+      c.moveTo(from[0], from[1]);
+      if (n === 1) c.lineTo(pts[0][0] + 0.1, pts[0][1]);
+      else if (i === 0) c.lineTo(...mid(0));
+      else if (i === n - 1) c.lineTo(pts[i][0], pts[i][1]);
+      else c.quadraticCurveTo(pts[i][0], pts[i][1], ...mid(i));
+      c.stroke();
+    }
+    ctx.drawImage(skInk, ...box, ...box);
+    return;
+  }
   ctx.strokeStyle = tint || k.colour;
   ctx.lineWidth = k.size;
   ctx.lineCap = 'round';
@@ -13465,6 +13643,7 @@ function drawSketch() {
   }
   $('skover').checked = sk.over;
   $('sknote').textContent = 'Sketches are never exported. They are saved with the project, beside ' + comp.name + '.';
+  skRingAt();
 }
 // Into the board and out of it. While it is out the picture's pixels stay on the page, which is
 // where the board copies the cut from.
@@ -13521,28 +13700,50 @@ $('sketch').addEventListener('change', (e) => {
 });
 // Drawing: a press starts a stroke, the hand adds a point each time it has moved four pixels on
 // screen, and letting go sends the stroke as one command. A drag is a mouse or a pen; there is no
-// other way to draw one.
+// other way to draw one. D-271: a pen also gives its pressure at each point, which sets the
+// width there, and its eraser end rubs out whichever tool is chosen.
 const skPic = $('skpic');
+const skPen = (e) => Math.round(Math.min(1, Math.max(0, e.pressure)) * 1000) / 1000;
+// D-271: the eraser shows as a ring as wide as it rubs out, at the paper's size on screen and,
+// while a pen presses, at the width its pressure gives.
+function skRingAt() {
+  const comp = composition();
+  const erasing = skDrawing ? skDrawing.tool === 'eraser' : sk.tool === 'eraser';
+  skRing.hidden = !(sketchShown && comp && skHover && erasing);
+  if (skRing.hidden) return;
+  const pressed = skDrawing && skDrawing.pressure ? skPress(skDrawing.pressure[skDrawing.pressure.length - 1]) : 1;
+  const across = (skDrawing ? skDrawing.size : SK_SIZES[sk.size]) * pressed * $('skpic').offsetWidth / comp.width;
+  skRing.style.width = skRing.style.height = across + 'px';
+  skRing.style.left = skHover[0] - across / 2 + 'px';
+  skRing.style.top = skHover[1] - across / 2 + 'px';
+}
 skPic.onpointerdown = (e) => {
   const comp = composition();
-  if (e.button !== 0 || !comp) return;
+  // Button 5 is a pen's eraser end.
+  if ((e.button !== 0 && e.button !== 5) || !comp) return;
   skPic.setPointerCapture(e.pointerId);
   const chosen = skChosen(comp);
-  const size = sk.tool === 'pencil' ? Math.max(2, SK_SIZES[sk.size] * 0.5) : SK_SIZES[sk.size];
+  const tool = e.button === 5 ? 'eraser' : sk.tool;
+  const size = tool === 'pencil' ? Math.max(2, SK_SIZES[sk.size] * 0.5) : SK_SIZES[sk.size];
   skDrawing = {
-    sketch: chosen ? chosen.id : null, frame, tool: sk.tool, size, colour: sk.colour,
+    sketch: chosen ? chosen.id : null, frame, tool, size, colour: sk.colour,
     points: [skPoint(e, comp)], at: [e.clientX, e.clientY],
+    pressure: e.pointerType === 'pen' ? [skPen(e)] : null,
   };
+  skHover = [e.clientX, e.clientY];
   drawSketch();
 };
 skPic.onpointermove = (e) => {
   const comp = composition();
-  if (!skDrawing || !comp) return;
-  if (Math.hypot(e.clientX - skDrawing.at[0], e.clientY - skDrawing.at[1]) < 4) return;
+  skHover = [e.clientX, e.clientY];
+  if (!skDrawing || !comp) { skRingAt(); return; }
+  if (Math.hypot(e.clientX - skDrawing.at[0], e.clientY - skDrawing.at[1]) < 4) { skRingAt(); return; }
   skDrawing.at = [e.clientX, e.clientY];
   skDrawing.points.push(skPoint(e, comp));
+  if (skDrawing.pressure) skDrawing.pressure.push(skPen(e));
   drawSketch();
 };
+skPic.onpointerleave = () => { skHover = null; skRingAt(); };
 skPic.onpointerup = async () => {
   const d = skDrawing;
   if (!d) return;
@@ -13556,7 +13757,7 @@ skPic.onpointerup = async () => {
   } else if (!s.visible) await command('/sketch.set_layer?' + skQuery(s, { visible: true }));
   await command('/sketch.add_stroke?sketch=' + encodeURIComponent(s.id) + (s.whole_cut ? '' : '&frame=' + d.frame)
     + '&tool=' + d.tool + '&size=' + d.size + '&colour=' + encodeURIComponent(d.colour)
-    + '&points=' + d.points.map((p) => p.join(',')).join(';'));
+    + '&points=' + d.points.map((p) => p.join(',')).join(';') + (d.pressure ? '&pressure=' + d.pressure.join(';') : ''));
   if (skDrawing === d) skDrawing = null;
   drawSketch();
 };
@@ -15215,6 +15416,8 @@ addEventListener('keydown', (e) => {
   else if (e.key === 's' || e.key === 'S') showProps(['scale'], e.shiftKey);
   else if (e.key === 'r' || e.key === 'R') showProps(['rotation'], e.shiftKey);
   else if (e.key === 't' || e.key === 'T') showProps(['opacity'], e.shiftKey);
+  // D-272: M, as After Effects has it, opens the selected layers' masks.
+  else if (e.key === 'm' || e.key === 'M') showProps('masks', e.shiftKey);
   // W-25: U twice within half a second opens what has changed; E the effect controls; ` a panel.
   else if (e.key === 'u' || e.key === 'U') {
     const twice = performance.now() - lastU < 500;

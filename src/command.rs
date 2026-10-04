@@ -1750,6 +1750,14 @@ fn check_stroke(stroke: &Stroke) -> Result<(), Diagnostic> {
             "D-261: a point that is not a number cannot be saved or drawn.",
         ));
     }
+    if !stroke.pressure.is_empty()
+        && (stroke.pressure.len() != stroke.points.len() || stroke.pressure.iter().any(|p| !(0.0..=1.0).contains(p)))
+    {
+        return Err(reject(
+            "A stroke's pressure is one number from 0 to 1 for each point, or none.",
+            "D-271: the pen's pressure at each point sets the stroke's width there.",
+        ));
+    }
     Ok(())
 }
 

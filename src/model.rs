@@ -1187,6 +1187,9 @@ pub struct Stroke {
     /// `#rrggbb`.
     pub colour: String,
     pub points: Vec<[f64; 2]>,
+    /// D-271: the pen's pressure at each point, 0 to 1, or empty for a stroke drawn without one
+    /// (a mouse), which is drawn at its full size. Saved as `pressure` only when there is one.
+    pub pressure: Vec<f64>,
     /// Lines in the file this build does not know, kept as they were (ADR-008).
     pub rest: serde_json::Map<String, serde_json::Value>,
 }

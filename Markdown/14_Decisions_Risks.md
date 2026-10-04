@@ -657,6 +657,22 @@ D-270 / Tidy-ups with nothing to see / **PROPOSED on 2026-10-03** by the P-25 sp
 
 Evidence in `verification/P-25_realtime_audit.md`.
 
+D-271 / Sketch pen pressure and eraser ring / **BUILT on 2026-10-03** at the owner's request ("show the eraser as a circle of how much it is erasing, pressure sensitivity when using a pen"). **Awaiting the owner's playtest.**
+- With the eraser chosen, the pointer over the paper is a circle as wide as the eraser rubs out, and it follows `[`, `]` and the pen's pressure.
+- A pen stroke is drawn from 15% of the chosen size at the lightest touch to 100% at full pressure, for the brush, pencil and eraser. A mouse stroke keeps one width.
+- A pen's eraser end rubs out whatever tool is chosen.
+- A pen stroke saves one pressure from 0 to 1 per point as `pressure`. Strokes without it save as before, and a file whose pressures do not fit its points is refused at that pointer (document 28). Sketches still never reach a frame or an export.
+
+Evidence in `verification/D-271_sketch_pen_and_eraser_ring.md`.
+
+D-272 / Timeline layer groups and an arrow that always closes / **BUILT on 2026-10-03** at the owner's request ("migrate the masks/ blend/ transform into the timeline layer ... in their respective grouped way like in AE", and "collapse the layer no matter what when clicking the toggle arrow"). **Awaiting the owner's playtest.**
+- A layer's arrow on the timeline closes everything under it, whatever opened it.
+- Opened, a layer shows After Effects' groups, each with its own arrow: Masks (each mask with its mode, Inverted, and under its arrow Mask feather, Mask opacity and Mask expansion), Contents, Effects (keyed settings), Blending (Blend mode) and Transform. Open groups come back for the session.
+- M shows only the masks; drawing a mask opens its group. Effect controls keeps its own Transform and Blend, masks and parent sections.
+- A page change only: no new command ID, no saved data, no picture changes.
+
+Evidence in `verification/D-272_timeline_groups.md`.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

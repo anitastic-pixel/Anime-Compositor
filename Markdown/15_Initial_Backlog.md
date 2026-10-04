@@ -762,6 +762,18 @@ P-25 / Realtime audit, D-267: built on 2026-10-03 at the owner's request. **Awai
 
 Evidence is in `verification/P-25_realtime_audit.md`.
 
+D-271 / Sketch pen pressure and eraser ring: built on 2026-10-03 at the owner's request. **Awaiting the owner's playtest.**
+- The eraser shows as a circle of the size it rubs out; pen pressure sets a stroke's width; the pen's eraser end erases.
+- 11 of 11 checks pass in `verification/D-271_sketch_pen_table.md`. In the window, 40 pen events gave 40 saved pressures, and the ring matched the eraser at 21.7, 9.8 and 3.9 px.
+
+Evidence is in `verification/D-271_sketch_pen_and_eraser_ring.md`.
+
+D-272 / Timeline layer groups and an arrow that always closes: built on 2026-10-03 at the owner's request. **Awaiting the owner's playtest.**
+- The layer arrow closes everything under a layer; opened, it shows Masks, Contents, Effects, Blending and Transform groups as After Effects does; M shows the masks.
+- In the window, a drawn mask closed with one arrow click, a real 88 px drag set Mask feather 0 to 88 px, and the mask mode, Inverted and Blend mode lists set the layer. The 88 app checks pass.
+
+Evidence is in `verification/D-272_timeline_groups.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28
