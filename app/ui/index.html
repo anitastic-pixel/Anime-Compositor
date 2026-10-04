@@ -9692,7 +9692,11 @@ const EFFECT_PARAMS = {
     ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 0 keeps the right half', 'dial']],
   // D-154.
   'core.motion_tile': [['output_width', 'Output width', 1, 1, '% of the drawing, 100 to 1000'],
-    ['output_height', 'Output height', 1, 1, '% of the drawing, 100 to 1000']],
+    ['output_height', 'Output height', 1, 1, '% of the drawing, 100 to 1000'],
+    // D-304: After Effects' Tile Center, Tile Width and Tile Height.
+    ['tile_center', 'Tile Center', 2, 1, '% of the width and height, -1000 to 1000', '', [50, 50]],
+    ['tile_width', 'Tile Width', 1, 0.5, '% of the drawing, 1 to 1000', '', 100],
+    ['tile_height', 'Tile Height', 1, 0.5, '% of the drawing, 1 to 1000', '', 100]],
   // D-155.
   'core.linear_wipe': [['completion', 'Completion', 1, 1, '% wiped away, 0 to 100'],
     ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 90 wipes from the left', 'dial'],
@@ -11025,7 +11029,10 @@ function effectRow(layer, fx, at, of) {
     // each named, where the three wrapped two and one round the swatch.
     const rgb = count === 3 ? Object.assign(document.createElement('dd'), { className: 'rgb' }) : null;
     // What the setting is on the frame on screen, which is a keyed one's interpolated value.
-    const values = transformValue(layer, fxName(fx, name)).map((v) => (v === undefined ? start || 0 : Number(v) || 0));
+    // D-304: a point or colour the file leaves out, at its start, still shows all its numbers.
+    const held = transformValue(layer, fxName(fx, name));
+    const values = (held.length < count && held[0] === undefined ? [].concat(start || Array(count).fill(0)) : held)
+      .map((v) => (v === undefined ? start || 0 : Number(v) || 0));
     fields[name] = [];
     if (name === 'color') {
       pick = document.createElement('input');

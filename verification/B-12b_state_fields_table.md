@@ -203,7 +203,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.mirror` is an effect this build has | added | added | pass |
 | and the settings it sends for it - center, angle - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.motion_tile` is an effect this build has | added | added | pass |
-| and the settings it sends for it - output_width, output_height, mirror - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - output_width, output_height, mirror, tile_center, tile_width, tile_height - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.linear_wipe` is an effect this build has | added | added | pass |
 | and the settings it sends for it - completion, angle, feather - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.radial_wipe` is an effect this build has | added | added | pass |

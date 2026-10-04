@@ -3692,6 +3692,9 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             output_width: 100.0,
             output_height: 100.0,
             mirror: "off".to_string(),
+            tile_center: [50.0, 50.0],
+            tile_width: 100.0,
+            tile_height: 100.0,
         }),
         // D-155: nothing wiped yet, the edge to come from the left, hard.
         LINEAR_WIPE => Some(Effect::LinearWipe {
@@ -4525,6 +4528,10 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             output_width: number("output_width")?,
             output_height: number("output_height")?,
             mirror: word("mirror")?,
+            // D-304: each where it starts when the command does not say.
+            tile_center: if parameter(query, "tile_center").is_some() { pair("tile_center")? } else { [50.0, 50.0] },
+            tile_width: if parameter(query, "tile_width").is_some() { number("tile_width")? } else { 100.0 },
+            tile_height: if parameter(query, "tile_height").is_some() { number("tile_height")? } else { 100.0 },
         }),
         LINEAR_WIPE => Ok(Effect::LinearWipe {
             completion: number("completion")?,
@@ -27747,7 +27754,7 @@ mod contract {
         // D-153: the centre and the angle.
         ("core.mirror", &[("center", "40,60"), ("angle", "90")]),
         // D-154: the two sizes and the choice.
-        ("core.motion_tile", &[("output_width", "300"), ("output_height", "200"), ("mirror", "on")]),
+        ("core.motion_tile", &[("output_width", "300"), ("output_height", "200"), ("mirror", "on"), ("tile_center", "40, 60"), ("tile_width", "28"), ("tile_height", "50")]),
         // D-155: the three numbers.
         ("core.linear_wipe", &[("completion", "40"), ("angle", "135"), ("feather", "12")]),
         // D-156: the numbers, the centre and the choice.

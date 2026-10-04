@@ -534,6 +534,9 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 output_width: 100.0,
                 output_height: 100.0,
                 mirror: "off".to_string(),
+                tile_center: [50.0, 50.0],
+                tile_width: 100.0,
+                tile_height: 100.0,
             },
         ),
         (

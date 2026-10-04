@@ -71,7 +71,7 @@ D-154, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it declares no fixed growth to the card, which never runs it: its growth depends on the size the drawing reaches it at, and is counted as the stack runs, as FX-TILE-003 to 016 show | 0 | yes |
-| a half-size draft preview changes nothing: the sizes are shares of the drawing | MotionTile { output_width: 300.0, output_height: 150.0, mirror: "on" } | yes |
+| a half-size draft preview changes nothing: the sizes are shares of the drawing | MotionTile { output_width: 300.0, output_height: 150.0, mirror: "on", tile_center: [50.0, 50.0], tile_width: 100.0, tile_height: 100.0 } | yes |
 
 ## The file
 

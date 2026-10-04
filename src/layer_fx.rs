@@ -1194,9 +1194,15 @@ pub(crate) fn tile_growth(size: (f64, f64), (w, h): (usize, usize)) -> (usize, u
 /// D-154: the buffer repeated round itself, tile against tile, to `size` per cent of its width
 /// and height, every other tile turned over when `mirror`. Returns how far it grew on the left
 /// and on the top, the same as on the right and the bottom. The settings are already valid.
-pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: bool) -> (usize, usize) {
+/// D-304: `tile`, the tiles' centre in per cent of the buffer and their width and height in per
+/// cent; at (50, 50), 100 and 100 it is D-154's tile, the buffer itself.
+pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: bool, tile: ([f64; 2], f64, f64)) -> (usize, usize) {
     let (w, h) = (source.width(), source.height());
     let (gx, gy) = tile_growth(size, (w, h));
+    if tile != (PLAIN_TILE, 100.0, 100.0) {
+        sized_tile(source, (gx, gy), mirror, tile);
+        return (gx, gy);
+    }
     if (gx, gy) == (0, 0) {
         return (0, 0);
     }
@@ -1218,6 +1224,59 @@ pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: 
         });
     *source = out;
     (gx, gy)
+}
+
+/// D-304: where a Motion Tile's tiles sit when nothing moved them, the buffer's middle.
+pub(crate) const PLAIN_TILE: [f64; 2] = [50.0, 50.0];
+
+/// D-304: [`motion_tile`] with tiles that are the buffer shrunk or grown to `tile`'s width and
+/// height and set round its centre. Each output pixel averages `mx` by `my` evenly spaced
+/// points across it, enough that a shrunk tile skips none of the buffer's pixels; each point
+/// is the bilinear sample of the buffer where the tile it lands in reads, held inside the
+/// buffer's pixel centres, as D-109's held sample is.
+fn sized_tile(source: &mut WorkingBuffer, (gx, gy): (usize, usize), mirror: bool, (center, tw, th): ([f64; 2], f64, f64)) {
+    let (w, h) = (source.width(), source.height());
+    if w == 0 || h == 0 {
+        return;
+    }
+    let (sx, sy) = (tw / 100.0, th / 100.0);
+    // Where place `p` of the row or column, from the buffer's corner, reads the buffer: tiles
+    // `n s` long, one set round `c`, every other one turned over when `mirror`.
+    let read = |p: f64, n: usize, c: f64, s: f64| {
+        let (n, t) = (n as f64, n as f64 * s);
+        let u = p - (c / 100.0 * n - t / 2.0);
+        let k = (u / t).floor();
+        let f = u - k * t;
+        let f = if mirror && k.rem_euclid(2.0) != 0.0 { t - f } else { f };
+        (f / s).clamp(0.5, n - 0.5)
+    };
+    // ponytail: at most 16 points a side, so a tile below 6 per cent may shimmer; an area
+    // average if one does.
+    let points = |s: f64| (1.0 / s).ceil().clamp(1.0, 16.0) as usize;
+    let (mx, my) = (points(sx), points(sy));
+    let ow = w + 2 * gx;
+    let mut out = WorkingBuffer::transparent(ow, h + 2 * gy);
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % ow) as f64 - gx as f64, (i / ow) as f64 - gy as f64);
+            let mut sum = [0.0f32; 4];
+            for b in 0..my {
+                let ry = read(y + (b as f64 + 0.5) / my as f64, h, center[1], sy);
+                for a in 0..mx {
+                    let rx = read(x + (a as f64 + 0.5) / mx as f64, w, center[0], sx);
+                    let p = sample_bilinear(drawing, rx, ry);
+                    for c in 0..4 {
+                        sum[c] += p[c];
+                    }
+                }
+            }
+            let n = (mx * my) as f32;
+            px.copy_from_slice(&sum.map(|v| v / n));
+        });
+    *source = out;
 }
 
 /// D-198: Corner Pin's map from the buffer back into the drawing, the map's determinant and how

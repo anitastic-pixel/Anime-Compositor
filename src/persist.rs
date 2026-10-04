@@ -1691,10 +1691,24 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             output_width,
             output_height,
             mirror,
+            tile_center,
+            tile_width,
+            tile_height,
         } => {
             params.insert("output_width".into(), num(*output_width));
             params.insert("output_height".into(), num(*output_height));
             params.insert("mirror".into(), J::from(mirror.as_str()));
+            // D-304: as D-121, each at its start, without keys, written only if the file had
+            // it, so a file that never changed them saves as before.
+            for (key, value, start) in [
+                ("tile_center", J::Array(tile_center.iter().map(|v| num(*v)).collect()), *tile_center == crate::layer_fx::PLAIN_TILE),
+                ("tile_width", num(*tile_width), *tile_width == 100.0),
+                ("tile_height", num(*tile_height), *tile_height == 100.0),
+            ] {
+                if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), value);
+                }
+            }
         }
         Effect::LinearWipe {
             completion,
@@ -3832,6 +3846,13 @@ fn parse_effect(
             output_width: effect_number(params, "output_width", &at)?,
             output_height: effect_number(params, "output_height", &at)?,
             mirror: effect_word(params, "mirror", &at)?,
+            // D-304: a file from before these tiles at the drawing's own size, as it did.
+            tile_center: match params.and_then(|p| p.get("tile_center")) {
+                Some(_) => effect_array(params, "tile_center", "two numbers, x then y", &at)?,
+                None => crate::layer_fx::PLAIN_TILE,
+            },
+            tile_width: effect_number_or(params, "tile_width", &at, 100.0)?,
+            tile_height: effect_number_or(params, "tile_height", &at, 100.0)?,
         }),
         crate::effects::LINEAR_WIPE => Some(crate::effects::Effect::LinearWipe {
             completion: effect_number(params, "completion", &at)?,

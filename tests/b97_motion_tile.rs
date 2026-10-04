@@ -17,6 +17,9 @@ fn motion_tile(output_width: f64, output_height: f64, mirror: &str) -> Effect {
         output_width,
         output_height,
         mirror: mirror.to_string(),
+        tile_center: [50.0, 50.0],
+        tile_width: 100.0,
+        tile_height: 100.0,
     }
 }
 

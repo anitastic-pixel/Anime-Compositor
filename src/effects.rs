@@ -793,11 +793,16 @@ pub enum Effect {
     /// on the line; `angle`, -3600 to 3600 degrees, the line's turn from straight up and down.
     Mirror { center: [f64; 2], angle: f64 },
     /// D-154: `output_width` and `output_height`, 100 to 1000 per cent of the drawing's width
-    /// and height; `mirror`, "off" or "on", every other tile turned over.
+    /// and height; `mirror`, "off" or "on", every other tile turned over. D-304: `tile_center`,
+    /// per cent of the drawing's width and height, -1000 to 1000 each, where a tile sits;
+    /// `tile_width` and `tile_height`, 1 to 1000 per cent, each tile's size.
     MotionTile {
         output_width: f64,
         output_height: f64,
         mirror: String,
+        tile_center: [f64; 2],
+        tile_width: f64,
+        tile_height: f64,
     },
     /// D-155: `completion`, 0 to 100 per cent, how far the edge has gone; `angle`, -3600 to 3600
     /// degrees, the way it moves, 90 to the right; `feather`, 0 to 10000 pixels, how soft it is.
@@ -1764,10 +1769,16 @@ impl Effect {
             Effect::MotionTile {
                 output_width,
                 output_height,
+                tile_center,
+                tile_width,
+                tile_height,
                 ..
             } => vec![
                 ("output_width", vec![output_width], 100.0, 1000.0),
                 ("output_height", vec![output_height], 100.0, 1000.0),
+                ("tile_center", tile_center.iter_mut().collect(), -1000.0, 1000.0),
+                ("tile_width", vec![tile_width], 1.0, 1000.0),
+                ("tile_height", vec![tile_height], 1.0, 1000.0),
             ],
             Effect::LinearWipe {
                 completion,
@@ -4218,9 +4229,17 @@ pub(crate) fn apply_stack_at(
                 output_width,
                 output_height,
                 mirror,
+                tile_center,
+                tile_width,
+                tile_height,
             } => {
                 let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectMotionTile, || {
-                    crate::layer_fx::motion_tile(source, (*output_width, *output_height), mirror == "on")
+                    crate::layer_fx::motion_tile(
+                        source,
+                        (*output_width, *output_height),
+                        mirror == "on",
+                        (*tile_center, *tile_width, *tile_height),
+                    )
                 });
                 ox += gx;
                 oy += gy;

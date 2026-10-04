@@ -834,6 +834,16 @@ D-303 / Gaussian Blur takes Blur Dimensions / **BUILT on 2026-10-04** (B-188), f
 - The card blurs both ways only, so a one-way Gaussian Blur is drawn on the CPU; teaching the card is a later speed-up if one is slow.
 - B-188 checks by hand on one white pixel, sigma 1: horizontal lights only its row, with document 21's seven taps; vertical only its column; both, the products, as before; and the card's picture matches.
 
+D-304 / Motion Tile takes Tile Center, Tile Width and Tile Height / **BUILT on 2026-10-04** (B-189), from P-26: the Colorful Glitch tutorial shrinks Motion Tile's tiles to 28 per cent across to repeat a grid texture; D-154's tile was always the drawing at its own size, round its middle. **Awaiting the owner's playtest.**
+- Three settings, as After Effects names them: Tile Center (per cent of the drawing, a point, where a tile sits), Tile Width and Tile Height (1 to 1000 per cent, each tile's size). All keyable.
+- At (50, 50), 100 and 100, where they start, it is D-154's tile exactly, by the same code, so every older file and FX-TILE-001 to 023 draw as before; each is written only when moved, keyed or in the file already.
+- Otherwise each output pixel averages a few evenly spaced points across it, enough that a shrunk tile skips none of the drawing's pixels (at most 16 a side; a tile under about 6 per cent may shimmer), each the bilinear sample of the drawing, held inside its edge pixels, where the tile it lands in reads. Mirror turns over every other tile as before.
+- Output Width and Height grow the layer exactly as before; a sized tile changes what is in it, not how big it is.
+- The card tiles at the drawing's own size only, so a sized tile is drawn on the CPU.
+- B-189 checks by hand on an 8x8 square whose left half is wiped: width 50 gives two half-size copies (1 1 0 0 1 1 0 0 along a row), mirrored 0 0 0 0 1 1 1 1, centre 25 per cent 0 0 1 1 0 0 1 1, width 200 the middle half doubled (0 0 0 0.25 0.75 1 1 1), and height the same down; the card's picture matches.
+- The panel showed a point left out of the file, at its start, as one box (D-299's Offset Turbulence; Tile Center crashed the panel); it now shows both numbers.
+- Not built: After Effects' Phase and Horizontal Phase Shift, which slide alternate rows of tiles; one line each when a tutorial needs them.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.
