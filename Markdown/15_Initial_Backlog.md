@@ -780,6 +780,21 @@ D-273 / The New composition and Pre-compose windows from the redesign: built on 
 
 Evidence is in `verification/D-273_new_composition_and_precompose_windows.md`.
 
+D-280 / Transform, blending, masks, matte and parent on the timeline only: built on 2026-10-03 at the owner's request. **Awaiting the owner's playtest.**
+- Effect controls points to the timeline with one button. The timeline gained a Parent list, Track matte, and On/Off and Delete on each mask.
+- In the window, every step of `verification/D-280_effect_controls_to_timeline.md` behaved as written, with no page errors. The 88 app checks pass.
+
+Evidence is in `verification/D-280_effect_controls_to_timeline.md`.
+
+D-281 / Sketch paper zoom and move, rings, any colour, smoother lines: built on 2026-10-03 at the owner's request. **Awaiting the owner's playtest.**
+- In the window:
+  - the zoom kept the point under the hand;
+  - both kinds of move moved the paper without drawing;
+  - a stroke drawn zoomed was saved where it was drawn.
+- D-282 to D-284 are proposed.
+
+Evidence is in `verification/D-281_sketch_paper_tools.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

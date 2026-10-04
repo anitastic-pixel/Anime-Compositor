@@ -692,6 +692,32 @@ D-278 / Pre-compose leaving settings outside / **PROPOSED on 2026-10-03** from D
 
 D-279 / Pre-compose trimmed to the layers' length / **PROPOSED on 2026-10-03** from D-273. The new composition would be as long as the chosen layers' frames rather than the whole composition, with the layer moved to start at its first frame. It needs a change to `layer.precompose`. Greyed in D-273's window until accepted.
 
+D-280 / Transform, blending, masks, matte and parent on the timeline only / **BUILT on 2026-10-03** at the owner's request ("perfect! proceed with your recommendation", taking the offer left by D-272). **Awaiting the owner's playtest.**
+- Effect controls loses its Transform section and its blend, masks, matte and parent section. A "Show on the timeline" button opens the layer with Transform, Blending and Masks open.
+- The timeline first gains what it lacked:
+  - a Parent list beside the pick whip (None or a layer), reachable with the keys;
+  - Track matte with "matte only" in the Blending group, adjustment layers included;
+  - On/Off and Delete on each mask's row;
+  - Tab and Enter on a mask's name.
+- No saved data or command changes. The keyboard check that the anchor can be moved without the mouse now points at the timeline's Transform group.
+- The same build keeps the New composition window's "Match a file…" on one line (the owner's "small formatting error").
+
+Evidence in `verification/D-280_effect_controls_to_timeline.md`.
+
+D-281 / Sketch paper zoom and move, a ring for every tool, any colour, smoother fast lines / **BUILT on 2026-10-03** at the owner's request (the same message, taking the sketch offer left by D-271). **Awaiting the owner's playtest.**
+- The wheel zooms the paper from 25% to 800% about the point under the hand. The middle button, or a left drag with Space held over the paper, moves it. Reset puts it back.
+- The brush and pencil show a ring as wide as they draw, as the eraser did. A colour picker after the five swatches gives any colour.
+- A fast stroke keeps every point the pen or mouse reported (coalesced pointer events), with the same 4-pixel spacing.
+- Views only: nothing saved or exported changes.
+
+Evidence in `verification/D-281_sketch_paper_tools.md`.
+
+D-282 / A stroke eraser / **PROPOSED on 2026-10-03** from D-281. A second eraser would remove whole strokes it touches, as most sketch tools offer. It needs a sketch command that removes one stroke by its place (document 24), and an undo entry for it.
+
+D-283 / Sketch layer opacity, lock and order / **PROPOSED on 2026-10-03** from D-281. Each sketch layer would save an opacity and a lock, and the layers could be reordered. It needs new saved fields on a sketch layer (document 19) and either a change to `sketch.set_layer` or a new command to move a layer.
+
+D-284 / A lasso to select and move strokes / **PROPOSED on 2026-10-03** from D-281. The owner would draw round strokes to choose them, then drag them as one. Moving them needs a sketch command that rewrites the chosen strokes' points as one undo step.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

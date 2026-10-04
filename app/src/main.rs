@@ -28408,7 +28408,8 @@ mod contract {
         (
             "dragging the anchor mark",
             "move the anchor",
-            "propRow(dl, layer, 'anchor'",
+            // D-280: typed in the timeline's Transform group, since the effect controls lost it.
+            "group('transform', 'Transform', () => tracks(propsOf(layer).filter((prop) => PROPS.includes(prop)",
         ),
         (
             "turning the wheel over the picture",

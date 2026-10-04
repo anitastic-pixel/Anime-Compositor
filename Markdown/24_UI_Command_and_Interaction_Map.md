@@ -322,6 +322,19 @@ D-272, timeline layer groups, with no new command ID. A layer's arrow on the tim
 
 D-273, the New composition and Pre-compose windows. Ctrl+N and New composition… open a centred window titled New composition with Create it; Ctrl+K opens the same window titled Composition settings with Apply. Both send the commands they sent before (`composition.create`, then `composition.set_settings` for any Sheet details or shutter). Enter does the main button unless a button or list has the focus; Esc, Leave it and × close it with nothing changed. Ctrl+Shift+C, the Layer menu, the palette and the layer menu open the Pre-compose window, which asks for a name and sends `layer.precompose` with it on Enter. Open it after opens the new composition, and Show the flowchart after shows the Map. While either window is open the program's own keys are off. Rows that need the engine are greyed with a proposed mark (D-274 to D-279).
 
+D-280, with no new command ID. Effect controls no longer sends `layer.set_parent`, `layer.set_matte`, `layer.set_blend_mode`, the mask commands or the transform commands; the timeline sends the same commands.
+- The layer row's Parent column is a list (None or a layer) beside the pick whip.
+- The Blending group holds Blend mode and Track matte.
+- Each mask's row holds its mode, Inverted, On/Off (`mask.set` with `enabled`) and Delete (`mask.delete`). Its name takes Tab and Enter to pick the mask.
+- Effect controls' "Show on the timeline" opens the layer with Transform, Blending and Masks open.
+
+D-281, Sketch views, with no new command ID.
+- The wheel over the paper zooms it from 25% to 800% about the pointer.
+- The middle button, or a left drag while Space is held over the paper, moves it. Space elsewhere still plays.
+- Reset puts the turn, flip, zoom and move back.
+- The colour picker after the swatches sets the drawing colour.
+- None of these change what `sketch.add_stroke` saves.
+
 ## Workspace wireframe contract
 
 G1 default layout: media bin left, composition viewer center, inspector/effects right, timeline bottom, status/diagnostics strip. Panels may be resized/docked when supported by the selected UI framework, but W-01 must be completable in the default layout at 100-200% scaling.
