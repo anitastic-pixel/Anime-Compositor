@@ -622,6 +622,19 @@ enum Encoded {
 /// Draw `frame` into a log of its own and encode its file. `None` when the job was cancelled
 /// before it started, which the writing loop sees before it reaches this frame.
 #[allow(clippy::type_complexity)]
+/// D-311: lay 8-bit straight RGBA over a background colour, linear RGB, in encoded values, the
+/// way the MP4 was always laid over black; every alpha becomes 255.
+pub fn lay_over(srgb8: &mut [u8], background: [f64; 3]) {
+    let bg = background.map(|v| crate::color::linear_to_srgb(v as f32) * 255.0);
+    for px in srgb8.chunks_exact_mut(4) {
+        let a = px[3] as f32 / 255.0;
+        for i in 0..3 {
+            px[i] = (px[i] as f32 * a + bg[i] * (1.0 - a)).round() as u8;
+        }
+        px[3] = 255;
+    }
+}
+
 fn draw(
     project: &Project,
     root: &Path,
@@ -652,10 +665,16 @@ fn draw(
                     .ok_or_else(|| "the composition is not in the project".to_string())
                     .and_then(|rate| exr_io::encode(&buffer, samples, rate)),
             ),
-            OutputFormat::Gif | OutputFormat::Apng | OutputFormat::Mp4 => Encoded::Film {
-                srgb8: buffer.encode(OutputDepth::Eight, OutputAlpha::Straight),
-                samples: buffer.encode(request.depth, request.alpha),
-            },
+            OutputFormat::Gif | OutputFormat::Apng | OutputFormat::Mp4 => {
+                let mut srgb8 = buffer.encode(OutputDepth::Eight, OutputAlpha::Straight);
+                // D-311: an MP4 has no alpha, so it is laid over the background colour, in the
+                // same encoded values it was always laid over black in, as the viewer does.
+                let background = project.composition(&request.composition).and_then(|c| c.background_color);
+                if let (OutputFormat::Mp4, Some(bg)) = (request.format, background) {
+                    lay_over(&mut srgb8, bg);
+                }
+                Encoded::Film { srgb8, samples: buffer.encode(request.depth, request.alpha) }
+            }
         };
         let small = small(&buffer, 480);
         Drawn { buffer, bypassed, encoded, small }

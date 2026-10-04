@@ -326,6 +326,8 @@ D-272, timeline layer groups, with no new command ID. A layer's arrow on the tim
 
 D-273, the New composition and Pre-compose windows. Ctrl+N and New composition… open a centred window titled New composition with Create it; Ctrl+K opens the same window titled Composition settings with Apply. Both send the commands they sent before (`composition.create`, then `composition.set_settings` for any Sheet details or shutter). Enter does the main button unless a button or list has the focus; Esc, Leave it and × close it with nothing changed. Ctrl+Shift+C, the Layer menu, the palette and the layer menu open the Pre-compose window, which asks for a name and sends `layer.precompose` with it on Enter. Open it after opens the new composition, and Show the flowchart after shows the Map. While either window is open the program's own keys are off. Rows that need the engine are greyed with a proposed mark (D-274 to D-279).
 
+D-311, a composition's background colour. The window's Background row has a Colour box and a colour; `composition.set_settings` takes `background_color`, `none` or three numbers from 0 to 1 in linear light, and a page that leaves it out keeps what the composition has. It is one entry to undo, with the rest of the settings.
+
 D-280, with no new command ID. Effect controls no longer sends `layer.set_parent`, `layer.set_matte`, `layer.set_blend_mode`, the mask commands or the transform commands; the timeline sends the same commands.
 - The layer row's Parent column is a list (None or a layer) beside the pick whip.
 - The Blending group holds Blend mode and Track matte.

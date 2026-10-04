@@ -996,8 +996,9 @@ pub enum Effect {
     },
     /// D-193: `layer` and `fit`, D-189's layer setting as Compound Blur has them;
     /// `horizontal` and `vertical`, which of the map's channels moves the picture across and
-    /// down; `max_horizontal` and `max_vertical`, -1000 to 1000 pixels, how far; and `wrap`,
-    /// `off` or `on`. `map` is not a setting and is never saved: compose reads it for each frame.
+    /// down; `max_horizontal` and `max_vertical`, -1000 to 1000 pixels, how far; `wrap`,
+    /// `off` or `on`; and D-315's `expand`, `off` or `on`. `map` is not a setting and is never
+    /// saved: compose reads it for each frame.
     DisplacementMap {
         layer: serde_json::Value,
         fit: String,
@@ -1006,6 +1007,7 @@ pub enum Effect {
         vertical: String,
         max_vertical: f64,
         wrap: String,
+        expand: String,
         map: Option<crate::layer_map::Map>,
     },
     /// D-194: `layer` and `fit`, D-189's layer setting as Compound Blur has them; `completion`
@@ -1273,6 +1275,25 @@ pub enum Effect {
         take_green: String,
         take_blue: String,
     },
+    /// D-312: After Effects' Solid Composite. `source_opacity` and `opacity`, 0 to 100; `color`,
+    /// `#rrggbb`; `blend`, "normal", "add", "screen" or "multiply". The layer, at its opacity, laid
+    /// on a solid of the colour at its own.
+    SolidComposite {
+        source_opacity: f64,
+        color: String,
+        opacity: f64,
+        blend: String,
+    },
+    /// D-313: After Effects' Channel Blur. Each channel's blur, 0 to 500, sigma in pixels as
+    /// Blur's is; `edges` and `dimensions` as Blur's.
+    ChannelBlur {
+        red_blurriness: f64,
+        green_blurriness: f64,
+        blue_blurriness: f64,
+        alpha_blurriness: f64,
+        edges: String,
+        dimensions: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1373,6 +1394,8 @@ pub const BEVEL_ALPHA: &str = "core.bevel_alpha";
 pub const BEVEL_EDGES: &str = "core.bevel_edges";
 pub const BLOCK_DISSOLVE: &str = "core.block_dissolve";
 pub const SHIFT_CHANNELS: &str = "core.shift_channels";
+pub const SOLID_COMPOSITE: &str = "core.solid_composite";
+pub const CHANNEL_BLUR: &str = "core.channel_blur";
 /// D-307: Hue/Saturation's colour ranges as the file names them, centred 0, 60 ... 300 degrees.
 pub const HUE_RANGES: [&str; 6] = ["reds_hsl", "yellows_hsl", "greens_hsl", "cyans_hsl", "blues_hsl", "magentas_hsl"];
 /// D-305: what Shift Channels can take a channel from.
@@ -1928,6 +1951,22 @@ impl Effect {
             ],
             Effect::ColorLookup { .. } => vec![],
             Effect::ShiftChannels { .. } => vec![],
+            Effect::SolidComposite { source_opacity, opacity, .. } => vec![
+                ("source_opacity", vec![source_opacity], 0.0, 100.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
+            Effect::ChannelBlur {
+                red_blurriness,
+                green_blurriness,
+                blue_blurriness,
+                alpha_blurriness,
+                ..
+            } => vec![
+                ("red_blurriness", vec![red_blurriness], 0.0, 500.0),
+                ("green_blurriness", vec![green_blurriness], 0.0, 500.0),
+                ("blue_blurriness", vec![blue_blurriness], 0.0, 500.0),
+                ("alpha_blurriness", vec![alpha_blurriness], 0.0, 500.0),
+            ],
             Effect::LineBlur { length, strength, .. } => vec![
                 ("length", vec![length], 0.0, 50.0),
                 ("strength", vec![strength], 0.0, 100.0),
@@ -2310,6 +2349,17 @@ impl Effect {
         }
         match self {
             Effect::GaussianBlur { sigma_px, .. } => *sigma_px = scale(*sigma_px),
+            Effect::ChannelBlur {
+                red_blurriness,
+                green_blurriness,
+                blue_blurriness,
+                alpha_blurriness,
+                ..
+            } => {
+                for s in [red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness] {
+                    *s = scale(*s);
+                }
+            }
             // D-87's blur and D-89's radius are distances in pixels too.
             Effect::SelectiveColorBlur { blur, .. } => *blur = scale(*blur),
             Effect::Glow { radius, .. } => *radius = scale(*radius),
@@ -2582,6 +2632,8 @@ impl Effect {
             Effect::BevelEdges { .. } => "Bevel Edges",
             Effect::BlockDissolve { .. } => "Block Dissolve",
             Effect::ShiftChannels { .. } => "Shift Channels",
+            Effect::SolidComposite { .. } => "Solid Composite",
+            Effect::ChannelBlur { .. } => "Channel Blur",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2682,6 +2734,8 @@ impl Effect {
             Effect::BevelEdges { .. } => BEVEL_EDGES,
             Effect::BlockDissolve { .. } => BLOCK_DISSOLVE,
             Effect::ShiftChannels { .. } => SHIFT_CHANNELS,
+            Effect::SolidComposite { .. } => SOLID_COMPOSITE,
+            Effect::ChannelBlur { .. } => CHANNEL_BLUR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2702,6 +2756,10 @@ impl Effect {
                 0
             }
             Effect::GaussianBlur { sigma_px, .. } => kernel_radius(*sigma_px),
+            // D-313: the alpha's blur, as Blur's; a colour reaching further has no alpha there.
+            Effect::ChannelBlur { alpha_blurriness, edges, .. } if edges != "repeat" => {
+                kernel_radius(*alpha_blurriness)
+            }
             // D-89: the light reaches `radius` pixels, blur's reach at sigma radius / 3.
             Effect::Glow { radius, .. } => kernel_radius(*radius / 3.0),
             // D-92: half the streak, on each side.
@@ -2756,6 +2814,12 @@ impl Effect {
             // D-127: the amount rounded up, unless a push past the edge reads the edge.
             Effect::TurbulentDisplace { amount, edges, .. } if edges != "repeat" => {
                 amount.ceil() as usize
+            }
+            // D-315: with Expand Output the larger maximum rounded up, unless the push wraps.
+            Effect::DisplacementMap { max_horizontal, max_vertical, wrap, expand, .. }
+                if expand == "on" && wrap != "on" =>
+            {
+                max_horizontal.abs().max(max_vertical.abs()).ceil() as usize
             }
             // D-115: the shadow's move, rounded up, and its blur's reach.
             Effect::DropShadow {
@@ -3099,6 +3163,20 @@ impl Effect {
                     "Light Wrap's blend is \"screen\" or \"add\", and this is \"{blend}\"."
                 ))
             }
+            Effect::SolidComposite { blend, .. }
+                if !["normal", "add", "screen", "multiply"].contains(&blend.as_str()) =>
+            {
+                Some(format!(
+                    "Solid Composite's blend is \"normal\", \"add\", \"screen\" or \"multiply\", and \
+                     this is \"{blend}\"."
+                ))
+            }
+            Effect::SolidComposite { color, .. } => hex_fault("Solid Composite", "colour", color),
+            Effect::ChannelBlur { edges: e, dimensions, .. } => edges(e).or_else(|| {
+                (!["both", "horizontal", "vertical"].contains(&dimensions.as_str())).then(|| {
+                    format!("{name}'s dimensions are \"both\", \"horizontal\" or \"vertical\", and this is \"{dimensions}\".")
+                })
+            }),
             Effect::ShiftChannels {
                 take_alpha,
                 take_red,
@@ -3339,6 +3417,9 @@ impl Effect {
             }
             Effect::DisplacementMap { wrap, .. } if !["off", "on"].contains(&wrap.as_str()) => Some(format!(
                 "Displacement Map's wrap is \"off\" or \"on\", and this is \"{wrap}\"."
+            )),
+            Effect::DisplacementMap { expand, .. } if !["off", "on"].contains(&expand.as_str()) => Some(format!(
+                "Displacement Map's expand output is \"off\" or \"on\", and this is \"{expand}\"."
             )),
             Effect::GradientWipe { layer, .. } if !layer.is_string() => Some(format!(
                 "Gradient Wipe's layer is the name of a layer of this composition, and this is {layer}."
@@ -4220,6 +4301,30 @@ pub(crate) fn apply_stack_at(
             } => crate::perf::time(crate::perf::Stage::EffectShiftChannels, || {
                 crate::grade::shift_channels(source, [take_red, take_green, take_blue, take_alpha].map(|w| w.as_str()))
             }),
+            Effect::SolidComposite { source_opacity, color, opacity, blend } => {
+                crate::perf::time(crate::perf::Stage::EffectSolidComposite, || {
+                    solid_composite(source, *source_opacity, encoded(color), *opacity, blend)
+                })
+            }
+            Effect::ChannelBlur {
+                red_blurriness,
+                green_blurriness,
+                blue_blurriness,
+                alpha_blurriness,
+                edges,
+                dimensions,
+            } => {
+                let r = crate::perf::time(crate::perf::Stage::EffectChannelBlur, || {
+                    channel_blur(
+                        source,
+                        [*red_blurriness, *green_blurriness, *blue_blurriness, *alpha_blurriness],
+                        edges == "repeat",
+                        (dimensions != "vertical", dimensions != "horizontal"),
+                    )
+                });
+                ox += r;
+                oy += r;
+            }
             Effect::FindEdges { invert, amount } => crate::perf::time(crate::perf::Stage::EffectFindEdges, || {
                 crate::layer_fx::find_edges(source, invert == "on", *amount)
             }),
@@ -4760,19 +4865,22 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
-            // D-193: the map compose read for this frame; with none, nothing moves.
-            Effect::DisplacementMap { horizontal, max_horizontal, vertical, max_vertical, wrap, map, .. } => {
+            // D-193: the map compose read for this frame; with none, nothing moves. D-315: with
+            // Expand Output the layer grows first.
+            Effect::DisplacementMap { horizontal, max_horizontal, vertical, max_vertical, wrap, expand, map, .. } => {
                 if let Some(map) = map {
-                    crate::perf::time(crate::perf::Stage::EffectDisplacementMap, || {
+                    let r = crate::perf::time(crate::perf::Stage::EffectDisplacementMap, || {
                         crate::layer_fx::displacement_map(
                             source,
                             &map.0,
                             (ox, oy),
                             [horizontal, vertical],
                             [*max_horizontal, *max_vertical],
-                            wrap == "on",
+                            (wrap == "on", expand == "on"),
                         )
-                    })
+                    });
+                    ox += r;
+                    oy += r;
                 }
             }
             // D-194: the map compose read for this frame; with none, nothing is wiped.
@@ -4937,6 +5045,67 @@ fn still_weights(sigma_px: f64) -> Vec<f32> {
     let mut w = vec![0.0; 2 * r + 1];
     w[r] = 1.0;
     w
+}
+
+/// D-312: the layer at `source_opacity` % laid by `blend` on a solid of `color` (encoded) at
+/// `opacity` %, as After Effects' Solid Composite lays it.
+fn solid_composite(source: &mut WorkingBuffer, source_opacity: f64, color: [f64; 3], opacity: f64, blend: &str) {
+    use crate::model::BlendMode;
+    let mode = match blend {
+        "add" => BlendMode::Add,
+        "screen" => BlendMode::Screen,
+        "multiply" => BlendMode::Multiply,
+        _ => BlendMode::Normal,
+    };
+    let (k, o) = ((source_opacity / 100.0) as f32, (opacity / 100.0) as f32);
+    let lin = color.map(|c| crate::color::srgb_to_linear(c as f32) * o);
+    let solid = [lin[0], lin[1], lin[2], o];
+    source.data_mut().par_chunks_mut(4).for_each(|px| {
+        let src = [px[0] * k, px[1] * k, px[2] * k, px[3] * k];
+        px.copy_from_slice(&crate::composite::blend_pixel(mode, src, solid));
+    });
+}
+
+/// D-313: red, green, blue and alpha each blurred as Blur blurs, by their own sigma. A colour
+/// is blurred premultiplied and divided by the alpha blurred with it, then multiplied by the
+/// alpha's own blur; where its sigma is the alpha's it is the alpha's blur as it is, so four
+/// the same are Blur exactly. Where the colour's own blur has no alpha it keeps the colour as
+/// the alpha's blur has it, rather than black. Returns how far the buffer grew, the alpha's reach.
+fn channel_blur(source: &mut WorkingBuffer, sigma: [f64; 4], repeat: bool, axes: (bool, bool)) -> usize {
+    let blurred = |s: f64| {
+        let mut b = source.clone();
+        let r = if repeat {
+            held_blur_axes(&mut b, s, axes);
+            0
+        } else {
+            blur_axes(&mut b, s, axes)
+        };
+        (b, r)
+    };
+    let (mut out, g) = blurred(sigma[3]);
+    let w = out.width();
+    for c in 0..3 {
+        if sigma[c] == sigma[3] {
+            continue;
+        }
+        let (b, r) = blurred(sigma[c]);
+        let (bw, bh) = (b.width() as isize, b.height() as isize);
+        let shift = r as isize - g as isize;
+        let from = b.data();
+        out.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let (bx, by) = (x as isize + shift, y as isize + shift);
+                if (0..bw).contains(&bx) && (0..bh).contains(&by) {
+                    let q = &from[((by * bw + bx) * 4) as usize..][..4];
+                    if q[3] > 0.0 {
+                        px[c] = q[c] / q[3] * px[3];
+                    }
+                }
+            }
+        });
+    }
+    *source = out;
+    g
 }
 
 /// D-303: [`blur`] along across (`axes.0`), down (`axes.1`) or both. An axis not blurred along

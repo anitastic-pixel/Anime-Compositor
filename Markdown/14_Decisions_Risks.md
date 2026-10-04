@@ -682,7 +682,7 @@ Evidence in `verification/D-273_new_composition_and_precompose_windows.md`.
 
 D-274 / Match a file: size and rate from a drawing or video / **PROPOSED on 2026-10-03** from D-273. The board's "Match a file…" fills width, height, rate and length from a chosen file. It needs a route that reads a file's size and rate without bringing it in. Greyed in D-273's window until accepted.
 
-D-275 / Pixel shape, resolution, start frame and background per composition / **PROPOSED on 2026-10-03** from D-273. The window cannot set any of the four today: `composition.set_settings` has no field for them. Each needs a saved field or a command change (documents 19 and 24), and those that change the picture need fixtures first (document 21). Greyed in D-273's window until accepted.
+D-275 / Pixel shape, resolution, start frame and background per composition / **PROPOSED on 2026-10-03** from D-273. (The background row was built on 2026-10-04 as D-311; the other three remain proposed.) The window cannot set any of the four today: `composition.set_settings` has no field for them. Each needs a saved field or a command change (documents 19 and 24), and those that change the picture need fixtures first (document 21). Greyed in D-273's window until accepted.
 
 D-276 / Resize from an anchor / **PROPOSED on 2026-10-03** from D-273. The board lets the owner choose which of nine points of the frame stays put when the size changes, which moves every layer's position as one undo step. It needs `composition.set_settings` to move the layers with the size. Greyed in D-273's window until accepted.
 
@@ -897,6 +897,35 @@ D-310 / Bulge's Vertical Radius and Taper Radius / **BUILT on 2026-10-04** (B-19
 - The card draws the plain circle only; an oval or a taper is drawn on the CPU, so the preview and the export match.
 - B-193 checks it: at 0 both draw exactly as D-152, a pixel inside the oval is read from where the rule says and one outside it is left alone, a taper halves the swell where the rule says and leaves the middle alone, a draft halves both, and the file keeps them only when set.
 - FX-BULGE-001 to 023 are unchanged and still pass.
+
+D-311 / A composition's background colour / **BUILT on 2026-10-04** (B-194), from D-309 and P-26; it builds the Background row of D-275 and leaves that proposal's other three rows as they were. The Shockwave tutorial (1) sets After Effects' composition background colour; here a composition had none. **Awaiting the owner's playtest.**
+- The New composition and Composition settings window has a Background row: a Colour box and a colour. Unticked, there is none, as before.
+- With the checkerboard off, the viewer shows the colour behind the picture instead of its dark grey. With the checkerboard on, the checkerboard shows, as before.
+- An MP4, which has no alpha, is laid over the colour instead of over black. A PNG, an EXR, an animated PNG, a GIF and a composition placed in another stay see-through, as in After Effects; the frame itself does not change.
+- It is saved as `background_color`, three numbers from 0 to 1 in linear light, only when set; one out of range is refused when the file is read and when it is set. Setting it is one step to undo.
+- B-194 checks it: an old file has none and saves none, a set one is written, read back and undone, a bad one is refused in the file and in the command, and an MP4 pixel is mixed with the colour by its alpha, so a black background is exactly the MP4 as before.
+
+D-312 / Solid Composite / **BUILT on 2026-10-04** (B-195), from D-309 and P-26: the Advanced Electric tutorial (2) lays its lightning on a solid colour with After Effects' Solid Composite; here there was no such effect. **Awaiting the owner's playtest.**
+- A new effect under Color Correction, with After Effects' four settings: **Source Opacity** and **Opacity**, 0 to 100 and keyable; **Color**; and **Blending Mode**, Normal, Add, Screen or Multiply.
+- The layer, at Source Opacity, is laid by the blending mode on a solid of the colour at Opacity. It starts as After Effects' does, the layer over white.
+- It fills the layer's own area and does not grow it. It is drawn on the CPU; the card hands it over.
+- B-195 checks it by hand on two pixels for each mode and opacity, and that a wrong mode, colour or opacity is refused with a sentence.
+
+D-313 / Channel Blur / **BUILT on 2026-10-04** (B-195), from D-309 and P-26: the Colorful Glitch tutorial (3) blurs red, green and blue apart with After Effects' Channel Blur; here a blur took all four together. **Awaiting the owner's playtest.**
+- A new effect under Blur & Sharpen: **Red, Green, Blue and Alpha Blurriness**, each 0 to 500 in Blur's own units and keyable, with Blur's **Edges** and **Blur Dimensions**.
+- Four the same is exactly Blur. All at 0 changes nothing, which is how it starts.
+- Each colour is blurred by its own amount and laid inside the alpha's blur. Where a colour's own blur has no alpha it takes the colour the alpha's blur has, so blurring only the alpha softens a drawing's edge in its own colour rather than a dark rim.
+- The layer grows by the alpha's blur, as Blur's; a draft scales all four. It is drawn on the CPU.
+- B-195 checks it: four the same are Blur's bits at both edge settings and dimensions, red alone leaves green, blue and alpha exactly and softens red evenly across a line, the alpha alone on a one-colour drawing is Blur's picture, and both effects are saved and read back as written.
+
+D-315 / Displacement Map's Expand Output / **BUILT on 2026-10-04** (B-196), from D-309 and P-26: the Colorful Glitch tutorial (3) pushes slices of a picture past the layer's edge with After Effects' Expand Output; here a push stopped at the edge. **Awaiting the owner's playtest.**
+- A new row on Displacement Map, **Expand Output**, Off or On. Off is how it was, so every existing project draws as before.
+- On, the layer first grows by the larger of the two maximums on every side, so what is pushed out can land past the old edge.
+- The rule for what the map says outside the layer: the map's nearest edge colour carries on outward. Without that, a pixel past the edge would read "no push" and the margin would stay empty.
+- With Wrap Pixels Around on, Expand Output does nothing, as in After Effects.
+- It is saved as `expand` only when on or already in the file; a wrong word is reported with a sentence and the effect is left out of the frame (D-46).
+- B-196 checks it on a white card pushed 4 pixels right: off, the card is cut at its old edge; on, its last 4 pixels land past it; with wrap, on and off are the same; and the file keeps the setting only when set.
+- FX-DMAP-001 to 031 are unchanged and still pass.
 
 ## Assumptions and change log
 

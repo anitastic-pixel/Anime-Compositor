@@ -26,7 +26,8 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `doc.redo` is in the answer | present | present | pass |
 | `doc.solo` is in the answer | present | present | pass |
 | `doc.undo` is in the answer | present | present | pass |
-| the panels read 15 fields out of the composition on screen | true | true | pass |
+| the panels read 16 fields out of the composition on screen | true | true | pass |
+| `comp.background_color` is in the answer | present | present | pass |
 | `comp.camera` is in the answer | present | present | pass |
 | `comp.duration_frames` is in the answer | present | present | pass |
 | `comp.frame_blending` is in the answer | present | present | pass |
@@ -282,7 +283,11 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - completion, block_width, block_height, feather - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.shift_channels` is an effect this build has | added | added | pass |
 | and the settings it sends for it - take_alpha, take_red, take_green, take_blue - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.solid_composite` is an effect this build has | added | added | pass |
+| and the settings it sends for it - source_opacity, color, opacity, blend - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.channel_blur` is an effect this build has | added | added | pass |
+| and the settings it sends for it - red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, edges, dimensions - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**264 of 264 checks pass.**
+**269 of 269 checks pass.**

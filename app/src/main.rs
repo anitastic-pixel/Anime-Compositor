@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3852,6 +3852,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             vertical: "green".to_string(),
             max_vertical: 5.0,
             wrap: "off".to_string(),
+            expand: "off".to_string(),
             map: None,
         }),
         // D-194: After Effects' own: nothing wiped yet, a hard edge, stretched.
@@ -4071,6 +4072,22 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             take_red: "red".to_string(),
             take_green: "green".to_string(),
             take_blue: "blue".to_string(),
+        }),
+        // D-312: After Effects' start, the layer over white.
+        SOLID_COMPOSITE => Some(Effect::SolidComposite {
+            source_opacity: 100.0,
+            color: "#ffffff".to_string(),
+            opacity: 100.0,
+            blend: "normal".to_string(),
+        }),
+        // D-313: no blur, which changes nothing.
+        CHANNEL_BLUR => Some(Effect::ChannelBlur {
+            red_blurriness: 0.0,
+            green_blurriness: 0.0,
+            blue_blurriness: 0.0,
+            alpha_blurriness: 0.0,
+            edges: "transparent".to_string(),
+            dimensions: "both".to_string(),
         }),
         _ => None,
     }
@@ -4721,6 +4738,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             vertical: word("vertical")?,
             max_vertical: number("max_vertical")?,
             wrap: word("wrap")?,
+            // D-315: off when the command does not say.
+            expand: word("expand").unwrap_or_else(|_| "off".to_string()),
             map: None,
         }),
         // D-189: as Compound Blur's, the setting travels as `map_layer`.
@@ -4921,6 +4940,20 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             take_red: word("take_red")?,
             take_green: word("take_green")?,
             take_blue: word("take_blue")?,
+        }),
+        SOLID_COMPOSITE => Ok(Effect::SolidComposite {
+            source_opacity: number("source_opacity")?,
+            color: word("color")?,
+            opacity: number("opacity")?,
+            blend: word("blend")?,
+        }),
+        CHANNEL_BLUR => Ok(Effect::ChannelBlur {
+            red_blurriness: number("red_blurriness")?,
+            green_blurriness: number("green_blurriness")?,
+            blue_blurriness: number("blue_blurriness")?,
+            alpha_blurriness: number("alpha_blurriness")?,
+            edges: edges(),
+            dimensions: word("dimensions").unwrap_or_else(|_| "both".to_string()),
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
         // keeping it means keeping its settings as they were written. There is no schema here
@@ -5598,10 +5631,28 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     ))
                 }
             };
+            // D-311: `none`, or three numbers from 0 to 1, linear; a page that does not send it
+            // keeps what the composition has.
+            let background_color = match parameter(query, "background_color").as_deref().map(str::trim) {
+                None => comp.background_color,
+                Some("none") => None,
+                Some(text) => {
+                    let n: Vec<f64> = text.split(',').filter_map(|v| v.trim().parse().ok()).collect();
+                    match n[..] {
+                        [r, g, b] => Some([r, g, b]),
+                        _ => {
+                            return Some(format!(
+                                "\"{text}\" is not a background colour. Send three numbers from 0 to 1, or none."
+                            ))
+                        }
+                    }
+                }
+            };
             let said = edit(
                 viewer,
                 Command::SetCompositionSettings {
                     composition: comp.id.clone(),
+                    background_color,
                     name: parameter(query, "name").unwrap_or(comp.name),
                     width,
                     height,
@@ -8339,7 +8390,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve or core.shift_channels."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite or core.channel_blur."
                                 .to_string(),
                         );
                     };
@@ -8367,7 +8418,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve and core.shift_channels."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite and core.channel_blur."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -13899,7 +13950,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve and core.shift_channels.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite and core.channel_blur.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -13921,7 +13972,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve or core.shift_channels.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite or core.channel_blur.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -27104,6 +27155,8 @@ mod contract {
             "layer.precompose?layer=layer-1",
             // B-28i: and D-84f's title block, written only when one of its four is.
             "composition.set_settings?episode=3",
+            // D-311: and a background colour, written only when there is one.
+            "composition.set_settings?background_color=0.5,0.25,1",
             // D-261: and a sketch layer with a stroke, written only when there is one. D-271:
             // drawn with a pen, since its pressure is written only then.
             "sketch.set_layer?sketch=sketch-a&name=Notes",
@@ -28172,6 +28225,22 @@ mod contract {
             "core.shift_channels",
             &[("take_alpha", "luminance"), ("take_red", "full"), ("take_green", "hue"), ("take_blue", "off")],
         ),
+        // D-312, D-313.
+        (
+            "core.solid_composite",
+            &[("source_opacity", "80"), ("color", "%23203040"), ("opacity", "60"), ("blend", "screen")],
+        ),
+        (
+            "core.channel_blur",
+            &[
+                ("red_blurriness", "3"),
+                ("green_blurriness", "0"),
+                ("blue_blurriness", "8"),
+                ("alpha_blurriness", "2"),
+                ("edges", "repeat"),
+                ("dimensions", "horizontal"),
+            ],
+        ),
         // D-204: the colour and the numbers.
         (
             "core.snowfall",
@@ -28623,7 +28692,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 128] = [
+    const CONTROLS: [&str; 129] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -28652,6 +28721,7 @@ mod contract {
         "compadvtab",
         "comparebtn",
         "compbasictab",
+        "compbgon",
         "compfps",
         "compframes",
         "compguides",

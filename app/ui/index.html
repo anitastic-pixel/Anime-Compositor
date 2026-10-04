@@ -2397,7 +2397,7 @@
         <div class="fr"><span class="lb">Resolution</span><select disabled><option>Full</option></select><span class="dim" id="compres"></span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-275. The viewer's Draft button sets it for every composition today.">proposed</span></div>
         <div class="fr"><span class="lb">Start frame</span><input id="compstart" type="number" value="0" disabled><span class="dim">the ruler's first number</span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-275.">proposed</span></div>
         <div class="fr"><label class="lb" for="compframes">Length</label><input id="compframes" type="number" min="1" value="240"><span class="dim">frames</span><span id="complength" class="blue"></span></div>
-        <div class="fr"><span class="lb">Background</span><span class="swatch"></span><span class="dim">Black</span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-275.">proposed</span></div>
+        <div class="fr"><span class="lb">Background</span><label><input id="compbgon" type="checkbox"> Colour</label><input id="compbg" type="color" value="#000000" title="Shown behind the picture with the checkerboard off, and behind an MP4"><span class="dim">a PNG or EXR stays see-through</span></div>
       </div>
       <div id="compadv" class="pane" hidden>
         <div class="fr tall"><span class="lb">Resize from</span><span class="anc" aria-hidden="true"><i></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i></i></span><span class="dim">Which edge stays put when the size changes</span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-276. Today a new size keeps the layers where they are, from the top left.">proposed</span></div>
@@ -2791,6 +2791,9 @@ async function show(url, keep = true) {
     $('alpha').setAttribute('aria-pressed', String(alphaOnly));
     const grid = h.get('x-checkerboard') === 'true';
     view.classList.toggle('grid', grid);
+    // D-311: the composition's background colour behind the picture, with the grid off.
+    const bgComp = composition();
+    view.style.backgroundColor = !grid && bgComp && bgComp.background_color ? hexOf(bgComp.background_color) : '';
     $('checker').classList.toggle('on', grid);
     $('checker').setAttribute('aria-pressed', String(grid));
 
@@ -7789,9 +7792,12 @@ function paints() {
   const whole = px(view.getBoundingClientRect());
   const shows = cut(whole);
   // The canvas's own background, as `canvas` and `canvas.grid` above paint it.
+  // D-311: with the grid off, the composition's background colour if it has one.
+  const bgComp = composition();
+  const bg = bgComp && bgComp.background_color ? [1, 3, 5].map((at) => parseInt(hexOf(bgComp.background_color).slice(at, at + 2), 16)) : [42, 42, 46];
   items.push(view.classList.contains('grid')
     ? [1, ...shows, ...whole, 42, 42, 46, 51, 51, 56, 8 * d]
-    : [0, ...shows, ...whole, 42, 42, 46, 0, 0, 0, 0]);
+    : [0, ...shows, ...whole, ...bg, 0, 0, 0, 0]);
   items.push([2, ...shows, ...whole, 0, 0, 0, 0, 0, 0, 0]);
   return items.map((i) => i.join(',')).join(';');
 }
@@ -9270,6 +9276,8 @@ const EFFECT_NAMES = {
   'core.bevel_edges': 'Bevel Edges',
   'core.block_dissolve': 'Block Dissolve',
   'core.shift_channels': 'Shift Channels',
+  'core.solid_composite': 'Solid Composite',
+  'core.channel_blur': 'Channel Blur',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -9277,11 +9285,11 @@ const EFFECT_NAMES = {
 const EFFECT_GROUPS = [
   ['Blur & Sharpen', ['core.gaussian_blur', 'core.directional_blur', 'core.radial_blur',
     'core.lens_blur', 'core.compound_blur', 'core.selective_color_blur', 'core.sharpen',
-    'core.diffusion', 'core.median', 'core.smart_blur']],
+    'core.diffusion', 'core.median', 'core.smart_blur', 'core.channel_blur']],
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.change_to_color',
-    'core.invert', 'core.color_lookup', 'core.shift_channels']],
+    'core.invert', 'core.color_lookup', 'core.shift_channels', 'core.solid_composite']],
   ['Light & Glow', ['core.glow', 'core.bloom', 'core.light_rays', 'core.rim_light',
     'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.lightning_bolt', 'core.exposure_flicker',
     'core.paraffin']],
@@ -9375,6 +9383,8 @@ const EFFECT_SEARCH = {
   'core.bevel_edges': 'bevel edges raised frame tile button panel light 3d relief perspective',
   'core.block_dissolve': 'block dissolve random squares pixels break up vanish appear reveal transition',
   'core.shift_channels': 'shift channels swap red green blue alpha luminance take from channel matte',
+  'core.solid_composite': 'solid composite colour color background fill behind under channel',
+  'core.channel_blur': 'channel blur red green blue alpha separate per channel soften',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -9489,6 +9499,8 @@ const EFFECT_ABOUT = {
   'core.bevel_edges': 'Makes the layer look like a raised tile, its four sides lit toward a light and darkened away from it.',
   'core.block_dissolve': 'Makes the layer vanish or appear in random blocks.',
   'core.shift_channels': 'Takes each of red, green, blue and alpha from another channel, or from the brightness, hue or saturation.',
+  'core.solid_composite': 'Lays the layer on a solid colour, each at its own opacity, with a blend.',
+  'core.channel_blur': 'Blurs red, green, blue and alpha each by its own amount.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -9727,6 +9739,14 @@ const EFFECT_PARAMS = {
   // D-214, After Effects' own words.
   // D-305: only choices.
   'core.shift_channels': [],
+  // D-312.
+  'core.solid_composite': [['source_opacity', 'Source Opacity', 1, 1, '% of the layer, 0 to 100'],
+    ['opacity', 'Opacity', 1, 1, '% of the colour, 0 to 100']],
+  // D-313: blurriness as Blur's radius.
+  'core.channel_blur': [['red_blurriness', 'Red Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels'],
+    ['green_blurriness', 'Green Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels'],
+    ['blue_blurriness', 'Blue Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels'],
+    ['alpha_blurriness', 'Alpha Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels']],
   'core.block_dissolve': [['completion', 'Transition Completion', 1, 1, '% of the blocks gone, 0 to 100'],
     ['block_width', 'Block Width', 1, 1, 'pixels, 1 to 10000'],
     ['block_height', 'Block Height', 1, 1, 'pixels, 1 to 10000'],
@@ -10090,6 +10110,14 @@ const EFFECT_WORDS = {
     choices: [['channel', 'Channel', [['luminance', 'Luminance'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']]],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
   },
+  // D-312.
+  'core.solid_composite': {
+    choices: [['blend', 'Blending Mode', [['normal', 'Normal'], ['add', 'Add'], ['screen', 'Screen'], ['multiply', 'Multiply']]]],
+    colours: [['color', 'Color']],
+  },
+  // D-313.
+  'core.channel_blur': { choices: [EDGES, ['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],
+    ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]]] },
   // D-305: After Effects' own words and order.
   'core.shift_channels': {
     choices: [['take_alpha', 'Take Alpha From', [['alpha', 'Alpha'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['luminance', 'Luminance'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'], ['full', 'Full'], ['half', 'Half'], ['off', 'Off']]], ['take_red', 'Take Red From', [['alpha', 'Alpha'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['luminance', 'Luminance'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'], ['full', 'Full'], ['half', 'Half'], ['off', 'Off']]],
@@ -10152,7 +10180,9 @@ const EFFECT_WORDS = {
     choices: [['horizontal', 'Use For Horizontal Displacement', MAP_CHANNELS],
       ['vertical', 'Use For Vertical Displacement', MAP_CHANNELS],
       ['fit', 'Displacement Map Behavior', [['stretch', 'Stretch Map to Fit'], ['center', 'Centre Map'], ['tile', 'Tile Map']]],
-      ['wrap', 'Wrap Pixels Around', [['off', 'Off'], ['on', 'On']]]],
+      ['wrap', 'Wrap Pixels Around', [['off', 'Off'], ['on', 'On']]],
+      // D-315.
+      ['expand', 'Expand Output', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-194, After Effects' own words.
   'core.gradient_wipe': {
@@ -13674,6 +13704,10 @@ let settingComp = null;
 const SHEET_DETAILS = [['episode', 'compepisode'], ['scene', 'compscene'], ['cut', 'compcut'], ['animator', 'companimator']];
 // D-188: the shutter's three, sent only when one of them was changed.
 const SHUTTER = ['compangle', 'compphase', 'compsamples'];
+// D-311: what the Background row says, as the command takes it.
+function compBackground() {
+  return $('compbgon').checked ? linearOf($('compbg').value).map((v) => +v.toFixed(6)).join(',') : 'none';
+}
 function compSettings() {
   const comp = composition();
   if (!comp) return;
@@ -13691,7 +13725,10 @@ function compSettings() {
   $('compphase').value = shutter.shutter_phase;
   $('compsamples').value = shutter.samples;
   $('compstart').value = comp.start_frame || 0;
-  settingComp = { fps: $('compfps').value, shutter: SHUTTER.map((box) => $(box).value).join() };
+  // D-311.
+  $('compbgon').checked = !!comp.background_color;
+  $('compbg').value = comp.background_color ? hexOf(comp.background_color) : '#000000';
+  settingComp = { fps: $('compfps').value, shutter: SHUTTER.map((box) => $(box).value).join(), bg: compBackground() };
   openCompDialog(false);
 }
 // D-273: the redesign's window. The sizes a preset or a shape button gives; the shapes are the first five.
@@ -14733,6 +14770,8 @@ $('newcomp').onclick = () => {
   for (const [, box] of SHEET_DETAILS) $(box).value = '';
   SHUTTER_AT_FIRST.split(',').forEach((v, i) => { $(SHUTTER[i]).value = v; });
   $('compstart').value = 0;
+  $('compbgon').checked = false;
+  $('compbg').value = '#000000';
   openCompDialog(true);
 };
 $('cancelcomp').onclick = () => $('newcomposition').close();
@@ -14863,13 +14902,14 @@ $('makecomp').onclick = async () => {
   const settings = settingComp;
   settingComp = null;
   $('newcomposition').close();
-  const sheet = SHEET_DETAILS.map(([k, box]) => '&' + k + '=' + encodeURIComponent($(box).value)).join('');
+  const sheet = SHEET_DETAILS.map(([k, box]) => '&' + k + '=' + encodeURIComponent($(box).value)).join('')
+    + (compBackground() === (settings ? settings.bg : 'none') ? '' : '&background_color=' + compBackground());
   // W-43 fix: the create is the other half of `if (settings)`. Hung off the shutter's test since
   // B-124b, applying Ctrl+K without touching the shutter also made an empty copy of the composition.
   // D-273: a new one's Advanced tab is sent after it is made, and only what was filled in or changed.
   if (!settings) {
     await command('/composition.create?' + q + fps);
-    if (SHEET_DETAILS.some(([, box]) => $(box).value.trim())) await command('/composition.set_settings?' + sheet.slice(1));
+    if (SHEET_DETAILS.some(([, box]) => $(box).value.trim()) || $('compbgon').checked) await command('/composition.set_settings?' + sheet.slice(1));
   } else command('/composition.set_settings?' + q + sheet + ($('compfps').value === settings.fps ? '' : fps));
   if (SHUTTER.map((box) => $(box).value).join() !== (settings ? settings.shutter : SHUTTER_AT_FIRST)) {
     command('/composition.set_motion_blur?angle=' + encodeURIComponent($('compangle').value)

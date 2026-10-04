@@ -69,6 +69,7 @@ fn d253_d254_status_and_labels_round_trip() {
         frame_rate: comp.frame_rate,
         duration_frames: comp.duration_frames,
         sheet_details: details,
+        background_color: None,
     })
     .unwrap_or_else(|d| panic!("{}", d.message));
     doc.apply(Command::SetItemLabel { item: comp.id.clone(), label: 5 }).unwrap_or_else(|d| panic!("{}", d.message));

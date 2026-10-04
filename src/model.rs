@@ -1217,6 +1217,12 @@ pub struct Composition {
     /// that draws a frame reads them. Saved as `sketches` only when there are some or the file
     /// already had the key.
     pub sketches: Vec<SketchLayer>,
+    /// D-311: After Effects' composition background colour, linear RGB each 0 to 1, or `None`
+    /// for none. The viewer shows it behind the picture with the checkerboard off, and an MP4,
+    /// which has no alpha, is laid over it; the frame itself, a PNG, an EXR and a composition
+    /// inside another stay see-through, as in After Effects. Saved as `background_color` only
+    /// when set.
+    pub background_color: Option<[f64; 3]>,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
 }
@@ -1365,6 +1371,7 @@ impl Composition {
             frame_blending: false,
             label: 0,
             sketches: Vec::new(),
+            background_color: None,
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }

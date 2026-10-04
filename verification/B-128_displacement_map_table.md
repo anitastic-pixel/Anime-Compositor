@@ -93,7 +93,7 @@ D-193, accepted by the owner on 2026-09-28 ("take everything"). Every expected p
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | maxima of 1000 and -1000, the most, never grow the drawing's bounds | 0 | yes |
-| a half-size draft preview halves both maxima, and nothing else | DisplacementMap { layer: String("ramp"), fit: "stretch", horizontal: "red", max_horizontal: 10.0, vertical: "green", max_vertical: -4.0, wrap: "off", map: None } | yes |
+| a half-size draft preview halves both maxima, and nothing else | DisplacementMap { layer: String("ramp"), fit: "stretch", horizontal: "red", max_horizontal: 10.0, vertical: "green", max_vertical: -4.0, wrap: "off", expand: "off", map: None } | yes |
 
 ## The file
 

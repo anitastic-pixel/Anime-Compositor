@@ -269,6 +269,8 @@ pub enum Command {
         duration_frames: u32,
         /// D-84f: the title block's four, in the same step as the rest.
         sheet_details: crate::model::SheetDetails,
+        /// D-311: the background colour, linear RGB each 0 to 1, or `None` for none.
+        background_color: Option<[f64; 3]>,
     },
     ReorderLayer {
         composition: Id,
@@ -2659,8 +2661,15 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             frame_rate,
             duration_frames,
             sheet_details,
+            background_color,
             ..
         } => {
+            if background_color.is_some_and(|c| c.iter().any(|v| !(0.0..=1.0).contains(v))) {
+                return Err(reject(
+                    "A background colour is three numbers from 0 to 1.",
+                    "D-311: a composition's background colour is linear RGB, each 0 to 1.",
+                ));
+            }
             let comp = comp_mut(project, &comp_id)?;
             check_composition_size(&Composition::new(
                 comp.id.clone(),
@@ -2678,6 +2687,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             comp.frame_rate = *frame_rate;
             comp.duration_frames = *duration_frames;
             comp.sheet_details = sheet_details.clone();
+            comp.background_color = *background_color;
             comp.work_area = comp
                 .work_area
                 .map(|(start, end)| (start, end.min(past)))

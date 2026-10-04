@@ -216,6 +216,7 @@ const KEY_ORDER: &[&str] = &[
     "frame_blend",
     "drawing_dissolve",
     "frame_blending",
+    "background_color",
 ];
 
 /// An effect record is the one place a flat list is not enough: it spells `enabled` after
@@ -1972,7 +1973,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("invert".into(), J::from(invert.as_str()));
             params.insert("edges".into(), J::from(edges.as_str()));
         }
-        Effect::DisplacementMap { layer, fit, horizontal, max_horizontal, vertical, max_vertical, wrap, .. } => {
+        Effect::DisplacementMap { layer, fit, horizontal, max_horizontal, vertical, max_vertical, wrap, expand, .. } => {
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
             params.insert("horizontal".into(), J::from(horizontal.as_str()));
@@ -1980,6 +1981,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("vertical".into(), J::from(vertical.as_str()));
             params.insert("max_vertical".into(), num(*max_vertical));
             params.insert("wrap".into(), J::from(wrap.as_str()));
+            // D-315: as D-303's, written only when changed or in the file already.
+            if expand != "off" || params.contains_key("expand") {
+                params.insert("expand".into(), J::from(expand.as_str()));
+            }
         }
         Effect::GradientWipe { layer, fit, completion, softness, invert, .. } => {
             params.insert("layer".into(), layer.clone());
@@ -2307,6 +2312,27 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("take_green".into(), J::from(take_green.as_str()));
             params.insert("take_blue".into(), J::from(take_blue.as_str()));
         }
+        Effect::SolidComposite { source_opacity, color, opacity, blend } => {
+            params.insert("source_opacity".into(), num(*source_opacity));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("blend".into(), J::from(blend.as_str()));
+        }
+        Effect::ChannelBlur {
+            red_blurriness,
+            green_blurriness,
+            blue_blurriness,
+            alpha_blurriness,
+            edges,
+            dimensions,
+        } => {
+            params.insert("red_blurriness".into(), num(*red_blurriness));
+            params.insert("green_blurriness".into(), num(*green_blurriness));
+            params.insert("blue_blurriness".into(), num(*blue_blurriness));
+            params.insert("alpha_blurriness".into(), num(*alpha_blurriness));
+            put_edges(&mut params, edges);
+            params.insert("dimensions".into(), J::from(dimensions.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -2505,6 +2531,15 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
         merged["frame_blending"] = J::from(true);
     } else if let Some(map) = merged.as_object_mut() {
         map.remove("frame_blending");
+    }
+    // D-311: written only when set.
+    match composition.background_color {
+        Some(c) => merged["background_color"] = J::Array(c.iter().map(|v| num(*v)).collect()),
+        None => {
+            if let Some(map) = merged.as_object_mut() {
+                map.remove("background_color");
+            }
+        }
     }
     // D-261: written only when there are some or the file had the key.
     if !composition.sketches.is_empty() || base.is_some_and(|b| b.get("sketches").is_some()) {
@@ -3510,6 +3545,8 @@ fn parse_effect(
         crate::effects::BEVEL_EDGES,
         crate::effects::BLOCK_DISSOLVE,
         crate::effects::SHIFT_CHANNELS,
+        crate::effects::SOLID_COMPOSITE,
+        crate::effects::CHANNEL_BLUR,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -4056,6 +4093,7 @@ fn parse_effect(
             vertical: effect_word(params, "vertical", &at)?,
             max_vertical: effect_number(params, "max_vertical", &at)?,
             wrap: effect_word(params, "wrap", &at)?,
+            expand: effect_word_or(params, "expand", &at, "off")?,
             map: None,
         }),
         // D-194: the layer is kept as written, as Compound Blur's is.
@@ -4254,6 +4292,20 @@ fn parse_effect(
             take_red: effect_word(params, "take_red", &at)?,
             take_green: effect_word(params, "take_green", &at)?,
             take_blue: effect_word(params, "take_blue", &at)?,
+        }),
+        crate::effects::SOLID_COMPOSITE => Some(crate::effects::Effect::SolidComposite {
+            source_opacity: effect_number(params, "source_opacity", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            opacity: effect_number(params, "opacity", &at)?,
+            blend: effect_word(params, "blend", &at)?,
+        }),
+        crate::effects::CHANNEL_BLUR => Some(crate::effects::Effect::ChannelBlur {
+            red_blurriness: effect_number(params, "red_blurriness", &at)?,
+            green_blurriness: effect_number(params, "green_blurriness", &at)?,
+            blue_blurriness: effect_number(params, "blue_blurriness", &at)?,
+            alpha_blurriness: effect_number(params, "alpha_blurriness", &at)?,
+            edges: effect_edges(params, &at)?,
+            dimensions: effect_word(params, "dimensions", &at)?,
         }),
         _ => None,
     };
@@ -5633,6 +5685,22 @@ fn parse_composition(
     // D-216 (FX-FBLEND-056).
     if let Some(on) = v.get("frame_blending") {
         composition.frame_blending = as_bool(on, &format!("{pointer}/frame_blending"))?;
+    }
+    // D-311: three numbers from 0 to 1, or the file is refused.
+    if let Some(c) = v.get("background_color") {
+        let at = format!("{pointer}/background_color");
+        let list = as_array(c, &at)?;
+        let mut rgb = [0.0; 3];
+        if list.len() != 3 {
+            return Err(invalid(&at, "three numbers from 0 to 1 (D-311)"));
+        }
+        for (i, x) in list.iter().enumerate() {
+            rgb[i] = as_f64(x, &format!("{at}/{i}"))?;
+            if !(0.0..=1.0).contains(&rgb[i]) {
+                return Err(invalid(&at, "three numbers from 0 to 1 (D-311)"));
+            }
+        }
+        composition.background_color = Some(rgb);
     }
     if let Some(sketches) = v.get("sketches") {
         let at = format!("{pointer}/sketches");

@@ -33,6 +33,7 @@ fn dmap(layer: J, fit: &str, horizontal: &str, max_horizontal: f64, vertical: &s
         vertical: vertical.to_string(),
         max_vertical,
         wrap: wrap.to_string(),
+        expand: "off".to_string(),
         map: None,
     }
 }

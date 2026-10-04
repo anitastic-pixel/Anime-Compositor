@@ -516,6 +516,7 @@ fn b05_model_and_undo() {
         frame_rate: FrameRate::new(12, 1).expect("12 fps"),
         duration_frames: (past - first - 1) as u32,
         sheet_details: Default::default(),
+        background_color: None,
     };
     report.check(
         "composition settings: a width of nought is refused",

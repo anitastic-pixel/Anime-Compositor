@@ -2753,15 +2753,17 @@ pub(crate) fn compound_blur(
 /// down by the map under it, the map lying on the layer's own picture, which sits at `origin` in
 /// `source`. `words` name the map's channels for across and down, and `most` how far each moves
 /// where that channel is white; black moves as far the other way, and mid grey not at all.
-/// Outside the picture is clear, or with `wrap`, the picture's far side.
+/// Outside the picture is clear, or with `wrap`, the picture's far side. D-315: with `expand`
+/// and not `wrap`, the buffer first grows clear by the larger maximum rounded up, returned, and a
+/// place past the map's edge reads the map's nearest edge pixel, so a push carries on outward.
 pub(crate) fn displacement_map(
     source: &mut WorkingBuffer,
     map: &WorkingBuffer,
     origin: (usize, usize),
     words: [&str; 2],
     most: [f64; 2],
-    wrap: bool,
-) {
+    (wrap, expand): (bool, bool),
+) -> usize {
     let value = |word: &str, m: [f32; 4]| {
         let a = m[3] as f64;
         match word {
@@ -2784,19 +2786,30 @@ pub(crate) fn displacement_map(
         };
         0.5 + a * (k - 0.5)
     };
-    let from = source.clone();
+    let g = if expand && !wrap { most[0].abs().max(most[1].abs()).ceil() as usize } else { 0 };
+    let from = std::mem::replace(source, WorkingBuffer::transparent(0, 0));
     let (w, h) = (from.width(), from.height());
     let (mw, mh) = (map.width(), map.height());
-    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
+    let mut out = WorkingBuffer::transparent(w + 2 * g, h + 2 * g);
+    let (ox, oy) = ((origin.0 + g) as i64, (origin.1 + g) as i64);
+    out.data_mut().par_chunks_mut((w + 2 * g) * 4).enumerate().for_each(|(y, row)| {
         for (x, o) in row.chunks_mut(4).enumerate() {
-            let (mx, my) = (x.wrapping_sub(origin.0), y.wrapping_sub(origin.1));
-            let m = if mx < mw && my < mh { map.pixel(mx, my) } else { [0.0; 4] };
-            let sx = x as f64 + 0.5 + (2.0 * value(words[0], m) - 1.0) * most[0];
-            let sy = y as f64 + 0.5 + (2.0 * value(words[1], m) - 1.0) * most[1];
+            let (mx, my) = (x as i64 - ox, y as i64 - oy);
+            let m = if mx >= 0 && my >= 0 && (mx as usize) < mw && (my as usize) < mh {
+                map.pixel(mx as usize, my as usize)
+            } else if g > 0 && mw > 0 && mh > 0 {
+                map.pixel(mx.clamp(0, mw as i64 - 1) as usize, my.clamp(0, mh as i64 - 1) as usize)
+            } else {
+                [0.0; 4]
+            };
+            let sx = x as f64 + 0.5 + (2.0 * value(words[0], m) - 1.0) * most[0] - g as f64;
+            let sy = y as f64 + 0.5 + (2.0 * value(words[1], m) - 1.0) * most[1] - g as f64;
             let p = if wrap { wrapped(&from, (w, h), sx, sy) } else { sample_bilinear(&from, sx, sy) };
             o.copy_from_slice(&p);
         }
     });
+    *source = out;
+    g
 }
 
 /// Document 21's bilinear read, the four pixels' places taken round the picture's edges.

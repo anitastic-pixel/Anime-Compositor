@@ -265,6 +265,7 @@ fn b129_gradient_wipe() {
                         vertical: "green".to_string(),
                         max_vertical: 5.0,
                         wrap: "off".to_string(),
+                        expand: "off".to_string(),
                         map: None,
                     },
                 ),
