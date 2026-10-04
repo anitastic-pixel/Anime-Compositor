@@ -653,11 +653,13 @@ pub(crate) fn turbulent_displace(
     z: f64,
     repeat: bool,
     origin: (usize, usize),
+    (displacement, pin): (&str, bool),
 ) -> usize {
     if amount == 0.0 {
         return 0;
     }
     let g = if repeat { 0 } else { amount.ceil() as usize };
+    let (iw, ih) = (source.width() as f64, source.height() as f64);
     let (w, h) = (source.width() + 2 * g, source.height() + 2 * g);
     let (ox, oy) = ((origin.0 + g) as f64, (origin.1 + g) as f64);
     let base = crate::grade::mix(seed.floor() as u64);
@@ -669,8 +671,25 @@ pub(crate) fn turbulent_displace(
         .for_each(|(i, px)| {
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
             let p = ((x - ox) / size, (y - oy) / size, z);
-            let mut sx = x + amount * crate::grade::fractal(base, 0, p, octaves);
-            let mut sy = y + amount * crate::grade::fractal(base, 1, p, octaves);
+            // D-306: a pinned push fades over one `size` from each edge of the buffer it was handed.
+            let k = if pin {
+                let fade = |d: f64| {
+                    let t = (d / size).clamp(0.0, 1.0);
+                    t * t * (3.0 - 2.0 * t)
+                };
+                let (u, v) = (x - g as f64, y - g as f64);
+                fade(u) * fade(iw - u) * fade(v) * fade(ih - v)
+            } else {
+                1.0
+            };
+            let mut sx = x;
+            let mut sy = y;
+            if displacement != "vertical" {
+                sx += k * amount * crate::grade::fractal(base, 0, p, octaves);
+            }
+            if displacement != "horizontal" {
+                sy += k * amount * crate::grade::fractal(base, 1, p, octaves);
+            }
             if repeat {
                 sx = sx.clamp(0.5, w as f64 - 0.5);
                 sy = sy.clamp(0.5, h as f64 - 0.5);

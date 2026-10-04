@@ -583,7 +583,9 @@ pub enum Effect {
     /// 8, its whole part counted; `evolution`, -100000 to 100000 degrees; `speed`, -360 to 360
     /// degrees a frame; `seed`, 0 to 100000, its whole part counted; and `edges`,
     /// "transparent" or "repeat", kept as written so a wrong one is reported. `frame` is not a
-    /// setting and is never saved: it is the composition frame, as Noise's is.
+    /// setting and is never saved: it is the composition frame, as Noise's is. D-306:
+    /// `displacement`, "turbulent", "horizontal" or "vertical", which ways a pixel is pushed;
+    /// `pinning`, "none" or "all", whether the push fades out at the layer's edges.
     TurbulentDisplace {
         amount: f64,
         size: f64,
@@ -593,6 +595,8 @@ pub enum Effect {
         seed: f64,
         edges: String,
         frame: i32,
+        displacement: String,
+        pinning: String,
     },
     /// D-128: `size`, 1 to 1000 pixels a cloud; `complexity`, 1 to 8, its whole part counted;
     /// `contrast`, 0 to 1000; `brightness`, -100 to 100; `evolution`, -100000 to 100000
@@ -1254,6 +1258,14 @@ pub enum Effect {
         block_height: f64,
         feather: f64,
     },
+    /// D-305: where each channel comes from, After Effects' Take Alpha, Red, Green and Blue From:
+    /// one of [`SHIFT_CHANNELS_FROM`].
+    ShiftChannels {
+        take_alpha: String,
+        take_red: String,
+        take_green: String,
+        take_blue: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1353,6 +1365,10 @@ pub const EXTRACT: &str = "core.extract";
 pub const BEVEL_ALPHA: &str = "core.bevel_alpha";
 pub const BEVEL_EDGES: &str = "core.bevel_edges";
 pub const BLOCK_DISSOLVE: &str = "core.block_dissolve";
+pub const SHIFT_CHANNELS: &str = "core.shift_channels";
+/// D-305: what Shift Channels can take a channel from.
+pub const SHIFT_CHANNELS_FROM: [&str; 11] =
+    ["alpha", "red", "green", "blue", "luminance", "hue", "lightness", "saturation", "full", "half", "off"];
 
 /// D-68: one key of an effect's setting, as a command gives it. `value` is one number, or a
 /// colour's three.
@@ -1892,6 +1908,7 @@ impl Effect {
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
             Effect::ColorLookup { .. } => vec![],
+            Effect::ShiftChannels { .. } => vec![],
             Effect::LineBlur { length, strength, .. } => vec![
                 ("length", vec![length], 0.0, 50.0),
                 ("strength", vec![strength], 0.0, 100.0),
@@ -2541,6 +2558,7 @@ impl Effect {
             Effect::BevelAlpha { .. } => "Bevel Alpha",
             Effect::BevelEdges { .. } => "Bevel Edges",
             Effect::BlockDissolve { .. } => "Block Dissolve",
+            Effect::ShiftChannels { .. } => "Shift Channels",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2640,6 +2658,7 @@ impl Effect {
             Effect::BevelAlpha { .. } => BEVEL_ALPHA,
             Effect::BevelEdges { .. } => BEVEL_EDGES,
             Effect::BlockDissolve { .. } => BLOCK_DISSOLVE,
+            Effect::ShiftChannels { .. } => SHIFT_CHANNELS,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2985,7 +3004,16 @@ impl Effect {
             }
             Effect::LightRays { color, .. } => hex_fault("Light Rays", "colour", color),
             Effect::Vignette { color, .. } => hex_fault("Vignette", "colour", color),
-            Effect::TurbulentDisplace { edges: e, .. } => edges(e),
+            Effect::TurbulentDisplace { edges: e, displacement, pinning, .. } => edges(e)
+                .or_else(|| {
+                    (!["turbulent", "horizontal", "vertical"].contains(&displacement.as_str())).then(|| {
+                        format!("{name}'s displacement is \"turbulent\", \"horizontal\" or \"vertical\", and this is \"{displacement}\".")
+                    })
+                })
+                .or_else(|| {
+                    (!["none", "all"].contains(&pinning.as_str()))
+                        .then(|| format!("{name}'s pinning is \"none\" or \"all\", and this is \"{pinning}\"."))
+                }),
             Effect::FractalNoise { blend, .. }
                 if !["normal", "multiply", "screen", "add"].contains(&blend.as_str()) =>
             {
@@ -3048,6 +3076,19 @@ impl Effect {
                     "Light Wrap's blend is \"screen\" or \"add\", and this is \"{blend}\"."
                 ))
             }
+            Effect::ShiftChannels {
+                take_alpha,
+                take_red,
+                take_green,
+                take_blue,
+            } => [("alpha", take_alpha), ("red", take_red), ("green", take_green), ("blue", take_blue)]
+                .into_iter()
+                .find(|(_, w)| !SHIFT_CHANNELS_FROM.contains(&w.as_str()))
+                .map(|(what, w)| {
+                    format!(
+                        "Shift Channels takes {what} from \"alpha\", \"red\", \"green\", \"blue\", \"luminance\", \"hue\", \"lightness\", \"saturation\", \"full\", \"half\" or \"off\", and this is \"{w}\"."
+                    )
+                }),
             Effect::Invert { channel, .. }
                 if !["rgb", "red", "green", "blue", "alpha"].contains(&channel.as_str()) =>
             {
@@ -3909,6 +3950,8 @@ pub(crate) fn apply_stack_at(
                 seed,
                 edges,
                 frame,
+                displacement,
+                pinning,
             } => {
                 let z = depth(*evolution, *speed, *frame);
                 let r = crate::perf::time(crate::perf::Stage::EffectTurbulentDisplace, || {
@@ -3921,6 +3964,7 @@ pub(crate) fn apply_stack_at(
                         z,
                         edges == "repeat",
                         (ox, oy),
+                        (displacement, pinning == "all"),
                     )
                 });
                 ox += r;
@@ -4143,6 +4187,14 @@ pub(crate) fn apply_stack_at(
                 feather,
             } => crate::perf::time(crate::perf::Stage::EffectBlockDissolve, || {
                 crate::layer_fx::block_dissolve(source, *completion, *block_width, *block_height, *feather, (ox, oy))
+            }),
+            Effect::ShiftChannels {
+                take_alpha,
+                take_red,
+                take_green,
+                take_blue,
+            } => crate::perf::time(crate::perf::Stage::EffectShiftChannels, || {
+                crate::grade::shift_channels(source, [take_red, take_green, take_blue, take_alpha].map(|w| w.as_str()))
             }),
             Effect::FindEdges { invert, amount } => crate::perf::time(crate::perf::Stage::EffectFindEdges, || {
                 crate::layer_fx::find_edges(source, invert == "on", *amount)

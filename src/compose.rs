@@ -921,6 +921,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
         // ponytail: teach the card's tile pass a size and centre if a sized tile is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::MotionTile { tile_center, tile_width, tile_height, .. }
             if (*tile_center, *tile_width, *tile_height) != (crate::layer_fx::PLAIN_TILE, 100.0, 100.0))
+        // D-306: the card pushes both ways, unpinned, only.
+        && !matches!(&instance.effect, crate::effects::Effect::TurbulentDisplace { displacement, pinning, .. }
+            if displacement != "turbulent" || pinning != "none")
         // D-303: the card blurs along both axes only.
         // ponytail: give the card's two passes a still one if a one-way blur is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::GaussianBlur { dimensions, .. } if dimensions != "both")

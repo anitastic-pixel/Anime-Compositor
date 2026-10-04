@@ -324,6 +324,8 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 seed: 0.0,
                 edges: "transparent".to_string(),
                 frame: 5,
+                displacement: "turbulent".to_string(),
+                pinning: "none".to_string(),
             },
         ),
         (

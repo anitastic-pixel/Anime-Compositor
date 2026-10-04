@@ -23,6 +23,8 @@ fn turb(n: [f64; 6], edges: &str) -> Effect {
         seed: n[5],
         edges: edges.to_string(),
         frame: 0,
+        displacement: "turbulent".to_string(),
+        pinning: "none".to_string(),
     }
 }
 

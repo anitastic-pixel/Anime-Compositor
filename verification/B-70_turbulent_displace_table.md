@@ -86,8 +86,8 @@ D-127, accepted by the owner on 2026-09-26, the fifth of the second batch of ten
 | with transparent edges, amount 2.5 grows the drawing's bounds by 3 pixels | 3 | yes |
 | with repeat edges it grows them by nothing | 0 | yes |
 | at amount 0 it grows them by nothing | 0 | yes |
-| a half-size draft preview halves the amount and the size | TurbulentDisplace { amount: 10.0, size: 30.0, complexity: 2.0, evolution: 0.0, speed: 20.0, seed: 0.0, edges: "transparent", frame: 0 } | yes |
-| a half-size draft of size 1 holds the size at 1, its range's bottom, rather than leaving the effect out | TurbulentDisplace { amount: 5.0, size: 1.0, complexity: 2.0, evolution: 0.0, speed: 20.0, seed: 0.0, edges: "transparent", frame: 0 } | yes |
+| a half-size draft preview halves the amount and the size | TurbulentDisplace { amount: 10.0, size: 30.0, complexity: 2.0, evolution: 0.0, speed: 20.0, seed: 0.0, edges: "transparent", frame: 0, displacement: "turbulent", pinning: "none" } | yes |
+| a half-size draft of size 1 holds the size at 1, its range's bottom, rather than leaving the effect out | TurbulentDisplace { amount: 5.0, size: 1.0, complexity: 2.0, evolution: 0.0, speed: 20.0, seed: 0.0, edges: "transparent", frame: 0, displacement: "turbulent", pinning: "none" } | yes |
 
 ## The file
 

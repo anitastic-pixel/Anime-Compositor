@@ -844,6 +844,23 @@ D-304 / Motion Tile takes Tile Center, Tile Width and Tile Height / **BUILT on 2
 - The panel showed a point left out of the file, at its start, as one box (D-299's Offset Turbulence; Tile Center crashed the panel); it now shows both numbers.
 - Not built: After Effects' Phase and Horizontal Phase Shift, which slide alternate rows of tiles; one line each when a tutorial needs them.
 
+D-305 / Shift Channels / **BUILT on 2026-10-04** (B-190), from P-26: the Colorful Glitch tutorial takes a layer's alpha from its brightness with After Effects' Shift Channels, so the dark parts drop out; there was no such effect. **Awaiting the owner's playtest.**
+- A new effect, `core.shift_channels`, under Color Correction, with After Effects' four choices: Take Alpha From, Take Red From, Take Green From and Take Blue From. Each is Alpha, Red, Green, Blue, Luminance, Hue, Lightness, Saturation, Full, Half or Off; each starts at its own channel, which changes nothing.
+- It works on the straight colour as the eye sees it (sRGB-encoded, as Channel Mixer does); luminance is the luma every other effect uses, hue a turn read 0 to 1, lightness and saturation HSL's. The new colour is multiplied by the new alpha; a fully clear pixel's colour is black, so Take Alpha From Full turns the clear parts black.
+- Not keyable, as After Effects' are not. The card does not draw it; it is drawn on the CPU.
+- A wrong word in a file is reported and the effect left out, as any wrong choice is.
+- B-190 checks it by hand on single colours (swaps, Full, Half, Off, luminance, hue, lightness, saturation, a cleared pixel made solid) and the card's picture.
+- No new FX fixtures; a fixture set with a reference script, as the effects batches had, is a later unit if the owner wants one.
+
+D-306 / Turbulent Displace's Displacement and Pinning / **BUILT on 2026-10-04** (B-191), from P-26: the lightsaber tutorials set After Effects' Turbulent Displace to push only one way and to pin the layer's edges, so the blade wobbles without its ends tearing; here it always pushed both ways and everywhere. **Awaiting the owner's playtest.**
+- Two new choices on Turbulent Displace. Displacement: Turbulent (as before), Horizontal Displacement (sideways only) or Vertical Displacement (up and down only). Pinning: None (as before) or Pin All, where the push fades smoothly to nothing over one Size from each edge of the layer.
+- After Effects has more displacement types (Bulge, Twist, Cross, the Smoother ones) and more pinning choices (each edge, the horizontal or vertical edges, the locked versions); only these were needed by the tutorials, and the others are a later unit if wanted.
+- Pin All measures from the edges of the picture the effect is handed: a layer's own edges, unless an earlier effect on it has grown it.
+- An old file reads both at their starts and is saved as it was; only a changed one is written. A wrong word is reported and the effect left out.
+- The card draws the starts only; a sideways or pinned push is drawn on the CPU, so the preview and the export match.
+- B-191 checks it: pushed sideways only, a picture of horizontal bands is unchanged away from its sides; unpinned, a solid's edge frays, pinned it stays above 99% covering and nothing spills past it, while the middle is pushed the same; the file keeps both and reports a wrong word.
+- FX-TURB-001 to 026 are unchanged and still pass.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

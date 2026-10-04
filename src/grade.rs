@@ -857,6 +857,40 @@ pub(crate) fn extract(source: &mut WorkingBuffer, channel: &str, [b, w, s, t]: [
     })
 }
 
+/// D-305: each of red, green, blue and alpha, in that order in `take`, taken from one of
+/// [`crate::effects::SHIFT_CHANNELS_FROM`] of the straight encoded colour: a channel, its luma,
+/// HSL hue (a turn as 0 to 1), lightness or saturation, or 1, 0.5 or 0. The new colour is
+/// multiplied by the new alpha; a clear pixel's colour is black.
+pub(crate) fn shift_channels(source: &mut WorkingBuffer, take: [&str; 4]) {
+    if take == ["red", "green", "blue", "alpha"] {
+        return;
+    }
+    each_pixel(source, |px| {
+        let a = px[3] as f64;
+        let e = if a > 0.0 { [0, 1, 2].map(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0))) } else { [0.0; 3] };
+        let (mx, mn) = (e[0].max(e[1]).max(e[2]), e[0].min(e[1]).min(e[2]));
+        let l = (mx + mn) / 2.0;
+        let from = |w: &str| match w {
+            "red" => e[0],
+            "green" => e[1],
+            "blue" => e[2],
+            "alpha" => a,
+            "luminance" => luma(e),
+            "hue" => hsv_hue(e).unwrap_or(0.0) / 360.0,
+            "lightness" => l,
+            "saturation" if mx > mn => (mx - mn) / (1.0 - (2.0 * l - 1.0).abs()),
+            "full" => 1.0,
+            "half" => 0.5,
+            _ => 0.0,
+        };
+        let na = from(take[3]).clamp(0.0, 1.0);
+        for c in 0..3 {
+            px[c] = (to_linear(from(take[c]).clamp(0.0, 1.0)) * na) as f32;
+        }
+        px[3] = na as f32;
+    })
+}
+
 /// D-139: each channel remade from its row: from red, from green, from blue and a constant, in
 /// per cent; with `mono` every channel uses the red row.
 pub(crate) fn channel_mixer(source: &mut WorkingBuffer, rows: [[f64; 4]; 3], mono: bool) {

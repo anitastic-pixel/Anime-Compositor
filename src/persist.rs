@@ -1430,6 +1430,8 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             speed,
             seed,
             edges,
+            displacement,
+            pinning,
             ..
         } => {
             params.insert("amount".into(), num(*amount));
@@ -1439,6 +1441,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("speed".into(), num(*speed));
             params.insert("seed".into(), num(*seed));
             params.insert("edges".into(), J::from(edges.as_str()));
+            // D-306: as D-303's, written only when changed or in the file already.
+            if displacement != "turbulent" || params.contains_key("displacement") {
+                params.insert("displacement".into(), J::from(displacement.as_str()));
+            }
+            if pinning != "none" || params.contains_key("pinning") {
+                params.insert("pinning".into(), J::from(pinning.as_str()));
+            }
         }
         Effect::FractalNoise {
             size,
@@ -2271,6 +2280,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("block_width".into(), num(*block_width));
             params.insert("block_height".into(), num(*block_height));
             params.insert("feather".into(), num(*feather));
+        }
+        Effect::ShiftChannels {
+            take_alpha,
+            take_red,
+            take_green,
+            take_blue,
+        } => {
+            params.insert("take_alpha".into(), J::from(take_alpha.as_str()));
+            params.insert("take_red".into(), J::from(take_red.as_str()));
+            params.insert("take_green".into(), J::from(take_green.as_str()));
+            params.insert("take_blue".into(), J::from(take_blue.as_str()));
         }
         Effect::Unsupported { .. } => {}
     }
@@ -3465,6 +3485,7 @@ fn parse_effect(
         crate::effects::BEVEL_ALPHA,
         crate::effects::BEVEL_EDGES,
         crate::effects::BLOCK_DISSOLVE,
+        crate::effects::SHIFT_CHANNELS,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3683,6 +3704,8 @@ fn parse_effect(
                 seed: effect_number(params, "seed", &at)?,
                 edges: effect_word(params, "edges", &at)?,
                 frame: 0,
+                displacement: effect_word_or(params, "displacement", &at, "turbulent")?,
+                pinning: effect_word_or(params, "pinning", &at, "none")?,
             })
         }
         // D-128: the colours are read in small letters, as a new colour is.
@@ -4189,6 +4212,12 @@ fn parse_effect(
             block_width: effect_number(params, "block_width", &at)?,
             block_height: effect_number(params, "block_height", &at)?,
             feather: effect_number(params, "feather", &at)?,
+        }),
+        crate::effects::SHIFT_CHANNELS => Some(crate::effects::Effect::ShiftChannels {
+            take_alpha: effect_word(params, "take_alpha", &at)?,
+            take_red: effect_word(params, "take_red", &at)?,
+            take_green: effect_word(params, "take_green", &at)?,
+            take_blue: effect_word(params, "take_blue", &at)?,
         }),
         _ => None,
     };

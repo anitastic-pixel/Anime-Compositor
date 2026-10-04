@@ -151,7 +151,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.vignette` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, color, size, roundness, softness, center - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.turbulent_displace` is an effect this build has | added | added | pass |
-| and the settings it sends for it - amount, size, complexity, evolution, speed, seed, edges - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - amount, size, complexity, evolution, speed, seed, edges, displacement, pinning - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.fractal_noise` is an effect this build has | added | added | pass |
 | and the settings it sends for it - fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.gradient_map` is an effect this build has | added | added | pass |
@@ -280,7 +280,9 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - edge_thickness, light_angle, light_color, light_intensity - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.block_dissolve` is an effect this build has | added | added | pass |
 | and the settings it sends for it - completion, block_width, block_height, feather - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.shift_channels` is an effect this build has | added | added | pass |
+| and the settings it sends for it - take_alpha, take_red, take_green, take_blue - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**262 of 262 checks pass.**
+**264 of 264 checks pass.**

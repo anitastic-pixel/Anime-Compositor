@@ -4856,7 +4856,7 @@ impl Gpu {
                 };
                 same(steps, &passes.grade, p, &k, None)
             }
-            E::TurbulentDisplace { amount, size, complexity, evolution, speed, seed, edges, frame } => {
+            E::TurbulentDisplace { amount, size, complexity, evolution, speed, seed, edges, frame, .. } => {
                 let repeat = edges == "repeat";
                 let g = if repeat { 0 } else { amount.ceil() as usize };
                 let base = crate::grade::mix(seed.floor() as u64);
