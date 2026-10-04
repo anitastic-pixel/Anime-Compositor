@@ -190,7 +190,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.find_edges` is an effect this build has | added | added | pass |
 | and the settings it sends for it - invert, amount - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.sharpen` is an effect this build has | added | added | pass |
-| and the settings it sends for it - amount, radius - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - amount, radius, threshold - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.diffusion` is an effect this build has | added | added | pass |
 | and the settings it sends for it - radius, amount, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.wave_warp` is an effect this build has | added | added | pass |
@@ -289,7 +289,9 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, edges, dimensions - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.colorama` is an effect this build has | added | added | pass |
 | and the settings it sends for it - get_phase, map_layer, fit, phase_shift, cycle_repetitions, stops, color_1, color_2, color_3, color_4, color_5, blend_with_original - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.glass` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, fit, property, softness, height, displacement, light_angle, light_color, light_intensity - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**271 of 271 checks pass.**
+**273 of 273 checks pass.**

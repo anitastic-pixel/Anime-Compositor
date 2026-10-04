@@ -742,7 +742,7 @@ pub enum Effect {
     FindEdges { invert: String, amount: f64 },
     /// D-147: `amount`, 0 to 500, how far each colour is pushed from its blur; `radius`, 0 to
     /// 100 pixels, the sigma of that blur.
-    Sharpen { amount: f64, radius: f64 },
+    Sharpen { amount: f64, radius: f64, threshold: f64 },
     /// D-148: `radius`, 0 to 500 pixels, how far the glow spreads, three times its blur's sigma;
     /// `amount`, 0 to 100, how much of it is laid on; `blend`, "screen", "lighten" or "normal".
     Diffusion {
@@ -1314,6 +1314,23 @@ pub enum Effect {
         blend_with_original: f64,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-317: After Effects' CC Glass, reduced. `layer` and `fit`, D-189's layer setting, the
+    /// bump map, "" the layer itself; `property`, one of [`COLORAMA_PHASES`]; `softness`, 0 to
+    /// 100 pixels; `height`, -100 to 100; `displacement`, -500 to 500 pixels; `light_angle`,
+    /// -3600 to 3600 degrees clockwise from up; `light_color`, `#rrggbb`; `light_intensity`, 0 to
+    /// 100. `map` is not a setting and is never saved.
+    Glass {
+        layer: serde_json::Value,
+        fit: String,
+        property: String,
+        softness: f64,
+        height: f64,
+        displacement: f64,
+        light_angle: f64,
+        light_color: String,
+        light_intensity: f64,
+        map: Option<crate::layer_map::Map>,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1419,6 +1436,7 @@ pub const CHANNEL_BLUR: &str = "core.channel_blur";
 pub const COLORAMA: &str = "core.colorama";
 /// D-316: what Colorama reads a pixel's phase from.
 pub const COLORAMA_PHASES: [&str; 6] = ["intensity", "luminance", "red", "green", "blue", "alpha"];
+pub const GLASS: &str = "core.glass";
 /// D-307: Hue/Saturation's colour ranges as the file names them, centred 0, 60 ... 300 degrees.
 pub const HUE_RANGES: [&str; 6] = ["reds_hsl", "yellows_hsl", "greens_hsl", "cyans_hsl", "blues_hsl", "magentas_hsl"];
 /// D-305: what Shift Channels can take a channel from.
@@ -1783,9 +1801,10 @@ impl Effect {
                 ("contrast", vec![contrast], 0.0, 1000.0),
             ],
             Effect::FindEdges { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
-            Effect::Sharpen { amount, radius } => vec![
+            Effect::Sharpen { amount, radius, threshold } => vec![
                 ("amount", vec![amount], 0.0, 500.0),
                 ("radius", vec![radius], 0.0, 100.0),
+                ("threshold", vec![threshold], 0.0, 255.0),
             ],
             Effect::Diffusion { radius, amount, .. } => vec![
                 ("radius", vec![radius], 0.0, 500.0),
@@ -2001,6 +2020,20 @@ impl Effect {
                 ("cycle_repetitions", vec![cycle_repetitions], 0.0, 100.0),
                 ("stops", vec![stops], 2.0, 5.0),
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
+            ],
+            Effect::Glass {
+                softness,
+                height,
+                displacement,
+                light_angle,
+                light_intensity,
+                ..
+            } => vec![
+                ("softness", vec![softness], 0.0, 100.0),
+                ("height", vec![height], -100.0, 100.0),
+                ("displacement", vec![displacement], -500.0, 500.0),
+                ("light_angle", vec![light_angle], -3600.0, 3600.0),
+                ("light_intensity", vec![light_intensity], 0.0, 100.0),
             ],
             Effect::LineBlur { length, strength, .. } => vec![
                 ("length", vec![length], 0.0, 50.0),
@@ -2511,6 +2544,10 @@ impl Effect {
                 *glow = scale(*glow);
             }
             Effect::CompoundBlur { max_blur, .. } => *max_blur = scale(*max_blur),
+            Effect::Glass { softness, displacement, .. } => {
+                *softness = scale(*softness);
+                *displacement = scale(*displacement);
+            }
             Effect::DisplacementMap { max_horizontal, max_vertical, .. } => {
                 *max_horizontal = scale(*max_horizontal);
                 *max_vertical = scale(*max_vertical);
@@ -2670,6 +2707,7 @@ impl Effect {
             Effect::SolidComposite { .. } => "Solid Composite",
             Effect::ChannelBlur { .. } => "Channel Blur",
             Effect::Colorama { .. } => "Colorama",
+            Effect::Glass { .. } => "CC Glass",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2773,6 +2811,7 @@ impl Effect {
             Effect::SolidComposite { .. } => SOLID_COMPOSITE,
             Effect::ChannelBlur { .. } => CHANNEL_BLUR,
             Effect::Colorama { .. } => COLORAMA,
+            Effect::Glass { .. } => GLASS,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2962,7 +3001,8 @@ impl Effect {
             Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. }
-            | Effect::Colorama { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
+            | Effect::Colorama { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::Glass { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
             _ => None,
         }
     }
@@ -2973,7 +3013,8 @@ impl Effect {
             Effect::CompoundBlur { layer, map, .. }
             | Effect::DisplacementMap { layer, map, .. }
             | Effect::GradientWipe { layer, map, .. }
-            | Effect::Colorama { layer, map, .. } => Some((layer, map)),
+            | Effect::Colorama { layer, map, .. }
+            | Effect::Glass { layer, map, .. } => Some((layer, map)),
             _ => None,
         }
     }
@@ -3202,6 +3243,16 @@ impl Effect {
                     "Light Wrap's blend is \"screen\" or \"add\", and this is \"{blend}\"."
                 ))
             }
+            Effect::Glass { property, .. } if !COLORAMA_PHASES.contains(&property.as_str()) => Some(format!(
+                "CC Glass's property is intensity, luminance, red, green, blue or alpha, and this is \"{property}\"."
+            )),
+            Effect::Glass { layer, .. } if !layer.is_string() => Some(format!(
+                "CC Glass's bump map is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::Glass { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
+                "CC Glass's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
+            Effect::Glass { light_color, .. } => hex_fault("CC Glass", "light colour", light_color),
             Effect::Colorama { get_phase, .. } if !COLORAMA_PHASES.contains(&get_phase.as_str()) => Some(format!(
                 "Colorama gets its phase from intensity, luminance, red, green, blue or alpha, and this is \"{get_phase}\"."
             )),
@@ -4353,6 +4404,27 @@ pub(crate) fn apply_stack_at(
             } => crate::perf::time(crate::perf::Stage::EffectShiftChannels, || {
                 crate::grade::shift_channels(source, [take_red, take_green, take_blue, take_alpha].map(|w| w.as_str()))
             }),
+            // D-317: the map compose read for this frame, if a layer is named, is the bump.
+            Effect::Glass {
+                property,
+                softness,
+                height,
+                displacement,
+                light_angle,
+                light_color,
+                light_intensity,
+                map,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectGlass, || {
+                let light = encoded(light_color).map(crate::grade::to_linear);
+                crate::layer_fx::glass(
+                    source,
+                    map.as_ref().map(|m| (&*m.0, (ox, oy))),
+                    property,
+                    (*softness, *height, *displacement),
+                    (*light_angle, light, *light_intensity / 100.0),
+                )
+            }),
             // D-316: the map compose read for this frame, if a layer is named, adds to the phase.
             Effect::Colorama {
                 get_phase,
@@ -4405,8 +4477,8 @@ pub(crate) fn apply_stack_at(
             Effect::FindEdges { invert, amount } => crate::perf::time(crate::perf::Stage::EffectFindEdges, || {
                 crate::layer_fx::find_edges(source, invert == "on", *amount)
             }),
-            Effect::Sharpen { amount, radius } => crate::perf::time(crate::perf::Stage::EffectSharpen, || {
-                crate::layer_fx::sharpen(source, *amount, *radius)
+            Effect::Sharpen { amount, radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSharpen, || {
+                crate::layer_fx::sharpen(source, *amount, *radius, *threshold)
             }),
             Effect::Diffusion { radius, amount, blend } => crate::perf::time(crate::perf::Stage::EffectDiffusion, || {
                 crate::layer_fx::diffusion(source, *radius, *amount, blend)

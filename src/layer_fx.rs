@@ -886,6 +886,73 @@ pub(crate) fn bevel_alpha(source: &mut WorkingBuffer, thickness: f64, angle: f64
     );
 }
 
+/// D-317: After Effects' CC Glass, reduced. The bump is the phase (D-316) `property` reads from
+/// the drawing, or from `map` lying on it with its corner at the given origin (clear outside it),
+/// times the covering unless the property is alpha, blurred at sigma `softness / 2`. Its slope `n`
+/// is the bump's central differences, 0 beyond the blur, times `height / 100 * 1.25 *
+/// max(softness, 1)`. Each pixel takes the drawing read bilinearly `displacement` pixels along `n`,
+/// then is lit as Bevel Alpha lights it, its slope toward the light `-(n . u)` held to -1..1. So
+/// at height 100 and no displacement it is Bevel Alpha with an edge thickness of the softness.
+/// The settings are already valid.
+pub(crate) fn glass(
+    source: &mut WorkingBuffer,
+    map: Option<(&WorkingBuffer, (usize, usize))>,
+    property: &str,
+    (softness, height, displacement): (f64, f64, f64),
+    (angle, light, intensity): (f64, [f64; 3], f64),
+) {
+    if height == 0.0 || (displacement == 0.0 && intensity <= 0.0) {
+        return;
+    }
+    let w = source.width();
+    let mut bump = WorkingBuffer::transparent(w, source.height());
+    let from = source.data();
+    bump.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let q = match map {
+            Some((m, (ox, oy))) => {
+                let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
+                if mx < m.width() && my < m.height() { m.pixel(mx, my) } else { [0.0; 4] }
+            }
+            None => [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]],
+        };
+        px[3] = (crate::grade::phase_of(property, &q) * if property == "alpha" { 1.0 } else { q[3] as f64 }) as f32;
+    });
+    let r = if softness > 0.0 { blur(&mut bump, softness / 2.0) as isize } else { 0 };
+    let (bw, bh) = (bump.width() as isize, bump.height() as isize);
+    let data = bump.data();
+    let at = |x: isize, y: isize| {
+        let (bx, by) = (x + r, y + r);
+        if bx < 0 || by < 0 || bx >= bw || by >= bh {
+            0.0
+        } else {
+            data[((by * bw + bx) * 4 + 3) as usize] as f64
+        }
+    };
+    let k = height / 100.0 * 1.25 * softness.max(1.0);
+    let slope: Vec<(f64, f64)> = (0..from.len() / 4)
+        .into_par_iter()
+        .map(|i| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            ((at(x + 1, y) - at(x - 1, y)) / 2.0 * k, (at(x, y + 1) - at(x, y - 1)) / 2.0 * k)
+        })
+        .collect();
+    if displacement != 0.0 {
+        let still = source.clone();
+        source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+            let (nx, ny) = slope[i];
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            px.copy_from_slice(&sample_bilinear(&still, x + displacement * nx, y + displacement * ny));
+        });
+    }
+    if intensity > 0.0 {
+        let (ux, uy) = crate::blurs::along(angle);
+        bevel_shade(source, |x, y| {
+            let (nx, ny) = slope[y * w + x];
+            (-(nx * ux + ny * uy)).clamp(-1.0, 1.0)
+        }, light, intensity);
+    }
+}
+
 /// D-213: Bevel Edges. A pixel nearer than `thickness` times the buffer's smaller side to the
 /// buffer's nearest side, the first of left, top, right and bottom among equals, is on that
 /// side's face. The settings are already valid.
@@ -958,15 +1025,15 @@ pub(crate) fn find_edges(source: &mut WorkingBuffer, invert: bool, amount: f64) 
 
 
 /// D-147: each pixel that shows pushed `amount` percent further from its colour blurred at
-/// sigma `radius`, both as written, the blur divided by its own covering. The settings are
-/// already valid.
-pub(crate) fn sharpen(source: &mut WorkingBuffer, amount: f64, radius: f64) {
+/// sigma `radius`, both as written, the blur divided by its own covering. D-317: a channel
+/// nearer its blur than `threshold` levels of 255 is left alone. The settings are already valid.
+pub(crate) fn sharpen(source: &mut WorkingBuffer, amount: f64, radius: f64, threshold: f64) {
     if amount <= 0.0 || radius <= 0.0 {
         return;
     }
     let mut blurred = source.clone();
     let r = crate::effects::blur(&mut blurred, radius);
-    let k = amount / 100.0;
+    let (k, t) = (amount / 100.0, threshold / 255.0);
     let w = source.width();
     source
         .data_mut()
@@ -983,6 +1050,9 @@ pub(crate) fn sharpen(source: &mut WorkingBuffer, amount: f64, radius: f64) {
                 for c in 0..3 {
                     let e = crate::grade::to_srgb((px[c] as f64 / a).clamp(0.0, 1.0));
                     let eb = if ba > 0.0 { crate::grade::to_srgb((b[c] as f64 / ba).clamp(0.0, 1.0)) } else { e };
+                    if (e - eb).abs() < t {
+                        continue;
+                    }
                     let e = e + k * (e - eb);
                     px[c] = (crate::grade::to_linear(e.clamp(0.0, 1.0)) * a) as f32;
                 }

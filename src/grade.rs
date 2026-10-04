@@ -693,7 +693,7 @@ pub(crate) fn gradient_map(source: &mut WorkingBuffer, colors: [[f64; 3]; 3], mi
 
 /// D-316: a pixel's phase as Colorama reads it, 0 to 1: its straight colour encoded, then the
 /// mean of the three (`intensity`), the encoded luma (`luminance`), one channel, or its alpha.
-fn phase_of(get: &str, px: &[f32]) -> f64 {
+pub(crate) fn phase_of(get: &str, px: &[f32]) -> f64 {
     let a = px[3] as f64;
     if get == "alpha" {
         return a;

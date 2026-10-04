@@ -13,7 +13,7 @@ use effect_table::{keys, set, Table};
 use anime_compositor::effects::Effect;
 
 fn sharpen(amount: f64, radius: f64) -> Effect {
-    Effect::Sharpen { amount, radius }
+    Effect::Sharpen { amount, radius, threshold: 0.0 }
 }
 
 #[test]

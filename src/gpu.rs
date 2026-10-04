@@ -4984,7 +4984,7 @@ impl Gpu {
                 let k = [amount / 100.0, (invert == "on") as u8 as f64];
                 same(steps, &passes.relief, FxParams { mode: 1, ..Default::default() }, &k, None)
             }
-            E::Sharpen { amount, radius } => {
+            E::Sharpen { amount, radius, .. } => {
                 let (blurred, r) = covering(steps, still, (w, h), *radius);
                 same(steps, &passes.sharp, FxParams { r: r as i32, ..Default::default() }, &[amount / 100.0], Some(&blurred))
             }

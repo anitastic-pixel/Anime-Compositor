@@ -473,6 +473,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
             Effect::Sharpen {
                 amount: 100.0,
                 radius: 1.0,
+                threshold: 0.0,
             },
         ),
         (

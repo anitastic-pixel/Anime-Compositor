@@ -61,7 +61,7 @@ D-147, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing | 0 | yes |
-| a half-size draft preview halves the radius, 3 to 1.5, and nothing else | Sharpen { amount: 100.0, radius: 1.5 } | yes |
+| a half-size draft preview halves the radius, 3 to 1.5, and nothing else | Sharpen { amount: 100.0, radius: 1.5, threshold: 0.0 } | yes |
 
 ## The file
 

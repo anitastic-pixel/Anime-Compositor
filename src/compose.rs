@@ -921,6 +921,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
         // ponytail: teach the card's tile pass a size and centre if a sized tile is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::MotionTile { tile_center, tile_width, tile_height, .. }
             if (*tile_center, *tile_width, *tile_height) != (crate::layer_fx::PLAIN_TILE, 100.0, 100.0))
+        // D-317: the card sharpens without a threshold only.
+        && !matches!(&instance.effect, crate::effects::Effect::Sharpen { threshold, .. } if *threshold != 0.0)
         // D-310: the card swells a circle without a taper only.
         && !matches!(&instance.effect, crate::effects::Effect::Bulge { vertical_radius, taper_radius, .. }
             if *vertical_radius != 0.0 || *taper_radius != 0.0)
@@ -1017,7 +1019,7 @@ fn card_effect(
                 E::Vibrance { vibrance, saturation } => [*vibrance, *saturation] == [0.0; 2],
                 E::Mosaic { size } => *size <= 1.0,
                 E::FindEdges { amount, .. } => *amount <= 0.0,
-                E::Sharpen { amount, radius } | E::Diffusion { amount, radius, .. } => *amount <= 0.0 || *radius <= 0.0,
+                E::Sharpen { amount, radius, .. } | E::Diffusion { amount, radius, .. } => *amount <= 0.0 || *radius <= 0.0,
                 E::WaveWarp { height, .. } | E::Bulge { height, .. } if *height == 0.0 => true,
                 E::Bulge { radius, .. } => *radius <= 0.0,
                 E::Ripple { amplitude, .. } => *amplitude == 0.0,

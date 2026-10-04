@@ -9297,6 +9297,7 @@ const EFFECT_NAMES = {
   'core.solid_composite': 'Solid Composite',
   'core.channel_blur': 'Channel Blur',
   'core.colorama': 'Colorama',
+  'core.glass': 'CC Glass',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -9320,7 +9321,7 @@ const EFFECT_GROUPS = [
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient',
     'core.cell_pattern']],
-  ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.find_edges',
+  ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake']],
@@ -9333,7 +9334,7 @@ const EFFECT_SEARCH = {
   'core.directional_blur': 'motion',
   'core.radial_blur': 'zoom spin',
   'core.lens_blur': 'camera bokeh depth focus defocus',
-  'core.sharpen': 'unsharp crisp',
+  'core.sharpen': 'unsharp mask crisp threshold',
   'core.diffusion': 'soft glow haze dreamy',
   'core.brightness_contrast': 'brighten darken',
   'core.exposure': 'stops brighten darken',
@@ -9405,6 +9406,7 @@ const EFFECT_SEARCH = {
   'core.solid_composite': 'solid composite colour color background fill behind under channel',
   'core.channel_blur': 'channel blur red green blue alpha separate per channel soften',
   'core.colorama': 'colorama colour color cycle ring palette rainbow psychedelic phase hue map',
+  'core.glass': 'cc glass refraction refract lens bump map shockwave water ripple heat distortion bevel light',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -9471,7 +9473,7 @@ const EFFECT_ABOUT = {
   'core.mosaic': 'Breaks the layer into big square blocks.',
   'core.emboss': 'Makes the picture look pressed into metal or paper.',
   'core.find_edges': 'Keeps only the edges, like a pencil sketch.',
-  'core.sharpen': 'Crisps up edges and fine detail.',
+  'core.sharpen': 'Crisps up edges and fine detail, as After Effects\' Unsharp Mask does.',
   'core.diffusion': 'A soft glow of the picture laid over itself, the dreamy anime look.',
   'core.wave_warp': 'Bends the layer in waves.',
   'core.ripple': 'Rings spreading from a point, as on water.',
@@ -9522,6 +9524,7 @@ const EFFECT_ABOUT = {
   'core.solid_composite': 'Lays the layer on a solid colour, each at its own opacity, with a blend.',
   'core.channel_blur': 'Blurs red, green, blue and alpha each by its own amount.',
   'core.colorama': 'Repaints each brightness with a colour from a ring of colours that can turn and repeat.',
+  'core.glass': 'Bends the picture as if seen through glass shaped by a bump map, and lights its slopes.',
 };
 
 // Each effect's parameters, named as the file names them, with the words a person reads,
@@ -9701,7 +9704,8 @@ const EFFECT_PARAMS = {
   'core.find_edges': [['amount', 'Amount', 1, 1, '0 to 100, how far each pixel goes toward its line']],
   // D-147.
   'core.sharpen': [['amount', 'Amount', 1, 1, '0 to 500, how strongly edges are crisped'],
-    ['radius', 'Radius', 1, 0.1, 'pixels, 0 to 100, how wide the crisped edge is']],
+    ['radius', 'Radius', 1, 0.1, 'pixels, 0 to 100, how wide the crisped edge is'],
+    ['threshold', 'Threshold', 1, 1, '0 to 255, differences smaller than this are left alone']],
   // D-148.
   'core.diffusion': [['radius', 'Radius', 1, 1, 'pixels, 0 to 500, how far the glow spreads'],
     ['amount', 'Amount', 1, 1, '0 to 100, how much of the glow is laid on']],
@@ -9768,6 +9772,12 @@ const EFFECT_PARAMS = {
     ['green_blurriness', 'Green Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels'],
     ['blue_blurriness', 'Blue Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels'],
     ['alpha_blurriness', 'Alpha Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels']],
+  // D-317, After Effects' own words where it has them.
+  'core.glass': [['softness', 'Softness', 1, 0.5, 'pixels, 0 to 100, how smooth the bump is'],
+    ['height', 'Height', 1, 1, '-100 to 100, how steep the bump is; below 0 it dips'],
+    ['displacement', 'Displacement', 1, 1, 'pixels, -500 to 500, how far a slope bends the picture'],
+    ['light_angle', 'Light Direction', 1, 1, 'degrees clockwise from up, where the light comes from', 'dial'],
+    ['light_intensity', 'Light Intensity', 1, 1, '0 to 100, how strongly the light and shade show']],
   // D-316, After Effects' own words where it has them.
   'core.colorama': [['phase_shift', 'Phase Shift', 1, 1, 'degrees, -3600 to 3600, turns the ring'],
     ['cycle_repetitions', 'Cycle Repetitions', 1, 0.1, '0 to 100, times round the ring from black to white'],
@@ -10140,6 +10150,14 @@ const EFFECT_WORDS = {
   'core.solid_composite': {
     choices: [['blend', 'Blending Mode', [['normal', 'Normal'], ['add', 'Add'], ['screen', 'Screen'], ['multiply', 'Multiply']]]],
     colours: [['color', 'Color']],
+  },
+  // D-317.
+  'core.glass': {
+    layers: [['layer', 'Bump Map', 'map_layer']],
+    choices: [['property', 'Property', [['alpha', 'Alpha'], ['luminance', 'Luminance'], ['intensity', 'Intensity'],
+        ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue']]],
+      ['fit', 'Bump Map Placement', [['stretch', 'Stretch to Fit'], ['center', 'Centre'], ['tile', 'Tile']]]],
+    colours: [['light_color', 'Light Color']],
   },
   // D-316.
   'core.colorama': {

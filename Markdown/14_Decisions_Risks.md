@@ -939,6 +939,14 @@ D-316 / Colorama, reduced / **BUILT on 2026-10-04** (B-197), from D-309 and P-26
 - Reduced: After Effects' Colorama has some 30 preset palettes and an editable colour wheel of any number of colours, a Modify step and pixel selection. Here the ring is up to five colours, starting as an even hue cycle, which covers the tutorial's look. The rest is left until asked for.
 - Drawn on the CPU, so the preview and the export match. B-197 checks the ring, shift, repetitions, stops, every phase source, half alpha, blend, a clear pixel, the added layer, wrong settings and the file.
 
+D-317 / Unsharp Mask's Threshold and CC Glass, reduced / **BUILT on 2026-10-04** (B-198), from D-309 and P-26: the Shockwave tutorial (1) bends the picture behind its ring with After Effects' CC Glass and crisps it with Unsharp Mask. Here the stand-ins were Displacement Map with Bevel Alpha, and Sharpen. **Awaiting the owner's playtest.**
+- Sharpen was already After Effects' Unsharp Mask (Amount and Radius) without its **Threshold**. It now has one: 0 to 255, keyable. A difference smaller than it is left alone, so flat areas and noise are not crisped. At 0, as it starts, the picture is as before. Searching for "unsharp mask" finds it.
+- A new effect, **CC Glass**, under Stylize. **Bump Map** names a layer (none: the layer itself) and **Property** says what of it makes the bump (Alpha, Luminance, and so on). **Softness** smooths the bump, **Height** says how steep it is, **Displacement** says how far its slopes bend the picture, and **Light Direction**, **Light Color** and **Light Intensity** light its slopes as Bevel Alpha does.
+- Reduced: After Effects also has a light height, point lights, and Ambient, Diffuse, Specular, Roughness and Metal shading. These are left until asked for.
+- Both are drawn on the CPU (Sharpen with a threshold; CC Glass always), so the preview and the export match. Sharpen without a threshold is still drawn on the card.
+- B-198 checks it: Threshold 0 draws exactly as before and a threshold keeps the small differences only; CC Glass at height 100 and no displacement is exactly Bevel Alpha, height 0 changes nothing, a slope bends the picture by the worked amount, a bump map from another layer works, wrong settings are refused and the file keeps both.
+- FX-SHARPEN-001 to 018 are unchanged and still pass.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

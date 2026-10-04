@@ -1627,9 +1627,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("invert".into(), J::from(invert.as_str()));
             params.insert("amount".into(), num(*amount));
         }
-        Effect::Sharpen { amount, radius } => {
+        Effect::Sharpen { amount, radius, threshold } => {
             params.insert("amount".into(), num(*amount));
             params.insert("radius".into(), num(*radius));
+            // D-317: as D-310, written only if moved, keyed or already in the file.
+            if *threshold != 0.0 || instance.tracks.contains_key("threshold") || params.contains_key("threshold") {
+                params.insert("threshold".into(), num(*threshold));
+            }
         }
         Effect::Diffusion { radius, amount, blend } => {
             params.insert("radius".into(), num(*radius));
@@ -2358,6 +2362,28 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert(key.into(), J::from(c.as_str()));
             }
             params.insert("blend_with_original".into(), num(*blend_with_original));
+        }
+        Effect::Glass {
+            layer,
+            fit,
+            property,
+            softness,
+            height,
+            displacement,
+            light_angle,
+            light_color,
+            light_intensity,
+            ..
+        } => {
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("property".into(), J::from(property.as_str()));
+            params.insert("softness".into(), num(*softness));
+            params.insert("height".into(), num(*height));
+            params.insert("displacement".into(), num(*displacement));
+            params.insert("light_angle".into(), num(*light_angle));
+            params.insert("light_color".into(), J::from(light_color.as_str()));
+            params.insert("light_intensity".into(), num(*light_intensity));
         }
         Effect::Unsupported { .. } => {}
     }
@@ -3574,6 +3600,7 @@ fn parse_effect(
         crate::effects::SOLID_COMPOSITE,
         crate::effects::CHANNEL_BLUR,
         crate::effects::COLORAMA,
+        crate::effects::GLASS,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -3924,6 +3951,7 @@ fn parse_effect(
         crate::effects::SHARPEN => Some(crate::effects::Effect::Sharpen {
             amount: effect_number(params, "amount", &at)?,
             radius: effect_number(params, "radius", &at)?,
+            threshold: effect_number_or(params, "threshold", &at, 0.0)?,
         }),
         crate::effects::DIFFUSION => Some(crate::effects::Effect::Diffusion {
             radius: effect_number(params, "radius", &at)?,
@@ -4348,6 +4376,19 @@ fn parse_effect(
             color_4: effect_word(params, "color_4", &at)?.to_ascii_lowercase(),
             color_5: effect_word(params, "color_5", &at)?.to_ascii_lowercase(),
             blend_with_original: effect_number(params, "blend_with_original", &at)?,
+            map: None,
+        }),
+        // D-317: the layer is kept as written, as Compound Blur's is.
+        crate::effects::GLASS => Some(crate::effects::Effect::Glass {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            property: effect_word(params, "property", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            height: effect_number(params, "height", &at)?,
+            displacement: effect_number(params, "displacement", &at)?,
+            light_angle: effect_number(params, "light_angle", &at)?,
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            light_intensity: effect_number(params, "light_intensity", &at)?,
             map: None,
         }),
         _ => None,
