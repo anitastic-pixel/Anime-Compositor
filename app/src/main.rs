@@ -265,6 +265,20 @@ fn curve(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
                 .collect();
             return Some(serde_json::json!({ "from": from, "to": to, "samples": samples }));
         }
+        // D-298: a mask's number, as the frame is drawn with it.
+        if let Some((at, which)) = mask_prop(&name) {
+            let layer = comp.layer(&Id::new(&parameter(query, "layer")?))?;
+            let m = layer.masks.get(at)?;
+            let (from, to) = (number("from", 0), number("to", 0));
+            let to = to.clamp(from, from.saturating_add(10_000));
+            let samples: Vec<serde_json::Value> = (from..=to)
+                .map(|f| {
+                    let v = m.at_time(layer.key_time(f as f64)).channel(which)?;
+                    Some(serde_json::json!([v.base().as_scalar()?]))
+                })
+                .collect::<Option<_>>()?;
+            return Some(serde_json::json!({ "from": from, "to": to, "samples": samples }));
+        }
         // B-24f: a path is not one number, so its graph is how far its points have gone: the
         // mean distance between two keys' points, added up key after key, and part of the way
         // along a segment by where `points_at` puts the path. Its speed graph is then pixels a
@@ -833,6 +847,14 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                                     serde_json::json!(v),
                                 );
                             }
+                        }
+                    }
+                    // D-298: and every keyed number of a mask, for the same reason.
+                    for (i, m) in layer.masks.iter().enumerate().filter(|(_, m)| !m.tracks.is_empty()) {
+                        let now = m.at_time(layer.key_time(frame as f64));
+                        for name in m.tracks.keys() {
+                            let v = now.channel(name).and_then(|p| p.base().as_scalar());
+                            at.insert(format!("mask:{i}:{name}"), serde_json::json!(v));
                         }
                     }
                     // B-24d: and the shape of every mask on this frame, six numbers a point in
@@ -7282,6 +7304,14 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                         text.trim()
                                     ));
                                 };
+                                // D-298: a keyed number is set on a frame, through its key.
+                                if masks[at].tracks.contains_key(key) {
+                                    return Some(format!(
+                                        "{}'s {key} has keys. Set it on a frame with \
+                                         property.set_base and prop=mask:{at}:{key}.",
+                                        masks[at].name
+                                    ));
+                                }
                                 match key {
                                     // The panel counts opacity in percent, as it does a layer's.
                                     "opacity" => masks[at].opacity = value / 100.0,
@@ -7612,6 +7642,23 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         .and_then(shape_prop)
                         .expect("the guard above");
                     match shape_key_command(id, query, composition, layer, which) {
+                        Ok(command) => command,
+                        Err(said) => return Some(said),
+                    }
+                }
+                // D-298: and all five about a mask's feather, opacity or expansion.
+                "keyframe.add_remove"
+                | "keyframe.move"
+                | "keyframe.set_interp"
+                | "property.set_base"
+                | "property.drag_update"
+                    if parameter(query, "prop").as_deref().and_then(mask_prop).is_some() =>
+                {
+                    let which = parameter(query, "prop")
+                        .as_deref()
+                        .and_then(mask_prop)
+                        .expect("the guard above");
+                    match mask_key_command(id, query, composition, layer, which) {
                         Ok(command) => command,
                         Err(said) => return Some(said),
                     }
@@ -9892,6 +9939,74 @@ fn shape_key_command(
         _ if colour => "This colour",
         _ => "This number",
     };
+    let values = match id {
+        "property.set_base" | "property.drag_update" => parameter(query, "value")
+            .and_then(|text| match () {
+                _ if point => property_value(Prop::Position, &text).map(|v| vec![v]),
+                _ => text
+                    .split(',')
+                    .map(|n| n.trim().parse().ok().map(Value::Scalar))
+                    .collect::<Option<Vec<Value>>>(),
+            })
+            .filter(|values| values.len() == channels.len())
+            .ok_or_else(|| match () {
+                _ if point => "Where should the point go? Say value=x,y.".to_string(),
+                _ if colour => "What colour? Say value=r,g,b, each from 0 to 1.".to_string(),
+                _ => "What number? Say value=50.".to_string(),
+            })?,
+        _ => Vec::new(),
+    };
+    edit_channels(id, query, &mut channels, values, this)?;
+    shape.set_channels(name, channels);
+    Ok(Command::SetShapes { composition, layer_id: layer.id.clone(), shapes })
+}
+
+/// D-298: `mask:<n>:feather`, `opacity` and `expansion` name a mask's numbers wherever a request
+/// names a property, as `shape:<n>:fill_opacity` names a shape's. The names are the core's
+/// `MASK_PROPERTIES`; the values are the file's, an opacity from 0 to 1.
+fn mask_prop(prop: &str) -> Option<(usize, &'static str)> {
+    let (at, name) = prop.strip_prefix("mask:")?.split_once(':')?;
+    let name = anime_compositor::mask::MASK_PROPERTIES.into_iter().find(|n| *n == name)?;
+    Some((at.parse().ok()?, name))
+}
+
+/// D-298: the five requests about a mask's number, by the rules [`shape_key_command`] keeps for
+/// a shape's. The layer's masks go back whole and the core holds every key to D-77's ranges.
+fn mask_key_command(
+    id: &str,
+    query: Option<&str>,
+    composition: Id,
+    layer: &Layer,
+    (at, name): (usize, &str),
+) -> Result<Command, String> {
+    let mut masks = layer.masks.clone();
+    let Some(mask) = masks.get_mut(at) else {
+        return Err(format!("{} has no mask {at}.", layer.name));
+    };
+    let mut channels = vec![mask.channel(name).expect("a name from MASK_PROPERTIES")];
+    let values = match id {
+        "property.set_base" | "property.drag_update" => vec![parameter(query, "value")
+            .and_then(|text| text.trim().parse().ok())
+            .map(Value::Scalar)
+            .ok_or_else(|| "What number? Say value=50.".to_string())?],
+        _ => Vec::new(),
+    };
+    edit_channels(id, query, &mut channels, values, "This number")?;
+    mask.set_channel(name, channels.remove(0));
+    Ok(Command::SetMasks { composition, layer_id: layer.id.clone(), masks })
+}
+
+/// B-110b: what the five requests do to a keyed number's channels, which are keyed together: a
+/// value on a number with no keys sets it, on a keyed one it is a key on that frame keeping the
+/// ease a key there had; the diamond adds a key holding the number as it is or takes one off, the
+/// last one leaving the number where it was. `values` is one a channel for the two that set one.
+fn edit_channels(
+    id: &str,
+    query: Option<&str>,
+    channels: &mut [Property],
+    values: Vec<Value>,
+    this: &str,
+) -> Result<(), String> {
     let frame = frame_parameter(query, if id == "keyframe.move" { "from" } else { "frame" })?;
     let key = |frame, value| Keyframe {
         frame,
@@ -9904,20 +10019,6 @@ fn shape_key_command(
     let missing = || format!("{this} has no key at frame {frame}.");
     match id {
         "property.set_base" | "property.drag_update" => {
-            let values: Vec<Value> = parameter(query, "value")
-                .and_then(|text| match () {
-                    _ if point => property_value(Prop::Position, &text).map(|v| vec![v]),
-                    _ => text
-                        .split(',')
-                        .map(|n| n.trim().parse().ok().map(Value::Scalar))
-                        .collect::<Option<Vec<Value>>>(),
-                })
-                .filter(|values| values.len() == channels.len())
-                .ok_or_else(|| match () {
-                    _ if point => "Where should the point go? Say value=x,y.".to_string(),
-                    _ if colour => "What colour? Say value=r,g,b, each from 0 to 1.".to_string(),
-                    _ => "What number? Say value=50.".to_string(),
-                })?;
             for (channel, value) in channels.iter_mut().zip(values) {
                 match channel.keyframe_at(frame).cloned() {
                     _ if channel.keyframes().is_empty() => channel.set_base(value),
@@ -9953,8 +10054,7 @@ fn shape_key_command(
             }
         }
     }
-    shape.set_channels(name, channels);
-    Ok(Command::SetShapes { composition, layer_id: layer.id.clone(), shapes })
+    Ok(())
 }
 
 /// B-24h: D-79's two requests about a path's points, one added and one taken off.
@@ -19707,6 +19807,28 @@ mod editing {
             "Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted; \
              Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off",
             masks_of(&viewer),
+        );
+
+        // D-298: the diamond keys a mask's feather, a value on another frame is a second key,
+        // and the frame between draws with the number halfway.
+        run(&viewer, &format!("keyframe.add_remove?layer={cel}&prop=mask:0:feather&frame=0"));
+        run(&viewer, &format!("property.set_base?layer={cel}&prop=mask:0:feather&frame=10&value=28"));
+        report.check(
+            "D-298: Mask 1's feather keyed 8 at frame 0 and 28 at frame 10 is 18 at frame 5",
+            "18.0",
+            value_at(&viewer, 5, &cel, "mask:0:feather"),
+        );
+        report.check(
+            "D-298: and the panel's plain feather box is refused while it has keys, with where to set it",
+            "Mask 1's feather has keys. Set it on a frame with property.set_base and \
+             prop=mask:0:feather.",
+            run(&viewer, &format!("mask.set?layer={cel}&mask=0&feather=3")),
+        );
+        report.check(
+            "D-298: a feather key below 0 is refused by the core, with the reason",
+            "Mask \"Mask 1\" was given a feather of -1 pixels, which is below 0. Set a value \
+             inside the range and send the masks again.",
+            run(&viewer, &format!("property.set_base?layer={cel}&prop=mask:0:feather&frame=10&value=-1")),
         );
 
         write_artifact(

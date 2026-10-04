@@ -713,9 +713,14 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
             map.insert("enabled".into(), J::from(m.enabled));
             map.insert("inverted".into(), J::from(m.inverted));
             map.insert("mode".into(), J::from(m.mode.as_str()));
-            map.insert("opacity".into(), J::from(m.opacity));
-            map.insert("feather_px".into(), J::from(m.feather_px));
-            map.insert("expansion_px".into(), J::from(m.expansion_px));
+            // D-298: a keyed number is its record, a still one its plain value.
+            let number = |name: &str, plain: f64| match m.tracks.get(name) {
+                Some(track) => track_json(std::slice::from_ref(track), J::from(plain)),
+                None => J::from(plain),
+            };
+            map.insert("opacity".into(), number("opacity", m.opacity));
+            map.insert("feather_px".into(), number("feather", m.feather_px));
+            map.insert("expansion_px".into(), number("expansion", m.expansion_px));
             map.insert("path".into(), path_json(was, &m.points, &m.keys));
             J::Object(map)
         })
@@ -5042,10 +5047,25 @@ fn parse_mask(v: &J, at: &str, index: usize) -> Result<crate::mask::Mask, Diagno
             }
         },
     };
-    let number = |key: &str, default: f64| -> Result<f64, Diagnostic> {
+    // D-298: a number written as a property record is keyed. Its keys go to the track and its
+    // base is read as the plain number, as a shape's style is (D-170).
+    let mut tracks = std::collections::BTreeMap::new();
+    let mut number = |key: &str, default: f64| -> Result<f64, Diagnostic> {
+        let at = format!("{at}/{key}");
         match v.get(key) {
             None => Ok(default),
-            Some(n) => as_f64(n, &format!("{at}/{key}")),
+            Some(record) if record.is_object() => {
+                if record.get("expression").is_some() {
+                    return Err(invalid(&at, "no expression: a mask's numbers take keys only (D-298)"));
+                }
+                let (base, mut track) = channel_track(record, &at, 1, "a number")?;
+                if track[0].is_animated() {
+                    let name = key.trim_end_matches("_px");
+                    tracks.insert(name.to_string(), track.remove(0));
+                }
+                as_f64(&base, &format!("{at}/base"))
+            }
+            Some(n) => as_f64(n, &at),
         }
     };
     let opacity = number("opacity", 1.0)?;
@@ -5087,6 +5107,12 @@ fn parse_mask(v: &J, at: &str, index: usize) -> Result<crate::mask::Mask, Diagno
         feather_px,
         expansion_px,
         points,
+        tracks,
+    })
+    .and_then(|m| match m.out_of_range() {
+        // D-298: the plain numbers were held to D-77's ranges above; this is every key's.
+        Some(what) => Err(invalid(at, &format!("a mask inside D-77's ranges on every key, not {what}"))),
+        None => Ok(m),
     })
 }
 

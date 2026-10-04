@@ -1392,6 +1392,13 @@ fn mask_change(was: &[crate::mask::Mask], now: &[crate::mask::Mask]) -> String {
     if a.expansion_px != b.expansion_px {
         return format!("Set {name}'s expansion to {} px", b.expansion_px);
     }
+    // D-298: a keyed number changes in its keys and not in its plain value.
+    if let Some(which) = crate::mask::MASK_PROPERTIES
+        .into_iter()
+        .find(|n| a.tracks.get(*n) != b.tracks.get(*n))
+    {
+        return format!("Change {name}'s {which} keys");
+    }
     if a.inverted != b.inverted {
         return match b.inverted {
             true => format!("Invert {name}"),
@@ -2783,6 +2790,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     for key in &mut mask.keys {
                         key.frame += d - x;
                     }
+                    for track in mask.tracks.values_mut() {
+                        track.shift_keyframes(d - x);
+                    }
                 }
             }
         }
@@ -3344,24 +3354,11 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 }
                 // D-77's ranges, refused here for the same reason the loader refuses them: a
                 // value outside them has no drawing, so accepting one would leave the project
-                // holding a frame nobody can render.
-                let out_of_range = if !(0.0..=1.0).contains(&m.opacity) {
-                    Some(format!(
-                        "an opacity of {}, which is not from 0 to 1",
-                        m.opacity
-                    ))
-                } else if !(m.feather_px >= 0.0) {
-                    Some(format!(
-                        "a feather of {} pixels, which is below 0",
-                        m.feather_px
-                    ))
-                } else if !(m.expansion_px.abs() <= crate::mask::MAX_EXPANSION) {
-                    Some(format!(
-                        "an expansion of {} pixels, which is past 8192 either way",
-                        m.expansion_px
-                    ))
-                } else {
-                    None
+                // holding a frame nobody can render. D-298: on every key of a keyed number too,
+                // and a keyed number takes no expression.
+                let out_of_range = match m.tracks.values().any(|t| t.expression().is_some()) {
+                    true => Some("an expression, which a mask's numbers do not take".to_string()),
+                    false => m.out_of_range(),
                 };
                 if let Some(what) = out_of_range {
                     return Err(Diagnostic::new(

@@ -29,5 +29,8 @@ What a mask looks like on the picture and on the timeline, whether the pen close
 | and after the six refusals the two masks are as they were | Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted; Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off | Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted; Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off | pass |
 | Delete takes one mask off and leaves the other | Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off | Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off | pass |
 | and Undo brings it back as it was, settings and all | Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted; Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off | Mask 1 subtract 4 points, opacity 0.5, feather 8, expansion -4, inverted; Mask 2 add 4 points, opacity 1, feather 0, expansion 0, off | pass |
+| D-298: Mask 1's feather keyed 8 at frame 0 and 28 at frame 10 is 18 at frame 5 | 18.0 | 18.0 | pass |
+| D-298: and the panel's plain feather box is refused while it has keys, with where to set it | Mask 1's feather has keys. Set it on a frame with property.set_base and prop=mask:0:feather. | Mask 1's feather has keys. Set it on a frame with property.set_base and prop=mask:0:feather. | pass |
+| D-298: a feather key below 0 is refused by the core, with the reason | Mask "Mask 1" was given a feather of -1 pixels, which is below 0. Set a value inside the range and send the masks again. | Mask "Mask 1" was given a feather of -1 pixels, which is below 0. Set a value inside the range and send the masks again. | pass |
 
-**17 of 17 checks pass.**
+**20 of 20 checks pass.**

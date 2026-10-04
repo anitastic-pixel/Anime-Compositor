@@ -1605,7 +1605,8 @@ fn resolve_rest(
     // B-24d: a mask whose path has keys is resolved to its shape at this frame here, before the
     // draft divisor, before the rasterizer and before document 27's cache key, exactly as an
     // effect's settings are on the line above. A path that stands still is not copied at all.
-    let moving = layer.masks.iter().any(|m| !m.keys.is_empty());
+    // D-298: nor is a mask whose feather, opacity and expansion have no keys.
+    let moving = layer.masks.iter().any(|m| !m.keys.is_empty() || !m.tracks.is_empty());
     let moved: Vec<crate::mask::Mask> = if moving {
         layer.masks.iter().map(|m| m.at_time(layer.key_time(at as f64))).collect()
     } else {

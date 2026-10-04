@@ -54,7 +54,8 @@
 //! fill rule and its own antialiasing and the disagreement would say nothing about whether this
 //! file is right.
 
-use crate::model::Interp;
+use crate::model::{Interp, Property, Value};
+use std::collections::BTreeMap;
 use crate::WorkingBuffer;
 use rayon::prelude::*;
 
@@ -169,7 +170,14 @@ pub struct Mask {
     pub points: Vec<MaskPoint>,
     /// B-24d: where the path moves. Empty on a path that stands still, which is most of them.
     pub keys: Vec<MaskKey>,
+    /// D-298: the keys of a number that has any, by its name in [`MASK_PROPERTIES`]. The
+    /// number's own field is the base. A number without keys has no entry, as a shape's style
+    /// has none (D-170).
+    pub tracks: BTreeMap<String, Property>,
 }
+
+/// D-298: a mask's three numbers that take keys, by the names the window gives them.
+pub const MASK_PROPERTIES: [&str; 3] = ["feather", "opacity", "expansion"];
 
 impl Default for Mask {
     fn default() -> Mask {
@@ -183,6 +191,7 @@ impl Default for Mask {
             expansion_px: 0.0,
             points: Vec::new(),
             keys: Vec::new(),
+            tracks: BTreeMap::new(),
         }
     }
 }
@@ -218,12 +227,76 @@ impl Mask {
     }
 
     /// D-216: [`Mask::at`] at a key time `t` between two frames, where a stretched layer reads.
+    /// D-298: a keyed feather, opacity or expansion is its value at `t` by document 20's rules.
     pub fn at_time(&self, t: f64) -> Mask {
-        Mask {
+        let mut now = Mask {
             points: points_at_time(&self.points, &self.keys, t),
             keys: Vec::new(),
+            tracks: BTreeMap::new(),
             ..self.clone()
+        };
+        for (name, track) in &self.tracks {
+            if let Some(v) = now.number_mut(name) {
+                *v = track.value_at_time(t).as_scalar().unwrap_or(*v);
+            }
         }
+        now
+    }
+
+    /// D-298: the field a name in [`MASK_PROPERTIES`] stands for.
+    fn number_mut(&mut self, name: &str) -> Option<&mut f64> {
+        Some(match name {
+            "feather" => &mut self.feather_px,
+            "opacity" => &mut self.opacity,
+            "expansion" => &mut self.expansion_px,
+            _ => return None,
+        })
+    }
+
+    /// D-298: a number by its name as one property, its keys if it has any, or its plain value.
+    pub fn channel(&self, name: &str) -> Option<Property> {
+        let plain = *self.clone().number_mut(name)?;
+        Some(
+            self.tracks
+                .get(name)
+                .cloned()
+                .unwrap_or_else(|| Property::constant(Value::Scalar(plain))),
+        )
+    }
+
+    /// Puts back what [`Mask::channel`] handed out: its base as the plain number, its keys, if
+    /// any are left, as the track.
+    pub fn set_channel(&mut self, name: &str, channel: Property) -> Option<()> {
+        let v = self.number_mut(name)?;
+        *v = channel.base().as_scalar().unwrap_or(*v);
+        if channel.keyframes().is_empty() {
+            self.tracks.remove(name);
+        } else {
+            self.tracks.insert(name.to_string(), channel);
+        }
+        Some(())
+    }
+
+    /// D-77's ranges as a sentence, asked of the plain numbers and, since D-298, of the mask on
+    /// every key's frame. `None` for a mask that may exist.
+    pub fn out_of_range(&self) -> Option<String> {
+        let frames = self.tracks.values().flat_map(|t| t.keyframes().iter().map(|k| k.frame));
+        std::iter::once(self.clone())
+            .chain(frames.map(|f| self.at(f)))
+            .find_map(|m| {
+                if !(0.0..=1.0).contains(&m.opacity) {
+                    Some(format!("an opacity of {}, which is not from 0 to 1", m.opacity))
+                } else if !(m.feather_px >= 0.0) {
+                    Some(format!("a feather of {} pixels, which is below 0", m.feather_px))
+                } else if !(m.expansion_px.abs() <= MAX_EXPANSION) {
+                    Some(format!(
+                        "an expansion of {} pixels, which is past 8192 either way",
+                        m.expansion_px
+                    ))
+                } else {
+                    None
+                }
+            })
     }
 
     /// The path at a composition frame. [`Mask::at`] is this, with the keys taken off.

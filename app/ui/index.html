@@ -5657,12 +5657,12 @@ function layerGroups(comp, layer) {
 }
 // A mask's own row with its arrow, its mode and Invert, and under it, open, its three numbers,
 // each dragged, typed or stepped as in the effect controls (P-15: they follow the hand).
+// D-298: each with its diamond and its keys, as a property's row, named `mask:<n>:feather`.
 function maskGroup(comp, layer) {
   return maskRows(comp, layer).flatMap((li, at) => {
     const mask = masksOf(layer)[at];
     const g = 'mask:' + at;
     const set = (what) => command('/mask.set?layer=' + encodeURIComponent(layer.id) + '&mask=' + at + '&' + what);
-    const pull = (what) => dragSend('/mask.set?layer=' + encodeURIComponent(layer.id) + '&mask=' + at + '&drag=1&' + what);
     const head = li.querySelector('.rowhead');
     head.prepend(groupTwirl(layer, g, mask.name));
     const mode = document.createElement('select');
@@ -5685,23 +5685,7 @@ function maskGroup(comp, layer) {
     head.querySelector('.value').replaceChildren(mode, ' ', invert, ' ', on, ' ', gone);
     const rows = indent([li], 1);
     if (!groupOpen(layer.id, g)) return rows;
-    for (const [what, named, v, suffix, range, min, max] of [
-      ['feather', 'Mask feather', mask.feather_px, ' px', '0 or more', 0, Infinity],
-      ['opacity', 'Mask opacity', mask.opacity * 100, '%', '0 to 100', 0, 100],
-      ['expansion', 'Mask expansion', mask.expansion_px, ' px', '-8192 to 8192', -8192, 8192],
-    ]) {
-      rows.push(plainRow(layer, named, [scrubValue({
-        value: v,
-        suffix,
-        min,
-        max,
-        title: 'Drag to change, or press to type. ' + named + ' of ' + mask.name + ', ' + range,
-        label: named + ' of ' + mask.name + ' on ' + layer.name + ', ' + range,
-        live: (n) => pull(what + '=' + encodeURIComponent(n)),
-        done: (cancelled) => afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end'),
-        commit: (n) => set(what + '=' + encodeURIComponent(n)),
-      })], 2));
-    }
+    rows.push(...indent(MASK_PROPS.flatMap((what) => propTrack(comp, layer, g + ':' + what)), 2));
     return rows;
   });
 }
@@ -6019,8 +6003,9 @@ async function askForBoxes() {
   }
   const camera = cameraRow();
   if (camera && CAMERA_PROPS.some((prop) => exprOf(camera, prop))) drawCamera();
-  if (!dragFlight && !dragging && (layers().some((l) => propsOf(l).some((prop) => exprOf(l, prop)))
-    || (camera && CAMERA_PROPS.some((prop) => exprOf(camera, prop))))) drawLayers();
+  // D-298: and so do a keyed number's on the timeline's rows, which showed the frame before.
+  if (!dragFlight && !dragging && (layers().some((l) => propsOf(l).some((prop) => keysOf(l, prop).length
+    || exprOf(l, prop))) || (camera && CAMERA_PROPS.some((prop) => exprOf(camera, prop))))) drawLayers();
 }
 
 const boxOf = (id) => boxes.find((box) => box.layer === id) || null;
@@ -8098,6 +8083,7 @@ const PROPS = ['anchor', 'position', 'scale', 'rotation', 'opacity', 'depth'];
 // transform does not. A layer that has never been given one sits on plane 0, which is the value
 // to show rather than a blank.
 const propOf = (layer, prop) => (isPath(prop) ? { keyframes: maskKeys(pathAt(layer, prop) || {}) }
+  : isMaskNum(prop) ? maskNumOf(layer, prop)
   : isGrad(prop) ? gradOf(layer, prop)
   : isFx(prop) ? fxOf(layer, prop) : prop === 'depth'
   ? (layer.depth || { base: 0 })
@@ -8167,6 +8153,15 @@ function gradOf(layer, prop) {
   const g = group === 'trim' ? shape.trim : (shape[group] || {}).gradient;
   return (g && g[end]) || {};
 }
+// D-298: a mask's feather, opacity and expansion, `mask:<n>:feather` and so on, as D-170 names a
+// shape's opacity. The file writes one plain while it has no keys.
+const MASK_PROPS = ['feather', 'opacity', 'expansion'];
+const isMaskNum = (prop) => /^mask:\d+:/.test(prop) && MASK_PROPS.includes(prop.split(':')[2]);
+function maskNumOf(layer, prop) {
+  const [, at, which] = prop.split(':');
+  const held = (masksOf(layer)[at] || {})[which === 'opacity' ? which : which + '_px'];
+  return held === undefined ? {} : held && held.keyframes ? held : { base: held };
+}
 // A layer's properties: the six, each setting of its effects that has keys, and each path that has.
 // D-71: an audio layer has no transform and no effects, so it has no properties to open or key.
 const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
@@ -8178,10 +8173,13 @@ const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
     .concat(['mask', 'shape'].flatMap((kind) => pathsNamed(layer, kind).map((_, at) => kind + ':' + at))
       .filter((prop) => keysOf(layer, prop).length))
     .concat((layer.shapes || []).flatMap((_, at) => SHAPE_PROPS
-      .map((which) => 'shape:' + at + ':' + which)).filter((prop) => keysOf(layer, prop).length)));
+      .map((which) => 'shape:' + at + ':' + which)).filter((prop) => keysOf(layer, prop).length))
+    .concat(masksOf(layer).flatMap((_, at) => MASK_PROPS
+      .map((which) => 'mask:' + at + ':' + which)).filter((prop) => keysOf(layer, prop).length)));
 // What a property is called on screen: its own name, or the effect's and the setting's words.
 function propLabel(layer, prop) {
   if (isPath(prop)) return ((pathAt(layer, prop) || {}).name || prop) + ' path';
+  if (isMaskNum(prop)) return 'Mask ' + prop.split(':')[2];
   if (isGrad(prop)) return ((layer.shapes || [])[prop.split(':')[1]] || {}).name + ' '
     + prop.split(':')[2].replace(/^(fill|stroke)_(start|end)$/, '$1 gradient $2').replace('_', ' ');
   if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
@@ -8275,7 +8273,7 @@ function transformValue(layer, prop) {
 // D-291: what can carry an expression. A shape's numbers (D-168..D-170) take keys only; an effect's
 // setting takes one when it is a single number, and its colours, points and Mix take keys only.
 function takesExpr(layer, prop) {
-  if (isGrad(prop) || isPath(prop)) return false;
+  if (isGrad(prop) || isPath(prop) || isMaskNum(prop)) return false;
   if (!isFx(prop)) return true;
   const [fx, name] = fxParts(layer, prop);
   const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
@@ -8469,7 +8467,7 @@ function propScrubs(layer, prop) {
   // long. Both are turned over here and turned back on the way out, so what reaches the command
   // is the number the file wants. The lens's factor is the composition's own width, because a
   // 50 mm lens is 50 mm of a 36 mm back however wide the picture is.
-  const per = prop === 'opacity' || /^shape:\d+:\w+_opacity$/.test(prop) ? 100
+  const per = prop === 'opacity' || /^(shape:\d+:\w+_|mask:\d+:)opacity$/.test(prop) ? 100
     : prop === 'zoom' ? 36 / composition().width
       : 1;
   const held = transformValue(layer, prop).map((v) => v * per);
@@ -8491,9 +8489,11 @@ function propScrubs(layer, prop) {
     };
     return scrubValue({
       value: v,
-      suffix: SUFFIX[prop] || '',
+      suffix: SUFFIX[prop] || (isMaskNum(prop) ? (per === 100 ? '%' : ' px') : ''),
       ...(per === 100 || /^shape:\d+:trim_(start|end)$/.test(prop) ? { min: 0, max: 100 }
-        : prop === 'zoom' ? { min: 0.01 } : {}),
+        : prop === 'zoom' ? { min: 0.01 }
+          : /^mask:\d+:feather$/.test(prop) ? { min: 0 }
+            : /^mask:\d+:expansion$/.test(prop) ? { min: -8192, max: 8192 } : {}),
       label: prop + (held.length > 1 ? ' ' + 'xy'[i] : ''),
       title: 'Drag to change ' + prop + ', press to type it, or use the arrow keys',
       step: STEP[prop],

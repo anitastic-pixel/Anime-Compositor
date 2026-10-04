@@ -795,6 +795,13 @@ D-297 / An adjustment layer takes a blend mode / **BUILT on 2026-10-04** (B-182)
 - The graphics card does not draw this case: such a frame is drawn on the CPU, with an Info line saying so.
 - B-182 checks grey 0.2 under Exposure +1 by hand: normal 0.4, multiply 0.08, screen 0.52, add 0.6, and halfway back to 0.2 at 50% opacity.
 
+D-298 / A mask's feather, opacity and expansion take keys / **BUILT on 2026-10-04** (B-183), from P-26: the Shockwave and Chris Connor lightsaber tutorials animate a mask's feather and opacity; D-77 gave each one number for the whole shot. **Awaiting the owner's playtest.**
+- Each of the three is a keyed number like a transform's: the timeline's Mask feather, Mask opacity and Mask expansion rows have a diamond, keys on the track, ease, hold and the graph. The window names them `mask:<n>:feather`, `mask:<n>:opacity` and `mask:<n>:expansion`.
+- Every key is held to D-77's ranges, by the command and by the file; an expression on them is refused (keys only, as a shape's numbers). The plain `mask.set` box refuses a number that has keys and says where to set it.
+- The file writes a number with no keys as the plain number it always was, so older files and older builds are unchanged; a keyed one is a property record (document 19).
+- Found on the way: the timeline's numbers on keyed rows showed the frame before after a step; they now follow the frame, as the expression rows already did.
+- B-183 checks by hand on an 8x8 white solid: opacity keyed 1 to 0 over 10 frames is 0.5 at frame 5; feather 0 to 8 and expansion -2 to 2 draw at frame 5 the same picture, pixel for pixel, as plain 4 and 0.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.
