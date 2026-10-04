@@ -26,5 +26,7 @@ What the layer looks like on the timeline and in the panels, and whether the pic
 | the Project panel's button adds a second layer of Precomp 1, at the front | Precomp 1, Precomp 1 | Precomp 1, Precomp 1 | pass |
 | Undo twice: the button's layer goes, then Pre-compose goes as one entry | Cel, Grade; Main | Cel, Grade; Main | pass |
 | and Redo makes it again | Precomp 1; Main, Precomp 1 | Precomp 1; Main, Precomp 1 | pass |
+| D-273: the name the Pre-compose window sends is the new composition's, trimmed | Hair comp; Main, Hair comp | Hair comp; Main, Hair comp | pass |
+| and a name of only spaces gives the next Precomp number | Precomp 1; Main, Precomp 1 | Precomp 1; Main, Precomp 1 | pass |
 
-**14 of 14 checks pass.**
+**16 of 16 checks pass.**

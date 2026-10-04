@@ -6230,10 +6230,16 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 .collect();
             let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
             let project = held.document.project();
-            let name = (1..)
-                .map(|n| format!("Precomp {n}"))
-                .find(|name| project.compositions.iter().all(|c| &c.name != name))
-                .expect("the numbers do not run out");
+            // D-273: the name the Pre-compose window asked for, or the next "Precomp N".
+            let name = parameter(query, "name")
+                .map(|n| n.trim().to_string())
+                .filter(|n| !n.is_empty())
+                .unwrap_or_else(|| {
+                    (1..)
+                        .map(|n| format!("Precomp {n}"))
+                        .find(|name| project.compositions.iter().all(|c| &c.name != name))
+                        .expect("the numbers do not run out")
+                });
             let commands = match anime_compositor::command::precompose(
                 project,
                 &held.composition,
@@ -21503,6 +21509,24 @@ mod editing {
             format!("Precomp 1; {main_name}, Precomp 1"),
             format!("{}; {}", names(&viewer), comps(&viewer)),
         );
+        run(&viewer, "edit.undo");
+        report.check(
+            "D-273: the name the Pre-compose window sends is the new composition's, trimmed",
+            format!("Hair comp; {main_name}, Hair comp"),
+            {
+                run(&viewer, &format!("layer.precompose?layer={cel}&layer={grade}&name=%20Hair%20comp%20"));
+                format!("{}; {}", names(&viewer), comps(&viewer))
+            },
+        );
+        run(&viewer, "edit.undo");
+        report.check(
+            "and a name of only spaces gives the next Precomp number",
+            format!("Precomp 1; {main_name}, Precomp 1"),
+            {
+                run(&viewer, &format!("layer.precompose?layer={cel}&layer={grade}&name=%20%20"));
+                format!("{}; {}", names(&viewer), comps(&viewer))
+            },
+        );
 
         write_artifact(
             &report,
@@ -28121,7 +28145,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 108] = [
+    const CONTROLS: [&str; 125] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -28137,14 +28161,26 @@ mod contract {
         "back",
         "cancelcomp",
         "cancelexport",
+        "cancelprecomp",
         "cancelprint",
         "cancelrelink",
         "checker",
         "checkpackage",
+        "closecomp",
         "closemap",
         "closeprefs",
         "collect",
+        "compadvtab",
         "comparebtn",
+        "compbasictab",
+        "compfps",
+        "compframes",
+        "compguides",
+        "compheight",
+        "complock",
+        "comppreset",
+        "compwidth",
+        "delcomppreset",
         "dellayer",
         "down",
         "emptyimport",
@@ -28171,6 +28207,7 @@ mod contract {
         "import",
         "importcut",
         "makecomp",
+        "makeprecomp",
         "maptab",
         "mbswitch",
         "mirror",
@@ -28180,6 +28217,9 @@ mod contract {
         "onionbtn",
         "open",
         "play",
+        "precompmap",
+        "precompname",
+        "precompopen",
         "prefcard",
         "prefdisk",
         "prefdiskfolder",
@@ -28201,6 +28241,7 @@ mod contract {
         "resetworkspace",
         "save",
         "saveas",
+        "savecomppreset",
         "savepreset",
         "saveworkspace",
         "sessionlogbutton",

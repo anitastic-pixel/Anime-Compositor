@@ -1359,7 +1359,7 @@
      above it, and the List / Pictures / Tree / By cut switch in the tab. */
   #bin .body { padding: 0 0 8px; container-type: inline-size; }
   #bin .body > h2.plist { display: none; }
-  #bin #newcomposition, #bin #prefs, #bin #relinking, #bin #noassets { margin: 8px; }
+  #bin #prefs, #bin #relinking, #bin #noassets { margin: 8px; }
   #bin .tab #pviews { margin-left: auto; display: flex; gap: 2px; white-space: nowrap; }
   #pviews button {
     font-size: 10.5px; text-transform: none; letter-spacing: 0; padding: 1px 6px; line-height: 14px;
@@ -1467,24 +1467,126 @@
   #pother .cutrow > .cstatus { position: absolute; right: 16px; top: 9px; }
   #pinfo .cstatus { margin-left: auto; }
   #relinking { border: 1px solid #e8b06a; border-radius: 4px; padding: 6px; margin-top: 6px; }
-  #newcomposition { border: 1px solid #7a8ba0; border-radius: 4px; padding: 6px; margin-top: 6px; }
-  /* Five fields and two buttons in a column 220 pixels wide. Label beside field rather than
-     above it, because stacked they were taller than the panel and the button that makes the
-     composition was below the fold, which is a control the person cannot see. */
-  #newcomposition {
-    display: grid; grid-template-columns: minmax(0, 1fr) 7em; gap: 4px 6px;
-    align-items: center;
-  }
-  #newcomposition p, #newcomposition button { grid-column: 1 / -1; margin: 0; }
-  /* display: grid above beats the browser rule for [hidden], so say it again here. */
-  #newcomposition[hidden] { display: none; }
   #ditherlabel[hidden] { display: none; }
-  #newcomposition label { display: block; }
-  /* D-84f: the Sheet's four, only in Composition Settings. Their own grid rows, as the rest. */
-  #compsheet { display: contents; }
-  #compsheet[hidden] { display: none; }
-  #compsheet h3 { grid-column: 1 / -1; margin: 4px 0 0; font-size: inherit; }
-  #newcomposition input { width: 100%; box-sizing: border-box; }
+  /* D-273: the redesign's windows (the boards' .dlg): a title bar, rows of a label beside its field,
+     and the buttons at the foot with the one that does it on the right. */
+  dialog.dlg {
+    padding: 0; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box;
+    background: #232326; color: #d4d4d8; border: 1px solid #4a4a50; border-radius: 8px; font-size: 12px;
+    box-shadow: 0 12px 40px rgb(0 0 0 / 0.7);
+  }
+  dialog.dlg::backdrop { background: rgb(0 0 0 / 0.6); }
+  .dlg .grow { flex-grow: 1; }
+  .dlg .dim { color: #8e8e96; }
+  .dlg button { height: 26px; padding: 0 12px; }
+  .dlg button:disabled { opacity: 0.45; cursor: default; }
+  .dlg input[type=number] { width: 64px; box-sizing: border-box; }
+  .dlg input[type=text], .dlg input[type=number], .dlg select {
+    background: #151517; border: 1px solid #3a3a40; border-radius: 4px; padding: 3px 8px; color: #fff; font: inherit;
+  }
+  .dlg input:disabled, .dlg select:disabled { color: #6c6c74; }
+  .dlg input[type=checkbox] { accent-color: #6ea8fe; margin: 0; }
+  .dlg .soon { font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #1a1a1a;
+    background: #8e8e96; border-radius: 3px; padding: 0 4px; line-height: 14px; cursor: help; }
+  .dlg .dt { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 6px 0 14px; box-sizing: border-box;
+    background: #2a2a2e; border-bottom: 1px solid #1a1a1c; color: #fff; font-weight: 600; font-size: 13px; }
+  .dlg .dt .dim { font-weight: 400; font-size: 12px; }
+  .dlg .x { width: 30px; padding: 0; border: 0; background: none; display: flex; align-items: center; justify-content: center; }
+  .dlg .x svg { width: 14px; height: 14px; fill: none; stroke: #8e8e96; stroke-width: 1.6; }
+  .dlg .ib { padding: 0 6px; display: flex; align-items: center; }
+  .dlg .ib svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.4; }
+  .dlg .fr { display: flex; align-items: center; gap: 8px; min-height: 38px; box-sizing: border-box; }
+  .dlg .lb { width: 104px; flex-shrink: 0; justify-content: flex-end; text-align: right; padding-right: 4px; box-sizing: border-box; color: #a0a0a8; }
+  .dlg .lb.narrow { width: 70px; }
+  .dlg .ft { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 14px; height: 50px;
+    border-top: 1px solid #2e2e32; box-sizing: border-box; }
+  .dlg button.pri { background: #3a5a8c; border-color: #6ea8fe; color: #fff; }
+  .cdlg { width: 1020px; }
+  .cdlg .top { margin-top: 10px; padding: 0 14px; }
+  .cdlg .top label { color: #a0a0a8; }
+  .cdlg #compname { width: 300px; max-width: none; }
+  .cdlg .cols { display: flex; height: 470px; }
+  .cdlg .cleft { width: 500px; flex-shrink: 0; border-right: 1px solid #2e2e32; box-sizing: border-box; }
+  .cdlg .tabs { display: flex; height: 33px; padding: 0 14px; border-bottom: 1px solid #2e2e32; box-sizing: border-box; }
+  .cdlg .tab { border: 0; border-radius: 0; background: none; padding: 0 16px; height: 32px; color: #a0a0a8; border-bottom: 2px solid transparent; }
+  .cdlg .tab.on { color: #fff; border-bottom-color: #6ea8fe; }
+  .cdlg .pane { padding: 10px 14px 0; }
+  .cdlg .pane[hidden] { display: none; }
+  .cdlg .dd { flex-grow: 1; max-width: none; height: 26px; }
+  .cdlg .lock { margin-left: 10px; }
+  .cdlg .blue { color: #6ea8fe; }
+  .cdlg .swatch { width: 36px; height: 18px; background: #000; border: 1px solid #666; border-radius: 3px; }
+  .cdlg .tall { min-height: 64px; align-items: flex-start; padding-top: 6px; }
+  .cdlg .anc { display: grid; grid-template-columns: repeat(3, 14px); gap: 3px; opacity: 0.45; }
+  .cdlg .anc i { width: 14px; height: 14px; border: 1px solid #55555c; border-radius: 2px; box-sizing: border-box; }
+  .cdlg .anc i.on { background: #6ea8fe; border-color: #6ea8fe; }
+  .cdlg h3 { margin: 12px 0 6px; color: #fff; font-size: 12px; font-weight: 600; }
+  .cdlg input.short { width: 60px; }
+  .cdlg .note { margin: 14px 0 0; padding-left: 112px; font-size: 11px; }
+  .cdlg .cright { flex-grow: 1; min-width: 0; padding: 12px 12px 0; box-sizing: border-box; }
+  .cdlg .fhead { height: 24px; display: flex; align-items: center; gap: 6px; color: #8e8e96; font-size: 11px; letter-spacing: 0.06em; }
+  .cdlg .fhead span:last-child { letter-spacing: 0; color: #6c6c74; }
+  .cdlg .frame { position: relative; height: 280px; background: #0c0c0e; border: 1px solid #2e2e32; border-radius: 6px; overflow: hidden; box-sizing: border-box; }
+  .cdlg .pic { position: absolute; box-sizing: border-box; border: 2px solid #e8e8ec;
+    background: linear-gradient(#34507a, #1a2436 62%, #22283a 72%, #3a4a2e 72%, #2f3d26); }
+  .cdlg .pic > div, .cdlg .gfield > * { position: absolute; box-sizing: border-box; }
+  .cdlg .pic [hidden] { display: none; }
+  .cdlg .gaction { inset: 5%; border: 1.5px dashed #e8b06a; }
+  .cdlg .gtitle { inset: 10%; border: 1.5px dashed #6ea8fe; }
+  .cdlg .gfield { inset: 0; }
+  .cdlg .gfield div { border: 1.5px dotted #8fd6a0; }
+  .cdlg .gfield .f10 { inset: 8.333%; } .cdlg .gfield .f8 { inset: 16.667%; }
+  .cdlg .gfield span { font-size: 10px; line-height: 12px; color: #8fd6a0; }
+  .cdlg .l12 { left: 3px; top: 2px; } .cdlg .l10 { left: calc(8.333% + 3px); top: calc(8.333% + 2px); } .cdlg .l8 { left: calc(16.667% + 3px); top: calc(16.667% + 2px); }
+  .cdlg .gcross { left: calc(50% - 12px); top: calc(50% - 12px); width: 24px; height: 24px;
+    background: linear-gradient(#fff, #fff) center / 1.5px 100% no-repeat, linear-gradient(#fff, #fff) center / 100% 1.5px no-repeat; }
+  .cdlg .shapes { min-height: 34px; margin-top: 6px; gap: 4px; }
+  .cdlg .shapes > .dim:first-child { width: 44px; }
+  .cdlg .shapes button { padding: 2px 9px; font-size: 11px; }
+  .cdlg .shapes button.on { background: #2e3b52; border-color: #6ea8fe; color: #fff; }
+  .cdlg .small { margin-left: 6px; font-size: 11px; }
+  .cdlg .gtoggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 8px; margin-top: 6px; }
+  .cdlg .gtoggles label { gap: 8px; height: 32px; padding: 0 6px; border-radius: 4px; }
+  .cdlg .gtoggles label:hover { background: #2a2a2e; }
+  .cdlg .sample { width: 18px; height: 0; border-top: 2px dashed; flex-shrink: 0; }
+  .cdlg .sample.st { border-color: #6ea8fe; } .cdlg .sample.sa { border-color: #e8b06a; } .cdlg .sample.sf { border-color: #8fd6a0; border-top-style: dotted; }
+  .cdlg .sample.plus { height: auto; border: 0; text-align: center; color: #8e8e96; }
+  .cdlg .readback { height: 32px; display: flex; align-items: center; margin-top: 4px; color: #fff; }
+  .cdlg .preview { margin-right: auto; gap: 8px; }
+  .pdlg { width: 860px; border-color: #45454b; }
+  .pdlg .ph { height: 44px; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #333338; box-sizing: border-box; }
+  .pdlg #precomptitle { color: #fff; font-size: 15px; font-weight: 600; }
+  .pdlg .pn { height: 44px; padding: 14px 20px 0; display: flex; align-items: center; gap: 10px; box-sizing: border-box; }
+  .pdlg .pn label { width: 50px; }
+  .pdlg #precompname { width: 300px; max-width: none; border-color: #6ea8fe; }
+  .pdlg .cards { display: flex; gap: 14px; padding: 14px 20px; height: 330px; box-sizing: border-box; }
+  .pdlg .card { flex: 1; height: auto; border: 1px solid #3a3a40; border-radius: 8px; padding: 14px; background: #1c1c1f;
+    display: flex; flex-direction: column; align-items: stretch; text-align: left; font-size: 12px; color: #d4d4d8; }
+  .pdlg .card.on { border-color: #6ea8fe; background: #1f2636; box-shadow: 0 0 0 1px #6ea8fe; }
+  .pdlg .card > .dim { margin-top: 6px; }
+  .pdlg .ct { color: #fff; font-size: 14px; }
+  .pdlg .ct .dim { font-size: 12px; }
+  .pdlg .radio { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid #6a6a72; box-sizing: border-box; vertical-align: -2px; margin-right: 8px; }
+  .pdlg .radio.on { border: 4px solid #6ea8fe; background: #fff; }
+  .pdlg .dg { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+  .pdlg .col { flex: 1; min-width: 0; }
+  .pdlg .cap { display: block; color: #8e8e96; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+  .pdlg .box { display: block; border: 1px solid #45454b; border-radius: 6px; padding: 6px 8px; background: #151517; }
+  .pdlg .box.in { margin-top: 6px; border-style: dashed; border-color: #8fd6a0; }
+  .pdlg .box .h { display: block; font-size: 11px; color: #8e8e96; margin-bottom: 4px; }
+  .pdlg .lyr { display: flex; align-items: center; gap: 5px; background: #26262a; border-radius: 4px; padding: 3px 6px; margin-top: 3px; color: #fff; overflow: hidden; white-space: nowrap; }
+  .pdlg .arr { color: #6a6a72; font-size: 18px; }
+  .pdlg .fx { font-size: 10px; color: #1a1a1a; background: #b89cf0; border-radius: 3px; padding: 0 4px; line-height: 14px; }
+  .pdlg .dia { width: 7px; height: 7px; background: #e8b06a; transform: rotate(45deg); display: inline-block; flex-shrink: 0; }
+  .pdlg .lyr .dim { font-size: 10px; }
+  .pdlg .cf { color: #8e8e96; font-size: 11px; border-top: 1px solid #333338; padding-top: 8px; }
+  .pdlg .ticks { min-height: 34px; display: flex; align-items: center; gap: 14px; padding: 0 14px; }
+  .pdlg .ticks label { gap: 8px; height: 32px; padding: 0 6px; }
+  .pdlg .ft { height: 56px; padding: 0 20px; border-color: #333338; }
+  .pdlg .ft button { height: 36px; }
+  .pdlg .ft button.pri { background: #3a4a6a; }
+  .pdlg .ft .k { color: #9fb4d6; }
+  .pdlg .legend { font-size: 11px; }
   #prefs label { display: block; }
   #printdialog {
     background: #1e1e20; color: #d0d0d4; border: 1px solid #7a8ba0; border-radius: 4px;
@@ -1867,40 +1969,6 @@
       <div id="phead" aria-hidden="true"><span>Name</span><span>Kind</span><span>Length</span><span>Drawings</span></div>
       <h2 class="plist">Compositions</h2>
       <ul class="rows" id="comps"></ul>
-      <div id="newcomposition" hidden>
-        <p>A new composition is empty. It is the frame the drawings are laid into, so its size,
-          its rate and its length are what the finished shot will be.</p>
-        <label for="compname">Name</label>
-        <input id="compname" type="text" value="New composition">
-        <label for="compwidth">Width in pixels</label>
-        <input id="compwidth" type="number" min="1" value="1920">
-        <label for="compheight">Height in pixels</label>
-        <input id="compheight" type="number" min="1" value="1080">
-        <label for="compfps">Frames per second</label>
-        <input id="compfps" type="number" min="1" value="24">
-        <label for="compframes">Length in frames</label>
-        <input id="compframes" type="number" min="1" value="240">
-        <div id="compsheet" hidden>
-          <h3>Sheet</h3>
-          <label for="compepisode">Episode</label>
-          <input id="compepisode" type="text">
-          <label for="compscene">Scene</label>
-          <input id="compscene" type="text">
-          <label for="compcut">Cut</label>
-          <input id="compcut" type="text">
-          <label for="companimator">Animator</label>
-          <input id="companimator" type="text">
-          <h3>Motion blur</h3>
-          <label for="compangle">Shutter angle in degrees, 0 to 720</label>
-          <input id="compangle" type="number" min="0" max="720" value="180">
-          <label for="compphase">Shutter phase in degrees, -360 to 360</label>
-          <input id="compphase" type="number" min="-360" max="360" value="-90">
-          <label for="compsamples">Samples per frame, 2 to 64</label>
-          <input id="compsamples" type="number" min="2" max="64" value="16">
-        </div>
-        <button id="makecomp">Create it</button>
-        <button id="cancelcomp">Leave it</button>
-      </div>
       <div id="prefs" hidden>
         <h2>Preferences</h2>
         <p>These belong to this window on this computer. A project file never holds them.</p>
@@ -2266,6 +2334,90 @@
 <div class="place" id="side"><nav class="stack" hidden></nav></div>
 <div class="place" id="parked"><nav class="stack" hidden></nav></div>
 </div>
+<!-- D-273: New composition (Ctrl+N) and Composition settings (Ctrl+K), copied from the redesign's
+     board "Composition settings A": Basic and Advanced on the left, the frame those numbers make on
+     the right with a layout artist's guides. A row marked "proposed" needs the engine (D-274..D-277). -->
+<dialog id="newcomposition" class="dlg cdlg" aria-labelledby="comptitle">
+  <div class="dt"><span id="comptitle">Composition settings</span> <span class="dim" id="compkey">Ctrl+K</span><span class="grow"></span>
+    <button id="closecomp" class="x" title="Leave it (Esc)" aria-label="Leave it"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button></div>
+  <div class="fr top"><label for="compname">Composition name</label><input id="compname" type="text" value="New composition"></div>
+  <div class="cols">
+    <div class="cleft">
+      <div class="tabs" role="tablist"><button id="compbasictab" class="tab on" role="tab" aria-selected="true">Basic</button><button id="compadvtab" class="tab" role="tab" aria-selected="false">Advanced</button></div>
+      <div id="compbasic" class="pane">
+        <div class="fr"><label class="lb" for="comppreset">Preset</label><select id="comppreset" class="dd"></select>
+          <button id="savecomppreset" class="ib" title="Save as a preset" aria-label="Save as a preset"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2h8l2 2v10H3z"/><path d="M5 2v4h6V2M5 14v-4h6v4"/></svg></button>
+          <button id="delcomppreset" class="ib" title="Delete this preset (only a saved one)" aria-label="Delete this preset"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M6 4V2h4v2M4.5 4l.7 10h5.6l.7-10"/></svg></button></div>
+        <div class="fr"><span class="lb"></span><button disabled>Match a file&hellip;</button><span class="dim">size and rate from a drawing or video</span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-274.">proposed</span></div>
+        <div class="fr"><label class="lb" for="compwidth">Width</label><input id="compwidth" type="number" min="1" value="1920"><span class="dim">px</span></div>
+        <div class="fr"><label class="lb" for="compheight">Height</label><input id="compheight" type="number" min="1" value="1080"><span class="dim">px</span>
+          <label class="lock"><input id="complock" type="checkbox" checked> Lock shape to <span id="compaspect">16:9 (1.78)</span></label></div>
+        <div class="fr"><span class="lb">Pixel shape</span><select disabled><option>Square pixels</option></select><span class="dim">frame is <span id="compaspect2">16:9 (1.78)</span></span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-275. Every pixel is square today.">proposed</span></div>
+        <div class="fr"><label class="lb" for="compfps">Frame rate</label><input id="compfps" type="number" min="1" value="24" list="compfpslist"><span class="dim">frames per second</span>
+          <datalist id="compfpslist"><option value="12"><option value="24"><option value="25"><option value="30"><option value="48"><option value="60"></datalist></div>
+        <div class="fr"><span class="lb">Resolution</span><select disabled><option>Full</option></select><span class="dim" id="compres"></span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-275. The viewer's Draft button sets it for every composition today.">proposed</span></div>
+        <div class="fr"><span class="lb">Start frame</span><input id="compstart" type="number" value="0" disabled><span class="dim">the ruler's first number</span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-275.">proposed</span></div>
+        <div class="fr"><label class="lb" for="compframes">Length</label><input id="compframes" type="number" min="1" value="240"><span class="dim">frames</span><span id="complength" class="blue"></span></div>
+        <div class="fr"><span class="lb">Background</span><span class="swatch"></span><span class="dim">Black</span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-275.">proposed</span></div>
+      </div>
+      <div id="compadv" class="pane" hidden>
+        <div class="fr tall"><span class="lb">Resize from</span><span class="anc" aria-hidden="true"><i></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i></i></span><span class="dim">Which edge stays put when the size changes</span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-276. Today a new size keeps the layers where they are, from the top left.">proposed</span></div>
+        <div class="fr"><span class="lb">Motion blur</span><label>Shutter angle <input id="compangle" type="number" min="0" max="720" value="180" title="0 to 720 degrees"></label><label>Phase <input id="compphase" type="number" min="-360" max="360" value="-90" title="-360 to 360 degrees"></label><label>Samples <input id="compsamples" type="number" min="2" max="64" value="16" title="2 to 64 a frame"></label></div>
+        <div class="fr"><span class="lb"></span><label><input type="checkbox" disabled> Keep this frame rate when put inside another</label><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-277.">proposed</span></div>
+        <h3>Sheet</h3>
+        <div class="fr"><label class="lb" for="compepisode">Episode</label><input id="compepisode" type="text" class="short"><label class="lb narrow" for="compscene">Scene</label><input id="compscene" type="text" class="short"></div>
+        <div class="fr"><label class="lb" for="compcut">Cut</label><input id="compcut" type="text" class="short"><label class="lb narrow" for="companimator">Animator</label><input id="companimator" type="text"></div>
+        <p class="dim note">The picture on the right stays while you work in this tab.</p>
+      </div>
+    </div>
+    <div class="cright">
+      <div class="fhead">THE FRAME<span class="grow"></span><span>redraws as you change the size</span></div>
+      <div id="compframe" class="frame" aria-hidden="true"><div class="pic">
+        <div class="gaction"></div><div class="gtitle"></div>
+        <div class="gfield"><div class="f10"></div><div class="f8"></div><span class="l12">12F</span><span class="l10">10F</span><span class="l8">8F</span></div>
+        <div class="gcross"></div></div></div>
+      <div class="fr shapes" id="compshapes"><span class="dim">Shape</span><button data-shape="0">16:9</button><button data-shape="1">1.85</button><button data-shape="2">2.39</button><button data-shape="3">9:16</button><button data-shape="4">4:3</button><span class="dim small">same as picking a preset</span></div>
+      <div class="gtoggles">
+        <label><input id="gtitle" type="checkbox"><span class="sample st"></span>Title safe <span class="dim">80%</span></label>
+        <label><input id="gaction" type="checkbox"><span class="sample sa"></span>Action safe <span class="dim">90%</span></label>
+        <label><input id="gfield" type="checkbox"><span class="sample sf"></span>Field guide <span class="dim">12F &middot; 10F &middot; 8F</span></label>
+        <label><input id="gcross" type="checkbox"><span class="sample plus">+</span>Centre cross</label>
+      </div>
+      <div id="compreadback" class="readback"></div>
+    </div>
+  </div>
+  <div class="ft"><label class="preview"><input id="compguides" type="checkbox"> Preview <span class="dim">&middot; ticked guides also show in the viewer</span></label><button id="cancelcomp">Leave it</button><button id="makecomp" class="pri">Create it</button></div>
+</dialog>
+<!-- D-273: Pre-compose, copied from the redesign's board "Pre-compose A": a name, two ways to do it
+     side by side with a picture of each, and what to do after. -->
+<dialog id="precompdialog" class="dlg pdlg" aria-labelledby="precomptitle">
+  <div class="ph"><span id="precomptitle">Pre-compose</span><span class="grow"></span><span class="dim" id="precompcount"></span></div>
+  <div class="pn"><label for="precompname" class="dim">Name</label><input id="precompname" type="text"></div>
+  <div class="cards">
+    <button id="precompleave" class="card" disabled title="Not in this build: it needs a change in the engine, proposed as D-278.">
+      <span class="ct"><span class="radio"></span>Leave settings in <span class="outname"></span></span>
+      <span class="dim">The drawing goes inside. Its effects and moves stay on the outside, on the new layer.</span>
+      <span class="dg"><span class="col"><span class="cap">Before</span><span class="box"><span class="h outname"></span><span class="lyr pbefore"></span></span></span><span class="arr">&rarr;</span>
+        <span class="col"><span class="cap">After</span><span class="box"><span class="h outname"></span><span class="lyr pkept"></span><span class="box in"><span class="h">inside <span class="newname"></span></span><span class="lyr pplain"></span></span></span></span></span>
+      <span class="grow"></span>
+      <span class="cf">Not in this build: it needs a change in the engine, proposed as D-278. Today every setting moves inside.</span>
+    </button>
+    <button id="precompmove" class="card on" aria-pressed="true">
+      <span class="ct"><span class="radio on"></span>Move every setting into the new one <span class="dim">as today</span></span>
+      <span class="dim">Everything goes inside with the drawing. The new layer outside starts clean.</span>
+      <span class="dg"><span class="col"><span class="cap">Before</span><span class="box"><span class="h outname"></span><span class="lyr pbefore"></span></span></span><span class="arr">&rarr;</span>
+        <span class="col"><span class="cap">After</span><span class="box"><span class="h outname"></span><span class="lyr pclean"></span><span class="box in"><span class="h">inside <span class="newname"></span></span><span class="lyr pmoved"></span></span></span></span></span>
+      <span class="grow"></span>
+      <span class="cf">Works with any number of layers.</span>
+    </button>
+  </div>
+  <div class="ticks">
+    <label title="Not in this build: it needs a change in the engine, proposed as D-279. Today the new composition is as long as this one."><input type="checkbox" disabled> Trim it to the layers' length <span class="dim" id="precomprange"></span> <span class="soon">proposed</span></label>
+    <label><input id="precompopen" type="checkbox"> Open it after</label>
+    <label><input id="precompmap" type="checkbox"> Show the flowchart after</label>
+  </div>
+  <div class="ft"><span class="dim legend"><span class="fx">fx</span> an effect &nbsp; <span class="dia"></span> a key</span><span class="grow"></span><button id="cancelprecomp">Cancel <span class="dim">Esc</span></button><button id="makeprecomp" class="pri">Pre-compose <span class="k">Enter</span></button></div>
+</dialog>
 <!-- D-84e: how to print the Sheet. The browser's own dialog, so Escape leaves it. -->
 <dialog id="printdialog" aria-labelledby="printtitle">
   <h2 id="printtitle">Print the Sheet</h2>
@@ -2935,11 +3087,64 @@ function compName(id) {
   return comp ? comp.name : 'a composition that is not in this project';
 }
 
-// B-18c: D-67's Pre-compose, on every chosen layer, as one entry to undo.
+// B-18c: D-67's Pre-compose, on every chosen layer, as one entry to undo. D-273: asked first in
+// the redesign's window, for the name and what to do after; the layers are the ones chosen when it opened.
+let precomposing = [];
 function precompose() {
   if (!selection.length) return;
-  command('/layer.precompose?' + selection.map((id) => 'layer=' + encodeURIComponent(id)).join('&'));
+  precomposing = [...selection];
+  const chosen = layers().filter((l) => precomposing.includes(l.id));
+  const one = chosen.length === 1 ? chosen[0] : null;
+  const taken = new Set((doc.project.compositions || []).map((c) => c.name));
+  let n = 1, name = one ? one.name + ' comp' : 'Precomp 1';
+  while (taken.has(name)) name = (one ? one.name + ' comp ' : 'Precomp ') + ++n;
+  const what = one ? one.name : chosen.length + ' layers';
+  $('precomptitle').textContent = 'Pre-compose ' + what;
+  $('precompcount').textContent = (chosen.length === 1 ? '1 layer chosen' : chosen.length + ' layers chosen') + ' \u00b7 Ctrl+Shift+C';
+  $('precompname').value = name;
+  const outer = composition() ? composition().name : '';
+  const fx = chosen.flatMap((l) => l.effects || [])[0];
+  const keyed = chosen.some((l) => /"keyframes":\[\{/.test(JSON.stringify(l)));
+  const chip = (el, label, withSettings, plain) => el.replaceChildren(label,
+    ...(withSettings && fx ? [Object.assign(document.createElement('span'), { className: 'fx', textContent: EFFECT_NAMES[fx.type_id] || fx.type_id })] : []),
+    ...(withSettings && keyed ? [1, 2].map(() => Object.assign(document.createElement('span'), { className: 'dia' })) : []),
+    ...(plain ? [Object.assign(document.createElement('span'), { className: 'dim', textContent: 'plain' })] : []));
+  const box = $('precompdialog');
+  for (const el of box.querySelectorAll('.outname')) el.textContent = outer;
+  for (const el of box.querySelectorAll('.newname')) el.textContent = name;
+  for (const el of box.querySelectorAll('.pbefore')) chip(el, what, true, false);
+  chip(box.querySelector('.pkept'), name, true, false);
+  chip(box.querySelector('.pplain'), what, false, true);
+  chip(box.querySelector('.pclean'), name, false, true);
+  chip(box.querySelector('.pmoved'), what, true, false);
+  $('precomprange').textContent = chosen.length ? '(frames ' + Math.min(...chosen.map((l) => l.in_frame)) + '\u2013' + (Math.max(...chosen.map((l) => l.out_frame)) - 1) + ')' : '';
+  $('precompopen').checked = !!prefs.precompOpen;
+  $('precompmap').checked = !!prefs.precompMap;
+  box.showModal();
+  $('precompname').select();
 }
+$('cancelprecomp').onclick = () => $('precompdialog').close();
+$('precompname').oninput = () => {
+  for (const el of $('precompdialog').querySelectorAll('.newname, .pkept, .pclean')) el.firstChild.textContent = $('precompname').value;
+};
+$('makeprecomp').onclick = async () => {
+  const name = $('precompname').value.trim();
+  if (!name) { $('precompname').focus(); return; }
+  prefs.precompOpen = $('precompopen').checked;
+  prefs.precompMap = $('precompmap').checked;
+  savePrefs();
+  $('precompdialog').close();
+  const before = new Set((doc.project.compositions || []).map((c) => c.id));
+  await command('/layer.precompose?' + precomposing.map((id) => 'layer=' + encodeURIComponent(id)).join('&')
+    + '&name=' + encodeURIComponent(name));
+  const made = (doc.project.compositions || []).find((c) => !before.has(c.id));
+  if (!made) return;
+  if (prefs.precompOpen) await openComp(made.id);
+  if (prefs.precompMap) openMap();
+};
+$('precompdialog').addEventListener('keydown', (k) => {
+  if (k.key === 'Enter' && !k.isComposing && k.target.tagName !== 'BUTTON') { k.preventDefault(); $('makeprecomp').click(); }
+});
 
 // W-40 (D-248): a tab for each composition opened since the window started, as After Effects keeps
 // one for each it has open. Closing a tab only forgets it here; the composition stays in the project.
@@ -12676,7 +12881,13 @@ function drawLooks() {
   }
   $('slate').hidden = !prefs.slate;
   $('guides').querySelector('.grid').hidden = !prefs.grid;
-  $('guides').querySelector('.field').hidden = !prefs.guide;
+  const field = $('guides').querySelector('.field');
+  field.hidden = !prefs.guide;
+  // D-273: the guide ticks in Composition settings, each on unless unticked there.
+  field.querySelector('.safe.title').hidden = prefs.guideTitle === false;
+  field.querySelector('.safe:not(.title)').hidden = prefs.guideAction === false;
+  for (const el of field.querySelectorAll('.f12, .l12, .f10, .l10, .f8, .l8')) el.hidden = prefs.guideField === false;
+  field.querySelector('.cross').hidden = prefs.guideCross === false;
   askStrip();
 }
 
@@ -13382,13 +13593,133 @@ function compSettings() {
   $('compangle').value = shutter.shutter_angle;
   $('compphase').value = shutter.shutter_phase;
   $('compsamples').value = shutter.samples;
-  $('compsheet').hidden = false;
+  $('compstart').value = comp.start_frame || 0;
   settingComp = { fps: $('compfps').value, shutter: SHUTTER.map((box) => $(box).value).join() };
-  $('makecomp').textContent = 'Apply';
-  toFront('bin');
-  $('newcomposition').hidden = false;
-  $('compname').focus();
+  openCompDialog(false);
 }
+// D-273: the redesign's window. The sizes a preset or a shape button gives; the shapes are the first five.
+const COMP_PRESETS = [['HD', 1920, 1080], ['Flat 1.85', 1998, 1080], ['Scope 2.39', 2048, 858],
+  ['Vertical 9:16', 1080, 1920], ['TV 4:3', 1440, 1080], ['4K UHD', 3840, 2160]];
+const COMP_SHAPES = ['16:9 (1.78)', '1.85 : 1', '2.39 : 1', '9:16 (0.56)', '4:3 (1.33)'];
+// The guide ticks, each kept in Preferences and shown in the viewer by the guide button's look.
+const COMP_GUIDES = [['gtitle', 'guideTitle'], ['gaction', 'guideAction'], ['gfield', 'guideField'], ['gcross', 'guideCross']];
+const SHUTTER_AT_FIRST = '180,-90,16';
+let compRatio = 16 / 9; // the shape Lock shape holds
+const savedCompPresets = () => (Array.isArray(prefs.compPresets) ? prefs.compPresets : []);
+function openCompDialog(isNew) {
+  $('comptitle').textContent = isNew ? 'New composition' : 'Composition settings';
+  $('compkey').textContent = isNew ? 'Ctrl+N' : 'Ctrl+K';
+  $('makecomp').textContent = isNew ? 'Create it' : 'Apply';
+  for (const [box, key] of COMP_GUIDES) $(box).checked = prefs[key] !== false;
+  $('compguides').checked = !!prefs.guide;
+  $('complock').checked = true;
+  const { w, h } = compNumbers();
+  compRatio = w > 0 && h > 0 ? w / h : 16 / 9;
+  compTab(false);
+  if (!$('newcomposition').open) $('newcomposition').showModal();
+  compDraw();
+  $('compname').select();
+}
+function compNumbers() {
+  return { w: Number($('compwidth').value), h: Number($('compheight').value), fps: Number($('compfps').value), frames: Number($('compframes').value) };
+}
+function compTab(advanced) {
+  $('compbasic').hidden = advanced;
+  $('compadv').hidden = !advanced;
+  $('compbasictab').classList.toggle('on', !advanced);
+  $('compadvtab').classList.toggle('on', advanced);
+  $('compbasictab').setAttribute('aria-selected', String(!advanced));
+  $('compadvtab').setAttribute('aria-selected', String(advanced));
+}
+// Everything read back from the numbers: the shape, the memory a frame takes, the length, the
+// preset they match, and the frame drawn to that shape with the ticked guides.
+function compDraw() {
+  const { w, h, fps, frames } = compNumbers();
+  const ok = w > 0 && h > 0;
+  const shape = ok ? COMP_PRESETS.slice(0, 5).findIndex(([, pw, ph]) => Math.abs(pw / ph - w / h) < 0.01) : -1;
+  const aspect = shape >= 0 ? COMP_SHAPES[shape] : ok ? (w / h).toFixed(2) + ' : 1' : '?';
+  $('compaspect').textContent = aspect;
+  $('compaspect2').textContent = aspect;
+  $('compres').textContent = ok ? w + ' \u00d7 ' + h + ' \u00b7 ' + (w * h * 4 / 1048576).toFixed(1) + ' MB a frame' : '';
+  const length = frames >= 0 && fps > 0 ? secsFrames(Math.floor(frames), Math.round(fps)) + ' at ' + number(fps) : '?';
+  $('complength').textContent = '= ' + length;
+  $('compreadback').textContent = 'Frame ' + w + ' \u00d7 ' + h + ' \u00b7 ' + aspect + ' \u00b7 ' + length + ' fps';
+  const presets = $('comppreset');
+  presets.replaceChildren(...COMP_PRESETS.map(([t, pw, ph], i) => new Option(t + ' \u00b7 ' + pw + ' \u00d7 ' + ph, 'b' + i)),
+    ...savedCompPresets().map((p, i) => new Option(p.name + ' \u00b7 ' + p.w + ' \u00d7 ' + p.h + ' \u00b7 ' + p.fps + ' fps', 's' + i)),
+    Object.assign(new Option('Custom \u00b7 ' + w + ' \u00d7 ' + h, 'custom'), { disabled: true }));
+  const saved = savedCompPresets().findIndex((p) => p.w === w && p.h === h && p.fps === fps);
+  const built = COMP_PRESETS.findIndex(([, pw, ph]) => pw === w && ph === h);
+  presets.value = saved >= 0 ? 's' + saved : built >= 0 ? 'b' + built : 'custom';
+  $('delcomppreset').disabled = saved < 0;
+  for (const b of $('compshapes').querySelectorAll('button')) {
+    b.classList.toggle('on', Number(b.dataset.shape) === shape);
+    b.setAttribute('aria-pressed', String(Number(b.dataset.shape) === shape));
+  }
+  const box = $('compframe'), pic = box.firstElementChild;
+  const a = ok ? w / h : 16 / 9, fw = Math.min(box.clientWidth - 60, (box.clientHeight - 40) * a), fh = fw / a;
+  Object.assign(pic.style, { width: fw + 'px', height: fh + 'px', left: (box.clientWidth - fw) / 2 + 'px', top: (box.clientHeight - fh) / 2 + 'px' });
+  for (const [g] of COMP_GUIDES) pic.querySelector('.' + g).hidden = !$(g).checked;
+}
+function setCompSize(w, h, fps) {
+  $('compwidth').value = w;
+  $('compheight').value = h;
+  if (fps) $('compfps').value = fps;
+  compRatio = w / h;
+  compDraw();
+}
+$('compwidth').oninput = () => {
+  const w = Number($('compwidth').value);
+  if ($('complock').checked && w > 0) $('compheight').value = Math.max(1, Math.round(w / compRatio));
+  compDraw();
+};
+$('compheight').oninput = () => {
+  const h = Number($('compheight').value);
+  if ($('complock').checked && h > 0) $('compwidth').value = Math.max(1, Math.round(h * compRatio));
+  compDraw();
+};
+$('complock').onchange = () => {
+  const { w, h } = compNumbers();
+  if (w > 0 && h > 0) compRatio = w / h;
+};
+$('compfps').oninput = compDraw;
+$('compframes').oninput = compDraw;
+$('comppreset').onchange = () => {
+  const v = $('comppreset').value, i = Number(v.slice(1));
+  if (v[0] === 'b') setCompSize(COMP_PRESETS[i][1], COMP_PRESETS[i][2]);
+  else if (v[0] === 's') setCompSize(savedCompPresets()[i].w, savedCompPresets()[i].h, savedCompPresets()[i].fps);
+};
+// Saved presets are this window's, kept in Preferences beside the sizes a new composition starts at.
+$('savecomppreset').onclick = () => {
+  const { w, h, fps } = compNumbers();
+  if (!(w > 0 && h > 0 && fps > 0)) { $('status').textContent = 'A preset needs a width, a height and a frame rate above nought.'; return; }
+  askName('Name the preset', $('compname').value.trim() || w + ' \u00d7 ' + h, 'Keeps this width, height and frame rate. Enter saves it, Esc leaves it.', (name) => {
+    prefs.compPresets = savedCompPresets().filter((p) => p.name !== name).concat([{ name, w, h, fps }]);
+    savePrefs();
+    compDraw();
+  });
+};
+$('delcomppreset').onclick = () => {
+  const v = $('comppreset').value;
+  if (v[0] !== 's') return;
+  prefs.compPresets = savedCompPresets().filter((p, i) => i !== Number(v.slice(1)));
+  savePrefs();
+  compDraw();
+};
+for (const b of $('compshapes').querySelectorAll('button')) {
+  b.onclick = () => setCompSize(COMP_PRESETS[b.dataset.shape][1], COMP_PRESETS[b.dataset.shape][2]);
+}
+for (const [box, key] of COMP_GUIDES) {
+  $(box).onchange = () => { prefs[key] = $(box).checked; savePrefs(); compDraw(); drawLooks(); };
+}
+$('compguides').onchange = () => { prefs.guide = $('compguides').checked; savePrefs(); drawLooks(); };
+$('compbasictab').onclick = () => compTab(false);
+$('compadvtab').onclick = () => compTab(true);
+$('closecomp').onclick = () => $('newcomposition').close();
+// The window's own keys, heard on the window as a whole, which is not a control in itself.
+$('newcomposition').addEventListener('keydown', (k) => {
+  if (k.key === 'Enter' && !k.isComposing && !['BUTTON', 'SELECT'].includes(k.target.tagName)) { k.preventDefault(); $('makecomp').click(); }
+});
 
 // W-25: E brings the selected layer's effect controls into view. The timeline has no effect rows.
 function showEffects() {
@@ -14000,16 +14331,15 @@ $('notedetails').onclick = () => {
 
 $('newcomp').onclick = () => {
   settingComp = null;
-  $('makecomp').textContent = 'Create it';
-  $('compsheet').hidden = true;
   // W-26: a new composition starts at the sizes in Preferences.
   $('compname').value = 'New composition';
   for (const [f, , box] of PREF_FIELDS) $(box).value = prefs[f];
-  const box = $('newcomposition');
-  box.hidden = !box.hidden;
-  if (!box.hidden) { toFront('bin'); $('compname').focus(); }
+  for (const [, box] of SHEET_DETAILS) $(box).value = '';
+  SHUTTER_AT_FIRST.split(',').forEach((v, i) => { $(SHUTTER[i]).value = v; });
+  $('compstart').value = 0;
+  openCompDialog(true);
 };
-$('cancelcomp').onclick = () => { $('newcomposition').hidden = true; };
+$('cancelcomp').onclick = () => $('newcomposition').close();
 
 // B-48, D-105: the memory setting. Sent at launch and whenever it changes; the answer is what
 // is in use, which the box shows. Automatic's numbers are shown too, in boxes that cannot be typed in.
@@ -14127,7 +14457,7 @@ $('fbswitch').onclick = () => {
   const comp = composition();
   if (comp) command('/composition.set_frame_blending?enabled=' + !comp.frame_blending);
 };
-$('makecomp').onclick = () => {
+$('makecomp').onclick = async () => {
   const q = 'name=' + encodeURIComponent($('compname').value)
     + '&width=' + encodeURIComponent($('compwidth').value)
     + '&height=' + encodeURIComponent($('compheight').value)
@@ -14135,18 +14465,18 @@ $('makecomp').onclick = () => {
   const fps = '&fps=' + encodeURIComponent($('compfps').value);
   const settings = settingComp;
   settingComp = null;
-  $('makecomp').textContent = 'Create it';
-  $('newcomposition').hidden = true;
+  $('newcomposition').close();
   const sheet = SHEET_DETAILS.map(([k, box]) => '&' + k + '=' + encodeURIComponent($(box).value)).join('');
   // W-43 fix: the create is the other half of `if (settings)`. Hung off the shutter's test since
   // B-124b, applying Ctrl+K without touching the shutter also made an empty copy of the composition.
-  if (!settings) command('/composition.create?' + q + fps);
-  else {
-    command('/composition.set_settings?' + q + sheet + ($('compfps').value === settings.fps ? '' : fps));
-    if (SHUTTER.map((box) => $(box).value).join() !== settings.shutter) {
-      command('/composition.set_motion_blur?angle=' + encodeURIComponent($('compangle').value)
-        + '&phase=' + encodeURIComponent($('compphase').value) + '&samples=' + encodeURIComponent($('compsamples').value));
-    }
+  // D-273: a new one's Advanced tab is sent after it is made, and only what was filled in or changed.
+  if (!settings) {
+    await command('/composition.create?' + q + fps);
+    if (SHEET_DETAILS.some(([, box]) => $(box).value.trim())) await command('/composition.set_settings?' + sheet.slice(1));
+  } else command('/composition.set_settings?' + q + sheet + ($('compfps').value === settings.fps ? '' : fps));
+  if (SHUTTER.map((box) => $(box).value).join() !== (settings ? settings.shutter : SHUTTER_AT_FIRST)) {
+    command('/composition.set_motion_blur?angle=' + encodeURIComponent($('compangle').value)
+      + '&phase=' + encodeURIComponent($('compphase').value) + '&samples=' + encodeURIComponent($('compsamples').value));
   }
 };
 // W-02's three steps, one request each: ask what to point at, read what would change, then agree
@@ -14291,10 +14621,11 @@ function askName(title, start, hint, done) {
   const close = () => { box.remove(); removeEventListener('pointerdown', away, true); };
   input.onkeydown = (k) => {
     k.stopPropagation();
-    if (k.key === 'Escape') close();
+    if (k.key === 'Escape') { k.preventDefault(); close(); }
     else if (k.key === 'Enter' && input.value.trim()) { k.preventDefault(); close(); done(input.value.trim()); }
   };
-  document.body.append(box);
+  // D-273: asked inside a window, the name goes in that window, or the window would cover it.
+  (document.querySelector('dialog[open]') || document.body).append(box);
   addEventListener('pointerdown', away, true);
   input.focus();
   input.select();
@@ -15144,6 +15475,7 @@ addEventListener('keydown', (e) => {
     if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) e.preventDefault();
     return;
   }
+  if ($('newcomposition').open || $('precompdialog').open) return;
   const el = e.target instanceof Element
     ? e.target.closest('button, select, input, textarea, .scrub, [contenteditable]') : null;
   const typing = renaming || (el && ((el.tagName === 'INPUT' && el.type !== 'checkbox')

@@ -774,6 +774,12 @@ D-272 / Timeline layer groups and an arrow that always closes: built on 2026-10-
 
 Evidence is in `verification/D-272_timeline_groups.md`.
 
+D-273 / The New composition and Pre-compose windows from the redesign: built on 2026-10-03 at the owner's request. **Awaiting the owner's playtest.**
+- Ctrl+N and Ctrl+K open the board's Composition settings window with the frame drawn beside; Ctrl+Shift+C opens the board's Pre-compose window and asks for the name first.
+- In the window, every step of `verification/D-273_new_composition_and_precompose_windows.md` behaved as written, with no page errors. The 88 app checks pass. D-274 to D-279 are proposed for the greyed rows.
+
+Evidence is in `verification/D-273_new_composition_and_precompose_windows.md`.
+
 The redesign follows as W-31 onward, one screen at a time starting with the timeline, under D-167's rules: document 24's commands unchanged unless document 24 changes first, keyboard reach and 100 to 200 per cent scaling kept, document 05's screen states each designed, the page-text checks in `app/src/main.rs` re-pinned with each screen. It takes in the exposure list overhaul D-64 deferred to it and a keyboard shortcut editor with an in-app list of shortcuts.
 
 ## The fourth effects batch, from 2026-09-28

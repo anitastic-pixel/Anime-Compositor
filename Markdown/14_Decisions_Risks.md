@@ -673,6 +673,25 @@ D-272 / Timeline layer groups and an arrow that always closes / **BUILT on 2026-
 
 Evidence in `verification/D-272_timeline_groups.md`.
 
+D-273 / The New composition and Pre-compose windows from the redesign / **BUILT on 2026-10-03** at the owner's request ("when I make a new composition or precompose, it doesn't show the newly updated redesign version", then "yes, please copy/paste the redesign versions"). **Awaiting the owner's playtest.**
+- New composition (Ctrl+N) and Composition settings (Ctrl+K) open one centred window copied from the board "Composition settings A": Basic and Advanced tabs, presets with saved ones of the owner's, a locked shape, the length read back, and the frame drawn at its shape with ticked guides that Preview also shows in the viewer. The old form in the Project panel is gone.
+- Pre-compose opens a window copied from "Pre-compose A" before anything is made: a name, the two before-and-after cards, Open it after and Show the flowchart after. `layer.precompose` takes an optional `name`; a blank one still gets the next "Precomp N".
+- The rows that need the engine are drawn greyed and marked proposed, as D-274 to D-279. No saved data changes.
+
+Evidence in `verification/D-273_new_composition_and_precompose_windows.md`.
+
+D-274 / Match a file: size and rate from a drawing or video / **PROPOSED on 2026-10-03** from D-273. The board's "Match a file…" fills width, height, rate and length from a chosen file. It needs a route that reads a file's size and rate without bringing it in. Greyed in D-273's window until accepted.
+
+D-275 / Pixel shape, resolution, start frame and background per composition / **PROPOSED on 2026-10-03** from D-273. The window cannot set any of the four today: `composition.set_settings` has no field for them. Each needs a saved field or a command change (documents 19 and 24), and those that change the picture need fixtures first (document 21). Greyed in D-273's window until accepted.
+
+D-276 / Resize from an anchor / **PROPOSED on 2026-10-03** from D-273. The board lets the owner choose which of nine points of the frame stays put when the size changes, which moves every layer's position as one undo step. It needs `composition.set_settings` to move the layers with the size. Greyed in D-273's window until accepted.
+
+D-277 / Keep frame rate when nested / **PROPOSED on 2026-10-03** from D-273. The board's tick would make a composition laid into another keep its own frame rate, holding each of its frames. It needs a new saved field and a change to document 20's time rule, with fixtures first. Greyed in D-273's window until accepted.
+
+D-278 / Pre-compose leaving settings outside / **PROPOSED on 2026-10-03** from D-273. After Effects' "Leave all attributes" puts only the drawing inside and keeps the layer's effects, masks and keys on the new outer layer. It works for one layer only, and it needs a second form of `layer.precompose`. Greyed in D-273's window until accepted; every setting moves inside as today.
+
+D-279 / Pre-compose trimmed to the layers' length / **PROPOSED on 2026-10-03** from D-273. The new composition would be as long as the chosen layers' frames rather than the whole composition, with the layer moved to start at its first frame. It needs a change to `layer.precompose`. Greyed in D-273's window until accepted.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

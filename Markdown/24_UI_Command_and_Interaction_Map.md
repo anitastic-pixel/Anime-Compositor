@@ -51,7 +51,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.set_gain | Set an audio layer's level in decibels, from -96 to 12 | none | yes |
 | layer.add_adjustment | Add an adjustment layer above the selected layer, covering the frame (D-66; in the window since B-17c, 2026-09-17) | Ctrl+Alt+Y | yes |
 | layer.add_composition | Add a layer of a named composition above the selected layer, centred (D-67, accepted on 2026-09-18) | none | yes |
-| layer.precompose | Move the chosen layers into a new composition and put a layer of it in their place (D-67, accepted on 2026-09-18) | Ctrl+Shift+C | yes |
+| layer.precompose | Move the chosen layers into a new composition and put a layer of it in their place (D-67, accepted on 2026-09-18); D-273 adds an optional `name`, trimmed, with the next "Precomp N" when blank | Ctrl+Shift+C | yes |
 | layer.copy | Copy the selected layers, with their keys and effects | Ctrl+C | no |
 | layer.paste | Paste the copied layers in front | Ctrl+V | yes |
 | layer.toggle_shy | Mark a layer shy, so the timeline can leave it out | none | yes |
@@ -319,6 +319,8 @@ Keyboard focus is visible. Arrow keys step frames only when timeline/viewer tran
 A drag starts an interaction transaction, previews model values without creating hundreds of history entries, and commits one command at release. Escape restores the pre-drag value. Losing focus unexpectedly must either commit or cancel according to a documented widget rule; it may not leave half-applied state.
 
 D-272, timeline layer groups, with no new command ID. A layer's arrow on the timeline closes everything under the layer, whatever opened it. Opened, the layer shows After Effects' groups, each with an arrow: Masks (a row per mask with its mode list and an Inverted button sending `mask.set`; under the mask's arrow, Mask feather, Mask opacity and Mask expansion, which drag live as Effect controls' numbers do), Contents (a shape layer's shapes), Effects (settings with keys), Blending (Blend mode, the same list as the Mode column; not on adjustment or null layers) and Transform (the transform properties with their stopwatches). Which groups are open is kept for the session. M shows only the masks and M again hides them; A, P, S, R, T and U show their one property as before. Drawing a mask opens its layer at Masks, or Contents on a shape layer.
+
+D-273, the New composition and Pre-compose windows. Ctrl+N and New composition… open a centred window titled New composition with Create it; Ctrl+K opens the same window titled Composition settings with Apply. Both send the commands they sent before (`composition.create`, then `composition.set_settings` for any Sheet details or shutter). Enter does the main button unless a button or list has the focus; Esc, Leave it and × close it with nothing changed. Ctrl+Shift+C, the Layer menu, the palette and the layer menu open the Pre-compose window, which asks for a name and sends `layer.precompose` with it on Enter. Open it after opens the new composition, and Show the flowchart after shows the Map. While either window is open the program's own keys are off. Rows that need the engine are greyed with a proposed mark (D-274 to D-279).
 
 ## Workspace wireframe contract
 
