@@ -691,6 +691,71 @@ pub(crate) fn gradient_map(source: &mut WorkingBuffer, colors: [[f64; 3]; 3], mi
     });
 }
 
+/// D-316: a pixel's phase as Colorama reads it, 0 to 1: its straight colour encoded, then the
+/// mean of the three (`intensity`), the encoded luma (`luminance`), one channel, or its alpha.
+fn phase_of(get: &str, px: &[f32]) -> f64 {
+    let a = px[3] as f64;
+    if get == "alpha" {
+        return a;
+    }
+    if a <= 0.0 {
+        return 0.0;
+    }
+    let b = [0, 1, 2].map(|c| (px[c] as f64 / a).clamp(0.0, 1.0));
+    let c = b.map(to_srgb);
+    match get {
+        "red" => c[0],
+        "green" => c[1],
+        "blue" => c[2],
+        "luminance" => to_srgb(0.2126 * b[0] + 0.7152 * b[1] + 0.0722 * b[2]),
+        _ => (c[0] + c[1] + c[2]) / 3.0,
+    }
+}
+
+/// D-316: each pixel that shows takes the colour at its place round `ring` (2 to 5 colours,
+/// encoded, evenly spaced, the last running back into the first). Its place is its phase, read by
+/// `get`, plus the phase of `map` under it (the map lying on the drawing, whose corner is at the
+/// given origin; clear outside it, and weighted by its covering), times the repetitions, plus the
+/// shift in degrees over 360, and only the part past the whole number counts. The colour is mixed
+/// back toward the pixel's own by `blend` per cent. The settings are already valid.
+pub(crate) fn colorama(
+    source: &mut WorkingBuffer,
+    map: Option<(&WorkingBuffer, (usize, usize))>,
+    get: &str,
+    (shift, repetitions): (f64, f64),
+    ring: &[[f64; 3]],
+    blend: f64,
+) {
+    let (n, o) = (ring.len(), blend / 100.0);
+    let w = source.width();
+    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
+        for (x, px) in row.chunks_exact_mut(4).enumerate() {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                continue;
+            }
+            let added = map.map_or(0.0, |(m, (ox, oy))| {
+                let (mx, my) = (x.wrapping_sub(ox), y.wrapping_sub(oy));
+                if mx < m.width() && my < m.height() {
+                    let q = m.pixel(mx, my);
+                    phase_of(get, &q) * if get == "alpha" { 1.0 } else { q[3] as f64 }
+                } else {
+                    0.0
+                }
+            });
+            let t = (phase_of(get, px) + added) * repetitions + shift / 360.0;
+            let p = (t - t.floor()) * n as f64;
+            let (i, f) = (p.floor() as usize % n, p - p.floor());
+            let (lo, hi) = (ring[i], ring[(i + 1) % n]);
+            for c in 0..3 {
+                let b = px[c] as f64 / a;
+                let g = to_linear(lo[c] + f * (hi[c] - lo[c]));
+                px[c] = ((g + o * (b - g)) * a) as f32;
+            }
+        }
+    });
+}
+
 /// D-130: red, green and blue pushed by `shadows`, `midtones` and `highlights`, each -100..100,
 /// through the sRGB curve, weighted by how dark or light the pixel is. The settings are already
 /// valid; all nine 0 changes nothing.

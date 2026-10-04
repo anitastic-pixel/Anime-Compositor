@@ -1294,6 +1294,26 @@ pub enum Effect {
         edges: String,
         dimensions: String,
     },
+    /// D-316: After Effects' Colorama, reduced. `get_phase`, one of [`COLORAMA_PHASES`];
+    /// `layer` and `fit`, D-189's layer setting, whose brightness is added to the phase;
+    /// `phase_shift`, -3600 to 3600 degrees; `cycle_repetitions`, 0 to 100; `stops`, 2 to 5,
+    /// taken whole, how many of `color_1` to `color_5` (`#rrggbb`) make the ring; and
+    /// `blend_with_original`, 0 to 100. `map` is not a setting and is never saved.
+    Colorama {
+        get_phase: String,
+        layer: serde_json::Value,
+        fit: String,
+        phase_shift: f64,
+        cycle_repetitions: f64,
+        stops: f64,
+        color_1: String,
+        color_2: String,
+        color_3: String,
+        color_4: String,
+        color_5: String,
+        blend_with_original: f64,
+        map: Option<crate::layer_map::Map>,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1396,6 +1416,9 @@ pub const BLOCK_DISSOLVE: &str = "core.block_dissolve";
 pub const SHIFT_CHANNELS: &str = "core.shift_channels";
 pub const SOLID_COMPOSITE: &str = "core.solid_composite";
 pub const CHANNEL_BLUR: &str = "core.channel_blur";
+pub const COLORAMA: &str = "core.colorama";
+/// D-316: what Colorama reads a pixel's phase from.
+pub const COLORAMA_PHASES: [&str; 6] = ["intensity", "luminance", "red", "green", "blue", "alpha"];
 /// D-307: Hue/Saturation's colour ranges as the file names them, centred 0, 60 ... 300 degrees.
 pub const HUE_RANGES: [&str; 6] = ["reds_hsl", "yellows_hsl", "greens_hsl", "cyans_hsl", "blues_hsl", "magentas_hsl"];
 /// D-305: what Shift Channels can take a channel from.
@@ -1966,6 +1989,18 @@ impl Effect {
                 ("green_blurriness", vec![green_blurriness], 0.0, 500.0),
                 ("blue_blurriness", vec![blue_blurriness], 0.0, 500.0),
                 ("alpha_blurriness", vec![alpha_blurriness], 0.0, 500.0),
+            ],
+            Effect::Colorama {
+                phase_shift,
+                cycle_repetitions,
+                stops,
+                blend_with_original,
+                ..
+            } => vec![
+                ("phase_shift", vec![phase_shift], -3600.0, 3600.0),
+                ("cycle_repetitions", vec![cycle_repetitions], 0.0, 100.0),
+                ("stops", vec![stops], 2.0, 5.0),
+                ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
             ],
             Effect::LineBlur { length, strength, .. } => vec![
                 ("length", vec![length], 0.0, 50.0),
@@ -2634,6 +2669,7 @@ impl Effect {
             Effect::ShiftChannels { .. } => "Shift Channels",
             Effect::SolidComposite { .. } => "Solid Composite",
             Effect::ChannelBlur { .. } => "Channel Blur",
+            Effect::Colorama { .. } => "Colorama",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2736,6 +2772,7 @@ impl Effect {
             Effect::ShiftChannels { .. } => SHIFT_CHANNELS,
             Effect::SolidComposite { .. } => SOLID_COMPOSITE,
             Effect::ChannelBlur { .. } => CHANNEL_BLUR,
+            Effect::Colorama { .. } => COLORAMA,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2924,7 +2961,8 @@ impl Effect {
         match self {
             Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. }
-            | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
+            | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::Colorama { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
             _ => None,
         }
     }
@@ -2934,7 +2972,8 @@ impl Effect {
         match self {
             Effect::CompoundBlur { layer, map, .. }
             | Effect::DisplacementMap { layer, map, .. }
-            | Effect::GradientWipe { layer, map, .. } => Some((layer, map)),
+            | Effect::GradientWipe { layer, map, .. }
+            | Effect::Colorama { layer, map, .. } => Some((layer, map)),
             _ => None,
         }
     }
@@ -3163,6 +3202,19 @@ impl Effect {
                     "Light Wrap's blend is \"screen\" or \"add\", and this is \"{blend}\"."
                 ))
             }
+            Effect::Colorama { get_phase, .. } if !COLORAMA_PHASES.contains(&get_phase.as_str()) => Some(format!(
+                "Colorama gets its phase from intensity, luminance, red, green, blue or alpha, and this is \"{get_phase}\"."
+            )),
+            Effect::Colorama { layer, .. } if !layer.is_string() => Some(format!(
+                "Colorama's layer is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::Colorama { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
+                "Colorama's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
+            Effect::Colorama { color_1, color_2, color_3, color_4, color_5, .. } => [color_1, color_2, color_3, color_4, color_5]
+                .iter()
+                .enumerate()
+                .find_map(|(i, c)| hex_fault("Colorama", &format!("colour {}", i + 1), c)),
             Effect::SolidComposite { blend, .. }
                 if !["normal", "add", "screen", "multiply"].contains(&blend.as_str()) =>
             {
@@ -4300,6 +4352,31 @@ pub(crate) fn apply_stack_at(
                 take_blue,
             } => crate::perf::time(crate::perf::Stage::EffectShiftChannels, || {
                 crate::grade::shift_channels(source, [take_red, take_green, take_blue, take_alpha].map(|w| w.as_str()))
+            }),
+            // D-316: the map compose read for this frame, if a layer is named, adds to the phase.
+            Effect::Colorama {
+                get_phase,
+                phase_shift,
+                cycle_repetitions,
+                stops,
+                color_1,
+                color_2,
+                color_3,
+                color_4,
+                color_5,
+                blend_with_original,
+                map,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectColorama, || {
+                let ring = [color_1, color_2, color_3, color_4, color_5].map(|c| encoded(c));
+                crate::grade::colorama(
+                    source,
+                    map.as_ref().map(|m| (&*m.0, (ox, oy))),
+                    get_phase,
+                    (*phase_shift, *cycle_repetitions),
+                    &ring[..(stops.floor() as usize).clamp(2, 5)],
+                    *blend_with_original,
+                )
             }),
             Effect::SolidComposite { source_opacity, color, opacity, blend } => {
                 crate::perf::time(crate::perf::Stage::EffectSolidComposite, || {

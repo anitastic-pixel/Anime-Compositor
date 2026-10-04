@@ -2333,6 +2333,32 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             put_edges(&mut params, edges);
             params.insert("dimensions".into(), J::from(dimensions.as_str()));
         }
+        Effect::Colorama {
+            get_phase,
+            layer,
+            fit,
+            phase_shift,
+            cycle_repetitions,
+            stops,
+            color_1,
+            color_2,
+            color_3,
+            color_4,
+            color_5,
+            blend_with_original,
+            ..
+        } => {
+            params.insert("get_phase".into(), J::from(get_phase.as_str()));
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("phase_shift".into(), num(*phase_shift));
+            params.insert("cycle_repetitions".into(), num(*cycle_repetitions));
+            params.insert("stops".into(), num(*stops));
+            for (key, c) in [("color_1", color_1), ("color_2", color_2), ("color_3", color_3), ("color_4", color_4), ("color_5", color_5)] {
+                params.insert(key.into(), J::from(c.as_str()));
+            }
+            params.insert("blend_with_original".into(), num(*blend_with_original));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -3547,6 +3573,7 @@ fn parse_effect(
         crate::effects::SHIFT_CHANNELS,
         crate::effects::SOLID_COMPOSITE,
         crate::effects::CHANNEL_BLUR,
+        crate::effects::COLORAMA,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -4306,6 +4333,22 @@ fn parse_effect(
             alpha_blurriness: effect_number(params, "alpha_blurriness", &at)?,
             edges: effect_edges(params, &at)?,
             dimensions: effect_word(params, "dimensions", &at)?,
+        }),
+        // D-316: the layer is kept as written, as Compound Blur's is.
+        crate::effects::COLORAMA => Some(crate::effects::Effect::Colorama {
+            get_phase: effect_word(params, "get_phase", &at)?,
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            phase_shift: effect_number(params, "phase_shift", &at)?,
+            cycle_repetitions: effect_number(params, "cycle_repetitions", &at)?,
+            stops: effect_number(params, "stops", &at)?,
+            color_1: effect_word(params, "color_1", &at)?.to_ascii_lowercase(),
+            color_2: effect_word(params, "color_2", &at)?.to_ascii_lowercase(),
+            color_3: effect_word(params, "color_3", &at)?.to_ascii_lowercase(),
+            color_4: effect_word(params, "color_4", &at)?.to_ascii_lowercase(),
+            color_5: effect_word(params, "color_5", &at)?.to_ascii_lowercase(),
+            blend_with_original: effect_number(params, "blend_with_original", &at)?,
+            map: None,
         }),
         _ => None,
     };

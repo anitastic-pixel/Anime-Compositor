@@ -932,6 +932,13 @@ D-314 / Time-Reverse Keyframes and Freeze Frame / **BUILT on 2026-10-04** (app t
 - **Freeze frame**: on the layer's right-click menu, and in the palette, for a drawn layer. The drawing on the playhead is held for the layer's whole length, as one exposure, one entry to undo. A composition layer is frozen in After Effects by Time Remapping, which is D-308's and not built, so here it is refused with a sentence that says so.
 - D-69's roving and kind are not carried over: a reversed key is a plain one.
 
+D-316 / Colorama, reduced / **BUILT on 2026-10-04** (B-197), from D-309 and P-26: the Colorful Glitch tutorial (3) repaints a picture's brightnesses round a ring of colours with After Effects' Colorama. Here there was none. **Awaiting the owner's playtest.**
+- A new effect, **Colorama**, under Color Correction. Each brightness of the layer (or its red, green, blue, alpha or luminance: **Get Phase From**) is repainted with a colour from a ring of up to five colours.
+- **Phase Shift** turns the ring, **Cycle Repetitions** runs round it more than once from black to white, **Colours In Ring** says how many of the five colours are used, and **Blend With Original** mixes back toward the layer's own colour.
+- **Add Phase** names another layer whose brightness is added to the phase, as After Effects' Add Phase does, placed as Displacement Map's map is.
+- Reduced: After Effects' Colorama has some 30 preset palettes and an editable colour wheel of any number of colours, a Modify step and pixel selection. Here the ring is up to five colours, starting as an even hue cycle, which covers the tutorial's look. The rest is left until asked for.
+- Drawn on the CPU, so the preview and the export match. B-197 checks the ring, shift, repetitions, stops, every phase source, half alpha, blend, a clear pixel, the added layer, wrong settings and the file.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.
