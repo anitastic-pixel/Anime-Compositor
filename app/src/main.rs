@@ -5013,6 +5013,7 @@ const ANSWERS: &[&str] = &[
     "item.set_label",
     "keyframe.add_remove",
     "keyframe.move",
+    "keyframe.reverse",
     "keyframe.set_interp",
     "keyframe.set_kind",
     "keyframe.set_path",
@@ -5027,6 +5028,7 @@ const ANSWERS: &[&str] = &[
     "layer.create",
     "layer.delete",
     "layer.duplicate",
+    "layer.freeze_frame",
     "layer.move",
     "layer.move_down",
     "layer.move_up",
@@ -6190,6 +6192,131 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 },
             ];
             return Some(match held.document.apply_all(commands) {
+                Ok(record) => record.label.clone(),
+                Err(diagnostic) => sentence(&diagnostic),
+            });
+        }
+        // D-314: After Effects' Time-Reverse Keyframes, on the chosen keys, as one entry to undo.
+        // Inside the span from the first chosen key to the last, a key shown on frame f goes to
+        // first + last - f with its value, and each stretch between two of a row's chosen keys
+        // is the stretch it mirrors played backwards, so it takes that one's ease turned round
+        // and a position key's two path handles change places. A key not chosen never moves.
+        // ponytail: D-69's kind and roving are not carried over; a reversed key is a plain one.
+        "keyframe.reverse" => {
+            let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+            let composition = held.composition.clone();
+            let Some(comp) = held.document.project().composition(&composition) else {
+                return Some("There is no composition on screen to edit.".to_string());
+            };
+            let mut rows: std::collections::BTreeMap<(String, String), Vec<f64>> = Default::default();
+            for named in parameters(query, "key") {
+                let mut parts = named.rsplitn(3, '|');
+                let (Some(Ok(at)), Some(prop), Some(layer)) =
+                    (parts.next().map(str::parse::<f64>), parts.next(), parts.next())
+                else {
+                    return Some(format!("A key is layer|property|frame. Not \"{named}\"."));
+                };
+                rows.entry((layer.to_string(), prop.to_string())).or_default().push(at);
+            }
+            let shown: Vec<f64> = rows.values().flatten().copied().collect();
+            let lo = shown.iter().copied().fold(f64::MAX, f64::min);
+            let hi = shown.iter().copied().fold(f64::MIN, f64::max);
+            if shown.len() < 2 || lo == hi {
+                return Some("Choose two or more keys on different frames to reverse.".to_string());
+            }
+            // A chosen key's stored frame and the one it goes to, by B-150c's rule.
+            let place = |layer: Option<&Layer>, f: f64| match layer.filter(|l| l.time_stretch != 100.0) {
+                Some(l) => (l.key_time(f).round() as i32, l.key_time(lo + hi - f).round() as i32),
+                None => (f.round() as i32, (lo + hi - f).round() as i32),
+            };
+            let (mut removes, mut sets) = (Vec::new(), Vec::new());
+            for ((named, prop), frames) in rows {
+                let layer = comp.layer(&Id::new(&named));
+                if layer.is_none() && named != CAMERA_ROW {
+                    return Some(format!("There is no layer {named} here."));
+                }
+                let mut moves: Vec<(i32, i32)> = frames.iter().map(|&f| place(layer, f)).collect();
+                moves.sort();
+                moves.dedup();
+                if let (Some(which), Some(layer)) = (path_prop(&prop), layer) {
+                    let made = with_path(composition.clone(), layer, which, |_, keys| {
+                        let new = reversed(&keys.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(), &moves)?;
+                        for (k, (frame, interp)) in keys.iter_mut().zip(new) {
+                            (k.frame, k.interp) = (frame, interp);
+                        }
+                        keys.sort_by_key(|k| k.frame);
+                        Ok(())
+                    });
+                    match made {
+                        Ok(command) => sets.push(command),
+                        Err(said) => return Some(said),
+                    }
+                    continue;
+                }
+                if let (Some((instance, setting)), Some(layer)) = (effect_setting(&prop), layer) {
+                    let Some(existing) = layer.effects.iter().find(|e| e.instance_id == instance) else {
+                        return Some(format!("{instance} is not an effect on {named}."));
+                    };
+                    let mut keys = existing.keys(&setting);
+                    let new = match reversed(&keys.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(), &moves) {
+                        Ok(new) => new,
+                        Err(said) => return Some(said),
+                    };
+                    for (k, (frame, interp)) in keys.iter_mut().zip(new) {
+                        (k.frame, k.interp) = (frame, interp);
+                    }
+                    keys.sort_by_key(|k| k.frame);
+                    sets.push(Command::SetEffectKeys {
+                        composition: composition.clone(),
+                        layer_id: layer.id.clone(),
+                        instance_id: instance,
+                        setting,
+                        keys,
+                    });
+                    continue;
+                }
+                let (target, chosen, property) = match layer {
+                    None => {
+                        let Some(which) = anime_compositor::model::CameraProp::from_str(&prop) else {
+                            return Some(format!("The camera has no {prop}."));
+                        };
+                        let camera = comp.camera.clone().unwrap_or_else(|| {
+                            anime_compositor::model::Camera::default_for(comp.width, comp.height)
+                        });
+                        (Target::Camera, prop_of_camera(which), camera.get(which).clone())
+                    }
+                    Some(layer) => match property(&prop) {
+                        Some(chosen) => (Target::Layer(layer.id.clone()), chosen, property_of(layer, chosen)),
+                        None => return Some(format!("{} has no {prop}.", layer.name)),
+                    },
+                };
+                let keys = property.keyframes();
+                let new = match reversed(&keys.iter().map(|k| (k.frame, k.interp)).collect::<Vec<_>>(), &moves) {
+                    Ok(new) => new,
+                    Err(said) => return Some(said),
+                };
+                for (key, (frame, interp)) in keys.iter().zip(new) {
+                    if !moves.iter().any(|(at, _)| *at == key.frame) {
+                        continue;
+                    }
+                    removes.push(Command::RemoveKeyframe {
+                        composition: composition.clone(),
+                        target: target.clone(),
+                        prop: chosen,
+                        frame: key.frame,
+                    });
+                    sets.push(Command::SetKeyframe {
+                        composition: composition.clone(),
+                        target: target.clone(),
+                        prop: chosen,
+                        frame,
+                        value: key.value.clone(),
+                        interp,
+                        spatial: key.spatial.map(|[ix, iy, ox, oy]| [ox, oy, ix, iy]),
+                    });
+                }
+            }
+            return Some(match held.document.apply_all(removes.into_iter().chain(sets).collect()) {
                 Ok(record) => record.label.clone(),
                 Err(diagnostic) => sentence(&diagnostic),
             });
@@ -7609,6 +7736,51 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         composition,
                         layer_id,
                         value,
+                    }
+                }
+                // D-314: After Effects' Freeze Frame, for a drawn layer: the drawing on the
+                // playhead held for the whole layer, as one entry to undo. A composition layer is
+                // frozen by Time Remapping, which is D-308's and not built.
+                "layer.freeze_frame" => {
+                    use anime_compositor::time::ExposureMap;
+                    let frame = match frame_parameter(query, "frame") {
+                        Ok(frame) => frame,
+                        Err(said) => return Some(said),
+                    };
+                    if layer.exposure_spans.is_empty() {
+                        return Some(format!(
+                            "{} has no drawings to hold. Freeze Frame holds a drawn layer's \
+                             drawing; a composition layer needs Time Remapping, which is not built.",
+                            layer.name
+                        ));
+                    }
+                    let timing = layer.timing();
+                    let Some(here) = timing.local_frame(frame) else {
+                        return Some(format!("Frame {frame} is outside {}.", layer.name));
+                    };
+                    let map = ExposureMap::new(layer.exposure_spans.clone()).ok();
+                    let Some(drawing_number) = map.and_then(|m| m.drawing_at(here)) else {
+                        return Some(format!(
+                            "{} shows no drawing on frame {frame} to hold.",
+                            layer.name
+                        ));
+                    };
+                    // From the first exposure, or the layer's first frame, to past its last.
+                    let first = timing.source_offset_frames;
+                    let start_frame = layer.exposure_spans.iter().map(|s| s.start_frame).fold(first, i32::min);
+                    let end_frame_exclusive = layer
+                        .exposure_spans
+                        .iter()
+                        .map(|s| s.end_frame_exclusive)
+                        .fold(timing.out_frame - timing.in_frame + first, i32::max);
+                    Command::SetExposureSpans {
+                        composition,
+                        layer_id,
+                        spans: vec![ExposureSpan {
+                            start_frame,
+                            end_frame_exclusive,
+                            drawing_number,
+                        }],
                     }
                 }
                 "layer.set_drawing_dissolve" => {
@@ -10504,6 +10676,53 @@ fn handles(text: &str) -> Result<Interp, String> {
     Ok(Interp::Ease { x1, y1, x2, y2 })
 }
 
+/// D-314: a row's keys, as `(frame, ease)` in order, with the chosen ones reversed in time.
+/// `moves` is each chosen key's frame and the frame it goes to, earliest first. The key that
+/// lands first leaves with the ease the last chosen key had; every other one takes, turned
+/// round, the ease of the stretch it now plays backwards. A chosen frame with no key, or a key
+/// not chosen in the way of one landing, is refused and nothing changes.
+fn reversed(keys: &[(i32, Interp)], moves: &[(i32, i32)]) -> Result<Vec<(i32, Interp)>, String> {
+    let chosen = moves
+        .iter()
+        .map(|(at, _)| {
+            keys.iter()
+                .position(|k| k.0 == *at)
+                .ok_or_else(|| format!("There is no key on frame {at} to reverse."))
+        })
+        .collect::<Result<Vec<usize>, String>>()?;
+    let mut out = keys.to_vec();
+    for (j, &i) in chosen.iter().enumerate() {
+        out[i] = (
+            moves[j].1,
+            match j {
+                0 => keys[chosen[chosen.len() - 1]].1,
+                _ => turned(keys[chosen[j - 1]].1),
+            },
+        );
+    }
+    let stays = keys.iter().enumerate().filter(|(i, _)| !chosen.contains(i));
+    if let Some((_, (frame, _))) = stays.into_iter().find(|(_, k)| moves.iter().any(|m| m.1 == k.0)) {
+        return Err(format!(
+            "A key that is not chosen is on frame {frame}, where a reversed key would land. \
+             Choose it too, or move it first."
+        ));
+    }
+    Ok(out)
+}
+
+/// D-314: an ease played backwards, the curve turned half a turn about its middle.
+fn turned(interp: Interp) -> Interp {
+    match interp {
+        Interp::Ease { x1, y1, x2, y2 } => Interp::Ease {
+            x1: 1.0 - x2,
+            y1: 1.0 - y2,
+            x2: 1.0 - x1,
+            y2: 1.0 - y1,
+        },
+        other => other,
+    }
+}
+
 /// B-150c: a key the page names by the frame it is shown on, and the frame `by` further on, as
 /// the frames they are stored at. D-216 stretches a layer's keys with it, so the timeline draws
 /// a key where it plays - at 50% that can be half way between two frames - and this is the one
@@ -12663,6 +12882,70 @@ mod editing {
         let answer: serde_json::Value =
             serde_json::from_slice(&body).expect("the boxes answer is JSON");
         answer["values"][layer_id][prop].to_string()
+    }
+
+    /// D-314: Time-Reverse Keyframes and Freeze Frame, as the window answers them.
+    #[test]
+    fn d314_chosen_keys_reverse_and_a_drawing_freezes() {
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(
+            open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+        );
+        let l = "layer-cel";
+        for (frame, x) in [(0, 0), (4, 100), (10, 400)] {
+            run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame={frame}"));
+            run(&viewer, &format!("property.set_base?layer={l}&prop=position&value={x},0&frame={frame}"));
+        }
+        run(&viewer, &format!("keyframe.set_interp?layer={l}&prop=position&frame=4&mode=ease&curve=0.25,0.5,0.75,1"));
+        let before = keys(&viewer, l, "position");
+        let depth = held(&viewer).document.undo_depth();
+        let all = format!("key={l}|position|0&key={l}|position|4&key={l}|position|10");
+        run(&viewer, &format!("keyframe.reverse?{all}"));
+        // The key from 10 lands on 0 and plays the stretch 4 to 10 backwards, so it takes that
+        // stretch's ease turned round; the one from 4 lands on 6, the one from 0 on 10.
+        assert_eq!(
+            keys(&viewer, l, "position"),
+            "[400,0]@0 ease [0.25,0,0.75,0.5], [100,0]@6 linear, [0,0]@10 linear",
+        );
+        assert_eq!(held(&viewer).document.undo_depth() - depth, 1, "one entry to undo");
+        run(&viewer, &format!("keyframe.reverse?key={l}|position|0&key={l}|position|6&key={l}|position|10"));
+        assert_eq!(keys(&viewer, l, "position"), before, "reversed twice is as it was");
+        undo(&viewer);
+        undo(&viewer);
+        assert_eq!(keys(&viewer, l, "position"), before, "and undo takes both back");
+        run(&viewer, &format!("keyframe.add_remove?layer={l}&prop=position&frame=6"));
+        assert_eq!(
+            run(&viewer, &format!("keyframe.reverse?{all}")),
+            "A key that is not chosen is on frame 6, where a reversed key would land. \
+             Choose it too, or move it first.",
+            "a key in the way is refused",
+        );
+        assert_eq!(
+            run(&viewer, &format!("keyframe.reverse?key={l}|position|4")),
+            "Choose two or more keys on different frames to reverse.",
+        );
+
+        // Frame 3 shows drawing 2; frozen, the layer holds it from its first frame to its last.
+        let spans = |viewer: &Mutex<Viewer>| {
+            let answer: serde_json::Value =
+                serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+            answer["project"]["compositions"][0]["layers"][0]["exposure_spans"].clone()
+        };
+        let depth = held(&viewer).document.undo_depth();
+        run(&viewer, &format!("layer.freeze_frame?layer={l}&frame=3"));
+        assert_eq!(
+            spans(&viewer),
+            serde_json::json!([{"start_frame": 0, "end_frame_exclusive": 5, "drawing_number": 2}]),
+        );
+        assert_eq!(held(&viewer).document.undo_depth() - depth, 1, "one entry to undo");
+        undo(&viewer);
+        assert_eq!(
+            spans(&viewer),
+            serde_json::json!([
+                {"start_frame": 0, "end_frame_exclusive": 2, "drawing_number": 1},
+                {"start_frame": 2, "end_frame_exclusive": 5, "drawing_number": 2}
+            ]),
+        );
     }
 
     #[test]
@@ -25744,6 +26027,7 @@ mod contract {
         "item.set_label",
         "keyframe.add_remove",
         "keyframe.move",
+        "keyframe.reverse",
         "keyframe.set_interp",
         "keyframe.set_kind",
         "keyframe.set_path",
@@ -25758,6 +26042,7 @@ mod contract {
         "layer.create",
         "layer.delete",
         "layer.duplicate",
+        "layer.freeze_frame",
         "layer.move",
         "layer.move_down",
         "layer.move_up",
@@ -26243,6 +26528,8 @@ mod contract {
         // D-216, accepted on 2026-09-29 and built by B-150b.
         ("layer.toggle_frame_blend", "a command the window answers"),
         ("layer.set_time_stretch", "a command the window answers"),
+        // D-314, from D-309: Freeze Frame.
+        ("layer.freeze_frame", "a command the window answers"),
         ("layer.set_drawing_dissolve", "a command the window answers"),
         // D-74, accepted on 2026-09-19 and built in the core by B-23b; B-23c put both in the
         // window.
@@ -26305,6 +26592,8 @@ mod contract {
         ("property.set_base", "a command the window answers"),
         ("keyframe.add_remove", "a command the window answers"),
         ("keyframe.move", "a command the window answers"),
+        // D-314, from D-309: Time-Reverse Keyframes.
+        ("keyframe.reverse", "a command the window answers"),
         ("keyframe.set_interp", "a command the window answers"),
         ("keyframe.set_path", "a command the window answers"),
         // D-69, accepted by the owner on 2026-09-18; B-19g carries it out.

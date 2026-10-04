@@ -58,6 +58,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.toggle_motion_blur | Turn a layer's motion-blur switch on or off, on a layer that draws (D-188; in the window since B-124b, 2026-09-28) | none | yes |
 | layer.toggle_frame_blend | Turn a drawn or composition layer's Frame mix on or off (D-216; in the window since B-150b, 2026-09-29) | none | yes |
 | layer.set_time_stretch | Set a drawn or composition layer's Time stretch, 1 to 10000 percent; the keys stretch with it (D-216; in the window since B-150b, 2026-09-29) | none | yes |
+| layer.freeze_frame | Hold a drawn layer on the drawing at the playhead for its whole length, one entry to undo (D-314, 2026-10-04) | none | yes |
 | layer.set_drawing_dissolve | Set a drawn layer's Drawing dissolve, 0 to 100 frames (D-216; in the window since B-150b, 2026-09-29) | none | yes |
 | layer.add_solid | Add a solid layer above the selected layer, the composition's size and covering it (D-74; in the window since B-23c, 2026-09-19) | Ctrl+Y | yes |
 | solid.set | Set one solid's colour, width and height, as one step of history (D-74; in the window since B-23c, 2026-09-19) | none | yes |
@@ -101,6 +102,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | property.set_base | Set a transform property's base value | none | yes |
 | keyframe.add_remove | Toggle keyframe for focused property | none | yes |
 | keyframe.move | Move a keyframe to another frame | none | yes |
+| keyframe.reverse | Time-reverse the chosen keys inside the span from the first to the last, each stretch's ease turned round (D-314, 2026-10-04) | none | yes |
 | keyframe.set_interp | Set the interpolation of the segment starting at a keyframe | F9 | yes |
 | keyframe.set_path | Set the two motion-path handles of a position keyframe | none | yes |
 | keyframe.set_kind | Make the chosen keyframes bezier, continuous bezier or auto bezier | none | yes |

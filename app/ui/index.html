@@ -5203,6 +5203,8 @@ function paletteLines() {
     ['Paste keys', 'Ctrl+V', { key: 'v', ctrlKey: true }],
     ['Easy ease', 'F9', { key: 'F9' }],
     ['Hold keys', 'Ctrl+Alt+G', { key: 'g', code: 'KeyG', ctrlKey: true, altKey: true }],
+    ['Time-reverse keys', '', () => reverseKeys()],
+    ['Freeze frame', '', () => freezeFrame()],
     ['Show position', 'P', { key: 'p' }],
     ['Show animated properties', 'U', { key: 'u' }],
     ['Timeline or graph', 'Shift+F3', { key: 'F3', shiftKey: true }],
@@ -5340,6 +5342,7 @@ function layerMenu(x, y, first = []) {
     ['Split at playhead', 'Ctrl+Shift+D', splitLayers],
     ['Pre-compose', 'Ctrl+Shift+C', precompose],
     ['Sequence layers', '', sequenceLayers, selection.length > 1],
+    ['Freeze frame', '', freezeFrame, selected() && (selected().exposure_spans || []).length > 0],
     // B-24c: a mask over the whole layer, which is what After Effects' double-clicked shape tool
     // makes and what anyone without a mouse needs: the pen and the shape tools are drawn with a
     // hand, and `mask.add` must be reachable without one.
@@ -5375,6 +5378,20 @@ function kindKeys(kind) {
   if (!kind) pickKey(null, false);
 }
 
+// D-314: After Effects' Time-Reverse Keyframes, on the chosen keys, as one entry to undo.
+function reverseKeys() {
+  const keys = [...pickedKeys].filter((id) => { const [layer] = keyParts(id); return layer && !layer.locked; });
+  if (keys.length < 2) return;
+  command('/keyframe.reverse?' + keys.map((id) => 'key=' + encodeURIComponent(id)).join('&'));
+  pickKey(null, false);
+}
+
+// D-314: After Effects' Freeze Frame: the chosen drawn layer holds the drawing on the playhead.
+function freezeFrame() {
+  const layer = selected();
+  if (layer) command('/layer.freeze_frame?layer=' + encodeURIComponent(layer.id) + '&frame=' + frame);
+}
+
 function keyMenu(x, y, first = []) {
   const some = pickedKeys.size > 0;
   popMenu(x, y, [
@@ -5390,6 +5407,7 @@ function keyMenu(x, y, first = []) {
     ['Continuous bezier: one speed through the key', '', () => kindKeys('continuous'), some],
     ['Auto bezier: smoothed for me', '', () => kindKeys('auto'), some],
     ['Rove across time, or stop', '', () => kindKeys(), some],
+    ['Time-reverse keyframes', '', reverseKeys, pickedKeys.size > 1],
     ['Copy', 'Ctrl+C', copyKeys, some],
     ...(!first.length && clip === 'keys' && copied.length ? [['Paste', 'Ctrl+V', () => pasteKeys()]] : []),
     ['Delete', 'Delete', removeKeys, some],

@@ -927,6 +927,11 @@ D-315 / Displacement Map's Expand Output / **BUILT on 2026-10-04** (B-196), from
 - B-196 checks it on a white card pushed 4 pixels right: off, the card is cut at its old edge; on, its last 4 pixels land past it; with wrap, on and off are the same; and the file keeps the setting only when set.
 - FX-DMAP-001 to 031 are unchanged and still pass.
 
+D-314 / Time-Reverse Keyframes and Freeze Frame / **BUILT on 2026-10-04** (app test `d314_chosen_keys_reverse_and_a_drawing_freezes`), from D-309 and P-26: the lightsaber tutorials (4, 5) play an ignition backwards with After Effects' Time-Reverse Keyframes, and the Colorful Glitch tutorial (3) holds a frame with Freeze Frame. Neither existed here. **Awaiting the owner's playtest.**
+- **Time-reverse keyframes**: on the timeline's key menu, and in the command palette, with two or more keys chosen. Inside the span from the first chosen key to the last, a key on frame f moves to first + last - f and keeps its value. Each stretch between two keys plays the stretch it mirrors backwards, so it takes that stretch's ease turned round, and a position key's two path handles change places. Keys that are not chosen never move. If a reversed key would land on a key that is not chosen, nothing changes and a sentence says which frame. Reversing twice gives back what was there. It is one entry to undo.
+- **Freeze frame**: on the layer's right-click menu, and in the palette, for a drawn layer. The drawing on the playhead is held for the layer's whole length, as one exposure, one entry to undo. A composition layer is frozen in After Effects by Time Remapping, which is D-308's and not built, so here it is refused with a sentence that says so.
+- D-69's roving and kind are not carried over: a reversed key is a plain one.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.
