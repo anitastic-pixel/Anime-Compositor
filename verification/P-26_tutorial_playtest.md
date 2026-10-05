@@ -97,6 +97,43 @@ Not built from D-308:
 - After Effects' negative Alpha Obstacle, which keeps the bolt inside a shape; and the bolt stops at an obstacle rather than going round it (D-324's page).
 - D-324's eight Lightning types are this program's reading of Adobe's one-line descriptions. No After Effects frame was compared: Adobe's help page refused the request.
 
+## After D-321, D-322, D-325 to D-327 and D-331, played again (2026-10-05)
+
+The owner has no After Effects, so the two held items were settled from sources on the internet instead of a test in After Effects:
+
+- **Gaussian Blur (D-321).** Two programs that play After Effects' own files use the same number for Blurriness: [lottie-web](https://github.com/airbnb/lottie-web/blob/master/player/js/elements/svgElements/effects/SVGGaussianBlurEffect.js) ("Empirical value, matching AE's blur appearance", 0.3) and Skia's [Skottie](https://github.com/google/skia/blob/main/modules/skottie/src/SkottiePriv.h) ("Close-enough to AE", 0.3).
+- **Glow (D-322, corrected by D-331).** The Creative COW thread [Glow Effect and transparent background mechanics](https://creativecow.net/forums/thread/glow-effect-and-transparent-background-mechanics/) measured After Effects' Glow on white shapes. D-322 read its brightness rule as the glow's colour. Against tutorials 2 and 3 that was far too bright: a white slab and a haze of sparks. D-331 reads it as the colour *read straight* (colour over covering), which fits the thread and both tutorials.
+- **Exposure** works in linear light ([After Effects CS3 manual, p.402](https://www.manualsdir.com/manuals/753848/adobe-after-effects-cs3.html?page=402)). **32 bpc** keeps values past white ([Prolost, "Linear color workflow in AE7"](https://prolost.com/blog/2006/2/8/linear-color-workflow-in-ae7-part-2.html)).
+
+Also built: D-325 (a blurred layer keeps its outline in place, and Blur is named Gaussian Blur, from the owner's report), D-326 (Fractal Noise Brightness to ±1000, so tutorial 3's -204 is typed as is) and D-327 (Fast Box Blur, which tutorials 2 and 3 use).
+
+All five tutorials were then played again from an empty project to the last step in the test copy.
+
+| Tutorial | Steps | Passed before | Now fixed | Partly | Still open | Still open because of |
+|---|---|---|---|---|---|---|
+| 1 Shockwave | 24 | 14 | 9 | 1 | 0 | — |
+| 2 Advanced Electric | 18 | 5 | 11 | 1 | 1 | D-330, D-328 (proposed) |
+| 3 Colorful Glitch | 29 | 12 | 14 | 2 | 1 | charter (camera) |
+| 4 Ultimate Lightsaber | 22 | 15 | 7 | 0 | 0 | — |
+| 5 Film Riot Lightsaber | 12 | 7 | 5 | 0 | 0 | — |
+| **All** | **105** | **53** | **46** | **4** | **2** | |
+
+How each one looks now:
+
+1. **Shockwave.** As before: a round ring with a dark hole, brighter in the middle than the tutorial's.
+2. **Advanced Electric.** The gold final is a thin bolt with sparks round it, as in After Effects (D-331). Two gaps remain, both proposed. The ground reflection is a glowing block where After Effects shows a small glow: the tutorial works in 8 bpc, which rounds the blur's faint edge to nothing (D-330). And the glow turns to dust under Turbulent Displace at Size 2 (D-328).
+3. **Colorful Glitch.** The letters stand clear with a soft halo, as in After Effects, instead of a white slab (D-331), and Brightness -204 is typed as is (D-326). Partly: our background is grey where the tutorial's is dark navy (we stand in for its textures), and frame 110's glitch slices differ. The two-node camera is left out by the charter.
+4. **Ultimate Lightsaber.** The blade's glow matches the tutorial's width now that Gaussian Blur uses After Effects' Blurriness (D-321).
+5. **Film Riot Lightsaber.** The blue spill fades out smoothly; the hard box at the blur's edge is gone (D-321).
+
+Not built, proposed for the owner's decision:
+
+- **D-328** Turbulent Displace at small sizes (tutorial 2's dust). No source says how After Effects scales Amount with Size, and a change would alter existing pictures.
+- **D-329** Advanced Lightning that goes round shapes, and a negative Alpha Obstacle (D-308's last item). It needs a different way of growing the bolt.
+- **D-330** a composition depth "8 bpc (After Effects)" that rounds to 8 bits after every effect (tutorial 2's reflection block). Page: `D-330_eight_bit_rounding_proposal.md`.
+
+Commits: 14280da, c760ed2 (D-321), 7f37444, 5cd1039 (D-322), 822c7e6 (D-325), 2fc709c, 45c36ac (D-326), 88db5d1, 730b28d (D-327, D-330 proposed), efb2671, 7a0b023 (D-331).
+
 ## What was built
 
 Every one is **built and awaiting the owner's playtest**. Each starts where the app was before, so older projects and every fixture draw as they did; D-318 to D-324 (D-308) may change pictures where the owner turns them on, and a newly added Polar Coordinates starts as a circle. Each has its own page in `verification/`, with what to look for and how to try it.
@@ -133,19 +170,25 @@ Every one is **built and awaiting the owner's playtest**. Each starts where the 
 | D-320 | Polar Coordinates' Shape: Circle (new) or Ellipse (old files) | 1 | `D-320_polar_circle.md` | `D-320 pictures/` |
 | D-323 | Time Remapping | 1 | `D-323_time_remap.md` | `D-323 pictures/` |
 | D-324 | Advanced Lightning's extras: Lightning Type, Turbulence, Decay, Conductivity State, Alpha Obstacle | 2 | `D-324_lightning_extras.md` | `D-324 pictures/` |
+| D-321 | Gaussian Blur in After Effects' Blurriness, with a soft far edge | 2, 4, 5 | `D-321_blurriness.md` | `D-321 pictures/` |
+| D-322, D-331 | Glow in After Effects' numbers (Units: After Effects or Classic), corrected | 2, 3 | `D-322_glow_ae.md`, `D-331_glow_ae_corrected.md` | `D-322 pictures/`, `D-331 pictures/` |
+| D-325 | A blurred layer keeps its outline in place; Blur is named Gaussian Blur | owner's report | `D-325_blur_outline.md` | `D-325 pictures/` |
+| D-326 | Fractal Noise Brightness from -1000 to 1000 | 3 | `D-326_fractal_brightness.md` | `D-326 pictures/` |
+| D-327 | Fast Box Blur | 2, 3 | `D-327_fast_box_blur.md` | `D-327 pictures/` |
 
 Commits: cbbaec2 (D-290 to D-297), 79e0eae (D-298), d37a364 (D-299 to D-303), f28574e (D-304), c6cd69e (D-305, D-306), bf0978f (D-307), 69980f7 (D-310), e419620 (D-311 to D-313, D-315), 5f866db (D-314), 5ea35a3 (D-316), 15f8f25 (D-317), 4a17745 (D-318), c4fc502 (D-319), e762c99 (D-320), d3bca9e (D-323), f559354 (D-324).
 
 ## Checks
 
-After each batch: the whole core test suite and the app test suite. The only failures are two scratch measurements that failed before P-26 began and are not part of the project's checks (`zz_scratch_g2`, `zz_scratch_p25`). The app suite: 90 pass, 5 set aside as before.
+After each batch: the whole core test suite and the app test suite. The only failures are two scratch measurements that failed before P-26 began and are not part of the project's checks (`zz_scratch_g2`, `zz_scratch_p25`). The app suite: 91 pass, 5 set aside as before.
 
-No fixture's expected values were changed.
+One set of fixture values was changed, as a recorded specification decision: D-331 gave FX-GLOW-AE-001, 004, 006, 007 and 008 new expected values (Glow in After Effects units, built the day before), committed before the code. No other fixture's expected values were changed.
 
 ## Waiting on the owner
 
 1. **Playtests** of D-290 to D-307, D-310 to D-317 and D-318 to D-324, each page's "For the owner to try".
-2. **D-321 and D-322** (Gaussian Blur and Glow strength), held back from D-308: no clean After Effects frame was found to match, and a guess would change every blurred picture. A 2-minute test in After Effects settles it: a white square on black, Gaussian Blur at Blurriness 20, then 50, then Glow at its defaults; save the three frames. The blur's hard edge at three times its softness (the box in tutorials 2 and 5) belongs here too.
+2. **Playtests** of D-321, D-322 with D-331, and D-325 to D-327, each page's "For the owner to try". The After Effects test asked for here before is no longer needed: D-321 and D-331 are settled from the sources above.
+3. **Decisions** on D-328, D-329 and D-330 (proposed, nothing built).
 
 D-309 was approved on 2026-10-04 and is built (D-310 to D-317). D-308 was approved on 2026-10-04 and is built as D-318 to D-320, D-323 and D-324.
 
