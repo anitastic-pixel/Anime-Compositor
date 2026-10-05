@@ -10108,7 +10108,9 @@ const EFFECT_WORDS = {
   },
   // D-201.
   'core.polar_coordinates': {
-    choices: [['conversion', 'Type of Conversion', [['rect_to_polar', 'Rect to Polar'], ['polar_to_rect', 'Polar to Rect']]]],
+    choices: [['conversion', 'Type of Conversion', [['rect_to_polar', 'Rect to Polar'], ['polar_to_rect', 'Polar to Rect']]],
+      // D-320: a file without a shape is the ellipse, so it comes first.
+      ['shape', 'Shape', [['ellipse', 'Ellipse, fills the layer'], ['circle', 'Circle']]]],
   },
   // D-203.
   'core.median': { choices: [['operate_on_alpha', 'Operate on Alpha', [['off', 'Off'], ['on', 'On']]]] },

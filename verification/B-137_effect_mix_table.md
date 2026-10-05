@@ -73,7 +73,7 @@ D-202, accepted on 2026-09-28 with the After Effects picks (A12). Every expected
 | a file with a Mix whose base is a word is refused as a fault in its shape | PROJECT_SCHEMA_INVALID: This project file cannot be opened, because part of it does not match the project format. | yes |
 | an effect this build does not have, with a Mix of 30, opened and saved holds what it held, the Mix included | the same | yes |
 | an effect this build does not have, with a Mix keyed from 30 to 150, opened and saved holds what it held, the Mix included | the same | yes |
-| every other project in Fixtures/ that opens, opened and saved, writes a Mix on no effect that did not have one: every file before D-202 is saved as it was | 2299 files, 2169 effects, 0 gained a Mix [] | yes |
+| every other project in Fixtures/ that opens, opened and saved, writes a Mix on no effect that did not have one: every file before D-202 is saved as it was | 2306 files, 2177 effects, 0 gained a Mix [] | yes |
 
 ## Commands
 

@@ -963,6 +963,12 @@ D-319 / Float working depth / **BUILT on 2026-10-04** (B-200), from D-308 and P-
 - The preview card does not draw Float yet: such a frame is drawn on the CPU and says `GPU_PREVIEW_ON_CPU`, so the viewer and an export match.
 - FX-BLEND-ADDF-001 to 003, FX-BLEND-SCRF-001 to 003 and FX-FNOISE-HDR-001 to 003 are new, written by `tools/float_depth_reference.py` before the build had Float. B-200 checks them, the save, read and undo, a bad value in a file, the nested rule both ways, and the card's hand-over.
 
+D-320 / Polar Coordinates, ellipse or circle / **BUILT on 2026-10-04** (B-201), from D-308 and P-26: in tutorial 1 (the anime ring) After Effects' Polar Coordinates bends a wide layer into a round ring; ours, by D-201, bent it into the ellipse touching the layer's sides, so the ring came out squashed. **Awaiting the owner's playtest.**
+- Polar Coordinates has a **Shape** in Effect controls: **Ellipse, fills the layer**, D-201's rule, or **Circle**, round the layer's middle, its radius half the shorter side, as After Effects draws it. Polar to Rect unrolls the same circle.
+- A Polar Coordinates added from now on is a Circle. A file without a shape is the Ellipse, draws exactly as before and is saved as it was; a circle is saved as `shape: "circle"`. Any other word is kept and reported, and the effect is left out, as D-46.
+- The preview card draws both shapes.
+- FX-POLAR-016 to 022 are new, written by `tools/polar_circle_reference.py` before the build had the circle; FX-POLAR-001 to 015 are unchanged. B-201 checks them, the save, the commands, the card, and a 16:9 picture whose ring is as far out across as down.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

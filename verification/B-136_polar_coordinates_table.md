@@ -50,7 +50,7 @@ D-201, accepted on 2026-09-28 with the After Effects picks (A11). Every expected
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it never grows the layer: it declares no growth | 0 | yes |
-| a half-size draft preview keeps Interpolation, which is a share, not a distance | PolarCoordinates { interpolation: 60.0, conversion: "polar_to_rect" } | yes |
+| a half-size draft preview keeps Interpolation, which is a share, not a distance | PolarCoordinates { interpolation: 60.0, conversion: "polar_to_rect", shape: "ellipse" } | yes |
 
 ## The file
 

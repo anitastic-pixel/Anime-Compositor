@@ -185038,6 +185038,24 @@ Frame 0: every pixel is the drawing's.
 
 Frame 4: every pixel is the drawing's.
 
+### Polar Coordinates' shape (D-320)
+
+From the owner's approval of D-308 on 2026-10-04. **Every number is produced by `tools/polar_circle_reference.py`** and is in `Fixtures/polar_coordinates/expected_polar_circle.json`, with the drawing, the sample and the frame of `tools/polar_coordinates_reference.py`; the projects are beside it. Each case is FX-POLAR-001's composition, 16 by 10, frame 0. Tolerance 2e-5. B-201 checks them in `verification/D-320_polar_circle_table.md`.
+
+FX-POLAR-016: Shape circle, Rect to Polar at 100: the drawing bent into a circle of radius 5 round the frame's middle, its band a round ring halfway out, the frame's ends beyond the circle clear. Pixels (5, 4) and (10, 5), the ring 2.5 pixels across and down from the middle, are both the band, 0.042311 0.158961 0.686685 1; (0, 5) and (15, 5) are 0 0 0 0.
+
+FX-POLAR-017: Shape circle, Polar to Rect at 100: the drawing unrolled from the circle. Pixel (8, 0) is 0.042311 0.158961 0.686685 1; (0, 9) is 0.775299 0.565706 0.433185 0.84127.
+
+FX-POLAR-018: Shape circle, Rect to Polar at 50: half way to FX-POLAR-016. Pixel (8, 5) is 0.012983 0.01033 0.017642 1; (0, 5) is 0 0 0 0.
+
+FX-POLAR-019: Shape circle, Rect to Polar at 100, then a second, shape circle, Polar to Rect at 100: the drawing back again, roughly. Pixel (6, 4) is 0.086613 0.14406 0.46882 1; (15, 4) is 0.059813 0.04917 0.062027 0.106068.
+
+FX-POLAR-020: FX-POLAR-016 with the layer moved three pixels right: FX-POLAR-016 moved with it. Pixel (8, 4) is 0.042311 0.158961 0.686685 1; (3, 5) is 0 0 0 0.
+
+FX-POLAR-021: Shape ellipse, written in the file: FX-POLAR-001's frame exactly.
+
+FX-POLAR-022: Shape "square", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frame 0: every pixel is the drawing's.
+
 ## Mix fixtures
 
 D-202, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps in `Fixtures/effect_mix/`, each effect's `mix` written on its record after `enabled` or not at all, as the case says. FX-MIX-001 to 012 and 014 to 016 hold Invert's drawing, `Fixtures/effect_mix/media/bands.png` (the drawing of FX-INVERT, described there), five frames long, unmoved, with Invert (`core.invert`, channel rgb, amount 100), Gaussian Blur (`core.gaussian_blur`, edges transparent) or Exposure (`core.exposure`) on it, or on an adjustment layer above it in 012. FX-MIX-013 is FX-WRAP-001's scene, Light Wrap's box `wrap_box.png` over its bands `wrap_bands.png`, the Light Wrap on the box. FX-MIX-017 is FX-PTIME-001's project, eight frames of the running ball `ball_1.png` to `ball_8.png`, its Posterize Time given a mix. Values are linear premultiplied working values, and only the pixels that differ from the case without the mixed effects (the drawing; for 013 the box over the bands unlit; for 017 the ball not held) are listed, a run of rows in one column holding the same pair once: every other pixel is as without them, to 1e-12.

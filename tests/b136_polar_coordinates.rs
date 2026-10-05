@@ -24,7 +24,7 @@ use anime_compositor::model::Id;
 use anime_compositor::{persist, png_out, OutputDepth};
 
 fn polar(interpolation: f64, conversion: &str) -> Effect {
-    Effect::PolarCoordinates { interpolation, conversion: conversion.to_string() }
+    Effect::PolarCoordinates { interpolation, conversion: conversion.to_string(), shape: "ellipse".to_string() }
 }
 
 const PLATE: (usize, usize) = (160, 100);

@@ -2097,9 +2097,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("profile".into(), J::from(profile.as_str()));
             params.insert("color".into(), J::from(color.as_str()));
         }
-        Effect::PolarCoordinates { interpolation, conversion } => {
+        Effect::PolarCoordinates { interpolation, conversion, shape } => {
             params.insert("interpolation".into(), num(*interpolation));
             params.insert("conversion".into(), J::from(conversion.as_str()));
+            // D-320: as D-303's, written only when a circle or in the file already.
+            if shape != "ellipse" || params.contains_key("shape") {
+                params.insert("shape".into(), J::from(shape.as_str()));
+            }
         }
         Effect::Median { radius, operate_on_alpha } => {
             params.insert("radius".into(), num(*radius));
@@ -4230,6 +4234,7 @@ fn parse_effect(
         crate::effects::POLAR_COORDINATES => Some(crate::effects::Effect::PolarCoordinates {
             interpolation: effect_number(params, "interpolation", &at)?,
             conversion: effect_word(params, "conversion", &at)?,
+            shape: effect_word_or(params, "shape", &at, "ellipse")?,
         }),
         crate::effects::MEDIAN => Some(crate::effects::Effect::Median {
             radius: effect_number(params, "radius", &at)?,

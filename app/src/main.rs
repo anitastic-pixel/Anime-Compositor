@@ -3931,10 +3931,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             frame: 0,
         }),
         // D-201: all the way round, so the effect shows as soon as it is added; After Effects
-        // starts at 0, which shows nothing.
+        // starts at 0, which shows nothing. D-320: a circle, After Effects' look.
         POLAR_COORDINATES => Some(Effect::PolarCoordinates {
             interpolation: 100.0,
             conversion: "rect_to_polar".to_string(),
+            shape: "circle".to_string(),
         }),
         // D-203: After Effects' Smart Blur starts at a radius of 3 and a threshold of 25 in 100,
         // about 64 in 255.
@@ -4846,9 +4847,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             color: word("color")?,
             frame: 0,
         }),
+        // D-320: a command without a shape keeps a file's own rule, the ellipse.
         POLAR_COORDINATES => Ok(Effect::PolarCoordinates {
             interpolation: number("interpolation")?,
             conversion: word("conversion")?,
+            shape: word("shape").unwrap_or_else(|_| "ellipse".to_string()),
         }),
         MEDIAN => Ok(Effect::Median {
             radius: number("radius")?,

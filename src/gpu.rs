@@ -2192,14 +2192,14 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         case 8u: {
             // B-151, layer_fx::polar_coordinates. k: the share of the way, to polar, the
-            // drawing's size and its corner.
+            // drawing's size and its corner; D-320's half-axes and their shares of its half.
             let px = x - k[4];
             let py = y - k[5];
             var qx: f64;
             var qy: f64;
             if k[1] == 1.0lf {
-                let nx = quotient(px - k[2] / 2.0lf, k[2] / 2.0lf);
-                let ny = quotient(py - k[3] / 2.0lf, k[3] / 2.0lf);
+                let nx = quotient(px - k[2] / 2.0lf, k[6]);
+                let ny = quotient(py - k[3] / 2.0lf, k[7]);
                 // The CPU's atan2 of 0 and -0 is a half turn.
                 var phi = 3.141592653589793lf;
                 if nx != 0.0lf || ny != 0.0lf {
@@ -2213,8 +2213,8 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             } else {
                 let a = quotient(6.283185307179586lf * px, k[2]);
                 let v = quotient(py, k[3]);
-                qx = k[2] / 2.0lf * (1.0lf + v * sin64(a));
-                qy = k[3] / 2.0lf * (1.0lf - v * cos64(a));
+                qx = k[2] / 2.0lf * (1.0lf + v * sin64(a) * k[8]);
+                qy = k[3] / 2.0lf * (1.0lf - v * cos64(a) * k[9]);
             }
             qx = px + k[0] * (qx - px);
             qy = py + k[0] * (qy - py);
@@ -5268,8 +5268,10 @@ impl Gpu {
                 k.extend(points.iter().flat_map(|&(x, y, grey)| [x, y, grey]));
                 same(steps, &passes.cells, FxParams { blend: blend(b), ox: ox as i32, oy: oy as i32, ..Default::default() }, &k, None)
             }
-            E::PolarCoordinates { interpolation, conversion } => {
-                let k = [interpolation / 100.0, (conversion == "rect_to_polar") as u8 as f64, (w - 2 * ox) as f64, (h - 2 * oy) as f64, ox as f64, oy as f64];
+            E::PolarCoordinates { interpolation, conversion, shape } => {
+                let (dw, dh) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let (rx, ry) = if shape == "circle" { (dw.min(dh) / 2.0, dw.min(dh) / 2.0) } else { (dw / 2.0, dh / 2.0) };
+                let k = [interpolation / 100.0, (conversion == "rect_to_polar") as u8 as f64, dw, dh, ox as f64, oy as f64, rx, ry, rx / (dw / 2.0), ry / (dh / 2.0)];
                 same(steps, &passes.warp, FxParams { mode: 8, ..Default::default() }, &k, None)
             }
             E::OpticsCompensation { field_of_view, reverse, orientation, center } => {

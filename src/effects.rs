@@ -1108,8 +1108,9 @@ pub enum Effect {
     },
     /// D-201: `interpolation`, 0 to 100, how far the drawing is bent; and `conversion`,
     /// "rect_to_polar" or "polar_to_rect". The word is kept as written, so a wrong one is
-    /// reported.
-    PolarCoordinates { interpolation: f64, conversion: String },
+    /// reported. D-320: `shape`, "ellipse", the one that touches the drawing's sides (a file
+    /// without it), or "circle", round the middle, half the shorter side across.
+    PolarCoordinates { interpolation: f64, conversion: String, shape: String },
     /// D-203: `radius`, 0 to 10 pixels; and `operate_on_alpha`, "off" or "on". The word is kept
     /// as written, so a wrong one is reported.
     Median { radius: f64, operate_on_alpha: String },
@@ -3374,6 +3375,9 @@ impl Effect {
                     "Polar Coordinates' conversion is \"rect_to_polar\" or \"polar_to_rect\", and this is \"{conversion}\"."
                 ))
             }
+            Effect::PolarCoordinates { shape, .. } if !["ellipse", "circle"].contains(&shape.as_str()) => {
+                Some(format!("Polar Coordinates' shape is \"ellipse\" or \"circle\", and this is \"{shape}\"."))
+            }
             Effect::Kaleidoscope { mode, .. } if !["mirror", "repeat"].contains(&mode.as_str()) => Some(format!(
                 "Kaleidoscope's mirroring is \"mirror\" or \"repeat\", and this is \"{mode}\"."
             )),
@@ -4585,9 +4589,9 @@ pub(crate) fn apply_stack_at(
             }
             // D-201: bent round the drawing's own middle, however an effect above grew it; the
             // layer never grows.
-            Effect::PolarCoordinates { interpolation, conversion } => {
+            Effect::PolarCoordinates { interpolation, conversion, shape } => {
                 crate::perf::time(crate::perf::Stage::EffectPolarCoordinates, || {
-                    crate::layer_fx::polar_coordinates(source, *interpolation, conversion == "rect_to_polar", (ox, oy))
+                    crate::layer_fx::polar_coordinates(source, *interpolation, conversion == "rect_to_polar", shape == "circle", (ox, oy))
                 })
             }
             // D-203: neither grows the layer.

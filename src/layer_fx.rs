@@ -1477,8 +1477,9 @@ pub(crate) fn corner_pin(source: &mut WorkingBuffer, pins: [[f64; 2]; 4], origin
 /// D-201: the drawing, whose corner is at `origin` in the buffer, bent round its middle, its
 /// rows into rings and its columns into spokes (`to_polar`), or unrolled, its rings into rows
 /// and its spokes into columns, `interpolation` per cent of the way. The buffer keeps its size.
-/// The settings are already valid.
-pub(crate) fn polar_coordinates(source: &mut WorkingBuffer, interpolation: f64, to_polar: bool, origin: (usize, usize)) {
+/// The settings are already valid. D-320: the rings are ellipses that touch the drawing's sides,
+/// or with `circle` circles, the outermost half the shorter side across.
+pub(crate) fn polar_coordinates(source: &mut WorkingBuffer, interpolation: f64, to_polar: bool, circle: bool, origin: (usize, usize)) {
     let k = interpolation / 100.0;
     if k == 0.0 {
         return;
@@ -1487,6 +1488,10 @@ pub(crate) fn polar_coordinates(source: &mut WorkingBuffer, interpolation: f64, 
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
     let turn = std::f64::consts::TAU;
+    // The half-axes, and each as a share of the drawing's half, exactly 1 for the ellipse so
+    // D-201's sums are unchanged.
+    let (rx, ry) = if circle { (dw.min(dh) / 2.0, dw.min(dh) / 2.0) } else { (dw / 2.0, dh / 2.0) };
+    let (fx, fy) = (rx / (dw / 2.0), ry / (dh / 2.0));
     let mut out = WorkingBuffer::transparent(w, h);
     let drawing = &*source;
     out.data_mut()
@@ -1495,13 +1500,13 @@ pub(crate) fn polar_coordinates(source: &mut WorkingBuffer, interpolation: f64, 
         .for_each(|(i, px)| {
             let (x, y) = ((i % w) as f64 + 0.5 - ox, (i / w) as f64 + 0.5 - oy);
             let (sx, sy) = if to_polar {
-                let (nx, ny) = ((x - dw / 2.0) / (dw / 2.0), (y - dh / 2.0) / (dh / 2.0));
+                let (nx, ny) = ((x - dw / 2.0) / rx, (y - dh / 2.0) / ry);
                 let phi = nx.atan2(-ny);
                 let phi = if phi < 0.0 { phi + turn } else { phi };
                 (phi / turn * dw, nx.hypot(ny) * dh)
             } else {
                 let (a, v) = (turn * x / dw, y / dh);
-                (dw / 2.0 * (1.0 + v * a.sin()), dh / 2.0 * (1.0 - v * a.cos()))
+                (dw / 2.0 * (1.0 + v * a.sin() * fx), dh / 2.0 * (1.0 - v * a.cos() * fy))
             };
             let (qx, qy) = (x + k * (sx - x), y + k * (sy - y));
             px.copy_from_slice(&if to_polar {

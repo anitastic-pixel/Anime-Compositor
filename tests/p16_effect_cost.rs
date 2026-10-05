@@ -762,7 +762,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
         ),
         (
             "Polar Coordinates, as it starts",
-            Effect::PolarCoordinates { interpolation: 100.0, conversion: "rect_to_polar".into() },
+            Effect::PolarCoordinates { interpolation: 100.0, conversion: "rect_to_polar".into(), shape: "ellipse".into() },
         ),
         ("Median, radius 2, as it starts", Effect::Median { radius: 2.0, operate_on_alpha: "off".into() }),
         ("Median, radius 10", Effect::Median { radius: 10.0, operate_on_alpha: "off".into() }),
