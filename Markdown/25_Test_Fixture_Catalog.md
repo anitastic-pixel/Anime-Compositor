@@ -187358,6 +187358,30 @@ FX-BLURRY-008: Units `Blurriness`, capitalised, which is not the word. The file 
 
 FX-BLURRY-009: Units `pixels`, which is not one. As FX-BLURRY-008.
 
+### Glow in After Effects' numbers (D-322)
+
+From the owner's request of 2026-10-04 to match After Effects from examples on the internet. **Every number is produced by `tools/glow_ae_reference.py`** and is in `Fixtures/glow_ae/expected_glow_ae.json`; the projects and the drawings are beside it. Each case is FX-GLOW-001's composition, 16 by 10, and drawing `patches.png` (yellow in columns 2 to 4, brown in 7 and 8, purple in 11 to 13, rows 3 to 6), frame 0, Add unless it says. Values are linear premultiplied. Tolerance 2e-5. B-206 checks them in `verification/D-322_glow_ae_table.md`.
+
+FX-GLOW-AE-001: Units after_effects, threshold 60, radius 10, intensity 1: spread at Blurriness 10 (sigma 3, reaching 20 pixels), the glow's colour 7 times the blurred light, its covering not multiplied. Pixel (3, 4) is 2.31585 1.70189 0.446097 1; (0, 0) is 0.306971 0.228086 0.0598282 0.0474317.
+
+FX-GLOW-AE-002: The same settings with no units: document 21's D-89 rule, FX-GLOW-014 exactly. Pixel (3, 4) is 1.11978 0.833715 0.218716 1.
+
+FX-GLOW-AE-003: Units written `classic`: FX-GLOW-AE-002 exactly.
+
+FX-GLOW-AE-004: Threshold 0, radius 4, intensity 0.1: everything that shows glows, at 1.6 times. Pixel (3, 4) is 2.04287 1.52921 0.401309 1; (0, 0) is 0.0024101 0.00180433 0.000473514 0.00157568.
+
+FX-GLOW-AE-005: Intensity 0: the drawing untouched.
+
+FX-GLOW-AE-006: Radius 0: each glowing pixel's colour added onto itself 7 times; nothing spreads. Pixel (3, 4) is 7.64779 5.72555 1.50257 1; (0, 0) is clear.
+
+FX-GLOW-AE-007: Operation screen: the strengthened glow held inside 0 to 1, then screened; nothing passes 1.
+
+FX-GLOW-AE-008: Tint `#ff4000`, threshold 0, intensity 0.2: the glow is 3.2 times the tint. Pixel (0, 0) is 0.15191 0.00778836 0 0.047472.
+
+FX-GLOW-AE-009: Units `After_Effects`, capitalised, which is not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frame 0: the drawing.
+
+FX-GLOW-AE-010: Units `ae`, which is not one. As FX-GLOW-AE-009.
+
 ## Mix fixtures
 
 D-202, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps in `Fixtures/effect_mix/`, each effect's `mix` written on its record after `enabled` or not at all, as the case says. FX-MIX-001 to 012 and 014 to 016 hold Invert's drawing, `Fixtures/effect_mix/media/bands.png` (the drawing of FX-INVERT, described there), five frames long, unmoved, with Invert (`core.invert`, channel rgb, amount 100), Gaussian Blur (`core.gaussian_blur`, edges transparent) or Exposure (`core.exposure`) on it, or on an adjustment layer above it in 012. FX-MIX-013 is FX-WRAP-001's scene, Light Wrap's box `wrap_box.png` over its bands `wrap_bands.png`, the Light Wrap on the box. FX-MIX-017 is FX-PTIME-001's project, eight frames of the running ball `ball_1.png` to `ball_8.png`, its Posterize Time given a mix. Values are linear premultiplied working values, and only the pixels that differ from the case without the mixed effects (the drawing; for 013 the box over the bands unlit; for 017 the ball not held) are listed, a run of rows in one column holding the same pair once: every other pixel is as without them, to 1e-12.
