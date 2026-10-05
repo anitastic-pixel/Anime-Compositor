@@ -187398,6 +187398,32 @@ FX-GLOW-AE-009: Units `After_Effects`, capitalised, which is not the word. The f
 
 FX-GLOW-AE-010: Units `ae`, which is not one. As FX-GLOW-AE-009.
 
+### Fast Box Blur (D-327)
+
+From P-26 and the owner's request of 2026-10-04 to recreate the After Effects tutorials. Tutorials 2 and 3 blur with After Effects' Fast Box Blur (Blur Radius, Iterations, Blur Dimensions, Repeat Edge Pixels, in After Effects' manual), a box laid on several times, which ends hard at iterations times the radius. **Every number is produced by `tools/fast_box_blur_reference.py`** and is in `Fixtures/fast_box_blur/expected_fast_box_blur.json`; the projects and the drawing are beside it. Each case is FX-BLURRY-001's composition, 40 by 12, and drawing `block.png`, a 4 by 4 orange square (255, 128, 0) from (0, 4) to (3, 7). The reference lays the box on pass by pass and sums two dimensions directly. Tolerance 2e-5.
+
+FX-FASTBOX-001: Radius 4, iterations 3 (After Effects' default): reaching 12 pixels. Pixel (1, 6) is 0.106586 0.0230076 0 0.106586; (15, 6), twelve right of the square, is 0.000447839 9.66707e-05 0 0.000447839; column 16 and past are clear.
+
+FX-FASTBOX-002: Radius 4, iterations 1: one flat box of 9 pixels. Pixel (3, 6) is 0.197531 0.0426391 0 0.197531; (7, 6) is 0.0493827 0.0106598 0 0.0493827; (8, 6) is clear.
+
+FX-FASTBOX-003: Radius 2.5, iterations 1: a box of 5 pixels and half of the next on each side. Pixel (6, 6) is 0.0555556 0.0119923 0 0.0555556; (7, 6) is clear.
+
+FX-FASTBOX-004: FX-FASTBOX-001 with edges repeat: the square's orange is read past the left edge. Pixel (0, 6) is 0.252581 0.0545223 0 0.252581.
+
+FX-FASTBOX-005: FX-FASTBOX-001 with Blur Dimensions horizontal: rows 0 to 3 and 8 to 11 stay clear. Pixel (6, 6) is 0.22085 0.0476729 0 0.22085.
+
+FX-FASTBOX-006: Radius 0: the drawing untouched.
+
+FX-FASTBOX-007: A Float composition, radius 2, iterations 3, then Exposure +6: light past white on the square, ending 6 pixels out. Pixel (1, 6) is 20.0704 4.33241 0 0.3136; (9, 6) is 0.28672 0.0618915 0 0.00448; (10, 6) is clear, where Blurriness at the same softness is still lit.
+
+FX-FASTBOX-008: Iterations 2.7: taken as 2. Pixel (1, 6) is 0.156074 0.0336902 0 0.156074.
+
+FX-FASTBOX-009: Iterations 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: the drawing.
+
+FX-FASTBOX-010: Radius 501, above 500. As FX-FASTBOX-009.
+
+FX-FASTBOX-011: Blur Dimensions `Both`, capitalised, which is not the word. As FX-FASTBOX-009.
+
 ## Mix fixtures
 
 D-202, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps in `Fixtures/effect_mix/`, each effect's `mix` written on its record after `enabled` or not at all, as the case says. FX-MIX-001 to 012 and 014 to 016 hold Invert's drawing, `Fixtures/effect_mix/media/bands.png` (the drawing of FX-INVERT, described there), five frames long, unmoved, with Invert (`core.invert`, channel rgb, amount 100), Gaussian Blur (`core.gaussian_blur`, edges transparent) or Exposure (`core.exposure`) on it, or on an adjustment layer above it in 012. FX-MIX-013 is FX-WRAP-001's scene, Light Wrap's box `wrap_box.png` over its bands `wrap_bands.png`, the Light Wrap on the box. FX-MIX-017 is FX-PTIME-001's project, eight frames of the running ball `ball_1.png` to `ball_8.png`, its Posterize Time given a mix. Values are linear premultiplied working values, and only the pixels that differ from the case without the mixed effects (the drawing; for 013 the box over the bands unlit; for 017 the ball not held) are listed, a run of rows in one column holding the same pair once: every other pixel is as without them, to 1e-12.
