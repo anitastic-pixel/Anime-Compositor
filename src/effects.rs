@@ -1312,6 +1312,15 @@ pub enum Effect {
         edges: String,
         dimensions: String,
     },
+    /// D-327: After Effects' Fast Box Blur. A box `radius` pixels round each one, 0 to 500,
+    /// laid on `iterations` times, 1 to 50, its whole part counted; `edges` and `dimensions`
+    /// as Gaussian Blur's.
+    FastBoxBlur {
+        radius: f64,
+        iterations: f64,
+        edges: String,
+        dimensions: String,
+    },
     /// D-316: After Effects' Colorama, reduced. `get_phase`, one of [`COLORAMA_PHASES`];
     /// `layer` and `fit`, D-189's layer setting, whose brightness is added to the phase;
     /// `phase_shift`, -3600 to 3600 degrees; `cycle_repetitions`, 0 to 100; `stops`, 2 to 5,
@@ -1453,6 +1462,7 @@ pub const BLOCK_DISSOLVE: &str = "core.block_dissolve";
 pub const SHIFT_CHANNELS: &str = "core.shift_channels";
 pub const SOLID_COMPOSITE: &str = "core.solid_composite";
 pub const CHANNEL_BLUR: &str = "core.channel_blur";
+pub const FAST_BOX_BLUR: &str = "core.fast_box_blur";
 pub const COLORAMA: &str = "core.colorama";
 /// D-316: what Colorama reads a pixel's phase from.
 pub const COLORAMA_PHASES: [&str; 6] = ["intensity", "luminance", "red", "green", "blue", "alpha"];
@@ -2031,6 +2041,10 @@ impl Effect {
                 ("blue_blurriness", vec![blue_blurriness], 0.0, 500.0),
                 ("alpha_blurriness", vec![alpha_blurriness], 0.0, 500.0),
             ],
+            Effect::FastBoxBlur { radius, iterations, .. } => vec![
+                ("radius", vec![radius], 0.0, 500.0),
+                ("iterations", vec![iterations], 1.0, 50.0),
+            ],
             Effect::Colorama {
                 phase_shift,
                 cycle_repetitions,
@@ -2458,6 +2472,7 @@ impl Effect {
                     *s = scale(*s);
                 }
             }
+            Effect::FastBoxBlur { radius, .. } => *radius = scale(*radius),
             // D-87's blur and D-89's radius are distances in pixels too.
             Effect::SelectiveColorBlur { blur, .. } => *blur = scale(*blur),
             Effect::Glow { radius, .. } => *radius = scale(*radius),
@@ -2736,6 +2751,7 @@ impl Effect {
             Effect::ShiftChannels { .. } => "Shift Channels",
             Effect::SolidComposite { .. } => "Solid Composite",
             Effect::ChannelBlur { .. } => "Channel Blur",
+            Effect::FastBoxBlur { .. } => "Fast Box Blur",
             Effect::Colorama { .. } => "Colorama",
             Effect::Glass { .. } => "CC Glass",
             Effect::Unsupported { type_id } => type_id,
@@ -2840,6 +2856,7 @@ impl Effect {
             Effect::ShiftChannels { .. } => SHIFT_CHANNELS,
             Effect::SolidComposite { .. } => SOLID_COMPOSITE,
             Effect::ChannelBlur { .. } => CHANNEL_BLUR,
+            Effect::FastBoxBlur { .. } => FAST_BOX_BLUR,
             Effect::Colorama { .. } => COLORAMA,
             Effect::Glass { .. } => GLASS,
             Effect::Unsupported { type_id } => type_id,
@@ -2868,6 +2885,10 @@ impl Effect {
             // D-313: the alpha's blur, as Blur's; a colour reaching further has no alpha there.
             Effect::ChannelBlur { alpha_blurriness, edges, .. } if edges != "repeat" => {
                 kernel_radius(*alpha_blurriness)
+            }
+            // D-327: the box's reach, once a pass.
+            Effect::FastBoxBlur { radius, iterations, edges, .. } if edges != "repeat" => {
+                box_reach(*radius, *iterations)
             }
             // D-89: the light reaches `radius` pixels, blur's reach at sigma radius / 3.
             Effect::Glow { radius, units, .. } => {
@@ -3315,7 +3336,8 @@ impl Effect {
                 ))
             }
             Effect::SolidComposite { color, .. } => hex_fault("Solid Composite", "colour", color),
-            Effect::ChannelBlur { edges: e, dimensions, .. } => edges(e).or_else(|| {
+            Effect::ChannelBlur { edges: e, dimensions, .. }
+            | Effect::FastBoxBlur { edges: e, dimensions, .. } => edges(e).or_else(|| {
                 (!["both", "horizontal", "vertical"].contains(&dimensions.as_str())).then(|| {
                     format!("{name}'s dimensions are \"both\", \"horizontal\" or \"vertical\", and this is \"{dimensions}\".")
                 })
@@ -3789,6 +3811,46 @@ pub fn reach_weights(sigma_px: f64, long: bool) -> Vec<f32> {
         *v /= sum;
     }
     w.into_iter().map(|v| v as f32).collect()
+}
+
+/// D-327: how far Fast Box Blur's kernel reaches, `iterations` (its whole part) times
+/// `ceil(radius)`, the pixels one box reaches.
+///
+/// ponytail: 500 by 50 reaches 25,000 pixels, and with transparent edges the layer grows that
+/// much on every side; a cap on the reach is a later decision if anyone keys that high.
+pub fn box_reach(radius: f64, iterations: f64) -> usize {
+    (radius.ceil() as usize).saturating_mul(iterations.floor() as usize)
+}
+
+/// D-327: one box of weight 1 for `floor(radius)` pixels each side and the part past whole at
+/// the next, over its sum, convolved with itself `iterations` times, index 0 being
+/// [`box_reach`] pixels before the centre. Each pass is a running sum, so a long kernel costs
+/// its length a pass.
+pub fn box_weights(radius: f64, iterations: f64) -> Vec<f32> {
+    let reach = box_reach(radius, iterations);
+    if reach == 0 {
+        return vec![1.0];
+    }
+    let (k, f) = (radius.floor(), radius - radius.floor());
+    let (k, total) = (k as isize, 2.0 * k + 1.0 + 2.0 * f);
+    let n = 2 * reach + 1;
+    let mut line = vec![0.0f64; n];
+    line[reach] = 1.0;
+    // `sums[i]` is the sum of `line[..i]`, so `line[a..b]` sums to `sums[b] - sums[a]`.
+    let mut sums = vec![0.0f64; n + 1];
+    for _ in 0..iterations.floor() as usize {
+        for (i, v) in line.iter().enumerate() {
+            sums[i + 1] = sums[i] + v;
+        }
+        let at = |i: isize| if (0..n as isize).contains(&i) { line[i as usize] } else { 0.0 };
+        line = (0..n as isize)
+            .map(|x| {
+                let (a, b) = ((x - k).max(0) as usize, ((x + k + 1) as usize).min(n));
+                (sums[b] - sums[a] + f * (at(x - k - 1) + at(x + k + 1))) / total
+            })
+            .collect();
+    }
+    line.into_iter().map(|v| v as f32).collect()
 }
 
 /// D-95: a Radial Blur's centre in the pixels of a buffer `w` by `h`, from its share of the
@@ -4550,6 +4612,20 @@ pub(crate) fn apply_stack_at(
                         edges == "repeat",
                         (dimensions != "vertical", dimensions != "horizontal"),
                     )
+                });
+                ox += r;
+                oy += r;
+            }
+            Effect::FastBoxBlur { radius, iterations, edges, dimensions } => {
+                let taps = box_weights(*radius, *iterations);
+                let axes = (dimensions != "vertical", dimensions != "horizontal");
+                let r = crate::perf::time(crate::perf::Stage::EffectFastBoxBlur, || {
+                    if edges == "repeat" {
+                        held_blur_axes(source, &taps, axes);
+                        0
+                    } else {
+                        blur_axes(source, &taps, axes)
+                    }
                 });
                 ox += r;
                 oy += r;

@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target, TimeRemap};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, COLORAMA, GLASS, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -4110,6 +4110,13 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             edges: "transparent".to_string(),
             dimensions: "both".to_string(),
         }),
+        // D-327: radius 0, which changes nothing, and After Effects' 3 iterations.
+        FAST_BOX_BLUR => Some(Effect::FastBoxBlur {
+            radius: 0.0,
+            iterations: 3.0,
+            edges: "transparent".to_string(),
+            dimensions: "both".to_string(),
+        }),
         // D-316: After Effects' start, phase from intensity round a hue cycle, here five hues
         // evenly spaced; no layer added.
         COLORAMA => Some(Effect::Colorama {
@@ -5017,6 +5024,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             green_blurriness: number("green_blurriness")?,
             blue_blurriness: number("blue_blurriness")?,
             alpha_blurriness: number("alpha_blurriness")?,
+            edges: edges(),
+            dimensions: word("dimensions").unwrap_or_else(|_| "both".to_string()),
+        }),
+        FAST_BOX_BLUR => Ok(Effect::FastBoxBlur {
+            radius: number("radius")?,
+            iterations: number("iterations")?,
             edges: edges(),
             dimensions: word("dimensions").unwrap_or_else(|_| "both".to_string()),
         }),
@@ -8686,7 +8699,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.colorama or core.glass."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama or core.glass."
                                 .to_string(),
                         );
                     };
@@ -8714,7 +8727,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.colorama and core.glass."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama and core.glass."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -14357,7 +14370,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.colorama and core.glass.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama and core.glass.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -14379,7 +14392,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.colorama or core.glass.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama or core.glass.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -28666,6 +28679,11 @@ mod contract {
                 ("edges", "repeat"),
                 ("dimensions", "horizontal"),
             ],
+        ),
+        // D-327.
+        (
+            "core.fast_box_blur",
+            &[("radius", "6.5"), ("iterations", "2"), ("edges", "repeat"), ("dimensions", "vertical")],
         ),
         // D-316.
         (

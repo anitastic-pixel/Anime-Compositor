@@ -9320,6 +9320,7 @@ const EFFECT_NAMES = {
   'core.shift_channels': 'Shift Channels',
   'core.solid_composite': 'Solid Composite',
   'core.channel_blur': 'Channel Blur',
+  'core.fast_box_blur': 'Fast Box Blur',
   'core.colorama': 'Colorama',
   'core.glass': 'CC Glass',
 };
@@ -9329,7 +9330,7 @@ const EFFECT_NAMES = {
 const EFFECT_GROUPS = [
   ['Blur & Sharpen', ['core.gaussian_blur', 'core.directional_blur', 'core.radial_blur',
     'core.lens_blur', 'core.compound_blur', 'core.selective_color_blur', 'core.sharpen',
-    'core.diffusion', 'core.median', 'core.smart_blur', 'core.channel_blur']],
+    'core.diffusion', 'core.median', 'core.smart_blur', 'core.channel_blur', 'core.fast_box_blur']],
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.change_to_color',
@@ -9429,6 +9430,7 @@ const EFFECT_SEARCH = {
   'core.shift_channels': 'shift channels swap red green blue alpha luminance take from channel matte',
   'core.solid_composite': 'solid composite colour color background fill behind under channel',
   'core.channel_blur': 'channel blur red green blue alpha separate per channel soften',
+  'core.fast_box_blur': 'fast box blur radius iterations soften quick',
   'core.colorama': 'colorama colour color cycle ring palette rainbow psychedelic phase hue map',
   'core.glass': 'cc glass refraction refract lens bump map shockwave water ripple heat distortion bevel light',
   'core.drop_shadow': 'shade',
@@ -9547,6 +9549,7 @@ const EFFECT_ABOUT = {
   'core.shift_channels': 'Takes each of red, green, blue and alpha from another channel, or from the brightness, hue or saturation.',
   'core.solid_composite': 'Lays the layer on a solid colour, each at its own opacity, with a blend.',
   'core.channel_blur': 'Blurs red, green, blue and alpha each by its own amount.',
+  'core.fast_box_blur': 'A box blur laid on several times, ending hard at radius times iterations.',
   'core.colorama': 'Repaints each brightness with a colour from a ring of colours that can turn and repeat.',
   'core.glass': 'Bends the picture as if seen through glass shaped by a bump map, and lights its slopes.',
 };
@@ -9796,6 +9799,9 @@ const EFFECT_PARAMS = {
     ['green_blurriness', 'Green Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels'],
     ['blue_blurriness', 'Blue Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels'],
     ['alpha_blurriness', 'Alpha Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels']],
+  // D-327, After Effects' own words.
+  'core.fast_box_blur': [['radius', 'Blur Radius', 1, 0.1, '0 to 500 source pixels'],
+    ['iterations', 'Iterations', 1, 1, '1 to 50, how many times the box is laid on']],
   // D-317, After Effects' own words where it has them.
   'core.glass': [['softness', 'Softness', 1, 0.5, 'pixels, 0 to 100, how smooth the bump is'],
     ['height', 'Height', 1, 1, '-100 to 100, how steep the bump is; below 0 it dips'],
@@ -10205,6 +10211,9 @@ const EFFECT_WORDS = {
   // D-313.
   'core.channel_blur': { choices: [EDGES, ['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],
     ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]]] },
+  // D-327.
+  'core.fast_box_blur': { choices: [['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],
+    ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]], EDGES] },
   // D-305: After Effects' own words and order.
   'core.shift_channels': {
     choices: [['take_alpha', 'Take Alpha From', [['alpha', 'Alpha'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['luminance', 'Luminance'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'], ['full', 'Full'], ['half', 'Half'], ['off', 'Off']]], ['take_red', 'Take Red From', [['alpha', 'Alpha'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['luminance', 'Luminance'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'], ['full', 'Full'], ['half', 'Half'], ['off', 'Off']]],

@@ -235,6 +235,7 @@ pub enum Stage {
     EffectShiftChannels,
     EffectSolidComposite,
     EffectChannelBlur,
+    EffectFastBoxBlur,
     EffectColorama,
     EffectGlass,
     /// The lookup and admission of an evaluated effect result (P-11).
@@ -254,7 +255,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 113] = [
+    pub const ALL: [Stage; 114] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -359,6 +360,7 @@ impl Stage {
         Stage::EffectShiftChannels,
         Stage::EffectSolidComposite,
         Stage::EffectChannelBlur,
+        Stage::EffectFastBoxBlur,
         Stage::EffectColorama,
         Stage::EffectGlass,
         Stage::EffectCache,
@@ -477,6 +479,7 @@ impl Stage {
             Stage::EffectShiftChannels => "effect: shift channels",
             Stage::EffectSolidComposite => "effect: solid composite",
             Stage::EffectChannelBlur => "effect: channel blur",
+            Stage::EffectFastBoxBlur => "effect: fast box blur",
             Stage::EffectColorama => "effect: colorama",
             Stage::EffectGlass => "effect: cc glass",
             Stage::EffectCache => "effect result cache: lookup and admit",

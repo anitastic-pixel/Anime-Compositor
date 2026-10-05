@@ -2383,6 +2383,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             put_edges(&mut params, edges);
             params.insert("dimensions".into(), J::from(dimensions.as_str()));
         }
+        Effect::FastBoxBlur { radius, iterations, edges, dimensions } => {
+            params.insert("radius".into(), num(*radius));
+            params.insert("iterations".into(), num(*iterations));
+            put_edges(&mut params, edges);
+            if dimensions != "both" || params.contains_key("dimensions") {
+                params.insert("dimensions".into(), J::from(dimensions.as_str()));
+            }
+        }
         Effect::Colorama {
             get_phase,
             layer,
@@ -3655,6 +3663,7 @@ fn parse_effect(
         crate::effects::SHIFT_CHANNELS,
         crate::effects::SOLID_COMPOSITE,
         crate::effects::CHANNEL_BLUR,
+        crate::effects::FAST_BOX_BLUR,
         crate::effects::COLORAMA,
         crate::effects::GLASS,
     ]
@@ -4429,6 +4438,12 @@ fn parse_effect(
             alpha_blurriness: effect_number(params, "alpha_blurriness", &at)?,
             edges: effect_edges(params, &at)?,
             dimensions: effect_word(params, "dimensions", &at)?,
+        }),
+        crate::effects::FAST_BOX_BLUR => Some(crate::effects::Effect::FastBoxBlur {
+            radius: effect_number(params, "radius", &at)?,
+            iterations: effect_number(params, "iterations", &at)?,
+            edges: effect_edges(params, &at)?,
+            dimensions: effect_word_or(params, "dimensions", &at, "both")?,
         }),
         // D-316: the layer is kept as written, as Compound Blur's is.
         crate::effects::COLORAMA => Some(crate::effects::Effect::Colorama {
