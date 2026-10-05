@@ -330,6 +330,8 @@ D-273, the New composition and Pre-compose windows. Ctrl+N and New compositionâ€
 
 D-311, a composition's background colour. The window's Background row has a Colour box and a colour; `composition.set_settings` takes `background_color`, `none` or three numbers from 0 to 1 in linear light, and a page that leaves it out keeps what the composition has. It is one entry to undo, with the rest of the settings.
 
+D-319, the working depth. The window's Working depth row is Display (0 to 1) or Float (past white); `composition.set_settings` takes `float_depth`, `true` or `false`, a page that leaves it out keeps what the composition has, and anything else is refused with a sentence. It is one entry to undo, with the rest of the settings.
+
 D-280, with no new command ID. Effect controls no longer sends `layer.set_parent`, `layer.set_matte`, `layer.set_blend_mode`, the mask commands or the transform commands; the timeline sends the same commands.
 - The layer row's Parent column is a list (None or a layer) beside the pick whip.
 - The Blending group holds Blend mode and Track matte.

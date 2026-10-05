@@ -35,6 +35,7 @@ fn fractal(n: [f64; 8], dark: &str, light: &str, blend: &str) -> Effect {
         scale_height: 100.0,
         cycle: 0.0,
         frame: 0,
+        float: false,
     }
 }
 

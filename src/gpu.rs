@@ -4836,7 +4836,7 @@ impl Gpu {
                 k.extend(v.color.map(crate::grade::to_linear));
                 same(steps, &passes.grade, FxParams { mode: 8, ..Default::default() }, &k, None)
             }
-            E::FractalNoise { size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend: b, fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, frame } => {
+            E::FractalNoise { size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend: b, fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, frame, float: _ } => {
                 let base = crate::grade::mix(seed.floor() as u64);
                 let mut k = vec![size * (scale_width / 100.0), crate::effects::depth(*evolution, *speed, *frame), *contrast, *brightness, opacity / 100.0];
                 k.extend(crate::effects::encoded(dark_color));
@@ -5376,6 +5376,14 @@ impl Gpu {
 
     /// Why this plan cannot go to the card, if it cannot.
     fn refuse(&self, plan: &FramePlan) -> Option<Diagnostic> {
+        // D-319: Float working depth is the CPU's until the card's blends and noise match it.
+        if plan.float {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: its composition works in Float depth.".into(),
+                "D-319's Float working depth (Add, Screen and Fractal Noise past white) is drawn on the CPU only.".into(),
+            ));
+        }
         // B-156 (D-225): an adjustment layer whose every effect the card draws on the frame.
         let frame = (plan.width, plan.height);
         if plan.layers.iter().filter_map(|l| l.adjust.as_ref()).any(|s| self.fx.is_none() || crate::compose::adjust_run(s, frame).is_none()) {

@@ -2398,6 +2398,7 @@
         <div class="fr"><span class="lb">Start frame</span><input id="compstart" type="number" value="0" disabled><span class="dim">the ruler's first number</span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-275.">proposed</span></div>
         <div class="fr"><label class="lb" for="compframes">Length</label><input id="compframes" type="number" min="1" value="240"><span class="dim">frames</span><span id="complength" class="blue"></span></div>
         <div class="fr"><span class="lb">Background</span><label><input id="compbgon" type="checkbox"> Colour</label><input id="compbg" type="color" value="#000000" title="Shown behind the picture with the checkerboard off, and behind an MP4"><span class="dim">a PNG or EXR stays see-through</span></div>
+        <div class="fr"><label class="lb" for="compdepth">Working depth</label><select id="compdepth" title="After Effects' 8 bpc and 32 bpc. Float lets Add, Screen and Fractal Noise go past white; nested compositions follow the outermost one."><option value="false">Display (0 to 1)</option><option value="true">Float (past white)</option></select></div>
       </div>
       <div id="compadv" class="pane" hidden>
         <div class="fr tall"><span class="lb">Resize from</span><span class="anc" aria-hidden="true"><i></i><i></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i><i></i></span><span class="dim">Which edge stays put when the size changes</span><span class="soon" title="Not in this build: it needs a change in the engine, proposed as D-276. Today a new size keeps the layers where they are, from the top left.">proposed</span></div>
@@ -13780,7 +13781,9 @@ function compSettings() {
   // D-311.
   $('compbgon').checked = !!comp.background_color;
   $('compbg').value = comp.background_color ? hexOf(comp.background_color) : '#000000';
-  settingComp = { fps: $('compfps').value, shutter: SHUTTER.map((box) => $(box).value).join(), bg: compBackground() };
+  // D-319.
+  $('compdepth').value = String(!!comp.float_depth);
+  settingComp = { fps: $('compfps').value, shutter: SHUTTER.map((box) => $(box).value).join(), bg: compBackground(), depth: $('compdepth').value };
   openCompDialog(false);
 }
 // D-273: the redesign's window. The sizes a preset or a shape button gives; the shapes are the first five.
@@ -14824,6 +14827,7 @@ $('newcomp').onclick = () => {
   $('compstart').value = 0;
   $('compbgon').checked = false;
   $('compbg').value = '#000000';
+  $('compdepth').value = 'false';
   openCompDialog(true);
 };
 $('cancelcomp').onclick = () => $('newcomposition').close();
@@ -14955,13 +14959,14 @@ $('makecomp').onclick = async () => {
   settingComp = null;
   $('newcomposition').close();
   const sheet = SHEET_DETAILS.map(([k, box]) => '&' + k + '=' + encodeURIComponent($(box).value)).join('')
-    + (compBackground() === (settings ? settings.bg : 'none') ? '' : '&background_color=' + compBackground());
+    + (compBackground() === (settings ? settings.bg : 'none') ? '' : '&background_color=' + compBackground())
+    + ($('compdepth').value === (settings ? settings.depth : 'false') ? '' : '&float_depth=' + $('compdepth').value);
   // W-43 fix: the create is the other half of `if (settings)`. Hung off the shutter's test since
   // B-124b, applying Ctrl+K without touching the shutter also made an empty copy of the composition.
   // D-273: a new one's Advanced tab is sent after it is made, and only what was filled in or changed.
   if (!settings) {
     await command('/composition.create?' + q + fps);
-    if (SHEET_DETAILS.some(([, box]) => $(box).value.trim()) || $('compbgon').checked) await command('/composition.set_settings?' + sheet.slice(1));
+    if (SHEET_DETAILS.some(([, box]) => $(box).value.trim()) || $('compbgon').checked || $('compdepth').value === 'true') await command('/composition.set_settings?' + sheet.slice(1));
   } else command('/composition.set_settings?' + q + sheet + ($('compfps').value === settings.fps ? '' : fps));
   if (SHUTTER.map((box) => $(box).value).join() !== (settings ? settings.shutter : SHUTTER_AT_FIRST)) {
     command('/composition.set_motion_blur?angle=' + encodeURIComponent($('compangle').value)

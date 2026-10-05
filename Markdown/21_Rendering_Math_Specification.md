@@ -176,6 +176,14 @@ Zero-alpha straight colors are zero. Independent fixtures in 25 must verify each
 
 D-301 (P-26, 2026-10-04) adds four of After Effects' modes. Overlay and soft light use the same equation, with `B` worked on the encoded colours held to 0 to 1, as After Effects blends them, and decoded again: `B = to_linear(f(to_srgb(cd), to_srgb(cs)))`, where `f` is the W3C's overlay, `2b*c` for `b <= 0.5` and `1 - 2(1-b)(1-c)` above, or its soft light, the same function D-185's Paraffin uses; so a 50% encoded grey leaves the backdrop exactly as it is. Stencil alpha and stencil luma are not drawn: every pixel beneath, all four channels, is multiplied by `k`, the source's alpha `As` for stencil alpha, or for stencil luma the encoded luma of its premultiplied colour, `to_srgb(clamp(0.2126*Cs.r + 0.7152*Cs.g + 0.0722*Cs.b))`, the source over black as a Luma matte reads it. A stencil reaches the whole frame, so beneath it where it is empty, or where it has collapsed to nothing, is cleared. The GPU draws none of the four; a frame with one is drawn on the CPU and says so (`GPU_PREVIEW_ON_CPU`).
 
+D-319 (P-26, 2026-10-04), the Float working depth. A composition with `float_depth` true draws in Float; every other one, and every file before D-319, in Display, by the rules above. A composition drawn inside another takes the depth of the outermost composition being drawn, not its own. In Float three rules change and nothing else does:
+
+- add: `B = cs + cd`, not held to 1.
+- screen: `B = cs + cd - cs*cd` where `cs <= 1` or `cd <= 1`, else `B = max(cs, cd)` (Nuke's rule; the plain formula turns back down once both pass white). Fractal Noise's own screen blend takes the same rule.
+- Fractal Noise's value is `v = max(0, 0.5 + 0.5 F contrast / 100 + brightness / 100)`, held at black only.
+
+These stay held to 0 to 1 in both depths: Overlay and Soft Light (worked on encoded colours); Solid Composite; Echo's add; Glow's screen, on the CPU and the card; Light Wrap's screen; the colour effects that hold their result (Levels, Curves, Hue/Saturation and the others of `grade.rs`); and the final 8- and 16-bit encode of the viewer, a PNG, an MP4 and a GIF. An EXR keeps the floats. The GPU does not draw Float: such a frame is drawn on the CPU and says `GPU_PREVIEW_ON_CPU`. `tools/float_depth_reference.py` is the reference; FX-BLEND-ADDF-001 to 003, FX-BLEND-SCRF-001 to 003 and FX-FNOISE-HDR-001 to 003 pin it.
+
 ## G1 effects
 
 Exposure: parameter is stops `e`, from -40 to 40 (D-90 set -20 to 20; D-318 widened it to After Effects' range on 2026-10-04); linear premultiplied RGB is multiplied by `2^e`; alpha is unchanged.

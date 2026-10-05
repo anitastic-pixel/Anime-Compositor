@@ -92,8 +92,8 @@ D-128, accepted by the owner on 2026-09-26, the sixth of the second batch of ten
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing | 0 | yes |
-| a half-size draft preview halves the size | FractalNoise { size: 20.0, complexity: 4.0, contrast: 100.0, brightness: 0.0, evolution: 0.0, speed: 0.0, seed: 0.0, dark_color: "#000000", light_color: "#ffffff", opacity: 100.0, blend: "normal", fractal_type: "basic", noise_type: "smooth", invert: "off", offset: [0.0, 0.0], scale_width: 100.0, scale_height: 100.0, cycle: 0.0, frame: 0 } | yes |
-| a half-size draft of size 1 holds the size at 1, its range's bottom, rather than leaving the effect out | FractalNoise { size: 1.0, complexity: 4.0, contrast: 100.0, brightness: 0.0, evolution: 0.0, speed: 0.0, seed: 0.0, dark_color: "#000000", light_color: "#ffffff", opacity: 100.0, blend: "normal", fractal_type: "basic", noise_type: "smooth", invert: "off", offset: [0.0, 0.0], scale_width: 100.0, scale_height: 100.0, cycle: 0.0, frame: 0 } | yes |
+| a half-size draft preview halves the size | FractalNoise { size: 20.0, complexity: 4.0, contrast: 100.0, brightness: 0.0, evolution: 0.0, speed: 0.0, seed: 0.0, dark_color: "#000000", light_color: "#ffffff", opacity: 100.0, blend: "normal", fractal_type: "basic", noise_type: "smooth", invert: "off", offset: [0.0, 0.0], scale_width: 100.0, scale_height: 100.0, cycle: 0.0, frame: 0, float: false } | yes |
+| a half-size draft of size 1 holds the size at 1, its range's bottom, rather than leaving the effect out | FractalNoise { size: 1.0, complexity: 4.0, contrast: 100.0, brightness: 0.0, evolution: 0.0, speed: 0.0, seed: 0.0, dark_color: "#000000", light_color: "#ffffff", opacity: 100.0, blend: "normal", fractal_type: "basic", noise_type: "smooth", invert: "off", offset: [0.0, 0.0], scale_width: 100.0, scale_height: 100.0, cycle: 0.0, frame: 0, float: false } | yes |
 
 ## The file
 

@@ -271,6 +271,8 @@ pub enum Command {
         sheet_details: crate::model::SheetDetails,
         /// D-311: the background colour, linear RGB each 0 to 1, or `None` for none.
         background_color: Option<[f64; 3]>,
+        /// D-319: the working depth, Float when true.
+        float_depth: bool,
     },
     ReorderLayer {
         composition: Id,
@@ -2662,6 +2664,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             duration_frames,
             sheet_details,
             background_color,
+            float_depth,
             ..
         } => {
             if background_color.is_some_and(|c| c.iter().any(|v| !(0.0..=1.0).contains(v))) {
@@ -2688,6 +2691,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             comp.duration_frames = *duration_frames;
             comp.sheet_details = sheet_details.clone();
             comp.background_color = *background_color;
+            comp.float_depth = *float_depth;
             comp.work_area = comp
                 .work_area
                 .map(|(start, end)| (start, end.min(past)))

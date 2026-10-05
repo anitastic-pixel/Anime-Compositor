@@ -120,6 +120,7 @@ pub fn scale_plan(plan: FramePlan, quality: PreviewQuality) -> FramePlan {
     let s = 1.0 / quality.divisor() as f64;
     let (width, height) = quality.extent(plan.width, plan.height);
     FramePlan {
+        float: plan.float,
         width,
         height,
         layers: plan

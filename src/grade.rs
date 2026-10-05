@@ -272,6 +272,16 @@ pub(crate) fn hue_saturation(
 /// D-114 and D-117: how a straight colour `b` takes a chosen colour `c` under `blend`, "normal",
 /// "multiply", "screen" or "add"; add is not held back. D-185 adds "overlay" and
 /// "soft_light", the W3C's, which only Paraffin takes.
+/// D-319: Screen in Float working depth, Nuke's rule: `b + c - b*c` while either is at most 1,
+/// else the larger, because `1 - (1-b)(1-c)` turns back down once both pass white.
+pub(crate) fn screen_float(b: f64, c: f64) -> f64 {
+    if b <= 1.0 || c <= 1.0 {
+        b + c - b * c
+    } else {
+        b.max(c)
+    }
+}
+
 pub(crate) fn mixer(blend: &str) -> fn(f64, f64) -> f64 {
     match blend {
         "multiply" => |b, c| b * c,
@@ -540,6 +550,8 @@ pub(crate) struct Fractal {
     pub colors: [[f64; 3]; 2],
     pub opacity: f64,
     pub blend: String,
+    /// D-319: the composition works in Float depth, so the pattern is not held to white.
+    pub float: bool,
 }
 
 /// D-128: a cloudy pattern of two colours over each pixel that shows, fixed to the drawing's own
@@ -552,6 +564,7 @@ pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (
     let w = source.width();
     let base = mix(f.seed.floor() as u64);
     let (mixer, o) = (mixer(&f.blend), f.opacity / 100.0);
+    let mixer = if f.float && f.blend == "screen" { screen_float } else { mixer };
     source
         .data_mut()
         .par_chunks_exact_mut(4)
@@ -565,7 +578,9 @@ pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (
             let y = ((i / w) as f64 - oy as f64 + 0.5 - f.offset[1]) / f.size_y;
             let n = fractal_with(base, 0, (x, y, f.z), f.octaves, f.look);
             let n = if f.invert { -n } else { n };
-            let v = (0.5 + 0.5 * n * f.contrast / 100.0 + f.brightness / 100.0).clamp(0.0, 1.0);
+            let v = 0.5 + 0.5 * n * f.contrast / 100.0 + f.brightness / 100.0;
+            // D-319: in Float only black holds; past white stays past white.
+            let v = if f.float { v.max(0.0) } else { v.clamp(0.0, 1.0) };
             for c in 0..3 {
                 let [d, l] = [f.colors[0][c], f.colors[1][c]];
                 let color = to_linear(d + v * (l - d));

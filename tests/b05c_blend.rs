@@ -315,6 +315,7 @@ fn b05c_blend_fixtures() {
     // sees exactly the operands of the "half-alpha red over opaque 50% grey" row above, and
     // every pixel of the frame must equal that row's answer.
     let plan_for = |mode: BlendMode| FramePlan {
+        float: false,
         width: 2,
         height: 2,
         layers: vec![

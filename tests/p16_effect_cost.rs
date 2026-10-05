@@ -351,6 +351,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 scale_height: 100.0,
                 cycle: 0.0,
                 frame: 5,
+                float: false,
             },
         ),
         (

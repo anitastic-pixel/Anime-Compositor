@@ -421,6 +421,7 @@ fn matte(report: &mut Report) {
     let layer = solid(4, 4, [1.0, 1.0, 1.0, 1.0]);
     let matte_source = solid(4, 4, [0.0, 0.0, 0.0, 0.25]);
     let plan = FramePlan {
+        float: false,
         width: 4,
         height: 4,
         layers: vec![LayerDraw {
@@ -454,6 +455,7 @@ fn matte(report: &mut Report) {
     // those two mistakes, and it is why the matte source is black rather than white.
     let bright_matte = solid(4, 4, [0.25, 0.25, 0.25, 0.25]);
     let plan = FramePlan {
+        float: false,
         width: 4,
         height: 4,
         layers: vec![LayerDraw {
@@ -496,6 +498,7 @@ fn matte(report: &mut Report) {
         ),
     ] {
         let plan = FramePlan {
+            float: false,
             width: 4,
             height: 4,
             layers: vec![LayerDraw {
@@ -534,6 +537,7 @@ fn matte(report: &mut Report) {
         }
     }
     let plan = FramePlan {
+        float: false,
         width: 4,
         height: 4,
         layers: vec![LayerDraw {

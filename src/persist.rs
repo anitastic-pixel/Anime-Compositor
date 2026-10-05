@@ -217,6 +217,8 @@ const KEY_ORDER: &[&str] = &[
     "drawing_dissolve",
     "frame_blending",
     "background_color",
+    // D-319.
+    "float_depth",
 ];
 
 /// An effect record is the one place a flat list is not enough: it spells `enabled` after
@@ -2593,6 +2595,12 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
             }
         }
     }
+    // D-319: written only when on.
+    if composition.float_depth {
+        merged["float_depth"] = J::from(true);
+    } else if let Some(map) = merged.as_object_mut() {
+        map.remove("float_depth");
+    }
     // D-261: written only when there are some or the file had the key.
     if !composition.sketches.is_empty() || base.is_some_and(|b| b.get("sketches").is_some()) {
         merged["sketches"] = J::Array(composition.sketches.iter().map(sketch_json).collect());
@@ -3858,6 +3866,7 @@ fn parse_effect(
             scale_height: effect_number_or(params, "scale_height", &at, 100.0)?,
             cycle: effect_number_or(params, "cycle", &at, 0.0)?,
             frame: 0,
+            float: false,
         }),
         // D-129: the colours are read in small letters, as a new colour is.
         crate::effects::GRADIENT_MAP => Some(crate::effects::Effect::GradientMap {
@@ -5785,6 +5794,10 @@ fn parse_composition(
             }
         }
         composition.background_color = Some(rgb);
+    }
+    // D-319.
+    if let Some(on) = v.get("float_depth") {
+        composition.float_depth = as_bool(on, &format!("{pointer}/float_depth"))?;
     }
     if let Some(sketches) = v.get("sketches") {
         let at = format!("{pointer}/sketches");

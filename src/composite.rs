@@ -108,6 +108,13 @@ pub fn over(src: &WorkingBuffer, dst: &mut WorkingBuffer) -> Result<(), Composit
 /// refuses to do: it is applied to the straight colours before weighting, so a result can
 /// still leave 0..1 through the `(1-Ad)*Cs` term the way normal-over can.
 pub fn blend_pixel(mode: BlendMode, src: [f32; 4], dst: [f32; 4]) -> [f32; 4] {
+    blend_pixel_at(mode, src, dst, false)
+}
+
+/// D-319: [`blend_pixel`] in a composition's working depth. In Float, Add is `cs + cd`, not held
+/// to 1, and Screen is Nuke's rule, `cs + cd - cs*cd` while either is at most 1, else the larger.
+/// Every other mode is the same in both depths.
+pub fn blend_pixel_at(mode: BlendMode, src: [f32; 4], dst: [f32; 4], float: bool) -> [f32; 4] {
     if mode == BlendMode::Normal {
         return over_pixel(src, dst);
     }
@@ -131,7 +138,9 @@ pub fn blend_pixel(mode: BlendMode, src: [f32; 4], dst: [f32; 4]) -> [f32; 4] {
     for c in 0..3 {
         let b = match mode {
             BlendMode::Multiply => cs[c] * cd[c],
+            BlendMode::Screen if float && cs[c] > 1.0 && cd[c] > 1.0 => cs[c].max(cd[c]),
             BlendMode::Screen => cs[c] + cd[c] - cs[c] * cd[c],
+            BlendMode::Add if float => cs[c] + cd[c],
             BlendMode::Add => (cs[c] + cd[c]).min(1.0),
             // D-301: on the encoded colours, held to 0..1, as After Effects blends them, so a
             // 50% grey is the neutral one; `mixer` takes the colour beneath first.

@@ -676,6 +676,7 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
         // The frame's own request will have said why in words. A selection outline is not the
         // place to say it a second time, so this answers with no boxes rather than an error.
         Err(_) => anime_compositor::render::FramePlan {
+            float: false,
             width: 0,
             height: 0,
             layers: Vec::new(),
@@ -3550,6 +3551,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             scale_height: 100.0,
             cycle: 0.0,
             frame: 0,
+            float: false,
         }),
         // D-129: black, grey and white, which turns the picture grey.
         GRADIENT_MAP => Some(Effect::GradientMap {
@@ -4458,6 +4460,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             scale_height: if parameter(query, "scale_height").is_some() { number("scale_height")? } else { 100.0 },
             cycle: if parameter(query, "cycle").is_some() { number("cycle")? } else { 0.0 },
             frame: 0,
+            float: false,
         }),
         GRADIENT_MAP => Ok(Effect::GradientMap {
             shadow_color: word("shadow_color")?,
@@ -5711,11 +5714,20 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     }
                 }
             };
+            // D-319: `true` for Float, `false` for Display; a page that does not send it keeps
+            // what the composition has.
+            let float_depth = match parameter(query, "float_depth").as_deref().map(str::trim) {
+                None => comp.float_depth,
+                Some("true") => true,
+                Some("false") => false,
+                Some(text) => return Some(format!("\"{text}\" is not a working depth. Send true for Float or false for Display.")),
+            };
             let said = edit(
                 viewer,
                 Command::SetCompositionSettings {
                     composition: comp.id.clone(),
                     background_color,
+                    float_depth,
                     name: parameter(query, "name").unwrap_or(comp.name),
                     width,
                     height,
@@ -27507,6 +27519,8 @@ mod contract {
             "composition.set_settings?episode=3",
             // D-311: and a background colour, written only when there is one.
             "composition.set_settings?background_color=0.5,0.25,1",
+            // D-319: and Float working depth, written only when on.
+            "composition.set_settings?float_depth=true",
             // D-261: and a sketch layer with a stroke, written only when there is one. D-271:
             // drawn with a pen, since its pressure is written only then.
             "sketch.set_layer?sketch=sketch-a&name=Notes",

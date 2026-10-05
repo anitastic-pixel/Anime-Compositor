@@ -612,6 +612,8 @@ pub enum Effect {
     /// `invert`, "off" or "on"; `offset`, x then y in pixels, -100000 to 100000; `scale_width`
     /// and `scale_height`, 1 to 10000 per cent of the size, 100 at the start; and `cycle`, 0 to
     /// 1000 turns of evolution after which it repeats, its whole part counted, 0 for never.
+    /// `float` is not a setting either and is never saved: D-319's working depth of the
+    /// composition the frame is drawn in, set when the frame is planned.
     FractalNoise {
         size: f64,
         complexity: f64,
@@ -632,6 +634,7 @@ pub enum Effect {
         scale_height: f64,
         cycle: f64,
         frame: i32,
+        float: bool,
     },
     /// D-129: `shadow_color`, `midtone_color` and `highlight_color`, `#rrggbb`, kept as written
     /// so a wrong one is reported; `midpoint`, 1 to 99; and `amount`, 0 to 100.
@@ -4201,6 +4204,7 @@ pub(crate) fn apply_stack_at(
                 scale_height,
                 cycle,
                 frame,
+                float,
             } => {
                 let f = crate::grade::Fractal {
                     size: size * (scale_width / 100.0),
@@ -4216,6 +4220,7 @@ pub(crate) fn apply_stack_at(
                     colors: [encoded(dark_color), encoded(light_color)],
                     opacity: *opacity,
                     blend: blend.clone(),
+                    float: *float,
                 };
                 crate::perf::time(crate::perf::Stage::EffectFractalNoise, || {
                     crate::grade::fractal_noise(source, &f, (ox, oy))

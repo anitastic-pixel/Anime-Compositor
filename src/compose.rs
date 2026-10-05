@@ -187,6 +187,7 @@ fn inner_key(
     frame: i32,
     above: &[Id],
     outer: &Id,
+    float: bool,
 ) -> Option<String> {
     let mut reach = vec![inner.clone()];
     let mut next = 0;
@@ -201,12 +202,19 @@ fn inner_key(
     if reach.iter().any(|id| id == outer || above.contains(id)) {
         return None;
     }
-    let mut key = format!("{}\n{root:?}\n{quality:?}\n{frame}\n", crate::cache::build()?);
+    let mut key = format!("{}\n{root:?}\n{quality:?}\n{frame}\n{float}\n", crate::cache::build()?);
     for id in &reach {
         key.push_str(&format!("{:?}\n", project.composition(id)));
     }
     key.push_str(&format!("{:?}", project.assets));
     Some(key)
+}
+
+/// D-319: a composition draws in its outermost composition's working depth, as After Effects'
+/// depth is the whole project's. `above` is the compositions `comp` is drawn inside, outermost
+/// first.
+fn float_depth(project: &Project, above: &[Id], comp: &crate::model::Composition) -> bool {
+    above.first().map_or(Some(comp), |id| project.composition(id)).is_some_and(|c| c.float_depth)
 }
 
 fn plan_inside(
@@ -231,6 +239,7 @@ fn plan_inside(
             "A frame was requested of a composition the project does not contain.".to_string(),
         ));
     };
+    let float = float_depth(project, above, comp);
 
     // Step 1: validate the composition frame. Document 28 names no identifier for a render
     // request outside the composition's own range; D-26 registers that gap and this reuse.
@@ -379,7 +388,7 @@ fn plan_inside(
                     let mut effects: Vec<_> = layer
                         .effects
                         .iter()
-                        .map(|i| effect_now(comp, layer, i, frame, frame, frame as f64, log))
+                        .map(|i| effect_now(comp, layer, i, frame, frame, frame as f64, float, log))
                         .collect();
                     crate::lut::fill(&mut effects, project, root, &layer.name);
                     // D-191: an adjustment layer's maps lie on the frame it runs on.
@@ -421,6 +430,7 @@ fn plan_inside(
     Ok(FramePlan {
         width: comp.width as usize,
         height: comp.height as usize,
+        float,
         layers: layers.into_iter().map(|(_, draw)| draw).collect(),
     })
 }
@@ -1186,6 +1196,7 @@ fn resolve_held(
     card: bool,
     map: bool,
 ) -> Option<ResolvedLayer> {
+    let float = float_depth(project, above, comp);
     // D-71: an audio layer draws nothing, so no frame is any different for it (FX-AUD-020).
     // D-82: nor does a null, whatever its switch, opacity or timing say (FX-NULL-001, 002).
     if matches!(
@@ -1252,7 +1263,7 @@ fn resolve_held(
             // B-171 (G12, D-243): the viewer keeps each inner frame it draws, in memory and on
             // disk, and draws it again only when something it was drawn from has changed.
             let key = (cache.effect_budget() > 0)
-                .then(|| inner_key(project, inner_id, root, quality, local, above, &comp.id))
+                .then(|| inner_key(project, inner_id, root, quality, local, above, &comp.id, float))
                 .flatten();
             if let Some(picture) = key.as_deref().and_then(|key| cache.inner_frame(key)) {
                 return Some(picture);
@@ -1317,6 +1328,7 @@ fn resolve_held(
             quality.divisor() as f64,
             false,
             map,
+            float,
         )?;
         resolved.nested = Some((inner_id.clone(), local));
         resolved.mixed = w > 0.0;
@@ -1441,6 +1453,7 @@ fn resolve_held(
             FramePlan {
                 width: source.width(),
                 height: source.height(),
+                float: false,
                 layers: vec![LayerDraw {
                     id: layer.id.clone(),
                     source,
@@ -1461,11 +1474,11 @@ fn resolve_held(
         );
         let small = std::sync::Arc::new(render::render(&small, DRAFT_TILE_SIZE));
         return resolve_rest(
-            project, root, comp, layer, frame, at, cache, log, small, cel, d as f64, card, map,
+            project, root, comp, layer, frame, at, cache, log, small, cel, d as f64, card, map, float,
         )
         .map(|r| ResolvedLayer { mixed, ..r });
     }
-    resolve_rest(project, root, comp, layer, frame, at, cache, log, source, cel, 1.0, card, map)
+    resolve_rest(project, root, comp, layer, frame, at, cache, log, source, cel, 1.0, card, map, float)
         .map(|r| ResolvedLayer { mixed, ..r })
 }
 
@@ -1568,9 +1581,14 @@ fn effect_now(
     frame: i32,
     at: i32,
     u: f64,
+    float: bool,
     log: &mut FrameLog,
 ) -> crate::effects::EffectInstance {
-    let (now, failed) = crate::expr::effect_at(comp, &layer.id, instance, at, u);
+    let (mut now, failed) = crate::expr::effect_at(comp, &layer.id, instance, at, u);
+    // D-319: Fractal Noise is held to white only in Display depth.
+    if let crate::effects::Effect::FractalNoise { float: f, .. } = &mut now.effect {
+        *f = float;
+    }
     for (name, e) in failed {
         let what = format!("{} {name}", instance.effect.name());
         log.record(frame, format!("{}/{what}", layer.name), e.diagnostic(&layer.name, &what, frame));
@@ -1592,6 +1610,7 @@ fn resolve_rest(
     pre: f64,
     card: bool,
     map: bool,
+    float: bool,
 ) -> Option<ResolvedLayer> {
     let step1 = (source.width(), source.height());
     // D-188: the moments of a motion-blurred layer's shutter. Its effects all run here, once,
@@ -1606,7 +1625,7 @@ fn resolve_rest(
     // bounds and the effect cache's key all hold plain numbers.
     // D-291: and each setting with an expression, what it gives on that frame.
     let mut effects: Vec<crate::effects::EffectInstance> =
-        layer.effects.iter().map(|i| effect_now(comp, layer, i, frame, at, layer.key_time(at as f64), log)).collect();
+        layer.effects.iter().map(|i| effect_now(comp, layer, i, frame, at, layer.key_time(at as f64), float, log)).collect();
     // D-182: each Color Lookup's file, read, and what kept one from being read said once a frame.
     for d in crate::lut::fill(&mut effects, project, root, &layer.name) {
         log.record(frame, layer.name.clone(), d);

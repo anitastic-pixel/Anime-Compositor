@@ -406,6 +406,8 @@ pub struct MatteDraw {
 pub struct FramePlan {
     pub width: usize,
     pub height: usize,
+    /// D-319: the composition works in Float depth, so Add and Screen are not held to white.
+    pub float: bool,
     pub layers: Vec<LayerDraw>,
 }
 
@@ -642,21 +644,21 @@ fn draw(
     let mut start = 0;
     for (index, layer) in layers.iter().enumerate() {
         if keep == Some(from + index) {
-            render_layers(&layers[start..index], frame, tile_size, cull, at);
+            render_layers(&layers[start..index], frame, tile_size, cull, at, plan.float);
             kept = Some(frame.clone());
             start = index;
         }
         if let Some(stack) = &layer.adjust {
-            render_layers(&layers[start..index], frame, tile_size, cull, at);
-            adjust_frame(layer, stack, frame);
+            render_layers(&layers[start..index], frame, tile_size, cull, at, plan.float);
+            adjust_frame(layer, stack, frame, plan.float);
             start = index + 1;
         } else if layer.wrap.iter().any(|i| i.enabled && i.is_valid()) {
-            render_layers(&layers[start..index], frame, tile_size, cull, at);
-            wrap_layer(layer, frame, tile_size, cull);
+            render_layers(&layers[start..index], frame, tile_size, cull, at, plan.float);
+            wrap_layer(layer, frame, tile_size, cull, plan.float);
             start = index + 1;
         }
     }
-    render_layers(&layers[start..], frame, tile_size, cull, at);
+    render_layers(&layers[start..], frame, tile_size, cull, at, plan.float);
     kept
 }
 
@@ -664,8 +666,9 @@ fn draw(
 /// the frame as it stood below one of that plan's layers, the one last edited.
 #[derive(Default)]
 pub struct Below {
-    /// The layers last drawn, with the frame's width and height, the tile size and the part.
-    last: Option<(Vec<LayerDraw>, (usize, usize, usize, Option<Tile>))>,
+    /// The layers last drawn, with the frame's width and height, the tile size, the part and
+    /// the working depth.
+    last: Option<(Vec<LayerDraw>, (usize, usize, usize, Option<Tile>, bool))>,
     /// The picture with the last plan's layers `..n` drawn, and `n`.
     kept: Option<(usize, WorkingBuffer)>,
     reused: u64,
@@ -699,7 +702,7 @@ impl Below {
 // motion-blur average made on the processor) never compares the same, so an edit above one starts
 // no higher than it; keep those drawings in the cel cache if that matters.
 pub fn render_below(plan: &FramePlan, tile_size: usize, part: Option<Tile>, below: &mut Below) -> WorkingBuffer {
-    let shape = (plan.width, plan.height, tile_size, part);
+    let shape = (plan.width, plan.height, tile_size, part, plan.float);
     let (same, above) = match &below.last {
         Some((last, was)) if *was == shape => {
             let same = last.iter().zip(&plan.layers).take_while(|(a, b)| same_draw(a, b)).count();
@@ -769,6 +772,7 @@ fn adjust_frame(
     layer: &LayerDraw,
     stack: &[crate::effects::EffectInstance],
     frame: &mut WorkingBuffer,
+    float: bool,
 ) {
     let Some(inverse) = layer.transform.invert() else {
         return;
@@ -804,7 +808,7 @@ fn adjust_frame(
                 let i = x * 4;
                 let e = match layer.blend {
                     crate::model::BlendMode::Normal => effected.pixel(x + ox, y + oy),
-                    mode => crate::composite::blend_pixel(mode, effected.pixel(x + ox, y + oy), [row[i], row[i + 1], row[i + 2], row[i + 3]]),
+                    mode => crate::composite::blend_pixel_at(mode, effected.pixel(x + ox, y + oy), [row[i], row[i + 1], row[i + 2], row[i + 3]], float),
                 };
                 // D-90: at full cover the answer is `E(B)` exactly. `b + (e - b)` rounds at
                 // `b`'s size, which is most of a value as small as 20 stops down leaves.
@@ -827,7 +831,7 @@ fn adjust_frame(
 ///
 /// The bypasses were already reported when the plan was made, by the layer's own stack, where a
 /// Light Wrap does nothing.
-fn wrap_layer(layer: &LayerDraw, frame: &mut WorkingBuffer, tile_size: usize, cull: bool) {
+fn wrap_layer(layer: &LayerDraw, frame: &mut WorkingBuffer, tile_size: usize, cull: bool, float: bool) {
     let mut placed = WorkingBuffer::transparent(frame.width(), frame.height());
     let alone = LayerDraw {
         opacity: 1.0,
@@ -835,7 +839,7 @@ fn wrap_layer(layer: &LayerDraw, frame: &mut WorkingBuffer, tile_size: usize, cu
         wrap: Vec::new(),
         ..layer.clone()
     };
-    render_layers(std::slice::from_ref(&alone), &mut placed, tile_size, cull, (0, 0));
+    render_layers(std::slice::from_ref(&alone), &mut placed, tile_size, cull, (0, 0), float);
     for instance in layer.wrap.iter().filter(|i| i.enabled && i.is_valid()) {
         if let crate::effects::Effect::LightWrap {
             width,
@@ -865,7 +869,7 @@ fn wrap_layer(layer: &LayerDraw, frame: &mut WorkingBuffer, tile_size: usize, cu
                 }
             }
             let under = [dst[0], dst[1], dst[2], dst[3]];
-            dst.copy_from_slice(&crate::composite::blend_pixel(layer.blend, src, under));
+            dst.copy_from_slice(&crate::composite::blend_pixel_at(layer.blend, src, under, float));
         });
 }
 
@@ -916,7 +920,7 @@ fn light_wrap(l: &mut WorkingBuffer, b: &WorkingBuffer, width: f64, intensity: f
 
 /// One segment of the stack, bottom to top, onto `frame` as it stands. `at` is where `frame`'s
 /// first pixel is in the whole frame: `(0, 0)` but for B-158's part.
-fn render_layers(layers: &[LayerDraw], frame: &mut WorkingBuffer, tile_size: usize, cull: bool, at: (usize, usize)) {
+fn render_layers(layers: &[LayerDraw], frame: &mut WorkingBuffer, tile_size: usize, cull: bool, at: (usize, usize), float: bool) {
     let (width, height) = (frame.width(), frame.height());
     let tiles = tiles(width, height, tile_size);
     // D-301: a stencil clears what is under it where it is empty, so it reaches every tile.
@@ -958,7 +962,7 @@ fn render_layers(layers: &[LayerDraw], frame: &mut WorkingBuffer, tile_size: usi
             .zip(tiles.par_iter())
             .for_each(|(rows, &tile)| {
                 let tile = Tile { x: tile.x + at.0, y: tile.y + at.1, ..tile };
-                render_tile(layers, tile, rows, boxes.as_deref())
+                render_tile(layers, tile, rows, boxes.as_deref(), float)
             });
     });
 }
@@ -974,6 +978,7 @@ fn render_tile(
     tile: Tile,
     mut rows: Vec<&mut [f32]>,
     boxes: Option<&[(f64, f64, f64, f64)]>,
+    float: bool,
 ) {
     for (index, layer) in layers.iter().enumerate() {
         // D-301: a stencil that has collapsed to nothing keeps nothing under it.
@@ -1036,10 +1041,11 @@ fn render_tile(
                 }
                 let i = col * 4;
                 let dst = [out[i], out[i + 1], out[i + 2], out[i + 3]];
-                out[i..i + 4].copy_from_slice(&crate::composite::blend_pixel(
+                out[i..i + 4].copy_from_slice(&crate::composite::blend_pixel_at(
                     layer.blend,
                     src,
                     dst,
+                    float,
                 ));
             }
         }

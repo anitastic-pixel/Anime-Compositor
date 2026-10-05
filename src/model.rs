@@ -1223,6 +1223,10 @@ pub struct Composition {
     /// inside another stay see-through, as in After Effects. Saved as `background_color` only
     /// when set.
     pub background_color: Option<[f64; 3]>,
+    /// D-319: After Effects' 32-bit float working depth. Off (Display) blends Add held to 1, as
+    /// before; on (Float) lets Add, Screen and Fractal Noise go past white. A composition inside
+    /// another follows the outermost one's. Saved as `float_depth` only when on.
+    pub float_depth: bool,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
 }
@@ -1372,6 +1376,7 @@ impl Composition {
             label: 0,
             sketches: Vec::new(),
             background_color: None,
+            float_depth: false,
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }

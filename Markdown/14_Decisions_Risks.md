@@ -955,6 +955,14 @@ D-318 / Wider ranges: Exposure, Fractal Noise's Complexity and Brightness / **BU
 - FX-LIMIT-004, 006 and 007 and FX-FRACTAL-022 and 024 were cases of the old ends. They are kept as written and marked superseded in document 25. FX-LIMIT-011 to 016 and FX-FRACTAL-029 to 033 are the new ends, written by `tools/limits_d318_reference.py` and `tools/fractal_noise_d318_reference.py` into new expected files; the old expected files are unchanged.
 - P-26's T1-3 also asked to refuse only the one bad value instead of the whole change. Not built: the panel sends one changed value at a time, so all-or-nothing refuses only that value already.
 
+D-319 / Float working depth / **BUILT on 2026-10-04** (B-200), from D-308 and P-26: the Advanced Electric tutorial (2) draws its reflection stub as a layer in Add pushed 12 stops up, which After Effects shows blazing white in 32 bpc; here Add was held to 1, so the stub stayed a dim grey. **Awaiting the owner's playtest.**
+- The New composition and Composition settings window has a **Working depth** row: **Display (0 to 1)**, as every composition was, or **Float (past white)**, After Effects' 32 bits per channel.
+- In Float, **Add** is not held to 1; **Screen** keeps the brighter of the two where both are past white (Nuke's rule; the plain formula would turn back down to dark there); and **Fractal Noise** goes past white (it is still held at black). Everything else draws as it does in Display; document 21 lists the effects that stay held to 0 to 1.
+- A composition inside another draws in the outermost one's depth, as After Effects does.
+- It is saved as `float_depth: true` only when Float; an old file reads as Display, draws exactly as before and is saved as it was. A value that is not true or false is refused when the file is read. Setting it is one step to undo.
+- The preview card does not draw Float yet: such a frame is drawn on the CPU and says `GPU_PREVIEW_ON_CPU`, so the viewer and an export match.
+- FX-BLEND-ADDF-001 to 003, FX-BLEND-SCRF-001 to 003 and FX-FNOISE-HDR-001 to 003 are new, written by `tools/float_depth_reference.py` before the build had Float. B-200 checks them, the save, read and undo, a bad value in a file, the nested rule both ways, and the card's hand-over.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

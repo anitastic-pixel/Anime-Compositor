@@ -70485,6 +70485,28 @@ FX-FRACTAL-032: Complexity 21, above 20. The file is read, the effect is kept as
 
 FX-FRACTAL-033: Brightness -201, below -200. As FX-FRACTAL-032.
 
+## Float working depth fixtures
+
+D-319, from the owner's approval of D-308 on 2026-10-04. **Every number is produced by `tools/float_depth_reference.py`** and is in `Fixtures/float_depth/expected_float_depth.json`; the projects and `media/card.png`, Fractal Noise's card, are beside it. Each case is a composition 16 by 10 of the card, unmoved, frame 0. Tolerance 2e-5. B-200 checks them in `verification/D-319_float_depth_table.md`.
+
+FX-BLEND-ADDF-001: Float. The card, and above it in Add the card two stops up (Exposure 2): white plus four times white is 5, not held to 1. The brightest pixel, (5, 3), is 5 5 5 1; pixel (8, 5) is 4.607909 3.362216 2.574588 1.
+
+FX-BLEND-ADDF-002: The same file in Display (no `float_depth`): Add held to 1, as before D-319. Pixel (8, 5) is 1 1 1 1. A soft-edge pixel may still pass 1, from the `(1-Ad) Cs` term: (15, 0) is 1.403924 1.092506 0.895602 0.751957.
+
+FX-BLEND-ADDF-003: Float. The card in Add on the card, nothing brightened: white plus white is 2. Pixel (5, 3) is 2 2 2 1.
+
+FX-BLEND-SCRF-001: Float. Both cards two stops up, the top in Screen: where both are past white the brighter is kept. Pixel (5, 3) is 4 4 4 1; pixel (8, 5) is 3.686327 2.689773 2.059671 1.
+
+FX-BLEND-SCRF-002: Float. The top card two stops up in Screen on the plain card: one of the two is at most 1 everywhere, so `cs + cd - cs cd` throughout. Pixel (8, 5) is 1.210657 1.553497 1.514028 1.
+
+FX-BLEND-SCRF-003: FX-BLEND-SCRF-001 in Display: `cs + cd - cs cd` as before D-319, which turns down past white. Pixel (8, 5) is -6.216355 -1.855332 -0.122902 1; the lowest value is -8.
+
+FX-FNOISE-HDR-001: Float. Fractal Noise, size 4, complexity 4, contrast 300, brightness 50, seed 0, black to white, on the card: the brightest clouds go past white, the darkest still stop at black. Pixel (3, 0) is 3.924317 in each colour, 1; pixel (8, 5), inside 0 to 1, is 0.044985 in each colour, 1, as in Display.
+
+FX-FNOISE-HDR-002: FX-FNOISE-HDR-001 in Display: held to 0 to 1, D-128's rule exactly. Pixel (2, 0) is 1 1 1 1.
+
+FX-FNOISE-HDR-003: Float. The card two stops up, then FX-FNOISE-HDR-001's noise in Screen: where both are past white the brighter is kept. Pixel (4, 2) is 3.686327 2.689773 2.059671 1; pixel (8, 5) is 3.565483 2.613758 2.012002 1.
+
 
 ## Light Wrap fixtures
 
