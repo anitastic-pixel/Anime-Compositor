@@ -878,6 +878,7 @@ D-308 / After Effects differences that would change existing pictures / **PROPOS
 - (T1-4) Time Remapping, a keyable source frame on composition and sequence layers. Document 20 says not proposed; P-26 found two tutorials using it.
 - (T2-2) Advanced Lightning's extras: Alpha Obstacle, lightning types, turbulence, decay and conductivity.
 - (T2-7) Exposure past -20..20.
+- The owner asked for all of it on 2026-10-04 ("go ahead and build all of D-308"). Built as D-318 onward.
 
 D-309 / P-26 gaps that would add to the app only / **PROPOSED on 2026-10-04** by P-26, not yet built. Each would default to today's picture, as D-290 to D-307 do, so they need no picture decision, only the go-ahead and a turn:
 - (T3-2) Displacement Map's Expand Output, so a push can carry the picture past a layer's edge. The map outside the layer reads as no push today, so it needs a rule for what the map says there.
@@ -946,6 +947,13 @@ D-317 / Unsharp Mask's Threshold and CC Glass, reduced / **BUILT on 2026-10-04**
 - Both are drawn on the CPU (Sharpen with a threshold; CC Glass always), so the preview and the export match. Sharpen without a threshold is still drawn on the card.
 - B-198 checks it: Threshold 0 draws exactly as before and a threshold keeps the small differences only; CC Glass at height 100 and no displacement is exactly Bevel Alpha, height 0 changes nothing, a slope bends the picture by the worked amount, a bump map from another layer works, wrong settings are refused and the file keeps both.
 - FX-SHARPEN-001 to 018 are unchanged and still pass.
+
+D-318 / Wider ranges: Exposure, Fractal Noise's Complexity and Brightness / **BUILT on 2026-10-04** (B-199), from D-308 and P-26: the tutorials set values past this build's ranges (Exposure past 20 stops, Fractal Noise's Brightness past -100, Complexity past 8), and the panel refused them. **Awaiting the owner's playtest.**
+- **Exposure** now runs from -40 to 40 stops, After Effects' range (D-90 set -20 to 20).
+- **Fractal Noise**: Complexity now runs from 1 to 20 (was 1 to 8) and Brightness from -200 to 200 (was -100 to 100). Turbulent Displace's own Complexity stays 1 to 8.
+- An old file draws exactly as before: every value it could hold is still in range. A value past the new ends is still read, kept as written and left out of the picture with a warning, and a command setting it is still refused with a sentence.
+- FX-LIMIT-004, 006 and 007 and FX-FRACTAL-022 and 024 were cases of the old ends. They are kept as written and marked superseded in document 25. FX-LIMIT-011 to 016 and FX-FRACTAL-029 to 033 are the new ends, written by `tools/limits_d318_reference.py` and `tools/fractal_noise_d318_reference.py` into new expected files; the old expected files are unchanged.
+- P-26's T1-3 also asked to refuse only the one bad value instead of the whole change. Not built: the panel sends one changed value at a time, so all-or-nothing refuses only that value already.
 
 ## Assumptions and change log
 

@@ -1,8 +1,8 @@
 # B-71: fractal noise
 
-D-128, accepted by the owner on 2026-09-26, the sixth of the second batch of ten. Every expected pixel is `Fixtures/fractal_noise/expected_fractal_noise.json`, written by `tools/fractal_noise_reference.py` before this code existed and printed in document 25 as FX-FRACTAL-001 to 028. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
+D-128, accepted by the owner on 2026-09-26, the sixth of the second batch of ten. Every expected pixel is `Fixtures/fractal_noise/expected_fractal_noise.json`, written by `tools/fractal_noise_reference.py` before this code existed and printed in document 25 as FX-FRACTAL-001 to 028; D-318's wider ranges are `expected_fractal_noise_d318.json`, FX-FRACTAL-029 to 033. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
 
-## FX-FRACTAL-001 to 028 (document 25)
+## FX-FRACTAL-001 to 033 (document 25)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -57,15 +57,9 @@ D-128, accepted by the owner on 2026-09-26, the sixth of the second batch of ten
 | FX-FRACTAL-021 frame 0: Size 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-FRACTAL-021 frame 4: Size 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-FRACTAL-021: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-022 frame 0: Complexity 9, above 8. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-022 frame 4: Complexity 9, above 8. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-022: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-FRACTAL-023 frame 0: Contrast 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-FRACTAL-023 frame 4: Contrast 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-FRACTAL-023: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-024 frame 0: Brightness -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-024 frame 4: Brightness -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-024: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-FRACTAL-025 frame 0: Seed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-FRACTAL-025 frame 4: Seed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-FRACTAL-025: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
@@ -78,6 +72,20 @@ D-128, accepted by the owner on 2026-09-26, the sixth of the second batch of ten
 | FX-FRACTAL-028 frame 0: A dark colour written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-FRACTAL-028 frame 4: A dark colour written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-FRACTAL-028: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTAL-022, superseded by D-318: fx_fractal_022.json's value is in range now and opens with no warning | [] | yes |
+| FX-FRACTAL-024, superseded by D-318: fx_fractal_024.json's value is in range now and opens with no warning | [] | yes |
+| FX-FRACTAL-029 frame 0: Size 4, complexity 20: twenty octaves, finer detail on top of FX-FRACTAL-004's eight. | largest difference 3.0e-8 | yes |
+| FX-FRACTAL-029: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTAL-030 frame 0: Size 4, contrast 600, brightness -154: the clouds pushed apart and darkened, most of the card held at the dark colour, the brightest peaks still showing. | largest difference 3.0e-8 | yes |
+| FX-FRACTAL-030: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTAL-031 frame 0: Size 4, brightness 200: every value held at the light colour. | largest difference 3.0e-8 | yes |
+| FX-FRACTAL-031: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTAL-032 frame 0: Complexity 21, above 20. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTAL-032 frame 4: Complexity 21, above 20. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTAL-032: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTAL-033 frame 0: Brightness -201, below -200. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTAL-033 frame 4: Brightness -201, below -200. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTAL-033: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 
 ## How far it reaches
 
@@ -111,9 +119,9 @@ D-128, accepted by the owner on 2026-09-26, the sixth of the second batch of ten
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | size 0.5 is refused with a sentence, and nothing changes | Fractal Noise's size runs from 1 to 1000, and this is 0.5. | yes |
-| complexity 9 is refused with a sentence, and nothing changes | Fractal Noise's complexity runs from 1 to 8, and this is 9. | yes |
+| complexity 21 is refused with a sentence, and nothing changes | Fractal Noise's complexity runs from 1 to 20, and this is 21. | yes |
 | contrast 1001 is refused with a sentence, and nothing changes | Fractal Noise's contrast runs from 0 to 1000, and this is 1001. | yes |
-| brightness -101 is refused with a sentence, and nothing changes | Fractal Noise's brightness runs from -100 to 100, and this is -101. | yes |
+| brightness -201 is refused with a sentence, and nothing changes | Fractal Noise's brightness runs from -200 to 200, and this is -201. | yes |
 | evolution 100001 is refused with a sentence, and nothing changes | Fractal Noise's evolution runs from -100000 to 100000, and this is 100001. | yes |
 | speed 361 is refused with a sentence, and nothing changes | Fractal Noise's speed runs from -360 to 360, and this is 361. | yes |
 | seed -1 is refused with a sentence, and nothing changes | Fractal Noise's seed runs from 0 to 100000, and this is -1. | yes |
@@ -136,4 +144,4 @@ D-128, accepted by the owner on 2026-09-26, the sixth of the second batch of ten
 
 ## Result
 
-107 of 107 checks pass.
+115 of 115 checks pass.

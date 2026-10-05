@@ -203,6 +203,17 @@ impl Table {
         );
     }
 
+    /// A fixture case a later decision superseded: its value is inside the range now, so the
+    /// file opens with no warning, where the case expected one. The case is kept as written.
+    pub fn superseded(&mut self, file: &str, case: &str, decision: &str) {
+        let warnings: Vec<String> = self.load(file).warnings.iter().map(|d| d.id.as_str().to_string()).collect();
+        self.row(
+            &format!("{case}, superseded by {decision}: {file}'s value is in range now and opens with no warning"),
+            &format!("{warnings:?}"),
+            warnings.is_empty(),
+        );
+    }
+
     /// Each command is refused with a sentence and leaves the effect as it was.
     pub fn refused(&mut self, document: &mut Document, commands: Vec<(&str, Command)>) {
         let held = settings(document);

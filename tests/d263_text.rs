@@ -368,6 +368,12 @@ fn d263_text_layers_are_kept_drawn_and_said() {
     let mut found = Vec::new();
     projects(&repo("Fixtures"), &mut found);
     found.sort();
+    // The files that were there on e395d8b; fixtures added since (D-318 on) are new behaviour.
+    let pinned = include_str!("fixtures_e395d8b.txt");
+    found.retain(|p| {
+        let rel = p.strip_prefix(repo("")).unwrap().to_string_lossy().replace(std::path::MAIN_SEPARATOR, "/");
+        pinned.lines().any(|l| l == rel)
+    });
     let mut all = String::new();
     let mut opened = 0;
     for path in &found {

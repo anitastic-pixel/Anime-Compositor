@@ -601,8 +601,8 @@ pub enum Effect {
         displacement: String,
         pinning: String,
     },
-    /// D-128: `size`, 1 to 1000 pixels a cloud; `complexity`, 1 to 8, its whole part counted;
-    /// `contrast`, 0 to 1000; `brightness`, -100 to 100; `evolution`, -100000 to 100000
+    /// D-128: `size`, 1 to 1000 pixels a cloud; `complexity`, 1 to 20 (D-318), its whole part
+    /// counted; `contrast`, 0 to 1000; `brightness`, -200 to 200 (D-318); `evolution`, -100000 to 100000
     /// degrees; `speed`, -360 to 360 degrees a frame; `seed`, 0 to 100000, its whole part
     /// counted; `dark_color` and `light_color`, `#rrggbb`; `opacity`, 0 to 100; and `blend`,
     /// "normal", "multiply", "screen" or "add". The words and the colours are kept as written,
@@ -1466,8 +1466,9 @@ impl Effect {
     /// sentences read, so a setting is named in one place.
     fn numbers(&mut self) -> Vec<(&'static str, Vec<&mut f64>, f64, f64)> {
         match self {
-            // D-90: past 20 stops `2^e` soon overflows, and a sigma past 500 a machine's memory.
-            Effect::Exposure { stops } => vec![("stops", vec![stops], -20.0, 20.0)],
+            // D-90: a sigma past 500 a machine's memory. D-318: After Effects' Exposure runs
+            // to 40 stops either way, and `2^40` is still a plain number in single precision.
+            Effect::Exposure { stops } => vec![("stops", vec![stops], -40.0, 40.0)],
             Effect::GaussianBlur { sigma_px, .. } => vec![("sigma_px", vec![sigma_px], 0.0, 500.0)],
             // A colour in linear light has no range but being a number.
             Effect::Tint { color, amount } => vec![
@@ -1707,9 +1708,10 @@ impl Effect {
                 ..
             } => vec![
                 ("size", vec![size], 1.0, 1000.0),
-                ("complexity", vec![complexity], 1.0, 8.0),
+                // D-318: After Effects' Complexity runs to 20 and its Brightness to 200 either way.
+                ("complexity", vec![complexity], 1.0, 20.0),
                 ("contrast", vec![contrast], 0.0, 1000.0),
-                ("brightness", vec![brightness], -100.0, 100.0),
+                ("brightness", vec![brightness], -200.0, 200.0),
                 ("evolution", vec![evolution], -100000.0, 100000.0),
                 ("speed", vec![speed], -360.0, 360.0),
                 ("seed", vec![seed], 0.0, 100000.0),
@@ -2912,8 +2914,8 @@ impl Effect {
     /// clamped. Clamping would accept a number and silently render a different one.
     pub fn is_valid(&self) -> bool {
         match self {
-            // D-90: past 20 stops `2^e` soon overflows, and a sigma past 500 a machine's memory.
-            Effect::Exposure { stops } => (-20.0..=20.0).contains(stops),
+            // D-90 and D-318, as in `numbers`.
+            Effect::Exposure { stops } => (-40.0..=40.0).contains(stops),
             Effect::GaussianBlur { sigma_px, .. } => {
                 (0.0..=500.0).contains(sigma_px) && self.fault().is_none()
             }
@@ -2946,7 +2948,7 @@ impl Effect {
     pub fn why_invalid(&self) -> String {
         match self {
             Effect::Exposure { stops } => {
-                format!("Exposure runs from -20 to 20 stops, and this is {stops}.")
+                format!("Exposure runs from -40 to 40 stops, and this is {stops}.")
             }
             Effect::GaussianBlur { sigma_px, .. } if !(0.0..=500.0).contains(sigma_px) => {
                 format!("A Gaussian blur's sigma runs from 0 to 500, and this is {sigma_px}.")

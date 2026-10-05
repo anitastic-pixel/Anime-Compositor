@@ -9534,7 +9534,7 @@ const EFFECT_ABOUT = {
 // angle ends in 'dial', or 'hue' for one held inside -180 to 180, and gets a dial beside it.
 const EFFECT_PARAMS = {
   'core.gaussian_blur': [['sigma_px', 'Radius σ (px)', 1, 0.1, '0 to 500 source pixels']],
-  'core.exposure': [['stops', 'Exposure (stops)', 1, 0.02, '-20 to 20 stops']],
+  'core.exposure': [['stops', 'Exposure (stops)', 1, 0.02, '-40 to 40 stops']],
   'core.tint': [['color', 'Colour', 3, 0.01, 'linear RGB'], ['amount', 'Amount', 1, 0.01, '0 to 1']],
   // D-86.
   'core.line_smooth': [['softness', 'Softness', 1, 0.5, '0 to 100'],
@@ -9644,9 +9644,9 @@ const EFFECT_PARAMS = {
     ['seed', 'Seed', 1, 1, '0 to 100000']],
   // D-128.
   'core.fractal_noise': [['size', 'Size', 1, 0.5, 'pixels a cloud, 1 to 1000'],
-    ['complexity', 'Complexity', 1, 1, '1 to 8'],
+    ['complexity', 'Complexity', 1, 1, '1 to 20'],
     ['contrast', 'Contrast', 1, 1, '0 to 1000'],
-    ['brightness', 'Brightness', 1, 0.5, '-100 to 100'],
+    ['brightness', 'Brightness', 1, 0.5, '-200 to 200'],
     ['evolution', 'Evolution', 1, 1, 'degrees'],
     ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360'],
     ['seed', 'Seed', 1, 1, '0 to 100000'],

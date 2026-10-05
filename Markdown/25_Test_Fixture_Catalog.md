@@ -6991,6 +6991,8 @@ FX-LIMIT-003: A Gaussian blur of sigma 500, the top of its range: one pixel spre
 
 FX-LIMIT-004: Exposure eased from 0 to 20 stops on the overshooting curve: past the middle it would pass 20, and is held at 20.
 
+**Superseded by D-318 (2026-10-04).** The owner's D-308 approval widens exposure to -40..40 stops, After Effects' range. The case is kept as written above and in `Fixtures/limits/expected_limits.json`, and is no longer checked against its frames; B-34 checks instead that frame 2 is now past 2^20, the ease no longer held at 20. FX-LIMIT-014 is the same ease to the new top.
+
 | frame, row | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1, 0 | 451419.543 0 0 1 | 451419.543 0 0 1 | 451419.543 0 0 1 | 451419.543 0 0 1 | 451419.543 0 0 1 | 451419.543 0 0 1 |
@@ -7007,13 +7009,35 @@ FX-LIMIT-005: A blur eased from 0 to 500 on the overshooting curve: held at 500.
 
 FX-LIMIT-006: Exposure 21 stops, one past the top. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0 and 4 are the bg drawing, unchanged.
 
+**Superseded by D-318 (2026-10-04).** The owner's D-308 approval widens exposure to -40..40 stops, After Effects' range. The case is kept as written above and in `Fixtures/limits/expected_limits.json`, and is no longer checked against its frames; B-34 checks instead that the file opens with no warning and the exposure is drawn. FX-LIMIT-013 and 015 are the new cases.
+
 FX-LIMIT-007: Exposure -21 stops, one past the bottom. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0 and 4 are the bg drawing, unchanged.
+
+**Superseded by D-318 (2026-10-04).** The owner's D-308 approval widens exposure to -40..40 stops, After Effects' range. The case is kept as written above and in `Fixtures/limits/expected_limits.json`, and is no longer checked against its frames; B-34 checks instead that the file opens with no warning and the exposure is drawn. FX-LIMIT-016 is the new case.
 
 FX-LIMIT-008: Exposure 128 stops over a drawing that is mostly transparent: past the limit, so left out, where before it made every transparent pixel not-a-number. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0 and 4 are the dot drawing, unchanged.
 
 FX-LIMIT-009: A Gaussian blur of sigma 501, one past the top. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0 and 4 are the dot drawing, unchanged.
 
 FX-LIMIT-010: A blur keyed from 0 at frame 0 to 600 at frame 4: one key past the top, so left out of every frame, frame 0 as well. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0 and 4 are the dot drawing, unchanged.
+
+### D-318: exposure from -40 to 40
+
+D-318, from the owner's approval of D-308 on 2026-10-04. **Every number is produced by `tools/limits_d318_reference.py`**, which is `tools/limits_reference.py` with the limit at 40, and is in `Fixtures/limits/expected_limits_d318.json`; the projects are `fx_limit_011.json` to `fx_limit_016.json`. Tolerance as above, relative 1e-4.
+
+FX-LIMIT-011: Exposure 40 stops, the top of D-318's range: every colour 2^40 times as much, the coverage unchanged. Frame 0, row 0: 1099511627776 0 0 1 at every x; row 1: 237341129852.775 in each colour, 1.
+
+FX-LIMIT-012: Exposure -40 stops, the bottom of D-318's range: every colour 2^40 times less. Frame 0, row 0: 9.09494702e-13 0 0 1; row 1: 1.96323981e-13 in each colour, 1.
+
+FX-LIMIT-013: Exposure 21 stops, past D-90's old top: an ordinary value now. Frame 0, row 0: 2097152 0 0 1; row 1: 452692.28 in each colour, 1.
+
+FX-LIMIT-014: Exposure eased from 0 to 40 stops on the overshooting curve: past the middle it would pass 40, and is held at 40. Frame 1, row 0: 203779603820.924 0 0 1; frame 2 is FX-LIMIT-011's frame 0.
+
+FX-LIMIT-015: Exposure 41 stops, one past D-318's top. The file is read, the effect is kept as written and left out of every frame, with a warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4 are the bg drawing, unchanged.
+
+FX-LIMIT-016: Exposure -41 stops, one past D-318's bottom. As FX-LIMIT-015. Frames 0 and 4 are the bg drawing, unchanged.
+
+Commands, D-318: setting exposure to 41 is refused with "Exposure runs from -40 to 40 stops, and this is 41.", to -41 and to 128 likewise; 21, 40 and -40 are accepted.
 
 
 ## Line recolour fixtures
@@ -70403,6 +70427,8 @@ Frame 4: every pixel is the drawing's, unchanged.
 
 FX-FRACTAL-022: Complexity 9, above 8. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
 
+**Superseded by D-318 (2026-10-04).** The owner's D-308 approval widens Fractal Noise's complexity to 1..20 and its brightness to -200..200, After Effects' ranges. The case is kept as written above and in `Fixtures/fractal_noise/expected_fractal_noise.json`, and is no longer checked against its frames; B-71 checks instead that the file opens with no warning. FX-FRACTAL-029 and 032 are the new cases.
+
 Frame 0: every pixel is the drawing's, unchanged.
 
 Frame 4: every pixel is the drawing's, unchanged.
@@ -70414,6 +70440,8 @@ Frame 0: every pixel is the drawing's, unchanged.
 Frame 4: every pixel is the drawing's, unchanged.
 
 FX-FRACTAL-024: Brightness -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+**Superseded by D-318 (2026-10-04).** The owner's D-308 approval widens Fractal Noise's complexity to 1..20 and its brightness to -200..200, After Effects' ranges. The case is kept as written above and in `Fixtures/fractal_noise/expected_fractal_noise.json`, and is no longer checked against its frames; B-71 checks instead that the file opens with no warning. FX-FRACTAL-030, 031 and 033 are the new cases.
 
 Frame 0: every pixel is the drawing's, unchanged.
 
@@ -70442,6 +70470,20 @@ FX-FRACTAL-028: A dark colour written "#12345", one digit short. The file is rea
 Frame 0: every pixel is the drawing's, unchanged.
 
 Frame 4: every pixel is the drawing's, unchanged.
+
+### D-318: complexity to 20, brightness from -200 to 200
+
+D-318, from the owner's approval of D-308 on 2026-10-04. **Every number is produced by `tools/fractal_noise_d318_reference.py`**, which is `tools/fractal_noise_reference.py`'s field and rule with the wider ranges, and is in `Fixtures/fractal_noise/expected_fractal_noise_d318.json`; the projects are `fx_fractal_029.json` to `fx_fractal_033.json`, on the same card. Tolerance 2e-5. The reference checks that twenty octaves differ from eight by less than 0.05 anywhere (each octave is half the last), that brightness 200 is the light colour everywhere the card shows, and that FX-FRACTAL-030 leaves most of the card at the dark colour but not all of it.
+
+FX-FRACTAL-029: Size 4, complexity 20: twenty octaves, finer detail on top of FX-FRACTAL-004's eight.
+
+FX-FRACTAL-030: Size 4, contrast 600, brightness -154: the clouds pushed apart and darkened, most of the card held at the dark colour, the brightest peaks still showing (10 of the card's pixels).
+
+FX-FRACTAL-031: Size 4, brightness 200: every value held at the light colour.
+
+FX-FRACTAL-032: Complexity 21, above 20. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: every pixel is the drawing's, unchanged.
+
+FX-FRACTAL-033: Brightness -201, below -200. As FX-FRACTAL-032.
 
 
 ## Light Wrap fixtures
