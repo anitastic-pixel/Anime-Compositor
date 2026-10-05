@@ -607,7 +607,7 @@ pub enum Effect {
         pinning: String,
     },
     /// D-128: `size`, 1 to 1000 pixels a cloud; `complexity`, 1 to 20 (D-318), its whole part
-    /// counted; `contrast`, 0 to 1000; `brightness`, -200 to 200 (D-318); `evolution`, -100000 to 100000
+    /// counted; `contrast`, 0 to 1000; `brightness`, -1000 to 1000 (D-318, D-326); `evolution`, -100000 to 100000
     /// degrees; `speed`, -360 to 360 degrees a frame; `seed`, 0 to 100000, its whole part
     /// counted; `dark_color` and `light_color`, `#rrggbb`; `opacity`, 0 to 100; and `blend`,
     /// "normal", "multiply", "screen" or "add". The words and the colours are kept as written,
@@ -1728,10 +1728,10 @@ impl Effect {
                 ..
             } => vec![
                 ("size", vec![size], 1.0, 1000.0),
-                // D-318: After Effects' Complexity runs to 20 and its Brightness to 200 either way.
+                // D-318: After Effects' Complexity runs to 20; D-326: Brightness to 1000 either way, this program's choice.
                 ("complexity", vec![complexity], 1.0, 20.0),
                 ("contrast", vec![contrast], 0.0, 1000.0),
-                ("brightness", vec![brightness], -200.0, 200.0),
+                ("brightness", vec![brightness], -1000.0, 1000.0),
                 ("evolution", vec![evolution], -100000.0, 100000.0),
                 ("speed", vec![speed], -360.0, 360.0),
                 ("seed", vec![seed], 0.0, 100000.0),

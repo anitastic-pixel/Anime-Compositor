@@ -4,7 +4,7 @@ Written by `tests/b76_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (Di
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect of the nine done on the card and its Light Wraps wherever they are. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-133). An effect that changes nothing or whose settings are invalid is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings, and the card must draw the frame itself, except a frame with an adjustment layer the card does not draw (B-156), which the CPU draws by B-44's rule: that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
-**2510 of 2510 checks pass.**
+**2560 of 2560 checks pass.**
 
 The worst comparison is "the reference shot with Vignette frame 0, Full": largest difference 1 of 255, pixels differing: 3937. Its pictures are in `verification/B-76 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
@@ -19,7 +19,7 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | Exposure Flicker | 226 | 142 | 1 | 226 of 226 |
 | Vignette | 256 | 172 | 1 | 256 of 256 |
 | Turbulent Displace | 266 | 174 | 1 | 266 of 266 |
-| Fractal Noise | 336 | 254 | 1 | 336 of 336 |
+| Fractal Noise | 386 | 294 | 1 | 386 of 386 |
 | Gradient Map | 236 | 152 | 1 | 236 of 236 |
 | Color Balance | 196 | 130 | 1 | 196 of 196 |
 | Offset | 236 | 170 | 1 | 236 of 236 |
@@ -1559,16 +1559,66 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_fractal_032 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_fractal_032 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_fractal_032 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| fx_fractal_033 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| fx_fractal_033 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| fx_fractal_033 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| fx_fractal_033 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| fx_fractal_033 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| fx_fractal_033 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| fx_fractal_033 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| fx_fractal_033 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| fx_fractal_033 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| fx_fractal_033 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_033 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_033 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_033 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_033 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_033 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_033 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_033 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_033 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_033 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_033 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_034 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_034 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_034 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_034 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_034 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_034 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_034 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_034 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_034 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_034 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_035 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_035 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_035 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_035 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_035 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_035 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_035 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_035 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_035 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_035 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_036 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_036 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_036 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_036 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_036 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_fractal_036 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_036 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_036 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_036 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_036 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_fractal_037 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_037 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_037 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_037 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_037 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_037 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_037 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_037 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_037 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_037 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_038 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_038 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_038 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_038 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_038 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_038 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_038 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_038 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_038 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_fractal_038 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_gradmap_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_gradmap_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_gradmap_001 frame 2, Full | 1 | 0 | 0 | none | PASS |

@@ -56,19 +56,23 @@ fn b71_fractal_noise() {
          `Fixtures/fractal_noise/expected_fractal_noise.json`, written by \
          `tools/fractal_noise_reference.py` before this code existed and printed in document 25 \
          as FX-FRACTAL-001 to 028; D-318's wider ranges are \
-         `expected_fractal_noise_d318.json`, FX-FRACTAL-029 to 033. The build's frame is \
+         `expected_fractal_noise_d318.json`, FX-FRACTAL-029 to 033, and D-326's \
+         `expected_fractal_noise_d326.json`, FX-FRACTAL-034 to 038. The build's frame is \
          compared sample by sample; the answer is \
          the largest difference over all of them, against the catalogue's tolerance of 2e-5.\n",
     );
 
-    t.heading("FX-FRACTAL-001 to 033 (document 25)");
+    t.heading("FX-FRACTAL-001 to 038 (document 25)");
     // D-318 widened complexity to 20 and brightness to -200..200, superseding 022 and 024.
     t.fixtures_numbered("expected_fractal_noise.json", 1..=21);
     t.fixtures_numbered("expected_fractal_noise.json", 23..=23);
     t.fixtures_numbered("expected_fractal_noise.json", 25..=28);
     t.superseded("fx_fractal_022.json", "FX-FRACTAL-022", "D-318");
     t.superseded("fx_fractal_024.json", "FX-FRACTAL-024", "D-318");
-    t.fixtures("expected_fractal_noise_d318.json");
+    // D-326 widened brightness to -1000..1000, superseding 033.
+    t.fixtures_numbered("expected_fractal_noise_d318.json", 29..=32);
+    t.superseded("fx_fractal_033.json", "FX-FRACTAL-033", "D-326");
+    t.fixtures("expected_fractal_noise_d326.json");
 
     t.heading("How far it reaches");
     let got = with(0, 1000.0).bounds_expansion();
@@ -123,7 +127,7 @@ fn b71_fractal_noise() {
             ("size 0.5", set(with(0, 0.5))),
             ("complexity 21", set(with(1, 21.0))),
             ("contrast 1001", set(with(2, 1001.0))),
-            ("brightness -201", set(with(3, -201.0))),
+            ("brightness -1001", set(with(3, -1001.0))),
             ("evolution 100001", set(with(4, 100001.0))),
             ("speed 361", set(with(5, 361.0))),
             ("seed -1", set(with(6, -1.0))),
@@ -141,7 +145,7 @@ fn b71_fractal_noise() {
             (
                 "every number at the top of its range,",
                 set(fractal(
-                    [1000.0, 20.0, 1000.0, 200.0, 100000.0, 360.0, 100000.0, 100.0],
+                    [1000.0, 20.0, 1000.0, 1000.0, 100000.0, 360.0, 100000.0, 100.0],
                     "#ffffff",
                     "#000000",
                     "add",
@@ -150,7 +154,7 @@ fn b71_fractal_noise() {
             (
                 "every number at the bottom of its range,",
                 set(fractal(
-                    [1.0, 1.0, 0.0, -200.0, -100000.0, -360.0, 0.0, 0.0],
+                    [1.0, 1.0, 0.0, -1000.0, -100000.0, -360.0, 0.0, 0.0],
                     "#000000",
                     "#ffffff",
                     "multiply",
