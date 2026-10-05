@@ -70485,6 +70485,22 @@ FX-FRACTAL-032: Complexity 21, above 20. The file is read, the effect is kept as
 
 FX-FRACTAL-033: Brightness -201, below -200. As FX-FRACTAL-032.
 
+**Superseded by D-326 (2026-10-05).** Tutorial 3 types Brightness -204, past After Effects' slider; D-326 widens brightness to -1000..1000. The case is kept as written above and in `Fixtures/fractal_noise/expected_fractal_noise_d318.json`, and is no longer checked against its frames; B-71 checks instead that the file opens with no warning. FX-FRACTAL-034 to 038 are the new cases.
+
+### D-326: brightness from -1000 to 1000
+
+D-326, from P-26 and the owner's request of 2026-10-04 to build what D-308 left unbuilt. **Every number is produced by `tools/fractal_noise_d326_reference.py`**, which is `tools/fractal_noise_reference.py`'s field and rule with brightness held to -1000..1000 (this program's choice, beside contrast's 0..1000; no After Effects limit was found), and is in `Fixtures/fractal_noise/expected_fractal_noise_d326.json`; the projects are `fx_fractal_034.json` to `fx_fractal_038.json`, on the same card. Tolerance 2e-5. The reference checks that brightness -204 differs from -200 (10 of the card's 160 pixels) and is nowhere brighter, that the brightest peaks still show at -204, and that 1000 and -1000 are the light and dark colours everywhere the card shows.
+
+FX-FRACTAL-034: Size 4, contrast 1000, brightness -204, tutorial 3's typed value: a little darker than brightness -200, the brightest peaks still showing.
+
+FX-FRACTAL-035: Size 4, brightness 1000: every value held at the light colour.
+
+FX-FRACTAL-036: Size 4, contrast 1000, brightness -1000: every value held at the dark colour.
+
+FX-FRACTAL-037: Brightness -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: every pixel is the drawing's, unchanged.
+
+FX-FRACTAL-038: Brightness 1001, above 1000. As FX-FRACTAL-037.
+
 ## Float working depth fixtures
 
 D-319, from the owner's approval of D-308 on 2026-10-04. **Every number is produced by `tools/float_depth_reference.py`** and is in `Fixtures/float_depth/expected_float_depth.json`; the projects and `media/card.png`, Fractal Noise's card, are beside it. Each case is a composition 16 by 10 of the card, unmoved, frame 0. Tolerance 2e-5. B-200 checks them in `verification/D-319_float_depth_table.md`.
