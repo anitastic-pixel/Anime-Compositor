@@ -187336,6 +187336,28 @@ FX-POLAR-021: Shape ellipse, written in the file: FX-POLAR-001's frame exactly.
 
 FX-POLAR-022: Shape "square", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frame 0: every pixel is the drawing's.
 
+### Gaussian Blur in Blurriness (D-321)
+
+From the owner's request of 2026-10-04 to match After Effects from examples on the internet. **Every number is produced by `tools/blurriness_reference.py`** and is in `Fixtures/blurriness/expected_blurriness.json`; the projects and the drawing are beside it. Each case is a composition 40 by 12 holding one drawing the same size, `block.png`, a 4 by 4 orange square (255, 128, 0) from (0, 4) to (3, 7) against the left edge, clear elsewhere, unmoved, frame 0. Values are linear premultiplied. Tolerance 2e-5. B-205 checks them in `verification/D-321_blurriness_table.md`.
+
+FX-BLURRY-001: Units blurriness, Blurriness 10: sigma 3, reaching 20 pixels. Pixel (1, 6) is 0.241132 0.052051 0 0.241132; (13, 6), ten pixels right of the square and past the old three sigmas, is 0.000358 7.7e-05 0 0.000358.
+
+FX-BLURRY-002: The same number with no units: document 21's sigma 10, as before D-321. Pixel (1, 6) is 0.025202 0.00544 0 0.025202.
+
+FX-BLURRY-003: Units written `sigma`: FX-BLURRY-002 exactly.
+
+FX-BLURRY-004: FX-BLURRY-001 with edges repeat: the square's orange is read past the left edge. Pixel (0, 6) is 0.431843 0.093218 0 0.431843.
+
+FX-BLURRY-005: FX-BLURRY-001 with Blur Dimensions horizontal: rows 0 to 3 and 8 to 11 stay clear. Pixel (6, 6) is 0.186483 0.040254 0 0.186483.
+
+FX-BLURRY-006: Blurriness 0: the drawing untouched.
+
+FX-BLURRY-007: A Float composition, Blurriness 4 (sigma 1.2, reaching 8 pixels), then Exposure +6: light past white on the square, falling smoothly to the right with no step. Pixel (1, 6) is 50.1494 10.8253 0 0.783584; (8, 6), five pixels out, one past where a kernel of three sigmas ends, is 0.00327 0.000706 0 5.1e-05.
+
+FX-BLURRY-008: Units `Blurriness`, capitalised, which is not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frame 0: the drawing.
+
+FX-BLURRY-009: Units `pixels`, which is not one. As FX-BLURRY-008.
+
 ## Mix fixtures
 
 D-202, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps in `Fixtures/effect_mix/`, each effect's `mix` written on its record after `enabled` or not at all, as the case says. FX-MIX-001 to 012 and 014 to 016 hold Invert's drawing, `Fixtures/effect_mix/media/bands.png` (the drawing of FX-INVERT, described there), five frames long, unmoved, with Invert (`core.invert`, channel rgb, amount 100), Gaussian Blur (`core.gaussian_blur`, edges transparent) or Exposure (`core.exposure`) on it, or on an adjustment layer above it in 012. FX-MIX-013 is FX-WRAP-001's scene, Light Wrap's box `wrap_box.png` over its bands `wrap_bands.png`, the Light Wrap on the box. FX-MIX-017 is FX-PTIME-001's project, eight frames of the running ball `ball_1.png` to `ball_8.png`, its Posterize Time given a mix. Values are linear premultiplied working values, and only the pixels that differ from the case without the mixed effects (the drawing; for 013 the box over the bands unlit; for 017 the ball not held) are listed, a run of rows in one column holding the same pair once: every other pixel is as without them, to 1e-12.
