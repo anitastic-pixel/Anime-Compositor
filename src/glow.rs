@@ -85,10 +85,11 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
     let r = crate::effects::blur_axes(&mut light, &crate::effects::reach_weights(sigma, long), (true, true));
 
     // (4) Strength and (5) on top of the picture, which is empty outside its own bounds.
-    // D-322: Creative COW's GI*(GT/100) + GI*16*(1-GT/100) on the colour, the covering left.
+    // D-331: Creative COW's GI*(GT/100) + GI*16*(1-GT/100) is the colour read straight: the
+    // colour at the intensity, the covering divided by t + 16 (1 - t).
     let (k, ka) = if g.after_effects {
         let t = g.threshold / 100.0;
-        ((g.intensity * (t + 16.0 * (1.0 - t))) as f32, 1.0)
+        (g.intensity as f32, (1.0 / (t + 16.0 * (1.0 - t))) as f32)
     } else {
         (g.intensity as f32, g.intensity as f32)
     };

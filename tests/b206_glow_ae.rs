@@ -99,8 +99,10 @@ fn b206_glow_ae() {
          After Effects frame, then settled on 2026-10-04 from the Creative COW thread \"Glow \
          Effect and transparent background mechanics\", where After Effects' Glow was measured on \
          white shapes: the radius is a Gaussian Blur (here Blurriness, D-321), and the glow's \
-         brightness is GI*(GT/100) + GI*16*(1-GT/100), its covering untouched by intensity. Glow \
-         gains Units: After Effects, which a new one takes, and Classic, what a file without \
+         brightness is GI*(GT/100) + GI*16*(1-GT/100), its covering untouched by intensity. \
+         Corrected by D-331 on 2026-10-05 from tutorials 2 and 3: that brightness is the colour \
+         read straight, so the colour is at the intensity and the covering divided by \
+         t + 16 (1 - t). Glow gains Units: After Effects, which a new one takes, and Classic, what a file without \
          units means, D-89's rule as before. Every expected pixel is \
          `Fixtures/glow_ae/expected_glow_ae.json`, written by `tools/glow_ae_reference.py` before \
          the build had it, printed in document 25 as FX-GLOW-AE-001 to 010. Tolerance 2e-5.\n",
@@ -167,9 +169,9 @@ fn b206_glow_ae() {
     for (name, settings, float, what) in [
         ("1_square.png", json!({ "intensity": 0 }), false, "the square with no glow"),
         ("2_old_glow_defaults.png", json!({}), false, "Glow with After Effects' defaults (threshold 60, radius 10, intensity 1) in an older project (Classic)"),
-        ("3_ae_glow_defaults.png", json!({ "units": "after_effects" }), false, "the same in After Effects units: a tighter, far brighter glow"),
+        ("3_ae_glow_defaults.png", json!({ "units": "after_effects" }), false, "the same in After Effects units: as bright over black, a little tighter (D-331)"),
         ("4_old_tutorial_glow.png", json!({ "threshold": 0, "radius": 39, "intensity": 0.1 }), true, "tutorial 2's first Glow (threshold 0, radius 39, intensity 0.1) in Float, Classic: barely there"),
-        ("5_ae_tutorial_glow.png", json!({ "threshold": 0, "radius": 39, "intensity": 0.1, "units": "after_effects" }), true, "the same in After Effects units: a clear soft glow, 1.6 times the light"),
+        ("5_ae_tutorial_glow.png", json!({ "threshold": 0, "radius": 39, "intensity": 0.1, "units": "after_effects" }), true, "the same in After Effects units: as faint over black, as tutorial 2's After Effects frames show (D-331)"),
     ] {
         let (bytes, said) = picture(&dir, settings, float);
         write(name, &bytes);
@@ -177,10 +179,12 @@ fn b206_glow_ae() {
         near.push((six, twenty));
         t.row(&format!("{name}, {what}; draws cleanly"), &format!("{said:?}, 6 pixels right of the square {six} of 255, 20 pixels right {twenty}"), said.is_empty());
     }
+    // D-331: over black only the colour shows, the intensity times the blurred light, as Classic.
+    let close = |a: u8, b: u8| a.abs_diff(b) <= 12;
     t.row(
-        "After Effects units glow brighter near the square than Classic at the same settings",
+        "Over black, After Effects units glow as bright as Classic near the square (within 12 of 255; D-322 had them far brighter)",
         &format!("defaults {} against {}; tutorial {} against {}", near[2].0, near[1].0, near[4].0, near[3].0),
-        near[2].0 > near[1].0 + 40 && near[4].0 > near[3].0 + 40,
+        close(near[2].0, near[1].0) && close(near[4].0, near[3].0),
     );
 
     t.heading("The frame does not depend on how it is cut up");

@@ -1,5 +1,7 @@
 # D-322 / B-206: Glow in After Effects' own numbers
 
+> **Corrected by D-331 (2026-10-05).** Played against After Effects' own tutorial frames, the glow below was about fifteen times too bright. The brightness formula is the glow's colour *read straight*: the colour stays at the intensity, and the glow's covering is thinner. See `D-331_glow_ae_corrected.md`. The pictures and checks here are redrawn under D-331.
+
 From D-308 (T4-1) and P-26. The tutorials set Glow to small intensities (0.1 to 0.3) with threshold 0 or 5. In After Effects those give a strong glow; here they gave a faint one.
 
 ## Where the rule comes from (no After Effects needed)
@@ -38,9 +40,9 @@ In `verification/D-322 pictures/`, a white square 24 pixels across, over black:
 
 - `1_square.png`: no glow.
 - `2_old_glow_defaults.png`: threshold 60, radius 10, intensity 1, in an older project (Classic). A soft rim.
-- `3_ae_glow_defaults.png`: the same in After Effects units. The square blooms into a bright rounded glow, as After Effects' default Glow does on white.
+- `3_ae_glow_defaults.png`: the same in After Effects units. Over black, about as bright as Classic and a little tighter (D-331).
 - `4_old_tutorial_glow.png`: tutorial 2's first Glow (threshold 0, radius 39, intensity 0.1) in Float, Classic. Barely there.
-- `5_ae_tutorial_glow.png`: the same in After Effects units. A clear, soft halo.
+- `5_ae_tutorial_glow.png`: the same in After Effects units. Over black, as faint as Classic, as tutorial 2's After Effects frames show (D-331).
 
 From the app's test copy (not your app):
 
@@ -49,8 +51,8 @@ From the app's test copy (not your app):
 
 ## For the owner to try
 
-1. Add **Glow** to a white layer. Units should say **After Effects**, and the glow should be strong, like After Effects' default Glow.
-2. Set threshold 0, radius 39, intensity 0.1 in a Float composition. You should see a clear soft halo.
+1. Add **Glow** to a white layer. Units should say **After Effects** (D-331's strength).
+2. Set threshold 0, radius 39, intensity 0.1 in a Float composition. You should see a faint soft halo, as in tutorial 2.
 3. Open an older project that has a Glow. It should look exactly as it did, with Units set to **Classic (older projects)**.
 
 **Awaiting the owner's playtest.**

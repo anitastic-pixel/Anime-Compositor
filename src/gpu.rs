@@ -311,6 +311,8 @@ struct Params {
     tinted: u32,
     screen: u32,
     held: u32,
+    cover: f32,
+    pad: u32,
 }
 
 @group(0) @binding(0) var<uniform> P: Params;
@@ -568,8 +570,8 @@ fn combine(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let p = at(vec2<i32>(id.xy) - vec2(P.g));
     let h = halo[id.y * size.x + id.x];
-    // D-322: held, the covering is laid on as blurred, only the colour strengthened.
-    let k = vec4(P.weight, P.weight, P.weight, select(P.weight, 1.0, P.held == 1u));
+    // D-331: held, the covering is laid on times `cover`, not the colour's weight.
+    let k = vec4(P.weight, P.weight, P.weight, select(P.weight, P.cover, P.held == 1u));
     if P.screen == 1u {
         let v = clamp(h * k, vec4(0.0), vec4(1.0));
         textureStore(output, id.xy, p + v - p * v);
@@ -602,6 +604,8 @@ struct Params {
     tinted: u32,
     screen: u32,
     held: u32,
+    cover: f32,
+    pad: u32,
 }
 
 /// B-164, D-235's safety rule: the block a blur of `sigma` may be worked small by in the viewer,
@@ -5350,14 +5354,10 @@ impl Gpu {
             self.step(steps, &passes.add, add, &tall, None, Some(&halo), None, tiles(gw, gh));
         }
         let out = self.scratch("B-51 glow", gw, gh);
-        // D-322: After Effects' strength on the colour, the covering as blurred.
-        let weight = if g.after_effects {
-            let t = g.threshold / 100.0;
-            g.intensity * (t + 16.0 * (1.0 - t))
-        } else {
-            g.intensity
-        };
-        let p = Params { g: r as i32, weight: weight as f32, screen: g.screen as u32, held: g.after_effects as u32, ..Default::default() };
+        // D-331: After Effects' colour at the intensity, the covering over t + 16 (1 - t).
+        let t = g.threshold / 100.0;
+        let cover = 1.0 / (t + 16.0 * (1.0 - t));
+        let p = Params { g: r as i32, weight: g.intensity as f32, screen: g.screen as u32, held: g.after_effects as u32, cover: cover as f32, ..Default::default() };
         self.step(steps, &passes.combine, p, still, Some(&out), Some(&halo), None, tiles(gw, gh));
         (out, (gw, gh))
     }
