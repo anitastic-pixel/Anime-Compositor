@@ -11,15 +11,27 @@ After Effects' Glow was measured on white shapes:
   Blurriness (D-321: sigma 0.3 times it, reaching 6.5 sigmas), and Glow Intensity leaves the
   glow's covering alone.
 - The glow's brightness is GI * (GT / 100) + GI * 16 * (1 - GT / 100), GI being Glow Intensity
-  and GT Glow Threshold; at GI 3, GT 0 the glow's colour reads about 48, with a low covering.
+  and GT Glow Threshold; at GI 3, GT 0 the glow's colour reads about 48, with a low covering:
+  "however bright the glow pixels are, their alphas are still very low", and "The resulting
+  color will be calculated as glowPixelAlpha*glowPixelColor".
+
+D-331 (2026-10-05) corrects where that brightness sits. The 48 is the glow's colour read
+straight, its colour over its covering. D-322 multiplied the colour by it and left the covering
+alone, which lit tutorials 2 and 3 (After Effects' own frames, 32 bpc, Glow on an opaque copy)
+fifteen times too bright: a haze of light where After Effects shows a thin bolt and a faint blue
+halo. Both tutorials match the colour at Glow Intensity times the blurred light, as D-89's
+Classic, and the straight 48 then comes from a covering 16 times lower. So the colour is
+multiplied by GI and the covering divided by c = t + 16 (1 - t); the straight colour is still
+GI * c, as measured.
 
 `core.glow` gains `units`: "classic", what a file without it means, D-89's rule exactly; or
 "after_effects", which a Glow added from now on writes. In after_effects:
 
 - what glows is as before (the threshold test, chosen colours, tint);
 - it is spread by Gaussian Blur at Blurriness = radius: sigma 0.3 radius, reach ceil(6.5 sigma);
-- its colour is multiplied by k = intensity * (t + 16 (1 - t)), t = threshold / 100, and its
-  covering is not multiplied at all;
+- its colour is multiplied by the intensity and its covering divided by c = t + 16 (1 - t),
+  t = threshold / 100 (D-331), so that read straight its colour is intensity * c times the
+  light's;
 - Add and Screen lay it on as before (Add: colour not cut off, covering stopping at 1; Screen:
   each held inside 0 to 1 first). Intensity 0 still changes nothing.
 
@@ -58,6 +70,11 @@ def strength(intensity, threshold):
     return intensity * (t + 16 * (1 - t))
 
 
+def thinning(threshold):
+    """D-331: what the glow's covering is divided by, c = t + 16 (1 - t)."""
+    return strength(1, threshold)
+
+
 def glow(pixels, c):
     """The glowing drawing, as the composition's W by H frame, in units after_effects."""
     threshold, radius, intensity = c["threshold"], c["radius"], c["intensity"]
@@ -80,7 +97,7 @@ def glow(pixels, c):
         if reach else [1.0]
     total = sum(one)
     one = [v / total for v in one]
-    k = strength(intensity, threshold)
+    ka = 1 / thinning(threshold)
 
     out = []
     for y in range(H):
@@ -93,7 +110,7 @@ def glow(pixels, c):
                         w = one[i + reach] * one[j + reach]
                         for ch in range(4):
                             g[ch] += source[sy * W + sx][ch] * w
-            g = [v * k for v in g[:3]] + [g[3]]
+            g = [v * intensity for v in g[:3]] + [g[3] * ka]
             o = G.working(pixels[y * W + x])
             if c["operation"] == "add":
                 out.append([o[ch] + g[ch] for ch in range(3)] + [min(1.0, o[3] + g[3])])
@@ -123,22 +140,24 @@ def render(c):
 CASES = {
     "FX-GLOW-AE-001": ("Units after_effects with After Effects' defaults, threshold 60, radius "
                        "10, intensity 1, Add: spread as Gaussian Blur at Blurriness 10 (sigma 3), "
-                       "the glow's colour seven times the blurred light (0.6 + 16 x 0.4), its "
-                       "covering not multiplied.", case()),
+                       "the glow's colour the blurred light, its covering a seventh of the "
+                       "blurred covering (0.6 + 16 x 0.4), so read straight it is seven times "
+                       "the light.", case()),
     "FX-GLOW-AE-002": ("The same settings in a file without units: D-89's rule as before, "
                        "FX-GLOW-014 exactly.", case(units=None)),
     "FX-GLOW-AE-003": ("Units written \"classic\": FX-GLOW-AE-002 exactly.",
                        case(units="classic")),
     "FX-GLOW-AE-004": ("Tutorial 2's kind of setting, threshold 0, radius 4, intensity 0.1: every "
-                       "pixel that shows glows, its colour 1.6 times the blurred light.",
+                       "pixel that shows glows, its colour a tenth of the blurred light, its covering a sixteenth: "
+                       "read straight, 1.6 times the light.",
                        case(threshold=0, radius=4, intensity=0.1)),
     "FX-GLOW-AE-005": ("Intensity 0: the drawing, untouched.", case(intensity=0)),
     "FX-GLOW-AE-006": ("Radius 0: nothing spreads, and each glowing pixel's colour is added onto "
-                       "itself seven times.", case(radius=0)),
-    "FX-GLOW-AE-007": ("Operation Screen: the strengthened glow is held inside 0 to 1 and "
-                       "screened on.", case(operation="screen")),
-    "FX-GLOW-AE-008": ("Tint #ff4000, threshold 0, intensity 0.2: the glow is orange, 3.2 times "
-                       "the blurred tint.", case(threshold=0, intensity=0.2, tint="#ff4000")),
+                       "itself once.", case(radius=0)),
+    "FX-GLOW-AE-007": ("Operation Screen: the glow is held inside 0 to 1 and screened on.",
+                       case(operation="screen")),
+    "FX-GLOW-AE-008": ("Tint #ff4000, threshold 0, intensity 0.2: the glow is orange, read "
+                       "straight 3.2 times the tint.", case(threshold=0, intensity=0.2, tint="#ff4000")),
 }
 
 INVALID = {
@@ -198,19 +217,21 @@ def check(expected):
     assert c["FX-GLOW-AE-003"] == c["FX-GLOW-AE-002"]
     one = c["FX-GLOW-AE-001"]
     assert one != c["FX-GLOW-AE-002"]
-    # Brighter than the classic glow on the yellow, past white; tighter round it (sigma 3 not
-    # 3.33), yet still lit in the far corner, 11 pixels off, inside 6.5 sigmas.
-    assert one[at(3, 4)][0] > c["FX-GLOW-AE-002"][at(3, 4)][0] + 1
-    assert one[at(15, 0)][3] > 10 * TOLERANCE
-    # In the empty space the covering is the blurred covering alone, whatever the intensity;
-    # the colour, straight, is k times the light's straight colour, so can pass 1.
+    # D-331: on the opaque yellow the colour added is the classic glow's, not seven times it
+    # (the spread is sigma 3 not 3.33, so not exactly); still lit in the far corner, 11 pixels
+    # off, inside 6.5 sigmas.
+    classic = c["FX-GLOW-AE-002"][at(3, 4)][0]
+    assert abs(one[at(3, 4)][0] - classic) < 0.1 * classic
+    assert one[at(15, 0)][3] > TOLERANCE
+    # In the empty space the covering is the blurred covering over c, whatever the intensity;
+    # the colour, straight, is intensity * c times the light's straight colour, so can pass 1.
     four = c["FX-GLOW-AE-004"]
     assert four[at(0, 0)][3] > 0 and four[at(0, 0)][3] < 0.1
     assert c["FX-GLOW-AE-005"] == drawn
-    # Radius 0: the yellow is itself plus seven times itself, its covering held at 1.
+    # Radius 0: the yellow is itself plus itself, its covering held at 1.
     six = c["FX-GLOW-AE-006"]
     y = drawn[at(3, 4)]
-    assert all(abs(six[at(3, 4)][ch] - 8 * y[ch]) < 1e-12 for ch in range(3))
+    assert all(abs(six[at(3, 4)][ch] - 2 * y[ch]) < 1e-12 for ch in range(3))
     assert six[at(3, 4)][3] == 1 and six[at(0, 0)] == [0.0] * 4
     for p in c["FX-GLOW-AE-007"]:
         assert all(0 <= v <= 1 for v in p)
