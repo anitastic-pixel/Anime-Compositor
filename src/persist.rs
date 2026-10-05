@@ -1088,12 +1088,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::Exposure { stops } => {
             params.insert("stops".into(), num(*stops));
         }
-        Effect::GaussianBlur { sigma_px, edges, dimensions } => {
+        Effect::GaussianBlur { sigma_px, edges, dimensions, units } => {
             params.insert("sigma_px".into(), num(*sigma_px));
             put_edges(&mut params, edges);
             // D-303: written only when not both or when the file had it.
             if dimensions != "both" || params.contains_key("dimensions") {
                 params.insert("dimensions".into(), J::from(dimensions.as_str()));
+            }
+            // D-321: likewise, sigma being what a file without it means.
+            if units != "sigma" || params.contains_key("units") {
+                params.insert("units".into(), J::from(units.as_str()));
             }
         }
         Effect::Tint { color, amount } => {
@@ -3664,6 +3668,8 @@ fn parse_effect(
             edges: effect_edges(params, &at)?,
             // D-303: a file from before it blurs both ways, as it did.
             dimensions: effect_word_or(params, "dimensions", &at, "both")?,
+            // D-321: a file from before it means sigma.
+            units: effect_word_or(params, "units", &at, "sigma")?,
         }),
         crate::effects::TINT => Some(crate::effects::Effect::Tint {
             color: effect_array(params, "color", "a linear RGB triple", &at)?,

@@ -218,12 +218,12 @@ fn b34_limits() {
     for (file, value, sentence) in [
         (
             "fx_limit_003.json",
-            Effect::GaussianBlur { sigma_px: 501.0, edges: "transparent".into(), dimensions: "both".into() },
+            Effect::GaussianBlur { sigma_px: 501.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() },
             "A Gaussian blur's sigma runs from 0 to 500, and this is 501.",
         ),
         (
             "fx_limit_003.json",
-            Effect::GaussianBlur { sigma_px: -1.0, edges: "transparent".into(), dimensions: "both".into() },
+            Effect::GaussianBlur { sigma_px: -1.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() },
             "A Gaussian blur's sigma runs from 0 to 500, and this is -1.",
         ),
         (
@@ -256,8 +256,8 @@ fn b34_limits() {
         );
     }
     for (file, value) in [
-        ("fx_limit_003.json", Effect::GaussianBlur { sigma_px: 0.0, edges: "transparent".into(), dimensions: "both".into() }),
-        ("fx_limit_003.json", Effect::GaussianBlur { sigma_px: 500.0, edges: "transparent".into(), dimensions: "both".into() }),
+        ("fx_limit_003.json", Effect::GaussianBlur { sigma_px: 0.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
+        ("fx_limit_003.json", Effect::GaussianBlur { sigma_px: 500.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
         ("fx_limit_001.json", Effect::Exposure { stops: -20.0 }),
         ("fx_limit_001.json", Effect::Exposure { stops: 20.0 }),
         ("fx_limit_001.json", Effect::Exposure { stops: 21.0 }),

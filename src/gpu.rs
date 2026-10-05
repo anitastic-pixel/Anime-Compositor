@@ -624,9 +624,9 @@ fn small_sigma(sigma: f64, f: usize) -> f64 {
 /// small one stops where r + 1/2 falls among the small pixels, its last weights cut by the part
 /// of their pixel inside it, and is normalised as the exact one is; a small kernel of its own
 /// length leaves the exact one's edge up to f pixels out, which a dark picture shows.
-fn small_taps(sigma: f64, f: usize) -> Vec<f32> {
+fn small_taps(sigma: f64, f: usize, long: bool) -> Vec<f32> {
     let s = small_sigma(sigma, f);
-    let edge = (crate::effects::kernel_radius(sigma) as f64 + 0.5) / f as f64;
+    let edge = (crate::effects::reach_radius(sigma, long) as f64 + 0.5) / f as f64;
     let rs = (edge - 0.5).ceil() as i64;
     let cut = edge - (rs as f64 - 0.5);
     let w: Vec<f64> = (-rs..=rs)
@@ -4477,7 +4477,7 @@ impl Gpu {
                 self.step(steps, &passes.add, placed, &light, None, Some(&halo), None, tiles(gw, gh));
                 continue;
             }
-            let tall = self.blurred(steps, passes, "B-47", &light, (w, h), sigma);
+            let tall = self.blurred(steps, passes, "B-47", &light, (w, h), sigma, false);
             self.step(steps, &passes.add, placed, &tall, None, Some(&halo), None, tiles(gw, gh));
         }
         let share = 1.0 / b.lines as f32;
@@ -4563,9 +4563,9 @@ impl Gpu {
         let e = g.grow();
         // B-164: D-235's shortcut blurs transparent edges; held ones stay exact.
         let tall = if g.repeat {
-            self.gauss(steps, passes, "B-50", still, (w, h), &crate::effects::gaussian_weights(g.sigma), e, true)
+            self.gauss(steps, passes, "B-50", still, (w, h), &crate::effects::reach_weights(g.sigma, g.long), e, true)
         } else {
-            self.blurred(steps, passes, "B-50", still, (w, h), g.sigma)
+            self.blurred(steps, passes, "B-50", still, (w, h), g.sigma, g.long)
         };
         (tall, (w + 2 * e, h + 2 * e))
     }
@@ -4593,15 +4593,15 @@ impl Gpu {
     /// blur is worked on the picture shrunk by [`shrink_factor`] and enlarged back, which stays
     /// within 1 level of the exact blur.
     #[allow(clippy::too_many_arguments)]
-    fn blurred(&self, steps: &mut Vec<Step>, passes: &BloomPasses, label: &str, input: &wgpu::TextureView, (w, h): (usize, usize), sigma: f64) -> wgpu::TextureView {
-        let r = crate::effects::kernel_radius(sigma);
+    fn blurred(&self, steps: &mut Vec<Step>, passes: &BloomPasses, label: &str, input: &wgpu::TextureView, (w, h): (usize, usize), sigma: f64, long: bool) -> wgpu::TextureView {
+        let r = crate::effects::reach_radius(sigma, long);
         let f = shrink_factor(sigma);
         if f == 1 {
-            return self.gauss(steps, passes, label, input, (w, h), &crate::effects::gaussian_weights(sigma), r, false);
+            return self.gauss(steps, passes, label, input, (w, h), &crate::effects::reach_weights(sigma, long), r, false);
         }
         self.shrunk.set(self.shrunk.get() + 1);
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
-        let taps = small_taps(sigma, f);
+        let taps = small_taps(sigma, f, long);
         let rs = taps.len() / 2;
         // Room round the small picture, so the enlarged blur reaches the exact one's edge and
         // a pixel past it.
@@ -4698,7 +4698,7 @@ impl Gpu {
         };
         // The drawing's covering blurred at `sigma`, as `effects::blur`, and the blur's radius.
         let covering = |steps: &mut Vec<Step>, input: &wgpu::TextureView, size, sigma: f64| {
-            let (view, _) = self.gaussian(steps, input, size, Gaussian { sigma, repeat: false });
+            let (view, _) = self.gaussian(steps, input, size, Gaussian { sigma, repeat: false, long: false });
             (view, crate::effects::kernel_radius(sigma))
         };
         let (ox, oy) = f.origin;
@@ -5234,7 +5234,7 @@ impl Gpu {
                 let cast = self.scratch("B-151 cast", cw, ch);
                 let k = [lx, ly, scale, gx as f64, gy as f64];
                 self.fx_step(steps, &passes.warp, FxParams { mode: 11, ..Default::default() }, Some(still), Some(&cast), Some(&k), None, none, tiles(cw, ch));
-                let (blurred, (bw, bh)) = self.gaussian(steps, &cast, (cw, ch), Gaussian { sigma: softness / 3.0, repeat: false });
+                let (blurred, (bw, bh)) = self.gaussian(steps, &cast, (cw, ch), Gaussian { sigma: softness / 3.0, repeat: false, long: false });
                 let r = (bw - cw) / 2;
                 let mut k = vec![opacity / 100.0, color_influence / 100.0, (render == "glass_edge") as u8 as f64, (shadow_only == "on") as u8 as f64];
                 k.extend(linear(color));
@@ -5344,7 +5344,7 @@ impl Gpu {
         if r == 0 {
             self.step(steps, &passes.add, add, &light, None, Some(&halo), None, tiles(gw, gh));
         } else {
-            let tall = self.blurred(steps, passes, "B-51", &light, (w, h), sigma);
+            let tall = self.blurred(steps, passes, "B-51", &light, (w, h), sigma, false);
             self.step(steps, &passes.add, add, &tall, None, Some(&halo), None, tiles(gw, gh));
         }
         let out = self.scratch("B-51 glow", gw, gh);
@@ -5865,7 +5865,7 @@ impl Gpu {
                     }
                     let sigma = w / 3.0;
                     let r = crate::effects::kernel_radius(sigma);
-                    let blurred = if r == 0 { light.clone() } else { self.gaussian(&mut steps, &light, (width, height), Gaussian { sigma, repeat: false }).0 };
+                    let blurred = if r == 0 { light.clone() } else { self.gaussian(&mut steps, &light, (width, height), Gaussian { sigma, repeat: false, long: false }).0 };
                     let out = self.scratch("B-76 wrapped", width, height);
                     let p = FxParams { r: r as i32, flag: add as u32, ..Default::default() };
                     let passes = self.fx.as_ref().expect("a Light Wrap is refused without the passes");

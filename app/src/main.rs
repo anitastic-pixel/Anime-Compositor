@@ -3338,6 +3338,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             sigma_px: 0.0,
             edges: "transparent".to_string(),
             dimensions: "both".to_string(),
+            // D-321: one added from now on takes After Effects' Blurriness.
+            units: "blurriness".to_string(),
         }),
         TINT => Some(Effect::Tint {
             color: [0.0, 0.0, 0.0],
@@ -4213,6 +4215,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             edges: edges(),
             // D-303: both when the command does not say.
             dimensions: word("dimensions").unwrap_or_else(|_| "both".to_string()),
+            // D-321: sigma when the command does not say, as a file without it.
+            units: word("units").unwrap_or_else(|_| "sigma".to_string()),
         }),
         TINT => {
             let Some(text) = parameter(query, "color") else {
@@ -14029,8 +14033,8 @@ mod editing {
             stack(&viewer, l),
         );
         report.check(
-            "a new effect starts at the setting that changes no pixels",
-            r#"{"sigma_px":0}"#,
+            "a new effect starts at the setting that changes no pixels, in After Effects' Blurriness (D-321)",
+            r#"{"sigma_px":0,"units":"blurriness"}"#,
             settings(&viewer, l, "fx-1"),
         );
 
@@ -27195,7 +27199,7 @@ mod contract {
         run(&viewer, "edit.undo");
         report.check(
             "so undoing once goes back one commit, not back to before the field was touched",
-            "GaussianBlur { sigma_px: 6.0, edges: \"transparent\", dimensions: \"both\" }",
+            "GaussianBlur { sigma_px: 6.0, edges: \"transparent\", dimensions: \"both\", units: \"sigma\" }",
             layer(&viewer, "layer-1", |l| {
                 l.effects
                     .iter()
@@ -27223,7 +27227,7 @@ mod contract {
         );
         report.check(
             "and the entry holds the last keystroke, not the first",
-            "GaussianBlur { sigma_px: 3.5, edges: \"transparent\", dimensions: \"both\" }",
+            "GaussianBlur { sigma_px: 3.5, edges: \"transparent\", dimensions: \"both\", units: \"sigma\" }",
             layer(&viewer, "layer-1", |l| {
                 l.effects
                     .iter()

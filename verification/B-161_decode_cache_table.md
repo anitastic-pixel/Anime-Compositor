@@ -8,10 +8,10 @@ Read the first rows first: they compare every bit of every sample of a fresh dec
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| Image files under Fixtures/ that were read (listed from the folder) | 418 | 418 | pass |
-| A drawing read back from its disk copy is the fresh decode, every bit of every sample | 409 of 409 | 409 of 409 | pass |
-| The read that wrote the copy hands back the fresh decode too | 409 of 409 | 409 of 409 | pass |
-| The second read was answered by the disk copy, not by decoding (every image but the EXRs) | 367 | 367 | pass |
+| Image files under Fixtures/ that were read (listed from the folder) | 419 | 419 | pass |
+| A drawing read back from its disk copy is the fresh decode, every bit of every sample | 410 of 410 | 410 of 410 | pass |
+| The read that wrote the copy hands back the fresh decode too | 410 of 410 | 410 of 410 | pass |
+| The second read was answered by the disk copy, not by decoding (every image but the EXRs) | 368 | 368 | pass |
 | The EXRs among them are decoded every time and no copy is written for them | 42 EXRs, 0 copies | 42 EXRs, 0 copies | pass |
 | The reference shot's 56 drawings, of those: read back bit for bit | 56 of 56 | 56 of 56 | pass |
 | A file the decoder refuses is refused the same way with copies on, and no copy is written for it | 9 of 9 | 9 of 9 | pass |

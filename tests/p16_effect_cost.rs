@@ -84,9 +84,9 @@ fn cases() -> Vec<(&'static str, Effect)> {
     vec![
         ("Exposure +1", Effect::Exposure { stops: 1.0 }),
         ("Tint 50%", Effect::Tint { color: [1.0, 0.5, 0.25], amount: 0.5 }),
-        ("Gaussian Blur 4", Effect::GaussianBlur { sigma_px: 4.0, edges: "transparent".into(), dimensions: "both".into() }),
-        ("Gaussian Blur 10", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into(), dimensions: "both".into() }),
-        ("Gaussian Blur 40", Effect::GaussianBlur { sigma_px: 40.0, edges: "transparent".into(), dimensions: "both".into() }),
+        ("Gaussian Blur 4", Effect::GaussianBlur { sigma_px: 4.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
+        ("Gaussian Blur 10", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
+        ("Gaussian Blur 40", Effect::GaussianBlur { sigma_px: 40.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
         ("Line Smooth", Effect::LineSmooth { softness: 50.0, threshold: 16.0 }),
         (
             "Selective Colour Blur 12",
@@ -138,7 +138,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
         ("Colour Key rgb", color_key("rgb")),
         ("Colour Key hue", color_key("hue")),
         // P-20: Repeat Edge Pixels (D-109), which walks every pixel a transparent edge could skip.
-        ("Gaussian Blur 10, edges repeat", Effect::GaussianBlur { sigma_px: 10.0, edges: "repeat".into(), dimensions: "both".into() }),
+        ("Gaussian Blur 10, edges repeat", Effect::GaussianBlur { sigma_px: 10.0, edges: "repeat".into(), dimensions: "both".into(), units: "sigma".into() }),
         ("Directional Blur 100, edges repeat", Effect::DirectionalBlur { direction: 30.0, length: 100.0, edges: "repeat".into() }),
         (
             "Radial Blur zoom 20, edges repeat",
@@ -896,7 +896,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
             Effect::BlockDissolve { completion: 50.0, block_width: 8.0, block_height: 8.0, feather: 4.0 },
         ),
         // D-202: Mix, the given picture laid back under the result.
-        ("Gaussian Blur 10 at Mix 50%", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into(), dimensions: "both".into() }),
+        ("Gaussian Blur 10 at Mix 50%", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
     ]
 }
 

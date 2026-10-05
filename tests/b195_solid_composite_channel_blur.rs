@@ -43,7 +43,7 @@ fn channels(s: [f64; 4], edges: &str, dimensions: &str) -> Effect {
 }
 
 fn gaussian(sigma_px: f64, edges: &str, dimensions: &str) -> Effect {
-    Effect::GaussianBlur { sigma_px, edges: edges.into(), dimensions: dimensions.into() }
+    Effect::GaussianBlur { sigma_px, edges: edges.into(), dimensions: dimensions.into(), units: "sigma".into() }
 }
 
 fn near(got: [f32; 4], want: [f32; 4], what: &str) {

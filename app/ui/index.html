@@ -8227,7 +8227,7 @@ function propLabel(layer, prop) {
   if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
   const [fx, name] = fxParts(layer, prop);
   const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
-  return (fx ? (EFFECT_NAMES[fx.type_id] || fx.type_id) + ' ' : '') + (known ? known[1] : name === 'mix' ? 'Mix' : name);
+  return (fx ? (EFFECT_NAMES[fx.type_id] || fx.type_id) + ' ' : '') + (known ? blurriness(fx, name, known[1]) : name === 'mix' ? 'Mix' : name);
 }
 // B-150c: D-216 stretches a layer's keys with it, so the timeline shows each key on the frame it
 // plays on, `in + (key - in) x stretch / 100`, which at 50% can be half way between two frames,
@@ -9354,7 +9354,7 @@ const EFFECT_GROUPS = [
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
 const EFFECT_SEARCH = {
-  'core.gaussian_blur': 'gaussian fast soften',
+  'core.gaussian_blur': 'gaussian fast soften blurriness',
   'core.directional_blur': 'motion',
   'core.radial_blur': 'zoom spin',
   'core.lens_blur': 'camera bokeh depth focus defocus',
@@ -10011,8 +10011,10 @@ const MAP_CHANNELS = [['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['al
   ['full', 'Full'], ['off', 'Off']];
 const EFFECT_WORDS = {
   // D-303: After Effects' Blur Dimensions; both first, as it starts.
+  // D-321: After Effects' Blurriness, which a new one takes; a file without units is sigma.
   'core.gaussian_blur': { choices: [EDGES, ['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],
-    ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]]] },
+    ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]],
+    ['units', 'Units', [['sigma', 'Sigma (older projects)'], ['blurriness', 'Blurriness (After Effects)']]]] },
   'core.directional_blur': { choices: [EDGES] },
   'core.selective_color_blur': { chosen: () => true },
   // D-89. The colours show only when a glow is based on them, and are kept when it is not.
@@ -11017,6 +11019,11 @@ function fxKeptPaint(k, type) {
 // `at` and `of` are the position in the stack and how tall the stack is, and they are here for
 // the two arrows: ADR-017 evaluates the stack in order and the order is the picture, so a stack
 // built in the wrong order had, until now, to be deleted and typed again.
+// D-321: Gaussian Blur's number is After Effects' Blurriness in those units.
+function blurriness(fx, name, said) {
+  return name === 'sigma_px' && fx.parameters.units === 'blurriness' ? 'Blurriness' : said;
+}
+
 function effectRow(layer, fx, at, of) {
   const box = document.createElement('div');
   box.className = 'effect';
@@ -11162,7 +11169,8 @@ function effectRow(layer, fx, at, of) {
     dragging = false;
     afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end');
   };
-  for (const [name, words, count, step, range, turn, start] of known) {
+  for (const [name, said, count, step, range, turn, start] of known) {
+    const words = blurriness(fx, name, said);
     const dt = document.createElement('dt');
     dt.title = words + ', ' + range;
     // B-19d: the stopwatch a transform's property has, and the ease of a key on this frame.

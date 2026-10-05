@@ -356,7 +356,9 @@ pub enum Effect {
     /// Document 21: "parameter `sigma_px >= 0` ... kernel radius `ceil(3*sigma_px)`."
     /// D-109: `edges`, "transparent" or "repeat", as Directional and Radial Blur have.
     /// D-303: `dimensions`, "both", "horizontal" or "vertical", the axes it blurs along.
-    GaussianBlur { sigma_px: f64, edges: String, dimensions: String },
+    /// D-321: `units`, "sigma" (`sigma_px` is the sigma) or "blurriness" (After Effects'
+    /// Blurriness, [`blur_reach`]).
+    GaussianBlur { sigma_px: f64, edges: String, dimensions: String, units: String },
     /// Document 21: "parameter color is linear RGB and amount `t` in 0..1."
     Tint { color: [f64; 3], amount: f64 },
     /// D-86: "`softness`, 0 to 100 ... and `threshold`, 0 to 255". Document 21's line smoothing.
@@ -2856,7 +2858,10 @@ impl Effect {
             {
                 0
             }
-            Effect::GaussianBlur { sigma_px, .. } => kernel_radius(*sigma_px),
+            Effect::GaussianBlur { sigma_px, units, .. } => {
+                let (sigma, long) = blur_reach(*sigma_px, units);
+                reach_radius(sigma, long)
+            }
             // D-313: the alpha's blur, as Blur's; a colour reaching further has no alpha there.
             Effect::ChannelBlur { alpha_blurriness, edges, .. } if edges != "repeat" => {
                 kernel_radius(*alpha_blurriness)
@@ -3076,9 +3081,13 @@ impl Effect {
             })
         };
         let own = match self {
-            Effect::GaussianBlur { edges: e, dimensions, .. } => edges(e).or_else(|| {
+            Effect::GaussianBlur { edges: e, dimensions, units, .. } => edges(e).or_else(|| {
                 (!["both", "horizontal", "vertical"].contains(&dimensions.as_str())).then(|| {
                     format!("{name}'s dimensions are \"both\", \"horizontal\" or \"vertical\", and this is \"{dimensions}\".")
+                })
+            }).or_else(|| {
+                (!["sigma", "blurriness"].contains(&units.as_str())).then(|| {
+                    format!("{name}'s units are \"sigma\" or \"blurriness\", and this is \"{units}\".")
                 })
             }),
             Effect::DirectionalBlur { edges: e, .. } => edges(e),
@@ -3715,10 +3724,24 @@ fn glow_fault(effect: &Effect) -> Option<String> {
 /// Document 21: "kernel radius `ceil(3*sigma_px)`". Sigma zero gives radius zero, which is the
 /// identity the same document asks for.
 pub fn kernel_radius(sigma_px: f64) -> usize {
+    reach_radius(sigma_px, false)
+}
+
+/// D-321: Gaussian Blur's number as a sigma and whether its kernel takes the long reach. In
+/// "blurriness" it is After Effects' Blurriness, sigma 0.3 B as lottie-web and Skia's Skottie
+/// play After Effects' files; any other word is document 21's sigma.
+pub fn blur_reach(number: f64, units: &str) -> (f64, bool) {
+    if units == "blurriness" { (0.3 * number, true) } else { (number, false) }
+}
+
+/// D-321: the kernel radius, `ceil(6.5 sigma)` with the long reach, else document 21's. Three
+/// sigmas leave the last tap at 1% of the middle one, a straight edge an Exposure after the
+/// blur can show; past 6.5 sigmas the tail weighs under 4e-11.
+pub fn reach_radius(sigma_px: f64, long: bool) -> usize {
     if sigma_px.is_nan() || sigma_px <= 0.0 {
         return 0;
     }
-    (3.0 * sigma_px).ceil() as usize
+    ((if long { 6.5 } else { 3.0 }) * sigma_px).ceil() as usize
 }
 
 /// The separable normalised weights of document 21, index 0 being the sample `radius` pixels
@@ -3730,7 +3753,12 @@ pub fn kernel_radius(sigma_px: f64) -> usize {
 /// realised sum is what makes a flat region survive the blur unchanged, which is the property
 /// the fixture checks first.
 pub fn gaussian_weights(sigma_px: f64) -> Vec<f32> {
-    let radius = kernel_radius(sigma_px);
+    reach_weights(sigma_px, false)
+}
+
+/// D-321: [`gaussian_weights`] out to [`reach_radius`].
+pub fn reach_weights(sigma_px: f64, long: bool) -> Vec<f32> {
+    let radius = reach_radius(sigma_px, long);
     if radius == 0 {
         return vec![1.0];
     }
@@ -3817,14 +3845,16 @@ pub(crate) fn apply_stack_at(
                     tint(source, *color, *amount)
                 })
             }
-            Effect::GaussianBlur { sigma_px, edges, dimensions } => {
+            Effect::GaussianBlur { sigma_px, edges, dimensions, units } => {
                 let axes = (dimensions != "vertical", dimensions != "horizontal");
+                let (sigma, long) = blur_reach(*sigma_px, units);
+                let taps = reach_weights(sigma, long);
                 let r = crate::perf::time(crate::perf::Stage::EffectBlur, || {
                     if edges == "repeat" {
-                        held_blur_axes(source, *sigma_px, axes);
+                        held_blur_axes(source, &taps, axes);
                         0
                     } else {
-                        blur_axes(source, *sigma_px, axes)
+                        blur_axes(source, &taps, axes)
                     }
                 });
                 ox += r;
@@ -5227,12 +5257,11 @@ fn tint(source: &mut WorkingBuffer, color: [f64; 3], amount: f64) {
 /// nothing -- and because the weights are not renormalised for them, an edge fades out rather
 /// than staying artificially bright.
 pub(crate) fn blur(source: &mut WorkingBuffer, sigma_px: f64) -> usize {
-    blur_axes(source, sigma_px, (true, true))
+    blur_axes(source, &gaussian_weights(sigma_px), (true, true))
 }
 
 /// D-303: the taps of an axis not blurred along, which take each pixel as it is.
-fn still_weights(sigma_px: f64) -> Vec<f32> {
-    let r = kernel_radius(sigma_px);
+fn still_weights(r: usize) -> Vec<f32> {
     let mut w = vec![0.0; 2 * r + 1];
     w[r] = 1.0;
     w
@@ -5266,10 +5295,10 @@ fn channel_blur(source: &mut WorkingBuffer, sigma: [f64; 4], repeat: bool, axes:
     let blurred = |s: f64| {
         let mut b = source.clone();
         let r = if repeat {
-            held_blur_axes(&mut b, s, axes);
+            held_blur_axes(&mut b, &gaussian_weights(s), axes);
             0
         } else {
-            blur_axes(&mut b, s, axes)
+            blur_axes(&mut b, &gaussian_weights(s), axes)
         };
         (b, r)
     };
@@ -5300,15 +5329,15 @@ fn channel_blur(source: &mut WorkingBuffer, sigma: [f64; 4], repeat: bool, axes:
 }
 
 /// D-303: [`blur`] along across (`axes.0`), down (`axes.1`) or both. An axis not blurred along
-/// takes [`still_weights`], so the buffer grows the same either way.
-fn blur_axes(source: &mut WorkingBuffer, sigma_px: f64, axes: (bool, bool)) -> usize {
-    let radius = kernel_radius(sigma_px);
+/// takes [`still_weights`], so the buffer grows the same either way. `taps` are the kernel's
+/// weights, [`gaussian_weights`] or D-321's [`reach_weights`].
+pub(crate) fn blur_axes(source: &mut WorkingBuffer, taps: &[f32], axes: (bool, bool)) -> usize {
+    let radius = taps.len() / 2;
     if radius == 0 {
         return 0;
     }
-    let blurred = gaussian_weights(sigma_px);
-    let still = still_weights(sigma_px);
-    let (weights, down) = (if axes.0 { &blurred } else { &still }, if axes.1 { &blurred } else { &still });
+    let still = still_weights(radius);
+    let (weights, down) = (if axes.0 { taps } else { &still[..] }, if axes.1 { taps } else { &still[..] });
     let (w, h) = (source.width(), source.height());
 
     // Horizontal, into a buffer wider by the radius on each side.
@@ -5350,18 +5379,17 @@ fn blur_axes(source: &mut WorkingBuffer, sigma_px: f64, axes: (bool, bool)) -> u
 /// down, a tap reads one whole held row. Each pixel still starts at zero and takes its taps in
 /// ascending order, so the bits are the pixel-at-a-time loop's.
 pub(crate) fn held_blur(source: &mut WorkingBuffer, sigma_px: f64) {
-    held_blur_axes(source, sigma_px, (true, true))
+    held_blur_axes(source, &gaussian_weights(sigma_px), (true, true))
 }
 
-/// D-303: [`held_blur`] along across, down or both, as [`blur_axes`].
-fn held_blur_axes(source: &mut WorkingBuffer, sigma_px: f64, axes: (bool, bool)) {
-    let r = kernel_radius(sigma_px);
+/// D-303: [`held_blur`] along across, down or both, as [`blur_axes`], with its `taps`.
+pub(crate) fn held_blur_axes(source: &mut WorkingBuffer, taps: &[f32], axes: (bool, bool)) {
+    let r = taps.len() / 2;
     if r == 0 {
         return;
     }
-    let blurred = gaussian_weights(sigma_px);
-    let still = still_weights(sigma_px);
-    let (weights, down) = (if axes.0 { &blurred } else { &still }, if axes.1 { &blurred } else { &still });
+    let still = still_weights(r);
+    let (weights, down) = (if axes.0 { taps } else { &still[..] }, if axes.1 { taps } else { &still[..] });
     let (w, h) = (source.width(), source.height());
     let add = |out: &mut [f32], from: &[f32], weight: f32| {
         for (o, &v) in out.iter_mut().zip(from) {

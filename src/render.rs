@@ -327,6 +327,8 @@ pub struct Glow {
     pub screen: bool,
     /// The 8-bit colour every glowing pixel's light takes, if any.
     pub tint: Option<[u8; 3]>,
+    /// D-322: After Effects' radius and strength rather than D-89's.
+    pub after_effects: bool,
 }
 
 /// B-50: a Gaussian Blur's sigma (`effects::blur`), already divided for Draft and large enough
@@ -336,12 +338,14 @@ pub struct Glow {
 pub struct Gaussian {
     pub sigma: f64,
     pub repeat: bool,
+    /// D-321: the long reach of a Gaussian Blur in Blurriness, `effects::reach_radius`.
+    pub long: bool,
 }
 
 impl Gaussian {
     /// How far the drawing grows on each side.
     pub fn grow(&self) -> usize {
-        if self.repeat { 0 } else { crate::effects::kernel_radius(self.sigma) }
+        if self.repeat { 0 } else { crate::effects::reach_radius(self.sigma, self.long) }
     }
 }
 
@@ -620,10 +624,11 @@ fn draw(
                     OnCard::Gaussian(g) => {
                         crate::perf::time(crate::perf::Stage::EffectBlur, || {
                             let source = std::sync::Arc::make_mut(&mut layer.source);
+                            let taps = crate::effects::reach_weights(g.sigma, g.long);
                             if g.repeat {
-                                crate::effects::held_blur(source, g.sigma);
+                                crate::effects::held_blur_axes(source, &taps, (true, true));
                             } else {
-                                crate::effects::blur(source, g.sigma);
+                                crate::effects::blur_axes(source, &taps, (true, true));
                             }
                         });
                     }

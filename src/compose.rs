@@ -979,9 +979,10 @@ fn card_effect(
             render::OnCard::Directional(d)
         }),
         // B-50: a sigma too small to reach a neighbour changes nothing, so it is not left either.
-        crate::effects::Effect::GaussianBlur { sigma_px, edges, .. } => {
-            (crate::effects::kernel_radius(sigma_px) != 0).then(|| {
-                let g = render::Gaussian { sigma: sigma_px, repeat: edges == "repeat" };
+        crate::effects::Effect::GaussianBlur { sigma_px, edges, units, .. } => {
+            let (sigma, long) = crate::effects::blur_reach(sigma_px, &units);
+            (crate::effects::kernel_radius(sigma) != 0).then(|| {
+                let g = render::Gaussian { sigma, repeat: edges == "repeat", long };
                 *offset = (offset.0 + g.grow(), offset.1 + g.grow());
                 render::OnCard::Gaussian(g)
             })
