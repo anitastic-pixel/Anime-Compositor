@@ -5206,6 +5206,7 @@ function paletteLines() {
     ['Hold keys', 'Ctrl+Alt+G', { key: 'g', code: 'KeyG', ctrlKey: true, altKey: true }],
     ['Time-reverse keys', '', () => reverseKeys()],
     ['Freeze frame', '', () => freezeFrame()],
+    ['Enable or remove time remapping', 'Ctrl+Alt+T', { key: 't', code: 'KeyT', ctrlKey: true, altKey: true }],
     ['Show position', 'P', { key: 'p' }],
     ['Show animated properties', 'U', { key: 'u' }],
     ['Timeline or graph', 'Shift+F3', { key: 'F3', shiftKey: true }],
@@ -5343,7 +5344,9 @@ function layerMenu(x, y, first = []) {
     ['Split at playhead', 'Ctrl+Shift+D', splitLayers],
     ['Pre-compose', 'Ctrl+Shift+C', precompose],
     ['Sequence layers', '', sequenceLayers, selection.length > 1],
-    ['Freeze frame', '', freezeFrame, selected() && (selected().exposure_spans || []).length > 0],
+    ['Freeze frame', '', freezeFrame, selected() && ((selected().exposure_spans || []).length > 0
+      || selected().kind === 'composition' || !!selected().time_remap)],
+    ['Enable time remapping', 'Ctrl+Alt+T', timeRemap, selected() && ['raster', 'composition'].includes(selected().kind)],
     // B-24c: a mask over the whole layer, which is what After Effects' double-clicked shape tool
     // makes and what anyone without a mouse needs: the pen and the shape tools are drawn with a
     // hand, and `mask.add` must be reachable without one.
@@ -5388,9 +5391,17 @@ function reverseKeys() {
 }
 
 // D-314: After Effects' Freeze Frame: the chosen drawn layer holds the drawing on the playhead.
+// D-323: a composition layer, or one with a Time Remap, holds it by one hold key on its remap.
 function freezeFrame() {
   const layer = selected();
   if (layer) command('/layer.freeze_frame?layer=' + encodeURIComponent(layer.id) + '&frame=' + frame);
+}
+
+// D-323: After Effects' Enable Time Remapping (Ctrl+Alt+T): on, two keys that keep every frame as
+// it was; off, the remap and its keys gone.
+function timeRemap() {
+  const layer = selected();
+  if (layer) command('/layer.set_time_remap?layer=' + encodeURIComponent(layer.id) + '&on=' + (layer.time_remap ? 0 : 1));
 }
 
 function keyMenu(x, y, first = []) {
@@ -5663,6 +5674,8 @@ function layerGroups(comp, layer) {
     if (groupOpen(layer.id, g)) rows.push(...inside());
   };
   const tracks = (props, depth) => indent(props.flatMap((prop) => propTrack(comp, layer, prop)), depth);
+  // D-323: the Time Remap, in source frames, on its own row as After Effects has it.
+  if (layer.time_remap) rows.push(...tracks(['time_remap'], 1));
   if (masksOf(layer).length && layer.kind !== 'null') group('masks', 'Masks', () => maskGroup(comp, layer));
   if ((layer.shapes || []).length) {
     group('contents', 'Contents', () => [...indent(shapeRows(comp, layer), 1), ...tracks(propsOf(layer).filter(isGrad), 1)]);
@@ -7949,7 +7962,7 @@ const STEP = { anchor: 1, position: 1, position_x: 1, position_y: 1, scale: 1, r
   zoom: 1 };
 
 // What a property's numbers are counted in, where the unit is not pixels.
-const SUFFIX = { rotation: '\u00b0', opacity: '%', depth: ' px', zoom: ' mm' };
+const SUFFIX = { rotation: '\u00b0', opacity: '%', depth: ' px', zoom: ' mm', time_remap: ' f' };
 
 // A number as the file holds it, without exponent notation or a trailing string of zeros from
 // the arithmetic a drag does.
@@ -8114,6 +8127,7 @@ const propOf = (layer, prop) => (isPath(prop) ? { keyframes: maskKeys(pathAt(lay
   : isGrad(prop) ? gradOf(layer, prop)
   : isFx(prop) ? fxOf(layer, prop) : prop === 'depth'
   ? (layer.depth || { base: 0 })
+  : prop === 'time_remap' ? (layer.time_remap || {})
   : halfOf(layer, prop));
 // B-19g: D-69's separated position. The file writes it as `{x, y}`, two properties named
 // `position_x` and `position_y` wherever a property is named. `position` is still asked for by
@@ -8193,7 +8207,7 @@ function maskNumOf(layer, prop) {
 // D-71: an audio layer has no transform and no effects, so it has no properties to open or key.
 const propsOf = (layer) => (layer.id === CAMERA_ROW ? CAMERA_PROPS
   : layer.kind === 'audio' ? []
-  : PROPS.flatMap((prop) => (prop === 'position' && isSplit(layer) ? ['position_x', 'position_y'] : [prop]))
+  : (layer.time_remap ? ['time_remap'] : []).concat(PROPS.flatMap((prop) => (prop === 'position' && isSplit(layer) ? ['position_x', 'position_y'] : [prop])))
     .concat((layer.effects || []).flatMap((fx) => Object.keys(fx.parameters || {}).concat('mix')
     .filter((name) => keysOf(layer, fxName(fx, name)).length || exprOf(layer, fxName(fx, name)))
     .map((name) => fxName(fx, name))))
@@ -8209,6 +8223,7 @@ function propLabel(layer, prop) {
   if (isMaskNum(prop)) return 'Mask ' + prop.split(':')[2];
   if (isGrad(prop)) return ((layer.shapes || [])[prop.split(':')[1]] || {}).name + ' '
     + prop.split(':')[2].replace(/^(fill|stroke)_(start|end)$/, '$1 gradient $2').replace('_', ' ');
+  if (prop === 'time_remap') return 'Time Remap';
   if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
   const [fx, name] = fxParts(layer, prop);
   const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
@@ -8682,6 +8697,14 @@ function drawInspector() {
     mixing.setAttribute('aria-label', 'Frame mix for ' + layer.name + ', drawn when the composition\'s Frame blending is on');
     mixing.onchange = () => command('/layer.toggle_frame_blend' + q);
     dl.lastChild.append(mixing, ' when Frame blending is on');
+    field(dl, 'Time remap', '');
+    const remap = document.createElement('input');
+    remap.id = 'timeremap';
+    remap.type = 'checkbox';
+    remap.checked = !!layer.time_remap;
+    remap.setAttribute('aria-label', 'Time remapping for ' + layer.name + ', Ctrl+Alt+T');
+    remap.onchange = () => command('/layer.set_time_remap' + q + '&on=' + (remap.checked ? 1 : 0));
+    dl.lastChild.append(remap, ' keys the source frame shown (Ctrl+Alt+T)');
     if (layer.kind === 'raster') {
       field(dl, 'Drawing dissolve', '');
       const dissolve = document.createElement('input');
@@ -16096,6 +16119,7 @@ addEventListener('keydown', (e) => {
   }
   // B-24k, D-81: After Effects' Ctrl+T, the free transform box around the chosen points, or around
   // the whole of the mask being worked on when fewer than two are chosen.
+  else if (e.ctrlKey && e.altKey && !typing && e.code === 'KeyT') { e.preventDefault(); timeRemap(); }
   else if (e.ctrlKey && !typing && e.code === 'KeyT') {
     e.preventDefault();
     const owner = selected();

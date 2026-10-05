@@ -969,6 +969,14 @@ D-320 / Polar Coordinates, ellipse or circle / **BUILT on 2026-10-04** (B-201), 
 - The preview card draws both shapes.
 - FX-POLAR-016 to 022 are new, written by `tools/polar_circle_reference.py` before the build had the circle; FX-POLAR-001 to 015 are unchanged. B-201 checks them, the save, the commands, the card, and a 16:9 picture whose ring is as far out across as down.
 
+D-323 / Time Remapping / **BUILT on 2026-10-04** (B-202), from D-308, P-26 and ADR-021: tutorial 1 (the anime ring) speeds its shot through a burst and then plays at real speed with After Effects' Time Remap, and Freeze Frame on a composition layer is one hold key on it; neither existed here (D-314 froze only a drawn layer). **Awaiting the owner's playtest.**
+- A drawn or composition layer may have a **Time Remap**: keys, in source frames, of which source time the layer shows on each frame (document 20). It is its own row under the layer on the timeline, keyed like any other setting, with linear, hold and eased keys.
+- **Enable Time Remapping** (Layer menu, the layer's right-click menu, the inspector's checkbox, Ctrl+Alt+T) writes two keys that change no frame: the source time at the in point and at the last frame. Turning it off takes the remap and its keys away. Each is one step to undo.
+- **Freeze Frame** on a composition layer, or a layer with a Time Remap, replaces the keys by one hold key holding the source time under the playhead.
+- Moving a layer in time moves its remap keys; trimming does not change what a frame shows.
+- A file without a Time Remap draws exactly as before and is saved as it was; a remap is saved as `time_remap`. A Time Remap on a solid, null, adjustment or other layer with no source time, a key that is not one number, or an expression on it, is refused when the file is read (keys only, as ADR-021 says). A key or value while it is off, an expression, and Enable on a solid are refused with a sentence.
+- FX-TREMAP-001 to 055 are new, written by `tools/time_remap_reference.py` before the build had a remap. B-202 checks them, the save, the commands, the move and trim, tiles, and a ball in seventeen drawings played as drawn, burst then real speed, backwards and frozen.
+
 ## Assumptions and change log
 
 A-01: solo development is permanent for planning purposes. A-02: artistic acceptance requires the owner using the tool on a real shot, and cannot be replaced by fixtures. A-03: owner verification is genuine and unhurried; the protocol in document 12 fails if artifacts go unread.

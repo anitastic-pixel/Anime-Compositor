@@ -28,11 +28,11 @@ A layer is active on `[in_frame, out_frame)`. Its integer local frame is:
 
 `local_frame = composition_frame - in_frame + source_offset_frames`
 
-A layer with a `time_stretch` other than 100 (D-216) reads its source and its keys at a time that may fall between two local frames; see Time stretch, frame blending and the drawing dissolve below.
+A layer with a `time_stretch` other than 100 (D-216) reads its source and its keys at a time that may fall between two local frames; see Time stretch, frame blending and the drawing dissolve below. A layer with a `time_remap` (D-323) reads its source at the time its remap keys give; see Time remapping below.
 
 Frames outside the active interval produce transparent output and do not request media. Moving a layer changes `in_frame/out_frame` and moves every keyframe on the layer by the same number of frames (owner decision, 2026-09-13); trimming and changing source offset are distinct commands.
 
-A composition layer (D-67, accepted on 2026-09-18) shows its composition at `local_frame`, by the same formula; outside that composition's own `[start_frame, start_frame + duration_frames)` the layer's picture is transparent (FX-PRE-006, FX-PRE-007). Frame numbers pass between the two, not seconds: the two compositions' rates are not compared, and time remapping is not proposed.
+A composition layer (D-67, accepted on 2026-09-18) shows its composition at `local_frame`, by the same formula; outside that composition's own `[start_frame, start_frame + duration_frames)` the layer's picture is transparent (FX-PRE-006, FX-PRE-007). Frame numbers pass between the two, not seconds: the two compositions' rates are not compared. Time remapping (D-323, below) changes which inner frame is shown, never this rule.
 
 ## Exposure evaluation
 
@@ -114,7 +114,7 @@ The camera, specified by D-58 and built by B-13c, is evaluated the same way and 
 
 Expressions, accepted by D-59 on 2026-09-16, are part of step 6. A property with an enabled expression is its keyed value put through the expression at the same composition frame, and that result is what every later step, parent and camera reads. An expression may read another property at another whole frame through `valueAtTime`; it never reads a sub-frame, and it never changes which drawing an exposure holds. Dependencies between expressions are resolved at evaluation and bounded by document 09, not sorted in advance.
 
-Mattes create dependencies but not a second time domain: matte layers evaluate at the same composition frame unless later time-remapping is explicitly introduced.
+Mattes create dependencies but not a second time domain: matte layers evaluate at the same composition frame. A remapped matte layer reads its own source by its own remap at that frame, as any layer does; the matte's time is not the matted layer's.
 
 ### Motion blur
 
@@ -148,6 +148,18 @@ Trimming the in point of a stretched layer by `d` frames must leave every surviv
 
 Echo, Posterize Time and a layer setting read a layer's source by its own timing, and so read this same `t`. The Time Stretch command keeps the in point and sets the out point to `in_frame + max(1, round_half_away((out_frame - in_frame) * new / old))`, as one undo entry, and moves no stored key (FX-FBLEND-040 to 045).
 
+### Time remapping
+
+**Accepted by the owner with ADR-021 and D-308 on 2026-10-04; built as D-323.** FX-TREMAP-001 to 055 in document 25 are its cases. A raster or composition layer may carry `time_remap`, a property holding one number of source frames, keyed like any other with hold, linear and eased keys; absent means off, and the layer plays as above, bit for bit. A file with a `time_remap` on any other kind of layer, a pair of numbers in it, or an expression on it is refused (FX-TREMAP-050 to 055).
+
+When it is present, the source time at composition frame `n`, inside the in and out points, is
+
+`t = time_remap(u)`,
+
+read at the key time `u` of the section above, so a stretch stretches the remap keys too (FX-TREMAP-007, 017). `source_offset_frames` is not used (FX-TREMAP-009, 018). A `t` within 1e-9 of a whole number is that whole number, so a straight line of keys never lands a hair short of a drawing (FX-TREMAP-030). Then `f = floor(t)`, `w = t - f`, `P(f)`, Frame Mix and the end of the source are exactly the section above's, and a `t` before the source's start or past its end shows nothing (FX-TREMAP-001 to 019).
+
+Enable Time Remapping (Layer menu, Ctrl+Alt+T) writes two linear keys that keep every frame's picture: at `in_frame` the value `source_offset_frames`, and at `k = max(in_frame + 1, ceil(u(out_frame - 1)))` the value `k - in_frame + source_offset_frames` (FX-TREMAP-040 to 044). Turning it off removes the property and its keys. Freeze Frame on a composition layer, or on a layer that already has a remap, writes one hold key at `round_half_away(u(n))` holding the source time at the playhead, and removes any other remap keys (FX-TREMAP-045 to 047); a raster layer without a remap keeps D-314's freeze. Each is one undo entry. The remap keys move with the layer and with an in-point trim, like the layer's other keys (FX-TREMAP-048); a remap value or key cannot be set while the remap is off.
+
 ## Rounding and conversions
 
 UI time entry in seconds converts to the nearest frame using round-half-away-from-zero unless the command explicitly requests floor/ceil semantics. Timecode display never changes stored frame identity.
@@ -162,6 +174,6 @@ Given the same project snapshot, frame index, media bytes and implementation ver
 
 ## Extension boundary
 
-Audio sample time is set by ADR-018 and D-71, accepted on 2026-09-19, with FX-AUD-001 to 008 as its fixtures: it adds a sum from whole frames to whole samples and changes nothing above. Motion blur was added by ADR-019 and D-188, which the owner accepted on 2026-09-28, with FX-MB-001 to 050 as its fixtures, under Motion blur above. Time stretch, Frame Mix frame blending and the drawing dissolve were added by ADR-020 and D-216, which the owner accepted on 2026-09-29, with FX-FBLEND-001 to 067 as their fixtures, under Time stretch, frame blending and the drawing dissolve above. Retiming curves (time remapping), optical flow (Pixel Motion), playing backwards and arbitrary subframe keyframes are outside G1. Adding them requires an ADR and new fixtures so the integer-frame contract is not retroactively reinterpreted.
+Audio sample time is set by ADR-018 and D-71, accepted on 2026-09-19, with FX-AUD-001 to 008 as its fixtures: it adds a sum from whole frames to whole samples and changes nothing above. Motion blur was added by ADR-019 and D-188, which the owner accepted on 2026-09-28, with FX-MB-001 to 050 as its fixtures, under Motion blur above. Time stretch, Frame Mix frame blending and the drawing dissolve were added by ADR-020 and D-216, which the owner accepted on 2026-09-29, with FX-FBLEND-001 to 067 as their fixtures, under Time stretch, frame blending and the drawing dissolve above. Time remapping was added by ADR-021 and D-308, which the owner accepted on 2026-10-04, built as D-323, with FX-TREMAP-001 to 055 as its fixtures, under Time remapping above. Optical flow (Pixel Motion), a negative stretch and arbitrary subframe keyframes are outside G1. Adding them requires an ADR and new fixtures so the integer-frame contract is not retroactively reinterpreted.
 
 Related documents: 07, 19, 21 and 25.

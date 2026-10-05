@@ -472,6 +472,9 @@ pub enum Prop {
     /// position is separated; [`Transform::get`] answers `None` otherwise.
     PositionX,
     PositionY,
+    /// D-323: a raster or composition layer's Time Remap, which lives on the layer as depth
+    /// does. [`Transform::get`] answers `None` for it.
+    TimeRemap,
 }
 
 impl Prop {
@@ -486,6 +489,7 @@ impl Prop {
             Prop::Zoom => "zoom",
             Prop::PositionX => "position_x",
             Prop::PositionY => "position_y",
+            Prop::TimeRemap => "time_remap",
         }
     }
 
@@ -498,7 +502,8 @@ impl Prop {
             | Prop::Depth
             | Prop::Zoom
             | Prop::PositionX
-            | Prop::PositionY => "scalar",
+            | Prop::PositionY
+            | Prop::TimeRemap => "scalar",
         }
     }
 }
@@ -550,7 +555,7 @@ impl Transform {
             Prop::Opacity => Some(&self.opacity),
             Prop::PositionX => self.position.split().map(|s| &s.0),
             Prop::PositionY => self.position.split().map(|s| &s.1),
-            Prop::Depth | Prop::Zoom => None,
+            Prop::Depth | Prop::Zoom | Prop::TimeRemap => None,
         }
     }
 
@@ -563,7 +568,7 @@ impl Transform {
             Prop::Opacity => Some(&mut self.opacity),
             Prop::PositionX => self.position.split_mut().map(|s| &mut s.0),
             Prop::PositionY => self.position.split_mut().map(|s| &mut s.1),
-            Prop::Depth | Prop::Zoom => None,
+            Prop::Depth | Prop::Zoom | Prop::TimeRemap => None,
         }
     }
 
@@ -915,6 +920,9 @@ pub struct Layer {
     /// D-216: frames, 0 to 100, each hold of a raster layer fades into the next drawing over.
     /// Saved as `drawing_dissolve` only when not 0.
     pub drawing_dissolve: u32,
+    /// D-323: a raster or composition layer's Time Remap, the source frame it shows, keyed and
+    /// read at the key time; `None` is off. Saved as `time_remap` only when on.
+    pub time_remap: Option<Property>,
 }
 
 /// D-84: which column of which timesheet a layer's exposures were read from.
@@ -967,6 +975,7 @@ impl Layer {
             time_stretch: 100.0,
             frame_blend: false,
             drawing_dissolve: 0,
+            time_remap: None,
         }
     }
 
@@ -1141,8 +1150,15 @@ impl Layer {
 
     /// D-216: document 20's source time `t = (n - in) * 100 / stretch + offset` at composition
     /// frame `n`, or `None` outside the in and out points. At 100 it is the local frame exactly.
+    /// D-323: with a Time Remap, `t` is the remap read at the key time instead, a hair from whole
+    /// taken as whole (FX-TREMAP-030).
     pub fn source_time(&self, n: i32) -> Option<f64> {
         let local = self.timing().local_frame(n)?;
+        if let Some(remap) = &self.time_remap {
+            let t = remap.value_at_time(self.key_time(n as f64)).as_scalar()?;
+            let whole = t.round();
+            return Some(if (t - whole).abs() <= 1e-9 { whole } else { t });
+        }
         if self.time_stretch == 100.0 {
             return Some(local as f64);
         }

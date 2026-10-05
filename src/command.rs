@@ -60,6 +60,17 @@ impl Target {
     }
 }
 
+/// D-323: what Enable Time Remapping and Freeze Frame do to a layer's Time Remap.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum TimeRemap {
+    /// Removed, with its keys.
+    Off,
+    /// Two linear keys that leave every frame as it was (FX-TREMAP-040 to 044).
+    On,
+    /// One hold key holding the source time at this composition frame (FX-TREMAP-045 to 047).
+    Freeze(i32),
+}
+
 /// One user action. Document 26 requires a stable command ID and a human-readable label on
 /// every history record; both are derived from the variant rather than passed in, so a caller
 /// cannot mislabel history.
@@ -155,6 +166,12 @@ pub enum Command {
         composition: Id,
         layer_id: Id,
         value: f64,
+    },
+    /// D-323: a drawn or composition layer's Time Remap turned on, off, or frozen at a frame.
+    SetTimeRemap {
+        composition: Id,
+        layer_id: Id,
+        value: TimeRemap,
     },
     /// D-216: a drawn or composition layer's Frame Mix switch.
     SetLayerFrameBlend {
@@ -592,6 +609,7 @@ impl Command {
             Command::SetLayerShy { .. } => "SET_LAYER_SHY",
             Command::SetLayerMotionBlur { .. } => "SET_LAYER_MOTION_BLUR",
             Command::SetLayerTimeStretch { .. } => "SET_LAYER_TIME_STRETCH",
+            Command::SetTimeRemap { .. } => "SET_TIME_REMAP",
             Command::SetLayerFrameBlend { .. } => "SET_LAYER_FRAME_BLEND",
             Command::SetDrawingDissolve { .. } => "SET_DRAWING_DISSOLVE",
             Command::SetFrameBlending { .. } => "SET_FRAME_BLENDING",
@@ -752,6 +770,11 @@ impl Command {
                 false => "Turn off the layer's motion blur".to_string(),
             },
             Command::SetLayerTimeStretch { value, .. } => format!("Stretch the layer to {value}%"),
+            Command::SetTimeRemap { value, .. } => match value {
+                TimeRemap::On => "Enable time remapping".to_string(),
+                TimeRemap::Off => "Remove time remapping".to_string(),
+                TimeRemap::Freeze(n) => format!("Freeze the layer at frame {n}"),
+            },
             Command::SetLayerFrameBlend { value, .. } => match value {
                 true => "Turn on the layer's frame mix".to_string(),
                 false => "Turn off the layer's frame mix".to_string(),
@@ -957,6 +980,7 @@ impl Command {
             | Command::SetLayerShy { composition, .. }
             | Command::SetLayerMotionBlur { composition, .. }
             | Command::SetLayerTimeStretch { composition, .. }
+            | Command::SetTimeRemap { composition, .. }
             | Command::SetLayerFrameBlend { composition, .. }
             | Command::SetDrawingDissolve { composition, .. }
             | Command::SetFrameBlending { composition, .. }
@@ -1042,6 +1066,7 @@ impl Command {
             | Command::SetLayerShy { layer_id, .. }
             | Command::SetLayerMotionBlur { layer_id, .. }
             | Command::SetLayerTimeStretch { layer_id, .. }
+            | Command::SetTimeRemap { layer_id, .. }
             | Command::SetLayerFrameBlend { layer_id, .. }
             | Command::SetDrawingDissolve { layer_id, .. }
             | Command::RenameLayer { layer_id, .. }
@@ -1225,6 +1250,7 @@ impl Command {
             | Command::SetLayerShy { layer_id, .. }
             | Command::SetLayerMotionBlur { layer_id, .. }
             | Command::SetLayerTimeStretch { layer_id, .. }
+            | Command::SetTimeRemap { layer_id, .. }
             | Command::SetLayerFrameBlend { layer_id, .. }
             | Command::SetDrawingDissolve { layer_id, .. }
             | Command::SetMatte { layer_id, .. }
@@ -2432,6 +2458,43 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             layer.out_frame = layer.in_frame + (length.round() as i32).max(1);
             layer.time_stretch = *value;
         }
+        Command::SetTimeRemap {
+            layer_id, value, ..
+        } => {
+            let layer = timed_mut(project, &comp_id, layer_id, false)?;
+            let key = |frame: i32, value: f64, interp: Interp| crate::model::Keyframe {
+                frame,
+                value: Value::Scalar(value),
+                interp,
+                spatial: None,
+                kind: Kind::default(),
+                roving: false,
+            };
+            layer.time_remap = match *value {
+                TimeRemap::Off => None,
+                // Document 20: the offset at the in point, and at the first whole key time at or
+                // past the last frame's, the same line on, so every frame keeps its picture.
+                TimeRemap::On => {
+                    let (i, o) = (layer.in_frame, layer.source_offset_frames);
+                    let k = (layer.key_time((layer.out_frame - 1) as f64).ceil() as i32).max(i + 1);
+                    let mut remap = crate::model::Property::constant(Value::Scalar(o as f64));
+                    remap.set_keyframe(key(i, o as f64, Interp::Linear));
+                    remap.set_keyframe(key(k, (k - i + o) as f64, Interp::Linear));
+                    Some(remap)
+                }
+                TimeRemap::Freeze(n) => {
+                    let Some(t) = layer.source_time(n) else {
+                        return Err(reject(
+                            &format!("\"{}\" is not on screen at frame {n}.", layer.name),
+                            "D-323: a layer freezes on a frame it shows.",
+                        ));
+                    };
+                    let mut remap = crate::model::Property::constant(Value::Scalar(t));
+                    remap.set_keyframe(key(layer.key_frame_at(n), t, Interp::Hold));
+                    Some(remap)
+                }
+            };
+        }
         Command::SetLayerFrameBlend {
             layer_id, value, ..
         } => {
@@ -2740,6 +2803,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             if let Some(depth) = &mut layer.depth {
                 depth.shift_keyframes(by);
             }
+            // D-323: and its Time Remap, keyed in the same composition frames (FX-TREMAP-048).
+            if let Some(remap) = &mut layer.time_remap {
+                remap.shift_keyframes(by);
+            }
             // D-68: and the keys of its effects' settings, for the same reason.
             for instance in &mut layer.effects {
                 instance.shift_keys(by);
@@ -2797,6 +2864,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 if let Some(depth) = &mut layer.depth {
                     depth.shift_keyframes(d - x);
                 }
+                if let Some(remap) = &mut layer.time_remap {
+                    remap.shift_keyframes(d - x);
+                }
                 for instance in &mut layer.effects {
                     instance.shift_keys(d - x);
                 }
@@ -2825,6 +2895,12 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             expression,
             ..
         } => {
+            if *prop == Prop::TimeRemap && expression.is_some() {
+                return Err(reject(
+                    "Time Remap cannot carry an expression.",
+                    "D-323: a Time Remap is keys only.",
+                ));
+            }
             property_mut(project, &comp_id, target, *prop)?.set_expression(expression.clone());
         }
         Command::SetKeyframe {
@@ -3812,6 +3888,12 @@ fn property_mut<'a>(
         Prop::Depth => Ok(layer
             .depth
             .get_or_insert_with(|| crate::model::Property::constant(Value::Scalar(0.0)))),
+        Prop::TimeRemap => layer.time_remap.as_mut().ok_or_else(|| {
+            reject(
+                "Time Remapping is off on this layer: turn it on first.",
+                "D-323: Layer > Enable Time Remapping writes the Time Remap's first two keys.",
+            )
+        }),
         _ => layer.transform.get_mut(prop).ok_or_else(|| {
             reject(
                 &format!("{prop} is not a property this layer holds."),
@@ -3833,7 +3915,8 @@ fn camera_prop(prop: Prop) -> Option<crate::model::CameraProp> {
         | Prop::Rotation
         | Prop::Opacity
         | Prop::PositionX
-        | Prop::PositionY => None,
+        | Prop::PositionY
+        | Prop::TimeRemap => None,
     }
 }
 

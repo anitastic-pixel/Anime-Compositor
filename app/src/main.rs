@@ -43,7 +43,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anime_compositor::cache::{CelCache, Finished, FrameCache, Sight};
-use anime_compositor::command::{Command, Document, Target};
+use anime_compositor::command::{Command, Document, Target, TimeRemap};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
@@ -831,6 +831,11 @@ fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) ->
                             w => serde_json::json!(w),
                         },
                     );
+                    // D-323: and the Time Remap, read at the key time as it is drawn.
+                    if let Some(remap) = &layer.time_remap {
+                        let t = remap.value_at_time(layer.key_time(frame as f64));
+                        at.insert("time_remap".to_string(), serde_json::json!(t.as_scalar()));
+                    }
                     // B-19d: and every keyed setting of its effects, under the name the page
                     // gives it, for the reason the depth is here. D-291: and every one with an
                     // expression, after it, with the reason beside one that fails.
@@ -2511,6 +2516,8 @@ fn property(name: &str) -> Option<Prop> {
         // has neither, and the core says so.
         Prop::PositionX,
         Prop::PositionY,
+        // D-323: a Time Remap, keyed through the same routes; the core refuses it while it is off.
+        Prop::TimeRemap,
     ]
     .into_iter()
     .find(|p| p.as_str() == name)
@@ -2527,6 +2534,7 @@ fn property_of(layer: &Layer, prop: Prop) -> anime_compositor::model::Property {
         || anime_compositor::model::Property::constant(Value::Scalar(0.0));
     match prop {
         Prop::Depth => layer.depth.clone().unwrap_or_else(plane_zero),
+        Prop::TimeRemap => layer.time_remap.clone().unwrap_or_else(plane_zero),
         _ => layer
             .transform
             .get(prop)
@@ -5110,6 +5118,7 @@ const ANSWERS: &[&str] = &[
     "layer.set_matte",
     "layer.set_matte_mode",
     "layer.set_parent",
+    "layer.set_time_remap",
     "layer.set_time_stretch",
     "layer.shift",
     "layer.split",
@@ -7814,9 +7823,29 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         value,
                     }
                 }
+                // D-323: After Effects' Enable Time Remapping, on (`on=1`) or off (`on=0`).
+                "layer.set_time_remap" => Command::SetTimeRemap {
+                    composition,
+                    layer_id,
+                    value: match parameter(query, "on").as_deref() {
+                        Some("1") => TimeRemap::On,
+                        Some("0") => TimeRemap::Off,
+                        _ => return Some("Say on=1 to turn Time Remapping on or on=0 to turn it off.".to_string()),
+                    },
+                },
                 // D-314: After Effects' Freeze Frame, for a drawn layer: the drawing on the
-                // playhead held for the whole layer, as one entry to undo. A composition layer is
-                // frozen by Time Remapping, which is D-308's and not built.
+                // playhead held for the whole layer, as one entry to undo. D-323: a composition
+                // layer, or one with a Time Remap, is frozen by one hold key on its Time Remap.
+                "layer.freeze_frame" if layer.composition_id.is_some() || layer.time_remap.is_some() => {
+                    match frame_parameter(query, "frame") {
+                        Ok(frame) => Command::SetTimeRemap {
+                            composition,
+                            layer_id,
+                            value: TimeRemap::Freeze(frame),
+                        },
+                        Err(said) => return Some(said),
+                    }
+                }
                 "layer.freeze_frame" => {
                     use anime_compositor::time::ExposureMap;
                     let frame = match frame_parameter(query, "frame") {
@@ -7825,8 +7854,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     };
                     if layer.exposure_spans.is_empty() {
                         return Some(format!(
-                            "{} has no drawings to hold. Freeze Frame holds a drawn layer's \
-                             drawing; a composition layer needs Time Remapping, which is not built.",
+                            "{} has no drawings to hold. Freeze Frame holds a drawn or \
+                             composition layer's picture.",
                             layer.name
                         ));
                     }
@@ -26132,6 +26161,7 @@ mod contract {
         "layer.set_matte",
         "layer.set_matte_mode",
         "layer.set_parent",
+        "layer.set_time_remap",
         "layer.set_time_stretch",
         "layer.shift",
         "layer.split",
@@ -26604,6 +26634,8 @@ mod contract {
         // D-216, accepted on 2026-09-29 and built by B-150b.
         ("layer.toggle_frame_blend", "a command the window answers"),
         ("layer.set_time_stretch", "a command the window answers"),
+        // D-323, from D-308: Enable Time Remapping.
+        ("layer.set_time_remap", "a command the window answers"),
         // D-314, from D-309: Freeze Frame.
         ("layer.freeze_frame", "a command the window answers"),
         ("layer.set_drawing_dissolve", "a command the window answers"),
@@ -27512,6 +27544,8 @@ mod contract {
             "composition.set_frame_blending?enabled=true",
             "layer.toggle_frame_blend?layer=layer-3",
             "layer.set_time_stretch?layer=layer-3&value=200",
+            // D-323: and a Time Remap, written only when on.
+            "layer.set_time_remap?layer=layer-3&on=1",
             "layer.set_drawing_dissolve?layer=layer-3&frames=2",
             "layer.set_parent?layer=layer-3&parent=layer-2&frame=0",
             "layer.set_depth?layer=layer-3&depth=640",

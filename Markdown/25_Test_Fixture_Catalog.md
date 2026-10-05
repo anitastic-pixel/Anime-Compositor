@@ -198904,6 +198904,260 @@ Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-FBLEND-012's file wi
 - FX-FBLEND-062: Frame blending on an adjustment layer.
 - FX-FBLEND-063: A drawing dissolve on a composition layer, which has no exposure of its own.
 
+## Time remapping fixtures
+
+**D-323, from D-308 and ADR-021, accepted by the owner on 2026-10-04 (B-202).** The projects are in `Fixtures/time_remap/`. The pixel cases are a composition 8 by 1 at 24 fps holding one raster or composition layer at (0, 0), with the three drawings of the frame blending fixtures, 8 by 1, in `Fixtures/time_remap/media/`. A Time Remap is a keyable number, `time_remap`, in source frames; at composition frame n the layer shows the source time t = R(u), the remap read at the key time u, with t within 1e-9 of a whole frame taken as that frame (document 20).
+
+**Every number below is produced by `tools/time_remap_reference.py`**, which reads the very project files it writes and draws each frame pixel by pixel from documents 20 and 21, without the build's code. The same numbers are in `Fixtures/time_remap/expected_time_remap.json`. Tolerance 1e-12 for the times, 1e-6 for the pixels.
+
+Times. For each frame n, the source time t, its whole frame f, the share w of the next, and the key time u at which the remap is read.
+
+| case | stretch | in | remap keys | n | t | f | w | u |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| FX-TREMAP-001 | 100 | 0 | 0 at 0, 11 at 11 | 0 | 0 | 0 | 0 | 0 |
+| FX-TREMAP-001 | 100 | 0 | 0 at 0, 11 at 11 | 3 | 3 | 3 | 0 | 3 |
+| FX-TREMAP-001 | 100 | 0 | 0 at 0, 11 at 11 | 11 | 11 | 11 | 0 | 11 |
+| FX-TREMAP-002 | 100 | 0 | 0 at 0, 11 at 6 | 0 | 0 | 0 | 0 | 0 |
+| FX-TREMAP-002 | 100 | 0 | 0 at 0, 11 at 6 | 3 | 5.5 | 5 | 0.5 | 3 |
+| FX-TREMAP-002 | 100 | 0 | 0 at 0, 11 at 6 | 6 | 11 | 11 | 0 | 6 |
+| FX-TREMAP-002 | 100 | 0 | 0 at 0, 11 at 6 | 9 | 11 | 11 | 0 | 9 |
+| FX-TREMAP-003 | 100 | 0 | 0 at 0, 8 at 4, 16 at 12 | 0 | 0 | 0 | 0 | 0 |
+| FX-TREMAP-003 | 100 | 0 | 0 at 0, 8 at 4, 16 at 12 | 2 | 4 | 4 | 0 | 2 |
+| FX-TREMAP-003 | 100 | 0 | 0 at 0, 8 at 4, 16 at 12 | 4 | 8 | 8 | 0 | 4 |
+| FX-TREMAP-003 | 100 | 0 | 0 at 0, 8 at 4, 16 at 12 | 8 | 12 | 12 | 0 | 8 |
+| FX-TREMAP-003 | 100 | 0 | 0 at 0, 8 at 4, 16 at 12 | 11 | 15 | 15 | 0 | 11 |
+| FX-TREMAP-004 | 100 | 0 | 5 at 3 (hold) | 0 | 5 | 5 | 0 | 0 |
+| FX-TREMAP-004 | 100 | 0 | 5 at 3 (hold) | 3 | 5 | 5 | 0 | 3 |
+| FX-TREMAP-004 | 100 | 0 | 5 at 3 (hold) | 9 | 5 | 5 | 0 | 9 |
+| FX-TREMAP-005 | 100 | 0 | 11 at 0, 0 at 11 | 0 | 11 | 11 | 0 | 0 |
+| FX-TREMAP-005 | 100 | 0 | 11 at 0, 0 at 11 | 5 | 6 | 6 | 0 | 5 |
+| FX-TREMAP-005 | 100 | 0 | 11 at 0, 0 at 11 | 11 | 0 | 0 | 0 | 11 |
+| FX-TREMAP-006 | 100 | 0 | 2 at 0 (hold), 9 at 6 | 0 | 2 | 2 | 0 | 0 |
+| FX-TREMAP-006 | 100 | 0 | 2 at 0 (hold), 9 at 6 | 5 | 2 | 2 | 0 | 5 |
+| FX-TREMAP-006 | 100 | 0 | 2 at 0 (hold), 9 at 6 | 6 | 9 | 9 | 0 | 6 |
+| FX-TREMAP-006 | 100 | 0 | 2 at 0 (hold), 9 at 6 | 8 | 9 | 9 | 0 | 8 |
+| FX-TREMAP-007 | 200 | 0 | 0 at 0, 8 at 4 | 0 | 0 | 0 | 0 | 0 |
+| FX-TREMAP-007 | 200 | 0 | 0 at 0, 8 at 4 | 1 | 1 | 1 | 0 | 0.5 |
+| FX-TREMAP-007 | 200 | 0 | 0 at 0, 8 at 4 | 2 | 2 | 2 | 0 | 1 |
+| FX-TREMAP-007 | 200 | 0 | 0 at 0, 8 at 4 | 8 | 8 | 8 | 0 | 4 |
+| FX-TREMAP-007 | 200 | 0 | 0 at 0, 8 at 4 | 10 | 8 | 8 | 0 | 5 |
+| FX-TREMAP-008 | 100 | 0 | 0 at 0 (ease), 8 at 8 | 0 | 0 | 0 | 0 | 0 |
+| FX-TREMAP-008 | 100 | 0 | 0 at 0 (ease), 8 at 8 | 2 | 1.25 | 1 | 0.25 | 2 |
+| FX-TREMAP-008 | 100 | 0 | 0 at 0 (ease), 8 at 8 | 4 | 4 | 4 | 0 | 4 |
+| FX-TREMAP-008 | 100 | 0 | 0 at 0 (ease), 8 at 8 | 6 | 6.75 | 6 | 0.75 | 6 |
+| FX-TREMAP-008 | 100 | 0 | 0 at 0 (ease), 8 at 8 | 8 | 8 | 8 | 0 | 8 |
+| FX-TREMAP-009 | 100 | 3 | 0 at 3, 6 at 9 | 3 | 0 | 0 | 0 | 3 |
+| FX-TREMAP-009 | 100 | 3 | 0 at 3, 6 at 9 | 6 | 3 | 3 | 0 | 6 |
+| FX-TREMAP-009 | 100 | 3 | 0 at 3, 6 at 9 | 9 | 6 | 6 | 0 | 9 |
+| FX-TREMAP-030 | 100 | 0 | 0 at 0, 49 at 49 | 0 | 0 | 0 | 0 | 0 |
+| FX-TREMAP-030 | 100 | 0 | 0 at 0, 49 at 49 | 1 | 1 | 1 | 0 | 1 |
+| FX-TREMAP-030 | 100 | 0 | 0 at 0, 49 at 49 | 49 | 49 | 49 | 0 | 49 |
+
+FX-TREMAP-001: Keys 0 at 0 and 11 at 11: t is n, as with no remap.
+
+FX-TREMAP-002: Keys 0 at 0 and 11 at 6: twelve frames of source in six, then held on 11.
+
+FX-TREMAP-003: Tutorial 1's burst then real speed: 0 at 0, 8 at 4, 16 at 12; two frames of source a frame, then one.
+
+FX-TREMAP-004: One key, 5 at 3: every frame is source frame 5, a freeze.
+
+FX-TREMAP-005: 11 at 0 and 0 at 11: backwards.
+
+FX-TREMAP-006: A hold key, 2 at 0, then 9 at 6: 2 until frame 6, then 9.
+
+FX-TREMAP-007: Stretch 200, keys 0 at 0 and 8 at 4: the keys are read at u = n / 2, so t is n until u passes 4.
+
+FX-TREMAP-008: Easy ease from 0 at 0 to 8 at 8: slow, fast, slow.
+
+FX-TREMAP-009: In 3 and an offset of 5: the offset is not used, 0 at 3 and 6 at 9 give t = n - 3.
+
+FX-TREMAP-030: 0 at 0 and 49 at 49: at frame 1 the straight line lands at 0.9999999999999999 in 64-bit numbers, within 1e-9 of 1, so t is 1 and the drawing is frame 1's.
+
+Pictures. Each value is a pixel's red, green, blue and covering, linear and premultiplied; `says` is what the frame reports.
+
+FX-TREMAP-010 (`fx_tremap_010.json`): The drawings on twos with keys 0 at 0 and 5 at 5: red, red, blue, blue, green, green, as without a remap.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-TREMAP-011 (`fx_tremap_011.json`): One key, 2 at 0: frozen on source frame 2, blue, all six frames.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+
+FX-TREMAP-012 (`fx_tremap_012.json`): A composition layer whose inner dot moves a pixel a frame, keys 0 at 0, 4 at 2 and 7 at 5: the dot moves two pixels a frame, then one, then stops at the inner composition's last frame.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+
+FX-TREMAP-013 (`fx_tremap_013.json`): The same layer backwards, 7 at 0 and 0 at 7: the dot moves left.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+
+FX-TREMAP-014 (`fx_tremap_014.json`): The drawings on twos slowed by keys 0 at 0 and 4 at 8, both frame blending switches on: frames 3 and 7 fall half way between two drawings and are half of each.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0.5 0 0 0.5 | 0.5 0 0 0.5 | 0.5 0 0.5 1 | 0.5 0 0.5 1 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0.5 0.5 | 0 0 0.5 0.5 | 0 0.5 0.5 1 | 0 0.5 0.5 1 | 0 0.5 0 0.5 | 0 0.5 0 0.5 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-TREMAP-015 (`fx_tremap_015.json`): The same with the layer's frame blending off: each source time rounds down, each drawing held four frames.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 1 0 0 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | 0 1 0 1 | - |
+
+FX-TREMAP-016 (`fx_tremap_016.json`): Keys -2 at 0 and 10 at 12: before the inner composition starts and after it ends the layer is clear.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+
+FX-TREMAP-017 (`fx_tremap_017.json`): Stretch 200 and keys 0 at 0 and 8 at 4: read at half the frame, the dot moves a pixel a frame as with no remap and no stretch.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+
+FX-TREMAP-018 (`fx_tremap_018.json`): In 3, offset 5, keys 0 at 3 and 6 at 9: the offset is not used.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 8 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | - |
+| 9 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 10 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 11 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+
+FX-TREMAP-019 (`fx_tremap_019.json`): Easy ease from 0 at 0 to 7 at 7: the dot starts slow and ends slow; each source time rounds down.
+
+| frame | x = 0 | x = 1 | x = 2 | x = 3 | x = 4 | x = 5 | x = 6 | x = 7 | says |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 1 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 2 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 3 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | - |
+| 4 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | 0 0 0 0 | - |
+| 5 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | 0 0 0 0 | - |
+| 6 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+| 7 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 0 0 0 0 | 1 1 1 1 | 1 1 1 1 | - |
+
+Commands. Enable Time Remapping writes two keys that change no frame; Freeze Frame writes one hold key; moving the layer moves the keys. Each is one step to undo.
+
+| case | layer | before | the keys after |
+| --- | --- | --- | --- |
+| FX-TREMAP-040 | in 0, out 12, offset 0, stretch 100 | Enable Time Remapping | 0 at 0, 11 at 11 |
+| FX-TREMAP-041 | in 5, out 20, offset 3, stretch 100 | Enable Time Remapping | 3 at 5, 17 at 19 |
+| FX-TREMAP-042 | in 0, out 12, offset 0, stretch 200 | Enable Time Remapping | 0 at 0, 6 at 6 |
+| FX-TREMAP-043 | in 0, out 6, offset 0, stretch 50 | Enable Time Remapping | 0 at 0, 10 at 10 |
+| FX-TREMAP-044 | in 4, out 5, offset 2, stretch 100 | Enable Time Remapping | 2 at 4, 3 at 5 |
+| FX-TREMAP-045 | in 0, out 12, offset 0, stretch 100 | keys none; Freeze Frame at 5 | 5 at 5 (hold) |
+| FX-TREMAP-046 | in 0, out 12, offset 0, stretch 200 | keys none; Freeze Frame at 5 | 2.5 at 3 (hold) |
+| FX-TREMAP-047 | in 0, out 12, offset 0, stretch 100 | keys 0 at 0, 11 at 6; Freeze Frame at 3 | 5.5 at 3 (hold) |
+| FX-TREMAP-048 | - | keys 0 at 0, 11 at 6; moved 2 frames later | 0 at 2, 11 at 8 |
+
+FX-TREMAP-040: In 0, out 12: keys 0 at 0 and 11 at 11.
+
+FX-TREMAP-041: In 5, out 20, offset 3: keys 3 at 5 and 17 at 19.
+
+FX-TREMAP-042: Stretch 200, in 0, out 12: the last frame's key time is 5.5, so keys 0 at 0 and 6 at 6.
+
+FX-TREMAP-043: Stretch 50, in 0, out 6: keys 0 at 0 and 10 at 10.
+
+FX-TREMAP-044: One frame long, in 4, out 5, offset 2: keys 2 at 4 and 3 at 5.
+
+FX-TREMAP-045: No remap, freeze at 5: one hold key, 5 at 5.
+
+FX-TREMAP-046: Stretch 200, no remap, freeze at 5: the key time 2.5 rounds to 3, holding the source time 2.5.
+
+FX-TREMAP-047: Keys 0 at 0 and 11 at 6, freeze at 3: the keys are replaced by one, 5.5 at 3.
+
+FX-TREMAP-048: Keys 0 at 0 and 11 at 6, the layer moved 2 frames later: the keys move to 2 and 8, the values stay.
+
+Refused when the file is read, nothing drawn.
+
+| case | project | what it holds | code |
+| --- | --- | --- | --- |
+| FX-TREMAP-050 | `fx_tremap_050.json` | Time Remap on a solid layer, which has no source time. | `PROJECT_SCHEMA_INVALID` |
+| FX-TREMAP-051 | `fx_tremap_051.json` | Time Remap on a null layer. | `PROJECT_SCHEMA_INVALID` |
+| FX-TREMAP-052 | `fx_tremap_052.json` | Time Remap on an adjustment layer. | `PROJECT_SCHEMA_INVALID` |
+| FX-TREMAP-053 | `fx_tremap_053.json` | A Time Remap key that is a pair of numbers. | `PROJECT_SCHEMA_INVALID` |
+| FX-TREMAP-054 | `fx_tremap_054.json` | A Time Remap with an expression, which is not part of this. | `PROJECT_SCHEMA_INVALID` |
+| FX-TREMAP-055 | `fx_tremap_055.json` | A Time Remap written as a bare number rather than a property. | `PROJECT_SCHEMA_INVALID` |
+
 ## Persistence fixtures
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.

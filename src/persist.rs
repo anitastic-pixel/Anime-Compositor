@@ -219,6 +219,8 @@ const KEY_ORDER: &[&str] = &[
     "background_color",
     // D-319.
     "float_depth",
+    // D-323.
+    "time_remap",
 ];
 
 /// An effect record is the one place a flat list is not enough: it spells `enabled` after
@@ -1009,6 +1011,17 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
     if layer.drawing_dissolve != 0 {
         owned.push(("drawing_dissolve", J::from(layer.drawing_dissolve)));
     }
+    // D-323: written only when on, the way depth is (FX-TREMAP-001).
+    match &layer.time_remap {
+        Some(remap) => owned.push((
+            "time_remap",
+            property_json(base.and_then(|b| b.get("time_remap")), remap, 1.0),
+        )),
+        None if base.is_some_and(|b| b.get("time_remap").is_some()) => {
+            owned.push(("time_remap", J::Null))
+        }
+        None => {}
+    }
     let mut merged = merge(base, owned);
     if let Some(map) = merged.as_object_mut() {
         if layer.key_drawings.is_empty() {
@@ -1025,6 +1038,9 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         }
         if layer.drawing_dissolve == 0 {
             map.remove("drawing_dissolve");
+        }
+        if layer.time_remap.is_none() {
+            map.remove("time_remap");
         }
     }
     merged
@@ -4545,6 +4561,18 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
             _ => return Err(invalid(&at, "a whole number of frames from 0 to 100 (D-216)")),
         },
     };
+    // D-323: a Time Remap on a raster or composition layer, one number keyed, no expression
+    // (FX-TREMAP-050 to 055).
+    let time_remap = match only("time_remap", timed, "a raster or composition layer")? {
+        None => None,
+        Some((x, at)) => {
+            let remap = parse_property(x, &at, "scalar", false, false, 1.0)?;
+            if remap.expression().is_some() {
+                return Err(invalid(&at, "no expression on a Time Remap, which is keys only (D-323)"));
+            }
+            Some(remap)
+        }
+    };
     if kind == LayerKind::Audio {
         return parse_audio_layer(v, pointer, id);
     }
@@ -5024,6 +5052,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         time_stretch,
         frame_blend,
         drawing_dissolve,
+        time_remap,
     })
 }
 

@@ -44,7 +44,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `comp.start_frame` is in the answer | present | present | pass |
 | `comp.width` is in the answer | present | present | pass |
 | `comp.work_area` is in the answer | present | present | pass |
-| the panels read 29 fields out of one of its layers | true | true | pass |
+| the panels read 30 fields out of one of its layers | true | true | pass |
 | `layer.asset_id` is in the answer | present | present | pass |
 | `layer.blend_mode` is in the answer | present | present | pass |
 | `layer.composition_id` is in the answer | present | present | pass |
@@ -71,6 +71,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `layer.solid` is in the answer | present | present | pass |
 | `layer.source_offset_frames` is in the answer | present | present | pass |
 | `layer.source_text` is in the answer | present | present | pass |
+| `layer.time_remap` is in the answer | present | present | pass |
 | `layer.time_stretch` is in the answer | present | present | pass |
 | `layer.timesheet` is in the answer | present | present | pass |
 | `layer.transform` is in the answer | present | present | pass |
@@ -295,4 +296,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**274 of 274 checks pass.**
+**275 of 275 checks pass.**
