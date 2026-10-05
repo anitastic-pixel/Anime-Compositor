@@ -2636,7 +2636,7 @@ impl Effect {
     pub fn name(&self) -> &str {
         match self {
             Effect::Exposure { .. } => "Exposure",
-            Effect::GaussianBlur { .. } => "Blur",
+            Effect::GaussianBlur { .. } => "Gaussian Blur",
             Effect::Tint { .. } => "Tint",
             Effect::LineSmooth { .. } => "Line Smoothing",
             Effect::SelectiveColorBlur { .. } => "Selective Colour Blur",

@@ -120,5 +120,5 @@ fn the_file_keeps_it_and_reports_a_wrong_one() {
     assert_eq!(saved(json!({"dimensions": "vertical"}))["dimensions"], "vertical", "vertical is kept");
     let loaded = persist::load_str(&shot(json!({"dimensions": "diagonal"}))).expect("the shot reads");
     let e = &loaded.document.project().compositions[0].layer(&Id::new("dot")).unwrap().effects[0].effect;
-    assert_eq!(e.why_invalid(), "Blur's dimensions are \"both\", \"horizontal\" or \"vertical\", and this is \"diagonal\".");
+    assert_eq!(e.why_invalid(), "Gaussian Blur's dimensions are \"both\", \"horizontal\" or \"vertical\", and this is \"diagonal\".");
 }

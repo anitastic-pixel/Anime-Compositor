@@ -69,7 +69,7 @@ D-109, proposed on 2026-09-26 and built at the owner's "proceed, add to other bl
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| fx_edges_001.json: GaussianBlur { sigma_px: 1.0, edges: "wrap", dimensions: "both" } is refused with a sentence, and nothing changes | Blur's edges are "transparent" or "repeat", and this is "wrap". | yes |
+| fx_edges_001.json: GaussianBlur { sigma_px: 1.0, edges: "wrap", dimensions: "both" } is refused with a sentence, and nothing changes | Gaussian Blur's edges are "transparent" or "repeat", and this is "wrap". | yes |
 | fx_edges_001.json: GaussianBlur { sigma_px: 1.0, edges: "transparent", dimensions: "both" } is taken | taken | yes |
 | undo 1 times: frame 0 is the frame it was | byte-identical | yes |
 | fx_edges_004.json: DirectionalBlur { direction: 90.0, length: 6.0, edges: "Repeat" } is refused with a sentence, and nothing changes | Directional Blur's edges are "transparent" or "repeat", and this is "Repeat". | yes |

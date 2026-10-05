@@ -106,7 +106,7 @@ fn a_broken_expression_is_said_and_blocks_export() {
     let (got, said) = draw(&project, 2);
     let (two, _) = draw(&with_sigma(json!(2.0)), 2);
     assert_eq!(got, two, "the frame is drawn at the setting's own value");
-    assert!(said.iter().any(|s| s.contains("art's Blur sigma_px does not work at frame 2")), "{said:?}");
+    assert!(said.iter().any(|s| s.contains("art's Gaussian Blur sigma_px does not work at frame 2")), "{said:?}");
 
     let loaded = persist::load_str(&project.to_string()).unwrap();
     let out = std::env::temp_dir().join(format!("b176-{}", std::process::id()));
@@ -128,7 +128,7 @@ fn a_broken_expression_is_said_and_blocks_export() {
     assert_eq!(report.status, ExportStatus::Blocked);
     assert_eq!(std::fs::read_dir(&out).unwrap().count(), 0);
     let first = &report.diagnostics[0];
-    assert!(first.message.contains("art's Blur sigma_px does not work at frame 0"), "{}", first.message);
+    assert!(first.message.contains("art's Gaussian Blur sigma_px does not work at frame 0"), "{}", first.message);
     let _ = std::fs::remove_dir_all(&out);
 }
 

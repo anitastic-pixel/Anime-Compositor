@@ -1739,10 +1739,19 @@ impl Project {
     /// P-25: this project with the masks taken off every layer whose effects are all off. Such
     /// a mask changes which of the layer's pixels show, never how big its picture is, so the
     /// viewer's outlines come out the same without the mask being drawn for them.
-    pub fn without_plain_masks(&self) -> Project {
+    ///
+    /// D-325: and the effects taken off every layer of `shown`, the composition being outlined.
+    /// A layer's box is its own, as After Effects draws it: a Gaussian Blur's margin grew the
+    /// picture and moved the box, and with it every mask point drawn on it, by three times the
+    /// blur up and to the left. A composition shown inside it keeps its effects, which never
+    /// change how big its picture is.
+    pub fn for_outlines(&self, shown: &Id) -> Project {
         let mut project = self.clone();
         for comp in &mut project.compositions {
             for layer in comp.layers.values_mut() {
+                if &comp.id == shown {
+                    layer.effects.clear();
+                }
                 if layer.effects.iter().all(|e| !e.enabled) {
                     layer.masks.clear();
                 }
