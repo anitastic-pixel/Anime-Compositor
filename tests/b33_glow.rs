@@ -88,6 +88,7 @@ impl Glow {
             intensity: self.intensity,
             operation: self.operation.to_string(),
             tint: self.tint.to_string(),
+            units: "classic".into(),
         }
     }
 }

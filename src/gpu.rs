@@ -568,12 +568,14 @@ fn combine(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let p = at(vec2<i32>(id.xy) - vec2(P.g));
     let h = halo[id.y * size.x + id.x];
+    // D-322: held, the covering is laid on as blurred, only the colour strengthened.
+    let k = vec4(P.weight, P.weight, P.weight, select(P.weight, 1.0, P.held == 1u));
     if P.screen == 1u {
-        let v = clamp(h * P.weight, vec4(0.0), vec4(1.0));
+        let v = clamp(h * k, vec4(0.0), vec4(1.0));
         textureStore(output, id.xy, p + v - p * v);
         return;
     }
-    textureStore(output, id.xy, vec4(p.xyz + h.xyz * P.weight, min(p.w + h.w * P.weight, 1.0)));
+    textureStore(output, id.xy, vec4(p.xyz + h.xyz * k.xyz, min(p.w + h.w * k.w, 1.0)));
 }
 "#;
 
@@ -5308,8 +5310,8 @@ impl Gpu {
     /// blur's radius, which is returned with its size.
     fn glow(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), g: Glow) -> (wgpu::TextureView, (usize, usize)) {
         let passes = self.bloom.as_ref().expect("a Glow is refused without the passes");
-        let sigma = g.radius / 3.0;
-        let r = crate::effects::kernel_radius(sigma);
+        let (sigma, long) = crate::effects::glow_reach(g.radius, if g.after_effects { "after_effects" } else { "classic" });
+        let r = crate::effects::reach_radius(sigma, long);
         let (gw, gh) = (w + 2 * r, h + 2 * r);
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
         let init = |label, contents: &[f32]| {
@@ -5344,11 +5346,18 @@ impl Gpu {
         if r == 0 {
             self.step(steps, &passes.add, add, &light, None, Some(&halo), None, tiles(gw, gh));
         } else {
-            let tall = self.blurred(steps, passes, "B-51", &light, (w, h), sigma, false);
+            let tall = self.blurred(steps, passes, "B-51", &light, (w, h), sigma, long);
             self.step(steps, &passes.add, add, &tall, None, Some(&halo), None, tiles(gw, gh));
         }
         let out = self.scratch("B-51 glow", gw, gh);
-        let p = Params { g: r as i32, weight: g.intensity as f32, screen: g.screen as u32, ..Default::default() };
+        // D-322: After Effects' strength on the colour, the covering as blurred.
+        let weight = if g.after_effects {
+            let t = g.threshold / 100.0;
+            g.intensity * (t + 16.0 * (1.0 - t))
+        } else {
+            g.intensity
+        };
+        let p = Params { g: r as i32, weight: weight as f32, screen: g.screen as u32, held: g.after_effects as u32, ..Default::default() };
         self.step(steps, &passes.combine, p, still, Some(&out), Some(&halo), None, tiles(gw, gh));
         (out, (gw, gh))
     }

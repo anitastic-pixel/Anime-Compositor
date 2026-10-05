@@ -77,6 +77,7 @@ fn glow(radius: f64, based_on: &str) -> Effect {
         intensity: 1.0,
         operation: "add".to_string(),
         tint: String::new(),
+        units: "classic".into(),
     }
 }
 

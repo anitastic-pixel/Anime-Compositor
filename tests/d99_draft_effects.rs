@@ -106,6 +106,7 @@ fn d99_draft_effects() {
                 intensity: 2.0,
                 operation: "add".into(),
                 tint: String::new(),
+                units: "classic".into(),
             },
         ),
         (

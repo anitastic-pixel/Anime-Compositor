@@ -3363,6 +3363,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             intensity: 1.0,
             operation: "add".to_string(),
             tint: String::new(),
+            // D-322: one added from now on takes After Effects' radius and strength.
+            units: "after_effects".to_string(),
         }),
         LINE_RECOLOR => Some(Effect::LineRecolor {
             colors: Vec::new(),
@@ -4268,6 +4270,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             intensity: number("intensity")?,
             operation: word("operation")?,
             tint: word("tint")?,
+            // D-322: classic when the command does not say, as a file without it.
+            units: word("units").unwrap_or_else(|_| "classic".to_string()),
         }),
         LINE_RECOLOR => Ok(Effect::LineRecolor {
             colors: colors()?,

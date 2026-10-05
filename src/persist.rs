@@ -1140,6 +1140,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             intensity,
             operation,
             tint,
+            units,
         } => {
             params.insert("based_on".into(), J::from(based_on.as_str()));
             params.insert("threshold".into(), num(*threshold));
@@ -1152,6 +1153,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("intensity".into(), num(*intensity));
             params.insert("operation".into(), J::from(operation.as_str()));
             params.insert("tint".into(), J::from(tint.as_str()));
+            // D-322: written only when not classic, what a file without it means, or when the
+            // file had it.
+            if units != "classic" || params.contains_key("units") {
+                params.insert("units".into(), J::from(units.as_str()));
+            }
         }
         Effect::LineRecolor {
             colors,
@@ -3700,6 +3706,8 @@ fn parse_effect(
             operation: effect_word(params, "operation", &at)?,
             // D-89: a colour is read in small letters, as D-87's are.
             tint: effect_word(params, "tint", &at)?.to_ascii_lowercase(),
+            // D-322: a file from before it is classic.
+            units: effect_word_or(params, "units", &at, "classic")?,
         }),
         crate::effects::LINE_RECOLOR => Some(crate::effects::Effect::LineRecolor {
             colors: effect_colors(params, &at)?,

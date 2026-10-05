@@ -375,6 +375,8 @@ pub enum Effect {
     /// (`"colors"`)", `threshold` 0 to 100, `colors` and `tolerance` as D-88's, `radius` 0 to
     /// 500, `intensity` 0 to 10, `operation` `"add"` or `"screen"`, and `tint`, empty or one
     /// colour. The words are kept as written, so a file's wrong one is kept and reported.
+    /// D-322: `units`, `"classic"` (D-89's rule, what a file without it means) or
+    /// `"after_effects"` (After Effects' radius and strength, which a new one takes).
     Glow {
         based_on: String,
         threshold: f64,
@@ -384,6 +386,7 @@ pub enum Effect {
         intensity: f64,
         operation: String,
         tint: String,
+        units: String,
     },
     /// D-91: `colors` and `tolerance` as D-88's, and `new_color`, the colour `#rrggbb` the chosen
     /// pixels become.
@@ -2867,7 +2870,10 @@ impl Effect {
                 kernel_radius(*alpha_blurriness)
             }
             // D-89: the light reaches `radius` pixels, blur's reach at sigma radius / 3.
-            Effect::Glow { radius, .. } => kernel_radius(*radius / 3.0),
+            Effect::Glow { radius, units, .. } => {
+                let (sigma, long) = glow_reach(*radius, units);
+                reach_radius(sigma, long)
+            }
             // D-92: half the streak, on each side.
             Effect::DirectionalBlur { length, .. } => (*length / 2.0).ceil() as usize,
             // D-94: a thicker line reaches its width further out; a thinner one nowhere.
@@ -3687,6 +3693,7 @@ fn glow_fault(effect: &Effect) -> Option<String> {
         intensity,
         operation,
         tint,
+        units,
     } = effect
     else {
         return None;
@@ -3694,6 +3701,8 @@ fn glow_fault(effect: &Effect) -> Option<String> {
     let hex = |c: &str| crate::selective_blur::parse_hex(c).is_some();
     Some(if !["bright", "colors"].contains(&based_on.as_str()) {
         format!("Glow is based on \"bright\" or \"colors\", and this is \"{based_on}\".")
+    } else if !["classic", "after_effects"].contains(&units.as_str()) {
+        format!("Glow's units are \"classic\" or \"after_effects\", and this is \"{units}\".")
     } else if !["add", "screen"].contains(&operation.as_str()) {
         format!("Glow's operation is \"add\" or \"screen\", and this is \"{operation}\".")
     } else if !(0.0..=100.0).contains(threshold) {
@@ -3732,6 +3741,13 @@ pub fn kernel_radius(sigma_px: f64) -> usize {
 /// play After Effects' files; any other word is document 21's sigma.
 pub fn blur_reach(number: f64, units: &str) -> (f64, bool) {
     if units == "blurriness" { (0.3 * number, true) } else { (number, false) }
+}
+
+/// D-322: a Glow's spread as a sigma and whether it takes the long reach. In "after_effects" the
+/// radius is a Gaussian Blur's Blurriness (Creative COW's measurements: "Glow Radius pretty much
+/// creates layer's Gaussian blur"); in "classic" it is D-89's sigma radius / 3.
+pub fn glow_reach(radius: f64, units: &str) -> (f64, bool) {
+    if units == "after_effects" { blur_reach(radius, "blurriness") } else { (radius / 3.0, false) }
 }
 
 /// D-321: the kernel radius, `ceil(6.5 sigma)` with the long reach, else document 21's. Three
@@ -3884,11 +3900,12 @@ pub(crate) fn apply_stack_at(
                 intensity,
                 operation,
                 tint,
+                units,
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectGlow, || {
                     let g = crate::glow::settings(
                         based_on, *threshold, colors, *tolerance, *radius, *intensity,
-                        operation, tint,
+                        operation, tint, units,
                     );
                     crate::glow::glow(source, &g)
                 });

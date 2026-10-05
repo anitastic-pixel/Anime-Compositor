@@ -1967,12 +1967,13 @@ fn resolve_rest(
                 })
             }
             // B-51: as a Bloom, a Glow with nothing that glows changes nothing and is not left.
-            crate::effects::Effect::Glow { based_on, threshold, colors, tolerance, radius, intensity, operation, tint } => {
+            crate::effects::Effect::Glow { based_on, threshold, colors, tolerance, radius, intensity, operation, tint, units } => {
                 use rayon::prelude::*;
-                let g = crate::glow::settings(&based_on, threshold, &colors, tolerance, radius, intensity, &operation, &tint);
+                let g = crate::glow::settings(&based_on, threshold, &colors, tolerance, radius, intensity, &operation, &tint, &units);
                 let lit = intensity != 0.0 && source.data().par_chunks_exact(4).any(|px| crate::glow::glows(px, &g));
                 lit.then(|| {
-                    let grow = crate::effects::kernel_radius(radius / 3.0);
+                    let (sigma, long) = crate::effects::glow_reach(radius, &units);
+                    let grow = crate::effects::reach_radius(sigma, long);
                     offset = (offset.0 + grow, offset.1 + grow);
                     render::OnCard::Glow(g)
                 })

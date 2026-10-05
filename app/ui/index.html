@@ -10020,7 +10020,9 @@ const EFFECT_WORDS = {
   // D-89. The colours show only when a glow is based on them, and are kept when it is not.
   'core.glow': {
     choices: [['based_on', 'Glow Based On', [['bright', 'Bright parts'], ['colors', 'Chosen colours']]],
-      ['operation', 'Glow Operation', [['add', 'Add'], ['screen', 'Screen']]]],
+      ['operation', 'Glow Operation', [['add', 'Add'], ['screen', 'Screen']]],
+      // D-322: After Effects' radius and strength, which a new one takes; a file without units is classic.
+      ['units', 'Units', [['classic', 'Classic (older projects)'], ['after_effects', 'After Effects']]]],
     colours: [['tint', 'Glow Colours', ['Its own colours', 'One colour']]],
     chosen: (w) => w.based_on === 'colors',
   },

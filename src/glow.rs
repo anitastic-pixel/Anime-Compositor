@@ -22,6 +22,7 @@ pub(crate) fn settings(
     intensity: f64,
     operation: &str,
     tint: &str,
+    units: &str,
 ) -> Glow {
     let mut targets = [[0; 3]; 8];
     let chosen = crate::selective_blur::targets(colors);
@@ -36,6 +37,7 @@ pub(crate) fn settings(
         intensity,
         screen: operation != "add",
         tint: parse_hex(tint),
+        after_effects: units == "after_effects",
     }
 }
 
@@ -77,11 +79,19 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
         return 0;
     }
 
-    // (3) Spread: document 21's blur at sigma radius / 3, growing the light's bounds.
-    let r = crate::effects::blur(&mut light, g.radius / 3.0);
+    // (3) Spread: document 21's blur at sigma radius / 3, growing the light's bounds; D-322's
+    // After Effects units blur as Gaussian Blur at Blurriness radius.
+    let (sigma, long) = crate::effects::glow_reach(g.radius, if g.after_effects { "after_effects" } else { "classic" });
+    let r = crate::effects::blur_axes(&mut light, &crate::effects::reach_weights(sigma, long), (true, true));
 
     // (4) Strength and (5) on top of the picture, which is empty outside its own bounds.
-    let k = g.intensity as f32;
+    // D-322: Creative COW's GI*(GT/100) + GI*16*(1-GT/100) on the colour, the covering left.
+    let (k, ka) = if g.after_effects {
+        let t = g.threshold / 100.0;
+        ((g.intensity * (t + 16.0 * (1.0 - t))) as f32, 1.0)
+    } else {
+        (g.intensity as f32, g.intensity as f32)
+    };
     let add = !g.screen;
     let lw = light.width();
     let o = source.data();
@@ -102,10 +112,10 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
                     for c in 0..3 {
                         l[c] = p[c] + l[c] * k;
                     }
-                    l[3] = (p[3] + l[3] * k).min(1.0);
+                    l[3] = (p[3] + l[3] * ka).min(1.0);
                 } else {
                     for c in 0..4 {
-                        let v = (l[c] * k).clamp(0.0, 1.0);
+                        let v = (l[c] * if c == 3 { ka } else { k }).clamp(0.0, 1.0);
                         l[c] = p[c] + v - p[c] * v;
                     }
                 }
