@@ -39,6 +39,11 @@ fn bolt(n: [f64; 12], color: &str, glow_color: &str) -> Effect {
         color: color.to_string(),
         glow_color: glow_color.to_string(),
         composite: "on".to_string(),
+        kind: "direction".to_string(),
+        turbulence: 0.0,
+        decay: 0.0,
+        conductivity: 0.0,
+        obstacle: 0.0,
         frame: 0,
     }
 }

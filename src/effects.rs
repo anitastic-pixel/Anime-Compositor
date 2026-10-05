@@ -968,7 +968,11 @@ pub enum Effect {
     /// seed by their whole parts; and `color` and `glow_color`, `#rrggbb`. D-300: `composite`,
     /// "on" or "off", After Effects' Composite on Original; a file from before it is "on", and
     /// "off" draws the bolt alone on a clear layer. `frame` is not a setting and is never saved:
-    /// it is the composition frame, as Kira-kira's is.
+    /// it is the composition frame, as Kira-kira's is. D-324, Advanced Lightning's: `kind`, the
+    /// lightning type, one of "direction" (a file from before it), "strike", "breaking",
+    /// "bouncy", "omni", "anywhere", "vertical" or "two_way"; `turbulence`, `decay` and
+    /// `obstacle` (Alpha Obstacle), 0 to 100; and `conductivity`, 0 to 10000. Each at 0 draws
+    /// D-190's bolt.
     LightningBolt {
         start: [f64; 2],
         end: [f64; 2],
@@ -983,6 +987,11 @@ pub enum Effect {
         color: String,
         glow_color: String,
         composite: String,
+        kind: String,
+        turbulence: f64,
+        decay: f64,
+        conductivity: f64,
+        obstacle: f64,
         frame: i32,
     },
     /// D-191: `layer`, D-189's layer setting as written (a word, or kept as found and refused
@@ -1410,6 +1419,8 @@ pub const HSV_KEY: &str = "core.hsv_key";
 pub const PARAFFIN: &str = "core.paraffin";
 pub const KIRA_KIRA: &str = "core.kira_kira";
 pub const LIGHTNING_BOLT: &str = "core.lightning_bolt";
+/// D-324: Lightning Bolt's lightning types.
+pub const LIGHTNING_KINDS: [&str; 8] = ["direction", "strike", "breaking", "bouncy", "omni", "anywhere", "vertical", "two_way"];
 pub const COMPOUND_BLUR: &str = "core.compound_blur";
 pub const DISPLACEMENT_MAP: &str = "core.displacement_map";
 pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
@@ -2104,6 +2115,10 @@ impl Effect {
                 opacity,
                 hold,
                 seed,
+                turbulence,
+                decay,
+                conductivity,
+                obstacle,
                 ..
             } => vec![
                 ("start", start.iter_mut().collect(), -1000.0, 1000.0),
@@ -2116,6 +2131,10 @@ impl Effect {
                 ("opacity", vec![opacity], 0.0, 100.0),
                 ("hold", vec![hold], 1.0, 100.0),
                 ("seed", vec![seed], 0.0, 100000.0),
+                ("turbulence", vec![turbulence], 0.0, 100.0),
+                ("decay", vec![decay], 0.0, 100.0),
+                ("conductivity", vec![conductivity], 0.0, 10000.0),
+                ("obstacle", vec![obstacle], 0.0, 100.0),
             ],
             Effect::CompoundBlur { max_blur, .. } => vec![("max_blur", vec![max_blur], 0.0, 500.0)],
             Effect::DisplacementMap { max_horizontal, max_vertical, .. } => vec![
@@ -3500,6 +3519,9 @@ impl Effect {
             Effect::KiraKira { color, .. } => hex_fault("Kira-kira", "colour", color),
             Effect::LightningBolt { composite, .. } if !["off", "on"].contains(&composite.as_str()) => Some(format!(
                 "Lightning Bolt's composite on original is \"off\" or \"on\", and this is \"{composite}\"."
+            )),
+            Effect::LightningBolt { kind, .. } if !LIGHTNING_KINDS.contains(&kind.as_str()) => Some(format!(
+                "Lightning Bolt's lightning type is \"direction\", \"strike\", \"breaking\", \"bouncy\", \"omni\", \"anywhere\", \"vertical\" or \"two_way\", and this is \"{kind}\"."
             )),
             Effect::LightningBolt { color, glow_color, .. } => hex_fault("Lightning Bolt", "colour", color)
                 .or_else(|| hex_fault("Lightning Bolt", "glow colour", glow_color)),
@@ -5006,16 +5028,25 @@ pub(crate) fn apply_stack_at(
                 color,
                 glow_color,
                 composite,
+                kind,
+                turbulence,
+                decay,
+                conductivity,
+                obstacle,
                 frame,
             } => crate::perf::time(crate::perf::Stage::EffectLightningBolt, || {
+                // D-324: Alpha Obstacle reads the layer as it is, before Composite on Original.
+                let edge = 1.0 - *obstacle / 100.0;
+                let blocks: Vec<bool> = if *obstacle > 0.0 { source.data().chunks_exact(4).map(|p| p[3] as f64 > edge).collect() } else { Vec::new() };
                 // D-300: off, the layer's own picture goes and the bolt is all there is.
                 if composite == "off" {
                     source.data_mut().fill(0.0);
                 }
                 let colours = [encoded(color), encoded(glow_color)].map(|c| c.map(crate::grade::to_linear));
-                let ends = [radial_center(*start, (source.width(), source.height()), (ox, oy)), radial_center(*end, (source.width(), source.height()), (ox, oy))];
+                let size = (source.width(), source.height());
+                let ends = [radial_center(*start, size, (ox, oy)), radial_center(*end, size, (ox, oy)), radial_center([start[0], 100.0], size, (ox, oy))];
                 let numbers = [*jagged, *detail, *branches, *width, *glow, *opacity, *hold, *seed];
-                crate::layer_fx::lightning_bolt(source, ends, numbers, colours, *frame)
+                crate::layer_fx::lightning_bolt(source, ends, numbers, (kind, [*turbulence, *decay, *conductivity]), &blocks, colours, *frame)
             }),
             // D-191: the map compose read for this frame; with none, nothing is blurred.
             Effect::CompoundBlur { max_blur, invert, edges, map, .. } => {

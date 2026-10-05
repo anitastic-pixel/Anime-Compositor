@@ -3843,6 +3843,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             glow_color: "#6e8cff".to_string(),
             // D-300: After Effects' Composite on Original is off when added.
             composite: "off".to_string(),
+            kind: "direction".to_string(),
+            turbulence: 0.0,
+            decay: 0.0,
+            conductivity: 0.0,
+            obstacle: 0.0,
             frame: 0,
         }),
         // D-191: After Effects' Stretch Map to Fit is on when added.
@@ -4753,6 +4758,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             glow_color: word("glow_color")?,
             // D-300: on, as before, when the command does not say.
             composite: word("composite").unwrap_or_else(|_| "on".to_string()),
+            // D-324: D-190's bolt when the command does not say.
+            kind: word("kind").unwrap_or_else(|_| "direction".to_string()),
+            turbulence: if parameter(query, "turbulence").is_some() { number("turbulence")? } else { 0.0 },
+            decay: if parameter(query, "decay").is_some() { number("decay")? } else { 0.0 },
+            conductivity: if parameter(query, "conductivity").is_some() { number("conductivity")? } else { 0.0 },
+            obstacle: if parameter(query, "obstacle").is_some() { number("obstacle")? } else { 0.0 },
             frame: 0,
         }),
         // D-189: the request's own `layer` is the layer holding the effect, so the setting
@@ -28375,6 +28386,12 @@ mod contract {
                 ("color", "%23fff0c0"),
                 ("glow_color", "%23ff4a1a"),
                 ("composite", "off"),
+                // D-324: Advanced Lightning's five.
+                ("kind", "strike"),
+                ("turbulence", "40"),
+                ("decay", "30"),
+                ("conductivity", "2.5"),
+                ("obstacle", "50"),
             ],
         ),
         (

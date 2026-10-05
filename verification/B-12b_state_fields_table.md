@@ -236,7 +236,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.kira_kira` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, spacing, density, size, shape, angle, twinkle, period, seed, opacity, color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.lightning_bolt` is an effect this build has | added | added | pass |
-| and the settings it sends for it - start, end, jagged, detail, branches, width, glow, opacity, hold, seed, color, glow_color, composite - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - start, end, jagged, detail, branches, width, glow, opacity, hold, seed, color, glow_color, composite, kind, turbulence, decay, conductivity, obstacle - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.compound_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - blur_layer, fit, max_blur, invert, edges - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.displacement_map` is an effect this build has | added | added | pass |

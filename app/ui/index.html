@@ -9879,7 +9879,12 @@ const EFFECT_PARAMS = {
     ['glow', 'Glow', 1, 1, 'pixels, 0 to 500, how far the glow reaches'],
     ['opacity', 'Opacity', 1, 1, '0 to 100'],
     ['hold', 'Hold', 1, 1, 'frames, 1 to 100, how long each bolt stays'],
-    ['seed', 'Seed', 1, 1, '0 to 100000, which bolts']],
+    ['seed', 'Seed', 1, 1, '0 to 100000, which bolts'],
+    // D-324: Advanced Lightning's; each at 0 is the bolt as before.
+    ['turbulence', 'Turbulence', 1, 1, '0 to 100, rougher and more forks', '', 0],
+    ['decay', 'Decay', 1, 1, '0 to 100, how much the bolt thins toward its end', '', 0],
+    ['conductivity', 'Conductivity State', 1, 0.1, '0 to 10000, moves the bolt smoothly through new shapes', '', 0],
+    ['obstacle', 'Alpha Obstacle', 1, 1, '0 to 100, the bolt stops where the layer is solid', '', 0]],
   // D-191.
   'core.compound_blur': [['max_blur', 'Maximum Blur', 1, 0.5, '0 to 500 px, the blur where the map is white']],
   // D-193.
@@ -10244,7 +10249,9 @@ const EFFECT_WORDS = {
   'core.lightning_bolt': {
     colours: [['color', 'Colour'], ['glow_color', 'Glow Colour']],
     // D-300: the file leaves it out when on, so on is first.
-    choices: [['composite', 'Composite on Original', [['on', 'On'], ['off', 'Off']]]],
+    // D-324: the file leaves the type out when Direction, so Direction is first.
+    choices: [['kind', 'Lightning Type', [['direction', 'Direction'], ['strike', 'Strike'], ['breaking', 'Breaking'], ['bouncy', 'Bouncy'], ['omni', 'Omni'], ['anywhere', 'Anywhere'], ['vertical', 'Vertical'], ['two_way', 'Two-Way Striking']]],
+      ['composite', 'Composite on Original', [['on', 'On'], ['off', 'Off']]]],
   },
   // D-191, After Effects' own words.
   'core.compound_blur': {

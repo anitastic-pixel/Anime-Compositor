@@ -1968,12 +1968,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             color,
             glow_color,
             composite,
+            kind,
+            turbulence,
+            decay,
+            conductivity,
+            obstacle,
             ..
         } => {
             // D-300: written only when off or the file had it, so a file that never changed it
             // saves as before.
             if composite != "on" || params.contains_key("composite") {
                 params.insert("composite".into(), J::from(composite.as_str()));
+            }
+            // D-324: as D-300 and D-310, written only if moved, keyed or already in the file.
+            if kind != "direction" || params.contains_key("kind") {
+                params.insert("kind".into(), J::from(kind.as_str()));
+            }
+            for (key, value) in [("turbulence", *turbulence), ("decay", *decay), ("conductivity", *conductivity), ("obstacle", *obstacle)] {
+                if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(value));
+                }
             }
             params.insert("start".into(), J::Array(start.iter().map(|c| num(*c)).collect()));
             params.insert("end".into(), J::Array(end.iter().map(|c| num(*c)).collect()));
@@ -3117,6 +3131,10 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         "light_intensity",
         "block_width",
         "block_height",
+        // D-324: Lightning Bolt's Advanced Lightning numbers ("decay" is above).
+        "turbulence",
+        "conductivity",
+        "obstacle",
     ] {
         let Some(record) = map.get(name).filter(|v| v.is_object()) else {
             continue;
@@ -4157,6 +4175,12 @@ fn parse_effect(
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             glow_color: effect_word(params, "glow_color", &at)?.to_ascii_lowercase(),
             composite: effect_word_or(params, "composite", &at, "on")?,
+            // D-324: a file from before it is D-190's bolt.
+            kind: effect_word_or(params, "kind", &at, "direction")?,
+            turbulence: effect_number_or(params, "turbulence", &at, 0.0)?,
+            decay: effect_number_or(params, "decay", &at, 0.0)?,
+            conductivity: effect_number_or(params, "conductivity", &at, 0.0)?,
+            obstacle: effect_number_or(params, "obstacle", &at, 0.0)?,
             frame: 0,
         }),
         // D-191: the layer is kept as written, a word or not; a setting check says which.

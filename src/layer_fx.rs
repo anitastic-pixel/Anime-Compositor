@@ -2647,11 +2647,16 @@ pub(crate) fn kira_stars(
 /// `[jagged, detail, branches, width, glow, opacity, hold, seed]`, already held; detail, hold and
 /// seed count by their whole parts. Each pixel takes the largest core and glow of any segment;
 /// the core adds `colours[0]` (linear) and the glow `colours[1]` round it, at up to `opacity`, and
-/// both cover. Nothing grows. The settings are already valid.
+/// both cover. Nothing grows. The settings are already valid. D-324: `kind` and `[turbulence,
+/// decay, conductivity]`, Advanced Lightning's; `ends[2]` the drawing's bottom edge below
+/// `ends[0]`, for Vertical; and `blocks`, one per pixel of `source` (none when empty), where
+/// Alpha Obstacle stops the bolt.
 pub(crate) fn lightning_bolt(
     source: &mut WorkingBuffer,
-    ends: [(f64, f64); 2],
+    ends: [(f64, f64); 3],
     [jagged, detail, branches, width, glow, opacity, hold, seed]: [f64; 8],
+    (kind, [turbulence, decay, conductivity]): (&str, [f64; 3]),
+    blocks: &[bool],
     [core, halo]: [[f64; 3]; 2],
     frame: i32,
 ) {
@@ -2659,8 +2664,26 @@ pub(crate) fn lightning_bolt(
         return;
     }
     let m = (frame as i64).div_euclid(hold.floor() as i64);
-    let base = crate::grade::mix(seed.floor() as u64);
-    let segs = bolt_segments(ends, [jagged, branches], detail.floor() as u32, base, m);
+    // D-324's Conductivity State: the numbers of the whole state below and the one above, mixed
+    // by the smoothed part between; state 0 is D-190's seed alone.
+    let (n, base) = (conductivity.floor(), crate::grade::mix(seed.floor() as u64));
+    let t = conductivity - n;
+    let s = t * t * (3.0 - 2.0 * t);
+    let below = if n == 0.0 { base } else { crate::grade::mix(base ^ n as u64) };
+    let above = crate::grade::mix(base ^ (n as u64 + 1));
+    let r = |key: i64, b: i64, j: u64| {
+        let v = crate::grade::unit(below, key, b, m, j);
+        if s == 0.0 { v } else { v + s * (crate::grade::unit(above, key, b, m, j) - v) }
+    };
+    let mut segs = bolt_segments(kind, ends, [jagged, branches, turbulence, decay], detail.floor() as u32, &r);
+    if !blocks.is_empty() {
+        let (w, h) = (source.width() as f64, source.height() as f64);
+        segs = bolt_stop(segs, |x, y| {
+            let (i, j) = (x.floor(), y.floor());
+            i >= 0.0 && i < w && j >= 0.0 && j < h && blocks[j as usize * w as usize + i as usize]
+        });
+    }
+    let segs: Vec<[f64; 6]> = segs.into_iter().map(|(p, q, wp, wq, ..)| [p.0, p.1, q.0, q.1, wp, wq]).collect();
     // Each segment's box: nothing past its reach from the line is lit.
     let boxes: Vec<[f64; 4]> = segs
         .iter()
@@ -2712,45 +2735,123 @@ fn bolt_light(s: &[f64; 6], width: f64, glow: f64, x: f64, y: f64) -> (f64, f64)
     (core, if d < r { w * (1.0 - d / r).powi(2) } else { 0.0 })
 }
 
-/// D-190's bolt as segments `[px, py, qx, qy, wP, wQ]`: the line from `ends[0]` to `ends[1]`
-/// halved `detail` times, each middle pushed aside by Noise's hash of the seed's `base`, the
-/// segment's key and bolt, and `m`, with forks three deep. Worked in double precision.
-pub(crate) fn bolt_segments(
-    ends: [(f64, f64); 2],
-    [jagged, branches]: [f64; 2],
+/// A segment of D-190's bolt: (P, Q, wP, wQ, depth, bolt, key, the bolt it forks from). A key and
+/// a bolt name a segment for good, so a fork or a finer halving never moves what is already drawn.
+type BoltSeg = ((f64, f64), (f64, f64), f64, f64, u32, i64, i64, i64);
+
+/// D-190's bolt as segments: each start bolt halved `detail` times, each middle pushed aside by
+/// `r(key, bolt, j)`, with forks three deep. Worked in double precision. D-324: `kind` picks the
+/// start bolts from `ends` (start, end, and the bottom edge below the start) and how a fork
+/// turns and starts; turbulence pushes harder each halving and forks more; decay thins each
+/// start bolt to 1 - decay / 100 at its end.
+fn bolt_segments(
+    kind: &str,
+    [o, d, bottom]: [(f64, f64); 3],
+    [jagged, branches, turbulence, decay]: [f64; 4],
     detail: u32,
-    base: u64,
-    m: i64,
-) -> Vec<[f64; 6]> {
-    // (P, Q, wP, wQ, depth, bolt, key): a key and a bolt name a segment for good, so a fork or a
-    // finer halving never moves what is already drawn.
-    let mut segs = vec![(ends[0], ends[1], 1.0, 1.0, 0u32, 0i64, 1i64)];
-    for _ in 0..detail {
+    r: &dyn Fn(i64, i64, u64) -> f64,
+) -> Vec<BoltSeg> {
+    let kd = 1.0 - decay / 100.0;
+    let one = |p, q, b| (p, q, 1.0, kd, 0u32, b, 1i64, b);
+    let turn = |v: (f64, f64), deg: f64| {
+        let (c, s) = (deg.to_radians().cos(), deg.to_radians().sin());
+        (v.0 * c - v.1 * s, v.0 * s + v.1 * c)
+    };
+    let mut segs = match kind {
+        "bouncy" => vec![one(o, d, 0), one(d, o, -1), one(o, d, -2)],
+        "omni" => (0..6i64)
+            .map(|i| {
+                let t = turn((d.0 - o.0, d.1 - o.1), 60.0 * i as f64);
+                one(o, (o.0 + t.0, o.1 + t.1), -i)
+            })
+            .collect(),
+        "anywhere" => {
+            let a = (180.0 * (r(1, -1, 0) + 1.0)).to_radians();
+            let l = (d.0 - o.0).hypot(d.1 - o.1) * (r(1, -1, 1) + 1.0) / 2.0;
+            vec![one(o, (o.0 + l * a.cos(), o.1 + l * a.sin()), 0)]
+        }
+        "vertical" => vec![one(o, bottom, 0)],
+        "two_way" => {
+            let mid = ((o.0 + d.0) / 2.0, (o.1 + d.1) / 2.0);
+            vec![one(o, mid, 0), one(d, mid, -1)]
+        }
+        _ => vec![one(o, d, 0)],
+    };
+    for i in 0..detail {
         let mut out = Vec::with_capacity(segs.len() * 3);
-        for (p, q, wp, wq, depth, b, key) in segs {
+        for (p, q, wp, wq, depth, b, key, parent) in segs {
             let (dx, dy) = (q.0 - p.0, q.1 - p.1);
             let l = dx.hypot(dy);
             if l == 0.0 {
-                out.push((p, q, wp, wq, depth, b, key));
+                out.push((p, q, wp, wq, depth, b, key, parent));
                 continue;
             }
-            let r = |j| crate::grade::unit(base, key, b, m, j);
-            let a = r(0) * jagged / 100.0 * l / 2.0;
+            let a = r(key, b, 0) * jagged / 100.0 * l / 2.0 * (1.0 + turbulence / 100.0 * i as f64 / 2.0);
             let mid = ((p.0 + q.0) / 2.0 - dy / l * a, (p.1 + q.1) / 2.0 + dx / l * a);
             let wm = (wp + wq) / 2.0;
-            out.push((p, mid, wp, wm, depth, b, 2 * key));
-            out.push((mid, q, wm, wq, depth, b, 2 * key + 1));
-            if depth < 3 && (r(1) + 1.0) / 2.0 < branches / 100.0 {
-                let turn = ((15.0 + 15.0 * (r(2) + 1.0)) * if r(3) < 0.0 { -1.0 } else { 1.0 }).to_radians();
-                let (vx, vy) = (dx / l, dy / l);
-                let v = (vx * turn.cos() - vy * turn.sin(), vx * turn.sin() + vy * turn.cos());
-                let lb = l * (0.3 + 0.15 * (r(4) + 1.0));
-                out.push((mid, (mid.0 + v.0 * lb, mid.1 + v.1 * lb), wm / 2.0, 0.0, depth + 1, 1024 * b + key, 1));
+            out.push((p, mid, wp, wm, depth, b, 2 * key, parent));
+            out.push((mid, q, wm, wq, depth, b, 2 * key + 1, parent));
+            if depth < 3 && (r(key, b, 1) + 1.0) / 2.0 < branches / 100.0 * (1.0 + turbulence / 100.0) {
+                let mut way = (dx / l, dy / l);
+                if kind == "strike" {
+                    let (tx, ty) = (d.0 - mid.0, d.1 - mid.1);
+                    let tl = tx.hypot(ty);
+                    if tl > 0.0 {
+                        way = (tx / tl, ty / tl);
+                    }
+                }
+                let v = turn(way, (15.0 + 15.0 * (r(key, b, 2) + 1.0)) * if r(key, b, 3) < 0.0 { -1.0 } else { 1.0 });
+                let lb = l * (0.3 + 0.15 * (r(key, b, 4) + 1.0));
+                let w0 = if kind == "breaking" { wm } else { wm / 2.0 };
+                out.push((mid, (mid.0 + v.0 * lb, mid.1 + v.1 * lb), w0, 0.0, depth + 1, 1024 * b + key, 1, b));
             }
         }
         segs = out;
     }
-    segs.into_iter().map(|(p, q, wp, wq, ..)| [p.0, p.1, q.0, q.1, wp, wq]).collect()
+    segs
+}
+
+/// D-324's Alpha Obstacle: each bolt, then each fork, walked from its start at points a pixel or
+/// less apart, ends at the first point `blocked`; the rest of it goes, and so does every fork
+/// whose start is no longer on what is left of its parent.
+fn bolt_stop(segs: Vec<BoltSeg>, blocked: impl Fn(f64, f64) -> bool) -> Vec<BoltSeg> {
+    use std::collections::{HashMap, HashSet};
+    let mut kept: HashMap<i64, Vec<(f64, f64)>> = HashMap::new();
+    let (mut done, mut started) = (HashSet::new(), HashSet::new());
+    let mut out = Vec::new();
+    for depth in 0..4 {
+        for &(p, q, wp, wq, dd, b, key, parent) in &segs {
+            if dd != depth || done.contains(&b) {
+                continue;
+            }
+            if started.insert(b) && dd > 0 && !kept.get(&parent).is_some_and(|k| k.contains(&p)) {
+                done.insert(b);
+                continue;
+            }
+            let n = ((q.0 - p.0).hypot(q.1 - p.1).ceil() as usize).max(1);
+            let at = |j: usize| (p.0 + (q.0 - p.0) * (j as f64 / n as f64), p.1 + (q.1 - p.1) * (j as f64 / n as f64));
+            let hit = (0..=n).find(|&j| {
+                let x = at(j);
+                blocked(x.0, x.1)
+            });
+            let mine = kept.entry(b).or_default();
+            match hit {
+                None => {
+                    out.push((p, q, wp, wq, dd, b, key, parent));
+                    mine.extend([p, q]);
+                }
+                Some(j) => {
+                    done.insert(b);
+                    if j > 0 {
+                        let x = at(j);
+                        out.push((p, x, wp, wp + j as f64 / n as f64 * (wq - wp), dd, b, key, parent));
+                        mine.extend([p, x]);
+                    }
+                }
+            }
+        }
+    }
+    out
 }
 
 /// D-191: Compound Blur. Each pixel is blurred by `max_blur / 3` times the brightness of the map
