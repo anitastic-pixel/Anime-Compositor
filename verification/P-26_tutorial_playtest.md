@@ -64,9 +64,42 @@ The 12 still open, and what holds each:
 
 Partly fixed: Fractal Noise's Dynamic Progressive type (Invert and Offset are built), Fractal Noise Brightness -154 (Scale Height is built, the range stops at -100), Fast Box Blur with Exposure (the blur is built, Add's ceiling is not), and the two Glow-and-Fractal steps of tutorial 3.
 
+## After D-308 (D-318 to D-324), played again (2026-10-04)
+
+The owner approved D-308 on 2026-10-04. Five of its parts are built as D-318 to D-324; D-321 (Gaussian Blur strength) and D-322 (Glow strength) are held back, below. Tutorials 1, 2 and 3 were then played again from an empty project to the last step in the test copy. Tutorials 4 and 5 use nothing that changed, so their rows stand.
+
+| Tutorial | Steps | Passed before | Now fixed | Partly | Still open | Still open because of |
+|---|---|---|---|---|---|---|
+| 1 Shockwave | 24 | 14 | 9 | 1 | 0 | — |
+| 2 Advanced Electric | 18 | 5 | 11 | 1 | 1 | D-321, D-322 |
+| 3 Colorful Glitch | 29 | 12 | 13 | 1 | 3 | D-322, charter (camera) |
+| 4 Ultimate Lightsaber | 22 | 15 | 6 | 0 | 1 | D-321 |
+| 5 Film Riot Lightsaber | 12 | 7 | 5 | 0 | 0 | — |
+| **All** | **105** | **53** | **44** | **3** | **5** | |
+
+What D-318 to D-324 closed:
+
+- Tutorial 1: Polar Coordinates is now a circle (D-320), Complexity 10 is taken (D-318), and Time Remapping keys 8 at frame 4 and 16 at frame 12 (D-323).
+- Tutorial 2: the bolt stops on the ground with Alpha Obstacle 50 (D-324), Add keeps its light past white in Float (D-319), and Exposure 20.49 is taken (D-318).
+- Tutorial 3: the two glitch compositions work past white in Float (D-319), and Brightness 153 and -154 are taken (D-318).
+
+How each one looks now:
+
+1. **Shockwave.** The ring is round, with a dark hole in its middle. It is still brighter in the middle than the tutorial's.
+2. **Advanced Electric.** The bolt ends on the ground line. The wet-ground reflection now blazes instead of stopping at white, but keeps its hard box edge (Gaussian Blur, D-321), and the gold final still breaks into dust (Glow, D-322).
+3. **Colorful Glitch.** The final frame looks as before. The strong glow is still a white slab, because Glow stays held to 0 to 1 even in Float (document 21; D-322). Brightness -204 is still past the new -200 limit, so -200 was used.
+
+The 5 still open: the final look of tutorial 2 (Gaussian and Glow), tutorial 3's Glow and final look, tutorial 4's Gaussian, and the two-node camera (charter). Partly fixed: Fractal Noise's Dynamic Progressive type (1), the glow step of tutorial 2 and one Glow-and-Fractal step of tutorial 3.
+
+Not built from D-308:
+
+- T1-3's "refuse only the bad value": the panel already sends one changed value at a time, so only that value is refused (D-318's page).
+- After Effects' negative Alpha Obstacle, which keeps the bolt inside a shape; and the bolt stops at an obstacle rather than going round it (D-324's page).
+- D-324's eight Lightning types are this program's reading of Adobe's one-line descriptions. No After Effects frame was compared: Adobe's help page refused the request.
+
 ## What was built
 
-Every one is **built and awaiting the owner's playtest**. Each starts where the app was before, so older projects and every fixture draw as they did. Each has its own page in `verification/`, with what to look for and how to try it.
+Every one is **built and awaiting the owner's playtest**. Each starts where the app was before, so older projects and every fixture draw as they did; D-318 to D-324 (D-308) may change pictures where the owner turns them on, and a newly added Polar Coordinates starts as a circle. Each has its own page in `verification/`, with what to look for and how to try it.
 
 | Decision | What it does | Fixes | Page | Pictures |
 |---|---|---|---|---|
@@ -95,8 +128,13 @@ Every one is **built and awaiting the owner's playtest**. Each starts where the 
 | D-315 | Displacement Map's Expand Output | 3 | `D-315_displacement_expand_output.md` | `D-315 pictures/` |
 | D-316 | Colorama (reduced) | 3 | `D-316_colorama.md` | `D-316 pictures/` |
 | D-317 | Unsharp Mask's Threshold and CC Glass (reduced) | 1 | `D-317_unsharp_glass.md` | `D-317 pictures/` |
+| D-318 | Wider ranges: Exposure to ±40, Fractal Noise Complexity to 20 and Brightness to ±200 | 1, 2, 3 | `D-318_ranges.md` | `D-318 pictures/` |
+| D-319 | Float working depth: a composition can work past white | 2, 3 | `D-319_float_depth.md` | `D-319 pictures/` |
+| D-320 | Polar Coordinates' Shape: Circle (new) or Ellipse (old files) | 1 | `D-320_polar_circle.md` | `D-320 pictures/` |
+| D-323 | Time Remapping | 1 | `D-323_time_remap.md` | `D-323 pictures/` |
+| D-324 | Advanced Lightning's extras: Lightning Type, Turbulence, Decay, Conductivity State, Alpha Obstacle | 2 | `D-324_lightning_extras.md` | `D-324 pictures/` |
 
-Commits: cbbaec2 (D-290 to D-297), 79e0eae (D-298), d37a364 (D-299 to D-303), f28574e (D-304), c6cd69e (D-305, D-306), bf0978f (D-307), 69980f7 (D-310), e419620 (D-311 to D-313, D-315), 5f866db (D-314), 5ea35a3 (D-316), 15f8f25 (D-317).
+Commits: cbbaec2 (D-290 to D-297), 79e0eae (D-298), d37a364 (D-299 to D-303), f28574e (D-304), c6cd69e (D-305, D-306), bf0978f (D-307), 69980f7 (D-310), e419620 (D-311 to D-313, D-315), 5f866db (D-314), 5ea35a3 (D-316), 15f8f25 (D-317), 4a17745 (D-318), c4fc502 (D-319), e762c99 (D-320), d3bca9e (D-323), f559354 (D-324).
 
 ## Checks
 
@@ -106,9 +144,9 @@ No fixture's expected values were changed.
 
 ## Waiting on the owner
 
-1. **Playtests** of D-290 to D-307 and D-310 to D-317, each page's "For the owner to try".
-2. **D-308** (document 14): After Effects differences that would change existing pictures, so each is your call. Polar's circle, Add without a ceiling, Gaussian and Glow strength, Fractal Noise's wider ranges, Time Remapping, Advanced Lightning's extras, Exposure past 20. Every gap left in the five tutorials, apart from the charter's, sits here. The replay adds one thing to the Gaussian item: the blur's hard edge at three times its softness shows as a box or straight edge once a later step brightens it a lot (tutorials 2 and 5).
+1. **Playtests** of D-290 to D-307, D-310 to D-317 and D-318 to D-324, each page's "For the owner to try".
+2. **D-321 and D-322** (Gaussian Blur and Glow strength), held back from D-308: no clean After Effects frame was found to match, and a guess would change every blurred picture. A 2-minute test in After Effects settles it: a white square on black, Gaussian Blur at Blurriness 20, then 50, then Glow at its defaults; save the three frames. The blur's hard edge at three times its softness (the box in tutorials 2 and 5) belongs here too.
 
-D-309 was approved on 2026-10-04 and is built (D-310 to D-317).
+D-309 was approved on 2026-10-04 and is built (D-310 to D-317). D-308 was approved on 2026-10-04 and is built as D-318 to D-320, D-323 and D-324.
 
 Left out by the charter, not proposed: video import, the tracker, particles (CC Pixel Polly), 3D layers and lights, the two-node camera.
