@@ -65524,6 +65524,34 @@ Frame 0: every pixel is the drawing's, unchanged.
 
 Frame 4: every pixel is the drawing's, unchanged.
 
+### Turbulent Displace in After Effects' units (D-328)
+
+From P-26's tutorial 2 (Amount 80, Size 2 under a glow), approved by the owner on 2026-10-05. **Every number is produced by `tools/turbulent_ae_reference.py`**, which is `tools/turbulent_displace_reference.py`'s rule given the push `amount * min(size, 100) / 100` in place of the amount (document 21, D-328), and is in `Fixtures/turbulent_ae/expected_turbulent_ae.json`; the projects and the drawing are beside it. Each case is FX-TURB-001's composition, 16 by 10, and drawing `stripes.png`, edges transparent and unmoved unless it says. Values are linear premultiplied. Tolerance 2e-5. B-212 checks them in `verification/D-328_turbulent_ae_table.md`.
+
+FX-TURB-AE-001: Units after_effects, amount 80, size 2, speed 0, tutorial 2's setting: the push is 80 x 2 / 100 = 1.6 pixels at most, so each pixel reads from within two pixels of itself and the stripes stay stripes, shimmering; 123 pixels are more than half covered, against the drawing's 120. Pixel (3, 4) is 0.0423114 0.158961 0.686685 1; (8, 2) is 0.716335 0.522876 0.402586 1.
+
+FX-TURB-AE-002: The same settings in a file without units: D-127's rule as before, a push of up to 80 pixels at a wave every two, so each pixel reads from far off, mostly past the drawing: it breaks into dust, and in this small frame only 2 specks are left. Pixel (3, 4) is clear.
+
+FX-TURB-AE-003: Units written `classic`: FX-TURB-AE-002 exactly.
+
+FX-TURB-AE-004: Units after_effects with the settings as they start, amount 10, size 60, speed 20: the push is 6 pixels at most, D-127's amount 6 at size 60, on frames 0, 2 and 4. Frame 0 pixel (3, 4) is 0.921582 0.672443 0.514918 1.
+
+FX-TURB-AE-005: Units after_effects, amount 3, size 1000, speed 0: past size 100 the push is the amount, so this is FX-TURB-009 exactly.
+
+FX-TURB-AE-006: Units after_effects, amount 3, size 100, speed 0: at size 100 the push is the amount, D-127's amount 3 at size 100. Pixel (3, 4) is 0.0530255 0.110822 0.405476 1.
+
+FX-TURB-AE-007: Units after_effects, amount 30, size 8, speed 0: a push of 2.4 pixels at most, D-127's amount 2.4 at size 8; the layer grows by 3. Pixel (8, 2) is 0.298069 0.217708 0.16919 0.574907.
+
+FX-TURB-AE-008: Units after_effects, size 8, speed 0, amount keyed from 0 at frame 0 to 40 at frame 4, linear: frame 0 is the drawing, frame 2 amount 20 (a push of 1.6), frame 4 amount 40 (3.2). Frame 4 pixel (8, 2) is 0.00811249 0.0059985 0.00549229 0.0998756.
+
+FX-TURB-AE-009: FX-TURB-AE-001 with edges repeat: nothing grows, and a push past the drawing's edge reads the nearest edge pixel; where the sample lies inside the drawing it is FX-TURB-AE-001's.
+
+FX-TURB-AE-010: FX-TURB-AE-007 with seed 8, moved three pixels right: the layer grows by ceil(2.4) = 3, so the three columns left of the drawing show the stripes pushed into them. Pixel (3, 4) is 0.00422178 0.0158609 0.0685166 0.0997788.
+
+FX-TURB-AE-011: Units `After_Effects`, capitalised, which is not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: the drawing.
+
+FX-TURB-AE-012: Units `ae`, which is not one. As FX-TURB-AE-011.
+
 
 ## Fractal Noise fixtures
 
