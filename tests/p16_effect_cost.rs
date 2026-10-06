@@ -328,6 +328,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 frame: 5,
                 displacement: "turbulent".to_string(),
                 pinning: "none".to_string(),
+                units: "classic".to_string(),
             },
         ),
         (

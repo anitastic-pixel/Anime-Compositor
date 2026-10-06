@@ -593,7 +593,9 @@ pub enum Effect {
     /// "transparent" or "repeat", kept as written so a wrong one is reported. `frame` is not a
     /// setting and is never saved: it is the composition frame, as Noise's is. D-306:
     /// `displacement`, "turbulent", "horizontal" or "vertical", which ways a pixel is pushed;
-    /// `pinning`, "none" or "all", whether the push fades out at the layer's edges.
+    /// `pinning`, "none" or "all", whether the push fades out at the layer's edges. D-328:
+    /// `units`, "classic" (D-127's push, what a file without it means) or "after_effects"
+    /// (`turbulent_push`).
     TurbulentDisplace {
         amount: f64,
         size: f64,
@@ -605,6 +607,7 @@ pub enum Effect {
         frame: i32,
         displacement: String,
         pinning: String,
+        units: String,
     },
     /// D-128: `size`, 1 to 1000 pixels a cloud; `complexity`, 1 to 20 (D-318), its whole part
     /// counted; `contrast`, 0 to 1000; `brightness`, -1000 to 1000 (D-318, D-326); `evolution`, -100000 to 100000
@@ -2512,10 +2515,12 @@ impl Effect {
             }
             Effect::ChromaticAberration { amount, .. } => *amount = scale(*amount),
             Effect::DistanceGradation { width, .. } => *width = scale(*width),
-            Effect::TurbulentDisplace { amount, size, .. } => {
-                *amount = scale(*amount);
+            Effect::TurbulentDisplace { amount, size, units, .. } => {
+                let push = scale(turbulent_push(*amount, *size, units));
                 // A wave under a pixel is held at one, as its range is, rather than bypassed.
                 *size = scale(*size).max(1.0);
+                // D-328: the push scaled, the amount worked back from it at the drafted size.
+                *amount = if units == "after_effects" { push * 100.0 / size.min(100.0) } else { push };
             }
             // D-128: held at one in a draft, as D-127's wave is.
             Effect::FractalNoise { size, offset, .. } => {
@@ -2946,9 +2951,9 @@ impl Effect {
             Effect::KiraKira {
                 size, density, opacity, ..
             } if *size > 0.0 && *density > 0.0 && *opacity > 0.0 => size.ceil() as usize,
-            // D-127: the amount rounded up, unless a push past the edge reads the edge.
-            Effect::TurbulentDisplace { amount, edges, .. } if edges != "repeat" => {
-                amount.ceil() as usize
+            // D-127: the push rounded up, unless a push past the edge reads the edge.
+            Effect::TurbulentDisplace { amount, size, edges, units, .. } if edges != "repeat" => {
+                turbulent_push(*amount, *size, units).ceil() as usize
             }
             // D-315: with Expand Output the larger maximum rounded up, unless the push wraps.
             Effect::DisplacementMap { max_horizontal, max_vertical, wrap, expand, .. }
@@ -3234,7 +3239,7 @@ impl Effect {
             }
             Effect::LightRays { color, .. } => hex_fault("Light Rays", "colour", color),
             Effect::Vignette { color, .. } => hex_fault("Vignette", "colour", color),
-            Effect::TurbulentDisplace { edges: e, displacement, pinning, .. } => edges(e)
+            Effect::TurbulentDisplace { edges: e, displacement, pinning, units, .. } => edges(e)
                 .or_else(|| {
                     (!["turbulent", "horizontal", "vertical"].contains(&displacement.as_str())).then(|| {
                         format!("{name}'s displacement is \"turbulent\", \"horizontal\" or \"vertical\", and this is \"{displacement}\".")
@@ -3243,6 +3248,11 @@ impl Effect {
                 .or_else(|| {
                     (!["none", "all"].contains(&pinning.as_str()))
                         .then(|| format!("{name}'s pinning is \"none\" or \"all\", and this is \"{pinning}\"."))
+                })
+                .or_else(|| {
+                    (!["classic", "after_effects"].contains(&units.as_str())).then(|| {
+                        format!("{name}'s units are \"classic\" or \"after_effects\", and this is \"{units}\".")
+                    })
                 }),
             Effect::FractalNoise { blend, .. }
                 if !["normal", "multiply", "screen", "add"].contains(&blend.as_str()) =>
@@ -3775,6 +3785,13 @@ pub fn blur_reach(number: f64, units: &str) -> (f64, bool) {
 /// creates layer's Gaussian blur"); in "classic" it is D-89's sigma radius / 3.
 pub fn glow_reach(radius: f64, units: &str) -> (f64, bool) {
     if units == "after_effects" { blur_reach(radius, "blurriness") } else { (radius / 3.0, false) }
+}
+
+/// D-328: Turbulent Displace's push in pixels. In "after_effects" it shrinks with a wave under
+/// 100 pixels, this program's reading of After Effects (no source pins its own): Amount 80 at
+/// Size 2 pushes 1.6 pixels, a shimmer, where D-127's "classic" pushes 80 and breaks it to dust.
+pub fn turbulent_push(amount: f64, size: f64, units: &str) -> f64 {
+    if units == "after_effects" { amount * size.min(100.0) / 100.0 } else { amount }
 }
 
 /// D-321: the kernel radius, `ceil(6.5 sigma)` with the long reach, else document 21's. Three
@@ -4318,12 +4335,13 @@ pub(crate) fn apply_stack_at(
                 frame,
                 displacement,
                 pinning,
+                units,
             } => {
                 let z = depth(*evolution, *speed, *frame);
                 let r = crate::perf::time(crate::perf::Stage::EffectTurbulentDisplace, || {
                     crate::layer_fx::turbulent_displace(
                         source,
-                        *amount,
+                        turbulent_push(*amount, *size, units),
                         *size,
                         complexity.floor() as usize,
                         *seed,

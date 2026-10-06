@@ -10100,7 +10100,9 @@ const EFFECT_WORDS = {
   // D-306: After Effects' Displacement and Pinning, the ones built.
   'core.turbulent_displace': { choices: [EDGES,
     ['displacement', 'Displacement', [['turbulent', 'Turbulent'], ['horizontal', 'Horizontal Displacement'], ['vertical', 'Vertical Displacement']]],
-    ['pinning', 'Pinning', [['none', 'None'], ['all', 'Pin All']]]] },
+    ['pinning', 'Pinning', [['none', 'None'], ['all', 'Pin All']]],
+    // D-328: After Effects' push, smaller under Size 100, which a new one takes; a file without units is classic.
+    ['units', 'Units', [['classic', 'Classic (older projects)'], ['after_effects', 'After Effects']]]] },
   // D-128.
   'core.fractal_noise': {
     choices: [['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]],
