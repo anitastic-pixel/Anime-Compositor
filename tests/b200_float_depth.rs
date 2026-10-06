@@ -33,6 +33,7 @@ fn set(doc: &mut Document, float_depth: bool) {
         sheet_details: comp.sheet_details.clone(),
         background_color: comp.background_color,
         float_depth,
+        eight_bpc: false,
     })
     .unwrap_or_else(|d| panic!("{}", d.message));
 }

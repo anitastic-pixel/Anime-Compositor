@@ -518,6 +518,7 @@ fn b05_model_and_undo() {
         sheet_details: Default::default(),
         background_color: None,
         float_depth: false,
+        eight_bpc: false,
     };
     report.check(
         "composition settings: a width of nought is refused",

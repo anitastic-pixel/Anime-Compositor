@@ -3876,16 +3876,18 @@ pub fn apply_stack(
     stack: &[EffectInstance],
     report: impl FnMut(usize, &EffectInstance, Bypassed),
 ) -> (usize, usize) {
-    apply_stack_at(source, stack, (0, 0), report)
+    apply_stack_at(source, stack, (0, 0), false, report)
 }
 
 /// B-65: [`apply_stack`] on a buffer the effects before `stack` have already grown, the drawing's
 /// corner at `origin`, as Gradient, Noise and Chromatic Aberration read it. Returns the corner
-/// after `stack`, `origin` included.
+/// after `stack`, `origin` included. D-330: `eight`, a composition in 8 bpc, whose blurs average
+/// display values and whose every effect's result is held to 8 bits.
 pub(crate) fn apply_stack_at(
     source: &mut WorkingBuffer,
     stack: &[EffectInstance],
     origin: (usize, usize),
+    eight: bool,
     mut report: impl FnMut(usize, &EffectInstance, Bypassed),
 ) -> (usize, usize) {
     let (mut ox, mut oy) = origin;
@@ -3900,6 +3902,17 @@ pub(crate) fn apply_stack_at(
         }
         // D-202: what the effect is given, kept only when its result is to be mixed with it.
         let given = (instance.mix < 100.0).then(|| (source.clone(), ox, oy));
+        // D-330: After Effects in 8 bpc has no linear working space, so its blurs average the
+        // display values.
+        let display = eight
+            && instance.is_valid()
+            && matches!(
+                instance.effect,
+                Effect::GaussianBlur { .. } | Effect::FastBoxBlur { .. } | Effect::DirectionalBlur { .. } | Effect::RadialBlur { .. }
+            );
+        if display {
+            encode(source, true);
+        }
         match &instance.effect {
             Effect::Unsupported { .. } => {
                 report(at, instance, Bypassed::NotImplemented);
@@ -5217,11 +5230,52 @@ pub(crate) fn apply_stack_at(
             // D-196: the holding was done where the layer's content was resolved.
             Effect::PosterizeTime { .. } => {}
         }
+        if display {
+            encode(source, false);
+        }
         if let Some((given, gx, gy)) = given {
             mix_back(source, &given, (ox - gx, oy - gy), instance.mix / 100.0);
         }
+        if eight {
+            eight_bits(source);
+        }
     }
     (ox, oy)
+}
+
+/// D-330: linear premultiplied to display premultiplied, the straight colour through the sRGB
+/// curve (`forward`), or back.
+fn encode(buffer: &mut WorkingBuffer, forward: bool) {
+    use crate::color::{linear_to_srgb, srgb_to_linear};
+    buffer.data_mut().par_chunks_mut(4).for_each(|p| {
+        let a = p[3];
+        if a <= 0.0 {
+            p.fill(0.0);
+            return;
+        }
+        for c in &mut p[..3] {
+            let s = (*c / a).clamp(0.0, 1.0);
+            *c = if forward { linear_to_srgb(s) } else { srgb_to_linear(s) } * a;
+        }
+    });
+}
+
+/// D-330: each pixel held to what 8 bits keep, its alpha and its straight display colour each
+/// rounded to a 255th. A pixel whose alpha rounds to 0 is clear.
+fn eight_bits(buffer: &mut WorkingBuffer) {
+    use crate::color::{linear_to_srgb, srgb_to_linear};
+    buffer.data_mut().par_chunks_mut(4).for_each(|p| {
+        let a = (p[3].clamp(0.0, 1.0) * 255.0).round() / 255.0;
+        if a <= 0.0 || p[3] <= 0.0 {
+            p.fill(0.0);
+            return;
+        }
+        for i in 0..3 {
+            let s = (p[i] / p[3]).clamp(0.0, 1.0);
+            p[i] = srgb_to_linear((linear_to_srgb(s) * 255.0).round() / 255.0) * a;
+        }
+        p[3] = a;
+    });
 }
 
 /// D-202: `out = before + m (after - before)` at every sample of `after`, all four premultiplied

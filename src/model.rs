@@ -1243,6 +1243,10 @@ pub struct Composition {
     /// before; on (Float) lets Add, Screen and Fractal Noise go past white. A composition inside
     /// another follows the outermost one's. Saved as `float_depth` only when on.
     pub float_depth: bool,
+    /// D-330: After Effects' 8 bpc working depth. Each effect's result is held to 8 bits and the
+    /// blurs average display values. Never on with `float_depth`. Saved as `eight_bpc` only when
+    /// on.
+    pub eight_bpc: bool,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
 }
@@ -1393,6 +1397,7 @@ impl Composition {
             sketches: Vec::new(),
             background_color: None,
             float_depth: false,
+            eight_bpc: false,
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }

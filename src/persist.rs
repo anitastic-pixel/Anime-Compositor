@@ -219,6 +219,7 @@ const KEY_ORDER: &[&str] = &[
     "background_color",
     // D-319.
     "float_depth",
+    "eight_bpc",
     // D-323.
     "time_remap",
 ];
@@ -2652,6 +2653,12 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
         merged["float_depth"] = J::from(true);
     } else if let Some(map) = merged.as_object_mut() {
         map.remove("float_depth");
+    }
+    // D-330: written only when on.
+    if composition.eight_bpc {
+        merged["eight_bpc"] = J::from(true);
+    } else if let Some(map) = merged.as_object_mut() {
+        map.remove("eight_bpc");
     }
     // D-261: written only when there are some or the file had the key.
     if !composition.sketches.is_empty() || base.is_some_and(|b| b.get("sketches").is_some()) {
@@ -5885,6 +5892,14 @@ fn parse_composition(
     // D-319.
     if let Some(on) = v.get("float_depth") {
         composition.float_depth = as_bool(on, &format!("{pointer}/float_depth"))?;
+    }
+    // D-330: not both.
+    if let Some(on) = v.get("eight_bpc") {
+        let at = format!("{pointer}/eight_bpc");
+        composition.eight_bpc = as_bool(on, &at)?;
+        if composition.eight_bpc && composition.float_depth {
+            return Err(invalid(&at, "false when float_depth is true (D-330)"));
+        }
     }
     if let Some(sketches) = v.get("sketches") {
         let at = format!("{pointer}/sketches");

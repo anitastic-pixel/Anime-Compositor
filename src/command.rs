@@ -290,6 +290,8 @@ pub enum Command {
         background_color: Option<[f64; 3]>,
         /// D-319: the working depth, Float when true.
         float_depth: bool,
+        /// D-330: 8 bpc when true. Never with `float_depth`.
+        eight_bpc: bool,
     },
     ReorderLayer {
         composition: Id,
@@ -2728,8 +2730,15 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             sheet_details,
             background_color,
             float_depth,
+            eight_bpc,
             ..
         } => {
+            if *float_depth && *eight_bpc {
+                return Err(reject(
+                    "A composition is in one working depth: 8 bpc or Float, not both.",
+                    "D-330: `eight_bpc` and `float_depth` are never both on.",
+                ));
+            }
             if background_color.is_some_and(|c| c.iter().any(|v| !(0.0..=1.0).contains(v))) {
                 return Err(reject(
                     "A background colour is three numbers from 0 to 1.",
@@ -2755,6 +2764,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             comp.sheet_details = sheet_details.clone();
             comp.background_color = *background_color;
             comp.float_depth = *float_depth;
+            comp.eight_bpc = *eight_bpc;
             comp.work_area = comp
                 .work_area
                 .map(|(start, end)| (start, end.min(past)))

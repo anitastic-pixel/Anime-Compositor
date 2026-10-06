@@ -5759,12 +5759,13 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 }
             };
             // D-319: `true` for Float, `false` for Display; a page that does not send it keeps
-            // what the composition has.
-            let float_depth = match parameter(query, "float_depth").as_deref().map(str::trim) {
-                None => comp.float_depth,
-                Some("true") => true,
-                Some("false") => false,
-                Some(text) => return Some(format!("\"{text}\" is not a working depth. Send true for Float or false for Display.")),
+            // what the composition has. D-330: `8bpc` for 8 bpc (After Effects).
+            let (float_depth, eight_bpc) = match parameter(query, "float_depth").as_deref().map(str::trim) {
+                None => (comp.float_depth, comp.eight_bpc),
+                Some("true") => (true, false),
+                Some("false") => (false, false),
+                Some("8bpc") => (false, true),
+                Some(text) => return Some(format!("\"{text}\" is not a working depth. Send true for Float, false for Display or 8bpc for 8 bpc.")),
             };
             let said = edit(
                 viewer,
@@ -5772,6 +5773,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     composition: comp.id.clone(),
                     background_color,
                     float_depth,
+                    eight_bpc,
                     name: parameter(query, "name").unwrap_or(comp.name),
                     width,
                     height,
@@ -27704,6 +27706,13 @@ mod contract {
             .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
             .map(|p| p["compositions"][0]["layers"][0]["effects"][0].clone())
             .unwrap_or(serde_json::Value::Null);
+        // D-330: 8 bpc is written only when on and never with Float, so it is read off a fixture.
+        let eight = persist::load(&repo("Fixtures/eight_bpc/fx_8bpc_001.json"))
+            .map(|l| persist::to_json(l.document.project(), &l.preserved))
+            .ok()
+            .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+            .map(|p| p["compositions"][0].clone())
+            .unwrap_or(serde_json::Value::Null);
 
         let node = |var: &str| -> serde_json::Value {
             match var {
@@ -27755,6 +27764,7 @@ mod contract {
                         "source_text" => words.get(&field),
                         "timesheet" => from_sheet.get(&field),
                         "mix" => mixed.get(&field),
+                        "eight_bpc" => eight.get(&field),
                         _ => None,
                     }) {
                         Some(_) => "present".to_string(),

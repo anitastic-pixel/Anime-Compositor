@@ -25,6 +25,7 @@ fn set(doc: &mut anime_compositor::command::Document, background_color: Option<[
         sheet_details: comp.sheet_details.clone(),
         background_color,
         float_depth: comp.float_depth,
+        eight_bpc: false,
     })
     .map(|_| ())
     .map_err(|d| d.message)

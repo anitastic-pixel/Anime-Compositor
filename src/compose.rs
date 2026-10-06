@@ -188,6 +188,7 @@ fn inner_key(
     above: &[Id],
     outer: &Id,
     float: bool,
+    eight: bool,
 ) -> Option<String> {
     let mut reach = vec![inner.clone()];
     let mut next = 0;
@@ -202,7 +203,7 @@ fn inner_key(
     if reach.iter().any(|id| id == outer || above.contains(id)) {
         return None;
     }
-    let mut key = format!("{}\n{root:?}\n{quality:?}\n{frame}\n{float}\n", crate::cache::build()?);
+    let mut key = format!("{}\n{root:?}\n{quality:?}\n{frame}\n{float}\n{eight}\n", crate::cache::build()?);
     for id in &reach {
         key.push_str(&format!("{:?}\n", project.composition(id)));
     }
@@ -215,6 +216,11 @@ fn inner_key(
 /// first.
 fn float_depth(project: &Project, above: &[Id], comp: &crate::model::Composition) -> bool {
     above.first().map_or(Some(comp), |id| project.composition(id)).is_some_and(|c| c.float_depth)
+}
+
+/// D-330: the same for 8 bpc.
+fn eight_bpc(project: &Project, above: &[Id], comp: &crate::model::Composition) -> bool {
+    above.first().map_or(Some(comp), |id| project.composition(id)).is_some_and(|c| c.eight_bpc)
 }
 
 fn plan_inside(
@@ -1198,6 +1204,7 @@ fn resolve_held(
     map: bool,
 ) -> Option<ResolvedLayer> {
     let float = float_depth(project, above, comp);
+    let eight = eight_bpc(project, above, comp);
     // D-71: an audio layer draws nothing, so no frame is any different for it (FX-AUD-020).
     // D-82: nor does a null, whatever its switch, opacity or timing say (FX-NULL-001, 002).
     if matches!(
@@ -1264,7 +1271,7 @@ fn resolve_held(
             // B-171 (G12, D-243): the viewer keeps each inner frame it draws, in memory and on
             // disk, and draws it again only when something it was drawn from has changed.
             let key = (cache.effect_budget() > 0)
-                .then(|| inner_key(project, inner_id, root, quality, local, above, &comp.id, float))
+                .then(|| inner_key(project, inner_id, root, quality, local, above, &comp.id, float, eight))
                 .flatten();
             if let Some(picture) = key.as_deref().and_then(|key| cache.inner_frame(key)) {
                 return Some(picture);
@@ -1330,6 +1337,7 @@ fn resolve_held(
             false,
             map,
             float,
+            eight,
         )?;
         resolved.nested = Some((inner_id.clone(), local));
         resolved.mixed = w > 0.0;
@@ -1475,11 +1483,11 @@ fn resolve_held(
         );
         let small = std::sync::Arc::new(render::render(&small, DRAFT_TILE_SIZE));
         return resolve_rest(
-            project, root, comp, layer, frame, at, cache, log, small, cel, d as f64, card, map, float,
+            project, root, comp, layer, frame, at, cache, log, small, cel, d as f64, card, map, float, eight,
         )
         .map(|r| ResolvedLayer { mixed, ..r });
     }
-    resolve_rest(project, root, comp, layer, frame, at, cache, log, source, cel, 1.0, card, map, float)
+    resolve_rest(project, root, comp, layer, frame, at, cache, log, source, cel, 1.0, card, map, float, eight)
         .map(|r| ResolvedLayer { mixed, ..r })
 }
 
@@ -1612,6 +1620,7 @@ fn resolve_rest(
     card: bool,
     map: bool,
     float: bool,
+    eight: bool,
 ) -> Option<ResolvedLayer> {
     let step1 = (source.width(), source.height());
     // D-188: the moments of a motion-blurred layer's shutter. Its effects all run here, once,
@@ -1808,7 +1817,8 @@ fn resolve_rest(
     // them can only begin that run. So can an HSV Key: the hue of a nearly grey pixel swings
     // with the smallest change, and given the card's picture rather than the CPU's it keyed
     // pixels the CPU did not (B-155's table, 255 levels).
-    let can = |i: usize| card && cel.is_some() && card_can(&effects[i], pre);
+    // D-330: the card does not round to 8 bits, so in 8 bpc it is left nothing.
+    let can = |i: usize| !eight && card && cel.is_some() && card_can(&effects[i], pre);
     let mut chain = Vec::new();
     for i in (0..effects.len()).rev() {
         use crate::effects::Effect as E;
@@ -1832,7 +1842,9 @@ fn resolve_rest(
     let skip = !masked && effects[..before].is_empty() && (chain.is_empty() || pre == 1.0);
     let divisor = pre as usize;
     let hit = match &cel {
-        Some((path, interpretation)) if !skip => {
+        // ponytail: an 8 bpc stack is not cached, as the key does not hold the depth; add the
+        // depth to the key if 8 bpc projects come to be edited live.
+        Some((path, interpretation)) if !skip && !eight => {
             cache.effect_result(path, *interpretation, &drawn_masks, &effects[..before], divisor)
         }
         _ => None,
@@ -1874,9 +1886,11 @@ fn resolve_rest(
                     instance.effect.scale_distances(|d| d / pre);
                 }
             }
-            crate::effects::apply_stack(
+            crate::effects::apply_stack_at(
                 std::sync::Arc::make_mut(&mut source),
                 &stack,
+                (0, 0),
+                eight,
                 |_, instance, why| report(instance, why),
             )
         }
@@ -1908,22 +1922,24 @@ fn resolve_rest(
                     std::sync::Arc::make_mut(&mut source)
                 });
                 let mut bypassed: Vec<(usize, crate::effects::Bypassed)> = Vec::new();
-                let offset = crate::effects::apply_stack(pixels, &stack, |at, instance, why| {
+                let offset = crate::effects::apply_stack_at(pixels, &stack, (0, 0), eight, |at, instance, why| {
                     bypassed.push((at, why));
                     report(instance, why);
                 });
-                cache.store_effect(
-                    path,
-                    *interpretation,
-                    &drawn_masks,
-                    &effects[..before],
-                    divisor,
-                    crate::cache::EffectResult {
-                        buffer: std::sync::Arc::clone(&source),
-                        offset,
-                        bypassed,
-                    },
-                );
+                if !eight {
+                    cache.store_effect(
+                        path,
+                        *interpretation,
+                        &drawn_masks,
+                        &effects[..before],
+                        divisor,
+                        crate::cache::EffectResult {
+                            buffer: std::sync::Arc::clone(&source),
+                            offset,
+                            bypassed,
+                        },
+                    );
+                }
                 offset
             }
         }
