@@ -134,6 +134,35 @@ Not built, proposed for the owner's decision:
 
 Commits: 14280da, c760ed2 (D-321), 7f37444, 5cd1039 (D-322), 822c7e6 (D-325), 2fc709c, 45c36ac (D-326), 88db5d1, 730b28d (D-327, D-330 proposed), efb2671, 7a0b023 (D-331).
 
+## After D-328, D-329 and D-330, played again (2026-10-05)
+
+The owner approved the three proposals on 2026-10-05. All three are built, each with its fixtures committed before its code:
+
+- **D-330** a third working depth, **8 bpc (After Effects)**: every pixel is rounded to 8 bits after each effect, and the four blurs average display colours, as After Effects' 8 bpc does. Tutorial 2 now works in 8 bpc until its step F, as the video does.
+- **D-329** Advanced Lightning's **Path**: Stop (as before, the default) or Go Round, and Alpha Obstacle from -100 to 100. Tutorial 2 keeps Stop: its bolt stops on the ground.
+- **D-328** Turbulent Displace's **Units**: After Effects (new effects) or Classic (every older file). In After Effects units the push shrinks with a wave under 100 pixels, so tutorial 2's Amount 80 at Size 2 is a shimmer of 1.6 pixels instead of dust.
+
+All five tutorials were then played again from an empty project to the last step in the test copy. Every step ran and none was refused.
+
+| Tutorial | Steps | Passed before | Now fixed | Partly | Still open | Still open because of |
+|---|---|---|---|---|---|---|
+| 1 Shockwave | 24 | 14 | 9 | 1 | 0 | — |
+| 2 Advanced Electric | 18 | 5 | 12 | 1 | 0 | — |
+| 3 Colorful Glitch | 29 | 12 | 14 | 2 | 1 | charter (camera) |
+| 4 Ultimate Lightsaber | 22 | 15 | 7 | 0 | 0 | — |
+| 5 Film Riot Lightsaber | 12 | 7 | 5 | 0 | 0 | — |
+| **All** | **105** | **53** | **47** | **4** | **1** | |
+
+Tutorial 2, step by step where it changed:
+
+- **Step E, the reflections (now fixed).** In 8 bpc the blur's faint edge rounds to nothing before Exposure lifts it, so only a small blue spot lights under the bolt, as in the tutorial. Before it was a glowing block.
+- **The glow under Turbulent Displace (now fixed).** The bolt keeps its tight glow. The same glow layer drawn with Turbulent Displace on and off lights 29,889 and 29,777 pixels: the shimmer moves light, it does not remove it. Before, at Classic units, it broke into dust.
+- **The gold final (partly).** At frame 20 the bolt is white-hot gold with a tight glow, as in the tutorial. Its colour changes from frame to frame because the tutorial puts `wiggle(9,3)` on the glow's Exposure: at frame 12 the glow layer is at its dimmest (brightest red 0.81) and the bolt reads orange; from frame 15 to 24 it is 10 to 40 times brighter and reads gold. Still different: after step F the tutorial works in 32 bpc and the ground reflection grows back to a large glowing block, where the tutorial still shows a small glow. With Exposure at +20.49 stops (1.4 million times), any depth that keeps the blur's faint edge lights the whole blur, and this program's sum of After Effects' 32 bpc arithmetic does too (D-330's proposal page). The video does not show what keeps it small, so it is recorded here rather than guessed.
+
+Tutorials 1, 3, 4 and 5 draw as they did after D-331. Tutorial 5's Turbulent Displace is new, so it starts in After Effects units: Amount 5 at Size 60 now pushes 3 pixels instead of 5, and the blade's edge still wobbles gently.
+
+Commits: f809ea6, c0006a3 (D-330), 3d4ecd6, d8ee516 (D-329), fb1a40c, fb1e1b9 (D-328).
+
 ## What was built
 
 Every one is **built and awaiting the owner's playtest**. Each starts where the app was before, so older projects and every fixture draw as they did; D-318 to D-324 (D-308) may change pictures where the owner turns them on, and a newly added Polar Coordinates starts as a circle. Each has its own page in `verification/`, with what to look for and how to try it.
@@ -175,6 +204,9 @@ Every one is **built and awaiting the owner's playtest**. Each starts where the 
 | D-325 | A blurred layer keeps its outline in place; Blur is named Gaussian Blur | owner's report | `D-325_blur_outline.md` | `D-325 pictures/` |
 | D-326 | Fractal Noise Brightness from -1000 to 1000 | 3 | `D-326_fractal_brightness.md` | `D-326 pictures/` |
 | D-327 | Fast Box Blur | 2, 3 | `D-327_fast_box_blur.md` | `D-327 pictures/` |
+| D-328 | Turbulent Displace in After Effects units | 2, 5 | `D-328_turbulent_ae.md` | `D-328 pictures/` |
+| D-329 | Advanced Lightning goes round shapes; a negative Alpha Obstacle | 2 | `D-329_lightning_around.md` | `D-329 pictures/` |
+| D-330 | 8 bpc (After Effects) working depth | 2 | `D-330_eight_bpc.md` | `D-330 pictures/` |
 
 Commits: cbbaec2 (D-290 to D-297), 79e0eae (D-298), d37a364 (D-299 to D-303), f28574e (D-304), c6cd69e (D-305, D-306), bf0978f (D-307), 69980f7 (D-310), e419620 (D-311 to D-313, D-315), 5f866db (D-314), 5ea35a3 (D-316), 15f8f25 (D-317), 4a17745 (D-318), c4fc502 (D-319), e762c99 (D-320), d3bca9e (D-323), f559354 (D-324).
 
@@ -188,8 +220,8 @@ One set of fixture values was changed, as a recorded specification decision: D-3
 
 1. **Playtests** of D-290 to D-307, D-310 to D-317 and D-318 to D-324, each page's "For the owner to try".
 2. **Playtests** of D-321, D-322 with D-331, and D-325 to D-327, each page's "For the owner to try". The After Effects test asked for here before is no longer needed: D-321 and D-331 are settled from the sources above.
-3. **Decisions** on D-328, D-329 and D-330 (proposed, nothing built).
+3. **Playtests** of D-328, D-329 and D-330 (approved 2026-10-05 and built), each page's "For the owner to try".
 
-D-309 was approved on 2026-10-04 and is built (D-310 to D-317). D-308 was approved on 2026-10-04 and is built as D-318 to D-320, D-323 and D-324.
+D-328 to D-330 were approved on 2026-10-05 and are built. D-309 was approved on 2026-10-04 and is built (D-310 to D-317). D-308 was approved on 2026-10-04 and is built as D-318 to D-320, D-323 and D-324.
 
 Left out by the charter, not proposed: video import, the tracker, particles (CC Pixel Polly), 3D layers and lights, the two-node camera.
