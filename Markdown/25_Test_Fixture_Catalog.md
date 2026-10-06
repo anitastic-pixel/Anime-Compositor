@@ -187424,6 +187424,24 @@ FX-FASTBOX-010: Radius 501, above 500. As FX-FASTBOX-009.
 
 FX-FASTBOX-011: Blur Dimensions `Both`, capitalised, which is not the word. As FX-FASTBOX-009.
 
+### 8 bpc working depth (D-330)
+
+From P-26 and the owner's approval of D-330 on 2026-10-05. Tutorial 2 is drawn in After Effects' 8 bpc until its step F; its reflection blurs the bolt's tips wide and lifts them 17 stops, and in 8 bpc the blur's faint edge is 0 before Exposure sees it. **Every number is produced by `tools/eight_bpc_reference.py`** and is in `Fixtures/eight_bpc/expected_eight_bpc.json`; the projects and `media/block.png` are beside it. Each case is FX-BLURRY-001's composition, 40 by 12, and drawing `block`, a 4 by 4 orange square against the left edge, frame 0, with `eight_bpc` true. Values are linear premultiplied. Tolerance 2e-5; the tool checks that every value it rounds lies at least a thousandth of a step from where rounding turns. B-210 checks them in `verification/D-330_eight_bpc_table.md`.
+
+FX-8BPC-001: Fast Box Blur radius 2, iterations 3, then Exposure +6. The blur averages display values, each effect's result is rounded to 8 bits, and Exposure's light is held to white. Pixel (1, 6) is 0.313725 0.313725 0 0.313725 (80/255, straight white); (9, 6) is 0.00392157 0.00392157 0 0.00392157 (1/255); (10, 6) is clear. 116 pixels are lit, 120 in Float (FX-FASTBOX-007).
+
+FX-8BPC-002: Gaussian Blur, Blurriness 4, then Exposure +6. Pixel (1, 6) is 0.784314 0.784314 0 0.784314; (5, 6) is 0.0862745 0.0862745 0 0.0862745; (7, 6) and past are clear, where Float is still lit at (8, 6). 64 pixels are lit, 144 in Float.
+
+FX-8BPC-003: Exposure -1 alone: worked in linear light, then rounded. Pixel (1, 6) is 0.502886 0.107023 0 1, a little off half the orange.
+
+FX-8BPC-004: Fast Box Blur radius 2 alone: every alpha and every straight display value is a whole 255th. Pixel (1, 6) is 0.313725 0.0677209 0 0.313725; (9, 6) is 0.00392157 0.000846512 0 0.00392157.
+
+FX-8BPC-005: No effect: the drawing untouched, not rounded.
+
+FX-8BPC-LOAD-001: `both_depths.json`, `float_depth` and `eight_bpc` both true: refused, `PROJECT_SCHEMA_INVALID`.
+
+FX-8BPC-LOAD-002: `eight_word.json`, `eight_bpc` the word "yes": refused, `PROJECT_SCHEMA_INVALID`.
+
 ## Mix fixtures
 
 D-202, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps in `Fixtures/effect_mix/`, each effect's `mix` written on its record after `enabled` or not at all, as the case says. FX-MIX-001 to 012 and 014 to 016 hold Invert's drawing, `Fixtures/effect_mix/media/bands.png` (the drawing of FX-INVERT, described there), five frames long, unmoved, with Invert (`core.invert`, channel rgb, amount 100), Gaussian Blur (`core.gaussian_blur`, edges transparent) or Exposure (`core.exposure`) on it, or on an adjustment layer above it in 012. FX-MIX-013 is FX-WRAP-001's scene, Light Wrap's box `wrap_box.png` over its bands `wrap_bands.png`, the Light Wrap on the box. FX-MIX-017 is FX-PTIME-001's project, eight frames of the running ball `ball_1.png` to `ball_8.png`, its Posterize Time given a mix. Values are linear premultiplied working values, and only the pixels that differ from the case without the mixed effects (the drawing; for 013 the box over the bands unlit; for 017 the ball not held) are listed, a run of rows in one column holding the same pair once: every other pixel is as without them, to 1e-12.
