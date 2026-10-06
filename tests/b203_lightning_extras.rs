@@ -175,7 +175,8 @@ fn b203_lightning_extras() {
             ("turbulence 101", set(extras(&base, "direction", [101.0, 0.0, 0.0, 0.0]))),
             ("decay -1", set(extras(&base, "direction", [0.0, -1.0, 0.0, 0.0]))),
             ("conductivity 10001", set(extras(&base, "direction", [0.0, 0.0, 10001.0, 0.0]))),
-            ("Alpha Obstacle -1", set(extras(&base, "direction", [0.0, 0.0, 0.0, -1.0]))),
+            // D-329 took -100 to 0 (B-211), so the bottom is now -100.
+            ("Alpha Obstacle -101", set(extras(&base, "direction", [0.0, 0.0, 0.0, -101.0]))),
             ("Alpha Obstacle keyed to 150", keys("obstacle", &[(0, &[0.0]), (4, &[150.0])])),
         ],
     );

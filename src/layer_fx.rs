@@ -2650,13 +2650,14 @@ pub(crate) fn kira_stars(
 /// both cover. Nothing grows. The settings are already valid. D-324: `kind` and `[turbulence,
 /// decay, conductivity]`, Advanced Lightning's; `ends[2]` the drawing's bottom edge below
 /// `ends[0]`, for Vertical; and `blocks`, one per pixel of `source` (none when empty), where
-/// Alpha Obstacle stops the bolt.
+/// Alpha Obstacle stops the bolt. D-329: `outside`, whether past the layer's edge blocks too (a
+/// negative obstacle), and `around`, whether each main bolt goes round what blocks.
 pub(crate) fn lightning_bolt(
     source: &mut WorkingBuffer,
     ends: [(f64, f64); 3],
     [jagged, detail, branches, width, glow, opacity, hold, seed]: [f64; 8],
     (kind, [turbulence, decay, conductivity]): (&str, [f64; 3]),
-    blocks: &[bool],
+    (blocks, outside, around): (&[bool], bool, bool),
     [core, halo]: [[f64; 3]; 2],
     frame: i32,
 ) {
@@ -2675,13 +2676,15 @@ pub(crate) fn lightning_bolt(
         let v = crate::grade::unit(below, key, b, m, j);
         if s == 0.0 { v } else { v + s * (crate::grade::unit(above, key, b, m, j) - v) }
     };
-    let mut segs = bolt_segments(kind, ends, [jagged, branches, turbulence, decay], detail.floor() as u32, &r);
+    let size = (source.width(), source.height());
+    let blocked = |x: f64, y: f64| {
+        let (i, j) = (x.floor(), y.floor());
+        if i >= 0.0 && i < size.0 as f64 && j >= 0.0 && j < size.1 as f64 { blocks[j as usize * size.0 + i as usize] } else { outside }
+    };
+    let route = (around && !blocks.is_empty()).then_some((&blocked as &dyn Fn(f64, f64) -> bool, size));
+    let mut segs = bolt_segments(kind, ends, [jagged, branches, turbulence, decay], detail.floor() as u32, &r, route);
     if !blocks.is_empty() {
-        let (w, h) = (source.width() as f64, source.height() as f64);
-        segs = bolt_stop(segs, |x, y| {
-            let (i, j) = (x.floor(), y.floor());
-            i >= 0.0 && i < w && j >= 0.0 && j < h && blocks[j as usize * w as usize + i as usize]
-        });
+        segs = bolt_stop(segs, &blocked, route.is_some());
     }
     let segs: Vec<[f64; 6]> = segs.into_iter().map(|(p, q, wp, wq, ..)| [p.0, p.1, q.0, q.1, wp, wq]).collect();
     // Each segment's box: nothing past its reach from the line is lit.
@@ -2743,13 +2746,16 @@ type BoltSeg = ((f64, f64), (f64, f64), f64, f64, u32, i64, i64, i64);
 /// `r(key, bolt, j)`, with forks three deep. Worked in double precision. D-324: `kind` picks the
 /// start bolts from `ends` (start, end, and the bottom edge below the start) and how a fork
 /// turns and starts; turbulence pushes harder each halving and forks more; decay thins each
-/// start bolt to 1 - decay / 100 at its end.
+/// start bolt to 1 - decay / 100 at its end. D-329: with `around` (what blocks, and the layer's
+/// size) each start bolt is first routed round what blocks, and a main bolt's middle is pushed
+/// only where both halves stay clear.
 fn bolt_segments(
     kind: &str,
     [o, d, bottom]: [(f64, f64); 3],
     [jagged, branches, turbulence, decay]: [f64; 4],
     detail: u32,
     r: &dyn Fn(i64, i64, u64) -> f64,
+    around: Option<(&dyn Fn(f64, f64) -> bool, (usize, usize))>,
 ) -> Vec<BoltSeg> {
     let kd = 1.0 - decay / 100.0;
     let one = |p, q, b| (p, q, 1.0, kd, 0u32, b, 1i64, b);
@@ -2777,6 +2783,9 @@ fn bolt_segments(
         }
         _ => vec![one(o, d, 0)],
     };
+    if let Some((blocked, size)) = around {
+        segs = segs.into_iter().flat_map(|root| bolt_pieces(root, blocked, size)).collect();
+    }
     for i in 0..detail {
         let mut out = Vec::with_capacity(segs.len() * 3);
         for (p, q, wp, wq, depth, b, key, parent) in segs {
@@ -2787,7 +2796,12 @@ fn bolt_segments(
                 continue;
             }
             let a = r(key, b, 0) * jagged / 100.0 * l / 2.0 * (1.0 + turbulence / 100.0 * i as f64 / 2.0);
-            let mid = ((p.0 + q.0) / 2.0 - dy / l * a, (p.1 + q.1) / 2.0 + dx / l * a);
+            let mut mid = ((p.0 + q.0) / 2.0 - dy / l * a, (p.1 + q.1) / 2.0 + dx / l * a);
+            if let Some((blocked, _)) = around.filter(|_| depth == 0) {
+                if !(bolt_clear(p, mid, blocked) && bolt_clear(mid, q, blocked)) {
+                    mid = ((p.0 + q.0) / 2.0, (p.1 + q.1) / 2.0);
+                }
+            }
             let wm = (wp + wq) / 2.0;
             out.push((p, mid, wp, wm, depth, b, 2 * key, parent));
             out.push((mid, q, wm, wq, depth, b, 2 * key + 1, parent));
@@ -2811,10 +2825,97 @@ fn bolt_segments(
     segs
 }
 
+/// D-324's walk from `p` to `q`: `n`, and the point `j / n` of the way, `j` = 0 to `n`, a pixel
+/// or less apart.
+fn bolt_walk(p: (f64, f64), q: (f64, f64)) -> (usize, impl Fn(usize) -> (f64, f64)) {
+    let n = ((q.0 - p.0).hypot(q.1 - p.1).ceil() as usize).max(1);
+    (n, move |j: usize| (p.0 + (q.0 - p.0) * (j as f64 / n as f64), p.1 + (q.1 - p.1) * (j as f64 / n as f64)))
+}
+
+/// D-329: no point of D-324's walk from `p` to `q` blocks.
+fn bolt_clear(p: (f64, f64), q: (f64, f64), blocked: &dyn Fn(f64, f64) -> bool) -> bool {
+    let (n, at) = bolt_walk(p, q);
+    (0..=n).all(|j| {
+        let x = at(j);
+        !blocked(x.0, x.1)
+    })
+}
+
+/// D-329: a start bolt routed round what blocks, as pieces, each a bolt of its own; none when its
+/// start blocks. The way is a breadth-first search over the layer's pixels from the start's to
+/// the end's (or to the nearest the search reaches), pulled straight wherever the line is clear.
+// ponytail: one search over the whole layer per start bolt, and the straightening tests every
+// later point, O(cells^2) on a long way; fine at a few bolts, bound the search if it shows.
+fn bolt_pieces(root: BoltSeg, blocked: &dyn Fn(f64, f64) -> bool, (w, h): (usize, usize)) -> Vec<BoltSeg> {
+    let (o, d, _, kd, _, b, _, _) = root;
+    let cell = |p: (f64, f64)| (p.0.floor().clamp(0.0, w as f64 - 1.0) as i64, p.1.floor().clamp(0.0, h as f64 - 1.0) as i64);
+    let free = |(i, j): (i64, i64)| i >= 0 && i < w as i64 && j >= 0 && j < h as i64 && !blocked(i as f64 + 0.5, j as f64 + 0.5);
+    let at = |(i, j): (i64, i64)| j as usize * w + i as usize;
+    let (s, t) = (cell(o), cell(d));
+    if !free(s) {
+        return Vec::new();
+    }
+    let far = |c: (i64, i64)| (c.0 - t.0).pow(2) + (c.1 - t.1).pow(2);
+    let mut parent = vec![usize::MAX; w * h];
+    parent[at(s)] = at(s);
+    let (mut queue, mut best) = (std::collections::VecDeque::from([s]), s);
+    'search: while s != t {
+        let Some((ci, cj)) = queue.pop_front() else { break };
+        for (di, dj) in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)] {
+            let n = (ci + di, cj + dj);
+            if !free(n) || parent[at(n)] != usize::MAX || (di != 0 && dj != 0 && !(free((ci + di, cj)) && free((ci, cj + dj)))) {
+                continue;
+            }
+            parent[at(n)] = at((ci, cj));
+            queue.push_back(n);
+            if far(n) < far(best) {
+                best = n;
+            }
+            if n == t {
+                break 'search;
+            }
+        }
+    }
+    let mut way = vec![best];
+    let mut c = at(best);
+    while parent[c] != c {
+        c = parent[c];
+        way.push(((c % w) as i64, (c / w) as i64));
+    }
+    way.reverse();
+    let middle = |(i, j): (i64, i64)| (i as f64 + 0.5, j as f64 + 0.5);
+    let mut pts = vec![o];
+    pts.extend(way.iter().skip(1).take(way.len().saturating_sub(2)).map(|&c| middle(c)));
+    pts.push(if best == t { d } else { middle(best) });
+    let mut kept = vec![pts[0]];
+    let mut i = 0;
+    while i < pts.len() - 1 {
+        let mut j = i + 1;
+        while j + 1 < pts.len() && bolt_clear(pts[i], pts[j + 1], blocked) {
+            j += 1;
+        }
+        kept.push(pts[j]);
+        i = j;
+    }
+    let lengths: Vec<f64> = kept.windows(2).map(|e| (e[1].0 - e[0].0).hypot(e[1].1 - e[0].1)).collect();
+    let total: f64 = lengths.iter().sum();
+    let mut along = 0.0;
+    let mut out = Vec::with_capacity(lengths.len());
+    for (k, e) in kept.windows(2).enumerate() {
+        let ws = if k == 0 { 1.0 } else { 1.0 + (kd - 1.0) * along / total };
+        along += lengths[k];
+        let we = if k == lengths.len() - 1 { kd } else { 1.0 + (kd - 1.0) * along / total };
+        let bp = if k == 0 { b } else { b - 8 * k as i64 };
+        out.push((e[0], e[1], ws, we, 0, bp, 1, bp));
+    }
+    out
+}
+
 /// D-324's Alpha Obstacle: each bolt, then each fork, walked from its start at points a pixel or
 /// less apart, ends at the first point `blocked`; the rest of it goes, and so does every fork
-/// whose start is no longer on what is left of its parent.
-fn bolt_stop(segs: Vec<BoltSeg>, blocked: impl Fn(f64, f64) -> bool) -> Vec<BoltSeg> {
+/// whose start is no longer on what is left of its parent. D-329: with `keep_main` the main bolts
+/// (depth 0), already routed round, are left whole.
+fn bolt_stop(segs: Vec<BoltSeg>, blocked: impl Fn(f64, f64) -> bool, keep_main: bool) -> Vec<BoltSeg> {
     use std::collections::{HashMap, HashSet};
     let mut kept: HashMap<i64, Vec<(f64, f64)>> = HashMap::new();
     let (mut done, mut started) = (HashSet::new(), HashSet::new());
@@ -2828,11 +2929,10 @@ fn bolt_stop(segs: Vec<BoltSeg>, blocked: impl Fn(f64, f64) -> bool) -> Vec<Bolt
                 done.insert(b);
                 continue;
             }
-            let n = ((q.0 - p.0).hypot(q.1 - p.1).ceil() as usize).max(1);
-            let at = |j: usize| (p.0 + (q.0 - p.0) * (j as f64 / n as f64), p.1 + (q.1 - p.1) * (j as f64 / n as f64));
+            let (n, at) = bolt_walk(p, q);
             let hit = (0..=n).find(|&j| {
                 let x = at(j);
-                blocked(x.0, x.1)
+                !(keep_main && dd == 0) && blocked(x.0, x.1)
             });
             let mine = kept.entry(b).or_default();
             match hit {

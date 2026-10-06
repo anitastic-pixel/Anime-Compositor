@@ -106,7 +106,7 @@ D-324, from D-308, accepted by the owner on 2026-10-04. Every expected pixel is 
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| a half-size draft preview halves the width and the glow, and none of the five new settings | LightningBolt { start: [40.0, 0.0], end: [60.0, 100.0], jagged: 40.0, detail: 6.0, branches: 30.0, width: 1.5, glow: 12.0, opacity: 100.0, hold: 2.0, seed: 0.0, color: "#ffffff", glow_color: "#6e8cff", composite: "on", kind: "strike", turbulence: 50.0, decay: 50.0, conductivity: 3.0, obstacle: 50.0, frame: 0 } | yes |
+| a half-size draft preview halves the width and the glow, and none of the five new settings | LightningBolt { start: [40.0, 0.0], end: [60.0, 100.0], jagged: 40.0, detail: 6.0, branches: 30.0, width: 1.5, glow: 12.0, opacity: 100.0, hold: 2.0, seed: 0.0, color: "#ffffff", glow_color: "#6e8cff", composite: "on", kind: "strike", turbulence: 50.0, decay: 50.0, conductivity: 3.0, obstacle: 50.0, path: "split", frame: 0 } | yes |
 | every new setting at its top, it never grows the drawing's bounds | 0 | yes |
 
 ## Commands
@@ -117,8 +117,8 @@ D-324, from D-308, accepted by the owner on 2026-10-04. Every expected pixel is 
 | turbulence 101 is refused with a sentence, and nothing changes | Lightning Bolt's turbulence runs from 0 to 100, and this is 101. | yes |
 | decay -1 is refused with a sentence, and nothing changes | Lightning Bolt's decay runs from 0 to 100, and this is -1. | yes |
 | conductivity 10001 is refused with a sentence, and nothing changes | Lightning Bolt's conductivity runs from 0 to 10000, and this is 10001. | yes |
-| Alpha Obstacle -1 is refused with a sentence, and nothing changes | Lightning Bolt's obstacle runs from 0 to 100, and this is -1. | yes |
-| Alpha Obstacle keyed to 150 is refused with a sentence, and nothing changes | Lightning Bolt's obstacle runs from 0 to 100, and this is 150. | yes |
+| Alpha Obstacle -101 is refused with a sentence, and nothing changes | Lightning Bolt's obstacle runs from -100 to 100, and this is -101. | yes |
+| Alpha Obstacle keyed to 150 is refused with a sentence, and nothing changes | Lightning Bolt's obstacle runs from -100 to 100, and this is 150. | yes |
 | a lightning type, is taken | taken | yes |
 | a lightning type, is taken | taken | yes |
 | a lightning type, is taken | taken | yes |

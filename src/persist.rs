@@ -1984,6 +1984,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             decay,
             conductivity,
             obstacle,
+            path,
             ..
         } => {
             // D-300: written only when off or the file had it, so a file that never changed it
@@ -1994,6 +1995,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             // D-324: as D-300 and D-310, written only if moved, keyed or already in the file.
             if kind != "direction" || params.contains_key("kind") {
                 params.insert("kind".into(), J::from(kind.as_str()));
+            }
+            // D-329: the same.
+            if path != "split" || params.contains_key("path") {
+                params.insert("path".into(), J::from(path.as_str()));
             }
             for (key, value) in [("turbulence", *turbulence), ("decay", *decay), ("conductivity", *conductivity), ("obstacle", *obstacle)] {
                 if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
@@ -4211,6 +4216,8 @@ fn parse_effect(
             decay: effect_number_or(params, "decay", &at, 0.0)?,
             conductivity: effect_number_or(params, "conductivity", &at, 0.0)?,
             obstacle: effect_number_or(params, "obstacle", &at, 0.0)?,
+            // D-329: a file from before it stops at an obstacle, as D-324's.
+            path: effect_word_or(params, "path", &at, "split")?,
             frame: 0,
         }),
         // D-191: the layer is kept as written, a word or not; a setting check says which.

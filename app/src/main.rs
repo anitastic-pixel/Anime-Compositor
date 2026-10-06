@@ -3852,6 +3852,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             decay: 0.0,
             conductivity: 0.0,
             obstacle: 0.0,
+            path: "split".to_string(),
             frame: 0,
         }),
         // D-191: After Effects' Stretch Map to Fit is on when added.
@@ -4779,6 +4780,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             decay: if parameter(query, "decay").is_some() { number("decay")? } else { 0.0 },
             conductivity: if parameter(query, "conductivity").is_some() { number("conductivity")? } else { 0.0 },
             obstacle: if parameter(query, "obstacle").is_some() { number("obstacle")? } else { 0.0 },
+            // D-329: stopping at an obstacle, as D-324's, when the command does not say.
+            path: word("path").unwrap_or_else(|_| "split".to_string()),
             frame: 0,
         }),
         // D-189: the request's own `layer` is the layer holding the effect, so the setting
@@ -28423,6 +28426,8 @@ mod contract {
                 ("decay", "30"),
                 ("conductivity", "2.5"),
                 ("obstacle", "50"),
+                // D-329: going round.
+                ("path", "around"),
             ],
         ),
         (

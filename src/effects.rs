@@ -977,7 +977,8 @@ pub enum Effect {
     /// lightning type, one of "direction" (a file from before it), "strike", "breaking",
     /// "bouncy", "omni", "anywhere", "vertical" or "two_way"; `turbulence`, `decay` and
     /// `obstacle` (Alpha Obstacle), 0 to 100; and `conductivity`, 0 to 10000. Each at 0 draws
-    /// D-190's bolt.
+    /// D-190's bolt. D-329: `obstacle` -100 to 100, below 0 keeping the bolt inside what is
+    /// solid; and `path`, "split" (a file from before it) or "around", going round obstacles.
     LightningBolt {
         start: [f64; 2],
         end: [f64; 2],
@@ -997,6 +998,7 @@ pub enum Effect {
         decay: f64,
         conductivity: f64,
         obstacle: f64,
+        path: String,
         frame: i32,
     },
     /// D-191: `layer`, D-189's layer setting as written (a word, or kept as found and refused
@@ -2153,7 +2155,7 @@ impl Effect {
                 ("turbulence", vec![turbulence], 0.0, 100.0),
                 ("decay", vec![decay], 0.0, 100.0),
                 ("conductivity", vec![conductivity], 0.0, 10000.0),
-                ("obstacle", vec![obstacle], 0.0, 100.0),
+                ("obstacle", vec![obstacle], -100.0, 100.0),
             ],
             Effect::CompoundBlur { max_blur, .. } => vec![("max_blur", vec![max_blur], 0.0, 500.0)],
             Effect::DisplacementMap { max_horizontal, max_vertical, .. } => vec![
@@ -3559,6 +3561,9 @@ impl Effect {
             )),
             Effect::LightningBolt { kind, .. } if !LIGHTNING_KINDS.contains(&kind.as_str()) => Some(format!(
                 "Lightning Bolt's lightning type is \"direction\", \"strike\", \"breaking\", \"bouncy\", \"omni\", \"anywhere\", \"vertical\" or \"two_way\", and this is \"{kind}\"."
+            )),
+            Effect::LightningBolt { path, .. } if !["split", "around"].contains(&path.as_str()) => Some(format!(
+                "Lightning Bolt's path at an obstacle is \"split\" or \"around\", and this is \"{path}\"."
             )),
             Effect::LightningBolt { color, glow_color, .. } => hex_fault("Lightning Bolt", "colour", color)
                 .or_else(|| hex_fault("Lightning Bolt", "glow colour", glow_color)),
@@ -5169,11 +5174,17 @@ pub(crate) fn apply_stack_at(
                 decay,
                 conductivity,
                 obstacle,
+                path,
                 frame,
             } => crate::perf::time(crate::perf::Stage::EffectLightningBolt, || {
                 // D-324: Alpha Obstacle reads the layer as it is, before Composite on Original.
+                // D-329: below 0 the mirror, the clear parts blocking.
                 let edge = 1.0 - *obstacle / 100.0;
-                let blocks: Vec<bool> = if *obstacle > 0.0 { source.data().chunks_exact(4).map(|p| p[3] as f64 > edge).collect() } else { Vec::new() };
+                let blocks: Vec<bool> = match *obstacle {
+                    a if a > 0.0 => source.data().chunks_exact(4).map(|p| p[3] as f64 > edge).collect(),
+                    a if a < 0.0 => source.data().chunks_exact(4).map(|p| (p[3] as f64) < -a / 100.0).collect(),
+                    _ => Vec::new(),
+                };
                 // D-300: off, the layer's own picture goes and the bolt is all there is.
                 if composite == "off" {
                     source.data_mut().fill(0.0);
@@ -5182,7 +5193,7 @@ pub(crate) fn apply_stack_at(
                 let size = (source.width(), source.height());
                 let ends = [radial_center(*start, size, (ox, oy)), radial_center(*end, size, (ox, oy)), radial_center([start[0], 100.0], size, (ox, oy))];
                 let numbers = [*jagged, *detail, *branches, *width, *glow, *opacity, *hold, *seed];
-                crate::layer_fx::lightning_bolt(source, ends, numbers, (kind, [*turbulence, *decay, *conductivity]), &blocks, colours, *frame)
+                crate::layer_fx::lightning_bolt(source, ends, numbers, (kind, [*turbulence, *decay, *conductivity]), (&blocks, *obstacle < 0.0, path == "around"), colours, *frame)
             }),
             // D-191: the map compose read for this frame; with none, nothing is blurred.
             Effect::CompoundBlur { max_blur, invert, edges, map, .. } => {
