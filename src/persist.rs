@@ -1088,8 +1088,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         .cloned()
         .unwrap_or_else(Map::new);
     match &instance.effect {
-        Effect::Exposure { stops } => {
+        Effect::Exposure { stops, offset, gamma, bypass } => {
             params.insert("stops".into(), num(*stops));
+            // D-335: each written only when not its default or the file had it.
+            for (key, value, absent) in [("offset", *offset, 0.0), ("gamma", *gamma, 1.0)] {
+                if value != absent || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(value));
+                }
+            }
+            if bypass != "off" || params.contains_key("bypass") {
+                params.insert("bypass".into(), J::from(bypass.as_str()));
+            }
         }
         Effect::GaussianBlur { sigma_px, edges, dimensions, units } => {
             params.insert("sigma_px".into(), num(*sigma_px));
@@ -3046,7 +3055,11 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
             "red" | "green" | "blue" => (4, "four numbers, from red, green, blue and a constant"),
             "center" | "start" | "end" | "shift" | "upper_left" | "upper_right" | "lower_left"
             | "lower_right" | "producer_point" | "point_1" | "point_2" | "point_3" | "point_4" | "light"
-            | "offset" | "tile_center" => {
+            | "tile_center" => {
+                (2, "two numbers, x then y")
+            }
+            // D-335: Exposure's offset is one number, Fractal Noise's a point.
+            "offset" if record.get("base").is_some_and(J::is_array) => {
                 (2, "two numbers, x then y")
             }
             // Any other setting holds as many numbers as its base.
@@ -3558,6 +3571,10 @@ fn parse_effect(
     let parsed = match type_id.as_str() {
         crate::effects::EXPOSURE => Some(crate::effects::Effect::Exposure {
             stops: effect_number(params, "stops", &at)?,
+            // D-335: a file from before has no offset, gamma 1 and no bypass.
+            offset: effect_number_or(params, "offset", &at, 0.0)?,
+            gamma: effect_number_or(params, "gamma", &at, 1.0)?,
+            bypass: effect_word_or(params, "bypass", &at, "off")?,
         }),
         crate::effects::GAUSSIAN_BLUR => Some(crate::effects::Effect::GaussianBlur {
             sigma_px: effect_number(params, "sigma_px", &at)?,

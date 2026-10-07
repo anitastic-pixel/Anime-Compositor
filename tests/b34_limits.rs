@@ -228,17 +228,17 @@ fn b34_limits() {
         ),
         (
             "fx_limit_001.json",
-            Effect::Exposure { stops: 41.0 },
+            Effect::exposure(41.0),
             "Exposure runs from -40 to 40 stops, and this is 41.",
         ),
         (
             "fx_limit_001.json",
-            Effect::Exposure { stops: -41.0 },
+            Effect::exposure(-41.0),
             "Exposure runs from -40 to 40 stops, and this is -41.",
         ),
         (
             "fx_limit_001.json",
-            Effect::Exposure { stops: 128.0 },
+            Effect::exposure(128.0),
             "Exposure runs from -40 to 40 stops, and this is 128.",
         ),
     ] {
@@ -258,11 +258,11 @@ fn b34_limits() {
     for (file, value) in [
         ("fx_limit_003.json", Effect::GaussianBlur { sigma_px: 0.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
         ("fx_limit_003.json", Effect::GaussianBlur { sigma_px: 500.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
-        ("fx_limit_001.json", Effect::Exposure { stops: -20.0 }),
-        ("fx_limit_001.json", Effect::Exposure { stops: 20.0 }),
-        ("fx_limit_001.json", Effect::Exposure { stops: 21.0 }),
-        ("fx_limit_001.json", Effect::Exposure { stops: -40.0 }),
-        ("fx_limit_001.json", Effect::Exposure { stops: 40.0 }),
+        ("fx_limit_001.json", Effect::exposure(-20.0)),
+        ("fx_limit_001.json", Effect::exposure(20.0)),
+        ("fx_limit_001.json", Effect::exposure(21.0)),
+        ("fx_limit_001.json", Effect::exposure(-40.0)),
+        ("fx_limit_001.json", Effect::exposure(40.0)),
     ] {
         let mut document = load(file).document;
         let what = format!("{value:?}");

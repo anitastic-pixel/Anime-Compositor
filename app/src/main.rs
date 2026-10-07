@@ -3333,7 +3333,7 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
 /// starts at a streak of 10 pixels up and down (D-92), as a glow does, so adding it shows it.
 fn new_effect(type_id: &str) -> Option<Effect> {
     match type_id {
-        EXPOSURE => Some(Effect::Exposure { stops: 0.0 }),
+        EXPOSURE => Some(Effect::exposure(0.0)),
         GAUSSIAN_BLUR => Some(Effect::GaussianBlur {
             sigma_px: 0.0,
             edges: "transparent".to_string(),
@@ -4222,6 +4222,10 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
     match type_id {
         EXPOSURE => Ok(Effect::Exposure {
             stops: number("stops")?,
+            // D-335: none, 1 and off when the command does not say.
+            offset: if parameter(query, "offset").is_some() { number("offset")? } else { 0.0 },
+            gamma: if parameter(query, "gamma").is_some() { number("gamma")? } else { 1.0 },
+            bypass: word("bypass").unwrap_or_else(|_| "off".to_string()),
         }),
         GAUSSIAN_BLUR => Ok(Effect::GaussianBlur {
             sigma_px: number("sigma_px")?,
@@ -27919,7 +27923,8 @@ mod contract {
     /// side and not the other fails here.
     const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
         ("core.gaussian_blur", &[("sigma_px", "4")]),
-        ("core.exposure", &[("stops", "0.5")]),
+        // D-335: the offset, the gamma and the bypass.
+        ("core.exposure", &[("stops", "0.5"), ("offset", "0.1"), ("gamma", "1.5"), ("bypass", "on")]),
         (
             "core.tint",
             &[("color", "0.9, 0.7, 0.5"), ("amount", "0.3")],

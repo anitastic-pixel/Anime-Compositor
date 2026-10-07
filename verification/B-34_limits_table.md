@@ -58,11 +58,11 @@ D-90, accepted by the owner on 2026-09-25 ("works; proceed with limits"): a Gaus
 | fx_limit_001.json: "Exposure runs from -40 to 40 stops, and this is 128." and nothing changes | Exposure runs from -40 to 40 stops, and this is 128. | yes |
 | fx_limit_003.json: GaussianBlur { sigma_px: 0.0, edges: "transparent", dimensions: "both", units: "sigma" }, on the limit, is taken | taken | yes |
 | fx_limit_003.json: GaussianBlur { sigma_px: 500.0, edges: "transparent", dimensions: "both", units: "sigma" }, on the limit, is taken | taken | yes |
-| fx_limit_001.json: Exposure { stops: -20.0 }, on the limit, is taken | taken | yes |
-| fx_limit_001.json: Exposure { stops: 20.0 }, on the limit, is taken | taken | yes |
-| fx_limit_001.json: Exposure { stops: 21.0 }, on the limit, is taken | taken | yes |
-| fx_limit_001.json: Exposure { stops: -40.0 }, on the limit, is taken | taken | yes |
-| fx_limit_001.json: Exposure { stops: 40.0 }, on the limit, is taken | taken | yes |
+| fx_limit_001.json: Exposure { stops: -20.0, offset: 0.0, gamma: 1.0, bypass: "off" }, on the limit, is taken | taken | yes |
+| fx_limit_001.json: Exposure { stops: 20.0, offset: 0.0, gamma: 1.0, bypass: "off" }, on the limit, is taken | taken | yes |
+| fx_limit_001.json: Exposure { stops: 21.0, offset: 0.0, gamma: 1.0, bypass: "off" }, on the limit, is taken | taken | yes |
+| fx_limit_001.json: Exposure { stops: -40.0, offset: 0.0, gamma: 1.0, bypass: "off" }, on the limit, is taken | taken | yes |
+| fx_limit_001.json: Exposure { stops: 40.0, offset: 0.0, gamma: 1.0, bypass: "off" }, on the limit, is taken | taken | yes |
 
 ## Result
 

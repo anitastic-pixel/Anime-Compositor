@@ -9561,7 +9561,10 @@ const EFFECT_ABOUT = {
 // angle ends in 'dial', or 'hue' for one held inside -180 to 180, and gets a dial beside it.
 const EFFECT_PARAMS = {
   'core.gaussian_blur': [['sigma_px', 'Radius σ (px)', 1, 0.1, '0 to 500 source pixels']],
-  'core.exposure': [['stops', 'Exposure (stops)', 1, 0.02, '-40 to 40 stops']],
+  'core.exposure': [['stops', 'Exposure (stops)', 1, 0.02, '-40 to 40 stops'],
+    // D-335: After Effects' Offset and Gamma Correction; a file without them has 0 and 1.
+    ['offset', 'Offset', 1, 0.002, '-0.5 to 0.5, added to every colour', '', 0],
+    ['gamma', 'Gamma Correction', 1, 0.01, '0.01 to 9.99, above 1 lifts the middle', '', 1]],
   'core.tint': [['color', 'Colour', 3, 0.01, 'linear RGB'], ['amount', 'Amount', 1, 0.01, '0 to 1']],
   // D-86.
   'core.line_smooth': [['softness', 'Softness', 1, 0.5, '0 to 100'],
@@ -10017,6 +10020,8 @@ const MAP_CHANNELS = [['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['al
   ['luminance', 'Luminance'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'],
   ['full', 'Full'], ['off', 'Off']];
 const EFFECT_WORDS = {
+  // D-335: the file leaves it out when Off, so Off is first.
+  'core.exposure': { choices: [['bypass', 'Bypass Linear Light Conversion', [['off', 'Off'], ['on', 'On']]]] },
   // D-303: After Effects' Blur Dimensions; both first, as it starts.
   // D-321: After Effects' Blurriness, which a new one takes; a file without units is sigma.
   'core.gaussian_blur': { choices: [EDGES, ['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],

@@ -83,7 +83,7 @@ fn glow(radius: f64, based_on: &str) -> Effect {
 
 fn cases() -> Vec<(&'static str, Effect)> {
     vec![
-        ("Exposure +1", Effect::Exposure { stops: 1.0 }),
+        ("Exposure +1", Effect::exposure(1.0)),
         ("Tint 50%", Effect::Tint { color: [1.0, 0.5, 0.25], amount: 0.5 }),
         ("Gaussian Blur 4", Effect::GaussianBlur { sigma_px: 4.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),
         ("Gaussian Blur 10", Effect::GaussianBlur { sigma_px: 10.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }),

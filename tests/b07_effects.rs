@@ -187,7 +187,7 @@ fn catalogue_fixtures(report: &mut Report) {
     // FX-E-001: "exposure identity | e=0 | unchanged | 1e-7".
     // 2^0 = 1, and multiplying by one is the identity on every channel.
     let mut buf = one([0.5, 0.25, 0.125, 0.5]);
-    run(&mut buf, &only(Effect::Exposure { stops: 0.0 }));
+    run(&mut buf, &only(Effect::exposure(0.0)));
     report.check(
         "FX-E-001 exposure at zero stops leaves the pixel alone",
         q([0.5, 0.25, 0.125, 0.5]),
@@ -198,7 +198,7 @@ fn catalogue_fixtures(report: &mut Report) {
     // The catalogue's alpha for this row is .5 (`Fixtures/fixture_manifest.json`). 0.25 * 2^1
     // = 0.5 on each of the three colour channels, and alpha stays at 0.5.
     let mut buf = one([0.25, 0.25, 0.25, 0.5]);
-    run(&mut buf, &only(Effect::Exposure { stops: 1.0 }));
+    run(&mut buf, &only(Effect::exposure(1.0)));
     report.check(
         "FX-E-002 exposure of one stop doubles RGB and leaves alpha",
         q([0.5, 0.5, 0.5, 0.5]),
@@ -212,7 +212,7 @@ fn catalogue_fixtures(report: &mut Report) {
     let straight = [0.25f32, 0.10, 0.40];
     let alpha = 0.5f32;
     let mut first = one([straight[0], straight[1], straight[2], 1.0]);
-    run(&mut first, &only(Effect::Exposure { stops: 1.0 }));
+    run(&mut first, &only(Effect::exposure(1.0)));
     let after_then_premul = {
         let p = pixel(&first, 0, 0);
         [p[0] * alpha, p[1] * alpha, p[2] * alpha, alpha]
@@ -223,7 +223,7 @@ fn catalogue_fixtures(report: &mut Report) {
         straight[2] * alpha,
         alpha,
     ]);
-    run(&mut second, &only(Effect::Exposure { stops: 1.0 }));
+    run(&mut second, &only(Effect::exposure(1.0)));
     report.check(
         "exposure gives the same pixel whether the catalogue's RGB is read straight or premultiplied",
         q(after_then_premul),
@@ -622,7 +622,7 @@ fn stack(report: &mut Report) {
     // Start from straight 0.25 at alpha 1, tint white at half:
     //   exposure first:  0.25*2 = 0.5,   then 0.5 + (1-0.5)*0.5     = 0.75
     //   tint first:      0.25 + (1-0.25)*0.5 = 0.625, then *2       = 1.25
-    let exposure = EffectInstance::new(Id::new("e"), Effect::Exposure { stops: 1.0 });
+    let exposure = EffectInstance::new(Id::new("e"), Effect::exposure(1.0));
     let tint = EffectInstance::new(
         Id::new("t"),
         Effect::Tint {
@@ -668,7 +668,7 @@ fn stack(report: &mut Report) {
     );
 
     // A bypassed effect is a setting, not a fault: nothing is drawn and nothing is reported.
-    let mut disabled = EffectInstance::new(Id::new("e"), Effect::Exposure { stops: 4.0 });
+    let mut disabled = EffectInstance::new(Id::new("e"), Effect::exposure(4.0));
     disabled.enabled = false;
     let mut buf = one([0.25, 0.25, 0.25, 1.0]);
     let (_, reported) = run(&mut buf, &[disabled]);
@@ -731,7 +731,7 @@ fn stack(report: &mut Report) {
         "exposure 0, tint 0, blur(2) 6, unsupported 0",
         format!(
             "exposure {}, tint {}, blur(2) {}, unsupported {}",
-            Effect::Exposure { stops: 3.0 }.bounds_expansion(),
+            Effect::exposure(3.0).bounds_expansion(),
             Effect::Tint {
                 color: [1.0, 0.0, 0.0],
                 amount: 1.0
@@ -904,7 +904,7 @@ fn command_rules(report: &mut Report) {
     };
 
     doc.apply(add(
-        EffectInstance::new(Id::new("one"), Effect::Exposure { stops: 1.0 }),
+        EffectInstance::new(Id::new("one"), Effect::exposure(1.0)),
         None,
     ))
     .expect("a first effect");
@@ -947,7 +947,7 @@ fn command_rules(report: &mut Report) {
         "COMMAND_INVALID_VALUE: This layer already has an effect called one.",
         outcome(
             doc.apply(add(
-                EffectInstance::new(Id::new("one"), Effect::Exposure { stops: 2.0 }),
+                EffectInstance::new(Id::new("one"), Effect::exposure(2.0)),
                 None,
             ))
             .map(|_| ()),
@@ -1018,14 +1018,14 @@ fn command_rules(report: &mut Report) {
         composition: comp.clone(),
         layer_id: layer_id.clone(),
         instance_id: Id::new("one"),
-        effect: Effect::Exposure { stops: 3.0 },
+        effect: Effect::exposure(3.0),
     })
     .expect("new settings of the same kind");
     report.check(
         "an effect's settings can be changed in place",
         "3 stops",
         match &layer_of(&doc, &comp, &layer_id).effects[0].effect {
-            Effect::Exposure { stops } => format!("{stops} stops"),
+            Effect::Exposure { stops, .. } => format!("{stops} stops"),
             other => other.type_id().to_string(),
         },
     );
@@ -1094,7 +1094,7 @@ fn command_rules(report: &mut Report) {
         back.iter()
             .map(|e| {
                 let params = match &e.effect {
-                    Effect::Exposure { stops } => format!("{stops} stops"),
+                    Effect::Exposure { stops, .. } => format!("{stops} stops"),
                     Effect::GaussianBlur { sigma_px, .. } => format!("sigma {sigma_px}"),
                     Effect::Tint { amount, .. } => format!("amount {amount}"),
                     Effect::LineSmooth { softness, .. } => format!("softness {softness}"),

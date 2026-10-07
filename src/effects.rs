@@ -351,8 +351,9 @@ impl EffectInstance {
 #[derive(Clone, PartialEq, Debug)]
 pub enum Effect {
     /// Document 21: "parameter is stops `e`; linear premultiplied RGB is multiplied by `2^e`;
-    /// alpha is unchanged."
-    Exposure { stops: f64 },
+    /// alpha is unchanged." D-335: After Effects' Offset and Gamma Correction, and `bypass`, "off"
+    /// or "on", its Bypass Linear Light Conversion.
+    Exposure { stops: f64, offset: f64, gamma: f64, bypass: String },
     /// Document 21: "parameter `sigma_px >= 0` ... kernel radius `ceil(3*sigma_px)`."
     /// D-109: `edges`, "transparent" or "repeat", as Directional and Radial Blur have.
     /// D-303: `dimensions`, "both", "horizontal" or "vertical", the axes it blurs along.
@@ -1499,6 +1500,11 @@ fn key_numbers(track: &[Property], i: usize) -> Vec<f64> {
 }
 
 impl Effect {
+    /// An Exposure of `stops` and nothing else.
+    pub fn exposure(stops: f64) -> Effect {
+        Effect::Exposure { stops, offset: 0.0, gamma: 1.0, bypass: "off".to_string() }
+    }
+
     /// Every setting that is numbers: its name in the file, its numbers, and the range document
     /// 21 holds them to. The one table `arity`, `get`, `set`, `at` and the newer effects' range
     /// sentences read, so a setting is named in one place.
@@ -1506,7 +1512,12 @@ impl Effect {
         match self {
             // D-90: a sigma past 500 a machine's memory. D-318: After Effects' Exposure runs
             // to 40 stops either way, and `2^40` is still a plain number in single precision.
-            Effect::Exposure { stops } => vec![("stops", vec![stops], -40.0, 40.0)],
+            // D-335: After Effects' own ranges for the other two.
+            Effect::Exposure { stops, offset, gamma, .. } => vec![
+                ("stops", vec![stops], -40.0, 40.0),
+                ("offset", vec![offset], -0.5, 0.5),
+                ("gamma", vec![gamma], 0.01, 9.99),
+            ],
             Effect::GaussianBlur { sigma_px, .. } => vec![("sigma_px", vec![sigma_px], 0.0, 500.0)],
             // A colour in linear light has no range but being a number.
             Effect::Tint { color, amount } => vec![
@@ -2985,7 +2996,12 @@ impl Effect {
     pub fn is_valid(&self) -> bool {
         match self {
             // D-90 and D-318, as in `numbers`.
-            Effect::Exposure { stops } => (-40.0..=40.0).contains(stops),
+            Effect::Exposure { stops, offset, gamma, bypass } => {
+                (-40.0..=40.0).contains(stops)
+                    && (-0.5..=0.5).contains(offset)
+                    && (0.01..=9.99).contains(gamma)
+                    && (bypass == "off" || bypass == "on")
+            }
             Effect::GaussianBlur { sigma_px, .. } => {
                 (0.0..=500.0).contains(sigma_px) && self.fault().is_none()
             }
@@ -3017,8 +3033,16 @@ impl Effect {
     /// Why [`is_valid`](Self::is_valid) said no, as a sentence for a person.
     pub fn why_invalid(&self) -> String {
         match self {
-            Effect::Exposure { stops } => {
-                format!("Exposure runs from -40 to 40 stops, and this is {stops}.")
+            Effect::Exposure { stops, offset, gamma, bypass } => {
+                if !(-40.0..=40.0).contains(stops) {
+                    format!("Exposure runs from -40 to 40 stops, and this is {stops}.")
+                } else if !(-0.5..=0.5).contains(offset) {
+                    format!("Exposure's Offset runs from -0.5 to 0.5, and this is {offset}.")
+                } else if !(0.01..=9.99).contains(gamma) {
+                    format!("Exposure's Gamma Correction runs from 0.01 to 9.99, and this is {gamma}.")
+                } else {
+                    format!("Exposure's Bypass Linear Light Conversion is off or on, and this is \"{bypass}\".")
+                }
             }
             Effect::GaussianBlur { sigma_px, .. } if !(0.0..=500.0).contains(sigma_px) => {
                 format!("A Gaussian blur's sigma runs from 0 to 500, and this is {sigma_px}.")
@@ -3978,9 +4002,9 @@ pub(crate) fn apply_stack_at(
             // disjoint and none of them nests, so `src/perf.rs`'s promise that the table can be
             // summed still holds; what they buy is the ranking P-11's entry says it needs before
             // it decides which effect is worth caching.
-            Effect::Exposure { stops } => {
+            Effect::Exposure { stops, offset, gamma, bypass } => {
                 crate::perf::time(crate::perf::Stage::EffectExposure, || {
-                    exposure(source, *stops, bits == Bits::Ae32)
+                    exposure(source, *stops, *offset, *gamma, bypass == "on", bits)
                 })
             }
             Effect::Tint { color, amount } => {
@@ -4330,7 +4354,7 @@ pub(crate) fn apply_stack_at(
             } => {
                 let stops = flicker_stops(*amount, *hold, *seed, *frame);
                 crate::perf::time(crate::perf::Stage::EffectExposureFlicker, || {
-                    exposure(source, stops, false)
+                    exposure(source, stops, 0.0, 1.0, false, Bits::Linear)
                 })
             }
             // D-126: the ellipse in the drawing's own size, however far the layer has grown.
@@ -5415,8 +5439,46 @@ pub enum Bypassed {
 ///
 /// D-333, `ae`: in 32 bpc (After Effects) the straight display value is multiplied by
 /// `(2^stops)^(1/2.2)`, which is a 2.2 curve to linear light, the gain, and the curve back.
-fn exposure(source: &mut WorkingBuffer, stops: f64, ae: bool) {
+///
+/// D-335: `offset` is added after the gain and `1 / gamma` taken after that, on the straight
+/// value, and `bypass` at 8 bpc or 32 bpc (After Effects) works on the display value itself.
+/// With neither offset nor gamma nor bypass it is the code before, bit for bit.
+fn exposure(source: &mut WorkingBuffer, stops: f64, offset: f64, gamma: f64, bypass: bool, bits: Bits) {
     use crate::color::{linear_to_srgb, srgb_to_linear};
+    let ae = bits == Bits::Ae32;
+    let bypass = bypass && bits != Bits::Linear;
+    if offset != 0.0 || gamma != 1.0 || bypass {
+        let (gain, inv) = ((2.0f64).powf(stops), 1.0 / gamma);
+        // A colour the offset took below 0 keeps its sign through the power.
+        let power = |u: f64, g: f64| u.signum() * u.abs().powf(g);
+        source.data_mut().par_chunks_mut(4).for_each(|px| {
+            let a = px[3];
+            for c in &mut px[..3] {
+                if a <= 0.0 {
+                    *c *= gain as f32;
+                    continue;
+                }
+                let s = (*c / a).max(0.0);
+                let v = if bypass {
+                    linear_to_srgb(s) as f64
+                } else if ae {
+                    (linear_to_srgb(s) as f64).powf(2.2)
+                } else {
+                    s as f64
+                };
+                let u = power(v * gain + offset, inv);
+                let back = if bypass {
+                    srgb_to_linear(u as f32)
+                } else if ae {
+                    srgb_to_linear(power(u, 1.0 / 2.2) as f32)
+                } else {
+                    u as f32
+                };
+                *c = back * a;
+            }
+        });
+        return;
+    }
     let gain = (2.0f64).powf(stops) as f32;
     if gain == 1.0 {
         return;

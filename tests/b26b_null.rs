@@ -262,7 +262,7 @@ fn b26b_null() {
             Command::AddEffect {
                 composition: c.clone(),
                 layer_id: l.clone(),
-                effect: EffectInstance::new(Id::new("fx-1"), Effect::Exposure { stops: 1.0 }),
+                effect: EffectInstance::new(Id::new("fx-1"), Effect::exposure(1.0)),
                 index: None,
             },
         ),
