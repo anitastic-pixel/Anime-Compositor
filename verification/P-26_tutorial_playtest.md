@@ -163,6 +163,22 @@ Tutorials 1, 3, 4 and 5 draw as they did after D-331. Tutorial 5's Turbulent Dis
 
 Commits: f809ea6, c0006a3 (D-330), 3d4ecd6, d8ee516 (D-329), fb1a40c, fb1e1b9 (D-328).
 
+## Tutorial 1 rebuilt from scratch (2026-10-06)
+
+After the owner's "Lightsaber went well!", tutorial 1 (the shockwave) was rebuilt from scratch in the test copy, saved, and drawn outside the app from the saved file.
+
+**One real fault found and fixed: D-332.** The saved shockwave would not open again ("expected an array" at Fractal Noise's Offset Turbulence). Any project with a key on one of 23 effect settings could be saved but not reopened, among them Offset Turbulence and Bulge's Vertical Radius and Taper Radius. Fixed and checked over every effect (`D-332_keyed_settings.md`).
+
+**How close it comes now.** SW (the single ring) and SW 2 (nested, scaled, time-remapped) match the tutorial's look: a smoky ring around a dark hole. In SW 3 our middle stays fuller and brighter than the tutorial's until about frame 28. Switching parts off shows why: the three copies at 64%, 73% and 74% sit inside the big ring's hole. With them off, the middle at frame 24 drops from 0.18 to 0.02 brightness. Those scales are the tutorial's own steps as we played them. The tutorial's still is from an unknown frame, so whether After Effects fills the hole the same way at the same frame cannot be told from it. It is recorded here, not guessed.
+
+**Known stand-ins, unchanged:**
+
+- The small grey dot in SW 3's middle is the 19% white solid. It stands in for CC Pixel Polly's sparks; particles are left out by the charter. In the tutorial the solid shatters into sparks at once. Ours stays a dot, and switching that layer off removes it.
+- Gradient Map stands in for VC Color Vibrance, a third-party plug-in.
+- Nesting stands in for the tutorial's render and re-import.
+
+The rebuilt project is in the owner's Downloads as `shockwave_tutorial1.json`.
+
 ## What was built
 
 Every one is **built and awaiting the owner's playtest**. Each starts where the app was before, so older projects and every fixture draw as they did; D-318 to D-324 (D-308) may change pictures where the owner turns them on, and a newly added Polar Coordinates starts as a circle. Each has its own page in `verification/`, with what to look for and how to try it.
@@ -207,6 +223,7 @@ Every one is **built and awaiting the owner's playtest**. Each starts where the 
 | D-328 | Turbulent Displace in After Effects units | 2, 5 | `D-328_turbulent_ae.md` | `D-328 pictures/` |
 | D-329 | Advanced Lightning goes round shapes; a negative Alpha Obstacle | 2 | `D-329_lightning_around.md` | `D-329 pictures/` |
 | D-330 | 8 bpc (After Effects) working depth | 2 | `D-330_eight_bpc.md` | `D-330 pictures/` |
+| D-332 | Keys on every keyable setting survive a save | 1 | `D-332_keyed_settings.md` | `D-332 pictures/` |
 
 Commits: cbbaec2 (D-290 to D-297), 79e0eae (D-298), d37a364 (D-299 to D-303), f28574e (D-304), c6cd69e (D-305, D-306), bf0978f (D-307), 69980f7 (D-310), e419620 (D-311 to D-313, D-315), 5f866db (D-314), 5ea35a3 (D-316), 15f8f25 (D-317), 4a17745 (D-318), c4fc502 (D-319), e762c99 (D-320), d3bca9e (D-323), f559354 (D-324).
 
@@ -221,6 +238,7 @@ One set of fixture values was changed, as a recorded specification decision: D-3
 1. **Playtests** of D-290 to D-307, D-310 to D-317 and D-318 to D-324, each page's "For the owner to try".
 2. **Playtests** of D-321, D-322 with D-331, and D-325 to D-327, each page's "For the owner to try". The After Effects test asked for here before is no longer needed: D-321 and D-331 are settled from the sources above.
 3. **Playtests** of D-328, D-329 and D-330 (approved 2026-10-05 and built), each page's "For the owner to try".
+4. **Playtest** of D-332: open `Downloads\shockwave_tutorial1.json`, save it under a new name, and open it again (`D-332_keyed_settings.md`, "How to check it yourself").
 
 D-328 to D-330 were approved on 2026-10-05 and are built. D-309 was approved on 2026-10-04 and is built (D-310 to D-317). D-308 was approved on 2026-10-04 and is built as D-318 to D-320, D-323 and D-324.
 

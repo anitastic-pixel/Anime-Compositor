@@ -2434,6 +2434,11 @@ impl Effect {
         n
     }
 
+    /// D-332: the name of every setting a key can be put on.
+    pub fn names(&self) -> Vec<&'static str> {
+        self.clone().numbers().into_iter().map(|n| n.0).collect()
+    }
+
     /// The numbers the setting of this name holds, or `None` when this effect has no such setting.
     pub fn get(&self, name: &str) -> Option<Vec<f64>> {
         let mut e = self.clone();

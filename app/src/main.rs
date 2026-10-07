@@ -32764,3 +32764,70 @@ mod blur_outline {
         assert_eq!(passed, rows.len(), "see verification/D-325_blur_outline_table.md");
     }
 }
+
+/// D-332 (FX-KEYALL-005): every setting a key can be put on, on every effect the app adds, is
+/// keyed, saved and opened again with the same keys. The file reader once read keys only on a
+/// list of names of its own, which fell behind, and a project keyed on one left out was saved and
+/// then would not open.
+#[cfg(test)]
+mod keyed_settings {
+    use super::*;
+
+    fn run(viewer: &Mutex<Viewer>, what: &str) -> String {
+        let (id, query) = what.split_once('?').map_or((what, None), |(i, q)| (i, Some(q)));
+        edit_command(viewer, id, query).expect("a command document 24 lists")
+    }
+
+    fn effects(viewer: &Mutex<Viewer>) -> Vec<EffectInstance> {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        let comp = held.document.project().composition(&held.composition).expect("the composition on screen");
+        comp.layer(&Id::new("layer-3")).expect("layer-3").effects.clone()
+    }
+
+    #[test]
+    fn every_keyable_setting_on_every_effect_survives_a_save() {
+        let viewer = Mutex::new(demo());
+        // Every effect the core names, read from its own list, so one added later is here too.
+        let ids: Vec<&str> = include_str!("../../src/effects.rs")
+            .lines()
+            .filter_map(|l| l.strip_prefix("pub const ")?.split_once(": &str = \"")?.1.strip_suffix("\";"))
+            .filter(|id| id.starts_with("core.") && new_effect(id).is_some())
+            .collect();
+        assert!(ids.len() > 90, "the effect list was not found: {ids:?}");
+        let mut keyed = Vec::new();
+        for id in &ids {
+            let had: Vec<Id> = effects(&viewer).into_iter().map(|e| e.instance_id).collect();
+            run(&viewer, &format!("effect.add?layer=layer-3&type={id}"));
+            // Some effects go in ahead of others in the stack, so the new one is found by its id.
+            let e = effects(&viewer).into_iter().find(|e| !had.contains(&e.instance_id)).expect("the effect just added");
+            let fx = e.instance_id.as_str().to_string();
+            let names: Vec<&str> = e.effect.names().into_iter().chain(e.has_mix().then_some("mix")).collect();
+            for name in names {
+                let value = e.get(name).expect("a named setting").iter().map(f64::to_string).collect::<Vec<_>>().join(",");
+                let prop = format!("fx:{fx}:{name}");
+                run(&viewer, &format!("keyframe.add_remove?layer=layer-3&prop={prop}&frame=0"));
+                run(&viewer, &format!("property.set_base?layer=layer-3&prop={prop}&frame=10&value={value}"));
+                keyed.push((fx.clone(), name));
+            }
+        }
+        let before = effects(&viewer);
+        let missing: Vec<_> = keyed.iter()
+            .filter(|(fx, name)| before.iter().find(|e| e.instance_id.as_str() == fx).and_then(|e| e.tracks.get(*name)).map_or(true, |t| t[0].keyframes().len() != 2))
+            .collect();
+        assert!(missing.is_empty(), "these were not keyed by the commands: {missing:?}");
+
+        let written = {
+            let held = viewer.lock().expect("the viewer lock was poisoned");
+            persist::to_json(held.document.project(), &held.preserved)
+        };
+        let reopened = persist::load_str(&written).unwrap_or_else(|d| panic!("{}: {}", d.message, d.detail));
+        let again = persist::to_json(reopened.document.project(), &reopened.preserved);
+        let comp = reopened.document.project().compositions.iter().find_map(|c| c.layer(&Id::new("layer-3"))).expect("layer-3");
+        let lost: Vec<_> = keyed.iter()
+            .filter(|(fx, name)| comp.effects.iter().find(|e| e.instance_id.as_str() == fx).and_then(|e| e.tracks.get(*name)).map_or(true, |t| t[0].keyframes().len() != 2))
+            .collect();
+        assert!(lost.is_empty(), "these keys did not come back: {lost:?}");
+        assert!(again == written, "saving the reopened project gave other text");
+        println!("{} effects, {} settings keyed, saved and opened again", ids.len(), keyed.len());
+    }
+}
