@@ -1,0 +1,497 @@
+{
+  "assets": [],
+  "color_settings": {
+    "alpha_mode": "premultiplied",
+    "working_space": "linear-srgb"
+  },
+  "compositions": [
+    {
+      "background_color": [
+        0,
+        0,
+        0
+      ],
+      "duration_frames": 48,
+      "frame_rate": {
+        "denominator": 1001,
+        "numerator": 24000
+      },
+      "height": 1080,
+      "id": "comp-1",
+      "layer_order": [
+        "layer-1"
+      ],
+      "layers": [
+        {
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "enabled": true,
+              "instance_id": "fx-1",
+              "parameters": {
+                "blend": "normal",
+                "brightness": {
+                  "base": -27,
+                  "keyframes": [
+                    {
+                      "ease": [
+                        0.3333333333333333,
+                        0,
+                        0.6666666666666666,
+                        1
+                      ],
+                      "frame": 0,
+                      "interp": "ease",
+                      "value": -88
+                    },
+                    {
+                      "ease": [
+                        0.3333333333333333,
+                        0,
+                        0.6666666666666666,
+                        1
+                      ],
+                      "frame": 2,
+                      "interp": "ease",
+                      "value": -2
+                    },
+                    {
+                      "ease": [
+                        0.3333333333333333,
+                        0,
+                        0.6666666666666666,
+                        1
+                      ],
+                      "frame": 34,
+                      "interp": "ease",
+                      "value": -88
+                    }
+                  ]
+                },
+                "complexity": 10,
+                "contrast": 104,
+                "dark_color": "#000000",
+                "evolution": {
+                  "base": 0,
+                  "expression": {
+                    "enabled": true,
+                    "text": "time*150"
+                  },
+                  "keyframes": []
+                },
+                "fractal_type": "turbulent",
+                "invert": "on",
+                "light_color": "#ffffff",
+                "offset": {
+                  "base": [
+                    0,
+                    0
+                  ],
+                  "keyframes": [
+                    {
+                      "ease": [
+                        0.3333333333333333,
+                        0,
+                        0.6666666666666666,
+                        1
+                      ],
+                      "frame": 0,
+                      "interp": "ease",
+                      "value": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "ease": [
+                        0.3333333333333333,
+                        0,
+                        0.6666666666666666,
+                        1
+                      ],
+                      "frame": 34,
+                      "interp": "ease",
+                      "value": [
+                        0,
+                        410
+                      ]
+                    }
+                  ]
+                },
+                "opacity": 100,
+                "seed": 0,
+                "size": 100,
+                "speed": 0
+              },
+              "type_id": "core.fractal_noise"
+            },
+            {
+              "enabled": true,
+              "instance_id": "fx-90",
+              "parameters": {
+                "center": [
+                  50,
+                  50
+                ],
+                "height": 1.6,
+                "radius": 190,
+                "vertical_radius": {
+                  "base": 190,
+                  "keyframes": [
+                    {
+                      "frame": 0,
+                      "interp": "linear",
+                      "value": 190
+                    },
+                    {
+                      "frame": 12,
+                      "interp": "linear",
+                      "value": 120
+                    }
+                  ]
+                },
+                "taper_radius": {
+                  "base": 0,
+                  "keyframes": [
+                    {
+                      "frame": 0,
+                      "interp": "linear",
+                      "value": 0
+                    },
+                    {
+                      "frame": 12,
+                      "interp": "linear",
+                      "value": 240
+                    }
+                  ]
+                }
+              },
+              "type_id": "core.bulge"
+            }
+          ],
+          "enabled": true,
+          "id": "layer-1",
+          "in_frame": 0,
+          "kind": "solid",
+          "locked": false,
+          "masks": [
+            {
+              "enabled": true,
+              "expansion_px": {
+                "base": 0,
+                "keyframes": [
+                  {
+                    "ease": [
+                      0.3333333333333333,
+                      0,
+                      0.6666666666666666,
+                      1
+                    ],
+                    "frame": 0,
+                    "interp": "ease",
+                    "value": 0
+                  },
+                  {
+                    "ease": [
+                      0.3333333333333333,
+                      0,
+                      0.6666666666666666,
+                      1
+                    ],
+                    "frame": 34,
+                    "interp": "ease",
+                    "value": 62
+                  }
+                ]
+              },
+              "feather_px": {
+                "base": 0,
+                "keyframes": [
+                  {
+                    "ease": [
+                      0.3333333333333333,
+                      0,
+                      0.6666666666666666,
+                      1
+                    ],
+                    "frame": 0,
+                    "interp": "ease",
+                    "value": 18
+                  },
+                  {
+                    "ease": [
+                      0.3333333333333333,
+                      0,
+                      0.6666666666666666,
+                      1
+                    ],
+                    "frame": 34,
+                    "interp": "ease",
+                    "value": 149
+                  }
+                ]
+              },
+              "inverted": false,
+              "mode": "add",
+              "name": "Mask 1",
+              "opacity": 1,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ],
+                      "point": [
+                        -100,
+                        0
+                      ]
+                    },
+                    {
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ],
+                      "point": [
+                        2020,
+                        0
+                      ]
+                    },
+                    {
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ],
+                      "point": [
+                        2020,
+                        108
+                      ]
+                    },
+                    {
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ],
+                      "point": [
+                        -100,
+                        108
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": [
+                  {
+                    "ease": [
+                      0.3333333333333333,
+                      0,
+                      0.6666666666666666,
+                      1
+                    ],
+                    "frame": 0,
+                    "interp": "ease",
+                    "value": {
+                      "points": [
+                        {
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ],
+                          "point": [
+                            -100,
+                            0
+                          ]
+                        },
+                        {
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ],
+                          "point": [
+                            2020,
+                            0
+                          ]
+                        },
+                        {
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ],
+                          "point": [
+                            2020,
+                            108
+                          ]
+                        },
+                        {
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ],
+                          "point": [
+                            -100,
+                            108
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "ease": [
+                      0.3333333333333333,
+                      0,
+                      0.6666666666666666,
+                      1
+                    ],
+                    "frame": 34,
+                    "interp": "ease",
+                    "value": {
+                      "points": [
+                        {
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ],
+                          "point": [
+                            -100,
+                            300
+                          ]
+                        },
+                        {
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ],
+                          "point": [
+                            2020,
+                            300
+                          ]
+                        },
+                        {
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ],
+                          "point": [
+                            2020,
+                            408
+                          ]
+                        },
+                        {
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ],
+                          "point": [
+                            -100,
+                            408
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "matte": null,
+          "name": "Wave",
+          "out_frame": 300,
+          "solid": {
+            "color": [
+              0,
+              0,
+              0
+            ],
+            "height": 1080,
+            "width": 1920
+          },
+          "transform": {
+            "anchor": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            }
+          }
+        }
+      ],
+      "name": "SW",
+      "pixel_aspect_ratio": 1,
+      "start_frame": 0,
+      "width": 1920
+    }
+  ],
+  "project_id": "project-1",
+  "schema_version": 0
+}

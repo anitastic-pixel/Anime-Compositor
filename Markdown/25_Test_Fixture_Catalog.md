@@ -202531,6 +202531,16 @@ Refused when the file is read, nothing drawn.
 
 `Fixtures/projects/minimal_project.json`: smallest valid project. `cel_holds_project.json`: explicit exposure spans. `unicode_paths_project.json`: non-ASCII display/path fields. `missing_media_project.json`: valid project with intentionally unavailable asset. `unknown_effect_project.json`: structurally valid unknown effect that must survive load/save with a warning.
 
+### Keys on every keyable setting survive a save (D-332)
+
+From P-26's tutorial 1 (the shockwave), 2026-10-06. `Fixtures/projects/keyed_settings_project.json` is the tutorial's Wave layer exactly as the app saved it, a solid with Fractal Noise and a band mask, with one Bulge added. It was written by the app's own saving, not by hand, and trimmed by `make_keyed_fixture.py` (kept with B-213's page) to one composition, SW, 1920 by 1080 at 23.976 frames a second, 48 frames long.
+
+- FX-KEYALL-001: the file opens with no error.
+- FX-KEYALL-002: Fractal Noise's Offset Turbulence (`offset`) has two keys, `0, 0` at frame 0 and `0, 410` at frame 34, both eased.
+- FX-KEYALL-003: the Bulge's Vertical Radius has keys 190 at frame 0 and 120 at frame 12, and its Taper Radius 0 at frame 0 and 240 at frame 12, both linear.
+- FX-KEYALL-004: saved and opened again, the file gives the same keys as 002 and 003, and saving that gives the same text.
+- FX-KEYALL-005: every setting the app lets a key be put on, on every effect, can be keyed, saved and opened again with the same keys. This is checked over each effect as the app adds it, not from a file, so an effect added later is checked too.
+
 ## Failure fixtures
 
 FX-IO-001 interrupted replacement retains last valid project. FX-IO-002 disk-full/write failure reports `PROJECT_SAVE_FAILED` and does not truncate the previous valid save. FX-MATTE-001 creates A->B and B->A matte references and must be rejected with `MATTE_CYCLE`. FX-PARENT-004, above, does the same for a parent loop with `PARENT_CYCLE`, and FX-PRE-015 for a composition that holds a layer of itself, with `COMPOSITION_CYCLE` (D-67).
