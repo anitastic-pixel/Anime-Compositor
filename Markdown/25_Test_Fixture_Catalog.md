@@ -175766,6 +175766,26 @@ FX-LCORE-006 (`fx_lcore_006.json`): A core "Soft": the word is exact, so a capit
 
 FX-LCORE-007 (`fx_lcore_007.json`): A core "fuzzy", which is not one. As FX-LCORE-006.
 
+### Lightning Bolt's long forks (D-338)
+
+From P-26's tutorial 2 (B-218). Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/lightning_forks/`, holding D-324's `night.png` (the left half a night sky #1e2850, the right half empty) with one Lightning Bolt (`core.lightning_bolt`) on it, D-324's five settings and the new word `forks` written. **Every number is produced by `tools/lightning_forks_reference.py`** and is in `Fixtures/lightning_forks/expected_lightning_forks.json`. Values are linear premultiplied. Tolerance 2e-5. The down cases run from the middle of the top edge to the middle of the bottom, white, width 1, no glow, branches 100 (D-324's FX-LIGHTX-005 bolt). B-218 checks them in `verification/D-338_lightning_forks_table.md`.
+
+FX-LFORK-001 (`fx_lfork_001.json`): The down bolt with forks long, frames 0 and 1: the seven forks of the first three halvings each run on to the bottom edge beside the main bolt, turned 10 to 30 degrees from straight down, ending at at least three different places. On frame 0, 34 pixels differ from FX-LFORK-002's; on the bottom row, which D-324's forks leave dark past column 8, columns 9 to 12 are lit, (11, 9) 0.5 0.5 0.5 0.5.
+
+FX-LFORK-002 (`fx_lfork_002.json`): FX-LFORK-001 with forks written "short": D-324's forks, exactly FX-LIGHTX-005's bolt with branches 100.
+
+FX-LFORK-003 (`fx_lfork_003.json`): FX-LFORK-001 with decay 50: each long fork goes half of what is left of the way down and thins to half its starting weight, so none reaches the bottom row past column 8.
+
+FX-LFORK-004 (`fx_lfork_004.json`): FX-LFORK-001 over a drawing whose rows 7 to 9 are ground, Alpha Obstacle 50, frames 0 and 1: every strand stops where it reaches the ground. On frame 0 row 7 is lit at columns 4 to 9, on frame 1 at columns 6 to 11; rows 8 and 9 are the ground untouched. Tutorial 2's strands touching down.
+
+FX-LFORK-005 (`fx_lfork_005.json`): FX-LFORK-001 as Strike: the long forks leave along the main bolt's own way too, so they are FX-LFORK-001's; only the short ones turn from the way to the end point, and 5 pixels differ from FX-LFORK-001's.
+
+FX-LFORK-006 (`fx_lfork_006.json`): FX-BOLT-001's settings (branches 30) with forks long, frames 0 and 2: the same main bolt, the forks of its first three halvings longer. On frame 0, 3 pixels differ from FX-BOLT-001's, the most at (6, 9) 0.640998 0.687913 1.01529 1 where FX-BOLT-001 has 0.239058 0.327766 0.945138 1; on frame 2, 14, the most at (12, 8) 1 1 1 1 where FX-BOLT-001 has 0.122777 0.206496 0.787401 0.787401.
+
+FX-LFORK-007 (`fx_lfork_007.json`): A forks "Long": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: the night drawing untouched.
+
+FX-LFORK-008 (`fx_lfork_008.json`): A forks "many", which is not one. As FX-LFORK-007.
+
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.
