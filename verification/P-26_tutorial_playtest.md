@@ -179,6 +179,23 @@ After the owner's "Lightsaber went well!", tutorial 1 (the shockwave) was rebuil
 
 The rebuilt project is in the owner's Downloads as `shockwave_tutorial1.json`.
 
+## Tutorial 2 rebuilt from scratch (2026-10-06)
+
+Tutorial 2 (Advanced Electric) was replayed in the test copy from an empty project, saved, reopened outside the app (`persist::load`, no error and no notices), and exported as a 26-frame MP4 (Street_Sidewalk, frames 0 to 25, 1920x1080 at 23.976 fps). Frames 12 and 20 were pulled from the MP4 with ffmpeg and looked at.
+
+**The glowing block is still there, and is now a proposal: D-333.** After step F (32 bpc, Lightning Diff retuned to Fast Box Blur 101.2 / 121.3 and Exposure +20.49), the Diff copy lights a block about 600 pixels wide under the strike. The tutorial shows a soft warm pool. Two leads were tested first and ruled out:
+
+- **The ground texture stand-in.** A darker texture only punches holes in the block, and the plate alone gives an even block (table in `D-333_ae_32bpc_proposal.md`).
+- **Solid Composite rounding.** Adobe's effect table lists Solid Composite as 32 bpc, so it does not round.
+
+The likely cause is how After Effects' default 32 bpc works. Its blurs average display values, and Exposure converts to linear light first. Converting through a 2.2 power curve reproduces the pool; the sRGB curve and our linear Float both give the block. No source says which curve After Effects uses, so nothing was built. `D-333_ae_32bpc_proposal.md` and `D-333 pictures/` show the three ways side by side.
+
+**The weak glow at frame 12 is not a fault.** The glow layer's Exposure carries the tutorial's `wiggle(9,3)`, which dips around frame 12. With the wiggle switched off, frame 12 glows as strongly as frame 20.
+
+**Known stand-in, unchanged:** the ground texture. The tutorial lays a dark grunge texture image on the ground; ours is the plate with a Fractal Noise grunge in Overlay and a Soft Light copy of the plate.
+
+The rebuilt project is in the owner's Downloads as `advanced_electric_tutorial2.json`, and the video as `advanced_electric_tutorial2.mp4`.
+
 ## What was built
 
 Every one is **built and awaiting the owner's playtest**. Each starts where the app was before, so older projects and every fixture draw as they did; D-318 to D-324 (D-308) may change pictures where the owner turns them on, and a newly added Polar Coordinates starts as a circle. Each has its own page in `verification/`, with what to look for and how to try it.
@@ -239,6 +256,7 @@ One set of fixture values was changed, as a recorded specification decision: D-3
 2. **Playtests** of D-321, D-322 with D-331, and D-325 to D-327, each page's "For the owner to try". The After Effects test asked for here before is no longer needed: D-321 and D-331 are settled from the sources above.
 3. **Playtests** of D-328, D-329 and D-330 (approved 2026-10-05 and built), each page's "For the owner to try".
 4. **Playtest** of D-332: open `Downloads\shockwave_tutorial1.json`, save it under a new name, and open it again (`D-332_keyed_settings.md`, "How to check it yourself").
+5. **A decision on D-333** (proposed, not built): a "32 bpc (After Effects)" depth for tutorial 2's glowing block (`D-333_ae_32bpc_proposal.md`).
 
 D-328 to D-330 were approved on 2026-10-05 and are built. D-309 was approved on 2026-10-04 and is built (D-310 to D-317). D-308 was approved on 2026-10-04 and is built as D-318 to D-320, D-323 and D-324.
 
