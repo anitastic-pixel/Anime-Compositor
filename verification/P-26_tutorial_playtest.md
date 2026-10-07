@@ -196,6 +196,12 @@ The likely cause is how After Effects' default 32 bpc works. Its blurs average d
 
 The rebuilt project is in the owner's Downloads as `advanced_electric_tutorial2.json`, and the video as `advanced_electric_tutorial2.mp4`.
 
+## D-333 built, tutorial 2 replayed again (2026-10-06)
+
+The owner approved D-333 and it is built as B-214 (`D-333_ae_32bpc.md`): Composition Settings has a fourth working depth, **32 bpc (After Effects)**, this program's best reading of After Effects' default 32 bpc. Tutorial 2 was replayed from an empty project in the test copy with this depth at step F, saved again to Downloads (`advanced_electric_tutorial2.json`), reopened outside the app with no notices, and exported again (`advanced_electric_tutorial2.mp4`). Frames 12 and 20 were pulled from the MP4 and looked at.
+
+**Partly.** The 600-pixel yellow block is gone. Under the strike there is now a smaller patch that fades out, but it is red rather than warm, and the ground texture still shows through it in dark holes. The tutorial at frame 20 shows almost no light on the ground: a faint glow where the bolt lands. So D-333 moves the picture the right way but does not match it. Why it is red: Exposure through the 2.2 curve lifts the orange's red far more than its small green part. What else differs is not known; the four reflection copies all pass through the new Exposure, and the tutorial's texture is a stand-in. Nothing further was changed or guessed.
+
 ## What was built
 
 Every one is **built and awaiting the owner's playtest**. Each starts where the app was before, so older projects and every fixture draw as they did; D-318 to D-324 (D-308) may change pictures where the owner turns them on, and a newly added Polar Coordinates starts as a circle. Each has its own page in `verification/`, with what to look for and how to try it.
@@ -256,7 +262,7 @@ One set of fixture values was changed, as a recorded specification decision: D-3
 2. **Playtests** of D-321, D-322 with D-331, and D-325 to D-327, each page's "For the owner to try". The After Effects test asked for here before is no longer needed: D-321 and D-331 are settled from the sources above.
 3. **Playtests** of D-328, D-329 and D-330 (approved 2026-10-05 and built), each page's "For the owner to try".
 4. **Playtest** of D-332: open `Downloads\shockwave_tutorial1.json`, save it under a new name, and open it again (`D-332_keyed_settings.md`, "How to check it yourself").
-5. **A decision on D-333** (proposed, not built): a "32 bpc (After Effects)" depth for tutorial 2's glowing block (`D-333_ae_32bpc_proposal.md`).
+5. **Playtest** of D-333 (approved 2026-10-06 and built as B-214): the "32 bpc (After Effects)" depth (`D-333_ae_32bpc.md`, "For the owner to try"). Tutorial 2 after step F is now partly right: a red fading patch instead of a block.
 
 D-328 to D-330 were approved on 2026-10-05 and are built. D-309 was approved on 2026-10-04 and is built (D-310 to D-317). D-308 was approved on 2026-10-04 and is built as D-318 to D-320, D-323 and D-324.
 
