@@ -3855,6 +3855,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             conductivity: 0.0,
             obstacle: 0.0,
             path: "split".to_string(),
+            core: "hard".to_string(),
             frame: 0,
         }),
         // D-191: After Effects' Stretch Map to Fit is on when added.
@@ -4785,6 +4786,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             obstacle: if parameter(query, "obstacle").is_some() { number("obstacle")? } else { 0.0 },
             // D-329: stopping at an obstacle, as D-324's, when the command does not say.
             path: word("path").unwrap_or_else(|_| "split".to_string()),
+            // D-334: the hard core, as D-190's, when the command does not say.
+            core: word("core").unwrap_or_else(|_| "hard".to_string()),
             frame: 0,
         }),
         // D-189: the request's own `layer` is the layer holding the effect, so the setting
@@ -28441,6 +28444,8 @@ mod contract {
                 ("obstacle", "50"),
                 // D-329: going round.
                 ("path", "around"),
+                // D-334: the soft core.
+                ("core", "soft"),
             ],
         ),
         (

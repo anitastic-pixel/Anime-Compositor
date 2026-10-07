@@ -106,7 +106,7 @@ D-324, from D-308, accepted by the owner on 2026-10-04. Every expected pixel is 
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| a half-size draft preview halves the width and the glow, and none of the five new settings | LightningBolt { start: [40.0, 0.0], end: [60.0, 100.0], jagged: 40.0, detail: 6.0, branches: 30.0, width: 1.5, glow: 12.0, opacity: 100.0, hold: 2.0, seed: 0.0, color: "#ffffff", glow_color: "#6e8cff", composite: "on", kind: "strike", turbulence: 50.0, decay: 50.0, conductivity: 3.0, obstacle: 50.0, path: "split", frame: 0 } | yes |
+| a half-size draft preview halves the width and the glow, and none of the five new settings | LightningBolt { start: [40.0, 0.0], end: [60.0, 100.0], jagged: 40.0, detail: 6.0, branches: 30.0, width: 1.5, glow: 12.0, opacity: 100.0, hold: 2.0, seed: 0.0, color: "#ffffff", glow_color: "#6e8cff", composite: "on", kind: "strike", turbulence: 50.0, decay: 50.0, conductivity: 3.0, obstacle: 50.0, path: "split", core: "hard", frame: 0 } | yes |
 | every new setting at its top, it never grows the drawing's bounds | 0 | yes |
 
 ## Commands

@@ -2651,14 +2651,15 @@ pub(crate) fn kira_stars(
 /// decay, conductivity]`, Advanced Lightning's; `ends[2]` the drawing's bottom edge below
 /// `ends[0]`, for Vertical; and `blocks`, one per pixel of `source` (none when empty), where
 /// Alpha Obstacle stops the bolt. D-329: `outside`, whether past the layer's edge blocks too (a
-/// negative obstacle), and `around`, whether each main bolt goes round what blocks.
+/// negative obstacle), and `around`, whether each main bolt goes round what blocks. D-334:
+/// `soft`, whether the core fades from the middle to its edge.
 pub(crate) fn lightning_bolt(
     source: &mut WorkingBuffer,
     ends: [(f64, f64); 3],
     [jagged, detail, branches, width, glow, opacity, hold, seed]: [f64; 8],
     (kind, [turbulence, decay, conductivity]): (&str, [f64; 3]),
     (blocks, outside, around): (&[bool], bool, bool),
-    [core, halo]: [[f64; 3]; 2],
+    ([core, halo], soft): ([[f64; 3]; 2], bool),
     frame: i32,
 ) {
     if opacity == 0.0 || (width == 0.0 && glow == 0.0) {
@@ -2709,7 +2710,7 @@ pub(crate) fn lightning_bolt(
             let x0 = (b[0] - 0.5).floor().max(0.0) as usize;
             let x1 = ((b[1] - 0.5).ceil() + 1.0).clamp(0.0, w as f64) as usize;
             for (x, l) in lit.iter_mut().enumerate().take(x1).skip(x0) {
-                let (c, g) = bolt_light(s, width, glow, x as f64 + 0.5, py);
+                let (c, g) = bolt_light(s, width, glow, soft, x as f64 + 0.5, py);
                 *l = (l.0.max(c), l.1.max(g));
             }
         }
@@ -2725,15 +2726,26 @@ pub(crate) fn lightning_bolt(
     });
 }
 
-/// D-190's segment `[px, py, qx, qy, wP, wQ]`: its core and glow at the point (x, y).
-fn bolt_light(s: &[f64; 6], width: f64, glow: f64, x: f64, y: f64) -> (f64, f64) {
+/// D-190's segment `[px, py, qx, qy, wP, wQ]`: its core and glow at the point (x, y). The core is
+/// the share of the pixel's width across the line that the core covers; D-334's soft core is
+/// 1 - distance / half its width there instead, taken the same way.
+fn bolt_light(s: &[f64; 6], width: f64, glow: f64, soft: bool, x: f64, y: f64) -> (f64, f64) {
     let (dx, dy) = (s[2] - s[0], s[3] - s[1]);
     let l2 = dx * dx + dy * dy;
     let t = if l2 == 0.0 { 0.0 } else { (((x - s[0]) * dx + (y - s[1]) * dy) / l2).clamp(0.0, 1.0) };
     let d = (x - s[0] - t * dx).hypot(y - s[1] - t * dy);
     let w = s[4] + t * (s[5] - s[4]);
     let half = w * width / 2.0;
-    let core = ((d + 0.5).min(half) - (d - 0.5).max(-half)).clamp(0.0, 1.0);
+    let core = if soft {
+        // The fall from 0 to u, odd in u: u - u^2 / (2 half) up to the edge, half / 2 past it.
+        let rise = |u: f64| {
+            let a = u.abs().min(half);
+            u.signum() * (a - a * a / (2.0 * half))
+        };
+        if half > 0.0 { rise(d + 0.5) - rise(d - 0.5) } else { 0.0 }
+    } else {
+        ((d + 0.5).min(half) - (d - 0.5).max(-half)).clamp(0.0, 1.0)
+    };
     let r = w * glow;
     (core, if d < r { w * (1.0 - d / r).powi(2) } else { 0.0 })
 }

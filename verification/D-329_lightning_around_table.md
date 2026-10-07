@@ -67,7 +67,7 @@ D-329, from P-26's tutorial 2. Every expected pixel is `Fixtures/lightning_aroun
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| a half-size draft preview halves the width and the glow, and neither new setting | LightningBolt { start: [50.0, 0.0], end: [50.0, 100.0], jagged: 40.0, detail: 6.0, branches: 0.0, width: 0.5, glow: 0.0, opacity: 100.0, hold: 1.0, seed: 0.0, color: "#ffffff", glow_color: "#6e8cff", composite: "on", kind: "direction", turbulence: 0.0, decay: 0.0, conductivity: 0.0, obstacle: -50.0, path: "around", frame: 0 } | yes |
+| a half-size draft preview halves the width and the glow, and neither new setting | LightningBolt { start: [50.0, 0.0], end: [50.0, 100.0], jagged: 40.0, detail: 6.0, branches: 0.0, width: 0.5, glow: 0.0, opacity: 100.0, hold: 1.0, seed: 0.0, color: "#ffffff", glow_color: "#6e8cff", composite: "on", kind: "direction", turbulence: 0.0, decay: 0.0, conductivity: 0.0, obstacle: -50.0, path: "around", core: "hard", frame: 0 } | yes |
 | going round, it never grows the drawing's bounds | 0 | yes |
 
 ## Commands

@@ -982,6 +982,8 @@ pub enum Effect {
     /// `obstacle` (Alpha Obstacle), 0 to 100; and `conductivity`, 0 to 10000. Each at 0 draws
     /// D-190's bolt. D-329: `obstacle` -100 to 100, below 0 keeping the bolt inside what is
     /// solid; and `path`, "split" (a file from before it) or "around", going round obstacles.
+    /// D-334: `core`, "hard" (a file from before it) or "soft", Advanced Lightning's core that
+    /// fades from the middle of the bolt to its edge.
     LightningBolt {
         start: [f64; 2],
         end: [f64; 2],
@@ -1002,6 +1004,7 @@ pub enum Effect {
         conductivity: f64,
         obstacle: f64,
         path: String,
+        core: String,
         frame: i32,
     },
     /// D-191: `layer`, D-189's layer setting as written (a word, or kept as found and refused
@@ -3580,6 +3583,9 @@ impl Effect {
             Effect::LightningBolt { path, .. } if !["split", "around"].contains(&path.as_str()) => Some(format!(
                 "Lightning Bolt's path at an obstacle is \"split\" or \"around\", and this is \"{path}\"."
             )),
+            Effect::LightningBolt { core, .. } if !["hard", "soft"].contains(&core.as_str()) => Some(format!(
+                "Lightning Bolt's core edge is \"hard\" or \"soft\", and this is \"{core}\"."
+            )),
             Effect::LightningBolt { color, glow_color, .. } => hex_fault("Lightning Bolt", "colour", color)
                 .or_else(|| hex_fault("Lightning Bolt", "glow colour", glow_color)),
             Effect::CompoundBlur { layer, .. } if !layer.is_string() => Some(format!(
@@ -5211,6 +5217,7 @@ pub(crate) fn apply_stack_at(
                 conductivity,
                 obstacle,
                 path,
+                core,
                 frame,
             } => crate::perf::time(crate::perf::Stage::EffectLightningBolt, || {
                 // D-324: Alpha Obstacle reads the layer as it is, before Composite on Original.
@@ -5229,7 +5236,7 @@ pub(crate) fn apply_stack_at(
                 let size = (source.width(), source.height());
                 let ends = [radial_center(*start, size, (ox, oy)), radial_center(*end, size, (ox, oy)), radial_center([start[0], 100.0], size, (ox, oy))];
                 let numbers = [*jagged, *detail, *branches, *width, *glow, *opacity, *hold, *seed];
-                crate::layer_fx::lightning_bolt(source, ends, numbers, (kind, [*turbulence, *decay, *conductivity]), (&blocks, *obstacle < 0.0, path == "around"), colours, *frame)
+                crate::layer_fx::lightning_bolt(source, ends, numbers, (kind, [*turbulence, *decay, *conductivity]), (&blocks, *obstacle < 0.0, path == "around"), (colours, core == "soft"), *frame)
             }),
             // D-191: the map compose read for this frame; with none, nothing is blurred.
             Effect::CompoundBlur { max_blur, invert, edges, map, .. } => {

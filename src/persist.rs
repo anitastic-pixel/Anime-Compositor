@@ -1992,6 +1992,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             conductivity,
             obstacle,
             path,
+            core,
             ..
         } => {
             // D-300: written only when off or the file had it, so a file that never changed it
@@ -2006,6 +2007,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             // D-329: the same.
             if path != "split" || params.contains_key("path") {
                 params.insert("path".into(), J::from(path.as_str()));
+            }
+            // D-334: the same.
+            if core != "hard" || params.contains_key("core") {
+                params.insert("core".into(), J::from(core.as_str()));
             }
             for (key, value) in [("turbulence", *turbulence), ("decay", *decay), ("conductivity", *conductivity), ("obstacle", *obstacle)] {
                 if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
@@ -4083,6 +4088,8 @@ fn parse_effect(
             obstacle: effect_number_or(params, "obstacle", &at, 0.0)?,
             // D-329: a file from before it stops at an obstacle, as D-324's.
             path: effect_word_or(params, "path", &at, "split")?,
+            // D-334: a file from before it has the hard core.
+            core: effect_word_or(params, "core", &at, "hard")?,
             frame: 0,
         }),
         // D-191: the layer is kept as written, a word or not; a setting check says which.
