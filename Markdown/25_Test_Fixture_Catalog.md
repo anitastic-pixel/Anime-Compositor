@@ -188447,9 +188447,9 @@ FX-8BPC-LOAD-002: `eight_word.json`, `eight_bpc` the word "yes": refused, `PROJE
 
 From P-26 and the owner's approval of D-333 on 2026-10-06. After its step F tutorial 2 is in After Effects' 32 bpc, which by default has no linear working space: its blurs average display values, and Exposure, which the CS3 manual (p.402) says works "in a linear color space", is taken here to get there and back with a plain 2.2 curve. Which curve After Effects really uses is not written anywhere found; 2.2 is this program's best reading, the one that turns the tutorial's glowing block into its soft pool. **Every number is produced by `tools/ae_32bpc_reference.py`** and is in `Fixtures/ae_32bpc/expected_ae_32bpc.json`; the projects and `media/block.png` are beside it. Each case is FX-BLURRY-001's composition, 40 by 12, drawing `block`, a 4 by 4 orange square against the left edge, frame 0, with `float_depth` and `ae_32bpc` true. Solid Composite is black, Normal, both opacities 100. Values are linear premultiplied. Tolerance 2e-5. B-214 checks them in `verification/D-333_ae_32bpc_table.md`.
 
-FX-AE32-001: Fast Box Blur radius 2, iterations 3, Solid Composite, then Exposure +4: tutorial 2's reflection in small. Pixel (1, 6) is 5.55721 1.04029 0 1, brighter than Float's; (9, 6) is 0.0321290 0.00342300 0 1, under half Float's; (10, 6) is 0 0 0 1. 60 pixels are past white, 64 in Float.
+FX-AE32-001: Fast Box Blur radius 2, iterations 3, Solid Composite, then Exposure +4: tutorial 2's reflection in small. D-337 (2026-10-07) changed it: Solid Composite lays the layer on black in display values. Pixel (1, 6) is 1.25798 0.268634 0 1, dimmer than Float's but past white; (9, 6) is 0.00122276 0.00061378 0 1, under half Float's; (10, 6) is 0 0 0 1. 4 pixels are past white, 64 in Float.
 
-FX-AE32-002: Gaussian Blur, Blurriness 4, Solid Composite, then Exposure +4. Pixel (1, 6) is 14.5768 2.86315 0 1; (8, 6) is 0.000180 0.000039 0 1, under half Float's.
+FX-AE32-002: Gaussian Blur, Blurriness 4, Solid Composite, then Exposure +4, changed by D-337 as FX-AE32-001. Pixel (1, 6) is 10.5713 2.11702 0 1; (8, 6) is 0.0000139459 0.0000070003 0 1, under half Float's.
 
 FX-AE32-003: Exposure -1 alone: the display value times 2^(-1/2.2). Pixel (1, 6) is 0.491514 0.110463 0 1, near but not half the orange.
 
@@ -188462,6 +188462,54 @@ FX-AE32-006: No effect: the drawing untouched.
 FX-AE32-LOAD-001: `ae32_alone.json`, `ae_32bpc` true without `float_depth`: refused, `PROJECT_SCHEMA_INVALID`.
 
 FX-AE32-LOAD-002: `ae32_word.json`, `ae_32bpc` the word "yes": refused, `PROJECT_SCHEMA_INVALID`.
+
+### Glow and Solid Composite on display values (D-337)
+
+From P-26's tutorial 2 (B-216). Every case is a project of glow_reference's composition, 16 by 10 at 24 fps, frame 0, in `Fixtures/glow_display/`, holding the drawing `patches` (or `faint`, the same patches half covering) with the effects named, in a composition at 32 bpc (After Effects) (`float_depth` and `ae_32bpc` true) unless said. **Every number is produced by `tools/glow_display_reference.py`** and is in `Fixtures/glow_display/expected_glow_display.json`. Values are linear premultiplied. Tolerance 2e-5. B-216 checks them in `verification/D-337_glow_display_table.md`.
+
+FX-GLDISP-001 (`fx_gldisp_001.json`): Glow in After Effects units, threshold 0, radius 4, intensity 0.1, tutorial 2's kind of setting. In display values the colour is 1.6 times the blurred light and the covering as blurred, so the halo covers more and is brighter than Float's. Pixel (6, 1), in the empty space, is 0.0516353 0.0259644 0.0061506 0.0411864, where Float gives 0.00193427 0.0011163 0.000287497 0.00257415.
+
+FX-GLDISP-002 (`fx_gldisp_002.json`): Solid Composite black, Normal, both opacities 100, then FX-GLDISP-001's Glow: tutorial 2's glow layer in small. Opaque everywhere; pixel (6, 1) is 0.00354139 0.00259961 0.00134748 1, the black lit by the patches' own colours.
+
+FX-GLDISP-003 (`fx_gldisp_003.json`): Glow in After Effects units, tint #ff4000, threshold 0, intensity 0.2: the tint used as written, so the halo read straight in display values is 3.2 times #ff4000. Pixel (15, 8) is 1.04568 0.0426395 0 0.0699973.
+
+FX-GLDISP-004 (`fx_gldisp_004.json`): Glow in classic units, FX-GLOW-001's settings (threshold 60, radius 4, intensity 1, Add), in display values. Pixel (3, 4) is 2.97696 2.21293 0.556096 1.
+
+FX-GLDISP-005 (`fx_gldisp_005.json`): Glow in After Effects units at After Effects' defaults (threshold 60, radius 10, intensity 1) with Screen: the light held inside 0 to 1 and screened, in display values. Pixel (3, 4) is 1 1 0.659293 1.
+
+FX-GLDISP-006 (`fx_gldisp_006.json`): The same Glow with Add at 8 bpc (`eight_bpc` true): in display values, then held to 8 bits, so the halo, seven times the light read straight, is white at its own covering. Pixel (6, 1) is 0.129412 0.129412 0.129412 0.129412.
+
+FX-GLDISP-007 (`fx_gldisp_007.json`): FX-GLDISP-001's Glow at Float (`float_depth` true alone): linear light and D-331's rule, FX-GLOW-AE-004 exactly.
+
+FX-GLDISP-008 (`fx_gldisp_008.json`): The drawing `faint` with Solid Composite #3c286e, Normal, source opacity 100, opacity 50: laid on in display values, the purple used as written. On the empty half pixel (0, 0) is 0.0225931 0.0106095 0.0779632 0.5, the purple at half covering; on the yellow, (3, 4) is 0.373175 0.265136 0.132819 0.75098.
+
+### Exposure's Offset, Gamma Correction and Bypass (D-335)
+
+From P-26's tutorial 2 (B-217). Every case is a project of glow_reference's composition, 16 by 10 at 24 fps, in `Fixtures/exposure_ae/`, holding the drawing `patches` (or `faint`, half covering) with one Exposure (`core.exposure`), in Float unless said. **Every number is produced by `tools/exposure_ae_reference.py`** and is in `Fixtures/exposure_ae/expected_exposure_ae.json`. Values are linear premultiplied. Tolerance 2e-5. Pixel (3, 4) is on the yellow, (12, 4) on the purple. B-217 checks them in `verification/D-335_exposure_ae_table.md`.
+
+FX-EXPAE-001 (`fx_expae_001.json`): Gamma 1.69 alone: each straight colour to the power 1 / 1.69. Pixel (12, 4) is 0.160009 0.102305 0.332995 1.
+
+FX-EXPAE-002 (`fx_expae_002.json`): Offset 0.1 alone: 0.1 added to each straight colour; the empty space stays empty. Pixel (12, 4) is 0.145186 0.121219 0.255926 1.
+
+FX-EXPAE-003 (`fx_expae_003.json`): Exposure +1, offset -0.2, gamma 2, in that order; where the offset takes a colour below 0 it stays below 0. Pixel (12, 4) is -0.331101 -0.396941 0.334444 1.
+
+FX-EXPAE-004 (`fx_expae_004.json`): The tutorial's ground texture, Exposure 2.47, gamma 1.69, on the half-covering patches. Pixel (3, 4) is 1.34607 1.13417 0.513924 0.501961.
+
+FX-EXPAE-005 (`fx_expae_005.json`): The same at 32 bpc (After Effects), through D-333's 2.2 curve. Pixel (12, 4) is 0.410795 0.242484 0.919303 1.
+
+FX-EXPAE-006 (`fx_expae_006.json`): 32 bpc (After Effects), bypass on, Exposure +1, offset 0.05, gamma 1.2, on the display values themselves. Pixel (12, 4) is 0.296174 0.15526 0.841367 1.
+
+FX-EXPAE-007 (`fx_expae_007.json`): FX-EXPAE-003 with bypass on, in Float: FX-EXPAE-003 exactly.
+
+FX-EXPAE-008 (`fx_expae_008.json`): 8 bpc, Exposure +1, gamma 1.69, in linear light as D-330's Exposure, then held to 8 bits. Pixel (12, 4) is 0.242281 0.152926 0.502886 1.
+
+FX-EXPAE-009 (`fx_expae_009.json`): The same with bypass on: on the display values, then held to 8 bits. Pixel (12, 4) is 0.366253 0.215861 0.822786 1.
+
+FX-EXPAE-010 (`fx_expae_010.json`): Gamma keyed from 1 at frame 0 to 3 at frame 4, linear, frames 0, 2 and 4: frame 0 the drawing, frame 2 gamma 2.
+
+FX-EXPAE-011 (`fx_expae_011.json`): 32 bpc (After Effects), Exposure +1 with offset 0, gamma 1 and bypass "off" written: D-333's Exposure exactly. Pixel (12, 4) is 0.0848431 0.0379578 0.308294 1.
+
+FX-EXPAE-012 to 016: Gamma 0, gamma 10, offset 0.6, offset keyed to -1 at frame 4, and bypass "yes". Each file is read, the effect kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: the drawing untouched.
 
 ## Mix fixtures
 

@@ -18,8 +18,11 @@ A composition's working depth gains a fourth choice, saved as `ae_32bpc: true` b
   linear with `d^2.2`, multiplying by `2^stops` and coming back with `^(1/2.2)` is that. A pixel
   with no alpha is multiplied as in Float.
 
-No value is rounded and none is held at white, as in Float. Every other effect, and blending, is
-as in Float. A composition inside another follows the outermost one's depth, as D-319. A file with
+No value is rounded and none is held at white, as in Float. D-337 (2026-10-07, from the same
+tutorial) adds Solid Composite and Glow to the effects worked in display values: Solid Composite
+lays the layer on its solid there, the solid's colour as written (`tools/glow_display_reference.py`
+has Glow's rule and its own cases). FX-AE32-001 and 002, which put a blur on black, changed with
+it. Every other effect, and blending, is as in Float. A composition inside another follows the outermost one's depth, as D-319. A file with
 `ae_32bpc` true and `float_depth` not true is refused when read.
 
 Which curve After Effects really uses is not stated in any source found. The 2.2 curve is this
@@ -74,8 +77,11 @@ def exposure(px, stops, ae):
             + [p[3]] if p[3] > 0 else [p[i] * 2 ** stops for i in range(3)] + [p[3]] for p in px]
 
 
-def on_black(px):
-    """Solid Composite, black, Normal, both opacities 100: the layer over opaque black."""
+def on_black(px, ae):
+    """Solid Composite, black, Normal, both opacities 100: the layer over opaque black, in
+    display values in 32 bpc (After Effects) (D-337)."""
+    if ae:
+        return linear([p[:3] + [1.0] for p in display(px)])
     return [p[:3] + [1.0] for p in px]
 
 
@@ -93,7 +99,7 @@ def render(c):
         if kind == "exposure":
             px = exposure(px, n, c["ae"])
         elif kind == "black":
-            px = on_black(px)
+            px = on_black(px, c["ae"])
         else:
             run = (lambda p: F.blur(p, n, 3, "transparent", "both")) if kind == "fast_box" else \
                   (lambda p: B.blur(p, n, "blurriness", "transparent", "both"))
@@ -198,12 +204,12 @@ def check(expected):
 
     for fx, chain, edge in (("FX-AE32-001", TUTORIAL, 9), ("FX-AE32-002", GAUSS, 8)):
         ae, flt = c[fx], render(case(chain, ae=False))
-        # No more pixels are past white than in Float and the faint edge is under half as bright,
-        # though the middle rises higher (the 2.2 curve against the sRGB curve's steeper one):
-        # nothing is held at white.
-        assert 0 < white(ae) <= white(flt), (fx, white(ae), white(flt))
+        # Fewer pixels are past white than in Float and the faint edge is under half as bright.
+        # D-337: on black in display values the half-covered middle is dimmer than Float's too,
+        # yet still past white: nothing is held at white.
+        assert 0 < white(ae) < white(flt), (fx, white(ae), white(flt))
         assert ae[at(edge, 6)][0] < flt[at(edge, 6)][0] / 2, (fx, ae[at(edge, 6)], flt[at(edge, 6)])
-        assert ae[at(1, 6)][0] > flt[at(1, 6)][0]
+        assert ae[at(1, 6)][0] < flt[at(1, 6)][0]
         assert ae[at(1, 6)][0] > 1, ae[at(1, 6)]
         print(f"{fx}: {white(ae)} pixels past white, {white(flt)} in Float")
     # Exposure -1 is the display value times 2^(-1/2.2), not half the light.
