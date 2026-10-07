@@ -175748,6 +175748,24 @@ Frame 0: the same as FX-LIGHTA-013 frame 0.
 
 Frame 4: the same as FX-LIGHTA-013 frame 0.
 
+### Lightning Bolt's soft core (D-334)
+
+From P-26's tutorial 2 (B-215). Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/lightning_core/`, holding D-324's `night.png` (the left half a night sky #1e2850, the right half empty) with one Lightning Bolt (`core.lightning_bolt`) on it, D-324's five settings and the new word `core` written. **Every number is produced by `tools/lightning_core_reference.py`** and is in `Fixtures/lightning_core/expected_lightning_core.json`. Values are linear premultiplied. Tolerance 2e-5. The line cases run along y = 4.5, the middle of row 4, from (-10, 45) to (110, 45) per cent, white in D-190's blue glow, jaggedness 0, no branches. B-215 checks them in `verification/D-334_lightning_core_table.md`.
+
+FX-LCORE-001 (`fx_lcore_001.json`): The line at width 6, no glow, core soft. Down column 12 (on the empty half) the covering is 0, 0.041667, 0.333333, 0.666667, 0.916667, 0.666667, 0.333333, 0.041667, 0, 0 from row 0: brightest on row 4, 1 - 1/12 of white, fading to nothing past rows 1 and 7. Pixel (12, 4) is 0.916667 0.916667 0.916667 0.916667.
+
+FX-LCORE-002 (`fx_lcore_002.json`): FX-LCORE-001 with core written "hard": D-190's core, rows 2 to 6 fully lit and rows 1 and 7 half, exactly D-324's frame for the same line.
+
+FX-LCORE-003 (`fx_lcore_003.json`): FX-BOLT-001's settings with core soft, frames 0 and 2: the same bolt and glow as FX-BOLT-001, the core dimmer toward its edge and never brighter. On frame 0, 50 pixels differ from FX-BOLT-001's; the most, at (5, 0), is 0.424896 0.499955 1.02262 1 where the hard core gives 0.987643 0.998758 1.07774 1.
+
+FX-LCORE-004 (`fx_lcore_004.json`): The line at width 1, core soft: row 4 half lit, pixel (12, 4) 0.5 0.5 0.5 0.5.
+
+FX-LCORE-005 (`fx_lcore_005.json`): The line at width 0 with glow 3, core soft: no core, only D-190's glow, exactly the hard core's frame.
+
+FX-LCORE-006 (`fx_lcore_006.json`): A core "Soft": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: the night drawing untouched.
+
+FX-LCORE-007 (`fx_lcore_007.json`): A core "fuzzy", which is not one. As FX-LCORE-006.
+
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.
