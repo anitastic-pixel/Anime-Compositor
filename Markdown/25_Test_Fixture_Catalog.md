@@ -188425,6 +188425,26 @@ FX-8BPC-LOAD-001: `both_depths.json`, `float_depth` and `eight_bpc` both true: r
 
 FX-8BPC-LOAD-002: `eight_word.json`, `eight_bpc` the word "yes": refused, `PROJECT_SCHEMA_INVALID`.
 
+### 32 bpc (After Effects) working depth (D-333)
+
+From P-26 and the owner's approval of D-333 on 2026-10-06. After its step F tutorial 2 is in After Effects' 32 bpc, which by default has no linear working space: its blurs average display values, and Exposure, which the CS3 manual (p.402) says works "in a linear color space", is taken here to get there and back with a plain 2.2 curve. Which curve After Effects really uses is not written anywhere found; 2.2 is this program's best reading, the one that turns the tutorial's glowing block into its soft pool. **Every number is produced by `tools/ae_32bpc_reference.py`** and is in `Fixtures/ae_32bpc/expected_ae_32bpc.json`; the projects and `media/block.png` are beside it. Each case is FX-BLURRY-001's composition, 40 by 12, drawing `block`, a 4 by 4 orange square against the left edge, frame 0, with `float_depth` and `ae_32bpc` true. Solid Composite is black, Normal, both opacities 100. Values are linear premultiplied. Tolerance 2e-5. B-214 checks them in `verification/D-333_ae_32bpc_table.md`.
+
+FX-AE32-001: Fast Box Blur radius 2, iterations 3, Solid Composite, then Exposure +4: tutorial 2's reflection in small. Pixel (1, 6) is 5.55721 1.04029 0 1, brighter than Float's; (9, 6) is 0.0321290 0.00342300 0 1, under half Float's; (10, 6) is 0 0 0 1. 60 pixels are past white, 64 in Float.
+
+FX-AE32-002: Gaussian Blur, Blurriness 4, Solid Composite, then Exposure +4. Pixel (1, 6) is 14.5768 2.86315 0 1; (8, 6) is 0.000180 0.000039 0 1, under half Float's.
+
+FX-AE32-003: Exposure -1 alone: the display value times 2^(-1/2.2). Pixel (1, 6) is 0.491514 0.110463 0 1, near but not half the orange.
+
+FX-AE32-004: Exposure +2, then Fast Box Blur radius 2: the blur averages display values past white and does not hold them. Pixel (1, 6) is 1.34107 0.274207 0 0.3136, its straight red above 4.
+
+FX-AE32-005: Solid Composite, then Fast Box Blur radius 2: the orange fades into black through display values, darker than in Float, with the same alpha. Pixel (5, 6) is 0.0203930 0.00679300 0 0.984064.
+
+FX-AE32-006: No effect: the drawing untouched.
+
+FX-AE32-LOAD-001: `ae32_alone.json`, `ae_32bpc` true without `float_depth`: refused, `PROJECT_SCHEMA_INVALID`.
+
+FX-AE32-LOAD-002: `ae32_word.json`, `ae_32bpc` the word "yes": refused, `PROJECT_SCHEMA_INVALID`.
+
 ## Mix fixtures
 
 D-202, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps in `Fixtures/effect_mix/`, each effect's `mix` written on its record after `enabled` or not at all, as the case says. FX-MIX-001 to 012 and 014 to 016 hold Invert's drawing, `Fixtures/effect_mix/media/bands.png` (the drawing of FX-INVERT, described there), five frames long, unmoved, with Invert (`core.invert`, channel rgb, amount 100), Gaussian Blur (`core.gaussian_blur`, edges transparent) or Exposure (`core.exposure`) on it, or on an adjustment layer above it in 012. FX-MIX-013 is FX-WRAP-001's scene, Light Wrap's box `wrap_box.png` over its bands `wrap_bands.png`, the Light Wrap on the box. FX-MIX-017 is FX-PTIME-001's project, eight frames of the running ball `ball_1.png` to `ball_8.png`, its Posterize Time given a mix. Values are linear premultiplied working values, and only the pixels that differ from the case without the mixed effects (the drawing; for 013 the box over the bands unlit; for 017 the ball not held) are listed, a run of rows in one column holding the same pair once: every other pixel is as without them, to 1e-12.
