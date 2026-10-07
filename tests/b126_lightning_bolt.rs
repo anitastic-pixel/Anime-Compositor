@@ -46,6 +46,7 @@ fn bolt(n: [f64; 12], color: &str, glow_color: &str) -> Effect {
         obstacle: 0.0,
         path: "split".into(),
         core: "hard".into(),
+        forks: "short".into(),
         frame: 0,
     }
 }

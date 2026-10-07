@@ -2002,6 +2002,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             obstacle,
             path,
             core,
+            forks,
             ..
         } => {
             // D-300: written only when off or the file had it, so a file that never changed it
@@ -2020,6 +2021,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             // D-334: the same.
             if core != "hard" || params.contains_key("core") {
                 params.insert("core".into(), J::from(core.as_str()));
+            }
+            // D-338: the same.
+            if forks != "short" || params.contains_key("forks") {
+                params.insert("forks".into(), J::from(forks.as_str()));
             }
             for (key, value) in [("turbulence", *turbulence), ("decay", *decay), ("conductivity", *conductivity), ("obstacle", *obstacle)] {
                 if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
@@ -4107,6 +4112,8 @@ fn parse_effect(
             path: effect_word_or(params, "path", &at, "split")?,
             // D-334: a file from before it has the hard core.
             core: effect_word_or(params, "core", &at, "hard")?,
+            // D-338: a file from before it has the short forks.
+            forks: effect_word_or(params, "forks", &at, "short")?,
             frame: 0,
         }),
         // D-191: the layer is kept as written, a word or not; a setting check says which.

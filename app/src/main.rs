@@ -3856,6 +3856,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             obstacle: 0.0,
             path: "split".to_string(),
             core: "hard".to_string(),
+            forks: "short".to_string(),
             frame: 0,
         }),
         // D-191: After Effects' Stretch Map to Fit is on when added.
@@ -4792,6 +4793,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             path: word("path").unwrap_or_else(|_| "split".to_string()),
             // D-334: the hard core, as D-190's, when the command does not say.
             core: word("core").unwrap_or_else(|_| "hard".to_string()),
+            // D-338: the short forks, as D-190's, when the command does not say.
+            forks: word("forks").unwrap_or_else(|_| "short".to_string()),
             frame: 0,
         }),
         // D-189: the request's own `layer` is the layer holding the effect, so the setting
@@ -28451,6 +28454,8 @@ mod contract {
                 ("path", "around"),
                 // D-334: the soft core.
                 ("core", "soft"),
+                // D-338: the long forks.
+                ("forks", "long"),
             ],
         ),
         (

@@ -2652,12 +2652,13 @@ pub(crate) fn kira_stars(
 /// `ends[0]`, for Vertical; and `blocks`, one per pixel of `source` (none when empty), where
 /// Alpha Obstacle stops the bolt. D-329: `outside`, whether past the layer's edge blocks too (a
 /// negative obstacle), and `around`, whether each main bolt goes round what blocks. D-334:
-/// `soft`, whether the core fades from the middle to its edge.
+/// `soft`, whether the core fades from the middle to its edge. D-338: `long`, whether the main
+/// bolts' first forks run on down to the end, as Advanced Lightning's do at a low decay.
 pub(crate) fn lightning_bolt(
     source: &mut WorkingBuffer,
     ends: [(f64, f64); 3],
     [jagged, detail, branches, width, glow, opacity, hold, seed]: [f64; 8],
-    (kind, [turbulence, decay, conductivity]): (&str, [f64; 3]),
+    (kind, [turbulence, decay, conductivity], long): (&str, [f64; 3], bool),
     (blocks, outside, around): (&[bool], bool, bool),
     ([core, halo], soft): ([[f64; 3]; 2], bool),
     frame: i32,
@@ -2683,7 +2684,7 @@ pub(crate) fn lightning_bolt(
         if i >= 0.0 && i < size.0 as f64 && j >= 0.0 && j < size.1 as f64 { blocks[j as usize * size.0 + i as usize] } else { outside }
     };
     let route = (around && !blocks.is_empty()).then_some((&blocked as &dyn Fn(f64, f64) -> bool, size));
-    let mut segs = bolt_segments(kind, ends, [jagged, branches, turbulence, decay], detail.floor() as u32, &r, route);
+    let mut segs = bolt_segments((kind, long), ends, [jagged, branches, turbulence, decay], detail.floor() as u32, &r, route);
     if !blocks.is_empty() {
         segs = bolt_stop(segs, &blocked, route.is_some());
     }
@@ -2760,9 +2761,12 @@ type BoltSeg = ((f64, f64), (f64, f64), f64, f64, u32, i64, i64, i64);
 /// turns and starts; turbulence pushes harder each halving and forks more; decay thins each
 /// start bolt to 1 - decay / 100 at its end. D-329: with `around` (what blocks, and the layer's
 /// size) each start bolt is first routed round what blocks, and a main bolt's middle is pushed
-/// only where both halves stay clear.
+/// only where both halves stay clear. D-338: with `long`, a fork leaving a main bolt in one of
+/// the first three halvings leaves along that main bolt's own way, from its start to its end,
+/// turned 10 to 30 degrees, and goes on until it has covered 1 - decay / 100 of what is left of
+/// that way, thinning by the same share; Alpha Obstacle then stops it where the ground starts.
 fn bolt_segments(
-    kind: &str,
+    (kind, long): (&str, bool),
     [o, d, bottom]: [(f64, f64); 3],
     [jagged, branches, turbulence, decay]: [f64; 4],
     detail: u32,
@@ -2798,6 +2802,8 @@ fn bolt_segments(
     if let Some((blocked, size)) = around {
         segs = segs.into_iter().flat_map(|root| bolt_pieces(root, blocked, size)).collect();
     }
+    // D-338: each main bolt's own way, by its name.
+    let ways: Vec<(i64, (f64, f64), (f64, f64))> = segs.iter().map(|s| (s.5, s.0, s.1)).collect();
     for i in 0..detail {
         let mut out = Vec::with_capacity(segs.len() * 3);
         for (p, q, wp, wq, depth, b, key, parent) in segs {
@@ -2826,10 +2832,25 @@ fn bolt_segments(
                         way = (tx / tl, ty / tl);
                     }
                 }
-                let v = turn(way, (15.0 + 15.0 * (r(key, b, 2) + 1.0)) * if r(key, b, 3) < 0.0 { -1.0 } else { 1.0 });
-                let lb = l * (0.3 + 0.15 * (r(key, b, 4) + 1.0));
+                let side = if r(key, b, 3) < 0.0 { -1.0 } else { 1.0 };
                 let w0 = if kind == "breaking" { wm } else { wm / 2.0 };
-                out.push((mid, (mid.0 + v.0 * lb, mid.1 + v.1 * lb), w0, 0.0, depth + 1, 1024 * b + key, 1, b));
+                // D-338: the main bolt's own way, and how much of it is left past the fork.
+                let run = ways.iter().find(|w| w.0 == b).filter(|_| long && depth == 0 && i < 3).and_then(|&(_, o, e)| {
+                    let (ux, uy) = (e.0 - o.0, e.1 - o.1);
+                    let ul = ux.hypot(uy);
+                    let u = (ux / ul, uy / ul);
+                    let left = (e.0 - mid.0) * u.0 + (e.1 - mid.1) * u.1;
+                    (ul > 0.0 && left > 0.0).then_some((u, left))
+                });
+                if let Some((u, left)) = run {
+                    let v = turn(u, (10.0 + 10.0 * (r(key, b, 2) + 1.0)) * side);
+                    let lb = kd * left / (v.0 * u.0 + v.1 * u.1);
+                    out.push((mid, (mid.0 + v.0 * lb, mid.1 + v.1 * lb), w0, w0 * kd, depth + 1, 1024 * b + key, 1, b));
+                } else {
+                    let v = turn(way, (15.0 + 15.0 * (r(key, b, 2) + 1.0)) * side);
+                    let lb = l * (0.3 + 0.15 * (r(key, b, 4) + 1.0));
+                    out.push((mid, (mid.0 + v.0 * lb, mid.1 + v.1 * lb), w0, 0.0, depth + 1, 1024 * b + key, 1, b));
+                }
             }
         }
         segs = out;

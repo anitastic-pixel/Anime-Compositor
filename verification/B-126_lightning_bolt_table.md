@@ -98,7 +98,7 @@ D-190, accepted by the owner on 2026-09-28. Every expected pixel is `Fixtures/li
 | as added, it never grows the drawing's bounds | 0 | yes |
 | glow 500, the most, does not grow them either | 0 | yes |
 | width 100, the most, does not grow them either | 0 | yes |
-| a half-size draft preview halves the width and the glow, and nothing else | LightningBolt { start: [40.0, 0.0], end: [60.0, 100.0], jagged: 40.0, detail: 6.0, branches: 30.0, width: 1.5, glow: 12.0, opacity: 100.0, hold: 2.0, seed: 0.0, color: "#ffffff", glow_color: "#6e8cff", composite: "on", kind: "direction", turbulence: 0.0, decay: 0.0, conductivity: 0.0, obstacle: 0.0, path: "split", core: "hard", frame: 0 } | yes |
+| a half-size draft preview halves the width and the glow, and nothing else | LightningBolt { start: [40.0, 0.0], end: [60.0, 100.0], jagged: 40.0, detail: 6.0, branches: 30.0, width: 1.5, glow: 12.0, opacity: 100.0, hold: 2.0, seed: 0.0, color: "#ffffff", glow_color: "#6e8cff", composite: "on", kind: "direction", turbulence: 0.0, decay: 0.0, conductivity: 0.0, obstacle: 0.0, path: "split", core: "hard", forks: "short", frame: 0 } | yes |
 
 ## The file
 

@@ -707,6 +707,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 obstacle: 0.0,
                 path: "split".into(),
                 core: "hard".into(),
+                forks: "short".into(),
                 frame: 0,
             },
         ),
