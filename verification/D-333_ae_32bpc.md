@@ -44,7 +44,7 @@ These match the proposal's pictures (`diff_ours.png` and `diff_ae_gamma22.png`),
 
 ## Tutorial 2 with this depth
 
-Tutorial 2 was replayed from an empty project with this depth at step F, saved again to Downloads and exported again. **Partly right.** The 600-pixel yellow block is gone. Under the strike there is a smaller patch that fades out, but it is red rather than warm, and the ground texture still shows dark holes in it. The tutorial at frame 20 shows almost no light on the ground. The red comes from Exposure through the 2.2 curve, which lifts the orange's red far more than its small green part. Nothing further was changed or guessed.
+Tutorial 2 was replayed from an empty project with this depth at step F, saved again to Downloads and exported again. **Partly right.** The 600-pixel yellow block is gone. Under the strike there is a smaller patch that fades out, but it is red rather than warm, and the ground texture still shows dark holes in it. The tutorial at frame 20 shows only a small, dim gold pool of light under the tip of the bolt. The red comes from Exposure through the 2.2 curve, which lifts the orange's red far more than its small green part. Nothing further was changed or guessed.
 
 ## Known limits
 

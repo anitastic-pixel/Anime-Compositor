@@ -329,6 +329,8 @@ pub struct Glow {
     pub tint: Option<[u8; 3]>,
     /// D-322: After Effects' radius and strength rather than D-89's.
     pub after_effects: bool,
+    /// D-337: the layer is in display values (8 bpc, 32 bpc (After Effects)); never on the card.
+    pub display: bool,
 }
 
 /// B-50: a Gaussian Blur's sigma (`effects::blur`), already divided for Draft and large enough

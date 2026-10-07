@@ -38,6 +38,7 @@ pub(crate) fn settings(
         screen: operation != "add",
         tint: parse_hex(tint),
         after_effects: units == "after_effects",
+        display: false,
     }
 }
 
@@ -58,7 +59,17 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
     if g.intensity == 0.0 || w == 0 || h == 0 {
         return 0;
     }
-    let tint = g.tint.map(|t| t.map(|v| srgb_to_linear(v as f32 / 255.0)));
+    // D-337: in display values the tint is used as written, and what glows is still tested on
+    // the pixel's own linear value.
+    let tint = g.tint.map(|t| t.map(|v| if g.display { v as f32 / 255.0 } else { srgb_to_linear(v as f32 / 255.0) }));
+    let lights = |px: &[f32]| {
+        if g.display && px[3] > 0.0 {
+            let a = px[3];
+            glows(&[srgb_to_linear(px[0] / a) * a, srgb_to_linear(px[1] / a) * a, srgb_to_linear(px[2] / a) * a, a], g)
+        } else {
+            glows(px, g)
+        }
+    };
 
     // (2) The light a glowing pixel gives: the pixel itself, or the tint at its covering.
     let mut light = WorkingBuffer::transparent(w, h);
@@ -67,7 +78,7 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
         .par_chunks_exact_mut(4)
         .zip(source.data().par_chunks_exact(4))
         .for_each(|(l, px)| {
-            if glows(px, g) {
+            if lights(px) {
                 let a = px[3];
                 match tint {
                     Some(t) => l.copy_from_slice(&[t[0] * a, t[1] * a, t[2] * a, a]),
@@ -86,10 +97,16 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
 
     // (4) Strength and (5) on top of the picture, which is empty outside its own bounds.
     // D-331: Creative COW's GI*(GT/100) + GI*16*(1-GT/100) is the colour read straight: the
-    // colour at the intensity, the covering divided by t + 16 (1 - t).
+    // colour at the intensity, the covering divided by t + 16 (1 - t). D-337: in display values,
+    // where Creative COW measured it, the colour is multiplied by all of it, the covering untouched.
     let (k, ka) = if g.after_effects {
         let t = g.threshold / 100.0;
-        (g.intensity as f32, (1.0 / (t + 16.0 * (1.0 - t))) as f32)
+        let c = t + 16.0 * (1.0 - t);
+        if g.display {
+            ((g.intensity * c) as f32, 1.0)
+        } else {
+            (g.intensity as f32, (1.0 / c) as f32)
+        }
     } else {
         (g.intensity as f32, g.intensity as f32)
     };

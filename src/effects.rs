@@ -3948,13 +3948,19 @@ pub(crate) fn apply_stack_at(
         // D-202: what the effect is given, kept only when its result is to be mixed with it.
         let given = (instance.mix < 100.0).then(|| (source.clone(), ox, oy));
         // D-330, D-333: After Effects in 8 bpc and in its own 32 bpc has no linear working space,
-        // so its blurs average the display values; in 32 bpc they are not held at white.
+        // so its blurs average the display values; in 32 bpc they are not held at white. D-337:
+        // Solid Composite and Glow are laid on there too.
         let top = if bits == Bits::Eight { 1.0 } else { f32::INFINITY };
         let display = bits != Bits::Linear
             && instance.is_valid()
             && matches!(
                 instance.effect,
-                Effect::GaussianBlur { .. } | Effect::FastBoxBlur { .. } | Effect::DirectionalBlur { .. } | Effect::RadialBlur { .. }
+                Effect::GaussianBlur { .. }
+                    | Effect::FastBoxBlur { .. }
+                    | Effect::DirectionalBlur { .. }
+                    | Effect::RadialBlur { .. }
+                    | Effect::SolidComposite { .. }
+                    | Effect::Glow { .. }
             );
         if display {
             encode(source, true, top);
@@ -4024,10 +4030,11 @@ pub(crate) fn apply_stack_at(
                 units,
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectGlow, || {
-                    let g = crate::glow::settings(
+                    let mut g = crate::glow::settings(
                         based_on, *threshold, colors, *tolerance, *radius, *intensity,
                         operation, tint, units,
                     );
+                    g.display = display;
                     crate::glow::glow(source, &g)
                 });
                 ox += r;
@@ -4654,7 +4661,7 @@ pub(crate) fn apply_stack_at(
             }),
             Effect::SolidComposite { source_opacity, color, opacity, blend } => {
                 crate::perf::time(crate::perf::Stage::EffectSolidComposite, || {
-                    solid_composite(source, *source_opacity, encoded(color), *opacity, blend)
+                    solid_composite(source, *source_opacity, encoded(color), *opacity, blend, display)
                 })
             }
             Effect::ChannelBlur {
@@ -5483,8 +5490,9 @@ fn still_weights(r: usize) -> Vec<f32> {
 }
 
 /// D-312: the layer at `source_opacity` % laid by `blend` on a solid of `color` (encoded) at
-/// `opacity` %, as After Effects' Solid Composite lays it.
-fn solid_composite(source: &mut WorkingBuffer, source_opacity: f64, color: [f64; 3], opacity: f64, blend: &str) {
+/// `opacity` %, as After Effects' Solid Composite lays it. D-337: on a layer already in display
+/// values the colour is used as written.
+fn solid_composite(source: &mut WorkingBuffer, source_opacity: f64, color: [f64; 3], opacity: f64, blend: &str, display: bool) {
     use crate::model::BlendMode;
     let mode = match blend {
         "add" => BlendMode::Add,
@@ -5493,7 +5501,7 @@ fn solid_composite(source: &mut WorkingBuffer, source_opacity: f64, color: [f64;
         _ => BlendMode::Normal,
     };
     let (k, o) = ((source_opacity / 100.0) as f32, (opacity / 100.0) as f32);
-    let lin = color.map(|c| crate::color::srgb_to_linear(c as f32) * o);
+    let lin = color.map(|c| if display { c as f32 } else { crate::color::srgb_to_linear(c as f32) } * o);
     let solid = [lin[0], lin[1], lin[2], o];
     source.data_mut().par_chunks_mut(4).for_each(|px| {
         let src = [px[0] * k, px[1] * k, px[2] * k, px[3] * k];

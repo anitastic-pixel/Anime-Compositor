@@ -6,9 +6,9 @@ From P-26: after its step F tutorial 2 is in After Effects' 32 bpc, which by def
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-AE32-001 frame 0: 32 bpc (After Effects): Fast Box Blur radius 2 (3 passes), Solid Composite on black, then Exposure +4, tutorial 2's reflection in small. The blur averages display values and Exposure lifts them through the 2.2 curve, so the faint edge stays dim where Float lights it; light past white is kept. | largest difference 2.1e-6 | yes |
+| FX-AE32-001 frame 0: 32 bpc (After Effects): Fast Box Blur radius 2 (3 passes), Solid Composite on black, then Exposure +4, tutorial 2's reflection in small. The blur averages display values and Exposure lifts them through the 2.2 curve, so the faint edge stays dim where Float lights it; light past white is kept. | largest difference 7.9e-7 | yes |
 | FX-AE32-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-AE32-002 frame 0: 32 bpc (After Effects): Gaussian Blur, Blurriness 4, Solid Composite on black, then Exposure +4. The long faint tail stays dim. | largest difference 4.5e-6 | yes |
+| FX-AE32-002 frame 0: 32 bpc (After Effects): Gaussian Blur, Blurriness 4, Solid Composite on black, then Exposure +4. The long faint tail stays dim. | largest difference 1.9e-6 | yes |
 | FX-AE32-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-AE32-003 frame 0: 32 bpc (After Effects): Exposure -1 alone, the display value times 2^(-1/2.2). | largest difference 1.1e-7 | yes |
 | FX-AE32-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -29,9 +29,9 @@ From P-26: after its step F tutorial 2 is in After Effects' 32 bpc, which by def
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | Set to Float, no ae_32bpc line is written | no line | yes |
-| And FX-AE32-001 is drawn as Float draws it, not as expected here | largest difference 5.4e-1 | yes |
+| And FX-AE32-001 is drawn as Float draws it, not as expected here | largest difference 3.8e0 | yes |
 | Set to 32 bpc (After Effects) through the command, it is written as ae_32bpc: true | Some(Bool(true)) | yes |
-| And draws FX-AE32-001's frame again | largest difference 2.1e-6 | yes |
+| And draws FX-AE32-001's frame again | largest difference 7.9e-7 | yes |
 | And is read back as 32 bpc (After Effects), Float on | float true, ae true | yes |
 | Undo puts it back to Float, and nothing is written | Float, no line | yes |
 | 32 bpc (After Effects) without Float is refused by the command | Err("32 bpc (After Effects) is a kind of Float: turn Float on with it.") | yes |
@@ -40,17 +40,17 @@ From P-26: after its step F tutorial 2 is in After Effects' 32 bpc, which by def
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-AE32-001's layer inside a composition: outer AE, inner Display, draws FX-AE32-001's frame | largest difference 2.1e-6 | yes |
-| FX-AE32-001's layer inside a composition: outer Display, inner AE, does not | largest difference 5.4e-1 | yes |
-| FX-AE32-001's layer inside a composition: outer Float, inner AE, does not | largest difference 5.4e-1 | yes |
-| FX-AE32-001's layer inside a composition: outer AE, inner AE, draws FX-AE32-001's frame | largest difference 2.1e-6 | yes |
+| FX-AE32-001's layer inside a composition: outer AE, inner Display, draws FX-AE32-001's frame | largest difference 7.9e-7 | yes |
+| FX-AE32-001's layer inside a composition: outer Display, inner AE, does not | largest difference 3.8e0 | yes |
+| FX-AE32-001's layer inside a composition: outer Float, inner AE, does not | largest difference 3.8e0 | yes |
+| FX-AE32-001's layer inside a composition: outer AE, inner AE, draws FX-AE32-001's frame | largest difference 7.9e-7 | yes |
 
 ## The viewer
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-AE32-001 in the viewer, first time (its effects are not kept between frames) | largest difference 2.1e-6 | yes |
-| FX-AE32-001 in the viewer, second time (its effects are not kept between frames) | largest difference 2.1e-6 | yes |
+| FX-AE32-001 in the viewer, first time (its effects are not kept between frames) | largest difference 7.9e-7 | yes |
+| FX-AE32-001 in the viewer, second time (its effects are not kept between frames) | largest difference 7.9e-7 | yes |
 | fx_ae32_001.json: the preview draws the CPU's picture, within 1 level of 255 | CPU, largest difference 0 of 255 | yes |
 | fx_ae32_002.json: the preview draws the CPU's picture, within 1 level of 255 | CPU, largest difference 0 of 255 | yes |
 | fx_ae32_005.json: the preview draws the CPU's picture, within 1 level of 255 | CPU, largest difference 0 of 255 | yes |
