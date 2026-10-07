@@ -219,6 +219,35 @@ Tutorial 2 was replayed from an empty project in the test copy with all three in
 1. **Colour.** The tutorial's bolt and halo are orange (hue about 26 degrees), ours pale gold (about 45 degrees). Both use the same core colour (185, 153, 59). The tutorial's bolt is orange even before any Glow is added (19:35), so Advanced Lightning itself shifts it. Neither the video nor Adobe's help shows how, so nothing was guessed.
 2. **Path.** The bolt's path differs, because After Effects' random pattern cannot be copied. At frame 0 ours leans further left than the tutorial's.
 
+## Tutorial 2's orange matched (2026-10-07)
+
+The owner asked for the orange to match. The tutorial's frame at 28:20 is its frame 9 (the viewer's clock reads 0:00:00:09), so it was measured against our frame 9. The cause of After Effects' redder colour is still not known: no standard colour conversion explains it. So the colour is matched with **three stand-ins, chosen to fit the tutorial's picture, not read from its panels**. Nothing in the program changed.
+
+1. **The bolt's colour** is (185, 137, 59) in place of the panel's (186, 154, 60). This sets the pool on the ground and the bolt's own colour.
+2. **An extra Hue/Saturation on the glow layer** (Hue -10, Saturation +50), placed before the tutorial's own Saturation -29. This turns the halo orange without changing the pool.
+3. **The hotspot** is a generated picture, `target/p26/t2/hotspot.png`: a salmon glow about 110 pixels across, fading out from the middle, in Add at the bolt's origin. It replaces the feathered white disc. The tutorial's Hotspot.jpg is stock footage, so we only have its look.
+
+Tutorial 2 was replayed from an empty project in the test copy with these stand-ins. It was saved to Downloads again, reopened outside the app with no notices, and exported again. Frame 9 was pulled from the MP4 and measured. Each colour below is the average of the warm pixels in one area (red, green, blue, out of 255):
+
+| Frame 9 | Tutorial | Before | After |
+|---|---|---|---|
+| Halo beside the bolt | (57, 34, 16), hue 27 | (60, 52, 28), hue 45 | (56, 34, 17), hue 25 to 26 |
+| Pool under the tip | (57, 41, 16), hue 37 | hue 45 | (49, 35, 16), hue 35 |
+| Hotspot, 20 pixels out | (137, 86, 62), hue 19 | (137, 133, 124), near white | (125, 77, 56), hue 18 to 20 |
+| Hotspot, 80 pixels out | 22 | about 10, yellow | 20 |
+| Bolt's core, middle value | (255, 244, 166) | | (255, 239, 114) |
+
+| Before (frame 9) | After (frame 9) | After (frame 20) |
+|---|---|---|
+| ![before](P-26%20pictures/t2_colour_before_f9.png) | ![after](P-26%20pictures/t2_colour_after_f9.png) | ![after 20](P-26%20pictures/t2_colour_after_f20.png) |
+
+**What to look for:** the bolt and its halo are orange instead of pale gold. The glow at the top is a soft salmon ball instead of a small white dot. The pool on the ground stays gold.
+
+**Still different:**
+1. **The bolt's core** is a little more yellow than the tutorial's: blue 114 against 166. This comes from the stand-in Hue/Saturation.
+2. **Forks.** In the tutorial's later frames (28:40) the bolt splits into three long strands, and each one reaches the ground and lights its own spot. Ours forks into short twigs, so the pool gets less light. How After Effects lays out its forks is not published; changing ours would be a guess and would change every Strike bolt. It is offered to the owner, not done.
+3. **Path.** The path is random, as before.
+
 ## What was built
 
 Every one is **built and awaiting the owner's playtest**. Each starts where the app was before, so older projects and every fixture draw as they did; D-318 to D-324 (D-308) may change pictures where the owner turns them on, and a newly added Polar Coordinates starts as a circle. Each has its own page in `verification/`, with what to look for and how to try it.
@@ -280,7 +309,7 @@ One set of fixture values was changed, as a recorded specification decision: D-3
 3. **Playtests** of D-328, D-329 and D-330 (approved 2026-10-05 and built), each page's "For the owner to try".
 4. **Playtest** of D-332: open `Downloads\shockwave_tutorial1.json`, save it under a new name, and open it again (`D-332_keyed_settings.md`, "How to check it yourself").
 5. **Playtest** of D-333 (approved 2026-10-06 and built as B-214): the "32 bpc (After Effects)" depth (`D-333_ae_32bpc.md`, "For the owner to try"). Tutorial 2 after step F is now partly right: a red fading patch instead of a block.
-6. **Playtest** of D-334, D-335 and D-337 (built 2026-10-07): open `Downloads\advanced_electric_tutorial2.json` and look at frame 20, a dim gold pool under the bolt. Each fix's page in `verification/` lists what else to try.
+6. **Playtest** of D-334, D-335 and D-337 (built 2026-10-07): open `Downloads\advanced_electric_tutorial2.json` and look at frame 20, a dim gold pool under the bolt. Each fix's page in `verification/` lists what else to try. Since the colour stand-ins (same day), frame 9 should look orange, with a salmon glow at the top, as in the tutorial at 28:20.
 7. **Decision** on D-336, CC Vector Blur (doc 14): build it now, or when a tutorial's final look needs it.
 
 D-328 to D-330 were approved on 2026-10-05 and are built. D-309 was approved on 2026-10-04 and is built (D-310 to D-317). D-308 was approved on 2026-10-04 and is built as D-318 to D-320, D-323 and D-324.
