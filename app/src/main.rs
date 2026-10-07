@@ -5765,13 +5765,15 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 }
             };
             // D-319: `true` for Float, `false` for Display; a page that does not send it keeps
-            // what the composition has. D-330: `8bpc` for 8 bpc (After Effects).
-            let (float_depth, eight_bpc) = match parameter(query, "float_depth").as_deref().map(str::trim) {
-                None => (comp.float_depth, comp.eight_bpc),
-                Some("true") => (true, false),
-                Some("false") => (false, false),
-                Some("8bpc") => (false, true),
-                Some(text) => return Some(format!("\"{text}\" is not a working depth. Send true for Float, false for Display or 8bpc for 8 bpc.")),
+            // what the composition has. D-330: `8bpc` for 8 bpc (After Effects). D-333: `ae32` for
+            // 32 bpc (After Effects).
+            let (float_depth, eight_bpc, ae_32bpc) = match parameter(query, "float_depth").as_deref().map(str::trim) {
+                None => (comp.float_depth, comp.eight_bpc, comp.ae_32bpc),
+                Some("true") => (true, false, false),
+                Some("false") => (false, false, false),
+                Some("8bpc") => (false, true, false),
+                Some("ae32") => (true, false, true),
+                Some(text) => return Some(format!("\"{text}\" is not a working depth. Send true for Float, false for Display, 8bpc for 8 bpc or ae32 for 32 bpc (After Effects).")),
             };
             let said = edit(
                 viewer,
@@ -5780,6 +5782,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     background_color,
                     float_depth,
                     eight_bpc,
+                    ae_32bpc,
                     name: parameter(query, "name").unwrap_or(comp.name),
                     width,
                     height,
@@ -27712,13 +27715,18 @@ mod contract {
             .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
             .map(|p| p["compositions"][0]["layers"][0]["effects"][0].clone())
             .unwrap_or(serde_json::Value::Null);
-        // D-330: 8 bpc is written only when on and never with Float, so it is read off a fixture.
-        let eight = persist::load(&repo("Fixtures/eight_bpc/fx_8bpc_001.json"))
-            .map(|l| persist::to_json(l.document.project(), &l.preserved))
-            .ok()
-            .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
-            .map(|p| p["compositions"][0].clone())
-            .unwrap_or(serde_json::Value::Null);
+        // D-330: 8 bpc is written only when on and never with Float, so it is read off a fixture;
+        // D-333: 32 bpc (After Effects) too.
+        let comp_of = |rel: &str| {
+            persist::load(&repo(rel))
+                .map(|l| persist::to_json(l.document.project(), &l.preserved))
+                .ok()
+                .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+                .map(|p| p["compositions"][0].clone())
+                .unwrap_or(serde_json::Value::Null)
+        };
+        let eight = comp_of("Fixtures/eight_bpc/fx_8bpc_001.json");
+        let ae32 = comp_of("Fixtures/ae_32bpc/fx_ae32_001.json");
 
         let node = |var: &str| -> serde_json::Value {
             match var {
@@ -27771,6 +27779,7 @@ mod contract {
                         "timesheet" => from_sheet.get(&field),
                         "mix" => mixed.get(&field),
                         "eight_bpc" => eight.get(&field),
+                        "ae_32bpc" => ae32.get(&field),
                         _ => None,
                     }) {
                         Some(_) => "present".to_string(),

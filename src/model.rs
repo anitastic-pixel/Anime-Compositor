@@ -1247,6 +1247,10 @@ pub struct Composition {
     /// blurs average display values. Never on with `float_depth`. Saved as `eight_bpc` only when
     /// on.
     pub eight_bpc: bool,
+    /// D-333: After Effects' 32 bpc as it is with no linear working space: Float, with the blurs
+    /// averaging display values and Exposure working through a 2.2 curve. Only on with
+    /// `float_depth`. Saved as `ae_32bpc` only when on.
+    pub ae_32bpc: bool,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
 }
@@ -1398,6 +1402,7 @@ impl Composition {
             background_color: None,
             float_depth: false,
             eight_bpc: false,
+            ae_32bpc: false,
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }

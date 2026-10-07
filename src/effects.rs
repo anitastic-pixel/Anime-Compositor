@@ -3903,18 +3903,30 @@ pub fn apply_stack(
     stack: &[EffectInstance],
     report: impl FnMut(usize, &EffectInstance, Bypassed),
 ) -> (usize, usize) {
-    apply_stack_at(source, stack, (0, 0), false, report)
+    apply_stack_at(source, stack, (0, 0), Bits::Linear, report)
+}
+
+/// D-330 and D-333: what a composition's working depth does to a layer's effects.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Bits {
+    /// Display and Float: the effects as written.
+    Linear,
+    /// D-330, 8 bpc (After Effects).
+    Eight,
+    /// D-333, 32 bpc (After Effects).
+    Ae32,
 }
 
 /// B-65: [`apply_stack`] on a buffer the effects before `stack` have already grown, the drawing's
 /// corner at `origin`, as Gradient, Noise and Chromatic Aberration read it. Returns the corner
-/// after `stack`, `origin` included. D-330: `eight`, a composition in 8 bpc, whose blurs average
-/// display values and whose every effect's result is held to 8 bits.
+/// after `stack`, `origin` included. `bits`: D-330, a composition in 8 bpc, whose blurs average
+/// display values and whose every effect's result is held to 8 bits; D-333, one in 32 bpc (After
+/// Effects), whose blurs average display values and whose Exposure works through a 2.2 curve.
 pub(crate) fn apply_stack_at(
     source: &mut WorkingBuffer,
     stack: &[EffectInstance],
     origin: (usize, usize),
-    eight: bool,
+    bits: Bits,
     mut report: impl FnMut(usize, &EffectInstance, Bypassed),
 ) -> (usize, usize) {
     let (mut ox, mut oy) = origin;
@@ -3929,16 +3941,17 @@ pub(crate) fn apply_stack_at(
         }
         // D-202: what the effect is given, kept only when its result is to be mixed with it.
         let given = (instance.mix < 100.0).then(|| (source.clone(), ox, oy));
-        // D-330: After Effects in 8 bpc has no linear working space, so its blurs average the
-        // display values.
-        let display = eight
+        // D-330, D-333: After Effects in 8 bpc and in its own 32 bpc has no linear working space,
+        // so its blurs average the display values; in 32 bpc they are not held at white.
+        let top = if bits == Bits::Eight { 1.0 } else { f32::INFINITY };
+        let display = bits != Bits::Linear
             && instance.is_valid()
             && matches!(
                 instance.effect,
                 Effect::GaussianBlur { .. } | Effect::FastBoxBlur { .. } | Effect::DirectionalBlur { .. } | Effect::RadialBlur { .. }
             );
         if display {
-            encode(source, true);
+            encode(source, true, top);
         }
         match &instance.effect {
             Effect::Unsupported { .. } => {
@@ -3955,7 +3968,7 @@ pub(crate) fn apply_stack_at(
             // it decides which effect is worth caching.
             Effect::Exposure { stops } => {
                 crate::perf::time(crate::perf::Stage::EffectExposure, || {
-                    exposure(source, *stops)
+                    exposure(source, *stops, bits == Bits::Ae32)
                 })
             }
             Effect::Tint { color, amount } => {
@@ -4304,7 +4317,7 @@ pub(crate) fn apply_stack_at(
             } => {
                 let stops = flicker_stops(*amount, *hold, *seed, *frame);
                 crate::perf::time(crate::perf::Stage::EffectExposureFlicker, || {
-                    exposure(source, stops)
+                    exposure(source, stops, false)
                 })
             }
             // D-126: the ellipse in the drawing's own size, however far the layer has grown.
@@ -5265,21 +5278,21 @@ pub(crate) fn apply_stack_at(
             Effect::PosterizeTime { .. } => {}
         }
         if display {
-            encode(source, false);
+            encode(source, false, top);
         }
         if let Some((given, gx, gy)) = given {
             mix_back(source, &given, (ox - gx, oy - gy), instance.mix / 100.0);
         }
-        if eight {
+        if bits == Bits::Eight {
             eight_bits(source);
         }
     }
     (ox, oy)
 }
 
-/// D-330: linear premultiplied to display premultiplied, the straight colour through the sRGB
-/// curve (`forward`), or back.
-fn encode(buffer: &mut WorkingBuffer, forward: bool) {
+/// D-330: linear premultiplied to display premultiplied, the straight colour held to 0..`top`
+/// through the sRGB curve (`forward`), or back.
+fn encode(buffer: &mut WorkingBuffer, forward: bool, top: f32) {
     use crate::color::{linear_to_srgb, srgb_to_linear};
     buffer.data_mut().par_chunks_mut(4).for_each(|p| {
         let a = p[3];
@@ -5288,7 +5301,7 @@ fn encode(buffer: &mut WorkingBuffer, forward: bool) {
             return;
         }
         for c in &mut p[..3] {
-            let s = (*c / a).clamp(0.0, 1.0);
+            let s = (*c / a).clamp(0.0, top);
             *c = if forward { linear_to_srgb(s) } else { srgb_to_linear(s) } * a;
         }
     });
@@ -5385,9 +5398,23 @@ pub enum Bypassed {
 /// Three channels, not four, and that is the whole difference between this and the mask's
 /// coverage multiply. Exposure changes how much light a pixel carries and not how much of the
 /// pixel there is, so the premultiplied product moves and the coverage does not.
-fn exposure(source: &mut WorkingBuffer, stops: f64) {
+///
+/// D-333, `ae`: in 32 bpc (After Effects) the straight display value is multiplied by
+/// `(2^stops)^(1/2.2)`, which is a 2.2 curve to linear light, the gain, and the curve back.
+fn exposure(source: &mut WorkingBuffer, stops: f64, ae: bool) {
+    use crate::color::{linear_to_srgb, srgb_to_linear};
     let gain = (2.0f64).powf(stops) as f32;
     if gain == 1.0 {
+        return;
+    }
+    if ae {
+        let k = (2.0f64).powf(stops / 2.2) as f32;
+        source.data_mut().par_chunks_mut(4).for_each(|px| {
+            let a = px[3];
+            for c in &mut px[..3] {
+                *c = if a > 0.0 { srgb_to_linear(linear_to_srgb((*c / a).max(0.0)) * k) * a } else { *c * gain };
+            }
+        });
         return;
     }
     for px in source.data_mut().chunks_exact_mut(4) {

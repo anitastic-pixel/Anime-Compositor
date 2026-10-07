@@ -26,6 +26,7 @@ fn set(doc: &mut anime_compositor::command::Document, background_color: Option<[
         background_color,
         float_depth: comp.float_depth,
         eight_bpc: false,
+        ae_32bpc: false,
     })
     .map(|_| ())
     .map_err(|d| d.message)

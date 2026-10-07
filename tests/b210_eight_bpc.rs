@@ -39,6 +39,7 @@ fn set(doc: &mut Document, float_depth: bool, eight_bpc: bool) -> Result<(), Str
         background_color: comp.background_color,
         float_depth,
         eight_bpc,
+            ae_32bpc: false,
     })
     .map(|_| ())
     .map_err(|d| d.message)

@@ -220,6 +220,8 @@ const KEY_ORDER: &[&str] = &[
     // D-319.
     "float_depth",
     "eight_bpc",
+    // D-333.
+    "ae_32bpc",
     // D-323.
     "time_remap",
 ];
@@ -2669,6 +2671,12 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
         merged["eight_bpc"] = J::from(true);
     } else if let Some(map) = merged.as_object_mut() {
         map.remove("eight_bpc");
+    }
+    // D-333: written only when on.
+    if composition.ae_32bpc {
+        merged["ae_32bpc"] = J::from(true);
+    } else if let Some(map) = merged.as_object_mut() {
+        map.remove("ae_32bpc");
     }
     // D-261: written only when there are some or the file had the key.
     if !composition.sketches.is_empty() || base.is_some_and(|b| b.get("sketches").is_some()) {
@@ -5763,6 +5771,14 @@ fn parse_composition(
         composition.eight_bpc = as_bool(on, &at)?;
         if composition.eight_bpc && composition.float_depth {
             return Err(invalid(&at, "false when float_depth is true (D-330)"));
+        }
+    }
+    // D-333: only with Float.
+    if let Some(on) = v.get("ae_32bpc") {
+        let at = format!("{pointer}/ae_32bpc");
+        composition.ae_32bpc = as_bool(on, &at)?;
+        if composition.ae_32bpc && !composition.float_depth {
+            return Err(invalid(&at, "false unless float_depth is true (D-333)"));
         }
     }
     if let Some(sketches) = v.get("sketches") {

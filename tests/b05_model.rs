@@ -519,6 +519,7 @@ fn b05_model_and_undo() {
         background_color: None,
         float_depth: false,
         eight_bpc: false,
+        ae_32bpc: false,
     };
     report.check(
         "composition settings: a width of nought is refused",

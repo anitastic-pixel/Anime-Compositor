@@ -72,6 +72,7 @@ fn d253_d254_status_and_labels_round_trip() {
         background_color: None,
         float_depth: false,
         eight_bpc: false,
+        ae_32bpc: false,
     })
     .unwrap_or_else(|d| panic!("{}", d.message));
     doc.apply(Command::SetItemLabel { item: comp.id.clone(), label: 5 }).unwrap_or_else(|d| panic!("{}", d.message));

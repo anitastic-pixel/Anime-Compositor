@@ -34,6 +34,7 @@ fn set(doc: &mut Document, float_depth: bool) {
         background_color: comp.background_color,
         float_depth,
         eight_bpc: false,
+        ae_32bpc: false,
     })
     .unwrap_or_else(|d| panic!("{}", d.message));
 }

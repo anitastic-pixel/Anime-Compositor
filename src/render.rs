@@ -639,7 +639,7 @@ fn draw(
                     }
                     OnCard::Fx(f) => {
                         let source = std::sync::Arc::make_mut(&mut layer.source);
-                        crate::effects::apply_stack_at(source, std::slice::from_ref(&f.instance), f.origin, false, |_, _, _| {});
+                        crate::effects::apply_stack_at(source, std::slice::from_ref(&f.instance), f.origin, crate::effects::Bits::Linear, |_, _, _| {});
                     }
                 }
             }
