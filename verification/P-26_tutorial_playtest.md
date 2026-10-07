@@ -202,6 +202,23 @@ The owner approved D-333 and it is built as B-214 (`D-333_ae_32bpc.md`): Composi
 
 **Partly.** The 600-pixel yellow block is gone. Under the strike there is now a smaller patch that fades out, but it is red rather than warm, and the ground texture still shows through it in dark holes. The tutorial at frame 20 shows only a small, dim gold pool of light under the tip of the bolt. So D-333 moves the picture the right way but does not match it. Why it is red: Exposure through the 2.2 curve lifts the orange's red far more than its small green part. What else differs is not known; the four reflection copies all pass through the new Exposure, and the tutorial's texture is a stand-in. Nothing further was changed or guessed.
 
+## Tutorial 2's missing effects built, replayed again (2026-10-07)
+
+The owner asked for every effect tutorial 2 uses that the app lacked, built and applied, aiming for the tutorial's exact look. Four were missing:
+
+- **D-334** (B-215), Advanced Lightning's soft core: built, FX-LCORE-001 to 007.
+- **D-335** (B-217), Exposure's Offset, Gamma Correction and Bypass Linear Light Conversion: built, 53 of 53 checks (`D-335_exposure_ae.md`). The tutorial's ground uses Gamma Correction 1.69.
+- **D-337** (B-216), Glow and Solid Composite on display values in 32 bpc (After Effects): built (`D-337_glow_display.md`).
+- **D-336**, CC Vector Blur: proposed only. The tutorial switches it off again by 27:16, so its final look does not use it.
+
+Tutorial 2 was replayed from an empty project in the test copy with all three in use (ground Exposure 2.47 with Gamma Correction 1.69; the plate hidden, as at the tutorial's end; hotspot radius 9, feather 20). It was saved to Downloads, reopened outside the app with no notices, and exported again. Frames 0, 12 and 20 were pulled from the MP4 and put beside the tutorial's frame at 28:20.
+
+**Matches:** the dim gold pool under the tip of the bolt (D-333's red patch is gone), the dark street, the glow's spread and the small hot point at the top.
+
+**Still different:**
+1. **Colour.** The tutorial's bolt and halo are orange (hue about 26 degrees), ours pale gold (about 45 degrees). Both use the same core colour (185, 153, 59). The tutorial's bolt is orange even before any Glow is added (19:35), so Advanced Lightning itself shifts it. Neither the video nor Adobe's help shows how, so nothing was guessed.
+2. **Path.** The bolt's path differs, because After Effects' random pattern cannot be copied. At frame 0 ours leans further left than the tutorial's.
+
 ## What was built
 
 Every one is **built and awaiting the owner's playtest**. Each starts where the app was before, so older projects and every fixture draw as they did; D-318 to D-324 (D-308) may change pictures where the owner turns them on, and a newly added Polar Coordinates starts as a circle. Each has its own page in `verification/`, with what to look for and how to try it.
@@ -263,6 +280,8 @@ One set of fixture values was changed, as a recorded specification decision: D-3
 3. **Playtests** of D-328, D-329 and D-330 (approved 2026-10-05 and built), each page's "For the owner to try".
 4. **Playtest** of D-332: open `Downloads\shockwave_tutorial1.json`, save it under a new name, and open it again (`D-332_keyed_settings.md`, "How to check it yourself").
 5. **Playtest** of D-333 (approved 2026-10-06 and built as B-214): the "32 bpc (After Effects)" depth (`D-333_ae_32bpc.md`, "For the owner to try"). Tutorial 2 after step F is now partly right: a red fading patch instead of a block.
+6. **Playtest** of D-334, D-335 and D-337 (built 2026-10-07): open `Downloads\advanced_electric_tutorial2.json` and look at frame 20, a dim gold pool under the bolt. Each fix's page in `verification/` lists what else to try.
+7. **Decision** on D-336, CC Vector Blur (doc 14): build it now, or when a tutorial's final look needs it.
 
 D-328 to D-330 were approved on 2026-10-05 and are built. D-309 was approved on 2026-10-04 and is built (D-310 to D-317). D-308 was approved on 2026-10-04 and is built as D-318 to D-320, D-323 and D-324.
 
