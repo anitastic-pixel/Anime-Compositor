@@ -175786,6 +175786,22 @@ FX-LFORK-007 (`fx_lfork_007.json`): A forks "Long": the word is exact, so a capi
 
 FX-LFORK-008 (`fx_lfork_008.json`): A forks "many", which is not one. As FX-LFORK-007.
 
+### Lightning Bolt's full-width long forks (D-339)
+
+From P-26's tutorial 2 (B-219). Projects as D-338's, in `Fixtures/lightning_full_forks/`, with the same `night.png` and `ground.png`. **Every number is produced by `tools/lightning_full_forks_reference.py`** and is in `Fixtures/lightning_full_forks/expected_lightning_full_forks.json`. Values are linear premultiplied. Tolerance 2e-5. B-219 checks them in `verification/D-339_lightning_full_forks_table.md`.
+
+FX-LFULL-001 (`fx_lfull_001.json`): FX-LFORK-001's down bolt at width 2 with forks full, frames 0 and 1: the same seven long forks to the bottom edge, each starting exactly as wide as the main bolt where it leaves it. On frame 0, 49 pixels differ from FX-LFULL-002's.
+
+FX-LFULL-002 (`fx_lfull_002.json`): FX-LFULL-001 with forks long, frame 0: the same strands, starting at half the main bolt's weight.
+
+FX-LFULL-003 (`fx_lfull_003.json`): FX-LFORK-004 with forks full, frames 0 and 1: the strands stop where they reach the ground; row 7 is lit at columns 3 to 9 on frame 0 and 6 to 11 on frame 1, rows 8 and 9 are the ground untouched. 23 and 21 pixels differ from FX-LFORK-004's.
+
+FX-LFULL-004 (`fx_lfull_004.json`): FX-BOLT-001's settings with forks full, frames 0 and 2: the same main bolt; 18 and 53 pixels differ from FX-LFORK-006's.
+
+FX-LFULL-005 (`fx_lfull_005.json`): FX-LFULL-001 as Breaking, frame 0: exactly what forks long draws.
+
+FX-LFULL-006 (`fx_lfull_006.json`): A forks "Full": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: the night drawing untouched.
+
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.

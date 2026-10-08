@@ -52,8 +52,9 @@ CLIFF = LB.CLIFF
 
 def bolt(kind, O, D, bottom, jagged, detail, branches, seed, m, turbulence, decay, conductivity,
          forks, reached=None, born=None):
-    """D-324's segments before any obstacle, with D-338's long forks when `forks` is "long";
-    `born` gathers each fork as it starts, before it is halved."""
+    """D-324's segments before any obstacle, with D-338's long forks when `forks` is "long",
+    and D-339's, starting at the main bolt's full weight, when it is "full"; `born` gathers each
+    fork as it starts, before it is halved."""
     r = LX.numbers(seed, conductivity)
     kd = 1 - decay / 100
     segs = LX.roots(kind, O, D, bottom, kd, r, m)
@@ -80,7 +81,7 @@ def bolt(kind, O, D, bottom, jagged, detail, branches, seed, m, turbulence, deca
             side = -1 if rr[3] < 0 else 1
             w0 = wm if kind == "breaking" else wm / 2
             run = None
-            if forks == "long" and depth == 0 and i < 3:
+            if forks in ("long", "full") and depth == 0 and i < 3:
                 (o, e) = ways[b]
                 ul = math.hypot(e[0] - o[0], e[1] - o[1])
                 if ul > 0:
@@ -92,7 +93,8 @@ def bolt(kind, O, D, bottom, jagged, detail, branches, seed, m, turbulence, deca
                 u, left = run
                 v = LB.turn(u, (10 + 10 * (rr[2] + 1)) * side)
                 lb = kd * left / (v[0] * u[0] + v[1] * u[1])
-                out.append((Mid, (Mid[0] + v[0] * lb, Mid[1] + v[1] * lb), w0, w0 * kd,
+                ws = wm if forks == "full" else w0
+                out.append((Mid, (Mid[0] + v[0] * lb, Mid[1] + v[1] * lb), ws, ws * kd,
                             depth + 1, 1024 * b + key, 1, b))
                 if born is not None:
                     born.append(out[-1])
