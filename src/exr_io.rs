@@ -71,44 +71,9 @@ impl ExrPicture {
 /// A refusal is `MEDIA_UNSUPPORTED_FORMAT` and an unreadable file `MEDIA_DECODE_FAILED`; either
 /// way the detail begins `Reason: <reason>.`, with D-62's reason.
 pub fn read(path: &Path) -> Result<ExrPicture, Diagnostic> {
-    let unreadable = |e: &dyn std::fmt::Display| {
-        Diagnostic::new(
-            DiagnosticId::MediaDecodeFailed,
-            Severity::Error,
-            format!("{} could not be read.", name(path)),
-            format!("Reason: unreadable. {e}"),
-        )
-        .with_remediation("Check the file opens in another application, then relink the sequence.")
-    };
-    let meta = MetaData::read_from_file(path, false).map_err(|e| unreadable(&e))?;
-    let header = match meta.headers.as_slice() {
-        [] => return Err(unreadable(&"The file holds no parts.")),
-        [one] => one,
-        _ => {
-            return Err(refused(
-                path,
-                "multipart",
-                "The file holds more than one part.",
-            ))
-        }
-    };
-    if header.deep {
-        return Err(refused(path, "deep", "The file holds deep data."));
-    }
-    if matches!(
-        header.compression,
-        Compression::HTJ2K32 | Compression::HTJ2K256
-    ) {
-        return Err(refused(path, "htj2k", "The file is HTJ2K compressed."));
-    }
+    let meta = checked(path)?;
+    let header = &meta.headers[0];
     let channels = &header.channels.list;
-    if channels.iter().any(|c| c.sampling != Vec2(1, 1)) {
-        return Err(refused(
-            path,
-            "subsampled",
-            "A channel is stored at less than full resolution.",
-        ));
-    }
     let has = |n: &str| channels.iter().any(|c| c.name == *n);
     let colour: &[&str] = if has("R") || has("G") || has("B") {
         &["R", "G", "B"]
@@ -137,24 +102,9 @@ pub fn read(path: &Path) -> Result<ExrPicture, Diagnostic> {
     let pixel_aspect = header.shared_attributes.pixel_aspect;
     let chromaticities = header.shared_attributes.chromaticities;
 
-    let file = exr::prelude::read()
-        .no_deep_data()
-        .largest_resolution_level()
-        .all_channels()
-        .all_layers()
-        .all_attributes()
-        .non_parallel()
-        .from_file(path)
-        .map_err(|e| unreadable(&e))?;
+    let file = read_all(path)?;
     let layer = &file.layer_data[0];
-    let get = |n: &str| {
-        layer
-            .channel_data
-            .list
-            .iter()
-            .find(|c| c.name == *n)
-            .map(|c| c.sample_data.values_as_f32().collect::<Vec<f32>>())
-    };
+    let get = |n: &str| values(layer, n);
     let (red, green, blue) = if colour == ["Y"] {
         let y = get("Y");
         (y.clone(), y.clone(), y)
@@ -163,32 +113,9 @@ pub fn read(path: &Path) -> Result<ExrPicture, Diagnostic> {
     };
     let alpha = get("A");
 
-    // The picture is the display window; the data window is copied where it overlaps.
     let (w, h) = (display.size.0, display.size.1);
     let (dw, dh) = (layer.size.0, layer.size.1);
-    let origin = layer.attributes.layer_position;
-    let mut data = vec![0f32; w * h * 4];
-    let mut overlap = 0usize;
-    for sy in 0..dh {
-        let y = origin.1 as i64 + sy as i64 - display.position.1 as i64;
-        if y < 0 || y >= h as i64 {
-            continue;
-        }
-        for sx in 0..dw {
-            let x = origin.0 as i64 + sx as i64 - display.position.0 as i64;
-            if x < 0 || x >= w as i64 {
-                continue;
-            }
-            overlap += 1;
-            let s = sy * dw + sx;
-            let d = (y as usize * w + x as usize) * 4;
-            let pick = |c: &Option<Vec<f32>>, default: f32| c.as_ref().map_or(default, |v| v[s]);
-            data[d] = pick(&red, 0.0);
-            data[d + 1] = pick(&green, 0.0);
-            data[d + 2] = pick(&blue, 0.0);
-            data[d + 3] = pick(&alpha, 1.0);
-        }
-    }
+    let (mut data, overlap) = place(display, layer, [red, green, blue, alpha]);
 
     let mut adjusted = Vec::new();
     if !ignored.is_empty() {
@@ -235,6 +162,209 @@ pub fn read(path: &Path) -> Result<ExrPicture, Diagnostic> {
     )
     .expect("the data was allocated at the display window's size");
     Ok(ExrPicture { image, adjusted })
+}
+
+/// The header of a file D-62 reads: one part, not deep, not HTJ2K, every channel at full
+/// resolution. Decided before a pixel is decoded.
+fn checked(path: &Path) -> Result<MetaData, Diagnostic> {
+    let meta = MetaData::read_from_file(path, false).map_err(|e| unreadable(path, &e))?;
+    let header = match meta.headers.as_slice() {
+        [] => return Err(unreadable(path, &"The file holds no parts.")),
+        [one] => one,
+        _ => {
+            return Err(refused(
+                path,
+                "multipart",
+                "The file holds more than one part.",
+            ))
+        }
+    };
+    if header.deep {
+        return Err(refused(path, "deep", "The file holds deep data."));
+    }
+    if matches!(
+        header.compression,
+        Compression::HTJ2K32 | Compression::HTJ2K256
+    ) {
+        return Err(refused(path, "htj2k", "The file is HTJ2K compressed."));
+    }
+    if header.channels.list.iter().any(|c| c.sampling != Vec2(1, 1)) {
+        return Err(refused(
+            path,
+            "subsampled",
+            "A channel is stored at less than full resolution.",
+        ));
+    }
+    Ok(meta)
+}
+
+/// `MEDIA_DECODE_FAILED`, with D-62's reason `unreadable`.
+fn unreadable(path: &Path, e: &dyn std::fmt::Display) -> Diagnostic {
+    Diagnostic::new(
+        DiagnosticId::MediaDecodeFailed,
+        Severity::Error,
+        format!("{} could not be read.", name(path)),
+        format!("Reason: unreadable. {e}"),
+    )
+    .with_remediation("Check the file opens in another application, then relink the sequence.")
+}
+
+type Flat = Layer<AnyChannels<FlatSamples>>;
+
+/// Every channel of the file's largest level.
+fn read_all(path: &Path) -> Result<Image<SmallVec<[Flat; 2]>>, Diagnostic> {
+    exr::prelude::read()
+        .no_deep_data()
+        .largest_resolution_level()
+        .all_channels()
+        .all_layers()
+        .all_attributes()
+        .non_parallel()
+        .from_file(path)
+        .map_err(|e| unreadable(path, &e))
+}
+
+/// The channel named `n`, as single-precision numbers in the data window's order.
+fn values(layer: &Flat, n: &str) -> Option<Vec<f32>> {
+    layer
+        .channel_data
+        .list
+        .iter()
+        .find(|c| c.name == *n)
+        .map(|c| c.sample_data.values_as_f32().collect())
+}
+
+/// D-62: the picture is the display window; the data window is copied where it overlaps, every
+/// number 0 elsewhere. `channels` are red, green, blue and alpha; where the data window is, a
+/// missing colour is 0 and a missing alpha 1. With how many of the data window's pixels overlap.
+fn place(
+    display: exr::meta::attribute::IntegerBounds,
+    layer: &Flat,
+    channels: [Option<Vec<f32>>; 4],
+) -> (Vec<f32>, usize) {
+    let (w, h) = (display.size.0, display.size.1);
+    let (dw, dh) = (layer.size.0, layer.size.1);
+    let origin = layer.attributes.layer_position;
+    let mut data = vec![0f32; w * h * 4];
+    let mut overlap = 0usize;
+    for sy in 0..dh {
+        let y = origin.1 as i64 + sy as i64 - display.position.1 as i64;
+        if y < 0 || y >= h as i64 {
+            continue;
+        }
+        for sx in 0..dw {
+            let x = origin.0 as i64 + sx as i64 - display.position.0 as i64;
+            if x < 0 || x >= w as i64 {
+                continue;
+            }
+            overlap += 1;
+            let s = sy * dw + sx;
+            let d = (y as usize * w + x as usize) * 4;
+            for (c, channel) in channels.iter().enumerate() {
+                let default = if c == 3 { 1.0 } else { 0.0 };
+                data[d + c] = channel.as_ref().map_or(default, |v| v[s]);
+            }
+        }
+    }
+    (data, overlap)
+}
+
+/// D-348: a render's pass stored beside the colour, which an effect asks for by what it is.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Pass {
+    Depth,
+    Normals,
+}
+
+impl Pass {
+    pub fn word(self) -> &'static str {
+        match self {
+            Pass::Depth => "depth",
+            Pass::Normals => "normals",
+        }
+    }
+}
+
+/// D-348: the channels among `names` (the file's order) that hold `pass`, as red, green and
+/// blue. A name splits at its last dot into a layer and a part, case ignored. The depth is the
+/// first part `z` of layer "", `depth`, `zdepth` or `z`, or a name `depth` or `zdepth` with no
+/// layer; the normals the first layer `n`, `normal` or `normals` holding all of `x`, `y`, `z`,
+/// failing that all of `r`, `g`, `b`.
+pub fn pass_channels(names: &[String], pass: Pass) -> Option<[String; 3]> {
+    let split = |n: &str| {
+        let (layer, part) = n.rsplit_once('.').unwrap_or(("", n));
+        (layer.to_ascii_lowercase(), part.to_ascii_lowercase())
+    };
+    match pass {
+        Pass::Depth => names
+            .iter()
+            .find(|n| {
+                let (layer, part) = split(n);
+                (part == "z" && ["", "depth", "zdepth", "z"].contains(&layer.as_str()))
+                    || (layer.is_empty() && (part == "depth" || part == "zdepth"))
+            })
+            .map(|n| [n.clone(), n.clone(), n.clone()]),
+        Pass::Normals => [["x", "y", "z"], ["r", "g", "b"]].iter().find_map(|parts| {
+            names.iter().find_map(|n| {
+                let (layer, _) = split(n);
+                if !["n", "normal", "normals"].contains(&layer.as_str()) {
+                    return None;
+                }
+                let find = |p: &str| names.iter().find(|m| split(m) == (layer.clone(), p.to_string())).cloned();
+                Some([find(parts[0])?, find(parts[1])?, find(parts[2])?])
+            })
+        }),
+    }
+}
+
+/// D-348: `EFFECT_CHANNEL_MISSING`, said on each frame an effect finds no pass to read.
+pub fn pass_missing(title: String, detail: String) -> Diagnostic {
+    Diagnostic::new(DiagnosticId::EffectChannelMissing, Severity::Warning, title, detail).with_remediation(
+        "Render the file again with the pass saved in it, or put the effect on a layer whose EXR \
+         file holds it. The effect's settings are kept; until then it changes nothing.",
+    )
+}
+
+/// D-348: the pass in the EXR file at `path`, laid out as the colour is (D-62): each pixel its
+/// three numbers and alpha 1 over the whole display window. With how many of its numbers were
+/// not finite: not-a-number reads as 0 and an infinity as the largest single-precision number of
+/// its sign. `EFFECT_CHANNEL_MISSING` when the file has no such pass; [`read`]'s refusals as it
+/// gives them.
+pub fn read_pass(path: &Path, pass: Pass) -> Result<(WorkingBuffer, usize), Diagnostic> {
+    let meta = checked(path)?;
+    let header = &meta.headers[0];
+    let names: Vec<String> = header.channels.list.iter().map(|c| c.name.to_string()).collect();
+    let Some(chosen) = pass_channels(&names, pass) else {
+        return Err(pass_missing(
+            format!("{} holds no {} pass.", name(path), pass.word()),
+            format!(
+                "Its channels are {}. D-348 reads the depth from a channel named Z (or depth.Z, \
+                 zdepth.Z, depth) and the normals from N.x, N.y, N.z (or normal.R, normal.G, \
+                 normal.B).",
+                names.join(", ")
+            ),
+        ));
+    };
+    // ponytail: every channel is decoded to use three; read only those if a file with many
+    // passes makes the read measurable.
+    let file = read_all(path)?;
+    let layer = &file.layer_data[0];
+    let [r, g, b] = chosen.map(|n| values(layer, &n));
+    let display = header.shared_attributes.display_window;
+    let (data, _) = place(display, layer, [r, g, b, None]);
+    let mut buffer = WorkingBuffer::transparent(display.size.0, display.size.1);
+    let mut non_finite = 0;
+    for (i, (out, v)) in buffer.data_mut().iter_mut().zip(data).enumerate() {
+        *out = if i % 4 == 3 {
+            1.0
+        } else if v.is_finite() {
+            v
+        } else {
+            non_finite += 1;
+            if v.is_nan() { 0.0 } else { f32::MAX.copysign(v) }
+        };
+    }
+    Ok((buffer, non_finite))
 }
 
 /// Half or float samples in a written file.

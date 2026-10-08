@@ -882,6 +882,42 @@ impl CelCache {
         Ok(buffer)
     }
 
+    /// D-348: the depth or normals pass of the EXR cel at `path`, with how many of its numbers
+    /// were not finite ([`crate::exr_io::read_pass`]). Held beside the cels under the cel's key
+    /// with the pass's name added, so it is evicted by the same budget and invalidated by the same
+    /// change on disk; it counts as neither a hit nor a miss, which are the cels' counts.
+    ///
+    /// ponytail: a pass with numbers that were not finite is read again each frame rather than
+    /// held, so its warning is said each frame without a second table; hold the count beside it
+    /// if such renders turn out common.
+    pub fn pass(
+        &mut self,
+        path: &Path,
+        interpretation: Interpretation,
+        pass: crate::exr_io::Pass,
+    ) -> Result<(Arc<WorkingBuffer>, usize), Diagnostic> {
+        let key = Key::of(path, interpretation).map(|mut key| {
+            let mut named = key.path.into_os_string();
+            named.push(format!("#{}", pass.word()));
+            key.path = named.into();
+            key
+        });
+        if let Some(key) = &key {
+            if let Some(at) = self.entries.iter().position(|(k, _)| k == key) {
+                let entry = self.entries.remove(at);
+                let buffer = Arc::clone(&entry.1);
+                self.entries.push(entry);
+                return Ok((buffer, 0));
+            }
+        }
+        let (buffer, non_finite) = crate::exr_io::read_pass(path, pass)?;
+        let buffer = Arc::new(buffer);
+        if let (Some(key), 0) = (key, non_finite) {
+            self.store(key, Arc::clone(&buffer));
+        }
+        Ok((buffer, non_finite))
+    }
+
     /// Decode the cels this frame is about to ask for, all at once, across the thread pool
     /// (P-03(b)).
     ///

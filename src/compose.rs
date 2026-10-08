@@ -963,6 +963,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::BlockDissolve { .. }
                 | crate::effects::Effect::GradientWipe { .. }
                 | crate::effects::Effect::LineSmooth { .. }
+                // B-228 (D-348): two that read the layer's pass.
+                | crate::effects::Effect::PassExtract { .. }
+                | crate::effects::Effect::DepthKey { .. }
                 | crate::effects::Effect::LineWidth { .. }
         )
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
@@ -1143,6 +1146,8 @@ fn card_effect(
                 // B-226: as each one's own function returns at once.
                 E::BlockDissolve { completion, .. } => *completion == 0.0,
                 E::GradientWipe { completion, map, .. } => map.is_none() || *completion == 0.0,
+                // B-228: with no pass read, the layer is left as it is.
+                E::PassExtract { channels, .. } | E::DepthKey { channels, .. } => channels.is_none(),
                 E::LineSmooth { softness, .. } => *softness <= 0.0,
                 E::LineWidth { width, .. } => *width == 0.0,
                 _ => false,
@@ -1743,6 +1748,8 @@ fn resolve_rest(
     for d in crate::lut::fill(&mut effects, project, root, &layer.name) {
         log.record(frame, layer.name.clone(), d);
     }
+    // D-348: each pass an effect reads, from the layer's own EXR file.
+    fill_passes(&mut effects, cel.as_ref(), layer, frame, step1, cache, log);
     // D-191: each layer setting's map, made at the size the effects run at. An adjustment
     // layer's are made where its stack runs, on the frame.
     if !layer.is_adjustment() {
@@ -2607,6 +2614,72 @@ fn fill_moment_maps(
             }
         }
         *picture = Some(crate::layer_map::Map(std::sync::Arc::new(out)));
+    }
+}
+
+/// D-348: each switched-on Pass Extract's and Depth Key's pass, read from the layer's own EXR
+/// file and fitted to `size`. A layer with no such file, or a file with no such pass, is said
+/// each frame and left without, so the effect changes nothing.
+fn fill_passes(
+    effects: &mut [crate::effects::EffectInstance],
+    cel: Option<&(PathBuf, crate::model::Interpretation)>,
+    holder: &crate::model::Layer,
+    frame: i32,
+    size: (usize, usize),
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    use crate::effects::Effect;
+    use crate::exr_io::Pass;
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        let what = instance.effect.name().to_string();
+        let (pass, slot) = match &mut instance.effect {
+            Effect::PassExtract { pass, channels, .. } => {
+                (if pass == "normals" { Pass::Normals } else { Pass::Depth }, channels)
+            }
+            Effect::DepthKey { channels, .. } => (Pass::Depth, channels),
+            _ => continue,
+        };
+        let read = match cel {
+            Some((path, interpretation)) if crate::exr_io::is_exr(&path.to_string_lossy()) => {
+                cache.pass(path, *interpretation, pass)
+            }
+            _ => Err(crate::exr_io::pass_missing(
+                format!("{what} on layer {} finds no {} to read.", holder.name, pass.word()),
+                format!(
+                    "Frame {frame}: D-348 reads the pass from the one EXR file the layer is drawn \
+                     from, and this frame's picture is not one (a solid, text, a shape, a \
+                     composition, an adjustment layer, frames mixed together, or another kind of \
+                     file). The layer is drawn without the effect."
+                ),
+            )),
+        };
+        *slot = match read {
+            Ok((p, non_finite)) => {
+                if non_finite > 0 {
+                    log.record(
+                        frame,
+                        holder.name.clone(),
+                        Diagnostic::new(
+                            DiagnosticId::MediaExrAdjusted,
+                            Severity::Warning,
+                            format!("The {} of layer {}'s file was read, but not exactly as stored.", pass.word(), holder.name),
+                            format!("non_finite: {non_finite}"),
+                        ),
+                    );
+                }
+                let p = if (p.width(), p.height()) == size {
+                    p
+                } else {
+                    std::sync::Arc::new(crate::layer_map::fit(&p, "stretch", size).expect("stretch is a fit"))
+                };
+                Some(crate::layer_map::Map(p))
+            }
+            Err(d) => {
+                log.record(frame, holder.name.clone(), d);
+                None
+            }
+        };
     }
 }
 

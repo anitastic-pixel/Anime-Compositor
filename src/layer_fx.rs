@@ -3301,6 +3301,80 @@ pub(crate) fn gradient_wipe(
     });
 }
 
+/// D-348: the pass's pixel under the drawing's pixel `i` of a buffer `w` wide with the drawing's
+/// top-left at `origin`, as an index into `pass`'s data, or `None` outside the drawing.
+fn pass_at(pass: &WorkingBuffer, i: usize, w: usize, origin: (usize, usize)) -> Option<usize> {
+    let (x, y) = ((i % w).wrapping_sub(origin.0), (i / w).wrapping_sub(origin.1));
+    (x < pass.width() && y < pass.height()).then(|| (y * pass.width() + x) * 4)
+}
+
+/// D-348: Pass Extract. Each of the pass's three values `v` as `(v - black) / (white - black)`,
+/// or a cut at `white` where the two are equal, turned over by `invert` and then held to 0..1 by
+/// `clamp`: an opaque picture over the drawing, transparent outside it.
+pub(crate) fn pass_extract(
+    source: &mut WorkingBuffer,
+    pass: &WorkingBuffer,
+    origin: (usize, usize),
+    black: f64,
+    white: f64,
+    invert: bool,
+    clamp: bool,
+) {
+    let w = source.width();
+    let p = pass.data();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let Some(j) = pass_at(pass, i, w, origin) else {
+            px.fill(0.0);
+            return;
+        };
+        for c in 0..3 {
+            let v = p[j + c] as f64;
+            let o = if white != black {
+                (v - black) / (white - black)
+            } else if v >= white {
+                1.0
+            } else {
+                0.0
+            };
+            let o = if invert { 1.0 - o } else { o };
+            px[c] = if clamp { o.clamp(0.0, 1.0) } else { o } as f32;
+        }
+        px[3] = 1.0;
+    });
+}
+
+/// D-348: Depth Key. The drawing kept where its depth is at least `depth`, with a soft edge
+/// `feather` wide centred on it, or the other way with `invert`; transparent outside it.
+pub(crate) fn depth_key(
+    source: &mut WorkingBuffer,
+    pass: &WorkingBuffer,
+    origin: (usize, usize),
+    depth: f64,
+    feather: f64,
+    invert: bool,
+) {
+    let w = source.width();
+    let p = pass.data();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let Some(j) = pass_at(pass, i, w, origin) else {
+            px.fill(0.0);
+            return;
+        };
+        let z = p[j] as f64;
+        let k = if feather > 0.0 {
+            ((z - depth) / feather + 0.5).clamp(0.0, 1.0)
+        } else if z >= depth {
+            1.0
+        } else {
+            0.0
+        };
+        let k = if invert { 1.0 - k } else { k };
+        for v in px.iter_mut() {
+            *v = (*v as f64 * k) as f32;
+        }
+    });
+}
+
 /// D-195: Echo's operators, as the file writes them.
 pub(crate) const ECHO_OPERATORS: [&str; 7] =
     ["add", "maximum", "minimum", "screen", "composite_in_back", "composite_in_front", "blend"];

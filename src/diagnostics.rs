@@ -224,6 +224,11 @@ pub enum DiagnosticId {
     /// Document 28, added by D-189 and built with D-191: effects' layer settings that lead
     /// back round to a layer. ERROR: refused on command and on load, as MATTE_CYCLE is.
     EffectLayerCycle,
+    /// Document 28, added by D-348: an effect that reads a pass stored beside the colour in an
+    /// EXR file - the depth or the normals - on a layer whose footage at that frame has none, or
+    /// is not an EXR, or that has no footage. WARNING: the settings are kept and the effect is
+    /// skipped, every frame.
+    EffectChannelMissing,
 }
 
 impl DiagnosticId {
@@ -294,6 +299,7 @@ impl DiagnosticId {
             DiagnosticId::PresetFileInvalid => "PRESET_FILE_INVALID",
             DiagnosticId::EffectLayerMissing => "EFFECT_LAYER_MISSING",
             DiagnosticId::EffectLayerCycle => "EFFECT_LAYER_CYCLE",
+            DiagnosticId::EffectChannelMissing => "EFFECT_CHANNEL_MISSING",
         }
     }
 
@@ -359,6 +365,7 @@ impl DiagnosticId {
                 | DiagnosticId::PresetFileInvalid
                 | DiagnosticId::EffectLayerMissing
                 | DiagnosticId::EffectLayerCycle
+                | DiagnosticId::EffectChannelMissing
         )
     }
 }

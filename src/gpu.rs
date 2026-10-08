@@ -4302,6 +4302,63 @@ fn gwipe(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// B-228, layer_fx::pass_extract: the pass (`other`) lying on the drawing at (F.ox, F.oy), alpha 1
+// on it and 0 outside it; k black, white, invert, clamp.
+@compute @workgroup_size(16, 16)
+fn passx(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let q = at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy));
+    var out = vec4(0.0);
+    if q.w > 0.0 {
+        for (var c = 0u; c < 3u; c++) {
+            let v = f64(q[c]);
+            var o = select(0.0lf, 1.0lf, v >= k[1]);
+            if k[1] != k[0] {
+                o = (v - k[0]) / (k[1] - k[0]);
+            }
+            if k[2] == 1.0lf {
+                o = 1.0lf - o;
+            }
+            if k[3] == 1.0lf {
+                o = clamp(o, 0.0lf, 1.0lf);
+            }
+            out[c] = f32(o);
+        }
+        out.w = 1.0;
+    }
+    textureStore(output, id.xy, out);
+}
+
+// B-228, layer_fx::depth_key: the pass as Pass Extract's; k depth, feather, invert.
+@compute @workgroup_size(16, 16)
+fn dkey(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let q = at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy));
+    var kept = 0.0lf;
+    if q.w > 0.0 {
+        let z = f64(q.x);
+        kept = select(0.0lf, 1.0lf, z >= k[0]);
+        if k[1] > 0.0lf {
+            kept = clamp((z - k[0]) / k[1] + 0.5lf, 0.0lf, 1.0lf);
+        }
+        if k[2] == 1.0lf {
+            kept = 1.0lf - kept;
+        }
+    }
+    var out = p;
+    for (var c = 0u; c < 4u; c++) {
+        out[c] = f32(f64(p[c]) * kept);
+    }
+    textureStore(output, id.xy, out);
+}
+
 // B-226, line_width::line_width: the drawing (`input`) grown by F.g. k[0] 0 to thicken by shape,
 // 1 to thin by shape, 2 by colour; k[1] 1 to thicken; k[2] how many offsets, nearest first, then
 // each across and down from 3 (line_width::disc). `row` 1 where a pixel is chosen, as
@@ -4759,6 +4816,9 @@ struct FxPasses {
     dissolve: Pass,
     gwipe: Pass,
     lwidth: Pass,
+    /// B-228.
+    passx: Pass,
+    dkey: Pass,
     smoothscan: Pass,
     smoothmix: Pass,
 }
@@ -5344,6 +5404,8 @@ impl Gpu {
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
                 gwipe: pass("gwipe", &[0, 1, 2, 3, 4]),
+                passx: pass("passx", &[0, 1, 2, 3, 4]),
+                dkey: pass("dkey", &[0, 1, 2, 3, 4]),
                 lwidth: pass("lwidth", &[0, 1, 2, 3, 5]),
                 smoothscan: pass("smoothscan", &[0, 1, 3, 5, 6]),
                 smoothmix: pass("smoothmix", &[0, 1, 2, 5, 6]),
@@ -7142,6 +7204,22 @@ impl Gpu {
                 let out = self.scratch("B-226 wipe", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.gwipe, p, Some(still), Some(&out), Some(&k), Some(&map), none, tiles(w, h));
+                (out, (w, h))
+            }
+            E::PassExtract { channels, black_point, white_point, invert, clamp, .. } => {
+                let pass = self.map_texture(&channels.as_ref().expect("compose leaves a Pass Extract with a pass").0);
+                let k = [*black_point, *white_point, (invert == "on") as u8 as f64, (clamp == "on") as u8 as f64];
+                let out = self.scratch("B-228 pass", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.passx, p, Some(still), Some(&out), Some(&k), Some(&pass), none, tiles(w, h));
+                (out, (w, h))
+            }
+            E::DepthKey { channels, depth, feather, invert } => {
+                let pass = self.map_texture(&channels.as_ref().expect("compose leaves a Depth Key with a pass").0);
+                let k = [*depth, *feather, (invert == "on") as u8 as f64];
+                let out = self.scratch("B-228 key", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.dkey, p, Some(still), Some(&out), Some(&k), Some(&pass), none, tiles(w, h));
                 (out, (w, h))
             }
             E::LineWidth { width, based_on, colors, tolerance } => {

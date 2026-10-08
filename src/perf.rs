@@ -240,6 +240,10 @@ pub enum Stage {
     EffectGlass,
     EffectVectorBlur,
     EffectMomentMap,
+    /// D-348's pass extract and depth key, per pixel; reading the pass from its file is timed
+    /// as any file read is.
+    EffectPassExtract,
+    EffectDepthKey,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -257,7 +261,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 116] = [
+    pub const ALL: [Stage; 118] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -367,6 +371,8 @@ impl Stage {
         Stage::EffectGlass,
         Stage::EffectVectorBlur,
         Stage::EffectMomentMap,
+        Stage::EffectPassExtract,
+        Stage::EffectDepthKey,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -488,6 +494,8 @@ impl Stage {
             Stage::EffectGlass => "effect: cc glass",
             Stage::EffectVectorBlur => "effect: cc vector blur",
             Stage::EffectMomentMap => "effect: moment map",
+            Stage::EffectPassExtract => "effect: pass extract",
+            Stage::EffectDepthKey => "effect: depth key",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

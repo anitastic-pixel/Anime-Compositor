@@ -2487,6 +2487,19 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
         }
+        // D-348: the pass read for a frame is never saved; it is read from the file again.
+        Effect::PassExtract { pass, black_point, white_point, invert, clamp, .. } => {
+            params.insert("pass".into(), J::from(pass.as_str()));
+            params.insert("black_point".into(), num(*black_point));
+            params.insert("white_point".into(), num(*white_point));
+            params.insert("invert".into(), J::from(invert.as_str()));
+            params.insert("clamp".into(), J::from(clamp.as_str()));
+        }
+        Effect::DepthKey { depth, feather, invert, .. } => {
+            params.insert("depth".into(), num(*depth));
+            params.insert("feather".into(), num(*feather));
+            params.insert("invert".into(), J::from(invert.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -3583,6 +3596,8 @@ fn parse_effect(
         crate::effects::GLASS,
         crate::effects::VECTOR_BLUR,
         crate::effects::MOMENT_MAP,
+        crate::effects::PASS_EXTRACT,
+        crate::effects::DEPTH_KEY,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -4422,6 +4437,21 @@ fn parse_effect(
             fit: effect_word(params, "fit", &at)?,
             map: None,
             picture: None,
+        }),
+        // D-348: the words kept as written, so one outside the contract is refused by name.
+        crate::effects::PASS_EXTRACT => Some(crate::effects::Effect::PassExtract {
+            pass: effect_word(params, "pass", &at)?,
+            black_point: effect_number(params, "black_point", &at)?,
+            white_point: effect_number(params, "white_point", &at)?,
+            invert: effect_word(params, "invert", &at)?,
+            clamp: effect_word(params, "clamp", &at)?,
+            channels: None,
+        }),
+        crate::effects::DEPTH_KEY => Some(crate::effects::Effect::DepthKey {
+            depth: effect_number(params, "depth", &at)?,
+            feather: effect_number(params, "feather", &at)?,
+            invert: effect_word(params, "invert", &at)?,
+            channels: None,
         }),
         _ => None,
     };

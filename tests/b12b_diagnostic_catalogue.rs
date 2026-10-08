@@ -356,6 +356,11 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "EFFECT_LAYER_CYCLE",
         "B-127_compound_blur_table.md",
     ),
+    (
+        DiagnosticId::EffectChannelMissing,
+        "EFFECT_CHANNEL_MISSING",
+        "D-348_depth_channels_table.md",
+    ),
 ];
 
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
@@ -427,7 +432,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "59 identifiers",
+        "60 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

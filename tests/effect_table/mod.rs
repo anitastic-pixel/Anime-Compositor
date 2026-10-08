@@ -127,10 +127,13 @@ impl Table {
                 .and_then(J::as_str)
                 .into_iter()
                 .collect();
+            // D-348: a warning said on each frame only, not on opening.
+            let mut want_at_frame = want.clone();
+            want_at_frame.extend(case.get("frame_warning").and_then(J::as_str));
             self.row(
                 &format!("{name}: what opening it warns of, and what frame 4 warns of"),
                 &format!("{on_open:?} and {at_frame:?}"),
-                on_open == want && at_frame == want,
+                on_open == want && at_frame == want_at_frame,
             );
         }
     }
