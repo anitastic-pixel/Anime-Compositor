@@ -3954,6 +3954,294 @@ fn glass(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, px);
 }
 
+// B-225, layer_fx::beam: k the line's stretch start (0, 1) and run (2, 3), its squared length, the
+// start's share `a` and the length's `l`, the two thicknesses, the softness, 1 alone, then the
+// inside and outside colours in linear light.
+@compute @workgroup_size(16, 16)
+fn beam(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let px = textureLoad(input, id.xy, 0);
+    let x = f64(id.x) + 0.5lf - k[0];
+    let y = f64(id.y) + 0.5lf - k[1];
+    var t = 0.0lf;
+    if k[4] != 0.0lf {
+        t = clamp((x * k[2] + y * k[3]) / k[4], 0.0lf, 1.0lf);
+    }
+    let ex = x - t * k[2];
+    let ey = y - t * k[3];
+    let d = sqrt(ex * ex + ey * ey);
+    let r = (k[7] + (k[5] + t * k[6]) * (k[8] - k[7])) / 2.0lf;
+    let sw = max(2.0lf * r * k[9] / 100.0lf, 1.0lf);
+    let c = clamp((min(d + sw / 2.0lf, r) - max(d - sw / 2.0lf, -r)) / sw, 0.0lf, 1.0lf);
+    var q = 1.0lf;
+    if r != 0.0lf {
+        q = min(d / r, 1.0lf);
+    }
+    let keep = select(1.0lf - c, 0.0lf, k[10] == 1.0lf);
+    var out = px;
+    for (var j = 0u; j < 3u; j++) {
+        out[j] = f32(f64(px[j]) * keep + ((1.0lf - q) * k[11u + j] + q * k[14u + j]) * c);
+    }
+    out.w = f32(f64(px.w) * keep + c);
+    textureStore(output, id.xy, out);
+}
+
+// B-225, grade::four_color_gradient: k the four points (0..8), the power 100 / blend, the opacity
+// as a share, then the four colours encoded; laid on by F.blend.
+@compute @workgroup_size(16, 16)
+fn gradient4(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let px = textureLoad(input, id.xy, 0);
+    let a = f64(px.w);
+    if a <= 0.0lf {
+        textureStore(output, id.xy, px);
+        return;
+    }
+    let x = f64(id.x) + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    var d: array<f64, 4>;
+    var m = 1e300lf;
+    for (var j = 0u; j < 4u; j++) {
+        let dx = x - k[2u * j];
+        let dy = y - k[2u * j + 1u];
+        d[j] = dx * dx + dy * dy;
+        m = min(m, d[j]);
+    }
+    // ponytail: the power in single precision, its rounding far below a level of 255 once the
+    // weights are summed and divided.
+    var wk: array<f64, 4>;
+    var sum = 0.0lf;
+    for (var j = 0u; j < 4u; j++) {
+        if m == 0.0lf {
+            wk[j] = select(0.0lf, 1.0lf, d[j] == 0.0lf);
+        } else {
+            wk[j] = f64(pow(f32(m / d[j]), f32(k[8])));
+        }
+        sum += wk[j];
+    }
+    var out = px;
+    for (var c = 0u; c < 3u; c++) {
+        var acc = 0.0lf;
+        for (var j = 0u; j < 4u; j++) {
+            acc += wk[j] * k[10u + 3u * j + c];
+        }
+        let g = to_linear(acc / sum);
+        let b = f64(px[c]) / a;
+        out[c] = f32((b + k[9] * (mixed(b, g) - b)) * a);
+    }
+    textureStore(output, id.xy, out);
+}
+
+// B-225, layer_fx::least_covering's first half: each pixel's least covering along its row, F.r
+// either side, into `row`; 0 where that reaches past the row's ends.
+@compute @workgroup_size(16, 16)
+fn sweepmin(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let x = i32(id.x);
+    var m = 0.0;
+    if x >= F.r && x < i32(size.x) - F.r {
+        m = 3.4e38;
+        for (var i = x - F.r; i <= x + F.r; i++) {
+            m = min(m, textureLoad(input, vec2(i, i32(id.y)), 0).w);
+        }
+    }
+    row[id.y * size.x + id.x] = m;
+}
+
+// B-225, layer_fx::light_sweep: k the centre (0, 1), the band's normal (2, 3), its half width, the
+// sweep and edge intensities as shares, the shape (0 the band's hard edge, 1 linear, 2 smooth),
+// the reception (0 add, 1 composite, 2 cutout), 1 when the edge is lit from `row` (F.r deep),
+// then the light in linear light.
+@compute @workgroup_size(16, 16)
+fn sweep(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let px = textureLoad(input, id.xy, 0);
+    let a = f64(px.w);
+    if a <= 0.0lf {
+        textureStore(output, id.xy, px);
+        return;
+    }
+    let d = abs(k[2] * (f64(id.x) + 0.5lf - k[0]) + k[3] * (f64(id.y) + 0.5lf - k[1]));
+    let r = k[4];
+    var p = 0.0lf;
+    if r == 0.0lf {
+        p = 0.0lf;
+    } else if k[7] == 1.0lf {
+        p = max(1.0lf - d / r, 0.0lf);
+    } else if k[7] == 2.0lf {
+        let t = d / r;
+        if t < 1.0lf {
+            p = 1.0lf - t * t * (3.0lf - 2.0lf * t);
+        }
+    } else {
+        p = clamp(r + 0.5lf - d, 0.0lf, 1.0lf);
+    }
+    var edge = 0.0lf;
+    if p > 0.0lf && k[9] == 1.0lf {
+        let y = i32(id.y);
+        var least = 0.0;
+        if y >= F.r && y + F.r < i32(size.y) {
+            least = 3.4e38;
+            for (var v = y - F.r; v <= y + F.r; v++) {
+                least = min(least, row[u32(v) * size.x + id.x]);
+            }
+        }
+        edge = k[6] * (a - f64(least)) / a;
+    }
+    let l = p * (k[5] + edge);
+    if l == 0.0lf && k[8] != 2.0lf {
+        textureStore(output, id.xy, px);
+        return;
+    }
+    let m = min(l, 1.0lf);
+    var out = px;
+    for (var j = 0u; j < 3u; j++) {
+        let v = f64(px[j]);
+        if k[8] == 0.0lf {
+            out[j] = f32(v + l * a * k[10u + j]);
+        } else if k[8] == 1.0lf {
+            out[j] = f32(v + m * (a * k[10u + j] - v));
+        } else {
+            out[j] = f32(m * a * k[10u + j]);
+        }
+    }
+    if k[8] == 2.0lf {
+        out.w = f32(m * a);
+    }
+    textureStore(output, id.xy, out);
+}
+
+// layer_fx::bolt_light's soft core: the fall from 0 to u, odd in u.
+fn rise(u: f64, half: f64) -> f64 {
+    let a = min(abs(u), half);
+    return select(-1.0lf, 1.0lf, u >= 0.0lf) * (a - a * a / (2.0lf * half));
+}
+
+// B-225, layer_fx::lightning_bolt: k the width, the glow, 1 soft, the opacity as a share, the core
+// and glow colours in linear light, 1 to clear the layer first (Composite on Original off), the
+// segments' count, then from 12 each segment as `bolt_list` gives it and its box.
+@compute @workgroup_size(16, 16)
+fn bolt(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    var px = textureLoad(input, id.xy, 0);
+    if k[10] == 1.0lf {
+        px = vec4(0.0);
+    }
+    let xi = f64(id.x);
+    let x = xi + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    var c = 0.0lf;
+    var g = 0.0lf;
+    let n = u32(k[11]);
+    for (var j = 0u; j < n; j++) {
+        let o = 12u + 10u * j;
+        if y <= k[o + 8u] || y >= k[o + 9u] || xi < floor(k[o + 6u] - 0.5lf) || xi > ceil(k[o + 7u] - 0.5lf) {
+            continue;
+        }
+        let sx = k[o];
+        let sy = k[o + 1u];
+        let dx = k[o + 2u] - sx;
+        let dy = k[o + 3u] - sy;
+        let l2 = dx * dx + dy * dy;
+        var t = 0.0lf;
+        if l2 != 0.0lf {
+            t = clamp(((x - sx) * dx + (y - sy) * dy) / l2, 0.0lf, 1.0lf);
+        }
+        let ex = x - sx - t * dx;
+        let ey = y - sy - t * dy;
+        let d = sqrt(ex * ex + ey * ey);
+        let w = k[o + 4u] + t * (k[o + 5u] - k[o + 4u]);
+        let half = w * k[0] / 2.0lf;
+        var core = 0.0lf;
+        if k[2] == 1.0lf {
+            if half > 0.0lf {
+                core = rise(d + 0.5lf, half) - rise(d - 0.5lf, half);
+            }
+        } else {
+            core = clamp(min(d + 0.5lf, half) - max(d - 0.5lf, -half), 0.0lf, 1.0lf);
+        }
+        let r = w * k[1];
+        var lit = 0.0lf;
+        if d < r {
+            let u = 1.0lf - d / r;
+            lit = w * (u * u);
+        }
+        c = max(c, core);
+        g = max(g, lit);
+    }
+    if c == 0.0lf && g == 0.0lf {
+        textureStore(output, id.xy, px);
+        return;
+    }
+    var out = px;
+    for (var j = 0u; j < 3u; j++) {
+        out[j] = f32(f64(px[j]) + k[3] * (c * k[4u + j] + (1.0lf - c) * g * k[7u + j]));
+    }
+    out.w = f32(f64(px.w) + k[3] * (c + (1.0lf - c) * g) * (1.0lf - f64(px.w)));
+    textureStore(output, id.xy, out);
+}
+
+// B-225, layer_fx::bevel_edges: k the thickness in pixels, the light's direction (1, 2), the
+// intensity, then the light in linear light. A pixel nearer than the thickness to the buffer's
+// nearest side, the first of left, top, right and bottom among equals, takes that side's slope.
+@compute @workgroup_size(16, 16)
+fn edges(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let px = textureLoad(input, id.xy, 0);
+    let a = f64(px.w);
+    if a <= 0.0lf {
+        textureStore(output, id.xy, px);
+        return;
+    }
+    let cx = f64(id.x) + 0.5lf;
+    let cy = f64(id.y) + 0.5lf;
+    var near = cx;
+    var s = -k[1];
+    if cy < near {
+        near = cy;
+        s = -k[2];
+    }
+    if f64(size.x) - cx < near {
+        near = f64(size.x) - cx;
+        s = k[1];
+    }
+    if f64(size.y) - cy < near {
+        near = f64(size.y) - cy;
+        s = k[2];
+    }
+    if !(near < k[0]) {
+        s = 0.0lf;
+    }
+    var out = px;
+    for (var c = 0u; c < 3u; c++) {
+        let p = f64(px[c]);
+        if s > 0.0lf {
+            out[c] = f32(p + (k[4u + c] * a - p) * k[3] * s);
+        } else {
+            out[c] = f32(p * (1.0lf + k[3] * s));
+        }
+    }
+    textureStore(output, id.xy, out);
+}
+
 @group(0) @binding(10) var effected: texture_2d<f32>;
 @group(0) @binding(11) var<storage, read_write> frame_sum: array<vec4<f32>>;
 
@@ -4079,6 +4367,13 @@ struct FxPasses {
     /// B-224.
     dmap: Pass,
     glass: Pass,
+    /// B-225.
+    beam: Pass,
+    gradient4: Pass,
+    sweepmin: Pass,
+    sweep: Pass,
+    bolt: Pass,
+    edges: Pass,
 }
 
 /// B-172: one colour effect of a run the card draws in one pass: `grade` (0) or `tone` (1), its
@@ -4654,6 +4949,12 @@ impl Gpu {
                 cmix: pass("cmix", &[0, 1, 2, 3, 4, 8]),
                 dmap: pass("dmap", &[0, 1, 2, 3, 4]),
                 glass: pass("glass", &[0, 1, 2, 3, 4]),
+                beam: pass("beam", &[0, 1, 2, 3]),
+                gradient4: pass("gradient4", &[0, 1, 2, 3]),
+                sweepmin: pass("sweepmin", &[0, 1, 5]),
+                sweep: pass("sweep", &[0, 1, 2, 3, 5]),
+                bolt: pass("bolt", &[0, 1, 2, 3]),
+                edges: pass("edges", &[0, 1, 2, 3]),
                 chain: {
                     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                         label: Some("B-172"),
@@ -6328,7 +6629,96 @@ impl Gpu {
                 self.fx_step(steps, &passes.glass, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&bump), none, tiles(w, h));
                 (out, (w, h))
             }
-            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs and B-224's two map effects as Fx"),
+            // B-225 (D-344): five generators, each as its CPU function; the bolt's segments are
+            // worked out here, as the CPU works them, and handed over in `k`.
+            E::Beam { start, end, length, time, start_thickness, end_thickness, softness, inside_color, outside_color, composite } => {
+                let (s, e) = (crate::effects::radial_center(*start, (w, h), f.origin), crate::effects::radial_center(*end, (w, h), f.origin));
+                let l = length / 100.0;
+                let a = time / 100.0 * (1.0 - l);
+                let (dx, dy) = (l * (e.0 - s.0), l * (e.1 - s.1));
+                let mut k = vec![s.0 + a * (e.0 - s.0), s.1 + a * (e.1 - s.1), dx, dy, dx * dx + dy * dy, a, l];
+                k.extend([*start_thickness, *end_thickness, *softness, (composite == "off") as u8 as f64]);
+                k.extend(linear(inside_color));
+                k.extend(linear(outside_color));
+                same(steps, &passes.beam, FxParams::default(), &k, None)
+            }
+            E::FourColorGradient { point_1, point_2, point_3, point_4, color_1, color_2, color_3, color_4, blend: b, opacity, blending_mode } => {
+                let mut k: Vec<f64> = [point_1, point_2, point_3, point_4]
+                    .iter()
+                    .flat_map(|p| {
+                        let (x, y) = crate::effects::radial_center(**p, (w, h), f.origin);
+                        [x, y]
+                    })
+                    .collect();
+                k.extend([100.0 / b, opacity / 100.0]);
+                for c in [color_1, color_2, color_3, color_4] {
+                    k.extend(crate::effects::encoded(c));
+                }
+                same(steps, &passes.gradient4, FxParams { blend: blend(blending_mode), ..Default::default() }, &k, None)
+            }
+            E::LightSweep { center, direction, shape, width, sweep_intensity, edge_intensity, edge_thickness, light_color, light_reception } => {
+                let r = width / 2.0;
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
+                let (nx, ny) = crate::blurs::along(direction + 90.0);
+                let least = *edge_intensity > 0.0 && r > 0.0;
+                let shape = match shape.as_str() {
+                    "linear" => 1.0,
+                    "smooth" => 2.0,
+                    _ => 0.0,
+                };
+                let reception = match light_reception.as_str() {
+                    "add" => 0.0,
+                    "composite" => 1.0,
+                    _ => 2.0,
+                };
+                let mut k = vec![cx, cy, nx, ny, r, sweep_intensity / 100.0, edge_intensity / 100.0, shape, reception, least as u8 as f64];
+                k.extend(linear(light_color));
+                let rows = buffer(if least { w * h * 4 } else { 4 });
+                let p = FxParams { r: edge_thickness.floor() as i32, ..Default::default() };
+                if least {
+                    self.fx_step(steps, &passes.sweepmin, p, Some(still), None, None, None, [Some(&rows)], tiles(w, h));
+                }
+                let out = self.scratch("B-225 sweep", w, h);
+                self.fx_step(steps, &passes.sweep, p, Some(still), Some(&out), Some(&k), None, [Some(&rows)], tiles(w, h));
+                (out, (w, h))
+            }
+            E::LightningBolt { start, end, jagged, detail, branches, width, glow, opacity, hold, seed, color, glow_color, composite, kind, turbulence, decay, conductivity, obstacle, path, core, forks, frame } => {
+                // D-324: Alpha Obstacle reads the drawing it is given; compose has a bolt with
+                // one begin its run, so that is `source`, the CPU's.
+                let edge = 1.0 - obstacle / 100.0;
+                let blocks: Vec<bool> = match *obstacle {
+                    a if a > 0.0 => source.data().chunks_exact(4).map(|p| p[3] as f64 > edge).collect(),
+                    a if a < 0.0 => source.data().chunks_exact(4).map(|p| (p[3] as f64) < -a / 100.0).collect(),
+                    _ => Vec::new(),
+                };
+                let segs = if *opacity == 0.0 || (*width == 0.0 && *glow == 0.0) {
+                    Vec::new()
+                } else {
+                    let size = (w, h);
+                    let ends = [start, end, &[start[0], 100.0]].map(|p| crate::effects::radial_center(*p, size, f.origin));
+                    let kinds = (kind.as_str(), [*turbulence, *decay, *conductivity], forks.as_str());
+                    crate::layer_fx::bolt_list(size, ends, [*jagged, *detail, *branches, *hold, *seed], kinds, (&blocks, *obstacle < 0.0, path == "around"), *frame)
+                };
+                let mut k = vec![*width, *glow, (core == "soft") as u8 as f64, opacity / 100.0];
+                k.extend(linear(color));
+                k.extend(linear(glow_color));
+                k.extend([(composite == "off") as u8 as f64, segs.len() as f64]);
+                for s in &segs {
+                    // Its box, as `lightning_bolt` culls by it.
+                    let ww = s[4].max(s[5]);
+                    let e = (ww * width / 2.0 + 0.5).max(ww * glow);
+                    k.extend(s);
+                    k.extend([s[0].min(s[2]) - e, s[0].max(s[2]) + e, s[1].min(s[3]) - e, s[1].max(s[3]) + e]);
+                }
+                same(steps, &passes.bolt, FxParams::default(), &k, None)
+            }
+            E::BevelEdges { edge_thickness, light_angle, light_color, light_intensity } => {
+                let (ux, uy) = crate::blurs::along(*light_angle);
+                let mut k = vec![edge_thickness * (w as f64).min(h as f64), ux, uy, *light_intensity];
+                k.extend(linear(light_color));
+                same(steps, &passes.edges, FxParams::default(), &k, None)
+            }
+            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects and B-225's five generators as Fx"),
         }
     }
 

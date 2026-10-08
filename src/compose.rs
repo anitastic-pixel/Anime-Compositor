@@ -953,6 +953,12 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 // B-224 (D-343): two that read a map.
                 | crate::effects::Effect::DisplacementMap { .. }
                 | crate::effects::Effect::Glass { .. }
+                // B-225 (D-344): five generators; Radio Waves stays on the CPU (D-345).
+                | crate::effects::Effect::Beam { .. }
+                | crate::effects::Effect::FourColorGradient { .. }
+                | crate::effects::Effect::LightSweep { .. }
+                | crate::effects::Effect::LightningBolt { .. }
+                | crate::effects::Effect::BevelEdges { .. }
         )
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
@@ -1119,6 +1125,16 @@ fn card_effect(
                 E::Glass { height, displacement, light_intensity, .. } => {
                     *height == 0.0 || (*displacement == 0.0 && *light_intensity <= 0.0)
                 }
+                // B-225: as each one's own function returns at once; a bolt off its original
+                // still clears the layer.
+                E::FourColorGradient { opacity, .. } => *opacity == 0.0,
+                E::LightSweep { width, sweep_intensity, edge_intensity, light_reception, .. } => {
+                    light_reception != "cutout" && (*width / 2.0 == 0.0 || *sweep_intensity == 0.0 && *edge_intensity == 0.0)
+                }
+                E::LightningBolt { opacity, width, glow, composite, .. } => {
+                    (*opacity == 0.0 || (*width == 0.0 && *glow == 0.0)) && composite != "off"
+                }
+                E::BevelEdges { edge_thickness, light_intensity, .. } => *edge_thickness <= 0.0 || *light_intensity <= 0.0,
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -1178,7 +1194,8 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
     // A Light Wrap does nothing in a stack (D-132), as `apply_stack` has it.
     for instance in stack.iter().filter(|i| i.enabled && !matches!(i.effect, E::LightWrap { .. })) {
         // B-222 (D-341): Colour Key, Select Colour and Line Recolour round to 8 bits and choose by
-        // it, as an HSV Key does. B-223 (D-342): so does a Selective Colour Blur.
+        // it, as an HSV Key does. B-223 (D-342): so does a Selective Colour Blur. B-225
+        // (D-344): so does a Lightning Bolt with an Alpha Obstacle, which reads the covering.
         let first = matches!(
             instance.effect,
             E::Bloom { .. }
@@ -1190,7 +1207,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
                 | E::SelectColor { .. }
                 | E::LineRecolor { .. }
                 | E::SelectiveColorBlur { .. }
-        );
+        ) || matches!(instance.effect, E::LightningBolt { obstacle, .. } if obstacle != 0.0);
         if first || !card_can(instance, 1.0) {
             return None;
         }
@@ -1891,7 +1908,8 @@ fn resolve_rest(
     // with the smallest change, and given the card's picture rather than the CPU's it keyed
     // pixels the CPU did not (B-155's table, 255 levels). B-222 (D-341): so can a Colour Key, a
     // Select Colour and a Line Recolour, which choose by the same 8-bit rounding; B-223 (D-342),
-    // and a Selective Colour Blur.
+    // and a Selective Colour Blur; B-225 (D-344), a Lightning Bolt with an Alpha Obstacle, which
+    // reads the covering it is given.
     // D-330, D-333: the card neither rounds to 8 bits nor blurs display values, so in 8 bpc and
     // 32 bpc (After Effects) it is left nothing.
     let plain = bits == crate::effects::Bits::Linear;
@@ -1917,7 +1935,8 @@ fn resolve_rest(
                 | E::SelectColor { .. }
                 | E::LineRecolor { .. }
                 | E::SelectiveColorBlur { .. }
-        ) {
+        ) || matches!(effects[i].effect, E::LightningBolt { obstacle, .. } if obstacle != 0.0)
+        {
             break;
         }
     }

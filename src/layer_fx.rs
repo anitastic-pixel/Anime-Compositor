@@ -2752,29 +2752,8 @@ pub(crate) fn lightning_bolt(
     if opacity == 0.0 || (width == 0.0 && glow == 0.0) {
         return;
     }
-    let m = (frame as i64).div_euclid(hold.floor() as i64);
-    // D-324's Conductivity State: the numbers of the whole state below and the one above, mixed
-    // by the smoothed part between; state 0 is D-190's seed alone.
-    let (n, base) = (conductivity.floor(), crate::grade::mix(seed.floor() as u64));
-    let t = conductivity - n;
-    let s = t * t * (3.0 - 2.0 * t);
-    let below = if n == 0.0 { base } else { crate::grade::mix(base ^ n as u64) };
-    let above = crate::grade::mix(base ^ (n as u64 + 1));
-    let r = |key: i64, b: i64, j: u64| {
-        let v = crate::grade::unit(below, key, b, m, j);
-        if s == 0.0 { v } else { v + s * (crate::grade::unit(above, key, b, m, j) - v) }
-    };
     let size = (source.width(), source.height());
-    let blocked = |x: f64, y: f64| {
-        let (i, j) = (x.floor(), y.floor());
-        if i >= 0.0 && i < size.0 as f64 && j >= 0.0 && j < size.1 as f64 { blocks[j as usize * size.0 + i as usize] } else { outside }
-    };
-    let route = (around && !blocks.is_empty()).then_some((&blocked as &dyn Fn(f64, f64) -> bool, size));
-    let mut segs = bolt_segments((kind, forks), ends, [jagged, branches, turbulence, decay], detail.floor() as u32, &r, route);
-    if !blocks.is_empty() {
-        segs = bolt_stop(segs, &blocked, route.is_some());
-    }
-    let segs: Vec<[f64; 6]> = segs.into_iter().map(|(p, q, wp, wq, ..)| [p.0, p.1, q.0, q.1, wp, wq]).collect();
+    let segs = bolt_list(size, ends, [jagged, detail, branches, hold, seed], (kind, [turbulence, decay, conductivity], forks), (blocks, outside, around), frame);
     // Each segment's box: nothing past its reach from the line is lit.
     let boxes: Vec<[f64; 4]> = segs
         .iter()
@@ -2811,6 +2790,40 @@ pub(crate) fn lightning_bolt(
             px[3] = (px[3] as f64 + k * (c + (1.0 - c) * g) * (1.0 - px[3] as f64)) as f32;
         }
     });
+}
+
+/// D-190's segments for a frame, each `[px, py, qx, qy, wP, wQ]` in a buffer `size`: what
+/// `lightning_bolt` lights, which the card (B-225) is handed as it is.
+pub(crate) fn bolt_list(
+    size: (usize, usize),
+    ends: [(f64, f64); 3],
+    [jagged, detail, branches, hold, seed]: [f64; 5],
+    (kind, [turbulence, decay, conductivity], forks): (&str, [f64; 3], &str),
+    (blocks, outside, around): (&[bool], bool, bool),
+    frame: i32,
+) -> Vec<[f64; 6]> {
+    let m = (frame as i64).div_euclid(hold.floor() as i64);
+    // D-324's Conductivity State: the numbers of the whole state below and the one above, mixed
+    // by the smoothed part between; state 0 is D-190's seed alone.
+    let (n, base) = (conductivity.floor(), crate::grade::mix(seed.floor() as u64));
+    let t = conductivity - n;
+    let s = t * t * (3.0 - 2.0 * t);
+    let below = if n == 0.0 { base } else { crate::grade::mix(base ^ n as u64) };
+    let above = crate::grade::mix(base ^ (n as u64 + 1));
+    let r = |key: i64, b: i64, j: u64| {
+        let v = crate::grade::unit(below, key, b, m, j);
+        if s == 0.0 { v } else { v + s * (crate::grade::unit(above, key, b, m, j) - v) }
+    };
+    let blocked = |x: f64, y: f64| {
+        let (i, j) = (x.floor(), y.floor());
+        if i >= 0.0 && i < size.0 as f64 && j >= 0.0 && j < size.1 as f64 { blocks[j as usize * size.0 + i as usize] } else { outside }
+    };
+    let route = (around && !blocks.is_empty()).then_some((&blocked as &dyn Fn(f64, f64) -> bool, size));
+    let mut segs = bolt_segments((kind, forks), ends, [jagged, branches, turbulence, decay], detail.floor() as u32, &r, route);
+    if !blocks.is_empty() {
+        segs = bolt_stop(segs, &blocked, route.is_some());
+    }
+    segs.into_iter().map(|(p, q, wp, wq, ..)| [p.0, p.1, q.0, q.1, wp, wq]).collect()
 }
 
 /// D-190's segment `[px, py, qx, qy, wP, wQ]`: its core and glow at the point (x, y). The core is
