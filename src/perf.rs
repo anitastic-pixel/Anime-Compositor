@@ -246,6 +246,10 @@ pub enum Stage {
     EffectDepthKey,
     /// D-349's id key: the matte, its feather and the multiply.
     EffectIdKey,
+    /// D-351's stretches and spread: the picture's statistics and the pass over it. A temporal
+    /// smoothing's other frames are timed as any layer resolved is.
+    EffectAutoTone,
+    EffectSpreadTones,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -263,7 +267,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 119] = [
+    pub const ALL: [Stage; 121] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -376,6 +380,8 @@ impl Stage {
         Stage::EffectPassExtract,
         Stage::EffectDepthKey,
         Stage::EffectIdKey,
+        Stage::EffectAutoTone,
+        Stage::EffectSpreadTones,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -500,6 +506,8 @@ impl Stage {
             Stage::EffectPassExtract => "effect: pass extract",
             Stage::EffectDepthKey => "effect: depth key",
             Stage::EffectIdKey => "effect: id key",
+            Stage::EffectAutoTone => "effect: stretch levels, contrast or color",
+            Stage::EffectSpreadTones => "effect: spread tones",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

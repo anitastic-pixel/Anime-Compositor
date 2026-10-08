@@ -2531,6 +2531,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("ease_high".into(), num(*ease_high));
             params.insert("ease_low".into(), num(*ease_low));
         }
+        // D-351: the frames a smoothing added up are never saved; they are read again.
+        Effect::AutoTone { kind, temporal_smoothing, scene_detect, black_clip, white_clip, snap_neutral_midtones, .. } => {
+            params.insert("temporal_smoothing".into(), num(*temporal_smoothing));
+            params.insert("scene_detect".into(), J::from(scene_detect.as_str()));
+            params.insert("black_clip".into(), num(*black_clip));
+            params.insert("white_clip".into(), num(*white_clip));
+            if *kind == "color" {
+                params.insert("snap_neutral_midtones".into(), J::from(snap_neutral_midtones.as_str()));
+            }
+        }
+        Effect::SpreadTones { equalize, amount } => {
+            params.insert("equalize".into(), J::from(equalize.as_str()));
+            params.insert("amount".into(), num(*amount));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -3633,6 +3647,10 @@ fn parse_effect(
         crate::effects::DEPTH_KEY,
         crate::effects::ID_KEY,
         crate::effects::TEXT_ANIMATOR,
+        crate::effects::STRETCH_LEVELS,
+        crate::effects::STRETCH_CONTRAST,
+        crate::effects::STRETCH_COLOR,
+        crate::effects::SPREAD_TONES,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -4514,6 +4532,29 @@ fn parse_effect(
             smoothness: effect_number(params, "smoothness", &at)?,
             ease_high: effect_number(params, "ease_high", &at)?,
             ease_low: effect_number(params, "ease_low", &at)?,
+        }),
+        crate::effects::STRETCH_LEVELS | crate::effects::STRETCH_CONTRAST | crate::effects::STRETCH_COLOR => {
+            let color = type_id == crate::effects::STRETCH_COLOR;
+            Some(crate::effects::Effect::AutoTone {
+                kind: if color {
+                    "color"
+                } else if type_id == crate::effects::STRETCH_LEVELS {
+                    "levels"
+                } else {
+                    "contrast"
+                },
+                temporal_smoothing: effect_number(params, "temporal_smoothing", &at)?,
+                scene_detect: effect_word(params, "scene_detect", &at)?,
+                black_clip: effect_number(params, "black_clip", &at)?,
+                white_clip: effect_number(params, "white_clip", &at)?,
+                // Stretch Color's alone; the other two have none and never save one.
+                snap_neutral_midtones: if color { effect_word(params, "snap_neutral_midtones", &at)? } else { "off".to_string() },
+                stats: None,
+            })
+        }
+        crate::effects::SPREAD_TONES => Some(crate::effects::Effect::SpreadTones {
+            equalize: effect_word(params, "equalize", &at)?,
+            amount: effect_number(params, "amount", &at)?,
         }),
         _ => None,
     };

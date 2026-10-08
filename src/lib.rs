@@ -37,6 +37,7 @@ mod glow;
 mod layer_fx;
 mod layer_map;
 mod grade;
+pub mod frame_stats;
 pub mod lut;
 pub mod mask;
 pub mod media;

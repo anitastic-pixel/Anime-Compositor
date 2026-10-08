@@ -9329,6 +9329,10 @@ const EFFECT_NAMES = {
   'core.depth_key': 'Depth Key',
   'core.id_key': 'ID Key',
   'core.text_animator': 'Text Animator',
+  'core.stretch_levels': 'Stretch Levels',
+  'core.stretch_contrast': 'Stretch Contrast',
+  'core.stretch_color': 'Stretch Color',
+  'core.spread_tones': 'Spread Tones',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -9340,7 +9344,8 @@ const EFFECT_GROUPS = [
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.change_to_color',
-    'core.invert', 'core.color_lookup', 'core.shift_channels', 'core.solid_composite', 'core.colorama']],
+    'core.invert', 'core.color_lookup', 'core.shift_channels', 'core.solid_composite', 'core.colorama',
+    'core.stretch_levels', 'core.stretch_contrast', 'core.stretch_color', 'core.spread_tones']],
   ['Light & Glow', ['core.glow', 'core.bloom', 'core.light_rays', 'core.rim_light',
     'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.lightning_bolt', 'core.exposure_flicker',
     'core.paraffin']],
@@ -9445,6 +9450,10 @@ const EFFECT_SEARCH = {
   'core.pass_extract': 'pass extract 3d channel extract extractor depth z zdepth normals object material id named channel exr render pass aov channel black white point',
   'core.id_key': 'id key id matte object id material id index indexob indexma exr render pass aov cut out isolate',
   'core.text_animator': 'text animator animate range selector per character letter word typewriter type on fade in by character wave tracking offset',
+  'core.stretch_levels': 'stretch levels auto levels automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
+  'core.stretch_contrast': 'stretch contrast auto contrast automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
+  'core.stretch_color': 'stretch color colour auto color automatic white balance colour cast neutral midtones grey histogram flicker deflicker temporal smoothing scene detect',
+  'core.spread_tones': 'spread tones equalize equalise histogram even out brightness rgb photoshop style',
   'core.depth_key': 'depth key depth matte z zdepth exr render pass cut out near far fog',
   'core.glass': 'cc glass refraction refract lens bump map shockwave water ripple heat distortion bevel light',
   'core.drop_shadow': 'shade',
@@ -9570,6 +9579,10 @@ const EFFECT_ABOUT = {
   'core.pass_extract': 'Shows the depth, the normals, the object or material ids, or any named channel a 3D render saved in the layer\'s EXR file, as a picture.',
   'core.id_key': 'Keeps only the object or material with one id, read from the ids a 3D render saved in the layer\'s EXR file.',
   'core.text_animator': 'Moves, scales, turns, fades or recolours the letters of a text layer one by one, as far as a range selector picks them: a typewriter, a fade by character, a wave.',
+  'core.stretch_levels': 'Stretches each colour channel of the layer to its own darkest and lightest, read from the whole picture, so a dull picture fills the range and a cast lessens.',
+  'core.stretch_contrast': 'Stretches the layer\'s darkest and lightest to black and white, the three channels together, so the colours keep their balance.',
+  'core.stretch_color': 'Takes the layer\'s darkest pixels to black and its lightest to white, taking out a colour cast; it can take the average colour to grey too.',
+  'core.spread_tones': 'Spreads the layer\'s tones evenly over the whole range, by its histogram.',
   'core.depth_key': 'Takes out what is nearer than a depth, read from the depth a 3D render saved in the layer\'s EXR file.',
   'core.glass': 'Bends the picture as if seen through glass shaped by a bump map, and lights its slopes.',
 };
@@ -9847,6 +9860,17 @@ const EFFECT_PARAMS = {
     ['smoothness', 'Smoothness', 1, 1, 'per cent, 0 to 100; for Square, how soft the range\'s edge is'],
     ['ease_high', 'Ease High', 1, 1, 'per cent, 0 to 100, how slowly the shape leaves fully picked'],
     ['ease_low', 'Ease Low', 1, 1, 'per cent, 0 to 100, how slowly the shape leaves not picked']],
+  // D-351, After Effects' own words. Blend With Original is the Mix every effect has (100 less it).
+  'core.stretch_levels': [['temporal_smoothing', 'Temporal Smoothing (seconds)', 1, 0.05, 'seconds each side whose pictures are read with this one, 0 to 10; 0 reads this frame only'],
+    ['black_clip', 'Black Clip', 1, 0.05, 'per cent of the darkest pixels taken to black, 0 to 10'],
+    ['white_clip', 'White Clip', 1, 0.05, 'per cent of the lightest pixels taken to white, 0 to 10']],
+  'core.stretch_contrast': [['temporal_smoothing', 'Temporal Smoothing (seconds)', 1, 0.05, 'seconds each side whose pictures are read with this one, 0 to 10; 0 reads this frame only'],
+    ['black_clip', 'Black Clip', 1, 0.05, 'per cent of the darkest pixels taken to black, 0 to 10'],
+    ['white_clip', 'White Clip', 1, 0.05, 'per cent of the lightest pixels taken to white, 0 to 10']],
+  'core.stretch_color': [['temporal_smoothing', 'Temporal Smoothing (seconds)', 1, 0.05, 'seconds each side whose pictures are read with this one, 0 to 10; 0 reads this frame only'],
+    ['black_clip', 'Black Clip', 1, 0.05, 'per cent of the darkest pixels taken to black, 0 to 10'],
+    ['white_clip', 'White Clip', 1, 0.05, 'per cent of the lightest pixels taken to white, 0 to 10']],
+  'core.spread_tones': [['amount', 'Amount to Equalize', 1, 1, 'per cent, 0 to 100']],
   // D-347, After Effects' own words where it has them.
   'core.moment_map': [['max_time', 'Max Displacement Time', 1, 0.1, 'seconds, -10 to 10, how far white reaches forward and black back; mid grey stays'],
     ['resolution', 'Time Resolution', 1, 1, 'steps a second, 1 to 999; above the frame rate it stays whole frames']],
@@ -10273,6 +10297,16 @@ const EFFECT_WORDS = {
         ['words', 'Words']]],
       ['shape', 'Shape', [['square', 'Square'], ['ramp_up', 'Ramp Up'], ['ramp_down', 'Ramp Down'], ['triangle', 'Triangle'],
         ['round', 'Round'], ['smooth', 'Smooth']]]],
+  },
+  // D-351.
+  'core.stretch_levels': { choices: [['scene_detect', 'Scene Detect', [['off', 'Off'], ['on', 'On']]]] },
+  'core.stretch_contrast': { choices: [['scene_detect', 'Scene Detect', [['off', 'Off'], ['on', 'On']]]] },
+  'core.stretch_color': {
+    choices: [['scene_detect', 'Scene Detect', [['off', 'Off'], ['on', 'On']]],
+      ['snap_neutral_midtones', 'Snap Neutral Midtones', [['off', 'Off'], ['on', 'On']]]],
+  },
+  'core.spread_tones': {
+    choices: [['equalize', 'Equalize', [['rgb', 'RGB'], ['brightness', 'Brightness'], ['photoshop', 'Photoshop Style']]]],
   },
   // D-347.
   'core.moment_map': {

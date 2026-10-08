@@ -366,6 +366,11 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "TEXT_ANIMATOR_NO_TEXT",
         "D-350_text_animator_table.md",
     ),
+    (
+        DiagnosticId::TemporalSmoothingSkipped,
+        "TEMPORAL_SMOOTHING_SKIPPED",
+        "D-351_auto_tone_table.md",
+    ),
 ];
 
 /// The catalogue entries this build has no variant for, and why not. Hand-written: each one is
@@ -437,7 +442,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "61 identifiers",
+        "62 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

@@ -232,6 +232,10 @@ pub enum DiagnosticId {
     /// Document 28, added by D-350: a text animator on a layer that is not a text layer, which has
     /// no letters to move. WARNING every frame; the animator is kept and changes nothing.
     TextAnimatorNoText,
+    /// Document 28, added by D-351: a Stretch effect with temporal smoothing on an adjustment
+    /// layer, where the frames beneath at other times are not to hand. WARNING every frame; each
+    /// frame is stretched by itself and the setting is kept.
+    TemporalSmoothingSkipped,
 }
 
 impl DiagnosticId {
@@ -304,6 +308,7 @@ impl DiagnosticId {
             DiagnosticId::EffectLayerCycle => "EFFECT_LAYER_CYCLE",
             DiagnosticId::EffectChannelMissing => "EFFECT_CHANNEL_MISSING",
             DiagnosticId::TextAnimatorNoText => "TEXT_ANIMATOR_NO_TEXT",
+            DiagnosticId::TemporalSmoothingSkipped => "TEMPORAL_SMOOTHING_SKIPPED",
         }
     }
 
@@ -371,6 +376,7 @@ impl DiagnosticId {
                 | DiagnosticId::EffectLayerCycle
                 | DiagnosticId::EffectChannelMissing
                 | DiagnosticId::TextAnimatorNoText
+                | DiagnosticId::TemporalSmoothingSkipped
         )
     }
 }

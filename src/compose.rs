@@ -1776,6 +1776,27 @@ fn resolve_rest(
             .with_remediation("Move the Text Animator to a text layer, or remove it."),
         );
     }
+    // D-351: an adjustment layer's frame beneath at other times is not to hand, so a Stretch
+    // effect there reads its own frame only.
+    if layer.is_adjustment()
+        && effects.iter().any(|i| {
+            i.enabled
+                && i.is_valid()
+                && matches!(i.effect, crate::effects::Effect::AutoTone { temporal_smoothing, .. } if smoothing_reach(comp, temporal_smoothing) > 0)
+        })
+    {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::TemporalSmoothingSkipped,
+                Severity::Warning,
+                format!("Adjustment layer {} has a Stretch effect with Temporal Smoothing, which an adjustment layer cannot do.", layer.name),
+                format!("Frame {frame} is stretched by itself, without the frames either side. The setting is kept as it is."),
+            )
+            .with_remediation("Put the Stretch effect on the layer itself, or precompose the layers beneath and put it on the composition layer."),
+        );
+    }
     // D-191: each layer setting's map, made at the size the effects run at. An adjustment
     // layer's are made where its stack runs, on the frame.
     if !layer.is_adjustment() {
@@ -1789,6 +1810,7 @@ fn resolve_rest(
         };
         fill_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_echoes(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
+        fill_stats(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_moment_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
     }
     // B-24d: a mask whose path has keys is resolved to its shape at this frame here, before the
@@ -2552,6 +2574,77 @@ fn fill_echoes(
         }
         let done = crate::perf::time(crate::perf::Stage::EffectEcho, || fold.finish());
         *picture = Some(crate::layer_map::Map(std::sync::Arc::new(done)));
+    }
+}
+
+/// D-351: how many frames each side a temporal smoothing of `seconds` reads.
+fn smoothing_reach(comp: &crate::model::Composition, seconds: f64) -> i32 {
+    let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+    (seconds * fps + 1e-9).floor() as i32
+}
+
+/// D-351: each switched-on Stretch effect with a temporal smoothing, the statistics of the
+/// frames it reads added up: the holder's picture at each frame with the effects before this
+/// one, its reach each side, a frame outside the layer or where nothing shows passed over, and
+/// with scene detect each side stopped at the first frame too unlike the last one counted.
+// ponytail: each frame read is the layer resolved again, so a smoothing under another smoothing
+// costs their reaches multiplied; keep each frame's statistics in the cache if that is slow.
+#[allow(clippy::too_many_arguments)]
+fn fill_stats(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    for i in 0..effects.len() {
+        let (reach, scenes) = match &effects[i] {
+            e if !e.enabled || !e.is_valid() => continue,
+            crate::effects::EffectInstance {
+                effect: crate::effects::Effect::AutoTone { temporal_smoothing, scene_detect, .. },
+                ..
+            } => (smoothing_reach(comp, *temporal_smoothing), scene_detect == "on"),
+            _ => continue,
+        };
+        if reach < 1 {
+            continue;
+        }
+        let mut upto = holder.clone();
+        upto.effects.truncate(i);
+        let mut inside = FrameLog::new(usize::MAX);
+        let mut read = |m: i32| {
+            resolve_layer(project, comp, &upto, m, root, quality, cache, &mut inside, &mut Vec::new(), false, false)
+                .and_then(|r| crate::frame_stats::Stats::of(&r.source))
+        };
+        let own = read(frame);
+        let mut counted: Vec<crate::frame_stats::Stats> = own.iter().cloned().collect();
+        for step in [1, -1] {
+            let mut last = own.clone();
+            for k in 1..=reach {
+                let Some(s) = read(frame + step * k) else {
+                    continue;
+                };
+                if scenes && last.as_ref().is_some_and(|l| s.difference(l) > 0.5) {
+                    break;
+                }
+                last = Some(s.clone());
+                counted.push(s);
+            }
+        }
+        let mut said = Vec::new();
+        for d in inside.finish() {
+            if !said.contains(&d.id) {
+                said.push(d.id);
+                log.record(frame, holder.name.clone(), d);
+            }
+        }
+        if let crate::effects::Effect::AutoTone { stats, .. } = &mut effects[i].effect {
+            *stats = crate::frame_stats::Stats::added(&counted).map(std::sync::Arc::new);
+        }
     }
 }
 

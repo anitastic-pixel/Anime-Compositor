@@ -1464,6 +1464,26 @@ pub enum Effect {
         invert: String,
         channels: Option<crate::layer_map::Map>,
     },
+    /// D-351: Stretch Levels, Stretch Contrast and Stretch Color, after After Effects' Auto
+    /// Levels, Auto Contrast and Auto Color: the picture stretched by its own statistics
+    /// (`frame_stats`, document 21). `kind`, "levels", "contrast" or "color", is which of the
+    /// three, from its type id, never saved; `temporal_smoothing`, 0 to 10 seconds;
+    /// `scene_detect` and `snap_neutral_midtones` (Stretch Color's only), "off" or "on";
+    /// `black_clip` and `white_clip`, 0 to 10 per cent. `stats` is not a setting and is never
+    /// saved: compose adds up the frames a temporal smoothing reads; `None` is this picture's own.
+    AutoTone {
+        kind: &'static str,
+        temporal_smoothing: f64,
+        scene_detect: String,
+        black_clip: f64,
+        white_clip: f64,
+        snap_neutral_midtones: String,
+        stats: Option<std::sync::Arc<crate::frame_stats::Stats>>,
+    },
+    /// D-351: Spread Tones, after After Effects' Equalize: each value moved to its place in the
+    /// picture's histogram, so the tones spread evenly. `equalize`, "rgb", "brightness" or
+    /// "photoshop"; `amount`, 0 to 100 per cent.
+    SpreadTones { equalize: String, amount: f64 },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1579,6 +1599,12 @@ pub const PASS_EXTRACT: &str = "core.pass_extract";
 pub const DEPTH_KEY: &str = "core.depth_key";
 pub const ID_KEY: &str = "core.id_key";
 pub const TEXT_ANIMATOR: &str = "core.text_animator";
+pub const STRETCH_LEVELS: &str = "core.stretch_levels";
+pub const STRETCH_CONTRAST: &str = "core.stretch_contrast";
+pub const STRETCH_COLOR: &str = "core.stretch_color";
+pub const SPREAD_TONES: &str = "core.spread_tones";
+/// D-351: Spread Tones' ways.
+pub const EQUALIZE: [&str; 3] = ["rgb", "brightness", "photoshop"];
 /// D-350: what a text animator's selector counts, and the shapes of its range.
 pub const TEXT_BASED_ON: [&str; 3] = ["characters", "characters_excluding_spaces", "words"];
 pub const TEXT_SHAPES: [&str; 6] = ["square", "ramp_up", "ramp_down", "triangle", "round", "smooth"];
@@ -2225,6 +2251,12 @@ impl Effect {
                 ("id", vec![id], 0.0, 1e6),
                 ("feather", vec![feather], 0.0, 100.0),
             ],
+            Effect::AutoTone { temporal_smoothing, black_clip, white_clip, .. } => vec![
+                ("temporal_smoothing", vec![temporal_smoothing], 0.0, 10.0),
+                ("black_clip", vec![black_clip], 0.0, 10.0),
+                ("white_clip", vec![white_clip], 0.0, 10.0),
+            ],
+            Effect::SpreadTones { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
             Effect::TextAnimator {
                 position, scale, rotation, opacity, color, tracking, start, end, offset, amount, smoothness, ease_high, ease_low, ..
             } => vec![
@@ -2943,6 +2975,10 @@ impl Effect {
             Effect::DepthKey { .. } => "Depth Key",
             Effect::IdKey { .. } => "ID Key",
             Effect::TextAnimator { .. } => "Text Animator",
+            Effect::AutoTone { kind: "levels", .. } => "Stretch Levels",
+            Effect::AutoTone { kind: "contrast", .. } => "Stretch Contrast",
+            Effect::AutoTone { .. } => "Stretch Color",
+            Effect::SpreadTones { .. } => "Spread Tones",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3054,6 +3090,10 @@ impl Effect {
             Effect::DepthKey { .. } => DEPTH_KEY,
             Effect::IdKey { .. } => ID_KEY,
             Effect::TextAnimator { .. } => TEXT_ANIMATOR,
+            Effect::AutoTone { kind: "levels", .. } => STRETCH_LEVELS,
+            Effect::AutoTone { kind: "contrast", .. } => STRETCH_CONTRAST,
+            Effect::AutoTone { .. } => STRETCH_COLOR,
+            Effect::SpreadTones { .. } => SPREAD_TONES,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3563,6 +3603,15 @@ impl Effect {
             )),
             Effect::TextAnimator { shape, .. } if !TEXT_SHAPES.contains(&shape.as_str()) => Some(format!(
                 "Text Animator's shape is \"square\", \"ramp_up\", \"ramp_down\", \"triangle\", \"round\" or \"smooth\", and this is \"{shape}\"."
+            )),
+            Effect::AutoTone { scene_detect, .. } if !["off", "on"].contains(&scene_detect.as_str()) => Some(format!(
+                "{name}'s scene detect is \"off\" or \"on\", and this is \"{scene_detect}\"."
+            )),
+            Effect::AutoTone { snap_neutral_midtones, .. } if !["off", "on"].contains(&snap_neutral_midtones.as_str()) => Some(format!(
+                "{name}'s snap neutral midtones is \"off\" or \"on\", and this is \"{snap_neutral_midtones}\"."
+            )),
+            Effect::SpreadTones { equalize, .. } if !EQUALIZE.contains(&equalize.as_str()) => Some(format!(
+                "Spread Tones equalizes by \"rgb\", \"brightness\" or \"photoshop\", and this is \"{equalize}\"."
             )),
             Effect::PassExtract { invert, .. } | Effect::DepthKey { invert, .. } | Effect::IdKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => {
                 Some(format!("{name}'s invert is \"off\" or \"on\", and this is \"{invert}\"."))
@@ -5575,6 +5624,13 @@ pub(crate) fn apply_stack_at(
             Effect::PosterizeTime { .. } => {}
             // D-350: the letters were moved where the text was drawn.
             Effect::TextAnimator { .. } => {}
+            // D-351: by the whole picture's statistics, or the frames' compose added up.
+            Effect::AutoTone { .. } => crate::perf::time(crate::perf::Stage::EffectAutoTone, || {
+                crate::frame_stats::apply(source, &instance.effect)
+            }),
+            Effect::SpreadTones { .. } => crate::perf::time(crate::perf::Stage::EffectSpreadTones, || {
+                crate::frame_stats::apply(source, &instance.effect)
+            }),
         }
         if display {
             encode(source, false, top);

@@ -35,7 +35,7 @@ pub(crate) fn to_srgb(c: f64) -> f64 {
 /// bit for bit the pixel's before it on the row takes that pixel's colour through the curve,
 /// and, unless `placed` says `f` reads the pixel's index, its result too: the same bits,
 /// without the powers.
-fn grade_pixels(source: &mut WorkingBuffer, placed: bool, f: impl Fn(usize, [f64; 3]) -> [f64; 3] + Sync) {
+pub(crate) fn grade_pixels(source: &mut WorkingBuffer, placed: bool, f: impl Fn(usize, [f64; 3]) -> [f64; 3] + Sync) {
     let w = source.width().max(1);
     source
         .data_mut()

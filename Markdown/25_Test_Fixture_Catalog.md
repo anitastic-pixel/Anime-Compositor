@@ -176097,6 +176097,74 @@ FX-TXA-022 (`fx_txa_022.json`): A shape this build does not have (`wiggly`): rep
 
 FX-TXA-023 (`fx_txa_023.json`): An animator on a solid has no characters to move: the solid drawn as without it. Warning `TEXT_ANIMATOR_NO_TEXT` every frame. Frames 0.
 
+### Stretch Levels, Stretch Contrast, Stretch Color and Spread Tones (D-351)
+
+After After Effects' Auto Levels, Auto Contrast, Auto Color and Equalize (B-231; EFFECTS.md P0-15). Every case is a project of one composition 16 by 10 at 24 fps, eight frames, in `Fixtures/auto_tone/`: the layer `holder` (effect `fx-1`; a Levels `fx-0` before it or `fx-2` after it where a case says so), a run of drawings flickering in brightness, 1, 2, 3, 1, 4, 5, 4, 5, with a cut at frame 4. Drawings 1 to 3 are a dull, warm picture (a grey ramp 70 to 188, red raised 20, blue lowered 25, an orange and a blue patch in the bottom rows, column 0 empty, column 15 at half covering), 2 lifted 12 and 3 lowered 10; drawings 4 and 5 a darker, cold ramp 20 to 131 with blue raised, 5 lifted 8. FX-AUTO-022 and 023 put the effect on an adjustment layer `adjust` above the holder. **Every number is produced by `tools/auto_tone_reference.py`**, which counts with numpy from the drawings' 8-bit values in double precision and asserts no value, running total or scene difference lies near an edge; the numbers are in `Fixtures/auto_tone/expected_auto_tone.json`. Tolerance 2e-5. B-231 checks them, and draws the playtest's pictures, in `verification/D-351_auto_tone_table.md`.
+
+FX-AUTO-001 (`fx_auto_001.json`): Stretch Levels as added, clips 0.1 per cent: each channel of the dull, warm drawing stretched to its own darkest and lightest, so the darkest grey nears black, the lightest white, and the warm cast is lessened. Frames 0.
+
+FX-AUTO-002 (`fx_auto_002.json`): Stretch Levels, clips 5 per cent: the darkest and lightest 5 per cent of each channel go to black and white. Frames 0.
+
+FX-AUTO-003 (`fx_auto_003.json`): Stretch Levels, clips 0: the drawing's own darkest and lightest in each channel become exactly 0 and 255. Frames 0.
+
+FX-AUTO-004 (`fx_auto_004.json`): Stretch Contrast as added: one stretch for the three channels together, so the warm cast stays. Frames 0.
+
+FX-AUTO-005 (`fx_auto_005.json`): Stretch Contrast, clips 5 per cent. Frames 0.
+
+FX-AUTO-006 (`fx_auto_006.json`): Stretch Color as added: the darkest pixels' colour goes to black and the lightest pixels' to white. Frames 0.
+
+FX-AUTO-007 (`fx_auto_007.json`): Stretch Color with Snap Neutral Midtones: the average colour is taken to a grey as well. Frames 0.
+
+FX-AUTO-008 (`fx_auto_008.json`): Stretch Color, clips 5 per cent, Snap Neutral Midtones. Frames 0.
+
+FX-AUTO-009 (`fx_auto_009.json`): Stretch Levels at Mix 50, Blend With Original 50 per cent: halfway between the drawing and FX-AUTO-001. Frames 0.
+
+FX-AUTO-010 (`fx_auto_010.json`): A Levels lowering output white to 128, then Stretch Levels: the statistics are of the darkened picture, so the full range comes back. Frames 0.
+
+FX-AUTO-011 (`fx_auto_011.json`): Stretch Levels, then a Levels lowering output white to 128: the stretched picture darkened. Frames 0.
+
+FX-AUTO-012 (`fx_auto_012.json`): Stretch Levels on each frame of the flicker by itself: frames 1 and 2, a brighter and a darker copy of frame 0, are each stretched by their own statistics. Frames 1, 2, 4.
+
+FX-AUTO-013 (`fx_auto_013.json`): Stretch Levels, Temporal Smoothing 0.1 seconds, two frames each side: frame 0 reads frames 0 to 2 (the two before are outside the layer); frame 3 reads 1 to 5, across the cut; frame 7 reads 5 to 7. Frames 0, 3, 7.
+
+FX-AUTO-014 (`fx_auto_014.json`): FX-AUTO-013 with Scene Detect: frame 3 reads only 1 to 3 and frame 4 only 4 to 6, each side of the cut. Frames 3, 4.
+
+FX-AUTO-015 (`fx_auto_015.json`): Stretch Color, Temporal Smoothing 0.1, Scene Detect and Snap Neutral Midtones. Frames 2, 5.
+
+FX-AUTO-016 (`fx_auto_016.json`): Stretch Contrast, Temporal Smoothing 0.1. Frames 3.
+
+FX-AUTO-017 (`fx_auto_017.json`): A Levels lowering output white to 128, then Stretch Levels with Temporal Smoothing 0.1: every frame read is the darkened picture. Frames 2.
+
+FX-AUTO-018 (`fx_auto_018.json`): Spread Tones as added, RGB: each channel's values spread evenly over 0 to 255 by its own histogram. Frames 0.
+
+FX-AUTO-019 (`fx_auto_019.json`): Spread Tones, Photoshop Style: one histogram of the three channels for all. Frames 0.
+
+FX-AUTO-020 (`fx_auto_020.json`): Spread Tones, Brightness: each pixel scaled so its brightness is spread. Frames 0.
+
+FX-AUTO-021 (`fx_auto_021.json`): Spread Tones, RGB, amount 50: halfway. Frames 0.
+
+FX-AUTO-022 (`fx_auto_022.json`): Stretch Levels on an adjustment layer above the holder: the frame beneath is the drawing, so FX-AUTO-001. Frames 0.
+
+FX-AUTO-023 (`fx_auto_023.json`): Stretch Levels with Temporal Smoothing 0.1 on an adjustment layer: the frames beneath at other times are not to hand, so each frame is stretched by itself, with a warning each frame. Warning `TEMPORAL_SMOOTHING_SKIPPED` every frame. Frames 0, 3.
+
+FX-AUTO-024 (`fx_auto_024.json`): Black clip keyed from 0 at frame 0 to 10 at frame 4: 5 at frame 2. Frames 0, 2, 4.
+
+FX-AUTO-025 (`fx_auto_025.json`): FX-AUTO-001 with the holder moved 3 pixels right, its last columns off the composition: the statistics are of the whole layer, so the same, moved. Frames 0.
+
+FX-AUTO-026 (`fx_auto_026.json`): Black clip 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AUTO-027 (`fx_auto_027.json`): White clip -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AUTO-028 (`fx_auto_028.json`): Temporal Smoothing 11 seconds, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AUTO-029 (`fx_auto_029.json`): Scene Detect written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AUTO-030 (`fx_auto_030.json`): Snap Neutral Midtones written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AUTO-031 (`fx_auto_031.json`): Spread Tones' equalize written "hsl". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AUTO-032 (`fx_auto_032.json`): Spread Tones' amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.
