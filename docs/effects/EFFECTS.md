@@ -3,6 +3,7 @@
 Audit date 2026-10-08. Source list: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/effects-and-animation-presets/effect-list.html (the page refused automated reading, HTTP 403, so the list was compiled from Adobe's per-category effect pages and web searches; newer additions were checked against release notes, see Sources at the bottom).
 Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 64 done, 13 partial, 163 missing.
 Plus 26 effects (24 done, 2 partial) of ours that are not on Adobe's list (last table).
+Plus 18 rows of the owner's picks from `docs/effects/PLUGINS.md` (marked **Pick #N**, its top-20 rank), placed after Adobe's rows in each category: 15 missing, 2 parked last, 1 skipped as a preset. Picks #5, #7 and #9 fill Adobe rows that already exist and are marked there.
 "done" = in the effect list with fixtures and a verification table. "partial" = it exists but is limited, approximate, reduced, or has no fixture folder. "missing" = we have nothing for it.
 Effect descriptions are in our own words; nothing here copies Adobe's text, and no Adobe or third-party code or presets are used.
 
@@ -10,6 +11,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 
 - **Type id**: our saved-file name for an effect, for example `core.simple_choker`. Shown wherever we have one.
 - **Reference / test** shorthand: `FX-XXX-001..NNN` are fixture cases under `Fixtures/`; `bNNN` is `tests/bNNN_*.rs`; `B-NN table` is `verification/B-NN_*_table.md`; `D-NNN` is the decision in `Markdown/14_Decisions_Risks.md`.
+- **Pick #N**: rank N in the top 20 of `docs/effects/PLUGINS.md` (third-party plugins and compositor picks, under our own names); not on Adobe's list.
 - **Depends on** names the Priority 0 items below (P0-1 to P0-23) or another effect.
 - **GPU plan**: the card (the graphics card) draws the viewer and preview. Exports and fixtures are always drawn on the CPU, and the card must agree with the CPU to within 1 level in 255 (ADR-006 as amended by D-100). "On card (done)" means the preview already uses the card. An effect whose Mix is below 100 (D-202) is always drawn on the CPU today.
 - **Perf target**: every target is a *target*, not a measurement. Classes, all for one 1920x1080 layer on the reference machine below, preview on the card:
@@ -46,9 +48,9 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | P0-18 | Mesh and brush warping | missing | L-05 in `Markdown/15` | Liquify, Mesh Warp, Reshape, Bezier Warp, Warp |
 | P0-19 | Shared noise basis | done | `core.fractal_noise` (D-128, D-299, D-318, D-326), FX-FRACTAL-001..038; reused by Turbulent Displace | Turbulent Noise, Curl Noise, Noise HLS, Add Grain, Fractal |
 | P0-20 | Matte refinement kit (choke, feather, edge-aware smoothing) | partial | `core.simple_choker` (D-159, FX-CHOKE-001..017), mask feather; no guided filter, no edge-aware smoothing | Matte Choker, Refine Soft/Hard Matte, Key Cleaner, our keyer |
-| P0-21 | Shared soft-glow engine (several blur sizes added in linear light, soft threshold, per-channel size, roll-off for very bright values) | missing | Glow (`core.glow`) and Bloom each have their own blur code today. Needs P0-9 (done). It arrives as a **new mode**: existing Glow and Bloom fixtures must not change. Own `tools/*_reference.py`; card and CPU agree within 1 level (ADR-006). Needs a written rule for how far the glow grows past the layer's edges, and no half-precision switch that changes pixels. Proposed in `PLUGINS.md` section 5, accepted by the owner 2026-10-08 | Soft Physical Glow, Energy Stroke's glow, Universe-style glows in `PLUGINS.md`; later Lightning's, Beam's, Light Wrap and Diffusion |
-| P0-22 | Effects draw along paths (an effect takes a mask, shape path or text outline and draws along it, with start and end trimming) | missing | The drawing exists (`src/shape.rs` strokes, joins, caps, trim, D-78, D-169) and so does the distance to a path (`src/mask.rs` `distance_to_path`); the hook that lets an effect use them does not. Proposed in `PLUGINS.md` section 5, accepted 2026-10-08 | Stroke, Vegas, Scribble, Write-on, Fill, Audio Waveform, Energy Stroke |
-| P0-23 | Held random seeds (an effect that holds its random value for N frames) | done | One rule, already shared by four effects: the held step is the composition frame divided by the whole part of Hold, rounded down (`frame.div_euclid(hold)` in `shake_jolt`, `speed_line_list` and `lightning_bolt` in `src/layer_fx.rs`, and `flicker_stops` in `src/effects.rs`), fed with the seed to `grade::unit`. New held effects use the same line. Written down 2026-10-08 from `PLUGINS.md` section 5 | Camera Shake, Exposure Flicker, Lightning, Speed Lines (done); Line Boil, Heat Shimmer (from `PLUGINS.md`) |
+| P0-21 | Shared soft-glow engine: input (threshold, smoothing, saturation bias, layer mask), spread (several blur sizes added in linear light for an exponential falloff; aspect and angle; per-channel size), colour (inner and outer tint), output (exposure, optional tone mapping, blend, source opacity, unmult) | missing | Glow (`core.glow`) and Bloom each have their own blur code today. Needs P0-9 (done). It arrives as a **new mode**: existing Glow and Bloom fixtures must not change. Own `tools/*_reference.py`; card and CPU agree within 1 level (ADR-006). The layer's edges grow with Radius (growing to the composition as the fallback). Tone mapping applies to the glow before the source goes back on top. The doubling of blur sizes is written so it can become a setting later (Deep Glow's Radii Easing, Saber's Glow Bias). No half-precision switch that changes pixels. Proposed in `PLUGINS.md` section 5, accepted by the owner 2026-10-08 | Picks #1, #6, #10, #11, #13, #14; later Lightning's, Beam's, Light Wrap and Diffusion |
+| P0-22 | Effects draw along paths (an effect takes a mask, shape path or text outline and draws along it, with start and end trimming) | missing | The drawing exists (`src/shape.rs` strokes, joins, caps, trim, D-78, D-169) and so does the distance to a path (`src/mask.rs` `distance_to_path`); the hook that lets an effect use them does not. Energy Stroke needs from it: a core from two points, masks or text; a movable start; size, trim and roundness at each end; the position along the path, so noise can follow it; and masks that cut the core, the glow or both. Proposed in `PLUGINS.md` section 5, accepted 2026-10-08 | Stroke, Vegas, Scribble, Write-on, Fill, Audio Waveform, pick #11 Energy Stroke |
+| P0-23 | Held random seeds (an effect that holds its random value for N frames) | done | One rule, already shared by four effects: the held step is the composition frame divided by the whole part of Hold, rounded down (`frame.div_euclid(hold)` in `shake_jolt`, `speed_line_list` and `lightning_bolt` in `src/layer_fx.rs`, and `flicker_stops` in `src/effects.rs`), fed with the seed to `grade::unit`. New held effects use the same line. Written down 2026-10-08 from `PLUGINS.md` section 5 | Camera Shake, Exposure Flicker, Lightning, Speed Lines (done); picks #4 Line Boil and #17 Heat Shimmer |
 
 **Build order.** Priority 0 items come before the effects that need them. P0-21 and P0-22 come before their effects. P0-6 (particles) and P0-13 (optical flow and after-the-fact motion blur) and everything that needs them come **last**, by the owner's choice of 2026-10-08.
 
@@ -82,6 +84,8 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Blur & Sharpen | Sharpen — boosts contrast between neighbouring pixels (`core.sharpen`) | done | none | On card (done) | Target P2; measured CPU 37.5 / GPU 24.4 ms (B-107) | FX-SHARPEN-001..018, b90, B-90 table, D-147 |
 | Blur & Sharpen | Smart Blur — blurs only where neighbours are within a threshold, keeping edges (`core.smart_blur`) | done | none | On card (done) | Target P2; measured CPU 22.0 / GPU 9.7 ms (B-151) | FX-SMART cases in median_smart_blur, b138, B-138 table, D-203 |
 | Blur & Sharpen | Unsharp Mask — sharpens by adding back the difference from a blurred copy, above a threshold (`core.sharpen` with threshold) | partial | Sharpen | On card without threshold; threshold runs on CPU, add to card | Target P2 | b198, D-317_unsharp_glass.md, D-317. Threshold has hand-worked tests only, no fixture |
+| Blur & Sharpen | Pick #2: Diffusion soft-light pass — the usual anime two-layer diffusion (a blurred copy laid over the original in soft light or screen) as one mode of `core.diffusion` | missing | Diffusion (Ours) | Reuse Diffusion card pass | Target P2 | `PLUGINS.md` top 20, #2 |
+| Blur & Sharpen | Pick #12: Shaped Bokeh with blur map — Camera Lens Blur takes its blur amount from another layer's brightness | missing | P0-3, Camera Lens Blur | Reuse Lens Blur card pass | Target P3 | `PLUGINS.md` top 20, #12; fills the limit in the Camera Lens Blur row |
 
 ## Color Correction
 
@@ -121,6 +125,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Color Correction | Tint — maps dark pixels to one colour and light pixels to another, by an amount (`core.tint`) | partial | none | Add card pass (P1) | Target P1 | FX-E/FX-T cases in b07, B-07 table, document 21. Limit: ours is one colour plus amount, not AE's black-to-white two-colour map |
 | Color Correction | Tritone — maps shadows, midtones and highlights to three chosen colours (via `core.gradient_map`) | partial | none | On card (done) | Target P1; measured CPU 41.3 / GPU 25.0 ms (B-76) | FX-GRADMAP-001..023, b72, B-72 table, D-129. Covered by a three-stop Gradient Map, not a Tritone with its own controls |
 | Color Correction | Vibrance — raises saturation of muted colours more than strong ones (`core.vibrance`) | done | none | On card (done), fused | Target P1; measured CPU 40.3 / GPU 27.9 ms (B-107) | FX-VIBRANCE-001..018, b83, B-83 table, D-140 |
+| Color Correction | Pick #8: Aerial Haze — lowers contrast and shifts colour toward the sky for distant backgrounds, evenly or through a matte | missing | none (P0-3 for a matte from a layer) | Add card pass (P1) | Target P1 | `PLUGINS.md` top 20, #8 |
 
 ## Distort
 
@@ -163,6 +168,10 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Distort | Warp — preset bends (arc, flag, bulge, fish and more) like Illustrator's | missing | P0-18 | Add card pass | Target P2 | none yet |
 | Distort | Warp Stabilizer — analyses shake and smooths or locks camera motion | missing | P0-13 | not planned | n/a | none yet; L-04 |
 | Distort | Wave Warp — travelling waves of chosen shape across the image (`core.wave_warp`) | done | none | On card (done) | Target P2; measured CPU 94.6 / GPU 35.4 ms (B-107) | FX-WAVE-001..024, b92, B-92 table, D-149 |
+| Distort | Pick #3: Lens Chromatic Aberration — colour channels scaled apart from a centre, stronger toward the edges, with per-channel scale, fringe blur and a straight-offset mode (RGB Separation); extends `core.chromatic_aberration` | missing | Chromatic Aberration (Ours) | Reuse its card pass | Target P2 | `PLUGINS.md` top 20, #3 |
+| Distort | Pick #4: Line Boil — Turbulent Displace takes a new random pattern every N frames, the hand-drawn wobble | missing | Turbulent Displace, P0-23 | Reuse Turbulent Displace card pass | Target P2 | `PLUGINS.md` top 20, #4 |
+| Distort | Pick #17: Heat Shimmer — Turbulent Displace drifting in a set direction and speed, for heat haze | missing | Turbulent Displace, P0-23 | Reuse Turbulent Displace card pass | Target P2 | `PLUGINS.md` top 20, #17 |
+| Distort | Pick #19: Map Chromatic Displacement — Displacement Map moves each colour channel by a different amount, for water and glass | missing | Displacement Map | Reuse Displacement Map card pass | Target P2 | `PLUGINS.md` top 20, #19 |
 
 ## Generate
 
@@ -187,19 +196,20 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Generate | Fractal — draws Mandelbrot or Julia set images | missing | none | Add card pass | Target P2 | none yet |
 | Generate | Gradient Ramp — linear or radial blend between two colours (`core.gradient`) | done | none | On card (done) | Target P1; measured CPU 38.9 / GPU 26.0 ms (B-65) | FX-GRAD-001..022, b57, B-57 table, D-114 |
 | Generate | Grid — draws a grid of lines | missing | none | Add card pass (P1) | Target P1 | none yet |
-| Generate | Lens Flare — simulated camera flare from a bright point | missing | none | Add card pass | Target P2 | none yet |
+| Generate | Lens Flare — simulated camera flare from a bright point | missing | none | Add card pass | Target P2 | Pick #9, Lens Flare (`PLUGINS.md` top 20, #9) |
 | Generate | Paint Bucket — flood-fills an area of similar colour | missing | none | CPU first (flood fill is serial) | Target P4 | none yet |
 | Generate | Radio Waves — rings that spread outward from a point over time (`core.radio_waves`) | done | none | Add card pass | Target P2 | FX-RWAVE-001..027, b135, B-135 table, D-200 |
 | Generate | Scribble — fills a mask with animated scribbled strokes | missing | P0-8, P0-22 | Add card pass | Target P2 | none yet |
 | Generate | Stroke — draws along a mask path, with write-on start and end | missing | P0-8, P0-22 | Add card pass | Target P2 | none yet |
 | Generate | Vegas — runs moving dashes along edges or a mask path | missing | P0-8, P0-22 | Add card pass | Target P2 | none yet |
 | Generate | Write-on — paints a brush stroke along animated positions | missing | P0-1, P0-22 | Add card pass | Target P2 | none yet |
+| Generate | Pick #11: Energy Stroke — a glowing beam along a mask, shape path or text outline: hot core, coloured glow, built-in wobble and flicker; copies stack by adding light | missing | P0-22, P0-21 | Add card pass | Target P3 | `PLUGINS.md` top 20, #11 |
 
 ## Noise & Grain
 
 | Category | Effect (AE behaviour, in our words) | Status | Depends on | GPU plan | Perf target | Reference / test |
 |---|---|---|---|---|---|---|
-| Noise & Grain | Add Grain — film-like grain with presets for size, softness and colour | missing | P0-19 | Add card pass | Target P2 | none yet |
+| Noise & Grain | Add Grain — film-like grain with presets for size, softness and colour | missing | P0-19 | Add card pass | Target P2 | Pick #5, Film Grain: grain weighted to the midtones by brightness (`PLUGINS.md` top 20, #5) |
 | Noise & Grain | Curl Noise (new in AE 26.3, June 2026) — flowing, swirling 2D noise that moves like smoke, ink or water rather than flickering | missing | P0-19 | Add card pass (curl of a noise field) | Target P3 | none yet |
 | Noise & Grain | Dust & Scratches — removes small specks by replacing pixels unlike their neighbours | missing | Median | Reuse Median card pass with threshold | Target P2 | none yet |
 | Noise & Grain | Fractal Noise — layered cloud-like noise with evolution, many types and blend modes (`core.fractal_noise`) | done | P0-19 | On card (done) | Target P3; measured CPU 122.7 / GPU 38.7 ms (B-76) | FX-FRACTAL-001..038, b71, b184, B-71 table, D-128, D-299, D-318, D-326 |
@@ -211,6 +221,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Noise & Grain | Noise HLS Auto — Noise HLS that animates by itself | missing | Noise HLS | Add card pass (P1) | Target P1 | none yet |
 | Noise & Grain | Remove Grain — reduces grain or noise while keeping detail | missing | P0-15 | Add card pass | Target P3 | none yet |
 | Noise & Grain | Turbulent Noise — a faster variant of fractal noise with fewer controls | missing | P0-19, Fractal Noise | Reuse Fractal Noise card pass | Target P2 | none yet |
+| Noise & Grain | Pick #18: Deband — hides banding in soft gradients with fine, shaped dither | missing | P0-19 | Add card pass (P1) | Target P1 | `PLUGINS.md` top 20, #18; controls not confirmed |
 
 ## Stylize
 
@@ -242,6 +253,13 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Stylize | Strobe Light — flashes colour or transparency on a beat | missing | none | Add card pass (P1) | Target P1 | none yet |
 | Stylize | Texturize — embosses a texture layer onto the image | missing | P0-3, Emboss | Add card pass | Target P2 | none yet |
 | Stylize | Threshold — turns the image pure black and white at a brightness level (`core.threshold`) | done | none | On card (done), fused | Target P1; measured CPU 37.8 / GPU 25.0 ms (B-107) | FX-THRESH-001..019, b81, B-81 table, D-138 |
+| Stylize | Pick #1: Soft Physical Glow — a new Glow mode: exponential falloff built from several blur sizes added in linear light, soft threshold, saturation bias, exposure | missing | P0-21, Glow | Add card pass (new mode) | Target P3 | `PLUGINS.md` top 20, #1; existing Glow fixtures stay unchanged |
+| Stylize | Pick #6: Glow core-to-edge colour — Glow tints its core one colour and its outer edge another (transmitted light, 透過光) | missing | P0-21, Glow | Add card pass (with #1) | Target P3 | `PLUGINS.md` top 20, #6 |
+| Stylize | Pick #10: Spectral Glow — a separate glow size per colour channel, so the halo fringes in colour | missing | P0-21, pick #1 | Add card pass (with #1) | Target P3 | `PLUGINS.md` top 20, #10 |
+| Stylize | Pick #13: Halation — warm red-orange light bleeding from bright edges, as film does | missing | P0-21 | Add card pass | Target P3 | `PLUGINS.md` top 20, #13 |
+| Stylize | Pick #14: Lens Dirt — a dirt texture from another layer, lit where the glow or flare is bright | missing | P0-21, P0-3, Lens Flare | Add card pass | Target P2 | `PLUGINS.md` top 20, #14 |
+| Stylize | Pick #15: Glint Streaks — a colour per ray and shimmer for Cross Glare | missing | Cross Glare (Ours) | Reuse Cross Glare card pass | Target P3 | `PLUGINS.md` top 20, #15 |
+| Stylize | Pick #16: Zoom Glow and Edge Glow — not effects: presets of Radial Blur + Glow and Outline + Glow | skip: preset only | Radial Blur, Glow, Outline | n/a | n/a | `PLUGINS.md` top 20, #16 |
 
 ## Transition
 
@@ -272,7 +290,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Time | CC Force Motion Blur — motion blur made by sampling between frames, for layers with no keyframed movement | partial | P0-4 | Layer motion blur on card exists (D-226/B-156b); not as an effect | Target P4 | FX-MB-001..050, b124, B-124b table (layer motion blur, D-188). No effect form |
 | Time | CC Wide Time — blends a set number of frames before and after | missing | P0-4, Echo | CPU first, card later | Target P4 | none yet |
 | Time | Echo — overlays earlier or later frames as fading copies (`core.echo`) | done | P0-4 | CPU only (multi-frame); card later | Target P4 | FX-ECHO-001..030, b130, B-130 table, D-195 |
-| Time | Pixel Motion Blur — motion blur from estimated per-pixel movement | missing | P0-13 | not planned | n/a | none yet |
+| Time | Pixel Motion Blur — motion blur from estimated per-pixel movement | missing | P0-13 | not planned | n/a | Parked pick: after-the-fact motion blur, built last (owner 2026-10-08; `PLUGINS.md` 2.8) |
 | Time | Posterize Time — holds frames to a lower frame rate (`core.posterize_time`) | done | P0-4 | CPU only (picks a time; no pixel work) | Target P4 | FX-PTIME-001..020, b131, B-131 table, D-196 |
 | Time | Time Difference — shows the difference between this layer and another at an offset time | missing | P0-4, P0-3 | CPU first | Target P4 | none yet |
 | Time | Time Displacement — each pixel shows a different moment, chosen by a map layer's brightness | missing | P0-4, P0-3 | CPU first | Target P4 | none yet |
@@ -292,7 +310,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Keying | Key Cleaner — recovers edge detail lost by a key and reduces chatter | missing | P0-20 | Add card pass | Target P3 | none yet |
 | Keying | Keylight — licensed third-party screen keyer. We will build our own keyer with similar controls instead (plan below) | missing | P0-20, Simple Choker, Light Wrap | Add card passes (see plan) | Target P2 | none yet; L-03 |
 | Keying | Linear Color Key — keys by distance from a picked colour with tolerance and softness | missing | Color Key | Add card pass (P1) | Target P1 | none yet |
-| Keying | Unmult (new in AE 26.0, January 2026) — turns a black or white background into transparency so fire or smoke footage composites cleanly | missing | P0-9 | Add card pass (P1) | Target P1 | none yet |
+| Keying | Unmult (new in AE 26.0, January 2026) — turns a black or white background into transparency so fire or smoke footage composites cleanly | missing | P0-9 | Add card pass (P1) | Target P1 | Pick #7 (`PLUGINS.md` top 20, #7) |
 
 ### Our own keyer (planned, not a Keylight clone)
 
@@ -345,6 +363,8 @@ It builds on what `core.color_key`, `core.hsv_key` and `core.extract` already do
 | Simulation | Particle Playground — particle cannon, grid and layer-exploding particles with forces | missing | P0-6 | Add card pass | Target P5 | none yet; L-01 |
 | Simulation | Shatter — breaks the layer into 3D pieces that fly apart | missing | P0-17, P0-12 | Add card pass | Target P5 | none yet; L-02 |
 | Simulation | Wave World — simulated water surface used as a displacement map | missing | P0-17 | Add card pass | Target P5 | none yet; L-02 |
+| Simulation | Pick #20: Particle Emitter — particles from points, layers or text, with forces and sprites | missing, parked: last | P0-6 | Add card pass | Target P5 | `PLUGINS.md` top 20, #20; owner 2026-10-08: built last |
+| Simulation | Parked pick: Particle Grid — particles laid out on a grid or a layer's shape, moved by maps | missing, parked: last | P0-6 | Add card pass | Target P5 | `PLUGINS.md` 2.2; built last |
 
 ## 3D Channel
 

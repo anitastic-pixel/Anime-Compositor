@@ -24,10 +24,10 @@ Research note, 2026-10-08. For the owner to review before anything changes in `E
 1. **Glow is the most common reason people buy a plugin.**
    - Every source, English and Japanese, complains about After Effects' own Glow. It clips to white, its threshold has a hard step, and it falls off too quickly.
    - The fix people pay for:
-     - a glow that fades slowly, the way real light does (described as "inverse square", meaning brightness drops with the square of distance; Deep Glow 2's panel calls its default falloff "Exponential");
+     - a glow that fades slowly, the way real light does (described as "inverse square", meaning brightness drops with the square of distance; Deep Glow 2's panel calls this default falloff "Exponential", and its developer describes Exponential as exactly that inverse-square falloff, 2026-10-08, from bTG5r89UakA 00:27);
      - worked out in linear light;
      - with a soft threshold.
-   - Deep Glow 2's full control panel is now confirmed from the owner-supplied screenshots (section 2.3).
+   - Deep Glow 2's full control panel is now confirmed from the owner-supplied screenshots, and its menus and the meaning of each control from the developer's own tutorials (section 2.3).
    - Japanese compositors build the same thing by hand: 3 to 6 blurred copies, each blur twice as wide as the last.
    - We have the parts (Glow, Bloom's four scales, float depth P0-9) but no shared engine for this. **Biggest single gap.**
 2. **Lens flares come second.**
@@ -113,62 +113,76 @@ The scores in every table are each 1 to 5:
 - three screenshots of the Deep Glow 2 effect panel from the seller's product page ("compact, Exponential", "compact, Iris", and "expanded", which opens every group);
 - seven YouTube videos: the seller's launch video, the developer's quickstart, in-depth Iris Mode and Tone Mapping tutorials, and two showcase clips; plus Video Copilot's Saber launch tutorial (2.4).
 
-What was read: the screenshots in full, and each video's title, description and chapter list. **No transcript was reachable** (YouTube returned empty captions), so nothing below rests on what is said inside a video. The product page itself still returned 403.
+What was read: the screenshots in full, and each video's title, description and chapter list. **Second pass, 2026-10-08:** the videos were downloaded with their subtitles. The three developer tutorials (_vd8g7PaS_U, bTG5r89UakA, l0MKEtsdZpg) carry YouTube's automatic English captions only (no hand-made subtitles). These were turned into transcripts, and frames were pulled wherever a menu was open on screen. A timestamp below such as "bTG5r89UakA 00:27" points to the place in that video. The launch video (3XdA_cZAZao) has no captions; its frames were checked. The product page itself still returned 403.
 
-**What it does.** Earlier search snippets described a glow that falls off with the inverse square of distance, so it has a bright centre and a long, gentle tail. The Deep Glow 2 panel names its default falloff **"Exponential"**, not inverse square (screenshots). The Iris tutorial's chapters ("what is exponential?", "what is iris?") suggest Exponential and Lens Iris are the two modes in version 2. Whether an inverse-square mode is still offered is not shown.
+**What it does.** A glow with a bright centre and a long, gentle tail. **Corrected 2026-10-08:** the Glow Mode menu has exactly two entries, "Exponential" and "Lens Iris" (frames, bTG5r89UakA 00:23 and _vd8g7PaS_U 03:50). The developer describes Exponential as the classic inverse-square falloff, as an ideal camera would record it (bTG5r89UakA 00:27-00:44). So there is no separate inverse-square mode: Exponential *is* the inverse-square mode. Its shape is set mainly by Radius, Aspect Ratio and angle. Lens Iris adds the faults of a real lens by using an image as the glow's shape, much like a shaped bokeh (bTG5r89UakA 00:46-01:00).
 
-The launch video's description lists what version 2 added: a glow driven by an image, cinematic tone mapping, red/green/blue radius multipliers, performance gains, a lens-dirt texture, a multi-colour tint and custom gamma correction. Every one of these shows up as a control group in the screenshots.
+The launch video's description lists what version 2 added: a glow driven by an image, cinematic tone mapping, red/green/blue radius multipliers, performance gains, a lens-dirt texture, a multi-colour tint and custom gamma correction. Every one of these shows up as a control group in the screenshots. The launch video's on-screen text also says the effect is GPU accelerated (frames, 3XdA_cZAZao about 01:00).
 
-**Controls confirmed from the screenshots.** "C" means both compact screenshots show it, "E" the expanded one, "I" the Iris screenshot only.
+**Controls confirmed from the screenshots.** "C" means both compact screenshots show it, "E" the expanded one, "I" the Iris screenshot only, "V" a video (id and time given; menu entries read from frames, meanings from the developer's narration, 2026-10-08).
 
 | Group | Control (exact name) | Default shown | What it means, in my words | Seen in |
 |---|---|---|---|---|
-| Main | Glow Mode | Exponential / Lens Iris | Shape of the falloff: a smooth exponential tail, or a kernel taken from an image | C, E |
+| Main | Glow Mode | Exponential; menu "Exponential", "Lens Iris" | Shape of the falloff: the inverse-square tail, or a kernel taken from an image | C, E, V (bTG5r89UakA 00:23) |
 | Main | Blend Mode | Screen | How the glow goes back over the original | C, E |
 | Main | Radius | 500.00 | How far the glow reaches | C, E |
 | Main | Exposure | 1.00 | Glow brightness | C, E |
 | Input | Threshold | 0.00% | Brightness below which nothing glows | E |
-| Input | Threshold Smooth | 0.00% | Softens the threshold step, so highlights near it do not pop on and off | E |
-| Input | Saturation Bias | 0.00% | Weights which pixels glow by how saturated they are, not only how bright | E (quickstart chapter "saturation bias") |
+| Input | Threshold Smooth | 0.00% | Softens the threshold step, so highlights near it do not pop on and off | E, V (_vd8g7PaS_U 00:22) |
+| Input | Saturation Bias | 0.00% | Weights which pixels glow by how saturated they are. At the top of its range the threshold picks out washed-out pixels; at the bottom it throws away the most saturated ones | E, V (_vd8g7PaS_U 00:33-00:54) |
 | Input / Input Masking | Mask Layer (+ Source/effects dropdown), Mask Mode (Alpha), Mask Invert | None | Limits what glows to another layer's alpha (or another channel), optionally inverted | E |
-| Iris (Lens Iris mode only) | Iris Layer (+ Source dropdown) | a layer | The image whose shape the glow takes | I |
-| Iris | Iris Sampling Quality | Standard | Speed against noise when sampling the iris | I |
-| Iris | Iris Iterations | 10 | Probably how many sizes of the iris are layered (my reading of the name) | I |
-| Iris | Radii Easing | 90.00% | Probably how those sizes are spaced (my reading of the name) | I |
-| Style / Gamma Correction | Auto Detect Gamma, Gamma Info button, read-out "Scene Gamma: 2.20" | on | Works out the project's gamma so the glow is computed as if in linear light | E |
+| Iris (Lens Iris mode only) | Iris Layer (+ Source dropdown) | the layer itself | The image whose shape the glow takes. Set to none, the panel warns "Output will be blank". When the layer is its own iris, its own effects are not seen in the iris (that would loop); another layer's effects and masks are | I, V (bTG5r89UakA 01:07-01:50) |
+| Iris | Iris Sampling Quality | Standard; menu "Lowest", "Modest", "Standard", "Fine", "Extreme" | How finely the iris image is sampled. Too low on a detailed iris shows noise patterns | I, V (_vd8g7PaS_U 04:04-04:12; bTG5r89UakA about 12:30) |
+| Iris | Iris Iterations | 10 | How many copies of the iris kernel are stacked, at radii growing up to Radius; 1 to 20. One iteration is a single copy at full radius; more give a softer tail | I, V (_vd8g7PaS_U 04:12-04:23; bTG5r89UakA 03:51-04:11) |
+| Iris | Radii Easing | 90.00% | How the radius steps up from one copy to the next: 0% evenly spaced, 100% each step a fixed multiple of the last. A soft round iris at the defaults looks much like Exponential | I, V (_vd8g7PaS_U 04:14-04:19; bTG5r89UakA 03:43-04:20) |
+| Iris | Quality Preset Iris | menu "Draft", "Low", "Medium", "Standard", "High", "Extreme" | Iris mode's own quality preset | V (bTG5r89UakA 05:18-05:38) |
+| Iris | (no Aspect Ratio in Iris mode) | | The iris image's own proportions set the glow's proportions. The radius is measured against the iris's longest side, so an iris with animated scale or rotation makes the glow jitter; the developer says to precompose such an iris | V (bTG5r89UakA 09:37-11:23) |
+| Style / Gamma Correction | Auto Detect Gamma, Gamma Info button, read-out "Scene Gamma: 2.20", Gamma Correction amount | on, 0-100% | Works out the project's gamma so the glow is computed as if in linear light. New in version 2: an amount instead of on/off. In a linear project, auto applies none. Raising it lengthens the tail, and in Iris mode it makes the iris shape stand out more | E, V (_vd8g7PaS_U 00:58-01:23, 04:23-04:34; l0MKEtsdZpg 03:45-04:00) |
 | Style / Aspect Ratio | Aspect Ratio, Enable Angle | 1.00, off | Stretches the glow into an oval, optionally at an angle | E |
 | Style / Chromatic Aberration | Enable Pixel Aberration, Aberration Channels (Red & Blue), Pixel Offset | off, 1.00 | Shifts colour channels apart by some pixels | E |
-| Style / Chromatic Aberration | Enable Glow Aberration, Multiply Red / Green / Blue, Shuffle Channels | off, 80% / 100% / 120% | A different glow radius for each channel, so the glow edge turns rainbow | E |
-| Style / Tint | Tint Mode, Tint Blend Mode (Multiply), Color Inner, Color Outer, Swap Colors, Tint Strength | Off, 100% | Colours the glow, with one colour near the core and another at the outer edge | E |
-| Style / Tone Mapping | Operation, Mix | None, 100% | Squeezes very bright values back into range instead of clipping, blended by Mix | E |
-| Style / Lens Dirt Texture | Texture (+ Source), Opacity, Inherit Glow Color, Matte Exposure, Matte Gamma, Repeat Edges | None, 100%, 0%, 0.00, 1.00, on | A dirt image that lights up only where glow falls on it, optionally taking the glow's colour | E |
-| Quality | Quality Preset, Half Float, Buffer Expansion Mode, Aux Buffer Expansion | Medium, on, Auto, 0 | Speed against accuracy; lower-precision buffers; how far the image grows past the layer's edges so the glow is not cut off | E |
-| (bottom) | View | Final Result | Shows the result or an intermediate stage | C, E |
+| Style / Chromatic Aberration | Enable Glow Aberration, Multiply Red / Green / Blue, Shuffle Channels | off, 80% / 100% / 120% | A different glow radius for each channel, so the glow edge turns rainbow. Shuffle Channels swaps the three multipliers around. Both aberrations can be on together. Not available in Iris mode (too costly, says the developer); pixel aberration is | E, V (_vd8g7PaS_U 01:36-02:00, 04:36-04:44) |
+| Style / Tint | Tint Mode (menu "Off", "Monocolor", "Duocolor"), Tint Blend Mode (Multiply; menu "Multiply", "Overlay", "Soft Light"), Color Inner, Color Outer, Swap Colors, Tint Strength | Off, 100% | Colours the glow evenly whatever the input's colour: one colour, or one near the core and another at the outer edge | E, V (_vd8g7PaS_U 02:00-02:08) |
+| Style / Tone Mapping | Operation (menu "None", "ACES Filmic", "Filmic", "Hable Filmic", "Reinhard", "Reinhard 2", "Clamp Chroma"), Mix | None, 100% | Squeezes very bright values back into range with a smooth curve instead of clipping them at 1.0, blended by Mix (0-100% for now). See the notes below the table | E, V (l0MKEtsdZpg 01:49-06:01) |
+| Style / Lens Dirt Texture | Texture (+ Source), Opacity, Inherit Glow Color, Matte Exposure, Matte Gamma, Repeat Edges | None, 100%, 0%, 0.00, 1.00, on | A dirt image matted by the glow's brightness, so it shows only where the glow is brightest. Matte Gamma narrows it to the very brightest parts; it can take the glow's colour (including the tint) | E, V (_vd8g7PaS_U 02:37-03:09) |
+| Quality | Quality Preset (menu "Draft", "Low", "Medium", "Standard", "High", "Extreme", "Custom"), Half Float, Buffer Expansion Mode (menu "Auto", "Comp Size"), Aux Buffer Expansion, Reset Quality button | Medium, on, Auto, 0 | The presets set how much the image is downsampled: lower is faster and softer; a higher preset also sharpens extreme aspect ratios. Half Float halves internal memory (the developer says there is generally no visible difference). Buffer expansion sets how far the image grows past the layer's edges, for layers moving in and out of the frame | E, V (_vd8g7PaS_U 01:28-01:34, 03:11-03:37) |
+| (bottom) | View | Final Result; menu "Final Result", "Glow Input", "View Iris", "Lens Dirt Input", "Lens Dirt Matte", "Lens Dirt Matted" | Shows the result or an intermediate stage | C, E, V (bTG5r89UakA about 01:29) |
 | (bottom) | Source Opacity | 100.00% | Fades the original under the glow | C, E |
 | (bottom) | Unmult | on, labelled "(Required for Alpha)" | Turns black into transparency so the glow keeps a correct alpha | C, E |
 
-**From the video chapter lists (titles only, not transcripts):**
+**From the developer's tutorials (transcripts and frames, 2026-10-08):**
 
-- Iris mode can take shape layers, effects or photographs as the iris; the iris can be animated; its aspect ratio can change; there is a radius normalisation step; too few samples give visible noise patterns. The video points to Optical Flares' iris images as a source.
-- Tone mapping offers several algorithms. The chapters name a "clamp chroma" method and an "ACES filmic" look, say several tone maps can be combined, and say the tone map can be used as a utility on any HDR image, not only on glows.
-- The two showcase clips (Peter Clark; Ravie & Co) are demonstrations only; they confirm no controls.
+- **Iris method.** The iris image is used as a blur shape. Iris Iterations copies of it are stacked, at radii stepping up to Radius as Radii Easing says (above). The iris can be a shape layer, effects, a photograph, or a mix, and it can be animated. The developer uses Optical Flares' iris textures as an example (bTG5r89UakA 06:40-09:30).
+- **Tone mapping, how each operation behaves** (l0MKEtsdZpg):
+  - Saving bright values to an 8-bit file simply cuts them off at 1.0, so the hot core is lost. Tone mapping bends them under 1.0 with a curve instead (00:26-01:49).
+  - Hable keeps more of the tail. Reinhard is softer still. Reinhard 2 is Reinhard with an extra check for very bright values, fixed internally at over 4 (04:10-04:24).
+  - Clamp Chroma works differently. It is like tinting towards white through a matte made from the image's own brightness, which gives a white-hot core. The developer usually uses 10-20%, because more loses saturation (04:28-06:05).
+  - The tone map is applied *under* the original: the source is laid back on top afterwards, so it is not tone mapped itself. To tone-map everything, the seller ships a preset for an adjustment layer, the "Deep Glow 2 Tone Map Utility" (02:28-03:10).
+  - Tone mapping bunches up the tail. Raise Gamma Correction to win it back (03:30-04:00).
+  - Several tone maps can be stacked as a look. The promo's opening shot used Clamp Chroma at 33% plus two copies of ACES Filmic at 100% (06:25-07:16).
+- **Working tip.** In a linear project, put the glow over a solid black background, or After Effects composites it wrongly (bTG5r89UakA 02:10-02:24).
+- **Showcases.** The launch video and the two showcase clips (Peter Clark; Ravie & Co) are demonstrations only and confirm no controls. The launch video's on-screen feature list names lens dirt texturing, multicolour tint, tone mapping, RGB radius multipliers, image-based glow, performance gains and GPU acceleration (frames, 3XdA_cZAZao 00:54-01:06).
 
-**Not shown in any of the new sources:** controls named "Highlight Rolloff" or "Adaptation"; dithering; a downsample control (Quality Preset and Half Float may have replaced it); spread; GPU use. The GPU and dithering points rest on the earlier snippets only.
+**Status of the remaining points, 2026-10-08:**
+
+- **Downsampling: confirmed.** It still exists, but it is set through Quality Preset, not through its own control (_vd8g7PaS_U 03:11-03:20). "Custom" presumably exposes manual settings; these were never shown.
+- **GPU: confirmed.** The launch video says GPU accelerated (frames, 3XdA_cZAZao about 01:00). The note.com article says the plugin is heavy on the GPU (user experience). A search summary of the seller's page also says a GPU is required, with no CPU-only rendering; that page itself returned 403.
+- **Dithering: still unknown.** A search summary of the seller's page lists "dithering controls to reduce colour-banding" among the features, but it does not say which version. No dithering control appears in the expanded version 2 panel or in any video.
+- **Never seen anywhere:** controls named "Highlight Rolloff", "Adaptation" or "spread".
 
 **What the confirmed controls mean for Soft Physical Glow and P0-21:**
 
-- **Exponential falloff.** This fits the plan in section 5: several blurs, each double the last, added together, is an exponential-style tail. P0-21 needs no true inverse-square kernel to match the product's default mode. One Radius control can drive the whole stack.
-- **Lens Iris.** The glow takes its shape from an image. My reading of the control names is that the image is used as a blur shape at several growing sizes; the exact method is not shown. This is far more costly and close to what Camera Lens Blur's shaped kernel already does. **Leave it out of the first version.** Record it as a later P0-21 extension that would reuse the shaped-kernel work behind Shaped Bokeh (item 12).
+- **Exponential falloff.** Corrected 2026-10-08: the developer calls Exponential the inverse-square falloff (bTG5r89UakA 00:27). The plan in section 5 still holds. Several blurs, each double the last, added together, make a long tail that stands in for inverse square, and one Radius control can drive the whole stack. Our fixtures check our own reference, not a match to the product, so P0-21 needs no exact inverse-square kernel. What must be written down is that "physical" means a stand-in for inverse square.
+- **Lens Iris.** The glow takes its shape from an image. Now confirmed: the image is used as a blur shape, stacked at 1 to 20 growing radii, with the spacing set by Radii Easing (2.3 table). This is far more costly and close to what Camera Lens Blur's shaped kernel already does. **Leave it out of the first version.** Record it as a later P0-21 extension that would reuse the shaped-kernel work behind Shaped Bokeh (item 12).
 - **Threshold Smooth and Saturation Bias.** Both belong in P0-21's threshold stage, so every glow user gets them.
 - **Input mask from a layer.** P0-3 (layer references, done) covers it.
-- **Gamma correction.** We already work in linear light (P0-9, done), so there is nothing to auto-detect. Soft Physical Glow follows the project's working space. If a project is set up so that the glow cannot be computed linearly, that is diagnosed, not silently changed (document 28).
+- **Gamma correction.** We already work in linear light (P0-9, done), so there is nothing to auto-detect. The version 2 amount slider also works as a way to lengthen the tail (2.3 table); in a linear pipeline that is a falloff-shape setting, not a colour-space fix, and can wait until after the first version. Soft Physical Glow follows the project's working space. If a project is set up so that the glow cannot be computed linearly, that is diagnosed, not silently changed (document 28).
 - **Aspect Ratio and angle.** An oval, angled glow. Put it in P0-21: Lens Flare's anamorphic stretch and the anime oval flare (3.2) want the same thing.
 - **Glow Aberration (per-channel radius).** Confirms item 10 (Spectral Glow) as part of the same engine. **Pixel Aberration** is a plain channel shift before the glow; Shift Channels or Chromatic Aberration can do this already.
-- **Tint with Color Inner and Color Outer.** This is exactly item 6, "Glow core-to-edge colour" (透過光). It is now confirmed as something a leading glow plugin ships, not only an anime habit.
-- **Tone Mapping (Operation and Mix).** Make this the last stage of P0-21, off by default, so existing looks are unchanged. Which algorithms to offer is a decision for the owner; the product's exact list was not visible.
+- **Tint with Color Inner and Color Outer.** This is exactly item 6, "Glow core-to-edge colour" (透過光). It is now confirmed as something a leading glow plugin ships, not only an anime habit. The product offers one colour ("Monocolor") or core-plus-edge ("Duocolor"), laid on with Multiply, Overlay or Soft Light (_vd8g7PaS_U 02:04). That gives item 6 a ready-made, small control set.
+- **Tone Mapping (Operation and Mix).** Make this the last stage of P0-21, off by default, so existing looks are unchanged. The product's list is now known: ACES Filmic, Filmic, Hable Filmic, Reinhard, Reinhard 2 and Clamp Chroma (l0MKEtsdZpg 01:55). These are published curves, not the product's code, but each would still need our own reference and fixtures. Which ones to offer is still the owner's decision. Two details matter for us. First, the tone map goes on the glow before the source is laid back on top, so the source is not tone mapped. Second, stacking tone maps is a look people use. Both are covered if tone mapping is also available as an effect on its own, which would fill the "tone map any HDR image" need too.
 - **Lens Dirt Texture.** Confirms item 14, and gives its control set: a texture layer (P0-3), opacity, how much it takes the glow's colour, and exposure and gamma for the dirt matte.
-- **Quality / Half Float.** We should **not** copy a half-precision switch that changes pixels; GPU and CPU must stay within 1 level in 255 (ADR-006). A quality preset is fine only if every setting has its own fixture.
-- **Buffer Expansion.** The glow must be able to grow past the layer's edges. P0-21 needs a written rule for how far the output grows (tied to Radius), so a glow is never cut off at the layer bounds.
+- **Quality / Half Float.** We should **not** copy a half-precision switch that changes pixels; GPU and CPU must stay within 1 level in 255 (ADR-006). The developer's claim of "generally no visible difference" is not a 1-in-255 guarantee. The Quality Preset is now known to be a downsample choice (lower is softer), so each level changes pixels. A quality preset is fine only if every setting has its own fixture.
+- **Buffer Expansion.** The glow must be able to grow past the layer's edges. P0-21 needs a written rule for how far the output grows (tied to Radius), so a glow is never cut off at the layer bounds. The product offers "Auto" and "Comp Size" (_vd8g7PaS_U 03:30), which supports an automatic rule tied to Radius, with "grow to the comp" as the fallback.
 - **View.** A "show glow only" view is useful for checking; it costs little.
 - **Source Opacity and Unmult.** Small. Unmult is the same maths as the Unmult row (item 7), so build that first and reuse it.
 
@@ -177,6 +191,14 @@ The launch video's description lists what version 2 added: a glow driven by an i
 - A review (edit-films) says After Effects' Glow shows a step at the threshold and burns to white, while the plugin works in linear light with a soft threshold.
 - Japanese compositors list it as a must-have: note by tomoex; afuta-ya's top five puts it 4th.
 - A Japanese tutorial (terriblejunkshow) explains how to tame the built-in Glow's white clipping: switch it to Screen and turn off compositing the original.
+- A Japanese music-video maker's guide (note.com, Kagehito, 2026-09-09; added 2026-10-08) presents Deep Glow 2 as a higher-quality replacement for After Effects' Glow:
+  - beginners should start with just Radius and Exposure;
+  - for illustrated MVs, Threshold is the key control, so artwork does not burn into a white silhouette and keeps its colour;
+  - uses named: light in MVs, fantasy atmosphere and sunlight, particles, lyric text;
+  - Iris mode and lens dirt are mentioned as the version 2 extras;
+  - it warns that the effect is heavy on the GPU and slows After Effects, and suggests precomposing or rendering in stages.
+
+  It mentions no other plugin. For us, it supports two things: the threshold stage matters as much as the falloff, and Radius plus Exposure should be enough for a good first result.
 
 **Overlap.** These rows already do part of the job:
 
@@ -189,7 +211,7 @@ The launch video's description lists what version 2 added: a glow driven by an i
 **Recommendation: merge into `core.glow` as a new falloff mode called "physical",** so existing projects keep their look. Do not make a new effect.
 
 - Build the falloff as the shared soft-glow engine in section 5, so that Bloom, Diffusion, Lightning's and Beam's glows, Halation, Lens Flare and Energy Stroke can use it too.
-- First version: Exponential falloff, Radius, Exposure, Threshold, Threshold Smooth, Saturation Bias, input mask, aspect and angle, per-channel radius, inner/outer tint, Source Opacity, Unmult. Later: tone mapping, lens dirt, Lens Iris.
+- First version: Exponential falloff, Radius, Exposure, Threshold, Threshold Smooth, Saturation Bias, input mask, aspect and angle, per-channel radius, inner/outer tint, Source Opacity, Unmult. Later: tone mapping, lens dirt, Lens Iris. (2026-10-08, from the developer's tutorials _vd8g7PaS_U, bTG5r89UakA, l0MKEtsdZpg: the first version stays as it is. Every control listed is now confirmed with its meaning. Add the Gamma Correction amount to "later"; in linear light it only reshapes the tail.)
 - **Dropped from the spec:** "Highlight Rolloff" and "Adaptation". They came from one review, and neither appears anywhere in the fully expanded Deep Glow 2 panel. If they were real, they were version 1 controls; tone mapping covers the same need.
 
 **Infrastructure.** P0-9 (done), and the new shared soft-glow engine (section 5).
@@ -207,23 +229,46 @@ The launch video's description lists what version 2 added: a glow driven by an i
 - Start and end offsets animate it on, like a write-on.
 - It can render over black or onto transparency.
 
-**Confirmed controls.** Only some were confirmed by the pages I could read:
+**Confirmed controls, 2026-10-08.** Read from the effect panel in Video Copilot's launch tutorial (reSXGxkyr0k; frames, with the narration for meanings). That video has YouTube's automatic English captions only. Times are minutes:seconds in that video. The control names are Saber's own; the descriptions are mine.
 
-- core size, start and end offset;
-- glow colour, glow intensity and glow size;
-- a black or transparent composite;
-- presets.
+| Group | Controls (exact names) | What they do, in my words | Where |
+|---|---|---|---|
+| Top | Preset, Enable Glow, Glow Color, Glow Intensity, Glow Spread, Glow Bias, Core Size, Core Start, Core End | A preset menu (it changes the look, not the core's size or animation); the glow's colour, strength and width. Glow Bias sets how tight the glow hugs the core: lower is tighter with a hotter outer edge. Core Start and Core End are the two points of a straight saber. Colour comes out through Video Copilot's built-in colourise (Color Vibrance) | 02:30-03:14, 04:38-05:17; frame 02:50 |
+| Customize Core | Core Type (menu "Saber", "Layer Masks", "Text Layer"), Text Layer, Mask Evolution | Where the core comes from: two points, the layer's masks, or another layer's text. Mask Evolution slides the starting point around a mask (shown in turns and degrees) | 03:19-04:14, 06:02-06:13, 20:09-21:28; frames 03:20, 23:50 |
+| Customize Core | Start Size, Start Offset, Start Roundness, End Size, End Offset, End Roundness, Offset Size | Taper and trim at each end. The offsets animate a write-on, the roundness sets how round each end is, and Offset Size is a checkbox (its effect was not shown) | 03:29-03:41, 27:17-27:30; frames 03:20-04:10 |
+| Customize Core | Halo Intensity, Halo Size, Core Softness | A second, tight glow right next to the core, and a blur on the core itself | 03:43-03:57; frames 03:20-04:10, 23:50 |
+| Flicker | Flicker Intensity, Flicker Speed, Mask Randomization, Random Seed | Brightness flicker. Mask Randomization makes each mask flicker on its own | 23:53-24:43; frames 23:50-24:40 |
+| Distortion / Glow Distortion | Distortion Amount, Distortion Type (menu "Smoke", "Fluid", "Energy"), Composite (menu "Distortion", "Multiply"), Invert, Wind Speed, Wind Direction Offset, Noise Speed, Noise Scale, Noise Bias, Noise Complexity, Noise Aspect Ratio, Motion Blur, Random Seed, Lock Noise to Saber | Moving noise that either pushes the glow around ("Distortion") or darkens it into tendrils ("Multiply", optionally inverted). Wind moves the noise in one direction; Lock Noise to Saber makes the noise travel with the saber instead of staying fixed on screen | 06:44-09:31, 12:09-12:22, 14:04-14:30; frames 07:20-07:30 |
+| Distortion / Core Distortion | the same controls without Composite, plus Blend on Top | The same noise on the core, with its own speeds. Turning off Blend on Top removes the plain core normally drawn over the distorted one | 09:33-09:49, 12:57-13:13; frames 10:00-10:50 |
+| Glow Settings | (group never opened in the video) | Not known | |
+| Render Settings / Motion Blur | Motion Blur (On), Motion Blur Multiplier, Motion Blur Phase, Motion Blur Clamp | The core's own motion blur. A Multiplier of 1 is the default; 0.5 equals a 180-degree shutter. Phase shifts the blur in time | 30:12-31:06; frames 30:10-31:00 |
+| Render Settings | Gamma, Brightness, Saturation, Alpha Boost, Composite Settings (menu "Transparent", "Black", "Add") | A final colour pass: lowering Brightness turns a white core towards the glow colour (pink or red for neon). Composite Settings chooses over transparency, over black, or adding to what is below | 14:51-15:45, 18:15-18:35, 30:03, 32:12; frames 14:53, 32:10 |
+| Bottom | Alpha Mode (menu "Enable Masks", "Mask Core", "Mask Glow", "Disable"), Invert Masks, Use Text Alpha | How the layer's masks cut the result. "Enable Masks" crops everything outside the masks. "Mask Glow" cuts only the glow. "Mask Core" cuts only the core and lets the glow spill over the mask edge, like light wrap, which is how a saber passes behind a hand | 10:03-10:56, 33:21-34:01; frames 10:00, 33:30 |
 
-**Confirmed features, 2026-10-08.** The owner pasted the feature list from Video Copilot's product page, and the Saber launch video's description (https://youtu.be/reSXGxkyr0k, a 37-minute tutorial) carries nearly the same list. Neither names individual controls. Only the description was read; no transcript was reachable.
+**Workflow points from the same video:**
+
+- **Stacking in Add mode.** Several copies of the effect on one layer, sharing one mask, combine when each is set to Add (14:51-15:45).
+- **Layering.** Duplicate the effect, rotate it or shift its Mask Evolution, and change its random seed, for more depth (06:00-06:13, 14:04).
+- **Mixing in real footage.** Laying a real smoke element over the result makes it look more natural (25:44-25:54).
+- **Glow without a core.** Shrinking the mask (its expansion) until the core vanishes leaves only the glow, for smoke-like layers (25:02-25:31).
+
+**Features from the product page** (owner-pasted, 2026-10-08) and the launch video's description:
 
 - **Uses** (product page): energy beams, lightsabers, lasers, portals, neon lights, electricity and haze.
-- **Features** (both sources): high-quality energy and light beams; realistic glow falloff; advanced core settings; built-in distortion; text and mask outlines; effects that stack.
-- **Stacking in Add mode** (product page): several copies layer by adding light. For Energy Stroke this means it must composite additively over black or transparency, so two instances on one layer brighten where they overlap instead of covering each other.
-- **Presets:** the product page says 50; the 2016 video description says 25. The count has probably grown since launch. We would ship our own presets, not theirs.
+- **Features:** high-quality energy and light beams; realistic glow falloff; advanced core settings; built-in distortion; text and mask outlines; effects that stack.
+- **Presets.** Corrected 2026-10-08: the earlier "50 against 25" note does not matter for us. The video shows a long preset list but gives no count, and the presenter admits the names are loose. We would ship our own presets, not theirs.
 
-So **built-in distortion** and **advanced core settings** now count as confirmed features. The individual controls behind them (softness, flicker, glow spread, glow bias) are still only named in snippets, so they stay in the unconfirmed list.
+**Correction, 2026-10-08.** Core Softness, Flicker, Glow Spread and Glow Bias were listed as unconfirmed. All four are now confirmed from the panel (table above).
 
 **What this means for Energy Stroke.** "Realistic glow falloff" is the same need as Soft Physical Glow, which supports building Energy Stroke's glow on P0-21. "Haze" and "portals" show it is also used as a soft, wide glow, not only a thin line, so the glow radius needs a wide range.
+
+Added 2026-10-08, from reSXGxkyr0k:
+
+- **Energy Stroke needs three core sources:** two points, the layer's masks, and text outlines. All three ride on P0-22.
+- **It needs the three mask modes:** crop all, cut glow only, cut core only. "Cut core only" is the useful one for occlusion: it is what lets a beam pass behind a hand.
+- **It needs a choice of over transparent, over black, or Add.**
+- **Its noise must be able to follow the path** (Lock Noise to Saber). So the path piece has to hand the effect a position *along* the path, not only a distance from it.
+- **"Glow Bias" is a shape control on the falloff,** so P0-21 should take a bias as well as a radius.
 
 **Why people prefer it.**
 
@@ -476,7 +521,7 @@ For us this means many anime looks are **better served as small upgrades to effe
 
 Also parked and not ranked: after-the-fact motion blur (ReelSmart-style, needs P0-13) and Particle Grid (Form).
 
-**No change to the order after the 2026-10-08 sources.** The screenshots confirm items 1, 6, 10 and 14 as real product features but change no score. Item 1's effort stays 3 only because Lens Iris and tone mapping are left to later versions (2.3).
+**No change to the order after the 2026-10-08 sources.** The screenshots confirm items 1, 6, 10 and 14 as real product features but change no score. Item 1's effort stays 3 only because Lens Iris and tone mapping are left to later versions (2.3). **Still no change after the video transcripts and frames, and the note.com article (2026-10-08).** They correct one point (Exponential *is* the inverse-square mode) and fill in the menus and Saber's full panel. Neither moves any score: Energy Stroke's control list is longer than first thought, but each part sits on P0-21 or P0-22, already counted in its effort of 3.
 
 ## 5. Infrastructure to settle before the /loop starts
 
@@ -496,6 +541,9 @@ These were proposals for the P0 table in `EFFECTS.md`. The owner accepted them o
      - A written rule for how far the output grows past the layer's edges, tied to the radius, so a glow is never cut off.
      - Later, not in the first version: an image-shaped kernel (Deep Glow's Lens Iris), reusing Camera Lens Blur's shaped-kernel work.
      - No half-precision switch that changes pixels.
+     - Tone mapping, when it comes, applies to the glow before the source is laid back on top, so the source itself is not tone mapped. Its curve list is known (2.3), and the owner picks which to offer (2026-10-08, from l0MKEtsdZpg 02:28-02:42).
+     - Write the blur-size spacing (each double the last) so that it could later become a setting. Deep Glow exposes the same idea as Radii Easing (linear to exponential), and Saber exposes it as Glow Bias. The first version keeps doubling fixed (2026-10-08, from _vd8g7PaS_U 04:12-04:19 and reSXGxkyr0k 02:41-03:14).
+     - The edge-growth rule can be automatic (tied to Radius), with "grow to the comp" as the fallback, matching the product's "Auto" and "Comp Size" (2026-10-08, from _vd8g7PaS_U 03:30).
    - **Why now.** Today Glow and Bloom each have their own blur code, and Bloom has its own four scales. Without a shared piece, items 1, 6, 9, 10, 13 and 14 would each re-invent this and drift apart. Lightning's and Beam's glows, Light Wrap and Diffusion could move onto it later.
    - **How to check it.** It needs its own independent `tools/*_reference.py`, like every effect, and GPU and CPU must agree within 1 level in 255 (ADR-006).
    - **Main risk.** Existing Glow and Bloom fixtures must stay unchanged. The new falloff must be a new mode, never a change to the current ones.
@@ -507,6 +555,12 @@ These were proposals for the P0 table in `EFFECTS.md`. The owner accepted them o
      - masks (P0-8, done).
    - **What is missing:** the hook that lets an *effect* use them.
    - **What it unlocks:** Stroke, Vegas, Scribble, Write-on, Fill and Audio Waveform (all missing rows), and Energy Stroke.
+   - **What Energy Stroke needs from it** (2026-10-08, from reSXGxkyr0k, frames 03:20 and 10:00, narration 06:44-14:30):
+     - three path sources: two points, the layer's masks, and another layer's text;
+     - a movable start point on closed masks;
+     - size, trim and roundness at each end;
+     - the position *along* the path as well as the distance from it, so noise can travel with the path;
+     - the masks again at the end, to cut the core only, the glow only, or both.
 3. **Re-word P0-5's dependency note for Camera Lens Blur.**
    - The row says its blur map needs P0-5 (depth channels). A blur map *taken from another layer* only needs P0-3, which is done.
    - Split the two: the layer-map version can be built now; only true depth passes from EXR need P0-5.
@@ -561,13 +615,15 @@ Pages marked **(403)** could not be fetched; only search-result snippets were us
 - https://aescripts.com/media/catalog/product/u/i/ui_compact_exponential_1.jpg (panel screenshot, Exponential mode; owner-supplied)
 - https://aescripts.com/media/catalog/product/u/i/ui_compact_iris_1.jpg (panel screenshot, Lens Iris mode with the Iris group; owner-supplied)
 - https://aescripts.com/media/catalog/product/u/i/ui_expanded_4_1.jpg (panel screenshot, every group expanded; owner-supplied)
-- https://www.youtube.com/watch?v=3XdA_cZAZao ("Deep Glow 2 for After Effects Available Now!", aescripts; title and description with the what's-new list)
-- https://www.youtube.com/watch?v=_vd8g7PaS_U ("Deep Glow 2: Quickstart Guide & What's New?", Plugin Everything; title, description, chapters)
-- https://www.youtube.com/watch?v=bTG5r89UakA ("Deep Glow 2: In Depth Tutorial - Iris Mode", Plugin Everything; title, description, chapters)
-- https://www.youtube.com/watch?v=l0MKEtsdZpg ("Deep Glow 2: In Depth Guide to Tone Mapping", Plugin Everything; title, description, chapters)
-- https://www.youtube.com/watch?v=mvl5lHPYtL8 ("Made with Deep Glow 2 - Peter Clark"; showcase, title and description only)
-- https://www.youtube.com/watch?v=tCHgTuewZR4 ("Made with Deep Glow 2 - Ravie & Co"; showcase, title and description only)
-- No YouTube transcript was reachable for any video (empty captions); only titles, descriptions and chapter lists were read.
+- https://www.youtube.com/watch?v=3XdA_cZAZao ("Deep Glow 2 for After Effects Available Now!", aescripts; title and description with the what's-new list; no captions; frames checked 2026-10-08 for its on-screen feature list, including "GPU accelerated")
+- https://www.youtube.com/watch?v=_vd8g7PaS_U ("Deep Glow 2: Quickstart Guide & What's New?", Plugin Everything; title, description, chapters; 2026-10-08: transcript from YouTube's automatic English captions, and frames of the open menus)
+- https://www.youtube.com/watch?v=bTG5r89UakA ("Deep Glow 2: In Depth Tutorial - Iris Mode", Plugin Everything; title, description, chapters; 2026-10-08: transcript from automatic English captions, and frames of the open menus. Its Japanese captions are a machine translation and were not used)
+- https://www.youtube.com/watch?v=l0MKEtsdZpg ("Deep Glow 2: In Depth Guide to Tone Mapping", Plugin Everything; title, description, chapters; 2026-10-08: transcript from automatic English captions, and a frame of the Operation menu)
+- https://www.youtube.com/watch?v=mvl5lHPYtL8 ("Made with Deep Glow 2 - Peter Clark"; showcase; no captions; frames checked 2026-10-08, no controls shown)
+- https://www.youtube.com/watch?v=tCHgTuewZR4 ("Made with Deep Glow 2 - Ravie & Co"; showcase; automatic captions listed but YouTube refused the download (too many requests); frames checked 2026-10-08, no controls shown)
+- First pass: no YouTube transcript was reachable (empty captions). Second pass, 2026-10-08: the videos and captions were downloaded with yt-dlp. None has hand-made subtitles; the three tutorials have automatic English captions, which were used as transcripts.
+- https://note.com/kagehito_muji/n/ne516cce85488 (Kagehito, 2026-09-09; Japanese MV maker's guide to Deep Glow 2: Radius and Exposure first, Threshold for illustrations, heavy GPU use; read 2026-10-08)
+- Search-result summary of https://aescripts.com/deep-glow (page itself 403): lists GPU acceleration, a GPU required for rendering, downsample and blur quality controls, and dithering controls. Which version it describes is not stated.
 - https://aescripts.com/learn/deep-glow-review-physically-accurate-glows-inside-after-effects (403)
 - https://www.toolfarm.com/tutorial/plugin-everything-deep-glow-create-bettter-glow-effects/ (403)
 - https://edit-films.com/deep-glow-review/
@@ -576,7 +632,7 @@ Pages marked **(403)** could not be fetched; only search-result snippets were us
 
 - https://www.videocopilot.net/tutorials/saber_plug-in/
 - Video Copilot's Saber product page feature list, as pasted by the owner on 2026-10-08 (uses and feature list; no control names)
-- https://youtu.be/reSXGxkyr0k ("New Plug-in: SABER + Tutorial! 100% Free", Video Copilot; title and description only, no transcript reachable)
+- https://youtu.be/reSXGxkyr0k ("New Plug-in: SABER + Tutorial! 100% Free", Video Copilot; 2026-10-08: transcript from YouTube's automatic English captions, and frames of the effect panel with its Core Type, Distortion Type, Composite, Alpha Mode and Composite Settings menus open)
 - https://motionarray.com/learn/post-production/video-copilots-free-saber-plug-in-review/ (403; snippet only)
 - https://www.webdew.com/blog/how-to-use-saber-in-after-effects
 - https://www.provideocoalition.com/saber-new-free-effects-plug-video-copilot/ (snippet only)
@@ -621,9 +677,10 @@ Pages marked **(403)** could not be fetched; only search-result snippets were us
 **Unconfirmed or weakly sourced points, listed in one place.**
 
 - Deep Glow's "Highlight Rolloff" and "Adaptation": one review only, and absent from the fully expanded Deep Glow 2 panel. Dropped from our spec; at most version 1 controls.
-- Deep Glow: whether an inverse-square falloff mode still exists beside Exponential and Lens Iris; the options inside Tint Mode, Tone Mapping Operation, Quality Preset, Buffer Expansion Mode and View; whether it still has dithering or a downsample control; GPU use. None of these is visible in the screenshots.
-- Deep Glow Lens Iris: what Iris Iterations and Radii Easing do exactly (read from their names only).
-- Saber's individual controls for softness, flicker, glow spread and glow bias: still snippets only. Built-in distortion and advanced core settings are now confirmed as features (owner-pasted product list, launch video description), but not their control names.
+- Deep Glow: whether version 2 still has dithering. It is listed in a search summary of the seller's page (version not stated), but it is not in the expanded version 2 panel or any video.
+- Deep Glow: what the "Custom" quality preset exposes (never shown).
+- Saber: what is inside the Glow Settings group, and what Offset Size does (never opened or explained in the video).
+- Resolved 2026-10-08 and moved out of this list: the Glow Mode menu (Exponential is the inverse-square mode); every menu in the 2.3 table; Iris Iterations and Radii Easing; downsampling (via Quality Preset); GPU use; Saber's Core Softness, Flicker, Glow Spread, Glow Bias and the rest of its panel (2.4).
 - The full list of the Universe Distortions pack: only four effects were found.
 - Shine and Starglow being Trapcode products is from memory.
 - The CelFX Deband controls were not checked.
