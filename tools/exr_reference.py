@@ -6,6 +6,11 @@ and applies D-62's rules to what that library reads in numpy. The two share noth
 file format, so they agree only if both are right. That is document 11's T-14: "format-specific
 files from independent sources".
 
+D-349 adds two rules, with the channel names taken from `depth_channel_reference.py`: a file with
+no R, G, B or Y but a Blender `<layer>.Combined` layer is drawn from `Composite.Combined`, else
+the first such layer in file order; and a depth, normals, object id or material id pass is read
+by the effects, so it is no longer listed among the channels ignored.
+
 It writes, under `Fixtures/exr/`:
 
 - the test files, each written by the OpenEXR library, in folders named for what they test:
@@ -39,6 +44,9 @@ from pathlib import Path
 
 import numpy as np
 import OpenEXR
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from depth_channel_reference import colour_names, pass_names  # noqa: E402  (D-349's names)
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "Fixtures" / "exr"
@@ -169,6 +177,25 @@ def make_files():
     add("FX-EXR-003", "channels/rgb_and_y.exr", "RGBA and luminance both")
     write("channels/lowercase.exr", {"r": p["R"], "g": p["G"], "b": p["B"], "a": p["A"]})
     add("FX-EXR-003", "channels/lowercase.exr", "channel names in lower case")
+    # D-349: Blender's multilayer files keep colour in `<view layer>.Combined`.
+    blender = {f"ViewLayer.Combined.{k}": v for k, v in p.items()}
+    write("channels/blender.exr", dict(blender, **{
+        "ViewLayer.Depth.Z": p["G"] * 10, "ViewLayer.Normal.X": p["R"],
+        "ViewLayer.Normal.Y": p["G"], "ViewLayer.Normal.Z": p["B"],
+        "ViewLayer.IndexOB.X": constant(2)["R"], "ViewLayer.IndexMA.X": constant(1)["R"],
+        "ViewLayer.Mist.Z": p["A"]}))
+    add("FX-EXR-003", "channels/blender.exr",
+        "Blender multilayer: colour, depth, normals, object and material ids, mist")
+    write("channels/blender_composite.exr", dict(
+        {f"Composite.Combined.{k}": v for k, v in p.items()},
+        **{f"ViewLayer.Combined.{k}": v * 0.5 for k, v in p.items()}))
+    add("FX-EXR-003", "channels/blender_composite.exr",
+        "Blender multilayer with a Composite layer and a view layer")
+    write("channels/blender_two_layers.exr", dict(
+        {f"Foreground.Combined.{k}": v * 0.5 for k, v in p.items()},
+        **{f"Background.Combined.{k}": v for k, v in p.items()}))
+    add("FX-EXR-003", "channels/blender_two_layers.exr",
+        "Blender multilayer with two view layers and no Composite")
 
     inner = {k: v[1:4, 2:6] for k, v in p.items()}
     write("windows/inset.exr", inner, data=(2, 1, 5, 3), display=(0, 0, W - 1, H - 1))
@@ -264,8 +291,13 @@ def read(path):
         return refused("MEDIA_UNSUPPORTED_FORMAT", "luminance_chroma")
     elif "Y" in channels:
         used = [n for n in "YA" if n in channels]
+    elif colour_names(names):
+        # D-349: a Blender multilayer file, read from its Composite or first Combined layer.
+        used = [n for n in colour_names(names) if n]
     else:
         return refused("MEDIA_UNSUPPORTED_FORMAT", "no_colour_channels")
+    rename = dict(zip(colour_names(names), "RGBA")) if used and "." in used[0] else {}
+    channels = {rename.get(n, n): c for n, c in channels.items()}
 
     (dx0, dy0), (dx1, dy1) = (tuple(int(v) for v in c) for c in header["dataWindow"])
     (px0, py0), (px1, py1) = (tuple(int(v) for v in c) for c in header["displayWindow"])
@@ -295,7 +327,10 @@ def read(path):
         inside = (ox1 - ox0 + 1) * (oy1 - oy0 + 1)
 
     adjusted = []
-    ignored = [n for n in names if n not in used]
+    # D-349: a depth, normals, object id or material id pass is read by the effects, not ignored.
+    read_by_effects = {n for w in ("depth", "normals", "object_id", "material_id")
+                       for n in (pass_names(names, w) or [])}
+    ignored = [n for n in names if n not in used and n not in read_by_effects]
     if ignored:
         adjusted.append({"reason": "channels_ignored", "detail": ", ".join(ignored)})
     if dw * dh - inside:

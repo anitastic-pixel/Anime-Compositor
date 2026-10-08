@@ -49,13 +49,43 @@ drawing it is transparent. A pixel exactly at the depth is kept.
 Neither grows the picture or has a distance in it, so a draft is the same rule at the draft's size,
 the pass stretched to it as D-189 stretches a map.
 
+**D-349 (P0-5 part 2): ids, any channel, and Blender's files.**
+
+- A name's layer is matched by its last dotted word, so Blender's `ViewLayer.Depth.Z` is a depth
+  and `ViewLayer.Normal.X`, `.Y`, `.Z` are normals.
+- The object id is the first channel, in the file's order, whose layer's last word (or, with no
+  layer, whose name), lower case with `_`, `-` and spaces taken out, is `indexob`, `objectid`,
+  `objid`, `objectindex` or `vrayobjectid`; among them one with a layer and a part `x` or `r` is
+  taken first. The material id the same with `indexma`, `materialid`, `matid`, `mtlid`,
+  `materialindex` or `vraymtlid`. The id is the one value, three times.
+- A named pass is one channel name, or three with commas between, each exactly as the file writes
+  it (case kept); one name is used three times. Any other count, or a name the file lacks, is no
+  pass.
+- **The colour of a Blender file.** With no channel R, G, B or Y, a layer `<view layer>.Combined`
+  holding any of `.R`, `.G`, `.B` is the colour, and its `.A` the alpha: `Composite.Combined` if
+  the file has it (Blender's composited picture), else the first such layer in the file's order.
+
+**Pass Extract** gains the passes `object_id`, `material_id` and `named`, and a word `channel`,
+the named pass's names, `""` when added and left out of the file when empty.
+
+**ID Key**, `core.id_key`, after After Effects' ID Matte: `aux_channel`, `object_id` or
+`material_id`, `object_id` when added; `id`, 0 to 1,000,000, 0 when added, keyable; `feather`, 0 to
+100 pixels, 0 when added, keyable; `invert`, `off` or `on`, `off` when added. With v the id at a
+pixel of the drawing, m = 1 where |v - id| < 1/2 and 0 elsewhere; `invert` takes m to 1 - m;
+outside the drawing m = 0. With a feather f above 0 the matte is blurred by document 21's Gaussian
+of sigma f pixels, radius ceil(3 f), its edge pixels held (as a blur with Repeat Edge Pixels): it
+does not grow the picture. The output is O times m, all four numbers. A draft scales the feather
+as it scales a blur, and reads the ids nearest-neighbour, never blended.
+
 **This file never runs the build's code path.** It writes the EXR files with OpenEXR's own library
 (3.4.15), reads them back with it, and works each expected pixel in double precision.
 
 Every case is a project of one composition 8 by 6 at 24 frames a second, five frames long, in
 `Fixtures/depth_channel/`. The expected pixels are in
 `Fixtures/depth_channel/expected_depth_channel.json`. `Fixtures/depth_channel/sample/spheres.exr`
-is a bigger picture for the playtest: three balls on a floor, with depth and normals.
+is a bigger picture for the playtest: three balls on a floor, with depth and normals;
+`spheres_blender.exr` is the same picture laid out as Blender writes it, with object and material
+ids and a mist (D-349).
 
 Fixtures are read-only to implementation work: this file is run when the specification changes,
 and never to make a build pass.
@@ -142,7 +172,34 @@ def make_files():
     write("media/plain.exr", colour())
     L.DRAWINGS["card"] = [[(36 * x, 200, 30 * y, 255) for x in range(W)] for y in range(H)]
     (OUT / "media" / "card.png").write_bytes(png(L.DRAWINGS["card"]))
+    # D-349: a file laid out as Blender writes a multilayer EXR: no plain R, G, B; the colour in
+    # ViewLayer.Combined, and the passes beside it under the view layer's name.
+    blender = {f"ViewLayer.Combined.{k}": v for k, v in colour().items()}
+    blender.update({"ViewLayer.Depth.Z": depth(), "ViewLayer.Normal.X": nx,
+                    "ViewLayer.Normal.Y": ny, "ViewLayer.Normal.Z": nz,
+                    "ViewLayer.IndexOB.X": objects(), "ViewLayer.IndexMA.X": materials(),
+                    "ViewLayer.Mist.Z": ((x + y) / 12).astype("f4")})
+    write("media/blender.exr", blender)
+    # Other names: a bare ObjectID, and a materialID layer whose red is the id.
+    write("media/ids.exr", dict(colour(), ObjectID=(x % 4).astype("f4"),
+                                **{"materialID.R": (y % 2 + 7).astype("f4"),
+                                   "materialID.G": np.full((H, W), 100, "f4"),
+                                   "materialID.B": np.full((H, W), 200, "f4")}))
     spheres()
+
+
+def objects():
+    """Object ids 0 to 5, in blocks three wide and three tall."""
+    y, x = np.mgrid[0:H, 0:W]
+    return (x // 3 + 3 * (y // 3)).astype("f4")
+
+
+def materials():
+    """Material ids 1 to 3 on the diagonals, and two pixels between ids: 2.4 is 2, 2.6 is 3."""
+    y, x = np.mgrid[0:H, 0:W]
+    m = ((x + y) % 3 + 1).astype("f4")
+    m[2, 5], m[3, 5] = 2.4, 2.6
+    return m
 
 
 def read(rel):
@@ -177,10 +234,15 @@ def split(name):
     return layer.lower(), part.lower()
 
 
+def last(layer):
+    """D-349: a layer is matched by its last dotted word (`viewlayer.depth` is `depth`)."""
+    return layer.rpartition(".")[2]
+
+
 def depth_name(names):
     for n in names:
         layer, part = split(n)
-        if (part == "z" and layer in ("", "depth", "zdepth", "z")) or \
+        if (part == "z" and last(layer) in ("", "depth", "zdepth", "z")) or \
                 (layer == "" and part in ("depth", "zdepth")):
             return n
     return None
@@ -190,7 +252,7 @@ def normal_names(names):
     for parts in (("x", "y", "z"), ("r", "g", "b")):
         for n in names:
             layer, _ = split(n)
-            if layer not in ("n", "normal", "normals"):
+            if last(layer) not in ("n", "normal", "normals"):
                 continue
             found = [next((m for m in names if split(m) == (layer, p)), None) for p in parts]
             if all(found):
@@ -198,31 +260,85 @@ def normal_names(names):
     return None
 
 
+OBJECT_IDS = ("indexob", "objectid", "objid", "objectindex", "vrayobjectid")
+MATERIAL_IDS = ("indexma", "materialid", "matid", "mtlid", "materialindex", "vraymtlid")
+
+
+def id_name(names, words):
+    """D-349: the object or material id's channel."""
+    def word(n):
+        layer, part = split(n)
+        w = last(layer) if layer else part
+        return w.replace("_", "").replace("-", "").replace(" ", "")
+    found = [n for n in names if word(n) in words]
+    first = [n for n in found if split(n)[0] and split(n)[1] in ("x", "r")]
+    return (first or found or [None])[0]
+
+
+def named_names(names, text):
+    """D-349: one channel name, or three with commas between, each exactly as written."""
+    wanted = [t.strip() for t in text.split(",")]
+    if len(wanted) not in (1, 3) or any(t not in names for t in wanted):
+        return None
+    return wanted * 3 if len(wanted) == 1 else wanted
+
+
+def pass_names(names, which, text=""):
+    """The pass's three channels, or None."""
+    if which == "depth":
+        n = depth_name(names)
+        return [n] * 3 if n else None
+    if which == "normals":
+        return normal_names(names)
+    if which in ("object_id", "material_id"):
+        n = id_name(names, OBJECT_IDS if which == "object_id" else MATERIAL_IDS)
+        return [n] * 3 if n else None
+    return named_names(names, text)
+
+
+def colour_names(names):
+    """D-62's colour, and D-349's Blender layer when the file has no R, G, B or Y: the four
+    channels drawn as red, green, blue and alpha (None where the file lacks one), or None."""
+    def four(prefix):
+        return [prefix + k if prefix + k in names else None for k in "RGBA"]
+    if any(k in names for k in "RGB"):
+        return four("")
+    if "Y" in names:
+        return ["Y", "Y", "Y", "A" if "A" in names else None]
+    layers = []
+    for n in names:
+        layer, _, part = n.rpartition(".")
+        if part in ("R", "G", "B") and "." in layer and layer.rpartition(".")[2] == "Combined" \
+                and layer not in layers:
+            layers.append(layer)
+    if not layers:
+        return None
+    chosen = "Composite.Combined" if "Composite.Combined" in layers else layers[0]
+    return four(chosen + ".")
+
+
 def picture(rel):
     """The layer's drawing as the build draws an EXR: the colour as stored."""
     c = read(rel)
-    return L.pic(W, H, [[c[k][y, x] for k in "RGBA"] for y in range(H) for x in range(W)])
+    names = colour_names(sorted(c))
+    plane = lambda n, d: c[n] if n else np.full((H, W), d)  # noqa: E731
+    p = [plane(names[0], 0.0), plane(names[1], 0.0), plane(names[2], 0.0), plane(names[3], 1.0)]
+    return L.pic(W, H, [[q[y, x] for q in p] for y in range(H) for x in range(W)])
 
 
-def passes(rel, which):
+def passes(rel, which, text=""):
     """The pass's three values at each pixel, or None where the file has none."""
     c = read(rel)
-    names = sorted(c)  # a file keeps its channels in this order
-    if which == "depth":
-        n = depth_name(names)
-        if n is None:
-            return None
-        return [[finite(c[n][y, x])] * 3 for y in range(H) for x in range(W)]
-    ns = normal_names(names)
+    ns = pass_names(sorted(c), which, text)  # a file keeps its channels in this order
     if ns is None:
         return None
     return [[finite(c[n][y, x]) for n in ns] for y in range(H) for x in range(W)]
 
 
-def non_finite(rel, which):
+def non_finite(rel, which, text=""):
     c = read(rel)
-    names = sorted(c)
-    chosen = [depth_name(names)] if which == "depth" else (normal_names(names) or [])
+    chosen = pass_names(sorted(c), which, text) or []
+    chosen = [chosen[0]] if len(set(chosen)) == 1 else chosen
     return sum(1 for n in chosen if n for v in c[n].flat if not isfinite(v))
 
 
@@ -238,6 +354,30 @@ def extract(v, black, white, invert, clamp):
 def keep(z, at, feather, invert):
     k = min(1.0, max(0.0, (z - at) / feather + 0.5)) if feather > 0 else (1.0 if z >= at else 0.0)
     return 1 - k if invert == "on" else k
+
+
+def gauss_held(m, sigma):
+    """Document 21's Gaussian of `sigma` pixels, radius ceil(3 sigma), over the 8 by 6 matte `m`
+    (a list, row by row), each tap past an edge reading the edge pixel."""
+    r = int(np.ceil(3 * sigma)) if sigma > 0 else 0
+    if r == 0:
+        return m
+    one = [np.exp(-(k * k) / (2 * sigma * sigma)) for k in range(-r, r + 1)]
+    one = [v / sum(one) for v in one]
+    out = []
+    for y in range(H):
+        for x in range(W):
+            out.append(float(sum(one[i + r] * one[j + r]
+                                 * m[min(H - 1, max(0, y + j)) * W + min(W - 1, max(0, x + i))]
+                                 for j in range(-r, r + 1) for i in range(-r, r + 1))))
+    return out
+
+
+def id_matte(pv, at, feather, invert):
+    m = [1.0 if abs(pv[i][0] - at) < 0.5 else 0.0 for i in range(W * H)]
+    if invert == "on":
+        m = [1 - v for v in m]
+    return gauss_held(m, feather)
 
 
 def drawing(c):
@@ -256,8 +396,11 @@ def effected(c, n):
         p = L.exposure(p, c["before"])
     if not works(c):
         return p
-    pv = passes(c["file"], c["pass"])
-    if c["effect"] == "extract":
+    pv = passes(c["file"], c["pass"], c.get("channel", ""))
+    if c["effect"] == "idkey":
+        m = id_matte(pv, value_at(c["id"], n), value_at(c["feather"], n), c["invert"])
+        px = [[v * m[i] for v in p["px"][i]] for i in range(W * H)]
+    elif c["effect"] == "extract":
         b, w = value_at(c["black_point"], n), value_at(c["white_point"], n)
         px = [[extract(v, b, w, c["invert"], c["clamp"]) for v in pv[i]] + [1.0]
               for i in range(W * H)]
@@ -306,7 +449,13 @@ def case(effect, file="scene.exr", layer="scene", move=(0, 0), before=None, afte
 
 
 def works(c):
-    return c.get("works", True) and c["layer"] == "scene" and c["on"] == "scene"         and passes(c["file"], c["pass"]) is not None
+    return c.get("works", True) and c["layer"] == "scene" and c["on"] == "scene" \
+        and passes(c["file"], c["pass"], c.get("channel", "")) is not None
+
+
+def id_case(aux_channel="object_id", id=0, feather=0, invert="off", **kw):
+    return case("idkey", aux_channel=aux_channel, id=id, feather=feather, invert=invert,
+                **{"pass": aux_channel}, **kw)
 
 
 RAMP = dict(black_point=0, white_point=12)
@@ -384,6 +533,69 @@ CASES = {
                      key_case(depth=6, file="plain.exr"), (0,)),
     "FX-DEPTH-031": ("Depth keyed from 0 at frame 0 to 12.5 at frame 4: frame 4 has only the far "
                      "corner left.", key_case(depth=keyed((0, 0), (4, 12.5))), (0, 4)),
+    # D-349: ids, named channels, Blender's file.
+    "FX-DEPTH-037": ("ID Key as added on the Blender-style file: object id 0, the top-left block "
+                     "of 3 by 3 kept, the rest clear; the colour is ViewLayer.Combined.",
+                     id_case(file="blender.exr"), (0,)),
+    "FX-DEPTH-038": ("Object id 4: the middle block of the lower row kept.",
+                     id_case(id=4, file="blender.exr"), (0,)),
+    "FX-DEPTH-039": ("Object id 4, Invert on: everything but that block.",
+                     id_case(id=4, invert="on", file="blender.exr"), (0,)),
+    "FX-DEPTH-040": ("Material id 2: its diagonals, with the pixel at 2.4 (5, 2) and not the one "
+                     "at 2.6 (5, 3).", id_case(aux_channel="material_id", id=2, file="blender.exr"),
+                     (0,)),
+    "FX-DEPTH-041": ("Object id 4, Feather 1.5: the block's edge soft, its edge pixels held at "
+                     "the picture's border.", id_case(id=4, feather=1.5, file="blender.exr"), (0,)),
+    "FX-DEPTH-042": ("Object id 4, Feather 1.5, Invert on: the soft hole.",
+                     id_case(id=4, feather=1.5, invert="on", file="blender.exr"), (0,)),
+    "FX-DEPTH-043": ("A bare channel named ObjectID (0 to 3 by column): id 3, the columns 3 and "
+                     "7.", id_case(id=3, file="ids.exr"), (0,)),
+    "FX-DEPTH-044": ("Material from materialID.R (7 or 8 by row), not its G (100) or B (200): "
+                     "id 8, the odd rows.", id_case(aux_channel="material_id", id=8,
+                                                    file="ids.exr"), (0,)),
+    "FX-DEPTH-045": ("ID Key on a file with no ids: nothing changes, the warning.",
+                     id_case(id=4), (0,)),
+    "FX-DEPTH-046": ("ID Key on a PNG drawing: nothing changes, the warning.",
+                     id_case(id=4, layer="card"), (0,)),
+    "FX-DEPTH-047": ("ID keyed from 0 at frame 0 to 5 at frame 4: frame 0 is FX-DEPTH-037, frame 4 "
+                     "the bottom-right block.", id_case(id=keyed((0, 0), (4, 5)), file="blender.exr"),
+                     (0, 4)),
+    "FX-DEPTH-048": ("An Exposure of +1 before ID Key, Feather 1: the matte from the ids, the "
+                     "colour the brighter one.", id_case(id=1, feather=1, before=1,
+                                                         file="blender.exr"), (0,)),
+    "FX-DEPTH-049": ("The layer moved 2 right and 1 down: FX-DEPTH-038 moved.",
+                     id_case(id=4, file="blender.exr", move=(2, 1)), (0,)),
+    "FX-DEPTH-050": ("Pass Extract of the object id, Black 0, White 5: the blocks as six greys.",
+                     extract_case(pass_="object_id", black_point=0, white_point=5,
+                                  file="blender.exr"), (0,)),
+    "FX-DEPTH-051": ("Pass Extract of the material id, Black 0, White 3, Clamp off.",
+                     extract_case(pass_="material_id", black_point=0, white_point=3, clamp="off",
+                                  file="blender.exr"), (0,)),
+    "FX-DEPTH-052": ("Pass Extract of the channel named ViewLayer.Mist.Z: Blender's mist as grey.",
+                     extract_case(pass_="named", channel="ViewLayer.Mist.Z", file="blender.exr"),
+                     (0,)),
+    "FX-DEPTH-053": ("Three named channels, ViewLayer.Normal.X, .Y, .Z, Black -1, White 1: the "
+                     "same picture as FX-DEPTH-054.",
+                     extract_case(pass_="named", black_point=-1, white_point=1, file="blender.exr",
+                                  channel="ViewLayer.Normal.X, ViewLayer.Normal.Y, "
+                                          "ViewLayer.Normal.Z"), (0,)),
+    "FX-DEPTH-054": ("The normals of the Blender-style file found by their layer's last word, "
+                     "Normal.", extract_case(pass_="normals", black_point=-1, white_point=1,
+                                             file="blender.exr"), (0,)),
+    "FX-DEPTH-055": ("Its depth, ViewLayer.Depth.Z, found the same way: FX-DEPTH-002's ramp.",
+                     extract_case(**RAMP, file="blender.exr"), (0,)),
+    "FX-DEPTH-056": ("Depth Key on it, Depth 6: FX-DEPTH-023, the colour from ViewLayer.Combined.",
+                     key_case(depth=6, file="blender.exr"), (0,)),
+    "FX-DEPTH-057": ("A named channel the file lacks (Mist.Z; the name must be whole and exact): "
+                     "nothing changes, the warning.",
+                     extract_case(pass_="named", channel="Mist.Z", file="blender.exr"), (0,)),
+    "FX-DEPTH-058": ("Two names, neither one nor three: nothing changes, the warning.",
+                     extract_case(pass_="named", channel="ViewLayer.Mist.Z, ViewLayer.Depth.Z",
+                                  file="blender.exr"), (0,)),
+    "FX-DEPTH-059": ("No name at all: nothing changes, the warning.",
+                     extract_case(pass_="named", channel="", file="blender.exr"), (0,)),
+    "FX-DEPTH-060": ("Pass Extract of the object id from a file with none: nothing changes, the "
+                     "warning.", extract_case(pass_="object_id"), (0,)),
 }
 
 INVALID = {
@@ -393,16 +605,28 @@ INVALID = {
                      extract_case(black_point=2000000)),
     "FX-DEPTH-035": ("Depth Key's feather -1, below 0.", key_case(feather=-1)),
     "FX-DEPTH-036": ("Depth Key's invert written \"yes\".", key_case(invert="yes")),
+    "FX-DEPTH-061": ("ID Key's aux_channel written \"uv\".", id_case(aux_channel="uv",
+                                                                       file="blender.exr")),
+    "FX-DEPTH-062": ("ID Key's id -1, below 0.", id_case(id=-1, file="blender.exr")),
+    "FX-DEPTH-063": ("ID Key's feather 101, past 100.", id_case(feather=101, file="blender.exr")),
+    "FX-DEPTH-064": ("ID Key's invert written \"yes\".", id_case(invert="yes", file="blender.exr")),
 }
 
 EXTRACT = ("pass", "black_point", "white_point", "invert", "clamp")
 KEY = ("depth", "feather", "invert")
+IDKEY = ("aux_channel", "id", "feather", "invert")
 
 
 def effect(fid, c):
     if c["effect"] == "extract":
+        parameters = {k: setting_json(c[k]) for k in EXTRACT}
+        if "channel" in c:
+            parameters["channel"] = c["channel"]
         return {"instance_id": fid, "type_id": "core.pass_extract", "enabled": True,
-                "parameters": {k: setting_json(c[k]) for k in EXTRACT}}
+                "parameters": parameters}
+    if c["effect"] == "idkey":
+        return {"instance_id": fid, "type_id": "core.id_key", "enabled": True,
+                "parameters": {k: setting_json(c[k]) for k in IDKEY}}
     return {"instance_id": fid, "type_id": "core.depth_key", "enabled": True,
             "parameters": {k: setting_json(c[k]) for k in KEY}}
 
@@ -452,9 +676,10 @@ def write_project(fx, c):
 
 def warning_at_frame(c):
     """What every frame says, beyond what opening the file says."""
-    if c["on"] == "adjust" or c["layer"] != "scene" or passes(c["file"], c["pass"]) is None:
+    if c["on"] == "adjust" or c["layer"] != "scene" or \
+            passes(c["file"], c["pass"], c.get("channel", "")) is None:
         return "EFFECT_CHANNEL_MISSING"
-    if non_finite(c["file"], c["pass"]):
+    if non_finite(c["file"], c["pass"], c.get("channel", "")):
         return "MEDIA_EXR_ADJUSTED"
     return None
 
@@ -541,6 +766,30 @@ def check(expected):
     assert all(p == CLEAR for i, p in enumerate(c["FX-DEPTH-028"])
                if not (2 <= i % W <= 6 and 1 <= i // W <= 4))
     assert [i for i, p in enumerate(four["FX-DEPTH-031"]) if p != CLEAR] == [W * H - 1]
+    # D-349. The Blender-style file's colour is the plain file's.
+    assert scene == plain(id_case(file="blender.exr"), 0)
+    block = lambda i: i % W // 3 + 3 * (i // W // 3)  # noqa: E731
+    for i in range(W * H):
+        assert c["FX-DEPTH-037"][i] == (scene[i] if block(i) == 0 else CLEAR), i
+        assert c["FX-DEPTH-038"][i] == (scene[i] if block(i) == 4 else CLEAR), i
+        assert c["FX-DEPTH-039"][i] == (CLEAR if block(i) == 4 else scene[i]), i
+        assert c["FX-DEPTH-043"][i] == (scene[i] if i % W % 4 == 3 else CLEAR), i
+        assert c["FX-DEPTH-044"][i] == (scene[i] if i // W % 2 == 1 else CLEAR), i
+        assert near([four["FX-DEPTH-047"][i]], [scene[i] if block(i) == 5 else CLEAR]), i
+    assert c["FX-DEPTH-040"][2 * W + 5] == scene[2 * W + 5] and c["FX-DEPTH-040"][3 * W + 5] == CLEAR
+    soft = c["FX-DEPTH-041"]
+    assert 0 < soft[2 * W + 4][3] < 1 and soft[5 * W + 4][3] > soft[3 * W + 4][3]
+    assert near([[a + b for a, b in zip(p, q)] for p, q in zip(soft, c["FX-DEPTH-042"])], scene)
+    assert near(c["FX-DEPTH-037"], c["FX-DEPTH-047"])
+    assert all(c["FX-DEPTH-049"][(y + 1) * W + x + 2] == c["FX-DEPTH-038"][y * W + x]
+               for y in range(H - 1) for x in range(W - 2))
+    for fx in ("FX-DEPTH-045", "FX-DEPTH-057", "FX-DEPTH-058", "FX-DEPTH-059", "FX-DEPTH-060"):
+        assert near(c[fx], scene), fx
+    assert all(abs(p[0] - block(i) / 5) < 1e-12 for i, p in enumerate(c["FX-DEPTH-050"]))
+    assert abs(c["FX-DEPTH-051"][2 * W + 5][0] - 2.4 / 3) < 1e-6
+    assert near(c["FX-DEPTH-053"], c["FX-DEPTH-054"]) and near(c["FX-DEPTH-054"], c["FX-DEPTH-007"])
+    assert near(c["FX-DEPTH-055"], c["FX-DEPTH-002"]) and near(c["FX-DEPTH-056"], c["FX-DEPTH-023"])
+    assert all(abs(p[0] - (i % W + i // W) / 12) < 1e-6 for i, p in enumerate(c["FX-DEPTH-052"]))
     print("checks passed")
 
 
@@ -560,6 +809,9 @@ def spheres():
     light = light / np.linalg.norm(light)
     planes = {k: np.zeros((h, w), np.float64) for k in ("R", "G", "B", "A", "Z", "N.x", "N.y",
                                                          "N.z")}
+    # D-349: each ball's object id (1, 2, 3; the floor 4, the sky 0) and material id (the two
+    # floor squares 1 and 2, the red and blue balls 3, the yellow one 4).
+    ob, ma = np.zeros((h, w), np.float32), np.zeros((h, w), np.float32)
     for j in range(h):
         for i in range(w):
             u = (i + 0.5 - w / 2) / (h / 2) * 0.6
@@ -567,8 +819,8 @@ def spheres():
             d_cam = np.array([u, v, 1.0])  # camera space: x right, y up, z forward
             d = np.array([d_cam[0], d_cam[1] * ca - d_cam[2] * sa, d_cam[1] * sa + d_cam[2] * ca])
             d = d / np.linalg.norm(d)
-            best, hit = 1e9, None
-            for centre, r, col in balls:
+            best, hit, ids = 1e9, None, (0, 0)
+            for number, (centre, r, col) in enumerate(balls, 1):
                 oc = eye - np.array(centre)
                 b = np.dot(oc, d)
                 q = b * b - (np.dot(oc, oc) - r * r)
@@ -577,6 +829,7 @@ def spheres():
                     if 0 < t < best:
                         p = eye + t * d
                         best, hit = t, ((p - np.array(centre)) / r, col)
+                        ids = (number, 4 if number == 3 else 3)
             if d[1] < 0:
                 t = -eye[1] / d[1]
                 if t < best:
@@ -584,6 +837,8 @@ def spheres():
                     check_ = (floor(p[0]) + floor(p[2])) % 2
                     best, hit = t, (np.array([0.0, 1.0, 0.0]),
                                     (0.55, 0.55, 0.5) if check_ else (0.3, 0.3, 0.28))
+                    ids = (4, 1 + check_)
+            ob[j, i], ma[j, i] = ids
             if hit is None:
                 planes["Z"][j, i] = 1000.0  # the sky: clear, and far away
                 continue
@@ -604,6 +859,14 @@ def spheres():
     channels = {k: v.astype("f4" if k == "Z" else "f2") for k, v in planes.items()}
     (OUT / "sample").mkdir(parents=True, exist_ok=True)
     OpenEXR.File(header, channels).write(str(OUT / "sample" / "spheres.exr"))
+    # D-349: the same picture as Blender lays out a multilayer file, with the two id passes and
+    # a mist (the depth over 20, held to 1).
+    blender = {"ViewLayer.Combined." + k: channels[k] for k in "RGBA"}
+    blender.update({"ViewLayer.Depth.Z": channels["Z"], "ViewLayer.Normal.X": channels["N.x"],
+                    "ViewLayer.Normal.Y": channels["N.y"], "ViewLayer.Normal.Z": channels["N.z"],
+                    "ViewLayer.IndexOB.X": ob, "ViewLayer.IndexMA.X": ma,
+                    "ViewLayer.Mist.Z": np.minimum(1.0, planes["Z"] / 20).astype("f4")})
+    OpenEXR.File(header, blender).write(str(OUT / "sample" / "spheres_blender.exr"))
 
 
 if __name__ == "__main__":
