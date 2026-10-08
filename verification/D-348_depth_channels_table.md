@@ -128,7 +128,7 @@ D-348 (EFFECTS.md P0-5): the depth and normals a render saves in an EXR file, re
 | fx_depth_036.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_depth_001.json: the pass read for a frame is never saved | {"black_point":0,"clamp":"on","invert":"off","pass":"depth","white_point":1} | yes |
 | fx_depth_022.json: the pass read for a frame is never saved | {"depth":0,"feather":0,"invert":"off"} | yes |
-| fx_depth_032.json is refused in a sentence naming it | Pass Extract's pass is "depth" or "normals", and this is "uv". | yes |
+| fx_depth_032.json is refused in a sentence naming it | Pass Extract's pass is "depth", "normals", "object_id", "material_id" or "named", and this is "uv". | yes |
 | fx_depth_033.json is refused in a sentence naming it | Pass Extract's clamp is "off" or "on", and this is "yes". | yes |
 | fx_depth_034.json is refused in a sentence naming it | Pass Extract's black point runs from -1000000 to 1000000, and this is 2000000. | yes |
 | fx_depth_035.json is refused in a sentence naming it | Depth Key's feather runs from 0 to 1000000, and this is -1. | yes |
@@ -138,7 +138,7 @@ D-348 (EFFECTS.md P0-5): the depth and normals a render saves in an EXR file, re
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| pass "uv" is refused with a sentence, and nothing changes | Pass Extract's pass is "depth" or "normals", and this is "uv". | yes |
+| pass "uv" is refused with a sentence, and nothing changes | Pass Extract's pass is "depth", "normals", "object_id", "material_id" or "named", and this is "uv". | yes |
 | white point 2,000,000 is refused with a sentence, and nothing changes | Pass Extract's white point runs from -1000000 to 1000000, and this is 2000000. | yes |
 | the normals, is taken | taken | yes |
 | black point -1, invert on, is taken | taken | yes |

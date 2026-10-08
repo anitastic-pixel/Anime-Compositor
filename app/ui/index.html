@@ -9327,6 +9327,7 @@ const EFFECT_NAMES = {
   'core.moment_map': 'Moment Map',
   'core.pass_extract': 'Pass Extract',
   'core.depth_key': 'Depth Key',
+  'core.id_key': 'ID Key',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -9355,7 +9356,7 @@ const EFFECT_GROUPS = [
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake']],
   ['Time', ['core.echo', 'core.posterize_time', 'core.moment_map']],
-  ['3D Channel', ['core.pass_extract', 'core.depth_key']],
+  ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
@@ -9439,7 +9440,8 @@ const EFFECT_SEARCH = {
   'core.colorama': 'colorama colour color cycle ring palette rainbow psychedelic phase hue map',
   'core.vector_blur': 'cc vector blur smear streak flow swirl brush painterly map slope ridge lightning electric',
   'core.moment_map': 'moment map time displacement displace slit scan warp delay offset ripple map brightness frames',
-  'core.pass_extract': 'pass extract 3d channel extract depth z zdepth normals exr render pass aov channel black white point',
+  'core.pass_extract': 'pass extract 3d channel extract extractor depth z zdepth normals object material id named channel exr render pass aov channel black white point',
+  'core.id_key': 'id key id matte object id material id index indexob indexma exr render pass aov cut out isolate',
   'core.depth_key': 'depth key depth matte z zdepth exr render pass cut out near far fog',
   'core.glass': 'cc glass refraction refract lens bump map shockwave water ripple heat distortion bevel light',
   'core.drop_shadow': 'shade',
@@ -9562,7 +9564,8 @@ const EFFECT_ABOUT = {
   'core.colorama': 'Repaints each brightness with a colour from a ring of colours that can turn and repeat.',
   'core.vector_blur': 'Smears the picture along the slopes of a brightness map, its own or another layer\'s.',
   'core.moment_map': 'Takes each pixel from a different moment of the layer, earlier where a map is dark and later where it is bright.',
-  'core.pass_extract': 'Shows the depth or the normals a 3D render saved in the layer\'s EXR file, as a picture.',
+  'core.pass_extract': 'Shows the depth, the normals, the object or material ids, or any named channel a 3D render saved in the layer\'s EXR file, as a picture.',
+  'core.id_key': 'Keeps only the object or material with one id, read from the ids a 3D render saved in the layer\'s EXR file.',
   'core.depth_key': 'Takes out what is nearer than a depth, read from the depth a 3D render saved in the layer\'s EXR file.',
   'core.glass': 'Bends the picture as if seen through glass shaped by a bump map, and lights its slopes.',
 };
@@ -9823,6 +9826,9 @@ const EFFECT_PARAMS = {
     ['white_point', 'White Point', 1, 0.1, 'the pass\'s value drawn white; equal to Black Point, a cut']],
   'core.depth_key': [['depth', 'Depth', 1, 0.1, 'in the file\'s own depth units; nearer is taken out'],
     ['feather', 'Feather', 1, 0.1, 'how wide the soft edge is, in the same units, 0 to 1,000,000']],
+  // D-349, After Effects' own words.
+  'core.id_key': [['id', 'ID Selection', 1, 1, 'the id kept, 0 to 1,000,000; an id within a half of it counts'],
+    ['feather', 'Feather', 1, 0.1, 'pixels of soft edge, 0 to 100']],
   // D-347, After Effects' own words where it has them.
   'core.moment_map': [['max_time', 'Max Displacement Time', 1, 0.1, 'seconds, -10 to 10, how far white reaches forward and black back; mid grey stays'],
     ['resolution', 'Time Resolution', 1, 1, 'steps a second, 1 to 999; above the frame rate it stays whole frames']],
@@ -10227,12 +10233,20 @@ const EFFECT_WORDS = {
   },
   // D-348, After Effects' own words.
   'core.pass_extract': {
-    choices: [['pass', '3D Channel', [['depth', 'Z-Depth'], ['normals', 'Surface Normals']]],
+    choices: [['pass', '3D Channel', [['depth', 'Z-Depth'], ['normals', 'Surface Normals'],
+      ['object_id', 'Object ID'], ['material_id', 'Material ID'], ['named', 'Named Channel']]],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]],
       ['clamp', 'Clamp', [['off', 'Off'], ['on', 'On']]]],
+    // D-349: the names of one channel, or three for red, green and blue, a comma between.
+    texts: [['channel', 'Channel Names', 'ViewLayer.Mist.Z', 'pass']],
   },
   'core.depth_key': {
     choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
+  },
+  // D-349.
+  'core.id_key': {
+    choices: [['aux_channel', 'Aux. Channel', [['object_id', 'Object ID'], ['material_id', 'Material ID']]],
+      ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-347.
   'core.moment_map': {
@@ -11203,6 +11217,7 @@ function effectRow(layer, fx, at, of) {
   // D-302: a curve the file leaves out, as alpha when straight, is the straight line.
   for (const [w] of spec.lists || []) words[w] = (fx.parameters[w] || [[0, 0], [255, 255]]).map((p) => p.join(' ')).join(', ');
   for (const [w] of spec.files || []) words[w] = fx.parameters[w] ?? '';
+  for (const [w] of spec.texts || []) words[w] = fx.parameters[w] ?? '';
   for (const [w, , sent] of spec.layers || []) words[sent] = fx.parameters[w] ?? '';
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
   // that frame as it does for a transform's property (W-10). The others travel together as
@@ -11431,6 +11446,30 @@ function effectRow(layer, fx, at, of) {
     choose.title = 'Choose a colour lookup file exported from a grading program';
     choose.onclick = () => command('/lut-choose' + where);
     dd.append(choose);
+    dl.append(dt, dd);
+  }
+  // D-349: free text, sent on Enter or on leaving the box, put back by Escape, shown while the
+  // choice it belongs to is "named".
+  for (const [name, title, hint, under] of spec.texts || []) {
+    if (words[under] !== 'named') continue;
+    const dt = Object.assign(document.createElement('dt'), { textContent: title, className: 'wide' });
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    const was = words[name];
+    const text = Object.assign(document.createElement('input'),
+      { type: 'text', className: 'points', value: was, placeholder: hint, spellcheck: false });
+    text.title = 'The channel names as the file has them: one, or three for red, green and blue, a comma between';
+    text.setAttribute('aria-label', label + ' ' + title);
+    text.onfocus = () => { dragging = true; };
+    text.onkeydown = (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') text.blur();
+      else if (e.key === 'Escape') { text.value = was; text.blur(); }
+    };
+    text.onblur = () => {
+      dragging = false;
+      if (text.value.trim() !== was) { words[name] = text.value.trim(); sendParameters(); }
+    };
+    dd.append(text);
     dl.append(dt, dd);
   }
   // D-111: the graph of the curve picked above it, and its points as text under it, in then

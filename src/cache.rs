@@ -894,7 +894,7 @@ impl CelCache {
         &mut self,
         path: &Path,
         interpretation: Interpretation,
-        pass: crate::exr_io::Pass,
+        pass: &crate::exr_io::Pass,
     ) -> Result<(Arc<WorkingBuffer>, usize), Diagnostic> {
         let key = Key::of(path, interpretation).map(|mut key| {
             let mut named = key.path.into_os_string();

@@ -3375,6 +3375,34 @@ pub(crate) fn depth_key(
     });
 }
 
+/// D-349: ID Key. The drawing kept where its id is within a half of `id`, or the other way with
+/// `invert`, the matte blurred `feather` pixels with its edges held; transparent outside it.
+pub(crate) fn id_key(
+    source: &mut WorkingBuffer,
+    pass: &WorkingBuffer,
+    origin: (usize, usize),
+    id: f64,
+    feather: f64,
+    invert: bool,
+) {
+    let mut matte = WorkingBuffer::transparent(pass.width(), pass.height());
+    matte.data_mut().par_chunks_exact_mut(4).zip(pass.data().par_chunks_exact(4)).for_each(|(m, p)| {
+        let hit = (p[0] as f64 - id).abs() < 0.5;
+        m.fill(if hit != invert { 1.0 } else { 0.0 });
+    });
+    if feather > 0.0 {
+        crate::effects::held_blur_axes(&mut matte, &crate::effects::gaussian_weights(feather), (true, true));
+    }
+    let w = source.width();
+    let m = matte.data();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let k = pass_at(pass, i, w, origin).map_or(0.0, |j| m[j] as f64);
+        for v in px.iter_mut() {
+            *v = (*v as f64 * k) as f32;
+        }
+    });
+}
+
 /// D-195: Echo's operators, as the file writes them.
 pub(crate) const ECHO_OPERATORS: [&str; 7] =
     ["add", "maximum", "minimum", "screen", "composite_in_back", "composite_in_front", "blend"];

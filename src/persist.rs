@@ -2488,15 +2488,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("fit".into(), J::from(fit.as_str()));
         }
         // D-348: the pass read for a frame is never saved; it is read from the file again.
-        Effect::PassExtract { pass, black_point, white_point, invert, clamp, .. } => {
+        Effect::PassExtract { pass, black_point, white_point, invert, clamp, channel, .. } => {
             params.insert("pass".into(), J::from(pass.as_str()));
             params.insert("black_point".into(), num(*black_point));
             params.insert("white_point".into(), num(*white_point));
             params.insert("invert".into(), J::from(invert.as_str()));
             params.insert("clamp".into(), J::from(clamp.as_str()));
+            // D-349: the channel names, left out of the file while empty.
+            if !channel.is_empty() || params.contains_key("channel") {
+                params.insert("channel".into(), J::from(channel.as_str()));
+            }
         }
         Effect::DepthKey { depth, feather, invert, .. } => {
             params.insert("depth".into(), num(*depth));
+            params.insert("feather".into(), num(*feather));
+            params.insert("invert".into(), J::from(invert.as_str()));
+        }
+        Effect::IdKey { aux_channel, id, feather, invert, .. } => {
+            params.insert("aux_channel".into(), J::from(aux_channel.as_str()));
+            params.insert("id".into(), num(*id));
             params.insert("feather".into(), num(*feather));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
@@ -3598,6 +3608,7 @@ fn parse_effect(
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
+        crate::effects::ID_KEY,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -4445,10 +4456,18 @@ fn parse_effect(
             white_point: effect_number(params, "white_point", &at)?,
             invert: effect_word(params, "invert", &at)?,
             clamp: effect_word(params, "clamp", &at)?,
+            channel: effect_word_or(params, "channel", &at, "")?,
             channels: None,
         }),
         crate::effects::DEPTH_KEY => Some(crate::effects::Effect::DepthKey {
             depth: effect_number(params, "depth", &at)?,
+            feather: effect_number(params, "feather", &at)?,
+            invert: effect_word(params, "invert", &at)?,
+            channels: None,
+        }),
+        crate::effects::ID_KEY => Some(crate::effects::Effect::IdKey {
+            aux_channel: effect_word(params, "aux_channel", &at)?,
+            id: effect_number(params, "id", &at)?,
             feather: effect_number(params, "feather", &at)?,
             invert: effect_word(params, "invert", &at)?,
             channels: None,

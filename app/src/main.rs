@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target, TimeRemap};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -4181,10 +4181,19 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             white_point: 1.0,
             invert: "off".to_string(),
             clamp: "on".to_string(),
+            channel: String::new(),
             channels: None,
         }),
         DEPTH_KEY => Some(Effect::DepthKey {
             depth: 0.0,
+            feather: 0.0,
+            invert: "off".to_string(),
+            channels: None,
+        }),
+        // D-349: After Effects' ID Matte starts on the object ids, id 0, no feather.
+        ID_KEY => Some(Effect::IdKey {
+            aux_channel: "object_id".to_string(),
+            id: 0.0,
             feather: 0.0,
             invert: "off".to_string(),
             channels: None,
@@ -5143,10 +5152,19 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             white_point: number("white_point")?,
             invert: word("invert")?,
             clamp: word("clamp")?,
+            // D-349: the channel names are free text, so they travel as typed.
+            channel: parameter(query, "channel").unwrap_or_default().trim().to_string(),
             channels: None,
         }),
         DEPTH_KEY => Ok(Effect::DepthKey {
             depth: number("depth")?,
+            feather: number("feather")?,
+            invert: word("invert")?,
+            channels: None,
+        }),
+        ID_KEY => Ok(Effect::IdKey {
+            aux_channel: word("aux_channel")?,
+            id: number("id")?,
             feather: number("feather")?,
             invert: word("invert")?,
             channels: None,
@@ -8793,7 +8811,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract or core.depth_key."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key or core.id_key."
                                 .to_string(),
                         );
                     };
@@ -8821,7 +8839,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract and core.depth_key."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key and core.id_key."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -14464,7 +14482,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract and core.depth_key.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key and core.id_key.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -14486,7 +14504,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract or core.depth_key.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key or core.id_key.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -28859,6 +28877,8 @@ mod contract {
             &[("pass", "normals"), ("black_point", "-1"), ("white_point", "1"), ("invert", "on"), ("clamp", "off")],
         ),
         ("core.depth_key", &[("depth", "6"), ("feather", "4"), ("invert", "on")]),
+        // D-349.
+        ("core.id_key", &[("aux_channel", "material_id"), ("id", "2"), ("feather", "1.5"), ("invert", "on")]),
         // D-204: the colour and the numbers.
         (
             "core.snowfall",

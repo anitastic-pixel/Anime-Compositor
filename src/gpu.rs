@@ -4359,6 +4359,29 @@ fn dkey(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// B-229, layer_fx::id_key. k[2] 0: the matte of the ids (`other`, as big as `input`), 1 where
+// the id is within a half of k[0], turned over where k[1] is 1. k[2] 1: the drawing (`input`)
+// times the matte (`other`, blurred) lying at (F.ox, F.oy), 0 outside it.
+@compute @workgroup_size(16, 16)
+fn idkey(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    if k[2] == 0.0lf {
+        let hit = abs(f64(textureLoad(other, id.xy, 0).x) - k[0]) < 0.5lf;
+        textureStore(output, id.xy, vec4(select(0.0, 1.0, hit != (k[1] == 1.0lf))));
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let m = f64(at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy)).x);
+    var out = p;
+    for (var c = 0u; c < 4u; c++) {
+        out[c] = f32(f64(p[c]) * m);
+    }
+    textureStore(output, id.xy, out);
+}
+
 // B-226, line_width::line_width: the drawing (`input`) grown by F.g. k[0] 0 to thicken by shape,
 // 1 to thin by shape, 2 by colour; k[1] 1 to thicken; k[2] how many offsets, nearest first, then
 // each across and down from 3 (line_width::disc). `row` 1 where a pixel is chosen, as
@@ -4819,6 +4842,8 @@ struct FxPasses {
     /// B-228.
     passx: Pass,
     dkey: Pass,
+    /// B-229.
+    idkey: Pass,
     smoothscan: Pass,
     smoothmix: Pass,
 }
@@ -5406,6 +5431,7 @@ impl Gpu {
                 gwipe: pass("gwipe", &[0, 1, 2, 3, 4]),
                 passx: pass("passx", &[0, 1, 2, 3, 4]),
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
+                idkey: pass("idkey", &[0, 1, 2, 3, 4]),
                 lwidth: pass("lwidth", &[0, 1, 2, 3, 5]),
                 smoothscan: pass("smoothscan", &[0, 1, 3, 5, 6]),
                 smoothmix: pass("smoothmix", &[0, 1, 2, 5, 6]),
@@ -7220,6 +7246,27 @@ impl Gpu {
                 let out = self.scratch("B-228 key", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.dkey, p, Some(still), Some(&out), Some(&k), Some(&pass), none, tiles(w, h));
+                (out, (w, h))
+            }
+            // B-229: the matte at the ids' size, blurred with its edges held, then laid on.
+            E::IdKey { channels, id, feather, invert, .. } => {
+                let ids = &channels.as_ref().expect("compose leaves an ID Key with ids").0;
+                let (pw, ph) = (ids.width(), ids.height());
+                let pass = self.map_texture(ids);
+                let matte = self.scratch("B-229 matte", pw, ph);
+                let mut k = [*id, (invert == "on") as u8 as f64, 0.0];
+                self.fx_step(steps, &passes.idkey, FxParams::default(), Some(&pass), Some(&matte), Some(&k), Some(&pass), none, tiles(pw, ph));
+                let taps = crate::effects::gaussian_weights(*feather);
+                let matte = if taps.len() > 1 {
+                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                    self.gauss(steps, bloom, "B-229 feather", &matte, (pw, ph), [&taps, &taps], 0, true)
+                } else {
+                    matte
+                };
+                k[2] = 1.0;
+                let out = self.scratch("B-229 key", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.idkey, p, Some(still), Some(&out), Some(&k), Some(&matte), none, tiles(w, h));
                 (out, (w, h))
             }
             E::LineWidth { width, based_on, colors, tolerance } => {

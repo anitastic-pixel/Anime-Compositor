@@ -1402,15 +1402,27 @@ pub enum Effect {
     },
     /// D-348: Pass Extract, after After Effects' 3D Channel Extract: the depth or the normals
     /// stored beside the colour in the layer's EXR file, as a picture. `pass`, "depth" or
-    /// "normals"; `black_point` and `white_point`, -1,000,000 to 1,000,000; `invert` and `clamp`,
-    /// "off" or "on". `channels` is not a setting and is never saved: compose reads the pass from
-    /// the layer's file for each frame.
+    /// "normals" (D-349: or "object_id", "material_id", or "named" for the channel names in
+    /// `channel`); `black_point` and `white_point`, -1,000,000 to 1,000,000; `invert` and
+    /// `clamp`, "off" or "on". `channels` is not a setting and is never saved: compose reads the
+    /// pass from the layer's file for each frame.
     PassExtract {
         pass: String,
         black_point: f64,
         white_point: f64,
         invert: String,
         clamp: String,
+        channel: String,
+        channels: Option<crate::layer_map::Map>,
+    },
+    /// D-349: ID Key, after After Effects' ID Matte: the pixels whose object or material id is
+    /// `id` kept. `aux_channel`, "object_id" or "material_id"; `id`, 0 to 1,000,000; `feather`,
+    /// 0 to 100 pixels; `invert`, "off" or "on". `channels` as Pass Extract's.
+    IdKey {
+        aux_channel: String,
+        id: f64,
+        feather: f64,
+        invert: String,
         channels: Option<crate::layer_map::Map>,
     },
     /// D-348: Depth Key, after After Effects' Depth Matte: what is nearer than `depth` in the
@@ -1535,6 +1547,9 @@ pub const VECTOR_BLUR: &str = "core.vector_blur";
 pub const MOMENT_MAP: &str = "core.moment_map";
 pub const PASS_EXTRACT: &str = "core.pass_extract";
 pub const DEPTH_KEY: &str = "core.depth_key";
+pub const ID_KEY: &str = "core.id_key";
+/// D-349: Pass Extract's passes.
+pub const PASSES: [&str; 5] = ["depth", "normals", "object_id", "material_id", "named"];
 /// D-336: CC Vector Blur's types.
 pub const VECTOR_BLUR_TYPES: [&str; 5] = ["natural", "constant", "perpendicular", "direction_center", "direction_fading"];
 /// D-336: what CC Vector Blur reads its height from.
@@ -2172,6 +2187,10 @@ impl Effect {
                 ("depth", vec![depth], -1e6, 1e6),
                 ("feather", vec![feather], 0.0, 1e6),
             ],
+            Effect::IdKey { id, feather, .. } => vec![
+                ("id", vec![id], 0.0, 1e6),
+                ("feather", vec![feather], 0.0, 100.0),
+            ],
             Effect::LineBlur { length, strength, .. } => vec![
                 ("length", vec![length], 0.0, 50.0),
                 ("strength", vec![strength], 0.0, 100.0),
@@ -2705,6 +2724,7 @@ impl Effect {
                 *amount = scale(*amount);
                 *map_softness = scale(*map_softness);
             }
+            Effect::IdKey { feather, .. } => *feather = scale(*feather),
             Effect::DisplacementMap { max_horizontal, max_vertical, .. } => {
                 *max_horizontal = scale(*max_horizontal);
                 *max_vertical = scale(*max_vertical);
@@ -2870,6 +2890,7 @@ impl Effect {
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
             Effect::DepthKey { .. } => "Depth Key",
+            Effect::IdKey { .. } => "ID Key",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2979,6 +3000,7 @@ impl Effect {
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
             Effect::DepthKey { .. } => DEPTH_KEY,
+            Effect::IdKey { .. } => ID_KEY,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3474,10 +3496,13 @@ impl Effect {
             Effect::MomentMap { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
                 "Moment Map's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
             )),
-            Effect::PassExtract { pass, .. } if !["depth", "normals"].contains(&pass.as_str()) => Some(format!(
-                "Pass Extract's pass is \"depth\" or \"normals\", and this is \"{pass}\"."
+            Effect::PassExtract { pass, .. } if !PASSES.contains(&pass.as_str()) => Some(format!(
+                "Pass Extract's pass is \"depth\", \"normals\", \"object_id\", \"material_id\" or \"named\", and this is \"{pass}\"."
             )),
-            Effect::PassExtract { invert, .. } | Effect::DepthKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => {
+            Effect::IdKey { aux_channel, .. } if !["object_id", "material_id"].contains(&aux_channel.as_str()) => Some(format!(
+                "ID Key's channel is \"object_id\" or \"material_id\", and this is \"{aux_channel}\"."
+            )),
+            Effect::PassExtract { invert, .. } | Effect::DepthKey { invert, .. } | Effect::IdKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => {
                 Some(format!("{name}'s invert is \"off\" or \"on\", and this is \"{invert}\"."))
             }
             Effect::PassExtract { clamp, .. } if !["off", "on"].contains(&clamp.as_str()) => Some(format!(
@@ -5465,6 +5490,14 @@ pub(crate) fn apply_stack_at(
                 if let Some(pass) = channels {
                     crate::perf::time(crate::perf::Stage::EffectDepthKey, || {
                         crate::layer_fx::depth_key(source, &pass.0, (ox, oy), *depth, *feather, invert == "on")
+                    })
+                }
+            }
+            // D-349: as Depth Key, with the ids compose read.
+            Effect::IdKey { id, feather, invert, channels, .. } => {
+                if let Some(pass) = channels {
+                    crate::perf::time(crate::perf::Stage::EffectIdKey, || {
+                        crate::layer_fx::id_key(source, &pass.0, (ox, oy), *id, *feather, invert == "on")
                     })
                 }
             }

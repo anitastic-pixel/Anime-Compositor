@@ -75,6 +75,8 @@ pub fn read(path: &Path) -> Result<ExrPicture, Diagnostic> {
     let header = &meta.headers[0];
     let channels = &header.channels.list;
     let has = |n: &str| channels.iter().any(|c| c.name == *n);
+    let names: Vec<String> = channels.iter().map(|c| c.name.to_string()).collect();
+    let blender = blender_colour(&names);
     let colour: &[&str] = if has("R") || has("G") || has("B") {
         &["R", "G", "B"]
     } else if has("RY") || has("BY") {
@@ -85,17 +87,31 @@ pub fn read(path: &Path) -> Result<ExrPicture, Diagnostic> {
         ));
     } else if has("Y") {
         &["Y"]
+    } else if blender.is_some() {
+        &[]
     } else {
         return Err(refused(
             path,
             "no_colour_channels",
-            "No channel is named R, G, B or Y.",
+            "No channel is named R, G, B or Y, and no layer is a Blender <view layer>.Combined.",
         ));
     };
-    let ignored: Vec<String> = channels
+    // D-349: the four channels drawn: the file's R, G, B and A, or its Blender layer's.
+    let prefix = if colour.is_empty() { blender.unwrap_or_default() } else { String::new() };
+    let drawn = ["R", "G", "B", "A"].map(|c| format!("{prefix}{c}"));
+    // D-349: a depth, normals, object id or material id pass is read by the effects, not ignored.
+    let read_by_effects: Vec<String> = [Pass::Depth, Pass::Normals, Pass::ObjectId, Pass::MaterialId]
         .iter()
-        .map(|c| c.name.to_string())
-        .filter(|n| n != "A" && !colour.contains(&n.as_str()))
+        .filter_map(|p| pass_channels(&names, p))
+        .flatten()
+        .collect();
+    let ignored: Vec<String> = names
+        .iter()
+        .filter(|n| {
+            let used = if colour.is_empty() { drawn.contains(n) } else { *n == "A" || colour.contains(&n.as_str()) };
+            !used && !read_by_effects.contains(n)
+        })
+        .cloned()
         .collect();
 
     let display = header.shared_attributes.display_window;
@@ -109,9 +125,9 @@ pub fn read(path: &Path) -> Result<ExrPicture, Diagnostic> {
         let y = get("Y");
         (y.clone(), y.clone(), y)
     } else {
-        (get("R"), get("G"), get("B"))
+        (get(&drawn[0]), get(&drawn[1]), get(&drawn[2]))
     };
-    let alpha = get("A");
+    let alpha = get(&drawn[3]);
 
     let (w, h) = (display.size.0, display.size.1);
     let (dw, dh) = (layer.size.0, layer.size.1);
@@ -270,52 +286,110 @@ fn place(
 }
 
 /// D-348: a render's pass stored beside the colour, which an effect asks for by what it is.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+/// D-349: or its object or material id, or channels named exactly.
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Pass {
     Depth,
     Normals,
+    ObjectId,
+    MaterialId,
+    Named(String),
 }
 
 impl Pass {
-    pub fn word(self) -> &'static str {
+    pub fn word(&self) -> String {
         match self {
-            Pass::Depth => "depth",
-            Pass::Normals => "normals",
+            Pass::Depth => "depth pass".into(),
+            Pass::Normals => "normals pass".into(),
+            Pass::ObjectId => "object id pass".into(),
+            Pass::MaterialId => "material id pass".into(),
+            Pass::Named(names) => format!("channel named \"{names}\""),
         }
     }
 }
 
 /// D-348: the channels among `names` (the file's order) that hold `pass`, as red, green and
-/// blue. A name splits at its last dot into a layer and a part, case ignored. The depth is the
-/// first part `z` of layer "", `depth`, `zdepth` or `z`, or a name `depth` or `zdepth` with no
-/// layer; the normals the first layer `n`, `normal` or `normals` holding all of `x`, `y`, `z`,
-/// failing that all of `r`, `g`, `b`.
-pub fn pass_channels(names: &[String], pass: Pass) -> Option<[String; 3]> {
+/// blue. A name splits at its last dot into a layer and a part, case ignored, and (D-349) a layer
+/// is matched by its last dotted word, so Blender's `ViewLayer.Depth.Z` is a depth. The depth is
+/// the first part `z` of layer "", `depth`, `zdepth` or `z`, or a name `depth` or `zdepth` with
+/// no layer; the normals the first layer `n`, `normal` or `normals` holding all of `x`, `y`,
+/// `z`, failing that all of `r`, `g`, `b`. D-349: an id is the first channel whose layer's last
+/// word (or, with no layer, whose name), without `_`, `-` and spaces, is one of
+/// [`OBJECT_IDS`] or [`MATERIAL_IDS`], one with a layer and a part `x` or `r` first; a named pass
+/// is one name or three with commas between, exactly as the file writes them.
+pub fn pass_channels(names: &[String], pass: &Pass) -> Option<[String; 3]> {
     let split = |n: &str| {
         let (layer, part) = n.rsplit_once('.').unwrap_or(("", n));
         (layer.to_ascii_lowercase(), part.to_ascii_lowercase())
     };
+    let last = |layer: &str| layer.rsplit('.').next().unwrap_or("").to_string();
+    let three = |n: &String| [n.clone(), n.clone(), n.clone()];
     match pass {
         Pass::Depth => names
             .iter()
             .find(|n| {
                 let (layer, part) = split(n);
-                (part == "z" && ["", "depth", "zdepth", "z"].contains(&layer.as_str()))
+                (part == "z" && ["", "depth", "zdepth", "z"].contains(&last(&layer).as_str()))
                     || (layer.is_empty() && (part == "depth" || part == "zdepth"))
             })
-            .map(|n| [n.clone(), n.clone(), n.clone()]),
+            .map(three),
         Pass::Normals => [["x", "y", "z"], ["r", "g", "b"]].iter().find_map(|parts| {
             names.iter().find_map(|n| {
                 let (layer, _) = split(n);
-                if !["n", "normal", "normals"].contains(&layer.as_str()) {
+                if !["n", "normal", "normals"].contains(&last(&layer).as_str()) {
                     return None;
                 }
                 let find = |p: &str| names.iter().find(|m| split(m) == (layer.clone(), p.to_string())).cloned();
                 Some([find(parts[0])?, find(parts[1])?, find(parts[2])?])
             })
         }),
+        Pass::ObjectId | Pass::MaterialId => {
+            let words = if *pass == Pass::ObjectId { &OBJECT_IDS[..] } else { &MATERIAL_IDS[..] };
+            let found: Vec<&String> = names
+                .iter()
+                .filter(|n| {
+                    let (layer, part) = split(n);
+                    let word = if layer.is_empty() { part } else { last(&layer) };
+                    words.contains(&word.replace(['_', '-', ' '], "").as_str())
+                })
+                .collect();
+            let first = found.iter().find(|n| {
+                let (layer, part) = split(n);
+                !layer.is_empty() && (part == "x" || part == "r")
+            });
+            first.or(found.first()).map(|n| three(n))
+        }
+        Pass::Named(text) => {
+            let wanted: Vec<&str> = text.split(',').map(str::trim).collect();
+            if !matches!(wanted.len(), 1 | 3) || wanted.iter().any(|w| !names.iter().any(|n| n == w)) {
+                return None;
+            }
+            let at = |i: usize| wanted[i % wanted.len()].to_string();
+            Some([at(0), at(1), at(2)])
+        }
     }
 }
+
+/// D-349: the colour of a Blender multilayer file, as the prefix of its channels: a layer
+/// `<view layer>.Combined` holding any of `.R`, `.G`, `.B`, `Composite.Combined` (Blender's
+/// composited picture) if the file has it, else the first in the file's order.
+fn blender_colour(names: &[String]) -> Option<String> {
+    let layers: Vec<&str> = names
+        .iter()
+        .filter_map(|n| {
+            let (layer, part) = n.rsplit_once('.')?;
+            let (_, word) = layer.rsplit_once('.')?;
+            (["R", "G", "B"].contains(&part) && word == "Combined").then_some(layer)
+        })
+        .collect();
+    let chosen = layers.iter().find(|l| **l == "Composite.Combined").or(layers.first())?;
+    Some(format!("{chosen}."))
+}
+
+/// D-349: the names an object id's layer goes by (Blender, Cinema 4D, V-Ray and others).
+pub const OBJECT_IDS: [&str; 5] = ["indexob", "objectid", "objid", "objectindex", "vrayobjectid"];
+/// D-349: the names a material id's layer goes by.
+pub const MATERIAL_IDS: [&str; 6] = ["indexma", "materialid", "matid", "mtlid", "materialindex", "vraymtlid"];
 
 /// D-348: `EFFECT_CHANNEL_MISSING`, said on each frame an effect finds no pass to read.
 pub fn pass_missing(title: String, detail: String) -> Diagnostic {
@@ -330,17 +404,20 @@ pub fn pass_missing(title: String, detail: String) -> Diagnostic {
 /// not finite: not-a-number reads as 0 and an infinity as the largest single-precision number of
 /// its sign. `EFFECT_CHANNEL_MISSING` when the file has no such pass; [`read`]'s refusals as it
 /// gives them.
-pub fn read_pass(path: &Path, pass: Pass) -> Result<(WorkingBuffer, usize), Diagnostic> {
+pub fn read_pass(path: &Path, pass: &Pass) -> Result<(WorkingBuffer, usize), Diagnostic> {
     let meta = checked(path)?;
     let header = &meta.headers[0];
     let names: Vec<String> = header.channels.list.iter().map(|c| c.name.to_string()).collect();
     let Some(chosen) = pass_channels(&names, pass) else {
         return Err(pass_missing(
-            format!("{} holds no {} pass.", name(path), pass.word()),
+            format!("{} holds no {}.", name(path), pass.word()),
             format!(
                 "Its channels are {}. D-348 reads the depth from a channel named Z (or depth.Z, \
                  zdepth.Z, depth) and the normals from N.x, N.y, N.z (or normal.R, normal.G, \
-                 normal.B).",
+                 normal.B); D-349 the object id from IndexOB, ObjectID or the like, the material \
+                 id from IndexMA, materialID or the like, Blender's ViewLayer.Depth.Z and the \
+                 rest by their last dotted word, and a named pass from one channel name, or \
+                 three with commas between, exactly as the file writes them.",
                 names.join(", ")
             ),
         ));

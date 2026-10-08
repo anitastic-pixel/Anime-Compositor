@@ -697,9 +697,12 @@ FX-EXR-003: channels, matched with capitals.
 | `channels/y.exr`: luminance only | drawn, R = G = B = Y, alpha 1 | none |
 | `channels/ya.exr`: luminance and alpha | drawn, R = G = B = Y | none |
 | `channels/r_only.exr`: red only | drawn, G and B 0, alpha 1 | none |
-| `channels/extra.exr`: RGBA with `Z`, `diffuse.G` and `diffuse.R` | drawn from RGBA | `channels_ignored` Z, diffuse.G, diffuse.R |
+| `channels/extra.exr`: RGBA with `Z`, `diffuse.G` and `diffuse.R` | drawn from RGBA | `channels_ignored` diffuse.G, diffuse.R (D-349: the depth Z is read by Pass Extract and Depth Key, so it is not ignored) |
 | `channels/rgb_and_y.exr`: RGBA and `Y` | drawn from RGBA | `channels_ignored` Y |
 | `channels/lowercase.exr`: `r`, `g`, `b`, `a` | refused, `MEDIA_UNSUPPORTED_FORMAT`, `no_colour_channels` | |
+| `channels/blender.exr` (D-349): Blender's layout, `ViewLayer.Combined.*` with `Depth.Z`, `Normal.X/Y/Z`, `IndexOB.X`, `IndexMA.X` and `Mist.Z` | drawn from `ViewLayer.Combined` | `channels_ignored` ViewLayer.Mist.Z |
+| `channels/blender_composite.exr` (D-349): `Composite.Combined.*` and `ViewLayer.Combined.*` (half as bright) | drawn from `Composite.Combined` | `channels_ignored` ViewLayer.Combined.A, .B, .G, .R |
+| `channels/blender_two_layers.exr` (D-349): `Background.Combined.*` then `Foreground.Combined.*` | drawn from `Background.Combined`, the first in the file | `channels_ignored` Foreground.Combined.A, .B, .G, .R |
 
 FX-EXR-004: windows and layout. Every one is drawn 8 by 6.
 
@@ -175995,6 +175998,66 @@ FX-DEPTH-034 (`fx_depth_034.json`): Black Point 2,000,000, past 1,000,000. The f
 FX-DEPTH-035 (`fx_depth_035.json`): Depth Key's feather -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-DEPTH-036 (`fx_depth_036.json`): Depth Key's invert written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### ID Key, ids, named channels and Blender's files (D-349)
+
+After After Effects' ID Matte and EXtractoR (B-229; EFFECTS.md P0-5 part 2). The same compositions as D-348's above, in `Fixtures/depth_channel/`. `media/blender.exr` is `media/scene.exr` laid out as Blender writes a multilayer file: no plain R, G, B; the colour in `ViewLayer.Combined.R`, `.G`, `.B`, `.A`, the depth `ViewLayer.Depth.Z`, the normals `ViewLayer.Normal.X`, `.Y`, `.Z`, the object id `ViewLayer.IndexOB.X` (3 by 3 blocks, 0 to 5), the material id `ViewLayer.IndexMA.X` (diagonals, with 2.4 and 2.6 to test the half) and a mist `ViewLayer.Mist.Z`. `media/ids.exr` has a bare `ObjectID` (the column, 0 to 3) and `materialID.R`, `.G`, `.B` (7 or 8 by row; 100; 200). The rules are D-349's in `tools/depth_channel_reference.py`, which writes and reads the files with OpenEXR's own library; the numbers are in `Fixtures/depth_channel/expected_depth_channel.json`. Tolerance 2e-5. `Fixtures/depth_channel/sample/spheres_blender.exr`, 320 by 180, is the playtest's picture in Blender's layout, with object ids (the balls 1, 2, 3, the floor 4, the sky 0), material ids and a mist, pinned by no number. B-229 checks them in `verification/D-349_id_key_table.md`.
+
+FX-DEPTH-037 (`fx_depth_037.json`): ID Key as added on the Blender-style file: object id 0, the top-left block of 3 by 3 kept, the rest clear; the colour is ViewLayer.Combined. Frames 0.
+
+FX-DEPTH-038 (`fx_depth_038.json`): Object id 4: the middle block of the lower row kept. Frames 0.
+
+FX-DEPTH-039 (`fx_depth_039.json`): Object id 4, Invert on: everything but that block. Frames 0.
+
+FX-DEPTH-040 (`fx_depth_040.json`): Material id 2: its diagonals, with the pixel at 2.4 (5, 2) and not the one at 2.6 (5, 3). Frames 0.
+
+FX-DEPTH-041 (`fx_depth_041.json`): Object id 4, Feather 1.5: the block's edge soft, its edge pixels held at the picture's border. Frames 0.
+
+FX-DEPTH-042 (`fx_depth_042.json`): Object id 4, Feather 1.5, Invert on: the soft hole. Frames 0.
+
+FX-DEPTH-043 (`fx_depth_043.json`): A bare channel named ObjectID (0 to 3 by column): id 3, the columns 3 and 7. Frames 0.
+
+FX-DEPTH-044 (`fx_depth_044.json`): Material from materialID.R (7 or 8 by row), not its G (100) or B (200): id 8, the odd rows. Frames 0.
+
+FX-DEPTH-045 (`fx_depth_045.json`): ID Key on a file with no ids: nothing changes, the warning. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-046 (`fx_depth_046.json`): ID Key on a PNG drawing: nothing changes, the warning. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-047 (`fx_depth_047.json`): ID keyed from 0 at frame 0 to 5 at frame 4: frame 0 is FX-DEPTH-037, frame 4 the bottom-right block. Frames 0, 4.
+
+FX-DEPTH-048 (`fx_depth_048.json`): An Exposure of +1 before ID Key, Feather 1: the matte from the ids, the colour the brighter one. Frames 0.
+
+FX-DEPTH-049 (`fx_depth_049.json`): The layer moved 2 right and 1 down: FX-DEPTH-038 moved. Frames 0.
+
+FX-DEPTH-050 (`fx_depth_050.json`): Pass Extract of the object id, Black 0, White 5: the blocks as six greys. Frames 0.
+
+FX-DEPTH-051 (`fx_depth_051.json`): Pass Extract of the material id, Black 0, White 3, Clamp off. Frames 0.
+
+FX-DEPTH-052 (`fx_depth_052.json`): Pass Extract of the channel named ViewLayer.Mist.Z: Blender's mist as grey. Frames 0.
+
+FX-DEPTH-053 (`fx_depth_053.json`): Three named channels, ViewLayer.Normal.X, .Y, .Z, Black -1, White 1: the same picture as FX-DEPTH-054. Frames 0.
+
+FX-DEPTH-054 (`fx_depth_054.json`): The normals of the Blender-style file found by their layer's last word, Normal. Frames 0.
+
+FX-DEPTH-055 (`fx_depth_055.json`): Its depth, ViewLayer.Depth.Z, found the same way: FX-DEPTH-002's ramp. Frames 0.
+
+FX-DEPTH-056 (`fx_depth_056.json`): Depth Key on it, Depth 6: FX-DEPTH-023, the colour from ViewLayer.Combined. Frames 0.
+
+FX-DEPTH-057 (`fx_depth_057.json`): A named channel the file lacks (Mist.Z; the name must be whole and exact): nothing changes, the warning. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-058 (`fx_depth_058.json`): Two names, neither one nor three: nothing changes, the warning. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-059 (`fx_depth_059.json`): No name at all: nothing changes, the warning. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-060 (`fx_depth_060.json`): Pass Extract of the object id from a file with none: nothing changes, the warning. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-061 (`fx_depth_061.json`): ID Key's aux_channel written "uv". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEPTH-062 (`fx_depth_062.json`): ID Key's id -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEPTH-063 (`fx_depth_063.json`): ID Key's feather 101, past 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEPTH-064 (`fx_depth_064.json`): ID Key's invert written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 ## Compound Blur fixtures
 

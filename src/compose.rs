@@ -966,6 +966,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 // B-228 (D-348): two that read the layer's pass.
                 | crate::effects::Effect::PassExtract { .. }
                 | crate::effects::Effect::DepthKey { .. }
+                | crate::effects::Effect::IdKey { .. }
                 | crate::effects::Effect::LineWidth { .. }
         )
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
@@ -1147,7 +1148,7 @@ fn card_effect(
                 E::BlockDissolve { completion, .. } => *completion == 0.0,
                 E::GradientWipe { completion, map, .. } => map.is_none() || *completion == 0.0,
                 // B-228: with no pass read, the layer is left as it is.
-                E::PassExtract { channels, .. } | E::DepthKey { channels, .. } => channels.is_none(),
+                E::PassExtract { channels, .. } | E::DepthKey { channels, .. } | E::IdKey { channels, .. } => channels.is_none(),
                 E::LineSmooth { softness, .. } => *softness <= 0.0,
                 E::LineWidth { width, .. } => *width == 0.0,
                 _ => false,
@@ -2617,8 +2618,8 @@ fn fill_moment_maps(
     }
 }
 
-/// D-348: each switched-on Pass Extract's and Depth Key's pass, read from the layer's own EXR
-/// file and fitted to `size`. A layer with no such file, or a file with no such pass, is said
+/// D-348: each switched-on Pass Extract's and Depth Key's (D-349: and ID Key's) pass, read from
+/// the layer's own EXR file and fitted to `size`, an id nearest-neighbour. A layer with no such file, or a file with no such pass, is said
 /// each frame and left without, so the effect changes nothing.
 fn fill_passes(
     effects: &mut [crate::effects::EffectInstance],
@@ -2634,15 +2635,25 @@ fn fill_passes(
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
         let what = instance.effect.name().to_string();
         let (pass, slot) = match &mut instance.effect {
-            Effect::PassExtract { pass, channels, .. } => {
-                (if pass == "normals" { Pass::Normals } else { Pass::Depth }, channels)
-            }
+            Effect::PassExtract { pass, channel, channels, .. } => (
+                match pass.as_str() {
+                    "normals" => Pass::Normals,
+                    "object_id" => Pass::ObjectId,
+                    "material_id" => Pass::MaterialId,
+                    "named" => Pass::Named(channel.clone()),
+                    _ => Pass::Depth,
+                },
+                channels,
+            ),
             Effect::DepthKey { channels, .. } => (Pass::Depth, channels),
+            Effect::IdKey { aux_channel, channels, .. } => {
+                (if aux_channel == "material_id" { Pass::MaterialId } else { Pass::ObjectId }, channels)
+            }
             _ => continue,
         };
         let read = match cel {
             Some((path, interpretation)) if crate::exr_io::is_exr(&path.to_string_lossy()) => {
-                cache.pass(path, *interpretation, pass)
+                cache.pass(path, *interpretation, &pass)
             }
             _ => Err(crate::exr_io::pass_missing(
                 format!("{what} on layer {} finds no {} to read.", holder.name, pass.word()),
@@ -2671,7 +2682,11 @@ fn fill_passes(
                 let p = if (p.width(), p.height()) == size {
                     p
                 } else {
-                    std::sync::Arc::new(crate::layer_map::fit(&p, "stretch", size).expect("stretch is a fit"))
+                    std::sync::Arc::new(match pass {
+                        // D-349: an id is never blended with its neighbour's.
+                        Pass::ObjectId | Pass::MaterialId => nearest(&p, size),
+                        _ => crate::layer_map::fit(&p, "stretch", size).expect("stretch is a fit"),
+                    })
                 };
                 Some(crate::layer_map::Map(p))
             }
@@ -2681,6 +2696,18 @@ fn fill_passes(
             }
         };
     }
+}
+
+/// D-349: `p` stretched to `size`, each pixel the one under its centre.
+fn nearest(p: &WorkingBuffer, size: (usize, usize)) -> WorkingBuffer {
+    let (w, h) = (p.width(), p.height());
+    let mut out = WorkingBuffer::transparent(size.0, size.1);
+    for (i, px) in out.data_mut().chunks_exact_mut(4).enumerate() {
+        let x = ((i % size.0) * w / size.0).min(w - 1);
+        let y = ((i / size.0) * h / size.1).min(h - 1);
+        px.copy_from_slice(&p.data()[(y * w + x) * 4..][..4]);
+    }
+    out
 }
 
 /// D-189's map of layer `named` for an effect on `holder`, fitted by `fit` to `size`.
