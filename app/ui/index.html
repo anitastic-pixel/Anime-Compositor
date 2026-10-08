@@ -9324,6 +9324,7 @@ const EFFECT_NAMES = {
   'core.colorama': 'Colorama',
   'core.glass': 'CC Glass',
   'core.vector_blur': 'CC Vector Blur',
+  'core.moment_map': 'Moment Map',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -9351,7 +9352,7 @@ const EFFECT_GROUPS = [
     'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake']],
-  ['Time', ['core.echo', 'core.posterize_time']],
+  ['Time', ['core.echo', 'core.posterize_time', 'core.moment_map']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
@@ -9434,6 +9435,7 @@ const EFFECT_SEARCH = {
   'core.fast_box_blur': 'fast box blur radius iterations soften quick',
   'core.colorama': 'colorama colour color cycle ring palette rainbow psychedelic phase hue map',
   'core.vector_blur': 'cc vector blur smear streak flow swirl brush painterly map slope ridge lightning electric',
+  'core.moment_map': 'moment map time displacement displace slit scan warp delay offset ripple map brightness frames',
   'core.glass': 'cc glass refraction refract lens bump map shockwave water ripple heat distortion bevel light',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
@@ -9554,6 +9556,7 @@ const EFFECT_ABOUT = {
   'core.fast_box_blur': 'A box blur laid on several times, ending hard at radius times iterations.',
   'core.colorama': 'Repaints each brightness with a colour from a ring of colours that can turn and repeat.',
   'core.vector_blur': 'Smears the picture along the slopes of a brightness map, its own or another layer\'s.',
+  'core.moment_map': 'Takes each pixel from a different moment of the layer, earlier where a map is dark and later where it is bright.',
   'core.glass': 'Bends the picture as if seen through glass shaped by a bump map, and lights its slopes.',
 };
 
@@ -9808,6 +9811,9 @@ const EFFECT_PARAMS = {
   // D-327, After Effects' own words.
   'core.fast_box_blur': [['radius', 'Blur Radius', 1, 0.1, '0 to 500 source pixels'],
     ['iterations', 'Iterations', 1, 1, '1 to 50, how many times the box is laid on']],
+  // D-347, After Effects' own words where it has them.
+  'core.moment_map': [['max_time', 'Max Displacement Time', 1, 0.1, 'seconds, -10 to 10, how far white reaches forward and black back; mid grey stays'],
+    ['resolution', 'Time Resolution', 1, 1, 'steps a second, 1 to 999; above the frame rate it stays whole frames']],
   // D-317, After Effects' own words where it has them.
   'core.vector_blur': [['amount', 'Amount', 1, 0.5, 'pixels, 0 to 500, how long the smear is'],
     ['angle_offset', 'Angle Offset', 1, 1, 'degrees, turns the smear away from the slope', 'dial'],
@@ -10206,6 +10212,11 @@ const EFFECT_WORDS = {
   'core.solid_composite': {
     choices: [['blend', 'Blending Mode', [['normal', 'Normal'], ['add', 'Add'], ['screen', 'Screen'], ['multiply', 'Multiply']]]],
     colours: [['color', 'Color']],
+  },
+  // D-347.
+  'core.moment_map': {
+    layers: [['layer', 'Time Displacement Layer', 'map_layer']],
+    choices: [['fit', 'Map Placement', [['stretch', 'Stretch to Fit'], ['center', 'Centre'], ['tile', 'Tile']]]],
   },
   // D-336.
   'core.vector_blur': {

@@ -2481,6 +2481,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("property".into(), J::from(property.as_str()));
             params.insert("map_softness".into(), num(*map_softness));
         }
+        Effect::MomentMap { max_time, resolution, layer, fit, .. } => {
+            params.insert("max_time".into(), num(*max_time));
+            params.insert("resolution".into(), num(*resolution));
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -3576,6 +3582,7 @@ fn parse_effect(
         crate::effects::COLORAMA,
         crate::effects::GLASS,
         crate::effects::VECTOR_BLUR,
+        crate::effects::MOMENT_MAP,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -4406,6 +4413,15 @@ fn parse_effect(
             property: effect_word(params, "property", &at)?,
             map_softness: effect_number(params, "map_softness", &at)?,
             map: None,
+        }),
+        // D-347: the layer is kept as written, as CC Vector Blur's is.
+        crate::effects::MOMENT_MAP => Some(crate::effects::Effect::MomentMap {
+            max_time: effect_number(params, "max_time", &at)?,
+            resolution: effect_number(params, "resolution", &at)?,
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            map: None,
+            picture: None,
         }),
         _ => None,
     };

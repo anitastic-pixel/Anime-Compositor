@@ -1387,6 +1387,19 @@ pub enum Effect {
         map_softness: f64,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-347: Moment Map, after After Effects' Time Displacement: each pixel of the layer from
+    /// another moment of it, later where the map is bright and earlier where it is dark.
+    /// `max_time`, -10 to 10 seconds; `resolution`, 1 to 999 steps a second; `layer` and `fit`,
+    /// D-189's layer setting, "" the layer itself. `map` and `picture` are not settings and are
+    /// never saved: compose reads the map and draws the moments into `picture` for each frame.
+    MomentMap {
+        max_time: f64,
+        resolution: f64,
+        layer: serde_json::Value,
+        fit: String,
+        map: Option<crate::layer_map::Map>,
+        picture: Option<crate::layer_map::Map>,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1497,6 +1510,7 @@ pub const COLORAMA: &str = "core.colorama";
 pub const COLORAMA_PHASES: [&str; 6] = ["intensity", "luminance", "red", "green", "blue", "alpha"];
 pub const GLASS: &str = "core.glass";
 pub const VECTOR_BLUR: &str = "core.vector_blur";
+pub const MOMENT_MAP: &str = "core.moment_map";
 /// D-336: CC Vector Blur's types.
 pub const VECTOR_BLUR_TYPES: [&str; 5] = ["natural", "constant", "perpendicular", "direction_center", "direction_fading"];
 /// D-336: what CC Vector Blur reads its height from.
@@ -2120,6 +2134,10 @@ impl Effect {
                 ("angle_offset", vec![angle_offset], -3600.0, 3600.0),
                 ("ridge_smoothness", vec![ridge_smoothness], 0.0, 100.0),
                 ("map_softness", vec![map_softness], 0.0, 100.0),
+            ],
+            Effect::MomentMap { max_time, resolution, .. } => vec![
+                ("max_time", vec![max_time], -10.0, 10.0),
+                ("resolution", vec![resolution], 1.0, 999.0),
             ],
             Effect::LineBlur { length, strength, .. } => vec![
                 ("length", vec![length], 0.0, 50.0),
@@ -2816,6 +2834,7 @@ impl Effect {
             Effect::Colorama { .. } => "Colorama",
             Effect::Glass { .. } => "CC Glass",
             Effect::VectorBlur { .. } => "CC Vector Blur",
+            Effect::MomentMap { .. } => "Moment Map",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2922,6 +2941,7 @@ impl Effect {
             Effect::Colorama { .. } => COLORAMA,
             Effect::Glass { .. } => GLASS,
             Effect::VectorBlur { .. } => VECTOR_BLUR,
+            Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3136,7 +3156,8 @@ impl Effect {
             | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Colorama { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Glass { layer: serde_json::Value::String(layer), fit, .. }
-            | Effect::VectorBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
+            | Effect::VectorBlur { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::MomentMap { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
             _ => None,
         }
     }
@@ -3149,7 +3170,8 @@ impl Effect {
             | Effect::GradientWipe { layer, map, .. }
             | Effect::Colorama { layer, map, .. }
             | Effect::Glass { layer, map, .. }
-            | Effect::VectorBlur { layer, map, .. } => Some((layer, map)),
+            | Effect::VectorBlur { layer, map, .. }
+            | Effect::MomentMap { layer, map, .. } => Some((layer, map)),
             _ => None,
         }
     }
@@ -3408,6 +3430,12 @@ impl Effect {
             )),
             Effect::VectorBlur { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
                 "CC Vector Blur's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
+            Effect::MomentMap { layer, .. } if !layer.is_string() => Some(format!(
+                "Moment Map's map is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::MomentMap { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
+                "Moment Map's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
             )),
             Effect::Colorama { get_phase, .. } if !COLORAMA_PHASES.contains(&get_phase.as_str()) => Some(format!(
                 "Colorama gets its phase from intensity, luminance, red, green, blue or alpha, and this is \"{get_phase}\"."
@@ -5374,6 +5402,14 @@ pub(crate) fn apply_stack_at(
             Effect::Echo { picture, .. } => {
                 if let Some(picture) = picture {
                     crate::perf::time(crate::perf::Stage::EffectEcho, || {
+                        crate::layer_fx::lay(source, &picture.0, (ox, oy))
+                    })
+                }
+            }
+            // D-347: the moments compose drew for this frame replace the picture, as Echo's do.
+            Effect::MomentMap { picture, .. } => {
+                if let Some(picture) = picture {
+                    crate::perf::time(crate::perf::Stage::EffectMomentMap, || {
                         crate::layer_fx::lay(source, &picture.0, (ox, oy))
                     })
                 }

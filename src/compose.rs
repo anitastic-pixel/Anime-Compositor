@@ -1756,6 +1756,7 @@ fn resolve_rest(
         };
         fill_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_echoes(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
+        fill_moment_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
     }
     // B-24d: a mask whose path has keys is resolved to its shape at this frame here, before the
     // draft divisor, before the rasterizer and before document 27's cache key, exactly as an
@@ -2518,6 +2519,94 @@ fn fill_echoes(
         }
         let done = crate::perf::time(crate::perf::Stage::EffectEcho, || fold.finish());
         *picture = Some(crate::layer_map::Map(std::sync::Arc::new(done)));
+    }
+}
+
+/// D-347: each switched-on Moment Map's picture: each pixel the holder's drawing through its
+/// masks at the frame its map's brightness names, drawn as Echo's copies are, each frame once.
+/// The map is the one `fill_maps` read; with none (no layer named, or one not in the
+/// composition, which it said) it is the holder's own drawing at this frame.
+#[allow(clippy::too_many_arguments)]
+fn fill_moment_maps(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    size: (usize, usize),
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    use rayon::prelude::*;
+    let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        let crate::effects::Effect::MomentMap { max_time, resolution, fit, map, picture, .. } = &mut instance.effect else {
+            continue;
+        };
+        let own = match map {
+            Some(m) => m.0.clone(),
+            None => std::sync::Arc::new(
+                setting_map(project, comp, holder, holder.id.as_str(), fit, frame, root, quality, size, cache, log)
+                    .unwrap_or_else(|| WorkingBuffer::transparent(size.0, size.1)),
+            ),
+        };
+        // Document 21: Displacement Map's luminance over mid grey, seconds from now, whole
+        // steps of the resolution (halves away from zero), and the frame holding that moment.
+        let (most, steps) = (*max_time, *resolution);
+        let shifts: Vec<i32> = crate::perf::time(crate::perf::Stage::EffectMomentMap, || {
+            own.data()
+                .par_chunks_exact(4)
+                .map(|m| {
+                    let a = m[3] as f64;
+                    let v = if a <= 0.0 {
+                        0.5
+                    } else {
+                        let s = [0, 1, 2].map(|c| (m[c] as f64 / a).clamp(0.0, 1.0));
+                        0.5 + a * (crate::grade::to_srgb(0.2126 * s[0] + 0.7152 * s[1] + 0.0722 * s[2]) - 0.5)
+                    };
+                    let q = ((2.0 * v - 1.0) * most * steps).round();
+                    (q * fps / steps).floor() as i32
+                })
+                .collect()
+        });
+        // The pixels in order of their frame, so each frame's picture is read only where it is used.
+        let mut order: Vec<u32> = (0..shifts.len() as u32).collect();
+        order.par_sort_unstable_by_key(|&i| shifts[i as usize]);
+        let mut wanted = shifts.clone();
+        wanted.sort_unstable();
+        wanted.dedup();
+        let drawing = bare(holder, true);
+        let mut inside = FrameLog::new(usize::MAX);
+        let mut out = WorkingBuffer::transparent(size.0, size.1);
+        for s in wanted {
+            let Some(p) = resolve_layer(project, comp, &drawing, frame + s, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
+            else {
+                continue;
+            };
+            // Read in place, cut to the drawing's size: outside the picture stays transparent.
+            crate::perf::time(crate::perf::Stage::EffectMomentMap, || {
+                let from = order.partition_point(|&i| shifts[i as usize] < s);
+                let to = order.partition_point(|&i| shifts[i as usize] <= s);
+                let (o, q, w, h) = (out.data_mut(), p.source.data(), p.source.width(), p.source.height());
+                for &i in &order[from..to] {
+                    let (x, y) = (i as usize % size.0, i as usize / size.0);
+                    if x < w && y < h {
+                        let (i, j) = (i as usize * 4, (y * w + x) * 4);
+                        o[i..i + 4].copy_from_slice(&q[j..j + 4]);
+                    }
+                }
+            });
+        }
+        let mut said = Vec::new();
+        for d in inside.finish() {
+            if !said.contains(&d.id) {
+                said.push(d.id);
+                log.record(frame, holder.name.clone(), d);
+            }
+        }
+        *picture = Some(crate::layer_map::Map(std::sync::Arc::new(out)));
     }
 }
 
