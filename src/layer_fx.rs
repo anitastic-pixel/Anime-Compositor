@@ -2652,13 +2652,14 @@ pub(crate) fn kira_stars(
 /// `ends[0]`, for Vertical; and `blocks`, one per pixel of `source` (none when empty), where
 /// Alpha Obstacle stops the bolt. D-329: `outside`, whether past the layer's edge blocks too (a
 /// negative obstacle), and `around`, whether each main bolt goes round what blocks. D-334:
-/// `soft`, whether the core fades from the middle to its edge. D-338: `long`, whether the main
-/// bolts' first forks run on down to the end, as Advanced Lightning's do at a low decay.
+/// `soft`, whether the core fades from the middle to its edge. D-338: `forks`, "long" when the
+/// main bolts' first forks run on down to the end, as Advanced Lightning's do at a low decay;
+/// D-339: "full", the same but each as wide as the main bolt where it leaves it.
 pub(crate) fn lightning_bolt(
     source: &mut WorkingBuffer,
     ends: [(f64, f64); 3],
     [jagged, detail, branches, width, glow, opacity, hold, seed]: [f64; 8],
-    (kind, [turbulence, decay, conductivity], long): (&str, [f64; 3], bool),
+    (kind, [turbulence, decay, conductivity], forks): (&str, [f64; 3], &str),
     (blocks, outside, around): (&[bool], bool, bool),
     ([core, halo], soft): ([[f64; 3]; 2], bool),
     frame: i32,
@@ -2684,7 +2685,7 @@ pub(crate) fn lightning_bolt(
         if i >= 0.0 && i < size.0 as f64 && j >= 0.0 && j < size.1 as f64 { blocks[j as usize * size.0 + i as usize] } else { outside }
     };
     let route = (around && !blocks.is_empty()).then_some((&blocked as &dyn Fn(f64, f64) -> bool, size));
-    let mut segs = bolt_segments((kind, long), ends, [jagged, branches, turbulence, decay], detail.floor() as u32, &r, route);
+    let mut segs = bolt_segments((kind, forks), ends, [jagged, branches, turbulence, decay], detail.floor() as u32, &r, route);
     if !blocks.is_empty() {
         segs = bolt_stop(segs, &blocked, route.is_some());
     }
@@ -2765,8 +2766,9 @@ type BoltSeg = ((f64, f64), (f64, f64), f64, f64, u32, i64, i64, i64);
 /// the first three halvings leaves along that main bolt's own way, from its start to its end,
 /// turned 10 to 30 degrees, and goes on until it has covered 1 - decay / 100 of what is left of
 /// that way, thinning by the same share; Alpha Obstacle then stops it where the ground starts.
+/// D-339: with `full`, the same, but starting at the main bolt's own weight.
 fn bolt_segments(
-    (kind, long): (&str, bool),
+    (kind, forks): (&str, &str),
     [o, d, bottom]: [(f64, f64); 3],
     [jagged, branches, turbulence, decay]: [f64; 4],
     detail: u32,
@@ -2835,7 +2837,7 @@ fn bolt_segments(
                 let side = if r(key, b, 3) < 0.0 { -1.0 } else { 1.0 };
                 let w0 = if kind == "breaking" { wm } else { wm / 2.0 };
                 // D-338: the main bolt's own way, and how much of it is left past the fork.
-                let run = ways.iter().find(|w| w.0 == b).filter(|_| long && depth == 0 && i < 3).and_then(|&(_, o, e)| {
+                let run = ways.iter().find(|w| w.0 == b).filter(|_| forks != "short" && depth == 0 && i < 3).and_then(|&(_, o, e)| {
                     let (ux, uy) = (e.0 - o.0, e.1 - o.1);
                     let ul = ux.hypot(uy);
                     let u = (ux / ul, uy / ul);
@@ -2845,7 +2847,8 @@ fn bolt_segments(
                 if let Some((u, left)) = run {
                     let v = turn(u, (10.0 + 10.0 * (r(key, b, 2) + 1.0)) * side);
                     let lb = kd * left / (v.0 * u.0 + v.1 * u.1);
-                    out.push((mid, (mid.0 + v.0 * lb, mid.1 + v.1 * lb), w0, w0 * kd, depth + 1, 1024 * b + key, 1, b));
+                    let ws = if forks == "full" { wm } else { w0 };
+                    out.push((mid, (mid.0 + v.0 * lb, mid.1 + v.1 * lb), ws, ws * kd, depth + 1, 1024 * b + key, 1, b));
                 } else {
                     let v = turn(way, (15.0 + 15.0 * (r(key, b, 2) + 1.0)) * side);
                     let lb = l * (0.3 + 0.15 * (r(key, b, 4) + 1.0));

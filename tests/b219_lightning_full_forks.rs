@@ -1,9 +1,8 @@
-//! B-218: D-338, Lightning Bolt's long forks, from P-26's tutorial 2.
+//! B-219: D-339, Lightning Bolt's full-width long forks, from P-26's tutorial 2.
 //!
-//! The tutorial turns Advanced Lightning's Decay down so its forks run on down beside the main
-//! bolt until the ground stops them; D-190's forks are short twigs. Every expected pixel is
-//! `Fixtures/lightning_forks/expected_lightning_forks.json`, written by
-//! `tools/lightning_forks_reference.py` before this code existed.
+//! The tutorial's strands are nearly as thick as the main bolt; D-338's long forks start at half
+//! its weight. Every expected pixel is `Fixtures/lightning_full_forks/expected_lightning_full_forks.json`,
+//! written by `tools/lightning_full_forks_reference.py` before this code existed.
 
 mod effect_table;
 
@@ -69,7 +68,7 @@ fn picture(dir: &Path, frame: i32, parameters: Option<J>) -> (Vec<u8>, Vec<Strin
         json!([{"instance_id": "fx-0-0", "type_id": "core.lightning_bolt", "enabled": true, "parameters": p}])
     });
     let project = json!({
-        "schema_version": 0, "project_id": "proj-b218-picture",
+        "schema_version": 0, "project_id": "proj-b219-picture",
         "color_settings": {"working_space": "linear-srgb", "alpha_mode": "premultiplied"},
         "assets": [asset("sky"), asset("ground")],
         "compositions": [{
@@ -89,101 +88,88 @@ fn picture(dir: &Path, frame: i32, parameters: Option<J>) -> (Vec<u8>, Vec<Strin
 }
 
 #[test]
-fn b218_lightning_forks() {
+fn b219_lightning_full_forks() {
     let mut t = Table::new(
-        "lightning_forks",
-        "# B-218: Lightning Bolt's long forks\n\nD-338, from P-26's tutorial 2. Every expected pixel \
-         is `Fixtures/lightning_forks/expected_lightning_forks.json`, written by \
-         `tools/lightning_forks_reference.py` before this code existed and printed in document 25 \
-         as FX-LFORK-001 to 008. The build's frame is compared sample by sample; the answer is \
-         the largest difference over all of them, against the catalogue's tolerance of 2e-5. \
-         D-190's, D-324's, D-329's and D-334's own cases are checked again, unchanged, by B-126, \
-         B-203, B-211 and B-215.\n",
+        "lightning_full_forks",
+        "# B-219: Lightning Bolt's full-width long forks\n\nD-339, from P-26's tutorial 2. Every \
+         expected pixel is `Fixtures/lightning_full_forks/expected_lightning_full_forks.json`, \
+         written by `tools/lightning_full_forks_reference.py` before this code existed and printed \
+         in document 25 as FX-LFULL-001 to 006. The build's frame is compared sample by sample; \
+         the answer is the largest difference over all of them, against the catalogue's tolerance \
+         of 2e-5. D-338's own cases are checked again, unchanged, by B-218.\n",
     );
 
-    t.heading("FX-LFORK-001 to 008 (document 25)");
-    t.fixtures("expected_lightning_forks.json");
+    t.heading("FX-LFULL-001 to 006 (document 25)");
+    t.fixtures("expected_lightning_full_forks.json");
 
     t.heading("The file");
-    let files: Vec<String> = (1..=8).map(|n| format!("fx_lfork_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=6).map(|n| format!("fx_lfull_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
-    let old = persist::load(&effect_table::repo("Fixtures/lightning_bolt/fx_bolt_001.json")).unwrap();
-    let saved = effect_table::saved(&old);
-    let params = &saved["compositions"][0]["layers"][0]["effects"][0]["parameters"];
-    t.row(
-        "fx_bolt_001.json, a file from before D-338, is saved without the word forks",
-        &format!("{:?}", params.get("forks")),
-        params.get("forks").is_none(),
-    );
-    let mut document = t.load("fx_lfork_001.json").document;
+    let mut document = t.load("fx_lfull_001.json").document;
     let base = document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone();
-    let wrong = t.load("fx_lfork_008.json");
+    let wrong = t.load("fx_lfull_006.json");
     let why = wrong.document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.why_invalid();
     t.row(
-        "fx_lfork_008.json's forks \"many\" is named in a sentence",
+        "fx_lfull_006.json's forks \"Full\" is named in a sentence",
         &why,
-        why == "Lightning Bolt's forks are \"short\", \"long\" or \"full\", and this is \"many\".",
+        why == "Lightning Bolt's forks are \"short\", \"long\" or \"full\", and this is \"Full\".",
     );
 
     t.heading("Commands");
-    t.refused(&mut document, vec![("forks \"many\"", set(forked(&base, "many")))]);
+    t.refused(&mut document, vec![("forks \"Full\"", set(forked(&base, "Full")))]);
     t.taken(
         &mut document,
-        "fx_lfork_001.json",
-        vec![("forks short,", set(forked(&base, "short"))), ("forks long,", set(forked(&base, "long")))],
+        "fx_lfull_001.json",
+        vec![("forks long,", set(forked(&base, "long"))), ("forks full,", set(forked(&base, "full")))],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_lfork_001.json", 0), ("fx_lfork_004.json", 1), ("fx_lfork_006.json", 2)]);
+    t.tiles(&[("fx_lfull_001.json", 0), ("fx_lfull_003.json", 1), ("fx_lfull_004.json", 2)]);
 
-    t.heading("Pictures: a night sky over the ground, in `verification/D-338 pictures/`");
-    let dir = effect_table::repo("verification/D-338 pictures");
+    t.heading("Pictures: a night sky over the ground, in `verification/D-339 pictures/`");
+    let dir = effect_table::repo("verification/D-339 pictures");
     fs::create_dir_all(&dir).unwrap();
     let (w, h) = SIZE;
     let [sky, ground] = drawings();
     for (name, bytes) in [("sky", &sky), ("ground", &ground)] {
         png_out::write_rgba(&dir.join(format!("{name}.png")), w, h, OutputDepth::Eight, &[], bytes).unwrap();
     }
-    // Tutorial 2's bolt: Direction, decay 0, branches 37, Alpha Obstacle 50, its end in the ground.
+    // Tutorial 2's bolt, as B-218's pictures.
     let bolt = |forks: &str| {
         Some(json!({"start": [50.0, 0.0], "end": [50.0, 100.0], "jagged": 40, "detail": 6, "branches": 37,
             "width": 3, "glow": 8, "opacity": 100, "hold": 1, "seed": 0, "color": "#ffffff",
             "glow_color": "#6e8cff", "kind": "direction", "decay": 0, "obstacle": 50, "forks": forks}))
     };
     let (before, said) = picture(&dir, 0, None);
-    png_out::write_rgba(&dir.join("before.png"), w, h, OutputDepth::Eight, &[], &before).unwrap();
-    t.row("before.png, the sky over the ground, draws cleanly", &format!("{said:?}"), said.is_empty());
+    t.row("the sky over the ground draws cleanly", &format!("{said:?}"), said.is_empty());
     let lit = |b: &[u8], x: usize, y: usize| b[(y * w + x) * 4..][..4] != before[(y * w + x) * 4..][..4];
-    // Where a strand's core meets the ground: the columns just above it whose green, which the blue
-    // glow hardly has, is 200 or more, in runs.
-    let touches = |b: &[u8]| {
-        let row: Vec<bool> = (0..w).map(|x| b[((GROUND - 1) * w + x) * 4 + 1] >= 200).collect();
-        (0..w).filter(|&x| row[x] && (x == 0 || !row[x - 1])).count()
-    };
+    // How much of the sky the bolts' white cores cover: pixels whose green, which the blue glow
+    // hardly has, is 200 or more.
+    let white = |b: &[u8]| (0..w * GROUND).filter(|i| b[i * 4 + 1] >= 200).count();
     let deep = |b: &[u8]| (GROUND + 12..h).flat_map(|y| (0..w).map(move |x| (x, y))).filter(|&(x, y)| lit(b, x, y)).count();
     for frame in [0, 7] {
         let mut shots = Vec::new();
         for (forks, what) in [
-            ("short", "forks Short, D-190's: the forks are short twigs off the main bolt"),
-            ("long", "forks Long: the first forks run on down beside the main bolt to the ground"),
+            ("long", "forks Long, D-338's: the strands start at half the main bolt's width"),
+            ("full", "forks Long, full width: the strands start as wide as the main bolt"),
         ] {
             let name = format!("f{frame}_{forks}");
             let (bytes, said) = picture(&dir, frame, bolt(forks));
             png_out::write_rgba(&dir.join(format!("{name}.png")), w, h, OutputDepth::Eight, &[], &bytes).unwrap();
-            let (touch, under) = (touches(&bytes), deep(&bytes));
+            let (core, under) = (white(&bytes), deep(&bytes));
             t.row(
                 &format!("{name}.png, frame {frame}, {what}"),
-                &format!("{said:?}, {touch} strands touch the ground, {under} pixels lit more than 12 into it"),
-                said.is_empty() && under == 0 && touch >= 1,
+                &format!("{said:?}, {core} white pixels in the sky, {under} pixels lit more than 12 into the ground"),
+                said.is_empty() && under == 0,
             );
-            shots.push(touch);
+            shots.push(core);
         }
         t.row(
-            &format!("on frame {frame}, more strands reach the ground with long forks than with short"),
-            &format!("short {}, long {}", shots[0], shots[1]),
+            &format!("on frame {frame}, the full-width strands cover more of the sky in white than the long ones"),
+            &format!("long {}, full {}", shots[0], shots[1]),
             shots[1] > shots[0],
         );
     }
 
-    t.finish("D-338_lightning_forks_table.md");
+    t.finish("D-339_lightning_full_forks_table.md");
 }

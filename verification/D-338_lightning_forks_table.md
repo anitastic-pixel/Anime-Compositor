@@ -41,13 +41,13 @@ D-338, from P-26's tutorial 2. Every expected pixel is `Fixtures/lightning_forks
 | fx_lfork_007.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_lfork_008.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_bolt_001.json, a file from before D-338, is saved without the word forks | None | yes |
-| fx_lfork_008.json's forks "many" is named in a sentence | Lightning Bolt's forks are "short" or "long", and this is "many". | yes |
+| fx_lfork_008.json's forks "many" is named in a sentence | Lightning Bolt's forks are "short", "long" or "full", and this is "many". | yes |
 
 ## Commands
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| forks "many" is refused with a sentence, and nothing changes | Lightning Bolt's forks are "short" or "long", and this is "many". | yes |
+| forks "many" is refused with a sentence, and nothing changes | Lightning Bolt's forks are "short", "long" or "full", and this is "many". | yes |
 | forks short, is taken | taken | yes |
 | forks long, is taken | taken | yes |
 | undo 2 times: frame 0 is the frame it was | byte-identical | yes |
