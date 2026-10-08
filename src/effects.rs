@@ -5611,7 +5611,7 @@ pub(crate) fn blur(source: &mut WorkingBuffer, sigma_px: f64) -> usize {
 }
 
 /// D-303: the taps of an axis not blurred along, which take each pixel as it is.
-fn still_weights(r: usize) -> Vec<f32> {
+pub(crate) fn still_weights(r: usize) -> Vec<f32> {
     let mut w = vec![0.0; 2 * r + 1];
     w[r] = 1.0;
     w

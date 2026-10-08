@@ -944,6 +944,12 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::LineRecolor { .. }
                 | crate::effects::Effect::Colorama { .. }
                 | crate::effects::Effect::Extract { .. }
+                // B-223 (D-342): five blurs.
+                | crate::effects::Effect::FastBoxBlur { .. }
+                | crate::effects::Effect::ChannelBlur { .. }
+                | crate::effects::Effect::CompoundBlur { .. }
+                | crate::effects::Effect::SelectiveColorBlur { .. }
+                | crate::effects::Effect::VectorBlur { .. }
         )
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
@@ -1097,6 +1103,14 @@ fn card_effect(
                 E::ColorKey { colors, .. } | E::SelectColor { colors, .. } | E::LineRecolor { colors, .. } => {
                     crate::selective_blur::targets(colors).is_empty()
                 }
+                // B-223: as each one's own function returns at once.
+                E::FastBoxBlur { radius, iterations, .. } => crate::effects::box_reach(*radius, *iterations) == 0,
+                E::ChannelBlur { red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, .. } => {
+                    [red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness].iter().all(|s| crate::effects::kernel_radius(**s) == 0)
+                }
+                E::CompoundBlur { map, max_blur, .. } => map.is_none() || *max_blur == 0.0,
+                E::SelectiveColorBlur { blur, colors, .. } => (blur + 0.5).floor() == 0.0 || crate::selective_blur::targets(colors).is_empty(),
+                E::VectorBlur { amount, .. } => *amount == 0.0,
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -1156,7 +1170,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
     // A Light Wrap does nothing in a stack (D-132), as `apply_stack` has it.
     for instance in stack.iter().filter(|i| i.enabled && !matches!(i.effect, E::LightWrap { .. })) {
         // B-222 (D-341): Colour Key, Select Colour and Line Recolour round to 8 bits and choose by
-        // it, as an HSV Key does.
+        // it, as an HSV Key does. B-223 (D-342): so does a Selective Colour Blur.
         let first = matches!(
             instance.effect,
             E::Bloom { .. }
@@ -1167,6 +1181,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }
                 | E::LineRecolor { .. }
+                | E::SelectiveColorBlur { .. }
         );
         if first || !card_can(instance, 1.0) {
             return None;
@@ -1867,7 +1882,8 @@ fn resolve_rest(
     // them can only begin that run. So can an HSV Key: the hue of a nearly grey pixel swings
     // with the smallest change, and given the card's picture rather than the CPU's it keyed
     // pixels the CPU did not (B-155's table, 255 levels). B-222 (D-341): so can a Colour Key, a
-    // Select Colour and a Line Recolour, which choose by the same 8-bit rounding.
+    // Select Colour and a Line Recolour, which choose by the same 8-bit rounding; B-223 (D-342),
+    // and a Selective Colour Blur.
     // D-330, D-333: the card neither rounds to 8 bits nor blurs display values, so in 8 bpc and
     // 32 bpc (After Effects) it is left nothing.
     let plain = bits == crate::effects::Bits::Linear;
@@ -1892,6 +1908,7 @@ fn resolve_rest(
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }
                 | E::LineRecolor { .. }
+                | E::SelectiveColorBlur { .. }
         ) {
             break;
         }

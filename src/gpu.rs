@@ -1803,14 +1803,21 @@ fn lookup(e: vec3<f64>) -> vec3<f64> {
 // it. The power is `root`'s, moved by k[7], the single-precision 1/2.4 less the true one, times
 // the logarithm. k[8] is a 0 for `product`.
 fn level8(v: f32, a: f64) -> f64 {
+    return step8(srgb32(v, a));
+}
+
+// B-223: `level8`'s color::linear_to_srgb of `v` over `a`, before its rounding.
+fn srgb32(v: f32, a: f64) -> f32 {
     let c = f32(f64(v) / a);
-    var s: f32;
     if c <= 0.0031308 {
-        s = f32(f64(12.92f) * f64(c));
-    } else {
-        let y = f32(root(f64(c)) * (1.0lf + k[7] * f64(log(c))));
-        s = f32(f64(f32(f64(1.055f) * f64(y))) - f64(0.055f));
+        return f32(f64(12.92f) * f64(c));
     }
+    let y = f32(root(f64(c)) * (1.0lf + k[7] * f64(log(c))));
+    return f32(f64(f32(f64(1.055f) * f64(y))) - f64(0.055f));
+}
+
+// B-223: `level8`'s color::quantise_u8 of `s`.
+fn step8(s: f32) -> f64 {
     let t = f32(f64(clamp(s, 0.0, 1.0)) * 255.0lf);
     return floor(f64(f32(f64(t) + 0.5lf)));
 }
@@ -3567,6 +3574,274 @@ fn cells(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// B-223, effects::channel_blur: channel F.count of each pixel the colour of its own blur, `other`,
+// whose corner is F.g pixels out, over that blur's covering and times the pixel's.
+@compute @workgroup_size(16, 16)
+fn chanmix(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    var p = textureLoad(input, id.xy, 0);
+    let q = at(other, vec2<i32>(id.xy) + vec2(F.g));
+    if q.w > 0.0 {
+        let c = F.count;
+        p[c] = f32(f64(f32(quotient(f64(q[c]), f64(q.w)))) * f64(p.w));
+    }
+    textureStore(output, id.xy, p);
+}
+
+// B-223, selective_blur::selective_color_blur: each pixel's straight colour encoded in single
+// precision, and 1 where it is chosen (k as `picked` and `srgb32` read it); clear where it shows
+// nothing.
+@compute @workgroup_size(16, 16)
+fn selprep(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    if p.w <= 0.0 {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    let a = f64(p.w);
+    let e = vec3(srgb32(p.x, a), srgb32(p.y, a), srgb32(p.z, a));
+    let on = picked(vec3(step8(e.x), step8(e.y), step8(e.z)));
+    textureStore(output, id.xy, vec4(e, select(0.0, 1.0, on)));
+}
+
+// B-223, selective_blur::pass: each chosen pixel the weighted mean of itself and the chosen
+// pixels either side along rows (F.flag 1) or columns, out to F.n, each side stopping at the
+// first not chosen or the edge. k: the weights from the middle out.
+@compute @workgroup_size(16, 16)
+fn selpass(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = vec2<i32>(textureDimensions(input));
+    if i32(id.x) >= size.x || i32(id.y) >= size.y {
+        return;
+    }
+    let own = textureLoad(input, id.xy, 0);
+    if own.w == 0.0 {
+        textureStore(output, id.xy, own);
+        return;
+    }
+    let step = select(vec2(0, 1), vec2(1, 0), F.flag == 1u);
+    var got = vec3(0.0);
+    var total = f32(k[0]);
+    for (var side = -1; side <= 1; side += 2) {
+        for (var j = 1; j <= i32(F.n); j++) {
+            let m = vec2<i32>(id.xy) + step * (side * j);
+            if any(m < vec2(0)) || any(m >= size) {
+                break;
+            }
+            let o = textureLoad(input, m, 0);
+            if o.w == 0.0 {
+                break;
+            }
+            let wk = f32(k[j]);
+            got += wk * (o.xyz - own.xyz);
+            total += wk;
+        }
+    }
+    textureStore(output, id.xy, vec4(own.xyz + got / total, 1.0));
+}
+
+// B-223: each chosen pixel whose blurred colour (`other`) is not its own, that colour decoded and
+// times its covering. k as `selprep`'s.
+@compute @workgroup_size(16, 16)
+fn selfinish(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let o = textureLoad(other, id.xy, 0);
+    var out = p;
+    if o.w == 1.0 && p.w > 0.0 {
+        let a = f64(p.w);
+        let e = vec3(srgb32(p.x, a), srgb32(p.y, a), srgb32(p.z, a));
+        if any(o.xyz != e) {
+            for (var c = 0u; c < 3u; c++) {
+                out[c] = f32(to_linear(f64(o[c])) * a);
+            }
+        }
+    }
+    textureStore(output, id.xy, out);
+}
+
+// B-223, layer_fx::vector_blur's height, as the alpha of the output (the drawing's size): the
+// phase k[0] (grade::phase_of: red, green, blue, alpha, luminance, lightness, hue, saturation) of
+// `input`, the drawing or a map whose corner is F.ox, F.oy in, times its covering unless alpha.
+@compute @workgroup_size(16, 16)
+fn vheight(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let q = at(input, vec2<i32>(id.xy) - vec2(F.ox, F.oy));
+    let a = f64(q.w);
+    let kind = u32(k[0]);
+    var ph = 0.0lf;
+    if kind == 3u {
+        ph = a;
+    } else if a > 0.0lf {
+        let b = vec3(
+            clamp(quotient(f64(q.x), a), 0.0lf, 1.0lf),
+            clamp(quotient(f64(q.y), a), 0.0lf, 1.0lf),
+            clamp(quotient(f64(q.z), a), 0.0lf, 1.0lf),
+        );
+        let c = vec3(to_srgb(b.x), to_srgb(b.y), to_srgb(b.z));
+        switch kind {
+            case 0u: { ph = c.x; }
+            case 1u: { ph = c.y; }
+            case 2u: { ph = c.z; }
+            case 4u: { ph = to_srgb(luma(b)); }
+            case 5u: { ph = hsl(c).z; }
+            case 6u: { ph = quotient(hsl(c).x, 360.0lf); }
+            default: { ph = hsl(c).y; }
+        }
+        ph = ph * a;
+    }
+    textureStore(output, id.xy, vec4(0.0, 0.0, 0.0, f32(ph)));
+}
+
+// B-223: `vblur`'s height at `p`, `other`'s alpha, its corner F.r pixels out.
+fn height(p: vec2<i32>) -> f64 {
+    return f64(at(other, p + vec2(F.r)).w);
+}
+
+// B-223, layer_fx::vector_blur: each pixel the weighted mean of bilinear samples of the drawing
+// along its vector. k: the amount, the angle, the ridge, ceil(amount), the type (natural,
+// constant, perpendicular, direction_center, direction_fading), the turn's cosine and sine.
+@compute @workgroup_size(16, 16)
+fn vblur(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let x = i32(id.x);
+    let y = i32(id.y);
+    let kind = u32(k[4]);
+    var ux: f64;
+    var uy: f64;
+    var len = k[0];
+    if kind >= 3u {
+        // blurs::along, its quarter turns exact.
+        let d = k[1] + 360.0lf * k[2] * height(vec2(x, y));
+        let q = rem(d, 360.0lf);
+        ux = sin64(d * 0.017453292519943295lf);
+        uy = -cos64(d * 0.017453292519943295lf);
+        if q == 0.0lf {
+            ux = 0.0lf;
+            uy = -1.0lf;
+        } else if q == 90.0lf {
+            ux = 1.0lf;
+            uy = 0.0lf;
+        } else if q == 180.0lf {
+            ux = 0.0lf;
+            uy = 1.0lf;
+        } else if q == 270.0lf {
+            ux = -1.0lf;
+            uy = 0.0lf;
+        }
+    } else {
+        let gx = (height(vec2(x + 1, y)) - height(vec2(x - 1, y))) / 2.0lf;
+        let gy = (height(vec2(x, y + 1)) - height(vec2(x, y - 1))) / 2.0lf;
+        let g = sqrt(gx * gx + gy * gy);
+        if g < 1e-4lf {
+            textureStore(output, id.xy, textureLoad(input, id.xy, 0));
+            return;
+        }
+        let vx = quotient(gx, g);
+        let vy = quotient(gy, g);
+        ux = vx * k[5] - vy * k[6];
+        uy = vx * k[6] + vy * k[5];
+        if kind != 1u && k[2] != 0.0lf {
+            let m = 100.0lf * g;
+            len = quotient(k[0] * 100.0lf * g, sqrt(m * m + k[2] * k[2]));
+        }
+    }
+    let n = i32(k[3]);
+    let fading = kind == 0u || kind == 2u || kind == 4u;
+    var acc = array<f64, 4>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+    var total = 0.0lf;
+    let cx = f64(x) + 0.5lf;
+    let cy = f64(y) + 0.5lf;
+    for (var j = select(-n, 0, kind == 4u); j <= n; j++) {
+        let t = quotient(f64(j), f64(n));
+        var wt = 1.0lf;
+        if fading {
+            wt = 1.0lf - abs(t);
+        }
+        if wt == 0.0lf {
+            continue;
+        }
+        let s = bilinear(input, cx + t * len * ux, cy + t * len * uy);
+        for (var c = 0; c < 4; c++) {
+            acc[c] += wt * f64(s[c]);
+        }
+        total += wt;
+    }
+    var out = vec4(0.0);
+    for (var c = 0; c < 4; c++) {
+        out[c] = f32(quotient(acc[c], total));
+    }
+    textureStore(output, id.xy, out);
+}
+
+// B-223, layer_fx::compound_blur's sigmas into `dist`: each pixel of the drawing, F.n wide and
+// F.count tall, k[0] times the brightness of the map (`input`, its corner F.ox, F.oy in), or with
+// k[1] one less that.
+@compute @workgroup_size(16, 16)
+fn csigma(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= F.n || id.y >= F.count {
+        return;
+    }
+    let m = vec2<i32>(id.xy) - vec2(F.ox, F.oy);
+    var v = 0.0lf;
+    if all(m >= vec2(0)) && all(m < vec2<i32>(textureDimensions(input))) {
+        let p = textureLoad(input, m, 0);
+        v = to_srgb(clamp(luma(vec3(f64(p.x), f64(p.y), f64(p.z))), 0.0lf, 1.0lf));
+    }
+    if k[1] == 1.0lf {
+        v = 1.0lf - v;
+    }
+    dist[id.y * F.n + id.x] = v * k[0];
+}
+
+// B-223: layer_fx::compound_blur's mix: each pixel whose sigma (`dist`) falls in segment F.n of
+// the levels k, between `input` (its corner F.g pixels out) and `other` (F.r out); the rest left
+// as the output has them.
+@compute @workgroup_size(16, 16)
+fn cmix(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let s = dist[id.y * size.x + id.x];
+    var seg = 0u;
+    for (var j = 4; j >= 0; j--) {
+        if k[u32(j)] <= s {
+            seg = u32(j);
+            break;
+        }
+    }
+    if seg != F.n {
+        return;
+    }
+    let lo = k[seg];
+    let hi = k[seg + 1u];
+    let t = quotient(s - lo, hi - lo);
+    let a = at(input, vec2<i32>(id.xy) + vec2(F.g));
+    let b = at(other, vec2<i32>(id.xy) + vec2(F.r));
+    var out = vec4(0.0);
+    for (var c = 0; c < 4; c++) {
+        let x = f64(a[c]);
+        out[c] = f32(x + t * (f64(b[c]) - x));
+    }
+    textureStore(output, id.xy, out);
+}
+
 @group(0) @binding(10) var effected: texture_2d<f32>;
 @group(0) @binding(11) var<storage, read_write> frame_sum: array<vec4<f32>>;
 
@@ -3680,6 +3955,15 @@ struct FxPasses {
     chain: Pass,
     /// B-221.
     mix_back: Pass,
+    /// B-223.
+    chanmix: Pass,
+    selprep: Pass,
+    selpass: Pass,
+    selfinish: Pass,
+    vheight: Pass,
+    vblur: Pass,
+    csigma: Pass,
+    cmix: Pass,
 }
 
 /// B-172: one colour effect of a run the card draws in one pass: `grade` (0) or `tone` (1), its
@@ -4245,6 +4529,14 @@ impl Gpu {
                 cells: pass("cells", &[0, 1, 2, 3]),
                 adjust: pass("adjust", &[0, 1, 3, 4, 10, 11]),
                 mix_back: pass("mixback", &[0, 1, 2, 3, 4]),
+                chanmix: pass("chanmix", &[0, 1, 2, 4]),
+                selprep: pass("selprep", &[0, 1, 2, 3]),
+                selpass: pass("selpass", &[0, 1, 2, 3]),
+                selfinish: pass("selfinish", &[0, 1, 2, 3, 4]),
+                vheight: pass("vheight", &[0, 1, 2, 3]),
+                vblur: pass("vblur", &[0, 1, 2, 3, 4]),
+                csigma: pass("csigma", &[0, 1, 3, 8]),
+                cmix: pass("cmix", &[0, 1, 2, 3, 4, 8]),
                 chain: {
                     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                         label: Some("B-172"),
@@ -4930,7 +5222,8 @@ impl Gpu {
         let e = g.grow();
         // B-164: D-235's shortcut blurs transparent edges; held ones stay exact.
         let tall = if g.repeat {
-            self.gauss(steps, passes, "B-50", still, (w, h), &crate::effects::reach_weights(g.sigma, g.long), e, true)
+            let taps = crate::effects::reach_weights(g.sigma, g.long);
+            self.gauss(steps, passes, "B-50", still, (w, h), [&taps, &taps], e, true)
         } else {
             self.blurred(steps, passes, "B-50", still, (w, h), g.sigma, g.long)
         };
@@ -4938,21 +5231,46 @@ impl Gpu {
     }
 
     /// `effects::convolve` across and then down with Bloom's `gauss` pass, into a texture grown
-    /// by `e` (the kernel's radius; D-109: none with `held`), which is returned.
+    /// by `e` (the kernel's radius; D-109: none with `held`), which is returned. B-223: `taps`
+    /// across and down, of one length, as `effects::blur_axes` takes them.
     #[allow(clippy::too_many_arguments)]
-    fn gauss(&self, steps: &mut Vec<Step>, passes: &BloomPasses, label: &str, input: &wgpu::TextureView, (w, h): (usize, usize), taps: &[f32], e: usize, held: bool) -> wgpu::TextureView {
+    fn gauss(&self, steps: &mut Vec<Step>, passes: &BloomPasses, label: &str, input: &wgpu::TextureView, (w, h): (usize, usize), taps: [&[f32]; 2], e: usize, held: bool) -> wgpu::TextureView {
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
-        let weights = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some(&format!("{label} weights")),
-            contents: bytemuck::cast_slice(taps),
-            usage: wgpu::BufferUsages::STORAGE,
-        });
+        let weights = |taps: &[f32]| {
+            self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some(&format!("{label} weights")),
+                contents: bytemuck::cast_slice(taps),
+                usage: wgpu::BufferUsages::STORAGE,
+            })
+        };
+        let first = weights(taps[0]);
+        let second = (taps[1] != taps[0]).then(|| weights(taps[1]));
         let (wide, tall) = (self.scratch(&format!("{label} wide"), w + 2 * e, h), self.scratch(&format!("{label} tall"), w + 2 * e, h + 2 * e));
-        let across = Params { count: (taps.len() / 2) as u32, axis: 0, held: held as u32, ..Default::default() };
-        self.step(steps, &passes.gauss, across, input, Some(&wide), None, Some(&weights), tiles(w + 2 * e, h));
+        let across = Params { count: (taps[0].len() / 2) as u32, axis: 0, held: held as u32, ..Default::default() };
+        self.step(steps, &passes.gauss, across, input, Some(&wide), None, Some(&first), tiles(w + 2 * e, h));
         let down = Params { axis: 1, ..across };
-        self.step(steps, &passes.gauss, down, &wide, Some(&tall), None, Some(&weights), tiles(w + 2 * e, h + 2 * e));
+        self.step(steps, &passes.gauss, down, &wide, Some(&tall), None, Some(second.as_ref().unwrap_or(&first)), tiles(w + 2 * e, h + 2 * e));
         tall
+    }
+
+    /// B-223: `picture` (a map another layer made) as a texture of its own, for a pass to read.
+    fn map_texture(&self, picture: &WorkingBuffer) -> wgpu::TextureView {
+        let texture = self.device.create_texture_with_data(
+            &self.queue,
+            &wgpu::TextureDescriptor {
+                label: Some("B-223 map"),
+                size: wgpu::Extent3d { width: picture.width() as u32, height: picture.height() as u32, depth_or_array_layers: 1 },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba32Float,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            wgpu::util::TextureDataOrder::LayerMajor,
+            bytemuck::cast_slice(picture.data()),
+        );
+        texture.create_view(&Default::default())
     }
 
     /// `effects::blur` of `input`, `width` by `height`, transparent outside it, into a texture
@@ -4964,7 +5282,8 @@ impl Gpu {
         let r = crate::effects::reach_radius(sigma, long);
         let f = shrink_factor(sigma);
         if f == 1 {
-            return self.gauss(steps, passes, label, input, (w, h), &crate::effects::reach_weights(sigma, long), r, false);
+            let taps = crate::effects::reach_weights(sigma, long);
+            return self.gauss(steps, passes, label, input, (w, h), [&taps, &taps], r, false);
         }
         self.shrunk.set(self.shrunk.get() + 1);
         let tiles = |w: usize, h: usize| ((w as u32).div_ceil(16), (h as u32).div_ceil(16));
@@ -4977,7 +5296,7 @@ impl Gpu {
         let small = self.scratch(&format!("{label} small"), sw, sh);
         let p = Params { n: f as u32, g: m as i32, ..Default::default() };
         self.step(steps, &passes.shrink, p, input, Some(&small), None, None, tiles(sw, sh));
-        let blurred = self.gauss(steps, passes, &format!("{label} small"), &small, (sw, sh), &taps, rs, false);
+        let blurred = self.gauss(steps, passes, &format!("{label} small"), &small, (sw, sh), [&taps, &taps], rs, false);
         let out = self.scratch(&format!("{label} tall"), w + 2 * r, h + 2 * r);
         let p = Params { n: f as u32, g: r as i32, count: (rs + m) as u32, ..Default::default() };
         self.step(steps, &passes.enlarge, p, &blurred, Some(&out), None, None, tiles(w + 2 * r, h + 2 * r));
@@ -5741,7 +6060,113 @@ impl Gpu {
                 self.fx_step(steps, &passes.warp, FxParams { mode: 10, ..Default::default() }, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
                 (out, (tw, th))
             }
-            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen and B-222's ten as Fx"),
+            // B-223 (D-342): five blurs, each as its CPU function.
+            E::FastBoxBlur { radius, iterations, edges, dimensions } => {
+                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let taps = crate::effects::box_weights(*radius, *iterations);
+                let flat = crate::effects::still_weights(taps.len() / 2);
+                let pick = |on: bool| if on { &taps[..] } else { &flat[..] };
+                let repeat = edges == "repeat";
+                let e = if repeat { 0 } else { taps.len() / 2 };
+                let out = self.gauss(steps, bloom, "B-223 box", still, (w, h), [pick(dimensions != "vertical"), pick(dimensions != "horizontal")], e, repeat);
+                (out, (w + 2 * e, h + 2 * e))
+            }
+            E::ChannelBlur { red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, edges, dimensions } => {
+                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let repeat = edges == "repeat";
+                let blurred = |steps: &mut Vec<Step>, sigma: f64| {
+                    let taps = crate::effects::gaussian_weights(sigma);
+                    let flat = crate::effects::still_weights(taps.len() / 2);
+                    let pick = |on: bool| if on { &taps[..] } else { &flat[..] };
+                    let e = if repeat { 0 } else { taps.len() / 2 };
+                    let axes = [pick(dimensions != "vertical"), pick(dimensions != "horizontal")];
+                    (self.gauss(steps, bloom, "B-223 channel", still, (w, h), axes, e, repeat), e)
+                };
+                let sigma = [*red_blurriness, *green_blurriness, *blue_blurriness, *alpha_blurriness];
+                let (mut out, g) = blurred(steps, sigma[3]);
+                let (tw, th) = (w + 2 * g, h + 2 * g);
+                for c in 0..3 {
+                    if sigma[c] == sigma[3] {
+                        continue;
+                    }
+                    let (b, r) = blurred(steps, sigma[c]);
+                    let next = self.scratch("B-223 channel mix", tw, th);
+                    let p = FxParams { count: c as u32, g: r as i32 - g as i32, ..Default::default() };
+                    self.fx_step(steps, &passes.chanmix, p, Some(&out), Some(&next), None, Some(&b), none, tiles(tw, th));
+                    out = next;
+                }
+                (out, (tw, th))
+            }
+            E::SelectiveColorBlur { blur, colors, tolerance } => {
+                // k: the targets' count, the tolerance, 0s, level8's power and 0, then the targets.
+                let r = (blur + 0.5).floor() as usize;
+                let targets = crate::selective_blur::targets(colors);
+                let power = f64::from(1.0f32 / 2.4) - 1.0 / 2.4;
+                let mut k = vec![targets.len() as f64, *tolerance, 0.0, 0.0, 0.0, 0.0, 0.0, power, 0.0];
+                k.extend(targets.iter().flat_map(|t| t.map(f64::from)));
+                let mut chosen = self.scratch("B-223 chosen", w, h);
+                self.fx_step(steps, &passes.selprep, FxParams::default(), Some(still), Some(&chosen), Some(&k), None, none, tiles(w, h));
+                let zone = r as f64 / 3.0;
+                let tbl: Vec<f64> = (0..=r).map(|j| (-((j * j) as f64) / (2.0 * zone * zone)).exp() as f32 as f64).collect();
+                for (reach, across) in [(r, true), (r, false), (r / 4, true), (r / 16, false), (r / 64, true)] {
+                    if reach > 0 {
+                        let next = self.scratch("B-223 chosen", w, h);
+                        let p = FxParams { n: reach as u32, flag: across as u32, ..Default::default() };
+                        self.fx_step(steps, &passes.selpass, p, Some(&chosen), Some(&next), Some(&tbl), None, none, tiles(w, h));
+                        chosen = next;
+                    }
+                }
+                let out = self.scratch("B-223 selective", w, h);
+                self.fx_step(steps, &passes.selfinish, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&chosen), none, tiles(w, h));
+                (out, (w, h))
+            }
+            E::VectorBlur { kind, amount, angle_offset, ridge_smoothness, property, map_softness, map, .. } => {
+                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                // The height from the map compose read, lying on the drawing at its corner, or the drawing.
+                let (picture, (mx, my)) = match map {
+                    Some(m) => (self.map_texture(&m.0), (ox, oy)),
+                    None => (still.clone(), (0, 0)),
+                };
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| p == property).expect("compose leaves a valid CC Vector Blur");
+                let raw = self.scratch("B-223 height", w, h);
+                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
+                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let (height, r) = if *map_softness > 0.0 {
+                    let taps = crate::effects::gaussian_weights(map_softness / 2.0);
+                    let r = taps.len() / 2;
+                    (self.gauss(steps, bloom, "B-223 height", &raw, (w, h), [&taps, &taps], r, false), r)
+                } else {
+                    (raw, 0)
+                };
+                let kind_at = crate::effects::VECTOR_BLUR_TYPES.iter().position(|t| t == kind).expect("compose leaves a valid CC Vector Blur");
+                let turn = (angle_offset + if kind == "perpendicular" { 90.0 } else { 0.0 }).to_radians();
+                let k = [*amount, *angle_offset, *ridge_smoothness, amount.ceil(), kind_at as f64, turn.cos(), turn.sin()];
+                let out = self.scratch("B-223 vector", w, h);
+                self.fx_step(steps, &passes.vblur, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&height), none, tiles(w, h));
+                (out, (w, h))
+            }
+            E::CompoundBlur { max_blur, invert, edges, map, .. } => {
+                let map = self.map_texture(&map.as_ref().expect("compose leaves a Compound Blur with a map").0);
+                let big = max_blur / 3.0;
+                let levels = [0.0, big / 16.0, big / 8.0, big / 4.0, big / 2.0, big];
+                let dist = buffer(w * h * 8);
+                let work = [None, None, None, Some(&dist)];
+                let p = FxParams { n: w as u32, count: h as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.csigma, p, Some(&map), None, Some(&[big, (invert == "on") as u8 as f64]), None, work, tiles(w, h));
+                // ponytail: all five levels are blurred, where the CPU stops at the map's brightest;
+                // find the brightest first if a dark map is slow here.
+                let out = self.scratch("B-223 compound", w, h);
+                let mut low = (still.clone(), 0);
+                for j in 0..5 {
+                    let g = Gaussian { sigma: levels[j + 1], repeat: edges == "repeat", long: false };
+                    let (high, _) = self.gaussian(steps, still, (w, h), g);
+                    let p = FxParams { n: j as u32, g: low.1 as i32, r: g.grow() as i32, ..Default::default() };
+                    self.fx_step(steps, &passes.cmix, p, Some(&low.0), Some(&out), Some(&levels), Some(&high), work, tiles(w, h));
+                    low = (high, g.grow());
+                }
+                (out, (w, h))
+            }
+            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten and B-223's five blurs as Fx"),
         }
     }
 
@@ -5946,6 +6371,8 @@ impl Gpu {
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,
+                            // B-223: a Compound Blur's sigma for each pixel.
+                            crate::effects::Effect::CompoundBlur { .. } => (w * h * 8) as u64,
                             _ => 0,
                         };
                         (format!("the effect {}", f.instance.effect.name()), f.grow, bytes)
@@ -5961,7 +6388,18 @@ impl Gpu {
                     ));
                 }
                 let (gw, gh) = (w + 2 * gx, h + 2 * gy);
+                // B-223: a Channel Blur's colour can reach further than its alpha, which it grows by.
+                let reach = match card.unmixed() {
+                    OnCard::Fx(f) => match &f.instance.effect {
+                        crate::effects::Effect::ChannelBlur { red_blurriness: r, green_blurriness: g, blue_blurriness: b, edges, .. } if edges != "repeat" => {
+                            [r, g, b].map(|s| crate::effects::kernel_radius(*s)).into_iter().max().unwrap_or(0)
+                        }
+                        _ => 0,
+                    },
+                    _ => 0,
+                };
                 if gw + gh + 1 > self.limits.max_texture_dimension_2d as usize
+                    || w + h + 4 * reach + 1 > self.limits.max_texture_dimension_2d as usize
                     || bytes > self.limits.max_storage_buffer_binding_size as u64
                     || bytes > self.limits.max_buffer_size
                 {
