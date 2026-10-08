@@ -861,9 +861,8 @@ pub fn screen_transform_at(
 
 /// B-46..B-155: whether the card can draw `instance`, run at a draft divisor `pre`.
 fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
-    // D-202: an effect mixed below 100 is drawn here; a card version is a later unit.
-    instance.mix == 100.0
-        && matches!(
+    // B-221 (D-340): an effect mixed below 100 too, its result laid back on the card (`mixed`).
+    matches!(
             instance.effect,
             crate::effects::Effect::RadialBlur { .. }
                 | crate::effects::Effect::Bloom { .. }
@@ -1101,13 +1100,24 @@ fn card_effect(
                 }
                 _ => (effect.bounds_expansion(), effect.bounds_expansion()),
             };
-            let instance = crate::effects::EffectInstance { effect, ..instance.clone() };
+            // B-221: its Mix is `mixed`'s, around it.
+            let instance = crate::effects::EffectInstance { effect, mix: 100.0, ..instance.clone() };
             let fx = render::Fx { instance, origin: *offset, grow };
             (!nothing).then(|| {
                 *offset = (offset.0 + grow.0, offset.1 + grow.1);
                 render::OnCard::Fx(fx)
             })
         }
+    }
+}
+
+/// B-221 (D-340): `card`, laid back over what it was given by `instance`'s Mix when that is below
+/// 100 (D-202).
+fn mixed(card: render::OnCard, instance: &crate::effects::EffectInstance) -> render::OnCard {
+    if instance.mix < 100.0 {
+        render::OnCard::Mix(Box::new(card), instance.mix)
+    } else {
+        card
     }
 }
 
@@ -1127,7 +1137,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
             return None;
         }
         let grown = (size.0 + 2 * offset.0, size.1 + 2 * offset.1);
-        run.extend(card_effect(instance.effect.clone(), instance, grown, &mut offset));
+        run.extend(card_effect(instance.effect.clone(), instance, grown, &mut offset).map(|c| mixed(c, instance)));
     }
     Some(run)
 }
@@ -2002,7 +2012,8 @@ fn resolve_rest(
                 })
             }
             effect => card_effect(effect, &effects[i], size, &mut offset),
-        });
+        }
+        .map(|c| mixed(c, &effects[i])));
     }
 
     // Step 6: the animated properties at this frame. A property holding the wrong kind of

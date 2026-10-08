@@ -298,6 +298,19 @@ pub enum OnCard {
     Gaussian(Gaussian),
     Glow(Glow),
     Fx(Fx),
+    /// B-221 (D-340): the effect inside, its result laid over what it was given by its Mix (D-202),
+    /// 0 to 100 and below 100, as `effects::mix_back` lays it. The effect inside holds no Mix.
+    Mix(Box<OnCard>, f64),
+}
+
+impl OnCard {
+    /// The effect itself, inside its Mix if it has one.
+    pub fn unmixed(&self) -> &OnCard {
+        match self {
+            OnCard::Mix(inner, _) => inner,
+            card => card,
+        }
+    }
 }
 
 /// B-65: one of the batch of ten (D-122), its distances already divided for Draft, with the
@@ -447,13 +460,13 @@ pub struct Tile {
 pub fn bounds(layer: &LayerDraw) -> (f64, f64, f64, f64) {
     let even = |g: usize| (2 * g, 2 * g);
     let (gx, gy) = layer.on_card.iter().fold((0, 0), |(x, y), card| {
-        let (gx, gy) = match card {
+        let (gx, gy) = match card.unmixed() {
             OnCard::Bloom(b) => even(crate::bloom::reach(b.radius, b.lines, b.length)),
             OnCard::Directional(d) => even(d.grow()),
             OnCard::Gaussian(g) => even(g.grow()),
             OnCard::Glow(g) => even(crate::effects::kernel_radius(g.radius / 3.0)),
             OnCard::Fx(f) => (2 * f.grow.0, 2 * f.grow.1),
-            OnCard::Radial(_) => (0, 0),
+            OnCard::Radial(_) | OnCard::Mix(..) => (0, 0),
         };
         (x + gx, y + gy)
     });
@@ -608,42 +621,7 @@ fn draw(
             }
             // B-155: in stack order, each on what the one before it drew.
             for card in std::mem::take(&mut layer.on_card) {
-                match card {
-                    OnCard::Radial(r) => crate::perf::time(crate::perf::Stage::EffectRadial, || {
-                        crate::blurs::radial_blur(std::sync::Arc::make_mut(&mut layer.source), r.spin, r.amount, r.center, r.repeat)
-                    }),
-                    OnCard::Bloom(b) => {
-                        crate::perf::time(crate::perf::Stage::EffectBloom, || {
-                            let source = std::sync::Arc::make_mut(&mut layer.source);
-                            crate::bloom::bloom(source, b.threshold, b.radius, b.intensity, b.lines, b.length, b.angle)
-                        });
-                    }
-                    OnCard::Directional(d) => {
-                        crate::perf::time(crate::perf::Stage::EffectDirBlur, || {
-                            crate::blurs::directional_blur(std::sync::Arc::make_mut(&mut layer.source), d.direction, d.length, d.repeat)
-                        });
-                    }
-                    OnCard::Gaussian(g) => {
-                        crate::perf::time(crate::perf::Stage::EffectBlur, || {
-                            let source = std::sync::Arc::make_mut(&mut layer.source);
-                            let taps = crate::effects::reach_weights(g.sigma, g.long);
-                            if g.repeat {
-                                crate::effects::held_blur_axes(source, &taps, (true, true));
-                            } else {
-                                crate::effects::blur_axes(source, &taps, (true, true));
-                            }
-                        });
-                    }
-                    OnCard::Glow(g) => {
-                        crate::perf::time(crate::perf::Stage::EffectGlow, || {
-                            crate::glow::glow(std::sync::Arc::make_mut(&mut layer.source), &g)
-                        });
-                    }
-                    OnCard::Fx(f) => {
-                        let source = std::sync::Arc::make_mut(&mut layer.source);
-                        crate::effects::apply_stack_at(source, std::slice::from_ref(&f.instance), f.origin, crate::effects::Bits::Linear, |_, _, _| {});
-                    }
-                }
+                draw_card(&mut layer.source, card);
             }
         }
     }
@@ -667,6 +645,54 @@ fn draw(
     }
     render_layers(&layers[start..], frame, tile_size, cull, at, plan.float);
     kept
+}
+
+/// B-46..B-155: an effect left for the card that the CPU is drawing after all, run on `source` as
+/// `apply_stack` would have run it.
+fn draw_card(source: &mut std::sync::Arc<WorkingBuffer>, card: OnCard) {
+    match card {
+        OnCard::Radial(r) => crate::perf::time(crate::perf::Stage::EffectRadial, || {
+            crate::blurs::radial_blur(std::sync::Arc::make_mut(source), r.spin, r.amount, r.center, r.repeat)
+        }),
+        OnCard::Bloom(b) => {
+            crate::perf::time(crate::perf::Stage::EffectBloom, || {
+                let source = std::sync::Arc::make_mut(source);
+                crate::bloom::bloom(source, b.threshold, b.radius, b.intensity, b.lines, b.length, b.angle)
+            });
+        }
+        OnCard::Directional(d) => {
+            crate::perf::time(crate::perf::Stage::EffectDirBlur, || {
+                crate::blurs::directional_blur(std::sync::Arc::make_mut(source), d.direction, d.length, d.repeat)
+            });
+        }
+        OnCard::Gaussian(g) => {
+            crate::perf::time(crate::perf::Stage::EffectBlur, || {
+                let source = std::sync::Arc::make_mut(source);
+                let taps = crate::effects::reach_weights(g.sigma, g.long);
+                if g.repeat {
+                    crate::effects::held_blur_axes(source, &taps, (true, true));
+                } else {
+                    crate::effects::blur_axes(source, &taps, (true, true));
+                }
+            });
+        }
+        OnCard::Glow(g) => {
+            crate::perf::time(crate::perf::Stage::EffectGlow, || {
+                crate::glow::glow(std::sync::Arc::make_mut(source), &g)
+            });
+        }
+        OnCard::Fx(f) => {
+            let source = std::sync::Arc::make_mut(source);
+            crate::effects::apply_stack_at(source, std::slice::from_ref(&f.instance), f.origin, crate::effects::Bits::Linear, |_, _, _| {});
+        }
+        // B-221 (D-340): what the effect was given, laid back by its Mix where it was.
+        OnCard::Mix(inner, mix) => {
+            let given = std::sync::Arc::clone(source);
+            draw_card(source, *inner);
+            let at = ((source.width() - given.width()) / 2, (source.height() - given.height()) / 2);
+            crate::effects::mix_back(std::sync::Arc::make_mut(source), &given, at, mix / 100.0);
+        }
+    }
 }
 
 /// B-159 (G10): what the viewer keeps between two draws of one frame: the plan it last drew, and

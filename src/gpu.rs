@@ -3290,6 +3290,20 @@ fn adjust(@builtin(global_invocation_id) id: vec3<u32>) {
     let b = frame_sum[at];
     frame_sum[at] = b + vec4<f32>(f64(c) * vec4<f64>(e - b));
 }
+
+// B-221, effects::mix_back (D-202): an effect's result `input` laid over what the effect was given,
+// `other`, placed at (F.ox, F.oy) in it and clear outside: `b + m (e - b)`, m = k[0] in single
+// precision, the product rounded once as the CPU's is.
+@compute @workgroup_size(16, 16)
+fn mixback(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let e = textureLoad(input, id.xy, 0);
+    let b = at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy));
+    textureStore(output, id.xy, b + vec4<f32>(f64(f32(k[0])) * vec4<f64>(e - b)));
+}
 "#;
 
 /// B-65: [`FX_SHADER`]'s numbers, laid out as its `Fx`; each pass reads what it needs.
@@ -3356,11 +3370,13 @@ struct FxPasses {
     adjust: Pass,
     /// B-172: [`chain_shader`]'s one pass.
     chain: Pass,
+    /// B-221.
+    mix_back: Pass,
 }
 
 /// B-172: one colour effect of a run the card draws in one pass: `grade` (0) or `tone` (1), its
-/// numbers and its settings.
-type Staged = (u32, FxParams, Vec<f64>);
+/// numbers and its settings; B-221, and its Mix, 0 to 1.
+type Staged = (u32, FxParams, Vec<f64>, f32);
 
 /// B-172: [`FX_SHADER`] with `grade` and `tone` made functions of one pixel, which read their
 /// numbers from `F` and their settings from `k` at `KO`, both set for each effect of a run; and
@@ -3408,6 +3424,7 @@ struct Stage {
     f: Fx,
     which: u32,
     ko: u32,
+    mix: f32,
 }
 
 @group(0) @binding(12) var<storage, read> stages: array<Stage>;
@@ -3422,10 +3439,15 @@ fn chain(@builtin(global_invocation_id) id: vec3<u32>) {
     for (var i = 0u; i < RUN.count; i++) {
         F = stages[i].f;
         KO = stages[i].ko;
+        let was = p;
         if stages[i].which == 0u {
             p = grade_at(id, p);
         } else {
             p = tone_at(id, p);
+        }
+        // B-221: mix_back's `b + m (e - b)`, the product rounded once.
+        if stages[i].mix < 1.0 {
+            p = was + vec4<f32>(f64(stages[i].mix) * vec4<f64>(p - was));
         }
     }
     textureStore(output, id.xy, p);
@@ -3903,6 +3925,7 @@ impl Gpu {
                 snow: pass("snow", &[0, 1, 2, 3]),
                 cells: pass("cells", &[0, 1, 2, 3]),
                 adjust: pass("adjust", &[0, 1, 3, 4, 10, 11]),
+                mix_back: pass("mixback", &[0, 1, 2, 3, 4]),
                 chain: {
                     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                         label: Some("B-172"),
@@ -4284,7 +4307,7 @@ impl Gpu {
         split: usize,
         views: &mut Vec<Option<(wgpu::TextureView, (usize, usize))>>,
     ) {
-        let one = |e: &OnCard| self.fused && matches!(e, OnCard::Fx(f) if one_pixel(&f.instance.effect));
+        let one = |e: &OnCard| self.fused && matches!(e.unmixed(), OnCard::Fx(f) if one_pixel(&f.instance.effect));
         let mut i = 0;
         while i < effects.len() {
             let mut n = effects[i..].iter().take_while(|e| one(e)).count();
@@ -4294,8 +4317,15 @@ impl Gpu {
             if n >= 2 {
                 let staged = RefCell::new(Some(Vec::new()));
                 for effect in &effects[i..i + n] {
-                    let OnCard::Fx(f) = effect else { unreachable!("a run is of colour effects") };
+                    let OnCard::Fx(f) = effect.unmixed() else { unreachable!("a run is of colour effects") };
+                    let from = staged.borrow().as_ref().map_or(0, Vec::len);
                     self.fx(steps, source, size, &moved, f, &staged);
+                    // B-221: its Mix, on what it staged.
+                    if let OnCard::Mix(_, mix) = effect {
+                        for stage in &mut staged.borrow_mut().as_mut().expect("a run's stages")[from..] {
+                            stage.3 = (mix / 100.0) as f32;
+                        }
+                    }
                     views.push(None);
                 }
                 moved = self.chain(steps, &moved, size, &staged.into_inner().unwrap_or_default());
@@ -4303,14 +4333,25 @@ impl Gpu {
                 i += n;
                 continue;
             }
-            (moved, size) = match &effects[i] {
+            let given = (moved.clone(), size);
+            (moved, size) = match effects[i].unmixed() {
                 OnCard::Radial(r) => (self.blur(steps, &moved, size, *r), size),
                 OnCard::Bloom(b) => self.bloom(steps, &moved, size, *b),
                 OnCard::Directional(d) => self.directional(steps, &moved, size, *d),
                 OnCard::Gaussian(g) => self.gaussian(steps, &moved, size, *g),
                 OnCard::Glow(g) => self.glow(steps, &moved, size, *g),
                 OnCard::Fx(f) => self.fx(steps, source, size, &moved, f, &RefCell::new(None)),
+                OnCard::Mix(..) => unreachable!("a Mix holds an effect"),
             };
+            // B-221 (D-340): what it was given laid back by its Mix, where it was, as `mix_back`.
+            if let OnCard::Mix(_, mix) = &effects[i] {
+                let passes = self.fx.as_ref().expect("a Mix only with the passes");
+                let at = FxParams { ox: ((size.0 - given.1 .0) / 2) as i32, oy: ((size.1 - given.1 .1) / 2) as i32, ..Default::default() };
+                let out = self.scratch("B-221", size.0, size.1);
+                let tiles = ((size.0 as u32).div_ceil(16), (size.1 as u32).div_ceil(16));
+                self.fx_step(steps, &passes.mix_back, at, Some(&moved), Some(&out), Some(&[mix / 100.0]), Some(&given.0), [None; 4], tiles);
+                moved = out;
+            }
             views.push(Some((moved.clone(), size)));
             i += 1;
         }
@@ -4321,9 +4362,10 @@ impl Gpu {
     fn chain(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (w, h): (usize, usize), staged: &[Staged]) -> wgpu::TextureView {
         let (pipeline, layout) = &self.fx.as_ref().expect("a run only with the passes").chain;
         let (mut table, mut k) = (Vec::<u32>::new(), Vec::<f64>::new());
-        for (which, p, settings) in staged {
+        for (which, p, settings, mix) in staged {
             table.extend(bytemuck::cast::<FxParams, [u32; 12]>(*p));
-            table.extend([*which, k.len() as u32]);
+            // B-221: and the Mix, the stage padded to 64 bytes, its stride.
+            table.extend([*which, k.len() as u32, mix.to_bits(), 0]);
             k.extend(settings);
         }
         let init = |label, contents: &[u8], usage| {
@@ -4695,7 +4737,7 @@ impl Gpu {
         let same = |steps: &mut Vec<Step>, pass: &Pass, p: FxParams, k: &[f64], other: Option<&wgpu::TextureView>| {
             if let Some(run) = staged.borrow_mut().as_mut() {
                 let which = [&passes.grade, &passes.tone].iter().position(|q| std::ptr::eq(*q, pass)).filter(|_| other.is_none());
-                run.push((which.expect("B-172: a run holds only colour effects of their own pixel") as u32, p, k.to_vec()));
+                run.push((which.expect("B-172: a run holds only colour effects of their own pixel") as u32, p, k.to_vec(), 1.0));
                 return (still.clone(), (w, h));
             }
             let out = self.scratch("B-65", w, h);
@@ -5475,7 +5517,7 @@ impl Gpu {
             };
             for card in run.iter() {
                 let halo = |g: usize| ((w + 2 * g) * (h + 2 * g) * 16) as u64;
-                let (name, grow, bytes) = match card {
+                let (name, grow, bytes) = match card.unmixed() {
                     OnCard::Bloom(b) => {
                         let g = crate::bloom::reach(b.radius, b.lines, b.length);
                         ("a Bloom".to_string(), (g, g), halo(g))
@@ -5516,7 +5558,7 @@ impl Gpu {
                         };
                         (format!("the effect {}", f.instance.effect.name()), f.grow, bytes)
                     }
-                    OnCard::Radial(_) => continue,
+                    OnCard::Radial(_) | OnCard::Mix(..) => continue,
                 };
                 let (gx, gy) = grow;
                 if self.bloom.is_none() || self.fx.is_none() {
@@ -5831,7 +5873,7 @@ impl Gpu {
                 // B-156: under an adjustment layer every drawing is sent whole, not in half
                 // precision: Posterize, Threshold, a wipe's cut and the like turn the smallest
                 // difference in the frame beneath into a large one (D-225).
-                let wide = plan.layers.iter().any(|l| l.adjust.is_some()) || !wraps.is_empty() || matches!(layer.on_card.first(), Some(OnCard::Bloom(_) | OnCard::Glow(_) | OnCard::Fx(_)));
+                let wide = plan.layers.iter().any(|l| l.adjust.is_some()) || !wraps.is_empty() || matches!(layer.on_card.first().map(OnCard::unmixed), Some(OnCard::Bloom(_) | OnCard::Glow(_) | OnCard::Fx(_)));
                 let mut source = self.resident(&mut uploads, &layer.source, cache.name_of(&layer.source), wide);
                 if !layer.moments.is_empty() {
                     source = self.averaged(&mut steps, layer, &source, (width, height));

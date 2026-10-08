@@ -101,8 +101,8 @@ D-202, accepted on 2026-09-28 with the After Effects picks (A12). Every expected
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | fx_mix_006.json, the Gaussian Blur at Mix 50, drawn by the preview, then set to 100 and drawn again with what the preview remembers: the second is the blur at 100, not the remembered 50 | same as a fresh 100: true; same as the 50: false | yes |
-| the Gaussian Blur at Mix 50 is drawn by the CPU, not left to the card, which does not mix yet; at 100 it is left to the card as before | left to the card at 50: 0; at 100: 1 | yes |
-| fx_mix_006.json, the Gaussian Blur at Mix 50, through the card: the CPU blurs and mixes, the card lays it, no message, within 1 level of the CPU's frame | []; largest difference 1 of 255 | yes |
+| B-221 (D-340): the Gaussian Blur at Mix 50 is left to the card, which mixes it; at 100 it is left to the card as before | left to the card at 50: 1; at 100: 1 | yes |
+| fx_mix_006.json, the Gaussian Blur at Mix 50, through the card: the card blurs and mixes (B-221), no message, within 1 level of the CPU's frame | []; largest difference 1 of 255 | yes |
 | fx_mix_013.json, the Light Wrap at Mix 50, through the card: the CPU draws the whole frame, says so in the warning panel, and it is the CPU's frame exactly | ["GPU_PREVIEW_ON_CPU The CPU drew this frame: it has a Light Wrap with a Mix below 100, which the GPU does not draw yet."]; largest difference 0 of 255 | yes |
 | a Gaussian Blur with no Mix written, through the card: drawn by the card as before, no message, within 1 level of the CPU's frame | []; largest difference 0 of 255 | yes |
 

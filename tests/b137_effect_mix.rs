@@ -341,10 +341,10 @@ fn b137_effect_mix() {
     let mixed = t.load("fx_mix_006.json").document;
     let (card_50, card_100) = (left_to_card(mixed.project(), &root), left_to_card(document.project(), &root));
     t.row(
-        "the Gaussian Blur at Mix 50 is drawn by the CPU, not left to the card, which does not mix \
-         yet; at 100 it is left to the card as before",
+        "B-221 (D-340): the Gaussian Blur at Mix 50 is left to the card, which mixes it; at 100 it \
+         is left to the card as before",
         &format!("left to the card at 50: {card_50}; at 100: {card_100}"),
-        card_50 == 0 && card_100 == 1,
+        card_50 == 1 && card_100 == 1,
     );
     match Gpu::new() {
         Err(why) => t.row("the graphics card's checks", &format!("not run: no usable card, {why}"), false),
@@ -369,7 +369,7 @@ fn b137_effect_mix() {
                 let apart = cpu.iter().zip(&card).map(|(a, b)| a.abs_diff(*b)).max().unwrap_or(0);
                 let (what, ok) = match file {
                     "fx_mix_006.json" => (
-                        "fx_mix_006.json, the Gaussian Blur at Mix 50, through the card: the CPU blurs and mixes, the card lays it, no message, within 1 level of the CPU's frame",
+                        "fx_mix_006.json, the Gaussian Blur at Mix 50, through the card: the card blurs and mixes (B-221), no message, within 1 level of the CPU's frame",
                         !on_cpu && apart <= 1,
                     ),
                     "fx_mix_013.json" => (
