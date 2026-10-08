@@ -2303,26 +2303,26 @@ Effects left to the card on the first three layers.
 | extract/fx_extract_026, in a run frame 2, Draft | 1 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | extract/fx_extract_026, in a run frame 3, Draft | 1 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | extract/fx_extract_026, in a run frame 4, Draft | 1 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| fast_box_blur/fx_fastbox_007 frame 0, Full | 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007 frame 1, Full | 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007 frame 2, Full | 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007 frame 3, Full | 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007 frame 4, Full | 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007 frame 0, Draft | 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007 frame 1, Draft | 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007 frame 2, Draft | 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007 frame 3, Draft | 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007 frame 4, Draft | 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007, in a run frame 0, Full | 3 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007, in a run frame 1, Full | 3 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007, in a run frame 2, Full | 3 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007, in a run frame 3, Full | 3 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007, in a run frame 4, Full | 3 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007, in a run frame 0, Draft | 3 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007, in a run frame 1, Draft | 3 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007, in a run frame 2, Draft | 3 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007, in a run frame 3, Draft | 3 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
-| fast_box_blur/fx_fastbox_007, in a run frame 4, Draft | 3 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007 frame 0, Full | 2 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007 frame 1, Full | 2 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007 frame 2, Full | 2 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007 frame 3, Full | 2 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007 frame 4, Full | 2 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007 frame 0, Draft | 2 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007 frame 1, Draft | 2 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007 frame 2, Draft | 2 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007 frame 3, Draft | 2 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007 frame 4, Draft | 2 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007, in a run frame 0, Full | 4 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007, in a run frame 1, Full | 4 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007, in a run frame 2, Full | 4 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007, in a run frame 3, Full | 4 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007, in a run frame 4, Full | 4 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007, in a run frame 0, Draft | 4 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007, in a run frame 1, Draft | 4 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007, in a run frame 2, Draft | 4 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007, in a run frame 3, Draft | 4 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| fast_box_blur/fx_fastbox_007, in a run frame 4, Draft | 4 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
 | float_depth/fx_blend_addf_001 frame 0, Full | 0 / 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
 | float_depth/fx_blend_addf_001 frame 1, Full | 0 / 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
 | float_depth/fx_blend_addf_001 frame 2, Full | 0 / 1 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |

@@ -950,6 +950,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::CompoundBlur { .. }
                 | crate::effects::Effect::SelectiveColorBlur { .. }
                 | crate::effects::Effect::VectorBlur { .. }
+                // B-224 (D-343): two that read a map.
+                | crate::effects::Effect::DisplacementMap { .. }
+                | crate::effects::Effect::Glass { .. }
         )
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
@@ -1111,6 +1114,11 @@ fn card_effect(
                 E::CompoundBlur { map, max_blur, .. } => map.is_none() || *max_blur == 0.0,
                 E::SelectiveColorBlur { blur, colors, .. } => (blur + 0.5).floor() == 0.0 || crate::selective_blur::targets(colors).is_empty(),
                 E::VectorBlur { amount, .. } => *amount == 0.0,
+                // B-224: as each one's own function returns at once.
+                E::DisplacementMap { map, .. } => map.is_none(),
+                E::Glass { height, displacement, light_intensity, .. } => {
+                    *height == 0.0 || (*displacement == 0.0 && *light_intensity <= 0.0)
+                }
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and

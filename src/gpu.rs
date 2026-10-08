@@ -3638,7 +3638,8 @@ fn selpass(@builtin(global_invocation_id) id: vec3<u32>) {
             if o.w == 0.0 {
                 break;
             }
-            let wk = f32(k[j]);
+            // B-224: u32, as B-172's run reads k from its own offset, a u32.
+            let wk = f32(k[u32(j)]);
             got += wk * (o.xyz - own.xyz);
             total += wk;
         }
@@ -3669,9 +3670,37 @@ fn selfinish(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
-// B-223, layer_fx::vector_blur's height, as the alpha of the output (the drawing's size): the
-// phase k[0] (grade::phase_of: red, green, blue, alpha, luminance, lightness, hue, saturation) of
-// `input`, the drawing or a map whose corner is F.ox, F.oy in, times its covering unless alpha.
+// B-223, grade::phase_of: the phase `kind` (red, green, blue, alpha, luminance, lightness, hue,
+// saturation; B-224, 8 intensity) of `q`.
+fn phase(kind: u32, q: vec4<f32>) -> f64 {
+    let a = f64(q.w);
+    if kind == 3u {
+        return a;
+    }
+    if a <= 0.0lf {
+        return 0.0lf;
+    }
+    let b = vec3(
+        clamp(quotient(f64(q.x), a), 0.0lf, 1.0lf),
+        clamp(quotient(f64(q.y), a), 0.0lf, 1.0lf),
+        clamp(quotient(f64(q.z), a), 0.0lf, 1.0lf),
+    );
+    let c = vec3(to_srgb(b.x), to_srgb(b.y), to_srgb(b.z));
+    switch kind {
+        case 0u: { return c.x; }
+        case 1u: { return c.y; }
+        case 2u: { return c.z; }
+        case 4u: { return to_srgb(luma(b)); }
+        case 5u: { return hsl(c).z; }
+        case 6u: { return quotient(hsl(c).x, 360.0lf); }
+        case 8u: { return (c.x + c.y + c.z) / 3.0lf; }
+        default: { return hsl(c).y; }
+    }
+}
+
+// B-223, layer_fx::vector_blur's height (B-224, and layer_fx::glass's bump), as the alpha of the
+// output (the drawing's size): the `phase` k[0] of `input`, the drawing or a map whose corner is
+// F.ox, F.oy in, times its covering unless alpha.
 @compute @workgroup_size(16, 16)
 fn vheight(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -3679,28 +3708,10 @@ fn vheight(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     let q = at(input, vec2<i32>(id.xy) - vec2(F.ox, F.oy));
-    let a = f64(q.w);
     let kind = u32(k[0]);
-    var ph = 0.0lf;
-    if kind == 3u {
-        ph = a;
-    } else if a > 0.0lf {
-        let b = vec3(
-            clamp(quotient(f64(q.x), a), 0.0lf, 1.0lf),
-            clamp(quotient(f64(q.y), a), 0.0lf, 1.0lf),
-            clamp(quotient(f64(q.z), a), 0.0lf, 1.0lf),
-        );
-        let c = vec3(to_srgb(b.x), to_srgb(b.y), to_srgb(b.z));
-        switch kind {
-            case 0u: { ph = c.x; }
-            case 1u: { ph = c.y; }
-            case 2u: { ph = c.z; }
-            case 4u: { ph = to_srgb(luma(b)); }
-            case 5u: { ph = hsl(c).z; }
-            case 6u: { ph = quotient(hsl(c).x, 360.0lf); }
-            default: { ph = hsl(c).y; }
-        }
-        ph = ph * a;
+    var ph = phase(kind, q);
+    if kind != 3u {
+        ph = ph * f64(q.w);
     }
     textureStore(output, id.xy, vec4(0.0, 0.0, 0.0, f32(ph)));
 }
@@ -3842,6 +3853,107 @@ fn cmix(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// B-224, layer_fx::displacement_map's `value` of the map pixel `m`: the `phase` `kind`, 9 full,
+// 10 off, mid grey where the map shows nothing, drawn toward mid grey by the map's covering.
+fn push(kind: u32, m: vec4<f32>) -> f64 {
+    let a = f64(m.w);
+    if kind == 9u {
+        return 1.0lf;
+    }
+    if kind == 10u {
+        return 0.5lf;
+    }
+    if kind == 3u {
+        return a;
+    }
+    if a <= 0.0lf {
+        return 0.5lf;
+    }
+    return 0.5lf + a * (phase(kind, m) - 0.5lf);
+}
+
+// B-224, layer_fx::wrapped: `bilinear` with each of the four pixels' places taken round `t`.
+fn wrapped(t: texture_2d<f32>, x: f64, y: f64) -> vec4<f32> {
+    let size = vec2<f64>(textureDimensions(t));
+    let fx = x - 0.5lf;
+    let fy = y - 0.5lf;
+    let x0 = floor(fx);
+    let y0 = floor(fy);
+    let ux = fx - x0;
+    let uy = fy - y0;
+    var out = vec4(0.0);
+    for (var j = 0; j < 2; j++) {
+        let wy = select(1.0lf - uy, uy, j == 1);
+        for (var i = 0; i < 2; i++) {
+            let wx = select(1.0lf - ux, ux, i == 1);
+            let p = vec2(i32(euclid(x0 + f64(i), size.x)), i32(euclid(y0 + f64(j), size.y)));
+            out += textureLoad(t, p, 0) * f32(wx * wy);
+        }
+    }
+    return out;
+}
+
+// B-224, layer_fx::displacement_map: each pixel of the output, the drawing (`input`) grown by F.g,
+// the drawing read bilinearly where the map (`other`, its corner F.ox, F.oy in the drawing) moves
+// it; past the map's edge, when grown, the map's nearest edge pixel, else clear. k: across's and
+// down's `push` kind, their most, 1 to wrap round the drawing.
+@compute @workgroup_size(16, 16)
+fn dmap(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let ms = vec2<i32>(textureDimensions(other));
+    let mp = vec2<i32>(id.xy) - vec2(F.ox + F.g, F.oy + F.g);
+    var m = vec4(0.0);
+    if all(mp >= vec2(0)) && all(mp < ms) {
+        m = textureLoad(other, mp, 0);
+    } else if F.g > 0 {
+        m = textureLoad(other, clamp(mp, vec2(0), ms - vec2(1)), 0);
+    }
+    let g = f64(F.g);
+    let sx = f64(id.x) + 0.5lf + (2.0lf * push(u32(k[0]), m) - 1.0lf) * k[2] - g;
+    let sy = f64(id.y) + 0.5lf + (2.0lf * push(u32(k[1]), m) - 1.0lf) * k[3] - g;
+    if k[4] == 1.0lf {
+        textureStore(output, id.xy, wrapped(input, sx, sy));
+    } else {
+        textureStore(output, id.xy, bilinear(input, sx, sy));
+    }
+}
+
+// B-224, layer_fx::glass: the bump's slope (`other`, grown by F.r) by central differences times
+// k[1]; each pixel the drawing read bilinearly k[0] pixels along it, then lit as `bevel` lights
+// it, its slope toward the light (k[2], k[3]) held to -1..1. k[4] the intensity, then the light
+// in linear light.
+@compute @workgroup_size(16, 16)
+fn glass(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let x = i32(id.x) + F.r;
+    let y = i32(id.y) + F.r;
+    let nx = (f64(at(other, vec2(x + 1, y)).w) - f64(at(other, vec2(x - 1, y)).w)) / 2.0lf * k[1];
+    let ny = (f64(at(other, vec2(x, y + 1)).w) - f64(at(other, vec2(x, y - 1)).w)) / 2.0lf * k[1];
+    var px = textureLoad(input, id.xy, 0);
+    if k[0] != 0.0lf {
+        px = bilinear(input, f64(id.x) + 0.5lf + k[0] * nx, f64(id.y) + 0.5lf + k[0] * ny);
+    }
+    let a = f64(px.w);
+    if k[4] > 0.0lf && a > 0.0lf {
+        let s = clamp(-(nx * k[2] + ny * k[3]), -1.0lf, 1.0lf);
+        for (var c = 0u; c < 3u; c++) {
+            let p = f64(px[c]);
+            if s > 0.0lf {
+                px[c] = f32(p + (k[5u + c] * a - p) * k[4] * s);
+            } else {
+                px[c] = f32(p * (1.0lf + k[4] * s));
+            }
+        }
+    }
+    textureStore(output, id.xy, px);
+}
+
 @group(0) @binding(10) var effected: texture_2d<f32>;
 @group(0) @binding(11) var<storage, read_write> frame_sum: array<vec4<f32>>;
 
@@ -3964,6 +4076,9 @@ struct FxPasses {
     vblur: Pass,
     csigma: Pass,
     cmix: Pass,
+    /// B-224.
+    dmap: Pass,
+    glass: Pass,
 }
 
 /// B-172: one colour effect of a run the card draws in one pass: `grade` (0) or `tone` (1), its
@@ -4537,6 +4652,8 @@ impl Gpu {
                 vblur: pass("vblur", &[0, 1, 2, 3, 4]),
                 csigma: pass("csigma", &[0, 1, 3, 8]),
                 cmix: pass("cmix", &[0, 1, 2, 3, 4, 8]),
+                dmap: pass("dmap", &[0, 1, 2, 3, 4]),
+                glass: pass("glass", &[0, 1, 2, 3, 4]),
                 chain: {
                     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                         label: Some("B-172"),
@@ -6166,7 +6283,52 @@ impl Gpu {
                 }
                 (out, (w, h))
             }
-            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten and B-223's five blurs as Fx"),
+            // B-224 (D-343): two that read a map, each as its CPU function.
+            E::DisplacementMap { horizontal, max_horizontal, vertical, max_vertical, wrap, map, .. } => {
+                let map = self.map_texture(&map.as_ref().expect("compose leaves a Displacement Map with a map").0);
+                // `push`'s kinds: `phase`'s, 9 full, 10 off.
+                let kind = |word: &str| match word {
+                    "full" => 9.0,
+                    "off" => 10.0,
+                    _ => crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == word).expect("compose leaves a valid Displacement Map") as f64,
+                };
+                let g = f.grow.0;
+                let k = [kind(horizontal), kind(vertical), *max_horizontal, *max_vertical, (wrap == "on") as u8 as f64];
+                let (tw, th) = (w + 2 * g, h + 2 * g);
+                let out = self.scratch("B-224 displacement", tw, th);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, g: g as i32, ..Default::default() };
+                self.fx_step(steps, &passes.dmap, p, Some(still), Some(&out), Some(&k), Some(&map), none, tiles(tw, th));
+                (out, (tw, th))
+            }
+            E::Glass { property, softness, height, displacement, light_angle, light_color, light_intensity, map, .. } => {
+                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                // The bump from the map compose read, lying on the drawing at its corner, or the drawing.
+                let (picture, (mx, my)) = match map {
+                    Some(m) => (self.map_texture(&m.0), (ox, oy)),
+                    None => (still.clone(), (0, 0)),
+                };
+                let place = match property.as_str() {
+                    "intensity" => 8,
+                    p => crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|q| *q == p).expect("compose leaves a valid CC Glass"),
+                };
+                let raw = self.scratch("B-224 bump", w, h);
+                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
+                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let (bump, r) = if *softness > 0.0 {
+                    let taps = crate::effects::gaussian_weights(softness / 2.0);
+                    let r = taps.len() / 2;
+                    (self.gauss(steps, bloom, "B-224 bump", &raw, (w, h), [&taps, &taps], r, false), r)
+                } else {
+                    (raw, 0)
+                };
+                let (ux, uy) = crate::blurs::along(*light_angle);
+                let l = linear(light_color);
+                let k = [*displacement, height / 100.0 * 1.25 * softness.max(1.0), ux, uy, light_intensity / 100.0, l[0], l[1], l[2]];
+                let out = self.scratch("B-224 glass", w, h);
+                self.fx_step(steps, &passes.glass, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&bump), none, tiles(w, h));
+                (out, (w, h))
+            }
+            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs and B-224's two map effects as Fx"),
         }
     }
 
