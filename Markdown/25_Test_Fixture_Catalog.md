@@ -175860,6 +175860,66 @@ FX-VBLUR-026 (`fx_vblur_026.json`): A layer written as the number 3, not a word.
 
 FX-VBLUR-027 (`fx_vblur_027.json`): Angle Offset 3601, past 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Moment Map (D-347)
+
+After After Effects' Time Displacement (B-227). Every case is a project of one composition 16 by 10 at 10 frames a second, twelve frames, in `Fixtures/time_displacement/`: the drawing `holder`, twelve drawings one a frame (drawing k: red 20 k, green 10 + 15 x, blue 10 + 24 y, its bottom right 4 by 3 clear), with the effect; under it the map layers, all switched off: `ramp` (grey 17 x in column x, black to white), `ramp_dark` (the ramp with an Exposure of -1), `steps` (4 by 2 greys), `veil` (white at covering 128) and `orange` (a solid, linear 1, 0.25, 0). **Every number is produced by `tools/time_displacement_reference.py`** and is in `Fixtures/time_displacement/expected_time_displacement.json`. Values are linear premultiplied. Tolerance 2e-5. No moment in these cases lies within a thousandth of a step of a half, where rounding could tip. B-227 checks them in `verification/D-347_moment_map_table.md`.
+
+FX-TDISP-001 (`fx_tdisp_001.json`): As added: Max Displacement 1 second, Time Resolution 60, the layer's own brightness as the map, Stretch: each pixel from a moment chosen by its own brightness; moments past the layer's twelve frames are clear. Frames 6.
+
+FX-TDISP-002 (`fx_tdisp_002.json`): The ramp as the map, black at the left to white at the right, Max 0.5: column x is 4 x - 30 sixtieths of a second from now, so column 0 shows frame 1 and column 15 frame 11 at frame 6; at frame 0 the left half asks for frames before the layer, clear. Frames 0, 6.
+
+FX-TDISP-003 (`fx_tdisp_003.json`): The same at Max -0.5: the other way, the left shows the frames after. Frames 6.
+
+FX-TDISP-004 (`fx_tdisp_004.json`): The ramp, Max 0.5, Time Resolution 2: moments in half seconds, so only frames 1, 6 and 11 are seen. Frames 6.
+
+FX-TDISP-005 (`fx_tdisp_005.json`): The ramp, Max 0.4, Time Resolution 3: a third of a second is 3.33 frames, held to the frame holding it: frame 9 after and frame 2 before. Frames 6.
+
+FX-TDISP-006 (`fx_tdisp_006.json`): The ramp, Max 0.5, Time Resolution 100, past the frame rate: every pixel is still one of the drawings, nothing in between; the same frame as FX-TDISP-002. Frames 6.
+
+FX-TDISP-007 (`fx_tdisp_007.json`): The layer from frame 3 to frame 8 only: the moments outside it are clear. Frames 6.
+
+FX-TDISP-008 (`fx_tdisp_008.json`): A small map, 4 by 2 steps of grey, stretched over the layer. Frames 6.
+
+FX-TDISP-009 (`fx_tdisp_009.json`): The same map centred: outside it there is no map, so no shift. Frames 6.
+
+FX-TDISP-010 (`fx_tdisp_010.json`): The same map tiled. Frames 6.
+
+FX-TDISP-011 (`fx_tdisp_011.json`): An orange solid as the map: its brightness, 0.664, is 20 sixtieths of a second, so the whole layer is 3 frames ahead: frame 6 shows frame 9. Frames 6.
+
+FX-TDISP-012 (`fx_tdisp_012.json`): A white map at half covering, laid over mid grey: half the way to white, 30 sixtieths, so frame 6 shows frame 11. Frames 6.
+
+FX-TDISP-013 (`fx_tdisp_013.json`): The ramp with an Exposure of -1 on it: a map's effects count (D-189), so it is darker and every column reaches further back. Frames 6.
+
+FX-TDISP-014 (`fx_tdisp_014.json`): A mask keeping columns 0 to 7: every moment is masked; the left half is FX-TDISP-002's. Frames 6.
+
+FX-TDISP-015 (`fx_tdisp_015.json`): An Exposure of +1 before it is not seen: the moments are the drawings and the layer's own map is its drawing. FX-TDISP-001. Frames 6.
+
+FX-TDISP-016 (`fx_tdisp_016.json`): An Exposure of -1 after it darkens the result. Frames 6.
+
+FX-TDISP-017 (`fx_tdisp_017.json`): The holder moved 2 right and 1 down: FX-TDISP-002 moved, since the map lies on the layer. Frames 6.
+
+FX-TDISP-018 (`fx_tdisp_018.json`): The effect on an adjustment layer above the holder: nothing changes. Frames 6.
+
+FX-TDISP-019 (`fx_tdisp_019.json`): Max keyed from 0 at frame 0 to 1 at frame 12, the ramp: at frame 0 nothing moves; at frame 6 it is 0.5, FX-TDISP-002. Frames 0, 6.
+
+FX-TDISP-020 (`fx_tdisp_020.json`): Max 0: every pixel from now, the layer as it is. Frames 6.
+
+FX-TDISP-021 (`fx_tdisp_021.json`): A layer that is not in the composition, `gone`: the layer itself is the map, FX-TDISP-001, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 6.
+
+FX-TDISP-022 (`fx_tdisp_022.json`): Max 10.5 seconds, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDISP-023 (`fx_tdisp_023.json`): Max -10.5 seconds, below -10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDISP-024 (`fx_tdisp_024.json`): Time Resolution 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDISP-025 (`fx_tdisp_025.json`): Time Resolution 1000, above 999. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDISP-026 (`fx_tdisp_026.json`): A fit written "fill". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDISP-027 (`fx_tdisp_027.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDISP-028 (`fx_tdisp_028.json`): Max keyed to 12 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.
