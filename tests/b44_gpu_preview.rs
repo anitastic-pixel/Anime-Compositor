@@ -301,8 +301,16 @@ fn b44_gpu_preview() {
     );
 
     // The fallback: a frame with an adjustment layer is drawn wholly by the CPU, and says so.
-    let adjusted = persist::load(&repo("Fixtures/adjust/fx_adj_001.json"))
-        .unwrap_or_else(|d| panic!("fx_adj_001: {}", d.message));
+    // B-222 (D-341): the card now draws fx_adj_001's Exposure there (B-156), so its adjustment
+    // layer is given a Kaleidoscope instead, which stays the CPU's (D-240).
+    let text = fs::read_to_string(repo("Fixtures/adjust/fx_adj_001.json")).expect("read fx_adj_001");
+    let text = text.replacen(r#""core.exposure""#, r#""core.kaleidoscope""#, 1).replacen(
+        r#""stops": 1"#,
+        r#""segments": 6, "rotation": 0, "size": 100, "center": [50, 50], "mode": "mirror""#,
+        1,
+    );
+    assert!(text.contains("core.kaleidoscope"), "fx_adj_001's Exposure was not found");
+    let adjusted = persist::load_str(&text).unwrap_or_else(|d| panic!("fx_adj_001: {}", d.message));
     let shot = Shot {
         name: "fx_adj_001",
         project: adjusted.document.project().clone(),
@@ -318,7 +326,7 @@ fn b44_gpu_preview() {
             .map(|d| format!("{}: {}", d.id.as_str(), d.message));
         let same = c == g;
         t.row(
-            &format!("fx_adj_001 frame 0, {}: an adjustment layer, so the CPU draws it", quality.label()),
+            &format!("fx_adj_001 with a Kaleidoscope frame 0, {}: an adjustment layer, so the CPU draws it", quality.label()),
             "the frame log says so, and the picture is the CPU's byte for byte",
             format!(
                 "{}; {}",

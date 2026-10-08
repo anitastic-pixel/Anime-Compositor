@@ -1848,10 +1848,68 @@ fn hsv_inside(p: vec4<f32>, a: f64) -> bool {
         && k[5] - abs(product(100.0lf, hi, k[8]) - k[4]) >= 0.0lf;
 }
 
+// B-222, cel_fx's 8-bit red, green and blue of the pixel, as `level8` works each.
+fn q8(p: vec4<f32>, a: f64) -> vec3<f64> {
+    return vec3(level8(p.x, a), level8(p.y, a), level8(p.z, a));
+}
+
+// B-222, cel_fx::hue of 8-bit `q`, -1 for a grey, each step rounded as the CPU rounds it.
+fn hue8(q: vec3<f64>) -> f64 {
+    let hi = max(max(q.x, q.y), q.z);
+    let c = hi - min(min(q.x, q.y), q.z);
+    if c == 0.0lf {
+        return -1.0lf;
+    }
+    if hi == q.x {
+        return product(60.0lf, euclid(quotient(q.y - q.z, c), 6.0lf), k[8]);
+    }
+    if hi == q.y {
+        return product(60.0lf, quotient(q.z - q.x, c) + 2.0lf, k[8]);
+    }
+    return product(60.0lf, quotient(q.x - q.y, c) + 4.0lf, k[8]);
+}
+
+// B-222, selective_blur::chosen of a pixel that shows: its 8-bit `q` within the tolerance k[1]
+// of one of the k[0] targets, from k[9] three a target.
+fn picked(q: vec3<f64>) -> bool {
+    for (var i = 0u; i < u32(k[0]); i++) {
+        let t = vec3(k[9u + 3u * i], k[10u + 3u * i], k[11u + 3u * i]);
+        if all(abs(q - t) <= vec3(k[1])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// B-222, grade::hls: the HSV hue (-1 for a grey), the lightness and the saturation of `e`.
+fn hls(e: vec3<f64>) -> vec3<f64> {
+    let mx = max(max(e.x, e.y), e.z);
+    let mn = min(min(e.x, e.y), e.z);
+    let l = (mx + mn) / 2.0lf;
+    var s = 0.0lf;
+    if mx != mn {
+        s = (mx - mn) / (1.0lf - abs(2.0lf * l - 1.0lf));
+    }
+    return vec3(hsv_hue(e), l, s);
+}
+
+// B-222, change_to_color's share of nearness `d` inside tolerance `t`, softness `w` beyond it.
+fn part(d: f64, t: f64, w: f64) -> f64 {
+    if d <= t {
+        return 1.0lf;
+    }
+    if w == 0.0lf || t == 0.0lf || d >= t * (1.0lf + w) {
+        return 0.0lf;
+    }
+    return 1.0lf - (d - t) / (t * w);
+}
+
 // B-107, the third batch's colour effects, a pixel a thread: grade::invert (mode 0, `count` the
 // channel, 3 all), invert_alpha (1), brightness_contrast (2), black_white (3), posterize (4),
 // threshold (5), channel_mixer (6), vibrance (7), leave_color (8), solarize (9) and halftone
-// (10); and (B-123) color_lookup (11), hsv_key (12) and paraffin (13).
+// (10); and (B-123) color_lookup (11), hsv_key (12) and paraffin (13); B-222: exposure with an
+// offset or gamma (14), tint (15), shift_channels (16), solid_composite (17), change_to_color
+// (18), color_key (19), select_color (20), line_recolor (21), colorama (22) and extract (23).
 @compute @workgroup_size(16, 16)
 fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -1870,6 +1928,92 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, vec4(vec3<f32>(b * n), f32(n)));
         return;
     }
+    if F.mode == 14u {
+        // k: the gain, the offset, one over the gamma. The power in single precision, as Levels'.
+        var out = p;
+        for (var c = 0u; c < 3u; c++) {
+            if a <= 0.0lf {
+                out[c] = p[c] * f32(k[0]);
+                continue;
+            }
+            let u = f64(max(p[c] / p.w, 0.0)) * k[0] + k[1];
+            var v = 0.0lf;
+            if u != 0.0lf {
+                v = sign(u) * f64(pow(f32(abs(u)), f32(k[2])));
+            }
+            out[c] = f32(v) * p.w;
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 16u {
+        // k: where red, green, blue and alpha are taken from, each its place in SHIFT_CHANNELS_FROM.
+        var e = vec3(0.0lf);
+        if a > 0.0lf {
+            for (var c = 0u; c < 3u; c++) {
+                e[c] = to_srgb(clamp(f64(p[c]) / a, 0.0lf, 1.0lf));
+            }
+        }
+        let mx = max(max(e.x, e.y), e.z);
+        let mn = min(min(e.x, e.y), e.z);
+        let l = (mx + mn) / 2.0lf;
+        var o: vec4<f64>;
+        for (var c = 0u; c < 4u; c++) {
+            let w = u32(k[c]);
+            var v = 0.0lf;
+            switch w {
+                case 0u: { v = a; }
+                case 1u, 2u, 3u: { v = e[w - 1u]; }
+                case 4u: { v = luma(e); }
+                case 5u: { v = max(hsv_hue(e), 0.0lf) / 360.0lf; }
+                case 6u: { v = l; }
+                case 7u: {
+                    if mx > mn {
+                        v = (mx - mn) / (1.0lf - abs(2.0lf * l - 1.0lf));
+                    }
+                }
+                case 8u: { v = 1.0lf; }
+                case 9u: { v = 0.5lf; }
+                default: {}
+            }
+            o[c] = clamp(v, 0.0lf, 1.0lf);
+        }
+        textureStore(output, id.xy, vec4(f32(to_linear(o.x) * o.w), f32(to_linear(o.y) * o.w), f32(to_linear(o.z) * o.w), f32(o.w)));
+        return;
+    }
+    if F.mode == 17u {
+        // k: the layer's share and the solid's opacity, then the solid in linear light times
+        // it, all single precision as the CPU's; `blend` 1 multiply, 2 screen, 3 add.
+        let s = p * f32(k[0]);
+        let d = vec4(f32(k[2]), f32(k[3]), f32(k[4]), f32(k[1]));
+        if F.blend == 0u {
+            textureStore(output, id.xy, s + d * (1.0 - s.w));
+            return;
+        }
+        var cs = vec3(0.0);
+        if s.w != 0.0 {
+            cs = s.xyz / s.w;
+        }
+        var cd = vec3(0.0);
+        if d.w != 0.0 {
+            cd = d.xyz / d.w;
+        }
+        var b = min(cs + cd, vec3(1.0));
+        if F.blend == 1u {
+            b = cs * cd;
+        } else if F.blend == 2u {
+            b = cs + cd - cs * cd;
+        }
+        let rgb = (1.0 - s.w) * d.xyz + (1.0 - d.w) * s.xyz + s.w * d.w * b;
+        textureStore(output, id.xy, vec4(rgb, s.w + d.w - s.w * d.w));
+        return;
+    }
+    if F.mode == 20u {
+        // k: as `picked` reads it, 1 at k[3] to keep the chosen, and level8's at k[7].
+        let chosen = a > 0.0lf && picked(q8(p, a));
+        textureStore(output, id.xy, select(p, vec4(0.0), chosen != (k[3] != 0.0lf)));
+        return;
+    }
     if a <= 0.0lf {
         textureStore(output, id.xy, p);
         return;
@@ -1879,12 +2023,176 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, select(p, vec4(0.0), hsv_inside(p, a) != (k[6] != 0.0lf)));
         return;
     }
+    if F.mode == 15u {
+        // k: the amount, the colour; single precision as the CPU's.
+        var out = p;
+        for (var c = 0u; c < 3u; c++) {
+            let s = p[c] / p.w;
+            out[c] = (s + (f32(k[1u + c]) - s) * f32(k[0])) * p.w;
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 19u {
+        // k: as `picked` reads it, the softness at k[2], 1 at k[3] to match by hue, and level8's
+        // at k[7].
+        let q = q8(p, a);
+        let h = hue8(q);
+        var d = 1e300lf;
+        for (var i = 0u; i < u32(k[0]); i++) {
+            let t = vec3(k[9u + 3u * i], k[10u + 3u * i], k[11u + 3u * i]);
+            var di = 255.0lf;
+            if k[3] == 0.0lf {
+                let g = abs(q - t);
+                di = max(max(g.x, g.y), g.z);
+            } else {
+                let th = hue8(t);
+                if h >= 0.0lf && th >= 0.0lf {
+                    let dh = abs(h - th);
+                    di = quotient(product(min(dh, 360.0lf - dh), 255.0lf, k[8]), 180.0lf);
+                }
+            }
+            d = min(d, di);
+        }
+        var keep = 1.0lf;
+        if d <= k[1] {
+            keep = 0.0lf;
+        } else if k[2] != 0.0lf {
+            keep = min((d - k[1]) / k[2], 1.0lf);
+        }
+        textureStore(output, id.xy, select(p, p * f32(keep), keep < 1.0lf));
+        return;
+    }
+    if F.mode == 21u {
+        // k: as `picked` reads it, the new colour in linear light, single precision, at k[4],
+        // and level8's at k[7].
+        if picked(q8(p, a)) {
+            textureStore(output, id.xy, vec4(f32(k[4]) * p.w, f32(k[5]) * p.w, f32(k[6]) * p.w, p.w));
+            return;
+        }
+        textureStore(output, id.xy, p);
+        return;
+    }
     let px = vec3<f64>(p.xyz);
     var e: vec3<f64>;
     for (var c = 0u; c < 3u; c++) {
         e[c] = to_srgb(clamp(px[c] / a, 0.0lf, 1.0lf));
     }
     var out = p;
+    if F.mode == 18u {
+        // k: from and to encoded, the hue, lightness and saturation tolerances and the softness
+        // as shares, then 1 each for transforming, changing lightness, saturation, and the matte.
+        let f = hls(vec3(k[0], k[1], k[2]));
+        let g = hls(vec3(k[3], k[4], k[5]));
+        let h = hls(e);
+        var dh = 1.0lf;
+        if h.x >= 0.0lf && f.x >= 0.0lf {
+            let d = abs(h.x - f.x);
+            dh = min(d, 360.0lf - d) / 180.0lf;
+        }
+        let m = min(min(part(dh, k[6], k[9]), part(abs(h.y - f.y), k[7], k[9])), part(abs(h.z - f.z), k[8], k[9]));
+        if k[13] != 0.0lf {
+            let v = f32(to_linear(m) * a);
+            textureStore(output, id.xy, vec4(v, v, v, p.w));
+            return;
+        }
+        if m <= 0.0lf {
+            textureStore(output, id.xy, p);
+            return;
+        }
+        let hf = max(f.x, 0.0lf);
+        let ht = max(g.x, 0.0lf);
+        var hue = ht;
+        var l = h.y;
+        var s = h.z;
+        if k[10] != 0.0lf {
+            hue = euclid(max(h.x, 0.0lf) + ht - hf, 360.0lf);
+            if k[11] != 0.0lf {
+                l = clamp(l + g.y - f.y, 0.0lf, 1.0lf);
+            }
+            if k[12] != 0.0lf {
+                s = clamp(s + g.z - f.z, 0.0lf, 1.0lf);
+            }
+        } else {
+            if k[11] != 0.0lf {
+                l = g.y;
+            }
+            if k[12] != 0.0lf {
+                s = g.z;
+            }
+        }
+        let chroma = (1.0lf - abs(2.0lf * l - 1.0lf)) * s;
+        let hh = hue / 60.0lf;
+        let x = chroma * (1.0lf - abs(euclid(hh, 2.0lf) - 1.0lf));
+        var rgb: vec3<f64>;
+        switch min(u32(floor(hh)), 5u) {
+            case 0u: { rgb = vec3(chroma, x, 0.0lf); }
+            case 1u: { rgb = vec3(x, chroma, 0.0lf); }
+            case 2u: { rgb = vec3(0.0lf, chroma, x); }
+            case 3u: { rgb = vec3(0.0lf, x, chroma); }
+            case 4u: { rgb = vec3(x, 0.0lf, chroma); }
+            default: { rgb = vec3(chroma, 0.0lf, x); }
+        }
+        let lm = l - chroma / 2.0lf;
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32(to_linear(clamp(e[c] + m * (rgb[c] + lm - e[c]), 0.0lf, 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 22u {
+        // k: the phase read (its place in COLORAMA_PHASES), the repetitions, the shift in turns,
+        // the colours in the ring, the blend as a share, then the ring encoded.
+        let b = px / a;
+        var ph = (e.x + e.y + e.z) / 3.0lf;
+        switch u32(k[0]) {
+            case 1u: { ph = to_srgb(luma(clamp(b, vec3(0.0lf), vec3(1.0lf)))); }
+            case 2u, 3u, 4u: { ph = e[u32(k[0]) - 2u]; }
+            case 5u: { ph = a; }
+            default: {}
+        }
+        let t = ph * k[1] + k[2];
+        let q = (t - floor(t)) * k[3];
+        let n = u32(k[3]);
+        let i = u32(floor(q)) % n;
+        let j = (i + 1u) % n;
+        let w = q - floor(q);
+        for (var c = 0u; c < 3u; c++) {
+            let lo = k[5u + 3u * i + c];
+            let g = to_linear(lo + w * (k[5u + 3u * j + c] - lo));
+            out[c] = f32((g + k[4] * (b[c] - g)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 23u {
+        // k: the channel (0 red, 1 green, 2 blue, 3 alpha, 4 luminance), the black and white
+        // points and their softnesses, 1 to invert.
+        var v = 255.0lf * luma(e);
+        if k[0] == 3.0lf {
+            v = 255.0lf * a;
+        } else if k[0] < 3.0lf {
+            v = 255.0lf * e[u32(k[0])];
+        }
+        var low = select(0.0lf, 1.0lf, v + 1e-4lf >= k[1]);
+        if k[3] > 0.0lf {
+            low = clamp((v - k[1]) / k[3], 0.0lf, 1.0lf);
+        }
+        var high = select(0.0lf, 1.0lf, v - 1e-4lf <= k[2]);
+        if k[4] > 0.0lf {
+            high = clamp((k[2] - v) / k[4], 0.0lf, 1.0lf);
+        }
+        var m = low * high;
+        if k[5] != 0.0lf {
+            m = 1.0lf - m;
+        }
+        // A channel at a time: a whole vec4<f64> turned to f32 came out wrong on this card.
+        for (var c = 0u; c < 4u; c++) {
+            out[c] = f32(f64(p[c]) * m);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
     if F.mode == 0u {
         // k: the amount as a share.
         for (var c = 0u; c < 3u; c++) {
@@ -3484,6 +3792,17 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::ColorLookup { .. }
             | E::HsvKey { .. }
             | E::Paraffin { .. }
+            // B-222.
+            | E::Exposure { .. }
+            | E::Tint { .. }
+            | E::ShiftChannels { .. }
+            | E::SolidComposite { .. }
+            | E::ChangeToColor { .. }
+            | E::ColorKey { .. }
+            | E::SelectColor { .. }
+            | E::LineRecolor { .. }
+            | E::Colorama { .. }
+            | E::Extract { .. }
     )
 }
 
@@ -5207,6 +5526,79 @@ impl Gpu {
                 let k = [*hue, *hue_range, *saturation, *saturation_range, *value, *value_range, (invert == "on") as u8 as f64, power, 0.0];
                 same(steps, &passes.tone, FxParams { mode: 12, ..Default::default() }, &k, None)
             }
+            // B-222: ten colour effects of their own pixel. Bypass is the 8 bpc and 32 bpc (After
+            // Effects) depths' only, which the card is never given (D-330).
+            E::Exposure { stops, offset, gamma, .. } if *offset == 0.0 && *gamma == 1.0 => {
+                same(steps, &passes.grade, FxParams { mode: 5, ..Default::default() }, &[2f64.powf(*stops) as f32 as f64], None)
+            }
+            E::Exposure { stops, offset, gamma, .. } => {
+                same(steps, &passes.tone, FxParams { mode: 14, ..Default::default() }, &[2f64.powf(*stops), *offset, 1.0 / gamma], None)
+            }
+            E::Tint { color, amount } => {
+                let k = [*amount as f32 as f64, color[0] as f32 as f64, color[1] as f32 as f64, color[2] as f32 as f64];
+                same(steps, &passes.tone, FxParams { mode: 15, ..Default::default() }, &k, None)
+            }
+            E::ShiftChannels { take_alpha, take_red, take_green, take_blue } => {
+                let place = |w: &String| crate::effects::SHIFT_CHANNELS_FROM.iter().position(|f| f == w).unwrap_or(10) as f64;
+                let k = [take_red, take_green, take_blue, take_alpha].map(place);
+                same(steps, &passes.tone, FxParams { mode: 16, ..Default::default() }, &k, None)
+            }
+            E::SolidComposite { source_opacity, color, opacity, blend: b } => {
+                let o = (opacity / 100.0) as f32;
+                let lin = crate::effects::encoded(color).map(|c| (crate::color::srgb_to_linear(c as f32) * o) as f64);
+                let k = [(source_opacity / 100.0) as f32 as f64, o as f64, lin[0], lin[1], lin[2]];
+                same(steps, &passes.tone, FxParams { mode: 17, blend: blend(b), ..Default::default() }, &k, None)
+            }
+            E::ChangeToColor { from, to, change, change_by, hue_tolerance, lightness_tolerance, saturation_tolerance, softness, view_matte } => {
+                let mut k = crate::effects::encoded(from).to_vec();
+                k.extend(crate::effects::encoded(to));
+                k.extend([hue_tolerance / 100.0, lightness_tolerance / 100.0, saturation_tolerance / 100.0, softness / 100.0]);
+                let on = |b: bool| b as u8 as f64;
+                k.extend([on(change_by == "transforming"), on(change.contains("lightness")), on(change.contains("saturation")), on(view_matte == "on")]);
+                same(steps, &passes.tone, FxParams { mode: 18, ..Default::default() }, &k, None)
+            }
+            E::ColorKey { colors, tolerance, .. }
+            | E::SelectColor { colors, tolerance, .. }
+            | E::LineRecolor { colors, tolerance, .. } => {
+                // k: the targets' count, the tolerance, two settings and the new colour as each
+                // reads them, level8's power and 0, then the targets.
+                let targets = crate::selective_blur::targets(colors);
+                let power = f64::from(1.0f32 / 2.4) - 1.0 / 2.4;
+                let mut k = vec![targets.len() as f64, *tolerance, 0.0, 0.0, 0.0, 0.0, 0.0, power, 0.0];
+                let mode = match &f.instance.effect {
+                    E::ColorKey { match_by, softness, .. } => {
+                        k[2] = *softness;
+                        k[3] = (match_by == "hue") as u8 as f64;
+                        19
+                    }
+                    E::SelectColor { keep, .. } => {
+                        k[3] = (keep == "chosen") as u8 as f64;
+                        20
+                    }
+                    E::LineRecolor { new_color, .. } => {
+                        let new = crate::selective_blur::parse_hex(new_color).expect("compose leaves a valid Line Recolour");
+                        for c in 0..3 {
+                            k[4 + c] = crate::color::srgb_to_linear(new[c] as f32 / 255.0) as f64;
+                        }
+                        21
+                    }
+                    _ => unreachable!("matched above"),
+                };
+                k.extend(targets.iter().flat_map(|t| t.map(f64::from)));
+                same(steps, &passes.tone, FxParams { mode, ..Default::default() }, &k, None)
+            }
+            E::Colorama { get_phase, phase_shift, cycle_repetitions, stops, color_1, color_2, color_3, color_4, color_5, blend_with_original, .. } => {
+                let n = (stops.floor() as usize).clamp(2, 5);
+                let place = crate::effects::COLORAMA_PHASES.iter().position(|g| g == get_phase).unwrap_or(0) as f64;
+                let mut k = vec![place, *cycle_repetitions, phase_shift / 360.0, n as f64, blend_with_original / 100.0];
+                k.extend([color_1, color_2, color_3, color_4, color_5].iter().take(n).flat_map(|c| crate::effects::encoded(c)));
+                same(steps, &passes.tone, FxParams { mode: 22, ..Default::default() }, &k, None)
+            }
+            E::Extract { channel, black_point, white_point, black_softness, white_softness, invert } => {
+                let place = ["red", "green", "blue", "alpha"].iter().position(|c| c == channel).unwrap_or(4) as f64;
+                let k = [place, *black_point, *white_point, *black_softness, *white_softness, (invert == "on") as u8 as f64];
+                same(steps, &passes.tone, FxParams { mode: 23, ..Default::default() }, &k, None)
+            }
             E::Paraffin { color, direction, spread, opacity, blend: b } => {
                 // No pixel covered half or more: nothing is washed.
                 let (span, share) = match crate::grade::paraffin_span(source, *direction, *spread) {
@@ -5349,7 +5741,7 @@ impl Gpu {
                 self.fx_step(steps, &passes.warp, FxParams { mode: 10, ..Default::default() }, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
                 (out, (tw, th))
             }
-            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen as Fx"),
+            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen and B-222's ten as Fx"),
         }
     }
 
@@ -5445,7 +5837,7 @@ impl Gpu {
             return Some(on_cpu(
                 Severity::Info,
                 "The CPU drew this frame: its adjustment layer has an effect the GPU does not draw there.".into(),
-                "B-156 draws an adjustment layer (D-66) on the card when the card draws each of its effects on the frame (D-225); Bloom, Glow, Paraffin, Kira-kira and HSV Key stay the CPU's.".into(),
+                "B-156 draws an adjustment layer (D-66) on the card when the card draws each of its effects on the frame (D-225); Bloom, Glow, Paraffin, Kira-kira, HSV Key, Colour Key, Select Colour and Line Recolour stay the CPU's.".into(),
             ));
         }
         // D-301: the four modes after add are the CPU's.

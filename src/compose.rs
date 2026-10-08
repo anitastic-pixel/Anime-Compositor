@@ -933,6 +933,17 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::PolarCoordinates { .. }
                 | crate::effects::Effect::OpticsCompensation { .. }
                 | crate::effects::Effect::CornerPin { .. }
+                // B-222 (D-341): ten colour effects of their own pixel.
+                | crate::effects::Effect::Exposure { .. }
+                | crate::effects::Effect::Tint { .. }
+                | crate::effects::Effect::ShiftChannels { .. }
+                | crate::effects::Effect::SolidComposite { .. }
+                | crate::effects::Effect::ChangeToColor { .. }
+                | crate::effects::Effect::ColorKey { .. }
+                | crate::effects::Effect::SelectColor { .. }
+                | crate::effects::Effect::LineRecolor { .. }
+                | crate::effects::Effect::Colorama { .. }
+                | crate::effects::Effect::Extract { .. }
         )
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
@@ -957,6 +968,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
         // D-302: the card bends the colour only, so a Curves whose alpha curve bends is drawn here.
         // ponytail: give the card's grade a fifth curve if one is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::Curves { alpha, .. } if !crate::grade::is_straight(alpha))
+        // B-222 (D-341): a Colorama whose phase adds a layer's reads a pixel not its own.
+        && !matches!(&instance.effect, crate::effects::Effect::Colorama { layer, map, .. }
+            if map.is_some() || layer.as_str() != Some(""))
         // B-107: valid as it runs, at the draft's distances, since a draft can take a
         // distance below its least (a Rain's spacing), which the CPU then reports and skips.
         && {
@@ -1074,6 +1088,15 @@ fn card_effect(
                 E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
                     [*upper_left, *upper_right, *lower_left, *lower_right] == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]]
                 }
+                // B-222: as each one's own function returns at once, in linear light (D-330).
+                E::Exposure { stops, offset, gamma, .. } => *offset == 0.0 && *gamma == 1.0 && 2f64.powf(*stops) as f32 == 1.0,
+                E::Tint { amount, .. } => *amount == 0.0,
+                E::ShiftChannels { take_alpha, take_red, take_green, take_blue } => {
+                    [take_red, take_green, take_blue, take_alpha] == ["red", "green", "blue", "alpha"]
+                }
+                E::ColorKey { colors, .. } | E::SelectColor { colors, .. } | E::LineRecolor { colors, .. } => {
+                    crate::selective_blur::targets(colors).is_empty()
+                }
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -1132,7 +1155,19 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
     let mut run = Vec::new();
     // A Light Wrap does nothing in a stack (D-132), as `apply_stack` has it.
     for instance in stack.iter().filter(|i| i.enabled && !matches!(i.effect, E::LightWrap { .. })) {
-        let first = matches!(instance.effect, E::Bloom { .. } | E::Glow { .. } | E::Paraffin { .. } | E::KiraKira { .. } | E::HsvKey { .. });
+        // B-222 (D-341): Colour Key, Select Colour and Line Recolour round to 8 bits and choose by
+        // it, as an HSV Key does.
+        let first = matches!(
+            instance.effect,
+            E::Bloom { .. }
+                | E::Glow { .. }
+                | E::Paraffin { .. }
+                | E::KiraKira { .. }
+                | E::HsvKey { .. }
+                | E::ColorKey { .. }
+                | E::SelectColor { .. }
+                | E::LineRecolor { .. }
+        );
         if first || !card_can(instance, 1.0) {
             return None;
         }
@@ -1831,7 +1866,8 @@ fn resolve_rest(
     // and Kira-kira look at the drawing they are given here, before the card is asked, so one of
     // them can only begin that run. So can an HSV Key: the hue of a nearly grey pixel swings
     // with the smallest change, and given the card's picture rather than the CPU's it keyed
-    // pixels the CPU did not (B-155's table, 255 levels).
+    // pixels the CPU did not (B-155's table, 255 levels). B-222 (D-341): so can a Colour Key, a
+    // Select Colour and a Line Recolour, which choose by the same 8-bit rounding.
     // D-330, D-333: the card neither rounds to 8 bits nor blurs display values, so in 8 bpc and
     // 32 bpc (After Effects) it is left nothing.
     let plain = bits == crate::effects::Bits::Linear;
@@ -1846,7 +1882,17 @@ fn resolve_rest(
             break;
         }
         chain.push(i);
-        if matches!(effects[i].effect, E::Bloom { .. } | E::Glow { .. } | E::Paraffin { .. } | E::KiraKira { .. } | E::HsvKey { .. }) {
+        if matches!(
+            effects[i].effect,
+            E::Bloom { .. }
+                | E::Glow { .. }
+                | E::Paraffin { .. }
+                | E::KiraKira { .. }
+                | E::HsvKey { .. }
+                | E::ColorKey { .. }
+                | E::SelectColor { .. }
+                | E::LineRecolor { .. }
+        ) {
             break;
         }
     }

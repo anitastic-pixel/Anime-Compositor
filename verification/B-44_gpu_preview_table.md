@@ -60,48 +60,48 @@ The worst comparison is "ten-layer frame 100, Draft, every layer multiply, every
 | the reference shot frame 216, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14099 | PASS |
 | the reference shot frame 228, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14385 | PASS |
 | the reference shot frame 239, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14108 | PASS |
-| the ten-layer fixture frame 0, Full | at most 1 level | largest difference 1 of 255, pixels differing: 5003 | PASS |
-| the ten-layer fixture frame 12, Full | at most 1 level | largest difference 1 of 255, pixels differing: 9051 | PASS |
-| the ten-layer fixture frame 24, Full | at most 1 level | largest difference 1 of 255, pixels differing: 3168 | PASS |
-| the ten-layer fixture frame 36, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4645 | PASS |
-| the ten-layer fixture frame 48, Full | at most 1 level | largest difference 1 of 255, pixels differing: 5771 | PASS |
-| the ten-layer fixture frame 60, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4276 | PASS |
-| the ten-layer fixture frame 72, Full | at most 1 level | largest difference 1 of 255, pixels differing: 9265 | PASS |
-| the ten-layer fixture frame 84, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4424 | PASS |
-| the ten-layer fixture frame 96, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4236 | PASS |
-| the ten-layer fixture frame 108, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4833 | PASS |
-| the ten-layer fixture frame 120, Full | at most 1 level | largest difference 1 of 255, pixels differing: 5151 | PASS |
-| the ten-layer fixture frame 132, Full | at most 1 level | largest difference 1 of 255, pixels differing: 9945 | PASS |
-| the ten-layer fixture frame 144, Full | at most 1 level | largest difference 1 of 255, pixels differing: 3186 | PASS |
-| the ten-layer fixture frame 156, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4645 | PASS |
-| the ten-layer fixture frame 168, Full | at most 1 level | largest difference 1 of 255, pixels differing: 5771 | PASS |
-| the ten-layer fixture frame 180, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4276 | PASS |
-| the ten-layer fixture frame 192, Full | at most 1 level | largest difference 1 of 255, pixels differing: 7590 | PASS |
-| the ten-layer fixture frame 204, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4182 | PASS |
-| the ten-layer fixture frame 216, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4267 | PASS |
-| the ten-layer fixture frame 228, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4885 | PASS |
-| the ten-layer fixture frame 239, Full | at most 1 level | largest difference 1 of 255, pixels differing: 5448 | PASS |
-| the ten-layer fixture frame 0, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13878 | PASS |
-| the ten-layer fixture frame 12, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14215 | PASS |
-| the ten-layer fixture frame 24, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13909 | PASS |
-| the ten-layer fixture frame 36, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14387 | PASS |
-| the ten-layer fixture frame 48, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13856 | PASS |
-| the ten-layer fixture frame 60, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14394 | PASS |
-| the ten-layer fixture frame 72, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14197 | PASS |
-| the ten-layer fixture frame 84, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14132 | PASS |
-| the ten-layer fixture frame 96, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14072 | PASS |
-| the ten-layer fixture frame 108, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14428 | PASS |
-| the ten-layer fixture frame 120, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13850 | PASS |
-| the ten-layer fixture frame 132, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14311 | PASS |
-| the ten-layer fixture frame 144, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14040 | PASS |
-| the ten-layer fixture frame 156, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14387 | PASS |
-| the ten-layer fixture frame 168, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13856 | PASS |
-| the ten-layer fixture frame 180, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14394 | PASS |
-| the ten-layer fixture frame 192, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14250 | PASS |
-| the ten-layer fixture frame 204, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14110 | PASS |
-| the ten-layer fixture frame 216, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14062 | PASS |
-| the ten-layer fixture frame 228, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14320 | PASS |
-| the ten-layer fixture frame 239, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14067 | PASS |
+| the ten-layer fixture frame 0, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4595 | PASS |
+| the ten-layer fixture frame 12, Full | at most 1 level | largest difference 1 of 255, pixels differing: 8199 | PASS |
+| the ten-layer fixture frame 24, Full | at most 1 level | largest difference 1 of 255, pixels differing: 2837 | PASS |
+| the ten-layer fixture frame 36, Full | at most 1 level | largest difference 1 of 255, pixels differing: 3903 | PASS |
+| the ten-layer fixture frame 48, Full | at most 1 level | largest difference 1 of 255, pixels differing: 5363 | PASS |
+| the ten-layer fixture frame 60, Full | at most 1 level | largest difference 1 of 255, pixels differing: 3424 | PASS |
+| the ten-layer fixture frame 72, Full | at most 1 level | largest difference 1 of 255, pixels differing: 9036 | PASS |
+| the ten-layer fixture frame 84, Full | at most 1 level | largest difference 1 of 255, pixels differing: 3572 | PASS |
+| the ten-layer fixture frame 96, Full | at most 1 level | largest difference 1 of 255, pixels differing: 3828 | PASS |
+| the ten-layer fixture frame 108, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4524 | PASS |
+| the ten-layer fixture frame 120, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4743 | PASS |
+| the ten-layer fixture frame 132, Full | at most 1 level | largest difference 1 of 255, pixels differing: 9093 | PASS |
+| the ten-layer fixture frame 144, Full | at most 1 level | largest difference 1 of 255, pixels differing: 2961 | PASS |
+| the ten-layer fixture frame 156, Full | at most 1 level | largest difference 1 of 255, pixels differing: 3903 | PASS |
+| the ten-layer fixture frame 168, Full | at most 1 level | largest difference 1 of 255, pixels differing: 5363 | PASS |
+| the ten-layer fixture frame 180, Full | at most 1 level | largest difference 1 of 255, pixels differing: 3424 | PASS |
+| the ten-layer fixture frame 192, Full | at most 1 level | largest difference 1 of 255, pixels differing: 7409 | PASS |
+| the ten-layer fixture frame 204, Full | at most 1 level | largest difference 1 of 255, pixels differing: 3330 | PASS |
+| the ten-layer fixture frame 216, Full | at most 1 level | largest difference 1 of 255, pixels differing: 3859 | PASS |
+| the ten-layer fixture frame 228, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4466 | PASS |
+| the ten-layer fixture frame 239, Full | at most 1 level | largest difference 1 of 255, pixels differing: 4903 | PASS |
+| the ten-layer fixture frame 0, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13839 | PASS |
+| the ten-layer fixture frame 12, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14155 | PASS |
+| the ten-layer fixture frame 24, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13880 | PASS |
+| the ten-layer fixture frame 36, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14333 | PASS |
+| the ten-layer fixture frame 48, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13817 | PASS |
+| the ten-layer fixture frame 60, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14334 | PASS |
+| the ten-layer fixture frame 72, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14177 | PASS |
+| the ten-layer fixture frame 84, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14072 | PASS |
+| the ten-layer fixture frame 96, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14033 | PASS |
+| the ten-layer fixture frame 108, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14410 | PASS |
+| the ten-layer fixture frame 120, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13811 | PASS |
+| the ten-layer fixture frame 132, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14251 | PASS |
+| the ten-layer fixture frame 144, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14019 | PASS |
+| the ten-layer fixture frame 156, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14333 | PASS |
+| the ten-layer fixture frame 168, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 13817 | PASS |
+| the ten-layer fixture frame 180, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14334 | PASS |
+| the ten-layer fixture frame 192, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14235 | PASS |
+| the ten-layer fixture frame 204, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14050 | PASS |
+| the ten-layer fixture frame 216, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14023 | PASS |
+| the ten-layer fixture frame 228, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14296 | PASS |
+| the ten-layer fixture frame 239, Draft | at most 1 level | largest difference 1 of 255, pixels differing: 14019 | PASS |
 | P-07's hard case: frame 100 turned 0.001 deg about a point 8,388,608 px off canvas | at most 1 level | largest difference 1 of 255, pixels differing: 11007 | PASS |
 | ten-layer frame 100, Full, every layer normal, every other at 60% | at most 1 level | largest difference 1 of 255, pixels differing: 4628 | PASS |
 | ten-layer frame 100, Full, every layer multiply, every other at 60% | at most 1 level | largest difference 1 of 255, pixels differing: 6067 | PASS |
@@ -115,5 +115,5 @@ The worst comparison is "ten-layer frame 100, Draft, every layer multiply, every
 | the reference shot, every fifth frame at Draft, the card keeping 1 drawing at a time | at most 1 level | worst frame: largest difference 1 of 255, pixels differing: 14916 | PASS |
 | the reference shot, every fifth frame at Full, the card keeping 3 drawings at a time | at most 1 level | worst frame: largest difference 1 of 255, pixels differing: 6404 | PASS |
 | ten-layer frame 100, Full, read again into a new CPU cache after the first let go | no drawing sent again, and at most 1 level | drawings sent again: 0; largest difference 1 of 255 | PASS |
-| fx_adj_001 frame 0, Full: an adjustment layer, so the CPU draws it | the frame log says so, and the picture is the CPU's byte for byte | GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has an effect the GPU does not draw there.; byte-identical | PASS |
-| fx_adj_001 frame 0, Draft: an adjustment layer, so the CPU draws it | the frame log says so, and the picture is the CPU's byte for byte | GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has an effect the GPU does not draw there.; byte-identical | PASS |
+| fx_adj_001 with a Kaleidoscope frame 0, Full: an adjustment layer, so the CPU draws it | the frame log says so, and the picture is the CPU's byte for byte | GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has an effect the GPU does not draw there.; byte-identical | PASS |
+| fx_adj_001 with a Kaleidoscope frame 0, Draft: an adjustment layer, so the CPU draws it | the frame log says so, and the picture is the CPU's byte for byte | GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has an effect the GPU does not draw there.; byte-identical | PASS |
