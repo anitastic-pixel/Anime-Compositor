@@ -10,7 +10,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 
 - **Type id**: our saved-file name for an effect, for example `core.simple_choker`. Shown wherever we have one.
 - **Reference / test** shorthand: `FX-XXX-001..NNN` are fixture cases under `Fixtures/`; `bNNN` is `tests/bNNN_*.rs`; `B-NN table` is `verification/B-NN_*_table.md`; `D-NNN` is the decision in `Markdown/14_Decisions_Risks.md`.
-- **Depends on** names the Priority 0 items below (P0-1 to P0-20) or another effect.
+- **Depends on** names the Priority 0 items below (P0-1 to P0-23) or another effect.
 - **GPU plan**: the card (the graphics card) draws the viewer and preview. Exports and fixtures are always drawn on the CPU, and the card must agree with the CPU to within 1 level in 255 (ADR-006 as amended by D-100). "On card (done)" means the preview already uses the card. An effect whose Mix is below 100 (D-202) is always drawn on the CPU today.
 - **Perf target**: every target is a *target*, not a measurement. Classes, all for one 1920x1080 layer on the reference machine below, preview on the card:
   - **Target P1** (one-pixel colour change): adds 1 ms or less, fused with its neighbours into one pass (B-172).
@@ -30,15 +30,15 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | P0-2 | GPU effect pipeline (the card) | partial | `src/gpu.rs`, ADR-006/D-100, B-44..B-172; fusing of one-pixel effects B-172, adjustment layers on the card B-156. About 30 effects have no card path yet, and Mix below 100 falls back to the CPU | every "Add card pass" row |
 | P0-3 | Reading other layers (layer as a setting, track mattes) | done | Layer maps D-189/B-125, `src/layer_map.rs`, FX-LMAP-001..042; track matte modes D-293/B-178; Light Wrap reads the frame beneath (D-132). Not built: a general "Set Matte"-style read of any layer's channel | Displacement Map, Compound Blur, Gradient Wipe, Set Matte, Difference Matte, Texturize, CC Glass Wipe, Time Displacement |
 | P0-4 | Time sampling (other frames of a layer) | partial | Echo D-195/B-130, Posterize Time D-196/B-131, frame blending D-216/B-150, Time Remap D-323/B-202, Freeze/Reverse D-314, motion blur B-124 (card D-226/B-156b). Not built: a per-pixel time offset, or motion estimated between frames | Echo, Posterize Time, Time Displacement, Time Difference, CC Wide Time, CC Force Motion Blur |
-| P0-5 | Depth and extra channels (Z, object id, normals) | missing | `src/exr_io.rs` reads colour and alpha only; the only depth is each layer's plane (D-58) | all of 3D Channel, Camera Lens Blur's depth map, Fog 3D |
-| P0-6 | Particle system | missing | L-01 in `Markdown/15`, parked by D-179; the charter leaves particles out (D-309) | Particle Playground, CC Particle World / Systems II, CC Pixel Polly, Foam, CC Bubbles, CC Star Burst, CC Drizzle |
+| P0-5 | Depth and extra channels (Z, object id, normals) | missing | `src/exr_io.rs` reads colour and alpha only; the only depth is each layer's plane (D-58) | all of 3D Channel, Camera Lens Blur's depth pass from EXR (its blur map from another layer needs only P0-3), Fog 3D |
+| P0-6 | Particle system | missing, parked: last | L-01 in `Markdown/15`, parked by D-179; the charter leaves particles out (D-309). Owner, 2026-10-08: particles are built last, after everything else in this file. Demand: particles are the most-requested plugin category in `PLUGINS.md` | Particle Playground, CC Particle World / Systems II, CC Pixel Polly, Foam, CC Bubbles, CC Star Burst, CC Drizzle |
 | P0-7 | Text engine | partial | D-263..D-266, `src/text.rs`, tests d263_text, d264_text_styles: font outlines, tracking, kerning, styles, stroke, box, shadow. No text animators, no complex-script shaping | Numbers, Timecode, Basic/Path Text |
 | P0-8 | Masks and paths | done | `src/mask.rs` (B-06, B-24b, D-77, mask keys D-298), FX-MSK-001..035; shapes `src/shape.rs` (D-78, D-168..D-170), FX-SHP-001..127 | Stroke, Scribble, Vegas, Fill, Write-on, Matte refinement |
 | P0-9 | Float / HDR working depth | done | D-319/B-200 float depth, D-330/B-210 8 bpc rounding, D-333/B-214 AE 32 bpc; FX-8BPC-001..005, FX-AE32-001..006 | Exposure, Glow, every grade |
 | P0-10 | Effect Mix | done | D-202/B-137, FX-MIX-001..017 | every effect |
 | P0-11 | Adjustment layers | done | B-17b (FX-ADJ-001..013), blend mode on adjustment layers D-297/B-182, card B-156 | every effect used as a grade |
 | P0-12 | Camera and 3D layers | partial | D-58/B-13c camera with each layer on a depth plane, D-171/B-111 camera rig. No true 3D layers or lights (left out by the charter, D-309) | CC Sphere, CC Cylinder, CC Environment, 3D Glasses, Card Wipe, Card Dance |
-| P0-13 | Motion tracking / optical flow | missing | L-04 in `Markdown/15`; the charter leaves the tracker out (D-309) | Warp Stabilizer, Timewarp, Pixel Motion Blur, 3D Camera Tracker, Rolling Shutter Repair |
+| P0-13 | Motion tracking / optical flow | missing, parked: last | L-04 in `Markdown/15`; the charter leaves the tracker out (D-309). Owner, 2026-10-08: optical flow and after-the-fact motion blur are built last, with particles. Demand: the third most-requested plugin category in `PLUGINS.md` | Warp Stabilizer, Timewarp, Pixel Motion Blur, 3D Camera Tracker, Rolling Shutter Repair |
 | P0-14 | Reading audio | done | `src/audio.rs`, D-71/ADR-018, B-20b, FX-AUD-001..010 | Audio Spectrum, Audio Waveform |
 | P0-15 | Whole-frame statistics (histogram, average colour) | missing | no reduction pass exists in `src/gpu.rs` or the CPU path | Auto Color, Auto Contrast, Auto Levels, Equalize, Color Stabilizer, Color Link |
 | P0-16 | Keeping unknown effects | done | `Effect::Unsupported { type_id }` in `src/effects.rs`, document 28 | every missing row: a project naming one is kept and diagnosed, not dropped |
@@ -46,6 +46,11 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | P0-18 | Mesh and brush warping | missing | L-05 in `Markdown/15` | Liquify, Mesh Warp, Reshape, Bezier Warp, Warp |
 | P0-19 | Shared noise basis | done | `core.fractal_noise` (D-128, D-299, D-318, D-326), FX-FRACTAL-001..038; reused by Turbulent Displace | Turbulent Noise, Curl Noise, Noise HLS, Add Grain, Fractal |
 | P0-20 | Matte refinement kit (choke, feather, edge-aware smoothing) | partial | `core.simple_choker` (D-159, FX-CHOKE-001..017), mask feather; no guided filter, no edge-aware smoothing | Matte Choker, Refine Soft/Hard Matte, Key Cleaner, our keyer |
+| P0-21 | Shared soft-glow engine (several blur sizes added in linear light, soft threshold, per-channel size, roll-off for very bright values) | missing | Glow (`core.glow`) and Bloom each have their own blur code today. Needs P0-9 (done). It arrives as a **new mode**: existing Glow and Bloom fixtures must not change. Own `tools/*_reference.py`; card and CPU agree within 1 level (ADR-006). Needs a written rule for how far the glow grows past the layer's edges, and no half-precision switch that changes pixels. Proposed in `PLUGINS.md` section 5, accepted by the owner 2026-10-08 | Soft Physical Glow, Energy Stroke's glow, Universe-style glows in `PLUGINS.md`; later Lightning's, Beam's, Light Wrap and Diffusion |
+| P0-22 | Effects draw along paths (an effect takes a mask, shape path or text outline and draws along it, with start and end trimming) | missing | The drawing exists (`src/shape.rs` strokes, joins, caps, trim, D-78, D-169) and so does the distance to a path (`src/mask.rs` `distance_to_path`); the hook that lets an effect use them does not. Proposed in `PLUGINS.md` section 5, accepted 2026-10-08 | Stroke, Vegas, Scribble, Write-on, Fill, Audio Waveform, Energy Stroke |
+| P0-23 | Held random seeds (an effect that holds its random value for N frames) | done | One rule, already shared by four effects: the held step is the composition frame divided by the whole part of Hold, rounded down (`frame.div_euclid(hold)` in `shake_jolt`, `speed_line_list` and `lightning_bolt` in `src/layer_fx.rs`, and `flicker_stops` in `src/effects.rs`), fed with the seed to `grade::unit`. New held effects use the same line. Written down 2026-10-08 from `PLUGINS.md` section 5 | Camera Shake, Exposure Flicker, Lightning, Speed Lines (done); Line Boil, Heat Shimmer (from `PLUGINS.md`) |
+
+**Build order.** Priority 0 items come before the effects that need them. P0-21 and P0-22 come before their effects. P0-6 (particles) and P0-13 (optical flow and after-the-fact motion blur) and everything that needs them come **last**, by the owner's choice of 2026-10-08.
 
 ## Matte
 
@@ -62,7 +67,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Category | Effect (AE behaviour, in our words) | Status | Depends on | GPU plan | Perf target | Reference / test |
 |---|---|---|---|---|---|---|
 | Blur & Sharpen | Bilateral Blur — blurs flat areas while keeping strong edges, by weighting neighbours by colour likeness | missing | P0-2 | Add card pass | Target P3 | none yet |
-| Blur & Sharpen | Camera Lens Blur — blur shaped like a camera iris, with bright-spot highlights and an optional depth map (`core.lens_blur`) | partial | P0-5 for the blur map | On card (done) | Target P3; measured CPU 39.0 / GPU 26.2 ms (B-65) | FX-LENS-001..044, b59, b64, B-59 and B-64 tables, D-116, D-121. Limit: iris and highlights built; no blur map or depth input |
+| Blur & Sharpen | Camera Lens Blur — blur shaped like a camera iris, with bright-spot highlights and an optional depth map (`core.lens_blur`) | partial | P0-3 for a blur map from another layer (can be built now); P0-5 only for a depth pass from EXR | On card (done) | Target P3; measured CPU 39.0 / GPU 26.2 ms (B-65) | FX-LENS-001..044, b59, b64, B-59 and B-64 tables, D-116, D-121. Limit: iris and highlights built; no blur map or depth input |
 | Blur & Sharpen | Camera-Shake Deblur — finds blurry frames from shaky footage and swaps in sharper neighbours | missing | P0-13, P0-4 | not planned | n/a | none |
 | Blur & Sharpen | CC Cross Blur — separate horizontal and vertical box blurs with a transfer mode | missing | Fast Box Blur | Add card pass | Target P2 | none yet |
 | Blur & Sharpen | CC Radial Blur — spin or zoom blur around a point, with a fading or brightening option | missing | Radial Blur | Reuse Radial Blur card pass | Target P3 | none yet |
@@ -166,7 +171,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Generate | 4-Color Gradient — smooth blend between four coloured points (`core.four_color_gradient`) | done | none | Add card pass (P1) | Target P1 | FX-4CG-001..026, b143, B-143 table, D-208 |
 | Generate | Advanced Lightning — branching electric bolts with glow, forks and obstacle options (`core.lightning_bolt`) | done | none | Add card pass | Target P3 | FX-BOLT-001..032 plus FX-LIGHTX, FX-LIGHTA, FX-LCORE, FX-LFORK, FX-LFULL; b126, b185, b203, b211, b215, b218, b219; B-126 table, D-190, D-300, D-324, D-329, D-334, D-338, D-339 tables |
 | Generate | Audio Spectrum — draws frequency bars or lines from a sound layer | missing | P0-14 | Add card pass | Target P2 | none yet |
-| Generate | Audio Waveform — draws the sound wave of an audio layer along a path | missing | P0-14, P0-8 | Add card pass | Target P2 | none yet |
+| Generate | Audio Waveform — draws the sound wave of an audio layer along a path | missing | P0-14, P0-8, P0-22 | Add card pass | Target P2 | none yet |
 | Generate | Beam — a glowing laser between two points with length and timing (`core.beam`) | done | none | Add card pass | Target P1 | FX-BEAM-001..029, b142, B-142 table, D-207 |
 | Generate | CC Glue Gun — paints a blobby glossy stroke along a path | missing | P0-8 | Add card pass | Target P2 | none yet |
 | Generate | CC Light Burst 2.5 — bright rays bursting outward from a point, taken from the image | missing | Light Rays | Reuse Light Rays card pass | Target P3 | none yet |
@@ -178,17 +183,17 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Generate | Circle — draws a filled circle or ring | missing | none | Add card pass (P1) | Target P1 | none yet |
 | Generate | Ellipse — draws a soft-edged ellipse outline | missing | none | Add card pass (P1) | Target P1 | none yet |
 | Generate | Eyedropper Fill — fills the layer with a colour sampled from an area | missing | P0-15 | Add card reduction pass | Target P1 | none yet |
-| Generate | Fill — fills the layer or masks with one colour | missing | P0-8 | Add card pass (P1) | Target P1 | none yet |
+| Generate | Fill — fills the layer or masks with one colour | missing | P0-8, P0-22 | Add card pass (P1) | Target P1 | none yet |
 | Generate | Fractal — draws Mandelbrot or Julia set images | missing | none | Add card pass | Target P2 | none yet |
 | Generate | Gradient Ramp — linear or radial blend between two colours (`core.gradient`) | done | none | On card (done) | Target P1; measured CPU 38.9 / GPU 26.0 ms (B-65) | FX-GRAD-001..022, b57, B-57 table, D-114 |
 | Generate | Grid — draws a grid of lines | missing | none | Add card pass (P1) | Target P1 | none yet |
 | Generate | Lens Flare — simulated camera flare from a bright point | missing | none | Add card pass | Target P2 | none yet |
 | Generate | Paint Bucket — flood-fills an area of similar colour | missing | none | CPU first (flood fill is serial) | Target P4 | none yet |
 | Generate | Radio Waves — rings that spread outward from a point over time (`core.radio_waves`) | done | none | Add card pass | Target P2 | FX-RWAVE-001..027, b135, B-135 table, D-200 |
-| Generate | Scribble — fills a mask with animated scribbled strokes | missing | P0-8 | Add card pass | Target P2 | none yet |
-| Generate | Stroke — draws along a mask path, with write-on start and end | missing | P0-8 | Add card pass | Target P2 | none yet |
-| Generate | Vegas — runs moving dashes along edges or a mask path | missing | P0-8 | Add card pass | Target P2 | none yet |
-| Generate | Write-on — paints a brush stroke along animated positions | missing | P0-1 | Add card pass | Target P2 | none yet |
+| Generate | Scribble — fills a mask with animated scribbled strokes | missing | P0-8, P0-22 | Add card pass | Target P2 | none yet |
+| Generate | Stroke — draws along a mask path, with write-on start and end | missing | P0-8, P0-22 | Add card pass | Target P2 | none yet |
+| Generate | Vegas — runs moving dashes along edges or a mask path | missing | P0-8, P0-22 | Add card pass | Target P2 | none yet |
+| Generate | Write-on — paints a brush stroke along animated positions | missing | P0-1, P0-22 | Add card pass | Target P2 | none yet |
 
 ## Noise & Grain
 
