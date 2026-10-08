@@ -175802,6 +175802,64 @@ FX-LFULL-005 (`fx_lfull_005.json`): FX-LFULL-001 as Breaking, frame 0: exactly w
 
 FX-LFULL-006 (`fx_lfull_006.json`): A forks "Full": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: the night drawing untouched.
 
+### CC Vector Blur (D-336)
+
+From P-26's tutorial 2 (B-220). Every case is a project of one composition 16 by 10, five frames, in `Fixtures/vector_blur/`: the drawing `holder` (two-pixel squares of red, blue and cream, its bottom right corner 4 by 3 clear) with the effect, and under it the map layers `ramp` (black to white left to right, moved, scaled and switched off), `disc` (a white disc of radius 3.5 on black) and `black`, a solid, all switched off. **Every number is produced by `tools/vector_blur_reference.py`** and is in `Fixtures/vector_blur/expected_vector_blur.json`. Values are linear premultiplied. Tolerance 2e-5. No slope in these cases lies within 1% of the flat line 1/10000. B-220 checks them in `verification/D-336_vector_blur_table.md`.
+
+FX-VBLUR-001 (`fx_vblur_001.json`): As added: Natural, Amount 10, Ridge Smoothness 10, the layer's own lightness as the map, Map Softness 30: a soft smear along the slopes of its blurred brightness. Frames 0.
+
+FX-VBLUR-002 (`fx_vblur_002.json`): Amount 0: nothing moves. Frames 0.
+
+FX-VBLUR-003 (`fx_vblur_003.json`): The ramp as the map, Constant Length, Amount 3, Map Softness 0: its slope runs left to right, so rows 1 to 8 are smeared straight across, 3 pixels each way, evenly. Frames 0.
+
+FX-VBLUR-004 (`fx_vblur_004.json`): The same as Natural, Ridge Smoothness 10: the ramp's gentle slope, 1/15 a pixel, makes the smear 3 * 6.67 / sqrt(6.67^2 + 10^2), 1.66 pixels each way, fading. Frames 0.
+
+FX-VBLUR-005 (`fx_vblur_005.json`): The same as Perpendicular: along the slope's contour, so rows are left alone and columns smeared up and down. Frames 0.
+
+FX-VBLUR-006 (`fx_vblur_006.json`): Natural with Angle Offset 90: exactly Perpendicular, FX-VBLUR-005. Frames 0.
+
+FX-VBLUR-007 (`fx_vblur_007.json`): A black solid as the map, Direction Center, Angle Offset 90, Amount 3: the height is 0 everywhere, so every pixel is smeared 3 pixels each way across, evenly; rows 1 to 8 are FX-VBLUR-003. Frames 0.
+
+FX-VBLUR-008 (`fx_vblur_008.json`): The same as Direction Fading: only forward, from the pixels to the right. Frames 0.
+
+FX-VBLUR-009 (`fx_vblur_009.json`): The ramp with Direction Center, Revolutions 1, Amount 2: the direction turns once round from black to white, straight up at the left. Frames 0.
+
+FX-VBLUR-010 (`fx_vblur_010.json`): FX-VBLUR-004 with Map Softness 4: the ramp's edges soften, so the slope bends near them. Frames 0.
+
+FX-VBLUR-011 (`fx_vblur_011.json`): A white disc as the map, Natural, Ridge Smoothness 0, Map Softness 0, Amount 2: smeared in and out across its rim, and nowhere else. Frames 0.
+
+FX-VBLUR-012 (`fx_vblur_012.json`): The disc as Perpendicular: smeared round its rim. Frames 0.
+
+FX-VBLUR-013 (`fx_vblur_013.json`): Property Alpha on the layer itself, Constant Length, Amount 2, Map Softness 0: only the pixels on the drawing's edges and round its clear corner have a slope. Frames 0.
+
+FX-VBLUR-014 (`fx_vblur_014.json`): Property Hue on the layer itself, Ridge Smoothness 5, Amount 3, Map Softness 2. Frames 0.
+
+FX-VBLUR-015 (`fx_vblur_015.json`): Property Saturation on the layer itself, Constant Length, Amount 2, Map Softness 2. Frames 0.
+
+FX-VBLUR-016 (`fx_vblur_016.json`): FX-VBLUR-003 with Amount keyed from 0 at frame 0 to 6 at frame 4: frame 0 untouched and frame 2 is FX-VBLUR-003. Frames 0, 2, 4.
+
+FX-VBLUR-017 (`fx_vblur_017.json`): A layer that is not in the composition, `gone`: the layer itself is the map, as FX-VBLUR-001, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-VBLUR-018 (`fx_vblur_018.json`): FX-VBLUR-003 on the holder moved 2 right and 1 down: the same picture moved, since the map lies on the layer. Frames 0.
+
+FX-VBLUR-019 (`fx_vblur_019.json`): A type written "Natural", with a capital. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VBLUR-020 (`fx_vblur_020.json`): Amount 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VBLUR-021 (`fx_vblur_021.json`): Amount -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VBLUR-022 (`fx_vblur_022.json`): Ridge Smoothness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VBLUR-023 (`fx_vblur_023.json`): Map Softness keyed to -1 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VBLUR-024 (`fx_vblur_024.json`): A property written "brightness". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VBLUR-025 (`fx_vblur_025.json`): A fit written "fill". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VBLUR-026 (`fx_vblur_026.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VBLUR-027 (`fx_vblur_027.json`): Angle Offset 3601, past 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.
