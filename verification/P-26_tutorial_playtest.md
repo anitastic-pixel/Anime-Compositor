@@ -273,6 +273,31 @@ Frame 12, `P-26 pictures/t2_forks_f12.png`, shows the same thing.
 2. **Where and when.** Where each strand goes, and which frames fork, is random, as in After Effects. Frame 9 (the tutorial's 28:20) happens to draw no early fork with our random numbers. Frames 13 and 24 draw six or seven forks and look busier than the tutorial.
 3. **Path.** The path is still random, as before.
 
+## Tutorial 2's thicker strands (2026-10-08)
+
+The owner asked for thicker strands to match the tutorial. **D-339** adds a third Forks choice, **Long, full width** (`verification/D-339_lightning_full_forks.md`, 37 of 37 checks pass). Its strands follow exactly the same paths as Long's, but each one starts as wide as the main bolt where it leaves it, instead of half as wide. Short and Long, and every file saved with them, are unchanged.
+
+Tutorial 2 was replayed from an empty project with Forks set to Long, full width. That was the only difference from the replay before; the two saved projects differ in that one word. It was saved to Downloads again, reopened outside the app with no notices, and exported again.
+
+| Frame 20: Long on the left (before), Long, full width on the right (after) |
+|---|
+| ![strands f20](P-26%20pictures/t2_full_f20.png) |
+
+Frames 7, 8 and 12 show the same thing: `P-26 pictures/t2_full_f7.png`, `t2_full_f8.png`, `t2_full_f12.png`.
+
+**What to look for:** the strands are in the same places, but now as thick as the main bolt where they split from it, as in the tutorial at 28:40. More white bolt means more glow, so the ground under the bolt gets brighter. Average of the same ground strip as before, out of 255:
+
+| Frame | Long | Long, full width |
+|---|---|---|
+| 7 | (11.4, 8.0, 3.4) | (19.9, 14.2, 5.9) |
+| 9 | (5.3, 3.7, 1.5) | (5.3, 3.7, 1.5), no early fork on this frame |
+| 12 | (12.5, 8.9, 3.6) | (18.8, 13.5, 5.5) |
+| 20 | (15.4, 11.0, 4.5) | (25.0, 18.0, 7.3) |
+
+**Still different:**
+1. **Where strands overlap** (frame 7) they now make a hotter, whiter patch than the tutorial shows.
+2. **Where and when** each strand goes is still random, as before.
+
 ## What was built
 
 Every one is **built and awaiting the owner's playtest**. Each starts where the app was before, so older projects and every fixture draw as they did; D-318 to D-324 (D-308) may change pictures where the owner turns them on, and a newly added Polar Coordinates starts as a circle. Each has its own page in `verification/`, with what to look for and how to try it.
@@ -334,7 +359,7 @@ One set of fixture values was changed, as a recorded specification decision: D-3
 3. **Playtests** of D-328, D-329 and D-330 (approved 2026-10-05 and built), each page's "For the owner to try".
 4. **Playtest** of D-332: open `Downloads\shockwave_tutorial1.json`, save it under a new name, and open it again (`D-332_keyed_settings.md`, "How to check it yourself").
 5. **Playtest** of D-333 (approved 2026-10-06 and built as B-214): the "32 bpc (After Effects)" depth (`D-333_ae_32bpc.md`, "For the owner to try"). Tutorial 2 after step F is now partly right: a red fading patch instead of a block.
-6. **Playtest** of D-334, D-335 and D-337 (built 2026-10-07): open `Downloads\advanced_electric_tutorial2.json` and look at frame 20, a dim gold pool under the bolt. Each fix's page in `verification/` lists what else to try. Since the colour stand-ins (same day), frame 9 should look orange, with a salmon glow at the top, as in the tutorial at 28:20. Since D-338 (same day), frames 7, 12 and 20 should show two or three strands reaching the ground; Effect Controls shows Forks: Long on the bolt.
+6. **Playtest** of D-334, D-335 and D-337 (built 2026-10-07): open `Downloads\advanced_electric_tutorial2.json` and look at frame 20, a dim gold pool under the bolt. Each fix's page in `verification/` lists what else to try. Since the colour stand-ins (same day), frame 9 should look orange, with a salmon glow at the top, as in the tutorial at 28:20. Since D-338 (same day), frames 7, 12 and 20 should show two or three strands reaching the ground; Effect Controls shows Forks: Long on the bolt. Since D-339 (2026-10-08), those strands are as thick as the main bolt where they leave it.
 7. **Decision** on D-336, CC Vector Blur (doc 14): build it now, or when a tutorial's final look needs it.
 
 D-328 to D-330 were approved on 2026-10-05 and are built. D-309 was approved on 2026-10-04 and is built (D-310 to D-317). D-308 was approved on 2026-10-04 and is built as D-318 to D-320, D-323 and D-324.
