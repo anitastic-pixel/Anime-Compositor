@@ -209,7 +209,7 @@ The owner asked for every effect tutorial 2 uses that the app lacked, built and 
 - **D-334** (B-215), Advanced Lightning's soft core: built, FX-LCORE-001 to 007.
 - **D-335** (B-217), Exposure's Offset, Gamma Correction and Bypass Linear Light Conversion: built, 53 of 53 checks (`D-335_exposure_ae.md`). The tutorial's ground uses Gamma Correction 1.69.
 - **D-337** (B-216), Glow and Solid Composite on display values in 32 bpc (After Effects): built (`D-337_glow_display.md`).
-- **D-336**, CC Vector Blur: proposed only. The tutorial switches it off again by 27:16, so its final look does not use it.
+- **D-336**, CC Vector Blur: proposed at first, since the tutorial switches it off again by 27:16 and its final look does not use it. Built on 2026-10-08 at the owner's word (`verification/D-336_vector_blur.md`, 111 of 111 checks pass); the replay still leaves it out.
 
 Tutorial 2 was replayed from an empty project in the test copy with all three in use (ground Exposure 2.47 with Gamma Correction 1.69; the plate hidden, as at the tutorial's end; hotspot radius 9, feather 20). It was saved to Downloads, reopened outside the app with no notices, and exported again. Frames 0, 12 and 20 were pulled from the MP4 and put beside the tutorial's frame at 28:20.
 
@@ -360,7 +360,7 @@ One set of fixture values was changed, as a recorded specification decision: D-3
 4. **Playtest** of D-332: open `Downloads\shockwave_tutorial1.json`, save it under a new name, and open it again (`D-332_keyed_settings.md`, "How to check it yourself").
 5. **Playtest** of D-333 (approved 2026-10-06 and built as B-214): the "32 bpc (After Effects)" depth (`D-333_ae_32bpc.md`, "For the owner to try"). Tutorial 2 after step F is now partly right: a red fading patch instead of a block.
 6. **Playtest** of D-334, D-335 and D-337 (built 2026-10-07): open `Downloads\advanced_electric_tutorial2.json` and look at frame 20, a dim gold pool under the bolt. Each fix's page in `verification/` lists what else to try. Since the colour stand-ins (same day), frame 9 should look orange, with a salmon glow at the top, as in the tutorial at 28:20. Since D-338 (same day), frames 7, 12 and 20 should show two or three strands reaching the ground; Effect Controls shows Forks: Long on the bolt. Since D-339 (2026-10-08), those strands are as thick as the main bolt where they leave it.
-7. **Decision** on D-336, CC Vector Blur (doc 14): build it now, or when a tutorial's final look needs it.
+7. **Playtest** of D-336, CC Vector Blur (built 2026-10-08): Effects, Blur & Sharpen, CC Vector Blur; what to try is in `verification/D-336_vector_blur.md`.
 
 D-328 to D-330 were approved on 2026-10-05 and are built. D-309 was approved on 2026-10-04 and is built (D-310 to D-317). D-308 was approved on 2026-10-04 and is built as D-318 to D-320, D-323 and D-324.
 
