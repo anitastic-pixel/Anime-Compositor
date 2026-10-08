@@ -8,8 +8,8 @@ use crate::WorkingBuffer;
 use rayon::prelude::*;
 
 /// Every offset within `width`, nearest first, then the one above, then the one to the left:
-/// the order in which equals are decided.
-fn disc(width: f64) -> Vec<(i64, i64)> {
+/// the order in which equals are decided. B-226: the card is handed these.
+pub(crate) fn disc(width: f64) -> Vec<(i64, i64)> {
     let r = width.abs().floor() as i64;
     let mut d: Vec<(i64, i64)> = (-r..=r)
         .flat_map(|dy| (-r..=r).map(move |dx| (dx, dy)))

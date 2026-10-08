@@ -1983,51 +1983,12 @@ pub(crate) fn block_dissolve(
     let (w, h) = (source.width(), source.height());
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     let (bw, bh, half) = (block_width, block_height, feather / 2.0);
-    let level = completion / 100.0;
-    let base = crate::grade::mix(0);
-    let kept = |i: i64, j: i64| {
-        if (crate::grade::unit(base, i, j, 0, 0) + 1.0) / 2.0 >= level {
-            1.0
-        } else {
-            0.0
-        }
+    let kept = dissolve_kept(completion);
+    let (j0, ny, down) = if feather > 0.0 {
+        dissolve_down((w, h), completion, (bw, bh), feather, origin)
+    } else {
+        (0, 0, Vec::new())
     };
-    // The length from the first block's start to `t` that is kept, along a line of blocks `size`
-    // long whose running sums of kept are `sums`.
-    let upto = |sums: &[f64], t: f64, first: i64, size: f64| {
-        let s = t / size - first as f64;
-        let a = (s.floor().max(0.0) as usize).min(sums.len() - 2);
-        (sums[a] + (s - a as f64) * (sums[a + 1] - sums[a])) * size
-    };
-    // With a feather, the square's kept area is a box across each row of blocks the squares
-    // reach, then a box down the running sums of those. ponytail: the tables are the blocks'
-    // rows by the buffer's width, large only for tiny blocks under a huge feather.
-    let first = |o: f64, size: f64| ((0.5 - o - half) / size).floor() as i64;
-    let (i0, j0) = (first(ox, bw), first(oy, bh));
-    let mut down = Vec::new();
-    let mut ny = 0;
-    if feather > 0.0 {
-        let nx = (((w as f64 - ox - 0.5 + half) / bw).floor() as i64 - i0 + 1) as usize;
-        ny = (((h as f64 - oy - 0.5 + half) / bh).floor() as i64 - j0 + 1) as usize;
-        let mut across = vec![0.0; ny * w];
-        across.par_chunks_mut(w).enumerate().for_each(|(r, row)| {
-            let j = j0 + r as i64;
-            let mut sums = vec![0.0; nx + 1];
-            for a in 0..nx {
-                sums[a + 1] = sums[a] + kept(i0 + a as i64, j);
-            }
-            for (x, v) in row.iter_mut().enumerate() {
-                let cx = x as f64 - ox + 0.5;
-                *v = upto(&sums, cx + half, i0, bw) - upto(&sums, cx - half, i0, bw);
-            }
-        });
-        down = vec![0.0; w * (ny + 1)];
-        down.par_chunks_mut(ny + 1).enumerate().for_each(|(x, col)| {
-            for r in 0..ny {
-                col[r + 1] = col[r] + across[r * w + x];
-            }
-        });
-    }
     source
         .data_mut()
         .par_chunks_exact_mut(4)
@@ -2045,6 +2006,68 @@ pub(crate) fn block_dissolve(
                 *v *= k as f32;
             }
         });
+}
+
+/// D-214: whether Block Dissolve at `completion` per cent keeps block (i, j), 1 or 0. B-226: the
+/// card is handed these, worked out here.
+pub(crate) fn dissolve_kept(completion: f64) -> impl Fn(i64, i64) -> f64 + Sync {
+    let level = completion / 100.0;
+    let base = crate::grade::mix(0);
+    move |i, j| {
+        if (crate::grade::unit(base, i, j, 0, 0) + 1.0) / 2.0 >= level {
+            1.0
+        } else {
+            0.0
+        }
+    }
+}
+
+/// The length from the first block's start to `t` that is kept, along a line of blocks `size`
+/// long whose running sums of kept are `sums`.
+fn upto(sums: &[f64], t: f64, first: i64, size: f64) -> f64 {
+    let s = t / size - first as f64;
+    let a = (s.floor().max(0.0) as usize).min(sums.len() - 2);
+    (sums[a] + (s - a as f64) * (sums[a + 1] - sums[a])) * size
+}
+
+/// D-214 with a feather: the square's kept area is a box across each row of blocks the squares
+/// reach, then a box down the running sums of those. The first row of blocks, how many rows,
+/// and each column's running sums, `rows + 1` of them a column. B-226: the card is handed these.
+/// ponytail: the tables are the blocks' rows by the buffer's width, large only for tiny blocks
+/// under a huge feather.
+pub(crate) fn dissolve_down(
+    (w, h): (usize, usize),
+    completion: f64,
+    (bw, bh): (f64, f64),
+    feather: f64,
+    origin: (usize, usize),
+) -> (i64, usize, Vec<f64>) {
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let half = feather / 2.0;
+    let kept = dissolve_kept(completion);
+    let first = |o: f64, size: f64| ((0.5 - o - half) / size).floor() as i64;
+    let (i0, j0) = (first(ox, bw), first(oy, bh));
+    let nx = (((w as f64 - ox - 0.5 + half) / bw).floor() as i64 - i0 + 1) as usize;
+    let ny = (((h as f64 - oy - 0.5 + half) / bh).floor() as i64 - j0 + 1) as usize;
+    let mut across = vec![0.0; ny * w];
+    across.par_chunks_mut(w).enumerate().for_each(|(r, row)| {
+        let j = j0 + r as i64;
+        let mut sums = vec![0.0; nx + 1];
+        for a in 0..nx {
+            sums[a + 1] = sums[a] + kept(i0 + a as i64, j);
+        }
+        for (x, v) in row.iter_mut().enumerate() {
+            let cx = x as f64 - ox + 0.5;
+            *v = upto(&sums, cx + half, i0, bw) - upto(&sums, cx - half, i0, bw);
+        }
+    });
+    let mut down = vec![0.0; w * (ny + 1)];
+    down.par_chunks_mut(ny + 1).enumerate().for_each(|(x, col)| {
+        for r in 0..ny {
+            col[r + 1] = col[r] + across[r * w + x];
+        }
+    });
+    (j0, ny, down)
 }
 
 /// D-158: every pixel outside a circle closing on `center`, a point in the drawing's own pixels,

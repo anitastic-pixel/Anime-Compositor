@@ -4242,6 +4242,387 @@ fn edges(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// B-226, layer_fx::block_dissolve: k[0] 1 with a feather. Without one, k[1] the blocks across,
+// then each column's block (from 2), each row's (from 2 + width) and whether each block is kept
+// (from 2 + width + height), all worked out by the CPU. With one, k[1] the length of each
+// column's running sums, the first row of blocks, the blocks' height, half the feather, the
+// feather squared and the corner's row, then from 7 each column's running sums of the area kept
+// across each row of blocks (layer_fx::dissolve_down).
+fn dissolve_upto(c: u32, n: u32, t: f64) -> f64 {
+    let s = t / k[3] - k[2];
+    let a = u32(min(max(floor(s), 0.0lf), f64(n - 2u)));
+    return (k[c + a] + (s - f64(a)) * (k[c + a + 1u] - k[c + a])) * k[3];
+}
+
+@compute @workgroup_size(16, 16)
+fn dissolve(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    var kept: f64;
+    if k[0] == 0.0lf {
+        let ix = u32(k[2u + id.x]);
+        let jy = u32(k[2u + size.x + id.y]);
+        kept = k[2u + size.x + size.y + jy * u32(k[1]) + ix];
+    } else {
+        let n = u32(k[1]);
+        let cy = f64(id.y) - k[6] + 0.5lf;
+        let c = 7u + id.x * n;
+        kept = clamp((dissolve_upto(c, n, cy + k[4]) - dissolve_upto(c, n, cy - k[4])) / k[5], 0.0lf, 1.0lf);
+    }
+    textureStore(output, id.xy, textureLoad(input, id.xy, 0) * f32(kept));
+}
+
+// B-226, layer_fx::gradient_wipe: the map (`other`) lying on the drawing at (F.ox, F.oy); k the
+// edge, the softness as a share, invert, and 1 to clear the drawing.
+@compute @workgroup_size(16, 16)
+fn gwipe(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    if k[3] == 1.0lf {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    var v = picture_luma(at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy)));
+    if k[2] == 1.0lf {
+        v = 1.0lf - v;
+    }
+    var kept = select(0.0lf, 1.0lf, v >= k[0]);
+    if k[1] > 0.0lf {
+        kept = clamp((v - k[0]) / k[1] + 0.5lf, 0.0lf, 1.0lf);
+    }
+    var out = p;
+    for (var c = 0u; c < 4u; c++) {
+        out[c] = f32(f64(p[c]) * kept);
+    }
+    textureStore(output, id.xy, out);
+}
+
+// B-226, line_width::line_width: the drawing (`input`) grown by F.g. k[0] 0 to thicken by shape,
+// 1 to thin by shape, 2 by colour; k[1] 1 to thicken; k[2] how many offsets, nearest first, then
+// each across and down from 3 (line_width::disc). `row` 1 where a pixel is chosen, as
+// selective_blur::chosen chose it on the CPU.
+fn lw_picked(p: vec2<i32>, size: vec2<i32>) -> bool {
+    return all(p >= vec2(0)) && all(p < size) && row[u32(p.y * size.x + p.x)] != 0.0;
+}
+
+@compute @workgroup_size(16, 16)
+fn lwidth(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let s = vec2<i32>(textureDimensions(input));
+    let l = vec2<i32>(id.xy) - vec2(F.g);
+    let own = at(input, l);
+    let n = u32(k[2]);
+    var value = own;
+    if k[0] == 0.0lf {
+        for (var i = 0u; i < n; i++) {
+            if value.w >= 1.0 {
+                break;
+            }
+            let p = at(input, l + vec2(i32(k[3u + 2u * i]), i32(k[4u + 2u * i])));
+            if p.w > value.w {
+                value = p;
+            }
+        }
+    } else if k[0] == 1.0lf {
+        var least = own.w;
+        for (var i = 0u; i < n; i++) {
+            if least <= 0.0 {
+                break;
+            }
+            least = min(least, at(input, l + vec2(i32(k[3u + 2u * i]), i32(k[4u + 2u * i]))).w);
+        }
+        if own.w > 0.0 {
+            let q = least / own.w;
+            value = vec4(own.x * q, own.y * q, own.z * q, least);
+        }
+    } else {
+        let wanted = k[1] == 1.0lf;
+        if lw_picked(l, s) != wanted {
+            for (var i = 0u; i < n; i++) {
+                let o = l + vec2(i32(k[3u + 2u * i]), i32(k[4u + 2u * i]));
+                if lw_picked(o, s) == wanted {
+                    value = at(input, o);
+                    break;
+                }
+            }
+        }
+    }
+    textureStore(output, id.xy, value);
+}
+
+// B-226, line_smooth::Smooth::line: one pair of rows, or of columns, a thread, as the CPU works
+// each. `band` holds the encoded picture (line_smooth::encoded, worked out by the CPU), four
+// numbers a pixel; k[0] the slope, k[1] the threshold. Each mix is written to `row`, eight a
+// pixel in the order the CPU makes them: rows then columns, the pair the pixel ends then the
+// pair it begins, a run's left end then its right. An area of 0 is written as -0, so a mixed
+// pixel is told from one not.
+var<private> ls_r: i32;
+var<private> ls_lx: i32;
+var<private> ls_ly: i32;
+var<private> ls_off: i32;
+var<private> ls_dx: i32;
+var<private> ls_dy: i32;
+var<private> ls_lrow: i32;
+var<private> ls_lend: i32;
+var<private> ls_do1: bool;
+var<private> ls_dir: u32;
+
+fn ls_px(i: i32) -> vec4<f32> {
+    let j = 4u * u32(i);
+    return vec4(band[j], band[j + 1u], band[j + 2u], band[j + 3u]);
+}
+
+// D-86: `<=` where OpenToonz has `<`.
+fn ls_eq(a: i32, b: i32) -> bool {
+    let t = f32(k[1]);
+    let d = abs(ls_px(a) - ls_px(b));
+    return d.x <= t && d.y <= t && d.z <= t && d.w <= t;
+}
+
+fn ls_count(pix: i32, a: i32, b: i32) -> vec2<i32> {
+    let one = vec2(select(0, 1, ls_eq(pix - ls_dx, a)) + select(0, 1, ls_eq(pix - ls_dx, b)), 0);
+    return one + vec2(0, select(0, 1, ls_eq(pix, a)) + select(0, 1, ls_eq(pix, b)));
+}
+
+fn ls_neighbourhood(x: i32, y: i32, pix: i32) -> bool {
+    let dx = ls_dx;
+    let dy = ls_dy;
+    var c = vec2(0);
+    if y > 1 {
+        c += ls_count(pix, pix - 2 * dy, pix - 2 * dy - dx);
+    }
+    if y < ls_ly - 1 {
+        c += ls_count(pix, pix + dy, pix + dy - dx);
+    }
+    if x > 1 {
+        c += ls_count(pix, pix - 2 * dx, pix - 2 * dx - dy);
+    }
+    if x < ls_lx - 1 {
+        c += ls_count(pix, pix + dx, pix + dx - dy);
+    }
+    return c.x > c.y;
+}
+
+fn ls_mix(out: i32, area: f64, lower: bool, side: u32) {
+    let a = f32(area);
+    row[8u * u32(out) + 4u * ls_dir + select(0u, 2u, lower) + side] = select(bitcast<f32>(0x80000000u), a, a != 0.0);
+}
+
+fn ls_filter(start: i32, ll: i32, step: i32, slope: f64, lower: bool, side: u32) {
+    var out = start;
+    var h0 = 0.5lf;
+    let base = h0 / slope;
+    let end = i32(min(floor(base), f64(ll)));
+    for (var i = 0; i < end; i++) {
+        let h1 = h0 - slope;
+        ls_mix(out, 0.5lf * (h0 + h1), lower, side);
+        out += step;
+        h0 = h1;
+    }
+    if end < ll {
+        ls_mix(out, 0.5lf * (base - f64(end)) * h0, lower, side);
+    }
+}
+
+fn ls_crossing(al: i32, bl: i32, au: i32, bu: i32) -> i32 {
+    var n = 0;
+    for (var side = 0; side < 2; side++) {
+        var a = au;
+        var b = bu;
+        var step = ls_dy;
+        var room = ls_ly - 1 - ls_r;
+        if side == 1 {
+            a = al;
+            b = bl;
+            step = -ls_dy;
+            room = ls_r - 1;
+        }
+        if ls_eq(a, b) {
+            continue;
+        }
+        n += 1;
+        var qa = a + step;
+        var qb = b + step;
+        while room > 0 && ls_eq(qa, a) && ls_eq(qb, b) {
+            n += 1;
+            room -= 1;
+            qa += step;
+            qb += step;
+        }
+    }
+    return n;
+}
+
+fn ls_corner(len: i32, al: i32, bl: i32, au: i32, bu: i32) -> bool {
+    return len >= 4 && ls_crossing(al, bl, au, bu) >= 4;
+}
+
+fn ls_check_length(len: i32, l1: i32, u1: i32, l2: i32, u2: i32, unite_u: bool) -> bool {
+    let dy = ls_dy;
+    return (len > 1) || (ls_do1 && ((unite_u && ls_r > 1 && !(ls_eq(l1, l1 - dy) && ls_eq(l2, l2 - dy))) || (ls_r < ls_ly - 1 && !(ls_eq(u1, u1 + dy) && ls_eq(u2, u2 + dy)))));
+}
+
+fn ls_right(ll: i32, lr: i32, whole: bool) {
+    let ur = lr + ls_off;
+    let len = (lr - ll) / ls_dx;
+    let l1 = lr - ls_dx;
+    let u1 = ur - ls_dx;
+    let x = (l1 - ls_lrow) / ls_dx;
+    if ls_corner(len, l1, lr, u1, ur) {
+        return;
+    }
+    var unite_u = ls_eq(u1, lr);
+    let unite_l = ls_eq(l1, ur);
+    if unite_u || unite_l {
+        if unite_u && unite_l {
+            unite_u = !ls_neighbourhood(x + 1, ls_r, ur);
+        }
+        if ls_check_length(len, l1, u1, lr, ur, unite_u) {
+            ls_filter(select(u1, l1, unite_u), len, -ls_dx, k[0] / (f64(len) * select(1.0lf, 2.0lf, whole)), unite_u, 1u);
+        }
+    }
+}
+
+fn ls_left(ll: i32, lr: i32, whole: bool) {
+    let ul = ll + ls_off;
+    let len = (lr - ll) / ls_dx;
+    let l0 = ll - ls_dx;
+    let u0 = ul - ls_dx;
+    let x = (ll - ls_lrow) / ls_dx;
+    if ls_corner(len, l0, ll, u0, ul) {
+        return;
+    }
+    var unite_u = ls_eq(ul, l0);
+    let unite_l = ls_eq(ll, u0);
+    if unite_u || unite_l {
+        if unite_u && unite_l {
+            unite_u = ls_neighbourhood(x, ls_r, ul);
+        }
+        if ls_check_length(len, l0, u0, ll, ul, unite_u) {
+            ls_filter(select(ul, ll, unite_u), len, ls_dx, k[0] / (f64(len) * select(1.0lf, 2.0lf, whole)), unite_u, 0u);
+        }
+    }
+}
+
+fn ls_same(i: i32) -> bool {
+    return ls_eq(i, i + ls_off);
+}
+
+// Where the run starting at `i` ends: both lines keep their colours up to there.
+fn ls_run_from(i: i32) -> i32 {
+    var j = i + ls_dx;
+    while j != ls_lend && ls_eq(i, j) && ls_eq(i + ls_off, j + ls_off) {
+        j += ls_dx;
+    }
+    return j;
+}
+
+@compute @workgroup_size(64)
+fn smoothscan(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = vec2<i32>(textureDimensions(input));
+    let w = size.x;
+    let h = size.y;
+    let t = i32(id.x);
+    if t < h - 1 {
+        ls_r = t + 1;
+        ls_lx = w;
+        ls_ly = h;
+        ls_lrow = t * w;
+        ls_off = w;
+        ls_dx = 1;
+        ls_dy = w;
+        ls_do1 = true;
+        ls_dir = 0u;
+    } else if t < h - 1 + w - 1 {
+        let x = t - (h - 1);
+        ls_r = x + 1;
+        ls_lx = h;
+        ls_ly = w;
+        ls_lrow = x;
+        ls_off = 1;
+        ls_dx = w;
+        ls_dy = 1;
+        ls_do1 = false;
+        ls_dir = 1u;
+    } else {
+        return;
+    }
+    ls_lend = ls_lrow + ls_lx * ls_dx;
+    var ll = ls_lrow;
+    var lr = ls_lend;
+    if !ls_same(ll) {
+        lr = ls_run_from(ll);
+        if lr != ls_lend {
+            ls_right(ll, lr, true);
+        }
+        ll = lr;
+    }
+    while ll != ls_lend && ls_same(ll) {
+        ll += ls_dx;
+    }
+    while ll != ls_lend {
+        lr = ls_run_from(ll);
+        if lr == ls_lend {
+            break;
+        }
+        ls_left(ll, lr, false);
+        ls_right(ll, lr, false);
+        ll = lr;
+        while ll != ls_lend && ls_same(ll) {
+            ll += ls_dx;
+        }
+    }
+    if ll != ls_lend {
+        ls_left(ll, lr, true);
+    }
+}
+
+// B-226, line_smooth::line_smooth's mixes, made on each pixel in the CPU's order (`smoothscan`);
+// a mixed pixel back through the curve, any other as it was.
+@compute @workgroup_size(16, 16)
+fn smoothmix(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let i = i32(id.y * size.x + id.x);
+    var o = ls_px(i);
+    var touched = false;
+    for (var s = 0u; s < 8u; s++) {
+        let v = row[8u * u32(i) + s];
+        if bitcast<u32>(v) == 0u {
+            continue;
+        }
+        touched = true;
+        let off = select(1, i32(size.x), s < 4u);
+        let b = ls_px(select(i - off, i + off, (s & 2u) != 0u));
+        for (var c = 0u; c < 4u; c++) {
+            o[c] = o[c] * (1.0 - v) + b[c] * v;
+        }
+    }
+    if !touched {
+        textureStore(output, id.xy, textureLoad(input, id.xy, 0));
+        return;
+    }
+    var out = vec4(0.0);
+    let a = o.w;
+    if a > 0.0 {
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32(to_linear(f64(o[c] / a))) * a;
+        }
+        out.w = a;
+    }
+    textureStore(output, id.xy, out);
+}
+
 @group(0) @binding(10) var effected: texture_2d<f32>;
 @group(0) @binding(11) var<storage, read_write> frame_sum: array<vec4<f32>>;
 
@@ -4374,6 +4755,12 @@ struct FxPasses {
     sweep: Pass,
     bolt: Pass,
     edges: Pass,
+    /// B-226.
+    dissolve: Pass,
+    gwipe: Pass,
+    lwidth: Pass,
+    smoothscan: Pass,
+    smoothmix: Pass,
 }
 
 /// B-172: one colour effect of a run the card draws in one pass: `grade` (0) or `tone` (1), its
@@ -4955,6 +5342,11 @@ impl Gpu {
                 sweep: pass("sweep", &[0, 1, 2, 3, 5]),
                 bolt: pass("bolt", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
+                dissolve: pass("dissolve", &[0, 1, 2, 3]),
+                gwipe: pass("gwipe", &[0, 1, 2, 3, 4]),
+                lwidth: pass("lwidth", &[0, 1, 2, 3, 5]),
+                smoothscan: pass("smoothscan", &[0, 1, 3, 5, 6]),
+                smoothmix: pass("smoothmix", &[0, 1, 2, 5, 6]),
                 chain: {
                     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                         label: Some("B-172"),
@@ -6718,7 +7110,80 @@ impl Gpu {
                 k.extend(linear(light_color));
                 same(steps, &passes.edges, FxParams::default(), &k, None)
             }
-            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects and B-225's five generators as Fx"),
+            // B-226 (D-346): four more, each as its CPU function. Block Dissolve's blocks and Line
+            // Width's offsets are worked out here, as the CPU works them, and handed over in `k`;
+            // Line Width's chosen pixels and Line Smooth's encoded picture are the CPU's own, from
+            // `source`, as compose has each of those two begin its run.
+            E::BlockDissolve { completion, block_width, block_height, feather } => {
+                let k = if *feather > 0.0 && *completion != 100.0 {
+                    let (j0, ny, down) = crate::layer_fx::dissolve_down((w, h), *completion, (*block_width, *block_height), *feather, (ox, oy));
+                    let mut k = vec![1.0, (ny + 1) as f64, j0 as f64, *block_height, feather / 2.0, feather * feather, oy as f64];
+                    k.extend(down);
+                    k
+                } else {
+                    let kept = crate::layer_fx::dissolve_kept(*completion);
+                    let block = |x: usize, o: usize, size: f64| ((x as f64 - o as f64 + 0.5) / size).floor() as i64;
+                    let ix: Vec<i64> = (0..w).map(|x| block(x, ox, *block_width)).collect();
+                    let jy: Vec<i64> = (0..h).map(|y| block(y, oy, *block_height)).collect();
+                    let mut k = vec![0.0, (ix[w - 1] - ix[0] + 1) as f64];
+                    k.extend(ix.iter().map(|i| (i - ix[0]) as f64));
+                    k.extend(jy.iter().map(|j| (j - jy[0]) as f64));
+                    for j in jy[0]..=jy[h - 1] {
+                        k.extend((ix[0]..=ix[w - 1]).map(|i| if *completion == 100.0 { 0.0 } else { kept(i, j) }));
+                    }
+                    k
+                };
+                same(steps, &passes.dissolve, FxParams::default(), &k, None)
+            }
+            E::GradientWipe { completion, softness, invert, map, .. } => {
+                let map = self.map_texture(&map.as_ref().expect("compose leaves a Gradient Wipe with a map").0);
+                let (c, s) = (completion / 100.0, softness / 100.0);
+                let k = [-s / 2.0 + c * (1.0 + s), s, (invert == "on") as u8 as f64, (*completion == 100.0) as u8 as f64];
+                let out = self.scratch("B-226 wipe", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.gwipe, p, Some(still), Some(&out), Some(&k), Some(&map), none, tiles(w, h));
+                (out, (w, h))
+            }
+            E::LineWidth { width, based_on, colors, tolerance } => {
+                let shape = based_on == "shape";
+                let disc = crate::line_width::disc(*width);
+                let mode = if !shape { 2.0 } else if *width > 0.0 { 0.0 } else { 1.0 };
+                let mut k = vec![mode, (*width > 0.0) as u8 as f64, disc.len() as f64];
+                k.extend(disc.iter().flat_map(|&(dx, dy)| [dx as f64, dy as f64]));
+                let targets = crate::selective_blur::targets(colors);
+                let picked: Vec<f32> = match shape {
+                    true => vec![0.0],
+                    false => source.data().par_chunks_exact(4).map(|p| crate::selective_blur::chosen(p, &targets, *tolerance) as u8 as f32).collect(),
+                };
+                let picked = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("B-226 chosen"),
+                    contents: bytemuck::cast_slice(&picked),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+                let g = f.grow.0;
+                let (tw, th) = (w + 2 * g, h + 2 * g);
+                let out = self.scratch("B-226 width", tw, th);
+                let p = FxParams { g: g as i32, ..Default::default() };
+                self.fx_step(steps, &passes.lwidth, p, Some(still), Some(&out), Some(&k), None, [Some(&picked)], tiles(tw, th));
+                (out, (tw, th))
+            }
+            E::LineSmooth { softness, threshold } => {
+                let encoded: Vec<[f32; 4]> = source.data().par_chunks_exact(4).map(crate::line_smooth::encoded).collect();
+                let band = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("B-226 encoded"),
+                    contents: bytemuck::cast_slice(&encoded),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+                let mixes = buffer(w * h * 32);
+                let k = [50.0 / softness, (threshold / 255.0) as f32 as f64];
+                let lines = (w + h - 2) as u32;
+                let work = [Some(&mixes), Some(&band)];
+                self.fx_step(steps, &passes.smoothscan, FxParams::default(), Some(still), None, Some(&k), None, work, (lines.div_ceil(64).max(1), 1));
+                let out = self.scratch("B-226 smooth", w, h);
+                self.fx_step(steps, &passes.smoothmix, FxParams::default(), Some(still), Some(&out), None, None, work, tiles(w, h));
+                (out, (w, h))
+            }
+            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects, B-225's five generators and B-226's four as Fx"),
         }
     }
 
@@ -6925,6 +7390,13 @@ impl Gpu {
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,
                             // B-223: a Compound Blur's sigma for each pixel.
                             crate::effects::Effect::CompoundBlur { .. } => (w * h * 8) as u64,
+                            // B-226: Line Smooth's mixes, eight a pixel; Block Dissolve's blocks, or
+                            // its columns' running sums, with its settings.
+                            crate::effects::Effect::LineSmooth { .. } => (w * h * 32) as u64,
+                            crate::effects::Effect::BlockDissolve { block_width, block_height, feather, .. } => {
+                                let rows = (h as f64 + feather) / block_height + 3.0;
+                                (8.0 * ((w as f64 + w as f64 / block_width + 3.0) * rows + (w + h + 7) as f64)) as u64
+                            }
                             _ => 0,
                         };
                         (format!("the effect {}", f.instance.effect.name()), f.grow, bytes)

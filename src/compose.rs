@@ -959,6 +959,11 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::LightSweep { .. }
                 | crate::effects::Effect::LightningBolt { .. }
                 | crate::effects::Effect::BevelEdges { .. }
+                // B-226 (D-346): the last four.
+                | crate::effects::Effect::BlockDissolve { .. }
+                | crate::effects::Effect::GradientWipe { .. }
+                | crate::effects::Effect::LineSmooth { .. }
+                | crate::effects::Effect::LineWidth { .. }
         )
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
@@ -1135,6 +1140,11 @@ fn card_effect(
                     (*opacity == 0.0 || (*width == 0.0 && *glow == 0.0)) && composite != "off"
                 }
                 E::BevelEdges { edge_thickness, light_intensity, .. } => *edge_thickness <= 0.0 || *light_intensity <= 0.0,
+                // B-226: as each one's own function returns at once.
+                E::BlockDissolve { completion, .. } => *completion == 0.0,
+                E::GradientWipe { completion, map, .. } => map.is_none() || *completion == 0.0,
+                E::LineSmooth { softness, .. } => *softness <= 0.0,
+                E::LineWidth { width, .. } => *width == 0.0,
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -1196,6 +1206,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
         // B-222 (D-341): Colour Key, Select Colour and Line Recolour round to 8 bits and choose by
         // it, as an HSV Key does. B-223 (D-342): so does a Selective Colour Blur. B-225
         // (D-344): so does a Lightning Bolt with an Alpha Obstacle, which reads the covering.
+        // B-226 (D-346): so do Line Smooth and Line Width, which decide by exact comparisons.
         let first = matches!(
             instance.effect,
             E::Bloom { .. }
@@ -1207,6 +1218,8 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
                 | E::SelectColor { .. }
                 | E::LineRecolor { .. }
                 | E::SelectiveColorBlur { .. }
+                | E::LineSmooth { .. }
+                | E::LineWidth { .. }
         ) || matches!(instance.effect, E::LightningBolt { obstacle, .. } if obstacle != 0.0);
         if first || !card_can(instance, 1.0) {
             return None;
@@ -1909,7 +1922,8 @@ fn resolve_rest(
     // pixels the CPU did not (B-155's table, 255 levels). B-222 (D-341): so can a Colour Key, a
     // Select Colour and a Line Recolour, which choose by the same 8-bit rounding; B-223 (D-342),
     // and a Selective Colour Blur; B-225 (D-344), a Lightning Bolt with an Alpha Obstacle, which
-    // reads the covering it is given.
+    // reads the covering it is given; B-226 (D-346), a Line Smooth and a Line Width, which decide
+    // which pixels mix or spread by exact comparisons of the drawing, made on the CPU's.
     // D-330, D-333: the card neither rounds to 8 bits nor blurs display values, so in 8 bpc and
     // 32 bpc (After Effects) it is left nothing.
     let plain = bits == crate::effects::Bits::Linear;
@@ -1935,6 +1949,8 @@ fn resolve_rest(
                 | E::SelectColor { .. }
                 | E::LineRecolor { .. }
                 | E::SelectiveColorBlur { .. }
+                | E::LineSmooth { .. }
+                | E::LineWidth { .. }
         ) || matches!(effects[i].effect, E::LightningBolt { obstacle, .. } if obstacle != 0.0)
         {
             break;

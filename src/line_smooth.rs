@@ -65,8 +65,8 @@ pub(crate) fn line_smooth(source: &mut WorkingBuffer, softness: f64, threshold: 
 }
 
 /// D-86: the colour as a drawing program stores it, straight through the sRGB curve and
-/// premultiplied again.
-fn encoded(px: &[f32]) -> [f32; 4] {
+/// premultiplied again. B-226: the card compares these, worked out here.
+pub(crate) fn encoded(px: &[f32]) -> [f32; 4] {
     let a = px[3];
     if a <= 0.0 {
         return [0.0; 4];
