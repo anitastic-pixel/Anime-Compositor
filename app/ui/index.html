@@ -9333,6 +9333,9 @@ const EFFECT_NAMES = {
   'core.stretch_contrast': 'Stretch Contrast',
   'core.stretch_color': 'Stretch Color',
   'core.spread_tones': 'Spread Tones',
+  'core.matte_choker': 'Matte Choker',
+  'core.refine_hard_matte': 'Refine Hard Matte',
+  'core.refine_soft_matte': 'Refine Soft Matte',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -9350,7 +9353,8 @@ const EFFECT_GROUPS = [
     'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.lightning_bolt', 'core.exposure_flicker',
     'core.paraffin']],
   ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_blur', 'core.line_recolor', 'core.outline',
-    'core.simple_choker', 'core.select_color', 'core.color_key', 'core.hsv_key', 'core.extract']],
+    'core.simple_choker', 'core.select_color', 'core.color_key', 'core.hsv_key', 'core.extract',
+    'core.matte_choker', 'core.refine_hard_matte', 'core.refine_soft_matte']],
   ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple',
     'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile',
     'core.corner_pin', 'core.polar_coordinates', 'core.optics_compensation']],
@@ -9454,6 +9458,9 @@ const EFFECT_SEARCH = {
   'core.stretch_contrast': 'stretch contrast auto contrast automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
   'core.stretch_color': 'stretch color colour auto color automatic white balance colour cast neutral midtones grey histogram flicker deflicker temporal smoothing scene detect',
   'core.spread_tones': 'spread tones equalize equalise histogram even out brightness rgb photoshop style',
+  'core.matte_choker': 'matte choker choke spread shrink soften edge holes fill key cleanup geometric gray level softness',
+  'core.refine_hard_matte': 'refine hard matte refine matte edge feather contrast shift edge decontaminate spill fringe key cleanup guided filter',
+  'core.refine_soft_matte': 'refine soft matte refine matte hair fur edge detail edge radius feather decontaminate spill fringe key cleanup guided filter',
   'core.depth_key': 'depth key depth matte z zdepth exr render pass cut out near far fog',
   'core.glass': 'cc glass refraction refract lens bump map shockwave water ripple heat distortion bevel light',
   'core.drop_shadow': 'shade',
@@ -9583,6 +9590,9 @@ const EFFECT_ABOUT = {
   'core.stretch_contrast': 'Stretches the layer\'s darkest and lightest to black and white, the three channels together, so the colours keep their balance.',
   'core.stretch_color': 'Takes the layer\'s darkest pixels to black and its lightest to white, taking out a colour cast; it can take the average colour to grey too.',
   'core.spread_tones': 'Spreads the layer\'s tones evenly over the whole range, by its histogram.',
+  'core.matte_choker': 'Chokes or spreads a keyed layer\'s edges in two stages, softening them, filling small holes and taking out specks.',
+  'core.refine_hard_matte': 'Softens a keyed layer\'s edge along the picture\'s own colour edges, steepens or moves it, and can take the background\'s colour out of the edge.',
+  'core.refine_soft_matte': 'Fits the covering near a keyed layer\'s edge to the picture\'s colours, for hair and soft detail, and takes the background\'s colour out of the edge.',
   'core.depth_key': 'Takes out what is nearer than a depth, read from the depth a 3D render saved in the layer\'s EXR file.',
   'core.glass': 'Bends the picture as if seen through glass shaped by a bump map, and lights its slopes.',
 };
@@ -9871,6 +9881,25 @@ const EFFECT_PARAMS = {
     ['black_clip', 'Black Clip', 1, 0.05, 'per cent of the darkest pixels taken to black, 0 to 10'],
     ['white_clip', 'White Clip', 1, 0.05, 'per cent of the lightest pixels taken to white, 0 to 10']],
   'core.spread_tones': [['amount', 'Amount to Equalize', 1, 1, 'per cent, 0 to 100']],
+  // D-352, After Effects' own words. Its Invert, motion blur and chatter settings are not here.
+  'core.matte_choker': [['geometric_softness_1', 'Geometric Softness 1', 1, 0.5, 'pixels, 0 to 100, how far each pixel looks round it'],
+    ['choke_1', 'Choke 1', 1, 1, '-127 to 127, positive takes the edge in and negative spreads it'],
+    ['gray_level_softness_1', 'Gray Level Softness 1', 1, 1, 'per cent, 0 to 100, how soft the new edge is'],
+    ['geometric_softness_2', 'Geometric Softness 2', 1, 0.5, 'pixels, 0 to 100'],
+    ['choke_2', 'Choke 2', 1, 1, '-127 to 127'],
+    ['gray_level_softness_2', 'Gray Level Softness 2', 1, 1, 'per cent, 0 to 100'],
+    ['iterations', 'Iterations', 1, 1, '1 to 10, how many times the two stages run']],
+  'core.refine_hard_matte': [['feather', 'Feather', 1, 1, 'pixels, 0 to 100, whole pixels, the edge softened along the colours'],
+    ['contrast', 'Contrast', 1, 1, 'per cent, 0 to 100, the edge steepened'],
+    ['shift_edge', 'Shift Edge', 1, 1, 'per cent, -100 to 100, positive moves the edge out'],
+    ['decontamination_amount', 'Decontamination Amount', 1, 1, 'per cent, 0 to 100'],
+    ['decontamination_radius', 'Extend Where Decontaminated', 1, 1, 'pixels, 0 to 100, how much further colours are looked for']],
+  'core.refine_soft_matte': [['edge_radius', 'Edge Radius', 1, 1, 'pixels, 0 to 100, whole pixels, the band about the edge fitted to the colours'],
+    ['feather', 'Feather', 1, 1, 'pixels, 0 to 100, whole pixels'],
+    ['contrast', 'Contrast', 1, 1, 'per cent, 0 to 100'],
+    ['shift_edge', 'Shift Edge', 1, 1, 'per cent, -100 to 100, positive moves the edge out'],
+    ['decontamination_amount', 'Decontamination Amount', 1, 1, 'per cent, 0 to 100'],
+    ['decontamination_radius', 'Extend Where Decontaminated', 1, 1, 'pixels, 0 to 100']],
   // D-347, After Effects' own words where it has them.
   'core.moment_map': [['max_time', 'Max Displacement Time', 1, 0.1, 'seconds, -10 to 10, how far white reaches forward and black back; mid grey stays'],
     ['resolution', 'Time Resolution', 1, 1, 'steps a second, 1 to 999; above the frame rate it stays whole frames']],
@@ -10304,6 +10333,16 @@ const EFFECT_WORDS = {
   'core.stretch_color': {
     choices: [['scene_detect', 'Scene Detect', [['off', 'Off'], ['on', 'On']]],
       ['snap_neutral_midtones', 'Snap Neutral Midtones', [['off', 'Off'], ['on', 'On']]]],
+  },
+  // D-352.
+  'core.refine_hard_matte': {
+    choices: [['decontaminate', 'Decontaminate Edge Colors', [['off', 'Off'], ['on', 'On']]],
+      ['view_decontamination_map', 'View Decontamination Map', [['off', 'Off'], ['on', 'On']]]],
+  },
+  'core.refine_soft_matte': {
+    choices: [['view_edge_region', 'View Edge Region', [['off', 'Off'], ['on', 'On']]],
+      ['decontaminate', 'Decontaminate Edge Colors', [['off', 'Off'], ['on', 'On']]],
+      ['view_decontamination_map', 'View Decontamination Map', [['off', 'Off'], ['on', 'On']]]],
   },
   'core.spread_tones': {
     choices: [['equalize', 'Equalize', [['rgb', 'RGB'], ['brightness', 'Brightness'], ['photoshop', 'Photoshop Style']]]],

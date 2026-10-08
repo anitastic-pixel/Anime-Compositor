@@ -4748,6 +4748,51 @@ fn mixback(@builtin(global_invocation_id) id: vec3<u32>) {
     let b = at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy));
     textureStore(output, id.xy, b + vec4<f32>(f64(f32(k[0])) * vec4<f64>(e - b)));
 }
+// D-352, matte_refine::choker_stage: each pixel's covering the average over the disc from each
+// row's running totals in `sums` (outside counting as clear), through the ramp; its colour its
+// own, or where it had none the disc's. k: the disc's pixel count, the ramp's centre and width,
+// then each disc row's offset and half-width; `count` the rows.
+@compute @workgroup_size(16, 16)
+fn mchoke(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let w = i32(size.x);
+    let h = i32(size.y);
+    let x = i32(id.x);
+    let y = i32(id.y);
+    var t = vec4<f64>(0.0lf);
+    for (var j = 0u; j < F.count; j++) {
+        let sy = y + i32(k[3u + 2u * j]);
+        let hw = i32(k[4u + 2u * j]);
+        let x0 = max(x - hw, 0);
+        let x1 = min(x + hw + 1, w);
+        if sy < 0 || sy >= h || x0 >= x1 {
+            continue;
+        }
+        let base = u32(sy * (w + 1));
+        t += sums[base + u32(x1)] - sums[base + u32(x0)];
+    }
+    let c = k[1];
+    let lo = min(max(c - k[2] / 2.0lf, 0.0lf), 1.0lf);
+    let hi = min(max(c + k[2] / 2.0lf, 0.0lf), 1.0lf);
+    let m = t.w / k[0];
+    var a = 0.0lf;
+    if hi > lo {
+        a = min(max((m - lo) / (hi - lo), 0.0lf), 1.0lf);
+    } else if m > c {
+        a = 1.0lf;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    var s = vec3<f64>(0.0lf);
+    if p.w > 0.0 {
+        s = vec3<f64>(f64(p.x), f64(p.y), f64(p.z)) / f64(p.w);
+    } else if t.w > 0.0lf {
+        s = t.xyz / t.w;
+    }
+    textureStore(output, id.xy, vec4(f32(s.x * a), f32(s.y * a), f32(s.z * a), f32(a)));
+}
 "#;
 
 /// B-65: [`FX_SHADER`]'s numbers, laid out as its `Fx`; each pass reads what it needs.
@@ -4846,6 +4891,8 @@ struct FxPasses {
     idkey: Pass,
     smoothscan: Pass,
     smoothmix: Pass,
+    /// D-352.
+    mchoke: Pass,
 }
 
 /// B-172: one colour effect of a run the card draws in one pass: `grade` (0) or `tone` (1), its
@@ -5435,6 +5482,7 @@ impl Gpu {
                 lwidth: pass("lwidth", &[0, 1, 2, 3, 5]),
                 smoothscan: pass("smoothscan", &[0, 1, 3, 5, 6]),
                 smoothmix: pass("smoothmix", &[0, 1, 2, 5, 6]),
+                mchoke: pass("mchoke", &[0, 1, 2, 3, 7]),
                 chain: {
                     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                         label: Some("B-172"),
@@ -6688,6 +6736,40 @@ impl Gpu {
                 self.fx_step(steps, &passes.choke, p, Some(still), Some(&out), Some(&k), None, [None, Some(&band), Some(&sums), None], tiles(bw, bh));
                 (out, (bw, bh))
             }
+            // D-352: each stage the running totals of what the stage before made, then the
+            // disc's average through the ramp, two textures taken turn about.
+            E::MatteChoker {
+                geometric_softness_1,
+                choke_1,
+                gray_level_softness_1,
+                geometric_softness_2,
+                choke_2,
+                gray_level_softness_2,
+                iterations,
+            } => {
+                let sums = buffer((w + 1) * h * 32);
+                let pair = [self.scratch("D-352 matte choker", w, h), self.scratch("D-352 matte choker", w, h)];
+                let stages = [
+                    [*geometric_softness_1, *choke_1, *gray_level_softness_1],
+                    [*geometric_softness_2, *choke_2, *gray_level_softness_2],
+                ];
+                let mut done = 0;
+                for _ in 0..iterations.floor() as usize {
+                    for [g, c, s] in stages {
+                        let from = if done == 0 { still } else { &pair[(done + 1) % 2] };
+                        self.fx_step(steps, &passes.prefix, FxParams::default(), Some(from), None, Some(&[0.0; 3]), None, [None, None, Some(&sums), None], ((h as u32).div_ceil(64), 1));
+                        let runs = crate::layer_fx::disc_runs(g);
+                        let size: isize = runs.iter().map(|&(_, hw)| 2 * hw + 1).sum();
+                        let mut k = vec![size as f64, 0.5 + c / 255.0, s / 100.0];
+                        k.extend(runs.iter().flat_map(|&(dy, hw)| [dy as f64, hw as f64]));
+                        let p = FxParams { count: runs.len() as u32, ..Default::default() };
+                        self.fx_step(steps, &passes.mchoke, p, Some(from), Some(&pair[done % 2]), Some(&k), None, [None, None, Some(&sums), None], tiles(w, h));
+                        done += 1;
+                    }
+                }
+                let [a, b] = pair;
+                (if done % 2 == 1 { a } else { b }, (w, h))
+            }
             E::SpeedLines { center, color, count, thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity, frame } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let lines = crate::layer_fx::speed_line_list([*count, *thickness, *inner, *inner_jitter, *angle_jitter, *seed, *hold], *frame);
@@ -7501,6 +7583,8 @@ impl Gpu {
                                 let sums = if *choke < 0.0 { (w + 1) * h * 32 } else { 0 };
                                 ((w + 2 * g) * (h + 2 * g) * 4).max(sums) as u64
                             }
+                            // D-352: a Matte Choker's running totals.
+                            crate::effects::Effect::MatteChoker { .. } => ((w + 1) * h * 32) as u64,
                             // Each block's mean.
                             crate::effects::Effect::Mosaic { size } => (16.0 * (w as f64 / size + 2.0) * (h as f64 / size + 2.0)) as u64,
                             // B-123: a Color Lookup's table rides with its settings; Kira-kira keeps

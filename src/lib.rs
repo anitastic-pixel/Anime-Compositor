@@ -36,6 +36,7 @@ pub mod exr_io;
 mod glow;
 mod layer_fx;
 mod layer_map;
+mod matte_refine;
 mod grade;
 pub mod frame_stats;
 pub mod lut;

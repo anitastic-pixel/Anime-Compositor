@@ -914,6 +914,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::VenetianBlinds { .. }
                 | crate::effects::Effect::IrisWipe { .. }
                 | crate::effects::Effect::SimpleChoker { .. }
+                | crate::effects::Effect::MatteChoker { .. }
                 | crate::effects::Effect::SpeedLines { .. }
                 | crate::effects::Effect::CrossGlare { .. }
                 | crate::effects::Effect::CameraShake { .. }
@@ -976,6 +977,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
         // ponytail: teach the card's tile pass a size and centre if a sized tile is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::MotionTile { tile_center, tile_width, tile_height, .. }
             if (*tile_center, *tile_width, *tile_height) != (crate::layer_fx::PLAIN_TILE, 100.0, 100.0))
+        // D-352: a Matte Choker stage with no gray level softness is a threshold, so it stays on
+        // the CPU for D-122's reason.
+        && !matches!(&instance.effect, crate::effects::Effect::MatteChoker { gray_level_softness_1, gray_level_softness_2, .. }
+            if *gray_level_softness_1 == 0.0 || *gray_level_softness_2 == 0.0)
         // D-317: the card sharpens without a threshold only.
         && !matches!(&instance.effect, crate::effects::Effect::Sharpen { threshold, .. } if *threshold != 0.0)
         // D-310: the card swells a circle without a taper only.

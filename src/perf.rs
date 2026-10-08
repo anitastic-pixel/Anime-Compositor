@@ -250,6 +250,10 @@ pub enum Stage {
     /// smoothing's other frames are timed as any layer resolved is.
     EffectAutoTone,
     EffectSpreadTones,
+    /// D-352's Matte Choker, and Refine Hard Matte and Refine Soft Matte: the guided filters, the
+    /// box sums and the passes over the layer.
+    EffectMatteChoker,
+    EffectRefineMatte,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -267,7 +271,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 121] = [
+    pub const ALL: [Stage; 123] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -382,6 +386,8 @@ impl Stage {
         Stage::EffectIdKey,
         Stage::EffectAutoTone,
         Stage::EffectSpreadTones,
+        Stage::EffectMatteChoker,
+        Stage::EffectRefineMatte,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -508,6 +514,8 @@ impl Stage {
             Stage::EffectIdKey => "effect: id key",
             Stage::EffectAutoTone => "effect: stretch levels, contrast or color",
             Stage::EffectSpreadTones => "effect: spread tones",
+            Stage::EffectMatteChoker => "effect: matte choker",
+            Stage::EffectRefineMatte => "effect: refine hard or soft matte",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

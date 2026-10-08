@@ -176165,6 +176165,80 @@ FX-AUTO-031 (`fx_auto_031.json`): Spread Tones' equalize written "hsl". The file
 
 FX-AUTO-032 (`fx_auto_032.json`): Spread Tones' amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Matte Choker, Refine Hard Matte and Refine Soft Matte (D-352)
+
+After After Effects' Matte Choker, Refine Hard Matte and Refine Soft Matte (B-232; EFFECTS.md P0-20). Every case is a project of one composition 24 by 16 at 24 fps, five frames, in `Fixtures/matte_refine/`: the layer `art` holding the drawing `media/subject.png`, unmoved unless the case says, with the effect `fx-0-0`. The drawing: an orange disc about (11, 8) on a teal ramp; the matte a hard rectangle, columns 6 to 16 and rows 3 to 13, holding the disc and a ring of the teal, with a one-pixel hole at (11, 8); its right edge, column 17, at half covering; a speck of orange at (20, 2); and strands in columns 1 to 3, rows 4 to 11, orange and teal by turns down the rows, at coverings 64, 160 and 224. **Every number is produced by `tools/matte_refine_reference.py`**, which works in double precision with numpy from the drawing's 8-bit values and asserts no hard threshold lies near an edge; the numbers are in `Fixtures/matte_refine/expected_matte_refine.json`. Tolerance 2e-5. B-232 checks them, and draws the playtest's pictures, in `verification/D-352_matte_refine_table.md`.
+
+FX-MREF-001 (`fx_mref_001.json`): Matte Choker as added: stage 1 geometric softness 4, choke 75, gray level softness 10 per cent; stage 2 geometric softness 0, choke 0, gray level softness 100 per cent; one iteration. The rectangle is choked in from its edges and its corners rounded; the speck, the strands and the half-covered edge go; the hole at (11, 8) fills, in the orange about it. Frames 0.
+
+FX-MREF-002 (`fx_mref_002.json`): Matte Choker spreading then choking: stage 1 geometric softness 3, choke -60, gray level softness 20; stage 2 geometric softness 3, choke 60, gray level softness 20. The hole fills and the strands join, then the edges come back in. Frames 0.
+
+FX-MREF-003 (`fx_mref_003.json`): Matte Choker with both stages at geometric softness 0, choke 0, gray level softness 100: each pixel's disc is itself and the ramp runs 0 to 1, so the output is the drawing. Frames 0.
+
+FX-MREF-004 (`fx_mref_004.json`): Matte Choker, stage 1 geometric softness 2, choke 10, gray level softness 0: a hard step, every pixel covered in full where more than 54 per cent of its disc is covered and empty elsewhere. Frames 0.
+
+FX-MREF-005 (`fx_mref_005.json`): Matte Choker, stage 1 geometric softness 2, choke 0, gray level softness 100: the covering is the disc's average, a soft blur of the matte that spreads into the empty pixels round it. Frames 0.
+
+FX-MREF-006 (`fx_mref_006.json`): Matte Choker, stage 1 geometric softness 1.5, choke -40, gray level softness 50, three iterations: each pass spreads the matte further, though a lone corner can thin. Frames 0.
+
+FX-MREF-007 (`fx_mref_007.json`): Matte Choker, stage 1 choke keyed from -100 at frame 0 to 100 at frame 4: frame 2 is choke 0. Frames 0, 2, 4.
+
+FX-MREF-008 (`fx_mref_008.json`): FX-MREF-001 moved three pixels right: worked in the drawing's own space, so the same, moved. Frames 0.
+
+FX-MREF-009 (`fx_mref_009.json`): Matte Choker, choke 1 at 128, above 127. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MREF-010 (`fx_mref_010.json`): Matte Choker, gray level softness 2 at 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MREF-011 (`fx_mref_011.json`): Matte Choker, iterations 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MREF-012 (`fx_mref_012.json`): Matte Choker, geometric softness 1 at -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MREF-013 (`fx_mref_013.json`): Refine Hard Matte as added: feather 2 pixels, contrast 50 per cent. The edge-aware filter softens the edges and contrast 50 steepens them again, so the rectangle stays nearly hard while the strands, the half-covered right edge and the speck change, and the hole at (11, 8) fills a little. Frames 0.
+
+FX-MREF-014 (`fx_mref_014.json`): Refine Hard Matte, feather 4, contrast 0: a wider, softer edge. Frames 0.
+
+FX-MREF-015 (`fx_mref_015.json`): FX-MREF-014 with shift edge 50: the edge moves out, more covering. Frames 0.
+
+FX-MREF-016 (`fx_mref_016.json`): FX-MREF-014 with shift edge -50: the edge moves in, less covering. Frames 0.
+
+FX-MREF-017 (`fx_mref_017.json`): Refine Hard Matte, feather 0, contrast 80: no filter, only the soft pixels steepened: the strands and the half-covered edge. Frames 0.
+
+FX-MREF-018 (`fx_mref_018.json`): Refine Hard Matte, feather 3, contrast 0, decontaminate on, amount 100, radius 2: each part-covered pixel's colour is pulled toward the colours of the covered pixels about it and away from those of the less covered ones; the covering is FX-MREF-014's at feather 3. Frames 0.
+
+FX-MREF-019 (`fx_mref_019.json`): FX-MREF-018 at amount 50: halfway, in linear light. Frames 0.
+
+FX-MREF-020 (`fx_mref_020.json`): FX-MREF-018 with View Decontamination Map: the layer opaque, grey where the colour is decontaminated, brightest at half covering. Frames 0.
+
+FX-MREF-021 (`fx_mref_021.json`): Refine Hard Matte, feather keyed from 0 at frame 0 to 6 at frame 4: feather is whole pixels, so frame 1 (1.5) is feather 1, frame 2 feather 3 and frame 3 (4.5) feather 4. Frames 0, 1, 2, 3.
+
+FX-MREF-022 (`fx_mref_022.json`): FX-MREF-013 moved three pixels right. Frames 0.
+
+FX-MREF-023 (`fx_mref_023.json`): Refine Soft Matte as added: edge radius 10, decontaminate on. Within 10 pixels of the matte's edge, on so small a drawing nearly all of it, the covering is fitted to the colours: the strands' covering follows their orange and teal rows, and the rectangle's teal ring and right side lose some; the colours are decontaminated. Frames 0.
+
+FX-MREF-024 (`fx_mref_024.json`): Refine Soft Matte, edge radius 4, View Edge Region: white where the edge region is, black elsewhere, the layer opaque. Frames 0.
+
+FX-MREF-025 (`fx_mref_025.json`): Refine Soft Matte, edge radius 4, feather 2, contrast 30, decontaminate off. Frames 0.
+
+FX-MREF-026 (`fx_mref_026.json`): Refine Soft Matte, edge radius 0, feather 0, contrast 0, decontaminate off: nothing to do, the output is the drawing. Frames 0.
+
+FX-MREF-027 (`fx_mref_027.json`): Refine Soft Matte, edge radius 4, shift edge 30, contrast 20, decontaminate on with radius 1, amount 70. Frames 0.
+
+FX-MREF-028 (`fx_mref_028.json`): Refine Hard Matte, feather 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MREF-029 (`fx_mref_029.json`): Refine Hard Matte, contrast -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MREF-030 (`fx_mref_030.json`): Refine Hard Matte, decontaminate written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MREF-031 (`fx_mref_031.json`): Refine Hard Matte, shift edge 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MREF-032 (`fx_mref_032.json`): Refine Hard Matte, decontamination radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MREF-033 (`fx_mref_033.json`): Refine Soft Matte, edge radius 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MREF-034 (`fx_mref_034.json`): Refine Soft Matte, view edge region written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MREF-035 (`fx_mref_035.json`): Refine Soft Matte, decontamination amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.

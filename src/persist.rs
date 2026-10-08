@@ -2545,6 +2545,48 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("equalize".into(), J::from(equalize.as_str()));
             params.insert("amount".into(), num(*amount));
         }
+        Effect::MatteChoker {
+            geometric_softness_1,
+            choke_1,
+            gray_level_softness_1,
+            geometric_softness_2,
+            choke_2,
+            gray_level_softness_2,
+            iterations,
+        } => {
+            params.insert("geometric_softness_1".into(), num(*geometric_softness_1));
+            params.insert("choke_1".into(), num(*choke_1));
+            params.insert("gray_level_softness_1".into(), num(*gray_level_softness_1));
+            params.insert("geometric_softness_2".into(), num(*geometric_softness_2));
+            params.insert("choke_2".into(), num(*choke_2));
+            params.insert("gray_level_softness_2".into(), num(*gray_level_softness_2));
+            params.insert("iterations".into(), num(*iterations));
+        }
+        // D-352: Refine Hard Matte has no edge radius and never saves one.
+        Effect::RefineMatte {
+            kind,
+            edge_radius,
+            view_edge_region,
+            feather,
+            contrast,
+            shift_edge,
+            decontaminate,
+            decontamination_amount,
+            decontamination_radius,
+            view_decontamination_map,
+        } => {
+            if *kind == "soft" {
+                params.insert("edge_radius".into(), num(*edge_radius));
+                params.insert("view_edge_region".into(), J::from(view_edge_region.as_str()));
+            }
+            params.insert("feather".into(), num(*feather));
+            params.insert("contrast".into(), num(*contrast));
+            params.insert("shift_edge".into(), num(*shift_edge));
+            params.insert("decontaminate".into(), J::from(decontaminate.as_str()));
+            params.insert("decontamination_amount".into(), num(*decontamination_amount));
+            params.insert("decontamination_radius".into(), num(*decontamination_radius));
+            params.insert("view_decontamination_map".into(), J::from(view_decontamination_map.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -3651,6 +3693,9 @@ fn parse_effect(
         crate::effects::STRETCH_CONTRAST,
         crate::effects::STRETCH_COLOR,
         crate::effects::SPREAD_TONES,
+        crate::effects::MATTE_CHOKER,
+        crate::effects::REFINE_HARD_MATTE,
+        crate::effects::REFINE_SOFT_MATTE,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -4556,6 +4601,31 @@ fn parse_effect(
             equalize: effect_word(params, "equalize", &at)?,
             amount: effect_number(params, "amount", &at)?,
         }),
+        crate::effects::MATTE_CHOKER => Some(crate::effects::Effect::MatteChoker {
+            geometric_softness_1: effect_number(params, "geometric_softness_1", &at)?,
+            choke_1: effect_number(params, "choke_1", &at)?,
+            gray_level_softness_1: effect_number(params, "gray_level_softness_1", &at)?,
+            geometric_softness_2: effect_number(params, "geometric_softness_2", &at)?,
+            choke_2: effect_number(params, "choke_2", &at)?,
+            gray_level_softness_2: effect_number(params, "gray_level_softness_2", &at)?,
+            iterations: effect_number(params, "iterations", &at)?,
+        }),
+        crate::effects::REFINE_HARD_MATTE | crate::effects::REFINE_SOFT_MATTE => {
+            let soft = type_id == crate::effects::REFINE_SOFT_MATTE;
+            Some(crate::effects::Effect::RefineMatte {
+                kind: if soft { "soft" } else { "hard" },
+                // Refine Soft Matte's alone; Refine Hard Matte has none and never saves one.
+                edge_radius: if soft { effect_number(params, "edge_radius", &at)? } else { 0.0 },
+                view_edge_region: if soft { effect_word(params, "view_edge_region", &at)? } else { "off".to_string() },
+                feather: effect_number(params, "feather", &at)?,
+                contrast: effect_number(params, "contrast", &at)?,
+                shift_edge: effect_number(params, "shift_edge", &at)?,
+                decontaminate: effect_word(params, "decontaminate", &at)?,
+                decontamination_amount: effect_number(params, "decontamination_amount", &at)?,
+                decontamination_radius: effect_number(params, "decontamination_radius", &at)?,
+                view_decontamination_map: effect_word(params, "view_decontamination_map", &at)?,
+            })
+        }
         _ => None,
     };
     // P-17: keys on a setting this effect does not have are not its keys. The record

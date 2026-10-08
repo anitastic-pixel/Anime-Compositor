@@ -1484,6 +1484,38 @@ pub enum Effect {
     /// picture's histogram, so the tones spread evenly. `equalize`, "rgb", "brightness" or
     /// "photoshop"; `amount`, 0 to 100 per cent.
     SpreadTones { equalize: String, amount: f64 },
+    /// D-352: Matte Choker, after After Effects' effect of that name (`matte_refine`, document
+    /// 21): two stages, each a `geometric_softness` 0 to 100 pixels, a `choke` -127 to 127 and a
+    /// `gray_level_softness` 0 to 100 per cent; stage 1 then stage 2, the pair repeated
+    /// `iterations` times, 1 to 10, its whole part counted.
+    MatteChoker {
+        geometric_softness_1: f64,
+        choke_1: f64,
+        gray_level_softness_1: f64,
+        geometric_softness_2: f64,
+        choke_2: f64,
+        gray_level_softness_2: f64,
+        iterations: f64,
+    },
+    /// D-352: Refine Hard Matte and Refine Soft Matte, after After Effects' effects of those
+    /// names (`matte_refine`, document 21). `kind`, "hard" or "soft", is which, from its type
+    /// id, never saved. `edge_radius`, 0 to 100 pixels, and `view_edge_region`, "off" or "on",
+    /// are Soft's only; `feather`, 0 to 100 pixels; `contrast`, 0 to 100 per cent;
+    /// `shift_edge`, -100 to 100 per cent; `decontaminate` and `view_decontamination_map`, "off"
+    /// or "on"; `decontamination_amount`, 0 to 100 per cent; `decontamination_radius`, 0 to 100
+    /// pixels. The radii are counted in whole pixels.
+    RefineMatte {
+        kind: &'static str,
+        edge_radius: f64,
+        view_edge_region: String,
+        feather: f64,
+        contrast: f64,
+        shift_edge: f64,
+        decontaminate: String,
+        decontamination_amount: f64,
+        decontamination_radius: f64,
+        view_decontamination_map: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1603,6 +1635,9 @@ pub const STRETCH_LEVELS: &str = "core.stretch_levels";
 pub const STRETCH_CONTRAST: &str = "core.stretch_contrast";
 pub const STRETCH_COLOR: &str = "core.stretch_color";
 pub const SPREAD_TONES: &str = "core.spread_tones";
+pub const MATTE_CHOKER: &str = "core.matte_choker";
+pub const REFINE_HARD_MATTE: &str = "core.refine_hard_matte";
+pub const REFINE_SOFT_MATTE: &str = "core.refine_soft_matte";
 /// D-351: Spread Tones' ways.
 pub const EQUALIZE: [&str; 3] = ["rgb", "brightness", "photoshop"];
 /// D-350: what a text animator's selector counts, and the shapes of its range.
@@ -2257,6 +2292,45 @@ impl Effect {
                 ("white_clip", vec![white_clip], 0.0, 10.0),
             ],
             Effect::SpreadTones { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
+            Effect::MatteChoker {
+                geometric_softness_1,
+                choke_1,
+                gray_level_softness_1,
+                geometric_softness_2,
+                choke_2,
+                gray_level_softness_2,
+                iterations,
+            } => vec![
+                ("geometric_softness_1", vec![geometric_softness_1], 0.0, 100.0),
+                ("choke_1", vec![choke_1], -127.0, 127.0),
+                ("gray_level_softness_1", vec![gray_level_softness_1], 0.0, 100.0),
+                ("geometric_softness_2", vec![geometric_softness_2], 0.0, 100.0),
+                ("choke_2", vec![choke_2], -127.0, 127.0),
+                ("gray_level_softness_2", vec![gray_level_softness_2], 0.0, 100.0),
+                ("iterations", vec![iterations], 1.0, 10.0),
+            ],
+            Effect::RefineMatte {
+                kind,
+                edge_radius,
+                feather,
+                contrast,
+                shift_edge,
+                decontamination_amount,
+                decontamination_radius,
+                ..
+            } => {
+                let mut v = vec![
+                    ("feather", vec![feather], 0.0, 100.0),
+                    ("contrast", vec![contrast], 0.0, 100.0),
+                    ("shift_edge", vec![shift_edge], -100.0, 100.0),
+                    ("decontamination_amount", vec![decontamination_amount], 0.0, 100.0),
+                    ("decontamination_radius", vec![decontamination_radius], 0.0, 100.0),
+                ];
+                if *kind == "soft" {
+                    v.insert(0, ("edge_radius", vec![edge_radius], 0.0, 100.0));
+                }
+                v
+            }
             Effect::TextAnimator {
                 position, scale, rotation, opacity, color, tracking, start, end, offset, amount, smoothness, ease_high, ease_low, ..
             } => vec![
@@ -2775,6 +2849,15 @@ impl Effect {
             Effect::LinearWipe { feather, .. } => *feather = scale(*feather),
             Effect::IrisWipe { feather, .. } => *feather = scale(*feather),
             Effect::SimpleChoker { choke } => *choke = scale(*choke),
+            Effect::MatteChoker { geometric_softness_1, geometric_softness_2, .. } => {
+                *geometric_softness_1 = scale(*geometric_softness_1);
+                *geometric_softness_2 = scale(*geometric_softness_2);
+            }
+            Effect::RefineMatte { edge_radius, feather, decontamination_radius, .. } => {
+                *edge_radius = scale(*edge_radius);
+                *feather = scale(*feather);
+                *decontamination_radius = scale(*decontamination_radius);
+            }
             Effect::SpeedLines { inner, .. } => *inner = scale(*inner),
             Effect::CrossGlare { length, .. } => *length = scale(*length),
             Effect::CameraShake { amount, .. } => *amount = scale(*amount),
@@ -2979,6 +3062,9 @@ impl Effect {
             Effect::AutoTone { kind: "contrast", .. } => "Stretch Contrast",
             Effect::AutoTone { .. } => "Stretch Color",
             Effect::SpreadTones { .. } => "Spread Tones",
+            Effect::MatteChoker { .. } => "Matte Choker",
+            Effect::RefineMatte { kind: "hard", .. } => "Refine Hard Matte",
+            Effect::RefineMatte { .. } => "Refine Soft Matte",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3094,6 +3180,9 @@ impl Effect {
             Effect::AutoTone { kind: "contrast", .. } => STRETCH_CONTRAST,
             Effect::AutoTone { .. } => STRETCH_COLOR,
             Effect::SpreadTones { .. } => SPREAD_TONES,
+            Effect::MatteChoker { .. } => MATTE_CHOKER,
+            Effect::RefineMatte { kind: "hard", .. } => REFINE_HARD_MATTE,
+            Effect::RefineMatte { .. } => REFINE_SOFT_MATTE,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3612,6 +3701,15 @@ impl Effect {
             )),
             Effect::SpreadTones { equalize, .. } if !EQUALIZE.contains(&equalize.as_str()) => Some(format!(
                 "Spread Tones equalizes by \"rgb\", \"brightness\" or \"photoshop\", and this is \"{equalize}\"."
+            )),
+            Effect::RefineMatte { kind: "soft", view_edge_region: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "{name}'s view edge region is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::RefineMatte { decontaminate: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "{name}'s decontaminate is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::RefineMatte { view_decontamination_map: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "{name}'s view decontamination map is \"off\" or \"on\", and this is \"{v}\"."
             )),
             Effect::PassExtract { invert, .. } | Effect::DepthKey { invert, .. } | Effect::IdKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => {
                 Some(format!("{name}'s invert is \"off\" or \"on\", and this is \"{invert}\"."))
@@ -5630,6 +5728,48 @@ pub(crate) fn apply_stack_at(
             }),
             Effect::SpreadTones { .. } => crate::perf::time(crate::perf::Stage::EffectSpreadTones, || {
                 crate::frame_stats::apply(source, &instance.effect)
+            }),
+            // D-352: on the whole layer, which never grows.
+            Effect::MatteChoker {
+                geometric_softness_1,
+                choke_1,
+                gray_level_softness_1,
+                geometric_softness_2,
+                choke_2,
+                gray_level_softness_2,
+                iterations,
+            } => crate::perf::time(crate::perf::Stage::EffectMatteChoker, || {
+                let stages = [
+                    [*geometric_softness_1, *choke_1, *gray_level_softness_1],
+                    [*geometric_softness_2, *choke_2, *gray_level_softness_2],
+                ];
+                crate::matte_refine::matte_choker(source, stages, *iterations)
+            }),
+            Effect::RefineMatte {
+                kind,
+                edge_radius,
+                view_edge_region,
+                feather,
+                contrast,
+                shift_edge,
+                decontaminate,
+                decontamination_amount,
+                decontamination_radius,
+                view_decontamination_map,
+            } => crate::perf::time(crate::perf::Stage::EffectRefineMatte, || {
+                let s = crate::matte_refine::Refine {
+                    soft: *kind == "soft",
+                    edge_radius: *edge_radius,
+                    view_edge_region,
+                    feather: *feather,
+                    contrast: *contrast,
+                    shift_edge: *shift_edge,
+                    decontaminate,
+                    decontamination_amount: *decontamination_amount,
+                    decontamination_radius: *decontamination_radius,
+                    view_decontamination_map,
+                };
+                crate::matte_refine::refine_matte(source, &s)
             }),
         }
         if display {
