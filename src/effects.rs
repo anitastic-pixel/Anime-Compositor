@@ -1370,6 +1370,23 @@ pub enum Effect {
         light_intensity: f64,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-336: After Effects' CC Vector Blur, this program's own reading of CycoreFX's manual.
+    /// `kind`, one of [`VECTOR_BLUR_TYPES`], saved as `type`; `amount`, 0 to 500 pixels;
+    /// `angle_offset`, -3600 to 3600 degrees; `ridge_smoothness`, 0 to 100; `layer` and `fit`,
+    /// D-189's layer setting, the vector map, "" the layer itself; `property`, one of
+    /// [`VECTOR_BLUR_PROPERTIES`]; `map_softness`, 0 to 100 pixels. `map` is not a setting and is
+    /// never saved.
+    VectorBlur {
+        kind: String,
+        amount: f64,
+        angle_offset: f64,
+        ridge_smoothness: f64,
+        layer: serde_json::Value,
+        fit: String,
+        property: String,
+        map_softness: f64,
+        map: Option<crate::layer_map::Map>,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1479,6 +1496,11 @@ pub const COLORAMA: &str = "core.colorama";
 /// D-316: what Colorama reads a pixel's phase from.
 pub const COLORAMA_PHASES: [&str; 6] = ["intensity", "luminance", "red", "green", "blue", "alpha"];
 pub const GLASS: &str = "core.glass";
+pub const VECTOR_BLUR: &str = "core.vector_blur";
+/// D-336: CC Vector Blur's types.
+pub const VECTOR_BLUR_TYPES: [&str; 5] = ["natural", "constant", "perpendicular", "direction_center", "direction_fading"];
+/// D-336: what CC Vector Blur reads its height from.
+pub const VECTOR_BLUR_PROPERTIES: [&str; 8] = ["red", "green", "blue", "alpha", "luminance", "lightness", "hue", "saturation"];
 /// D-307: Hue/Saturation's colour ranges as the file names them, centred 0, 60 ... 300 degrees.
 pub const HUE_RANGES: [&str; 6] = ["reds_hsl", "yellows_hsl", "greens_hsl", "cyans_hsl", "blues_hsl", "magentas_hsl"];
 /// D-305: what Shift Channels can take a channel from.
@@ -2093,6 +2115,12 @@ impl Effect {
                 ("light_angle", vec![light_angle], -3600.0, 3600.0),
                 ("light_intensity", vec![light_intensity], 0.0, 100.0),
             ],
+            Effect::VectorBlur { amount, angle_offset, ridge_smoothness, map_softness, .. } => vec![
+                ("amount", vec![amount], 0.0, 500.0),
+                ("angle_offset", vec![angle_offset], -3600.0, 3600.0),
+                ("ridge_smoothness", vec![ridge_smoothness], 0.0, 100.0),
+                ("map_softness", vec![map_softness], 0.0, 100.0),
+            ],
             Effect::LineBlur { length, strength, .. } => vec![
                 ("length", vec![length], 0.0, 50.0),
                 ("strength", vec![strength], 0.0, 100.0),
@@ -2622,6 +2650,10 @@ impl Effect {
                 *softness = scale(*softness);
                 *displacement = scale(*displacement);
             }
+            Effect::VectorBlur { amount, map_softness, .. } => {
+                *amount = scale(*amount);
+                *map_softness = scale(*map_softness);
+            }
             Effect::DisplacementMap { max_horizontal, max_vertical, .. } => {
                 *max_horizontal = scale(*max_horizontal);
                 *max_vertical = scale(*max_vertical);
@@ -2783,6 +2815,7 @@ impl Effect {
             Effect::FastBoxBlur { .. } => "Fast Box Blur",
             Effect::Colorama { .. } => "Colorama",
             Effect::Glass { .. } => "CC Glass",
+            Effect::VectorBlur { .. } => "CC Vector Blur",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -2888,6 +2921,7 @@ impl Effect {
             Effect::FastBoxBlur { .. } => FAST_BOX_BLUR,
             Effect::Colorama { .. } => COLORAMA,
             Effect::Glass { .. } => GLASS,
+            Effect::VectorBlur { .. } => VECTOR_BLUR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3101,7 +3135,8 @@ impl Effect {
             | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Colorama { layer: serde_json::Value::String(layer), fit, .. }
-            | Effect::Glass { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
+            | Effect::Glass { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::VectorBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
             _ => None,
         }
     }
@@ -3113,7 +3148,8 @@ impl Effect {
             | Effect::DisplacementMap { layer, map, .. }
             | Effect::GradientWipe { layer, map, .. }
             | Effect::Colorama { layer, map, .. }
-            | Effect::Glass { layer, map, .. } => Some((layer, map)),
+            | Effect::Glass { layer, map, .. }
+            | Effect::VectorBlur { layer, map, .. } => Some((layer, map)),
             _ => None,
         }
     }
@@ -3361,6 +3397,18 @@ impl Effect {
                 "CC Glass's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
             )),
             Effect::Glass { light_color, .. } => hex_fault("CC Glass", "light colour", light_color),
+            Effect::VectorBlur { kind, .. } if !VECTOR_BLUR_TYPES.contains(&kind.as_str()) => Some(format!(
+                "CC Vector Blur's type is natural, constant, perpendicular, direction_center or direction_fading, and this is \"{kind}\"."
+            )),
+            Effect::VectorBlur { property, .. } if !VECTOR_BLUR_PROPERTIES.contains(&property.as_str()) => Some(format!(
+                "CC Vector Blur's property is red, green, blue, alpha, luminance, lightness, hue or saturation, and this is \"{property}\"."
+            )),
+            Effect::VectorBlur { layer, .. } if !layer.is_string() => Some(format!(
+                "CC Vector Blur's vector map is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::VectorBlur { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
+                "CC Vector Blur's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
             Effect::Colorama { get_phase, .. } if !COLORAMA_PHASES.contains(&get_phase.as_str()) => Some(format!(
                 "Colorama gets its phase from intensity, luminance, red, green, blue or alpha, and this is \"{get_phase}\"."
             )),
@@ -4643,6 +4691,17 @@ pub(crate) fn apply_stack_at(
             } => crate::perf::time(crate::perf::Stage::EffectShiftChannels, || {
                 crate::grade::shift_channels(source, [take_red, take_green, take_blue, take_alpha].map(|w| w.as_str()))
             }),
+            // D-336: the map compose read for this frame, if a layer is named, is the height.
+            Effect::VectorBlur { kind, amount, angle_offset, ridge_smoothness, property, map_softness, map, .. } => {
+                crate::perf::time(crate::perf::Stage::EffectVectorBlur, || {
+                    crate::layer_fx::vector_blur(
+                        source,
+                        map.as_ref().map(|m| (&*m.0, (ox, oy))),
+                        (kind, property),
+                        [*amount, *angle_offset, *ridge_smoothness, *map_softness],
+                    )
+                })
+            }
             // D-317: the map compose read for this frame, if a layer is named, is the bump.
             Effect::Glass {
                 property,

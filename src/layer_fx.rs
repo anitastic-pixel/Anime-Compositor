@@ -953,6 +953,91 @@ pub(crate) fn glass(
     }
 }
 
+/// D-336: CC Vector Blur, this program's own reading of CycoreFX's manual. The height is the
+/// `property` phase of the drawing, or of `map` lying on it with its corner at the given origin
+/// (clear outside it), times the covering unless the property is alpha, blurred at sigma
+/// `softness / 2`. Natural, constant and perpendicular smear along its slope turned `angle`
+/// degrees (90 more for perpendicular), where the slope is at least 1/10000; natural's length is
+/// `amount` shortened on gentle slopes by `ridge`. The directional types smear `amount` along
+/// `angle + 360 ridge height` degrees from up. Each pixel is the weighted mean of bilinear samples
+/// at `k / ceil(amount)` of its vector, `k` from `-ceil(amount)` (from 0 for direction_fading) to
+/// `ceil(amount)`, weighing `1 - |t|` for natural, perpendicular and direction_fading, else 1.
+/// The settings are already valid.
+pub(crate) fn vector_blur(
+    source: &mut WorkingBuffer,
+    map: Option<(&WorkingBuffer, (usize, usize))>,
+    (kind, property): (&str, &str),
+    [amount, angle, ridge, softness]: [f64; 4],
+) {
+    const FLAT: f64 = 1e-4;
+    if amount == 0.0 {
+        return;
+    }
+    let w = source.width();
+    let mut height = WorkingBuffer::transparent(w, source.height());
+    let from = source.data();
+    height.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let q = match map {
+            Some((m, (ox, oy))) => {
+                let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
+                if mx < m.width() && my < m.height() { m.pixel(mx, my) } else { [0.0; 4] }
+            }
+            None => [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]],
+        };
+        px[3] = (crate::grade::phase_of(property, &q) * if property == "alpha" { 1.0 } else { q[3] as f64 }) as f32;
+    });
+    let r = if softness > 0.0 { blur(&mut height, softness / 2.0) as isize } else { 0 };
+    let (bw, bh) = (height.width() as isize, height.height() as isize);
+    let data = height.data();
+    let at = |x: isize, y: isize| {
+        let (bx, by) = (x + r, y + r);
+        if bx < 0 || by < 0 || bx >= bw || by >= bh {
+            0.0
+        } else {
+            data[((by * bw + bx) * 4 + 3) as usize] as f64
+        }
+    };
+    let n = amount.ceil() as i64;
+    let fading = matches!(kind, "natural" | "perpendicular" | "direction_fading");
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as isize, (i / w) as isize);
+        let ((ux, uy), size) = if kind.starts_with("direction") {
+            (crate::blurs::along(angle + 360.0 * ridge * at(x, y)), amount)
+        } else {
+            let (gx, gy) = ((at(x + 1, y) - at(x - 1, y)) / 2.0, (at(x, y + 1) - at(x, y - 1)) / 2.0);
+            let g = (gx * gx + gy * gy).sqrt();
+            if g < FLAT {
+                return;
+            }
+            let turn = (angle + if kind == "perpendicular" { 90.0 } else { 0.0 }).to_radians();
+            let (c, s, ux, uy) = (turn.cos(), turn.sin(), gx / g, gy / g);
+            let size = if kind == "constant" || ridge == 0.0 {
+                amount
+            } else {
+                amount * 100.0 * g / ((100.0 * g).powi(2) + ridge * ridge).sqrt()
+            };
+            ((ux * c - uy * s, ux * s + uy * c), size)
+        };
+        let (mut acc, mut total) = ([0.0f64; 4], 0.0);
+        for k in if kind == "direction_fading" { 0 } else { -n }..=n {
+            let t = k as f64 / n as f64;
+            let weight = if fading { 1.0 - t.abs() } else { 1.0 };
+            if weight == 0.0 {
+                continue;
+            }
+            let s = sample_bilinear(&still, x as f64 + 0.5 + t * size * ux, y as f64 + 0.5 + t * size * uy);
+            for c in 0..4 {
+                acc[c] += weight * s[c] as f64;
+            }
+            total += weight;
+        }
+        for c in 0..4 {
+            px[c] = (acc[c] / total) as f32;
+        }
+    });
+}
+
 /// D-213: Bevel Edges. A pixel nearer than `thickness` times the buffer's smaller side to the
 /// buffer's nearest side, the first of left, top, right and bottom among equals, is on that
 /// side's face. The settings are already valid.

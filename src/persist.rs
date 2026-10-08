@@ -2471,6 +2471,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("light_color".into(), J::from(light_color.as_str()));
             params.insert("light_intensity".into(), num(*light_intensity));
         }
+        Effect::VectorBlur { kind, amount, angle_offset, ridge_smoothness, layer, fit, property, map_softness, .. } => {
+            params.insert("type".into(), J::from(kind.as_str()));
+            params.insert("amount".into(), num(*amount));
+            params.insert("angle_offset".into(), num(*angle_offset));
+            params.insert("ridge_smoothness".into(), num(*ridge_smoothness));
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("property".into(), J::from(property.as_str()));
+            params.insert("map_softness".into(), num(*map_softness));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -3565,6 +3575,7 @@ fn parse_effect(
         crate::effects::FAST_BOX_BLUR,
         crate::effects::COLORAMA,
         crate::effects::GLASS,
+        crate::effects::VECTOR_BLUR,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -4382,6 +4393,18 @@ fn parse_effect(
             light_angle: effect_number(params, "light_angle", &at)?,
             light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
             light_intensity: effect_number(params, "light_intensity", &at)?,
+            map: None,
+        }),
+        // D-336: the layer is kept as written, as CC Glass's is.
+        crate::effects::VECTOR_BLUR => Some(crate::effects::Effect::VectorBlur {
+            kind: effect_word(params, "type", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+            angle_offset: effect_number(params, "angle_offset", &at)?,
+            ridge_smoothness: effect_number(params, "ridge_smoothness", &at)?,
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            property: effect_word(params, "property", &at)?,
+            map_softness: effect_number(params, "map_softness", &at)?,
             map: None,
         }),
         _ => None,

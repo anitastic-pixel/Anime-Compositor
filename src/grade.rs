@@ -708,6 +708,7 @@ pub(crate) fn gradient_map(source: &mut WorkingBuffer, colors: [[f64; 3]; 3], mi
 
 /// D-316: a pixel's phase as Colorama reads it, 0 to 1: its straight colour encoded, then the
 /// mean of the three (`intensity`), the encoded luma (`luminance`), one channel, or its alpha.
+/// D-336 adds HSL `hue` (a turn as 0 to 1), `lightness` and `saturation`, for CC Vector Blur.
 pub(crate) fn phase_of(get: &str, px: &[f32]) -> f64 {
     let a = px[3] as f64;
     if get == "alpha" {
@@ -723,6 +724,9 @@ pub(crate) fn phase_of(get: &str, px: &[f32]) -> f64 {
         "green" => c[1],
         "blue" => c[2],
         "luminance" => to_srgb(0.2126 * b[0] + 0.7152 * b[1] + 0.0722 * b[2]),
+        "hue" => to_hsl(c)[0] / 360.0,
+        "saturation" => to_hsl(c)[1],
+        "lightness" => to_hsl(c)[2],
         _ => (c[0] + c[1] + c[2]) / 3.0,
     }
 }

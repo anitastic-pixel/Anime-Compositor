@@ -238,6 +238,7 @@ pub enum Stage {
     EffectFastBoxBlur,
     EffectColorama,
     EffectGlass,
+    EffectVectorBlur,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -255,7 +256,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 114] = [
+    pub const ALL: [Stage; 115] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -363,6 +364,7 @@ impl Stage {
         Stage::EffectFastBoxBlur,
         Stage::EffectColorama,
         Stage::EffectGlass,
+        Stage::EffectVectorBlur,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -482,6 +484,7 @@ impl Stage {
             Stage::EffectFastBoxBlur => "effect: fast box blur",
             Stage::EffectColorama => "effect: colorama",
             Stage::EffectGlass => "effect: cc glass",
+            Stage::EffectVectorBlur => "effect: cc vector blur",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

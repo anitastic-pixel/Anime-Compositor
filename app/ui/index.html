@@ -9323,6 +9323,7 @@ const EFFECT_NAMES = {
   'core.fast_box_blur': 'Fast Box Blur',
   'core.colorama': 'Colorama',
   'core.glass': 'CC Glass',
+  'core.vector_blur': 'CC Vector Blur',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -9330,7 +9331,7 @@ const EFFECT_NAMES = {
 const EFFECT_GROUPS = [
   ['Blur & Sharpen', ['core.gaussian_blur', 'core.directional_blur', 'core.radial_blur',
     'core.lens_blur', 'core.compound_blur', 'core.selective_color_blur', 'core.sharpen',
-    'core.diffusion', 'core.median', 'core.smart_blur', 'core.channel_blur', 'core.fast_box_blur']],
+    'core.diffusion', 'core.median', 'core.smart_blur', 'core.channel_blur', 'core.fast_box_blur', 'core.vector_blur']],
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.change_to_color',
@@ -9432,6 +9433,7 @@ const EFFECT_SEARCH = {
   'core.channel_blur': 'channel blur red green blue alpha separate per channel soften',
   'core.fast_box_blur': 'fast box blur radius iterations soften quick',
   'core.colorama': 'colorama colour color cycle ring palette rainbow psychedelic phase hue map',
+  'core.vector_blur': 'cc vector blur smear streak flow swirl brush painterly map slope ridge lightning electric',
   'core.glass': 'cc glass refraction refract lens bump map shockwave water ripple heat distortion bevel light',
   'core.drop_shadow': 'shade',
   'core.halftone': 'dots screentone manga comic print',
@@ -9551,6 +9553,7 @@ const EFFECT_ABOUT = {
   'core.channel_blur': 'Blurs red, green, blue and alpha each by its own amount.',
   'core.fast_box_blur': 'A box blur laid on several times, ending hard at radius times iterations.',
   'core.colorama': 'Repaints each brightness with a colour from a ring of colours that can turn and repeat.',
+  'core.vector_blur': 'Smears the picture along the slopes of a brightness map, its own or another layer\'s.',
   'core.glass': 'Bends the picture as if seen through glass shaped by a bump map, and lights its slopes.',
 };
 
@@ -9806,6 +9809,10 @@ const EFFECT_PARAMS = {
   'core.fast_box_blur': [['radius', 'Blur Radius', 1, 0.1, '0 to 500 source pixels'],
     ['iterations', 'Iterations', 1, 1, '1 to 50, how many times the box is laid on']],
   // D-317, After Effects' own words where it has them.
+  'core.vector_blur': [['amount', 'Amount', 1, 0.5, 'pixels, 0 to 500, how long the smear is'],
+    ['angle_offset', 'Angle Offset', 1, 1, 'degrees, turns the smear away from the slope', 'dial'],
+    ['ridge_smoothness', 'Ridge Smoothness', 1, 0.5, '0 to 100, how gently gentle slopes smear; with a Direction type, the turns from edge to middle'],
+    ['map_softness', 'Map Softness', 1, 0.5, 'pixels, 0 to 100, how much the map is blurred first']],
   'core.glass': [['softness', 'Softness', 1, 0.5, 'pixels, 0 to 100, how smooth the bump is'],
     ['height', 'Height', 1, 1, '-100 to 100, how steep the bump is; below 0 it dips'],
     ['displacement', 'Displacement', 1, 1, 'pixels, -500 to 500, how far a slope bends the picture'],
@@ -10199,6 +10206,15 @@ const EFFECT_WORDS = {
   'core.solid_composite': {
     choices: [['blend', 'Blending Mode', [['normal', 'Normal'], ['add', 'Add'], ['screen', 'Screen'], ['multiply', 'Multiply']]]],
     colours: [['color', 'Color']],
+  },
+  // D-336.
+  'core.vector_blur': {
+    layers: [['layer', 'Vector Map', 'map_layer']],
+    choices: [['type', 'Type', [['natural', 'Natural'], ['constant', 'Constant Length'], ['perpendicular', 'Perpendicular'],
+        ['direction_center', 'Direction Center'], ['direction_fading', 'Direction Fading']]],
+      ['property', 'Property', [['lightness', 'Lightness'], ['luminance', 'Luminance'], ['red', 'Red'], ['green', 'Green'],
+        ['blue', 'Blue'], ['alpha', 'Alpha'], ['hue', 'Hue'], ['saturation', 'Saturation']]],
+      ['fit', 'Vector Map Placement', [['stretch', 'Stretch to Fit'], ['center', 'Centre'], ['tile', 'Tile']]]],
   },
   // D-317.
   'core.glass': {
