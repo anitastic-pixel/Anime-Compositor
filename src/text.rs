@@ -13,6 +13,11 @@
 //! D-264 adds what After Effects, Premiere Pro and Resolve put in their text panels: tracking,
 //! kerning, leading, all caps, faux bold and italic, a box the words wrap in with justified lines,
 //! and a stroke, a background box and a shadow, painted in that order under the fill.
+//!
+//! D-350 adds text animators (`effects::Effect::TextAnimator`): each character moved, scaled,
+//! turned, faded, recoloured and spaced by how much each animator's range selector picks it. The
+//! letters stay outlines drawn here, on the processor, as all of a text layer is; what comes
+//! after the drawing runs where it always did.
 
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
@@ -340,6 +345,9 @@ struct Pen<'a> {
     scale: f64,
     /// D-264's faux italic: how far right a point moves for each unit it is above the baseline.
     slant: f64,
+    /// D-350: the character's own move, scale and turn about its anchor; `None` when it has none.
+    /// A curve's control points are moved with it, which moves the curve exactly.
+    turn: Option<Turn>,
     now: Vec<(f64, f64)>,
     into: &'a mut Vec<Vec<(f64, f64)>>,
 }
@@ -347,7 +355,14 @@ struct Pen<'a> {
 impl Pen<'_> {
     fn at(&self, x: f32, y: f32) -> (f64, f64) {
         // Font units go up; pixels go down.
-        (self.x + (x as f64 + y as f64 * self.slant) * self.scale, self.y - y as f64 * self.scale)
+        let p = (self.x + (x as f64 + y as f64 * self.slant) * self.scale, self.y - y as f64 * self.scale);
+        let Some(t) = &self.turn else { return p };
+        let (dx, dy) = ((p.0 - t.anchor[0]) * t.scale[0], (p.1 - t.anchor[1]) * t.scale[1]);
+        // Clockwise on the picture, whose y grows downwards.
+        (
+            t.anchor[0] + t.cos * dx - t.sin * dy + t.moved[0],
+            t.anchor[1] + t.sin * dx + t.cos * dy + t.moved[1],
+        )
     }
 
     fn end(&mut self) {
@@ -400,11 +415,153 @@ impl ttf_parser::OutlineBuilder for Pen<'_> {
     }
 }
 
+#[derive(Clone, Copy)]
+struct Turn {
+    anchor: [f64; 2],
+    scale: [f64; 2],
+    cos: f64,
+    sin: f64,
+    moved: [f64; 2],
+}
+
+/// D-350: one character as the text animators leave it. `index` counts the layer's characters
+/// from 0, line breaks left out; `anchor` is on its baseline halfway across its advance; `moved`,
+/// `scale` (a factor each way) and `turn` (degrees, clockwise) are about the anchor; `amounts`
+/// is how much each animator picked it; `bounds` is its outline's box, left, top, right, bottom,
+/// as drawn, `None` for a character with no outline.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Placed {
+    pub index: usize,
+    pub ch: char,
+    pub anchor: [f64; 2],
+    pub moved: [f64; 2],
+    pub scale: [f64; 2],
+    pub turn: f64,
+    pub opacity: f64,
+    pub color: [f64; 3],
+    pub amounts: Vec<f64>,
+    pub bounds: Option<[f64; 4]>,
+}
+
+/// D-350: every character laid out with the animators, in order. `None` when the font is not on
+/// this machine.
+pub fn placed(text: &Text, animators: &[crate::effects::Effect]) -> Option<Vec<Placed>> {
+    lay_out(text, animators).map(|l| l.chars.into_iter().map(|c| c.0).collect())
+}
+
+/// D-350: how much one animator's range selector picks each of `chars`, the layer's characters
+/// with line breaks left out, times its Amount. Document 21 and `tools/text_animator_reference.py`
+/// give the rule.
+fn picks(chars: &[char], animator: &crate::effects::Effect) -> Vec<f64> {
+    let crate::effects::Effect::TextAnimator { start, end, offset, amount, based_on, shape, smoothness, ease_high, ease_low, .. } = animator else {
+        return vec![0.0; chars.len()];
+    };
+    // Each character's unit, if it is one, and how many units there are.
+    let (mut unit, mut n, mut inside) = (Vec::with_capacity(chars.len()), 0usize, false);
+    for c in chars {
+        let space = c.is_whitespace();
+        match based_on.as_str() {
+            "characters" => {
+                unit.push(Some(n));
+                n += 1;
+            }
+            "characters_excluding_spaces" => {
+                unit.push((!space).then_some(n));
+                n += usize::from(!space);
+            }
+            _ => {
+                unit.push((!space).then_some(n));
+                n += usize::from(space && inside);
+                inside = !space;
+            }
+        }
+    }
+    n += usize::from(inside);
+    let count = n as f64;
+    let (mut s, mut e) = ((start + offset) / 100.0 * count, (end + offset) / 100.0 * count);
+    if s > e {
+        std::mem::swap(&mut s, &mut e);
+    }
+    let pick = |k: usize| {
+        let k = k as f64;
+        let v = if shape == "square" {
+            let c = (e.min(k + 1.0) - s.max(k)).clamp(0.0, 1.0);
+            let w = smoothness / 100.0;
+            if w == 0.0 {
+                if c >= 0.5 { 1.0 } else { 0.0 }
+            } else {
+                ((c - 0.5) / w + 0.5).clamp(0.0, 1.0)
+            }
+        } else {
+            let m = k + 0.5;
+            let u = if e > s { (m - s) / (e - s) } else if m >= s { f64::INFINITY } else { f64::NEG_INFINITY };
+            let within = (0.0..=1.0).contains(&u);
+            match shape.as_str() {
+                "ramp_up" => u.clamp(0.0, 1.0),
+                "ramp_down" => 1.0 - u.clamp(0.0, 1.0),
+                "triangle" if within => 1.0 - (2.0 * u - 1.0).abs(),
+                "round" if within => (1.0 - (2.0 * u - 1.0).powi(2)).max(0.0).sqrt(),
+                "smooth" if within => (1.0 - (std::f64::consts::TAU * u).cos()) / 2.0,
+                _ => 0.0,
+            }
+        };
+        // Document 20's ease curve, Ease Low the handle at the low end.
+        let v = if *ease_high != 0.0 || *ease_low != 0.0 {
+            crate::model::solve(ease_low / 100.0, 0.0, 1.0 - ease_high / 100.0, 1.0, v)
+        } else {
+            v
+        };
+        v * amount / 100.0
+    };
+    unit.into_iter().map(|u| u.filter(|_| n > 0).map_or(0.0, pick)).collect()
+}
+
+/// D-350: character `index` as the animators, top first, leave it, and the room they add after it.
+fn animate(index: usize, ch: char, text: &Text, animators: &[crate::effects::Effect], picked: &[Vec<f64>]) -> (Placed, f64) {
+    let mut p = Placed {
+        index,
+        ch,
+        anchor: [0.0; 2],
+        moved: [0.0; 2],
+        scale: [1.0; 2],
+        turn: 0.0,
+        opacity: 1.0,
+        color: text.color,
+        amounts: Vec::new(),
+        bounds: None,
+    };
+    let mut room = 0.0;
+    for (a, row) in animators.iter().zip(picked) {
+        let crate::effects::Effect::TextAnimator { position, scale, rotation, opacity, fill, color, tracking, .. } = a else { continue };
+        let v = row[index];
+        p.amounts.push(v);
+        p.moved = [p.moved[0] + v * position[0], p.moved[1] + v * position[1]];
+        p.turn += v * rotation;
+        room += v * tracking / 1000.0 * text.size;
+        p.scale = [p.scale[0] * (1.0 + v * (scale[0] / 100.0 - 1.0)), p.scale[1] * (1.0 + v * (scale[1] / 100.0 - 1.0))];
+        p.opacity = (p.opacity * (1.0 + v * (opacity / 100.0 - 1.0))).clamp(0.0, 1.0);
+        if fill == "on" {
+            let f = v.clamp(0.0, 1.0);
+            for j in 0..3 {
+                p.color[j] += f * (color[j] - p.color[j]);
+            }
+        }
+    }
+    (p, room)
+}
+
 /// Document 21 step 1 for a text layer: the composition's size in transparent black with the
 /// words drawn into it. `None` when the font is not on this machine or is not a font, which the
 /// caller says per frame; nothing is drawn in another font's place.
 pub fn draw(text: &Text, width: usize, height: usize) -> Option<WorkingBuffer> {
-    let laid = lay_out(text)?;
+    animated(text, &[], width, height)
+}
+
+/// [`draw`] with D-350's text animators, top first. Characters of one opacity and colour are
+/// filled together, as all of them are without animators; every stroke is drawn before every
+/// fill, and the shadow is cast by them all.
+pub fn animated(text: &Text, animators: &[crate::effects::Effect], width: usize, height: usize) -> Option<WorkingBuffer> {
+    let laid = lay_out(text, animators)?;
     let (w, h) = (width, height);
     let mut picture = WorkingBuffer::transparent(w, h);
     if let Some(b) = &text.background {
@@ -413,28 +570,65 @@ pub fn draw(text: &Text, width: usize, height: usize) -> Option<WorkingBuffer> {
         let field = fill(&[rounded_box(l - p, t - p, r + p, bottom + p, b.roundness)], w, h);
         crate::shape::paint(picture.data_mut(), &field, w, b.color, b.opacity, None);
     }
-    let mut ink = fill(&laid.contours, w, h);
     let bold = if text.faux_bold { text.size * 0.02 } else { 0.0 };
-    if bold > 0.0 {
-        union(&mut ink, &around(&laid.contours, bold, w, h));
+    // The characters by opacity and colour, in the order each first comes; one not seen is left.
+    let mut groups: Vec<(f64, [f64; 3], Vec<Vec<(f64, f64)>>)> = Vec::new();
+    for (p, range) in &laid.chars {
+        if p.opacity <= 0.0 {
+            continue;
+        }
+        let i = match groups.iter().position(|g| g.0 == p.opacity && g.1 == p.color) {
+            Some(i) => i,
+            None => {
+                groups.push((p.opacity, p.color, Vec::new()));
+                groups.len() - 1
+            }
+        };
+        groups[i].2.extend_from_slice(&laid.contours[range.clone()]);
     }
-    let lined = text.stroke.as_ref().map(|s| {
-        let mut f = around(&laid.contours, bold + s.width, w, h);
-        union(&mut f, &ink);
-        f
-    });
-    if let Some(s) = &text.shadow {
-        let under = lined.as_ref().unwrap_or(&ink);
+    // Each group's fill and stroke cover, and the rows they reach: nothing outside them is painted.
+    let reach = bold + text.stroke.as_ref().map_or(0.0, |s| s.width);
+    type Field = (f64, [f64; 3], Vec<f32>, Option<Vec<f32>>, std::ops::Range<usize>);
+    let fields: Vec<Field> = groups
+        .iter()
+        .map(|(opacity, color, contours)| {
+            let mut ink = fill(contours, w, h);
+            if bold > 0.0 {
+                union(&mut ink, &around(contours, bold, w, h));
+            }
+            let lined = text.stroke.as_ref().map(|s| {
+                let mut f = around(contours, bold + s.width, w, h);
+                union(&mut f, &ink);
+                f
+            });
+            let ys = || contours.iter().flatten().map(|p| p.1);
+            let top = (ys().fold(f64::INFINITY, f64::min) - reach - 2.0).floor().clamp(0.0, h as f64) as usize;
+            let bottom = (ys().fold(f64::NEG_INFINITY, f64::max) + reach + 3.0).ceil().clamp(0.0, h as f64) as usize;
+            (*opacity, *color, ink, lined, top..bottom.max(top))
+        })
+        .collect();
+    let rows = |data: &mut [f32], field: &[f32], band: &std::ops::Range<usize>, color: [f64; 3], opacity: f64| {
+        crate::shape::paint(&mut data[band.start * w * 4..band.end * w * 4], &field[band.start * w..band.end * w], w, color, opacity, None);
+    };
+    if let (Some(s), false) = (&text.shadow, fields.is_empty()) {
+        // Every group's letters, each as seen.
+        let mut under = vec![0.0f32; w * h];
+        for (opacity, _, ink, lined, band) in &fields {
+            let f = lined.as_ref().unwrap_or(ink);
+            for i in band.start * w..band.end * w {
+                under[i] = under[i].max(f[i] * *opacity as f32);
+            }
+        }
         // After Effects' compass: 0 is up, 90 is right, and y grows downwards in pixels.
         let a = s.angle.to_radians();
         let (dx, dy) = (a.sin() * s.distance, -a.cos() * s.distance);
         // D-265: only the part of the frame the moved letters reach is worked. Outside it the
         // shadow is empty, the blur skips empty pixels and adds its taps in the same order
         // wherever the part starts, so every pixel is the one the whole frame gave.
-        if let Some([l, t, r, b]) = moved_box(under, w, h, dx, dy) {
+        if let Some([l, t, r, b]) = moved_box(&under, w, h, dx, dy) {
             let pw = r - l;
             let mut shadow = WorkingBuffer::transparent(pw, b - t);
-            let part = shifted(under, w, h, dx, dy, [l, t, r, b]);
+            let part = shifted(&under, w, h, dx, dy, [l, t, r, b]);
             crate::shape::paint(shadow.data_mut(), &part, pw, s.color, s.opacity, None);
             // The blur grows the part by its radius on every side.
             let grow = if s.softness > 0.0 { crate::effects::blur(&mut shadow, s.softness / 2.0) } else { 0 };
@@ -452,10 +646,16 @@ pub fn draw(text: &Text, width: usize, height: usize) -> Option<WorkingBuffer> {
             }
         }
     }
-    if let (Some(s), Some(f)) = (&text.stroke, &lined) {
-        crate::shape::paint(picture.data_mut(), f, w, s.color, 1.0, None);
+    if let Some(s) = &text.stroke {
+        for (opacity, _, _, lined, band) in &fields {
+            if let Some(f) = lined {
+                rows(picture.data_mut(), f, band, s.color, *opacity);
+            }
+        }
     }
-    crate::shape::paint(picture.data_mut(), &ink, w, text.color, 1.0, None);
+    for (opacity, color, ink, _, band) in &fields {
+        rows(picture.data_mut(), ink, band, *color, *opacity);
+    }
     Some(picture)
 }
 
@@ -464,25 +664,27 @@ pub fn draw(text: &Text, width: usize, height: usize) -> Option<WorkingBuffer> {
 /// picture is handed out shared; the render copies it before an effect or mask changes it.
 // ponytail: four 1080p pictures, about 130 MB; key by layer if a project shows more text layers
 // than that redrawing on every frame.
-pub fn drawn(text: &Text, width: usize, height: usize) -> Option<Arc<WorkingBuffer>> {
-    static KEPT: Mutex<Vec<(Text, usize, usize, Arc<WorkingBuffer>)>> = Mutex::new(Vec::new());
-    let hit = |kept: &mut Vec<(Text, usize, usize, Arc<WorkingBuffer>)>| {
-        let i = kept.iter().position(|(t, w, h, _)| t == text && *w == width && *h == height)?;
+// D-350: with its animators as they are on the frame, so a still animator draws once too.
+pub fn drawn(text: &Text, animators: &[crate::effects::Effect], width: usize, height: usize) -> Option<Arc<WorkingBuffer>> {
+    type Kept = Vec<(Text, Vec<crate::effects::Effect>, usize, usize, Arc<WorkingBuffer>)>;
+    static KEPT: Mutex<Kept> = Mutex::new(Vec::new());
+    let hit = |kept: &mut Kept| {
+        let i = kept.iter().position(|(t, a, w, h, _)| t == text && a == animators && *w == width && *h == height)?;
         let found = kept.remove(i);
-        let picture = found.3.clone();
+        let picture = found.4.clone();
         kept.push(found);
         Some(picture)
     };
     if let Some(p) = hit(&mut KEPT.lock().unwrap_or_else(|e| e.into_inner())) {
         return Some(p);
     }
-    let picture = Arc::new(draw(text, width, height)?);
+    let picture = Arc::new(animated(text, animators, width, height)?);
     let mut kept = KEPT.lock().unwrap_or_else(|e| e.into_inner());
     if hit(&mut kept).is_none() {
         if kept.len() == 4 {
             kept.remove(0);
         }
-        kept.push((text.clone(), width, height, picture.clone()));
+        kept.push((text.clone(), animators.to_vec(), width, height, picture.clone()));
     }
     Some(picture)
 }
@@ -492,16 +694,18 @@ pub fn drawn(text: &Text, width: usize, height: usize) -> Option<Arc<WorkingBuff
 /// to hold any outline that reaches past it. The background is drawn round it, and the window
 /// outlines and picks a text layer by it. `None` when the font is not on this machine.
 pub fn bounds(text: &Text) -> Option<[f64; 4]> {
-    lay_out(text).map(|l| l.bounds)
+    lay_out(text, &[]).map(|l| l.bounds)
 }
 
-/// The words placed: every glyph's outline in the layer's pixels, and their box.
+/// The words placed: every glyph's outline in the layer's pixels, and their box; D-350: and each
+/// character with the outlines that are its own.
 struct Laid {
     contours: Vec<Vec<(f64, f64)>>,
     bounds: [f64; 4],
+    chars: Vec<(Placed, std::ops::Range<usize>)>,
 }
 
-fn lay_out(text: &Text) -> Option<Laid> {
+fn lay_out(text: &Text, animators: &[crate::effects::Effect]) -> Option<Laid> {
     let face = ttf_parser::Face::parse(font_bytes(&text.font)?, 0).ok()?;
     let scale = text.size / face.units_per_em() as f64;
     let natural = (face.ascender() as f64 - face.descender() as f64 + face.line_gap() as f64) * scale;
@@ -516,8 +720,15 @@ fn lay_out(text: &Text) -> Option<Laid> {
     let mut contours = Vec::new();
     let mut across = [f64::INFINITY, f64::NEG_INFINITY];
     let mut n = 0;
+    // D-350: each animator's pick of every character, line breaks left out.
+    let flat: Vec<char> = words.split('\n').flat_map(|p| p.trim_end_matches('\r').chars()).collect();
+    let picked: Vec<Vec<f64>> = animators.iter().map(|a| picks(&flat, a)).collect();
+    let mut placed = Vec::new();
+    let mut k = 0;
     for paragraph in words.split('\n') {
         let chars: Vec<char> = paragraph.trim_end_matches('\r').chars().collect();
+        let mut states: Vec<(Placed, f64)> = chars.iter().enumerate().map(|(i, c)| animate(k + i, *c, text, animators, &picked)).collect();
+        k += chars.len();
         // A glyph the font lacks is its "missing" glyph, usually a box: seen, not hidden.
         let glyphs: Vec<ttf_parser::GlyphId> =
             chars.iter().map(|c| face.glyph_index(*c).unwrap_or(ttf_parser::GlyphId(0))).collect();
@@ -529,7 +740,7 @@ fn lay_out(text: &Text) -> Option<Laid> {
                     Some(next) if text.kerning => kern(&face, &pairs, glyphs[i], *next) * scale,
                     _ => 0.0,
                 };
-                raw[i] + track + kern
+                raw[i] + track + kern + states[i].1
             })
             .collect();
         let mut from = vec![0.0];
@@ -605,9 +816,20 @@ fn lay_out(text: &Text) -> Option<Laid> {
             let y = first + n as f64 * line;
             let mut x = left;
             for i in a..e {
-                let mut pen = Pen { x, y, scale, slant, now: Vec::new(), into: &mut contours };
+                let p = &mut states[i].0;
+                p.anchor = [x + raw[i] / 2.0, y];
+                let turn = (p.moved != [0.0; 2] || p.turn != 0.0 || p.scale != [1.0; 2]).then(|| {
+                    let (sin, cos) = p.turn.to_radians().sin_cos();
+                    Turn { anchor: p.anchor, scale: p.scale, cos, sin, moved: p.moved }
+                });
+                let from = contours.len();
+                let mut pen = Pen { x, y, scale, slant, turn, now: Vec::new(), into: &mut contours };
                 face.outline_glyph(glyphs[i], &mut pen);
                 pen.end();
+                p.bounds = contours[from..].iter().flatten().fold(None, |b: Option<[f64; 4]>, &(px, py)| {
+                    Some(b.map_or([px, py, px, py], |b| [b[0].min(px), b[1].min(py), b[2].max(px), b[3].max(py)]))
+                });
+                placed.push((p.clone(), from..contours.len()));
                 x += step[i] + per(i);
             }
             across = [across[0].min(left), across[1].max(left + w + extra)];
@@ -626,7 +848,7 @@ fn lay_out(text: &Text) -> Option<Laid> {
         bounds[0] = text.at[0];
         bounds[2] = text.at[0];
     }
-    Some(Laid { contours, bounds })
+    Some(Laid { contours, bounds, chars: placed })
 }
 
 /// The `kern` feature's lookups in the font's GPOS table, each once.

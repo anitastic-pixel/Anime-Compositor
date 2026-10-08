@@ -3768,8 +3768,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             if !existing.has_mix() {
                 return Err(reject(
                     &format!("A {} has no Mix.", existing.type_id()),
-                    "D-202: Posterize Time holds its layer in time and has no picture to mix, and \
-                     an effect this build does not have is kept as it was written.",
+                    "D-202: Posterize Time holds its layer in time and has no picture to mix, nor \
+                     has a Text Animator (D-350), and an effect this build does not have is kept \
+                     as it was written.",
                 ));
             }
             // D-46: a Mix outside 0 to 100 is refused, never clamped.

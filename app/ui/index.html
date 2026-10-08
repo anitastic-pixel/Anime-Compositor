@@ -9328,6 +9328,7 @@ const EFFECT_NAMES = {
   'core.pass_extract': 'Pass Extract',
   'core.depth_key': 'Depth Key',
   'core.id_key': 'ID Key',
+  'core.text_animator': 'Text Animator',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -9357,6 +9358,7 @@ const EFFECT_GROUPS = [
     'core.camera_shake']],
   ['Time', ['core.echo', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key']],
+  ['Text', ['core.text_animator']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
@@ -9442,6 +9444,7 @@ const EFFECT_SEARCH = {
   'core.moment_map': 'moment map time displacement displace slit scan warp delay offset ripple map brightness frames',
   'core.pass_extract': 'pass extract 3d channel extract extractor depth z zdepth normals object material id named channel exr render pass aov channel black white point',
   'core.id_key': 'id key id matte object id material id index indexob indexma exr render pass aov cut out isolate',
+  'core.text_animator': 'text animator animate range selector per character letter word typewriter type on fade in by character wave tracking offset',
   'core.depth_key': 'depth key depth matte z zdepth exr render pass cut out near far fog',
   'core.glass': 'cc glass refraction refract lens bump map shockwave water ripple heat distortion bevel light',
   'core.drop_shadow': 'shade',
@@ -9566,6 +9569,7 @@ const EFFECT_ABOUT = {
   'core.moment_map': 'Takes each pixel from a different moment of the layer, earlier where a map is dark and later where it is bright.',
   'core.pass_extract': 'Shows the depth, the normals, the object or material ids, or any named channel a 3D render saved in the layer\'s EXR file, as a picture.',
   'core.id_key': 'Keeps only the object or material with one id, read from the ids a 3D render saved in the layer\'s EXR file.',
+  'core.text_animator': 'Moves, scales, turns, fades or recolours the letters of a text layer one by one, as far as a range selector picks them: a typewriter, a fade by character, a wave.',
   'core.depth_key': 'Takes out what is nearer than a depth, read from the depth a 3D render saved in the layer\'s EXR file.',
   'core.glass': 'Bends the picture as if seen through glass shaped by a bump map, and lights its slopes.',
 };
@@ -9829,6 +9833,20 @@ const EFFECT_PARAMS = {
   // D-349, After Effects' own words.
   'core.id_key': [['id', 'ID Selection', 1, 1, 'the id kept, 0 to 1,000,000; an id within a half of it counts'],
     ['feather', 'Feather', 1, 0.1, 'pixels of soft edge, 0 to 100']],
+  // D-350, After Effects' own words: the animator's properties, then its Range Selector.
+  'core.text_animator': [['position', 'Position', 2, 1, 'pixels each picked letter moves, x then y'],
+    ['scale', 'Scale', 2, 1, 'per cent, x then y, about each letter\'s foot'],
+    ['rotation', 'Rotation', 1, 1, 'degrees clockwise, each letter about its foot', 'dial'],
+    ['opacity', 'Opacity', 1, 1, 'per cent, 0 to 100; 0 with the range moving is a typewriter'],
+    ['color', 'Fill Color', 3, 0.01, 'linear RGB, used when Fill Color is on'],
+    ['tracking', 'Tracking Amount', 1, 1, 'thousandths of the size added after each picked letter'],
+    ['start', 'Start', 1, 0.5, 'per cent of the line, 0 to 100'],
+    ['end', 'End', 1, 0.5, 'per cent of the line, 0 to 100'],
+    ['offset', 'Offset', 1, 0.5, 'per cent, -100 to 100, slides Start and End together'],
+    ['amount', 'Amount', 1, 1, 'per cent, -100 to 100, how much of the properties a picked letter gets'],
+    ['smoothness', 'Smoothness', 1, 1, 'per cent, 0 to 100; for Square, how soft the range\'s edge is'],
+    ['ease_high', 'Ease High', 1, 1, 'per cent, 0 to 100, how slowly the shape leaves fully picked'],
+    ['ease_low', 'Ease Low', 1, 1, 'per cent, 0 to 100, how slowly the shape leaves not picked']],
   // D-347, After Effects' own words where it has them.
   'core.moment_map': [['max_time', 'Max Displacement Time', 1, 0.1, 'seconds, -10 to 10, how far white reaches forward and black back; mid grey stays'],
     ['resolution', 'Time Resolution', 1, 1, 'steps a second, 1 to 999; above the frame rate it stays whole frames']],
@@ -10247,6 +10265,14 @@ const EFFECT_WORDS = {
   'core.id_key': {
     choices: [['aux_channel', 'Aux. Channel', [['object_id', 'Object ID'], ['material_id', 'Material ID']]],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
+  },
+  // D-350.
+  'core.text_animator': {
+    choices: [['fill', 'Fill Color', [['off', 'Off'], ['on', 'On']]],
+      ['based_on', 'Based On', [['characters', 'Characters'], ['characters_excluding_spaces', 'Characters Excluding Spaces'],
+        ['words', 'Words']]],
+      ['shape', 'Shape', [['square', 'Square'], ['ramp_up', 'Ramp Up'], ['ramp_down', 'Ramp Down'], ['triangle', 'Triangle'],
+        ['round', 'Round'], ['smooth', 'Smooth']]]],
   },
   // D-347.
   'core.moment_map': {
@@ -11339,8 +11365,8 @@ function effectRow(layer, fx, at, of) {
   // The card's picture, above its numbers, as After Effects puts it.
   const k = { fields, words, live, close, send: () => sendParameters(), redraws };
   // A shift is pixels, not a place on the drawing, so the offset has no point box; nor has
-  // Fractal Noise's (D-299).
-  const pairs = ['core.offset', 'core.fractal_noise'].includes(fx.type_id) ? [] : known.filter((p) => p[2] === 2).map(([n, w]) => [n, w]);
+  // Fractal Noise's (D-299), nor a text animator's move and scale (D-350).
+  const pairs = ['core.offset', 'core.fractal_noise', 'core.text_animator'].includes(fx.type_id) ? [] : known.filter((p) => p[2] === 2).map(([n, w]) => [n, w]);
   const picture = fx.type_id === 'core.levels' ? fxLevels(k, label)
     : fx.type_id === 'core.hue_saturation' ? fxHues(k, label)
       : fx.type_id === 'core.lens_blur' ? fxIris(k, label)
@@ -11554,8 +11580,9 @@ function effectRow(layer, fx, at, of) {
   }
   // D-202: the Mix, at the foot of every card as After Effects puts its compositing options:
   // how much of the effect is laid over what it was given, 0 to 100. Posterize Time holds the
-  // layer in time and has no picture to mix, so it has none.
-  if (fx.type_id !== 'core.posterize_time') {
+  // layer in time and has no picture to mix, so it has none; nor has a text animator, which
+  // moves the letters before there is a picture (D-350).
+  if (!['core.posterize_time', 'core.text_animator'].includes(fx.type_id)) {
     const prop = fxName(fx, 'mix');
     const dt = document.createElement('dt');
     dt.title = 'Mix, 0 to 100 per cent of the effect laid over what it was given; 0 is the layer as it came in';

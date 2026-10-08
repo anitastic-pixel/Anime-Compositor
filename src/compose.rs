@@ -1474,7 +1474,18 @@ fn resolve_held(
         // per frame, for the reason an undrawable shape is, and nothing is drawn in its place.
         layer.timing().local_frame(frame)?;
         let (w, h) = (comp.width as usize, comp.height as usize);
-        let picture = crate::text::drawn(words, w, h).unwrap_or_else(|| {
+        // D-350: the layer's text animators, as they are at `at`, move its letters as they are
+        // drawn. One whose settings this build cannot use is left out here and said with the
+        // rest of the stack.
+        let animators: Vec<crate::effects::Effect> = layer
+            .effects
+            .iter()
+            .filter(|i| i.enabled && matches!(i.effect, crate::effects::Effect::TextAnimator { .. }))
+            .map(|i| crate::expr::effect_at(comp, &layer.id, i, at, layer.key_time(at as f64)).0)
+            .filter(|i| i.is_valid())
+            .map(|i| i.effect)
+            .collect();
+        let picture = crate::text::drawn(words, &animators, w, h).unwrap_or_else(|| {
             log.record(
                 frame,
                 layer.name.clone(),
@@ -1751,6 +1762,20 @@ fn resolve_rest(
     }
     // D-348: each pass an effect reads, from the layer's own EXR file.
     fill_passes(&mut effects, cel.as_ref(), layer, frame, step1, cache, log);
+    // D-350: a text animator moves letters, which only a text layer has.
+    if layer.text.is_none() && layer.effects.iter().any(|i| i.enabled && matches!(i.effect, crate::effects::Effect::TextAnimator { .. })) {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::TextAnimatorNoText,
+                Severity::Warning,
+                format!("Layer {} has a Text Animator but no words, so it changes nothing.", layer.name),
+                format!("Frame {frame} is drawn without it. The animator is kept as it is."),
+            )
+            .with_remediation("Move the Text Animator to a text layer, or remove it."),
+        );
+    }
     // D-191: each layer setting's map, made at the size the effects run at. An adjustment
     // layer's are made where its stack runs, on the frame.
     if !layer.is_adjustment() {

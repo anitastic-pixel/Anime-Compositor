@@ -65,9 +65,9 @@ impl EffectInstance {
     }
 
     /// D-202: every effect has a Mix but Posterize Time, which has no picture to mix, and one
-    /// this build does not have.
+    /// this build does not have. D-350: nor a text animator, which moves letters.
     pub fn has_mix(&self) -> bool {
-        !matches!(self.effect, Effect::PosterizeTime { .. } | Effect::Unsupported { .. })
+        !matches!(self.effect, Effect::PosterizeTime { .. } | Effect::TextAnimator { .. } | Effect::Unsupported { .. })
     }
 
     /// [`Effect::arity`], with the Mix as a setting of one number.
@@ -101,7 +101,7 @@ impl EffectInstance {
         let keys: Vec<f64> = self.tracks.get("mix").map_or(Vec::new(), |t| {
             t[0].keyframes().iter().map(|k| k.value.as_scalar().unwrap_or(f64::NAN)).collect()
         });
-        if matches!(self.effect, Effect::PosterizeTime { .. }) {
+        if matches!(self.effect, Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }) {
             return (self.mix != 100.0 || !keys.is_empty())
                 .then(|| keys.into_iter().chain([self.mix]).find(|m| *m != 100.0).unwrap_or(f64::NAN));
         }
@@ -126,13 +126,15 @@ impl EffectInstance {
     /// D-202: why the Mix, the constant or a key, is outside its range, when it is.
     pub(crate) fn mix_fault(&self) -> Option<String> {
         let m = self.bad_mix()?;
-        Some(if matches!(self.effect, Effect::PosterizeTime { .. }) {
+        Some(if matches!(self.effect, Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }) {
             // A NaN here is `bad_mix`'s mark for a Mix of 100 with keys.
             let m = if m.is_nan() { "keyed".to_string() } else { format!("{m}") };
-            format!(
-                "Posterize Time holds its layer in time and has no picture to mix, so its Mix \
-                 is a plain 100, and this is {m}."
-            )
+            let what = if matches!(self.effect, Effect::TextAnimator { .. }) {
+                "Text Animator moves the letters before there is a picture"
+            } else {
+                "Posterize Time holds its layer in time and has no picture to mix"
+            };
+            format!("{what}, so its Mix is a plain 100, and this is {m}.")
         } else {
             format!("Mix is 0 to 100 per cent, and this is {m}.")
         })
@@ -1425,6 +1427,34 @@ pub enum Effect {
         invert: String,
         channels: Option<crate::layer_map::Map>,
     },
+    /// D-350: Text Animator, after After Effects' text animators and their Range Selector: the
+    /// letters of a text layer moved, scaled, turned, faded, recoloured and spaced one by one, each
+    /// by how much the selector picks it (`text::lay_out`, document 21). `position`, x then y,
+    /// -100,000 to 100,000 pixels; `scale`, x then y, -10,000 to 10,000 per cent; `rotation`,
+    /// -36,000 to 36,000 degrees; `opacity`, 0 to 100 per cent; `fill`, "off" or "on", with
+    /// `color`, linear 0 to 1; `tracking`, -1,000 to 1,000 thousandths of the size; `start` and
+    /// `end`, 0 to 100 per cent; `offset`, -100 to 100; `amount`, -100 to 100; `based_on`,
+    /// "characters", "characters_excluding_spaces" or "words"; `shape`, "square", "ramp_up",
+    /// "ramp_down", "triangle", "round" or "smooth"; `smoothness`, `ease_high` and `ease_low`, 0
+    /// to 100 per cent. It has no pixel work: compose hands it to the text's drawing.
+    TextAnimator {
+        position: [f64; 2],
+        scale: [f64; 2],
+        rotation: f64,
+        opacity: f64,
+        fill: String,
+        color: [f64; 3],
+        tracking: f64,
+        start: f64,
+        end: f64,
+        offset: f64,
+        amount: f64,
+        based_on: String,
+        shape: String,
+        smoothness: f64,
+        ease_high: f64,
+        ease_low: f64,
+    },
     /// D-348: Depth Key, after After Effects' Depth Matte: what is nearer than `depth` in the
     /// layer's EXR depth taken out. `depth`, -1,000,000 to 1,000,000; `feather`, 0 to 1,000,000,
     /// both in the depth's own units; `invert`, "off" or "on". `channels` as Pass Extract's.
@@ -1548,6 +1578,10 @@ pub const MOMENT_MAP: &str = "core.moment_map";
 pub const PASS_EXTRACT: &str = "core.pass_extract";
 pub const DEPTH_KEY: &str = "core.depth_key";
 pub const ID_KEY: &str = "core.id_key";
+pub const TEXT_ANIMATOR: &str = "core.text_animator";
+/// D-350: what a text animator's selector counts, and the shapes of its range.
+pub const TEXT_BASED_ON: [&str; 3] = ["characters", "characters_excluding_spaces", "words"];
+pub const TEXT_SHAPES: [&str; 6] = ["square", "ramp_up", "ramp_down", "triangle", "round", "smooth"];
 /// D-349: Pass Extract's passes.
 pub const PASSES: [&str; 5] = ["depth", "normals", "object_id", "material_id", "named"];
 /// D-336: CC Vector Blur's types.
@@ -2190,6 +2224,23 @@ impl Effect {
             Effect::IdKey { id, feather, .. } => vec![
                 ("id", vec![id], 0.0, 1e6),
                 ("feather", vec![feather], 0.0, 100.0),
+            ],
+            Effect::TextAnimator {
+                position, scale, rotation, opacity, color, tracking, start, end, offset, amount, smoothness, ease_high, ease_low, ..
+            } => vec![
+                ("position", position.iter_mut().collect(), -1e5, 1e5),
+                ("scale", scale.iter_mut().collect(), -1e4, 1e4),
+                ("rotation", vec![rotation], -36000.0, 36000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+                ("color", color.iter_mut().collect(), 0.0, 1.0),
+                ("tracking", vec![tracking], -1000.0, 1000.0),
+                ("start", vec![start], 0.0, 100.0),
+                ("end", vec![end], 0.0, 100.0),
+                ("offset", vec![offset], -100.0, 100.0),
+                ("amount", vec![amount], -100.0, 100.0),
+                ("smoothness", vec![smoothness], 0.0, 100.0),
+                ("ease_high", vec![ease_high], 0.0, 100.0),
+                ("ease_low", vec![ease_low], 0.0, 100.0),
             ],
             Effect::LineBlur { length, strength, .. } => vec![
                 ("length", vec![length], 0.0, 50.0),
@@ -2891,6 +2942,7 @@ impl Effect {
             Effect::PassExtract { .. } => "Pass Extract",
             Effect::DepthKey { .. } => "Depth Key",
             Effect::IdKey { .. } => "ID Key",
+            Effect::TextAnimator { .. } => "Text Animator",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3001,6 +3053,7 @@ impl Effect {
             Effect::PassExtract { .. } => PASS_EXTRACT,
             Effect::DepthKey { .. } => DEPTH_KEY,
             Effect::IdKey { .. } => ID_KEY,
+            Effect::TextAnimator { .. } => TEXT_ANIMATOR,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3501,6 +3554,15 @@ impl Effect {
             )),
             Effect::IdKey { aux_channel, .. } if !["object_id", "material_id"].contains(&aux_channel.as_str()) => Some(format!(
                 "ID Key's channel is \"object_id\" or \"material_id\", and this is \"{aux_channel}\"."
+            )),
+            Effect::TextAnimator { fill, .. } if !["off", "on"].contains(&fill.as_str()) => Some(format!(
+                "Text Animator's fill is \"off\" or \"on\", and this is \"{fill}\"."
+            )),
+            Effect::TextAnimator { based_on, .. } if !TEXT_BASED_ON.contains(&based_on.as_str()) => Some(format!(
+                "Text Animator is based on \"characters\", \"characters_excluding_spaces\" or \"words\", and this is \"{based_on}\"."
+            )),
+            Effect::TextAnimator { shape, .. } if !TEXT_SHAPES.contains(&shape.as_str()) => Some(format!(
+                "Text Animator's shape is \"square\", \"ramp_up\", \"ramp_down\", \"triangle\", \"round\" or \"smooth\", and this is \"{shape}\"."
             )),
             Effect::PassExtract { invert, .. } | Effect::DepthKey { invert, .. } | Effect::IdKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => {
                 Some(format!("{name}'s invert is \"off\" or \"on\", and this is \"{invert}\"."))
@@ -5511,6 +5573,8 @@ pub(crate) fn apply_stack_at(
             }
             // D-196: the holding was done where the layer's content was resolved.
             Effect::PosterizeTime { .. } => {}
+            // D-350: the letters were moved where the text was drawn.
+            Effect::TextAnimator { .. } => {}
         }
         if display {
             encode(source, false, top);

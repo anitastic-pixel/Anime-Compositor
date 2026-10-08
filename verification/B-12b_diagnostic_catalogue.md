@@ -74,6 +74,7 @@ One row per identifier this build can print, and the table where a person can re
 | `EFFECT_LAYER_MISSING` | yes | `verification/B-125b_layer_map_table.md` |
 | `EFFECT_LAYER_CYCLE` | yes | `verification/B-127_compound_blur_table.md` |
 | `EFFECT_CHANNEL_MISSING` | yes | `verification/D-348_depth_channels_table.md` |
+| `TEXT_ANIMATOR_NO_TEXT` | yes | `verification/D-350_text_animator_table.md` |
 
 ## What the catalogue promises and the build does not have
 
@@ -103,7 +104,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 60 identifiers | 60 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 61 identifiers | 61 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |
@@ -302,12 +303,15 @@ One row per identifier this build can print, and the table where a person can re
 | EFFECT_CHANNEL_MISSING: the enum spells it the way the catalogue does | EFFECT_CHANNEL_MISSING | EFFECT_CHANNEL_MISSING | pass |
 | EFFECT_CHANNEL_MISSING: says truthfully whether document 28 lists it | true | true | pass |
 | EFFECT_CHANNEL_MISSING: a table somewhere shows a person this sentence | named in D-348_depth_channels_table.md | named in D-348_depth_channels_table.md | pass |
+| TEXT_ANIMATOR_NO_TEXT: the enum spells it the way the catalogue does | TEXT_ANIMATOR_NO_TEXT | TEXT_ANIMATOR_NO_TEXT | pass |
+| TEXT_ANIMATOR_NO_TEXT: says truthfully whether document 28 lists it | true | true | pass |
+| TEXT_ANIMATOR_NO_TEXT: a table somewhere shows a person this sentence | named in D-350_text_animator_table.md | named in D-350_text_animator_table.md | pass |
 | PROJECT_FEATURE_UNSUPPORTED is kept but raised by nothing | no source file raises it | no source file raises it | pass |
 | every catalogue entry is either built or written down as not built | none unaccounted for | none unaccounted for | pass |
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**203 of 203 checks pass.**
+**206 of 206 checks pass.**
 
 ## What this cannot cover
 

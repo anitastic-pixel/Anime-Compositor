@@ -229,6 +229,9 @@ pub enum DiagnosticId {
     /// is not an EXR, or that has no footage. WARNING: the settings are kept and the effect is
     /// skipped, every frame.
     EffectChannelMissing,
+    /// Document 28, added by D-350: a text animator on a layer that is not a text layer, which has
+    /// no letters to move. WARNING every frame; the animator is kept and changes nothing.
+    TextAnimatorNoText,
 }
 
 impl DiagnosticId {
@@ -300,6 +303,7 @@ impl DiagnosticId {
             DiagnosticId::EffectLayerMissing => "EFFECT_LAYER_MISSING",
             DiagnosticId::EffectLayerCycle => "EFFECT_LAYER_CYCLE",
             DiagnosticId::EffectChannelMissing => "EFFECT_CHANNEL_MISSING",
+            DiagnosticId::TextAnimatorNoText => "TEXT_ANIMATOR_NO_TEXT",
         }
     }
 
@@ -366,6 +370,7 @@ impl DiagnosticId {
                 | DiagnosticId::EffectLayerMissing
                 | DiagnosticId::EffectLayerCycle
                 | DiagnosticId::EffectChannelMissing
+                | DiagnosticId::TextAnimatorNoText
         )
     }
 }

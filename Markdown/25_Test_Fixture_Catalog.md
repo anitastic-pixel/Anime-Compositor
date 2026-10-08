@@ -176059,6 +176059,44 @@ FX-DEPTH-063 (`fx_depth_063.json`): ID Key's feather 101, past 100. The file is 
 
 FX-DEPTH-064 (`fx_depth_064.json`): ID Key's invert written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Text animators (D-350)
+
+After After Effects' text animators and Range Selector (B-230; EFFECTS.md P0-7 part 1). The rule is D-350's in `tools/text_animator_reference.py`, which reads the bundled M PLUS Rounded 1c with fontTools, never the build's ttf-parser, and finds each outline's box from its curves. For every character of every case, `Fixtures/text_animator/expected_text_animator.json` gives its unit, picked amount, move, turn, scale, opacity, colour, pen place and outline box; the numbers are held to 1e-6 and a box to 0.25 pixel, as the build fills straight pieces about 2 pixels long (D-263). Every case is a 1280 by 360 composition of one text layer under an identity transform. B-230 checks them, and draws the playtest's pictures, in `verification/D-350_text_animator_table.md`.
+
+FX-TXA-001: Typewriter, hard, on "Typewriter text": Opacity 0, Start 40 of 15 characters, Smoothness 0. The first six show; the rest are not drawn.
+
+FX-TXA-002: Typewriter, soft: Start 43.3, Smoothness 100. The seventh character half picked, half faded.
+
+FX-TXA-003: Fade in by character: Opacity 0, Ramp Up, Ease High and Low 50, Offset -30. The left letters show, a soft edge, the right hidden.
+
+FX-TXA-004: Fade out: Ramp Down, Offset 30.
+
+FX-TXA-005: Word by word: Position 0, 100, Opacity 0, Based On Words, Ramp Up, Ease High 25, Ease Low 100, Offset -20. Spaces are never picked.
+
+FX-TXA-006: A wave: Position 0, -60, Start 20, End 50, Offset 10, Triangle. The letters in the range rise, most in its middle.
+
+FX-TXA-007: Smooth and Round: a Smooth hump of Position 0, -40 over Start 0 to End 60, Offset 20, and a Round one of Scale 150 over the whole line.
+
+FX-TXA-008: Turn, stretch, room and colour: Rotation 30, Scale 150 by 50 on all; then Rotation -10, Tracking 50, Fill on in green on the second half; faux italic, centred at 640.
+
+FX-TXA-009: Characters excluding spaces, Start 80 above End 20 (taken the other way round), Amount -50, Position 0, 40: the picked letters move up 20.
+
+FX-TXA-010: Two lines: the line break is not a character. Square, Start 25, End 75 of four letters: B and C picked, scaled 200.
+
+FX-TXA-011: The timing line: 30 characters with two animators, a wave and a fade by character.
+
+FX-TXA-012: A range of no width (Start and End 50): Ramp Up picks everything after it, the square picks nothing.
+
+FX-TXA-013: Room on a right-aligned line with the text's own tracking 100: Tracking 200 at Amount 50 on the first half moves the line's start left.
+
+FX-TXA-020 (`fx_txa_020.json`): Typewriter keyed: Start 0 at frame 0 to 100 at frame 15, linear, Smoothness 0. Frame 0 shows nothing, frame 6 is FX-TXA-001, frame 15 every character. Frames 0, 6, 15.
+
+FX-TXA-021 (`fx_txa_021.json`): A setting this build does not know (`selector_mode`) is kept as written, saved again, and the animator still works. Frames 0.
+
+FX-TXA-022 (`fx_txa_022.json`): A shape this build does not have (`wiggly`): reported on opening, kept as written, and the words drawn as if the animator were off. Warning `EFFECT_PARAMETER_INVALID`, on opening and every frame. Frames 0.
+
+FX-TXA-023 (`fx_txa_023.json`): An animator on a solid has no characters to move: the solid drawn as without it. Warning `TEXT_ANIMATOR_NO_TEXT` every frame. Frames 0.
+
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.

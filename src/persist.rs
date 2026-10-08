@@ -2510,6 +2510,27 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("feather".into(), num(*feather));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        Effect::TextAnimator {
+            position, scale, rotation, opacity, fill, color, tracking, start, end, offset, amount, based_on, shape, smoothness, ease_high, ease_low,
+        } => {
+            let list = |v: &[f64]| J::Array(v.iter().map(|x| num(*x)).collect());
+            params.insert("position".into(), list(position));
+            params.insert("scale".into(), list(scale));
+            params.insert("rotation".into(), num(*rotation));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("fill".into(), J::from(fill.as_str()));
+            params.insert("color".into(), list(color));
+            params.insert("tracking".into(), num(*tracking));
+            params.insert("start".into(), num(*start));
+            params.insert("end".into(), num(*end));
+            params.insert("offset".into(), num(*offset));
+            params.insert("amount".into(), num(*amount));
+            params.insert("based_on".into(), J::from(based_on.as_str()));
+            params.insert("shape".into(), J::from(shape.as_str()));
+            params.insert("smoothness".into(), num(*smoothness));
+            params.insert("ease_high".into(), num(*ease_high));
+            params.insert("ease_low".into(), num(*ease_low));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -3097,6 +3118,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
                 (3, "three numbers, hue, saturation and lightness")
             }
             "red" | "green" | "blue" => (4, "four numbers, from red, green, blue and a constant"),
+            // D-350: a text animator's Start and End are one number each, a gradient's points.
+            "start" | "end" if !record.get("base").is_some_and(J::is_array) => (1, "one number"),
             "center" | "start" | "end" | "shift" | "upper_left" | "upper_right" | "lower_left"
             | "lower_right" | "producer_point" | "point_1" | "point_2" | "point_3" | "point_4" | "light"
             | "tile_center" => {
@@ -3609,6 +3632,7 @@ fn parse_effect(
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
         crate::effects::ID_KEY,
+        crate::effects::TEXT_ANIMATOR,
     ]
     .contains(&type_id.as_str());
     let (plain, tracks) = if known {
@@ -4471,6 +4495,25 @@ fn parse_effect(
             feather: effect_number(params, "feather", &at)?,
             invert: effect_word(params, "invert", &at)?,
             channels: None,
+        }),
+        // D-350: the words kept as written, so one outside the contract is refused by name.
+        crate::effects::TEXT_ANIMATOR => Some(crate::effects::Effect::TextAnimator {
+            position: effect_array(params, "position", "two numbers, x then y", &at)?,
+            scale: effect_array(params, "scale", "two numbers, x then y", &at)?,
+            rotation: effect_number(params, "rotation", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            fill: effect_word(params, "fill", &at)?,
+            color: effect_array(params, "color", "a linear RGB triple", &at)?,
+            tracking: effect_number(params, "tracking", &at)?,
+            start: effect_number(params, "start", &at)?,
+            end: effect_number(params, "end", &at)?,
+            offset: effect_number(params, "offset", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+            based_on: effect_word(params, "based_on", &at)?,
+            shape: effect_word(params, "shape", &at)?,
+            smoothness: effect_number(params, "smoothness", &at)?,
+            ease_high: effect_number(params, "ease_high", &at)?,
+            ease_low: effect_number(params, "ease_low", &at)?,
         }),
         _ => None,
     };
