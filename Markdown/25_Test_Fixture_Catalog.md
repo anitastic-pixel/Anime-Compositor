@@ -175920,6 +175920,82 @@ FX-TDISP-027 (`fx_tdisp_027.json`): A layer written as the number 3, not a word.
 
 FX-TDISP-028 (`fx_tdisp_028.json`): Max keyed to 12 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Pass Extract and Depth Key (D-348)
+
+After After Effects' 3D Channel Extract and Depth Matte (B-228; EFFECTS.md P0-5, a render's extra EXR channels). Every case is a project of one composition 8 by 6 at 24 frames a second, five frames, in `Fixtures/depth_channel/`: the layer `scene`, an EXR still. `media/scene.exr` holds half colour (red 0.1 + 0.1 x, green 0.2 + 0.05 y, blue 0.5; (0, 0) at half covering, (1, 0) clear), a float depth `Z` = 0.5 + 1.25 x + 0.75 y (exactly 6 at (2, 4)) and half normals `N.x` = (x - 3.5) / 4, `N.y` = (2.5 - y) / 3, `N.z` the rest of a unit length. `media/names.exr` names them `depth.Z` (20 - 2 x - y) and `normal.R`, `normal.G`, `normal.B`; `media/far.exr` has an infinity, a minus infinity and a not-a-number in its depth; `media/offset.exr` has its data window at columns 2 to 6 of rows 1 to 4; `media/plain.exr` has colour only; `media/card.png` is a PNG. **Every number is produced by `tools/depth_channel_reference.py`**, which writes and reads the files with OpenEXR's own library, and is in `Fixtures/depth_channel/expected_depth_channel.json`. Values are linear premultiplied. Tolerance 2e-5. A case's `frame_warning` is said at every frame it draws and not on opening. `Fixtures/depth_channel/sample/spheres.exr`, 320 by 180, is the playtest's picture, pinned by no number. B-228 checks them in `verification/D-348_depth_channels_table.md`.
+
+FX-DEPTH-001 (`fx_depth_001.json`): Pass Extract as added: the depth, Black Point 0, White Point 1, Clamp on: every depth past 1 is white, the nearest pixel (0.5) mid grey; the picture is opaque, its clear corner too. Frames 0.
+
+FX-DEPTH-002 (`fx_depth_002.json`): Black 0, White 12: the depth as a grey ramp, near dark, far light. Frames 0.
+
+FX-DEPTH-003 (`fx_depth_003.json`): Black 12, White 0: the other way round, near light. Frames 0.
+
+FX-DEPTH-004 (`fx_depth_004.json`): Black 0, White 12, Invert on: FX-DEPTH-002 turned over, as 003. Frames 0.
+
+FX-DEPTH-005 (`fx_depth_005.json`): Black 10, White 14, Clamp off, the other names' file (depth 1 to 20): values below 0 and above 1 are kept. Frames 0.
+
+FX-DEPTH-006 (`fx_depth_006.json`): Black and White both 6: a cut, white from depth 6 on, black nearer; the pixel exactly at 6 is white. Frames 0.
+
+FX-DEPTH-007 (`fx_depth_007.json`): The normals, Black -1, White 1: each direction as a colour, x red, y green, z blue, mid grey for 0. Frames 0.
+
+FX-DEPTH-008 (`fx_depth_008.json`): The normals as added, Black 0, White 1, Clamp on: what points left or down is held at 0. Frames 0.
+
+FX-DEPTH-009 (`fx_depth_009.json`): The data window only columns 2 to 6 of rows 1 to 4: outside it the depth is 0, black, as the colour there is clear. Frames 0.
+
+FX-DEPTH-010 (`fx_depth_010.json`): Depth named depth.Z: found. Frames 0.
+
+FX-DEPTH-011 (`fx_depth_011.json`): Normals named normal.R, normal.G, normal.B: found. Frames 0.
+
+FX-DEPTH-012 (`fx_depth_012.json`): Infinities and not-a-number in the depth: far infinity white, near infinity black, not-a-number read as 0, black; the warning every frame. Warning `MEDIA_EXR_ADJUSTED` every frame. Frames 0.
+
+FX-DEPTH-013 (`fx_depth_013.json`): A file with no depth: nothing changes, with the warning every frame. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-014 (`fx_depth_014.json`): Asked for normals from a file with depth only: nothing changes, the warning. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-015 (`fx_depth_015.json`): On a PNG drawing: no passes, nothing changes, the warning. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-016 (`fx_depth_016.json`): On a solid: no file, nothing changes, the warning. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-017 (`fx_depth_017.json`): On an adjustment layer above the EXR: no file of its own, nothing changes, the warning. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-018 (`fx_depth_018.json`): An Exposure of +1 before it is not seen: FX-DEPTH-002. Frames 0.
+
+FX-DEPTH-019 (`fx_depth_019.json`): An Exposure of -1 after it darkens the ramp. Frames 0.
+
+FX-DEPTH-020 (`fx_depth_020.json`): The layer moved 2 right and 1 down: FX-DEPTH-002 moved. Frames 0.
+
+FX-DEPTH-021 (`fx_depth_021.json`): White Point keyed from 1 at frame 0 to 12 at frame 4: frame 0 is FX-DEPTH-001, frame 4 FX-DEPTH-002. Frames 0, 4.
+
+FX-DEPTH-022 (`fx_depth_022.json`): Depth Key as added: Depth 0, no feather: every depth is at least 0, so nothing changes. Frames 0.
+
+FX-DEPTH-023 (`fx_depth_023.json`): Depth 6: everything nearer than 6 taken out; the pixel exactly at 6 kept. Frames 0.
+
+FX-DEPTH-024 (`fx_depth_024.json`): Depth 6, Invert on: everything from 6 on taken out instead. Frames 0.
+
+FX-DEPTH-025 (`fx_depth_025.json`): Depth 6, Feather 4: a soft edge from 4 to 8. Frames 0.
+
+FX-DEPTH-026 (`fx_depth_026.json`): Depth 6, Feather 4, Invert on: the soft edge the other way. Frames 0.
+
+FX-DEPTH-027 (`fx_depth_027.json`): Depth 6 on the file with infinities: far infinity kept, near infinity and not-a-number (0) out; the warning. Warning `MEDIA_EXR_ADJUSTED` every frame. Frames 0.
+
+FX-DEPTH-028 (`fx_depth_028.json`): Depth 5 on the small data window: inside it the near pixels go; outside it the depth is 0, out, but already clear. Frames 0.
+
+FX-DEPTH-029 (`fx_depth_029.json`): An Exposure of +1 before it: the kept pixels are the brighter ones. Frames 0.
+
+FX-DEPTH-030 (`fx_depth_030.json`): Depth Key on a file with no depth: nothing changes, the warning. Warning `EFFECT_CHANNEL_MISSING` every frame. Frames 0.
+
+FX-DEPTH-031 (`fx_depth_031.json`): Depth keyed from 0 at frame 0 to 12.5 at frame 4: frame 4 has only the far corner left. Frames 0, 4.
+
+FX-DEPTH-032 (`fx_depth_032.json`): Pass Extract's pass written "uv". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEPTH-033 (`fx_depth_033.json`): Pass Extract's clamp written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEPTH-034 (`fx_depth_034.json`): Black Point 2,000,000, past 1,000,000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEPTH-035 (`fx_depth_035.json`): Depth Key's feather -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEPTH-036 (`fx_depth_036.json`): Depth Key's invert written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.
