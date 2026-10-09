@@ -1,0 +1,145 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-stroke-066",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 48,
+      "height": 30,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 16,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 16
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "text",
+          "name": "art",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 16,
+          "source_text": {
+            "text": "Yes",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 24,
+            "color": [
+              1,
+              1,
+              1
+            ],
+            "at": [
+              4,
+              25
+            ],
+            "align": "left"
+          },
+          "transform": {
+            "anchor": {
+              "base": [
+                24.0,
+                15.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                24.0,
+                15.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-a",
+              "type_id": "core.text_animator",
+              "enabled": true,
+              "parameters": {
+                "position": [
+                  0,
+                  -6
+                ],
+                "scale": [
+                  100,
+                  100
+                ],
+                "rotation": 0,
+                "opacity": 100,
+                "fill": "off",
+                "color": [
+                  1,
+                  0,
+                  0
+                ],
+                "tracking": 0,
+                "start": 50,
+                "end": 100,
+                "offset": 0,
+                "amount": 100,
+                "based_on": "characters",
+                "shape": "square",
+                "smoothness": 100,
+                "ease_high": 0,
+                "ease_low": 0
+              }
+            },
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.stroke",
+              "enabled": true,
+              "parameters": {
+                "mask": 1,
+                "all_masks": "on",
+                "stroke_sequentially": "off",
+                "color": "#ffffff",
+                "brush_size": 2,
+                "brush_hardness": 75,
+                "opacity": 100,
+                "start": 0,
+                "end": 100,
+                "spacing": 15,
+                "paint_style": "on_transparent",
+                "source": "text"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
