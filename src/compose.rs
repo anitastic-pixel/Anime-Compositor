@@ -968,6 +968,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::PageTurn { .. }
                 | crate::effects::Effect::PowerPin { .. }
                 | crate::effects::Effect::RipplePulse { .. }
+                // D-391..D-393: Slant, Smear and Split.
+                | crate::effects::Effect::Slant { .. }
+                | crate::effects::Effect::Smear { .. }
+                | crate::effects::Effect::Split { .. }
                 // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }
                 | crate::effects::Effect::FourColorGradient { .. }
@@ -1238,6 +1242,10 @@ fn card_effect(
                 E::RipplePulse { amplitude, render_bump_map, levels, .. } => {
                     render_bump_map != "on" && (*amplitude == 0.0 || levels.windows(2).all(|w| w[0] == w[1]))
                 }
+                // D-391..D-393: upright at full height in its own colours; no drag; no gap.
+                E::Slant { slant, height, set_color, .. } => *slant == 0.0 && *height == 100.0 && set_color != "on",
+                E::Smear { from, to, reach, radius } => *radius == 0.0 || *reach == 0.0 || from == to,
+                E::Split { point_a, point_b, split } => *split == 0.0 || point_a == point_b,
                 // D-360: the mean of two untouched copies is the layer.
                 E::CrossBlur { radius_x, radius_y, mode, .. } => {
                     mode == "blend" && crate::effects::box_reach(*radius_x, 1.0).max(crate::effects::box_reach(*radius_y, 1.0)) == 0

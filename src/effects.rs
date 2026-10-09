@@ -1604,6 +1604,16 @@ pub enum Effect {
     /// `render_bump_map`, "off" or "on". `levels` is not a setting and is never saved: the pulse
     /// level now and at each frame of the time span before, which compose reads for a frame.
     RipplePulse { center: [f64; 2], pulse_level: f64, time_span: f64, amplitude: f64, render_bump_map: String, levels: Vec<f64> },
+    /// D-391: after CycoreFX's CC Slant. `slant`, -80 to 80 degrees; `stretching` and
+    /// `set_color`, "off" or "on"; `height`, 0 to 1000 per cent; `floor`, per cent of the
+    /// drawing, -1000 to 1000, only its height counting; `color`, `#rrggbb`.
+    Slant { slant: f64, stretching: String, height: f64, floor: [f64; 2], set_color: String, color: String },
+    /// D-392: after CycoreFX's CC Smear. `from` and `to`, per cent of the drawing, -1000 to 1000;
+    /// `reach`, -1000 to 1000 per cent; `radius`, 0 to 1000 pixels.
+    Smear { from: [f64; 2], to: [f64; 2], reach: f64, radius: f64 },
+    /// D-393: after CycoreFX's CC Split. `point_a` and `point_b`, per cent of the drawing, -1000
+    /// to 1000; `split`, 0 to 1000 pixels, the gap's width at the middle.
+    Split { point_a: [f64; 2], point_b: [f64; 2], split: f64 },
     /// D-379: after CycoreFX's CC Blobbylize. `layer` and `fit`, D-189's layer setting, the blob
     /// map, "" the layer itself; `property`, one of [`BLOBBYLIZE_PROPERTIES`]; `softness`, 0 to
     /// 100 pixels; `cut_away`, 0 to 100; `light_intensity`, 0 to 400; `light_color`, `#rrggbb`;
@@ -1986,6 +1996,9 @@ pub const FISHEYE: &str = "core.fisheye";
 pub const PAGE_TURN: &str = "core.page_turn";
 pub const POWER_PIN: &str = "core.power_pin";
 pub const RIPPLE_PULSE: &str = "core.ripple_pulse";
+pub const SLANT: &str = "core.slant";
+pub const SMEAR: &str = "core.smear";
+pub const SPLIT: &str = "core.split";
 /// D-388: Page Turn's ways of placing the fold, the line itself or the corner turned.
 pub const PAGE_TURN_CONTROLS: [&str; 5] = ["classic", "top_left", "top_right", "bottom_left", "bottom_right"];
 /// D-388: what Page Turn draws, in the order the card numbers them.
@@ -2733,6 +2746,22 @@ impl Effect {
                 ("pulse_level", vec![pulse_level], -1000.0, 1000.0),
                 ("time_span", vec![time_span], 0.0, 10.0),
                 ("amplitude", vec![amplitude], 0.0, 1000.0),
+            ],
+            Effect::Slant { slant, height, floor, .. } => vec![
+                ("slant", vec![slant], -80.0, 80.0),
+                ("height", vec![height], 0.0, 1000.0),
+                ("floor", floor.iter_mut().collect(), -1000.0, 1000.0),
+            ],
+            Effect::Smear { from, to, reach, radius } => vec![
+                ("from", from.iter_mut().collect(), -1000.0, 1000.0),
+                ("to", to.iter_mut().collect(), -1000.0, 1000.0),
+                ("reach", vec![reach], -1000.0, 1000.0),
+                ("radius", vec![radius], 0.0, 1000.0),
+            ],
+            Effect::Split { point_a, point_b, split } => vec![
+                ("point_a", point_a.iter_mut().collect(), -1000.0, 1000.0),
+                ("point_b", point_b.iter_mut().collect(), -1000.0, 1000.0),
+                ("split", vec![split], 0.0, 1000.0),
             ],
             Effect::Blobbylize {
                 softness,
@@ -3498,6 +3527,9 @@ impl Effect {
             // D-388/D-390: the cylinder's radius and the push are distances.
             Effect::PageTurn { fold_radius, .. } => *fold_radius = scale(*fold_radius),
             Effect::RipplePulse { amplitude, .. } => *amplitude = scale(*amplitude),
+            // D-392/D-393: the smear's radius and the gap are distances; Slant has none.
+            Effect::Smear { radius, .. } => *radius = scale(*radius),
+            Effect::Split { split, .. } => *split = scale(*split),
             // D-379: a distant light's height is a slope against 100, no distance.
             Effect::Blobbylize { softness, light_type, light_height, .. } => {
                 *softness = scale(*softness);
@@ -3692,6 +3724,9 @@ impl Effect {
             Effect::PageTurn { .. } => "Page Turn",
             Effect::PowerPin { .. } => "Power Pin",
             Effect::RipplePulse { .. } => "Ripple Pulse",
+            Effect::Slant { .. } => "Slant",
+            Effect::Smear { .. } => "Smear",
+            Effect::Split { .. } => "Split",
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
@@ -3837,6 +3872,9 @@ impl Effect {
             Effect::PageTurn { .. } => PAGE_TURN,
             Effect::PowerPin { .. } => POWER_PIN,
             Effect::RipplePulse { .. } => RIPPLE_PULSE,
+            Effect::Slant { .. } => SLANT,
+            Effect::Smear { .. } => SMEAR,
+            Effect::Split { .. } => SPLIT,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
@@ -4509,6 +4547,13 @@ impl Effect {
             Effect::RipplePulse { render_bump_map, .. } if !["off", "on"].contains(&render_bump_map.as_str()) => Some(format!(
                 "Ripple Pulse's render bump map is \"on\" or \"off\", and this is \"{render_bump_map}\"."
             )),
+            Effect::Slant { stretching, .. } if !["off", "on"].contains(&stretching.as_str()) => Some(format!(
+                "Slant's stretching is \"on\" or \"off\", and this is \"{stretching}\"."
+            )),
+            Effect::Slant { set_color, .. } if !["off", "on"].contains(&set_color.as_str()) => Some(format!(
+                "Slant's set color is \"on\" or \"off\", and this is \"{set_color}\"."
+            )),
+            Effect::Slant { color, .. } if hex_fault("Slant", "colour", color).is_some() => hex_fault("Slant", "colour", color),
             Effect::Blobbylize { property, .. } if !BLOBBYLIZE_PROPERTIES.contains(&property.as_str()) => Some(format!(
                 "Blobbylize's property is red, green, blue, alpha, luminance or lightness, and this is \"{property}\"."
             )),
@@ -6233,6 +6278,25 @@ pub(crate) fn apply_stack_at(
                 crate::perf::time(crate::perf::Stage::EffectRipplePulse, || {
                     crate::layer_fx::ripple_pulse(source, c, big, levels, *amplitude, render_bump_map == "on")
                 })
+            }
+            // D-391: the floor line is level, so only its height counts.
+            Effect::Slant { slant, stretching, height, floor, set_color, color } => {
+                let (_, fy) = radial_center(*floor, (source.width(), source.height()), (ox, oy));
+                let theta = slant.to_radians();
+                let s = height / 100.0 * if stretching == "on" { 1.0 } else { theta.cos() };
+                let c = (set_color == "on").then(|| encoded(color).map(crate::grade::to_linear));
+                crate::perf::time(crate::perf::Stage::EffectSlant, || crate::layer_fx::slant(source, fy, theta.tan(), s, c))
+            }
+            Effect::Smear { from, to, reach, radius } => {
+                let dims = (source.width(), source.height());
+                let (f, t) = (radial_center(*from, dims, (ox, oy)), radial_center(*to, dims, (ox, oy)));
+                let v = ((t.0 - f.0) * reach / 100.0, (t.1 - f.1) * reach / 100.0);
+                crate::perf::time(crate::perf::Stage::EffectSmear, || crate::layer_fx::smear(source, f, v, *radius))
+            }
+            Effect::Split { point_a, point_b, split } => {
+                let dims = (source.width(), source.height());
+                let (a, b) = (radial_center(*point_a, dims, (ox, oy)), radial_center(*point_b, dims, (ox, oy)));
+                crate::perf::time(crate::perf::Stage::EffectSplit, || crate::layer_fx::split(source, a, b, *split))
             }
             // D-379: the map compose read for this frame, if a layer is named, is the blob.
             Effect::Blobbylize {

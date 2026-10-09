@@ -2771,6 +2771,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("amplitude".into(), num(*amplitude));
             params.insert("render_bump_map".into(), J::from(render_bump_map.as_str()));
         }
+        Effect::Slant { slant, stretching, height, floor, set_color, color } => {
+            params.insert("slant".into(), num(*slant));
+            params.insert("stretching".into(), J::from(stretching.as_str()));
+            params.insert("height".into(), num(*height));
+            params.insert("floor".into(), J::Array(floor.iter().map(|c| num(*c)).collect()));
+            params.insert("set_color".into(), J::from(set_color.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+        }
+        Effect::Smear { from, to, reach, radius } => {
+            params.insert("from".into(), J::Array(from.iter().map(|c| num(*c)).collect()));
+            params.insert("to".into(), J::Array(to.iter().map(|c| num(*c)).collect()));
+            params.insert("reach".into(), num(*reach));
+            params.insert("radius".into(), num(*radius));
+        }
+        Effect::Split { point_a, point_b, split } => {
+            params.insert("point_a".into(), J::Array(point_a.iter().map(|c| num(*c)).collect()));
+            params.insert("point_b".into(), J::Array(point_b.iter().map(|c| num(*c)).collect()));
+            params.insert("split".into(), num(*split));
+        }
         Effect::Blobbylize {
             layer,
             fit,
@@ -4080,6 +4099,9 @@ fn parse_effect(
         crate::effects::PAGE_TURN,
         crate::effects::POWER_PIN,
         crate::effects::RIPPLE_PULSE,
+        crate::effects::SLANT,
+        crate::effects::SMEAR,
+        crate::effects::SPLIT,
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
@@ -5180,6 +5202,25 @@ fn parse_effect(
             amplitude: effect_number(params, "amplitude", &at)?,
             render_bump_map: effect_word(params, "render_bump_map", &at)?,
             levels: Vec::new(),
+        }),
+        crate::effects::SLANT => Some(crate::effects::Effect::Slant {
+            slant: effect_number(params, "slant", &at)?,
+            stretching: effect_word(params, "stretching", &at)?,
+            height: effect_number(params, "height", &at)?,
+            floor: effect_array(params, "floor", "two numbers, x then y", &at)?,
+            set_color: effect_word(params, "set_color", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+        }),
+        crate::effects::SMEAR => Some(crate::effects::Effect::Smear {
+            from: effect_array(params, "from", "two numbers, x then y", &at)?,
+            to: effect_array(params, "to", "two numbers, x then y", &at)?,
+            reach: effect_number(params, "reach", &at)?,
+            radius: effect_number(params, "radius", &at)?,
+        }),
+        crate::effects::SPLIT => Some(crate::effects::Effect::Split {
+            point_a: effect_array(params, "point_a", "two numbers, x then y", &at)?,
+            point_b: effect_array(params, "point_b", "two numbers, x then y", &at)?,
+            split: effect_number(params, "split", &at)?,
         }),
         // D-379: the layer is kept as written, as CC Glass's is.
         crate::effects::BLOBBYLIZE => Some(crate::effects::Effect::Blobbylize {

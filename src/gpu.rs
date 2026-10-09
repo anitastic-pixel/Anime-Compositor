@@ -3432,6 +3432,64 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             sx = x - quotient(s * dx, r);
             sy = y - quotient(s * dy, r);
         }
+        case 19u: {
+            // D-391, layer_fx::slant. k: the floor line's height, the slant's tangent, the
+            // height scale, 1 for a colour, the colour in linear light, 0.
+            if k[2] <= 0.0lf {
+                textureStore(output, id.xy, vec4(0.0));
+                return;
+            }
+            let v = y - k[0];
+            sx = x + product(v, k[1], k[7]);
+            sy = k[0] + quotient(v, k[2]);
+            if k[3] == 1.0lf {
+                let a = f64(bilinear(input, sx, sy).w);
+                textureStore(output, id.xy, vec4(f32(k[4] * a), f32(k[5] * a), f32(k[6] * a), f32(a)));
+                return;
+            }
+        }
+        case 20u: {
+            // D-392, layer_fx::smear. k: the from point, the drag, the radius, 0.
+            let z = k[5];
+            let v2 = product(k[2], k[2], z) + product(k[3], k[3], z);
+            let s = clamp(quotient(product(x - k[0], k[2], z) + product(y - k[1], k[3], z), v2), 0.0lf, 1.0lf);
+            let ex = x - k[0] - s * k[2];
+            let ey = y - k[1] - s * k[3];
+            let rho = sqrt(product(ex, ex, z) + product(ey, ey, z));
+            if rho < k[4] {
+                let q = quotient(rho, k[4]);
+                let m = (1.0lf - q * q) * (1.0lf - q * q) * s;
+                sx = x - m * k[2];
+                sy = y - m * k[3];
+            }
+        }
+        case 21u: {
+            // D-393, layer_fx::split. k: point A, the unit step to B, the length, the split, 0.
+            let z = k[6];
+            let px = x - k[0];
+            let py = y - k[1];
+            let along = product(px, k[2], z) + product(py, k[3], z);
+            let d = product(py, k[2], z) - product(px, k[3], z);
+            let t = quotient(along, k[4]);
+            var g = 0.0lf;
+            if t >= 0.0lf && t <= 1.0lf {
+                g = k[5] / 2.0lf * sin64(3.141592653589793lf * t);
+            }
+            let m = abs(d);
+            let cover = 1.0lf - max(min(m + 0.5lf, g) - max(m - 0.5lf, -g), 0.0lf);
+            let far = g + k[4] / 2.0lf;
+            if m < far {
+                var q = 0.0lf;
+                if m >= g {
+                    q = select(-1.0lf, 1.0lf, d >= 0.0lf) * (m - g) * quotient(far, far - g);
+                }
+                sx = k[0] + along * k[2] - q * k[3];
+                sy = k[1] + along * k[3] + q * k[2];
+            }
+            let s = bilinear(input, sx, sy);
+            textureStore(output, id.xy, vec4(f32(f64(s.x) * cover), f32(f64(s.y) * cover), f32(f64(s.z) * cover), f32(f64(s.w) * cover)));
+            return;
+        }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
             let vx = x - f64(F.g) - k[0] - k[2];
@@ -8272,6 +8330,35 @@ impl Gpu {
                 let mut k = vec![cx, cy, (levels.len() - 1) as f64, big, *amplitude, (render_bump_map == "on") as u8 as f64, 0.0];
                 k.extend_from_slice(levels);
                 same(steps, &passes.warp, FxParams { mode: 18, ..Default::default() }, &k, None)
+            }
+            // D-391..D-393, layer_fx::slant, smear and split, each a warp; no drag or no gap is
+            // the drawing as it was.
+            E::Slant { slant, stretching, height, floor, set_color, color } => {
+                let (_, fy) = crate::effects::radial_center(*floor, (w, h), f.origin);
+                let theta = slant.to_radians();
+                let s = height / 100.0 * if stretching == "on" { 1.0 } else { theta.cos() };
+                let c = linear(color);
+                let k = [fy, theta.tan(), s, (set_color == "on") as u8 as f64, c[0], c[1], c[2], 0.0];
+                same(steps, &passes.warp, FxParams { mode: 19, ..Default::default() }, &k, None)
+            }
+            E::Smear { from, to, reach, radius } => {
+                let (fx, fy) = crate::effects::radial_center(*from, (w, h), f.origin);
+                let (tx, ty) = crate::effects::radial_center(*to, (w, h), f.origin);
+                let v = ((tx - fx) * reach / 100.0, (ty - fy) * reach / 100.0);
+                if *radius <= 0.0 || v.0 * v.0 + v.1 * v.1 == 0.0 {
+                    return (still.clone(), (w, h));
+                }
+                same(steps, &passes.warp, FxParams { mode: 20, ..Default::default() }, &[fx, fy, v.0, v.1, *radius, 0.0], None)
+            }
+            E::Split { point_a, point_b, split } => {
+                let (ax, ay) = crate::effects::radial_center(*point_a, (w, h), f.origin);
+                let (bx, by) = crate::effects::radial_center(*point_b, (w, h), f.origin);
+                let length = (bx - ax).hypot(by - ay);
+                if length == 0.0 || *split <= 0.0 {
+                    return (still.clone(), (w, h));
+                }
+                let k = [ax, ay, (bx - ax) / length, (by - ay) / length, length, *split, 0.0];
+                same(steps, &passes.warp, FxParams { mode: 21, ..Default::default() }, &k, None)
             }
             E::Mirror { center, angle } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);

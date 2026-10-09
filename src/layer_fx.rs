@@ -2397,6 +2397,87 @@ pub(crate) fn ripple_pulse(source: &mut WorkingBuffer, center: (f64, f64), big: 
     });
 }
 
+/// D-391: Slant, this program's own reading of CycoreFX's CC Slant. A pixel's centre v below the
+/// level line `floor` (in the buffer) reads the buffer at (x + v `tan`, floor + v / `s`), `tan`
+/// the slant's tangent and `s` the height scale; `s` 0 draws nothing. With `color`, linear, the
+/// colour replaces the picture's under its coverage. The settings are already valid.
+pub(crate) fn slant(source: &mut WorkingBuffer, floor: f64, tan: f64, s: f64, color: Option<[f64; 3]>) {
+    let w = source.width();
+    if s <= 0.0 {
+        source.data_mut().fill(0.0);
+        return;
+    }
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let v = y - floor;
+        let p = sample_bilinear(&still, x + v * tan, floor + v / s);
+        match color {
+            Some(c) => px.copy_from_slice(&[(c[0] * p[3] as f64) as f32, (c[1] * p[3] as f64) as f32, (c[2] * p[3] as f64) as f32, p[3]]),
+            None => px.copy_from_slice(&p),
+        }
+    });
+}
+
+/// D-392: Smear, this program's own reading of CycoreFX's CC Smear. A pixel's centre P, s =
+/// clamp((P - from) . v / |v|^2, 0, 1) of the way along the drag `v` and rho from its nearest
+/// point on it, reads the buffer at P - w s v, w = (1 - (rho / radius)^2)^2 inside the radius
+/// and 0 past it. Radius 0 or no drag leaves the buffer as it was. The settings are already
+/// valid.
+pub(crate) fn smear(source: &mut WorkingBuffer, from: (f64, f64), v: (f64, f64), radius: f64) {
+    let w = source.width();
+    let v2 = v.0 * v.0 + v.1 * v.1;
+    if radius <= 0.0 || v2 == 0.0 {
+        return;
+    }
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let s = (((x - from.0) * v.0 + (y - from.1) * v.1) / v2).clamp(0.0, 1.0);
+        let rho = (x - from.0 - s * v.0).hypot(y - from.1 - s * v.1);
+        if rho >= radius {
+            return;
+        }
+        let k = (1.0 - (rho / radius).powi(2)).powi(2) * s;
+        px.copy_from_slice(&sample_bilinear(&still, x - k * v.0, y - k * v.1));
+    });
+}
+
+/// D-393: Split, this program's own reading of CycoreFX's CC Split. Along `a` to `b`, length L,
+/// a pixel's centre t of the way along and d to the side has the gap's half width g = `split` /
+/// 2 sin(pi t) (0 past the points); with D = g + L / 2, one with g <= |d| < D reads the buffer
+/// (|d| - g) D / (D - g) out from the line on its own side, one inside the gap the line itself,
+/// times the share of the pixel outside the gap. Split 0 or `a` on `b` leaves the buffer as it
+/// was. The settings are already valid.
+pub(crate) fn split(source: &mut WorkingBuffer, a: (f64, f64), b: (f64, f64), split: f64) {
+    let w = source.width();
+    let length = (b.0 - a.0).hypot(b.1 - a.1);
+    if length == 0.0 || split <= 0.0 {
+        return;
+    }
+    let (ux, uy) = ((b.0 - a.0) / length, (b.1 - a.1) / length);
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5 - a.0, (i / w) as f64 + 0.5 - a.1);
+        let along = x * ux + y * uy;
+        let d = y * ux - x * uy;
+        let t = along / length;
+        let g = if (0.0..=1.0).contains(&t) { split / 2.0 * (std::f64::consts::PI * t).sin() } else { 0.0 };
+        let m = d.abs();
+        let cover = 1.0 - ((m + 0.5).min(g) - (m - 0.5).max(-g)).max(0.0);
+        let far = g + length / 2.0;
+        let p = if m >= far {
+            sample_bilinear(&still, x + a.0, y + a.1)
+        } else {
+            let k = if m >= g { d.signum() * (m - g) * far / (far - g) } else { 0.0 };
+            sample_bilinear(&still, a.0 + along * ux - k * uy, a.1 + along * uy + k * ux)
+        };
+        for ch in 0..4 {
+            px[ch] = (p[ch] as f64 * cover) as f32;
+        }
+    });
+}
+
 /// D-198: the drawing, whose corner is at `origin` in the buffer, stretched in perspective so
 /// its upper left, upper right, lower left and lower right corners land on `pins`, each in per
 /// cent of the drawing's width and height. Returns how far it grew on the left and on the top,
