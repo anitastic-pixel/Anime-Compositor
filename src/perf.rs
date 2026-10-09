@@ -295,7 +295,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 138] = [
+    pub const ALL: [Stage; 141] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
