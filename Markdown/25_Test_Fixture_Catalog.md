@@ -114287,6 +114287,38 @@ Frame 0: every pixel is the drawing's, unchanged.
 Frame 4: every pixel is the drawing's, unchanged.
 
 
+### Diffusion's second pass (D-364)
+
+Diffusion's second pass (D-364, B-243): the same glow laid on again over the first pass in soft light or overlay, as the layer modes lay it (D-301), by `second_amount` per cent; at 0 the effect is D-148's exactly. Every case is a project like those above, the same cel, 16 by 10 at 24 fps, five frames, with `second_amount` and `second_blend` written in the effect's parameters. **Every number is produced by `tools/diffusion_second_reference.py`**, which reuses `tools/diffusion_reference.py` for the drawing, blur and first pass and works the second pass from the W3C's overlay and soft light, and is in `Fixtures/diffusion/expected_diffusion_second.json`, the projects beside it. Tolerance 2e-5.
+
+FX-DIFFUSE-019 (`fx_diffuse_019.json`): The two-layer diffusion as tomoex lays it: radius 10, lighten at 50, then soft light at 50. The shadow and the line lift as in lighten alone, then the soft light deepens the contrast a little: every dark channel (encoded below a half) of the glow pulls its pixel down, every light one lifts it. Frames 0.
+
+FX-DIFFUSE-020 (`fx_diffuse_020.json`): Screen at 50 then soft light at 50: the settings as they start (FX-DIFFUSE-001) with the second pass laid on. Frames 0.
+
+FX-DIFFUSE-021 (`fx_diffuse_021.json`): Lighten at 50 then overlay at 30. Frames 0.
+
+FX-DIFFUSE-022 (`fx_diffuse_022.json`): Screen at 50 with the second pass written at 0: exactly FX-DIFFUSE-001, sample for sample. Frames 0.
+
+FX-DIFFUSE-023 (`fx_diffuse_023.json`): Radius 3, amount 0, soft light at 100: only the second pass, the blurred picture in soft light over the drawing. Each channel moves toward the glow's side of an encoded half, darker where the glow is dark, lighter where it is light: the shadow's far corner (1, 1) darkens in every channel, and every skin pixel lightens in every channel. Frames 0.
+
+FX-DIFFUSE-024 (`fx_diffuse_024.json`): Radius 3, amount 0, overlay at 100: only the second pass, in overlay; the same directions as FX-DIFFUSE-023. Frames 0.
+
+FX-DIFFUSE-025 (`fx_diffuse_025.json`): Radius 0 with the second pass at 50: the drawing, untouched. Frames 0.
+
+FX-DIFFUSE-026 (`fx_diffuse_026.json`): Second amount keyed from 0 at frame 0 to 100 at frame 4, linear, over lighten at 50: frame 0 is lighten alone, frame 2 is FX-DIFFUSE-019, frame 4 the soft light laid fully on. Frames 0, 2, 4.
+
+FX-DIFFUSE-027 (`fx_diffuse_027.json`): Second amount keyed from 0 to 100, eased past its end: held at 100 from frame 2, so frames 2 and 4 are FX-DIFFUSE-026's frame 4. Frames 0, 2, 4.
+
+FX-DIFFUSE-028 (`fx_diffuse_028.json`): FX-DIFFUSE-019 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-DIFFUSE-029 (`fx_diffuse_029.json`): Second amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DIFFUSE-030 (`fx_diffuse_030.json`): Second amount -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DIFFUSE-031 (`fx_diffuse_031.json`): Second blend "screen", which is not soft_light or overlay. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DIFFUSE-032 (`fx_diffuse_032.json`): Second amount keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ## Wave Warp fixtures
 
 D-149, accepted on 2026-09-26. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/wave_warp/`, holding one drawing the same size with one Wave Warp (`core.wave_warp`) on it, unmoved unless the case says. The drawing is `Fixtures/wave_warp/media/stripes.png`: in rows 0 to 8 and columns 0 to 13, upright stripes two pixels wide, skin #f6d6be and line #1e1a24 by turns starting with skin, crossed by a blue band #3a6fd8 in rows 4 and 5, touching the drawing's top and left edges; column 14 is the skin at half covering, a soft edge; column 15 and row 9 are empty. Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the drawing's own, exactly. A layer that grows is shown with its grown pixels in place, so in the moved cases the columns left of the drawing are the grown pixels.
