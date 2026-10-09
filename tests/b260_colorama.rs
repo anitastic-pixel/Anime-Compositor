@@ -207,27 +207,7 @@ fn b260_colorama() {
     );
 
     t.heading("FX-COLORAMA-001 to 047 (document 25)");
-    t.fixtures_numbered("expected_colorama.json", 1..=33);
-    t.fixtures_numbered("expected_colorama.json", 35..=47);
-    // FX-COLORAMA-034's pixels as the file has them; its warning as D-189 says it for every layer
-    // setting, on opening and at each frame, as FX-CLINK-019's (D-375). The file's
-    // `frame_warning` asks for the frame only: a PROPOSED correction, the file to say `warning`.
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_colorama.json")).unwrap()).unwrap();
-    let case = &expected["cases"]["FX-COLORAMA-034"];
-    let loaded = t.load("fx_colorama_034.json");
-    for (frame, pixels) in case["frames"].as_object().unwrap() {
-        let d = effect_table::largest_difference(&t.render(&loaded.document, frame.parse().unwrap(), 64), pixels);
-        t.row(&format!("FX-COLORAMA-034 frame {frame}: {}", case["says"].as_str().unwrap()), &format!("largest difference {d:.1e}"), d <= 2e-5);
-    }
-    let on_open: Vec<&str> = loaded.warnings.iter().map(|d| d.id.as_str()).collect();
-    let mut log = FrameLog::new(8);
-    let _ = compose::plan_frame(loaded.document.project(), &Id::new(MAIN), 4, &t.root, &mut log);
-    let at_frame: Vec<String> = log.finish().iter().map(|d| d.id.as_str().to_string()).collect();
-    t.row(
-        "FX-COLORAMA-034: what opening it warns of, and what frame 4 warns of (D-189: both; the file's `frame_warning` asks for frame 4 only, a PROPOSED correction to `warning`)",
-        &format!("{on_open:?} and {at_frame:?}"),
-        on_open == ["EFFECT_LAYER_MISSING"] && at_frame == ["EFFECT_LAYER_MISSING"],
-    );
+    t.fixtures_numbered("expected_colorama.json", 1..=47);
 
     t.heading("Old projects draw exactly as before");
     let as_added = t.render(&t.load("fx_colorama_001.json").document, 0, 64);

@@ -45,6 +45,9 @@ B-254, after After Effects' Color Link: one colour read from a whole layer's pic
 | FX-CLINK-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CLINK-018 frame 0: Source layer `big`, 20 by 12, bigger than the holder: read whole, so its magenta border counts and pulls the average toward magenta. | largest difference 1.1e-8 | yes |
 | FX-CLINK-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-CLINK-019 frame 0: Source layer `ghost`, not a layer of the composition: the layer as it is, with EFFECT_LAYER_MISSING each frame. | largest difference 1.9e-7 | yes |
+| FX-CLINK-019 frame 3: Source layer `ghost`, not a layer of the composition: the layer as it is, with EFFECT_LAYER_MISSING each frame. | largest difference 1.9e-7 | yes |
+| FX-CLINK-019: what opening it warns of, and what frame 4 warns of | ["EFFECT_LAYER_MISSING"] and ["EFFECT_LAYER_MISSING"] | yes |
 | FX-CLINK-020 frame 0: Clip 50, above 49. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-CLINK-020 frame 4: Clip 50, above 49. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-CLINK-020: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
@@ -63,9 +66,6 @@ B-254, after After Effects' Color Link: one colour read from a whole layer's pic
 | FX-CLINK-025 frame 0: Blending mode "Normal": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-CLINK-025 frame 4: Blending mode "Normal": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-CLINK-025: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-CLINK-019 frame 0: Source layer `ghost`, not a layer of the composition: the layer as it is, with EFFECT_LAYER_MISSING each frame. | largest difference 1.9e-7 | yes |
-| FX-CLINK-019 frame 3: Source layer `ghost`, not a layer of the composition: the layer as it is, with EFFECT_LAYER_MISSING each frame. | largest difference 1.9e-7 | yes |
-| FX-CLINK-019: what opening it warns of, and what frame 4 warns of (D-189: both; the file's `frame_warning` asks for frame 4 only, a PROPOSED correction to `warning`) | ["EFFECT_LAYER_MISSING"] and ["EFFECT_LAYER_MISSING"] | yes |
 
 ## The file
 

@@ -204035,7 +204035,7 @@ FX-CLINK-017 (`fx_clink_017.json`): Opacity keyed from 0 at frame 0 to 100 at fr
 
 FX-CLINK-018 (`fx_clink_018.json`): Source layer `big`, 20 by 12, bigger than the holder: read whole, so its magenta border counts and pulls the average toward magenta. Frames 0.
 
-FX-CLINK-019 (`fx_clink_019.json`): Source layer `ghost`, not a layer of the composition: the layer as it is, with EFFECT_LAYER_MISSING each frame. Warning `EFFECT_LAYER_MISSING` every frame. Frames 0, 3.
+FX-CLINK-019 (`fx_clink_019.json`): Source layer `ghost`, not a layer of the composition: the layer as it is, with EFFECT_LAYER_MISSING each frame. Warning `EFFECT_LAYER_MISSING` on opening and every frame (D-375). Frames 0, 3.
 
 FX-CLINK-020 (`fx_clink_020.json`): Clip 50, above 49. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -204313,7 +204313,7 @@ FX-COLORAMA-032 (`fx_colorama_032.json`): Masking by inverse alpha with Composit
 
 FX-COLORAMA-033 (`fx_colorama_033.json`): Add Phase and mask layers together, add mode screen, masking by luminance. Frames 0.
 
-FX-COLORAMA-034 (`fx_colorama_034.json`): Mask layer `ghost`, not a layer of the composition: no mask, the whole of FX-COLORAMA-001, with EFFECT_LAYER_MISSING each frame. Warning `EFFECT_LAYER_MISSING` every frame. Frames 0, 3.
+FX-COLORAMA-034 (`fx_colorama_034.json`): Mask layer `ghost`, not a layer of the composition: no mask, the whole of FX-COLORAMA-001, with EFFECT_LAYER_MISSING each frame. Warning `EFFECT_LAYER_MISSING` on opening and every frame (D-381). Frames 0, 3.
 
 FX-COLORAMA-035 (`fx_colorama_035.json`): Get phase "Hue": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 

@@ -76,6 +76,9 @@ B-260, after After Effects' Colorama, on D-316's effect: the phase also from hue
 | FX-COLORAMA-032: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-COLORAMA-033 frame 0: Add Phase and mask layers together, add mode screen, masking by luminance. | largest difference 4.5e-7 | yes |
 | FX-COLORAMA-033: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-COLORAMA-034 frame 0: Mask layer `ghost`, not a layer of the composition: no mask, the whole of FX-COLORAMA-001, with EFFECT_LAYER_MISSING each frame. | largest difference 5.1e-7 | yes |
+| FX-COLORAMA-034 frame 3: Mask layer `ghost`, not a layer of the composition: no mask, the whole of FX-COLORAMA-001, with EFFECT_LAYER_MISSING each frame. | largest difference 5.1e-7 | yes |
+| FX-COLORAMA-034: what opening it warns of, and what frame 4 warns of | ["EFFECT_LAYER_MISSING"] and ["EFFECT_LAYER_MISSING"] | yes |
 | FX-COLORAMA-035 frame 0: Get phase "Hue": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-COLORAMA-035 frame 4: Get phase "Hue": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-COLORAMA-035: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
@@ -115,9 +118,6 @@ B-260, after After Effects' Colorama, on D-316's effect: the phase also from hue
 | FX-COLORAMA-047 frame 0: Composite over "no", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-COLORAMA-047 frame 4: Composite over "no", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-COLORAMA-047: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-COLORAMA-034 frame 0: Mask layer `ghost`, not a layer of the composition: no mask, the whole of FX-COLORAMA-001, with EFFECT_LAYER_MISSING each frame. | largest difference 5.1e-7 | yes |
-| FX-COLORAMA-034 frame 3: Mask layer `ghost`, not a layer of the composition: no mask, the whole of FX-COLORAMA-001, with EFFECT_LAYER_MISSING each frame. | largest difference 5.1e-7 | yes |
-| FX-COLORAMA-034: what opening it warns of, and what frame 4 warns of (D-189: both; the file's `frame_warning` asks for frame 4 only, a PROPOSED correction to `warning`) | ["EFFECT_LAYER_MISSING"] and ["EFFECT_LAYER_MISSING"] | yes |
 
 ## Old projects draw exactly as before
 
