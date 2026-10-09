@@ -129,26 +129,26 @@ B-237, after After Effects' Bilateral Blur: each pixel mixes with the pixels rou
 | fx_bilat_016.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_bilat_017.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on): the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1348088 pixels changed | yes |
-| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 0, Full | largest difference 1 of 255, 897 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 100, Full | largest difference 1 of 255, 1070 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 239, Full | largest difference 1 of 255, 795 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 0, Draft | largest difference 1 of 255, 56 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 100, Draft | largest difference 1 of 255, 55 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 239, Draft | largest difference 1 of 255, 44 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 0, Full | largest difference 1 of 255, 928 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 100, Full | largest difference 1 of 255, 1095 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 239, Full | largest difference 1 of 255, 832 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 0, Draft | largest difference 1 of 255, 64 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 100, Draft | largest difference 1 of 255, 64 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur as added (Radius 5, Threshold 20, Colorize on) on three layers, frame 239, Draft | largest difference 1 of 255, 53 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2003654 pixels changed | yes |
-| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 0, Full | largest difference 1 of 255, 1128 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 100, Full | largest difference 1 of 255, 1078 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 239, Full | largest difference 1 of 255, 1136 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 0, Draft | largest difference 1 of 255, 80 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 100, Draft | largest difference 1 of 255, 73 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 0, Full | largest difference 1 of 255, 1154 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 100, Full | largest difference 1 of 255, 1099 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 239, Full | largest difference 1 of 255, 1163 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 0, Draft | largest difference 1 of 255, 79 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 100, Draft | largest difference 1 of 255, 72 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur Radius 8, Threshold 30, Colorize off on three layers, frame 239, Draft | largest difference 1 of 255, 75 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1692324 pixels changed | yes |
-| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 0, Full | largest difference 1 of 255, 885 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 100, Full | largest difference 1 of 255, 996 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 239, Full | largest difference 1 of 255, 823 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 0, Draft | largest difference 1 of 255, 56 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 100, Draft | largest difference 1 of 255, 59 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 239, Draft | largest difference 1 of 255, 48 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 0, Full | largest difference 1 of 255, 1045 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 100, Full | largest difference 1 of 255, 1151 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 239, Full | largest difference 1 of 255, 985 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 0, Draft | largest difference 1 of 255, 57 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 100, Draft | largest difference 1 of 255, 60 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Bilateral Blur Radius 16, Threshold 60, Colorize on on three layers, frame 239, Draft | largest difference 1 of 255, 49 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: a scanned face smoothed, in `verification/D-358 pictures/`, three times enlarged
 

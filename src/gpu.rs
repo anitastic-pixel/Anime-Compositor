@@ -3358,8 +3358,9 @@ fn smart(@builtin(global_invocation_id) id: vec3<u32>) {
 // luminance. Mode 1, `other` those: each pixel that shows the mean of the taps that show within
 // the disc, each weighed by its covering and two bells, one on its distance and one on how far its
 // level is from the pixel's own. k: the likeness's 1 / 2T^2, the distance's 1 / 2s^2, then from
-// `n` the disc's rows. The bells are single precision, the sums double, as near the CPU's double
-// as a level of 255 needs.
+// `n` the disc's rows. The taps are summed in single precision: double sums made it about ten
+// times slower, and single stays well within a level of 255 of the CPU's double even over Radius
+// 50's 7,850 taps (D-358 table).
 @compute @workgroup_size(16, 16)
 fn bilat(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = vec2<i32>(textureDimensions(input));
@@ -3386,12 +3387,14 @@ fn bilat(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     let own = textureLoad(other, p, 0);
-    var s0 = 0.0lf;
-    var s1 = 0.0lf;
-    var s2 = 0.0lf;
-    var w0 = 0.0lf;
-    var w1 = 0.0lf;
-    var w2 = 0.0lf;
+    let k0 = f32(k[0]);
+    let k1 = f32(k[1]);
+    var s0 = 0.0;
+    var s1 = 0.0;
+    var s2 = 0.0;
+    var w0 = 0.0;
+    var w1 = 0.0;
+    var w2 = 0.0;
     for (var dy = -F.r; dy <= F.r; dy++) {
         let hw = i32(k[F.n + u32(dy + F.r)]);
         for (var dx = -hw; dx <= hw; dx++) {
@@ -3404,21 +3407,20 @@ fn bilat(@builtin(global_invocation_id) id: vec3<u32>) {
                 continue;
             }
             let l = textureLoad(other, q, 0);
-            let ta = f64(t.w);
-            let near = f64(exp(f32(-f64(dx * dx + dy * dy) * k[1]))) * ta;
-            let c0 = f64(t.x) / ta;
-            let c1 = f64(t.y) / ta;
-            let c2 = f64(t.z) / ta;
-            let d0 = f64(l.x) - f64(own.x);
-            let v0 = select(0.2126lf * c0 + 0.7152lf * c1 + 0.0722lf * c2, c0, F.flag == 1u);
-            let x0 = near * f64(exp(f32(-d0 * d0 * k[0])));
+            let near = exp(-f32(dx * dx + dy * dy) * k1) * t.w;
+            let c0 = t.x / t.w;
+            let c1 = t.y / t.w;
+            let c2 = t.z / t.w;
+            let d0 = l.x - own.x;
+            let v0 = select(0.2126 * c0 + 0.7152 * c1 + 0.0722 * c2, c0, F.flag == 1u);
+            let x0 = near * exp(-d0 * d0 * k0);
             s0 += x0 * v0;
             w0 += x0;
             if F.flag == 1u {
-                let d1 = f64(l.y) - f64(own.y);
-                let d2 = f64(l.z) - f64(own.z);
-                let x1 = near * f64(exp(f32(-d1 * d1 * k[0])));
-                let x2 = near * f64(exp(f32(-d2 * d2 * k[0])));
+                let d1 = l.y - own.y;
+                let d2 = l.z - own.z;
+                let x1 = near * exp(-d1 * d1 * k0);
+                let x2 = near * exp(-d2 * d2 * k0);
                 s1 += x1 * c1;
                 w1 += x1;
                 s2 += x2 * c2;
@@ -3426,12 +3428,12 @@ fn bilat(@builtin(global_invocation_id) id: vec3<u32>) {
             }
         }
     }
-    let o0 = quotient(s0, w0);
+    let o0 = quotient(f64(s0), f64(w0));
     var o1 = o0;
     var o2 = o0;
     if F.flag == 1u {
-        o1 = quotient(s1, w1);
-        o2 = quotient(s2, w2);
+        o1 = quotient(f64(s1), f64(w1));
+        o2 = quotient(f64(s2), f64(w2));
     }
     textureStore(output, id.xy, vec4(f32(o0 * a), f32(o1 * a), f32(o2 * a), s.w));
 }
