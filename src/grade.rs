@@ -835,8 +835,9 @@ pub(crate) fn colorama(source: &mut WorkingBuffer, maps: [Option<&WorkingBuffer>
             let f = if c.interpolate { p - p.floor() } else { 0.0 };
             let m: [f64; 3] = std::array::from_fn(|ch| c.ring[i][ch] + f * (c.ring[j][ch] - c.ring[i][ch]));
             let b = [0, 1, 2].map(|ch| if a > 0.0 { px[ch] as f64 / a } else { 0.0 });
-            let e = b.map(|v| to_srgb(v.clamp(0.0, 1.0)));
-            let mut weight = c.matching.map_or(1.0, |(colour, kind, t, s)| nearness(change_distance(e, colour, kind), t, s));
+            // Encoded only when read, so D-316's sum below costs what it did.
+            let e = || b.map(|v| to_srgb(v.clamp(0.0, 1.0)));
+            let mut weight = c.matching.map_or(1.0, |(colour, kind, t, s)| nearness(change_distance(e(), colour, kind), t, s));
             if let Some(m) = maps[1] {
                 let q = under(m, x, y);
                 let lum = phase_of("luminance", &q) * q[3] as f64;
@@ -855,6 +856,7 @@ pub(crate) fn colorama(source: &mut WorkingBuffer, maps: [Option<&WorkingBuffer>
                 }
                 continue;
             }
+            let e = e();
             let g = match c.modify {
                 "all" => m,
                 "none" => e,
