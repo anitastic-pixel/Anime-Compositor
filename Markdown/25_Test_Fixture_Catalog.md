@@ -204772,3 +204772,137 @@ FX-RPULSE-017 (`fx_rpulse_017.json`): Render Bump Map "yes", not a word it takes
 FX-RPULSE-018 (`fx_rpulse_018.json`): Centre at 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-RPULSE-019 (`fx_rpulse_019.json`): Pulse Level keyed to -2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Slant (D-391)
+
+Slant (`core.slant`), after CycoreFX's CC Slant (B-270): the drawing leaned over by Slant degrees, its height scaled by Height per cent toward a level floor line through Floor and, without Stretching, shortened as well by the cosine of the slant; Set Color fills it with one colour under its coverage. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/slant_reference.py` works the expected frames, `Fixtures/slant/expected_slant.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SLANT-001 (`fx_slant_001.json`): The settings as they start: slant 0, height 100: the drawing, untouched. Frames 0.
+
+FX-SLANT-002 (`fx_slant_002.json`): Slant 30, stretching off, the floor at the bottom: the top leans right and the picture sinks to cos 30 of its height, its leant edges as long as they stood. Frames 0.
+
+FX-SLANT-003 (`fx_slant_003.json`): Slant 30, stretching on: the top leans right and the height stays. Frames 0.
+
+FX-SLANT-004 (`fx_slant_004.json`): Slant -30, stretching on: the top leans left. Frames 0.
+
+FX-SLANT-005 (`fx_slant_005.json`): Slant 30, stretching on, the floor through the middle: the top leans right and the bottom left. Frames 0.
+
+FX-SLANT-006 (`fx_slant_006.json`): Slant 30, stretching on, the floor at the top: the top row stays and the bottom leans left. Frames 0.
+
+FX-SLANT-007 (`fx_slant_007.json`): Slant 0, height 50, stretching on: squashed to half height onto the floor, the top half transparent. Frames 0.
+
+FX-SLANT-008 (`fx_slant_008.json`): Slant 0, height 200, stretching on, the floor through the middle: stretched to twice the height about the middle. Frames 0.
+
+FX-SLANT-009 (`fx_slant_009.json`): Height 0: nothing drawn. Frames 0.
+
+FX-SLANT-010 (`fx_slant_010.json`): Slant 45, stretching on, height 50, set color on in red: a red shadow lying down to the right, as soft at its edges as the drawing. Frames 0.
+
+FX-SLANT-011 (`fx_slant_011.json`): Slant keyed from 0 at frame 0 to 60 at frame 4, linear, stretching on: frame 0 the drawing, frame 2 FX-SLANT-003. Frames 0, 2, 4.
+
+FX-SLANT-012 (`fx_slant_012.json`): Height eased from 0 at frame 0 to 1000 at frame 4 on a curve that overshoots, stretching on: at frame 2 it would pass 1000 and is held there. Frames 0, 2, 4.
+
+FX-SLANT-013 (`fx_slant_013.json`): FX-SLANT-003 moved three pixels right: the same, moved; nothing grows. Frames 0.
+
+FX-SLANT-014 (`fx_slant_014.json`): Slant 80, stretching off: leant almost flat, cos 80 of its height, most of it past the right edge and cut. Frames 0.
+
+FX-SLANT-015 (`fx_slant_015.json`): Floor keyed from 50, 100 at frame 0 to 50, 0 at frame 4, slant 30, stretching on: frame 0 FX-SLANT-003, frame 2 FX-SLANT-005, frame 4 FX-SLANT-006. Frames 0, 2, 4.
+
+FX-SLANT-016 (`fx_slant_016.json`): Slant 81, above 80. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SLANT-017 (`fx_slant_017.json`): Slant -81, below -80. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SLANT-018 (`fx_slant_018.json`): Height 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SLANT-019 (`fx_slant_019.json`): Height -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SLANT-020 (`fx_slant_020.json`): Stretching "yes", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SLANT-021 (`fx_slant_021.json`): Set Color "maybe", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SLANT-022 (`fx_slant_022.json`): Color "black", not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SLANT-023 (`fx_slant_023.json`): Floor at 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SLANT-024 (`fx_slant_024.json`): Slant keyed to 90 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Smear (D-392)
+
+Smear (`core.smear`), after CycoreFX's CC Smear (B-271): a round patch Radius pixels across dragged from From toward To, Reach per cent of the way, full along the line between them and easing to nothing at the patch's edge. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/smear_reference.py` works the expected frames, `Fixtures/smear/expected_smear.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SMEAR-001 (`fx_smear_001.json`): The settings as they start: from 40, 50 to 60, 50, radius 70, wider than the drawing: the picture at 6.4, 5 drawn out 3.2 pixels to the right, everything right of it pushed along. Frames 0.
+
+FX-SMEAR-002 (`fx_smear_002.json`): From 25, 50 to 75, 50, radius 4: a band 4 pixels each side of the middle row dragged 8 pixels right, the stripes at 4, 5 drawn out along it, the top and bottom rows untouched. Frames 0.
+
+FX-SMEAR-003 (`fx_smear_003.json`): FX-SMEAR-002 at reach 200: dragged twice as far. Frames 0.
+
+FX-SMEAR-004 (`fx_smear_004.json`): FX-SMEAR-002 at reach -100: dragged 8 pixels left from 4, 5. Frames 0.
+
+FX-SMEAR-005 (`fx_smear_005.json`): FX-SMEAR-002 at reach 0: the drawing, untouched. Frames 0.
+
+FX-SMEAR-006 (`fx_smear_006.json`): Radius 0: the drawing, untouched. Frames 0.
+
+FX-SMEAR-007 (`fx_smear_007.json`): From 50, 20 to 50, 80, radius 5: dragged down the middle column, the blue band pulled down. Frames 0.
+
+FX-SMEAR-008 (`fx_smear_008.json`): From and to both at 50, 50: no drag, the drawing untouched. Frames 0.
+
+FX-SMEAR-009 (`fx_smear_009.json`): Radius keyed from 0 at frame 0 to 8 at frame 4, linear, from 25, 50 to 75, 50: frame 0 the drawing, frame 2 FX-SMEAR-002. Frames 0, 2, 4.
+
+FX-SMEAR-010 (`fx_smear_010.json`): To keyed from 25, 50 at frame 0 to 75, 50 at frame 4, from 25, 50, radius 4: frame 0 no drag, frame 4 FX-SMEAR-002: the drag grows out. Frames 0, 2, 4.
+
+FX-SMEAR-011 (`fx_smear_011.json`): FX-SMEAR-002 moved three pixels right: the same, moved; nothing grows. Frames 0.
+
+FX-SMEAR-012 (`fx_smear_012.json`): Radius eased from 0 at frame 0 to 1000 at frame 4 on a curve that overshoots: at frame 2 it would pass 1000 and is held there. Frames 0, 2, 4.
+
+FX-SMEAR-013 (`fx_smear_013.json`): From 25, 50 to 30, 50, reach 1000, radius 3: the 0.8 pixel step ten times over, 8 pixels, the same drag as FX-SMEAR-002 but narrower. Frames 0.
+
+FX-SMEAR-014 (`fx_smear_014.json`): Radius 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMEAR-015 (`fx_smear_015.json`): Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMEAR-016 (`fx_smear_016.json`): Reach 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMEAR-017 (`fx_smear_017.json`): Reach -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMEAR-018 (`fx_smear_018.json`): From at 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMEAR-019 (`fx_smear_019.json`): To at 50, -1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMEAR-020 (`fx_smear_020.json`): Reach keyed to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Split (D-393)
+
+Split (`core.split`), after CycoreFX's CC Split (B-272): the drawing torn open along the line from Point A to Point B, the gap Split pixels wide at the middle and closed at the two points, each side squeezed outward. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/split_reference.py` works the expected frames, `Fixtures/split/expected_split.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SPLIT-001 (`fx_split_001.json`): The settings as they start: from 25, 50 to 75, 50, split 50, wider than the drawing: the middle torn wide open, transparent from top to bottom between the points, the ends kept. Frames 0.
+
+FX-SPLIT-002 (`fx_split_002.json`): Split 4: a gap 4 pixels wide at the middle of the middle row, closed at 4, 5 and 12, 5, the band pushed up and down and squeezed into the 4 pixels each side; columns left of 4 and right of 12 untouched. Frames 0.
+
+FX-SPLIT-003 (`fx_split_003.json`): Split 0: the drawing, untouched. Frames 0.
+
+FX-SPLIT-004 (`fx_split_004.json`): Both points at 50, 50: the drawing, untouched. Frames 0.
+
+FX-SPLIT-005 (`fx_split_005.json`): From 50, 10 to 50, 90, split 4: torn down the middle column, the stripes pushed left and right. Frames 0.
+
+FX-SPLIT-006 (`fx_split_006.json`): From 10, 10 to 90, 90, split 3: torn along the diagonal. Frames 0.
+
+FX-SPLIT-007 (`fx_split_007.json`): Split keyed from 0 at frame 0 to 8 at frame 4, linear: frame 0 the drawing, frame 2 FX-SPLIT-002. Frames 0, 2, 4.
+
+FX-SPLIT-008 (`fx_split_008.json`): Point B keyed from 25, 50 at frame 0 to 75, 50 at frame 4, split 4: frame 0 nothing torn, frame 4 FX-SPLIT-002. Frames 0, 2, 4.
+
+FX-SPLIT-009 (`fx_split_009.json`): FX-SPLIT-002 moved three pixels right: the same, moved; nothing grows. Frames 0.
+
+FX-SPLIT-010 (`fx_split_010.json`): Split eased from 0 at frame 0 to 1000 at frame 4 on a curve that overshoots: at frame 2 it would pass 1000 and is held there. Frames 0, 2, 4.
+
+FX-SPLIT-011 (`fx_split_011.json`): FX-SPLIT-002 with the points swapped: the same picture. Frames 0.
+
+FX-SPLIT-012 (`fx_split_012.json`): From -50, 50 to 150, 50, split 6: the points off the drawing, the tear running right across it, 6 pixels wide at the middle. Frames 0.
+
+FX-SPLIT-013 (`fx_split_013.json`): Split 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPLIT-014 (`fx_split_014.json`): Split -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPLIT-015 (`fx_split_015.json`): Point A at 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPLIT-016 (`fx_split_016.json`): Point B at 50, -1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPLIT-017 (`fx_split_017.json`): Split keyed to 1500 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
