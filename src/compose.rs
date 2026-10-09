@@ -964,6 +964,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::FlowMotion { .. }
                 | crate::effects::Effect::Griddler { .. }
                 | crate::effects::Effect::Fisheye { .. }
+                // D-388..D-390: Page Turn, Power Pin and Ripple Pulse.
+                | crate::effects::Effect::PageTurn { .. }
+                | crate::effects::Effect::PowerPin { .. }
+                | crate::effects::Effect::RipplePulse { .. }
                 // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }
                 | crate::effects::Effect::FourColorGradient { .. }
@@ -1221,6 +1225,19 @@ fn card_effect(
                 E::Griddler { horizontal_scale, vertical_scale, rotation, .. } => {
                     *horizontal_scale == 100.0 && *vertical_scale == 100.0 && rotation.to_radians() == 0.0
                 }
+                // D-388..D-390: a corner turned onto itself; every pin where it starts and nothing
+                // expanded; no change in the level to send out, with no bump drawn.
+                E::PageTurn { controls, fold_position, fold_direction, fold_radius, .. } => {
+                    let d = ((size.0 - 2 * offset.0) as f64, (size.1 - 2 * offset.1) as f64);
+                    crate::effects::page_turn_fold(controls, *fold_position, *fold_direction, *fold_radius, d).is_none()
+                }
+                E::PowerPin { top_left, top_right, bottom_left, bottom_right, expansion_top, expansion_left, expansion_right, expansion_bottom, .. } => {
+                    [*top_left, *top_right, *bottom_left, *bottom_right] == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]]
+                        && [*expansion_top, *expansion_left, *expansion_right, *expansion_bottom] == [0.0; 4]
+                }
+                E::RipplePulse { amplitude, render_bump_map, levels, .. } => {
+                    render_bump_map != "on" && (*amplitude == 0.0 || levels.windows(2).all(|w| w[0] == w[1]))
+                }
                 // D-360: the mean of two untouched copies is the layer.
                 E::CrossBlur { radius_x, radius_y, mode, .. } => {
                     mode == "blend" && crate::effects::box_reach(*radius_x, 1.0).max(crate::effects::box_reach(*radius_y, 1.0)) == 0
@@ -1272,6 +1289,23 @@ fn card_effect(
                 E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
                     let pins = [*upper_left, *upper_right, *lower_left, *lower_right];
                     crate::layer_fx::corner_map(pins, size, *offset).map_or((0, 0), |m| m.2)
+                }
+                // D-389: a Power Pin by its expanded corners, unless it is stretched back out.
+                E::PowerPin {
+                    top_left,
+                    top_right,
+                    bottom_left,
+                    bottom_right,
+                    perspective,
+                    unstretch,
+                    expansion_top,
+                    expansion_left,
+                    expansion_right,
+                    expansion_bottom,
+                } if unstretch != "on" => {
+                    let pins = [*top_left, *top_right, *bottom_left, *bottom_right];
+                    let e = [*expansion_top, *expansion_left, *expansion_right, *expansion_bottom];
+                    crate::layer_fx::power_pin_map(pins, perspective / 100.0, e, size, *offset).map_or((0, 0), |m| m.4)
                 }
                 _ => (effect.bounds_expansion(), effect.bounds_expansion()),
             };
@@ -1809,6 +1843,23 @@ fn effect_now(
     // D-319: Fractal Noise is held to white only in Display depth.
     if let crate::effects::Effect::FractalNoise { float: f, .. } = &mut now.effect {
         *f = float;
+    }
+    // D-390: Ripple Pulse's levels, the pulse level now and at each frame of the time span
+    // before, read as the layer's keys are; frames read through the layer's time stretch.
+    if now.is_valid() {
+        if let crate::effects::Effect::RipplePulse { time_span, pulse_level, levels, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            let n = (*time_span * fps + 0.5).floor() as i32;
+            *levels = std::iter::once(*pulse_level)
+                .chain((1..=n).map(|j| {
+                    let then = crate::expr::effect_at(comp, &layer.id, instance, at - j, layer.key_time((at - j) as f64)).0;
+                    match then.effect {
+                        crate::effects::Effect::RipplePulse { pulse_level, .. } => pulse_level,
+                        _ => *pulse_level,
+                    }
+                }))
+                .collect();
+        }
     }
     for (name, e) in failed {
         let what = format!("{} {name}", instance.effect.name());

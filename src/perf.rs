@@ -246,6 +246,10 @@ pub enum Stage {
     EffectFlowMotion,
     EffectGriddler,
     EffectFisheye,
+    /// D-388..D-390: Page Turn, Power Pin and Ripple Pulse.
+    EffectPageTurn,
+    EffectPowerPin,
+    EffectRipplePulse,
     EffectMomentMap,
     /// D-348's pass extract and depth key, per pixel; reading the pass from its file is timed
     /// as any file read is.
@@ -304,7 +308,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 147] = [
+    pub const ALL: [Stage; 150] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -420,6 +424,9 @@ impl Stage {
         Stage::EffectFlowMotion,
         Stage::EffectGriddler,
         Stage::EffectFisheye,
+        Stage::EffectPageTurn,
+        Stage::EffectPowerPin,
+        Stage::EffectRipplePulse,
         Stage::EffectMomentMap,
         Stage::EffectPassExtract,
         Stage::EffectDepthKey,
@@ -572,6 +579,9 @@ impl Stage {
             Stage::EffectFlowMotion => "effect: flow motion",
             Stage::EffectGriddler => "effect: griddler",
             Stage::EffectFisheye => "effect: fisheye",
+            Stage::EffectPageTurn => "effect: page turn",
+            Stage::EffectPowerPin => "effect: power pin",
+            Stage::EffectRipplePulse => "effect: ripple pulse",
             Stage::EffectMomentMap => "effect: moment map",
             Stage::EffectPassExtract => "effect: pass extract",
             Stage::EffectDepthKey => "effect: depth key",

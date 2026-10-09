@@ -1566,6 +1566,44 @@ pub enum Effect {
     /// D-387: after CycoreFX's CC Lens. `center`, per cent of the drawing, -1000 to 1000; `size`,
     /// 0 to 1000 per cent of half the drawing's diagonal; `convergence`, -100 to 100.
     Fisheye { center: [f64; 2], size: f64, convergence: f64 },
+    /// D-388: after CycoreFX's CC Page Turn. `controls`, one of [`PAGE_TURN_CONTROLS`];
+    /// `fold_position`, per cent of the drawing, -1000 to 1000; `fold_direction` and
+    /// `light_direction`, -3600 to 3600 degrees clockwise from up; `fold_radius`, 0 to 1000
+    /// pixels; `render`, one of [`PAGE_TURN_RENDERS`]; `back_page`, D-189's layer setting,
+    /// stretched, "" the paper; `back_opacity`, 0 to 100; `paper_color`, `#rrggbb`. `map` is not
+    /// a setting and is never saved.
+    PageTurn {
+        controls: String,
+        fold_position: [f64; 2],
+        fold_direction: f64,
+        fold_radius: f64,
+        light_direction: f64,
+        render: String,
+        back_page: serde_json::Value,
+        back_opacity: f64,
+        paper_color: String,
+        map: Option<crate::layer_map::Map>,
+    },
+    /// D-389: after CycoreFX's CC Power Pin. The four pins as Corner Pin's, -400 to 500 per cent;
+    /// `perspective`, 0 to 100; `unstretch`, "off" or "on"; the four expansions, -40 to 100 per
+    /// cent of the pinned square.
+    PowerPin {
+        top_left: [f64; 2],
+        top_right: [f64; 2],
+        bottom_left: [f64; 2],
+        bottom_right: [f64; 2],
+        perspective: f64,
+        unstretch: String,
+        expansion_top: f64,
+        expansion_left: f64,
+        expansion_right: f64,
+        expansion_bottom: f64,
+    },
+    /// D-390: after CycoreFX's CC Ripple Pulse. `center`, per cent of the drawing, -1000 to 1000;
+    /// `pulse_level`, -1000 to 1000; `time_span`, 0 to 10 seconds; `amplitude`, 0 to 1000;
+    /// `render_bump_map`, "off" or "on". `levels` is not a setting and is never saved: the pulse
+    /// level now and at each frame of the time span before, which compose reads for a frame.
+    RipplePulse { center: [f64; 2], pulse_level: f64, time_span: f64, amplitude: f64, render_bump_map: String, levels: Vec<f64> },
     /// D-379: after CycoreFX's CC Blobbylize. `layer` and `fit`, D-189's layer setting, the blob
     /// map, "" the layer itself; `property`, one of [`BLOBBYLIZE_PROPERTIES`]; `softness`, 0 to
     /// 100 pixels; `cut_away`, 0 to 100; `light_intensity`, 0 to 400; `light_color`, `#rrggbb`;
@@ -1945,6 +1983,13 @@ pub const BLOBBYLIZE: &str = "core.blobbylize";
 pub const FLOW_MOTION: &str = "core.flow_motion";
 pub const GRIDDLER: &str = "core.griddler";
 pub const FISHEYE: &str = "core.fisheye";
+pub const PAGE_TURN: &str = "core.page_turn";
+pub const POWER_PIN: &str = "core.power_pin";
+pub const RIPPLE_PULSE: &str = "core.ripple_pulse";
+/// D-388: Page Turn's ways of placing the fold, the line itself or the corner turned.
+pub const PAGE_TURN_CONTROLS: [&str; 5] = ["classic", "top_left", "top_right", "bottom_left", "bottom_right"];
+/// D-388: what Page Turn draws, in the order the card numbers them.
+pub const PAGE_TURN_RENDERS: [&str; 3] = ["full", "front", "back"];
 /// D-385: Flow Motion's antialiasing, in the order of its points a side, 1, 2 and 4.
 pub const FLOW_MOTION_ANTIALIASING: [&str; 3] = ["low", "medium", "high"];
 /// D-377: Bend It's words for the drawing before Start, in the order the card numbers them.
@@ -2653,6 +2698,41 @@ impl Effect {
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("size", vec![size], 0.0, 1000.0),
                 ("convergence", vec![convergence], -100.0, 100.0),
+            ],
+            Effect::PageTurn { fold_position, fold_direction, fold_radius, light_direction, back_opacity, .. } => vec![
+                ("fold_position", fold_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("fold_direction", vec![fold_direction], -3600.0, 3600.0),
+                ("fold_radius", vec![fold_radius], 0.0, 1000.0),
+                ("light_direction", vec![light_direction], -3600.0, 3600.0),
+                ("back_opacity", vec![back_opacity], 0.0, 100.0),
+            ],
+            Effect::PowerPin {
+                top_left,
+                top_right,
+                bottom_left,
+                bottom_right,
+                perspective,
+                expansion_top,
+                expansion_left,
+                expansion_right,
+                expansion_bottom,
+                ..
+            } => vec![
+                ("top_left", top_left.iter_mut().collect(), -400.0, 500.0),
+                ("top_right", top_right.iter_mut().collect(), -400.0, 500.0),
+                ("bottom_left", bottom_left.iter_mut().collect(), -400.0, 500.0),
+                ("bottom_right", bottom_right.iter_mut().collect(), -400.0, 500.0),
+                ("perspective", vec![perspective], 0.0, 100.0),
+                ("expansion_top", vec![expansion_top], -40.0, 100.0),
+                ("expansion_left", vec![expansion_left], -40.0, 100.0),
+                ("expansion_right", vec![expansion_right], -40.0, 100.0),
+                ("expansion_bottom", vec![expansion_bottom], -40.0, 100.0),
+            ],
+            Effect::RipplePulse { center, pulse_level, time_span, amplitude, .. } => vec![
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("pulse_level", vec![pulse_level], -1000.0, 1000.0),
+                ("time_span", vec![time_span], 0.0, 10.0),
+                ("amplitude", vec![amplitude], 0.0, 1000.0),
             ],
             Effect::Blobbylize {
                 softness,
@@ -3415,6 +3495,9 @@ impl Effect {
             }
             // D-378: an amount in per cent of the axis is no distance.
             Effect::Bender { amount, adjust_to_distance, .. } if adjust_to_distance != "on" => *amount = scale(*amount),
+            // D-388/D-390: the cylinder's radius and the push are distances.
+            Effect::PageTurn { fold_radius, .. } => *fold_radius = scale(*fold_radius),
+            Effect::RipplePulse { amplitude, .. } => *amplitude = scale(*amplitude),
             // D-379: a distant light's height is a slope against 100, no distance.
             Effect::Blobbylize { softness, light_type, light_height, .. } => {
                 *softness = scale(*softness);
@@ -3606,6 +3689,9 @@ impl Effect {
             Effect::FlowMotion { .. } => "Flow Motion",
             Effect::Griddler { .. } => "Griddler",
             Effect::Fisheye { .. } => "Fisheye",
+            Effect::PageTurn { .. } => "Page Turn",
+            Effect::PowerPin { .. } => "Power Pin",
+            Effect::RipplePulse { .. } => "Ripple Pulse",
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
@@ -3748,6 +3834,9 @@ impl Effect {
             Effect::FlowMotion { .. } => FLOW_MOTION,
             Effect::Griddler { .. } => GRIDDLER,
             Effect::Fisheye { .. } => FISHEYE,
+            Effect::PageTurn { .. } => PAGE_TURN,
+            Effect::PowerPin { .. } => POWER_PIN,
+            Effect::RipplePulse { .. } => RIPPLE_PULSE,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
@@ -3999,6 +4088,8 @@ impl Effect {
             | Effect::LensBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
             // D-375: read whole, never fitted to the holder.
             Effect::ColorLink { layer: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
+            // D-388: the back page is laid on the drawing, stretched to it.
+            Effect::PageTurn { back_page: serde_json::Value::String(layer), .. } => Some((layer, "stretch")),
             _ => None,
         }
     }
@@ -4023,6 +4114,7 @@ impl Effect {
             | Effect::MomentMap { layer, map, .. }
             | Effect::LensBlur { layer, map, .. }
             | Effect::ColorLink { layer, map, .. } => Some((layer, map)),
+            Effect::PageTurn { back_page, map, .. } => Some((back_page, map)),
             _ => None,
         }
     }
@@ -4398,6 +4490,24 @@ impl Effect {
             )),
             Effect::Griddler { cut_tiles, .. } if !["off", "on"].contains(&cut_tiles.as_str()) => Some(format!(
                 "Griddler's cut tiles is \"on\" or \"off\", and this is \"{cut_tiles}\"."
+            )),
+            Effect::PageTurn { controls, .. } if !PAGE_TURN_CONTROLS.contains(&controls.as_str()) => Some(format!(
+                "Page Turn's controls is classic, top_left, top_right, bottom_left or bottom_right, and this is \"{controls}\"."
+            )),
+            Effect::PageTurn { render, .. } if !PAGE_TURN_RENDERS.contains(&render.as_str()) => Some(format!(
+                "Page Turn's render is full, front or back, and this is \"{render}\"."
+            )),
+            Effect::PageTurn { back_page, .. } if !back_page.is_string() => Some(format!(
+                "Page Turn's back page is the name of a layer of this composition, and this is {back_page}."
+            )),
+            Effect::PageTurn { paper_color, .. } if hex_fault("Page Turn", "paper colour", paper_color).is_some() => {
+                hex_fault("Page Turn", "paper colour", paper_color)
+            }
+            Effect::PowerPin { unstretch, .. } if !["off", "on"].contains(&unstretch.as_str()) => Some(format!(
+                "Power Pin's unstretch is \"on\" or \"off\", and this is \"{unstretch}\"."
+            )),
+            Effect::RipplePulse { render_bump_map, .. } if !["off", "on"].contains(&render_bump_map.as_str()) => Some(format!(
+                "Ripple Pulse's render bump map is \"on\" or \"off\", and this is \"{render_bump_map}\"."
             )),
             Effect::Blobbylize { property, .. } if !BLOBBYLIZE_PROPERTIES.contains(&property.as_str()) => Some(format!(
                 "Blobbylize's property is red, green, blue, alpha, luminance or lightness, and this is \"{property}\"."
@@ -5206,6 +5316,30 @@ pub(crate) fn flow_motion_knots(
 pub(crate) fn fisheye_radius(size: f64, dims: (usize, usize), offset: (usize, usize)) -> f64 {
     let (w0, h0) = ((dims.0 - 2 * offset.0) as f64, (dims.1 - 2 * offset.1) as f64);
     size / 100.0 * w0.hypot(h0) / 2.0
+}
+
+/// D-388: Page Turn's fold in the space of a drawing `dw` by `dh`: n, the unit step across the
+/// line towards the part that lifts, and the offset with d = X . n - offset; `None` when a corner
+/// is turned onto itself, which leaves the page as it was. `position` per cent of the drawing.
+pub(crate) fn page_turn_fold(controls: &str, position: [f64; 2], direction: f64, radius: f64, (dw, dh): (f64, f64)) -> Option<((f64, f64), f64)> {
+    let (fx, fy) = (position[0] / 100.0 * dw, position[1] / 100.0 * dh);
+    let (kx, ky) = match controls {
+        "top_left" => (0.0, 0.0),
+        "top_right" => (dw, 0.0),
+        "bottom_left" => (0.0, dh),
+        "bottom_right" => (dw, dh),
+        _ => {
+            let (mx, my) = crate::blurs::along(direction);
+            let n = (-mx, -my);
+            return Some((n, fx * n.0 + fy * n.1));
+        }
+    };
+    let d = (kx - fx).hypot(ky - fy);
+    if d == 0.0 {
+        return None;
+    }
+    let n = ((kx - fx) / d, (ky - fy) / d);
+    Some((n, fx * n.0 + fy * n.1 + (d - std::f64::consts::PI * radius) / 2.0))
 }
 
 /// D-376: Color Stabilizer's samples of `source` for `mode`: the black point's, then the white
@@ -6027,6 +6161,77 @@ pub(crate) fn apply_stack_at(
                 let radius = fisheye_radius(*size, dims, (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectFisheye, || {
                     crate::layer_fx::fisheye(source, c, radius, convergence / 100.0)
+                })
+            }
+            // D-388: the map compose read for this frame, if a layer is named, is the back.
+            Effect::PageTurn {
+                controls,
+                fold_position,
+                fold_direction,
+                fold_radius,
+                light_direction,
+                render,
+                back_opacity,
+                paper_color,
+                map,
+                ..
+            } => {
+                let (dw, dh) = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+                if let Some(fold) = page_turn_fold(controls, *fold_position, *fold_direction, *fold_radius, (dw, dh)) {
+                    let (lx, ly) = crate::blurs::along(*light_direction);
+                    let l = lx * fold.0 .0 + ly * fold.0 .1;
+                    let paper = encoded(paper_color).map(crate::grade::to_linear);
+                    let r = PAGE_TURN_RENDERS.iter().position(|x| x == render).unwrap_or(0) as u8;
+                    crate::perf::time(crate::perf::Stage::EffectPageTurn, || {
+                        crate::layer_fx::page_turn(
+                            source,
+                            fold,
+                            *fold_radius,
+                            l,
+                            map.as_ref().map(|m| &*m.0),
+                            paper,
+                            back_opacity / 100.0,
+                            r,
+                            (ox, oy),
+                        )
+                    })
+                }
+            }
+            Effect::PowerPin {
+                top_left,
+                top_right,
+                bottom_left,
+                bottom_right,
+                perspective,
+                unstretch,
+                expansion_top,
+                expansion_left,
+                expansion_right,
+                expansion_bottom,
+            } => {
+                let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectPowerPin, || {
+                    crate::layer_fx::power_pin(
+                        source,
+                        [*top_left, *top_right, *bottom_left, *bottom_right],
+                        perspective / 100.0,
+                        unstretch == "on",
+                        [*expansion_top, *expansion_left, *expansion_right, *expansion_bottom],
+                        (ox, oy),
+                    )
+                });
+                ox += gx;
+                oy += gy;
+            }
+            // D-390: compose reads the levels for a frame; with none read there is no history,
+            // so no rings.
+            Effect::RipplePulse { center, pulse_level, amplitude, render_bump_map, levels, .. } => {
+                let dims = (source.width(), source.height());
+                let c = radial_center(*center, dims, (ox, oy));
+                let big = ((dims.0 - 2 * ox) as f64).hypot((dims.1 - 2 * oy) as f64) / 2.0;
+                let now = [*pulse_level];
+                let levels = if levels.is_empty() { &now[..] } else { &levels[..] };
+                crate::perf::time(crate::perf::Stage::EffectRipplePulse, || {
+                    crate::layer_fx::ripple_pulse(source, c, big, levels, *amplitude, render_bump_map == "on")
                 })
             }
             // D-379: the map compose read for this frame, if a layer is named, is the blob.

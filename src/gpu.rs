@@ -2890,6 +2890,97 @@ fn tiled(i: i32, g: i32, n: i32) -> u32 {
     return j;
 }
 
+// D-389, layer_fx::unbilinear on Power Pin's ring at k[19..27]: (1, u, v), or 0 first for none.
+fn pin_cross(ax: f64, ay: f64, bx: f64, by: f64) -> f64 {
+    return ax * by - ay * bx;
+}
+
+fn pin_unbilinear(px: f64, py: f64) -> array<f64, 3> {
+    let ax = k[19];
+    let ay = k[20];
+    let ex = k[21] - ax;
+    let ey = k[22] - ay;
+    let fx = k[25] - ax;
+    let fy = k[26] - ay;
+    let gx = ax - k[21] + k[23] - k[25];
+    let gy = ay - k[22] + k[24] - k[26];
+    let hx = px - ax;
+    let hy = py - ay;
+    let k2 = pin_cross(gx, gy, fx, fy);
+    let k1 = pin_cross(ex, ey, fx, fy) + pin_cross(hx, hy, gx, gy);
+    let k0 = pin_cross(hx, hy, ex, ey);
+    let disc = k1 * k1 - 4.0lf * k2 * k0;
+    var best = array<f64, 3>(0.0lf, 0.0lf, 0.0lf);
+    if disc < 0.0lf {
+        return best;
+    }
+    let root = sqrt(disc);
+    let q = -0.5lf * (k1 + select(root, -root, k1 < 0.0lf));
+    var nearest = 0.0lf;
+    for (var i = 0; i < 2; i++) {
+        var v = 0.0lf;
+        if i == 0 {
+            if k2 == 0.0lf {
+                continue;
+            }
+            v = quotient(q, k2);
+        } else {
+            if q == 0.0lf {
+                continue;
+            }
+            v = quotient(k0, q);
+        }
+        // Not a number, or past the largest, is no root.
+        if !(abs(v) <= 1.7976931348623157e308lf) {
+            continue;
+        }
+        let wx = ex + v * gx;
+        let wy = ey + v * gy;
+        let den = wx * wx + wy * wy;
+        if den == 0.0lf {
+            continue;
+        }
+        let u = quotient((hx - v * fx) * wx + (hy - v * fy) * wy, den);
+        let off = max(abs(u - 0.5lf), abs(v - 0.5lf));
+        if best[0] == 0.0lf || off < nearest {
+            best = array<f64, 3>(1.0lf, u, v);
+            nearest = off;
+        }
+    }
+    return best;
+}
+
+// D-390, layer_fx::ripple_push and ripple_height: the levels newest first at k[7..], n = k[2].
+fn ripple_change(j: u32, n: u32) -> f64 {
+    if j < n {
+        return k[7u + j] - k[8u + j];
+    }
+    return 0.0lf;
+}
+
+fn ripple_push(u: f64) -> f64 {
+    let n = u32(k[2]);
+    if u <= 0.5lf {
+        return ripple_change(0u, n);
+    }
+    if u >= f64(n) + 0.5lf {
+        return 0.0lf;
+    }
+    let j = floor(u - 0.5lf);
+    let t = u - 0.5lf - j;
+    return ripple_change(u32(j), n) * (1.0lf - t) + ripple_change(u32(j) + 1u, n) * t;
+}
+
+fn ripple_height(u: f64) -> f64 {
+    let n = u32(k[2]);
+    if u >= f64(n) {
+        return k[7u + n];
+    }
+    let j = floor(u);
+    let t = u - j;
+    return k[7u + u32(j)] * (1.0lf - t) + k[8u + u32(j)] * t;
+}
+
 @compute @workgroup_size(16, 16)
 fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -3258,6 +3349,89 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             textureStore(output, id.xy, vec4(f32(f64(s.x) * cover), f32(f64(s.y) * cover), f32(f64(s.z) * cover), f32(f64(s.w) * cover)));
             return;
         }
+        case 17u: {
+            // D-389, layer_fx::power_pin. k: the map back into the square by rows, its
+            // determinant, the map out of it by rows, the target ring, the drawing's size and
+            // corner, the drawing's corner in the output, the perspective (0 to 1), unstretch, 0,
+            // and 1 for a ring.
+            let z = k[35];
+            let p = k[33];
+            if k[36] == 0.0lf {
+                textureStore(output, id.xy, vec4(0.0));
+                return;
+            }
+            if k[34] == 1.0lf {
+                let u = quotient(x - k[29], k[27]);
+                let v = quotient(y - k[30], k[28]);
+                let wa = (1.0lf - u) * (1.0lf - v);
+                let wb = u * (1.0lf - v);
+                let wc = u * v;
+                let wd = (1.0lf - u) * v;
+                var px = wa * k[19] + wb * k[21] + wc * k[23] + wd * k[25];
+                var py = wa * k[20] + wb * k[22] + wc * k[24] + wd * k[26];
+                if p > 0.0lf {
+                    let t = product(k[16], u, z) + product(k[17], v, z) + k[18];
+                    if t <= 0.0lf {
+                        textureStore(output, id.xy, vec4(0.0));
+                        return;
+                    }
+                    let hx = quotient(product(k[10], u, z) + product(k[11], v, z) + k[12], t);
+                    let hy = quotient(product(k[13], u, z) + product(k[14], v, z) + k[15], t);
+                    px = p * hx + (1.0lf - p) * px;
+                    py = p * hy + (1.0lf - p) * py;
+                }
+                sx = px + k[29];
+                sy = py + k[30];
+            } else {
+                let px = x - k[31];
+                let py = y - k[32];
+                var u = 0.0lf;
+                var v = 0.0lf;
+                if p > 0.0lf {
+                    let uu = product(k[0], px, z) + product(k[1], py, z) + k[2];
+                    let vv = product(k[3], px, z) + product(k[4], py, z) + k[5];
+                    let t = product(k[6], px, z) + product(k[7], py, z) + k[8];
+                    if !(t * k[9] > 0.0lf) {
+                        textureStore(output, id.xy, vec4(0.0));
+                        return;
+                    }
+                    u = p * quotient(uu, t);
+                    v = p * quotient(vv, t);
+                }
+                if p < 1.0lf {
+                    let b = pin_unbilinear(px, py);
+                    if b[0] == 0.0lf {
+                        textureStore(output, id.xy, vec4(0.0));
+                        return;
+                    }
+                    u = u + (1.0lf - p) * b[1];
+                    v = v + (1.0lf - p) * b[2];
+                }
+                sx = product(u, k[27], z) + k[29];
+                sy = product(v, k[28], z) + k[30];
+            }
+        }
+        case 18u: {
+            // D-390, layer_fx::ripple_pulse. k: the centre, n (the levels less one), the reach of
+            // the whole history, the amplitude, 1 for the bump, 0, then the levels newest first.
+            let dx = x - k[0];
+            let dy = y - k[1];
+            let r = sqrt(product(dx, dx, k[6]) + product(dy, dy, k[6]));
+            let u = quotient(k[2] * r, k[3]);
+            if k[5] == 1.0lf {
+                let h = ripple_height(u) - k[7u + u32(k[2])];
+                let v = f32(clamp(0.5lf + quotient(k[4] * h, 2000.0lf), 0.0lf, 1.0lf));
+                textureStore(output, id.xy, vec4(v, v, v, 1.0));
+                return;
+            }
+            if r == 0.0lf {
+                textureStore(output, id.xy, textureLoad(input, id.xy, 0));
+                return;
+            }
+            let s = k[4] / 10.0lf * ripple_push(u);
+            sx = x - quotient(s * dx, r);
+            sy = y - quotient(s * dy, r);
+        }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
             let vx = x - f64(F.g) - k[0] - k[2];
@@ -3267,6 +3441,69 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
     textureStore(output, id.xy, bilinear(input, sx, sy));
+}
+
+// D-388, layer_fx::page_turn. k: the fold's step n across and down, its offset, the radius,
+// the light along n, the back's opacity (0 to 1), the paper in linear light, the render (0 full,
+// 1 front, 2 back), 1 when `other` is the back (a map lying on the drawing), the drawing's
+// corner, 0. Each channel in double precision on its own.
+fn page_at(x0: f64, x1: f64, d: f64, s: f64) -> array<f64, 4> {
+    let p = bilinear(input, x0 + (s - d) * k[0] + k[11], x1 + (s - d) * k[1] + k[12]);
+    return array<f64, 4>(f64(p.x), f64(p.y), f64(p.z), f64(p.w));
+}
+
+fn page_turned(x0: f64, x1: f64, d: f64, s: f64, shade: f64) -> array<f64, 4> {
+    var f = page_at(x0, x1, d, s);
+    var m = array<f64, 4>(k[6], k[7], k[8], 1.0lf);
+    if k[10] == 1.0lf {
+        let b = bilinear(other, x0 + (s - d) * k[0], x1 + (s - d) * k[1]);
+        m = array<f64, 4>(f64(b.x), f64(b.y), f64(b.z), f64(b.w));
+    }
+    let o = k[5];
+    var out = array<f64, 4>(0.0lf, 0.0lf, 0.0lf, f[3]);
+    for (var c = 0; c < 3; c++) {
+        out[c] = (f[3] * o * m[c] + (1.0lf - o * m[3]) * f[c]) * shade;
+    }
+    return out;
+}
+
+@compute @workgroup_size(16, 16)
+fn pageturn(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let pi = 3.141592653589793lf;
+    let x0 = f64(id.x) + 0.5lf - k[11];
+    let x1 = f64(id.y) + 0.5lf - k[12];
+    let r = k[3];
+    let d = product(x0, k[0], k[13]) + product(x1, k[1], k[13]) - k[2];
+    var top = array<f64, 4>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+    var under = array<f64, 4>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+    if !(d > r || (r == 0.0lf && d >= 0.0lf)) {
+        if d >= 0.0lf {
+            let t = min(quotient(d, r), 1.0lf);
+            let c = sqrt(1.0lf - t * t);
+            let shade = clamp(k[4] * t + c, 0.0lf, 1.0lf);
+            let a = atan2_64(t, c);
+            top = page_turned(x0, x1, d, r * (pi - a), shade);
+            under = page_at(x0, x1, d, r * a);
+        } else {
+            top = page_turned(x0, x1, d, pi * r - d, 1.0lf);
+            under = page_at(x0, x1, d, d);
+        }
+    }
+    var out = array<f64, 4>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+    for (var c = 0; c < 4; c++) {
+        if k[9] == 1.0lf {
+            out[c] = under[c];
+        } else if k[9] == 2.0lf {
+            out[c] = top[c];
+        } else {
+            out[c] = top[c] + (1.0lf - top[3]) * under[c];
+        }
+    }
+    textureStore(output, id.xy, vec4(f32(out[0]), f32(out[1]), f32(out[2]), f32(out[3])));
 }
 
 // B-107, the four wipes: layer_fx::linear_wipe (mode 0), radial_wipe (1, `count` the way round),
@@ -6108,6 +6345,8 @@ struct FxPasses {
     sgpass: Pass,
     sgadd: Pass,
     sgfinish: Pass,
+    /// D-388.
+    pageturn: Pass,
 }
 
 /// B-172: one colour effect of a run the card draws in one pass: `grade` (0) or `tone` (1), its
@@ -6725,6 +6964,7 @@ impl Gpu {
                 sgpass: pass("sgpass", &[0, 1, 2, 3]),
                 sgadd: pass("sgadd", &[0, 1, 2, 3, 4]),
                 sgfinish: pass("sgfinish", &[0, 1, 2, 3, 4]),
+                pageturn: pass("pageturn", &[0, 1, 2, 3, 4]),
                 chain: {
                     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                         label: Some("B-172"),
@@ -7972,6 +8212,66 @@ impl Gpu {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let k = [cx, cy, crate::effects::fisheye_radius(*size, (w, h), f.origin), convergence / 100.0, 0.0];
                 same(steps, &passes.warp, FxParams { mode: 16, ..Default::default() }, &k, None)
+            }
+            // D-388, layer_fx::page_turn; a corner turned onto itself is the drawing as it was.
+            E::PageTurn { controls, fold_position, fold_direction, fold_radius, light_direction, render, back_opacity, paper_color, map, .. } => {
+                let (dw, dh) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let Some(((n0, n1), off)) = crate::effects::page_turn_fold(controls, *fold_position, *fold_direction, *fold_radius, (dw, dh)) else {
+                    return (still.clone(), (w, h));
+                };
+                let (lx, ly) = crate::blurs::along(*light_direction);
+                let paper = linear(paper_color);
+                let r = crate::effects::PAGE_TURN_RENDERS.iter().position(|x| x == render).unwrap_or(0);
+                let back = map.as_ref().map(|m| self.map_texture(&m.0));
+                let k = [n0, n1, off, *fold_radius, lx * n0 + ly * n1, back_opacity / 100.0, paper[0], paper[1], paper[2], r as f64, back.is_some() as u8 as f64, ox as f64, oy as f64, 0.0];
+                let out = self.scratch("D-388 page turn", w, h);
+                self.fx_step(steps, &passes.pageturn, FxParams::default(), Some(still), Some(&out), Some(&k), Some(back.as_ref().unwrap_or(still)), none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-389, layer_fx::power_pin; no ring leaves the k[36] flag 0, which draws nothing.
+            E::PowerPin {
+                top_left,
+                top_right,
+                bottom_left,
+                bottom_right,
+                perspective,
+                unstretch,
+                expansion_top,
+                expansion_left,
+                expansion_right,
+                expansion_bottom,
+            } => {
+                let p = perspective / 100.0;
+                let on = unstretch == "on";
+                let (gx, gy) = if on { (0, 0) } else { f.grow };
+                let pins = [*top_left, *top_right, *bottom_left, *bottom_right];
+                let e = [*expansion_top, *expansion_left, *expansion_right, *expansion_bottom];
+                let mut k = [0.0; 37];
+                if let Some((q, mq, adj, det, _)) = crate::layer_fx::power_pin_map(pins, p, e, (w, h), f.origin) {
+                    k[..9].copy_from_slice(adj.as_flattened());
+                    k[9] = det;
+                    k[10..19].copy_from_slice(mq.as_flattened());
+                    for (i, c) in q.iter().enumerate() {
+                        k[19 + 2 * i] = c.0;
+                        k[20 + 2 * i] = c.1;
+                    }
+                    k[36] = 1.0;
+                }
+                k[27..35].copy_from_slice(&[(w - 2 * ox) as f64, (h - 2 * oy) as f64, ox as f64, oy as f64, (ox + gx) as f64, (oy + gy) as f64, p, on as u8 as f64]);
+                let (tw, th) = (w + 2 * gx, h + 2 * gy);
+                let out = self.scratch("D-389 power pin", tw, th);
+                self.fx_step(steps, &passes.warp, FxParams { mode: 17, ..Default::default() }, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
+                (out, (tw, th))
+            }
+            // D-390, layer_fx::ripple_pulse, with the levels compose read for this frame.
+            E::RipplePulse { center, pulse_level, amplitude, render_bump_map, levels, .. } => {
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
+                let big = ((w - 2 * ox) as f64).hypot((h - 2 * oy) as f64) / 2.0;
+                let now = [*pulse_level];
+                let levels = if levels.is_empty() { &now[..] } else { &levels[..] };
+                let mut k = vec![cx, cy, (levels.len() - 1) as f64, big, *amplitude, (render_bump_map == "on") as u8 as f64, 0.0];
+                k.extend_from_slice(levels);
+                same(steps, &passes.warp, FxParams { mode: 18, ..Default::default() }, &k, None)
             }
             E::Mirror { center, angle } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);

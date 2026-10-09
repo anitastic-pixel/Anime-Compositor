@@ -2720,6 +2720,57 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("size".into(), num(*size));
             params.insert("convergence".into(), num(*convergence));
         }
+        Effect::PageTurn {
+            controls,
+            fold_position,
+            fold_direction,
+            fold_radius,
+            light_direction,
+            render,
+            back_page,
+            back_opacity,
+            paper_color,
+            ..
+        } => {
+            params.insert("controls".into(), J::from(controls.as_str()));
+            params.insert("fold_position".into(), J::Array(fold_position.iter().map(|c| num(*c)).collect()));
+            params.insert("fold_direction".into(), num(*fold_direction));
+            params.insert("fold_radius".into(), num(*fold_radius));
+            params.insert("light_direction".into(), num(*light_direction));
+            params.insert("render".into(), J::from(render.as_str()));
+            params.insert("back_page".into(), back_page.clone());
+            params.insert("back_opacity".into(), num(*back_opacity));
+            params.insert("paper_color".into(), J::from(paper_color.as_str()));
+        }
+        Effect::PowerPin {
+            top_left,
+            top_right,
+            bottom_left,
+            bottom_right,
+            perspective,
+            unstretch,
+            expansion_top,
+            expansion_left,
+            expansion_right,
+            expansion_bottom,
+        } => {
+            for (name, v) in [("top_left", top_left), ("top_right", top_right), ("bottom_left", bottom_left), ("bottom_right", bottom_right)] {
+                params.insert(name.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
+            }
+            params.insert("perspective".into(), num(*perspective));
+            params.insert("unstretch".into(), J::from(unstretch.as_str()));
+            params.insert("expansion_top".into(), num(*expansion_top));
+            params.insert("expansion_left".into(), num(*expansion_left));
+            params.insert("expansion_right".into(), num(*expansion_right));
+            params.insert("expansion_bottom".into(), num(*expansion_bottom));
+        }
+        Effect::RipplePulse { center, pulse_level, time_span, amplitude, render_bump_map, .. } => {
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("pulse_level".into(), num(*pulse_level));
+            params.insert("time_span".into(), num(*time_span));
+            params.insert("amplitude".into(), num(*amplitude));
+            params.insert("render_bump_map".into(), J::from(render_bump_map.as_str()));
+        }
         Effect::Blobbylize {
             layer,
             fit,
@@ -4026,6 +4077,9 @@ fn parse_effect(
         crate::effects::FLOW_MOTION,
         crate::effects::GRIDDLER,
         crate::effects::FISHEYE,
+        crate::effects::PAGE_TURN,
+        crate::effects::POWER_PIN,
+        crate::effects::RIPPLE_PULSE,
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
@@ -5093,6 +5147,39 @@ fn parse_effect(
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
             size: effect_number(params, "size", &at)?,
             convergence: effect_number(params, "convergence", &at)?,
+        }),
+        // D-388: the back page is kept as written, as Blobbylize's layer is.
+        crate::effects::PAGE_TURN => Some(crate::effects::Effect::PageTurn {
+            controls: effect_word(params, "controls", &at)?,
+            fold_position: effect_array(params, "fold_position", "two numbers, x then y", &at)?,
+            fold_direction: effect_number(params, "fold_direction", &at)?,
+            fold_radius: effect_number(params, "fold_radius", &at)?,
+            light_direction: effect_number(params, "light_direction", &at)?,
+            render: effect_word(params, "render", &at)?,
+            back_page: field(effect_params(params, &at)?, &format!("{at}/parameters"), "back_page")?.clone(),
+            back_opacity: effect_number(params, "back_opacity", &at)?,
+            paper_color: effect_word(params, "paper_color", &at)?.to_ascii_lowercase(),
+            map: None,
+        }),
+        crate::effects::POWER_PIN => Some(crate::effects::Effect::PowerPin {
+            top_left: effect_array(params, "top_left", "two numbers, x then y", &at)?,
+            top_right: effect_array(params, "top_right", "two numbers, x then y", &at)?,
+            bottom_left: effect_array(params, "bottom_left", "two numbers, x then y", &at)?,
+            bottom_right: effect_array(params, "bottom_right", "two numbers, x then y", &at)?,
+            perspective: effect_number(params, "perspective", &at)?,
+            unstretch: effect_word(params, "unstretch", &at)?,
+            expansion_top: effect_number(params, "expansion_top", &at)?,
+            expansion_left: effect_number(params, "expansion_left", &at)?,
+            expansion_right: effect_number(params, "expansion_right", &at)?,
+            expansion_bottom: effect_number(params, "expansion_bottom", &at)?,
+        }),
+        crate::effects::RIPPLE_PULSE => Some(crate::effects::Effect::RipplePulse {
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            pulse_level: effect_number(params, "pulse_level", &at)?,
+            time_span: effect_number(params, "time_span", &at)?,
+            amplitude: effect_number(params, "amplitude", &at)?,
+            render_bump_map: effect_word(params, "render_bump_map", &at)?,
+            levels: Vec::new(),
         }),
         // D-379: the layer is kept as written, as CC Glass's is.
         crate::effects::BLOBBYLIZE => Some(crate::effects::Effect::Blobbylize {

@@ -2044,39 +2044,357 @@ pub(crate) fn corner_map(
     let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
     // A, B, C, D round the ring, in the drawing's space.
     let ring = [ul, ur, lr, ll].map(|p| (p[0] / 100.0 * dw, p[1] / 100.0 * dh));
+    if !convex(&ring) {
+        return None;
+    }
+    let (adj, det) = adjugate(square_to_quad(ring));
+    Some((adj, det, ring_growth(&ring, (dw, dh), (ox, oy))))
+}
+
+/// D-198: four points A, B, C, D round a ring, in the drawing's space.
+pub(crate) type Ring = [(f64, f64); 4];
+
+/// D-198: whether `ring` turns the same way at every corner: not crossed, bent in or in line.
+fn convex(ring: &Ring) -> bool {
     let z = |i: usize| {
         let ((px, py), (qx, qy), (rx, ry)) = (ring[(i + 3) % 4], ring[i], ring[(i + 1) % 4]);
         (qx - px) * (ry - qy) - (qy - py) * (rx - qx)
     };
     let z = [z(0), z(1), z(2), z(3)];
-    if !(z.iter().all(|v| *v > 0.0) || z.iter().all(|v| *v < 0.0)) {
-        return None;
-    }
-    // Heckbert's map of the unit square onto A (0, 0), B (1, 0), C (1, 1), D (0, 1).
-    let [a, b, c, d] = ring;
+    z.iter().all(|v| *v > 0.0) || z.iter().all(|v| *v < 0.0)
+}
+
+/// D-198: Heckbert's map of the unit square onto A (0, 0), B (1, 0), C (1, 1), D (0, 1), by rows.
+pub(crate) fn square_to_quad([a, b, c, d]: Ring) -> [[f64; 3]; 3] {
     let (sx, sy) = (a.0 - b.0 + c.0 - d.0, a.1 - b.1 + c.1 - d.1);
     let (dx1, dx2, dy1, dy2) = (b.0 - c.0, d.0 - c.0, b.1 - c.1, d.1 - c.1);
     let den = dx1 * dy2 - dx2 * dy1;
     let (g, hh) = ((sx * dy2 - dx2 * sy) / den, (dx1 * sy - sx * dy1) / den);
-    let [[m0, m1, m2], [m3, m4, m5], [m6, m7, m8]] = [
+    [
         [b.0 - a.0 + g * b.0, d.0 - a.0 + hh * d.0, a.0],
         [b.1 - a.1 + g * b.1, d.1 - a.1 + hh * d.1, a.1],
         [g, hh, 1.0],
-    ];
+    ]
+}
+
+/// D-198: `m`'s adjugate, the map back, and its determinant.
+pub(crate) fn adjugate([[m0, m1, m2], [m3, m4, m5], [m6, m7, m8]]: [[f64; 3]; 3]) -> ([[f64; 3]; 3], f64) {
     let adj = [
         [m4 * m8 - m5 * m7, m2 * m7 - m1 * m8, m1 * m5 - m2 * m4],
         [m5 * m6 - m3 * m8, m0 * m8 - m2 * m6, m2 * m3 - m0 * m5],
         [m3 * m7 - m4 * m6, m1 * m6 - m0 * m7, m0 * m4 - m1 * m3],
     ];
     let det = m0 * (m4 * m8 - m5 * m7) - m1 * (m3 * m8 - m5 * m6) + m2 * (m3 * m7 - m4 * m6);
-    // How far any corner lies past the buffer's sides, rounded up.
+    (adj, det)
+}
+
+/// D-198: how far any of `ring` lies past the sides of a buffer holding a drawing `dw` by `dh`
+/// with its corner at (`ox`, `oy`), across and down, rounded up.
+fn ring_growth(ring: &Ring, (dw, dh): (f64, f64), (ox, oy): (f64, f64)) -> (usize, usize) {
     let past = |lo: f64, hi: f64, v: [f64; 4]| {
         let (min, max) = v.iter().fold((f64::MAX, f64::MIN), |(n, x), v| (n.min(*v), x.max(*v)));
         (lo - min).max(max - hi).ceil().max(0.0) as usize
     };
-    let gx = past(-ox, dw + ox, ring.map(|p| p.0));
-    let gy = past(-oy, dh + oy, ring.map(|p| p.1));
-    Some((adj, det, (gx, gy)))
+    (past(-ox, dw + ox, ring.map(|p| p.0)), past(-oy, dh + oy, ring.map(|p| p.1)))
+}
+
+/// D-389: `m` at the square's (u, v): the point, and the third row, at most 0 at or past the
+/// horizon. A third row of 0 gives no point.
+fn homogeneous(m: &[[f64; 3]; 3], u: f64, v: f64) -> (f64, f64, f64) {
+    let [x, y, t] = m.map(|r| r[0] * u + r[1] * v + r[2]);
+    if t != 0.0 {
+        (x / t, y / t, t)
+    } else {
+        (f64::INFINITY, f64::INFINITY, t)
+    }
+}
+
+/// D-389: the bilinear map of the unit square onto `ring`.
+fn bilinear_map([a, b, c, d]: &Ring, u: f64, v: f64) -> (f64, f64) {
+    let at = |i: usize| {
+        let p = |q: &(f64, f64)| if i == 0 { q.0 } else { q.1 };
+        (1.0 - u) * (1.0 - v) * p(a) + u * (1.0 - v) * p(b) + u * v * p(c) + (1.0 - u) * v * p(d)
+    };
+    (at(0), at(1))
+}
+
+/// D-389: the square's (u, v) the bilinear map onto `ring` carries to `x`, the root nearer the
+/// square's middle, or `None`.
+fn unbilinear([a, b, c, d]: &Ring, x: (f64, f64)) -> Option<(f64, f64)> {
+    let cross = |p: (f64, f64), q: (f64, f64)| p.0 * q.1 - p.1 * q.0;
+    let e = (b.0 - a.0, b.1 - a.1);
+    let f = (d.0 - a.0, d.1 - a.1);
+    let g = (a.0 - b.0 + c.0 - d.0, a.1 - b.1 + c.1 - d.1);
+    let h = (x.0 - a.0, x.1 - a.1);
+    let k2 = cross(g, f);
+    let k1 = cross(e, f) + cross(h, g);
+    let k0 = cross(h, e);
+    let disc = k1 * k1 - 4.0 * k2 * k0;
+    if disc < 0.0 {
+        return None;
+    }
+    let root = disc.sqrt();
+    let q = -0.5 * (k1 + if k1 < 0.0 { -root } else { root });
+    let mut best: Option<(f64, f64, f64)> = None;
+    for v in [if k2 != 0.0 { q / k2 } else { f64::INFINITY }, if q != 0.0 { k0 / q } else { f64::INFINITY }] {
+        if !v.is_finite() {
+            continue;
+        }
+        let (ex, ey) = (e.0 + v * g.0, e.1 + v * g.1);
+        let den = ex * ex + ey * ey;
+        if den == 0.0 {
+            continue;
+        }
+        let u = ((h.0 - v * f.0) * ex + (h.1 - v * f.1) * ey) / den;
+        let far = (u - 0.5).abs().max((v - 0.5).abs());
+        if best.is_none_or(|b| far < b.0) {
+            best = Some((far, u, v));
+        }
+    }
+    best.map(|b| (b.1, b.2))
+}
+
+/// D-389: Power Pin's target, the expanded square's corners carried by `p` of Corner Pin's map
+/// and 1 - `p` of the bilinear one, in the drawing's space (`dw` by `dh`), round the ring top
+/// left, top right, bottom right, bottom left; `None` for corners that are not a ring, or a
+/// corner carried to or past the horizon. `pins` top left, top right, bottom left, bottom right,
+/// per cent; `expansion` top, left, right, bottom, per cent.
+pub(crate) fn power_pin_ring([tl, tr, bl, br]: [[f64; 2]; 4], p: f64, [top, left, right, bottom]: [f64; 4], (dw, dh): (f64, f64)) -> Option<Ring> {
+    let ring = [tl, tr, br, bl].map(|q| (q[0] / 100.0 * dw, q[1] / 100.0 * dh));
+    if !convex(&ring) {
+        return None;
+    }
+    let m = square_to_quad(ring);
+    let (l, t, r, b) = (left / 100.0, top / 100.0, right / 100.0, bottom / 100.0);
+    let mut q = ring;
+    for (k, (u, v)) in [(-l, -t), (1.0 + r, -t), (1.0 + r, 1.0 + b), (-l, 1.0 + b)].into_iter().enumerate() {
+        // Both maps carry the square's own corner to its pin, exactly.
+        if (u == 0.0 || u == 1.0) && (v == 0.0 || v == 1.0) {
+            continue;
+        }
+        let (x, y, w) = homogeneous(&m, u, v);
+        if p > 0.0 && w <= 0.0 {
+            return None;
+        }
+        let (bx, by) = bilinear_map(&ring, u, v);
+        q[k] = if p > 0.0 { (p * x + (1.0 - p) * bx, p * y + (1.0 - p) * by) } else { (bx, by) };
+    }
+    convex(&q).then_some(q)
+}
+
+/// D-389: Power Pin's target ring, its square-to-quad map, that map's adjugate and determinant,
+/// and how far the buffer grows across and down with Unstretch off; `None` when there is no ring.
+#[allow(clippy::type_complexity)]
+pub(crate) fn power_pin_map(
+    pins: [[f64; 2]; 4],
+    p: f64,
+    expansion: [f64; 4],
+    (w, h): (usize, usize),
+    origin: (usize, usize),
+) -> Option<(Ring, [[f64; 3]; 3], [[f64; 3]; 3], f64, (usize, usize))> {
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
+    let q = power_pin_ring(pins, p, expansion, (dw, dh))?;
+    let mq = square_to_quad(q);
+    let (adj, det) = adjugate(mq);
+    Some((q, mq, adj, det, ring_growth(&q, (dw, dh), (ox, oy))))
+}
+
+/// D-389: Power Pin, this program's own reading of CycoreFX's CC Power Pin: Corner Pin with
+/// `perspective` (0 to 1) of its map and the rest bilinear, the pinned square expanded by
+/// `expansion` (top, left, right, bottom, per cent) past the pins, and with `unstretch` the
+/// target's shape stretched out to fill the drawing instead. The drawing's corner is at `origin`;
+/// returns how far it grew on the left and on the top, the same as on the right and the bottom.
+/// No ring leaves the buffer clear. The settings are already valid.
+pub(crate) fn power_pin(
+    source: &mut WorkingBuffer,
+    pins: [[f64; 2]; 4],
+    perspective: f64,
+    unstretch: bool,
+    expansion: [f64; 4],
+    origin: (usize, usize),
+) -> (usize, usize) {
+    if pins == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]] && expansion == [0.0; 4] {
+        return (0, 0);
+    }
+    let (w, h) = (source.width(), source.height());
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let (dw, dh) = (w as f64 - 2.0 * ox, h as f64 - 2.0 * oy);
+    let p = perspective;
+    let Some((q, mq, adj, det, (gx, gy))) = power_pin_map(pins, p, expansion, (w, h), origin) else {
+        *source = WorkingBuffer::transparent(w, h);
+        return (0, 0);
+    };
+    let (wf, hf) = (w as f64, h as f64);
+    let drawing = &*source;
+    // A point in the drawing's space; far off, or not a number, reads nothing.
+    let read = |x: f64, y: f64| {
+        let (sx, sy) = (x + ox, y + oy);
+        (sx > -1.0 && sx < wf + 1.0 && sy > -1.0 && sy < hf + 1.0).then(|| sample_bilinear(drawing, sx, sy))
+    };
+    if unstretch {
+        let mut out = WorkingBuffer::transparent(w, h);
+        out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+            let (u, v) = (((i % w) as f64 + 0.5 - ox) / dw, ((i / w) as f64 + 0.5 - oy) / dh);
+            let (mut x, mut y) = bilinear_map(&q, u, v);
+            if p > 0.0 {
+                let (hx, hy, t) = homogeneous(&mq, u, v);
+                if t <= 0.0 {
+                    return;
+                }
+                (x, y) = (p * hx + (1.0 - p) * x, p * hy + (1.0 - p) * y);
+            }
+            if let Some(s) = read(x, y) {
+                px.copy_from_slice(&s);
+            }
+        });
+        *source = out;
+        return (0, 0);
+    }
+    let ow = w + 2 * gx;
+    let (left, top) = ((origin.0 + gx) as f64, (origin.1 + gy) as f64);
+    let mut out = WorkingBuffer::transparent(ow, h + 2 * gy);
+    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let x = ((i % ow) as f64 + 0.5 - left, (i / ow) as f64 + 0.5 - top);
+        let (mut u, mut v) = (0.0, 0.0);
+        if p > 0.0 {
+            let [uu, vv, t] = adj.map(|r| r[0] * x.0 + r[1] * x.1 + r[2]);
+            if t * det <= 0.0 {
+                return;
+            }
+            (u, v) = (p * (uu / t), p * (vv / t));
+        }
+        if p < 1.0 {
+            let Some((bu, bv)) = unbilinear(&q, x) else {
+                return;
+            };
+            (u, v) = (u + (1.0 - p) * bu, v + (1.0 - p) * bv);
+        }
+        if let Some(s) = read(u * dw, v * dh) {
+            px.copy_from_slice(&s);
+        }
+    });
+    *source = out;
+    (gx, gy)
+}
+
+/// D-388: Page Turn, this program's own reading of CycoreFX's CC Page Turn. The drawing (its
+/// corner at `origin`) rolled round a cylinder of `radius` lying on the line d = X . n - `off`
+/// = 0 of the drawing's space, the part past it turned over. The back is `back` (a map lying on
+/// the drawing) or the opaque `paper`, `opacity` of the way over the page's own picture and cut
+/// to it, shaded by l = L . n, L the light's step, where it curls. `render` 0 the back over the
+/// front, 1 the front, 2 the back. The settings are already valid, `paper` linear.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn page_turn(
+    source: &mut WorkingBuffer,
+    (n, off): ((f64, f64), f64),
+    radius: f64,
+    l: f64,
+    back: Option<&WorkingBuffer>,
+    paper: [f64; 3],
+    opacity: f64,
+    render: u8,
+    origin: (usize, usize),
+) {
+    use std::f64::consts::PI;
+    let w = source.width();
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let still = source.clone();
+    let r = radius;
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let x = ((i % w) as f64 + 0.5 - ox, (i / w) as f64 + 0.5 - oy);
+        let d = x.0 * n.0 + x.1 * n.1 - off;
+        let at = |s: f64| (x.0 + (s - d) * n.0, x.1 + (s - d) * n.1);
+        let page = |s: f64| {
+            let q = at(s);
+            sample_bilinear(&still, q.0 + ox, q.1 + oy).map(|v| v as f64)
+        };
+        let turned = |s: f64, shade: f64| {
+            let f = page(s);
+            let q = at(s);
+            let m = match back {
+                Some(b) => sample_bilinear(b, q.0, q.1).map(|v| v as f64),
+                None => [paper[0], paper[1], paper[2], 1.0],
+            };
+            let mut out = [0.0; 4];
+            for c in 0..3 {
+                out[c] = (f[3] * opacity * m[c] + (1.0 - opacity * m[3]) * f[c]) * shade;
+            }
+            out[3] = f[3];
+            out
+        };
+        let (top, under) = if d > r || (r == 0.0 && d >= 0.0) {
+            ([0.0; 4], [0.0; 4])
+        } else if d >= 0.0 {
+            let t = (d / r).min(1.0);
+            let shade = (l * t + (1.0 - t * t).sqrt()).clamp(0.0, 1.0);
+            (turned(r * (PI - t.asin()), shade), page(r * t.asin()))
+        } else {
+            (turned(PI * r - d, 1.0), page(d))
+        };
+        let out = match render {
+            1 => under,
+            2 => top,
+            _ => [0, 1, 2, 3].map(|c| top[c] + (1.0 - top[3]) * under[c]),
+        };
+        for c in 0..4 {
+            px[c] = out[c] as f32;
+        }
+    });
+}
+
+/// D-390: Ripple Pulse's push at `u` frames of travel out, the levels' changes joined by
+/// straight lines, the newest inside 1/2 and none past n + 1/2.
+pub(crate) fn ripple_push(levels: &[f64], u: f64) -> f64 {
+    let n = levels.len() - 1;
+    let g = |j: usize| if j < n { levels[j] - levels[j + 1] } else { 0.0 };
+    if u <= 0.5 {
+        return g(0);
+    }
+    if u >= n as f64 + 0.5 {
+        return 0.0;
+    }
+    let j = (u - 0.5).floor();
+    let t = u - 0.5 - j;
+    g(j as usize) * (1.0 - t) + g(j as usize + 1) * t
+}
+
+/// D-390: Ripple Pulse's height at `u`, the levels joined by straight lines, the oldest past n.
+pub(crate) fn ripple_height(levels: &[f64], u: f64) -> f64 {
+    let n = levels.len() - 1;
+    if u >= n as f64 {
+        return levels[n];
+    }
+    let j = u.floor();
+    let t = u - j;
+    levels[j as usize] * (1.0 - t) + levels[j as usize + 1] * t
+}
+
+/// D-390: Ripple Pulse, this program's own reading of CycoreFX's CC Ripple Pulse: the rings
+/// `levels` (the pulse level now, then at each frame before) send out from `center`, a point of
+/// the buffer, reaching `big` pixels out after the whole history. Each pixel reads the drawing
+/// `amplitude` / 10 times the push away from the centre, or with `bump` the rings' heights,
+/// opaque grey. The settings are already valid and `levels` holds at least one.
+pub(crate) fn ripple_pulse(source: &mut WorkingBuffer, center: (f64, f64), big: f64, levels: &[f64], amplitude: f64, bump: bool) {
+    let w = source.width();
+    let n = (levels.len() - 1) as f64;
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let (dx, dy) = (x - center.0, y - center.1);
+        let r = dx.hypot(dy);
+        let u = n * r / big;
+        if bump {
+            let v = (0.5 + amplitude * (ripple_height(levels, u) - levels[levels.len() - 1]) / 2000.0).clamp(0.0, 1.0) as f32;
+            px.copy_from_slice(&[v, v, v, 1.0]);
+            return;
+        }
+        if r == 0.0 {
+            return;
+        }
+        let s = amplitude / 10.0 * ripple_push(levels, u);
+        px.copy_from_slice(&sample_bilinear(&still, x - s * dx / r, y - s * dy / r));
+    });
 }
 
 /// D-198: the drawing, whose corner is at `origin` in the buffer, stretched in perspective so
