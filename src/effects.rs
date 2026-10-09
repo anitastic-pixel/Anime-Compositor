@@ -1156,6 +1156,20 @@ pub enum Effect {
     /// D-358: `radius`, 0 to 50 pixels; `threshold`, 0 to 255 steps of the sRGB curve; and
     /// `colorize`, "on" or "off". The word is kept as written, so a wrong one is reported.
     BilateralBlur { radius: f64, threshold: f64, colorize: String },
+    /// D-360: after CycoreFX's CC Cross Blur. The layer blurred across by one box of Fast Box
+    /// Blur's `radius_x` and, apart, down by one of `radius_y`, each 0 to 500 pixels, laid
+    /// together by `mode`, one of [`CROSS_MODES`]; `edges` as Gaussian Blur's. The words are kept
+    /// as written, so a wrong one is reported.
+    CrossBlur { radius_x: f64, radius_y: f64, mode: String, edges: String },
+    /// D-361: after CycoreFX's CC Radial Blur. `kind`, the file's `type`, one of
+    /// [`SPIN_ZOOM_TYPES`]; `amount`, -360 to 360, degrees for the turns or per cent of the
+    /// distance for the zooms; `quality`, 1 to 100, samples a pixel of path by 50; and `center`
+    /// as Radial Blur's (D-95).
+    SpinZoomBlur { kind: String, amount: f64, quality: f64, center: [f64; 2] },
+    /// D-362: after CycoreFX's CC Radial Fast Blur. `amount`, 0 to 100 per cent of the
+    /// distance; `center` as Radial Blur's (D-95); and `zoom`, "standard", "brightest" or
+    /// "darkest".
+    FastZoomBlur { amount: f64, center: [f64; 2], zoom: String },
     /// D-204: `color`, `#rrggbb`, kept as written so a wrong one is reported; `density`, 0 to
     /// 100; `spacing`, 2 to 1000 pixels; `size`, 0 to 100 pixels; `depth`, 0 to 100; `speed`,
     /// 0 to 1000, and `wind`, -1000 to 1000, pixels a frame; `wiggle`, 0 to 100 pixels;
@@ -1663,6 +1677,13 @@ pub const POLAR_COORDINATES: &str = "core.polar_coordinates";
 pub const MEDIAN: &str = "core.median";
 pub const SMART_BLUR: &str = "core.smart_blur";
 pub const BILATERAL_BLUR: &str = "core.bilateral_blur";
+pub const CROSS_BLUR: &str = "core.cross_blur";
+pub const SPIN_ZOOM_BLUR: &str = "core.spin_zoom_blur";
+pub const FAST_ZOOM_BLUR: &str = "core.fast_zoom_blur";
+/// D-360: Cross Blur's modes, in the order the card numbers them.
+pub const CROSS_MODES: [&str; 6] = ["blend", "add", "screen", "multiply", "lighten", "darken"];
+/// D-361: Spin & Zoom Blur's types.
+pub const SPIN_ZOOM_TYPES: [&str; 6] = ["straight_zoom", "fading_zoom", "centered_zoom", "rotate", "scratch", "rotate_fading"];
 pub const SNOWFALL: &str = "core.snowfall";
 pub const KALEIDOSCOPE: &str = "core.kaleidoscope";
 pub const ROUGHEN_EDGES: &str = "core.roughen_edges";
@@ -2562,6 +2583,19 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 50.0),
                 ("threshold", vec![threshold], 0.0, 255.0),
             ],
+            Effect::CrossBlur { radius_x, radius_y, .. } => vec![
+                ("radius_x", vec![radius_x], 0.0, 500.0),
+                ("radius_y", vec![radius_y], 0.0, 500.0),
+            ],
+            Effect::SpinZoomBlur { amount, quality, center, .. } => vec![
+                ("amount", vec![amount], -360.0, 360.0),
+                ("quality", vec![quality], 1.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+            ],
+            Effect::FastZoomBlur { amount, center, .. } => vec![
+                ("amount", vec![amount], 0.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+            ],
             Effect::Snowfall {
                 density,
                 spacing,
@@ -2851,6 +2885,10 @@ impl Effect {
                 }
             }
             Effect::FastBoxBlur { radius, .. } => *radius = scale(*radius),
+            Effect::CrossBlur { radius_x, radius_y, .. } => {
+                *radius_x = scale(*radius_x);
+                *radius_y = scale(*radius_y);
+            }
             // D-87's blur and D-89's radius are distances in pixels too.
             Effect::SelectiveColorBlur { blur, .. } => *blur = scale(*blur),
             Effect::Glow { radius, .. } => *radius = scale(*radius),
@@ -3136,6 +3174,9 @@ impl Effect {
             Effect::Median { .. } => "Median",
             Effect::SmartBlur { .. } => "Smart Blur",
             Effect::BilateralBlur { .. } => "Bilateral Blur",
+            Effect::CrossBlur { .. } => "Cross Blur",
+            Effect::SpinZoomBlur { .. } => "Spin & Zoom Blur",
+            Effect::FastZoomBlur { .. } => "Fast Zoom Blur",
             Effect::Snowfall { .. } => "Snowfall",
             Effect::Kaleidoscope { .. } => "Kaleidoscope",
             Effect::RoughenEdges { .. } => "Roughen Edges",
@@ -3257,6 +3298,9 @@ impl Effect {
             Effect::Median { .. } => MEDIAN,
             Effect::SmartBlur { .. } => SMART_BLUR,
             Effect::BilateralBlur { .. } => BILATERAL_BLUR,
+            Effect::CrossBlur { .. } => CROSS_BLUR,
+            Effect::SpinZoomBlur { .. } => SPIN_ZOOM_BLUR,
+            Effect::FastZoomBlur { .. } => FAST_ZOOM_BLUR,
             Effect::Snowfall { .. } => SNOWFALL,
             Effect::Kaleidoscope { .. } => KALEIDOSCOPE,
             Effect::RoughenEdges { .. } => ROUGHEN_EDGES,
@@ -3320,6 +3364,10 @@ impl Effect {
             // D-327: the box's reach, once a pass.
             Effect::FastBoxBlur { radius, iterations, edges, .. } if edges != "repeat" => {
                 box_reach(*radius, *iterations)
+            }
+            // D-360: the longer box's reach.
+            Effect::CrossBlur { radius_x, radius_y, edges, .. } if edges != "repeat" => {
+                box_reach(*radius_x, 1.0).max(box_reach(*radius_y, 1.0))
             }
             // D-353: as far as any level's cells reach, stretched or not (no silent crop).
             Effect::SoftGlow { radius, aspect_ratio, aspect_angle, .. } if self.fault().is_none() => {
@@ -3589,6 +3637,14 @@ impl Effect {
                     )
                 })
             }),
+            Effect::CrossBlur { mode, edges: e, .. } => (!CROSS_MODES.contains(&mode.as_str()))
+                .then(|| format!("{name}'s mode is \"blend\", \"add\", \"screen\", \"multiply\", \"lighten\" or \"darken\", and this is \"{mode}\"."))
+                .or_else(|| edges(e)),
+            Effect::SpinZoomBlur { kind, .. } => (!SPIN_ZOOM_TYPES.contains(&kind.as_str())).then(|| {
+                format!("{name}'s type is \"straight_zoom\", \"fading_zoom\", \"centered_zoom\", \"rotate\", \"scratch\" or \"rotate_fading\", and this is \"{kind}\".")
+            }),
+            Effect::FastZoomBlur { zoom, .. } => (!["standard", "brightest", "darkest"].contains(&zoom.as_str()))
+                .then(|| format!("{name}'s zoom is \"standard\", \"brightest\" or \"darkest\", and this is \"{zoom}\".")),
             Effect::RadialBlur { kind, edges: e, .. } => (!["spin", "zoom"]
                 .contains(&kind.as_str()))
             .then(|| format!("{name}'s type is \"spin\" or \"zoom\", and this is \"{kind}\"."))
@@ -4425,6 +4481,39 @@ pub fn box_weights(radius: f64, iterations: f64) -> Vec<f32> {
     line.into_iter().map(|v| v as f32).collect()
 }
 
+impl Effect {
+    /// D-361/D-362: a Spin & Zoom Blur's or Fast Zoom Blur's samples, and whether they turn;
+    /// `None` for any other effect, or a word that is not one.
+    pub(crate) fn sweep(&self) -> Option<(bool, crate::blurs::Sweep)> {
+        use crate::blurs::{Sweep, Weigh};
+        let sweep = |from, weigh, density| Sweep { from, weigh, density };
+        match self {
+            Effect::SpinZoomBlur { kind, amount, quality, .. } => {
+                let (spin, from, weigh) = match kind.as_str() {
+                    "straight_zoom" => (false, 0.0, Weigh::Even),
+                    "fading_zoom" => (false, 0.0, Weigh::Fading),
+                    "centered_zoom" => (false, amount / 2.0, Weigh::Even),
+                    "rotate" => (true, 0.0, Weigh::Even),
+                    "rotate_fading" => (true, 0.0, Weigh::Fading),
+                    "scratch" => (true, amount / 2.0, Weigh::Even),
+                    _ => return None,
+                };
+                Some((spin, sweep(from, weigh, quality / 50.0)))
+            }
+            Effect::FastZoomBlur { zoom, .. } => {
+                let weigh = match zoom.as_str() {
+                    "standard" => Weigh::Fading,
+                    "brightest" => Weigh::Brightest,
+                    "darkest" => Weigh::Darkest,
+                    _ => return None,
+                };
+                Some((false, sweep(0.0, weigh, 1.0)))
+            }
+            _ => None,
+        }
+    }
+}
+
 /// D-95: a Radial Blur's centre in the pixels of a buffer `w` by `h`, from its share of the
 /// drawing's own size, with the drawing's corner at `(ox, oy)` in it after the effects above it
 /// grew it.
@@ -4498,6 +4587,9 @@ pub(crate) fn apply_stack_at(
                     | Effect::FastBoxBlur { .. }
                     | Effect::DirectionalBlur { .. }
                     | Effect::RadialBlur { .. }
+                    | Effect::CrossBlur { .. }
+                    | Effect::SpinZoomBlur { .. }
+                    | Effect::FastZoomBlur { .. }
                     | Effect::SolidComposite { .. }
                     | Effect::Glow { .. }
             );
@@ -4632,7 +4724,7 @@ pub(crate) fn apply_stack_at(
             } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectRadial, || {
-                    crate::blurs::radial_blur(source, kind == "spin", *amount, c, edges == "repeat")
+                    crate::blurs::radial_blur(source, kind == "spin", *amount, c, edges == "repeat", None)
                 })
             }
             Effect::Bloom {
@@ -5385,6 +5477,26 @@ pub(crate) fn apply_stack_at(
             Effect::BilateralBlur { radius, threshold, colorize } => crate::perf::time(crate::perf::Stage::EffectBilateralBlur, || {
                 crate::median::bilateral_blur(source, *radius, *threshold, colorize == "on")
             }),
+            Effect::CrossBlur { radius_x, radius_y, mode, edges } => {
+                let mode = CROSS_MODES.iter().position(|m| m == mode).unwrap_or(0);
+                let r = crate::perf::time(crate::perf::Stage::EffectCrossBlur, || {
+                    crate::blurs::cross_blur(source, *radius_x, *radius_y, mode, edges == "repeat")
+                });
+                ox += r;
+                oy += r;
+            }
+            // D-95: the centre as Radial Blur's.
+            Effect::SpinZoomBlur { amount, center, .. } | Effect::FastZoomBlur { amount, center, .. } => {
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
+                let stage = if matches!(instance.effect, Effect::SpinZoomBlur { .. }) {
+                    crate::perf::Stage::EffectSpinZoomBlur
+                } else {
+                    crate::perf::Stage::EffectFastZoomBlur
+                };
+                if let Some((spin, sweep)) = instance.effect.sweep() {
+                    crate::perf::time(stage, || crate::blurs::radial_blur(source, spin, *amount, c, false, Some(sweep)))
+                }
+            }
             // D-204: the planes are fixed to the drawing's own space; it grows nothing.
             Effect::Snowfall {
                 color,

@@ -216,6 +216,9 @@ struct Radial {
     amount: f32,
     spin: u32,
     held: u32,
+    // D-361/D-362: blurs::Weigh, 0 even, 1 fading, 2 brightest, 3 darkest; samples a pixel.
+    weigh: u32,
+    density: f32,
 }
 
 @group(0) @binding(0) var<uniform> R: Radial;
@@ -237,13 +240,15 @@ fn radial(@builtin(global_invocation_id) id: vec3<u32>) {
     if R.spin == 1u {
         path = r * R.amount * 3.141592653589793 / 180.0;
     }
-    let n = min(u32(ceil(path)) + 1u, 256u);
+    let n = min(u32(ceil(path * R.density)) + 1u, 256u);
     if n == 1u {
         textureStore(moved, id.xy, textureLoad(still, id.xy, 0));
         return;
     }
     let start = n * (n - 1u) / 2u - 1u;
     var total = vec4(0.0);
+    var weight = 0.0;
+    var first = vec4(0.0);
     for (var k = 0u; k < n; k++) {
         let t = turns[start + k];
         var p = R.center + t.x * d;
@@ -254,9 +259,28 @@ fn radial(@builtin(global_invocation_id) id: vec3<u32>) {
         if R.held == 1u {
             p = clamp(p, vec2(0.5), vec2<f32>(size) - vec2(0.5));
         }
-        total += bilinear(still, p);
+        let s = bilinear(still, p);
+        let f = f32(n - k);
+        if R.weigh == 0u {
+            total += s;
+        } else if R.weigh == 1u {
+            total += f * s;
+        } else if k == 0u {
+            first = s;
+            total = s;
+        } else if R.weigh == 2u {
+            total = max(total, first + f / f32(n) * (s - first));
+        } else {
+            total = min(total, first + f / f32(n) * (s - first));
+        }
+        weight += f;
     }
-    textureStore(moved, id.xy, total / f32(n));
+    if R.weigh == 0u {
+        total /= f32(n);
+    } else if R.weigh == 1u {
+        total /= weight;
+    }
+    textureStore(moved, id.xy, total);
 }
 
 @group(0) @binding(2) var<storage, read> lone: array<vec4<f32>>;
@@ -3749,6 +3773,40 @@ fn chanmix(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, p);
 }
 
+// D-360, blurs::cross_mix: `input`, the blur across, laid on `other`, the blur down, the same
+// size, by Cross Blur's mode F.mode: blend their mean, every other document 21's rule.
+@compute @workgroup_size(16, 16)
+fn crossmix(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let s = textureLoad(input, id.xy, 0);
+    let d = textureLoad(other, id.xy, 0);
+    if F.mode == 0u {
+        textureStore(output, id.xy, (s + d) / 2.0);
+        return;
+    }
+    var cs = vec3(0.0);
+    var cd = vec3(0.0);
+    if s.w != 0.0 {
+        cs = s.xyz / s.w;
+    }
+    if d.w != 0.0 {
+        cd = d.xyz / d.w;
+    }
+    var b = min(cs, cd);
+    switch F.mode {
+        case 1u: { b = min(cs + cd, vec3(1.0)); }
+        case 2u: { b = cs + cd - cs * cd; }
+        case 3u: { b = cs * cd; }
+        case 4u: { b = max(cs, cd); }
+        default: {}
+    }
+    let c = (1.0 - s.w) * d.xyz + (1.0 - d.w) * s.xyz + s.w * d.w * b;
+    textureStore(output, id.xy, vec4(c, s.w + d.w - s.w * d.w));
+}
+
 // B-223, selective_blur::selective_color_blur: each pixel's straight colour encoded in single
 // precision, and 1 where it is chosen (k as `picked` and `srgb32` read it); clear where it shows
 // nothing.
@@ -5327,6 +5385,7 @@ struct FxPasses {
     mix_back: Pass,
     /// B-223.
     chanmix: Pass,
+    crossmix: Pass,
     selprep: Pass,
     selpass: Pass,
     selfinish: Pass,
@@ -5935,6 +5994,7 @@ impl Gpu {
                 adjust: pass("adjust", &[0, 1, 3, 4, 10, 11]),
                 mix_back: pass("mixback", &[0, 1, 2, 3, 4]),
                 chanmix: pass("chanmix", &[0, 1, 2, 4]),
+                crossmix: pass("crossmix", &[0, 1, 2, 4]),
                 selprep: pass("selprep", &[0, 1, 2, 3]),
                 selpass: pass("selpass", &[0, 1, 2, 3]),
                 selfinish: pass("selfinish", &[0, 1, 2, 3, 4]),
@@ -6470,7 +6530,7 @@ impl Gpu {
     /// returned. What to dispatch is added to `steps`, to run before the layers.
     fn blur(&self, steps: &mut Vec<Step>, still: &wgpu::TextureView, (width, height): (usize, usize), r: Radial) -> wgpu::TextureView {
         let moved = self.scratch("B-46 radial", width, height);
-        let turns: Vec<[f32; 2]> = crate::blurs::radial_turns(r.spin, r.amount)
+        let turns: Vec<[f32; 2]> = crate::blurs::radial_turns(r.spin, r.amount, r.sweep.map(|s| s.from))
             .into_iter()
             .flatten()
             .map(|(a, b)| [a as f32, b as f32])
@@ -6479,7 +6539,9 @@ impl Gpu {
             self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some(label), contents, usage })
         };
         let f = |v: f64| (v as f32).to_bits();
-        let settings = [f(r.center.0), f(r.center.1), f(r.amount), r.spin as u32, r.repeat as u32, 0, 0, 0];
+        // D-361/D-362: the path is as long whichever way it runs.
+        let (weigh, density) = r.sweep.map_or((0, 1.0), |s| (s.weigh as u32, s.density));
+        let settings = [f(r.center.0), f(r.center.1), f(r.amount.abs()), r.spin as u32, r.repeat as u32, weigh, f(density), 0];
         let settings = init("B-46 settings", bytemuck::cast_slice(&settings), wgpu::BufferUsages::UNIFORM);
         let turns = init("B-46 turns", bytemuck::cast_slice(&turns), wgpu::BufferUsages::STORAGE);
         let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -7028,7 +7090,7 @@ impl Gpu {
                 let p = Params { level: crate::bloom::bright_level(*threshold), ..Default::default() };
                 self.step(steps, &bloom.bright, p, still, Some(&lit), None, Some(&none), tiles(w, h));
                 let center = crate::effects::radial_center(*center, (w, h), f.origin);
-                let rays = self.blur(steps, &lit, (w, h), Radial { spin: false, amount: *length, center, repeat: false });
+                let rays = self.blur(steps, &lit, (w, h), Radial { spin: false, amount: *length, center, repeat: false, sweep: None });
                 let mut k = vec![*intensity];
                 k.extend(linear(color));
                 same(steps, &passes.rays, FxParams::default(), &k, Some(&rays))
@@ -7631,6 +7693,21 @@ impl Gpu {
                 let e = if repeat { 0 } else { taps.len() / 2 };
                 let out = self.gauss(steps, bloom, "B-223 box", still, (w, h), [pick(dimensions != "vertical"), pick(dimensions != "horizontal")], e, repeat);
                 (out, (w + 2 * e, h + 2 * e))
+            }
+            // D-360: Fast Box Blur's passes across and, apart, down, then laid together.
+            E::CrossBlur { radius_x, radius_y, mode, edges } => {
+                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let [across, down] = crate::blurs::cross_taps(*radius_x, *radius_y);
+                let flat = crate::effects::still_weights(across.len() / 2);
+                let repeat = edges == "repeat";
+                let e = if repeat { 0 } else { across.len() / 2 };
+                let a = self.gauss(steps, bloom, "D-360 across", still, (w, h), [&across, &flat], e, repeat);
+                let d = self.gauss(steps, bloom, "D-360 down", still, (w, h), [&flat, &down], e, repeat);
+                let (tw, th) = (w + 2 * e, h + 2 * e);
+                let out = self.scratch("D-360 cross", tw, th);
+                let mode = crate::effects::CROSS_MODES.iter().position(|m| m == mode).unwrap_or(0) as u32;
+                self.fx_step(steps, &passes.crossmix, FxParams { mode, ..Default::default() }, Some(&a), Some(&out), None, Some(&d), none, tiles(tw, th));
+                (out, (tw, th))
             }
             E::ChannelBlur { red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, edges, dimensions } => {
                 let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");

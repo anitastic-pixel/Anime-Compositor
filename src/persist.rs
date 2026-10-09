@@ -2206,6 +2206,30 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("threshold".into(), num(*threshold));
             params.insert("colorize".into(), J::from(colorize.as_str()));
         }
+        Effect::CrossBlur { radius_x, radius_y, mode, edges } => {
+            params.insert("radius_x".into(), num(*radius_x));
+            params.insert("radius_y".into(), num(*radius_y));
+            // D-360..D-362: a word or quality at its default is written only if the file had it.
+            if mode != "blend" || params.contains_key("mode") {
+                params.insert("mode".into(), J::from(mode.as_str()));
+            }
+            put_edges(&mut params, edges);
+        }
+        Effect::SpinZoomBlur { kind, amount, quality, center } => {
+            params.insert("type".into(), J::from(kind.as_str()));
+            params.insert("amount".into(), num(*amount));
+            if *quality != 50.0 || instance.tracks.contains_key("quality") || params.contains_key("quality") {
+                params.insert("quality".into(), num(*quality));
+            }
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+        }
+        Effect::FastZoomBlur { amount, center, zoom } => {
+            params.insert("amount".into(), num(*amount));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            if zoom != "standard" || params.contains_key("zoom") {
+                params.insert("zoom".into(), J::from(zoom.as_str()));
+            }
+        }
         Effect::Snowfall {
             color,
             density,
@@ -3732,6 +3756,9 @@ fn parse_effect(
         crate::effects::MEDIAN,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
+        crate::effects::CROSS_BLUR,
+        crate::effects::SPIN_ZOOM_BLUR,
+        crate::effects::FAST_ZOOM_BLUR,
         crate::effects::SNOWFALL,
         crate::effects::KALEIDOSCOPE,
         crate::effects::ROUGHEN_EDGES,
@@ -4445,6 +4472,24 @@ fn parse_effect(
             radius: effect_number(params, "radius", &at)?,
             threshold: effect_number(params, "threshold", &at)?,
             colorize: effect_word(params, "colorize", &at)?,
+        }),
+        // D-360..D-362: a word or quality the file leaves out is the default.
+        crate::effects::CROSS_BLUR => Some(crate::effects::Effect::CrossBlur {
+            radius_x: effect_number(params, "radius_x", &at)?,
+            radius_y: effect_number(params, "radius_y", &at)?,
+            mode: effect_word_or(params, "mode", &at, "blend")?,
+            edges: effect_edges(params, &at)?,
+        }),
+        crate::effects::SPIN_ZOOM_BLUR => Some(crate::effects::Effect::SpinZoomBlur {
+            kind: effect_word(params, "type", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+            quality: effect_number_or(params, "quality", &at, 50.0)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+        }),
+        crate::effects::FAST_ZOOM_BLUR => Some(crate::effects::Effect::FastZoomBlur {
+            amount: effect_number(params, "amount", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            zoom: effect_word_or(params, "zoom", &at, "standard")?,
         }),
         crate::effects::SNOWFALL => Some(crate::effects::Effect::Snowfall {
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),

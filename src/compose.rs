@@ -975,6 +975,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::SoftGlow { .. }
                 // D-356: Path Stroke.
                 | crate::effects::Effect::Stroke { .. }
+                // D-360..D-362: Cross Blur, Spin & Zoom Blur and Fast Zoom Blur.
+                | crate::effects::Effect::CrossBlur { .. }
+                | crate::effects::Effect::SpinZoomBlur { .. }
+                | crate::effects::Effect::FastZoomBlur { .. }
         )
         // D-353: a Soft Physical Glow's threshold with no smooth is a step, so it stays on the
         // CPU for D-122's reason.
@@ -1034,7 +1038,20 @@ fn card_effect(
             amount,
             center: crate::effects::radial_center(center, size, *offset),
             repeat: edges == "repeat",
+            sweep: None,
         })),
+        // D-361/D-362: Radial Blur's pass, its samples laid and weighed their own way.
+        crate::effects::Effect::SpinZoomBlur { amount, center, .. } | crate::effects::Effect::FastZoomBlur { amount, center, .. } => {
+            effect.sweep().map(|(spin, sweep)| {
+                render::OnCard::Radial(render::Radial {
+                    spin,
+                    amount,
+                    center: crate::effects::radial_center(center, size, *offset),
+                    repeat: false,
+                    sweep: Some(sweep),
+                })
+            })
+        }
         // B-49: length 0 changes nothing and grows nothing, so it is not left either.
         crate::effects::Effect::DirectionalBlur { direction, length, edges } => (length != 0.0).then(|| {
             let d = render::Directional { direction, length, repeat: edges == "repeat" };
@@ -1147,6 +1164,10 @@ fn card_effect(
                 E::LensBlur { layer, map, .. } => layer.as_str().is_some_and(|l| !l.is_empty()) && map.is_none(),
                 E::SelectiveColorBlur { blur, colors, .. } => (blur + 0.5).floor() == 0.0 || crate::selective_blur::targets(colors).is_empty(),
                 E::VectorBlur { amount, .. } => *amount == 0.0,
+                // D-360: the mean of two untouched copies is the layer.
+                E::CrossBlur { radius_x, radius_y, mode, .. } => {
+                    mode == "blend" && crate::effects::box_reach(*radius_x, 1.0).max(crate::effects::box_reach(*radius_y, 1.0)) == 0
+                }
                 // B-224: as each one's own function returns at once.
                 E::DisplacementMap { map, .. } => map.is_none(),
                 E::Glass { height, displacement, light_intensity, .. } => {

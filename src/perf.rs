@@ -259,6 +259,10 @@ pub enum Stage {
     EffectSoftGlow,
     /// D-356's Path Stroke: the runs along the paths and the brush laid on them.
     EffectStroke,
+    /// D-360..D-362's Cross Blur, Spin & Zoom Blur and Fast Zoom Blur, per pixel.
+    EffectCrossBlur,
+    EffectSpinZoomBlur,
+    EffectFastZoomBlur,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -276,7 +280,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 126] = [
+    pub const ALL: [Stage; 129] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -396,6 +400,9 @@ impl Stage {
         Stage::EffectRefineMatte,
         Stage::EffectSoftGlow,
         Stage::EffectStroke,
+        Stage::EffectCrossBlur,
+        Stage::EffectSpinZoomBlur,
+        Stage::EffectFastZoomBlur,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -527,6 +534,9 @@ impl Stage {
             Stage::EffectRefineMatte => "effect: refine hard or soft matte",
             Stage::EffectSoftGlow => "effect: soft physical glow",
             Stage::EffectStroke => "effect: path stroke",
+            Stage::EffectCrossBlur => "effect: cross blur",
+            Stage::EffectSpinZoomBlur => "effect: spin & zoom blur",
+            Stage::EffectFastZoomBlur => "effect: fast zoom blur",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

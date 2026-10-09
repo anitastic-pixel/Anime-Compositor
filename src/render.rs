@@ -401,6 +401,8 @@ pub struct Radial {
     pub center: (f64, f64),
     /// D-109.
     pub repeat: bool,
+    /// D-361/D-362: a Spin & Zoom Blur's or Fast Zoom Blur's samples.
+    pub sweep: Option<crate::blurs::Sweep>,
 }
 
 /// The matte layer as the renderer needs it: a source in the working space and the map from its
@@ -652,7 +654,7 @@ fn draw(
 fn draw_card(source: &mut std::sync::Arc<WorkingBuffer>, card: OnCard) {
     match card {
         OnCard::Radial(r) => crate::perf::time(crate::perf::Stage::EffectRadial, || {
-            crate::blurs::radial_blur(std::sync::Arc::make_mut(source), r.spin, r.amount, r.center, r.repeat)
+            crate::blurs::radial_blur(std::sync::Arc::make_mut(source), r.spin, r.amount, r.center, r.repeat, r.sweep)
         }),
         OnCard::Bloom(b) => {
             crate::perf::time(crate::perf::Stage::EffectBloom, || {

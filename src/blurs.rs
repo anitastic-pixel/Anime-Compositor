@@ -274,16 +274,45 @@ pub(crate) fn directional_weights(u: (f64, f64), length: f64) -> Weights {
 /// D-95's most samples a pixel.
 pub(crate) const MOST: usize = 256;
 
+/// D-361/D-362: how a sweep's samples are weighed, the k-th of n from the pixel (k = 0).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Weigh {
+    /// All alike, Radial Blur's.
+    Even,
+    /// The k-th by n - k, so a streak fades as it runs out.
+    Fading,
+    /// Channel by channel the largest, or smallest, of v0 + (n - k) / n (vk - v0).
+    Brightest,
+    Darkest,
+}
+
+/// D-361/D-362: a Spin & Zoom Blur's or Fast Zoom Blur's samples, laid from the pixel back
+/// along the path: turned by `from` - A u degrees, or scaled by 1 + (`from` - A u) / 100, for
+/// u from 0 at the pixel to 1, with `density` samples a pixel of path.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Sweep {
+    pub from: f64,
+    pub weigh: Weigh,
+    pub density: f64,
+}
+
 /// P-17: each sample count's turns as `(sin, cos)`, or scales as `(scale, 0)` for a zoom, worked
 /// once by the same sums a pixel would do, rather than a sine and cosine for every sample of
 /// every pixel. Entry `n` holds `n` of them from 2 up; 0 and 1 are empty. B-46 sends the same
-/// numbers to the graphics card.
-pub(crate) fn radial_turns(spin: bool, amount: f64) -> Vec<Vec<(f64, f64)>> {
+/// numbers to the graphics card. With `from`, a [`Sweep`]'s, the pixel's own first.
+pub(crate) fn radial_turns(spin: bool, amount: f64, from: Option<f64>) -> Vec<Vec<(f64, f64)>> {
     (0..=MOST)
         .map(|n| {
             (0..if n < 2 { 0 } else { n })
                 .map(|k| {
-                    if spin {
+                    if let Some(f) = from {
+                        let t = f - amount * k as f64 / (n - 1) as f64;
+                        if spin {
+                            t.to_radians().sin_cos()
+                        } else {
+                            (1.0 + t / 100.0, 0.0)
+                        }
+                    } else if spin {
                         let t = (-amount / 2.0 + k as f64 * amount / (n - 1) as f64).to_radians();
                         t.sin_cos()
                     } else {
@@ -303,8 +332,16 @@ pub(crate) fn radial_turns(spin: bool, amount: f64) -> Vec<Vec<(f64, f64)>> {
 /// Average each pixel of `source` round `center`, in the buffer's pixels, in place: along the
 /// arc about it for a spin, along the line from it for a zoom. The settings are already inside
 /// their ranges; amount 0 changes nothing. The buffer keeps its size. D-109: with `repeat`,
-/// each sample point is held inside the buffer's pixel centres first.
-pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, center: (f64, f64), repeat: bool) {
+/// each sample point is held inside the buffer's pixel centres first. D-361/D-362: `sweep` lays
+/// and weighs the samples its own way.
+pub(crate) fn radial_blur(
+    source: &mut WorkingBuffer,
+    spin: bool,
+    amount: f64,
+    center: (f64, f64),
+    repeat: bool,
+    sweep: Option<Sweep>,
+) {
     if amount == 0.0 {
         return;
     }
@@ -312,7 +349,8 @@ pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, c
     let (cx, cy) = center;
     let mut out = WorkingBuffer::transparent(w, h);
     let src = &*source;
-    let turns = radial_turns(spin, amount);
+    let turns = radial_turns(spin, amount, sweep.map(|s| s.from));
+    let (weigh, density) = sweep.map_or((Weigh::Even, 1.0), |s| (s.weigh, s.density));
     // P-17: the box round everything drawn, in pixel edges and a pixel wider each side. A path
     // that stays outside it takes nothing but empty samples, whose average is the empty pixel
     // the output already holds, so it is not walked.
@@ -350,11 +388,11 @@ pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, c
                 let dx = x as f64 + 0.5 - cx;
                 let r = (dx * dx + dy * dy).sqrt();
                 let path = if spin {
-                    r * amount * std::f64::consts::PI / 180.0
+                    r * amount.abs() * std::f64::consts::PI / 180.0
                 } else {
-                    r * amount / 100.0
+                    r * amount.abs() / 100.0
                 };
-                let n = (path.ceil() as usize + 1).min(MOST);
+                let n = ((path * density).ceil() as usize + 1).min(MOST);
                 if n == 1 {
                     let i = (y * w + x) * 4;
                     px.copy_from_slice(&src.data()[i..i + 4]);
@@ -400,7 +438,8 @@ pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, c
                 // Summed in double precision: 256 single-precision additions would drift near
                 // the fixtures' tolerance.
                 let mut sum = [0.0f64; 4];
-                for &(a, b) in &turns[n] {
+                let (mut weight, mut first) = (0.0f64, [0.0f64; 4]);
+                for (k, &(a, b)) in turns[n].iter().enumerate() {
                     let (sx, sy) = if spin {
                         let (sin, cos) = (a, b);
                         (cx + dx * cos - dy * sin, cy + dx * sin + dy * cos)
@@ -410,14 +449,91 @@ pub(crate) fn radial_blur(source: &mut WorkingBuffer, spin: bool, amount: f64, c
                     // D-109: repeated, a point off the picture reads its edge.
                     let (sx, sy) = if held { hold(sx, sy) } else { (sx, sy) };
                     let s = sample_bilinear(src, sx, sy);
+                    let f = (n - k) as f64;
                     for i in 0..4 {
-                        sum[i] += s[i] as f64;
+                        let v = s[i] as f64;
+                        match weigh {
+                            Weigh::Even => sum[i] += v,
+                            Weigh::Fading => sum[i] += f * v,
+                            Weigh::Brightest | Weigh::Darkest if k == 0 => (first[i], sum[i]) = (v, v),
+                            Weigh::Brightest => sum[i] = sum[i].max(first[i] + f / n as f64 * (v - first[i])),
+                            Weigh::Darkest => sum[i] = sum[i].min(first[i] + f / n as f64 * (v - first[i])),
+                        }
                     }
+                    weight += f;
                 }
+                let total = match weigh {
+                    Weigh::Even => n as f64,
+                    Weigh::Fading => weight,
+                    Weigh::Brightest | Weigh::Darkest => 1.0,
+                };
                 for i in 0..4 {
-                    px[i] = (sum[i] / n as f64) as f32;
+                    px[i] = (sum[i] / total) as f32;
                 }
             }
         });
     *source = out;
+}
+
+/// D-360: Cross Blur's two boxes, one pass of Fast Box Blur's each, across `rx` and down `ry`,
+/// the shorter padded with zeros to the longer's length so the two blurs grow the layer alike.
+/// ponytail: the padded zeros are still taps; a blur per axis at its own length is the upgrade
+/// if a very uneven cross is slow.
+pub(crate) fn cross_taps(rx: f64, ry: f64) -> [Vec<f32>; 2] {
+    let (a, b) = (crate::effects::box_weights(rx, 1.0), crate::effects::box_weights(ry, 1.0));
+    let n = a.len().max(b.len());
+    let pad = |t: Vec<f32>| {
+        let mut v = vec![0.0; (n - t.len()) / 2];
+        v.extend(t);
+        v.resize(n, 0.0);
+        v
+    };
+    [pad(a), pad(b)]
+}
+
+/// D-360: `across` laid on `down`, both premultiplied, by Cross Blur's `mode`, its place in
+/// [`crate::effects::CROSS_MODES`]: blend their mean, every other document 21's general rule
+/// with Add held at 1.
+pub(crate) fn cross_mix(mode: usize, s: [f32; 4], d: [f32; 4]) -> [f32; 4] {
+    if mode == 0 {
+        return [0, 1, 2, 3].map(|i| (s[i] + d[i]) / 2.0);
+    }
+    let (cs, cd) = (crate::composite::unpremultiply(s), crate::composite::unpremultiply(d));
+    let (a_s, a_d) = (s[3], d[3]);
+    let mut out = [0.0f32; 4];
+    for c in 0..3 {
+        let b = match mode {
+            1 => (cs[c] + cd[c]).min(1.0),
+            2 => cs[c] + cd[c] - cs[c] * cd[c],
+            3 => cs[c] * cd[c],
+            4 => cs[c].max(cd[c]),
+            _ => cs[c].min(cd[c]),
+        };
+        out[c] = (1.0 - a_s) * d[c] + (1.0 - a_d) * s[c] + a_s * a_d * b;
+    }
+    out[3] = a_s + a_d - a_s * a_d;
+    out
+}
+
+/// D-360: Cross Blur on `source`, in place: blurred across and, apart, down, then laid
+/// together by `mode` (its place in [`crate::effects::CROSS_MODES`]). With `repeat` the edge
+/// pixels are held and the layer keeps its size; otherwise it grows, by the returned pixels
+/// each side.
+pub(crate) fn cross_blur(source: &mut WorkingBuffer, rx: f64, ry: f64, mode: usize, repeat: bool) -> usize {
+    let [across, down_taps] = cross_taps(rx, ry);
+    let mut down = source.clone();
+    let grow = if repeat {
+        crate::effects::held_blur_axes(source, &across, (true, false));
+        crate::effects::held_blur_axes(&mut down, &down_taps, (false, true));
+        0
+    } else {
+        crate::effects::blur_axes(&mut down, &down_taps, (false, true));
+        crate::effects::blur_axes(source, &across, (true, false))
+    };
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .zip(down.data().par_chunks_exact(4))
+        .for_each(|(s, d)| s.copy_from_slice(&cross_mix(mode, [s[0], s[1], s[2], s[3]], [d[0], d[1], d[2], d[3]])));
+    grow
 }

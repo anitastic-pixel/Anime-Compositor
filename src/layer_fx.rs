@@ -757,7 +757,7 @@ pub(crate) fn light_rays(
             px.fill(0.0);
         }
     });
-    crate::blurs::radial_blur(&mut rays, false, length, center, false);
+    crate::blurs::radial_blur(&mut rays, false, length, center, false, None);
     let c = color.map(crate::grade::to_linear);
     source
         .data_mut()
