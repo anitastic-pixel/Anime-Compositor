@@ -203963,6 +203963,128 @@ FX-CHCOLOR-023 (`fx_chcolor_023.json`): View "matte", which is not a choice. The
 
 FX-CHCOLOR-024 (`fx_chcolor_024.json`): Invert mask "yes", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Color Balance (HLS) (D-374)
+
+Color Balance (HLS) (`core.color_balance_hls`), after After Effects' Color Balance (HLS) (B-253): every colour turned round the colour wheel by the hue, and fixed amounts added to its HLS lightness and saturation, a grey keeping no saturation. Every case is Broadcast Safe's drawing: pure colours, greys, a skin tone, orange and three warm tones. `tools/color_balance_hls_reference.py` works the expected frames, `expected_color_balance_hls.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-HLSBAL-001 (`fx_hlsbal_001.json`): The settings as they start: all three 0, so the drawing, untouched. Frames 0.
+
+FX-HLSBAL-002 (`fx_hlsbal_002.json`): Hue 120: every colour a third of the way round the wheel, red to green, green to blue, the skin and warm tones to greens; black, white and grey, having no hue, stay. Frames 0.
+
+FX-HLSBAL-003 (`fx_hlsbal_003.json`): Hue 480, a turn and a third: the same as FX-HLSBAL-002. Frames 0.
+
+FX-HLSBAL-004 (`fx_hlsbal_004.json`): Hue -90: every colour a quarter turn the other way. Frames 0.
+
+FX-HLSBAL-005 (`fx_hlsbal_005.json`): Lightness 30: every colour, greys and black among them, 0.3 lighter in HLS, the light ones held at white. Frames 0.
+
+FX-HLSBAL-006 (`fx_hlsbal_006.json`): Lightness -40: every colour 0.4 darker, the dark ones held at black. Frames 0.
+
+FX-HLSBAL-007 (`fx_hlsbal_007.json`): Saturation -100: every colour grey at its own HLS lightness. Frames 0.
+
+FX-HLSBAL-008 (`fx_hlsbal_008.json`): Saturation 50: the skin and warm tones much stronger, the pure colours already at full strength unchanged, the greys still grey. Frames 0.
+
+FX-HLSBAL-009 (`fx_hlsbal_009.json`): Hue 60, lightness -20, saturation 20 together. Frames 0.
+
+FX-HLSBAL-010 (`fx_hlsbal_010.json`): Hue keyed from 0 at frame 0 to 240 at frame 4, linear: frame 0 untouched, frame 2 FX-HLSBAL-002, frame 4 red turned blue. Frames 0, 2, 4.
+
+FX-HLSBAL-011 (`fx_hlsbal_011.json`): FX-HLSBAL-009 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-HLSBAL-012 (`fx_hlsbal_012.json`): Hue 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HLSBAL-013 (`fx_hlsbal_013.json`): Lightness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HLSBAL-014 (`fx_hlsbal_014.json`): Saturation -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Color Link (D-375)
+
+Color Link (`core.color_link`), after After Effects' Color Link (B-254): one colour read from a whole layer's picture, its own or another layer's (average, median, brightest, darkest, or each channel's highest or lowest, a share of each end clipped), laid over the layer by a blending mode at an opacity, where it shows or over all of it. The holder `holder` is Broadcast Safe's drawing with an empty column and a half-covered one; `swatch` is a hidden 6 by 4 drawing, warm for frames 0 and 1 and cold from frame 2; `big` a hidden 20 by 12 drawing, dark grey inside a magenta border. `tools/color_link_reference.py` works the expected frames, `expected_color_link.json`, tolerance 2e-5; the rule is in document 21. FX-CLINK-019's file asks for its warning at each frame only; D-189 says a missing layer on opening too, as every other layer setting's file has it, so the build says it both times: a correction to the file, `warning` for `frame_warning`, is PROPOSED (D-375).
+
+FX-CLINK-001 (`fx_clink_001.json`): The settings as added: the layer's own picture, average, clip 5, stencil off, opacity 100, normal: the whole layer, its empty column too, one colour, the clipped average of its own colours. Frames 0.
+
+FX-CLINK-002 (`fx_clink_002.json`): Source layer `swatch`, hidden: the layer turns the swatch's average colour, warm at frame 0 and cold at frame 3 when the swatch's drawing changes. Frames 0, 3.
+
+FX-CLINK-003 (`fx_clink_003.json`): Sample median. Frames 0.
+
+FX-CLINK-004 (`fx_clink_004.json`): Sample brightest: the colour of the swatch's brightest pixels, the top 5 per cent clipped. Frames 0.
+
+FX-CLINK-005 (`fx_clink_005.json`): Sample darkest. Frames 0.
+
+FX-CLINK-006 (`fx_clink_006.json`): Sample max RGB: each channel's own highest, 5 per cent clipped. Frames 0.
+
+FX-CLINK-007 (`fx_clink_007.json`): Sample min RGB. Frames 0.
+
+FX-CLINK-008 (`fx_clink_008.json`): Average with clip 0: every pixel of the swatch counted. Frames 0.
+
+FX-CLINK-009 (`fx_clink_009.json`): Stencil on: the colour only where the layer shows; the empty column stays empty and the half-covered one stays half covered. Frames 0.
+
+FX-CLINK-010 (`fx_clink_010.json`): Opacity 50, stencil on: halfway from the drawing to the colour. Frames 0.
+
+FX-CLINK-011 (`fx_clink_011.json`): Opacity 50, stencil off: the drawing halfway to the colour, and the empty column the colour at half covering. Frames 0.
+
+FX-CLINK-012 (`fx_clink_012.json`): Blending mode multiply, opacity 50, stencil on. Frames 0.
+
+FX-CLINK-013 (`fx_clink_013.json`): Blending mode screen, opacity 50, stencil on. Frames 0.
+
+FX-CLINK-014 (`fx_clink_014.json`): Blending mode add, opacity 50, stencil on. Frames 0.
+
+FX-CLINK-015 (`fx_clink_015.json`): Blending mode overlay, opacity 100, stencil on: the drawing keeps its light and dark, coloured by the swatch. Frames 0.
+
+FX-CLINK-016 (`fx_clink_016.json`): Blending mode soft light, opacity 100, stencil off: the empty column the plain colour, the rest softly tinted. Frames 0.
+
+FX-CLINK-017 (`fx_clink_017.json`): Opacity keyed from 0 at frame 0 to 100 at frame 4, linear, stencil on: frame 0 untouched, frame 2 halfway, frame 4 the swatch's cold colour. Frames 0, 2, 4.
+
+FX-CLINK-018 (`fx_clink_018.json`): Source layer `big`, 20 by 12, bigger than the holder: read whole, so its magenta border counts and pulls the average toward magenta. Frames 0.
+
+FX-CLINK-019 (`fx_clink_019.json`): Source layer `ghost`, not a layer of the composition: the layer as it is, with EFFECT_LAYER_MISSING each frame. Warning `EFFECT_LAYER_MISSING` every frame. Frames 0, 3.
+
+FX-CLINK-020 (`fx_clink_020.json`): Clip 50, above 49. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CLINK-021 (`fx_clink_021.json`): Opacity -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CLINK-022 (`fx_clink_022.json`): Sample "mean", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CLINK-023 (`fx_clink_023.json`): Stencil "yes", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CLINK-024 (`fx_clink_024.json`): Blending mode "color_dodge", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CLINK-025 (`fx_clink_025.json`): Blending mode "Normal": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Color Stabilizer (D-376)
+
+Color Stabilizer (`core.color_stabilizer`), after After Effects' Color Stabilizer (B-255): the colours at one, two or three points of a reference frame kept steady, each frame mapped by brightness, levels or curves so its samples at those points come back to the reference frame's. The holder `holder` is a run of drawings of a warm grey ramp with an empty column and a half-covered one: the ramp itself (frames 0 and 4), lifted by 20 (frame 1), with a colour cast and changed contrast (frames 2 and 5), and with its mid-tones raised (frame 3). `tools/color_stabilizer_reference.py` works the expected frames, `expected_color_stabilizer.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-CSTAB-001 (`fx_cstab_001.json`): The settings as added: brightness, reference frame 0, sample size 5. Frame 0 is the reference, so untouched; frame 1, the ramp lifted by 20, comes back to frame 0; frames 2 and 3 move by their black point's brightness only. Frames 0, 1, 2, 3.
+
+FX-CSTAB-002 (`fx_cstab_002.json`): Levels: each channel mapped through the black and white samples, so frame 2's colour cast and contrast are taken out, to the drawing's own rounding. Frames 1, 2, 3.
+
+FX-CSTAB-003 (`fx_cstab_003.json`): Curves: through black, mid and white, so frame 3's raised mid-tones come down too. Frames 2, 3.
+
+FX-CSTAB-004 (`fx_cstab_004.json`): Levels with reference frame 2: frame 0, the plain ramp, is given frame 2's cast. Frames 0, 2.
+
+FX-CSTAB-005 (`fx_cstab_005.json`): Reference frame 2.7, taken down to 2: the same as FX-CSTAB-004. Frames 0.
+
+FX-CSTAB-006 (`fx_cstab_006.json`): Sample size 0: each sample the one pixel holding its point. Frames 2.
+
+FX-CSTAB-007 (`fx_cstab_007.json`): Sample size keyed from 1 at frame 0 to 9 at frame 4: the reference samples taken at size 1 as frame 0 has it, the current ones at 5 at frame 2 and 7 at frame 3. Frames 2, 3.
+
+FX-CSTAB-008 (`fx_cstab_008.json`): The black point at (10, 20) and the white point at (90, 80), levels: the white sample reaches the half-covered column, counted at half weight. Frames 2.
+
+FX-CSTAB-009 (`fx_cstab_009.json`): The black point keyed from (25, 50) at frame 0 to (5, 50) at frame 4, levels: the reference sample is taken where the point is at frame 0, the current one where it is at frame 2. Frames 2.
+
+FX-CSTAB-010 (`fx_cstab_010.json`): Reference frame 20, after the layer's last frame: no reference, so every frame as it is. Frames 1, 2.
+
+FX-CSTAB-011 (`fx_cstab_011.json`): A Levels lowering output white to 200, then the stabilizer, levels: the samples are of the darkened pictures, so frame 2 comes back to the darkened frame 0. Frames 2.
+
+FX-CSTAB-012 (`fx_cstab_012.json`): On an adjustment layer above the holder: no reference frame, so each frame as it is, with a warning each frame. Warning `TEMPORAL_SMOOTHING_SKIPPED` every frame. Frames 1, 2.
+
+FX-CSTAB-013 (`fx_cstab_013.json`): Stabilize "colour", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CSTAB-014 (`fx_cstab_014.json`): Stabilize "Levels": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CSTAB-015 (`fx_cstab_015.json`): Reference frame -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CSTAB-016 (`fx_cstab_016.json`): Sample size 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Bend It (D-377)
 
 Bend It (`core.bend_it`), after CycoreFX's CC Bend It (B-256): the strip of the layer along a bar from Start to End bent into an arc that turns Bend degrees over the bar's length; Render Prestart says what is drawn before the Start, Distort whether the drawing runs on straight past the End, and where the bend lays the drawing over itself the part farther along the bar is on top. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size, unmoved unless the case says. `tools/bend_it_reference.py` works the expected frames, `Fixtures/bend_it/expected_bend_it.json`, tolerance 2e-5; the rule is in document 21.
