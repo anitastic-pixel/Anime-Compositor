@@ -59,7 +59,7 @@ D-148, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing | 0 | yes |
-| a half-size draft preview halves the radius, 10 to 5, and nothing else | Diffusion { radius: 5.0, amount: 50.0, blend: "screen" } | yes |
+| a half-size draft preview halves the radius, 10 to 5, and nothing else | Diffusion { radius: 5.0, amount: 50.0, blend: "screen", second_amount: 0.0, second_blend: "soft_light" } | yes |
 
 ## The file
 

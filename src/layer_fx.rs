@@ -1281,14 +1281,24 @@ pub(crate) fn sharpen(source: &mut WorkingBuffer, amount: f64, radius: f64, thre
 
 /// D-148: each pixel that shows moved `amount` percent of the way toward its colour laid with
 /// `blend` under the picture blurred at a third of `radius`, the blur divided by its own
-/// covering, in linear light and not clamped. The settings are already valid.
-pub(crate) fn diffusion(source: &mut WorkingBuffer, radius: f64, amount: f64, blend: &str) {
-    if amount <= 0.0 || radius <= 0.0 {
+/// covering, in linear light and not clamped. D-364: then `second_amount` percent of the way
+/// toward that blur laid over the result in `second_blend` (soft light or overlay), on encoded
+/// colours held to 0 to 1, as the layer modes do (D-301). The settings are already valid.
+pub(crate) fn diffusion(
+    source: &mut WorkingBuffer,
+    radius: f64,
+    amount: f64,
+    blend: &str,
+    (second_amount, second_blend): (f64, &str),
+) {
+    if radius <= 0.0 || (amount <= 0.0 && second_amount <= 0.0) {
         return;
     }
     let mut blurred = source.clone();
     let r = crate::effects::blur(&mut blurred, radius / 3.0);
     let k = amount / 100.0;
+    let k2 = second_amount / 100.0;
+    let mixer = crate::grade::mixer(second_blend);
     let w = source.width();
     source
         .data_mut()
@@ -1310,7 +1320,17 @@ pub(crate) fn diffusion(source: &mut WorkingBuffer, radius: f64, amount: f64, bl
                         "lighten" => b.max(g),
                         _ => g,
                     };
-                    px[c] = ((b + k * (f - b)) * a) as f32;
+                    let r = b + k * (f - b);
+                    let r = if k2 > 0.0 {
+                        let s = mixer(
+                            crate::grade::to_srgb(r.clamp(0.0, 1.0)),
+                            crate::grade::to_srgb(g.clamp(0.0, 1.0)),
+                        );
+                        r + k2 * (crate::grade::to_linear(s) - r)
+                    } else {
+                        r
+                    };
+                    px[c] = (r * a) as f32;
                 }
             }
         });

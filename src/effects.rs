@@ -768,10 +768,14 @@ pub enum Effect {
     Sharpen { amount: f64, radius: f64, threshold: f64 },
     /// D-148: `radius`, 0 to 500 pixels, how far the glow spreads, three times its blur's sigma;
     /// `amount`, 0 to 100, how much of it is laid on; `blend`, "screen", "lighten" or "normal".
+    /// D-364: `second_amount`, 0 to 100 (0, off), how much of the same glow is laid on again
+    /// in `second_blend`, "soft_light" or "overlay".
     Diffusion {
         radius: f64,
         amount: f64,
         blend: String,
+        second_amount: f64,
+        second_blend: String,
     },
     /// D-149: `shape`, "sine" or "triangle"; `height`, 0 to 1000 pixels, how far the wave
     /// pushes; `width`, 1 to 10000 pixels, how long one wave is; `direction`, -3600 to 3600
@@ -2114,9 +2118,10 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 100.0),
                 ("threshold", vec![threshold], 0.0, 255.0),
             ],
-            Effect::Diffusion { radius, amount, .. } => vec![
+            Effect::Diffusion { radius, amount, second_amount, .. } => vec![
                 ("radius", vec![radius], 0.0, 500.0),
                 ("amount", vec![amount], 0.0, 100.0),
+                ("second_amount", vec![second_amount], 0.0, 100.0),
             ],
             Effect::WaveWarp {
                 height,
@@ -4122,6 +4127,9 @@ impl Effect {
             Effect::Diffusion { blend, .. } if !["screen", "lighten", "normal"].contains(&blend.as_str()) => Some(format!(
                 "Diffusion's blend is \"screen\", \"lighten\" or \"normal\", and this is \"{blend}\"."
             )),
+            Effect::Diffusion { second_blend: b, .. } if !["soft_light", "overlay"].contains(&b.as_str()) => Some(format!(
+                "Diffusion's second blend is \"soft_light\" or \"overlay\", and this is \"{b}\"."
+            )),
             Effect::WaveWarp { shape, edges: e, .. } => (!["sine", "triangle"].contains(&shape.as_str()))
                 .then(|| format!("{name}'s shape is \"sine\" or \"triangle\", and this is \"{shape}\"."))
                 .or_else(|| edges(e)),
@@ -5364,8 +5372,8 @@ pub(crate) fn apply_stack_at(
             Effect::Sharpen { amount, radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSharpen, || {
                 crate::layer_fx::sharpen(source, *amount, *radius, *threshold)
             }),
-            Effect::Diffusion { radius, amount, blend } => crate::perf::time(crate::perf::Stage::EffectDiffusion, || {
-                crate::layer_fx::diffusion(source, *radius, *amount, blend)
+            Effect::Diffusion { radius, amount, blend, second_amount, second_blend } => crate::perf::time(crate::perf::Stage::EffectDiffusion, || {
+                crate::layer_fx::diffusion(source, *radius, *amount, blend, (*second_amount, second_blend))
             }),
             // D-149: the wave slides `speed` degrees a frame.
             Effect::WaveWarp {

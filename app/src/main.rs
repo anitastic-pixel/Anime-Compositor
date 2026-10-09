@@ -3693,6 +3693,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             radius: 10.0,
             amount: 50.0,
             blend: "screen".to_string(),
+            second_amount: 0.0,
+            second_blend: "soft_light".to_string(),
         }),
         // D-149: a still sine wave, pushing up and down.
         WAVE_WARP => Some(Effect::WaveWarp {
@@ -4813,6 +4815,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             radius: number("radius")?,
             amount: number("amount")?,
             blend: word("blend")?,
+            second_amount: if parameter(query, "second_amount").is_some() { number("second_amount")? } else { 0.0 },
+            second_blend: word("second_blend").unwrap_or_else(|_| "soft_light".to_string()),
         }),
         WAVE_WARP => Ok(Effect::WaveWarp {
             shape: word("shape")?,
@@ -28646,7 +28650,7 @@ mod contract {
         // D-147: both numbers.
         ("core.sharpen", &[("amount", "250"), ("radius", "2"), ("threshold", "12")]),
         // D-148: both numbers and the blend.
-        ("core.diffusion", &[("radius", "25"), ("amount", "70"), ("blend", "lighten")]),
+        ("core.diffusion", &[("radius", "25"), ("amount", "70"), ("blend", "lighten"), ("second_blend", "overlay"), ("second_amount", "40")]),
         // D-149: the five numbers and both words.
         (
             "core.wave_warp",

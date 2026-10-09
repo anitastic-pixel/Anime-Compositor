@@ -1696,10 +1696,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("threshold".into(), num(*threshold));
             }
         }
-        Effect::Diffusion { radius, amount, blend } => {
+        Effect::Diffusion { radius, amount, blend, second_amount, second_blend } => {
             params.insert("radius".into(), num(*radius));
             params.insert("amount".into(), num(*amount));
             params.insert("blend".into(), J::from(blend.as_str()));
+            // D-364: as D-310, written only if moved, keyed or already in the file.
+            if *second_amount != 0.0 || instance.tracks.contains_key("second_amount") || params.contains_key("second_amount") {
+                params.insert("second_amount".into(), num(*second_amount));
+            }
+            if second_blend != "soft_light" || params.contains_key("second_blend") {
+                params.insert("second_blend".into(), J::from(second_blend.as_str()));
+            }
         }
         Effect::WaveWarp {
             shape,
@@ -4182,6 +4189,8 @@ fn parse_effect(
             radius: effect_number(params, "radius", &at)?,
             amount: effect_number(params, "amount", &at)?,
             blend: effect_word(params, "blend", &at)?,
+            second_amount: effect_number_or(params, "second_amount", &at, 0.0)?,
+            second_blend: effect_word_or(params, "second_blend", &at, "soft_light")?,
         }),
         crate::effects::WAVE_WARP => Some(crate::effects::Effect::WaveWarp {
             shape: effect_word(params, "shape", &at)?,

@@ -9816,7 +9816,8 @@ const EFFECT_PARAMS = {
     ['threshold', 'Threshold', 1, 1, '0 to 255, differences smaller than this are left alone']],
   // D-148.
   'core.diffusion': [['radius', 'Radius', 1, 1, 'pixels, 0 to 500, how far the glow spreads'],
-    ['amount', 'Amount', 1, 1, '0 to 100, how much of the glow is laid on']],
+    ['amount', 'Amount', 1, 1, '0 to 100, how much of the glow is laid on'],
+    ['second_amount', 'Second Amount', 1, 1, '0 to 100, how much of the glow is laid on again in soft light or overlay (0, off)']],
   // D-149.
   'core.wave_warp': [['height', 'Height', 1, 0.5, 'pixels, 0 to 1000, how far the wave pushes'],
     ['width', 'Width', 1, 1, 'pixels, 1 to 10000, how long one wave is'],
@@ -10304,7 +10305,8 @@ const EFFECT_WORDS = {
   // D-146.
   'core.find_edges': { choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]] },
   // D-148.
-  'core.diffusion': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['lighten', 'Lighten'], ['normal', 'Normal']]]] },
+  'core.diffusion': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['lighten', 'Lighten'], ['normal', 'Normal']]],
+    ['second_blend', 'Second Blend', [['soft_light', 'Soft Light'], ['overlay', 'Overlay']]]] },
   // D-149.
   'core.wave_warp': { choices: [['shape', 'Shape', [['sine', 'Sine'], ['triangle', 'Triangle']]], EDGES] },
   // D-199.

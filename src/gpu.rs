@@ -836,7 +836,11 @@ fn rem(a: f64, b: f64) -> f64 {
 
 // grade::mixer.
 fn mixed(b: f64, c: f64) -> f64 {
-    switch F.blend {
+    return mixed_with(F.blend, b, c);
+}
+
+fn mixed_with(m: u32, b: f64, c: f64) -> f64 {
+    switch m {
         case 1u: { return b * c; }
         case 2u: { return 1.0lf - (1.0lf - b) * (1.0lf - c); }
         case 3u: { return b + c; }
@@ -2879,7 +2883,8 @@ fn relief(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // B-107, layer_fx::sharpen (mode 0) and diffusion (mode 1, `blend` 0 normal, 1 screen, 2
-// lighten): `other` is the picture blurred, grown by `r`. k: the amount as a share.
+// lighten): `other` is the picture blurred, grown by `r`. k: the amount as a share; for
+// diffusion (D-364) also the second amount as a share and its mixer, 4 overlay, 5 soft light.
 @compute @workgroup_size(16, 16)
 fn sharp(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -2915,7 +2920,12 @@ fn sharp(@builtin(global_invocation_id) id: vec3<u32>) {
             } else if F.blend == 2u {
                 f = max(b, s);
             }
-            out[c] = f32((b + k[0] * (f - b)) * a);
+            var r = b + k[0] * (f - b);
+            if k[1] > 0.0lf {
+                let m = mixed_with(u32(k[2]), to_srgb(clamp(r, 0.0lf, 1.0lf)), to_srgb(clamp(s, 0.0lf, 1.0lf)));
+                r = r + k[1] * (to_linear(m) - r);
+            }
+            out[c] = f32(r * a);
         }
     }
     textureStore(output, id.xy, out);
@@ -7187,14 +7197,15 @@ impl Gpu {
                 let (blurred, r) = covering(steps, still, (w, h), *radius);
                 same(steps, &passes.sharp, FxParams { r: r as i32, ..Default::default() }, &[amount / 100.0], Some(&blurred))
             }
-            E::Diffusion { radius, amount, blend: b } => {
+            E::Diffusion { radius, amount, blend: b, second_amount, second_blend } => {
                 let (blurred, r) = covering(steps, still, (w, h), radius / 3.0);
                 let blend = match b.as_str() {
                     "screen" => 1,
                     "lighten" => 2,
                     _ => 0,
                 };
-                same(steps, &passes.sharp, FxParams { mode: 1, blend, r: r as i32, ..Default::default() }, &[amount / 100.0], Some(&blurred))
+                let k = [amount / 100.0, second_amount / 100.0, if second_blend == "overlay" { 4.0 } else { 5.0 }];
+                same(steps, &passes.sharp, FxParams { mode: 1, blend, r: r as i32, ..Default::default() }, &k, Some(&blurred))
             }
             E::WaveWarp { shape, height, width, direction, speed, phase, edges, frame } => {
                 let repeat = edges == "repeat";

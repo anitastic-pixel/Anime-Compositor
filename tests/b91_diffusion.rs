@@ -17,6 +17,8 @@ fn diffusion(radius: f64, amount: f64, blend: &str) -> Effect {
         radius,
         amount,
         blend: blend.to_string(),
+        second_amount: 0.0,
+        second_blend: "soft_light".to_string(),
     }
 }
 

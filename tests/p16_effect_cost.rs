@@ -503,6 +503,8 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 radius: 10.0,
                 amount: 50.0,
                 blend: "screen".to_string(),
+                second_amount: 0.0,
+                second_blend: "soft_light".to_string(),
             },
         ),
         (
