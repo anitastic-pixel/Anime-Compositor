@@ -25,6 +25,14 @@ drawing's 8-bit values, summing each two-dimensional kernel directly at each pix
 (`blurriness_reference.blur`, in sigma units), where the build blurs in single precision one
 axis at a time on a buffer grown by the kernel.
 
+D-380 (c), the owner's choice of 2026-10-09 ("c"): Channel Blur gains `units`, as D-321 gave
+Gaussian Blur. "sigma", what a file without it means, is the rule above exactly; in "blurriness",
+which a Channel Blur added from now on writes, each number is After Effects' Blurriness and G_s
+is `blurriness_reference.blur` in Blurriness units: sigma 0.3 times the number, the kernel
+reaching ceil(6.5 sigma). FX-CHBLUR-015 to 024 are those cases, in
+`Fixtures/channel_blur/expected_channel_blur_blurriness.json`; FX-CHBLUR-001 to 014 and their
+expected file are written exactly as before.
+
 Fixtures are read-only to implementation work: this file is run when the specification changes,
 and never to make a build pass.
 
@@ -51,14 +59,14 @@ NONE = (0, 0, 0, 0)
 
 # --- the rule -------------------------------------------------------------------------------
 
-def channel_blur(px, sigmas, edges, dimensions):
-    """`sigmas` red, green, blue, alpha."""
-    A = B.blur(px, sigmas[3], "sigma", edges, dimensions)
+def channel_blur(px, sigmas, edges, dimensions, units="sigma"):
+    """`sigmas` red, green, blue, alpha: the four numbers, in `units` (D-380)."""
+    A = B.blur(px, sigmas[3], units, edges, dimensions)
     out = [list(p) for p in A]
     for c in range(3):
         if sigmas[c] == sigmas[3]:
             continue
-        G = B.blur(px, sigmas[c], "sigma", edges, dimensions)
+        G = B.blur(px, sigmas[c], units, edges, dimensions)
         for o, g in zip(out, G):
             if g[3] > 0:
                 o[c] = g[c] / g[3] * o[3]
@@ -84,15 +92,20 @@ def plain():
     return [D.working(p) for row in DRAWING for p in row]
 
 
-def case(r=0, g=0, b=0, a=0, edges=None, dimensions="both"):
-    """`edges` None: the file does not say, transparent."""
-    return {"red_blurriness": r, "green_blurriness": g, "blue_blurriness": b,
-            "alpha_blurriness": a, "edges": edges, "dimensions": dimensions}
+def case(r=0, g=0, b=0, a=0, edges=None, dimensions="both", units=None):
+    """`edges` None: the file does not say, transparent. `units` None: the file does not say,
+    sigma (D-380)."""
+    c = {"red_blurriness": r, "green_blurriness": g, "blue_blurriness": b,
+         "alpha_blurriness": a, "edges": edges, "dimensions": dimensions}
+    if units is not None:
+        c["units"] = units
+    return c
 
 
 def render(c, frame_no=0):
     sigmas = [value_at(c[k], frame_no) for k in NAMES]
-    return channel_blur(plain(), sigmas, c["edges"] or "transparent", c["dimensions"])
+    return channel_blur(plain(), sigmas, c["edges"] or "transparent", c["dimensions"],
+                        c.get("units") or "sigma")
 
 
 CASES = {
@@ -127,7 +140,7 @@ CASES = {
                       case(r=4, a=2, edges="repeat", dimensions="vertical"), [0]),
     "FX-CHBLUR-008": ("All four 0, as it starts: the drawing untouched.", case(), [0]),
     "FX-CHBLUR-009": ("Green 1.5 and alpha 0.5: a part of a pixel, each Gaussian cut at three "
-                      "of its sigmas, reaching 5 pixels and 2.", case(g=1.5, a=0.5), [0]),
+                      "of its sigmas, 5 pixels and 2.", case(g=1.5, a=0.5), [0]),
     "FX-CHBLUR-010": ("Red Blurriness keyed from 0 at frame 0 to 6 at frame 4, linear: frame 0 "
                       "untouched, frame 2 red 3, FX-CHBLUR-001, and frame 4 red 6.",
                       case(r=keyed((0, 0), (4, 6))), [0, 2, 4]),
@@ -144,6 +157,48 @@ INVALID = {
                       case(r=3, dimensions="diagonal")),
 }
 
+# D-380 (c): the numbers in After Effects' Blurriness, sigma 0.3 times each, reaching 6.5 sigmas.
+BL = "blurriness"
+BLURRINESS_CASES = {
+    "FX-CHBLUR-015": ("Units Blurriness (After Effects), Red Blurriness 10, the rest 0: red at "
+                      "sigma 3, reaching 20 pixels. As FX-CHBLUR-001, only red is blurred and laid "
+                      "back inside the drawing's own covering, so green, blue and every covering "
+                      "are the drawing's exactly. The red is FX-CHBLUR-001's within a billionth: "
+                      "divided by its own covering's blur, the longer tail cancels.",
+                      case(r=10, units=BL), [0]),
+    "FX-CHBLUR-016": ("Units Blurriness, red 6, green 0, blue 15, alpha 3 (sigmas 1.8, 0, 4.5 "
+                      "and 0.9): each colour spread by its own amount and laid inside a covering "
+                      "spread by about a pixel; green stays as sharp as drawn.",
+                      case(6, 0, 15, 3, units=BL), [0]),
+    "FX-CHBLUR-017": ("FX-CHBLUR-016 with Repeat Edge Pixels: the orange square's own pixels are "
+                      "read past the left edge, so its left column keeps its covering; the layer "
+                      "does not grow.", case(6, 0, 15, 3, edges="repeat", units=BL), [0]),
+    "FX-CHBLUR-018": ("FX-CHBLUR-016 with Blur Dimensions horizontal: spread across only, the "
+                      "rows above and below the squares still empty.",
+                      case(6, 0, 15, 3, dimensions="horizontal", units=BL), [0]),
+    "FX-CHBLUR-019": ("Units Blurriness, red 12 and alpha 6 with Blur Dimensions vertical and "
+                      "Repeat Edge Pixels: spread down only, the columns between the green and "
+                      "blue squares still empty.",
+                      case(r=12, a=6, edges="repeat", dimensions="vertical", units=BL), [0]),
+    "FX-CHBLUR-020": ("Units Blurriness, all four 10: Gaussian Blur in Blurriness 10 (D-321) "
+                      "exactly, so the two blurs agree at the same number. Ten pixels right of "
+                      "the blue square the covering is still lit, past where sigma 3 cut at three "
+                      "sigmas (FX-CHBLUR-003) leaves it clear.",
+                      case(10, 10, 10, 10, units=BL), [0]),
+    "FX-CHBLUR-021": ("Units written \"sigma\" (Sigma, older projects), Red Blurriness 3: "
+                      "FX-CHBLUR-001 exactly, the file with no units.",
+                      case(r=3, units="sigma"), [0]),
+    "FX-CHBLUR-022": ("Units Blurriness, Red Blurriness keyed from 0 at frame 0 to 20 at frame 4, "
+                      "linear: frame 0 untouched, frame 2 red 10, FX-CHBLUR-015, and frame 4 red "
+                      "20.", case(r=keyed((0, 0), (4, 20)), units=BL), [0, 2, 4]),
+}
+
+BLURRINESS_INVALID = {
+    "FX-CHBLUR-023": ("Units \"Blurriness\": the word is exact, so a capital is not it.",
+                      case(r=10, units="Blurriness")),
+    "FX-CHBLUR-024": ("Units \"pixels\", which is not one.", case(r=10, units="pixels")),
+}
+
 
 # --- the project files ----------------------------------------------------------------------
 
@@ -156,6 +211,8 @@ def project_json(fx, c):
     if c["edges"] is not None:
         params["edges"] = c["edges"]
     params["dimensions"] = c["dimensions"]
+    if "units" in c:
+        params["units"] = c["units"]
     layer["effects"] = [{"instance_id": "fx-0-0", "type_id": "core.channel_blur",
                          "enabled": True, "parameters": params}]
     return p
@@ -167,24 +224,30 @@ def write(fx, c):
     return name
 
 
-def main():
-    (OUT / "media").mkdir(parents=True, exist_ok=True)
-    (OUT / "media" / "pair.png").write_bytes(S.png(DRAWING))
+def expected_file(cases, invalid, name):
     expected = {"tolerance": TOLERANCE, "width": W, "height": H, "cases": {}}
-    for fx, (says, c, frames) in CASES.items():
+    for fx, (says, c, frames) in cases.items():
         expected["cases"][fx] = {"says": says, "project": write(fx, c),
                                  "frames": {str(f): render(c, f) for f in frames}}
         print(f"{fx}: {says[:60]}")
-    for fx, (says, c) in INVALID.items():
+    for fx, (says, c) in invalid.items():
         says += (" The file is read, the effect is kept as written and left out of every frame, "
                  "with a warning.")
         expected["cases"][fx] = {"says": says, "project": write(fx, c),
                                  "frames": {"0": plain(), "4": plain()},
                                  "warning": "EFFECT_PARAMETER_INVALID"}
         print(f"{fx}: invalid")
-    (OUT / "expected_channel_blur.json").write_text(json.dumps(expected, indent=1) + "\n",
-                                                    encoding="utf-8")
+    (OUT / name).write_text(json.dumps(expected, indent=1) + "\n", encoding="utf-8")
+    return expected
+
+
+def main():
+    (OUT / "media").mkdir(parents=True, exist_ok=True)
+    (OUT / "media" / "pair.png").write_bytes(S.png(DRAWING))
+    expected = expected_file(CASES, INVALID, "expected_channel_blur.json")
     check(expected)
+    check_blurriness(expected, expected_file(BLURRINESS_CASES, BLURRINESS_INVALID,
+                                             "expected_channel_blur_blurriness.json"))
 
 
 def check(expected):
@@ -236,6 +299,52 @@ def check(expected):
                 assert -1e-12 <= p[3] <= 1 + 1e-12, (name, p)
                 assert all(-1e-12 <= v <= p[3] + 1e-9 for v in p[:3]), (name, p)
     print("checked")
+
+
+def check_blurriness(old, expected):
+    """D-380's claims, on the numbers just worked."""
+    c = {fx: v["frames"] for fx, v in expected["cases"].items()}
+    o = {fx: v["frames"] for fx, v in old["cases"].items()}
+    at = lambda x, y: y * W + x  # noqa: E731
+    near = lambda p, q, e=1e-12: all(abs(u - v) < e for u, v in zip(p, q))  # noqa: E731
+    drawn = plain()
+    straight = lambda p: [v / p[3] for v in p[:3]]  # noqa: E731
+
+    # 015: only red moves, inside the drawing; within a hundredth of 001's red, not equal to it.
+    one, old_one = c["FX-CHBLUR-015"]["0"], o["FX-CHBLUR-001"]["0"]
+    assert all(one[i][1:] == drawn[i][1:] for i in range(W * H))
+    assert all(one[i] == [0.0] * 4 for i in range(W * H) if drawn[i][3] == 0)
+    assert one[at(3, 5)][0] < one[at(0, 5)][0] < drawn[at(0, 5)][0]
+    assert all(near(one[at(x, y)], drawn[at(x, y)], 1e-9) for x in range(26, 30) for y in range(4, 8))
+    assert all(near(one[i], old_one[i], 1e-9) for i in range(W * H))
+    # 016: green as drawn where drawn; blue reaches into the orange.
+    six = c["FX-CHBLUR-016"]["0"]
+    assert all(abs(straight(six[i])[1] - straight(drawn[i])[1]) < 1e-9 for i in range(W * H) if drawn[i][3] > 0)
+    assert straight(six[at(1, 5)])[2] > 1e-4
+    # 017: repeat holds the left edge.
+    assert c["FX-CHBLUR-017"]["0"][at(0, 5)][3] > six[at(0, 5)][3] + 0.05
+    # 018 and 019: one direction only.
+    e8, n9 = c["FX-CHBLUR-018"]["0"], c["FX-CHBLUR-019"]["0"]
+    assert all(e8[at(x, y)] == [0.0] * 4 for x in range(W) for y in (0, 1, 2, 3, 8, 9, 10, 11))
+    assert e8[at(9, 5)][3] > 0
+    assert all(n9[at(x, y)] == [0.0] * 4 for x in range(8, 26) for y in range(H))
+    assert n9[at(1, 2)][3] > 0
+    # 020: Gaussian Blur in Blurriness 10.
+    twenty = c["FX-CHBLUR-020"]["0"]
+    assert twenty == B.blur(drawn, 10, BL, "transparent", "both")
+    assert twenty[at(39, 5)][3] > 5 * TOLERANCE and o["FX-CHBLUR-003"]["0"][at(39, 5)][3] == 0
+    # 021: sigma written is no units.
+    assert c["FX-CHBLUR-021"]["0"] == old_one
+    # 022: keyed.
+    k = c["FX-CHBLUR-022"]
+    assert k["0"] == drawn and k["2"] == one and k["4"] == render(case(r=20, units=BL))
+    assert len(B.taps(10, BL)) == 41 and len(B.taps(15, BL)) == 61
+    for name, frames in c.items():
+        for px in frames.values():
+            for p in px:
+                assert -1e-12 <= p[3] <= 1 + 1e-12, (name, p)
+                assert all(-1e-12 <= v <= p[3] + 1e-9 for v in p[:3]), (name, p)
+    print("checked D-380")
 
 
 if __name__ == "__main__":

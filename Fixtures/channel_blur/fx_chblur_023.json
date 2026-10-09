@@ -1,0 +1,105 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-chblur-023",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-pair",
+      "kind": "still",
+      "name": "pair",
+      "path": "media/pair.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 40,
+      "height": 12,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 5,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 5
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-pair",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                20.0,
+                6.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                20.0,
+                6.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.channel_blur",
+              "enabled": true,
+              "parameters": {
+                "red_blurriness": 10,
+                "green_blurriness": 0,
+                "blue_blurriness": 0,
+                "alpha_blurriness": 0,
+                "dimensions": "both",
+                "units": "Blurriness"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
