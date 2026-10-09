@@ -2832,6 +2832,10 @@ fn mirrored(x: f64, y: f64) -> vec4<f32> {
 
 // D-385: whole place `i` folded into 0..n, every other repeat turned over.
 fn fold(i: f64, n: f64) -> i32 {
+    // Inside the buffer, as most taps are, without the slow division.
+    if i >= 0.0lf && i < n {
+        return i32(i);
+    }
     var j = i - 2.0lf * n * floor(i / (2.0lf * n));
     // The card's division may round a whole multiple to just under it.
     if j >= 2.0lf * n {
@@ -3149,12 +3153,14 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
         case 14u: {
             // D-385, layer_fx::flow_motion. k: knot 1 and its strength, knot 2 and its strength,
             // sigma squared, tile edges, the points a side.
+            // n is 1, 2 or 4, so multiplying by 1 / n and 1 / n^2 is exact.
             let n = u32(k[8]);
+            let step = 1.0lf / f64(n);
             var sum = vec4(0.0lf, 0.0lf, 0.0lf, 0.0lf);
             for (var j = 0u; j < n; j++) {
                 for (var i = 0u; i < n; i++) {
-                    let px = f64(id.x) + (f64(i) + 0.5lf) / f64(n);
-                    let py = f64(id.y) + (f64(j) + 0.5lf) / f64(n);
+                    let px = f64(id.x) + (f64(i) + 0.5lf) * step;
+                    let py = f64(id.y) + (f64(j) + 0.5lf) * step;
                     var qx = px;
                     var qy = py;
                     for (var e = 0u; e < 6u; e += 3u) {
@@ -3180,8 +3186,8 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
                     sum += vec4(f64(s.x), f64(s.y), f64(s.z), f64(s.w));
                 }
             }
-            let nn = f64(n * n);
-            textureStore(output, id.xy, vec4(f32(sum.x / nn), f32(sum.y / nn), f32(sum.z / nn), f32(sum.w / nn)));
+            let mean = sum * (step * step);
+            textureStore(output, id.xy, vec4(f32(mean.x), f32(mean.y), f32(mean.z), f32(mean.w)));
             return;
         }
         case 15u: {
