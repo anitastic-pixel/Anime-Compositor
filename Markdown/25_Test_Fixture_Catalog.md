@@ -203384,3 +203384,59 @@ A backend that exceeds tolerance requires diagnosis. Do not loosen tolerances gl
 RSH-01 and RSH-02 are specified in 22. They are manually reviewed in addition to automated tests. Their visual acceptance cannot replace the numeric fixtures above.
 
 Related documents: 11, 20, 21, 22 and 28.
+
+### Lens Blur's blur map (D-359)
+
+Lens Blur (`core.lens_blur`) with a blur map, after After Effects' Camera Lens Blur Blur Map group (B-238). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/lens_blur/`: the drawing `holder` at the top with the effect (instance `fx-1`), radius 4 unless said, and under it the map layers, every one switched off: `ramp` (black at the left to white at the right), `fade` (black, covered at the left to clear at the right), `card` (a 4 by 2 checker), `white` (a white solid) and `depth` (the depth fixtures' EXR through Pass Extract). Expected pixels in `Fixtures/lens_blur/expected_lens_blur_map.json`, tolerance 2e-5, written by `tools/lens_blur_map_reference.py`.
+
+FX-LENS-045 (`fx_lens_045.json`): Radius 4 with every Blur Map setting written at its start value: no layer, Center, Luminance, Focal Distance 0, Invert off: FX-LENS-007 exactly. Frames 0.
+
+FX-LENS-046 (`fx_lens_046.json`): The ramp as the blur map, Focal Distance 0: black, near, at the left stays sharp, and the blur grows column by column to the full radius 4 at the white right edge. Frames 0.
+
+FX-LENS-047 (`fx_lens_047.json`): The ramp, Focal Distance 255: the white right edge in focus, the left blurred most. Frames 0.
+
+FX-LENS-048 (`fx_lens_048.json`): The ramp, Focal Distance 128: the middle in focus, both sides blurred about half the radius. Frames 0.
+
+FX-LENS-049 (`fx_lens_049.json`): The ramp inverted, Focal Distance 0: FX-LENS-047. Frames 0.
+
+FX-LENS-050 (`fx_lens_050.json`): A white solid read by its Alpha, Focal Distance 0: every pixel at the full radius, FX-LENS-007. Frames 0.
+
+FX-LENS-051 (`fx_lens_051.json`): A black picture fading from covered at the left to clear at the right, read by its Alpha: blurred most at the left, sharp at the right. Frames 0.
+
+FX-LENS-052 (`fx_lens_052.json`): The same picture read by its Luminance: black everywhere, so nothing is blurred; the layer still grows, and the drawing is as it was. Frames 0.
+
+FX-LENS-053 (`fx_lens_053.json`): A 4 by 2 checker as the map, Center: it covers columns 6 to 9 of rows 4 and 5; only its four white pixels are blurred, everything else is sharp. Frames 0.
+
+FX-LENS-054 (`fx_lens_054.json`): The checker, Stretch: spread over the whole layer and softened between its squares. Frames 0.
+
+FX-LENS-055 (`fx_lens_055.json`): FX-LENS-046 with edges repeat on the picture that fills the layer: the map and the picture both held at the edges, every pixel still fully covered. Frames 0.
+
+FX-LENS-056 (`fx_lens_056.json`): Focal Distance keyed from 0 at frame 0 to 255 at frame 4: frame 0 is FX-LENS-046 and frame 4 FX-LENS-047; the sharp band moves across. Frames 0, 2, 4.
+
+FX-LENS-057 (`fx_lens_057.json`): A layer that is not in the composition, `gone`: the frame is drawn without the effect, with the warning every frame. Warning `EFFECT_LAYER_MISSING` every frame. Frames 0, 4.
+
+FX-LENS-058 (`fx_lens_058.json`): FX-LENS-046 on the bars moved three pixels right: the same picture moved, since the map lies on the layer. Frames 0.
+
+FX-LENS-059 (`fx_lens_059.json`): Depth: the depth fixtures' EXR on a layer of its own with Pass Extract, its depth from 0.5 (black) to 13 (white), stretched as the map, Focal Distance 0: the near top left in focus, the far bottom right blurred most. Frames 0.
+
+FX-LENS-060 (`fx_lens_060.json`): The ramp with a hexagon iris and highlights, gain 3 at threshold 80: the skin lit and held at white after the levels are mixed. Frames 0.
+
+FX-LENS-061 (`fx_lens_061.json`): The ramp at radius 0: the drawing, untouched. Frames 0.
+
+FX-LENS-062 (`fx_lens_062.json`): The ramp at radius 2.5, Focal Distance 85: three levels, 0, 0.83 and 1.67 of the radius, the sharp column the sixth. Frames 0.
+
+FX-LENS-063 (`fx_lens_063.json`): Focal Distance 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENS-064 (`fx_lens_064.json`): Focal Distance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENS-065 (`fx_lens_065.json`): Focal Distance keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENS-066 (`fx_lens_066.json`): Placement "tile", which Lens Blur's map does not offer. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENS-067 (`fx_lens_067.json`): Channel "red", which is not a channel it reads. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENS-068 (`fx_lens_068.json`): Invert written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENS-069 (`fx_lens_069.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENS cycle (`lens_map_cycle.json`): `a`'s Lens Blur reads `b` as its map and `b`'s reads `a`: refused, `EFFECT_LAYER_CYCLE`. The project is not opened.
