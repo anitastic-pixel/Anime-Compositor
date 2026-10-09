@@ -13,9 +13,9 @@
 //!    right and justified lines in it.
 //! 4. Appearance: a stroke round the letters, a box behind them and a shadow, in that order under
 //!    the fill.
-//! 5. A D-263 text layer is drawn byte for byte as 2edc62d drew it, the fonts can be listed by
-//!    name, a styled layer goes into an exported frame, and every fixture project saves byte for
-//!    byte as on e395d8b.
+//! 5. A D-263 text layer is drawn byte for byte as pinned (2edc62d; D-372 (a) on B-251), the
+//!    fonts can be listed by name, a styled layer goes into an exported frame, and every fixture
+//!    project saves byte for byte as on e395d8b.
 
 use std::fmt::Write as _;
 use std::fs;
@@ -33,10 +33,12 @@ use anime_compositor::{persist, sha256, OutputAlpha, OutputDepth, WorkingBuffer}
 const FIXTURES_OPENED: usize = 2297;
 const FIXTURES_SAVED: &str = "aeadb2e51777a56efb28e3113b652eaa65c03d10cf2ba66b8d4798f0c86dae2d";
 
-/// Three D-263 pictures, taken on 2edc62d: every pixel's four numbers, SHA-256.
+/// Three D-263 pictures, taken on 2edc62d: every pixel's four numbers, SHA-256. The first two
+/// re-taken on B-251 for D-372 (a), the owner's choice of 2026-10-09: their x, A, V and W slide
+/// to the side bearing in hmtx, as FreeType draws them.
 const D263_PICTURES: [(&str, [f64; 2], Align, &str); 3] = [
-    ("Text \u{3042}\nCut 012", [200.0, 600.0], Align::Left, "d87262ee1bfc63b078b0e2e930113843efc92b8fc94bee1907a42cab23eeb845"),
-    ("AV To\nWAVE", [960.0, 500.0], Align::Center, "bb6976575e3dee8c49101f80f5981b9b16a23b24272b0e8e95e05f780dc604df"),
+    ("Text \u{3042}\nCut 012", [200.0, 600.0], Align::Left, "dd263c05a9840b3892d2fb97c63fb100fc96f5b4c813413e29d1b172492421a3"),
+    ("AV To\nWAVE", [960.0, 500.0], Align::Center, "5a15181208e860b0e9a258e3b7da7ce0c161995e719a84782c4f1dfb7cea7a0a"),
     ("Right", [1700.0, 300.0], Align::Right, "adbbacf2ffcf3bc6f2257c1852275352caa9b4e89e5f3efc3e40fd3479d21b85"),
 ];
 
@@ -454,7 +456,7 @@ fn d264_text_is_styled_as_the_editors_style_it() {
     for (words_, place, align, pinned) in D263_PICTURES {
         let t = Text { font: Text::BUNDLED_FONT.into(), ..words(words_, 120.0, place, align) };
         row(
-            &format!("A D-263 text layer, \"{}\" {}, is drawn byte for byte as on 2edc62d", words_.replace('\n', "\\n"), align.as_str()),
+            &format!("A D-263 text layer, \"{}\" {}, is drawn byte for byte as pinned", words_.replace('\n', "\\n"), align.as_str()),
             pinned,
             hash(&draw(&t)),
         );
@@ -531,7 +533,7 @@ fn d264_text_is_styled_as_the_editors_style_it() {
 
     let passed = rows.iter().filter(|(_, e, a)| e == a).count();
     let mut md = format!(
-        "# D-264: text styles\n\nWritten by `tests/d264_text_styles.rs`. The D-263 pictures were taken on 2edc62d and the fixture hash on e395d8b.\n\n**{passed} of {} checks pass.**\n\n| Check | Expected | Actual | Result |\n|---|---|---|---|\n",
+        "# D-264: text styles\n\nWritten by `tests/d264_text_styles.rs`. The D-263 pictures were taken on 2edc62d (two re-taken on B-251 for D-372 (a), the TrueType side-bearing slide) and the fixture hash on e395d8b.\n\n**{passed} of {} checks pass.**\n\n| Check | Expected | Actual | Result |\n|---|---|---|---|\n",
         rows.len()
     );
     for (check, e, a) in &rows {

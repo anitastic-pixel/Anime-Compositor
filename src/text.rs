@@ -839,7 +839,12 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect]) -> Option<Laid> {
                 let from = contours.len();
                 let mut gx = 0;
                 for g in glyphs.iter().filter(|g| g.ch == i) {
-                    let (gx_at, gy) = ((gx + g.offset.0) as f64 * scale, g.offset.1 as f64 * scale);
+                    // D-372 (a), the owner's choice of 2026-10-09: a TrueType outline slides
+                    // sideways so its left edge meets the side bearing in hmtx, its lsb less the
+                    // xMin in the glyph's own header, as FreeType, HarfBuzz and Windows draw it.
+                    // A CFF font has no glyf table and is drawn as it is.
+                    let slid = face.tables().glyf.and_then(|t| Some(i32::from(face.glyph_hor_side_bearing(g.id)?) - i32::from(t.bbox(g.id)?.x_min))).unwrap_or(0);
+                    let (gx_at, gy) = ((gx + g.offset.0 + slid) as f64 * scale, g.offset.1 as f64 * scale);
                     let mut pen = Pen { x: x + gx_at, y: y - gy, scale, slant, turn, now: Vec::new(), into: &mut contours };
                     face.outline_glyph(g.id, &mut pen);
                     pen.end();

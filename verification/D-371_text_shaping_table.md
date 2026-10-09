@@ -2,7 +2,7 @@
 
 D-371 (EFFECTS.md P0-7, part 2): a text layer's words shaped by `rustybuzz` (D-354), ligatures on by the owner's choice of 2026-10-09. Every expected number is `Fixtures/text_shaping/expected_text_shaping.json`, written by `tools/text_shaping_reference.py` with HarfBuzz itself (`uharfbuzz` 0.53.3) and fontTools before this code was committed, and printed in document 25 as FX-SHAPE-001 to 023. The shaping checks compare every glyph, left to right: its number in the font, its advance, its offsets and the character its cluster starts at, all whole font units, exactly. The layout checks compare each cluster's anchor within 1e-6 pixel and its drawn box within a quarter of a pixel (the build cuts curves into pieces about 2 pixels long; the reference takes each curve's exact extent), and that every other character of a cluster draws nothing of its own.
 
-One row is in dispute, and not because of shaping. The reference drew its boxes through fontTools' glyph set, which first slides each outline so its left edge meets the side bearing the font's hmtx table gives, as FreeType and HarfBuzz do; D-263 draws the points as the font stores them, as D-350's reference does. In the bundled font the two differ for 4134 of its 8546 drawn glyphs, by up to 7 font units in plain Latin (0.7 pixel at size 100) and 29 in a few Japanese brackets. In FX-SHAPE-020 that moves "y" 0.4 pixel. Which way to settle it is D-372, PROPOSED, for the owner.
+Both the reference and the build slide each TrueType outline so its left edge meets the side bearing the font's hmtx table gives, as FreeType and HarfBuzz do: D-372 (a), the owner's choice of 2026-10-09, built B-251. Before it, FX-SHAPE-020 was in dispute, its "y" 0.4 pixel from the reference's.
 
 ## FX-SHAPE-001 to 012: every glyph against HarfBuzz (document 25)
 
@@ -25,7 +25,7 @@ One row is in dispute, and not because of shaping. The reference drew its boxes 
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-SHAPE-020, in dispute (D-372, proposed): the reference slid each outline to its side bearing: "office fly fit staff" laid out at 100 pixels from 100, 200 with tracking 50: each ligature's glyph drawn at its first letter, the other letters in it with no outline. | 20 characters, 15 clusters; anchors within 1.1e-13, boxes within 0.413 px, within 0.023 px slid as the reference slid them | yes |
+| FX-SHAPE-020: "office fly fit staff" laid out at 100 pixels from 100, 200 with tracking 50: each ligature's glyph drawn at its first letter, the other letters in it with no outline. | 20 characters, 15 clusters; anchors within 1.1e-13, boxes within 0.023 px | yes |
 | FX-SHAPE-021: "as-salamu alaykum" at 120 pixels from 80, 240: the first letter typed is on the right, the last on the left. | 12 characters, 12 clusters; anchors within 5.7e-14, boxes within 0.006 px | yes |
 | FX-SHAPE-022: "bismi" at 200 pixels from 60, 300: each vowel mark drawn over or under its letter, its box inside the letter's cluster. | 6 characters, 3 clusters; anchors within 5.7e-14, boxes within 0.000 px | yes |
 | FX-SHAPE-023: "namaste hindi" at 120 pixels from 40, 200: the i-matra drawn before its consonant, both in the cluster of the consonant typed first. | 13 characters, 8 clusters; anchors within 5.7e-14, boxes within 0.000 px | yes |

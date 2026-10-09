@@ -72,14 +72,10 @@ fn d371_text_shaping() {
          layout checks compare each cluster's anchor within 1e-6 pixel and its drawn box within a \
          quarter of a pixel (the build cuts curves into pieces about 2 pixels long; the reference \
          takes each curve's exact extent), and that every other character of a cluster draws \
-         nothing of its own.\n\nOne row is in dispute, and not because of shaping. The \
-         reference drew its boxes through fontTools' glyph set, which first slides each outline \
-         so its left edge meets the side bearing the font's hmtx table gives, as FreeType and \
-         HarfBuzz do; D-263 draws the points as the font stores them, as D-350's reference does. \
-         In the bundled font the two differ for 4134 of its 8546 drawn glyphs, by up to 7 font \
-         units in plain Latin (0.7 pixel at size 100) and 29 in a few Japanese brackets. In \
-         FX-SHAPE-020 that moves \"y\" 0.4 pixel. Which way to settle it is D-372, PROPOSED, for \
-         the owner.\n",
+         nothing of its own.\n\nBoth the reference and the build slide each TrueType outline so its \
+         left edge meets the side bearing the font's hmtx table gives, as FreeType and HarfBuzz \
+         do: D-372 (a), the owner's choice of 2026-10-09, built B-251. Before it, FX-SHAPE-020 \
+         was in dispute, its \"y\" 0.4 pixel from the reference's.\n",
     );
     let e: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_text_shaping.json")).unwrap()).unwrap();
     let tol = e["tolerance"].as_f64().unwrap();
@@ -132,21 +128,7 @@ fn d371_text_shaping() {
         let ours = read.as_deref() == Some(font(&words.font).as_slice());
         let placed = text::placed(&words, &[]).unwrap_or_default();
         let want = case["chars"].as_array().unwrap();
-        // D-372: how far the reference slid each one-glyph cluster, in pixels: the side bearing
-        // in hmtx less the left edge the glyph's own header gives.
-        let bytes = font(&words.font);
-        let face = rustybuzz::Face::from_slice(&bytes, 0).unwrap();
-        let chars: Vec<char> = words.text.chars().collect();
-        let glyphs = text::shaped(&face, &chars, words.kerning);
-        let scale = words.size / f64::from(face.units_per_em());
-        let slide = |i: usize| match glyphs.iter().filter(|g| g.ch == i).collect::<Vec<_>>()[..] {
-            [g] => face
-                .glyph_hor_side_bearing(g.id)
-                .zip(face.glyph_bounding_box(g.id))
-                .map_or(0.0, |(lsb, b)| f64::from(lsb - b.x_min) * scale),
-            _ => 0.0,
-        };
-        let (mut worst, mut worst_box, mut worst_slid, mut ok) = (0f64, 0f64, 0f64, ours && placed.len() == want.len());
+        let (mut worst, mut worst_box, mut ok) = (0f64, 0f64, ours && placed.len() == want.len());
         for c in want {
             let i = c["index"].as_u64().unwrap() as usize;
             let Some(b) = placed.iter().find(|p| p.index == i) else {
@@ -157,34 +139,21 @@ fn d371_text_shaping() {
             if c["head"].as_bool().unwrap() {
                 worst = worst.max(far(&b.anchor, &nums(&c["anchor"])));
             }
-            let (raw, slid) = match (b.bounds, c["box"].is_null()) {
-                (None, true) => (0.0, 0.0),
-                (Some(r), false) => {
-                    let dx = slide(i);
-                    (far(&r, &nums(&c["box"])), far(&[r[0] + dx, r[1], r[2] + dx, r[3]], &nums(&c["box"])))
-                }
-                _ => (f64::INFINITY, f64::INFINITY),
-            };
-            worst_box = worst_box.max(raw);
-            worst_slid = worst_slid.max(slid);
+            worst_box = worst_box.max(match (b.bounds, c["box"].is_null()) {
+                (None, true) => 0.0,
+                (Some(r), false) => far(&r, &nums(&c["box"])),
+                _ => f64::INFINITY,
+            });
         }
         let heads = want.iter().filter(|c| c["head"].as_bool().unwrap()).count();
-        // A row whose boxes agree only once the reference's slide is taken out is in dispute,
-        // pending D-372, and says so; it still fails if anything else differs.
-        let dispute = worst_box > box_tol;
         t.row(
+            &format!("{name}: {}", case["says"].as_str().unwrap()),
             &format!(
-                "{name}{}: {}",
-                if dispute { ", in dispute (D-372, proposed): the reference slid each outline to its side bearing" } else { "" },
-                case["says"].as_str().unwrap()
-            ),
-            &format!(
-                "{} characters, {heads} clusters; anchors within {worst:.1e}, boxes within {worst_box:.3} px{}{}",
+                "{} characters, {heads} clusters; anchors within {worst:.1e}, boxes within {worst_box:.3} px{}",
                 placed.len(),
-                if dispute { format!(", within {worst_slid:.3} px slid as the reference slid them") } else { String::new() },
                 if ours { "" } else { "; the font read was not the fixture's copy" }
             ),
-            ok && worst <= tol && worst_slid <= box_tol,
+            ok && worst <= tol && worst_box <= box_tol,
         );
         if let Some(p) = text::draw(&words, 1000, 400) {
             picture(&name.to_lowercase().replace('-', "_"), &p);

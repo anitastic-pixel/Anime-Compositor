@@ -1,6 +1,6 @@
 # D-264: text styles
 
-Written by `tests/d264_text_styles.rs`. The D-263 pictures were taken on 2edc62d and the fixture hash on e395d8b.
+Written by `tests/d264_text_styles.rs`. The D-263 pictures were taken on 2edc62d (two re-taken on B-251 for D-372 (a), the TrueType side-bearing slide) and the fixture hash on e395d8b.
 
 **57 of 57 checks pass.**
 
@@ -54,9 +54,9 @@ Written by `tests/d264_text_styles.rs`. The D-263 pictures were taken on 2edc62d
 | With softness 10 the shadow's edge is part seen | yes | yes | pass |
 | All three at once, from the bottom: background, shadow, stroke, fill | [0.0, 0.0, 1.0, 1.0], [0.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [1.0, 0.9, 0.2, 1.0] | [0.0, 0.0, 1.0, 1.0], [0.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0], [1.0, 0.9, 0.2, 1.0] | pass |
 | Drawn a second time, every pixel is the same | the same | the same | pass |
-| A D-263 text layer, "Text あ\nCut 012" left, is drawn byte for byte as on 2edc62d | d87262ee1bfc63b078b0e2e930113843efc92b8fc94bee1907a42cab23eeb845 | d87262ee1bfc63b078b0e2e930113843efc92b8fc94bee1907a42cab23eeb845 | pass |
-| A D-263 text layer, "AV To\nWAVE" center, is drawn byte for byte as on 2edc62d | bb6976575e3dee8c49101f80f5981b9b16a23b24272b0e8e95e05f780dc604df | bb6976575e3dee8c49101f80f5981b9b16a23b24272b0e8e95e05f780dc604df | pass |
-| A D-263 text layer, "Right" right, is drawn byte for byte as on 2edc62d | adbbacf2ffcf3bc6f2257c1852275352caa9b4e89e5f3efc3e40fd3479d21b85 | adbbacf2ffcf3bc6f2257c1852275352caa9b4e89e5f3efc3e40fd3479d21b85 | pass |
+| A D-263 text layer, "Text あ\nCut 012" left, is drawn byte for byte as pinned | dd263c05a9840b3892d2fb97c63fb100fc96f5b4c813413e29d1b172492421a3 | dd263c05a9840b3892d2fb97c63fb100fc96f5b4c813413e29d1b172492421a3 | pass |
+| A D-263 text layer, "AV To\nWAVE" center, is drawn byte for byte as pinned | 5a15181208e860b0e9a258e3b7da7ce0c161995e719a84782c4f1dfb7cea7a0a | 5a15181208e860b0e9a258e3b7da7ce0c161995e719a84782c4f1dfb7cea7a0a | pass |
+| A D-263 text layer, "Right" right, is drawn byte for byte as pinned | adbbacf2ffcf3bc6f2257c1852275352caa9b4e89e5f3efc3e40fd3479d21b85 | adbbacf2ffcf3bc6f2257c1852275352caa9b4e89e5f3efc3e40fd3479d21b85 | pass |
 | The fonts are listed by the names they give themselves: the one that comes with the program is Rounded Mplus 1c, Regular | Rounded Mplus 1c, Regular | Rounded Mplus 1c, Regular | pass |
 | And this machine's own, such as Arial, Bold in arialbd.ttf | Arial, Bold | Arial, Bold | pass |
 | A listed font's file can be read for the window to type in | the same | the same | pass |
