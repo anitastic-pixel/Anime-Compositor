@@ -2390,6 +2390,83 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, out);
         return;
     }
+    if F.mode == 24u {
+        // D-365, as grade::broadcast_safe. k: the set-up, the limit, the highest Y + C allowed,
+        // the method's place in BROADCAST_METHODS.
+        let y = 0.299lf * e.x + 0.587lf * e.y + 0.114lf * e.z;
+        let u = 0.492lf * (e.z - y);
+        let v = 0.877lf * (e.x - y);
+        let c = sqrt(u * u + v * v);
+        let over = k[0] + (100.0lf - k[0]) * (y + c) > k[1] + 1e-4lf;
+        if k[3] >= 2.0lf {
+            if over == (k[3] == 2.0lf) {
+                textureStore(output, id.xy, vec4<f32>(0.0));
+                return;
+            }
+            textureStore(output, id.xy, p);
+            return;
+        }
+        var o = e;
+        if over && k[3] == 0.0lf {
+            o = e * k[2] / (y + c);
+        } else if over && y < k[2] && c > 0.0lf {
+            o = vec3(y) + (e - vec3(y)) * (k[2] - y) / c;
+        } else if over {
+            o = vec3(k[2]);
+        }
+        for (var i = 0u; i < 3u; i++) {
+            out[i] = f32(to_linear(clamp(o[i], 0.0lf, 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 25u {
+        // D-366, as grade::color_neutralizer. k: the corrections at shadows, midtones and
+        // highlights, red, green and blue each; pinning over 200; the black and white points.
+        let v = 255.0lf * luma(e);
+        var t = select(0.0lf, 1.0lf, v + 1e-4lf >= k[10]);
+        if k[11] > k[10] {
+            t = clamp((v - k[10]) / (k[11] - k[10]), 0.0lf, 1.0lf);
+        }
+        var w = 1.0lf;
+        if k[9] != 0.0lf {
+            w = clamp(min(t, 1.0lf - t) / k[9], 0.0lf, 1.0lf);
+        }
+        for (var c = 0u; c < 3u; c++) {
+            var d = k[3u + c] + (k[6u + c] - k[3u + c]) * (2.0lf * t - 1.0lf);
+            if t <= 0.5lf {
+                d = k[c] + (k[3u + c] - k[c]) * 2.0lf * t;
+            }
+            out[c] = f32(to_linear(clamp(e[c] + w * d, 0.0lf, 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 26u {
+        // D-367, as grade::color_offset. k: each channel's phase in turns, the overflow's place
+        // in OFFSET_OVERFLOWS, the cosines and the sines of half a turn a turn of each phase.
+        for (var c = 0u; c < 3u; c++) {
+            var u = e[c] + k[c];
+            if abs(u - floor(u + 0.5lf)) < 1e-9lf {
+                u = floor(u + 0.5lf);
+            }
+            var o = e[c];
+            if k[c] == 0.0lf {
+                o = e[c];
+            } else if k[3] == 2.0lf {
+                o = (1.0lf - (1.0lf - 2.0lf * e[c]) * k[4u + c] + 2.0lf * sqrt(e[c] * (1.0lf - e[c])) * k[7u + c]) / 2.0lf;
+            } else if k[3] == 1.0lf {
+                o = 1.0lf - abs(euclid(u, 2.0lf) - 1.0lf);
+            } else if u < 0.0lf || u > 1.0lf {
+                o = u - floor(u);
+            } else {
+                o = u;
+            }
+            out[c] = f32(to_linear(clamp(o, 0.0lf, 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
     var o = e;
     switch F.mode {
         case 11u: {
@@ -5559,6 +5636,10 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::LineRecolor { .. }
             | E::Colorama { .. }
             | E::Extract { .. }
+            // D-365..D-367.
+            | E::BroadcastSafe { .. }
+            | E::ColorNeutralizer { .. }
+            | E::ColorOffset { .. }
     )
 }
 
@@ -7536,6 +7617,27 @@ impl Gpu {
                 let k = [place, *black_point, *white_point, *black_softness, *white_softness, (invert == "on") as u8 as f64];
                 same(steps, &passes.tone, FxParams { mode: 23, ..Default::default() }, &k, None)
             }
+            E::BroadcastSafe { locale, method, max_amplitude } => {
+                let setup = crate::effects::broadcast_setup(locale);
+                let place = crate::effects::BROADCAST_METHODS.iter().position(|m| m == method).unwrap_or(0) as f64;
+                let k = [setup, *max_amplitude, (max_amplitude - setup) / (100.0 - setup), place];
+                same(steps, &passes.tone, FxParams { mode: 24, ..Default::default() }, &k, None)
+            }
+            E::ColorNeutralizer { shadows_unbalance, midtones_unbalance, highlights_unbalance, shadows, midtones, highlights, pinning, black_point, white_point } => {
+                let d = crate::effects::neutral_corrections([shadows_unbalance, midtones_unbalance, highlights_unbalance], [shadows, midtones, highlights]);
+                let mut k: Vec<f64> = d.iter().flatten().copied().collect();
+                k.extend([pinning / 200.0, *black_point, *white_point]);
+                same(steps, &passes.tone, FxParams { mode: 25, ..Default::default() }, &k, None)
+            }
+            E::ColorOffset { red_phase, green_phase, blue_phase, overflow } => {
+                let phases = [*red_phase, *green_phase, *blue_phase];
+                let turns = phases.map(|p| std::f64::consts::PI * p / 360.0).map(f64::sin_cos);
+                let mut k: Vec<f64> = phases.map(|p| p / 360.0).to_vec();
+                k.push(crate::effects::OFFSET_OVERFLOWS.iter().position(|o| o == overflow).unwrap_or(0) as f64);
+                k.extend(turns.map(|t| t.1));
+                k.extend(turns.map(|t| t.0));
+                same(steps, &passes.tone, FxParams { mode: 26, ..Default::default() }, &k, None)
+            }
             E::Paraffin { color, direction, spread, opacity, blend: b } => {
                 // No pixel covered half or more: nothing is washed.
                 let (span, share) = match crate::grade::paraffin_span(source, *direction, *spread) {
@@ -8124,7 +8226,7 @@ impl Gpu {
                 self.fx_step(steps, &passes.smoothmix, FxParams::default(), Some(still), Some(&out), None, None, work, tiles(w, h));
                 (out, (w, h))
             }
-            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects, B-225's five generators, Radio Waves (D-345) and B-226's four as Fx"),
+            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects, B-225's five generators, Radio Waves (D-345), B-226's four and D-365..D-367's three as Fx"),
         }
     }
 

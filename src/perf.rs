@@ -263,6 +263,10 @@ pub enum Stage {
     EffectCrossBlur,
     EffectSpinZoomBlur,
     EffectFastZoomBlur,
+    /// D-365..D-367's Broadcast Safe, Color Neutralizer and Color Offset, per pixel.
+    EffectBroadcastSafe,
+    EffectColorNeutralizer,
+    EffectColorOffset,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -280,7 +284,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 129] = [
+    pub const ALL: [Stage; 132] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -403,6 +407,9 @@ impl Stage {
         Stage::EffectCrossBlur,
         Stage::EffectSpinZoomBlur,
         Stage::EffectFastZoomBlur,
+        Stage::EffectBroadcastSafe,
+        Stage::EffectColorNeutralizer,
+        Stage::EffectColorOffset,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -537,6 +544,9 @@ impl Stage {
             Stage::EffectCrossBlur => "effect: cross blur",
             Stage::EffectSpinZoomBlur => "effect: spin & zoom blur",
             Stage::EffectFastZoomBlur => "effect: fast zoom blur",
+            Stage::EffectBroadcastSafe => "effect: broadcast safe",
+            Stage::EffectColorNeutralizer => "effect: color neutralizer",
+            Stage::EffectColorOffset => "effect: color offset",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

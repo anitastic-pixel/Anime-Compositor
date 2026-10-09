@@ -1027,6 +1027,105 @@ pub(crate) fn vibrance(source: &mut WorkingBuffer, vibrance: f64, saturation: f6
     })
 }
 
+/// D-365: an encoded colour's brightness and colour swing as composite video weighs them, Y and
+/// the length of (U, V).
+fn video(e: [f64; 3]) -> (f64, f64) {
+    let y = 0.299 * e[0] + 0.587 * e[1] + 0.114 * e[2];
+    let (u, v) = (0.492 * (e[2] - y), 0.877 * (e[0] - y));
+    (y, (u * u + v * v).sqrt())
+}
+
+/// D-365: a pixel is unsafe when the signal's top, `setup + (100 - setup)(Y + C)` IRE, is above
+/// `max` by more than a ten-thousandth of an IRE (so a rounding cannot flip a white at a limit
+/// of 100). The reduce methods darken it (`reduce_luminance`) or move it toward its grey
+/// (`reduce_saturation`) until its top is on the limit; `key_out_unsafe` clears the unsafe
+/// pixels and `key_out_safe` the rest, leaving the others exactly as they are.
+pub(crate) fn broadcast_safe(source: &mut WorkingBuffer, setup: f64, method: &str, max: f64) {
+    let over = |y: f64, c: f64| setup + (100.0 - setup) * (y + c) > max + 1e-4;
+    if method.starts_with("key_out") {
+        let unsafe_out = method == "key_out_unsafe";
+        return each_pixel(source, |px| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let (y, c) = video(std::array::from_fn(|i| to_srgb((px[i] as f64 / a).clamp(0.0, 1.0))));
+            if over(y, c) == unsafe_out {
+                px.fill(0.0);
+            }
+        });
+    }
+    let m = (max - setup) / (100.0 - setup);
+    let darken = method == "reduce_luminance";
+    grade_pixels(source, false, |_, e| {
+        let (y, c) = video(e);
+        if !over(y, c) {
+            e
+        } else if darken {
+            e.map(|v| v * m / (y + c))
+        } else if y < m && c > 0.0 {
+            e.map(|v| y + (v - y) * (m - y) / c)
+        } else {
+            [m; 3]
+        }
+    })
+}
+
+/// D-366: each pixel's place `t` between `black` and `white` by its encoded luma (a step at
+/// `black` when `white` is not above it, a ten-thousandth of a level early as D-138's), and the correction there, from `d[0]` at 0 straight to
+/// `d[1]` at a half and `d[2]` at 1, added; with `pinning`, faded in from black and white over
+/// `pinning / 200` of the way. All three corrections 0 changes nothing.
+pub(crate) fn color_neutralizer(source: &mut WorkingBuffer, d: [[f64; 3]; 3], pinning: f64, black: f64, white: f64) {
+    if d == [[0.0; 3]; 3] {
+        return;
+    }
+    let p = pinning / 200.0;
+    grade_pixels(source, false, |_, e| {
+        let v = 255.0 * luma(e);
+        let t = if white > black {
+            ((v - black) / (white - black)).clamp(0.0, 1.0)
+        } else if v + 1e-4 >= black {
+            1.0
+        } else {
+            0.0
+        };
+        let w = if p == 0.0 { 1.0 } else { (t.min(1.0 - t) / p).clamp(0.0, 1.0) };
+        std::array::from_fn(|c| {
+            let k = if t <= 0.5 { d[0][c] + (d[1][c] - d[0][c]) * 2.0 * t } else { d[1][c] + (d[2][c] - d[1][c]) * (2.0 * t - 1.0) };
+            e[c] + w * k
+        })
+    })
+}
+
+/// D-367: each channel turned by its phase in degrees, a turn the whole range, what runs past an
+/// end brought back by `overflow`: "wrap" round, "solarize" folded (a triangle), or "polarize",
+/// the value the height of a point on a half circle turned half a turn a turn. A phase of 0
+/// leaves its channel; all three 0 change nothing. A wrapped value within a billionth of a whole
+/// number is taken as that number, so a rounding cannot send it round the other way.
+pub(crate) fn color_offset(source: &mut WorkingBuffer, phases: [f64; 3], overflow: &str) {
+    if phases == [0.0; 3] {
+        return;
+    }
+    let turns = phases.map(|p| std::f64::consts::PI * p / 360.0).map(f64::sin_cos);
+    grade_pixels(source, false, |_, e| {
+        std::array::from_fn(|c| {
+            let (v, f) = (e[c], phases[c] / 360.0);
+            let u = v + f;
+            let u = if (u - u.round()).abs() < 1e-9 { u.round() } else { u };
+            match overflow {
+                _ if f == 0.0 => v,
+                "polarize" => {
+                    let (sin, cos) = turns[c];
+                    (1.0 - (1.0 - 2.0 * v) * cos + 2.0 * (v * (1.0 - v)).sqrt() * sin) / 2.0
+                }
+                "solarize" => 1.0 - (u.rem_euclid(2.0) - 1.0).abs(),
+                _ if (0.0..=1.0).contains(&u) => u,
+                _ => u - u.floor(),
+            }
+        })
+    })
+}
+
 /// D-141's HSV hue of an encoded colour, in degrees, none for a grey.
 pub(crate) fn hsv_hue(e: [f64; 3]) -> Option<f64> {
     let [r, g, b] = e;

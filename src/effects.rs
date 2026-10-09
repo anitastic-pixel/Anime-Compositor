@@ -1174,6 +1174,28 @@ pub enum Effect {
     /// distance; `center` as Radial Blur's (D-95); and `zoom`, "standard", "brightest" or
     /// "darkest".
     FastZoomBlur { amount: f64, center: [f64; 2], zoom: String },
+    /// D-365: after After Effects' Broadcast Colors. `locale`, "ntsc" or "pal"; `method`, one of
+    /// [`BROADCAST_METHODS`]; `max_amplitude`, 90 to 120 IRE. The words are kept as written, so
+    /// a wrong one is reported.
+    BroadcastSafe { locale: String, method: String, max_amplitude: f64 },
+    /// D-366: after CycoreFX's CC Color Neutralizer. The three unbalance colours, `#rrggbb`, each
+    /// turned to the grey of its own lightness; `shadows`, `midtones` and `highlights`, each red,
+    /// green and blue, -255 to 255 levels added (kept as written, so a wrong count is reported);
+    /// `pinning`, 0 to 100; `black_point` and `white_point`, 0 to 255.
+    ColorNeutralizer {
+        shadows_unbalance: String,
+        midtones_unbalance: String,
+        highlights_unbalance: String,
+        shadows: Vec<f64>,
+        midtones: Vec<f64>,
+        highlights: Vec<f64>,
+        pinning: f64,
+        black_point: f64,
+        white_point: f64,
+    },
+    /// D-367: after CycoreFX's CC Color Offset. `red_phase`, `green_phase` and `blue_phase`,
+    /// -3600 to 3600 degrees; `overflow`, "wrap", "solarize" or "polarize", kept as written.
+    ColorOffset { red_phase: f64, green_phase: f64, blue_phase: f64, overflow: String },
     /// D-204: `color`, `#rrggbb`, kept as written so a wrong one is reported; `density`, 0 to
     /// 100; `spacing`, 2 to 1000 pixels; `size`, 0 to 100 pixels; `depth`, 0 to 100; `speed`,
     /// 0 to 1000, and `wind`, -1000 to 1000, pixels a frame; `wiggle`, 0 to 100 pixels;
@@ -1684,6 +1706,13 @@ pub const BILATERAL_BLUR: &str = "core.bilateral_blur";
 pub const CROSS_BLUR: &str = "core.cross_blur";
 pub const SPIN_ZOOM_BLUR: &str = "core.spin_zoom_blur";
 pub const FAST_ZOOM_BLUR: &str = "core.fast_zoom_blur";
+pub const BROADCAST_SAFE: &str = "core.broadcast_safe";
+pub const COLOR_NEUTRALIZER: &str = "core.color_neutralizer";
+pub const COLOR_OFFSET: &str = "core.color_offset";
+/// D-365: Broadcast Safe's methods, in the order the card numbers them.
+pub const BROADCAST_METHODS: [&str; 4] = ["reduce_luminance", "reduce_saturation", "key_out_unsafe", "key_out_safe"];
+/// D-367: Color Offset's overflows, in the order the card numbers them.
+pub const OFFSET_OVERFLOWS: [&str; 3] = ["wrap", "solarize", "polarize"];
 /// D-360: Cross Blur's modes, in the order the card numbers them.
 pub const CROSS_MODES: [&str; 6] = ["blend", "add", "screen", "multiply", "lighten", "darken"];
 /// D-361: Spin & Zoom Blur's types.
@@ -2601,6 +2630,20 @@ impl Effect {
                 ("amount", vec![amount], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
+            Effect::BroadcastSafe { max_amplitude, .. } => vec![("max_amplitude", vec![max_amplitude], 90.0, 120.0)],
+            Effect::ColorNeutralizer { shadows, midtones, highlights, pinning, black_point, white_point, .. } => vec![
+                ("shadows", shadows.iter_mut().collect(), -255.0, 255.0),
+                ("midtones", midtones.iter_mut().collect(), -255.0, 255.0),
+                ("highlights", highlights.iter_mut().collect(), -255.0, 255.0),
+                ("pinning", vec![pinning], 0.0, 100.0),
+                ("black_point", vec![black_point], 0.0, 255.0),
+                ("white_point", vec![white_point], 0.0, 255.0),
+            ],
+            Effect::ColorOffset { red_phase, green_phase, blue_phase, .. } => vec![
+                ("red_phase", vec![red_phase], -3600.0, 3600.0),
+                ("green_phase", vec![green_phase], -3600.0, 3600.0),
+                ("blue_phase", vec![blue_phase], -3600.0, 3600.0),
+            ],
             Effect::Snowfall {
                 density,
                 spacing,
@@ -3180,6 +3223,9 @@ impl Effect {
             Effect::SmartBlur { .. } => "Smart Blur",
             Effect::BilateralBlur { .. } => "Bilateral Blur",
             Effect::CrossBlur { .. } => "Cross Blur",
+            Effect::BroadcastSafe { .. } => "Broadcast Safe",
+            Effect::ColorNeutralizer { .. } => "Color Neutralizer",
+            Effect::ColorOffset { .. } => "Color Offset",
             Effect::SpinZoomBlur { .. } => "Spin & Zoom Blur",
             Effect::FastZoomBlur { .. } => "Fast Zoom Blur",
             Effect::Snowfall { .. } => "Snowfall",
@@ -3304,6 +3350,9 @@ impl Effect {
             Effect::SmartBlur { .. } => SMART_BLUR,
             Effect::BilateralBlur { .. } => BILATERAL_BLUR,
             Effect::CrossBlur { .. } => CROSS_BLUR,
+            Effect::BroadcastSafe { .. } => BROADCAST_SAFE,
+            Effect::ColorNeutralizer { .. } => COLOR_NEUTRALIZER,
+            Effect::ColorOffset { .. } => COLOR_OFFSET,
             Effect::SpinZoomBlur { .. } => SPIN_ZOOM_BLUR,
             Effect::FastZoomBlur { .. } => FAST_ZOOM_BLUR,
             Effect::Snowfall { .. } => SNOWFALL,
@@ -3650,6 +3699,26 @@ impl Effect {
             }),
             Effect::FastZoomBlur { zoom, .. } => (!["standard", "brightest", "darkest"].contains(&zoom.as_str()))
                 .then(|| format!("{name}'s zoom is \"standard\", \"brightest\" or \"darkest\", and this is \"{zoom}\".")),
+            Effect::BroadcastSafe { locale, method, .. } => (!["ntsc", "pal"].contains(&locale.as_str()))
+                .then(|| format!("{name}'s locale is \"ntsc\" or \"pal\", and this is \"{locale}\"."))
+                .or_else(|| {
+                    (!BROADCAST_METHODS.contains(&method.as_str())).then(|| {
+                        format!("{name}'s method is \"reduce_luminance\", \"reduce_saturation\", \"key_out_unsafe\" or \"key_out_safe\", and this is \"{method}\".")
+                    })
+                }),
+            Effect::ColorNeutralizer { shadows_unbalance, midtones_unbalance, highlights_unbalance, shadows, midtones, highlights, .. } => {
+                hex_fault(name, "shadows unbalance", shadows_unbalance)
+                    .or_else(|| hex_fault(name, "midtones unbalance", midtones_unbalance))
+                    .or_else(|| hex_fault(name, "highlights unbalance", highlights_unbalance))
+                    .or_else(|| {
+                        [("shadows", shadows), ("midtones", midtones), ("highlights", highlights)]
+                            .into_iter()
+                            .find(|(_, tone)| tone.len() != 3)
+                            .map(|(what, tone)| format!("{name}'s {what} are three numbers, red, green and blue, and this has {}.", tone.len()))
+                    })
+            }
+            Effect::ColorOffset { overflow, .. } => (!OFFSET_OVERFLOWS.contains(&overflow.as_str()))
+                .then(|| format!("{name}'s overflow is \"wrap\", \"solarize\" or \"polarize\", and this is \"{overflow}\".")),
             Effect::RadialBlur { kind, edges: e, .. } => (!["spin", "zoom"]
                 .contains(&kind.as_str()))
             .then(|| format!("{name}'s type is \"spin\" or \"zoom\", and this is \"{kind}\"."))
@@ -4284,6 +4353,26 @@ pub(crate) fn encoded(c: &str) -> [f64; 3] {
     crate::selective_blur::parse_hex(c)
         .unwrap_or_default()
         .map(|v| v as f64 / 255.0)
+}
+
+/// D-365: Broadcast Safe's set-up in IRE, where black sits: 7.5 for NTSC, 0 for PAL.
+pub(crate) fn broadcast_setup(locale: &str) -> f64 {
+    if locale == "pal" {
+        0.0
+    } else {
+        7.5
+    }
+}
+
+/// D-366: a valid Color Neutralizer's corrections at shadows, midtones and highlights, each red,
+/// green and blue on the encoded 0 to 1 scale: the unbalance colour turned to the grey of its
+/// own lightness, plus the numbers over 255.
+pub(crate) fn neutral_corrections(unbalance: [&str; 3], numbers: [&[f64]; 3]) -> [[f64; 3]; 3] {
+    std::array::from_fn(|r| {
+        let u = encoded(unbalance[r]);
+        let l = 0.2126 * u[0] + 0.7152 * u[1] + 0.0722 * u[2];
+        std::array::from_fn(|c| l - u[c] + numbers[r][c] / 255.0)
+    })
 }
 
 /// D-114: what is wrong with a gradient's words and colours, as a sentence, or `None` when
@@ -5505,6 +5594,18 @@ pub(crate) fn apply_stack_at(
                     crate::perf::time(stage, || crate::blurs::radial_blur(source, spin, *amount, c, false, Some(sweep)))
                 }
             }
+            Effect::BroadcastSafe { locale, method, max_amplitude } => crate::perf::time(crate::perf::Stage::EffectBroadcastSafe, || {
+                crate::grade::broadcast_safe(source, broadcast_setup(locale), method, *max_amplitude)
+            }),
+            Effect::ColorNeutralizer { shadows_unbalance, midtones_unbalance, highlights_unbalance, shadows, midtones, highlights, pinning, black_point, white_point } => {
+                let d = neutral_corrections([shadows_unbalance, midtones_unbalance, highlights_unbalance], [shadows, midtones, highlights]);
+                crate::perf::time(crate::perf::Stage::EffectColorNeutralizer, || {
+                    crate::grade::color_neutralizer(source, d, *pinning, *black_point, *white_point)
+                })
+            }
+            Effect::ColorOffset { red_phase, green_phase, blue_phase, overflow } => crate::perf::time(crate::perf::Stage::EffectColorOffset, || {
+                crate::grade::color_offset(source, [*red_phase, *green_phase, *blue_phase], overflow)
+            }),
             // D-204: the planes are fixed to the drawing's own space; it grows nothing.
             Effect::Snowfall {
                 color,

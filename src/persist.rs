@@ -2237,6 +2237,28 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("zoom".into(), J::from(zoom.as_str()));
             }
         }
+        Effect::BroadcastSafe { locale, method, max_amplitude } => {
+            params.insert("locale".into(), J::from(locale.as_str()));
+            params.insert("method".into(), J::from(method.as_str()));
+            params.insert("max_amplitude".into(), num(*max_amplitude));
+        }
+        Effect::ColorNeutralizer { shadows_unbalance, midtones_unbalance, highlights_unbalance, shadows, midtones, highlights, pinning, black_point, white_point } => {
+            params.insert("shadows_unbalance".into(), J::from(shadows_unbalance.as_str()));
+            params.insert("midtones_unbalance".into(), J::from(midtones_unbalance.as_str()));
+            params.insert("highlights_unbalance".into(), J::from(highlights_unbalance.as_str()));
+            for (name, tone) in [("shadows", shadows), ("midtones", midtones), ("highlights", highlights)] {
+                params.insert(name.into(), J::Array(tone.iter().map(|v| num(*v)).collect()));
+            }
+            params.insert("pinning".into(), num(*pinning));
+            params.insert("black_point".into(), num(*black_point));
+            params.insert("white_point".into(), num(*white_point));
+        }
+        Effect::ColorOffset { red_phase, green_phase, blue_phase, overflow } => {
+            params.insert("red_phase".into(), num(*red_phase));
+            params.insert("green_phase".into(), num(*green_phase));
+            params.insert("blue_phase".into(), num(*blue_phase));
+            params.insert("overflow".into(), J::from(overflow.as_str()));
+        }
         Effect::Snowfall {
             color,
             density,
@@ -3766,6 +3788,9 @@ fn parse_effect(
         crate::effects::CROSS_BLUR,
         crate::effects::SPIN_ZOOM_BLUR,
         crate::effects::FAST_ZOOM_BLUR,
+        crate::effects::BROADCAST_SAFE,
+        crate::effects::COLOR_NEUTRALIZER,
+        crate::effects::COLOR_OFFSET,
         crate::effects::SNOWFALL,
         crate::effects::KALEIDOSCOPE,
         crate::effects::ROUGHEN_EDGES,
@@ -4499,6 +4524,28 @@ fn parse_effect(
             amount: effect_number(params, "amount", &at)?,
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
             zoom: effect_word_or(params, "zoom", &at, "standard")?,
+        }),
+        crate::effects::BROADCAST_SAFE => Some(crate::effects::Effect::BroadcastSafe {
+            locale: effect_word(params, "locale", &at)?,
+            method: effect_word(params, "method", &at)?,
+            max_amplitude: effect_number(params, "max_amplitude", &at)?,
+        }),
+        crate::effects::COLOR_NEUTRALIZER => Some(crate::effects::Effect::ColorNeutralizer {
+            shadows_unbalance: effect_word(params, "shadows_unbalance", &at)?.to_ascii_lowercase(),
+            midtones_unbalance: effect_word(params, "midtones_unbalance", &at)?.to_ascii_lowercase(),
+            highlights_unbalance: effect_word(params, "highlights_unbalance", &at)?.to_ascii_lowercase(),
+            shadows: effect_list(params, "shadows", &at)?,
+            midtones: effect_list(params, "midtones", &at)?,
+            highlights: effect_list(params, "highlights", &at)?,
+            pinning: effect_number(params, "pinning", &at)?,
+            black_point: effect_number(params, "black_point", &at)?,
+            white_point: effect_number(params, "white_point", &at)?,
+        }),
+        crate::effects::COLOR_OFFSET => Some(crate::effects::Effect::ColorOffset {
+            red_phase: effect_number(params, "red_phase", &at)?,
+            green_phase: effect_number(params, "green_phase", &at)?,
+            blue_phase: effect_number(params, "blue_phase", &at)?,
+            overflow: effect_word(params, "overflow", &at)?,
         }),
         crate::effects::SNOWFALL => Some(crate::effects::Effect::Snowfall {
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),

@@ -979,6 +979,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::CrossBlur { .. }
                 | crate::effects::Effect::SpinZoomBlur { .. }
                 | crate::effects::Effect::FastZoomBlur { .. }
+                // D-365..D-367: Broadcast Safe, Color Neutralizer and Color Offset.
+                | crate::effects::Effect::BroadcastSafe { .. }
+                | crate::effects::Effect::ColorNeutralizer { .. }
+                | crate::effects::Effect::ColorOffset { .. }
         )
         // D-353: a Soft Physical Glow's threshold with no smooth is a step, so it stays on the
         // CPU for D-122's reason.
@@ -1097,6 +1101,11 @@ fn card_effect(
                     [shadows, midtones, highlights].iter().all(|t| t.iter().all(|v| *v == 0.0))
                 }
                 E::Offset { shift } => *shift == [0.0, 0.0],
+                // D-366/D-367: as each one's own function returns at once.
+                E::ColorNeutralizer { shadows_unbalance, midtones_unbalance, highlights_unbalance, shadows, midtones, highlights, .. } => {
+                    crate::effects::neutral_corrections([shadows_unbalance, midtones_unbalance, highlights_unbalance], [shadows, midtones, highlights]) == [[0.0; 3]; 3]
+                }
+                E::ColorOffset { red_phase, green_phase, blue_phase, .. } => [*red_phase, *green_phase, *blue_phase] == [0.0; 3],
                 // B-107: the third batch, each as its own function returns at once.
                 E::Invert { amount, .. }
                 | E::LeaveColor { amount, .. }
