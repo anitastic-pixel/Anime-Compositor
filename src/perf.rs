@@ -256,6 +256,8 @@ pub enum Stage {
     EffectRefineMatte,
     /// D-353's Soft Physical Glow: the light, the levels' cells and passes, and the finish.
     EffectSoftGlow,
+    /// D-356's Path Stroke: the runs along the paths and the brush laid on them.
+    EffectStroke,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -273,7 +275,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 124] = [
+    pub const ALL: [Stage; 125] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -391,6 +393,7 @@ impl Stage {
         Stage::EffectMatteChoker,
         Stage::EffectRefineMatte,
         Stage::EffectSoftGlow,
+        Stage::EffectStroke,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -520,6 +523,7 @@ impl Stage {
             Stage::EffectMatteChoker => "effect: matte choker",
             Stage::EffectRefineMatte => "effect: refine hard or soft matte",
             Stage::EffectSoftGlow => "effect: soft physical glow",
+            Stage::EffectStroke => "effect: path stroke",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

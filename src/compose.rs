@@ -972,6 +972,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::LineWidth { .. }
                 // D-353: Soft Physical Glow.
                 | crate::effects::Effect::SoftGlow { .. }
+                // D-356: Path Stroke.
+                | crate::effects::Effect::Stroke { .. }
         )
         // D-353: a Soft Physical Glow's threshold with no smooth is a step, so it stays on the
         // CPU for D-122's reason.
@@ -1163,6 +1165,8 @@ fn card_effect(
                 E::PassExtract { channels, .. } | E::DepthKey { channels, .. } | E::IdKey { channels, .. } => channels.is_none(),
                 E::LineSmooth { softness, .. } => *softness <= 0.0,
                 E::LineWidth { width, .. } => *width == 0.0,
+                // B-235: with no path the layer is left as it is.
+                E::Stroke { paths, .. } => paths.is_none(),
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -1902,6 +1906,34 @@ fn resolve_rest(
                 )
                 .with_remediation("Redraw the mask so its outline does not cross itself."),
             );
+        }
+    }
+    // D-356: each Path Stroke's paths, the masks it names as they are at this frame and at the
+    // size the effects run at: a mask is a path when it is on and has two points, whatever its
+    // mode. With none, the layer is left as it is and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::Stroke { mask, all_masks, paths, .. } = &mut instance.effect {
+            let path = |m: &&crate::mask::Mask| m.enabled && m.points.len() >= 2;
+            let found: Vec<Vec<(f64, f64)>> = if all_masks == "on" {
+                masks.iter().filter(path).map(|m| m.outline()).collect()
+            } else {
+                masks.get(mask.floor() as usize - 1).filter(path).map(|m| vec![m.outline()]).unwrap_or_default()
+            };
+            if found.is_empty() {
+                let which = if all_masks == "on" { "no mask that is on with two points or more".to_string() } else { format!("no mask {} that is on with two points or more", mask.floor()) };
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!("Layer {}'s Path Stroke has {which} to draw along, so it draws nothing.", layer.name),
+                        format!("Frame {frame} is drawn without the stroke. The effect is kept as it is."),
+                    )
+                    .with_remediation("Draw a mask on the layer, or set Path to a mask it has."),
+                );
+            }
+            *paths = (!found.is_empty()).then_some(found);
         }
     }
     // The mask itself is drawn below, once it is known whether the effect cache already holds

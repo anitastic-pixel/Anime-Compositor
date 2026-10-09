@@ -176333,6 +176333,101 @@ FX-SGLOW-044 (`fx_sglow_044.json`): Blend Mode "multiply", which is not add or s
 
 FX-SGLOW-045 (`fx_sglow_045.json`): Unmult "yes", which is not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Path Stroke (D-356)
+
+Effects that draw along paths (EFFECTS.md P0-22), proved with Path Stroke (`core.stroke`), after After Effects' Stroke (Generate) (B-235). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/stroke/`: the layer `art` holding Lightning Bolt's night drawing the same size (its left half a night sky, its right half empty), unmoved unless the case says, with masks of mode None unless the case says, and the effect `fx-0-0`. **Every number is produced by `tools/stroke_reference.py`**, which lists every dab and finds the nearest by brute force in double precision, from the drawing's 8-bit values; the numbers are in `Fixtures/stroke/expected_stroke.json`. Tolerance 2e-5. B-235 checks them, and draws the playtest's pictures, in `verification/D-356_stroke_table.md`.
+
+FX-STROKE-001 (`fx_stroke_001.json`): Mask 1, a box from (2, 2) to (13, 7) of mode None, stroked with the defaults but Brush Size 3: a white line 3 pixels wide all round the box, over the night sky and the empty half, Hardness 75, Spacing 15, Start 0, End 100, On Original Image. Frames 0.
+
+FX-STROKE-002 (`fx_stroke_002.json`): End 50: from the top-left corner along the top and down the right side, half the box's 32 pixels. Frames 0.
+
+FX-STROKE-003 (`fx_stroke_003.json`): Start 25, End 75: from 8 pixels along to 24. Frames 0.
+
+FX-STROKE-004 (`fx_stroke_004.json`): Start 75, End 25: taken smaller first, FX-STROKE-003's frame. Frames 0.
+
+FX-STROKE-005 (`fx_stroke_005.json`): Start 40, End 40: nothing is drawn; the drawing, untouched. Frames 0.
+
+FX-STROKE-006 (`fx_stroke_006.json`): Spacing 100, Hardness 0: round dabs a brush apart, each soft, a string of beads. Frames 0.
+
+FX-STROKE-007 (`fx_stroke_007.json`): Spacing 0: the brush laid all along, a smooth line. Frames 0.
+
+FX-STROKE-008 (`fx_stroke_008.json`): Hardness 0: soft from its middle out. Frames 0.
+
+FX-STROKE-009 (`fx_stroke_009.json`): Hardness 100: hard, smoothed over one pixel. Frames 0.
+
+FX-STROKE-010 (`fx_stroke_010.json`): Brush Size 6. Frames 0.
+
+FX-STROKE-011 (`fx_stroke_011.json`): Opacity 50: half covered at most. Frames 0.
+
+FX-STROKE-012 (`fx_stroke_012.json`): Colour #ff3020, a red. Frames 0.
+
+FX-STROKE-013 (`fx_stroke_013.json`): On Transparent: the stroke alone, the night sky gone. Frames 0.
+
+FX-STROKE-014 (`fx_stroke_014.json`): Reveal Original Image: the night sky only under the stroke, the colour unused. Frames 0.
+
+FX-STROKE-015 (`fx_stroke_015.json`): Brush Size 0: nothing is drawn; the drawing, untouched. Frames 0.
+
+FX-STROKE-016 (`fx_stroke_016.json`): Brush Size 0, On Transparent: nothing at all. Frames 0.
+
+FX-STROKE-017 (`fx_stroke_017.json`): Two masks, the box and a small box from (5, 4) to (9, 6), Path mask 2: the small box alone. Frames 0.
+
+FX-STROKE-018 (`fx_stroke_018.json`): Two masks, All Masks on: both. Frames 0.
+
+FX-STROKE-019 (`fx_stroke_019.json`): Two masks, All Masks on, End 50: each mask's own first half. Frames 0.
+
+FX-STROKE-020 (`fx_stroke_020.json`): Two masks, All Masks and Stroke Sequentially on, End keyed from 0 at frame 0 to 100 at frame 4, linear: the box draws on, then the small box, as one 44-pixel path; frame 0 nothing, frame 2 22 pixels of the box, frame 3 the box and 1 pixel of the small box, frame 4 both. Frames 0, 1, 2, 3, 4.
+
+FX-STROKE-021 (`fx_stroke_021.json`): Stroke Sequentially on with All Masks off: the one mask, FX-STROKE-002's frame. Frames 0.
+
+FX-STROKE-022 (`fx_stroke_022.json`): A curved mask, a circle 8 across about (8, 5): the stroke follows the curve. Frames 0.
+
+FX-STROKE-023 (`fx_stroke_023.json`): Start keyed from 0 to 50 and End from 50 to 100, frames 0 to 4: half the box travels round it, frames 0, 2 and 4. Frames 0, 2, 4.
+
+FX-STROKE-024 (`fx_stroke_024.json`): The mask's path keyed from the box at frame 0 to the box two rows lower at frame 4: the stroke follows it, frames 0, 2 and 4. Frames 0, 2, 4.
+
+FX-STROKE-025 (`fx_stroke_025.json`): End keyed from 4 at frame 0 to 100 at frame 4, eased past its end: frame 2 would pass 100, is held at 100, and is End 100. Frames 0, 2.
+
+FX-STROKE-026 (`fx_stroke_026.json`): FX-STROKE-001 moved three pixels right: the stroke moves with the drawing. Frames 0.
+
+FX-STROKE-027 (`fx_stroke_027.json`): After a Motion Tile that grows the layer: the mask is the drawing's own, so the frame is FX-STROKE-001's. Frames 0.
+
+FX-STROKE-028 (`fx_stroke_028.json`): The box's mask of mode Add: the drawing is cut to the box first, then stroked, the stroke's outer half over nothing. Frames 0.
+
+FX-STROKE-029 (`fx_stroke_029.json`): Two masks, the first switched off, All Masks on: the small box alone. Frames 0.
+
+FX-STROKE-030 (`fx_stroke_030.json`): Path mask 1.5: its floor, mask 1, FX-STROKE-001's frame. Frames 0.
+
+FX-STROKE-031 (`fx_stroke_031.json`): No masks at all. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-STROKE-032 (`fx_stroke_032.json`): Path mask 3, of two. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-STROKE-033 (`fx_stroke_033.json`): Path mask 1, switched off. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-STROKE-034 (`fx_stroke_034.json`): All Masks on, every mask switched off. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-STROKE-035 (`fx_stroke_035.json`): Brush Size 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROKE-036 (`fx_stroke_036.json`): Brush Hardness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROKE-037 (`fx_stroke_037.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROKE-038 (`fx_stroke_038.json`): Start -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROKE-039 (`fx_stroke_039.json`): End 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROKE-040 (`fx_stroke_040.json`): Spacing 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROKE-041 (`fx_stroke_041.json`): Path mask 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROKE-042 (`fx_stroke_042.json`): A colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROKE-043 (`fx_stroke_043.json`): Paint Style "paint", which is not "on_original", "on_transparent" or "reveal". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROKE-044 (`fx_stroke_044.json`): All Masks "yes", which is not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROKE-045 (`fx_stroke_045.json`): Stroke Sequentially "maybe", which is not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROKE-046 (`fx_stroke_046.json`): End keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.

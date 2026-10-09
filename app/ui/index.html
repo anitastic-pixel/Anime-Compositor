@@ -9342,6 +9342,7 @@ const EFFECT_NAMES = {
   'core.matte_choker': 'Matte Choker',
   'core.refine_hard_matte': 'Refine Hard Matte',
   'core.refine_soft_matte': 'Refine Soft Matte',
+  'core.stroke': 'Path Stroke',
 };
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
@@ -9366,7 +9367,7 @@ const EFFECT_GROUPS = [
     'core.corner_pin', 'core.polar_coordinates', 'core.optics_compensation']],
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient',
-    'core.cell_pattern']],
+    'core.cell_pattern', 'core.stroke']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
@@ -9468,6 +9469,7 @@ const EFFECT_SEARCH = {
   'core.matte_choker': 'matte choker choke spread shrink soften edge holes fill key cleanup geometric gray level softness',
   'core.refine_hard_matte': 'refine hard matte refine matte edge feather contrast shift edge decontaminate spill fringe key cleanup guided filter',
   'core.refine_soft_matte': 'refine soft matte refine matte hair fur edge detail edge radius feather decontaminate spill fringe key cleanup guided filter',
+  'core.stroke': 'path stroke stroke mask outline trace write on draw on line along path brush trim start end reveal',
   'core.depth_key': 'depth key depth matte z zdepth exr render pass cut out near far fog',
   'core.glass': 'cc glass refraction refract lens bump map shockwave water ripple heat distortion bevel light',
   'core.drop_shadow': 'shade',
@@ -9601,6 +9603,7 @@ const EFFECT_ABOUT = {
   'core.matte_choker': 'Chokes or spreads a keyed layer\'s edges in two stages, softening them, filling small holes and taking out specks.',
   'core.refine_hard_matte': 'Softens a keyed layer\'s edge along the picture\'s own colour edges, steepens or moves it, and can take the background\'s colour out of the edge.',
   'core.refine_soft_matte': 'Fits the covering near a keyed layer\'s edge to the picture\'s colours, for hair and soft detail, and takes the background\'s colour out of the edge.',
+  'core.stroke': 'Draws a brush along the layer\'s masks, so a line can draw itself on as Start and End move.',
   'core.depth_key': 'Takes out what is nearer than a depth, read from the depth a 3D render saved in the layer\'s EXR file.',
   'core.glass': 'Bends the picture as if seen through glass shaped by a bump map, and lights its slopes.',
 };
@@ -9917,6 +9920,14 @@ const EFFECT_PARAMS = {
     ['shift_edge', 'Shift Edge', 1, 1, 'per cent, -100 to 100, positive moves the edge out'],
     ['decontamination_amount', 'Decontamination Amount', 1, 1, 'per cent, 0 to 100'],
     ['decontamination_radius', 'Extend Where Decontaminated', 1, 1, 'pixels, 0 to 100']],
+  // D-356, After Effects' own words where it has them.
+  'core.stroke': [['mask', 'Path', 1, 1, 'the mask numbered so, 1 to 1000; the layer needs masks'],
+    ['brush_size', 'Brush Size', 1, 0.5, 'pixels across, 0 to 200'],
+    ['brush_hardness', 'Brush Hardness', 1, 1, 'per cent, 0 to 100, 100 a hard edge'],
+    ['opacity', 'Opacity', 1, 1, 'per cent, 0 to 100'],
+    ['start', 'Start', 1, 1, '% of the path, 0 to 100'],
+    ['end', 'End', 1, 1, '% of the path, 0 to 100; animate it to draw the line on'],
+    ['spacing', 'Spacing', 1, 1, '% of the brush size between dabs, 0 to 100, 0 a smooth line']],
   // D-347, After Effects' own words where it has them.
   'core.moment_map': [['max_time', 'Max Displacement Time', 1, 0.1, 'seconds, -10 to 10, how far white reaches forward and black back; mid grey stays'],
     ['resolution', 'Time Resolution', 1, 1, 'steps a second, 1 to 999; above the frame rate it stays whole frames']],
@@ -10356,6 +10367,13 @@ const EFFECT_WORDS = {
   'core.stretch_color': {
     choices: [['scene_detect', 'Scene Detect', [['off', 'Off'], ['on', 'On']]],
       ['snap_neutral_midtones', 'Snap Neutral Midtones', [['off', 'Off'], ['on', 'On']]]],
+  },
+  // D-356, After Effects' own words.
+  'core.stroke': {
+    choices: [['all_masks', 'All Masks', [['off', 'Off'], ['on', 'On']]],
+      ['stroke_sequentially', 'Stroke Sequentially', [['off', 'Off'], ['on', 'On']]],
+      ['paint_style', 'Paint Style', [['on_original', 'On Original Image'], ['on_transparent', 'On Transparent'], ['reveal', 'Reveal Original Image']]]],
+    colours: [['color', 'Color']],
   },
   // D-352.
   'core.refine_hard_matte': {

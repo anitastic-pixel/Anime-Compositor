@@ -2591,6 +2591,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("decontamination_radius".into(), num(*decontamination_radius));
             params.insert("view_decontamination_map".into(), J::from(view_decontamination_map.as_str()));
         }
+        // D-356: the paths are found each frame and never saved.
+        Effect::Stroke { mask, all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, .. } => {
+            params.insert("mask".into(), num(*mask));
+            params.insert("all_masks".into(), J::from(all_masks.as_str()));
+            params.insert("stroke_sequentially".into(), J::from(stroke_sequentially.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("brush_size".into(), num(*brush_size));
+            params.insert("brush_hardness".into(), num(*brush_hardness));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("start".into(), num(*start));
+            params.insert("end".into(), num(*end));
+            params.insert("spacing".into(), num(*spacing));
+            params.insert("paint_style".into(), J::from(paint_style.as_str()));
+        }
         Effect::SoftGlow {
             falloff,
             threshold_mode,
@@ -3726,6 +3740,7 @@ fn parse_effect(
         crate::effects::SPREAD_TONES,
         crate::effects::MATTE_CHOKER,
         crate::effects::REFINE_HARD_MATTE,
+        crate::effects::STROKE,
         crate::effects::REFINE_SOFT_MATTE,
     ]
     .contains(&type_id.as_str());
@@ -4674,6 +4689,20 @@ fn parse_effect(
                 view_decontamination_map: effect_word(params, "view_decontamination_map", &at)?,
             })
         }
+        crate::effects::STROKE => Some(crate::effects::Effect::Stroke {
+            mask: effect_number(params, "mask", &at)?,
+            all_masks: effect_word(params, "all_masks", &at)?,
+            stroke_sequentially: effect_word(params, "stroke_sequentially", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            brush_size: effect_number(params, "brush_size", &at)?,
+            brush_hardness: effect_number(params, "brush_hardness", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            start: effect_number(params, "start", &at)?,
+            end: effect_number(params, "end", &at)?,
+            spacing: effect_number(params, "spacing", &at)?,
+            paint_style: effect_word(params, "paint_style", &at)?,
+            paths: None,
+        }),
         _ => None,
     };
     // P-17: keys on a setting this effect does not have are not its keys. The record

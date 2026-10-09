@@ -4247,6 +4247,77 @@ fn bolt(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// B-235 (D-356), along::path_stroke: k the brush size, hardness and opacity, the colour in linear
+// light, the paint style (0 on the original, 1 on transparent, 2 reveal), the runs' count, then
+// from 8 each run as `along::stroke_runs` gives it and its box, then for each band of 16 rows
+// where its list of runs starts and how many, then the lists. A pixel looks only at its band's
+// runs; the nearest of them is the nearest of all, since the others' boxes miss the band. The
+// nearest dab of a run is the one nearest along it, as `along::distance` finds it.
+@compute @workgroup_size(16, 16)
+fn stroke(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let px = textureLoad(input, id.xy, 0);
+    let xi = f64(id.x);
+    let x = xi + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    let r = k[0] / 2.0lf;
+    let reach = r + 0.5lf;
+    var d = reach;
+    let band = 8u + 9u * u32(k[7]) + 2u * (id.y / 16u);
+    let first = u32(k[band]);
+    let n = u32(k[band + 1u]);
+    for (var i = 0u; i < n; i++) {
+        let o = 8u + 9u * u32(k[first + i]);
+        if y <= k[o + 7u] || y >= k[o + 8u] || xi < ceil(k[o + 5u] - 0.5lf) || xi > floor(k[o + 6u] - 0.5lf) {
+            continue;
+        }
+        let sx = k[o];
+        let sy = k[o + 1u];
+        let dx = k[o + 2u] - sx;
+        let dy = k[o + 3u] - sy;
+        let l2 = dx * dx + dy * dy;
+        var t = 0.0lf;
+        if l2 != 0.0lf {
+            t = clamp(((x - sx) * dx + (y - sy) * dy) / l2, 0.0lf, 1.0lf);
+        }
+        let steps = k[o + 4u];
+        if steps > 0.0lf {
+            t = floor(t * steps + 0.5lf) / steps;
+        }
+        let ex = x - sx - t * dx;
+        let ey = y - sy - t * dy;
+        d = min(d, sqrt(ex * ex + ey * ey));
+    }
+    let style = k[6];
+    if style == 0.0lf && d >= reach {
+        textureStore(output, id.xy, px);
+        return;
+    }
+    let soft = max(r * (1.0lf - k[1] / 100.0lf), 1.0lf);
+    let u = clamp((reach - d) / soft, 0.0lf, 1.0lf);
+    let c = k[2] / 100.0lf * u * u * (3.0lf - 2.0lf * u);
+    var out = px;
+    if style == 0.0lf {
+        for (var j = 0u; j < 3u; j++) {
+            out[j] = f32(f64(px[j]) * (1.0lf - c) + k[3u + j] * c);
+        }
+        out.w = f32(f64(px.w) * (1.0lf - c) + c);
+    } else if style == 1.0lf {
+        for (var j = 0u; j < 3u; j++) {
+            out[j] = f32(k[3u + j] * c);
+        }
+        out.w = f32(c);
+    } else {
+        for (var j = 0u; j < 4u; j++) {
+            out[j] = f32(f64(px[j]) * c);
+        }
+    }
+    textureStore(output, id.xy, out);
+}
+
 // B-225, layer_fx::bevel_edges: k the thickness in pixels, the light's direction (1, 2), the
 // intensity, then the light in linear light. A pixel nearer than the thickness to the buffer's
 // nearest side, the first of left, top, right and bottom among equals, takes that side's slope.
@@ -5112,6 +5183,8 @@ struct FxPasses {
     /// D-345.
     waves: Pass,
     bolt: Pass,
+    /// B-235.
+    stroke: Pass,
     edges: Pass,
     /// B-226.
     dissolve: Pass,
@@ -5713,6 +5786,7 @@ impl Gpu {
                 sweep: pass("sweep", &[0, 1, 2, 3, 5]),
                 waves: pass("waves", &[0, 1, 2, 3]),
                 bolt: pass("bolt", &[0, 1, 2, 3]),
+                stroke: pass("stroke", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
                 gwipe: pass("gwipe", &[0, 1, 2, 3, 4]),
@@ -7613,6 +7687,38 @@ impl Gpu {
                     k.extend([s[0].min(s[2]) - e, s[0].max(s[2]) + e, s[1].min(s[3]) - e, s[1].max(s[3]) + e]);
                 }
                 same(steps, &passes.bolt, FxParams::default(), &k, None)
+            }
+            // B-235 (D-356): Path Stroke's runs, worked out here as the CPU works them, from the
+            // paths compose found; with none the card is not asked (`compose::card_effect`).
+            E::Stroke { all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, paths, .. } => {
+                let runs = match paths {
+                    Some(p) if *brush_size != 0.0 && *opacity != 0.0 => {
+                        let sequential = all_masks == "on" && stroke_sequentially == "on";
+                        crate::along::stroke_runs(p, f.origin, [*start, *end, *spacing, *brush_size], sequential)
+                    }
+                    _ => Vec::new(),
+                };
+                let style = crate::effects::PAINT_STYLES.iter().position(|s| s == paint_style).unwrap_or(0) as f64;
+                let mut k = vec![*brush_size, *brush_hardness, *opacity];
+                k.extend(linear(color));
+                k.extend([style, runs.len() as f64]);
+                let mut bands = vec![Vec::new(); (h as usize).div_ceil(16)];
+                for (j, run) in runs.iter().enumerate() {
+                    let b = crate::along::run_box(run, brush_size / 2.0 + 0.5);
+                    k.extend(run);
+                    k.extend(b);
+                    let rows = (b[2] - 0.5).floor().max(0.0) as usize..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                    for band in bands.iter_mut().take(rows.end() / 16 + 1).skip(rows.start() / 16) {
+                        band.push(j as f64);
+                    }
+                }
+                let mut first = k.len() + 2 * bands.len();
+                for band in &bands {
+                    k.extend([first as f64, band.len() as f64]);
+                    first += band.len();
+                }
+                k.extend(bands.concat());
+                same(steps, &passes.stroke, FxParams::default(), &k, None)
             }
             E::BevelEdges { edge_thickness, light_angle, light_color, light_intensity } => {
                 let (ux, uy) = crate::blurs::along(*light_angle);

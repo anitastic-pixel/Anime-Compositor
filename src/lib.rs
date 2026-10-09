@@ -13,6 +13,7 @@ pub mod audio;
 pub mod cache;
 mod bloom;
 mod blurs;
+mod along;
 mod cel_fx;
 mod hsv_key;
 mod line_blur;

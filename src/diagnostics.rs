@@ -229,6 +229,10 @@ pub enum DiagnosticId {
     /// is not an EXR, or that has no footage. WARNING: the settings are kept and the effect is
     /// skipped, every frame.
     EffectChannelMissing,
+    /// Document 28, added by D-356: an effect that draws along the layer's masks (Path Stroke)
+    /// on a layer with no such mask at that frame - none numbered so, or none enabled with two
+    /// points or more. WARNING: the settings are kept and the layer is left as it is, every frame.
+    EffectPathMissing,
     /// Document 28, added by D-350: a text animator on a layer that is not a text layer, which has
     /// no letters to move. WARNING every frame; the animator is kept and changes nothing.
     TextAnimatorNoText,
@@ -307,6 +311,7 @@ impl DiagnosticId {
             DiagnosticId::EffectLayerMissing => "EFFECT_LAYER_MISSING",
             DiagnosticId::EffectLayerCycle => "EFFECT_LAYER_CYCLE",
             DiagnosticId::EffectChannelMissing => "EFFECT_CHANNEL_MISSING",
+            DiagnosticId::EffectPathMissing => "EFFECT_PATH_MISSING",
             DiagnosticId::TextAnimatorNoText => "TEXT_ANIMATOR_NO_TEXT",
             DiagnosticId::TemporalSmoothingSkipped => "TEMPORAL_SMOOTHING_SKIPPED",
         }
@@ -375,6 +380,7 @@ impl DiagnosticId {
                 | DiagnosticId::EffectLayerMissing
                 | DiagnosticId::EffectLayerCycle
                 | DiagnosticId::EffectChannelMissing
+                | DiagnosticId::EffectPathMissing
                 | DiagnosticId::TextAnimatorNoText
                 | DiagnosticId::TemporalSmoothingSkipped
         )

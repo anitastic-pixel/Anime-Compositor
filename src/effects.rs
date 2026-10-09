@@ -1537,6 +1537,27 @@ pub enum Effect {
         source_opacity: f64,
         unmult: String,
     },
+    /// D-356: Path Stroke, after After Effects' Stroke (`along`, document 21): a brush drawn
+    /// along the layer's masks. `mask`, 1 to 1000, the mask numbered so, its floor taken;
+    /// `all_masks` and `stroke_sequentially`, "off" or "on"; `color`, `#rrggbb`; `brush_size`, 0
+    /// to 200 pixels; `brush_hardness`, `opacity`, `start`, `end` and `spacing`, 0 to 100 per
+    /// cent; `paint_style`, "on_original", "on_transparent" or "reveal". `paths` is not a setting
+    /// and is never saved: compose fills it each frame with the masks chosen, flattened, at the
+    /// frame and the size the effects run at, `None` when there are none.
+    Stroke {
+        mask: f64,
+        all_masks: String,
+        stroke_sequentially: String,
+        color: String,
+        brush_size: f64,
+        brush_hardness: f64,
+        opacity: f64,
+        start: f64,
+        end: f64,
+        spacing: f64,
+        paint_style: String,
+        paths: Option<Vec<Vec<(f64, f64)>>>,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -1659,6 +1680,9 @@ pub const SPREAD_TONES: &str = "core.spread_tones";
 pub const MATTE_CHOKER: &str = "core.matte_choker";
 pub const REFINE_HARD_MATTE: &str = "core.refine_hard_matte";
 pub const REFINE_SOFT_MATTE: &str = "core.refine_soft_matte";
+pub const STROKE: &str = "core.stroke";
+/// D-356: Path Stroke's paint styles.
+pub const PAINT_STYLES: [&str; 3] = ["on_original", "on_transparent", "reveal"];
 /// D-351: Spread Tones' ways.
 pub const EQUALIZE: [&str; 3] = ["rgb", "brightness", "photoshop"];
 /// D-350: what a text animator's selector counts, and the shapes of its range.
@@ -2372,6 +2396,15 @@ impl Effect {
                 ("aspect_angle", vec![aspect_angle], -3600.0, 3600.0),
                 ("source_opacity", vec![source_opacity], 0.0, 100.0),
             ],
+            Effect::Stroke { mask, brush_size, brush_hardness, opacity, start, end, spacing, .. } => vec![
+                ("mask", vec![mask], 1.0, 1000.0),
+                ("brush_size", vec![brush_size], 0.0, 200.0),
+                ("brush_hardness", vec![brush_hardness], 0.0, 100.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+                ("start", vec![start], 0.0, 100.0),
+                ("end", vec![end], 0.0, 100.0),
+                ("spacing", vec![spacing], 0.0, 100.0),
+            ],
             Effect::TextAnimator {
                 position, scale, rotation, opacity, color, tracking, start, end, offset, amount, smoothness, ease_high, ease_low, ..
             } => vec![
@@ -2899,6 +2932,8 @@ impl Effect {
                 *feather = scale(*feather);
                 *decontamination_radius = scale(*decontamination_radius);
             }
+            // D-356: the masks are scaled as they always are, before the stack.
+            Effect::Stroke { brush_size, .. } => *brush_size = scale(*brush_size),
             Effect::SoftGlow { radius, .. } => *radius = scale(*radius),
             Effect::SpeedLines { inner, .. } => *inner = scale(*inner),
             Effect::CrossGlare { length, .. } => *length = scale(*length),
@@ -3107,6 +3142,7 @@ impl Effect {
             Effect::MatteChoker { .. } => "Matte Choker",
             Effect::RefineMatte { kind: "hard", .. } => "Refine Hard Matte",
             Effect::RefineMatte { .. } => "Refine Soft Matte",
+            Effect::Stroke { .. } => "Path Stroke",
             Effect::SoftGlow { .. } => "Soft Physical Glow",
             Effect::Unsupported { type_id } => type_id,
         }
@@ -3226,6 +3262,7 @@ impl Effect {
             Effect::MatteChoker { .. } => MATTE_CHOKER,
             Effect::RefineMatte { kind: "hard", .. } => REFINE_HARD_MATTE,
             Effect::RefineMatte { .. } => REFINE_SOFT_MATTE,
+            Effect::Stroke { .. } => STROKE,
             Effect::SoftGlow { .. } => GLOW,
             Effect::Unsupported { type_id } => type_id,
         }
@@ -3771,6 +3808,16 @@ impl Effect {
             Effect::RefineMatte { view_decontamination_map: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "{name}'s view decontamination map is \"off\" or \"on\", and this is \"{v}\"."
             )),
+            Effect::Stroke { all_masks: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Path Stroke's all masks is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::Stroke { stroke_sequentially: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Path Stroke's stroke sequentially is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::Stroke { paint_style: v, .. } if !PAINT_STYLES.contains(&v.as_str()) => Some(format!(
+                "Path Stroke's paint style is \"on_original\", \"on_transparent\" or \"reveal\", and this is \"{v}\"."
+            )),
+            Effect::Stroke { color, .. } => hex_fault("Path Stroke", "colour", color),
             Effect::PassExtract { invert, .. } | Effect::DepthKey { invert, .. } | Effect::IdKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => {
                 Some(format!("{name}'s invert is \"off\" or \"on\", and this is \"{invert}\"."))
             }
@@ -5831,6 +5878,18 @@ pub(crate) fn apply_stack_at(
                 };
                 crate::matte_refine::refine_matte(source, &s)
             }),
+            // D-356: the paths compose found for this frame, in the drawing's own space however an
+            // effect above grew it; with none, the layer is left as it is (EFFECT_PATH_MISSING was
+            // said when they were looked for). The layer never grows.
+            Effect::Stroke { all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, paths, .. } => {
+                if let Some(paths) = paths {
+                    crate::perf::time(crate::perf::Stage::EffectStroke, || {
+                        let sequential = all_masks == "on" && stroke_sequentially == "on";
+                        let runs = crate::along::stroke_runs(paths, (ox, oy), [*start, *end, *spacing, *brush_size], sequential);
+                        crate::along::path_stroke(source, &runs, [*brush_size, *brush_hardness, *opacity], encoded(color).map(crate::grade::to_linear), paint_style)
+                    })
+                }
+            }
             // D-353: the layer grows by the plan's reach on every side.
             Effect::SoftGlow {
                 threshold_mode,
