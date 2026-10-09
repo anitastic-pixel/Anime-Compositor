@@ -173,6 +173,14 @@ underneath one of them.
   are filled by `src/text.rs` through the same sixteen samples a pixel that masks and shapes use.
   The font that comes with the program, M PLUS Rounded 1c, is under the SIL Open Font License,
   beside the others in `docs/third_party/`. `tests/d263_text.rs` holds where the letters land.
+- **`rustybuzz`** shapes a text layer's words, by D-354 and D-371 (built on 2026-10-09 under the
+  owner's /loop request): Arabic letters join, Devanagari builds its conjuncts, a combining accent
+  sits on its letter, and the font's standard ligatures are on, by the owner's choice. It is
+  HarfBuzz's shaper written in Rust and reads the font through the same `ttf-parser`. It brought
+  five crates: `core_maths` and four Unicode property tables. `tests/d371_text_shaping.rs` holds
+  every glyph to HarfBuzz itself. The two fonts that check uses, Noto Sans Arabic and Noto Sans
+  Devanagari, are test files only, not shipped, under the SIL Open Font License beside the others
+  in `docs/third_party/`.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the

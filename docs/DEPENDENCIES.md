@@ -65,6 +65,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `codespan-reporting` | 0.12.0 | Apache-2.0 | transitive | linked | https://github.com/brendanzab/codespan | `fe6d2e5af09e8c8a…` |
 | `color_quant` | 1.1.0 | MIT | transitive | linked | https://github.com/image-rs/color_quant.git | `3d7b894f5411737b…` |
 | `cookie` | 0.18.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/SergioBenitez/cookie-rs | `1a373e3602691c3c…` |
+| `core_maths` | 0.1.1 | MIT | transitive | linked | https://github.com/robertbastian/core_maths | `77745e017f5edba1…` |
 | `cpufeatures` | 0.2.17 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/RustCrypto/utils | `59ed5838eebb26a2…` |
 | `crc32fast` | 1.5.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/srijs/rust-crc32fast | `8498c871161e1742…` |
 | `crossbeam-channel` | 0.5.17 | MIT OR Apache-2.0 | transitive | linked | https://github.com/crossbeam-rs/crossbeam | `98b0cc327b5bc766…` |
@@ -221,6 +222,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `rustc-hash` | 1.1.0 | Apache-2.0/MIT | transitive | linked | https://github.com/rust-lang-nursery/rustc-hash | `08d43f7aa6b08d49…` |
 | `rustc-hash` | 2.1.3 | Apache-2.0 OR MIT | transitive | linked | https://github.com/rust-lang/rustc-hash | `6b1e7f9a428571be…` |
 | `rustc_version` | 0.4.1 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/djc/rustc-version-rs | `cfcb3a22ef46e85b…` |
+| `rustybuzz` | 0.20.1 | MIT | direct | linked | https://github.com/harfbuzz/rustybuzz | `fd3c7c96f8a08ee3…` |
 | `same-file` | 1.0.6 | Unlicense/MIT | transitive | linked | https://github.com/BurntSushi/same-file | `93fc1dc3aaa9bfed…` |
 | `schemars` | 0.8.22 | MIT | transitive | linked | https://github.com/GREsau/schemars | `3fbf2ae1b8bc8e02…` |
 | `schemars` | 0.9.0 | MIT | transitive | linked | https://github.com/GREsau/schemars | `4cd191f9397d57d5…` |
@@ -300,7 +302,11 @@ stays visible. Several other crates now do the same for the same reason.
 | `unic-common` | 0.9.0 | MIT/Apache-2.0 | transitive | linked | https://github.com/open-i18n/rust-unic/ | `80d7ff825a6a654e…` |
 | `unic-ucd-ident` | 0.9.0 | MIT/Apache-2.0 | transitive | linked | https://github.com/open-i18n/rust-unic/ | `e230a37c0381caa9…` |
 | `unic-ucd-version` | 0.9.0 | MIT/Apache-2.0 | transitive | linked | https://github.com/open-i18n/rust-unic/ | `96bd2f2237fe450f…` |
+| `unicode-bidi-mirroring` | 0.4.0 | MIT/Apache-2.0 | transitive | linked | https://github.com/RazrFalcon/unicode-bidi-mirroring | `5dfa6e8c60bb66d4…` |
+| `unicode-ccc` | 0.4.0 | MIT/Apache-2.0 | transitive | linked | https://github.com/RazrFalcon/unicode-ccc | `ce61d488bcdc9bc8…` |
 | `unicode-ident` | 1.0.24 | (MIT OR Apache-2.0) AND Unicode-3.0 | transitive | linked | https://github.com/dtolnay/unicode-ident | `e6e4313cd5fcd3da…` |
+| `unicode-properties` | 0.1.4 | MIT/Apache-2.0 | transitive | linked | https://github.com/unicode-rs/unicode-properties | `7df058c713841ad8…` |
+| `unicode-script` | 0.5.8 | MIT OR Apache-2.0 | transitive | linked | https://github.com/unicode-rs/unicode-script | `383ad40bb927465e…` |
 | `unicode-segmentation` | 1.13.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/unicode-rs/unicode-segmentation | `c6f5d3c3b1bf0902…` |
 | `unicode-width` | 0.2.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/unicode-rs/unicode-width | `b4ac048d71ede7ee…` |
 | `url` | 2.5.8 | MIT OR Apache-2.0 | transitive | linked | https://github.com/servo/rust-url | `ff67a8a4397373c3…` |
@@ -399,6 +405,14 @@ underneath one of them.
   are filled by `src/text.rs` through the same sixteen samples a pixel that masks and shapes use.
   The font that comes with the program, M PLUS Rounded 1c, is under the SIL Open Font License,
   beside the others in `docs/third_party/`. `tests/d263_text.rs` holds where the letters land.
+- **`rustybuzz`** shapes a text layer's words, by D-354 and D-371 (built on 2026-10-09 under the
+  owner's /loop request): Arabic letters join, Devanagari builds its conjuncts, a combining accent
+  sits on its letter, and the font's standard ligatures are on, by the owner's choice. It is
+  HarfBuzz's shaper written in Rust and reads the font through the same `ttf-parser`. It brought
+  five crates: `core_maths` and four Unicode property tables. `tests/d371_text_shaping.rs` holds
+  every glyph to HarfBuzz itself. The two fonts that check uses, Noto Sans Arabic and Noto Sans
+  Devanagari, are test files only, not shipped, under the SIL Open Font License beside the others
+  in `docs/third_party/`.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the
@@ -412,7 +426,7 @@ underneath one of them.
 ## What the shell cost, in crates
 
 This is the honest number and it is worth stating plainly. Before the window, this record held
-**28** crates. With it, **338**. One dependency brought in roughly two hundred and thirty
+**28** crates. With it, **344**. One dependency brought in roughly two hundred and thirty
 others, which is what a browser engine, an async runtime, a CSS selector engine and a bundler
 amount to once they are counted rather than assumed.
 

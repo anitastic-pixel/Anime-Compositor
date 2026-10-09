@@ -176532,6 +176532,42 @@ FX-BILAT-015 (`fx_bilat_015.json`): Bilateral Blur, Threshold -1, below 0. The f
 FX-BILAT-016 (`fx_bilat_016.json`): Bilateral Blur, Threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BILAT-017 (`fx_bilat_017.json`): Bilateral Blur, Colorize "sometimes", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+### Text shaping (D-371)
+
+Words shaped by `rustybuzz` (B-250; EFFECTS.md P0-7 part 2). The rule is D-371's in `tools/text_shaping_reference.py`, which shapes with HarfBuzz itself (`uharfbuzz` 0.53.3) and reads outlines with fontTools, never the build's code. `Fixtures/text_shaping/expected_text_shaping.json` gives, for FX-SHAPE-001 to 012, every glyph left to right as its number in the font, its advance, its two offsets and the character its cluster starts at, whole font units held exactly; and for FX-SHAPE-020 to 023 every character's anchor, to 1e-6, and the exact box of its cluster's outline, to 0.25 pixel, or none for a character that is not the first of its cluster. The fonts are the bundled M PLUS Rounded 1c and, for Arabic and Devanagari, which it lacks, Noto Sans Arabic 2.013 and Noto Sans Devanagari 2.007 in `Fixtures/text_shaping/fonts` (SIL Open Font License 1.1). B-250 checks them, and draws the layout cases' pictures, in `verification/D-371_text_shaping_table.md`.
+
+FX-SHAPE-001: Arabic joins: "as-salamu alaykum" in Noto Sans Arabic, kerning off. One right-to-left run; every letter takes its joined form, lam and alef in "salam" the lam-alef pair. 13 glyphs.
+
+FX-SHAPE-002: The same with kerning on.
+
+FX-SHAPE-003: Arabic vowel marks: "bismi" with kasra, sukun and kasra, each mark over or under its letter by the font's offsets, with no width of its own. 7 glyphs.
+
+FX-SHAPE-004: Devanagari: "namaste hindi". The conjunct sta is one glyph; the i-matra of hi is drawn before its consonant; nda is a conjunct. 11 glyphs.
+
+FX-SHAPE-005: Devanagari: ksha and shri, each a conjunct. 4 glyphs.
+
+FX-SHAPE-006: Latin ligatures in the bundled font, kerning off: "office fly fit staff". ffi, fl, fi and ff are each one glyph, held by their first letter. 15 glyphs.
+
+FX-SHAPE-007: The same with kerning on (the font kerns "ta" and "st").
+
+FX-SHAPE-008: A combining accent typed after its letter: "cafe" then U+0301. The font has e-acute, so the two become that one glyph.
+
+FX-SHAPE-009: Accents with no precomposed letter: A with acute and diaeresis, x with dot below and acute; each mark a glyph of no width in its letter's cluster.
+
+FX-SHAPE-010: A mixed line, left-to-right paragraph: "Hi salam". "Hi " left to right, then the Arabic right to left where it stands. Noto Sans Arabic has no Latin letters, so H and i are its missing glyph.
+
+FX-SHAPE-011: A mixed line, right-to-left paragraph: "salam Hi". The Arabic with the space after it is drawn on the right, Hi on the left.
+
+FX-SHAPE-012: Figures after Arabic, right-to-left paragraph: "salam 2026". The figures read left to right, drawn to the left of the Arabic.
+
+FX-SHAPE-020: "office fly fit staff" at 100 pixels from 100, 200 with tracking 50, kerning off: each ligature drawn at its first letter, the other letters in it with no outline. In dispute (D-372, proposed): the reference's boxes slide each outline to its hmtx side bearing, as FreeType does, and the build draws the stored points, so "y" differs by 0.4 pixel; the row passes when every box agrees within 0.25 once that slide is taken out.
+
+FX-SHAPE-021: "as-salamu alaykum" at 120 pixels from 80, 240: the first letter typed on the right, the last on the left.
+
+FX-SHAPE-022: "bismi" at 200 pixels from 60, 300: each vowel mark over or under its letter, inside the letter's cluster.
+
+FX-SHAPE-023: "namaste hindi" at 120 pixels from 40, 200: the i-matra drawn before its consonant, both in the cluster of the consonant typed first.
+
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.

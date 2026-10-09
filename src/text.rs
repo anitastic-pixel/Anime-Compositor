@@ -443,8 +443,9 @@ pub struct Placed {
     pub bounds: Option<[f64; 4]>,
 }
 
-/// D-350: every character laid out with the animators, in order. `None` when the font is not on
-/// this machine.
+/// D-350: every character laid out with the animators, in the order drawn (D-371: a
+/// right-to-left run's from the right; `index` is each one's place in the words). `None` when
+/// the font is not on this machine.
 pub fn placed(text: &Text, animators: &[crate::effects::Effect]) -> Option<Vec<Placed>> {
     lay_out(text, animators).map(|l| l.chars.into_iter().map(|c| c.0).collect())
 }
@@ -706,7 +707,7 @@ struct Laid {
 }
 
 fn lay_out(text: &Text, animators: &[crate::effects::Effect]) -> Option<Laid> {
-    let face = ttf_parser::Face::parse(font_bytes(&text.font)?, 0).ok()?;
+    let face = rustybuzz::Face::from_slice(font_bytes(&text.font)?, 0)?;
     let scale = text.size / face.units_per_em() as f64;
     let natural = (face.ascender() as f64 - face.descender() as f64 + face.line_gap() as f64) * scale;
     let line = if text.leading > 0.0 { text.leading } else { natural };
@@ -714,7 +715,6 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect]) -> Option<Laid> {
     let ascent = face.ascender() as f64 * scale;
     let first = if boxed { text.at[1] + ascent } else { text.at[1] };
     let track = text.tracking / 1000.0 * text.size;
-    let pairs = if text.kerning { kern_lookups(&face) } else { Vec::new() };
     let words = if text.all_caps { text.text.to_uppercase() } else { text.text.clone() };
     let slant = if text.faux_italic { 0.2126 } else { 0.0 };
     let mut contours = Vec::new();
@@ -729,19 +729,25 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect]) -> Option<Laid> {
         let chars: Vec<char> = paragraph.trim_end_matches('\r').chars().collect();
         let mut states: Vec<(Placed, f64)> = chars.iter().enumerate().map(|(i, c)| animate(k + i, *c, text, animators, &picked)).collect();
         k += chars.len();
-        // A glyph the font lacks is its "missing" glyph, usually a box: seen, not hidden.
-        let glyphs: Vec<ttf_parser::GlyphId> =
-            chars.iter().map(|c| face.glyph_index(*c).unwrap_or(ttf_parser::GlyphId(0))).collect();
-        let raw: Vec<f64> = glyphs.iter().map(|g| face.glyph_hor_advance(*g).unwrap_or(0) as f64 * scale).collect();
-        // How far the pen moves after each glyph: its advance, the tracking, and the pair kern.
-        let step: Vec<f64> = (0..glyphs.len())
-            .map(|i| {
-                let kern = match glyphs.get(i + 1) {
-                    Some(next) if text.kerning => kern(&face, &pairs, glyphs[i], *next) * scale,
-                    _ => 0.0,
-                };
-                raw[i] + track + kern + states[i].1
-            })
+        // D-371: shaped. A glyph the font lacks is its "missing" glyph, usually a box: seen, not
+        // hidden. A cluster (a ligature, a letter and its marks) is one unit from here on, held by
+        // its first character; the others in it take no room and draw nothing of their own.
+        let glyphs = shaped(&face, &chars, text.kerning);
+        let mut head: Vec<usize> = (0..chars.len()).collect();
+        let mut units = [vec![0i32; chars.len()], vec![0i32; chars.len()]];
+        for g in &glyphs {
+            units[0][g.ch] += i32::from(face.glyph_hor_advance(g.id).unwrap_or(0));
+            units[1][g.ch] += g.advance;
+        }
+        let starts: Vec<usize> = { let mut s: Vec<usize> = glyphs.iter().map(|g| g.ch).collect(); s.sort_unstable(); s.dedup(); s };
+        for (i, h) in head.iter_mut().enumerate() {
+            *h = starts[..starts.partition_point(|s| *s <= i)].last().copied().unwrap_or(i);
+        }
+        // Each unit's own advance, and what kerning adds to it.
+        let raw: Vec<f64> = units[0].iter().map(|u| *u as f64 * scale).collect();
+        // How far the pen moves after each unit: its advance, the tracking, and the kern.
+        let step: Vec<f64> = (0..chars.len())
+            .map(|i| if head[i] != i { 0.0 } else { raw[i] + track + (units[1][i] - units[0][i]) as f64 * scale + states[i].1 })
             .collect();
         let mut from = vec![0.0];
         for s in &step {
@@ -749,7 +755,7 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect]) -> Option<Laid> {
         }
         // A line's width, from its first glyph's origin to its last glyph's advance, without the
         // tracking and kern that lead to a next glyph.
-        let width = |a: usize, e: usize| if e > a { from[e - 1] - from[a] + raw[e - 1] } else { 0.0 };
+        let width = |a: usize, e: usize| if e > a { from[head[e - 1]] - from[a] + raw[head[e - 1]] } else { 0.0 };
         let mut lines = Vec::new();
         if boxed {
             let space = |i: usize| chars[i].is_whitespace();
@@ -815,7 +821,15 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect]) -> Option<Laid> {
             };
             let y = first + n as f64 * line;
             let mut x = left;
-            for i in a..e {
+            // D-371: the line's characters in the order their glyphs are drawn, each cluster's
+            // characters together.
+            let mut order: Vec<usize> = Vec::with_capacity(e - a);
+            for g in glyphs.iter().filter(|g| (a..e).contains(&g.ch)) {
+                if order.last().is_none_or(|l| head[*l] != g.ch) {
+                    order.extend((g.ch..e).take_while(|j| head[*j] == g.ch));
+                }
+            }
+            for i in order {
                 let p = &mut states[i].0;
                 p.anchor = [x + raw[i] / 2.0, y];
                 let turn = (p.moved != [0.0; 2] || p.turn != 0.0 || p.scale != [1.0; 2]).then(|| {
@@ -823,9 +837,14 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect]) -> Option<Laid> {
                     Turn { anchor: p.anchor, scale: p.scale, cos, sin, moved: p.moved }
                 });
                 let from = contours.len();
-                let mut pen = Pen { x, y, scale, slant, turn, now: Vec::new(), into: &mut contours };
-                face.outline_glyph(glyphs[i], &mut pen);
-                pen.end();
+                let mut gx = 0;
+                for g in glyphs.iter().filter(|g| g.ch == i) {
+                    let (gx_at, gy) = ((gx + g.offset.0) as f64 * scale, g.offset.1 as f64 * scale);
+                    let mut pen = Pen { x: x + gx_at, y: y - gy, scale, slant, turn, now: Vec::new(), into: &mut contours };
+                    face.outline_glyph(g.id, &mut pen);
+                    pen.end();
+                    gx += g.advance;
+                }
                 p.bounds = contours[from..].iter().flatten().fold(None, |b: Option<[f64; 4]>, &(px, py)| {
                     Some(b.map_or([px, py, px, py], |b| [b[0].min(px), b[1].min(py), b[2].max(px), b[3].max(py)]))
                 });
@@ -851,55 +870,92 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect]) -> Option<Laid> {
     Some(Laid { contours, bounds, chars: placed })
 }
 
-/// The `kern` feature's lookups in the font's GPOS table, each once.
-fn kern_lookups(face: &ttf_parser::Face) -> Vec<u16> {
-    let mut found = Vec::new();
-    if let Some(gpos) = face.tables().gpos {
-        for feature in gpos.features {
-            if feature.tag == ttf_parser::Tag::from_bytes(b"kern") {
-                found.extend(feature.lookup_indices);
-            }
-        }
-    }
-    found.sort_unstable();
-    found.dedup();
-    found
+/// D-371: the font's standard ligatures (`liga`, `clig`), such as the bundled font's "fi", on by
+/// the owner's choice ("ligatures on by default", 2026-10-09). Required ligatures (Arabic's
+/// lam-alef) are on regardless.
+const LIGATURES: bool = true;
+
+/// D-371: one glyph of a shaped paragraph. Its advance and offsets are in font units, the
+/// advance with any kern in it; `ch` is the paragraph's character its cluster starts at.
+pub struct Glyph {
+    pub id: ttf_parser::GlyphId,
+    pub advance: i32,
+    pub offset: (i32, i32),
+    pub ch: usize,
 }
 
-/// How far, in font units, the pair `l` then `r` is kerned: each lookup's first pair subtable
-/// that holds `l`, summed; a font with no GPOS kern feature is asked its old `kern` table.
-fn kern(face: &ttf_parser::Face, lookups: &[u16], l: ttf_parser::GlyphId, r: ttf_parser::GlyphId) -> f64 {
-    use ttf_parser::gpos::{PairAdjustment, PositioningSubtable};
-    let Some(gpos) = face.tables().gpos.filter(|_| !lookups.is_empty()) else {
-        let Some(table) = face.tables().kern else { return 0.0 };
-        return table
-            .subtables
-            .into_iter()
-            .filter(|s| s.horizontal && !s.variable)
-            .filter_map(|s| s.glyphs_kerning(l, r))
-            .map(f64::from)
-            .sum();
+/// D-371: a paragraph shaped by `rustybuzz`, its glyphs in the order they are drawn, left to
+/// right. The paragraph is cut into runs of one script and direction, which are shaped apart:
+/// a mark, a space or a sign that is in no script goes with the run before it (the first run,
+/// at the start), and figures in a right-to-left run are a left-to-right run of their own. A
+/// paragraph whose first run reads right to left lays its runs out from the right.
+/// ponytail: that is the bidirectional algorithm's commonest case, not the algorithm (UAX #9):
+/// a sign between runs of two directions sides with the run before it.
+pub fn shaped(face: &rustybuzz::Face, chars: &[char], kerning: bool) -> Vec<Glyph> {
+    use rustybuzz::{script, Direction, Feature, Script, UnicodeBuffer};
+    let tag = ttf_parser::Tag::from_bytes;
+    let features = [
+        // Over every character but not "global": rustybuzz 0.20.1 skips turning a right-to-left
+        // run back round when a global kern is off in a font with an old `kern` table
+        // (`kerning.rs`, the `continue` before the second `reverse`), and Arabic comes out
+        // backwards. Off over a range does the same as off everywhere.
+        Feature::new(tag(b"kern"), u32::from(kerning), 0..u32::MAX as usize),
+        Feature::new(tag(b"liga"), u32::from(LIGATURES), ..),
+        Feature::new(tag(b"clig"), u32::from(LIGATURES), ..),
+    ];
+    // The script and direction each character asks for, `None` for one that asks for neither.
+    let wants = |c: char, in_rtl: bool| -> Option<(Script, Direction)> {
+        if c.is_ascii_digit() {
+            return in_rtl.then_some((script::COMMON, Direction::LeftToRight));
+        }
+        let mut b = UnicodeBuffer::new();
+        b.add(c, 0);
+        b.guess_segment_properties();
+        let s = b.script();
+        // Japanese and Chinese mix kanji, kana and bopomofo in one run, as one script.
+        let s = if [script::HIRAGANA, script::KATAKANA, script::BOPOMOFO].contains(&s) { script::HAN } else { s };
+        (s != script::UNKNOWN).then(|| (s, b.direction()))
     };
-    let mut total = 0.0;
-    for &index in lookups {
-        let Some(lookup) = gpos.lookups.get(index) else { continue };
-        for j in 0..lookup.subtables.len() {
-            let found = match lookup.subtables.get::<PositioningSubtable>(j) {
-                Some(PositioningSubtable::Pair(PairAdjustment::Format1 { coverage, sets })) => coverage
-                    .get(l)
-                    .map(|i| sets.get(i).and_then(|set| set.get(r)).map_or(0, |v| v.0.x_advance)),
-                Some(PositioningSubtable::Pair(PairAdjustment::Format2 { coverage, classes, matrix })) => coverage
-                    .get(l)
-                    .map(|_| matrix.get((classes.0.get(l), classes.1.get(r))).map_or(0, |v| v.0.x_advance)),
-                _ => None,
-            };
-            if let Some(v) = found {
-                total += f64::from(v);
-                break;
+    let mut runs: Vec<(usize, usize, Script, Direction)> = Vec::new();
+    for (i, c) in chars.iter().enumerate() {
+        let in_rtl = runs.last().is_some_and(|r| r.3 == Direction::RightToLeft);
+        match (wants(*c, in_rtl), runs.last_mut()) {
+            (Some(w), Some(r)) if (r.2, r.3) == w || r.2 == script::UNKNOWN => {
+                (r.2, r.3) = w;
+                r.1 = i + 1;
+            }
+            (None, Some(r)) => r.1 = i + 1,
+            (w, _) => {
+                let (s, d) = w.unwrap_or((script::UNKNOWN, Direction::LeftToRight));
+                runs.push((i, i + 1, s, d));
             }
         }
     }
-    total
+    if runs.first().is_some_and(|r| r.3 == Direction::RightToLeft) {
+        runs.reverse();
+    }
+    let mut glyphs = Vec::new();
+    for (a, e, s, d) in runs {
+        let words: String = chars[a..e].iter().collect();
+        // Each character's byte in the run, as `rustybuzz` names clusters.
+        let bytes: Vec<usize> = words.char_indices().map(|(b, _)| b).collect();
+        let mut b = UnicodeBuffer::new();
+        b.push_str(&words);
+        if s != script::UNKNOWN {
+            b.set_script(s);
+        }
+        b.set_direction(d);
+        let out = rustybuzz::shape(face, &features, b);
+        for (info, pos) in out.glyph_infos().iter().zip(out.glyph_positions()) {
+            glyphs.push(Glyph {
+                id: ttf_parser::GlyphId(info.glyph_id as u16),
+                advance: pos.x_advance,
+                offset: (pos.x_offset, pos.y_offset),
+                ch: a + bytes.partition_point(|b| *b < info.cluster as usize),
+            });
+        }
+    }
+    glyphs
 }
 
 /// A box with its corners rounded by `r` pixels, as one closed outline.

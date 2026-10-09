@@ -361,7 +361,7 @@ fn b11_the_dependency_record_describes_the_build_it_claims_to() {
     // `tauri`'s build-time half and is asked for by name in `app/Cargo.toml`, so it counts as
     // direct even though nothing links it. `tauri-plugin-dialog` arrived with B-09's Open and
     // Save dialogs, `exr` with D-62, `image` and `gif` with D-72, `windows` with D-72's MP4 (D-30),
-    // `wgpu`, `pollster` and `bytemuck` with B-44's GPU preview (D-100), `ttf-parser` with D-263's text layers, and this line is how a dependency added quietly stops being
+    // `wgpu`, `pollster` and `bytemuck` with B-44's GPU preview (D-100), `ttf-parser` with D-263's text layers, `rustybuzz` with D-371's shaping (D-354), and this line is how a dependency added quietly stops being
     // quiet.
     let mut direct: Vec<String> = record
         .cells
@@ -375,7 +375,7 @@ fn b11_the_dependency_record_describes_the_build_it_claims_to() {
     direct.dedup();
     report.check(
         "the record marks as direct exactly the dependencies the manifests ask for",
-        "bytemuck, exr, gif, half, image, png, pollster, rayon, serde_json, tauri, tauri-build, tauri-plugin-dialog, ttf-parser, wgpu, windows",
+        "bytemuck, exr, gif, half, image, png, pollster, rayon, rustybuzz, serde_json, tauri, tauri-build, tauri-plugin-dialog, ttf-parser, wgpu, windows",
         joined(&direct),
     );
 
