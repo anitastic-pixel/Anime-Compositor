@@ -204618,3 +204618,157 @@ FX-FISHEYE-018 (`fx_fisheye_018.json`): Convergence -101, below -100. The file i
 FX-FISHEYE-019 (`fx_fisheye_019.json`): Centre at 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-FISHEYE-020 (`fx_fisheye_020.json`): Convergence keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Page Turn (D-388)
+
+Page Turn (`core.page_turn`), after CycoreFX's CC Page Turn (B-267): a corner of the drawing (or, in Classic, a straight fold at an angle) turned over and rolled round a cylinder Fold Radius pixels across, its back the paper colour or another layer at Back Opacity, shaded where it curls, the front, the back or both drawn. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/page_turn_reference.py` works the expected frames, `Fixtures/page_turn/expected_page_turn.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-PAGETURN-001 (`fx_pageturn_001.json`): The settings as they start: the bottom right corner turned up to three quarters of the way across and down, Fold Radius 30. On a drawing 16 pixels wide a cylinder that size has rolled the whole page up and out of the frame: clear. Frames 0.
+
+FX-PAGETURN-002 (`fx_pageturn_002.json`): Classic, the fold line upright down the middle, the page travelling right, Fold Radius 0: the left half turned over flat onto the right, showing its back, the paper colour #f0f0f0, cut to the page's shape; the left half is clear. Frames 0.
+
+FX-PAGETURN-003 (`fx_pageturn_003.json`): The same with Back Opacity 0: the back shows the page's own picture seen through, so the right half is the left half mirrored. Frames 0.
+
+FX-PAGETURN-004 (`fx_pageturn_004.json`): The same with Back Opacity 100 and the layer itself as the Back Page: the back is the page's picture again, so the frame is FX-PAGETURN-003's. Frames 0.
+
+FX-PAGETURN-005 (`fx_pageturn_005.json`): Classic down the middle, Fold Radius 2: the fold rolls round a cylinder two pixels across, its back shaded where it curls, the turned part laid down past it. Frames 0.
+
+FX-PAGETURN-006 (`fx_pageturn_006.json`): FX-PAGETURN-005 with Render Front: only the page's front, no back. Frames 0.
+
+FX-PAGETURN-007 (`fx_pageturn_007.json`): FX-PAGETURN-005 with Render Back: only the back; laid over FX-PAGETURN-006 it gives FX-PAGETURN-005. Frames 0.
+
+FX-PAGETURN-008 (`fx_pageturn_008.json`): FX-PAGETURN-005 lit from the right, Light Direction 90: the curl's crest faces left, away from the light, and darkens, where lit from the upper left, as it starts, it shows the paper. Frames 0.
+
+FX-PAGETURN-009 (`fx_pageturn_009.json`): The bottom right corner turned to the middle, Fold Radius 1: the corner laid flat on the middle, its back the paper colour, the lower right of the frame clear. Frames 0.
+
+FX-PAGETURN-010 (`fx_pageturn_010.json`): The top left corner turned to the middle, Fold Radius 1. Frames 0.
+
+FX-PAGETURN-011 (`fx_pageturn_011.json`): The bottom right corner's Fold Position keyed from (100, 100) at frame 0 to (0, 0) at frame 4, linear, Fold Radius 1: frame 0 the page as it was, then turned ever further, frame 2 FX-PAGETURN-009. Frames 0, 2, 4.
+
+FX-PAGETURN-012 (`fx_pageturn_012.json`): Classic as it starts, Fold Direction -60, the line through the middle, Fold Radius 2: the lower right part turned up and to the left. Frames 0.
+
+FX-PAGETURN-013 (`fx_pageturn_013.json`): FX-PAGETURN-002 with Paper Color #2040a0: the back is blue. Frames 0.
+
+FX-PAGETURN-014 (`fx_pageturn_014.json`): FX-PAGETURN-002 with Back Page a layer that is not in the composition, `gone`: the paper colour, as FX-PAGETURN-002, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0.
+
+FX-PAGETURN-015 (`fx_pageturn_015.json`): FX-PAGETURN-009 with the layer moved three pixels right: the same, moved; nothing grows. Frames 0.
+
+FX-PAGETURN-016 (`fx_pageturn_016.json`): FX-PAGETURN-002 with Back Opacity keyed from 0 at frame 0 to 100 at frame 4: frame 0 FX-PAGETURN-003, frame 4 FX-PAGETURN-002, frame 2 half way. Frames 0, 2, 4.
+
+FX-PAGETURN-017 (`fx_pageturn_017.json`): Classic, Fold Radius 1, Fold Direction keyed from 90 at frame 0 to 450 at frame 4: the fold line turns a whole turn about the middle, frames 0 and 4 the same. Frames 0, 2, 4.
+
+FX-PAGETURN-018 (`fx_pageturn_018.json`): Classic down the middle, Fold Radius eased from 0 at frame 0 to 1000 at frame 4 on a curve that overshoots: frame 2 would pass 1000 and is held there, the same as frame 4. Frames 0, 2, 4.
+
+FX-PAGETURN-019 (`fx_pageturn_019.json`): Controls "middle", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAGETURN-020 (`fx_pageturn_020.json`): Render "sides", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAGETURN-021 (`fx_pageturn_021.json`): Fold Radius 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAGETURN-022 (`fx_pageturn_022.json`): Fold Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAGETURN-023 (`fx_pageturn_023.json`): Back Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAGETURN-024 (`fx_pageturn_024.json`): Paper Color "white", not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAGETURN-025 (`fx_pageturn_025.json`): Back Page written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAGETURN-026 (`fx_pageturn_026.json`): Fold Position at (50, 1001), past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAGETURN-027 (`fx_pageturn_027.json`): Fold Direction keyed to 3601 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Power Pin (D-389)
+
+Power Pin (`core.power_pin`), after CycoreFX's CC Power Pin (B-268): Corner Pin's four pins with Perspective eased between full perspective and an even squeeze, the pinned shape grown or shrunk past its sides by four Expansions, and Unstretch running the pinning backwards. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/power_pin_reference.py` works the expected frames, `Fixtures/power_pin/expected_power_pin.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-POWERPIN-001 (`fx_powerpin_001.json`): The settings as they start: the drawing, untouched, and nothing grows. Frames 0.
+
+FX-POWERPIN-002 (`fx_powerpin_002.json`): Shrunk to the middle, the pins at (25, 25), (75, 25), (25, 75) and (75, 75): the drawing at half its size in the middle, as Corner Pin draws it. Frames 0.
+
+FX-POWERPIN-003 (`fx_powerpin_003.json`): A keystone, Top Left at (25, 0) and Top Right at (75, 0), Perspective 100: the drawing leans back as Corner Pin leans it, its far upper half drawn smaller, so the blue band lands in rows 2 and 3. Frames 0.
+
+FX-POWERPIN-004 (`fx_powerpin_004.json`): The same keystone at Perspective 0: squeezed evenly instead, every row as tall as before, so the band stays in rows 4 and 5. Frames 0.
+
+FX-POWERPIN-005 (`fx_powerpin_005.json`): The same keystone at Perspective 50: half way between. Frames 0.
+
+FX-POWERPIN-006 (`fx_powerpin_006.json`): Unstretch on, the pins shrunk to the middle: the other way round, the middle of the drawing stretched out to fill it, twice the size. Frames 0.
+
+FX-POWERPIN-007 (`fx_powerpin_007.json`): Unstretch on with the keystone: the keystone's shape stretched out to fill the drawing, its top widened. Frames 0.
+
+FX-POWERPIN-008 (`fx_powerpin_008.json`): The pins shrunk to the middle and every expansion 50: the pinned shape grown back out by half of it on each side, which is the whole drawing: the drawing, untouched. Frames 0.
+
+FX-POWERPIN-009 (`fx_powerpin_009.json`): Expansion Left -25 with the pins where they start: the left side pulled in a quarter of the way, the drawing squeezed into columns 4 to 15. Frames 0.
+
+FX-POWERPIN-010 (`fx_powerpin_010.json`): Expansion Right 50 and Bottom 50 with the pins where they start: the drawing grown half as much again to the right and down from its top left corner; the layer grows to hold it. Frames 0.
+
+FX-POWERPIN-011 (`fx_powerpin_011.json`): Top Right at (100, 100) and Bottom Right at (100, 0), crossed like a bow tie: no drawable shape, so the frame is clear. Frames 0.
+
+FX-POWERPIN-012 (`fx_powerpin_012.json`): The left side squeezed small and far away, Top Left at (0, 45) and Bottom Left at (0, 55), so the right side is the near one, and Expansion Right 100 at Perspective 100: the near side grown by the drawing's whole width would run past the vanishing line, so the frame is clear. Frames 0.
+
+FX-POWERPIN-013 (`fx_powerpin_013.json`): The same at Perspective 0: squeezed evenly there is no vanishing line, and the grown shape is drawn. Frames 0.
+
+FX-POWERPIN-014 (`fx_powerpin_014.json`): The keystone with Perspective keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 FX-POWERPIN-004, frame 2 FX-POWERPIN-005 and frame 4 FX-POWERPIN-003. Frames 0, 2, 4.
+
+FX-POWERPIN-015 (`fx_powerpin_015.json`): Top Right keyed from (100, 0) at frame 0 to (100, 50) at frame 4 at Perspective 0: frame 0 the drawing, then its right side ever shorter, squeezed evenly. Frames 0, 2, 4.
+
+FX-POWERPIN-016 (`fx_powerpin_016.json`): Top Left pulled out to (-25, 0), the layer moved three pixels right, Perspective 100: the layer grows four pixels each side as Corner Pin's FX-PIN-006 does, and the frame is Corner Pin's. Frames 0.
+
+FX-POWERPIN-017 (`fx_powerpin_017.json`): Expansion Top keyed from 0 at frame 0 to 100 at frame 4, eased past its end: frame 2 would pass 100 and is held there, the same as frame 4. Frames 0, 2, 4.
+
+FX-POWERPIN-018 (`fx_powerpin_018.json`): Unstretch on with the keystone at Perspective 0, the layer moved two pixels right: the evenly squeezed keystone stretched back out; nothing grows. Frames 0.
+
+FX-POWERPIN-019 (`fx_powerpin_019.json`): Perspective 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POWERPIN-020 (`fx_powerpin_020.json`): Perspective -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POWERPIN-021 (`fx_powerpin_021.json`): Expansion Top 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POWERPIN-022 (`fx_powerpin_022.json`): Expansion Left -41, below -40. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POWERPIN-023 (`fx_powerpin_023.json`): Unstretch "yes", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POWERPIN-024 (`fx_powerpin_024.json`): Top Left at (-401, 0), its x below -400. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POWERPIN-025 (`fx_powerpin_025.json`): Bottom Right keyed to (100, 600) at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Ripple Pulse (D-390)
+
+Ripple Pulse (`core.ripple_pulse`), after CycoreFX's CC Ripple Pulse (B-269): each change in Pulse Level sends a ring out from the centre that reaches the corners after Time Span seconds, pushing the picture out (a rise) or drawing it in (a fall) by Amplitude, or drawn as grey heights with Render Bump Map on. Every case is a project of one composition 16 by 10 at 24 frames a second, five frames, one drawing of stripes with the effect. `tools/ripple_pulse_reference.py` works the expected frames, `Fixtures/ripple_pulse/expected_ripple_pulse.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-RPULSE-001 (`fx_rpulse_001.json`): The settings as they start: Pulse Level 0 and never keyed, so there is no ring: the drawing, untouched. Frames 0, 4.
+
+FX-RPULSE-002 (`fx_rpulse_002.json`): A drop: the level held at 0 until frame 1, then 10, Time Span 0.25 seconds (6 frames), Amplitude 2: frame 0 nothing; at frame 1 the middle pushed out 2 pixels; then a ring 2 pixels strong running outward, half way to the corners by frame 4. Frames 0, 1, 2, 4.
+
+FX-RPULSE-003 (`fx_rpulse_003.json`): The same drop downward, 0 to -10: the ring draws the picture in. Frames 1, 4.
+
+FX-RPULSE-004 (`fx_rpulse_004.json`): The level rising steadily from 0 at frame 0 to 20 at frame 4: a pulse of 5 a frame, a growing disc pushed out a pixel. Frames 0, 2, 4.
+
+FX-RPULSE-005 (`fx_rpulse_005.json`): FX-RPULSE-002 centred at the left quarter, 25, 50. Frames 4.
+
+FX-RPULSE-006 (`fx_rpulse_006.json`): FX-RPULSE-002 with Render Bump Map on: grey heights instead, the middle at 0.51 and the ring's slope down to 0.5 at frame 4. Frames 0, 1, 4.
+
+FX-RPULSE-007 (`fx_rpulse_007.json`): FX-RPULSE-002 with Time Span 0: no history, so no ring. Frames 1, 4.
+
+FX-RPULSE-008 (`fx_rpulse_008.json`): FX-RPULSE-002 with Time Span 1 second (24 frames): the ring runs four times slower, still near the middle at frame 4. Frames 4.
+
+FX-RPULSE-009 (`fx_rpulse_009.json`): FX-RPULSE-002 with the layer moved three pixels right: the same, moved; nothing grows. Frames 4.
+
+FX-RPULSE-010 (`fx_rpulse_010.json`): FX-RPULSE-002 with Amplitude 0: the drawing, untouched. Frames 4.
+
+FX-RPULSE-011 (`fx_rpulse_011.json`): The level eased from 0 at frame 0 to 1000 at frame 4 on a curve that overshoots, Amplitude 0.01, Time Span 0.25: the level is held at 1000 before the history is read, so frame 4 is the history 0, ..., 1000, 1000. Frames 2, 4.
+
+FX-RPULSE-012 (`fx_rpulse_012.json`): FX-RPULSE-006's bump map with Amplitude 200: the middle's grey held at white. Frames 4.
+
+FX-RPULSE-013 (`fx_rpulse_013.json`): Pulse Level 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RPULSE-014 (`fx_rpulse_014.json`): Time Span 11, above 10 seconds. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RPULSE-015 (`fx_rpulse_015.json`): Time Span -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RPULSE-016 (`fx_rpulse_016.json`): Amplitude 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RPULSE-017 (`fx_rpulse_017.json`): Render Bump Map "yes", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RPULSE-018 (`fx_rpulse_018.json`): Centre at 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RPULSE-019 (`fx_rpulse_019.json`): Pulse Level keyed to -2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
