@@ -1,7 +1,7 @@
 //! D-356 (`docs/effects/EFFECTS.md` P0-22): effects that draw along a path.
 //!
-//! A path here is a closed outline as `mask::flatten` gives it, in the coordinates it is drawn
-//! in. [`runs`] measures the paths along their length, trims them to a start and an end, and
+//! A path here is an outline as `mask::flatten` or `shape::flatten` gives it, with whether it is
+//! closed (D-357: a shape's path may be open), in the coordinates it is drawn in. [`runs`] measures the paths along their length, trims them to a start and an end, and
 //! lays dabs on them a step apart; [`distance`] finds the nearest dab of one run. Path Stroke
 //! (`core.stroke`) is the first effect drawn with them; Vegas, Scribble, Write-on, Fill, Audio
 //! Waveform and Energy Stroke are to be.
@@ -15,14 +15,14 @@ use crate::WorkingBuffer;
 /// first point to the last.
 pub(crate) type Run = [f64; 5];
 
-/// The runs of a brush laid along `paths`, closed outlines, between `start` and `end` per cent
+/// The runs of a brush laid along `paths`, outlines each with whether it is closed, between `start` and `end` per cent
 /// of each one's length (taken smaller first), a dab every `step` pixels from each path's first
 /// point, so the dabs stay put as the start moves; `step` 0 lays the brush all along. With
 /// `sequential`, the paths are one length, end to end in order, and `start` and `end` are per
 /// cent of it. Document 21's Path Stroke paragraph is the rule.
-pub(crate) fn runs(paths: &[Vec<(f64, f64)>], start: f64, end: f64, step: f64, sequential: bool) -> Vec<Run> {
+pub(crate) fn runs(paths: &[(Vec<(f64, f64)>, bool)], start: f64, end: f64, step: f64, sequential: bool) -> Vec<Run> {
     let (s, e) = (start.min(end) / 100.0, start.max(end) / 100.0);
-    let pieces: Vec<Vec<((f64, f64), (f64, f64))>> = paths.iter().map(|p| crate::shape::path_segments(p, true)).collect();
+    let pieces: Vec<Vec<((f64, f64), (f64, f64))>> = paths.iter().map(|(p, closed)| crate::shape::path_segments(p, *closed)).collect();
     let length = |(a, b): &((f64, f64), (f64, f64))| (b.0 - a.0).hypot(b.1 - a.1);
     let lengths: Vec<f64> = pieces.iter().map(|p| p.iter().map(length).sum()).collect();
     let total: f64 = lengths.iter().sum();
@@ -65,7 +65,7 @@ pub(crate) fn runs(paths: &[Vec<(f64, f64)>], start: f64, end: f64, step: f64, s
 /// Path Stroke's runs: `paths` trimmed to `start` and `end` with a dab every `spacing` per cent
 /// of the brush `size` (0 for all along), measured where the paths are and moved by `origin`,
 /// the drawing's corner in a buffer grown by an effect above. The processor and the card share it.
-pub(crate) fn stroke_runs(paths: &[Vec<(f64, f64)>], (ox, oy): (usize, usize), [start, end, spacing, size]: [f64; 4], sequential: bool) -> Vec<Run> {
+pub(crate) fn stroke_runs(paths: &[(Vec<(f64, f64)>, bool)], (ox, oy): (usize, usize), [start, end, spacing, size]: [f64; 4], sequential: bool) -> Vec<Run> {
     let mut out = runs(paths, start, end, spacing / 100.0 * size, sequential);
     for run in &mut out {
         run[0] += ox as f64;

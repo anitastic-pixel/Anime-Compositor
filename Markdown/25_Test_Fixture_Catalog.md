@@ -176428,6 +176428,40 @@ FX-STROKE-044 (`fx_stroke_044.json`): All Masks "yes", which is not "on" or "off
 FX-STROKE-045 (`fx_stroke_045.json`): Stroke Sequentially "maybe", which is not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-STROKE-046 (`fx_stroke_046.json`): End keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+#### Path Stroke along shape paths (D-357)
+
+Path From Shape Paths (`source` "shapes"), B-236. The same composition and night drawing as above; where the case says a shape layer, the layer `art` is a shape layer instead (see-through, its shapes drawn with their own fill, none unless the case says, and no stroke). The numbers are produced by the same `tools/stroke_reference.py` (bb25da1), which flattens shapes as `tools/shape_reference.py` does, and are in `Fixtures/stroke/expected_stroke_shapes.json`. Path From Masks is the default and is not written, so FX-STROKE-001 to 046 are unchanged. Tolerance 2e-5. B-236 checks them in `verification/D-357_stroke_shapes_table.md`.
+
+FX-STROKE-047 (`fx_stroke_047.json`): A shape layer holding one shape, the box, with no fill and no stroke (it draws nothing), Path From Shapes: the white line all round the box over nothing, FX-STROKE-013's frame. Frames 0.
+
+FX-STROKE-048 (`fx_stroke_048.json`): A star of five points (ten corners) as a shape, Brush Size 1, End 60: the line follows its points and dips, clockwise from the top point, three fifths of the way round; the left arms are not drawn yet. Frames 0.
+
+FX-STROKE-049 (`fx_stroke_049.json`): An open shape, a roof of two legs from (2, 7) up to (8, 2) and down to (14, 7): drawn open, nothing along the bottom. Frames 0.
+
+FX-STROKE-050 (`fx_stroke_050.json`): The same roof closed: the bottom is drawn too. Frames 0.
+
+FX-STROKE-051 (`fx_stroke_051.json`): The open roof, End 50: the left leg alone, half of its open length. Frames 0.
+
+FX-STROKE-052 (`fx_stroke_052.json`): A curved shape, the circle 8 across about (8, 5): FX-STROKE-022's curve. Frames 0.
+
+FX-STROKE-053 (`fx_stroke_053.json`): Two shapes, the box and the small box, Path 2: the small box alone. Frames 0.
+
+FX-STROKE-054 (`fx_stroke_054.json`): Two shapes, All Masks and Stroke Sequentially on, End keyed from 0 at frame 0 to 100 at frame 4: the box draws on, then the small box, as FX-STROKE-020 does with masks; frames 0, 2 and 4. Frames 0, 2, 4.
+
+FX-STROKE-055 (`fx_stroke_055.json`): The box as a shape filled blue: the stroke is drawn over the fill. Frames 0.
+
+FX-STROKE-056 (`fx_stroke_056.json`): A shape layer with the box as a shape and the small box as a mask of mode None, Path From Shapes: the box alone, FX-STROKE-047's frame. Frames 0.
+
+FX-STROKE-057 (`fx_stroke_057.json`): The same layer, Path From Masks: the small box, its mask, alone. Frames 0.
+
+FX-STROKE-058 (`fx_stroke_058.json`): Path From Shapes on the night drawing, which is not a shape layer and has no shapes (its box mask is not a shape). Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-STROKE-059 (`fx_stroke_059.json`): A shape layer whose one shape is switched off. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-STROKE-060 (`fx_stroke_060.json`): A shape layer of one shape, Path 2. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-STROKE-061 (`fx_stroke_061.json`): Path From "layer", which is not "masks" or "shapes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.

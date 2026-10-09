@@ -1541,9 +1541,11 @@ pub enum Effect {
     /// along the layer's masks. `mask`, 1 to 1000, the mask numbered so, its floor taken;
     /// `all_masks` and `stroke_sequentially`, "off" or "on"; `color`, `#rrggbb`; `brush_size`, 0
     /// to 200 pixels; `brush_hardness`, `opacity`, `start`, `end` and `spacing`, 0 to 100 per
-    /// cent; `paint_style`, "on_original", "on_transparent" or "reveal". `paths` is not a setting
-    /// and is never saved: compose fills it each frame with the masks chosen, flattened, at the
-    /// frame and the size the effects run at, `None` when there are none.
+    /// cent; `paint_style`, "on_original", "on_transparent" or "reveal"; D-357: `source`, "masks"
+    /// or "shapes", the layer's masks or its shapes (a shape layer's), `mask` and `all_masks`
+    /// then choosing shapes. `paths` is not a setting and is never saved: compose fills it each
+    /// frame with the paths chosen, flattened, each with whether it is closed, at the frame and
+    /// the size the effects run at, `None` when there are none.
     Stroke {
         mask: f64,
         all_masks: String,
@@ -1556,7 +1558,8 @@ pub enum Effect {
         end: f64,
         spacing: f64,
         paint_style: String,
-        paths: Option<Vec<Vec<(f64, f64)>>>,
+        source: String,
+        paths: Option<Vec<(Vec<(f64, f64)>, bool)>>,
     },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
@@ -3816,6 +3819,9 @@ impl Effect {
             )),
             Effect::Stroke { paint_style: v, .. } if !PAINT_STYLES.contains(&v.as_str()) => Some(format!(
                 "Path Stroke's paint style is \"on_original\", \"on_transparent\" or \"reveal\", and this is \"{v}\"."
+            )),
+            Effect::Stroke { source: v, .. } if !["masks", "shapes"].contains(&v.as_str()) => Some(format!(
+                "Path Stroke's source is \"masks\" or \"shapes\", and this is \"{v}\"."
             )),
             Effect::Stroke { color, .. } => hex_fault("Path Stroke", "colour", color),
             Effect::PassExtract { invert, .. } | Effect::DepthKey { invert, .. } | Effect::IdKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => {

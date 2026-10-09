@@ -9603,7 +9603,7 @@ const EFFECT_ABOUT = {
   'core.matte_choker': 'Chokes or spreads a keyed layer\'s edges in two stages, softening them, filling small holes and taking out specks.',
   'core.refine_hard_matte': 'Softens a keyed layer\'s edge along the picture\'s own colour edges, steepens or moves it, and can take the background\'s colour out of the edge.',
   'core.refine_soft_matte': 'Fits the covering near a keyed layer\'s edge to the picture\'s colours, for hair and soft detail, and takes the background\'s colour out of the edge.',
-  'core.stroke': 'Draws a brush along the layer\'s masks, so a line can draw itself on as Start and End move.',
+  'core.stroke': 'Draws a brush along the layer\'s masks or shape paths, so a line can draw itself on as Start and End move.',
   'core.depth_key': 'Takes out what is nearer than a depth, read from the depth a 3D render saved in the layer\'s EXR file.',
   'core.glass': 'Bends the picture as if seen through glass shaped by a bump map, and lights its slopes.',
 };
@@ -9921,7 +9921,7 @@ const EFFECT_PARAMS = {
     ['decontamination_amount', 'Decontamination Amount', 1, 1, 'per cent, 0 to 100'],
     ['decontamination_radius', 'Extend Where Decontaminated', 1, 1, 'pixels, 0 to 100']],
   // D-356, After Effects' own words where it has them.
-  'core.stroke': [['mask', 'Path', 1, 1, 'the mask numbered so, 1 to 1000; the layer needs masks'],
+  'core.stroke': [['mask', 'Path', 1, 1, 'the mask (or with Path From Shape Paths, the shape) numbered so, 1 to 1000'],
     ['brush_size', 'Brush Size', 1, 0.5, 'pixels across, 0 to 200'],
     ['brush_hardness', 'Brush Hardness', 1, 1, 'per cent, 0 to 100, 100 a hard edge'],
     ['opacity', 'Opacity', 1, 1, 'per cent, 0 to 100'],
@@ -10368,9 +10368,10 @@ const EFFECT_WORDS = {
     choices: [['scene_detect', 'Scene Detect', [['off', 'Off'], ['on', 'On']]],
       ['snap_neutral_midtones', 'Snap Neutral Midtones', [['off', 'Off'], ['on', 'On']]]],
   },
-  // D-356, After Effects' own words.
+  // D-356, After Effects' own words; D-357's Path From is this program's own.
   'core.stroke': {
-    choices: [['all_masks', 'All Masks', [['off', 'Off'], ['on', 'On']]],
+    choices: [['source', 'Path From', [['masks', 'Masks'], ['shapes', 'Shape Paths']]],
+      ['all_masks', 'All Masks', [['off', 'Off'], ['on', 'On']]],
       ['stroke_sequentially', 'Stroke Sequentially', [['off', 'Off'], ['on', 'On']]],
       ['paint_style', 'Paint Style', [['on_original', 'On Original Image'], ['on_transparent', 'On Transparent'], ['reveal', 'Reveal Original Image']]]],
     colours: [['color', 'Color']],

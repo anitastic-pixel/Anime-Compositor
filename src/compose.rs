@@ -1910,17 +1910,25 @@ fn resolve_rest(
     }
     // D-356: each Path Stroke's paths, the masks it names as they are at this frame and at the
     // size the effects run at: a mask is a path when it is on and has two points, whatever its
-    // mode. With none, the layer is left as it is and that is said every frame.
+    // mode. D-357: with Path From Shapes, the layer's shapes instead, open or closed as each
+    // says, a shape a path when it is on and has two points, whatever its fill and stroke. With
+    // none, the layer is left as it is and that is said every frame.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        if let crate::effects::Effect::Stroke { mask, all_masks, paths, .. } = &mut instance.effect {
-            let path = |m: &&crate::mask::Mask| m.enabled && m.points.len() >= 2;
-            let found: Vec<Vec<(f64, f64)>> = if all_masks == "on" {
-                masks.iter().filter(path).map(|m| m.outline()).collect()
-            } else {
-                masks.get(mask.floor() as usize - 1).filter(path).map(|m| vec![m.outline()]).unwrap_or_default()
+        if let crate::effects::Effect::Stroke { mask, all_masks, source, paths, .. } = &mut instance.effect {
+            let shapes = source == "shapes";
+            let path = |n: usize| -> Option<(Vec<(f64, f64)>, bool)> {
+                if shapes {
+                    let s = layer.shapes.get(n)?.at(at);
+                    s.is_renderable().then(|| (s.outline().into_iter().map(|(x, y)| (x / pre, y / pre)).collect(), s.closed))
+                } else {
+                    masks.get(n).filter(|m| m.enabled && m.points.len() >= 2).map(|m| (m.outline(), true))
+                }
             };
+            let count = if shapes { layer.shapes.len() } else { masks.len() };
+            let found: Vec<(Vec<(f64, f64)>, bool)> = if all_masks == "on" { (0..count).filter_map(path).collect() } else { path(mask.floor() as usize - 1).into_iter().collect() };
             if found.is_empty() {
-                let which = if all_masks == "on" { "no mask that is on with two points or more".to_string() } else { format!("no mask {} that is on with two points or more", mask.floor()) };
+                let kind = if shapes { "shape" } else { "mask" };
+                let which = if all_masks == "on" { format!("no {kind} that is on with two points or more") } else { format!("no {kind} {} that is on with two points or more", mask.floor()) };
                 log.record(
                     frame,
                     layer.name.clone(),
@@ -1930,7 +1938,7 @@ fn resolve_rest(
                         format!("Layer {}'s Path Stroke has {which} to draw along, so it draws nothing.", layer.name),
                         format!("Frame {frame} is drawn without the stroke. The effect is kept as it is."),
                     )
-                    .with_remediation("Draw a mask on the layer, or set Path to a mask it has."),
+                    .with_remediation(if shapes { "Draw a shape on the shape layer, set Path to a shape it has, or set Path From to Masks." } else { "Draw a mask on the layer, or set Path to a mask it has." }),
                 );
             }
             *paths = (!found.is_empty()).then_some(found);

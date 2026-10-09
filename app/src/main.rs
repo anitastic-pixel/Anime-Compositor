@@ -4293,6 +4293,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             end: 100.0,
             spacing: 15.0,
             paint_style: "on_original".to_string(),
+            source: "masks".to_string(),
             paths: None,
         }),
         _ => None,
@@ -5361,6 +5362,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             end: number("end")?,
             spacing: number("spacing")?,
             paint_style: word("paint_style")?,
+            // D-357: as D-315's expand, Masks when the page does not say.
+            source: word("source").unwrap_or_else(|_| "masks".to_string()),
             paths: None,
         }),
         // Document 19 keeps an effect this build does not have rather than dropping it, and
@@ -29171,6 +29174,7 @@ mod contract {
                 ("end", "90"),
                 ("spacing", "25"),
                 ("paint_style", "reveal"),
+                ("source", "shapes"),
             ],
         ),
         // D-204: the colour and the numbers.

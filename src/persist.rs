@@ -2592,7 +2592,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("view_decontamination_map".into(), J::from(view_decontamination_map.as_str()));
         }
         // D-356: the paths are found each frame and never saved.
-        Effect::Stroke { mask, all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, .. } => {
+        Effect::Stroke { mask, all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, source, .. } => {
             params.insert("mask".into(), num(*mask));
             params.insert("all_masks".into(), J::from(all_masks.as_str()));
             params.insert("stroke_sequentially".into(), J::from(stroke_sequentially.as_str()));
@@ -2604,6 +2604,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("end".into(), num(*end));
             params.insert("spacing".into(), num(*spacing));
             params.insert("paint_style".into(), J::from(paint_style.as_str()));
+            // D-357: as D-315's expand, written only when changed or in the file already.
+            if source != "masks" || params.contains_key("source") {
+                params.insert("source".into(), J::from(source.as_str()));
+            }
         }
         Effect::SoftGlow {
             falloff,
@@ -4701,6 +4705,7 @@ fn parse_effect(
             end: effect_number(params, "end", &at)?,
             spacing: effect_number(params, "spacing", &at)?,
             paint_style: effect_word(params, "paint_style", &at)?,
+            source: effect_word_or(params, "source", &at, "masks")?,
             paths: None,
         }),
         _ => None,
