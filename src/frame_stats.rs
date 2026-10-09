@@ -249,6 +249,54 @@ pub(crate) fn apply(source: &mut WorkingBuffer, effect: &crate::effects::Effect)
     }
 }
 
+/// D-375: Color Link's colour, each channel 0 to 1, from a picture's statistics: `sample` one of
+/// `effects::LINK_SAMPLES`, `clip` 0 to 49 per cent each end.
+pub(crate) fn link_colour(s: &Stats, sample: &str, clip: f64) -> [f64; 3] {
+    match sample {
+        "median" => std::array::from_fn(|c| clip_points(&s.hist[c], 50.0, 50.0).0 as f64 / 255.0),
+        "brightest" | "darkest" => {
+            let (kb, kw) = clip_points(&s.hist[3], clip, clip);
+            let k = if sample == "brightest" { kw } else { kb };
+            std::array::from_fn(|c| s.sums[c][k] / s.hist[3][k])
+        }
+        _ => std::array::from_fn(|c| {
+            let (kb, kw) = clip_points(&s.hist[c], clip, clip);
+            match sample {
+                "max_rgb" => kw as f64 / 255.0,
+                "min_rgb" => kb as f64 / 255.0,
+                _ => {
+                    let h = &s.hist[c][kb..=kw];
+                    h.iter().zip(kb..).map(|(v, k)| v * k as f64).sum::<f64>() / h.iter().sum::<f64>() / 255.0
+                }
+            }
+        }),
+    }
+}
+
+/// D-375: Color Link's tint, colour `c` at `opacity` 0 to 1 by `blend` (Paraffin's mixer). With
+/// `stencil` only where the layer shows, at its own covering; without, laid over the whole layer
+/// as one layer of colour, the empty pixels too. Opacity 0 leaves the layer exactly as it is.
+pub(crate) fn link(source: &mut WorkingBuffer, c: [f64; 3], opacity: f64, stencil: bool, blend: &str) {
+    if opacity <= 0.0 {
+        return;
+    }
+    let (o, mix) = (opacity, crate::grade::mixer(blend));
+    if stencil {
+        crate::grade::grade_pixels(source, false, |_, e| std::array::from_fn(|i| e[i] + o * (mix(e[i], c[i]) - e[i])));
+        return;
+    }
+    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+        let a = px[3] as f64;
+        let e: [f64; 3] = std::array::from_fn(|i| if a > 0.0 { crate::grade::to_srgb((px[i] as f64 / a).clamp(0.0, 1.0)) } else { 0.0 });
+        let a2 = o + a * (1.0 - o);
+        for i in 0..3 {
+            let r = (o * (1.0 - a) * c[i] + o * a * mix(e[i], c[i]) + (1.0 - o) * a * e[i]) / a2;
+            px[i] = (crate::grade::to_linear(r.clamp(0.0, 1.0)) * a2) as f32;
+        }
+        px[3] = a2 as f32;
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

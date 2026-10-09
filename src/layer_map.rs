@@ -37,7 +37,11 @@ pub(crate) fn cut(picture: &WorkingBuffer, origin: (usize, usize), size: (usize,
 /// Document 21's step 2 for a layer setting: `picture` fitted to the holder's `size` by `word`,
 /// `center`, `tile` or `stretch`. An empty picture fits to transparent. `None` for any other
 /// word: the effect holding it is refused by its own setting check before it asks.
+/// D-375: `whole`, which no setting writes, is the picture as it is, for Color Link.
 pub(crate) fn fit(picture: &WorkingBuffer, word: &str, size: (usize, usize)) -> Option<WorkingBuffer> {
+    if word == "whole" {
+        return Some(picture.clone());
+    }
     if !matches!(word, "center" | "tile" | "stretch") {
         return None;
     }

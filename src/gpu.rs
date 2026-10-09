@@ -2036,7 +2036,7 @@ fn from_hls(hue: f64, l: f64, s: f64) -> vec3<f64> {
 // offset or gamma (14), tint (15), shift_channels (16), solid_composite (17), change_to_color
 // (18), color_key (19), select_color (20), line_recolor (21), colorama (22) and extract (23);
 // broadcast_safe (24), color_neutralizer (25), color_offset (26); D-369/D-370: toner (27) and
-// change_color (28).
+// change_color (28); D-374/D-375: color_balance_hls (29) and color link (30).
 @compute @workgroup_size(16, 16)
 fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -2139,6 +2139,38 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         // k: as `picked` reads it, 1 at k[3] to keep the chosen, and level8's at k[7].
         let chosen = a > 0.0lf && picked(q8(p, a));
         textureStore(output, id.xy, select(p, vec4(0.0), chosen != (k[3] != 0.0lf)));
+        return;
+    }
+    if F.mode == 30u {
+        // D-375, as frame_stats::link. k: the colour encoded, the opacity as a share, 1 for the
+        // stencil; `blend` the mode as grade::mixer. Without the stencil the empty pixels take
+        // the colour too.
+        if k[4] != 0.0lf && a <= 0.0lf {
+            textureStore(output, id.xy, p);
+            return;
+        }
+        var e = vec3(0.0lf);
+        if a > 0.0lf {
+            for (var c = 0u; c < 3u; c++) {
+                e[c] = to_srgb(clamp(f64(p[c]) / a, 0.0lf, 1.0lf));
+            }
+        }
+        let o = k[3];
+        var a2 = a;
+        if k[4] == 0.0lf {
+            a2 = o + a * (1.0lf - o);
+        }
+        var out = p;
+        for (var c = 0u; c < 3u; c++) {
+            let f = mixed(e[c], k[c]);
+            var r = e[c] + o * (f - e[c]);
+            if k[4] == 0.0lf {
+                r = (o * (1.0lf - a) * k[c] + o * a * f + (1.0lf - o) * a * e[c]) / a2;
+            }
+            out[c] = f32(to_linear(clamp(r, 0.0lf, 1.0lf)) * a2);
+        }
+        out.w = f32(a2);
+        textureStore(output, id.xy, out);
         return;
     }
     if a <= 0.0lf {
@@ -2533,6 +2565,21 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         let rgb = from_hls(euclid(max(h.x, 0.0lf) + k[6], 360.0lf), l, s);
         for (var c = 0u; c < 3u; c++) {
             out[c] = f32(to_linear(clamp(e[c] + m * (rgb[c] - e[c]), 0.0lf, 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 29u {
+        // D-374, as grade::color_balance_hls. k: the hue in degrees, lightness and saturation
+        // as shares.
+        let h = hls(e);
+        var s = 0.0lf;
+        if h.x >= 0.0lf {
+            s = clamp(h.z + k[2], 0.0lf, 1.0lf);
+        }
+        let rgb = from_hls(euclid(max(h.x, 0.0lf) + k[0], 360.0lf), clamp(h.y + k[1], 0.0lf, 1.0lf), s);
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32(to_linear(clamp(rgb[c], 0.0lf, 1.0lf)) * a);
         }
         textureStore(output, id.xy, out);
         return;
@@ -5946,6 +5993,9 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             // D-369/D-370.
             | E::Toner { .. }
             | E::ChangeColor { .. }
+            // D-374/D-375.
+            | E::ColorBalanceHls { .. }
+            | E::ColorLink { .. }
     )
 }
 
@@ -7998,6 +8048,17 @@ impl Gpu {
                     (invert_mask == "on") as u8 as f64,
                 ]);
                 same(steps, &passes.tone, FxParams { mode: 28, ..Default::default() }, &k, None)
+            }
+            E::ColorBalanceHls { hue, lightness, saturation } => {
+                same(steps, &passes.tone, FxParams { mode: 29, ..Default::default() }, &[*hue, lightness / 100.0, saturation / 100.0], None)
+            }
+            E::ColorLink { sample, clip, stencil, opacity, blending_mode: b, map, .. } => {
+                // card_can leaves only a named layer's picture; its colour is read here, once.
+                let map = map.as_ref().expect("card_can takes Color Link only with its picture");
+                let stats = crate::frame_stats::Stats::of(&map.0).expect("compose leaves a colour to link");
+                let c = crate::frame_stats::link_colour(&stats, sample, *clip);
+                let k = [c[0], c[1], c[2], opacity / 100.0, (stencil == "on") as u8 as f64];
+                same(steps, &passes.tone, FxParams { mode: 30, blend: blend(b), ..Default::default() }, &k, None)
             }
             E::Paraffin { color, direction, spread, opacity, blend: b } => {
                 // No pixel covered half or more: nothing is washed.

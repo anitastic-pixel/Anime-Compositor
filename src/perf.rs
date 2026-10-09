@@ -274,6 +274,10 @@ pub enum Stage {
     EffectKernel,
     EffectToner,
     EffectChangeColor,
+    /// D-374..D-376's Color Balance (HLS), Color Link and Color Stabilizer.
+    EffectColorBalanceHls,
+    EffectColorLink,
+    EffectColorStabilizer,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -423,6 +427,9 @@ impl Stage {
         Stage::EffectKernel,
         Stage::EffectToner,
         Stage::EffectChangeColor,
+        Stage::EffectColorBalanceHls,
+        Stage::EffectColorLink,
+        Stage::EffectColorStabilizer,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -566,6 +573,9 @@ impl Stage {
             Stage::EffectKernel => "effect: kernel",
             Stage::EffectToner => "effect: toner",
             Stage::EffectChangeColor => "effect: change color",
+            Stage::EffectColorBalanceHls => "effect: color balance (hls)",
+            Stage::EffectColorLink => "effect: color link",
+            Stage::EffectColorStabilizer => "effect: color stabilizer",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

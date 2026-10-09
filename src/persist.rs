@@ -2283,6 +2283,29 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("match_colors".into(), J::from(match_colors.as_str()));
             params.insert("invert_mask".into(), J::from(invert_mask.as_str()));
         }
+        Effect::ColorBalanceHls { hue, lightness, saturation } => {
+            params.insert("hue".into(), num(*hue));
+            params.insert("lightness".into(), num(*lightness));
+            params.insert("saturation".into(), num(*saturation));
+        }
+        // D-375: the map read for a frame is never saved.
+        Effect::ColorLink { layer, sample, clip, stencil, opacity, blending_mode, .. } => {
+            params.insert("layer".into(), layer.clone());
+            params.insert("sample".into(), J::from(sample.as_str()));
+            params.insert("clip".into(), num(*clip));
+            params.insert("stencil".into(), J::from(stencil.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
+        }
+        // D-376: the reference samples are never saved; compose takes them again.
+        Effect::ColorStabilizer { stabilize, reference_frame, black_point, mid_point, white_point, sample_size, .. } => {
+            params.insert("stabilize".into(), J::from(stabilize.as_str()));
+            params.insert("reference_frame".into(), num(*reference_frame));
+            for (name, p) in [("black_point", black_point), ("mid_point", mid_point), ("white_point", white_point)] {
+                params.insert(name.into(), J::Array(p.iter().map(|c| num(*c)).collect()));
+            }
+            params.insert("sample_size".into(), num(*sample_size));
+        }
         Effect::Snowfall {
             color,
             density,
@@ -3873,6 +3896,9 @@ fn parse_effect(
         crate::effects::KERNEL,
         crate::effects::TONER,
         crate::effects::CHANGE_COLOR,
+        crate::effects::COLOR_BALANCE_HLS,
+        crate::effects::COLOR_LINK,
+        crate::effects::COLOR_STABILIZER,
         crate::effects::SNOWFALL,
         crate::effects::KALEIDOSCOPE,
         crate::effects::ROUGHEN_EDGES,
@@ -4657,6 +4683,31 @@ fn parse_effect(
             softness: effect_number(params, "softness", &at)?,
             match_colors: effect_word(params, "match_colors", &at)?,
             invert_mask: effect_word(params, "invert_mask", &at)?,
+        }),
+        crate::effects::COLOR_BALANCE_HLS => Some(crate::effects::Effect::ColorBalanceHls {
+            hue: effect_number(params, "hue", &at)?,
+            lightness: effect_number(params, "lightness", &at)?,
+            saturation: effect_number(params, "saturation", &at)?,
+        }),
+        // D-375: the layer and the words kept as written, so one outside the contract is
+        // refused by name.
+        crate::effects::COLOR_LINK => Some(crate::effects::Effect::ColorLink {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            sample: effect_word(params, "sample", &at)?,
+            clip: effect_number(params, "clip", &at)?,
+            stencil: effect_word(params, "stencil", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            blending_mode: effect_word(params, "blending_mode", &at)?,
+            map: None,
+        }),
+        crate::effects::COLOR_STABILIZER => Some(crate::effects::Effect::ColorStabilizer {
+            stabilize: effect_word(params, "stabilize", &at)?,
+            reference_frame: effect_number(params, "reference_frame", &at)?,
+            black_point: effect_array(params, "black_point", "two numbers, x then y", &at)?,
+            mid_point: effect_array(params, "mid_point", "two numbers, x then y", &at)?,
+            white_point: effect_array(params, "white_point", "two numbers, x then y", &at)?,
+            sample_size: effect_number(params, "sample_size", &at)?,
+            reference: None,
         }),
         crate::effects::SNOWFALL => Some(crate::effects::Effect::Snowfall {
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),

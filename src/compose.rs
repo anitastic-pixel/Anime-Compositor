@@ -991,6 +991,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::Kernel { .. }
                 | crate::effects::Effect::Toner { .. }
                 | crate::effects::Effect::ChangeColor { .. }
+                // D-374, D-375: Color Balance (HLS), and a Color Link reading a named layer.
+                | crate::effects::Effect::ColorBalanceHls { .. }
+                | crate::effects::Effect::ColorLink { map: Some(_), .. }
         )
         // D-353: a Soft Physical Glow's threshold with no smooth is a step, so it stays on the
         // CPU for D-122's reason.
@@ -1122,6 +1125,8 @@ fn card_effect(
                 E::ChangeColor { view, hue_transform, lightness_transform, saturation_transform, .. } => {
                     view != "mask" && [*hue_transform, *lightness_transform, *saturation_transform] == [0.0; 3]
                 }
+                E::ColorBalanceHls { hue, lightness, saturation } => [*hue, *lightness, *saturation] == [0.0; 3],
+                E::ColorLink { opacity, map, .. } => *opacity == 0.0 || map.as_ref().is_none_or(|m| crate::frame_stats::Stats::of(&m.0).is_none()),
                 // B-107: the third batch, each as its own function returns at once.
                 E::Invert { amount, .. }
                 | E::LeaveColor { amount, .. }
@@ -1277,8 +1282,9 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
     use crate::effects::Effect as E;
     let mut offset = (0, 0);
     let mut run = Vec::new();
-    // A Light Wrap does nothing in a stack (D-132), as `apply_stack` has it.
-    for instance in stack.iter().filter(|i| i.enabled && !matches!(i.effect, E::LightWrap { .. })) {
+    // A Light Wrap does nothing in a stack (D-132), as `apply_stack` has it; nor does a Color
+    // Stabilizer on an adjustment layer (D-376), which says so at the frame.
+    for instance in stack.iter().filter(|i| i.enabled && !matches!(i.effect, E::LightWrap { .. } | E::ColorStabilizer { .. })) {
         // B-222 (D-341): Colour Key, Select Colour and Line Recolour round to 8 bits and choose by
         // it, as an HSV Key does. B-223 (D-342): so does a Selective Colour Blur. B-225
         // (D-344): so does a Lightning Bolt with an Alpha Obstacle, which reads the covering.
@@ -1874,6 +1880,22 @@ fn resolve_rest(
             .with_remediation("Put the Stretch effect on the layer itself, or precompose the layers beneath and put it on the composition layer."),
         );
     }
+    // D-376: nor its reference frame, so a Color Stabilizer there changes nothing.
+    if layer.is_adjustment()
+        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::ColorStabilizer { .. }))
+    {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::TemporalSmoothingSkipped,
+                Severity::Warning,
+                format!("Adjustment layer {} has a Color Stabilizer, which needs a reference frame an adjustment layer cannot read.", layer.name),
+                format!("Frame {frame} is drawn without it. The setting is kept as it is."),
+            )
+            .with_remediation("Put the Color Stabilizer on the layer itself, or precompose the layers beneath and put it on the composition layer."),
+        );
+    }
     // D-191: each layer setting's map, made at the size the effects run at. An adjustment
     // layer's are made where its stack runs, on the frame.
     if !layer.is_adjustment() {
@@ -1888,6 +1910,7 @@ fn resolve_rest(
         fill_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_echoes(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_stats(&mut effects, project, root, comp, layer, at, quality, cache, log);
+        fill_stabilizer(&mut effects, project, root, comp, layer, at, quality, pre, float, cache, log);
         fill_moment_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
     }
     // B-24d: a mask whose path has keys is resolved to its shape at this frame here, before the
@@ -2780,6 +2803,59 @@ fn fill_stats(
         }
         if let crate::effects::Effect::AutoTone { stats, .. } = &mut effects[i].effect {
             *stats = crate::frame_stats::Stats::added(&counted).map(std::sync::Arc::new);
+        }
+    }
+}
+
+/// D-376: each switched-on Color Stabilizer's reference samples: the holder at its reference
+/// frame, with the effects before this one, read at the points and sample size it has there.
+/// None when the layer does not show there or a point has no covering; the effect then changes
+/// nothing.
+#[allow(clippy::too_many_arguments)]
+fn fill_stabilizer(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    pre: f64,
+    float: bool,
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    for i in 0..effects.len() {
+        let r = match &effects[i] {
+            e if !e.enabled || !e.is_valid() => continue,
+            crate::effects::EffectInstance { effect: crate::effects::Effect::ColorStabilizer { reference_frame, .. }, .. } => {
+                reference_frame.floor() as i32
+            }
+            _ => continue,
+        };
+        let mut upto = holder.clone();
+        upto.effects.truncate(i);
+        let mut inside = FrameLog::new(usize::MAX);
+        let mut then = effect_now(comp, holder, &holder.effects[i], frame, r, holder.key_time(r as f64), float, &mut inside);
+        if pre != 1.0 {
+            then.effect.scale_distances(|d| d / pre);
+        }
+        let samples = resolve_layer(project, comp, &upto, r, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
+            .and_then(|p| match &then.effect {
+                crate::effects::Effect::ColorStabilizer { stabilize, black_point, mid_point, white_point, sample_size, .. } => {
+                    crate::effects::stabilizer_samples(&p.source, stabilize, [*black_point, *mid_point, *white_point], *sample_size, (0, 0))
+                }
+                _ => None,
+            });
+        let mut said = Vec::new();
+        for d in inside.finish() {
+            if !said.contains(&d.id) {
+                said.push(d.id);
+                log.record(frame, holder.name.clone(), d);
+            }
+        }
+        if let crate::effects::Effect::ColorStabilizer { reference, .. } = &mut effects[i].effect {
+            *reference = samples;
         }
     }
 }

@@ -1379,6 +1379,91 @@ pub(crate) fn change_color(source: &mut WorkingBuffer, c: &ChangeColor) {
     });
 }
 
+/// D-374: Color Balance (HLS), each colour turned `hue` degrees round the wheel, and `light` and
+/// `sat`, shares -1 to 1, added to its lightness and saturation, each held inside 0 to 1; a grey
+/// stays grey. All three 0 leaves the layer exactly as it is.
+pub(crate) fn color_balance_hls(source: &mut WorkingBuffer, hue: f64, light: f64, sat: f64) {
+    if (hue, light, sat) == (0.0, 0.0, 0.0) {
+        return;
+    }
+    grade_pixels(source, false, |_, e| {
+        let (h, l, s) = hls(e);
+        let s = if h.is_some() { (s + sat).clamp(0.0, 1.0) } else { 0.0 };
+        from_hls((h.unwrap_or(0.0) + hue).rem_euclid(360.0), (l + light).clamp(0.0, 1.0), s)
+    });
+}
+
+/// D-376: the mean encoded straight colour, each pixel weighted by its covering, of the pixels
+/// of `source` whose centres lie within `r` of (`px`, `py`); with none, the pixel holding the
+/// point, held inside the picture. `None` when what is counted has no covering.
+pub(crate) fn stabilizer_sample(source: &WorkingBuffer, (px, py): (f64, f64), r: f64) -> Option<[f64; 3]> {
+    let (w, h) = (source.width(), source.height());
+    if w == 0 || h == 0 {
+        return None;
+    }
+    let d = source.data();
+    let (mut total, mut sums) = (0.0, [0.0; 3]);
+    let mut add = |x: usize, y: usize| {
+        let p = &d[(y * w + x) * 4..(y * w + x) * 4 + 4];
+        let a = p[3] as f64;
+        if a > 0.0 {
+            total += a;
+            for c in 0..3 {
+                sums[c] += a * to_srgb((p[c] as f64 / a).clamp(0.0, 1.0));
+            }
+        }
+    };
+    let mut found = false;
+    let (x0, x1) = ((px - r - 1.0).floor().max(0.0) as usize, ((px + r).ceil().max(0.0) as usize).min(w - 1));
+    let (y0, y1) = ((py - r - 1.0).floor().max(0.0) as usize, ((py + r).ceil().max(0.0) as usize).min(h - 1));
+    for y in y0..=y1 {
+        for x in x0..=x1 {
+            if (x as f64 + 0.5 - px).hypot(y as f64 + 0.5 - py) <= r {
+                found = true;
+                add(x, y);
+            }
+        }
+    }
+    if !found {
+        add((px.floor().max(0.0) as usize).min(w - 1), (py.floor().max(0.0) as usize).min(h - 1));
+    }
+    (total > 0.0).then(|| sums.map(|s| s / total))
+}
+
+/// D-376: Color Stabilizer's correction, from this frame's samples `now` to the reference
+/// frame's `then` (black, mid, white, as many as the mode reads): "brightness" moves every
+/// channel by the black samples' difference in brightness; "levels" and "curves" map each
+/// channel through the lines joining the pairs in order of the current value, the outer lines
+/// carried on, a pair within a millionth of the one before left out.
+pub(crate) fn color_stabilize(source: &mut WorkingBuffer, mode: &str, now: &[[f64; 3]], then: &[[f64; 3]]) {
+    if mode == "brightness" {
+        let y = |e: [f64; 3]| 0.2126 * e[0] + 0.7152 * e[1] + 0.0722 * e[2];
+        let lift = y(then[0]) - y(now[0]);
+        grade_pixels(source, false, |_, e| e.map(|v| v + lift));
+        return;
+    }
+    let lines: [Vec<(f64, f64)>; 3] = std::array::from_fn(|c| {
+        let mut pairs: Vec<(f64, f64)> = now.iter().zip(then).map(|(n, t)| (n[c], t[c])).collect();
+        pairs.sort_by(|p, q| p.0.total_cmp(&q.0));
+        let mut kept: Vec<(f64, f64)> = Vec::new();
+        for p in pairs {
+            if kept.last().is_none_or(|k| p.0 - k.0 > 1e-6) {
+                kept.push(p);
+            }
+        }
+        kept
+    });
+    let map = |l: &[(f64, f64)], v: f64| {
+        if l.len() == 1 {
+            return v + l[0].1 - l[0].0;
+        }
+        let i = l.partition_point(|p| p.0 <= v).clamp(1, l.len() - 1);
+        let ((a, b), (c, d)) = (l[i - 1], l[i]);
+        b + (v - a) * (d - b) / (c - a)
+    };
+    grade_pixels(source, false, |_, e| std::array::from_fn(|c| map(&lines[c], e[c])));
+}
+
 /// D-142: each channel at or above `threshold` of 255 turned to its opposite; the rest kept bit
 /// for bit.
 pub(crate) fn solarize(source: &mut WorkingBuffer, threshold: f64) {

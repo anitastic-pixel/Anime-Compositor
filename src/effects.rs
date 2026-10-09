@@ -1218,6 +1218,37 @@ pub enum Effect {
         match_colors: String,
         invert_mask: String,
     },
+    /// D-374: after After Effects' Color Balance (HLS). `hue`, -3600 to 3600 degrees;
+    /// `lightness` and `saturation`, -100 to 100.
+    ColorBalanceHls { hue: f64, lightness: f64, saturation: f64 },
+    /// D-375: after After Effects' Color Link. `layer`, D-189's layer setting, "" the layer itself
+    /// as the effects before this one left it, read whole; `sample`, one of `LINK_SAMPLES`;
+    /// `clip`, 0 to 49 per cent; `stencil`, "off" or "on"; `opacity`, 0 to 100;
+    /// `blending_mode`, one of Paraffin's six. Words kept as written. `map` is not a setting and
+    /// is never saved: compose reads the named layer into it for each frame.
+    ColorLink {
+        layer: serde_json::Value,
+        sample: String,
+        clip: f64,
+        stencil: String,
+        opacity: f64,
+        blending_mode: String,
+        map: Option<crate::layer_map::Map>,
+    },
+    /// D-376: after After Effects' Color Stabilizer. `stabilize`, one of `STABILIZE_MODES`;
+    /// `reference_frame`, 0 to 1,000,000, its whole part the composition frame whose colours are
+    /// kept; `black_point`, `mid_point` and `white_point`, per cent of the layer's width and
+    /// height; `sample_size`, 0 to 100 pixels. `reference` is not a setting and is never saved:
+    /// compose samples the reference frame into it; `None` leaves the frame as it is.
+    ColorStabilizer {
+        stabilize: String,
+        reference_frame: f64,
+        black_point: [f64; 2],
+        mid_point: [f64; 2],
+        white_point: [f64; 2],
+        sample_size: f64,
+        reference: Option<Vec<[f64; 3]>>,
+    },
     /// D-204: `color`, `#rrggbb`, kept as written so a wrong one is reported; `density`, 0 to
     /// 100; `spacing`, 2 to 1000 pixels; `size`, 0 to 100 pixels; `depth`, 0 to 100; `speed`,
     /// 0 to 1000, and `wind`, -1000 to 1000, pixels a frame; `wiggle`, 0 to 100 pixels;
@@ -1772,6 +1803,15 @@ pub const COLOR_OFFSET: &str = "core.color_offset";
 pub const KERNEL: &str = "core.kernel";
 pub const TONER: &str = "core.toner";
 pub const CHANGE_COLOR: &str = "core.change_color";
+pub const COLOR_BALANCE_HLS: &str = "core.color_balance_hls";
+pub const COLOR_LINK: &str = "core.color_link";
+pub const COLOR_STABILIZER: &str = "core.color_stabilizer";
+/// D-375: Color Link's samples.
+pub const LINK_SAMPLES: [&str; 6] = ["average", "median", "brightest", "darkest", "max_rgb", "min_rgb"];
+/// D-375: Color Link's blending modes, Paraffin's six.
+pub const LINK_BLENDS: [&str; 6] = ["normal", "multiply", "screen", "add", "overlay", "soft_light"];
+/// D-376: Color Stabilizer's modes.
+pub const STABILIZE_MODES: [&str; 3] = ["brightness", "levels", "curves"];
 /// D-369: Toner's tone counts.
 pub const TONER_TONES: [&str; 3] = ["duotone", "tritone", "pentone"];
 /// D-370: Change Color's matches, in the order the card numbers them.
@@ -2770,6 +2810,22 @@ impl Effect {
                 ("tolerance", vec![tolerance], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
             ],
+            Effect::ColorBalanceHls { hue, lightness, saturation } => vec![
+                ("hue", vec![hue], -3600.0, 3600.0),
+                ("lightness", vec![lightness], -100.0, 100.0),
+                ("saturation", vec![saturation], -100.0, 100.0),
+            ],
+            Effect::ColorLink { clip, opacity, .. } => vec![
+                ("clip", vec![clip], 0.0, 49.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
+            Effect::ColorStabilizer { reference_frame, black_point, mid_point, white_point, sample_size, .. } => vec![
+                ("reference_frame", vec![reference_frame], 0.0, 1e6),
+                ("black_point", black_point.iter_mut().collect(), -1000.0, 1000.0),
+                ("mid_point", mid_point.iter_mut().collect(), -1000.0, 1000.0),
+                ("white_point", white_point.iter_mut().collect(), -1000.0, 1000.0),
+                ("sample_size", vec![sample_size], 0.0, 100.0),
+            ],
             Effect::Snowfall {
                 density,
                 spacing,
@@ -3066,6 +3122,7 @@ impl Effect {
             // D-87's blur and D-89's radius are distances in pixels too.
             Effect::SelectiveColorBlur { blur, .. } => *blur = scale(*blur),
             Effect::Glow { radius, .. } => *radius = scale(*radius),
+            Effect::ColorStabilizer { sample_size, .. } => *sample_size = scale(*sample_size),
             Effect::DirectionalBlur { length, .. } => *length = scale(*length),
             Effect::LineWidth { width, .. } => *width = scale(*width),
             Effect::LineBlur { length, .. } => *length = scale(*length),
@@ -3364,6 +3421,9 @@ impl Effect {
             Effect::Kernel { .. } => "Kernel",
             Effect::Toner { .. } => "Toner",
             Effect::ChangeColor { .. } => "Change Color",
+            Effect::ColorBalanceHls { .. } => "Color Balance (HLS)",
+            Effect::ColorLink { .. } => "Color Link",
+            Effect::ColorStabilizer { .. } => "Color Stabilizer",
             Effect::SpinZoomBlur { .. } => "Spin & Zoom Blur",
             Effect::FastZoomBlur { .. } => "Fast Zoom Blur",
             Effect::Snowfall { .. } => "Snowfall",
@@ -3497,6 +3557,9 @@ impl Effect {
             Effect::Kernel { .. } => KERNEL,
             Effect::Toner { .. } => TONER,
             Effect::ChangeColor { .. } => CHANGE_COLOR,
+            Effect::ColorBalanceHls { .. } => COLOR_BALANCE_HLS,
+            Effect::ColorLink { .. } => COLOR_LINK,
+            Effect::ColorStabilizer { .. } => COLOR_STABILIZER,
             Effect::SpinZoomBlur { .. } => SPIN_ZOOM_BLUR,
             Effect::FastZoomBlur { .. } => FAST_ZOOM_BLUR,
             Effect::Snowfall { .. } => SNOWFALL,
@@ -3762,6 +3825,8 @@ impl Effect {
             | Effect::Blobbylize { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::MomentMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::LensBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
+            // D-375: read whole, never fitted to the holder.
+            Effect::ColorLink { layer: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
             _ => None,
         }
     }
@@ -3777,7 +3842,8 @@ impl Effect {
             | Effect::VectorBlur { layer, map, .. }
             | Effect::Blobbylize { layer, map, .. }
             | Effect::MomentMap { layer, map, .. }
-            | Effect::LensBlur { layer, map, .. } => Some((layer, map)),
+            | Effect::LensBlur { layer, map, .. }
+            | Effect::ColorLink { layer, map, .. } => Some((layer, map)),
             _ => None,
         }
     }
@@ -3895,6 +3961,24 @@ impl Effect {
                     (!["off", "on"].contains(&invert_mask.as_str()))
                         .then(|| format!("{name}'s invert mask is \"off\" or \"on\", and this is \"{invert_mask}\"."))
                 }),
+            Effect::ColorLink { layer, sample, stencil, blending_mode, .. } => (!layer.is_string())
+                .then(|| format!("{name}'s source layer is the name of a layer of this composition, and this is {layer}."))
+                .or_else(|| {
+                    (!LINK_SAMPLES.contains(&sample.as_str())).then(|| {
+                        format!("{name}'s sample is \"average\", \"median\", \"brightest\", \"darkest\", \"max_rgb\" or \"min_rgb\", and this is \"{sample}\".")
+                    })
+                })
+                .or_else(|| {
+                    (!["off", "on"].contains(&stencil.as_str()))
+                        .then(|| format!("{name}'s stencil is \"off\" or \"on\", and this is \"{stencil}\"."))
+                })
+                .or_else(|| {
+                    (!LINK_BLENDS.contains(&blending_mode.as_str())).then(|| {
+                        format!("{name}'s blending mode is \"normal\", \"multiply\", \"screen\", \"add\", \"overlay\" or \"soft_light\", and this is \"{blending_mode}\".")
+                    })
+                }),
+            Effect::ColorStabilizer { stabilize, .. } => (!STABILIZE_MODES.contains(&stabilize.as_str()))
+                .then(|| format!("{name}'s stabilize is \"brightness\", \"levels\" or \"curves\", and this is \"{stabilize}\".")),
             Effect::RadialBlur { kind, edges: e, .. } => (!["spin", "zoom"]
                 .contains(&kind.as_str()))
             .then(|| format!("{name}'s type is \"spin\" or \"zoom\", and this is \"{kind}\"."))
@@ -4842,6 +4926,25 @@ pub(crate) fn bender_amount(amount: f64, adjust: &str, base: (f64, f64), top: (f
     } else {
         amount
     }
+}
+
+/// D-376: Color Stabilizer's samples of `source` for `mode`: the black point's, then the white
+/// point's for "levels", or the black, mid and white points' for "curves", each `r` pixels
+/// round; `None` when any has no covering.
+pub(crate) fn stabilizer_samples(
+    source: &WorkingBuffer,
+    mode: &str,
+    [black, mid, white]: [[f64; 2]; 3],
+    r: f64,
+    offset: (usize, usize),
+) -> Option<Vec<[f64; 3]>> {
+    let points = match mode {
+        "brightness" => vec![black],
+        "levels" => vec![black, white],
+        _ => vec![black, mid, white],
+    };
+    let size = (source.width(), source.height());
+    points.into_iter().map(|p| crate::grade::stabilizer_sample(source, radial_center(p, size, offset), r)).collect()
 }
 
 /// D-95: a Radial Blur's centre in the pixels of a buffer `w` by `h`, from its share of the
@@ -5916,6 +6019,34 @@ pub(crate) fn apply_stack_at(
                 };
                 crate::grade::change_color(source, &c)
             }),
+            Effect::ColorBalanceHls { hue, lightness, saturation } => crate::perf::time(crate::perf::Stage::EffectColorBalanceHls, || {
+                crate::grade::color_balance_hls(source, *hue, *lightness / 100.0, *saturation / 100.0)
+            }),
+            // D-375: a named layer's statistics from the map compose read; "" the picture as it
+            // reaches this effect. A named layer with no map (not in the composition, which
+            // compose said) or a picture where nothing shows leaves the layer as it is.
+            Effect::ColorLink { layer, sample, clip, stencil, opacity, blending_mode, map } => {
+                crate::perf::time(crate::perf::Stage::EffectColorLink, || {
+                    let stats = match map {
+                        Some(m) => crate::frame_stats::Stats::of(&m.0),
+                        None if layer.as_str() == Some("") => crate::frame_stats::Stats::of(source),
+                        None => None,
+                    };
+                    if let Some(s) = stats {
+                        let c = crate::frame_stats::link_colour(&s, sample, *clip);
+                        crate::frame_stats::link(source, c, *opacity / 100.0, stencil == "on", blending_mode);
+                    }
+                })
+            }
+            Effect::ColorStabilizer { stabilize, black_point, mid_point, white_point, sample_size, reference, .. } => {
+                crate::perf::time(crate::perf::Stage::EffectColorStabilizer, || {
+                    let Some(then) = reference else { return };
+                    let now = stabilizer_samples(source, stabilize, [*black_point, *mid_point, *white_point], *sample_size, (ox, oy));
+                    if let Some(now) = now {
+                        crate::grade::color_stabilize(source, stabilize, &now, then);
+                    }
+                })
+            }
             // D-204: the planes are fixed to the drawing's own space; it grows nothing.
             Effect::Snowfall {
                 color,
