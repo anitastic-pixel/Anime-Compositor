@@ -9245,6 +9245,7 @@ const EFFECT_NAMES = {
   'core.color_key': 'Colour Key',
   'core.curves': 'Curves',
   'core.levels': 'Levels',
+  'core.levels_individual': 'Levels (Individual Controls)',
   'core.hue_saturation': 'Hue/Saturation',
   'core.gradient': 'Gradient',
   'core.drop_shadow': 'Drop Shadow',
@@ -9372,7 +9373,7 @@ const EFFECT_GROUPS = [
     'core.lens_blur', 'core.compound_blur', 'core.selective_color_blur', 'core.sharpen',
     'core.diffusion', 'core.median', 'core.smart_blur', 'core.channel_blur', 'core.fast_box_blur', 'core.vector_blur',
     'core.bilateral_blur', 'core.cross_blur', 'core.spin_zoom_blur', 'core.fast_zoom_blur']],
-  ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.exposure',
+  ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.levels_individual', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.change_to_color',
     'core.invert', 'core.color_lookup', 'core.shift_channels', 'core.solid_composite', 'core.colorama',
@@ -9404,6 +9405,8 @@ const EFFECT_GROUPS = [
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
 const EFFECT_SEARCH = {
+  'core.levels': 'histogram black white point gamma input output channel red green blue alpha',
+  'core.levels_individual': 'levels individual controls histogram black white point gamma input output channel red green blue alpha',
   'core.gaussian_blur': 'gaussian fast soften blurriness',
   'core.directional_blur': 'motion',
   'core.radial_blur': 'zoom spin',
@@ -9552,7 +9555,8 @@ const EFFECT_ABOUT = {
   'core.bloom': 'Lets strong highlights bleed light, with optional streaks.',
   'core.color_key': 'Makes one colour transparent, as a green screen does.',
   'core.curves': 'Reshapes brightness and each colour channel with a curve.',
-  'core.levels': 'Sets the black point, white point and midtones.',
+  'core.levels': 'Sets the black point, white point and midtones, of all three colours together or of one channel, chosen from the Channel menu.',
+  'core.levels_individual': 'Levels with every channel's black point, white point and midtones shown at once, each its own setting to key.',
   'core.hue_saturation': 'Turns the colours around the colour wheel, and changes how strong and bright they are.',
   'core.gradient': 'Fills the layer with a blend between two colours.',
   'core.drop_shadow': 'Casts a soft shadow of the layer behind it.',
@@ -9678,6 +9682,14 @@ const EFFECT_ABOUT = {
 // the core holds it to, which the label shows on hover so the row stays one short line. Document
 // 21 states the units, and they are the file's own here as everywhere else in this panel. An
 // angle ends in 'dial', or 'hue' for one held inside -180 to 180, and gets a dial beside it.
+// D-112's five, for each of D-383's sets, RGB's under their own names.
+const LEVELS_SETS = [['', ''], ['red_', 'Red '], ['green_', 'Green '], ['blue_', 'Blue '], ['alpha_', 'Alpha ']]
+  .flatMap(([pre, title]) => [['input_black', 'Input Black', 1, 0.5, '0 to 255', '', 0],
+    ['input_white', 'Input White', 1, 0.5, '0 to 255', '', 255],
+    ['gamma', 'Gamma', 1, 0.01, '0.1 to 10, above 1 lightens the middle', '', 1],
+    ['output_black', 'Output Black', 1, 0.5, '0 to 255', '', 0],
+    ['output_white', 'Output White', 1, 0.5, '0 to 255', '', 255]]
+    .map(([n, l, ...rest]) => [pre + n, title + l, ...rest]));
 const EFFECT_PARAMS = {
   'core.gaussian_blur': [['sigma_px', 'Radius σ (px)', 1, 0.1, '0 to 500 source pixels']],
   'core.exposure': [['stops', 'Exposure (stops)', 1, 0.02, '-40 to 40 stops'],
@@ -9730,11 +9742,10 @@ const EFFECT_PARAMS = {
   // D-111: its four curves are lists of points, drawn apart in effectRow.
   'core.curves': [],
   // D-112, named as After Effects names them, on the 0 to 255 scale of a drawing program.
-  'core.levels': [['input_black', 'Input Black', 1, 0.5, '0 to 255'],
-    ['input_white', 'Input White', 1, 0.5, '0 to 255'],
-    ['gamma', 'Gamma', 1, 0.01, '0.1 to 10, above 1 lightens the middle'],
-    ['output_black', 'Output Black', 1, 0.5, '0 to 255'],
-    ['output_white', 'Output White', 1, 0.5, '0 to 255']],
+  // D-383: a set of the five for RGB, red, green, blue and alpha; Levels shows the set its
+  // Channel menu chooses, Levels (Individual Controls) every set.
+  'core.levels': LEVELS_SETS,
+  'core.levels_individual': LEVELS_SETS,
   // D-113, named as After Effects names them.
   'core.hue_saturation': [['hue', 'Hue', 1, 1, '-180 to 180 degrees', 'hue'],
     ['saturation', 'Saturation', 1, 0.5, '-100 to 100'],
@@ -10429,6 +10440,8 @@ const EFFECT_WORDS = {
   'core.color_balance': { choices: [['preserve_luminosity', 'Preserve Luminosity', [['off', 'Off'], ['on', 'On']]]] },
   // D-132.
   'core.light_wrap': { choices: [['blend', 'Blend', [['screen', 'Screen'], ['add', 'Add']]]] },
+  // D-383: which set Levels' controls show.
+  'core.levels': { choices: [['channel', 'Channel', [['rgb', 'RGB'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']]]] },
   // D-134.
   'core.invert': { choices: [['channel', 'Channel', [['rgb', 'RGB'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']]]] },
   // D-139.
@@ -11086,7 +11099,9 @@ function fxLevels(k, label) {
   const c = fxCanvas(W, H, 'fxview', label + ' ramps');
   c.title = 'Drag a triangle: input black, gamma and white above, output black and white below';
   const g = c.getContext('2d');
-  const v = (n) => Number(k.fields[n][0].value);
+  // D-383: the set the Channel menu chooses.
+  const pre = k.words.channel && k.words.channel !== 'rgb' ? k.words.channel + '_' : '';
+  const v = (n) => Number(k.fields[pre + n][0].value);
   const X = (n) => x0 + (n / 255) * xw;
   const handles = () => {
     const [ib, iw, gamma] = [v('input_black'), v('input_white'), v('gamma')];
@@ -11162,8 +11177,8 @@ function fxLevels(k, label) {
         const t = Math.min(0.999, Math.max(0.001, ((px - x0) / xw * 255 - ib) / (iw - ib)));
         to = Math.min(10, Math.max(0.1, Math.round((Math.log(t) / Math.log(0.5)) * 100) / 100));
       }
-      k.fields[name][0].value = to;
-      k.live(name);
+      k.fields[pre + name][0].value = to;
+      k.live(pre + name);
     }, k.close);
   };
   return c;
@@ -11637,6 +11652,8 @@ function effectRow(layer, fx, at, of) {
     dragging = false;
     afterDrag(cancelled ? '/property.drag_cancel' : '/property.drag_end');
   };
+  // D-383: Levels shows the set its Channel menu chooses.
+  const channel = fx.type_id === 'core.levels' ? words.channel : null;
   for (const [name, said, count, step, range, turn, start] of known) {
     const words = blurriness(fx, name, said);
     const dt = document.createElement('dt');
@@ -11708,6 +11725,7 @@ function effectRow(layer, fx, at, of) {
       slide.onchange = () => close(false);
       dd.append(slide);
     }
+    if (channel && (/^(red|green|blue|alpha)_/.exec(name) || [, 'rgb'])[1] !== channel) dt.hidden = dd.hidden = true;
     dl.append(dt, dd, ...(rgb ? [rgb] : []));
     // D-291: its expression, under it as under a transform's property.
     const expr = exprParts(layer, fxName(fx, name), 'panel');
@@ -11783,7 +11801,8 @@ function effectRow(layer, fx, at, of) {
     select.value = words[name];
     select.onchange = () => { words[name] = select.value; sendParameters(); };
     dd.append(select);
-    dl.append(dt, dd);
+    // D-383: Levels' Channel menu above its picture, as After Effects puts it.
+    if (channel) dl.prepend(dt, dd); else dl.append(dt, dd);
   }
   for (const [name, title, optional] of spec.colours || []) {
     const dt = Object.assign(document.createElement('dt'), { textContent: title, className: 'wide' });

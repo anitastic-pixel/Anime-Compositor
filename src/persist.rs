@@ -1300,6 +1300,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("output_black".into(), num(*output_black));
             params.insert("output_white".into(), num(*output_white));
         }
+        // D-383: Levels' Channel menu, then every set.
+        Effect::ChannelLevels { individual, channel, sets } => {
+            if !individual {
+                params.insert("channel".into(), J::from(channel.as_str()));
+            }
+            for (set, names) in sets.iter().zip(crate::effects::LEVELS_NAMES) {
+                for (v, name) in set.iter().zip(names) {
+                    params.insert(name.into(), num(*v));
+                }
+            }
+        }
         Effect::HueSaturation {
             hue,
             saturation,
@@ -3902,6 +3913,7 @@ fn parse_effect(
         crate::effects::COLOR_KEY,
         crate::effects::CURVES,
         crate::effects::LEVELS,
+        crate::effects::LEVELS_INDIVIDUAL,
         crate::effects::HUE_SATURATION,
         crate::effects::GRADIENT,
         crate::effects::DROP_SHADOW,
@@ -4148,13 +4160,32 @@ fn parse_effect(
                 None => vec![vec![0.0, 0.0], vec![255.0, 255.0]],
             },
         }),
-        crate::effects::LEVELS => Some(crate::effects::Effect::Levels {
-            input_black: effect_number(params, "input_black", &at)?,
-            input_white: effect_number(params, "input_white", &at)?,
-            gamma: effect_number(params, "gamma", &at)?,
-            output_black: effect_number(params, "output_black", &at)?,
-            output_white: effect_number(params, "output_white", &at)?,
-        }),
+        // D-383: a Levels with neither the Channel menu nor another set is D-112's, drawn as it
+        // was; with either, every set it does not write starts plain. Levels (Individual
+        // Controls) writes all 25.
+        crate::effects::LEVELS | crate::effects::LEVELS_INDIVIDUAL => {
+            let names = crate::effects::LEVELS_NAMES;
+            let individual = type_id == crate::effects::LEVELS_INDIVIDUAL;
+            let more = params.is_some_and(|p| p.get("channel").is_some() || names[1..].iter().flatten().any(|n| p.get(*n).is_some()));
+            if !individual && !more {
+                Some(crate::effects::Effect::Levels {
+                    input_black: effect_number(params, "input_black", &at)?,
+                    input_white: effect_number(params, "input_white", &at)?,
+                    gamma: effect_number(params, "gamma", &at)?,
+                    output_black: effect_number(params, "output_black", &at)?,
+                    output_white: effect_number(params, "output_white", &at)?,
+                })
+            } else {
+                let mut sets = [crate::effects::LEVELS_PLAIN; 5];
+                for (i, (set, names)) in sets.iter_mut().zip(names).enumerate() {
+                    for (v, name) in set.iter_mut().zip(names) {
+                        *v = if individual || i == 0 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *v)? };
+                    }
+                }
+                let channel = if individual { "rgb".to_string() } else { effect_word_or(params, "channel", &at, "rgb")? };
+                Some(crate::effects::Effect::ChannelLevels { individual, channel, sets })
+            }
+        }
         crate::effects::HUE_SATURATION => Some(crate::effects::Effect::HueSaturation {
             hue: effect_number(params, "hue", &at)?,
             saturation: effect_number(params, "saturation", &at)?,

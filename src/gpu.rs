@@ -1205,16 +1205,26 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
             }
         }
         case 1u: {
-            // k: input black and white, one over the gamma, output black and white.
+            // k: four sets of input black and white, one over the gamma, output black and white:
+            // RGB, then D-383's red, green and blue. Each channel through its own set, then
+            // through RGB's; a set that changes nothing is skipped.
             for (var c = 0u; c < 3u; c++) {
-                // The power in single precision, the one step here the card cannot do in double;
-                // its ends are exact.
-                let v = clamp((e[c] * 255.0lf - k[0]) / (k[1] - k[0]), 0.0lf, 1.0lf);
-                var bent = f64(pow(f32(v), f32(k[2])));
-                if v == 0.0lf || v == 1.0lf {
-                    bent = v;
+                var x = e[c] * 255.0lf;
+                for (var n = 0u; n < 2u; n++) {
+                    let b = select(0u, 5u * (c + 1u), n == 0u);
+                    if k[b] == 0.0lf && k[b + 1u] == 255.0lf && k[b + 2u] == 1.0lf && k[b + 3u] == 0.0lf && k[b + 4u] == 255.0lf {
+                        continue;
+                    }
+                    // The power in single precision, the one step here the card cannot do in
+                    // double; its ends are exact.
+                    let v = clamp((x - k[b]) / (k[b + 1u] - k[b]), 0.0lf, 1.0lf);
+                    var bent = f64(pow(f32(v), f32(k[b + 2u])));
+                    if v == 0.0lf || v == 1.0lf {
+                        bent = v;
+                    }
+                    x = k[b + 3u] + bent * (k[b + 4u] - k[b + 3u]);
                 }
-                o[c] = (k[3] + bent * (k[4] - k[3])) / 255.0lf;
+                o[c] = x / 255.0lf;
             }
         }
         case 2u: {
@@ -6179,6 +6189,7 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
         effect,
         E::Curves { .. }
             | E::Levels { .. }
+            | E::ChannelLevels { .. }
             | E::HueSaturation { .. }
             | E::Gradient { .. }
             | E::Noise { .. }
@@ -7568,7 +7579,14 @@ impl Gpu {
                 same(steps, &passes.grade, FxParams { mode: 0, ..Default::default() }, &k, None)
             }
             E::Levels { input_black, input_white, gamma, output_black, output_white } => {
-                let k = [*input_black, *input_white, 1.0 / gamma, *output_black, *output_white];
+                let plain = crate::effects::LEVELS_PLAIN;
+                let sets = [[*input_black, *input_white, *gamma, *output_black, *output_white], plain, plain, plain];
+                let k: Vec<f64> = sets.iter().flat_map(|s| [s[0], s[1], 1.0 / s[2], s[3], s[4]]).collect();
+                same(steps, &passes.grade, FxParams { mode: 1, ..Default::default() }, &k, None)
+            }
+            // D-383: the alpha set is drawn on the CPU (`compose::card_can`).
+            E::ChannelLevels { sets, .. } => {
+                let k: Vec<f64> = sets[..4].iter().flat_map(|s| [s[0], s[1], 1.0 / s[2], s[3], s[4]]).collect();
                 same(steps, &passes.grade, FxParams { mode: 1, ..Default::default() }, &k, None)
             }
             E::HueSaturation { hue, saturation, lightness, .. } => {

@@ -173,18 +173,39 @@ pub(crate) fn curves(source: &mut WorkingBuffer, master: &[Vec<f64>], rgb: [&[Ve
 /// D-112: each channel from the input range to 0..1, held there, bent by the gamma and laid on
 /// the output range. An input white equal to its black is a threshold. The settings are
 /// already valid and held; the defaults change nothing.
-pub(crate) fn levels(source: &mut WorkingBuffer, [ib, iw, gamma, ob, ow]: [f64; 5]) {
-    if [ib, iw, gamma, ob, ow] == [0.0, 255.0, 1.0, 0.0, 255.0] {
-        return;
-    }
-    grade(source, |_, x| {
+pub(crate) fn levels(source: &mut WorkingBuffer, settings: [f64; 5]) {
+    let plain = crate::effects::LEVELS_PLAIN;
+    channel_levels(source, &[settings, plain, plain, plain, plain]);
+}
+
+/// D-383: each colour channel through its own set, then through the RGB set, a set that changes
+/// nothing skipped, so with only the RGB set this is [`levels`] to the bit; then the covering
+/// through the alpha set, 0 to 255, the colour kept, as D-302's Curves. `sets` are valid, in
+/// the order RGB, red, green, blue, alpha.
+pub(crate) fn channel_levels(source: &mut WorkingBuffer, sets: &[[f64; 5]; 5]) {
+    use crate::effects::LEVELS_PLAIN as PLAIN;
+    let level = |[ib, iw, gamma, ob, ow]: [f64; 5], x: f64| {
         let v = if iw == ib {
             if x >= ib { 1.0 } else { 0.0 }
         } else {
             ((x - ib) / (iw - ib)).clamp(0.0, 1.0)
         };
         ob + v.powf(1.0 / gamma) * (ow - ob)
-    });
+    };
+    let set = |s: [f64; 5], x: f64| if s == PLAIN { x } else { level(s, x) };
+    if sets[..4].iter().any(|s| *s != PLAIN) {
+        grade(source, |c, x| set(sets[0], set(sets[c + 1], x)));
+    }
+    if sets[4] != PLAIN {
+        each_pixel(source, |px| {
+            let a = px[3] as f64;
+            let to = level(sets[4], a * 255.0) / 255.0;
+            for c in 0..3 {
+                px[c] = if a > 0.0 { (px[c] as f64 / a * to) as f32 } else { 0.0 };
+            }
+            px[3] = to as f32;
+        });
+    }
 }
 
 /// D-113: a straight colour, 0 to 1, as hue in degrees, saturation and lightness. Of equal

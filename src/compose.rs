@@ -871,6 +871,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::Glow { .. }
                 | crate::effects::Effect::Curves { .. }
                 | crate::effects::Effect::Levels { .. }
+                | crate::effects::Effect::ChannelLevels { .. }
                 | crate::effects::Effect::HueSaturation { .. }
                 | crate::effects::Effect::Gradient { .. }
                 | crate::effects::Effect::DropShadow { .. }
@@ -1008,6 +1009,11 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
         && !matches!(instance.effect, crate::effects::Effect::Levels { input_black, input_white, .. } if input_black == input_white)
+        // D-383: and a set of a Levels with one for each channel; the card bends the colour
+        // only, so one whose alpha set is not plain is drawn here, as D-302's Curves.
+        // ponytail: give the card's grade the alpha set if one is slow here.
+        && !matches!(&instance.effect, crate::effects::Effect::ChannelLevels { sets, .. }
+            if sets.iter().any(|s| s[0] == s[1]) || sets[4] != crate::effects::LEVELS_PLAIN)
         // D-304: the card tiles the drawing at its own size, round its middle, only.
         // ponytail: teach the card's tile pass a size and centre if a sized tile is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::MotionTile { tile_center, tile_width, tile_height, .. }
@@ -1101,6 +1107,7 @@ fn card_effect(
                 E::Levels { input_black, input_white, gamma, output_black, output_white } => {
                     [*input_black, *input_white, *gamma, *output_black, *output_white] == [0.0, 255.0, 1.0, 0.0, 255.0]
                 }
+                E::ChannelLevels { sets, .. } => sets.iter().all(|s| *s == crate::effects::LEVELS_PLAIN),
                 E::HueSaturation { hue, saturation, lightness, ranges } => {
                     [*hue, *saturation, *lightness] == [0.0; 3] && *ranges == [[0.0; 3]; 6]
                 }

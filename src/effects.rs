@@ -465,6 +465,11 @@ pub enum Effect {
         output_black: f64,
         output_white: f64,
     },
+    /// D-383: Levels with a set of D-112's five for each channel, `sets` in the order RGB, red,
+    /// green, blue and alpha, named as [`LEVELS_NAMES`]. `individual` is Levels (Individual
+    /// Controls), the same rule under its own name; otherwise `channel`, "rgb", "red", "green",
+    /// "blue" or "alpha", is which set Levels' controls show, and never changes the picture.
+    ChannelLevels { individual: bool, channel: String, sets: [[f64; 5]; 5] },
     /// D-113: `hue`, -180 to 180 degrees the hue is turned; `saturation`, -100 to 100 per cent
     /// it is scaled by; and `lightness`, -100 to 100 per cent of the way to white, or to black
     /// below 0. D-307: `ranges`, After Effects' Reds, Yellows, Greens, Cyans, Blues and Magentas
@@ -1777,6 +1782,18 @@ pub const BLOOM: &str = "core.bloom";
 pub const COLOR_KEY: &str = "core.color_key";
 pub const CURVES: &str = "core.curves";
 pub const LEVELS: &str = "core.levels";
+/// D-383: Levels' every set shown at once.
+pub const LEVELS_INDIVIDUAL: &str = "core.levels_individual";
+/// D-383: each set's five names in the file, RGB (D-112's own), red, green, blue and alpha.
+pub const LEVELS_NAMES: [[&str; 5]; 5] = [
+    ["input_black", "input_white", "gamma", "output_black", "output_white"],
+    ["red_input_black", "red_input_white", "red_gamma", "red_output_black", "red_output_white"],
+    ["green_input_black", "green_input_white", "green_gamma", "green_output_black", "green_output_white"],
+    ["blue_input_black", "blue_input_white", "blue_gamma", "blue_output_black", "blue_output_white"],
+    ["alpha_input_black", "alpha_input_white", "alpha_gamma", "alpha_output_black", "alpha_output_white"],
+];
+/// D-112's five that change nothing.
+pub const LEVELS_PLAIN: [f64; 5] = [0.0, 255.0, 1.0, 0.0, 255.0];
 pub const HUE_SATURATION: &str = "core.hue_saturation";
 pub const GRADIENT: &str = "core.gradient";
 pub const DROP_SHADOW: &str = "core.drop_shadow";
@@ -2074,6 +2091,15 @@ impl Effect {
                 ("output_black", vec![output_black], 0.0, 255.0),
                 ("output_white", vec![output_white], 0.0, 255.0),
             ],
+            Effect::ChannelLevels { sets, .. } => sets
+                .iter_mut()
+                .zip(LEVELS_NAMES)
+                .flat_map(|(set, names)| set.iter_mut().zip(names))
+                .map(|(v, n)| match n.ends_with("gamma") {
+                    true => (n, vec![v], 0.1, 10.0),
+                    false => (n, vec![v], 0.0, 255.0),
+                })
+                .collect(),
             Effect::HueSaturation {
                 hue,
                 saturation,
@@ -3457,7 +3483,8 @@ impl Effect {
             Effect::Bloom { .. } => "Bloom",
             Effect::ColorKey { .. } => "Colour Key",
             Effect::Curves { .. } => "Curves",
-            Effect::Levels { .. } => "Levels",
+            Effect::Levels { .. } | Effect::ChannelLevels { individual: false, .. } => "Levels",
+            Effect::ChannelLevels { .. } => "Levels (Individual Controls)",
             Effect::HueSaturation { .. } => "Hue/Saturation",
             Effect::Gradient { .. } => "Gradient",
             Effect::DropShadow { .. } => "Drop Shadow",
@@ -3597,7 +3624,8 @@ impl Effect {
             Effect::Bloom { .. } => BLOOM,
             Effect::ColorKey { .. } => COLOR_KEY,
             Effect::Curves { .. } => CURVES,
-            Effect::Levels { .. } => LEVELS,
+            Effect::Levels { .. } | Effect::ChannelLevels { individual: false, .. } => LEVELS,
+            Effect::ChannelLevels { .. } => LEVELS_INDIVIDUAL,
             Effect::HueSaturation { .. } => HUE_SATURATION,
             Effect::Gradient { .. } => GRADIENT,
             Effect::DropShadow { .. } => DROP_SHADOW,
@@ -4524,6 +4552,13 @@ impl Effect {
                     "Invert's channel is \"rgb\", \"red\", \"green\", \"blue\" or \"alpha\", and this is \"{channel}\"."
                 ))
             }
+            Effect::ChannelLevels { channel, .. }
+                if !["rgb", "red", "green", "blue", "alpha"].contains(&channel.as_str()) =>
+            {
+                Some(format!(
+                    "Levels' channel is \"rgb\", \"red\", \"green\", \"blue\" or \"alpha\", and this is \"{channel}\"."
+                ))
+            }
             Effect::ChannelMixer {
                 red,
                 green,
@@ -5423,6 +5458,9 @@ pub(crate) fn apply_stack_at(
                     source,
                     [*input_black, *input_white, *gamma, *output_black, *output_white],
                 )
+            }),
+            Effect::ChannelLevels { sets, .. } => crate::perf::time(crate::perf::Stage::EffectChannelLevels, || {
+                crate::grade::channel_levels(source, sets)
             }),
             Effect::HueSaturation {
                 hue,
