@@ -300,11 +300,11 @@ def lay_out(t, animators):
                 return (ax + cos * dx - sin * dy + s["move"][0], ay + sin * dx + cos * dy + s["move"][1])
 
             pen = Box(place)
-            # The points as the font stores them. fontTools' glyph set would first slide each
-            # outline so its left edge meets the side bearing in hmtx, as FreeType does; D-263
-            # places the stored points, so a few letters of this font (x, y, w) differ by 0.4 to
-            # 0.6 pixel at size 100 if drawn that way.
-            FONT["glyf"][glyph(c)].draw(pen, FONT["glyf"])
+            # D-372 (a), the owner's choice of 2026-10-09: fontTools' glyph set slides each
+            # outline so its left edge meets the side bearing in hmtx (lsb - xMin), as FreeType,
+            # HarfBuzz and Windows do; a few letters of this font (x, y, w) move 0.4 to 0.7
+            # pixel at size 100 against the points as stored.
+            GLYPHS[glyph(c)].draw(pen)
             out.append({"index": k + i, "char": c, "anchor": [ax, ay], "move": s["move"],
                         "scale": s["scale"], "turn": s["turn"], "opacity": s["opacity"],
                         "color": s["color"], "amounts": s["amounts"], "box": pen.box})
