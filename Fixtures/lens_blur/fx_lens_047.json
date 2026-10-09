@@ -1,0 +1,421 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-lens-047",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-bars",
+      "kind": "still",
+      "name": "bars",
+      "path": "media/bars.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-plate",
+      "kind": "still",
+      "name": "plate",
+      "path": "media/plate.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-ramp",
+      "kind": "still",
+      "name": "ramp",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-fade",
+      "kind": "still",
+      "name": "fade",
+      "path": "media/fade.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-card",
+      "kind": "still",
+      "name": "card",
+      "path": "media/card.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-depth",
+      "kind": "still",
+      "name": "depth",
+      "path": "media/depth.exr",
+      "interpretation": {
+        "color_space": "linear-srgb",
+        "alpha": "premultiplied"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 5,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 5
+      },
+      "layer_order": [
+        "holder",
+        "ramp",
+        "fade",
+        "card",
+        "white",
+        "depth"
+      ],
+      "layers": [
+        {
+          "id": "holder",
+          "kind": "raster",
+          "name": "holder",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-1",
+              "type_id": "core.lens_blur",
+              "enabled": true,
+              "parameters": {
+                "radius": 4,
+                "edges": "transparent",
+                "iris": "circle",
+                "roundness": 0,
+                "rotation": 0,
+                "aspect": 1,
+                "highlight_gain": 0,
+                "highlight_threshold": 100,
+                "layer": "ramp",
+                "fit": "center",
+                "channel": "luminance",
+                "focal_distance": 255,
+                "invert": "off"
+              }
+            }
+          ],
+          "asset_id": "asset-bars",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "ramp",
+          "kind": "raster",
+          "name": "ramp",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                3,
+                2
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                50,
+                50
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-ramp",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "fade",
+          "kind": "raster",
+          "name": "fade",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-fade",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "card",
+          "kind": "raster",
+          "name": "card",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-card",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "white",
+          "kind": "solid",
+          "name": "white",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "solid": {
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "width": 16,
+            "height": 10
+          }
+        },
+        {
+          "id": "depth",
+          "kind": "raster",
+          "name": "depth",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-depth-0",
+              "type_id": "core.pass_extract",
+              "enabled": true,
+              "parameters": {
+                "pass": "depth",
+                "black_point": 0.5,
+                "white_point": 13.0,
+                "invert": "off",
+                "clamp": "on"
+              }
+            }
+          ],
+          "asset_id": "asset-depth",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        }
+      ]
+    }
+  ]
+}
