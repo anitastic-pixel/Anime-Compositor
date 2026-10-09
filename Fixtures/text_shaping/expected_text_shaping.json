@@ -1,0 +1,1699 @@
+{
+ "tolerance": 1e-06,
+ "box_tolerance": 0.25,
+ "shaping": {
+  "FX-SHAPE-001": {
+   "says": "Arabic joins: \"as-salamu alaykum\" in Noto Sans Arabic, kerning off. One right-to-left run; every letter takes its joined form, lam and alef in \"salam\" as the lam-alef pair, drawn from the right.",
+   "font": "NotoSansArabic-Regular.ttf",
+   "text": "السلام عليكم",
+   "kerning": false,
+   "runs_drawn_left_to_right": [
+    [
+     0,
+     12,
+     "Arab",
+     "rtl"
+    ]
+   ],
+   "glyphs": [
+    [
+     77,
+     562,
+     0,
+     0,
+     11
+    ],
+    [
+     60,
+     508,
+     0,
+     0,
+     10
+    ],
+    [
+     318,
+     0,
+     39,
+     -5,
+     9
+    ],
+    [
+     18,
+     373,
+     0,
+     0,
+     9
+    ],
+    [
+     70,
+     300,
+     0,
+     0,
+     8
+    ],
+    [
+     49,
+     503,
+     0,
+     0,
+     7
+    ],
+    [
+     3,
+     260,
+     0,
+     0,
+     6
+    ],
+    [
+     74,
+     484,
+     0,
+     0,
+     5
+    ],
+    [
+     11,
+     379,
+     0,
+     0,
+     4
+    ],
+    [
+     71,
+     220,
+     0,
+     0,
+     3
+    ],
+    [
+     36,
+     850,
+     0,
+     0,
+     2
+    ],
+    [
+     72,
+     260,
+     0,
+     0,
+     1
+    ],
+    [
+     8,
+     238,
+     0,
+     0,
+     0
+    ]
+   ]
+  },
+  "FX-SHAPE-002": {
+   "says": "The same with kerning on.",
+   "font": "NotoSansArabic-Regular.ttf",
+   "text": "السلام عليكم",
+   "kerning": true,
+   "runs_drawn_left_to_right": [
+    [
+     0,
+     12,
+     "Arab",
+     "rtl"
+    ]
+   ],
+   "glyphs": [
+    [
+     77,
+     562,
+     0,
+     0,
+     11
+    ],
+    [
+     60,
+     508,
+     0,
+     0,
+     10
+    ],
+    [
+     318,
+     0,
+     39,
+     -5,
+     9
+    ],
+    [
+     18,
+     373,
+     0,
+     0,
+     9
+    ],
+    [
+     70,
+     300,
+     0,
+     0,
+     8
+    ],
+    [
+     49,
+     503,
+     0,
+     0,
+     7
+    ],
+    [
+     3,
+     260,
+     0,
+     0,
+     6
+    ],
+    [
+     74,
+     484,
+     0,
+     0,
+     5
+    ],
+    [
+     11,
+     379,
+     0,
+     0,
+     4
+    ],
+    [
+     71,
+     220,
+     0,
+     0,
+     3
+    ],
+    [
+     36,
+     850,
+     0,
+     0,
+     2
+    ],
+    [
+     72,
+     260,
+     0,
+     0,
+     1
+    ],
+    [
+     8,
+     238,
+     0,
+     0,
+     0
+    ]
+   ]
+  },
+  "FX-SHAPE-003": {
+   "says": "Arabic vowel marks: \"bismi\" with kasra, sukun and kasra, each mark placed over or under its letter by the font's offsets, with no width of its own.",
+   "font": "NotoSansArabic-Regular.ttf",
+   "text": "بِسْمِ",
+   "kerning": false,
+   "runs_drawn_left_to_right": [
+    [
+     0,
+     6,
+     "Arab",
+     "rtl"
+    ]
+   ],
+   "glyphs": [
+    [
+     426,
+     0,
+     139,
+     0,
+     4
+    ],
+    [
+     77,
+     562,
+     0,
+     0,
+     4
+    ],
+    [
+     378,
+     0,
+     301,
+     -126,
+     2
+    ],
+    [
+     36,
+     850,
+     0,
+     0,
+     2
+    ],
+    [
+     426,
+     0,
+     -35,
+     -191,
+     0
+    ],
+    [
+     316,
+     0,
+     31,
+     -3,
+     0
+    ],
+    [
+     19,
+     269,
+     0,
+     0,
+     0
+    ]
+   ]
+  },
+  "FX-SHAPE-004": {
+   "says": "Devanagari: \"namaste hindi\". The conjunct sta is one glyph; the i-matra of hi is drawn before its consonant; nda is a conjunct.",
+   "font": "NotoSansDevanagari-Regular.ttf",
+   "text": "नमस्ते हिन्दी",
+   "kerning": false,
+   "runs_drawn_left_to_right": [
+    [
+     0,
+     13,
+     "Deva",
+     "ltr"
+    ]
+   ],
+   "glyphs": [
+    [
+     75,
+     555,
+     0,
+     0,
+     0
+    ],
+    [
+     80,
+     598,
+     0,
+     0,
+     1
+    ],
+    [
+     256,
+     389,
+     0,
+     0,
+     2
+    ],
+    [
+     71,
+     570,
+     0,
+     0,
+     4
+    ],
+    [
+     40,
+     0,
+     0,
+     0,
+     4
+    ],
+    [
+     3,
+     260,
+     0,
+     0,
+     6
+    ],
+    [
+     544,
+     259,
+     0,
+     0,
+     7
+    ],
+    [
+     88,
+     531,
+     0,
+     0,
+     7
+    ],
+    [
+     245,
+     309,
+     0,
+     0,
+     9
+    ],
+    [
+     73,
+     531,
+     0,
+     0,
+     11
+    ],
+    [
+     33,
+     259,
+     0,
+     0,
+     11
+    ]
+   ]
+  },
+  "FX-SHAPE-005": {
+   "says": "Devanagari: ksha and shri, each a conjunct.",
+   "font": "NotoSansDevanagari-Regular.ttf",
+   "text": "क्ष श्री",
+   "kerning": false,
+   "runs_drawn_left_to_right": [
+    [
+     0,
+     8,
+     "Deva",
+     "ltr"
+    ]
+   ],
+   "glyphs": [
+    [
+     90,
+     717,
+     0,
+     0,
+     0
+    ],
+    [
+     3,
+     260,
+     0,
+     0,
+     3
+    ],
+    [
+     317,
+     708,
+     0,
+     0,
+     4
+    ],
+    [
+     33,
+     259,
+     0,
+     0,
+     4
+    ]
+   ]
+  },
+  "FX-SHAPE-006": {
+   "says": "Latin ligatures in the bundled font, kerning off: \"office fly fit staff\". ffi, fl, fi and ff are each one glyph, held by their first letter.",
+   "font": "MPLUSRounded1c-Regular.ttf",
+   "text": "office fly fit staff",
+   "kerning": false,
+   "runs_drawn_left_to_right": [
+    [
+     0,
+     20,
+     "Latn",
+     "ltr"
+    ]
+   ],
+   "glyphs": [
+    [
+     80,
+     556,
+     0,
+     0,
+     0
+    ],
+    [
+     8015,
+     921,
+     0,
+     0,
+     1
+    ],
+    [
+     68,
+     493,
+     0,
+     0,
+     4
+    ],
+    [
+     70,
+     524,
+     0,
+     0,
+     5
+    ],
+    [
+     1,
+     270,
+     0,
+     0,
+     6
+    ],
+    [
+     8014,
+     624,
+     0,
+     0,
+     7
+    ],
+    [
+     90,
+     522,
+     0,
+     0,
+     9
+    ],
+    [
+     1,
+     270,
+     0,
+     0,
+     10
+    ],
+    [
+     8013,
+     624,
+     0,
+     0,
+     11
+    ],
+    [
+     85,
+     502,
+     0,
+     0,
+     13
+    ],
+    [
+     1,
+     270,
+     0,
+     0,
+     14
+    ],
+    [
+     84,
+     497,
+     0,
+     0,
+     15
+    ],
+    [
+     85,
+     502,
+     0,
+     0,
+     16
+    ],
+    [
+     66,
+     534,
+     0,
+     0,
+     17
+    ],
+    [
+     8012,
+     787,
+     0,
+     0,
+     18
+    ]
+   ]
+  },
+  "FX-SHAPE-007": {
+   "says": "The same with kerning on (the font kerns \"ta\" and \"st\").",
+   "font": "MPLUSRounded1c-Regular.ttf",
+   "text": "office fly fit staff",
+   "kerning": true,
+   "runs_drawn_left_to_right": [
+    [
+     0,
+     20,
+     "Latn",
+     "ltr"
+    ]
+   ],
+   "glyphs": [
+    [
+     80,
+     556,
+     0,
+     0,
+     0
+    ],
+    [
+     8015,
+     921,
+     0,
+     0,
+     1
+    ],
+    [
+     68,
+     493,
+     0,
+     0,
+     4
+    ],
+    [
+     70,
+     524,
+     0,
+     0,
+     5
+    ],
+    [
+     1,
+     270,
+     0,
+     0,
+     6
+    ],
+    [
+     8014,
+     624,
+     0,
+     0,
+     7
+    ],
+    [
+     90,
+     522,
+     0,
+     0,
+     9
+    ],
+    [
+     1,
+     270,
+     0,
+     0,
+     10
+    ],
+    [
+     8013,
+     624,
+     0,
+     0,
+     11
+    ],
+    [
+     85,
+     502,
+     0,
+     0,
+     13
+    ],
+    [
+     1,
+     270,
+     0,
+     0,
+     14
+    ],
+    [
+     84,
+     477,
+     0,
+     0,
+     15
+    ],
+    [
+     85,
+     492,
+     0,
+     0,
+     16
+    ],
+    [
+     66,
+     534,
+     0,
+     0,
+     17
+    ],
+    [
+     8012,
+     787,
+     0,
+     0,
+     18
+    ]
+   ]
+  },
+  "FX-SHAPE-008": {
+   "says": "A combining accent typed after its letter: \"cafe\" then U+0301. The font has e-acute, so the two become that one glyph.",
+   "font": "MPLUSRounded1c-Regular.ttf",
+   "text": "café",
+   "kerning": false,
+   "runs_drawn_left_to_right": [
+    [
+     0,
+     5,
+     "Latn",
+     "ltr"
+    ]
+   ],
+   "glyphs": [
+    [
+     68,
+     493,
+     0,
+     0,
+     0
+    ],
+    [
+     66,
+     534,
+     0,
+     0,
+     1
+    ],
+    [
+     71,
+     508,
+     0,
+     0,
+     2
+    ],
+    [
+     169,
+     524,
+     0,
+     0,
+     3
+    ]
+   ]
+  },
+  "FX-SHAPE-009": {
+   "says": "Accents the font has no precomposed letter for: A with acute and diaeresis, x with dot below and acute; each mark is a glyph of no width in its letter's cluster.",
+   "font": "MPLUSRounded1c-Regular.ttf",
+   "text": "Á̈ x̣́",
+   "kerning": false,
+   "runs_drawn_left_to_right": [
+    [
+     0,
+     7,
+     "Latn",
+     "ltr"
+    ]
+   ],
+   "glyphs": [
+    [
+     129,
+     639,
+     0,
+     0,
+     0
+    ],
+    [
+     712,
+     0,
+     0,
+     0,
+     0
+    ],
+    [
+     1,
+     270,
+     0,
+     0,
+     3
+    ],
+    [
+     89,
+     504,
+     0,
+     0,
+     4
+    ],
+    [
+     739,
+     0,
+     0,
+     0,
+     4
+    ],
+    [
+     705,
+     0,
+     0,
+     0,
+     4
+    ]
+   ]
+  },
+  "FX-SHAPE-010": {
+   "says": "A mixed line, left-to-right paragraph: \"Hi salam\". \"Hi \" runs left to right (the space between Hi and the Arabic takes the paragraph's side), then the Arabic right to left where it stands. The Latin letters are the font's missing glyph.",
+   "font": "NotoSansArabic-Regular.ttf",
+   "text": "Hi سلام",
+   "kerning": false,
+   "runs_drawn_left_to_right": [
+    [
+     0,
+     3,
+     "Latn",
+     "ltr"
+    ],
+    [
+     3,
+     7,
+     "Arab",
+     "rtl"
+    ]
+   ],
+   "glyphs": [
+    [
+     0,
+     600,
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     600,
+     0,
+     0,
+     1
+    ],
+    [
+     3,
+     260,
+     0,
+     0,
+     2
+    ],
+    [
+     74,
+     484,
+     0,
+     0,
+     6
+    ],
+    [
+     11,
+     379,
+     0,
+     0,
+     5
+    ],
+    [
+     71,
+     220,
+     0,
+     0,
+     4
+    ],
+    [
+     37,
+     784,
+     0,
+     0,
+     3
+    ]
+   ]
+  },
+  "FX-SHAPE-011": {
+   "says": "A mixed line, right-to-left paragraph: \"salam Hi\". The paragraph reads from the right: the Arabic with the space after it (the paragraph's side) is drawn on the right, Hi on the left.",
+   "font": "NotoSansArabic-Regular.ttf",
+   "text": "سلام Hi",
+   "kerning": false,
+   "runs_drawn_left_to_right": [
+    [
+     5,
+     7,
+     "Latn",
+     "ltr"
+    ],
+    [
+     0,
+     5,
+     "Arab",
+     "rtl"
+    ]
+   ],
+   "glyphs": [
+    [
+     0,
+     600,
+     0,
+     0,
+     5
+    ],
+    [
+     0,
+     600,
+     0,
+     0,
+     6
+    ],
+    [
+     3,
+     260,
+     0,
+     0,
+     4
+    ],
+    [
+     74,
+     484,
+     0,
+     0,
+     3
+    ],
+    [
+     11,
+     379,
+     0,
+     0,
+     2
+    ],
+    [
+     71,
+     220,
+     0,
+     0,
+     1
+    ],
+    [
+     37,
+     784,
+     0,
+     0,
+     0
+    ]
+   ]
+  },
+  "FX-SHAPE-012": {
+   "says": "Figures after Arabic, right-to-left paragraph: \"salam 2026\". The figures read left to right and are drawn to the left of the Arabic; the space takes the Arabic's side.",
+   "font": "NotoSansArabic-Regular.ttf",
+   "text": "سلام 2026",
+   "kerning": false,
+   "runs_drawn_left_to_right": [
+    [
+     5,
+     9,
+     "Arab",
+     "ltr"
+    ],
+    [
+     0,
+     5,
+     "Arab",
+     "rtl"
+    ]
+   ],
+   "glyphs": [
+    [
+     120,
+     572,
+     0,
+     0,
+     5
+    ],
+    [
+     118,
+     572,
+     0,
+     0,
+     6
+    ],
+    [
+     120,
+     572,
+     0,
+     0,
+     7
+    ],
+    [
+     124,
+     572,
+     0,
+     0,
+     8
+    ],
+    [
+     3,
+     260,
+     0,
+     0,
+     4
+    ],
+    [
+     74,
+     484,
+     0,
+     0,
+     3
+    ],
+    [
+     11,
+     379,
+     0,
+     0,
+     2
+    ],
+    [
+     71,
+     220,
+     0,
+     0,
+     1
+    ],
+    [
+     37,
+     784,
+     0,
+     0,
+     0
+    ]
+   ]
+  }
+ },
+ "layout": {
+  "FX-SHAPE-020": {
+   "says": "\"office fly fit staff\" laid out at 100 pixels from 100, 200 with tracking 50: each ligature's glyph drawn at its first letter, the other letters in it with no outline.",
+   "shaping": "FX-SHAPE-006",
+   "text": {
+    "text": "office fly fit staff",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 100.0,
+    "at": [
+     100.0,
+     200.0
+    ],
+    "tracking": 50.0,
+    "kerning": false
+   },
+   "chars": [
+    {
+     "index": 0,
+     "char": "o",
+     "anchor": [
+      127.8,
+      200.0
+     ],
+     "box": [
+      104.0,
+      147.0,
+      151.6,
+      201.0
+     ],
+     "head": true
+    },
+    {
+     "index": 1,
+     "char": "f",
+     "anchor": [
+      206.65,
+      200.0
+     ],
+     "box": [
+      166.1,
+      125.0,
+      244.7,
+      200.0
+     ],
+     "head": true
+    },
+    {
+     "index": 2,
+     "char": "f",
+     "anchor": null,
+     "box": null,
+     "head": false
+    },
+    {
+     "index": 3,
+     "char": "i",
+     "anchor": null,
+     "box": null,
+     "head": false
+    },
+    {
+     "index": 4,
+     "char": "c",
+     "anchor": [
+      282.34999999999997,
+      200.0
+     ],
+     "box": [
+      261.7,
+      147.0,
+      300.0,
+      201.0
+     ],
+     "head": true
+    },
+    {
+     "index": 5,
+     "char": "e",
+     "anchor": [
+      338.2,
+      200.0
+     ],
+     "box": [
+      316.0,
+      147.0,
+      359.9054,
+      201.0
+     ],
+     "head": true
+    },
+    {
+     "index": 6,
+     "char": " ",
+     "anchor": [
+      382.9,
+      200.0
+     ],
+     "box": null,
+     "head": true
+    },
+    {
+     "index": 7,
+     "char": "f",
+     "anchor": [
+      432.59999999999997,
+      200.0
+     ],
+     "box": [
+      406.9,
+      126.0,
+      455.8,
+      200.0
+     ],
+     "head": true
+    },
+    {
+     "index": 8,
+     "char": "l",
+     "anchor": null,
+     "box": null,
+     "head": false
+    },
+    {
+     "index": 9,
+     "char": "y",
+     "anchor": [
+      494.9,
+      200.0
+     ],
+     "box": [
+      472.7148,
+      148.0,
+      517.9,
+      222.0
+     ],
+     "head": true
+    },
+    {
+     "index": 10,
+     "char": " ",
+     "anchor": [
+      539.5,
+      200.0
+     ],
+     "box": null,
+     "head": true
+    },
+    {
+     "index": 11,
+     "char": "f",
+     "anchor": [
+      589.2,
+      200.0
+     ],
+     "box": [
+      563.5,
+      125.0,
+      612.4,
+      200.0
+     ],
+     "head": true
+    },
+    {
+     "index": 12,
+     "char": "i",
+     "anchor": null,
+     "box": null,
+     "head": false
+    },
+    {
+     "index": 13,
+     "char": "t",
+     "anchor": [
+      650.5,
+      200.0
+     ],
+     "box": [
+      630.4,
+      131.0,
+      668.1,
+      201.0
+     ],
+     "head": true
+    },
+    {
+     "index": 14,
+     "char": " ",
+     "anchor": [
+      694.1,
+      200.0
+     ],
+     "box": null,
+     "head": true
+    },
+    {
+     "index": 15,
+     "char": "s",
+     "anchor": [
+      737.45,
+      200.0
+     ],
+     "box": [
+      718.6,
+      147.0,
+      756.3,
+      201.0
+     ],
+     "head": true
+    },
+    {
+     "index": 16,
+     "char": "t",
+     "anchor": [
+      792.4000000000001,
+      200.0
+     ],
+     "box": [
+      772.3,
+      131.0,
+      810.0,
+      201.0
+     ],
+     "head": true
+    },
+    {
+     "index": 17,
+     "char": "a",
+     "anchor": [
+      849.2000000000002,
+      200.0
+     ],
+     "box": [
+      827.5,
+      147.0,
+      868.9,
+      201.0
+     ],
+     "head": true
+    },
+    {
+     "index": 18,
+     "char": "f",
+     "anchor": [
+      920.2500000000001,
+      200.0
+     ],
+     "box": [
+      886.4,
+      126.0,
+      952.6,
+      200.0
+     ],
+     "head": true
+    },
+    {
+     "index": 19,
+     "char": "f",
+     "anchor": null,
+     "box": null,
+     "head": false
+    }
+   ]
+  },
+  "FX-SHAPE-021": {
+   "says": "\"as-salamu alaykum\" at 120 pixels from 80, 240: the first letter typed is on the right, the last on the left.",
+   "shaping": "FX-SHAPE-001",
+   "text": {
+    "text": "السلام عليكم",
+    "font": "NotoSansArabic-Regular.ttf",
+    "size": 120.0,
+    "at": [
+     80.0,
+     240.0
+    ],
+    "tracking": 0.0,
+    "kerning": false
+   },
+   "chars": [
+    {
+     "index": 0,
+     "char": "ا",
+     "anchor": [
+      658.16,
+      240.0
+     ],
+     "box": [
+      652.52,
+      154.32,
+      664.64,
+      240.0
+     ],
+     "head": true
+    },
+    {
+     "index": 1,
+     "char": "ل",
+     "anchor": [
+      628.28,
+      240.0
+     ],
+     "box": [
+      612.68,
+      154.32,
+      636.6297,
+      240.6
+     ],
+     "head": true
+    },
+    {
+     "index": 2,
+     "char": "س",
+     "anchor": [
+      561.68,
+      240.0
+     ],
+     "box": [
+      510.68,
+      198.6,
+      618.68,
+      240.6
+     ],
+     "head": true
+    },
+    {
+     "index": 3,
+     "char": "ل",
+     "anchor": [
+      497.47999999999996,
+      240.0
+     ],
+     "box": [
+      444.68,
+      154.32,
+      516.68,
+      240.6
+     ],
+     "head": true
+    },
+    {
+     "index": 4,
+     "char": "ا",
+     "anchor": [
+      461.53999999999996,
+      240.0
+     ],
+     "box": [
+      443.6,
+      172.68,
+      488.72,
+      224.16
+     ],
+     "head": true
+    },
+    {
+     "index": 5,
+     "char": "م",
+     "anchor": [
+      409.76,
+      240.0
+     ],
+     "box": [
+      383.12,
+      194.16,
+      434.0,
+      287.16
+     ],
+     "head": true
+    },
+    {
+     "index": 6,
+     "char": " ",
+     "anchor": [
+      365.12,
+      240.0
+     ],
+     "box": null,
+     "head": true
+    },
+    {
+     "index": 7,
+     "char": "ع",
+     "anchor": [
+      319.34,
+      240.0
+     ],
+     "box": [
+      289.16,
+      187.32,
+      345.92,
+      240.6
+     ],
+     "head": true
+    },
+    {
+     "index": 8,
+     "char": "ل",
+     "anchor": [
+      271.15999999999997,
+      240.0
+     ],
+     "box": [
+      253.16,
+      154.32,
+      295.16,
+      240.6
+     ],
+     "head": true
+    },
+    {
+     "index": 9,
+     "char": "ي",
+     "anchor": [
+      230.78,
+      240.0
+     ],
+     "box": [
+      208.4,
+      206.04,
+      259.16,
+      263.28
+     ],
+     "head": true
+    },
+    {
+     "index": 10,
+     "char": "ك",
+     "anchor": [
+      177.92,
+      240.0
+     ],
+     "box": [
+      147.44,
+      155.16,
+      214.4,
+      240.6
+     ],
+     "head": true
+    },
+    {
+     "index": 11,
+     "char": "م",
+     "anchor": [
+      113.72,
+      240.0
+     ],
+     "box": [
+      81.2,
+      196.56,
+      153.44,
+      287.16
+     ],
+     "head": true
+    }
+   ]
+  },
+  "FX-SHAPE-022": {
+   "says": "\"bismi\" at 200 pixels from 60, 300: each vowel mark drawn over or under its letter, its box inside the letter's cluster.",
+   "shaping": "FX-SHAPE-003",
+   "text": {
+    "text": "بِسْمِ",
+    "font": "NotoSansArabic-Regular.ttf",
+    "size": 200.0,
+    "at": [
+     60.0,
+     300.0
+    ],
+    "tracking": 0.0,
+    "kerning": false
+   },
+   "chars": [
+    {
+     "index": 0,
+     "char": "ب",
+     "anchor": [
+      369.29999999999995,
+      300.0
+     ],
+     "box": [
+      342.4,
+      219.4,
+      388.2,
+      372.4
+     ],
+     "head": true
+    },
+    {
+     "index": 1,
+     "char": "ِ",
+     "anchor": null,
+     "box": null,
+     "head": false
+    },
+    {
+     "index": 2,
+     "char": "س",
+     "anchor": [
+      257.4,
+      300.0
+     ],
+     "box": [
+      172.4,
+      163.2,
+      352.4,
+      301.0
+     ],
+     "head": true
+    },
+    {
+     "index": 3,
+     "char": "ْ",
+     "anchor": null,
+     "box": null,
+     "head": false
+    },
+    {
+     "index": 4,
+     "char": "م",
+     "anchor": [
+      116.2,
+      300.0
+     ],
+     "box": [
+      62.0,
+      227.6,
+      182.4,
+      378.6
+     ],
+     "head": true
+    },
+    {
+     "index": 5,
+     "char": "ِ",
+     "anchor": null,
+     "box": null,
+     "head": false
+    }
+   ]
+  },
+  "FX-SHAPE-023": {
+   "says": "\"namaste hindi\" at 120 pixels from 40, 200: the i-matra drawn before its consonant, both in the cluster of the consonant typed first.",
+   "shaping": "FX-SHAPE-004",
+   "text": {
+    "text": "नमस्ते हिन्दी",
+    "font": "NotoSansDevanagari-Regular.ttf",
+    "size": 120.0,
+    "at": [
+     40.0,
+     200.0
+    ],
+    "tracking": 0.0,
+    "kerning": false
+   },
+   "chars": [
+    {
+     "index": 0,
+     "char": "न",
+     "anchor": [
+      73.3,
+      200.0
+     ],
+     "box": [
+      40.0,
+      125.36,
+      108.28,
+      200.0
+     ],
+     "head": true
+    },
+    {
+     "index": 1,
+     "char": "म",
+     "anchor": [
+      142.48,
+      200.0
+     ],
+     "box": [
+      106.6,
+      125.36,
+      180.04,
+      200.0
+     ],
+     "head": true
+    },
+    {
+     "index": 2,
+     "char": "स",
+     "anchor": [
+      201.7,
+      200.0
+     ],
+     "box": [
+      178.36,
+      125.36,
+      238.36,
+      201.68
+     ],
+     "head": true
+    },
+    {
+     "index": 3,
+     "char": "्",
+     "anchor": null,
+     "box": null,
+     "head": false
+    },
+    {
+     "index": 4,
+     "char": "त",
+     "anchor": [
+      259.24,
+      200.0
+     ],
+     "box": [
+      225.04,
+      92.48,
+      295.12,
+      201.68
+     ],
+     "head": true
+    },
+    {
+     "index": 5,
+     "char": "े",
+     "anchor": null,
+     "box": null,
+     "head": false
+    },
+    {
+     "index": 6,
+     "char": " ",
+     "anchor": [
+      309.04,
+      200.0
+     ],
+     "box": null,
+     "head": true
+    },
+    {
+     "index": 7,
+     "char": "ह",
+     "anchor": [
+      372.03999999999996,
+      200.0
+     ],
+     "box": [
+      324.64,
+      92.48,
+      421.12,
+      217.04
+     ],
+     "head": true
+    },
+    {
+     "index": 8,
+     "char": "ि",
+     "anchor": null,
+     "box": null,
+     "head": false
+    },
+    {
+     "index": 9,
+     "char": "न",
+     "anchor": [
+      440.92,
+      200.0
+     ],
+     "box": [
+      419.44,
+      125.36,
+      467.08,
+      177.44
+     ],
+     "head": true
+    },
+    {
+     "index": 10,
+     "char": "्",
+     "anchor": null,
+     "box": null,
+     "head": false
+    },
+    {
+     "index": 11,
+     "char": "द",
+     "anchor": [
+      503.91999999999996,
+      200.0
+     ],
+     "box": [
+      456.52,
+      92.48,
+      553.0,
+      207.68
+     ],
+     "head": true
+    },
+    {
+     "index": 12,
+     "char": "ी",
+     "anchor": null,
+     "box": null,
+     "head": false
+    }
+   ]
+  }
+ }
+}
