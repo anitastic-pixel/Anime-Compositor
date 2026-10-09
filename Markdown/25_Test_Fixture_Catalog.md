@@ -204242,3 +204242,101 @@ FX-BLOB-025 (`fx_blob_025.json`): A layer written as the number 3, not a word. T
 FX-BLOB-026 (`fx_blob_026.json`): A light position 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BLOB-027 (`fx_blob_027.json`): Metal keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Colorama's remaining controls (D-381)
+
+Colorama (`core.colorama`, D-316), with the rest of After Effects' Colorama (B-260): the phase also read from hue, lightness, saturation, value or zero; the Add Phase layer read its own way and added by wrap, clamp, average or screen; Interpolate Palette and an opacity for each colour of the ring; Modify, Modify Alpha and Change Empty Pixels; a matching colour by RGB, hue or chroma with tolerance and softness; a mask layer by luminance or alpha, either way round; and Composite Over Layer. Every case is Broadcast Safe's drawing as the layer `art`, 16 by 10, five frames; the cases with layers add `phase`, a hidden drawing of red rising left to right and green top to bottom with its bottom two rows half covered, and `mask`, a hidden drawing white on the left, grey in the middle and on the right white whose covering is 0 in the top half and a half below. FX-COLORAMA-002 and 028 are written as files from before D-381 and must draw as FX-COLORAMA-001 and as D-316 did. `tools/colorama_reference.py` works the expected frames in double precision with Python's colorsys, never the build's code; tolerance 2e-5. FX-COLORAMA-034's `frame_warning` is the subject of a PROPOSED one-word correction in D-381 (D-189 warns on opening too).
+
+FX-COLORAMA-001 (`fx_colorama_001.json`): The settings as the effect is added, every D-381 setting written at its start: phase from intensity round the five hues, each pixel its colour by its brightness, the empty column left empty. Frames 0.
+
+FX-COLORAMA-002 (`fx_colorama_002.json`): The same written as a file from before D-381, none of its settings there: the same picture. Frames 0.
+
+FX-COLORAMA-003 (`fx_colorama_003.json`): Phase from hue: red and the greys the first colour, the other colours round the ring by their hue. Frames 0.
+
+FX-COLORAMA-004 (`fx_colorama_004.json`): Phase from saturation. Frames 0.
+
+FX-COLORAMA-005 (`fx_colorama_005.json`): Phase from lightness. Frames 0.
+
+FX-COLORAMA-006 (`fx_colorama_006.json`): Phase from value, the largest channel: every full colour the first colour, darker rows further round. Frames 0.
+
+FX-COLORAMA-007 (`fx_colorama_007.json`): Phase from zero, shift 120, three colours: every showing pixel the second colour. Frames 0.
+
+FX-COLORAMA-008 (`fx_colorama_008.json`): Interpolate off, shift 10: each pixel takes one of the five colours, none between. Frames 0.
+
+FX-COLORAMA-009 (`fx_colorama_009.json`): Modify hue: each pixel takes the ring colour's hue and keeps its own saturation and lightness, so the greys stay grey. Frames 0.
+
+FX-COLORAMA-010 (`fx_colorama_010.json`): Modify lightness: the ring colour's lightness, the pixel's own hue and saturation. Frames 0.
+
+FX-COLORAMA-011 (`fx_colorama_011.json`): Modify saturation. Frames 0.
+
+FX-COLORAMA-012 (`fx_colorama_012.json`): Modify red: only red from the ring colour, green and blue the pixel's own. Frames 0.
+
+FX-COLORAMA-013 (`fx_colorama_013.json`): Modify none, Modify Alpha on, opacities 100, 0, 100, 30, 100: the colours kept, the covering the ring's opacity at each pixel's place. Frames 0.
+
+FX-COLORAMA-014 (`fx_colorama_014.json`): Modify Alpha and Change Empty Pixels on: the empty column worked too, as black, so it turns the first colour at full covering. Frames 0.
+
+FX-COLORAMA-015 (`fx_colorama_015.json`): Phase from alpha, two colours, opacities 100 and 0, Modify none and Modify Alpha on: a curve on the covering; the solid pixels stay solid, the half-covered column nearly clear. Frames 0.
+
+FX-COLORAMA-016 (`fx_colorama_016.json`): Matching RGB, red, tolerance 30, softness 20: red and the colours near it change, fading out with distance; the rest stay. Frames 0.
+
+FX-COLORAMA-017 (`fx_colorama_017.json`): Matching hue, yellow, tolerance 10, softness 10: the yellows and the orange in part; greys never match by hue. Frames 0.
+
+FX-COLORAMA-018 (`fx_colorama_018.json`): Matching chroma, the skin tone, tolerance 5, softness 15. Frames 0.
+
+FX-COLORAMA-019 (`fx_colorama_019.json`): FX-COLORAMA-016 with Composite Over Layer off: the pixels not matched go clear, the matched ones alone. Frames 0.
+
+FX-COLORAMA-020 (`fx_colorama_020.json`): FX-COLORAMA-019 blended 50 with the original. Frames 0.
+
+FX-COLORAMA-021 (`fx_colorama_021.json`): Matching tolerance keyed from 0 at frame 0 to 100 at frame 4, linear, softness 10, matching white: more and more of the layer changes. Frames 0, 2, 4.
+
+FX-COLORAMA-022 (`fx_colorama_022.json`): Opacity 3 keyed from 100 at frame 0 to 0 at frame 4, Modify Alpha on: the pixels at the third colour fade. Frames 0, 4.
+
+FX-COLORAMA-023 (`fx_colorama_023.json`): FX-COLORAMA-009 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-COLORAMA-024 (`fx_colorama_024.json`): Add Phase layer `phase`, from its red, add mode wrap: each pixel's place moves on by the layer's red under it, less where it is half covered. Frames 0.
+
+FX-COLORAMA-025 (`fx_colorama_025.json`): Add mode clamp: the sum held at 1, the first colour. Frames 0.
+
+FX-COLORAMA-026 (`fx_colorama_026.json`): Add mode average. Frames 0.
+
+FX-COLORAMA-027 (`fx_colorama_027.json`): Add mode screen. Frames 0.
+
+FX-COLORAMA-028 (`fx_colorama_028.json`): An Add Phase layer in a file from before D-381, no add phase from: the layer's intensity is added, as get phase reads it. Frames 0.
+
+FX-COLORAMA-029 (`fx_colorama_029.json`): Mask layer `mask`, by luminance: the left full Colorama, the middle part way, the right untouched where the mask is clear and half where it is half covered. Frames 0.
+
+FX-COLORAMA-030 (`fx_colorama_030.json`): Masking by inverse luminance: the other way round. Frames 0.
+
+FX-COLORAMA-031 (`fx_colorama_031.json`): Masking by alpha: the grey middle counts as fully there. Frames 0.
+
+FX-COLORAMA-032 (`fx_colorama_032.json`): Masking by inverse alpha with Composite Over Layer off: only the right of the layer shows. Frames 0.
+
+FX-COLORAMA-033 (`fx_colorama_033.json`): Add Phase and mask layers together, add mode screen, masking by luminance. Frames 0.
+
+FX-COLORAMA-034 (`fx_colorama_034.json`): Mask layer `ghost`, not a layer of the composition: no mask, the whole of FX-COLORAMA-001, with EFFECT_LAYER_MISSING each frame. Warning `EFFECT_LAYER_MISSING` every frame. Frames 0, 3.
+
+FX-COLORAMA-035 (`fx_colorama_035.json`): Get phase "Hue": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-036 (`fx_colorama_036.json`): Add phase from "brightness", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-037 (`fx_colorama_037.json`): Add mode "multiply", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-038 (`fx_colorama_038.json`): Interpolate "yes", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-039 (`fx_colorama_039.json`): Opacity 3 at 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-040 (`fx_colorama_040.json`): Modify "rgb", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-041 (`fx_colorama_041.json`): Change empty "yes", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-042 (`fx_colorama_042.json`): Matching mode "lab", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-043 (`fx_colorama_043.json`): Matching colour "white", not written as #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-044 (`fx_colorama_044.json`): Matching tolerance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-045 (`fx_colorama_045.json`): Mask layer 5, a number, not the name of a layer. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-046 (`fx_colorama_046.json`): Masking mode "off", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COLORAMA-047 (`fx_colorama_047.json`): Composite over "no", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
