@@ -3485,6 +3485,13 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             aspect: 1.0,
             highlight_gain: 0.0,
             highlight_threshold: 100.0,
+            // D-359: no blur map.
+            layer: serde_json::Value::from(""),
+            fit: "center".to_string(),
+            channel: "luminance".to_string(),
+            focal_distance: 0.0,
+            invert: "off".to_string(),
+            map: None,
         }),
         // D-117: white light from the upper right, three pixels deep.
         RIM_LIGHT => Some(Effect::RimLight {
@@ -4576,6 +4583,14 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             aspect: number("aspect")?,
             highlight_gain: number("highlight_gain")?,
             highlight_threshold: number("highlight_threshold")?,
+            // D-359: the blur map, travelling as `blur_layer` as Compound Blur's does; none, and
+            // AE's start values, when the command does not say.
+            layer: serde_json::Value::from(parameter(query, "blur_layer").unwrap_or_default().trim()),
+            fit: word("fit").unwrap_or_else(|_| "center".to_string()),
+            channel: word("channel").unwrap_or_else(|_| "luminance".to_string()),
+            focal_distance: if parameter(query, "focal_distance").is_some() { number("focal_distance")? } else { 0.0 },
+            invert: word("invert").unwrap_or_else(|_| "off".to_string()),
+            map: None,
         }),
         RIM_LIGHT => Ok(Effect::RimLight {
             color: word("color")?,
@@ -28382,6 +28397,12 @@ mod contract {
                 ("aspect", "1.5"),
                 ("highlight_gain", "3"),
                 ("highlight_threshold", "90"),
+                // D-359: the blur map's five.
+                ("blur_layer", "layer-4"),
+                ("fit", "stretch"),
+                ("channel", "alpha"),
+                ("focal_distance", "128"),
+                ("invert", "on"),
             ],
         ),
         // D-117: the colour, the four numbers and the blend.

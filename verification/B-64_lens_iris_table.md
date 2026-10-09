@@ -79,7 +79,7 @@ D-121, proposed on 2026-09-26. Every expected pixel is `Fixtures/lens_blur/expec
 | radius 1.5, aspect 2, grows it by 3: the radius times the square root of 2, rounded up | 3 | yes |
 | radius 1.5, aspect 0.5, grows it by 3 as well | 3 | yes |
 | radius 10, aspect 2, with the edge pixels repeated does not grow it | 0 | yes |
-| a half-size draft preview halves the radius, and keeps the iris, its turn, its stretch and the highlights | LensBlur { radius: 5.0, edges: "repeat", iris: "hexagon", roundness: 50.0, rotation: 45.0, aspect: 2.0, highlight_gain: 3.0, highlight_threshold: 80.0 } | yes |
+| a half-size draft preview halves the radius, and keeps the iris, its turn, its stretch and the highlights | LensBlur { radius: 5.0, edges: "repeat", iris: "hexagon", roundness: 50.0, rotation: 45.0, aspect: 2.0, highlight_gain: 3.0, highlight_threshold: 80.0, layer: String(""), fit: "center", channel: "luminance", focal_distance: 0.0, invert: "off", map: None } | yes |
 
 ## The file
 

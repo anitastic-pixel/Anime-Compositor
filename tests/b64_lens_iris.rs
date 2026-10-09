@@ -24,6 +24,12 @@ fn lens(radius: f64, edges: &str, iris: &str, numbers: [f64; 5]) -> Effect {
         aspect,
         highlight_gain,
         highlight_threshold,
+        layer: "".into(),
+        fit: "center".into(),
+        channel: "luminance".into(),
+        focal_distance: 0.0,
+        invert: "off".into(),
+        map: None,
     }
 }
 

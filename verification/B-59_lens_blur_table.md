@@ -61,7 +61,7 @@ D-116, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | radius 0.9 grows it by 1, though it changes no pixel | 1 | yes |
 | radius 0 does not grow it | 0 | yes |
 | radius 10 with the edge pixels repeated does not grow it | 0 | yes |
-| a half-size draft preview halves the radius, and keeps the edges | LensBlur { radius: 5.0, edges: "repeat", iris: "circle", roundness: 0.0, rotation: 0.0, aspect: 1.0, highlight_gain: 0.0, highlight_threshold: 100.0 } | yes |
+| a half-size draft preview halves the radius, and keeps the edges | LensBlur { radius: 5.0, edges: "repeat", iris: "circle", roundness: 0.0, rotation: 0.0, aspect: 1.0, highlight_gain: 0.0, highlight_threshold: 100.0, layer: String(""), fit: "center", channel: "luminance", focal_distance: 0.0, invert: "off", map: None } | yes |
 
 ## The file
 

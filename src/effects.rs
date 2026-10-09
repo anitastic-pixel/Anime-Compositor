@@ -504,6 +504,9 @@ pub enum Effect {
     /// written so a wrong one is reported. D-121: `iris`, "circle" or "triangle" to "decagon",
     /// kept as written; `roundness`, 0 to 100; `rotation`, -3600 to 3600 degrees clockwise from
     /// up; `aspect`, 0.1 to 10; `highlight_gain`, 0 to 100; and `highlight_threshold`, 0 to 100.
+    /// D-359, the blur map: `layer`, D-189's layer setting as written, "" for none; `fit`,
+    /// `center` or `stretch`; `channel`, `luminance` or `alpha`; `focal_distance`, 0 to 255, the
+    /// map value kept sharp; `invert`, `off` or `on`. `map` is not a setting and is never saved.
     LensBlur {
         radius: f64,
         edges: String,
@@ -513,6 +516,12 @@ pub enum Effect {
         aspect: f64,
         highlight_gain: f64,
         highlight_threshold: f64,
+        layer: serde_json::Value,
+        fit: String,
+        channel: String,
+        focal_distance: f64,
+        invert: String,
+        map: Option<crate::layer_map::Map>,
     },
     /// D-117: `color`, `#rrggbb`; `direction`, -3600 to 3600 degrees clockwise from up, where
     /// the light is; `width`, 0 to 100 pixels; `softness`, 0 to 100 pixels; `intensity`, 0 to
@@ -1874,6 +1883,7 @@ impl Effect {
                 aspect,
                 highlight_gain,
                 highlight_threshold,
+                focal_distance,
                 ..
             } => vec![
                 ("radius", vec![radius], 0.0, 200.0),
@@ -1882,6 +1892,7 @@ impl Effect {
                 ("aspect", vec![aspect], 0.1, 10.0),
                 ("highlight_gain", vec![highlight_gain], 0.0, 100.0),
                 ("highlight_threshold", vec![highlight_threshold], 0.0, 100.0),
+                ("focal_distance", vec![focal_distance], 0.0, 255.0),
             ],
             Effect::RimLight {
                 direction,
@@ -3498,7 +3509,8 @@ impl Effect {
             | Effect::Colorama { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Glass { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::VectorBlur { layer: serde_json::Value::String(layer), fit, .. }
-            | Effect::MomentMap { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
+            | Effect::MomentMap { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::LensBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
             _ => None,
         }
     }
@@ -3512,7 +3524,8 @@ impl Effect {
             | Effect::Colorama { layer, map, .. }
             | Effect::Glass { layer, map, .. }
             | Effect::VectorBlur { layer, map, .. }
-            | Effect::MomentMap { layer, map, .. } => Some((layer, map)),
+            | Effect::MomentMap { layer, map, .. }
+            | Effect::LensBlur { layer, map, .. } => Some((layer, map)),
             _ => None,
         }
     }
@@ -3639,6 +3652,18 @@ impl Effect {
                      this is \"{iris}\"."
                 ))
             }
+            Effect::LensBlur { layer, .. } if !layer.is_string() => Some(format!(
+                "Lens Blur's blur layer is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::LensBlur { fit, .. } if !["center", "stretch"].contains(&fit.as_str()) => Some(format!(
+                "Lens Blur's map placement is \"center\" or \"stretch\", and this is \"{fit}\"."
+            )),
+            Effect::LensBlur { channel, .. } if !["luminance", "alpha"].contains(&channel.as_str()) => Some(format!(
+                "Lens Blur's map channel is \"luminance\" or \"alpha\", and this is \"{channel}\"."
+            )),
+            Effect::LensBlur { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
+                "Lens Blur's invert blur map is \"off\" or \"on\", and this is \"{invert}\"."
+            )),
             Effect::RimLight { blend, .. }
                 if !["normal", "add", "screen", "multiply"].contains(&blend.as_str()) =>
             {
@@ -4746,20 +4771,39 @@ pub(crate) fn apply_stack_at(
                 aspect,
                 highlight_gain,
                 highlight_threshold,
+                layer,
+                channel,
+                focal_distance,
+                invert,
+                map,
+                ..
             } => {
-                let iris = crate::layer_fx::Iris {
-                    blades: crate::layer_fx::blades(iris).unwrap_or(0),
-                    roundness: *roundness,
-                    rotation: *rotation,
-                    aspect: *aspect,
-                    gain: *highlight_gain,
-                    threshold: *highlight_threshold,
-                };
-                let r = crate::perf::time(crate::perf::Stage::EffectLensBlur, || {
-                    crate::layer_fx::lens_blur(source, *radius, edges == "repeat", &iris)
-                });
-                ox += r;
-                oy += r;
+                // D-359: a blur layer named and not read this frame (missing, or a circle) is
+                // drawn without the effect, as its diagnostic says.
+                let named = layer.as_str().is_some_and(|l| !l.is_empty());
+                if !named || map.is_some() {
+                    let iris = crate::layer_fx::Iris {
+                        blades: crate::layer_fx::blades(iris).unwrap_or(0),
+                        roundness: *roundness,
+                        rotation: *rotation,
+                        aspect: *aspect,
+                        gain: *highlight_gain,
+                        threshold: *highlight_threshold,
+                    };
+                    let r = crate::perf::time(crate::perf::Stage::EffectLensBlur, || match map {
+                        Some(m) => {
+                            let read = crate::layer_fx::LensMap {
+                                alpha: channel == "alpha",
+                                focus: *focal_distance / 255.0,
+                                invert: invert == "on",
+                            };
+                            crate::layer_fx::lens_blur_map(source, *radius, edges == "repeat", &iris, &m.0, (ox, oy), &read)
+                        }
+                        None => crate::layer_fx::lens_blur(source, *radius, edges == "repeat", &iris),
+                    });
+                    ox += r;
+                    oy += r;
+                }
             }
             Effect::RimLight {
                 color,

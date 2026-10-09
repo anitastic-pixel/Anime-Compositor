@@ -1447,6 +1447,79 @@ fn gather(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(acc / k[0]));
 }
 
+// D-359, layer_fx::lens_blur_map: one level's mean at the drawing's pixel (x, y), its runs at
+// k[start..], summed as `gather` sums them.
+fn lmean(start: u32, count: u32, n: f64, x: i32, y: i32, w: i32, h: i32) -> vec4<f64> {
+    var acc = vec4<f64>(0.0lf);
+    for (var j = 0u; j < count; j++) {
+        let dy = i32(k[start + 3u * j]);
+        let lo = i32(k[start + 1u + 3u * j]);
+        let hi = i32(k[start + 2u + 3u * j]);
+        var sy = y - dy;
+        if F.mode == 1u {
+            sy = clamp(sy, 0, h - 1);
+        } else if sy < 0 || sy >= h {
+            continue;
+        }
+        let a = x - hi;
+        let b = x - lo;
+        let l = max(a, 0);
+        let r = min(b, w - 1);
+        let base = u32(sy * (w + 1));
+        if l <= r {
+            acc += sums[base + u32(r + 1)] - sums[base + u32(l)];
+        }
+        if F.mode == 1u {
+            let left = f64(max(min(b, -1) - a + 1, 0));
+            let right = f64(max(b - max(a, w) + 1, 0));
+            let first = vec4<f64>(lit(textureLoad(input, vec2(0, sy), 0)));
+            let last = vec4<f64>(lit(textureLoad(input, vec2(w - 1, sy), 0)));
+            acc += left * first + right * last;
+        }
+    }
+    return acc / n;
+}
+
+// D-359, layer_fx::lens_blur_map: Lens Blur with `other` the blur map. k: J, the threshold and
+// gain, the focus, alpha, invert, the drawing's corner (ox, oy); then each level's count, where
+// its runs start in k and how many; then the runs.
+@compute @workgroup_size(16, 16)
+fn lmgather(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let w = i32(textureDimensions(input).x);
+    let h = i32(textureDimensions(input).y);
+    let ms = vec2<i32>(textureDimensions(other));
+    let x = i32(id.x) - F.g;
+    let y = i32(id.y) - F.g;
+    // One channel at a time: the card's whole-vector widening reads this map as nothing.
+    let q = textureLoad(other, clamp(vec2(x - i32(k[6]), y - i32(k[7])), vec2(0), ms - 1), 0);
+    let m = vec4(f64(q.x), f64(q.y), f64(q.z), f64(q.w));
+    var v = m.w;
+    if k[4] == 0.0lf {
+        v = to_srgb(clamp(luma(m.xyz), 0.0lf, 1.0lf));
+    }
+    if k[5] == 1.0lf {
+        v = 1.0lf - v;
+    }
+    let big = u32(k[0]);
+    let s = abs(v - k[3]) * k[0];
+    let j = min(u32(floor(s)), big);
+    let t = s - f64(j);
+    var acc = lmean(u32(k[9u + 3u * j]), u32(k[10u + 3u * j]), k[8u + 3u * j], x, y, w, h);
+    if t > 0.0lf {
+        let next = lmean(u32(k[12u + 3u * j]), u32(k[13u + 3u * j]), k[11u + 3u * j], x, y, w, h);
+        acc += t * (next - acc);
+    }
+    if F.flag == 1u {
+        acc = vec4(min(acc.xyz, vec3(acc.w)), acc.w);
+    }
+    // B-222: one channel at a time.
+    textureStore(output, id.xy, vec4(f32(acc.x), f32(acc.y), f32(acc.z), f32(acc.w)));
+}
+
 // B-76, layer_fx::turbulent_displace: `output` is the drawing grown by `g`. k: the amount, the
 // size, the depth, the drawing's corner in the output. `count` is the octaves, `flag` Repeat
 // Edge Pixels.
@@ -5211,6 +5284,8 @@ struct FxPasses {
     ring: Pass,
     prefix: Pass,
     gather: Pass,
+    /// D-359.
+    lmgather: Pass,
     /// B-76.
     turb: Pass,
     slide: Pass,
@@ -5828,6 +5903,7 @@ impl Gpu {
                 ring: pass("ring", &[0, 1, 2, 3, 4]),
                 prefix: pass("prefix", &[0, 1, 3, 7]),
                 gather: pass("gather", &[0, 1, 2, 3, 7]),
+                lmgather: pass("lmgather", &[0, 1, 2, 3, 4, 7]),
                 turb: pass("turb", &[0, 1, 2, 3]),
                 slide: pass("slide", &[0, 1, 2, 3]),
                 rays: pass("rays", &[0, 1, 2, 3, 4]),
@@ -6835,21 +6911,41 @@ impl Gpu {
                 self.fx_step(steps, &passes.ring, p, Some(still), Some(&out), Some(&k), Some(&blurred), none, tiles(w + 2 * g, h + 2 * g));
                 (out, (w + 2 * g, h + 2 * g))
             }
-            E::LensBlur { radius, edges, iris, roundness, rotation, aspect, highlight_gain, highlight_threshold } => {
+            E::LensBlur { radius, edges, iris, roundness, rotation, aspect, highlight_gain, highlight_threshold, channel, focal_distance, invert, map, .. } => {
                 let repeat = edges == "repeat";
                 let g = if repeat { 0 } else { crate::layer_fx::lens_reach(*radius, *aspect).ceil() as usize };
                 let blades = crate::layer_fx::blades(iris).unwrap_or(0);
-                let runs = crate::layer_fx::iris_runs(*radius, blades, *roundness, *rotation, *aspect);
-                let n: isize = runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum();
                 // The threshold and the gain as the CPU rounds them to single precision.
                 let (at, m) = ((highlight_threshold / 100.0) as f32 as f64, (1.0 + highlight_gain) as f32 as f64);
-                let mut k = vec![n as f64, at, m];
-                k.extend(runs.iter().flatten().map(|&v| v as f64));
+                let p = FxParams { mode: repeat as u32, flag: (*highlight_gain > 0.0) as u32, g: g as i32, ..Default::default() };
                 let sums = buffer((w + 1) * h * 32);
-                let p = FxParams { mode: repeat as u32, flag: (*highlight_gain > 0.0) as u32, count: runs.len() as u32, g: g as i32, ..Default::default() };
-                self.fx_step(steps, &passes.prefix, p, Some(still), None, Some(&k), None, [None, None, Some(&sums), None], ((h as u32).div_ceil(64), 1));
                 let out = self.scratch("B-65 lens", w + 2 * g, h + 2 * g);
-                self.fx_step(steps, &passes.gather, p, Some(still), Some(&out), Some(&k), None, [None, None, Some(&sums), None], tiles(w + 2 * g, h + 2 * g));
+                if let Some(map) = map {
+                    // D-359: a header, each level's count and runs, then the runs; compose leaves
+                    // a named map that was not read to draw the layer without the effect.
+                    let shape = crate::layer_fx::Iris { blades, roundness: *roundness, rotation: *rotation, aspect: *aspect, gain: *highlight_gain, threshold: *highlight_threshold };
+                    let levels = crate::layer_fx::lens_levels(*radius, &shape);
+                    let (alpha, turned) = ((channel == "alpha") as u8 as f64, (invert == "on") as u8 as f64);
+                    let mut k = vec![(levels.len() - 1) as f64, at, m, focal_distance / 255.0, alpha, turned, ox as f64, oy as f64];
+                    let mut start = 8 + 3 * levels.len();
+                    for runs in &levels {
+                        k.push(runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum::<isize>() as f64);
+                        k.extend([start as f64, runs.len() as f64]);
+                        start += 3 * runs.len();
+                    }
+                    k.extend(levels.iter().flatten().flatten().map(|&v| v as f64));
+                    self.fx_step(steps, &passes.prefix, p, Some(still), None, Some(&k), None, [None, None, Some(&sums), None], ((h as u32).div_ceil(64), 1));
+                    let picture = self.map_texture(&map.0);
+                    self.fx_step(steps, &passes.lmgather, p, Some(still), Some(&out), Some(&k), Some(&picture), [None, None, Some(&sums), None], tiles(w + 2 * g, h + 2 * g));
+                } else {
+                    let runs = crate::layer_fx::iris_runs(*radius, blades, *roundness, *rotation, *aspect);
+                    let n: isize = runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum();
+                    let mut k = vec![n as f64, at, m];
+                    k.extend(runs.iter().flatten().map(|&v| v as f64));
+                    let p = FxParams { count: runs.len() as u32, ..p };
+                    self.fx_step(steps, &passes.prefix, p, Some(still), None, Some(&k), None, [None, None, Some(&sums), None], ((h as u32).div_ceil(64), 1));
+                    self.fx_step(steps, &passes.gather, p, Some(still), Some(&out), Some(&k), None, [None, None, Some(&sums), None], tiles(w + 2 * g, h + 2 * g));
+                }
                 (out, (w + 2 * g, h + 2 * g))
             }
             // B-76: the second batch.

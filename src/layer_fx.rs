@@ -257,37 +257,8 @@ pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool, i
     let runs = iris_runs(radius, iris.blades, iris.roundness, iris.rotation, iris.aspect);
     let n = runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum::<isize>() as f64;
     let (w, h) = (source.width() as isize, source.height() as isize);
-    let lit: Vec<f32>;
-    let src = if iris.gain > 0.0 {
-        let (m, at) = ((1.0 + iris.gain) as f32, (iris.threshold / 100.0) as f32);
-        let mut copy = source.data().to_vec();
-        copy.par_chunks_exact_mut(4).for_each(|p| {
-            let bright = p[3] > 0.0 && p[0].max(p[1]).max(p[2]) / p[3] >= at;
-            let k = if bright { m } else { 1.0 };
-            for c in &mut p[..3] {
-                *c *= k;
-            }
-        });
-        lit = copy;
-        &lit[..]
-    } else {
-        source.data()
-    };
-    // Each row's running totals, `sums[y][x]` the sum of its first x pixels.
-    let sums: Vec<Vec<[f64; 4]>> = src
-        .par_chunks(w as usize * 4)
-        .map(|row| {
-            let mut s = vec![[0.0; 4]; w as usize + 1];
-            for (x, px) in row.chunks_exact(4).enumerate() {
-                for i in 0..4 {
-                    s[x + 1][i] = s[x][i] + px[i] as f64;
-                }
-            }
-            s
-        })
-        .collect();
-    // P-21: a row with nothing on it adds only +0 to sums that started at +0.
-    let empty: Vec<bool> = src.par_chunks(w as usize * 4).map(|row| row.iter().all(|&v| v == 0.0)).collect();
+    let (src, sums, empty) = lens_rows(source, iris);
+    let src = &src[..];
     let ow = w as usize + 2 * g;
     let mut out = WorkingBuffer::transparent(ow, h as usize + 2 * g);
     out.data_mut()
@@ -352,6 +323,168 @@ pub(crate) fn lens_blur(source: &mut WorkingBuffer, radius: f64, repeat: bool, i
         });
     *source = out;
     g
+}
+
+/// D-116 and D-121's steps before the gather: the pixels, each lit by the highlight when the
+/// gain is above 0; each row's running totals, `sums[y][x]` the sum of its first x pixels; and
+/// which rows have nothing on them (P-21: such a row adds only +0 to sums that started at +0).
+#[allow(clippy::type_complexity)]
+fn lens_rows<'a>(source: &'a WorkingBuffer, iris: &Iris) -> (std::borrow::Cow<'a, [f32]>, Vec<Vec<[f64; 4]>>, Vec<bool>) {
+    let w = source.width();
+    let src = if iris.gain > 0.0 {
+        let (m, at) = ((1.0 + iris.gain) as f32, (iris.threshold / 100.0) as f32);
+        let mut copy = source.data().to_vec();
+        copy.par_chunks_exact_mut(4).for_each(|p| {
+            let bright = p[3] > 0.0 && p[0].max(p[1]).max(p[2]) / p[3] >= at;
+            let k = if bright { m } else { 1.0 };
+            for c in &mut p[..3] {
+                *c *= k;
+            }
+        });
+        std::borrow::Cow::Owned(copy)
+    } else {
+        std::borrow::Cow::Borrowed(source.data())
+    };
+    let sums: Vec<Vec<[f64; 4]>> = src
+        .par_chunks(w.max(1) * 4)
+        .map(|row| {
+            let mut s = vec![[0.0; 4]; w + 1];
+            for (x, px) in row.chunks_exact(4).enumerate() {
+                for i in 0..4 {
+                    s[x + 1][i] = s[x][i] + px[i] as f64;
+                }
+            }
+            s
+        })
+        .collect();
+    let empty: Vec<bool> = src.par_chunks(w.max(1) * 4).map(|row| row.iter().all(|&v| v == 0.0)).collect();
+    (src, sums, empty)
+}
+
+/// D-359: how Lens Blur reads its blur map: by its covering rather than its luminance, the
+/// value kept sharp (`focal_distance` / 255), and whether the map is turned over first.
+pub(crate) struct LensMap {
+    pub alpha: bool,
+    pub focus: f64,
+    pub invert: bool,
+}
+
+/// D-359: the blur map's levels, level j the iris at radius `radius` (j / J) for j = 0 to J,
+/// J = max(1, ceil(radius)); each level's runs as [`iris_runs`] gives them.
+pub(crate) fn lens_levels(radius: f64, iris: &Iris) -> Vec<Vec<[isize; 3]>> {
+    let big = (radius.ceil() as usize).max(1);
+    (0..=big)
+        .map(|j| iris_runs(radius * (j as f64 / big as f64), iris.blades, iris.roundness, iris.rotation, iris.aspect))
+        .collect()
+}
+
+/// D-359: the blur map's reading at a pixel, s = d J of `tools/lens_blur_map_reference.py`'s
+/// steps 2 to 4, `p` the map's premultiplied pixel and `big` J.
+pub(crate) fn lens_level(p: &[f32], read: &LensMap, big: usize) -> f64 {
+    let v = if read.alpha {
+        p[3] as f64
+    } else {
+        let luma = 0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64;
+        crate::grade::to_srgb(luma.clamp(0.0, 1.0))
+    };
+    let v = if read.invert { 1.0 - v } else { v };
+    (v - read.focus).abs() * big as f64
+}
+
+/// D-359: Lens Blur with a blur map, `map` the named layer's picture fitted to the drawing, whose
+/// corner is at `origin` in `source`. Each output pixel reads the map where it lies, held inside
+/// the map's rectangle; how far that value is from the focus, d, says how far out of focus the
+/// pixel is: its output is the mean over the iris at level floor(d J) mixed toward the next
+/// level by the rest, each mean taken from the rows' running totals in the iris's order, so the
+/// last level is [`lens_blur`]'s pixel to the bit. The layer grows as [`lens_blur`]'s does,
+/// returned. The settings are already valid.
+pub(crate) fn lens_blur_map(
+    source: &mut WorkingBuffer,
+    radius: f64,
+    repeat: bool,
+    iris: &Iris,
+    map: &WorkingBuffer,
+    origin: (usize, usize),
+    read: &LensMap,
+) -> usize {
+    let g = if repeat {
+        0
+    } else {
+        lens_reach(radius, iris.aspect).ceil() as isize
+    };
+    let levels = lens_levels(radius, iris);
+    let big = levels.len() - 1;
+    let counts: Vec<f64> = levels
+        .iter()
+        .map(|runs| runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum::<isize>() as f64)
+        .collect();
+    let (w, h) = (source.width() as isize, source.height() as isize);
+    let (mw, mh) = (map.width() as isize, map.height() as isize);
+    let (src, sums, empty) = lens_rows(source, iris);
+    let src = &src[..];
+    // One level's mean at the drawing's pixel (x, y), each run summed as `lens_blur` sums it.
+    let mean = |runs: &[[isize; 3]], n: f64, x: isize, y: isize| {
+        let mut acc = [0.0f64; 4];
+        for &[dy, lo, hi] in runs {
+            let mut sy = y - dy;
+            if repeat {
+                sy = sy.clamp(0, h - 1);
+            } else if sy < 0 || sy >= h {
+                continue;
+            }
+            if empty[sy as usize] {
+                continue;
+            }
+            let (s, row) = (&sums[sy as usize], sy as usize * w as usize * 4);
+            let (a, b) = (x - hi, x - lo);
+            let (l, r) = (a.max(0), b.min(w - 1));
+            for i in 0..4 {
+                if l <= r {
+                    acc[i] += s[r as usize + 1][i] - s[l as usize][i];
+                }
+                if repeat {
+                    let left = (b.min(-1) - a + 1).max(0) as f64;
+                    let right = (b - a.max(w) + 1).max(0) as f64;
+                    acc[i] += left * src[row + i] as f64 + right * src[row + (w as usize - 1) * 4 + i] as f64;
+                }
+            }
+        }
+        acc.map(|v| v / n)
+    };
+    let ow = (w + 2 * g) as usize;
+    let mut out = WorkingBuffer::transparent(ow, (h + 2 * g) as usize);
+    out.data_mut().par_chunks_mut(ow * 4).enumerate().for_each(|(oy, line)| {
+        let y = oy as isize - g;
+        for (ox, px) in line.chunks_exact_mut(4).enumerate() {
+            let x = ox as isize - g;
+            let s = if mw > 0 && mh > 0 {
+                let mx = (x - origin.0 as isize).clamp(0, mw - 1);
+                let my = (y - origin.1 as isize).clamp(0, mh - 1);
+                lens_level(&map.data()[(my * mw + mx) as usize * 4..][..4], read, big)
+            } else {
+                lens_level(&[0.0; 4], read, big)
+            };
+            let j = (s.floor() as usize).min(big);
+            let t = s - j as f64;
+            let mut acc = mean(&levels[j], counts[j], x, y);
+            if t > 0.0 {
+                let next = mean(&levels[j + 1], counts[j + 1], x, y);
+                for i in 0..4 {
+                    acc[i] += t * (next[i] - acc[i]);
+                }
+            }
+            if iris.gain > 0.0 {
+                for i in 0..3 {
+                    acc[i] = acc[i].min(acc[3]);
+                }
+            }
+            for i in 0..4 {
+                px[i] = acc[i] as f32;
+            }
+        }
+    });
+    *source = out;
+    g as usize
 }
 
 /// D-117: the edge of the drawing that faces the light lit. A pixel that shows is lit as far as

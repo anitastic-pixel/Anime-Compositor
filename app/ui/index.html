@@ -9698,7 +9698,9 @@ const EFFECT_PARAMS = {
     ['rotation', 'Rotation', 1, 1, 'degrees clockwise from up, -3600 to 3600', 'dial', 0],
     ['aspect', 'Aspect', 1, 0.05, 'width over height, 0.1 to 10', '', 1],
     ['highlight_gain', 'Brightness', 1, 0.1, 'highlight gain: how much brighter the highlights spread, 0 to 100', '', 0],
-    ['highlight_threshold', 'Threshold', 1, 1, 'highlight threshold: the brightness a highlight starts at, 0 to 100', '', 100]],
+    ['highlight_threshold', 'Threshold', 1, 1, 'highlight threshold: the brightness a highlight starts at, 0 to 100', '', 100],
+    // D-359: the blur map's focus.
+    ['focal_distance', 'Blur Focal Distance', 1, 1, 'the blur map value kept sharp, 0 to 255', '', 0]],
   // D-117.
   'core.rim_light': [['direction', 'Light Direction', 1, 1, 'degrees clockwise from up, -3600 to 3600', 'dial'],
     ['width', 'Width', 1, 0.5, 'pixels, 0 to 100'],
@@ -10219,7 +10221,12 @@ const EFFECT_WORDS = {
   'core.lens_blur': {
     choices: [['iris', 'Iris Shape', [['circle', 'Circle'], ['triangle', 'Triangle'], ['square', 'Square'],
       ['pentagon', 'Pentagon'], ['hexagon', 'Hexagon'], ['heptagon', 'Heptagon'], ['octagon', 'Octagon'],
-      ['nonagon', 'Nonagon'], ['decagon', 'Decagon']]], EDGES],
+      ['nonagon', 'Nonagon'], ['decagon', 'Decagon']]], EDGES,
+      // D-359: After Effects' Blur Map group; the file leaves each out at its first choice.
+      ['channel', 'Blur Map Channel', [['luminance', 'Luminance'], ['alpha', 'Alpha']]],
+      ['fit', 'Blur Map Placement', [['center', 'Centre'], ['stretch', 'Stretch Map to Fit']]],
+      ['invert', 'Invert Blur Map', [['off', 'Off'], ['on', 'On']]]],
+    layers: [['layer', 'Blur Map Layer', 'blur_layer']],
   },
   // D-117.
   'core.rim_light': {

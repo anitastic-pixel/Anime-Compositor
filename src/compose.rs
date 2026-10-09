@@ -1143,6 +1143,8 @@ fn card_effect(
                     [red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness].iter().all(|s| crate::effects::kernel_radius(**s) == 0)
                 }
                 E::CompoundBlur { map, max_blur, .. } => map.is_none() || *max_blur == 0.0,
+                // D-359: a blur layer named and not read this frame is drawn without the effect.
+                E::LensBlur { layer, map, .. } => layer.as_str().is_some_and(|l| !l.is_empty()) && map.is_none(),
                 E::SelectiveColorBlur { blur, colors, .. } => (blur + 0.5).floor() == 0.0 || crate::selective_blur::targets(colors).is_empty(),
                 E::VectorBlur { amount, .. } => *amount == 0.0,
                 // B-224: as each one's own function returns at once.

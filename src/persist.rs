@@ -1357,6 +1357,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             aspect,
             highlight_gain,
             highlight_threshold,
+            layer,
+            fit,
+            channel,
+            focal_distance,
+            invert,
+            ..
         } => {
             params.insert("radius".into(), num(*radius));
             params.insert("edges".into(), J::from(edges.as_str()));
@@ -1369,6 +1375,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 ("aspect", num(*aspect), *aspect == 1.0),
                 ("highlight_gain", num(*highlight_gain), *highlight_gain == 0.0),
                 ("highlight_threshold", num(*highlight_threshold), *highlight_threshold == 100.0),
+                // D-359: the blur map, the same way.
+                ("layer", layer.clone(), layer.as_str() == Some("")),
+                ("fit", J::from(fit.as_str()), fit == "center"),
+                ("channel", J::from(channel.as_str()), channel == "luminance"),
+                ("focal_distance", num(*focal_distance), *focal_distance == 0.0),
+                ("invert", J::from(invert.as_str()), invert == "off"),
             ] {
                 if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), value);
@@ -3932,6 +3944,14 @@ fn parse_effect(
             aspect: effect_number_or(params, "aspect", &at, 1.0)?,
             highlight_gain: effect_number_or(params, "highlight_gain", &at, 0.0)?,
             highlight_threshold: effect_number_or(params, "highlight_threshold", &at, 100.0)?,
+            // D-359: the blur map, read at its start values from a file without it; the layer
+            // kept as written, as Compound Blur's is.
+            layer: params.and_then(|p| p.get("layer")).cloned().unwrap_or_else(|| J::from("")),
+            fit: effect_word_or(params, "fit", &at, "center")?,
+            channel: effect_word_or(params, "channel", &at, "luminance")?,
+            focal_distance: effect_number_or(params, "focal_distance", &at, 0.0)?,
+            invert: effect_word_or(params, "invert", &at, "off")?,
+            map: None,
         }),
         crate::effects::RIM_LIGHT => Some(crate::effects::Effect::RimLight {
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
