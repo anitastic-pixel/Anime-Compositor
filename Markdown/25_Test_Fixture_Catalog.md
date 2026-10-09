@@ -203652,3 +203652,113 @@ FX-SHARPEN-028 (`fx_sharpen_028.json`): Threshold 256, above 255. The file is re
 FX-SHARPEN-029 (`fx_sharpen_029.json`): Threshold -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SHARPEN-030 (`fx_sharpen_030.json`): Threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Broadcast Safe (D-365)
+
+Broadcast Safe (`core.broadcast_safe`), after After Effects' Broadcast Colors (B-244): a pixel whose composite-video signal top, measured in IRE on the encoded colour, is above the limit is darkened, greyed or keyed out, or only those pixels are kept. Every case is a project of one composition 16 by 10 at 24 fps, five frames, holding one drawing the same size (`media/colours.png`): columns of strong and everyday colours, darker row by row, with a soft yellow at half covering and clear pixels. `tools/broadcast_safe_reference.py` works the expected frames, `expected_broadcast_safe.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-BCAST-001 (`fx_bcast_001.json`): NTSC, reduce luminance, 110 IRE, the settings as they start: the three brightest rows of yellow (pure yellow is about 131 IRE) and cyan and the top row of green are darkened until their signal is 110 IRE, keeping their colour; everything else is safe and stays as it is. Frames 0.
+
+FX-BCAST-002 (`fx_bcast_002.json`): Reduce saturation: the same unsafe pixels keep their brightness and are made greyer until their signal is 110 IRE. Frames 0.
+
+FX-BCAST-003 (`fx_bcast_003.json`): Key out unsafe: the unsafe pixels are cleared, showing what is behind; everything else stays exactly as it is. Frames 0.
+
+FX-BCAST-004 (`fx_bcast_004.json`): Key out safe: the other way round, only the unsafe pixels are left, to show where they are. Frames 0.
+
+FX-BCAST-005 (`fx_bcast_005.json`): PAL: no set-up, so black is 0 IRE rather than 7.5 and the limit allows a little less colour signal; the same pixels are unsafe as on NTSC, each brought down a little further. Frames 0.
+
+FX-BCAST-006 (`fx_bcast_006.json`): NTSC at 90 IRE: even the white and the light greys are above the limit, so they are darkened too. Frames 0.
+
+FX-BCAST-007 (`fx_bcast_007.json`): NTSC at 120 IRE, the loosest limit: only the two brightest rows of yellow and cyan are brought down. Frames 0.
+
+FX-BCAST-008 (`fx_bcast_008.json`): PAL at 95 IRE, reduce saturation: the white's brightness alone is past the limit and it has no colour to take away, so it becomes the grey at the limit; the bright colours lose colour, keeping their brightness. Frames 0.
+
+FX-BCAST-009 (`fx_bcast_009.json`): The limit keyed from 90 IRE at frame 0 to 120 at frame 4, linear: frame 0 is FX-BCAST-006, frame 2 is 105 IRE, frame 4 is FX-BCAST-007. Frames 0, 2, 4.
+
+FX-BCAST-010 (`fx_bcast_010.json`): FX-BCAST-002 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-BCAST-011 (`fx_bcast_011.json`): Maximum signal amplitude 121, above 120. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BCAST-012 (`fx_bcast_012.json`): Maximum signal amplitude 89, below 90. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BCAST-013 (`fx_bcast_013.json`): Locale "secam", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BCAST-014 (`fx_bcast_014.json`): Locale "NTSC": the word is exact, so capitals are not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BCAST-015 (`fx_bcast_015.json`): Method "reduce", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Color Neutralizer (D-366)
+
+Color Neutralizer (`core.color_neutralizer`), after CycoreFX's CC Color Neutralizer (B-245): the colours named as the shadows', midtones' and highlights' cast each pulled to the grey of their own lightness, the corrections faded between black and white, with levels to add, pinning, and black and white points. Every case is Broadcast Safe's drawing, whose columns 12 to 14 are a warm shadow (#3c2d1e), midtone (#968064) and highlight (#f0e6c8). `tools/color_neutralizer_reference.py` works the expected frames, `expected_color_neutralizer.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-NEUTRAL-001 (`fx_neutral_001.json`): The settings as they start, black, grey and white to neutralize and nothing added: the drawing, untouched. Frames 0.
+
+FX-NEUTRAL-002 (`fx_neutral_002.json`): Shadows unbalance the warm shadow #3c2d1e: its cast, turned the other way, is added in full at black and fades out toward the midtones; the warm shadow itself, under a fifth of the way up, loses about two thirds of its cast, its lightness kept; middle grey and up are untouched. Frames 0.
+
+FX-NEUTRAL-003 (`fx_neutral_003.json`): Midtones unbalance the warm midtone #968064: the cast taken out most at middle lightness, fading to nothing at black and at white. Frames 0.
+
+FX-NEUTRAL-004 (`fx_neutral_004.json`): Highlights unbalance the warm highlight #f0e6c8: the cast taken out of the light colours, white itself turned bluish. Frames 0.
+
+FX-NEUTRAL-005 (`fx_neutral_005.json`): All three: the warm shadow, midtone and highlight themselves (row 0) come out near grey, the cast gone, their lightness kept; their darker copies further down, whose cast is smaller than the correction at their lightness, are pushed past grey toward blue. Frames 0.
+
+FX-NEUTRAL-006 (`fx_neutral_006.json`): Numbers only: shadows red 20 and blue -20, midtones green 10, highlights red -30 and blue 30, levels added and faded between. Frames 0.
+
+FX-NEUTRAL-007 (`fx_neutral_007.json`): All three colours with pinning 50: black and white are pinned, and the correction comes in over the first and last quarter of the way. Frames 0.
+
+FX-NEUTRAL-008 (`fx_neutral_008.json`): Pinning 100: only middle lightness gets the whole correction; the rest less, the nearer black or white. Frames 0.
+
+FX-NEUTRAL-009 (`fx_neutral_009.json`): Black point 40 and white point 200 with all three colours: everything below 40 counts as shadow and above 200 as highlight. Frames 0.
+
+FX-NEUTRAL-010 (`fx_neutral_010.json`): Black point 120 and white point 100, white not above black, with the numbers: lightness below 120 takes the shadows' numbers only, from 120 up the highlights' only. Frames 0.
+
+FX-NEUTRAL-011 (`fx_neutral_011.json`): Pinning keyed from 0 at frame 0 to 100 at frame 4, all three colours: frame 0 is FX-NEUTRAL-005, frame 2 pinning 50, FX-NEUTRAL-007, frame 4 FX-NEUTRAL-008. Frames 0, 2, 4.
+
+FX-NEUTRAL-012 (`fx_neutral_012.json`): FX-NEUTRAL-005 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-NEUTRAL-013 (`fx_neutral_013.json`): Shadows unbalance "#3c2d1", five digits, not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NEUTRAL-014 (`fx_neutral_014.json`): Midtones two numbers, not three. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NEUTRAL-015 (`fx_neutral_015.json`): Highlights blue 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NEUTRAL-016 (`fx_neutral_016.json`): Pinning 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NEUTRAL-017 (`fx_neutral_017.json`): Black point -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NEUTRAL-018 (`fx_neutral_018.json`): White point 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Color Offset (D-367)
+
+Color Offset (`core.color_offset`), after CycoreFX's CC Color Offset (B-246): each channel of the encoded colour turned round by its own phase in degrees, 360 once round, what passes white wrapped, folded (solarize) or folded smoothly (polarize). Every case is Broadcast Safe's drawing. `tools/color_offset_reference.py` works the expected frames, `expected_color_offset.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-COFFSET-001 (`fx_coffset_001.json`): All phases 0, the settings as they start: the drawing, untouched. Frames 0.
+
+FX-COFFSET-002 (`fx_coffset_002.json`): Red phase 90, wrap: red raised a quarter of the range, and what passes white comes round from black, so the reddest colours turn dark red. Frames 0.
+
+FX-COFFSET-003 (`fx_coffset_003.json`): Red 90, green 180, blue 270, wrap: each channel turned its own way, the colours scrambled into new ones. Frames 0.
+
+FX-COFFSET-004 (`fx_coffset_004.json`): All three -90, wrap: every value lowered a quarter, and what passes black comes round from white, so the darks turn light. Frames 0.
+
+FX-COFFSET-005 (`fx_coffset_005.json`): All three 180, solarize: values below half rise by half, values above half are folded back down from white. Frames 0.
+
+FX-COFFSET-006 (`fx_coffset_006.json`): All three 360, solarize: one whole turn folds every value over, the picture's negative. Frames 0.
+
+FX-COFFSET-007 (`fx_coffset_007.json`): All three 720, solarize: two turns bring the picture back. Frames 0.
+
+FX-COFFSET-008 (`fx_coffset_008.json`): All three 180, polarize: like FX-COFFSET-005 but smooth, with no sharp fold at white. Frames 0.
+
+FX-COFFSET-009 (`fx_coffset_009.json`): All three 360, polarize: one whole turn is the negative, as solarize's. Frames 0.
+
+FX-COFFSET-010 (`fx_coffset_010.json`): Red 45, green -135, blue 600, polarize: each channel its own way round. Frames 0.
+
+FX-COFFSET-011 (`fx_coffset_011.json`): Red phase keyed from 0 at frame 0 to 400 at frame 4, linear, wrap: frame 0 untouched, frame 2 red 200, frame 4 red 400. Frames 0, 2, 4.
+
+FX-COFFSET-012 (`fx_coffset_012.json`): FX-COFFSET-003 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-COFFSET-013 (`fx_coffset_013.json`): Red phase 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COFFSET-014 (`fx_coffset_014.json`): Blue phase -3601, below -3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COFFSET-015 (`fx_coffset_015.json`): Overflow "mirror", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-COFFSET-016 (`fx_coffset_016.json`): Overflow "Wrap": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
