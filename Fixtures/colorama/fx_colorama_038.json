@@ -1,0 +1,129 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-colorama-038",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-colours",
+      "kind": "still",
+      "name": "colours",
+      "path": "media/colours.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 5,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 5
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-colours",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.colorama",
+              "enabled": true,
+              "parameters": {
+                "get_phase": "intensity",
+                "layer": "",
+                "fit": "stretch",
+                "phase_shift": 0,
+                "cycle_repetitions": 1,
+                "stops": 5,
+                "color_1": "#ff0000",
+                "color_2": "#ccff00",
+                "color_3": "#00ff66",
+                "color_4": "#0066ff",
+                "color_5": "#cc00ff",
+                "blend_with_original": 0,
+                "add_phase_from": "intensity",
+                "add_mode": "wrap",
+                "interpolate": "yes",
+                "opacity_1": 100,
+                "opacity_2": 100,
+                "opacity_3": 100,
+                "opacity_4": 100,
+                "opacity_5": 100,
+                "modify": "all",
+                "modify_alpha": "off",
+                "change_empty": "off",
+                "matching_mode": "off",
+                "matching_color": "#ffffff",
+                "matching_tolerance": 15,
+                "matching_softness": 0,
+                "mask_layer": "",
+                "masking_mode": "luminance",
+                "composite_over": "on"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
