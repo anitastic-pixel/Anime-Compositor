@@ -9311,6 +9311,7 @@ const EFFECT_NAMES = {
   'core.polar_coordinates': 'Polar Coordinates',
   'core.median': 'Median',
   'core.smart_blur': 'Smart Blur',
+  'core.bilateral_blur': 'Bilateral Blur',
   'core.snowfall': 'Snowfall',
   'core.kaleidoscope': 'Kaleidoscope',
   'core.roughen_edges': 'Roughen Edges',
@@ -9350,7 +9351,8 @@ const EFFECT_NAMES = {
 const EFFECT_GROUPS = [
   ['Blur & Sharpen', ['core.gaussian_blur', 'core.directional_blur', 'core.radial_blur',
     'core.lens_blur', 'core.compound_blur', 'core.selective_color_blur', 'core.sharpen',
-    'core.diffusion', 'core.median', 'core.smart_blur', 'core.channel_blur', 'core.fast_box_blur', 'core.vector_blur']],
+    'core.diffusion', 'core.median', 'core.smart_blur', 'core.channel_blur', 'core.fast_box_blur', 'core.vector_blur',
+    'core.bilateral_blur']],
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.change_to_color',
@@ -9440,6 +9442,7 @@ const EFFECT_SEARCH = {
   'core.polar_coordinates': 'polar coordinates rect to polar polar to rect focus lines speed lines tiny planet round circle ring bend wrap unroll',
   'core.median': 'median noise grain dust specks speckle clean cleanup despeckle scan pinhole denoise',
   'core.smart_blur': 'smart blur surface blur skin smooth smoothing grain noise denoise edge preserving bilateral clean',
+  'core.bilateral_blur': 'bilateral blur surface blur skin smooth smoothing grain noise denoise edge preserving clean glow colorize',
   'core.snowfall': 'snow snowfall snowflakes flakes winter weather blizzard falling cc snowfall',
   'core.kaleidoscope': 'kaleidoscope kaleida cc kaleida mirror symmetry segments wedges mandala pattern tile repeat',
   'core.roughen_edges': 'roughen edges rough torn ragged eroded burnt burned paper cut out distress edge crumble',
@@ -9574,6 +9577,7 @@ const EFFECT_ABOUT = {
   'core.polar_coordinates': 'Bends the layer round its middle, its rows into rings and its columns into spokes, or unrolls it back.',
   'core.median': 'Cleans away specks and pinholes: each pixel takes the middle colour of those round it, so edges stay.',
   'core.smart_blur': 'Smooths flat colour and grain while keeping lines sharp: each pixel mixes only with close colours round it.',
+  'core.bilateral_blur': 'A softer Smart Blur: close colours mix fully, far ones fade out, so grain and skin smooth while strong edges stay. Colorize off works on brightness alone and turns the layer grey.',
   'core.snowfall': 'Soft snowflakes falling over the layer in three depths, drifting with the wind and swaying.',
   'core.kaleidoscope': 'Repeats one wedge of the layer round a centre, like a kaleidoscope, every other copy mirrored or all turned the same way.',
   'core.roughen_edges': 'Eats into the layer\'s edges by a rough, changing amount, so a clean cut-out looks torn or burnt; can colour the new edge.',
@@ -10077,6 +10081,8 @@ const EFFECT_PARAMS = {
   'core.median': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 10; below 1 leaves the layer as it is']],
   'core.smart_blur': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 10; below 1 leaves the layer as it is'],
     ['threshold', 'Threshold', 1, 1, '0 to 255 steps, how close a colour must be to mix; 255 blurs everything']],
+  'core.bilateral_blur': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 50, how far each pixel looks; below 1 leaves the layer as it is'],
+    ['threshold', 'Threshold', 1, 1, '0 to 255 steps, how unlike a colour may be and still mix; higher smooths more, 0 leaves the layer as it is']],
   'core.snowfall': [['density', 'Flakes', 1, 1, '0 to 100, the per cent of places holding a flake'],
     ['spacing', 'Spacing', 1, 1, 'pixels, 2 to 1000, how far apart the near flakes are'],
     ['size', 'Size', 1, 0.5, 'pixels, 0 to 100, the widest a near flake is'],
@@ -10296,6 +10302,8 @@ const EFFECT_WORDS = {
   },
   // D-203.
   'core.median': { choices: [['operate_on_alpha', 'Operate on Alpha', [['off', 'Off'], ['on', 'On']]]] },
+  // D-358.
+  'core.bilateral_blur': { choices: [['colorize', 'Colorize', [['on', 'On'], ['off', 'Off']]]] },
   // D-204.
   'core.snowfall': { colours: [['color', 'Color']] },
   // D-205.

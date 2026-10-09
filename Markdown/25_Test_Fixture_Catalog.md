@@ -176462,6 +176462,44 @@ FX-STROKE-059 (`fx_stroke_059.json`): A shape layer whose one shape is switched 
 FX-STROKE-060 (`fx_stroke_060.json`): A shape layer of one shape, Path 2. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
 
 FX-STROKE-061 (`fx_stroke_061.json`): Path From "layer", which is not "masks" or "shapes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Bilateral Blur (D-358)
+
+Bilateral Blur (`core.bilateral_blur`), after After Effects' Bilateral Blur (B-237). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/bilateral_blur/`: the layer `art` holding D-203's specks drawing the same size (skin with specks, a hole, a line two pixels wide, a patch of grain eight levels either side of the skin, and a column at half covering; `Fixtures/bilateral_blur/media/specks.png`), unmoved unless the case says, with the effect `fx-0-0`. **Every number is produced by `tools/bilateral_blur_reference.py`**, which weighs every tap of every pixel's disc in double precision from the drawing's 8-bit values; the numbers are in `Fixtures/bilateral_blur/expected_bilateral_blur.json`. Tolerance 2e-5. The tool checks what the cases claim: the line and the dark specks kept to a tenth of a level at the defaults, the grain's spread more than halved, the white speck still light, Colorize off grey everywhere with every covering kept, Radius 0 and Threshold 0 the drawing exactly, Threshold 255 a soft blur that stays inside the drawing, and the keyed frames. B-237 checks them, and draws the playtest's pictures, in `verification/D-358_bilateral_blur_table.md`.
+
+FX-BILAT-001 (`fx_bilat_001.json`): Bilateral Blur as it starts, Radius 5, Threshold 20, Colorize on: the grain, 8 levels either side of the skin, is smoothed toward the skin, while the line and the dark specks, far more than 20 from the skin, stay as they are to well within a level; the white speck, 41 and 65 from the skin in green and blue, stays far lighter than the skin. The hole stays a hole and the half-covered column keeps its half covering. Frames 0.
+
+FX-BILAT-002 (`fx_bilat_002.json`): Radius 0: the drawing, untouched. Frames 0.
+
+FX-BILAT-003 (`fx_bilat_003.json`): Threshold 0: each pixel counts only itself, so the drawing is unchanged. Frames 0.
+
+FX-BILAT-004 (`fx_bilat_004.json`): Colorize off: the same smoothing worked on luminance alone, and every pixel that shows is grey, red, green and blue equal; the line stays dark and the outline is kept. Frames 0.
+
+FX-BILAT-005 (`fx_bilat_005.json`): Colorize off with Radius 0: no smoothing, each pixel only its own luminance, grey. Frames 0.
+
+FX-BILAT-006 (`fx_bilat_006.json`): Threshold 255: likeness hardly matters, a soft blur that stays inside the drawing: the line and the specks are blurred into the skin, and the hole, the empty column and the empty row stay empty. Frames 0.
+
+FX-BILAT-007 (`fx_bilat_007.json`): Radius 1.5, a disc of nine: a lighter smoothing of the grain than FX-BILAT-001. Frames 0.
+
+FX-BILAT-008 (`fx_bilat_008.json`): Radius keyed from 0 at frame 0 to 10 at frame 4, linear: frame 0 is the drawing and frame 2 is FX-BILAT-001. Frames 0, 2, 4.
+
+FX-BILAT-009 (`fx_bilat_009.json`): Threshold keyed from 0 at frame 0 to 40 at frame 4, linear: frame 0 is the drawing and frame 2 is FX-BILAT-001. Frames 0, 2, 4.
+
+FX-BILAT-010 (`fx_bilat_010.json`): Radius keyed from 0 at frame 0 to 50 at frame 4, eased past its end (about 64 at frame 2): frame 2 is held at 50, the same as frame 4. Frames 0, 2, 4.
+
+FX-BILAT-011 (`fx_bilat_011.json`): Bilateral Blur as it starts, the layer moved three pixels right: FX-BILAT-001 moved with it. Frames 0.
+
+FX-BILAT-012 (`fx_bilat_012.json`): Bilateral Blur, Radius 51, above 50. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BILAT-013 (`fx_bilat_013.json`): Bilateral Blur, Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BILAT-014 (`fx_bilat_014.json`): Bilateral Blur, Threshold 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BILAT-015 (`fx_bilat_015.json`): Bilateral Blur, Threshold -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BILAT-016 (`fx_bilat_016.json`): Bilateral Blur, Threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BILAT-017 (`fx_bilat_017.json`): Bilateral Blur, Colorize "sometimes", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.

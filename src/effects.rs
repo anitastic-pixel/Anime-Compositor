@@ -1144,6 +1144,9 @@ pub enum Effect {
     Median { radius: f64, operate_on_alpha: String },
     /// D-203: `radius`, 0 to 10 pixels; and `threshold`, 0 to 255 8-bit steps.
     SmartBlur { radius: f64, threshold: f64 },
+    /// D-358: `radius`, 0 to 50 pixels; `threshold`, 0 to 255 steps of the sRGB curve; and
+    /// `colorize`, "on" or "off". The word is kept as written, so a wrong one is reported.
+    BilateralBlur { radius: f64, threshold: f64, colorize: String },
     /// D-204: `color`, `#rrggbb`, kept as written so a wrong one is reported; `density`, 0 to
     /// 100; `spacing`, 2 to 1000 pixels; `size`, 0 to 100 pixels; `depth`, 0 to 100; `speed`,
     /// 0 to 1000, and `wind`, -1000 to 1000, pixels a frame; `wiggle`, 0 to 100 pixels;
@@ -1650,6 +1653,7 @@ pub const RADIO_WAVES: &str = "core.radio_waves";
 pub const POLAR_COORDINATES: &str = "core.polar_coordinates";
 pub const MEDIAN: &str = "core.median";
 pub const SMART_BLUR: &str = "core.smart_blur";
+pub const BILATERAL_BLUR: &str = "core.bilateral_blur";
 pub const SNOWFALL: &str = "core.snowfall";
 pub const KALEIDOSCOPE: &str = "core.kaleidoscope";
 pub const ROUGHEN_EDGES: &str = "core.roughen_edges";
@@ -2543,6 +2547,10 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 10.0),
                 ("threshold", vec![threshold], 0.0, 255.0),
             ],
+            Effect::BilateralBlur { radius, threshold, .. } => vec![
+                ("radius", vec![radius], 0.0, 50.0),
+                ("threshold", vec![threshold], 0.0, 255.0),
+            ],
             Effect::Snowfall {
                 density,
                 spacing,
@@ -2839,7 +2847,9 @@ impl Effect {
             Effect::LineWidth { width, .. } => *width = scale(*width),
             Effect::LineBlur { length, .. } => *length = scale(*length),
             // D-203: a radius scaled under one leaves the layer as it is.
-            Effect::Median { radius, .. } | Effect::SmartBlur { radius, .. } => *radius = scale(*radius),
+            Effect::Median { radius, .. } | Effect::SmartBlur { radius, .. } | Effect::BilateralBlur { radius, .. } => {
+                *radius = scale(*radius)
+            }
             Effect::Snowfall {
                 spacing,
                 size,
@@ -3114,6 +3124,7 @@ impl Effect {
             Effect::PolarCoordinates { .. } => "Polar Coordinates",
             Effect::Median { .. } => "Median",
             Effect::SmartBlur { .. } => "Smart Blur",
+            Effect::BilateralBlur { .. } => "Bilateral Blur",
             Effect::Snowfall { .. } => "Snowfall",
             Effect::Kaleidoscope { .. } => "Kaleidoscope",
             Effect::RoughenEdges { .. } => "Roughen Edges",
@@ -3234,6 +3245,7 @@ impl Effect {
             Effect::PolarCoordinates { .. } => POLAR_COORDINATES,
             Effect::Median { .. } => MEDIAN,
             Effect::SmartBlur { .. } => SMART_BLUR,
+            Effect::BilateralBlur { .. } => BILATERAL_BLUR,
             Effect::Snowfall { .. } => SNOWFALL,
             Effect::Kaleidoscope { .. } => KALEIDOSCOPE,
             Effect::RoughenEdges { .. } => ROUGHEN_EDGES,
@@ -4037,6 +4049,9 @@ impl Effect {
             )),
             Effect::Median { operate_on_alpha, .. } if !["off", "on"].contains(&operate_on_alpha.as_str()) => Some(format!(
                 "Median's operate on alpha is \"off\" or \"on\", and this is \"{operate_on_alpha}\"."
+            )),
+            Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
+                "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
             )),
             Effect::LineBlur { lines_only, .. } if !["off", "on"].contains(&lines_only.as_str()) => Some(format!(
                 "Line Blur's lines only is \"off\" or \"on\", and this is \"{lines_only}\"."
@@ -5322,6 +5337,9 @@ pub(crate) fn apply_stack_at(
             }),
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
                 crate::median::smart_blur(source, *radius, *threshold)
+            }),
+            Effect::BilateralBlur { radius, threshold, colorize } => crate::perf::time(crate::perf::Stage::EffectBilateralBlur, || {
+                crate::median::bilateral_blur(source, *radius, *threshold, colorize == "on")
             }),
             // D-204: the planes are fixed to the drawing's own space; it grows nothing.
             Effect::Snowfall {

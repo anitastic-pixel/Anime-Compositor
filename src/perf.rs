@@ -220,6 +220,7 @@ pub enum Stage {
     EffectPolarCoordinates,
     EffectMedian,
     EffectSmartBlur,
+    EffectBilateralBlur,
     EffectSnowfall,
     EffectKaleidoscope,
     EffectRoughenEdges,
@@ -275,7 +276,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 125] = [
+    pub const ALL: [Stage; 126] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -365,6 +366,7 @@ impl Stage {
         Stage::EffectPolarCoordinates,
         Stage::EffectMedian,
         Stage::EffectSmartBlur,
+        Stage::EffectBilateralBlur,
         Stage::EffectSnowfall,
         Stage::EffectKaleidoscope,
         Stage::EffectRoughenEdges,
@@ -495,6 +497,7 @@ impl Stage {
             Stage::EffectPolarCoordinates => "effect: polar coordinates",
             Stage::EffectMedian => "effect: median",
             Stage::EffectSmartBlur => "effect: smart blur",
+            Stage::EffectBilateralBlur => "effect: bilateral blur",
             Stage::EffectSnowfall => "effect: snowfall",
             Stage::EffectKaleidoscope => "effect: kaleidoscope",
             Stage::EffectRoughenEdges => "effect: roughen edges",

@@ -3353,6 +3353,89 @@ fn smart(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4(f32(quotient(s0, m)), f32(quotient(s1, m)), f32(quotient(s2, m)), f32(quotient(s3, m))));
 }
 
+// B-237 (D-358), median::bilateral_blur, in two passes. Mode 0: each pixel that shows the levels
+// of its straight colour, 255 times the sRGB curve, three of them, or with `flag` 0 the one of its
+// luminance. Mode 1, `other` those: each pixel that shows the mean of the taps that show within
+// the disc, each weighed by its covering and two bells, one on its distance and one on how far its
+// level is from the pixel's own. k: the likeness's 1 / 2T^2, the distance's 1 / 2s^2, then from
+// `n` the disc's rows. The bells are single precision, the sums double, as near the CPU's double
+// as a level of 255 needs.
+@compute @workgroup_size(16, 16)
+fn bilat(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = vec2<i32>(textureDimensions(input));
+    let p = vec2<i32>(id.xy);
+    if p.x >= size.x || p.y >= size.y {
+        return;
+    }
+    let s = textureLoad(input, p, 0);
+    if s.w <= 0.0 {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    let a = f64(s.w);
+    let r = f64(s.x) / a;
+    let g = f64(s.y) / a;
+    let b = f64(s.z) / a;
+    if F.mode == 0u {
+        if F.flag == 1u {
+            textureStore(output, id.xy, vec4(f32(255.0lf * to_srgb(r)), f32(255.0lf * to_srgb(g)), f32(255.0lf * to_srgb(b)), 0.0));
+        } else {
+            let y = 0.2126lf * r + 0.7152lf * g + 0.0722lf * b;
+            textureStore(output, id.xy, vec4(f32(255.0lf * to_srgb(y)), 0.0, 0.0, 0.0));
+        }
+        return;
+    }
+    let own = textureLoad(other, p, 0);
+    var s0 = 0.0lf;
+    var s1 = 0.0lf;
+    var s2 = 0.0lf;
+    var w0 = 0.0lf;
+    var w1 = 0.0lf;
+    var w2 = 0.0lf;
+    for (var dy = -F.r; dy <= F.r; dy++) {
+        let hw = i32(k[F.n + u32(dy + F.r)]);
+        for (var dx = -hw; dx <= hw; dx++) {
+            let q = p + vec2(dx, dy);
+            if any(q < vec2(0)) || any(q >= size) {
+                continue;
+            }
+            let t = textureLoad(input, q, 0);
+            if t.w <= 0.0 {
+                continue;
+            }
+            let l = textureLoad(other, q, 0);
+            let ta = f64(t.w);
+            let near = f64(exp(f32(-f64(dx * dx + dy * dy) * k[1]))) * ta;
+            let c0 = f64(t.x) / ta;
+            let c1 = f64(t.y) / ta;
+            let c2 = f64(t.z) / ta;
+            let d0 = f64(l.x) - f64(own.x);
+            let v0 = select(0.2126lf * c0 + 0.7152lf * c1 + 0.0722lf * c2, c0, F.flag == 1u);
+            let x0 = near * f64(exp(f32(-d0 * d0 * k[0])));
+            s0 += x0 * v0;
+            w0 += x0;
+            if F.flag == 1u {
+                let d1 = f64(l.y) - f64(own.y);
+                let d2 = f64(l.z) - f64(own.z);
+                let x1 = near * f64(exp(f32(-d1 * d1 * k[0])));
+                let x2 = near * f64(exp(f32(-d2 * d2 * k[0])));
+                s1 += x1 * c1;
+                w1 += x1;
+                s2 += x2 * c2;
+                w2 += x2;
+            }
+        }
+    }
+    let o0 = quotient(s0, w0);
+    var o1 = o0;
+    var o2 = o0;
+    if F.flag == 1u {
+        o1 = quotient(s1, w1);
+        o2 = quotient(s2, w2);
+    }
+    textureStore(output, id.xy, vec4(f32(o0 * a), f32(o1 * a), f32(o2 * a), s.w));
+}
+
 // B-151, layer_fx::roughen_edges' least covering at `e` either way across and down.
 fn least(x: f64, y: f64, e: f64) -> f64 {
     let c = f64(bilinear(input, x, y).w);
@@ -5152,6 +5235,8 @@ struct FxPasses {
     /// B-151.
     median: Pass,
     smart: Pass,
+    /// B-237.
+    bilat: Pass,
     rough: Pass,
     rshadow: Pass,
     bevel: Pass,
@@ -5763,6 +5848,7 @@ impl Gpu {
                 kira: pass("kira", &[0, 1, 2, 3, 9]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
+                bilat: pass("bilat", &[0, 1, 2, 3, 4]),
                 rough: pass("rough", &[0, 1, 2, 3]),
                 rshadow: pass("rshadow", &[0, 1, 2, 3, 4]),
                 bevel: pass("bevel", &[0, 1, 2, 3, 4]),
@@ -7335,6 +7421,22 @@ impl Gpu {
                 let p = FxParams { r: radius.floor() as i32, n: 9, ..Default::default() };
                 let (levels, _) = same(steps, &passes.smart, p, &k, Some(still));
                 same(steps, &passes.smart, FxParams { mode: 1, ..p }, &k, Some(&levels))
+            }
+            // B-237: Radius below 1 or Threshold 0 counts only the pixel itself, a disc of one
+            // with both bells flat; only Colorize off reaches here so.
+            E::BilateralBlur { radius, threshold, colorize } => {
+                let alone = *radius < 1.0 || *threshold <= 0.0;
+                let (r, k) = if alone {
+                    (0, vec![0.0, 0.0, 0.0])
+                } else {
+                    let s = radius / 2.0;
+                    let mut k = vec![1.0 / (2.0 * threshold * threshold), 1.0 / (2.0 * s * s)];
+                    k.extend(crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64));
+                    (radius.floor() as i32, k)
+                };
+                let p = FxParams { r, n: 2, flag: (colorize == "on") as u32, ..Default::default() };
+                let (levels, _) = same(steps, &passes.bilat, p, &k, Some(still));
+                same(steps, &passes.bilat, FxParams { mode: 1, ..p }, &k, Some(&levels))
             }
             E::RoughenEdges { edge_type, edge_color, border, size, complexity, evolution, speed, seed, frame } => {
                 let base = crate::grade::mix(seed.floor() as u64);

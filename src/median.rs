@@ -1,8 +1,10 @@
-//! D-203's Median and Smart Blur: document 21's rules, on a layer's own pixels.
+//! D-203's Median and Smart Blur, and D-358's Bilateral Blur: document 21's rules, on a layer's
+//! own pixels.
 //!
-//! This program's own methods, modelled on After Effects' Median and Smart Blur; nothing is
-//! ported. `tools/median_smart_blur_reference.py` is the same rules worked a second way, and
-//! `tests/b138_median_smart_blur.rs` holds these to its numbers.
+//! This program's own methods, modelled on After Effects' Median, Smart Blur and Bilateral Blur;
+//! nothing is ported. `tools/median_smart_blur_reference.py` and `tools/bilateral_blur_reference.py`
+//! are the same rules worked a second way, and `tests/b138_median_smart_blur.rs` and
+//! `tests/b237_bilateral_blur.rs` hold these to their numbers.
 
 use crate::color::{linear_to_srgb, quantise_u8};
 use crate::WorkingBuffer;
@@ -140,6 +142,81 @@ pub(crate) fn smart_blur(source: &mut WorkingBuffer, radius: f64, threshold: f64
                 }
             }
             (0..4).for_each(|k| px[k] = (sum[k] / n as f64) as f32);
+        });
+    *source = out;
+}
+
+/// D-358's Bilateral Blur: each pixel that shows the weighted mean of the taps within `radius`
+/// that show, each weighed by a bell on its distance (spread `radius / 2`), its covering, and a
+/// bell on how far its value is from the pixel's own in sRGB levels (spread `threshold`). With
+/// `colorize` red, green and blue are worked one at a time; without it the luminance alone, and
+/// the pixel turns grey. Every pixel keeps its covering; the settings are already valid.
+// ponytail: every pixel weighs its whole disc, about 7,850 taps at Radius 50; a grid or
+// separable approximation would be the upgrade, at the price of the rule.
+pub(crate) fn bilateral_blur(source: &mut WorkingBuffer, radius: f64, threshold: f64, colorize: bool) {
+    let taps = disc(radius);
+    let still = taps.len() == 1 || threshold <= 0.0;
+    if colorize && still {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let n = if colorize { 3 } else { 1 };
+    let level = |v: f64| 255.0 * if v <= 0.0031308 { 12.92 * v } else { 1.055 * v.powf(1.0 / 2.4) - 0.055 };
+    // Each pixel's worked values in straight linear light, and their levels; None where it does
+    // not show.
+    let vals: Vec<Option<([f64; 3], [f64; 3])>> = source
+        .data()
+        .par_chunks_exact(4)
+        .map(|p| {
+            let a = p[3] as f64;
+            (a > 0.0).then(|| {
+                let c = [p[0] as f64 / a, p[1] as f64 / a, p[2] as f64 / a];
+                let v = if colorize { c } else { [0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; 3] };
+                (v, v.map(level))
+            })
+        })
+        .collect();
+    let s = radius / 2.0;
+    let near: Vec<f64> = if still {
+        Vec::new()
+    } else {
+        taps.iter().map(|&(dx, dy)| (-((dx * dx + dy * dy) as f64) / (2.0 * s * s)).exp()).collect()
+    };
+    let spread = 1.0 / (2.0 * threshold * threshold);
+    let src = source.data();
+    let mut out = WorkingBuffer::transparent(w, h);
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let Some((own, own_level)) = vals[i] else { return };
+            let a = src[4 * i + 3];
+            let mut v = own;
+            if !still {
+                let (x, y) = ((i % w) as isize, (i / w) as isize);
+                let (mut sum, mut weight) = ([0.0f64; 3], [0.0f64; 3]);
+                for (&(dx, dy), &g) in taps.iter().zip(&near) {
+                    let (tx, ty) = (x + dx, y + dy);
+                    if tx < 0 || ty < 0 || tx >= w as isize || ty >= h as isize {
+                        continue;
+                    }
+                    let j = ty as usize * w + tx as usize;
+                    let Some((t, t_level)) = vals[j] else { continue };
+                    let ga = g * src[4 * j + 3] as f64;
+                    for k in 0..n {
+                        let d = t_level[k] - own_level[k];
+                        let wt = ga * (-d * d * spread).exp();
+                        sum[k] += wt * t[k];
+                        weight[k] += wt;
+                    }
+                }
+                (0..n).for_each(|k| v[k] = sum[k] / weight[k]);
+                if !colorize {
+                    v = [v[0]; 3];
+                }
+            }
+            (0..3).for_each(|k| px[k] = (v[k] * a as f64) as f32);
+            px[3] = a;
         });
     *source = out;
 }

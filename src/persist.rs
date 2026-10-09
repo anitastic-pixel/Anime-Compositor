@@ -2189,6 +2189,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
         }
+        Effect::BilateralBlur { radius, threshold, colorize } => {
+            params.insert("radius".into(), num(*radius));
+            params.insert("threshold".into(), num(*threshold));
+            params.insert("colorize".into(), J::from(colorize.as_str()));
+        }
         Effect::Snowfall {
             color,
             density,
@@ -3714,6 +3719,7 @@ fn parse_effect(
         crate::effects::POLAR_COORDINATES,
         crate::effects::MEDIAN,
         crate::effects::SMART_BLUR,
+        crate::effects::BILATERAL_BLUR,
         crate::effects::SNOWFALL,
         crate::effects::KALEIDOSCOPE,
         crate::effects::ROUGHEN_EDGES,
@@ -4414,6 +4420,11 @@ fn parse_effect(
         crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,
             threshold: effect_number(params, "threshold", &at)?,
+        }),
+        crate::effects::BILATERAL_BLUR => Some(crate::effects::Effect::BilateralBlur {
+            radius: effect_number(params, "radius", &at)?,
+            threshold: effect_number(params, "threshold", &at)?,
+            colorize: effect_word(params, "colorize", &at)?,
         }),
         crate::effects::SNOWFALL => Some(crate::effects::Effect::Snowfall {
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
