@@ -4123,6 +4123,57 @@ fn sweep(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// B-225, D-345, layer_fx::radio_waves: k the corner step in degrees (0 the sides), the apothem's share,
+// the profile (0 square, 1 triangle, 2 sine), the colour in linear light, the waves' count, then
+// from 8 each wave as `radio_wave_list` gives it.
+@compute @workgroup_size(16, 16)
+fn waves(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let px = textureLoad(input, id.xy, 0);
+    let x = f64(id.x) + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    let ap = k[2];
+    var t = 1.0lf;
+    let n = u32(k[7]);
+    for (var j = 0u; j < n; j++) {
+        let o = 8u + 6u * j;
+        let qx = x - k[o];
+        let qy = y - k[o + 1u];
+        let q = sqrt(qx * qx + qy * qy);
+        let r = k[o + 2u];
+        let h = k[o + 4u];
+        if q < r * ap - h - 0.5lf || q * ap > r * ap + h + 0.5lf {
+            continue;
+        }
+        let phi = atan2_64(qx, -qy) * 57.29577951308232lf;
+        let delta = phi - k[o + 3u] - k[1] * (floor((phi - k[o + 3u]) / k[1]) + 0.5lf);
+        let dd = abs(q * cos64(delta * 0.017453292519943295lf) - r * ap);
+        var p = 0.0lf;
+        if k[3] == 0.0lf {
+            p = clamp(min(dd + 0.5lf, h) - max(dd - 0.5lf, -h), 0.0lf, 1.0lf);
+        } else if k[3] == 1.0lf {
+            p = max(1.0lf - dd / h, 0.0lf);
+        } else if dd < h {
+            p = cos64(90.0lf * dd / h * 0.017453292519943295lf);
+        }
+        t *= 1.0lf - k[o + 5u] * p;
+    }
+    if t == 1.0lf {
+        textureStore(output, id.xy, px);
+        return;
+    }
+    var out = px;
+    for (var j = 0u; j < 3u; j++) {
+        out[j] = f32(t * f64(px[j]) + (1.0lf - t) * k[4u + j]);
+    }
+    out.w = f32(t * f64(px.w) + 1.0lf - t);
+    textureStore(output, id.xy, out);
+}
+
+
 // layer_fx::bolt_light's soft core: the fall from 0 to u, odd in u.
 fn rise(u: f64, half: f64) -> f64 {
     let a = min(abs(u), half);
@@ -5058,6 +5109,8 @@ struct FxPasses {
     gradient4: Pass,
     sweepmin: Pass,
     sweep: Pass,
+    /// D-345.
+    waves: Pass,
     bolt: Pass,
     edges: Pass,
     /// B-226.
@@ -5658,6 +5711,7 @@ impl Gpu {
                 gradient4: pass("gradient4", &[0, 1, 2, 3]),
                 sweepmin: pass("sweepmin", &[0, 1, 5]),
                 sweep: pass("sweep", &[0, 1, 2, 3, 5]),
+                waves: pass("waves", &[0, 1, 2, 3]),
                 bolt: pass("bolt", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -7497,6 +7551,39 @@ impl Gpu {
                 self.fx_step(steps, &passes.sweep, p, Some(still), Some(&out), Some(&k), None, [Some(&rows)], tiles(w, h));
                 (out, (w, h))
             }
+            // D-345: Radio Waves, its waves worked out here as the CPU works them.
+            E::RadioWaves { producer_point, sides, interval, expansion, orientation, direction, velocity, spin, lifespan, opacity, fade_in_time, fade_out_time, start_width, end_width, profile, color, frame } => {
+                let s = crate::layer_fx::RadioWaves {
+                    producer: crate::effects::radial_center(*producer_point, (w, h), f.origin),
+                    sides: *sides,
+                    interval: *interval,
+                    expansion: *expansion,
+                    orientation: *orientation,
+                    direction: *direction,
+                    velocity: *velocity,
+                    spin: *spin,
+                    lifespan: *lifespan,
+                    opacity: *opacity,
+                    fade_in: *fade_in_time,
+                    fade_out: *fade_out_time,
+                    widths: [*start_width, *end_width],
+                    profile,
+                    color: linear(color),
+                    frame: *frame,
+                };
+                let list = crate::layer_fx::radio_wave_list(&s);
+                let n = sides.floor();
+                let profile = match profile.as_str() {
+                    "square" => 0.0,
+                    "triangle" => 1.0,
+                    _ => 2.0,
+                };
+                let mut k = vec![n, 360.0 / n, (std::f64::consts::PI / n).cos(), profile];
+                k.extend(s.color);
+                k.push(list.len() as f64);
+                k.extend(list.iter().flat_map(|&(x, y, r, t, hw, g)| [x, y, r, t, hw, g]));
+                same(steps, &passes.waves, FxParams::default(), &k, None)
+            }
             E::LightningBolt { start, end, jagged, detail, branches, width, glow, opacity, hold, seed, color, glow_color, composite, kind, turbulence, decay, conductivity, obstacle, path, core, forks, frame } => {
                 // D-324: Alpha Obstacle reads the drawing it is given; compose has a bolt with
                 // one begin its run, so that is `source`, the CPU's.
@@ -7643,7 +7730,7 @@ impl Gpu {
                 self.fx_step(steps, &passes.smoothmix, FxParams::default(), Some(still), Some(&out), None, None, work, tiles(w, h));
                 (out, (w, h))
             }
-            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects, B-225's five generators and B-226's four as Fx"),
+            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects, B-225's five generators, Radio Waves (D-345) and B-226's four as Fx"),
         }
     }
 

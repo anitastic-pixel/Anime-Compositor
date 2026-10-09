@@ -3603,33 +3603,7 @@ pub(crate) struct RadioWaves<'a> {
 /// `interval` frames, painted over the layer by `T O + (1 - T) (K, 1)`. The layer does not
 /// grow. The settings are already valid.
 pub(crate) fn radio_waves(source: &mut WorkingBuffer, s: &RadioWaves) {
-    let fade = |t: f64, time: f64| if time > 0.0 { (t / time).min(1.0) } else { 1.0 };
-    let (ux, uy) = crate::blurs::along(s.direction);
-    let f = s.frame as f64;
-    // (centre x, centre y, corner radius, first corner, half width, strength), oldest first.
-    let mut waves = Vec::new();
-    let mut k = ((f - s.lifespan) / s.interval).floor().max(0.0);
-    while k * s.interval <= f {
-        let t = f - k * s.interval;
-        k += 1.0;
-        if t >= s.lifespan {
-            continue;
-        }
-        let w = s.widths[0] + (s.widths[1] - s.widths[0]) * t / s.lifespan;
-        let g = s.opacity / 100.0 * fade(t, s.fade_in) * fade(s.lifespan - t, s.fade_out);
-        if w == 0.0 || g == 0.0 {
-            continue;
-        }
-        let d = s.velocity * t;
-        waves.push((
-            s.producer.0 + d * ux,
-            s.producer.1 + d * uy,
-            s.expansion * t,
-            s.orientation + s.spin * t,
-            w / 2.0,
-            g,
-        ));
-    }
+    let waves = radio_wave_list(s);
     if waves.is_empty() {
         return;
     }
@@ -3667,4 +3641,36 @@ pub(crate) fn radio_waves(source: &mut WorkingBuffer, s: &RadioWaves) {
         }
         px[3] = (t * px[3] as f64 + 1.0 - t) as f32;
     });
+}
+
+/// D-200's waves alive at the frame, oldest first: (centre x, centre y, corner radius, first
+/// corner, half width, strength). The card (D-345) is handed them as they are.
+pub(crate) fn radio_wave_list(s: &RadioWaves) -> Vec<(f64, f64, f64, f64, f64, f64)> {
+    let fade = |t: f64, time: f64| if time > 0.0 { (t / time).min(1.0) } else { 1.0 };
+    let (ux, uy) = crate::blurs::along(s.direction);
+    let f = s.frame as f64;
+    let mut waves = Vec::new();
+    let mut k = ((f - s.lifespan) / s.interval).floor().max(0.0);
+    while k * s.interval <= f {
+        let t = f - k * s.interval;
+        k += 1.0;
+        if t >= s.lifespan {
+            continue;
+        }
+        let w = s.widths[0] + (s.widths[1] - s.widths[0]) * t / s.lifespan;
+        let g = s.opacity / 100.0 * fade(t, s.fade_in) * fade(s.lifespan - t, s.fade_out);
+        if w == 0.0 || g == 0.0 {
+            continue;
+        }
+        let d = s.velocity * t;
+        waves.push((
+            s.producer.0 + d * ux,
+            s.producer.1 + d * uy,
+            s.expansion * t,
+            s.orientation + s.spin * t,
+            w / 2.0,
+            g,
+        ));
+    }
+    waves
 }

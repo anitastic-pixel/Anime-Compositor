@@ -954,12 +954,13 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 // B-224 (D-343): two that read a map.
                 | crate::effects::Effect::DisplacementMap { .. }
                 | crate::effects::Effect::Glass { .. }
-                // B-225 (D-344): five generators; Radio Waves stays on the CPU (D-345).
+                // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }
                 | crate::effects::Effect::FourColorGradient { .. }
                 | crate::effects::Effect::LightSweep { .. }
                 | crate::effects::Effect::LightningBolt { .. }
                 | crate::effects::Effect::BevelEdges { .. }
+                | crate::effects::Effect::RadioWaves { .. }
                 // B-226 (D-346): the last four.
                 | crate::effects::Effect::BlockDissolve { .. }
                 | crate::effects::Effect::GradientWipe { .. }

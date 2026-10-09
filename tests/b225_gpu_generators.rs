@@ -1,11 +1,12 @@
-//! B-225 (D-344): five generators on the GPU, against the CPU.
+//! B-225 (D-344): five generators on the GPU, against the CPU; D-345 adds Radio Waves.
 //!
-//! Beam, 4-Color Gradient, CC Light Sweep, Advanced Lightning and Bevel Edges, each the CPU's
-//! rule on the card; Radio Waves stays on the CPU (D-345). The bolt's segments are worked out by
-//! the CPU, as they always have been, and handed to the card as a list (P0-23: the seeds stay the
-//! CPU's). Every fixture of the five, at every frame it has, and the reference shot with each, is drawn by the CPU and
+//! Beam, 4-Color Gradient, CC Light Sweep, Advanced Lightning, Bevel Edges and Radio Waves, each
+//! the CPU's rule on the card. The bolt's segments and the waves are worked out by the CPU, as
+//! they always have been, and handed to the card as a list (P0-23: the seeds stay the CPU's).
+//! Every fixture of the six, at every frame it has, and the reference shot with each, is drawn by the CPU and
 //! by the card at Full and Draft. The rule: no channel of any pixel more than 1 level of 255 apart
-//! (ADR-006, D-100).
+//! (ADR-006, D-100), except that a pixel 0 of 255 visible on both sides compares as equal
+//! whatever its hidden colour (D-345, the owner's choice: see `distance`).
 //!
 //! Writes `verification/B-225_gpu_generators_table.md` and `verification/B-225 pictures/`.
 
@@ -43,12 +44,13 @@ struct Shot {
 }
 
 /// Each effect's name and type.
-const FIVE: [(&str, &str); 5] = [
+const SIX: [(&str, &str); 6] = [
     ("Beam", "core.beam"),
     ("4-Color Gradient", "core.four_color_gradient"),
     ("CC Light Sweep", "core.light_sweep"),
     ("Advanced Lightning", "core.lightning_bolt"),
     ("Bevel Edges", "core.bevel_edges"),
+    ("Radio Waves", "core.radio_waves"),
 ];
 
 /// The settings each effect is given in the reference shot, each way of working at least once.
@@ -66,6 +68,10 @@ fn settings() -> Vec<(&'static str, Value)> {
         json!({"start": [20, 10], "end": [80, 90], "jagged": 40, "detail": 6, "branches": v[0], "width": v[1], "glow": v[2], "opacity": 100, "hold": v[3], "seed": v[4], "color": "#ffffff", "glow_color": "#6e8cff", "kind": kind, "turbulence": v[5], "decay": 20, "conductivity": 30, "obstacle": obstacle, "path": extra[0], "core": extra[1], "forks": extra[2], "composite": extra[3]})
     };
     let bevel = |t: f64, angle: f64, color: &str, i: f64| json!({"edge_thickness": t, "light_angle": angle, "light_color": color, "light_intensity": i});
+    // interval, expansion, velocity, spin, lifespan
+    let waves = |p: [f64; 2], sides: f64, v: [f64; 5], widths: [f64; 2], profile: &str, color: &str| {
+        json!({"producer_point": p, "sides": sides, "interval": v[0], "expansion": v[1], "orientation": 0, "direction": 30, "velocity": v[2], "spin": v[3], "lifespan": v[4], "opacity": 100, "fade_in_time": 6, "fade_out_time": 48, "start_width": widths[0], "end_width": widths[1], "profile": profile, "color": color})
+    };
     vec![
         ("Beam", beam([20.0, 30.0, 80.0, 70.0], [40.0, 50.0, 0.0], "#ffffff", "#3c8cff", "on")),
         ("Beam", beam([90.0, 10.0, 10.0, 90.0], [100.0, 0.0, 60.0], "#ffd080", "#ff3020", "off")),
@@ -86,11 +92,14 @@ fn settings() -> Vec<(&'static str, Value)> {
         ("Bevel Edges", bevel(0.1, -60.0, "#ffffff", 0.4)),
         ("Bevel Edges", bevel(0.25, 135.0, "#ffd080", 1.0)),
         ("Bevel Edges", bevel(0.02, 10.0, "#80c0ff", 0.7)),
+        ("Radio Waves", waves([50.0, 50.0], 64.0, [24.0, 5.0, 0.0, 0.0, 96.0], [5.0, 5.0], "square", "#ffffff")),
+        ("Radio Waves", waves([30.0, 60.0], 6.0, [12.0, 8.0, 3.0, 1.5, 120.0], [4.0, 30.0], "triangle", "#80c0ff")),
+        ("Radio Waves", waves([70.0, 40.0], 3.0, [20.0, 6.0, 0.0, -2.0, 200.0], [12.0, 2.0], "sine", "#ffd080")),
     ]
 }
 
 fn type_of(effect: &str) -> &'static str {
-    FIVE.iter().find(|t| t.0 == effect).expect("one of the five").1
+    SIX.iter().find(|t| t.0 == effect).expect("one of the six").1
 }
 
 /// The reference shot with `parameters` on its first three layers, the second after a Drop
@@ -117,7 +126,7 @@ fn reference(effect: &'static str, case: usize, parameters: &Value) -> Shot {
     }
 }
 
-/// Every fixture naming one of the five, each at every frame it has. A file is the first
+/// Every fixture naming one of the six, each at every frame it has. A file is the first
 /// effect's it names; one that must not open (a malformed setting) has no frame to compare.
 fn fixtures() -> Vec<Shot> {
     let mut files: Vec<PathBuf> = Vec::new();
@@ -133,7 +142,7 @@ fn fixtures() -> Vec<Shot> {
     let mut shots = Vec::new();
     for file in files {
         let Ok(text) = fs::read_to_string(&file) else { continue };
-        let Some(&(effect, _)) = FIVE.iter().find(|t| text.contains(&format!("\"{}\"", t.1))) else { continue };
+        let Some(&(effect, _)) = SIX.iter().find(|t| text.contains(&format!("\"{}\"", t.1))) else { continue };
         let Ok(loaded) = persist::load(&file) else { continue };
         let root = file.parent().expect("a folder").to_path_buf();
         let folder = root.file_name().unwrap_or_default().to_string_lossy().into_owned();
@@ -153,11 +162,17 @@ fn fixtures() -> Vec<Shot> {
     shots
 }
 
+/// The largest difference of any channel, and how many pixels differ. D-345 (the owner, 2026-10-08,
+/// option 2): a pixel 0 of 255 visible on both sides is equal, whatever its hidden colour, since
+/// the page's straight colour there is never seen. Every other pixel compares all four channels.
 fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
     let mut largest = 0;
     let mut pixels = 0;
     for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
+        if p[3] == 0 && q[3] == 0 {
+            continue;
+        }
         let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
         largest = largest.max(d);
         pixels += (d > 0) as usize;
@@ -294,7 +309,7 @@ fn b225_gpu_generators() {
     fs::create_dir_all(&pictures).expect("make the pictures folder");
     let ((largest, count), worst_case, c, g, w, h) = worst.expect("something was compared");
     let mut diff = vec![0u8; c.len()];
-    for p in (0..w * h).filter(|&p| c[p * 4..p * 4 + 4] != g[p * 4..p * 4 + 4]) {
+    for p in (0..w * h).filter(|&p| c[p * 4..p * 4 + 4] != g[p * 4..p * 4 + 4] && (c[p * 4 + 3], g[p * 4 + 3]) != (0, 0)) {
         let (x, y) = ((p % w) as isize, (p / w) as isize);
         for yy in (y - 3).max(0)..(y + 4).min(h as isize) {
             for xx in (x - 3).max(0)..(x + 4).min(w as isize) {
@@ -311,23 +326,25 @@ fn b225_gpu_generators() {
     }
 
     let mut summary = String::new();
-    for (effect, _) in FIVE {
+    for (effect, _) in SIX {
         let (n, p, on_card, cpu, most) = by_effect[effect];
         let _ = writeln!(summary, "| {effect} | {n} | {on_card} | {cpu} | {most} | {p} of {n} |");
     }
     let s = format!(
-        "# B-225: five generators on the GPU against the CPU\n\n\
+        "# B-225: six generators on the GPU against the CPU (Radio Waves since D-345)\n\n\
          Written by `tests/b225_gpu_generators.rs`. The card: {}.\n\n\
-         Beam, 4-Color Gradient, CC Light Sweep, Advanced Lightning and Bevel Edges, each the \
-         CPU's rule on the card (D-344); Radio Waves stays on the CPU (D-345). The bolt's \
-         segments are worked out by the CPU and handed to the card as a list, so its seeds stay \
+         Beam, 4-Color Gradient, CC Light Sweep, Advanced Lightning and Bevel Edges (D-344) and \
+         Radio Waves (D-345), each the CPU's rule on the card. The bolt's segments and the waves \
+         are worked out by the CPU and handed to the card as a list, so their seeds stay \
          the CPU's (P0-23).\n\n\
-         The cases: every fixture naming one of the five ({n_fixtures} files), at every frame it \
+         The cases: every fixture naming one of the six ({n_fixtures} files), at every frame it \
          has; and the reference shot with each effect on its first three layers (the second \
          after a Drop Shadow), {} settings, at frames 0, 100 and 239. Each at Full and Draft.\n\n\
          Each row compares the eight-bit picture the page receives, drawn by the CPU and by the \
          GPU. **The rule: no channel of any pixel more than {LIMIT} level of 255 apart** \
-         (ADR-006, D-100), the same warnings on both, and on a reference shot row the effect in \
+         (ADR-006, D-100), except that a pixel 0 of 255 visible on both sides counts as equal \
+         whatever its hidden colour (D-345, the owner's choice), the same warnings on both, and \
+         on a reference shot row the effect in \
          fact on the card, at Full the first layer's. 8 bpc and After Effects 32 bpc \
          compositions give the card no effect (D-330, D-333); a few frames the card refuses \
          whole (Float depth, an adjustment layer): those must be the CPU's picture exactly, with \
@@ -378,7 +395,7 @@ fn b225_gpu_generators_timing() {
         if cfg!(debug_assertions) { "debug" } else { "release" },
     );
     let fx = |id: &str, type_id: &str, p: Value| json!({"instance_id": id, "type_id": type_id, "enabled": true, "parameters": p});
-    let shots: [(&str, bool, &str, Value); 5] = [
+    let shots: [(&str, bool, &str, Value); 6] = [
         ("Noise, then Beam", true, "core.beam",
             json!({"start": [20, 30], "end": [80, 70], "length": 40, "time": 50, "start_thickness": 6, "end_thickness": 30, "softness": 40, "inside_color": "#ffffff", "outside_color": "#3c8cff", "composite": "on"})),
         ("Noise, then 4-Color Gradient", true, "core.four_color_gradient",
@@ -389,6 +406,9 @@ fn b225_gpu_generators_timing() {
             json!({"start": [20, 10], "end": [80, 90], "jagged": 40, "detail": 6, "branches": 40, "width": 3, "glow": 20, "opacity": 100, "hold": 1, "seed": 7, "color": "#ffffff", "glow_color": "#6e8cff", "kind": "strike"})),
         ("Noise, then Bevel Edges", true, "core.bevel_edges",
             json!({"edge_thickness": 0.1, "light_angle": -60, "light_color": "#ffffff", "light_intensity": 0.4})),
+        // D-345: Radio Waves, timed when the owner put it on the card.
+        ("Noise, then Radio Waves", true, "core.radio_waves",
+            json!({"producer_point": [50, 50], "sides": 6, "interval": 12, "expansion": 8, "orientation": 0, "direction": 90, "velocity": 0, "spin": 1, "lifespan": 96, "opacity": 100, "fade_in_time": 0, "fade_out_time": 48, "start_width": 10, "end_width": 20, "profile": "sine", "color": "#ffffff"})),
     ];
     for (name, noise, type_id, p) in shots {
         let stack = |id: &str| {
