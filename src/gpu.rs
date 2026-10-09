@@ -2806,6 +2806,42 @@ fn bend_over(acc: vec4<f64>, s: vec4<f32>) -> vec4<f64> {
     return acc + vec4(m * f64(s.x), m * f64(s.y), m * f64(s.z), m * f64(s.w));
 }
 
+// D-385, layer_fx::sample_mirrored: `bilinear` of the drawing repeated round itself, every other
+// copy turned over. The fold is worked in double precision, so a far place cannot overflow.
+fn mirrored(x: f64, y: f64) -> vec4<f32> {
+    let n = vec2<f64>(textureDimensions(input));
+    let fx = x - 0.5lf;
+    let fy = y - 0.5lf;
+    let x0 = floor(fx);
+    let y0 = floor(fy);
+    let ux = fx - x0;
+    let uy = fy - y0;
+    var out = vec4(0.0);
+    for (var j = 0; j < 2; j++) {
+        let wy = select(1.0lf - uy, uy, j == 1);
+        for (var i = 0; i < 2; i++) {
+            let wx = select(1.0lf - ux, ux, i == 1);
+            let wt = wx * wy;
+            if wt != 0.0lf {
+                out += textureLoad(input, vec2(fold(x0 + f64(i), n.x), fold(y0 + f64(j), n.y)), 0) * f32(wt);
+            }
+        }
+    }
+    return out;
+}
+
+// D-385: whole place `i` folded into 0..n, every other repeat turned over.
+fn fold(i: f64, n: f64) -> i32 {
+    var j = i - 2.0lf * n * floor(i / (2.0lf * n));
+    // The card's division may round a whole multiple to just under it.
+    if j >= 2.0lf * n {
+        j -= 2.0lf * n;
+    } else if j < 0.0lf {
+        j += 2.0lf * n;
+    }
+    return i32(select(j, 2.0lf * n - 1.0lf - j, j >= n));
+}
+
 // D-377: the place (x, y) along and across the frame k[i..i + 6] (its point, t and n).
 fn bend_tail(x: f64, y: f64, i: u32) -> vec2<f64> {
     let dx = x - k[i];
@@ -3109,6 +3145,92 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             }
             sx = x - d * k[4];
             sy = y - d * k[5];
+        }
+        case 14u: {
+            // D-385, layer_fx::flow_motion. k: knot 1 and its strength, knot 2 and its strength,
+            // sigma squared, tile edges, the points a side.
+            let n = u32(k[8]);
+            var sum = vec4(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+            for (var j = 0u; j < n; j++) {
+                for (var i = 0u; i < n; i++) {
+                    let px = f64(id.x) + (f64(i) + 0.5lf) / f64(n);
+                    let py = f64(id.y) + (f64(j) + 0.5lf) / f64(n);
+                    var qx = px;
+                    var qy = py;
+                    for (var e = 0u; e < 6u; e += 3u) {
+                        let a = k[e + 2u];
+                        if a != 0.0lf {
+                            let dx = px - k[e];
+                            let dy = py - k[e + 1u];
+                            let g = quotient(k[6], k[6] + dx * dx + dy * dy);
+                            var m = 1.0lf + a * g;
+                            if a < 0.0lf {
+                                m = quotient(1.0lf, 1.0lf - a * g);
+                            }
+                            qx += dx * (m - 1.0lf);
+                            qy += dy * (m - 1.0lf);
+                        }
+                    }
+                    var s: vec4<f32>;
+                    if k[7] == 1.0lf {
+                        s = mirrored(qx, qy);
+                    } else {
+                        s = bilinear(input, qx, qy);
+                    }
+                    sum += vec4(f64(s.x), f64(s.y), f64(s.z), f64(s.w));
+                }
+            }
+            let nn = f64(n * n);
+            textureStore(output, id.xy, vec4(f32(sum.x / nn), f32(sum.y / nn), f32(sum.z / nn), f32(sum.w / nn)));
+            return;
+        }
+        case 15u: {
+            // D-386, layer_fx::griddler. k: the drawing's corner, the tile, the turn's sine and
+            // cosine, the scales across and down, cut tiles, 0.
+            if k[5] == 0.0lf || k[6] == 0.0lf {
+                textureStore(output, id.xy, vec4(0.0));
+                return;
+            }
+            let px = x - k[0];
+            let py = y - k[1];
+            let t = k[2];
+            let cx = (floor(quotient(px, t)) + 0.5lf) * t;
+            let cy = (floor(quotient(py, t)) + 0.5lf) * t;
+            let qx = px - cx;
+            let qy = py - cy;
+            let ux = quotient(product(qx, k[4], k[8]) + product(qy, k[3], k[8]), k[5]);
+            let uy = quotient(product(qy, k[4], k[8]) - product(qx, k[3], k[8]), k[6]);
+            if k[7] == 1.0lf && (abs(ux) > t / 2.0lf || abs(uy) > t / 2.0lf) {
+                textureStore(output, id.xy, vec4(0.0));
+                return;
+            }
+            sx = k[0] + cx + ux;
+            sy = k[1] + cy + uy;
+        }
+        case 16u: {
+            // D-387, layer_fx::fisheye. k: the centre, the radius, the convergence over 100, 0.
+            let pi = 3.141592653589793lf;
+            let dx = x - k[0];
+            let dy = y - k[1];
+            let r = sqrt(product(dx, dx, k[4]) + product(dy, dy, k[4]));
+            let cover = clamp(k[2] - r + 0.5lf, 0.0lf, 1.0lf);
+            if k[2] <= 0.0lf || cover == 0.0lf {
+                textureStore(output, id.xy, vec4(0.0));
+                return;
+            }
+            var m = 0.0lf;
+            if r != 0.0lf {
+                let rho = min(quotient(r, k[2]), 1.0lf);
+                let c = k[3];
+                var f = rho - c * (sin64(pi * rho / 2.0lf) - rho);
+                if c >= 0.0lf {
+                    f = rho + c * (2.0lf * atan2_64(rho, sqrt(1.0lf - rho * rho)) / pi - rho);
+                }
+                m = quotient(f, rho);
+            }
+            let s = bilinear(input, k[0] + dx * m, k[1] + dy * m);
+            textureStore(output, id.xy, vec4(f32(f64(s.x) * cover), f32(f64(s.y) * cover), f32(f64(s.z) * cover), f32(f64(s.w) * cover)));
+            return;
         }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
@@ -7796,6 +7918,24 @@ impl Gpu {
                 let (ux, uy) = ((t.0 - b.0) / length, (t.1 - b.1) / length);
                 let kind = crate::effects::BENDER_STYLES.iter().position(|s| s == style).expect("compose leaves a valid Bender");
                 same(steps, &passes.warp, FxParams { mode: 13, ..Default::default() }, &[b.0, b.1, ux, uy, -uy, ux, length, a, kind as f64], None)
+            }
+            E::FlowMotion { knot_1, amount_1, knot_2, amount_2, falloff, tile_edges, finer_controls, antialiasing } => {
+                let ([((k1x, k1y), a1), ((k2x, k2y), a2)], sigma) =
+                    crate::effects::flow_motion_knots([*knot_1, *knot_2], [*amount_1, *amount_2], *falloff, finer_controls, (w, h), f.origin);
+                let n = 1 << crate::effects::FLOW_MOTION_ANTIALIASING.iter().position(|a| a == antialiasing).expect("compose leaves a valid Flow Motion");
+                let k = [k1x, k1y, a1, k2x, k2y, a2, sigma * sigma, (tile_edges == "on") as u8 as f64, n as f64];
+                same(steps, &passes.warp, FxParams { mode: 14, ..Default::default() }, &k, None)
+            }
+            E::Griddler { horizontal_scale, vertical_scale, tile_size, rotation, cut_tiles } => {
+                let (sin, cos) = rotation.to_radians().sin_cos();
+                let tile = tile_size / 100.0 * (w - 2 * f.origin.0) as f64;
+                let k = [f.origin.0 as f64, f.origin.1 as f64, tile, sin, cos, horizontal_scale / 100.0, vertical_scale / 100.0, (cut_tiles == "on") as u8 as f64, 0.0];
+                same(steps, &passes.warp, FxParams { mode: 15, ..Default::default() }, &k, None)
+            }
+            E::Fisheye { center, size, convergence } => {
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
+                let k = [cx, cy, crate::effects::fisheye_radius(*size, (w, h), f.origin), convergence / 100.0, 0.0];
+                same(steps, &passes.warp, FxParams { mode: 16, ..Default::default() }, &k, None)
             }
             E::Mirror { center, angle } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);

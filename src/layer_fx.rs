@@ -1300,6 +1300,150 @@ pub(crate) fn bender_push(style: &str, a: f64, s: f64) -> f64 {
     }
 }
 
+/// D-385: Flow Motion, this program's own reading of CycoreFX's CC Flo Motion. Each knot, a
+/// point of the buffer with its strength `a`, scales the picture about itself by
+/// m = 1 + a g (a >= 0) or 1 / (1 - a g), g = sigma^2 / (sigma^2 + r^2); a point P reads the
+/// drawing at P + sum (P - K)(m - 1), mirrored round the buffer when `tile`, transparent outside
+/// it otherwise, and a pixel averages `n` by `n` such points across it. Both strengths 0 is the
+/// drawing. The settings are already valid.
+pub(crate) fn flow_motion(source: &mut WorkingBuffer, knots: [((f64, f64), f64); 2], sigma: f64, tile: bool, n: usize) {
+    if knots.iter().all(|k| k.1 == 0.0) {
+        return;
+    }
+    let w = source.width();
+    let s2 = sigma * sigma;
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x0, y0) = ((i % w) as f64, (i / w) as f64);
+        let mut sum = [0.0f64; 4];
+        for j in 0..n {
+            for k in 0..n {
+                let (x, y) = (x0 + (k as f64 + 0.5) / n as f64, y0 + (j as f64 + 0.5) / n as f64);
+                let (mut sx, mut sy) = (x, y);
+                for &((kx, ky), a) in &knots {
+                    if a != 0.0 {
+                        let (dx, dy) = (x - kx, y - ky);
+                        let m = flow_scale(a, s2 / (s2 + dx * dx + dy * dy));
+                        sx += dx * (m - 1.0);
+                        sy += dy * (m - 1.0);
+                    }
+                }
+                let p = if tile { sample_mirrored(&still, sx, sy) } else { sample_bilinear(&still, sx, sy) };
+                for c in 0..4 {
+                    sum[c] += p[c] as f64;
+                }
+            }
+        }
+        let nn = (n * n) as f64;
+        for c in 0..4 {
+            px[c] = (sum[c] / nn) as f32;
+        }
+    });
+}
+
+/// D-385: a knot's scale, `a` its strength and `g` its weight at the point.
+pub(crate) fn flow_scale(a: f64, g: f64) -> f64 {
+    if a >= 0.0 { 1.0 + a * g } else { 1.0 / (1.0 - a * g) }
+}
+
+/// D-385: `sample_bilinear` of the buffer repeated round itself, every other copy turned over:
+/// column i reads column j = i mod 2w, or 2w - 1 - j when j >= w, and the same for rows.
+fn sample_mirrored(src: &WorkingBuffer, x: f64, y: f64) -> [f32; 4] {
+    let (w, h) = (src.width() as i64, src.height() as i64);
+    let fold = |i: i64, n: i64| {
+        let j = i.rem_euclid(2 * n);
+        (if j >= n { 2 * n - 1 - j } else { j }) as usize
+    };
+    let (fx, fy) = (x - 0.5, y - 0.5);
+    let (x0, y0) = (fx.floor(), fy.floor());
+    let (ux, uy) = (fx - x0, fy - y0);
+    let (x0, y0) = (x0 as i64, y0 as i64);
+    let data = src.data();
+    let mut out = [0.0f32; 4];
+    for (dy, wy) in [(0, 1.0 - uy), (1, uy)] {
+        for (dx, wx) in [(0, 1.0 - ux), (1, ux)] {
+            let wt = wx * wy;
+            if wt != 0.0 {
+                let s = (fold(y0 + dy, h) * w as usize + fold(x0 + dx, w)) * 4;
+                for c in 0..4 {
+                    out[c] += data[s + c] * wt as f32;
+                }
+            }
+        }
+    }
+    out
+}
+
+/// D-386: Griddler, this program's own reading of CycoreFX's CC Griddler. Tiles `tile` pixels
+/// square from the drawing's corner at `origin`; a pixel's offset from its tile's centre, turned
+/// back by `turn` radians (clockwise on the screen) and divided by `scale` across and down, is
+/// where it reads the drawing from that centre, transparent outside the tile's own square when
+/// `cut`. A scale of 0 draws nothing. The settings are already valid.
+pub(crate) fn griddler(source: &mut WorkingBuffer, scale: (f64, f64), tile: f64, turn: f64, cut: bool, origin: (usize, usize)) {
+    if scale == (1.0, 1.0) && turn == 0.0 {
+        return;
+    }
+    let w = source.width();
+    if scale.0 == 0.0 || scale.1 == 0.0 {
+        source.data_mut().fill(0.0);
+        return;
+    }
+    let (sin, cos) = turn.sin_cos();
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5 - ox, (i / w) as f64 + 0.5 - oy);
+        let (cx, cy) = (((x / tile).floor() + 0.5) * tile, ((y / tile).floor() + 0.5) * tile);
+        let (qx, qy) = (x - cx, y - cy);
+        let ux = (qx * cos + qy * sin) / scale.0;
+        let uy = (qy * cos - qx * sin) / scale.1;
+        if cut && (ux.abs() > tile / 2.0 || uy.abs() > tile / 2.0) {
+            px.fill(0.0);
+        } else {
+            px.copy_from_slice(&sample_bilinear(&still, ox + cx + ux, oy + cy + uy));
+        }
+    });
+}
+
+/// D-387: Fisheye, this program's own reading of CycoreFX's CC Lens. A pixel `r` from `center`,
+/// rho = min(r / radius, 1) of the way out, reads the drawing at center + (P - center) f / rho,
+/// f = rho + c (2 asin(rho) / pi - rho) for `c` >= 0, rho - c (sin(pi rho / 2) - rho) below,
+/// times the lens's cover min(1, max(0, radius - r + 0.5)). A radius of 0 draws nothing. The
+/// settings are already valid.
+pub(crate) fn fisheye(source: &mut WorkingBuffer, center: (f64, f64), radius: f64, c: f64) {
+    let w = source.width();
+    if radius <= 0.0 {
+        source.data_mut().fill(0.0);
+        return;
+    }
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (dx, dy) = ((i % w) as f64 + 0.5 - center.0, (i / w) as f64 + 0.5 - center.1);
+        let r = dx.hypot(dy);
+        let cover = (radius - r + 0.5).clamp(0.0, 1.0);
+        if cover == 0.0 {
+            px.fill(0.0);
+            return;
+        }
+        let k = if r == 0.0 {
+            0.0
+        } else {
+            let rho = (r / radius).min(1.0);
+            fisheye_curve(c, rho) / rho
+        };
+        let p = sample_bilinear(&still, center.0 + dx * k, center.1 + dy * k);
+        for ch in 0..4 {
+            px[ch] = (p[ch] as f64 * cover) as f32;
+        }
+    });
+}
+
+/// D-387: how far out a point rho of the way out reads, `c` the convergence over 100.
+pub(crate) fn fisheye_curve(c: f64, rho: f64) -> f64 {
+    use std::f64::consts::PI;
+    if c >= 0.0 { rho + c * (2.0 * rho.asin() / PI - rho) } else { rho - c * ((PI * rho / 2.0).sin() - rho) }
+}
+
 /// D-379: Blobbylize, this program's own reading of CycoreFX's CC Blobbylize. The blob's height
 /// is the `property` phase of the drawing, or of `map` lying on it with its corner at the given
 /// origin (clear outside it), times the covering unless alpha, blurred at sigma `softness / 2`;

@@ -1536,6 +1536,27 @@ pub enum Effect {
     /// axis with `adjust_to_distance` "on" ("off" or "on"); `style`, one of [`BENDER_STYLES`];
     /// `top` and `base`, per cent of the drawing as Radial Blur's centre is, -1000 to 1000.
     Bender { amount: f64, style: String, adjust_to_distance: String, top: [f64; 2], base: [f64; 2] },
+    /// D-385: after CycoreFX's CC Flo Motion. `knot_1` and `knot_2`, per cent of the drawing as
+    /// Radial Blur's centre is, -1000 to 1000; `amount_1` and `amount_2`, -1000 to 1000;
+    /// `falloff`, 0 to 10; `tile_edges` and `finer_controls`, "off" or "on"; `antialiasing`, one
+    /// of [`FLOW_MOTION_ANTIALIASING`].
+    FlowMotion {
+        knot_1: [f64; 2],
+        amount_1: f64,
+        knot_2: [f64; 2],
+        amount_2: f64,
+        falloff: f64,
+        tile_edges: String,
+        finer_controls: String,
+        antialiasing: String,
+    },
+    /// D-386: after CycoreFX's CC Griddler. `horizontal_scale` and `vertical_scale`, -1000 to
+    /// 1000 per cent; `tile_size`, 0.1 to 100 per cent of the drawing's width; `rotation`, -3600
+    /// to 3600 degrees; `cut_tiles`, "off" or "on".
+    Griddler { horizontal_scale: f64, vertical_scale: f64, tile_size: f64, rotation: f64, cut_tiles: String },
+    /// D-387: after CycoreFX's CC Lens. `center`, per cent of the drawing, -1000 to 1000; `size`,
+    /// 0 to 1000 per cent of half the drawing's diagonal; `convergence`, -100 to 100.
+    Fisheye { center: [f64; 2], size: f64, convergence: f64 },
     /// D-379: after CycoreFX's CC Blobbylize. `layer` and `fit`, D-189's layer setting, the blob
     /// map, "" the layer itself; `property`, one of [`BLOBBYLIZE_PROPERTIES`]; `softness`, 0 to
     /// 100 pixels; `cut_away`, 0 to 100; `light_intensity`, 0 to 400; `light_color`, `#rrggbb`;
@@ -1889,6 +1910,11 @@ pub const VECTOR_BLUR: &str = "core.vector_blur";
 pub const BEND_IT: &str = "core.bend_it";
 pub const BENDER: &str = "core.bender";
 pub const BLOBBYLIZE: &str = "core.blobbylize";
+pub const FLOW_MOTION: &str = "core.flow_motion";
+pub const GRIDDLER: &str = "core.griddler";
+pub const FISHEYE: &str = "core.fisheye";
+/// D-385: Flow Motion's antialiasing, in the order of its points a side, 1, 2 and 4.
+pub const FLOW_MOTION_ANTIALIASING: [&str; 3] = ["low", "medium", "high"];
 /// D-377: Bend It's words for the drawing before Start, in the order the card numbers them.
 pub const BEND_IT_PRESTARTS: [&str; 4] = ["none", "static", "bend", "mirror"];
 /// D-378: Bender's styles, in the order the card numbers them.
@@ -2568,6 +2594,24 @@ impl Effect {
                 ("amount", vec![amount], -1000.0, 1000.0),
                 ("top", top.iter_mut().collect(), -1000.0, 1000.0),
                 ("base", base.iter_mut().collect(), -1000.0, 1000.0),
+            ],
+            Effect::FlowMotion { knot_1, amount_1, knot_2, amount_2, falloff, .. } => vec![
+                ("knot_1", knot_1.iter_mut().collect(), -1000.0, 1000.0),
+                ("amount_1", vec![amount_1], -1000.0, 1000.0),
+                ("knot_2", knot_2.iter_mut().collect(), -1000.0, 1000.0),
+                ("amount_2", vec![amount_2], -1000.0, 1000.0),
+                ("falloff", vec![falloff], 0.0, 10.0),
+            ],
+            Effect::Griddler { horizontal_scale, vertical_scale, tile_size, rotation, .. } => vec![
+                ("horizontal_scale", vec![horizontal_scale], -1000.0, 1000.0),
+                ("vertical_scale", vec![vertical_scale], -1000.0, 1000.0),
+                ("tile_size", vec![tile_size], 0.1, 100.0),
+                ("rotation", vec![rotation], -3600.0, 3600.0),
+            ],
+            Effect::Fisheye { center, size, convergence } => vec![
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("size", vec![size], 0.0, 1000.0),
+                ("convergence", vec![convergence], -100.0, 100.0),
             ],
             Effect::Blobbylize {
                 softness,
@@ -3515,6 +3559,9 @@ impl Effect {
             Effect::VectorBlur { .. } => "CC Vector Blur",
             Effect::BendIt { .. } => "Bend It",
             Effect::Bender { .. } => "Bender",
+            Effect::FlowMotion { .. } => "Flow Motion",
+            Effect::Griddler { .. } => "Griddler",
+            Effect::Fisheye { .. } => "Fisheye",
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
@@ -3652,6 +3699,9 @@ impl Effect {
             Effect::VectorBlur { .. } => VECTOR_BLUR,
             Effect::BendIt { .. } => BEND_IT,
             Effect::Bender { .. } => BENDER,
+            Effect::FlowMotion { .. } => FLOW_MOTION,
+            Effect::Griddler { .. } => GRIDDLER,
+            Effect::Fisheye { .. } => FISHEYE,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
@@ -4281,6 +4331,18 @@ impl Effect {
             )),
             Effect::Bender { adjust_to_distance, .. } if !["off", "on"].contains(&adjust_to_distance.as_str()) => Some(format!(
                 "Bender's adjust to distance is \"on\" or \"off\", and this is \"{adjust_to_distance}\"."
+            )),
+            Effect::FlowMotion { tile_edges, .. } if !["off", "on"].contains(&tile_edges.as_str()) => Some(format!(
+                "Flow Motion's tile edges is \"on\" or \"off\", and this is \"{tile_edges}\"."
+            )),
+            Effect::FlowMotion { finer_controls, .. } if !["off", "on"].contains(&finer_controls.as_str()) => Some(format!(
+                "Flow Motion's finer controls is \"on\" or \"off\", and this is \"{finer_controls}\"."
+            )),
+            Effect::FlowMotion { antialiasing, .. } if !FLOW_MOTION_ANTIALIASING.contains(&antialiasing.as_str()) => Some(format!(
+                "Flow Motion's antialiasing is low, medium or high, and this is \"{antialiasing}\"."
+            )),
+            Effect::Griddler { cut_tiles, .. } if !["off", "on"].contains(&cut_tiles.as_str()) => Some(format!(
+                "Griddler's cut tiles is \"on\" or \"off\", and this is \"{cut_tiles}\"."
             )),
             Effect::Blobbylize { property, .. } if !BLOBBYLIZE_PROPERTIES.contains(&property.as_str()) => Some(format!(
                 "Blobbylize's property is red, green, blue, alpha, luminance or lightness, and this is \"{property}\"."
@@ -5054,6 +5116,29 @@ pub(crate) fn bender_amount(amount: f64, adjust: &str, base: (f64, f64), top: (f
     } else {
         amount
     }
+}
+
+/// D-385: Flow Motion's knots as points of a buffer `size` with the drawing's corner at
+/// `offset`, each with its strength, `amounts` over 10 (over 200 with `finer` "on"), and the
+/// knots' reach in pixels from `falloff`: the drawing's diagonal times 0.01 x 2^(0.7 falloff).
+pub(crate) fn flow_motion_knots(
+    knots: [[f64; 2]; 2],
+    amounts: [f64; 2],
+    falloff: f64,
+    finer: &str,
+    size: (usize, usize),
+    offset: (usize, usize),
+) -> ([((f64, f64), f64); 2], f64) {
+    let per = if finer == "on" { 200.0 } else { 10.0 };
+    let (w0, h0) = ((size.0 - 2 * offset.0) as f64, (size.1 - 2 * offset.1) as f64);
+    let sigma = w0.hypot(h0) * 0.01 * 2f64.powf(0.7 * falloff);
+    ([0, 1].map(|k| (radial_center(knots[k], size, offset), amounts[k] / per)), sigma)
+}
+
+/// D-387: Fisheye's radius in pixels, `size` per cent of half the drawing's diagonal.
+pub(crate) fn fisheye_radius(size: f64, dims: (usize, usize), offset: (usize, usize)) -> f64 {
+    let (w0, h0) = ((dims.0 - 2 * offset.0) as f64, (dims.1 - 2 * offset.1) as f64);
+    size / 100.0 * w0.hypot(h0) / 2.0
 }
 
 /// D-376: Color Stabilizer's samples of `source` for `mode`: the black point's, then the white
@@ -5849,6 +5934,30 @@ pub(crate) fn apply_stack_at(
                 let (b, t) = (radial_center(*base, size, (ox, oy)), radial_center(*top, size, (ox, oy)));
                 let a = bender_amount(*amount, adjust_to_distance, b, t);
                 crate::perf::time(crate::perf::Stage::EffectBender, || crate::layer_fx::bender(source, a, style, b, t))
+            }
+            Effect::FlowMotion { knot_1, amount_1, knot_2, amount_2, falloff, tile_edges, finer_controls, antialiasing } => {
+                let size = (source.width(), source.height());
+                let (knots, sigma) =
+                    flow_motion_knots([*knot_1, *knot_2], [*amount_1, *amount_2], *falloff, finer_controls, size, (ox, oy));
+                let n = 1 << FLOW_MOTION_ANTIALIASING.iter().position(|a| a == antialiasing).unwrap_or(0);
+                crate::perf::time(crate::perf::Stage::EffectFlowMotion, || {
+                    crate::layer_fx::flow_motion(source, knots, sigma, tile_edges == "on", n)
+                })
+            }
+            Effect::Griddler { horizontal_scale, vertical_scale, tile_size, rotation, cut_tiles } => {
+                let tile = tile_size / 100.0 * (source.width() - 2 * ox) as f64;
+                let scale = (horizontal_scale / 100.0, vertical_scale / 100.0);
+                crate::perf::time(crate::perf::Stage::EffectGriddler, || {
+                    crate::layer_fx::griddler(source, scale, tile, rotation.to_radians(), cut_tiles == "on", (ox, oy))
+                })
+            }
+            Effect::Fisheye { center, size, convergence } => {
+                let dims = (source.width(), source.height());
+                let c = radial_center(*center, dims, (ox, oy));
+                let radius = fisheye_radius(*size, dims, (ox, oy));
+                crate::perf::time(crate::perf::Stage::EffectFisheye, || {
+                    crate::layer_fx::fisheye(source, c, radius, convergence / 100.0)
+                })
             }
             // D-379: the map compose read for this frame, if a layer is named, is the blob.
             Effect::Blobbylize {

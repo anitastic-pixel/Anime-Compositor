@@ -2681,6 +2681,28 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("top".into(), J::Array(top.iter().map(|c| num(*c)).collect()));
             params.insert("base".into(), J::Array(base.iter().map(|c| num(*c)).collect()));
         }
+        Effect::FlowMotion { knot_1, amount_1, knot_2, amount_2, falloff, tile_edges, finer_controls, antialiasing } => {
+            params.insert("knot_1".into(), J::Array(knot_1.iter().map(|c| num(*c)).collect()));
+            params.insert("amount_1".into(), num(*amount_1));
+            params.insert("knot_2".into(), J::Array(knot_2.iter().map(|c| num(*c)).collect()));
+            params.insert("amount_2".into(), num(*amount_2));
+            params.insert("falloff".into(), num(*falloff));
+            params.insert("tile_edges".into(), J::from(tile_edges.as_str()));
+            params.insert("finer_controls".into(), J::from(finer_controls.as_str()));
+            params.insert("antialiasing".into(), J::from(antialiasing.as_str()));
+        }
+        Effect::Griddler { horizontal_scale, vertical_scale, tile_size, rotation, cut_tiles } => {
+            params.insert("horizontal_scale".into(), num(*horizontal_scale));
+            params.insert("vertical_scale".into(), num(*vertical_scale));
+            params.insert("tile_size".into(), num(*tile_size));
+            params.insert("rotation".into(), num(*rotation));
+            params.insert("cut_tiles".into(), J::from(cut_tiles.as_str()));
+        }
+        Effect::Fisheye { center, size, convergence } => {
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("size".into(), num(*size));
+            params.insert("convergence".into(), num(*convergence));
+        }
         Effect::Blobbylize {
             layer,
             fit,
@@ -3982,6 +4004,9 @@ fn parse_effect(
         crate::effects::BEND_IT,
         crate::effects::BENDER,
         crate::effects::BLOBBYLIZE,
+        crate::effects::FLOW_MOTION,
+        crate::effects::GRIDDLER,
+        crate::effects::FISHEYE,
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
@@ -5001,6 +5026,29 @@ fn parse_effect(
             adjust_to_distance: effect_word(params, "adjust_to_distance", &at)?,
             top: effect_array(params, "top", "two numbers, x then y", &at)?,
             base: effect_array(params, "base", "two numbers, x then y", &at)?,
+        }),
+        // D-385..D-387: the words kept as written, so one outside the contract is refused by name.
+        crate::effects::FLOW_MOTION => Some(crate::effects::Effect::FlowMotion {
+            knot_1: effect_array(params, "knot_1", "two numbers, x then y", &at)?,
+            amount_1: effect_number(params, "amount_1", &at)?,
+            knot_2: effect_array(params, "knot_2", "two numbers, x then y", &at)?,
+            amount_2: effect_number(params, "amount_2", &at)?,
+            falloff: effect_number(params, "falloff", &at)?,
+            tile_edges: effect_word(params, "tile_edges", &at)?,
+            finer_controls: effect_word(params, "finer_controls", &at)?,
+            antialiasing: effect_word(params, "antialiasing", &at)?,
+        }),
+        crate::effects::GRIDDLER => Some(crate::effects::Effect::Griddler {
+            horizontal_scale: effect_number(params, "horizontal_scale", &at)?,
+            vertical_scale: effect_number(params, "vertical_scale", &at)?,
+            tile_size: effect_number(params, "tile_size", &at)?,
+            rotation: effect_number(params, "rotation", &at)?,
+            cut_tiles: effect_word(params, "cut_tiles", &at)?,
+        }),
+        crate::effects::FISHEYE => Some(crate::effects::Effect::Fisheye {
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            size: effect_number(params, "size", &at)?,
+            convergence: effect_number(params, "convergence", &at)?,
         }),
         // D-379: the layer is kept as written, as CC Glass's is.
         crate::effects::BLOBBYLIZE => Some(crate::effects::Effect::Blobbylize {

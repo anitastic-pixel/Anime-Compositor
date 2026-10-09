@@ -959,6 +959,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::BendIt { .. }
                 | crate::effects::Effect::Bender { .. }
                 | crate::effects::Effect::Blobbylize { .. }
+                // D-385..D-387: Flow Motion, Griddler and Fisheye.
+                | crate::effects::Effect::FlowMotion { .. }
+                | crate::effects::Effect::Griddler { .. }
+                | crate::effects::Effect::Fisheye { .. }
                 // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }
                 | crate::effects::Effect::FourColorGradient { .. }
@@ -1202,6 +1206,11 @@ fn card_effect(
                 // D-377/D-378: no bar, or no push.
                 E::BendIt { start, end, .. } => start == end,
                 E::Bender { amount, top, base, .. } => *amount == 0.0 || top == base,
+                // D-385/D-386: no pull, or every tile as it was.
+                E::FlowMotion { amount_1, amount_2, .. } => *amount_1 == 0.0 && *amount_2 == 0.0,
+                E::Griddler { horizontal_scale, vertical_scale, rotation, .. } => {
+                    *horizontal_scale == 100.0 && *vertical_scale == 100.0 && rotation.to_radians() == 0.0
+                }
                 // D-360: the mean of two untouched copies is the layer.
                 E::CrossBlur { radius_x, radius_y, mode, .. } => {
                     mode == "blend" && crate::effects::box_reach(*radius_x, 1.0).max(crate::effects::box_reach(*radius_y, 1.0)) == 0
