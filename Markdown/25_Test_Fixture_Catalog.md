@@ -203962,3 +203962,161 @@ FX-CHCOLOR-022 (`fx_chcolor_022.json`): Match colors "Hue": the word is exact, s
 FX-CHCOLOR-023 (`fx_chcolor_023.json`): View "matte", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CHCOLOR-024 (`fx_chcolor_024.json`): Invert mask "yes", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Bend It (D-377)
+
+Bend It (`core.bend_it`), after CycoreFX's CC Bend It (B-256): the strip of the layer along a bar from Start to End bent into an arc that turns Bend degrees over the bar's length; Render Prestart says what is drawn before the Start, Distort whether the drawing runs on straight past the End, and where the bend lays the drawing over itself the part farther along the bar is on top. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size, unmoved unless the case says. `tools/bend_it_reference.py` works the expected frames, `Fixtures/bend_it/expected_bend_it.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-BENDIT-001 (`fx_bendit_001.json`): The settings as they start: Bend 45, the bar standing up from the middle of the bottom edge to the middle of the top, None, Legal. The drawing leans and curves to the right as it rises, its top an eighth of a turn over; the left part of the top rows, carried past the edge, is cut. Frames 0.
+
+FX-BENDIT-002 (`fx_bendit_002.json`): Bend 0: the straight bar, the whole drawing on it: untouched. Frames 0.
+
+FX-BENDIT-003 (`fx_bendit_003.json`): Bend 90: a quarter turn, the top of the bar lying flat to the right, the circle's centre 6.37 pixels right of the bottom middle. Frames 0.
+
+FX-BENDIT-004 (`fx_bendit_004.json`): Bend -90: the same quarter turn to the left, the picture FX-BENDIT-003's turned over left to right about the bar, as far as the drawing, not quite symmetric about its middle, allows. Frames 0.
+
+FX-BENDIT-005 (`fx_bendit_005.json`): Bend 360: the bar bent into a whole circle 1.59 pixels round its centre, so the stripes' two ends meet; pixels the circle's sheets cross twice show the one farther along the bar over the other. Frames 0.
+
+FX-BENDIT-006 (`fx_bendit_006.json`): Start 50, 80 and End 50, 20, a bar from row 8 to row 2, Bend 60, None, Legal: what lies before the Start (rows 8 and 9) and past the End (rows 0 and 1) is not drawn; the six rows between bend. Frames 0.
+
+FX-BENDIT-007 (`fx_bendit_007.json`): The same with Render Prestart Static: rows 8 and 9, before the Start, drawn unbent, under the bent part where it swings over them. Frames 0.
+
+FX-BENDIT-008 (`fx_bendit_008.json`): The same with Render Prestart Bend: the bend carried on back past the Start the other way round the same circle, so rows 8 and 9 curve away to the left below it. Frames 0.
+
+FX-BENDIT-009 (`fx_bendit_009.json`): The same with Render Prestart Mirror: the bar's own Start to End stretch bent back from the Start as Bend bends it, mirrored, so the rows just above the Start reappear below it. Frames 0.
+
+FX-BENDIT-010 (`fx_bendit_010.json`): FX-BENDIT-006 with Distort Extended: rows 0 and 1, past the End, laid straight on along the bent bar's last direction, 60 degrees over. Frames 0.
+
+FX-BENDIT-011 (`fx_bendit_011.json`): Start 0, 50 and End 100, 50, the bar lying across, Bend 90: its right half curls down, n pointing down from a bar that runs to the right; rows above and below the bar bend with it. Frames 0.
+
+FX-BENDIT-012 (`fx_bendit_012.json`): Start and End the same point, 50, 50: no bar, the drawing untouched. Frames 0.
+
+FX-BENDIT-013 (`fx_bendit_013.json`): Bend keyed from 0 at frame 0 to 90 at frame 4, linear: frame 0 the drawing, frame 2 FX-BENDIT-001 and frame 4 FX-BENDIT-003. Frames 0, 2, 4.
+
+FX-BENDIT-014 (`fx_bendit_014.json`): Bend 60, End keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the bar shortens, the same turn in less length, a tighter curve; with Legal the rows past the End go. Frames 0, 2, 4.
+
+FX-BENDIT-015 (`fx_bendit_015.json`): FX-BENDIT-003 moved three pixels right: the same, moved; the bend is worked in the drawing's own space and moves with it, nothing grows, and the three columns left of the drawing stay empty. Frames 0.
+
+FX-BENDIT-016 (`fx_bendit_016.json`): Bend eased from 0 at frame 0 to 360 at frame 4 on a curve that overshoots: at frame 2 it would pass 360, is held at 360, and is FX-BENDIT-005, as frame 4 is. Frames 0, 2, 4.
+
+FX-BENDIT-017 (`fx_bendit_017.json`): Bend -150 on the short bar with Static and Extended: the bar curls back on itself to the left, past the Start row, over the static rows, and runs on straight from the End. Frames 0.
+
+FX-BENDIT-018 (`fx_bendit_018.json`): Bend 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BENDIT-019 (`fx_bendit_019.json`): Bend -361, below -360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BENDIT-020 (`fx_bendit_020.json`): A Render Prestart written "Bend", with a capital. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BENDIT-021 (`fx_bendit_021.json`): A Distort written "extend". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BENDIT-022 (`fx_bendit_022.json`): Start 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BENDIT-023 (`fx_bendit_023.json`): Bend keyed to 400 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Bender (D-378)
+
+Bender (`core.bender`), after CycoreFX's CC Bender (B-257): the drawing pushed across the axis from Base to Top, by an amount shaped by Style (bend, marilyn, sharp or boxer), in pixels or, with Adjust To Distance on, per cent of the axis. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size, unmoved unless the case says. `tools/bender_reference.py` works the expected frames, `Fixtures/bender/expected_bender.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-BENDER-001 (`fx_bender_001.json`): The settings as they start: Amount 20, Bend, the axis from the middle of the bottom edge to the middle of the top. Each row is pushed right by 20 times the square of its height up the drawing, so the bottom rows barely move and the top ones are pushed clean off the drawing: a hard bend. Frames 0.
+
+FX-BENDER-002 (`fx_bender_002.json`): Amount 0: the drawing, untouched. Frames 0.
+
+FX-BENDER-003 (`fx_bender_003.json`): Bend, Amount 4: row 1, the stripes' top row, pushed 2.89 pixels right, the band's rows 1.21 and 0.81, and row 8 0.09: the stripes curve over to the right. Frames 0.
+
+FX-BENDER-004 (`fx_bender_004.json`): Bend, Amount -4: the same push to the left. Frames 0.
+
+FX-BENDER-005 (`fx_bender_005.json`): Marilyn, Amount 4: the middle rows swell 4 pixels right and the top and bottom rows hardly move, a smooth bulge. Frames 0.
+
+FX-BENDER-006 (`fx_bender_006.json`): Sharp, Amount 4: the same swell as a triangle, its point in the middle. Frames 0.
+
+FX-BENDER-007 (`fx_bender_007.json`): Boxer, Amount 4: a smooth S from the bottom row to the top, the top pushed most nearly 4 pixels. Frames 0.
+
+FX-BENDER-008 (`fx_bender_008.json`): Adjust To Distance on, Amount 40: 40 per cent of the 10-pixel axis, 4 pixels: FX-BENDER-003 exactly. Frames 0.
+
+FX-BENDER-009 (`fx_bender_009.json`): Bend, Amount 2, the axis from row 7 up to row 3: rows 7 to 9 below the Base stay put, the rows to the Top curve, and the rows past it, 1 and 2, carry on straight, slanting further, 2 (2 s - 1) pixels. Frames 0.
+
+FX-BENDER-010 (`fx_bender_010.json`): Marilyn, Amount 2, the same short axis: only rows 3 to 6 swell; the rest is untouched. Frames 0.
+
+FX-BENDER-011 (`fx_bender_011.json`): Boxer, Amount 3, the axis lying across from the middle of the left edge to the middle of the right: n points down, so the columns are pushed down, the right ones 3 pixels. Frames 0.
+
+FX-BENDER-012 (`fx_bender_012.json`): Top and Base the same point: no axis, the drawing untouched. Frames 0.
+
+FX-BENDER-013 (`fx_bender_013.json`): Amount keyed from 0 at frame 0 to 8 at frame 4, linear: frame 0 the drawing, frame 2 FX-BENDER-003. Frames 0, 2, 4.
+
+FX-BENDER-014 (`fx_bender_014.json`): Bend, Amount 3, the Top keyed from 50, 0 at frame 0 to 50, 50 at frame 4: the axis shortens and the same push bends harder. Frames 0, 2, 4.
+
+FX-BENDER-015 (`fx_bender_015.json`): FX-BENDER-005 moved three pixels right: the same, moved; nothing grows, and the three columns left of the drawing stay empty. Frames 0.
+
+FX-BENDER-016 (`fx_bender_016.json`): Sharp, Amount 0.5: half a pixel at most, a blend of neighbouring stripes rather than a move. Frames 0.
+
+FX-BENDER-017 (`fx_bender_017.json`): Amount eased from 0 at frame 0 to 1000 at frame 4 on a curve that overshoots: at frame 2 it would pass 1000 and is held there. Frames 0, 2, 4.
+
+FX-BENDER-018 (`fx_bender_018.json`): Amount 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BENDER-019 (`fx_bender_019.json`): Amount -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BENDER-020 (`fx_bender_020.json`): A style written "Bend", with a capital. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BENDER-021 (`fx_bender_021.json`): Adjust To Distance written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BENDER-022 (`fx_bender_022.json`): Top 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BENDER-023 (`fx_bender_023.json`): Amount keyed to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Blobbylize (D-379)
+
+Blobbylize (`core.blobbylize`), after CycoreFX's CC Blobbylize (B-258): a channel of a layer, the holder's own or another's (D-189's layer setting), softened into a blob height, cut, made the covering and lit by the effect's own distant or point light. Every case is a project of one composition 16 by 10, five frames, the drawing `holder` at the top with the effect and the map layers under it, every one switched off. `tools/blobbylize_reference.py` works the expected frames, `Fixtures/blobbylize/expected_blobbylize.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-BLOB-001 (`fx_blob_001.json`): As added: the layer's own covering as the blob, Softness 10, Cut Away 0, a white distant light from the top left at height 100, Ambient 25, Diffuse 75, Specular 50, Roughness 0.05, Metal 100: the two blocks melt into one soft, lit blob, lighter on its upper left slopes. Frames 0.
+
+FX-BLOB-002 (`fx_blob_002.json`): Softness 0, Ambient 100, Diffuse 0, Specular 0: the blob is the covering itself and nothing is lit, so the drawing comes back untouched. Frames 0.
+
+FX-BLOB-003 (`fx_blob_003.json`): Softness 4, unlit: the blocks' edges go soft and the three clear columns between them fill part way, their colour spread from the blocks, red into blue. Frames 0.
+
+FX-BLOB-004 (`fx_blob_004.json`): The same, Cut Away 30: the softest 30 per cent cut away and the rest stretched back to full, a firmer blob, the gap thinner. Frames 0.
+
+FX-BLOB-005 (`fx_blob_005.json`): Cut Away 100: everything cut away, an empty frame. Frames 0.
+
+FX-BLOB-006 (`fx_blob_006.json`): Softness 4, lit as added: lighter on the slopes that face the top left, darker on those facing away, the flat middles at Ambient plus Diffuse times 0.71. Frames 0.
+
+FX-BLOB-007 (`fx_blob_007.json`): The light's Direction 135, from the bottom right: the other slopes light. Frames 0.
+
+FX-BLOB-008 (`fx_blob_008.json`): A point light at 25, 30 per cent, 10 pixels up: brightest near (4, 3), falling away across the blocks. Frames 0.
+
+FX-BLOB-009 (`fx_blob_009.json`): The light's Height -50, behind the layer: the flat middles face away from it, so only Ambient lights them; a slope tipped far enough toward it catches a little. Frames 0.
+
+FX-BLOB-010 (`fx_blob_010.json`): Specular 100, Roughness 0.5, Metal 0, an orange light, Diffuse 0: a broad highlight in the light's own orange, not the blocks' colour. Frames 0.
+
+FX-BLOB-011 (`fx_blob_011.json`): An orange light at Intensity 150, Diffuse 100: the blocks tinted warm and brighter. Frames 0.
+
+FX-BLOB-012 (`fx_blob_012.json`): The dots layer as the blob, its covering, Softness 2, on the solid photo: the photo cut down to two soft round blobs where the dots are. Frames 0.
+
+FX-BLOB-013 (`fx_blob_013.json`): The ramp as the blob, Property Luminance, Softness 0, unlit, on the photo: the photo fading in from clear at the left to solid at the right. Frames 0.
+
+FX-BLOB-014 (`fx_blob_014.json`): The 8 by 5 spot stretched to the drawing's size, Property Red, Softness 2, on the photo: an oval blob in the middle. Frames 0.
+
+FX-BLOB-015 (`fx_blob_015.json`): A layer that is not in the composition, `gone`: the layer itself is the blob, as FX-BLOB-001, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-BLOB-016 (`fx_blob_016.json`): Softness keyed from 0 at frame 0 to 8 at frame 4, linear: frame 2 is FX-BLOB-006. Frames 0, 2, 4.
+
+FX-BLOB-017 (`fx_blob_017.json`): FX-BLOB-006 on the holder moved 2 right and 1 down: the same, moved. Frames 0.
+
+FX-BLOB-018 (`fx_blob_018.json`): Cut Away eased from 0 at frame 0 to 100 at frame 4 on a curve that overshoots: at frame 2 it would pass 100, is held at 100, and the frame is empty, as frame 4 is. Frames 0, 2, 4.
+
+FX-BLOB-019 (`fx_blob_019.json`): Property Lightness on the photo itself, Softness 2, Cut Away 20, lit: the cream squares stand up as blobs, the red and blue lower. Frames 0.
+
+FX-BLOB-020 (`fx_blob_020.json`): Softness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOB-021 (`fx_blob_021.json`): Cut Away -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOB-022 (`fx_blob_022.json`): A property written "hue", which Blobbylize does not read. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOB-023 (`fx_blob_023.json`): A light type written "spot". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOB-024 (`fx_blob_024.json`): Roughness 0, below 0.001. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOB-025 (`fx_blob_025.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOB-026 (`fx_blob_026.json`): A light position 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOB-027 (`fx_blob_027.json`): Metal keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
