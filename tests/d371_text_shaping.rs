@@ -192,3 +192,37 @@ fn d371_text_shaping() {
     }
     t.finish("D-371_text_shaping_table.md");
 }
+
+/// B-250's timing: a 30-character Latin line in the bundled font and a 31-character Arabic line
+/// in Segoe UI (on every Windows machine), each laid out (`text::placed`) and drawn into a 1920 by
+/// 1080 picture (`text::draw`) 200 times; the medians in milliseconds, to `D371_OUT`.
+#[test]
+#[ignore = "B-250: a measurement, run deliberately with --release --ignored"]
+fn d371_text_shaping_timing() {
+    let lines = [
+        ("30-character Latin line, M PLUS Rounded 1c", "Typewriter effect, 30 letters!", Text::BUNDLED_FONT),
+        (
+            "31-character Arabic line, Segoe UI",
+            "\u{0627}\u{0644}\u{0633}\u{0644}\u{0627}\u{0645} \u{0639}\u{0644}\u{064a}\u{0643}\u{0645} \u{0648}\u{0631}\u{062d}\u{0645}\u{0629} \u{0627}\u{0644}\u{0644}\u{0647} \u{0648}\u{0628}\u{0631}\u{0643}\u{0627}\u{062a}\u{0647}",
+            "segoeui.ttf",
+        ),
+    ];
+    let mut s = String::from("| Line | Characters | Laid out | Drawn |\n|---|---:|---:|---:|\n");
+    for (name, words, font) in lines {
+        let t = Text { text: words.into(), font: font.into(), size: 100.0, at: [100.0, 540.0], ..Text::default() };
+        assert!(text::draw(&t, 1920, 1080).is_some(), "{font} is on this machine");
+        let (mut lay, mut draw) = (Vec::new(), Vec::new());
+        for _ in 0..200 {
+            let a = std::time::Instant::now();
+            std::hint::black_box(text::placed(&t, &[]));
+            lay.push(a.elapsed().as_secs_f64() * 1000.0);
+            let a = std::time::Instant::now();
+            std::hint::black_box(text::draw(&t, 1920, 1080));
+            draw.push(a.elapsed().as_secs_f64() * 1000.0);
+        }
+        lay.sort_by(f64::total_cmp);
+        draw.sort_by(f64::total_cmp);
+        s += &format!("| {name} | {} | {:.3} | {:.3} |\n", words.chars().count(), lay[100], draw[100]);
+    }
+    fs::write(std::env::var("D371_OUT").expect("D371_OUT names the file"), s).unwrap();
+}
