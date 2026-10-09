@@ -203762,3 +203762,125 @@ FX-COFFSET-014 (`fx_coffset_014.json`): Blue phase -3601, below -3600. The file 
 FX-COFFSET-015 (`fx_coffset_015.json`): Overflow "mirror", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-COFFSET-016 (`fx_coffset_016.json`): Overflow "Wrap": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Kernel (D-368)
+
+Kernel (`core.kernel`), after CycoreFX's CC Kernel (B-247): each pixel rebuilt from itself and its eight neighbours, each weighed by a number in a three by three grid, the sum divided by the divider and, if asked, made positive, then held inside 0 to 1. Every case is Broadcast Safe's drawing: columns of colour, darker row by row, an empty column 0 and a half-covered column 15. `tools/kernel_reference.py` works the expected frames, `expected_kernel.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-KERNEL-001 (`fx_kernel_001.json`): The grid as it starts, the middle pixel alone, divider 1: the drawing, untouched. Frames 0.
+
+FX-KERNEL-002 (`fx_kernel_002.json`): All nine 1, divider 9: each pixel the average of itself and its eight neighbours, a soft blur; the columns' edges soften and the empty column darkens its neighbour. Frames 0.
+
+FX-KERNEL-003 (`fx_kernel_003.json`): 0 -1 0 / -1 5 -1 / 0 -1 0, divider 1: a sharpen; flat areas stay, each column's edge gets a light and a dark rim. Frames 0.
+
+FX-KERNEL-004 (`fx_kernel_004.json`): -1 all round, 8 in the middle, divider 1, absolute values off: edges only; flat areas turn black, and where a pixel is darker than its neighbours the negative result is black too. Frames 0.
+
+FX-KERNEL-005 (`fx_kernel_005.json`): The same edge grid, absolute values on: the negative results turn positive, so both sides of every edge light up. Frames 0.
+
+FX-KERNEL-006 (`fx_kernel_006.json`): -2 -1 0 / -1 1 1 / 0 1 2, divider 1: an emboss, lit from the lower right; it shows the grid is read with line 1 above and each line's first number on the left. Frames 0.
+
+FX-KERNEL-007 (`fx_kernel_007.json`): Only line 2's first number, 1: every pixel takes the colour of the pixel to its left, so the picture moves one pixel right; the first shown column takes the empty column's 0, black. Frames 0.
+
+FX-KERNEL-008 (`fx_kernel_008.json`): Only line 1's middle number, 1: every pixel takes the colour of the pixel above, so the picture moves one pixel down; the top row repeats. Frames 0.
+
+FX-KERNEL-009 (`fx_kernel_009.json`): The middle pixel alone, divider 2: every colour's encoded value halved. Frames 0.
+
+FX-KERNEL-010 (`fx_kernel_010.json`): The middle pixel alone, divider 0.5: every colour's encoded value doubled, held at white. Frames 0.
+
+FX-KERNEL-011 (`fx_kernel_011.json`): Middle number 4, divider keyed from 4 at frame 0 to 1 at frame 4, linear: frame 0 untouched, frame 2 every value times 1.6, frame 4 times 4, held at white. Frames 0, 2, 4.
+
+FX-KERNEL-012 (`fx_kernel_012.json`): FX-KERNEL-003 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-KERNEL-013 (`fx_kernel_013.json`): Line 1's first number 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-KERNEL-014 (`fx_kernel_014.json`): Line 2 with two numbers, not three. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-KERNEL-015 (`fx_kernel_015.json`): Divider 0, below 0.01. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-KERNEL-016 (`fx_kernel_016.json`): Divider 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-KERNEL-017 (`fx_kernel_017.json`): Absolute values "yes", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-KERNEL-018 (`fx_kernel_018.json`): Absolute values "ON": the word is exact, so capitals are not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Toner (D-369)
+
+Toner (`core.toner`), after CycoreFX's CC Toner (B-248): every pixel's lightness picks a colour off a ramp of two, three or five tones from shadows to highlights. Every case is Broadcast Safe's drawing. `tools/toner_reference.py` works the expected frames, `expected_toner.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-TONER-001 (`fx_toner_001.json`): Tritone, the colours as they start: black, a sepia brown and white, a warm sepia print of the picture by its lightness. Frames 0.
+
+FX-TONER-002 (`fx_toner_002.json`): Duotone, as it starts: black to white, the picture turned to greys by its lightness. Frames 0.
+
+FX-TONER-003 (`fx_toner_003.json`): Pentone, as it starts: black, dark brown, sepia, cream and white, a sepia print with more steps. Frames 0.
+
+FX-TONER-004 (`fx_toner_004.json`): Tritone, navy, red and pale yellow: a night-to-sunset colouring. Frames 0.
+
+FX-TONER-005 (`fx_toner_005.json`): Duotone, deep purple to warm yellow. Frames 0.
+
+FX-TONER-006 (`fx_toner_006.json`): Pentone, five colours from near-black purple through violet and orange to pale yellow. Frames 0.
+
+FX-TONER-007 (`fx_toner_007.json`): Tritone with brights and darktones set to loud green and blue: tritone does not use them, so the same as FX-TONER-001. Frames 0.
+
+FX-TONER-008 (`fx_toner_008.json`): Duotone with midtones set to green: duotone does not use it, so the same as FX-TONER-002. Frames 0.
+
+FX-TONER-009 (`fx_toner_009.json`): FX-TONER-004 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-TONER-010 (`fx_toner_010.json`): Tones "quadtone", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TONER-011 (`fx_toner_011.json`): Tones "Tritone": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TONER-012 (`fx_toner_012.json`): Highlights "#fff", which is not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TONER-013 (`fx_toner_013.json`): Midtones "brown", which is not a colour code. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Change Color (D-370)
+
+Change Color (`core.change_color`), after After Effects' Change Color (B-249): the colours near one colour, by RGB, hue or chroma, within a tolerance and a soft edge, turned round the colour wheel and made lighter or darker, stronger or greyer; the mask can be shown or turned over. Every case is Broadcast Safe's drawing: pure colours, greys, a skin tone, orange and three warm tones. `tools/change_color_reference.py` works the expected frames, `expected_change_color.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-CHCOLOR-001 (`fx_chcolor_001.json`): The settings as they start: every transform 0, so the drawing, untouched. Frames 0.
+
+FX-CHCOLOR-002 (`fx_chcolor_002.json`): Hue transform 120, matching red by hue, tolerance 15: the red column turns green at every darkness, and the skin column, whose hue is within 15 per cent of red's, turns too; everything else stays. Frames 0.
+
+FX-CHCOLOR-003 (`fx_chcolor_003.json`): The same with softness 8: the orange and the warm shadow and midtone, just past the tolerance, turn part of the way; the warm highlight, further, stays. Frames 0.
+
+FX-CHCOLOR-004 (`fx_chcolor_004.json`): FX-CHCOLOR-003's settings, view mask: the mask as greys, white where the colour is changed fully, black where it is left, grey in between. Frames 0.
+
+FX-CHCOLOR-005 (`fx_chcolor_005.json`): FX-CHCOLOR-003's settings, invert on: everything but the reds and skin turns round the wheel; the greys, having no hue, stay grey. Frames 0.
+
+FX-CHCOLOR-006 (`fx_chcolor_006.json`): FX-CHCOLOR-004 with invert on: the mask turned round. Frames 0.
+
+FX-CHCOLOR-007 (`fx_chcolor_007.json`): Lightness -50: the reds and skin half way to black. Frames 0.
+
+FX-CHCOLOR-008 (`fx_chcolor_008.json`): Lightness 50: the reds and skin half way to white. Frames 0.
+
+FX-CHCOLOR-009 (`fx_chcolor_009.json`): Saturation -100: the reds and skin turn grey at their own lightness. Frames 0.
+
+FX-CHCOLOR-010 (`fx_chcolor_010.json`): Saturation 60, softness 8: the reds stay pure, the skin and the warm tones grow stronger. Frames 0.
+
+FX-CHCOLOR-011 (`fx_chcolor_011.json`): Matching by RGB, colour #f6d6be (the skin), tolerance 20, softness 10, hue 180 and lightness -30: the skin and the colours close to it in all three channels, the warm highlight and white among them, are changed; red, far in RGB, is not. Frames 0.
+
+FX-CHCOLOR-012 (`fx_chcolor_012.json`): Matching by chroma, colour #00ff00, tolerance 30, softness 15, hue 180: the bright greens are changed, the darker greens, whose colour signal is weaker, less, and cyan, near in hue but far in chroma, not at all. Frames 0.
+
+FX-CHCOLOR-013 (`fx_chcolor_013.json`): Hue transform keyed from 0 at frame 0 to 240 at frame 4, linear, softness 8: frame 0 untouched, frame 2 FX-CHCOLOR-003, frame 4 the reds turned blue. Frames 0, 2, 4.
+
+FX-CHCOLOR-014 (`fx_chcolor_014.json`): FX-CHCOLOR-003 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-CHCOLOR-015 (`fx_chcolor_015.json`): Hue transform 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHCOLOR-016 (`fx_chcolor_016.json`): Lightness transform 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHCOLOR-017 (`fx_chcolor_017.json`): Saturation transform -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHCOLOR-018 (`fx_chcolor_018.json`): Tolerance 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHCOLOR-019 (`fx_chcolor_019.json`): Softness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHCOLOR-020 (`fx_chcolor_020.json`): Color to change "#ff00", which is not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHCOLOR-021 (`fx_chcolor_021.json`): Match colors "lab", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHCOLOR-022 (`fx_chcolor_022.json`): Match colors "Hue": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHCOLOR-023 (`fx_chcolor_023.json`): View "matte", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHCOLOR-024 (`fx_chcolor_024.json`): Invert mask "yes", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
