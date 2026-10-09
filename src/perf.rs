@@ -278,6 +278,8 @@ pub enum Stage {
     EffectColorBalanceHls,
     EffectColorLink,
     EffectColorStabilizer,
+    /// D-382's Gamma/Pedestal/Gain.
+    EffectGammaPedestalGain,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -295,7 +297,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 141] = [
+    pub const ALL: [Stage; 142] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -430,6 +432,7 @@ impl Stage {
         Stage::EffectColorBalanceHls,
         Stage::EffectColorLink,
         Stage::EffectColorStabilizer,
+        Stage::EffectGammaPedestalGain,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -576,6 +579,7 @@ impl Stage {
             Stage::EffectColorBalanceHls => "effect: color balance (hls)",
             Stage::EffectColorLink => "effect: color link",
             Stage::EffectColorStabilizer => "effect: color stabilizer",
+            Stage::EffectGammaPedestalGain => "effect: gamma/pedestal/gain",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

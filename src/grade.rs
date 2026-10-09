@@ -1472,6 +1472,26 @@ pub(crate) fn color_balance_hls(source: &mut WorkingBuffer, hue: f64, light: f64
     });
 }
 
+/// D-382: Gamma/Pedestal/Gain at its start leaves the layer exactly as it is.
+pub(crate) fn gamma_pedestal_gain_untouched(stretch: f64, gamma: [f64; 3], pedestal: [f64; 3], gain: [f64; 3]) -> bool {
+    stretch == 1.0 && gamma == [1.0; 3] && pedestal == [0.0; 3] && gain == [1.0; 3]
+}
+
+/// D-382: Gamma/Pedestal/Gain. Each encoded channel x first stretched to s x / (1 + (s - 1) x),
+/// then pedestal + (gain - pedestal) x^(1 / gamma), its own three for red, green and blue, held
+/// inside 0 to 1.
+pub(crate) fn gamma_pedestal_gain(source: &mut WorkingBuffer, stretch: f64, gamma: [f64; 3], pedestal: [f64; 3], gain: [f64; 3]) {
+    if gamma_pedestal_gain_untouched(stretch, gamma, pedestal, gain) {
+        return;
+    }
+    grade_pixels(source, false, |_, e| {
+        std::array::from_fn(|c| {
+            let x = stretch * e[c] / (1.0 + (stretch - 1.0) * e[c]);
+            pedestal[c] + (gain[c] - pedestal[c]) * x.powf(1.0 / gamma[c])
+        })
+    });
+}
+
 /// D-376: the mean encoded straight colour, each pixel weighted by its covering, of the pixels
 /// of `source` whose centres lie within `r` of (`px`, `py`); with none, the pixel holding the
 /// point, held inside the picture. `None` when what is counted has no covering.

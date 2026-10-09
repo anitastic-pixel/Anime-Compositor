@@ -2288,6 +2288,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("lightness".into(), num(*lightness));
             params.insert("saturation".into(), num(*saturation));
         }
+        Effect::GammaPedestalGain { black_stretch, gamma, pedestal, gain } => {
+            params.insert("black_stretch".into(), num(*black_stretch));
+            for (c, name) in ["red", "green", "blue"].iter().enumerate() {
+                params.insert(format!("{name}_gamma"), num(gamma[c]));
+                params.insert(format!("{name}_pedestal"), num(pedestal[c]));
+                params.insert(format!("{name}_gain"), num(gain[c]));
+            }
+        }
         // D-375: the map read for a frame is never saved.
         Effect::ColorLink { layer, sample, clip, stencil, opacity, blending_mode, .. } => {
             params.insert("layer".into(), layer.clone());
@@ -3951,6 +3959,7 @@ fn parse_effect(
         crate::effects::COLOR_BALANCE_HLS,
         crate::effects::COLOR_LINK,
         crate::effects::COLOR_STABILIZER,
+        crate::effects::GAMMA_PEDESTAL_GAIN,
         crate::effects::SNOWFALL,
         crate::effects::KALEIDOSCOPE,
         crate::effects::ROUGHEN_EDGES,
@@ -4741,6 +4750,21 @@ fn parse_effect(
             lightness: effect_number(params, "lightness", &at)?,
             saturation: effect_number(params, "saturation", &at)?,
         }),
+        crate::effects::GAMMA_PEDESTAL_GAIN => {
+            let three = |part: &str| -> Result<[f64; 3], Diagnostic> {
+                Ok([
+                    effect_number(params, &format!("red_{part}"), &at)?,
+                    effect_number(params, &format!("green_{part}"), &at)?,
+                    effect_number(params, &format!("blue_{part}"), &at)?,
+                ])
+            };
+            Some(crate::effects::Effect::GammaPedestalGain {
+                black_stretch: effect_number(params, "black_stretch", &at)?,
+                gamma: three("gamma")?,
+                pedestal: three("pedestal")?,
+                gain: three("gain")?,
+            })
+        }
         // D-375: the layer and the words kept as written, so one outside the contract is
         // refused by name.
         crate::effects::COLOR_LINK => Some(crate::effects::Effect::ColorLink {

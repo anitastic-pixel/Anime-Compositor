@@ -2070,7 +2070,8 @@ fn from_hls(hue: f64, l: f64, s: f64) -> vec3<f64> {
 // offset or gamma (14), tint (15), shift_channels (16), solid_composite (17), change_to_color
 // (18), color_key (19), select_color (20), line_recolor (21), colorama (22) and extract (23);
 // broadcast_safe (24), color_neutralizer (25), color_offset (26); D-369/D-370: toner (27) and
-// change_color (28); D-374/D-375: color_balance_hls (29) and color link (30).
+// change_color (28); D-374/D-375: color_balance_hls (29) and color link (30); D-382:
+// gamma_pedestal_gain (31).
 @compute @workgroup_size(16, 16)
 fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -2711,6 +2712,19 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         case 5u: {
             // k: the level.
             o = vec3(select(0.0lf, 1.0lf, 255.0lf * luma(e) + 1e-4lf >= k[0]));
+        }
+        case 31u: {
+            // D-382, as grade::gamma_pedestal_gain. k: the black stretch, then for red, green and
+            // blue one over the gamma, the pedestal and the gain. The power in single precision,
+            // as Levels'.
+            for (var c = 0u; c < 3u; c++) {
+                let x = k[0] * e[c] / (1.0lf + (k[0] - 1.0lf) * e[c]);
+                var v = 0.0lf;
+                if x > 0.0lf {
+                    v = f64(pow(f32(x), f32(k[1u + 3u * c])));
+                }
+                o[c] = k[2u + 3u * c] + (k[3u + 3u * c] - k[2u + 3u * c]) * v;
+            }
         }
         case 6u: {
             // k: the three rows, each from red, green, blue and a constant.
@@ -6079,6 +6093,8 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             // D-374/D-375.
             | E::ColorBalanceHls { .. }
             | E::ColorLink { .. }
+            // D-382.
+            | E::GammaPedestalGain { .. }
     )
 }
 
@@ -8172,6 +8188,13 @@ impl Gpu {
             }
             E::ColorBalanceHls { hue, lightness, saturation } => {
                 same(steps, &passes.tone, FxParams { mode: 29, ..Default::default() }, &[*hue, lightness / 100.0, saturation / 100.0], None)
+            }
+            E::GammaPedestalGain { black_stretch, gamma, pedestal, gain } => {
+                let mut k = vec![*black_stretch];
+                for c in 0..3 {
+                    k.extend([1.0 / gamma[c], pedestal[c], gain[c]]);
+                }
+                same(steps, &passes.tone, FxParams { mode: 31, ..Default::default() }, &k, None)
             }
             E::ColorLink { sample, clip, stencil, opacity, blending_mode: b, map, .. } => {
                 // card_can leaves only a named layer's picture; its colour is read here, once.

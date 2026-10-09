@@ -1221,6 +1221,9 @@ pub enum Effect {
     /// D-374: after After Effects' Color Balance (HLS). `hue`, -3600 to 3600 degrees;
     /// `lightness` and `saturation`, -100 to 100.
     ColorBalanceHls { hue: f64, lightness: f64, saturation: f64 },
+    /// D-382: after After Effects' Gamma/Pedestal/Gain. `black_stretch`, 1 to 4; for red, green
+    /// and blue in that order a gamma, 0.1 to 10, a pedestal, -1 to 1, and a gain, 0 to 4.
+    GammaPedestalGain { black_stretch: f64, gamma: [f64; 3], pedestal: [f64; 3], gain: [f64; 3] },
     /// D-375: after After Effects' Color Link. `layer`, D-189's layer setting, "" the layer itself
     /// as the effects before this one left it, read whole; `sample`, one of `LINK_SAMPLES`;
     /// `clip`, 0 to 49 per cent; `stencil`, "off" or "on"; `opacity`, 0 to 100;
@@ -1834,6 +1837,7 @@ pub const CHANGE_COLOR: &str = "core.change_color";
 pub const COLOR_BALANCE_HLS: &str = "core.color_balance_hls";
 pub const COLOR_LINK: &str = "core.color_link";
 pub const COLOR_STABILIZER: &str = "core.color_stabilizer";
+pub const GAMMA_PEDESTAL_GAIN: &str = "core.gamma_pedestal_gain";
 /// D-375: Color Link's samples.
 pub const LINK_SAMPLES: [&str; 6] = ["average", "median", "brightest", "darkest", "max_rgb", "min_rgb"];
 /// D-375: Color Link's blending modes, Paraffin's six.
@@ -2866,6 +2870,18 @@ impl Effect {
                 ("lightness", vec![lightness], -100.0, 100.0),
                 ("saturation", vec![saturation], -100.0, 100.0),
             ],
+            Effect::GammaPedestalGain { black_stretch, gamma: [rg, gg, bg], pedestal: [rp, gp, bp], gain: [ra, ga, ba] } => vec![
+                ("black_stretch", vec![black_stretch], 1.0, 4.0),
+                ("red_gamma", vec![rg], 0.1, 10.0),
+                ("red_pedestal", vec![rp], -1.0, 1.0),
+                ("red_gain", vec![ra], 0.0, 4.0),
+                ("green_gamma", vec![gg], 0.1, 10.0),
+                ("green_pedestal", vec![gp], -1.0, 1.0),
+                ("green_gain", vec![ga], 0.0, 4.0),
+                ("blue_gamma", vec![bg], 0.1, 10.0),
+                ("blue_pedestal", vec![bp], -1.0, 1.0),
+                ("blue_gain", vec![ba], 0.0, 4.0),
+            ],
             Effect::ColorLink { clip, opacity, .. } => vec![
                 ("clip", vec![clip], 0.0, 49.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
@@ -3473,6 +3489,7 @@ impl Effect {
             Effect::Toner { .. } => "Toner",
             Effect::ChangeColor { .. } => "Change Color",
             Effect::ColorBalanceHls { .. } => "Color Balance (HLS)",
+            Effect::GammaPedestalGain { .. } => "Gamma/Pedestal/Gain",
             Effect::ColorLink { .. } => "Color Link",
             Effect::ColorStabilizer { .. } => "Color Stabilizer",
             Effect::SpinZoomBlur { .. } => "Spin & Zoom Blur",
@@ -3609,6 +3626,7 @@ impl Effect {
             Effect::Toner { .. } => TONER,
             Effect::ChangeColor { .. } => CHANGE_COLOR,
             Effect::ColorBalanceHls { .. } => COLOR_BALANCE_HLS,
+            Effect::GammaPedestalGain { .. } => GAMMA_PEDESTAL_GAIN,
             Effect::ColorLink { .. } => COLOR_LINK,
             Effect::ColorStabilizer { .. } => COLOR_STABILIZER,
             Effect::SpinZoomBlur { .. } => SPIN_ZOOM_BLUR,
@@ -6168,6 +6186,9 @@ pub(crate) fn apply_stack_at(
             }),
             Effect::ColorBalanceHls { hue, lightness, saturation } => crate::perf::time(crate::perf::Stage::EffectColorBalanceHls, || {
                 crate::grade::color_balance_hls(source, *hue, *lightness / 100.0, *saturation / 100.0)
+            }),
+            Effect::GammaPedestalGain { black_stretch, gamma, pedestal, gain } => crate::perf::time(crate::perf::Stage::EffectGammaPedestalGain, || {
+                crate::grade::gamma_pedestal_gain(source, *black_stretch, *gamma, *pedestal, *gain)
             }),
             // D-375: a named layer's statistics from the map compose read; "" the picture as it
             // reaches this effect. A named layer with no map (not in the composition, which
