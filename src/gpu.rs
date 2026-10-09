@@ -2650,6 +2650,25 @@ fn round_tap(x: f64, y: f64, dw: f64, ox: f64) -> vec4<f32> {
     return out;
 }
 
+// D-377, layer_fx::bend_it's sample of the drawing `u` along the bar from Start and `v` across
+// it (k[0..6], Start, the bar's t and n).
+fn bend_at(u: f64, v: f64) -> vec4<f32> {
+    return bilinear(input, k[0] + u * k[2] + v * k[4], k[1] + u * k[3] + v * k[5]);
+}
+
+// D-377: `s` laid under what `acc` has laid so far, in double precision as the CPU lays it.
+fn bend_over(acc: vec4<f64>, s: vec4<f32>) -> vec4<f64> {
+    let m = 1.0lf - acc.w;
+    return acc + vec4(m * f64(s.x), m * f64(s.y), m * f64(s.z), m * f64(s.w));
+}
+
+// D-377: the place (x, y) along and across the frame k[i..i + 6] (its point, t and n).
+fn bend_tail(x: f64, y: f64, i: u32) -> vec2<f64> {
+    let dx = x - k[i];
+    let dy = y - k[i + 1u];
+    return vec2(dx * k[i + 2u] + dy * k[i + 3u], dx * k[i + 4u] + dy * k[i + 5u]);
+}
+
 // B-107, the pixels read from elsewhere: layer_fx::wave_warp (mode 0, the output grown by `g`,
 // `flag` Repeat Edge Pixels), ripple (1), twirl (2), bulge (3), mirror (4), camera_shake (5,
 // grown by `g`) and (B-115) motion_tile (6, grown by `ox` across and `oy` down, `flag` mirror).
@@ -2835,6 +2854,117 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             // B-151, layer_fx::radial_shadow's cast. k: the light, the scale, the growth.
             sx = k[0] + quotient(x - k[3] - k[0], k[2]);
             sy = k[1] + quotient(y - k[4] - k[1], k[2]);
+        }
+        case 12u: {
+            // D-377, layer_fx::bend_it. k: Start, the bar's t and n, its length, the turn in
+            // radians (0 straight), the radius, the centre, the turn a pixel along, the first u
+            // kept, the prestart (none, static, bend, mirror), extended, then the frames at End
+            // and at -L, each its point, t and n.
+            let a = (x - k[0]) * k[2] + (y - k[1]) * k[3];
+            let b = (x - k[0]) * k[4] + (y - k[1]) * k[5];
+            let length = k[6];
+            let pre = u32(k[13]);
+            var acc = vec4(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+            if k[7] == 0.0lf {
+                if (a >= 0.0lf && a <= length) || (a > length && k[14] == 1.0lf) || (a < 0.0lf && (pre == 1u || pre == 2u)) {
+                    acc = bend_over(acc, bilinear(input, x, y));
+                } else if a >= -length && a < 0.0lf && pre == 3u {
+                    acc = bend_over(acc, bend_at(-a, b));
+                }
+            } else {
+                if k[14] == 1.0lf {
+                    let e = bend_tail(x, y, 15u);
+                    if e.x > 0.0lf {
+                        acc = bend_over(acc, bend_at(length + e.x, e.y));
+                    }
+                }
+                let qx = x - k[9];
+                let qy = y - k[10];
+                let first = atan2_64(-(qx * k[2] + qy * k[3]), qx * k[4] + qy * k[5]);
+                let size = sqrt(qx * qx + qy * qy);
+                let kk = k[11];
+                let lo = k[12];
+                var lo_phi = kk * lo;
+                var hi_phi = kk * length;
+                if kk < 0.0lf {
+                    lo_phi = kk * length;
+                    hi_phi = kk * lo;
+                }
+                let pi = 3.141592653589793lf;
+                let j0 = i32(floor((lo_phi - first) / pi)) - 1;
+                let j1 = i32(ceil((hi_phi - first) / pi)) + 1;
+                // Farthest along first: u rises with j when kk is above 0.
+                var j = j1;
+                var step = -1;
+                if kk < 0.0lf {
+                    j = j0;
+                    step = 1;
+                }
+                for (; j >= j0 && j <= j1; j += step) {
+                    let u = quotient(first + f64(j) * pi, kk);
+                    var v = k[8] - size;
+                    if j % 2 == 0 {
+                        v = k[8] + size;
+                    }
+                    if lo <= u && u <= length {
+                        if u < 0.0lf && pre == 3u {
+                            acc = bend_over(acc, bend_at(-u, v));
+                        } else {
+                            acc = bend_over(acc, bend_at(u, v));
+                        }
+                    }
+                }
+                if pre == 1u && a < 0.0lf {
+                    acc = bend_over(acc, bilinear(input, x, y));
+                } else if pre == 2u {
+                    let s = bend_tail(x, y, 21u);
+                    if s.x < 0.0lf {
+                        acc = bend_over(acc, bend_at(-length + s.x, s.y));
+                    }
+                }
+            }
+            textureStore(output, id.xy, vec4(f32(acc.x), f32(acc.y), f32(acc.z), f32(acc.w)));
+            return;
+        }
+        case 13u: {
+            // D-378, layer_fx::bender. k: the Base, the axis's direction and its normal, its
+            // length, the push in pixels, the style (bend, marilyn, sharp, boxer).
+            let s = quotient((x - k[0]) * k[2] + (y - k[1]) * k[3], k[6]);
+            let a = k[7];
+            var d = 0.0lf;
+            switch u32(k[8]) {
+                case 0u: {
+                    if s > 1.0lf {
+                        d = a * (2.0lf * s - 1.0lf);
+                    } else if s >= 0.0lf {
+                        d = a * s * s;
+                    }
+                }
+                case 3u: {
+                    if s > 1.0lf {
+                        d = a;
+                    } else if s >= 0.0lf {
+                        d = a * (3.0lf * s * s - 2.0lf * s * s * s);
+                    }
+                }
+                case 1u: {
+                    if s >= 0.0lf && s <= 1.0lf {
+                        let v = sin64(3.141592653589793lf * s);
+                        d = a * (v * v);
+                    }
+                }
+                default: {
+                    if s >= 0.0lf && s <= 1.0lf {
+                        d = a * (1.0lf - abs(2.0lf * s - 1.0lf));
+                    }
+                }
+            }
+            if d == 0.0lf {
+                textureStore(output, id.xy, textureLoad(input, id.xy, 0));
+                return;
+            }
+            sx = x - d * k[4];
+            sy = y - d * k[5];
         }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
@@ -4351,6 +4481,82 @@ fn glass(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, px);
 }
 
+// D-379, layer_fx::blobbylize's colour: the drawing over its own blur (`other`, grown by F.r),
+// straight.
+@compute @workgroup_size(16, 16)
+fn blobover(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let o = textureLoad(input, id.xy, 0);
+    let s = textureLoad(other, vec2<i32>(id.xy) + vec2(F.r), 0);
+    let m = 1.0lf - f64(o.w);
+    let ka = f64(o.w) + m * f64(s.w);
+    var out = vec4(0.0);
+    if ka > 0.0lf {
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32(quotient(f64(o[c]) + m * f64(s[c]), ka));
+        }
+    }
+    textureStore(output, id.xy, out);
+}
+
+// D-379: `v` made a unit long, or 0.
+fn blob_unit(v: vec3<f64>) -> vec3<f64> {
+    let l = sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+    if l > 0.0lf {
+        return vec3(v.x / l, v.y / l, v.z / l);
+    }
+    return vec3(0.0lf, 0.0lf, 0.0lf);
+}
+
+// D-379, layer_fx::blobbylize: the covering from the blob's height (`other`'s alpha, grown by
+// F.r) less the cut, the surface lit by Phong's rule on the straight colour `input` (blobover's).
+// k: the cut, the slope's scale, 1 for a point light, its place and the height, the distant
+// light's direction, the light in linear light, the intensity, ambient, diffuse, specular,
+// roughness, metal. The highlight's power is single precision.
+@compute @workgroup_size(16, 16)
+fn blobby(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let x = i32(id.x) + F.r;
+    let y = i32(id.y) + F.r;
+    var a = 0.0lf;
+    if k[0] < 1.0lf {
+        a = clamp(quotient(f64(at(other, vec2(x, y)).w) - k[0], 1.0lf - k[0]), 0.0lf, 1.0lf);
+    }
+    if a == 0.0lf {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    let gx = (f64(at(other, vec2(x + 1, y)).w) - f64(at(other, vec2(x - 1, y)).w)) / 2.0lf;
+    let gy = (f64(at(other, vec2(x, y + 1)).w) - f64(at(other, vec2(x, y - 1)).w)) / 2.0lf;
+    let n = blob_unit(vec3(-k[1] * gx, -k[1] * gy, 1.0lf));
+    var l = vec3(k[6], k[7], k[8]);
+    if k[2] == 1.0lf {
+        l = blob_unit(vec3(k[3] - (f64(id.x) + 0.5lf), k[4] - (f64(id.y) + 0.5lf), k[5]));
+    }
+    let nl = n.x * l.x + n.y * l.y + n.z * l.z;
+    let rz = 2.0lf * nl * n.z - l.z;
+    var shine = 0.0lf;
+    if nl > 0.0lf && rz > 0.0lf {
+        shine = f64(pow(f32(rz), f32(1.0lf / k[16])));
+    }
+    let col = textureLoad(input, id.xy, 0);
+    var out = vec4(0.0);
+    for (var c = 0u; c < 3u; c++) {
+        let cc = f64(col[c]);
+        let lc = k[9u + c];
+        let lit = cc * (k[13] + k[14] * k[12] * lc * max(nl, 0.0lf)) + k[15] * k[12] * (lc + (cc - lc) * k[17]) * shine;
+        out[c] = f32(lit * a);
+    }
+    out.w = f32(a);
+    textureStore(output, id.xy, out);
+}
+
 // B-225, layer_fx::beam: k the line's stretch start (0, 1) and run (2, 3), its squared length, the
 // start's share `a` and the length's `l`, the two thicknesses, the softness, 1 alone, then the
 // inside and outside colours in linear light.
@@ -5577,6 +5783,9 @@ struct FxPasses {
     /// B-224.
     dmap: Pass,
     glass: Pass,
+    /// D-379.
+    blobover: Pass,
+    blobby: Pass,
     /// B-225.
     beam: Pass,
     gradient4: Pass,
@@ -6192,6 +6401,8 @@ impl Gpu {
                 cmix: pass("cmix", &[0, 1, 2, 3, 4, 8]),
                 dmap: pass("dmap", &[0, 1, 2, 3, 4]),
                 glass: pass("glass", &[0, 1, 2, 3, 4]),
+                blobover: pass("blobover", &[0, 1, 2, 4]),
+                blobby: pass("blobby", &[0, 1, 2, 3, 4]),
                 beam: pass("beam", &[0, 1, 2, 3]),
                 gradient4: pass("gradient4", &[0, 1, 2, 3]),
                 sweepmin: pass("sweepmin", &[0, 1, 5]),
@@ -7409,6 +7620,34 @@ impl Gpu {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 same(steps, &passes.warp, FxParams { mode: 3, ..Default::default() }, &[cx, cy, *height, *radius], None)
             }
+            // D-377: the frames at End and at -L worked out here as the CPU works them.
+            E::BendIt { bend, start, end, render_prestart, distort } => {
+                let (s, e) = (crate::effects::radial_center(*start, (w, h), f.origin), crate::effects::radial_center(*end, (w, h), f.origin));
+                let length = (e.0 - s.0).hypot(e.1 - s.1);
+                let (tx, ty) = ((e.0 - s.0) / length, (e.1 - s.1) / length);
+                let (nx, ny) = (-ty, tx);
+                let theta = bend.to_radians();
+                let (r, (cx, cy)) = if theta == 0.0 { (0.0, (0.0, 0.0)) } else { (length / theta, (s.0 + length / theta * nx, s.1 + length / theta * ny)) };
+                let frame = |phi: f64| {
+                    let (sn, c) = phi.sin_cos();
+                    let (t, n) = ((tx * c + nx * sn, ty * c + ny * sn), (nx * c - tx * sn, ny * c - ty * sn));
+                    [cx - r * n.0, cy - r * n.1, t.0, t.1, n.0, n.1]
+                };
+                let pre = crate::effects::BEND_IT_PRESTARTS.iter().position(|p| p == render_prestart).expect("compose leaves a valid Bend It");
+                let lo = if pre >= 2 { -length } else { 0.0 };
+                let mut k = vec![s.0, s.1, tx, ty, nx, ny, length, theta, r, cx, cy, theta / length, lo, pre as f64, (distort == "extended") as u8 as f64];
+                k.extend(frame(theta));
+                k.extend(frame(-theta));
+                same(steps, &passes.warp, FxParams { mode: 12, ..Default::default() }, &k, None)
+            }
+            E::Bender { amount, style, adjust_to_distance, top, base } => {
+                let (b, t) = (crate::effects::radial_center(*base, (w, h), f.origin), crate::effects::radial_center(*top, (w, h), f.origin));
+                let a = crate::effects::bender_amount(*amount, adjust_to_distance, b, t);
+                let length = (t.0 - b.0).hypot(t.1 - b.1);
+                let (ux, uy) = ((t.0 - b.0) / length, (t.1 - b.1) / length);
+                let kind = crate::effects::BENDER_STYLES.iter().position(|s| s == style).expect("compose leaves a valid Bender");
+                same(steps, &passes.warp, FxParams { mode: 13, ..Default::default() }, &[b.0, b.1, ux, uy, -uy, ux, length, a, kind as f64], None)
+            }
             E::Mirror { center, angle } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let (nx, ny) = crate::layer_fx::mirror_normal(*angle);
@@ -8084,6 +8323,74 @@ impl Gpu {
                 let k = [*displacement, height / 100.0 * 1.25 * softness.max(1.0), ux, uy, light_intensity / 100.0, l[0], l[1], l[2]];
                 let out = self.scratch("B-224 glass", w, h);
                 self.fx_step(steps, &passes.glass, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&bump), none, tiles(w, h));
+                (out, (w, h))
+            }
+            E::Blobbylize {
+                property,
+                softness,
+                cut_away,
+                light_intensity,
+                light_color,
+                light_type,
+                light_height,
+                light_position,
+                light_direction,
+                ambient,
+                diffuse,
+                specular,
+                roughness,
+                metal,
+                map,
+                ..
+            } => {
+                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                // The blob from the map compose read, lying on the drawing at its corner, or the drawing.
+                let (picture, (mx, my)) = match map {
+                    Some(m) => (self.map_texture(&m.0), (ox, oy)),
+                    None => (still.clone(), (0, 0)),
+                };
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| p == property).expect("compose leaves a valid Blobbylize");
+                let raw = self.scratch("D-379 blob", w, h);
+                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
+                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let (bump, spread, r) = if *softness > 0.0 {
+                    let taps = crate::effects::gaussian_weights(softness / 2.0);
+                    let r = taps.len() / 2;
+                    let bump = self.gauss(steps, bloom, "D-379 blob", &raw, (w, h), [&taps, &taps], r, false);
+                    (bump, self.gauss(steps, bloom, "D-379 spread", still, (w, h), [&taps, &taps], r, false), r)
+                } else {
+                    (raw, still.clone(), 0)
+                };
+                let colour = self.scratch("D-379 colour", w, h);
+                self.fx_step(steps, &passes.blobover, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&colour), None, Some(&spread), none, tiles(w, h));
+                let (ux, uy) = crate::blurs::along(*light_direction);
+                let d = [100.0 * ux, 100.0 * uy, *light_height];
+                let dl = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+                let d = if dl > 0.0 { d.map(|c| c / dl) } else { [0.0; 3] };
+                let (px, py) = crate::effects::radial_center(*light_position, (w, h), f.origin);
+                let l = linear(light_color);
+                let k = [
+                    cut_away / 100.0,
+                    1.25 * softness.max(1.0),
+                    (light_type == "point") as u8 as f64,
+                    px,
+                    py,
+                    *light_height,
+                    d[0],
+                    d[1],
+                    d[2],
+                    l[0],
+                    l[1],
+                    l[2],
+                    light_intensity / 100.0,
+                    ambient / 100.0,
+                    diffuse / 100.0,
+                    specular / 100.0,
+                    *roughness,
+                    metal / 100.0,
+                ];
+                let out = self.scratch("D-379 blobby", w, h);
+                self.fx_step(steps, &passes.blobby, FxParams { r: r as i32, ..Default::default() }, Some(&colour), Some(&out), Some(&k), Some(&bump), none, tiles(w, h));
                 (out, (w, h))
             }
             // B-225 (D-344): five generators, each as its CPU function; the bolt's segments are

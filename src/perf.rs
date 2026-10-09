@@ -240,6 +240,9 @@ pub enum Stage {
     EffectColorama,
     EffectGlass,
     EffectVectorBlur,
+    EffectBendIt,
+    EffectBender,
+    EffectBlobbylize,
     EffectMomentMap,
     /// D-348's pass extract and depth key, per pixel; reading the pass from its file is timed
     /// as any file read is.
@@ -288,7 +291,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 135] = [
+    pub const ALL: [Stage; 138] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -398,6 +401,9 @@ impl Stage {
         Stage::EffectColorama,
         Stage::EffectGlass,
         Stage::EffectVectorBlur,
+        Stage::EffectBendIt,
+        Stage::EffectBender,
+        Stage::EffectBlobbylize,
         Stage::EffectMomentMap,
         Stage::EffectPassExtract,
         Stage::EffectDepthKey,
@@ -538,6 +544,9 @@ impl Stage {
             Stage::EffectColorama => "effect: colorama",
             Stage::EffectGlass => "effect: cc glass",
             Stage::EffectVectorBlur => "effect: cc vector blur",
+            Stage::EffectBendIt => "effect: bend it",
+            Stage::EffectBender => "effect: bender",
+            Stage::EffectBlobbylize => "effect: blobbylize",
             Stage::EffectMomentMap => "effect: moment map",
             Stage::EffectPassExtract => "effect: pass extract",
             Stage::EffectDepthKey => "effect: depth key",

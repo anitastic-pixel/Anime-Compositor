@@ -955,6 +955,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 // B-224 (D-343): two that read a map.
                 | crate::effects::Effect::DisplacementMap { .. }
                 | crate::effects::Effect::Glass { .. }
+                // D-377..D-379: Bend It, Bender and Blobbylize.
+                | crate::effects::Effect::BendIt { .. }
+                | crate::effects::Effect::Bender { .. }
+                | crate::effects::Effect::Blobbylize { .. }
                 // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }
                 | crate::effects::Effect::FourColorGradient { .. }
@@ -1186,6 +1190,9 @@ fn card_effect(
                 E::LensBlur { layer, map, .. } => layer.as_str().is_some_and(|l| !l.is_empty()) && map.is_none(),
                 E::SelectiveColorBlur { blur, colors, .. } => (blur + 0.5).floor() == 0.0 || crate::selective_blur::targets(colors).is_empty(),
                 E::VectorBlur { amount, .. } => *amount == 0.0,
+                // D-377/D-378: no bar, or no push.
+                E::BendIt { start, end, .. } => start == end,
+                E::Bender { amount, top, base, .. } => *amount == 0.0 || top == base,
                 // D-360: the mean of two untouched copies is the layer.
                 E::CrossBlur { radius_x, radius_y, mode, .. } => {
                     mode == "blend" && crate::effects::box_reach(*radius_x, 1.0).max(crate::effects::box_reach(*radius_y, 1.0)) == 0

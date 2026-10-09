@@ -1465,6 +1465,41 @@ pub enum Effect {
         map_softness: f64,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-377: after CycoreFX's CC Bend It. `bend`, -360 to 360 degrees, the bar's whole turn;
+    /// `start` and `end`, per cent of the drawing as Radial Blur's centre is (D-95), -1000 to
+    /// 1000; `render_prestart`, one of [`BEND_IT_PRESTARTS`]; `distort`, "legal" or "extended".
+    /// The words are kept as written, so a wrong one is reported.
+    BendIt { bend: f64, start: [f64; 2], end: [f64; 2], render_prestart: String, distort: String },
+    /// D-378: after CycoreFX's CC Bender. `amount`, -1000 to 1000 pixels, or per cent of the
+    /// axis with `adjust_to_distance` "on" ("off" or "on"); `style`, one of [`BENDER_STYLES`];
+    /// `top` and `base`, per cent of the drawing as Radial Blur's centre is, -1000 to 1000.
+    Bender { amount: f64, style: String, adjust_to_distance: String, top: [f64; 2], base: [f64; 2] },
+    /// D-379: after CycoreFX's CC Blobbylize. `layer` and `fit`, D-189's layer setting, the blob
+    /// map, "" the layer itself; `property`, one of [`BLOBBYLIZE_PROPERTIES`]; `softness`, 0 to
+    /// 100 pixels; `cut_away`, 0 to 100; `light_intensity`, 0 to 400; `light_color`, `#rrggbb`;
+    /// `light_type`, "distant" or "point"; `light_height`, -1000 to 1000; `light_position`, per
+    /// cent of the drawing, -1000 to 1000; `light_direction`, -3600 to 3600 degrees clockwise
+    /// from up; `ambient`, `diffuse`, `specular` and `metal`, 0 to 100; `roughness`, 0.001 to 1.
+    /// `map` is not a setting and is never saved.
+    Blobbylize {
+        layer: serde_json::Value,
+        fit: String,
+        property: String,
+        softness: f64,
+        cut_away: f64,
+        light_intensity: f64,
+        light_color: String,
+        light_type: String,
+        light_height: f64,
+        light_position: [f64; 2],
+        light_direction: f64,
+        ambient: f64,
+        diffuse: f64,
+        specular: f64,
+        roughness: f64,
+        metal: f64,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-347: Moment Map, after After Effects' Time Displacement: each pixel of the layer from
     /// another moment of it, later where the map is bright and earlier where it is dark.
     /// `max_time`, -10 to 10 seconds; `resolution`, 1 to 999 steps a second; `layer` and `fit`,
@@ -1770,6 +1805,15 @@ pub const COLORAMA: &str = "core.colorama";
 pub const COLORAMA_PHASES: [&str; 6] = ["intensity", "luminance", "red", "green", "blue", "alpha"];
 pub const GLASS: &str = "core.glass";
 pub const VECTOR_BLUR: &str = "core.vector_blur";
+pub const BEND_IT: &str = "core.bend_it";
+pub const BENDER: &str = "core.bender";
+pub const BLOBBYLIZE: &str = "core.blobbylize";
+/// D-377: Bend It's words for the drawing before Start, in the order the card numbers them.
+pub const BEND_IT_PRESTARTS: [&str; 4] = ["none", "static", "bend", "mirror"];
+/// D-378: Bender's styles, in the order the card numbers them.
+pub const BENDER_STYLES: [&str; 4] = ["bend", "marilyn", "sharp", "boxer"];
+/// D-379: what Blobbylize reads its blob from, a share of [`VECTOR_BLUR_PROPERTIES`].
+pub const BLOBBYLIZE_PROPERTIES: [&str; 6] = ["red", "green", "blue", "alpha", "luminance", "lightness"];
 pub const MOMENT_MAP: &str = "core.moment_map";
 pub const PASS_EXTRACT: &str = "core.pass_extract";
 pub const DEPTH_KEY: &str = "core.depth_key";
@@ -2419,6 +2463,42 @@ impl Effect {
                 ("angle_offset", vec![angle_offset], -3600.0, 3600.0),
                 ("ridge_smoothness", vec![ridge_smoothness], 0.0, 100.0),
                 ("map_softness", vec![map_softness], 0.0, 100.0),
+            ],
+            Effect::BendIt { bend, start, end, .. } => vec![
+                ("bend", vec![bend], -360.0, 360.0),
+                ("start", start.iter_mut().collect(), -1000.0, 1000.0),
+                ("end", end.iter_mut().collect(), -1000.0, 1000.0),
+            ],
+            Effect::Bender { amount, top, base, .. } => vec![
+                ("amount", vec![amount], -1000.0, 1000.0),
+                ("top", top.iter_mut().collect(), -1000.0, 1000.0),
+                ("base", base.iter_mut().collect(), -1000.0, 1000.0),
+            ],
+            Effect::Blobbylize {
+                softness,
+                cut_away,
+                light_intensity,
+                light_height,
+                light_position,
+                light_direction,
+                ambient,
+                diffuse,
+                specular,
+                roughness,
+                metal,
+                ..
+            } => vec![
+                ("softness", vec![softness], 0.0, 100.0),
+                ("cut_away", vec![cut_away], 0.0, 100.0),
+                ("light_intensity", vec![light_intensity], 0.0, 400.0),
+                ("light_height", vec![light_height], -1000.0, 1000.0),
+                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("light_direction", vec![light_direction], -3600.0, 3600.0),
+                ("ambient", vec![ambient], 0.0, 100.0),
+                ("diffuse", vec![diffuse], 0.0, 100.0),
+                ("specular", vec![specular], 0.0, 100.0),
+                ("roughness", vec![roughness], 0.001, 1.0),
+                ("metal", vec![metal], 0.0, 100.0),
             ],
             Effect::MomentMap { max_time, resolution, .. } => vec![
                 ("max_time", vec![max_time], -10.0, 10.0),
@@ -3123,6 +3203,15 @@ impl Effect {
                 *amount = scale(*amount);
                 *map_softness = scale(*map_softness);
             }
+            // D-378: an amount in per cent of the axis is no distance.
+            Effect::Bender { amount, adjust_to_distance, .. } if adjust_to_distance != "on" => *amount = scale(*amount),
+            // D-379: a distant light's height is a slope against 100, no distance.
+            Effect::Blobbylize { softness, light_type, light_height, .. } => {
+                *softness = scale(*softness);
+                if light_type == "point" {
+                    *light_height = scale(*light_height);
+                }
+            }
             Effect::IdKey { feather, .. } => *feather = scale(*feather),
             Effect::DisplacementMap { max_horizontal, max_vertical, .. } => {
                 *max_horizontal = scale(*max_horizontal);
@@ -3296,6 +3385,9 @@ impl Effect {
             Effect::Colorama { .. } => "Colorama",
             Effect::Glass { .. } => "CC Glass",
             Effect::VectorBlur { .. } => "CC Vector Blur",
+            Effect::BendIt { .. } => "Bend It",
+            Effect::Bender { .. } => "Bender",
+            Effect::Blobbylize { .. } => "Blobbylize",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
             Effect::DepthKey { .. } => "Depth Key",
@@ -3426,6 +3518,9 @@ impl Effect {
             Effect::Colorama { .. } => COLORAMA,
             Effect::Glass { .. } => GLASS,
             Effect::VectorBlur { .. } => VECTOR_BLUR,
+            Effect::BendIt { .. } => BEND_IT,
+            Effect::Bender { .. } => BENDER,
+            Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
             Effect::DepthKey { .. } => DEPTH_KEY,
@@ -3664,6 +3759,7 @@ impl Effect {
             | Effect::Colorama { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Glass { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::VectorBlur { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::Blobbylize { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::MomentMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::LensBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
             _ => None,
@@ -3679,6 +3775,7 @@ impl Effect {
             | Effect::Colorama { layer, map, .. }
             | Effect::Glass { layer, map, .. }
             | Effect::VectorBlur { layer, map, .. }
+            | Effect::Blobbylize { layer, map, .. }
             | Effect::MomentMap { layer, map, .. }
             | Effect::LensBlur { layer, map, .. } => Some((layer, map)),
             _ => None,
@@ -4006,6 +4103,31 @@ impl Effect {
             Effect::VectorBlur { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
                 "CC Vector Blur's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
             )),
+            Effect::BendIt { render_prestart, .. } if !BEND_IT_PRESTARTS.contains(&render_prestart.as_str()) => Some(format!(
+                "Bend It's render prestart is none, static, bend or mirror, and this is \"{render_prestart}\"."
+            )),
+            Effect::BendIt { distort, .. } if !["legal", "extended"].contains(&distort.as_str()) => Some(format!(
+                "Bend It's distort is legal or extended, and this is \"{distort}\"."
+            )),
+            Effect::Bender { style, .. } if !BENDER_STYLES.contains(&style.as_str()) => Some(format!(
+                "Bender's style is bend, marilyn, sharp or boxer, and this is \"{style}\"."
+            )),
+            Effect::Bender { adjust_to_distance, .. } if !["off", "on"].contains(&adjust_to_distance.as_str()) => Some(format!(
+                "Bender's adjust to distance is \"on\" or \"off\", and this is \"{adjust_to_distance}\"."
+            )),
+            Effect::Blobbylize { property, .. } if !BLOBBYLIZE_PROPERTIES.contains(&property.as_str()) => Some(format!(
+                "Blobbylize's property is red, green, blue, alpha, luminance or lightness, and this is \"{property}\"."
+            )),
+            Effect::Blobbylize { layer, .. } if !layer.is_string() => Some(format!(
+                "Blobbylize's blob layer is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::Blobbylize { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
+                "Blobbylize's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
+            Effect::Blobbylize { light_type, .. } if !["distant", "point"].contains(&light_type.as_str()) => Some(format!(
+                "Blobbylize's light type is distant or point, and this is \"{light_type}\"."
+            )),
+            Effect::Blobbylize { light_color, .. } => hex_fault("Blobbylize", "light colour", light_color),
             Effect::MomentMap { layer, .. } if !layer.is_string() => Some(format!(
                 "Moment Map's map is the name of a layer of this composition, and this is {layer}."
             )),
@@ -4709,6 +4831,16 @@ impl Effect {
             }
             _ => None,
         }
+    }
+}
+
+/// D-378: Bender's amount in pixels, from per cent of the axis from `base` to `top` when
+/// `adjust` is "on".
+pub(crate) fn bender_amount(amount: f64, adjust: &str, base: (f64, f64), top: (f64, f64)) -> f64 {
+    if adjust == "on" {
+        amount / 100.0 * (top.0 - base.0).hypot(top.1 - base.1)
+    } else {
+        amount
     }
 }
 
@@ -5472,6 +5604,51 @@ pub(crate) fn apply_stack_at(
                     )
                 })
             }
+            // D-377/D-378: the points are shares of the drawing's own size, as Radial Blur's centre is.
+            Effect::BendIt { bend, start, end, render_prestart, distort } => {
+                let size = (source.width(), source.height());
+                let (s, e) = (radial_center(*start, size, (ox, oy)), radial_center(*end, size, (ox, oy)));
+                let prestart = BEND_IT_PRESTARTS.iter().position(|p| p == render_prestart).unwrap_or(0) as u8;
+                crate::perf::time(crate::perf::Stage::EffectBendIt, || {
+                    crate::layer_fx::bend_it(source, *bend, s, e, prestart, distort == "extended")
+                })
+            }
+            Effect::Bender { amount, style, adjust_to_distance, top, base } => {
+                let size = (source.width(), source.height());
+                let (b, t) = (radial_center(*base, size, (ox, oy)), radial_center(*top, size, (ox, oy)));
+                let a = bender_amount(*amount, adjust_to_distance, b, t);
+                crate::perf::time(crate::perf::Stage::EffectBender, || crate::layer_fx::bender(source, a, style, b, t))
+            }
+            // D-379: the map compose read for this frame, if a layer is named, is the blob.
+            Effect::Blobbylize {
+                property,
+                softness,
+                cut_away,
+                light_intensity,
+                light_color,
+                light_type,
+                light_height,
+                light_position,
+                light_direction,
+                ambient,
+                diffuse,
+                specular,
+                roughness,
+                metal,
+                map,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectBlobbylize, || {
+                let light = encoded(light_color).map(crate::grade::to_linear);
+                let point = (light_type == "point").then(|| radial_center(*light_position, (source.width(), source.height()), (ox, oy)));
+                crate::layer_fx::blobbylize(
+                    source,
+                    map.as_ref().map(|m| (&*m.0, (ox, oy))),
+                    property,
+                    (*softness, cut_away / 100.0),
+                    (point, *light_direction, *light_height, light, light_intensity / 100.0),
+                    [*ambient / 100.0, *diffuse / 100.0, *specular / 100.0, *roughness, *metal / 100.0],
+                )
+            }),
             // D-317: the map compose read for this frame, if a layer is named, is the bump.
             Effect::Glass {
                 property,

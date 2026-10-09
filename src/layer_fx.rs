@@ -1171,6 +1171,221 @@ pub(crate) fn vector_blur(
     });
 }
 
+/// D-377: Bend It, this program's own reading of CycoreFX's CC Bend It. The bar from `start` to
+/// `end` (points of the buffer, length L, direction t, n = t turned a quarter clockwise) is bent
+/// into an arc turning `bend` degrees over its length, round C = S + R n with R = L / theta. Each
+/// pixel lays over one another, the farthest along the bar on top, the bilinear samples of every
+/// place the bend puts on it: on the arc, phi = atan2(-q.t, q.n) + j pi for q = P - C, v = R +
+/// (-1)^j |q| and u = phi L / theta, kept for `lo` <= u <= L. `prestart` 0 draws nothing before
+/// Start; 1 (static) the drawing unbent where (P - S).t < 0; 2 (bend) carries the arc back to -L
+/// and on straight past it; 3 (mirror) bends the bar's own stretch back to -L, read at (-u, v).
+/// `extended` carries the drawing on straight past End. Bend 0 is the straight bar. The settings
+/// are already valid.
+pub(crate) fn bend_it(source: &mut WorkingBuffer, bend: f64, start: (f64, f64), end: (f64, f64), prestart: u8, extended: bool) {
+    let length = (end.0 - start.0).hypot(end.1 - start.1);
+    if length == 0.0 {
+        return;
+    }
+    let (tx, ty) = ((end.0 - start.0) / length, (end.1 - start.1) / length);
+    let (nx, ny) = (-ty, tx);
+    let from = |u: f64, v: f64| (start.0 + u * tx + v * nx, start.1 + u * ty + v * ny);
+    let theta = bend.to_radians();
+    let r = length / theta;
+    let (cx, cy) = (start.0 + r * nx, start.1 + r * ny);
+    // The frame turned `phi` along the arc: its point on the bar's line, its t and n.
+    let frame = |phi: f64| {
+        let (s, c) = phi.sin_cos();
+        let (t, n) = ((tx * c + nx * s, ty * c + ny * s), (nx * c - tx * s, ny * c - ty * s));
+        ((cx - r * n.0, cy - r * n.1), t, n)
+    };
+    let lo = if prestart >= 2 { -length } else { 0.0 };
+    let w = source.width();
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let mut acc = [0.0f64; 4];
+        let mut lay = |(sx, sy): (f64, f64)| {
+            let s = sample_bilinear(&still, sx, sy);
+            let k = 1.0 - acc[3];
+            for c in 0..4 {
+                acc[c] += k * s[c] as f64;
+            }
+        };
+        let (a, b) = ((x - start.0) * tx + (y - start.1) * ty, (x - start.0) * nx + (y - start.1) * ny);
+        if bend == 0.0 {
+            if (0.0..=length).contains(&a) || (a > length && extended) || (a < 0.0 && (prestart == 1 || prestart == 2)) {
+                lay((x, y));
+            } else if (-length..0.0).contains(&a) && prestart == 3 {
+                lay(from(-a, b));
+            }
+        } else {
+            let tail = |phi: f64| {
+                let ((ox, oy), t, n) = frame(phi);
+                ((x - ox) * t.0 + (y - oy) * t.1, (x - ox) * n.0 + (y - oy) * n.1)
+            };
+            if extended {
+                let (a2, b2) = tail(theta);
+                if a2 > 0.0 {
+                    lay(from(length + a2, b2));
+                }
+            }
+            let (qx, qy) = (x - cx, y - cy);
+            let first = (-(qx * tx + qy * ty)).atan2(qx * nx + qy * ny);
+            let size = qx.hypot(qy);
+            let k = theta / length;
+            let (lo_phi, hi_phi) = if k > 0.0 { (k * lo, k * length) } else { (k * length, k * lo) };
+            let pi = std::f64::consts::PI;
+            let (j0, j1) = (((lo_phi - first) / pi).floor() as i64 - 1, ((hi_phi - first) / pi).ceil() as i64 + 1);
+            // Farthest along first: u = phi / k rises with j when k is above 0.
+            let mut j = if k > 0.0 { j1 } else { j0 };
+            while (j0..=j1).contains(&j) {
+                let phi = first + j as f64 * pi;
+                let u = phi / k;
+                let v = r + if j.rem_euclid(2) == 0 { size } else { -size };
+                if lo <= u && u <= length {
+                    lay(if u < 0.0 && prestart == 3 { from(-u, v) } else { from(u, v) });
+                }
+                j += if k > 0.0 { -1 } else { 1 };
+            }
+            if prestart == 1 && a < 0.0 {
+                lay((x, y));
+            } else if prestart == 2 {
+                let (a2, b2) = tail(-theta);
+                if a2 < 0.0 {
+                    lay(from(-length + a2, b2));
+                }
+            }
+        }
+        for c in 0..4 {
+            px[c] = acc[c] as f32;
+        }
+    });
+}
+
+/// D-378: Bender, this program's own reading of CycoreFX's CC Bender. Each pixel at `s` along
+/// the axis from `base` (0) to `top` (1), points of the buffer, reads the bilinear sample of the
+/// drawing `d(s)` back across the axis, `d` by `style` from `amount` pixels: bend A s^2 from the
+/// Base, straight on past the Top; marilyn A sin^2(pi s) and sharp A (1 - |2s - 1|) between the
+/// points; boxer A (3s^2 - 2s^3), A past the Top. The settings are already valid.
+pub(crate) fn bender(source: &mut WorkingBuffer, amount: f64, style: &str, base: (f64, f64), top: (f64, f64)) {
+    let length = (top.0 - base.0).hypot(top.1 - base.1);
+    if length == 0.0 || amount == 0.0 {
+        return;
+    }
+    let (ux, uy) = ((top.0 - base.0) / length, (top.1 - base.1) / length);
+    let (nx, ny) = (-uy, ux);
+    let w = source.width();
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let d = bender_push(style, amount, ((x - base.0) * ux + (y - base.1) * uy) / length);
+        if d != 0.0 {
+            px.copy_from_slice(&sample_bilinear(&still, x - d * nx, y - d * ny));
+        }
+    });
+}
+
+/// D-378: Bender's push at `s` along the axis, `a` its amount.
+pub(crate) fn bender_push(style: &str, a: f64, s: f64) -> f64 {
+    match style {
+        "bend" if s < 0.0 => 0.0,
+        "bend" if s <= 1.0 => a * s * s,
+        "bend" => a * (2.0 * s - 1.0),
+        "boxer" if s < 0.0 => 0.0,
+        "boxer" if s <= 1.0 => a * (3.0 * s * s - 2.0 * s * s * s),
+        "boxer" => a,
+        _ if !(0.0..=1.0).contains(&s) => 0.0,
+        "marilyn" => a * (std::f64::consts::PI * s).sin().powi(2),
+        _ => a * (1.0 - (2.0 * s - 1.0).abs()),
+    }
+}
+
+/// D-379: Blobbylize, this program's own reading of CycoreFX's CC Blobbylize. The blob's height
+/// is the `property` phase of the drawing, or of `map` lying on it with its corner at the given
+/// origin (clear outside it), times the covering unless alpha, blurred at sigma `softness / 2`;
+/// its covering is the height less `cut`, stretched back to 0..1. The colour is the drawing over
+/// its own blur at the same sigma, straight. Its surface, normal (-k gx, -k gy, 1) with k = 1.25
+/// max(softness, 1) and g the height's central differences, is lit by Phong's rule from a point
+/// light at `point` (a point of the buffer, `height` above) or from `direction` degrees at
+/// `height` over 100: ambient + diffuse I Lc (N.L) on the colour, specular I (Lc toward the
+/// colour by metal) (R.z)^(1 / roughness) added. The settings are already valid, the shares out of
+/// 1 and `light` linear.
+pub(crate) fn blobbylize(
+    source: &mut WorkingBuffer,
+    map: Option<(&WorkingBuffer, (usize, usize))>,
+    property: &str,
+    (softness, cut): (f64, f64),
+    (point, direction, height, light, intensity): (Option<(f64, f64)>, f64, f64, [f64; 3], f64),
+    [ambient, diffuse, specular, roughness, metal]: [f64; 5],
+) {
+    let w = source.width();
+    let mut bump = WorkingBuffer::transparent(w, source.height());
+    let from = source.data();
+    bump.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let q = match map {
+            Some((m, (ox, oy))) => {
+                let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
+                if mx < m.width() && my < m.height() { m.pixel(mx, my) } else { [0.0; 4] }
+            }
+            None => [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]],
+        };
+        px[3] = (crate::grade::phase_of(property, &q) * if property == "alpha" { 1.0 } else { q[3] as f64 }) as f32;
+    });
+    let mut spread = source.clone();
+    let r = if softness > 0.0 {
+        blur(&mut spread, softness / 2.0);
+        blur(&mut bump, softness / 2.0) as isize
+    } else {
+        0
+    };
+    let (bw, bh) = (bump.width() as isize, bump.height() as isize);
+    let (data, spread) = (bump.data(), spread.data());
+    let at = |x: isize, y: isize| {
+        let (bx, by) = (x + r, y + r);
+        if bx < 0 || by < 0 || bx >= bw || by >= bh {
+            0.0
+        } else {
+            data[((by * bw + bx) * 4 + 3) as usize] as f64
+        }
+    };
+    let k = 1.25 * softness.max(1.0);
+    let unit = |v: [f64; 3]| {
+        let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        if l > 0.0 { v.map(|c| c / l) } else { [0.0; 3] }
+    };
+    let (ux, uy) = crate::blurs::along(direction);
+    let distant = unit([100.0 * ux, 100.0 * uy, height]);
+    let still = source.clone();
+    let from = still.data();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as isize, (i / w) as isize);
+        let a = if cut >= 1.0 { 0.0 } else { ((at(x, y) - cut) / (1.0 - cut)).clamp(0.0, 1.0) };
+        if a == 0.0 {
+            px.fill(0.0);
+            return;
+        }
+        let o = &from[i * 4..i * 4 + 4];
+        let b = ((y + r) * bw + x + r) as usize * 4;
+        let kk = [0, 1, 2, 3].map(|c| o[c] as f64 + (1.0 - o[3] as f64) * spread[b + c] as f64);
+        let color = if kk[3] > 0.0 { [kk[0] / kk[3], kk[1] / kk[3], kk[2] / kk[3]] } else { [0.0; 3] };
+        let (gx, gy) = ((at(x + 1, y) - at(x - 1, y)) / 2.0, (at(x, y + 1) - at(x, y - 1)) / 2.0);
+        let n = unit([-k * gx, -k * gy, 1.0]);
+        let l = match point {
+            Some((lx, ly)) => unit([lx - (x as f64 + 0.5), ly - (y as f64 + 0.5), height]),
+            None => distant,
+        };
+        let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
+        let rz = 2.0 * nl * n[2] - l[2];
+        let shine = if nl > 0.0 && rz > 0.0 { rz.powf(1.0 / roughness) } else { 0.0 };
+        for c in 0..3 {
+            let lit = color[c] * (ambient + diffuse * intensity * light[c] * nl.max(0.0))
+                + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
+            px[c] = (lit * a) as f32;
+        }
+        px[3] = a as f32;
+    });
+}
+
 /// D-213: Bevel Edges. A pixel nearer than `thickness` times the buffer's smaller side to the
 /// buffer's nearest side, the first of left, top, right and bottom among equals, is on that
 /// side's face. The settings are already valid.

@@ -2584,6 +2584,56 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("property".into(), J::from(property.as_str()));
             params.insert("map_softness".into(), num(*map_softness));
         }
+        Effect::BendIt { bend, start, end, render_prestart, distort } => {
+            params.insert("bend".into(), num(*bend));
+            params.insert("start".into(), J::Array(start.iter().map(|c| num(*c)).collect()));
+            params.insert("end".into(), J::Array(end.iter().map(|c| num(*c)).collect()));
+            params.insert("render_prestart".into(), J::from(render_prestart.as_str()));
+            params.insert("distort".into(), J::from(distort.as_str()));
+        }
+        Effect::Bender { amount, style, adjust_to_distance, top, base } => {
+            params.insert("amount".into(), num(*amount));
+            params.insert("style".into(), J::from(style.as_str()));
+            params.insert("adjust_to_distance".into(), J::from(adjust_to_distance.as_str()));
+            params.insert("top".into(), J::Array(top.iter().map(|c| num(*c)).collect()));
+            params.insert("base".into(), J::Array(base.iter().map(|c| num(*c)).collect()));
+        }
+        Effect::Blobbylize {
+            layer,
+            fit,
+            property,
+            softness,
+            cut_away,
+            light_intensity,
+            light_color,
+            light_type,
+            light_height,
+            light_position,
+            light_direction,
+            ambient,
+            diffuse,
+            specular,
+            roughness,
+            metal,
+            ..
+        } => {
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("property".into(), J::from(property.as_str()));
+            params.insert("softness".into(), num(*softness));
+            params.insert("cut_away".into(), num(*cut_away));
+            params.insert("light_intensity".into(), num(*light_intensity));
+            params.insert("light_color".into(), J::from(light_color.as_str()));
+            params.insert("light_type".into(), J::from(light_type.as_str()));
+            params.insert("light_height".into(), num(*light_height));
+            params.insert("light_position".into(), J::Array(light_position.iter().map(|c| num(*c)).collect()));
+            params.insert("light_direction".into(), num(*light_direction));
+            params.insert("ambient".into(), num(*ambient));
+            params.insert("diffuse".into(), num(*diffuse));
+            params.insert("specular".into(), num(*specular));
+            params.insert("roughness".into(), num(*roughness));
+            params.insert("metal".into(), num(*metal));
+        }
         Effect::MomentMap { max_time, resolution, layer, fit, .. } => {
             params.insert("max_time".into(), num(*max_time));
             params.insert("resolution".into(), num(*resolution));
@@ -3842,6 +3892,9 @@ fn parse_effect(
         crate::effects::COLORAMA,
         crate::effects::GLASS,
         crate::effects::VECTOR_BLUR,
+        crate::effects::BEND_IT,
+        crate::effects::BENDER,
+        crate::effects::BLOBBYLIZE,
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
@@ -4784,6 +4837,41 @@ fn parse_effect(
             fit: effect_word(params, "fit", &at)?,
             property: effect_word(params, "property", &at)?,
             map_softness: effect_number(params, "map_softness", &at)?,
+            map: None,
+        }),
+        // D-377/D-378: the words kept as written, so one outside the contract is refused by name.
+        crate::effects::BEND_IT => Some(crate::effects::Effect::BendIt {
+            bend: effect_number(params, "bend", &at)?,
+            start: effect_array(params, "start", "two numbers, x then y", &at)?,
+            end: effect_array(params, "end", "two numbers, x then y", &at)?,
+            render_prestart: effect_word(params, "render_prestart", &at)?,
+            distort: effect_word(params, "distort", &at)?,
+        }),
+        crate::effects::BENDER => Some(crate::effects::Effect::Bender {
+            amount: effect_number(params, "amount", &at)?,
+            style: effect_word(params, "style", &at)?,
+            adjust_to_distance: effect_word(params, "adjust_to_distance", &at)?,
+            top: effect_array(params, "top", "two numbers, x then y", &at)?,
+            base: effect_array(params, "base", "two numbers, x then y", &at)?,
+        }),
+        // D-379: the layer is kept as written, as CC Glass's is.
+        crate::effects::BLOBBYLIZE => Some(crate::effects::Effect::Blobbylize {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            property: effect_word(params, "property", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            cut_away: effect_number(params, "cut_away", &at)?,
+            light_intensity: effect_number(params, "light_intensity", &at)?,
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            light_type: effect_word(params, "light_type", &at)?,
+            light_height: effect_number(params, "light_height", &at)?,
+            light_position: effect_array(params, "light_position", "two numbers, x then y", &at)?,
+            light_direction: effect_number(params, "light_direction", &at)?,
+            ambient: effect_number(params, "ambient", &at)?,
+            diffuse: effect_number(params, "diffuse", &at)?,
+            specular: effect_number(params, "specular", &at)?,
+            roughness: effect_number(params, "roughness", &at)?,
+            metal: effect_number(params, "metal", &at)?,
             map: None,
         }),
         // D-347: the layer is kept as written, as CC Vector Blur's is.
