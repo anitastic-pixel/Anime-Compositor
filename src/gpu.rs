@@ -4793,6 +4793,186 @@ fn mchoke(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     textureStore(output, id.xy, vec4(f32(s.x * a), f32(s.y * a), f32(s.z * a), f32(a)));
 }
+
+// D-353, soft_glow::light in single precision as the CPU's: the light each pixel gives. k: the
+// threshold, saturation bias and smooth as fractions, and 1 for luminance.
+@compute @workgroup_size(16, 16)
+fn sglight(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    var rgb = textureLoad(input, id.xy, 0).xyz;
+    let t = f32(k[0]);
+    if t != 0.0 {
+        let hi = max(max(rgb.x, rgb.y), rgb.z);
+        let lo = min(min(rgb.x, rgb.y), rgb.z);
+        var sat = 0.0;
+        if hi > 0.0 {
+            sat = (hi - lo) / hi;
+        }
+        var tested = rgb;
+        if k[3] != 0.0lf {
+            tested = vec3(0.2126 * rgb.x + 0.7152 * rgb.y + 0.0722 * rgb.z);
+        }
+        let b = f32(k[1]);
+        let m = f32(k[2]);
+        for (var c = 0; c < 3; c++) {
+            var v = tested[c];
+            if b > 0.0 {
+                v = (1.0 - b) * v + b * sat;
+            } else if b < 0.0 {
+                v = (1.0 + b) * v - b * (1.0 - sat);
+            }
+            var w = 0.0;
+            if m == 0.0 {
+                w = select(0.0, 1.0, v >= t);
+            } else {
+                w = clamp((v - t * (1.0 - m)) / (t * m), 0.0, 1.0);
+            }
+            rgb[c] *= w;
+        }
+    }
+    textureStore(output, id.xy, vec4(rgb, 0.0));
+}
+
+// D-353, soft_glow::spread's cells: the light averaged over each d by d block, in double
+// precision, into a plane whose first cell is at (rx, ry). k: d, rx, ry, the plane's size.
+@compute @workgroup_size(16, 16)
+fn sgcells(@builtin(global_invocation_id) id: vec3<u32>) {
+    if f64(id.x) >= k[3] || f64(id.y) >= k[4] {
+        return;
+    }
+    let size = vec2<i32>(textureDimensions(input));
+    let d = i32(k[0]);
+    let ci = i32(id.x) - i32(k[1]);
+    let cj = i32(id.y) - i32(k[2]);
+    var s = vec3<f64>(0.0lf);
+    if ci >= 0 && cj >= 0 && ci < (size.x + d - 1) / d && cj < (size.y + d - 1) / d {
+        for (var y = cj * d; y < min((cj + 1) * d, size.y); y++) {
+            for (var x = ci * d; x < min((ci + 1) * d, size.x); x++) {
+                let p = textureLoad(input, vec2(x, y), 0);
+                s += vec3<f64>(f64(p.x), f64(p.y), f64(p.z));
+            }
+        }
+    }
+    let area = f64(d * d);
+    textureStore(output, id.xy, vec4(f32(s.x / area), f32(s.y / area), f32(s.z / area), 0.0));
+}
+
+// D-353, soft_glow::pass: one way through the plane, outside it clear. k: the plane's size, 1
+// when down, then each tap's offset, cell aside and two weights; `count` the taps.
+@compute @workgroup_size(16, 16)
+fn sgpass(@builtin(global_invocation_id) id: vec3<u32>) {
+    let pw = i32(k[0]);
+    let ph = i32(k[1]);
+    let x = i32(id.x);
+    let y = i32(id.y);
+    if x >= pw || y >= ph {
+        return;
+    }
+    let down = k[2] != 0.0lf;
+    var acc = vec3(0.0);
+    for (var j = 0u; j < F.count; j++) {
+        let t = i32(k[3u + 4u * j]);
+        let lo = i32(k[4u + 4u * j]);
+        let w0 = f32(k[5u + 4u * j]);
+        let w1 = f32(k[6u + 4u * j]);
+        var a = vec2(x + t, y + lo);
+        var b = vec2(x + t, y + lo + 1);
+        if down {
+            a = vec2(x + lo, y + t);
+            b = vec2(x + lo + 1, y + t);
+        }
+        if all(a >= vec2(0)) && a.x < pw && a.y < ph {
+            acc += w0 * textureLoad(input, a, 0).xyz;
+        }
+        if w1 != 0.0 && all(b >= vec2(0)) && b.x < pw && b.y < ph {
+            acc += w1 * textureLoad(input, b, 0).xyz;
+        }
+    }
+    textureStore(output, id.xy, vec4(acc, 0.0));
+}
+
+// D-353, soft_glow::soft_glow's sum: the glow so far (`other`; on the first level, `flag`, the
+// light at the layer's own place times its share) and, unless `count` is 0, one level's plane
+// read between its cells. k: the level's weight, d, rx and ry, the grow, the light's own share
+// and the plane's size.
+@compute @workgroup_size(16, 16)
+fn sgadd(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let g = i32(k[4]);
+    let x = i32(id.x) - g;
+    let y = i32(id.y) - g;
+    var sum = vec3(0.0);
+    if F.flag == 1u {
+        let own = f32(k[5]);
+        if own > 0.0 {
+            sum = own * at(other, vec2(x, y)).xyz;
+        }
+    } else {
+        sum = textureLoad(other, id.xy, 0).xyz;
+    }
+    if F.count > 0u {
+        let d = f32(k[1]);
+        let rx = i32(k[2]);
+        let ry = i32(k[3]);
+        let pw = i32(k[6]);
+        let ph = i32(k[7]);
+        let weight = f32(k[0]);
+        let u = (f32(x) + 0.5) / d - 0.5;
+        let v = (f32(y) + 0.5) / d - 0.5;
+        let u0 = floor(u);
+        let v0 = floor(v);
+        let fu = u - u0;
+        let fv = v - v0;
+        for (var dj = 0; dj < 2; dj++) {
+            let wj = select(1.0 - fv, fv, dj == 1);
+            let cy = i32(v0) + dj + ry;
+            if wj == 0.0 || cy < 0 || cy >= ph {
+                continue;
+            }
+            for (var di = 0; di < 2; di++) {
+                let wi = select(1.0 - fu, fu, di == 1);
+                let cx = i32(u0) + di + rx;
+                if wi == 0.0 || cx < 0 || cx >= pw {
+                    continue;
+                }
+                sum += weight * wj * wi * textureLoad(input, vec2(cx, cy), 0).xyz;
+            }
+        }
+    }
+    textureStore(output, id.xy, vec4(sum, 0.0));
+}
+
+// D-353, soft_glow::finish: the glow times Exposure laid with the untouched layer (`other`, at
+// the grow). k: the grow, Exposure, Source Opacity as a fraction, 1 for screen, 1 for unmult.
+@compute @workgroup_size(16, 16)
+fn sgfinish(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let screen = k[3] != 0.0lf;
+    let o = f32(k[2]);
+    var g = textureLoad(input, id.xy, 0).xyz * f32(k[1]);
+    if screen {
+        g = min(g, vec3(1.0));
+    }
+    var ga = 1.0;
+    if k[4] != 0.0lf {
+        ga = min(max(max(g.x, g.y), g.z), 1.0);
+    }
+    let p = at(other, vec2<i32>(id.xy) - vec2(i32(k[0])));
+    var v = g + o * p.xyz;
+    if screen {
+        v = min(v, vec3(1.0));
+    }
+    textureStore(output, id.xy, vec4(v, min(ga + o * p.w, 1.0)));
+}
 "#;
 
 /// B-65: [`FX_SHADER`]'s numbers, laid out as its `Fx`; each pass reads what it needs.
@@ -4893,6 +5073,12 @@ struct FxPasses {
     smoothmix: Pass,
     /// D-352.
     mchoke: Pass,
+    /// D-353.
+    sglight: Pass,
+    sgcells: Pass,
+    sgpass: Pass,
+    sgadd: Pass,
+    sgfinish: Pass,
 }
 
 /// B-172: one colour effect of a run the card draws in one pass: `grade` (0) or `tone` (1), its
@@ -5483,6 +5669,11 @@ impl Gpu {
                 smoothscan: pass("smoothscan", &[0, 1, 3, 5, 6]),
                 smoothmix: pass("smoothmix", &[0, 1, 2, 5, 6]),
                 mchoke: pass("mchoke", &[0, 1, 2, 3, 7]),
+                sglight: pass("sglight", &[0, 1, 2, 3]),
+                sgcells: pass("sgcells", &[0, 1, 2, 3]),
+                sgpass: pass("sgpass", &[0, 1, 2, 3]),
+                sgadd: pass("sgadd", &[0, 1, 2, 3, 4]),
+                sgfinish: pass("sgfinish", &[0, 1, 2, 3, 4]),
                 chain: {
                     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
                         label: Some("B-172"),
@@ -6769,6 +6960,68 @@ impl Gpu {
                 }
                 let [a, b] = pair;
                 (if done % 2 == 1 { a } else { b }, (w, h))
+            }
+            // D-353: the light, then each level's cells spread two ways and added between its
+            // cells, then laid with the layer, grown by the plan's reach. The three planes are
+            // the largest level's size, each level using its own corner of them.
+            E::SoftGlow {
+                threshold_mode,
+                threshold,
+                threshold_smooth,
+                saturation_bias,
+                radius,
+                exposure,
+                aspect_ratio,
+                aspect_angle,
+                operation,
+                source_opacity,
+                unmult,
+                ..
+            } => {
+                let plan = crate::soft_glow::plan(*radius, *aspect_ratio, *aspect_angle);
+                let g = plan.grow;
+                let (ow, oh) = (w + 2 * g, h + 2 * g);
+                let single = |v: f64| v as f32 as f64;
+                let lit = self.scratch("D-353 light", w, h);
+                let k = [single(threshold / 100.0), single(saturation_bias / 100.0), single(threshold_smooth / 100.0), f64::from(threshold_mode == "luminance")];
+                self.fx_step(steps, &passes.sglight, FxParams::default(), Some(still), Some(&lit), Some(&k), None, none, tiles(w, h));
+                let sizes: Vec<(usize, usize)> = plan.levels.iter().map(|lv| (w.div_ceil(lv.d) + 2 * lv.reach.0, h.div_ceil(lv.d) + 2 * lv.reach.1)).collect();
+                let (mw, mh) = sizes.iter().fold((1, 1), |(a, b), &(x, y)| (a.max(x), b.max(y)));
+                let planes = [self.scratch("D-353 plane", mw, mh), self.scratch("D-353 plane", mw, mh), self.scratch("D-353 plane", mw, mh)];
+                let sums = [self.scratch("D-353 glow", ow, oh), self.scratch("D-353 glow", ow, oh)];
+                let along = |taps: &[f32], down: bool, mu: f64, (pw, ph): (usize, usize)| {
+                    let mut k = vec![pw as f64, ph as f64, f64::from(down)];
+                    k.extend(crate::soft_glow::steps(taps, mu).into_iter().flat_map(|(t, lo, w0, w1)| [t as f64, lo as f64, w0 as f64, w1 as f64]));
+                    k
+                };
+                let mut done = 0;
+                for (lv, &(pw, ph)) in plan.levels.iter().zip(&sizes) {
+                    let (rx, ry) = (lv.reach.0 as f64, lv.reach.1 as f64);
+                    let k = [lv.d as f64, rx, ry, pw as f64, ph as f64];
+                    self.fx_step(steps, &passes.sgcells, FxParams::default(), Some(&lit), Some(&planes[0]), Some(&k), None, none, tiles(pw, ph));
+                    let p = FxParams { count: lv.first.len() as u32, ..Default::default() };
+                    let k = along(&lv.first, lv.first_y, 0.0, (pw, ph));
+                    self.fx_step(steps, &passes.sgpass, p, Some(&planes[0]), Some(&planes[1]), Some(&k), None, none, tiles(pw, ph));
+                    let p = FxParams { count: lv.second.len() as u32, ..Default::default() };
+                    let k = along(&lv.second, !lv.first_y, lv.mu, (pw, ph));
+                    self.fx_step(steps, &passes.sgpass, p, Some(&planes[1]), Some(&planes[2]), Some(&k), None, none, tiles(pw, ph));
+                    let k = [lv.weight as f64, lv.d as f64, rx, ry, g as f64, plan.own as f64, pw as f64, ph as f64];
+                    let p = FxParams { flag: (done == 0) as u32, count: 1, ..Default::default() };
+                    let before = if done == 0 { &lit } else { &sums[(done + 1) % 2] };
+                    self.fx_step(steps, &passes.sgadd, p, Some(&planes[2]), Some(&sums[done % 2]), Some(&k), Some(before), none, tiles(ow, oh));
+                    done += 1;
+                }
+                if done == 0 {
+                    // No level: the light's own share alone.
+                    let k = [0.0, 1.0, 0.0, 0.0, g as f64, plan.own as f64, 0.0, 0.0];
+                    let p = FxParams { flag: 1, count: 0, ..Default::default() };
+                    self.fx_step(steps, &passes.sgadd, p, Some(&planes[2]), Some(&sums[0]), Some(&k), Some(&lit), none, tiles(ow, oh));
+                    done = 1;
+                }
+                let out = self.scratch("D-353 soft glow", ow, oh);
+                let k = [g as f64, single(*exposure), single(source_opacity / 100.0), f64::from(operation == "screen"), f64::from(unmult == "on")];
+                self.fx_step(steps, &passes.sgfinish, FxParams::default(), Some(&sums[(done + 1) % 2]), Some(&out), Some(&k), Some(still), none, tiles(ow, oh));
+                (out, (ow, oh))
             }
             E::SpeedLines { center, color, count, thickness, inner, inner_jitter, angle_jitter, seed, hold, opacity, frame } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);

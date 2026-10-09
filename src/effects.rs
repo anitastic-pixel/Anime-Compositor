@@ -1516,6 +1516,27 @@ pub enum Effect {
         decontamination_radius: f64,
         view_decontamination_map: String,
     },
+    /// D-353: Soft Physical Glow (EFFECTS.md P0-21 and pick #1), Glow's `falloff` "physical"
+    /// (`soft_glow`, document 21); a Glow without `falloff`, or "classic", is [`Effect::Glow`].
+    /// `falloff` is kept as written, so a wrong one is kept and reported. `threshold_mode`,
+    /// "chroma" or "luminance"; `threshold`, `threshold_smooth` and `source_opacity` 0 to 100 per
+    /// cent; `saturation_bias` -100 to 100 per cent; `radius` 0 to 2,000 pixels; `exposure` 0 to
+    /// 100; `aspect_ratio` 0 to 2 and `aspect_angle` -3,600 to 3,600 degrees; `operation` "add"
+    /// or "screen"; `unmult` "off" or "on".
+    SoftGlow {
+        falloff: String,
+        threshold_mode: String,
+        threshold: f64,
+        threshold_smooth: f64,
+        saturation_bias: f64,
+        radius: f64,
+        exposure: f64,
+        aspect_ratio: f64,
+        aspect_angle: f64,
+        operation: String,
+        source_opacity: f64,
+        unmult: String,
+    },
     /// An effect this build does not have. Preserved, never drawn, always reported.
     Unsupported { type_id: String },
 }
@@ -2331,6 +2352,26 @@ impl Effect {
                 }
                 v
             }
+            Effect::SoftGlow {
+                threshold,
+                threshold_smooth,
+                saturation_bias,
+                radius,
+                exposure,
+                aspect_ratio,
+                aspect_angle,
+                source_opacity,
+                ..
+            } => vec![
+                ("threshold", vec![threshold], 0.0, 100.0),
+                ("threshold_smooth", vec![threshold_smooth], 0.0, 100.0),
+                ("saturation_bias", vec![saturation_bias], -100.0, 100.0),
+                ("radius", vec![radius], 0.0, 2000.0),
+                ("exposure", vec![exposure], 0.0, 100.0),
+                ("aspect_ratio", vec![aspect_ratio], 0.0, 2.0),
+                ("aspect_angle", vec![aspect_angle], -3600.0, 3600.0),
+                ("source_opacity", vec![source_opacity], 0.0, 100.0),
+            ],
             Effect::TextAnimator {
                 position, scale, rotation, opacity, color, tracking, start, end, offset, amount, smoothness, ease_high, ease_low, ..
             } => vec![
@@ -2858,6 +2899,7 @@ impl Effect {
                 *feather = scale(*feather);
                 *decontamination_radius = scale(*decontamination_radius);
             }
+            Effect::SoftGlow { radius, .. } => *radius = scale(*radius),
             Effect::SpeedLines { inner, .. } => *inner = scale(*inner),
             Effect::CrossGlare { length, .. } => *length = scale(*length),
             Effect::CameraShake { amount, .. } => *amount = scale(*amount),
@@ -3065,6 +3107,7 @@ impl Effect {
             Effect::MatteChoker { .. } => "Matte Choker",
             Effect::RefineMatte { kind: "hard", .. } => "Refine Hard Matte",
             Effect::RefineMatte { .. } => "Refine Soft Matte",
+            Effect::SoftGlow { .. } => "Soft Physical Glow",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3183,6 +3226,7 @@ impl Effect {
             Effect::MatteChoker { .. } => MATTE_CHOKER,
             Effect::RefineMatte { kind: "hard", .. } => REFINE_HARD_MATTE,
             Effect::RefineMatte { .. } => REFINE_SOFT_MATTE,
+            Effect::SoftGlow { .. } => GLOW,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -3213,6 +3257,10 @@ impl Effect {
             // D-327: the box's reach, once a pass.
             Effect::FastBoxBlur { radius, iterations, edges, .. } if edges != "repeat" => {
                 box_reach(*radius, *iterations)
+            }
+            // D-353: as far as any level's cells reach, stretched or not (no silent crop).
+            Effect::SoftGlow { radius, aspect_ratio, aspect_angle, .. } if self.fault().is_none() => {
+                crate::soft_glow::plan(*radius, *aspect_ratio, *aspect_angle).grow
             }
             // D-89: the light reaches `radius` pixels, blur's reach at sigma radius / 3.
             Effect::Glow { radius, units, .. } => {
@@ -3698,6 +3746,18 @@ impl Effect {
             )),
             Effect::AutoTone { snap_neutral_midtones, .. } if !["off", "on"].contains(&snap_neutral_midtones.as_str()) => Some(format!(
                 "{name}'s snap neutral midtones is \"off\" or \"on\", and this is \"{snap_neutral_midtones}\"."
+            )),
+            Effect::SoftGlow { falloff, .. } if falloff != "physical" => Some(format!(
+                "Glow's falloff is \"classic\" or \"physical\", and this is \"{falloff}\"."
+            )),
+            Effect::SoftGlow { threshold_mode: v, .. } if !["chroma", "luminance"].contains(&v.as_str()) => Some(format!(
+                "{name}'s threshold mode is \"chroma\" or \"luminance\", and this is \"{v}\"."
+            )),
+            Effect::SoftGlow { operation: v, .. } if !["add", "screen"].contains(&v.as_str()) => Some(format!(
+                "{name}'s blend mode is \"add\" or \"screen\", and this is \"{v}\"."
+            )),
+            Effect::SoftGlow { unmult: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "{name}'s unmult is \"off\" or \"on\", and this is \"{v}\"."
             )),
             Effect::SpreadTones { equalize, .. } if !EQUALIZE.contains(&equalize.as_str()) => Some(format!(
                 "Spread Tones equalizes by \"rgb\", \"brightness\" or \"photoshop\", and this is \"{equalize}\"."
@@ -5771,6 +5831,38 @@ pub(crate) fn apply_stack_at(
                 };
                 crate::matte_refine::refine_matte(source, &s)
             }),
+            // D-353: the layer grows by the plan's reach on every side.
+            Effect::SoftGlow {
+                threshold_mode,
+                threshold,
+                threshold_smooth,
+                saturation_bias,
+                radius,
+                exposure,
+                aspect_ratio,
+                aspect_angle,
+                operation,
+                source_opacity,
+                unmult,
+                ..
+            } => {
+                let s = crate::soft_glow::Settings {
+                    luminance: threshold_mode == "luminance",
+                    threshold: *threshold,
+                    smooth: *threshold_smooth,
+                    bias: *saturation_bias,
+                    radius: *radius,
+                    exposure: *exposure,
+                    aspect: *aspect_ratio,
+                    angle: *aspect_angle,
+                    screen: operation == "screen",
+                    opacity: *source_opacity,
+                    unmult: unmult == "on",
+                };
+                let r = crate::perf::time(crate::perf::Stage::EffectSoftGlow, || crate::soft_glow::soft_glow(source, &s));
+                ox += r;
+                oy += r;
+            }
         }
         if display {
             encode(source, false, top);

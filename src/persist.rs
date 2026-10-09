@@ -1170,6 +1170,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             if units != "classic" || params.contains_key("units") {
                 params.insert("units".into(), J::from(units.as_str()));
             }
+            // D-353: a Glow that was physical and is now classic says so.
+            if params.contains_key("falloff") {
+                params.insert("falloff".into(), J::from("classic"));
+            }
         }
         Effect::LineRecolor {
             colors,
@@ -2587,6 +2591,33 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("decontamination_radius".into(), num(*decontamination_radius));
             params.insert("view_decontamination_map".into(), J::from(view_decontamination_map.as_str()));
         }
+        Effect::SoftGlow {
+            falloff,
+            threshold_mode,
+            threshold,
+            threshold_smooth,
+            saturation_bias,
+            radius,
+            exposure,
+            aspect_ratio,
+            aspect_angle,
+            operation,
+            source_opacity,
+            unmult,
+        } => {
+            params.insert("falloff".into(), J::from(falloff.as_str()));
+            params.insert("threshold_mode".into(), J::from(threshold_mode.as_str()));
+            params.insert("threshold".into(), num(*threshold));
+            params.insert("threshold_smooth".into(), num(*threshold_smooth));
+            params.insert("saturation_bias".into(), num(*saturation_bias));
+            params.insert("radius".into(), num(*radius));
+            params.insert("exposure".into(), num(*exposure));
+            params.insert("aspect_ratio".into(), num(*aspect_ratio));
+            params.insert("aspect_angle".into(), num(*aspect_angle));
+            params.insert("operation".into(), J::from(operation.as_str()));
+            params.insert("source_opacity".into(), num(*source_opacity));
+            params.insert("unmult".into(), J::from(unmult.as_str()));
+        }
         Effect::Unsupported { .. } => {}
     }
     // D-68: a setting with keys is a property record whose base is the plain value just
@@ -3737,6 +3768,23 @@ fn parse_effect(
                     Some(_) => effect_number(params, "tolerance", &at)?,
                     None => 0.0,
                 },
+            })
+        }
+        // D-353: any falloff but classic is Soft Physical Glow, which reports a wrong one.
+        crate::effects::GLOW if effect_word_or(params, "falloff", &at, "classic")? != "classic" => {
+            Some(crate::effects::Effect::SoftGlow {
+                falloff: effect_word(params, "falloff", &at)?,
+                threshold_mode: effect_word(params, "threshold_mode", &at)?,
+                threshold: effect_number(params, "threshold", &at)?,
+                threshold_smooth: effect_number(params, "threshold_smooth", &at)?,
+                saturation_bias: effect_number(params, "saturation_bias", &at)?,
+                radius: effect_number(params, "radius", &at)?,
+                exposure: effect_number(params, "exposure", &at)?,
+                aspect_ratio: effect_number(params, "aspect_ratio", &at)?,
+                aspect_angle: effect_number(params, "aspect_angle", &at)?,
+                operation: effect_word(params, "operation", &at)?,
+                source_opacity: effect_number(params, "source_opacity", &at)?,
+                unmult: effect_word(params, "unmult", &at)?,
             })
         }
         crate::effects::GLOW => Some(crate::effects::Effect::Glow {

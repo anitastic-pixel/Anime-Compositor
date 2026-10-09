@@ -176239,6 +176239,100 @@ FX-MREF-034 (`fx_mref_034.json`): Refine Soft Matte, view edge region written "m
 
 FX-MREF-035 (`fx_mref_035.json`): Refine Soft Matte, decontamination amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Soft Physical Glow (D-353)
+
+The shared soft-glow engine (EFFECTS.md P0-21) and pick #1, Soft Physical Glow: Glow (`core.glow`) with the setting `falloff` written "physical" (B-233). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/soft_glow/`: the layer `art` holding a drawing the same size, unmoved unless the case says, with the effect `fx-0-0`. The drawings: `media/patches.png`, three patches in rows 3 to 6 on nothing, warm yellow in columns 2 to 4, brown in 7 and 8 and purple in 11 to 13; `media/faint.png`, the same at half covering; and `media/grey.png`, the brown swapped for a grey. **Every number is produced by `tools/soft_glow_reference.py`**, which works in double precision with numpy over whole padded planes of cells, from the drawings' 8-bit values, and asserts no hard threshold lies near an edge; the numbers are in `Fixtures/soft_glow/expected_soft_glow.json`. Tolerance 2e-5. B-233 checks them, and draws the playtest's pictures, in `verification/D-353_soft_glow_table.md`.
+
+FX-SGLOW-001 (`fx_sglow_001.json`): Radius 12, everything else at the effect's defaults (threshold 0, so everything glows; Screen; exposure 1): a soft glow with a bright core and a long tail spreads round every patch into the empty space. Frames 0.
+
+FX-SGLOW-002 (`fx_sglow_002.json`): The effect's own defaults, radius 500: the glow is spread so wide that on a drawing this small it is a faint wash; the drawing shows through brighter where it doubles on itself. Frames 0.
+
+FX-SGLOW-003 (`fx_sglow_003.json`): Radius 0: nothing spreads; the light is laid on itself, so each pixel is doubled and held at white. Frames 0.
+
+FX-SGLOW-004 (`fx_sglow_004.json`): Radius 1.5: the first level is too small to count yet, so this is still FX-SGLOW-003. Frames 0.
+
+FX-SGLOW-005 (`fx_sglow_005.json`): Radius 2.25: the first level is half in, so the glow is half spread and half laid on itself. Frames 0.
+
+FX-SGLOW-006 (`fx_sglow_006.json`): Radius 100: seven levels, the larger three worked on cells of 8, 4 and 2 pixels. Frames 0.
+
+FX-SGLOW-007 (`fx_sglow_007.json`): Threshold 30, Chroma: each channel tested on its own: the yellow's red and green glow and its blue does not, the brown's red glows, the purple does not glow. Frames 0.
+
+FX-SGLOW-008 (`fx_sglow_008.json`): Threshold 30, Luminance: one brightness per pixel: only the yellow glows, all three of its channels. Frames 0.
+
+FX-SGLOW-009 (`fx_sglow_009.json`): Threshold 30, Smooth 50: a channel between 15 % and 30 % glows in proportion: the yellow's blue, at 19 %, glows at a quarter. Frames 0.
+
+FX-SGLOW-010 (`fx_sglow_010.json`): Saturation Bias 100, threshold 50, the grey drawing: the test is on saturation alone: the yellow and the purple glow, the grey does not. Frames 0.
+
+FX-SGLOW-011 (`fx_sglow_011.json`): Saturation Bias -100, threshold 50: the other way round: only the grey glows. Frames 0.
+
+FX-SGLOW-012 (`fx_sglow_012.json`): Saturation Bias 50, threshold 40: halfway: the colourful patches glow in every channel, the grey, bright as it is, does not. Frames 0.
+
+FX-SGLOW-013 (`fx_sglow_013.json`): Aspect Ratio 1.6: the glow is stretched sideways and squeezed top to bottom. Frames 0.
+
+FX-SGLOW-014 (`fx_sglow_014.json`): Aspect Ratio 0.5: taller than wide. Frames 0.
+
+FX-SGLOW-015 (`fx_sglow_015.json`): Aspect Ratio 1.5 at Angle 30: the oval leans, its long side 30 degrees below the horizontal, going right. Frames 0.
+
+FX-SGLOW-016 (`fx_sglow_016.json`): Aspect Ratio 1.5 at Angle 60: steeper, worked the other way round (slanted line along x). Frames 0.
+
+FX-SGLOW-017 (`fx_sglow_017.json`): Aspect Ratio 2: a flat streak, no spread top to bottom except the softening that working on cells gives. Frames 0.
+
+FX-SGLOW-018 (`fx_sglow_018.json`): Blend Mode Add, exposure 3: the light adds up and is not cut off at white. Frames 0.
+
+FX-SGLOW-019 (`fx_sglow_019.json`): Blend Mode Screen, exposure 3: the same, held at white. Frames 0.
+
+FX-SGLOW-020 (`fx_sglow_020.json`): Source Opacity 0: the glow alone, the drawing not laid back. Frames 0.
+
+FX-SGLOW-021 (`fx_sglow_021.json`): Source Opacity 50: the drawing laid back at half strength. Frames 0.
+
+FX-SGLOW-022 (`fx_sglow_022.json`): Unmult off: the glow sits on solid black, every pixel fully covering. Frames 0.
+
+FX-SGLOW-023 (`fx_sglow_023.json`): Unmult off, Source Opacity 0: the glow alone on black. Frames 0.
+
+FX-SGLOW-024 (`fx_sglow_024.json`): The patches half covering, threshold 50: the colour is multiplied by its covering first, so the yellow counts at half and nothing glows: the drawing, untouched. Frames 0.
+
+FX-SGLOW-025 (`fx_sglow_025.json`): The patches half covering, threshold 0: they glow at half the strength of FX-SGLOW-001. Frames 0.
+
+FX-SGLOW-026 (`fx_sglow_026.json`): FX-SGLOW-001 moved three pixels right: the glow that spread past the drawing's left edge shows in columns 0 to 2; the layer grew to hold it. Frames 0.
+
+FX-SGLOW-027 (`fx_sglow_027.json`): FX-SGLOW-001 moved six pixels left: the yellow patch is off the composition, and its glow still lights the frame's left side. Frames 0.
+
+FX-SGLOW-028 (`fx_sglow_028.json`): Radius keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 is FX-SGLOW-003, frame 4 is FX-SGLOW-006. Frames 0, 2, 4.
+
+FX-SGLOW-029 (`fx_sglow_029.json`): Exposure keyed from 0 at frame 0 to 2 at frame 4, linear: frame 0 is the drawing, frame 2 is FX-SGLOW-001. Frames 0, 2, 4.
+
+FX-SGLOW-030 (`fx_sglow_030.json`): Threshold 100: nothing in the drawing is that bright: the drawing, untouched. Frames 0.
+
+FX-SGLOW-031 (`fx_sglow_031.json`): Radius 2,000, the largest: eleven levels; on a drawing this small the glow is a very faint wash. Frames 0.
+
+FX-SGLOW-032 (`fx_sglow_032.json`): Threshold 30, Smooth 50, Saturation Bias 50, Luminance, Add, exposure 1.5, Aspect Ratio 0.7 at Angle -20, Source Opacity 80, radius 30: everything at once. Frames 0.
+
+FX-SGLOW-033 (`fx_sglow_033.json`): Falloff "gaussian", which is not classic or physical. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-034 (`fx_sglow_034.json`): Radius 2001, above 2000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-035 (`fx_sglow_035.json`): Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-036 (`fx_sglow_036.json`): Radius keyed to 2500 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-037 (`fx_sglow_037.json`): Saturation Bias 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-038 (`fx_sglow_038.json`): Threshold Smooth 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-039 (`fx_sglow_039.json`): Threshold -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-040 (`fx_sglow_040.json`): Aspect Ratio 2.1, above 2. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-041 (`fx_sglow_041.json`): Exposure -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-042 (`fx_sglow_042.json`): Source Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-043 (`fx_sglow_043.json`): Threshold Mode "rgb", which is not chroma or luminance. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-044 (`fx_sglow_044.json`): Blend Mode "multiply", which is not add or screen. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SGLOW-045 (`fx_sglow_045.json`): Unmult "yes", which is not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ## Compound Blur fixtures
 
 D-191, accepted on 2026-09-28. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/compound_blur/`. At the top is the drawing `holder`, `Fixtures/compound_blur/media/holder.png`, two-pixel squares of red #dc2828, blue #2850dc and cream #f0f0c8 in turn, `(x div 2 + y div 2) mod 3`, its bottom right corner, columns 12 to 15 of rows 7 to 9, clear; it holds one Compound Blur (`core.compound_blur`), unless the case puts it on an adjustment layer. Under it are the map layers, every one switched off, so only the holder is seen: `ramp`, `media/ramp.png`, grey 17 x in column x, black at the left to white at the right, moved to (3, 2) and scaled to 50 %; the solids `white`, `black` and `grey` (linear 0.25), 16 by 10; `card`, `media/card.png`, a 4 by 2 checker of white and black, white at its top left; and `late`, a white solid whose in point is frame 4. Each value is a pixel's four working numbers, linear and premultiplied, red, green, blue and covering.

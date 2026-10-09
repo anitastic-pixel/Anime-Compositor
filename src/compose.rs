@@ -969,7 +969,13 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::DepthKey { .. }
                 | crate::effects::Effect::IdKey { .. }
                 | crate::effects::Effect::LineWidth { .. }
+                // D-353: Soft Physical Glow.
+                | crate::effects::Effect::SoftGlow { .. }
         )
+        // D-353: a Soft Physical Glow's threshold with no smooth is a step, so it stays on the
+        // CPU for D-122's reason.
+        && !matches!(&instance.effect, crate::effects::Effect::SoftGlow { threshold, threshold_smooth, .. }
+            if *threshold > 0.0 && *threshold_smooth == 0.0)
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
         && !matches!(instance.effect, crate::effects::Effect::Levels { input_black, input_white, .. } if input_black == input_white)

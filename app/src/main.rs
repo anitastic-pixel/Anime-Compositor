@@ -3331,6 +3331,24 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
 /// starts at After Effects' own defaults (D-89), because a glow nobody can see is no start.
 /// Line recolour starts with no colour chosen and red as the new one (D-91). Directional blur
 /// starts at a streak of 10 pixels up and down (D-92), as a glow does, so adding it shows it.
+/// D-353: a Soft Physical Glow as added.
+fn soft_glow_added() -> Effect {
+    Effect::SoftGlow {
+        falloff: "physical".to_string(),
+        threshold_mode: "chroma".to_string(),
+        threshold: 0.0,
+        threshold_smooth: 0.0,
+        saturation_bias: 0.0,
+        radius: 500.0,
+        exposure: 1.0,
+        aspect_ratio: 1.0,
+        aspect_angle: 0.0,
+        operation: "screen".to_string(),
+        source_opacity: 100.0,
+        unmult: "on".to_string(),
+    }
+}
+
 fn new_effect(type_id: &str) -> Option<Effect> {
     match type_id {
         EXPOSURE => Some(Effect::exposure(0.0)),
@@ -4384,6 +4402,22 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                 tolerance: number("tolerance")?,
             })
         }
+        // D-353: a falloff other than classic is Soft Physical Glow, kept as written so a wrong
+        // one is the core's to refuse in its words.
+        GLOW if parameter(query, "falloff").is_some_and(|f| f != "classic") => Ok(Effect::SoftGlow {
+            falloff: word("falloff")?,
+            threshold_mode: word("threshold_mode")?,
+            threshold: number("threshold")?,
+            threshold_smooth: number("threshold_smooth")?,
+            saturation_bias: number("saturation_bias")?,
+            radius: number("radius")?,
+            exposure: number("exposure")?,
+            aspect_ratio: number("aspect_ratio")?,
+            aspect_angle: number("aspect_angle")?,
+            operation: word("operation")?,
+            source_opacity: number("source_opacity")?,
+            unmult: word("unmult")?,
+        }),
         // D-89: the words and colours as written, the colours as one comma-separated list and
         // the tint empty for none. Whether each is right is the core's check, in its words.
         GLOW => Ok(Effect::Glow {
@@ -8944,7 +8978,11 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                                 .to_string(),
                         );
                     };
-                    let Some(effect) = new_effect(&type_id) else {
+                    // D-353: Soft Physical Glow is Glow's "physical" falloff, added as
+                    // PLUGINS.md 2.3 adds it: a wide haze laid on with screen.
+                    let physical = type_id == GLOW && parameter(query, "falloff").as_deref() == Some("physical");
+                    let added = if physical { Some(soft_glow_added()) } else { new_effect(&type_id) };
+                    let Some(effect) = added else {
                         return Some(format!(
                             "This build has no effect called {type_id}. It has \
                              core.gaussian_blur, core.exposure, core.tint, core.line_smooth, \
@@ -33180,5 +33218,38 @@ mod keyed_settings {
         assert!(lost.is_empty(), "these keys did not come back: {lost:?}");
         assert!(again == written, "saving the reopened project gave other text");
         println!("{} effects, {} settings keyed, saved and opened again", ids.len(), keyed.len());
+    }
+
+    /// D-353: Soft Physical Glow is added as Glow's "physical" falloff, takes the settings the
+    /// panel sends for it, turns back into a classic Glow when the falloff is, and a key on its
+    /// radius is saved and opened again.
+    #[test]
+    fn soft_physical_glow_is_glow_with_the_physical_falloff() {
+        let viewer = Mutex::new(demo());
+        let said = run(&viewer, "effect.add?layer=layer-3&type=core.glow&falloff=physical");
+        assert!(said.starts_with("Add "), "{said}");
+        let fx = effects(&viewer).into_iter().find(|e| matches!(e.effect, Effect::SoftGlow { .. })).expect("a Soft Physical Glow");
+        let id = fx.instance_id.as_str().to_string();
+        let sent = "&falloff=physical&threshold_mode=luminance&threshold=40&threshold_smooth=50&saturation_bias=-20&radius=60\
+                    &exposure=1.5&aspect_ratio=1.2&aspect_angle=30&operation=add&source_opacity=80&unmult=off";
+        let said = run(&viewer, &format!("effect.set_parameters?layer=layer-3&effect={id}{sent}"));
+        assert!(said.starts_with("Set ") || said.starts_with("Change "), "{said}");
+        let now = effects(&viewer).into_iter().find(|e| e.instance_id.as_str() == id).expect("the glow");
+        assert!(matches!(&now.effect, Effect::SoftGlow { radius, unmult, .. } if *radius == 60.0 && unmult == "off"), "{:?}", now.effect);
+        run(&viewer, &format!("keyframe.add_remove?layer=layer-3&prop=fx:{id}:radius&frame=0"));
+        run(&viewer, &format!("property.set_base?layer=layer-3&prop=fx:{id}:radius&frame=10&value=200"));
+        let written = {
+            let held = viewer.lock().expect("the viewer lock was poisoned");
+            persist::to_json(held.document.project(), &held.preserved)
+        };
+        let reopened = persist::load_str(&written).unwrap_or_else(|d| panic!("{}: {}", d.message, d.detail));
+        let comp = reopened.document.project().compositions.iter().find_map(|c| c.layer(&Id::new("layer-3"))).expect("layer-3");
+        let back = comp.effects.iter().find(|e| e.instance_id.as_str() == id).expect("the glow came back");
+        assert!(matches!(back.effect, Effect::SoftGlow { .. }), "{:?}", back.effect);
+        assert_eq!(back.tracks.get("radius").map(|t| t[0].keyframes().len()), Some(2));
+        let classic = "&falloff=classic&based_on=bright&threshold=60&colors=&tolerance=0&radius=10&intensity=1&operation=add&tint=";
+        run(&viewer, &format!("effect.set_parameters?layer=layer-3&effect={id}{classic}"));
+        let now = effects(&viewer).into_iter().find(|e| e.instance_id.as_str() == id).expect("the glow");
+        assert!(matches!(now.effect, Effect::Glow { .. }), "{:?}", now.effect);
     }
 }

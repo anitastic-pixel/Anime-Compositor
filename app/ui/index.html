@@ -3161,7 +3161,7 @@ function precompose() {
   const fx = chosen.flatMap((l) => l.effects || [])[0];
   const keyed = chosen.some((l) => /"keyframes":\[\{/.test(JSON.stringify(l)));
   const chip = (el, label, withSettings, plain) => el.replaceChildren(label,
-    ...(withSettings && fx ? [Object.assign(document.createElement('span'), { className: 'fx', textContent: EFFECT_NAMES[fx.type_id] || fx.type_id })] : []),
+    ...(withSettings && fx ? [Object.assign(document.createElement('span'), { className: 'fx', textContent: EFFECT_NAMES[fxKey(fx)] || fx.type_id })] : []),
     ...(withSettings && keyed ? [1, 2].map(() => Object.assign(document.createElement('span'), { className: 'dia' })) : []),
     ...(plain ? [Object.assign(document.createElement('span'), { className: 'dim', textContent: 'plain' })] : []));
   const box = $('precompdialog');
@@ -8155,6 +8155,11 @@ function splitButton(layer) {
 // an unkeyed one as the plain value, which is a base here.
 const isFx = (prop) => prop.startsWith('fx:');
 const fxName = (fx, name) => 'fx:' + fx.instance_id + ':' + name;
+// D-353: the panel's own key for an effect. Soft Physical Glow is Glow with the "physical"
+// falloff, and has its own name, settings and place in the list.
+function fxKey(fx) {
+  return fx.type_id === 'core.glow' && (fx.parameters || {}).falloff === 'physical' ? 'core.glow.physical' : fx.type_id;
+}
 function fxParts(layer, prop) {
   const bits = prop.split(':');
   const name = bits.pop();
@@ -8226,8 +8231,8 @@ function propLabel(layer, prop) {
   if (prop === 'time_remap') return 'Time Remap';
   if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
   const [fx, name] = fxParts(layer, prop);
-  const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
-  return (fx ? (EFFECT_NAMES[fx.type_id] || fx.type_id) + ' ' : '') + (known ? blurriness(fx, name, known[1]) : name === 'mix' ? 'Mix' : name);
+  const known = fx && (EFFECT_PARAMS[fxKey(fx)] || []).find((q) => q[0] === name);
+  return (fx ? (EFFECT_NAMES[fxKey(fx)] || fx.type_id) + ' ' : '') + (known ? blurriness(fx, name, known[1]) : name === 'mix' ? 'Mix' : name);
 }
 // B-150c: D-216 stretches a layer's keys with it, so the timeline shows each key on the frame it
 // plays on, `in + (key - in) x stretch / 100`, which at 50% can be half way between two frames,
@@ -8318,7 +8323,7 @@ function takesExpr(layer, prop) {
   if (isGrad(prop) || isPath(prop) || isMaskNum(prop)) return false;
   if (!isFx(prop)) return true;
   const [fx, name] = fxParts(layer, prop);
-  const known = fx && (EFFECT_PARAMS[fx.type_id] || []).find((q) => q[0] === name);
+  const known = fx && (EFFECT_PARAMS[fxKey(fx)] || []).find((q) => q[0] === name);
   return !!known && known[2] === 1;
 }
 
@@ -9230,6 +9235,7 @@ const EFFECT_NAMES = {
   'core.line_smooth': 'Line Smoothing',
   'core.selective_color_blur': 'Selective Colour Blur',
   'core.glow': 'Glow',
+  'core.glow.physical': 'Soft Physical Glow',
   'core.line_recolor': 'Line Recolour',
   'core.directional_blur': 'Directional Blur',
   'core.select_color': 'Select Colour',
@@ -9349,7 +9355,7 @@ const EFFECT_GROUPS = [
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.change_to_color',
     'core.invert', 'core.color_lookup', 'core.shift_channels', 'core.solid_composite', 'core.colorama',
     'core.stretch_levels', 'core.stretch_contrast', 'core.stretch_color', 'core.spread_tones']],
-  ['Light & Glow', ['core.glow', 'core.bloom', 'core.light_rays', 'core.rim_light',
+  ['Light & Glow', ['core.glow', 'core.glow.physical', 'core.bloom', 'core.light_rays', 'core.rim_light',
     'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.lightning_bolt', 'core.exposure_flicker',
     'core.paraffin']],
   ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_blur', 'core.line_recolor', 'core.outline',
@@ -9388,6 +9394,7 @@ const EFFECT_SEARCH = {
   'core.leave_color': 'keep one',
   'core.invert': 'negative',
   'core.glow': 'shine',
+  'core.glow.physical': 'soft physical glow deep glow realistic light bloom haze exponential falloff exposure threshold aspect anamorphic stretch',
   'core.bloom': 'glow shine highlights',
   'core.light_rays': 'god rays shaft beams',
   'core.rim_light': 'edge light backlight',
@@ -9489,6 +9496,7 @@ const EFFECT_ABOUT = {
   'core.line_smooth': 'Smooths the jagged, stair-stepped edges of drawn lines.',
   'core.selective_color_blur': 'Blurs only the areas painted in the colours you choose, such as the shadows.',
   'core.glow': 'Makes the bright parts shine softly into their surroundings.',
+  'core.glow.physical': 'A glow with a bright core and a long soft tail, as real light spreads, from several blur sizes added together; it can be stretched.',
   'core.line_recolor': 'Recolours the drawing\'s lines, for coloured trace lines.',
   'core.directional_blur': 'Smears the layer along one direction, as fast motion does.',
   'core.select_color': 'Keeps only the colours you choose and makes the rest transparent, or the reverse.',
@@ -9617,6 +9625,15 @@ const EFFECT_PARAMS = {
     ['tolerance', 'Tolerance', 1, 0.5, '0 to 255']],
   // D-89, named as After Effects names them. Its two switches, its colours and its tint are not
   // numbers and are drawn apart, in effectRow; the tolerance is for its chosen colours.
+  // D-353, PLUGINS.md 2.3's names. Its Threshold Mode, Blend Mode and Unmult are drawn apart.
+  'core.glow.physical': [['radius', 'Radius', 1, 1, 'pixels, 0 to 2000, how far the tail reaches'],
+    ['exposure', 'Exposure', 1, 0.05, '0 to 100, how bright the glow is'],
+    ['threshold', 'Threshold', 1, 0.5, 'per cent, 0 to 100; 0 glows everything'],
+    ['threshold_smooth', 'Threshold Smooth', 1, 0.5, 'per cent, 0 to 100, how soft the threshold is'],
+    ['saturation_bias', 'Saturation Bias', 1, 1, 'per cent, -100 to 100, positive glows the strong colours more'],
+    ['aspect_ratio', 'Aspect Ratio', 1, 0.01, '0 to 2; 1 is round, above 1 stretches across'],
+    ['aspect_angle', 'Aspect Angle', 1, 1, '-3600 to 3600 degrees', 'dial'],
+    ['source_opacity', 'Source Opacity', 1, 1, 'per cent, 0 to 100, the layer itself under its glow']],
   'core.glow': [['threshold', 'Glow Threshold', 1, 0.5, '0 to 100'],
     ['radius', 'Glow Radius', 1, 0.5, '0 to 500'],
     ['intensity', 'Glow Intensity', 1, 0.02, '0 to 10'],
@@ -10131,6 +10148,12 @@ const EFFECT_WORDS = {
     ['units', 'Units', [['sigma', 'Sigma (older projects)'], ['blurriness', 'Blurriness (After Effects)']]]] },
   'core.directional_blur': { choices: [EDGES] },
   'core.selective_color_blur': { chosen: () => true },
+  // D-353.
+  'core.glow.physical': {
+    choices: [['threshold_mode', 'Threshold Mode', [['chroma', 'Chroma'], ['luminance', 'Luminance']]],
+      ['operation', 'Blend Mode', [['screen', 'Screen'], ['add', 'Add']]],
+      ['unmult', 'Unmult', [['on', 'On'], ['off', 'Off']]]],
+  },
   // D-89. The colours show only when a glow is based on them, and are kept when it is not.
   'core.glow': {
     choices: [['based_on', 'Glow Based On', [['bright', 'Bright parts'], ['colors', 'Chosen colours']]],
@@ -11214,8 +11237,8 @@ function effectRow(layer, fx, at, of) {
   const box = document.createElement('div');
   box.className = 'effect';
   box.dataset.effect = fx.instance_id;
-  const known = EFFECT_PARAMS[fx.type_id];
-  const label = EFFECT_NAMES[fx.type_id] || fx.type_id;
+  const known = EFFECT_PARAMS[fxKey(fx)];
+  const label = EFFECT_NAMES[fxKey(fx)] || fx.type_id;
   const where = '?layer=' + encodeURIComponent(layer.id)
     + '&effect=' + encodeURIComponent(fx.instance_id);
   const head = document.createElement('div');
@@ -11307,7 +11330,7 @@ function effectRow(layer, fx, at, of) {
   // D-87: the chosen colours, which travel with every change as the numbers do. Kept here,
   // not read back from the fields, because a swatch is removable. D-89 on: the words and single
   // colours, the same way.
-  const spec = EFFECT_WORDS[fx.type_id] || {};
+  const spec = EFFECT_WORDS[fxKey(fx)] || {};
   const chosen = spec.chosen ? [...((fx.parameters || {}).colors || [])] : null;
   const words = {};
   // A switch the file leaves out is at its first choice (D-109's edges).
@@ -11318,6 +11341,8 @@ function effectRow(layer, fx, at, of) {
   for (const [w] of spec.files || []) words[w] = fx.parameters[w] ?? '';
   for (const [w] of spec.texts || []) words[w] = fx.parameters[w] ?? '';
   for (const [w, , sent] of spec.layers || []) words[sent] = fx.parameters[w] ?? '';
+  // D-353: the falloff travels with every change, so the glow stays physical.
+  if (fxKey(fx) === 'core.glow.physical') words.falloff = 'physical';
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
   // that frame as it does for a transform's property (W-10). The others travel together as
   // before, a keyed one among them as the base it already has.
@@ -15281,7 +15306,7 @@ const presetOf = (key) => allPresets().find((p) => 'preset:' + p.name === key);
 const itemName = (key) => (key.startsWith('preset:') ? key.slice(7) : EFFECT_NAMES[key]);
 function itemAbout(key) {
   const preset = presetOf(key);
-  return preset ? (preset.about ? 'Built in. ' + preset.about + '\n' : '') + 'Preset: ' + preset.effects.map((fx) => EFFECT_NAMES[fx.type_id] || fx.type_id).join(', ')
+  return preset ? (preset.about ? 'Built in. ' + preset.about + '\n' : '') + 'Preset: ' + preset.effects.map((fx) => EFFECT_NAMES[fxKey(fx)] || fx.type_id).join(', ')
     : EFFECT_ABOUT[key] || '';
 }
 function itemWords(key) {
@@ -15311,7 +15336,7 @@ function copyEffects(effects) {
   clip = 'effects';
   copiedEffects = JSON.parse(JSON.stringify(effects));
   $('status').textContent = (effects.length === 1
-    ? (EFFECT_NAMES[effects[0].type_id] || effects[0].type_id) + ' copied'
+    ? (EFFECT_NAMES[fxKey(effects[0])] || effects[0].type_id) + ' copied'
     : effects.length + ' effects copied') + (effects.length === 1 ? ' with its settings' : ' with their settings')
     + '. Select layers and press Ctrl+V.';
 }
@@ -15379,13 +15404,13 @@ function askName(title, start, hint, done) {
 function savePreset(layer = selected()) {
   const stack = (layer && layer.effects) || [];
   if (!stack.length) { $('status').textContent = 'This layer has no effects to keep as a preset.'; return; }
-  const odd = stack.filter((fx) => !EFFECT_NAMES[fx.type_id]).map((fx) => fx.type_id);
+  const odd = stack.filter((fx) => !EFFECT_NAMES[fxKey(fx)]).map((fx) => fx.type_id);
   if (odd.length) {
     $('status').textContent = 'This build does not have ' + odd.join(', ')
       + ', so these effects cannot be kept as a preset. Remove it first, or copy the others one by one.';
     return;
   }
-  askName('Name the preset', stack.map((fx) => EFFECT_NAMES[fx.type_id]).join(' + '),
+  askName('Name the preset', stack.map((fx) => EFFECT_NAMES[fxKey(fx)]).join(' + '),
     'Enter keeps it in the Effects panel under Presets, Escape does not. The same name replaces the old one.',
     (name) => keepPreset(name, stack));
 }
@@ -15396,7 +15421,7 @@ function keepPreset(name, effects) {
   const replaced = effectPresets.some((p) => p.name === name);
   // D-191: a preset keeps no layer of this composition; its layer settings are left at none.
   const kept = JSON.parse(JSON.stringify(effects));
-  for (const fx of kept) for (const [w] of EFFECT_WORDS[fx.type_id]?.layers || []) fx.parameters[w] = '';
+  for (const fx of kept) for (const [w] of EFFECT_WORDS[fxKey(fx)]?.layers || []) fx.parameters[w] = '';
   effectPresets = [...effectPresets.filter((p) => p.name !== name), { name, effects: kept }];
   fxStore('effectPresets', effectPresets);
   drawEffectList();
@@ -15459,7 +15484,9 @@ $('fxlist').addEventListener('contextmenu', (e) => {
 });
 function addEffect(type, layerId) {
   if (!takesEffects(layers().find((l) => l.id === layerId))) return undefined;
-  const sent = command('/effect.add?layer=' + encodeURIComponent(layerId) + '&type=' + type);
+  // D-353: Soft Physical Glow is added as Glow with its falloff.
+  const sent = command('/effect.add?layer=' + encodeURIComponent(layerId) + '&type='
+    + (type === 'core.glow.physical' ? 'core.glow&falloff=physical' : type));
   recentEffects = [type, ...recentEffects.filter((t) => t !== type)].slice(0, 5);
   try { localStorage.setItem('recentEffects', JSON.stringify(recentEffects)); } catch (e) { /* kept for this run only */ }
   if (!$('fxsearch').value.trim()) {
