@@ -203560,3 +203560,63 @@ FX-FASTZOOM-012 (`fx_fastzoom_012.json`): Zoom "bright", which is not one. The f
 FX-FASTZOOM-013 (`fx_fastzoom_013.json`): Zoom "Standard": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-FASTZOOM-014 (`fx_fastzoom_014.json`): Centre 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Channel Blur (D-313, D-363)
+
+Channel Blur (`core.channel_blur`, D-313), after After Effects' Channel Blur, with fixtures from D-363 (B-242): red, green, blue and alpha each blurred by its own Blurriness, a Gaussian sigma in pixels, each colour laid back inside the alpha's blurred covering, with Repeat Edge Pixels and Blur Dimensions. Every case is a project of one composition 40 by 12 at 24 fps, five frames, with the drawing `media/pair.png` (an orange square `#ff8000` from (0, 4) to (3, 7) against the left edge, a green square `#28c850` touching it from (4, 4) to (7, 7), and a blue square `#3c78f0` at half covering from (26, 4) to (29, 7)) on the layer `art`, with the effect as instance `fx-0-0`. **Every number is produced by `tools/channel_blur_reference.py`** and is in `Fixtures/channel_blur/expected_channel_blur.json`, the projects beside it. Tolerance 2e-5.
+
+FX-CHBLUR-001 (`fx_chblur_001.json`): Red Blurriness 3, the rest 0: only red is blurred, and laid back inside the drawing's own covering, so green, blue and every covering are the drawing's exactly and the empty pixels stay empty. Red softens across the join of orange and green, the orange side losing red and the green side gaining it; a square of one colour, as the half-covered blue one, has no other red within reach and stays as it is, its edge against the clear being no edge to a blur divided by its own covering. Frames 0.
+
+FX-CHBLUR-002 (`fx_chblur_002.json`): Alpha Blurriness 3, the rest 0: the covering spreads as Gaussian Blur spreads it, and every pixel the drawing covered keeps its own straight colour; past the drawing the spread takes the colour the blurred covering carries, green beside green and blue beside blue, never a dark rim. Frames 0.
+
+FX-CHBLUR-003 (`fx_chblur_003.json`): All four 3: Gaussian Blur at sigma 3, every channel blurred together. Frames 0.
+
+FX-CHBLUR-004 (`fx_chblur_004.json`): Red 2, green 0, blue 5, alpha 1: each colour spread by its own amount and laid inside a covering spread by one pixel. Where orange meets green, red and blue soften across the join, blue the widest, so the orange takes a little blue and loses some red, while green stays as sharp as drawn. Frames 0.
+
+FX-CHBLUR-005 (`fx_chblur_005.json`): FX-CHBLUR-004 with Repeat Edge Pixels: past the left edge the orange square's own pixels are read, so its left column keeps its covering and its orange; the layer does not grow. Frames 0.
+
+FX-CHBLUR-006 (`fx_chblur_006.json`): FX-CHBLUR-004 with Blur Dimensions horizontal: spread across only, the rows above and below the squares still empty. Frames 0.
+
+FX-CHBLUR-007 (`fx_chblur_007.json`): Red 4 and alpha 2 with Blur Dimensions vertical and Repeat Edge Pixels: spread down only, the columns between the green and blue squares still empty. Frames 0.
+
+FX-CHBLUR-008 (`fx_chblur_008.json`): All four 0, as it starts: the drawing untouched. Frames 0.
+
+FX-CHBLUR-009 (`fx_chblur_009.json`): Green 1.5 and alpha 0.5: a part of a pixel, each Gaussian cut at three of its sigmas, 5 pixels and 2. Frames 0.
+
+FX-CHBLUR-010 (`fx_chblur_010.json`): Red Blurriness keyed from 0 at frame 0 to 6 at frame 4, linear: frame 0 untouched, frame 2 red 3, FX-CHBLUR-001, and frame 4 red 6. Frames 0, 2, 4.
+
+FX-CHBLUR-011 (`fx_chblur_011.json`): Red Blurriness 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHBLUR-012 (`fx_chblur_012.json`): Alpha Blurriness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHBLUR-013 (`fx_chblur_013.json`): Edges "Repeat": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHBLUR-014 (`fx_chblur_014.json`): Blur Dimensions "diagonal", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Unsharp Mask threshold (D-317, D-363)
+
+Unsharp Mask's Threshold (`core.sharpen`'s `threshold`, D-317), after After Effects' Unsharp Mask, with fixtures from D-363 (B-242): a channel nearer its blur than the threshold, in levels of 255, keeps its value. Every case is a project of one composition 16 by 10 at 24 fps, five frames, with sharpen's drawing `media/picture.png` (FX-SHARPEN-001 to 018's) or `media/grain.png` (skin with a fine grain of up to two levels in each channel and a dark line two pixels wide down columns 10 and 11) on the layer `art`, unmoved unless the case says, with the effect as instance `fx-0-0`. **Every number is produced by `tools/unsharp_threshold_reference.py`** and is in `Fixtures/sharpen/expected_sharpen_threshold.json`; FX-SHARPEN-001 to 018 and their expected file are untouched. Each threshold lies at least 0.05 of a level from every difference it meets. Tolerance 2e-5.
+
+FX-SHARPEN-019 (`fx_sharpen_019.json`): Threshold 0 written in the file: FX-SHARPEN-001, every pixel. Frames 0.
+
+FX-SHARPEN-020 (`fx_sharpen_020.json`): Threshold 12: the channels nearer their blur than 12 levels, a few inside the box, keep the drawing's value; every other channel is FX-SHARPEN-001's. Frames 0.
+
+FX-SHARPEN-021 (`fx_sharpen_021.json`): Threshold 30: more channels kept, the skin inside the box among them; the line is still pushed to black. Frames 0.
+
+FX-SHARPEN-022 (`fx_sharpen_022.json`): Amount 200, threshold 110: only the hardest edges, the line against the skin, are crisped, twice as hard as FX-SHARPEN-001; the band and its skin keep their colours. Frames 0.
+
+FX-SHARPEN-023 (`fx_sharpen_023.json`): Threshold 255: no channel is 255 levels from its blur, so the drawing is untouched. Frames 0.
+
+FX-SHARPEN-024 (`fx_sharpen_024.json`): The grain drawing, threshold 0: the grain is crisped along with the line, every pixel changing. Frames 0.
+
+FX-SHARPEN-025 (`fx_sharpen_025.json`): The grain drawing, threshold 16: the grain, under 16 levels from its blur, keeps the drawing's values exactly; the line and the skin beside it are crisped as in FX-SHARPEN-024. Frames 0.
+
+FX-SHARPEN-026 (`fx_sharpen_026.json`): Threshold keyed from 0 at frame 0 to 40 at frame 4, linear: frame 0 FX-SHARPEN-001, frame 2 threshold 20, frame 4 threshold 40, each keeping more. Frames 0, 2, 4.
+
+FX-SHARPEN-027 (`fx_sharpen_027.json`): The grain drawing, amount 300, radius 2, threshold 10, moved three pixels right: the grain still kept, the line's halo wider and harder. Frames 0.
+
+FX-SHARPEN-028 (`fx_sharpen_028.json`): Threshold 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHARPEN-029 (`fx_sharpen_029.json`): Threshold -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHARPEN-030 (`fx_sharpen_030.json`): Threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
