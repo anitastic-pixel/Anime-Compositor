@@ -176495,6 +176495,26 @@ FX-STROKE-060 (`fx_stroke_060.json`): A shape layer of one shape, Path 2. Nothin
 
 FX-STROKE-061 (`fx_stroke_061.json`): Path From "layer", which is not "masks" or "shapes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+#### Path Stroke along text outlines (D-373)
+
+Path From Text Outlines (`source` "text"), B-252. Each case is a composition 48 by 30 at 24 fps, five frames, whose layer `art` is a text layer holding "Yes" in the bundled M PLUS Rounded 1c, size 24, white, its baseline starting at (4, 25), with Path Stroke `fx-0-0` on it, white, Brush Size 2, On Transparent, unless the case says. The numbers are produced by `tools/stroke_text_reference.py` (dc693ec), written before the code and independent of it: HarfBuzz (uharfbuzz, kerning off, ligatures on) places the glyphs, fontTools reads each glyph's stored points and slides a TrueType glyph by its hmtx left side bearing less its glyf xMin (D-372 (a)), its own code starts, raises and flattens each contour as document 21 says, and the stroke is `tools/stroke_reference.py`'s own; they are in `Fixtures/stroke/expected_stroke_text.json`, with the outlines' own numbers: 4 contours (the Y, the e's eye, the e's edge, the s), 193.452 pixels in all, each one's length, start and stretch at End 50 when sequential (tolerance 1e-6). Tolerance 2e-5. B-252 checks them in `verification/D-373_stroke_text_table.md`.
+
+FX-STROKE-062 (`fx_stroke_062.json`): All Masks on: every letter's outline drawn in white, the e's edge and its eye both. Frames 0.
+
+FX-STROKE-063 (`fx_stroke_063.json`): Path 2: the e's eye alone. The Y has one outline and the e two, and the font stores the e's eye before its outer edge. Frames 0.
+
+FX-STROKE-064 (`fx_stroke_064.json`): All Masks and Stroke Sequentially on, End keyed from 0 at frame 0 to 100 at frame 4: nothing, then the outlines one after another as one length to half way (the Y, the eye, part of the e's edge), then all. Frames 0, 2, 4.
+
+FX-STROKE-065 (`fx_stroke_065.json`): All Masks on, End 50, Stroke Sequentially off: each outline drawn half way round from where it begins. Frames 0.
+
+FX-STROKE-066 (`fx_stroke_066.json`): A text animator, Position (0, -6), Start 50: the e moved up 3, the s up 6, and the stroke follows them. Frames 0.
+
+FX-STROKE-067 (`fx_stroke_067.json`): Path From Text Outlines on a shape layer with no shapes, not a text layer. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-STROKE-068 (`fx_stroke_068.json`): A text layer of one space, which has no outline. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-STROKE-069 (`fx_stroke_069.json`): Path 9, and "Yes" has four outlines. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame; no frame is stored, and frame 0 must be byte-identical to the same project with the effect switched off. Warning `EFFECT_PATH_MISSING` every frame.
+
 ### Bilateral Blur (D-358)
 
 Bilateral Blur (`core.bilateral_blur`), after After Effects' Bilateral Blur (B-237). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/bilateral_blur/`: the layer `art` holding D-203's specks drawing the same size (skin with specks, a hole, a line two pixels wide, a patch of grain eight levels either side of the skin, and a column at half covering; `Fixtures/bilateral_blur/media/specks.png`), unmoved unless the case says, with the effect `fx-0-0`. **Every number is produced by `tools/bilateral_blur_reference.py`**, which weighs every tap of every pixel's disc in double precision from the drawing's 8-bit values; the numbers are in `Fixtures/bilateral_blur/expected_bilateral_blur.json`. Tolerance 2e-5. The tool checks what the cases claim: the line and the dark specks kept to a tenth of a level at the defaults, the grain's spread more than halved, the white speck still light, Colorize off grey everywhere with every covering kept, Radius 0 and Threshold 0 the drawing exactly, Threshold 255 a soft blur that stays inside the drawing, and the keyed frames. B-237 checks them, and draws the playtest's pictures, in `verification/D-358_bilateral_blur_table.md`.
