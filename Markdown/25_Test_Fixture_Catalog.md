@@ -204386,3 +204386,147 @@ FX-GPG-019 (`fx_gpg_019.json`): Red pedestal 1.1, above 1. The file is read, the
 FX-GPG-020 (`fx_gpg_020.json`): Green gain -0.1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-GPG-021 (`fx_gpg_021.json`): Blue gain 4.1, above 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Flow Motion (D-385)
+
+Flow Motion (`core.flow_motion`), after CycoreFX's CC Flo Motion (B-264): two knots, each drawing the picture in towards itself (a positive amount) or blowing it out (a negative one), the pull fading with distance by Falloff, the edges mirrored or left clear, a pixel averaged over 1, 2 or 4 points a side. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/flow_motion_reference.py` works the expected frames, `Fixtures/flow_motion/expected_flow_motion.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-FLOW-001 (`fx_flow_001.json`): The settings as they start: knot 1 at a quarter of the way across, half way down, drawing in by 10; knot 2 at three quarters, blowing out by 10; falloff 5, a reach of about 2 pixels here; Tile Edges on. Round the left knot the stripes are drawn in and narrow, round the right they swell. Frames 0.
+
+FX-FLOW-002 (`fx_flow_002.json`): Both amounts 0: the drawing, untouched. Frames 0.
+
+FX-FLOW-003 (`fx_flow_003.json`): Knot 1 alone, in the middle, drawing in by 10, Tile Edges off: the middle reads from twice as far out, so the band and the stripes are pulled in to half size there. Frames 0.
+
+FX-FLOW-004 (`fx_flow_004.json`): Knot 1 alone, in the middle, blowing out by 10: the middle reads from half as far out, swelling to twice the size. Frames 0.
+
+FX-FLOW-005 (`fx_flow_005.json`): Knot 1 alone, in the middle, drawing in by 30, falloff 10, Tile Edges on: the whole drawing reads from three to four times as far out, shrunk, and its copies, turned over by turns, fill the rest. Frames 0.
+
+FX-FLOW-006 (`fx_flow_006.json`): FX-FLOW-005 with Tile Edges off: the shrunk drawing alone, transparent round it. Frames 0.
+
+FX-FLOW-007 (`fx_flow_007.json`): Finer Controls on, Amount 200: 20 times finer, the same as 10 without: FX-FLOW-003 exactly. Frames 0.
+
+FX-FLOW-008 (`fx_flow_008.json`): Falloff 0: the pull held to a fifth of a pixel round the knot: the four pixels round it move about a twentieth of a pixel, the rest far less. Frames 0.
+
+FX-FLOW-009 (`fx_flow_009.json`): FX-FLOW-005 with Antialiasing medium: each pixel averages 2 by 2 points, the copies softer. Frames 0.
+
+FX-FLOW-010 (`fx_flow_010.json`): FX-FLOW-005 with Antialiasing high: 4 by 4 points a pixel. Frames 0.
+
+FX-FLOW-011 (`fx_flow_011.json`): Knot 2 alone at the top left corner, blowing out by 40, falloff 7: the corner swells across the drawing. Frames 0.
+
+FX-FLOW-012 (`fx_flow_012.json`): Amount 1 keyed from 0 at frame 0 to 20 at frame 4, linear: frame 0 the drawing, frame 2 FX-FLOW-003. Frames 0, 2, 4.
+
+FX-FLOW-013 (`fx_flow_013.json`): Knot 1 keyed from 25, 50 at frame 0 to 75, 50 at frame 4: the pull slides across. Frames 0, 2, 4.
+
+FX-FLOW-014 (`fx_flow_014.json`): FX-FLOW-003 moved three pixels right: the same, moved; nothing grows, and the three columns left of the drawing stay empty. Frames 0.
+
+FX-FLOW-015 (`fx_flow_015.json`): Amount 1 eased from 0 at frame 0 to 1000 at frame 4 on a curve that overshoots: at frame 2 it would pass 1000 and is held there. Frames 0, 2, 4.
+
+FX-FLOW-016 (`fx_flow_016.json`): Amount 1 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLOW-017 (`fx_flow_017.json`): Amount 2 -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLOW-018 (`fx_flow_018.json`): Falloff 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLOW-019 (`fx_flow_019.json`): Falloff -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLOW-020 (`fx_flow_020.json`): Tile Edges written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLOW-021 (`fx_flow_021.json`): Finer Controls written "On", with a capital. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLOW-022 (`fx_flow_022.json`): Antialiasing written "best". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLOW-023 (`fx_flow_023.json`): Knot 1 at 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLOW-024 (`fx_flow_024.json`): Amount 1 keyed to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Griddler (D-386)
+
+Griddler (`core.griddler`), after CycoreFX's CC Griddler (B-265): the drawing cut into square tiles measured from its corner, each tile the view round its own centre scaled across and down and turned, cut at the tile's edge or not. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/griddler_reference.py` works the expected frames, `Fixtures/griddler/expected_griddler.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-GRIDDLER-001 (`fx_griddler_001.json`): The settings as they start: tiles a tenth of the width, 1.6 pixels here, each its own piece at 80 per cent, cut: a fine grid of gaps through the drawing. Frames 0.
+
+FX-GRIDDLER-002 (`fx_griddler_002.json`): Scales 100, rotation 0: the drawing, untouched. Frames 0.
+
+FX-GRIDDLER-003 (`fx_griddler_003.json`): Tiles 4 pixels, scales 50, cut: each tile's own piece at half size in its middle 2 pixels, the ring round it transparent. Frames 0.
+
+FX-GRIDDLER-004 (`fx_griddler_004.json`): FX-GRIDDLER-003 with Cut Tiles off: each tile filled with the 8 pixels round its centre at half size. Frames 0.
+
+FX-GRIDDLER-005 (`fx_griddler_005.json`): Tiles 4 pixels, scales 100, rotation 45, cut: each tile's piece turned an eighth, its corners cut off at the tile's edges and the tile's own corners empty. Frames 0.
+
+FX-GRIDDLER-006 (`fx_griddler_006.json`): FX-GRIDDLER-005 with Cut Tiles off: the tile's corners filled from the picture round it, turned with it. Frames 0.
+
+FX-GRIDDLER-007 (`fx_griddler_007.json`): Tiles 4 pixels, horizontal scale -100: each tile's piece turned over left to right, so each stripe pair swaps within its tile. Frames 0.
+
+FX-GRIDDLER-008 (`fx_griddler_008.json`): Tiles 4 pixels, vertical scale -100: each tile turned over top to bottom; the band in rows 4 and 5 moves to rows 6 and 7. Frames 0.
+
+FX-GRIDDLER-009 (`fx_griddler_009.json`): Tiles 4 pixels, horizontal scale 200: each tile's middle 2 columns stretched across it. Frames 0.
+
+FX-GRIDDLER-010 (`fx_griddler_010.json`): Tiles 8 pixels, rotation 90: each tile turned a quarter about its centre, its pixels landing on pixels, so the stripes lie across. Frames 0.
+
+FX-GRIDDLER-011 (`fx_griddler_011.json`): Horizontal scale 0: nothing drawn. Frames 0.
+
+FX-GRIDDLER-012 (`fx_griddler_012.json`): Rotation keyed from 0 at frame 0 to 90 at frame 4, linear, tiles 8 pixels: frame 0 the drawing, frame 4 FX-GRIDDLER-010. Frames 0, 2, 4.
+
+FX-GRIDDLER-013 (`fx_griddler_013.json`): Tile size keyed from 25 at frame 0 to 50 at frame 4, scales 50: the tiles grow. Frames 0, 2, 4.
+
+FX-GRIDDLER-014 (`fx_griddler_014.json`): FX-GRIDDLER-003 moved three pixels right: the same, moved; the tiles go with the layer, and the three columns left of it stay empty. Frames 0.
+
+FX-GRIDDLER-015 (`fx_griddler_015.json`): Horizontal scale eased from 100 at frame 0 to 1000 at frame 4 on a curve that overshoots: at frame 2 it would pass 1000 and is held there. Frames 0, 2, 4.
+
+FX-GRIDDLER-016 (`fx_griddler_016.json`): Horizontal scale 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRIDDLER-017 (`fx_griddler_017.json`): Vertical scale -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRIDDLER-018 (`fx_griddler_018.json`): Tile size 0, below 0.1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRIDDLER-019 (`fx_griddler_019.json`): Tile size 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRIDDLER-020 (`fx_griddler_020.json`): Rotation 3601, past ten turns. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRIDDLER-021 (`fx_griddler_021.json`): Cut Tiles written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRIDDLER-022 (`fx_griddler_022.json`): Tile size keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Fisheye (D-387)
+
+Fisheye (`core.fisheye`), after CycoreFX's CC Lens (B-266): a round lens about a centre whose radius is a share of half the diagonal, the picture swelled out (convergence above 0) or drawn in (below) inside it and clear outside. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/fisheye_reference.py` works the expected frames, `Fixtures/fisheye/expected_fisheye.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-FISHEYE-001 (`fx_fisheye_001.json`): The settings as they start: the lens in the middle, its radius a quarter of the diagonal, 4.7 pixels here, convergence 50: the stripes swell out from the middle inside a circle, and the rest is transparent. Frames 0.
+
+FX-FISHEYE-002 (`fx_fisheye_002.json`): Size 100, convergence 0: the lens reaches the corners, every pixel covered: the drawing, untouched. Frames 0.
+
+FX-FISHEYE-003 (`fx_fisheye_003.json`): Size 50, convergence 0: the drawing cut to the circle, its rim soft to a pixel. Frames 0.
+
+FX-FISHEYE-004 (`fx_fisheye_004.json`): Size 100, convergence 100: the whole drawing laid round a ball, the middle grown by half again and the rim squeezed. Frames 0.
+
+FX-FISHEYE-005 (`fx_fisheye_005.json`): Size 100, convergence -100: the other way, the middle drawn in and the rim stretched. Frames 0.
+
+FX-FISHEYE-006 (`fx_fisheye_006.json`): Size 100, convergence 50: half way to the ball. Frames 0.
+
+FX-FISHEYE-007 (`fx_fisheye_007.json`): Size 30 at the left quarter: a small lens over the left stripes, the rest transparent. Frames 0.
+
+FX-FISHEYE-008 (`fx_fisheye_008.json`): Size 0: nothing drawn. Frames 0.
+
+FX-FISHEYE-009 (`fx_fisheye_009.json`): Size keyed from 0 at frame 0 to 100 at frame 4, linear: the lens opens from nothing; frame 2 FX-FISHEYE-001. Frames 0, 2, 4.
+
+FX-FISHEYE-010 (`fx_fisheye_010.json`): Convergence keyed from -100 at frame 0 to 100 at frame 4, size 100: frame 0 FX-FISHEYE-005, frame 2 the drawing, frame 4 FX-FISHEYE-004. Frames 0, 2, 4.
+
+FX-FISHEYE-011 (`fx_fisheye_011.json`): Centre keyed from 25, 50 at frame 0 to 75, 50 at frame 4: the lens slides across. Frames 0, 2, 4.
+
+FX-FISHEYE-012 (`fx_fisheye_012.json`): FX-FISHEYE-001 moved three pixels right: the same, moved; nothing grows. Frames 0.
+
+FX-FISHEYE-013 (`fx_fisheye_013.json`): Size eased from 0 at frame 0 to 1000 at frame 4 on a curve that overshoots: at frame 2 it would pass 1000 and is held there. Frames 0, 2, 4.
+
+FX-FISHEYE-014 (`fx_fisheye_014.json`): Size 1000, convergence 100: a lens ten times the drawing, so only its middle shows here: the drawing grown by about pi / 2 about the centre. Frames 0.
+
+FX-FISHEYE-015 (`fx_fisheye_015.json`): Size 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FISHEYE-016 (`fx_fisheye_016.json`): Size -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FISHEYE-017 (`fx_fisheye_017.json`): Convergence 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FISHEYE-018 (`fx_fisheye_018.json`): Convergence -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FISHEYE-019 (`fx_fisheye_019.json`): Centre at 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FISHEYE-020 (`fx_fisheye_020.json`): Convergence keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
