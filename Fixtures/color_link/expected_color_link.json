@@ -22242,7 +22242,7 @@
      ]
     ]
    },
-   "frame_warning": "EFFECT_LAYER_MISSING"
+   "warning": "EFFECT_LAYER_MISSING"
   },
   "FX-CLINK-020": {
    "says": "Clip 50, above 49. The file is read, the effect is kept as written and left out of every frame, with a warning.",

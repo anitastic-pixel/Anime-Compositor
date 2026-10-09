@@ -400,7 +400,7 @@ def main():
     expected = B.write_cases(OUT, "colorama", CASES, INVALID, render, plain, file_json)
     for name, pixels in DRAWINGS.items():
         (OUT / "media" / f"{name}.png").write_bytes(S.png(pixels))
-    expected["cases"]["FX-COLORAMA-034"]["frame_warning"] = "EFFECT_LAYER_MISSING"
+    expected["cases"]["FX-COLORAMA-034"]["warning"] = "EFFECT_LAYER_MISSING"  # D-189, on opening too (D-381)
     (OUT / "expected_colorama.json").write_text(json.dumps(expected, indent=1) + "\n",
                                                 encoding="utf-8")
     check(expected)

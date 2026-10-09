@@ -280,7 +280,7 @@ def main():
         rendered = {str(f): [[float(v) for v in p] for p in link(c, f)] for f in frames}
         expected["cases"][fx] = {"says": says, "project": write(fx, c), "frames": rendered}
         if c["layer"] == "ghost":
-            expected["cases"][fx]["frame_warning"] = "EFFECT_LAYER_MISSING"
+            expected["cases"][fx]["warning"] = "EFFECT_LAYER_MISSING"  # D-189, on opening too (D-375)
         print(f"{fx}: " + ", ".join(
             f"frame {f} {sum(px[i] != before[i] for i in range(W * H))} changed"
             for f, px in rendered.items()))

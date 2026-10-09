@@ -37724,7 +37724,7 @@
      ]
     ]
    },
-   "frame_warning": "EFFECT_LAYER_MISSING"
+   "warning": "EFFECT_LAYER_MISSING"
   },
   "FX-COLORAMA-035": {
    "says": "Get phase \"Hue\": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning.",
