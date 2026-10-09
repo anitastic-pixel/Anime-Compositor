@@ -198,7 +198,7 @@ fn b236_stroke_shapes() {
     let saved = t.saved_parameters("fx_stroke_049.json");
     t.row("Path From Shape Paths is written \"shapes\"", &saved.to_string(), saved.get("source") == Some(&json!("shapes")));
     let why = effect_of(&t.load("fx_stroke_061.json").document).why_invalid();
-    let said = "Path Stroke's source is \"masks\" or \"shapes\", and this is \"layer\".";
+    let said = "Path Stroke's source is \"masks\", \"shapes\" or \"text\", and this is \"layer\".";
     t.row("fx_stroke_061.json is refused in a sentence", &why, why == said);
 
     t.heading("Commands");

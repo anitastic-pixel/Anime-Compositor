@@ -1617,7 +1617,8 @@ pub enum Effect {
     /// to 200 pixels; `brush_hardness`, `opacity`, `start`, `end` and `spacing`, 0 to 100 per
     /// cent; `paint_style`, "on_original", "on_transparent" or "reveal"; D-357: `source`, "masks"
     /// or "shapes", the layer's masks or its shapes (a shape layer's), `mask` and `all_masks`
-    /// then choosing shapes. `paths` is not a setting and is never saved: compose fills it each
+    /// then choosing shapes; D-373: or "text", a text layer's letter outlines, each contour one
+    /// path, in reading order. `paths` is not a setting and is never saved: compose fills it each
     /// frame with the paths chosen, flattened, each with whether it is closed, at the frame and
     /// the size the effects run at, `None` when there are none.
     Stroke {
@@ -4062,8 +4063,8 @@ impl Effect {
             Effect::Stroke { paint_style: v, .. } if !PAINT_STYLES.contains(&v.as_str()) => Some(format!(
                 "Path Stroke's paint style is \"on_original\", \"on_transparent\" or \"reveal\", and this is \"{v}\"."
             )),
-            Effect::Stroke { source: v, .. } if !["masks", "shapes"].contains(&v.as_str()) => Some(format!(
-                "Path Stroke's source is \"masks\" or \"shapes\", and this is \"{v}\"."
+            Effect::Stroke { source: v, .. } if !["masks", "shapes", "text"].contains(&v.as_str()) => Some(format!(
+                "Path Stroke's source is \"masks\", \"shapes\" or \"text\", and this is \"{v}\"."
             )),
             Effect::Stroke { color, .. } => hex_fault("Path Stroke", "colour", color),
             Effect::PassExtract { invert, .. } | Effect::DepthKey { invert, .. } | Effect::IdKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => {

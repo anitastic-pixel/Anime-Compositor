@@ -64,13 +64,13 @@ D-357, P0-22's second part: Path Stroke's Path From Shape Paths draws along a sh
 | fx_stroke_061.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | Path From Masks, the default, is not written: D-356's files save as they were | {"all_masks":"off","brush_hardness":75,"brush_size":3,"color":"#ffffff","end":100,"mask":1,"opacity":100,"paint_style":"on_original","spacing":15,"start":0,"stroke_sequentially":"off"} | yes |
 | Path From Shape Paths is written "shapes" | {"all_masks":"off","brush_hardness":75,"brush_size":3,"color":"#ffffff","end":100,"mask":1,"opacity":100,"paint_style":"on_original","source":"shapes","spacing":15,"start":0,"stroke_sequentially":"off"} | yes |
-| fx_stroke_061.json is refused in a sentence | Path Stroke's source is "masks" or "shapes", and this is "layer". | yes |
+| fx_stroke_061.json is refused in a sentence | Path Stroke's source is "masks", "shapes" or "text", and this is "layer". | yes |
 
 ## Commands
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| Path From "layer" is refused with a sentence, and nothing changes | Path Stroke's source is "masks" or "shapes", and this is "layer". | yes |
+| Path From "layer" is refused with a sentence, and nothing changes | Path Stroke's source is "masks", "shapes" or "text", and this is "layer". | yes |
 | End 50, Path From Masks, is taken | taken | yes |
 | undo 1 times: frame 0 is the frame it was | byte-identical | yes |
 

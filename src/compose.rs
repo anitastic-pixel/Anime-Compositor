@@ -1540,14 +1540,7 @@ fn resolve_held(
         // D-350: the layer's text animators, as they are at `at`, move its letters as they are
         // drawn. One whose settings this build cannot use is left out here and said with the
         // rest of the stack.
-        let animators: Vec<crate::effects::Effect> = layer
-            .effects
-            .iter()
-            .filter(|i| i.enabled && matches!(i.effect, crate::effects::Effect::TextAnimator { .. }))
-            .map(|i| crate::expr::effect_at(comp, &layer.id, i, at, layer.key_time(at as f64)).0)
-            .filter(|i| i.is_valid())
-            .map(|i| i.effect)
-            .collect();
+        let animators = text_animators(comp, layer, at);
         let picture = crate::text::drawn(words, &animators, w, h).unwrap_or_else(|| {
             log.record(
                 frame,
@@ -1788,6 +1781,20 @@ fn effect_now(
     now
 }
 
+/// D-350: a text layer's animators as they are at `at`; one whose settings this build cannot use
+/// is left out (and said with the rest of the stack). D-373: Path Stroke's text outlines take
+/// the same.
+fn text_animators(comp: &crate::model::Composition, layer: &crate::model::Layer, at: i32) -> Vec<crate::effects::Effect> {
+    layer
+        .effects
+        .iter()
+        .filter(|i| i.enabled && matches!(i.effect, crate::effects::Effect::TextAnimator { .. }))
+        .map(|i| crate::expr::effect_at(comp, &layer.id, i, at, layer.key_time(at as f64)).0)
+        .filter(|i| i.is_valid())
+        .map(|i| i.effect)
+        .collect()
+}
+
 fn resolve_rest(
     project: &Project,
     root: &Path,
@@ -1958,24 +1965,41 @@ fn resolve_rest(
     // D-356: each Path Stroke's paths, the masks it names as they are at this frame and at the
     // size the effects run at: a mask is a path when it is on and has two points, whatever its
     // mode. D-357: with Path From Shapes, the layer's shapes instead, open or closed as each
-    // says, a shape a path when it is on and has two points, whatever its fill and stroke. With
-    // none, the layer is left as it is and that is said every frame.
+    // says, a shape a path when it is on and has two points, whatever its fill and stroke. D-373:
+    // with Path From Text Outlines, the text layer's outlines as they are drawn at this frame,
+    // every one closed, in reading order. With none, the layer is left as it is and that is said
+    // every frame.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
         if let crate::effects::Effect::Stroke { mask, all_masks, source, paths, .. } = &mut instance.effect {
-            let shapes = source == "shapes";
+            let (shapes, text) = (source == "shapes", source == "text");
+            let outlines: Vec<Vec<(f64, f64)>> = match &layer.text {
+                Some(words) if text => crate::text::outlines(words, &text_animators(comp, layer, at))
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|c| c.into_iter().map(|(x, y)| (x / pre, y / pre)).collect())
+                    .collect(),
+                _ => Vec::new(),
+            };
             let path = |n: usize| -> Option<(Vec<(f64, f64)>, bool)> {
-                if shapes {
+                if text {
+                    outlines.get(n).map(|c| (c.clone(), true))
+                } else if shapes {
                     let s = layer.shapes.get(n)?.at(at);
                     s.is_renderable().then(|| (s.outline().into_iter().map(|(x, y)| (x / pre, y / pre)).collect(), s.closed))
                 } else {
                     masks.get(n).filter(|m| m.enabled && m.points.len() >= 2).map(|m| (m.outline(), true))
                 }
             };
-            let count = if shapes { layer.shapes.len() } else { masks.len() };
+            let count = if text { outlines.len() } else if shapes { layer.shapes.len() } else { masks.len() };
             let found: Vec<(Vec<(f64, f64)>, bool)> = if all_masks == "on" { (0..count).filter_map(path).collect() } else { path(mask.floor() as usize - 1).into_iter().collect() };
             if found.is_empty() {
                 let kind = if shapes { "shape" } else { "mask" };
-                let which = if all_masks == "on" { format!("no {kind} that is on with two points or more") } else { format!("no {kind} {} that is on with two points or more", mask.floor()) };
+                let which = match (text, all_masks == "on") {
+                    (true, true) => "no text outline".to_string(),
+                    (true, false) => format!("no text outline {}", mask.floor()),
+                    (false, true) => format!("no {kind} that is on with two points or more"),
+                    (false, false) => format!("no {kind} {} that is on with two points or more", mask.floor()),
+                };
                 log.record(
                     frame,
                     layer.name.clone(),
@@ -1985,7 +2009,13 @@ fn resolve_rest(
                         format!("Layer {}'s Path Stroke has {which} to draw along, so it draws nothing.", layer.name),
                         format!("Frame {frame} is drawn without the stroke. The effect is kept as it is."),
                     )
-                    .with_remediation(if shapes { "Draw a shape on the shape layer, set Path to a shape it has, or set Path From to Masks." } else { "Draw a mask on the layer, or set Path to a mask it has." }),
+                    .with_remediation(if text {
+                        "Put the stroke on a text layer whose font is on this computer, type words with letters, set Path to an outline they have, or set Path From to Masks."
+                    } else if shapes {
+                        "Draw a shape on the shape layer, set Path to a shape it has, or set Path From to Masks."
+                    } else {
+                        "Draw a mask on the layer, or set Path to a mask it has."
+                    }),
                 );
             }
             *paths = (!found.is_empty()).then_some(found);

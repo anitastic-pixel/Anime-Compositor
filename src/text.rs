@@ -350,6 +350,10 @@ struct Pen<'a> {
     turn: Option<Turn>,
     now: Vec<(f64, f64)>,
     into: &'a mut Vec<Vec<(f64, f64)>>,
+    /// D-373: a path for Path Stroke rather than a shape to fill: the outline's points and curve
+    /// handles are kept, a quadratic raised to the cubic it is, and each contour is cut into
+    /// pieces by `mask::flatten`, as a mask's or a shape's path is.
+    path: Option<Vec<crate::mask::MaskPoint>>,
 }
 
 impl Pen<'_> {
@@ -366,10 +370,33 @@ impl Pen<'_> {
     }
 
     fn end(&mut self) {
+        if let Some(nodes) = &mut self.path {
+            self.now.clear();
+            // The font closes a contour by coming back to its first point: one point, not two.
+            if nodes.len() > 1 && nodes[0].point == nodes[nodes.len() - 1].point {
+                let last = nodes.pop().unwrap();
+                nodes[0].in_handle = last.in_handle;
+            }
+            let nodes = std::mem::take(nodes);
+            if nodes.len() >= 2 {
+                self.into.push(crate::mask::flatten(&nodes, true));
+            }
+            return;
+        }
         let now = std::mem::take(&mut self.now);
         if now.len() >= 3 {
             self.into.push(now);
         }
+    }
+
+    /// D-373: a path node at `to`, the curve to it leaving the node before by `out` and arriving
+    /// by `into`, both as points (the node itself for a straight line).
+    fn node(&mut self, out: (f64, f64), into: (f64, f64), to: (f64, f64)) {
+        let Some(nodes) = &mut self.path else { return };
+        if let Some(last) = nodes.last_mut() {
+            last.out_handle = (out.0 - last.point.0, out.1 - last.point.1);
+        }
+        nodes.push(crate::mask::MaskPoint { point: to, in_handle: (into.0 - to.0, into.1 - to.1), out_handle: (0.0, 0.0) });
     }
 
     /// A curve through `control`, ending at `to`, as straight pieces about two pixels long.
@@ -397,17 +424,33 @@ impl ttf_parser::OutlineBuilder for Pen<'_> {
         self.end();
         let p = self.at(x, y);
         self.now.push(p);
+        if let Some(nodes) = &mut self.path {
+            nodes.push(crate::mask::MaskPoint { point: p, in_handle: (0.0, 0.0), out_handle: (0.0, 0.0) });
+        }
     }
     fn line_to(&mut self, x: f32, y: f32) {
         let p = self.at(x, y);
         self.now.push(p);
+        let last = self.path.as_ref().and_then(|n| n.last()).map_or(p, |l| l.point);
+        self.node(last, p, p);
     }
     fn quad_to(&mut self, x1: f32, y1: f32, x: f32, y: f32) {
         let (c, to) = (self.at(x1, y1), self.at(x, y));
+        if self.path.is_some() {
+            // The cubic a quadratic is: its handles two thirds of the way to the control point.
+            let from = self.path.as_ref().and_then(|n| n.last()).map_or(to, |l| l.point);
+            let third = |a: (f64, f64)| (a.0 + (c.0 - a.0) * 2.0 / 3.0, a.1 + (c.1 - a.1) * 2.0 / 3.0);
+            self.node(third(from), third(to), to);
+            return;
+        }
         self.curve(&[c], to);
     }
     fn curve_to(&mut self, x1: f32, y1: f32, x2: f32, y2: f32, x: f32, y: f32) {
         let (c1, c2, to) = (self.at(x1, y1), self.at(x2, y2), self.at(x, y));
+        if self.path.is_some() {
+            self.node(c1, c2, to);
+            return;
+        }
         self.curve(&[c1, c2], to);
     }
     fn close(&mut self) {
@@ -447,7 +490,17 @@ pub struct Placed {
 /// right-to-left run's from the right; `index` is each one's place in the words). `None` when
 /// the font is not on this machine.
 pub fn placed(text: &Text, animators: &[crate::effects::Effect]) -> Option<Vec<Placed>> {
-    lay_out(text, animators).map(|l| l.chars.into_iter().map(|c| c.0).collect())
+    lay_out(text, animators, false).map(|l| l.chars.into_iter().map(|c| c.0).collect())
+}
+
+/// D-373: the words' outlines as paths for Path Stroke, in the layer's pixels with the
+/// animators as they are: every contour closed, glyph by glyph in the order the words are read
+/// (a cluster's at its first character typed), each glyph's contours in the font's order, as
+/// `mask::flatten` cuts a path. `None` when the font is not on this machine.
+pub fn outlines(text: &Text, animators: &[crate::effects::Effect]) -> Option<Vec<Vec<(f64, f64)>>> {
+    let mut laid = lay_out(text, animators, true)?;
+    laid.chars.sort_by_key(|c| c.0.index);
+    Some(laid.chars.iter().flat_map(|c| laid.contours[c.1.clone()].iter().cloned()).collect())
 }
 
 /// D-350: how much one animator's range selector picks each of `chars`, the layer's characters
@@ -562,7 +615,7 @@ pub fn draw(text: &Text, width: usize, height: usize) -> Option<WorkingBuffer> {
 /// filled together, as all of them are without animators; every stroke is drawn before every
 /// fill, and the shadow is cast by them all.
 pub fn animated(text: &Text, animators: &[crate::effects::Effect], width: usize, height: usize) -> Option<WorkingBuffer> {
-    let laid = lay_out(text, animators)?;
+    let laid = lay_out(text, animators, false)?;
     let (w, h) = (width, height);
     let mut picture = WorkingBuffer::transparent(w, h);
     if let Some(b) = &text.background {
@@ -695,7 +748,7 @@ pub fn drawn(text: &Text, animators: &[crate::effects::Effect], width: usize, he
 /// to hold any outline that reaches past it. The background is drawn round it, and the window
 /// outlines and picks a text layer by it. `None` when the font is not on this machine.
 pub fn bounds(text: &Text) -> Option<[f64; 4]> {
-    lay_out(text, &[]).map(|l| l.bounds)
+    lay_out(text, &[], false).map(|l| l.bounds)
 }
 
 /// The words placed: every glyph's outline in the layer's pixels, and their box; D-350: and each
@@ -706,7 +759,7 @@ struct Laid {
     chars: Vec<(Placed, std::ops::Range<usize>)>,
 }
 
-fn lay_out(text: &Text, animators: &[crate::effects::Effect]) -> Option<Laid> {
+fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Option<Laid> {
     let face = rustybuzz::Face::from_slice(font_bytes(&text.font)?, 0)?;
     let scale = text.size / face.units_per_em() as f64;
     let natural = (face.ascender() as f64 - face.descender() as f64 + face.line_gap() as f64) * scale;
@@ -845,7 +898,7 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect]) -> Option<Laid> {
                     // A CFF font has no glyf table and is drawn as it is.
                     let slid = face.tables().glyf.and_then(|t| Some(i32::from(face.glyph_hor_side_bearing(g.id)?) - i32::from(t.bbox(g.id)?.x_min))).unwrap_or(0);
                     let (gx_at, gy) = ((gx + g.offset.0 + slid) as f64 * scale, g.offset.1 as f64 * scale);
-                    let mut pen = Pen { x: x + gx_at, y: y - gy, scale, slant, turn, now: Vec::new(), into: &mut contours };
+                    let mut pen = Pen { x: x + gx_at, y: y - gy, scale, slant, turn, now: Vec::new(), into: &mut contours, path: path.then(Vec::new) };
                     face.outline_glyph(g.id, &mut pen);
                     pen.end();
                     gx += g.advance;
