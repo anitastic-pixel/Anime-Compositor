@@ -1391,7 +1391,8 @@ pub enum Effect {
         blend: String,
     },
     /// D-313: After Effects' Channel Blur. Each channel's blur, 0 to 500, sigma in pixels as
-    /// Blur's is; `edges` and `dimensions` as Blur's.
+    /// Blur's is; `edges` and `dimensions` as Blur's. D-380: `units` as Gaussian Blur's (D-321),
+    /// "sigma" or "blurriness" ([`blur_reach`] of each number).
     ChannelBlur {
         red_blurriness: f64,
         green_blurriness: f64,
@@ -1399,6 +1400,7 @@ pub enum Effect {
         alpha_blurriness: f64,
         edges: String,
         dimensions: String,
+        units: String,
     },
     /// D-327: After Effects' Fast Box Blur. A box `radius` pixels round each one, 0 to 500,
     /// laid on `iterations` times, 1 to 50, its whole part counted; `edges` and `dimensions`
@@ -3462,8 +3464,9 @@ impl Effect {
                 reach_radius(sigma, long)
             }
             // D-313: the alpha's blur, as Blur's; a colour reaching further has no alpha there.
-            Effect::ChannelBlur { alpha_blurriness, edges, .. } if edges != "repeat" => {
-                kernel_radius(*alpha_blurriness)
+            Effect::ChannelBlur { alpha_blurriness, edges, units, .. } if edges != "repeat" => {
+                let (sigma, long) = blur_reach(*alpha_blurriness, units);
+                reach_radius(sigma, long)
             }
             // D-327: the box's reach, once a pass.
             Effect::FastBoxBlur { radius, iterations, edges, .. } if edges != "repeat" => {
@@ -4095,6 +4098,10 @@ impl Effect {
                 ))
             }
             Effect::SolidComposite { color, .. } => hex_fault("Solid Composite", "colour", color),
+            // D-380: as D-321's.
+            Effect::ChannelBlur { units, .. } if !["sigma", "blurriness"].contains(&units.as_str()) => {
+                Some(format!("{name}'s units are \"sigma\" or \"blurriness\", and this is \"{units}\"."))
+            }
             Effect::ChannelBlur { edges: e, dimensions, .. }
             | Effect::FastBoxBlur { edges: e, dimensions, .. } => edges(e).or_else(|| {
                 (!["both", "horizontal", "vertical"].contains(&dimensions.as_str())).then(|| {
@@ -5523,11 +5530,15 @@ pub(crate) fn apply_stack_at(
                 alpha_blurriness,
                 edges,
                 dimensions,
+                units,
             } => {
+                let reach = |n: f64| blur_reach(n, units);
+                let long = reach(0.0).1;
                 let r = crate::perf::time(crate::perf::Stage::EffectChannelBlur, || {
                     channel_blur(
                         source,
-                        [*red_blurriness, *green_blurriness, *blue_blurriness, *alpha_blurriness],
+                        [*red_blurriness, *green_blurriness, *blue_blurriness, *alpha_blurriness].map(|n| reach(n).0),
+                        long,
                         edges == "repeat",
                         (dimensions != "vertical", dimensions != "horizontal"),
                     )
@@ -6595,14 +6606,15 @@ fn solid_composite(source: &mut WorkingBuffer, source_opacity: f64, color: [f64;
 /// alpha's own blur; where its sigma is the alpha's it is the alpha's blur as it is, so four
 /// the same are Blur exactly. Where the colour's own blur has no alpha it keeps the colour as
 /// the alpha's blur has it, rather than black. Returns how far the buffer grew, the alpha's reach.
-fn channel_blur(source: &mut WorkingBuffer, sigma: [f64; 4], repeat: bool, axes: (bool, bool)) -> usize {
+/// D-380: `long`, D-321's reach for Blurriness, the sigmas already 0.3 times the numbers.
+fn channel_blur(source: &mut WorkingBuffer, sigma: [f64; 4], long: bool, repeat: bool, axes: (bool, bool)) -> usize {
     let blurred = |s: f64| {
         let mut b = source.clone();
         let r = if repeat {
-            held_blur_axes(&mut b, &gaussian_weights(s), axes);
+            held_blur_axes(&mut b, &reach_weights(s, long), axes);
             0
         } else {
-            blur_axes(&mut b, &gaussian_weights(s), axes)
+            blur_axes(&mut b, &reach_weights(s, long), axes)
         };
         (b, r)
     };

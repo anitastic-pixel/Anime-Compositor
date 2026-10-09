@@ -39,6 +39,7 @@ fn channels(s: [f64; 4], edges: &str, dimensions: &str) -> Effect {
         alpha_blurriness: s[3],
         edges: edges.into(),
         dimensions: dimensions.into(),
+        units: "sigma".into(),
     }
 }
 

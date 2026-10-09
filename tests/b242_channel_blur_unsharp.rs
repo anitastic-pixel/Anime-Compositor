@@ -34,6 +34,7 @@ fn channel_blur(rgba: [f64; 4], edges: &str, dimensions: &str) -> Effect {
         alpha_blurriness: rgba[3],
         edges: edges.into(),
         dimensions: dimensions.into(),
+        units: "sigma".into(),
     }
 }
 

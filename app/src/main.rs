@@ -4219,6 +4219,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             alpha_blurriness: 0.0,
             edges: "transparent".to_string(),
             dimensions: "both".to_string(),
+            // D-380: one added from now on takes After Effects' Blurriness, as D-321's.
+            units: "blurriness".to_string(),
         }),
         // D-327: radius 0, which changes nothing, and After Effects' 3 iterations.
         FAST_BOX_BLUR => Some(Effect::FastBoxBlur {
@@ -5367,6 +5369,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             alpha_blurriness: number("alpha_blurriness")?,
             edges: edges(),
             dimensions: word("dimensions").unwrap_or_else(|_| "both".to_string()),
+            // D-380: sigma when the command does not say, as a file without it.
+            units: word("units").unwrap_or_else(|_| "sigma".to_string()),
         }),
         FAST_BOX_BLUR => Ok(Effect::FastBoxBlur {
             radius: number("radius")?,
@@ -14495,6 +14499,22 @@ mod editing {
         assert!(said.contains("sparkle"), "{said}");
         assert_eq!(held(&viewer).document.undo_depth(), depth);
         assert_eq!(effect_records(&viewer, l).len(), 3);
+    }
+
+    /// D-380: a new Channel Blur starts in After Effects' Blurriness, as Gaussian Blur (D-321).
+    #[test]
+    fn a_new_channel_blur_starts_in_blurriness() {
+        let source = repo("Fixtures/projects/unknown_effect_project.json");
+        let viewer = Mutex::new(open(&source).unwrap_or_else(|d| panic!("open: {}", d.message)));
+        assert_eq!(run(&viewer, "effect.add?layer=layer-cel&type=core.channel_blur"), "Add Channel Blur");
+        let said = settings(&viewer, "layer-cel", "fx-1");
+        assert!(said.contains(r#""units":"blurriness""#), "{said}");
+        let all = "effect.set_parameters?layer=layer-cel&effect=fx-1&red_blurriness=10&green_blurriness=0&blue_blurriness=0&alpha_blurriness=0";
+        let said = run(&viewer, &format!("{all}&units=sigma"));
+        assert!(said.starts_with("Change "), "{said}");
+        assert!(!settings(&viewer, "layer-cel", "fx-1").contains("units"));
+        let said = run(&viewer, &format!("{all}&units=pixels"));
+        assert!(said.contains(r#"units are "sigma" or "blurriness""#), "{said}");
     }
 
     #[test]

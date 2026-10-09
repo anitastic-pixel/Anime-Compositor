@@ -9896,11 +9896,11 @@ const EFFECT_PARAMS = {
   // D-312.
   'core.solid_composite': [['source_opacity', 'Source Opacity', 1, 1, '% of the layer, 0 to 100'],
     ['opacity', 'Opacity', 1, 1, '% of the colour, 0 to 100']],
-  // D-313: blurriness as Blur's radius.
-  'core.channel_blur': [['red_blurriness', 'Red Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels'],
-    ['green_blurriness', 'Green Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels'],
-    ['blue_blurriness', 'Blue Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels'],
-    ['alpha_blurriness', 'Alpha Blurriness', 1, 0.1, 'σ, 0 to 500 source pixels']],
+  // D-313: blurriness as Blur's radius; D-380, in Blur's units.
+  'core.channel_blur': [['red_blurriness', 'Red Blurriness', 1, 0.1, '0 to 500 source pixels'],
+    ['green_blurriness', 'Green Blurriness', 1, 0.1, '0 to 500 source pixels'],
+    ['blue_blurriness', 'Blue Blurriness', 1, 0.1, '0 to 500 source pixels'],
+    ['alpha_blurriness', 'Alpha Blurriness', 1, 0.1, '0 to 500 source pixels']],
   // D-327, After Effects' own words.
   'core.fast_box_blur': [['radius', 'Blur Radius', 1, 0.1, '0 to 500 source pixels'],
     ['iterations', 'Iterations', 1, 1, '1 to 50, how many times the box is laid on']],
@@ -10514,9 +10514,10 @@ const EFFECT_WORDS = {
       ['fit', 'Add Phase Placement', [['stretch', 'Stretch to Fit'], ['center', 'Centre'], ['tile', 'Tile']]]],
     colours: [['color_1', 'Colour 1'], ['color_2', 'Colour 2'], ['color_3', 'Colour 3'], ['color_4', 'Colour 4'], ['color_5', 'Colour 5']],
   },
-  // D-313.
+  // D-313. D-380: Gaussian Blur's Units (D-321), Blurriness for a new one, sigma for a file without.
   'core.channel_blur': { choices: [EDGES, ['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],
-    ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]]] },
+    ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]],
+    ['units', 'Units', [['sigma', 'Sigma (older projects)'], ['blurriness', 'Blurriness (After Effects)']]]] },
   // D-327.
   'core.fast_box_blur': { choices: [['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],
     ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]], EDGES] },

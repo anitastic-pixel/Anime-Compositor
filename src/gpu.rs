@@ -7944,11 +7944,13 @@ impl Gpu {
                 self.fx_step(steps, &passes.crossmix, FxParams { mode, ..Default::default() }, Some(&a), Some(&out), None, Some(&d), none, tiles(tw, th));
                 (out, (tw, th))
             }
-            E::ChannelBlur { red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, edges, dimensions } => {
+            E::ChannelBlur { red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, edges, dimensions, units } => {
                 let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
                 let repeat = edges == "repeat";
-                let blurred = |steps: &mut Vec<Step>, sigma: f64| {
-                    let taps = crate::effects::gaussian_weights(sigma);
+                // D-380: each number as D-321's units take it.
+                let blurred = |steps: &mut Vec<Step>, number: f64| {
+                    let (sigma, long) = crate::effects::blur_reach(number, units);
+                    let taps = crate::effects::reach_weights(sigma, long);
                     let flat = crate::effects::still_weights(taps.len() / 2);
                     let pick = |on: bool| if on { &taps[..] } else { &flat[..] };
                     let e = if repeat { 0 } else { taps.len() / 2 };
@@ -8582,8 +8584,11 @@ impl Gpu {
                 // B-223: a Channel Blur's colour can reach further than its alpha, which it grows by.
                 let reach = match card.unmixed() {
                     OnCard::Fx(f) => match &f.instance.effect {
-                        crate::effects::Effect::ChannelBlur { red_blurriness: r, green_blurriness: g, blue_blurriness: b, edges, .. } if edges != "repeat" => {
-                            [r, g, b].map(|s| crate::effects::kernel_radius(*s)).into_iter().max().unwrap_or(0)
+                        crate::effects::Effect::ChannelBlur { red_blurriness: r, green_blurriness: g, blue_blurriness: b, edges, units, .. } if edges != "repeat" => {
+                            [r, g, b].map(|s| {
+                                let (sigma, long) = crate::effects::blur_reach(*s, units);
+                                crate::effects::reach_radius(sigma, long)
+                            }).into_iter().max().unwrap_or(0)
                         }
                         _ => 0,
                     },

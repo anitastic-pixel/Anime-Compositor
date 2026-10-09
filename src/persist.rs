@@ -2505,6 +2505,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             alpha_blurriness,
             edges,
             dimensions,
+            units,
         } => {
             params.insert("red_blurriness".into(), num(*red_blurriness));
             params.insert("green_blurriness".into(), num(*green_blurriness));
@@ -2512,6 +2513,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("alpha_blurriness".into(), num(*alpha_blurriness));
             put_edges(&mut params, edges);
             params.insert("dimensions".into(), J::from(dimensions.as_str()));
+            // D-380: as D-321's, sigma being what a file without it means.
+            if units != "sigma" || params.contains_key("units") {
+                params.insert("units".into(), J::from(units.as_str()));
+            }
         }
         Effect::FastBoxBlur { radius, iterations, edges, dimensions } => {
             params.insert("radius".into(), num(*radius));
@@ -4731,6 +4736,8 @@ fn parse_effect(
             alpha_blurriness: effect_number(params, "alpha_blurriness", &at)?,
             edges: effect_edges(params, &at)?,
             dimensions: effect_word(params, "dimensions", &at)?,
+            // D-380: a file from before it means sigma.
+            units: effect_word_or(params, "units", &at, "sigma")?,
         }),
         crate::effects::FAST_BOX_BLUR => Some(crate::effects::Effect::FastBoxBlur {
             radius: effect_number(params, "radius", &at)?,
