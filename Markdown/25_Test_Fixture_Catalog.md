@@ -203440,3 +203440,123 @@ FX-LENS-068 (`fx_lens_068.json`): Invert written "yes". The file is read, the ef
 FX-LENS-069 (`fx_lens_069.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-LENS cycle (`lens_map_cycle.json`): `a`'s Lens Blur reads `b` as its map and `b`'s reads `a`: refused, `EFFECT_LAYER_CYCLE`. The project is not opened.
+
+### Cross Blur (D-360)
+
+Cross Blur (`core.cross_blur`), after CycoreFX's CC Cross Blur (B-239): the layer blurred across only and, separately, down only, by one pass of Fast Box Blur's box each, and the two laid together with a mode. Every case is a project of one composition 16 by 10 at 24 fps, five frames, with directional blur's drawing (`media/bars.png`: a line `#1e1a24` down column 0, rows 2 to 7, a block of skin `#f6d6be` in columns 5 to 9 and rows 3 to 6, and one red pixel `#c82828` at half covering at (12, 4)) on the layer `art`, unmoved unless the case says, with the effect as instance `fx-0-0`. **Every number is produced by `tools/cross_blur_reference.py`** and is in `Fixtures/cross_blur/expected_cross_blur.json`, the projects beside it. Tolerance 2e-5.
+
+FX-CROSS-001 (`fx_cross_001.json`): Radius X 4, Radius Y 4, mode blend (the default): every edge streaks across and down, four pixels, at half strength, and not diagonally, so the half-covered red pixel becomes a plus sign. Frames 0.
+
+FX-CROSS-002 (`fx_cross_002.json`): Radius X 6, Radius Y 0, blend: the across blur laid half and half on the drawing itself, a soft streak across over a sharp copy. Frames 0.
+
+FX-CROSS-003 (`fx_cross_003.json`): Mode add: the two blurs added, held at 1, so where they cross they are brighter than either. Frames 0.
+
+FX-CROSS-004 (`fx_cross_004.json`): Mode screen. Frames 0.
+
+FX-CROSS-005 (`fx_cross_005.json`): Mode multiply: only where both blurs reach does colour stay as it is; the plus sign's arms keep the colour of the one blur there. Frames 0.
+
+FX-CROSS-006 (`fx_cross_006.json`): Mode lighten: the lighter colour of the two blurs. Frames 0.
+
+FX-CROSS-007 (`fx_cross_007.json`): Mode darken: the darker colour of the two blurs. Frames 0.
+
+FX-CROSS-008 (`fx_cross_008.json`): Edges repeat: past the edge the edge pixel is read, so the line down the left edge keeps its strength there, and the layer does not grow. Frames 0.
+
+FX-CROSS-009 (`fx_cross_009.json`): Radius X 2.5, Radius Y 1: the box of 5 and half of the next pixel each side, across; 3 down. Frames 0.
+
+FX-CROSS-010 (`fx_cross_010.json`): Radius X 0, Radius Y 0: the drawing untouched. Frames 0.
+
+FX-CROSS-011 (`fx_cross_011.json`): Radius X keyed from 0 at frame 0 to 8 at frame 4, linear, Radius Y 2: frame 0 blurs down only, half and half with the drawing, frame 2 is Radius X 4. Frames 0, 2, 4.
+
+FX-CROSS-012 (`fx_cross_012.json`): Moved three pixels right, edges transparent: the layer grows, so the line's streak reaches the three columns left of the drawing. Frames 0.
+
+FX-CROSS-013 (`fx_cross_013.json`): Moved three pixels right, edges repeat: nothing left of the drawing. Frames 0.
+
+FX-CROSS-014 (`fx_cross_014.json`): Radius X 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CROSS-015 (`fx_cross_015.json`): Radius Y -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CROSS-016 (`fx_cross_016.json`): Mode "overlay", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CROSS-017 (`fx_cross_017.json`): Mode "Add": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CROSS-018 (`fx_cross_018.json`): Edges "Repeat": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Spin & Zoom Blur (D-361)
+
+Spin & Zoom Blur (`core.spin_zoom_blur`), after CycoreFX's CC Radial Blur (B-240): a camera zooming or turning about a centre during the exposure, in six kinds, two of them fading. Every case is a project of one composition 16 by 10 at 24 fps, five frames, with directional blur's drawing (`media/bars.png`: a line `#1e1a24` down column 0, rows 2 to 7, a block of skin `#f6d6be` in columns 5 to 9 and rows 3 to 6, and one red pixel `#c82828` at half covering at (12, 4)) on the layer `art`, unmoved unless the case says, with the effect as instance `fx-0-0`. **Every number is produced by `tools/spin_zoom_blur_reference.py`** and is in `Fixtures/spin_zoom_blur/expected_spin_zoom_blur.json`, the projects beside it. Tolerance 2e-5.
+
+FX-SPINZOOM-001 (`fx_spinzoom_001.json`): Straight zoom 30 about the middle: every edge streaks outward, evenly; Radial Blur's zoom 30, FX-RADIAL-002, exactly. Frames 0.
+
+FX-SPINZOOM-002 (`fx_spinzoom_002.json`): Fading zoom 30: the same streaks, fading as they run out, so the drawing itself stays stronger. Frames 0.
+
+FX-SPINZOOM-003 (`fx_spinzoom_003.json`): Centered zoom 30: streaks both outward and inward, half as long each way. Frames 0.
+
+FX-SPINZOOM-004 (`fx_spinzoom_004.json`): Rotate 30: every edge streaks clockwise only, so the line down the left edge streaks upward past its top and not past its foot. Frames 0.
+
+FX-SPINZOOM-005 (`fx_spinzoom_005.json`): Rotate -30: anticlockwise, the line streaking past its foot instead. Frames 0.
+
+FX-SPINZOOM-006 (`fx_spinzoom_006.json`): Scratch 30: both ways evenly; Radial Blur's spin 30, FX-RADIAL-001, exactly. Frames 0.
+
+FX-SPINZOOM-007 (`fx_spinzoom_007.json`): Rotate fading 30: clockwise, fading as it goes. Frames 0.
+
+FX-SPINZOOM-008 (`fx_spinzoom_008.json`): Straight zoom 60, quality 10: a fifth of the points, so the streaks break into separate copies. Frames 0.
+
+FX-SPINZOOM-009 (`fx_spinzoom_009.json`): Rotate 30, quality 100: twice the points, smoother than FX-SPINZOOM-004. Frames 0.
+
+FX-SPINZOOM-010 (`fx_spinzoom_010.json`): Amount 0: the drawing, untouched. Frames 0.
+
+FX-SPINZOOM-011 (`fx_spinzoom_011.json`): Amount keyed from 0 at frame 0 to 40 at frame 4, rotate, linear, as a wheel spinning up. Frames 0, 2, 4.
+
+FX-SPINZOOM-012 (`fx_spinzoom_012.json`): Rotate 30 about the top left corner, moved three pixels right: the centre moves with the drawing, and nothing is drawn left of it. Frames 0.
+
+FX-SPINZOOM-013 (`fx_spinzoom_013.json`): Straight zoom -30: the points run outward from the pixel, so the streaks run inward, toward the centre. Frames 0.
+
+FX-SPINZOOM-014 (`fx_spinzoom_014.json`): A directional blur, direction 90 and length 4, then rotate fading 30 about 0, 0: the grown layer is read, the centre still the drawing's corner. Frames 0.
+
+FX-SPINZOOM-015 (`fx_spinzoom_015.json`): Rotate 360 about -1000, -1000: every path is longer than 255 pixels, so each takes the most points, 256. Frames 0.
+
+FX-SPINZOOM-016 (`fx_spinzoom_016.json`): Amount 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPINZOOM-017 (`fx_spinzoom_017.json`): Amount -361, below -360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPINZOOM-018 (`fx_spinzoom_018.json`): Quality 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPINZOOM-019 (`fx_spinzoom_019.json`): Quality 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPINZOOM-020 (`fx_spinzoom_020.json`): Type "spin", which is Radial Blur's word, not one of these. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPINZOOM-021 (`fx_spinzoom_021.json`): Type "Rotate": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPINZOOM-022 (`fx_spinzoom_022.json`): Centre 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Fast Zoom Blur (D-362)
+
+Fast Zoom Blur (`core.fast_zoom_blur`), after CycoreFX's CC Radial Fast Blur (B-241): fading streaks out from a centre, plain, or keeping only the lightest or only the darkest. Every case is a project of one composition 16 by 10 at 24 fps, five frames, with directional blur's drawing (`media/bars.png`: a line `#1e1a24` down column 0, rows 2 to 7, a block of skin `#f6d6be` in columns 5 to 9 and rows 3 to 6, and one red pixel `#c82828` at half covering at (12, 4)) on the layer `art`, unmoved unless the case says, with the effect as instance `fx-0-0`. **Every number is produced by `tools/fast_zoom_blur_reference.py`** and is in `Fixtures/fast_zoom_blur/expected_fast_zoom_blur.json`, the projects beside it. Tolerance 2e-5.
+
+FX-FASTZOOM-001 (`fx_fastzoom_001.json`): Standard, amount 50 (the default), about the middle: every edge streaks outward, fading as it runs. Frames 0.
+
+FX-FASTZOOM-002 (`fx_fastzoom_002.json`): Brightest: only light streaks; the skin block streaks outward over the clear pixels round it, the dark line, with only clear pixels behind it, is kept, and nothing grows darker anywhere. Frames 0.
+
+FX-FASTZOOM-003 (`fx_fastzoom_003.json`): Darkest: only dark streaks; the line down the left edge, with clear pixels behind it, fades to a quarter, the skin block, whose streaks run back over itself, is kept, and nothing grows lighter. Frames 0.
+
+FX-FASTZOOM-004 (`fx_fastzoom_004.json`): Amount 0: the drawing, untouched. Frames 0.
+
+FX-FASTZOOM-005 (`fx_fastzoom_005.json`): Standard, amount 100, the most: each pixel reads all the way back to the centre. Frames 0.
+
+FX-FASTZOOM-006 (`fx_fastzoom_006.json`): Brightest about centre 25, 50, the point (4, 5): the block streaks right, away from it. Frames 0.
+
+FX-FASTZOOM-007 (`fx_fastzoom_007.json`): Amount keyed from 0 at frame 0 to 80 at frame 4, brightest, linear. Frames 0, 2, 4.
+
+FX-FASTZOOM-008 (`fx_fastzoom_008.json`): Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. Frames 0, 2, 4.
+
+FX-FASTZOOM-009 (`fx_fastzoom_009.json`): Standard, moved three pixels right: the centre moves with the drawing, and nothing is drawn left of it. Frames 0.
+
+FX-FASTZOOM-010 (`fx_fastzoom_010.json`): Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FASTZOOM-011 (`fx_fastzoom_011.json`): Amount -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FASTZOOM-012 (`fx_fastzoom_012.json`): Zoom "bright", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FASTZOOM-013 (`fx_fastzoom_013.json`): Zoom "Standard": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FASTZOOM-014 (`fx_fastzoom_014.json`): Centre 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
