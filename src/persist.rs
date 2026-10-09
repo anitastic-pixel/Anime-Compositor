@@ -2562,8 +2562,60 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             color_4,
             color_5,
             blend_with_original,
+            add_phase_from,
+            add_mode,
+            interpolate,
+            opacity_1,
+            opacity_2,
+            opacity_3,
+            opacity_4,
+            opacity_5,
+            modify,
+            modify_alpha,
+            change_empty,
+            matching_mode,
+            matching_color,
+            matching_tolerance,
+            matching_softness,
+            mask_layer,
+            masking_mode,
+            composite_over,
             ..
         } => {
+            // D-381: each written only when not its start or the file had it, so a file from
+            // before it saves as it was.
+            for (key, value, start) in [
+                ("add_phase_from", add_phase_from, get_phase.as_str()),
+                ("add_mode", add_mode, "wrap"),
+                ("interpolate", interpolate, "on"),
+                ("modify", modify, "all"),
+                ("modify_alpha", modify_alpha, "off"),
+                ("change_empty", change_empty, "off"),
+                ("matching_mode", matching_mode, "off"),
+                ("matching_color", matching_color, "#ffffff"),
+                ("masking_mode", masking_mode, "luminance"),
+                ("composite_over", composite_over, "on"),
+            ] {
+                if value != start || params.contains_key(key) {
+                    params.insert(key.into(), J::from(value.as_str()));
+                }
+            }
+            for (key, value, start) in [
+                ("opacity_1", *opacity_1, 100.0),
+                ("opacity_2", *opacity_2, 100.0),
+                ("opacity_3", *opacity_3, 100.0),
+                ("opacity_4", *opacity_4, 100.0),
+                ("opacity_5", *opacity_5, 100.0),
+                ("matching_tolerance", *matching_tolerance, 15.0),
+                ("matching_softness", *matching_softness, 0.0),
+            ] {
+                if value != start || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(value));
+                }
+            }
+            if mask_layer != "" || params.contains_key("mask_layer") {
+                params.insert("mask_layer".into(), mask_layer.clone());
+            }
             params.insert("get_phase".into(), J::from(get_phase.as_str()));
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
@@ -4849,8 +4901,29 @@ fn parse_effect(
             edges: effect_edges(params, &at)?,
             dimensions: effect_word_or(params, "dimensions", &at, "both")?,
         }),
-        // D-316: the layer is kept as written, as Compound Blur's is.
+        // D-316: the layer is kept as written, as Compound Blur's is. D-381: so is the mask
+        // layer; a file from before it means each new setting's start, the layer read as the
+        // pixel is.
         crate::effects::COLORAMA => Some(crate::effects::Effect::Colorama {
+            add_phase_from: effect_word_or(params, "add_phase_from", &at, &effect_word(params, "get_phase", &at)?)?,
+            add_mode: effect_word_or(params, "add_mode", &at, "wrap")?,
+            interpolate: effect_word_or(params, "interpolate", &at, "on")?,
+            opacity_1: effect_number_or(params, "opacity_1", &at, 100.0)?,
+            opacity_2: effect_number_or(params, "opacity_2", &at, 100.0)?,
+            opacity_3: effect_number_or(params, "opacity_3", &at, 100.0)?,
+            opacity_4: effect_number_or(params, "opacity_4", &at, 100.0)?,
+            opacity_5: effect_number_or(params, "opacity_5", &at, 100.0)?,
+            modify: effect_word_or(params, "modify", &at, "all")?,
+            modify_alpha: effect_word_or(params, "modify_alpha", &at, "off")?,
+            change_empty: effect_word_or(params, "change_empty", &at, "off")?,
+            matching_mode: effect_word_or(params, "matching_mode", &at, "off")?,
+            matching_color: effect_word_or(params, "matching_color", &at, "#ffffff")?.to_ascii_lowercase(),
+            matching_tolerance: effect_number_or(params, "matching_tolerance", &at, 15.0)?,
+            matching_softness: effect_number_or(params, "matching_softness", &at, 0.0)?,
+            mask_layer: params.and_then(|p| p.get("mask_layer")).cloned().unwrap_or_else(|| J::from("")),
+            masking_mode: effect_word_or(params, "masking_mode", &at, "luminance")?,
+            composite_over: effect_word_or(params, "composite_over", &at, "on")?,
+            mask_map: None,
             get_phase: effect_word(params, "get_phase", &at)?,
             layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
             fit: effect_word(params, "fit", &at)?,
@@ -6990,7 +7063,7 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
     for composition in &project.compositions {
         for layer in composition.layers_in_order() {
             for instance in &layer.effects {
-                if let Some((named, _)) = instance.effect.layer_setting() {
+                for (named, _) in instance.effect.layer_settings() {
                     if !named.is_empty() && composition.layer(&crate::model::Id::new(named)).is_none() {
                         warnings.push(crate::layer_map::missing(&layer.name, named, "every frame is drawn"));
                     }

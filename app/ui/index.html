@@ -10000,6 +10000,13 @@ const EFFECT_PARAMS = {
   'core.colorama': [['phase_shift', 'Phase Shift', 1, 1, 'degrees, -3600 to 3600, turns the ring'],
     ['cycle_repetitions', 'Cycle Repetitions', 1, 0.1, '0 to 100, times round the ring from black to white'],
     ['stops', 'Colours In Ring', 1, 1, '2 to 5, how many of the colours below are used'],
+    ['opacity_1', 'Opacity 1', 1, 1, '%, 0 to 100, the covering colour 1 gives with Modify Alpha', '', 100],
+    ['opacity_2', 'Opacity 2', 1, 1, '%, 0 to 100', '', 100],
+    ['opacity_3', 'Opacity 3', 1, 1, '%, 0 to 100', '', 100],
+    ['opacity_4', 'Opacity 4', 1, 1, '%, 0 to 100', '', 100],
+    ['opacity_5', 'Opacity 5', 1, 1, '%, 0 to 100', '', 100],
+    ['matching_tolerance', 'Matching Tolerance', 1, 1, '%, 0 to 100, how near the matching colour a pixel changes fully', '', 15],
+    ['matching_softness', 'Matching Softness', 1, 1, '%, 0 to 100, how far past that the change fades', '', 0],
     ['blend_with_original', 'Blend With Original', 1, 1, '%, 0 to 100']],
   'core.block_dissolve': [['completion', 'Transition Completion', 1, 1, '% of the blocks gone, 0 to 100'],
     ['block_width', 'Block Width', 1, 1, 'pixels, 1 to 10000'],
@@ -10260,6 +10267,10 @@ const EFFECT_PARAMS = {
 // and `chosen`, when it has a list of chosen colours, saying when the list is shown.
 // D-109: the three blurs' edges.
 const EDGES = ['edges', 'Edges', [['transparent', 'Transparent'], ['repeat', 'Repeat Edge Pixels']]];
+// D-381: Colorama's phase words, effects::COLORAMA_GET.
+const COLORAMA_GET = [['intensity', 'Intensity'], ['luminance', 'Luminance'], ['red', 'Red'], ['green', 'Green'],
+  ['blue', 'Blue'], ['alpha', 'Alpha'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'],
+  ['value', 'Value'], ['zero', 'Zero']];
 // D-193: which of a map's channels moves a picture.
 const MAP_CHANNELS = [['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha'],
   ['luminance', 'Luminance'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'],
@@ -10578,13 +10589,24 @@ const EFFECT_WORDS = {
       ['fit', 'Bump Map Placement', [['stretch', 'Stretch to Fit'], ['center', 'Centre'], ['tile', 'Tile']]]],
     colours: [['light_color', 'Light Color']],
   },
-  // D-316.
+  // D-316. D-381: the rest, a file without them at their start.
   'core.colorama': {
-    layers: [['layer', 'Add Phase', 'map_layer']],
-    choices: [['get_phase', 'Get Phase From', [['intensity', 'Intensity'], ['luminance', 'Luminance'], ['red', 'Red'],
-        ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']]],
-      ['fit', 'Add Phase Placement', [['stretch', 'Stretch to Fit'], ['center', 'Centre'], ['tile', 'Tile']]]],
-    colours: [['color_1', 'Colour 1'], ['color_2', 'Colour 2'], ['color_3', 'Colour 3'], ['color_4', 'Colour 4'], ['color_5', 'Colour 5']],
+    layers: [['layer', 'Add Phase', 'map_layer'], ['mask_layer', 'Mask Layer', 'mask_layer']],
+    choices: [['get_phase', 'Get Phase From', COLORAMA_GET],
+      ['add_phase_from', 'Add Phase From', COLORAMA_GET],
+      ['add_mode', 'Add Mode', [['wrap', 'Wrap'], ['clamp', 'Clamp'], ['average', 'Average'], ['screen', 'Screen']]],
+      ['fit', 'Layer Placement', [['stretch', 'Stretch to Fit'], ['center', 'Centre'], ['tile', 'Tile']]],
+      ['interpolate', 'Interpolate Palette', [['on', 'On'], ['off', 'Off']]],
+      ['modify', 'Modify', [['all', 'All Channels'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'],
+        ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['none', 'None']]],
+      ['modify_alpha', 'Modify Alpha', [['off', 'Off'], ['on', 'On']]],
+      ['change_empty', 'Change Empty Pixels', [['off', 'Off'], ['on', 'On']]],
+      ['matching_mode', 'Matching Mode', [['off', 'Off'], ['rgb', 'RGB'], ['hue', 'Hue'], ['chroma', 'Chroma']]],
+      ['masking_mode', 'Masking Mode', [['luminance', 'Luminance'], ['inverse_luminance', 'Inverted Luminance'],
+        ['alpha', 'Alpha'], ['inverse_alpha', 'Inverted Alpha']]],
+      ['composite_over', 'Composite Over Layer', [['on', 'On'], ['off', 'Off']]]],
+    colours: [['color_1', 'Colour 1'], ['color_2', 'Colour 2'], ['color_3', 'Colour 3'], ['color_4', 'Colour 4'], ['color_5', 'Colour 5'],
+      ['matching_color', 'Matching Colour']],
   },
   // D-313. D-380: Gaussian Blur's Units (D-321), Blurriness for a new one, sigma for a file without.
   'core.channel_blur': { choices: [EDGES, ['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],
@@ -11530,6 +11552,11 @@ function effectRow(layer, fx, at, of) {
   for (const [w, , sent] of spec.layers || []) words[sent] = fx.parameters[w] ?? '';
   // D-353: the falloff travels with every change, so the glow stays physical.
   if (fxKey(fx) === 'core.glow.physical') words.falloff = 'physical';
+  // D-381: a file without it reads the layer as the pixel is read.
+  if (fxKey(fx) === 'core.colorama') {
+    words.add_phase_from = fx.parameters.add_phase_from ?? words.get_phase;
+    words.matching_color ??= '#ffffff';
+  }
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
   // that frame as it does for a transform's property (W-10). The others travel together as
   // before, a keyed one among them as the base it already has.

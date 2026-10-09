@@ -52,6 +52,25 @@ fn colorama(get: &str, (shift, reps): (f64, f64), stops: f64, ring: [&str; 5], b
         color_5: ring[4].into(),
         blend_with_original: blend,
         map: None,
+        add_phase_from: get.into(),
+        add_mode: "wrap".into(),
+        interpolate: "on".into(),
+        opacity_1: 100.0,
+        opacity_2: 100.0,
+        opacity_3: 100.0,
+        opacity_4: 100.0,
+        opacity_5: 100.0,
+        modify: "all".into(),
+        modify_alpha: "off".into(),
+        change_empty: "off".into(),
+        matching_mode: "off".into(),
+        matching_color: "#ffffff".into(),
+        matching_tolerance: 15.0,
+        matching_softness: 0.0,
+        mask_layer: J::from(""),
+        masking_mode: "luminance".into(),
+        composite_over: "on".into(),
+        mask_map: None,
     }
 }
 
@@ -127,7 +146,8 @@ fn the_stops_the_phase_source_and_alpha() {
 #[test]
 fn wrong_settings_are_refused_and_the_effect_is_saved_as_read() {
     for (bad, says) in [
-        (colorama("hue", (0., 1.), 2., BW, 0.), "intensity, luminance, red, green, blue or alpha"),
+        // D-381 adds hue, lightness, saturation, value and zero.
+        (colorama("brightness", (0., 1.), 2., BW, 0.), "intensity, luminance, red, green, blue, alpha, hue"),
         (colorama("red", (0., 1.), 2., ["#000000", "white", "#000000", "#000000", "#000000"], 0.), "colour 2"),
         (colorama("red", (0., 1.), 6., BW, 0.), "stops"),
         (colorama("red", (0., 101.), 2., BW, 0.), "cycle repetitions"),

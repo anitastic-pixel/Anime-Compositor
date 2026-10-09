@@ -750,49 +750,133 @@ pub(crate) fn phase_of(get: &str, px: &[f32]) -> f64 {
         "hue" => to_hsl(c)[0] / 360.0,
         "saturation" => to_hsl(c)[1],
         "lightness" => to_hsl(c)[2],
+        // D-381: the largest encoded channel, and nothing.
+        "value" => c[0].max(c[1]).max(c[2]),
+        "zero" => 0.0,
         _ => (c[0] + c[1] + c[2]) / 3.0,
     }
 }
 
-/// D-316: each pixel that shows takes the colour at its place round `ring` (2 to 5 colours,
+/// D-381: Colorama's settings, read once for a frame, words as written and valid: the ring's
+/// colours encoded and its opacities as shares, as many as its stops; the matching colour
+/// encoded, its place in `effects::CHANGE_MATCHES`, the tolerance and softness as shares, or
+/// `None` with matching off; the blend in per cent.
+pub(crate) struct Colorama<'a> {
+    pub get: &'a str,
+    pub add_from: &'a str,
+    pub add_mode: &'a str,
+    pub shift: f64,
+    pub repetitions: f64,
+    pub ring: &'a [[f64; 3]],
+    pub opacity: &'a [f64],
+    pub interpolate: bool,
+    pub modify: &'a str,
+    pub modify_alpha: bool,
+    pub change_empty: bool,
+    pub matching: Option<([f64; 3], usize, f64, f64)>,
+    pub masking: &'a str,
+    pub composite: bool,
+    pub blend: f64,
+}
+
+/// D-370: how near a distance `d` is, 1 within the tolerance `t`, falling straight to 0 across
+/// the softness `w`, 0 beyond.
+pub(crate) fn nearness(d: f64, t: f64, w: f64) -> f64 {
+    if d <= t {
+        1.0
+    } else if w == 0.0 || d >= t + w {
+        0.0
+    } else {
+        1.0 - (d - t) / w
+    }
+}
+
+/// D-316: each pixel that shows takes the colour at its place round the ring (2 to 5 colours,
 /// encoded, evenly spaced, the last running back into the first). Its place is its phase, read by
-/// `get`, plus the phase of `map` under it (the map lying on the drawing, whose corner is at the
-/// given origin; clear outside it, and weighted by its covering), times the repetitions, plus the
+/// `get`, plus the phase of the first map under it (the maps lying on the drawing, whose corner is
+/// at `origin`; clear outside it, and weighted by its covering), times the repetitions, plus the
 /// shift in degrees over 360, and only the part past the whole number counts. The colour is mixed
-/// back toward the pixel's own by `blend` per cent. The settings are already valid.
-pub(crate) fn colorama(
-    source: &mut WorkingBuffer,
-    map: Option<(&WorkingBuffer, (usize, usize))>,
-    get: &str,
-    (shift, repetitions): (f64, f64),
-    ring: &[[f64; 3]],
-    blend: f64,
-) {
-    let (n, o) = (ring.len(), blend / 100.0);
+/// back toward the pixel's own by `blend` per cent.
+///
+/// D-381: the first map read by `add_from` and added by `add_mode`; the ring held at its colours
+/// without `interpolate`; the pixel given only what `modify` names of the ring's colour, and with
+/// `modify_alpha` the ring's opacity as its covering, the empty pixels too with `change_empty`;
+/// the change weighed by the matching colour's nearness and the second map, by `masking`, and
+/// laid over the pixel, or alone without `composite`. With these at their start it is D-316's
+/// sum exactly.
+pub(crate) fn colorama(source: &mut WorkingBuffer, maps: [Option<&WorkingBuffer>; 2], (ox, oy): (usize, usize), c: &Colorama) {
+    let (n, o) = (c.ring.len(), c.blend / 100.0);
     let w = source.width();
+    let empty = c.modify_alpha && c.change_empty;
+    let under = |m: &WorkingBuffer, x: usize, y: usize| {
+        let (mx, my) = (x.wrapping_sub(ox), y.wrapping_sub(oy));
+        if mx < m.width() && my < m.height() { m.pixel(mx, my) } else { [0.0; 4] }
+    };
     source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
         for (x, px) in row.chunks_exact_mut(4).enumerate() {
             let a = px[3] as f64;
-            if a <= 0.0 {
+            if a <= 0.0 && !empty {
                 continue;
             }
-            let added = map.map_or(0.0, |(m, (ox, oy))| {
-                let (mx, my) = (x.wrapping_sub(ox), y.wrapping_sub(oy));
-                if mx < m.width() && my < m.height() {
-                    let q = m.pixel(mx, my);
-                    phase_of(get, &q) * if get == "alpha" { 1.0 } else { q[3] as f64 }
-                } else {
-                    0.0
-                }
-            });
-            let t = (phase_of(get, px) + added) * repetitions + shift / 360.0;
+            let mut phase = phase_of(c.get, px);
+            if let Some(m) = maps[0] {
+                let q = under(m, x, y);
+                let q = phase_of(c.add_from, &q) * if c.add_from == "alpha" { 1.0 } else { q[3] as f64 };
+                phase = match c.add_mode {
+                    "clamp" => (phase + q).min(1.0),
+                    "average" => (phase + q) / 2.0,
+                    "screen" => phase + q - phase * q,
+                    _ => phase + q,
+                };
+            }
+            let t = phase * c.repetitions + c.shift / 360.0;
             let p = (t - t.floor()) * n as f64;
-            let (i, f) = (p.floor() as usize % n, p - p.floor());
-            let (lo, hi) = (ring[i], ring[(i + 1) % n]);
-            for c in 0..3 {
-                let b = px[c] as f64 / a;
-                let g = to_linear(lo[c] + f * (hi[c] - lo[c]));
-                px[c] = ((g + o * (b - g)) * a) as f32;
+            let (i, j) = (p.floor() as usize % n, (p.floor() as usize + 1) % n);
+            let f = if c.interpolate { p - p.floor() } else { 0.0 };
+            let m: [f64; 3] = std::array::from_fn(|ch| c.ring[i][ch] + f * (c.ring[j][ch] - c.ring[i][ch]));
+            let b = [0, 1, 2].map(|ch| if a > 0.0 { px[ch] as f64 / a } else { 0.0 });
+            let e = b.map(|v| to_srgb(v.clamp(0.0, 1.0)));
+            let mut weight = c.matching.map_or(1.0, |(colour, kind, t, s)| nearness(change_distance(e, colour, kind), t, s));
+            if let Some(m) = maps[1] {
+                let q = under(m, x, y);
+                let lum = phase_of("luminance", &q) * q[3] as f64;
+                weight *= match c.masking {
+                    "inverse_luminance" => 1.0 - lum,
+                    "alpha" => q[3] as f64,
+                    "inverse_alpha" => 1.0 - q[3] as f64,
+                    _ => lum,
+                };
+            }
+            if c.modify == "all" && !c.modify_alpha && weight == 1.0 {
+                // D-316's own sum, so a project from before D-381 draws exactly as it did.
+                for ch in 0..3 {
+                    let g = to_linear(m[ch]);
+                    px[ch] = ((g + o * (b[ch] - g)) * a) as f32;
+                }
+                continue;
+            }
+            let g = match c.modify {
+                "all" => m,
+                "none" => e,
+                "red" => [m[0], e[1], e[2]],
+                "green" => [e[0], m[1], e[2]],
+                "blue" => [e[0], e[1], m[2]],
+                word => {
+                    let (he, hm) = (to_hsl(e), to_hsl(m));
+                    from_hsl(match word {
+                        "hue" => [hm[0], he[1], he[2]],
+                        "lightness" => [he[0], he[1], hm[2]],
+                        _ => [he[0], hm[1], he[2]],
+                    })
+                }
+            }
+            .map(|v| to_linear(v.clamp(0.0, 1.0)));
+            let a2 = if c.modify_alpha { c.opacity[i] + f * (c.opacity[j] - c.opacity[i]) } else { a };
+            let r = [g[0] * a2, g[1] * a2, g[2] * a2, a2];
+            for ch in 0..4 {
+                let was = px[ch] as f64;
+                let laid = if c.composite { was + weight * (r[ch] - was) } else { weight * r[ch] };
+                px[ch] = (laid + o * (was - laid)) as f32;
             }
         }
     });
@@ -1352,14 +1436,7 @@ pub(crate) fn change_color(source: &mut WorkingBuffer, c: &ChangeColor) {
             return;
         }
         let e = [0, 1, 2].map(|i| to_srgb((px[i] as f64 / a).clamp(0.0, 1.0)));
-        let d = change_distance(e, c.color, c.matching);
-        let mut k = if d <= t {
-            1.0
-        } else if w == 0.0 || d >= t + w {
-            0.0
-        } else {
-            1.0 - (d - t) / w
-        };
+        let mut k = nearness(change_distance(e, c.color, c.matching), t, w);
         if c.invert {
             k = 1.0 - k;
         }

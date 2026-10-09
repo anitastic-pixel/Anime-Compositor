@@ -1026,9 +1026,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
         // D-302: the card bends the colour only, so a Curves whose alpha curve bends is drawn here.
         // ponytail: give the card's grade a fifth curve if one is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::Curves { alpha, .. } if !crate::grade::is_straight(alpha))
-        // B-222 (D-341): a Colorama whose phase adds a layer's reads a pixel not its own.
-        && !matches!(&instance.effect, crate::effects::Effect::Colorama { layer, map, .. }
-            if map.is_some() || layer.as_str() != Some(""))
+        // B-222 (D-341): a Colorama whose phase adds a layer's reads a pixel not its own;
+        // D-381: as one with a mask layer does.
+        && !matches!(&instance.effect, crate::effects::Effect::Colorama { layer, map, mask_layer, mask_map, .. }
+            if map.is_some() || layer.as_str() != Some("") || mask_map.is_some() || mask_layer.as_str() != Some(""))
         // B-107: valid as it runs, at the draft's distances, since a draft can take a
         // distance below its least (a Rain's spacing), which the CPU then reports and skips.
         && {
@@ -2669,10 +2670,13 @@ fn fill_maps(
     log: &mut FrameLog,
 ) {
     for instance in effects.iter_mut().filter(|i| i.enabled) {
-        let Some((named, fit)) = instance.effect.layer_setting().map(|(n, f)| (n.to_string(), f.to_string())) else {
+        let named: Vec<(String, String)> =
+            instance.effect.layer_settings().into_iter().map(|(n, f)| (n.to_string(), f.to_string())).collect();
+        if named.is_empty() {
             continue;
-        };
-        let map = if comp.effect_layer_cycle_from(&holder.id) {
+        }
+        let cycle = comp.effect_layer_cycle_from(&holder.id);
+        if cycle {
             log.record(
                 frame,
                 holder.name.clone(),
@@ -2683,11 +2687,13 @@ fn fill_maps(
                     format!("Frame {frame} is drawn without the effect: D-189 refuses a circle of layer settings."),
                 ),
             );
-            None
-        } else {
-            setting_map(project, comp, holder, &named, &fit, frame, root, quality, size, cache, log)
-        };
-        if let Some((_, slot)) = instance.effect.layer_setting_mut() {
+        }
+        // D-381: a Colorama's two, each its own map.
+        let maps: Vec<_> = named
+            .iter()
+            .map(|(named, fit)| (!cycle).then(|| setting_map(project, comp, holder, named, fit, frame, root, quality, size, cache, log)).flatten())
+            .collect();
+        for ((_, slot), map) in instance.effect.layer_settings_mut().into_iter().zip(maps) {
             *slot = map.map(|m| crate::layer_map::Map(std::sync::Arc::new(m)));
         }
     }

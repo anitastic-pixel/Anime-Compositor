@@ -1447,6 +1447,15 @@ pub enum Effect {
     /// `phase_shift`, -3600 to 3600 degrees; `cycle_repetitions`, 0 to 100; `stops`, 2 to 5,
     /// taken whole, how many of `color_1` to `color_5` (`#rrggbb`) make the ring; and
     /// `blend_with_original`, 0 to 100. `map` is not a setting and is never saved.
+    ///
+    /// D-381 adds the rest, each meaning D-316's effect at its start: `get_phase` and
+    /// `add_phase_from` from [`COLORAMA_GET`] (the second, what the layer is read by);
+    /// `add_mode`, one of [`COLORAMA_ADD_MODES`]; `interpolate`, "on" or "off"; `opacity_1` to
+    /// `opacity_5`, 0 to 100; `modify`, one of [`COLORAMA_MODIFY`]; `modify_alpha` and
+    /// `change_empty`, "off" or "on"; `matching_mode`, "off" or one of [`CHANGE_MATCHES`],
+    /// with `matching_color` and `matching_tolerance` and `matching_softness`, 0 to 100;
+    /// `mask_layer`, a second layer setting placed by `fit`, with `masking_mode`, one of
+    /// [`COLORAMA_MASKING`]; `composite_over`, "on" or "off". `mask_map` is not saved.
     Colorama {
         get_phase: String,
         layer: serde_json::Value,
@@ -1461,6 +1470,25 @@ pub enum Effect {
         color_5: String,
         blend_with_original: f64,
         map: Option<crate::layer_map::Map>,
+        add_phase_from: String,
+        add_mode: String,
+        interpolate: String,
+        opacity_1: f64,
+        opacity_2: f64,
+        opacity_3: f64,
+        opacity_4: f64,
+        opacity_5: f64,
+        modify: String,
+        modify_alpha: String,
+        change_empty: String,
+        matching_mode: String,
+        matching_color: String,
+        matching_tolerance: f64,
+        matching_softness: f64,
+        mask_layer: serde_json::Value,
+        masking_mode: String,
+        composite_over: String,
+        mask_map: Option<crate::layer_map::Map>,
     },
     /// D-317: After Effects' CC Glass, reduced. `layer` and `fit`, D-189's layer setting, the
     /// bump map, "" the layer itself; `property`, one of [`COLORAMA_PHASES`]; `softness`, 0 to
@@ -1843,6 +1871,15 @@ pub const FAST_BOX_BLUR: &str = "core.fast_box_blur";
 pub const COLORAMA: &str = "core.colorama";
 /// D-316: what Colorama reads a pixel's phase from.
 pub const COLORAMA_PHASES: [&str; 6] = ["intensity", "luminance", "red", "green", "blue", "alpha"];
+/// D-381: Colorama's phase words, D-316's six first in their order, then After Effects' others.
+pub const COLORAMA_GET: [&str; 11] =
+    ["intensity", "luminance", "red", "green", "blue", "alpha", "hue", "lightness", "saturation", "value", "zero"];
+/// D-381: how Colorama adds the Add Phase layer's phase to the pixel's.
+pub const COLORAMA_ADD_MODES: [&str; 4] = ["wrap", "clamp", "average", "screen"];
+/// D-381: what of the ring's colour Colorama gives the pixel.
+pub const COLORAMA_MODIFY: [&str; 8] = ["all", "hue", "lightness", "saturation", "red", "green", "blue", "none"];
+/// D-381: how Colorama reads its mask layer.
+pub const COLORAMA_MASKING: [&str; 4] = ["luminance", "inverse_luminance", "alpha", "inverse_alpha"];
 pub const GLASS: &str = "core.glass";
 pub const VECTOR_BLUR: &str = "core.vector_blur";
 pub const BEND_IT: &str = "core.bend_it";
@@ -2477,12 +2514,26 @@ impl Effect {
                 cycle_repetitions,
                 stops,
                 blend_with_original,
+                opacity_1,
+                opacity_2,
+                opacity_3,
+                opacity_4,
+                opacity_5,
+                matching_tolerance,
+                matching_softness,
                 ..
             } => vec![
                 ("phase_shift", vec![phase_shift], -3600.0, 3600.0),
                 ("cycle_repetitions", vec![cycle_repetitions], 0.0, 100.0),
                 ("stops", vec![stops], 2.0, 5.0),
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
+                ("opacity_1", vec![opacity_1], 0.0, 100.0),
+                ("opacity_2", vec![opacity_2], 0.0, 100.0),
+                ("opacity_3", vec![opacity_3], 0.0, 100.0),
+                ("opacity_4", vec![opacity_4], 0.0, 100.0),
+                ("opacity_5", vec![opacity_5], 0.0, 100.0),
+                ("matching_tolerance", vec![matching_tolerance], 0.0, 100.0),
+                ("matching_softness", vec![matching_softness], 0.0, 100.0),
             ],
             Effect::Glass {
                 softness,
@@ -3813,13 +3864,20 @@ impl Effect {
     /// D-91 on: what is wrong with a newer effect's settings, as a sentence, or `None` when
     /// nothing is. Its words and colours first, then its numbers from the one table.
     /// D-189: the layer this effect's layer setting names, and its fit, when it has one
-    /// written as a word.
-    pub fn layer_setting(&self) -> Option<(&str, &str)> {
+    /// written as a word. D-381: Colorama's mask layer is a second one, placed by its fit;
+    /// its two are always both given, one not a word as "", as [`Effect::layer_settings_mut`]'s are.
+    pub fn layer_settings(&self) -> Vec<(&str, &str)> {
+        if let Effect::Colorama { layer, mask_layer, fit, .. } = self {
+            return [layer, mask_layer].map(|l| (l.as_str().unwrap_or(""), fit.as_str())).to_vec();
+        }
+        self.layer_setting().into_iter().collect()
+    }
+
+    fn layer_setting(&self) -> Option<(&str, &str)> {
         match self {
             Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. }
-            | Effect::Colorama { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Glass { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::VectorBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Blobbylize { layer: serde_json::Value::String(layer), fit, .. }
@@ -3831,13 +3889,20 @@ impl Effect {
         }
     }
 
-    /// D-189: the layer setting as written, and the map compose reads into for a frame.
-    pub fn layer_setting_mut(&mut self) -> Option<(&mut serde_json::Value, &mut Option<crate::layer_map::Map>)> {
+    /// D-189: the layer settings as written, each with the map compose reads into for a frame,
+    /// in [`Effect::layer_settings`]'s order.
+    pub fn layer_settings_mut(&mut self) -> Vec<(&mut serde_json::Value, &mut Option<crate::layer_map::Map>)> {
+        if let Effect::Colorama { layer, map, mask_layer, mask_map, .. } = self {
+            return vec![(layer, map), (mask_layer, mask_map)];
+        }
+        self.layer_setting_mut().into_iter().collect()
+    }
+
+    fn layer_setting_mut(&mut self) -> Option<(&mut serde_json::Value, &mut Option<crate::layer_map::Map>)> {
         match self {
             Effect::CompoundBlur { layer, map, .. }
             | Effect::DisplacementMap { layer, map, .. }
             | Effect::GradientWipe { layer, map, .. }
-            | Effect::Colorama { layer, map, .. }
             | Effect::Glass { layer, map, .. }
             | Effect::VectorBlur { layer, map, .. }
             | Effect::Blobbylize { layer, map, .. }
@@ -4282,8 +4347,9 @@ impl Effect {
             Effect::PassExtract { clamp, .. } if !["off", "on"].contains(&clamp.as_str()) => Some(format!(
                 "Pass Extract's clamp is \"off\" or \"on\", and this is \"{clamp}\"."
             )),
-            Effect::Colorama { get_phase, .. } if !COLORAMA_PHASES.contains(&get_phase.as_str()) => Some(format!(
-                "Colorama gets its phase from intensity, luminance, red, green, blue or alpha, and this is \"{get_phase}\"."
+            Effect::Colorama { get_phase, .. } if !COLORAMA_GET.contains(&get_phase.as_str()) => Some(format!(
+                "Colorama gets its phase from intensity, luminance, red, green, blue, alpha, hue, lightness, saturation, \
+                 value or zero, and this is \"{get_phase}\"."
             )),
             Effect::Colorama { layer, .. } if !layer.is_string() => Some(format!(
                 "Colorama's layer is the name of a layer of this composition, and this is {layer}."
@@ -4291,10 +4357,54 @@ impl Effect {
             Effect::Colorama { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
                 "Colorama's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
             )),
-            Effect::Colorama { color_1, color_2, color_3, color_4, color_5, .. } => [color_1, color_2, color_3, color_4, color_5]
+            Effect::Colorama {
+                color_1,
+                color_2,
+                color_3,
+                color_4,
+                color_5,
+                add_phase_from,
+                add_mode,
+                interpolate,
+                modify,
+                modify_alpha,
+                change_empty,
+                matching_mode,
+                matching_color,
+                mask_layer,
+                masking_mode,
+                composite_over,
+                ..
+            } => [color_1, color_2, color_3, color_4, color_5]
                 .iter()
                 .enumerate()
-                .find_map(|(i, c)| hex_fault("Colorama", &format!("colour {}", i + 1), c)),
+                .find_map(|(i, c)| hex_fault("Colorama", &format!("colour {}", i + 1), c))
+                .or_else(|| hex_fault("Colorama", "matching colour", matching_color))
+                .or_else(|| {
+                    (!mask_layer.is_string())
+                        .then(|| format!("Colorama's mask layer is the name of a layer of this composition, and this is {mask_layer}."))
+                })
+                .or_else(|| {
+                    // D-381: each word one of its list, as written.
+                    [
+                        ("add phase from", add_phase_from, &COLORAMA_GET[..]),
+                        ("add mode", add_mode, &COLORAMA_ADD_MODES[..]),
+                        ("interpolate", interpolate, &["on", "off"][..]),
+                        ("modify", modify, &COLORAMA_MODIFY[..]),
+                        ("modify alpha", modify_alpha, &["off", "on"][..]),
+                        ("change empty pixels", change_empty, &["off", "on"][..]),
+                        ("matching mode", matching_mode, &["off", "rgb", "hue", "chroma"][..]),
+                        ("masking mode", masking_mode, &COLORAMA_MASKING[..]),
+                        ("composite over layer", composite_over, &["on", "off"][..]),
+                    ]
+                    .into_iter()
+                    .find(|(_, word, allowed)| !allowed.contains(&word.as_str()))
+                    .map(|(what, word, allowed)| {
+                        let (last, rest) = allowed.split_last().unwrap_or((&"", &[]));
+                        let rest: Vec<String> = rest.iter().map(|w| format!("\"{w}\"")).collect();
+                        format!("Colorama's {what} is {} or \"{last}\", and this is \"{word}\".", rest.join(", "))
+                    })
+                }),
             Effect::SolidComposite { blend, .. }
                 if !["normal", "add", "screen", "multiply"].contains(&blend.as_str()) =>
             {
@@ -5774,6 +5884,7 @@ pub(crate) fn apply_stack_at(
                 )
             }),
             // D-316: the map compose read for this frame, if a layer is named, adds to the phase.
+            // D-381: and the mask's, if one is named, weighs the change.
             Effect::Colorama {
                 get_phase,
                 phase_shift,
@@ -5786,16 +5897,52 @@ pub(crate) fn apply_stack_at(
                 color_5,
                 blend_with_original,
                 map,
+                add_phase_from,
+                add_mode,
+                interpolate,
+                opacity_1,
+                opacity_2,
+                opacity_3,
+                opacity_4,
+                opacity_5,
+                modify,
+                modify_alpha,
+                change_empty,
+                matching_mode,
+                matching_color,
+                matching_tolerance,
+                matching_softness,
+                masking_mode,
+                composite_over,
+                mask_map,
                 ..
             } => crate::perf::time(crate::perf::Stage::EffectColorama, || {
                 let ring = [color_1, color_2, color_3, color_4, color_5].map(|c| encoded(c));
+                let opacity = [opacity_1, opacity_2, opacity_3, opacity_4, opacity_5].map(|o| *o / 100.0);
+                let n = (stops.floor() as usize).clamp(2, 5);
                 crate::grade::colorama(
                     source,
-                    map.as_ref().map(|m| (&*m.0, (ox, oy))),
-                    get_phase,
-                    (*phase_shift, *cycle_repetitions),
-                    &ring[..(stops.floor() as usize).clamp(2, 5)],
-                    *blend_with_original,
+                    [map, mask_map].map(|m| m.as_ref().map(|m| &*m.0)),
+                    (ox, oy),
+                    &crate::grade::Colorama {
+                        get: get_phase,
+                        add_from: add_phase_from,
+                        add_mode,
+                        shift: *phase_shift,
+                        repetitions: *cycle_repetitions,
+                        ring: &ring[..n],
+                        opacity: &opacity[..n],
+                        interpolate: interpolate == "on",
+                        modify,
+                        modify_alpha: modify_alpha == "on",
+                        change_empty: change_empty == "on",
+                        matching: CHANGE_MATCHES.iter().position(|m| m == matching_mode).map(|kind| {
+                            (encoded(matching_color), kind, *matching_tolerance / 100.0, *matching_softness / 100.0)
+                        }),
+                        masking: masking_mode,
+                        composite: composite_over == "on",
+                        blend: *blend_with_original,
+                    },
                 )
             }),
             Effect::SolidComposite { source_opacity, color, opacity, blend } => {

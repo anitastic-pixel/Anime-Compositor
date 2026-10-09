@@ -1491,7 +1491,7 @@ impl Composition {
             }
             path.push(at.clone());
             let named = comp.layers.get(at).into_iter().flat_map(|l| &l.effects);
-            for next in named.filter_map(|i| i.effect.layer_setting()).map(|(n, _)| Id::new(n)) {
+            for next in named.flat_map(|i| i.effect.layer_settings()).map(|(n, _)| Id::new(n)) {
                 if next == *at || !comp.layers.get(&next).is_some_and(|l| !l.is_adjustment()) {
                     continue;
                 }

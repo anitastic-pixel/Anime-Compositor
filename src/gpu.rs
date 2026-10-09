@@ -2001,6 +2001,40 @@ fn hls(e: vec3<f64>) -> vec3<f64> {
     return vec3(hsv_hue(e), l, s);
 }
 
+// D-370, grade::change_distance: how far `e` is from `c`, by the match's place in
+// CHANGE_MATCHES; 1 by hue when either is a grey.
+fn match_distance(e: vec3<f64>, c: vec3<f64>, kind: f64) -> f64 {
+    if kind == 0.0lf {
+        let v = e - c;
+        return sqrt((v.x * v.x + v.y * v.y + v.z * v.z) / 3.0lf);
+    }
+    if kind == 2.0lf {
+        let ye = luma(e);
+        let yc = luma(c);
+        let db = (e.z - ye) / 1.8556lf - (c.z - yc) / 1.8556lf;
+        let dr = (e.x - ye) / 1.5748lf - (c.x - yc) / 1.5748lf;
+        return sqrt(db * db + dr * dr);
+    }
+    let he = hsv_hue(e);
+    let hc = hsv_hue(c);
+    if he < 0.0lf || hc < 0.0lf {
+        return 1.0lf;
+    }
+    let dd = abs(he - hc);
+    return min(dd, 360.0lf - dd) / 180.0lf;
+}
+
+// D-370, grade::nearness.
+fn nearness(d: f64, t: f64, w: f64) -> f64 {
+    if d <= t {
+        return 1.0lf;
+    }
+    if w == 0.0lf || d >= t + w {
+        return 0.0lf;
+    }
+    return 1.0lf - (d - t) / w;
+}
+
 // B-222, change_to_color's share of nearness `d` inside tolerance `t`, softness `w` beyond it.
 fn part(d: f64, t: f64, w: f64) -> f64 {
     if d <= t {
@@ -2173,6 +2207,103 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, out);
         return;
     }
+    if F.mode == 22u {
+        // D-316 and D-381, as grade::colorama without its layers, which keep it on the processor.
+        // k: the phase read (its place in COLORAMA_GET), the repetitions, the shift in turns,
+        // the colours in the ring, the blend as a share; the ring encoded in five places, then
+        // its five opacities as shares; the modify's place in COLORAMA_MODIFY, 1 each for
+        // modify alpha, change empty and interpolate; the match's place in CHANGE_MATCHES or
+        // -1, its colour encoded, tolerance and softness as shares; 1 to composite.
+        if a <= 0.0lf && (k[26] == 0.0lf || k[27] == 0.0lf) {
+            textureStore(output, id.xy, p);
+            return;
+        }
+        var b = vec3(0.0lf);
+        var e = vec3(0.0lf);
+        if a > 0.0lf {
+            b = vec3<f64>(p.xyz) / a;
+            for (var c = 0u; c < 3u; c++) {
+                e[c] = to_srgb(clamp(b[c], 0.0lf, 1.0lf));
+            }
+        }
+        var ph = (e.x + e.y + e.z) / 3.0lf;
+        switch u32(k[0]) {
+            case 1u: { ph = to_srgb(luma(clamp(b, vec3(0.0lf), vec3(1.0lf)))); }
+            case 2u, 3u, 4u: { ph = e[u32(k[0]) - 2u]; }
+            case 5u: { ph = a; }
+            case 6u: { ph = hsl(e).x / 360.0lf; }
+            case 7u: { ph = hsl(e).z; }
+            case 8u: { ph = hsl(e).y; }
+            case 9u: { ph = max(max(e.x, e.y), e.z); }
+            case 10u: { ph = 0.0lf; }
+            default: {}
+        }
+        let t = ph * k[1] + k[2];
+        let q = (t - floor(t)) * k[3];
+        let n = u32(k[3]);
+        let i = u32(floor(q)) % n;
+        let j = (i + 1u) % n;
+        var w = q - floor(q);
+        if k[28] == 0.0lf {
+            w = 0.0lf;
+        }
+        var m: vec3<f64>;
+        for (var c = 0u; c < 3u; c++) {
+            let lo = k[5u + 3u * i + c];
+            m[c] = lo + w * (k[5u + 3u * j + c] - lo);
+        }
+        var wt = 1.0lf;
+        if k[29] >= 0.0lf {
+            wt = nearness(match_distance(e, vec3(k[30], k[31], k[32]), k[29]), k[33], k[34]);
+        }
+        var out = p;
+        if k[25] == 0.0lf && k[26] == 0.0lf && wt == 1.0lf {
+            for (var c = 0u; c < 3u; c++) {
+                let g = to_linear(m[c]);
+                out[c] = f32((g + k[4] * (b[c] - g)) * a);
+            }
+            textureStore(output, id.xy, out);
+            return;
+        }
+        var g = m;
+        let mo = u32(k[25]);
+        if mo >= 1u && mo <= 3u {
+            var v = hsl(e);
+            let hm = hsl(m);
+            if mo == 1u {
+                v.x = hm.x;
+            } else if mo == 2u {
+                v.z = hm.z;
+            } else {
+                v.y = hm.y;
+            }
+            g = from_hsl(v);
+        } else if mo >= 4u {
+            g = e;
+            if mo <= 6u {
+                g[mo - 4u] = m[mo - 4u];
+            }
+        }
+        var a2 = a;
+        if k[26] != 0.0lf {
+            a2 = k[20u + i] + w * (k[20u + j] - k[20u + i]);
+        }
+        var r: vec4<f64>;
+        for (var c = 0u; c < 3u; c++) {
+            r[c] = to_linear(clamp(g[c], 0.0lf, 1.0lf)) * a2;
+        }
+        r.w = a2;
+        for (var c = 0u; c < 4u; c++) {
+            let was = f64(p[c]);
+            var laid = wt * r[c];
+            if k[35] != 0.0lf {
+                laid = was + wt * (r[c] - was);
+            }
+            out[c] = f32(laid + k[4] * (was - laid));
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
     if a <= 0.0lf {
         textureStore(output, id.xy, p);
         return;
@@ -2287,31 +2418,7 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, out);
         return;
     }
-    if F.mode == 22u {
-        // k: the phase read (its place in COLORAMA_PHASES), the repetitions, the shift in turns,
-        // the colours in the ring, the blend as a share, then the ring encoded.
-        let b = px / a;
-        var ph = (e.x + e.y + e.z) / 3.0lf;
-        switch u32(k[0]) {
-            case 1u: { ph = to_srgb(luma(clamp(b, vec3(0.0lf), vec3(1.0lf)))); }
-            case 2u, 3u, 4u: { ph = e[u32(k[0]) - 2u]; }
-            case 5u: { ph = a; }
-            default: {}
-        }
-        let t = ph * k[1] + k[2];
-        let q = (t - floor(t)) * k[3];
-        let n = u32(k[3]);
-        let i = u32(floor(q)) % n;
-        let j = (i + 1u) % n;
-        let w = q - floor(q);
-        for (var c = 0u; c < 3u; c++) {
-            let lo = k[5u + 3u * i + c];
-            let g = to_linear(lo + w * (k[5u + 3u * j + c] - lo));
-            out[c] = f32((g + k[4] * (b[c] - g)) * a);
-        }
-        textureStore(output, id.xy, out);
-        return;
-    }
+
     if F.mode == 23u {
         // k: the channel (0 red, 1 green, 2 blue, 3 alpha, 4 luminance), the black and white
         // points and their softnesses, 1 to invert.
@@ -2522,31 +2629,7 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         // D-370, as grade::change_color. k: the colour encoded, the tolerance and softness as
         // shares, the match's place in CHANGE_MATCHES, the hue transform in degrees, lightness
         // and saturation as shares, then 1 each for the mask view and invert.
-        let c0 = vec3(k[0], k[1], k[2]);
-        var d = 1.0lf;
-        if k[5] == 0.0lf {
-            let v = e - c0;
-            d = sqrt((v.x * v.x + v.y * v.y + v.z * v.z) / 3.0lf);
-        } else if k[5] == 2.0lf {
-            let ye = luma(e);
-            let yc = luma(c0);
-            let db = (e.z - ye) / 1.8556lf - (c0.z - yc) / 1.8556lf;
-            let dr = (e.x - ye) / 1.5748lf - (c0.x - yc) / 1.5748lf;
-            d = sqrt(db * db + dr * dr);
-        } else {
-            let he = hls(e).x;
-            let hc = hls(c0).x;
-            if he >= 0.0lf && hc >= 0.0lf {
-                let dd = abs(he - hc);
-                d = min(dd, 360.0lf - dd) / 180.0lf;
-            }
-        }
-        var m = 0.0lf;
-        if d <= k[3] {
-            m = 1.0lf;
-        } else if k[4] != 0.0lf && d < k[3] + k[4] {
-            m = 1.0lf - (d - k[3]) / k[4];
-        }
+        var m = nearness(match_distance(e, vec3(k[0], k[1], k[2]), k[5]), k[3], k[4]);
         if k[10] != 0.0lf {
             m = 1.0lf - m;
         }
@@ -7991,11 +8074,49 @@ impl Gpu {
                 k.extend(targets.iter().flat_map(|t| t.map(f64::from)));
                 same(steps, &passes.tone, FxParams { mode, ..Default::default() }, &k, None)
             }
-            E::Colorama { get_phase, phase_shift, cycle_repetitions, stops, color_1, color_2, color_3, color_4, color_5, blend_with_original, .. } => {
+            E::Colorama {
+                get_phase,
+                phase_shift,
+                cycle_repetitions,
+                stops,
+                color_1,
+                color_2,
+                color_3,
+                color_4,
+                color_5,
+                blend_with_original,
+                interpolate,
+                opacity_1,
+                opacity_2,
+                opacity_3,
+                opacity_4,
+                opacity_5,
+                modify,
+                modify_alpha,
+                change_empty,
+                matching_mode,
+                matching_color,
+                matching_tolerance,
+                matching_softness,
+                composite_over,
+                ..
+            } => {
                 let n = (stops.floor() as usize).clamp(2, 5);
-                let place = crate::effects::COLORAMA_PHASES.iter().position(|g| g == get_phase).unwrap_or(0) as f64;
-                let mut k = vec![place, *cycle_repetitions, phase_shift / 360.0, n as f64, blend_with_original / 100.0];
-                k.extend([color_1, color_2, color_3, color_4, color_5].iter().take(n).flat_map(|c| crate::effects::encoded(c)));
+                let place = |list: &[&str], word: &str| list.iter().position(|g| *g == word).map_or(-1.0, |i| i as f64);
+                let on = |word: &String| (word == "on") as u8 as f64;
+                let mut k = vec![
+                    place(&crate::effects::COLORAMA_GET, get_phase).max(0.0),
+                    *cycle_repetitions,
+                    phase_shift / 360.0,
+                    n as f64,
+                    blend_with_original / 100.0,
+                ];
+                k.extend([color_1, color_2, color_3, color_4, color_5].iter().flat_map(|c| crate::effects::encoded(c)));
+                k.extend([opacity_1, opacity_2, opacity_3, opacity_4, opacity_5].map(|o| o / 100.0));
+                k.extend([place(&crate::effects::COLORAMA_MODIFY, modify).max(0.0), on(modify_alpha), on(change_empty), on(interpolate)]);
+                k.push(place(&crate::effects::CHANGE_MATCHES, matching_mode));
+                k.extend(crate::effects::encoded(matching_color));
+                k.extend([matching_tolerance / 100.0, matching_softness / 100.0, on(composite_over)]);
                 same(steps, &passes.tone, FxParams { mode: 22, ..Default::default() }, &k, None)
             }
             E::Extract { channel, black_point, white_point, black_softness, white_softness, invert } => {

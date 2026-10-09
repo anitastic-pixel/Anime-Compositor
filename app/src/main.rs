@@ -2799,7 +2799,7 @@ fn copy_of(project: &Project, layer: &Layer) -> Layer {
     };
     // D-191: a layer setting naming the layer itself names the copy; the others are kept.
     for instance in &mut copy.effects {
-        if let Some((named, _)) = instance.effect.layer_setting_mut() {
+        for (named, _) in instance.effect.layer_settings_mut() {
             if named.as_str() == Some(layer.id.as_str()) {
                 *named = copy.id.as_str().into();
             }
@@ -4267,6 +4267,26 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             color_5: "#cc00ff".to_string(),
             blend_with_original: 0.0,
             map: None,
+            // D-381: the rest at their start, which changes nothing D-316 drew.
+            add_phase_from: "intensity".to_string(),
+            add_mode: "wrap".to_string(),
+            interpolate: "on".to_string(),
+            opacity_1: 100.0,
+            opacity_2: 100.0,
+            opacity_3: 100.0,
+            opacity_4: 100.0,
+            opacity_5: 100.0,
+            modify: "all".to_string(),
+            modify_alpha: "off".to_string(),
+            change_empty: "off".to_string(),
+            matching_mode: "off".to_string(),
+            matching_color: "#ffffff".to_string(),
+            matching_tolerance: 15.0,
+            matching_softness: 0.0,
+            mask_layer: serde_json::Value::from(""),
+            masking_mode: "luminance".to_string(),
+            composite_over: "on".to_string(),
+            mask_map: None,
         }),
         // D-377..D-379: CycoreFX's starting values, a bar bent 45 degrees up the middle, a
         // 20-pixel bend up the middle, and the layer's own alpha softened by 10, lit from the top left.
@@ -5462,7 +5482,28 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             dimensions: word("dimensions").unwrap_or_else(|_| "both".to_string()),
         }),
         // D-189: as Compound Blur's, the layer travels as `map_layer`; none named is "".
+        // D-381: the rest at their start when the command does not say, the layer read as the
+        // pixel is; the mask layer travels as `mask_layer`.
         COLORAMA => Ok(Effect::Colorama {
+            add_phase_from: word("add_phase_from").or_else(|_| word("get_phase"))?,
+            add_mode: word("add_mode").unwrap_or_else(|_| "wrap".to_string()),
+            interpolate: word("interpolate").unwrap_or_else(|_| "on".to_string()),
+            opacity_1: if parameter(query, "opacity_1").is_some() { number("opacity_1")? } else { 100.0 },
+            opacity_2: if parameter(query, "opacity_2").is_some() { number("opacity_2")? } else { 100.0 },
+            opacity_3: if parameter(query, "opacity_3").is_some() { number("opacity_3")? } else { 100.0 },
+            opacity_4: if parameter(query, "opacity_4").is_some() { number("opacity_4")? } else { 100.0 },
+            opacity_5: if parameter(query, "opacity_5").is_some() { number("opacity_5")? } else { 100.0 },
+            modify: word("modify").unwrap_or_else(|_| "all".to_string()),
+            modify_alpha: word("modify_alpha").unwrap_or_else(|_| "off".to_string()),
+            change_empty: word("change_empty").unwrap_or_else(|_| "off".to_string()),
+            matching_mode: word("matching_mode").unwrap_or_else(|_| "off".to_string()),
+            matching_color: word("matching_color").unwrap_or_else(|_| "#ffffff".to_string()),
+            matching_tolerance: if parameter(query, "matching_tolerance").is_some() { number("matching_tolerance")? } else { 15.0 },
+            matching_softness: if parameter(query, "matching_softness").is_some() { number("matching_softness")? } else { 0.0 },
+            mask_layer: serde_json::Value::from(parameter(query, "mask_layer").unwrap_or_default().trim()),
+            masking_mode: word("masking_mode").unwrap_or_else(|_| "luminance".to_string()),
+            composite_over: word("composite_over").unwrap_or_else(|_| "on".to_string()),
+            mask_map: None,
             get_phase: word("get_phase")?,
             layer: serde_json::Value::from(parameter(query, "map_layer").unwrap_or_default().trim()),
             fit: word("fit")?,
@@ -6663,7 +6704,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     // D-191: a layer setting names the copy of the layer it named, as a matte
                     // does; one naming no layer here is kept as written.
                     for instance in &mut copied.effects {
-                        if let Some((named, _)) = instance.effect.layer_setting_mut() {
+                        for (named, _) in instance.effect.layer_settings_mut() {
                             if let Some(other) = layers.iter().position(|l| named.as_str() == Some(l.id.as_str())) {
                                 *named = new_id(other).as_str().into();
                             }
@@ -29421,6 +29462,25 @@ mod contract {
                 ("color_4", "%23a0b0c0"),
                 ("color_5", "%23d0e0f0"),
                 ("blend_with_original", "25"),
+                // D-381.
+                ("add_phase_from", "hue"),
+                ("add_mode", "screen"),
+                ("interpolate", "off"),
+                ("opacity_1", "90"),
+                ("opacity_2", "80"),
+                ("opacity_3", "70"),
+                ("opacity_4", "60"),
+                ("opacity_5", "50"),
+                ("modify", "lightness"),
+                ("modify_alpha", "on"),
+                ("change_empty", "on"),
+                ("matching_mode", "chroma"),
+                ("matching_color", "%23336699"),
+                ("matching_tolerance", "20"),
+                ("matching_softness", "10"),
+                ("mask_layer", "layer-4"),
+                ("masking_mode", "inverse_alpha"),
+                ("composite_over", "off"),
             ],
         ),
         // D-377..D-379.
