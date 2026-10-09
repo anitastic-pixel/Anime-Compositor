@@ -4,11 +4,11 @@ Written by `tests/b223_gpu_blurs.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER
 
 Fast Box Blur, Channel Blur, Compound Blur, Selective Color Blur and CC Vector Blur, each the CPU's rule on the card (D-342). Compound Blur and CC Vector Blur read another layer as a map, which the card is handed as a picture of its own. Selective Color Blur chooses pixels by an 8-bit rounding, so, like an HSV Key, it only begins a run.
 
-The cases: every fixture naming one of the five (99 files), at every frame it has; and the reference shot with each effect on its first three layers (the second after a Drop Shadow), 17 settings, at frames 0, 100 and 239. Each at Full and Draft.
+The cases: every fixture naming one of the five (113 files), at every frame it has; and the reference shot with each effect on its first three layers (the second after a Drop Shadow), 17 settings, at frames 0, 100 and 239. Each at Full and Draft.
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU. **The rule: no channel of any pixel more than 1 level of 255 apart** (ADR-006, D-100), the same warnings on both, and on a reference shot row the effect in fact on the card, at Full the first layer's blur. 8 bpc and After Effects 32 bpc compositions give the card no effect (D-330, D-333); a few frames the card refuses whole (Float depth, an adjustment layer): those must be the CPU's picture exactly, with the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
-**1126 of 1126 checks pass.**
+**1266 of 1266 checks pass.**
 
 The CPU drawing each plan made for the card draws the plan made for the CPU byte for byte in 34 of 34.
 
@@ -19,7 +19,7 @@ The worst comparison is "the reference shot with CC Vector Blur (2) frame 0, Ful
 | Effect | Frames compared | Frames with an effect on the card | Frames the card refused | Largest difference (of 255) | Pass |
 |---|---:|---:|---:|---:|---|
 | Fast Box Blur | 178 | 78 | 40 | 1 | 178 of 178 |
-| Channel Blur | 24 | 24 | 0 | 1 | 24 of 24 |
+| Channel Blur | 164 | 112 | 0 | 1 | 164 of 164 |
 | Compound Blur | 282 | 170 | 0 | 1 | 282 of 282 |
 | Selective Color Blur | 302 | 210 | 0 | 1 | 302 of 302 |
 | CC Vector Blur | 306 | 204 | 0 | 1 | 306 of 306 |
@@ -60,6 +60,146 @@ Effects left to the card on the first three layers.
 | ae_32bpc/fx_ae32_005 frame 2, Draft | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
 | ae_32bpc/fx_ae32_005 frame 3, Draft | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
 | ae_32bpc/fx_ae32_005 frame 4, Draft | 0 | 0 | 0 | CPU: ; GPU: GPU_PREVIEW_ON_CPU | PASS: the card refused the frame and said so; the CPU's picture exactly |
+| channel_blur/fx_chblur_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_001 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_001 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_001 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_001 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_001 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_001 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_001 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_001 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_002 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_002 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_002 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_002 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_002 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_002 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_002 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_002 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_002 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_002 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_003 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_003 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_003 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_003 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_003 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_003 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_003 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_003 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_003 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_003 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_004 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_004 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_004 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_004 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_004 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_004 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_004 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_004 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_004 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_004 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_005 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_005 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_005 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_005 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_005 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_005 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_005 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_005 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_005 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_005 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_006 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_006 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_006 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_006 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_006 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_006 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_006 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_006 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_006 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_006 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_007 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_007 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_007 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_007 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_007 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_007 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_007 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_007 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_007 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_007 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_008 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_008 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_008 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_008 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_008 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_008 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_008 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_008 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_008 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_008 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_009 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_009 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_009 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_009 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_009 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_009 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_009 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_009 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_009 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_009 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_010 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_010 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_010 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_010 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_010 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_010 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_010 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_010 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_010 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_010 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| channel_blur/fx_chblur_011 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_011 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_011 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_011 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_011 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_011 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_011 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_011 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_011 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_011 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_012 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_012 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_012 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_012 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_012 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_012 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_012 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_012 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_012 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_012 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_013 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_013 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_013 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_013 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_013 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_013 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_013 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_013 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_013 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_013 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_014 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_014 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_014 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_014 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_014 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_014 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_014 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_014 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_014 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| channel_blur/fx_chblur_014 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | compound_blur/chain_adjustment frame 0, Full | 0 / 1 | 0 | 0 | none | PASS |
 | compound_blur/chain_adjustment frame 1, Full | 0 / 1 | 0 | 0 | none | PASS |
 | compound_blur/chain_adjustment frame 2, Full | 0 / 1 | 0 | 0 | none | PASS |
