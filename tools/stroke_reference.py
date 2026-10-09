@@ -44,6 +44,17 @@ of mode None (which leave the drawing as it is) unless the case says. The drawin
 `Fixtures/stroke/media`, the projects into `Fixtures/stroke`, and the expected frames into
 `Fixtures/stroke/expected_stroke.json`.
 
+D-357 (P0-22, second part) adds a shape layer's paths as a source: `source` "shapes" takes the
+paths from the layer's own shapes instead of its masks, each as it is at the frame and flattened
+as D-78 flattens it, open or closed as the shape says; an open path is measured without the piece
+from its last point back to its first, so it is drawn open. With `source` "shapes", Path and All
+Masks pick shapes as they pick masks; a shape is a path when it is on and has two points or more,
+whatever its fill and stroke. On a layer that is not a shape layer, or with no such shape,
+nothing is drawn and EFFECT_PATH_MISSING is said every frame. `source` "masks", the default, is
+D-356 unchanged, and a file that does not say is "masks". Those cases are FX-STROKE-047 to 061, a
+shape layer the composition's size (16 by 10), into `Fixtures/stroke/expected_stroke_shapes.json`
+so FX-STROKE-001 to 046 stay as written.
+
 Fixtures are read-only to implementation work: this file is run when the specification changes,
 and never to make a build pass.
 
@@ -66,6 +77,7 @@ from motion_tile_reference import motion_tile  # noqa: E402
 from lightning_bolt_reference import DRAWINGS  # noqa: E402
 from mask_reference import flatten, points_at, points, mask_json  # noqa: E402
 from mask_reference import keyed as moving_path  # noqa: E402
+import shape_reference as SH  # noqa: E402
 
 W, H = R.W, R.H
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "stroke"
@@ -88,10 +100,11 @@ LOW = points([2, 4], [13, 4], [13, 8], [2, 8])         # BOX two rows lower
 
 # --- the rule -------------------------------------------------------------------------------
 
-def measured(outline):
-    """The closed outline's straight pieces, each with where along the path it begins."""
+def measured(outline, closed=True):
+    """The outline's straight pieces, each with where along the path it begins. D-357: an open
+    path (a shape's) has no piece from its last point back to its first."""
     pieces, at = [], 0.0
-    for i, a in enumerate(outline):
+    for i, a in enumerate(outline if closed else outline[:-1]):
         b = outline[(i + 1) % len(outline)]
         n = math.hypot(b[0] - a[0], b[1] - a[1])
         pieces.append((a, b, at, n))
@@ -113,7 +126,7 @@ def windows(paths, start, end, sequential):
     """Each path's pieces with the stretch of it drawn, (from, to), or None."""
     s, e = min(start, end) / 100, max(start, end) / 100
     out, g = [], 0.0
-    measures = [measured(p) for p in paths]
+    measures = [measured(p, closed) for p, closed in paths]
     total = sum(L for _, L in measures)
     for pieces, L in measures:
         if sequential:
@@ -185,12 +198,22 @@ def stroke(layer, paths, n, color, style):
 
 def case(masks=None, mask=1, all_masks="off", stroke_sequentially="off", color="#ffffff",
          brush_size=3, brush_hardness=75, opacity=100, start=0, end=100, spacing=15,
-         paint_style="on_original", shift=0, tile=False):
+         paint_style="on_original", shift=0, tile=False, source="masks", shapes=None):
     return {"drawing": "night", "masks": [{"points": BOX, "mode": "none"}] if masks is None
             else masks, "mask": mask, "all_masks": all_masks,
             "stroke_sequentially": stroke_sequentially, "color": color, "brush_size": brush_size,
             "brush_hardness": brush_hardness, "opacity": opacity, "start": start, "end": end,
-            "spacing": spacing, "paint_style": paint_style, "shift": shift, "tile": tile}
+            "spacing": spacing, "paint_style": paint_style, "shift": shift, "tile": tile,
+            "source": source, "shapes": shapes}
+
+
+def shaped(*items, masks=(), **more):
+    """D-357: a shape layer holding `items`, Path Stroke drawing along its shapes."""
+    return case(masks=list(masks), source="shapes", shapes=list(items), **more)
+
+
+def sh(pts, closed=True, **more):
+    return {"points": pts, "closed": closed, **more}
 
 
 def none(pts, **more):
@@ -205,16 +228,33 @@ def held(c, k, frame_no):
 def paths_of(c, frame_no):
     """The masks that are paths, as the case's settings choose them; None when there are none."""
     usable = lambda m, pts: m.get("enabled", True) and len(pts) >= 2  # noqa: E731
-    at = [(m, points_at(m, frame_no)) for m in c["masks"]]
+    shapes = c["source"] == "shapes"
+    items = (c["shapes"] or []) if shapes else c["masks"]
+    at = [(m, points_at(m, frame_no)) for m in items]
     if c["all_masks"] == "on":
-        chosen = [pts for m, pts in at if usable(m, pts)]
+        chosen = [(m, pts) for m, pts in at if usable(m, pts)]
     else:
         i = math.floor(held(c, "mask", frame_no)) - 1
-        chosen = [at[i][1]] if i < len(at) and usable(*at[i]) else []
-    return [flatten(pts) for pts in chosen] or None
+        chosen = [at[i]] if i < len(at) and usable(*at[i]) else []
+    if shapes:
+        # D-357: a shape's path as D-78 flattens it, open or closed as the shape says.
+        return [(SH.flatten(pts, m["closed"]), m["closed"]) for m, pts in chosen] or None
+    return [(flatten(pts), True) for _, pts in chosen] or None
 
 
 def layer_of(c):
+    if c["shapes"] is not None:
+        # D-357: a shape layer, transparent black with its shapes' fills laid in. The cases'
+        # fills are rectangles with whole-number corners, so each pixel is wholly in or out.
+        px = [[0.0] * 4 for _ in range(W * H)]
+        for s in c["shapes"]:
+            if s.get("fill") and s.get("enabled", True):
+                xs = [q["point"][0] for q in s["points"]]
+                ys = [q["point"][1] for q in s["points"]]
+                col, a = s["fill"]["color"], s["fill"]["opacity"]
+                px = [[v * a for v in col] + [a] if min(xs) <= i % W < max(xs)
+                      and min(ys) <= i // W < max(ys) else q for i, q in enumerate(px)]
+        return {"px": px, "left": 0, "top": 0, "w": W, "h": H}
     layer = {"px": [R.working(p) for row in DRAWINGS[c["drawing"]] for p in row],
              "left": 0, "top": 0, "w": W, "h": H}
     # A mask of mode Add cuts the drawing first (document 21 step 2). The cases' Add masks have
@@ -341,6 +381,59 @@ INVALID = {
 }
 
 
+# D-357: shape-layer paths. A ten-pointed star about (8, 5), its points 4.5 out and 2 in.
+STAR = points(*[[8 + (4.5 if k % 2 == 0 else 2) * math.cos(math.radians(-90 + 36 * k)),
+                 5 + (4.5 if k % 2 == 0 else 2) * math.sin(math.radians(-90 + 36 * k))]
+                for k in range(10)])
+ROOF = points([2, 7], [8, 2], [14, 7])                 # two legs, 7.81 long each
+BLUE = {"color": [0.2, 0.5, 0.8], "opacity": 1.0}
+
+SHAPE_CASES = {
+    "FX-STROKE-047": ("A shape layer holding one shape, the box, with no fill and no stroke "
+                      "(it draws nothing), Path From Shapes: the white line all round the box "
+                      "over nothing, FX-STROKE-013's frame.", shaped(sh(BOX)), [0]),
+    "FX-STROKE-048": ("A star of five points (ten corners) as a shape, Brush Size 1, End 60: "
+                      "the line follows its points and dips, clockwise from the top point, "
+                      "three fifths of the way round; the left arms are not drawn yet.",
+                      shaped(sh(STAR), end=60, brush_size=1), [0]),
+    "FX-STROKE-049": ("An open shape, a roof of two legs from (2, 7) up to (8, 2) and down to "
+                      "(14, 7): drawn open, nothing along the bottom.",
+                      shaped(sh(ROOF, closed=False)), [0]),
+    "FX-STROKE-050": ("The same roof closed: the bottom is drawn too.", shaped(sh(ROOF)), [0]),
+    "FX-STROKE-051": ("The open roof, End 50: the left leg alone, half of its open length.",
+                      shaped(sh(ROOF, closed=False), end=50), [0]),
+    "FX-STROKE-052": ("A curved shape, the circle 8 across about (8, 5): FX-STROKE-022's curve.",
+                      shaped(sh(RING)), [0]),
+    "FX-STROKE-053": ("Two shapes, the box and the small box, Path 2: the small box alone.",
+                      shaped(sh(BOX), sh(SMALL), mask=2), [0]),
+    "FX-STROKE-054": ("Two shapes, All Masks and Stroke Sequentially on, End keyed from 0 at "
+                      "frame 0 to 100 at frame 4: the box draws on, then the small box, as "
+                      "FX-STROKE-020 does with masks; frames 0, 2 and 4.",
+                      shaped(sh(BOX), sh(SMALL), all_masks="on", stroke_sequentially="on",
+                             end=keyed((0, 0), (4, 100))), [0, 2, 4]),
+    "FX-STROKE-055": ("The box as a shape filled blue: the stroke is drawn over the fill.",
+                      shaped(sh(BOX, fill=BLUE)), [0]),
+    "FX-STROKE-056": ("A shape layer with the box as a shape and the small box as a mask of "
+                      "mode None, Path From Shapes: the box alone, FX-STROKE-047's frame.",
+                      shaped(sh(BOX), masks=[none(SMALL)]), [0]),
+    "FX-STROKE-057": ("The same layer, Path From Masks: the small box, its mask, alone.",
+                      {**shaped(sh(BOX), masks=[none(SMALL)]), "source": "masks"}, [0]),
+}
+
+SHAPE_MISSING = {
+    "FX-STROKE-058": ("Path From Shapes on the night drawing, which is not a shape layer and has "
+                      "no shapes (its box mask is not a shape).", case(source="shapes")),
+    "FX-STROKE-059": ("A shape layer whose one shape is switched off.",
+                      shaped(sh(BOX, enabled=False))),
+    "FX-STROKE-060": ("A shape layer of one shape, Path 2.", shaped(sh(BOX), mask=2)),
+}
+
+SHAPE_INVALID = {
+    "FX-STROKE-061": ("Path From \"layer\", which is not \"masks\" or \"shapes\".",
+                      case(source="layer")),
+}
+
+
 # --- the project files ----------------------------------------------------------------------
 
 def project_json(fx, c):
@@ -366,11 +459,24 @@ def project_json(fx, c):
         effects.append({"instance_id": "fx-0-0", "type_id": "core.motion_tile", "enabled": True,
                         "parameters": {"output_width": 300, "output_height": 300,
                                        "mirror": "on"}})
+    parameters = {k: (c[k] if k in WORDS else setting_json(c[k])) for k in NAMES}
+    if c["source"] != "masks":
+        # D-357: written only when it is not the default, so D-356's files are as they were.
+        parameters["source"] = c["source"]
     effects.append({"instance_id": f"fx-0-{len(effects)}", "type_id": "core.stroke",
-                    "enabled": True,
-                    "parameters": {k: (c[k] if k in WORDS else setting_json(c[k]))
-                                   for k in NAMES}})
+                    "enabled": True, "parameters": parameters})
     layer["effects"] = effects
+    if c["shapes"] is not None:
+        # D-357: a shape layer has no asset, exposures or source offset, and its space is the
+        # composition's; its shapes are written as D-78 writes them.
+        p["assets"] = []
+        layer = {"id": layer["id"], "kind": "shape", "name": layer["name"], "enabled": True,
+                 "locked": False, "in_frame": layer["in_frame"], "out_frame": layer["out_frame"],
+                 "shapes": [SH.shape_json(q, n + 1) for n, q in enumerate(c["shapes"])],
+                 "transform": layer["transform"],
+                 "masks": [mask_json(m, i + 1) for i, m in enumerate(c["masks"])],
+                 "matte": None, "blend_mode": "normal", "effects": effects}
+        comp["layers"][0] = layer
     return p
 
 
@@ -412,6 +518,33 @@ def main():
     (OUT / "expected_stroke.json").write_text(json.dumps(expected, indent=1) + "\n",
                                               encoding="utf-8")
     check(expected)
+    shapes = {"tolerance": TOLERANCE, "width": W, "height": H, "cases": {}}
+    for fx, (says, c, frames) in SHAPE_CASES.items():
+        rendered = {str(f): render(c, f) for f in frames}
+        shapes["cases"][fx] = {"says": says, "project": write(fx, c), "frames": rendered}
+        before = plain(c)
+        print(f"{fx}: " + ", ".join(
+            f"frame {f} {sum(px[i] != before[i] for i in range(W * H))} changed"
+            for f, px in rendered.items()))
+    for fx, (says, c) in SHAPE_MISSING.items():
+        says += (" Nothing to draw along: the layer is drawn without the effect, which is kept "
+                 "as written, and EFFECT_PATH_MISSING is said every frame.")
+        before = plain(c)
+        assert render(c, 0) == before
+        shapes["cases"][fx] = {"says": says, "project": write(fx, c),
+                               "frames": {"0": before, "4": before},
+                               "frame_warning": "EFFECT_PATH_MISSING"}
+        print(f"{fx}: no path")
+    for fx, (says, c) in SHAPE_INVALID.items():
+        says += (" The file is read, the effect is kept as written and left out of every frame, "
+                 "with a warning.")
+        shapes["cases"][fx] = {"says": says, "project": write(fx, c),
+                               "frames": {"0": plain(c), "4": plain(c)},
+                               "warning": "EFFECT_PARAMETER_INVALID"}
+        print(f"{fx}: invalid")
+    (OUT / "expected_stroke_shapes.json").write_text(json.dumps(shapes, indent=1) + "\n",
+                                                     encoding="utf-8")
+    check_shapes(shapes, expected)
 
 
 def check(expected):
@@ -492,6 +625,47 @@ def check(expected):
     for fx in list(MISSING) + list(INVALID):
         assert c[fx]["0"] == c[fx]["4"] == plain(case())
     print("checked")
+
+
+def check_shapes(shapes, expected):
+    """D-357's claims, checked on the numbers just worked."""
+    c = {fx: v["frames"] for fx, v in shapes["cases"].items()}
+    old = {fx: v["frames"] for fx, v in expected["cases"].items()}
+    at = lambda x, y: y * W + x  # noqa: E731
+    clear = [0.0] * 4
+    alone = lambda **k: render(case(paint_style="on_transparent", **k), 0)  # noqa: E731
+    for fx, frames in c.items():
+        for px in frames.values():
+            assert all(0 <= p[3] <= 1 + 1e-12 and all(-1e-12 <= v <= p[3] + 1e-12 for v in p[:3])
+                       for p in px), fx
+    box = c["FX-STROKE-047"]["0"]
+    # Over nothing, On Original Image is the stroke alone: the mask's On Transparent frame.
+    assert box == old["FX-STROKE-013"]["0"]
+    star = c["FX-STROKE-048"]["0"]
+    assert star[at(8, 1)][3] > 0.9 and star[at(11, 3)][3] > 0.9 and star[at(5, 8)][3] > 0.9
+    assert all(star[at(x, y)] == clear for x in range(4) for y in range(H))
+    assert star[at(8, 5)] == clear
+    open_roof, closed_roof = c["FX-STROKE-049"]["0"], c["FX-STROKE-050"]["0"]
+    assert open_roof[at(8, 7)] == clear and closed_roof[at(8, 7)][3] > 0.9
+    assert open_roof[at(5, 4)] == closed_roof[at(5, 4)] and open_roof[at(5, 4)][3] > 0.5
+    left = c["FX-STROKE-051"]["0"]
+    assert left[at(4, 5)][3] > 0.5 and left[at(12, 5)] == clear
+    # The shape's curve is the mask's: D-78 flattens closed paths as D-77 does.
+    assert c["FX-STROKE-052"]["0"] == alone(masks=[none(RING)])
+    small = c["FX-STROKE-053"]["0"]
+    assert small[at(8, 1)] == clear and small[at(7, 4)][3] > 0.9
+    seq = c["FX-STROKE-054"]
+    for f in (0, 2, 4):
+        assert seq[str(f)] == render(case(masks=TWO, all_masks="on", stroke_sequentially="on",
+                                          end=keyed((0, 0), (4, 100)),
+                                          paint_style="on_transparent"), f)
+    filled = c["FX-STROKE-055"]["0"]
+    assert filled[at(7, 4)] == [0.2, 0.5, 0.8, 1.0] and filled[at(8, 2)] == [1.0] * 4
+    assert c["FX-STROKE-056"]["0"] == box
+    assert c["FX-STROKE-057"]["0"] == alone(masks=[none(SMALL)])
+    for fx in list(SHAPE_MISSING) + list(SHAPE_INVALID):
+        assert c[fx]["0"] == c[fx]["4"]
+    print("checked the shapes")
 
 
 if __name__ == "__main__":
