@@ -176560,7 +176560,7 @@ FX-SHAPE-011: A mixed line, right-to-left paragraph: "salam Hi". The Arabic with
 
 FX-SHAPE-012: Figures after Arabic, right-to-left paragraph: "salam 2026". The figures read left to right, drawn to the left of the Arabic.
 
-FX-SHAPE-020: "office fly fit staff" at 100 pixels from 100, 200 with tracking 50, kerning off: each ligature drawn at its first letter, the other letters in it with no outline. In dispute (D-372, proposed): the reference's boxes slide each outline to its hmtx side bearing, as FreeType does, and the build draws the stored points, so "y" differs by 0.4 pixel; the row passes when every box agrees within 0.25 once that slide is taken out.
+FX-SHAPE-020: "office fly fit staff" at 100 pixels from 100, 200 with tracking 50, kerning off: each ligature drawn at its first letter, the other letters in it with no outline. The reference's boxes slide each outline to its hmtx side bearing, as FreeType does, and since D-372 (a) (B-251) the build does too; before it, "y" differed by 0.4 pixel and the row was in dispute.
 
 FX-SHAPE-021: "as-salamu alaykum" at 120 pixels from 80, 240: the first letter typed on the right, the last on the left.
 
