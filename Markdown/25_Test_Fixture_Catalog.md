@@ -203649,7 +203649,7 @@ FX-FASTZOOM-013 (`fx_fastzoom_013.json`): Zoom "Standard": the word is exact. Th
 
 FX-FASTZOOM-014 (`fx_fastzoom_014.json`): Centre 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-### Channel Blur (D-313, D-363)
+### Channel Blur (D-313, D-363, D-380)
 
 Channel Blur (`core.channel_blur`, D-313), after After Effects' Channel Blur, with fixtures from D-363 (B-242): red, green, blue and alpha each blurred by its own Blurriness, a Gaussian sigma in pixels, each colour laid back inside the alpha's blurred covering, with Repeat Edge Pixels and Blur Dimensions. Every case is a project of one composition 40 by 12 at 24 fps, five frames, with the drawing `media/pair.png` (an orange square `#ff8000` from (0, 4) to (3, 7) against the left edge, a green square `#28c850` touching it from (4, 4) to (7, 7), and a blue square `#3c78f0` at half covering from (26, 4) to (29, 7)) on the layer `art`, with the effect as instance `fx-0-0`. **Every number is produced by `tools/channel_blur_reference.py`** and is in `Fixtures/channel_blur/expected_channel_blur.json`, the projects beside it. Tolerance 2e-5.
 
@@ -203680,6 +203680,28 @@ FX-CHBLUR-012 (`fx_chblur_012.json`): Alpha Blurriness -1, below 0. The file is 
 FX-CHBLUR-013 (`fx_chblur_013.json`): Edges "Repeat": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CHBLUR-014 (`fx_chblur_014.json`): Blur Dimensions "diagonal", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHBLUR-015 to 024 (D-380, B-259) are Channel Blur's Units, as Gaussian Blur's (D-321): the same composition, drawing, layer and instance, every number produced by `tools/channel_blur_reference.py` with its units argument (Sigma when left out, so the file above is unchanged) and in `Fixtures/channel_blur/expected_channel_blur_blurriness.json`. Tolerance 2e-5.
+
+FX-CHBLUR-015 (`fx_chblur_015.json`): Units Blurriness (After Effects), Red Blurriness 10, the rest 0: red at sigma 3, reaching 20 pixels. As FX-CHBLUR-001, only red is blurred and laid back inside the drawing's own covering, so green, blue and every covering are the drawing's exactly. The red is FX-CHBLUR-001's within a billionth: divided by its own covering's blur, the longer tail cancels. Frames 0.
+
+FX-CHBLUR-016 (`fx_chblur_016.json`): Units Blurriness, red 6, green 0, blue 15, alpha 3 (sigmas 1.8, 0, 4.5 and 0.9): each colour spread by its own amount and laid inside a covering spread by about a pixel; green stays as sharp as drawn. Frames 0.
+
+FX-CHBLUR-017 (`fx_chblur_017.json`): FX-CHBLUR-016 with Repeat Edge Pixels: the orange square's own pixels are read past the left edge, so its left column keeps its covering; the layer does not grow. Frames 0.
+
+FX-CHBLUR-018 (`fx_chblur_018.json`): FX-CHBLUR-016 with Blur Dimensions horizontal: spread across only, the rows above and below the squares still empty. Frames 0.
+
+FX-CHBLUR-019 (`fx_chblur_019.json`): Units Blurriness, red 12 and alpha 6 with Blur Dimensions vertical and Repeat Edge Pixels: spread down only, the columns between the green and blue squares still empty. Frames 0.
+
+FX-CHBLUR-020 (`fx_chblur_020.json`): Units Blurriness, all four 10: Gaussian Blur in Blurriness 10 (D-321) exactly, so the two blurs agree at the same number. Ten pixels right of the blue square the covering is still lit, past where sigma 3 cut at three sigmas (FX-CHBLUR-003) leaves it clear. Frames 0.
+
+FX-CHBLUR-021 (`fx_chblur_021.json`): Units written "sigma" (Sigma, older projects), Red Blurriness 3: FX-CHBLUR-001 exactly, the file with no units. Frames 0.
+
+FX-CHBLUR-022 (`fx_chblur_022.json`): Units Blurriness, Red Blurriness keyed from 0 at frame 0 to 20 at frame 4, linear: frame 0 untouched, frame 2 red 10, FX-CHBLUR-015, and frame 4 red 20. Frames 0, 2, 4.
+
+FX-CHBLUR-023 (`fx_chblur_023.json`): Units "Blurriness": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHBLUR-024 (`fx_chblur_024.json`): Units "pixels", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 ### Unsharp Mask threshold (D-317, D-363)
 
