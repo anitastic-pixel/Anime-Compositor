@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target, TimeRemap};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, BILATERAL_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, TEXT_ANIMATOR, STRETCH_LEVELS, STRETCH_CONTRAST, STRETCH_COLOR, SPREAD_TONES, MATTE_CHOKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE, STROKE, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, CROSS_BLUR, SPIN_ZOOM_BLUR, FAST_ZOOM_BLUR, BROADCAST_SAFE, COLOR_NEUTRALIZER, COLOR_OFFSET,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, BILATERAL_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, TEXT_ANIMATOR, STRETCH_LEVELS, STRETCH_CONTRAST, STRETCH_COLOR, SPREAD_TONES, MATTE_CHOKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE, STROKE, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, CROSS_BLUR, SPIN_ZOOM_BLUR, FAST_ZOOM_BLUR, BROADCAST_SAFE, COLOR_NEUTRALIZER, COLOR_OFFSET, KERNEL, TONER, CHANGE_COLOR,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -4045,6 +4045,35 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             blue_phase: 0.0,
             overflow: "wrap".to_string(),
         }),
+        // D-368: the middle pixel alone, which changes nothing.
+        KERNEL => Some(Effect::Kernel {
+            line_1: vec![0.0; 3],
+            line_2: vec![0.0, 1.0, 0.0],
+            line_3: vec![0.0; 3],
+            divider: 1.0,
+            absolute_values: "off".to_string(),
+        }),
+        // D-369: a warm sepia tritone, our own starting colours.
+        TONER => Some(Effect::Toner {
+            tones: "tritone".to_string(),
+            highlights: "#ffffff".to_string(),
+            brights: "#e0cfb0".to_string(),
+            midtones: "#8c7355".to_string(),
+            darktones: "#46382a".to_string(),
+            shadows: "#000000".to_string(),
+        }),
+        // D-370: red matched by hue at 15, every transform 0, which changes nothing.
+        CHANGE_COLOR => Some(Effect::ChangeColor {
+            view: "corrected".to_string(),
+            hue_transform: 0.0,
+            lightness_transform: 0.0,
+            saturation_transform: 0.0,
+            color_to_change: "#ff0000".to_string(),
+            tolerance: 15.0,
+            softness: 0.0,
+            match_colors: "hue".to_string(),
+            invert_mask: "off".to_string(),
+        }),
         // D-204: white flakes, about After Effects' CC Snowfall's look as it starts.
         SNOWFALL => Some(Effect::Snowfall {
             color: "#ffffff".to_string(),
@@ -5180,6 +5209,32 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             green_phase: number("green_phase")?,
             blue_phase: number("blue_phase")?,
             overflow: word("overflow")?,
+        }),
+        KERNEL => Ok(Effect::Kernel {
+            line_1: tone("line_1")?,
+            line_2: tone("line_2")?,
+            line_3: tone("line_3")?,
+            divider: number("divider")?,
+            absolute_values: word("absolute_values")?,
+        }),
+        TONER => Ok(Effect::Toner {
+            tones: word("tones")?,
+            highlights: word("highlights")?,
+            brights: word("brights")?,
+            midtones: word("midtones")?,
+            darktones: word("darktones")?,
+            shadows: word("shadows")?,
+        }),
+        CHANGE_COLOR => Ok(Effect::ChangeColor {
+            view: word("view")?,
+            hue_transform: number("hue_transform")?,
+            lightness_transform: number("lightness_transform")?,
+            saturation_transform: number("saturation_transform")?,
+            color_to_change: word("color_to_change")?,
+            tolerance: number("tolerance")?,
+            softness: number("softness")?,
+            match_colors: word("match_colors")?,
+            invert_mask: word("invert_mask")?,
         }),
         SNOWFALL => Ok(Effect::Snowfall {
             color: word("color")?,
@@ -9118,7 +9173,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer or core.color_offset."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner or core.change_color."
                                 .to_string(),
                         );
                     };
@@ -9150,7 +9205,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer and core.color_offset."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner and core.change_color."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -14793,7 +14848,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer and core.color_offset.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner and core.change_color.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -14815,7 +14870,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer or core.color_offset.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner or core.change_color.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -28998,6 +29053,36 @@ mod contract {
             ],
         ),
         ("core.color_offset", &[("red_phase", "90"), ("green_phase", "-45"), ("blue_phase", "400"), ("overflow", "polarize")]),
+        // D-368..D-370: lines, numbers, colours and words.
+        (
+            "core.kernel",
+            &[("line_1", "0, -1, 0"), ("line_2", "-1, 5, -1"), ("line_3", "0, -1, 0"), ("divider", "1"), ("absolute_values", "on")],
+        ),
+        (
+            "core.toner",
+            &[
+                ("tones", "pentone"),
+                ("highlights", "#fff3b0"),
+                ("brights", "#ff9e00"),
+                ("midtones", "#9d4edd"),
+                ("darktones", "#3c096c"),
+                ("shadows", "#10002b"),
+            ],
+        ),
+        (
+            "core.change_color",
+            &[
+                ("view", "mask"),
+                ("hue_transform", "120"),
+                ("lightness_transform", "-30"),
+                ("saturation_transform", "20"),
+                ("color_to_change", "#00ff00"),
+                ("tolerance", "30"),
+                ("softness", "15"),
+                ("match_colors", "chroma"),
+                ("invert_mask", "on"),
+            ],
+        ),
         // D-205: the numbers, the point and the word.
         (
             "core.kaleidoscope",

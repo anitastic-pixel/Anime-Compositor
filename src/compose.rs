@@ -983,6 +983,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::BroadcastSafe { .. }
                 | crate::effects::Effect::ColorNeutralizer { .. }
                 | crate::effects::Effect::ColorOffset { .. }
+                // D-368..D-370: Kernel, Toner and Change Color.
+                | crate::effects::Effect::Kernel { .. }
+                | crate::effects::Effect::Toner { .. }
+                | crate::effects::Effect::ChangeColor { .. }
         )
         // D-353: a Soft Physical Glow's threshold with no smooth is a step, so it stays on the
         // CPU for D-122's reason.
@@ -1106,6 +1110,14 @@ fn card_effect(
                     crate::effects::neutral_corrections([shadows_unbalance, midtones_unbalance, highlights_unbalance], [shadows, midtones, highlights]) == [[0.0; 3]; 3]
                 }
                 E::ColorOffset { red_phase, green_phase, blue_phase, .. } => [*red_phase, *green_phase, *blue_phase] == [0.0; 3],
+                // D-368/D-370: as each one's own function returns at once.
+                E::Kernel { line_1, line_2, line_3, divider, .. } => {
+                    crate::effects::kernel_grid([line_1, line_2, line_3]).map(|row| row.map(|v| v / *divider))
+                        == [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]]
+                }
+                E::ChangeColor { view, hue_transform, lightness_transform, saturation_transform, .. } => {
+                    view != "mask" && [*hue_transform, *lightness_transform, *saturation_transform] == [0.0; 3]
+                }
                 // B-107: the third batch, each as its own function returns at once.
                 E::Invert { amount, .. }
                 | E::LeaveColor { amount, .. }

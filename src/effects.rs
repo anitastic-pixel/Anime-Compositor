@@ -1196,6 +1196,28 @@ pub enum Effect {
     /// D-367: after CycoreFX's CC Color Offset. `red_phase`, `green_phase` and `blue_phase`,
     /// -3600 to 3600 degrees; `overflow`, "wrap", "solarize" or "polarize", kept as written.
     ColorOffset { red_phase: f64, green_phase: f64, blue_phase: f64, overflow: String },
+    /// D-368: after CycoreFX's CC Kernel. `line_1`, `line_2` and `line_3`, the grid's rows top to
+    /// bottom, three numbers each, -1000 to 1000 (kept as written, so a wrong count is reported);
+    /// `divider`, 0.01 to 1000; `absolute_values`, "off" or "on", kept as written.
+    Kernel { line_1: Vec<f64>, line_2: Vec<f64>, line_3: Vec<f64>, divider: f64, absolute_values: String },
+    /// D-369: after CycoreFX's CC Toner. `tones`, "duotone", "tritone" or "pentone"; the five
+    /// colours, `#rrggbb`, all kept as written so a wrong one is reported.
+    Toner { tones: String, highlights: String, brights: String, midtones: String, darktones: String, shadows: String },
+    /// D-370: after After Effects' Change Color. `view`, "corrected" or "mask"; `hue_transform`,
+    /// -3600 to 3600 degrees; `lightness_transform` and `saturation_transform`, -100 to 100;
+    /// `color_to_change`, `#rrggbb`; `tolerance` and `softness`, 0 to 100; `match_colors`, "rgb",
+    /// "hue" or "chroma"; `invert_mask`, "off" or "on". The words kept as written.
+    ChangeColor {
+        view: String,
+        hue_transform: f64,
+        lightness_transform: f64,
+        saturation_transform: f64,
+        color_to_change: String,
+        tolerance: f64,
+        softness: f64,
+        match_colors: String,
+        invert_mask: String,
+    },
     /// D-204: `color`, `#rrggbb`, kept as written so a wrong one is reported; `density`, 0 to
     /// 100; `spacing`, 2 to 1000 pixels; `size`, 0 to 100 pixels; `depth`, 0 to 100; `speed`,
     /// 0 to 1000, and `wind`, -1000 to 1000, pixels a frame; `wiggle`, 0 to 100 pixels;
@@ -1709,6 +1731,13 @@ pub const FAST_ZOOM_BLUR: &str = "core.fast_zoom_blur";
 pub const BROADCAST_SAFE: &str = "core.broadcast_safe";
 pub const COLOR_NEUTRALIZER: &str = "core.color_neutralizer";
 pub const COLOR_OFFSET: &str = "core.color_offset";
+pub const KERNEL: &str = "core.kernel";
+pub const TONER: &str = "core.toner";
+pub const CHANGE_COLOR: &str = "core.change_color";
+/// D-369: Toner's tone counts.
+pub const TONER_TONES: [&str; 3] = ["duotone", "tritone", "pentone"];
+/// D-370: Change Color's matches, in the order the card numbers them.
+pub const CHANGE_MATCHES: [&str; 3] = ["rgb", "hue", "chroma"];
 /// D-365: Broadcast Safe's methods, in the order the card numbers them.
 pub const BROADCAST_METHODS: [&str; 4] = ["reduce_luminance", "reduce_saturation", "key_out_unsafe", "key_out_safe"];
 /// D-367: Color Offset's overflows, in the order the card numbers them.
@@ -2335,6 +2364,7 @@ impl Effect {
             ],
             Effect::ColorLookup { .. } => vec![],
             Effect::ShiftChannels { .. } => vec![],
+            Effect::Toner { .. } => vec![],
             Effect::SolidComposite { source_opacity, opacity, .. } => vec![
                 ("source_opacity", vec![source_opacity], 0.0, 100.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
@@ -2643,6 +2673,19 @@ impl Effect {
                 ("red_phase", vec![red_phase], -3600.0, 3600.0),
                 ("green_phase", vec![green_phase], -3600.0, 3600.0),
                 ("blue_phase", vec![blue_phase], -3600.0, 3600.0),
+            ],
+            Effect::Kernel { line_1, line_2, line_3, divider, .. } => vec![
+                ("line_1", line_1.iter_mut().collect(), -1000.0, 1000.0),
+                ("line_2", line_2.iter_mut().collect(), -1000.0, 1000.0),
+                ("line_3", line_3.iter_mut().collect(), -1000.0, 1000.0),
+                ("divider", vec![divider], 0.01, 1000.0),
+            ],
+            Effect::ChangeColor { hue_transform, lightness_transform, saturation_transform, tolerance, softness, .. } => vec![
+                ("hue_transform", vec![hue_transform], -3600.0, 3600.0),
+                ("lightness_transform", vec![lightness_transform], -100.0, 100.0),
+                ("saturation_transform", vec![saturation_transform], -100.0, 100.0),
+                ("tolerance", vec![tolerance], 0.0, 100.0),
+                ("softness", vec![softness], 0.0, 100.0),
             ],
             Effect::Snowfall {
                 density,
@@ -3226,6 +3269,9 @@ impl Effect {
             Effect::BroadcastSafe { .. } => "Broadcast Safe",
             Effect::ColorNeutralizer { .. } => "Color Neutralizer",
             Effect::ColorOffset { .. } => "Color Offset",
+            Effect::Kernel { .. } => "Kernel",
+            Effect::Toner { .. } => "Toner",
+            Effect::ChangeColor { .. } => "Change Color",
             Effect::SpinZoomBlur { .. } => "Spin & Zoom Blur",
             Effect::FastZoomBlur { .. } => "Fast Zoom Blur",
             Effect::Snowfall { .. } => "Snowfall",
@@ -3353,6 +3399,9 @@ impl Effect {
             Effect::BroadcastSafe { .. } => BROADCAST_SAFE,
             Effect::ColorNeutralizer { .. } => COLOR_NEUTRALIZER,
             Effect::ColorOffset { .. } => COLOR_OFFSET,
+            Effect::Kernel { .. } => KERNEL,
+            Effect::Toner { .. } => TONER,
+            Effect::ChangeColor { .. } => CHANGE_COLOR,
             Effect::SpinZoomBlur { .. } => SPIN_ZOOM_BLUR,
             Effect::FastZoomBlur { .. } => FAST_ZOOM_BLUR,
             Effect::Snowfall { .. } => SNOWFALL,
@@ -3719,6 +3768,32 @@ impl Effect {
             }
             Effect::ColorOffset { overflow, .. } => (!OFFSET_OVERFLOWS.contains(&overflow.as_str()))
                 .then(|| format!("{name}'s overflow is \"wrap\", \"solarize\" or \"polarize\", and this is \"{overflow}\".")),
+            Effect::Kernel { line_1, line_2, line_3, absolute_values, .. } => [("line 1", line_1), ("line 2", line_2), ("line 3", line_3)]
+                .into_iter()
+                .find(|(_, line)| line.len() != 3)
+                .map(|(what, line)| format!("{name}'s {what} is three numbers, left, middle and right, and this has {}.", line.len()))
+                .or_else(|| {
+                    (!["off", "on"].contains(&absolute_values.as_str()))
+                        .then(|| format!("{name}'s absolute values is \"off\" or \"on\", and this is \"{absolute_values}\"."))
+                }),
+            Effect::Toner { tones, highlights, brights, midtones, darktones, shadows } => (!TONER_TONES.contains(&tones.as_str()))
+                .then(|| format!("{name}'s tones are \"duotone\", \"tritone\" or \"pentone\", and this is \"{tones}\"."))
+                .or_else(|| hex_fault(name, "highlights", highlights))
+                .or_else(|| hex_fault(name, "brights", brights))
+                .or_else(|| hex_fault(name, "midtones", midtones))
+                .or_else(|| hex_fault(name, "darktones", darktones))
+                .or_else(|| hex_fault(name, "shadows", shadows)),
+            Effect::ChangeColor { view, color_to_change, match_colors, invert_mask, .. } => (!["corrected", "mask"].contains(&view.as_str()))
+                .then(|| format!("{name}'s view is \"corrected\" or \"mask\", and this is \"{view}\"."))
+                .or_else(|| hex_fault(name, "colour to change", color_to_change))
+                .or_else(|| {
+                    (!CHANGE_MATCHES.contains(&match_colors.as_str()))
+                        .then(|| format!("{name}'s match colors is \"rgb\", \"hue\" or \"chroma\", and this is \"{match_colors}\"."))
+                })
+                .or_else(|| {
+                    (!["off", "on"].contains(&invert_mask.as_str()))
+                        .then(|| format!("{name}'s invert mask is \"off\" or \"on\", and this is \"{invert_mask}\"."))
+                }),
             Effect::RadialBlur { kind, edges: e, .. } => (!["spin", "zoom"]
                 .contains(&kind.as_str()))
             .then(|| format!("{name}'s type is \"spin\" or \"zoom\", and this is \"{kind}\"."))
@@ -4353,6 +4428,24 @@ pub(crate) fn encoded(c: &str) -> [f64; 3] {
     crate::selective_blur::parse_hex(c)
         .unwrap_or_default()
         .map(|v| v as f64 / 255.0)
+}
+
+/// D-368: Kernel's three lines, already found to hold three numbers each, as a grid.
+pub(crate) fn kernel_grid(lines: [&Vec<f64>; 3]) -> [[f64; 3]; 3] {
+    lines.map(|l| [l[0], l[1], l[2]])
+}
+
+/// D-369: Toner's stops, dark to light, encoded, for the tone count already found valid.
+pub(crate) fn toner_stops(tones: &str, colors: [&String; 5]) -> Vec<[f64; 3]> {
+    let [highlights, brights, midtones, darktones, shadows] = colors;
+    match tones {
+        "duotone" => vec![shadows, highlights],
+        "pentone" => vec![shadows, darktones, midtones, brights, highlights],
+        _ => vec![shadows, midtones, highlights],
+    }
+    .into_iter()
+    .map(|c| encoded(c))
+    .collect()
 }
 
 /// D-365: Broadcast Safe's set-up in IRE, where black sits: 7.5 for NTSC, 0 for PAL.
@@ -5605,6 +5698,34 @@ pub(crate) fn apply_stack_at(
             }
             Effect::ColorOffset { red_phase, green_phase, blue_phase, overflow } => crate::perf::time(crate::perf::Stage::EffectColorOffset, || {
                 crate::grade::color_offset(source, [*red_phase, *green_phase, *blue_phase], overflow)
+            }),
+            Effect::Kernel { line_1, line_2, line_3, divider, absolute_values } => crate::perf::time(crate::perf::Stage::EffectKernel, || {
+                crate::layer_fx::kernel(source, kernel_grid([line_1, line_2, line_3]), *divider, absolute_values == "on")
+            }),
+            Effect::Toner { tones, highlights, brights, midtones, darktones, shadows } => crate::perf::time(crate::perf::Stage::EffectToner, || {
+                crate::grade::toner(source, &toner_stops(tones, [highlights, brights, midtones, darktones, shadows]))
+            }),
+            Effect::ChangeColor {
+                view,
+                hue_transform,
+                lightness_transform,
+                saturation_transform,
+                color_to_change,
+                tolerance,
+                softness,
+                match_colors,
+                invert_mask,
+            } => crate::perf::time(crate::perf::Stage::EffectChangeColor, || {
+                let c = crate::grade::ChangeColor {
+                    mask: view == "mask",
+                    transforms: [*hue_transform, *lightness_transform / 100.0, *saturation_transform / 100.0],
+                    color: encoded(color_to_change),
+                    tolerance: *tolerance / 100.0,
+                    softness: *softness / 100.0,
+                    matching: CHANGE_MATCHES.iter().position(|m| m == match_colors).unwrap_or(1),
+                    invert: invert_mask == "on",
+                };
+                crate::grade::change_color(source, &c)
             }),
             // D-204: the planes are fixed to the drawing's own space; it grows nothing.
             Effect::Snowfall {

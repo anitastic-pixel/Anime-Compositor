@@ -2012,12 +2012,31 @@ fn part(d: f64, t: f64, w: f64) -> f64 {
     return 1.0lf - (d - t) / (t * w);
 }
 
+// grade::from_hls: an encoded colour from its hue in degrees, lightness and saturation.
+fn from_hls(hue: f64, l: f64, s: f64) -> vec3<f64> {
+    let chroma = (1.0lf - abs(2.0lf * l - 1.0lf)) * s;
+    let hh = hue / 60.0lf;
+    let x = chroma * (1.0lf - abs(euclid(hh, 2.0lf) - 1.0lf));
+    var rgb: vec3<f64>;
+    switch min(u32(floor(hh)), 5u) {
+        case 0u: { rgb = vec3(chroma, x, 0.0lf); }
+        case 1u: { rgb = vec3(x, chroma, 0.0lf); }
+        case 2u: { rgb = vec3(0.0lf, chroma, x); }
+        case 3u: { rgb = vec3(0.0lf, x, chroma); }
+        case 4u: { rgb = vec3(x, 0.0lf, chroma); }
+        default: { rgb = vec3(chroma, 0.0lf, x); }
+    }
+    return rgb + vec3(l - chroma / 2.0lf);
+}
+
 // B-107, the third batch's colour effects, a pixel a thread: grade::invert (mode 0, `count` the
 // channel, 3 all), invert_alpha (1), brightness_contrast (2), black_white (3), posterize (4),
 // threshold (5), channel_mixer (6), vibrance (7), leave_color (8), solarize (9) and halftone
 // (10); and (B-123) color_lookup (11), hsv_key (12) and paraffin (13); B-222: exposure with an
 // offset or gamma (14), tint (15), shift_channels (16), solid_composite (17), change_to_color
-// (18), color_key (19), select_color (20), line_recolor (21), colorama (22) and extract (23).
+// (18), color_key (19), select_color (20), line_recolor (21), colorama (22) and extract (23);
+// broadcast_safe (24), color_neutralizer (25), color_offset (26); D-369/D-370: toner (27) and
+// change_color (28).
 @compute @workgroup_size(16, 16)
 fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -2229,21 +2248,9 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
                 s = g.z;
             }
         }
-        let chroma = (1.0lf - abs(2.0lf * l - 1.0lf)) * s;
-        let hh = hue / 60.0lf;
-        let x = chroma * (1.0lf - abs(euclid(hh, 2.0lf) - 1.0lf));
-        var rgb: vec3<f64>;
-        switch min(u32(floor(hh)), 5u) {
-            case 0u: { rgb = vec3(chroma, x, 0.0lf); }
-            case 1u: { rgb = vec3(x, chroma, 0.0lf); }
-            case 2u: { rgb = vec3(0.0lf, chroma, x); }
-            case 3u: { rgb = vec3(0.0lf, x, chroma); }
-            case 4u: { rgb = vec3(x, 0.0lf, chroma); }
-            default: { rgb = vec3(chroma, 0.0lf, x); }
-        }
-        let lm = l - chroma / 2.0lf;
+        let rgb = from_hls(hue, l, s);
         for (var c = 0u; c < 3u; c++) {
-            out[c] = f32(to_linear(clamp(e[c] + m * (rgb[c] + lm - e[c]), 0.0lf, 1.0lf)) * a);
+            out[c] = f32(to_linear(clamp(e[c] + m * (rgb[c] - e[c]), 0.0lf, 1.0lf)) * a);
         }
         textureStore(output, id.xy, out);
         return;
@@ -2463,6 +2470,69 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
                 o = u;
             }
             out[c] = f32(to_linear(clamp(o, 0.0lf, 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 27u {
+        // D-369, as grade::toner. k: the stops less one, then the stops encoded, dark to light.
+        let b = px / a;
+        let t = to_srgb(clamp(0.2126lf * b.x + 0.7152lf * b.y + 0.0722lf * b.z, 0.0lf, 1.0lf)) * k[0];
+        let seg = min(floor(t), k[0] - 1.0lf);
+        let lo = 1u + 3u * u32(seg);
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32(to_linear(clamp(k[lo + c] + (t - seg) * (k[lo + 3u + c] - k[lo + c]), 0.0lf, 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 28u {
+        // D-370, as grade::change_color. k: the colour encoded, the tolerance and softness as
+        // shares, the match's place in CHANGE_MATCHES, the hue transform in degrees, lightness
+        // and saturation as shares, then 1 each for the mask view and invert.
+        let c0 = vec3(k[0], k[1], k[2]);
+        var d = 1.0lf;
+        if k[5] == 0.0lf {
+            let v = e - c0;
+            d = sqrt((v.x * v.x + v.y * v.y + v.z * v.z) / 3.0lf);
+        } else if k[5] == 2.0lf {
+            let ye = luma(e);
+            let yc = luma(c0);
+            let db = (e.z - ye) / 1.8556lf - (c0.z - yc) / 1.8556lf;
+            let dr = (e.x - ye) / 1.5748lf - (c0.x - yc) / 1.5748lf;
+            d = sqrt(db * db + dr * dr);
+        } else {
+            let he = hls(e).x;
+            let hc = hls(c0).x;
+            if he >= 0.0lf && hc >= 0.0lf {
+                let dd = abs(he - hc);
+                d = min(dd, 360.0lf - dd) / 180.0lf;
+            }
+        }
+        var m = 0.0lf;
+        if d <= k[3] {
+            m = 1.0lf;
+        } else if k[4] != 0.0lf && d < k[3] + k[4] {
+            m = 1.0lf - (d - k[3]) / k[4];
+        }
+        if k[10] != 0.0lf {
+            m = 1.0lf - m;
+        }
+        if k[9] != 0.0lf {
+            let v = f32(to_linear(m) * a);
+            textureStore(output, id.xy, vec4(v, v, v, p.w));
+            return;
+        }
+        if m <= 0.0lf {
+            textureStore(output, id.xy, p);
+            return;
+        }
+        let h = hls(e);
+        let l = select(h.y * (1.0lf + k[7]), h.y + (1.0lf - h.y) * k[7], k[7] >= 0.0lf);
+        let s = select(h.z * (1.0lf + k[8]), h.z + (1.0lf - h.z) * k[8], k[8] >= 0.0lf);
+        let rgb = from_hls(euclid(max(h.x, 0.0lf) + k[6], 360.0lf), l, s);
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32(to_linear(clamp(e[c] + m * (rgb[c] - e[c]), 0.0lf, 1.0lf)) * a);
         }
         textureStore(output, id.xy, out);
         return;
@@ -2907,7 +2977,8 @@ fn picture_luma(p: vec4<f32>) -> f64 {
 }
 
 // B-107, layer_fx::emboss (mode 0; k: the relief across and down, the contrast as a share,
-// colour) and find_edges (mode 1; k: the amount as a share, invert).
+// colour) and find_edges (mode 1; k: the amount as a share, invert); D-368, layer_fx::kernel
+// (mode 2; k: the nine numbers row by row, the divider, absolute values).
 @compute @workgroup_size(16, 16)
 fn relief(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -2941,6 +3012,29 @@ fn relief(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let most = vec2<i32>(size) - vec2(1);
     let q = vec2<i32>(id.xy);
+    if F.mode == 2u {
+        var sum = vec3(0.0lf);
+        for (var j = 0u; j < 3u; j++) {
+            for (var i = 0u; i < 3u; i++) {
+                let n = textureLoad(input, clamp(q + vec2(i32(i) - 1, i32(j) - 1), vec2(0), most), 0);
+                if n.w > 0.0 {
+                    let na = f64(n.w);
+                    for (var c = 0u; c < 3u; c++) {
+                        sum[c] += k[j * 3u + i] * to_srgb(clamp(f64(n[c]) / na, 0.0lf, 1.0lf));
+                    }
+                }
+            }
+        }
+        for (var c = 0u; c < 3u; c++) {
+            var u = sum[c] / k[9];
+            if k[10] != 0.0lf {
+                u = abs(u);
+            }
+            out[c] = f32(to_linear(clamp(u, 0.0lf, 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
     // l[j * 3 + i] is the pixel i - 1 across and j - 1 down, held inside the layer.
     var l: array<f64, 9>;
     for (var j = 0; j < 3; j++) {
@@ -5640,6 +5734,9 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::BroadcastSafe { .. }
             | E::ColorNeutralizer { .. }
             | E::ColorOffset { .. }
+            // D-369/D-370.
+            | E::Toner { .. }
+            | E::ChangeColor { .. }
     )
 }
 
@@ -7638,6 +7735,31 @@ impl Gpu {
                 k.extend(turns.map(|t| t.0));
                 same(steps, &passes.tone, FxParams { mode: 26, ..Default::default() }, &k, None)
             }
+            E::Kernel { line_1, line_2, line_3, divider, absolute_values } => {
+                let mut k: Vec<f64> = crate::effects::kernel_grid([line_1, line_2, line_3]).iter().flatten().copied().collect();
+                k.extend([*divider, (absolute_values == "on") as u8 as f64]);
+                same(steps, &passes.relief, FxParams { mode: 2, ..Default::default() }, &k, None)
+            }
+            E::Toner { tones, highlights, brights, midtones, darktones, shadows } => {
+                let stops = crate::effects::toner_stops(tones, [highlights, brights, midtones, darktones, shadows]);
+                let mut k = vec![(stops.len() - 1) as f64];
+                k.extend(stops.iter().flatten());
+                same(steps, &passes.tone, FxParams { mode: 27, ..Default::default() }, &k, None)
+            }
+            E::ChangeColor { view, hue_transform, lightness_transform, saturation_transform, color_to_change, tolerance, softness, match_colors, invert_mask } => {
+                let mut k = crate::effects::encoded(color_to_change).to_vec();
+                k.extend([
+                    tolerance / 100.0,
+                    softness / 100.0,
+                    crate::effects::CHANGE_MATCHES.iter().position(|m| m == match_colors).unwrap_or(1) as f64,
+                    *hue_transform,
+                    lightness_transform / 100.0,
+                    saturation_transform / 100.0,
+                    (view == "mask") as u8 as f64,
+                    (invert_mask == "on") as u8 as f64,
+                ]);
+                same(steps, &passes.tone, FxParams { mode: 28, ..Default::default() }, &k, None)
+            }
             E::Paraffin { color, direction, spread, opacity, blend: b } => {
                 // No pixel covered half or more: nothing is washed.
                 let (span, share) = match crate::grade::paraffin_span(source, *direction, *spread) {
@@ -8226,7 +8348,7 @@ impl Gpu {
                 self.fx_step(steps, &passes.smoothmix, FxParams::default(), Some(still), Some(&out), None, None, work, tiles(w, h));
                 (out, (w, h))
             }
-            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects, B-225's five generators, Radio Waves (D-345), B-226's four and D-365..D-367's three as Fx"),
+            _ => unreachable!("compose leaves only the first two batches of ten, twenty-nine of the third batch's thirty and the fourth batch's fifteen, B-222's ten, B-223's five blurs, B-224's two map effects, B-225's five generators, Radio Waves (D-345), B-226's four, D-365..D-367's three and D-368..D-370's three as Fx"),
         }
     }
 

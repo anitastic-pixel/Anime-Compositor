@@ -2259,6 +2259,30 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("blue_phase".into(), num(*blue_phase));
             params.insert("overflow".into(), J::from(overflow.as_str()));
         }
+        Effect::Kernel { line_1, line_2, line_3, divider, absolute_values } => {
+            for (name, line) in [("line_1", line_1), ("line_2", line_2), ("line_3", line_3)] {
+                params.insert(name.into(), J::Array(line.iter().map(|v| num(*v)).collect()));
+            }
+            params.insert("divider".into(), num(*divider));
+            params.insert("absolute_values".into(), J::from(absolute_values.as_str()));
+        }
+        Effect::Toner { tones, highlights, brights, midtones, darktones, shadows } => {
+            params.insert("tones".into(), J::from(tones.as_str()));
+            for (name, c) in [("highlights", highlights), ("brights", brights), ("midtones", midtones), ("darktones", darktones), ("shadows", shadows)] {
+                params.insert(name.into(), J::from(c.as_str()));
+            }
+        }
+        Effect::ChangeColor { view, hue_transform, lightness_transform, saturation_transform, color_to_change, tolerance, softness, match_colors, invert_mask } => {
+            params.insert("view".into(), J::from(view.as_str()));
+            params.insert("hue_transform".into(), num(*hue_transform));
+            params.insert("lightness_transform".into(), num(*lightness_transform));
+            params.insert("saturation_transform".into(), num(*saturation_transform));
+            params.insert("color_to_change".into(), J::from(color_to_change.as_str()));
+            params.insert("tolerance".into(), num(*tolerance));
+            params.insert("softness".into(), num(*softness));
+            params.insert("match_colors".into(), J::from(match_colors.as_str()));
+            params.insert("invert_mask".into(), J::from(invert_mask.as_str()));
+        }
         Effect::Snowfall {
             color,
             density,
@@ -3791,6 +3815,9 @@ fn parse_effect(
         crate::effects::BROADCAST_SAFE,
         crate::effects::COLOR_NEUTRALIZER,
         crate::effects::COLOR_OFFSET,
+        crate::effects::KERNEL,
+        crate::effects::TONER,
+        crate::effects::CHANGE_COLOR,
         crate::effects::SNOWFALL,
         crate::effects::KALEIDOSCOPE,
         crate::effects::ROUGHEN_EDGES,
@@ -4546,6 +4573,32 @@ fn parse_effect(
             green_phase: effect_number(params, "green_phase", &at)?,
             blue_phase: effect_number(params, "blue_phase", &at)?,
             overflow: effect_word(params, "overflow", &at)?,
+        }),
+        crate::effects::KERNEL => Some(crate::effects::Effect::Kernel {
+            line_1: effect_list(params, "line_1", &at)?,
+            line_2: effect_list(params, "line_2", &at)?,
+            line_3: effect_list(params, "line_3", &at)?,
+            divider: effect_number(params, "divider", &at)?,
+            absolute_values: effect_word(params, "absolute_values", &at)?,
+        }),
+        crate::effects::TONER => Some(crate::effects::Effect::Toner {
+            tones: effect_word(params, "tones", &at)?,
+            highlights: effect_word(params, "highlights", &at)?.to_ascii_lowercase(),
+            brights: effect_word(params, "brights", &at)?.to_ascii_lowercase(),
+            midtones: effect_word(params, "midtones", &at)?.to_ascii_lowercase(),
+            darktones: effect_word(params, "darktones", &at)?.to_ascii_lowercase(),
+            shadows: effect_word(params, "shadows", &at)?.to_ascii_lowercase(),
+        }),
+        crate::effects::CHANGE_COLOR => Some(crate::effects::Effect::ChangeColor {
+            view: effect_word(params, "view", &at)?,
+            hue_transform: effect_number(params, "hue_transform", &at)?,
+            lightness_transform: effect_number(params, "lightness_transform", &at)?,
+            saturation_transform: effect_number(params, "saturation_transform", &at)?,
+            color_to_change: effect_word(params, "color_to_change", &at)?.to_ascii_lowercase(),
+            tolerance: effect_number(params, "tolerance", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            match_colors: effect_word(params, "match_colors", &at)?,
+            invert_mask: effect_word(params, "invert_mask", &at)?,
         }),
         crate::effects::SNOWFALL => Some(crate::effects::Effect::Snowfall {
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),

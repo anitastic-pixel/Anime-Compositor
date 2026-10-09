@@ -267,6 +267,10 @@ pub enum Stage {
     EffectBroadcastSafe,
     EffectColorNeutralizer,
     EffectColorOffset,
+    /// D-368..D-370's Kernel, Toner and Change Color.
+    EffectKernel,
+    EffectToner,
+    EffectChangeColor,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -284,7 +288,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 132] = [
+    pub const ALL: [Stage; 135] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -410,6 +414,9 @@ impl Stage {
         Stage::EffectBroadcastSafe,
         Stage::EffectColorNeutralizer,
         Stage::EffectColorOffset,
+        Stage::EffectKernel,
+        Stage::EffectToner,
+        Stage::EffectChangeColor,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -547,6 +554,9 @@ impl Stage {
             Stage::EffectBroadcastSafe => "effect: broadcast safe",
             Stage::EffectColorNeutralizer => "effect: color neutralizer",
             Stage::EffectColorOffset => "effect: color offset",
+            Stage::EffectKernel => "effect: kernel",
+            Stage::EffectToner => "effect: toner",
+            Stage::EffectChangeColor => "effect: change color",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

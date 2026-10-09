@@ -1241,6 +1241,55 @@ pub(crate) fn find_edges(source: &mut WorkingBuffer, invert: bool, amount: f64) 
         });
 }
 
+/// D-368: each pixel that shows rebuilt from itself and its eight neighbours' encoded colours
+/// (0 for one that does not show; the border repeats past the edge), weighed by `grid`, row 0
+/// above and each row's first number on the left, over `divider`, made positive when
+/// `absolute`, held inside 0 to 1. The middle pixel alone, over a divider of the same, leaves
+/// the layer as it is. The settings are already valid.
+pub(crate) fn kernel(source: &mut WorkingBuffer, grid: [[f64; 3]; 3], divider: f64, absolute: bool) {
+    if grid.map(|row| row.map(|v| v / divider)) == [[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]] {
+        return;
+    }
+    let (w, h) = (source.width() as i64, source.height() as i64);
+    let values: Vec<[f64; 3]> = source
+        .data()
+        .par_chunks_exact(4)
+        .map(|p| {
+            let a = p[3] as f64;
+            if a <= 0.0 {
+                return [0.0; 3];
+            }
+            [0, 1, 2].map(|c| crate::grade::to_srgb((p[c] as f64 / a).clamp(0.0, 1.0)))
+        })
+        .collect();
+    let at = |x: i64, y: i64| values[(y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize];
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                return;
+            }
+            let (x, y) = (i as i64 % w, i as i64 / w);
+            let mut sum = [0.0; 3];
+            for (j, row) in grid.iter().enumerate() {
+                for (k, weight) in row.iter().enumerate() {
+                    let v = at(x + k as i64 - 1, y + j as i64 - 1);
+                    for c in 0..3 {
+                        sum[c] += weight * v[c];
+                    }
+                }
+            }
+            for c in 0..3 {
+                let u = sum[c] / divider;
+                let u = if absolute { u.abs() } else { u };
+                px[c] = (crate::grade::to_linear(u.clamp(0.0, 1.0)) * a) as f32;
+            }
+        });
+}
+
 
 /// D-147: each pixel that shows pushed `amount` percent further from its colour blurred at
 /// sigma `radius`, both as written, the blur divided by its own covering. D-317: a channel

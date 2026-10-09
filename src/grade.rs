@@ -693,7 +693,7 @@ pub(crate) fn gradient_map(source: &mut WorkingBuffer, colors: [[f64; 3]; 3], mi
             return;
         }
         let b = [0, 1, 2].map(|c| px[c] as f64 / a);
-        let t = to_srgb((0.2126 * b[0] + 0.7152 * b[1] + 0.0722 * b[2]).clamp(0.0, 1.0));
+        let t = ramp_lightness(b);
         let (lo, hi, s) = if t <= m {
             (colors[0], colors[1], t / m)
         } else {
@@ -702,6 +702,29 @@ pub(crate) fn gradient_map(source: &mut WorkingBuffer, colors: [[f64; 3]; 3], mi
         for c in 0..3 {
             let g = to_linear(lo[c] + s * (hi[c] - lo[c]));
             px[c] = ((b[c] + o * (g - b[c])) * a) as f32;
+        }
+    });
+}
+
+/// D-129: where a straight linear colour sits on a ramp: its luma held inside 0 to 1, encoded.
+fn ramp_lightness(b: [f64; 3]) -> f64 {
+    to_srgb((0.2126 * b[0] + 0.7152 * b[1] + 0.0722 * b[2]).clamp(0.0, 1.0))
+}
+
+/// D-369: each pixel that shows takes the colour at its lightness on a ramp of `stops`, encoded,
+/// dark to light and evenly spaced, as Gradient Map reads lightness.
+pub(crate) fn toner(source: &mut WorkingBuffer, stops: &[[f64; 3]]) {
+    let n = (stops.len() - 1) as f64;
+    each_pixel(source, |px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let t = ramp_lightness([0, 1, 2].map(|c| px[c] as f64 / a)) * n;
+        let k = (t.floor()).min(n - 1.0);
+        let (lo, hi, s) = (stops[k as usize], stops[k as usize + 1], t - k);
+        for c in 0..3 {
+            px[c] = (to_linear((lo[c] + s * (hi[c] - lo[c])).clamp(0.0, 1.0)) * a) as f32;
         }
     });
 }
@@ -1255,20 +1278,103 @@ pub(crate) fn change_to_color(source: &mut WorkingBuffer, c: &ChangeToColor) {
         } else {
             (ht0, if lightness { lt } else { l }, if saturation { st } else { s })
         };
-        let chroma = (1.0 - (2.0 * l - 1.0).abs()) * s;
-        let hh = h / 60.0;
-        let x = chroma * (1.0 - (hh.rem_euclid(2.0) - 1.0).abs());
-        let rgb = match (hh.floor() as usize).min(5) {
-            0 => [chroma, x, 0.0],
-            1 => [x, chroma, 0.0],
-            2 => [0.0, chroma, x],
-            3 => [0.0, x, chroma],
-            4 => [x, 0.0, chroma],
-            _ => [chroma, 0.0, x],
-        };
-        let m = l - chroma / 2.0;
+        let rgb = from_hls(h, l, s);
         for i in 0..3 {
-            px[i] = (to_linear((e[i] + k * (rgb[i] + m - e[i])).clamp(0.0, 1.0)) * a) as f32;
+            px[i] = (to_linear((e[i] + k * (rgb[i] - e[i])).clamp(0.0, 1.0)) * a) as f32;
+        }
+    });
+}
+
+/// D-197: an encoded colour from its hue in degrees, lightness and saturation.
+fn from_hls(h: f64, l: f64, s: f64) -> [f64; 3] {
+    let chroma = (1.0 - (2.0 * l - 1.0).abs()) * s;
+    let hh = h / 60.0;
+    let x = chroma * (1.0 - (hh.rem_euclid(2.0) - 1.0).abs());
+    let rgb = match (hh.floor() as usize).min(5) {
+        0 => [chroma, x, 0.0],
+        1 => [x, chroma, 0.0],
+        2 => [0.0, chroma, x],
+        3 => [0.0, x, chroma],
+        4 => [x, 0.0, chroma],
+        _ => [chroma, 0.0, x],
+    };
+    rgb.map(|v| v + l - chroma / 2.0)
+}
+
+/// D-370's settings, read once for a frame: the colour encoded; the hue transform in degrees,
+/// lightness and saturation as shares; tolerance and softness as shares; the match's place in
+/// `effects::CHANGE_MATCHES`.
+pub(crate) struct ChangeColor {
+    pub mask: bool,
+    pub transforms: [f64; 3],
+    pub color: [f64; 3],
+    pub tolerance: f64,
+    pub softness: f64,
+    pub matching: usize,
+    pub invert: bool,
+}
+
+/// D-370: how far encoded `e` lies from `c`, 0 to about 1: in RGB over the root of 3, in hue
+/// over half a turn (1 when either is grey), or in unscaled Cb and Cr.
+pub(crate) fn change_distance(e: [f64; 3], c: [f64; 3], matching: usize) -> f64 {
+    match matching {
+        0 => ((0..3).map(|i| (e[i] - c[i]).powi(2)).sum::<f64>() / 3.0).sqrt(),
+        2 => {
+            let cbcr = |v: [f64; 3]| {
+                let y = 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+                [(v[2] - y) / 1.8556, (v[0] - y) / 1.5748]
+            };
+            let (p, q) = (cbcr(e), cbcr(c));
+            (p[0] - q[0]).hypot(p[1] - q[1])
+        }
+        _ => match (hsv_hue(e), hsv_hue(c)) {
+            (Some(h), Some(g)) => {
+                let d = (h - g).abs();
+                d.min(360.0 - d) / 180.0
+            }
+            _ => 1.0,
+        },
+    }
+}
+
+/// D-370: each colour near `color` moved round the wheel and lighter or darker, stronger or
+/// weaker, by how near it is; or with `mask` that nearness shown as grey. With every transform 0
+/// the layer is left exactly as it is, and so is a pixel not near at all.
+pub(crate) fn change_color(source: &mut WorkingBuffer, c: &ChangeColor) {
+    if !c.mask && c.transforms == [0.0; 3] {
+        return;
+    }
+    let (t, w) = (c.tolerance, c.softness);
+    let push = |v: f64, p: f64| if p >= 0.0 { v + (1.0 - v) * p } else { v * (1.0 + p) };
+    each_pixel(source, |px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let e = [0, 1, 2].map(|i| to_srgb((px[i] as f64 / a).clamp(0.0, 1.0)));
+        let d = change_distance(e, c.color, c.matching);
+        let mut k = if d <= t {
+            1.0
+        } else if w == 0.0 || d >= t + w {
+            0.0
+        } else {
+            1.0 - (d - t) / w
+        };
+        if c.invert {
+            k = 1.0 - k;
+        }
+        if c.mask {
+            px[..3].fill((to_linear(k) * a) as f32);
+            return;
+        }
+        if k <= 0.0 {
+            return;
+        }
+        let (h, l, s) = hls(e);
+        let h = (h.unwrap_or(0.0) + c.transforms[0]).rem_euclid(360.0);
+        let rgb = from_hls(h, push(l, c.transforms[1]), push(s, c.transforms[2]));
+        for i in 0..3 {
+            px[i] = (to_linear((e[i] + k * (rgb[i] - e[i])).clamp(0.0, 1.0)) * a) as f32;
         }
     });
 }
