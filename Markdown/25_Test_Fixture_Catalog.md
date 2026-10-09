@@ -204387,6 +204387,50 @@ FX-GPG-020 (`fx_gpg_020.json`): Green gain -0.1, below 0. The file is read, the 
 
 FX-GPG-021 (`fx_gpg_021.json`): Blue gain 4.1, above 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Levels with a set for each channel (D-383)
+
+Levels with a set for each channel (`core.levels` with its Channel menu) and Levels (Individual Controls) (`core.levels_individual`), after After Effects' Levels and Levels (Individual Controls) (B-262): five sets of five settings, RGB, red, green, blue and alpha; each colour channel through its own set and then the RGB set, the alpha set on the covering with the colour kept; the Channel menu only picks the set the controls show. Every case is Broadcast Safe's drawing: pure colours, greys, a skin tone, orange, three warm tones, an empty column and yellow at half covering. `tools/levels_individual_reference.py` works the expected frames, `expected_levels_individual.json`, tolerance 2e-5; the rule is in document 21. D-112's FX-LEVELS-001 to 024 are unchanged: a Levels saved with its five settings draws as before.
+
+FX-LVLIC-001 (`fx_lvlic_001.json`): Levels (Individual Controls) with every setting as it starts: the drawing, untouched. Frames 0.
+
+FX-LVLIC-002 (`fx_lvlic_002.json`): Red input white 192: red brightened, every red at or above 192 full; green and blue untouched. Frames 0.
+
+FX-LVLIC-003 (`fx_lvlic_003.json`): Green gamma 2: the middle of the green channel brighter; 0 and full green stay; red and blue untouched. Frames 0.
+
+FX-LVLIC-004 (`fx_lvlic_004.json`): Blue output 64 to 192: blue squeezed into that range, so no blue below 64 or above 192; red and green untouched. Frames 0.
+
+FX-LVLIC-005 (`fx_lvlic_005.json`): The order: Red input white 192, then the RGB input black 32 on top. Red is stretched by its own set first and then by the RGB set; green and blue by the RGB set alone. Frames 0.
+
+FX-LVLIC-006 (`fx_lvlic_006.json`): Red output black 255 and white 0: the red channel turned over, green and blue untouched. Frames 0.
+
+FX-LVLIC-007 (`fx_lvlic_007.json`): Alpha output white 128: every covering halved, the colours kept; the empty column stays empty. Frames 0.
+
+FX-LVLIC-008 (`fx_lvlic_008.json`): Alpha output black 64: every covering lifted to at least 64 of 255, so the empty column shows as black at a quarter covering. Frames 0.
+
+FX-LVLIC-009 (`fx_lvlic_009.json`): Alpha input white 128: the half-covered yellow becomes fully covered; the rest, already full, stays. Frames 0.
+
+FX-LVLIC-010 (`fx_lvlic_010.json`): Blue input black and white both 140: a threshold on blue, 0 below 140 and full at or above it. Frames 0.
+
+FX-LVLIC-011 (`fx_lvlic_011.json`): Levels with its Channel menu on Red and Red input white 192: exactly FX-LVLIC-002, the same rule under the other name. Frames 0.
+
+FX-LVLIC-012 (`fx_lvlic_012.json`): Levels with its Channel menu on Alpha, and only the RGB five written, input white 200: the menu changes nothing and the four sets not written start plain, so this draws as D-112's Levels with input white 200. Frames 0.
+
+FX-LVLIC-013 (`fx_lvlic_013.json`): Red gamma keyed from 1 at frame 0 to 3 at frame 4, linear: frame 0 untouched, frames 2 and 4 the middle reds brighter and brighter. Frames 0, 2, 4.
+
+FX-LVLIC-014 (`fx_lvlic_014.json`): Every set at once: RGB input black 10 and gamma 1.2, red input white 230 and output black 20, green gamma 0.7 and output white 240, blue input black 30 and gamma 1.5, alpha output white 200. Frames 0.
+
+FX-LVLIC-015 (`fx_lvlic_015.json`): FX-LVLIC-014 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-LVLIC-016 (`fx_lvlic_016.json`): Red input black 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LVLIC-017 (`fx_lvlic_017.json`): Green gamma 0.05, below 0.1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LVLIC-018 (`fx_lvlic_018.json`): Blue output white -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LVLIC-019 (`fx_lvlic_019.json`): Alpha gamma 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LVLIC-020 (`fx_lvlic_020.json`): Levels with the channel "luma", which is not one of rgb, red, green, blue or alpha. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Flow Motion (D-385)
 
 Flow Motion (`core.flow_motion`), after CycoreFX's CC Flo Motion (B-264): two knots, each drawing the picture in towards itself (a positive amount) or blowing it out (a negative one), the pull fading with distance by Falloff, the edges mirrored or left clear, a pixel averaged over 1, 2 or 4 points a side. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/flow_motion_reference.py` works the expected frames, `Fixtures/flow_motion/expected_flow_motion.json`, tolerance 2e-5; the rule is in document 21.
