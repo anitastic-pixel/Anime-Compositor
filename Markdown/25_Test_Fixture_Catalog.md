@@ -204340,3 +204340,49 @@ FX-COLORAMA-045 (`fx_colorama_045.json`): Mask layer 5, a number, not the name o
 FX-COLORAMA-046 (`fx_colorama_046.json`): Masking mode "off", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-COLORAMA-047 (`fx_colorama_047.json`): Composite over "no", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Gamma/Pedestal/Gain (D-382)
+
+Gamma/Pedestal/Gain (`core.gamma_pedestal_gain`), after After Effects' Gamma/Pedestal/Gain (B-261): a black stretch that lifts the dark values of every channel, then for red, green and blue apart a gamma for the middle, a pedestal for the lowest value and a gain for the highest. Every case is Broadcast Safe's drawing: pure colours, greys, a skin tone, orange and three warm tones. `tools/gamma_pedestal_gain_reference.py` works the expected frames, `expected_gamma_pedestal_gain.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-GPG-001 (`fx_gpg_001.json`): The settings as they start: black stretch 1, every gamma and gain 1, every pedestal 0, so the drawing, untouched. Frames 0.
+
+FX-GPG-002 (`fx_gpg_002.json`): Black stretch 2: every dark value lifted, the warm shadow and the dim rows most; black and full values stay. Frames 0.
+
+FX-GPG-003 (`fx_gpg_003.json`): Black stretch 4, as far as it goes: the darks lifted much more. Frames 0.
+
+FX-GPG-004 (`fx_gpg_004.json`): Red gamma 2: the middle of the red channel brighter, so the skin, grey and warm tones go redder; green and blue untouched, and 0 and full red stay. Frames 0.
+
+FX-GPG-005 (`fx_gpg_005.json`): Every gamma 0.5: the middle of every channel darker, the colours deeper. Frames 0.
+
+FX-GPG-006 (`fx_gpg_006.json`): Every pedestal 0.2: black becomes a grey of 0.2 (about 51 of 255), white stays white, everything between lifted a little less the brighter it is. Frames 0.
+
+FX-GPG-007 (`fx_gpg_007.json`): Every gain 0.5: white becomes a grey of 0.5, black stays black, everything halved in its encoded values. Frames 0.
+
+FX-GPG-008 (`fx_gpg_008.json`): Every pedestal and gain 0.5: every colour the same grey of 0.5, the covering kept. Frames 0.
+
+FX-GPG-009 (`fx_gpg_009.json`): Every pedestal 1 and gain 0: the channel turned over, so the drawing's negative: black white, red cyan, yellow blue. Frames 0.
+
+FX-GPG-010 (`fx_gpg_010.json`): Every pedestal -0.5: the lower half of each channel held at 0, the rest stretched down to it; white stays white. Frames 0.
+
+FX-GPG-011 (`fx_gpg_011.json`): Every gain 2: each channel doubled, everything above half held at full. Frames 0.
+
+FX-GPG-012 (`fx_gpg_012.json`): Black stretch 1.5, red gain 1.2, green pedestal 0.1 and blue gamma 1.5 together, each channel its own curve. Frames 0.
+
+FX-GPG-013 (`fx_gpg_013.json`): Red gain keyed from 1 at frame 0 to 0 at frame 4, linear: frame 0 untouched, frame 2 the red channel halved, frame 4 no red at all. Frames 0, 2, 4.
+
+FX-GPG-014 (`fx_gpg_014.json`): FX-GPG-012 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-GPG-015 (`fx_gpg_015.json`): Black stretch 0.9, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GPG-016 (`fx_gpg_016.json`): Black stretch 4.1, above 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GPG-017 (`fx_gpg_017.json`): Green gamma 0.09, below 0.1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GPG-018 (`fx_gpg_018.json`): Blue gamma 10.1, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GPG-019 (`fx_gpg_019.json`): Red pedestal 1.1, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GPG-020 (`fx_gpg_020.json`): Green gain -0.1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GPG-021 (`fx_gpg_021.json`): Blue gain 4.1, above 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
