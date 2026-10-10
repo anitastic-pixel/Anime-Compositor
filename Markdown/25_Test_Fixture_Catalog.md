@@ -206950,3 +206950,89 @@ FX-PAINTBUCKET-043 (`fx_paintbucket_043.json`): Blending mode "darken", which th
 FX-PAINTBUCKET-044 (`fx_paintbucket_044.json`): Colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PAINTBUCKET-045 (`fx_paintbucket_045.json`): Tolerance keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Write-on (D-441)
+
+After Effects' Write-on (Generate), `core.write_on` (B-321). Every case is a composition 16 by 10 at 24 frames a second, 12 frames long, holding Bulge's striped drawing (`Fixtures/writeon/media`), the same size, unmoved unless the case says. `tools/writeon_reference.py` works the expected frames, `Fixtures/writeon/expected_writeon.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-WRITEON-001 (`fx_writeon_001.json`): The settings as added: the brush at the middle and never moved, Brush Size 6, Hardness 75, white: every mark at the same place, one white dot in the middle. Frames 0, 4.
+
+FX-WRITEON-002 (`fx_writeon_002.json`): The brush keyed from 10, 50 at frame 0 to 90, 50 at frame 8, Brush Size 3, Brush Spacing 0.02 seconds: a white line written on left to right along the middle, a dot at frame 0, reaching the right at frame 8. Frames 0, 2, 4, 8.
+
+FX-WRITEON-003 (`fx_writeon_003.json`): FX-WRITEON-002 with Brush Spacing 0.25 seconds (6 frames): marks far apart, one dot at frame 4, two at frame 8. Frames 4, 8.
+
+FX-WRITEON-004 (`fx_writeon_004.json`): FX-WRITEON-002 with Stroke Length 0.1 seconds (2.4 frames): only the last 0.1 seconds of the line, a short dash travelling right. Frames 4, 8.
+
+FX-WRITEON-005 (`fx_writeon_005.json`): FX-WRITEON-002 with Hardness 0: soft from its middle out. Frames 8.
+
+FX-WRITEON-006 (`fx_writeon_006.json`): FX-WRITEON-002 with Hardness 100: hard, smoothed over one pixel. Frames 8.
+
+FX-WRITEON-007 (`fx_writeon_007.json`): FX-WRITEON-002 with Brush Opacity 50: half covered at most. Frames 8.
+
+FX-WRITEON-008 (`fx_writeon_008.json`): FX-WRITEON-002 in red, #ff3020. Frames 8.
+
+FX-WRITEON-009 (`fx_writeon_009.json`): FX-WRITEON-002 On Transparent: the line alone, the drawing gone. Frames 4.
+
+FX-WRITEON-010 (`fx_writeon_010.json`): FX-WRITEON-002 Reveal Original Image: the drawing only under the line, the colour unused. Frames 4.
+
+FX-WRITEON-011 (`fx_writeon_011.json`): FX-WRITEON-002 with Brush Size 0: nothing is drawn; the drawing, untouched. Frames 4.
+
+FX-WRITEON-012 (`fx_writeon_012.json`): Brush Size 0, On Transparent: nothing at all. Frames 4.
+
+FX-WRITEON-013 (`fx_writeon_013.json`): Brush Size keyed from 1 at frame 0 to 6 at frame 8, Brush Time Properties None: the whole line takes the size now, thin at frame 2 and thick at frame 8. Frames 2, 8.
+
+FX-WRITEON-014 (`fx_writeon_014.json`): FX-WRITEON-013 with Brush Time Properties Size: each mark keeps the size it was laid with, so the line swells from thin on the left to thick on the right. Frames 2, 8.
+
+FX-WRITEON-015 (`fx_writeon_015.json`): Hardness keyed from 0 at frame 0 to 100 at frame 8, Brush Size 5, Brush Time Properties Hardness: soft on the left, hard on the right. Frames 8.
+
+FX-WRITEON-016 (`fx_writeon_016.json`): FX-WRITEON-014 with Hardness keyed too, from 0 to 100, Brush Time Properties Size & Hardness: thin and soft to thick and hard. Frames 8.
+
+FX-WRITEON-017 (`fx_writeon_017.json`): Brush Opacity keyed from 100 at frame 0 to 20 at frame 8, Paint Time Properties None: the whole line fades together, to 20 at frame 8. Frames 8.
+
+FX-WRITEON-018 (`fx_writeon_018.json`): FX-WRITEON-017 with Paint Time Properties Opacity: each mark keeps its opacity, so the line fades from solid on the left to faint on the right. Frames 8.
+
+FX-WRITEON-019 (`fx_writeon_019.json`): FX-WRITEON-017 with Paint Time Properties Color: the colour cannot be keyed, so FX-WRITEON-017's frame. Frames 8.
+
+FX-WRITEON-020 (`fx_writeon_020.json`): FX-WRITEON-017 with Paint Time Properties Color & Opacity: FX-WRITEON-018's frame. Frames 8.
+
+FX-WRITEON-021 (`fx_writeon_021.json`): The brush keyed through three places, 10, 20 at frame 0, 50, 80 at frame 4 and 90, 20 at frame 8: a V written on. Frames 4, 8.
+
+FX-WRITEON-022 (`fx_writeon_022.json`): The brush held at 25, 50 until frame 4, then at 75, 50: two dots by frame 8, no line between. Frames 2, 8.
+
+FX-WRITEON-023 (`fx_writeon_023.json`): FX-WRITEON-002 with the layer moved three pixels right: the same, moved; nothing grows. Frames 8.
+
+FX-WRITEON-024 (`fx_writeon_024.json`): FX-WRITEON-002 on a layer that starts at frame 2: nothing before it, and the first mark laid at frame 2, where the brush then is. Frames 1, 2, 8.
+
+FX-WRITEON-025 (`fx_writeon_025.json`): Brush Opacity eased from 0 at frame 0 to 100 at frame 4 on a curve that overshoots, Paint Time Properties Opacity: each mark's opacity held at 100 before it is used. Frames 4.
+
+FX-WRITEON-026 (`fx_writeon_026.json`): FX-WRITEON-003's spacing with Stroke Length 0.1 seconds: at frame 4 the only mark is older than its length, so nothing is drawn; at frame 8 the second mark, laid two frames before, is. Frames 4, 8.
+
+FX-WRITEON-027 (`fx_writeon_027.json`): FX-WRITEON-002 on a layer stretched to 200 per cent: the keys and the marks stretch with it, so frame 8 is FX-WRITEON-002's frame 4. Frames 8.
+
+FX-WRITEON-028 (`fx_writeon_028.json`): Brush Position at 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-029 (`fx_writeon_029.json`): Brush Size 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-030 (`fx_writeon_030.json`): Brush Size -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-031 (`fx_writeon_031.json`): Brush Hardness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-032 (`fx_writeon_032.json`): Brush Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-033 (`fx_writeon_033.json`): Stroke Length -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-034 (`fx_writeon_034.json`): Stroke Length 3601, above 3600 seconds. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-035 (`fx_writeon_035.json`): Brush Spacing 0, below 0.001 seconds. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-036 (`fx_writeon_036.json`): Brush Spacing 11, above 10 seconds. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-037 (`fx_writeon_037.json`): Paint Time Properties "size", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-038 (`fx_writeon_038.json`): Brush Time Properties "color", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-039 (`fx_writeon_039.json`): Paint Style "glow", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-040 (`fx_writeon_040.json`): Colour "#12345", not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WRITEON-041 (`fx_writeon_041.json`): Brush Size keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
