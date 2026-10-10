@@ -986,6 +986,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 // B-226 (D-346): the last four.
                 | crate::effects::Effect::BlockDissolve { .. }
                 | crate::effects::Effect::GradientWipe { .. }
+                // D-403.
+                | crate::effects::Effect::AerialHaze { .. }
                 | crate::effects::Effect::LineSmooth { .. }
                 // B-228 (D-348): two that read the layer's pass.
                 | crate::effects::Effect::PassExtract { .. }
@@ -1292,6 +1294,8 @@ fn card_effect(
                 // B-226: as each one's own function returns at once.
                 E::BlockDissolve { completion, .. } => *completion == 0.0,
                 E::GradientWipe { completion, map, .. } => map.is_none() || *completion == 0.0,
+                // D-403: even with no layer named; a layer named but not read leaves it as it is.
+                E::AerialHaze { amount, layer, map, .. } => *amount == 0.0 || (layer.as_str() != Some("") && map.is_none()),
                 // B-228: with no pass read, the layer is left as it is.
                 E::PassExtract { channels, .. } | E::DepthKey { channels, .. } | E::IdKey { channels, .. } => channels.is_none(),
                 E::LineSmooth { softness, .. } => *softness <= 0.0,

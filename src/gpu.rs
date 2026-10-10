@@ -5866,6 +5866,28 @@ fn gwipe(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-403, layer_fx::aerial_haze: k[0] the amount as a share, k[1] to k[3] the haze colour in linear
+// light, k[4] 1 with a matte (`other`, lying on the drawing at (F.ox, F.oy)) and 0 without.
+@compute @workgroup_size(16, 16)
+fn haze(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    var v = 1.0lf;
+    if k[4] == 1.0lf {
+        v = picture_luma(at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy)));
+    }
+    let m = k[0] * v;
+    var out = p;
+    for (var c = 0u; c < 3u; c++) {
+        let q = f64(p[c]);
+        out[c] = f32(q + m * (k[1u + c] * f64(p.w) - q));
+    }
+    textureStore(output, id.xy, out);
+}
+
 // B-228, layer_fx::pass_extract: the pass (`other`) lying on the drawing at (F.ox, F.oy), alpha 1
 // on it and 0 outside it; k black, white, invert, clamp.
 @compute @workgroup_size(16, 16)
@@ -6642,6 +6664,8 @@ struct FxPasses {
     /// B-226.
     dissolve: Pass,
     gwipe: Pass,
+    /// D-403.
+    haze: Pass,
     lwidth: Pass,
     /// B-228.
     passx: Pass,
@@ -7272,6 +7296,7 @@ impl Gpu {
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
                 gwipe: pass("gwipe", &[0, 1, 2, 3, 4]),
+                haze: pass("haze", &[0, 1, 2, 3, 4]),
                 passx: pass("passx", &[0, 1, 2, 3, 4]),
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
                 idkey: pass("idkey", &[0, 1, 2, 3, 4]),
@@ -9742,6 +9767,17 @@ impl Gpu {
                 let out = self.scratch("B-226 wipe", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.gwipe, p, Some(still), Some(&out), Some(&k), Some(&map), none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-403: compose leaves the card a haze only when it is even or its matte was read.
+            E::AerialHaze { haze_color, amount, map, .. } => {
+                let mut k = vec![amount / 100.0];
+                k.extend(crate::effects::encoded(haze_color).map(crate::grade::to_linear));
+                k.push(map.is_some() as u8 as f64);
+                let matte = map.as_ref().map(|m| self.map_texture(&m.0));
+                let out = self.scratch("D-403 haze", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.haze, p, Some(still), Some(&out), Some(&k), Some(matte.as_ref().unwrap_or(still)), none, tiles(w, h));
                 (out, (w, h))
             }
             E::PassExtract { channels, black_point, white_point, invert, clamp, .. } => {

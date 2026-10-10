@@ -371,6 +371,10 @@ pub enum Effect {
     /// D-402: After Effects' Tritone, a second name over Gradient Map's engine: `highlights`,
     /// `midtones` and `shadows`, `#rrggbb`, kept as written; `blend_with_original`, 0 to 100.
     Tritone { highlights: String, midtones: String, shadows: String, blend_with_original: f64 },
+    /// D-403: Aerial Haze, PLUGINS.md's pick #8: `haze_color`, `#rrggbb`, kept as written;
+    /// `amount`, 0 to 100; `layer`, D-189's layer setting as written, "" for none (even haze);
+    /// `fit`, `center`, `stretch` or `tile`. `map` is not a setting and is never saved.
+    AerialHaze { haze_color: String, amount: f64, layer: serde_json::Value, fit: String, map: Option<crate::layer_map::Map> },
     /// D-86: "`softness`, 0 to 100 ... and `threshold`, 0 to 255". Document 21's line smoothing.
     LineSmooth { softness: f64, threshold: f64 },
     /// D-87: "`blur`, 0 to 200 pixels ... `colors`, the chosen colours, up to eight, each
@@ -2106,6 +2110,7 @@ pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
 pub const TRITONE: &str = "core.tritone";
+pub const AERIAL_HAZE: &str = "core.aerial_haze";
 /// D-396: Selective Color's colour families, each a setting, in the order the card numbers them.
 pub const SELECTIVE_COLOR_FAMILIES: [&str; 9] =
     ["reds", "yellows", "greens", "cyans", "blues", "magentas", "whites", "neutrals", "blacks"];
@@ -2202,6 +2207,7 @@ impl Effect {
             ],
             Effect::TintMap { amount_to_tint, .. } => vec![("amount_to_tint", vec![amount_to_tint], 0.0, 100.0)],
             Effect::Tritone { blend_with_original, .. } => vec![("blend_with_original", vec![blend_with_original], 0.0, 100.0)],
+            Effect::AerialHaze { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
             Effect::LineSmooth {
                 softness,
                 threshold,
@@ -3881,6 +3887,7 @@ impl Effect {
             Effect::SelectiveColor { .. } => "Selective Color",
             Effect::ShadowHighlight { .. } => "Shadow/Highlight",
             Effect::Tritone { .. } => "Tritone",
+            Effect::AerialHaze { .. } => "Aerial Haze",
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
@@ -4035,6 +4042,7 @@ impl Effect {
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
             Effect::ShadowHighlight { .. } => SHADOW_HIGHLIGHT,
             Effect::Tritone { .. } => TRITONE,
+            Effect::AerialHaze { .. } => AERIAL_HAZE,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
@@ -4279,6 +4287,7 @@ impl Effect {
             Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::AerialHaze { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Glass { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::VectorBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Blobbylize { layer: serde_json::Value::String(layer), fit, .. }
@@ -4306,6 +4315,7 @@ impl Effect {
             Effect::CompoundBlur { layer, map, .. }
             | Effect::DisplacementMap { layer, map, .. }
             | Effect::GradientWipe { layer, map, .. }
+            | Effect::AerialHaze { layer, map, .. }
             | Effect::Glass { layer, map, .. }
             | Effect::VectorBlur { layer, map, .. }
             | Effect::Blobbylize { layer, map, .. }
@@ -4637,6 +4647,13 @@ impl Effect {
             Effect::Tritone { highlights, midtones, shadows, .. } => hex_fault("Tritone", "Highlights", highlights)
                 .or_else(|| hex_fault("Tritone", "Midtones", midtones))
                 .or_else(|| hex_fault("Tritone", "Shadows", shadows)),
+            Effect::AerialHaze { haze_color, layer, fit, .. } => hex_fault("Aerial Haze", "Haze Color", haze_color)
+                .or_else(|| (!layer.is_string()).then(|| format!(
+                    "Aerial Haze's matte layer is the name of a layer of this composition, and this is {layer}."
+                )))
+                .or_else(|| (!["center", "stretch", "tile"].contains(&fit.as_str())).then(|| format!(
+                    "Aerial Haze's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+                ))),
             Effect::ColorBalance {
                 shadows,
                 midtones,
@@ -7407,6 +7424,21 @@ pub(crate) fn apply_stack_at(
                 if let Some(map) = map {
                     crate::perf::time(crate::perf::Stage::EffectGradientWipe, || {
                         crate::layer_fx::gradient_wipe(source, &map.0, (ox, oy), *completion, *softness, invert == "on")
+                    })
+                }
+            }
+            // D-403: even with no layer named; through the matte compose read when one is; a
+            // layer named but not read (not in the composition) leaves the layer as it is, with
+            // D-189's warning.
+            Effect::AerialHaze { haze_color, amount, layer, map, .. } => {
+                let matte = match (layer.as_str(), map) {
+                    (Some(""), _) => Some(None),
+                    (_, Some(m)) => Some(Some((m.0.as_ref(), (ox, oy)))),
+                    _ => None,
+                };
+                if let Some(matte) = matte {
+                    crate::perf::time(crate::perf::Stage::EffectAerialHaze, || {
+                        crate::layer_fx::aerial_haze(source, matte, encoded(haze_color).map(crate::grade::to_linear), amount / 100.0)
                     })
                 }
             }

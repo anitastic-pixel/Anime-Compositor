@@ -4266,6 +4266,28 @@ pub(crate) fn gradient_wipe(
     });
 }
 
+/// D-403: Aerial Haze. Each pixel moved toward `haze`, a linear colour, by `amount` (0 to 1) in
+/// premultiplied light, times the picture luma of the matte under it when there is one; the
+/// matte lies on the layer's own picture, which sits at its origin in `source`, and reads black
+/// outside it. The covering never changes.
+pub(crate) fn aerial_haze(source: &mut WorkingBuffer, matte: Option<(&WorkingBuffer, (usize, usize))>, haze: [f64; 3], amount: f64) {
+    let w = source.width();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let v = match matte {
+            None => 1.0,
+            Some((map, origin)) => {
+                let (x, y) = ((i % w).wrapping_sub(origin.0), (i / w).wrapping_sub(origin.1));
+                if x < map.width() && y < map.height() { picture_luma(map.pixel(x, y)) } else { 0.0 }
+            }
+        };
+        let (k, a) = (amount * v, px[3] as f64);
+        for c in 0..3 {
+            let q = px[c] as f64;
+            px[c] = (q + k * (haze[c] * a - q)) as f32;
+        }
+    });
+}
+
 /// D-348: the pass's pixel under the drawing's pixel `i` of a buffer `w` wide with the drawing's
 /// top-left at `origin`, as an index into `pass`'s data, or `None` outside the drawing.
 fn pass_at(pass: &WorkingBuffer, i: usize, w: usize, origin: (usize, usize)) -> Option<usize> {

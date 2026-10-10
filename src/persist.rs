@@ -1130,6 +1130,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("shadows".into(), J::from(shadows.as_str()));
             params.insert("blend_with_original".into(), num(*blend_with_original));
         }
+        Effect::AerialHaze { haze_color, amount, layer, fit, .. } => {
+            params.insert("haze_color".into(), J::from(haze_color.as_str()));
+            params.insert("amount".into(), num(*amount));
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+        }
         Effect::LineSmooth {
             softness,
             threshold,
@@ -4176,6 +4182,7 @@ fn parse_effect(
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
         crate::effects::TRITONE,
+        crate::effects::AERIAL_HAZE,
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
@@ -4230,6 +4237,14 @@ fn parse_effect(
             midtones: effect_word(params, "midtones", &at)?.to_ascii_lowercase(),
             shadows: effect_word(params, "shadows", &at)?.to_ascii_lowercase(),
             blend_with_original: effect_number(params, "blend_with_original", &at)?,
+        }),
+        // D-403: the layer is kept as written, as Gradient Wipe's is.
+        crate::effects::AERIAL_HAZE => Some(crate::effects::Effect::AerialHaze {
+            haze_color: effect_word(params, "haze_color", &at)?.to_ascii_lowercase(),
+            amount: effect_number(params, "amount", &at)?,
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            map: None,
         }),
         crate::effects::LINE_SMOOTH => Some(crate::effects::Effect::LineSmooth {
             softness: effect_number(params, "softness", &at)?,
