@@ -2,7 +2,7 @@
 
 B-297, after After Effects' Fill: the masks chosen as Path Stroke's (Fill Mask n, its floor taken, of the masks switched on with two points or more, or every one with All Masks; 0 for the whole layer), each covered by ADR-016's 4 by 4 even-odd rule and joined as a screen, feathered by a Gaussian of sigma = feather / 2 each way, turned over by Invert, then P (1 - k) + C P.a k with k = covering x Opacity: the layer's alpha is kept. A mask asked for and missing leaves the layer as it is with a warning each frame. The layer never grows. Every expected pixel is `Fixtures/fill/expected_fill.json`, written by `tools/fill_reference.py` before this code existed and printed in document 25 as FX-FILL-001 to 044. Tolerance 2e-5.
 
-## FX-FILL-001 to 044 (document 25), but 026 and 027
+## FX-FILL-001 to 044 (document 25)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -62,6 +62,10 @@ B-297, after After Effects' Fill: the masks chosen as Path Stroke's (Fill Mask n
 | FX-FILL-024: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FILL-025 frame 0: Opacity 0: the cel as it was. | largest difference 1.9e-7 | yes |
 | FX-FILL-025: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FILL-026 frame 0: A mask of two points encloses nothing: the cel as it was. Inverted, FX-FILL-027, everything is filled. | largest difference 1.9e-7 | yes |
+| FX-FILL-026: what opening it warns of, and what frame 4 warns of | ["MASK_INVALID_OUTLINE"] and ["MASK_INVALID_OUTLINE"] | yes |
+| FX-FILL-027 frame 0: The two-point mask, inverted: the whole cel red, FX-FILL-001's frame. | largest difference 3.0e-8 | yes |
+| FX-FILL-027: what opening it warns of, and what frame 4 warns of | ["MASK_INVALID_OUTLINE"] and ["MASK_INVALID_OUTLINE"] | yes |
 | FX-FILL-028 frame 0: A mask from far left of the layer to x 12, Horizontal Feather 6: the covering is worked out past the layer's edge too, so the left edge stays fully red and only the edge at x 12 softens. | largest difference 1.2e-7 | yes |
 | FX-FILL-028: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FILL-029 frame 0: Opacity keyed from 40 at frame 0 to 100 at frame 4 by an ease that passes its end: held at 100 at frame 2, where it would pass it. | largest difference 1.9e-7 | yes |
@@ -112,15 +116,6 @@ B-297, after After Effects' Fill: the masks chosen as Path Stroke's (Fill Mask n
 | FX-FILL-044 frame 0: Opacity keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-FILL-044 frame 4: Opacity keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-FILL-044: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-
-## FX-FILL-026 and 027, in dispute (D-418's warning amendment, proposed)
-
-| Check | The build's answer | Matches |
-| --- | --- | --- |
-| FX-FILL-026 frame 0: A mask of two points encloses nothing: the cel as it was. Inverted, FX-FILL-027, everything is filled. | largest difference 1.9e-7 | yes |
-| FX-FILL-026, in dispute (D-418's warning amendment, proposed): the case expects no warning; the build says on opening and at frame 4 that the two-point mask encloses nothing, as it does for every such mask | ["MASK_INVALID_OUTLINE"] and ["MASK_INVALID_OUTLINE"] | yes |
-| FX-FILL-027 frame 0: The two-point mask, inverted: the whole cel red, FX-FILL-001's frame. | largest difference 3.0e-8 | yes |
-| FX-FILL-027, in dispute (D-418's warning amendment, proposed): the case expects no warning; the build says on opening and at frame 4 that the two-point mask encloses nothing, as it does for every such mask | ["MASK_INVALID_OUTLINE"] and ["MASK_INVALID_OUTLINE"] | yes |
 
 ## The file
 

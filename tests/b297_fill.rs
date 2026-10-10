@@ -277,33 +277,6 @@ fn mostly(a: &[u8], b: &[u8]) -> bool {
     share > 0.6 && share < 0.98 && kept
 }
 
-/// FX-FILL-026 and 027 fill by a mask of two points. Their pixels are checked as written; their
-/// warnings are not: the cases expect none, and the build, as document 19 asks of every mask on
-/// every layer, says on opening and on each frame that a mask of two points encloses nothing
-/// (MASK_INVALID_OUTLINE). Proposed: the cases take that warning. The case is kept as written.
-fn two_point_mask(t: &mut Table) {
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_fill.json")).unwrap()).unwrap();
-    let tolerance = expected["tolerance"].as_f64().unwrap();
-    for name in ["FX-FILL-026", "FX-FILL-027"] {
-        let case = &expected["cases"][name];
-        let loaded = t.load(case["project"].as_str().unwrap());
-        for (frame, pixels) in case["frames"].as_object().unwrap() {
-            let frame: i32 = frame.parse().unwrap();
-            let d = effect_table::largest_difference(&t.render(&loaded.document, frame, 64), pixels);
-            t.row(&format!("{name} frame {frame}: {}", case["says"].as_str().unwrap()), &format!("largest difference {d:.1e}"), d <= tolerance);
-        }
-        let on_open: Vec<&str> = loaded.warnings.iter().map(|d| d.id.as_str()).collect();
-        let mut log = FrameLog::new(8);
-        let _ = compose::plan_frame(loaded.document.project(), &Id::new(MAIN), 4, &t.root, &mut log);
-        let at_frame: Vec<String> = log.finish().iter().map(|d| d.id.as_str().to_string()).collect();
-        t.row(
-            &format!("{name}, in dispute (D-418's warning amendment, proposed): the case expects no warning; the build says on opening and at frame 4 that the two-point mask encloses nothing, as it does for every such mask"),
-            &format!("{on_open:?} and {at_frame:?}"),
-            on_open == ["MASK_INVALID_OUTLINE"] && at_frame == ["MASK_INVALID_OUTLINE"],
-        );
-    }
-}
-
 #[test]
 fn b297_fill() {
     let mut t = Table::new(
@@ -318,12 +291,8 @@ fn b297_fill() {
          before this code existed and printed in document 25 as FX-FILL-001 to 044. Tolerance 2e-5.\n",
     );
 
-    t.heading("FX-FILL-001 to 044 (document 25), but 026 and 027");
-    t.fixtures_numbered("expected_fill.json", 1..=25);
-    t.fixtures_numbered("expected_fill.json", 28..=44);
-
-    t.heading("FX-FILL-026 and 027, in dispute (D-418's warning amendment, proposed)");
-    two_point_mask(&mut t);
+    t.heading("FX-FILL-001 to 044 (document 25)");
+    t.fixtures_numbered("expected_fill.json", 1..=44);
 
     t.heading("The file");
     // FX-FILL-017's colour is written in capitals and saved in small letters, as every colour is.

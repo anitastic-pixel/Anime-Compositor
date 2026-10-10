@@ -375,6 +375,10 @@ def main():
     for fx, (says, c, frames) in CASES.items():
         rendered = {str(f): render(c, f) for f in frames}
         expected["cases"][fx] = {"says": says, "project": write(fx, c), "frames": rendered}
+        if fx in ("FX-FILL-026", "FX-FILL-027"):
+            # D-418's amendment, the owner's decision of 2026-10-10: a mask of two points is
+            # warned of on opening and each frame, as every such mask is (document 19).
+            expected["cases"][fx]["warning"] = "MASK_INVALID_OUTLINE"
         before = plain(c)
         print(f"{fx}: " + ", ".join(
             f"frame {f} {sum(px[i] != before[i] for i in range(W * H))} changed"

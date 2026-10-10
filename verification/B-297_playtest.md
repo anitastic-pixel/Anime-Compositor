@@ -46,13 +46,12 @@ big circle in the middle and a smaller one top left, which on their own change n
    to 1000.
 9. **Saved and opened again.** Save, close and open the project: the same settings and picture.
 
-## One thing for you to decide
+## The two-point mask (decided)
 
 Two of the checks fill by a "mask" of only two points, which encloses nothing. The pixels come
-out exactly as expected. But the app, as it does for every such mask anywhere, also warns that
-the mask cannot be drawn, and those two checks were written expecting no warning. I propose the
-two checks expect that warning. Changing a check is your call, so until then they are marked in
-dispute in the table.
+out exactly as expected, and the app, as it does for every such mask anywhere, also warns that
+the mask cannot be drawn. You decided on 2026-10-10 that those two checks expect that warning,
+so they now pass like every other check. No picture changed.
 
 ## Speed
 

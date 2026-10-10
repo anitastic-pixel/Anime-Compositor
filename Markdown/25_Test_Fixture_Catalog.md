@@ -206591,9 +206591,9 @@ FX-FILL-024 (`fx_fill_024.json`): Fill Mask 0 with Invert: nothing is filled, th
 
 FX-FILL-025 (`fx_fill_025.json`): Opacity 0: the cel as it was. Frames 0.
 
-FX-FILL-026 (`fx_fill_026.json`): A mask of two points encloses nothing: the cel as it was. Inverted, FX-FILL-027, everything is filled. Frames 0. In dispute (D-418, proposed): the build also says `MASK_INVALID_OUTLINE` on opening and each frame, as for every mask of fewer than three points.
+FX-FILL-026 (`fx_fill_026.json`): A mask of two points encloses nothing: the cel as it was. Inverted, FX-FILL-027, everything is filled. Frames 0. Warns `MASK_INVALID_OUTLINE` on opening and each frame, as for every mask of fewer than three points (D-418's amendment, the owner's decision of 2026-10-10).
 
-FX-FILL-027 (`fx_fill_027.json`): The two-point mask, inverted: the whole cel red, FX-FILL-001's frame. Frames 0. In dispute (D-418, proposed): the build also says `MASK_INVALID_OUTLINE` on opening and each frame, as for every mask of fewer than three points.
+FX-FILL-027 (`fx_fill_027.json`): The two-point mask, inverted: the whole cel red, FX-FILL-001's frame. Frames 0. Warns `MASK_INVALID_OUTLINE` on opening and each frame, as for every mask of fewer than three points (D-418's amendment, the owner's decision of 2026-10-10).
 
 FX-FILL-028 (`fx_fill_028.json`): A mask from far left of the layer to x 12, Horizontal Feather 6: the covering is worked out past the layer's edge too, so the left edge stays fully red and only the edge at x 12 softens. Frames 0.
 

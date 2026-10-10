@@ -30941,7 +30941,8 @@
       0.0
      ]
     ]
-   }
+   },
+   "warning": "MASK_INVALID_OUTLINE"
   },
   "FX-FILL-027": {
    "says": "The two-point mask, inverted: the whole cel red, FX-FILL-001's frame.",
@@ -31909,7 +31910,8 @@
       0.0
      ]
     ]
-   }
+   },
+   "warning": "MASK_INVALID_OUTLINE"
   },
   "FX-FILL-028": {
    "says": "A mask from far left of the layer to x 12, Horizontal Feather 6: the covering is worked out past the layer's edge too, so the left edge stays fully red and only the edge at x 12 softens.",
