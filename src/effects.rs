@@ -1960,6 +1960,17 @@ pub enum Effect {
         cycle_noise: String,
         cycle: f64,
     },
+    /// D-451: after After Effects' Noise HLS (`grade::noise_hls`, document 21). `noise`, one of
+    /// [`NOISE_HLS_KINDS`]; `hue`, `lightness` and `saturation`, 0 to 100 per cent;
+    /// `grain_size`, 0.5 to 100 pixels; `noise_phase`, -100000 to 100000 degrees.
+    NoiseHls {
+        noise: String,
+        hue: f64,
+        lightness: f64,
+        saturation: f64,
+        grain_size: f64,
+        noise_phase: f64,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2675,6 +2686,9 @@ pub const NOISE_ALPHA: &str = "core.noise_alpha";
 pub const NOISE_ALPHA_KINDS: [&str; 4] = ["uniform_random", "squared_random", "uniform_animation", "squared_animation"];
 pub const NOISE_ALPHA_ORIGINALS: [&str; 4] = ["clamp", "add", "scale", "edges"];
 pub const NOISE_ALPHA_OVERFLOWS: [&str; 3] = ["clip", "wrap_back", "wrap"];
+pub const NOISE_HLS: &str = "core.noise_hls";
+/// D-451: Noise HLS's kinds of noise.
+pub const NOISE_HLS_KINDS: [&str; 3] = ["uniform", "squared", "grain"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3686,6 +3700,13 @@ impl Effect {
                 ("noise_phase", vec![noise_phase], -100000.0, 100000.0),
                 ("cycle", vec![cycle], 1.0, 1000.0),
             ],
+            Effect::NoiseHls { hue, lightness, saturation, grain_size, noise_phase, .. } => vec![
+                ("hue", vec![hue], 0.0, 100.0),
+                ("lightness", vec![lightness], 0.0, 100.0),
+                ("saturation", vec![saturation], 0.0, 100.0),
+                ("grain_size", vec![grain_size], 0.5, 100.0),
+                ("noise_phase", vec![noise_phase], -100000.0, 100000.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -4556,6 +4577,9 @@ impl Effect {
             Effect::CellPattern { size, .. } => *size = scale(*size).max(1.0),
             // D-443: the grain keeps its size on the picture, below a pixel if need be.
             Effect::AddGrain { size, .. } => *size = scale(*size),
+            // D-451: the same for Noise HLS's grain, held at its smallest, half a pixel, rather
+            // than bypassed.
+            Effect::NoiseHls { grain_size, .. } => *grain_size = scale(*grain_size).max(0.5),
             // D-143: held at its smallest, two, rather than bypassed.
             Effect::Halftone { size, .. } => *size = scale(*size).max(2.0),
             // D-144: a block under a pixel is one pixel, which changes nothing.
@@ -4964,6 +4988,7 @@ impl Effect {
             Effect::Scribble { .. } => "Scribble",
             Effect::AddGrain { .. } => "Add Grain",
             Effect::NoiseAlpha { .. } => "Noise Alpha",
+            Effect::NoiseHls { .. } => "Noise HLS",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5143,6 +5168,7 @@ impl Effect {
             Effect::Scribble { .. } => SCRIBBLE,
             Effect::AddGrain { .. } => ADD_GRAIN,
             Effect::NoiseAlpha { .. } => NOISE_ALPHA,
+            Effect::NoiseHls { .. } => NOISE_HLS,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6476,6 +6502,10 @@ impl Effect {
             )),
             Effect::NoiseAlpha { cycle_noise: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "Noise Alpha's cycle noise is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::NoiseHls { noise: v, .. } if !NOISE_HLS_KINDS.contains(&v.as_str()) => Some(format!(
+                "Noise HLS's noise is one of {}, and this is \"{v}\".",
+                NOISE_HLS_KINDS.join(", ")
             )),
             Effect::Ellipse { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
                 "Ellipse's composite is \"on\" or \"off\", and this is \"{composite}\"."
@@ -8173,6 +8203,12 @@ pub(crate) fn apply_stack_at(
             // D-450: the noise in the drawing's own space, however an effect above grew it.
             e @ Effect::NoiseAlpha { .. } => {
                 crate::perf::time(crate::perf::Stage::EffectNoiseAlpha, || crate::grade::noise_alpha(source, e, (ox, oy)))
+            }
+            // D-451: the noise in the drawing's own space; the depth is the phase in turns.
+            Effect::NoiseHls { noise, hue, lightness, saturation, grain_size, noise_phase } => {
+                crate::perf::time(crate::perf::Stage::EffectNoiseHls, || {
+                    crate::grade::noise_hls(source, noise, [*hue, *lightness, *saturation], *grain_size, noise_phase / 360.0, (ox, oy))
+                })
             }
             // D-417: the anchor and corner as Checkerboard's; the layer never grows.
             Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {

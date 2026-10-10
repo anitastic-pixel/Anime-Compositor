@@ -9261,6 +9261,7 @@ const EFFECT_NAMES = {
   'core.noise': 'Noise',
   'core.add_grain': 'Add Grain',
   'core.noise_alpha': 'Noise Alpha',
+  'core.noise_hls': 'Noise HLS',
   'core.chromatic_aberration': 'Chromatic Aberration',
   'core.distance_gradation': 'Distance Gradation',
   'core.light_rays': 'Light Rays',
@@ -9440,7 +9441,7 @@ const EFFECT_GROUPS = [
     'core.corner_pin', 'core.polar_coordinates', 'core.optics_compensation', 'core.bend_it', 'core.bender',
     'core.blobbylize', 'core.flow_motion', 'core.griddler', 'core.fisheye', 'core.page_turn', 'core.power_pin',
     'core.ripple_pulse', 'core.slant', 'core.smear', 'core.split', 'core.split_2', 'core.transform', 'core.tiles', 'core.magnify', 'core.spherize', 'core.detail_upscale']],
-  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.add_grain', 'core.noise_alpha', 'core.speed_lines', 'core.rain', 'core.snowfall',
+  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.add_grain', 'core.noise_alpha', 'core.noise_hls', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
@@ -9501,6 +9502,7 @@ const EFFECT_SEARCH = {
   'core.noise': 'grain film',
   'core.add_grain': 'add grain film stock noise texture analog analogue retro vintage speckle overlay noise and grain',
   'core.noise_alpha': 'noise alpha transparency opacity speckle dissolve holes grain matte noise and grain',
+  'core.noise_hls': 'noise hls hue lightness saturation colour color speckle grain film jitter noise and grain',
   'core.speed_lines': 'action focus concentration manga',
   'core.rain': 'weather storm',
   'core.color_lookup': 'lut cube grade look film',
@@ -9653,6 +9655,7 @@ const EFFECT_ABOUT = {
   'core.noise': 'Adds film grain, still or moving.',
   'core.add_grain': 'Adds film grain with a size, softness, colour and strength in the shadows, midtones and highlights, laid on by Film, Add or Overlay.',
   'core.noise_alpha': 'Speckles the layer’s see-through-ness: random or smoothly moving noise that thins the drawing, its soft edges, or the empty space around it.',
+  'core.noise_hls': 'Speckles the colours: noise that nudges each pixel’s hue, lightness and saturation, pixel by pixel or in soft film-like grains, still or moving as the phase turns.',
   'core.chromatic_aberration': 'Splits red, green and blue apart toward the edges, as a cheap lens does, or in a straight line (RGB Separation), each colour by its own amount, with soft fringes if wanted.',
   'core.distance_gradation': 'Shades a colour in from the drawing\'s edge, darkest at the edge.',
   'core.light_rays': 'Beams of light streaming out from a round or square light source, in the layer’s own colours or one colour, laid over, added, screened or lightened.',
@@ -9918,6 +9921,12 @@ const EFFECT_PARAMS = {
     ['random_seed', 'Random Seed', 1, 1, '0 to 100000, a different noise for each (Random kinds only)'],
     ['noise_phase', 'Noise Phase', 1, 1, 'degrees; key it to move Animation noise, a full turn a new field'],
     ['cycle', 'Cycle', 1, 1, 'turns, 1 to 1000, before the noise repeats (Cycle Noise on)']],
+  // D-451.
+  'core.noise_hls': [['hue', 'Hue', 1, 1, '%, 0 to 100, how far the hue turns, up to half the wheel'],
+    ['lightness', 'Lightness', 1, 1, '%, 0 to 100, how far the lightness moves'],
+    ['saturation', 'Saturation', 1, 1, '%, 0 to 100, how far the saturation moves'],
+    ['grain_size', 'Grain Size', 1, 0.1, 'pixels, 0.5 to 100, how big each grain is (Grain only)'],
+    ['noise_phase', 'Noise Phase', 1, 1, 'degrees; key it to move the noise, a full turn a new noise']],
   'core.add_grain': [['intensity', 'Intensity', 1, 0.1, '0 to 10, how strong the grain is'],
     ['size', 'Size', 1, 0.1, 'pixels, 0.1 to 100, how big each grain is'],
     ['softness', 'Softness', 1, 0.05, '0 to 1, 0 sharp square grains, 1 grains blended into each other'],
@@ -10856,6 +10865,10 @@ const EFFECT_WORDS = {
       ['original_alpha', 'Original Alpha', [['clamp', 'Clamp'], ['add', 'Add'], ['scale', 'Scale'], ['edges', 'Edges']]],
       ['overflow', 'Overflow', [['clip', 'Clip'], ['wrap_back', 'Wrap Back'], ['wrap', 'Wrap']]],
       ['cycle_noise', 'Cycle Noise', [['off', 'Off'], ['on', 'On']]]],
+  },
+  // D-451: After Effects’ words; Uniform as it is added.
+  'core.noise_hls': {
+    choices: [['noise', 'Noise', [['uniform', 'Uniform'], ['squared', 'Squared'], ['grain', 'Grain']]]],
   },
   // D-123.
   'core.distance_gradation': {

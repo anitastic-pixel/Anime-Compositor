@@ -677,6 +677,39 @@ pub(crate) fn noise_alpha(source: &mut WorkingBuffer, e: &crate::effects::Effect
     });
 }
 
+/// D-451: After Effects' Noise HLS, by document 21's rule. Three noises in -1..1 at the pixel in
+/// the drawing's own space (its corner at `(ox, oy)` in `source`), channel 0 for the hue, 1 the
+/// lightness and 2 the saturation, [`value`] for seed 0 at depth `z`: one number a pixel
+/// (`uniform`), the same pushed out to sign(n) (1 - (1 - |n|)^2) (`squared`), or smooth in cells
+/// of `size` pixels at the pixel's middle (`grain`). Through D-113's HSL the hue turns
+/// 180 n `amounts[0]` / 100 degrees, and the lightness and saturation move n `amounts[1]` / 100
+/// and n `amounts[2]` / 100, held in 0 to 1. The settings are already valid; all three amounts 0
+/// change nothing.
+pub(crate) fn noise_hls(source: &mut WorkingBuffer, noise: &str, amounts: [f64; 3], size: f64, z: f64, (ox, oy): (usize, usize)) {
+    if amounts == [0.0; 3] {
+        return;
+    }
+    let (w, base) = (source.width().max(1), mix(0));
+    let [hue, lightness, saturation] = amounts.map(|v| v / 100.0);
+    grade_pixels(source, true, |i, e| {
+        let (x, y) = ((i % w) as f64 - ox as f64, (i / w) as f64 - oy as f64);
+        let n: [f64; 3] = std::array::from_fn(|k| match noise {
+            "grain" => value(base, k as u64, (x + 0.5) / size, (y + 0.5) / size, z, false, 0),
+            "squared" => {
+                let n = value(base, k as u64, x, y, z, true, 0);
+                (1.0 - (1.0 - n.abs()).powi(2)).copysign(n)
+            }
+            _ => value(base, k as u64, x, y, z, true, 0),
+        });
+        let [h, s, l] = to_hsl(e);
+        from_hsl([
+            (h + 180.0 * n[0] * hue).rem_euclid(360.0),
+            (s + n[2] * saturation).clamp(0.0, 1.0),
+            (l + n[1] * lightness).clamp(0.0, 1.0),
+        ])
+    });
+}
+
 /// D-299: After Effects' Fractal Type, Noise Type and Cycle Evolution. The default is D-128's
 /// basic, smooth noise that never repeats.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

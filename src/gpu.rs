@@ -1394,6 +1394,30 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
             }
         }
+        case 12u: {
+            // D-451, grade::noise_hls. k: hue, lightness and saturation as shares, the grain
+            // size, the depth and the kind (0 Uniform, 1 Squared, 2 Grain). `base` is seed 0.
+            let x = f64(i32(id.x) - F.ox);
+            let y = f64(i32(id.y) - F.oy);
+            var n = vec3(0.0lf);
+            for (var c = 0u; c < 3u; c++) {
+                if k[5] == 2.0lf {
+                    n[c] = cell_noise_look(c, vec3((x + 0.5lf) / k[3], (y + 0.5lf) / k[3], k[4]), false, 0);
+                } else {
+                    n[c] = cell_noise_look(c, vec3(x, y, k[4]), true, 0);
+                    if k[5] == 1.0lf {
+                        let r = 1.0lf - abs(n[c]);
+                        n[c] = select(-(1.0lf - r * r), 1.0lf - r * r, n[c] >= 0.0lf);
+                    }
+                }
+            }
+            let v = hsl(e);
+            o = from_hsl(vec3(
+                rem(v.x + 180.0lf * n.x * k[0], 360.0lf),
+                clamp(v.y + n.z * k[2], 0.0lf, 1.0lf),
+                clamp(v.z + n.y * k[1], 0.0lf, 1.0lf),
+            ));
+        }
         default: {
             // k: amount over 200. `flag` is colour.
             let x = i32(id.x) - F.ox;
@@ -7903,6 +7927,7 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::Noise { .. }
             | E::AddGrain { .. }
             | E::NoiseAlpha { .. }
+            | E::NoiseHls { .. }
             | E::ExposureFlicker { .. }
             | E::ColorBalance { .. }
             | E::GradientMap { .. }
@@ -9412,6 +9437,20 @@ impl Gpu {
                 ];
                 let p = FxParams {
                     mode: 11,
+                    base: [base as u32, (base >> 32) as u32],
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                same(steps, &passes.grade, p, &k, None)
+            }
+            // D-451: grade::noise_hls as grade mode 12.
+            E::NoiseHls { noise, hue, lightness, saturation, grain_size, noise_phase } => {
+                let base = crate::grade::mix(0);
+                let kind = crate::effects::NOISE_HLS_KINDS.iter().position(|o| o == noise).unwrap_or(0) as f64;
+                let k = [hue / 100.0, lightness / 100.0, saturation / 100.0, *grain_size, noise_phase / 360.0, kind];
+                let p = FxParams {
+                    mode: 12,
                     base: [base as u32, (base >> 32) as u32],
                     ox: ox as i32,
                     oy: oy as i32,
