@@ -440,7 +440,7 @@ fn b332_noisehlsauto_timing() {
     );
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
-        ("Noise, then Noise HLS Auto Auto as added (Uniform, lightness 10, speed 1)", Some(json!({}))),
+        ("Noise, then Noise HLS Auto as added (Uniform, lightness 10, speed 1)", Some(json!({}))),
         ("Noise, then Noise HLS Auto Squared, hue 40, lightness 20, saturation 40", Some(json!({"noise": "squared", "hue": 40, "lightness": 20, "saturation": 40}))),
         ("Noise, then Noise HLS Auto Grain, grain size 2.5, hue 40, lightness 20, saturation 40", Some(json!({"noise": "grain", "grain_size": 2.5, "hue": 40, "lightness": 20, "saturation": 40}))),
     ];

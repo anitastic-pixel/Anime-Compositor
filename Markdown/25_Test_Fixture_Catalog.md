@@ -207514,3 +207514,55 @@ FX-NOISEHLS-024 (`fx_noisehls_024.json`): Noise "Uniform", in capitals, kept as 
 FX-NOISEHLS-025 (`fx_noisehls_025.json`): Noise "grainy", not one of its three words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-NOISEHLS-026 (`fx_noisehls_026.json`): Lightness keyed to 120 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Noise HLS Auto (D-452)
+
+After Effects' Noise HLS Auto (Noise & Grain), `core.noise_hls_auto` (B-332). Every case is a composition 16 by 10 at 24 frames a second, 5 frames long, holding Hue/Saturation's bands (`Fixtures/noisehlsauto/media`), the same size, unmoved unless the case says. `tools/noisehlsauto_reference.py` works the expected frames, `Fixtures/noisehlsauto/expected_noisehlsauto.json`, tolerance 2e-5, and checks them against D-451's own; the rule is in document 21.
+
+FX-NOISEHLSAUTO-001 (`fx_noisehlsauto_001.json`): The settings as they start: Uniform, Lightness 10, speed 1: each shown pixel's lightness moves up to 0.1 either way, a whole new noise every frame; the covering kept and the empty pixels left. Frames 0, 1, 2.
+
+FX-NOISEHLSAUTO-002 (`fx_noisehlsauto_002.json`): Speed 0: the noise holds still, every frame Noise HLS's at phase 0 (FX-NOISEHLS-001). Frames 0, 2.
+
+FX-NOISEHLSAUTO-003 (`fx_noisehlsauto_003.json`): Speed 0.5, Lightness 30: frame 1 is half way from the first noise to the next, Noise HLS's phase 180 (FX-NOISEHLS-010); frame 2 is the next noise. Frames 1, 2.
+
+FX-NOISEHLSAUTO-004 (`fx_noisehlsauto_004.json`): Hue 50, Lightness 0: each coloured pixel's hue turns up to 90 degrees either way, differently each frame; the grey has no hue and is left. Frames 0, 3.
+
+FX-NOISEHLSAUTO-005 (`fx_noisehlsauto_005.json`): Saturation 50, Lightness 0, at frame 1. Frames 1.
+
+FX-NOISEHLSAUTO-006 (`fx_noisehlsauto_006.json`): Squared, Lightness 30: the noise pushed out towards its ends. Frames 2.
+
+FX-NOISEHLSAUTO-007 (`fx_noisehlsauto_007.json`): Grain, Grain Size 4, Lightness 30, speed 0.25: soft cells four pixels across, a new grain every four frames, gliding between. Frames 0, 1, 4.
+
+FX-NOISEHLSAUTO-008 (`fx_noisehlsauto_008.json`): Grain, Grain Size 2.5, Hue 40, Saturation 40, Lightness 0, speed 2: two new grains a frame. Frames 1, 2.
+
+FX-NOISEHLSAUTO-009 (`fx_noisehlsauto_009.json`): Hue, Lightness and Saturation 0: the drawing, untouched, on every frame. Frames 0, 3.
+
+FX-NOISEHLSAUTO-010 (`fx_noisehlsauto_010.json`): Hue, Lightness and Saturation 30 moved three pixels right: the noise is the drawing's own, so it moves with it. Frames 2.
+
+FX-NOISEHLSAUTO-011 (`fx_noisehlsauto_011.json`): Hue, Lightness and Saturation 30 after a Motion Tile that grows the layer: the noise is worked in the drawing's own pixels. Frames 2.
+
+FX-NOISEHLSAUTO-012 (`fx_noisehlsauto_012.json`): Lightness keyed from 0 at frame 0 to 40 at frame 4: frame 0 is the drawing. Frames 0, 2, 4.
+
+FX-NOISEHLSAUTO-013 (`fx_noisehlsauto_013.json`): Speed keyed from 0 at frame 0 to 2 at frame 4, Lightness 30: the speed at the frame times the frame, so frame 2 is speed 1's frame 2 and frame 4 is depth 8. Frames 0, 2, 4.
+
+FX-NOISEHLSAUTO-014 (`fx_noisehlsauto_014.json`): Grain, Grain Size 0.5, Lightness 30: cells of half a pixel. Frames 1.
+
+FX-NOISEHLSAUTO-015 (`fx_noisehlsauto_015.json`): Grain, Grain Size 3, Hue 20, Lightness 25, Saturation 60, speed 0.75: the controls together. Frames 0, 1, 2, 3, 4.
+
+FX-NOISEHLSAUTO-016 (`fx_noisehlsauto_016.json`): Hue 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLSAUTO-017 (`fx_noisehlsauto_017.json`): Lightness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLSAUTO-018 (`fx_noisehlsauto_018.json`): Saturation 150, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLSAUTO-019 (`fx_noisehlsauto_019.json`): Grain Size 0.25, below 0.5. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLSAUTO-020 (`fx_noisehlsauto_020.json`): Speed 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLSAUTO-021 (`fx_noisehlsauto_021.json`): Speed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLSAUTO-022 (`fx_noisehlsauto_022.json`): Noise "Squared", in capitals, kept as written and not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLSAUTO-023 (`fx_noisehlsauto_023.json`): Noise "film", not one of its three words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLSAUTO-024 (`fx_noisehlsauto_024.json`): Saturation keyed to 120 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
