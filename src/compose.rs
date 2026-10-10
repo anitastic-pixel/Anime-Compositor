@@ -984,6 +984,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::Spherize { .. }
                 // D-413: Checkerboard.
                 | crate::effects::Effect::Checkerboard { .. }
+                // D-414: Circle.
+                | crate::effects::Effect::Circle { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
                 // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }
@@ -1295,7 +1297,7 @@ fn card_effect(
                 E::Magnify { opacity, blending_mode, .. } => *opacity == 0.0 && blending_mode != "none",
                 E::Spherize { radius, .. } => *radius <= 0.0,
                 // D-413: a clear pattern laid on the layer; None and Stencil Alpha still clear it.
-                E::Checkerboard { opacity, blending_mode, .. } => {
+                E::Checkerboard { opacity, blending_mode, .. } | E::Circle { opacity, blending_mode, .. } => {
                     *opacity == 0.0 && !["none", "stencil_alpha"].contains(&blending_mode.as_str())
                 }
                 // D-360: the mean of two untouched copies is the layer.

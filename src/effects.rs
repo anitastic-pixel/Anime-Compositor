@@ -1741,6 +1741,24 @@ pub enum Effect {
         opacity: f64,
         blending_mode: String,
     },
+    /// D-414: after After Effects' Circle. `center`, per cent of the drawing, -1000 to 1000;
+    /// `radius`, 0 to 10000 pixels; `edge`, one of [`CIRCLE_EDGES`]; `edge_thickness`, the edge
+    /// radius or thickness, 0 to 10000 (per cent of the radius for the two "*_radius" edges);
+    /// `feather_outer` and `feather_inner`, 0 to 10000 pixels (per cent of the radius for
+    /// "thickness_feather_radius"); `invert`, "off" or "on"; `color`, `#rrggbb`; `opacity`, 0 to
+    /// 100; `blending_mode`, one of [`PATTERN_MODES`].
+    Circle {
+        center: [f64; 2],
+        radius: f64,
+        edge: String,
+        edge_thickness: f64,
+        feather_outer: f64,
+        feather_inner: f64,
+        invert: String,
+        color: String,
+        opacity: f64,
+        blending_mode: String,
+    },
     /// D-395: after After Effects' PS Arbitrary Map. `map`, the id of an asset of kind lut that
     /// is a Photoshop arbitrary map (.amp), or empty for none; `phase`, -255 to 255 levels, every
     /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
@@ -2207,6 +2225,9 @@ pub const TILES: &str = "core.tiles";
 pub const MAGNIFY: &str = "core.magnify";
 pub const SPHERIZE: &str = "core.spherize";
 pub const CHECKERBOARD: &str = "core.checkerboard";
+pub const CIRCLE: &str = "core.circle";
+/// D-414: Circle's edges, After Effects' five.
+pub const CIRCLE_EDGES: [&str; 5] = ["none", "edge_radius", "thickness", "thickness_radius", "thickness_feather_radius"];
 /// D-413: how a generator's pattern is laid on the layer, "none" replacing it
 /// (`layer_fx::lay_pattern`).
 pub const PATTERN_MODES: [&str; 8] = ["none", "normal", "add", "multiply", "screen", "overlay", "soft_light", "stencil_alpha"];
@@ -3100,6 +3121,14 @@ impl Effect {
                 ("feather_height", vec![feather_height], 0.0, 10000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::Circle { center, radius, edge_thickness, feather_outer, feather_inner, opacity, .. } => vec![
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("radius", vec![radius], 0.0, 10000.0),
+                ("edge_thickness", vec![edge_thickness], 0.0, 10000.0),
+                ("feather_outer", vec![feather_outer], 0.0, 10000.0),
+                ("feather_inner", vec![feather_inner], 0.0, 10000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::ArbitraryMap { phase, .. } => vec![("phase", vec![phase], -255.0, 255.0)],
             Effect::SelectiveColor { families, .. } => SELECTIVE_COLOR_FAMILIES
                 .into_iter()
@@ -3852,6 +3881,17 @@ impl Effect {
                 *feather_width = scale(*feather_width);
                 *feather_height = scale(*feather_height);
             }
+            // D-414: the edge and feathers given as per cent of the radius follow it unscaled.
+            Effect::Circle { radius, edge, edge_thickness, feather_outer, feather_inner, .. } => {
+                *radius = scale(*radius);
+                if !edge.ends_with("_radius") || edge == "edge_radius" {
+                    *edge_thickness = scale(*edge_thickness);
+                }
+                if edge != "thickness_feather_radius" {
+                    *feather_outer = scale(*feather_outer);
+                    *feather_inner = scale(*feather_inner);
+                }
+            }
             Effect::Bulge { radius, vertical_radius, taper_radius, .. } => {
                 *radius = scale(*radius);
                 *vertical_radius = scale(*vertical_radius);
@@ -4116,6 +4156,7 @@ impl Effect {
             Effect::Magnify { .. } => "Magnify",
             Effect::Spherize { .. } => "Spherize",
             Effect::Checkerboard { .. } => "Checkerboard",
+            Effect::Circle { .. } => "Circle",
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::SelectiveColor { .. } => "Selective Color",
             Effect::ShadowHighlight { .. } => "Shadow/Highlight",
@@ -4276,6 +4317,7 @@ impl Effect {
             Effect::Magnify { .. } => MAGNIFY,
             Effect::Spherize { .. } => SPHERIZE,
             Effect::Checkerboard { .. } => CHECKERBOARD,
+            Effect::Circle { .. } => CIRCLE,
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
             Effect::ShadowHighlight { .. } => SHADOW_HIGHLIGHT,
@@ -5406,6 +5448,16 @@ impl Effect {
                 "Checkerboard's blending mode is \"none\", \"normal\", \"add\", \"multiply\", \"screen\", \"overlay\", \"soft_light\" or \"stencil_alpha\", and this is \"{blending_mode}\"."
             )),
             Effect::Checkerboard { color, .. } => hex_fault("Checkerboard", "colour", color),
+            Effect::Circle { edge, .. } if !CIRCLE_EDGES.contains(&edge.as_str()) => Some(format!(
+                "Circle's edge is \"none\", \"edge_radius\", \"thickness\", \"thickness_radius\" or \"thickness_feather_radius\", and this is \"{edge}\"."
+            )),
+            Effect::Circle { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
+                "Circle's invert is \"off\" or \"on\", and this is \"{invert}\"."
+            )),
+            Effect::Circle { blending_mode, .. } if !PATTERN_MODES.contains(&blending_mode.as_str()) => Some(format!(
+                "Circle's blending mode is \"none\", \"normal\", \"add\", \"multiply\", \"screen\", \"overlay\", \"soft_light\" or \"stencil_alpha\", and this is \"{blending_mode}\"."
+            )),
+            Effect::Circle { color, .. } => hex_fault("Circle", "colour", color),
             Effect::HsvKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "HSV Key's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
@@ -6923,6 +6975,16 @@ pub(crate) fn apply_stack_at(
                 let ramps = [*feather_width, *feather_height].map(|f| f.max(1.0) / 2.0);
                 crate::perf::time(crate::perf::Stage::EffectCheckerboard, || {
                     let cover = |x, y| crate::layer_fx::checker_cover((x, y), a, cell, ramps);
+                    crate::layer_fx::lay_pattern(source, cover, encoded(color).map(crate::grade::to_linear), *opacity / 100.0, blending_mode)
+                })
+            }
+            // D-414: the centre is a share of the drawing's own size; the layer never grows.
+            Effect::Circle { center, radius, edge, edge_thickness, feather_outer, feather_inner, invert, color, opacity, blending_mode } => {
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
+                let ring = crate::layer_fx::circle_ring(*radius, edge, *edge_thickness, [*feather_outer, *feather_inner]);
+                let inverted = invert == "on";
+                crate::perf::time(crate::perf::Stage::EffectCircle, || {
+                    let cover = |x, y| crate::layer_fx::circle_cover((x, y), c, ring, inverted);
                     crate::layer_fx::lay_pattern(source, cover, encoded(color).map(crate::grade::to_linear), *opacity / 100.0, blending_mode)
                 })
             }

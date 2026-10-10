@@ -2237,6 +2237,38 @@ pub(crate) fn checker_cover((x, y): (f64, f64), (ax, ay): (f64, f64), (w, h): (f
     (1.0 + axis(x, ax, w, rx) * axis(y, ay, h, ry)) / 2.0
 }
 
+/// D-414: Circle's ring, `[outer, inner, outer ramp, inner ramp]`: the radii it runs between
+/// and the widths of the ramps on them, max(feather, 1). "none" is a disk; "edge_radius" runs
+/// between the radius and the edge radius; "thickness" inward from the radius; the two
+/// "*_radius" edges read the thickness (and, for "thickness_feather_radius", the feathers) as
+/// per cent of the radius.
+pub(crate) fn circle_ring(radius: f64, edge: &str, edge_thickness: f64, [outer, inner]: [f64; 2]) -> [f64; 4] {
+    let share = |v: f64| v * radius / 100.0;
+    let (t, fo, fi) = match edge {
+        "thickness_radius" => (share(edge_thickness), outer, inner),
+        "thickness_feather_radius" => (share(edge_thickness), share(outer), share(inner)),
+        _ => (edge_thickness, outer, inner),
+    };
+    let (ro, ri) = match edge {
+        "none" => (radius, 0.0),
+        "edge_radius" => (radius.max(t), radius.min(t)),
+        _ => (radius, (radius - t).max(0.0)),
+    };
+    [ro, ri, fo.max(1.0), fi.max(1.0)]
+}
+
+/// D-414: Circle's covering at `(x, y)`, in the buffer's pixels, centre `c`: a straight ramp
+/// on the outer radius, times one on the inner when it is past 0, each centred on its edge;
+/// 1 minus that when `invert`.
+pub(crate) fn circle_cover((x, y): (f64, f64), c: (f64, f64), [ro, ri, fo, fi]: [f64; 4], invert: bool) -> f64 {
+    let d = (x - c.0).hypot(y - c.1);
+    let mut k = ((ro - d) / fo + 0.5).clamp(0.0, 1.0);
+    if ri > 0.0 {
+        k *= ((d - ri) / fi + 0.5).clamp(0.0, 1.0);
+    }
+    if invert { 1.0 - k } else { k }
+}
+
 /// D-304: where a Motion Tile's tiles sit when nothing moved them, the buffer's middle.
 pub(crate) const PLAIN_TILE: [f64; 2] = [50.0, 50.0];
 

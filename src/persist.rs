@@ -2949,6 +2949,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
         }
+        Effect::Circle { center, radius, edge, edge_thickness, feather_outer, feather_inner, invert, color, opacity, blending_mode } => {
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("radius".into(), num(*radius));
+            params.insert("edge".into(), J::from(edge.as_str()));
+            params.insert("edge_thickness".into(), num(*edge_thickness));
+            params.insert("feather_outer".into(), num(*feather_outer));
+            params.insert("feather_inner".into(), num(*feather_inner));
+            params.insert("invert".into(), J::from(invert.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
+        }
         Effect::ArbitraryMap { map, phase, apply_to_alpha, .. } => {
             params.insert("map".into(), J::from(map.as_str()));
             params.insert("phase".into(), num(*phase));
@@ -4290,6 +4302,7 @@ fn parse_effect(
         crate::effects::MAGNIFY,
         crate::effects::SPHERIZE,
         crate::effects::CHECKERBOARD,
+        crate::effects::CIRCLE,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5530,6 +5543,18 @@ fn parse_effect(
             height: effect_number(params, "height", &at)?,
             feather_width: effect_number(params, "feather_width", &at)?,
             feather_height: effect_number(params, "feather_height", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            opacity: effect_number(params, "opacity", &at)?,
+            blending_mode: effect_word(params, "blending_mode", &at)?,
+        }),
+        crate::effects::CIRCLE => Some(crate::effects::Effect::Circle {
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            radius: effect_number(params, "radius", &at)?,
+            edge: effect_word(params, "edge", &at)?,
+            edge_thickness: effect_number(params, "edge_thickness", &at)?,
+            feather_outer: effect_number(params, "feather_outer", &at)?,
+            feather_inner: effect_number(params, "feather_inner", &at)?,
+            invert: effect_word(params, "invert", &at)?,
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             opacity: effect_number(params, "opacity", &at)?,
             blending_mode: effect_word(params, "blending_mode", &at)?,

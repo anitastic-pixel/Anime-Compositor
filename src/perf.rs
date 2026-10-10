@@ -315,6 +315,8 @@ pub enum Stage {
     EffectSpherize,
     /// D-413's Checkerboard.
     EffectCheckerboard,
+    /// D-414's Circle.
+    EffectCircle,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -332,7 +334,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 163] = [
+    pub const ALL: [Stage; 164] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -489,6 +491,7 @@ impl Stage {
         Stage::EffectMagnify,
         Stage::EffectSpherize,
         Stage::EffectCheckerboard,
+        Stage::EffectCircle,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -657,6 +660,7 @@ impl Stage {
             Stage::EffectMagnify => "effect: magnify",
             Stage::EffectSpherize => "effect: spherize",
             Stage::EffectCheckerboard => "effect: checkerboard",
+            Stage::EffectCircle => "effect: circle",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

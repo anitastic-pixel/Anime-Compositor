@@ -3841,6 +3841,20 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             textureStore(output, id.xy, laid(s, textureLoad(input, id.xy, 0), u32(k[10])));
             return;
         }
+        case 27u: {
+            // D-414, layer_fx::circle_cover laid as Checkerboard's. k: the centre, the outer and
+            // inner radii, their ramps, the colour (linear), the opacity (a share), the blend (as
+            // `laid`'s), 1 to invert.
+            let d = sqrt((x - k[0]) * (x - k[0]) + (y - k[1]) * (y - k[1]));
+            var c = clamp(quotient(k[2] - d, k[4]) + 0.5lf, 0.0lf, 1.0lf);
+            if k[3] > 0.0lf {
+                c = c * clamp(quotient(d - k[3], k[5]) + 0.5lf, 0.0lf, 1.0lf);
+            }
+            let cover = select(c, 1.0lf - c, k[11] != 0.0lf) * k[9];
+            let s = vec4(f32(k[6] * cover), f32(k[7] * cover), f32(k[8] * cover), f32(cover));
+            textureStore(output, id.xy, laid(s, textureLoad(input, id.xy, 0), u32(k[10])));
+            return;
+        }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
             let vx = x - f64(F.g) - k[0] - k[2];
@@ -9019,6 +9033,14 @@ impl Gpu {
                 let c = linear(color);
                 let k = [ax, ay, cw, ch, feather_width.max(1.0) / 2.0, feather_height.max(1.0) / 2.0, c[0], c[1], c[2], opacity / 100.0, laid(blending_mode), 0.0];
                 same(steps, &passes.warp, FxParams { mode: 26, ..Default::default() }, &k, None)
+            }
+            // D-414: as effects' arm reads it, the layer never grows.
+            E::Circle { center, radius, edge, edge_thickness, feather_outer, feather_inner, invert, color, opacity, blending_mode } => {
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
+                let [ro, ri, fo, fi] = crate::layer_fx::circle_ring(*radius, edge, *edge_thickness, [*feather_outer, *feather_inner]);
+                let c = linear(color);
+                let k = [cx, cy, ro, ri, fo, fi, c[0], c[1], c[2], opacity / 100.0, laid(blending_mode), (invert == "on") as u8 as f64];
+                same(steps, &passes.warp, FxParams { mode: 27, ..Default::default() }, &k, None)
             }
             E::Mirror { center, angle } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
