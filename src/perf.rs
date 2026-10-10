@@ -210,6 +210,8 @@ pub enum Stage {
     EffectGradientWipe,
     /// D-403's aerial haze, a mix toward a colour a pixel, through a matte when one is read.
     EffectAerialHaze,
+    /// D-408's transform, one or more samples a pixel through an affine map.
+    EffectTransform,
     /// D-195's echo, its copies put together and laid on the layer; drawing them is timed as
     /// any drawing is.
     EffectEcho,
@@ -322,7 +324,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 158] = [
+    pub const ALL: [Stage; 159] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -405,6 +407,7 @@ impl Stage {
         Stage::EffectDisplacementMap,
         Stage::EffectGradientWipe,
         Stage::EffectAerialHaze,
+        Stage::EffectTransform,
         Stage::EffectEcho,
         Stage::EffectChangeToColor,
         Stage::EffectCornerPin,
@@ -568,6 +571,7 @@ impl Stage {
             Stage::EffectDisplacementMap => "effect: displacement map",
             Stage::EffectGradientWipe => "effect: gradient wipe",
             Stage::EffectAerialHaze => "effect: aerial haze",
+            Stage::EffectTransform => "effect: transform",
             Stage::EffectEcho => "effect: echo",
             Stage::EffectChangeToColor => "effect: change to color",
             Stage::EffectCornerPin => "effect: corner pin",

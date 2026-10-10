@@ -1136,6 +1136,34 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
         }
+        Effect::Transform {
+            anchor_point,
+            position,
+            uniform_scale,
+            scale_height,
+            scale_width,
+            skew,
+            skew_axis,
+            rotation,
+            opacity,
+            use_composition_shutter_angle,
+            shutter_angle,
+            sampling,
+            ..
+        } => {
+            params.insert("anchor_point".into(), J::Array(anchor_point.iter().map(|c| num(*c)).collect()));
+            params.insert("position".into(), J::Array(position.iter().map(|c| num(*c)).collect()));
+            params.insert("uniform_scale".into(), J::from(uniform_scale.as_str()));
+            params.insert("scale_height".into(), num(*scale_height));
+            params.insert("scale_width".into(), num(*scale_width));
+            params.insert("skew".into(), num(*skew));
+            params.insert("skew_axis".into(), num(*skew_axis));
+            params.insert("rotation".into(), num(*rotation));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("use_composition_shutter_angle".into(), J::from(use_composition_shutter_angle.as_str()));
+            params.insert("shutter_angle".into(), num(*shutter_angle));
+            params.insert("sampling".into(), J::from(sampling.as_str()));
+        }
         Effect::LineSmooth {
             softness,
             threshold,
@@ -4183,6 +4211,7 @@ fn parse_effect(
         crate::effects::SHADOW_HIGHLIGHT,
         crate::effects::TRITONE,
         crate::effects::AERIAL_HAZE,
+        crate::effects::TRANSFORM,
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
@@ -4245,6 +4274,21 @@ fn parse_effect(
             layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
             fit: effect_word(params, "fit", &at)?,
             map: None,
+        }),
+        crate::effects::TRANSFORM => Some(crate::effects::Effect::Transform {
+            anchor_point: effect_array(params, "anchor_point", "two numbers, x then y", &at)?,
+            position: effect_array(params, "position", "two numbers, x then y", &at)?,
+            uniform_scale: effect_word(params, "uniform_scale", &at)?,
+            scale_height: effect_number(params, "scale_height", &at)?,
+            scale_width: effect_number(params, "scale_width", &at)?,
+            skew: effect_number(params, "skew", &at)?,
+            skew_axis: effect_number(params, "skew_axis", &at)?,
+            rotation: effect_number(params, "rotation", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            use_composition_shutter_angle: effect_word(params, "use_composition_shutter_angle", &at)?,
+            shutter_angle: effect_number(params, "shutter_angle", &at)?,
+            sampling: effect_word(params, "sampling", &at)?,
+            moments: Vec::new(),
         }),
         crate::effects::LINE_SMOOTH => Some(crate::effects::Effect::LineSmooth {
             softness: effect_number(params, "softness", &at)?,

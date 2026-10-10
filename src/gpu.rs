@@ -756,6 +756,48 @@ fn bilinear(t: texture_2d<f32>, x: f64, y: f64) -> vec4<f32> {
     return out;
 }
 
+// D-408, layer_fx::keys_cubic: Keys' cubic with a = -0.5, in double precision as the CPU's.
+fn keys_cubic(t: f64) -> f64 {
+    let d = abs(t);
+    if d <= 1.0lf {
+        return (1.5lf * d - 2.5lf) * d * d + 1.0lf;
+    }
+    if d < 2.0lf {
+        return ((-0.5lf * d + 2.5lf) * d - 4.0lf) * d + 2.0lf;
+    }
+    return 0.0lf;
+}
+
+// D-408, layer_fx::sample_bicubic: 4 by 4 taps from pixel centres, transparent outside, then
+// each number held at 0 or above and the covering at 1 or below.
+fn bicubic(t: texture_2d<f32>, x: f64, y: f64) -> vec4<f32> {
+    let size = vec2<i32>(textureDimensions(t));
+    let fx = x - 0.5lf;
+    let fy = y - 0.5lf;
+    if !(fx > -2.0lf && fy > -2.0lf && fx < f64(size.x) + 1.0lf && fy < f64(size.y) + 1.0lf) {
+        return vec4(0.0);
+    }
+    let x0 = floor(fx);
+    let y0 = floor(fy);
+    var out = vec4(0.0);
+    for (var j = -1; j < 3; j++) {
+        let wy = keys_cubic(fy - (y0 + f64(j)));
+        let sy = i32(y0) + j;
+        if wy == 0.0lf || sy < 0 || sy >= size.y {
+            continue;
+        }
+        for (var i = -1; i < 3; i++) {
+            let wx = keys_cubic(fx - (x0 + f64(i)));
+            let sx = i32(x0) + i;
+            if wx == 0.0lf || sx < 0 || sx >= size.x {
+                continue;
+            }
+            out += textureLoad(t, vec2(sx, sy), 0) * f32(wx * wy);
+        }
+    }
+    return vec4(max(out.x, 0.0), max(out.y, 0.0), max(out.z, 0.0), clamp(out.w, 0.0, 1.0));
+}
+
 // B-157 (G6): `bilinear` in single precision, for a pass whose many samples are summed, where each
 // sample's own rounding is far below a level of 255.
 fn bilinear32(t: texture_2d<f32>, x: f32, y: f32) -> vec4<f32> {
@@ -3616,6 +3658,19 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             }
             let s = bilinear(input, sx, sy);
             textureStore(output, id.xy, vec4(f32(f64(s.x) * cover), f32(f64(s.y) * cover), f32(f64(s.z) * cover), f32(f64(s.w) * cover)));
+            return;
+        }
+        case 22u: {
+            // D-408, layer_fx::transform, one moment. k: the inverse map a to f, the opacity, 0,
+            // and 1 for bicubic sampling.
+            let z = k[7];
+            sx = product(k[0], x, z) + product(k[1], y, z) + k[2];
+            sy = product(k[3], x, z) + product(k[4], y, z) + k[5];
+            var s = bilinear(input, sx, sy);
+            if k[8] == 1.0lf {
+                s = bicubic(input, sx, sy);
+            }
+            textureStore(output, id.xy, s * f32(k[6]));
             return;
         }
         default: {
@@ -9330,6 +9385,18 @@ impl Gpu {
                 let (cx, cy) = (center[0] / 100.0 * dw + ox as f64, center[1] / 100.0 * dh + oy as f64);
                 let k = [cx, cy, r, field_of_view.to_radians() / 2.0, (reverse == "on") as u8 as f64, 0.0];
                 same(steps, &passes.warp, FxParams { mode: 9, ..Default::default() }, &k, None)
+            }
+            // D-408: one moment; a Transform through the shutter stays off the card (card_can).
+            // A map that cannot be undone draws nothing, at opacity 0.
+            E::Transform { sampling, .. } => {
+                let mut k = [0.0; 9];
+                let m = crate::effects::transform_moment(&f.instance.effect).expect("a Transform");
+                if let Some(map) = crate::layer_fx::transform_map(&m, (w, h), (ox, oy)) {
+                    k[..6].copy_from_slice(&map);
+                    k[6] = m[9] / 100.0;
+                }
+                k[8] = (sampling == "bicubic") as u8 as f64;
+                same(steps, &passes.warp, FxParams { mode: 22, ..Default::default() }, &k, None)
             }
             E::CornerPin { upper_left, upper_right, lower_left, lower_right } => {
                 // Crossed corners leave the determinant 0, which draws nothing.

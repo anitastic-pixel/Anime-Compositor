@@ -4661,3 +4661,103 @@ pub(crate) fn radio_wave_list(s: &RadioWaves) -> Vec<(f64, f64, f64, f64, f64, f
     }
     waves
 }
+
+/// D-408: where a Transform moment `m` ([`crate::effects::transform_moment`]'s numbers) reads
+/// each output pixel from, in the buffer of `size` whose drawing has its corner at `origin`: the
+/// inverse of T(P) R(rotation) K(skew, axis) S(across, down) T(-A), as `[a, b, c, d, e, f]` with
+/// the source at (a x + b y + c, d x + e y + f), or `None` when it cannot be undone (a scale of
+/// 0). R turns clockwise on the screen; K slides along the skew axis by the skew's tangent.
+pub(crate) fn transform_map(m: &[f64; 10], size: (usize, usize), origin: (usize, usize)) -> Option<[f64; 6]> {
+    let (ax, ay) = crate::effects::radial_center([m[0], m[1]], size, origin);
+    let (px, py) = crate::effects::radial_center([m[2], m[3]], size, origin);
+    let mul = |a: [f64; 4], b: [f64; 4]| [a[0] * b[0] + a[1] * b[2], a[0] * b[1] + a[1] * b[3], a[2] * b[0] + a[3] * b[2], a[2] * b[1] + a[3] * b[3]];
+    let turn = |deg: f64| {
+        let (s, c) = deg.to_radians().sin_cos();
+        [c, -s, s, c]
+    };
+    let shear = if m[6] == 0.0 { [1.0, 0.0, 0.0, 1.0] } else { mul(mul(turn(m[7]), [1.0, -m[6].to_radians().tan(), 0.0, 1.0]), turn(-m[7])) };
+    let l = mul(mul(turn(m[8]), shear), [m[5] / 100.0, 0.0, 0.0, m[4] / 100.0]);
+    let det = l[0] * l[3] - l[1] * l[2];
+    if det == 0.0 || !det.is_finite() {
+        return None;
+    }
+    let [a, b, d, e] = [l[3] / det, -l[1] / det, -l[2] / det, l[0] / det];
+    Some([a, b, ax - (a * px + b * py), d, e, ay - (d * px + e * py)])
+}
+
+/// D-408: Keys' cubic with a = -0.5 (Catmull-Rom).
+fn keys_cubic(d: f64) -> f64 {
+    let d = d.abs();
+    if d <= 1.0 {
+        (1.5 * d - 2.5) * d * d + 1.0
+    } else if d < 2.0 {
+        ((-0.5 * d + 2.5) * d - 4.0) * d + 2.0
+    } else {
+        0.0
+    }
+}
+
+/// D-408: the 4 by 4 cubic sample from pixel centres, transparent outside, as
+/// `sample_bilinear`; then each number held at 0 or above and the covering at 1 or below.
+pub(crate) fn sample_bicubic(src: &WorkingBuffer, x: f64, y: f64) -> [f32; 4] {
+    let (w, h) = (src.width() as isize, src.height() as isize);
+    let (fx, fy) = (x - 0.5, y - 0.5);
+    if !(fx > -2.0 && fy > -2.0 && fx < w as f64 + 1.0 && fy < h as f64 + 1.0) {
+        return [0.0; 4];
+    }
+    let (x0, y0) = (fx.floor(), fy.floor());
+    let mut out = [0.0f32; 4];
+    for j in -1..3isize {
+        let wy = keys_cubic(fy - (y0 + j as f64));
+        let sy = y0 as isize + j;
+        if wy == 0.0 || sy < 0 || sy >= h {
+            continue;
+        }
+        for i in -1..3isize {
+            let wx = keys_cubic(fx - (x0 + i as f64));
+            let sx = x0 as isize + i;
+            if wx == 0.0 || sx < 0 || sx >= w {
+                continue;
+            }
+            let weight = (wx * wy) as f32;
+            let px = src.pixel(sx as usize, sy as usize);
+            for c in 0..4 {
+                out[c] += px[c] * weight;
+            }
+        }
+    }
+    [out[0].max(0.0), out[1].max(0.0), out[2].max(0.0), out[3].clamp(0.0, 1.0)]
+}
+
+/// D-408: the layer drawn through each moment's map (`None` draws nothing) times its opacity
+/// (0 to 1), the moments summed in order and divided by their number once. The buffer keeps its
+/// size. One moment through the unchanged map at full opacity leaves it as it is.
+pub(crate) fn transform(source: &mut WorkingBuffer, moments: &[(Option<[f64; 6]>, f64)], bicubic: bool) {
+    if let [(Some([1.0, 0.0, 0.0, 0.0, 1.0, 0.0]), 1.0)] = moments {
+        return;
+    }
+    let w = source.width();
+    let n = moments.len() as f32;
+    let mut out = WorkingBuffer::transparent(w, source.height());
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let mut sum = [0.0f32; 4];
+            for (map, opacity) in moments {
+                let Some([a, b, c, d, e, f]) = *map else { continue };
+                let (sx, sy) = (a * x + b * y + c, d * x + e * y + f);
+                let s = if bicubic { sample_bicubic(drawing, sx, sy) } else { sample_bilinear(drawing, sx, sy) };
+                for k in 0..4 {
+                    sum[k] += s[k] * *opacity as f32;
+                }
+            }
+            if moments.len() > 1 {
+                sum = sum.map(|v| v / n);
+            }
+            px.copy_from_slice(&sum);
+        });
+    *source = out;
+}

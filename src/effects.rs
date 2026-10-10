@@ -375,6 +375,29 @@ pub enum Effect {
     /// `amount`, 0 to 100; `layer`, D-189's layer setting as written, "" for none (even haze);
     /// `fit`, `center`, `stretch` or `tile`. `map` is not a setting and is never saved.
     AerialHaze { haze_color: String, amount: f64, layer: serde_json::Value, fit: String, map: Option<crate::layer_map::Map> },
+    /// D-408: After Effects' Transform: `anchor_point` and `position`, x then y, -1000 to 1000
+    /// per cent of the drawing's own width and height; `uniform_scale`, "on" or "off";
+    /// `scale_height` and `scale_width`, -10000 to 10000 per cent; `skew`, -85 to 85 degrees;
+    /// `skew_axis` and `rotation`, -3600 to 3600 degrees; `opacity`, 0 to 100;
+    /// `use_composition_shutter_angle`, "on" or "off"; `shutter_angle`, 0 to 360 degrees;
+    /// `sampling`, "bilinear" or "bicubic". `moments` is not a setting and is never saved:
+    /// the settings at each moment of the shutter ([`transform_moment`]'s numbers), filled by
+    /// compose when the layer is motion blurred and they differ, else empty.
+    Transform {
+        anchor_point: [f64; 2],
+        position: [f64; 2],
+        uniform_scale: String,
+        scale_height: f64,
+        scale_width: f64,
+        skew: f64,
+        skew_axis: f64,
+        rotation: f64,
+        opacity: f64,
+        use_composition_shutter_angle: String,
+        shutter_angle: f64,
+        sampling: String,
+        moments: Vec<[f64; 10]>,
+    },
     /// D-86: "`softness`, 0 to 100 ... and `threshold`, 0 to 255". Document 21's line smoothing.
     LineSmooth { softness: f64, threshold: f64 },
     /// D-87: "`blur`, 0 to 200 pixels ... `colors`, the chosen colours, up to eight, each
@@ -2111,6 +2134,31 @@ pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
 pub const TRITONE: &str = "core.tritone";
 pub const AERIAL_HAZE: &str = "core.aerial_haze";
+pub const TRANSFORM: &str = "core.transform";
+
+/// D-408: a Transform's numbers as one moment draws them: the anchor point, the position, the
+/// scale down and across (across is the scale down when uniform), the skew, its axis, the
+/// rotation and the opacity.
+pub(crate) fn transform_moment(effect: &Effect) -> Option<[f64; 10]> {
+    match effect {
+        Effect::Transform {
+            anchor_point: [ax, ay],
+            position: [px, py],
+            uniform_scale,
+            scale_height,
+            scale_width,
+            skew,
+            skew_axis,
+            rotation,
+            opacity,
+            ..
+        } => {
+            let across = if uniform_scale == "on" { *scale_height } else { *scale_width };
+            Some([*ax, *ay, *px, *py, *scale_height, across, *skew, *skew_axis, *rotation, *opacity])
+        }
+        _ => None,
+    }
+}
 /// D-396: Selective Color's colour families, each a setting, in the order the card numbers them.
 pub const SELECTIVE_COLOR_FAMILIES: [&str; 9] =
     ["reds", "yellows", "greens", "cyans", "blues", "magentas", "whites", "neutrals", "blacks"];
@@ -2208,6 +2256,28 @@ impl Effect {
             Effect::TintMap { amount_to_tint, .. } => vec![("amount_to_tint", vec![amount_to_tint], 0.0, 100.0)],
             Effect::Tritone { blend_with_original, .. } => vec![("blend_with_original", vec![blend_with_original], 0.0, 100.0)],
             Effect::AerialHaze { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
+            Effect::Transform {
+                anchor_point,
+                position,
+                scale_height,
+                scale_width,
+                skew,
+                skew_axis,
+                rotation,
+                opacity,
+                shutter_angle,
+                ..
+            } => vec![
+                ("anchor_point", anchor_point.iter_mut().collect(), -1000.0, 1000.0),
+                ("position", position.iter_mut().collect(), -1000.0, 1000.0),
+                ("scale_height", vec![scale_height], -10000.0, 10000.0),
+                ("scale_width", vec![scale_width], -10000.0, 10000.0),
+                ("skew", vec![skew], -85.0, 85.0),
+                ("skew_axis", vec![skew_axis], -3600.0, 3600.0),
+                ("rotation", vec![rotation], -3600.0, 3600.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+                ("shutter_angle", vec![shutter_angle], 0.0, 360.0),
+            ],
             Effect::LineSmooth {
                 softness,
                 threshold,
@@ -3888,6 +3958,7 @@ impl Effect {
             Effect::ShadowHighlight { .. } => "Shadow/Highlight",
             Effect::Tritone { .. } => "Tritone",
             Effect::AerialHaze { .. } => "Aerial Haze",
+            Effect::Transform { .. } => "Transform",
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
@@ -4043,6 +4114,7 @@ impl Effect {
             Effect::ShadowHighlight { .. } => SHADOW_HIGHLIGHT,
             Effect::Tritone { .. } => TRITONE,
             Effect::AerialHaze { .. } => AERIAL_HAZE,
+            Effect::Transform { .. } => TRANSFORM,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
@@ -4654,6 +4726,15 @@ impl Effect {
                 .or_else(|| (!["center", "stretch", "tile"].contains(&fit.as_str())).then(|| format!(
                     "Aerial Haze's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
                 ))),
+            Effect::Transform { uniform_scale, use_composition_shutter_angle, sampling, .. } => {
+                [("uniform scale", uniform_scale), ("use composition's shutter angle", use_composition_shutter_angle)]
+                    .into_iter()
+                    .find(|(_, w)| !["off", "on"].contains(&w.as_str()))
+                    .map(|(what, w)| format!("Transform's {what} is \"on\" or \"off\", and this is \"{w}\"."))
+                    .or_else(|| (!["bilinear", "bicubic"].contains(&sampling.as_str())).then(|| format!(
+                        "Transform's sampling is \"bilinear\" or \"bicubic\", and this is \"{sampling}\"."
+                    )))
+            }
             Effect::ColorBalance {
                 shadows,
                 midtones,
@@ -7441,6 +7522,19 @@ pub(crate) fn apply_stack_at(
                         crate::layer_fx::aerial_haze(source, matte, encoded(haze_color).map(crate::grade::to_linear), amount / 100.0)
                     })
                 }
+            }
+            // D-408: the points are in per cent of the drawing's own box, however an effect above
+            // grew it; the layer never grows. Through the shutter, each moment compose read.
+            Effect::Transform { sampling, moments, .. } => {
+                let now = transform_moment(&instance.effect).into_iter().collect::<Vec<_>>();
+                let size = (source.width(), source.height());
+                let maps: Vec<_> = if moments.is_empty() { &now } else { moments }
+                    .iter()
+                    .map(|m| (crate::layer_fx::transform_map(m, size, (ox, oy)), m[9] / 100.0))
+                    .collect();
+                crate::perf::time(crate::perf::Stage::EffectTransform, || {
+                    crate::layer_fx::transform(source, &maps, sampling == "bicubic")
+                })
             }
             // D-195: the echoes compose drew for this frame replace the picture, laid on the
             // drawing; on an adjustment layer there are none, and nothing changes.

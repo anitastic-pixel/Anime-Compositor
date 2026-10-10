@@ -988,6 +988,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::GradientWipe { .. }
                 // D-403.
                 | crate::effects::Effect::AerialHaze { .. }
+                // D-408.
+                | crate::effects::Effect::Transform { .. }
                 | crate::effects::Effect::LineSmooth { .. }
                 // B-228 (D-348): two that read the layer's pass.
                 | crate::effects::Effect::PassExtract { .. }
@@ -1046,6 +1048,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
             if *gray_level_softness_1 == 0.0 || *gray_level_softness_2 == 0.0)
         // D-317: the card sharpens without a threshold only.
         && !matches!(&instance.effect, crate::effects::Effect::Sharpen { threshold, .. } if *threshold != 0.0)
+        // D-408: a Transform through the shutter is drawn here, as D-188's motion blur is.
+        && !matches!(&instance.effect, crate::effects::Effect::Transform { moments, .. } if !moments.is_empty())
         // D-310: the card swells a circle without a taper only.
         && !matches!(&instance.effect, crate::effects::Effect::Bulge { vertical_radius, taper_radius, .. }
             if *vertical_radius != 0.0 || *taper_radius != 0.0)
@@ -1296,6 +1300,16 @@ fn card_effect(
                 E::GradientWipe { completion, map, .. } => map.is_none() || *completion == 0.0,
                 // D-403: even with no layer named; a layer named but not read leaves it as it is.
                 E::AerialHaze { amount, layer, map, .. } => *amount == 0.0 || (layer.as_str() != Some("") && map.is_none()),
+                // D-408: as layer_fx::transform returns at once (the map is then the unchanged one).
+                E::Transform { anchor_point, position, uniform_scale, scale_height, scale_width, skew, rotation, opacity, moments, .. } => {
+                    anchor_point == position
+                        && *scale_height == 100.0
+                        && (uniform_scale == "on" || *scale_width == 100.0)
+                        && *skew == 0.0
+                        && *rotation == 0.0
+                        && *opacity == 100.0
+                        && moments.is_empty()
+                }
                 // B-228: with no pass read, the layer is left as it is.
                 E::PassExtract { channels, .. } | E::DepthKey { channels, .. } | E::IdKey { channels, .. } => channels.is_none(),
                 E::LineSmooth { softness, .. } => *softness <= 0.0,
@@ -1949,6 +1963,37 @@ fn resolve_rest(
     // D-291: and each setting with an expression, what it gives on that frame.
     let mut effects: Vec<crate::effects::EffectInstance> =
         layer.effects.iter().map(|i| effect_now(comp, layer, i, frame, at, layer.key_time(at as f64), float, log)).collect();
+    // D-408: a Transform's own shutter, only with the layer's motion blur switch on and the
+    // composition's blur enabled (Adobe's page): the composition's moments, or its own angle
+    // centred on the frame with the composition's samples. Its settings are read at each moment
+    // as the layer's are (keys at the moment, expressions at the frame); moments all alike are
+    // one moment.
+    if layer.motion_blur && !layer.is_adjustment() && comp.motion_blur.enabled {
+        for (instance, now) in layer.effects.iter().zip(effects.iter_mut()) {
+            if !now.is_valid() {
+                continue;
+            }
+            let crate::effects::Effect::Transform { use_composition_shutter_angle, shutter_angle, moments, .. } = &mut now.effect else {
+                continue;
+            };
+            let shutter = if use_composition_shutter_angle == "on" {
+                comp.motion_blur
+            } else {
+                crate::model::MotionBlur { shutter_angle: *shutter_angle, shutter_phase: -*shutter_angle / 2.0, ..comp.motion_blur }
+            };
+            let read: Vec<[f64; 10]> = shutter
+                .times(frame)
+                .iter()
+                .filter_map(|&t| {
+                    let then = crate::expr::effect_at(comp, &layer.id, instance, at, layer.key_time(at as f64 + t - frame as f64)).0;
+                    crate::effects::transform_moment(&then.effect)
+                })
+                .collect();
+            if read.iter().any(|m| m != &read[0]) {
+                *moments = read;
+            }
+        }
+    }
     // D-182: each Color Lookup's file, read, and what kept one from being read said once a frame;
     // each Arbitrary Map's too (D-395).
     for d in crate::lut::fill(&mut effects, project, root, &layer.name) {
