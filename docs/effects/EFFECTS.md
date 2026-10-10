@@ -1,7 +1,7 @@
 # Effects audit against After Effects
 
 Audit date 2026-10-08. Source list: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/effects-and-animation-presets/effect-list.html (the page refused automated reading, HTTP 403, so the list was compiled from Adobe's per-category effect pages and web searches; newer additions were checked against release notes, see Sources at the bottom).
-Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 114 done, 9 partial, 117 missing.
+Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 115 done, 9 partial, 116 missing.
 Priority 0: 23 items: 17 done, 1 partial, 4 parked last, 1 skipped.
 Plus 27 effects (25 done, 2 partial) of ours that are not on Adobe's list (last table).
 Plus 18 rows of the owner's picks from `docs/effects/PLUGINS.md` (marked **Pick #N**, its top-20 rank), placed after Adobe's rows in each category: 4 done, 11 missing, 2 parked last, 1 skipped as a preset. Picks #5, #7 and #9 fill Adobe rows that already exist and are marked there.
@@ -163,7 +163,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Distort | Rolling Shutter Repair — straightens skew from rolling-shutter cameras | missing | P0-13 | not planned | n/a | none |
 | Distort | Smear — moves a masked region along a path, stretching the surroundings | missing | P0-8, P0-18 | Add card pass | Target P2 | none yet |
 | Distort | Spherize — wraps the image around a sphere-like bulge | missing | Bulge | Reuse Bulge card pass | Target P2 | none yet |
-| Distort | Transform — the layer's position, scale, rotation, skew and opacity as an effect, with its own motion blur | missing | P0-1 (layer transform exists) | Add card pass | Target P2 | none yet |
+| Distort | Transform — the layer's position, scale, rotation, skew and opacity as an effect, with its own motion blur (`core.transform`) | done | P0-1 (layer transform exists), D-188 (the shutter) | On card (done): warp mode 22, f64; through the shutter on the processor (D-188) | Target P2; reference shot, 3 layers after a moving Noise, played again, card / processor: turned 15 degrees 15.5 / 56.2 ms, skewed and scaled bicubic 22.9 / 62.3, against 11.7 / 45.2 without: about 1.3 ms a 1080p layer on the card bilinear, 3.7 bicubic; PROVISIONAL (`verification/B-287_transform_timing_table.md`) | FX-XFORM-001..032 (`tools/transform_reference.py`), b287, D-408 table 184 of 184 checks, card within 1 level, D-408, awaiting playtest. After Adobe's page and Skia's Skottie (matrix, skew limit 85, uniform reads Scale Height). Deviations: bicubic is Keys' a = -0.5 (Adobe's unpublished) |
 | Distort | Turbulent Displace — warps the image with fractal noise in several styles (`core.turbulent_displace`) | done | P0-19 | On card (done); one-way and pinned modes on CPU | Target P3; measured CPU 225.9 / GPU 53.7 ms (B-76) | FX-TURB-001..026, b70, b191, b212, B-70 table, D-127, D-306, D-328 table |
 | Distort | Twirl — rotates pixels more toward the centre than the edge (`core.twirl`) | done | none | On card (done) | Target P2; measured CPU 41.4 / GPU 27.7 ms (B-107) | FX-TWIRL-001..021, b94, B-94 table, D-151 |
 | Distort | Warp — preset bends (arc, flag, bulge, fish and more) like Illustrator's | missing | P0-18 | Add card pass | Target P2 | none yet |

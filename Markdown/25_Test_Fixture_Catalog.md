@@ -205370,3 +205370,71 @@ FX-HAZE-023 (`fx_haze_023.json`): A haze colour written "#12345", five digits. T
 FX-HAZE-024 (`fx_haze_024.json`): A fit written "fill". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-HAZE-025 (`fx_haze_025.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Transform (D-408)
+
+Transform (`core.transform`), after After Effects' Transform effect (B-287). Every case is a project of one composition 16 by 10, five frames, holding the drawing `art` the same size (Wave Warp's stripes, `media/stripes.png`), unmoved unless the case says, with the effect `fx-0-0` (`fx-0-1` after a Motion Tile in FX-XFORM-024); the blurred cases set the composition's `motion_blur` and the layer's switch. `tools/transform_reference.py` works the expected frames, `Fixtures/transform/expected_transform.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-XFORM-001 (`fx_xform_001.json`): As added: the anchor point and position at the middle, scale 100, no skew or rotation, opacity 100: the drawing, untouched. Frames 0.
+
+FX-XFORM-002 (`fx_xform_002.json`): Position (75, 50): the drawing four pixels right inside its layer; its left four columns clear and its right four cut off, the layer never growing. Frames 0.
+
+FX-XFORM-003 (`fx_xform_003.json`): Position (53.125, 50): half a pixel right, each pixel the even mix of itself and the one to its left. Frames 0.
+
+FX-XFORM-004 (`fx_xform_004.json`): Scale Height 50 with Uniform Scale on, Scale Width 200 not read: the drawing at half size round the middle, in columns 4 to 11 and rows 2 to 7. Frames 0.
+
+FX-XFORM-005 (`fx_xform_005.json`): Uniform Scale off, Scale Width 50, Scale Height 100: squeezed to half its width round the middle, its full height kept. Frames 0.
+
+FX-XFORM-006 (`fx_xform_006.json`): Rotation 90: a quarter turn clockwise round the middle; column x of the frame is row 12 - x of the drawing, cut to the layer. Frames 0.
+
+FX-XFORM-007 (`fx_xform_007.json`): Rotation 30, bilinear sampling: turned a twelfth, soft at the stripes' edges. Frames 0.
+
+FX-XFORM-008 (`fx_xform_008.json`): Rotation 30, bicubic sampling: the same turn, the stripes' edges crisper than FX-XFORM-007. Frames 0.
+
+FX-XFORM-009 (`fx_xform_009.json`): Skew 30 along axis 0: the rows slide sideways, the top ones right and the lower ones left, round the middle row; the stripes lean. Frames 0.
+
+FX-XFORM-010 (`fx_xform_010.json`): Skew 30 along axis 90: the columns slide up and down instead; the blue band leans. Frames 0.
+
+FX-XFORM-011 (`fx_xform_011.json`): Anchor point and position (0, 0), rotation 45: an eighth turn round the drawing's top left corner, half of it swung off the layer. Frames 0.
+
+FX-XFORM-012 (`fx_xform_012.json`): Opacity 50: every pixel at half its covering. Frames 0.
+
+FX-XFORM-013 (`fx_xform_013.json`): Scale Height -100, uniform: turned over both ways, the same as rotation 180. Frames 0.
+
+FX-XFORM-014 (`fx_xform_014.json`): Scale Height 0: nothing left, the frame clear. Frames 0.
+
+FX-XFORM-015 (`fx_xform_015.json`): Position keyed from (50, 50) at frame 0 to (100, 50) at frame 4, linear, no motion blur: two pixels further right each frame. Frames 0, 2, 4.
+
+FX-XFORM-016 (`fx_xform_016.json`): FX-XFORM-015 with the layer's motion blur switch on and the composition's blur enabled at 180 degrees, phase -90, 4 samples: frame 2 is the mean of the slide at 1.8125, 1.9375, 2.0625 and 2.1875, a streak a pixel long. Frames 0, 2, 4.
+
+FX-XFORM-017 (`fx_xform_017.json`): FX-XFORM-016 with the layer's switch off: no blur, as FX-XFORM-015. Frames 2.
+
+FX-XFORM-018 (`fx_xform_018.json`): FX-XFORM-016 with the composition's blur not enabled: no blur. Frames 2.
+
+FX-XFORM-019 (`fx_xform_019.json`): FX-XFORM-016 with Use Composition's Shutter Angle off and Shutter Angle 360, centred on the frame: the moments 1.625, 1.875, 2.125 and 2.375, at twice the spacing round 2, a streak two pixels long. Frames 2.
+
+FX-XFORM-020 (`fx_xform_020.json`): FX-XFORM-019 with Shutter Angle 0: no blur, as FX-XFORM-015. Frames 2.
+
+FX-XFORM-021 (`fx_xform_021.json`): Rotation 30, not keyed, with the layer's and composition's blur on: nothing moves through the shutter, so no blur, as FX-XFORM-007. Frames 0.
+
+FX-XFORM-022 (`fx_xform_022.json`): Rotation keyed from 0 at frame 0 to 90 at frame 4 with the blur on, bicubic: frame 2 is the mean of four turns round 45 degrees, a spin blur. Frames 2.
+
+FX-XFORM-023 (`fx_xform_023.json`): Position (75, 50) on the layer moved three pixels right: the effect works inside the layer, so FX-XFORM-002 moved three more. Frames 0.
+
+FX-XFORM-024 (`fx_xform_024.json`): Motion Tile at 300% by 300% first, then rotation 90: the points are the drawing's own, so the tiles turn round the drawing's middle and fill the frame. Frames 0.
+
+FX-XFORM-025 (`fx_xform_025.json`): Bicubic sampling with the settings as added: the drawing, untouched. Frames 0.
+
+FX-XFORM-026 (`fx_xform_026.json`): Skew 86, above 85. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-XFORM-027 (`fx_xform_027.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-XFORM-028 (`fx_xform_028.json`): Position keyed to (1200, 50) at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-XFORM-029 (`fx_xform_029.json`): Shutter Angle 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-XFORM-030 (`fx_xform_030.json`): Uniform Scale written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-XFORM-031 (`fx_xform_031.json`): Sampling written "nearest". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-XFORM-032 (`fx_xform_032.json`): Use Composition's Shutter Angle written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
