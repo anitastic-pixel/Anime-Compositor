@@ -206454,3 +206454,85 @@ FX-BURST-028 (`fx_burst_028.json`): Set Color "yes", neither "off" nor "on". The
 FX-BURST-029 (`fx_burst_029.json`): A colour written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BURST-030 (`fx_burst_030.json`): A colour written "orange", a name, not #rrggbb, with Set Color on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Light Rays with CC's controls (D-423)
+
+CycoreFX's CC Light Rays controls (Generate) for `core.light_rays` (B-302). Every case is a composition 16 by 10 holding Light Rays' lamp drawing (`Fixtures/light_rays_cc/media/lamp.png`, written again by the reference: a yellow, a brown and a purple patch, with empty columns and rows round them), the same size, unmoved unless the case says. `tools/light_rays_cc_reference.py` works the expected frames, `Fixtures/light_rays_cc/expected_light_rays_cc.json`, tolerance 2e-5; the rule is in document 21. Light Rays saved before D-423 stay pinned by FX-RAYS-001 to 024.
+
+FX-RAYSCC-001 (`fx_rayscc_001.json`): The settings as they start: intensity 100, centre 50, 50, the point (8, 5), radius 50, warp softness 50, Round, Color from Source on, Allow Brightening on, Transfer Mode None. The source covers the whole drawing, so all of it is light: each pixel is the drawing averaged along the line from the centre out to it, turned 5 degrees both ways, laid over the drawing. The empty columns and rows round the drawing take the patches' rays; the patches show through where the rays are thin. Frames 0.
+
+FX-RAYSCC-002 (`fx_rayscc_002.json`): Intensity 0: the drawing, untouched. Frames 0.
+
+FX-RAYSCC-003 (`fx_rayscc_003.json`): Radius 3, warp softness 0: only the pixels within 3 of the centre give light, the yellow's columns 5 to 7 and the brown's column 10, their four corner pixels only in part (the source's soft edge); the yellow's half edge in column 4, the brown's column 11 and the purple, outside, give none. Their rays streak outward, the yellow's to the left edge, the brown's to the right, laid over the drawing. Frames 0.
+
+FX-RAYSCC-004 (`fx_rayscc_004.json`): FX-RAYSCC-003 with a Square source: the square reaches 3 each way and into its corners, so the four corner pixels the round source takes only in part give all their light. Frames 0.
+
+FX-RAYSCC-005 (`fx_rayscc_005.json`): The square turned 45 degrees: a diamond, reaching 4.2 along the row and the column through the centre, so the brown's column 11 gives part of its light, and less to the corners. Frames 0.
+
+FX-RAYSCC-006 (`fx_rayscc_006.json`): Round with direction 45: direction does nothing for a round source; FX-RAYSCC-003. Frames 0.
+
+FX-RAYSCC-007 (`fx_rayscc_007.json`): Warp softness 300: FX-RAYSCC-003's rays turned 30 degrees both ways, so they spread round the centre and melt together. Frames 0.
+
+FX-RAYSCC-008 (`fx_rayscc_008.json`): Color from Source off, colour white: the light is white at the source's covering, so the yellow and the brown give white rays. Frames 0.
+
+FX-RAYSCC-009 (`fx_rayscc_009.json`): Color from Source off, colour #ff8000, orange: orange rays, red as much as the rays' covering, a fifth as much green, no blue. Frames 0.
+
+FX-RAYSCC-010 (`fx_rayscc_010.json`): Color from Source on with colour #ff8000: the colour does not count; FX-RAYSCC-003. Frames 0.
+
+FX-RAYSCC-011 (`fx_rayscc_011.json`): FX-RAYSCC-009 with its colour written in capitals, #FF8000: the same. Frames 0.
+
+FX-RAYSCC-012 (`fx_rayscc_012.json`): Transfer Mode Add: the rays added onto the drawing, D-124's way, so the lit patches brighten rather than being covered. Frames 0.
+
+FX-RAYSCC-013 (`fx_rayscc_013.json`): Transfer Mode Screen: brighter than the drawing everywhere the rays fall, but less than Add where both are bright. Frames 0.
+
+FX-RAYSCC-014 (`fx_rayscc_014.json`): Transfer Mode Lighten: each channel the larger of the drawing's and the rays'. Frames 0.
+
+FX-RAYSCC-015 (`fx_rayscc_015.json`): Intensity 300, Add: three times FX-RAYSCC-012's rays, past white, not cut off; the covering stops at full. Frames 0.
+
+FX-RAYSCC-016 (`fx_rayscc_016.json`): Intensity 300, Add, Allow Brightening off: held at 100; FX-RAYSCC-012. Frames 0.
+
+FX-RAYSCC-017 (`fx_rayscc_017.json`): Intensity 50, Allow Brightening off: below 100 nothing is held; the same as with it on. Frames 0.
+
+FX-RAYSCC-018 (`fx_rayscc_018.json`): Intensity 50, Allow Brightening on, the pair of FX-RAYSCC-017. Frames 0.
+
+FX-RAYSCC-019 (`fx_rayscc_019.json`): Radius 0: the centre sits on a pixel corner, every pixel centre at least 0.7 from it, so nothing is light; the drawing, untouched. Frames 0.
+
+FX-RAYSCC-020 (`fx_rayscc_020.json`): Centre 25, 50, the point (4, 5), radius 3: the yellow alone is the source, its rays streaking left to the edge and right across the gap and over the brown and the purple. Frames 0.
+
+FX-RAYSCC-021 (`fx_rayscc_021.json`): Radius keyed from 0 at frame 0 to 6 at frame 4, linear: frame 0 is FX-RAYSCC-019, frame 2 is FX-RAYSCC-003, frame 4 lights all but the purple. Frames 0, 2, 4.
+
+FX-RAYSCC-022 (`fx_rayscc_022.json`): A Square source with direction keyed from 0 at frame 0 to 90 at frame 4, linear: frame 2 is FX-RAYSCC-005, and frame 4, a quarter turn of a square, is frame 0 again. Frames 0, 2, 4.
+
+FX-RAYSCC-023 (`fx_rayscc_023.json`): Intensity eased from 0 at frame 0 to 2000 at frame 4 on a curve that overshoots, Add: at frame 2 it would pass 2000, is held at 2000, as frame 4 is. Frames 0, 2, 4.
+
+FX-RAYSCC-024 (`fx_rayscc_024.json`): FX-RAYSCC-003 moved three pixels right: the rays are drawn on the drawing before it is moved, so it is FX-RAYSCC-003 moved, and the three columns left of the drawing stay empty, as the layer does not grow. Frames 0, 3.
+
+FX-RAYSCC-025 (`fx_rayscc_025.json`): Intensity 250, None: the rays' colour runs past their covering, laid over the drawing; their covering stops at full. Frames 0.
+
+FX-RAYSCC-026 (`fx_rayscc_026.json`): Square 4, direction 30, warp 120, Color from Source off #40c0ff, intensity 180, Screen, centre 40, 60: the controls together. Frames 0.
+
+FX-RAYSCC-027 (`fx_rayscc_027.json`): Intensity -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-028 (`fx_rayscc_028.json`): Intensity 2001, above 2000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-029 (`fx_rayscc_029.json`): Intensity keyed to 3000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-030 (`fx_rayscc_030.json`): Centre 50, -1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-031 (`fx_rayscc_031.json`): Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-032 (`fx_rayscc_032.json`): Radius 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-033 (`fx_rayscc_033.json`): Warp softness 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-034 (`fx_rayscc_034.json`): Direction 3601, past ten turns. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-035 (`fx_rayscc_035.json`): Shape "triangle", neither "round" nor "square". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-036 (`fx_rayscc_036.json`): Color from Source "yes", neither "off" nor "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-037 (`fx_rayscc_037.json`): Allow Brightening "yes", neither "off" nor "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-038 (`fx_rayscc_038.json`): Transfer Mode "multiply", not one of the four. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RAYSCC-039 (`fx_rayscc_039.json`): A colour written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
