@@ -39,3 +39,7 @@ Fixtures/exr/**/*.exr -text
 # others do not, and refused/not_text.cube is not text.
 Fixtures/cube_lut/**/*.cube -text
 verification/B-16b[[:space:]]export/*.exr -text
+
+# The arbitrary map fixtures are exact bytes: refused/cube.amp is text on purpose, and its length is
+# its reason for being refused.
+Fixtures/arbitrary_map/**/*.amp -text
