@@ -205908,3 +205908,61 @@ FX-CIRCLE-038 (`fx_circle_038.json`): Blending mode "darken", which this program
 FX-CIRCLE-039 (`fx_circle_039.json`): Colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CIRCLE-040 (`fx_circle_040.json`): Radius keyed to 10001 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Ellipse (D-415)
+
+After Effects' Ellipse (Generate), `core.ellipse` (B-294). Every case is a composition 16 by 10 holding Gradient's cel, the same size, unmoved unless the case says. `tools/ellipse_reference.py` works the expected frames, `Fixtures/ellipse/expected_ellipse.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-ELLIPSE-001 (`fx_ellipse_001.json`): The settings as they start: centre in the middle, 200 by 200, thickness 8, softness 50, white inside, blue outside, composited: the outline lies far outside the small frame, the cel as it was. Frames 0.
+
+FX-ELLIPSE-002 (`fx_ellipse_002.json`): 12 by 8, thickness 2, softness 0: a sharp outline 2 pixels thick round the middle over the cel, white along its middle, blue at its edges. Frames 0.
+
+FX-ELLIPSE-003 (`fx_ellipse_003.json`): FX-ELLIPSE-002 with Composite On Original off: the outline alone, the rest clear. Frames 0.
+
+FX-ELLIPSE-004 (`fx_ellipse_004.json`): FX-ELLIPSE-003 at softness 100: the whole width of the outline ramps. Frames 0.
+
+FX-ELLIPSE-005 (`fx_ellipse_005.json`): 10 by 10, thickness 2, alone: a circle of radius 5, the distance exact. Frames 0.
+
+FX-ELLIPSE-006 (`fx_ellipse_006.json`): Thickness 4, softness 50, alone. Frames 0.
+
+FX-ELLIPSE-007 (`fx_ellipse_007.json`): Orange inside, violet outside, thickness 4, alone: orange along the middle, violet at the edges. Frames 0.
+
+FX-ELLIPSE-008 (`fx_ellipse_008.json`): Thickness 0: nothing drawn, the cel as it was. Frames 0.
+
+FX-ELLIPSE-009 (`fx_ellipse_009.json`): 8 by 6 alone, the centre keyed from (50, 50) at frame 0 to (25, 50) at frame 4, linear: the outline slides left, 1 pixel a frame. Frames 0, 2, 4.
+
+FX-ELLIPSE-010 (`fx_ellipse_010.json`): Width keyed from 8 at frame 0 to 16 at frame 4, linear, alone: frame 2 is 12 across. Frames 0, 2, 4.
+
+FX-ELLIPSE-011 (`fx_ellipse_011.json`): FX-ELLIPSE-002 moved three pixels right: the outline moves with the layer. Frames 0.
+
+FX-ELLIPSE-012 (`fx_ellipse_012.json`): After a Motion Tile that grows the layer: the centre is the drawing's own, so the frame is FX-ELLIPSE-002's. Frames 0.
+
+FX-ELLIPSE-013 (`fx_ellipse_013.json`): FX-ELLIPSE-007 with its colours in capitals, #FF8000 and #6450A0: the same. Frames 0.
+
+FX-ELLIPSE-014 (`fx_ellipse_014.json`): 20 by 10, the centre at (-25, 50) per cent, outside the drawing, alone: the outline's right end, at x 6, reaches into the frame's left side. Frames 0.
+
+FX-ELLIPSE-015 (`fx_ellipse_015.json`): Thickness keyed from 2 at frame 0 to 0 at frame 4 past its end by an ease: held at 0, frame 4 the cel as it was. Frames 0, 4.
+
+FX-ELLIPSE-016 (`fx_ellipse_016.json`): 4 by 10, tall, alone: the outline narrow across, long down. Frames 0.
+
+FX-ELLIPSE-017 (`fx_ellipse_017.json`): Thickness 1, softness 0, alone: a hairline, each pixel covered by how much of it lies within half a pixel of the outline. Frames 0.
+
+FX-ELLIPSE-018 (`fx_ellipse_018.json`): Width 1, height 1, thickness 2, alone: a dot at the middle. Frames 0.
+
+FX-ELLIPSE-019 (`fx_ellipse_019.json`): Width 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ELLIPSE-020 (`fx_ellipse_020.json`): Height 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ELLIPSE-021 (`fx_ellipse_021.json`): Thickness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ELLIPSE-022 (`fx_ellipse_022.json`): Softness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ELLIPSE-023 (`fx_ellipse_023.json`): Centre 1001 per cent across, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ELLIPSE-024 (`fx_ellipse_024.json`): Composite "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ELLIPSE-025 (`fx_ellipse_025.json`): Inside colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ELLIPSE-026 (`fx_ellipse_026.json`): Outside colour "red", not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ELLIPSE-027 (`fx_ellipse_027.json`): Width keyed to 10001 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
