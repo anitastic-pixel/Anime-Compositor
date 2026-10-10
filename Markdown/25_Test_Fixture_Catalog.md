@@ -207182,3 +207182,89 @@ FX-SCRIBBLE-069 (`fx_scribble_069.json`): Composite "glow", not a word it takes.
 FX-SCRIBBLE-070 (`fx_scribble_070.json`): Colour "#12345", not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SCRIBBLE-071 (`fx_scribble_071.json`): Stroke Width keyed to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Add Grain (D-443)
+
+After Effects' Add Grain (Noise & Grain), `core.add_grain` (B-323). Every case is a composition 16 by 10 at 24 frames a second, 5 frames long, holding Noise's card (`Fixtures/addgrain/media`), the same size, unmoved unless the case says. `tools/addgrain_reference.py` works the expected frames, `Fixtures/addgrain/expected_addgrain.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-ADDGRAIN-001 (`fx_addgrain_001.json`): The settings as they start: intensity 1, size 1, Film, in colour, a new grain every frame; every shown pixel moves by up to 0.1 a channel through the sRGB curve, most in the middle of each channel, nothing in the white and black patches; the empty pixels stay empty and the soft edge keeps its half covering. Frames 0, 2, 4.
+
+FX-ADDGRAIN-002 (`fx_addgrain_002.json`): Animation Speed 0: the same grain on frames 0, 2 and 4, FX-ADDGRAIN-001's frame 0. Frames 0, 2, 4.
+
+FX-ADDGRAIN-003 (`fx_addgrain_003.json`): Animation Speed 0.5, smooth: frame 1 is half way between FX-ADDGRAIN-001's frames 0 and 1 in the noise, and frame 2 is its frame 1. Frames 1, 2.
+
+FX-ADDGRAIN-004 (`fx_addgrain_004.json`): Animation Speed 0.5, Animate Smoothly off: frame 1 holds frame 0's grain and frame 3 is FX-ADDGRAIN-001's frame 1. Frames 0, 1, 3.
+
+FX-ADDGRAIN-005 (`fx_addgrain_005.json`): Monochromatic, Add: the three channels move together, a grey grain. Frames 0.
+
+FX-ADDGRAIN-006 (`fx_addgrain_006.json`): Saturation 0, Add: each channel takes the three's mean, so they move together, but less than FX-ADDGRAIN-005's. Frames 0.
+
+FX-ADDGRAIN-007 (`fx_addgrain_007.json`): Saturation 0.5, Add: half way. Frames 0.
+
+FX-ADDGRAIN-008 (`fx_addgrain_008.json`): Size 4, Add: grains of 4 by 4 pixels, each one number. Frames 0.
+
+FX-ADDGRAIN-009 (`fx_addgrain_009.json`): Size 4, Softness 1, Add: the grains blend smoothly into each other. Frames 0.
+
+FX-ADDGRAIN-010 (`fx_addgrain_010.json`): Size 4, Softness 0.5, Add: half way between FX-ADDGRAIN-008 and 009 in the noise. Frames 0.
+
+FX-ADDGRAIN-011 (`fx_addgrain_011.json`): Size 2, Aspect Ratio 2, Add: grains 4 across and 2 down. Frames 0.
+
+FX-ADDGRAIN-012 (`fx_addgrain_012.json`): Channel intensities 2, 0 and 0.5, Add: red's grain doubled, green untouched, blue's halved. Frames 0.
+
+FX-ADDGRAIN-013 (`fx_addgrain_013.json`): Shadows 0, Highlights 0, Add: no grain in the black or the white patch, and most in the middle tones. Frames 0.
+
+FX-ADDGRAIN-014 (`fx_addgrain_014.json`): Shadows 3, Midtones 0, Highlights 0.5, Midpoint 0.3, Add: strong grain in the dark line, none at brightness 0.3. Frames 0.
+
+FX-ADDGRAIN-015 (`fx_addgrain_015.json`): Add, intensity 3: the white patch can only darken and the black only lighten; elsewhere up to 0.3 either way. Frames 0.
+
+FX-ADDGRAIN-016 (`fx_addgrain_016.json`): Overlay, intensity 2: the grain laid on in Overlay. Frames 0.
+
+FX-ADDGRAIN-017 (`fx_addgrain_017.json`): Intensity 0: the drawing, untouched. Frames 0, 2.
+
+FX-ADDGRAIN-018 (`fx_addgrain_018.json`): Intensity 10, Add: the grain at its strongest. Frames 0.
+
+FX-ADDGRAIN-019 (`fx_addgrain_019.json`): Random Seed 7: a different grain from FX-ADDGRAIN-001's. Frames 0.
+
+FX-ADDGRAIN-020 (`fx_addgrain_020.json`): Random Seed 3. Frames 0.
+
+FX-ADDGRAIN-021 (`fx_addgrain_021.json`): Random Seed 3.7: its whole part counts, so this is FX-ADDGRAIN-020. Frames 0.
+
+FX-ADDGRAIN-022 (`fx_addgrain_022.json`): Intensity keyed from 0 at frame 0 to 4 at frame 4, speed 0, Add: frame 0 is the drawing; frame 4's grain is frame 2's, twice as strong. Frames 0, 2, 4.
+
+FX-ADDGRAIN-023 (`fx_addgrain_023.json`): Size keyed from 1 at frame 0 to 5 at frame 4, speed 0: frame 2 is size 3. Frames 0, 2, 4.
+
+FX-ADDGRAIN-024 (`fx_addgrain_024.json`): FX-ADDGRAIN-001 moved three pixels right: the grain is the drawing's own, so it moves with it. Frames 0, 2.
+
+FX-ADDGRAIN-025 (`fx_addgrain_025.json`): After a Motion Tile that grows the layer: the grain is worked in the drawing's own pixels, so the frame is FX-ADDGRAIN-001's. Frames 0, 2.
+
+FX-ADDGRAIN-026 (`fx_addgrain_026.json`): Animation Speed 2: frame 1 is FX-ADDGRAIN-001's frame 2. Frames 1, 2.
+
+FX-ADDGRAIN-027 (`fx_addgrain_027.json`): Midpoint keyed from 0.2 at frame 0 to 0.8 at frame 4 with Shadows 0 and Highlights 2, speed 0, Add: the dark tones gain grain as the midpoint rises. Frames 0, 4.
+
+FX-ADDGRAIN-028 (`fx_addgrain_028.json`): Monochromatic, Size 3, Softness 0.3, Aspect 0.5, Film, intensity 2, speed 0.25 smooth, seed 11: the controls together. Frames 0, 1, 2, 3, 4.
+
+FX-ADDGRAIN-029 (`fx_addgrain_029.json`): Intensity 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-030 (`fx_addgrain_030.json`): Size 0.05, below 0.1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-031 (`fx_addgrain_031.json`): Softness 1.5, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-032 (`fx_addgrain_032.json`): Aspect Ratio 5, above 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-033 (`fx_addgrain_033.json`): Green Intensity -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-034 (`fx_addgrain_034.json`): Saturation 2, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-035 (`fx_addgrain_035.json`): Midpoint 1, above 0.99. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-036 (`fx_addgrain_036.json`): Animation Speed 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-037 (`fx_addgrain_037.json`): Random Seed 100001, above 100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-038 (`fx_addgrain_038.json`): Blending Mode "screen", not one of its three words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-039 (`fx_addgrain_039.json`): Monochromatic "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-040 (`fx_addgrain_040.json`): Animate Smoothly "On", in capitals, kept as written and not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ADDGRAIN-041 (`fx_addgrain_041.json`): Shadows keyed to 20 at frame 4, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
