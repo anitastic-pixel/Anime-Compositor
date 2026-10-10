@@ -1,0 +1,189 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-vegas-054",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-night",
+      "kind": "still",
+      "name": "night",
+      "path": "media/night.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 5,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 5
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-night",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "masks": [
+            {
+              "name": "Mask 1",
+              "enabled": true,
+              "inverted": false,
+              "mode": "none",
+              "opacity": 1.0,
+              "feather_px": 0.0,
+              "expansion_px": 0.0,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        2,
+                        2
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        13,
+                        2
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        13,
+                        7
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        2,
+                        7
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              }
+            }
+          ],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.vegas",
+              "enabled": true,
+              "parameters": {
+                "stroke": "masks",
+                "mask": 1,
+                "all_masks": "off",
+                "segments": 32,
+                "length": 1,
+                "segment_distribution": "random",
+                "rotation": 0,
+                "random_phase": "off",
+                "random_seed": 1,
+                "blend_mode": "over",
+                "color": "#ffffff",
+                "width": 2,
+                "hardness": 0,
+                "start_opacity": 1,
+                "mid_point_opacity": 0,
+                "mid_point_position": 0.5,
+                "end_opacity": 0
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
