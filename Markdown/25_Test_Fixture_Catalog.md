@@ -206390,3 +206390,67 @@ FX-GRID-036 (`fx_grid_036.json`): Colour "#12345", not six hex digits. The file 
 FX-GRID-037 (`fx_grid_037.json`): Invert "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-GRID-038 (`fx_grid_038.json`): Border keyed to 10001 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Light Burst (D-422)
+
+Our name for CycoreFX's CC Light Burst 2.5 (Generate), `core.light_burst` (B-301). Every case is a composition 16 by 10 holding Light Rays' lamp drawing (`Fixtures/light_burst/media/lamp.png`, written again by the reference: a yellow, a brown and a purple patch, with empty columns and rows round them), the same size, unmoved unless the case says. `tools/light_burst_reference.py` works the expected frames, `Fixtures/light_burst/expected_light_burst.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-BURST-001 (`fx_burst_001.json`): The settings as they start: centre 50, 50, the point (8, 5), intensity 100, ray length 50, Straight, Set Color off. Every pixel that shows is light, the yellow, the brown and the purple alike, in its own colour: the yellow streaks left into the empty columns 0 to 3, the brown and purple right to the drawing's edge, and each streaks up and down into the empty rows, fading as it goes; each is brightened by its own light. Nothing is drawn past the layer's edge. Frames 0.
+
+FX-BURST-002 (`fx_burst_002.json`): Intensity 0: the drawing, untouched. Frames 0.
+
+FX-BURST-003 (`fx_burst_003.json`): Ray length 0: no streaks, but the light is still added onto itself: every colour twice as bright, and the half-covering edge doubled to full covering. Frames 0.
+
+FX-BURST-004 (`fx_burst_004.json`): Fade: the streaks reach as far as FX-BURST-001's but fade as they run out, each pixel's own light counted most, so the streaks over the empty pixels are fainter, and the brown's inner column, which a straight burst mixes with the empty gap beside it, keeps more of its own colour. Frames 0.
+
+FX-BURST-005 (`fx_burst_005.json`): Center: the streaks run half as far out and half as far in, toward the centre, so the brown's light falls inward on the empty column 9, which FX-BURST-001 leaves empty. Frames 0.
+
+FX-BURST-006 (`fx_burst_006.json`): Ray length 100, the most: each pixel gathers light all the way from the centre out to itself, so the streaks reach further than FX-BURST-001's. Frames 0.
+
+FX-BURST-007 (`fx_burst_007.json`): Intensity 250: two and a half times FX-BURST-001's rays, past white and not cut off; the covering stops at full. Frames 0.
+
+FX-BURST-008 (`fx_burst_008.json`): Intensity 2000, the most: twenty times the rays. Frames 0.
+
+FX-BURST-009 (`fx_burst_009.json`): Set Color on, #ff8000, orange: the rays take the colour where the layer shows, so the yellow, brown and purple all burst orange: red as much as the covering, a fifth as much green and no blue. The covering as FX-BURST-001's. Frames 0.
+
+FX-BURST-010 (`fx_burst_010.json`): Set Color on, white: the rays are white light, so even the purple bursts white. Frames 0.
+
+FX-BURST-011 (`fx_burst_011.json`): Set Color off with colour #ff8000: the colour does not count; FX-BURST-001. Frames 0.
+
+FX-BURST-012 (`fx_burst_012.json`): FX-BURST-009 with its colour written in capitals, #FF8000: the same. Frames 0.
+
+FX-BURST-013 (`fx_burst_013.json`): Set Color on, #000000, black: the rays add covering but no colour, a dark shadow over the empty pixels, and the half-covering edge darkens. Frames 0.
+
+FX-BURST-014 (`fx_burst_014.json`): Centre 0, 0, the top left corner: the streaks run down and right, away from the corner; the corner itself stays empty. Frames 0.
+
+FX-BURST-015 (`fx_burst_015.json`): Centre 50, -100, above the drawing: the streaks run straight down to the bottom edge, and nothing lights the empty rows above the drawing. Frames 0.
+
+FX-BURST-016 (`fx_burst_016.json`): Ray length keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 is FX-BURST-003, frame 2 is FX-BURST-001, frame 4 is FX-BURST-006. Frames 0, 2, 4.
+
+FX-BURST-017 (`fx_burst_017.json`): Centre keyed from 50, 50 at frame 0 to 0, 0 at frame 4, linear: frame 0 is FX-BURST-001, frame 2 bursts from 25, 25, frame 4 is FX-BURST-014. Frames 0, 2, 4.
+
+FX-BURST-018 (`fx_burst_018.json`): Intensity eased from 0 at frame 0 to 2000 at frame 4 on a curve that overshoots: at frame 2 it would pass 2000, is held at 2000, and is FX-BURST-008, as frame 4 is. Frames 0, 2, 4.
+
+FX-BURST-019 (`fx_burst_019.json`): Center, ray length 100: half the way in and half again out. Frames 0.
+
+FX-BURST-020 (`fx_burst_020.json`): Fade, Set Color on, #40c0ff, intensity 300, centre 25, 75: the kinds and the colour together. Frames 0.
+
+FX-BURST-021 (`fx_burst_021.json`): FX-BURST-001 moved three pixels right: the burst is drawn on the drawing before it is moved, so it is FX-BURST-001 moved, and the three columns left of the drawing stay empty, as the layer does not grow. Frames 0, 3.
+
+FX-BURST-022 (`fx_burst_022.json`): Ray length 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURST-023 (`fx_burst_023.json`): Intensity -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURST-024 (`fx_burst_024.json`): Intensity 2001, above 2000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURST-025 (`fx_burst_025.json`): Intensity keyed to 3000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURST-026 (`fx_burst_026.json`): Centre -1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURST-027 (`fx_burst_027.json`): Burst "sideways", not one of the three. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURST-028 (`fx_burst_028.json`): Set Color "yes", neither "off" nor "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURST-029 (`fx_burst_029.json`): A colour written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURST-030 (`fx_burst_030.json`): A colour written "orange", a name, not #rrggbb, with Set Color on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

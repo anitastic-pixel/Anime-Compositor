@@ -381,7 +381,7 @@ fn b301_light_burst() {
         "core.light_burst",
         &[
             ("as_added", json!({}), "as it starts: every house streaked outward from the middle in its own colours, and brightened", changed),
-            ("tutorial", json!({"intensity": 1200, "ray_length": 35}), "the manual's tutorial settings, intensity 1200, ray length 35: the street blown out in white streaks", changed),
+            ("tutorial", json!({"intensity": 1200, "ray_length": 35}), "the manual's tutorial settings, intensity 1200, ray length 35: on an opaque layer the street is blown out almost to white, streaks showing only in the road", changed),
             ("fade", json!({"burst": "fade", "ray_length": 80}), "fade, ray length 80: the streaks fade as they go out", changed),
             ("center", json!({"burst": "center", "ray_length": 80}), "center, ray length 80: the streaks run both in and out from each house", changed),
             ("set_color", json!({"set_color": "on", "color": "#ff8000", "intensity": 150, "center": [25, 40]}), "Set Color on #ff8000, intensity 150, round 25, 40: the street covers its whole frame, so its light is even and the picture is washed orange with no streaks (the rays take the layer's shape only where it is see-through, as FX-BURST-009's lamp shows)", changed),
