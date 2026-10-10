@@ -205044,3 +205044,49 @@ FX-SELC-021 (`fx_selc_021.json`): Greens three numbers, not four. The file is re
 FX-SELC-022 (`fx_selc_022.json`): Method "Relative": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SELC-023 (`fx_selc_023.json`): Method "percentage", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Shadow/Highlight (D-400)
+
+Shadow/Highlight (`core.shadow_highlight`), after After Effects' Shadow/Highlight (B-279). Every case is a project of one composition 16 by 10, five frames, one drawing, Broadcast Safe's (`tools/broadcast_safe_reference.py`: pure colours, greys, a skin tone, orange and three warm tones, each column darker down the rows), with the effect. `tools/shadow_highlight_reference.py` works the expected frames, `Fixtures/shadow_highlight/expected_shadow_highlight.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SHHI-001 (`fx_shhi_001.json`): The settings as they start (shadow 50, highlight 0, widths 50, radii 30, colour correction 20): the dark rows lifted, most where the blur round them is darkest; black and white stay as they are. Frames 0.
+
+FX-SHHI-002 (`fx_shhi_002.json`): Both amounts 0: the drawing exactly as it is. Frames 0.
+
+FX-SHHI-003 (`fx_shhi_003.json`): Shadow 100: the overlay laid four times (2 squared), lifted further than FX-SHHI-001. Frames 0.
+
+FX-SHHI-004 (`fx_shhi_004.json`): Highlight 50 alone at radius 2, shadow 0: the light pixels darkened where the blur round them is light; white and black stay. Frames 0.
+
+FX-SHHI-005 (`fx_shhi_005.json`): Highlight 100 alone at radius 2: darkened further. Frames 0.
+
+FX-SHHI-006 (`fx_shhi_006.json`): Shadow 60 and highlight 40 together: the highlights first, then the shadows. Frames 0.
+
+FX-SHHI-007 (`fx_shhi_007.json`): Shadow tonal width 30: only pixels whose surroundings are darker change, less than FX-SHHI-001. Frames 0.
+
+FX-SHHI-008 (`fx_shhi_008.json`): Shadow tonal width 100: every pixel's surroundings count as shadow, more than FX-SHHI-001. Frames 0.
+
+FX-SHHI-009 (`fx_shhi_009.json`): Shadow radius 1: each pixel judged by its nearest neighbours, so the lift follows the columns' own brightness. Frames 0.
+
+FX-SHHI-010 (`fx_shhi_010.json`): Shadow radius 0: each pixel judged by its own lightness alone. Frames 0.
+
+FX-SHHI-011 (`fx_shhi_011.json`): Shadow 70 at radius 2 and highlight 60 at radius 6: two blurs, one for each. Frames 0.
+
+FX-SHHI-012 (`fx_shhi_012.json`): Colour correction 0: the lifted shadows lose colour (their chroma scaled by how far they are from white). Frames 0.
+
+FX-SHHI-013 (`fx_shhi_013.json`): Colour correction 100: the lifted shadows keep their colour's strength, chroma scaled with the lightness. Frames 0.
+
+FX-SHHI-014 (`fx_shhi_014.json`): Highlight tonal width 100, highlight 80, radius 3, shadow 0: the highlights' widest reach. Frames 0.
+
+FX-SHHI-015 (`fx_shhi_015.json`): Shadow amount keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 untouched, frame 2 shadow 50 (FX-SHHI-001), frame 4 as FX-SHHI-003. Frames 0, 2, 4.
+
+FX-SHHI-016 (`fx_shhi_016.json`): FX-SHHI-011 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-SHHI-017 (`fx_shhi_017.json`): Shadow amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHHI-018 (`fx_shhi_018.json`): Highlight amount -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHHI-019 (`fx_shhi_019.json`): Shadow tonal width 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHHI-020 (`fx_shhi_020.json`): Highlight radius 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHHI-021 (`fx_shhi_021.json`): Colour correction -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
