@@ -205257,6 +205257,50 @@ FX-SPHERIZE-014 (`fx_spherize_014.json`): Centre at 1001, 50, past ten widths. T
 
 FX-SPHERIZE-015 (`fx_spherize_015.json`): Centre at 50, -1001. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Detail-preserving Upscale (D-407)
+
+Detail-preserving Upscale (`core.detail_upscale`), after After Effects' Detail-preserving Upscale (B-286): the layer enlarged up to ten times, softened before and sharpened after. Every case is a project of one composition 32 by 20, five frames, one drawing 16 by 10 (Tiles' card, `media/card.png`) in its middle with the effect, so the grown layer and its edges show. `tools/detail_upscale_reference.py` works the expected frames, `Fixtures/detail_upscale/expected_detail_upscale.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-UPSCALE-001 (`fx_upscale_001.json`): The settings as they start: scale 100, no softening, Detail 20: the drawing the same size, its edges a little sharpened (an unsharp mask of 0.4 at sigma 0.5). Frames 0, 4.
+
+FX-UPSCALE-002 (`fx_upscale_002.json`): Scale 100, Detail 0: the drawing as it is. Frames 0.
+
+FX-UPSCALE-003 (`fx_upscale_003.json`): Scale 200, Detail 0: Lanczos-3 alone; the layer grows to 32 by 20 and fills the composition. Frames 0.
+
+FX-UPSCALE-004 (`fx_upscale_004.json`): Scale 200, Detail 20 (as added): FX-UPSCALE-003 sharpened at sigma 1. Frames 0.
+
+FX-UPSCALE-005 (`fx_upscale_005.json`): Scale 200, Detail 100: sharpened twice over, halos at the line and the band. Frames 0.
+
+FX-UPSCALE-006 (`fx_upscale_006.json`): Scale 150, Detail 0: the layer grows 4 each side across and 3 down (24 by 16), the middle unmoved. Frames 0.
+
+FX-UPSCALE-007 (`fx_upscale_007.json`): Scale 200, Reduce Noise 100, Detail 0: softened at sigma 2 before the enlarging. Frames 0.
+
+FX-UPSCALE-008 (`fx_upscale_008.json`): Scale 200, Reduce Noise 50, Detail 50: softened at sigma 1, enlarged, sharpened by 1. Frames 0.
+
+FX-UPSCALE-009 (`fx_upscale_009.json`): Scale 300: the layer 48 by 30, cut by the composition's edges. Frames 0.
+
+FX-UPSCALE-010 (`fx_upscale_010.json`): Scale 100, Reduce Noise 100, Detail 0: softened only. Frames 0.
+
+FX-UPSCALE-011 (`fx_upscale_011.json`): Scale keyed from 100 at frame 0 to 300 at frame 4, linear, Detail 0: as it is, then 200 at frame 2, then 300. Frames 0, 2, 4.
+
+FX-UPSCALE-012 (`fx_upscale_012.json`): Detail keyed from 0 at frame 0 to 100 at frame 4, scale 200: frame 0 is FX-UPSCALE-003, frame 4 FX-UPSCALE-005. Frames 0, 2, 4.
+
+FX-UPSCALE-013 (`fx_upscale_013.json`): Scale 200, Detail 20, the layer moved 3 pixels right: FX-UPSCALE-004 moved; columns 0 to 2 empty. Frames 0.
+
+FX-UPSCALE-014 (`fx_upscale_014.json`): Scale eased from 200 at frame 0 to 100 at frame 4 on a curve that overshoots, Detail 0: at frame 2 it would pass below 100 and is held there, so frames 2 and 4 show the drawing as it is. Frames 0, 2, 4.
+
+FX-UPSCALE-015 (`fx_upscale_015.json`): Scale 99, below 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-UPSCALE-016 (`fx_upscale_016.json`): Scale 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-UPSCALE-017 (`fx_upscale_017.json`): Reduce Noise -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-UPSCALE-018 (`fx_upscale_018.json`): Reduce Noise 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-UPSCALE-019 (`fx_upscale_019.json`): Detail -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-UPSCALE-020 (`fx_upscale_020.json`): Detail 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Arbitrary Map (D-395)
 
 Arbitrary Map (`core.arbitrary_map`), after After Effects' PS Arbitrary Map (B-274): the layer's colours through a Photoshop arbitrary map (.amp), a lookup file of the project as Color Lookup's .cube is. Every case is a project of one composition 16 by 10, five frames, one drawing of `tools/invert_reference.py`'s bands with the effect; the map files are in `Fixtures/arbitrary_map/maps` (refused ones in `maps/refused`). `tools/arbitrary_map_reference.py` works the expected frames, `Fixtures/arbitrary_map/expected_arbitrary_map.json`, tolerance 2e-5; the rule is in document 21.
