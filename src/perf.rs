@@ -342,6 +342,8 @@ pub enum Stage {
     EffectEyedropperFill,
     /// D-440's Paint Bucket.
     EffectPaintBucket,
+    /// D-441's Write-on.
+    EffectWriteOn,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -359,7 +361,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 177] = [
+    pub const ALL: [Stage; 178] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -530,6 +532,7 @@ impl Stage {
         Stage::EffectLensFlare,
         Stage::EffectEyedropperFill,
         Stage::EffectPaintBucket,
+        Stage::EffectWriteOn,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -712,6 +715,7 @@ impl Stage {
             Stage::EffectLensFlare => "effect: lens flare",
             Stage::EffectEyedropperFill => "effect: eyedropper fill",
             Stage::EffectPaintBucket => "effect: paint bucket",
+            Stage::EffectWriteOn => "effect: write-on",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

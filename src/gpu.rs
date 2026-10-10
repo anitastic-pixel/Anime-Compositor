@@ -6533,6 +6533,58 @@ fn marks(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-441, along::write_on: k the paint style (0 on the original, 1 on transparent, 2 reveal), the
+// colour in linear light, the marks' count, then from 5 each mark's centre, radius, soft edge,
+// covering at most and box, then for each band of 16 rows where its list of marks starts and how
+// many, then the lists, as Path Stroke's. The mark covering most wins.
+@compute @workgroup_size(16, 16)
+fn writeon(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let px = textureLoad(input, id.xy, 0);
+    let xi = f64(id.x);
+    let x = xi + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    var c = 0.0lf;
+    let band = 5u + 9u * u32(k[4]) + 2u * (id.y / 16u);
+    let first = u32(k[band]);
+    let n = u32(k[band + 1u]);
+    for (var i = 0u; i < n; i++) {
+        let o = 5u + 9u * u32(k[first + i]);
+        if y <= k[o + 7u] || y >= k[o + 8u] || xi < ceil(k[o + 5u] - 0.5lf) || xi > floor(k[o + 6u] - 0.5lf) {
+            continue;
+        }
+        let ex = x - k[o];
+        let ey = y - k[o + 1u];
+        let u = clamp((k[o + 2u] + 0.5lf - sqrt(ex * ex + ey * ey)) / k[o + 3u], 0.0lf, 1.0lf);
+        c = max(c, k[o + 4u] * u * u * (3.0lf - 2.0lf * u));
+    }
+    let style = k[0];
+    if style == 0.0lf && c <= 0.0lf {
+        textureStore(output, id.xy, px);
+        return;
+    }
+    var out = px;
+    if style == 0.0lf {
+        for (var j = 0u; j < 3u; j++) {
+            out[j] = f32(f64(px[j]) * (1.0lf - c) + k[1u + j] * c);
+        }
+        out.w = f32(f64(px.w) * (1.0lf - c) + c);
+    } else if style == 1.0lf {
+        for (var j = 0u; j < 3u; j++) {
+            out[j] = f32(k[1u + j] * c);
+        }
+        out.w = f32(c);
+    } else {
+        for (var j = 0u; j < 4u; j++) {
+            out[j] = f32(f64(px[j]) * c);
+        }
+    }
+    textureStore(output, id.xy, out);
+}
+
 // B-225, layer_fx::bevel_edges: k the thickness in pixels, the light's direction (1, 2), the
 // intensity, then the light in linear light. A pixel nearer than the thickness to the buffer's
 // nearest side, the first of left, top, right and bottom among equals, takes that side's slope.
@@ -7557,6 +7609,8 @@ struct FxPasses {
     stroke: Pass,
     /// D-420.
     marks: Pass,
+    /// D-441.
+    writeon: Pass,
     edges: Pass,
     /// B-226.
     dissolve: Pass,
@@ -8197,6 +8251,7 @@ impl Gpu {
                 bolt: pass("bolt", &[0, 1, 2, 3]),
                 stroke: pass("stroke", &[0, 1, 2, 3]),
                 marks: pass("marks", &[0, 1, 2, 3]),
+                writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
                 gwipe: pass("gwipe", &[0, 1, 2, 3, 4]),
@@ -10943,6 +10998,34 @@ impl Gpu {
                 }
                 k.extend(bands.concat());
                 same(steps, &passes.stroke, FxParams::default(), &k, None)
+            }
+            // D-441: Write-on's marks, placed here as the CPU places them.
+            E::WriteOn { color, paint_style, marks, .. } => {
+                let marks = crate::effects::write_on_marks(marks, (w as usize, h as usize), f.origin);
+                let style = crate::effects::PAINT_STYLES.iter().position(|s| s == paint_style).unwrap_or(0) as f64;
+                let mut k = vec![style];
+                k.extend(linear(color));
+                let kept: Vec<[f64; 5]> = marks.into_iter().filter(|m| m[2] != 0.0 && m[4] != 0.0).collect();
+                k.push(kept.len() as f64);
+                let mut bands = vec![Vec::new(); (h as usize).div_ceil(16)];
+                for (j, &[x, y, size, hardness, opacity]) in kept.iter().enumerate() {
+                    let r = size / 2.0;
+                    let reach = r + 0.5;
+                    let b = [x - reach, x + reach, y - reach, y + reach];
+                    k.extend([x, y, r, (r * (1.0 - hardness / 100.0)).max(1.0), opacity / 100.0]);
+                    k.extend(b);
+                    let rows = (b[2] - 0.5).floor().max(0.0) as usize..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                    for band in bands.iter_mut().take(rows.end() / 16 + 1).skip(rows.start() / 16) {
+                        band.push(j as f64);
+                    }
+                }
+                let mut first = k.len() + 2 * bands.len();
+                for band in &bands {
+                    k.extend([first as f64, band.len() as f64]);
+                    first += band.len();
+                }
+                k.extend(bands.concat());
+                same(steps, &passes.writeon, FxParams::default(), &k, None)
             }
             E::BevelEdges { edge_thickness, light_angle, light_color, light_intensity } => {
                 let (ux, uy) = crate::blurs::along(*light_angle);

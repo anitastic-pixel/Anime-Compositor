@@ -1855,6 +1855,27 @@ pub enum Effect {
         opacity: f64,
         blending_mode: String,
     },
+    /// D-441: after After Effects' Write-on. `brush_position`, per cent of the drawing, -1000 to
+    /// 1000; `color`, `#rrggbb`; `brush_size`, 0 to 200 pixels; `brush_hardness` and
+    /// `brush_opacity`, 0 to 100; `stroke_length`, 0 to 3600 seconds (0 for no end);
+    /// `brush_spacing`, 0.001 to 10 seconds; `paint_time_properties`, one of
+    /// [`WRITE_ON_PAINT_TIMES`]; `brush_time_properties`, one of [`WRITE_ON_BRUSH_TIMES`];
+    /// `paint_style`, one of [`PAINT_STYLES`]. `marks` is not a setting and is never saved: each
+    /// brush mark kept at the frame, [x, y (per cent), size, hardness, opacity], which compose
+    /// reads for a frame; with none, nothing is drawn.
+    WriteOn {
+        brush_position: [f64; 2],
+        color: String,
+        brush_size: f64,
+        brush_hardness: f64,
+        brush_opacity: f64,
+        stroke_length: f64,
+        brush_spacing: f64,
+        paint_time_properties: String,
+        brush_time_properties: String,
+        paint_style: String,
+        marks: Vec<[f64; 5]>,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2520,6 +2541,11 @@ pub const PAINT_BUCKET: &str = "core.paint_bucket";
 pub const PAINT_BUCKET_SELECTORS: [&str; 5] = ["color_and_alpha", "straight_color", "transparency", "opacity", "alpha_channel"];
 pub const PAINT_BUCKET_STROKES: [&str; 5] = ["antialias", "feather", "spread", "choke", "stroke"];
 pub const PAINT_BUCKET_MODES: [&str; 7] = ["normal", "add", "multiply", "screen", "overlay", "soft_light", "fill_only"];
+pub const WRITE_ON: &str = "core.write_on";
+/// D-441: Write-on's Paint and Brush Time Properties: which settings each mark keeps from the
+/// time it was laid.
+pub const WRITE_ON_PAINT_TIMES: [&str; 4] = ["none", "color", "opacity", "color_and_opacity"];
+pub const WRITE_ON_BRUSH_TIMES: [&str; 4] = ["none", "size", "hardness", "size_and_hardness"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3448,6 +3474,14 @@ impl Effect {
                 ("stroke_width", vec![stroke_width], 0.0, 10000.0),
                 ("feather_softness", vec![feather_softness], 0.0, 10000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
+            ],
+            Effect::WriteOn { brush_position, brush_size, brush_hardness, brush_opacity, stroke_length, brush_spacing, .. } => vec![
+                ("brush_position", brush_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("brush_size", vec![brush_size], 0.0, 200.0),
+                ("brush_hardness", vec![brush_hardness], 0.0, 100.0),
+                ("brush_opacity", vec![brush_opacity], 0.0, 100.0),
+                ("stroke_length", vec![stroke_length], 0.0, 3600.0),
+                ("brush_spacing", vec![brush_spacing], 0.001, 10.0),
             ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
@@ -4379,6 +4413,13 @@ impl Effect {
                 *stroke_width = scale(*stroke_width);
                 *feather_softness = scale(*feather_softness);
             }
+            // D-441: the brush and every mark's size; the places are shares of the drawing.
+            Effect::WriteOn { brush_size, marks, .. } => {
+                *brush_size = scale(*brush_size);
+                for m in marks {
+                    m[2] = scale(m[2]);
+                }
+            }
             // D-417: the cells held at least a pixel, as Checkerboard's.
             Effect::Grid { width, height, border, feather_width, feather_height, .. } => {
                 *width = scale(*width).max(1.0);
@@ -4692,6 +4733,7 @@ impl Effect {
             Effect::Fill { .. } => "Fill",
             Effect::EyedropperFill { .. } => "Eyedropper Fill",
             Effect::PaintBucket { .. } => "Paint Bucket",
+            Effect::WriteOn { .. } => "Write-on",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -4866,6 +4908,7 @@ impl Effect {
             Effect::Fill { .. } => FILL,
             Effect::EyedropperFill { .. } => EYEDROPPER_FILL,
             Effect::PaintBucket { .. } => PAINT_BUCKET,
+            Effect::WriteOn { .. } => WRITE_ON,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6130,6 +6173,19 @@ impl Effect {
                 "Paint Bucket's invert fill is \"off\" or \"on\", and this is \"{v}\"."
             )),
             Effect::PaintBucket { color, .. } => hex_fault("Paint Bucket", "colour", color),
+            Effect::WriteOn { paint_time_properties: v, .. } if !WRITE_ON_PAINT_TIMES.contains(&v.as_str()) => Some(format!(
+                "Write-on's paint time properties is one of {}, and this is \"{v}\".",
+                WRITE_ON_PAINT_TIMES.join(", ")
+            )),
+            Effect::WriteOn { brush_time_properties: v, .. } if !WRITE_ON_BRUSH_TIMES.contains(&v.as_str()) => Some(format!(
+                "Write-on's brush time properties is one of {}, and this is \"{v}\".",
+                WRITE_ON_BRUSH_TIMES.join(", ")
+            )),
+            Effect::WriteOn { paint_style: v, .. } if !PAINT_STYLES.contains(&v.as_str()) => Some(format!(
+                "Write-on's paint style is one of {}, and this is \"{v}\".",
+                PAINT_STYLES.join(", ")
+            )),
+            Effect::WriteOn { color, .. } => hex_fault("Write-on", "colour", color),
             Effect::Ellipse { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
                 "Ellipse's composite is \"on\" or \"off\", and this is \"{composite}\"."
             )),
@@ -6741,6 +6797,18 @@ pub(crate) fn radial_center(center: [f64; 2], (w, h): (usize, usize), (ox, oy): 
         ox as f64 + center[0] / 100.0 * w0 as f64,
         oy as f64 + center[1] / 100.0 * h0 as f64,
     )
+}
+
+/// D-441: Write-on's marks with their places in the pixels of a buffer `w` by `h`, as
+/// [`radial_center`] says. The processor and the card share it.
+pub(crate) fn write_on_marks(marks: &[[f64; 5]], size: (usize, usize), origin: (usize, usize)) -> Vec<[f64; 5]> {
+    marks
+        .iter()
+        .map(|&[x, y, s, h, o]| {
+            let (px, py) = radial_center([x, y], size, origin);
+            [px, py, s, h, o]
+        })
+        .collect()
 }
 
 /// Run one layer's stack over its pixels, in order.
@@ -7780,6 +7848,14 @@ pub(crate) fn apply_stack_at(
                         softness: *feather_softness,
                     };
                     crate::layer_fx::paint_bucket(source, &bucket, view_threshold == "on", c, *opacity / 100.0, blending_mode)
+                })
+            }
+            // D-441: the marks compose kept for this frame, places a share of the drawing's own
+            // size; the layer never grows.
+            Effect::WriteOn { color, paint_style, marks, .. } => {
+                crate::perf::time(crate::perf::Stage::EffectWriteOn, || {
+                    let at = write_on_marks(marks, (source.width(), source.height()), (ox, oy));
+                    crate::along::write_on(source, &at, encoded(color).map(crate::grade::to_linear), paint_style)
                 })
             }
             // D-417: the anchor and corner as Checkerboard's; the layer never grows.

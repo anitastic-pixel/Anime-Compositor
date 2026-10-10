@@ -1012,6 +1012,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::EyedropperFill { .. }
                 // D-440: Paint Bucket (the area is found on the processor).
                 | crate::effects::Effect::PaintBucket { .. }
+                // D-441: Write-on.
+                | crate::effects::Effect::WriteOn { .. }
                 // D-407: Detail-preserving Upscale.
                 | crate::effects::Effect::DetailUpscale { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
@@ -1388,6 +1390,8 @@ fn card_effect(
                 E::PaintBucket { opacity, blending_mode, view_threshold, .. } => {
                     *opacity == 0.0 && blending_mode != "fill_only" && view_threshold == "off"
                 }
+                // D-441: on the layer, with no mark that covers anything.
+                E::WriteOn { paint_style, marks, .. } => paint_style == "on_original" && marks.iter().all(|m| m[2] == 0.0 || m[4] == 0.0),
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -2007,6 +2011,40 @@ fn effect_now(
                         _ => *brush_position,
                     }
                 }))
+                .collect();
+        }
+        // D-441: Write-on's marks, one every Brush Spacing of the layer's key time from its in
+        // point, each read as the layer's keys are at the time it was laid.
+        // ponytail: every frame reads every mark again, O(duration / spacing); keep the marks
+        // between frames if long shots with fine spacing crawl.
+        if let crate::effects::Effect::WriteOn {
+            brush_size, brush_hardness, brush_opacity, stroke_length, brush_spacing, paint_time_properties, brush_time_properties, marks, ..
+        } = &mut now.effect
+        {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            let start = layer.in_frame as f64;
+            let step = *brush_spacing * fps;
+            let n = ((u - start) / step + 1e-9).floor();
+            let size_then = matches!(brush_time_properties.as_str(), "size" | "size_and_hardness");
+            let hard_then = matches!(brush_time_properties.as_str(), "hardness" | "size_and_hardness");
+            let opacity_then = matches!(paint_time_properties.as_str(), "opacity" | "color_and_opacity");
+            let (size, hard, opacity, keep) = (*brush_size, *brush_hardness, *brush_opacity, *stroke_length * fps);
+            *marks = (0..(n + 1.0).max(0.0) as i64)
+                .map(|k| start + k as f64 * step)
+                .filter(|uk| keep <= 0.0 || u - uk < keep - 1e-9)
+                .filter_map(|uk| {
+                    let then = (start + (uk - start) * layer.time_stretch / 100.0 + 1e-9).floor() as i32;
+                    match crate::expr::effect_at(comp, &layer.id, instance, then, uk).0.effect {
+                        crate::effects::Effect::WriteOn { brush_position: p, brush_size: s, brush_hardness: h, brush_opacity: o, .. } => Some([
+                            p[0],
+                            p[1],
+                            if size_then { s } else { size },
+                            if hard_then { h } else { hard },
+                            if opacity_then { o } else { opacity },
+                        ]),
+                        _ => None,
+                    }
+                })
                 .collect();
         }
     }

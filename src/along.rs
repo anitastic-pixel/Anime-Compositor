@@ -162,25 +162,67 @@ pub(crate) fn path_stroke(buffer: &mut WorkingBuffer, runs: &[Run], [size, hardn
                 continue;
             }
             let t = ((r + 0.5 - d) / soft).clamp(0.0, 1.0);
-            let c = opacity / 100.0 * t * t * (3.0 - 2.0 * t);
-            match style {
-                "on_original" => {
-                    for ch in 0..3 {
-                        px[ch] = (px[ch] as f64 * (1.0 - c) + color[ch] * c) as f32;
-                    }
-                    px[3] = (px[3] as f64 * (1.0 - c) + c) as f32;
-                }
-                "on_transparent" => {
-                    for ch in 0..3 {
-                        px[ch] = (color[ch] * c) as f32;
-                    }
-                    px[3] = c as f32;
-                }
-                _ => {
-                    for v in px.iter_mut() {
-                        *v = (*v as f64 * c) as f32;
-                    }
-                }
+            lay(px, opacity / 100.0 * t * t * (3.0 - 2.0 * t), color, style);
+        }
+    });
+}
+
+/// A brush covering `c` laid on one pixel by Path Stroke's paint styles.
+fn lay(px: &mut [f32], c: f64, color: [f64; 3], style: &str) {
+    match style {
+        "on_original" => {
+            for ch in 0..3 {
+                px[ch] = (px[ch] as f64 * (1.0 - c) + color[ch] * c) as f32;
+            }
+            px[3] = (px[3] as f64 * (1.0 - c) + c) as f32;
+        }
+        "on_transparent" => {
+            for ch in 0..3 {
+                px[ch] = (color[ch] * c) as f32;
+            }
+            px[3] = c as f32;
+        }
+        _ => {
+            for v in px.iter_mut() {
+                *v = (*v as f64 * c) as f32;
+            }
+        }
+    }
+}
+
+/// D-441: Write-on. Path Stroke's round brush laid once at each of `marks`, [x, y (in the
+/// buffer's coordinates), size, hardness, opacity], the mark covering most winning at each pixel
+/// (marks do not build up); `color` linear, `style` as Path Stroke's. The buffer never grows.
+pub(crate) fn write_on(buffer: &mut WorkingBuffer, marks: &[[f64; 5]], color: [f64; 3], style: &str) {
+    let w = buffer.width();
+    // Each mark as its centre, radius, soft edge and covering at most.
+    let marks: Vec<[f64; 5]> = marks
+        .iter()
+        .filter(|m| m[2] != 0.0 && m[4] != 0.0)
+        .map(|&[x, y, size, hardness, opacity]| {
+            let r = size / 2.0;
+            [x, y, r, (r * (1.0 - hardness / 100.0)).max(1.0), opacity / 100.0]
+        })
+        .collect();
+    let every = style != "on_original";
+    buffer.data_mut().par_chunks_exact_mut(4 * w).enumerate().for_each(|(j, row)| {
+        let y = j as f64 + 0.5;
+        let mut cover = vec![0.0f64; w];
+        for &[mx, my, r, soft, opacity] in &marks {
+            let reach = r + 0.5;
+            if y <= my - reach || y >= my + reach {
+                continue;
+            }
+            let x0 = (mx - reach - 0.5).ceil().max(0.0) as usize;
+            let x1 = ((mx + reach - 0.5).floor().max(-1.0) + 1.0).min(w as f64) as usize;
+            for (i, c) in cover.iter_mut().enumerate().take(x1).skip(x0) {
+                let t = ((reach - (i as f64 + 0.5 - mx).hypot(y - my)) / soft).clamp(0.0, 1.0);
+                *c = c.max(opacity * t * t * (3.0 - 2.0 * t));
+            }
+        }
+        for (px, &c) in row.chunks_exact_mut(4).zip(&cover) {
+            if every || c > 0.0 {
+                lay(px, c, color, style);
             }
         }
     });

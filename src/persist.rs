@@ -3002,6 +3002,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
         }
+        // D-441: the marks are found each frame and never saved.
+        Effect::WriteOn {
+            brush_position, color, brush_size, brush_hardness, brush_opacity, stroke_length, brush_spacing, paint_time_properties, brush_time_properties, paint_style, ..
+        } => {
+            params.insert("brush_position".into(), J::Array(brush_position.iter().map(|c| num(*c)).collect()));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("brush_size".into(), num(*brush_size));
+            params.insert("brush_hardness".into(), num(*brush_hardness));
+            params.insert("brush_opacity".into(), num(*brush_opacity));
+            params.insert("stroke_length".into(), num(*stroke_length));
+            params.insert("brush_spacing".into(), num(*brush_spacing));
+            params.insert("paint_time_properties".into(), J::from(paint_time_properties.as_str()));
+            params.insert("brush_time_properties".into(), J::from(brush_time_properties.as_str()));
+            params.insert("paint_style".into(), J::from(paint_style.as_str()));
+        }
         // D-418: the paths are found each frame and never saved.
         Effect::Fill { mask, all_masks, color, invert, horizontal_feather, vertical_feather, opacity, .. } => {
             params.insert("mask".into(), num(*mask));
@@ -4581,6 +4596,7 @@ fn parse_effect(
         crate::effects::FILL,
         crate::effects::EYEDROPPER_FILL,
         crate::effects::PAINT_BUCKET,
+        crate::effects::WRITE_ON,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5881,6 +5897,19 @@ fn parse_effect(
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             opacity: effect_number(params, "opacity", &at)?,
             blending_mode: effect_word(params, "blending_mode", &at)?,
+        }),
+        crate::effects::WRITE_ON => Some(crate::effects::Effect::WriteOn {
+            brush_position: effect_array(params, "brush_position", "two numbers, x then y", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            brush_size: effect_number(params, "brush_size", &at)?,
+            brush_hardness: effect_number(params, "brush_hardness", &at)?,
+            brush_opacity: effect_number(params, "brush_opacity", &at)?,
+            stroke_length: effect_number(params, "stroke_length", &at)?,
+            brush_spacing: effect_number(params, "brush_spacing", &at)?,
+            paint_time_properties: effect_word(params, "paint_time_properties", &at)?,
+            brush_time_properties: effect_word(params, "brush_time_properties", &at)?,
+            paint_style: effect_word(params, "paint_style", &at)?,
+            marks: Vec::new(),
         }),
         crate::effects::FILL => Some(crate::effects::Effect::Fill {
             mask: effect_number(params, "mask", &at)?,
