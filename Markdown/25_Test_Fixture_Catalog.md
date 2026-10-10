@@ -206856,3 +206856,97 @@ FX-EYEFILL-030 (`fx_eyefill_030.json`): Average Pixel Colors "sum", not one of t
 FX-EYEFILL-031 (`fx_eyefill_031.json`): Maintain Original Alpha "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-EYEFILL-032 (`fx_eyefill_032.json`): Blend With Original keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Paint Bucket (D-440)
+
+After Effects' Paint Bucket (Generate), `core.paint_bucket` (B-320). Every case is a composition 16 by 10 holding the cel `Fixtures/paint_bucket/media/cel.png`, the same size, unmoved unless the case says. `tools/paint_bucket_reference.py` works the expected frames, `Fixtures/paint_bucket/expected_paint_bucket.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-PAINTBUCKET-001 (`fx_paintbucket_001.json`): The settings as they start: the point in the middle on the skin, Color & Alpha, tolerance 10, Antialias, red, opacity 100, normal: the skin inside the line, columns 3 to 9 and rows 2 to 7, turns red, its edge softened a pixel into the line and the shadow. Frames 0.
+
+FX-PAINTBUCKET-002 (`fx_paintbucket_002.json`): Tolerance 25: the shadow, 54 levels from the skin at most, matches too, so the whole inside of the line turns red. Frames 0.
+
+FX-PAINTBUCKET-003 (`fx_paintbucket_003.json`): The point on the line, Color & Alpha: the line's box turns red; its half-covered left edge differs by half in alpha and stays. Frames 0.
+
+FX-PAINTBUCKET-004 (`fx_paintbucket_004.json`): The same point, Straight Color: the soft edge has the line's own colour, so it is filled too, red only as far as it shows. Frames 0.
+
+FX-PAINTBUCKET-005 (`fx_paintbucket_005.json`): Transparency with the point in the empty corner: the empty border all round the cel turns red and opaque. Frames 0.
+
+FX-PAINTBUCKET-006 (`fx_paintbucket_006.json`): Transparency with the point on the skin: the point must be in a clear place, so nothing is filled: the cel as it was. Frames 0.
+
+FX-PAINTBUCKET-007 (`fx_paintbucket_007.json`): Opacity with the point on the skin: every opaque pixel joined to it, line, skin and shadow, turns red; the soft edge stays. Frames 0.
+
+FX-PAINTBUCKET-008 (`fx_paintbucket_008.json`): Alpha Channel with the point on the skin: every pixel as opaque as the skin, the same as FX-PAINTBUCKET-007 here. Frames 0.
+
+FX-PAINTBUCKET-009 (`fx_paintbucket_009.json`): Invert Fill: everything but the skin turns red, the empty border included. Frames 0.
+
+FX-PAINTBUCKET-010 (`fx_paintbucket_010.json`): View Threshold: the skin white, everything else black, all opaque. Frames 0.
+
+FX-PAINTBUCKET-011 (`fx_paintbucket_011.json`): View Threshold at tolerance 25: skin and shadow white. Frames 0.
+
+FX-PAINTBUCKET-012 (`fx_paintbucket_012.json`): Feather, softness 2: the red skin's edge fades over a few pixels. Frames 0.
+
+FX-PAINTBUCKET-013 (`fx_paintbucket_013.json`): Spread, radius 1: the red reaches a pixel further, over the line and into the shadow, then is softened. Frames 0.
+
+FX-PAINTBUCKET-014 (`fx_paintbucket_014.json`): Choke, radius 1: the red pulls a pixel in from the line and the shadow. Frames 0.
+
+FX-PAINTBUCKET-015 (`fx_paintbucket_015.json`): Stroke, width 1: only the skin's outer ring of pixels turns red. Frames 0.
+
+FX-PAINTBUCKET-016 (`fx_paintbucket_016.json`): Spread radius 0: nothing added, FX-PAINTBUCKET-001's frame. Frames 0.
+
+FX-PAINTBUCKET-017 (`fx_paintbucket_017.json`): Fill Only: the red fill alone, the rest of the layer clear. Frames 0.
+
+FX-PAINTBUCKET-018 (`fx_paintbucket_018.json`): Blue, multiply: the skin darkened toward blue. Frames 0.
+
+FX-PAINTBUCKET-019 (`fx_paintbucket_019.json`): Blue, screen: the skin lightened toward blue. Frames 0.
+
+FX-PAINTBUCKET-020 (`fx_paintbucket_020.json`): Opacity 50: half way from the skin to red. Frames 0.
+
+FX-PAINTBUCKET-021 (`fx_paintbucket_021.json`): Opacity 0: the cel exactly as it was. Frames 0.
+
+FX-PAINTBUCKET-022 (`fx_paintbucket_022.json`): The point keyed from (25, 50) at frame 0 to (75, 50) at frame 4: the skin at frames 0 and 2, the shadow at frame 4. Frames 0, 2, 4.
+
+FX-PAINTBUCKET-023 (`fx_paintbucket_023.json`): Tolerance keyed from 10 to 30: skin only at frames 0 and 2 (20), skin and shadow at frame 4. Frames 0, 2, 4.
+
+FX-PAINTBUCKET-024 (`fx_paintbucket_024.json`): Opacity keyed from 40 at frame 0 to 100 at frame 4 by an ease that passes its end: held at 100 at frame 2, FX-PAINTBUCKET-001's frame. Frames 0, 2, 4.
+
+FX-PAINTBUCKET-025 (`fx_paintbucket_025.json`): FX-PAINTBUCKET-001 moved three pixels right: the layer's own pixels move, the three columns it left are empty. Frames 0.
+
+FX-PAINTBUCKET-026 (`fx_paintbucket_026.json`): After a Motion Tile that grows the layer: the point is the drawing's own, and the skin is closed in by its line, so the frame is FX-PAINTBUCKET-001's. Frames 0.
+
+FX-PAINTBUCKET-027 (`fx_paintbucket_027.json`): The point past the layer's left edge, (-50, 50), with Invert Fill: no pixel matches, so the whole layer turns red and opaque. Frames 0.
+
+FX-PAINTBUCKET-028 (`fx_paintbucket_028.json`): Straight Color on the line with Fill Only: the fill alone, the soft edge at half covering. Frames 0.
+
+FX-PAINTBUCKET-029 (`fx_paintbucket_029.json`): Choke, radius 2: only the skin's middle, columns 5 to 7 and rows 4 and 5, is filled, then softened. Frames 0.
+
+FX-PAINTBUCKET-030 (`fx_paintbucket_030.json`): Blue, add: the skin lifted by blue, held at 1. Frames 0.
+
+FX-PAINTBUCKET-031 (`fx_paintbucket_031.json`): Transparency in the empty corner at tolerance 60: the soft edge, half covered, matches too. Frames 0.
+
+FX-PAINTBUCKET-032 (`fx_paintbucket_032.json`): Fill Point across 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-033 (`fx_paintbucket_033.json`): Tolerance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-034 (`fx_paintbucket_034.json`): Tolerance 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-035 (`fx_paintbucket_035.json`): Spread Radius 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-036 (`fx_paintbucket_036.json`): Stroke Width -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-037 (`fx_paintbucket_037.json`): Feather Softness 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-038 (`fx_paintbucket_038.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-039 (`fx_paintbucket_039.json`): Fill Selector "luma", not one of the five. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-040 (`fx_paintbucket_040.json`): Stroke "glow", not one of the five. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-041 (`fx_paintbucket_041.json`): View Threshold "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-042 (`fx_paintbucket_042.json`): Invert Fill "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-043 (`fx_paintbucket_043.json`): Blending mode "darken", which this program does not have. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-044 (`fx_paintbucket_044.json`): Colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PAINTBUCKET-045 (`fx_paintbucket_045.json`): Tolerance keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
