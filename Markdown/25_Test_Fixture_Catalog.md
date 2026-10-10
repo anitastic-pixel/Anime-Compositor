@@ -204948,3 +204948,49 @@ FX-SPLIT2-017 (`fx_split2_017.json`): Point A at 1001, 50, past ten widths. The 
 FX-SPLIT2-018 (`fx_split2_018.json`): Point B at 50, -1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SPLIT2-019 (`fx_split2_019.json`): Split 2 keyed to 1500 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Arbitrary Map (D-395)
+
+Arbitrary Map (`core.arbitrary_map`), after After Effects' PS Arbitrary Map (B-274): the layer's colours through a Photoshop arbitrary map (.amp), a lookup file of the project as Color Lookup's .cube is. Every case is a project of one composition 16 by 10, five frames, one drawing of `tools/invert_reference.py`'s bands with the effect; the map files are in `Fixtures/arbitrary_map/maps` (refused ones in `maps/refused`). `tools/arbitrary_map_reference.py` works the expected frames, `Fixtures/arbitrary_map/expected_arbitrary_map.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-AMAP-001 (`fx_amap_001.json`): straight_256.amp, one straight table: the drawing, unchanged but for rounding. Frames 0.
+
+FX-AMAP-002 (`fx_amap_002.json`): master_256.amp, one table, the master, a lightening curve (entry x is 255 (x / 255)^0.6): every colour channel through it, black kept, the grey #808080 to #a9a9a9, the blue #3a6fd8 to #699be7. Frames 0.
+
+FX-AMAP-003 (`fx_amap_003.json`): rgb_768.amp, three tables, red, green and blue, the master left straight: red inverted, green flattened to between 64 and 191, blue along a quarter sine; white to #00bfff, black to #ff4000. Frames 0.
+
+FX-AMAP-004 (`fx_amap_004.json`): master_rgb_1024.amp, four tables, the master (an S-curve) then red (a power of 1.5), green (inverted) and blue (lifted to 30 and narrowed): each channel through its own table, then the master. Frames 0.
+
+FX-AMAP-005 (`fx_amap_005.json`): alpha_1280.amp, five tables, FX-AMAP-004's four and an alpha table (the square root), Apply Phase Map To Alpha off: FX-AMAP-004's picture; alpha untouched. Frames 0.
+
+FX-AMAP-006 (`fx_amap_006.json`): FX-AMAP-005 with Apply Phase Map To Alpha on: the colours as FX-AMAP-005, and the covering through the fifth table, the half-covered column to 181 of 255 and the quarter one to 128, the straight colour kept. Frames 0.
+
+FX-AMAP-007 (`fx_amap_007.json`): two_512.amp, two tables: the master (inverted) and red (squared); green and blue straight, so every channel is inverted and red squared first. Frames 0.
+
+FX-AMAP-008 (`fx_amap_008.json`): FX-AMAP-002 with phase 64: the master cycled 64 levels right, so entry x is what entry x - 64 was, wrapping: black (entry 0) takes entry 192's value, and the grey takes entry 64's. Frames 0.
+
+FX-AMAP-009 (`fx_amap_009.json`): FX-AMAP-003 with phase -100.25: each of the three tables cycled left, between entries mixed; the master, which the file does not hold, stays straight. Frames 0.
+
+FX-AMAP-010 (`fx_amap_010.json`): FX-AMAP-002 with the phase keyed from 0 at frame 0 to 96 at frame 4, linear: frame 0 FX-AMAP-002, frame 2 cycled 48, frame 4 cycled 96. Frames 0, 2, 4.
+
+FX-AMAP-011 (`fx_amap_011.json`): FX-AMAP-002 with Apply Phase Map To Alpha on: master_256.amp has no alpha table, so alpha is left as it is: FX-AMAP-002's picture. Frames 0.
+
+FX-AMAP-012 (`fx_amap_012.json`): FX-AMAP-006 with phase 100: the alpha table cycled with the others, so a pixel that did not show (entry 0 takes entry 156's value, 199) now shows, black, at 199 of 255. Frames 0.
+
+FX-AMAP-013 (`fx_amap_013.json`): No map file chosen, the effect as it is added: the drawing, untouched, with no warning. Frames 0.
+
+FX-AMAP-014 (`fx_amap_014.json`): FX-AMAP-002 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-AMAP-015 (`fx_amap_015.json`): The map asset's file maps/gone.amp is not there: the drawing, untouched, with MEDIA_MISSING when the file is opened and at every frame; the asset and the setting are kept, to relink. Warning `MEDIA_MISSING`. Frames 0.
+
+FX-AMAP-016 (`fx_amap_016.json`): The setting names asset-nothing, which the project does not have: the drawing, untouched, with EFFECT_PARAMETER_INVALID; the setting is kept as written. Warning `EFFECT_PARAMETER_INVALID`. Frames 0.
+
+FX-AMAP-017 (`fx_amap_017.json`): The setting names asset-bands, the drawing, which is not a lookup file: the drawing, untouched, with EFFECT_PARAMETER_INVALID. Warning `EFFECT_PARAMETER_INVALID`. Frames 0.
+
+FX-AMAP-018 (`fx_amap_018.json`): Phase 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AMAP-019 (`fx_amap_019.json`): Phase -256, below -255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AMAP-020 (`fx_amap_020.json`): Phase keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AMAP-021 (`fx_amap_021.json`): Apply Phase Map To Alpha "yes", not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
