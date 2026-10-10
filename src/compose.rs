@@ -1010,6 +1010,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Fill { .. }
                 // D-419: Eyedropper Fill.
                 | crate::effects::Effect::EyedropperFill { .. }
+                // D-440: Paint Bucket (the area is found on the processor).
+                | crate::effects::Effect::PaintBucket { .. }
                 // D-407: Detail-preserving Upscale.
                 | crate::effects::Effect::DetailUpscale { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
@@ -1382,6 +1384,10 @@ fn card_effect(
                 }
                 // D-419: all of the layer blended back.
                 E::EyedropperFill { blend_with_original, .. } => *blend_with_original == 100.0,
+                // D-440: nothing laid on, unless Fill Only clears the rest or the view is shown.
+                E::PaintBucket { opacity, blending_mode, view_threshold, .. } => {
+                    *opacity == 0.0 && blending_mode != "fill_only" && view_threshold == "off"
+                }
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -1468,7 +1474,8 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
         // B-222 (D-341): Colour Key, Select Colour and Line Recolour round to 8 bits and choose by
         // it, as an HSV Key does. B-223 (D-342): so does a Selective Colour Blur. B-225
         // (D-344): so does a Lightning Bolt with an Alpha Obstacle, which reads the covering.
-        // B-226 (D-346): so do Line Smooth and Line Width, which decide by exact comparisons.
+        // B-226 (D-346): so do Line Smooth and Line Width, which decide by exact comparisons;
+        // D-440, so does a Paint Bucket.
         let first = matches!(
             instance.effect,
             E::Bloom { .. }
@@ -1482,6 +1489,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
                 | E::SelectiveColorBlur { .. }
                 | E::LineSmooth { .. }
                 | E::LineWidth { .. }
+                | E::PaintBucket { .. }
         ) || matches!(instance.effect, E::LightningBolt { obstacle, .. } if obstacle != 0.0);
         let grown = (size.0 + 2 * offset.0, size.1 + 2 * offset.1);
         if first || !card_can(instance, 1.0, grown.0 * grown.1) {
@@ -2505,6 +2513,7 @@ fn resolve_rest(
     // and a Selective Colour Blur; B-225 (D-344), a Lightning Bolt with an Alpha Obstacle, which
     // reads the covering it is given; B-226 (D-346), a Line Smooth and a Line Width, which decide
     // which pixels mix or spread by exact comparisons of the drawing, made on the CPU's.
+    // D-440: so can a Paint Bucket, whose area is grown by the same kind of comparisons.
     // D-330, D-333: the card neither rounds to 8 bits nor blurs display values, so in 8 bpc and
     // 32 bpc (After Effects) it is left nothing.
     let plain = bits == crate::effects::Bits::Linear;
@@ -2533,6 +2542,7 @@ fn resolve_rest(
                 | E::SelectiveColorBlur { .. }
                 | E::LineSmooth { .. }
                 | E::LineWidth { .. }
+                | E::PaintBucket { .. }
         ) || matches!(effects[i].effect, E::LightningBolt { obstacle, .. } if obstacle != 0.0)
         {
             break;

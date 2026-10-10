@@ -2806,6 +2806,168 @@ pub(crate) fn eyedropper_fill(source: &mut WorkingBuffer, e: [f64; 4], maintain:
     });
 }
 
+/// D-440: Paint Bucket's settings for finding its area: the point in the buffer's pixels, the
+/// selector, the tolerance as a share, Invert Fill, the stroke and its three distances.
+pub(crate) struct Bucket<'a> {
+    pub point: (f64, f64),
+    pub selector: &'a str,
+    pub tolerance: f64,
+    pub invert: bool,
+    pub stroke: &'a str,
+    pub radius: f64,
+    pub width: f64,
+    pub softness: f64,
+}
+
+/// D-440: which pixels match the pixel holding the point (step 2 of D-440: each pixel's alpha a
+/// and straight colour encoded e, held to 0..1, 0 where a is 0, against the point pixel's own),
+/// with the point pixel's index; None when the point holds no pixel.
+pub(crate) fn bucket_matches(source: &WorkingBuffer, b: &Bucket) -> Option<(Vec<bool>, usize)> {
+    let (w, h) = (source.width(), source.height());
+    let (i, j) = (b.point.0.floor(), b.point.1.floor());
+    if i < 0.0 || j < 0.0 || i >= w as f64 || j >= h as f64 {
+        return None;
+    }
+    let seed = j as usize * w + i as usize;
+    let values = |p: &[f32]| {
+        let a = p[3] as f64;
+        if a <= 0.0 {
+            ([0.0; 3], 0.0)
+        } else {
+            ([0, 1, 2].map(|c| crate::grade::to_srgb((p[c] as f64 / a).clamp(0.0, 1.0))), a)
+        }
+    };
+    let (e0, a0) = values(&source.data()[seed * 4..seed * 4 + 4]);
+    let t = b.tolerance;
+    let ok = source
+        .data()
+        .par_chunks_exact(4)
+        .map(|p| {
+            let (e, a) = values(p);
+            let d = match b.selector {
+                "color_and_alpha" => (0..3).map(|c| (e[c] * a - e0[c] * a0).abs()).fold((a - a0).abs(), f64::max),
+                "straight_color" => (0..3).map(|c| (e[c] - e0[c]).abs()).fold(0.0, f64::max),
+                "transparency" => a,
+                "opacity" => 1.0 - a,
+                _ => (a - a0).abs(),
+            };
+            d <= t
+        })
+        .collect();
+    Some((ok, seed))
+}
+
+/// D-440: each pixel's squared distance to the nearest pixel that is `want` in `got`, every place
+/// past the buffer counted as outside the area (as `want` false), by [`squared_distances`] down
+/// then across a buffer inside a ring one pixel wide.
+fn bucket_distances(got: &[bool], (w, h): (usize, usize), want: bool) -> Vec<f64> {
+    let (pw, ph) = (w + 2, h + 2);
+    let far = 1e20;
+    let columns: Vec<Vec<f64>> = (0..pw)
+        .into_par_iter()
+        .map(|x| {
+            let f: Vec<f64> = (0..ph)
+                .map(|y| {
+                    let inside = x >= 1 && y >= 1 && x <= w && y <= h;
+                    let is = if inside { got[(y - 1) * w + x - 1] } else { false };
+                    if is == want { 0.0 } else { far }
+                })
+                .collect();
+            squared_distances(&f)
+        })
+        .collect();
+    (0..h)
+        .into_par_iter()
+        .flat_map_iter(|y| {
+            let d = squared_distances(&(0..pw).map(|x| columns[x][y + 1]).collect::<Vec<_>>());
+            d[1..=w].to_vec()
+        })
+        .collect()
+}
+
+/// D-440: Paint Bucket's area after its stroke, 1 in it and 0 out, before the blur: the matching
+/// pixels joined to the point pixel up, down, left and right (every match for alpha_channel),
+/// turned over by Invert Fill, then spread, choked or stroked by distances between pixel
+/// centres. The flood fill and the distances are on the processor on either path.
+pub(crate) fn bucket_area(source: &WorkingBuffer, b: &Bucket) -> Vec<f32> {
+    let (w, h) = (source.width(), source.height());
+    let mut got = vec![false; w * h];
+    if let Some((ok, seed)) = bucket_matches(source, b) {
+        if b.selector == "alpha_channel" {
+            got = ok;
+        } else if ok[seed] {
+            got[seed] = true;
+            let mut todo = std::collections::VecDeque::from([seed]);
+            while let Some(k) = todo.pop_front() {
+                let (x, y) = (k % w, k / w);
+                let near = [(x > 0).then(|| k - 1), (x + 1 < w).then(|| k + 1), (y > 0).then(|| k - w), (y + 1 < h).then(|| k + w)];
+                for n in near.into_iter().flatten() {
+                    if ok[n] && !got[n] {
+                        got[n] = true;
+                        todo.push_back(n);
+                    }
+                }
+            }
+        }
+    }
+    if b.invert {
+        got.iter_mut().for_each(|g| *g = !*g);
+    }
+    let keep: Vec<bool> = match b.stroke {
+        "spread" => {
+            let d = bucket_distances(&got, (w, h), true);
+            got.iter().zip(&d).map(|(&g, d)| g || d.sqrt() <= b.radius).collect()
+        }
+        "choke" => {
+            let d = bucket_distances(&got, (w, h), false);
+            got.iter().zip(&d).map(|(&g, d)| g && d.sqrt() > b.radius).collect()
+        }
+        "stroke" => {
+            let d = bucket_distances(&got, (w, h), false);
+            got.iter().zip(&d).map(|(&g, d)| g && d.sqrt() <= b.width).collect()
+        }
+        _ => got,
+    };
+    keep.into_iter().map(|g| if g { 1.0 } else { 0.0 }).collect()
+}
+
+/// D-440: the blur's taps: for feather document 21's Gaussian, sigma softness / 2; else a box
+/// three pixels wide.
+pub(crate) fn bucket_taps(b: &Bucket) -> Vec<f32> {
+    if b.stroke == "feather" { crate::effects::gaussian_weights(b.softness / 2.0) } else { vec![1.0 / 3.0; 3] }
+}
+
+/// D-440: Paint Bucket. With `view` every pixel opaque, white where it matches and black
+/// elsewhere; else the area blurred across then down, its edges held, times `opacity` (and the
+/// pixel's own alpha for straight_color) laid in `color` (linear) by `blend` as
+/// [`lay_pattern`] lays a pattern, fill_only replacing the pixel.
+pub(crate) fn paint_bucket(source: &mut WorkingBuffer, b: &Bucket, view: bool, color: [f64; 3], opacity: f64, blend: &str) {
+    let (w, h) = (source.width(), source.height());
+    if view {
+        let ok = bucket_matches(source, b).map_or_else(|| vec![false; w * h], |(ok, _)| ok);
+        source.data_mut().par_chunks_exact_mut(4).zip(ok).for_each(|(p, g)| {
+            p.copy_from_slice(&if g { [1.0; 4] } else { [0.0, 0.0, 0.0, 1.0] });
+        });
+        return;
+    }
+    let mut field = WorkingBuffer::transparent(w, h);
+    for (p, v) in field.data_mut().chunks_exact_mut(4).zip(bucket_area(source, b)) {
+        p[0] = v;
+    }
+    let taps = bucket_taps(b);
+    crate::effects::held_blur_axes(&mut field, &taps, (true, false));
+    crate::effects::held_blur_axes(&mut field, &taps, (false, true));
+    let straight = b.selector == "straight_color";
+    let cover: Vec<f64> = field
+        .data()
+        .chunks_exact(4)
+        .zip(source.data().chunks_exact(4))
+        .map(|(m, p)| m[0] as f64 * if straight { p[3] as f64 } else { 1.0 })
+        .collect();
+    let blend = if blend == "fill_only" { "none" } else { blend };
+    lay_pattern(source, |x, y| cover[y as usize * w + x as usize], color, opacity, blend);
+}
+
 /// D-418: Fill's feathers as the taps across and down (document 21's Gaussian, sigma feather / 2)
 /// and how far the covering must reach past the buffer for both: the larger radius.
 pub(crate) fn fill_taps(feathers: [f64; 2]) -> ([Vec<f32>; 2], usize) {

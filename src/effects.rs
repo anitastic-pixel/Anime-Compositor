@@ -1835,6 +1835,26 @@ pub enum Effect {
         maintain_original_alpha: String,
         blend_with_original: f64,
     },
+    /// D-440: after After Effects' Paint Bucket. `fill_point`, per cent of the drawing, -1000 to
+    /// 1000; `fill_selector`, one of [`PAINT_BUCKET_SELECTORS`]; `tolerance`, 0 to 100;
+    /// `view_threshold` and `invert_fill`, "off" or "on"; `stroke`, one of
+    /// [`PAINT_BUCKET_STROKES`]; `spread_radius`, `stroke_width` and `feather_softness`, 0 to
+    /// 10000 pixels; `color`, `#rrggbb`; `opacity`, 0 to 100; `blending_mode`, one of
+    /// [`PAINT_BUCKET_MODES`].
+    PaintBucket {
+        fill_point: [f64; 2],
+        fill_selector: String,
+        tolerance: f64,
+        view_threshold: String,
+        stroke: String,
+        invert_fill: String,
+        spread_radius: f64,
+        stroke_width: f64,
+        feather_softness: f64,
+        color: String,
+        opacity: f64,
+        blending_mode: String,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2494,6 +2514,12 @@ pub const FILL: &str = "core.fill";
 pub const EYEDROPPER_FILL: &str = "core.eyedropper_fill";
 /// D-419: Eyedropper Fill's Average Pixel Colors, in After Effects' order.
 pub const EYEDROPPER_AVERAGES: [&str; 4] = ["skip_empty", "all", "all_premultiplied", "including_alpha"];
+pub const PAINT_BUCKET: &str = "core.paint_bucket";
+/// D-440: Paint Bucket's Fill Selector, Stroke and Blending Mode, in After Effects' order (the
+/// blending modes this program has, then Fill Only).
+pub const PAINT_BUCKET_SELECTORS: [&str; 5] = ["color_and_alpha", "straight_color", "transparency", "opacity", "alpha_channel"];
+pub const PAINT_BUCKET_STROKES: [&str; 5] = ["antialias", "feather", "spread", "choke", "stroke"];
+pub const PAINT_BUCKET_MODES: [&str; 7] = ["normal", "add", "multiply", "screen", "overlay", "soft_light", "fill_only"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3414,6 +3440,14 @@ impl Effect {
                 ("sample_point", sample_point.iter_mut().collect(), -1000.0, 1000.0),
                 ("sample_radius", vec![sample_radius], 0.0, 10000.0),
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
+            ],
+            Effect::PaintBucket { fill_point, tolerance, spread_radius, stroke_width, feather_softness, opacity, .. } => vec![
+                ("fill_point", fill_point.iter_mut().collect(), -1000.0, 1000.0),
+                ("tolerance", vec![tolerance], 0.0, 100.0),
+                ("spread_radius", vec![spread_radius], 0.0, 10000.0),
+                ("stroke_width", vec![stroke_width], 0.0, 10000.0),
+                ("feather_softness", vec![feather_softness], 0.0, 10000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
             ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
@@ -4339,6 +4373,12 @@ impl Effect {
             }
             // D-419: the radius is a distance; the point a share of the drawing.
             Effect::EyedropperFill { sample_radius, .. } => *sample_radius = scale(*sample_radius),
+            // D-440: the three distances; the point a share of the drawing.
+            Effect::PaintBucket { spread_radius, stroke_width, feather_softness, .. } => {
+                *spread_radius = scale(*spread_radius);
+                *stroke_width = scale(*stroke_width);
+                *feather_softness = scale(*feather_softness);
+            }
             // D-417: the cells held at least a pixel, as Checkerboard's.
             Effect::Grid { width, height, border, feather_width, feather_height, .. } => {
                 *width = scale(*width).max(1.0);
@@ -4651,6 +4691,7 @@ impl Effect {
             Effect::Grid { .. } => "Grid",
             Effect::Fill { .. } => "Fill",
             Effect::EyedropperFill { .. } => "Eyedropper Fill",
+            Effect::PaintBucket { .. } => "Paint Bucket",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -4824,6 +4865,7 @@ impl Effect {
             Effect::Grid { .. } => GRID,
             Effect::Fill { .. } => FILL,
             Effect::EyedropperFill { .. } => EYEDROPPER_FILL,
+            Effect::PaintBucket { .. } => PAINT_BUCKET,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6069,6 +6111,25 @@ impl Effect {
             Effect::EyedropperFill { maintain_original_alpha: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "Eyedropper Fill's maintain original alpha is \"off\" or \"on\", and this is \"{v}\"."
             )),
+            Effect::PaintBucket { fill_selector: v, .. } if !PAINT_BUCKET_SELECTORS.contains(&v.as_str()) => Some(format!(
+                "Paint Bucket's fill selector is one of {}, and this is \"{v}\".",
+                PAINT_BUCKET_SELECTORS.join(", ")
+            )),
+            Effect::PaintBucket { stroke: v, .. } if !PAINT_BUCKET_STROKES.contains(&v.as_str()) => Some(format!(
+                "Paint Bucket's stroke is one of {}, and this is \"{v}\".",
+                PAINT_BUCKET_STROKES.join(", ")
+            )),
+            Effect::PaintBucket { blending_mode: v, .. } if !PAINT_BUCKET_MODES.contains(&v.as_str()) => Some(format!(
+                "Paint Bucket's blending mode is one of {}, and this is \"{v}\".",
+                PAINT_BUCKET_MODES.join(", ")
+            )),
+            Effect::PaintBucket { view_threshold: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Paint Bucket's view threshold is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::PaintBucket { invert_fill: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Paint Bucket's invert fill is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::PaintBucket { color, .. } => hex_fault("Paint Bucket", "colour", color),
             Effect::Ellipse { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
                 "Ellipse's composite is \"on\" or \"off\", and this is \"{composite}\"."
             )),
@@ -7700,6 +7761,25 @@ pub(crate) fn apply_stack_at(
                     let (n, rows) = crate::layer_fx::eyedropper_rows(point, *sample_radius, (source.width(), source.height()));
                     let e = crate::layer_fx::eyedropper_colour(source, &rows, n, average_pixel_colors);
                     crate::layer_fx::eyedropper_fill(source, e, maintain_original_alpha == "on", *blend_with_original / 100.0)
+                })
+            }
+            // D-440: the area found in the whole buffer as it reaches the effect, the point a share
+            // of the drawing's own size; the layer never grows.
+            Effect::PaintBucket { fill_point, fill_selector, tolerance, view_threshold, stroke, invert_fill, spread_radius, stroke_width, feather_softness, color, opacity, blending_mode } => {
+                crate::perf::time(crate::perf::Stage::EffectPaintBucket, || {
+                    let point = radial_center(*fill_point, (source.width(), source.height()), (ox, oy));
+                    let c = encoded(color).map(crate::grade::to_linear);
+                    let bucket = crate::layer_fx::Bucket {
+                        point,
+                        selector: fill_selector,
+                        tolerance: *tolerance / 100.0,
+                        invert: invert_fill == "on",
+                        stroke,
+                        radius: *spread_radius,
+                        width: *stroke_width,
+                        softness: *feather_softness,
+                    };
+                    crate::layer_fx::paint_bucket(source, &bucket, view_threshold == "on", c, *opacity / 100.0, blending_mode)
                 })
             }
             // D-417: the anchor and corner as Checkerboard's; the layer never grows.

@@ -6820,6 +6820,26 @@ fn eyefill(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(sums[2u * F.count] * m * (1.0lf - b) + p * b));
 }
 
+// D-440, layer_fx::paint_bucket. `other`: the area, blurred (or, to view the threshold, the
+// matches). k: the colour (linear), the opacity (a share), the blend (as `laid`'s, Fill Only
+// as none), 1 for straight_color (times the pixel's own alpha), 1 to view the threshold.
+@compute @workgroup_size(16, 16)
+fn bucket(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let m = textureLoad(other, id.xy, 0).x;
+    if k[6] == 1.0lf {
+        textureStore(output, id.xy, vec4(m, m, m, 1.0));
+        return;
+    }
+    let c = f64(m) * select(1.0lf, f64(p.w), k[5] == 1.0lf) * k[3];
+    let s = vec4(f32(k[0] * c), f32(k[1] * c), f32(k[2] * c), f32(c));
+    textureStore(output, id.xy, laid(s, p, u32(k[4])));
+}
+
 // B-229, layer_fx::id_key. k[2] 0: the matte of the ids (`other`, as big as `input`), 1 where
 // the id is within a half of k[0], turned over where k[1] is 1. k[2] 1: the drawing (`input`)
 // times the matte (`other`, blurred) lying at (F.ox, F.oy), 0 outside it.
@@ -7553,6 +7573,8 @@ struct FxPasses {
     eyerow: Pass,
     eyesum: Pass,
     eyefill: Pass,
+    /// D-440.
+    bucket: Pass,
     smoothscan: Pass,
     smoothmix: Pass,
     /// D-352.
@@ -8186,6 +8208,7 @@ impl Gpu {
                 eyerow: pass("eyerow", &[0, 1, 3, 7]),
                 eyesum: pass("eyesum", &[0, 3, 7]),
                 eyefill: pass("eyefill", &[0, 1, 2, 3, 7]),
+                bucket: pass("bucket", &[0, 1, 2, 3, 4]),
                 lwidth: pass("lwidth", &[0, 1, 2, 3, 5]),
                 smoothscan: pass("smoothscan", &[0, 1, 3, 5, 6]),
                 smoothmix: pass("smoothmix", &[0, 1, 2, 5, 6]),
@@ -11038,6 +11061,47 @@ impl Gpu {
                 self.fx_step(steps, &passes.eyesum, p, None, None, Some(&k), None, work, (1, 1));
                 let out = self.scratch("B-298 eyedropper fill", w, h);
                 self.fx_step(steps, &passes.eyefill, p, Some(still), Some(&out), Some(&k), None, work, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-440: the area found on the processor from the drawing compose begins the run with
+            // (layer_fx::bucket_area: the flood fill and the distances), sent once, blurred with
+            // Bloom's `gauss` (edges held), then laid on; no warp mode.
+            E::PaintBucket { fill_point, fill_selector, tolerance, view_threshold, stroke, invert_fill, spread_radius, stroke_width, feather_softness, color, opacity, blending_mode } => {
+                let b = crate::layer_fx::Bucket {
+                    point: crate::effects::radial_center(*fill_point, (w, h), f.origin),
+                    selector: fill_selector,
+                    tolerance: tolerance / 100.0,
+                    invert: invert_fill == "on",
+                    stroke,
+                    radius: *spread_radius,
+                    width: *stroke_width,
+                    softness: *feather_softness,
+                };
+                let view = view_threshold == "on";
+                let area: Vec<f32> = match view {
+                    true => crate::layer_fx::bucket_matches(source, &b)
+                        .map_or_else(|| vec![0.0; w * h], |(ok, _)| ok.into_iter().map(|g| g as u8 as f32).collect()),
+                    false => crate::layer_fx::bucket_area(source, &b),
+                };
+                let cover = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("B-320 area"),
+                    contents: bytemuck::cast_slice(&area),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+                let field = self.scratch("B-320 area", w, h);
+                self.fx_step(steps, &passes.fill, FxParams::default(), Some(still), Some(&field), Some(&[0.0]), Some(still), [Some(&cover)], tiles(w, h));
+                let taps = crate::layer_fx::bucket_taps(&b);
+                let field = if !view && taps.len() > 1 {
+                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                    self.gauss(steps, bloom, "B-320 blur", &field, (w, h), [&taps, &taps], 0, true)
+                } else {
+                    field
+                };
+                let c = linear(color);
+                let mode = if blending_mode == "fill_only" { "none" } else { blending_mode.as_str() };
+                let k = [c[0], c[1], c[2], opacity / 100.0, laid(mode), (fill_selector == "straight_color") as u8 as f64, view as u8 as f64];
+                let out = self.scratch("B-320 paint bucket", w, h);
+                self.fx_step(steps, &passes.bucket, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&field), none, tiles(w, h));
                 (out, (w, h))
             }
             // B-229: the matte at the ids' size, blurred with its edges held, then laid on.

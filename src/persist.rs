@@ -2988,6 +2988,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("maintain_original_alpha".into(), J::from(maintain_original_alpha.as_str()));
             params.insert("blend_with_original".into(), num(*blend_with_original));
         }
+        Effect::PaintBucket { fill_point, fill_selector, tolerance, view_threshold, stroke, invert_fill, spread_radius, stroke_width, feather_softness, color, opacity, blending_mode } => {
+            params.insert("fill_point".into(), J::Array(fill_point.iter().map(|c| num(*c)).collect()));
+            params.insert("fill_selector".into(), J::from(fill_selector.as_str()));
+            params.insert("tolerance".into(), num(*tolerance));
+            params.insert("view_threshold".into(), J::from(view_threshold.as_str()));
+            params.insert("stroke".into(), J::from(stroke.as_str()));
+            params.insert("invert_fill".into(), J::from(invert_fill.as_str()));
+            params.insert("spread_radius".into(), num(*spread_radius));
+            params.insert("stroke_width".into(), num(*stroke_width));
+            params.insert("feather_softness".into(), num(*feather_softness));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
+        }
         // D-418: the paths are found each frame and never saved.
         Effect::Fill { mask, all_masks, color, invert, horizontal_feather, vertical_feather, opacity, .. } => {
             params.insert("mask".into(), num(*mask));
@@ -4566,6 +4580,7 @@ fn parse_effect(
         crate::effects::GRID,
         crate::effects::FILL,
         crate::effects::EYEDROPPER_FILL,
+        crate::effects::PAINT_BUCKET,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5852,6 +5867,20 @@ fn parse_effect(
             average_pixel_colors: effect_word(params, "average_pixel_colors", &at)?,
             maintain_original_alpha: effect_word(params, "maintain_original_alpha", &at)?,
             blend_with_original: effect_number(params, "blend_with_original", &at)?,
+        }),
+        crate::effects::PAINT_BUCKET => Some(crate::effects::Effect::PaintBucket {
+            fill_point: effect_array(params, "fill_point", "two numbers, x then y", &at)?,
+            fill_selector: effect_word(params, "fill_selector", &at)?,
+            tolerance: effect_number(params, "tolerance", &at)?,
+            view_threshold: effect_word(params, "view_threshold", &at)?,
+            stroke: effect_word(params, "stroke", &at)?,
+            invert_fill: effect_word(params, "invert_fill", &at)?,
+            spread_radius: effect_number(params, "spread_radius", &at)?,
+            stroke_width: effect_number(params, "stroke_width", &at)?,
+            feather_softness: effect_number(params, "feather_softness", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            opacity: effect_number(params, "opacity", &at)?,
+            blending_mode: effect_word(params, "blending_mode", &at)?,
         }),
         crate::effects::FILL => Some(crate::effects::Effect::Fill {
             mask: effect_number(params, "mask", &at)?,
