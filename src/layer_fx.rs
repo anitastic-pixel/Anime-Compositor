@@ -1928,6 +1928,141 @@ pub(crate) fn twirl(source: &mut WorkingBuffer, angle: f64, radius: f64, center:
 }
 
 
+/// D-407: After Effects' largest layer side. An Upscale that would grow the layer past it is not
+/// drawn, and says so (document 28's EFFECT_LAYER_TOO_LARGE).
+pub(crate) const LARGEST_SIDE: usize = 30000;
+
+/// D-407: the first tap and the six Lanczos-3 weights of output place `x` of `big`, read from a
+/// row of `n` at scale `s`: u = n / 2 + (x + 1/2 - big / 2) / s - 1/2, the taps floor(u) - 2 to
+/// floor(u) + 3, each weight sinc(t) sinc(t / 3) (exactly 0 at every other whole t), divided by
+/// the six's sum.
+pub(crate) fn lanczos_taps(n: usize, big: usize, s: f64, x: usize) -> (i64, [f64; 6]) {
+    let u = n as f64 / 2.0 + (x as f64 + 0.5 - big as f64 / 2.0) / s - 0.5;
+    let f = u.floor();
+    let mut w = [0.0; 6];
+    for (k, v) in w.iter_mut().enumerate() {
+        let t = u - (f - 2.0 + k as f64);
+        *v = if t == 0.0 {
+            1.0
+        } else if t.abs() >= 3.0 || t == t.floor() {
+            0.0
+        } else {
+            let a = std::f64::consts::PI * t;
+            3.0 * a.sin() * (a / 3.0).sin() / (a * a)
+        };
+    }
+    let sum: f64 = w.iter().sum();
+    w.iter_mut().for_each(|v| *v /= sum);
+    (f as i64 - 2, w)
+}
+
+/// D-407: how far an Upscale grows the layer on each side, across and down: ceil(n (scale - 100)
+/// / 200), worked on the per cent so a whole per cent gives a whole answer exactly.
+pub(crate) fn upscale_growth((w, h): (usize, usize), scale: f64) -> (usize, usize) {
+    let g = |n: usize| (n as f64 * (scale - 100.0) / 200.0).ceil().max(0.0) as usize;
+    (g(w), g(h))
+}
+
+/// D-407: whether the grown layer would be wider or taller than [`LARGEST_SIDE`].
+pub(crate) fn upscale_too_large((w, h): (usize, usize), scale: f64) -> bool {
+    let (gx, gy) = upscale_growth((w, h), scale);
+    w + 2 * gx > LARGEST_SIDE || h + 2 * gy > LARGEST_SIDE
+}
+
+/// D-407: Detail-preserving Upscale, document 21's rule. Reduce Noise softens the picture at
+/// sigma `reduce_noise` / 50 (clear outside, kept its size); the layer grows by
+/// [`upscale_growth`] about its middle and each pixel is the Lanczos-3 sum of
+/// [`lanczos_taps`], across then down, a tap outside the picture clear; Detail adds
+/// `detail` / 50 times the enlargement less its blur at sigma `scale` / 200; the covering is held
+/// to 0..1 and each colour to 0..covering. Returns the growth on each side, or `Err` when the
+/// grown layer is larger than this build can hold (too wide or tall, or its memory cannot be
+/// had). The settings are already valid.
+pub(crate) fn detail_upscale(source: &mut WorkingBuffer, scale: f64, reduce_noise: f64, detail: f64) -> Result<(usize, usize), ()> {
+    if scale == 100.0 && reduce_noise <= 0.0 && detail <= 0.0 {
+        return Ok((0, 0));
+    }
+    let (w, h) = (source.width(), source.height());
+    if upscale_too_large((w, h), scale) {
+        return Err(());
+    }
+    let (gx, gy) = upscale_growth((w, h), scale);
+    let (bw, bh) = (w + 2 * gx, h + 2 * gy);
+    let s = scale / 100.0;
+    let r = if detail > 0.0 { kernel_radius(s / 2.0) } else { 0 };
+    // ponytail: a probe of the buffers below, given back before they are made; one that fails
+    // after it still stops the program as any allocation does.
+    let floats = 4 * (h * bw + 2 * bw * bh + (bw + 2 * r) * (bh + 2 * r));
+    if Vec::<f32>::new().try_reserve_exact(floats).is_err() {
+        return Err(());
+    }
+    let soft = (reduce_noise > 0.0).then(|| {
+        let mut b = source.clone();
+        let r0 = blur(&mut b, reduce_noise / 50.0);
+        (b, r0)
+    });
+    let (src, r0) = match &soft {
+        Some((b, r0)) => (b, *r0),
+        None => (&*source, 0),
+    };
+    let (sw, sd) = (src.width(), src.data());
+    let taps = |n: usize, big: usize| -> Vec<(i64, [f32; 6])> {
+        (0..big).map(|x| {
+            let (first, k) = lanczos_taps(n, big, s, x);
+            (first, k.map(|v| v as f32))
+        })
+        .collect()
+    };
+    let (cols, rows) = (taps(w, bw), taps(h, bh));
+    let mut mid = vec![0.0f32; h * bw * 4];
+    mid.par_chunks_exact_mut(bw * 4).enumerate().for_each(|(y, row)| {
+        for (px, (first, k)) in row.chunks_exact_mut(4).zip(&cols) {
+            for (i, kv) in k.iter().enumerate() {
+                let xx = first + i as i64;
+                if xx < 0 || xx >= w as i64 {
+                    continue;
+                }
+                let o = ((y + r0) * sw + xx as usize + r0) * 4;
+                for c in 0..4 {
+                    px[c] += kv * sd[o + c];
+                }
+            }
+        }
+    });
+    let mut out = WorkingBuffer::transparent(bw, bh);
+    out.data_mut().par_chunks_exact_mut(bw * 4).enumerate().for_each(|(y, row)| {
+        let (first, k) = rows[y];
+        for (j, kv) in k.iter().enumerate() {
+            let yy = first + j as i64;
+            if yy < 0 || yy >= h as i64 {
+                continue;
+            }
+            for (o, v) in row.iter_mut().zip(&mid[yy as usize * bw * 4..][..bw * 4]) {
+                *o += kv * v;
+            }
+        }
+    });
+    if detail > 0.0 {
+        let a = (detail / 50.0) as f32;
+        let mut b = out.clone();
+        let r = blur(&mut b, s / 2.0);
+        let (gw, gd) = (b.width(), b.data());
+        out.data_mut().par_chunks_exact_mut(bw * 4).enumerate().for_each(|(y, row)| {
+            for (o, v) in row.iter_mut().zip(&gd[((y + r) * gw + r) * 4..][..bw * 4]) {
+                *o += a * (*o - v);
+            }
+        });
+    }
+    out.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+        let al = px[3].max(0.0).min(1.0);
+        px[3] = al;
+        for c in &mut px[..3] {
+            *c = c.max(0.0).min(al);
+        }
+    });
+    *source = out;
+    Ok((gx, gy))
+}
+
 /// D-406: Spherize. Each pixel within `radius` of `center`, a point in the buffer, rho of the
 /// way out, read at center + v (2 asin(rho) / pi) / rho, a half sphere seen from in front; the
 /// rest left as they are. The settings are already valid.

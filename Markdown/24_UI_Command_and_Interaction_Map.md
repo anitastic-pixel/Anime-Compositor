@@ -118,6 +118,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | effect.move_down | Move effect one step later in the stack | none | yes |
 | effect.move | Move effect to a position in the stack | none | yes |
 | effect.paste | Paste copied effects or a preset onto the selected layers, with their settings (W-30, D-166) | Ctrl+V | yes |
+| effect.fit_scale | Set a Detail-preserving Upscale's Scale once so the layer is as wide (Fit to Comp Width) or as tall (Fit to Comp Height) as the composition (D-407) | none | yes |
 | viewer.fit | Fit composition in viewer | Shift+/ | no |
 | viewer.zoom_100 | Set 100% zoom | Ctrl+1 | no |
 | viewer.toggle_checkerboard | Toggle transparency grid | none | no |

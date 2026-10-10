@@ -1772,6 +1772,10 @@ pub enum Effect {
         outside_color: String,
         composite: String,
     },
+    /// D-407: after After Effects' Detail-preserving Upscale. `scale`, 100 to 1000 per cent, the
+    /// layer growing with it about its middle; `reduce_noise`, 0 to 100, a softening before;
+    /// `detail`, 0 to 100, a sharpening after.
+    DetailUpscale { scale: f64, reduce_noise: f64, detail: f64 },
     /// D-395: after After Effects' PS Arbitrary Map. `map`, the id of an asset of kind lut that
     /// is a Photoshop arbitrary map (.amp), or empty for none; `phase`, -255 to 255 levels, every
     /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
@@ -2245,6 +2249,7 @@ pub const ELLIPSE: &str = "core.ellipse";
 /// D-413: how a generator's pattern is laid on the layer, "none" replacing it
 /// (`layer_fx::lay_pattern`).
 pub const PATTERN_MODES: [&str; 8] = ["none", "normal", "add", "multiply", "screen", "overlay", "soft_light", "stencil_alpha"];
+pub const DETAIL_UPSCALE: &str = "core.detail_upscale";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3150,6 +3155,11 @@ impl Effect {
                 ("thickness", vec![thickness], 0.0, 10000.0),
                 ("softness", vec![softness], 0.0, 100.0),
             ],
+            Effect::DetailUpscale { scale, reduce_noise, detail } => vec![
+                ("scale", vec![scale], 100.0, 1000.0),
+                ("reduce_noise", vec![reduce_noise], 0.0, 100.0),
+                ("detail", vec![detail], 0.0, 100.0),
+            ],
             Effect::ArbitraryMap { phase, .. } => vec![("phase", vec![phase], -255.0, 255.0)],
             Effect::SelectiveColor { families, .. } => SELECTIVE_COLOR_FAMILIES
                 .into_iter()
@@ -3919,6 +3929,8 @@ impl Effect {
                 *height = scale(*height).max(1.0);
                 *thickness = scale(*thickness);
             }
+            // D-407: Scale is a share; Detail's blur follows it, so only Reduce Noise is a distance.
+            Effect::DetailUpscale { reduce_noise, .. } => *reduce_noise = scale(*reduce_noise),
             Effect::Bulge { radius, vertical_radius, taper_radius, .. } => {
                 *radius = scale(*radius);
                 *vertical_radius = scale(*vertical_radius);
@@ -4185,6 +4197,7 @@ impl Effect {
             Effect::Checkerboard { .. } => "Checkerboard",
             Effect::Circle { .. } => "Circle",
             Effect::Ellipse { .. } => "Ellipse",
+            Effect::DetailUpscale { .. } => "Detail-preserving Upscale",
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::SelectiveColor { .. } => "Selective Color",
             Effect::ShadowHighlight { .. } => "Shadow/Highlight",
@@ -4347,6 +4360,7 @@ impl Effect {
             Effect::Checkerboard { .. } => CHECKERBOARD,
             Effect::Circle { .. } => CIRCLE,
             Effect::Ellipse { .. } => ELLIPSE,
+            Effect::DetailUpscale { .. } => DETAIL_UPSCALE,
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
             Effect::ShadowHighlight { .. } => SHADOW_HIGHLIGHT,
@@ -7030,6 +7044,21 @@ pub(crate) fn apply_stack_at(
                     crate::layer_fx::ellipse(source, c, [*width / 2.0, *height / 2.0, *thickness, *softness], colours, composite == "off")
                 })
             }
+            // D-407: grown about its middle, or not drawn when the build cannot hold the result.
+            Effect::DetailUpscale { scale, reduce_noise, detail } => {
+                match crate::perf::time(crate::perf::Stage::EffectDetailUpscale, || {
+                    crate::layer_fx::detail_upscale(source, *scale, *reduce_noise, *detail)
+                }) {
+                    Ok((gx, gy)) => {
+                        ox += gx;
+                        oy += gy;
+                    }
+                    Err(()) => {
+                        report(at, instance, Bypassed::TooLarge);
+                        continue;
+                    }
+                }
+            }
             // D-379: the map compose read for this frame, if a layer is named, is the blob.
             Effect::Blobbylize {
                 property,
@@ -8276,6 +8305,9 @@ pub enum Bypassed {
     /// The build has the effect, but the stored parameters are outside what document 21 defines.
     /// Document 28's `EFFECT_PARAMETER_INVALID`.
     InvalidParameter,
+    /// D-407: the effect would grow the layer past what this build can hold. Document 28's
+    /// `EFFECT_LAYER_TOO_LARGE`.
+    TooLarge,
 }
 
 /// Document 21: "linear premultiplied RGB is multiplied by `2^e`; alpha is unchanged."

@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target, TimeRemap};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, BILATERAL_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, TEXT_ANIMATOR, STRETCH_LEVELS, STRETCH_CONTRAST, STRETCH_COLOR, SPREAD_TONES, MATTE_CHOKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE, STROKE, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, CROSS_BLUR, SPIN_ZOOM_BLUR, FAST_ZOOM_BLUR, BROADCAST_SAFE, COLOR_NEUTRALIZER, COLOR_OFFSET, KERNEL, TONER, CHANGE_COLOR, BEND_IT, BENDER, BLOBBYLIZE, COLOR_BALANCE_HLS, COLOR_LINK, COLOR_STABILIZER, GAMMA_PEDESTAL_GAIN, FLOW_MOTION, GRIDDLER, FISHEYE, LEVELS_INDIVIDUAL, LEVELS_NAMES, LEVELS_PLAIN, PHOTO_FILTER, COLOR_GRADE, COLOR_GRADE_SETTINGS, PAGE_TURN, POWER_PIN, RIPPLE_PULSE, SLANT, SMEAR, SPLIT, SPLIT_2, TILES, MAGNIFY, SPHERIZE, CHECKERBOARD, CIRCLE, ELLIPSE, ARBITRARY_MAP, SELECTIVE_COLOR, SHADOW_HIGHLIGHT, TRITONE, AERIAL_HAZE, TRANSFORM,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, BILATERAL_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, TEXT_ANIMATOR, STRETCH_LEVELS, STRETCH_CONTRAST, STRETCH_COLOR, SPREAD_TONES, MATTE_CHOKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE, STROKE, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, CROSS_BLUR, SPIN_ZOOM_BLUR, FAST_ZOOM_BLUR, BROADCAST_SAFE, COLOR_NEUTRALIZER, COLOR_OFFSET, KERNEL, TONER, CHANGE_COLOR, BEND_IT, BENDER, BLOBBYLIZE, COLOR_BALANCE_HLS, COLOR_LINK, COLOR_STABILIZER, GAMMA_PEDESTAL_GAIN, FLOW_MOTION, GRIDDLER, FISHEYE, LEVELS_INDIVIDUAL, LEVELS_NAMES, LEVELS_PLAIN, PHOTO_FILTER, COLOR_GRADE, COLOR_GRADE_SETTINGS, PAGE_TURN, POWER_PIN, RIPPLE_PULSE, SLANT, SMEAR, SPLIT, SPLIT_2, TILES, MAGNIFY, SPHERIZE, CHECKERBOARD, CIRCLE, ELLIPSE, DETAIL_UPSCALE, ARBITRARY_MAP, SELECTIVE_COLOR, SHADOW_HIGHLIGHT, TRITONE, AERIAL_HAZE, TRANSFORM,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -4488,6 +4488,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             outside_color: "#3c8cff".to_string(),
             composite: "on".to_string(),
         }),
+        // D-407: After Effects' own starting settings.
+        DETAIL_UPSCALE => Some(Effect::DetailUpscale { scale: 100.0, reduce_noise: 0.0, detail: 20.0 }),
         ARBITRARY_MAP => Some(Effect::ArbitraryMap { map: String::new(), phase: 0.0, apply_to_alpha: "off".to_string(), table: None }),
         // D-396: Photoshop's own start, every amount 0, which changes nothing.
         SELECTIVE_COLOR => Some(Effect::SelectiveColor { method: "relative".to_string(), families: std::array::from_fn(|_| vec![0.0; 4]) }),
@@ -5950,6 +5952,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             outside_color: word("outside_color")?,
             composite: word("composite")?,
         }),
+        DETAIL_UPSCALE => Ok(Effect::DetailUpscale {
+            scale: number("scale")?,
+            reduce_noise: number("reduce_noise")?,
+            detail: number("detail")?,
+        }),
         // D-395: the map's asset id as written, as Color Lookup's.
         ARBITRARY_MAP => Ok(Effect::ArbitraryMap {
             map: parameter(query, "map")
@@ -6197,6 +6204,7 @@ const ANSWERS: &[&str] = &[
     "edit.undo",
     "effect.add",
     "effect.delete",
+    "effect.fit_scale",
     "effect.move",
     "effect.move_down",
     "effect.move_up",
@@ -6339,6 +6347,78 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         }
     }
     match id {
+        // D-407: Fit to Comp Width and Fit to Comp Height, the owner's one-time buttons
+        // (2026-10-10): Scale worked out once from the layer as it reaches the Upscale on `frame`
+        // and written as any value is, a key on that frame when Scale has keys.
+        "effect.fit_scale" => {
+            let (Some(layer_id), Some(fx), Ok(frame)) = (
+                parameter(query, "layer").map(Id::new),
+                parameter(query, "effect").map(Id::new),
+                frame_parameter(query, "frame"),
+            ) else {
+                return Some("Fit which effect, on which frame? Say layer, effect and frame.".to_string());
+            };
+            let across = match parameter(query, "to").as_deref() {
+                Some("width") => true,
+                Some("height") => false,
+                _ => return Some("Fit to the width or the height? Say to=width or to=height.".to_string()),
+            };
+            let (project, composition, root, cache) = {
+                let held = viewer.lock().expect("the viewer lock was poisoned");
+                (held.document.project().clone(), held.composition.clone(), held.root.clone(), Arc::clone(&held.cache))
+            };
+            let Some(comp) = project.compositions.iter().find(|c| c.id == composition) else {
+                return Some("There is no composition open.".to_string());
+            };
+            let (cw, ch) = (comp.width as f64, comp.height as f64);
+            let Some(layer) = comp.layer(&layer_id) else {
+                return Some(format!("{layer_id} is not a layer in this composition."));
+            };
+            let Some(at) = layer.effects.iter().position(|e| e.instance_id == fx) else {
+                return Some(format!("{fx} is not an effect on this layer."));
+            };
+            if !matches!(layer.effects[at].effect, Effect::DetailUpscale { .. }) {
+                return Some(format!("{fx} is not a Detail-preserving Upscale."));
+            }
+            // The layer as the Upscale is given it: without the Upscale or what follows, switched
+            // off on a copy that has no history.
+            let off: Vec<Command> = layer.effects[at..]
+                .iter()
+                .filter(|e| e.enabled)
+                .map(|e| Command::SetEffectEnabled {
+                    composition: composition.clone(),
+                    layer_id: layer_id.clone(),
+                    instance_id: e.instance_id.clone(),
+                    enabled: false,
+                })
+                .collect();
+            let mut copy = anime_compositor::command::Document::new(project.clone());
+            if copy.apply_all(off).is_err() {
+                return Some(format!("{fx} could not be looked at without itself."));
+            }
+            let plan = anime_compositor::compose::plan_frame_at(
+                copy.project(),
+                &composition,
+                frame,
+                &root,
+                PreviewQuality::Full,
+                &mut FrameLog::new(0),
+                &mut cache.lock().expect("the cel cache lock was poisoned"),
+            );
+            let size = plan
+                .ok()
+                .and_then(|p| p.layers.iter().find(|d| d.id == layer_id).map(|d| (d.source.width(), d.source.height())))
+                .filter(|&(w, h)| w > 0 && h > 0);
+            let Some((w, h)) = size else {
+                return Some(format!("{layer_id} is not drawn on frame {frame}, so there is nothing to fit."));
+            };
+            let scale = (if across { cw / w as f64 } else { ch / h as f64 } * 100.0).clamp(100.0, 1000.0);
+            return edit_command(
+                viewer,
+                "property.set_base",
+                Some(&format!("layer={layer_id}&prop=fx:{fx}:scale&value={scale}&frame={frame}")),
+            );
+        }
         // B-19g: D-69's Separate Dimensions, which is a toggle like the others: which way it
         // goes is read from the document rather than sent by the page.
         "property.separate" => {
@@ -9793,7 +9873,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze or core.transform."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze or core.transform."
                                 .to_string(),
                         );
                     };
@@ -9825,7 +9905,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze and core.transform."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze and core.transform."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -15526,7 +15606,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze and core.transform.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze and core.transform.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -15548,7 +15628,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze or core.transform.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze or core.transform.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -27308,6 +27388,7 @@ mod contract {
         "edit.undo",
         "effect.add",
         "effect.delete",
+        "effect.fit_scale",
         "effect.move",
         "effect.move_down",
         "effect.move_up",
@@ -27906,6 +27987,7 @@ mod contract {
         ("effect.move_down", "a command the window answers"),
         ("effect.move", "a command the window answers"),
         ("effect.paste", "a command the window answers"),
+        ("effect.fit_scale", "a command the window answers"),
         ("viewer.fit", "the page, with no request"),
         ("viewer.zoom_100", "the page, with no request"),
         ("viewer.toggle_checkerboard", "a command the window answers"),
@@ -30176,6 +30258,7 @@ mod contract {
                 ("composite", "off"),
             ],
         ),
+        ("core.detail_upscale", &[("scale", "250"), ("reduce_noise", "30"), ("detail", "40")]),
         ("core.arbitrary_map", &[("map", ""), ("phase", "20"), ("apply_to_alpha", "on")]),
         // D-396: a word and nine families of four numbers.
         (
@@ -34496,6 +34579,66 @@ mod keyed_settings {
         assert!(lost.is_empty(), "these keys did not come back: {lost:?}");
         assert!(again == written, "saving the reopened project gave other text");
         println!("{} effects, {} settings keyed, saved and opened again", ids.len(), keyed.len());
+    }
+
+    /// D-407: Fit to Comp Width and Height work out the Upscale's scale once, as the owner chose
+    /// (one-time buttons): afterwards the layer is as wide, or as tall, as the composition, the
+    /// scale is an ordinary number Ctrl+Z takes back, and with keys on Scale the fit is a key.
+    #[test]
+    fn fit_to_comp_sets_the_upscale_scale_once() {
+        let viewer = Mutex::new(demo());
+        // The 1920 by 1080 drawings in a composition 3000 by 2000, so there is something to fit.
+        run(&viewer, "composition.set_settings?width=3000&height=2000");
+        // The effects after the Upscale are not part of what it is handed; this one is added first.
+        run(&viewer, "effect.add?layer=layer-3&type=core.detail_upscale");
+        let fx = effects(&viewer).into_iter().find(|e| matches!(e.effect, Effect::DetailUpscale { .. })).expect("an Upscale");
+        let id = fx.instance_id.as_str().to_string();
+        let scale = |viewer: &Mutex<Viewer>| match effects(viewer).into_iter().find(|e| e.instance_id.as_str() == id).map(|e| e.effect) {
+            Some(Effect::DetailUpscale { scale, .. }) => scale,
+            other => panic!("not an Upscale: {other:?}"),
+        };
+        // The layer drawn on frame 0 with the Upscale, and the composition's size.
+        let drawn = |viewer: &Mutex<Viewer>| {
+            let held = viewer.lock().expect("the viewer lock was poisoned");
+            let comp = held.document.project().composition(&held.composition).expect("the composition on screen");
+            let plan = anime_compositor::compose::plan_frame_at(held.document.project(), &held.composition, 0, &held.root, PreviewQuality::Full, &mut FrameLog::new(0), &mut anime_compositor::cache::CelCache::viewer())
+                .expect("plan frame 0");
+            let layer = plan.layers.iter().find(|d| d.id.as_str() == "layer-3").expect("layer-3 drawn");
+            ((layer.source.width(), layer.source.height()), (comp.width as usize, comp.height as usize))
+        };
+        let (before, (cw, ch)) = drawn(&viewer);
+        assert_eq!(scale(&viewer), 100.0);
+
+        let said = run(&viewer, &format!("effect.fit_scale?layer=layer-3&effect={id}&to=width&frame=0"));
+        let fitted = scale(&viewer);
+        let ((w, _), _) = drawn(&viewer);
+        println!("layer {before:?} in {cw} by {ch}: fit to width said {said:?}, scale {fitted}, layer {w} wide");
+        assert!((100.0..=1000.0).contains(&fitted), "{fitted}");
+        // The growth is whole pixels on each side, so the width lands on the composition's or up to 2 past it.
+        assert!(fitted == 100.0 && w >= cw || fitted == 1000.0 && w <= cw + 2 || (cw..=cw + 2).contains(&w), "{w} against {cw}");
+
+        run(&viewer, "edit.undo");
+        assert_eq!(scale(&viewer), 100.0, "Ctrl+Z takes the fit back");
+
+        run(&viewer, &format!("effect.fit_scale?layer=layer-3&effect={id}&to=height&frame=0"));
+        let fitted = scale(&viewer);
+        let ((_, h), _) = drawn(&viewer);
+        println!("fit to height: scale {fitted}, layer {h} tall");
+        assert!(fitted == 100.0 && h >= ch || fitted == 1000.0 && h <= ch + 2 || (ch..=ch + 2).contains(&h), "{h} against {ch}");
+
+        // With keys on Scale, the fit is a key on the frame asked for, the others kept.
+        run(&viewer, &format!("keyframe.add_remove?layer=layer-3&prop=fx:{id}:scale&frame=0"));
+        run(&viewer, &format!("effect.fit_scale?layer=layer-3&effect={id}&to=width&frame=12"));
+        let keys = effects(&viewer).into_iter().find(|e| e.instance_id.as_str() == id).and_then(|e| e.tracks.get("scale").map(|t| t[0].keyframes().len()));
+        assert_eq!(keys, Some(2), "the fit on frame 12 is a second key");
+
+        // Refused in words: another effect, and a direction that is neither.
+        run(&viewer, "effect.add?layer=layer-3&type=core.spherize");
+        let other = effects(&viewer).into_iter().find(|e| matches!(e.effect, Effect::Spherize { .. })).expect("a Spherize");
+        let said = run(&viewer, &format!("effect.fit_scale?layer=layer-3&effect={}&to=width&frame=0", other.instance_id.as_str()));
+        assert!(said.contains("is not a Detail-preserving Upscale"), "{said}");
+        let said = run(&viewer, &format!("effect.fit_scale?layer=layer-3&effect={id}&to=sideways&frame=0"));
+        assert!(said.contains("to=width or to=height"), "{said}");
     }
 
     /// D-353: Soft Physical Glow is added as Glow's "physical" falloff, takes the settings the

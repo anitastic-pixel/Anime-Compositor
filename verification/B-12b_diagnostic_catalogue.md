@@ -74,6 +74,8 @@ One row per identifier this build can print, and the table where a person can re
 | `EFFECT_LAYER_MISSING` | yes | `verification/B-125b_layer_map_table.md` |
 | `EFFECT_LAYER_CYCLE` | yes | `verification/B-127_compound_blur_table.md` |
 | `EFFECT_CHANNEL_MISSING` | yes | `verification/D-348_depth_channels_table.md` |
+| `EFFECT_PATH_MISSING` | yes | `verification/D-356_stroke_table.md` |
+| `EFFECT_LAYER_TOO_LARGE` | yes | `verification/D-407_detail_upscale_table.md` |
 | `TEXT_ANIMATOR_NO_TEXT` | yes | `verification/D-350_text_animator_table.md` |
 | `TEMPORAL_SMOOTHING_SKIPPED` | yes | `verification/D-351_auto_tone_table.md` |
 
@@ -105,7 +107,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 62 identifiers | 62 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 64 identifiers | 64 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |
@@ -304,6 +306,12 @@ One row per identifier this build can print, and the table where a person can re
 | EFFECT_CHANNEL_MISSING: the enum spells it the way the catalogue does | EFFECT_CHANNEL_MISSING | EFFECT_CHANNEL_MISSING | pass |
 | EFFECT_CHANNEL_MISSING: says truthfully whether document 28 lists it | true | true | pass |
 | EFFECT_CHANNEL_MISSING: a table somewhere shows a person this sentence | named in D-348_depth_channels_table.md | named in D-348_depth_channels_table.md | pass |
+| EFFECT_PATH_MISSING: the enum spells it the way the catalogue does | EFFECT_PATH_MISSING | EFFECT_PATH_MISSING | pass |
+| EFFECT_PATH_MISSING: says truthfully whether document 28 lists it | true | true | pass |
+| EFFECT_PATH_MISSING: a table somewhere shows a person this sentence | named in D-356_stroke_table.md | named in D-356_stroke_table.md | pass |
+| EFFECT_LAYER_TOO_LARGE: the enum spells it the way the catalogue does | EFFECT_LAYER_TOO_LARGE | EFFECT_LAYER_TOO_LARGE | pass |
+| EFFECT_LAYER_TOO_LARGE: says truthfully whether document 28 lists it | true | true | pass |
+| EFFECT_LAYER_TOO_LARGE: a table somewhere shows a person this sentence | named in D-407_detail_upscale_table.md | named in D-407_detail_upscale_table.md | pass |
 | TEXT_ANIMATOR_NO_TEXT: the enum spells it the way the catalogue does | TEXT_ANIMATOR_NO_TEXT | TEXT_ANIMATOR_NO_TEXT | pass |
 | TEXT_ANIMATOR_NO_TEXT: says truthfully whether document 28 lists it | true | true | pass |
 | TEXT_ANIMATOR_NO_TEXT: a table somewhere shows a person this sentence | named in D-350_text_animator_table.md | named in D-350_text_animator_table.md | pass |
@@ -315,7 +323,7 @@ One row per identifier this build can print, and the table where a person can re
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**209 of 209 checks pass.**
+**215 of 215 checks pass.**
 
 ## What this cannot cover
 

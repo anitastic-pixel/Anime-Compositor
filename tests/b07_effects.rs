@@ -147,6 +147,7 @@ fn run(source: &mut WorkingBuffer, stack: &[EffectInstance]) -> ((usize, usize),
             match why {
                 Bypassed::NotImplemented => "not implemented",
                 Bypassed::InvalidParameter => "invalid parameter",
+                Bypassed::TooLarge => "too large",
             }
         ));
     });

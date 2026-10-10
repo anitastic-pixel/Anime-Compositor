@@ -229,6 +229,10 @@ pub enum DiagnosticId {
     /// is not an EXR, or that has no footage. WARNING: the settings are kept and the effect is
     /// skipped, every frame.
     EffectChannelMissing,
+    /// Document 28, added by D-407: an effect that would grow the layer past what this build can
+    /// hold - a Detail-preserving Upscale wider or taller than 30000 pixels, or whose memory
+    /// cannot be had. WARNING: the settings are kept and the effect is skipped, every frame.
+    EffectLayerTooLarge,
     /// Document 28, added by D-356: an effect that draws along the layer's masks (Path Stroke)
     /// on a layer with no such mask at that frame - none numbered so, or none enabled with two
     /// points or more. WARNING: the settings are kept and the layer is left as it is, every frame.
@@ -311,6 +315,7 @@ impl DiagnosticId {
             DiagnosticId::EffectLayerMissing => "EFFECT_LAYER_MISSING",
             DiagnosticId::EffectLayerCycle => "EFFECT_LAYER_CYCLE",
             DiagnosticId::EffectChannelMissing => "EFFECT_CHANNEL_MISSING",
+            DiagnosticId::EffectLayerTooLarge => "EFFECT_LAYER_TOO_LARGE",
             DiagnosticId::EffectPathMissing => "EFFECT_PATH_MISSING",
             DiagnosticId::TextAnimatorNoText => "TEXT_ANIMATOR_NO_TEXT",
             DiagnosticId::TemporalSmoothingSkipped => "TEMPORAL_SMOOTHING_SKIPPED",
@@ -380,6 +385,7 @@ impl DiagnosticId {
                 | DiagnosticId::EffectLayerMissing
                 | DiagnosticId::EffectLayerCycle
                 | DiagnosticId::EffectChannelMissing
+                | DiagnosticId::EffectLayerTooLarge
                 | DiagnosticId::EffectPathMissing
                 | DiagnosticId::TextAnimatorNoText
                 | DiagnosticId::TemporalSmoothingSkipped

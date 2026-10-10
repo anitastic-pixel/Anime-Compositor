@@ -362,6 +362,16 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "D-348_depth_channels_table.md",
     ),
     (
+        DiagnosticId::EffectPathMissing,
+        "EFFECT_PATH_MISSING",
+        "D-356_stroke_table.md",
+    ),
+    (
+        DiagnosticId::EffectLayerTooLarge,
+        "EFFECT_LAYER_TOO_LARGE",
+        "D-407_detail_upscale_table.md",
+    ),
+    (
         DiagnosticId::TextAnimatorNoText,
         "TEXT_ANIMATOR_NO_TEXT",
         "D-350_text_animator_table.md",
@@ -442,7 +452,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "62 identifiers",
+        "64 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

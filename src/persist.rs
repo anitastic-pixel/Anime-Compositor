@@ -2971,6 +2971,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("outside_color".into(), J::from(outside_color.as_str()));
             params.insert("composite".into(), J::from(composite.as_str()));
         }
+        Effect::DetailUpscale { scale, reduce_noise, detail } => {
+            params.insert("scale".into(), num(*scale));
+            params.insert("reduce_noise".into(), num(*reduce_noise));
+            params.insert("detail".into(), num(*detail));
+        }
         Effect::ArbitraryMap { map, phase, apply_to_alpha, .. } => {
             params.insert("map".into(), J::from(map.as_str()));
             params.insert("phase".into(), num(*phase));
@@ -4314,6 +4319,7 @@ fn parse_effect(
         crate::effects::CHECKERBOARD,
         crate::effects::CIRCLE,
         crate::effects::ELLIPSE,
+        crate::effects::DETAIL_UPSCALE,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5579,6 +5585,11 @@ fn parse_effect(
             inside_color: effect_word(params, "inside_color", &at)?.to_ascii_lowercase(),
             outside_color: effect_word(params, "outside_color", &at)?.to_ascii_lowercase(),
             composite: effect_word(params, "composite", &at)?,
+        }),
+        crate::effects::DETAIL_UPSCALE => Some(crate::effects::Effect::DetailUpscale {
+            scale: effect_number(params, "scale", &at)?,
+            reduce_noise: effect_number(params, "reduce_noise", &at)?,
+            detail: effect_number(params, "detail", &at)?,
         }),
         crate::effects::ARBITRARY_MAP => Some(crate::effects::Effect::ArbitraryMap {
             map: effect_word(params, "map", &at)?,

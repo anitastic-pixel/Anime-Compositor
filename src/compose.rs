@@ -988,6 +988,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::Circle { .. }
                 // D-415: Ellipse.
                 | crate::effects::Effect::Ellipse { .. }
+                // D-407: Detail-preserving Upscale.
+                | crate::effects::Effect::DetailUpscale { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
                 // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }
@@ -1302,6 +1304,7 @@ fn card_effect(
                 E::Checkerboard { opacity, blending_mode, .. } | E::Circle { opacity, blending_mode, .. } => {
                     *opacity == 0.0 && !["none", "stencil_alpha"].contains(&blending_mode.as_str())
                 }
+                E::DetailUpscale { scale, reduce_noise, detail } => *scale == 100.0 && *reduce_noise <= 0.0 && *detail <= 0.0,
                 // D-360: the mean of two untouched copies is the layer.
                 E::CrossBlur { radius_x, radius_y, mode, .. } => {
                     mode == "blend" && crate::effects::box_reach(*radius_x, 1.0).max(crate::effects::box_reach(*radius_y, 1.0)) == 0
@@ -1388,6 +1391,8 @@ fn card_effect(
                     let e = [*expansion_top, *expansion_left, *expansion_right, *expansion_bottom];
                     crate::layer_fx::power_pin_map(pins, perspective / 100.0, e, size, *offset).map_or((0, 0), |m| m.4)
                 }
+                // D-407: an Upscale about the layer's middle.
+                E::DetailUpscale { scale, .. } => crate::layer_fx::upscale_growth(size, *scale),
                 _ => (effect.bounds_expansion(), effect.bounds_expansion()),
             };
             // B-221: its Mix is `mixed`'s, around it.
@@ -2287,6 +2292,22 @@ fn resolve_rest(
                     instance.fault().unwrap_or_default()
                 ),
             ),
+            // D-407: the owner's 1000 per cent, with the case the build cannot hold said aloud.
+            crate::effects::Bypassed::TooLarge => (
+                DiagnosticId::EffectLayerTooLarge,
+                format!(
+                    "Layer {}'s {} would make the layer larger than this build can hold, so it is \
+                     not drawn.",
+                    layer.name,
+                    instance.effect.name()
+                ),
+                format!(
+                    "The grown layer would be wider or taller than {} pixels, After Effects' own \
+                     largest layer, or there is not the memory for it. Frame {frame} is drawn \
+                     without the effect, which is kept as it was.",
+                    crate::layer_fx::LARGEST_SIDE
+                ),
+            ),
         };
         log.record(
             frame,
@@ -2518,6 +2539,13 @@ fn resolve_rest(
                     offset = (offset.0 + grow, offset.1 + grow);
                     render::OnCard::Glow(g)
                 })
+            }
+            // D-407: refused before the card is asked, as the CPU refuses it. ponytail: a memory
+            // failure in render's CPU stand-in for the card is not reported, and an adjustment
+            // layer's Upscale is not looked at here; both stop at the allocation as before.
+            crate::effects::Effect::DetailUpscale { scale, .. } if crate::layer_fx::upscale_too_large(size, scale) => {
+                report(&effects[i], crate::effects::Bypassed::TooLarge);
+                None
             }
             effect => card_effect(effect, &effects[i], size, &mut offset),
         }

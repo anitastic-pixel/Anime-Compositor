@@ -9346,6 +9346,7 @@ const EFFECT_NAMES = {
   'core.checkerboard': 'Checkerboard',
   'core.circle': 'Circle',
   'core.ellipse': 'Ellipse',
+  'core.detail_upscale': 'Detail-preserving Upscale',
   'core.arbitrary_map': 'Arbitrary Map',
   'core.selective_color': 'Selective Color',
   'core.shadow_highlight': 'Shadow/Highlight',
@@ -9419,7 +9420,7 @@ const EFFECT_GROUPS = [
     'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile',
     'core.corner_pin', 'core.polar_coordinates', 'core.optics_compensation', 'core.bend_it', 'core.bender',
     'core.blobbylize', 'core.flow_motion', 'core.griddler', 'core.fisheye', 'core.page_turn', 'core.power_pin',
-    'core.ripple_pulse', 'core.slant', 'core.smear', 'core.split', 'core.split_2', 'core.transform', 'core.tiles', 'core.magnify', 'core.spherize']],
+    'core.ripple_pulse', 'core.slant', 'core.smear', 'core.split', 'core.split_2', 'core.transform', 'core.tiles', 'core.magnify', 'core.spherize', 'core.detail_upscale']],
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse',
     'core.cell_pattern', 'core.stroke']],
@@ -9528,6 +9529,7 @@ const EFFECT_SEARCH = {
   'core.checkerboard': 'checkerboard checker chess board draughts squares rectangles grid pattern plaid tiles generate',
   'core.circle': 'circle disk disc dot ring donut round spot hole vignette iris generate',
   'core.ellipse': 'ellipse oval outline ring halo glow neon loop orbit hoop generate',
+  'core.detail_upscale': 'detail preserving upscale enlarge resize scale up lanczos sharpen bigger resolution',
   'core.arbitrary_map': 'arbitrary map ps arbitrary map photoshop amp curves map file phase cycle psychedelic solarize',
   'core.shadow_highlight': 'shadow highlight shadows highlights backlit backlight lift recover dark bright local tone darktable fill light',
   'core.selective_color': 'selective color colour cmyk cyan magenta yellow black reds yellows greens cyans blues magentas whites neutrals blacks relative absolute photoshop print grade',
@@ -9701,6 +9703,7 @@ const EFFECT_ABOUT = {
   'core.checkerboard': 'Draws a checkerboard of coloured and clear rectangles in place of the layer, or laid over it by a blending mode.',
   'core.circle': 'Draws a filled circle or a ring, soft or sharp, in place of the layer, or laid over it by a blending mode.',
   'core.ellipse': 'Draws the glowing outline of an ellipse, one colour along its middle and another at its edges, over the layer or alone.',
+  'core.detail_upscale': 'Enlarges the layer, which grows with it about its middle, softening noise first and sharpening edges after.',
   'core.arbitrary_map': 'Recolours the layer through a Photoshop arbitrary map (.amp), a curve drawn by hand, which Phase cycles for shifting colours.',
   'core.shadow_highlight': 'Brightens the dark parts and darkens the bright parts, each judged by the brightness round it, for a picture lit from behind.',
   'core.tritone': 'Colours the dark, middle and light parts of the layer with three colours of your choice; Gradient Map with its midpoint in the middle.',
@@ -10397,6 +10400,9 @@ const EFFECT_PARAMS = {
     ['height', 'Height', 1, 1, 'pixels, 1 to 10000'],
     ['thickness', 'Thickness', 1, 0.5, 'pixels, 0 to 10000, how thick the outline is'],
     ['softness', 'Softness', 1, 1, '0 to 100, 0 a hard edge']],
+  'core.detail_upscale': [['scale', 'Scale', 1, 1, '%, 100 to 1000'],
+    ['reduce_noise', 'Reduce Noise', 1, 1, '0 to 100, softens before enlarging'],
+    ['detail', 'Detail', 1, 1, '0 to 100, sharpening after enlarging']],
   'core.blobbylize': [['softness', 'Softness', 1, 0.5, 'pixels, 0 to 100, how round and spread the blobs are'],
     ['cut_away', 'Cut Away', 1, 1, '0 to 100, how much of the thin blob edge is cut off'],
     ['light_intensity', 'Light Intensity', 1, 1, '0 to 400'],
@@ -12156,6 +12162,18 @@ function effectRow(layer, fx, at, of) {
     };
     const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
     dd.append(swap);
+    dl.append(Object.assign(document.createElement('dt'), { className: 'wide' }), dd);
+  }
+  // D-407: After Effects' Fit to Comp Width and Height, one-time buttons (the owner's choice):
+  // the window works out Scale once, on this frame, and writes it; Scale stays a number.
+  if (fxKey(fx) === 'core.detail_upscale') {
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    for (const [to, text] of [['width', 'Fit to Comp Width'], ['height', 'Fit to Comp Height']]) {
+      const fit = Object.assign(document.createElement('button'), { textContent: text,
+        title: 'Set Scale once so the layer is as ' + (to === 'width' ? 'wide' : 'tall') + ' as the composition' });
+      fit.onclick = () => command('/effect.fit_scale' + where + '&to=' + to + '&frame=' + frame);
+      dd.append(fit, ' ');
+    }
     dl.append(Object.assign(document.createElement('dt'), { className: 'wide' }), dd);
   }
   // D-182: the file, by its asset's name, and the button that asks for one. The window reads a

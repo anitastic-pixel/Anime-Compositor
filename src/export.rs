@@ -691,6 +691,7 @@ fn bypassed(ids: &[DiagnosticId]) -> bool {
         || ids.contains(&DiagnosticId::MaskInvalidOutline)
         || ids.contains(&DiagnosticId::EffectUnsupported)
         || ids.contains(&DiagnosticId::EffectParameterInvalid)
+        || ids.contains(&DiagnosticId::EffectLayerTooLarge)
         || ids.contains(&DiagnosticId::TextFontMissing)
 }
 

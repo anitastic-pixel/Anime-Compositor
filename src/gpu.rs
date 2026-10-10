@@ -3790,6 +3790,40 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             textureStore(output, id.xy, t * (1.0 - bl) + textureLoad(input, id.xy, 0) * bl);
             return;
         }
+        case 29u: {
+            // D-407, layer_fx::detail_upscale's Lanczos sum, the output the grown layer. `input`
+            // is the picture, grown by F.r when softened first. k: 0, then for each output
+            // column and then each output row its first tap and six weights. A tap outside the
+            // picture is clear; summed across, then down, in the CPU's order and precision. F.flag
+            // 1: the covering held to 0..1 and each colour to 0..covering, with no Detail after.
+            let n = vec2<i32>(textureDimensions(input)) - vec2(2 * F.r);
+            let cx = 1u + 7u * id.x;
+            let cy = 1u + 7u * (size.x + id.y);
+            let fx = i32(k[cx]);
+            let fy = i32(k[cy]);
+            var sum = vec4(0.0);
+            for (var j = 0; j < 6; j++) {
+                let yy = fy + j;
+                if yy < 0 || yy >= n.y {
+                    continue;
+                }
+                var across = vec4(0.0);
+                for (var i = 0; i < 6; i++) {
+                    let xx = fx + i;
+                    if xx < 0 || xx >= n.x {
+                        continue;
+                    }
+                    across += f32(k[cx + 1u + u32(i)]) * textureLoad(input, vec2(xx, yy) + vec2(F.r), 0);
+                }
+                sum += f32(k[cy + 1u + u32(j)]) * across;
+            }
+            if F.flag == 1u {
+                let al = min(max(sum.w, 0.0), 1.0);
+                sum = vec4(min(max(sum.xyz, vec3(0.0)), vec3(al)), al);
+            }
+            textureStore(output, id.xy, sum);
+            return;
+        }
         case 23u: {
             // D-405, layer_fx::magnify, the output grown by F.g on every side. k: the centre,
             // the magnification (a share), the radius, the feather, the opacity (a share), the
@@ -4173,6 +4207,15 @@ fn sharp(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     let p = textureLoad(input, id.xy, 0);
+    // D-407, layer_fx::detail_upscale's Detail (mode 2), on the premultiplied numbers as they
+    // are: p + k[0] (p - blurred), then the covering held to 0..1 and each colour to 0..covering.
+    if F.mode == 2u {
+        let g = textureLoad(other, vec2<i32>(id.xy) + vec2(F.r), 0);
+        let u = p + f32(k[0]) * (p - g);
+        let al = min(max(u.w, 0.0), 1.0);
+        textureStore(output, id.xy, vec4(min(max(u.xyz, vec3(0.0)), vec3(al)), al));
+        return;
+    }
     let a = f64(p.w);
     if a <= 0.0lf {
         textureStore(output, id.xy, p);
@@ -8880,6 +8923,33 @@ impl Gpu {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 same(steps, &passes.warp, FxParams { mode: 24, ..Default::default() }, &[cx, cy, 0.0, *radius], None)
             }
+            // D-407: softened first as `covering` blurs, the Lanczos sum in the warp pass (mode
+            // 29) grown as compose grew it, then Detail in the sharpen pass (mode 2).
+            E::DetailUpscale { scale, reduce_noise, detail } => {
+                let (gx, gy) = f.grow;
+                let (tw, th) = (w + 2 * gx, h + 2 * gy);
+                let s = scale / 100.0;
+                let (soft, r) = if *reduce_noise > 0.0 { covering(steps, still, (w, h), reduce_noise / 50.0) } else { (still.clone(), 0) };
+                let mut k = vec![0.0];
+                for (n, big) in [(w, tw), (h, th)] {
+                    for x in 0..big {
+                        let (first, weights) = crate::layer_fx::lanczos_taps(n, big, s, x);
+                        k.push(first as f64);
+                        k.extend(weights);
+                    }
+                }
+                let up = self.scratch("D-407 upscale", tw, th);
+                let p = FxParams { mode: 29, r: r as i32, flag: (*detail <= 0.0) as u32, ..Default::default() };
+                self.fx_step(steps, &passes.warp, p, Some(&soft), Some(&up), Some(&k), None, none, tiles(tw, th));
+                if *detail <= 0.0 {
+                    return (up, (tw, th));
+                }
+                let (blurred, r2) = covering(steps, &up, (tw, th), s / 2.0);
+                let out = self.scratch("D-407 detail", tw, th);
+                let p = FxParams { mode: 2, r: r2 as i32, ..Default::default() };
+                self.fx_step(steps, &passes.sharp, p, Some(&up), Some(&out), Some(&[detail / 50.0]), Some(&blurred), none, tiles(tw, th));
+                (out, (tw, th))
+            }
             // D-377: the frames at End and at -L worked out here as the CPU works them.
             E::BendIt { bend, start, end, render_prestart, distort } => {
                 let (s, e) = (crate::effects::radial_center(*start, (w, h), f.origin), crate::effects::radial_center(*end, (w, h), f.origin));
@@ -10466,6 +10536,8 @@ impl Gpu {
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,
                             // B-223: a Compound Blur's sigma for each pixel.
                             crate::effects::Effect::CompoundBlur { .. } => (w * h * 8) as u64,
+                            // D-407: an Upscale's taps, seven numbers for each grown column and row.
+                            crate::effects::Effect::DetailUpscale { .. } => ((1 + 7 * (w + 2 * f.grow.0 + h + 2 * f.grow.1)) * 8) as u64,
                             // B-226: Line Smooth's mixes, eight a pixel; Block Dissolve's blocks, or
                             // its columns' running sums, with its settings.
                             crate::effects::Effect::LineSmooth { .. } => (w * h * 32) as u64,
