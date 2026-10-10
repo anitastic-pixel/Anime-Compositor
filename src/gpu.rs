@@ -3235,6 +3235,100 @@ fn checker_axis(x: f64, a: f64, w: f64, half: f64) -> f64 {
     return select(1.0lf, -1.0lf, odd != 0.0lf) * min(quotient(d, half), 1.0lf);
 }
 
+// D-416, layer_fx::fractal's pieces. k: the Mandelbrot view (centre, a pixel's size), the Julia
+// view, the drawing's corner in the buffer, half the drawing's width and height, the escape
+// limits, the power, 1 for the Julia choices, the inverse ones, the "over Julia" ones, the
+// palette, the hue, the cycle steps and offset, 1 for Transparency, Edge Highlight, Brute Force,
+// the factor, 1 for Overlay, 0, the cross's centre and arm. Every product and quotient is
+// rounded as the CPU's (`product`, `quotient`), so the escape counts are the CPU's own.
+fn fractal_point(x: f64, y: f64, v: u32) -> vec2<f64> {
+    let z = k[25];
+    return vec2(k[v] + product(x - k[8], k[v + 2u], z), k[v + 1u] - product(y - k[9], k[v + 2u], z));
+}
+
+fn fractal_escape(z0: vec2<f64>, c: vec2<f64>, limit: u32) -> i32 {
+    let z = k[25];
+    let power = u32(k[12]);
+    var zr = z0.x;
+    var zi = z0.y;
+    for (var n = 1u; n <= limit; n++) {
+        var qr = zr;
+        var qi = zi;
+        for (var p = 1u; p < power; p++) {
+            let r = product(qr, zr, z) - product(qi, zi, z);
+            qi = product(qr, zi, z) + product(qi, zr, z);
+            qr = r;
+        }
+        zr = qr + c.x;
+        zi = qi + c.y;
+        if abs(zr) > 2.0lf || abs(zi) > 2.0lf {
+            return i32(n);
+        }
+    }
+    return -1;
+}
+
+fn fractal_band(x: f64, y: f64) -> i32 {
+    let z = k[25];
+    let julia = k[13] == 1.0lf;
+    var p = fractal_point(x, y, select(0u, 3u, julia));
+    var n = 1;
+    var fell = false;
+    if k[14] == 1.0lf {
+        let d = product(p.x, p.x, z) + product(p.y, p.y, z);
+        fell = d == 0.0lf;
+        if !fell {
+            p = vec2(quotient(p.x, d), quotient(-p.y, d));
+        }
+    }
+    if !fell {
+        if julia {
+            n = fractal_escape(p, vec2(k[0], k[1]), u32(k[11]));
+        } else {
+            n = fractal_escape(select(vec2(0.0lf), vec2(k[3], k[4]), k[15] == 1.0lf), p, u32(k[10]));
+        }
+    }
+    if n < 0 {
+        return -1;
+    }
+    let s = i32(k[18]);
+    switch u32(k[16]) {
+        case 0u: { return (n + i32(k[19])) % (8 * s); }
+        case 1u: { return (n + i32(k[19])) % s; }
+        case 2u: { return (n + i32(k[19])) % 2; }
+        default: { return 0; }
+    }
+}
+
+fn fractal_colour(b: i32) -> vec4<f64> {
+    let clear = k[20] == 1.0lf;
+    let pal = u32(k[16]);
+    let s = i32(k[18]);
+    var e: vec3<f64>;
+    if pal == 3u {
+        if (b < 0) == clear {
+            return vec4(0.0lf);
+        }
+        e = from_hls(euclid(k[17], 360.0lf), 0.5lf, 1.0lf);
+    } else if b < 0 {
+        return select(vec4(0.0lf, 0.0lf, 0.0lf, 1.0lf), vec4(0.0lf), clear);
+    } else if pal == 0u {
+        e = from_hls(euclid(k[17] + f64(45 * (b / s)), 360.0lf), f64(b % s + 1) / f64(s + 1), 1.0lf);
+    } else if pal == 1u {
+        e = from_hls(euclid(k[17] + f64(360 * b) / f64(s), 360.0lf), 0.5lf, 1.0lf);
+    } else {
+        e = vec3(f64(b));
+    }
+    return vec4(to_linear(e.x), to_linear(e.y), to_linear(e.z), 1.0lf);
+}
+
+fn fractal_cross(x: i32, y: i32) -> bool {
+    let cx = i32(k[26]);
+    let cy = i32(k[27]);
+    let arm = i32(k[28]);
+    return (y == cy && abs(x - cx) <= arm) || (x == cx && abs(y - cy) <= arm);
+}
+
 @compute @workgroup_size(16, 16)
 fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -3915,6 +4009,49 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             }
             out.w = f32(f64(px.w) * keep + c);
             textureStore(output, id.xy, out);
+            return;
+        }
+        case 30u: {
+            // D-416, layer_fx::fractal. k: as `fractal_point`'s.
+            let dx = x - k[6];
+            let dy = y - k[7];
+            let b = fractal_band(dx, dy);
+            let n0 = fractal_band(dx - 1.0lf, dy);
+            let n2 = fractal_band(dx, dy - 1.0lf);
+            let edge = n0 != b || n2 != b || fractal_band(dx + 1.0lf, dy) != b || fractal_band(dx, dy + 1.0lf) != b;
+            let f = u32(k[23]);
+            var p = fractal_colour(b);
+            if f > 1u && (k[22] == 1.0lf || edge) {
+                var total = vec4(0.0lf);
+                for (var bb = 0u; bb < f; bb++) {
+                    let sy = dy - 0.5lf + quotient(f64(bb) + 0.5lf, k[23]);
+                    for (var aa = 0u; aa < f; aa++) {
+                        total += fractal_colour(fractal_band(dx - 0.5lf + quotient(f64(aa) + 0.5lf, k[23]), sy));
+                    }
+                }
+                p = total / f64(f * f);
+            } else if f == 1u && k[21] == 1.0lf && (n0 != b || n2 != b) {
+                p = vec4(1.0lf);
+            }
+            if k[24] == 1.0lf {
+                var inside = false;
+                if k[13] == 1.0lf {
+                    inside = fractal_escape(vec2(0.0lf), fractal_point(dx, dy, 0u), u32(k[10])) < 0;
+                } else {
+                    inside = fractal_escape(fractal_point(dx, dy, 3u), vec2(k[0], k[1]), u32(k[11])) < 0;
+                }
+                if inside {
+                    p = (p + vec4(1.0lf)) / 2.0lf;
+                }
+                let x0 = i32(id.x) - i32(k[6]);
+                let y0 = i32(id.y) - i32(k[7]);
+                if fractal_cross(x0, y0) {
+                    p = vec4(1.0lf);
+                } else if fractal_cross(x0 - 1, y0 - 1) {
+                    p = vec4(0.0lf, 0.0lf, 0.0lf, 1.0lf);
+                }
+            }
+            textureStore(output, id.xy, vec4(f32(p.x), f32(p.y), f32(p.z), f32(p.w)));
             return;
         }
         default: {
@@ -9267,6 +9404,22 @@ impl Gpu {
                 k.extend(linear(inside_color));
                 k.extend(linear(outside_color));
                 same(steps, &passes.warp, FxParams { mode: 28, ..Default::default() }, &k, None)
+            }
+            // D-416: as effects' arm reads it, the layer replaced and never grown.
+            effect @ E::Fractal { .. } => {
+                let (w0, h0) = ((w - 2 * f.origin.0) as f64, (h - 2 * f.origin.1) as f64);
+                let v = crate::layer_fx::FractalView::of(effect, h0).expect("a Fractal");
+                let on = |b: bool| b as u8 as f64;
+                let k = [
+                    v.m[0], v.m[1], v.m[2], v.j[0], v.j[1], v.j[2],
+                    f.origin.0 as f64, f.origin.1 as f64, w0 / 2.0, h0 / 2.0,
+                    v.m_limit as f64, v.j_limit as f64, v.power as f64,
+                    on(v.julia), on(v.inverse), on(v.over_julia),
+                    v.palette as f64, v.hue, v.steps as f64, v.offset as f64,
+                    on(v.transparency), on(v.edge_highlight), on(v.brute), v.factor as f64, on(v.overlay), 0.0,
+                    (w0 as i64 / 2) as f64, (h0 as i64 / 2) as f64, 2.max(h0 as i64 / 20) as f64,
+                ];
+                same(steps, &passes.warp, FxParams { mode: 30, ..Default::default() }, &k, None)
             }
             E::Mirror { center, angle } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);

@@ -1843,6 +1843,32 @@ pub enum Effect {
         levels: Option<Vec<f64>>,
         outline: Option<Vec<(f64, f64)>>,
     },
+    /// D-416: after After Effects' Fractal. The Mandelbrot or Julia set (`set_choice`, one of
+    /// [`FRACTAL_SETS`]) of z^n + c (`equation` "z2" to "z6"), each view a centre (-10 to 10), a
+    /// magnification (-10 to 40, the height spanning 3 / 2^m units) and an escape limit (1 to
+    /// 10000); `overlay`, `transparency` and `edge_highlight` "off" or "on"; `palette` one of
+    /// [`FRACTAL_PALETTES`], turned by `hue` (-36000 to 36000 degrees), `cycle_steps` (1 to 1000)
+    /// and `cycle_offset` (0 to 1000); `oversample_method` "edge_detect" or "brute_force",
+    /// `oversample_factor` 1 to 8. The counts take their whole part. The layer is replaced.
+    Fractal {
+        set_choice: String,
+        equation: String,
+        mandelbrot_center: [f64; 2],
+        mandelbrot_magnification: f64,
+        mandelbrot_escape_limit: f64,
+        julia_center: [f64; 2],
+        julia_magnification: f64,
+        julia_escape_limit: f64,
+        overlay: String,
+        transparency: String,
+        palette: String,
+        hue: f64,
+        cycle_steps: f64,
+        cycle_offset: f64,
+        edge_highlight: String,
+        oversample_method: String,
+        oversample_factor: f64,
+    },
     /// D-395: after After Effects' PS Arbitrary Map. `map`, the id of an asset of kind lut that
     /// is a Photoshop arbitrary map (.amp), or empty for none; `phase`, -255 to 255 levels, every
     /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
@@ -2319,6 +2345,10 @@ pub const PATTERN_MODES: [&str; 8] = ["none", "normal", "add", "multiply", "scre
 pub const DETAIL_UPSCALE: &str = "core.detail_upscale";
 pub const AUDIO_SPECTRUM: &str = "core.audio_spectrum";
 pub const AUDIO_WAVEFORM: &str = "core.audio_waveform";
+pub const FRACTAL: &str = "core.fractal";
+/// D-416: Fractal's sets and palettes, After Effects' own.
+pub const FRACTAL_SETS: [&str; 6] = ["mandelbrot", "mandelbrot_inverse", "mandelbrot_over_julia", "mandelbrot_inverse_over_julia", "julia", "julia_inverse"];
+pub const FRACTAL_PALETTES: [&str; 4] = ["lightness_gradient", "hue_wheel", "black_and_white", "solid_color"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3281,6 +3311,30 @@ impl Effect {
                 ("softness", vec![softness], 0.0, 100.0),
                 ("random_seed", vec![random_seed], 0.0, 100000.0),
             ],
+            Effect::Fractal {
+                mandelbrot_center,
+                mandelbrot_magnification,
+                mandelbrot_escape_limit,
+                julia_center,
+                julia_magnification,
+                julia_escape_limit,
+                hue,
+                cycle_steps,
+                cycle_offset,
+                oversample_factor,
+                ..
+            } => vec![
+                ("mandelbrot_center", mandelbrot_center.iter_mut().collect(), -10.0, 10.0),
+                ("mandelbrot_magnification", vec![mandelbrot_magnification], -10.0, 40.0),
+                ("mandelbrot_escape_limit", vec![mandelbrot_escape_limit], 1.0, 10000.0),
+                ("julia_center", julia_center.iter_mut().collect(), -10.0, 10.0),
+                ("julia_magnification", vec![julia_magnification], -10.0, 40.0),
+                ("julia_escape_limit", vec![julia_escape_limit], 1.0, 10000.0),
+                ("hue", vec![hue], -36000.0, 36000.0),
+                ("cycle_steps", vec![cycle_steps], 1.0, 1000.0),
+                ("cycle_offset", vec![cycle_offset], 0.0, 1000.0),
+                ("oversample_factor", vec![oversample_factor], 1.0, 8.0),
+            ],
             Effect::ArbitraryMap { phase, .. } => vec![("phase", vec![phase], -255.0, 255.0)],
             Effect::SelectiveColor { families, .. } => SELECTIVE_COLOR_FAMILIES
                 .into_iter()
@@ -4057,6 +4111,14 @@ impl Effect {
                 *maximum_height = scale(*maximum_height);
                 *thickness = scale(*thickness);
             }
+            // D-416: the view is the drawing's own, so nothing scales; a smaller picture (a
+            // draft, or a composition drawn smaller) is not oversampled, as After Effects' draft
+            // quality is not, and Edge Highlight then shows.
+            Effect::Fractal { oversample_factor, .. } => {
+                if scale(1.0) < 1.0 {
+                    *oversample_factor = 1.0;
+                }
+            }
             Effect::Bulge { radius, vertical_radius, taper_radius, .. } => {
                 *radius = scale(*radius);
                 *vertical_radius = scale(*vertical_radius);
@@ -4326,6 +4388,7 @@ impl Effect {
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
             Effect::DetailUpscale { .. } => "Detail-preserving Upscale",
+            Effect::Fractal { .. } => "Fractal",
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::SelectiveColor { .. } => "Selective Color",
             Effect::ShadowHighlight { .. } => "Shadow/Highlight",
@@ -4491,6 +4554,7 @@ impl Effect {
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
             Effect::DetailUpscale { .. } => DETAIL_UPSCALE,
+            Effect::Fractal { .. } => FRACTAL,
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
             Effect::ShadowHighlight { .. } => SHADOW_HIGHLIGHT,
@@ -5689,6 +5753,24 @@ impl Effect {
             )),
             Effect::Ellipse { inside_color, outside_color, .. } => hex_fault("Ellipse", "inside colour", inside_color)
                 .or_else(|| hex_fault("Ellipse", "outside colour", outside_color)),
+            Effect::Fractal { set_choice, equation, overlay, transparency, palette, edge_highlight, oversample_method, .. } => {
+                const SWITCH: &[&str] = &["off", "on"];
+                [
+                    ("set choice", set_choice, &FRACTAL_SETS[..]),
+                    ("equation", equation, &["z2", "z3", "z4", "z5", "z6"][..]),
+                    ("overlay", overlay, SWITCH),
+                    ("transparency", transparency, SWITCH),
+                    ("palette", palette, &FRACTAL_PALETTES[..]),
+                    ("edge highlight", edge_highlight, SWITCH),
+                    ("oversample method", oversample_method, &["edge_detect", "brute_force"][..]),
+                ]
+                .into_iter()
+                .find(|(_, v, words)| !words.contains(&v.as_str()))
+                .map(|(name, v, words)| {
+                    let q: Vec<String> = words.iter().map(|w| format!("\"{w}\"")).collect();
+                    format!("Fractal's {name} is {} or {}, and this is \"{v}\".", q[..q.len() - 1].join(", "), q[q.len() - 1])
+                })
+            }
             Effect::HsvKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "HSV Key's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
@@ -7239,6 +7321,12 @@ pub(crate) fn apply_stack_at(
                 crate::perf::time(crate::perf::Stage::EffectEllipse, || {
                     crate::layer_fx::ellipse(source, c, [*width / 2.0, *height / 2.0, *thickness, *softness], colours, composite == "off")
                 })
+            }
+            // D-416: the view is the drawing's own; the layer is replaced and never grows.
+            Effect::Fractal { .. } => {
+                let h0 = (source.height() - 2 * oy) as f64;
+                let view = crate::layer_fx::FractalView::of(&instance.effect, h0).expect("a Fractal");
+                crate::perf::time(crate::perf::Stage::EffectFractal, || crate::layer_fx::fractal(source, (ox, oy), &view))
             }
             // D-407: grown about its middle, or not drawn when the build cannot hold the result.
             Effect::DetailUpscale { scale, reduce_noise, detail } => {

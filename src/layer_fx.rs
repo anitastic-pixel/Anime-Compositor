@@ -2710,6 +2710,153 @@ fn sound_feet(n: usize, outline: Option<&[(f64, f64)]>, polar: bool, [start, end
     }
 }
 
+/// D-416: Fractal's settings as `fractal` reads them (document 21). A view is its centre and one
+/// pixel's size in units, 3 / (h 2^m); the counts are their whole parts.
+pub(crate) struct FractalView {
+    /// The Julia choices, the inverse ones, the "over Julia" ones.
+    pub julia: bool,
+    pub inverse: bool,
+    pub over_julia: bool,
+    /// The Equation's power, 2 to 6.
+    pub power: u32,
+    /// The Mandelbrot and Julia views: centre across, up, and a pixel's size.
+    pub m: [f64; 3],
+    pub j: [f64; 3],
+    pub m_limit: u32,
+    pub j_limit: u32,
+    /// 0 Lightness Gradient, 1 Hue Wheel, 2 Black And White, 3 Solid Color.
+    pub palette: u8,
+    pub hue: f64,
+    pub steps: i64,
+    pub offset: i64,
+    pub transparency: bool,
+    pub edge_highlight: bool,
+    pub brute: bool,
+    pub factor: u32,
+    pub overlay: bool,
+}
+
+impl FractalView {
+    /// The view of `effect`'s settings over a drawing `h0` pixels tall; `None` for any other effect.
+    pub(crate) fn of(effect: &crate::effects::Effect, h0: f64) -> Option<Self> {
+        let crate::effects::Effect::Fractal {
+            set_choice,
+            equation,
+            mandelbrot_center,
+            mandelbrot_magnification,
+            mandelbrot_escape_limit,
+            julia_center,
+            julia_magnification,
+            julia_escape_limit,
+            overlay,
+            transparency,
+            palette,
+            hue,
+            cycle_steps,
+            cycle_offset,
+            edge_highlight,
+            oversample_method,
+            oversample_factor,
+        } = effect
+        else {
+            return None;
+        };
+        let view = |c: [f64; 2], m: f64| [c[0], c[1], 3.0 / (h0 * 2f64.powf(m))];
+        Some(FractalView {
+            julia: set_choice.starts_with("julia"),
+            inverse: set_choice.contains("inverse"),
+            over_julia: set_choice.contains("over_julia"),
+            power: equation.get(1..).and_then(|p| p.parse().ok()).unwrap_or(2),
+            m: view(*mandelbrot_center, *mandelbrot_magnification),
+            j: view(*julia_center, *julia_magnification),
+            m_limit: mandelbrot_escape_limit.floor() as u32,
+            j_limit: julia_escape_limit.floor() as u32,
+            palette: crate::effects::FRACTAL_PALETTES.iter().position(|p| p == palette).unwrap_or(0) as u8,
+            hue: *hue,
+            steps: (cycle_steps.floor() as i64).max(1),
+            offset: cycle_offset.floor() as i64,
+            transparency: transparency == "on",
+            edge_highlight: edge_highlight == "on",
+            brute: oversample_method == "brute_force",
+            factor: (oversample_factor.floor() as u32).max(1),
+            overlay: overlay == "on",
+        })
+    }
+
+    /// The card's work on `pixels` pixels at most, in steps of z^2 + c: each pixel works its
+    /// band and four neighbours' (five escapes), Factor by Factor more where it oversamples
+    /// (counted as everywhere) and one more for Overlay, each up to the larger Escape Limit, a
+    /// step of z^n costing n - 1 of z^2's. The card made 2.1e10 a second on B-295's
+    /// measurement (RTX 4070 Ti SUPER), all in one dispatch, which Windows stops at 2 seconds.
+    pub(crate) fn card_work(&self, pixels: usize) -> f64 {
+        let samples = 5 + if self.factor > 1 { self.factor * self.factor } else { 0 } + self.overlay as u32;
+        pixels as f64 * samples as f64 * self.m_limit.max(self.j_limit) as f64 * (self.power - 1) as f64
+    }
+
+    /// The bands a palette has, so its colours can be worked once.
+    pub(crate) fn bands(&self) -> i64 {
+        match self.palette {
+            0 => 8 * self.steps,
+            1 => self.steps,
+            2 => 2,
+            _ => 1,
+        }
+    }
+
+    /// Step 4's band at the escape count `k`, -1 inside.
+    fn band(&self, k: i64) -> i64 {
+        match (k < 0, self.palette) {
+            (true, _) => -1,
+            (_, 3) => 0,
+            _ => (k + self.offset) % self.bands(),
+        }
+    }
+
+    /// Step 5's colour of band `b` (-1 inside), linear and premultiplied.
+    pub(crate) fn colour(&self, b: i64) -> [f64; 4] {
+        let clear = [0.0; 4];
+        let e = match self.palette {
+            3 if (b < 0) == self.transparency => return clear,
+            3 => crate::grade::from_hls(self.hue.rem_euclid(360.0), 0.5, 1.0),
+            _ if b < 0 => return if self.transparency { clear } else { [0.0, 0.0, 0.0, 1.0] },
+            0 => {
+                let s = self.steps;
+                crate::grade::from_hls((self.hue + (45 * (b / s)) as f64).rem_euclid(360.0), (b % s + 1) as f64 / (s + 1) as f64, 1.0)
+            }
+            1 => crate::grade::from_hls((self.hue + (360 * b) as f64 / self.steps as f64).rem_euclid(360.0), 0.5, 1.0),
+            _ => [b as f64; 3],
+        };
+        let [r, g, bl] = e.map(crate::grade::to_linear);
+        [r, g, bl, 1.0]
+    }
+
+    /// Step 3's count at the drawing point `(x, y)`, -1 inside; `size` the drawing's.
+    fn count(&self, x: f64, y: f64, size: (f64, f64)) -> i64 {
+        let (view, limit) = if self.julia { (self.j, self.j_limit) } else { (self.m, self.m_limit) };
+        let mut p = fractal_point(x, y, view, size);
+        if self.inverse {
+            match fractal_invert(p) {
+                Some(q) => p = q,
+                None => return 1,
+            }
+        }
+        if self.julia {
+            return fractal_escape(p, [self.m[0], self.m[1]], self.power, limit);
+        }
+        let z0 = if self.over_julia { [self.j[0], self.j[1]] } else { [0.0, 0.0] };
+        fractal_escape(z0, p, self.power, limit)
+    }
+
+    /// Step 8's opposite set at `(x, y)`: whether it is inside.
+    fn opposite_inside(&self, x: f64, y: f64, size: (f64, f64)) -> bool {
+        if self.julia {
+            fractal_escape([0.0, 0.0], fractal_point(x, y, self.m, size), self.power, self.m_limit) < 0
+        } else {
+            fractal_escape(fractal_point(x, y, self.j, size), [self.m[0], self.m[1]], self.power, self.j_limit) < 0
+        }
+    }
+}
+
 /// D-421: Audio Waveform's marks, standing as Audio Spectrum's do along the line or round the
 /// mask (never round a point), from the least and greatest compose filled into `levels`;
 /// `None` when it filled in none. Digital: a piece from the least to the greatest; Analog Lines
@@ -2751,6 +2898,93 @@ pub(crate) fn waveform_marks(effect: &crate::effects::Effect, size: (usize, usiz
         mark_pieces(&feet, closed, &heights, &vec![colours; shown], display_options, "side_a")
     };
     Some(Marks { pieces, r: thickness / 2.0, softness: *softness, how: if composite == "on" { 2 } else { 1 }, blend: false })
+}
+
+/// D-416: the drawing point `(x, y)` in the view `[cx, cy, u]`, the imaginary part up.
+fn fractal_point(x: f64, y: f64, [cx, cy, u]: [f64; 3], (w0, h0): (f64, f64)) -> [f64; 2] {
+    [cx + (x - w0 / 2.0) * u, cy - (y - h0 / 2.0) * u]
+}
+
+/// D-416: 1 / p, `None` at 0.
+fn fractal_invert([re, im]: [f64; 2]) -> Option<[f64; 2]> {
+    let d = re * re + im * im;
+    (d != 0.0).then(|| [re / d, -im / d])
+}
+
+/// D-416: the first step from 1 to `limit` after which z^power + c leaves (-2, -2, 2, 2), or -1.
+fn fractal_escape([mut zr, mut zi]: [f64; 2], [cr, ci]: [f64; 2], power: u32, limit: u32) -> i64 {
+    for k in 1..=limit {
+        let (mut qr, mut qi) = (zr, zi);
+        for _ in 1..power {
+            (qr, qi) = (qr * zr - qi * zi, qr * zi + qi * zr);
+        }
+        zr = qr + cr;
+        zi = qi + ci;
+        if zr.abs() > 2.0 || zi.abs() > 2.0 {
+            return k as i64;
+        }
+    }
+    -1
+}
+
+/// D-416: After Effects' Fractal over the whole buffer, its drawing's corner at `origin`. The
+/// layer is replaced and never grows.
+pub(crate) fn fractal(source: &mut WorkingBuffer, origin: (usize, usize), v: &FractalView) {
+    let (w, h) = (source.width(), source.height());
+    let size = ((w - 2 * origin.0) as f64, (h - 2 * origin.1) as f64);
+    let (ox, oy) = (origin.0 as i64, origin.1 as i64);
+    let palette: Vec<[f64; 4]> = (-1..v.bands()).map(|b| v.colour(b)).collect();
+    let colour = |b: i64| palette[(b + 1) as usize];
+    let at = |x: f64, y: f64| v.band(v.count(x, y, size));
+    // Every pixel centre's band, with a ring a pixel wide outside the buffer for the neighbours.
+    let gw = w + 2;
+    let bands: Vec<i64> = (0..gw * (h + 2))
+        .into_par_iter()
+        .map(|i| at(((i % gw) as i64 - 1 - ox) as f64 + 0.5, ((i / gw) as i64 - 1 - oy) as f64 + 0.5))
+        .collect();
+    let f = v.factor;
+    let (cx, cy) = ((size.0 as i64) / 2, (size.1 as i64) / 2);
+    let arm = 2.max(size.1 as i64 / 20);
+    let cross = |x: i64, y: i64| (y == cy && (x - cx).abs() <= arm) || (x == cx && (y - cy).abs() <= arm);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let g = (i / w + 1) * gw + i % w + 1;
+            let b = bands[g];
+            let near = [bands[g - 1], bands[g + 1], bands[g - gw], bands[g + gw]];
+            let (x0, y0) = ((i % w) as i64 - ox, (i / w) as i64 - oy);
+            let mut p = if f > 1 && (v.brute || near.iter().any(|&n| n != b)) {
+                let mut total = [0.0; 4];
+                for bb in 0..f {
+                    for aa in 0..f {
+                        let s = colour(at(x0 as f64 + (aa as f64 + 0.5) / f as f64, y0 as f64 + (bb as f64 + 0.5) / f as f64));
+                        for c in 0..4 {
+                            total[c] += s[c];
+                        }
+                    }
+                }
+                total.map(|t| t / (f * f) as f64)
+            } else if f == 1 && v.edge_highlight && (near[0] != b || near[2] != b) {
+                [1.0; 4]
+            } else {
+                colour(b)
+            };
+            if v.overlay {
+                if v.opposite_inside(x0 as f64 + 0.5, y0 as f64 + 0.5, size) {
+                    p = p.map(|c| (c + 1.0) / 2.0);
+                }
+                if cross(x0, y0) {
+                    p = [1.0; 4];
+                } else if cross(x0 - 1, y0 - 1) {
+                    p = [0.0, 0.0, 0.0, 1.0];
+                }
+            }
+            for c in 0..4 {
+                px[c] = p[c] as f32;
+            }
+        });
 }
 
 /// D-304: where a Motion Tile's tiles sit when nothing moved them, the buffer's middle.

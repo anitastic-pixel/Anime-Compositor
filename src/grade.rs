@@ -1398,7 +1398,7 @@ pub(crate) fn change_to_color(source: &mut WorkingBuffer, c: &ChangeToColor) {
 }
 
 /// D-197: an encoded colour from its hue in degrees, lightness and saturation.
-fn from_hls(h: f64, l: f64, s: f64) -> [f64; 3] {
+pub(crate) fn from_hls(h: f64, l: f64, s: f64) -> [f64; 3] {
     let chroma = (1.0 - (2.0 * l - 1.0).abs()) * s;
     let hh = h / 60.0;
     let x = chroma * (1.0 - (hh.rem_euclid(2.0) - 1.0).abs());

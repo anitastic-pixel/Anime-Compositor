@@ -3062,6 +3062,43 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("reduce_noise".into(), num(*reduce_noise));
             params.insert("detail".into(), num(*detail));
         }
+        Effect::Fractal {
+            set_choice,
+            equation,
+            mandelbrot_center,
+            mandelbrot_magnification,
+            mandelbrot_escape_limit,
+            julia_center,
+            julia_magnification,
+            julia_escape_limit,
+            overlay,
+            transparency,
+            palette,
+            hue,
+            cycle_steps,
+            cycle_offset,
+            edge_highlight,
+            oversample_method,
+            oversample_factor,
+        } => {
+            params.insert("set_choice".into(), J::from(set_choice.as_str()));
+            params.insert("equation".into(), J::from(equation.as_str()));
+            params.insert("mandelbrot_center".into(), J::Array(mandelbrot_center.iter().map(|c| num(*c)).collect()));
+            params.insert("mandelbrot_magnification".into(), num(*mandelbrot_magnification));
+            params.insert("mandelbrot_escape_limit".into(), num(*mandelbrot_escape_limit));
+            params.insert("julia_center".into(), J::Array(julia_center.iter().map(|c| num(*c)).collect()));
+            params.insert("julia_magnification".into(), num(*julia_magnification));
+            params.insert("julia_escape_limit".into(), num(*julia_escape_limit));
+            params.insert("overlay".into(), J::from(overlay.as_str()));
+            params.insert("transparency".into(), J::from(transparency.as_str()));
+            params.insert("palette".into(), J::from(palette.as_str()));
+            params.insert("hue".into(), num(*hue));
+            params.insert("cycle_steps".into(), num(*cycle_steps));
+            params.insert("cycle_offset".into(), num(*cycle_offset));
+            params.insert("edge_highlight".into(), J::from(edge_highlight.as_str()));
+            params.insert("oversample_method".into(), J::from(oversample_method.as_str()));
+            params.insert("oversample_factor".into(), num(*oversample_factor));
+        }
         Effect::ArbitraryMap { map, phase, apply_to_alpha, .. } => {
             params.insert("map".into(), J::from(map.as_str()));
             params.insert("phase".into(), num(*phase));
@@ -4408,6 +4445,7 @@ fn parse_effect(
         crate::effects::DETAIL_UPSCALE,
         crate::effects::AUDIO_SPECTRUM,
         crate::effects::AUDIO_WAVEFORM,
+        crate::effects::FRACTAL,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5725,6 +5763,25 @@ fn parse_effect(
             scale: effect_number(params, "scale", &at)?,
             reduce_noise: effect_number(params, "reduce_noise", &at)?,
             detail: effect_number(params, "detail", &at)?,
+        }),
+        crate::effects::FRACTAL => Some(crate::effects::Effect::Fractal {
+            set_choice: effect_word(params, "set_choice", &at)?,
+            equation: effect_word(params, "equation", &at)?,
+            mandelbrot_center: effect_array(params, "mandelbrot_center", "two numbers, x then y", &at)?,
+            mandelbrot_magnification: effect_number(params, "mandelbrot_magnification", &at)?,
+            mandelbrot_escape_limit: effect_number(params, "mandelbrot_escape_limit", &at)?,
+            julia_center: effect_array(params, "julia_center", "two numbers, x then y", &at)?,
+            julia_magnification: effect_number(params, "julia_magnification", &at)?,
+            julia_escape_limit: effect_number(params, "julia_escape_limit", &at)?,
+            overlay: effect_word(params, "overlay", &at)?,
+            transparency: effect_word(params, "transparency", &at)?,
+            palette: effect_word(params, "palette", &at)?,
+            hue: effect_number(params, "hue", &at)?,
+            cycle_steps: effect_number(params, "cycle_steps", &at)?,
+            cycle_offset: effect_number(params, "cycle_offset", &at)?,
+            edge_highlight: effect_word(params, "edge_highlight", &at)?,
+            oversample_method: effect_word(params, "oversample_method", &at)?,
+            oversample_factor: effect_number(params, "oversample_factor", &at)?,
         }),
         crate::effects::ARBITRARY_MAP => Some(crate::effects::Effect::ArbitraryMap {
             map: effect_word(params, "map", &at)?,

@@ -859,8 +859,13 @@ pub fn screen_transform_at(
     }
 }
 
-/// B-46..B-155: whether the card can draw `instance`, run at a draft divisor `pre`.
-fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
+/// D-416: the most work (`FractalView::card_work`) a Fractal is given the card for, a quarter of
+/// the two seconds after which Windows stops a card's dispatch, at B-295's measured speed.
+const FRACTAL_CARD_WORK: f64 = 1e10;
+
+/// B-46..B-155: whether the card can draw `instance`, run at a draft divisor `pre`, on a drawing
+/// of `pixels` pixels.
+fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) -> bool {
     // B-221 (D-340): an effect mixed below 100 too, its result laid back on the card (`mixed`).
     matches!(
             instance.effect,
@@ -992,6 +997,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::AudioSpectrum { .. }
                 // D-421: Audio Waveform, as Audio Spectrum.
                 | crate::effects::Effect::AudioWaveform { .. }
+                // D-416: Fractal.
+                | crate::effects::Effect::Fractal { .. }
                 // D-407: Detail-preserving Upscale.
                 | crate::effects::Effect::DetailUpscale { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
@@ -1065,6 +1072,11 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
         // the CPU for D-122's reason.
         && !matches!(&instance.effect, crate::effects::Effect::MatteChoker { gray_level_softness_1, gray_level_softness_2, .. }
             if *gray_level_softness_1 == 0.0 || *gray_level_softness_2 == 0.0)
+        // D-416: a Fractal that would keep the card past half a second is drawn here.
+        // ponytail: a layer grown by the effects before it in the card's run is counted at its
+        // drawing's size; cut the dispatch in rows if a Fractal's work is wanted on the card.
+        && !matches!(&instance.effect, e @ crate::effects::Effect::Fractal { .. }
+            if crate::layer_fx::FractalView::of(e, 1.0).is_some_and(|v| v.card_work(pixels) > FRACTAL_CARD_WORK))
         // D-317: the card sharpens without a threshold only.
         && !matches!(&instance.effect, crate::effects::Effect::Sharpen { threshold, .. } if *threshold != 0.0)
         // D-408: a Transform through the shutter is drawn here, as D-188's motion blur is.
@@ -1452,10 +1464,10 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
                 | E::LineSmooth { .. }
                 | E::LineWidth { .. }
         ) || matches!(instance.effect, E::LightningBolt { obstacle, .. } if obstacle != 0.0);
-        if first || !card_can(instance, 1.0) {
+        let grown = (size.0 + 2 * offset.0, size.1 + 2 * offset.1);
+        if first || !card_can(instance, 1.0, grown.0 * grown.1) {
             return None;
         }
-        let grown = (size.0 + 2 * offset.0, size.1 + 2 * offset.1);
         run.extend(card_effect(instance.effect.clone(), instance, grown, &mut offset).map(|c| mixed(c, instance)));
     }
     Some(run)
@@ -2425,7 +2437,8 @@ fn resolve_rest(
     // D-330, D-333: the card neither rounds to 8 bits nor blurs display values, so in 8 bpc and
     // 32 bpc (After Effects) it is left nothing.
     let plain = bits == crate::effects::Bits::Linear;
-    let can = |i: usize| plain && card && cel.is_some() && card_can(&effects[i], pre);
+    let pixels = source.width() * source.height();
+    let can = |i: usize| plain && card && cel.is_some() && card_can(&effects[i], pre, pixels);
     let mut chain = Vec::new();
     for i in (0..effects.len()).rev() {
         use crate::effects::Effect as E;
