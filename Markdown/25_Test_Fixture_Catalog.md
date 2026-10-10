@@ -207606,3 +207606,94 @@ FX-DUST-016 (`fx_dust_016.json`): Threshold -1, below 0. The file is read, the e
 FX-DUST-017 (`fx_dust_017.json`): Threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-DUST-018 (`fx_dust_018.json`): Operate on Alpha "sometimes", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+### Curl Noise (D-446)
+
+Curl Noise, after After Effects' Curl Noise (Noise & Grain, new in 26.3), `core.curl_noise` (B-326). Every case is a composition 16 by 10 holding Noise's card, the same size, unmoved unless the case says; `tools/curl_noise_reference.py` works the expected frames, `Fixtures/curl_noise/expected_curl_noise.json`, tolerance 2e-5; the rule is in document 21. Source This Layer and Other Layer are refused with a sentence.
+
+FX-CURL-001 (`fx_curl_001.json`): The settings as they start: size 100, so across the 16 by 10 card the noise is one soft cloud, swirling slowly; every shown pixel is a grey, the empty pixels stay empty and the soft edge keeps its half covering. Frames 0, 4.
+
+FX-CURL-002 (`fx_curl_002.json`): Size 6, sample radius 4, 6 samples: grey flow lines through cells of 6 pixels. Frames 0, 2.
+
+FX-CURL-003 (`fx_curl_003.json`): View Input Noise: the smooth noise the flow follows, without its lines. Frames 0.
+
+FX-CURL-004 (`fx_curl_004.json`): View Curl Generation: red is the flow across, green the flow down, blue the noise. Frames 0.
+
+FX-CURL-005 (`fx_curl_005.json`): Sample Radius 0: no lines, so the frame is FX-CURL-003's Input Noise. Frames 0.
+
+FX-CURL-006 (`fx_curl_006.json`): Flow Softness 100: the lines softened away, FX-CURL-003's Input Noise again. Frames 0.
+
+FX-CURL-007 (`fx_curl_007.json`): Swirl 0, Curl Generation: the flow is the noise's curl, crossing its slope at a right angle. Frames 0.
+
+FX-CURL-008 (`fx_curl_008.json`): Swirl 180, Curl Generation: the flow turns with the noise, unlike FX-CURL-007's. Frames 0.
+
+FX-CURL-009 (`fx_curl_009.json`): Vertical Bias 100, Curl Generation: the flow only runs up and down, so red is the middle grey throughout. Frames 0.
+
+FX-CURL-010 (`fx_curl_010.json`): Vertical Bias 0, Curl Generation: the flow only runs across, so green is the middle grey throughout. Frames 0.
+
+FX-CURL-011 (`fx_curl_011.json`): Speed 20, Direction 90, Turbulence Speed 0, Input Noise: the noise drifts 2 pixels right a frame, so frame 1 is frame 0 moved 2 right. Frames 0, 1.
+
+FX-CURL-012 (`fx_curl_012.json`): Offset 3 right, still, Input Noise: the noise moved 3 pixels right. Frames 0.
+
+FX-CURL-013 (`fx_curl_013.json`): Turbulence Speed 100, Speed 0: the noise changes from frame to frame in place. Frames 0, 2.
+
+FX-CURL-014 (`fx_curl_014.json`): Evolution 90, still: a different noise from FX-CURL-002's. Frames 0.
+
+FX-CURL-015 (`fx_curl_015.json`): Density 50: the field's cells half the size, so it is size 3 at density 0, FX-CURL-016. Frames 0.
+
+FX-CURL-016 (`fx_curl_016.json`): Size 3, still. Frames 0.
+
+FX-CURL-017 (`fx_curl_017.json`): Smoothness 0, still, Input Noise: the fine octaves stronger. Frames 0.
+
+FX-CURL-018 (`fx_curl_018.json`): Smoothness 100, still, Input Noise: the fine octaves weaker. Frames 0.
+
+FX-CURL-019 (`fx_curl_019.json`): Edge Definition 100, still: the lines streak blocky seeds. Frames 0.
+
+FX-CURL-020 (`fx_curl_020.json`): Edge Definition 0, still: the lines streak smooth seeds. Frames 0.
+
+FX-CURL-021 (`fx_curl_021.json`): Flow Falloff 100, still: the lines fade where the noise is low. Frames 0.
+
+FX-CURL-022 (`fx_curl_022.json`): Contrast 300, Brightness 10, still: harder greys, held in 0 and 1. Frames 0.
+
+FX-CURL-023 (`fx_curl_023.json`): Contrast 300, Brightness 10, Clip HDR Results off, in a composition that does not work in Float: still held at 1, so the frame is FX-CURL-022's. Frames 0.
+
+FX-CURL-024 (`fx_curl_024.json`): Contrast 300, Brightness 10, Clip HDR Results off, in a Float composition: past white is kept. Frames 0.
+
+FX-CURL-025 (`fx_curl_025.json`): Channel Red, still: only red is replaced; green and blue are the drawing's. Frames 0.
+
+FX-CURL-026 (`fx_curl_026.json`): Channel Alpha, still: the covering times the grey, the colour kept. Frames 0.
+
+FX-CURL-027 (`fx_curl_027.json`): Sample Count 3.9, still: its whole part counts, so this is sample count 3, FX-CURL-028. Frames 0.
+
+FX-CURL-028 (`fx_curl_028.json`): Sample Count 3, still. Frames 0.
+
+FX-CURL-029 (`fx_curl_029.json`): Sample Radius keyed from 0 at frame 0 to 8 at frame 4, still: frame 0 is the Input Noise, frame 4 long lines. Frames 0, 2, 4.
+
+FX-CURL-030 (`fx_curl_030.json`): FX-CURL-002 moved three pixels right: the noise is the drawing's own, so it moves with it. Frames 0.
+
+FX-CURL-031 (`fx_curl_031.json`): After a Motion Tile that grows the layer: the noise is worked in the drawing's own pixels, so the frame is FX-CURL-002's. Frames 0.
+
+FX-CURL-032 (`fx_curl_032.json`): Swirl -200, Speed 35, Direction 200, Evolution 45, Turbulence Speed 60, Density -30, Smoothness 20, Vertical Bias 70, 9 samples, radius 6.5, Flow Softness 10, Edge Definition 30, Falloff 40, Contrast 150, Brightness -5, Channel Green: the controls together. Frames 0, 3.
+
+FX-CURL-033 (`fx_curl_033.json`): Source This Layer, not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-034 (`fx_curl_034.json`): Source Other Layer, not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-035 (`fx_curl_035.json`): Source "noise", not one of its words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-036 (`fx_curl_036.json`): Size 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-037 (`fx_curl_037.json`): Speed 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-038 (`fx_curl_038.json`): Sample Count 2, below 3. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-039 (`fx_curl_039.json`): Sample Radius 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-040 (`fx_curl_040.json`): Swirl 400, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-041 (`fx_curl_041.json`): View "lines", not one of its words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-042 (`fx_curl_042.json`): Channel "Red", in capitals, kept as written and not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-043 (`fx_curl_043.json`): Clip HDR Results "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-044 (`fx_curl_044.json`): Density keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
