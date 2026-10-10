@@ -347,6 +347,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 displacement: "turbulent".to_string(),
                 pinning: "none".to_string(),
                 units: "classic".to_string(),
+                new_seed_every: 0.0,
             },
         ),
         (

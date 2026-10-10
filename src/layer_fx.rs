@@ -855,7 +855,7 @@ pub(crate) fn turbulent_displace(
     amount: f64,
     size: f64,
     octaves: usize,
-    seed: f64,
+    seed: u64,
     z: f64,
     repeat: bool,
     origin: (usize, usize),
@@ -868,7 +868,7 @@ pub(crate) fn turbulent_displace(
     let (iw, ih) = (source.width() as f64, source.height() as f64);
     let (w, h) = (source.width() + 2 * g, source.height() + 2 * g);
     let (ox, oy) = ((origin.0 + g) as f64, (origin.1 + g) as f64);
-    let base = crate::grade::mix(seed.floor() as u64);
+    let base = crate::grade::mix(seed);
     let mut out = WorkingBuffer::transparent(w, h);
     let drawing = &*source;
     out.data_mut()

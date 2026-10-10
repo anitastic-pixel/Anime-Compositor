@@ -40,6 +40,7 @@ fn turb(units: &str) -> Effect {
         displacement: "turbulent".into(),
         pinning: "none".into(),
         units: units.into(),
+        new_seed_every: 0.0,
     }
 }
 

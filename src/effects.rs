@@ -663,7 +663,8 @@ pub enum Effect {
     /// `displacement`, "turbulent", "horizontal" or "vertical", which ways a pixel is pushed;
     /// `pinning`, "none" or "all", whether the push fades out at the layer's edges. D-328:
     /// `units`, "classic" (D-127's push, what a file without it means) or "after_effects"
-    /// (`turbulent_push`).
+    /// (`turbulent_push`). D-410: `new_seed_every`, 0 to 100 frames, its whole part counted;
+    /// 0, what a file without it means, keeps one seed (`turbulent_seed`).
     TurbulentDisplace {
         amount: f64,
         size: f64,
@@ -676,6 +677,7 @@ pub enum Effect {
         displacement: String,
         pinning: String,
         units: String,
+        new_seed_every: f64,
     },
     /// D-128: `size`, 1 to 1000 pixels a cloud; `complexity`, 1 to 20 (D-318), its whole part
     /// counted; `contrast`, 0 to 1000; `brightness`, -1000 to 1000 (D-318, D-326); `evolution`, -100000 to 100000
@@ -2540,6 +2542,7 @@ impl Effect {
                 evolution,
                 speed,
                 seed,
+                new_seed_every,
                 ..
             } => vec![
                 ("amount", vec![amount], 0.0, 1000.0),
@@ -2548,6 +2551,7 @@ impl Effect {
                 ("evolution", vec![evolution], -100000.0, 100000.0),
                 ("speed", vec![speed], -360.0, 360.0),
                 ("seed", vec![seed], 0.0, 100000.0),
+                ("new_seed_every", vec![new_seed_every], 0.0, 100.0),
             ],
             Effect::FractalNoise {
                 size,
@@ -5585,6 +5589,14 @@ pub fn turbulent_push(amount: f64, size: f64, units: &str) -> f64 {
     if units == "after_effects" { amount * size.min(100.0) / 100.0 } else { amount }
 }
 
+/// D-410: the seed the field takes at `frame`: the seed's whole part, plus P0-23's held step
+/// when `new_seed_every`'s whole part is 1 or more, so the warp jumps every that many frames.
+pub(crate) fn turbulent_seed(seed: f64, new_seed_every: f64, frame: i32) -> u64 {
+    let n = new_seed_every.floor() as i64;
+    let step = if n < 1 { 0 } else { (frame as i64).div_euclid(n) };
+    (seed.floor() as i64).wrapping_add(step) as u64
+}
+
 /// D-321: the kernel radius, `ceil(6.5 sigma)` with the long reach, else document 21's. Three
 /// sigmas leave the last tap at 1% of the middle one, a straight edge an Exposure after the
 /// blur can show; past 6.5 sigmas the tail weighs under 4e-11.
@@ -6317,6 +6329,7 @@ pub(crate) fn apply_stack_at(
                 displacement,
                 pinning,
                 units,
+                new_seed_every,
             } => {
                 let z = depth(*evolution, *speed, *frame);
                 let r = crate::perf::time(crate::perf::Stage::EffectTurbulentDisplace, || {
@@ -6325,7 +6338,7 @@ pub(crate) fn apply_stack_at(
                         turbulent_push(*amount, *size, units),
                         *size,
                         complexity.floor() as usize,
-                        *seed,
+                        turbulent_seed(*seed, *new_seed_every, *frame),
                         z,
                         edges == "repeat",
                         (ox, oy),

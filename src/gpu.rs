@@ -8474,12 +8474,13 @@ impl Gpu {
                 };
                 same(steps, &passes.grade, p, &k, None)
             }
-            E::TurbulentDisplace { amount, size, complexity, evolution, speed, seed, edges, frame, units, .. } => {
+            E::TurbulentDisplace { amount, size, complexity, evolution, speed, seed, edges, frame, units, new_seed_every, .. } => {
                 let repeat = edges == "repeat";
                 // D-328: the push, which is the amount in classic units.
                 let push = crate::effects::turbulent_push(*amount, *size, units);
                 let g = if repeat { 0 } else { push.ceil() as usize };
-                let base = crate::grade::mix(seed.floor() as u64);
+                // D-410: the seed for the frame.
+                let base = crate::grade::mix(crate::effects::turbulent_seed(*seed, *new_seed_every, *frame));
                 let k = [push, *size, crate::effects::depth(*evolution, *speed, *frame), (ox + g) as f64, (oy + g) as f64];
                 let p = FxParams {
                     count: complexity.floor() as u32,

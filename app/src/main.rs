@@ -3611,6 +3611,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             pinning: "none".to_string(),
             // D-328: one added from now on takes After Effects' push, smaller at small sizes.
             units: "after_effects".to_string(),
+            new_seed_every: 0.0,
         }),
         // D-128: soft grey clouds, still.
         FRACTAL_NOISE => Some(Effect::FractalNoise {
@@ -5027,6 +5028,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             displacement: word("displacement").unwrap_or_else(|_| "turbulent".to_string()),
             pinning: word("pinning").unwrap_or_else(|_| "none".to_string()),
             units: word("units").unwrap_or_else(|_| "classic".to_string()),
+            // D-410: one seed when the command does not say.
+            new_seed_every: if parameter(query, "new_seed_every").is_some() { number("new_seed_every")? } else { 0.0 },
         }),
         FRACTAL_NOISE => Ok(Effect::FractalNoise {
             size: number("size")?,
@@ -29208,6 +29211,7 @@ mod contract {
                 ("edges", "repeat"),
                 ("displacement", "horizontal"),
                 ("pinning", "all"),
+                ("new_seed_every", "3"),
                 ("units", "after_effects"),
             ],
         ),
