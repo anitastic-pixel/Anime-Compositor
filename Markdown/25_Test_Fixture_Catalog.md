@@ -205712,3 +205712,45 @@ FX-SHIMMER-014 (`fx_shimmer_014.json`): Drift speed 1001, above 1000. The file i
 FX-SHIMMER-015 (`fx_shimmer_015.json`): Drift direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SHIMMER-016 (`fx_shimmer_016.json`): Drift speed keyed from 1 at frame 0 to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Map Chromatic Displacement (D-412)
+
+Displacement Map's colour amounts (`red_amount`, `green_amount`, `blue_amount`, `spectrum`), PLUGINS.md's pick #19 (B-291). Every case is displacement_map_reference's composition with the map layer as D-193's fixtures, unmoved unless the case says. `tools/map_chromatic_reference.py` works the expected frames, `Fixtures/map_chromatic/expected_map_chromatic.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-MAPCHROMA-001 (`fx_mapchroma_001.json`): The ramp at most 2, all three amounts 100 written and 3 samples: FX-DMAP-002 exactly. Frames 0.
+
+FX-MAPCHROMA-002 (`fx_mapchroma_002.json`): A white solid at most 2, red 0, green 100, blue 200, 3 samples: red stays put, green is read 2 right and 2 below, blue 4 right and 4 below; the covering is the largest of the three. Frames 0.
+
+FX-MAPCHROMA-003 (`fx_mapchroma_003.json`): FX-MAPCHROMA-002 with 9 samples: each channel blended over the colours beside it, so between red's and blue's places the fringes run smoothly. Frames 0.
+
+FX-MAPCHROMA-004 (`fx_mapchroma_004.json`): The ramp, red 50, green 100, blue 150, 3 samples: where the ramp pushes hardest, at its ends, the colours part most. Frames 0.
+
+FX-MAPCHROMA-005 (`fx_mapchroma_005.json`): FX-MAPCHROMA-004 with 16 samples, an even count: the rainbow. Frames 0.
+
+FX-MAPCHROMA-006 (`fx_mapchroma_006.json`): The painted map, blue across at most 2.5 and luminance down at most 1.5 (FX-DMAP-008), red -100, green 0, blue 100, 5 samples: red moves against the push, green stays, blue with it. Frames 0.
+
+FX-MAPCHROMA-007 (`fx_mapchroma_007.json`): The white solid, blue keyed from 100 at frame 0 to 300 at frame 4, the others absent: frame 0 is FX-DMAP-003, then blue parts from the rest. Frames 0, 2, 4.
+
+FX-MAPCHROMA-008 (`fx_mapchroma_008.json`): FX-MAPCHROMA-002 with Wrap on: what each channel reads from beyond the right or the bottom comes from the other side. Frames 0.
+
+FX-MAPCHROMA-009 (`fx_mapchroma_009.json`): FX-MAPCHROMA-004 on the holder moved 2 right and 1 down: the same picture, moved. Frames 0.
+
+FX-MAPCHROMA-010 (`fx_mapchroma_010.json`): FX-MAPCHROMA-005 on an adjustment layer above the holder: the frame is the holder's rectangle, so FX-MAPCHROMA-005. Frames 0.
+
+FX-MAPCHROMA-011 (`fx_mapchroma_011.json`): Spectrum 4.5: its whole part, 4 samples. Frames 0.
+
+FX-MAPCHROMA-012 (`fx_mapchroma_012.json`): All three amounts 50 with 9 samples: no colour parts, the ramp's displacement halved (FX-DMAP-002 at most 1). Frames 0.
+
+FX-MAPCHROMA-013 (`fx_mapchroma_013.json`): Spectrum keyed from 3 at frame 0 to 11 at frame 4 on FX-MAPCHROMA-002: frame 0 is FX-MAPCHROMA-002, frame 3 9 samples, FX-MAPCHROMA-003. Frames 0, 3.
+
+FX-MAPCHROMA-014 (`fx_mapchroma_014.json`): No layer named: nothing moves, whatever the amounts. Frames 0.
+
+FX-MAPCHROMA-015 (`fx_mapchroma_015.json`): Red amount 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAPCHROMA-016 (`fx_mapchroma_016.json`): Blue amount -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAPCHROMA-017 (`fx_mapchroma_017.json`): Spectrum 2, below 3. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAPCHROMA-018 (`fx_mapchroma_018.json`): Spectrum 33, above 32. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAPCHROMA-019 (`fx_mapchroma_019.json`): Green amount keyed from 100 at frame 0 to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
