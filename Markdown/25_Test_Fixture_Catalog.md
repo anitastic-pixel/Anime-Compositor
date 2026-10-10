@@ -205105,6 +205105,52 @@ FX-SPLIT2-018 (`fx_split2_018.json`): Point B at 50, -1001, past ten heights. Th
 
 FX-SPLIT2-019 (`fx_split2_019.json`): Split 2 keyed to 1500 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Tiles (D-404)
+
+Tiles (`core.tiles`), after CycoreFX's CC Tiler (B-283): the layer shrunk to Scale and repeated in a grid across its own size by Motion Tile's sized tile (D-304), then mixed with the original by Blend. Every case is a project of one composition 16 by 10, five frames, one drawing (`media/card.png`: skin with a softer column, a band row, a line column, a red trace pixel and three clear corner pixels) with the effect. `tools/tiles_reference.py` works the expected frames, `Fixtures/tiles/expected_tiles.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-TILES-001 (`fx_tiles_001.json`): The settings as they start, scale 50, centre 50, 50, blend 0: tiles 8 by 5 set round the middle, one starting at column 4 and row 2.5, so the frame holds two tiles across and two down, cut at the edges, each pixel the mean of 2 by 2 points. Frames 0, 4.
+
+FX-TILES-002 (`fx_tiles_002.json`): Scale 100 with the centre at 50, 50: the one tile is the picture itself, untouched. Frames 0.
+
+FX-TILES-003 (`fx_tiles_003.json`): Scale 100 with the centre at 25, 50: the picture slid four columns left, the four columns that fall off the left coming round on the right, pixel for pixel: column x is the drawing's column (x + 4) mod 16. Frames 0.
+
+FX-TILES-004 (`fx_tiles_004.json`): Scale 25: tiles 4 by 2.5, one starting at column 6 and row 3.75, each pixel the mean of 4 by 4 points; across, the frame repeats every 4 columns. Frames 0.
+
+FX-TILES-005 (`fx_tiles_005.json`): Scale 75: tiles 12 by 7.5, more than half the picture, so the tiles' edges show near the frame's sides, each pixel the mean of 2 by 2 points. Frames 0.
+
+FX-TILES-006 (`fx_tiles_006.json`): Scale 33.3: 1 / 0.333 is just over 3, so 4 by 4 points a pixel; tiles 5.328 by 3.33. Frames 0.
+
+FX-TILES-007 (`fx_tiles_007.json`): Scale 1, the least: tiles 0.16 by 0.1 of a pixel, each pixel the mean of 16 by 16 points, the most there are, so the picture becomes a fine even mixture. Frames 0.
+
+FX-TILES-008 (`fx_tiles_008.json`): Scale 50 with the centre at 25, 50: the tiles start at column 0 instead of 4, so the frame is FX-TILES-001's slid four columns left, wrapping. Frames 0.
+
+FX-TILES-009 (`fx_tiles_009.json`): Blend 50: halfway between FX-TILES-001's tiles and the drawing, every channel. Frames 0.
+
+FX-TILES-010 (`fx_tiles_010.json`): Blend 100: the drawing, untouched. Frames 0.
+
+FX-TILES-011 (`fx_tiles_011.json`): Scale keyed from 100 at frame 0 to 50 at frame 4, linear: frame 0 the drawing, frame 2 scale 75 (FX-TILES-005), frame 4 FX-TILES-001. Frames 0, 2, 4.
+
+FX-TILES-012 (`fx_tiles_012.json`): Blend keyed from 100 at frame 0 to 0 at frame 4: frame 0 the drawing, frame 2 FX-TILES-009, frame 4 FX-TILES-001. Frames 0, 2, 4.
+
+FX-TILES-013 (`fx_tiles_013.json`): Centre keyed from 50, 50 at frame 0 to 25, 50 at frame 4 at scale 100: the picture slides left and wraps, two columns at frame 2. Frames 0, 2, 4.
+
+FX-TILES-014 (`fx_tiles_014.json`): Scale eased from 50 at frame 0 to 1 at frame 4 on a curve that overshoots: at frame 2 it would pass below 1 and is held there, so frames 2 and 4 are FX-TILES-007. Frames 0, 2, 4.
+
+FX-TILES-015 (`fx_tiles_015.json`): FX-TILES-001 with the layer moved three pixels right: the same tiles, moved; nothing grows, so the three columns past the right edge are cut and columns 0 to 2 stay empty. Frames 0.
+
+FX-TILES-016 (`fx_tiles_016.json`): Scale 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILES-017 (`fx_tiles_017.json`): Scale 100.5, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILES-018 (`fx_tiles_018.json`): Blend -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILES-019 (`fx_tiles_019.json`): Blend 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILES-020 (`fx_tiles_020.json`): Centre at 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILES-021 (`fx_tiles_021.json`): Scale keyed to 0 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Arbitrary Map (D-395)
 
 Arbitrary Map (`core.arbitrary_map`), after After Effects' PS Arbitrary Map (B-274): the layer's colours through a Photoshop arbitrary map (.amp), a lookup file of the project as Color Lookup's .cube is. Every case is a project of one composition 16 by 10, five frames, one drawing of `tools/invert_reference.py`'s bands with the effect; the map files are in `Fixtures/arbitrary_map/maps` (refused ones in `maps/refused`). `tools/arbitrary_map_reference.py` works the expected frames, `Fixtures/arbitrary_map/expected_arbitrary_map.json`, tolerance 2e-5; the rule is in document 21.
