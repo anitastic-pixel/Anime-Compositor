@@ -1014,6 +1014,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::PhotoFilter { .. }
                 // D-396.
                 | crate::effects::Effect::SelectiveColor { .. }
+                // D-400.
+                | crate::effects::Effect::ShadowHighlight { .. }
                 | crate::effects::Effect::ColorLink { map: Some(_), .. }
         )
         // D-353: a Soft Physical Glow's threshold with no smooth is a step, so it stays on the
@@ -1161,6 +1163,9 @@ fn card_effect(
                 E::PhotoFilter { density, .. } => crate::grade::photo_filter_untouched(*density),
                 E::SelectiveColor { families, .. } => {
                     crate::grade::selective_color_untouched(&crate::effects::selective_color_amounts(families))
+                }
+                E::ShadowHighlight { shadow_amount, highlight_amount, .. } => {
+                    crate::grade::shadow_highlight_untouched(*shadow_amount, *highlight_amount)
                 }
                 E::ColorLink { opacity, map, .. } => *opacity == 0.0 || map.as_ref().is_none_or(|m| crate::frame_stats::Stats::of(&m.0).is_none()),
                 // B-107: the third batch, each as its own function returns at once.

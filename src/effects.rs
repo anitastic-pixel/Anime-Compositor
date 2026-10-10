@@ -1628,6 +1628,18 @@ pub enum Effect {
     /// magenta, yellow and black change, -100 to 100 per cent. Kept as written, so a family of
     /// the wrong count is reported rather than refusing the file.
     SelectiveColor { method: String, families: [Vec<f64>; 9] },
+    /// D-400: after After Effects' Shadow/Highlight, by darktable's rule. `shadow_amount` and
+    /// `highlight_amount`, 0 to 100; `shadow_tonal_width` and `highlight_tonal_width`, 0 to
+    /// 100; `shadow_radius` and `highlight_radius`, 0 to 500 pixels; `color_correction`, 0 to 100.
+    ShadowHighlight {
+        shadow_amount: f64,
+        highlight_amount: f64,
+        shadow_tonal_width: f64,
+        shadow_radius: f64,
+        highlight_tonal_width: f64,
+        highlight_radius: f64,
+        color_correction: f64,
+    },
     /// D-379: after CycoreFX's CC Blobbylize. `layer` and `fit`, D-189's layer setting, the blob
     /// map, "" the layer itself; `property`, one of [`BLOBBYLIZE_PROPERTIES`]; `softness`, 0 to
     /// 100 pixels; `cut_away`, 0 to 100; `light_intensity`, 0 to 400; `light_color`, `#rrggbb`;
@@ -2016,6 +2028,7 @@ pub const SPLIT: &str = "core.split";
 pub const SPLIT_2: &str = "core.split_2";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
+pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
 /// D-396: Selective Color's colour families, each a setting, in the order the card numbers them.
 pub const SELECTIVE_COLOR_FAMILIES: [&str; 9] =
     ["reds", "yellows", "greens", "cyans", "blues", "magentas", "whites", "neutrals", "blacks"];
@@ -2800,6 +2813,15 @@ impl Effect {
                 .zip(families.iter_mut())
                 .map(|(name, row)| (name, row.iter_mut().collect(), -100.0, 100.0))
                 .collect(),
+            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction } => vec![
+                ("shadow_amount", vec![shadow_amount], 0.0, 100.0),
+                ("highlight_amount", vec![highlight_amount], 0.0, 100.0),
+                ("shadow_tonal_width", vec![shadow_tonal_width], 0.0, 100.0),
+                ("shadow_radius", vec![shadow_radius], 0.0, 500.0),
+                ("highlight_tonal_width", vec![highlight_tonal_width], 0.0, 100.0),
+                ("highlight_radius", vec![highlight_radius], 0.0, 500.0),
+                ("color_correction", vec![color_correction], 0.0, 100.0),
+            ],
             Effect::Blobbylize {
                 softness,
                 cut_away,
@@ -3492,6 +3514,10 @@ impl Effect {
             }
             Effect::Sharpen { radius, .. } => *radius = scale(*radius),
             Effect::Diffusion { radius, .. } => *radius = scale(*radius),
+            Effect::ShadowHighlight { shadow_radius, highlight_radius, .. } => {
+                *shadow_radius = scale(*shadow_radius);
+                *highlight_radius = scale(*highlight_radius);
+            }
             Effect::WaveWarp { height, width, .. } => {
                 *height = scale(*height);
                 *width = scale(*width).max(1.0);
@@ -3768,6 +3794,7 @@ impl Effect {
             Effect::Split2 { .. } => "Split 2",
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::SelectiveColor { .. } => "Selective Color",
+            Effect::ShadowHighlight { .. } => "Shadow/Highlight",
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
@@ -3919,6 +3946,7 @@ impl Effect {
             Effect::Split2 { .. } => SPLIT_2,
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
+            Effect::ShadowHighlight { .. } => SHADOW_HIGHLIGHT,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
@@ -7077,6 +7105,11 @@ pub(crate) fn apply_stack_at(
             Effect::SelectiveColor { method, families } => crate::perf::time(crate::perf::Stage::EffectSelectiveColor, || {
                 crate::grade::selective_color(source, &selective_color_amounts(families), method == "relative")
             }),
+            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction } => {
+                crate::perf::time(crate::perf::Stage::EffectShadowHighlight, || {
+                    crate::grade::shadow_highlight(source, [*shadow_amount, *highlight_amount, *shadow_tonal_width, *shadow_radius, *highlight_tonal_width, *highlight_radius, *color_correction])
+                })
+            }
             Effect::LineBlur {
                 length,
                 strength,

@@ -3850,6 +3850,130 @@ fn sharp(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-400, grade::shadow_highlight_lab: straight linear colour to CIE L*a*b* on sRGB's own white,
+// scaled as darktable scales it. The cube root starts single precision and takes two Newton steps.
+fn sh_f(t: f64) -> f64 {
+    let d = 6.0lf / 29.0lf;
+    if t > d * d * d {
+        var y = f64(pow(f32(t), 1.0 / 3.0));
+        for (var i = 0; i < 2; i++) {
+            y = y - (y * y * y - t) / (3.0lf * y * y);
+        }
+        return y;
+    }
+    return t / (3.0lf * d * d) + 4.0lf / 29.0lf;
+}
+
+fn sh_lab(b: vec3<f64>) -> vec3<f64> {
+    let x = sh_f((0.4124lf * b.x + 0.3576lf * b.y + 0.1805lf * b.z) / 0.9505lf);
+    let y = sh_f((0.2126lf * b.x + 0.7152lf * b.y + 0.0722lf * b.z) / 1.0lf);
+    let z = sh_f((0.0193lf * b.x + 0.1192lf * b.y + 0.9505lf * b.z) / 1.089lf);
+    return vec3((116.0lf * y - 16.0lf) / 100.0lf, 500.0lf * (x - y) / 128.0lf, 200.0lf * (y - z) / 128.0lf);
+}
+
+// D-400, grade::shadow_highlight_unlab.
+fn sh_finv(u: f64) -> f64 {
+    let d = 6.0lf / 29.0lf;
+    if u > d {
+        return u * u * u;
+    }
+    return 3.0lf * d * d * (u - 4.0lf / 29.0lf);
+}
+
+fn sh_unlab(v: vec3<f64>) -> vec3<f64> {
+    let fy = (100.0lf * v.x + 16.0lf) / 116.0lf;
+    let x = 0.9505lf * sh_finv(fy + 128.0lf * v.y / 500.0lf);
+    let y = 1.0lf * sh_finv(fy);
+    let z = 1.089lf * sh_finv(fy - 128.0lf * v.z / 200.0lf);
+    return vec3(
+        3.2406254773200533lf * x + -1.5372079722103187lf * y + -0.4986285986982479lf * z,
+        -0.9689307147293194lf * x + 1.875756060885241lf * y + 0.04151752384295394lf * z,
+        0.05571012044551061lf * x + -0.2040210505984867lf * y + 1.0569959422543882lf * z);
+}
+
+fn sh_straight(p: vec4<f32>, a: f64) -> vec3<f64> {
+    return vec3(clamp(f64(p.x) / a, 0.0lf, 1.0lf), clamp(f64(p.y) / a, 0.0lf, 1.0lf), clamp(f64(p.z) / a, 0.0lf, 1.0lf));
+}
+
+fn sh_recip(v: f64) -> f64 {
+    if abs(v) > 1e-6lf {
+        return 1.0lf / v;
+    }
+    return select(1e6lf, -1e6lf, v < 0.0lf);
+}
+
+// D-400, grade::shadow_highlight's first step: each pixel's lightness (L* / 100) in red, green
+// and blue, covering 1; 0 where the drawing does not show.
+@compute @workgroup_size(16, 16)
+fn shprep(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let a = f64(p.w);
+    var l = 0.0;
+    if a > 0.0lf {
+        l = f32(sh_lab(sh_straight(p, a)).x);
+    }
+    textureStore(output, id.xy, vec4(l, l, l, 1.0));
+}
+
+// D-400, grade::shadow_highlight_pixel: `other` the lightness blurred at the shadow radius (red)
+// and at the highlight radius (green). k: the shadow and highlight amounts as 2 x / 100, the
+// shadow and highlight compressions, the colour correction as a share.
+@compute @workgroup_size(16, 16)
+fn shhi(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let a = f64(p.w);
+    if a <= 0.0lf {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    let g = textureLoad(other, id.xy, 0);
+    var v = sh_lab(sh_straight(p, a));
+    var l = v.x;
+    var pa = v.y;
+    var qb = v.z;
+    for (var side = 0u; side < 2u; side++) {
+        let shadows = side == 1u;
+        let t = select(1.0lf - f64(g.y), 1.0lf - f64(g.x), shadows);
+        var x = 1.0lf - t / (1.0lf - k[3]);
+        if shadows {
+            x = t / (1.0lf - k[2]) - k[2] / (1.0lf - k[2]);
+        }
+        x = clamp(x, 0.0lf, 1.0lf);
+        let near = select(1.0lf - k[4], k[4], shadows);
+        let far = select(k[4], 1.0lf - k[4], shadows);
+        let amount = select(k[1], k[0], shadows);
+        var n = amount * amount;
+        while n > 0.0lf {
+            let la = l;
+            let lb = (t - 0.5lf) * select(1.0lf, -1.0lf, 1.0lf - la < 0.0lf) + 0.5lf;
+            let o = min(n, 1.0lf) * x;
+            n = n - 1.0lf;
+            var laid = 2.0lf * la * lb;
+            if la > 0.5lf {
+                laid = 1.0lf - (1.0lf - 2.0lf * (la - 0.5lf)) * (1.0lf - lb);
+            }
+            l = la * (1.0lf - o) + laid * o;
+            let f = l * sh_recip(la) * near + (1.0lf - l) * sh_recip(1.0lf - la) * far;
+            pa = pa * (1.0lf - o) + pa * f * o;
+            qb = qb * (1.0lf - o) + qb * f * o;
+        }
+    }
+    let o = sh_unlab(vec3(l, pa, qb));
+    var out = p;
+    out.x = f32(clamp(o.x, 0.0lf, 1.0lf) * a);
+    out.y = f32(clamp(o.y, 0.0lf, 1.0lf) * a);
+    out.z = f32(clamp(o.z, 0.0lf, 1.0lf) * a);
+    textureStore(output, id.xy, out);
+}
+
 // B-107, layer_fx::simple_choker's last step: `band` is the least (`flag`, shrinking) or the
 // greatest covering within reach, the output the drawing grown by `g`; a spread's empty pixels
 // take the average within reach from each row's running totals in `sums`. k: each disc row's
@@ -6364,6 +6488,9 @@ struct FxPasses {
     tiles: Pass,
     relief: Pass,
     sharp: Pass,
+    /// D-400.
+    shprep: Pass,
+    shhi: Pass,
     choke: Pass,
     lines: Pass,
     glare: Pass,
@@ -7004,6 +7131,8 @@ impl Gpu {
                 tiles: pass("tiles", &[0, 1, 2, 3, 5]),
                 relief: pass("relief", &[0, 1, 2, 3]),
                 sharp: pass("sharp", &[0, 1, 2, 3, 4]),
+                shprep: pass("shprep", &[0, 1, 2]),
+                shhi: pass("shhi", &[0, 1, 2, 3, 4]),
                 choke: pass("choke", &[0, 1, 2, 3, 6, 7]),
                 lines: pass("lines", &[0, 1, 2, 3]),
                 glare: pass("glare", &[0, 1, 2, 3, 4]),
@@ -8234,6 +8363,32 @@ impl Gpu {
                 };
                 let k = [amount / 100.0, second_amount / 100.0, if second_blend == "overlay" { 4.0 } else { 5.0 }];
                 same(steps, &passes.sharp, FxParams { mode: 1, blend, r: r as i32, ..Default::default() }, &k, Some(&blurred))
+            }
+            E::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction } => {
+                // D-400, as grade::shadow_highlight: the lightness, blurred at each radius (the
+                // highlights' blur copied into green, as Channel Blur's channels), then the rule.
+                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let plane = self.scratch("D-400 lightness", w, h);
+                self.fx_step(steps, &passes.shprep, FxParams::default(), Some(still), Some(&plane), None, None, none, tiles(w, h));
+                let blurred = |steps: &mut Vec<Step>, sigma: f64| {
+                    let taps = crate::effects::gaussian_weights(sigma);
+                    self.gauss(steps, bloom, "D-400 blur", &plane, (w, h), [&taps, &taps], 0, true)
+                };
+                let mut lit = blurred(steps, *shadow_radius);
+                if highlight_radius != shadow_radius {
+                    let b = blurred(steps, *highlight_radius);
+                    let next = self.scratch("D-400 blurs", w, h);
+                    self.fx_step(steps, &passes.chanmix, FxParams { count: 1, ..Default::default() }, Some(&lit), Some(&next), None, Some(&b), none, tiles(w, h));
+                    lit = next;
+                }
+                let k = [
+                    2.0 * shadow_amount / 100.0,
+                    2.0 * highlight_amount / 100.0,
+                    (1.0 - shadow_tonal_width / 100.0).min(0.99),
+                    (1.0 - highlight_tonal_width / 100.0).min(0.99),
+                    color_correction / 100.0,
+                ];
+                same(steps, &passes.shhi, FxParams::default(), &k, Some(&lit))
             }
             E::WaveWarp { shape, height, width, direction, speed, phase, edges, frame } => {
                 let repeat = edges == "repeat";

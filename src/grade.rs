@@ -1591,6 +1591,111 @@ pub(crate) fn selective_color(source: &mut WorkingBuffer, families: &[[f64; 4]; 
     });
 }
 
+/// D-400: Shadow/Highlight with both amounts 0 leaves the layer exactly as it is.
+pub(crate) fn shadow_highlight_untouched(shadow: f64, highlight: f64) -> bool {
+    shadow == 0.0 && highlight == 0.0
+}
+
+/// D-400: the sRGB matrix of IEC 61966-2-1, its inverse, and its own white, M (1, 1, 1).
+const SH_M: [[f64; 3]; 3] = [[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]];
+const SH_MI: [[f64; 3]; 3] = [
+    [3.2406254773200533, -1.5372079722103187, -0.4986285986982479],
+    [-0.9689307147293194, 1.875756060885241, 0.04151752384295394],
+    [0.05571012044551061, -0.2040210505984867, 1.0569959422543882],
+];
+const SH_WHITE: [f64; 3] = [0.9505, 1.0, 1.089];
+
+/// D-400: straight linear colour to CIE L*a*b* on sRGB's own white, scaled as darktable scales
+/// it: L* / 100, a* / 128, b* / 128.
+pub(crate) fn shadow_highlight_lab(b: [f64; 3]) -> [f64; 3] {
+    let d = 6.0 / 29.0;
+    let f = |t: f64| if t > d * d * d { t.cbrt() } else { t / (3.0 * d * d) + 4.0 / 29.0 };
+    let [x, y, z]: [f64; 3] = std::array::from_fn(|i| f((0..3).map(|j| SH_M[i][j] * b[j]).sum::<f64>() / SH_WHITE[i]));
+    [(116.0 * y - 16.0) / 100.0, 500.0 * (x - y) / 128.0, 200.0 * (y - z) / 128.0]
+}
+
+/// D-400: [`shadow_highlight_lab`] undone.
+pub(crate) fn shadow_highlight_unlab([l, p, q]: [f64; 3]) -> [f64; 3] {
+    let d = 6.0 / 29.0;
+    let finv = |u: f64| if u > d { u * u * u } else { 3.0 * d * d * (u - 4.0 / 29.0) };
+    let fy = (100.0 * l + 16.0) / 116.0;
+    let v: [f64; 3] = std::array::from_fn(|i| SH_WHITE[i] * finv([fy + 128.0 * p / 500.0, fy, fy - 128.0 * q / 200.0][i]));
+    std::array::from_fn(|i| (0..3).map(|j| SH_MI[i][j] * v[j]).sum())
+}
+
+/// D-400: darktable's shadows and highlights rule (src/iop/shadhi.c, its Gaussian softening) on
+/// one pixel's scaled l, p, q; `ts` and `th` its lightness blurred at the shadow and highlight
+/// radius, inverted. `k`: the shadow and highlight amounts as 2 x / 100, the compressions
+/// min(1 - width / 100, 0.99), the colour correction as a share. The highlights first, then the
+/// shadows, each laid by the overlay once for each whole step of its amount squared.
+pub(crate) fn shadow_highlight_pixel(lpq: [f64; 3], ts: f64, th: f64, k: [f64; 5]) -> [f64; 3] {
+    let [s, h, cs, ch, cc] = k;
+    let sign = |v: f64| if v < 0.0 { -1.0 } else { 1.0 };
+    let recip = |v: f64| if v.abs() > 1e-6 { 1.0 / v } else { 1e6f64.copysign(v) };
+    let [mut l, mut p, mut q] = lpq;
+    for (amount, t, shadows) in [(h, th, false), (s, ts, true)] {
+        let x = if shadows { t / (1.0 - cs) - cs / (1.0 - cs) } else { 1.0 - t / (1.0 - ch) }.clamp(0.0, 1.0);
+        let (near, far) = if shadows { (cc, 1.0 - cc) } else { (1.0 - cc, cc) };
+        let mut n = amount * amount;
+        while n > 0.0 {
+            let la = l;
+            let lb = (t - 0.5) * sign(1.0 - la) + 0.5;
+            let o = n.min(1.0) * x;
+            n -= 1.0;
+            let laid = if la > 0.5 { 1.0 - (1.0 - 2.0 * (la - 0.5)) * (1.0 - lb) } else { 2.0 * la * lb };
+            l = la * (1.0 - o) + laid * o;
+            let f = l * recip(la) * near + (1.0 - l) * recip(1.0 - la) * far;
+            p = p * (1.0 - o) + p * f * o;
+            q = q * (1.0 - o) + q * f * o;
+        }
+    }
+    [l, p, q]
+}
+
+/// D-400: Shadow/Highlight. `v`: the shadow and highlight amounts, the shadow tonal width and
+/// radius, the highlight tonal width and radius, and the colour correction, as the settings
+/// hold them. Each pixel's lightness blurred by Gaussian Blur's kernel at each radius, the edges
+/// repeated, then [`shadow_highlight_pixel`]; the colour held inside 0 to 1 at the pixel's own
+/// covering, which is never changed.
+pub(crate) fn shadow_highlight(source: &mut WorkingBuffer, v: [f64; 7]) {
+    let [shadow, highlight, shadow_width, shadow_radius, highlight_width, highlight_radius, cc] = v;
+    if shadow_highlight_untouched(shadow, highlight) {
+        return;
+    }
+    let w = source.width().max(1);
+    let straight = |px: &[f32], a: f64| -> [f64; 3] { std::array::from_fn(|c| (px[c] as f64 / a).clamp(0.0, 1.0)) };
+    let mut plane = source.clone();
+    plane.data_mut().par_chunks_mut(w * 4).for_each(|row| {
+        for px in row.chunks_exact_mut(4) {
+            let a = px[3] as f64;
+            let l = if a > 0.0 { shadow_highlight_lab(straight(px, a))[0] as f32 } else { 0.0 };
+            px.copy_from_slice(&[l, l, l, 1.0]);
+        }
+    });
+    let blurred = |mut b: WorkingBuffer, sigma: f64| {
+        crate::effects::held_blur_axes(&mut b, &crate::effects::gaussian_weights(sigma), (true, true));
+        b
+    };
+    let ls = blurred(plane.clone(), shadow_radius);
+    let lh = if highlight_radius == shadow_radius { ls.clone() } else { blurred(plane, highlight_radius) };
+    let (ls, lh) = (ls.data(), lh.data());
+    let k = [2.0 * shadow / 100.0, 2.0 * highlight / 100.0, (1.0 - shadow_width / 100.0).min(0.99), (1.0 - highlight_width / 100.0).min(0.99), cc / 100.0];
+    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
+        for (x, px) in row.chunks_exact_mut(4).enumerate() {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                continue;
+            }
+            let i = (y * w + x) * 4;
+            let lpq = shadow_highlight_lab(straight(px, a));
+            let o = shadow_highlight_unlab(shadow_highlight_pixel(lpq, 1.0 - ls[i] as f64, 1.0 - lh[i] as f64, k));
+            for c in 0..3 {
+                px[c] = (o[c].clamp(0.0, 1.0) * a) as f32;
+            }
+        }
+    });
+}
+
 /// D-376: the mean encoded straight colour, each pixel weighted by its covering, of the pixels
 /// of `source` whose centres lie within `r` of (`px`, `py`); with none, the pixel holding the
 /// point, held inside the picture. `None` when what is counted has no covering.

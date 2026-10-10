@@ -2807,6 +2807,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert(name.into(), J::Array(row.iter().map(|v| num(*v)).collect()));
             }
         }
+        Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction } => {
+            params.insert("shadow_amount".into(), num(*shadow_amount));
+            params.insert("highlight_amount".into(), num(*highlight_amount));
+            params.insert("shadow_tonal_width".into(), num(*shadow_tonal_width));
+            params.insert("shadow_radius".into(), num(*shadow_radius));
+            params.insert("highlight_tonal_width".into(), num(*highlight_tonal_width));
+            params.insert("highlight_radius".into(), num(*highlight_radius));
+            params.insert("color_correction".into(), num(*color_correction));
+        }
         Effect::Blobbylize {
             layer,
             fit,
@@ -4122,6 +4131,7 @@ fn parse_effect(
         crate::effects::SPLIT_2,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
+        crate::effects::SHADOW_HIGHLIGHT,
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
@@ -5262,6 +5272,15 @@ fn parse_effect(
             }
             Some(crate::effects::Effect::SelectiveColor { method: effect_word(params, "method", &at)?, families })
         }
+        crate::effects::SHADOW_HIGHLIGHT => Some(crate::effects::Effect::ShadowHighlight {
+            shadow_amount: effect_number(params, "shadow_amount", &at)?,
+            highlight_amount: effect_number(params, "highlight_amount", &at)?,
+            shadow_tonal_width: effect_number(params, "shadow_tonal_width", &at)?,
+            shadow_radius: effect_number(params, "shadow_radius", &at)?,
+            highlight_tonal_width: effect_number(params, "highlight_tonal_width", &at)?,
+            highlight_radius: effect_number(params, "highlight_radius", &at)?,
+            color_correction: effect_number(params, "color_correction", &at)?,
+        }),
         // D-379: the layer is kept as written, as CC Glass's is.
         crate::effects::BLOBBYLIZE => Some(crate::effects::Effect::Blobbylize {
             layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
