@@ -206628,3 +206628,61 @@ FX-FILL-042 (`fx_fill_042.json`): Invert "yes", not off or on. The file is read,
 FX-FILL-043 (`fx_fill_043.json`): All Masks "maybe", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-FILL-044 (`fx_fill_044.json`): Opacity keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Glue Gun (D-424)
+
+Glue Gun, our name for CycoreFX's CC Glue Gun (Generate), `core.glue_gun` (B-303). Every case is a composition 16 by 10, eight frames at 24 a second, holding Blobbylize's drawings (`Fixtures/glue_gun/media/`: photo, shapes, ramp), the holder at the top with the effect, unmoved unless the case says. "The sweep" is the brush keyed from 20, 50 per cent at frame 0 to 80, 50 at frame 4, Stroke Width 4, Density 2, Time Span 0, Reflection 0; "unlit" is Ambient 50, Diffuse 0, Specular 0. `tools/glue_gun_reference.py` works the expected frames, `Fixtures/glue_gun/expected_glue_gun.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-GLUE-001 (`fx_glue_001.json`): As added, the brush never keyed at the middle: Stroke Width 20, Density 5, Time Span 1, Reflection 50, Strength 50, lit as Blobbylize is: one round glossy blob over the whole drawing, the same at frame 4 (more blobs on the same spot pile up but reach no further), on the grey ramp. Frames 0, 4.
+
+FX-GLUE-002 (`fx_glue_002.json`): The sweep, unlit, Reflection 0: at frame 0 a single blob at the left, at frame 2 a stroke half way across, at frame 4 the whole stroke, 4 pixels wide, the photo beneath it at half brightness. Frames 0, 2, 4.
+
+FX-GLUE-003 (`fx_glue_003.json`): The sweep lit as added: the stroke stands up from the photo, lighter on its upper edge facing the top-left light, on the grey ramp. Frames 2, 4.
+
+FX-GLUE-004 (`fx_glue_004.json`): The sweep with Time Span 0.1 seconds, 2 frames at 24 a second: at frame 4 only the last two frames of the stroke are left, the tail gone. Frames 4, 6.
+
+FX-GLUE-005 (`fx_glue_005.json`): The sweep with Density 0.5, one blob every second frame, and Strength 0: separate round discs 2 pixels across, not touching. Frames 4.
+
+FX-GLUE-006 (`fx_glue_006.json`): FX-GLUE-005 with Strength 100: the same blobs swell into one another and join. Frames 4.
+
+FX-GLUE-007 (`fx_glue_007.json`): The sweep, Reflection 100, Stroke Width 6, unlit: the stroke's edges show the photo from across the stroke, mirrored, its middle the photo beneath. Frames 4.
+
+FX-GLUE-008 (`fx_glue_008.json`): The sweep, Wobbly, Wobble Width and Height 1, Speed 2: the blobs swing a pixel out of place, out of step with one another, and on at frame 6 though the brush has stopped. Frames 4, 6.
+
+FX-GLUE-009 (`fx_glue_009.json`): The sweep lit by a point light at 50, 20 per cent, 6 pixels up: brightest near the stroke's middle top. Frames 4.
+
+FX-GLUE-010 (`fx_glue_010.json`): The sweep, an orange light, Specular 100, Roughness 0.5, Metal 0, Diffuse 0, Stroke Width 6: a broad highlight in the light's own orange. Frames 4.
+
+FX-GLUE-011 (`fx_glue_011.json`): FX-GLUE-003 on the holder moved 2 right and 1 down: the same, moved. Frames 4.
+
+FX-GLUE-012 (`fx_glue_012.json`): Stroke Width 0: no stroke, the photo untouched. Frames 4.
+
+FX-GLUE-013 (`fx_glue_013.json`): Density 0: no blobs, the photo untouched. Frames 4.
+
+FX-GLUE-014 (`fx_glue_014.json`): The sweep over the shapes drawing, clear between its blocks, Stroke Width 6: over the blocks the stroke takes their colour; over the clear gap there is nothing to reflect, so the paint is black, lit only by its highlight. Frames 4.
+
+FX-GLUE-015 (`fx_glue_015.json`): The brush held at 20 per cent until frame 2, then at 80 from frame 3: at frame 4 a pile of blobs at the left, then a line of them across the jump, laid between frames 2 and 3, unlit. Frames 2, 4.
+
+FX-GLUE-016 (`fx_glue_016.json`): The sweep with the light's Direction 135, from the bottom right: the lower edge lights instead. Frames 4.
+
+FX-GLUE-017 (`fx_glue_017.json`): The sweep with Stroke Width keyed from 2 at frame 0 to 6 at frame 4: every blob takes the width as it is now, so the whole stroke thickens. Frames 0, 4.
+
+FX-GLUE-018 (`fx_glue_018.json`): The brush eased from 20 to 80 per cent across on a curve that overshoots, Stroke Width 4, unlit: the history is read as the keys are, past the last key's place and back. Frames 2, 4.
+
+FX-GLUE-019 (`fx_glue_019.json`): Stroke Width 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLUE-020 (`fx_glue_020.json`): Density -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLUE-021 (`fx_glue_021.json`): Time Span 101, above 100 seconds. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLUE-022 (`fx_glue_022.json`): A paint style written "drippy". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLUE-023 (`fx_glue_023.json`): A light type written "spot". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLUE-024 (`fx_glue_024.json`): Roughness 0, below 0.001. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLUE-025 (`fx_glue_025.json`): A brush position 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLUE-026 (`fx_glue_026.json`): A light colour written "orange". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLUE-027 (`fx_glue_027.json`): Wobble Speed keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
