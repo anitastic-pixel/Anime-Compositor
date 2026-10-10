@@ -4215,6 +4215,46 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             textureStore(output, id.xy, vec4(f32(f64(p.x) * kk), f32(f64(p.y) * kk), f32(f64(p.z) * kk), f32(f64(p.w) * a)));
             return;
         }
+        case 36u: {
+            // D-426, layer_fx::lens_flare. k: what is kept (1 - blend), the parts' count, then each
+            // part's kind, place, size, edge, rays and colour (layer_fx::flare_parts). The light
+            // in single precision.
+            let count = u32(k[1]);
+            var light = vec3(0.0);
+            for (var i = 0u; i < count; i++) {
+                let b = 2u + 9u * i;
+                let dx = f32(x - k[b + 1u]);
+                let dy = f32(y - k[b + 2u]);
+                let d = sqrt(dx * dx + dy * dy);
+                let big = f32(k[b + 3u]);
+                let edge = f32(k[b + 4u]);
+                let kind = u32(k[b]);
+                var v = 0.0;
+                if kind == 0u {
+                    v = exp(-(d / big) * (d / big));
+                } else if kind == 1u {
+                    let q = (d - big) / edge;
+                    v = exp(-q * q);
+                } else if kind == 2u {
+                    v = clamp((big - d) / edge + 0.5, 0.0, 1.0);
+                } else {
+                    var a = 0.0;
+                    if d > 0.0 {
+                        a = atan2(dy, dx);
+                    }
+                    let s = (1.0 + cos(f32(k[b + 5u]) * a)) / 2.0;
+                    if s > 0.0 {
+                        v = exp(-d / big) * pow(s, edge);
+                    }
+                }
+                light += vec3(f32(k[b + 6u]), f32(k[b + 7u]), f32(k[b + 8u])) * v;
+            }
+            let p = textureLoad(input, id.xy, 0);
+            let keep = f32(k[0]);
+            let lifted = p.w + (1.0 - p.w) * min(1.0, max(light.x, max(light.y, light.z)));
+            textureStore(output, id.xy, vec4(p.xyz + keep * light, p.w + keep * (lifted - p.w)));
+            return;
+        }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
             let vx = x - f64(F.g) - k[0] - k[2];
@@ -10638,6 +10678,20 @@ impl Gpu {
                 let (s, c) = direction.to_radians().sin_cos();
                 let k = [cx, cy, s, c, *width, *height, overlaps.floor(), coverage / 100.0, shadowing / 100.0, 0.0, texture / 100.0];
                 same(steps, &passes.warp, FxParams { mode: 35, ..Default::default() }, &k, None)
+            }
+            // D-426: one warp pass, the parts placed on the processor.
+            E::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original } => {
+                let (ox, oy) = f.origin;
+                let parts = crate::layer_fx::flare_parts(
+                    lens_type,
+                    crate::effects::radial_center(*flare_center, (w, h), f.origin),
+                    crate::effects::radial_center([50.0, 50.0], (w, h), f.origin),
+                    ((w - 2 * ox) as f64).hypot((h - 2 * oy) as f64),
+                    flare_brightness / 100.0,
+                );
+                let mut k = vec![1.0 - blend_with_original / 100.0, parts.len() as f64];
+                k.extend(parts.iter().flatten());
+                same(steps, &passes.warp, FxParams { mode: 36, ..Default::default() }, &k, None)
             }
             // B-225 (D-344): five generators, each as its CPU function; the bolt's segments are
             // worked out here, as the CPU works them, and handed over in `k`.

@@ -3255,6 +3255,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("shadowing".into(), num(*shadowing));
             params.insert("texture".into(), num(*texture));
         }
+        Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original } => {
+            params.insert("flare_center".into(), J::Array(flare_center.iter().map(|c| num(*c)).collect()));
+            params.insert("flare_brightness".into(), num(*flare_brightness));
+            params.insert("lens_type".into(), J::from(lens_type.as_str()));
+            params.insert("blend_with_original".into(), num(*blend_with_original));
+        }
         Effect::MomentMap { max_time, resolution, layer, fit, .. } => {
             params.insert("max_time".into(), num(*max_time));
             params.insert("resolution".into(), num(*resolution));
@@ -4529,6 +4535,7 @@ fn parse_effect(
         crate::effects::BLOBBYLIZE,
         crate::effects::GLUE_GUN,
         crate::effects::THREADS,
+        crate::effects::LENS_FLARE,
         crate::effects::FLOW_MOTION,
         crate::effects::GRIDDLER,
         crate::effects::FISHEYE,
@@ -6014,6 +6021,12 @@ fn parse_effect(
             coverage: effect_number(params, "coverage", &at)?,
             shadowing: effect_number(params, "shadowing", &at)?,
             texture: effect_number(params, "texture", &at)?,
+        }),
+        crate::effects::LENS_FLARE => Some(crate::effects::Effect::LensFlare {
+            flare_center: effect_array(params, "flare_center", "two numbers, x then y", &at)?,
+            flare_brightness: effect_number(params, "flare_brightness", &at)?,
+            lens_type: effect_word(params, "lens_type", &at)?,
+            blend_with_original: effect_number(params, "blend_with_original", &at)?,
         }),
         // D-347: the layer is kept as written, as CC Vector Blur's is.
         crate::effects::MOMENT_MAP => Some(crate::effects::Effect::MomentMap {

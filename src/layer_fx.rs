@@ -1851,6 +1851,107 @@ fn thread(e: f64, half: f64, texture: f64) -> (f64, f64, f64, f64) {
     (share, shade, e, half)
 }
 
+/// D-426: each lens's parts, (kind, t, r, w, n, red, green, blue): kind 0 a glow, 1 a ring, 2 a
+/// disc (a ghost), 3 a star of n rays; t its place on the line from the flare (0) through the
+/// layer's middle (1); r its size and w its edge (a star's: its rays' sharpness), as shares of the
+/// drawing's diagonal; its colour in linear light. The same numbers are in
+/// tools/lens_flare_reference.py.
+pub(crate) const FLARE_LENSES: [(&str, &[[f64; 8]]); 3] = [
+    (
+        "zoom",
+        &[
+            [0.0, 0.0, 0.012, 0.0, 0.0, 2.0, 2.0, 2.0],
+            [0.0, 0.0, 0.06, 0.0, 0.0, 1.0, 0.75, 0.45],
+            [1.0, 0.0, 0.2, 0.012, 0.0, 0.12, 0.18, 0.3],
+            [3.0, 0.0, 0.1, 40.0, 6.0, 0.5, 0.45, 0.4],
+            [2.0, 0.45, 0.02, 0.006, 0.0, 0.1, 0.18, 0.35],
+            [2.0, 0.7, 0.045, 0.01, 0.0, 0.12, 0.3, 0.12],
+            [2.0, 1.2, 0.03, 0.008, 0.0, 0.35, 0.2, 0.08],
+            [2.0, 1.5, 0.08, 0.02, 0.0, 0.08, 0.08, 0.25],
+            [2.0, 1.8, 0.015, 0.005, 0.0, 0.4, 0.1, 0.1],
+            [1.0, 2.0, 0.1, 0.008, 0.0, 0.1, 0.25, 0.15],
+        ],
+    ),
+    (
+        "35mm",
+        &[
+            [0.0, 0.0, 0.01, 0.0, 0.0, 2.0, 2.0, 2.0],
+            [0.0, 0.0, 0.04, 0.0, 0.0, 1.0, 0.85, 0.65],
+            [3.0, 0.0, 0.06, 60.0, 8.0, 0.4, 0.4, 0.4],
+            [2.0, 0.5, 0.025, 0.006, 0.0, 0.1, 0.22, 0.4],
+            [2.0, 1.3, 0.05, 0.012, 0.0, 0.2, 0.12, 0.35],
+            [2.0, 1.7, 0.02, 0.005, 0.0, 0.4, 0.25, 0.1],
+        ],
+    ),
+    (
+        "105mm",
+        &[
+            [0.0, 0.0, 0.015, 0.0, 0.0, 2.5, 2.5, 2.5],
+            [0.0, 0.0, 0.07, 0.0, 0.0, 1.2, 0.85, 0.5],
+            [1.0, 0.0, 0.11, 0.02, 0.0, 0.18, 0.1, 0.04],
+            [3.0, 0.0, 0.14, 30.0, 12.0, 0.6, 0.55, 0.45],
+            [2.0, 0.6, 0.03, 0.008, 0.0, 0.08, 0.18, 0.4],
+            [2.0, 1.4, 0.06, 0.015, 0.0, 0.35, 0.15, 0.06],
+        ],
+    ),
+];
+
+/// D-426: the lens's parts placed for this drawing, (kind, x, y, R, w, n, red, green, blue), in
+/// pixels, the colour times `brightness`: the flare at `flare`, the middle at `middle`, the
+/// diagonal `size`. Handed as they are to the card.
+pub(crate) fn flare_parts(lens: &str, flare: (f64, f64), middle: (f64, f64), size: f64, brightness: f64) -> Vec<[f64; 9]> {
+    let parts = FLARE_LENSES.iter().find(|(l, _)| *l == lens).map_or(&[][..], |(_, p)| p);
+    parts
+        .iter()
+        .map(|&[kind, t, r, w, n, red, green, blue]| {
+            [
+                kind,
+                flare.0 + t * (middle.0 - flare.0),
+                flare.1 + t * (middle.1 - flare.1),
+                r * size,
+                if kind == 3.0 { w } else { w * size },
+                n,
+                red * brightness,
+                green * brightness,
+                blue * brightness,
+            ]
+        })
+        .collect()
+}
+
+/// D-426: Lens Flare. The light of the placed `parts` added to each pixel, its covering raised by
+/// the light's brightest channel, the result kept by `keep` (1 - Blend With Original) against the
+/// pixel as it was.
+pub(crate) fn lens_flare(source: &mut WorkingBuffer, parts: &[[f64; 9]], keep: f64) {
+    let w = source.width();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let mut light = [0.0f64; 3];
+        for &[kind, cx, cy, big, edge, n, red, green, blue] in parts {
+            let (dx, dy) = (x - cx, y - cy);
+            let d = dx.hypot(dy);
+            let v = match kind as u8 {
+                0 => (-(d / big).powi(2)).exp(),
+                1 => (-((d - big) / edge).powi(2)).exp(),
+                2 => ((big - d) / edge + 0.5).clamp(0.0, 1.0),
+                _ => {
+                    let a = if d > 0.0 { dy.atan2(dx) } else { 0.0 };
+                    (-d / big).exp() * ((1.0 + (n * a).cos()) / 2.0).powf(edge)
+                }
+            };
+            light[0] += red * v;
+            light[1] += green * v;
+            light[2] += blue * v;
+        }
+        let a = px[3] as f64;
+        let lifted = a + (1.0 - a) * light[0].max(light[1]).max(light[2]).min(1.0);
+        for c in 0..3 {
+            px[c] = (px[c] as f64 + keep * light[c]) as f32;
+        }
+        px[3] = (a + keep * (lifted - a)) as f32;
+    });
+}
+
 /// D-213: Bevel Edges. A pixel nearer than `thickness` times the buffer's smaller side to the
 /// buffer's nearest side, the first of left, top, right and bottom among equals, is on that
 /// side's face. The settings are already valid.

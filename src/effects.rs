@@ -2032,6 +2032,16 @@ pub enum Effect {
         shadowing: f64,
         texture: f64,
     },
+    /// D-426: After Effects' Lens Flare: the flare a bright light makes in a camera lens, laid
+    /// over the layer. `flare_center`, per cent of the drawing, -1000 to 1000; `flare_brightness`,
+    /// 0 to 300; `lens_type`, "zoom" (50-300mm Zoom), "35mm" or "105mm" (the primes), each a
+    /// fixed set of glows, rings, rays and ghosts; `blend_with_original`, 0 to 100.
+    LensFlare {
+        flare_center: [f64; 2],
+        flare_brightness: f64,
+        lens_type: String,
+        blend_with_original: f64,
+    },
     /// D-347: Moment Map, after After Effects' Time Displacement: each pixel of the layer from
     /// another moment of it, later where the map is bright and earlier where it is dark.
     /// `max_time`, -10 to 10 seconds; `resolution`, 1 to 999 steps a second; `layer` and `fit`,
@@ -2439,6 +2449,7 @@ pub const BENDER: &str = "core.bender";
 pub const BLOBBYLIZE: &str = "core.blobbylize";
 pub const GLUE_GUN: &str = "core.glue_gun";
 pub const THREADS: &str = "core.threads";
+pub const LENS_FLARE: &str = "core.lens_flare";
 pub const FLOW_MOTION: &str = "core.flow_motion";
 pub const GRIDDLER: &str = "core.griddler";
 pub const FISHEYE: &str = "core.fisheye";
@@ -3574,6 +3585,11 @@ impl Effect {
                 ("shadowing", vec![shadowing], 0.0, 100.0),
                 ("texture", vec![texture], 0.0, 100.0),
             ],
+            Effect::LensFlare { flare_center, flare_brightness, blend_with_original, .. } => vec![
+                ("flare_center", flare_center.iter_mut().collect(), -1000.0, 1000.0),
+                ("flare_brightness", vec![flare_brightness], 0.0, 300.0),
+                ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
+            ],
             Effect::MomentMap { max_time, resolution, .. } => vec![
                 ("max_time", vec![max_time], -10.0, 10.0),
                 ("resolution", vec![resolution], 1.0, 999.0),
@@ -4627,6 +4643,7 @@ impl Effect {
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::GlueGun { .. } => "Glue Gun",
             Effect::Threads { .. } => "Threads",
+            Effect::LensFlare { .. } => "Lens Flare",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
             Effect::DepthKey { .. } => "Depth Key",
@@ -4798,6 +4815,7 @@ impl Effect {
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::GlueGun { .. } => GLUE_GUN,
             Effect::Threads { .. } => THREADS,
+            Effect::LensFlare { .. } => LENS_FLARE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
             Effect::DepthKey { .. } => DEPTH_KEY,
@@ -5597,6 +5615,8 @@ impl Effect {
                 .then(|| format!("{name}'s paint style is \"plain\" or \"wobbly\", and this is \"{paint_style}\"."))
                 .or_else(|| (!["distant", "point"].contains(&light_type.as_str())).then(|| format!("{name}'s light type is distant or point, and this is \"{light_type}\".")))
                 .or_else(|| hex_fault(name, "light colour", light_color)),
+            Effect::LensFlare { lens_type, .. } => (!crate::layer_fx::FLARE_LENSES.iter().any(|(l, _)| l == lens_type))
+                .then(|| format!("{name}'s lens type is \"zoom\", \"35mm\" or \"105mm\", and this is \"{lens_type}\".")),
             Effect::MomentMap { layer, .. } if !layer.is_string() => Some(format!(
                 "Moment Map's map is the name of a layer of this composition, and this is {layer}."
             )),
@@ -7761,6 +7781,20 @@ pub(crate) fn apply_stack_at(
                         overlaps.floor(),
                         [*coverage / 100.0, *shadowing / 100.0, *texture / 100.0],
                     )
+                })
+            }
+            // D-426: the flare's parts placed on the line from it through the layer's middle.
+            Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original } => {
+                crate::perf::time(crate::perf::Stage::EffectLensFlare, || {
+                    let dims = (source.width(), source.height());
+                    let parts = crate::layer_fx::flare_parts(
+                        lens_type,
+                        radial_center(*flare_center, dims, (ox, oy)),
+                        radial_center([50.0, 50.0], dims, (ox, oy)),
+                        ((dims.0 - 2 * ox) as f64).hypot((dims.1 - 2 * oy) as f64),
+                        flare_brightness / 100.0,
+                    );
+                    crate::layer_fx::lens_flare(source, &parts, 1.0 - blend_with_original / 100.0)
                 })
             }
             // D-317: the map compose read for this frame, if a layer is named, is the bump.
