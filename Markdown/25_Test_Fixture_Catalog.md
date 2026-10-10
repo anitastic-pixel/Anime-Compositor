@@ -207036,3 +207036,149 @@ FX-WRITEON-039 (`fx_writeon_039.json`): Paint Style "glow", not a word it takes.
 FX-WRITEON-040 (`fx_writeon_040.json`): Colour "#12345", not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-WRITEON-041 (`fx_writeon_041.json`): Brush Size keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Scribble (D-442)
+
+After Effects' Scribble (Generate), `core.scribble` (B-322). Every case is a composition 16 by 10 at 24 frames a second, 12 frames long, holding Bulge's striped drawing (`Fixtures/scribble/media`), the same size, unmoved unless the case says, with the masks the case names (mode None unless it says). `tools/scribble_reference.py` works the expected frames, `Fixtures/scribble/expected_scribble.json`, tolerance 2e-5; the rule is in document 21. FX-SCRIBBLE-044 and 045 are in dispute (D-442's warning amendment, proposed): their pixels match, and the build also says MASK_INVALID_OUTLINE.
+
+FX-SCRIBBLE-001 (`fx_scribble_001.json`): The settings as added on the box from (2, 2) to (13, 7): white lines 5 wide at 45 degrees, 5 apart, a little curved and wiggling, covering most of the box. Frames 0, 4.
+
+FX-SCRIBBLE-002 (`fx_scribble_002.json`): Angle 0, Stroke Width 1, Spacing 2.5, no curve or wiggle: two red lines across the box at y 3.25 and 5.75, joined at the right by a straight turn, a Z laid on its side. Frames 0.
+
+FX-SCRIBBLE-003 (`fx_scribble_003.json`): FX-SCRIBBLE-002 at Angle 90: the lines run up the box, 2.5 apart from its left side. Frames 0.
+
+FX-SCRIBBLE-004 (`fx_scribble_004.json`): FX-SCRIBBLE-002 at Angle 30: sloped lines, each cut where it leaves the box. Frames 0.
+
+FX-SCRIBBLE-005 (`fx_scribble_005.json`): FX-SCRIBBLE-002 at Angle -45. Frames 0.
+
+FX-SCRIBBLE-006 (`fx_scribble_006.json`): FX-SCRIBBLE-002 with Curviness 100: each turn a round loop out past the box's side. Frames 0.
+
+FX-SCRIBBLE-007 (`fx_scribble_007.json`): FX-SCRIBBLE-002 with Spacing 1.5: four lines, closer. Frames 0.
+
+FX-SCRIBBLE-008 (`fx_scribble_008.json`): FX-SCRIBBLE-002 with Stroke Width 2: thicker lines. Frames 0.
+
+FX-SCRIBBLE-009 (`fx_scribble_009.json`): FX-SCRIBBLE-002 with Path Overlap 1.5: each line runs 1.5 past the box at both ends. Frames 0.
+
+FX-SCRIBBLE-010 (`fx_scribble_010.json`): FX-SCRIBBLE-002 with Path Overlap -3: each line pulled 3 inside the box at both ends. Frames 0.
+
+FX-SCRIBBLE-011 (`fx_scribble_011.json`): FX-SCRIBBLE-002 with Opacity 50: half covered at most. Frames 0.
+
+FX-SCRIBBLE-012 (`fx_scribble_012.json`): FX-SCRIBBLE-002 On Transparent: the lines alone, the cel gone. Frames 0.
+
+FX-SCRIBBLE-013 (`fx_scribble_013.json`): FX-SCRIBBLE-002 Reveal Original Image: the cel only under the lines. Frames 0.
+
+FX-SCRIBBLE-014 (`fx_scribble_014.json`): FX-SCRIBBLE-002 with Stroke Width 0: nothing drawn, the cel as it was. Frames 0.
+
+FX-SCRIBBLE-015 (`fx_scribble_015.json`): FX-SCRIBBLE-002 with End 50: only the first half of the scribble's length. Frames 0.
+
+FX-SCRIBBLE-016 (`fx_scribble_016.json`): Start 30 and End 80 at Spacing 1.5: the middle half. Frames 0.
+
+FX-SCRIBBLE-017 (`fx_scribble_017.json`): End keyed from 0 at frame 0 to 100 at frame 8: the scribble draws on, nothing at frame 0, the whole at frame 8. Frames 0, 4, 8.
+
+FX-SCRIBBLE-018 (`fx_scribble_018.json`): Fill Type Centered Edge, Edge Width 2: lines over the band 1 each side of the box's outline, a gap in the middle. Frames 0.
+
+FX-SCRIBBLE-019 (`fx_scribble_019.json`): Fill Type Inside Edge, Edge Width 2: the band 2 inside the outline. Frames 0.
+
+FX-SCRIBBLE-020 (`fx_scribble_020.json`): Fill Type Outside Edge, Edge Width 1.5: the band 1.5 outside the outline. Frames 0.
+
+FX-SCRIBBLE-021 (`fx_scribble_021.json`): Right Edge on the box drawn clockwise: FX-SCRIBBLE-019's frame. Frames 0.
+
+FX-SCRIBBLE-022 (`fx_scribble_022.json`): Left Edge on the box drawn clockwise: the outside band, as Outside Edge at Edge Width 2. Frames 0.
+
+FX-SCRIBBLE-023 (`fx_scribble_023.json`): Left Edge on the box drawn the other way: the inside band, FX-SCRIBBLE-019's frame. Frames 0.
+
+FX-SCRIBBLE-024 (`fx_scribble_024.json`): A curved mask, a circle 8 across: the lines cut at its curve. Frames 0.
+
+FX-SCRIBBLE-025 (`fx_scribble_025.json`): A concave arrow head: on the lines that cross it twice the pen lifts over the notch. Frames 0.
+
+FX-SCRIBBLE-026 (`fx_scribble_026.json`): Two masks, Mask 2: the small box alone. Frames 0.
+
+FX-SCRIBBLE-027 (`fx_scribble_027.json`): Two overlapping boxes, All Masks, Fill Paths Sequentially on, End 50: each box scribbled on its own, one length, so only the first box's lines and part of the second's. Frames 0.
+
+FX-SCRIBBLE-028 (`fx_scribble_028.json`): FX-SCRIBBLE-027 with Fill Paths Sequentially off: each box trimmed to its own half. Frames 0.
+
+FX-SCRIBBLE-029 (`fx_scribble_029.json`): All Masks Using Modes, the second box Add: one region, both boxes together, On Transparent. Frames 0.
+
+FX-SCRIBBLE-030 (`fx_scribble_030.json`): Using Modes, the second box Subtract: the first box less the second. Frames 0.
+
+FX-SCRIBBLE-031 (`fx_scribble_031.json`): Using Modes, the second box Intersect: their common part only. Frames 0.
+
+FX-SCRIBBLE-032 (`fx_scribble_032.json`): Using Modes, the second box Difference: either but not both. Frames 0.
+
+FX-SCRIBBLE-033 (`fx_scribble_033.json`): Using Modes, the second box Add and inverted: the first box and everything outside the second. Frames 0.
+
+FX-SCRIBBLE-034 (`fx_scribble_034.json`): Using Modes with a single mask in Subtract: the whole buffer less the box. Frames 0.
+
+FX-SCRIBBLE-035 (`fx_scribble_035.json`): Using Modes, the second mask of mode None: left out, the first box alone. Frames 0.
+
+FX-SCRIBBLE-036 (`fx_scribble_036.json`): Single Mask on an inverted mask: inversion is not used outside Using Modes, FX-SCRIBBLE-002's frame. Frames 0.
+
+FX-SCRIBBLE-037 (`fx_scribble_037.json`): Variations on, Wiggle Type Static: uneven spacing, overshoots and loops, the same at every frame. Frames 0, 4.
+
+FX-SCRIBBLE-038 (`fx_scribble_038.json`): The same, Jumpy at 6 a second: a new scribble every 4 frames, frames 0 and 2 alike, 4 new. Frames 0, 2, 4.
+
+FX-SCRIBBLE-039 (`fx_scribble_039.json`): The same, Smooth: frame 2 half way between frames 0 and 4's scribbles. Frames 0, 2, 4.
+
+FX-SCRIBBLE-040 (`fx_scribble_040.json`): FX-SCRIBBLE-037 with Random Seed 7: a different scribble. Frames 0.
+
+FX-SCRIBBLE-041 (`fx_scribble_041.json`): Smooth at 0 wiggles a second: still, every frame FX-SCRIBBLE-037's. Frames 0, 4.
+
+FX-SCRIBBLE-042 (`fx_scribble_042.json`): FX-SCRIBBLE-002 with the layer moved three pixels right: the same, moved. Frames 0.
+
+FX-SCRIBBLE-043 (`fx_scribble_043.json`): Mask 1.5: its floor, mask 1, FX-SCRIBBLE-002's frame. Frames 0.
+
+FX-SCRIBBLE-044 (`fx_scribble_044.json`): A mask of two points encloses nothing: Inside draws nothing; Centered Edge, FX-SCRIBBLE-045, scribbles the band about it. Frames 0.
+
+FX-SCRIBBLE-045 (`fx_scribble_045.json`): The two-point mask, Centered Edge, Edge Width 2. Frames 0.
+
+FX-SCRIBBLE-046 (`fx_scribble_046.json`): Angle keyed from 0 at frame 0 to 90 at frame 4: the lines turn. Frames 0, 2, 4.
+
+FX-SCRIBBLE-047 (`fx_scribble_047.json`): Opacity keyed from 40 to 100 by an ease that passes its end: held at 100 at frame 2. Frames 0, 2, 4.
+
+FX-SCRIBBLE-048 (`fx_scribble_048.json`): Colour written in capitals, #FF3020: FX-SCRIBBLE-002's frame. Frames 0.
+
+FX-SCRIBBLE-049 (`fx_scribble_049.json`): Mask 1 with no masks at all. Nothing to scribble: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning on each frame `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-SCRIBBLE-050 (`fx_scribble_050.json`): Mask 3, of two. Nothing to scribble: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning on each frame `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-SCRIBBLE-051 (`fx_scribble_051.json`): Mask 1, switched off. Nothing to scribble: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning on each frame `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-SCRIBBLE-052 (`fx_scribble_052.json`): All Masks, every mask switched off. Nothing to scribble: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning on each frame `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-SCRIBBLE-053 (`fx_scribble_053.json`): All Masks Using Modes with no masks at all. Nothing to scribble: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning on each frame `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-SCRIBBLE-054 (`fx_scribble_054.json`): Mask 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-055 (`fx_scribble_055.json`): Edge Width -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-056 (`fx_scribble_056.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-057 (`fx_scribble_057.json`): Angle 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-058 (`fx_scribble_058.json`): Stroke Width 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-059 (`fx_scribble_059.json`): Curviness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-060 (`fx_scribble_060.json`): Spacing 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-061 (`fx_scribble_061.json`): Path Overlap -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-062 (`fx_scribble_062.json`): End 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-063 (`fx_scribble_063.json`): Wiggles/Second -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-064 (`fx_scribble_064.json`): Random Seed 100001, above 100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-065 (`fx_scribble_065.json`): Scribble "some_masks", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-066 (`fx_scribble_066.json`): Fill Type "outline", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-067 (`fx_scribble_067.json`): Fill Paths Sequentially "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-068 (`fx_scribble_068.json`): Wiggle Type "wobbly", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-069 (`fx_scribble_069.json`): Composite "glow", not a word it takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-070 (`fx_scribble_070.json`): Colour "#12345", not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCRIBBLE-071 (`fx_scribble_071.json`): Stroke Width keyed to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
