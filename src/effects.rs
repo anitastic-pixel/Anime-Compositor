@@ -1824,6 +1824,17 @@ pub enum Effect {
         opacity: f64,
         paths: Option<Vec<Vec<(f64, f64)>>>,
     },
+    /// D-419: after After Effects' Eyedropper Fill. `sample_point`, per cent of the drawing,
+    /// -1000 to 1000; `sample_radius`, 0 to 10000 pixels; `average_pixel_colors`, one of
+    /// [`EYEDROPPER_AVERAGES`]; `maintain_original_alpha`, "off" or "on"; `blend_with_original`,
+    /// 0 to 100.
+    EyedropperFill {
+        sample_point: [f64; 2],
+        sample_radius: f64,
+        average_pixel_colors: String,
+        maintain_original_alpha: String,
+        blend_with_original: f64,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2480,6 +2491,9 @@ pub const FRACTAL_SETS: [&str; 6] = ["mandelbrot", "mandelbrot_inverse", "mandel
 pub const FRACTAL_PALETTES: [&str; 4] = ["lightness_gradient", "hue_wheel", "black_and_white", "solid_color"];
 pub const GRID: &str = "core.grid";
 pub const FILL: &str = "core.fill";
+pub const EYEDROPPER_FILL: &str = "core.eyedropper_fill";
+/// D-419: Eyedropper Fill's Average Pixel Colors, in After Effects' order.
+pub const EYEDROPPER_AVERAGES: [&str; 4] = ["skip_empty", "all", "all_premultiplied", "including_alpha"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3395,6 +3409,11 @@ impl Effect {
                 ("horizontal_feather", vec![horizontal_feather], 0.0, 1000.0),
                 ("vertical_feather", vec![vertical_feather], 0.0, 1000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
+            ],
+            Effect::EyedropperFill { sample_point, sample_radius, blend_with_original, .. } => vec![
+                ("sample_point", sample_point.iter_mut().collect(), -1000.0, 1000.0),
+                ("sample_radius", vec![sample_radius], 0.0, 10000.0),
+                ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
             ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
@@ -4318,6 +4337,8 @@ impl Effect {
                 *horizontal_feather = scale(*horizontal_feather);
                 *vertical_feather = scale(*vertical_feather);
             }
+            // D-419: the radius is a distance; the point a share of the drawing.
+            Effect::EyedropperFill { sample_radius, .. } => *sample_radius = scale(*sample_radius),
             // D-417: the cells held at least a pixel, as Checkerboard's.
             Effect::Grid { width, height, border, feather_width, feather_height, .. } => {
                 *width = scale(*width).max(1.0);
@@ -4629,6 +4650,7 @@ impl Effect {
             Effect::Circle { .. } => "Circle",
             Effect::Grid { .. } => "Grid",
             Effect::Fill { .. } => "Fill",
+            Effect::EyedropperFill { .. } => "Eyedropper Fill",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -4801,6 +4823,7 @@ impl Effect {
             Effect::Circle { .. } => CIRCLE,
             Effect::Grid { .. } => GRID,
             Effect::Fill { .. } => FILL,
+            Effect::EyedropperFill { .. } => EYEDROPPER_FILL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6039,6 +6062,13 @@ impl Effect {
                 "Fill's invert is \"off\" or \"on\", and this is \"{v}\"."
             )),
             Effect::Fill { color, .. } => hex_fault("Fill", "colour", color),
+            Effect::EyedropperFill { average_pixel_colors: v, .. } if !EYEDROPPER_AVERAGES.contains(&v.as_str()) => Some(format!(
+                "Eyedropper Fill's average pixel colors is one of {}, and this is \"{v}\".",
+                EYEDROPPER_AVERAGES.join(", ")
+            )),
+            Effect::EyedropperFill { maintain_original_alpha: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Eyedropper Fill's maintain original alpha is \"off\" or \"on\", and this is \"{v}\"."
+            )),
             Effect::Ellipse { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
                 "Ellipse's composite is \"on\" or \"off\", and this is \"{composite}\"."
             )),
@@ -7660,6 +7690,17 @@ pub(crate) fn apply_stack_at(
                         crate::layer_fx::fill(source, paths, (ox, oy), [*horizontal_feather, *vertical_feather], c, invert == "on", *opacity / 100.0)
                     })
                 }
+            }
+            // D-419: sampled from the whole buffer as it reaches the effect (tiles and the
+            // viewer's part never change it), the point a share of the drawing's own size; the
+            // layer never grows.
+            Effect::EyedropperFill { sample_point, sample_radius, average_pixel_colors, maintain_original_alpha, blend_with_original } => {
+                crate::perf::time(crate::perf::Stage::EffectEyedropperFill, || {
+                    let point = radial_center(*sample_point, (source.width(), source.height()), (ox, oy));
+                    let (n, rows) = crate::layer_fx::eyedropper_rows(point, *sample_radius, (source.width(), source.height()));
+                    let e = crate::layer_fx::eyedropper_colour(source, &rows, n, average_pixel_colors);
+                    crate::layer_fx::eyedropper_fill(source, e, maintain_original_alpha == "on", *blend_with_original / 100.0)
+                })
             }
             // D-417: the anchor and corner as Checkerboard's; the layer never grows.
             Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {

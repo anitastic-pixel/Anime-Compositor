@@ -2981,6 +2981,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
         }
+        Effect::EyedropperFill { sample_point, sample_radius, average_pixel_colors, maintain_original_alpha, blend_with_original } => {
+            params.insert("sample_point".into(), J::Array(sample_point.iter().map(|c| num(*c)).collect()));
+            params.insert("sample_radius".into(), num(*sample_radius));
+            params.insert("average_pixel_colors".into(), J::from(average_pixel_colors.as_str()));
+            params.insert("maintain_original_alpha".into(), J::from(maintain_original_alpha.as_str()));
+            params.insert("blend_with_original".into(), num(*blend_with_original));
+        }
         // D-418: the paths are found each frame and never saved.
         Effect::Fill { mask, all_masks, color, invert, horizontal_feather, vertical_feather, opacity, .. } => {
             params.insert("mask".into(), num(*mask));
@@ -4558,6 +4565,7 @@ fn parse_effect(
         crate::effects::FRACTAL,
         crate::effects::GRID,
         crate::effects::FILL,
+        crate::effects::EYEDROPPER_FILL,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5837,6 +5845,13 @@ fn parse_effect(
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             opacity: effect_number(params, "opacity", &at)?,
             blending_mode: effect_word(params, "blending_mode", &at)?,
+        }),
+        crate::effects::EYEDROPPER_FILL => Some(crate::effects::Effect::EyedropperFill {
+            sample_point: effect_array(params, "sample_point", "two numbers, x then y", &at)?,
+            sample_radius: effect_number(params, "sample_radius", &at)?,
+            average_pixel_colors: effect_word(params, "average_pixel_colors", &at)?,
+            maintain_original_alpha: effect_word(params, "maintain_original_alpha", &at)?,
+            blend_with_original: effect_number(params, "blend_with_original", &at)?,
         }),
         crate::effects::FILL => Some(crate::effects::Effect::Fill {
             mask: effect_number(params, "mask", &at)?,

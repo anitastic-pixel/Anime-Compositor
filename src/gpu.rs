@@ -6746,6 +6746,80 @@ fn fillfx(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-419, layer_fx::eyedropper_colour and eyedropper_fill. k: the area's pixel count, the
+// averaging (0 Skip Empty, 1 All, 2 All Premultiplied, 3 Including Alpha), 1 to keep each
+// pixel's alpha, Blend With Original (a share), then F.count rows of the buffer as row, first
+// column, last column. `eyerow`: each row summed into `sums` (premultiplied, then the straight
+// colours of the pixels that show and their count), one row a thread, in the CPU's order.
+@compute @workgroup_size(64)
+fn eyerow(@builtin(global_invocation_id) id: vec3<u32>) {
+    if id.x >= F.count {
+        return;
+    }
+    let y = u32(k[4u + 3u * id.x]);
+    var p = vec4<f64>(0.0lf);
+    var s = vec4<f64>(0.0lf);
+    let x0 = u32(k[5u + 3u * id.x]);
+    let x1 = u32(k[6u + 3u * id.x]);
+    for (var x = x0; x <= x1; x++) {
+        let q = eyewide(textureLoad(input, vec2(x, y), 0));
+        p += q;
+        if q.w > 0.0lf {
+            s += vec4(q.xyz / q.w, 1.0lf);
+        }
+    }
+    sums[2u * id.x] = p;
+    sums[2u * id.x + 1u] = s;
+}
+
+// The texel in double precision a channel at a time: on the RTX 4070 Ti SUPER (Vulkan) the
+// whole-vector `vec4<f64>(textureLoad(..))` came back as garbage here.
+fn eyewide(t: vec4<f32>) -> vec4<f64> {
+    return vec4(f64(t.x), f64(t.y), f64(t.z), f64(t.w));
+}
+
+// `eyesum`: the rows added in order and the sampled colour, premultiplied, after them in `sums`.
+@compute @workgroup_size(1)
+fn eyesum(@builtin(global_invocation_id) id: vec3<u32>) {
+    var p = vec4<f64>(0.0lf);
+    var s = vec4<f64>(0.0lf);
+    for (var j = 0u; j < F.count; j++) {
+        p += sums[2u * j];
+        s += sums[2u * j + 1u];
+    }
+    let n = k[0];
+    var c = vec3<f64>(0.0lf);
+    var a = 1.0lf;
+    if k[1] == 0.0lf {
+        if s.w > 0.0lf {
+            c = s.xyz / s.w;
+        }
+    } else if k[1] == 1.0lf {
+        c = s.xyz / n;
+    } else if k[1] == 2.0lf {
+        c = p.xyz / n;
+    } else {
+        if p.w > 0.0lf {
+            c = p.xyz / p.w;
+        }
+        a = p.w / n;
+    }
+    sums[2u * F.count] = vec4(c * a, a);
+}
+
+// `eyefill`: every pixel the sampled colour (times its own alpha when k[2] is 1), blended back.
+@compute @workgroup_size(16, 16)
+fn eyefill(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = eyewide(textureLoad(input, id.xy, 0));
+    let m = select(1.0lf, p.w, k[2] == 1.0lf);
+    let b = k[3];
+    textureStore(output, id.xy, vec4<f32>(sums[2u * F.count] * m * (1.0lf - b) + p * b));
+}
+
 // B-229, layer_fx::id_key. k[2] 0: the matte of the ids (`other`, as big as `input`), 1 where
 // the id is within a half of k[0], turned over where k[1] is 1. k[2] 1: the drawing (`input`)
 // times the matte (`other`, blurred) lying at (F.ox, F.oy), 0 outside it.
@@ -7476,6 +7550,9 @@ struct FxPasses {
     /// B-229.
     idkey: Pass,
     fill: Pass,
+    eyerow: Pass,
+    eyesum: Pass,
+    eyefill: Pass,
     smoothscan: Pass,
     smoothmix: Pass,
     /// D-352.
@@ -8106,6 +8183,9 @@ impl Gpu {
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
                 idkey: pass("idkey", &[0, 1, 2, 3, 4]),
                 fill: pass("fillfx", &[0, 1, 2, 3, 4, 5]),
+                eyerow: pass("eyerow", &[0, 1, 3, 7]),
+                eyesum: pass("eyesum", &[0, 3, 7]),
+                eyefill: pass("eyefill", &[0, 1, 2, 3, 7]),
                 lwidth: pass("lwidth", &[0, 1, 2, 3, 5]),
                 smoothscan: pass("smoothscan", &[0, 1, 3, 5, 6]),
                 smoothmix: pass("smoothmix", &[0, 1, 2, 5, 6]),
@@ -10941,6 +11021,23 @@ impl Gpu {
                 let out = self.scratch("B-297 fill", w, h);
                 let p = FxParams { mode: 1, g: r as i32, ..Default::default() };
                 self.fx_step(steps, &passes.fill, p, Some(still), Some(&out), Some(&k), Some(field.as_ref().unwrap_or(still)), [Some(&cover)], tiles(w, h));
+                (out, (w, h))
+            }
+            // D-419: the area's rows found as layer_fx::eyedropper_rows finds them, each summed
+            // by a thread, added in order by one, then every pixel filled; no warp mode.
+            E::EyedropperFill { sample_point, sample_radius, average_pixel_colors, maintain_original_alpha, blend_with_original } => {
+                let point = crate::effects::radial_center(*sample_point, (w, h), f.origin);
+                let (n, rows) = crate::layer_fx::eyedropper_rows(point, *sample_radius, (w, h));
+                let mode = crate::effects::EYEDROPPER_AVERAGES.iter().position(|a| a == average_pixel_colors).unwrap_or(0);
+                let mut k = vec![n, mode as f64, (maintain_original_alpha == "on") as u8 as f64, blend_with_original / 100.0];
+                k.extend(rows.iter().flat_map(|r| r.map(|v| v as f64)));
+                let sums = buffer((2 * rows.len() + 1) * 32);
+                let p = FxParams { count: rows.len() as u32, ..Default::default() };
+                let work = [None, None, Some(&sums)];
+                self.fx_step(steps, &passes.eyerow, p, Some(still), None, Some(&k), None, work, ((rows.len() as u32).div_ceil(64).max(1), 1));
+                self.fx_step(steps, &passes.eyesum, p, None, None, Some(&k), None, work, (1, 1));
+                let out = self.scratch("B-298 eyedropper fill", w, h);
+                self.fx_step(steps, &passes.eyefill, p, Some(still), Some(&out), Some(&k), None, work, tiles(w, h));
                 (out, (w, h))
             }
             // B-229: the matte at the ids' size, blurred with its edges held, then laid on.

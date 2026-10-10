@@ -2720,6 +2720,92 @@ pub(crate) fn checker_cover((x, y): (f64, f64), (ax, ay): (f64, f64), (w, h): (f
     (1.0 + axis(x, ax, w, rx) * axis(y, ay, h, ry)) / 2.0
 }
 
+/// D-419: Eyedropper Fill's area about the point `(px, py)` (the buffer's pixels) of radius `r`:
+/// row by row, the pixels whose centres lie within `r`, the columns
+/// ceil(px - 0.5 - hw) to floor(px - 0.5 + hw), hw = sqrt(max(0, r r - dy dy)),
+/// dy = y + 0.5 - py; or, when no centre does, the one pixel holding the point. Returns the area's
+/// pixel count, wherever they lie (those past the buffer count as clear), and its rows inside the
+/// buffer as [row, first column, last column].
+pub(crate) fn eyedropper_rows((px, py): (f64, f64), r: f64, (w, h): (usize, usize)) -> (f64, Vec<[usize; 3]>) {
+    let mut rows = Vec::new();
+    let keep = |rows: &mut Vec<[usize; 3]>, y: f64, x0: f64, x1: f64| {
+        let (a, b) = (x0.max(0.0), x1.min(w as f64 - 1.0));
+        if y >= 0.0 && y < h as f64 && a <= b {
+            rows.push([y as usize, a as usize, b as usize]);
+        }
+    };
+    let mut n = 0.0;
+    let (mut y, last) = ((py - 0.5 - r).ceil(), (py - 0.5 + r).floor());
+    while y <= last {
+        let dy = y + 0.5 - py;
+        let hw = (r * r - dy * dy).max(0.0).sqrt();
+        let (x0, x1) = ((px - 0.5 - hw).ceil(), (px - 0.5 + hw).floor());
+        if x1 >= x0 {
+            n += x1 - x0 + 1.0;
+            keep(&mut rows, y, x0, x1);
+        }
+        y += 1.0;
+    }
+    if n == 0.0 {
+        n = 1.0;
+        keep(&mut rows, py.floor(), px.floor(), px.floor());
+    }
+    (n, rows)
+}
+
+/// D-419: one row of Eyedropper Fill's area summed in double precision: the premultiplied
+/// pixels, then the straight colours of those that show and their count.
+fn eyedropper_row(source: &WorkingBuffer, [y, x0, x1]: [usize; 3]) -> [f64; 8] {
+    let w = source.width();
+    let mut s = [0.0; 8];
+    for q in source.data()[(y * w + x0) * 4..(y * w + x1 + 1) * 4].chunks_exact(4) {
+        let a = q[3] as f64;
+        for c in 0..4 {
+            s[c] += q[c] as f64;
+        }
+        if a > 0.0 {
+            for c in 0..3 {
+                s[4 + c] += q[c] as f64 / a;
+            }
+            s[7] += 1.0;
+        }
+    }
+    s
+}
+
+/// D-419: the colour Eyedropper Fill samples, premultiplied (c A, A), from the rows'
+/// sums added in order: Skip Empty the straight colours over those that show, All over all n,
+/// All Premultiplied the premultiplied over n (each with A 1), Including Alpha A = P.a / n and
+/// c = P.rgb / P.a; black where nothing is there to divide by.
+pub(crate) fn eyedropper_colour(source: &WorkingBuffer, rows: &[[usize; 3]], n: f64, average: &str) -> [f64; 4] {
+    let each: Vec<[f64; 8]> = rows.par_iter().map(|&r| eyedropper_row(source, r)).collect();
+    let mut s = [0.0; 8];
+    for r in &each {
+        for (a, b) in s.iter_mut().zip(r) {
+            *a += b;
+        }
+    }
+    let over = |v: f64, d: f64| if d > 0.0 { v / d } else { 0.0 };
+    let (c, a) = match average {
+        "skip_empty" => ([4, 5, 6].map(|i| over(s[i], s[7])), 1.0),
+        "all" => ([4, 5, 6].map(|i| s[i] / n), 1.0),
+        "all_premultiplied" => ([0, 1, 2].map(|i| s[i] / n), 1.0),
+        _ => ([0, 1, 2].map(|i| over(s[i], s[3])), s[3] / n),
+    };
+    [c[0] * a, c[1] * a, c[2] * a, a]
+}
+
+/// D-419: every pixel P becomes E (1 - b) + P b, E the sampled colour `e`, times the pixel's
+/// own alpha when `maintain` is on.
+pub(crate) fn eyedropper_fill(source: &mut WorkingBuffer, e: [f64; 4], maintain: bool, b: f64) {
+    source.data_mut().par_chunks_exact_mut(4).for_each(|p| {
+        let m = if maintain { p[3] as f64 } else { 1.0 };
+        for (c, v) in p.iter_mut().enumerate() {
+            *v = (e[c] * m * (1.0 - b) + *v as f64 * b) as f32;
+        }
+    });
+}
+
 /// D-418: Fill's feathers as the taps across and down (document 21's Gaussian, sigma feather / 2)
 /// and how far the covering must reach past the buffer for both: the larger radius.
 pub(crate) fn fill_taps(feathers: [f64; 2]) -> ([Vec<f32>; 2], usize) {

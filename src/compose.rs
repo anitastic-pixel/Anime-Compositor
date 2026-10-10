@@ -1008,6 +1008,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Grid { .. }
                 // D-418: Fill.
                 | crate::effects::Effect::Fill { .. }
+                // D-419: Eyedropper Fill.
+                | crate::effects::Effect::EyedropperFill { .. }
                 // D-407: Detail-preserving Upscale.
                 | crate::effects::Effect::DetailUpscale { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
@@ -1378,6 +1380,8 @@ fn card_effect(
                 E::Fill { paths, invert, opacity, .. } => {
                     *opacity == 0.0 || paths.as_ref().is_none_or(|p| p.is_empty() && invert == "on")
                 }
+                // D-419: all of the layer blended back.
+                E::EyedropperFill { blend_with_original, .. } => *blend_with_original == 100.0,
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and

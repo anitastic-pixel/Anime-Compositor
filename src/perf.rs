@@ -338,6 +338,8 @@ pub enum Stage {
     EffectThreads,
     /// D-426's Lens Flare.
     EffectLensFlare,
+    /// D-419's Eyedropper Fill.
+    EffectEyedropperFill,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -355,7 +357,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 175] = [
+    pub const ALL: [Stage; 176] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -524,6 +526,7 @@ impl Stage {
         Stage::EffectGlueGun,
         Stage::EffectThreads,
         Stage::EffectLensFlare,
+        Stage::EffectEyedropperFill,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -704,6 +707,7 @@ impl Stage {
             Stage::EffectGlueGun => "effect: glue gun",
             Stage::EffectThreads => "effect: threads",
             Stage::EffectLensFlare => "effect: lens flare",
+            Stage::EffectEyedropperFill => "effect: eyedropper fill",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
