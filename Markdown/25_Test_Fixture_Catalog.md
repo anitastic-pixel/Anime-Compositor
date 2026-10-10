@@ -206310,3 +206310,83 @@ FX-FRACTAL-040 (`fx_fractal_040.json`): Hue keyed to 36001 at frame 4, above 360
 FX-FRACTAL-041 (`fx_fractal_041.json`): Oversample Method "fast". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-FRACTAL-042 (`fx_fractal_042.json`): Transparency "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Grid (D-417)
+
+After Effects' Grid (Generate), `core.grid` (B-296). Every case is a composition 16 by 10 holding Gradient's cel, the same size, unmoved unless the case says. `tools/grid_reference.py` works the expected frames, `Fixtures/grid/expected_grid.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-GRID-001 (`fx_grid_001.json`): The settings as they start: anchor in the middle, Corner Point at (60, 60) per cent, cells 1.6 by 1 pixels in this small drawing, border 2, white, blending mode none: the lines are thicker than the cells, so the whole layer is the grid's white and the cel is gone. Frames 0.
+
+FX-GRID-002 (`fx_grid_002.json`): Width Slider 4, border 1, the anchor at (8, 5): the lines run along pixel edges, so they are two half-covered pixels wide, and three quarters where they cross. Frames 0.
+
+FX-GRID-003 (`fx_grid_003.json`): Width Slider 4, border 1, the anchor at (8.5, 5.5): the lines run through pixel centres, so columns 0, 4, 8, 12 and rows 1, 5, 9 are white, the rest clear. Frames 0.
+
+FX-GRID-004 (`fx_grid_004.json`): Width & Height Sliders 4 by 2, border 1, the anchor at (8, 5). Frames 0.
+
+FX-GRID-005 (`fx_grid_005.json`): Corner Point with the corner at (75, 70) per cent, (12, 7) pixels: cells 4 by 2, FX-GRID-004's. Frames 0.
+
+FX-GRID-006 (`fx_grid_006.json`): Border 0: no grid at all, the layer clear. Frames 0.
+
+FX-GRID-007 (`fx_grid_007.json`): Width 4, border 2, feather width 2: the upright lines ramp over 2 pixels each side, the level ones stay sharp. Frames 0.
+
+FX-GRID-008 (`fx_grid_008.json`): Width 5, border 3, both feathers 4: soft lines both ways. Frames 0.
+
+FX-GRID-009 (`fx_grid_009.json`): FX-GRID-003 with Invert Grid: the cells white, the lines clear. Frames 0.
+
+FX-GRID-010 (`fx_grid_010.json`): FX-GRID-003 in orange #ff8000 at opacity 50. Frames 0.
+
+FX-GRID-011 (`fx_grid_011.json`): FX-GRID-003, normal: white lines over the cel. Frames 0.
+
+FX-GRID-012 (`fx_grid_012.json`): FX-GRID-003 in violet #6450a0, multiply: the cel darkened and tinted on the lines, as it was elsewhere. Frames 0.
+
+FX-GRID-013 (`fx_grid_013.json`): The same, screen. Frames 0.
+
+FX-GRID-014 (`fx_grid_014.json`): The same, add. Frames 0.
+
+FX-GRID-015 (`fx_grid_015.json`): The same, overlay. Frames 0.
+
+FX-GRID-016 (`fx_grid_016.json`): The same, soft light. Frames 0.
+
+FX-GRID-017 (`fx_grid_017.json`): FX-GRID-003, stencil alpha: the grid as a mask, the cel kept only on the lines. Frames 0.
+
+FX-GRID-018 (`fx_grid_018.json`): FX-GRID-003, normal at opacity 0: the cel exactly as it was. Frames 0.
+
+FX-GRID-019 (`fx_grid_019.json`): Width 4, border 1, the anchor keyed from (53.125, 55) at frame 0 to (78.125, 55) at frame 4, linear: the lines slide right 1 pixel a frame; frame 4, moved one cell, is frame 0. Frames 0, 2, 4.
+
+FX-GRID-020 (`fx_grid_020.json`): Width 4, the border keyed from 0 at frame 0 to 4 at frame 4, linear: frame 2 is border 2. Frames 0, 2, 4.
+
+FX-GRID-021 (`fx_grid_021.json`): FX-GRID-011 moved three pixels right: the grid moves with the layer. Frames 0.
+
+FX-GRID-022 (`fx_grid_022.json`): After a Motion Tile that grows the layer: the anchor is the drawing's own, so the frame is FX-GRID-003's. Frames 0.
+
+FX-GRID-023 (`fx_grid_023.json`): FX-GRID-010 with its colour in capitals, #FF8000: the same. Frames 0.
+
+FX-GRID-024 (`fx_grid_024.json`): Width 2, border 3: the lines wider than the cells, every pixel white. Frames 0.
+
+FX-GRID-025 (`fx_grid_025.json`): Opacity keyed from 100 at frame 0 to 0 at frame 4 past its end by an ease, FX-GRID-003, none: held at 0, frame 4 is clear everywhere. Frames 0, 4.
+
+FX-GRID-026 (`fx_grid_026.json`): Invert Grid with stencil alpha: the cel kept only in the cells. Frames 0.
+
+FX-GRID-027 (`fx_grid_027.json`): Width 3, border 0.5, the anchor at (-100, -100) per cent, outside the drawing: thin lines still across the whole layer, each pixel covered by the share of it a line crosses. Frames 0.
+
+FX-GRID-028 (`fx_grid_028.json`): Width 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRID-029 (`fx_grid_029.json`): Height 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRID-030 (`fx_grid_030.json`): Border -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRID-031 (`fx_grid_031.json`): Feather height 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRID-032 (`fx_grid_032.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRID-033 (`fx_grid_033.json`): Anchor 1001 per cent across, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRID-034 (`fx_grid_034.json`): Size From "corner", not one of its three words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRID-035 (`fx_grid_035.json`): Blending mode "darken", which this program does not have. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRID-036 (`fx_grid_036.json`): Colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRID-037 (`fx_grid_037.json`): Invert "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRID-038 (`fx_grid_038.json`): Border keyed to 10001 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
