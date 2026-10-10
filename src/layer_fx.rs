@@ -831,14 +831,40 @@ pub(crate) fn light_rays(
         }
     });
     crate::blurs::radial_blur(&mut rays, false, length, center, false, None);
-    let c = color.map(crate::grade::to_linear);
+    add_rays(source, &rays, intensity, color.map(crate::grade::to_linear), false);
+}
+
+/// D-422: Light Burst. The whole layer is the light, zoomed about `center` by `sweep` with
+/// amount `length`, and added on as Light Rays' are, `k` times; with `tint`, an encoded colour,
+/// the rays are that colour at their covering, otherwise the layer's own colours.
+pub(crate) fn light_burst(
+    source: &mut WorkingBuffer,
+    center: (f64, f64),
+    k: f64,
+    length: f64,
+    sweep: crate::blurs::Sweep,
+    tint: Option<[f64; 3]>,
+) {
+    if k == 0.0 {
+        return;
+    }
+    let mut rays = source.clone();
+    crate::blurs::radial_blur(&mut rays, false, length, center, false, Some(sweep));
+    let c = tint.map_or([1.0; 3], |c| c.map(crate::grade::to_linear));
+    add_rays(source, &rays, k, c, tint.is_some());
+}
+
+/// D-124's last step, shared with D-422: O + `intensity` C R in colour, the covering
+/// min(1, O.a + `intensity` R.a); with `from_alpha`, R's covering stands for its colour.
+fn add_rays(source: &mut WorkingBuffer, rays: &WorkingBuffer, intensity: f64, c: [f64; 3], from_alpha: bool) {
     source
         .data_mut()
         .par_chunks_exact_mut(4)
         .zip(rays.data().par_chunks_exact(4))
         .for_each(|(px, r)| {
             for k in 0..3 {
-                px[k] = (px[k] as f64 + intensity * c[k] * r[k] as f64) as f32;
+                let v = if from_alpha { r[3] } else { r[k] };
+                px[k] = (px[k] as f64 + intensity * c[k] * v as f64) as f32;
             }
             px[3] = (px[3] as f64 + intensity * r[3] as f64).min(1.0) as f32;
         });

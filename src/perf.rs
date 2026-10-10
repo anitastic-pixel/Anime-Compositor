@@ -328,6 +328,8 @@ pub enum Stage {
     EffectFractal,
     /// D-417's Grid.
     EffectGrid,
+    /// D-422's Light Burst.
+    EffectLightBurst,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -345,7 +347,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 170] = [
+    pub const ALL: [Stage; 171] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -509,6 +511,7 @@ impl Stage {
         Stage::EffectAudioWaveform,
         Stage::EffectFractal,
         Stage::EffectGrid,
+        Stage::EffectLightBurst,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -684,6 +687,7 @@ impl Stage {
             Stage::EffectAudioWaveform => "effect: audio waveform",
             Stage::EffectFractal => "effect: fractal",
             Stage::EffectGrid => "effect: grid",
+            Stage::EffectLightBurst => "effect: light burst",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

@@ -1538,6 +1538,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("intensity".into(), num(*intensity));
             params.insert("color".into(), J::from(color.as_str()));
         }
+        Effect::LightBurst { center, intensity, ray_length, burst, set_color, color } => {
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("ray_length".into(), num(*ray_length));
+            params.insert("burst".into(), J::from(burst.as_str()));
+            params.insert("set_color".into(), J::from(set_color.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+        }
         Effect::ExposureFlicker {
             amount, hold, seed, ..
         } => {
@@ -4346,6 +4354,7 @@ fn parse_effect(
         crate::effects::CHROMATIC_ABERRATION,
         crate::effects::DISTANCE_GRADATION,
         crate::effects::LIGHT_RAYS,
+        crate::effects::LIGHT_BURST,
         crate::effects::EXPOSURE_FLICKER,
         crate::effects::VIGNETTE,
         crate::effects::TURBULENT_DISPLACE,
@@ -4782,6 +4791,15 @@ fn parse_effect(
             length: effect_number(params, "length", &at)?,
             threshold: effect_number(params, "threshold", &at)?,
             intensity: effect_number(params, "intensity", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+        }),
+        // D-422: the colour read in small letters, as Light Rays'.
+        crate::effects::LIGHT_BURST => Some(crate::effects::Effect::LightBurst {
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            intensity: effect_number(params, "intensity", &at)?,
+            ray_length: effect_number(params, "ray_length", &at)?,
+            burst: effect_word(params, "burst", &at)?,
+            set_color: effect_word(params, "set_color", &at)?,
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
         }),
         crate::effects::EXPOSURE_FLICKER => {

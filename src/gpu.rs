@@ -1685,7 +1685,8 @@ fn slide(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // B-76, layer_fx::light_rays' last step: `other` is the bright pixels zoomed out. k: the
-// intensity, the colour in linear light.
+// intensity, the colour in linear light, and (D-422, Light Burst's Set Color) 1 when the rays'
+// covering stands for their colour, else 0.
 @compute @workgroup_size(16, 16)
 fn rays(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -1694,9 +1695,10 @@ fn rays(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let p = textureLoad(input, id.xy, 0);
     let r = textureLoad(other, id.xy, 0);
+    let lit = select(r, vec4(r.w), k[4] == 1.0lf);
     var out: vec4<f32>;
     for (var c = 0u; c < 3u; c++) {
-        out[c] = f32(f64(p[c]) + k[0] * k[1u + c] * f64(r[c]));
+        out[c] = f32(f64(p[c]) + k[0] * k[1u + c] * f64(lit[c]));
     }
     out.w = f32(min(f64(p.w) + k[0] * f64(r.w), 1.0lf));
     textureStore(output, id.xy, out);
@@ -9024,6 +9026,23 @@ impl Gpu {
                 let rays = self.blur(steps, &lit, (w, h), Radial { spin: false, amount: *length, center, repeat: false, sweep: None });
                 let mut k = vec![*intensity];
                 k.extend(linear(color));
+                k.push(0.0);
+                same(steps, &passes.rays, FxParams::default(), &k, Some(&rays))
+            }
+            // D-422: the layer itself is the light, through Spin & Zoom Blur's zoom, then Light
+            // Rays' last step.
+            E::LightBurst { center, intensity, ray_length, burst, set_color, color } => {
+                let center = crate::effects::radial_center(*center, (w, h), f.origin);
+                let sweep = Some(crate::effects::burst_sweep(burst, *ray_length));
+                let rays = self.blur(steps, still, (w, h), Radial { spin: false, amount: *ray_length, center, repeat: false, sweep });
+                let on = set_color == "on";
+                let mut k = vec![intensity / 100.0];
+                if on {
+                    k.extend(linear(color));
+                } else {
+                    k.extend([1.0; 3]);
+                }
+                k.push(on as u8 as f64);
                 same(steps, &passes.rays, FxParams::default(), &k, Some(&rays))
             }
             E::DistanceGradation { color, width, opacity, invert, blend: b } => {

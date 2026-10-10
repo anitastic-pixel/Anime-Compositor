@@ -888,6 +888,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::LensChromaticAberration { .. }
                 | crate::effects::Effect::DistanceGradation { .. }
                 | crate::effects::Effect::LightRays { .. }
+                | crate::effects::Effect::LightBurst { .. }
                 | crate::effects::Effect::ExposureFlicker { .. }
                 | crate::effects::Effect::Vignette { .. }
                 | crate::effects::Effect::TurbulentDisplace { .. }
@@ -1182,7 +1183,7 @@ fn card_effect(
                     *amount == 0.0 || [*red_scale, *green_scale, *blue_scale] == [0.0; 3]
                 }
                 E::DistanceGradation { width, opacity, .. } => *width == 0.0 || *opacity == 0.0,
-                E::LightRays { intensity, .. } => *intensity == 0.0,
+                E::LightRays { intensity, .. } | E::LightBurst { intensity, .. } => *intensity == 0.0,
                 E::ExposureFlicker { amount, .. }
                 | E::Vignette { amount, .. }
                 | E::TurbulentDisplace { amount, .. }

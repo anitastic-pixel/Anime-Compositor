@@ -634,6 +634,18 @@ pub enum Effect {
         intensity: f64,
         color: String,
     },
+    /// D-422: our name for CC Light Burst 2.5. `center`, per cent of the drawing's width and
+    /// height, -1000 to 1000; `intensity`, 0 to 2000 per cent; `ray_length`, 0 to 100 per cent
+    /// of the way to the centre; `burst`, "straight", "fade" or "center"; `set_color`, "off" or
+    /// "on"; and `color`, `#rrggbb`, kept as written so a wrong one is reported.
+    LightBurst {
+        center: [f64; 2],
+        intensity: f64,
+        ray_length: f64,
+        burst: String,
+        set_color: String,
+        color: String,
+    },
     /// D-125: `amount`, 0 to 4 stops either way; `hold`, 1 to 100 frames, its whole part
     /// counted; and `seed`, 0 to 100000, its whole part counted. `frame` is not a setting and is
     /// never saved: it is the composition frame the settings were resolved at, as Noise's is.
@@ -2151,6 +2163,7 @@ pub const NOISE: &str = "core.noise";
 pub const CHROMATIC_ABERRATION: &str = "core.chromatic_aberration";
 pub const DISTANCE_GRADATION: &str = "core.distance_gradation";
 pub const LIGHT_RAYS: &str = "core.light_rays";
+pub const LIGHT_BURST: &str = "core.light_burst";
 pub const EXPOSURE_FLICKER: &str = "core.exposure_flicker";
 pub const VIGNETTE: &str = "core.vignette";
 pub const TURBULENT_DISPLACE: &str = "core.turbulent_displace";
@@ -2733,6 +2746,11 @@ impl Effect {
                 ("length", vec![length], 0.0, 100.0),
                 ("threshold", vec![threshold], 0.0, 100.0),
                 ("intensity", vec![intensity], 0.0, 10.0),
+            ],
+            Effect::LightBurst { center, intensity, ray_length, .. } => vec![
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("intensity", vec![intensity], 0.0, 2000.0),
+                ("ray_length", vec![ray_length], 0.0, 100.0),
             ],
             Effect::ExposureFlicker {
                 amount, hold, seed, ..
@@ -4313,6 +4331,7 @@ impl Effect {
             Effect::ChromaticAberration { .. } | Effect::LensChromaticAberration { .. } => "Chromatic Aberration",
             Effect::DistanceGradation { .. } => "Distance Gradation",
             Effect::LightRays { .. } => "Light Rays",
+            Effect::LightBurst { .. } => "Light Burst",
             Effect::ExposureFlicker { .. } => "Exposure Flicker",
             Effect::Vignette { .. } => "Vignette",
             Effect::TurbulentDisplace { .. } => "Turbulent Displace",
@@ -4480,6 +4499,7 @@ impl Effect {
             Effect::ChromaticAberration { .. } | Effect::LensChromaticAberration { .. } => CHROMATIC_ABERRATION,
             Effect::DistanceGradation { .. } => DISTANCE_GRADATION,
             Effect::LightRays { .. } => LIGHT_RAYS,
+            Effect::LightBurst { .. } => LIGHT_BURST,
             Effect::ExposureFlicker { .. } => EXPOSURE_FLICKER,
             Effect::Vignette { .. } => VIGNETTE,
             Effect::TurbulentDisplace { .. } => TURBULENT_DISPLACE,
@@ -5075,6 +5095,10 @@ impl Effect {
                 .or_else(|| (!["off", "on"].contains(&composite.as_str())).then(|| format!("{name}'s composite is \"off\" or \"on\", and this is \"{composite}\".")))
                 .or_else(|| hex_fault(name, "inside colour", inside_color))
                 .or_else(|| hex_fault(name, "outside colour", outside_color)),
+            Effect::LightBurst { burst, set_color, color, .. } => (!["straight", "fade", "center"].contains(&burst.as_str()))
+                .then(|| format!("{name}'s burst is \"straight\", \"fade\" or \"center\", and this is \"{burst}\"."))
+                .or_else(|| (!["off", "on"].contains(&set_color.as_str())).then(|| format!("{name}'s set colour is \"off\" or \"on\", and this is \"{set_color}\".")))
+                .or_else(|| hex_fault(name, "colour", color)),
             Effect::ColorLink { layer, sample, stencil, blending_mode, .. } => (!layer.is_string())
                 .then(|| format!("{name}'s source layer is the name of a layer of this composition, and this is {layer}."))
                 .or_else(|| {
@@ -6301,6 +6325,18 @@ impl Effect {
     }
 }
 
+/// D-422: Light Burst's zoom, Spin & Zoom Blur's straight, fading or centered zoom with a
+/// sample a pixel of path, as `burst` says; the burst is already a valid word.
+pub(crate) fn burst_sweep(burst: &str, ray_length: f64) -> crate::blurs::Sweep {
+    use crate::blurs::{Sweep, Weigh};
+    let (from, weigh) = match burst {
+        "fade" => (0.0, Weigh::Fading),
+        "center" => (ray_length / 2.0, Weigh::Even),
+        _ => (0.0, Weigh::Even),
+    };
+    Sweep { from, weigh, density: 1.0 }
+}
+
 /// D-378: Bender's amount in pixels, from per cent of the axis from `base` to `top` when
 /// `adjust` is "on".
 pub(crate) fn bender_amount(amount: f64, adjust: &str, base: (f64, f64), top: (f64, f64)) -> f64 {
@@ -6871,6 +6907,15 @@ pub(crate) fn apply_stack_at(
                         *intensity,
                         encoded(color),
                     )
+                })
+            }
+            // D-422: the centre is a share of the drawing's own size, as Light Rays'.
+            Effect::LightBurst { center, intensity, ray_length, burst, set_color, color } => {
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
+                let tint = (set_color == "on").then(|| encoded(color));
+                let sweep = burst_sweep(burst, *ray_length);
+                crate::perf::time(crate::perf::Stage::EffectLightBurst, || {
+                    crate::layer_fx::light_burst(source, c, *intensity / 100.0, *ray_length, sweep, tint)
                 })
             }
             // D-125: Noise's hash of the seed and the frame over the hold gives the stops.
