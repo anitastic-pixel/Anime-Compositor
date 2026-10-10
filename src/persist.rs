@@ -2327,6 +2327,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("radius".into(), num(*radius));
             params.insert("operate_on_alpha".into(), J::from(operate_on_alpha.as_str()));
         }
+        Effect::DustScratches { radius, threshold, operate_on_alpha } => {
+            params.insert("radius".into(), num(*radius));
+            params.insert("threshold".into(), num(*threshold));
+            params.insert("operate_on_alpha".into(), J::from(operate_on_alpha.as_str()));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4726,6 +4731,7 @@ fn parse_effect(
         crate::effects::RADIO_WAVES,
         crate::effects::POLAR_COORDINATES,
         crate::effects::MEDIAN,
+        crate::effects::DUST_SCRATCHES,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
         crate::effects::CROSS_BLUR,
@@ -5594,6 +5600,11 @@ fn parse_effect(
         }),
         crate::effects::MEDIAN => Some(crate::effects::Effect::Median {
             radius: effect_number(params, "radius", &at)?,
+            operate_on_alpha: effect_word(params, "operate_on_alpha", &at)?,
+        }),
+        crate::effects::DUST_SCRATCHES => Some(crate::effects::Effect::DustScratches {
+            radius: effect_number(params, "radius", &at)?,
+            threshold: effect_number(params, "threshold", &at)?,
             operate_on_alpha: effect_word(params, "operate_on_alpha", &at)?,
         }),
         crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {

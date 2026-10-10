@@ -5303,10 +5303,22 @@ fn median(@builtin(global_invocation_id) id: vec3<u32>) {
             mid[c] = (unordered(lower[c]) + mid[c]) / 2.0;
         }
     }
-    let a = select(own.w, mid.w, F.flag == 1u);
+    var a = select(own.w, mid.w, F.flag == 1u);
+    // D-453, mode 1, Dust & Scratches: a channel, or with `flag` the covering, whose 8-bit
+    // value is within k[0] of the median's keeps its own.
+    if F.mode == 1u && F.flag == 1u && abs(step8(mid.w) - step8(own.w)) <= k[0] {
+        a = own.w;
+    }
     if a <= 0.0 || shows == 0u {
         textureStore(output, id.xy, vec4(0.0));
         return;
+    }
+    if F.mode == 1u && own.w > 0.0 {
+        for (var c = 0; c < 3; c++) {
+            if abs(level8(own[c], 1.0lf) - level8(mid[c], 1.0lf)) <= k[0] {
+                mid[c] = own[c];
+            }
+        }
     }
     textureStore(output, id.xy, vec4(mid.xyz * a, a));
 }
@@ -10856,6 +10868,15 @@ impl Gpu {
             E::Median { radius, operate_on_alpha } => {
                 let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
                 let p = FxParams { r: radius.floor() as i32, flag: (operate_on_alpha == "on") as u32, ..Default::default() };
+                same(steps, &passes.median, p, &k, None)
+            }
+            // D-453: the same pass in mode 1, k the threshold, then level8's power and 0, then
+            // the disc's rows, as SmartBlur's.
+            E::DustScratches { radius, threshold, operate_on_alpha } => {
+                let power = f64::from(1.0f32 / 2.4) - 1.0 / 2.4;
+                let mut k = vec![*threshold, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, power, 0.0];
+                k.extend(crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64));
+                let p = FxParams { r: radius.floor() as i32, n: 9, mode: 1, flag: (operate_on_alpha == "on") as u32, ..Default::default() };
                 same(steps, &passes.median, p, &k, None)
             }
             E::SmartBlur { radius, threshold } => {

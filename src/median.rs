@@ -40,9 +40,13 @@ fn middle(v: &mut [f32]) -> f32 {
 /// D-203: each pixel's straight colour the median of the taps within `radius` that show, one
 /// channel at a time, at its own covering, or with `operate_on_alpha` at the median of every
 /// tap's covering. The buffer keeps its size; the settings are already valid.
+///
+/// D-453's Dust & Scratches with `threshold` 0 or more: a channel, or with `operate_on_alpha` the
+/// covering, whose 8-bit value (D-88's, colours through the sRGB curve) is within `threshold` of
+/// the median's keeps its own. Median is a `threshold` of -1, nothing kept.
 // ponytail: every pixel sorts its disc afresh, about 300 taps at radius 10; a sliding histogram
 // would be the upgrade if a larger radius is ever wanted.
-pub(crate) fn median(source: &mut WorkingBuffer, radius: f64, operate_on_alpha: bool) {
+pub(crate) fn median(source: &mut WorkingBuffer, radius: f64, threshold: f64, operate_on_alpha: bool) {
     let taps = disc(radius);
     if taps.len() == 1 {
         return;
@@ -87,12 +91,19 @@ pub(crate) fn median(source: &mut WorkingBuffer, radius: f64, operate_on_alpha: 
                         (0..3).for_each(|i| v[i].push(t[i]));
                     }
                 }
-                let a = if operate_on_alpha { middle(&mut v[3]) } else { straight[y * w + x][3] };
+                let near = |p: u8, q: u8| (p as f64 - q as f64).abs() <= threshold;
+                let mut a = if operate_on_alpha { middle(&mut v[3]) } else { own[3] };
+                if operate_on_alpha && near(quantise_u8(a), quantise_u8(own[3])) {
+                    a = own[3];
+                }
                 if a <= 0.0 || v[0].is_empty() {
                     continue;
                 }
                 for i in 0..3 {
-                    px[i] = middle(&mut v[i]) * a;
+                    let m = middle(&mut v[i]);
+                    let level = |c: f32| quantise_u8(linear_to_srgb(c));
+                    let c = if own[3] > 0.0 && threshold >= 0.0 && near(level(own[i]), level(m)) { own[i] } else { m };
+                    px[i] = c * a;
                 }
                 px[3] = a;
             }

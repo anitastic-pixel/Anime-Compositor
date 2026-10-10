@@ -2052,6 +2052,9 @@ pub enum Effect {
         animation_speed: f64,
         frame: i32,
     },
+    /// D-453: after After Effects' Dust & Scratches, D-203's Median with a threshold. `radius`,
+    /// 0 to 10 pixels; `threshold`, 0 to 255 levels; `operate_on_alpha`, "off" or "on".
+    DustScratches { radius: f64, threshold: f64, operate_on_alpha: String },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2776,6 +2779,7 @@ pub const CURL_NOISE: &str = "core.curl_noise";
 pub const CURL_VIEWS: [&str; 3] = ["final_render", "input_noise", "curl_generation"];
 pub const CURL_CHANNELS: [&str; 5] = ["rgb", "red", "green", "blue", "alpha"];
 pub const NOISE_HLS_AUTO: &str = "core.noise_hls_auto";
+pub const DUST_SCRATCHES: &str = "core.dust_scratches";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3834,6 +3838,9 @@ impl Effect {
                 ("grain_size", vec![grain_size], 0.5, 100.0),
                 ("animation_speed", vec![animation_speed], 0.0, 10.0),
             ],
+            Effect::DustScratches { radius, threshold, .. } => {
+                vec![("radius", vec![radius], 0.0, 10.0), ("threshold", vec![threshold], 0.0, 255.0)]
+            }
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -4652,7 +4659,10 @@ impl Effect {
             Effect::LineWidth { width, .. } => *width = scale(*width),
             Effect::LineBlur { length, .. } => *length = scale(*length),
             // D-203: a radius scaled under one leaves the layer as it is.
-            Effect::Median { radius, .. } | Effect::SmartBlur { radius, .. } | Effect::BilateralBlur { radius, .. } => {
+            Effect::Median { radius, .. }
+            | Effect::SmartBlur { radius, .. }
+            | Effect::BilateralBlur { radius, .. }
+            | Effect::DustScratches { radius, .. } => {
                 *radius = scale(*radius)
             }
             Effect::Snowfall {
@@ -5128,6 +5138,7 @@ impl Effect {
             Effect::NoiseHls { .. } => "Noise HLS",
             Effect::CurlNoise { .. } => "Curl Noise",
             Effect::NoiseHlsAuto { .. } => "Noise HLS Auto",
+            Effect::DustScratches { .. } => "Dust & Scratches",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5311,6 +5322,7 @@ impl Effect {
             Effect::NoiseHls { .. } => NOISE_HLS,
             Effect::CurlNoise { .. } => CURL_NOISE,
             Effect::NoiseHlsAuto { .. } => NOISE_HLS_AUTO,
+            Effect::DustScratches { .. } => DUST_SCRATCHES,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6502,6 +6514,9 @@ impl Effect {
             )),
             Effect::Median { operate_on_alpha, .. } if !["off", "on"].contains(&operate_on_alpha.as_str()) => Some(format!(
                 "Median's operate on alpha is \"off\" or \"on\", and this is \"{operate_on_alpha}\"."
+            )),
+            Effect::DustScratches { operate_on_alpha, .. } if !["off", "on"].contains(&operate_on_alpha.as_str()) => Some(format!(
+                "Dust & Scratches's operate on alpha is \"off\" or \"on\", and this is \"{operate_on_alpha}\"."
             )),
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
@@ -8770,8 +8785,14 @@ pub(crate) fn apply_stack_at(
             }
             // D-203: neither grows the layer.
             Effect::Median { radius, operate_on_alpha } => crate::perf::time(crate::perf::Stage::EffectMedian, || {
-                crate::median::median(source, *radius, operate_on_alpha == "on")
+                crate::median::median(source, *radius, -1.0, operate_on_alpha == "on")
             }),
+            // D-453: Median keeping what is within the threshold.
+            Effect::DustScratches { radius, threshold, operate_on_alpha } => {
+                crate::perf::time(crate::perf::Stage::EffectDustScratches, || {
+                    crate::median::median(source, *radius, *threshold, operate_on_alpha == "on")
+                })
+            }
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
                 crate::median::smart_blur(source, *radius, *threshold)
             }),

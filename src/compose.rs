@@ -948,6 +948,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Paraffin { .. }
                 | crate::effects::Effect::KiraKira { .. }
                 | crate::effects::Effect::Median { .. }
+                | crate::effects::Effect::DustScratches { .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }
@@ -1291,6 +1292,8 @@ fn card_effect(
                 E::KiraKira { size, density, opacity, .. } => [*size, *density, *opacity].contains(&0.0),
                 // B-151: ten of the fourth batch, each as its own function returns at once.
                 E::Median { radius, .. } | E::SmartBlur { radius, .. } => *radius < 1.0,
+                // D-453: no two 8-bit values are more than 255 apart, so nothing is changed.
+                E::DustScratches { radius, threshold, .. } => *radius < 1.0 || *threshold >= 255.0,
                 E::BilateralBlur { radius, threshold, colorize } => colorize == "on" && (*radius < 1.0 || *threshold == 0.0),
                 E::RoughenEdges { border, .. } => *border == 0.0,
                 E::BevelAlpha { edge_thickness, light_intensity, .. } => *edge_thickness <= 0.0 || *light_intensity <= 0.0,

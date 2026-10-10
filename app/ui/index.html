@@ -9322,6 +9322,7 @@ const EFFECT_NAMES = {
   'core.radio_waves': 'Radio Waves',
   'core.polar_coordinates': 'Polar Coordinates',
   'core.median': 'Median',
+  'core.dust_scratches': 'Dust & Scratches',
   'core.smart_blur': 'Smart Blur',
   'core.bilateral_blur': 'Bilateral Blur',
   'core.cross_blur': 'Cross Blur',
@@ -9423,7 +9424,7 @@ Object.defineProperty(EFFECT_NAMES, 'core.light_rays.old', { value: 'Light Rays'
 const EFFECT_GROUPS = [
   ['Blur & Sharpen', ['core.gaussian_blur', 'core.directional_blur', 'core.radial_blur',
     'core.lens_blur', 'core.compound_blur', 'core.selective_color_blur', 'core.sharpen',
-    'core.diffusion', 'core.median', 'core.smart_blur', 'core.channel_blur', 'core.fast_box_blur', 'core.vector_blur',
+    'core.diffusion', 'core.median', 'core.dust_scratches', 'core.smart_blur', 'core.channel_blur', 'core.fast_box_blur', 'core.vector_blur',
     'core.bilateral_blur', 'core.cross_blur', 'core.spin_zoom_blur', 'core.fast_zoom_blur']],
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.levels_individual', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
@@ -9527,6 +9528,7 @@ const EFFECT_SEARCH = {
   'core.radio_waves': 'radio waves ring rings shockwave sonar ping ripple pulse signal circle wave target',
   'core.polar_coordinates': 'polar coordinates rect to polar polar to rect focus lines speed lines tiny planet round circle ring bend wrap unroll',
   'core.median': 'median noise grain dust specks speckle clean cleanup despeckle scan pinhole denoise',
+  'core.dust_scratches': 'dust and scratches specks speckle scratch clean cleanup despeckle scan film damage pinhole denoise noise and grain',
   'core.smart_blur': 'smart blur surface blur skin smooth smoothing grain noise denoise edge preserving bilateral clean',
   'core.bilateral_blur': 'bilateral blur surface blur skin smooth smoothing grain noise denoise edge preserving clean glow colorize',
   'core.cross_blur': 'cross blur cc cross blur box horizontal vertical streak shine star glint plus',
@@ -9722,6 +9724,7 @@ const EFFECT_ABOUT = {
   'core.radio_waves': 'Sends rings out from a point, a new one every few frames, over the layer as it plays.',
   'core.polar_coordinates': 'Bends the layer round its middle, its rows into rings and its columns into spokes, or unrolls it back.',
   'core.median': 'Cleans away specks and pinholes: each pixel takes the middle colour of those round it, so edges stay.',
+  'core.dust_scratches': 'Cleans away dust and specks but keeps fine grain: only colours further than the threshold from those round them are replaced.',
   'core.smart_blur': 'Smooths flat colour and grain while keeping lines sharp: each pixel mixes only with close colours round it.',
   'core.cross_blur': 'Blurs across and down separately, then lays the two together, so a bright point becomes a soft cross.',
   'core.spin_zoom_blur': 'A camera zooming or turning during the shot: zooms streak outward, turns streak round the centre, some fading as they run.',
@@ -10369,6 +10372,9 @@ const EFFECT_PARAMS = {
     ['end_width', 'End Width', 1, 0.5, 'pixels, 0 to 1000, its width as it dies']],
   'core.polar_coordinates': [['interpolation', 'Interpolation', 1, 1, '0 to 100, how far to go; 0 leaves the layer as it is']],
   'core.median': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 10; below 1 leaves the layer as it is']],
+  // D-453.
+  'core.dust_scratches': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 10; below 1 leaves the layer as it is'],
+    ['threshold', 'Threshold', 1, 1, '0 to 255 steps, how far a colour may be from those round it and stay; 255 leaves the layer as it is']],
   'core.smart_blur': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 10; below 1 leaves the layer as it is'],
     ['threshold', 'Threshold', 1, 1, '0 to 255 steps, how close a colour must be to mix; 255 blurs everything']],
   'core.bilateral_blur': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 50, how far each pixel looks; below 1 leaves the layer as it is'],
@@ -11015,6 +11021,7 @@ const EFFECT_WORDS = {
   },
   // D-203.
   'core.median': { choices: [['operate_on_alpha', 'Operate on Alpha', [['off', 'Off'], ['on', 'On']]]] },
+  'core.dust_scratches': { choices: [['operate_on_alpha', 'Operate on Alpha', [['off', 'Off'], ['on', 'On']]]] },
   // D-405: as Effect Controls lists them; Normal blending as it starts (Adobe's community thread).
   'core.magnify': { choices: [['shape', 'Shape', [['circle', 'Circle'], ['square', 'Square']]],
     ['link', 'Link', [['none', 'None'], ['size', 'Size to Magnification'], ['size_feather', 'Size & Feather to Magnification']]],
