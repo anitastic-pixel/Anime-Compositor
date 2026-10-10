@@ -204547,6 +204547,90 @@ FX-GRADE-033 (`fx_grade_033.json`): Vignette amount 5.5, above 5. The file is re
 
 FX-GRADE-034 (`fx_grade_034.json`): Vignette roundness -20: Lumetri's squarer vignette, below 0, which this effect does not draw (a gap). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Color Grade, second unit (D-398)
+
+Color Grade's second unit (B-277), after Lumetri Color's Curves, Color Wheels and HSL Secondary: RGB curves (Curves' rule, D-111), hue versus saturation, three wheels with their lightness (Color Balance's rule, D-130) and a secondary correction through a hue, saturation and lightness key, run after D-397's sections and before the vignette. The drawing and look file are FX-GRADE's (`media/colours.png`, `luts/look.cube`). `tools/color_grade_2_reference.py` writes the projects and `expected_color_grade_2.json`, tolerance 2e-5.
+
+FX-GRADE2-001 (`fx_grade2_001.json`): Every setting as added, the new ones written: the drawing exactly as it is. Frames 0.
+
+FX-GRADE2-002 (`fx_grade2_002.json`): Master curve, an S through (64, 40) and (192, 215): darks darker, lights lighter, black and white kept. Frames 0.
+
+FX-GRADE2-003 (`fx_grade2_003.json`): Red curve lifted through (128, 170), blue lowered through (128, 90): warmer midtones, black and white kept. Frames 0.
+
+FX-GRADE2-004 (`fx_grade2_004.json`): Hue versus saturation, one point at saturation 0: every colour its own grey, whatever its hue. Frames 0.
+
+FX-GRADE2-005 (`fx_grade2_005.json`): Hue versus saturation through (0, 100), (120, 200), (240, 100): the greens twice as strong, pure red and pure blue unchanged. Frames 0.
+
+FX-GRADE2-006 (`fx_grade2_006.json`): Hue versus saturation through (30, 150) and (200, 40): the curve runs round through 360 from the second point back to the first; oranges stronger, cyans and blues duller. Frames 0.
+
+FX-GRADE2-007 (`fx_grade2_007.json`): Hue versus saturation, every point at 100: no step, the drawing exactly as it is. Frames 0.
+
+FX-GRADE2-008 (`fx_grade2_008.json`): Shadow wheel hue 195 at 60: the darks teal, the lights untouched. Frames 0.
+
+FX-GRADE2-009 (`fx_grade2_009.json`): Midtone wheel hue 30 at 50 with midtone lightness 20: the middle warmer and lighter, black and white untouched. Frames 0.
+
+FX-GRADE2-010 (`fx_grade2_010.json`): Highlight wheel hue 220 at 40 with highlight lightness -30: the lights cooler and lower, the darks untouched. Frames 0.
+
+FX-GRADE2-011 (`fx_grade2_011.json`): Shadow lightness 40 and highlight lightness -20, no colour: black lifted to 0.2, white lowered to 0.9, greys only. Frames 0.
+
+FX-GRADE2-012 (`fx_grade2_012.json`): Key the reds (hue 0, 20 either side, no softness), secondary saturation 0: red grey, everything else, the skin and orange too, untouched. Frames 0.
+
+FX-GRADE2-013 (`fx_grade2_013.json`): The same key with hue softness 30: hues between 20 and 50 degrees away partly grey, the skin (about 25) and orange (about 33); yellow untouched. Frames 0.
+
+FX-GRADE2-014 (`fx_grade2_014.json`): Key saturation 50 to 100, softness 10, secondary lightness -40: the strong colours darker, greys and the dull tones untouched. Frames 0.
+
+FX-GRADE2-015 (`fx_grade2_015.json`): Key lightness 55 to 100, secondary temperature -50: the light colours cooler, the darks untouched. Frames 0.
+
+FX-GRADE2-016 (`fx_grade2_016.json`): FX-GRADE2-012 inverted: everything but the reds grey. Frames 0.
+
+FX-GRADE2-017 (`fx_grade2_017.json`): FX-GRADE2-013's key shown as the mask: white where the key takes all, black where none, greys between. Frames 0.
+
+FX-GRADE2-018 (`fx_grade2_018.json`): The mask view with no correction set, inverted: the mask still shown. Frames 0.
+
+FX-GRADE2-019 (`fx_grade2_019.json`): Key everything (as added), secondary contrast 60 and tint 30: a second correction over the whole drawing. Frames 0.
+
+FX-GRADE2-020 (`fx_grade2_020.json`): Key the skin (hue 25, 10 either side, softness 20), secondary wheel hue 200 at 70: the skin and warm tones cooled, the rest untouched. Frames 0.
+
+FX-GRADE2-021 (`fx_grade2_021.json`): Key hue 350, 20 either side: the key wraps through 0 and takes red; secondary saturation 0. Frames 0.
+
+FX-GRADE2-022 (`fx_grade2_022.json`): A whole grade: D-397's sections, the master S-curve, a hue curve, the three wheels, a skin key cooled and a dark vignette, each in its order. Frames 0.
+
+FX-GRADE2-023 (`fx_grade2_023.json`): Shadow lightness keyed from 0 at frame 0 to 60 at frame 4, linear: frame 0 untouched, black lifted to 0.15 at frame 2 and 0.3 at frame 4. Frames 0, 2, 4.
+
+FX-GRADE2-024 (`fx_grade2_024.json`): Key hue keyed from 0 at frame 0 to 120 at frame 4, 20 either side, secondary saturation 0: the reds grey at frame 0, the greens at frame 4. Frames 0, 4.
+
+FX-GRADE2-025 (`fx_grade2_025.json`): Wheels and a key moved three pixels right: the same, moved. Frames 0.
+
+FX-GRADE2-026 (`fx_grade2_026.json`): The mask view with a dark vignette: the mask shown, the vignette not drawn over it. Frames 0.
+
+FX-GRADE2-027 (`fx_grade2_027.json`): A D-397 file without the new settings, contrast 40: D-397's own picture. Frames 0.
+
+FX-GRADE2-028 (`fx_grade2_028.json`): Key hue range 181, past 180. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-029 (`fx_grade2_029.json`): Key softness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-030 (`fx_grade2_030.json`): Secondary saturation 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-031 (`fx_grade2_031.json`): Shadow lightness -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-032 (`fx_grade2_032.json`): Master curve with a point at 256, past 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-033 (`fx_grade2_033.json`): Red curve with its ins not rising. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-034 (`fx_grade2_034.json`): Green curve of one point. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-035 (`fx_grade2_035.json`): Hue versus saturation with a hue of 360, a full turn. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-036 (`fx_grade2_036.json`): Hue versus saturation with a saturation of 201. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-037 (`fx_grade2_037.json`): Hue versus saturation with its hues not rising. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-038 (`fx_grade2_038.json`): Hue versus saturation of 17 points, past 16. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-039 (`fx_grade2_039.json`): Key invert "yes", not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE2-040 (`fx_grade2_040.json`): Key view "grey", not "off" or "mask". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Flow Motion (D-385)
 
 Flow Motion (`core.flow_motion`), after CycoreFX's CC Flo Motion (B-264): two knots, each drawing the picture in towards itself (a positive amount) or blowing it out (a negative one), the pull fading with distance by Falloff, the edges mirrored or left clear, a pixel averaged over 1, 2 or 4 points a side. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/flow_motion_reference.py` works the expected frames, `Fixtures/flow_motion/expected_flow_motion.json`, tolerance 2e-5; the rule is in document 21.
