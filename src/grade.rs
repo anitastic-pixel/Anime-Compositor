@@ -1513,6 +1513,28 @@ pub(crate) fn gamma_pedestal_gain(source: &mut WorkingBuffer, stretch: f64, gamm
     });
 }
 
+/// D-384: Photo Filter at density 0 leaves the layer exactly as it is.
+pub(crate) fn photo_filter_untouched(density: f64) -> bool {
+    density == 0.0
+}
+
+/// D-384: Photo Filter. Each encoded channel multiplied by 1 - d + d F, the filter's colour F
+/// laid over at density `d` (0 to 1); with `keep`, the result scaled back to the pixel's own
+/// Rec. 709 luma on the encoded values when its own is above 0; held inside 0 to 1.
+pub(crate) fn photo_filter(source: &mut WorkingBuffer, filter: [f64; 3], d: f64, keep: bool) {
+    if photo_filter_untouched(d) {
+        return;
+    }
+    let luma = |c: [f64; 3]| 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    grade_pixels(source, false, |_, e| {
+        let f: [f64; 3] = std::array::from_fn(|c| e[c] * (1.0 - d + d * filter[c]));
+        match keep && luma(f) > 0.0 {
+            true => f.map(|v| v * luma(e) / luma(f)),
+            false => f,
+        }
+    });
+}
+
 /// D-376: the mean encoded straight colour, each pixel weighted by its covering, of the pixels
 /// of `source` whose centres lie within `r` of (`px`, `py`); with none, the pixel holding the
 /// point, held inside the picture. `None` when what is counted has no covering.

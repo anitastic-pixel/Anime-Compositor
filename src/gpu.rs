@@ -2736,6 +2736,16 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
                 o[c] = k[2u + 3u * c] + (k[3u + 3u * c] - k[2u + 3u * c]) * v;
             }
         }
+        case 32u: {
+            // D-384, as grade::photo_filter. k: the filter's colour encoded, the density as a
+            // share, 1 to keep the luma.
+            for (var c = 0u; c < 3u; c++) {
+                o[c] = e[c] * (1.0lf - k[3] + k[3] * k[c]);
+            }
+            if k[4] != 0.0lf && luma(o) > 0.0lf {
+                o = o * (luma(e) / luma(o));
+            }
+        }
         case 6u: {
             // k: the three rows, each from red, green, blue and a constant.
             for (var c = 0u; c < 3u; c++) {
@@ -6234,6 +6244,8 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::ColorLink { .. }
             // D-382.
             | E::GammaPedestalGain { .. }
+            // D-384.
+            | E::PhotoFilter { .. }
     )
 }
 
@@ -8359,6 +8371,11 @@ impl Gpu {
                     k.extend([1.0 / gamma[c], pedestal[c], gain[c]]);
                 }
                 same(steps, &passes.tone, FxParams { mode: 31, ..Default::default() }, &k, None)
+            }
+            E::PhotoFilter { filter, color, density, preserve_luminosity } => {
+                let mut k = crate::effects::photo_filter_colour(filter, color).to_vec();
+                k.extend([density / 100.0, (preserve_luminosity == "on") as u8 as f64]);
+                same(steps, &passes.tone, FxParams { mode: 32, ..Default::default() }, &k, None)
             }
             E::ColorLink { sample, clip, stencil, opacity, blending_mode: b, map, .. } => {
                 // card_can leaves only a named layer's picture; its colour is read here, once.

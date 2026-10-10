@@ -1229,6 +1229,10 @@ pub enum Effect {
     /// D-382: after After Effects' Gamma/Pedestal/Gain. `black_stretch`, 1 to 4; for red, green
     /// and blue in that order a gamma, 0.1 to 10, a pedestal, -1 to 1, and a gain, 0 to 4.
     GammaPedestalGain { black_stretch: f64, gamma: [f64; 3], pedestal: [f64; 3], gain: [f64; 3] },
+    /// D-384: after After Effects' Photo Filter. `filter`, one of `PHOTO_FILTERS` or "custom";
+    /// `color`, `#rrggbb`, used only for "custom"; `density`, 0 to 100; `preserve_luminosity`,
+    /// "off" or "on". Words kept as written.
+    PhotoFilter { filter: String, color: String, density: f64, preserve_luminosity: String },
     /// D-375: after After Effects' Color Link. `layer`, D-189's layer setting, "" the layer itself
     /// as the effects before this one left it, read whole; `sample`, one of `LINK_SAMPLES`;
     /// `clip`, 0 to 49 per cent; `stencil`, "off" or "on"; `opacity`, 0 to 100;
@@ -1876,6 +1880,17 @@ pub const COLOR_BALANCE_HLS: &str = "core.color_balance_hls";
 pub const COLOR_LINK: &str = "core.color_link";
 pub const COLOR_STABILIZER: &str = "core.color_stabilizer";
 pub const GAMMA_PEDESTAL_GAIN: &str = "core.gamma_pedestal_gain";
+pub const PHOTO_FILTER: &str = "core.photo_filter";
+/// D-384: Photo Filter's presets and their colours, those published for Photoshop's Photo
+/// Filter (fmwconcepts' colorfilter; Aspose agrees on Warming (85)). "custom" uses `color`.
+pub const PHOTO_FILTERS: [(&str, &str); 6] = [
+    ("warming_85", "#ec8a00"),
+    ("warming_81", "#ebb113"),
+    ("cooling_80", "#006dff"),
+    ("cooling_82", "#00b5ff"),
+    ("sepia", "#ac7a33"),
+    ("underwater", "#00c2b1"),
+];
 /// D-375: Color Link's samples.
 pub const LINK_SAMPLES: [&str; 6] = ["average", "median", "brightest", "darkest", "max_rgb", "min_rgb"];
 /// D-375: Color Link's blending modes, Paraffin's six.
@@ -2952,6 +2967,7 @@ impl Effect {
                 ("blue_pedestal", vec![bp], -1.0, 1.0),
                 ("blue_gain", vec![ba], 0.0, 4.0),
             ],
+            Effect::PhotoFilter { density, .. } => vec![("density", vec![density], 0.0, 100.0)],
             Effect::ColorLink { clip, opacity, .. } => vec![
                 ("clip", vec![clip], 0.0, 49.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
@@ -3561,6 +3577,7 @@ impl Effect {
             Effect::ChangeColor { .. } => "Change Color",
             Effect::ColorBalanceHls { .. } => "Color Balance (HLS)",
             Effect::GammaPedestalGain { .. } => "Gamma/Pedestal/Gain",
+            Effect::PhotoFilter { .. } => "Photo Filter",
             Effect::ColorLink { .. } => "Color Link",
             Effect::ColorStabilizer { .. } => "Color Stabilizer",
             Effect::SpinZoomBlur { .. } => "Spin & Zoom Blur",
@@ -3702,6 +3719,7 @@ impl Effect {
             Effect::ChangeColor { .. } => CHANGE_COLOR,
             Effect::ColorBalanceHls { .. } => COLOR_BALANCE_HLS,
             Effect::GammaPedestalGain { .. } => GAMMA_PEDESTAL_GAIN,
+            Effect::PhotoFilter { .. } => PHOTO_FILTER,
             Effect::ColorLink { .. } => COLOR_LINK,
             Effect::ColorStabilizer { .. } => COLOR_STABILIZER,
             Effect::SpinZoomBlur { .. } => SPIN_ZOOM_BLUR,
@@ -4111,6 +4129,15 @@ impl Effect {
                 .or_else(|| hex_fault(name, "midtones", midtones))
                 .or_else(|| hex_fault(name, "darktones", darktones))
                 .or_else(|| hex_fault(name, "shadows", shadows)),
+            Effect::PhotoFilter { filter, color, preserve_luminosity, .. } => (filter != "custom"
+                && !PHOTO_FILTERS.iter().any(|(f, _)| f == filter))
+                .then(|| format!("{name}'s filter is one of {} or \"custom\", and this is \"{filter}\".",
+                    PHOTO_FILTERS.map(|(f, _)| format!("\"{f}\"")).join(", ")))
+                .or_else(|| hex_fault(name, "colour", color))
+                .or_else(|| {
+                    (!["off", "on"].contains(&preserve_luminosity.as_str()))
+                        .then(|| format!("{name}'s preserve luminosity is \"off\" or \"on\", and this is \"{preserve_luminosity}\"."))
+                }),
             Effect::ChangeColor { view, color_to_change, match_colors, invert_mask, .. } => (!["corrected", "mask"].contains(&view.as_str()))
                 .then(|| format!("{name}'s view is \"corrected\" or \"mask\", and this is \"{view}\"."))
                 .or_else(|| hex_fault(name, "colour to change", color_to_change))
@@ -4867,6 +4894,11 @@ pub(crate) fn encoded(c: &str) -> [f64; 3] {
     crate::selective_blur::parse_hex(c)
         .unwrap_or_default()
         .map(|v| v as f64 / 255.0)
+}
+
+/// D-384: a valid Photo Filter's colour, encoded 0 to 1: the preset's, or `color` for "custom".
+pub(crate) fn photo_filter_colour(filter: &str, color: &str) -> [f64; 3] {
+    encoded(PHOTO_FILTERS.iter().find(|(f, _)| *f == filter).map_or(color, |(_, c)| c))
 }
 
 /// D-368: Kernel's three lines, already found to hold three numbers each, as a grid.
@@ -6336,6 +6368,9 @@ pub(crate) fn apply_stack_at(
             }),
             Effect::GammaPedestalGain { black_stretch, gamma, pedestal, gain } => crate::perf::time(crate::perf::Stage::EffectGammaPedestalGain, || {
                 crate::grade::gamma_pedestal_gain(source, *black_stretch, *gamma, *pedestal, *gain)
+            }),
+            Effect::PhotoFilter { filter, color, density, preserve_luminosity } => crate::perf::time(crate::perf::Stage::EffectPhotoFilter, || {
+                crate::grade::photo_filter(source, photo_filter_colour(filter, color), *density / 100.0, preserve_luminosity == "on")
             }),
             // D-375: a named layer's statistics from the map compose read; "" the picture as it
             // reaches this effect. A named layer with no map (not in the composition, which

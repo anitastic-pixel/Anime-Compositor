@@ -2307,6 +2307,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert(format!("{name}_gain"), num(gain[c]));
             }
         }
+        Effect::PhotoFilter { filter, color, density, preserve_luminosity } => {
+            params.insert("filter".into(), J::from(filter.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("density".into(), num(*density));
+            params.insert("preserve_luminosity".into(), J::from(preserve_luminosity.as_str()));
+        }
         // D-375: the map read for a frame is never saved.
         Effect::ColorLink { layer, sample, clip, stencil, opacity, blending_mode, .. } => {
             params.insert("layer".into(), layer.clone());
@@ -3994,6 +4000,7 @@ fn parse_effect(
         crate::effects::COLOR_LINK,
         crate::effects::COLOR_STABILIZER,
         crate::effects::GAMMA_PEDESTAL_GAIN,
+        crate::effects::PHOTO_FILTER,
         crate::effects::SNOWFALL,
         crate::effects::KALEIDOSCOPE,
         crate::effects::ROUGHEN_EDGES,
@@ -4821,6 +4828,12 @@ fn parse_effect(
                 gain: three("gain")?,
             })
         }
+        crate::effects::PHOTO_FILTER => Some(crate::effects::Effect::PhotoFilter {
+            filter: effect_word(params, "filter", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            density: effect_number(params, "density", &at)?,
+            preserve_luminosity: effect_word(params, "preserve_luminosity", &at)?,
+        }),
         // D-375: the layer and the words kept as written, so one outside the contract is
         // refused by name.
         crate::effects::COLOR_LINK => Some(crate::effects::Effect::ColorLink {
