@@ -1,7 +1,7 @@
 # B-283: frame times with Tiles
 
-Measured again on 2026-10-09 on a quiet machine, on the Magnify code commit (5f297f6c), which
-leaves Tiles as its code commit (fd577a37) wrote it. No other cargo or rustc process was running:
+Measured again on 2026-10-09 on a quiet machine, on the Magnify code commit (5f297f6c, 56d0c4d5 once rebased onto main), which
+leaves Tiles as its code commit (fd577a37, 66942d34 once rebased onto main) wrote it. No other cargo or rustc process was running:
 checked before the card round and after each round, none; the owner's app was not touched. The
 first measurement, PROVISIONAL because another lane was building, is replaced by this one ("Noise
 alone" on the card was 16.7 ms then, 11.8 now, against 12.0 on the quiet B-273 run). The timing

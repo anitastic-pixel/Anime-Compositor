@@ -1,6 +1,6 @@
 # B-285: frame times with Spherize
 
-Measured on 2026-10-10 on a quiet machine, on the code commit (f5ca8e0d), the working copy holding
+Measured on 2026-10-10 on a quiet machine, on the code commit (f5ca8e0d, 3ec61efb once rebased onto main), the working copy holding
 exactly what was committed in the files the build reads. No other cargo or rustc process was
 running: checked before the first round and after each round, none; the owner's app was not
 touched. The timing test is `b285_spherize_timing` in `tests/b285_spherize.rs`, built with

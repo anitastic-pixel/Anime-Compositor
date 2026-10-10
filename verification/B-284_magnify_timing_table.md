@@ -1,6 +1,6 @@
 # B-284: frame times with Magnify
 
-Measured on 2026-10-09 on a quiet machine, on the code commit (5f297f6c), the working copy holding
+Measured on 2026-10-09 on a quiet machine, on the code commit (5f297f6c, 56d0c4d5 once rebased onto main), the working copy holding
 exactly what was committed in the files the build reads. No other cargo or rustc process was
 running: checked before the card round and after each round, none; the owner's app was not
 touched. The timing test is `b284_magnify_timing` in `tests/b284_magnify.rs`, built with
