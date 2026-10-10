@@ -1,0 +1,122 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-fractal-035",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-cel",
+      "kind": "still",
+      "name": "cel",
+      "path": "media/cel.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 5,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 5
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.fractal",
+              "enabled": true,
+              "parameters": {
+                "mandelbrot_center": [
+                  -0.75,
+                  0
+                ],
+                "mandelbrot_magnification": 41,
+                "julia_center": [
+                  0,
+                  0
+                ],
+                "julia_magnification": 0,
+                "hue": 0,
+                "mandelbrot_escape_limit": 100,
+                "julia_escape_limit": 100,
+                "cycle_steps": 10,
+                "cycle_offset": 0,
+                "oversample_factor": 2,
+                "set_choice": "mandelbrot",
+                "equation": "z2",
+                "overlay": "off",
+                "transparency": "off",
+                "palette": "lightness_gradient",
+                "edge_highlight": "off",
+                "oversample_method": "edge_detect"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
