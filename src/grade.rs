@@ -1696,6 +1696,44 @@ pub(crate) fn shadow_highlight(source: &mut WorkingBuffer, v: [f64; 7]) {
     });
 }
 
+/// D-397: Color Grade's tone step. Each channel taken to linear light, multiplied by its gain
+/// and held inside 0 to 1 when a gain is not 1; then, with `[c, h, s, w, b, f]` the contrast,
+/// highlights, shadows, whites, blacks and faded film as shares, on each encoded channel one
+/// after another: `v += c v (1 - v) (2v - 1)`, `h v² (1 - v)`, `s v (1 - v)²`, `w v² / 4`,
+/// `b (1 - v)² / 4` and `f (0.25 (1 - v)² - 0.1 v²)`; held inside 0 to 1.
+pub(crate) fn grade_tone(source: &mut WorkingBuffer, gains: [f64; 3], [c, h, s, w, b, f]: [f64; 6]) {
+    let linear = gains != [1.0; 3];
+    grade_pixels(source, false, |_, e| {
+        std::array::from_fn(|i| {
+            let mut v = e[i];
+            if linear {
+                v = to_srgb((to_linear(v) * gains[i]).clamp(0.0, 1.0));
+            }
+            v += c * v * (1.0 - v) * (2.0 * v - 1.0);
+            v += h * v * v * (1.0 - v);
+            v += s * v * (1.0 - v) * (1.0 - v);
+            v += w * v * v / 4.0;
+            v += b * (1.0 - v) * (1.0 - v) / 4.0;
+            v + f * (0.25 * (1.0 - v) * (1.0 - v) - 0.1 * v * v)
+        })
+    });
+}
+
+/// D-397: Color Grade's look: `e + i (lookup(e) - e)`, the look at intensity `i` (0 to 2).
+pub(crate) fn look(source: &mut WorkingBuffer, cube: &crate::lut::Cube, i: f64) {
+    grade_pixels(source, false, |_, e| {
+        let l = cube.lookup(e);
+        std::array::from_fn(|c| e[c] + i * (l[c] - e[c]))
+    })
+}
+
+/// D-397: the pure colour of `hue` degrees (HSL saturation 1, lightness 1/2), its luma taken out.
+pub(crate) fn tint_push(hue: f64) -> [f64; 3] {
+    let c = from_hsl([hue, 1.0, 0.5]);
+    let l = luma(c);
+    c.map(|v| v - l)
+}
+
 /// D-376: the mean encoded straight colour, each pixel weighted by its covering, of the pixels
 /// of `source` whose centres lie within `r` of (`px`, `py`); with none, the pixel holding the
 /// point, held inside the picture. `None` when what is counted has no covering.

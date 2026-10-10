@@ -301,6 +301,8 @@ pub enum Stage {
     EffectChannelLevels,
     /// D-384's Photo Filter.
     EffectPhotoFilter,
+    /// D-397's Color Grade.
+    EffectColorGrade,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -318,7 +320,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 156] = [
+    pub const ALL: [Stage; 157] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -468,6 +470,7 @@ impl Stage {
         Stage::EffectGammaPedestalGain,
         Stage::EffectChannelLevels,
         Stage::EffectPhotoFilter,
+        Stage::EffectColorGrade,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -629,6 +632,7 @@ impl Stage {
             Stage::EffectGammaPedestalGain => "effect: gamma/pedestal/gain",
             Stage::EffectChannelLevels => "effect: levels, a set for each channel",
             Stage::EffectPhotoFilter => "effect: photo filter",
+            Stage::EffectColorGrade => "effect: color grade",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

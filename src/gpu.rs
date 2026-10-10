@@ -2736,6 +2736,28 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
                 o[c] = k[2u + 3u * c] + (k[3u + 3u * c] - k[2u + 3u * c]) * v;
             }
         }
+        case 40u: {
+            // D-397, as grade::grade_tone. k: the three gains, then the contrast, highlights,
+            // shadows, whites, blacks and faded film as shares, 1 when a gain is not 1.
+            for (var c = 0u; c < 3u; c++) {
+                var v = e[c];
+                if k[9] != 0.0lf {
+                    v = to_srgb(clamp(to_linear(v) * k[c], 0.0lf, 1.0lf));
+                }
+                v += k[3] * v * (1.0lf - v) * (2.0lf * v - 1.0lf);
+                v += k[4] * v * v * (1.0lf - v);
+                v += k[5] * v * (1.0lf - v) * (1.0lf - v);
+                v += k[6] * v * v / 4.0lf;
+                v += k[7] * (1.0lf - v) * (1.0lf - v) / 4.0lf;
+                o[c] = v + k[8] * (0.25lf * (1.0lf - v) * (1.0lf - v) - 0.1lf * v * v);
+            }
+        }
+        case 41u: {
+            // D-397, as grade::look. k: the table as mode 11's, then the intensity, 0 to 2.
+            let n = u32(k[1]);
+            let count = select(n, n * n * n, k[0] != 0.0lf);
+            o = e + k[8u + 3u * count] * (lookup(e) - e);
+        }
         case 32u: {
             // D-384, as grade::photo_filter. k: the filter's colour encoded, the density as a
             // share, 1 to keep the luma.
@@ -8971,6 +8993,43 @@ impl Gpu {
                 }
                 same(steps, &passes.tone, FxParams { mode: 31, ..Default::default() }, &k, None)
             }
+            // D-397: its steps drawn in one pass of their own, each a stage of the grade or tone
+            // pass. Not one of a run (`one_pixel`): a run's Mix lands on each stage, and the Mix
+            // is the whole grade's.
+            E::ColorGrade { values, table, .. } => {
+                use crate::effects::GradeStep as G;
+                let stage = |which: u32, mode: u32, k: Vec<f64>| (which, FxParams { mode, ..Default::default() }, k, 1.0);
+                let mine: Vec<Staged> = crate::effects::color_grade_steps(values, table.as_ref(), (w, h), f.origin)
+                    .into_iter()
+                    .map(|s| match s {
+                        G::Tone(g, t) => {
+                            let mut k = g.to_vec();
+                            k.extend(t);
+                            k.push((g != [1.0; 3]) as u8 as f64);
+                            stage(1, 40, k)
+                        }
+                        G::Vibrance(v, s) => stage(1, 7, vec![v, s]),
+                        G::Look(cube, i) => {
+                            let mut k = cube.packed();
+                            k.push(i);
+                            stage(1, 41, k)
+                        }
+                        G::Tints(sh, hi) => {
+                            let mut k = sh.to_vec();
+                            k.extend([0.0; 3]);
+                            k.extend(hi);
+                            k.push(0.0);
+                            stage(0, 6, k)
+                        }
+                        G::Vignette(v) => {
+                            let mut k = vec![v.center.0, v.center.1, v.radii.0, v.radii.1, v.inner, v.outer, v.amount, 2f64.sqrt()];
+                            k.extend(v.color.map(crate::grade::to_linear));
+                            stage(0, 8, k)
+                        }
+                    })
+                    .collect();
+                if mine.is_empty() { (still.clone(), (w, h)) } else { (self.chain(steps, still, (w, h), &mine), (w, h)) }
+            }
             E::PhotoFilter { filter, color, density, preserve_luminosity } => {
                 let mut k = crate::effects::photo_filter_colour(filter, color).to_vec();
                 k.extend([density / 100.0, (preserve_luminosity == "on") as u8 as f64]);
@@ -9849,6 +9908,8 @@ impl Gpu {
                             // most one a cell, with its settings.
                             crate::effects::Effect::ColorLookup { table: Some(t), .. } => ((8 + 3 * t.0.entries()) * 8) as u64,
                             crate::effects::Effect::ArbitraryMap { table: Some(_), .. } => ((8 + 3 * 256) * 8) as u64,
+                            // D-397: a Color Grade's look the same, with its intensity.
+                            crate::effects::Effect::ColorGrade { table: Some(t), .. } => ((9 + 3 * t.0.entries()) * 8) as u64,
                             crate::effects::Effect::KiraKira { spacing, .. } => {
                                 let cells = (w as f64 / spacing + 2.0) * (h as f64 / spacing + 2.0);
                                 (((w + 2 * f.grow.0) * (h + 2 * f.grow.1) * 4) as f64).max((19.0 + 4.0 * cells) * 8.0) as u64

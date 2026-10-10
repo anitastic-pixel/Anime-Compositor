@@ -3819,7 +3819,11 @@ fn effect_cycle(comp: &crate::model::Composition, layer_id: &Id) -> Result<(), D
 /// D-182: a Color Lookup names a lookup file of this project, or none, as an Arbitrary Map does
 /// (D-395). A file opened with one naming nothing keeps it and says so; a command is refused it.
 fn lookup_file_known(project: &Project, effect: &crate::effects::Effect) -> Result<(), Diagnostic> {
-    let setting = if matches!(effect, crate::effects::Effect::ArbitraryMap { .. }) { "map" } else { "lut" };
+    let setting = match effect {
+        crate::effects::Effect::ArbitraryMap { .. } => "map",
+        crate::effects::Effect::ColorGrade { .. } => "look",
+        _ => "lut",
+    };
     match crate::lut::dangling(project, effect) {
         None => Ok(()),
         Some(lut) => Err(Diagnostic::new(

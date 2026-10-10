@@ -257,7 +257,7 @@ pub fn collect_limited(
                     .filter(|l| {
                         l.asset_id == asset.id
                             || l.effects.iter().any(|i| {
-                                matches!(&i.effect, crate::effects::Effect::ColorLookup { lut, .. } | crate::effects::Effect::ArbitraryMap { map: lut, .. } if lut == asset.id.as_str())
+                                matches!(&i.effect, crate::effects::Effect::ColorLookup { lut, .. } | crate::effects::Effect::ArbitraryMap { map: lut, .. } | crate::effects::Effect::ColorGrade { look: lut, .. } if lut == asset.id.as_str())
                             })
                     })
                     .map(|l| {

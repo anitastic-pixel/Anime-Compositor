@@ -1017,6 +1017,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::SelectiveColor { .. }
                 // D-400.
                 | crate::effects::Effect::ShadowHighlight { .. }
+                // D-397.
+                | crate::effects::Effect::ColorGrade { .. }
                 | crate::effects::Effect::ColorLink { map: Some(_), .. }
         )
         // D-353: a Soft Physical Glow's threshold with no smooth is a step, so it stays on the
@@ -1169,6 +1171,7 @@ fn card_effect(
                 E::ShadowHighlight { shadow_amount, highlight_amount, .. } => {
                     crate::grade::shadow_highlight_untouched(*shadow_amount, *highlight_amount)
                 }
+                E::ColorGrade { values, table, .. } => crate::effects::color_grade_steps(values, table.as_ref(), (1, 1), (0, 0)).is_empty(),
                 E::ColorLink { opacity, map, .. } => *opacity == 0.0 || map.as_ref().is_none_or(|m| crate::frame_stats::Stats::of(&m.0).is_none()),
                 // B-107: the third batch, each as its own function returns at once.
                 E::Invert { amount, .. }

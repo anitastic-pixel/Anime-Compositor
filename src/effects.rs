@@ -1237,6 +1237,11 @@ pub enum Effect {
     /// `color`, `#rrggbb`, used only for "custom"; `density`, 0 to 100; `preserve_luminosity`,
     /// "off" or "on". Words kept as written.
     PhotoFilter { filter: String, color: String, density: f64, preserve_luminosity: String },
+    /// D-397: after Lumetri Color, under our own name. `values`, the settings of
+    /// `COLOR_GRADE_SETTINGS` in that order; `look`, the id of an asset of kind lut, or empty for
+    /// none. `table` is not a setting and is never saved: it is the file `look` names, read for
+    /// the frame by `crate::lut::fill`.
+    ColorGrade { values: [f64; 22], look: String, table: Option<crate::lut::Table> },
     /// D-375: after After Effects' Color Link. `layer`, D-189's layer setting, "" the layer itself
     /// as the effects before this one left it, read whole; `sample`, one of `LINK_SAMPLES`;
     /// `clip`, 0 to 49 per cent; `stencil`, "off" or "on"; `opacity`, 0 to 100;
@@ -1959,6 +1964,33 @@ pub const COLOR_LINK: &str = "core.color_link";
 pub const COLOR_STABILIZER: &str = "core.color_stabilizer";
 pub const GAMMA_PEDESTAL_GAIN: &str = "core.gamma_pedestal_gain";
 pub const PHOTO_FILTER: &str = "core.photo_filter";
+pub const COLOR_GRADE: &str = "core.color_grade";
+/// D-397: Color Grade's keyable settings, in the order `values` holds them: name, lowest,
+/// highest, and the value when the effect is added.
+pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 22] = [
+    ("temperature", -100.0, 100.0, 0.0),
+    ("tint", -100.0, 100.0, 0.0),
+    ("exposure", -5.0, 5.0, 0.0),
+    ("contrast", -100.0, 100.0, 0.0),
+    ("highlights", -100.0, 100.0, 0.0),
+    ("shadows", -100.0, 100.0, 0.0),
+    ("whites", -100.0, 100.0, 0.0),
+    ("blacks", -100.0, 100.0, 0.0),
+    ("saturation", 0.0, 200.0, 100.0),
+    ("look_intensity", 0.0, 200.0, 100.0),
+    ("faded_film", 0.0, 100.0, 0.0),
+    ("vibrance", -100.0, 100.0, 0.0),
+    ("creative_saturation", 0.0, 200.0, 100.0),
+    ("shadow_tint_hue", 0.0, 360.0, 0.0),
+    ("shadow_tint_amount", 0.0, 100.0, 0.0),
+    ("highlight_tint_hue", 0.0, 360.0, 0.0),
+    ("highlight_tint_amount", 0.0, 100.0, 0.0),
+    ("tint_balance", -100.0, 100.0, 0.0),
+    ("vignette_amount", -5.0, 5.0, 0.0),
+    ("vignette_midpoint", 0.0, 100.0, 50.0),
+    ("vignette_roundness", 0.0, 100.0, 0.0),
+    ("vignette_feather", 0.0, 100.0, 50.0),
+];
 /// D-384: Photo Filter's presets and their colours, those published for Photoshop's Photo
 /// Filter (fmwconcepts' colorfilter; Aspose agrees on Warming (85)). "custom" uses `color`.
 pub const PHOTO_FILTERS: [(&str, &str); 6] = [
@@ -3141,6 +3173,11 @@ impl Effect {
                 ("blue_gain", vec![ba], 0.0, 4.0),
             ],
             Effect::PhotoFilter { density, .. } => vec![("density", vec![density], 0.0, 100.0)],
+            Effect::ColorGrade { values, .. } => COLOR_GRADE_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .collect(),
             Effect::ColorLink { clip, opacity, .. } => vec![
                 ("clip", vec![clip], 0.0, 49.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
@@ -3762,6 +3799,7 @@ impl Effect {
             Effect::ColorBalanceHls { .. } => "Color Balance (HLS)",
             Effect::GammaPedestalGain { .. } => "Gamma/Pedestal/Gain",
             Effect::PhotoFilter { .. } => "Photo Filter",
+            Effect::ColorGrade { .. } => "Color Grade",
             Effect::ColorLink { .. } => "Color Link",
             Effect::ColorStabilizer { .. } => "Color Stabilizer",
             Effect::SpinZoomBlur { .. } => "Spin & Zoom Blur",
@@ -3914,6 +3952,7 @@ impl Effect {
             Effect::ColorBalanceHls { .. } => COLOR_BALANCE_HLS,
             Effect::GammaPedestalGain { .. } => GAMMA_PEDESTAL_GAIN,
             Effect::PhotoFilter { .. } => PHOTO_FILTER,
+            Effect::ColorGrade { .. } => COLOR_GRADE,
             Effect::ColorLink { .. } => COLOR_LINK,
             Effect::ColorStabilizer { .. } => COLOR_STABILIZER,
             Effect::SpinZoomBlur { .. } => SPIN_ZOOM_BLUR,
@@ -6757,6 +6796,17 @@ pub(crate) fn apply_stack_at(
             Effect::PhotoFilter { filter, color, density, preserve_luminosity } => crate::perf::time(crate::perf::Stage::EffectPhotoFilter, || {
                 crate::grade::photo_filter(source, photo_filter_colour(filter, color), *density / 100.0, preserve_luminosity == "on")
             }),
+            Effect::ColorGrade { values, table, .. } => crate::perf::time(crate::perf::Stage::EffectColorGrade, || {
+                for step in color_grade_steps(values, table.as_ref(), (source.width(), source.height()), (ox, oy)) {
+                    match step {
+                        GradeStep::Tone(g, terms) => crate::grade::grade_tone(source, g, terms),
+                        GradeStep::Vibrance(v, s) => crate::grade::vibrance(source, v, s),
+                        GradeStep::Look(cube, i) => crate::grade::look(source, cube, i),
+                        GradeStep::Tints(sh, hi) => crate::grade::color_balance(source, sh, [0.0; 3], hi, false),
+                        GradeStep::Vignette(v) => crate::grade::vignette(source, &v),
+                    }
+                }
+            }),
             // D-375: a named layer's statistics from the map compose read; "" the picture as it
             // reaches this effect. A named layer with no map (not in the composition, which
             // compose said) or a picture where nothing shows leaves the layer as it is.
@@ -7512,6 +7562,63 @@ pub(crate) fn vignette_settings(
         color: encoded(color),
         amount,
     }
+}
+
+/// D-397: one of Color Grade's steps, each run as its own pass in this order.
+pub(crate) enum GradeStep<'a> {
+    /// The gains and `[contrast, highlights, shadows, whites, blacks, faded film]` as shares.
+    Tone([f64; 3], [f64; 6]),
+    /// Vibrance's rule: vibrance and saturation, -100..100.
+    Vibrance(f64, f64),
+    /// The look file at its intensity, 0 to 2.
+    Look(&'a crate::lut::Cube, f64),
+    /// Color Balance's shadow and highlight pushes, -100..100 a channel.
+    Tints([f64; 3], [f64; 3]),
+    Vignette(crate::grade::Vignette),
+}
+
+/// D-397: Color Grade's steps for these settings, held to their ranges, in order; empty when
+/// the grade changes nothing. A look without its table (none named, missing or refused, which
+/// `crate::lut::fill` said) is left out and the rest drawn.
+pub(crate) fn color_grade_steps<'a>(
+    values: &[f64; 22],
+    table: Option<&'a crate::lut::Table>,
+    (w, h): (usize, usize),
+    (ox, oy): (usize, usize),
+) -> Vec<GradeStep<'a>> {
+    let v: [f64; 22] = std::array::from_fn(|i| values[i].clamp(COLOR_GRADE_SETTINGS[i].1, COLOR_GRADE_SETTINGS[i].2));
+    let [temperature, tint, exposure, contrast, highlights, shadows, whites, blacks, saturation, intensity, faded, vibrance, creative, shadow_hue, shadow_amount, highlight_hue, highlight_amount, balance, vignette, midpoint, roundness, feather] = v;
+    let mut out = Vec::new();
+    if v[..8].iter().any(|x| *x != 0.0) {
+        let raw = [(temperature / 200.0).exp2(), (-tint / 200.0).exp2(), (-temperature / 200.0).exp2()];
+        let l = 0.2126 * raw[0] + 0.7152 * raw[1] + 0.0722 * raw[2];
+        let g = raw.map(|k| k / l * exposure.exp2());
+        out.push(GradeStep::Tone(g, [contrast, highlights, shadows, whites, blacks, 0.0].map(|x| x / 100.0)));
+    }
+    if saturation != 100.0 {
+        out.push(GradeStep::Vibrance(0.0, saturation - 100.0));
+    }
+    if let (Some(t), true) = (table, intensity != 0.0) {
+        out.push(GradeStep::Look(&t.0, intensity / 100.0));
+    }
+    if faded != 0.0 {
+        out.push(GradeStep::Tone([1.0; 3], [0.0, 0.0, 0.0, 0.0, 0.0, faded / 100.0]));
+    }
+    if vibrance != 0.0 || creative != 100.0 {
+        out.push(GradeStep::Vibrance(vibrance, creative - 100.0));
+    }
+    if shadow_amount != 0.0 || highlight_amount != 0.0 {
+        let push = |hue: f64, amount: f64| crate::grade::tint_push(hue).map(|c| c * amount);
+        out.push(GradeStep::Tints(
+            push(shadow_hue, shadow_amount * (1.0 - balance / 100.0)),
+            push(highlight_hue, highlight_amount * (1.0 + balance / 100.0)),
+        ));
+    }
+    if vignette != 0.0 {
+        let color = if vignette < 0.0 { "#000000" } else { "#ffffff" };
+        out.push(GradeStep::Vignette(vignette_settings(vignette.abs() * 20.0, color, [50.0 + midpoint, roundness, feather], [50.0, 50.0], (w, h), (ox, oy))));
+    }
+    out
 }
 
 /// Why an effect in the stack did not run.

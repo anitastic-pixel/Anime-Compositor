@@ -2312,6 +2312,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert(format!("{name}_gain"), num(gain[c]));
             }
         }
+        // D-397: the table read for a frame is never saved.
+        Effect::ColorGrade { values, look, .. } => {
+            params.insert("look".into(), J::from(look.as_str()));
+            for ((name, ..), v) in crate::effects::COLOR_GRADE_SETTINGS.iter().zip(values) {
+                params.insert((*name).into(), num(*v));
+            }
+        }
         Effect::PhotoFilter { filter, color, density, preserve_luminosity } => {
             params.insert("filter".into(), J::from(filter.as_str()));
             params.insert("color".into(), J::from(color.as_str()));
@@ -3590,7 +3597,10 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
         let at = format!("{at}/parameters/{name}");
         let (count, what) = match name {
             "color" => (3, "a linear RGB triple"),
-            "shadows" | "midtones" | "highlights" => (3, "three numbers, red, green and blue"),
+            // D-397: Color Grade's Shadows and Highlights are one number each.
+            "shadows" | "midtones" | "highlights" if record.get("base").is_some_and(J::is_array) => {
+                (3, "three numbers, red, green and blue")
+            }
             "reds_hsl" | "yellows_hsl" | "greens_hsl" | "cyans_hsl" | "blues_hsl" | "magentas_hsl" => {
                 (3, "three numbers, hue, saturation and lightness")
             }
@@ -4102,6 +4112,7 @@ fn parse_effect(
         crate::effects::COLOR_STABILIZER,
         crate::effects::GAMMA_PEDESTAL_GAIN,
         crate::effects::PHOTO_FILTER,
+        crate::effects::COLOR_GRADE,
         crate::effects::SNOWFALL,
         crate::effects::KALEIDOSCOPE,
         crate::effects::ROUGHEN_EDGES,
@@ -4946,6 +4957,13 @@ fn parse_effect(
                 pedestal: three("pedestal")?,
                 gain: three("gain")?,
             })
+        }
+        crate::effects::COLOR_GRADE => {
+            let mut values = [0.0; 22];
+            for ((name, ..), v) in crate::effects::COLOR_GRADE_SETTINGS.iter().zip(values.iter_mut()) {
+                *v = effect_number(params, name, &at)?;
+            }
+            Some(crate::effects::Effect::ColorGrade { values, look: effect_word(params, "look", &at)?, table: None })
         }
         crate::effects::PHOTO_FILTER => Some(crate::effects::Effect::PhotoFilter {
             filter: effect_word(params, "filter", &at)?,

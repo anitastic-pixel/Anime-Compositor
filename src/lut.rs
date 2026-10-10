@@ -311,11 +311,11 @@ fn held<T>(store: &Held<T>, path: &Path, parse: fn(&[u8]) -> Result<T, String>) 
     read
 }
 
-/// The `lut` of `effect`, or an Arbitrary Map's `map` (D-395), when it names nothing the project
-/// has as a lookup file.
+/// The `lut` of `effect`, an Arbitrary Map's `map` (D-395) or a Color Grade's `look` (D-397),
+/// when it names nothing the project has as a lookup file.
 pub fn dangling<'a>(project: &Project, effect: &'a Effect) -> Option<&'a str> {
     match effect {
-        Effect::ColorLookup { lut, .. } | Effect::ArbitraryMap { map: lut, .. }
+        Effect::ColorLookup { lut, .. } | Effect::ArbitraryMap { map: lut, .. } | Effect::ColorGrade { look: lut, .. }
             if !lut.is_empty()
                 && !project
                     .assets
@@ -341,6 +341,7 @@ pub fn file_kind(effect: &Effect) -> &'static str {
 pub(crate) fn not_a_lookup_file(layer: &str, effect: &Effect, lut: &str) -> Diagnostic {
     let (name, setting) = match effect {
         Effect::ArbitraryMap { .. } => ("Arbitrary Map", "map"),
+        Effect::ColorGrade { .. } => ("Color Grade", "look"),
         _ => ("Color Lookup", "lut"),
     };
     Diagnostic::new(
@@ -373,7 +374,7 @@ pub(crate) fn fill(
             said.push(not_a_lookup_file(layer, &instance.effect, lut));
             continue;
         }
-        let (Effect::ColorLookup { lut, .. } | Effect::ArbitraryMap { map: lut, .. }) = &instance.effect else {
+        let (Effect::ColorLookup { lut, .. } | Effect::ArbitraryMap { map: lut, .. } | Effect::ColorGrade { look: lut, .. }) = &instance.effect else {
             continue;
         };
         let Some(asset) = project.assets.iter().find(|a| a.id.as_str() == lut) else {
@@ -404,7 +405,7 @@ pub(crate) fn fill(
         let kind = file_kind(&instance.effect);
         let read = match &mut instance.effect {
             Effect::ArbitraryMap { table, .. } => read_map(&path).map(|m| *table = Some(Map(m))),
-            Effect::ColorLookup { table, .. } => read(&path).map(|cube| *table = Some(Table(cube))),
+            Effect::ColorLookup { table, .. } | Effect::ColorGrade { table, .. } => read(&path).map(|cube| *table = Some(Table(cube))),
             _ => Ok(()),
         };
         match read {
