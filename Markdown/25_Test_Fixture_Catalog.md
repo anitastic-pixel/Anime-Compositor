@@ -205223,6 +205223,40 @@ FX-MAGNIFY-033 (`fx_magnify_033.json`): Blending mode "difference", which this b
 
 FX-MAGNIFY-034 (`fx_magnify_034.json`): Resize layer "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Spherize (D-406)
+
+Spherize (`core.spherize`), after After Effects' Spherize (B-285): a round part of the layer wrapped onto a half sphere seen from in front. Every case is a project of one composition 16 by 10, five frames, one drawing (Tiles' card, `media/card.png`) with the effect. `tools/spherize_reference.py` works the expected frames, `Fixtures/spherize/expected_spherize.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SPHERIZE-001 (`fx_spherize_001.json`): The settings as they start: a sphere of radius 100 round the middle, far wider than the 16 by 10 drawing, so every pixel is near its top and the whole drawing is enlarged about pi / 2 times round (8, 5). Frames 0, 4.
+
+FX-SPHERIZE-002 (`fx_spherize_002.json`): Radius 0: no sphere, the drawing as it is. Frames 0.
+
+FX-SPHERIZE-003 (`fx_spherize_003.json`): Radius 5 round the middle: the middle swells, the picture crowds toward the rim, and the corners outside the circle are the drawing's own. Frames 0.
+
+FX-SPHERIZE-004 (`fx_spherize_004.json`): Radius 5 round 25, 50 (4, 5): the sphere on the left, cut by the drawing's edge. Frames 0.
+
+FX-SPHERIZE-005 (`fx_spherize_005.json`): Radius 2500, the most: rho under 0.004 everywhere, so the drawing is enlarged pi / 2 times round the middle, smoothly. Frames 0.
+
+FX-SPHERIZE-006 (`fx_spherize_006.json`): Radius 12 round -25, 50 (-4, 5), off the left edge: only the right part of the sphere lies on the drawing, its rim near column 7. Frames 0.
+
+FX-SPHERIZE-007 (`fx_spherize_007.json`): Radius 3: a small sphere, nine or so pixels round the middle changed. Frames 0.
+
+FX-SPHERIZE-008 (`fx_spherize_008.json`): Radius keyed from 0 at frame 0 to 8 at frame 4, linear: nothing at frame 0, 4 at frame 2, 8 at frame 4. Frames 0, 2, 4.
+
+FX-SPHERIZE-009 (`fx_spherize_009.json`): Centre keyed from 25, 50 at frame 0 to 75, 50 at frame 4, radius 4: the sphere slides across. Frames 0, 2, 4.
+
+FX-SPHERIZE-010 (`fx_spherize_010.json`): Radius 5 with the layer moved 3 pixels right: FX-SPHERIZE-003 moved; columns 0 to 2 empty. Frames 0.
+
+FX-SPHERIZE-011 (`fx_spherize_011.json`): Radius eased from 5 at frame 0 to 0 at frame 4 on a curve that overshoots: at frame 2 it would pass below 0 and is held there, so frames 2 and 4 show the drawing as it is. Frames 0, 2, 4.
+
+FX-SPHERIZE-012 (`fx_spherize_012.json`): Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPHERIZE-013 (`fx_spherize_013.json`): Radius 2501, above 2500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPHERIZE-014 (`fx_spherize_014.json`): Centre at 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPHERIZE-015 (`fx_spherize_015.json`): Centre at 50, -1001. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Arbitrary Map (D-395)
 
 Arbitrary Map (`core.arbitrary_map`), after After Effects' PS Arbitrary Map (B-274): the layer's colours through a Photoshop arbitrary map (.amp), a lookup file of the project as Color Lookup's .cube is. Every case is a project of one composition 16 by 10, five frames, one drawing of `tools/invert_reference.py`'s bands with the effect; the map files are in `Fixtures/arbitrary_map/maps` (refused ones in `maps/refused`). `tools/arbitrary_map_reference.py` works the expected frames, `Fixtures/arbitrary_map/expected_arbitrary_map.json`, tolerance 2e-5; the rule is in document 21.
