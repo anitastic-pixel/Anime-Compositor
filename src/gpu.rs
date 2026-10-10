@@ -3195,6 +3195,46 @@ fn tile_read(p: f64, start: f64, t: f64, s: f64, n: f64) -> f64 {
     return clamp(quotient(f, s), 0.5lf, n - 0.5lf);
 }
 
+// D-405, D-413: `a` laid on `o`, both premultiplied, as composite::blend_pixel lays a layer:
+// 0 none (`a` alone), 1 normal, 2 multiply, 3 screen, 4 add, 5 overlay, 6 soft light, 7 stencil
+// alpha.
+fn laid(a: vec4<f32>, o: vec4<f32>, mode: u32) -> vec4<f32> {
+    if mode == 0u {
+        return a;
+    }
+    if mode == 1u {
+        return a + o * (1.0 - a.w);
+    }
+    if mode == 7u {
+        return o * a.w;
+    }
+    let ca = select(a.xyz / a.w, vec3(0.0), a.w == 0.0);
+    let co = select(o.xyz / o.w, vec3(0.0), o.w == 0.0);
+    var b = vec3(0.0);
+    for (var c = 0; c < 3; c++) {
+        switch mode {
+            case 2u: { b[c] = ca[c] * co[c]; }
+            case 3u: { b[c] = ca[c] + co[c] - ca[c] * co[c]; }
+            case 4u: { b[c] = min(ca[c] + co[c], 1.0); }
+            default: {
+                let eo = to_srgb(clamp(f64(co[c]), 0.0lf, 1.0lf));
+                let ea = to_srgb(clamp(f64(ca[c]), 0.0lf, 1.0lf));
+                b[c] = f32(to_linear(mixed_with(mode - 1u, eo, ea)));
+            }
+        }
+    }
+    return vec4((1.0 - a.w) * o.xyz + (1.0 - o.w) * a.xyz + a.w * o.w * b, a.w + o.w - a.w * o.w);
+}
+
+// D-413, layer_fx::checker_cover's one axis, `half` half of max(feather, 1).
+fn checker_axis(x: f64, a: f64, w: f64, half: f64) -> f64 {
+    let u = quotient(x - a, w);
+    let i = floor(u);
+    let d = w * min(u - i, i + 1.0lf - u);
+    let odd = i - 2.0lf * floor(i / 2.0lf);
+    return select(1.0lf, -1.0lf, odd != 0.0lf) * min(quotient(d, half), 1.0lf);
+}
+
 @compute @workgroup_size(16, 16)
 fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -3789,29 +3829,16 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
                 a = p * f32(product(cover, k[5], k[12]));
             }
-            let mode = u32(k[9]);
-            var out = a;
-            if mode == 1u {
-                out = a + o * (1.0 - a.w);
-            } else if mode >= 2u {
-                let ca = select(a.xyz / a.w, vec3(0.0), a.w == 0.0);
-                let co = select(o.xyz / o.w, vec3(0.0), o.w == 0.0);
-                var b = vec3(0.0);
-                for (var c = 0; c < 3; c++) {
-                    switch mode {
-                        case 2u: { b[c] = ca[c] * co[c]; }
-                        case 3u: { b[c] = ca[c] + co[c] - ca[c] * co[c]; }
-                        case 4u: { b[c] = min(ca[c] + co[c], 1.0); }
-                        default: {
-                            let eo = to_srgb(clamp(f64(co[c]), 0.0lf, 1.0lf));
-                            let ea = to_srgb(clamp(f64(ca[c]), 0.0lf, 1.0lf));
-                            b[c] = f32(to_linear(mixed_with(mode - 1u, eo, ea)));
-                        }
-                    }
-                }
-                out = vec4((1.0 - a.w) * o.xyz + (1.0 - o.w) * a.xyz + a.w * o.w * b, a.w + o.w - a.w * o.w);
-            }
-            textureStore(output, id.xy, out);
+            textureStore(output, id.xy, laid(a, o, u32(k[9])));
+            return;
+        }
+        case 26u: {
+            // D-413, layer_fx::checker_cover laid as layer_fx::lay_pattern lays it. k: the
+            // anchor, the cell's width and height, the ramps (half of max(feather, 1)) across and
+            // down, the colour (linear), the opacity (a share), the blend (as `laid`'s).
+            let cover = (1.0lf + checker_axis(x, k[0], k[2], k[4]) * checker_axis(y, k[1], k[3], k[5])) / 2.0lf * k[9];
+            let s = vec4(f32(k[6] * cover), f32(k[7] * cover), f32(k[8] * cover), f32(cover));
+            textureStore(output, id.xy, laid(s, textureLoad(input, id.xy, 0), u32(k[10])));
             return;
         }
         default: {
@@ -8364,6 +8391,8 @@ impl Gpu {
             _ => 0,
         };
         let linear = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
+        // D-413: a blending mode as the shader's `laid` takes it.
+        let laid = |b: &str| ["none", "normal", "multiply", "screen", "add", "overlay", "soft_light", "stencil_alpha"].iter().position(|m| *m == b).unwrap_or(1) as f64;
         let buffer = |bytes: usize| {
             self.device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some("B-65 work"),
@@ -8975,15 +9004,21 @@ impl Gpu {
                     "scatter" => 2.0,
                     _ => 0.0,
                 };
-                let blend = ["none", "normal", "multiply", "screen", "add", "overlay", "soft_light"].iter().position(|b| b == blending_mode).unwrap_or(1);
                 let (ox, oy) = (f.origin.0 as f64, f.origin.1 as f64);
-                let k = [cx, cy, m, r, fe, opacity / 100.0, 1.0 - 1.0 / m, (shape == "square") as u8 as f64, scaling, blend as f64, ox, oy, 0.0];
+                let k = [cx, cy, m, r, fe, opacity / 100.0, 1.0 - 1.0 / m, (shape == "square") as u8 as f64, scaling, laid(blending_mode), ox, oy, 0.0];
                 let base = crate::grade::mix(0);
                 let (tw, th) = (w + 2 * g, h + 2 * g);
                 let out = self.scratch("D-405 magnify", tw, th);
                 let p = FxParams { mode: 23, g: g as i32, base: [base as u32, (base >> 32) as u32], ..Default::default() };
                 self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
                 (out, (tw, th))
+            }
+            // D-413: as effects' arm reads it, the layer never grows.
+            E::Checkerboard { anchor, size_from, corner, width, height, feather_width, feather_height, color, opacity, blending_mode } => {
+                let ((ax, ay), (cw, ch)) = crate::layer_fx::checker_cells(*anchor, size_from, *corner, [*width, *height], (w, h), f.origin);
+                let c = linear(color);
+                let k = [ax, ay, cw, ch, feather_width.max(1.0) / 2.0, feather_height.max(1.0) / 2.0, c[0], c[1], c[2], opacity / 100.0, laid(blending_mode), 0.0];
+                same(steps, &passes.warp, FxParams { mode: 26, ..Default::default() }, &k, None)
             }
             E::Mirror { center, angle } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);

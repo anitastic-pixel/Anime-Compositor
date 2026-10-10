@@ -1724,6 +1724,23 @@ pub enum Effect {
     /// D-406: after After Effects' Spherize. `radius`, 0 to 2500 pixels; `center`, per cent of
     /// the picture as it reaches the effect, -1000 to 1000, the sphere's middle.
     Spherize { radius: f64, center: [f64; 2] },
+    /// D-413: after After Effects' Checkerboard. `anchor` and `corner`, per cent of the
+    /// drawing, -1000 to 1000, where a cell starts and, for "corner_point", its far corner;
+    /// `size_from` "corner_point", "width_slider" or "width_and_height_sliders"; `width` and
+    /// `height`, 1 to 10000 pixels; `feather_width` and `feather_height`, 0 to 10000 pixels;
+    /// `color`, `#rrggbb`; `opacity`, 0 to 100; `blending_mode`, one of [`PATTERN_MODES`].
+    Checkerboard {
+        anchor: [f64; 2],
+        size_from: String,
+        corner: [f64; 2],
+        width: f64,
+        height: f64,
+        feather_width: f64,
+        feather_height: f64,
+        color: String,
+        opacity: f64,
+        blending_mode: String,
+    },
     /// D-395: after After Effects' PS Arbitrary Map. `map`, the id of an asset of kind lut that
     /// is a Photoshop arbitrary map (.amp), or empty for none; `phase`, -255 to 255 levels, every
     /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
@@ -2189,6 +2206,10 @@ pub const SPLIT_2: &str = "core.split_2";
 pub const TILES: &str = "core.tiles";
 pub const MAGNIFY: &str = "core.magnify";
 pub const SPHERIZE: &str = "core.spherize";
+pub const CHECKERBOARD: &str = "core.checkerboard";
+/// D-413: how a generator's pattern is laid on the layer, "none" replacing it
+/// (`layer_fx::lay_pattern`).
+pub const PATTERN_MODES: [&str; 8] = ["none", "normal", "add", "multiply", "screen", "overlay", "soft_light", "stencil_alpha"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3070,6 +3091,15 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 2500.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
+            Effect::Checkerboard { anchor, corner, width, height, feather_width, feather_height, opacity, .. } => vec![
+                ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
+                ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
+                ("width", vec![width], 1.0, 10000.0),
+                ("height", vec![height], 1.0, 10000.0),
+                ("feather_width", vec![feather_width], 0.0, 10000.0),
+                ("feather_height", vec![feather_height], 0.0, 10000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::ArbitraryMap { phase, .. } => vec![("phase", vec![phase], -255.0, 255.0)],
             Effect::SelectiveColor { families, .. } => SELECTIVE_COLOR_FAMILIES
                 .into_iter()
@@ -3814,6 +3844,14 @@ impl Effect {
                 *feather = scale(*feather);
             }
             Effect::Spherize { radius, .. } => *radius = scale(*radius),
+            Effect::Checkerboard { width, height, feather_width, feather_height, .. } => {
+                // At its least, as Mosaic's size: a draft's half-pixel square is drawn a pixel
+                // wide rather than the whole effect bypassed.
+                *width = scale(*width).max(1.0);
+                *height = scale(*height).max(1.0);
+                *feather_width = scale(*feather_width);
+                *feather_height = scale(*feather_height);
+            }
             Effect::Bulge { radius, vertical_radius, taper_radius, .. } => {
                 *radius = scale(*radius);
                 *vertical_radius = scale(*vertical_radius);
@@ -4077,6 +4115,7 @@ impl Effect {
             Effect::Tiles { .. } => "Tiles",
             Effect::Magnify { .. } => "Magnify",
             Effect::Spherize { .. } => "Spherize",
+            Effect::Checkerboard { .. } => "Checkerboard",
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::SelectiveColor { .. } => "Selective Color",
             Effect::ShadowHighlight { .. } => "Shadow/Highlight",
@@ -4236,6 +4275,7 @@ impl Effect {
             Effect::Tiles { .. } => TILES,
             Effect::Magnify { .. } => MAGNIFY,
             Effect::Spherize { .. } => SPHERIZE,
+            Effect::Checkerboard { .. } => CHECKERBOARD,
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
             Effect::ShadowHighlight { .. } => SHADOW_HIGHLIGHT,
@@ -5355,6 +5395,17 @@ impl Effect {
             Effect::Magnify { resize_layer, .. } if !["off", "on"].contains(&resize_layer.as_str()) => Some(format!(
                 "Magnify's resize layer is \"off\" or \"on\", and this is \"{resize_layer}\"."
             )),
+            Effect::Checkerboard { size_from, .. }
+                if !["corner_point", "width_slider", "width_and_height_sliders"].contains(&size_from.as_str()) =>
+            {
+                Some(format!(
+                    "Checkerboard's size from is \"corner_point\", \"width_slider\" or \"width_and_height_sliders\", and this is \"{size_from}\"."
+                ))
+            }
+            Effect::Checkerboard { blending_mode, .. } if !PATTERN_MODES.contains(&blending_mode.as_str()) => Some(format!(
+                "Checkerboard's blending mode is \"none\", \"normal\", \"add\", \"multiply\", \"screen\", \"overlay\", \"soft_light\" or \"stencil_alpha\", and this is \"{blending_mode}\"."
+            )),
+            Effect::Checkerboard { color, .. } => hex_fault("Checkerboard", "colour", color),
             Effect::HsvKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "HSV Key's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
@@ -6864,6 +6915,16 @@ pub(crate) fn apply_stack_at(
             Effect::Spherize { radius, center } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectSpherize, || crate::layer_fx::spherize(source, *radius, c))
+            }
+            // D-413: the anchor and corner are shares of the drawing's own size; the layer never
+            // grows.
+            Effect::Checkerboard { anchor, size_from, corner, width, height, feather_width, feather_height, color, opacity, blending_mode } => {
+                let (a, cell) = crate::layer_fx::checker_cells(*anchor, size_from, *corner, [*width, *height], (source.width(), source.height()), (ox, oy));
+                let ramps = [*feather_width, *feather_height].map(|f| f.max(1.0) / 2.0);
+                crate::perf::time(crate::perf::Stage::EffectCheckerboard, || {
+                    let cover = |x, y| crate::layer_fx::checker_cover((x, y), a, cell, ramps);
+                    crate::layer_fx::lay_pattern(source, cover, encoded(color).map(crate::grade::to_linear), *opacity / 100.0, blending_mode)
+                })
             }
             // D-379: the map compose read for this frame, if a layer is named, is the blob.
             Effect::Blobbylize {

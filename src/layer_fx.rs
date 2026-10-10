@@ -2181,6 +2181,62 @@ pub(crate) fn magnify(
     g
 }
 
+/// D-413: a generator's pattern laid on the layer. At each pixel `cover` gives the pattern's
+/// covering at its centre, in the buffer's pixels; times `opacity`, a share, it is the pattern
+/// in `color` (linear, premultiplied), laid on the pixel by `blend` (document 21's layer blend,
+/// as a layer's blend mode lays a layer) or, for "none", replacing it.
+pub(crate) fn lay_pattern(source: &mut WorkingBuffer, cover: impl Fn(f64, f64) -> f64 + Sync, color: [f64; 3], opacity: f64, blend: &str) {
+    let w = source.width();
+    let mode = crate::model::BlendMode::from_str(blend);
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(n, px)| {
+        let k = cover((n % w) as f64 + 0.5, (n / w) as f64 + 0.5) * opacity;
+        let s = [color[0] * k, color[1] * k, color[2] * k, k].map(|v| v as f32);
+        let out = match mode {
+            Some(mode) => crate::composite::blend_pixel(mode, s, [px[0], px[1], px[2], px[3]]),
+            None => s,
+        };
+        px.copy_from_slice(&out);
+    });
+}
+
+/// D-413: Checkerboard's anchor in a buffer `dims` whose drawing's corner is at `origin`, and
+/// its cell's width and height: from the anchor to the corner, each at least 1 pixel, for
+/// "corner_point"; `width` both ways for "width_slider"; else `width` by `height`.
+pub(crate) fn checker_cells(
+    anchor: [f64; 2],
+    size_from: &str,
+    corner: [f64; 2],
+    [width, height]: [f64; 2],
+    dims: (usize, usize),
+    origin: (usize, usize),
+) -> ((f64, f64), (f64, f64)) {
+    let a = crate::effects::radial_center(anchor, dims, origin);
+    let cell = match size_from {
+        "corner_point" => {
+            let k = crate::effects::radial_center(corner, dims, origin);
+            ((k.0 - a.0).abs().max(1.0), (k.1 - a.1).abs().max(1.0))
+        }
+        "width_slider" => (width, width),
+        _ => (width, height),
+    };
+    (a, cell)
+}
+
+/// D-413: Checkerboard's covering at `(x, y)`, in the buffer's pixels, cells `(w, h)` from the
+/// anchor `a`. On each axis the distance to the nearer cell edge over `ramps`, half of
+/// max(feather, 1), held to 1 and signed by the cell; the covering is (1 + fx fy) / 2, 1 in the
+/// cell that starts at the anchor and every second one from it, a half on an edge.
+pub(crate) fn checker_cover((x, y): (f64, f64), (ax, ay): (f64, f64), (w, h): (f64, f64), [rx, ry]: [f64; 2]) -> f64 {
+    let axis = |x: f64, a: f64, w: f64, half: f64| {
+        let u = (x - a) / w;
+        let i = u.floor();
+        let d = w * (u - i).min(i + 1.0 - u);
+        let s = if i.rem_euclid(2.0) == 0.0 { 1.0 } else { -1.0 };
+        s * (d / half).min(1.0)
+    };
+    (1.0 + axis(x, ax, w, rx) * axis(y, ay, h, ry)) / 2.0
+}
+
 /// D-304: where a Motion Tile's tiles sit when nothing moved them, the buffer's middle.
 pub(crate) const PLAIN_TILE: [f64; 2] = [50.0, 50.0];
 

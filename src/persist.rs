@@ -2937,6 +2937,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("radius".into(), num(*radius));
             params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
         }
+        Effect::Checkerboard { anchor, size_from, corner, width, height, feather_width, feather_height, color, opacity, blending_mode } => {
+            params.insert("anchor".into(), J::Array(anchor.iter().map(|c| num(*c)).collect()));
+            params.insert("size_from".into(), J::from(size_from.as_str()));
+            params.insert("corner".into(), J::Array(corner.iter().map(|c| num(*c)).collect()));
+            params.insert("width".into(), num(*width));
+            params.insert("height".into(), num(*height));
+            params.insert("feather_width".into(), num(*feather_width));
+            params.insert("feather_height".into(), num(*feather_height));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
+        }
         Effect::ArbitraryMap { map, phase, apply_to_alpha, .. } => {
             params.insert("map".into(), J::from(map.as_str()));
             params.insert("phase".into(), num(*phase));
@@ -4277,6 +4289,7 @@ fn parse_effect(
         crate::effects::TILES,
         crate::effects::MAGNIFY,
         crate::effects::SPHERIZE,
+        crate::effects::CHECKERBOARD,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5508,6 +5521,18 @@ fn parse_effect(
         crate::effects::SPHERIZE => Some(crate::effects::Effect::Spherize {
             radius: effect_number(params, "radius", &at)?,
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
+        }),
+        crate::effects::CHECKERBOARD => Some(crate::effects::Effect::Checkerboard {
+            anchor: effect_array(params, "anchor", "two numbers, x then y", &at)?,
+            size_from: effect_word(params, "size_from", &at)?,
+            corner: effect_array(params, "corner", "two numbers, x then y", &at)?,
+            width: effect_number(params, "width", &at)?,
+            height: effect_number(params, "height", &at)?,
+            feather_width: effect_number(params, "feather_width", &at)?,
+            feather_height: effect_number(params, "feather_height", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            opacity: effect_number(params, "opacity", &at)?,
+            blending_mode: effect_word(params, "blending_mode", &at)?,
         }),
         crate::effects::ARBITRARY_MAP => Some(crate::effects::Effect::ArbitraryMap {
             map: effect_word(params, "map", &at)?,
