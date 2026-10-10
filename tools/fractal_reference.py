@@ -270,95 +270,95 @@ def plain(c):
 DEEP = (-0.743643887037151, 0.131825904205330)
 
 CASES = {
-    "FX-FRACTAL-001": ("The settings as they start: the Mandelbrot set from -3.15 to 1.65 across "
+    "FX-FRACTALSET-001": ("The settings as they start: the Mandelbrot set from -3.15 to 1.65 across "
                        "and -1.5 to 1.5 up, black inside, the bands of Lightness Gradient's "
                        "first gradient (red) outside, oversampled 2 by 2 where the bands change; "
                        "the cel itself is gone.", case(), [0]),
-    "FX-FRACTAL-002": ("Brute Force on Solid Color at magnification 2, (-0.75, 0.1): every "
+    "FX-FRACTALSET-002": ("Brute Force on Solid Color at magnification 2, (-0.75, 0.1): every "
                        "pixel worked 2 by 2, so two pixels whose centre and four neighbours are "
                        "all outside, but which a filament of the set crosses, turn partly red; "
                        "Edge Detect misses them. (On the settings as they start every pixel of "
                        "this small frame is on a band change, so there the two methods agree.)",
                        case(oversample_method="brute_force", palette="solid_color",
                             mandelbrot_center=(-0.75, 0.1), mandelbrot_magnification=2), [0]),
-    "FX-FRACTAL-003": ("Oversample Factor 1: one point a pixel, hard band edges.",
+    "FX-FRACTALSET-003": ("Oversample Factor 1: one point a pixel, hard band edges.",
                        case(oversample_factor=1), [0]),
-    "FX-FRACTAL-004": ("Factor 1 with Edge Highlight: pixels where the band changes from the "
+    "FX-FRACTALSET-004": ("Factor 1 with Edge Highlight: pixels where the band changes from the "
                        "left or above are white.", case(oversample_factor=1, edge_highlight="on"),
                        [0]),
-    "FX-FRACTAL-005": ("Edge Highlight with factor 2: oversampling wins, the frame is "
-                       "FX-FRACTAL-001's.", case(edge_highlight="on"), [0]),
-    "FX-FRACTAL-006": ("Transparency: inside the set is clear.", case(transparency="on"), [0]),
-    "FX-FRACTAL-007": ("Hue Wheel: the bands go round the wheel in 10 steps.",
+    "FX-FRACTALSET-005": ("Edge Highlight with factor 2: oversampling wins, the frame is "
+                       "FX-FRACTALSET-001's.", case(edge_highlight="on"), [0]),
+    "FX-FRACTALSET-006": ("Transparency: inside the set is clear.", case(transparency="on"), [0]),
+    "FX-FRACTALSET-007": ("Hue Wheel: the bands go round the wheel in 10 steps.",
                        case(palette="hue_wheel"), [0]),
-    "FX-FRACTAL-008": ("Black And White: the bands alternate.", case(palette="black_and_white"),
+    "FX-FRACTALSET-008": ("Black And White: the bands alternate.", case(palette="black_and_white"),
                        [0]),
-    "FX-FRACTAL-009": ("Solid Color: the set in red, outside clear.", case(palette="solid_color"),
+    "FX-FRACTALSET-009": ("Solid Color: the set in red, outside clear.", case(palette="solid_color"),
                        [0]),
-    "FX-FRACTAL-010": ("Solid Color with Transparency: the set clear, outside red.",
+    "FX-FRACTALSET-010": ("Solid Color with Transparency: the set clear, outside red.",
                        case(palette="solid_color", transparency="on"), [0]),
-    "FX-FRACTAL-011": ("Hue 120: the gradients start green.", case(hue=120), [0]),
-    "FX-FRACTAL-012": ("Cycle Steps 3, Cycle Offset 2: shorter gradients, started two on.",
+    "FX-FRACTALSET-011": ("Hue 120: the gradients start green.", case(hue=120), [0]),
+    "FX-FRACTALSET-012": ("Cycle Steps 3, Cycle Offset 2: shorter gradients, started two on.",
                        case(cycle_steps=3, cycle_offset=2), [0]),
-    "FX-FRACTAL-013": ("Julia: the Julia set of c = -0.75 (the Mandelbrot centre), at the Julia "
+    "FX-FRACTALSET-013": ("Julia: the Julia set of c = -0.75 (the Mandelbrot centre), at the Julia "
                        "view (0, 0).", case(set_choice="julia"), [0]),
-    "FX-FRACTAL-014": ("Julia Inverse.", case(set_choice="julia_inverse"), [0]),
-    "FX-FRACTAL-015": ("Mandelbrot Inverse, centred on 0 so the middle pixel's corner is the "
+    "FX-FRACTALSET-014": ("Julia Inverse.", case(set_choice="julia_inverse"), [0]),
+    "FX-FRACTALSET-015": ("Mandelbrot Inverse, centred on 0 so the middle pixel's corner is the "
                        "point 1 / 0.", case(set_choice="mandelbrot_inverse",
                                             mandelbrot_center=(0, 0)), [0]),
-    "FX-FRACTAL-016": ("Mandelbrot Over Julia, the Julia centre (0.3, 0.2): z starts there.",
+    "FX-FRACTALSET-016": ("Mandelbrot Over Julia, the Julia centre (0.3, 0.2): z starts there.",
                        case(set_choice="mandelbrot_over_julia", julia_center=(0.3, 0.2)), [0]),
-    "FX-FRACTAL-017": ("Mandelbrot Inverse Over Julia, the same Julia centre.",
+    "FX-FRACTALSET-017": ("Mandelbrot Inverse Over Julia, the same Julia centre.",
                        case(set_choice="mandelbrot_inverse_over_julia", julia_center=(0.3, 0.2),
                             mandelbrot_center=(0, 0)), [0]),
-    "FX-FRACTAL-018": ("Equation z^3 + c.", case(equation="z3", mandelbrot_center=(0, 0)), [0]),
-    "FX-FRACTAL-019": ("Equation z^6 + c.", case(equation="z6", mandelbrot_center=(0, 0)), [0]),
-    "FX-FRACTAL-020": ("Overlay on the Mandelbrot: the Julia set ghosted half way to white and "
+    "FX-FRACTALSET-018": ("Equation z^3 + c.", case(equation="z3", mandelbrot_center=(0, 0)), [0]),
+    "FX-FRACTALSET-019": ("Equation z^6 + c.", case(equation="z6", mandelbrot_center=(0, 0)), [0]),
+    "FX-FRACTALSET-020": ("Overlay on the Mandelbrot: the Julia set ghosted half way to white and "
                        "the white cross with its black shadow at pixel (8, 5).",
                        case(overlay="on"), [0]),
-    "FX-FRACTAL-021": ("Overlay on the Julia: the Mandelbrot ghosted.",
+    "FX-FRACTALSET-021": ("Overlay on the Julia: the Mandelbrot ghosted.",
                        case(set_choice="julia", overlay="on"), [0]),
-    "FX-FRACTAL-022": ("Magnification 2 at (-0.75, 0.1): four times closer, on the neck.",
+    "FX-FRACTALSET-022": ("Magnification 2 at (-0.75, 0.1): four times closer, on the neck.",
                        case(mandelbrot_magnification=2, mandelbrot_center=(-0.75, 0.1)), [0]),
-    "FX-FRACTAL-023": ("Escape Limit 5: far more of the plane counts as inside.",
+    "FX-FRACTALSET-023": ("Escape Limit 5: far more of the plane counts as inside.",
                        case(mandelbrot_escape_limit=5), [0]),
-    "FX-FRACTAL-024": ("Magnification keyed from 0 at frame 0 to 4 at frame 4, linear: frame 2 "
+    "FX-FRACTALSET-024": ("Magnification keyed from 0 at frame 0 to 4 at frame 4, linear: frame 2 "
                        "is magnification 2.",
                        case(mandelbrot_magnification=keyed((0, 0), (4, 4))), [0, 2, 4]),
-    "FX-FRACTAL-025": ("Hue keyed from 0 at frame 0 to 360 at frame 4: frame 4 is frame 0, "
+    "FX-FRACTALSET-025": ("Hue keyed from 0 at frame 0 to 360 at frame 4: frame 4 is frame 0, "
                        "frame 2 hue 180.", case(hue=keyed((0, 0), (4, 360))), [0, 2, 4]),
-    "FX-FRACTAL-026": ("FX-FRACTAL-003 moved three pixels right: the set moves with the layer.",
+    "FX-FRACTALSET-026": ("FX-FRACTALSET-003 moved three pixels right: the set moves with the layer.",
                        case(oversample_factor=1, shift=3), [0]),
-    "FX-FRACTAL-027": ("After a Motion Tile that grows the layer: the view is the drawing's own, "
-                       "so the frame is FX-FRACTAL-001's.", case(tile=True), [0]),
-    "FX-FRACTAL-028": ("A deep zoom, magnification 40 at (-0.743643887037151, 0.131825904205330) "
+    "FX-FRACTALSET-027": ("After a Motion Tile that grows the layer: the view is the drawing's own, "
+                       "so the frame is FX-FRACTALSET-001's.", case(tile=True), [0]),
+    "FX-FRACTALSET-028": ("A deep zoom, magnification 40 at (-0.743643887037151, 0.131825904205330) "
                        "with Escape Limit 2000: a pixel is 2.7e-13 units, which double "
                        "precision still separates.",
                        case(mandelbrot_center=DEEP, mandelbrot_magnification=40,
                             mandelbrot_escape_limit=2000), [0]),
-    "FX-FRACTAL-029": ("Magnification keyed from 0 at frame 0 to 40 at frame 4 past its end by "
+    "FX-FRACTALSET-029": ("Magnification keyed from 0 at frame 0 to 40 at frame 4 past its end by "
                        "an ease: held at 40, frame 4 is magnification 40.",
                        case(mandelbrot_magnification=keyed((0, 0, OVERSHOOT), (4, 40))), [4]),
-    "FX-FRACTAL-030": ("Cycle Steps 3.7 and Escape Limit 100.9: their whole parts count, so the "
+    "FX-FRACTALSET-030": ("Cycle Steps 3.7 and Escape Limit 100.9: their whole parts count, so the "
                        "frame is Cycle Steps 3's with Escape Limit 100.",
                        case(cycle_steps=3.7, mandelbrot_escape_limit=100.9), [0]),
 }
 
 INVALID = {
-    "FX-FRACTAL-031": ("Set Choice \"burning_ship\", not one of its six words.",
+    "FX-FRACTALSET-031": ("Set Choice \"burning_ship\", not one of its six words.",
                        case(set_choice="burning_ship")),
-    "FX-FRACTAL-032": ("Equation \"z7\".", case(equation="z7")),
-    "FX-FRACTAL-033": ("Escape Limit 0, below 1.", case(mandelbrot_escape_limit=0)),
-    "FX-FRACTAL-034": ("Cycle Offset 1001, above 1000.", case(cycle_offset=1001)),
-    "FX-FRACTAL-035": ("Magnification 41, above 40.", case(mandelbrot_magnification=41)),
-    "FX-FRACTAL-036": ("Julia centre 11 across, above 10.", case(julia_center=(11, 0))),
-    "FX-FRACTAL-037": ("Palette \"rainbow\".", case(palette="rainbow")),
-    "FX-FRACTAL-038": ("Cycle Steps 0, below 1.", case(cycle_steps=0)),
-    "FX-FRACTAL-039": ("Oversample Factor 9, above 8.", case(oversample_factor=9)),
-    "FX-FRACTAL-040": ("Hue keyed to 36001 at frame 4, above 36000.",
+    "FX-FRACTALSET-032": ("Equation \"z7\".", case(equation="z7")),
+    "FX-FRACTALSET-033": ("Escape Limit 0, below 1.", case(mandelbrot_escape_limit=0)),
+    "FX-FRACTALSET-034": ("Cycle Offset 1001, above 1000.", case(cycle_offset=1001)),
+    "FX-FRACTALSET-035": ("Magnification 41, above 40.", case(mandelbrot_magnification=41)),
+    "FX-FRACTALSET-036": ("Julia centre 11 across, above 10.", case(julia_center=(11, 0))),
+    "FX-FRACTALSET-037": ("Palette \"rainbow\".", case(palette="rainbow")),
+    "FX-FRACTALSET-038": ("Cycle Steps 0, below 1.", case(cycle_steps=0)),
+    "FX-FRACTALSET-039": ("Oversample Factor 9, above 8.", case(oversample_factor=9)),
+    "FX-FRACTALSET-040": ("Hue keyed to 36001 at frame 4, above 36000.",
                        case(hue=keyed((0, 0), (4, 36001)))),
-    "FX-FRACTAL-041": ("Oversample Method \"fast\".", case(oversample_method="fast")),
-    "FX-FRACTAL-042": ("Transparency \"yes\", not off or on.", case(transparency="yes")),
+    "FX-FRACTALSET-041": ("Oversample Method \"fast\".", case(oversample_method="fast")),
+    "FX-FRACTALSET-042": ("Transparency \"yes\", not off or on.", case(transparency="yes")),
 }
 
 
@@ -424,56 +424,56 @@ def check(expected):
     near = lambda p, q, e=1e-12: all(abs(a - b) < e for a, b in zip(p, q))  # noqa: E731
     white, black, clear = [1.0] * 4, [0.0, 0.0, 0.0, 1.0], [0.0] * 4
     art = plain(case())
-    one, three = c["FX-FRACTAL-001"]["0"], c["FX-FRACTAL-003"]["0"]
+    one, three = c["FX-FRACTALSET-001"]["0"], c["FX-FRACTALSET-003"]["0"]
     assert one != art and all(p[3] == 1 for p in one)
     # (-0.75, 0) sits in the main bulb: the pixels about the middle are black; the corners escape.
     assert near(three[at(8, 5)], black) and three[at(0, 0)] != black
     # Escape at the first step: the corner (-3.15, 1.5) is past 2 already once stepped.
     assert escape((0.0, 0.0), point(0.5, 0.5, (-0.75, 0), 0), 2, 100) == 1
-    assert one == c["FX-FRACTAL-005"]["0"] == c["FX-FRACTAL-027"]["0"]
+    assert one == c["FX-FRACTALSET-005"]["0"] == c["FX-FRACTALSET-027"]["0"]
     edge = render(case(palette="solid_color", mandelbrot_center=(-0.75, 0.1),
                        mandelbrot_magnification=2), 0)
-    assert sum(a != b for a, b in zip(c["FX-FRACTAL-002"]["0"], edge)) == 2
+    assert sum(a != b for a, b in zip(c["FX-FRACTALSET-002"]["0"], edge)) == 2
     assert render(case(oversample_method="brute_force"), 0) == one
     # Oversampling only moves pixels on a band change; elsewhere 001 is 003.
     assert sum(one[i] != three[i] for i in range(W * H)) > 0
-    four = c["FX-FRACTAL-004"]["0"]
+    four = c["FX-FRACTALSET-004"]["0"]
     assert any(near(p, white) for p in four)
     assert all(near(four[i], three[i]) or near(four[i], white) for i in range(W * H))
-    six = c["FX-FRACTAL-006"]["0"]
+    six = c["FX-FRACTALSET-006"]["0"]
     assert any(near(p, black) for p in one)
     assert all(near(six[i], clear) == near(one[i], black) for i in range(W * H))
-    bw = c["FX-FRACTAL-008"]["0"]
+    bw = c["FX-FRACTALSET-008"]["0"]
     assert all(near(p, black) or near(p, white) or 0 < p[0] < 1 for p in bw)
     red = [1.0, 0.0, 0.0, 1.0]
-    nine, ten = c["FX-FRACTAL-009"]["0"], c["FX-FRACTAL-010"]["0"]
+    nine, ten = c["FX-FRACTALSET-009"]["0"], c["FX-FRACTALSET-010"]["0"]
     assert near(nine[at(8, 5)], red) and near(nine[at(0, 0)], clear)
     assert near(ten[at(8, 5)], clear) and near(ten[at(0, 0)], red)
-    assert c["FX-FRACTAL-011"]["0"] != one
+    assert c["FX-FRACTALSET-011"]["0"] != one
     # 1 / 0 escapes at once: Mandelbrot Inverse centred on 0 puts 0 at the corner of (8, 5);
     # no pixel centre lands on it, so check the rule directly.
     assert invert((0.0, 0.0)) is None
-    assert c["FX-FRACTAL-016"]["0"] != one and c["FX-FRACTAL-013"]["0"] != one
-    twenty = c["FX-FRACTAL-020"]["0"]
+    assert c["FX-FRACTALSET-016"]["0"] != one and c["FX-FRACTALSET-013"]["0"] != one
+    twenty = c["FX-FRACTALSET-020"]["0"]
     assert near(twenty[at(8, 5)], white) and near(twenty[at(10, 5)], white)
     assert near(twenty[at(8, 3)], white) and near(twenty[at(11, 6)], black)
     assert near(twenty[at(9, 7)], black)
     assert any(twenty[i] != one[i] for i in range(W * H) if abs(i % W - 8) > 3)
-    assert c["FX-FRACTAL-021"]["0"] != c["FX-FRACTAL-013"]["0"]
-    k24 = c["FX-FRACTAL-024"]
+    assert c["FX-FRACTALSET-021"]["0"] != c["FX-FRACTALSET-013"]["0"]
+    k24 = c["FX-FRACTALSET-024"]
     assert k24["0"] == one
     assert k24["2"] == render(case(mandelbrot_magnification=2), 0)
-    k25 = c["FX-FRACTAL-025"]
+    k25 = c["FX-FRACTALSET-025"]
     assert k25["0"] == k25["4"] == one or all(near(a, b) for a, b in zip(k25["4"], one))
     assert k25["2"] == render(case(hue=180), 0)
-    moved, = (c["FX-FRACTAL-026"]["0"],)
+    moved, = (c["FX-FRACTALSET-026"]["0"],)
     assert all(moved[at(x, y)] == three[at(x - 3, y)] for x in range(3, W) for y in range(H))
     assert all(moved[at(x, y)] == clear for x in range(3) for y in range(H))
-    deep = c["FX-FRACTAL-028"]["0"]
+    deep = c["FX-FRACTALSET-028"]["0"]
     assert len({tuple(p) for p in deep}) > 4
-    assert c["FX-FRACTAL-029"]["4"] == render(case(mandelbrot_magnification=40), 0)
-    assert c["FX-FRACTAL-023"]["0"].count(black) > three.count(black)
-    assert c["FX-FRACTAL-030"]["0"] == render(case(cycle_steps=3), 0)
+    assert c["FX-FRACTALSET-029"]["4"] == render(case(mandelbrot_magnification=40), 0)
+    assert c["FX-FRACTALSET-023"]["0"].count(black) > three.count(black)
+    assert c["FX-FRACTALSET-030"]["0"] == render(case(cycle_steps=3), 0)
     for fx in INVALID:
         assert c[fx]["0"] == c[fx]["4"] == art
     print("checked")

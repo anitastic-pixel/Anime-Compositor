@@ -1,111 +1,111 @@
 # D-416: Fractal
 
-B-295, after After Effects' Fractal: the Mandelbrot or Julia set in place of the layer. A pixel's point is the view's centre plus its distance from the drawing's middle times 3 / (height 2^magnification); z^n + c is iterated until a part passes 2 or the Escape Limit runs out (inside the set). The count picks a band: Lightness Gradient's 8 gradients of Cycle Steps lightnesses, each 45 degrees of hue on, Hue Wheel's Cycle Steps hues, Black And White's two, or Solid Color's one colour for the set. Edge Detect works a pixel Factor by Factor where its band differs from a neighbour's, Brute Force works every pixel so; at Factor 1 Edge Highlight whitens the pixels whose band differs from the left or above. Overlay ghosts the other set and draws its centre's cross. Every expected pixel is `Fixtures/fractal/expected_fractal.json`, written by `tools/fractal_reference.py` before this code existed and printed in document 25 as FX-FRACTAL-001 to 042. Tolerance 2e-5.
+B-295, after After Effects' Fractal: the Mandelbrot or Julia set in place of the layer. A pixel's point is the view's centre plus its distance from the drawing's middle times 3 / (height 2^magnification); z^n + c is iterated until a part passes 2 or the Escape Limit runs out (inside the set). The count picks a band: Lightness Gradient's 8 gradients of Cycle Steps lightnesses, each 45 degrees of hue on, Hue Wheel's Cycle Steps hues, Black And White's two, or Solid Color's one colour for the set. Edge Detect works a pixel Factor by Factor where its band differs from a neighbour's, Brute Force works every pixel so; at Factor 1 Edge Highlight whitens the pixels whose band differs from the left or above. Overlay ghosts the other set and draws its centre's cross. Every expected pixel is `Fixtures/fractal/expected_fractal.json`, written by `tools/fractal_reference.py` before this code existed and printed in document 25 as FX-FRACTALSET-001 to 042. Tolerance 2e-5.
 
-## FX-FRACTAL-001 to 042 (document 25)
+## FX-FRACTALSET-001 to 042 (document 25)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-FRACTAL-001 frame 0: The settings as they start: the Mandelbrot set from -3.15 to 1.65 across and -1.5 to 1.5 up, black inside, the bands of Lightness Gradient's first gradient (red) outside, oversampled 2 by 2 where the bands change; the cel itself is gone. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-002 frame 0: Brute Force on Solid Color at magnification 2, (-0.75, 0.1): every pixel worked 2 by 2, so two pixels whose centre and four neighbours are all outside, but which a filament of the set crosses, turn partly red; Edge Detect misses them. (On the settings as they start every pixel of this small frame is on a band change, so there the two methods agree.) | largest difference 0.0e0 | yes |
-| FX-FRACTAL-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-003 frame 0: Oversample Factor 1: one point a pixel, hard band edges. | largest difference 1.6e-8 | yes |
-| FX-FRACTAL-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-004 frame 0: Factor 1 with Edge Highlight: pixels where the band changes from the left or above are white. | largest difference 1.4e-8 | yes |
-| FX-FRACTAL-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-005 frame 0: Edge Highlight with factor 2: oversampling wins, the frame is FX-FRACTAL-001's. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-006 frame 0: Transparency: inside the set is clear. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-007 frame 0: Hue Wheel: the bands go round the wheel in 10 steps. | largest difference 1.8e-8 | yes |
-| FX-FRACTAL-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-008 frame 0: Black And White: the bands alternate. | largest difference 0.0e0 | yes |
-| FX-FRACTAL-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-009 frame 0: Solid Color: the set in red, outside clear. | largest difference 0.0e0 | yes |
-| FX-FRACTAL-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-010 frame 0: Solid Color with Transparency: the set clear, outside red. | largest difference 0.0e0 | yes |
-| FX-FRACTAL-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-011 frame 0: Hue 120: the gradients start green. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-012 frame 0: Cycle Steps 3, Cycle Offset 2: shorter gradients, started two on. | largest difference 2.6e-8 | yes |
-| FX-FRACTAL-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-013 frame 0: Julia: the Julia set of c = -0.75 (the Mandelbrot centre), at the Julia view (0, 0). | largest difference 1.8e-8 | yes |
-| FX-FRACTAL-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-014 frame 0: Julia Inverse. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-015 frame 0: Mandelbrot Inverse, centred on 0 so the middle pixel's corner is the point 1 / 0. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-016 frame 0: Mandelbrot Over Julia, the Julia centre (0.3, 0.2): z starts there. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-017 frame 0: Mandelbrot Inverse Over Julia, the same Julia centre. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-018 frame 0: Equation z^3 + c. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-019 frame 0: Equation z^6 + c. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-020 frame 0: Overlay on the Mandelbrot: the Julia set ghosted half way to white and the white cross with its black shadow at pixel (8, 5). | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-021 frame 0: Overlay on the Julia: the Mandelbrot ghosted. | largest difference 2.8e-8 | yes |
-| FX-FRACTAL-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-022 frame 0: Magnification 2 at (-0.75, 0.1): four times closer, on the neck. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-023 frame 0: Escape Limit 5: far more of the plane counts as inside. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-023: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-024 frame 0: Magnification keyed from 0 at frame 0 to 4 at frame 4, linear: frame 2 is magnification 2. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-024 frame 2: Magnification keyed from 0 at frame 0 to 4 at frame 4, linear: frame 2 is magnification 2. | largest difference 2.6e-8 | yes |
-| FX-FRACTAL-024 frame 4: Magnification keyed from 0 at frame 0 to 4 at frame 4, linear: frame 2 is magnification 2. | largest difference 1.5e-8 | yes |
-| FX-FRACTAL-024: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-025 frame 0: Hue keyed from 0 at frame 0 to 360 at frame 4: frame 4 is frame 0, frame 2 hue 180. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-025 frame 2: Hue keyed from 0 at frame 0 to 360 at frame 4: frame 4 is frame 0, frame 2 hue 180. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-025 frame 4: Hue keyed from 0 at frame 0 to 360 at frame 4: frame 4 is frame 0, frame 2 hue 180. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-025: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-026 frame 0: FX-FRACTAL-003 moved three pixels right: the set moves with the layer. | largest difference 1.6e-8 | yes |
-| FX-FRACTAL-026: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-027 frame 0: After a Motion Tile that grows the layer: the view is the drawing's own, so the frame is FX-FRACTAL-001's. | largest difference 2.9e-8 | yes |
-| FX-FRACTAL-027: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-028 frame 0: A deep zoom, magnification 40 at (-0.743643887037151, 0.131825904205330) with Escape Limit 2000: a pixel is 2.7e-13 units, which double precision still separates. | largest difference 2.7e-8 | yes |
-| FX-FRACTAL-028: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-029 frame 4: Magnification keyed from 0 at frame 0 to 40 at frame 4 past its end by an ease: held at 40, frame 4 is magnification 40. | largest difference 0.0e0 | yes |
-| FX-FRACTAL-029: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-030 frame 0: Cycle Steps 3.7 and Escape Limit 100.9: their whole parts count, so the frame is Cycle Steps 3's with Escape Limit 100. | largest difference 2.5e-8 | yes |
-| FX-FRACTAL-030: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FRACTAL-031 frame 0: Set Choice "burning_ship", not one of its six words. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-031 frame 4: Set Choice "burning_ship", not one of its six words. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-031: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-032 frame 0: Equation "z7". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-032 frame 4: Equation "z7". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-032: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-033 frame 0: Escape Limit 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-033 frame 4: Escape Limit 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-033: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-034 frame 0: Cycle Offset 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-034 frame 4: Cycle Offset 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-034: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-035 frame 0: Magnification 41, above 40. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-035 frame 4: Magnification 41, above 40. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-035: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-036 frame 0: Julia centre 11 across, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-036 frame 4: Julia centre 11 across, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-036: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-037 frame 0: Palette "rainbow". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-037 frame 4: Palette "rainbow". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-037: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-038 frame 0: Cycle Steps 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-038 frame 4: Cycle Steps 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-038: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-039 frame 0: Oversample Factor 9, above 8. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-039 frame 4: Oversample Factor 9, above 8. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-039: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-040 frame 0: Hue keyed to 36001 at frame 4, above 36000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-040 frame 4: Hue keyed to 36001 at frame 4, above 36000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-040: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-041 frame 0: Oversample Method "fast". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-041 frame 4: Oversample Method "fast". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-041: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-FRACTAL-042 frame 0: Transparency "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-042 frame 4: Transparency "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-FRACTAL-042: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-001 frame 0: The settings as they start: the Mandelbrot set from -3.15 to 1.65 across and -1.5 to 1.5 up, black inside, the bands of Lightness Gradient's first gradient (red) outside, oversampled 2 by 2 where the bands change; the cel itself is gone. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-002 frame 0: Brute Force on Solid Color at magnification 2, (-0.75, 0.1): every pixel worked 2 by 2, so two pixels whose centre and four neighbours are all outside, but which a filament of the set crosses, turn partly red; Edge Detect misses them. (On the settings as they start every pixel of this small frame is on a band change, so there the two methods agree.) | largest difference 0.0e0 | yes |
+| FX-FRACTALSET-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-003 frame 0: Oversample Factor 1: one point a pixel, hard band edges. | largest difference 1.6e-8 | yes |
+| FX-FRACTALSET-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-004 frame 0: Factor 1 with Edge Highlight: pixels where the band changes from the left or above are white. | largest difference 1.4e-8 | yes |
+| FX-FRACTALSET-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-005 frame 0: Edge Highlight with factor 2: oversampling wins, the frame is FX-FRACTALSET-001's. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-006 frame 0: Transparency: inside the set is clear. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-007 frame 0: Hue Wheel: the bands go round the wheel in 10 steps. | largest difference 1.8e-8 | yes |
+| FX-FRACTALSET-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-008 frame 0: Black And White: the bands alternate. | largest difference 0.0e0 | yes |
+| FX-FRACTALSET-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-009 frame 0: Solid Color: the set in red, outside clear. | largest difference 0.0e0 | yes |
+| FX-FRACTALSET-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-010 frame 0: Solid Color with Transparency: the set clear, outside red. | largest difference 0.0e0 | yes |
+| FX-FRACTALSET-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-011 frame 0: Hue 120: the gradients start green. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-012 frame 0: Cycle Steps 3, Cycle Offset 2: shorter gradients, started two on. | largest difference 2.6e-8 | yes |
+| FX-FRACTALSET-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-013 frame 0: Julia: the Julia set of c = -0.75 (the Mandelbrot centre), at the Julia view (0, 0). | largest difference 1.8e-8 | yes |
+| FX-FRACTALSET-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-014 frame 0: Julia Inverse. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-015 frame 0: Mandelbrot Inverse, centred on 0 so the middle pixel's corner is the point 1 / 0. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-016 frame 0: Mandelbrot Over Julia, the Julia centre (0.3, 0.2): z starts there. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-017 frame 0: Mandelbrot Inverse Over Julia, the same Julia centre. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-018 frame 0: Equation z^3 + c. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-019 frame 0: Equation z^6 + c. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-020 frame 0: Overlay on the Mandelbrot: the Julia set ghosted half way to white and the white cross with its black shadow at pixel (8, 5). | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-021 frame 0: Overlay on the Julia: the Mandelbrot ghosted. | largest difference 2.8e-8 | yes |
+| FX-FRACTALSET-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-022 frame 0: Magnification 2 at (-0.75, 0.1): four times closer, on the neck. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-023 frame 0: Escape Limit 5: far more of the plane counts as inside. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-023: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-024 frame 0: Magnification keyed from 0 at frame 0 to 4 at frame 4, linear: frame 2 is magnification 2. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-024 frame 2: Magnification keyed from 0 at frame 0 to 4 at frame 4, linear: frame 2 is magnification 2. | largest difference 2.6e-8 | yes |
+| FX-FRACTALSET-024 frame 4: Magnification keyed from 0 at frame 0 to 4 at frame 4, linear: frame 2 is magnification 2. | largest difference 1.5e-8 | yes |
+| FX-FRACTALSET-024: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-025 frame 0: Hue keyed from 0 at frame 0 to 360 at frame 4: frame 4 is frame 0, frame 2 hue 180. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-025 frame 2: Hue keyed from 0 at frame 0 to 360 at frame 4: frame 4 is frame 0, frame 2 hue 180. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-025 frame 4: Hue keyed from 0 at frame 0 to 360 at frame 4: frame 4 is frame 0, frame 2 hue 180. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-025: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-026 frame 0: FX-FRACTALSET-003 moved three pixels right: the set moves with the layer. | largest difference 1.6e-8 | yes |
+| FX-FRACTALSET-026: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-027 frame 0: After a Motion Tile that grows the layer: the view is the drawing's own, so the frame is FX-FRACTALSET-001's. | largest difference 2.9e-8 | yes |
+| FX-FRACTALSET-027: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-028 frame 0: A deep zoom, magnification 40 at (-0.743643887037151, 0.131825904205330) with Escape Limit 2000: a pixel is 2.7e-13 units, which double precision still separates. | largest difference 2.7e-8 | yes |
+| FX-FRACTALSET-028: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-029 frame 4: Magnification keyed from 0 at frame 0 to 40 at frame 4 past its end by an ease: held at 40, frame 4 is magnification 40. | largest difference 0.0e0 | yes |
+| FX-FRACTALSET-029: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-030 frame 0: Cycle Steps 3.7 and Escape Limit 100.9: their whole parts count, so the frame is Cycle Steps 3's with Escape Limit 100. | largest difference 2.5e-8 | yes |
+| FX-FRACTALSET-030: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-FRACTALSET-031 frame 0: Set Choice "burning_ship", not one of its six words. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-031 frame 4: Set Choice "burning_ship", not one of its six words. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-031: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-032 frame 0: Equation "z7". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-032 frame 4: Equation "z7". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-032: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-033 frame 0: Escape Limit 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-033 frame 4: Escape Limit 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-033: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-034 frame 0: Cycle Offset 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-034 frame 4: Cycle Offset 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-034: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-035 frame 0: Magnification 41, above 40. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-035 frame 4: Magnification 41, above 40. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-035: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-036 frame 0: Julia centre 11 across, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-036 frame 4: Julia centre 11 across, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-036: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-037 frame 0: Palette "rainbow". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-037 frame 4: Palette "rainbow". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-037: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-038 frame 0: Cycle Steps 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-038 frame 4: Cycle Steps 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-038: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-039 frame 0: Oversample Factor 9, above 8. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-039 frame 4: Oversample Factor 9, above 8. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-039: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-040 frame 0: Hue keyed to 36001 at frame 4, above 36000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-040 frame 4: Hue keyed to 36001 at frame 4, above 36000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-040: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-041 frame 0: Oversample Method "fast". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-041 frame 4: Oversample Method "fast". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-041: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-FRACTALSET-042 frame 0: Transparency "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-042 frame 4: Transparency "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-FRACTALSET-042: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 
 ## The file
 

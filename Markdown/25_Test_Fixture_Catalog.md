@@ -206227,89 +206227,89 @@ FX-AWAVE-049 (`fx_awave_049.json`): Displayed Samples keyed to 4097 at frame 4, 
 
 After Effects' Fractal (Generate), `core.fractal` (B-295). Every case is a composition 16 by 10 holding Gradient's cel, the same size, unmoved unless the case says. `tools/fractal_reference.py` works the expected frames, `Fixtures/fractal/expected_fractal.json`, tolerance 2e-5; the rule is in document 21.
 
-FX-FRACTAL-001 (`fx_fractal_001.json`): The settings as they start: the Mandelbrot set from -3.15 to 1.65 across and -1.5 to 1.5 up, black inside, the bands of Lightness Gradient's first gradient (red) outside, oversampled 2 by 2 where the bands change; the cel itself is gone. Frames 0.
+FX-FRACTALSET-001 (`fx_fractal_001.json`): The settings as they start: the Mandelbrot set from -3.15 to 1.65 across and -1.5 to 1.5 up, black inside, the bands of Lightness Gradient's first gradient (red) outside, oversampled 2 by 2 where the bands change; the cel itself is gone. Frames 0.
 
-FX-FRACTAL-002 (`fx_fractal_002.json`): Brute Force on Solid Color at magnification 2, (-0.75, 0.1): every pixel worked 2 by 2, so two pixels whose centre and four neighbours are all outside, but which a filament of the set crosses, turn partly red; Edge Detect misses them. (On the settings as they start every pixel of this small frame is on a band change, so there the two methods agree.). Frames 0.
+FX-FRACTALSET-002 (`fx_fractal_002.json`): Brute Force on Solid Color at magnification 2, (-0.75, 0.1): every pixel worked 2 by 2, so two pixels whose centre and four neighbours are all outside, but which a filament of the set crosses, turn partly red; Edge Detect misses them. (On the settings as they start every pixel of this small frame is on a band change, so there the two methods agree.). Frames 0.
 
-FX-FRACTAL-003 (`fx_fractal_003.json`): Oversample Factor 1: one point a pixel, hard band edges. Frames 0.
+FX-FRACTALSET-003 (`fx_fractal_003.json`): Oversample Factor 1: one point a pixel, hard band edges. Frames 0.
 
-FX-FRACTAL-004 (`fx_fractal_004.json`): Factor 1 with Edge Highlight: pixels where the band changes from the left or above are white. Frames 0.
+FX-FRACTALSET-004 (`fx_fractal_004.json`): Factor 1 with Edge Highlight: pixels where the band changes from the left or above are white. Frames 0.
 
-FX-FRACTAL-005 (`fx_fractal_005.json`): Edge Highlight with factor 2: oversampling wins, the frame is FX-FRACTAL-001's. Frames 0.
+FX-FRACTALSET-005 (`fx_fractal_005.json`): Edge Highlight with factor 2: oversampling wins, the frame is FX-FRACTALSET-001's. Frames 0.
 
-FX-FRACTAL-006 (`fx_fractal_006.json`): Transparency: inside the set is clear. Frames 0.
+FX-FRACTALSET-006 (`fx_fractal_006.json`): Transparency: inside the set is clear. Frames 0.
 
-FX-FRACTAL-007 (`fx_fractal_007.json`): Hue Wheel: the bands go round the wheel in 10 steps. Frames 0.
+FX-FRACTALSET-007 (`fx_fractal_007.json`): Hue Wheel: the bands go round the wheel in 10 steps. Frames 0.
 
-FX-FRACTAL-008 (`fx_fractal_008.json`): Black And White: the bands alternate. Frames 0.
+FX-FRACTALSET-008 (`fx_fractal_008.json`): Black And White: the bands alternate. Frames 0.
 
-FX-FRACTAL-009 (`fx_fractal_009.json`): Solid Color: the set in red, outside clear. Frames 0.
+FX-FRACTALSET-009 (`fx_fractal_009.json`): Solid Color: the set in red, outside clear. Frames 0.
 
-FX-FRACTAL-010 (`fx_fractal_010.json`): Solid Color with Transparency: the set clear, outside red. Frames 0.
+FX-FRACTALSET-010 (`fx_fractal_010.json`): Solid Color with Transparency: the set clear, outside red. Frames 0.
 
-FX-FRACTAL-011 (`fx_fractal_011.json`): Hue 120: the gradients start green. Frames 0.
+FX-FRACTALSET-011 (`fx_fractal_011.json`): Hue 120: the gradients start green. Frames 0.
 
-FX-FRACTAL-012 (`fx_fractal_012.json`): Cycle Steps 3, Cycle Offset 2: shorter gradients, started two on. Frames 0.
+FX-FRACTALSET-012 (`fx_fractal_012.json`): Cycle Steps 3, Cycle Offset 2: shorter gradients, started two on. Frames 0.
 
-FX-FRACTAL-013 (`fx_fractal_013.json`): Julia: the Julia set of c = -0.75 (the Mandelbrot centre), at the Julia view (0, 0). Frames 0.
+FX-FRACTALSET-013 (`fx_fractal_013.json`): Julia: the Julia set of c = -0.75 (the Mandelbrot centre), at the Julia view (0, 0). Frames 0.
 
-FX-FRACTAL-014 (`fx_fractal_014.json`): Julia Inverse. Frames 0.
+FX-FRACTALSET-014 (`fx_fractal_014.json`): Julia Inverse. Frames 0.
 
-FX-FRACTAL-015 (`fx_fractal_015.json`): Mandelbrot Inverse, centred on 0 so the middle pixel's corner is the point 1 / 0. Frames 0.
+FX-FRACTALSET-015 (`fx_fractal_015.json`): Mandelbrot Inverse, centred on 0 so the middle pixel's corner is the point 1 / 0. Frames 0.
 
-FX-FRACTAL-016 (`fx_fractal_016.json`): Mandelbrot Over Julia, the Julia centre (0.3, 0.2): z starts there. Frames 0.
+FX-FRACTALSET-016 (`fx_fractal_016.json`): Mandelbrot Over Julia, the Julia centre (0.3, 0.2): z starts there. Frames 0.
 
-FX-FRACTAL-017 (`fx_fractal_017.json`): Mandelbrot Inverse Over Julia, the same Julia centre. Frames 0.
+FX-FRACTALSET-017 (`fx_fractal_017.json`): Mandelbrot Inverse Over Julia, the same Julia centre. Frames 0.
 
-FX-FRACTAL-018 (`fx_fractal_018.json`): Equation z^3 + c. Frames 0.
+FX-FRACTALSET-018 (`fx_fractal_018.json`): Equation z^3 + c. Frames 0.
 
-FX-FRACTAL-019 (`fx_fractal_019.json`): Equation z^6 + c. Frames 0.
+FX-FRACTALSET-019 (`fx_fractal_019.json`): Equation z^6 + c. Frames 0.
 
-FX-FRACTAL-020 (`fx_fractal_020.json`): Overlay on the Mandelbrot: the Julia set ghosted half way to white and the white cross with its black shadow at pixel (8, 5). Frames 0.
+FX-FRACTALSET-020 (`fx_fractal_020.json`): Overlay on the Mandelbrot: the Julia set ghosted half way to white and the white cross with its black shadow at pixel (8, 5). Frames 0.
 
-FX-FRACTAL-021 (`fx_fractal_021.json`): Overlay on the Julia: the Mandelbrot ghosted. Frames 0.
+FX-FRACTALSET-021 (`fx_fractal_021.json`): Overlay on the Julia: the Mandelbrot ghosted. Frames 0.
 
-FX-FRACTAL-022 (`fx_fractal_022.json`): Magnification 2 at (-0.75, 0.1): four times closer, on the neck. Frames 0.
+FX-FRACTALSET-022 (`fx_fractal_022.json`): Magnification 2 at (-0.75, 0.1): four times closer, on the neck. Frames 0.
 
-FX-FRACTAL-023 (`fx_fractal_023.json`): Escape Limit 5: far more of the plane counts as inside. Frames 0.
+FX-FRACTALSET-023 (`fx_fractal_023.json`): Escape Limit 5: far more of the plane counts as inside. Frames 0.
 
-FX-FRACTAL-024 (`fx_fractal_024.json`): Magnification keyed from 0 at frame 0 to 4 at frame 4, linear: frame 2 is magnification 2. Frames 0, 2, 4.
+FX-FRACTALSET-024 (`fx_fractal_024.json`): Magnification keyed from 0 at frame 0 to 4 at frame 4, linear: frame 2 is magnification 2. Frames 0, 2, 4.
 
-FX-FRACTAL-025 (`fx_fractal_025.json`): Hue keyed from 0 at frame 0 to 360 at frame 4: frame 4 is frame 0, frame 2 hue 180. Frames 0, 2, 4.
+FX-FRACTALSET-025 (`fx_fractal_025.json`): Hue keyed from 0 at frame 0 to 360 at frame 4: frame 4 is frame 0, frame 2 hue 180. Frames 0, 2, 4.
 
-FX-FRACTAL-026 (`fx_fractal_026.json`): FX-FRACTAL-003 moved three pixels right: the set moves with the layer. Frames 0.
+FX-FRACTALSET-026 (`fx_fractal_026.json`): FX-FRACTALSET-003 moved three pixels right: the set moves with the layer. Frames 0.
 
-FX-FRACTAL-027 (`fx_fractal_027.json`): After a Motion Tile that grows the layer: the view is the drawing's own, so the frame is FX-FRACTAL-001's. Frames 0.
+FX-FRACTALSET-027 (`fx_fractal_027.json`): After a Motion Tile that grows the layer: the view is the drawing's own, so the frame is FX-FRACTALSET-001's. Frames 0.
 
-FX-FRACTAL-028 (`fx_fractal_028.json`): A deep zoom, magnification 40 at (-0.743643887037151, 0.131825904205330) with Escape Limit 2000: a pixel is 2.7e-13 units, which double precision still separates. Frames 0.
+FX-FRACTALSET-028 (`fx_fractal_028.json`): A deep zoom, magnification 40 at (-0.743643887037151, 0.131825904205330) with Escape Limit 2000: a pixel is 2.7e-13 units, which double precision still separates. Frames 0.
 
-FX-FRACTAL-029 (`fx_fractal_029.json`): Magnification keyed from 0 at frame 0 to 40 at frame 4 past its end by an ease: held at 40, frame 4 is magnification 40. Frames 4.
+FX-FRACTALSET-029 (`fx_fractal_029.json`): Magnification keyed from 0 at frame 0 to 40 at frame 4 past its end by an ease: held at 40, frame 4 is magnification 40. Frames 4.
 
-FX-FRACTAL-030 (`fx_fractal_030.json`): Cycle Steps 3.7 and Escape Limit 100.9: their whole parts count, so the frame is Cycle Steps 3's with Escape Limit 100. Frames 0.
+FX-FRACTALSET-030 (`fx_fractal_030.json`): Cycle Steps 3.7 and Escape Limit 100.9: their whole parts count, so the frame is Cycle Steps 3's with Escape Limit 100. Frames 0.
 
-FX-FRACTAL-031 (`fx_fractal_031.json`): Set Choice "burning_ship", not one of its six words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-031 (`fx_fractal_031.json`): Set Choice "burning_ship", not one of its six words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-FRACTAL-032 (`fx_fractal_032.json`): Equation "z7". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-032 (`fx_fractal_032.json`): Equation "z7". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-FRACTAL-033 (`fx_fractal_033.json`): Escape Limit 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-033 (`fx_fractal_033.json`): Escape Limit 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-FRACTAL-034 (`fx_fractal_034.json`): Cycle Offset 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-034 (`fx_fractal_034.json`): Cycle Offset 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-FRACTAL-035 (`fx_fractal_035.json`): Magnification 41, above 40. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-035 (`fx_fractal_035.json`): Magnification 41, above 40. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-FRACTAL-036 (`fx_fractal_036.json`): Julia centre 11 across, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-036 (`fx_fractal_036.json`): Julia centre 11 across, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-FRACTAL-037 (`fx_fractal_037.json`): Palette "rainbow". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-037 (`fx_fractal_037.json`): Palette "rainbow". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-FRACTAL-038 (`fx_fractal_038.json`): Cycle Steps 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-038 (`fx_fractal_038.json`): Cycle Steps 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-FRACTAL-039 (`fx_fractal_039.json`): Oversample Factor 9, above 8. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-039 (`fx_fractal_039.json`): Oversample Factor 9, above 8. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-FRACTAL-040 (`fx_fractal_040.json`): Hue keyed to 36001 at frame 4, above 36000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-040 (`fx_fractal_040.json`): Hue keyed to 36001 at frame 4, above 36000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-FRACTAL-041 (`fx_fractal_041.json`): Oversample Method "fast". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-041 (`fx_fractal_041.json`): Oversample Method "fast". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-FRACTAL-042 (`fx_fractal_042.json`): Transparency "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-FRACTALSET-042 (`fx_fractal_042.json`): Transparency "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 ### Grid (D-417)
 

@@ -5,7 +5,7 @@
 //!
 //! Every expected pixel is `Fixtures/fractal/expected_fractal.json`, written by
 //! `tools/fractal_reference.py` before this code existed and printed in document 25 as
-//! FX-FRACTAL-001 to 042. Tolerance 2e-5. Nothing here is a snapshot of a run.
+//! FX-FRACTALSET-001 to 042. Tolerance 2e-5. Nothing here is a snapshot of a run.
 //!
 //! Also draws the street into `verification/D-416 pictures/`.
 
@@ -274,10 +274,10 @@ fn b295_fractal() {
          Factor 1 Edge Highlight whitens the pixels whose band differs from the left or above. \
          Overlay ghosts the other set and draws its centre's cross. Every expected pixel is \
          `Fixtures/fractal/expected_fractal.json`, written by `tools/fractal_reference.py` before this \
-         code existed and printed in document 25 as FX-FRACTAL-001 to 042. Tolerance 2e-5.\n",
+         code existed and printed in document 25 as FX-FRACTALSET-001 to 042. Tolerance 2e-5.\n",
     );
 
-    t.heading("FX-FRACTAL-001 to 042 (document 25)");
+    t.heading("FX-FRACTALSET-001 to 042 (document 25)");
     t.fixtures("expected_fractal.json");
 
     t.heading("The file");
