@@ -207392,3 +207392,69 @@ FX-VEGAS-058 (`fx_vegas_058.json`): Random Seed -1, below 0. The file is read, t
 FX-VEGAS-059 (`fx_vegas_059.json`): Path mask 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-VEGAS-060 (`fx_vegas_060.json`): Rotation keyed to 360001 at frame 4, above 360000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Noise Alpha (D-450)
+
+After Effects' Noise Alpha (Noise & Grain), `core.noise_alpha` (B-330). Every case is a composition 16 by 10 at 24 frames a second, 5 frames long, holding a card with empty, partly covered and fully covered pixels (`Fixtures/noisealpha/media`), the same size, unmoved unless the case says. `tools/noisealpha_reference.py` works the expected frames, `Fixtures/noisealpha/expected_noisealpha.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-NOISEALPHA-001 (`fx_noisealpha_001.json`): The settings as they start: Uniform Random, amount 20, Clamp, Clip; only the fully covered pixels change, each losing up to 0.2 of its covering or, where the noise would add, staying covered; the empty pixels and the soft edge are left; the colour is kept; the same on every frame. Frames 0, 2.
+
+FX-NOISEALPHA-002 (`fx_noisealpha_002.json`): Add: the empty pixels gain up to 0.2 of covering, in black, the soft edge moves up to 0.2 either way keeping its colour, and the covered pixels lose up to 0.2. Frames 0.
+
+FX-NOISEALPHA-003 (`fx_noisealpha_003.json`): Scale: the noise in proportion to the covering, so the empty pixels are left and the soft edge moves half as far as the step. Frames 0.
+
+FX-NOISEALPHA-004 (`fx_noisealpha_004.json`): Edges: only the soft edge, partly covered, changes. Frames 0.
+
+FX-NOISEALPHA-005 (`fx_noisealpha_005.json`): Squared Random, Add: the noise pushed out towards its ends, so the soft edge moves at least as far as in FX-NOISEALPHA-002, the same way. Frames 0.
+
+FX-NOISEALPHA-006 (`fx_noisealpha_006.json`): Amount 100, Add, Wrap Back: a covered pixel the noise would push past full is reflected back as far, an empty one pushed below nothing comes back up as far. Frames 0.
+
+FX-NOISEALPHA-007 (`fx_noisealpha_007.json`): Amount 100, Add, Wrap: past full comes round from nothing, below nothing comes round from full. Frames 0.
+
+FX-NOISEALPHA-008 (`fx_noisealpha_008.json`): Amount 100, Add, Clip: held at nothing and full. Frames 0.
+
+FX-NOISEALPHA-009 (`fx_noisealpha_009.json`): Uniform Animation at phase 0, Add: the noise at depth 0 for seed 0, so the frame is FX-NOISEALPHA-002's. Frames 0.
+
+FX-NOISEALPHA-010 (`fx_noisealpha_010.json`): Uniform Animation at phase 180, Add: half way between depth 0 and depth 1 in the noise. Frames 0.
+
+FX-NOISEALPHA-011 (`fx_noisealpha_011.json`): Uniform Animation, Noise Phase keyed from 0 at frame 0 to 720 at frame 4, Add: a new field each turn, reached smoothly; frame 1 is phase 180, FX-NOISEALPHA-010's. Frames 0, 1, 2, 4.
+
+FX-NOISEALPHA-012 (`fx_noisealpha_012.json`): FX-NOISEALPHA-011 with Cycle Noise on and Cycle 2: after two turns the noise is where it began, so frame 4 is frame 0. Frames 0, 2, 4.
+
+FX-NOISEALPHA-013 (`fx_noisealpha_013.json`): Cycle 1: every whole turn is the start, so phase 360 is phase 0. Frames 0.
+
+FX-NOISEALPHA-014 (`fx_noisealpha_014.json`): Squared Animation at phase 90, Add. Frames 0.
+
+FX-NOISEALPHA-015 (`fx_noisealpha_015.json`): Random Seed 7, Add: a different noise from FX-NOISEALPHA-002's. Frames 0.
+
+FX-NOISEALPHA-016 (`fx_noisealpha_016.json`): Random Seed 7.6, Add: its whole part counts, so this is FX-NOISEALPHA-015. Frames 0.
+
+FX-NOISEALPHA-017 (`fx_noisealpha_017.json`): Uniform Animation with Random Seed 7: the seed is for the Random kinds only, so this is FX-NOISEALPHA-009. Frames 0.
+
+FX-NOISEALPHA-018 (`fx_noisealpha_018.json`): Amount 0: the drawing, untouched. Frames 0, 2.
+
+FX-NOISEALPHA-019 (`fx_noisealpha_019.json`): FX-NOISEALPHA-002 moved three pixels right: the noise is the drawing's own, so it moves with it. Frames 0.
+
+FX-NOISEALPHA-020 (`fx_noisealpha_020.json`): After a Motion Tile that grows the layer: the noise is worked in the drawing's own pixels, so the frame is FX-NOISEALPHA-002's. Frames 0.
+
+FX-NOISEALPHA-021 (`fx_noisealpha_021.json`): Amount keyed from 0 at frame 0 to 40 at frame 4, Add: frame 0 is the drawing; on the soft edge frame 4's step is twice frame 2's. Frames 0, 2, 4.
+
+FX-NOISEALPHA-022 (`fx_noisealpha_022.json`): Squared Animation, amount 60, Scale, Wrap Back, Cycle Noise on with Cycle 3, phase keyed 0 to 400: the controls together. Frames 0, 1, 2, 3, 4.
+
+FX-NOISEALPHA-023 (`fx_noisealpha_023.json`): Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEALPHA-024 (`fx_noisealpha_024.json`): Random Seed 100001, above 100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEALPHA-025 (`fx_noisealpha_025.json`): Noise Phase 200000, above 100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEALPHA-026 (`fx_noisealpha_026.json`): Cycle 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEALPHA-027 (`fx_noisealpha_027.json`): Noise "uniform", not one of its four words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEALPHA-028 (`fx_noisealpha_028.json`): Original Alpha "Add", in capitals, kept as written and not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEALPHA-029 (`fx_noisealpha_029.json`): Overflow "wrapback", not one of its three words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEALPHA-030 (`fx_noisealpha_030.json`): Cycle Noise "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEALPHA-031 (`fx_noisealpha_031.json`): Amount keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

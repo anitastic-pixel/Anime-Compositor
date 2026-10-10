@@ -1,7 +1,7 @@
 # Effects audit against After Effects
 
 Audit date 2026-10-08. Source list: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/effects-and-animation-presets/effect-list.html (the page refused automated reading, HTTP 403, so the list was compiled from Adobe's per-category effect pages and web searches; newer additions were checked against release notes, see Sources at the bottom).
-Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 137 done, 9 partial, 94 missing.
+Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 138 done, 9 partial, 93 missing.
 Priority 0: 23 items: 17 done, 1 partial, 4 parked last, 1 skipped.
 Plus 27 effects (25 done, 2 partial) of ours that are not on Adobe's list (last table).
 Plus 18 rows of the owner's picks from `docs/effects/PLUGINS.md` (marked **Pick #N**, its top-20 rank), placed after Adobe's rows in each category: 8 done, 7 missing, 2 parked last, 1 skipped as a preset. Picks #5, #7 and #9 fill Adobe rows that already exist and are marked there.
@@ -217,7 +217,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Noise & Grain | Match Grain — measures grain in one layer and adds matching grain to another | missing | P0-3, P0-15 | CPU first | Target P4 | none yet |
 | Noise & Grain | Median — replaces each pixel with the middle value of its neighbours (`core.median`) | done | none | On card (done) | Target P2; measured CPU 22.1 / GPU 9.6 ms (B-151) | FX-MEDIAN cases in median_smart_blur, b138, B-138 table, D-203 |
 | Noise & Grain | Noise — adds random speckle, optionally coloured (`core.noise`) | done | none | On card (done) | Target P1; measured CPU 82.7 / GPU 37.6 ms (B-65) | FX-NOISE-001..018, b62, B-62 table, D-119 |
-| Noise & Grain | Noise Alpha — adds random noise to the alpha channel | missing | Noise | Add card pass (P1) | Target P1 | none yet |
+| Noise & Grain | Noise Alpha — adds random noise to the alpha channel (our Noise Alpha, `core.noise_alpha`) | done | Noise | On card (done): grade pass mode 11, fused into chains | Target P1; reference shot, 3 layers after a moving Noise, played again, card / processor, again: Noise alone 12.1 / 40.3 ms a frame, as added (Uniform Random, Clamp) 13.3 / 44.9, Squared Random, Add, Wrap Back 13.5 / 51.0, Uniform Animation, Scale 13.4 / 45.8 (`verification/B-330_noisealpha_timing_table.md`) | FX-NOISEALPHA-001..031 (`tools/noisealpha_reference.py`), b330, D-450 table 210 of 210 checks, card within 1 level, D-450, awaiting playtest. Rule ours (no formula found): P0-19's value noise one number a pixel, Squared towards its ends, on the covering by Clamp/Add/Scale/Edges, Clip/Wrap Back/Wrap. Gaps: none of After Effects' controls is left out; After Effects works this effect in 8 bits a channel, ours in floating point, so its Overflow example (Wrap Back turning 258 into 252) reads here as a covering of 1 + d turning into 1 - d. Gaps (tutorial): none found. |
 | Noise & Grain | Noise HLS — adds noise to hue, lightness and saturation | missing | Noise | Add card pass (P1) | Target P1 | none yet |
 | Noise & Grain | Noise HLS Auto — Noise HLS that animates by itself | missing | Noise HLS | Add card pass (P1) | Target P1 | none yet |
 | Noise & Grain | Remove Grain — reduces grain or noise while keeping detail | missing | P0-15 | Add card pass | Target P3 | none yet |
