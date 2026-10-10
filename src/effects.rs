@@ -327,6 +327,10 @@ impl EffectInstance {
             if let Effect::CurlNoise { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-452: Noise HLS Auto's frame.
+            if let Effect::NoiseHlsAuto { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         // D-202: the Mix at this frame, held inside 0 to 100; one outside it is kept, so the
         // effect is bypassed.
@@ -2036,6 +2040,18 @@ pub enum Effect {
         frame: i32,
         float: bool,
     },
+    /// D-452: after After Effects' Noise HLS Auto, D-451's Noise HLS whose depth is the frame
+    /// times `animation_speed`, 0 to 10, read at the frame. `frame` is set per frame and never
+    /// saved.
+    NoiseHlsAuto {
+        noise: String,
+        hue: f64,
+        lightness: f64,
+        saturation: f64,
+        grain_size: f64,
+        animation_speed: f64,
+        frame: i32,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2759,6 +2775,7 @@ pub const CURL_NOISE: &str = "core.curl_noise";
 /// D-446: Curl Noise's views and channels, in the card's numbering.
 pub const CURL_VIEWS: [&str; 3] = ["final_render", "input_noise", "curl_generation"];
 pub const CURL_CHANNELS: [&str; 5] = ["rgb", "red", "green", "blue", "alpha"];
+pub const NOISE_HLS_AUTO: &str = "core.noise_hls_auto";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3810,6 +3827,13 @@ impl Effect {
                 ("contrast", vec![contrast], 0.0, 1000.0),
                 ("brightness", vec![brightness], -1000.0, 1000.0),
             ],
+            Effect::NoiseHlsAuto { hue, lightness, saturation, grain_size, animation_speed, .. } => vec![
+                ("hue", vec![hue], 0.0, 100.0),
+                ("lightness", vec![lightness], 0.0, 100.0),
+                ("saturation", vec![saturation], 0.0, 100.0),
+                ("grain_size", vec![grain_size], 0.5, 100.0),
+                ("animation_speed", vec![animation_speed], 0.0, 10.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -4682,7 +4706,9 @@ impl Effect {
             Effect::AddGrain { size, .. } => *size = scale(*size),
             // D-451: the same for Noise HLS's grain, held at its smallest, half a pixel, rather
             // than bypassed.
-            Effect::NoiseHls { grain_size, .. } => *grain_size = scale(*grain_size).max(0.5),
+            Effect::NoiseHls { grain_size, .. } | Effect::NoiseHlsAuto { grain_size, .. } => {
+                *grain_size = scale(*grain_size).max(0.5)
+            }
             // D-446: the field, its slide and the flow lines keep their size on the picture.
             Effect::CurlNoise { size, offset, speed, sample_radius, .. } => {
                 *size = scale(*size).max(1.0);
@@ -5101,6 +5127,7 @@ impl Effect {
             Effect::NoiseAlpha { .. } => "Noise Alpha",
             Effect::NoiseHls { .. } => "Noise HLS",
             Effect::CurlNoise { .. } => "Curl Noise",
+            Effect::NoiseHlsAuto { .. } => "Noise HLS Auto",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5283,6 +5310,7 @@ impl Effect {
             Effect::NoiseAlpha { .. } => NOISE_ALPHA,
             Effect::NoiseHls { .. } => NOISE_HLS,
             Effect::CurlNoise { .. } => CURL_NOISE,
+            Effect::NoiseHlsAuto { .. } => NOISE_HLS_AUTO,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6650,6 +6678,10 @@ impl Effect {
             Effect::CurlNoise { channel: v, .. } if !CURL_CHANNELS.contains(&v.as_str()) => Some(format!(
                 "Curl Noise's channel is one of {}, and this is \"{v}\".",
                 CURL_CHANNELS.join(", ")
+            )),
+            Effect::NoiseHlsAuto { noise: v, .. } if !NOISE_HLS_KINDS.contains(&v.as_str()) => Some(format!(
+                "Noise HLS Auto's noise is one of {}, and this is \"{v}\".",
+                NOISE_HLS_KINDS.join(", ")
             )),
             Effect::Ellipse { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
                 "Ellipse's composite is \"on\" or \"off\", and this is \"{composite}\"."
@@ -8359,6 +8391,12 @@ pub(crate) fn apply_stack_at(
             // D-446: the field in the drawing's own space, however an effect above grew it.
             e @ Effect::CurlNoise { .. } => {
                 crate::perf::time(crate::perf::Stage::EffectCurlNoise, || crate::grade::curl_noise(source, e, (ox, oy)))
+            }
+            // D-452: the same with the depth the frame times the speed.
+            Effect::NoiseHlsAuto { noise, hue, lightness, saturation, grain_size, animation_speed, frame } => {
+                crate::perf::time(crate::perf::Stage::EffectNoiseHlsAuto, || {
+                    crate::grade::noise_hls(source, noise, [*hue, *lightness, *saturation], *grain_size, *frame as f64 * animation_speed, (ox, oy))
+                })
             }
             // D-417: the anchor and corner as Checkerboard's; the layer never grows.
             Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {

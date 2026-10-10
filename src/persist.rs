@@ -3185,6 +3185,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("clip_hdr_results".into(), J::from(clip_hdr_results.as_str()));
             params.insert("channel".into(), J::from(channel.as_str()));
         }
+        // D-452: the frame is never saved.
+        Effect::NoiseHlsAuto { noise, hue, lightness, saturation, grain_size, animation_speed, .. } => {
+            params.insert("noise".into(), J::from(noise.as_str()));
+            params.insert("hue".into(), num(*hue));
+            params.insert("lightness".into(), num(*lightness));
+            params.insert("saturation".into(), num(*saturation));
+            params.insert("grain_size".into(), num(*grain_size));
+            params.insert("animation_speed".into(), num(*animation_speed));
+        }
         // D-418: the paths are found each frame and never saved.
         Effect::Fill { mask, all_masks, color, invert, horizontal_feather, vertical_feather, opacity, .. } => {
             params.insert("mask".into(), num(*mask));
@@ -4791,6 +4800,7 @@ fn parse_effect(
         crate::effects::NOISE_HLS,
         crate::effects::CURL_NOISE,
         crate::effects::TURBULENT_NOISE,
+        crate::effects::NOISE_HLS_AUTO,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6209,6 +6219,15 @@ fn parse_effect(
             channel: effect_word(params, "channel", &at)?,
             frame: 0,
             float: false,
+        }),
+        crate::effects::NOISE_HLS_AUTO => Some(crate::effects::Effect::NoiseHlsAuto {
+            noise: effect_word(params, "noise", &at)?,
+            hue: effect_number(params, "hue", &at)?,
+            lightness: effect_number(params, "lightness", &at)?,
+            saturation: effect_number(params, "saturation", &at)?,
+            grain_size: effect_number(params, "grain_size", &at)?,
+            animation_speed: effect_number(params, "animation_speed", &at)?,
+            frame: 0,
         }),
         crate::effects::FILL => Some(crate::effects::Effect::Fill {
             mask: effect_number(params, "mask", &at)?,

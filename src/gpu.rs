@@ -1401,6 +1401,11 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
             let y = f64(i32(id.y) - F.oy);
             var n = vec3(0.0lf);
             for (var c = 0u; c < 3u; c++) {
+                // D-452: an amount of 0 (k[c], hue, lightness, saturation) moves nothing, so
+                // its noise is not drawn.
+                if k[c] == 0.0lf {
+                    continue;
+                }
                 if k[5] == 2.0lf {
                     n[c] = cell_noise_look(c, vec3((x + 0.5lf) / k[3], (y + 0.5lf) / k[3], k[4]), false, 0);
                 } else {
@@ -8084,6 +8089,7 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::AddGrain { .. }
             | E::NoiseAlpha { .. }
             | E::NoiseHls { .. }
+            | E::NoiseHlsAuto { .. }
             | E::ExposureFlicker { .. }
             | E::ColorBalance { .. }
             | E::GradientMap { .. }
@@ -9610,6 +9616,20 @@ impl Gpu {
                 let base = crate::grade::mix(0);
                 let kind = crate::effects::NOISE_HLS_KINDS.iter().position(|o| o == noise).unwrap_or(0) as f64;
                 let k = [hue / 100.0, lightness / 100.0, saturation / 100.0, *grain_size, noise_phase / 360.0, kind];
+                let p = FxParams {
+                    mode: 12,
+                    base: [base as u32, (base >> 32) as u32],
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                same(steps, &passes.grade, p, &k, None)
+            }
+            // D-452: the same with the depth the frame times the speed.
+            E::NoiseHlsAuto { noise, hue, lightness, saturation, grain_size, animation_speed, frame } => {
+                let base = crate::grade::mix(0);
+                let kind = crate::effects::NOISE_HLS_KINDS.iter().position(|o| o == noise).unwrap_or(0) as f64;
+                let k = [hue / 100.0, lightness / 100.0, saturation / 100.0, *grain_size, *frame as f64 * animation_speed, kind];
                 let p = FxParams {
                     mode: 12,
                     base: [base as u32, (base >> 32) as u32],

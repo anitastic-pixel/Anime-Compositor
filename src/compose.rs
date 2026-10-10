@@ -892,6 +892,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::NoiseHls { .. }
                 // D-446: Curl Noise.
                 | crate::effects::Effect::CurlNoise { .. }
+                // D-452: Noise HLS Auto.
+                | crate::effects::Effect::NoiseHlsAuto { .. }
                 | crate::effects::Effect::ChromaticAberration { .. }
                 | crate::effects::Effect::LensChromaticAberration { .. }
                 | crate::effects::Effect::DistanceGradation { .. }
@@ -1205,7 +1207,9 @@ fn card_effect(
                 E::Outline { width, .. } => *width == 0.0,
                 E::Noise { amount, .. } | E::ChromaticAberration { amount, .. } | E::NoiseAlpha { amount, .. } => *amount == 0.0,
                 E::AddGrain { intensity, .. } => *intensity == 0.0,
-                E::NoiseHls { hue, lightness, saturation, .. } => [*hue, *lightness, *saturation] == [0.0; 3],
+                E::NoiseHls { hue, lightness, saturation, .. } | E::NoiseHlsAuto { hue, lightness, saturation, .. } => {
+                    [*hue, *lightness, *saturation] == [0.0; 3]
+                }
                 // D-409: as layer_fx::lens_chromatic_aberration returns at once.
                 E::LensChromaticAberration { amount, red_scale, green_scale, blue_scale, .. } => {
                     *amount == 0.0 || [*red_scale, *green_scale, *blue_scale] == [0.0; 3]
