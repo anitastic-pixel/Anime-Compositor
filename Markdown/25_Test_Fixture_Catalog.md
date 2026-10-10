@@ -207268,3 +207268,127 @@ FX-ADDGRAIN-039 (`fx_addgrain_039.json`): Monochromatic "yes", not off or on. Th
 FX-ADDGRAIN-040 (`fx_addgrain_040.json`): Animate Smoothly "On", in capitals, kept as written and not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-ADDGRAIN-041 (`fx_addgrain_041.json`): Shadows keyed to 20 at frame 4, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Vegas (D-444)
+
+Vegas, after After Effects' Vegas (Generate), `core.vegas` (B-324). Every case is a composition 16 by 10 holding Lightning Bolt's night with masks of mode None, as Path Stroke's cases are (`Fixtures/vegas/media/`), or Path Stroke's shape layers; `tools/vegas_reference.py` works the expected frames, `Fixtures/vegas/expected_vegas.json`, tolerance 2e-5; the rule is in document 21. By the owner's decision of 2026-10-10, "Masks only for now", Stroke Image Contours is refused with a sentence; no case has a mask of fewer than three points.
+
+FX-VEGAS-001 (`fx_vegas_001.json`): Mask 1, the box from (2, 2) to (13, 7), 32 pixels round, of mode None; Vegas as added but Segments 4: four dashes end to end, each 8 pixels long, white and whole at its start fading to nothing at its end, over the night sky and the empty half. Frames 0.
+
+FX-VEGAS-002 (`fx_vegas_002.json`): As added, 32 segments: 32 dashes of 1 pixel each, a fine shimmer all round the box. Frames 0.
+
+FX-VEGAS-003 (`fx_vegas_003.json`): Segments 4, Length 0.5, Even: four 4-pixel dashes spread round the box, 8 pixels apart. Frames 0.
+
+FX-VEGAS-004 (`fx_vegas_004.json`): Segments 4, Length 0.5, Bunched: four 4-pixel dashes end to end round the first half of the box; the second half bare. Frames 0.
+
+FX-VEGAS-005 (`fx_vegas_005.json`): FX-VEGAS-003 with Rotation 45: every dash an eighth of the way on, 4 pixels, into the gaps. Frames 0.
+
+FX-VEGAS-006 (`fx_vegas_006.json`): FX-VEGAS-004 with Rotation -90: the dashes a quarter of the way back, running on past the box's first corner from its end. Frames 0.
+
+FX-VEGAS-007 (`fx_vegas_007.json`): FX-VEGAS-004 with Rotation keyed from 0 at frame 0 to 360 at frame 4, linear: the train goes once round; frames 0, 1, 2 and 4, frame 4 FX-VEGAS-004's. Frames 0, 1, 2, 4.
+
+FX-VEGAS-008 (`fx_vegas_008.json`): Two masks, the box and a small box from (5, 4) to (9, 6), All Masks on, Segments 2, Length 0.5, Random Phase off: each box's dashes start at its own first point. Frames 0.
+
+FX-VEGAS-009 (`fx_vegas_009.json`): FX-VEGAS-008 with Random Phase on, Random Seed 1: each box's dashes start somewhere of their own. Frames 0.
+
+FX-VEGAS-010 (`fx_vegas_010.json`): FX-VEGAS-009 with Random Seed 2: other starts. Frames 0.
+
+FX-VEGAS-011 (`fx_vegas_011.json`): FX-VEGAS-008 with Random Seed 7 and Random Phase off: the seed is unused, FX-VEGAS-008's frame. Frames 0.
+
+FX-VEGAS-012 (`fx_vegas_012.json`): FX-VEGAS-001 with Blend Mode Transparent: the dashes alone, the night gone. Frames 0.
+
+FX-VEGAS-013 (`fx_vegas_013.json`): FX-VEGAS-001 with Blend Mode Under: the dashes behind the layer, seen only on the empty right half. Frames 0.
+
+FX-VEGAS-014 (`fx_vegas_014.json`): FX-VEGAS-001 with Blend Mode Stencil: the night only under the dashes, the colour unused. Frames 0.
+
+FX-VEGAS-015 (`fx_vegas_015.json`): Segments 4, a red #ff3020, Width 4, Hardness 0.5. Frames 0.
+
+FX-VEGAS-016 (`fx_vegas_016.json`): Segments 4, Width 3, Hardness 1: hard edges, smoothed over one pixel. Frames 0.
+
+FX-VEGAS-017 (`fx_vegas_017.json`): Segments 4, Length 0.5, Even, Start Opacity 1 and End Opacity 1: whole dashes, no fade. Frames 0.
+
+FX-VEGAS-018 (`fx_vegas_018.json`): Segments 4, Start Opacity 0.2, End Opacity 1, Mid-point Opacity 0.5 at Mid-point Position 0.25: faint, quickly brighter, then whole at the end. Frames 0.
+
+FX-VEGAS-019 (`fx_vegas_019.json`): Segments 4, Start and End Opacity 1, Mid-point Opacity -1: each dash dips to nothing at its middle. Frames 0.
+
+FX-VEGAS-020 (`fx_vegas_020.json`): Segments 4, Mid-point Position 0, Mid-point Opacity -0.4: the first line unused, each dash starting at 0.6 and fading to nothing. Frames 0.
+
+FX-VEGAS-021 (`fx_vegas_021.json`): Segments 4, Mid-point Position 1, Mid-point Opacity 0.5: the first line the whole dash, from 1 down to M, 0.5, at its end; End Opacity unused. Frames 0.
+
+FX-VEGAS-022 (`fx_vegas_022.json`): Length 0: nothing is drawn; the drawing, untouched. Frames 0.
+
+FX-VEGAS-023 (`fx_vegas_023.json`): Width 0: nothing is drawn; the drawing, untouched. Frames 0.
+
+FX-VEGAS-024 (`fx_vegas_024.json`): Width 0, Stencil: nothing at all. Frames 0.
+
+FX-VEGAS-025 (`fx_vegas_025.json`): Segments 1, Length 0.75: one long dash three quarters of the way round, fading from the box's top-left corner. Frames 0.
+
+FX-VEGAS-026 (`fx_vegas_026.json`): Segments 4.7: its floor, 4, FX-VEGAS-001's frame. Frames 0.
+
+FX-VEGAS-027 (`fx_vegas_027.json`): A curved mask, a circle 8 across about (8, 5), Segments 6, Length 0.6, Even: six dashes follow the curve. Frames 0.
+
+FX-VEGAS-028 (`fx_vegas_028.json`): Two masks, Path mask 2: the small box alone, Segments 4. Frames 0.
+
+FX-VEGAS-029 (`fx_vegas_029.json`): The mask's path keyed from the box at frame 0 to the box two rows lower at frame 4: the dashes follow it, frames 0, 2 and 4. Frames 0, 2, 4.
+
+FX-VEGAS-030 (`fx_vegas_030.json`): FX-VEGAS-001 moved three pixels right: the dashes move with the drawing. Frames 0.
+
+FX-VEGAS-031 (`fx_vegas_031.json`): After a Motion Tile that grows the layer: the mask is the drawing's own, so the frame is FX-VEGAS-001's. Frames 0.
+
+FX-VEGAS-032 (`fx_vegas_032.json`): The box's mask of mode Add: the drawing is cut to the box first, then the dashes drawn, their outer half over nothing. Frames 0.
+
+FX-VEGAS-033 (`fx_vegas_033.json`): Width 3 and Segments keyed from 1 at frame 0 to 8 at frame 4: more, shorter dashes; frames 0, 2 and 4. Frames 0, 2, 4.
+
+FX-VEGAS-034 (`fx_vegas_034.json`): A shape layer holding the box as a shape with no fill and no stroke, Stroke Shapes, Segments 4: the dashes over nothing, FX-VEGAS-012's frame. Frames 0.
+
+FX-VEGAS-035 (`fx_vegas_035.json`): An open shape, a roof of two legs from (2, 7) up to (8, 2) and down to (14, 7), Segments 3, Length 0.5, Rotation 300: the open path has no bottom, and a dash that passes its end runs on from its start. Frames 0.
+
+FX-VEGAS-036 (`fx_vegas_036.json`): A star of five points as a shape, Segments 5, Length 0.5, Even, Width 1: dashes on its arms. Frames 0.
+
+FX-VEGAS-037 (`fx_vegas_037.json`): A shape layer with the box as a shape and the small box as a mask of mode None, Stroke Masks, Segments 4: the small box, the mask, alone. Frames 0.
+
+FX-VEGAS-038 (`fx_vegas_038.json`): No masks at all. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Frames 0, 4.
+
+FX-VEGAS-039 (`fx_vegas_039.json`): Path mask 3, of two. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Frames 0, 4.
+
+FX-VEGAS-040 (`fx_vegas_040.json`): All Masks on, every mask switched off. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Frames 0, 4.
+
+FX-VEGAS-041 (`fx_vegas_041.json`): Stroke Shapes on the night drawing, which is not a shape layer. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Frames 0, 4.
+
+FX-VEGAS-042 (`fx_vegas_042.json`): Stroke "image_contours", After Effects' Image Contours, which is not built: refused with a sentence, never drawn along the masks instead. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-043 (`fx_vegas_043.json`): Stroke "edges", which is not "masks", "shapes" or "image_contours". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-044 (`fx_vegas_044.json`): Segments 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-045 (`fx_vegas_045.json`): Segments 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-046 (`fx_vegas_046.json`): Length 1.5, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-047 (`fx_vegas_047.json`): Width 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-048 (`fx_vegas_048.json`): Hardness 1.5, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-049 (`fx_vegas_049.json`): Start Opacity -0.1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-050 (`fx_vegas_050.json`): Mid-point Opacity 1.5, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-051 (`fx_vegas_051.json`): Mid-point Position -0.1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-052 (`fx_vegas_052.json`): End Opacity 2, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-053 (`fx_vegas_053.json`): Blend Mode "add", which is not "transparent", "over", "under" or "stencil". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-054 (`fx_vegas_054.json`): Segment Distribution "random", which is not "bunched" or "even". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-055 (`fx_vegas_055.json`): Random Phase "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-056 (`fx_vegas_056.json`): A colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-057 (`fx_vegas_057.json`): All Masks "maybe", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-058 (`fx_vegas_058.json`): Random Seed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-059 (`fx_vegas_059.json`): Path mask 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-VEGAS-060 (`fx_vegas_060.json`): Rotation keyed to 360001 at frame 4, above 360000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
