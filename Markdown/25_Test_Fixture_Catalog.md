@@ -205282,3 +205282,37 @@ FX-TINT-014 (`fx_tint_014.json`): Amount keyed to 150 at frame 4. The file is re
 FX-TINT-015 (`fx_tint_015.json`): Map Black To written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-TINT-016 (`fx_tint_016.json`): Map White To written "white", a name, not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Tritone (D-402)
+
+Tritone (`core.tritone`), a second name over Gradient Map's engine (B-281). Gradient Map's own cases, FX-GRADMAP-001 to 023, are unchanged. Every case is a project of one composition 16 by 10, five frames, one drawing, Broadcast Safe's (`tools/broadcast_safe_reference.py`), with the effect. `tools/tritone_reference.py` works the expected frames, `Fixtures/tritone/expected_tritone.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-TRITONE-001 (`fx_tritone_001.json`): The settings as they start: shadows #000000, midtones #8c7355, a sepia brown, highlights #ffffff, blend 0. A sepia print of the drawing by its lightness; black stays black and white white; the yellow at half covering takes the same colour as the yellow, at its own covering. Frames 0.
+
+FX-TRITONE-002 (`fx_tritone_002.json`): Blend With Original 100: the drawing exactly as it is. Frames 0.
+
+FX-TRITONE-003 (`fx_tritone_003.json`): Blend With Original 50: every pixel halfway, in linear light, between the drawing and FX-TRITONE-001. Frames 0.
+
+FX-TRITONE-004 (`fx_tritone_004.json`): Shadows #1a2a6c, a navy, midtones #c0392b, a red, highlights #fdf3a7, a pale yellow: a night-to-sunset colouring; black turns exactly the navy and white the pale yellow. Frames 0.
+
+FX-TRITONE-005 (`fx_tritone_005.json`): All three #6450a0: every pixel that shows is #6450a0 at its own covering, whatever its lightness. Frames 0.
+
+FX-TRITONE-006 (`fx_tritone_006.json`): FX-TRITONE-004 with its colours written in capitals: the same. Frames 0.
+
+FX-TRITONE-007 (`fx_tritone_007.json`): FX-TRITONE-004 at blend 70: each pixel 30 per cent of the way, in linear light, toward its colour. Frames 0.
+
+FX-TRITONE-008 (`fx_tritone_008.json`): Blend keyed from 100 at frame 0 to 0 at frame 4, linear: frame 0 is the drawing, frame 2 is FX-TRITONE-003, frame 4 is FX-TRITONE-001. Frames 0, 2, 4.
+
+FX-TRITONE-009 (`fx_tritone_009.json`): FX-TRITONE-004 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-TRITONE-010 (`fx_tritone_010.json`): Blend With Original 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TRITONE-011 (`fx_tritone_011.json`): Blend With Original -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TRITONE-012 (`fx_tritone_012.json`): Blend With Original keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TRITONE-013 (`fx_tritone_013.json`): Highlights written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TRITONE-014 (`fx_tritone_014.json`): Midtones written "brown", a name, not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TRITONE-015 (`fx_tritone_015.json`): Shadows written "#00000g", not a hex digit. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
