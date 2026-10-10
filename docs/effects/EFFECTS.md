@@ -1,7 +1,7 @@
 # Effects audit against After Effects
 
 Audit date 2026-10-08. Source list: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/effects-and-animation-presets/effect-list.html (the page refused automated reading, HTTP 403, so the list was compiled from Adobe's per-category effect pages and web searches; newer additions were checked against release notes, see Sources at the bottom).
-Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 118 done, 9 partial, 113 missing.
+Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 119 done, 9 partial, 112 missing.
 Priority 0: 23 items: 17 done, 1 partial, 4 parked last, 1 skipped.
 Plus 27 effects (25 done, 2 partial) of ours that are not on Adobe's list (last table).
 Plus 18 rows of the owner's picks from `docs/effects/PLUGINS.md` (marked **Pick #N**, its top-20 rank), placed after Adobe's rows in each category: 8 done, 7 missing, 2 parked last, 1 skipped as a preset. Picks #5, #7 and #9 fill Adobe rows that already exist and are marked there.
@@ -189,7 +189,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Generate | CC Light Sweep — a moving band of light across the layer (`core.light_sweep`) | done | none | On card (done) | Target P1; after a moving Noise GPU 92.8 to 15.6 ms (B-225 timing) | FX-SWEEP-001..026, b134, B-134 table, D-199; B-225 table, D-344 |
 | Generate | CC Threads — woven thread pattern made from the image's colours | missing | none | Add card pass | Target P2 | none yet |
 | Generate | Cell Pattern — cellular noise patterns (bubbles, crystals, plates) (`core.cell_pattern`) | done | none | On card (done) | Target P2; measured CPU 22.0 / GPU 9.5 ms (B-151) | FX-CELL-001..033, b144, B-144 table, D-209 |
-| Generate | Checkerboard — draws a checker grid | missing | none | Add card pass (P1) | Target P1 | none yet |
+| Generate | Checkerboard — draws a checker grid (our Checkerboard, `core.checkerboard`) | done | none | On card (done), warp pass mode 26 | Target P1; reference shot, 3 layers after a moving Noise, played again, card / processor: as added 17.8 / 53.5 ms, Normal feathered 18.1 / 55.1, Overlay 22.7 / 78.6, against 12.2 / 44.9 without, about 2 ms a 1080p layer on the card; quiet (`verification/B-292_checkerboard_timing_table.md`) | FX-CHECK-001..033 (`tools/checkerboard_reference.py`), b292, D-413 table 235 of 235 checks, card within 1 level, D-413, awaiting playtest. Rule ours (no formula from Adobe): a straight ramp max(feather, 1) wide at each edge, covering (1 + fx fy) / 2, document 21's layer blend. Gaps: blending modes past None and seven (Hard Light, Color Dodge, Color Burn, Darken, Lighten, Difference, Exclusion, Hue, Saturation, Color, Luminosity, Silhouette Alpha); no viewer handles. Gaps (tutorial): none found. |
 | Generate | Circle — draws a filled circle or ring | missing | none | Add card pass (P1) | Target P1 | none yet |
 | Generate | Ellipse — draws a soft-edged ellipse outline | missing | none | Add card pass (P1) | Target P1 | none yet |
 | Generate | Eyedropper Fill — fills the layer with a colour sampled from an area | missing | P0-15 | Add card reduction pass | Target P1 | none yet |

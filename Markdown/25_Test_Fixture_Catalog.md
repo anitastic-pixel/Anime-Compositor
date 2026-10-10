@@ -205754,3 +205754,73 @@ FX-MAPCHROMA-017 (`fx_mapchroma_017.json`): Spectrum 2, below 3. The file is rea
 FX-MAPCHROMA-018 (`fx_mapchroma_018.json`): Spectrum 33, above 32. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-MAPCHROMA-019 (`fx_mapchroma_019.json`): Green amount keyed from 100 at frame 0 to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Checkerboard (D-413)
+
+After Effects' Checkerboard (Generate), `core.checkerboard` (B-292). Every case is a composition 16 by 10 holding Gradient's cel, the same size, unmoved unless the case says. `tools/checkerboard_reference.py` works the expected frames, `Fixtures/checkerboard/expected_checkerboard.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-CHECK-001 (`fx_check_001.json`): The settings as they start: anchor in the middle, (50, 50) per cent, Width Slider 64, white, opacity 100, blending mode none: the cell that starts at the anchor runs off the bottom-right, so the top-left and bottom-right quarters are white and the other two clear; the cel itself is gone. Frames 0.
+
+FX-CHECK-002 (`fx_check_002.json`): Width 4: white squares 4 pixels across in a checker, the anchor (8, 5) on a corner of them, the others clear. Frames 0.
+
+FX-CHECK-003 (`fx_check_003.json`): Width 4 with the anchor at (53.125, 55) per cent, (8.5, 5.5) pixels: the edges run through pixel centres, so the pixels on them are half white. Frames 0.
+
+FX-CHECK-004 (`fx_check_004.json`): Width & Height Sliders, width 4 and height 2: rectangles 4 across and 2 down. Frames 0.
+
+FX-CHECK-005 (`fx_check_005.json`): Corner Point, the corner at (75, 70) per cent, (12, 7) pixels: rectangles 4 by 2, FX-CHECK-004's. Frames 0.
+
+FX-CHECK-006 (`fx_check_006.json`): Corner Point with the corner on the anchor: each cell held at 1 pixel, a checker of single pixels. Frames 0.
+
+FX-CHECK-007 (`fx_check_007.json`): Width 4, feather width 2: the upright edges ramp over 2 pixels, the level ones stay sharp. Frames 0.
+
+FX-CHECK-008 (`fx_check_008.json`): Width 4, both feathers 4: no pixel wholly white or wholly clear, a soft weave. Frames 0.
+
+FX-CHECK-009 (`fx_check_009.json`): Width 4, orange #ff8000 at opacity 50: orange squares at half covering. Frames 0.
+
+FX-CHECK-010 (`fx_check_010.json`): Width 4, normal: white squares over the cel, the cel showing in the clear ones. Frames 0.
+
+FX-CHECK-011 (`fx_check_011.json`): Width 4, violet #6450a0, multiply: the cel darkened and tinted in the squares, as it was in the others. Frames 0.
+
+FX-CHECK-012 (`fx_check_012.json`): Width 4, violet, screen: the cel lightened in the squares. Frames 0.
+
+FX-CHECK-013 (`fx_check_013.json`): Width 4, violet, add: the violet added in the squares. Frames 0.
+
+FX-CHECK-014 (`fx_check_014.json`): Width 4, violet, overlay. Frames 0.
+
+FX-CHECK-015 (`fx_check_015.json`): Width 4, violet, soft light. Frames 0.
+
+FX-CHECK-016 (`fx_check_016.json`): Width 4, stencil alpha: the cel shows only through the squares. Frames 0.
+
+FX-CHECK-017 (`fx_check_017.json`): Width 4, normal at opacity 0: the cel exactly as it was. Frames 0.
+
+FX-CHECK-018 (`fx_check_018.json`): Width 4, the anchor keyed from (50, 50) at frame 0 to (75, 50) at frame 4, linear: the squares slide right, 1 pixel a frame; frame 4, moved one square, is the clear and white swapped. Frames 0, 2, 4.
+
+FX-CHECK-019 (`fx_check_019.json`): Width keyed from 2 at frame 0 to 8 at frame 4, linear: the squares grow; frame 2 is width 5. Frames 0, 2, 4.
+
+FX-CHECK-020 (`fx_check_020.json`): FX-CHECK-010 moved three pixels right: the squares move with the layer. Frames 0.
+
+FX-CHECK-021 (`fx_check_021.json`): After a Motion Tile that grows the layer: the anchor is the drawing's own, so the frame is FX-CHECK-002's. Frames 0.
+
+FX-CHECK-022 (`fx_check_022.json`): FX-CHECK-009 with its colour in capitals, #FF8000: the same. Frames 0.
+
+FX-CHECK-023 (`fx_check_023.json`): Width 3, the anchor at (-100, -100) per cent, outside the drawing: the checker still lies across the whole layer. Frames 0.
+
+FX-CHECK-024 (`fx_check_024.json`): Opacity keyed from 100 at frame 0 to 0 at frame 4 past its end by an ease, width 4, none: held at 0, frame 4 is clear everywhere. Frames 0, 4.
+
+FX-CHECK-025 (`fx_check_025.json`): Width 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHECK-026 (`fx_check_026.json`): Height 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHECK-027 (`fx_check_027.json`): Feather width -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHECK-028 (`fx_check_028.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHECK-029 (`fx_check_029.json`): Anchor 1001 per cent across, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHECK-030 (`fx_check_030.json`): Size From "corner", not one of its three words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHECK-031 (`fx_check_031.json`): Blending mode "darken", which this program does not have. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHECK-032 (`fx_check_032.json`): Colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHECK-033 (`fx_check_033.json`): Width keyed to 10001 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
