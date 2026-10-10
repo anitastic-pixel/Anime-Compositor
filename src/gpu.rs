@@ -6480,6 +6480,78 @@ fn stroke(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-444, along::vegas: k half the width, the softness, the start, mid-point and end opacities and the
+// mid-point's place (effects::vegas_fade), the blend mode (0 over, 1 under, 2 transparent, 3
+// stencil), the colour in linear light, the bits' count, then from 11 each bit as
+// along::vegas_bits gives it and its box, then for each band of 16 rows where its list of bits
+// starts and how many, then the lists. A pixel looks only at its band's bits; the others' boxes
+// miss the band. Its own entry point, as Path Stroke's is.
+@compute @workgroup_size(16, 16)
+fn vegas(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let x = f64(id.x) + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    let count = u32(k[10]);
+    let xi = f64(id.x);
+    var c = 0.0lf;
+    let band = 11u + 10u * count + 2u * (id.y / 16u);
+    let first = u32(k[band]);
+    let n = u32(k[band + 1u]);
+    for (var i = 0u; i < n; i++) {
+        let o = 11u + 10u * u32(k[first + i]);
+        if y <= k[o + 8u] || y >= k[o + 9u] || xi < ceil(k[o + 6u] - 0.5lf) || xi > floor(k[o + 7u] - 0.5lf) {
+            continue;
+        }
+        let bx = k[o];
+        let by = k[o + 1u];
+        let dx = k[o + 2u] - bx;
+        let dy = k[o + 3u] - by;
+        let l2 = dx * dx + dy * dy;
+        var t = 0.0lf;
+        if l2 != 0.0lf {
+            t = clamp(((x - bx) * dx + (y - by) * dy) / l2, 0.0lf, 1.0lf);
+        }
+        let ex = x - bx - t * dx;
+        let ey = y - by - t * dy;
+        let v = clamp((k[0] + 0.5lf - sqrt(ex * ex + ey * ey)) / k[1], 0.0lf, 1.0lf);
+        let s = k[o + 4u] + t * (k[o + 5u] - k[o + 4u]);
+        var fade = k[3];
+        if s < k[5] {
+            fade = k[2] + (k[3] - k[2]) * s / k[5];
+        } else if k[5] < 1.0lf {
+            fade = k[3] + (k[4] - k[3]) * (s - k[5]) / (1.0lf - k[5]);
+        }
+        c = max(c, v * v * (3.0lf - 2.0lf * v) * fade);
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let a = f64(p.w);
+    var out = p;
+    if k[6] == 0.0lf {
+        for (var j = 0u; j < 3u; j++) {
+            out[j] = f32(f64(p[j]) * (1.0lf - c) + k[7u + j] * c);
+        }
+        out.w = f32(a * (1.0lf - c) + c);
+    } else if k[6] == 1.0lf {
+        for (var j = 0u; j < 3u; j++) {
+            out[j] = f32(f64(p[j]) + (1.0lf - a) * k[7u + j] * c);
+        }
+        out.w = f32(a + (1.0lf - a) * c);
+    } else if k[6] == 2.0lf {
+        for (var j = 0u; j < 3u; j++) {
+            out[j] = f32(k[7u + j] * c);
+        }
+        out.w = f32(c);
+    } else {
+        for (var j = 0u; j < 4u; j++) {
+            out[j] = f32(f64(p[j]) * c);
+        }
+    }
+    textureStore(output, id.xy, out);
+}
+
 // D-420, layer_fx::draw_marks: k half the thickness, the softness, how (0 over, 1 alone, 2 add),
 // 1 to blend, the pieces' count, then from 5 each piece (its ends, its mark, its inside and
 // outside colours in linear light) and its box, then for each band of 16 rows where its list of
@@ -7653,6 +7725,8 @@ struct FxPasses {
     stroke: Pass,
     /// D-420.
     marks: Pass,
+    /// D-444.
+    vegas: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -8296,6 +8370,7 @@ impl Gpu {
                 bolt: pass("bolt", &[0, 1, 2, 3]),
                 stroke: pass("stroke", &[0, 1, 2, 3]),
                 marks: pass("marks", &[0, 1, 2, 3]),
+                vegas: pass("vegas", &[0, 1, 2, 3]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -10946,6 +11021,41 @@ impl Gpu {
                 let mut k = vec![1.0 - blend_with_original / 100.0, parts.len() as f64];
                 k.extend(parts.iter().flatten());
                 same(steps, &passes.warp, FxParams { mode: 36, ..Default::default() }, &k, None)
+            }
+            // D-444: its own pass, the dashes' bits worked out here as the CPU works them, from
+            // the paths compose found, in bands as Path Stroke's runs are; with no path the card
+            // is not asked (`compose::card_effect`).
+            E::Vegas {
+                segments, length, segment_distribution, rotation, random_phase, random_seed, blend_mode, color, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity, paths, ..
+            } => {
+                let bits = match paths {
+                    Some(p) if *width != 0.0 => crate::along::vegas_bits(p, f.origin, [*segments, *length, *rotation, *random_seed], segment_distribution == "even", random_phase == "on"),
+                    _ => Vec::new(),
+                };
+                let r = width / 2.0;
+                let mode = crate::effects::VEGAS_MODES.iter().position(|m| m == blend_mode).unwrap_or(0) as f64;
+                let mut k = vec![r, (r * (1.0 - hardness)).max(1.0)];
+                k.extend(crate::effects::vegas_fade(*start_opacity, *mid_point_opacity, *mid_point_position, *end_opacity));
+                k.push(mode);
+                k.extend(linear(color));
+                k.push(bits.len() as f64);
+                let mut bands = vec![Vec::new(); (h as usize).div_ceil(16)];
+                for (j, bit) in bits.iter().enumerate() {
+                    let b = crate::along::run_box(&[bit[0], bit[1], bit[2], bit[3], 0.0], r + 0.5);
+                    k.extend(bit);
+                    k.extend(b);
+                    let rows = (b[2] - 0.5).floor().max(0.0) as usize..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                    for band in bands.iter_mut().take(rows.end() / 16 + 1).skip(rows.start() / 16) {
+                        band.push(j as f64);
+                    }
+                }
+                let mut first = k.len() + 2 * bands.len();
+                for band in &bands {
+                    k.extend([first as f64, band.len() as f64]);
+                    first += band.len();
+                }
+                k.extend(bands.concat());
+                same(steps, &passes.vegas, FxParams::default(), &k, None)
             }
             // B-225 (D-344): five generators, each as its CPU function; the bolt's segments are
             // worked out here, as the CPU works them, and handed over in `k`.

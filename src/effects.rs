@@ -2163,6 +2163,36 @@ pub enum Effect {
         lens_type: String,
         blend_with_original: f64,
     },
+    /// D-444: After Effects' Vegas: dashes running along the layer's masks or a shape layer's
+    /// paths, each fading from its start to its end, turning round as Rotation moves. `stroke`,
+    /// "masks" or "shapes" ("image_contours", After Effects' default, is refused: not built,
+    /// the owner's decision of 2026-10-10); `mask`, 1 to 1000, and `all_masks`, "off" or "on",
+    /// choose the paths as Path Stroke's do; `segments`, 1 to 1000; `length`, 0 to 1 of a
+    /// segment; `segment_distribution`, "bunched" or "even"; `rotation`, -360000 to 360000
+    /// degrees; `random_phase`, "off" or "on", and `random_seed`, 0 to 100000; `blend_mode`,
+    /// "over", "under", "transparent" or "stencil"; `color`, `#rrggbb`; `width`, 0 to 200 pixels;
+    /// `hardness`, `start_opacity`, `mid_point_position` and `end_opacity`, 0 to 1;
+    /// `mid_point_opacity`, -1 to 1. `paths` is Path Stroke's: filled by compose, never saved.
+    Vegas {
+        stroke: String,
+        mask: f64,
+        all_masks: String,
+        segments: f64,
+        length: f64,
+        segment_distribution: String,
+        rotation: f64,
+        random_phase: String,
+        random_seed: f64,
+        blend_mode: String,
+        color: String,
+        width: f64,
+        hardness: f64,
+        start_opacity: f64,
+        mid_point_opacity: f64,
+        mid_point_position: f64,
+        end_opacity: f64,
+        paths: Option<Vec<(Vec<(f64, f64)>, bool)>>,
+    },
     /// D-347: Moment Map, after After Effects' Time Displacement: each pixel of the layer from
     /// another moment of it, later where the map is bright and earlier where it is dark.
     /// `max_time`, -10 to 10 seconds; `resolution`, 1 to 999 steps a second; `layer` and `fit`,
@@ -2571,6 +2601,7 @@ pub const BLOBBYLIZE: &str = "core.blobbylize";
 pub const GLUE_GUN: &str = "core.glue_gun";
 pub const THREADS: &str = "core.threads";
 pub const LENS_FLARE: &str = "core.lens_flare";
+pub const VEGAS: &str = "core.vegas";
 pub const FLOW_MOTION: &str = "core.flow_motion";
 pub const GRIDDLER: &str = "core.griddler";
 pub const FISHEYE: &str = "core.fisheye";
@@ -2694,6 +2725,8 @@ pub const REFINE_SOFT_MATTE: &str = "core.refine_soft_matte";
 pub const STROKE: &str = "core.stroke";
 /// D-356: Path Stroke's paint styles.
 pub const PAINT_STYLES: [&str; 3] = ["on_original", "on_transparent", "reveal"];
+/// D-444: Vegas's blend modes, in the card's numbering.
+pub const VEGAS_MODES: [&str; 4] = ["over", "under", "transparent", "stencil"];
 /// D-351: Spread Tones' ways.
 pub const EQUALIZE: [&str; 3] = ["rgb", "brightness", "photoshop"];
 /// D-350: what a text animator's selector counts, and the shapes of its range.
@@ -3820,6 +3853,21 @@ impl Effect {
                 ("flare_brightness", vec![flare_brightness], 0.0, 300.0),
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
             ],
+            Effect::Vegas {
+                mask, segments, length, rotation, random_seed, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity, ..
+            } => vec![
+                ("mask", vec![mask], 1.0, 1000.0),
+                ("segments", vec![segments], 1.0, 1000.0),
+                ("length", vec![length], 0.0, 1.0),
+                ("rotation", vec![rotation], -360000.0, 360000.0),
+                ("random_seed", vec![random_seed], 0.0, 100000.0),
+                ("width", vec![width], 0.0, 200.0),
+                ("hardness", vec![hardness], 0.0, 1.0),
+                ("start_opacity", vec![start_opacity], 0.0, 1.0),
+                ("mid_point_opacity", vec![mid_point_opacity], -1.0, 1.0),
+                ("mid_point_position", vec![mid_point_position], 0.0, 1.0),
+                ("end_opacity", vec![end_opacity], 0.0, 1.0),
+            ],
             Effect::MomentMap { max_time, resolution, .. } => vec![
                 ("max_time", vec![max_time], -10.0, 10.0),
                 ("resolution", vec![resolution], 1.0, 999.0),
@@ -4619,6 +4667,7 @@ impl Effect {
             }
             // D-356: the masks are scaled as they always are, before the stack.
             Effect::Stroke { brush_size, .. } => *brush_size = scale(*brush_size),
+            Effect::Vegas { width, .. } => *width = scale(*width),
             Effect::SoftGlow { radius, .. } => *radius = scale(*radius),
             Effect::SpeedLines { inner, .. } => *inner = scale(*inner),
             Effect::CrossGlare { length, .. } => *length = scale(*length),
@@ -4902,6 +4951,7 @@ impl Effect {
             Effect::GlueGun { .. } => "Glue Gun",
             Effect::Threads { .. } => "Threads",
             Effect::LensFlare { .. } => "Lens Flare",
+            Effect::Vegas { .. } => "Vegas",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
             Effect::DepthKey { .. } => "Depth Key",
@@ -5079,6 +5129,7 @@ impl Effect {
             Effect::GlueGun { .. } => GLUE_GUN,
             Effect::Threads { .. } => THREADS,
             Effect::LensFlare { .. } => LENS_FLARE,
+            Effect::Vegas { .. } => VEGAS,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
             Effect::DepthKey { .. } => DEPTH_KEY,
@@ -5880,6 +5931,17 @@ impl Effect {
                 .or_else(|| hex_fault(name, "light colour", light_color)),
             Effect::LensFlare { lens_type, .. } => (!crate::layer_fx::FLARE_LENSES.iter().any(|(l, _)| l == lens_type))
                 .then(|| format!("{name}'s lens type is \"zoom\", \"35mm\" or \"105mm\", and this is \"{lens_type}\".")),
+            // D-444: the owner's decision of 2026-10-10, "Masks only for now".
+            Effect::Vegas { stroke, .. } if stroke == "image_contours" => Some(format!(
+                "{name}'s Image Contours stroke is not built yet: it draws only along masks and shape paths, so set Stroke to Masks or Shapes."
+            )),
+            Effect::Vegas { stroke, all_masks, segment_distribution, random_phase, blend_mode, color, .. } => (!["masks", "shapes"].contains(&stroke.as_str()))
+                .then(|| format!("{name}'s stroke is \"masks\", \"shapes\" or \"image_contours\", and this is \"{stroke}\"."))
+                .or_else(|| (!["off", "on"].contains(&all_masks.as_str())).then(|| format!("{name}'s all masks is \"off\" or \"on\", and this is \"{all_masks}\".")))
+                .or_else(|| (!["bunched", "even"].contains(&segment_distribution.as_str())).then(|| format!("{name}'s segment distribution is \"bunched\" or \"even\", and this is \"{segment_distribution}\".")))
+                .or_else(|| (!["off", "on"].contains(&random_phase.as_str())).then(|| format!("{name}'s random phase is \"off\" or \"on\", and this is \"{random_phase}\".")))
+                .or_else(|| (!VEGAS_MODES.contains(&blend_mode.as_str())).then(|| format!("{name}'s blend mode is \"over\", \"under\", \"transparent\" or \"stencil\", and this is \"{blend_mode}\".")))
+                .or_else(|| hex_fault(name, "colour", color)),
             Effect::MomentMap { layer, .. } if !layer.is_string() => Some(format!(
                 "Moment Map's map is the name of a layer of this composition, and this is {layer}."
             )),
@@ -6522,6 +6584,13 @@ impl Effect {
 
 /// D-115: what is wrong with `effect`'s `what`, a colour written `#rrggbb`, as a sentence, or
 /// `None` when nothing is.
+/// D-444: Vegas's fade along a dash, for `along::vegas_along`: the start, the mid-point's
+/// opacity (Mid-point Opacity 0 a straight fade from start to end, clamped to 0 to 1), the end
+/// and the mid-point's place.
+pub(crate) fn vegas_fade(start: f64, mid: f64, position: f64, end: f64) -> [f64; 4] {
+    [start, (start + position * (end - start) + mid).clamp(0.0, 1.0), end, position]
+}
+
 fn hex_fault(effect: &str, what: &str, c: &str) -> Option<String> {
     crate::selective_blur::parse_hex(c)
         .is_none()
@@ -9167,6 +9236,18 @@ pub(crate) fn apply_stack_at(
                         let sequential = all_masks == "on" && stroke_sequentially == "on";
                         let runs = crate::along::stroke_runs(paths, (ox, oy), [*start, *end, *spacing, *brush_size], sequential);
                         crate::along::path_stroke(source, &runs, [*brush_size, *brush_hardness, *opacity], encoded(color).map(crate::grade::to_linear), paint_style)
+                    })
+                }
+            }
+            // D-444: Path Stroke's paths; with none, the layer is left as it is.
+            Effect::Vegas {
+                segments, length, segment_distribution, rotation, random_phase, random_seed, blend_mode, color, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity, paths, ..
+            } => {
+                if let Some(paths) = paths {
+                    crate::perf::time(crate::perf::Stage::EffectVegas, || {
+                        let bits = crate::along::vegas_bits(paths, (ox, oy), [*segments, *length, *rotation, *random_seed], segment_distribution == "even", random_phase == "on");
+                        let fade = vegas_fade(*start_opacity, *mid_point_opacity, *mid_point_position, *end_opacity);
+                        crate::along::vegas(source, &bits, [*width, *hardness], fade, encoded(color).map(crate::grade::to_linear), blend_mode)
                     })
                 }
             }

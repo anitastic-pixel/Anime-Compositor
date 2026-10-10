@@ -3383,6 +3383,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("lens_type".into(), J::from(lens_type.as_str()));
             params.insert("blend_with_original".into(), num(*blend_with_original));
         }
+        Effect::Vegas { stroke, mask, all_masks, segments, length, segment_distribution, rotation, random_phase, random_seed, blend_mode, color, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity, .. } => {
+            params.insert("stroke".into(), J::from(stroke.as_str()));
+            params.insert("mask".into(), num(*mask));
+            params.insert("all_masks".into(), J::from(all_masks.as_str()));
+            params.insert("segments".into(), num(*segments));
+            params.insert("length".into(), num(*length));
+            params.insert("segment_distribution".into(), J::from(segment_distribution.as_str()));
+            params.insert("rotation".into(), num(*rotation));
+            params.insert("random_phase".into(), J::from(random_phase.as_str()));
+            params.insert("random_seed".into(), num(*random_seed));
+            params.insert("blend_mode".into(), J::from(blend_mode.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("width".into(), num(*width));
+            params.insert("hardness".into(), num(*hardness));
+            params.insert("start_opacity".into(), num(*start_opacity));
+            params.insert("mid_point_opacity".into(), num(*mid_point_opacity));
+            params.insert("mid_point_position".into(), num(*mid_point_position));
+            params.insert("end_opacity".into(), num(*end_opacity));
+        }
         Effect::MomentMap { max_time, resolution, layer, fit, .. } => {
             params.insert("max_time".into(), num(*max_time));
             params.insert("resolution".into(), num(*resolution));
@@ -4658,6 +4677,7 @@ fn parse_effect(
         crate::effects::GLUE_GUN,
         crate::effects::THREADS,
         crate::effects::LENS_FLARE,
+        crate::effects::VEGAS,
         crate::effects::FLOW_MOTION,
         crate::effects::GRIDDLER,
         crate::effects::FISHEYE,
@@ -6233,6 +6253,26 @@ fn parse_effect(
             flare_brightness: effect_number(params, "flare_brightness", &at)?,
             lens_type: effect_word(params, "lens_type", &at)?,
             blend_with_original: effect_number(params, "blend_with_original", &at)?,
+        }),
+        crate::effects::VEGAS => Some(crate::effects::Effect::Vegas {
+            stroke: effect_word(params, "stroke", &at)?,
+            mask: effect_number(params, "mask", &at)?,
+            all_masks: effect_word(params, "all_masks", &at)?,
+            segments: effect_number(params, "segments", &at)?,
+            length: effect_number(params, "length", &at)?,
+            segment_distribution: effect_word(params, "segment_distribution", &at)?,
+            rotation: effect_number(params, "rotation", &at)?,
+            random_phase: effect_word(params, "random_phase", &at)?,
+            random_seed: effect_number(params, "random_seed", &at)?,
+            blend_mode: effect_word(params, "blend_mode", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            width: effect_number(params, "width", &at)?,
+            hardness: effect_number(params, "hardness", &at)?,
+            start_opacity: effect_number(params, "start_opacity", &at)?,
+            mid_point_opacity: effect_number(params, "mid_point_opacity", &at)?,
+            mid_point_position: effect_number(params, "mid_point_position", &at)?,
+            end_opacity: effect_number(params, "end_opacity", &at)?,
+            paths: None,
         }),
         // D-347: the layer is kept as written, as CC Vector Blur's is.
         crate::effects::MOMENT_MAP => Some(crate::effects::Effect::MomentMap {

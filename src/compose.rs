@@ -975,6 +975,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::GlueGun { .. }
                 | crate::effects::Effect::Threads { .. }
                 | crate::effects::Effect::LensFlare { .. }
+                // D-444: Vegas.
+                | crate::effects::Effect::Vegas { .. }
                 // D-385..D-387: Flow Motion, Griddler and Fisheye.
                 | crate::effects::Effect::FlowMotion { .. }
                 | crate::effects::Effect::Griddler { .. }
@@ -1382,7 +1384,7 @@ fn card_effect(
                 E::LineSmooth { softness, .. } => *softness <= 0.0,
                 E::LineWidth { width, .. } => *width == 0.0,
                 // B-235: with no path the layer is left as it is.
-                E::Stroke { paths, .. } => paths.is_none(),
+                E::Stroke { paths, .. } | E::Vegas { paths, .. } => paths.is_none(),
                 // D-420: with no levels the layer is left as it is.
                 E::AudioSpectrum { levels, .. } | E::AudioWaveform { levels, .. } => levels.is_none(),
                 // D-418: no mask found, nothing laid on, or the whole layer turned over.
@@ -2303,9 +2305,11 @@ fn resolve_rest(
     // says, a shape a path when it is on and has two points, whatever its fill and stroke. D-373:
     // with Path From Text Outlines, the text layer's outlines as they are drawn at this frame,
     // every one closed, in reading order. With none, the layer is left as it is and that is said
-    // every frame.
+    // every frame. D-444: Vegas's the same way, from its Stroke setting.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        if let crate::effects::Effect::Stroke { mask, all_masks, source, paths, .. } = &mut instance.effect {
+        let vegas = matches!(instance.effect, crate::effects::Effect::Vegas { .. });
+        let (name, from, pick) = if vegas { ("Vegas", "Stroke", "Mask") } else { ("Path Stroke", "Path From", "Path") };
+        if let crate::effects::Effect::Stroke { mask, all_masks, source, paths, .. } | crate::effects::Effect::Vegas { mask, all_masks, stroke: source, paths, .. } = &mut instance.effect {
             let (shapes, text) = (source == "shapes", source == "text");
             let outlines: Vec<Vec<(f64, f64)>> = match &layer.text {
                 Some(words) if text => crate::text::outlines(words, &text_animators(comp, layer, at))
@@ -2341,15 +2345,15 @@ fn resolve_rest(
                     Diagnostic::new(
                         DiagnosticId::EffectPathMissing,
                         Severity::Warning,
-                        format!("Layer {}'s Path Stroke has {which} to draw along, so it draws nothing.", layer.name),
+                        format!("Layer {}'s {name} has {which} to draw along, so it draws nothing.", layer.name),
                         format!("Frame {frame} is drawn without the stroke. The effect is kept as it is."),
                     )
                     .with_remediation(if text {
-                        "Put the stroke on a text layer whose font is on this computer, type words with letters, set Path to an outline they have, or set Path From to Masks."
+                        "Put the stroke on a text layer whose font is on this computer, type words with letters, set Path to an outline they have, or set Path From to Masks.".to_string()
                     } else if shapes {
-                        "Draw a shape on the shape layer, set Path to a shape it has, or set Path From to Masks."
+                        format!("Draw a shape on the shape layer, set {pick} to a shape it has, or set {from} to Masks.")
                     } else {
-                        "Draw a mask on the layer, or set Path to a mask it has."
+                        format!("Draw a mask on the layer, or set {pick} to a mask it has.")
                     }),
                 );
             }

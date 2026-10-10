@@ -483,3 +483,128 @@ pub(crate) fn write_on(buffer: &mut WorkingBuffer, marks: &[[f64; 5]], color: [f
         }
     });
 }
+
+/// One straight bit of a Vegas dash: its ends P and Q (in the buffer's coordinates) and their
+/// places along the dash, 0 its start and 1 its end.
+pub(crate) type Bit = [f64; 6];
+
+/// D-444: Vegas's dashes on `paths`, moved by `origin` as [`stroke_runs`] moves its runs:
+/// `segments` (its floor) dashes on each path, each `length` of the path over `segments` long,
+/// begun `rotation` degrees round (and with `random`, a phase of its own from `seed`), `even`
+/// spread round the path or else end to end. A dash runs on past a path's end from its start.
+/// Document 21's Vegas paragraph is the rule. The processor and the card share it.
+pub(crate) fn vegas_bits(paths: &[(Vec<(f64, f64)>, bool)], (ox, oy): (usize, usize), [segments, length, rotation, seed]: [f64; 4], even: bool, random: bool) -> Vec<Bit> {
+    let count = segments.floor();
+    let mut out = Vec::new();
+    for (c, (p, closed)) in paths.iter().enumerate() {
+        let pieces = crate::shape::path_segments(p, *closed);
+        let size = |(a, b): &((f64, f64), (f64, f64))| (b.0 - a.0).hypot(b.1 - a.1);
+        let total: f64 = pieces.iter().map(size).sum();
+        let l = length * total / count;
+        if total <= 0.0 || l <= 0.0 {
+            continue;
+        }
+        let phase = if random { (crate::grade::mix(crate::grade::mix(seed.floor() as u64) ^ c as u64) >> 11) as f64 / 2f64.powi(53) } else { 0.0 };
+        let o = (rotation / 360.0 + phase) * total;
+        for i in 0..count as usize {
+            let a = (o + i as f64 * if even { total / count } else { l }).rem_euclid(total);
+            let mut at = 0.0;
+            for piece in &pieces {
+                let n = size(piece);
+                let ((ax, ay), (bx, by)) = *piece;
+                for k in [0.0, 1.0] {
+                    let lo = at + k * total;
+                    let (u0, u1) = (a.max(lo), (a + l).min(lo + n));
+                    if n > 0.0 && u0 < u1 {
+                        let point = |u: f64| (ax + (u - lo) / n * (bx - ax) + ox as f64, ay + (u - lo) / n * (by - ay) + oy as f64);
+                        let ((px, py), (qx, qy)) = (point(u0), point(u1));
+                        out.push([px, py, qx, qy, (u0 - a) / l, (u1 - a) / l]);
+                    }
+                }
+                at += n;
+            }
+        }
+    }
+    out
+}
+
+/// D-444: the opacity a share `s` along a Vegas dash: `start` at 0 to `mid` at `position`, then
+/// to `end` at 1, in straight lines.
+pub(crate) fn vegas_along(s: f64, [start, mid, end, position]: [f64; 4]) -> f64 {
+    if s < position {
+        start + (mid - start) * s / position
+    } else if position < 1.0 {
+        mid + (end - mid) * (s - position) / (1.0 - position)
+    } else {
+        mid
+    }
+}
+
+/// D-444: Vegas's covering of a pixel centred at (`x`, `y`) by `bit`: its brush (half-width `r`,
+/// soft over `soft`) times the opacity along the dash where the bit is nearest.
+pub(crate) fn vegas_cover(bit: &Bit, x: f64, y: f64, r: f64, soft: f64, fade: [f64; 4]) -> f64 {
+    let [px, py, qx, qy, sp, sq] = *bit;
+    let (dx, dy) = (qx - px, qy - py);
+    let l2 = dx * dx + dy * dy;
+    let t = if l2 == 0.0 { 0.0 } else { (((x - px) * dx + (y - py) * dy) / l2).clamp(0.0, 1.0) };
+    let d = (x - px - t * dx).hypot(y - py - t * dy);
+    let v = ((r + 0.5 - d) / soft).clamp(0.0, 1.0);
+    v * v * (3.0 - 2.0 * v) * vegas_along(sp + t * (sq - sp), fade)
+}
+
+/// D-444: Vegas. `bits` from [`vegas_bits`]; `width` pixels across, `hardness` 0 to 1; `fade`
+/// the start, mid-point (already clamped) and end opacities and the mid-point's place; `color`
+/// linear; `mode` "over", "under", "transparent" or "stencil". The covering is the largest any
+/// bit gives; dashes do not build up. The buffer never grows.
+pub(crate) fn vegas(buffer: &mut WorkingBuffer, bits: &[Bit], [width, hardness]: [f64; 2], fade: [f64; 4], color: [f64; 3], mode: &str) {
+    let w = buffer.width();
+    let r = width / 2.0;
+    let soft = (r * (1.0 - hardness)).max(1.0);
+    let reach = r + 0.5;
+    let boxed: Vec<(Bit, [f64; 4])> = if width == 0.0 { Vec::new() } else { bits.iter().map(|b| (*b, run_box(&[b[0], b[1], b[2], b[3], 0.0], reach))).collect() };
+    buffer.data_mut().par_chunks_exact_mut(4 * w).enumerate().for_each(|(j, row)| {
+        let y = j as f64 + 0.5;
+        let mut cover = vec![0.0f64; w];
+        for (bit, [left, right, top, bottom]) in &boxed {
+            if y <= *top || y >= *bottom {
+                continue;
+            }
+            let x0 = (left - 0.5).ceil().max(0.0) as usize;
+            let x1 = ((right - 0.5).floor().max(-1.0) + 1.0).min(w as f64) as usize;
+            for (i, c) in cover.iter_mut().enumerate().take(x1).skip(x0) {
+                *c = c.max(vegas_cover(bit, i as f64 + 0.5, y, r, soft, fade));
+            }
+        }
+        for (px, &c) in row.chunks_exact_mut(4).zip(&cover) {
+            if c == 0.0 && (mode == "over" || mode == "under") {
+                continue;
+            }
+            let a = px[3] as f64;
+            match mode {
+                "over" => {
+                    for ch in 0..3 {
+                        px[ch] = (px[ch] as f64 * (1.0 - c) + color[ch] * c) as f32;
+                    }
+                    px[3] = (a * (1.0 - c) + c) as f32;
+                }
+                "under" => {
+                    for ch in 0..3 {
+                        px[ch] = (px[ch] as f64 + (1.0 - a) * color[ch] * c) as f32;
+                    }
+                    px[3] = (a + (1.0 - a) * c) as f32;
+                }
+                "transparent" => {
+                    for ch in 0..3 {
+                        px[ch] = (color[ch] * c) as f32;
+                    }
+                    px[3] = c as f32;
+                }
+                _ => {
+                    for v in px.iter_mut() {
+                        *v = (*v as f64 * c) as f32;
+                    }
+                }
+            }
+        }
+    });
+}
