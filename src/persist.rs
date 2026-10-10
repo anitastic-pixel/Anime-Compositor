@@ -3064,6 +3064,45 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("random_seed".into(), num(*random_seed));
             params.insert("composite".into(), J::from(composite.as_str()));
         }
+        // D-443: the frame is never saved.
+        Effect::AddGrain {
+            intensity,
+            size,
+            softness,
+            aspect_ratio,
+            red_intensity,
+            green_intensity,
+            blue_intensity,
+            monochromatic,
+            saturation,
+            blending_mode,
+            shadows,
+            midtones,
+            highlights,
+            midpoint,
+            animation_speed,
+            animate_smoothly,
+            random_seed,
+            ..
+        } => {
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("size".into(), num(*size));
+            params.insert("softness".into(), num(*softness));
+            params.insert("aspect_ratio".into(), num(*aspect_ratio));
+            params.insert("red_intensity".into(), num(*red_intensity));
+            params.insert("green_intensity".into(), num(*green_intensity));
+            params.insert("blue_intensity".into(), num(*blue_intensity));
+            params.insert("monochromatic".into(), J::from(monochromatic.as_str()));
+            params.insert("saturation".into(), num(*saturation));
+            params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
+            params.insert("shadows".into(), num(*shadows));
+            params.insert("midtones".into(), num(*midtones));
+            params.insert("highlights".into(), num(*highlights));
+            params.insert("midpoint".into(), num(*midpoint));
+            params.insert("animation_speed".into(), num(*animation_speed));
+            params.insert("animate_smoothly".into(), J::from(animate_smoothly.as_str()));
+            params.insert("random_seed".into(), num(*random_seed));
+        }
         // D-418: the paths are found each frame and never saved.
         Effect::Fill { mask, all_masks, color, invert, horizontal_feather, vertical_feather, opacity, .. } => {
             params.insert("mask".into(), num(*mask));
@@ -4645,6 +4684,7 @@ fn parse_effect(
         crate::effects::PAINT_BUCKET,
         crate::effects::WRITE_ON,
         crate::effects::SCRIBBLE,
+        crate::effects::ADD_GRAIN,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5983,6 +6023,26 @@ fn parse_effect(
             composite: effect_word(params, "composite", &at)?,
             masks: None,
             time: 0.0,
+        }),
+        crate::effects::ADD_GRAIN => Some(crate::effects::Effect::AddGrain {
+            intensity: effect_number(params, "intensity", &at)?,
+            size: effect_number(params, "size", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            aspect_ratio: effect_number(params, "aspect_ratio", &at)?,
+            red_intensity: effect_number(params, "red_intensity", &at)?,
+            green_intensity: effect_number(params, "green_intensity", &at)?,
+            blue_intensity: effect_number(params, "blue_intensity", &at)?,
+            monochromatic: effect_word(params, "monochromatic", &at)?,
+            saturation: effect_number(params, "saturation", &at)?,
+            blending_mode: effect_word(params, "blending_mode", &at)?,
+            shadows: effect_number(params, "shadows", &at)?,
+            midtones: effect_number(params, "midtones", &at)?,
+            highlights: effect_number(params, "highlights", &at)?,
+            midpoint: effect_number(params, "midpoint", &at)?,
+            animation_speed: effect_number(params, "animation_speed", &at)?,
+            animate_smoothly: effect_word(params, "animate_smoothly", &at)?,
+            random_seed: effect_number(params, "random_seed", &at)?,
+            frame: 0,
         }),
         crate::effects::FILL => Some(crate::effects::Effect::Fill {
             mask: effect_number(params, "mask", &at)?,

@@ -319,6 +319,10 @@ impl EffectInstance {
             if let Effect::RadioWaves { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-443: the grain's frame.
+            if let Effect::AddGrain { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         // D-202: the Mix at this frame, held inside 0 to 100; one outside it is kept, so the
         // effect is bypassed.
@@ -1914,6 +1918,33 @@ pub enum Effect {
         masks: Option<Vec<(Vec<(f64, f64)>, crate::mask::MaskMode, bool)>>,
         time: f64,
     },
+    /// D-443: after After Effects' Add Grain (`grade::add_grain`, document 21). `intensity`, 0
+    /// to 10; `size`, 0.1 to 100 pixels; `softness`, 0 to 1; `aspect_ratio`, 0.25 to 4;
+    /// `red_intensity`, `green_intensity` and `blue_intensity`, 0 to 10; `monochromatic`, "off"
+    /// or "on"; `saturation`, 0 to 1; `blending_mode`, one of [`ADD_GRAIN_BLENDS`]; `shadows`,
+    /// `midtones` and `highlights`, 0 to 10; `midpoint`, 0.01 to 0.99; `animation_speed`, 0 to
+    /// 10; `animate_smoothly`, "on" or "off"; `random_seed`, 0 to 100000, its floor. `frame` is
+    /// not a setting and is never saved: the composition frame the settings were resolved at.
+    AddGrain {
+        intensity: f64,
+        size: f64,
+        softness: f64,
+        aspect_ratio: f64,
+        red_intensity: f64,
+        green_intensity: f64,
+        blue_intensity: f64,
+        monochromatic: String,
+        saturation: f64,
+        blending_mode: String,
+        shadows: f64,
+        midtones: f64,
+        highlights: f64,
+        midpoint: f64,
+        animation_speed: f64,
+        animate_smoothly: String,
+        random_seed: f64,
+        frame: i32,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2589,6 +2620,9 @@ pub const SCRIBBLE: &str = "core.scribble";
 pub const SCRIBBLE_MASKS: [&str; 3] = ["single_mask", "all_masks", "all_masks_using_modes"];
 pub const SCRIBBLE_FILL_TYPES: [&str; 6] = ["inside", "centered_edge", "inside_edge", "outside_edge", "left_edge", "right_edge"];
 pub const SCRIBBLE_WIGGLES: [&str; 3] = ["static", "jumpy", "smooth"];
+pub const ADD_GRAIN: &str = "core.add_grain";
+/// D-443: how Add Grain lays its grain on.
+pub const ADD_GRAIN_BLENDS: [&str; 3] = ["film", "add", "overlay"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3560,6 +3594,38 @@ impl Effect {
                 ("wiggles_per_second", vec![wiggles_per_second], 0.0, 100.0),
                 ("random_seed", vec![random_seed], 0.0, 100000.0),
             ],
+            Effect::AddGrain {
+                intensity,
+                size,
+                softness,
+                aspect_ratio,
+                red_intensity,
+                green_intensity,
+                blue_intensity,
+                saturation,
+                shadows,
+                midtones,
+                highlights,
+                midpoint,
+                animation_speed,
+                random_seed,
+                ..
+            } => vec![
+                ("intensity", vec![intensity], 0.0, 10.0),
+                ("size", vec![size], 0.1, 100.0),
+                ("softness", vec![softness], 0.0, 1.0),
+                ("aspect_ratio", vec![aspect_ratio], 0.25, 4.0),
+                ("red_intensity", vec![red_intensity], 0.0, 10.0),
+                ("green_intensity", vec![green_intensity], 0.0, 10.0),
+                ("blue_intensity", vec![blue_intensity], 0.0, 10.0),
+                ("saturation", vec![saturation], 0.0, 1.0),
+                ("shadows", vec![shadows], 0.0, 10.0),
+                ("midtones", vec![midtones], 0.0, 10.0),
+                ("highlights", vec![highlights], 0.0, 10.0),
+                ("midpoint", vec![midpoint], 0.01, 0.99),
+                ("animation_speed", vec![animation_speed], 0.0, 10.0),
+                ("random_seed", vec![random_seed], 0.0, 100000.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -4413,6 +4479,8 @@ impl Effect {
                 *offset = offset.map(&scale);
             }
             Effect::CellPattern { size, .. } => *size = scale(*size).max(1.0),
+            // D-443: the grain keeps its size on the picture, below a pixel if need be.
+            Effect::AddGrain { size, .. } => *size = scale(*size),
             // D-143: held at its smallest, two, rather than bypassed.
             Effect::Halftone { size, .. } => *size = scale(*size).max(2.0),
             // D-144: a block under a pixel is one pixel, which changes nothing.
@@ -4818,6 +4886,7 @@ impl Effect {
             Effect::PaintBucket { .. } => "Paint Bucket",
             Effect::WriteOn { .. } => "Write-on",
             Effect::Scribble { .. } => "Scribble",
+            Effect::AddGrain { .. } => "Add Grain",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -4994,6 +5063,7 @@ impl Effect {
             Effect::PaintBucket { .. } => PAINT_BUCKET,
             Effect::WriteOn { .. } => WRITE_ON,
             Effect::Scribble { .. } => SCRIBBLE,
+            Effect::AddGrain { .. } => ADD_GRAIN,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6291,6 +6361,16 @@ impl Effect {
                 PAINT_STYLES.join(", ")
             )),
             Effect::Scribble { color, .. } => hex_fault("Scribble", "colour", color),
+            Effect::AddGrain { monochromatic: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Add Grain's monochromatic is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::AddGrain { blending_mode: v, .. } if !ADD_GRAIN_BLENDS.contains(&v.as_str()) => Some(format!(
+                "Add Grain's blending mode is one of {}, and this is \"{v}\".",
+                ADD_GRAIN_BLENDS.join(", ")
+            )),
+            Effect::AddGrain { animate_smoothly: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
+                "Add Grain's animate smoothly is \"on\" or \"off\", and this is \"{v}\"."
+            )),
             Effect::Ellipse { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
                 "Ellipse's composite is \"on\" or \"off\", and this is \"{composite}\"."
             )),
@@ -7973,6 +8053,10 @@ pub(crate) fn apply_stack_at(
                 })
             }
             Effect::Scribble { .. } => {}
+            // D-443: the grain in the drawing's own space, however an effect above grew it.
+            e @ Effect::AddGrain { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectAddGrain, || crate::grade::add_grain(source, e, (ox, oy)))
+            }
             // D-417: the anchor and corner as Checkerboard's; the layer never grows.
             Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {
                 let (a, cell) = crate::layer_fx::checker_cells(*anchor, size_from, *corner, [*width, *height], (source.width(), source.height()), (ox, oy));

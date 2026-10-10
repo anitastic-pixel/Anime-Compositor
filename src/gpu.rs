@@ -1061,7 +1061,11 @@ fn cell_noise_look(ch: u32, p: vec3<f64>, block: bool, period: i32) -> f64 {
         if period > 0 {
             z = ((z % period) + period) % period;
         }
-        v += w.x * w.y * w.z * hashed(i.x + i32(d.x), i.y + i32(d.y), z, ch);
+        // D-443: a corner that weighs nothing adds nothing, as grade::value skips it.
+        let wt = w.x * w.y * w.z;
+        if wt != 0.0lf {
+            v += wt * hashed(i.x + i32(d.x), i.y + i32(d.y), z, ch);
+        }
     }
     return v;
 }
@@ -1128,7 +1132,7 @@ fn fractal32(ch: u32, p: vec3<f32>, octaves: u32) -> f32 {
 
 // The batch's colour effects, a pixel a thread: grade::curves (mode 0), levels (1),
 // hue_saturation (2), gradient (3) and noise (4); B-76: exposure (5, Exposure Flicker),
-// color_balance (6), gradient_map (7), vignette (8) and fractal_noise (9).
+// color_balance (6), gradient_map (7), vignette (8) and fractal_noise (9); D-443: add_grain (10).
 @compute @workgroup_size(16, 16)
 fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -1301,6 +1305,46 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
                     s = min(s, (1.0lf - l) / (x - l));
                 }
                 o = vec3(l, l, l) + (o - vec3(l, l, l)) * s;
+            }
+        }
+        case 10u: {
+            // D-443, grade::add_grain. k: the cell across and down, the depth, softness,
+            // saturation, the three channel intensities, shadows, midtones, highlights, midpoint,
+            // 0.1 intensity and the blend (0 Film, 1 Add, 2 Overlay). `flag` is Monochromatic.
+            let q = vec3((f64(i32(id.x) - F.ox) + 0.5lf) / k[0], (f64(i32(id.y) - F.oy) + 0.5lf) / k[1], k[2]);
+            var g = vec3(0.0lf);
+            let n = select(3u, 1u, F.flag == 1u);
+            for (var c = 0u; c < n; c++) {
+                if k[3] == 0.0lf {
+                    g[c] = cell_noise_look(c, q, true, 0);
+                } else if k[3] == 1.0lf {
+                    g[c] = cell_noise_look(c, q, false, 0);
+                } else {
+                    g[c] = (1.0lf - k[3]) * cell_noise_look(c, q, true, 0) + k[3] * cell_noise_look(c, q, false, 0);
+                }
+            }
+            if F.flag == 1u {
+                g = vec3(g.x, g.x, g.x);
+            } else {
+                let m = (g.x + g.y + g.z) / 3.0lf;
+                g = vec3(m + k[4] * (g.x - m), m + k[4] * (g.y - m), m + k[4] * (g.z - m));
+            }
+            let l = 0.2126lf * e.x + 0.7152lf * e.y + 0.0722lf * e.z;
+            var wt = k[9] + (k[10] - k[9]) * (l - k[11]) / (1.0lf - k[11]);
+            if l <= k[11] {
+                wt = k[8] + (k[9] - k[8]) * l / k[11];
+            }
+            let amount = k[12] * wt;
+            for (var c = 0u; c < 3u; c++) {
+                let t = amount * (g[c] * k[5u + c]);
+                if k[13] == 0.0lf {
+                    o[c] = e[c] + t * 4.0lf * e[c] * (1.0lf - e[c]);
+                } else if k[13] == 1.0lf {
+                    o[c] = e[c] + t;
+                } else {
+                    let b = clamp(0.5lf + 0.5lf * t, 0.0lf, 1.0lf);
+                    o[c] = select(1.0lf - 2.0lf * (1.0lf - e[c]) * (1.0lf - b), 2.0lf * e[c] * b, e[c] <= 0.5lf);
+                }
             }
         }
         default: {
@@ -7736,6 +7780,7 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::HueSaturation { .. }
             | E::Gradient { .. }
             | E::Noise { .. }
+            | E::AddGrain { .. }
             | E::ExposureFlicker { .. }
             | E::ColorBalance { .. }
             | E::GradientMap { .. }
@@ -9177,6 +9222,57 @@ impl Gpu {
                     ..Default::default()
                 };
                 same(steps, &passes.grade, p, &[amount / 200.0], None)
+            }
+            // D-443: grade::add_grain as grade mode 10.
+            E::AddGrain {
+                intensity,
+                size,
+                softness,
+                aspect_ratio,
+                red_intensity,
+                green_intensity,
+                blue_intensity,
+                monochromatic,
+                saturation,
+                blending_mode,
+                shadows,
+                midtones,
+                highlights,
+                midpoint,
+                animation_speed,
+                animate_smoothly,
+                random_seed,
+                frame,
+            } => {
+                let base = crate::grade::mix(random_seed.floor() as u64);
+                let phase = *frame as f64 * animation_speed;
+                let z = if animate_smoothly == "on" { phase } else { phase.floor() };
+                let blend = crate::effects::ADD_GRAIN_BLENDS.iter().position(|b| b == blending_mode).unwrap_or(0) as f64;
+                let k = [
+                    size * aspect_ratio,
+                    *size,
+                    z,
+                    *softness,
+                    *saturation,
+                    *red_intensity,
+                    *green_intensity,
+                    *blue_intensity,
+                    *shadows,
+                    *midtones,
+                    *highlights,
+                    *midpoint,
+                    0.1 * intensity,
+                    blend,
+                ];
+                let p = FxParams {
+                    mode: 10,
+                    flag: (monochromatic == "on") as u32,
+                    base: [base as u32, (base >> 32) as u32],
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                same(steps, &passes.grade, p, &k, None)
             }
             E::ChromaticAberration { amount, center } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);

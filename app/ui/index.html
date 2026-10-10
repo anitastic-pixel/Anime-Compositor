@@ -9259,6 +9259,7 @@ const EFFECT_NAMES = {
   'core.rim_light': 'Rim Light',
   'core.outline': 'Outline',
   'core.noise': 'Noise',
+  'core.add_grain': 'Add Grain',
   'core.chromatic_aberration': 'Chromatic Aberration',
   'core.distance_gradation': 'Distance Gradation',
   'core.light_rays': 'Light Rays',
@@ -9437,7 +9438,7 @@ const EFFECT_GROUPS = [
     'core.corner_pin', 'core.polar_coordinates', 'core.optics_compensation', 'core.bend_it', 'core.bender',
     'core.blobbylize', 'core.flow_motion', 'core.griddler', 'core.fisheye', 'core.page_turn', 'core.power_pin',
     'core.ripple_pulse', 'core.slant', 'core.smear', 'core.split', 'core.split_2', 'core.transform', 'core.tiles', 'core.magnify', 'core.spherize', 'core.detail_upscale']],
-  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
+  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.add_grain', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
@@ -9496,6 +9497,7 @@ const EFFECT_SEARCH = {
   'core.gradient': 'ramp',
   'core.fractal_noise': 'clouds smoke fog',
   'core.noise': 'grain film',
+  'core.add_grain': 'add grain film stock noise texture analog analogue retro vintage speckle overlay noise and grain',
   'core.speed_lines': 'action focus concentration manga',
   'core.rain': 'weather storm',
   'core.color_lookup': 'lut cube grade look film',
@@ -9645,6 +9647,7 @@ const EFFECT_ABOUT = {
   'core.rim_light': 'Lights one edge of the drawing, as a light from behind would.',
   'core.outline': 'Draws a coloured line around the drawing\'s shape.',
   'core.noise': 'Adds film grain, still or moving.',
+  'core.add_grain': 'Adds film grain with a size, softness, colour and strength in the shadows, midtones and highlights, laid on by Film, Add or Overlay.',
   'core.chromatic_aberration': 'Splits red, green and blue apart toward the edges, as a cheap lens does, or in a straight line (RGB Separation), each colour by its own amount, with soft fringes if wanted.',
   'core.distance_gradation': 'Shades a colour in from the drawing\'s edge, darkest at the edge.',
   'core.light_rays': 'Beams of light streaming out from a round or square light source, in the layer’s own colours or one colour, laid over, added, screened or lightened.',
@@ -9903,6 +9906,21 @@ const EFFECT_PARAMS = {
   // D-119.
   'core.noise': [['amount', 'Amount', 1, 0.5, '0 to 100'],
     ['seed', 'Seed', 1, 1, 'a whole number, 0 to 100000']],
+  // D-443.
+  'core.add_grain': [['intensity', 'Intensity', 1, 0.1, '0 to 10, how strong the grain is'],
+    ['size', 'Size', 1, 0.1, 'pixels, 0.1 to 100, how big each grain is'],
+    ['softness', 'Softness', 1, 0.05, '0 to 1, 0 sharp square grains, 1 grains blended into each other'],
+    ['aspect_ratio', 'Aspect Ratio', 1, 0.05, '0.25 to 4, the grain’s width over its height'],
+    ['red_intensity', 'Red Intensity', 1, 0.1, '0 to 10, the grain in red'],
+    ['green_intensity', 'Green Intensity', 1, 0.1, '0 to 10, the grain in green'],
+    ['blue_intensity', 'Blue Intensity', 1, 0.1, '0 to 10, the grain in blue'],
+    ['saturation', 'Saturation', 1, 0.05, '0 to 1, how coloured the grain is'],
+    ['shadows', 'Shadows', 1, 0.1, '0 to 10, the grain in the dark parts'],
+    ['midtones', 'Midtones', 1, 0.1, '0 to 10, the grain at the midpoint'],
+    ['highlights', 'Highlights', 1, 0.1, '0 to 10, the grain in the bright parts'],
+    ['midpoint', 'Midpoint', 1, 0.01, '0.01 to 0.99, the brightness the midtones are at'],
+    ['animation_speed', 'Animation Speed', 1, 0.1, '0 to 10, new grains a frame; 0 holds it still'],
+    ['random_seed', 'Random Seed', 1, 1, '0 to 100000, a different grain for each']],
   // D-120.
   'core.chromatic_aberration.old': [['amount', 'Amount', 1, 0.5, 'pixels at the corner, 0 to 100'],
     ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000']],
@@ -10801,6 +10819,12 @@ const EFFECT_WORDS = {
   'core.noise': {
     choices: [['mode', 'Mode', [['mono', 'Mono'], ['color', 'Colour']]],
       ['animate', 'Animate', [['on', 'On'], ['off', 'Off']]]],
+  },
+  // D-443: After Effects’ words; Off, Film and On as it is added.
+  'core.add_grain': {
+    choices: [['monochromatic', 'Monochromatic', [['off', 'Off'], ['on', 'On']]],
+      ['blending_mode', 'Blending Mode', [['film', 'Film'], ['add', 'Add'], ['overlay', 'Overlay']]],
+      ['animate_smoothly', 'Animate Smoothly', [['on', 'On'], ['off', 'Off']]]],
   },
   // D-123.
   'core.distance_gradation': {

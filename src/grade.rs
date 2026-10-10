@@ -520,9 +520,96 @@ fn value(base: u64, ch: u64, x: f64, y: f64, z: f64, block: bool, period: i64) -
     for corner in 0..8 {
         let d = [corner & 1, (corner >> 1) & 1, corner >> 2];
         let w: f64 = (0..3).map(|a| if d[a] == 1 { s[a] } else { 1.0 - s[a] }).product();
-        v += w * unit(base, i + d[0] as i64, j + d[1] as i64, depth(k + d[2] as i64), ch);
+        // D-443: a corner that weighs nothing adds nothing (the sum is the same to the bit).
+        if w != 0.0 {
+            v += w * unit(base, i + d[0] as i64, j + d[1] as i64, depth(k + d[2] as i64), ch);
+        }
     }
     v
+}
+
+/// D-443: After Effects' Add Grain, by document 21's rule. Each channel's grain is [`value`]
+/// at the pixel's middle in the drawing's own space (its corner at `(ox, oy)` in `source`), in
+/// cells `size aspect_ratio` across and `size` down, at depth frame times speed (its whole part
+/// unless Animate Smoothly), block and smooth mixed by Softness; Saturation pulls the three to
+/// their mean, the channel intensities scale them, and the tonal weight from the pixel's
+/// brightness sets how strongly it is laid on by Film, Add or Overlay. The settings are already
+/// valid; intensity 0 changes nothing.
+pub(crate) fn add_grain(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let crate::effects::Effect::AddGrain {
+        intensity,
+        size,
+        softness,
+        aspect_ratio,
+        red_intensity,
+        green_intensity,
+        blue_intensity,
+        monochromatic,
+        saturation,
+        blending_mode,
+        shadows,
+        midtones,
+        highlights,
+        midpoint,
+        animation_speed,
+        animate_smoothly,
+        random_seed,
+        frame,
+    } = e
+    else {
+        return;
+    };
+    if *intensity == 0.0 {
+        return;
+    }
+    let w = source.width();
+    let (base, mono, soft) = (mix(random_seed.floor() as u64), monochromatic == "on", *softness);
+    let phase = *frame as f64 * animation_speed;
+    let z = if animate_smoothly == "on" { phase } else { phase.floor() };
+    let (sx, sy) = (size * aspect_ratio, *size);
+    let chan = [*red_intensity, *green_intensity, *blue_intensity];
+    let (mid, k) = (*midpoint, 0.1 * intensity);
+    let blend = match blending_mode.as_str() {
+        "film" => 0,
+        "add" => 1,
+        _ => 2,
+    };
+    grade_pixels(source, true, |i, e| {
+        let x = ((i % w) as f64 - ox as f64 + 0.5) / sx;
+        let y = ((i / w) as f64 - oy as f64 + 0.5) / sy;
+        let grain = |ch: u64| {
+            if soft == 0.0 {
+                value(base, ch, x, y, z, true, 0)
+            } else if soft == 1.0 {
+                value(base, ch, x, y, z, false, 0)
+            } else {
+                (1.0 - soft) * value(base, ch, x, y, z, true, 0) + soft * value(base, ch, x, y, z, false, 0)
+            }
+        };
+        let mut g = if mono { [grain(0); 3] } else { [grain(0), grain(1), grain(2)] };
+        if !mono {
+            let m = (g[0] + g[1] + g[2]) / 3.0;
+            g = g.map(|v| m + saturation * (v - m));
+        }
+        let lum = 0.2126 * e[0] + 0.7152 * e[1] + 0.0722 * e[2];
+        let weight = if lum <= mid {
+            shadows + (midtones - shadows) * lum / mid
+        } else {
+            midtones + (highlights - midtones) * (lum - mid) / (1.0 - mid)
+        };
+        let amount = k * weight;
+        std::array::from_fn(|c| {
+            let (e, a) = (e[c], amount * (g[c] * chan[c]));
+            match blend {
+                0 => e + a * 4.0 * e * (1.0 - e),
+                1 => e + a,
+                _ => {
+                    let b = (0.5 + 0.5 * a).clamp(0.0, 1.0);
+                    if e <= 0.5 { 2.0 * e * b } else { 1.0 - 2.0 * (1.0 - e) * (1.0 - b) }
+                }
+            }
+        })
+    });
 }
 
 /// D-299: After Effects' Fractal Type, Noise Type and Cycle Evolution. The default is D-128's
