@@ -3199,6 +3199,52 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("roughness".into(), num(*roughness));
             params.insert("metal".into(), num(*metal));
         }
+        Effect::GlueGun {
+            brush_position,
+            stroke_width,
+            density,
+            time_span,
+            reflection,
+            strength,
+            paint_style,
+            wobble_width,
+            wobble_height,
+            wobble_speed,
+            light_intensity,
+            light_color,
+            light_type,
+            light_height,
+            light_position,
+            light_direction,
+            ambient,
+            diffuse,
+            specular,
+            roughness,
+            metal,
+            ..
+        } => {
+            params.insert("brush_position".into(), J::Array(brush_position.iter().map(|c| num(*c)).collect()));
+            params.insert("stroke_width".into(), num(*stroke_width));
+            params.insert("density".into(), num(*density));
+            params.insert("time_span".into(), num(*time_span));
+            params.insert("reflection".into(), num(*reflection));
+            params.insert("strength".into(), num(*strength));
+            params.insert("paint_style".into(), J::from(paint_style.as_str()));
+            params.insert("wobble_width".into(), num(*wobble_width));
+            params.insert("wobble_height".into(), num(*wobble_height));
+            params.insert("wobble_speed".into(), num(*wobble_speed));
+            params.insert("light_intensity".into(), num(*light_intensity));
+            params.insert("light_color".into(), J::from(light_color.as_str()));
+            params.insert("light_type".into(), J::from(light_type.as_str()));
+            params.insert("light_height".into(), num(*light_height));
+            params.insert("light_position".into(), J::Array(light_position.iter().map(|c| num(*c)).collect()));
+            params.insert("light_direction".into(), num(*light_direction));
+            params.insert("ambient".into(), num(*ambient));
+            params.insert("diffuse".into(), num(*diffuse));
+            params.insert("specular".into(), num(*specular));
+            params.insert("roughness".into(), num(*roughness));
+            params.insert("metal".into(), num(*metal));
+        }
         Effect::MomentMap { max_time, resolution, layer, fit, .. } => {
             params.insert("max_time".into(), num(*max_time));
             params.insert("resolution".into(), num(*resolution));
@@ -4471,6 +4517,7 @@ fn parse_effect(
         crate::effects::BEND_IT,
         crate::effects::BENDER,
         crate::effects::BLOBBYLIZE,
+        crate::effects::GLUE_GUN,
         crate::effects::FLOW_MOTION,
         crate::effects::GRIDDLER,
         crate::effects::FISHEYE,
@@ -5920,6 +5967,32 @@ fn parse_effect(
             roughness: effect_number(params, "roughness", &at)?,
             metal: effect_number(params, "metal", &at)?,
             map: None,
+        }),
+        // D-424: the light colour read in small letters, as Blobbylize's.
+        crate::effects::GLUE_GUN => Some(crate::effects::Effect::GlueGun {
+            brush_position: effect_array(params, "brush_position", "two numbers, x then y", &at)?,
+            stroke_width: effect_number(params, "stroke_width", &at)?,
+            density: effect_number(params, "density", &at)?,
+            time_span: effect_number(params, "time_span", &at)?,
+            reflection: effect_number(params, "reflection", &at)?,
+            strength: effect_number(params, "strength", &at)?,
+            paint_style: effect_word(params, "paint_style", &at)?,
+            wobble_width: effect_number(params, "wobble_width", &at)?,
+            wobble_height: effect_number(params, "wobble_height", &at)?,
+            wobble_speed: effect_number(params, "wobble_speed", &at)?,
+            light_intensity: effect_number(params, "light_intensity", &at)?,
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            light_type: effect_word(params, "light_type", &at)?,
+            light_height: effect_number(params, "light_height", &at)?,
+            light_position: effect_array(params, "light_position", "two numbers, x then y", &at)?,
+            light_direction: effect_number(params, "light_direction", &at)?,
+            ambient: effect_number(params, "ambient", &at)?,
+            diffuse: effect_number(params, "diffuse", &at)?,
+            specular: effect_number(params, "specular", &at)?,
+            roughness: effect_number(params, "roughness", &at)?,
+            metal: effect_number(params, "metal", &at)?,
+            trail: Vec::new(),
+            clock: [0.0, 0.0],
         }),
         // D-347: the layer is kept as written, as CC Vector Blur's is.
         crate::effects::MOMENT_MAP => Some(crate::effects::Effect::MomentMap {

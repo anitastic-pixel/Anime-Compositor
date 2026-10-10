@@ -970,6 +970,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::BendIt { .. }
                 | crate::effects::Effect::Bender { .. }
                 | crate::effects::Effect::Blobbylize { .. }
+                | crate::effects::Effect::GlueGun { .. }
                 // D-385..D-387: Flow Motion, Griddler and Fisheye.
                 | crate::effects::Effect::FlowMotion { .. }
                 | crate::effects::Effect::Griddler { .. }
@@ -1312,6 +1313,8 @@ fn card_effect(
                 E::RipplePulse { amplitude, render_bump_map, levels, .. } => {
                     render_bump_map != "on" && (*amplitude == 0.0 || levels.windows(2).all(|w| w[0] == w[1]))
                 }
+                // D-424: no brush trail read, no width or no blobs.
+                E::GlueGun { trail, stroke_width, density, .. } => trail.is_empty() || *stroke_width == 0.0 || *density == 0.0,
                 // D-391..D-393: upright at full height in its own colours; no drag; no gap.
                 E::Slant { slant, height, set_color, .. } => *slant == 0.0 && *height == 100.0 && set_color != "on",
                 E::Smear { from, to, reach, radius } => *radius == 0.0 || *reach == 0.0 || from == to,
@@ -1970,6 +1973,24 @@ fn effect_now(
                     match then.effect {
                         crate::effects::Effect::RipplePulse { pulse_level, .. } => pulse_level,
                         _ => *pulse_level,
+                    }
+                }))
+                .collect();
+        }
+        // D-424: Glue Gun's trail, the brush position now and at each frame of the time span
+        // before (with time span 0, back to the layer's in point), read as Ripple Pulse's levels.
+        if let crate::effects::Effect::GlueGun { time_span, brush_position, trail, clock, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            // ponytail: a stroke kept for ever reads every frame back to the in point, each frame;
+            // keep the trail between frames if long permanent strokes grow slow.
+            let n = if *time_span == 0.0 { (at - layer.in_frame).max(0) } else { (*time_span * fps + 0.5).floor() as i32 };
+            *clock = [at as f64, fps];
+            *trail = std::iter::once(*brush_position)
+                .chain((1..=n).map(|j| {
+                    let then = crate::expr::effect_at(comp, &layer.id, instance, at - j, layer.key_time((at - j) as f64)).0;
+                    match then.effect {
+                        crate::effects::Effect::GlueGun { brush_position, .. } => brush_position,
+                        _ => *brush_position,
                     }
                 }))
                 .collect();

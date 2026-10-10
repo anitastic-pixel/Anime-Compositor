@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target, TimeRemap};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, BILATERAL_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, TEXT_ANIMATOR, STRETCH_LEVELS, STRETCH_CONTRAST, STRETCH_COLOR, SPREAD_TONES, MATTE_CHOKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE, STROKE, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, CROSS_BLUR, SPIN_ZOOM_BLUR, FAST_ZOOM_BLUR, BROADCAST_SAFE, COLOR_NEUTRALIZER, COLOR_OFFSET, KERNEL, TONER, CHANGE_COLOR, BEND_IT, BENDER, BLOBBYLIZE, COLOR_BALANCE_HLS, COLOR_LINK, COLOR_STABILIZER, GAMMA_PEDESTAL_GAIN, FLOW_MOTION, GRIDDLER, FISHEYE, LEVELS_INDIVIDUAL, LEVELS_NAMES, LEVELS_PLAIN, PHOTO_FILTER, COLOR_GRADE, COLOR_GRADE_SETTINGS, PAGE_TURN, POWER_PIN, RIPPLE_PULSE, SLANT, SMEAR, SPLIT, SPLIT_2, TILES, MAGNIFY, SPHERIZE, CHECKERBOARD, CIRCLE, ELLIPSE, AUDIO_SPECTRUM, AUDIO_WAVEFORM, LIGHT_BURST, DETAIL_UPSCALE, FRACTAL, GRID, FILL, ARBITRARY_MAP, SELECTIVE_COLOR, SHADOW_HIGHLIGHT, TRITONE, AERIAL_HAZE, TRANSFORM,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, BILATERAL_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, TEXT_ANIMATOR, STRETCH_LEVELS, STRETCH_CONTRAST, STRETCH_COLOR, SPREAD_TONES, MATTE_CHOKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE, STROKE, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, CROSS_BLUR, SPIN_ZOOM_BLUR, FAST_ZOOM_BLUR, BROADCAST_SAFE, COLOR_NEUTRALIZER, COLOR_OFFSET, KERNEL, TONER, CHANGE_COLOR, BEND_IT, BENDER, BLOBBYLIZE, GLUE_GUN, COLOR_BALANCE_HLS, COLOR_LINK, COLOR_STABILIZER, GAMMA_PEDESTAL_GAIN, FLOW_MOTION, GRIDDLER, FISHEYE, LEVELS_INDIVIDUAL, LEVELS_NAMES, LEVELS_PLAIN, PHOTO_FILTER, COLOR_GRADE, COLOR_GRADE_SETTINGS, PAGE_TURN, POWER_PIN, RIPPLE_PULSE, SLANT, SMEAR, SPLIT, SPLIT_2, TILES, MAGNIFY, SPHERIZE, CHECKERBOARD, CIRCLE, ELLIPSE, AUDIO_SPECTRUM, AUDIO_WAVEFORM, LIGHT_BURST, DETAIL_UPSCALE, FRACTAL, GRID, FILL, ARBITRARY_MAP, SELECTIVE_COLOR, SHADOW_HIGHLIGHT, TRITONE, AERIAL_HAZE, TRANSFORM,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -4642,6 +4642,33 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             metal: 100.0,
             map: None,
         }),
+        // D-424: CC Glue Gun's controls; the numbers are ours (the manual gives none), the light
+        // Blobbylize's.
+        GLUE_GUN => Some(Effect::GlueGun {
+            brush_position: [50.0, 50.0],
+            stroke_width: 20.0,
+            density: 5.0,
+            time_span: 1.0,
+            reflection: 50.0,
+            strength: 50.0,
+            paint_style: "plain".to_string(),
+            wobble_width: 10.0,
+            wobble_height: 10.0,
+            wobble_speed: 1.0,
+            light_intensity: 100.0,
+            light_color: "#ffffff".to_string(),
+            light_type: "distant".to_string(),
+            light_height: 100.0,
+            light_position: [30.0, 30.0],
+            light_direction: -45.0,
+            ambient: 25.0,
+            diffuse: 75.0,
+            specular: 50.0,
+            roughness: 0.05,
+            metal: 100.0,
+            trail: Vec::new(),
+            clock: [0.0, 0.0],
+        }),
         // D-317: After Effects' start, the layer's own alpha as the bump, lit from the top left.
         GLASS => Some(Effect::Glass {
             layer: serde_json::Value::from(""),
@@ -6240,6 +6267,31 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             roughness: number("roughness")?,
             metal: number("metal")?,
             map: None,
+        }),
+        GLUE_GUN => Ok(Effect::GlueGun {
+            brush_position: pair("brush_position")?,
+            stroke_width: number("stroke_width")?,
+            density: number("density")?,
+            time_span: number("time_span")?,
+            reflection: number("reflection")?,
+            strength: number("strength")?,
+            paint_style: word("paint_style")?,
+            wobble_width: number("wobble_width")?,
+            wobble_height: number("wobble_height")?,
+            wobble_speed: number("wobble_speed")?,
+            light_intensity: number("light_intensity")?,
+            light_color: word("light_color")?,
+            light_type: word("light_type")?,
+            light_height: number("light_height")?,
+            light_position: pair("light_position")?,
+            light_direction: number("light_direction")?,
+            ambient: number("ambient")?,
+            diffuse: number("diffuse")?,
+            specular: number("specular")?,
+            roughness: number("roughness")?,
+            metal: number("metal")?,
+            trail: Vec::new(),
+            clock: [0.0, 0.0],
         }),
         // D-189: as Compound Blur's, the layer travels as `map_layer`; none named is "".
         GLASS => Ok(Effect::Glass {
@@ -10097,7 +10149,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze or core.transform."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.glue_gun, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze or core.transform."
                                 .to_string(),
                         );
                     };
@@ -10129,7 +10181,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze and core.transform."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.glue_gun, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze and core.transform."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -15830,7 +15882,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze and core.transform.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.glue_gun, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze and core.transform.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -15852,7 +15904,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze or core.transform.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.glue_gun, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze or core.transform.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -30602,6 +30654,33 @@ mod contract {
                 ("color", "%23ff8000"),
                 ("opacity", "80"),
                 ("blending_mode", "screen"),
+            ],
+        ),
+        // D-424.
+        (
+            "core.glue_gun",
+            &[
+                ("brush_position", "20,70"),
+                ("stroke_width", "12"),
+                ("density", "3"),
+                ("time_span", "2"),
+                ("reflection", "80"),
+                ("strength", "30"),
+                ("paint_style", "wobbly"),
+                ("wobble_width", "4"),
+                ("wobble_height", "6"),
+                ("wobble_speed", "2"),
+                ("light_intensity", "150"),
+                ("light_color", "%23ff8000"),
+                ("light_type", "point"),
+                ("light_height", "40"),
+                ("light_position", "60,20"),
+                ("light_direction", "30"),
+                ("ambient", "10"),
+                ("diffuse", "60"),
+                ("specular", "90"),
+                ("roughness", "0.2"),
+                ("metal", "40"),
             ],
         ),
         // D-422.

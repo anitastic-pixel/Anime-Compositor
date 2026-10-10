@@ -332,6 +332,8 @@ pub enum Stage {
     EffectLightBurst,
     /// D-418's Fill.
     EffectFill,
+    /// D-424's Glue Gun.
+    EffectGlueGun,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -349,7 +351,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 172] = [
+    pub const ALL: [Stage; 173] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -515,6 +517,7 @@ impl Stage {
         Stage::EffectGrid,
         Stage::EffectLightBurst,
         Stage::EffectFill,
+        Stage::EffectGlueGun,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -692,6 +695,7 @@ impl Stage {
             Stage::EffectGrid => "effect: grid",
             Stage::EffectLightBurst => "effect: light burst",
             Stage::EffectFill => "effect: fill",
+            Stage::EffectGlueGun => "effect: glue gun",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

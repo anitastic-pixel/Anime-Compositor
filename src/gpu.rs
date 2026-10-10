@@ -4114,6 +4114,73 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             textureStore(output, id.xy, vec4(f32(f64(p.x) * m), f32(f64(p.y) * m), f32(f64(p.z) * m), f32(f64(p.w) * m)));
             return;
         }
+        case 34u: {
+            // D-424, layer_fx::glue_gun. k: r, R, T0, the look's length, 1 for a point light, its
+            // place and height, the distant light's direction, the light in linear light, the
+            // intensity, ambient, diffuse, specular, roughness, metal, the blobs' count, then each
+            // blob's centre, then for each band of 16 rows where its list of blobs starts and how
+            // many, then the lists. The highlight's power is single precision.
+            let r = k[0];
+            let nb = u32(k[20]);
+            let band = 21u + 2u * nb + 2u * (id.y / 16u);
+            let first = u32(k[band]);
+            let count = u32(k[band + 1u]);
+            var f = 0.0lf;
+            var gx = 0.0lf;
+            var gy = 0.0lf;
+            for (var i = 0u; i < count; i++) {
+                let o = 21u + 2u * u32(k[first + i]);
+                let dx = x - k[o];
+                let dy = y - k[o + 1u];
+                let q = (dx * dx + dy * dy) / (k[1] * k[1]);
+                if q < 1.0lf {
+                    f += (1.0lf - q) * (1.0lf - q);
+                    gx += -4.0lf * (1.0lf - q) * dx / (k[1] * k[1]);
+                    gy += -4.0lf * (1.0lf - q) * dy / (k[1] * k[1]);
+                }
+            }
+            let p = textureLoad(input, id.xy, 0);
+            let g = sqrt(gx * gx + gy * gy);
+            var a = 0.0lf;
+            var n = vec3(0.0lf, 0.0lf, 1.0lf);
+            if g > 0.0lf {
+                let s = (f - k[2]) / g;
+                let m = clamp(1.0lf - s / r, 0.0lf, 1.0lf);
+                a = clamp(s + 0.5lf, 0.0lf, 1.0lf);
+                n = vec3(-m * gx / g, -m * gy / g, sqrt(1.0lf - m * m));
+            } else if f > k[2] {
+                a = 1.0lf;
+            }
+            if a == 0.0lf {
+                textureStore(output, id.xy, p);
+                return;
+            }
+            let seen = bilinear(input, x - k[3] * n.x, y - k[3] * n.y);
+            var col = vec3(0.0lf, 0.0lf, 0.0lf);
+            if seen.w > 0.0 {
+                col = vec3(f64(seen.x) / f64(seen.w), f64(seen.y) / f64(seen.w), f64(seen.z) / f64(seen.w));
+            }
+            var l = vec3(k[8], k[9], k[10]);
+            if k[4] == 1.0lf {
+                l = blob_unit(vec3(k[5] - x, k[6] - y, k[7]));
+            }
+            let nl = n.x * l.x + n.y * l.y + n.z * l.z;
+            let rz = 2.0lf * nl * n.z - l.z;
+            var shine = 0.0lf;
+            if nl > 0.0lf && rz > 0.0lf {
+                shine = f64(pow(f32(rz), f32(1.0lf / k[18])));
+            }
+            var out = vec4(0.0);
+            for (var c = 0u; c < 3u; c++) {
+                let cc = col[c];
+                let lc = k[11u + c];
+                let lit = cc * (k[15] + k[16] * k[14] * lc * max(nl, 0.0lf)) + k[17] * k[14] * (lc + (cc - lc) * k[19]) * shine;
+                out[c] = f32(lit * a + (1.0lf - a) * f64(p[c]));
+            }
+            out.w = f32(a + (1.0lf - a) * f64(p.w));
+            textureStore(output, id.xy, out);
+            return;
+        }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
             let vx = x - f64(F.g) - k[0] - k[2];
@@ -10459,6 +10526,77 @@ impl Gpu {
                 let out = self.scratch("D-379 blobby", w, h);
                 self.fx_step(steps, &passes.blobby, FxParams { r: r as i32, ..Default::default() }, Some(&colour), Some(&out), Some(&k), Some(&bump), none, tiles(w, h));
                 (out, (w, h))
+            }
+            // D-424: the blobs as the CPU lays them, and the bands of rows each reaches, handed
+            // over in `k`; one warp pass.
+            E::GlueGun {
+                stroke_width,
+                density,
+                reflection,
+                strength,
+                paint_style,
+                wobble_width,
+                wobble_height,
+                wobble_speed,
+                light_intensity,
+                light_color,
+                light_type,
+                light_height,
+                light_position,
+                light_direction,
+                ambient,
+                diffuse,
+                specular,
+                roughness,
+                metal,
+                trail,
+                clock,
+                ..
+            } => {
+                let trail: Vec<(f64, f64)> = trail.iter().map(|p| crate::effects::radial_center(*p, (w, h), f.origin)).collect();
+                let wobble = (paint_style == "wobbly").then_some((*wobble_width, *wobble_height, *wobble_speed));
+                let blobs = crate::layer_fx::glue_blobs(&trail, *clock, *density, wobble);
+                let r = stroke_width / 2.0;
+                let big = r * (1.0 + strength / 100.0);
+                let t0 = (1.0 - (r / big) * (r / big)) * (1.0 - (r / big) * (r / big));
+                let (ux, uy) = crate::blurs::along(*light_direction);
+                let d = [100.0 * ux, 100.0 * uy, *light_height];
+                let dl = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+                let d = if dl > 0.0 { d.map(|c| c / dl) } else { [0.0; 3] };
+                let (px, py) = crate::effects::radial_center(*light_position, (w, h), f.origin);
+                let l = linear(light_color);
+                let mut k = vec![
+                    r,
+                    big,
+                    t0,
+                    reflection / 100.0 * 2.0 * r,
+                    (light_type == "point") as u8 as f64,
+                    px,
+                    py,
+                    *light_height,
+                    d[0],
+                    d[1],
+                    d[2],
+                    l[0],
+                    l[1],
+                    l[2],
+                    light_intensity / 100.0,
+                    ambient / 100.0,
+                    diffuse / 100.0,
+                    specular / 100.0,
+                    *roughness,
+                    metal / 100.0,
+                    blobs.len() as f64,
+                ];
+                k.extend(blobs.iter().flat_map(|b| [b.0, b.1]));
+                let bands = crate::layer_fx::glue_bands(&blobs, big, h);
+                let mut first = k.len() + 2 * bands.len();
+                for band in &bands {
+                    k.extend([first as f64, band.len() as f64]);
+                    first += band.len();
+                }
+                k.extend(bands.concat().into_iter().map(f64::from));
+                same(steps, &passes.warp, FxParams { mode: 34, ..Default::default() }, &k, None)
             }
             // B-225 (D-344): five generators, each as its CPU function; the bolt's segments are
             // worked out here, as the CPU works them, and handed over in `k`.

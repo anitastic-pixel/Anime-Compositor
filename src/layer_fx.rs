@@ -1688,6 +1688,128 @@ pub(crate) fn blobbylize(
     });
 }
 
+/// D-424: Glue Gun's blobs at the frame `clock[0]` (`clock[1]` frames a second), oldest first.
+/// `trail` is where the brush was, in pixels of the buffer, now and at each frame before, as
+/// many as the time span holds. Blob k, born at frame k / `density`, lies where the brush was
+/// then, the trail joined by straight lines; with `wobble` (width, height, turns a second) it
+/// swings by a sine a step out of its neighbours'. No trail or no density, no blobs.
+pub(crate) fn glue_blobs(trail: &[(f64, f64)], [f, fps]: [f64; 2], d: f64, wobble: Option<(f64, f64, f64)>) -> Vec<(f64, f64)> {
+    use std::f64::consts::PI;
+    if d == 0.0 || trail.is_empty() {
+        return Vec::new();
+    }
+    let n = trail.len() - 1;
+    let frac = |v: f64| v - v.floor();
+    let (lo, hi) = (((f - n as f64) * d).ceil() as i64, (f * d).floor() as i64);
+    (lo..=hi)
+        .map(|k| {
+            let kf = k as f64;
+            let u = (f * d - kf) / d;
+            let j = u.floor();
+            let t = u - j;
+            let j = j as usize;
+            let (mut x, mut y) = if j >= n {
+                trail[n]
+            } else {
+                (trail[j].0 + (trail[j + 1].0 - trail[j].0) * t, trail[j].1 + (trail[j + 1].1 - trail[j].1) * t)
+            };
+            if let Some((ww, wh, s)) = wobble {
+                let now = f / fps;
+                x += ww * (2.0 * PI * (s * now + frac(kf * 0.6180339887498949))).sin();
+                y += wh * (2.0 * PI * (s * now + frac(kf * 0.7548776662466927))).sin();
+            }
+            (x, y)
+        })
+        .collect()
+}
+
+/// D-424: the blobs that reach each band of 16 rows, `reach` pixels round each, in order.
+pub(crate) fn glue_bands(blobs: &[(f64, f64)], reach: f64, h: usize) -> Vec<Vec<u32>> {
+    let mut bands = vec![Vec::new(); h.div_ceil(16)];
+    for (i, &(_, cy)) in blobs.iter().enumerate() {
+        let (lo, hi) = ((cy - reach - 0.5).floor(), (cy + reach - 0.5).ceil());
+        if !(hi >= 0.0 && lo <= (h - 1) as f64) {
+            continue;
+        }
+        for band in &mut bands[lo.max(0.0) as usize / 16..=(hi as usize).min(h - 1) / 16] {
+            band.push(i as u32);
+        }
+    }
+    bands
+}
+
+/// D-424: Glue Gun, this program's own reading of CycoreFX's CC Glue Gun. Each blob pulls
+/// (1 - d^2 / R^2)^2 within R = `r` (1 + `strength`) of it; the stroke is where the pull F
+/// passes a lone blob's at `r`, T0, with a pixel of soft edge from s = (F - T0) / |G|, G its
+/// slope. The surface is a tube of radius `r` round the edge, and the paint shows the drawing
+/// `reflection` 2 `r` along the surface's slope, straight (black where it is clear), lit as
+/// Blobbylize's is, and laid over the drawing. The settings are already valid, the shares out of
+/// 1 and `light` linear.
+pub(crate) fn glue_gun(
+    source: &mut WorkingBuffer,
+    blobs: &[(f64, f64)],
+    (r, strength, reflection): (f64, f64, f64),
+    (point, direction, height, light, intensity): (Option<(f64, f64)>, f64, f64, [f64; 3], f64),
+    [ambient, diffuse, specular, roughness, metal]: [f64; 5],
+) {
+    if blobs.is_empty() || r <= 0.0 {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let big = r * (1.0 + strength);
+    let t0 = (1.0 - (r / big) * (r / big)) * (1.0 - (r / big) * (r / big));
+    let look = reflection * 2.0 * r;
+    let bands = glue_bands(blobs, big, h);
+    let unit = |v: [f64; 3]| {
+        let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        if l > 0.0 { v.map(|c| c / l) } else { [0.0; 3] }
+    };
+    let (ux, uy) = crate::blurs::along(direction);
+    let distant = unit([100.0 * ux, 100.0 * uy, height]);
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let (mut f, mut gx, mut gy) = (0.0, 0.0, 0.0);
+        for &b in &bands[i / w / 16] {
+            let (cx, cy) = blobs[b as usize];
+            let (dx, dy) = (x - cx, y - cy);
+            let q = (dx * dx + dy * dy) / (big * big);
+            if q < 1.0 {
+                f += (1.0 - q) * (1.0 - q);
+                gx += -4.0 * (1.0 - q) * dx / (big * big);
+                gy += -4.0 * (1.0 - q) * dy / (big * big);
+            }
+        }
+        let g = (gx * gx + gy * gy).sqrt();
+        let (a, n) = if g > 0.0 {
+            let s = (f - t0) / g;
+            let m = (1.0 - s / r).clamp(0.0, 1.0);
+            ((s + 0.5).clamp(0.0, 1.0), [-m * gx / g, -m * gy / g, (1.0 - m * m).sqrt()])
+        } else {
+            (if f > t0 { 1.0 } else { 0.0 }, [0.0, 0.0, 1.0])
+        };
+        if a == 0.0 {
+            return;
+        }
+        let seen = sample_bilinear(&still, x - look * n[0], y - look * n[1]).map(f64::from);
+        let color = if seen[3] > 0.0 { [seen[0] / seen[3], seen[1] / seen[3], seen[2] / seen[3]] } else { [0.0; 3] };
+        let l = match point {
+            Some((lx, ly)) => unit([lx - x, ly - y, height]),
+            None => distant,
+        };
+        let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
+        let rz = 2.0 * nl * n[2] - l[2];
+        let shine = if nl > 0.0 && rz > 0.0 { rz.powf(1.0 / roughness) } else { 0.0 };
+        let under = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
+        for c in 0..3 {
+            let lit = color[c] * (ambient + diffuse * intensity * light[c] * nl.max(0.0))
+                + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
+            px[c] = (lit * a + (1.0 - a) * under[c]) as f32;
+        }
+        px[3] = (a + (1.0 - a) * under[3]) as f32;
+    });
+}
+
 /// D-213: Bevel Edges. A pixel nearer than `thickness` times the buffer's smaller side to the
 /// buffer's nearest side, the first of left, top, right and bottom among equals, is on that
 /// side's face. The settings are already valid.

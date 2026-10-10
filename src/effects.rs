@@ -1982,6 +1982,40 @@ pub enum Effect {
         metal: f64,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-424: Glue Gun, our name for CycoreFX's CC Glue Gun: a glossy, blobby stroke laid along
+    /// the path the brush has taken. `brush_position`, per cent of the drawing, -1000 to 1000;
+    /// `stroke_width`, 0 to 500 pixels; `density`, 0 to 100 blobs a frame; `time_span`, 0 to 100
+    /// seconds, 0 for ever; `reflection` and `strength`, 0 to 100; `paint_style`, "plain" or
+    /// "wobbly"; `wobble_width` and `wobble_height`, 0 to 1000 pixels; `wobble_speed`, 0 to 100
+    /// turns a second; and Blobbylize's light and shading. `trail` and `clock` are not settings
+    /// and are never saved: compose fills `trail` with the brush position at this frame and at
+    /// each frame of the time span before, and `clock` with this frame and the frames a second.
+    /// With no trail there is no stroke.
+    GlueGun {
+        brush_position: [f64; 2],
+        stroke_width: f64,
+        density: f64,
+        time_span: f64,
+        reflection: f64,
+        strength: f64,
+        paint_style: String,
+        wobble_width: f64,
+        wobble_height: f64,
+        wobble_speed: f64,
+        light_intensity: f64,
+        light_color: String,
+        light_type: String,
+        light_height: f64,
+        light_position: [f64; 2],
+        light_direction: f64,
+        ambient: f64,
+        diffuse: f64,
+        specular: f64,
+        roughness: f64,
+        metal: f64,
+        trail: Vec<[f64; 2]>,
+        clock: [f64; 2],
+    },
     /// D-347: Moment Map, after After Effects' Time Displacement: each pixel of the layer from
     /// another moment of it, later where the map is bright and earlier where it is dark.
     /// `max_time`, -10 to 10 seconds; `resolution`, 1 to 999 steps a second; `layer` and `fit`,
@@ -2387,6 +2421,7 @@ pub const VECTOR_BLUR: &str = "core.vector_blur";
 pub const BEND_IT: &str = "core.bend_it";
 pub const BENDER: &str = "core.bender";
 pub const BLOBBYLIZE: &str = "core.blobbylize";
+pub const GLUE_GUN: &str = "core.glue_gun";
 pub const FLOW_MOTION: &str = "core.flow_motion";
 pub const GRIDDLER: &str = "core.griddler";
 pub const FISHEYE: &str = "core.fisheye";
@@ -3472,6 +3507,46 @@ impl Effect {
                 ("roughness", vec![roughness], 0.001, 1.0),
                 ("metal", vec![metal], 0.0, 100.0),
             ],
+            Effect::GlueGun {
+                brush_position,
+                stroke_width,
+                density,
+                time_span,
+                reflection,
+                strength,
+                wobble_width,
+                wobble_height,
+                wobble_speed,
+                light_intensity,
+                light_height,
+                light_position,
+                light_direction,
+                ambient,
+                diffuse,
+                specular,
+                roughness,
+                metal,
+                ..
+            } => vec![
+                ("brush_position", brush_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("stroke_width", vec![stroke_width], 0.0, 500.0),
+                ("density", vec![density], 0.0, 100.0),
+                ("time_span", vec![time_span], 0.0, 100.0),
+                ("reflection", vec![reflection], 0.0, 100.0),
+                ("strength", vec![strength], 0.0, 100.0),
+                ("wobble_width", vec![wobble_width], 0.0, 1000.0),
+                ("wobble_height", vec![wobble_height], 0.0, 1000.0),
+                ("wobble_speed", vec![wobble_speed], 0.0, 100.0),
+                ("light_intensity", vec![light_intensity], 0.0, 400.0),
+                ("light_height", vec![light_height], -1000.0, 1000.0),
+                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("light_direction", vec![light_direction], -3600.0, 3600.0),
+                ("ambient", vec![ambient], 0.0, 100.0),
+                ("diffuse", vec![diffuse], 0.0, 100.0),
+                ("specular", vec![specular], 0.0, 100.0),
+                ("roughness", vec![roughness], 0.001, 1.0),
+                ("metal", vec![metal], 0.0, 100.0),
+            ],
             Effect::MomentMap { max_time, resolution, .. } => vec![
                 ("max_time", vec![max_time], -10.0, 10.0),
                 ("resolution", vec![resolution], 1.0, 999.0),
@@ -4297,6 +4372,15 @@ impl Effect {
                     *light_height = scale(*light_height);
                 }
             }
+            // D-424: the stroke's width and the wobble are distances; the brush is a share.
+            Effect::GlueGun { stroke_width, wobble_width, wobble_height, light_type, light_height, .. } => {
+                *stroke_width = scale(*stroke_width);
+                *wobble_width = scale(*wobble_width);
+                *wobble_height = scale(*wobble_height);
+                if light_type == "point" {
+                    *light_height = scale(*light_height);
+                }
+            }
             Effect::IdKey { feather, .. } => *feather = scale(*feather),
             Effect::DisplacementMap { max_horizontal, max_vertical, .. } => {
                 *max_horizontal = scale(*max_horizontal);
@@ -4509,6 +4593,7 @@ impl Effect {
             Effect::AerialHaze { .. } => "Aerial Haze",
             Effect::Transform { .. } => "Transform",
             Effect::Blobbylize { .. } => "Blobbylize",
+            Effect::GlueGun { .. } => "Glue Gun",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
             Effect::DepthKey { .. } => "Depth Key",
@@ -4678,6 +4763,7 @@ impl Effect {
             Effect::AerialHaze { .. } => AERIAL_HAZE,
             Effect::Transform { .. } => TRANSFORM,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
+            Effect::GlueGun { .. } => GLUE_GUN,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
             Effect::DepthKey { .. } => DEPTH_KEY,
@@ -5473,6 +5559,10 @@ impl Effect {
                 "Blobbylize's light type is distant or point, and this is \"{light_type}\"."
             )),
             Effect::Blobbylize { light_color, .. } => hex_fault("Blobbylize", "light colour", light_color),
+            Effect::GlueGun { paint_style, light_type, light_color, .. } => (!["plain", "wobbly"].contains(&paint_style.as_str()))
+                .then(|| format!("{name}'s paint style is \"plain\" or \"wobbly\", and this is \"{paint_style}\"."))
+                .or_else(|| (!["distant", "point"].contains(&light_type.as_str())).then(|| format!("{name}'s light type is distant or point, and this is \"{light_type}\".")))
+                .or_else(|| hex_fault(name, "light colour", light_color)),
             Effect::MomentMap { layer, .. } if !layer.is_string() => Some(format!(
                 "Moment Map's map is the name of a layer of this composition, and this is {layer}."
             )),
@@ -7582,6 +7672,45 @@ pub(crate) fn apply_stack_at(
                     map.as_ref().map(|m| (&*m.0, (ox, oy))),
                     property,
                     (*softness, cut_away / 100.0),
+                    (point, *light_direction, *light_height, light, light_intensity / 100.0),
+                    [*ambient / 100.0, *diffuse / 100.0, *specular / 100.0, *roughness, *metal / 100.0],
+                )
+            }),
+            // D-424: the blobs from the brush's trail compose read for this frame; none, no stroke.
+            Effect::GlueGun {
+                stroke_width,
+                density,
+                reflection,
+                strength,
+                paint_style,
+                wobble_width,
+                wobble_height,
+                wobble_speed,
+                light_intensity,
+                light_color,
+                light_type,
+                light_height,
+                light_position,
+                light_direction,
+                ambient,
+                diffuse,
+                specular,
+                roughness,
+                metal,
+                trail,
+                clock,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectGlueGun, || {
+                let dims = (source.width(), source.height());
+                let trail: Vec<(f64, f64)> = trail.iter().map(|p| radial_center(*p, dims, (ox, oy))).collect();
+                let wobble = (paint_style == "wobbly").then_some((*wobble_width, *wobble_height, *wobble_speed));
+                let blobs = if *stroke_width == 0.0 { Vec::new() } else { crate::layer_fx::glue_blobs(&trail, *clock, *density, wobble) };
+                let light = encoded(light_color).map(crate::grade::to_linear);
+                let point = (light_type == "point").then(|| radial_center(*light_position, dims, (ox, oy)));
+                crate::layer_fx::glue_gun(
+                    source,
+                    &blobs,
+                    (stroke_width / 2.0, *strength / 100.0, *reflection / 100.0),
                     (point, *light_direction, *light_height, light, light_intensity / 100.0),
                     [*ambient / 100.0, *diffuse / 100.0, *specular / 100.0, *roughness, *metal / 100.0],
                 )
