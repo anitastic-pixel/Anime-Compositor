@@ -205824,3 +205824,87 @@ FX-CHECK-031 (`fx_check_031.json`): Blending mode "darken", which this program d
 FX-CHECK-032 (`fx_check_032.json`): Colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CHECK-033 (`fx_check_033.json`): Width keyed to 10001 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Circle (D-414)
+
+After Effects' Circle (Generate), `core.circle` (B-293). Every case is a composition 16 by 10 holding Gradient's cel, the same size, unmoved unless the case says. `tools/circle_reference.py` works the expected frames, `Fixtures/circle/expected_circle.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-CIRCLE-001 (`fx_circle_001.json`): The settings as they start: centre in the middle, radius 75, edge none, white, opacity 100, blending mode none: the disk covers the whole small frame, white everywhere, the cel gone. Frames 0.
+
+FX-CIRCLE-002 (`fx_circle_002.json`): Radius 4: a white disk 8 across at (8, 5), the pixels on its rim partly covered, the rest clear. Frames 0.
+
+FX-CIRCLE-003 (`fx_circle_003.json`): Radius 4, outer feather 4: the rim ramps over 4 pixels, from 2 inside to 2 outside. Frames 0.
+
+FX-CIRCLE-004 (`fx_circle_004.json`): Edge Radius, radius 4, edge radius 2: a ring from 2 to 4. Frames 0.
+
+FX-CIRCLE-005 (`fx_circle_005.json`): Edge Radius, radius 2, edge radius 4: the same ring, the larger of the two outside. Frames 0.
+
+FX-CIRCLE-006 (`fx_circle_006.json`): Thickness 2, radius 4: the ring inside the radius, from 2 to 4, FX-CIRCLE-004's. Frames 0.
+
+FX-CIRCLE-007 (`fx_circle_007.json`): Thickness * Radius, thickness 50, radius 4: thickness 50 per cent of the radius, 2, FX-CIRCLE-006's. Frames 0.
+
+FX-CIRCLE-008 (`fx_circle_008.json`): Thickness & Feather * Radius, thickness 50, outer feather 50, inner feather 25, radius 4: thickness 2, feathers 2 and 1, as Thickness with those. Frames 0.
+
+FX-CIRCLE-009 (`fx_circle_009.json`): Thickness 2, radius 4, inner feather 2: the inner edge soft, the outer sharp. Frames 0.
+
+FX-CIRCLE-010 (`fx_circle_010.json`): Thickness 10, radius 4: thicker than the radius, a whole disk, FX-CIRCLE-002's. Frames 0.
+
+FX-CIRCLE-011 (`fx_circle_011.json`): Radius 4, Invert Circle on: white everywhere but the disk, clear in it. Frames 0.
+
+FX-CIRCLE-012 (`fx_circle_012.json`): Radius 4, orange #ff8000 at opacity 50: an orange disk at half covering. Frames 0.
+
+FX-CIRCLE-013 (`fx_circle_013.json`): Radius 4, normal: a white disk over the cel, the cel round it. Frames 0.
+
+FX-CIRCLE-014 (`fx_circle_014.json`): Radius 4, violet #6450a0, multiply: the cel darkened in the disk. Frames 0.
+
+FX-CIRCLE-015 (`fx_circle_015.json`): Radius 4, violet, screen: the cel lightened in the disk. Frames 0.
+
+FX-CIRCLE-016 (`fx_circle_016.json`): Radius 4, violet, add. Frames 0.
+
+FX-CIRCLE-017 (`fx_circle_017.json`): Radius 4, violet, overlay. Frames 0.
+
+FX-CIRCLE-018 (`fx_circle_018.json`): Radius 4, violet, soft light. Frames 0.
+
+FX-CIRCLE-019 (`fx_circle_019.json`): Radius 4, stencil alpha: the cel seen only through the disk. Frames 0.
+
+FX-CIRCLE-020 (`fx_circle_020.json`): Radius 4, normal at opacity 0: the cel exactly as it was. Frames 0.
+
+FX-CIRCLE-021 (`fx_circle_021.json`): Radius keyed from 2 at frame 0 to 6 at frame 4, linear: the disk grows; frame 2 is radius 4. Frames 0, 2, 4.
+
+FX-CIRCLE-022 (`fx_circle_022.json`): Radius 3, the centre keyed from (50, 50) at frame 0 to (25, 50) at frame 4, linear: the disk slides left, 1 pixel a frame. Frames 0, 2, 4.
+
+FX-CIRCLE-023 (`fx_circle_023.json`): FX-CIRCLE-013 moved three pixels right: the disk moves with the layer. Frames 0.
+
+FX-CIRCLE-024 (`fx_circle_024.json`): After a Motion Tile that grows the layer: the centre is the drawing's own, so the frame is FX-CIRCLE-002's. Frames 0.
+
+FX-CIRCLE-025 (`fx_circle_025.json`): FX-CIRCLE-012 with its colour in capitals, #FF8000: the same. Frames 0.
+
+FX-CIRCLE-026 (`fx_circle_026.json`): Radius 10, the centre at (-25, 50) per cent, outside the drawing: the left edge of the frame covered, the right clear. Frames 0.
+
+FX-CIRCLE-027 (`fx_circle_027.json`): Edge none with an inner feather of 3: the inner feather is not used, FX-CIRCLE-002's. Frames 0.
+
+FX-CIRCLE-028 (`fx_circle_028.json`): Opacity keyed from 100 at frame 0 to 0 at frame 4 past its end by an ease, radius 4: held at 0, frame 4 clear everywhere. Frames 0, 4.
+
+FX-CIRCLE-029 (`fx_circle_029.json`): Radius 0, edge none: nothing covered, clear everywhere. Frames 0.
+
+FX-CIRCLE-030 (`fx_circle_030.json`): Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CIRCLE-031 (`fx_circle_031.json`): Radius 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CIRCLE-032 (`fx_circle_032.json`): Edge "ring", not one of its five words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CIRCLE-033 (`fx_circle_033.json`): Edge thickness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CIRCLE-034 (`fx_circle_034.json`): Outer feather 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CIRCLE-035 (`fx_circle_035.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CIRCLE-036 (`fx_circle_036.json`): Centre 1001 per cent across, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CIRCLE-037 (`fx_circle_037.json`): Invert "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CIRCLE-038 (`fx_circle_038.json`): Blending mode "darken", which this program does not have. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CIRCLE-039 (`fx_circle_039.json`): Colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CIRCLE-040 (`fx_circle_040.json`): Radius keyed to 10001 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
