@@ -205494,3 +205494,33 @@ FX-LENSCA-024 (`fx_lensca_024.json`): Angle 3601, past ten turns. The file is re
 FX-LENSCA-025 (`fx_lensca_025.json`): Amount 101 in the new form, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-LENSCA-026 (`fx_lensca_026.json`): Green scale keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Line Boil (D-410)
+
+Turbulent Displace's New Seed Every (`new_seed_every`), PLUGINS.md's pick #4 (B-289). Every case is turbulent_displace_reference's composition 16 by 10, five frames, holding the stripes `art` (`media/stripes.png`), unmoved unless the case says, with `core.turbulent_displace` `fx-0-0` in After Effects' units (D-328) unless the case says. `tools/line_boil_reference.py` works the expected frames, `Fixtures/line_boil/expected_line_boil.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-BOIL-001 (`fx_boil_001.json`): New seed every 2 frames, amount 30, size 8, speed 0 (a push of 2.4 pixels at most): frames 0 and 1 are FX-TURB-AE-007 (seed 0), frames 2 and 3 the same warp with seed 1, frame 4 seed 2: the stripes jump to a new wobble every second frame and hold still between, the hand-drawn boil. Frames 0, 1, 2, 3, 4.
+
+FX-BOIL-002 (`fx_boil_002.json`): New seed every 0, written: one seed for ever, so every frame is FX-TURB-AE-007. Frames 0, 2, 4.
+
+FX-BOIL-003 (`fx_boil_003.json`): New seed every 1: a new seed on every frame, frame f drawn with seed f. Frames 0, 1, 2, 3, 4.
+
+FX-BOIL-004 (`fx_boil_004.json`): New seed every 3 from seed 8: frames 0 to 2 seed 8, frames 3 and 4 seed 9. Frames 0, 2, 3, 4.
+
+FX-BOIL-005 (`fx_boil_005.json`): New seed every 2.9: the whole part, 2, is counted, so this is FX-BOIL-001. Frames 0, 1, 2, 3, 4.
+
+FX-BOIL-006 (`fx_boil_006.json`): New seed every 2 with speed 20: the evolution still moves every frame, so no two frames are alike, and frames 2 and 3 use seed 1. Frames 0, 1, 2, 3.
+
+FX-BOIL-007 (`fx_boil_007.json`): New seed every keyed from 1 at frame 0 to 4 at frame 4, linear: frame 0 seed 0; at frame 2 the setting is 2.5, whole part 2, step 1; at frame 4 it is 4, step 1. Frames 0, 2, 4.
+
+FX-BOIL-008 (`fx_boil_008.json`): New seed every 2 in a file without units (D-127's classic push), amount 3, size 8, speed 0: FX-TURB-004's warp on frames 0 and 1, seed 1 on frames 2 and 3. Frames 0, 1, 2, 3.
+
+FX-BOIL-009 (`fx_boil_009.json`): FX-BOIL-001 moved three pixels right: the layer grows by 3, so the three columns left of the drawing show the stripes pushed into them, and the boil is the same, moved. Frames 0, 2.
+
+FX-BOIL-010 (`fx_boil_010.json`): FX-BOIL-001 with edges repeat: nothing grows, a push past the edge reads the nearest edge pixel; the seed steps as before. Frames 0, 2.
+
+FX-BOIL-011 (`fx_boil_011.json`): New seed every -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BOIL-012 (`fx_boil_012.json`): New seed every 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BOIL-013 (`fx_boil_013.json`): New seed every keyed from 2 at frame 0 to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
