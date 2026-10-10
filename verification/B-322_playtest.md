@@ -35,10 +35,10 @@ to within 1 level of the processor's. The pictures are in `verification/D-442 pi
 (`1_before.png` is the street with nothing on it; every picture has a star-shaped mask of mode
 None on the street, which by itself changes nothing).
 
-One thing needs your decision: two of the test cases use a mask of only two points. Their pixels
-match, but the program also warns that a two-point mask encloses nothing (it warns this for every
-such mask, as it did for Fill). The cases expect no warning. Proposed: the cases take the
-warning. Until you decide, they are marked "in dispute" and left as written.
+Two of the test cases use a mask of only two points. Their pixels match, and the program also
+warns that a two-point mask encloses nothing (it warns this for every such mask, as it did for
+Fill). You decided on 2026-10-10 that the cases expect that warning, so they now pass like every
+other check. No picture changed.
 
 ## What to check
 

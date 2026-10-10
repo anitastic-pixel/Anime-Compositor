@@ -51251,7 +51251,8 @@
       0.0
      ]
     ]
-   }
+   },
+   "warning": "MASK_INVALID_OUTLINE"
   },
   "FX-SCRIBBLE-045": {
    "says": "The two-point mask, Centered Edge, Edge Width 2.",
@@ -52219,7 +52220,8 @@
       0.0
      ]
     ]
-   }
+   },
+   "warning": "MASK_INVALID_OUTLINE"
   },
   "FX-SCRIBBLE-046": {
    "says": "Angle keyed from 0 at frame 0 to 90 at frame 4: the lines turn.",

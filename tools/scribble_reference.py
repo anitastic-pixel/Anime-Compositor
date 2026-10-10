@@ -709,6 +709,10 @@ def main():
     for fx, (says, c, frames) in CASES.items():
         rendered = {str(f): render(c, f) for f in frames}
         expected["cases"][fx] = {"says": says, "project": write(fx, c), "frames": rendered}
+        if fx in ("FX-SCRIBBLE-044", "FX-SCRIBBLE-045"):
+            # D-442's amendment, the owner's decision of 2026-10-10: a mask of two points is
+            # warned of on opening and each frame, as every such mask is (document 19).
+            expected["cases"][fx]["warning"] = "MASK_INVALID_OUTLINE"
         before = plain(c)
         print(f"{fx}: " + ", ".join(
             f"frame {f} {sum(px[i] != before[i] for i in range(W * H))} changed"
@@ -748,7 +752,10 @@ def check(expected):
             for p in px:
                 assert -1e-12 <= p[3] <= 1 + 1e-12 and all(
                     -1e-12 <= v <= p[3] + 1e-12 for v in p[:3]), (fx, p)
-        if "warning" in expected["cases"][fx] or "frame_warning" in expected["cases"][fx]:
+        # A refused or missing effect leaves the drawing as it was; a two-point mask's warning
+        # (FX-SCRIBBLE-044 and 045) does not stop Centered Edge drawing its band.
+        warned = expected["cases"][fx].get("warning") not in (None, "MASK_INVALID_OUTLINE")
+        if warned or "frame_warning" in expected["cases"][fx]:
             assert all(px == art for px in frames.values()), fx
 
     # The geometry of FX-SCRIBBLE-002: two lines at y 3.25 and 5.75 joined at x 13.

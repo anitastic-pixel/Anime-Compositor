@@ -207039,7 +207039,7 @@ FX-WRITEON-041 (`fx_writeon_041.json`): Brush Size keyed to 300 at frame 4. The 
 
 ### Scribble (D-442)
 
-After Effects' Scribble (Generate), `core.scribble` (B-322). Every case is a composition 16 by 10 at 24 frames a second, 12 frames long, holding Bulge's striped drawing (`Fixtures/scribble/media`), the same size, unmoved unless the case says, with the masks the case names (mode None unless it says). `tools/scribble_reference.py` works the expected frames, `Fixtures/scribble/expected_scribble.json`, tolerance 2e-5; the rule is in document 21. FX-SCRIBBLE-044 and 045 are in dispute (D-442's warning amendment, proposed): their pixels match, and the build also says MASK_INVALID_OUTLINE.
+After Effects' Scribble (Generate), `core.scribble` (B-322). Every case is a composition 16 by 10 at 24 frames a second, 12 frames long, holding Bulge's striped drawing (`Fixtures/scribble/media`), the same size, unmoved unless the case says, with the masks the case names (mode None unless it says). `tools/scribble_reference.py` works the expected frames, `Fixtures/scribble/expected_scribble.json`, tolerance 2e-5; the rule is in document 21. FX-SCRIBBLE-044 and 045 expect MASK_INVALID_OUTLINE on opening and each frame, as every mask of fewer than three points is warned of (D-442's amendment, the owner's decision of 2026-10-10).
 
 FX-SCRIBBLE-001 (`fx_scribble_001.json`): The settings as added on the box from (2, 2) to (13, 7): white lines 5 wide at 45 degrees, 5 apart, a little curved and wiggling, covering most of the box. Frames 0, 4.
 

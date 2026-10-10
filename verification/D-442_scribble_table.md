@@ -2,7 +2,7 @@
 
 B-322, after After Effects' Scribble: the chosen closed masks (one, all, or all combined by their modes), or a band along their outline, crossed by lines Spacing apart at Angle, each run Path Overlap past the edge, joined at alternate ends by turns as round as Curviness says, every variation drawn from Random Seed and changed Wiggles/Second times a second (Static never, Jumpy at once, Smooth gliding); trimmed from Start to End along the scribble's length (all masks as one length when Fill Paths Sequentially is on) and drawn with Path Stroke's round brush Stroke Width across, on the layer, on transparent or revealing the layer. With no usable mask it draws nothing and says EFFECT_PATH_MISSING every frame. Every expected pixel is `Fixtures/scribble/expected_scribble.json`, written by `tools/scribble_reference.py` before this code existed and printed in document 25 as FX-SCRIBBLE-001 to 071. Tolerance 2e-5.
 
-## FX-SCRIBBLE-001 to 071 (document 25), but 044 and 045
+## FX-SCRIBBLE-001 to 071 (document 25)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -101,6 +101,10 @@ B-322, after After Effects' Scribble: the chosen closed masks (one, all, or all 
 | FX-SCRIBBLE-042: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-SCRIBBLE-043 frame 0: Mask 1.5: its floor, mask 1, FX-SCRIBBLE-002's frame. | largest difference 1.9e-7 | yes |
 | FX-SCRIBBLE-043: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-SCRIBBLE-044 frame 0: A mask of two points encloses nothing: Inside draws nothing; Centered Edge, FX-SCRIBBLE-045, scribbles the band about it. | largest difference 1.9e-7 | yes |
+| FX-SCRIBBLE-044: what opening it warns of, and what frame 4 warns of | ["MASK_INVALID_OUTLINE"] and ["MASK_INVALID_OUTLINE"] | yes |
+| FX-SCRIBBLE-045 frame 0: The two-point mask, Centered Edge, Edge Width 2. | largest difference 2.0e-7 | yes |
+| FX-SCRIBBLE-045: what opening it warns of, and what frame 4 warns of | ["MASK_INVALID_OUTLINE"] and ["MASK_INVALID_OUTLINE"] | yes |
 | FX-SCRIBBLE-046 frame 0: Angle keyed from 0 at frame 0 to 90 at frame 4: the lines turn. | largest difference 1.9e-7 | yes |
 | FX-SCRIBBLE-046 frame 2: Angle keyed from 0 at frame 0 to 90 at frame 4: the lines turn. | largest difference 1.9e-7 | yes |
 | FX-SCRIBBLE-046 frame 4: Angle keyed from 0 at frame 0 to 90 at frame 4: the lines turn. | largest difference 1.9e-7 | yes |
@@ -180,15 +184,6 @@ B-322, after After Effects' Scribble: the chosen closed masks (one, all, or all 
 | FX-SCRIBBLE-071 frame 0: Stroke Width keyed to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SCRIBBLE-071 frame 4: Stroke Width keyed to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SCRIBBLE-071: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-
-## FX-SCRIBBLE-044 and 045, in dispute (D-442's warning amendment, proposed)
-
-| Check | The build's answer | Matches |
-| --- | --- | --- |
-| FX-SCRIBBLE-044 frame 0: A mask of two points encloses nothing: Inside draws nothing; Centered Edge, FX-SCRIBBLE-045, scribbles the band about it. | largest difference 1.9e-7 | yes |
-| FX-SCRIBBLE-044, in dispute (D-442's warning amendment, proposed): the case expects no warning; the build says on opening and at frame 4 that the two-point mask encloses nothing, as it does for every such mask | ["MASK_INVALID_OUTLINE"] and ["MASK_INVALID_OUTLINE"] | yes |
-| FX-SCRIBBLE-045 frame 0: The two-point mask, Centered Edge, Edge Width 2. | largest difference 2.0e-7 | yes |
-| FX-SCRIBBLE-045, in dispute (D-442's warning amendment, proposed): the case expects no warning; the build says on opening and at frame 4 that the two-point mask encloses nothing, as it does for every such mask | ["MASK_INVALID_OUTLINE"] and ["MASK_INVALID_OUTLINE"] | yes |
 
 ## The file
 

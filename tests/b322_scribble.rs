@@ -290,34 +290,6 @@ fn files(stem: &str, count: u32) -> Vec<String> {
     (1..=count).map(|n| format!("{stem}_{n:03}.json")).collect()
 }
 
-/// FX-SCRIBBLE-044 and 045 scribble by a mask of two points. Their pixels are checked as written;
-/// their warnings are not: the cases expect none, and the build, as document 19 asks of every mask
-/// on every layer, says on opening and on each frame that a mask of two points encloses nothing
-/// (MASK_INVALID_OUTLINE), as D-418 found for Fill. Proposed: the cases take that warning. The
-/// cases are kept as written.
-fn two_point_mask(t: &mut Table) {
-    let expected: J = serde_json::from_str(&fs::read_to_string(t.root.join("expected_scribble.json")).unwrap()).unwrap();
-    let tolerance = expected["tolerance"].as_f64().unwrap();
-    for name in ["FX-SCRIBBLE-044", "FX-SCRIBBLE-045"] {
-        let case = &expected["cases"][name];
-        let loaded = t.load(case["project"].as_str().unwrap());
-        for (frame, pixels) in case["frames"].as_object().unwrap() {
-            let frame: i32 = frame.parse().unwrap();
-            let d = effect_table::largest_difference(&t.render(&loaded.document, frame, 64), pixels);
-            t.row(&format!("{name} frame {frame}: {}", case["says"].as_str().unwrap()), &format!("largest difference {d:.1e}"), d <= tolerance);
-        }
-        let on_open: Vec<&str> = loaded.warnings.iter().map(|d| d.id.as_str()).collect();
-        let mut log = FrameLog::new(8);
-        let _ = compose::plan_frame(loaded.document.project(), &Id::new(MAIN), 4, &t.root, &mut log);
-        let at_frame: Vec<String> = log.finish().iter().map(|d| d.id.as_str().to_string()).collect();
-        t.row(
-            &format!("{name}, in dispute (D-442's warning amendment, proposed): the case expects no warning; the build says on opening and at frame 4 that the two-point mask encloses nothing, as it does for every such mask"),
-            &format!("{on_open:?} and {at_frame:?}"),
-            on_open == ["MASK_INVALID_OUTLINE"] && at_frame == ["MASK_INVALID_OUTLINE"],
-        );
-    }
-}
-
 // --- Scribble -------------------------------------------------------------------------------
 
 fn is_scribble(e: &Effect) -> bool {
@@ -354,12 +326,8 @@ fn b322_scribble() {
          FX-SCRIBBLE-001 to 071. Tolerance 2e-5.\n",
     );
 
-    t.heading("FX-SCRIBBLE-001 to 071 (document 25), but 044 and 045");
-    t.fixtures_numbered("expected_scribble.json", 1..=43);
-    t.fixtures_numbered("expected_scribble.json", 46..=71);
-
-    t.heading("FX-SCRIBBLE-044 and 045, in dispute (D-442's warning amendment, proposed)");
-    two_point_mask(&mut t);
+    t.heading("FX-SCRIBBLE-001 to 071 (document 25)");
+    t.fixtures_numbered("expected_scribble.json", 1..=71);
 
     t.heading("The file");
     // FX-SCRIBBLE-048's colour is written in capitals and saved in small letters, as every colour is.
