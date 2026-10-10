@@ -206536,3 +206536,95 @@ FX-RAYSCC-037 (`fx_rayscc_037.json`): Allow Brightening "yes", neither "off" nor
 FX-RAYSCC-038 (`fx_rayscc_038.json`): Transfer Mode "multiply", not one of the four. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-RAYSCC-039 (`fx_rayscc_039.json`): A colour written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Fill (D-418)
+
+After Effects' Fill (Generate), `core.fill` (B-297). Every case is a composition 16 by 10 holding Gradient's cel, the same size, unmoved unless the case says, with masks of mode None (which leave the drawing as it is) unless the case says. `tools/fill_reference.py` works the expected frames, `Fixtures/fill/expected_fill.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-FILL-001 (`fx_fill_001.json`): The settings as they start: Fill Mask 0 (None), red, opacity 100: the whole cel red, its line, skin and shadow alike, the soft left column half red and half see-through as it was, the empty border still empty. Frames 0.
+
+FX-FILL-002 (`fx_fill_002.json`): Fill Mask 1, a box from (2, 2) to (13, 7) of mode None: red inside the box, the cel as it was outside it. Frames 0.
+
+FX-FILL-003 (`fx_fill_003.json`): FX-FILL-002 with Invert: red outside the box, the cel inside it. Frames 0.
+
+FX-FILL-004 (`fx_fill_004.json`): FX-FILL-002 at opacity 50: half way to red inside the box. Frames 0.
+
+FX-FILL-005 (`fx_fill_005.json`): Horizontal Feather 4: the box's left and right edges soften over about two pixels each side, its top and bottom stay sharp. Frames 0.
+
+FX-FILL-006 (`fx_fill_006.json`): Vertical Feather 4: the top and bottom soften, the sides stay sharp. Frames 0.
+
+FX-FILL-007 (`fx_fill_007.json`): Horizontal Feather 3 and Vertical Feather 6: soft both ways, more down than across. Frames 0.
+
+FX-FILL-008 (`fx_fill_008.json`): Both feathers 4 with Invert: the soft band turned over with the rest. Frames 0.
+
+FX-FILL-009 (`fx_fill_009.json`): A curved mask, a circle 8 across about (8, 5): its edge pixels part red, as much as of each pixel's sixteen samples falls inside. Frames 0.
+
+FX-FILL-010 (`fx_fill_010.json`): A triangle with a sloped edge from (14, 1) to (1, 9): the pixels it crosses part red. Frames 0.
+
+FX-FILL-011 (`fx_fill_011.json`): Two masks, the box and a small box inside it, Fill Mask 2: the small box alone. Frames 0.
+
+FX-FILL-012 (`fx_fill_012.json`): Two overlapping masks, (1, 1) to (7, 6) and (5, 3) to (12, 9), All Masks on: both filled, the overlap once. Frames 0.
+
+FX-FILL-013 (`fx_fill_013.json`): The same two, All Masks on, both feathers 3: soft edges, the overlap still no redder than full. Frames 0.
+
+FX-FILL-014 (`fx_fill_014.json`): Two masks, the first switched off, All Masks on: the second alone, FX-FILL-012's right box only. Frames 0.
+
+FX-FILL-015 (`fx_fill_015.json`): The box's mask of mode Add: the cel is cut to the box first, then filled, so the box is red and the rest empty. Frames 0.
+
+FX-FILL-016 (`fx_fill_016.json`): Colour #3080ff, a blue. Frames 0.
+
+FX-FILL-017 (`fx_fill_017.json`): The same blue written in capitals, #3080FF: the same. Frames 0.
+
+FX-FILL-018 (`fx_fill_018.json`): The mask's path keyed from the box at frame 0 to the box two rows lower at frame 4: the fill follows it, frames 0, 2 and 4. Frames 0, 2, 4.
+
+FX-FILL-019 (`fx_fill_019.json`): Opacity keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 the cel, frame 2 half way, frame 4 FX-FILL-002's. Frames 0, 2, 4.
+
+FX-FILL-020 (`fx_fill_020.json`): Horizontal Feather keyed from 0 at frame 0 to 8 at frame 4: sharp, then softer. Frames 0, 2, 4.
+
+FX-FILL-021 (`fx_fill_021.json`): FX-FILL-002 moved three pixels right: the fill moves with the layer. Frames 0.
+
+FX-FILL-022 (`fx_fill_022.json`): After a Motion Tile that grows the layer: the mask is the drawing's own, so the frame is FX-FILL-002's. Frames 0.
+
+FX-FILL-023 (`fx_fill_023.json`): Fill Mask 1.5: its floor, mask 1, FX-FILL-002's frame. Frames 0.
+
+FX-FILL-024 (`fx_fill_024.json`): Fill Mask 0 with Invert: nothing is filled, the cel as it was. Frames 0.
+
+FX-FILL-025 (`fx_fill_025.json`): Opacity 0: the cel as it was. Frames 0.
+
+FX-FILL-026 (`fx_fill_026.json`): A mask of two points encloses nothing: the cel as it was. Inverted, FX-FILL-027, everything is filled. Frames 0. In dispute (D-418, proposed): the build also says `MASK_INVALID_OUTLINE` on opening and each frame, as for every mask of fewer than three points.
+
+FX-FILL-027 (`fx_fill_027.json`): The two-point mask, inverted: the whole cel red, FX-FILL-001's frame. Frames 0. In dispute (D-418, proposed): the build also says `MASK_INVALID_OUTLINE` on opening and each frame, as for every mask of fewer than three points.
+
+FX-FILL-028 (`fx_fill_028.json`): A mask from far left of the layer to x 12, Horizontal Feather 6: the covering is worked out past the layer's edge too, so the left edge stays fully red and only the edge at x 12 softens. Frames 0.
+
+FX-FILL-029 (`fx_fill_029.json`): Opacity keyed from 40 at frame 0 to 100 at frame 4 by an ease that passes its end: held at 100 at frame 2, where it would pass it. Frames 0, 2, 4.
+
+FX-FILL-030 (`fx_fill_030.json`): Fill Mask 0 with All Masks on and two masks: All Masks wins, FX-FILL-012's frame. Frames 0.
+
+FX-FILL-031 (`fx_fill_031.json`): Fill Mask 1 with no masks at all. Nothing to fill: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning on each frame `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-FILL-032 (`fx_fill_032.json`): Fill Mask 3, of two. Nothing to fill: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning on each frame `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-FILL-033 (`fx_fill_033.json`): Fill Mask 1, switched off. Nothing to fill: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning on each frame `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-FILL-034 (`fx_fill_034.json`): All Masks on, every mask switched off. Nothing to fill: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning on each frame `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-FILL-035 (`fx_fill_035.json`): All Masks on with no masks at all. Nothing to fill: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning on each frame `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-FILL-036 (`fx_fill_036.json`): Fill Mask -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FILL-037 (`fx_fill_037.json`): Fill Mask 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FILL-038 (`fx_fill_038.json`): Horizontal Feather -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FILL-039 (`fx_fill_039.json`): Vertical Feather 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FILL-040 (`fx_fill_040.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FILL-041 (`fx_fill_041.json`): Colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FILL-042 (`fx_fill_042.json`): Invert "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FILL-043 (`fx_fill_043.json`): All Masks "maybe", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FILL-044 (`fx_fill_044.json`): Opacity keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
