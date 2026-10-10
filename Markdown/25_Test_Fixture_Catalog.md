@@ -204906,3 +204906,45 @@ FX-SPLIT-015 (`fx_split_015.json`): Point A at 1001, 50, past ten widths. The fi
 FX-SPLIT-016 (`fx_split_016.json`): Point B at 50, -1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SPLIT-017 (`fx_split_017.json`): Split keyed to 1500 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Split 2 (D-394)
+
+Split 2 (`core.split_2`), after CycoreFX's CC Split 2 (B-273): Split's tear (D-393) under a second name, the side on your left walking from Point A to Point B opened by Split 1 and the side on your right by Split 2. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/split2_reference.py` works the expected frames, `Fixtures/split_2/expected_split_2.json`, tolerance 2e-5, and checks that FX-SPLIT2-001 and 002 are `tools/split_reference.py`'s FX-SPLIT-001 and 002; the rule is in document 21.
+
+FX-SPLIT2-001 (`fx_split2_001.json`): The settings as they start: from 25, 50 to 75, 50, both sides 50: Split's picture as it starts (FX-SPLIT-001). Frames 0.
+
+FX-SPLIT2-002 (`fx_split2_002.json`): Both sides 4: Split's picture with split 4 (FX-SPLIT-002). Frames 0.
+
+FX-SPLIT2-003 (`fx_split2_003.json`): Split 1 4, Split 2 0: only the upper side opens, the rows above the line pushed up and squeezed; every row below the line untouched. Frames 0.
+
+FX-SPLIT2-004 (`fx_split2_004.json`): Split 1 0, Split 2 4: only the lower side opens; every row above the line untouched. Frames 0.
+
+FX-SPLIT2-005 (`fx_split2_005.json`): Both sides 0: the drawing, untouched. Frames 0.
+
+FX-SPLIT2-006 (`fx_split2_006.json`): Both points at 50, 50: the drawing, untouched. Frames 0.
+
+FX-SPLIT2-007 (`fx_split2_007.json`): From 50, 10 to 50, 90, Split 1 4, Split 2 0: walking down the screen your left is the right of the picture, so only the right half opens. Frames 0.
+
+FX-SPLIT2-008 (`fx_split2_008.json`): From 10, 10 to 90, 90, Split 1 3, Split 2 6: torn along the diagonal, the lower left side opened twice as far. Frames 0.
+
+FX-SPLIT2-009 (`fx_split2_009.json`): Split 1 keyed from 0 at frame 0 to 8 at frame 4, linear, Split 2 4: frame 0 FX-SPLIT2-004, frame 2 FX-SPLIT2-002. Frames 0, 2, 4.
+
+FX-SPLIT2-010 (`fx_split2_010.json`): Split 2 keyed from 0 at frame 0 to 8 at frame 4, Split 1 0: frame 0 the drawing, frame 2 FX-SPLIT2-004. Frames 0, 2, 4.
+
+FX-SPLIT2-011 (`fx_split2_011.json`): FX-SPLIT2-003 moved three pixels right: the same, moved; nothing grows. Frames 0.
+
+FX-SPLIT2-012 (`fx_split2_012.json`): Split 2 eased from 0 at frame 0 to 1000 at frame 4 on a curve that overshoots, Split 1 0: at frame 2 it would pass 1000 and is held there. Frames 0, 2, 4.
+
+FX-SPLIT2-013 (`fx_split2_013.json`): FX-SPLIT2-003 with the points swapped: the sides swap, so the lower side opens, FX-SPLIT2-004's picture. Frames 0.
+
+FX-SPLIT2-014 (`fx_split2_014.json`): From -50, 50 to 150, 50, Split 1 6, Split 2 2: the points off the drawing, the tear right across it, opened 3 up and 1 down at the middle. Frames 0.
+
+FX-SPLIT2-015 (`fx_split2_015.json`): Split 1 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPLIT2-016 (`fx_split2_016.json`): Split 2 -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPLIT2-017 (`fx_split2_017.json`): Point A at 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPLIT2-018 (`fx_split2_018.json`): Point B at 50, -1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPLIT2-019 (`fx_split2_019.json`): Split 2 keyed to 1500 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
