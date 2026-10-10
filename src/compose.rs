@@ -976,6 +976,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::Smear { .. }
                 | crate::effects::Effect::Split { .. }
                 | crate::effects::Effect::Split2 { .. }
+                // D-404: Tiles.
+                | crate::effects::Effect::Tiles { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
                 // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }
@@ -1281,6 +1283,8 @@ fn card_effect(
                 E::Smear { from, to, reach, radius } => *radius == 0.0 || *reach == 0.0 || from == to,
                 E::Split { point_a, point_b, split } => *split == 0.0 || point_a == point_b,
                 E::Split2 { point_a, point_b, split_1, split_2 } => (*split_1, *split_2) == (0.0, 0.0) || point_a == point_b,
+                // D-404: the original mixed back whole, or the one tile the picture itself.
+                E::Tiles { scale, center, blend } => *blend >= 100.0 || (*scale == 100.0 && *center == crate::layer_fx::PLAIN_TILE),
                 // D-360: the mean of two untouched copies is the layer.
                 E::CrossBlur { radius_x, radius_y, mode, .. } => {
                     mode == "blend" && crate::effects::box_reach(*radius_x, 1.0).max(crate::effects::box_reach(*radius_y, 1.0)) == 0

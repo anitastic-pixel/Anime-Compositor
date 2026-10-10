@@ -1690,6 +1690,11 @@ pub enum Effect {
     /// own amount, 0 to 1000 pixels: `split_1` the side on the left walking from A to B,
     /// `split_2` the right.
     Split2 { point_a: [f64; 2], point_b: [f64; 2], split_1: f64, split_2: f64 },
+    /// D-404: after CycoreFX's CC Tiler, Motion Tile's sized tile held at the layer's size.
+    /// `scale`, 1 to 100 per cent, each tile's size; `center`, per cent of the picture as it
+    /// reaches the effect, -1000 to 1000, where a tile sits; `blend`, 0 to 100 per cent of the
+    /// original mixed back.
+    Tiles { scale: f64, center: [f64; 2], blend: f64 },
     /// D-395: after After Effects' PS Arbitrary Map. `map`, the id of an asset of kind lut that
     /// is a Photoshop arbitrary map (.amp), or empty for none; `phase`, -255 to 255 levels, every
     /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
@@ -2152,6 +2157,7 @@ pub const SLANT: &str = "core.slant";
 pub const SMEAR: &str = "core.smear";
 pub const SPLIT: &str = "core.split";
 pub const SPLIT_2: &str = "core.split_2";
+pub const TILES: &str = "core.tiles";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3016,6 +3022,11 @@ impl Effect {
                 ("point_b", point_b.iter_mut().collect(), -1000.0, 1000.0),
                 ("split_1", vec![split_1], 0.0, 1000.0),
                 ("split_2", vec![split_2], 0.0, 1000.0),
+            ],
+            Effect::Tiles { scale, center, blend } => vec![
+                ("scale", vec![scale], 1.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("blend", vec![blend], 0.0, 100.0),
             ],
             Effect::ArbitraryMap { phase, .. } => vec![("phase", vec![phase], -255.0, 255.0)],
             Effect::SelectiveColor { families, .. } => SELECTIVE_COLOR_FAMILIES
@@ -4012,6 +4023,7 @@ impl Effect {
             Effect::Smear { .. } => "Smear",
             Effect::Split { .. } => "Split",
             Effect::Split2 { .. } => "Split 2",
+            Effect::Tiles { .. } => "Tiles",
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::SelectiveColor { .. } => "Selective Color",
             Effect::ShadowHighlight { .. } => "Shadow/Highlight",
@@ -4168,6 +4180,7 @@ impl Effect {
             Effect::Smear { .. } => SMEAR,
             Effect::Split { .. } => SPLIT,
             Effect::Split2 { .. } => SPLIT_2,
+            Effect::Tiles { .. } => TILES,
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
             Effect::ShadowHighlight { .. } => SHADOW_HIGHLIGHT,
@@ -6743,6 +6756,10 @@ pub(crate) fn apply_stack_at(
                 let dims = (source.width(), source.height());
                 let (a, b) = (radial_center(*point_a, dims, (ox, oy)), radial_center(*point_b, dims, (ox, oy)));
                 crate::perf::time(crate::perf::Stage::EffectSplit, || crate::layer_fx::split(source, a, b, [*split_1, *split_2]))
+            }
+            // D-404: the layer never grows.
+            Effect::Tiles { scale, center, blend } => {
+                crate::perf::time(crate::perf::Stage::EffectTiles, || crate::layer_fx::tiles(source, *scale, *center, *blend))
             }
             // D-379: the map compose read for this frame, if a layer is named, is the blob.
             Effect::Blobbylize {

@@ -2903,6 +2903,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("split_1".into(), num(*split_1));
             params.insert("split_2".into(), num(*split_2));
         }
+        Effect::Tiles { scale, center, blend } => {
+            params.insert("scale".into(), num(*scale));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("blend".into(), num(*blend));
+        }
         Effect::ArbitraryMap { map, phase, apply_to_alpha, .. } => {
             params.insert("map".into(), J::from(map.as_str()));
             params.insert("phase".into(), num(*phase));
@@ -4240,6 +4245,7 @@ fn parse_effect(
         crate::effects::SMEAR,
         crate::effects::SPLIT,
         crate::effects::SPLIT_2,
+        crate::effects::TILES,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5446,6 +5452,11 @@ fn parse_effect(
             point_b: effect_array(params, "point_b", "two numbers, x then y", &at)?,
             split_1: effect_number(params, "split_1", &at)?,
             split_2: effect_number(params, "split_2", &at)?,
+        }),
+        crate::effects::TILES => Some(crate::effects::Effect::Tiles {
+            scale: effect_number(params, "scale", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            blend: effect_number(params, "blend", &at)?,
         }),
         crate::effects::ARBITRARY_MAP => Some(crate::effects::Effect::ArbitraryMap {
             map: effect_word(params, "map", &at)?,

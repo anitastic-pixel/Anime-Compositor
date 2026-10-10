@@ -3185,6 +3185,16 @@ fn ripple_height(u: f64) -> f64 {
     return k[7u + u32(j)] * (1.0lf - t) + k[8u + u32(j)] * t;
 }
 
+// D-404, layer_fx::sized_tile's read: where place `p` of a row `n` long reads the picture,
+// tiles `t` long from `start`, each `s` of the picture, held inside its pixel centres; each
+// step rounded once, as the CPU's are.
+fn tile_read(p: f64, start: f64, t: f64, s: f64, n: f64) -> f64 {
+    let u = p - start;
+    let j = floor(quotient(u, t));
+    let f = u - product(j, t, k[8]);
+    return clamp(quotient(f, s), 0.5lf, n - 0.5lf);
+}
+
 @compute @workgroup_size(16, 16)
 fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -3709,6 +3719,26 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
                 s = bicubic(input, sx, sy);
             }
             textureStore(output, id.xy, s * f32(k[6]));
+            return;
+        }
+        case 25u: {
+            // D-404, layer_fx::tiles. k: where a tile starts across, the tile's width, the
+            // scale, where one starts down, its height, the points across and down, the blend
+            // (0 to 1), 0. Places counted from the pixel's corner, as the CPU's; the points summed in the CPU's order, single precision as its are.
+            let n = textureDimensions(input);
+            let mx = u32(k[5]);
+            let my = u32(k[6]);
+            var sum = vec4(0.0);
+            for (var b = 0u; b < my; b++) {
+                let ry = tile_read(f64(id.y) + quotient(f64(b) + 0.5lf, k[6]), k[3], k[4], k[2], f64(n.y));
+                for (var a = 0u; a < mx; a++) {
+                    let rx = tile_read(f64(id.x) + quotient(f64(a) + 0.5lf, k[5]), k[0], k[1], k[2], f64(n.x));
+                    sum += bilinear(input, rx, ry);
+                }
+            }
+            let t = sum / f32(mx * my);
+            let bl = f32(k[7]);
+            textureStore(output, id.xy, t * (1.0 - bl) + textureLoad(input, id.xy, 0) * bl);
             return;
         }
         default: {
@@ -8816,6 +8846,16 @@ impl Gpu {
                 }
                 let k = [ax, ay, (bx - ax) / length, (by - ay) / length, length, *split_2, 0.0, *split_1];
                 same(steps, &passes.warp, FxParams { mode: 21, ..Default::default() }, &k, None)
+            }
+            // D-404: Motion Tile's sized tile held at the picture's size, as layer_fx::sized_tile
+            // works its numbers, then the original mixed back.
+            E::Tiles { scale, center, blend } => {
+                let s = scale / 100.0;
+                let points = (1.0 / s).ceil().clamp(1.0, 16.0);
+                let (nx, ny) = (w as f64, h as f64);
+                let (tx, ty) = (nx * s, ny * s);
+                let k = [center[0] / 100.0 * nx - tx / 2.0, tx, s, center[1] / 100.0 * ny - ty / 2.0, ty, points, points, blend / 100.0, 0.0];
+                same(steps, &passes.warp, FxParams { mode: 25, ..Default::default() }, &k, None)
             }
             E::Mirror { center, angle } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);

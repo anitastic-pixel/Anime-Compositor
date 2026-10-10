@@ -2053,6 +2053,20 @@ pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: 
     (gx, gy)
 }
 
+/// D-404: Tiles, Motion Tile's sized tile held at the buffer's size, `scale` per cent across
+/// and down round `center`, then `blend` per cent of the original mixed back.
+pub(crate) fn tiles(source: &mut WorkingBuffer, scale: f64, center: [f64; 2], blend: f64) {
+    if blend >= 100.0 {
+        return;
+    }
+    let original = (blend > 0.0).then(|| source.clone());
+    motion_tile(source, (100.0, 100.0), false, (center, scale, scale));
+    if let Some(original) = original {
+        let b = (blend / 100.0) as f32;
+        source.data_mut().par_iter_mut().zip(original.data().par_iter()).for_each(|(t, o)| *t = *t * (1.0 - b) + *o * b);
+    }
+}
+
 /// D-304: where a Motion Tile's tiles sit when nothing moved them, the buffer's middle.
 pub(crate) const PLAIN_TILE: [f64; 2] = [50.0, 50.0];
 
