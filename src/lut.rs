@@ -1,6 +1,9 @@
 //! D-182: Color Lookup's .cube files. Document 19's "Colour lookup files" is the reading rule and
 //! document 21 the colour rule; `tools/cube_lut_reference.py` is the reference for both, and a
 //! refused file's reason here is its reason word for word.
+//!
+//! D-395: and Arbitrary Map's Photoshop arbitrary map (.amp) files, read as Adobe's file format
+//! specification gives them; `tools/arbitrary_map_reference.py` is the reference, reasons too.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -36,6 +39,81 @@ impl PartialEq for Table {
 impl std::fmt::Debug for Table {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Table({} points a side)", self.0.size)
+    }
+}
+
+/// D-395: a .amp file as read, the table of each channel it holds, in the order master, red,
+/// green, blue and alpha; a channel it has no table for is straight.
+#[derive(PartialEq)]
+pub struct Amp([Option<[u8; 256]>; 5]);
+
+/// The .amp file an Arbitrary Map's `map` named at this frame, read; as [`Table`], never saved.
+#[derive(Clone)]
+pub struct Map(pub Arc<Amp>);
+
+impl PartialEq for Map {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) || *self.0 == *other.0
+    }
+}
+
+impl std::fmt::Debug for Map {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Map({} tables)", self.0 .0.iter().flatten().count())
+    }
+}
+
+/// D-395: a .amp file's bytes as its tables, or the reason it is refused. One table is the
+/// master, exactly three red, green and blue, any other count the master and then the channels
+/// in turn.
+pub fn parse_amp(bytes: &[u8]) -> Result<Amp, String> {
+    let n = bytes.len();
+    if n == 0 {
+        return Err("the file is empty".to_string());
+    }
+    if n % 256 != 0 {
+        return Err(format!("the file is {n} bytes long, not a whole number of 256-byte tables"));
+    }
+    let k = n / 256;
+    if k > 5 {
+        return Err(format!(
+            "the file holds {k} tables, and this program reads at most five: master, red, green, \
+             blue and alpha"
+        ));
+    }
+    let first = if k == 3 { 1 } else { 0 };
+    let mut tables = [None; 5];
+    for (i, t) in bytes.chunks_exact(256).enumerate() {
+        tables[first + i] = Some(t.try_into().expect("256 bytes"));
+    }
+    Ok(Amp(tables))
+}
+
+impl Amp {
+    /// Channel `c`'s table cycled right by `phase` at `u`, between entries mixed, the entry past
+    /// 255 being entry 0; a channel the file has no table for is straight and not cycled.
+    fn curve(&self, c: usize, phase: f64, u: f64) -> f64 {
+        let Some(t) = &self.0[c] else {
+            return u;
+        };
+        let v = (u - phase).rem_euclid(256.0);
+        let i = (v.floor() as usize).min(255);
+        let f = v - i as f64;
+        f64::from(t[i]) * (1.0 - f) + f64::from(t[(i + 1) % 256]) * f
+    }
+
+    /// The colour tables at `phase` as one 1D lookup of 256 entries a colour, each channel's
+    /// table then the master's, for Color Lookup's rule and its card pass.
+    pub(crate) fn colours(&self, phase: f64) -> Cube {
+        let table = (0..256)
+            .map(|x| std::array::from_fn(|c| (self.curve(0, phase, self.curve(c + 1, phase, x as f64)) / 255.0) as f32))
+            .collect();
+        Cube { three: false, size: 256, lo: [0.0; 3], hi: [1.0; 3], table }
+    }
+
+    /// The alpha table at `phase`, 0 to 255 in and out, when the file holds one.
+    pub(crate) fn alpha(&self, phase: f64) -> Option<impl Fn(f64) -> f64 + Sync + '_> {
+        self.0[4].is_some().then(move || move |u| self.curve(4, phase, u))
     }
 }
 
@@ -199,17 +277,27 @@ impl Cube {
 }
 
 type Read = Result<Arc<Cube>, String>;
+type Held<T> = OnceLock<Mutex<HashMap<PathBuf, (u64, Option<SystemTime>, Result<Arc<T>, String>)>>>;
 
 /// A .cube file read and parsed, kept while its length and time of change stay the same, so a
 /// frame does not read it again and a file changed on disk is read afresh.
+pub fn read(path: &Path) -> Read {
+    static READ: Held<Cube> = OnceLock::new();
+    held(&READ, path, parse)
+}
+
+/// D-395: a .amp file read and parsed, kept as [`read`] keeps a .cube file.
+pub fn read_map(path: &Path) -> Result<Arc<Amp>, String> {
+    static READ: Held<Amp> = OnceLock::new();
+    held(&READ, path, parse_amp)
+}
+
 // ponytail: never emptied; a session reads a handful of lookup files. Evict by age if one day
 // it reads hundreds.
-pub fn read(path: &Path) -> Read {
-    static READ: OnceLock<Mutex<HashMap<PathBuf, (u64, Option<SystemTime>, Read)>>> =
-        OnceLock::new();
+fn held<T>(store: &Held<T>, path: &Path, parse: fn(&[u8]) -> Result<T, String>) -> Result<Arc<T>, String> {
     let meta = crate::cache::looked_at(path).map_err(|e| format!("it could not be read: {e}"))?;
     let stamp = (meta.len(), meta.modified().ok());
-    let mut held = READ.get_or_init(Default::default).lock().expect("the lookup files' lock");
+    let mut held = store.get_or_init(Default::default).lock().expect("the lookup files' lock");
     if let Some((len, modified, read)) = held.get(path) {
         if (*len, *modified) == stamp {
             return read.clone();
@@ -223,10 +311,11 @@ pub fn read(path: &Path) -> Read {
     read
 }
 
-/// The `lut` of `effect` when it names nothing the project has as a lookup file.
+/// The `lut` of `effect`, or an Arbitrary Map's `map` (D-395), when it names nothing the project
+/// has as a lookup file.
 pub fn dangling<'a>(project: &Project, effect: &'a Effect) -> Option<&'a str> {
     match effect {
-        Effect::ColorLookup { lut, .. }
+        Effect::ColorLookup { lut, .. } | Effect::ArbitraryMap { map: lut, .. }
             if !lut.is_empty()
                 && !project
                     .assets
@@ -239,25 +328,39 @@ pub fn dangling<'a>(project: &Project, effect: &'a Effect) -> Option<&'a str> {
     }
 }
 
-/// What opening the project and each frame say of a `lut` that `dangling` found.
-pub(crate) fn not_a_lookup_file(layer: &str, lut: &str) -> Diagnostic {
+/// The kind of file `effect` reads: a .amp for an Arbitrary Map (D-395), else a .cube.
+pub fn file_kind(effect: &Effect) -> &'static str {
+    if matches!(effect, Effect::ArbitraryMap { .. }) {
+        ".amp"
+    } else {
+        ".cube"
+    }
+}
+
+/// What opening the project and each frame say of a `lut` that `dangling` found in `effect`.
+pub(crate) fn not_a_lookup_file(layer: &str, effect: &Effect, lut: &str) -> Diagnostic {
+    let (name, setting) = match effect {
+        Effect::ArbitraryMap { .. } => ("Arbitrary Map", "map"),
+        _ => ("Color Lookup", "lut"),
+    };
     Diagnostic::new(
         DiagnosticId::EffectParameterInvalid,
         Severity::Warning,
         format!(
-            "The layer \"{layer}\"'s Color Lookup names {lut}, which is not a lookup file of \
-             this project, so the layer is drawn without it."
+            "The layer \"{layer}\"'s {name} names {lut}, which is not a lookup file of this \
+             project, so the layer is drawn without it."
         ),
-        "D-182: Color Lookup's lut is the id of an asset of kind lut, or empty. The setting is \
-         kept as written."
-            .to_string(),
+        format!(
+            "D-182: {name}'s {setting} is the id of an asset of kind lut, or empty. The setting \
+             is kept as written."
+        ),
     )
-    .with_remediation("Choose a .cube file on the effect's card.")
+    .with_remediation(format!("Choose a {} file on the effect's card.", file_kind(effect)))
 }
 
-/// The file each switched-on Color Lookup of `effects` names, read into its `table`, and what
-/// kept one from being read: a `lut` naming no lookup file, a missing file, or a refused one.
-/// An effect left without its table leaves the layer as it is.
+/// The file each switched-on Color Lookup or Arbitrary Map (D-395) of `effects` names, read into
+/// its `table`, and what kept one from being read: a `lut` naming no lookup file, a missing
+/// file, or a refused one. An effect left without its table leaves the layer as it is.
 pub(crate) fn fill(
     effects: &mut [EffectInstance],
     project: &Project,
@@ -267,10 +370,10 @@ pub(crate) fn fill(
     let mut said = Vec::new();
     for instance in effects.iter_mut().filter(|i| i.enabled) {
         if let Some(lut) = dangling(project, &instance.effect) {
-            said.push(not_a_lookup_file(layer, lut));
+            said.push(not_a_lookup_file(layer, &instance.effect, lut));
             continue;
         }
-        let Effect::ColorLookup { lut, table } = &mut instance.effect else {
+        let (Effect::ColorLookup { lut, .. } | Effect::ArbitraryMap { map: lut, .. }) = &instance.effect else {
             continue;
         };
         let Some(asset) = project.assets.iter().find(|a| a.id.as_str() == lut) else {
@@ -298,8 +401,14 @@ pub(crate) fn fill(
             );
             continue;
         }
-        match read(&path) {
-            Ok(cube) => *table = Some(Table(cube)),
+        let kind = file_kind(&instance.effect);
+        let read = match &mut instance.effect {
+            Effect::ArbitraryMap { table, .. } => read_map(&path).map(|m| *table = Some(Map(m))),
+            Effect::ColorLookup { table, .. } => read(&path).map(|cube| *table = Some(Table(cube))),
+            _ => Ok(()),
+        };
+        match read {
+            Ok(()) => {}
             Err(why) => said.push(
                 Diagnostic::new(
                     DiagnosticId::MediaDecodeFailed,
@@ -311,9 +420,9 @@ pub(crate) fn fill(
                     ),
                     format!("{}: {why}.", path.display()),
                 )
-                .with_remediation(
-                    "Export the look again as a .cube file, or relink the asset to another one.",
-                ),
+                .with_remediation(format!(
+                    "Export the look again as a {kind} file, or relink the asset to another one."
+                )),
             ),
         }
     }

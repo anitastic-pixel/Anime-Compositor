@@ -6520,6 +6520,7 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::Solarize { .. }
             | E::Halftone { .. }
             | E::ColorLookup { .. }
+            | E::ArbitraryMap { .. }
             | E::HsvKey { .. }
             | E::Paraffin { .. }
             // B-222.
@@ -8601,6 +8602,11 @@ impl Gpu {
                 let table = table.as_ref().expect("compose leaves a Color Lookup only with its table");
                 same(steps, &passes.tone, FxParams { mode: 11, ..Default::default() }, &table.0.packed(), None)
             }
+            // D-395: the colour tables as one 1D lookup, Color Lookup's pass.
+            E::ArbitraryMap { phase, table, .. } => {
+                let table = table.as_ref().expect("compose leaves an Arbitrary Map only with its file");
+                same(steps, &passes.tone, FxParams { mode: 11, ..Default::default() }, &table.0.colours(*phase).packed(), None)
+            }
             E::HsvKey { hue, saturation, value, hue_range, saturation_range, value_range, invert } => {
                 // The single-precision power 1/2.4 the CPU's encoding uses, less the true one.
                 let power = f64::from(1.0f32 / 2.4) - 1.0 / 2.4;
@@ -9646,6 +9652,7 @@ impl Gpu {
                             // its light in a buffer the size of the grown drawing, and its stars, at
                             // most one a cell, with its settings.
                             crate::effects::Effect::ColorLookup { table: Some(t), .. } => ((8 + 3 * t.0.entries()) * 8) as u64,
+                            crate::effects::Effect::ArbitraryMap { table: Some(_), .. } => ((8 + 3 * 256) * 8) as u64,
                             crate::effects::Effect::KiraKira { spacing, .. } => {
                                 let cells = (w as f64 / spacing + 2.0) * (h as f64 / spacing + 2.0);
                                 (((w + 2 * f.grow.0) * (h + 2 * f.grow.1) * 4) as f64).max((19.0 + 4.0 * cells) * 8.0) as u64

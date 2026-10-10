@@ -3816,18 +3816,19 @@ fn effect_cycle(comp: &crate::model::Composition, layer_id: &Id) -> Result<(), D
     .with_remediation("Choose a layer whose effects do not already read this one."))
 }
 
-/// D-182: a Color Lookup names a lookup file of this project, or none. A file opened with one
-/// naming nothing keeps it and says so; a command is refused it.
+/// D-182: a Color Lookup names a lookup file of this project, or none, as an Arbitrary Map does
+/// (D-395). A file opened with one naming nothing keeps it and says so; a command is refused it.
 fn lookup_file_known(project: &Project, effect: &crate::effects::Effect) -> Result<(), Diagnostic> {
+    let setting = if matches!(effect, crate::effects::Effect::ArbitraryMap { .. }) { "map" } else { "lut" };
     match crate::lut::dangling(project, effect) {
         None => Ok(()),
         Some(lut) => Err(Diagnostic::new(
             DiagnosticId::EffectParameterInvalid,
             Severity::Error,
-            format!("Color Lookup cannot use {lut}: it is not a lookup file of this project."),
-            "D-182: Color Lookup's lut is the id of an asset of kind lut, or empty.".to_string(),
+            format!("{} cannot use {lut}: it is not a lookup file of this project.", effect.name()),
+            format!("D-182: {}'s {setting} is the id of an asset of kind lut, or empty.", effect.name()),
         )
-        .with_remediation("Choose the .cube file on the effect's card.")),
+        .with_remediation(format!("Choose the {} file on the effect's card.", crate::lut::file_kind(effect)))),
     }
 }
 

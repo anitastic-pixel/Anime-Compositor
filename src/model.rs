@@ -1585,8 +1585,9 @@ pub enum AssetKind {
     ImageSequence,
     /// D-71: a sound file. It has a path and no interpretation that means anything.
     Audio,
-    /// D-182: a colour lookup file, a .cube, which a Color Lookup names and no layer shows. It
-    /// has a path and no interpretation.
+    /// D-182: a colour lookup file, a .cube, which a Color Lookup names and no layer shows, or a
+    /// Photoshop arbitrary map, a .amp, which an Arbitrary Map names (D-395). It has a path and
+    /// no interpretation.
     Lut,
 }
 

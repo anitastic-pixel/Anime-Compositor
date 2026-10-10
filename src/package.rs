@@ -252,11 +252,12 @@ pub fn collect_limited(
             .iter()
             .flat_map(|c| {
                 c.layers_in_order()
-                    // D-182: a layer uses a lookup file through a Color Lookup naming it.
+                    // D-182: a layer uses a lookup file through a Color Lookup naming it, or an
+                    // Arbitrary Map (D-395).
                     .filter(|l| {
                         l.asset_id == asset.id
                             || l.effects.iter().any(|i| {
-                                matches!(&i.effect, crate::effects::Effect::ColorLookup { lut, .. } if lut == asset.id.as_str())
+                                matches!(&i.effect, crate::effects::Effect::ColorLookup { lut, .. } | crate::effects::Effect::ArbitraryMap { map: lut, .. } if lut == asset.id.as_str())
                             })
                     })
                     .map(|l| {

@@ -1618,6 +1618,11 @@ pub enum Effect {
     /// own amount, 0 to 1000 pixels: `split_1` the side on the left walking from A to B,
     /// `split_2` the right.
     Split2 { point_a: [f64; 2], point_b: [f64; 2], split_1: f64, split_2: f64 },
+    /// D-395: after After Effects' PS Arbitrary Map. `map`, the id of an asset of kind lut that
+    /// is a Photoshop arbitrary map (.amp), or empty for none; `phase`, -255 to 255 levels, every
+    /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
+    /// alpha table. `table` is not a setting: it is the file, read by `crate::lut::fill`.
+    ArbitraryMap { map: String, phase: f64, apply_to_alpha: String, table: Option<crate::lut::Map> },
     /// D-379: after CycoreFX's CC Blobbylize. `layer` and `fit`, D-189's layer setting, the blob
     /// map, "" the layer itself; `property`, one of [`BLOBBYLIZE_PROPERTIES`]; `softness`, 0 to
     /// 100 pixels; `cut_away`, 0 to 100; `light_intensity`, 0 to 400; `light_color`, `#rrggbb`;
@@ -2004,6 +2009,7 @@ pub const SLANT: &str = "core.slant";
 pub const SMEAR: &str = "core.smear";
 pub const SPLIT: &str = "core.split";
 pub const SPLIT_2: &str = "core.split_2";
+pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 /// D-388: Page Turn's ways of placing the fold, the line itself or the corner turned.
 pub const PAGE_TURN_CONTROLS: [&str; 5] = ["classic", "top_left", "top_right", "bottom_left", "bottom_right"];
 /// D-388: what Page Turn draws, in the order the card numbers them.
@@ -2774,6 +2780,7 @@ impl Effect {
                 ("split_1", vec![split_1], 0.0, 1000.0),
                 ("split_2", vec![split_2], 0.0, 1000.0),
             ],
+            Effect::ArbitraryMap { phase, .. } => vec![("phase", vec![phase], -255.0, 255.0)],
             Effect::Blobbylize {
                 softness,
                 cut_away,
@@ -3740,6 +3747,7 @@ impl Effect {
             Effect::Smear { .. } => "Smear",
             Effect::Split { .. } => "Split",
             Effect::Split2 { .. } => "Split 2",
+            Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
@@ -3889,6 +3897,7 @@ impl Effect {
             Effect::Smear { .. } => SMEAR,
             Effect::Split { .. } => SPLIT,
             Effect::Split2 { .. } => SPLIT_2,
+            Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
@@ -4923,6 +4932,9 @@ impl Effect {
             )),
             Effect::LineBlur { lines_only, .. } if !["off", "on"].contains(&lines_only.as_str()) => Some(format!(
                 "Line Blur's lines only is \"off\" or \"on\", and this is \"{lines_only}\"."
+            )),
+            Effect::ArbitraryMap { apply_to_alpha, .. } if !["off", "on"].contains(&apply_to_alpha.as_str()) => Some(format!(
+                "Arbitrary Map's apply phase map to alpha is \"off\" or \"on\", and this is \"{apply_to_alpha}\"."
             )),
             Effect::HsvKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "HSV Key's invert is \"off\" or \"on\", and this is \"{invert}\"."
@@ -7011,6 +7023,18 @@ pub(crate) fn apply_stack_at(
                 if let Some(t) = table {
                     crate::perf::time(crate::perf::Stage::EffectColorLookup, || {
                         crate::grade::color_lookup(source, &t.0)
+                    })
+                }
+            }
+            // D-395: the colour tables as one 1D lookup by Color Lookup's rule, then, when asked
+            // and the file has one, the covering through the alpha table as Curves' (D-302).
+            Effect::ArbitraryMap { phase, apply_to_alpha, table, .. } => {
+                if let Some(t) = table {
+                    crate::perf::time(crate::perf::Stage::EffectArbitraryMap, || {
+                        crate::grade::color_lookup(source, &t.0.colours(*phase));
+                        if let Some(f) = t.0.alpha(*phase).filter(|_| apply_to_alpha == "on") {
+                            crate::grade::alpha_through(source, f);
+                        }
                     })
                 }
             }

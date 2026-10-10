@@ -158,16 +158,21 @@ pub(crate) fn curves(source: &mut WorkingBuffer, master: &[Vec<f64>], rgb: [&[Ve
     // D-302: then the covering through its own curve, 0 to 255, the colour kept. A pixel that
     // did not show has no colour, so one the curve makes show is black.
     if !is_straight(alpha) {
-        let f = spline(alpha);
-        each_pixel(source, |px| {
-            let a = px[3] as f64;
-            let to = f(a * 255.0).clamp(0.0, 255.0) / 255.0;
-            for c in 0..3 {
-                px[c] = if a > 0.0 { (px[c] as f64 / a * to) as f32 } else { 0.0 };
-            }
-            px[3] = to as f32;
-        });
+        alpha_through(source, spline(alpha));
     }
+}
+
+/// D-302: the covering through `f`, 0 to 255 in and out, the colour kept. A pixel that did not
+/// show has no colour, so one `f` makes show is black. Arbitrary Map's alpha table too (D-395).
+pub(crate) fn alpha_through(source: &mut WorkingBuffer, f: impl Fn(f64) -> f64 + Sync) {
+    each_pixel(source, |px| {
+        let a = px[3] as f64;
+        let to = f(a * 255.0).clamp(0.0, 255.0) / 255.0;
+        for c in 0..3 {
+            px[c] = if a > 0.0 { (px[c] as f64 / a * to) as f32 } else { 0.0 };
+        }
+        px[3] = to as f32;
+    });
 }
 
 /// D-112: each channel from the input range to 0..1, held there, bent by the gamma and laid on

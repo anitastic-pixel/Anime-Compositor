@@ -9335,6 +9335,7 @@ const EFFECT_NAMES = {
   'core.smear': 'Smear',
   'core.split': 'Split',
   'core.split_2': 'Split 2',
+  'core.arbitrary_map': 'Arbitrary Map',
   'core.color_balance_hls': 'Color Balance (HLS)',
   'core.color_link': 'Color Link',
   'core.color_stabilizer': 'Color Stabilizer',
@@ -9384,7 +9385,7 @@ const EFFECT_GROUPS = [
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.levels_individual', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.change_to_color',
-    'core.invert', 'core.color_lookup', 'core.shift_channels', 'core.solid_composite', 'core.colorama',
+    'core.invert', 'core.color_lookup', 'core.arbitrary_map', 'core.shift_channels', 'core.solid_composite', 'core.colorama',
     'core.stretch_levels', 'core.stretch_contrast', 'core.stretch_color', 'core.spread_tones',
     'core.broadcast_safe', 'core.color_neutralizer', 'core.color_offset', 'core.kernel', 'core.toner',
     'core.change_color', 'core.color_balance_hls', 'core.color_link', 'core.color_stabilizer',
@@ -9499,6 +9500,7 @@ const EFFECT_SEARCH = {
   'core.smear': 'smear cc smear drag push stretch smudge pull liquify warp distort',
   'core.split': 'split cc split crack open tear gap rip slit cut seam distort',
   'core.split_2': 'split 2 cc split 2 crack open tear gap rip slit cut seam distort two sides each side',
+  'core.arbitrary_map': 'arbitrary map ps arbitrary map photoshop amp curves map file phase cycle psychedelic solarize',
   'core.blobbylize': 'blobbylize cc blobbylize blob blobs liquid goo slime metal chrome melt drops bubbles lit shiny',
   'core.color_balance_hls': 'color balance hls colour hue lightness saturation shift wheel',
   'core.color_link': 'color link colour match average median tint layer stencil blend another layer',
@@ -9661,6 +9663,7 @@ const EFFECT_ABOUT = {
   'core.smear': 'Drags a round patch of the picture from one point toward another, like a finger smudging wet paint.',
   'core.split': 'Tears the layer open along the line between two points, the gap widest in the middle and closed at the ends.',
   'core.split_2': 'Tears the layer open like Split, each side of the tear opened by its own amount.',
+  'core.arbitrary_map': 'Recolours the layer through a Photoshop arbitrary map (.amp), a curve drawn by hand, which Phase cycles for shifting colours.',
   'core.blobbylize': 'Turns the layer, or the shape of another layer, into soft shiny blobs lit by a light, like drops of liquid metal or slime.',
   'core.color_balance_hls': 'Turns every colour round the wheel and makes it lighter or darker, stronger or greyer, by the same amounts everywhere.',
   'core.color_link': 'Reads one colour from a layer (the average, median, brightest and so on) and lays it over this one as a tint. Source layer none reads this layer itself.',
@@ -10264,6 +10267,7 @@ const EFFECT_PARAMS = {
   'core.split': [['point_a', 'Point A', 2, 1, '% of the width and height, -1000 to 1000, one end of the tear'],
     ['point_b', 'Point B', 2, 1, '% of the width and height, -1000 to 1000, the other end'],
     ['split', 'Split', 1, 1, 'pixels, 0 to 1000, how wide the gap opens at the middle']],
+  'core.arbitrary_map': [['phase', 'Phase', 1, 1, 'levels, -255 to 255, cycles the map to the right']],
   'core.split_2': [['point_a', 'Point A', 2, 1, '% of the width and height, -1000 to 1000, one end of the tear'],
     ['point_b', 'Point B', 2, 1, '% of the width and height, -1000 to 1000, the other end'],
     ['split_1', 'Split 1', 1, 1, 'pixels, 0 to 1000, how far the side on your left (walking from A to B) opens'],
@@ -10779,6 +10783,11 @@ const EFFECT_WORDS = {
   'core.rain': { colours: [['color', 'Colour']] },
   // D-182.
   'core.color_lookup': { files: [['lut', 'Lookup File']] },
+  // D-395.
+  'core.arbitrary_map': {
+    files: [['map', 'Map File', 'amp']],
+    choices: [['apply_to_alpha', 'Apply Phase Map To Alpha', [['off', 'Off'], ['on', 'On']]]],
+  },
   // D-183.
   'core.line_blur': { choices: [['lines_only', 'Lines Only', [['off', 'Off'], ['on', 'On']]]] },
   // D-184.
@@ -11911,7 +11920,8 @@ function effectRow(layer, fx, at, of) {
   }
   // D-182: the file, by its asset's name, and the button that asks for one. The window reads a
   // chosen file first and refuses one it cannot read, saying why, so nothing is sent from here.
-  for (const [name, title] of spec.files || []) {
+  // D-395: an Arbitrary Map's is a .amp.
+  for (const [name, title, ext = 'cube'] of spec.files || []) {
     const dt = Object.assign(document.createElement('dt'), { textContent: title, className: 'wide' });
     const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
     const asset = (doc.project.assets || []).find((a) => a.id === words[name] && a.kind === 'lut');
@@ -11919,10 +11929,11 @@ function effectRow(layer, fx, at, of) {
       className: asset ? '' : 'mark',
       textContent: asset ? asset.name + ' '
         : words[name] ? 'Not a lookup file of this project: ' + words[name] + '. '
-          : 'No .cube file chosen, so nothing changes. ',
+          : 'No .' + ext + ' file chosen, so nothing changes. ',
     }));
-    const choose = Object.assign(document.createElement('button'), { textContent: 'Choose .cube file…' });
-    choose.title = 'Choose a colour lookup file exported from a grading program';
+    const choose = Object.assign(document.createElement('button'), { textContent: 'Choose .' + ext + ' file…' });
+    choose.title = ext === 'amp' ? 'Choose an arbitrary map saved from Photoshop'
+      : 'Choose a colour lookup file exported from a grading program';
     choose.onclick = () => command('/lut-choose' + where);
     dd.append(choose);
     dl.append(dt, dd);

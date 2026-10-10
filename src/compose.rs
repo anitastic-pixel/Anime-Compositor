@@ -973,6 +973,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::Smear { .. }
                 | crate::effects::Effect::Split { .. }
                 | crate::effects::Effect::Split2 { .. }
+                | crate::effects::Effect::ArbitraryMap { .. }
                 // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }
                 | crate::effects::Effect::FourColorGradient { .. }
@@ -1049,6 +1050,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
         // D-302: the card bends the colour only, so a Curves whose alpha curve bends is drawn here.
         // ponytail: give the card's grade a fifth curve if one is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::Curves { alpha, .. } if !crate::grade::is_straight(alpha))
+        // D-395: as an Arbitrary Map whose file's alpha table is asked for.
+        && !matches!(&instance.effect, crate::effects::Effect::ArbitraryMap { apply_to_alpha, table: Some(t), .. }
+            if apply_to_alpha == "on" && t.0.alpha(0.0).is_some())
         // B-222 (D-341): a Colorama whose phase adds a layer's reads a pixel not its own;
         // D-381: as one with a mask layer does.
         && !matches!(&instance.effect, crate::effects::Effect::Colorama { layer, map, mask_layer, mask_map, .. }
@@ -1188,6 +1192,7 @@ fn card_effect(
                 }
                 // B-123: the batch's five new ones, each as its own function returns at once.
                 E::ColorLookup { table, .. } => table.is_none(),
+                E::ArbitraryMap { table, .. } => table.is_none(),
                 E::LineBlur { length, .. } => *length == 0.0,
                 E::Paraffin { spread, opacity, .. } => *spread == 0.0 || *opacity == 0.0,
                 E::KiraKira { size, density, opacity, .. } => [*size, *density, *opacity].contains(&0.0),
@@ -1923,7 +1928,8 @@ fn resolve_rest(
     // D-291: and each setting with an expression, what it gives on that frame.
     let mut effects: Vec<crate::effects::EffectInstance> =
         layer.effects.iter().map(|i| effect_now(comp, layer, i, frame, at, layer.key_time(at as f64), float, log)).collect();
-    // D-182: each Color Lookup's file, read, and what kept one from being read said once a frame.
+    // D-182: each Color Lookup's file, read, and what kept one from being read said once a frame;
+    // each Arbitrary Map's too (D-395).
     for d in crate::lut::fill(&mut effects, project, root, &layer.name) {
         log.record(frame, layer.name.clone(), d);
     }

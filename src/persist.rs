@@ -2796,6 +2796,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("split_1".into(), num(*split_1));
             params.insert("split_2".into(), num(*split_2));
         }
+        Effect::ArbitraryMap { map, phase, apply_to_alpha, .. } => {
+            params.insert("map".into(), J::from(map.as_str()));
+            params.insert("phase".into(), num(*phase));
+            params.insert("apply_to_alpha".into(), J::from(apply_to_alpha.as_str()));
+        }
         Effect::Blobbylize {
             layer,
             fit,
@@ -4109,6 +4114,7 @@ fn parse_effect(
         crate::effects::SMEAR,
         crate::effects::SPLIT,
         crate::effects::SPLIT_2,
+        crate::effects::ARBITRARY_MAP,
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
@@ -5234,6 +5240,12 @@ fn parse_effect(
             point_b: effect_array(params, "point_b", "two numbers, x then y", &at)?,
             split_1: effect_number(params, "split_1", &at)?,
             split_2: effect_number(params, "split_2", &at)?,
+        }),
+        crate::effects::ARBITRARY_MAP => Some(crate::effects::Effect::ArbitraryMap {
+            map: effect_word(params, "map", &at)?,
+            phase: effect_number(params, "phase", &at)?,
+            apply_to_alpha: effect_word(params, "apply_to_alpha", &at)?,
+            table: None,
         }),
         // D-379: the layer is kept as written, as CC Glass's is.
         crate::effects::BLOBBYLIZE => Some(crate::effects::Effect::Blobbylize {
@@ -7309,7 +7321,7 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
         for layer in composition.layers_in_order() {
             for instance in &layer.effects {
                 if let Some(lut) = crate::lut::dangling(&project, &instance.effect) {
-                    warnings.push(crate::lut::not_a_lookup_file(&layer.name, lut));
+                    warnings.push(crate::lut::not_a_lookup_file(&layer.name, &instance.effect, lut));
                 }
             }
         }

@@ -254,6 +254,8 @@ pub enum Stage {
     EffectSlant,
     EffectSmear,
     EffectSplit,
+    /// D-395: Arbitrary Map.
+    EffectArbitraryMap,
     EffectMomentMap,
     /// D-348's pass extract and depth key, per pixel; reading the pass from its file is timed
     /// as any file read is.
@@ -312,7 +314,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 153] = [
+    pub const ALL: [Stage; 154] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -434,6 +436,7 @@ impl Stage {
         Stage::EffectSlant,
         Stage::EffectSmear,
         Stage::EffectSplit,
+        Stage::EffectArbitraryMap,
         Stage::EffectMomentMap,
         Stage::EffectPassExtract,
         Stage::EffectDepthKey,
@@ -592,6 +595,7 @@ impl Stage {
             Stage::EffectSlant => "effect: slant",
             Stage::EffectSmear => "effect: smear",
             Stage::EffectSplit => "effect: split",
+            Stage::EffectArbitraryMap => "effect: arbitrary map",
             Stage::EffectMomentMap => "effect: moment map",
             Stage::EffectPassExtract => "effect: pass extract",
             Stage::EffectDepthKey => "effect: depth key",

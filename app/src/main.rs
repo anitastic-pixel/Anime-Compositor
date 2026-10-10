@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target, TimeRemap};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, BILATERAL_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, TEXT_ANIMATOR, STRETCH_LEVELS, STRETCH_CONTRAST, STRETCH_COLOR, SPREAD_TONES, MATTE_CHOKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE, STROKE, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, CROSS_BLUR, SPIN_ZOOM_BLUR, FAST_ZOOM_BLUR, BROADCAST_SAFE, COLOR_NEUTRALIZER, COLOR_OFFSET, KERNEL, TONER, CHANGE_COLOR, BEND_IT, BENDER, BLOBBYLIZE, COLOR_BALANCE_HLS, COLOR_LINK, COLOR_STABILIZER, GAMMA_PEDESTAL_GAIN, FLOW_MOTION, GRIDDLER, FISHEYE, LEVELS_INDIVIDUAL, LEVELS_NAMES, LEVELS_PLAIN, PHOTO_FILTER, PAGE_TURN, POWER_PIN, RIPPLE_PULSE, SLANT, SMEAR, SPLIT, SPLIT_2,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, BILATERAL_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, TEXT_ANIMATOR, STRETCH_LEVELS, STRETCH_CONTRAST, STRETCH_COLOR, SPREAD_TONES, MATTE_CHOKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE, STROKE, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, CROSS_BLUR, SPIN_ZOOM_BLUR, FAST_ZOOM_BLUR, BROADCAST_SAFE, COLOR_NEUTRALIZER, COLOR_OFFSET, KERNEL, TONER, CHANGE_COLOR, BEND_IT, BENDER, BLOBBYLIZE, COLOR_BALANCE_HLS, COLOR_LINK, COLOR_STABILIZER, GAMMA_PEDESTAL_GAIN, FLOW_MOTION, GRIDDLER, FISHEYE, LEVELS_INDIVIDUAL, LEVELS_NAMES, LEVELS_PLAIN, PHOTO_FILTER, PAGE_TURN, POWER_PIN, RIPPLE_PULSE, SLANT, SMEAR, SPLIT, SPLIT_2, ARBITRARY_MAP,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT,
 };
@@ -3215,7 +3215,7 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
         };
         // D-182: a lookup file the reading rule refuses is not linked to.
         if lookup {
-            if let Err(why) = lut::read(file) {
+            if let Err(why) = read_lookup_file(file, is_amp(file)) {
                 return format!("{} was not used: {why}. Nothing was changed.", file.display());
             }
         } else if !is_sound(file) {
@@ -4374,6 +4374,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         SMEAR => Some(Effect::Smear { from: [40.0, 50.0], to: [60.0, 50.0], reach: 100.0, radius: 70.0 }),
         SPLIT => Some(Effect::Split { point_a: [25.0, 50.0], point_b: [75.0, 50.0], split: 50.0 }),
         SPLIT_2 => Some(Effect::Split2 { point_a: [25.0, 50.0], point_b: [75.0, 50.0], split_1: 50.0, split_2: 50.0 }),
+        ARBITRARY_MAP => Some(Effect::ArbitraryMap { map: String::new(), phase: 0.0, apply_to_alpha: "off".to_string(), table: None }),
         RIPPLE_PULSE => Some(Effect::RipplePulse {
             center: [50.0, 50.0],
             pulse_level: 0.0,
@@ -5694,6 +5695,15 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         SMEAR => Ok(Effect::Smear { from: pair("from")?, to: pair("to")?, reach: number("reach")?, radius: number("radius")? }),
         SPLIT => Ok(Effect::Split { point_a: pair("point_a")?, point_b: pair("point_b")?, split: number("split")? }),
         SPLIT_2 => Ok(Effect::Split2 { point_a: pair("point_a")?, point_b: pair("point_b")?, split_1: number("split_1")?, split_2: number("split_2")? }),
+        // D-395: the map's asset id as written, as Color Lookup's.
+        ARBITRARY_MAP => Ok(Effect::ArbitraryMap {
+            map: parameter(query, "map")
+                .map(|t| t.trim().to_string())
+                .ok_or_else(|| "What should map be set to?".to_string())?,
+            phase: number("phase")?,
+            apply_to_alpha: word("apply_to_alpha")?,
+            table: None,
+        }),
         RIPPLE_PULSE => Ok(Effect::RipplePulse {
             center: pair("center")?,
             pulse_level: number("pulse_level")?,
@@ -9505,7 +9515,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split or core.split_2."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2 or core.arbitrary_map."
                                 .to_string(),
                         );
                     };
@@ -9537,7 +9547,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
                              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split and core.split_2."
+                             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2 and core.arbitrary_map."
                         ));
                     };
                     // D-87: selective colour blur matches exact colours, which anything before
@@ -11842,7 +11852,7 @@ fn ask_what_to_relink_to(app: &AppHandle, asset: Id) {
         .iter()
         .any(|a| a.id == asset && a.kind == AssetKind::Lut);
     let (title, filter, kinds): (&str, &str, &[&str]) = if lookup {
-        ("Relink to this lookup file", "Colour lookup", &["cube"])
+        ("Relink to this lookup file", "Colour lookup", &["cube", "amp"])
     } else {
         ("Relink to these drawings", "Drawings and sound", &DRAWINGS_AND_SOUND)
     };
@@ -12088,13 +12098,40 @@ fn ask_which_presets_to_import(app: &AppHandle, have: Vec<String>) {
         });
 }
 
-/// D-182: the .cube file for the Color Lookup `effect` on `layer`.
+/// D-395: whether `file` is a Photoshop arbitrary map, by its name.
+fn is_amp(file: &Path) -> bool {
+    file.extension().is_some_and(|e| e.eq_ignore_ascii_case("amp"))
+}
+
+/// A lookup file read by its own rule, a .amp's (D-395) or a .cube's (D-182), or why not.
+fn read_lookup_file(file: &Path, amp: bool) -> Result<(), String> {
+    if amp {
+        lut::read_map(file).map(drop)
+    } else {
+        lut::read(file).map(drop)
+    }
+}
+
+/// The effect `instance_id` on `layer_id` in the open composition, as it is now.
+fn effect_now_in(viewer: &Viewer, layer_id: &Id, instance_id: &Id) -> Option<Effect> {
+    let layer = viewer.document.project().composition(&viewer.composition)?.layer(layer_id)?;
+    layer.effects.iter().find(|e| &e.instance_id == instance_id).map(|e| e.effect.clone())
+}
+
+/// D-182: the .cube file for the Color Lookup `effect` on `layer`, or the .amp file for an
+/// Arbitrary Map (D-395).
 fn ask_which_lut(app: &AppHandle, layer: Id, effect: Id) {
     let handle = app.clone();
+    let amp = matches!(
+        effect_now_in(&app.state::<Mutex<Viewer>>().lock().expect("the viewer lock was poisoned"), &layer, &effect),
+        Some(Effect::ArbitraryMap { .. })
+    );
+    let (title, filter, kinds): (&str, &str, &[&str]) =
+        if amp { ("Choose an arbitrary map file", "Arbitrary map", &["amp"]) } else { ("Choose a colour lookup file", "Colour lookup", &["cube"]) };
     app.dialog()
         .file()
-        .set_title("Choose a colour lookup file")
-        .add_filter("Colour lookup", &["cube"])
+        .set_title(title)
+        .add_filter(filter, kinds)
         .pick_file(move |chosen| {
             let Some(file) = chosen.and_then(|c| c.into_path().ok()) else {
                 return;
@@ -12109,12 +12146,15 @@ fn ask_which_lut(app: &AppHandle, layer: Id, effect: Id) {
 /// D-182: `file` as the Color Lookup's file. One the reading rule refuses changes nothing and
 /// says why; one the project has already is named again rather than brought in twice; a new one
 /// comes in as a lookup asset in the same entry to undo as the setting.
+/// D-395: an Arbitrary Map's .amp file the same way, its phase and alpha setting kept.
 fn choose_lut(viewer: &Mutex<Viewer>, layer_id: Id, instance_id: Id, file: &Path) -> String {
     let name = file.file_name().map_or_else(|| file.display().to_string(), |n| n.to_string_lossy().into_owned());
-    if let Err(why) = lut::read(file) {
+    let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+    let now = effect_now_in(held, &layer_id, &instance_id);
+    let amp = matches!(now, Some(Effect::ArbitraryMap { .. }));
+    if let Err(why) = read_lookup_file(file, amp) {
         return format!("{name} was not used: {why}. Nothing was changed.");
     }
-    let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
     let stored = persist::stored_path(&held.root, file);
     let project = held.document.project();
     let mut commands = Vec::new();
@@ -12133,10 +12173,16 @@ fn choose_lut(viewer: &Mutex<Viewer>, layer_id: Id, instance_id: Id, file: &Path
         composition: held.composition.clone(),
         layer_id,
         instance_id,
-        effect: Effect::ColorLookup { lut: lut.as_str().to_string(), table: None },
+        effect: match now {
+            Some(Effect::ArbitraryMap { phase, apply_to_alpha, .. }) => {
+                Effect::ArbitraryMap { map: lut.as_str().to_string(), phase, apply_to_alpha, table: None }
+            }
+            _ => Effect::ColorLookup { lut: lut.as_str().to_string(), table: None },
+        },
     });
+    let effect = if amp { "Arbitrary Map" } else { "Color Lookup" };
     match held.document.apply_all(commands) {
-        Ok(_) => format!("Color Lookup now uses {name}."),
+        Ok(_) => format!("{effect} now uses {name}."),
         Err(diagnostic) => sentence(&diagnostic),
     }
 }
@@ -15196,7 +15242,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split and core.split_2.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2 and core.arbitrary_map.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.warp"),
         );
         report.check(
@@ -15218,7 +15264,7 @@ mod editing {
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
              core.compound_blur, core.displacement_map, core.gradient_wipe, core.echo, core.posterize_time, \
-             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split or core.split_2.",
+             core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.page_turn, core.power_pin, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2 or core.arbitrary_map.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
         report.check(
@@ -29732,6 +29778,7 @@ mod contract {
         ("core.smear", &[("from", "30,40"), ("to", "70,55"), ("reach", "150"), ("radius", "40")]),
         ("core.split", &[("point_a", "20,30"), ("point_b", "80,70"), ("split", "35")]),
         ("core.split_2", &[("point_a", "20,30"), ("point_b", "80,70"), ("split_1", "35"), ("split_2", "10")]),
+        ("core.arbitrary_map", &[("map", ""), ("phase", "20"), ("apply_to_alpha", "on")]),
         (
             "core.blobbylize",
             &[
