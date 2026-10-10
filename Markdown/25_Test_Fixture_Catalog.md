@@ -206686,3 +206686,63 @@ FX-GLUE-025 (`fx_glue_025.json`): A brush position 50, 1001, past ten heights. T
 FX-GLUE-026 (`fx_glue_026.json`): A light colour written "orange". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-GLUE-027 (`fx_glue_027.json`): Wobble Speed keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Threads (D-425)
+
+Threads, our name for CycoreFX's CC Threads (Generate), `core.threads` (B-304). Every case is a composition 16 by 10, eight frames at 24 a second, holding Blobbylize's drawings (`Fixtures/threads/media/`: photo, shapes, ramp), the holder at the top with the effect, unmoved unless the case says. `tools/threads_reference.py` works the expected frames, `Fixtures/threads/expected_threads.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-THREADS-001 (`fx_threads_001.json`): As added: threads 50 pixels apart, coverage 90, shadowing 50, centred on the drawing, so its middle falls between threads: the gap between two warp threads and the gap between two weft threads cross in the middle, columns 6 to 9 and rows 3 to 6 clear, half clear beside them; elsewhere the photo, the thread above hiding the one beneath, which shows shadowed only at the upper thread's soft edge. Frames 0.
+
+FX-THREADS-002 (`fx_threads_002.json`): Threads 4 pixels apart, unshadowed: a plain weave, each thread 3.6 pixels wide in the photo's colours, the edges of each pixel-wide gap between them soft. Frames 0.
+
+FX-THREADS-003 (`fx_threads_003.json`): FX-THREADS-002 at coverage 100: the threads meet edge to edge, their seams on pixel edges, so the photo shows whole, untouched. Frames 0.
+
+FX-THREADS-004 (`fx_threads_004.json`): FX-THREADS-002 at coverage 50: threads 2 pixels wide with 2-pixel gaps; where the gaps cross, clear. Frames 0.
+
+FX-THREADS-005 (`fx_threads_005.json`): Coverage 0: no threads, everything clear. Frames 0.
+
+FX-THREADS-006 (`fx_threads_006.json`): FX-THREADS-002 with Overlaps 2: each thread over two and under two, a diagonal twill. Frames 0.
+
+FX-THREADS-007 (`fx_threads_007.json`): FX-THREADS-006 with Overlaps 3. Frames 0.
+
+FX-THREADS-008 (`fx_threads_008.json`): FX-THREADS-002 turned 30 degrees clockwise about the middle. Frames 0.
+
+FX-THREADS-009 (`fx_threads_009.json`): Shadowing 100: where the threads cross, the one beneath darkened, fully beside the one above, half where it is further off; the one above as in FX-THREADS-002. Frames 0.
+
+FX-THREADS-010 (`fx_threads_010.json`): Texture 100: each thread full in its middle and black at its edges, round. Frames 0.
+
+FX-THREADS-011 (`fx_threads_011.json`): Width 6, height 3, coverage 80, shadowing 60, texture 40: wide warp threads crossing narrow weft threads. Frames 0.
+
+FX-THREADS-012 (`fx_threads_012.json`): Centre 25, 50, the point (4, 5): the cloth slides a whole thread left, so each crossing swaps which thread is on top. Frames 0.
+
+FX-THREADS-013 (`fx_threads_013.json`): On the shapes drawing, clear between its blocks: the threads take the blocks' colours, and are clear where the drawing is. Frames 0.
+
+FX-THREADS-014 (`fx_threads_014.json`): FX-THREADS-009 on the holder moved 2 right and 1 down: the same, moved; the cloth is woven on the drawing before it moves. Frames 0.
+
+FX-THREADS-015 (`fx_threads_015.json`): Direction keyed from 0 at frame 0 to 60 at frame 4, linear: frame 2 is FX-THREADS-008, frame 0 FX-THREADS-002. Frames 0, 2, 4.
+
+FX-THREADS-016 (`fx_threads_016.json`): Overlaps keyed from 1 at frame 0 to 3 at frame 4, linear: read whole, frame 1 is plain still, frame 2 is FX-THREADS-006. Frames 1, 2, 4.
+
+FX-THREADS-017 (`fx_threads_017.json`): Width and height 1, coverage 50: threads half a pixel wide, every pixel half warp and half weft. Frames 0.
+
+FX-THREADS-018 (`fx_threads_018.json`): Coverage eased from 0 at frame 0 to 100 at frame 4 on a curve that overshoots: at frame 2 it would pass 100, is held at 100, as frame 4 is. Frames 0, 2, 4.
+
+FX-THREADS-019 (`fx_threads_019.json`): Width 5, height 3, Overlaps 2, direction -20, coverage 85, shadowing 70, texture 60, centre 40, 60, on the ramp: the controls together. Frames 0.
+
+FX-THREADS-020 (`fx_threads_020.json`): Width 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THREADS-021 (`fx_threads_021.json`): Height 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THREADS-022 (`fx_threads_022.json`): Overlaps 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THREADS-023 (`fx_threads_023.json`): Overlaps 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THREADS-024 (`fx_threads_024.json`): Direction 3601, past ten turns. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THREADS-025 (`fx_threads_025.json`): A centre 50, -1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THREADS-026 (`fx_threads_026.json`): Coverage 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THREADS-027 (`fx_threads_027.json`): Shadowing -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THREADS-028 (`fx_threads_028.json`): Texture 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
