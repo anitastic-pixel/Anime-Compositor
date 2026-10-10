@@ -205524,3 +205524,39 @@ FX-BOIL-011 (`fx_boil_011.json`): New seed every -1, below 0. The file is read, 
 FX-BOIL-012 (`fx_boil_012.json`): New seed every 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BOIL-013 (`fx_boil_013.json`): New seed every keyed from 2 at frame 0 to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Heat Shimmer (D-411)
+
+Turbulent Displace's drift (`drift_direction`, `drift_speed`), PLUGINS.md's pick #17 (B-290). Every case is turbulent_displace_reference's composition 16 by 10, five frames, holding the stripes `art` (`media/stripes.png`), unmoved unless the case says, with `core.turbulent_displace` `fx-0-0` in After Effects' units (D-328) unless the case says. `tools/heat_shimmer_reference.py` works the expected frames, `Fixtures/heat_shimmer/expected_heat_shimmer.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SHIMMER-001 (`fx_shimmer_001.json`): Drift up (direction 0) at 1 pixel a frame, amount 30, size 8, speed 0: frame 0 is FX-TURB-AE-007; on frame f each pixel gets the warp the pixel f rows below it got on frame 0, so the ripple rises a pixel a frame. Frames 0, 1, 2, 3.
+
+FX-SHIMMER-002 (`fx_shimmer_002.json`): Drift speed 0 written, direction 45: no drift, every frame FX-TURB-AE-007. Frames 0, 2, 4.
+
+FX-SHIMMER-003 (`fx_shimmer_003.json`): Drift right (direction 90) at 2 pixels a frame: the ripple slides two columns right each frame. Frames 0, 1, 2.
+
+FX-SHIMMER-004 (`fx_shimmer_004.json`): Drift down (direction 180) at half a pixel a frame: on frame 1 the field is read half a row up, between whole rows. Frames 1, 2, 3.
+
+FX-SHIMMER-005 (`fx_shimmer_005.json`): Drift at 30 degrees, 3 pixels a frame: up and to the right, 1.5 pixels right and about 2.6 up each frame. Frames 1, 2.
+
+FX-SHIMMER-006 (`fx_shimmer_006.json`): Drift up at 1 pixel a frame with speed 20: the ripple rises and changes as it goes, the usual heat shimmer. Frames 0, 1, 2, 3.
+
+FX-SHIMMER-007 (`fx_shimmer_007.json`): Drift speed keyed from 0 at frame 0 to 4 at frame 4, linear, up: frame f drifts f times f pixels (frame 2: 2 a frame, 4 pixels; frame 3: 9 pixels). Frames 1, 2, 3, 4.
+
+FX-SHIMMER-008 (`fx_shimmer_008.json`): Drift direction keyed from 0 at frame 0 to 90 at frame 4, 2 pixels a frame: frame 2 drifts 4 pixels at 45 degrees, frame 4 8 pixels right. Frames 2, 4.
+
+FX-SHIMMER-009 (`fx_shimmer_009.json`): Drift up at 1 pixel a frame in a file without units (D-127's classic push), amount 3, size 8, speed 0: frame 0 is FX-TURB-004. Frames 0, 2.
+
+FX-SHIMMER-010 (`fx_shimmer_010.json`): FX-SHIMMER-001 moved three pixels right: the drift is in the drawing's own space, so the picture is the same, moved. Frames 0, 2.
+
+FX-SHIMMER-011 (`fx_shimmer_011.json`): FX-SHIMMER-001 with edges repeat: a push past the edge reads the nearest edge pixel; the ripple drifts as before. Frames 0, 2.
+
+FX-SHIMMER-012 (`fx_shimmer_012.json`): Drift up at 1 pixel a frame with a new seed every 2 frames (D-410): the seed steps on frame 2 and the drift goes on. Frames 1, 2, 3.
+
+FX-SHIMMER-013 (`fx_shimmer_013.json`): Drift speed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHIMMER-014 (`fx_shimmer_014.json`): Drift speed 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHIMMER-015 (`fx_shimmer_015.json`): Drift direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHIMMER-016 (`fx_shimmer_016.json`): Drift speed keyed from 1 at frame 0 to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
