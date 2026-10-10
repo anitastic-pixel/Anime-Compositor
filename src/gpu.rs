@@ -6759,6 +6759,7 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::ColorBalance { .. }
             | E::GradientMap { .. }
             | E::TintMap { .. }
+            | E::Tritone { .. }
             | E::Vignette { .. }
             | E::FractalNoise { .. }
             | E::Invert { .. }
@@ -8296,6 +8297,12 @@ impl Gpu {
             E::TintMap { map_black_to, map_white_to, amount_to_tint } => {
                 let mut k = vec![0.5, amount_to_tint / 100.0];
                 k.extend(crate::effects::tint_ramp(map_black_to, map_white_to).concat());
+                same(steps, &passes.grade, FxParams { mode: 7, ..Default::default() }, &k, None)
+            }
+            // D-402: Gradient Map's pass, the midpoint at the middle.
+            E::Tritone { highlights, midtones, shadows, blend_with_original } => {
+                let mut k = vec![0.5, 1.0 - blend_with_original / 100.0];
+                k.extend(crate::effects::tritone_ramp(highlights, midtones, shadows).concat());
                 same(steps, &passes.grade, FxParams { mode: 7, ..Default::default() }, &k, None)
             }
             E::Vignette { amount, color, size, roundness, softness, center } => {

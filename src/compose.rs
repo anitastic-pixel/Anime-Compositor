@@ -888,6 +888,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::FractalNoise { .. }
                 | crate::effects::Effect::GradientMap { .. }
                 | crate::effects::Effect::TintMap { .. }
+                | crate::effects::Effect::Tritone { .. }
                 | crate::effects::Effect::ColorBalance { .. }
                 | crate::effects::Effect::Offset { .. }
                 | crate::effects::Effect::Invert { .. }
@@ -1144,6 +1145,7 @@ fn card_effect(
                 | E::TurbulentDisplace { amount, .. }
                 | E::GradientMap { amount, .. } => *amount == 0.0,
                 E::TintMap { amount_to_tint, .. } => *amount_to_tint == 0.0,
+                E::Tritone { blend_with_original, .. } => *blend_with_original == 100.0,
                 E::FractalNoise { opacity, .. } => *opacity == 0.0,
                 E::ColorBalance { shadows, midtones, highlights, .. } => {
                     [shadows, midtones, highlights].iter().all(|t| t.iter().all(|v| *v == 0.0))

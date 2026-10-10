@@ -368,6 +368,9 @@ pub enum Effect {
     /// `#rrggbb`, kept as written; `amount_to_tint`, 0 to 100. A file with `color` is the older
     /// [`Tint`](Self::Tint), drawn as it always was.
     TintMap { map_black_to: String, map_white_to: String, amount_to_tint: f64 },
+    /// D-402: After Effects' Tritone, a second name over Gradient Map's engine: `highlights`,
+    /// `midtones` and `shadows`, `#rrggbb`, kept as written; `blend_with_original`, 0 to 100.
+    Tritone { highlights: String, midtones: String, shadows: String, blend_with_original: f64 },
     /// D-86: "`softness`, 0 to 100 ... and `threshold`, 0 to 255". Document 21's line smoothing.
     LineSmooth { softness: f64, threshold: f64 },
     /// D-87: "`blur`, 0 to 200 pixels ... `colors`, the chosen colours, up to eight, each
@@ -2102,6 +2105,7 @@ pub const SPLIT_2: &str = "core.split_2";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
+pub const TRITONE: &str = "core.tritone";
 /// D-396: Selective Color's colour families, each a setting, in the order the card numbers them.
 pub const SELECTIVE_COLOR_FAMILIES: [&str; 9] =
     ["reds", "yellows", "greens", "cyans", "blues", "magentas", "whites", "neutrals", "blacks"];
@@ -2197,6 +2201,7 @@ impl Effect {
                 ("amount", vec![amount], 0.0, 1.0),
             ],
             Effect::TintMap { amount_to_tint, .. } => vec![("amount_to_tint", vec![amount_to_tint], 0.0, 100.0)],
+            Effect::Tritone { blend_with_original, .. } => vec![("blend_with_original", vec![blend_with_original], 0.0, 100.0)],
             Effect::LineSmooth {
                 softness,
                 threshold,
@@ -3875,6 +3880,7 @@ impl Effect {
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::SelectiveColor { .. } => "Selective Color",
             Effect::ShadowHighlight { .. } => "Shadow/Highlight",
+            Effect::Tritone { .. } => "Tritone",
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
@@ -4028,6 +4034,7 @@ impl Effect {
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
             Effect::ShadowHighlight { .. } => SHADOW_HIGHLIGHT,
+            Effect::Tritone { .. } => TRITONE,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
@@ -4627,6 +4634,9 @@ impl Effect {
                 .or_else(|| hex_fault("Gradient Map", "highlight colour", highlight_color)),
             Effect::TintMap { map_black_to, map_white_to, .. } => hex_fault("Tint", "Map Black To", map_black_to)
                 .or_else(|| hex_fault("Tint", "Map White To", map_white_to)),
+            Effect::Tritone { highlights, midtones, shadows, .. } => hex_fault("Tritone", "Highlights", highlights)
+                .or_else(|| hex_fault("Tritone", "Midtones", midtones))
+                .or_else(|| hex_fault("Tritone", "Shadows", shadows)),
             Effect::ColorBalance {
                 shadows,
                 midtones,
@@ -5236,6 +5246,11 @@ pub(crate) fn tint_ramp(black: &str, white: &str) -> [[f64; 3]; 3] {
     [b, [0, 1, 2].map(|c| (b[c] + w[c]) / 2.0), w]
 }
 
+/// D-402: Tritone's three colours as Gradient Map's three stops, encoded.
+pub(crate) fn tritone_ramp(highlights: &str, midtones: &str, shadows: &str) -> [[f64; 3]; 3] {
+    [encoded(shadows), encoded(midtones), encoded(highlights)]
+}
+
 /// A colour already found valid, encoded 0 to 1.
 pub(crate) fn encoded(c: &str) -> [f64; 3] {
     crate::selective_blur::parse_hex(c)
@@ -5725,6 +5740,12 @@ pub(crate) fn apply_stack_at(
             Effect::TintMap { map_black_to, map_white_to, amount_to_tint } => {
                 crate::perf::time(crate::perf::Stage::EffectTint, || {
                     crate::grade::gradient_map(source, tint_ramp(map_black_to, map_white_to), 50.0, *amount_to_tint)
+                })
+            }
+            // D-402: Gradient Map's engine, the midpoint at the middle.
+            Effect::Tritone { highlights, midtones, shadows, blend_with_original } => {
+                crate::perf::time(crate::perf::Stage::EffectGradientMap, || {
+                    crate::grade::gradient_map(source, tritone_ramp(highlights, midtones, shadows), 50.0, 100.0 - *blend_with_original)
                 })
             }
             Effect::GaussianBlur { sigma_px, edges, dimensions, units } => {

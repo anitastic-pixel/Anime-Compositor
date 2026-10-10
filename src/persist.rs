@@ -1124,6 +1124,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("map_white_to".into(), J::from(map_white_to.as_str()));
             params.insert("amount_to_tint".into(), num(*amount_to_tint));
         }
+        Effect::Tritone { highlights, midtones, shadows, blend_with_original } => {
+            params.insert("highlights".into(), J::from(highlights.as_str()));
+            params.insert("midtones".into(), J::from(midtones.as_str()));
+            params.insert("shadows".into(), J::from(shadows.as_str()));
+            params.insert("blend_with_original".into(), num(*blend_with_original));
+        }
         Effect::LineSmooth {
             softness,
             threshold,
@@ -4169,6 +4175,7 @@ fn parse_effect(
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
+        crate::effects::TRITONE,
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
@@ -4217,6 +4224,12 @@ fn parse_effect(
             map_black_to: effect_word(params, "map_black_to", &at)?.to_ascii_lowercase(),
             map_white_to: effect_word(params, "map_white_to", &at)?.to_ascii_lowercase(),
             amount_to_tint: effect_number(params, "amount_to_tint", &at)?,
+        }),
+        crate::effects::TRITONE => Some(crate::effects::Effect::Tritone {
+            highlights: effect_word(params, "highlights", &at)?.to_ascii_lowercase(),
+            midtones: effect_word(params, "midtones", &at)?.to_ascii_lowercase(),
+            shadows: effect_word(params, "shadows", &at)?.to_ascii_lowercase(),
+            blend_with_original: effect_number(params, "blend_with_original", &at)?,
         }),
         crate::effects::LINE_SMOOTH => Some(crate::effects::Effect::LineSmooth {
             softness: effect_number(params, "softness", &at)?,

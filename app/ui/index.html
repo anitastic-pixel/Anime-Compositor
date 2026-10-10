@@ -9340,6 +9340,7 @@ const EFFECT_NAMES = {
   'core.arbitrary_map': 'Arbitrary Map',
   'core.selective_color': 'Selective Color',
   'core.shadow_highlight': 'Shadow/Highlight',
+  'core.tritone': 'Tritone',
   'core.color_balance_hls': 'Color Balance (HLS)',
   'core.color_link': 'Color Link',
   'core.color_stabilizer': 'Color Stabilizer',
@@ -9396,7 +9397,7 @@ const EFFECT_GROUPS = [
     'core.stretch_levels', 'core.stretch_contrast', 'core.stretch_color', 'core.spread_tones',
     'core.broadcast_safe', 'core.color_neutralizer', 'core.color_offset', 'core.kernel', 'core.toner',
     'core.change_color', 'core.color_balance_hls', 'core.color_link', 'core.color_stabilizer',
-    'core.gamma_pedestal_gain', 'core.photo_filter', 'core.selective_color', 'core.shadow_highlight', 'core.color_grade']],
+    'core.gamma_pedestal_gain', 'core.photo_filter', 'core.selective_color', 'core.shadow_highlight', 'core.color_grade', 'core.tritone']],
   ['Light & Glow', ['core.glow', 'core.glow.physical', 'core.bloom', 'core.light_rays', 'core.rim_light',
     'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.lightning_bolt', 'core.exposure_flicker',
     'core.paraffin']],
@@ -9437,6 +9438,7 @@ const EFFECT_SEARCH = {
   'core.black_white': 'greyscale grayscale monochrome desaturate',
   'core.tint': 'monochrome duotone map black to map white to amount to tint swap colors',
   'core.gradient_map': 'tritone colorama',
+  'core.tritone': 'tritone three colours sepia duotone highlights midtones shadows blend with original',
   'core.leave_color': 'keep one',
   'core.invert': 'negative',
   'core.glow': 'shine',
@@ -9675,6 +9677,7 @@ const EFFECT_ABOUT = {
   'core.split_2': 'Tears the layer open like Split, each side of the tear opened by its own amount.',
   'core.arbitrary_map': 'Recolours the layer through a Photoshop arbitrary map (.amp), a curve drawn by hand, which Phase cycles for shifting colours.',
   'core.shadow_highlight': 'Brightens the dark parts and darkens the bright parts, each judged by the brightness round it, for a picture lit from behind.',
+  'core.tritone': 'Colours the dark, middle and light parts of the layer with three colours of your choice; Gradient Map with its midpoint in the middle.',
   'core.selective_color': 'Turns the cyan, magenta, yellow and black up or down in one family of colours at a time (reds, yellows, greens, cyans, blues, magentas, whites, neutrals, blacks), as Photoshop\'s Selective Color does.',
   'core.blobbylize': 'Turns the layer, or the shape of another layer, into soft shiny blobs lit by a light, like drops of liquid metal or slime.',
   'core.color_balance_hls': 'Turns every colour round the wheel and makes it lighter or darker, stronger or greyer, by the same amounts everywhere.',
@@ -10291,6 +10294,8 @@ const EFFECT_PARAMS = {
     ['highlight_tonal_width', 'Highlight Tonal Width', 1, 1, '0 to 100, how dark a pixel\'s surroundings may be and still count as highlight'],
     ['highlight_radius', 'Highlight Radius', 1, 1, 'pixels, 0 to 500'],
     ['color_correction', 'Color Correction', 1, 1, '0 to 100, how much of their colour the changed parts keep']],
+  // D-402: its three colours are in EFFECT_WORDS.
+  'core.tritone': [['blend_with_original', 'Blend With Original', 1, 0.5, '0 to 100, how much of the layer as it was shows through']],
   // D-396.
   'core.selective_color': [['reds', 'Reds', 4, 1, 'cyan, magenta, yellow, black, per cent, -100 to 100'],
     ['yellows', 'Yellows', 4, 1, 'cyan, magenta, yellow, black, per cent, -100 to 100'],
@@ -10582,6 +10587,8 @@ const EFFECT_WORDS = {
   'core.gradient_map': {
     colours: [['shadow_color', 'Shadow Colour'], ['midtone_color', 'Midtone Colour'], ['highlight_color', 'Highlight Colour']],
   },
+  // D-402.
+  'core.tritone': { colours: [['highlights', 'Highlights'], ['midtones', 'Midtones'], ['shadows', 'Shadows']] },
   // D-295.
   'core.color_balance': { choices: [['preserve_luminosity', 'Preserve Luminosity', [['off', 'Off'], ['on', 'On']]]] },
   // D-132.
