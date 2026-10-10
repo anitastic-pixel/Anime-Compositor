@@ -586,7 +586,7 @@ def project_json(fx, c, type_id="core.audio_spectrum", names=NAMES, words=WORDS)
     comp["layers"].append({"id": "sound", "kind": "audio", "name": "sound",
                            "asset_id": "asset-sound", "enabled": True, "locked": False,
                            "in_frame": snd["in"], "out_frame": snd["out"],
-                           "source_offset_frames": 0, "gain_db": snd["gain"], "transform": {}})
+                           "source_offset_frames": 0, "gain_db": snd["gain"]})
     return p
 
 

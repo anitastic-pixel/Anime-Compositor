@@ -139,8 +139,7 @@
           "in_frame": 2,
           "out_frame": 5,
           "source_offset_frames": 0,
-          "gain_db": 0.0,
-          "transform": {}
+          "gain_db": 0.0
         }
       ]
     }
