@@ -2056,6 +2056,24 @@ fn part(d: f64, t: f64, w: f64) -> f64 {
     return 1.0lf - (d - t) / (t * w);
 }
 
+// D-398, grade::key_band: 1 from `lo` to `hi`, falling to 0 over `soft` outside them, eased.
+fn key_band(x: f64, lo: f64, hi: f64, soft: f64) -> f64 {
+    var d = 0.0lf;
+    if x < lo {
+        d = lo - x;
+    } else if x > hi {
+        d = x - hi;
+    }
+    if d <= 0.0lf {
+        return 1.0lf;
+    }
+    if soft == 0.0lf {
+        return 0.0lf;
+    }
+    let t = clamp(d / soft, 0.0lf, 1.0lf);
+    return 1.0lf - t * t * (3.0lf - 2.0lf * t);
+}
+
 // grade::from_hls: an encoded colour from its hue in degrees, lightness and saturation.
 fn from_hls(hue: f64, l: f64, s: f64) -> vec3<f64> {
     let chroma = (1.0lf - abs(2.0lf * l - 1.0lf)) * s;
@@ -2757,6 +2775,63 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
             let n = u32(k[1]);
             let count = select(n, n * n * n, k[0] != 0.0lf);
             o = e + k[8u + 3u * count] * (lookup(e) - e);
+        }
+        case 42u: {
+            // D-398, as grade::hue_saturation. k: the count, the hues, then the saturations.
+            let n = u32(k[0]);
+            let hue = max(hsv_hue(e), 0.0lf);
+            var s = k[1u + n];
+            for (var i = 0u; i < n && n > 1u; i++) {
+                let h0 = k[1u + i];
+                let j = (i + 1u) % n;
+                var h1 = k[1u + j];
+                if j == 0u {
+                    h1 += 360.0lf;
+                }
+                var x = hue;
+                if x < h0 {
+                    x += 360.0lf;
+                }
+                if h0 <= x && x < h1 {
+                    let u = (x - h0) / (h1 - h0);
+                    s = k[1u + n + i] + (k[1u + n + j] - k[1u + n + i]) * u * u * (3.0lf - 2.0lf * u);
+                    break;
+                }
+            }
+            let l = luma(e);
+            o = vec3(l) + (e - vec3(l)) * (s / 100.0lf);
+        }
+        case 43u: {
+            // D-398, as grade::secondary. k: the key (hue, range, softness; saturation low, high;
+            // lightness low, high; their softness), 1 to invert, 1 for the mask view, 1 when the
+            // gains apply, the gains, the contrast and saturation as shares, the push.
+            let h = hls(e);
+            var wh = 1.0lf;
+            if k[1] < 180.0lf {
+                wh = 0.0lf;
+                if h.x >= 0.0lf {
+                    wh = key_band(abs(euclid(h.x - k[0] + 180.0lf, 360.0lf) - 180.0lf), 0.0lf, k[1], k[2]);
+                }
+            }
+            var m = wh * key_band(min(h.z, 1.0lf) * 100.0lf, k[3], k[4], k[7]) * key_band(h.y * 100.0lf, k[5], k[6], k[7]);
+            if k[8] != 0.0lf {
+                m = 1.0lf - m;
+            }
+            if k[9] != 0.0lf {
+                o = vec3(m);
+            } else {
+                var c = e;
+                for (var i = 0u; i < 3u; i++) {
+                    if k[10] != 0.0lf {
+                        c[i] = to_srgb(clamp(to_linear(c[i]) * k[11u + i], 0.0lf, 1.0lf));
+                    }
+                    c[i] += k[14] * c[i] * (1.0lf - c[i]) * (2.0lf * c[i] - 1.0lf);
+                }
+                let l = luma(c);
+                for (var i = 0u; i < 3u; i++) {
+                    o[i] = e[i] + m * (l + (c[i] - l) * k[15] + k[16u + i] - e[i]);
+                }
+            }
         }
         case 32u: {
             // D-384, as grade::photo_filter. k: the filter's colour encoded, the density as a
@@ -8996,10 +9071,10 @@ impl Gpu {
             // D-397: its steps drawn in one pass of their own, each a stage of the grade or tone
             // pass. Not one of a run (`one_pixel`): a run's Mix lands on each stage, and the Mix
             // is the whole grade's.
-            E::ColorGrade { values, table, .. } => {
+            E::ColorGrade { .. } => {
                 use crate::effects::GradeStep as G;
                 let stage = |which: u32, mode: u32, k: Vec<f64>| (which, FxParams { mode, ..Default::default() }, k, 1.0);
-                let mine: Vec<Staged> = crate::effects::color_grade_steps(values, table.as_ref(), (w, h), f.origin)
+                let mine: Vec<Staged> = crate::effects::color_grade_steps(&f.instance.effect, (w, h), f.origin)
                     .into_iter()
                     .map(|s| match s {
                         G::Tone(g, t) => {
@@ -9020,6 +9095,38 @@ impl Gpu {
                             k.extend(hi);
                             k.push(0.0);
                             stage(0, 6, k)
+                        }
+                        // D-398: Curves' pass, red, green, blue then the master, as E::Curves.
+                        G::Curves(c) => {
+                            let mut k = vec![0.0; 4];
+                            for (i, c) in [&c[1], &c[2], &c[3], &c[0]].into_iter().enumerate() {
+                                k[i] = k.len() as f64;
+                                let (xs, ys, m) = crate::grade::knots(c);
+                                k.push(xs.len() as f64);
+                                k.extend(xs.into_iter().chain(ys).chain(m));
+                            }
+                            stage(0, 0, k)
+                        }
+                        G::HueSaturation(points) => {
+                            let mut k = vec![points.len() as f64];
+                            k.extend(points.iter().map(|p| p[0]));
+                            k.extend(points.iter().map(|p| p[1]));
+                            stage(1, 42, k)
+                        }
+                        G::Wheels(sh, mid, hi) => {
+                            let mut k = sh.to_vec();
+                            k.extend(mid);
+                            k.extend(hi);
+                            k.push(0.0);
+                            stage(0, 6, k)
+                        }
+                        G::Secondary(s) => {
+                            let mut k = s.key.to_vec();
+                            k.extend([s.invert as u8 as f64, s.mask as u8 as f64, s.gains.is_some() as u8 as f64]);
+                            k.extend(s.gains.unwrap_or([1.0; 3]));
+                            k.extend([s.contrast, s.saturation]);
+                            k.extend(s.push);
+                            stage(1, 43, k)
                         }
                         G::Vignette(v) => {
                             let mut k = vec![v.center.0, v.center.1, v.radii.0, v.radii.1, v.inner, v.outer, v.amount, 2f64.sqrt()];

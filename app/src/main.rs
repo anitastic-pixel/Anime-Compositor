@@ -4083,7 +4083,15 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         // D-382: no stretch, every gamma and gain 1, every pedestal 0, which changes nothing.
         GAMMA_PEDESTAL_GAIN => Some(Effect::GammaPedestalGain { black_stretch: 1.0, gamma: [1.0; 3], pedestal: [0.0; 3], gain: [1.0; 3] }),
         // D-397: every setting at its start and no look, which changes nothing.
-        COLOR_GRADE => Some(Effect::ColorGrade { values: COLOR_GRADE_SETTINGS.map(|s| s.3), look: String::new(), table: None }),
+        COLOR_GRADE => Some(Effect::ColorGrade {
+            values: COLOR_GRADE_SETTINGS.map(|s| s.3),
+            look: String::new(),
+            curves: std::array::from_fn(|_| vec![vec![0.0, 0.0], vec![255.0, 255.0]]),
+            hue_saturation: Vec::new(),
+            key_invert: "off".to_string(),
+            key_view: "off".to_string(),
+            table: None,
+        }),
         // D-384: After Effects' own start, Warming Filter (85) at density 25, luminosity kept.
         PHOTO_FILTER => Some(Effect::PhotoFilter {
             filter: "warming_85".to_string(),
@@ -5444,13 +5452,26 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             pedestal: [number("red_pedestal")?, number("green_pedestal")?, number("blue_pedestal")?],
             gain: [number("red_gain")?, number("green_gain")?, number("blue_gain")?],
         }),
-        // D-397: the look, an asset's id as written, and the 22 numbers.
+        // D-397: the look, an asset's id as written, and the numbers. D-398: the curves as
+        // Curves' points, the hue curve likewise (empty for none) and the two words; any later
+        // setting the command does not name at its start.
         COLOR_GRADE => {
-            let mut values = [0.0; 22];
-            for ((name, ..), v) in COLOR_GRADE_SETTINGS.iter().zip(values.iter_mut()) {
-                *v = number(name)?;
+            let mut values = [0.0; 46];
+            for (i, ((name, _, _, start), v)) in COLOR_GRADE_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
+                *v = if i < 22 || parameter(query, name).is_some() { number(name)? } else { *start };
             }
-            Ok(Effect::ColorGrade { values, look: parameter(query, "look").unwrap_or_default().trim().to_string(), table: None })
+            let curve = |name: &str| if parameter(query, name).is_some() { points(name) } else { Ok(vec![vec![0.0, 0.0], vec![255.0, 255.0]]) };
+            let hues = parameter(query, "hue_saturation").unwrap_or_default();
+            let word_or = |name: &str| if parameter(query, name).is_some() { word(name) } else { Ok("off".to_string()) };
+            Ok(Effect::ColorGrade {
+                values,
+                look: parameter(query, "look").unwrap_or_default().trim().to_string(),
+                curves: [curve("curve_master")?, curve("curve_red")?, curve("curve_green")?, curve("curve_blue")?],
+                hue_saturation: if hues.trim().is_empty() { Vec::new() } else { points("hue_saturation")? },
+                key_invert: word_or("key_invert")?,
+                key_view: word_or("key_view")?,
+                table: None,
+            })
         }
         // D-384.
         PHOTO_FILTER => Ok(Effect::PhotoFilter {
@@ -12227,7 +12248,9 @@ fn choose_lut(viewer: &Mutex<Viewer>, layer_id: Id, instance_id: Id, file: &Path
         Some(Effect::ArbitraryMap { phase, apply_to_alpha, .. }) => {
             (Effect::ArbitraryMap { map: lut.as_str().to_string(), phase, apply_to_alpha, table: None }, "Arbitrary Map")
         }
-        Some(Effect::ColorGrade { values, .. }) => (Effect::ColorGrade { values, look: lut.as_str().to_string(), table: None }, "Color Grade"),
+        Some(Effect::ColorGrade { values, curves, hue_saturation, key_invert, key_view, .. }) => {
+            (Effect::ColorGrade { values, look: lut.as_str().to_string(), curves, hue_saturation, key_invert, key_view, table: None }, "Color Grade")
+        }
         _ => (Effect::ColorLookup { lut: lut.as_str().to_string(), table: None }, "Color Lookup"),
     };
     commands.push(Command::SetEffectParameters {

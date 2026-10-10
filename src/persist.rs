@@ -2313,10 +2313,31 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
         }
         // D-397: the table read for a frame is never saved.
-        Effect::ColorGrade { values, look, .. } => {
+        Effect::ColorGrade { values, look, curves, hue_saturation, key_invert, key_view, .. } => {
             params.insert("look".into(), J::from(look.as_str()));
-            for ((name, ..), v) in crate::effects::COLOR_GRADE_SETTINGS.iter().zip(values) {
+            for ((name, ..), v) in crate::effects::COLOR_GRADE_SETTINGS.iter().zip(values).take(22) {
                 params.insert((*name).into(), num(*v));
+            }
+            // D-398: as D-121, each new setting at its start, without keys, is written only if
+            // the file had it, so a D-397 file saves as before. Each curve as Curves' points,
+            // the hue curve likewise, and the two words.
+            let list = |points: &Vec<Vec<f64>>| J::Array(points.iter().map(|p| J::Array(p.iter().map(|v| num(*v)).collect())).collect());
+            let straight = vec![vec![0.0, 0.0], vec![255.0, 255.0]];
+            let mut new: Vec<(&str, J, bool)> = crate::effects::COLOR_GRADE_SETTINGS[22..]
+                .iter()
+                .zip(&values[22..])
+                .map(|((name, .., start), v)| (*name, num(*v), v == start))
+                .collect();
+            for (name, points) in crate::effects::COLOR_GRADE_CURVES.iter().zip(curves) {
+                new.push((name, list(points), *points == straight));
+            }
+            new.push(("hue_saturation", list(hue_saturation), hue_saturation.is_empty()));
+            new.push(("key_invert", J::from(key_invert.as_str()), key_invert == "off"));
+            new.push(("key_view", J::from(key_view.as_str()), key_view == "off"));
+            for (key, value, start) in new {
+                if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), value);
+                }
             }
         }
         Effect::PhotoFilter { filter, color, density, preserve_luminosity } => {
@@ -4959,11 +4980,25 @@ fn parse_effect(
             })
         }
         crate::effects::COLOR_GRADE => {
-            let mut values = [0.0; 22];
-            for ((name, ..), v) in crate::effects::COLOR_GRADE_SETTINGS.iter().zip(values.iter_mut()) {
-                *v = effect_number(params, name, &at)?;
+            // D-398: a file from D-397, without the later settings, reads each as added.
+            let mut values = [0.0; 46];
+            for (i, ((name, _, _, start), v)) in crate::effects::COLOR_GRADE_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
+                *v = if i < 22 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *start)? };
             }
-            Some(crate::effects::Effect::ColorGrade { values, look: effect_word(params, "look", &at)?, table: None })
+            let points_or = |name: &str, start: Vec<Vec<f64>>| match params.and_then(|p| p.get(name)) {
+                Some(_) => effect_points(params, name, &at),
+                None => Ok(start),
+            };
+            let straight = || vec![vec![0.0, 0.0], vec![255.0, 255.0]];
+            Some(crate::effects::Effect::ColorGrade {
+                values,
+                look: effect_word(params, "look", &at)?,
+                curves: [points_or("curve_master", straight())?, points_or("curve_red", straight())?, points_or("curve_green", straight())?, points_or("curve_blue", straight())?],
+                hue_saturation: points_or("hue_saturation", Vec::new())?,
+                key_invert: effect_word_or(params, "key_invert", &at, "off")?,
+                key_view: effect_word_or(params, "key_view", &at, "off")?,
+                table: None,
+            })
         }
         crate::effects::PHOTO_FILTER => Some(crate::effects::Effect::PhotoFilter {
             filter: effect_word(params, "filter", &at)?,

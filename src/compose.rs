@@ -1171,7 +1171,7 @@ fn card_effect(
                 E::ShadowHighlight { shadow_amount, highlight_amount, .. } => {
                     crate::grade::shadow_highlight_untouched(*shadow_amount, *highlight_amount)
                 }
-                E::ColorGrade { values, table, .. } => crate::effects::color_grade_steps(values, table.as_ref(), (1, 1), (0, 0)).is_empty(),
+                E::ColorGrade { .. } => crate::effects::color_grade_steps(&effect, (1, 1), (0, 0)).is_empty(),
                 E::ColorLink { opacity, map, .. } => *opacity == 0.0 || map.as_ref().is_none_or(|m| crate::frame_stats::Stats::of(&m.0).is_none()),
                 // B-107: the third batch, each as its own function returns at once.
                 E::Invert { amount, .. }

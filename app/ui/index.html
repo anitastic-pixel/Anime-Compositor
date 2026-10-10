@@ -9516,7 +9516,7 @@ const EFFECT_SEARCH = {
   'core.color_stabilizer': 'color stabilizer stabiliser colour flicker brightness levels curves reference frame deflicker',
   'core.gamma_pedestal_gain': 'gamma pedestal gain black stretch lift shadows colour channel red green blue curve',
   'core.photo_filter': 'photo filter warming cooling sepia underwater tint lens glass density preserve luminosity warm cool colour',
-  'core.color_grade': 'color grade lumetri colour correction white balance temperature tint exposure contrast highlights shadows whites blacks saturation look lut cube creative faded film vibrance split toning vignette',
+  'core.color_grade': 'color grade lumetri colour correction white balance temperature tint exposure contrast highlights shadows whites blacks saturation look lut cube creative faded film vibrance split toning vignette curves rgb hue saturation color wheels three way shadows midtones highlights hsl secondary key qualifier mask',
   'core.snowfall': 'snow snowfall snowflakes flakes winter weather blizzard falling cc snowfall',
   'core.kaleidoscope': 'kaleidoscope kaleida cc kaleida mirror symmetry segments wedges mandala pattern tile repeat',
   'core.roughen_edges': 'roughen edges rough torn ragged eroded burnt burned paper cut out distress edge crumble',
@@ -9682,7 +9682,7 @@ const EFFECT_ABOUT = {
   'core.color_stabilizer': 'Holds brightness or colour steady: samples one, two or three points at a reference frame and corrects every other frame so those points match it.',
   'core.gamma_pedestal_gain': 'Lifts the shadows, then sets each colour channel\'s middle (gamma), lowest value (pedestal) and highest value (gain).',
   'core.photo_filter': 'Tints the picture as if shot through a coloured glass filter: warming, cooling, sepia, underwater or your own colour, its brightness kept if you like.',
-  'core.color_grade': 'A whole colour grade in one effect, after Lumetri Color: white balance, exposure and the tone sliders, then a look file, faded film, vibrance, shadow and highlight tints, and a vignette.',
+  'core.color_grade': 'A whole colour grade in one effect, after Lumetri Color: white balance, exposure and the tone sliders, then a look file, faded film, vibrance, shadow and highlight tints, RGB curves, hue versus saturation, three colour wheels, an HSL secondary that corrects only the colours it keys, and a vignette.',
   'core.bilateral_blur': 'A softer Smart Blur: close colours mix fully, far ones fade out, so grain and skin smooth while strong edges stay. Colorize off works on brightness alone and turns the layer grey.',
   'core.snowfall': 'Soft snowflakes falling over the layer in three depths, drifting with the wind and swaying.',
   'core.kaleidoscope': 'Repeats one wedge of the layer round a centre, like a kaleidoscope, every other copy mirrored or all turned the same way.',
@@ -10366,7 +10366,31 @@ const EFFECT_PARAMS = {
     ['vignette_amount', 'Vignette Amount', 1, 0.1, '-5 to 5, darker edges below 0, lighter above'],
     ['vignette_midpoint', 'Vignette Midpoint', 1, 1, '0 to 100, how far out it begins'],
     ['vignette_roundness', 'Vignette Roundness', 1, 1, '0 to 100, 0 the frame\'s shape, 100 a circle'],
-    ['vignette_feather', 'Vignette Feather', 1, 1, '0 to 100, 0 a hard edge']],
+    ['vignette_feather', 'Vignette Feather', 1, 1, '0 to 100, 0 a hard edge'],
+    ['shadow_wheel_hue', 'Shadow Wheel Hue', 1, 1, 'degrees, 0 to 360'],
+    ['shadow_wheel_amount', 'Shadow Wheel Amount', 1, 1, '0 to 100'],
+    ['shadow_lightness', 'Shadow Lightness', 1, 1, '-100 to 100'],
+    ['midtone_wheel_hue', 'Midtone Wheel Hue', 1, 1, 'degrees, 0 to 360'],
+    ['midtone_wheel_amount', 'Midtone Wheel Amount', 1, 1, '0 to 100'],
+    ['midtone_lightness', 'Midtone Lightness', 1, 1, '-100 to 100'],
+    ['highlight_wheel_hue', 'Highlight Wheel Hue', 1, 1, 'degrees, 0 to 360'],
+    ['highlight_wheel_amount', 'Highlight Wheel Amount', 1, 1, '0 to 100'],
+    ['highlight_lightness', 'Highlight Lightness', 1, 1, '-100 to 100'],
+    ['key_hue', 'Key Hue', 1, 1, 'degrees, 0 to 360, the colour the secondary picks'],
+    ['key_hue_range', 'Key Hue Range', 1, 1, 'degrees, 0 to 180, 180 every hue'],
+    ['key_hue_softness', 'Key Hue Softness', 1, 1, 'degrees, 0 to 180'],
+    ['key_saturation_low', 'Key Saturation Low', 1, 1, '0 to 100'],
+    ['key_saturation_high', 'Key Saturation High', 1, 1, '0 to 100'],
+    ['key_lightness_low', 'Key Lightness Low', 1, 1, '0 to 100'],
+    ['key_lightness_high', 'Key Lightness High', 1, 1, '0 to 100'],
+    ['key_softness', 'Key Softness', 1, 1, '0 to 100, the saturation and lightness edges'],
+    ['secondary_temperature', 'Secondary Temperature', 1, 1, '-100 to 100'],
+    ['secondary_tint', 'Secondary Tint', 1, 1, '-100 to 100'],
+    ['secondary_contrast', 'Secondary Contrast', 1, 1, '-100 to 100'],
+    ['secondary_saturation', 'Secondary Saturation', 1, 1, '0 to 200, 100 as it was'],
+    ['secondary_wheel_hue', 'Secondary Wheel Hue', 1, 1, 'degrees, 0 to 360'],
+    ['secondary_wheel_amount', 'Secondary Wheel Amount', 1, 1, '0 to 100'],
+    ['secondary_lightness', 'Secondary Lightness', 1, 1, '-100 to 100']],
   'core.snowfall': [['density', 'Flakes', 1, 1, '0 to 100, the per cent of places holding a flake'],
     ['spacing', 'Spacing', 1, 1, 'pixels, 2 to 1000, how far apart the near flakes are'],
     ['size', 'Size', 1, 0.5, 'pixels, 0 to 100, the widest a near flake is'],
@@ -10848,7 +10872,14 @@ const EFFECT_WORDS = {
     files: [['map', 'Map File', 'amp']],
     choices: [['apply_to_alpha', 'Apply Phase Map To Alpha', [['off', 'Off'], ['on', 'On']]]],
   },
-  'core.color_grade': { files: [['look', 'Look']] },
+  // D-398: the four curves as Curves' are; the hue curve typed; the key's two switches.
+  'core.color_grade': {
+    files: [['look', 'Look']],
+    lists: [['curve_master', 'Master'], ['curve_red', 'Red'], ['curve_green', 'Green'], ['curve_blue', 'Blue']],
+    texts: [['hue_saturation', 'Hue vs Saturation points', '0 100, 120 50', null,
+      'Points, a hue 0 to 359 then its saturation 0 to 200, a comma between, hues rising; up to 16, none for no change']],
+    choices: [['key_invert', 'Invert Key', [['off', 'Off'], ['on', 'On']]], ['key_view', 'Show Key', [['off', 'Off'], ['mask', 'Mask']]]],
+  },
   // D-183.
   'core.line_blur': { choices: [['lines_only', 'Lines Only', [['off', 'Off'], ['on', 'On']]]] },
   // D-184.
@@ -11755,7 +11786,11 @@ function effectRow(layer, fx, at, of) {
   // D-302: a curve the file leaves out, as alpha when straight, is the straight line.
   for (const [w] of spec.lists || []) words[w] = (fx.parameters[w] || [[0, 0], [255, 255]]).map((p) => p.join(' ')).join(', ');
   for (const [w] of spec.files || []) words[w] = fx.parameters[w] ?? '';
-  for (const [w] of spec.texts || []) words[w] = fx.parameters[w] ?? '';
+  // D-398: a list of points, as the hue curve, typed as the curves' points are.
+  for (const [w] of spec.texts || []) {
+    const v = fx.parameters[w];
+    words[w] = Array.isArray(v) ? v.map((p) => p.join(' ')).join(', ') : v ?? '';
+  }
   for (const [w, , sent] of spec.layers || []) words[sent] = fx.parameters[w] ?? '';
   // D-353: the falloff travels with every change, so the glow stays physical.
   if (fxKey(fx) === 'core.glow.physical') words.falloff = 'physical';
@@ -12013,14 +12048,14 @@ function effectRow(layer, fx, at, of) {
   }
   // D-349: free text, sent on Enter or on leaving the box, put back by Escape, shown while the
   // choice it belongs to is "named".
-  for (const [name, title, hint, under] of spec.texts || []) {
-    if (words[under] !== 'named') continue;
+  for (const [name, title, hint, under, tip] of spec.texts || []) {
+    if (under && words[under] !== 'named') continue;
     const dt = Object.assign(document.createElement('dt'), { textContent: title, className: 'wide' });
     const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
     const was = words[name];
     const text = Object.assign(document.createElement('input'),
       { type: 'text', className: 'points', value: was, placeholder: hint, spellcheck: false });
-    text.title = 'The channel names as the file has them: one, or three for red, green and blue, a comma between';
+    text.title = tip || 'The channel names as the file has them: one, or three for red, green and blue, a comma between';
     text.setAttribute('aria-label', label + ' ' + title);
     text.onfocus = () => { dragging = true; };
     text.onkeydown = (e) => {

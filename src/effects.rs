@@ -1240,8 +1240,18 @@ pub enum Effect {
     /// D-397: after Lumetri Color, under our own name. `values`, the settings of
     /// `COLOR_GRADE_SETTINGS` in that order; `look`, the id of an asset of kind lut, or empty for
     /// none. `table` is not a setting and is never saved: it is the file `look` names, read for
-    /// the frame by `crate::lut::fill`.
-    ColorGrade { values: [f64; 22], look: String, table: Option<crate::lut::Table> },
+    /// the frame by `crate::lut::fill`. D-398: `curves`, Curves' master, red, green and blue
+    /// (D-111's form); `hue_saturation`, 0 to 16 points [hue, saturation]; `key_invert`, "off" or
+    /// "on"; `key_view`, "off" or "mask". Kept as written, so a file's wrong one is reported.
+    ColorGrade {
+        values: [f64; 46],
+        look: String,
+        curves: [Vec<Vec<f64>>; 4],
+        hue_saturation: Vec<Vec<f64>>,
+        key_invert: String,
+        key_view: String,
+        table: Option<crate::lut::Table>,
+    },
     /// D-375: after After Effects' Color Link. `layer`, D-189's layer setting, "" the layer itself
     /// as the effects before this one left it, read whole; `sample`, one of `LINK_SAMPLES`;
     /// `clip`, 0 to 49 per cent; `stencil`, "off" or "on"; `opacity`, 0 to 100;
@@ -1966,8 +1976,9 @@ pub const GAMMA_PEDESTAL_GAIN: &str = "core.gamma_pedestal_gain";
 pub const PHOTO_FILTER: &str = "core.photo_filter";
 pub const COLOR_GRADE: &str = "core.color_grade";
 /// D-397: Color Grade's keyable settings, in the order `values` holds them: name, lowest,
-/// highest, and the value when the effect is added.
-pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 22] = [
+/// highest, and the value when the effect is added. D-398 adds the last 24, which a file from
+/// before it leaves at their start.
+pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 46] = [
     ("temperature", -100.0, 100.0, 0.0),
     ("tint", -100.0, 100.0, 0.0),
     ("exposure", -5.0, 5.0, 0.0),
@@ -1990,7 +2001,33 @@ pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 22] = [
     ("vignette_midpoint", 0.0, 100.0, 50.0),
     ("vignette_roundness", 0.0, 100.0, 0.0),
     ("vignette_feather", 0.0, 100.0, 50.0),
+    ("shadow_wheel_hue", 0.0, 360.0, 0.0),
+    ("shadow_wheel_amount", 0.0, 100.0, 0.0),
+    ("shadow_lightness", -100.0, 100.0, 0.0),
+    ("midtone_wheel_hue", 0.0, 360.0, 0.0),
+    ("midtone_wheel_amount", 0.0, 100.0, 0.0),
+    ("midtone_lightness", -100.0, 100.0, 0.0),
+    ("highlight_wheel_hue", 0.0, 360.0, 0.0),
+    ("highlight_wheel_amount", 0.0, 100.0, 0.0),
+    ("highlight_lightness", -100.0, 100.0, 0.0),
+    ("key_hue", 0.0, 360.0, 0.0),
+    ("key_hue_range", 0.0, 180.0, 180.0),
+    ("key_hue_softness", 0.0, 180.0, 0.0),
+    ("key_saturation_low", 0.0, 100.0, 0.0),
+    ("key_saturation_high", 0.0, 100.0, 100.0),
+    ("key_lightness_low", 0.0, 100.0, 0.0),
+    ("key_lightness_high", 0.0, 100.0, 100.0),
+    ("key_softness", 0.0, 100.0, 0.0),
+    ("secondary_temperature", -100.0, 100.0, 0.0),
+    ("secondary_tint", -100.0, 100.0, 0.0),
+    ("secondary_contrast", -100.0, 100.0, 0.0),
+    ("secondary_saturation", 0.0, 200.0, 100.0),
+    ("secondary_wheel_hue", 0.0, 360.0, 0.0),
+    ("secondary_wheel_amount", 0.0, 100.0, 0.0),
+    ("secondary_lightness", -100.0, 100.0, 0.0),
 ];
+/// D-398: Color Grade's curves' names, in the order `curves` holds them.
+pub const COLOR_GRADE_CURVES: [&str; 4] = ["curve_master", "curve_red", "curve_green", "curve_blue"];
 /// D-384: Photo Filter's presets and their colours, those published for Photoshop's Photo
 /// Filter (fmwconcepts' colorfilter; Aspose agrees on Warming (85)). "custom" uses `color`.
 pub const PHOTO_FILTERS: [(&str, &str); 6] = [
@@ -4375,6 +4412,19 @@ impl Effect {
                 .or_else(|| hex_fault(name, "midtones", midtones))
                 .or_else(|| hex_fault(name, "darktones", darktones))
                 .or_else(|| hex_fault(name, "shadows", shadows)),
+            Effect::ColorGrade { curves, hue_saturation, key_invert, key_view, .. } => ["master", "red", "green", "blue"]
+                .iter()
+                .zip(curves)
+                .find_map(|(curve, points)| curve_fault(curve, points).map(|f| f.replacen("Curves'", &format!("{name}'s"), 1)))
+                .or_else(|| hue_points_fault(name, hue_saturation))
+                .or_else(|| {
+                    (!["off", "on"].contains(&key_invert.as_str()))
+                        .then(|| format!("{name}'s key invert is \"off\" or \"on\", and this is \"{key_invert}\"."))
+                })
+                .or_else(|| {
+                    (!["off", "mask"].contains(&key_view.as_str()))
+                        .then(|| format!("{name}'s key view is \"off\" or \"mask\", and this is \"{key_view}\"."))
+                }),
             Effect::PhotoFilter { filter, color, preserve_luminosity, .. } => (filter != "custom"
                 && !PHOTO_FILTERS.iter().any(|(f, _)| f == filter))
                 .then(|| format!("{name}'s filter is one of {} or \"custom\", and this is \"{filter}\".",
@@ -5257,6 +5307,23 @@ fn gradient_fault(shape: &str, start_color: &str, end_color: &str, blend: &str) 
 }
 
 /// D-111: what is wrong with one curve's points, as a sentence, or `None` when nothing is.
+/// D-398: Color Grade's hue-versus-saturation points: 0 to 16, each [hue, saturation], hue 0
+/// to under 360 and rising, saturation 0 to 200.
+fn hue_points_fault(name: &str, points: &[Vec<f64>]) -> Option<String> {
+    if points.len() > 16 {
+        return Some(format!("{name}'s hue versus saturation takes up to 16 points, and this has {}.", points.len()));
+    }
+    if let Some(p) = points.iter().find(|p| p.len() != 2) {
+        return Some(format!("Each point of {name}'s hue versus saturation is two numbers, hue then saturation, and this one is {p:?}."));
+    }
+    if let Some(p) = points.iter().find(|p| !(0.0..360.0).contains(&p[0]) || !(0.0..=200.0).contains(&p[1])) {
+        return Some(format!("{name}'s hue versus saturation takes hues from 0 to under 360 and saturations from 0 to 200, and this point is {p:?}."));
+    }
+    points.windows(2).find(|w| w[1][0] <= w[0][0]).map(|w| {
+        format!("{name}'s hue versus saturation's hue goes up from point to point, and {} is not above {}.", w[1][0], w[0][0])
+    })
+}
+
 fn curve_fault(curve: &str, points: &[Vec<f64>]) -> Option<String> {
     if !(2..=16).contains(&points.len()) {
         return Some(format!(
@@ -6796,13 +6863,16 @@ pub(crate) fn apply_stack_at(
             Effect::PhotoFilter { filter, color, density, preserve_luminosity } => crate::perf::time(crate::perf::Stage::EffectPhotoFilter, || {
                 crate::grade::photo_filter(source, photo_filter_colour(filter, color), *density / 100.0, preserve_luminosity == "on")
             }),
-            Effect::ColorGrade { values, table, .. } => crate::perf::time(crate::perf::Stage::EffectColorGrade, || {
-                for step in color_grade_steps(values, table.as_ref(), (source.width(), source.height()), (ox, oy)) {
-                    match step {
+            Effect::ColorGrade { .. } => crate::perf::time(crate::perf::Stage::EffectColorGrade, || {
+                for step in color_grade_steps(&instance.effect, (source.width(), source.height()), (ox, oy)) {                    match step {
                         GradeStep::Tone(g, terms) => crate::grade::grade_tone(source, g, terms),
                         GradeStep::Vibrance(v, s) => crate::grade::vibrance(source, v, s),
                         GradeStep::Look(cube, i) => crate::grade::look(source, cube, i),
                         GradeStep::Tints(sh, hi) => crate::grade::color_balance(source, sh, [0.0; 3], hi, false),
+                        GradeStep::Curves(c) => crate::grade::curves(source, &c[0], [&c[1], &c[2], &c[3]], &[vec![0.0, 0.0], vec![255.0, 255.0]]),
+                        GradeStep::HueSaturation(points) => crate::grade::hue_vs_saturation(source, points),
+                        GradeStep::Wheels(sh, mid, hi) => crate::grade::color_balance(source, sh, mid, hi, false),
+                        GradeStep::Secondary(s) => crate::grade::secondary(source, &s),
                         GradeStep::Vignette(v) => crate::grade::vignette(source, &v),
                     }
                 }
@@ -7574,26 +7644,37 @@ pub(crate) enum GradeStep<'a> {
     Look(&'a crate::lut::Cube, f64),
     /// Color Balance's shadow and highlight pushes, -100..100 a channel.
     Tints([f64; 3], [f64; 3]),
+    /// D-398: Curves' master, red, green and blue.
+    Curves(&'a [Vec<Vec<f64>>; 4]),
+    /// D-398: the hue-versus-saturation points.
+    HueSaturation(&'a [Vec<f64>]),
+    /// D-398: Color Balance's shadow, midtone and highlight pushes.
+    Wheels([f64; 3], [f64; 3], [f64; 3]),
+    Secondary(crate::grade::Secondary),
     Vignette(crate::grade::Vignette),
 }
 
 /// D-397: Color Grade's steps for these settings, held to their ranges, in order; empty when
-/// the grade changes nothing. A look without its table (none named, missing or refused, which
-/// `crate::lut::fill` said) is left out and the rest drawn.
-pub(crate) fn color_grade_steps<'a>(
-    values: &[f64; 22],
-    table: Option<&'a crate::lut::Table>,
-    (w, h): (usize, usize),
-    (ox, oy): (usize, usize),
-) -> Vec<GradeStep<'a>> {
-    let v: [f64; 22] = std::array::from_fn(|i| values[i].clamp(COLOR_GRADE_SETTINGS[i].1, COLOR_GRADE_SETTINGS[i].2));
-    let [temperature, tint, exposure, contrast, highlights, shadows, whites, blacks, saturation, intensity, faded, vibrance, creative, shadow_hue, shadow_amount, highlight_hue, highlight_amount, balance, vignette, midpoint, roundness, feather] = v;
-    let mut out = Vec::new();
-    if v[..8].iter().any(|x| *x != 0.0) {
+/// the grade changes nothing, or `effect` is not a Color Grade. A look without its table (none
+/// named, missing or refused, which `crate::lut::fill` said) is left out and the rest drawn.
+/// D-398: the curves, hue versus saturation, wheels and HSL Secondary before the vignette,
+/// which the mask view leaves out.
+pub(crate) fn color_grade_steps(effect: &Effect, (w, h): (usize, usize), (ox, oy): (usize, usize)) -> Vec<GradeStep<'_>> {
+    let Effect::ColorGrade { values, curves, hue_saturation, key_invert, key_view, table, .. } = effect else {
+        return Vec::new();
+    };
+    let v: [f64; 46] = std::array::from_fn(|i| values[i].clamp(COLOR_GRADE_SETTINGS[i].1, COLOR_GRADE_SETTINGS[i].2));
+    let [temperature, tint, exposure, contrast, highlights, shadows, whites, blacks, saturation, intensity, faded, vibrance, creative, shadow_hue, shadow_amount, highlight_hue, highlight_amount, balance, vignette, midpoint, roundness, feather] =
+        std::array::from_fn(|i| v[i]);
+    let gains = |temperature: f64, tint: f64, exposure: f64| {
         let raw = [(temperature / 200.0).exp2(), (-tint / 200.0).exp2(), (-temperature / 200.0).exp2()];
         let l = 0.2126 * raw[0] + 0.7152 * raw[1] + 0.0722 * raw[2];
-        let g = raw.map(|k| k / l * exposure.exp2());
-        out.push(GradeStep::Tone(g, [contrast, highlights, shadows, whites, blacks, 0.0].map(|x| x / 100.0)));
+        raw.map(|k| k / l * exposure.exp2())
+    };
+    let wheel = |hue: f64, amount: f64, lightness: f64| crate::grade::tint_push(hue).map(|c| c * amount + lightness);
+    let mut out = Vec::new();
+    if v[..8].iter().any(|x| *x != 0.0) {
+        out.push(GradeStep::Tone(gains(temperature, tint, exposure), [contrast, highlights, shadows, whites, blacks, 0.0].map(|x| x / 100.0)));
     }
     if saturation != 100.0 {
         out.push(GradeStep::Vibrance(0.0, saturation - 100.0));
@@ -7614,7 +7695,31 @@ pub(crate) fn color_grade_steps<'a>(
             push(highlight_hue, highlight_amount * (1.0 + balance / 100.0)),
         ));
     }
-    if vignette != 0.0 {
+    if !curves.iter().all(|c| crate::grade::is_straight(c)) {
+        out.push(GradeStep::Curves(curves));
+    }
+    if hue_saturation.iter().any(|p| p[1] != 100.0) {
+        out.push(GradeStep::HueSaturation(hue_saturation));
+    }
+    let w3 = &v[22..31];
+    if (0..3).any(|r| w3[3 * r + 1] != 0.0 || w3[3 * r + 2] != 0.0) {
+        let [sh, mid, hi] = std::array::from_fn(|r| wheel(w3[3 * r], w3[3 * r + 1], w3[3 * r + 2]));
+        out.push(GradeStep::Wheels(sh, mid, hi));
+    }
+    let [s_temperature, s_tint, s_contrast, s_saturation, s_hue, s_amount, s_lightness] = std::array::from_fn(|i| v[39 + i]);
+    let mask = key_view == "mask";
+    if mask || [s_temperature, s_tint, s_contrast, s_amount, s_lightness].iter().any(|x| *x != 0.0) || s_saturation != 100.0 {
+        out.push(GradeStep::Secondary(crate::grade::Secondary {
+            key: std::array::from_fn(|i| v[31 + i]),
+            invert: key_invert == "on",
+            mask,
+            gains: (s_temperature != 0.0 || s_tint != 0.0).then(|| gains(s_temperature, s_tint, 0.0)),
+            contrast: s_contrast / 100.0,
+            saturation: s_saturation / 100.0,
+            push: wheel(s_hue, s_amount, s_lightness).map(|p| p / 200.0),
+        }));
+    }
+    if vignette != 0.0 && !mask {
         let color = if vignette < 0.0 { "#000000" } else { "#ffffff" };
         out.push(GradeStep::Vignette(vignette_settings(vignette.abs() * 20.0, color, [50.0 + midpoint, roundness, feather], [50.0, 50.0], (w, h), (ox, oy))));
     }

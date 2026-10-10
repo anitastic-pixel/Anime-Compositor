@@ -1734,6 +1734,97 @@ pub(crate) fn tint_push(hue: f64) -> [f64; 3] {
     c.map(|v| v - l)
 }
 
+/// D-398: Color Grade's hue-versus-saturation curve at `hue` degrees. One point is its
+/// saturation at every hue; with more, from each point to the next round the circle (the last
+/// to the first through 360), eased by u² (3 - 2u). `points` are valid and not empty.
+pub(crate) fn hue_curve(points: &[Vec<f64>], hue: f64) -> f64 {
+    let n = points.len();
+    for i in 0..n {
+        let (h0, s0, s1) = (points[i][0], points[i][1], points[(i + 1) % n][1]);
+        let h1 = if i + 1 == n { points[0][0] + 360.0 } else { points[i + 1][0] };
+        let x = if hue >= h0 { hue } else { hue + 360.0 };
+        if n > 1 && h0 <= x && x < h1 {
+            let u = (x - h0) / (h1 - h0);
+            return s0 + (s1 - s0) * u * u * (3.0 - 2.0 * u);
+        }
+    }
+    points[0][1]
+}
+
+/// D-398: Color Grade's hue versus saturation, Vibrance's rule (D-140) with vibrance 0 and the
+/// curve's saturation at the colour's hue (0 for a grey).
+pub(crate) fn hue_vs_saturation(source: &mut WorkingBuffer, points: &[Vec<f64>]) {
+    grade_pixels(source, false, |_, e| {
+        let l = luma(e);
+        let k = hue_curve(points, hls(e).0.unwrap_or(0.0)) / 100.0;
+        e.map(|v| l + (v - l) * k)
+    });
+}
+
+/// D-398: Color Grade's HSL Secondary, read once for a frame. `key`: the hue, its range and
+/// softness in degrees, then the saturation's low and high, the lightness's low and high and
+/// their softness, per cent. `gains`, the white balance's when either is set; `contrast` and
+/// `saturation` as shares; `push`, the wheel and lightness over 200.
+pub(crate) struct Secondary {
+    pub key: [f64; 8],
+    pub invert: bool,
+    pub mask: bool,
+    pub gains: Option<[f64; 3]>,
+    pub contrast: f64,
+    pub saturation: f64,
+    pub push: [f64; 3],
+}
+
+/// D-398: 1 from `lo` to `hi`, falling to 0 over `soft` outside them, eased.
+fn key_band(x: f64, lo: f64, hi: f64, soft: f64) -> f64 {
+    let d = if x < lo { lo - x } else if x > hi { x - hi } else { 0.0 };
+    if d <= 0.0 {
+        return 1.0;
+    }
+    if soft == 0.0 {
+        return 0.0;
+    }
+    let t = (d / soft).clamp(0.0, 1.0);
+    1.0 - t * t * (3.0 - 2.0 * t)
+}
+
+/// D-398: how much of HSL Secondary's correction `e` takes, 0 to 1. Below a range of 180 a
+/// grey, which has no hue, is not taken.
+pub(crate) fn secondary_key(e: [f64; 3], s: &Secondary) -> f64 {
+    let k = s.key;
+    let (hue, l, sat) = hls(e);
+    let wh = match (k[1] >= 180.0, hue) {
+        (true, _) => 1.0,
+        (false, None) => 0.0,
+        (false, Some(h)) => key_band(((h - k[0] + 180.0).rem_euclid(360.0) - 180.0).abs(), 0.0, k[1], k[2]),
+    };
+    // A pure colour's saturation can come out a rounding above 1, which a band ending at 100
+    // with no softness would drop; held inside 0 to 1 first.
+    let m = wh * key_band(sat.min(1.0) * 100.0, k[3], k[4], k[7]) * key_band(l * 100.0, k[5], k[6], k[7]);
+    if s.invert { 1.0 - m } else { m }
+}
+
+/// D-398: HSL Secondary: the key as a grey in the mask view; otherwise `e + m (c - e)`, c the
+/// correction (the gains in linear light held inside 0 to 1, the contrast term, the
+/// saturation about the luma, the push).
+pub(crate) fn secondary(source: &mut WorkingBuffer, s: &Secondary) {
+    grade_pixels(source, false, |_, e| {
+        let m = secondary_key(e, s);
+        if s.mask {
+            return [m; 3];
+        }
+        let mut c = e;
+        if let Some(g) = s.gains {
+            c = std::array::from_fn(|i| to_srgb((to_linear(c[i]) * g[i]).clamp(0.0, 1.0)));
+        }
+        let k = s.contrast;
+        c = c.map(|v| v + k * v * (1.0 - v) * (2.0 * v - 1.0));
+        let l = luma(c);
+        c = c.map(|v| l + (v - l) * s.saturation);
+        std::array::from_fn(|i| e[i] + m * (c[i] + s.push[i] - e[i]))
+    });
+}
+
 /// D-376: the mean encoded straight colour, each pixel weighted by its covering, of the pixels
 /// of `source` whose centres lie within `r` of (`px`, `py`); with none, the pixel holding the
 /// point, held inside the picture. `None` when what is counted has no covering.
