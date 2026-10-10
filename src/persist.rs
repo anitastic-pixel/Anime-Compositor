@@ -2790,6 +2790,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("point_b".into(), J::Array(point_b.iter().map(|c| num(*c)).collect()));
             params.insert("split".into(), num(*split));
         }
+        Effect::Split2 { point_a, point_b, split_1, split_2 } => {
+            params.insert("point_a".into(), J::Array(point_a.iter().map(|c| num(*c)).collect()));
+            params.insert("point_b".into(), J::Array(point_b.iter().map(|c| num(*c)).collect()));
+            params.insert("split_1".into(), num(*split_1));
+            params.insert("split_2".into(), num(*split_2));
+        }
         Effect::Blobbylize {
             layer,
             fit,
@@ -4102,6 +4108,7 @@ fn parse_effect(
         crate::effects::SLANT,
         crate::effects::SMEAR,
         crate::effects::SPLIT,
+        crate::effects::SPLIT_2,
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
@@ -5221,6 +5228,12 @@ fn parse_effect(
             point_a: effect_array(params, "point_a", "two numbers, x then y", &at)?,
             point_b: effect_array(params, "point_b", "two numbers, x then y", &at)?,
             split: effect_number(params, "split", &at)?,
+        }),
+        crate::effects::SPLIT_2 => Some(crate::effects::Effect::Split2 {
+            point_a: effect_array(params, "point_a", "two numbers, x then y", &at)?,
+            point_b: effect_array(params, "point_b", "two numbers, x then y", &at)?,
+            split_1: effect_number(params, "split_1", &at)?,
+            split_2: effect_number(params, "split_2", &at)?,
         }),
         // D-379: the layer is kept as written, as CC Glass's is.
         crate::effects::BLOBBYLIZE => Some(crate::effects::Effect::Blobbylize {

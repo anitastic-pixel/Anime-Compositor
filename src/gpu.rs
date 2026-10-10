@@ -3464,19 +3464,23 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             }
         }
         case 21u: {
-            // D-393, layer_fx::split. k: point A, the unit step to B, the length, the split, 0.
+            // D-393, layer_fx::split. k: point A, the unit step to B, the length, the split on
+            // the right walking from A to B, 0, and (D-394) the split on the left.
             let z = k[6];
             let px = x - k[0];
             let py = y - k[1];
             let along = product(px, k[2], z) + product(py, k[3], z);
             let d = product(py, k[2], z) - product(px, k[3], z);
             let t = quotient(along, k[4]);
-            var g = 0.0lf;
+            var wave = 0.0lf;
             if t >= 0.0lf && t <= 1.0lf {
-                g = k[5] / 2.0lf * sin64(3.141592653589793lf * t);
+                wave = sin64(3.141592653589793lf * t);
             }
+            let g1 = k[7] / 2.0lf * wave;
+            let g2 = k[5] / 2.0lf * wave;
+            let cover = 1.0lf - max(min(d + 0.5lf, g2) - max(d - 0.5lf, -g1), 0.0lf);
+            let g = select(g1, g2, d >= 0.0lf);
             let m = abs(d);
-            let cover = 1.0lf - max(min(m + 0.5lf, g) - max(m - 0.5lf, -g), 0.0lf);
             let far = g + k[4] / 2.0lf;
             if m < far {
                 var q = 0.0lf;
@@ -8357,7 +8361,18 @@ impl Gpu {
                 if length == 0.0 || *split <= 0.0 {
                     return (still.clone(), (w, h));
                 }
-                let k = [ax, ay, (bx - ax) / length, (by - ay) / length, length, *split, 0.0];
+                let k = [ax, ay, (bx - ax) / length, (by - ay) / length, length, *split, 0.0, *split];
+                same(steps, &passes.warp, FxParams { mode: 21, ..Default::default() }, &k, None)
+            }
+            // D-394: the same pass, each side its own amount.
+            E::Split2 { point_a, point_b, split_1, split_2 } => {
+                let (ax, ay) = crate::effects::radial_center(*point_a, (w, h), f.origin);
+                let (bx, by) = crate::effects::radial_center(*point_b, (w, h), f.origin);
+                let length = (bx - ax).hypot(by - ay);
+                if length == 0.0 || (*split_1 <= 0.0 && *split_2 <= 0.0) {
+                    return (still.clone(), (w, h));
+                }
+                let k = [ax, ay, (bx - ax) / length, (by - ay) / length, length, *split_2, 0.0, *split_1];
                 same(steps, &passes.warp, FxParams { mode: 21, ..Default::default() }, &k, None)
             }
             E::Mirror { center, angle } => {

@@ -2448,11 +2448,13 @@ pub(crate) fn smear(source: &mut WorkingBuffer, from: (f64, f64), v: (f64, f64),
 /// 2 sin(pi t) (0 past the points); with D = g + L / 2, one with g <= |d| < D reads the buffer
 /// (|d| - g) D / (D - g) out from the line on its own side, one inside the gap the line itself,
 /// times the share of the pixel outside the gap. Split 0 or `a` on `b` leaves the buffer as it
-/// was. The settings are already valid.
-pub(crate) fn split(source: &mut WorkingBuffer, a: (f64, f64), b: (f64, f64), split: f64) {
+/// was. D-394's Split 2 opens each side by its own amount: `split[0]` the side with d < 0 (the
+/// left walking from `a` to `b`), `split[1]` the other; equal amounts are Split's, byte for byte.
+/// The settings are already valid.
+pub(crate) fn split(source: &mut WorkingBuffer, a: (f64, f64), b: (f64, f64), split: [f64; 2]) {
     let w = source.width();
     let length = (b.0 - a.0).hypot(b.1 - a.1);
-    if length == 0.0 || split <= 0.0 {
+    if length == 0.0 || (split[0] <= 0.0 && split[1] <= 0.0) {
         return;
     }
     let (ux, uy) = ((b.0 - a.0) / length, (b.1 - a.1) / length);
@@ -2462,9 +2464,12 @@ pub(crate) fn split(source: &mut WorkingBuffer, a: (f64, f64), b: (f64, f64), sp
         let along = x * ux + y * uy;
         let d = y * ux - x * uy;
         let t = along / length;
-        let g = if (0.0..=1.0).contains(&t) { split / 2.0 * (std::f64::consts::PI * t).sin() } else { 0.0 };
+        let wave = if (0.0..=1.0).contains(&t) { (std::f64::consts::PI * t).sin() } else { 0.0 };
+        let (g1, g2) = (split[0] / 2.0 * wave, split[1] / 2.0 * wave);
+        // For d < 0 this is the mirror of d > 0, each step exact under a change of sign.
+        let cover = 1.0 - ((d + 0.5).min(g2) - (d - 0.5).max(-g1)).max(0.0);
+        let g = if d >= 0.0 { g2 } else { g1 };
         let m = d.abs();
-        let cover = 1.0 - ((m + 0.5).min(g) - (m - 0.5).max(-g)).max(0.0);
         let far = g + length / 2.0;
         let p = if m >= far {
             sample_bilinear(&still, x + a.0, y + a.1)

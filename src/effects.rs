@@ -1614,6 +1614,10 @@ pub enum Effect {
     /// D-393: after CycoreFX's CC Split. `point_a` and `point_b`, per cent of the drawing, -1000
     /// to 1000; `split`, 0 to 1000 pixels, the gap's width at the middle.
     Split { point_a: [f64; 2], point_b: [f64; 2], split: f64 },
+    /// D-394: after CycoreFX's CC Split 2, Split's rule under a second name with each side's
+    /// own amount, 0 to 1000 pixels: `split_1` the side on the left walking from A to B,
+    /// `split_2` the right.
+    Split2 { point_a: [f64; 2], point_b: [f64; 2], split_1: f64, split_2: f64 },
     /// D-379: after CycoreFX's CC Blobbylize. `layer` and `fit`, D-189's layer setting, the blob
     /// map, "" the layer itself; `property`, one of [`BLOBBYLIZE_PROPERTIES`]; `softness`, 0 to
     /// 100 pixels; `cut_away`, 0 to 100; `light_intensity`, 0 to 400; `light_color`, `#rrggbb`;
@@ -1999,6 +2003,7 @@ pub const RIPPLE_PULSE: &str = "core.ripple_pulse";
 pub const SLANT: &str = "core.slant";
 pub const SMEAR: &str = "core.smear";
 pub const SPLIT: &str = "core.split";
+pub const SPLIT_2: &str = "core.split_2";
 /// D-388: Page Turn's ways of placing the fold, the line itself or the corner turned.
 pub const PAGE_TURN_CONTROLS: [&str; 5] = ["classic", "top_left", "top_right", "bottom_left", "bottom_right"];
 /// D-388: what Page Turn draws, in the order the card numbers them.
@@ -2762,6 +2767,12 @@ impl Effect {
                 ("point_a", point_a.iter_mut().collect(), -1000.0, 1000.0),
                 ("point_b", point_b.iter_mut().collect(), -1000.0, 1000.0),
                 ("split", vec![split], 0.0, 1000.0),
+            ],
+            Effect::Split2 { point_a, point_b, split_1, split_2 } => vec![
+                ("point_a", point_a.iter_mut().collect(), -1000.0, 1000.0),
+                ("point_b", point_b.iter_mut().collect(), -1000.0, 1000.0),
+                ("split_1", vec![split_1], 0.0, 1000.0),
+                ("split_2", vec![split_2], 0.0, 1000.0),
             ],
             Effect::Blobbylize {
                 softness,
@@ -3530,6 +3541,7 @@ impl Effect {
             // D-392/D-393: the smear's radius and the gap are distances; Slant has none.
             Effect::Smear { radius, .. } => *radius = scale(*radius),
             Effect::Split { split, .. } => *split = scale(*split),
+            Effect::Split2 { split_1, split_2, .. } => (*split_1, *split_2) = (scale(*split_1), scale(*split_2)),
             // D-379: a distant light's height is a slope against 100, no distance.
             Effect::Blobbylize { softness, light_type, light_height, .. } => {
                 *softness = scale(*softness);
@@ -3727,6 +3739,7 @@ impl Effect {
             Effect::Slant { .. } => "Slant",
             Effect::Smear { .. } => "Smear",
             Effect::Split { .. } => "Split",
+            Effect::Split2 { .. } => "Split 2",
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
@@ -3875,6 +3888,7 @@ impl Effect {
             Effect::Slant { .. } => SLANT,
             Effect::Smear { .. } => SMEAR,
             Effect::Split { .. } => SPLIT,
+            Effect::Split2 { .. } => SPLIT_2,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
@@ -6296,7 +6310,13 @@ pub(crate) fn apply_stack_at(
             Effect::Split { point_a, point_b, split } => {
                 let dims = (source.width(), source.height());
                 let (a, b) = (radial_center(*point_a, dims, (ox, oy)), radial_center(*point_b, dims, (ox, oy)));
-                crate::perf::time(crate::perf::Stage::EffectSplit, || crate::layer_fx::split(source, a, b, *split))
+                crate::perf::time(crate::perf::Stage::EffectSplit, || crate::layer_fx::split(source, a, b, [*split; 2]))
+            }
+            // D-394: the same engine, each side its own amount.
+            Effect::Split2 { point_a, point_b, split_1, split_2 } => {
+                let dims = (source.width(), source.height());
+                let (a, b) = (radial_center(*point_a, dims, (ox, oy)), radial_center(*point_b, dims, (ox, oy)));
+                crate::perf::time(crate::perf::Stage::EffectSplit, || crate::layer_fx::split(source, a, b, [*split_1, *split_2]))
             }
             // D-379: the map compose read for this frame, if a layer is named, is the blob.
             Effect::Blobbylize {
