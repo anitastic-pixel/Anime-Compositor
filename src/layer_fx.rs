@@ -2269,6 +2269,48 @@ pub(crate) fn circle_cover((x, y): (f64, f64), c: (f64, f64), [ro, ri, fo, fi]: 
     if invert { 1.0 - k } else { k }
 }
 
+/// D-207 (Beam) and D-415 (Ellipse): a line `2 r` thick seen `d` from its middle, `softness` per
+/// cent of it a ramp at least a pixel wide: the covering, and the share of the outside colour.
+pub(crate) fn line_profile(d: f64, r: f64, softness: f64) -> (f64, f64) {
+    let sw = (2.0 * r * softness / 100.0).max(1.0);
+    let c = (((d + sw / 2.0).min(r) - (d - sw / 2.0).max(-r)) / sw).clamp(0.0, 1.0);
+    let q = if r == 0.0 { 1.0 } else { (d / r).min(1.0) };
+    (c, q)
+}
+
+/// D-415: how far `(u, v)`, from the centre, lies from the outline of the ellipse with half axes
+/// `a` and `b`, to first order: |k - 1| k / g, k the ellipse's level and g its gradient (exact
+/// for a circle); min(a, b) at the centre, where g is 0.
+pub(crate) fn ellipse_distance(u: f64, v: f64, a: f64, b: f64) -> f64 {
+    let g = (u * u / a.powi(4) + v * v / b.powi(4)).sqrt();
+    if g == 0.0 {
+        return a.min(b);
+    }
+    let k = (u * u / (a * a) + v * v / (b * b)).sqrt();
+    (k - 1.0).abs() * k / g
+}
+
+/// D-415: After Effects' Ellipse. Its outline, `thickness` pixels across, drawn as Beam's line
+/// is (`line_profile`), over the layer or `alone`. `c` the centre in the buffer's pixels, `a`
+/// and `b` the half axes.
+pub(crate) fn ellipse(source: &mut WorkingBuffer, c: (f64, f64), [a, b, thickness, softness]: [f64; 4], [inside, outside]: [[f64; 3]; 2], alone: bool) {
+    let w = source.width();
+    let r = thickness / 2.0;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let d = ellipse_distance((i % w) as f64 + 0.5 - c.0, (i / w) as f64 + 0.5 - c.1, a, b);
+            let (k, q) = line_profile(d, r, softness);
+            let keep = if alone { 0.0 } else { 1.0 - k };
+            for ch in 0..3 {
+                px[ch] = (px[ch] as f64 * keep + ((1.0 - q) * inside[ch] + q * outside[ch]) * k) as f32;
+            }
+            px[3] = (px[3] as f64 * keep + k) as f32;
+        });
+}
+
 /// D-304: where a Motion Tile's tiles sit when nothing moved them, the buffer's middle.
 pub(crate) const PLAIN_TILE: [f64; 2] = [50.0, 50.0];
 
@@ -3021,9 +3063,7 @@ pub(crate) fn beam(
             let t = if l2 == 0.0 { 0.0 } else { ((x * dx + y * dy) / l2).clamp(0.0, 1.0) };
             let d = (x - t * dx).hypot(y - t * dy);
             let r = (t0 + (a + t * l) * (t1 - t0)) / 2.0;
-            let sw = (2.0 * r * softness / 100.0).max(1.0);
-            let c = (((d + sw / 2.0).min(r) - (d - sw / 2.0).max(-r)) / sw).clamp(0.0, 1.0);
-            let q = if r == 0.0 { 1.0 } else { (d / r).min(1.0) };
+            let (c, q) = line_profile(d, r, softness);
             let keep = if alone { 0.0 } else { 1.0 - c };
             for ch in 0..3 {
                 px[ch] = (px[ch] as f64 * keep + ((1.0 - q) * inside[ch] + q * outside[ch]) * c) as f32;

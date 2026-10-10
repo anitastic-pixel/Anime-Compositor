@@ -3855,6 +3855,34 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             textureStore(output, id.xy, laid(s, textureLoad(input, id.xy, 0), u32(k[10])));
             return;
         }
+        case 28u: {
+            // D-415, layer_fx::ellipse. k: the centre, the half axes, half the thickness, the
+            // softness, 1 alone, the inside and outside colours (linear).
+            let u = x - k[0];
+            let v = y - k[1];
+            let g = sqrt(u * u / (k[2] * k[2] * k[2] * k[2]) + v * v / (k[3] * k[3] * k[3] * k[3]));
+            var d = min(k[2], k[3]);
+            if g != 0.0lf {
+                let e = sqrt(u * u / (k[2] * k[2]) + v * v / (k[3] * k[3]));
+                d = abs(e - 1.0lf) * e / g;
+            }
+            let r = k[4];
+            let sw = max(2.0lf * r * k[5] / 100.0lf, 1.0lf);
+            let c = clamp((min(d + sw / 2.0lf, r) - max(d - sw / 2.0lf, -r)) / sw, 0.0lf, 1.0lf);
+            var q = 1.0lf;
+            if r != 0.0lf {
+                q = min(d / r, 1.0lf);
+            }
+            let px = textureLoad(input, id.xy, 0);
+            let keep = select(1.0lf - c, 0.0lf, k[6] == 1.0lf);
+            var out = px;
+            for (var j = 0u; j < 3u; j++) {
+                out[j] = f32(f64(px[j]) * keep + ((1.0lf - q) * k[7u + j] + q * k[10u + j]) * c);
+            }
+            out.w = f32(f64(px.w) * keep + c);
+            textureStore(output, id.xy, out);
+            return;
+        }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
             let vx = x - f64(F.g) - k[0] - k[2];
@@ -9041,6 +9069,14 @@ impl Gpu {
                 let c = linear(color);
                 let k = [cx, cy, ro, ri, fo, fi, c[0], c[1], c[2], opacity / 100.0, laid(blending_mode), (invert == "on") as u8 as f64];
                 same(steps, &passes.warp, FxParams { mode: 27, ..Default::default() }, &k, None)
+            }
+            // D-415: as effects' arm reads it, the layer never grows.
+            E::Ellipse { center, width, height, thickness, softness, inside_color, outside_color, composite } => {
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
+                let mut k = vec![cx, cy, width / 2.0, height / 2.0, thickness / 2.0, *softness, (composite == "off") as u8 as f64];
+                k.extend(linear(inside_color));
+                k.extend(linear(outside_color));
+                same(steps, &passes.warp, FxParams { mode: 28, ..Default::default() }, &k, None)
             }
             E::Mirror { center, angle } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);

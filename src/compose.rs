@@ -986,6 +986,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::Checkerboard { .. }
                 // D-414: Circle.
                 | crate::effects::Effect::Circle { .. }
+                // D-415: Ellipse.
+                | crate::effects::Effect::Ellipse { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
                 // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }

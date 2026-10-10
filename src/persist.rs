@@ -2961,6 +2961,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
         }
+        Effect::Ellipse { center, width, height, thickness, softness, inside_color, outside_color, composite } => {
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("width".into(), num(*width));
+            params.insert("height".into(), num(*height));
+            params.insert("thickness".into(), num(*thickness));
+            params.insert("softness".into(), num(*softness));
+            params.insert("inside_color".into(), J::from(inside_color.as_str()));
+            params.insert("outside_color".into(), J::from(outside_color.as_str()));
+            params.insert("composite".into(), J::from(composite.as_str()));
+        }
         Effect::ArbitraryMap { map, phase, apply_to_alpha, .. } => {
             params.insert("map".into(), J::from(map.as_str()));
             params.insert("phase".into(), num(*phase));
@@ -4303,6 +4313,7 @@ fn parse_effect(
         crate::effects::SPHERIZE,
         crate::effects::CHECKERBOARD,
         crate::effects::CIRCLE,
+        crate::effects::ELLIPSE,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5558,6 +5569,16 @@ fn parse_effect(
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             opacity: effect_number(params, "opacity", &at)?,
             blending_mode: effect_word(params, "blending_mode", &at)?,
+        }),
+        crate::effects::ELLIPSE => Some(crate::effects::Effect::Ellipse {
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            width: effect_number(params, "width", &at)?,
+            height: effect_number(params, "height", &at)?,
+            thickness: effect_number(params, "thickness", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            inside_color: effect_word(params, "inside_color", &at)?.to_ascii_lowercase(),
+            outside_color: effect_word(params, "outside_color", &at)?.to_ascii_lowercase(),
+            composite: effect_word(params, "composite", &at)?,
         }),
         crate::effects::ARBITRARY_MAP => Some(crate::effects::Effect::ArbitraryMap {
             map: effect_word(params, "map", &at)?,
