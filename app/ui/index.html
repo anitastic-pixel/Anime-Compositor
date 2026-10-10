@@ -9462,7 +9462,7 @@ const EFFECT_SEARCH = {
   'core.simple_choker': 'matte shrink spread choke',
   'core.select_color': 'key matte',
   'core.color_key': 'green screen transparent',
-  'core.turbulent_displace': 'heat haze warp wobble line boil seed hand drawn',
+  'core.turbulent_displace': 'heat haze shimmer drift warp wobble line boil seed hand drawn',
   'core.wave_warp': 'wave wobble',
   'core.ripple': 'water rings',
   'core.twirl': 'swirl spiral',
@@ -9607,7 +9607,7 @@ const EFFECT_ABOUT = {
   'core.light_rays': 'Beams of light streaming from a point through the bright parts.',
   'core.exposure_flicker': 'Makes the brightness jump from frame to frame, as old film does.',
   'core.vignette': 'Darkens the corners and edges of the frame.',
-  'core.turbulent_displace': 'Warps the layer with rolling noise, for heat haze or wobble, or lines that boil with a new seed every few frames.',
+  'core.turbulent_displace': 'Warps the layer with rolling noise, for heat haze or wobble, or lines that boil with a new seed every few frames; a drift makes heat shimmer rise.',
   'core.fractal_noise': 'Draws cloudy, smoky noise, still or moving.',
   'core.gradient_map': 'Replaces each brightness with a colour from a ramp.',
   'core.color_balance': 'Pushes the shadows, midtones and highlights toward other colours.',
@@ -9878,7 +9878,10 @@ const EFFECT_PARAMS = {
     ['speed', 'Speed', 1, 1, 'degrees a frame, -360 to 360'],
     ['seed', 'Seed', 1, 1, '0 to 100000'],
     // D-410.
-    ['new_seed_every', 'New Seed Every', 1, 1, 'frames, 0 to 100; 0 keeps one seed, 2 to 4 makes lines boil as if redrawn', '', 0]],
+    ['new_seed_every', 'New Seed Every', 1, 1, 'frames, 0 to 100; 0 keeps one seed, 2 to 4 makes lines boil as if redrawn', '', 0],
+    // D-411.
+    ['drift_direction', 'Drift Direction', 1, 1, 'degrees clockwise from up, the way the ripple travels; 0 rises like heat', 'dial', 0],
+    ['drift_speed', 'Drift Speed', 1, 0.5, 'pixels a frame, 0 to 1000; 0 keeps the ripple in place', '', 0]],
   // D-128.
   'core.fractal_noise': [['size', 'Size', 1, 0.5, 'pixels a cloud, 1 to 1000'],
     ['complexity', 'Complexity', 1, 1, '1 to 20'],

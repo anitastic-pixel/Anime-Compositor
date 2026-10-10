@@ -1575,6 +1575,8 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             pinning,
             units,
             new_seed_every,
+            drift_direction,
+            drift_speed,
             ..
         } => {
             params.insert("amount".into(), num(*amount));
@@ -1598,6 +1600,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             // D-410: likewise, written only when not 0 or in the file already.
             if *new_seed_every != 0.0 || instance.tracks.contains_key("new_seed_every") || params.contains_key("new_seed_every") {
                 params.insert("new_seed_every".into(), num(*new_seed_every));
+            }
+            // D-411: likewise.
+            for (key, value) in [("drift_direction", *drift_direction), ("drift_speed", *drift_speed)] {
+                if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(value));
+                }
             }
         }
         Effect::FractalNoise {
@@ -4586,6 +4594,8 @@ fn parse_effect(
                 pinning: effect_word_or(params, "pinning", &at, "none")?,
                 units: effect_word_or(params, "units", &at, "classic")?,
                 new_seed_every: effect_number_or(params, "new_seed_every", &at, 0.0)?,
+                drift_direction: effect_number_or(params, "drift_direction", &at, 0.0)?,
+                drift_speed: effect_number_or(params, "drift_speed", &at, 0.0)?,
             })
         }
         // D-128: the colours are read in small letters, as a new colour is.

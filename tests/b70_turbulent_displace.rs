@@ -27,6 +27,8 @@ fn turb(n: [f64; 6], edges: &str) -> Effect {
         pinning: "none".to_string(),
         units: "classic".to_string(),
         new_seed_every: 0.0,
+        drift_direction: 0.0,
+        drift_speed: 0.0,
     }
 }
 

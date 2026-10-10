@@ -846,7 +846,7 @@ pub(crate) fn light_rays(
 
 /// D-127: each pixel read from a place pushed up to `amount` pixels by two channels of D-128's
 /// fractal field, `size` pixels a cell, `octaves` deep at depth `z`, fixed to the drawing's own
-/// space (its corner at `origin` in `source`). With transparent edges the layer first grows by
+/// space (its corner at `origin` in `source`), slid by `drift` (D-411). With transparent edges the layer first grows by
 /// the amount rounded up, returned; with `repeat` a place past the edge reads the edge. The
 /// settings are already valid; amount 0 changes nothing.
 #[allow(clippy::too_many_arguments)]
@@ -860,6 +860,7 @@ pub(crate) fn turbulent_displace(
     repeat: bool,
     origin: (usize, usize),
     (displacement, pin): (&str, bool),
+    drift: (f64, f64),
 ) -> usize {
     if amount == 0.0 {
         return 0;
@@ -876,7 +877,7 @@ pub(crate) fn turbulent_displace(
         .enumerate()
         .for_each(|(i, px)| {
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-            let p = ((x - ox) / size, (y - oy) / size, z);
+            let p = ((x - ox - drift.0) / size, (y - oy - drift.1) / size, z);
             // D-306: a pinned push fades over one `size` from each edge of the buffer it was handed.
             let k = if pin {
                 let fade = |d: f64| {

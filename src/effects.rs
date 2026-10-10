@@ -664,7 +664,9 @@ pub enum Effect {
     /// `pinning`, "none" or "all", whether the push fades out at the layer's edges. D-328:
     /// `units`, "classic" (D-127's push, what a file without it means) or "after_effects"
     /// (`turbulent_push`). D-410: `new_seed_every`, 0 to 100 frames, its whole part counted;
-    /// 0, what a file without it means, keeps one seed (`turbulent_seed`).
+    /// 0, what a file without it means, keeps one seed (`turbulent_seed`). D-411: `drift_direction`
+    /// (degrees, 0 up, 90 right) and `drift_speed` (pixels a frame, a distance), both 0 when a file
+    /// lacks them, slide the field along the direction (`turbulent_drift`).
     TurbulentDisplace {
         amount: f64,
         size: f64,
@@ -678,6 +680,8 @@ pub enum Effect {
         pinning: String,
         units: String,
         new_seed_every: f64,
+        drift_direction: f64,
+        drift_speed: f64,
     },
     /// D-128: `size`, 1 to 1000 pixels a cloud; `complexity`, 1 to 20 (D-318), its whole part
     /// counted; `contrast`, 0 to 1000; `brightness`, -1000 to 1000 (D-318, D-326); `evolution`, -100000 to 100000
@@ -2543,6 +2547,8 @@ impl Effect {
                 speed,
                 seed,
                 new_seed_every,
+                drift_direction,
+                drift_speed,
                 ..
             } => vec![
                 ("amount", vec![amount], 0.0, 1000.0),
@@ -2552,6 +2558,8 @@ impl Effect {
                 ("speed", vec![speed], -360.0, 360.0),
                 ("seed", vec![seed], 0.0, 100000.0),
                 ("new_seed_every", vec![new_seed_every], 0.0, 100.0),
+                ("drift_direction", vec![drift_direction], -3600.0, 3600.0),
+                ("drift_speed", vec![drift_speed], 0.0, 1000.0),
             ],
             Effect::FractalNoise {
                 size,
@@ -3689,7 +3697,9 @@ impl Effect {
                 *amount = scale(*amount)
             }
             Effect::DistanceGradation { width, .. } => *width = scale(*width),
-            Effect::TurbulentDisplace { amount, size, units, .. } => {
+            Effect::TurbulentDisplace { amount, size, units, drift_speed, .. } => {
+                // D-411: the drift is a distance a frame.
+                *drift_speed = scale(*drift_speed);
                 let push = scale(turbulent_push(*amount, *size, units));
                 // A wave under a pixel is held at one, as its range is, rather than bypassed.
                 *size = scale(*size).max(1.0);
@@ -5597,6 +5607,14 @@ pub(crate) fn turbulent_seed(seed: f64, new_seed_every: f64, frame: i32) -> u64 
     (seed.floor() as i64).wrapping_add(step) as u64
 }
 
+/// D-411: how far the field has slid by `frame`, `speed` pixels a frame along `direction`
+/// (degrees clockwise from up), as D-127's evolution speed is read: speed times frame.
+pub(crate) fn turbulent_drift(direction: f64, speed: f64, frame: i32) -> (f64, f64) {
+    let a = direction.to_radians();
+    let v = speed * frame as f64;
+    (v * a.sin(), -v * a.cos())
+}
+
 /// D-321: the kernel radius, `ceil(6.5 sigma)` with the long reach, else document 21's. Three
 /// sigmas leave the last tap at 1% of the middle one, a straight edge an Exposure after the
 /// blur can show; past 6.5 sigmas the tail weighs under 4e-11.
@@ -6330,8 +6348,11 @@ pub(crate) fn apply_stack_at(
                 pinning,
                 units,
                 new_seed_every,
+                drift_direction,
+                drift_speed,
             } => {
                 let z = depth(*evolution, *speed, *frame);
+                let drift = turbulent_drift(*drift_direction, *drift_speed, *frame);
                 let r = crate::perf::time(crate::perf::Stage::EffectTurbulentDisplace, || {
                     crate::layer_fx::turbulent_displace(
                         source,
@@ -6343,6 +6364,7 @@ pub(crate) fn apply_stack_at(
                         edges == "repeat",
                         (ox, oy),
                         (displacement, pinning == "all"),
+                        drift,
                     )
                 });
                 ox += r;

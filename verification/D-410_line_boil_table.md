@@ -132,7 +132,7 @@ B-289: PLUGINS.md's pick #4, merged into `core.turbulent_displace` as New Seed E
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| a half-size draft preview leaves New Seed Every, a count of frames, as it was | TurbulentDisplace { amount: 30.0, size: 4.0, complexity: 2.0, evolution: 0.0, speed: 0.0, seed: 0.0, edges: "transparent", frame: 0, displacement: "turbulent", pinning: "none", units: "after_effects", new_seed_every: 2.0 } | yes |
+| a half-size draft preview leaves New Seed Every, a count of frames, as it was | TurbulentDisplace { amount: 30.0, size: 4.0, complexity: 2.0, evolution: 0.0, speed: 0.0, seed: 0.0, edges: "transparent", frame: 0, displacement: "turbulent", pinning: "none", units: "after_effects", new_seed_every: 2.0, drift_direction: 0.0, drift_speed: 0.0 } | yes |
 
 ## Commands
 
