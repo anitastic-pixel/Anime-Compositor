@@ -3103,6 +3103,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("animate_smoothly".into(), J::from(animate_smoothly.as_str()));
             params.insert("random_seed".into(), num(*random_seed));
         }
+        Effect::NoiseAlpha { noise, amount, original_alpha, overflow, random_seed, noise_phase, cycle_noise, cycle } => {
+            params.insert("noise".into(), J::from(noise.as_str()));
+            params.insert("amount".into(), num(*amount));
+            params.insert("original_alpha".into(), J::from(original_alpha.as_str()));
+            params.insert("overflow".into(), J::from(overflow.as_str()));
+            params.insert("random_seed".into(), num(*random_seed));
+            params.insert("noise_phase".into(), num(*noise_phase));
+            params.insert("cycle_noise".into(), J::from(cycle_noise.as_str()));
+            params.insert("cycle".into(), num(*cycle));
+        }
         // D-418: the paths are found each frame and never saved.
         Effect::Fill { mask, all_masks, color, invert, horizontal_feather, vertical_feather, opacity, .. } => {
             params.insert("mask".into(), num(*mask));
@@ -4705,6 +4715,7 @@ fn parse_effect(
         crate::effects::WRITE_ON,
         crate::effects::SCRIBBLE,
         crate::effects::ADD_GRAIN,
+        crate::effects::NOISE_ALPHA,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6063,6 +6074,16 @@ fn parse_effect(
             animate_smoothly: effect_word(params, "animate_smoothly", &at)?,
             random_seed: effect_number(params, "random_seed", &at)?,
             frame: 0,
+        }),
+        crate::effects::NOISE_ALPHA => Some(crate::effects::Effect::NoiseAlpha {
+            noise: effect_word(params, "noise", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+            original_alpha: effect_word(params, "original_alpha", &at)?,
+            overflow: effect_word(params, "overflow", &at)?,
+            random_seed: effect_number(params, "random_seed", &at)?,
+            noise_phase: effect_number(params, "noise_phase", &at)?,
+            cycle_noise: effect_word(params, "cycle_noise", &at)?,
+            cycle: effect_number(params, "cycle", &at)?,
         }),
         crate::effects::FILL => Some(crate::effects::Effect::Fill {
             mask: effect_number(params, "mask", &at)?,

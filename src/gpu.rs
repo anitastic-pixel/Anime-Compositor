@@ -1145,6 +1145,53 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, vec4(p.xyz * f32(k[0]), p.w));
         return;
     }
+    if F.mode == 11u {
+        // D-450, grade::noise_alpha. k: the amount as a share, the depth (0 for the Random
+        // kinds), the period, squared (1), the original alpha (0 Clamp, 1 Add, 2 Scale, 3 Edges)
+        // and the overflow (0 Clip, 1 Wrap Back, 2 Wrap). `base` is the seed, 0 when animated.
+        let a = f64(p.w);
+        var skip = false;
+        if k[4] == 0.0lf {
+            skip = a != 1.0lf;
+        } else if k[4] == 2.0lf {
+            skip = a <= 0.0lf;
+        } else if k[4] == 3.0lf {
+            skip = !(a > 0.0lf && a < 1.0lf);
+        }
+        if skip {
+            textureStore(output, id.xy, p);
+            return;
+        }
+        let q = vec3(f64(i32(id.x) - F.ox), f64(i32(id.y) - F.oy), k[1]);
+        var n = cell_noise_look(0u, q, true, i32(k[2]));
+        if k[3] == 1.0lf {
+            let r = 1.0lf - abs(n);
+            n = select(-(1.0lf - r * r), 1.0lf - r * r, n >= 0.0lf);
+        }
+        let d = k[0] * n;
+        var t = a + d;
+        if k[4] == 2.0lf {
+            t = a + d * a;
+        }
+        if t < 0.0lf || t > 1.0lf {
+            if k[5] == 1.0lf {
+                t = select(-t, 2.0lf - t, t > 1.0lf);
+            } else if k[5] == 2.0lf {
+                t = select(t + 1.0lf, t - 1.0lf, t > 1.0lf);
+            }
+            t = clamp(t, 0.0lf, 1.0lf);
+        }
+        if t == a {
+            textureStore(output, id.xy, p);
+            return;
+        }
+        var out = vec4(0.0, 0.0, 0.0, f32(t));
+        if a > 0.0lf {
+            out = vec4(vec3<f32>(vec3<f64>(p.xyz) / a * t), f32(t));
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
     let a = f64(p.w);
     if a <= 0.0lf {
         textureStore(output, id.xy, p);
@@ -7855,6 +7902,7 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::Gradient { .. }
             | E::Noise { .. }
             | E::AddGrain { .. }
+            | E::NoiseAlpha { .. }
             | E::ExposureFlicker { .. }
             | E::ColorBalance { .. }
             | E::GradientMap { .. }
@@ -9342,6 +9390,28 @@ impl Gpu {
                 let p = FxParams {
                     mode: 10,
                     flag: (monochromatic == "on") as u32,
+                    base: [base as u32, (base >> 32) as u32],
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                same(steps, &passes.grade, p, &k, None)
+            }
+            // D-450: grade::noise_alpha as grade mode 11.
+            E::NoiseAlpha { noise, amount, original_alpha, overflow, random_seed, noise_phase, cycle_noise, cycle } => {
+                let animated = noise.ends_with("_animation");
+                let base = crate::grade::mix(if animated { 0 } else { random_seed.floor() as u64 });
+                let at = |list: &[&str], v: &str| list.iter().position(|o| *o == v).unwrap_or(0) as f64;
+                let k = [
+                    amount / 100.0,
+                    if animated { noise_phase / 360.0 } else { 0.0 },
+                    if cycle_noise == "on" { cycle.floor() } else { 0.0 },
+                    noise.starts_with("squared") as u8 as f64,
+                    at(&crate::effects::NOISE_ALPHA_ORIGINALS, original_alpha),
+                    at(&crate::effects::NOISE_ALPHA_OVERFLOWS, overflow),
+                ];
+                let p = FxParams {
+                    mode: 11,
                     base: [base as u32, (base >> 32) as u32],
                     ox: ox as i32,
                     oy: oy as i32,

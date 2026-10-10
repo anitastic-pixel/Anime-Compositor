@@ -886,6 +886,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Noise { .. }
                 // D-443: Add Grain.
                 | crate::effects::Effect::AddGrain { .. }
+                // D-450: Noise Alpha.
+                | crate::effects::Effect::NoiseAlpha { .. }
                 | crate::effects::Effect::ChromaticAberration { .. }
                 | crate::effects::Effect::LensChromaticAberration { .. }
                 | crate::effects::Effect::DistanceGradation { .. }
@@ -1195,7 +1197,7 @@ fn card_effect(
                 E::Gradient { start_opacity, end_opacity, .. } => [*start_opacity, *end_opacity] == [0.0; 2],
                 E::RimLight { intensity, .. } => *intensity == 0.0,
                 E::Outline { width, .. } => *width == 0.0,
-                E::Noise { amount, .. } | E::ChromaticAberration { amount, .. } => *amount == 0.0,
+                E::Noise { amount, .. } | E::ChromaticAberration { amount, .. } | E::NoiseAlpha { amount, .. } => *amount == 0.0,
                 E::AddGrain { intensity, .. } => *intensity == 0.0,
                 // D-409: as layer_fx::lens_chromatic_aberration returns at once.
                 E::LensChromaticAberration { amount, red_scale, green_scale, blue_scale, .. } => {

@@ -612,6 +612,71 @@ pub(crate) fn add_grain(source: &mut WorkingBuffer, e: &crate::effects::Effect, 
     });
 }
 
+/// D-450: After Effects' Noise Alpha, by document 21's rule. The noise at the pixel in the
+/// drawing's own space (its corner at `(ox, oy)` in `source`): the Random kinds [`unit`] for the
+/// seed, the Animation kinds [`value`] in blocks of a pixel at depth phase / 360 for seed 0,
+/// repeating after Cycle turns when Cycle Noise is on; Squared pushes it out to
+/// sign(n) (1 - (1 - |n|)^2). Times the amount, it moves the covering everywhere (Add), where
+/// fully covered (Clamp), in proportion (Scale) or where partly covered (Edges), and a covering
+/// pushed out of 0 to 1 is clipped, reflected back (Wrap Back) or wrapped round (Wrap). The
+/// colour is kept, black where there was none. The settings are already valid; amount 0
+/// changes nothing.
+pub(crate) fn noise_alpha(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let crate::effects::Effect::NoiseAlpha { noise, amount, original_alpha, overflow, random_seed, noise_phase, cycle_noise, cycle } = e else {
+        return;
+    };
+    if *amount == 0.0 {
+        return;
+    }
+    let animated = noise.ends_with("_animation");
+    let squared = noise.starts_with("squared");
+    let base = mix(if animated { 0 } else { random_seed.floor() as u64 });
+    let (z, k) = (noise_phase / 360.0, amount / 100.0);
+    let period = if cycle_noise == "on" { cycle.floor() as i64 } else { 0 };
+    let how = crate::effects::NOISE_ALPHA_ORIGINALS.iter().position(|o| o == original_alpha).unwrap_or(0);
+    let wrap = crate::effects::NOISE_ALPHA_OVERFLOWS.iter().position(|o| o == overflow).unwrap_or(0);
+    let w = source.width().max(1);
+    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
+        for (x, px) in row.chunks_exact_mut(4).enumerate() {
+            let a = px[3] as f64;
+            // Clamp, Add, Scale, Edges.
+            let skip = match how {
+                0 => a != 1.0,
+                2 => a <= 0.0,
+                3 => !(a > 0.0 && a < 1.0),
+                _ => false,
+            };
+            if skip {
+                continue;
+            }
+            let (x, y) = (x as f64 - ox as f64, y as f64 - oy as f64);
+            let mut n = value(base, 0, x, y, if animated { z } else { 0.0 }, true, period);
+            if squared {
+                n = (1.0 - (1.0 - n.abs()).powi(2)).copysign(n);
+            }
+            let d = k * n;
+            let mut t = if how == 2 { a + d * a } else { a + d };
+            if !(0.0..=1.0).contains(&t) {
+                t = match wrap {
+                    1 if t > 1.0 => 2.0 - t,
+                    1 => -t,
+                    2 if t > 1.0 => t - 1.0,
+                    2 => t + 1.0,
+                    _ => t,
+                }
+                .clamp(0.0, 1.0);
+            }
+            if t == a {
+                continue;
+            }
+            for c in 0..3 {
+                px[c] = if a > 0.0 { (px[c] as f64 / a * t) as f32 } else { 0.0 };
+            }
+            px[3] = t as f32;
+        }
+    });
+}
+
 /// D-299: After Effects' Fractal Type, Noise Type and Cycle Evolution. The default is D-128's
 /// basic, smooth noise that never repeats.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

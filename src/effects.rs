@@ -1945,6 +1945,21 @@ pub enum Effect {
         random_seed: f64,
         frame: i32,
     },
+    /// D-450: after After Effects' Noise Alpha (`grade::noise_alpha`, document 21). `noise`, one
+    /// of [`NOISE_ALPHA_KINDS`]; `amount`, 0 to 100 per cent; `original_alpha`, one of
+    /// [`NOISE_ALPHA_ORIGINALS`]; `overflow`, one of [`NOISE_ALPHA_OVERFLOWS`]; `random_seed`, 0
+    /// to 100000, its floor; `noise_phase`, -100000 to 100000 degrees; `cycle_noise`, "off" or
+    /// "on"; `cycle`, 1 to 1000 turns, its floor.
+    NoiseAlpha {
+        noise: String,
+        amount: f64,
+        original_alpha: String,
+        overflow: String,
+        random_seed: f64,
+        noise_phase: f64,
+        cycle_noise: String,
+        cycle: f64,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2654,6 +2669,12 @@ pub const SCRIBBLE_WIGGLES: [&str; 3] = ["static", "jumpy", "smooth"];
 pub const ADD_GRAIN: &str = "core.add_grain";
 /// D-443: how Add Grain lays its grain on.
 pub const ADD_GRAIN_BLENDS: [&str; 3] = ["film", "add", "overlay"];
+pub const NOISE_ALPHA: &str = "core.noise_alpha";
+/// D-450: Noise Alpha's kinds of noise, its ways with the covering there was, and what happens
+/// to a covering pushed out of 0 to 1.
+pub const NOISE_ALPHA_KINDS: [&str; 4] = ["uniform_random", "squared_random", "uniform_animation", "squared_animation"];
+pub const NOISE_ALPHA_ORIGINALS: [&str; 4] = ["clamp", "add", "scale", "edges"];
+pub const NOISE_ALPHA_OVERFLOWS: [&str; 3] = ["clip", "wrap_back", "wrap"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3658,6 +3679,12 @@ impl Effect {
                 ("midpoint", vec![midpoint], 0.01, 0.99),
                 ("animation_speed", vec![animation_speed], 0.0, 10.0),
                 ("random_seed", vec![random_seed], 0.0, 100000.0),
+            ],
+            Effect::NoiseAlpha { amount, random_seed, noise_phase, cycle, .. } => vec![
+                ("amount", vec![amount], 0.0, 100.0),
+                ("random_seed", vec![random_seed], 0.0, 100000.0),
+                ("noise_phase", vec![noise_phase], -100000.0, 100000.0),
+                ("cycle", vec![cycle], 1.0, 1000.0),
             ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
@@ -4936,6 +4963,7 @@ impl Effect {
             Effect::WriteOn { .. } => "Write-on",
             Effect::Scribble { .. } => "Scribble",
             Effect::AddGrain { .. } => "Add Grain",
+            Effect::NoiseAlpha { .. } => "Noise Alpha",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5114,6 +5142,7 @@ impl Effect {
             Effect::WriteOn { .. } => WRITE_ON,
             Effect::Scribble { .. } => SCRIBBLE,
             Effect::AddGrain { .. } => ADD_GRAIN,
+            Effect::NoiseAlpha { .. } => NOISE_ALPHA,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6432,6 +6461,21 @@ impl Effect {
             )),
             Effect::AddGrain { animate_smoothly: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
                 "Add Grain's animate smoothly is \"on\" or \"off\", and this is \"{v}\"."
+            )),
+            Effect::NoiseAlpha { noise: v, .. } if !NOISE_ALPHA_KINDS.contains(&v.as_str()) => Some(format!(
+                "Noise Alpha's noise is one of {}, and this is \"{v}\".",
+                NOISE_ALPHA_KINDS.join(", ")
+            )),
+            Effect::NoiseAlpha { original_alpha: v, .. } if !NOISE_ALPHA_ORIGINALS.contains(&v.as_str()) => Some(format!(
+                "Noise Alpha's original alpha is one of {}, and this is \"{v}\".",
+                NOISE_ALPHA_ORIGINALS.join(", ")
+            )),
+            Effect::NoiseAlpha { overflow: v, .. } if !NOISE_ALPHA_OVERFLOWS.contains(&v.as_str()) => Some(format!(
+                "Noise Alpha's overflow is one of {}, and this is \"{v}\".",
+                NOISE_ALPHA_OVERFLOWS.join(", ")
+            )),
+            Effect::NoiseAlpha { cycle_noise: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Noise Alpha's cycle noise is \"off\" or \"on\", and this is \"{v}\"."
             )),
             Effect::Ellipse { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
                 "Ellipse's composite is \"on\" or \"off\", and this is \"{composite}\"."
@@ -8125,6 +8169,10 @@ pub(crate) fn apply_stack_at(
             // D-443: the grain in the drawing's own space, however an effect above grew it.
             e @ Effect::AddGrain { .. } => {
                 crate::perf::time(crate::perf::Stage::EffectAddGrain, || crate::grade::add_grain(source, e, (ox, oy)))
+            }
+            // D-450: the noise in the drawing's own space, however an effect above grew it.
+            e @ Effect::NoiseAlpha { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectNoiseAlpha, || crate::grade::noise_alpha(source, e, (ox, oy)))
             }
             // D-417: the anchor and corner as Checkerboard's; the layer never grows.
             Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {
