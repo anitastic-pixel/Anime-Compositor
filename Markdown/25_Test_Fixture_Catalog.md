@@ -205438,3 +205438,59 @@ FX-XFORM-030 (`fx_xform_030.json`): Uniform Scale written "yes". The file is rea
 FX-XFORM-031 (`fx_xform_031.json`): Sampling written "nearest". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-XFORM-032 (`fx_xform_032.json`): Use Composition's Shutter Angle written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Lens Chromatic Aberration (D-409)
+
+Chromatic Aberration's new form (`core.chromatic_aberration` with `mode`), PLUGINS.md's pick #3 (B-288). Every case is a project of one composition 16 by 10, five frames, holding D-120's drawing `art` (`media/figure.png`), unmoved unless the case says, with the effect `fx-0-0` in the new form, its settings as added unless the case says. `tools/lens_chromatic_aberration_reference.py` works the expected frames, `Fixtures/lens_chromatic_aberration/expected_lens_chromatic_aberration.json`, tolerance 2e-5; the rule is in document 21. FX-CHROMA-001 to 016 keep pinning D-120's form.
+
+FX-LENSCA-001 (`fx_lensca_001.json`): The new form's settings as they start (radial, amount 3, falloff 0, red 100, green 0, blue -100, no blur): the same picture as D-120's FX-CHROMA-001, red fringing outward, blue inward. Frames 0.
+
+FX-LENSCA-002 (`fx_lensca_002.json`): Amount 0: the drawing, untouched. Frames 0.
+
+FX-LENSCA-003 (`fx_lensca_003.json`): Falloff 100 at amount 6: the shift grows with the distance cubed, so the skin block, near the middle, barely fringes, while the white block's far corners still split. Frames 0.
+
+FX-LENSCA-004 (`fx_lensca_004.json`): Falloff 50 at amount 6: between FX-LENSCA-003 and no falloff. Frames 0.
+
+FX-LENSCA-005 (`fx_lensca_005.json`): Scales red 0, green 100, blue 0: only green moves outward; red and blue stay, so magenta fringes inside the blocks' outer edges and green ones outside. Frames 0.
+
+FX-LENSCA-006 (`fx_lensca_006.json`): Red 200, blue -50: red twice as far out as at the start, blue half as far in. Frames 0.
+
+FX-LENSCA-007 (`fx_lensca_007.json`): Fringe blur 50 at amount 6: each fringe smeared along its own shift over half its length, softer than FX-CHROMA-003's. Frames 0.
+
+FX-LENSCA-008 (`fx_lensca_008.json`): Fringe blur 100 at amount 6 with falloff 100: the smear over the whole shift, strongest at the edges. Frames 0.
+
+FX-LENSCA-009 (`fx_lensca_009.json`): Offset mode, amount 2, angle 90: red moved exactly two pixels right, blue two left, green kept, the same at every pixel. Frames 0.
+
+FX-LENSCA-010 (`fx_lensca_010.json`): Offset mode, amount 1.5, angle 0: red moved a pixel and a half up, blue as far down, each a blend of two rows. Frames 0.
+
+FX-LENSCA-011 (`fx_lensca_011.json`): Offset mode, amount 3, angle 45, fringe blur 100: red and blue smeared along the diagonal over their whole shift. Frames 0.
+
+FX-LENSCA-012 (`fx_lensca_012.json`): Offset mode, angle keyed from 0 at frame 0 to 360 at frame 4, linear: frames 0 and 4 the same, frame 2 the split turned over (red down). Frames 0, 2, 4.
+
+FX-LENSCA-013 (`fx_lensca_013.json`): Falloff keyed from 0 at frame 0 to 100 at frame 4 at amount 6: frame 0 D-120's split at 6, frame 4 FX-LENSCA-003. Frames 0, 2, 4.
+
+FX-LENSCA-014 (`fx_lensca_014.json`): FX-LENSCA-009 moved three pixels right: the same, moved; the three columns left of the drawing stay empty, as the layer does not grow. Frames 0, 3.
+
+FX-LENSCA-015 (`fx_lensca_015.json`): Radial about 0, 50 with falloff 100 at amount 6: weak by the left edge's middle, strong at the right edge. Frames 0.
+
+FX-LENSCA-016 (`fx_lensca_016.json`): Offset mode with centre 0, 0 and falloff 100: the centre and the falloff are radial's alone, so the picture is FX-LENSCA-009's. Frames 0.
+
+FX-LENSCA-017 (`fx_lensca_017.json`): Radial mode with angle 0: the angle is offset's alone, so the picture is FX-LENSCA-001's. Frames 0.
+
+FX-LENSCA-018 (`fx_lensca_018.json`): Green 100, red and blue 100 too, offset mode amount 1, angle 270: the whole drawing moved a pixel left, as one. Frames 0.
+
+FX-LENSCA-019 (`fx_lensca_019.json`): Mode "spiral", not a mode. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENSCA-020 (`fx_lensca_020.json`): Falloff 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENSCA-021 (`fx_lensca_021.json`): Red scale 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENSCA-022 (`fx_lensca_022.json`): Blue scale -201, below -200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENSCA-023 (`fx_lensca_023.json`): Fringe blur -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENSCA-024 (`fx_lensca_024.json`): Angle 3601, past ten turns. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENSCA-025 (`fx_lensca_025.json`): Amount 101 in the new form, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENSCA-026 (`fx_lensca_026.json`): Green scale keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
