@@ -1810,6 +1810,47 @@ pub(crate) fn glue_gun(
     });
 }
 
+/// D-425: Threads. The buffer woven into a cloth about `center`, in its pixels, turned by
+/// `turn` (the direction's sine and cosine): warp threads `size.0` apart across, weft threads
+/// `size.1` apart down, each `coverage` of its spacing wide, the warp over where (i + j) mod 2n
+/// < n, with `n` the overlaps taken whole; the thread beneath shadowed by `shadowing`, each
+/// shaded round by `texture`. The settings are already valid.
+pub(crate) fn threads(
+    source: &mut WorkingBuffer,
+    center: (f64, f64),
+    (s, c): (f64, f64),
+    size: (f64, f64),
+    n: f64,
+    [coverage, shadowing, texture]: [f64; 3],
+) {
+    let w = source.width();
+    let half = (coverage * size.0 / 2.0, coverage * size.1 / 2.0);
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let dx = (i % w) as f64 + 0.5 - center.0;
+        let dy = (i / w) as f64 + 0.5 - center.1;
+        let (u, v) = (dx * c + dy * s, -dx * s + dy * c);
+        let (ti, tj) = ((u / size.0).floor(), (v / size.1).floor());
+        let warp = thread(u - (ti + 0.5) * size.0, half.0, texture);
+        let weft = thread(v - (tj + 0.5) * size.1, half.1, texture);
+        let (up, down) = if (ti + tj).rem_euclid(2.0 * n) < n { (warp, weft) } else { (weft, warp) };
+        let g = if up.3 > 0.0 { (1.0 - (up.2.abs() - up.3) / up.3).clamp(0.0, 1.0) } else { 0.0 };
+        let k = up.0 * up.1 + down.0 * down.1 * (1.0 - shadowing * (1.0 + g) / 2.0) * (1.0 - up.0);
+        let a = up.0 + down.0 * (1.0 - up.0);
+        for v in &mut px[..3] {
+            *v = (*v as f64 * k) as f32;
+        }
+        px[3] = (px[3] as f64 * a) as f32;
+    });
+}
+
+/// D-425: a thread's share of the pixel `e` from its middle, its shade by `texture`, `e` and
+/// its half width.
+fn thread(e: f64, half: f64, texture: f64) -> (f64, f64, f64, f64) {
+    let share = ((e + 0.5).min(half) - (e - 0.5).max(-half)).max(0.0);
+    let shade = if half > 0.0 { 1.0 - texture * (e / half).powi(2).min(1.0) } else { 1.0 };
+    (share, shade, e, half)
+}
+
 /// D-213: Bevel Edges. A pixel nearer than `thickness` times the buffer's smaller side to the
 /// buffer's nearest side, the first of left, top, right and bottom among equals, is on that
 /// side's face. The settings are already valid.

@@ -3245,6 +3245,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("roughness".into(), num(*roughness));
             params.insert("metal".into(), num(*metal));
         }
+        Effect::Threads { width, height, overlaps, direction, center, coverage, shadowing, texture } => {
+            params.insert("width".into(), num(*width));
+            params.insert("height".into(), num(*height));
+            params.insert("overlaps".into(), num(*overlaps));
+            params.insert("direction".into(), num(*direction));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("coverage".into(), num(*coverage));
+            params.insert("shadowing".into(), num(*shadowing));
+            params.insert("texture".into(), num(*texture));
+        }
         Effect::MomentMap { max_time, resolution, layer, fit, .. } => {
             params.insert("max_time".into(), num(*max_time));
             params.insert("resolution".into(), num(*resolution));
@@ -4518,6 +4528,7 @@ fn parse_effect(
         crate::effects::BENDER,
         crate::effects::BLOBBYLIZE,
         crate::effects::GLUE_GUN,
+        crate::effects::THREADS,
         crate::effects::FLOW_MOTION,
         crate::effects::GRIDDLER,
         crate::effects::FISHEYE,
@@ -5993,6 +6004,16 @@ fn parse_effect(
             metal: effect_number(params, "metal", &at)?,
             trail: Vec::new(),
             clock: [0.0, 0.0],
+        }),
+        crate::effects::THREADS => Some(crate::effects::Effect::Threads {
+            width: effect_number(params, "width", &at)?,
+            height: effect_number(params, "height", &at)?,
+            overlaps: effect_number(params, "overlaps", &at)?,
+            direction: effect_number(params, "direction", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            coverage: effect_number(params, "coverage", &at)?,
+            shadowing: effect_number(params, "shadowing", &at)?,
+            texture: effect_number(params, "texture", &at)?,
         }),
         // D-347: the layer is kept as written, as CC Vector Blur's is.
         crate::effects::MOMENT_MAP => Some(crate::effects::Effect::MomentMap {

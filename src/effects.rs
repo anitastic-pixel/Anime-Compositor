@@ -2016,6 +2016,22 @@ pub enum Effect {
         trail: Vec<[f64; 2]>,
         clock: [f64; 2],
     },
+    /// D-425: Threads, our name for CycoreFX's CC Threads: the layer woven into a cloth of
+    /// threads in its own colours. `width` and `height`, the warp's and the weft's spacing, 1 to
+    /// 1000 pixels; `overlaps`, 1 to 10, taken whole, how many threads each passes over and
+    /// under; `direction`, -3600 to 3600 degrees; `center`, per cent of the drawing, -1000 to
+    /// 1000, where the cloth is laid and turned about; `coverage`, `shadowing` and `texture`, 0
+    /// to 100.
+    Threads {
+        width: f64,
+        height: f64,
+        overlaps: f64,
+        direction: f64,
+        center: [f64; 2],
+        coverage: f64,
+        shadowing: f64,
+        texture: f64,
+    },
     /// D-347: Moment Map, after After Effects' Time Displacement: each pixel of the layer from
     /// another moment of it, later where the map is bright and earlier where it is dark.
     /// `max_time`, -10 to 10 seconds; `resolution`, 1 to 999 steps a second; `layer` and `fit`,
@@ -2422,6 +2438,7 @@ pub const BEND_IT: &str = "core.bend_it";
 pub const BENDER: &str = "core.bender";
 pub const BLOBBYLIZE: &str = "core.blobbylize";
 pub const GLUE_GUN: &str = "core.glue_gun";
+pub const THREADS: &str = "core.threads";
 pub const FLOW_MOTION: &str = "core.flow_motion";
 pub const GRIDDLER: &str = "core.griddler";
 pub const FISHEYE: &str = "core.fisheye";
@@ -3547,6 +3564,16 @@ impl Effect {
                 ("roughness", vec![roughness], 0.001, 1.0),
                 ("metal", vec![metal], 0.0, 100.0),
             ],
+            Effect::Threads { width, height, overlaps, direction, center, coverage, shadowing, texture } => vec![
+                ("width", vec![width], 1.0, 1000.0),
+                ("height", vec![height], 1.0, 1000.0),
+                ("overlaps", vec![overlaps], 1.0, 10.0),
+                ("direction", vec![direction], -3600.0, 3600.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("coverage", vec![coverage], 0.0, 100.0),
+                ("shadowing", vec![shadowing], 0.0, 100.0),
+                ("texture", vec![texture], 0.0, 100.0),
+            ],
             Effect::MomentMap { max_time, resolution, .. } => vec![
                 ("max_time", vec![max_time], -10.0, 10.0),
                 ("resolution", vec![resolution], 1.0, 999.0),
@@ -4381,6 +4408,11 @@ impl Effect {
                     *light_height = scale(*light_height);
                 }
             }
+            // D-425: the threads' spacing is a distance; the centre is a share.
+            Effect::Threads { width, height, .. } => {
+                *width = scale(*width);
+                *height = scale(*height);
+            }
             Effect::IdKey { feather, .. } => *feather = scale(*feather),
             Effect::DisplacementMap { max_horizontal, max_vertical, .. } => {
                 *max_horizontal = scale(*max_horizontal);
@@ -4594,6 +4626,7 @@ impl Effect {
             Effect::Transform { .. } => "Transform",
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::GlueGun { .. } => "Glue Gun",
+            Effect::Threads { .. } => "Threads",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
             Effect::DepthKey { .. } => "Depth Key",
@@ -4764,6 +4797,7 @@ impl Effect {
             Effect::Transform { .. } => TRANSFORM,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::GlueGun { .. } => GLUE_GUN,
+            Effect::Threads { .. } => THREADS,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
             Effect::DepthKey { .. } => DEPTH_KEY,
@@ -7715,6 +7749,20 @@ pub(crate) fn apply_stack_at(
                     [*ambient / 100.0, *diffuse / 100.0, *specular / 100.0, *roughness, *metal / 100.0],
                 )
             }),
+            // D-425: the cloth laid about the centre, turned by the direction.
+            Effect::Threads { width, height, overlaps, direction, center, coverage, shadowing, texture } => {
+                crate::perf::time(crate::perf::Stage::EffectThreads, || {
+                    let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
+                    crate::layer_fx::threads(
+                        source,
+                        c,
+                        direction.to_radians().sin_cos(),
+                        (*width, *height),
+                        overlaps.floor(),
+                        [*coverage / 100.0, *shadowing / 100.0, *texture / 100.0],
+                    )
+                })
+            }
             // D-317: the map compose read for this frame, if a layer is named, is the bump.
             Effect::Glass {
                 property,

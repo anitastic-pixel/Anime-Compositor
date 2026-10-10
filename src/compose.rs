@@ -971,6 +971,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Bender { .. }
                 | crate::effects::Effect::Blobbylize { .. }
                 | crate::effects::Effect::GlueGun { .. }
+                | crate::effects::Effect::Threads { .. }
                 // D-385..D-387: Flow Motion, Griddler and Fisheye.
                 | crate::effects::Effect::FlowMotion { .. }
                 | crate::effects::Effect::Griddler { .. }

@@ -4181,6 +4181,40 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             textureStore(output, id.xy, out);
             return;
         }
+        case 35u: {
+            // D-425, layer_fx::threads. k: the centre, the turn's sine and cosine, the spacing
+            // across and down, the overlaps, coverage, shadowing, texture.
+            let dx = x - k[0];
+            let dy = y - k[1];
+            let u = dx * k[3] + dy * k[2];
+            let v = -dx * k[2] + dy * k[3];
+            let ti = floor(u / k[4]);
+            let tj = floor(v / k[5]);
+            var e = vec2(u - (ti + 0.5lf) * k[4], v - (tj + 0.5lf) * k[5]);
+            var hf = vec2(k[7] * k[4] / 2.0lf, k[7] * k[5] / 2.0lf);
+            let q = ti + tj;
+            if q - 2.0lf * k[6] * floor(q / (2.0lf * k[6])) >= k[6] {
+                e = e.yx;
+                hf = hf.yx;
+            }
+            var m = vec2(0.0lf);
+            var sh = vec2(1.0lf);
+            for (var t = 0u; t < 2u; t++) {
+                m[t] = max(min(e[t] + 0.5lf, hf[t]) - max(e[t] - 0.5lf, -hf[t]), 0.0lf);
+                if hf[t] > 0.0lf {
+                    sh[t] = 1.0lf - k[10] * min(e[t] * e[t] / (hf[t] * hf[t]), 1.0lf);
+                }
+            }
+            var g = 0.0lf;
+            if hf.x > 0.0lf {
+                g = clamp(1.0lf - (abs(e.x) - hf.x) / hf.x, 0.0lf, 1.0lf);
+            }
+            let kk = m.x * sh.x + m.y * sh.y * (1.0lf - k[8] * (1.0lf + g) / 2.0lf) * (1.0lf - m.x);
+            let a = m.x + m.y * (1.0lf - m.x);
+            let p = textureLoad(input, id.xy, 0);
+            textureStore(output, id.xy, vec4(f32(f64(p.x) * kk), f32(f64(p.y) * kk), f32(f64(p.z) * kk), f32(f64(p.w) * a)));
+            return;
+        }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
             let vx = x - f64(F.g) - k[0] - k[2];
@@ -10597,6 +10631,13 @@ impl Gpu {
                 }
                 k.extend(bands.concat().into_iter().map(f64::from));
                 same(steps, &passes.warp, FxParams { mode: 34, ..Default::default() }, &k, None)
+            }
+            // D-425: one warp pass, the cloth's numbers in `k`.
+            E::Threads { width, height, overlaps, direction, center, coverage, shadowing, texture } => {
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
+                let (s, c) = direction.to_radians().sin_cos();
+                let k = [cx, cy, s, c, *width, *height, overlaps.floor(), coverage / 100.0, shadowing / 100.0, 0.0, texture / 100.0];
+                same(steps, &passes.warp, FxParams { mode: 35, ..Default::default() }, &k, None)
             }
             // B-225 (D-344): five generators, each as its CPU function; the bolt's segments are
             // worked out here, as the CPU works them, and handed over in `k`.
