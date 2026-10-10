@@ -206120,3 +206120,105 @@ FX-ASPEC-051 (`fx_aspec_051.json`): Use Polar Path "maybe". The file is read, th
 FX-ASPEC-052 (`fx_aspec_052.json`): Audio Layer 5, a number, not a layer's name. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-ASPEC-053 (`fx_aspec_053.json`): Frequency Bands keyed to 4097 at frame 4, above 4096. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Audio Waveform (D-421)
+
+After Effects' Audio Waveform (Generate), `core.audio_waveform` (B-300). Every case is a composition 16 by 10 at 24 frames a second holding Gradient's cel, the same size, unmoved unless the case says, and a sound layer "sound" over all five frames, playing one of Audio Spectrum's sounds, written again by the reference into `Fixtures/audio_waveform/media/` (4800 samples a second, a second long: `tone.wav`, 0.5 at 300 Hz and 0.25 at 1200 Hz, in 16, 24, 32-bit floating point and 8-bit, and `stereo.wav`, 0.6 at 600 Hz left and 0.3 at 900 Hz right). `tools/audio_waveform_reference.py` works the expected frames, `Fixtures/audio_waveform/expected_audio_waveform.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-AWAVE-001 (`fx_awave_001.json`): The settings as they start, no Audio Layer: silence, so a flat Analog Line 2 thick along the line through the middle, alone. Frames 0.
+
+FX-AWAVE-002 (`fx_awave_002.json`): Eight displayed samples of a 10 ms window, 4 tall each way at most, Analog Lines, 2 thick, sharp, alone: a zigzag across the middle, each point the least or greatest of its six source samples as Random Seed 1 picks. Frames 0, 2.
+
+FX-AWAVE-003 (`fx_awave_003.json`): FX-AWAVE-002 with Composite On Original on: added to the cel. Frames 0.
+
+FX-AWAVE-004 (`fx_awave_004.json`): Digital: each displayed sample a stroke from its least to its greatest source sample. Frames 0.
+
+FX-AWAVE-005 (`fx_awave_005.json`): Analog Dots: a dot at each picked point. Frames 0.
+
+FX-AWAVE-006 (`fx_awave_006.json`): Random Seed 2: other picks of least or greatest. Frames 0.
+
+FX-AWAVE-007 (`fx_awave_007.json`): Random Seed 2.9: its whole part counted, so FX-AWAVE-006's frame. Frames 0.
+
+FX-AWAVE-008 (`fx_awave_008.json`): The stereo file, Waveform Options Left: the 600 Hz channel alone. Frames 0.
+
+FX-AWAVE-009 (`fx_awave_009.json`): The stereo file, Right: the 900 Hz channel alone. Frames 0.
+
+FX-AWAVE-010 (`fx_awave_010.json`): The stereo file, Mono: the two channels' mean. Frames 0.
+
+FX-AWAVE-011 (`fx_awave_011.json`): The one-channel file with Right: it plays as Mono, so FX-AWAVE-002's frame. Frames 0.
+
+FX-AWAVE-012 (`fx_awave_012.json`): Audio Offset 5 ms: the window starts 24 samples later. Frames 0.
+
+FX-AWAVE-013 (`fx_awave_013.json`): Audio Duration 40 ms: 192 samples, 24 to each displayed sample, so every least and greatest is near the tone's own. Frames 0.
+
+FX-AWAVE-014 (`fx_awave_014.json`): Displayed Samples 1: one point in the middle of the line, a dot. Frames 0.
+
+FX-AWAVE-015 (`fx_awave_015.json`): Displayed Samples 48: one source sample each, the wave itself. Frames 0.
+
+FX-AWAVE-016 (`fx_awave_016.json`): Digital with Displayed Samples 60, more than the window's 48: some displayed samples share a source sample. Frames 0.
+
+FX-AWAVE-017 (`fx_awave_017.json`): Path 1, a mask (mode None) round the box from (2, 2) to (14, 8), 16 displayed samples, 2 tall at most: a closed line round the box. Frames 0.
+
+FX-AWAVE-018 (`fx_awave_018.json`): Path 2 with only one mask: none to draw along, so nothing is drawn and EFFECT_PATH_MISSING is said; the cel as it was. Warning `EFFECT_PATH_MISSING`. Frames 0.
+
+FX-AWAVE-019 (`fx_awave_019.json`): Audio Layer "ghost", not in the composition: EFFECT_LAYER_MISSING is said and the cel is as it was. Warning `EFFECT_LAYER_MISSING`. Frames 0.
+
+FX-AWAVE-020 (`fx_awave_020.json`): Audio Layer "art", the cel itself, which holds no sound: EFFECT_SOUND_MISSING is said and the cel is as it was. Warning `EFFECT_SOUND_MISSING`. Frames 0.
+
+FX-AWAVE-021 (`fx_awave_021.json`): The 24-bit file: as FX-AWAVE-002 within a level. Frames 0.
+
+FX-AWAVE-022 (`fx_awave_022.json`): The 32-bit floating point file. Frames 0.
+
+FX-AWAVE-023 (`fx_awave_023.json`): The 8-bit file. Frames 0.
+
+FX-AWAVE-024 (`fx_awave_024.json`): The sound layer starting at frame 2: frames 0 and 1 silent (a flat line), frame 4 its own frame 2. Frames 0, 4.
+
+FX-AWAVE-025 (`fx_awave_025.json`): The sound layer at -6.0206 dB, half as loud: the wave half as tall. Frames 0.
+
+FX-AWAVE-026 (`fx_awave_026.json`): The sound layer at +12 dB: four times as loud, held to Maximum Height. Frames 0.
+
+FX-AWAVE-027 (`fx_awave_027.json`): Maximum Height keyed from 0 at frame 0 to 4 at frame 4, linear. Frames 0, 2, 4.
+
+FX-AWAVE-028 (`fx_awave_028.json`): FX-AWAVE-002 moved three pixels right: the wave moves with the layer. Frames 0.
+
+FX-AWAVE-029 (`fx_awave_029.json`): After a Motion Tile that grows the layer: the points are the drawing's own, so the frame is FX-AWAVE-002's. Frames 0.
+
+FX-AWAVE-030 (`fx_awave_030.json`): Thickness 0: nothing drawn, the cel as it was. Frames 0.
+
+FX-AWAVE-031 (`fx_awave_031.json`): Thickness 3, softness 100, orange inside, violet outside. Frames 0.
+
+FX-AWAVE-032 (`fx_awave_032.json`): Start Point (90, 50), End Point (10, 50): drawn right to left, so the wave faces down. Frames 0.
+
+FX-AWAVE-033 (`fx_awave_033.json`): A slant from (10, 20) to (90, 80). Frames 0.
+
+FX-AWAVE-034 (`fx_awave_034.json`): Displayed Samples 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-035 (`fx_awave_035.json`): Displayed Samples 4097, above 4096. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-036 (`fx_awave_036.json`): Maximum Height -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-037 (`fx_awave_037.json`): Audio Duration 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-038 (`fx_awave_038.json`): Audio Offset -30001, below -30000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-039 (`fx_awave_039.json`): Thickness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-040 (`fx_awave_040.json`): Softness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-041 (`fx_awave_041.json`): Random Seed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-042 (`fx_awave_042.json`): Path 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-043 (`fx_awave_043.json`): End Point -1001 per cent down, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-044 (`fx_awave_044.json`): Waveform Options "stereo", not mono, left or right. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-045 (`fx_awave_045.json`): Display Options "bars", not digital, analog_lines or analog_dots. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-046 (`fx_awave_046.json`): Composite "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-047 (`fx_awave_047.json`): Outside colour "blue", not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-048 (`fx_awave_048.json`): Audio Layer 5, a number, not a layer's name. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-AWAVE-049 (`fx_awave_049.json`): Displayed Samples keyed to 4097 at frame 4, above 4096. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

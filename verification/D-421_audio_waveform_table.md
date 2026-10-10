@@ -324,10 +324,10 @@ B-300, after After Effects' Audio Waveform: the samples of a sound layer over Au
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | 1_before.png, the street with no effect; draws cleanly | [] | yes |
-| 2_as_added.png, the music as it starts, 900 tall: a white line edged blue along the middle, alone; draws cleanly | [], 129600 pixels changed | yes |
-| 3_over_the_street.png, digital strokes along the foot of the street, over it, two seconds in; draws cleanly | [], 88076 pixels changed | yes |
-| 4_neon_line.png, an orange neon line over the street, four seconds in; draws cleanly | [], 86706 pixels changed | yes |
-| 5_slanted_dots.png, red dots on a slant up the street, over it, six seconds in; draws cleanly | [], 2251 pixels changed | yes |
+| 2_as_added.png, the music as it starts, 100 tall: a white line edged blue zigzagging along the middle, alone; draws cleanly | [], 129600 pixels changed | yes |
+| 3_over_the_street.png, digital strokes along the road, over the street, two seconds in; draws cleanly | [], 5448 pixels changed | yes |
+| 4_neon_line.png, an orange neon wave over the street, 20 ms of the music, four seconds in; draws cleanly | [], 10269 pixels changed | yes |
+| 5_slanted_dots.png, red dots on a slant up the street, over it, six seconds in; draws cleanly | [], 7450 pixels changed | yes |
 
 ## Result
 

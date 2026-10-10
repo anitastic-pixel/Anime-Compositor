@@ -422,10 +422,10 @@ fn b300_audio_waveform() {
     street(
         &mut t,
         &[
-            ("as_added", json!({"audio_layer": "sound", "maximum_height": 900, "thickness": 4}), 0, "the music as it starts, 900 tall: a white line edged blue along the middle, alone", gaps),
-            ("over_the_street", json!({"audio_layer": "sound", "maximum_height": 900, "displayed_samples": 200, "display_options": "digital", "thickness": 3, "start_point": [5, 85], "end_point": [95, 85], "composite": "on"}), 48, "digital strokes along the foot of the street, over it, two seconds in", kept),
-            ("neon_line", json!({"audio_layer": "sound", "displayed_samples": 96, "maximum_height": 1500, "thickness": 6, "softness": 80, "inside_color": "#fff0c0", "outside_color": "#ff8000", "composite": "on"}), 96, "an orange neon line over the street, four seconds in", kept),
-            ("slanted_dots", json!({"audio_layer": "sound", "display_options": "analog_dots", "displayed_samples": 64, "maximum_height": 1200, "thickness": 10, "start_point": [10, 85], "end_point": [90, 15], "inside_color": "#ff4040", "outside_color": "#ff4040", "composite": "on"}), 144, "red dots on a slant up the street, over it, six seconds in", kept),
+            ("as_added", json!({"audio_layer": "sound", "maximum_height": 100, "thickness": 4}), 0, "the music as it starts, 100 tall: a white line edged blue zigzagging along the middle, alone", gaps),
+            ("over_the_street", json!({"audio_layer": "sound", "maximum_height": 40, "displayed_samples": 120, "display_options": "digital", "audio_duration": 40, "thickness": 3, "start_point": [5, 88], "end_point": [95, 88], "composite": "on"}), 48, "digital strokes along the road, over the street, two seconds in", kept),
+            ("neon_line", json!({"audio_layer": "sound", "displayed_samples": 240, "audio_duration": 20, "maximum_height": 80, "thickness": 5, "softness": 80, "inside_color": "#fff0c0", "outside_color": "#ff8000", "composite": "on"}), 96, "an orange neon wave over the street, 20 ms of the music, four seconds in", kept),
+            ("slanted_dots", json!({"audio_layer": "sound", "display_options": "analog_dots", "displayed_samples": 48, "audio_duration": 30, "maximum_height": 60, "thickness": 10, "start_point": [10, 85], "end_point": [90, 15], "inside_color": "#ff4040", "outside_color": "#ff4040", "composite": "on"}), 144, "red dots on a slant up the street, over it, six seconds in", kept),
         ],
     );
 
@@ -462,7 +462,7 @@ fn b300_audio_waveform_timing() {
     let shots: [(&str, Option<J>); 4] = [
         ("Noise alone", None),
         ("Noise, then Audio Waveform as added, listening to the music (32 points, 90 ms)", Some(json!({"audio_layer": "sound"}))),
-        ("Noise, then Audio Waveform, Digital, 4096 samples over 1000 ms, hairlines, 2000 tall", Some(json!({"audio_layer": "sound", "display_options": "digital", "displayed_samples": 4096, "audio_duration": 1000, "thickness": 1, "softness": 0, "maximum_height": 2000}))),
+        ("Noise, then Audio Waveform, Digital, 1024 samples over 200 ms, hairlines, 300 tall", Some(json!({"audio_layer": "sound", "display_options": "digital", "displayed_samples": 1024, "audio_duration": 200, "thickness": 1, "softness": 0, "maximum_height": 300}))),
         ("Noise, then Audio Waveform, Analog Dots, 128 samples, 800 tall, thickness 8", Some(json!({"audio_layer": "sound", "display_options": "analog_dots", "displayed_samples": 128, "maximum_height": 800, "thickness": 8}))),
     ];
     for (name, e) in shots {
