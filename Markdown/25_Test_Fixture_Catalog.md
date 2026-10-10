@@ -206788,3 +206788,71 @@ FX-FLARE-017 (`fx_flare_017.json`): Blend With Original 101, above 100. The file
 FX-FLARE-018 (`fx_flare_018.json`): A lens type written "200mm". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-FLARE-019 (`fx_flare_019.json`): A centre 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Eyedropper Fill (D-419)
+
+After Effects' Eyedropper Fill (Generate), `core.eyedropper_fill` (B-298). Every case is a composition 16 by 10 holding the cel `Fixtures/eyedropper_fill/media/cel.png`, the same size, unmoved unless the case says. `tools/eyedropper_fill_reference.py` works the expected frames, `Fixtures/eyedropper_fill/expected_eyedropper_fill.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-EYEFILL-001 (`fx_eyefill_001.json`): The settings as they start: the point in the middle, (8, 5), radius 0, Skip Empty: the skin under the point fills the whole layer, its line, shadow and empty border alike, all opaque. Frames 0.
+
+FX-EYEFILL-002 (`fx_eyefill_002.json`): The point at (2, 5), radius 2, Skip Empty: twelve pixels, two of them empty and left out, the soft edge's line counted at its full colour; a dark colour, mostly the line's, a little skin. Frames 0.
+
+FX-EYEFILL-003 (`fx_eyefill_003.json`): The same area, All: the two empty pixels count as black, so a little darker than FX-EYEFILL-002. Frames 0.
+
+FX-EYEFILL-004 (`fx_eyefill_004.json`): The same area, All Premultiplied: the soft edge counts at half, so darker again, still opaque. Frames 0.
+
+FX-EYEFILL-005 (`fx_eyefill_005.json`): The same area, Including Alpha: the area's covering, about two thirds, becomes the layer's; the colour that of FX-EYEFILL-004 divided by it. Frames 0.
+
+FX-EYEFILL-006 (`fx_eyefill_006.json`): FX-EYEFILL-005 with Maintain Original Alpha: the covering also times each pixel's own, so the border stays empty and the soft edge half again. Frames 0.
+
+FX-EYEFILL-007 (`fx_eyefill_007.json`): FX-EYEFILL-002 with Maintain Original Alpha: the colour opaque inside the cel, half covering on its soft edge, the border empty. Frames 0.
+
+FX-EYEFILL-008 (`fx_eyefill_008.json`): The settings as they start, Blend With Original 50: half way from the skin to the cel, the empty border half covered with skin. Frames 0.
+
+FX-EYEFILL-009 (`fx_eyefill_009.json`): Blend With Original 100: the cel as it was. Frames 0.
+
+FX-EYEFILL-010 (`fx_eyefill_010.json`): The point on the edge between skin and shadow, (10, 5), radius 1.5: four pixels, two each, an even mix of the two. Frames 0.
+
+FX-EYEFILL-011 (`fx_eyefill_011.json`): Radius 1000, Skip Empty: every pixel that shows, each at its full colour, averaged; the layer's empty pixels and the plane past it left out. Frames 0.
+
+FX-EYEFILL-012 (`fx_eyefill_012.json`): Radius 1000, All: the disc's three million pixels counted, nearly all past the layer and black, so the fill is all but black. Frames 0.
+
+FX-EYEFILL-013 (`fx_eyefill_013.json`): The point past the layer's left edge, (-50, 50), Skip Empty: nothing shows there, so black, opaque. Frames 0.
+
+FX-EYEFILL-014 (`fx_eyefill_014.json`): The same point, Including Alpha: nothing shows, so the layer is empty. Frames 0.
+
+FX-EYEFILL-015 (`fx_eyefill_015.json`): A radius of 0.4 with the point at (8.5, 5.5), a pixel's centre: that pixel alone, as radius 0, FX-EYEFILL-001's frame. Frames 0.
+
+FX-EYEFILL-016 (`fx_eyefill_016.json`): The point keyed from (25, 50) at frame 0 to (75, 50) at frame 4: skin at frames 0 and 2, shadow at frame 4. Frames 0, 2, 4.
+
+FX-EYEFILL-017 (`fx_eyefill_017.json`): The radius keyed from 0 to 4 at the edge point: the colour changes as the area grows. Frames 0, 2, 4.
+
+FX-EYEFILL-018 (`fx_eyefill_018.json`): Blend With Original keyed from 0 to 100: frame 0 FX-EYEFILL-001's, frame 2 FX-EYEFILL-008's, frame 4 the cel. Frames 0, 2, 4.
+
+FX-EYEFILL-019 (`fx_eyefill_019.json`): FX-EYEFILL-001 moved three pixels right: the layer's own pixels move, the three columns it left are empty. Frames 0.
+
+FX-EYEFILL-020 (`fx_eyefill_020.json`): After a Motion Tile that grows the layer: the point is the drawing's own, so the frame is FX-EYEFILL-010's. Frames 0.
+
+FX-EYEFILL-021 (`fx_eyefill_021.json`): Blend With Original keyed from 40 at frame 0 to 100 at frame 4 by an ease that passes its end: held at 100 at frame 2, the cel. Frames 0, 2, 4.
+
+FX-EYEFILL-022 (`fx_eyefill_022.json`): Including Alpha, Maintain Original Alpha and Blend With Original 50 together at the edge point, radius 2. Frames 0.
+
+FX-EYEFILL-023 (`fx_eyefill_023.json`): All Premultiplied, Maintain Original Alpha, radius 0 on the soft edge at (1.5, 5.5): the line at half its colour, laid on each pixel's own covering. Frames 0.
+
+FX-EYEFILL-024 (`fx_eyefill_024.json`): Sample Point across 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EYEFILL-025 (`fx_eyefill_025.json`): Sample Point down -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EYEFILL-026 (`fx_eyefill_026.json`): Sample Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EYEFILL-027 (`fx_eyefill_027.json`): Sample Radius 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EYEFILL-028 (`fx_eyefill_028.json`): Blend With Original -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EYEFILL-029 (`fx_eyefill_029.json`): Blend With Original 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EYEFILL-030 (`fx_eyefill_030.json`): Average Pixel Colors "sum", not one of the four. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EYEFILL-031 (`fx_eyefill_031.json`): Maintain Original Alpha "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EYEFILL-032 (`fx_eyefill_032.json`): Blend With Original keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
