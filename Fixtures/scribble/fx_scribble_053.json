@@ -1,0 +1,120 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-scribble-053",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-cel",
+      "kind": "still",
+      "name": "cel",
+      "path": "media/cel.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 12,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 12
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-cel",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 12,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.scribble",
+              "enabled": true,
+              "parameters": {
+                "scribble": "all_masks_using_modes",
+                "mask": 1,
+                "fill_type": "inside",
+                "edge_width": 2,
+                "color": "#ff3020",
+                "opacity": 100,
+                "angle": 0,
+                "stroke_width": 1,
+                "curviness": 0,
+                "curviness_variation": 0,
+                "spacing": 2.5,
+                "spacing_variation": 0,
+                "path_overlap": 0,
+                "path_overlap_variation": 0,
+                "start": 0,
+                "end": 100,
+                "fill_paths_sequentially": "on",
+                "wiggle_type": "static",
+                "wiggles_per_second": 6,
+                "random_seed": 1,
+                "composite": "on_original"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
