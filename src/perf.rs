@@ -311,6 +311,8 @@ pub enum Stage {
     EffectTiles,
     /// D-405's Magnify.
     EffectMagnify,
+    /// D-406's Spherize.
+    EffectSpherize,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -328,7 +330,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 161] = [
+    pub const ALL: [Stage; 162] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -483,6 +485,7 @@ impl Stage {
         Stage::EffectColorGrade,
         Stage::EffectTiles,
         Stage::EffectMagnify,
+        Stage::EffectSpherize,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -649,6 +652,7 @@ impl Stage {
             Stage::EffectColorGrade => "effect: color grade",
             Stage::EffectTiles => "effect: tiles",
             Stage::EffectMagnify => "effect: magnify",
+            Stage::EffectSpherize => "effect: spherize",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

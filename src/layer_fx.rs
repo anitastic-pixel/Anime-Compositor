@@ -1928,6 +1928,32 @@ pub(crate) fn twirl(source: &mut WorkingBuffer, angle: f64, radius: f64, center:
 }
 
 
+/// D-406: Spherize. Each pixel within `radius` of `center`, a point in the buffer, rho of the
+/// way out, read at center + v (2 asin(rho) / pi) / rho, a half sphere seen from in front; the
+/// rest left as they are. The settings are already valid.
+pub(crate) fn spherize(source: &mut WorkingBuffer, radius: f64, center: (f64, f64)) {
+    if radius <= 0.0 {
+        return;
+    }
+    let w = source.width();
+    let drawing = source.clone();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (vx, vy) = (x - center.0, y - center.1);
+            let d = vx.hypot(vy);
+            if d >= radius {
+                return;
+            }
+            let rho = d / radius;
+            let k = if d == 0.0 { 0.0 } else { 2.0 * rho.asin() / std::f64::consts::PI / rho };
+            px.copy_from_slice(&sample_bilinear(&drawing, center.0 + k * vx, center.1 + k * vy));
+        });
+}
+
 /// D-152: each pixel within `radius` of `center`, a point in the buffer, read from a place
 /// drawn toward the centre when `height` is above 0, a swell, or pushed away from it when
 /// below, a pinch, most at the middle. The settings are already valid.

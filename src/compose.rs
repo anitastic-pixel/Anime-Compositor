@@ -980,6 +980,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::Tiles { .. }
                 // D-405: Magnify.
                 | crate::effects::Effect::Magnify { .. }
+                // D-406: Spherize.
+                | crate::effects::Effect::Spherize { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
                 // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }
@@ -1289,6 +1291,7 @@ fn card_effect(
                 E::Tiles { scale, center, blend } => *blend >= 100.0 || (*scale == 100.0 && *center == crate::layer_fx::PLAIN_TILE),
                 // D-405: a clear area laid over the layer, as layer_fx::magnify returns at once.
                 E::Magnify { opacity, blending_mode, .. } => *opacity == 0.0 && blending_mode != "none",
+                E::Spherize { radius, .. } => *radius <= 0.0,
                 // D-360: the mean of two untouched copies is the layer.
                 E::CrossBlur { radius_x, radius_y, mode, .. } => {
                     mode == "blend" && crate::effects::box_reach(*radius_x, 1.0).max(crate::effects::box_reach(*radius_y, 1.0)) == 0

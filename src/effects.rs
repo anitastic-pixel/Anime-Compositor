@@ -1714,6 +1714,9 @@ pub enum Effect {
         blending_mode: String,
         resize_layer: String,
     },
+    /// D-406: after After Effects' Spherize. `radius`, 0 to 2500 pixels; `center`, per cent of
+    /// the picture as it reaches the effect, -1000 to 1000, the sphere's middle.
+    Spherize { radius: f64, center: [f64; 2] },
     /// D-395: after After Effects' PS Arbitrary Map. `map`, the id of an asset of kind lut that
     /// is a Photoshop arbitrary map (.amp), or empty for none; `phase`, -255 to 255 levels, every
     /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
@@ -2178,6 +2181,7 @@ pub const SPLIT: &str = "core.split";
 pub const SPLIT_2: &str = "core.split_2";
 pub const TILES: &str = "core.tiles";
 pub const MAGNIFY: &str = "core.magnify";
+pub const SPHERIZE: &str = "core.spherize";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3055,6 +3059,10 @@ impl Effect {
                 ("feather", vec![feather], 0.0, 1000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::Spherize { radius, center } => vec![
+                ("radius", vec![radius], 0.0, 2500.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+            ],
             Effect::ArbitraryMap { phase, .. } => vec![("phase", vec![phase], -255.0, 255.0)],
             Effect::SelectiveColor { families, .. } => SELECTIVE_COLOR_FAMILIES
                 .into_iter()
@@ -3794,6 +3802,7 @@ impl Effect {
                 *size = scale(*size);
                 *feather = scale(*feather);
             }
+            Effect::Spherize { radius, .. } => *radius = scale(*radius),
             Effect::Bulge { radius, vertical_radius, taper_radius, .. } => {
                 *radius = scale(*radius);
                 *vertical_radius = scale(*vertical_radius);
@@ -4056,6 +4065,7 @@ impl Effect {
             Effect::Split2 { .. } => "Split 2",
             Effect::Tiles { .. } => "Tiles",
             Effect::Magnify { .. } => "Magnify",
+            Effect::Spherize { .. } => "Spherize",
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::SelectiveColor { .. } => "Selective Color",
             Effect::ShadowHighlight { .. } => "Shadow/Highlight",
@@ -4214,6 +4224,7 @@ impl Effect {
             Effect::Split2 { .. } => SPLIT_2,
             Effect::Tiles { .. } => TILES,
             Effect::Magnify { .. } => MAGNIFY,
+            Effect::Spherize { .. } => SPHERIZE,
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
             Effect::ShadowHighlight { .. } => SHADOW_HIGHLIGHT,
@@ -6821,6 +6832,11 @@ pub(crate) fn apply_stack_at(
                 });
                 ox += g;
                 oy += g;
+            }
+            // D-406: the centre is a share of the drawing's own size, as Bulge's is.
+            Effect::Spherize { radius, center } => {
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
+                crate::perf::time(crate::perf::Stage::EffectSpherize, || crate::layer_fx::spherize(source, *radius, c))
             }
             // D-379: the map compose read for this frame, if a layer is named, is the blob.
             Effect::Blobbylize {

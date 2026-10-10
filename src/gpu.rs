@@ -3246,8 +3246,8 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             sx = x + s * vx;
             sy = y + s * vy;
         }
-        case 2u, 3u: {
-            // k: the centre, the turn in radians or the height, the radius.
+        case 2u, 3u, 24u: {
+            // k: the centre, the turn in radians or the height (0 for D-406's Spherize), the radius.
             let vx = x - k[0];
             let vy = y - k[1];
             let d = sqrt(vx * vx + vy * vy);
@@ -3262,6 +3262,15 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
                 let c = cos64(turn);
                 sx = k[0] + (vx * c + vy * s);
                 sy = k[1] + (vy * c - vx * s);
+            } else if F.mode == 24u {
+                // layer_fx::spherize: read at c + v 2 asin(rho) / (pi rho), asin as Fisheye's.
+                var m = 0.0lf;
+                if d != 0.0lf {
+                    let rho = d / k[3];
+                    m = 2.0lf * atan2_64(rho, sqrt(1.0lf - rho * rho)) / 3.141592653589793lf / rho;
+                }
+                sx = k[0] + m * vx;
+                sy = k[1] + m * vy;
             } else {
                 let m = max(1.0lf - k[2] * t * t / 2.0lf, 0.0lf);
                 sx = k[0] + m * vx;
@@ -8764,6 +8773,11 @@ impl Gpu {
             E::Bulge { center, radius, height, .. } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 same(steps, &passes.warp, FxParams { mode: 3, ..Default::default() }, &[cx, cy, *height, *radius], None)
+            }
+            // D-406: Bulge's branch of the warp pass, mode 24.
+            E::Spherize { radius, center } => {
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
+                same(steps, &passes.warp, FxParams { mode: 24, ..Default::default() }, &[cx, cy, 0.0, *radius], None)
             }
             // D-377: the frames at End and at -L worked out here as the CPU works them.
             E::BendIt { bend, start, end, render_prestart, distort } => {
