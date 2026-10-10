@@ -206746,3 +206746,45 @@ FX-THREADS-026 (`fx_threads_026.json`): Coverage 101, above 100. The file is rea
 FX-THREADS-027 (`fx_threads_027.json`): Shadowing -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-THREADS-028 (`fx_threads_028.json`): Texture 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Lens Flare (D-426)
+
+Lens Flare, After Effects' Lens Flare (Generate), `core.lens_flare` (B-305). Every case is a composition 16 by 10, eight frames at 24 a second, holding Blobbylize's drawings (`Fixtures/lens_flare/media/`: photo, shapes, ramp), the holder at the top with the effect, unmoved unless the case says. `tools/lens_flare_reference.py` works the expected frames, `Fixtures/lens_flare/expected_lens_flare.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-FLARE-001 (`fx_flare_001.json`): As added: the 50-300mm zoom flare at 30, 30 per cent, brightness 100: a white-hot core and a warm glow round (4.8, 3), six faint rays, a blue halo, and coloured ghosts along the line through the middle. Frames 0.
+
+FX-FLARE-002 (`fx_flare_002.json`): The flare at the middle, 50, 50: every ghost sits on the flare itself, so the picture is round about the middle. Frames 0.
+
+FX-FLARE-003 (`fx_flare_003.json`): Brightness 0: no light; the photo untouched. Frames 0.
+
+FX-FLARE-004 (`fx_flare_004.json`): Brightness 300: three times FX-FLARE-001's light. Frames 0.
+
+FX-FLARE-005 (`fx_flare_005.json`): The 35mm prime: a smaller glow, eight rays, three ghosts. Frames 0.
+
+FX-FLARE-006 (`fx_flare_006.json`): The 105mm prime: a bigger, warmer glow, twelve long rays, an orange halo, two ghosts. Frames 0.
+
+FX-FLARE-007 (`fx_flare_007.json`): Blend With Original 100: the photo untouched. Frames 0.
+
+FX-FLARE-008 (`fx_flare_008.json`): Blend With Original 50: halfway between FX-FLARE-001 and the photo. Frames 0.
+
+FX-FLARE-009 (`fx_flare_009.json`): On the shapes drawing, clear between its blocks: the light shows in the clear parts too, as covering as it is bright. Frames 0.
+
+FX-FLARE-010 (`fx_flare_010.json`): FX-FLARE-001 on the holder moved 2 right and 1 down: the same, moved; the flare is drawn on the drawing before it moves. Frames 0.
+
+FX-FLARE-011 (`fx_flare_011.json`): The centre keyed from 0, 0 at frame 0 to 100, 100 at frame 4, linear: frame 2 is FX-FLARE-002. Frames 0, 2, 4.
+
+FX-FLARE-012 (`fx_flare_012.json`): Brightness eased from 0 at frame 0 to 300 at frame 4 on a curve that overshoots: at frame 2 it would pass 300, is held at 300, as frame 4 is. Frames 0, 2, 4.
+
+FX-FLARE-013 (`fx_flare_013.json`): The flare off the layer, at -50, 150: only its ghosts and the tail of its glow and rays reach the drawing. Frames 0.
+
+FX-FLARE-014 (`fx_flare_014.json`): The 105mm prime at 70, 20, brightness 150, blend 25, on the ramp: the controls together. Frames 0.
+
+FX-FLARE-015 (`fx_flare_015.json`): Brightness 301, above 300. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLARE-016 (`fx_flare_016.json`): Brightness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLARE-017 (`fx_flare_017.json`): Blend With Original 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLARE-018 (`fx_flare_018.json`): A lens type written "200mm". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FLARE-019 (`fx_flare_019.json`): A centre 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
