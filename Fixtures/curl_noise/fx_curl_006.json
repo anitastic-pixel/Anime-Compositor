@@ -1,0 +1,123 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-curl-006",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-card",
+      "kind": "still",
+      "name": "card",
+      "path": "media/card.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 5,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 5
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-card",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.curl_noise",
+              "enabled": true,
+              "parameters": {
+                "source": "internal",
+                "speed": 10,
+                "direction": 0,
+                "size": 6,
+                "offset": [
+                  0,
+                  0
+                ],
+                "evolution": 0,
+                "turbulence_speed": 20,
+                "swirl": 45,
+                "density": 0,
+                "smoothness": 50,
+                "vertical_bias": 50,
+                "sample_count": 6,
+                "sample_radius": 4,
+                "flow_softness": 100,
+                "edge_definition": 50,
+                "flow_falloff": 0,
+                "view": "final_render",
+                "contrast": 100,
+                "brightness": 0,
+                "clip_hdr_results": "on",
+                "channel": "rgb"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
