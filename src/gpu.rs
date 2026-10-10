@@ -6623,6 +6623,159 @@ fn vegas(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-446, grade::value_slope: the smooth value noise for the seed in `base` and its slope across and
+// down, over all eight corners.
+fn value_slope(ch: u32, p: vec3<f64>) -> vec3<f64> {
+    let c = floor(p);
+    let t = p - c;
+    let s = vec3(fade(t.x), fade(t.y), fade(t.z));
+    let d = vec2(30.0lf * t.x * t.x * (1.0lf - t.x) * (1.0lf - t.x), 30.0lf * t.y * t.y * (1.0lf - t.y) * (1.0lf - t.y));
+    let i = vec3<i32>(c);
+    var out = vec3(0.0lf);
+    for (var corner = 0u; corner < 8u; corner++) {
+        let e = vec3(corner & 1u, (corner >> 1u) & 1u, corner >> 2u);
+        let w = select(vec3(1.0lf) - s, s, e == vec3(1u));
+        let n = hashed(i.x + i32(e.x), i.y + i32(e.y), i.z + i32(e.z), ch);
+        out.x += w.x * w.y * w.z * n;
+        out.y += select(-d.x, d.x, e.x == 1u) * w.y * w.z * n;
+        out.z += w.x * select(-d.y, d.y, e.y == 1u) * w.z * n;
+    }
+    return out;
+}
+
+// D-446, grade::Curl::at over the field's buffer, the drawing's size and F.g round it: k the
+// field's size, its slide across and down, its depth, the four octaves' weights, the across and
+// down bias, the share of blocks in the seed and the swirl; F.base the seed nought's mix.
+@compute @workgroup_size(16, 16)
+fn curlfield(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let x = f64(i32(id.x) - F.g - F.ox) + 0.5lf - k[1];
+    let y = f64(i32(id.y) - F.g - F.oy) + 0.5lf - k[2];
+    let s = k[0];
+    var n = 0.0lf;
+    var gx = 0.0lf;
+    var gy = 0.0lf;
+    var total = 0.0lf;
+    var fine = 1.0lf;
+    for (var o = 0u; o < 4u; o++) {
+        let amp = k[4u + o];
+        let v = value_slope(8u * o, vec3(x / s * fine, y / s * fine, k[3] * fine));
+        n += amp * v.x;
+        gx += amp * fine * v.y;
+        gy += amp * fine * v.z;
+        total += amp;
+        fine *= 2.0lf;
+    }
+    n = n / total;
+    gx = gx / total / s;
+    gy = gy / total / s;
+    let t = (-90.0lf + k[11] * n) * 0.017453292519943295lf;
+    let c = cos64(t);
+    let sn = sin64(t);
+    let vx = (c * gx - sn * gy) * k[8];
+    let vy = (sn * gx + c * gy) * k[9];
+    let length = sqrt(vx * vx + vy * vy);
+    var d = vec2(0.0lf);
+    if length > 0.0lf {
+        d = vec2(vx / length, vy / length);
+    }
+    let cell = s / 50.0lf;
+    let q = vec3(x / cell, y / cell, k[3]);
+    let e = k[10];
+    var seed = 0.0lf;
+    if e == 1.0lf {
+        seed = cell_noise_look(7u, q, true, 0);
+    } else if e == 0.0lf {
+        seed = cell_noise_look(7u, q, false, 0);
+    } else {
+        seed = e * cell_noise_look(7u, q, true, 0) + (1.0lf - e) * cell_noise_look(7u, q, false, 0);
+    }
+    textureStore(output, id.xy, vec4(f32(d.x), f32(d.y), f32(n), f32(seed)));
+}
+
+// D-446, grade::curl_noise after the field (`other`, F.g round the drawing): k the sample radius,
+// the steps, Flow Softness and Flow Falloff out of 1, the view (0 Final Render, 1 Input Noise, 2
+// Curl Generation), Contrast, Brightness, 1 to hold at white, the channel (0 RGB, 1 to 3 red to
+// blue, 4 alpha).
+@compute @workgroup_size(16, 16)
+fn curlflow(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let a = f64(p.w);
+    if a <= 0.0lf {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    let m = u32(F.g);
+    let fp = textureLoad(other, id.xy + vec2(m), 0);
+    let dx = f64(fp.x);
+    let dy = f64(fp.y);
+    let n = f64(fp.z);
+    var o = vec3(0.5lf + 0.5lf * n);
+    let view = u32(k[4]);
+    if view == 2u {
+        o = vec3(0.5lf + 0.5lf * dx, 0.5lf + 0.5lf * dy, 0.5lf + 0.5lf * n);
+    } else if view == 0u {
+        let radius = k[0];
+        let steps = u32(k[1]);
+        let h = radius / k[1];
+        var sw = 1.0lf;
+        var sws = 1.0lf;
+        var ss = f64(fp.w);
+        for (var way = 0u; way < 2u; way++) {
+            let sign = select(-1.0lf, 1.0lf, way == 0u);
+            var qx = f64(id.x + m) + 0.5lf;
+            var qy = f64(id.y + m) + 0.5lf;
+            var ex = dx;
+            var ey = dy;
+            for (var i = 1u; i <= steps; i++) {
+                let length = sqrt(ex * ex + ey * ey);
+                if length < 1e-6lf {
+                    break;
+                }
+                qx += sign * h * ex / length;
+                qy += sign * h * ey / length;
+                let q = bilinear(other, qx, qy);
+                ex = f64(q.x);
+                ey = f64(q.y);
+                let wt = 1.0lf - f64(i) / (k[1] + 1.0lf);
+                ss += wt * f64(q.w);
+                sw += wt;
+                sws += wt * wt;
+            }
+        }
+        let lines = ss / sw * (sw / sqrt(sws));
+        let mixed = n + (1.0lf - k[2]) * min(1.0lf, radius / 8.0lf) * (lines - n);
+        o = vec3(0.5lf + 0.5lf * (mixed * (1.0lf - k[3] * (0.5lf - 0.5lf * n))));
+    }
+    for (var j = 0u; j < 3u; j++) {
+        let v = 0.5lf + (o[j] - 0.5lf) * k[5] / 100.0lf + k[6] / 100.0lf;
+        o[j] = select(max(v, 0.0lf), clamp(v, 0.0lf, 1.0lf), k[7] == 1.0lf);
+    }
+    var out = p;
+    let channel = u32(k[8]);
+    if channel == 0u {
+        for (var j = 0u; j < 3u; j++) {
+            out[j] = f32(to_linear(o[j]) * a);
+        }
+    } else if channel == 4u {
+        let t = a * clamp((o.x + o.y + o.z) / 3.0lf, 0.0lf, 1.0lf);
+        for (var j = 0u; j < 3u; j++) {
+            out[j] = f32(f64(p[j]) / a * t);
+        }
+        out.w = f32(t);
+    } else {
+        out[channel - 1u] = f32(to_linear(o[channel - 1u]) * a);
+    }
+    textureStore(output, id.xy, out);
+}
+
 // D-420, layer_fx::draw_marks: k half the thickness, the softness, how (0 over, 1 alone, 2 add),
 // 1 to blend, the pieces' count, then from 5 each piece (its ends, its mark, its inside and
 // outside colours in linear light) and its box, then for each band of 16 rows where its list of
@@ -7798,6 +7951,9 @@ struct FxPasses {
     marks: Pass,
     /// D-444.
     vegas: Pass,
+    /// D-446.
+    curlfield: Pass,
+    curlflow: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -8444,6 +8600,8 @@ impl Gpu {
                 stroke: pass("stroke", &[0, 1, 2, 3]),
                 marks: pass("marks", &[0, 1, 2, 3]),
                 vegas: pass("vegas", &[0, 1, 2, 3]),
+                curlfield: pass("curlfield", &[0, 2, 3]),
+                curlflow: pass("curlflow", &[0, 1, 2, 3, 4]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -11165,6 +11323,34 @@ impl Gpu {
                 }
                 k.extend(bands.concat());
                 same(steps, &passes.vegas, FxParams::default(), &k, None)
+            }
+            // D-446: the field over the drawing and a margin round it in one pass, then the flow
+            // lines through it in a second, as grade::curl_noise works them.
+            e @ E::CurlNoise { sample_count, sample_radius, flow_softness, flow_falloff, view, contrast, brightness, clip_hdr_results, channel, float, .. } => {
+                let c = crate::grade::Curl::new(e).expect("a Curl Noise");
+                let m = crate::grade::curl_margin(*sample_radius);
+                let (gw, gh) = (w + 2 * m, h + 2 * m);
+                let mut k = vec![c.size, c.shift[0], c.shift[1], c.z];
+                k.extend(c.amps);
+                k.extend(c.bias);
+                k.extend([c.edge, c.swirl]);
+                let base = crate::grade::mix(0);
+                let p = FxParams { g: m as i32, base: [base as u32, (base >> 32) as u32], ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let field = self.scratch("D-446 field", gw, gh);
+                self.fx_step(steps, &passes.curlfield, p, None, Some(&field), Some(&k), None, none, tiles(gw, gh));
+                let at = |list: &[&str], v: &str| list.iter().position(|o| *o == v).unwrap_or(0) as f64;
+                let k = [
+                    *sample_radius,
+                    sample_count.floor(),
+                    flow_softness / 100.0,
+                    flow_falloff / 100.0,
+                    at(&crate::effects::CURL_VIEWS, view),
+                    *contrast,
+                    *brightness,
+                    !(clip_hdr_results == "off" && *float) as u8 as f64,
+                    at(&crate::effects::CURL_CHANNELS, channel),
+                ];
+                same(steps, &passes.curlflow, FxParams { g: m as i32, ..Default::default() }, &k, Some(&field))
             }
             // B-225 (D-344): five generators, each as its CPU function; the bolt's segments are
             // worked out here, as the CPU works them, and handed over in `k`.

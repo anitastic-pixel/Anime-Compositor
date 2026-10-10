@@ -323,6 +323,10 @@ impl EffectInstance {
             if let Effect::AddGrain { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-446: the field's frame.
+            if let Effect::CurlNoise { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         // D-202: the Mix at this frame, held inside 0 to 100; one outside it is kept, so the
         // effect is bypassed.
@@ -1971,6 +1975,41 @@ pub enum Effect {
         grain_size: f64,
         noise_phase: f64,
     },
+    /// D-446: after After Effects' Curl Noise (`grade::curl_noise`, document 21). `source`,
+    /// "internal" ("this_layer" and "other_layer" are refused: not built); `speed`, 0 to 100;
+    /// `direction`, -100000 to 100000 degrees; `size`, 1 to 1000 pixels; `offset`, -100000 to
+    /// 100000 pixels; `evolution`, -100000 to 100000 degrees; `turbulence_speed`, 0 to 200;
+    /// `swirl`, -360 to 360; `density`, -100 to 100; `smoothness`, `vertical_bias`,
+    /// `flow_softness`, `edge_definition` and `flow_falloff`, 0 to 100; `sample_count`, 3 to 24,
+    /// its floor; `sample_radius`, 0 to 200 pixels; `view`, one of [`CURL_VIEWS`]; `contrast`, 0
+    /// to 1000; `brightness`, -1000 to 1000; `clip_hdr_results`, "on" or "off"; `channel`, one of
+    /// [`CURL_CHANNELS`]. `frame` and `float` are not settings and are never saved: the
+    /// composition frame the settings were resolved at, and whether it works in Float.
+    CurlNoise {
+        source: String,
+        speed: f64,
+        direction: f64,
+        size: f64,
+        offset: [f64; 2],
+        evolution: f64,
+        turbulence_speed: f64,
+        swirl: f64,
+        density: f64,
+        smoothness: f64,
+        vertical_bias: f64,
+        sample_count: f64,
+        sample_radius: f64,
+        flow_softness: f64,
+        edge_definition: f64,
+        flow_falloff: f64,
+        view: String,
+        contrast: f64,
+        brightness: f64,
+        clip_hdr_results: String,
+        channel: String,
+        frame: i32,
+        float: bool,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2689,6 +2728,10 @@ pub const NOISE_ALPHA_OVERFLOWS: [&str; 3] = ["clip", "wrap_back", "wrap"];
 pub const NOISE_HLS: &str = "core.noise_hls";
 /// D-451: Noise HLS's kinds of noise.
 pub const NOISE_HLS_KINDS: [&str; 3] = ["uniform", "squared", "grain"];
+pub const CURL_NOISE: &str = "core.curl_noise";
+/// D-446: Curl Noise's views and channels, in the card's numbering.
+pub const CURL_VIEWS: [&str; 3] = ["final_render", "input_noise", "curl_generation"];
+pub const CURL_CHANNELS: [&str; 5] = ["rgb", "red", "green", "blue", "alpha"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3707,6 +3750,27 @@ impl Effect {
                 ("grain_size", vec![grain_size], 0.5, 100.0),
                 ("noise_phase", vec![noise_phase], -100000.0, 100000.0),
             ],
+            Effect::CurlNoise {
+                speed, direction, size, offset, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, sample_count, sample_radius, flow_softness, edge_definition, flow_falloff, contrast, brightness, ..
+            } => vec![
+                ("speed", vec![speed], 0.0, 100.0),
+                ("direction", vec![direction], -100000.0, 100000.0),
+                ("size", vec![size], 1.0, 1000.0),
+                ("offset", offset.iter_mut().collect(), -100000.0, 100000.0),
+                ("evolution", vec![evolution], -100000.0, 100000.0),
+                ("turbulence_speed", vec![turbulence_speed], 0.0, 200.0),
+                ("swirl", vec![swirl], -360.0, 360.0),
+                ("density", vec![density], -100.0, 100.0),
+                ("smoothness", vec![smoothness], 0.0, 100.0),
+                ("vertical_bias", vec![vertical_bias], 0.0, 100.0),
+                ("sample_count", vec![sample_count], 3.0, 24.0),
+                ("sample_radius", vec![sample_radius], 0.0, 200.0),
+                ("flow_softness", vec![flow_softness], 0.0, 100.0),
+                ("edge_definition", vec![edge_definition], 0.0, 100.0),
+                ("flow_falloff", vec![flow_falloff], 0.0, 100.0),
+                ("contrast", vec![contrast], 0.0, 1000.0),
+                ("brightness", vec![brightness], -1000.0, 1000.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -4580,6 +4644,13 @@ impl Effect {
             // D-451: the same for Noise HLS's grain, held at its smallest, half a pixel, rather
             // than bypassed.
             Effect::NoiseHls { grain_size, .. } => *grain_size = scale(*grain_size).max(0.5),
+            // D-446: the field, its slide and the flow lines keep their size on the picture.
+            Effect::CurlNoise { size, offset, speed, sample_radius, .. } => {
+                *size = scale(*size).max(1.0);
+                *offset = offset.map(&scale);
+                *speed = scale(*speed);
+                *sample_radius = scale(*sample_radius);
+            }
             // D-143: held at its smallest, two, rather than bypassed.
             Effect::Halftone { size, .. } => *size = scale(*size).max(2.0),
             // D-144: a block under a pixel is one pixel, which changes nothing.
@@ -4989,6 +5060,7 @@ impl Effect {
             Effect::AddGrain { .. } => "Add Grain",
             Effect::NoiseAlpha { .. } => "Noise Alpha",
             Effect::NoiseHls { .. } => "Noise HLS",
+            Effect::CurlNoise { .. } => "Curl Noise",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5169,6 +5241,7 @@ impl Effect {
             Effect::AddGrain { .. } => ADD_GRAIN,
             Effect::NoiseAlpha { .. } => NOISE_ALPHA,
             Effect::NoiseHls { .. } => NOISE_HLS,
+            Effect::CurlNoise { .. } => CURL_NOISE,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6506,6 +6579,24 @@ impl Effect {
             Effect::NoiseHls { noise: v, .. } if !NOISE_HLS_KINDS.contains(&v.as_str()) => Some(format!(
                 "Noise HLS's noise is one of {}, and this is \"{v}\".",
                 NOISE_HLS_KINDS.join(", ")
+            )),
+            Effect::CurlNoise { source: v, .. } if v == "this_layer" || v == "other_layer" => Some(format!(
+                "Curl Noise's {} source is not built yet: it makes its own noise only, so set Source to Internal.",
+                if v == "this_layer" { "This Layer" } else { "Other Layer" }
+            )),
+            Effect::CurlNoise { source: v, .. } if v != "internal" => Some(format!(
+                "Curl Noise's source is \"internal\", \"this_layer\" or \"other_layer\", and this is \"{v}\"."
+            )),
+            Effect::CurlNoise { view: v, .. } if !CURL_VIEWS.contains(&v.as_str()) => Some(format!(
+                "Curl Noise's view is one of {}, and this is \"{v}\".",
+                CURL_VIEWS.join(", ")
+            )),
+            Effect::CurlNoise { clip_hdr_results: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
+                "Curl Noise's clip HDR results is \"on\" or \"off\", and this is \"{v}\"."
+            )),
+            Effect::CurlNoise { channel: v, .. } if !CURL_CHANNELS.contains(&v.as_str()) => Some(format!(
+                "Curl Noise's channel is one of {}, and this is \"{v}\".",
+                CURL_CHANNELS.join(", ")
             )),
             Effect::Ellipse { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
                 "Ellipse's composite is \"on\" or \"off\", and this is \"{composite}\"."
@@ -8209,6 +8300,10 @@ pub(crate) fn apply_stack_at(
                 crate::perf::time(crate::perf::Stage::EffectNoiseHls, || {
                     crate::grade::noise_hls(source, noise, [*hue, *lightness, *saturation], *grain_size, noise_phase / 360.0, (ox, oy))
                 })
+            }
+            // D-446: the field in the drawing's own space, however an effect above grew it.
+            e @ Effect::CurlNoise { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectCurlNoise, || crate::grade::curl_noise(source, e, (ox, oy)))
             }
             // D-417: the anchor and corner as Checkerboard's; the layer never grows.
             Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {

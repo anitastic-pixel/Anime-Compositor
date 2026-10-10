@@ -9362,6 +9362,7 @@ const EFFECT_NAMES = {
   'core.threads': 'Threads',
   'core.lens_flare': 'Lens Flare',
   'core.vegas': 'Vegas',
+  'core.curl_noise': 'Curl Noise',
   'core.eyedropper_fill': 'Eyedropper Fill',
   'core.paint_bucket': 'Paint Bucket',
   'core.write_on': 'Write-on',
@@ -9441,7 +9442,7 @@ const EFFECT_GROUPS = [
     'core.corner_pin', 'core.polar_coordinates', 'core.optics_compensation', 'core.bend_it', 'core.bender',
     'core.blobbylize', 'core.flow_motion', 'core.griddler', 'core.fisheye', 'core.page_turn', 'core.power_pin',
     'core.ripple_pulse', 'core.slant', 'core.smear', 'core.split', 'core.split_2', 'core.transform', 'core.tiles', 'core.magnify', 'core.spherize', 'core.detail_upscale']],
-  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.add_grain', 'core.noise_alpha', 'core.noise_hls', 'core.speed_lines', 'core.rain', 'core.snowfall',
+  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.add_grain', 'core.noise_alpha', 'core.noise_hls', 'core.curl_noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
@@ -9565,6 +9566,7 @@ const EFFECT_SEARCH = {
   'core.light_burst': 'light burst cc light burst 2.5 rays explode explosion flash zoom radial glow shine generate',
   'core.glue_gun': 'glue gun cc glue gun paint stroke toothpaste write on draw brush blobs liquid metal chrome shiny trail generate',
   'core.threads': 'threads cc threads weave woven cloth fabric textile canvas basket plaid tartan twill knit pattern generate',
+  'core.curl_noise': 'curl noise flow lines swirl swirling fluid smoke marble ink van gogh starry night streaks flow field turbulence noise and grain generate',
   'core.vegas': 'vegas dashes marching ants chase lights neon sign marquee dash along mask path shape outline rotate segments trail generate',
   'core.lens_flare': 'lens flare optical flares sun light glare ghosts halo streaks rays starburst camera anamorphic 35mm 105mm zoom generate',
   'core.arbitrary_map': 'arbitrary map ps arbitrary map photoshop amp curves map file phase cycle psychedelic solarize',
@@ -9748,6 +9750,7 @@ const EFFECT_ABOUT = {
   'core.light_burst': 'Rays bursting outward from a point, taken from the image: straight, fading, or in and out.',
   'core.glue_gun': 'A glossy, blobby stroke squeezed out along the path the brush takes, like toothpaste or glue; animate Brush Position to draw it.',
   'core.threads': 'Weaves the layer into a cloth of crossing threads in its own colours, with gaps between and shadows where they cross.',
+  'core.curl_noise': 'Fills the layer with grey flow lines that swirl along a slowly drifting noise, like ink stirred in water.',
   'core.vegas': 'Runs dashes along the layer’s masks or shape paths, each fading from its start to its end, and turns them round as Rotation moves.',
   'core.lens_flare': 'The flare a bright light makes shining into a camera lens: a hot glow, rays, a halo and coloured ghosts along a line through the middle.',
   'core.audio_waveform': 'Draws the wave of a sound layer as a line, strokes or dots that move with the music, along a line or round a mask.',
@@ -10529,6 +10532,24 @@ const EFFECT_PARAMS = {
     ['specular', 'Specular', 1, 1, '0 to 100, the shine'],
     ['roughness', 'Roughness', 1, 0.01, '0.001 to 1; small is a tight sharp shine'],
     ['metal', 'Metal', 1, 1, '0 to 100, how much the shine takes the paint’s colour']],
+  // D-446, After Effects' own words.
+  'core.curl_noise': [['speed', 'Speed', 1, 1, '0 to 100, pixels a second the noise drifts'],
+    ['direction', 'Direction', 1, 1, 'degrees the noise drifts towards, 0 up', 'dial'],
+    ['size', 'Size', 1, 1, 'pixels, 1 to 1000, how big the swirls are'],
+    ['offset', 'Offset', 2, 1, 'pixels, x then y, slides the noise'],
+    ['evolution', 'Evolution', 1, 1, 'degrees; key it to change the noise, a full turn a new one', 'dial'],
+    ['turbulence_speed', 'Turbulence Speed', 1, 1, '0 to 200, how fast the noise changes by itself'],
+    ['swirl', 'Swirl', 1, 1, 'degrees, -360 to 360, turns the flow with the noise; 0 flows without gathering'],
+    ['density', 'Density', 1, 1, '-100 to 100, lighter or darker noise'],
+    ['smoothness', 'Smoothness', 1, 1, '0 to 100, 100 one smooth layer, 0 rough fine detail'],
+    ['vertical_bias', 'Vertical Bias', 1, 1, '0 to 100, 50 even, more flows up and down, less across'],
+    ['sample_count', 'Sample Count', 1, 1, '3 to 24 steps along each line'],
+    ['sample_radius', 'Sample Radius', 1, 0.5, 'pixels, 0 to 200, how long the lines are'],
+    ['flow_softness', 'Flow Softness', 1, 1, '0 to 100, blends the lines back into the noise'],
+    ['edge_definition', 'Edge Definition', 1, 1, '0 to 100, 100 crisp streaks, 0 soft ones'],
+    ['flow_falloff', 'Flow Falloff', 1, 1, '0 to 100, fades the lines where the noise is dark'],
+    ['contrast', 'Contrast', 1, 1, '0 to 1000'],
+    ['brightness', 'Brightness', 1, 1, '-1000 to 1000']],
   // D-444, After Effects' own words.
   'core.vegas': [['mask', 'Mask', 1, 1, 'the mask (or with Stroke Shapes, the shape) numbered so, 1 to 1000'],
     ['segments', 'Segments', 1, 1, 'how many dashes on each path, 1 to 1000'],
@@ -11007,6 +11028,12 @@ const EFFECT_WORDS = {
     choices: [['paint_style', 'Paint Style', [['plain', 'Plain'], ['wobbly', 'Wobbly']]],
       ['light_type', 'Light Type', [['distant', 'Distant Light'], ['point', 'Point Light']]]],
     colours: [['light_color', 'Light Color']],
+  },
+  // D-446: Source This Layer and Other Layer are not built, so Internal is the only source.
+  'core.curl_noise': {
+    choices: [['view', 'View', [['final_render', 'Final Render'], ['input_noise', 'Input Noise'], ['curl_generation', 'Curl Generation']]],
+      ['clip_hdr_results', 'Clip HDR Results', [['on', 'On'], ['off', 'Off']]],
+      ['channel', 'Channel', [['rgb', 'RGB'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']]]],
   },
   'core.vegas': {
     choices: [['stroke', 'Stroke', [['masks', 'Mask/Path'], ['shapes', 'Shape Paths']]],
@@ -12387,7 +12414,7 @@ function effectRow(layer, fx, at, of) {
   const k = { fields, words, live, close, send: () => sendParameters(), redraws };
   // A shift is pixels, not a place on the drawing, so the offset has no point box; nor has
   // Fractal Noise's (D-299), nor a text animator's move and scale (D-350).
-  const pairs = ['core.offset', 'core.fractal_noise', 'core.text_animator'].includes(fx.type_id) ? [] : known.filter((p) => p[2] === 2).map(([n, w]) => [n, w]);
+  const pairs = ['core.offset', 'core.fractal_noise', 'core.curl_noise', 'core.text_animator'].includes(fx.type_id) ? [] : known.filter((p) => p[2] === 2).map(([n, w]) => [n, w]);
   const picture = fx.type_id === 'core.levels' ? fxLevels(k, label)
     : fx.type_id === 'core.hue_saturation' ? fxHues(k, label)
       : fx.type_id === 'core.lens_blur' ? fxIris(k, label)

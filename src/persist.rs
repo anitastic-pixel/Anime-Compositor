@@ -3121,6 +3121,53 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("grain_size".into(), num(*grain_size));
             params.insert("noise_phase".into(), num(*noise_phase));
         }
+        // D-446: the frame and the composition's depth are never saved.
+        Effect::CurlNoise {
+            source,
+            speed,
+            direction,
+            size,
+            offset,
+            evolution,
+            turbulence_speed,
+            swirl,
+            density,
+            smoothness,
+            vertical_bias,
+            sample_count,
+            sample_radius,
+            flow_softness,
+            edge_definition,
+            flow_falloff,
+            view,
+            contrast,
+            brightness,
+            clip_hdr_results,
+            channel,
+            ..
+        } => {
+            params.insert("source".into(), J::from(source.as_str()));
+            params.insert("speed".into(), num(*speed));
+            params.insert("direction".into(), num(*direction));
+            params.insert("size".into(), num(*size));
+            params.insert("offset".into(), J::Array(offset.iter().map(|v| num(*v)).collect()));
+            params.insert("evolution".into(), num(*evolution));
+            params.insert("turbulence_speed".into(), num(*turbulence_speed));
+            params.insert("swirl".into(), num(*swirl));
+            params.insert("density".into(), num(*density));
+            params.insert("smoothness".into(), num(*smoothness));
+            params.insert("vertical_bias".into(), num(*vertical_bias));
+            params.insert("sample_count".into(), num(*sample_count));
+            params.insert("sample_radius".into(), num(*sample_radius));
+            params.insert("flow_softness".into(), num(*flow_softness));
+            params.insert("edge_definition".into(), num(*edge_definition));
+            params.insert("flow_falloff".into(), num(*flow_falloff));
+            params.insert("view".into(), J::from(view.as_str()));
+            params.insert("contrast".into(), num(*contrast));
+            params.insert("brightness".into(), num(*brightness));
+            params.insert("clip_hdr_results".into(), J::from(clip_hdr_results.as_str()));
+            params.insert("channel".into(), J::from(channel.as_str()));
+        }
         // D-418: the paths are found each frame and never saved.
         Effect::Fill { mask, all_masks, color, invert, horizontal_feather, vertical_feather, opacity, .. } => {
             params.insert("mask".into(), num(*mask));
@@ -4725,6 +4772,7 @@ fn parse_effect(
         crate::effects::ADD_GRAIN,
         crate::effects::NOISE_ALPHA,
         crate::effects::NOISE_HLS,
+        crate::effects::CURL_NOISE,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6101,6 +6149,31 @@ fn parse_effect(
             saturation: effect_number(params, "saturation", &at)?,
             grain_size: effect_number(params, "grain_size", &at)?,
             noise_phase: effect_number(params, "noise_phase", &at)?,
+        }),
+        crate::effects::CURL_NOISE => Some(crate::effects::Effect::CurlNoise {
+            source: effect_word(params, "source", &at)?,
+            speed: effect_number(params, "speed", &at)?,
+            direction: effect_number(params, "direction", &at)?,
+            size: effect_number(params, "size", &at)?,
+            offset: effect_array(params, "offset", "two numbers, x then y", &at)?,
+            evolution: effect_number(params, "evolution", &at)?,
+            turbulence_speed: effect_number(params, "turbulence_speed", &at)?,
+            swirl: effect_number(params, "swirl", &at)?,
+            density: effect_number(params, "density", &at)?,
+            smoothness: effect_number(params, "smoothness", &at)?,
+            vertical_bias: effect_number(params, "vertical_bias", &at)?,
+            sample_count: effect_number(params, "sample_count", &at)?,
+            sample_radius: effect_number(params, "sample_radius", &at)?,
+            flow_softness: effect_number(params, "flow_softness", &at)?,
+            edge_definition: effect_number(params, "edge_definition", &at)?,
+            flow_falloff: effect_number(params, "flow_falloff", &at)?,
+            view: effect_word(params, "view", &at)?,
+            contrast: effect_number(params, "contrast", &at)?,
+            brightness: effect_number(params, "brightness", &at)?,
+            clip_hdr_results: effect_word(params, "clip_hdr_results", &at)?,
+            channel: effect_word(params, "channel", &at)?,
+            frame: 0,
+            float: false,
         }),
         crate::effects::FILL => Some(crate::effects::Effect::Fill {
             mask: effect_number(params, "mask", &at)?,

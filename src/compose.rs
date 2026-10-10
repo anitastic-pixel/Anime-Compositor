@@ -890,6 +890,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::NoiseAlpha { .. }
                 // D-451: Noise HLS.
                 | crate::effects::Effect::NoiseHls { .. }
+                // D-446: Curl Noise.
+                | crate::effects::Effect::CurlNoise { .. }
                 | crate::effects::Effect::ChromaticAberration { .. }
                 | crate::effects::Effect::LensChromaticAberration { .. }
                 | crate::effects::Effect::DistanceGradation { .. }
@@ -1991,6 +1993,10 @@ fn effect_now(
     let (mut now, failed) = crate::expr::effect_at(comp, &layer.id, instance, at, u);
     // D-319: Fractal Noise is held to white only in Display depth.
     if let crate::effects::Effect::FractalNoise { float: f, .. } = &mut now.effect {
+        *f = float;
+    }
+    // D-446: Curl Noise keeps past white only in a Float composition.
+    if let crate::effects::Effect::CurlNoise { float: f, .. } = &mut now.effect {
         *f = float;
     }
     // D-390: Ripple Pulse's levels, the pulse level now and at each frame of the time span

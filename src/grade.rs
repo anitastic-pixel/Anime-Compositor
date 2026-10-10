@@ -801,6 +801,195 @@ pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (
         });
 }
 
+/// D-446: [`value`] for seed 0, smooth, with its slope across and down from the smoothing
+/// curve's own slope 30 t^2 (1 - t)^2, over all eight corners.
+pub(crate) fn value_slope(base: u64, ch: u64, x: f64, y: f64, z: f64) -> [f64; 3] {
+    let (i, j, k) = (x.floor(), y.floor(), z.floor());
+    let (tx, ty, tz) = (x - i, y - j, z - k);
+    let fade = |t: f64| t * t * t * (t * (6.0 * t - 15.0) + 10.0);
+    let slope = |t: f64| 30.0 * t * t * (1.0 - t) * (1.0 - t);
+    let (sx, sy, sz) = (fade(tx), fade(ty), fade(tz));
+    let (dx, dy) = (slope(tx), slope(ty));
+    let (i, j, k) = (i as i64, j as i64, k as i64);
+    let (mut v, mut gx, mut gy) = (0.0, 0.0, 0.0);
+    for corner in 0..8 {
+        let (a, b, c) = (corner & 1, (corner >> 1) & 1, corner >> 2);
+        let wx = if a == 1 { sx } else { 1.0 - sx };
+        let wy = if b == 1 { sy } else { 1.0 - sy };
+        let wz = if c == 1 { sz } else { 1.0 - sz };
+        let n = unit(base, i + a, j + b, k + c, ch);
+        v += wx * wy * wz * n;
+        gx += (if a == 1 { dx } else { -dx }) * wy * wz * n;
+        gy += wx * (if b == 1 { dy } else { -dy }) * wz * n;
+    }
+    [v, gx, gy]
+}
+
+/// D-446: Curl Noise's settings, read once for a frame: the field's size, how far it has slid,
+/// its depth, the four octaves' weights, the across and down bias, the share of blocks in the
+/// seed and the swirl.
+pub(crate) struct Curl {
+    pub size: f64,
+    pub shift: [f64; 2],
+    pub z: f64,
+    pub amps: [f64; 4],
+    pub bias: [f64; 2],
+    pub edge: f64,
+    pub swirl: f64,
+}
+
+impl Curl {
+    pub(crate) fn new(e: &crate::effects::Effect) -> Option<Curl> {
+        let crate::effects::Effect::CurlNoise {
+            speed, direction, size, offset, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, edge_definition, frame, ..
+        } = e
+        else {
+            return None;
+        };
+        let t = direction.to_radians();
+        let f = *frame as f64;
+        let drift = [t.sin() * speed / 10.0, -t.cos() * speed / 10.0];
+        let r = 0.7 - 0.4 * smoothness / 100.0;
+        let b = vertical_bias / 100.0;
+        Some(Curl {
+            size: size * 2f64.powf(-density / 50.0),
+            shift: [offset[0] + drift[0] * f, offset[1] + drift[1] * f],
+            z: (evolution + turbulence_speed * f / 10.0) / 360.0,
+            amps: [1.0, r, r * r, r * r * r],
+            bias: [(2.0 * (1.0 - b)).min(1.0), (2.0 * b).min(1.0)],
+            edge: edge_definition / 100.0,
+            swirl: *swirl,
+        })
+    }
+
+    /// The flow across and down (one long, or nought), the noise and the seed at the drawing's
+    /// point `(px, py)`, in single precision as the card keeps them.
+    pub(crate) fn at(&self, px: f64, py: f64) -> [f32; 4] {
+        let base = mix(0);
+        let (x, y, s) = (px - self.shift[0], py - self.shift[1], self.size);
+        let (mut n, mut gx, mut gy, mut total, mut fine) = (0.0, 0.0, 0.0, 0.0, 1.0);
+        for (o, amp) in self.amps.iter().enumerate() {
+            let [v, a, b] = value_slope(base, 8 * o as u64, x / s * fine, y / s * fine, self.z * fine);
+            n += amp * v;
+            gx += amp * fine * a;
+            gy += amp * fine * b;
+            total += amp;
+            fine *= 2.0;
+        }
+        let (n, gx, gy) = (n / total, gx / total / s, gy / total / s);
+        let t = (-90.0 + self.swirl * n).to_radians();
+        let (c, sn) = (t.cos(), t.sin());
+        let vx = (c * gx - sn * gy) * self.bias[0];
+        let vy = (sn * gx + c * gy) * self.bias[1];
+        let length = vx.hypot(vy);
+        let d = if length > 0.0 { [vx / length, vy / length] } else { [0.0, 0.0] };
+        let cell = s / 50.0;
+        let (sx, sy, e) = (x / cell, y / cell, self.edge);
+        let seed = if e == 1.0 {
+            value(base, 7, sx, sy, self.z, true, 0)
+        } else if e == 0.0 {
+            value(base, 7, sx, sy, self.z, false, 0)
+        } else {
+            e * value(base, 7, sx, sy, self.z, true, 0) + (1.0 - e) * value(base, 7, sx, sy, self.z, false, 0)
+        };
+        [d[0] as f32, d[1] as f32, n as f32, seed as f32]
+    }
+}
+
+/// D-446: the margin round the buffer the field is worked over, so a flow line from any pixel
+/// stays inside it.
+pub(crate) fn curl_margin(radius: f64) -> usize {
+    radius.ceil() as usize + 2
+}
+
+/// D-446: After Effects' Curl Noise, by document 21's rule: the field worked for every pixel of
+/// `source` and the margin round it, in the drawing's own space (its corner at `(ox, oy)`),
+/// then at each pixel that shows the flow lines (Final Render), the noise (Input Noise) or the
+/// flow and noise as colours (Curl Generation), through Contrast and Brightness, into the
+/// channel chosen. The settings are already valid.
+pub(crate) fn curl_noise(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let crate::effects::Effect::CurlNoise {
+        sample_count, sample_radius, flow_softness, flow_falloff, view, contrast, brightness, clip_hdr_results, channel, float, ..
+    } = e
+    else {
+        return;
+    };
+    let Some(curl) = Curl::new(e) else { return };
+    let (radius, steps) = (*sample_radius, sample_count.floor());
+    let m = curl_margin(radius);
+    let (w, h) = (source.width(), source.height());
+    let (gw, gh) = (w + 2 * m, h + 2 * m);
+    let mut field = WorkingBuffer::transparent(gw, gh);
+    field.data_mut().par_chunks_mut(gw * 4).enumerate().for_each(|(gy, row)| {
+        for (gx, px) in row.chunks_exact_mut(4).enumerate() {
+            let p = curl.at(gx as f64 - m as f64 - ox as f64 + 0.5, gy as f64 - m as f64 - oy as f64 + 0.5);
+            px.copy_from_slice(&p);
+        }
+    });
+    let view = crate::effects::CURL_VIEWS.iter().position(|v| v == view).unwrap_or(0);
+    let channel = crate::effects::CURL_CHANNELS.iter().position(|c| c == channel).unwrap_or(0);
+    let (fs, ff) = (flow_softness / 100.0, flow_falloff / 100.0);
+    let hold = !(clip_hdr_results == "off" && *float);
+    let field = &field;
+    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
+        for (x, px) in row.chunks_exact_mut(4).enumerate() {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                continue;
+            }
+            let [dx, dy, n, seed] = field.pixel(x + m, y + m).map(|v| v as f64);
+            let o = match view {
+                1 => [0.5 + 0.5 * n; 3],
+                2 => [0.5 + 0.5 * dx, 0.5 + 0.5 * dy, 0.5 + 0.5 * n],
+                _ => {
+                    let step = radius / steps;
+                    let (mut sw, mut sws, mut ss) = (1.0, 1.0, seed);
+                    for way in [1.0, -1.0] {
+                        let (mut qx, mut qy) = ((x + m) as f64 + 0.5, (y + m) as f64 + 0.5);
+                        let (mut ex, mut ey) = (dx, dy);
+                        for i in 1..=steps as usize {
+                            let length = ex.hypot(ey);
+                            if length < 1e-6 {
+                                break;
+                            }
+                            qx += way * step * ex / length;
+                            qy += way * step * ey / length;
+                            let s = crate::render::sample_bilinear(field, qx, qy);
+                            (ex, ey) = (s[0] as f64, s[1] as f64);
+                            let wt = 1.0 - i as f64 / (steps + 1.0);
+                            ss += wt * s[3] as f64;
+                            sw += wt;
+                            sws += wt * wt;
+                        }
+                    }
+                    let lines = ss / sw * (sw / sws.sqrt());
+                    let mixed = n + (1.0 - fs) * (radius / 8.0).min(1.0) * (lines - n);
+                    [0.5 + 0.5 * (mixed * (1.0 - ff * (0.5 - 0.5 * n))); 3]
+                }
+            };
+            let o = o.map(|v| {
+                let v = 0.5 + (v - 0.5) * contrast / 100.0 + brightness / 100.0;
+                if hold { v.clamp(0.0, 1.0) } else { v.max(0.0) }
+            });
+            match channel {
+                0 => {
+                    for c in 0..3 {
+                        px[c] = (to_linear(o[c]) * a) as f32;
+                    }
+                }
+                4 => {
+                    let t = a * ((o[0] + o[1] + o[2]) / 3.0).clamp(0.0, 1.0);
+                    for c in 0..3 {
+                        px[c] = (px[c] as f64 / a * t) as f32;
+                    }
+                    px[3] = t as f32;
+                }
+                c => px[c - 1] = (to_linear(o[c - 1]) * a) as f32,
+            }
+        }
+    });
+}
+
 /// D-209: each cell's point and grey for Cell Pattern over a `w` by `h` buffer, worked once for
 /// the cells the buffer sees and two round them: the first cell across and down, the cells
 /// across, and the points row by row. The numbers are the disperse, size, evolution in degrees
