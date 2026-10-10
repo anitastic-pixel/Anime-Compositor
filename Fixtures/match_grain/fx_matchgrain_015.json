@@ -1,0 +1,364 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-matchgrain-015",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-card",
+      "kind": "still",
+      "name": "card",
+      "path": "media/card.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-steady",
+      "kind": "still",
+      "name": "steady",
+      "path": "media/steady.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-holes",
+      "kind": "still",
+      "name": "holes",
+      "path": "media/holes.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-flat",
+      "kind": "still",
+      "name": "flat",
+      "path": "media/flat.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-seq",
+      "kind": "image_sequence",
+      "name": "seq",
+      "pattern": "seq_####.png",
+      "frames": {
+        "1": "media/seq_1.png",
+        "2": "media/seq_2.png"
+      },
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 5,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 5
+      },
+      "layer_order": [
+        "holder",
+        "steady",
+        "holes",
+        "seq",
+        "flat"
+      ],
+      "layers": [
+        {
+          "id": "holder",
+          "kind": "raster",
+          "name": "holder",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.match_grain",
+              "enabled": true,
+              "parameters": {
+                "intensity": 1,
+                "size": 1,
+                "softness": 0,
+                "aspect_ratio": 1,
+                "red_intensity": 1,
+                "green_intensity": 1,
+                "blue_intensity": 1,
+                "monochromatic": "off",
+                "saturation": 1,
+                "blending_mode": "film",
+                "shadows": 1,
+                "midtones": 1,
+                "highlights": 1,
+                "midpoint": 0.5,
+                "animation_speed": 1,
+                "animate_smoothly": "on",
+                "random_seed": 0,
+                "layer": "ghost"
+              }
+            }
+          ],
+          "asset_id": "asset-card",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "steady",
+          "kind": "raster",
+          "name": "steady",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-steady",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "holes",
+          "kind": "raster",
+          "name": "holes",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-holes",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "seq",
+          "kind": "raster",
+          "name": "seq",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-seq",
+          "source_offset_frames": 0,
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 2,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 2,
+              "end_frame_exclusive": 5,
+              "drawing_number": 2
+            }
+          ]
+        },
+        {
+          "id": "flat",
+          "kind": "raster",
+          "name": "flat",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-flat",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        }
+      ]
+    }
+  ]
+}
