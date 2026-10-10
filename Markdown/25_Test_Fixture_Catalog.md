@@ -207606,6 +207606,7 @@ FX-DUST-016 (`fx_dust_016.json`): Threshold -1, below 0. The file is read, the e
 FX-DUST-017 (`fx_dust_017.json`): Threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-DUST-018 (`fx_dust_018.json`): Operate on Alpha "sometimes", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Curl Noise (D-446)
 
 Curl Noise, after After Effects' Curl Noise (Noise & Grain, new in 26.3), `core.curl_noise` (B-326). Every case is a composition 16 by 10 holding Noise's card, the same size, unmoved unless the case says; `tools/curl_noise_reference.py` works the expected frames, `Fixtures/curl_noise/expected_curl_noise.json`, tolerance 2e-5; the rule is in document 21. Source This Layer and Other Layer are refused with a sentence.
@@ -207697,3 +207698,71 @@ FX-CURL-042 (`fx_curl_042.json`): Channel "Red", in capitals, kept as written an
 FX-CURL-043 (`fx_curl_043.json`): Clip HDR Results "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CURL-044 (`fx_curl_044.json`): Density keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Turbulent Noise (D-445)
+
+Turbulent Noise, after After Effects' Turbulent Noise (Noise & Grain), `core.turbulent_noise` (B-325), a second name over Fractal Noise. Every case is a composition 16 by 10 holding Noise's card, the same size, unmoved unless the case says (`Fixtures/turbulent_noise/media/`); `tools/turbulent_noise_reference.py` works the expected frames, `Fixtures/turbulent_noise/expected_turbulent_noise.json`, tolerance 2e-5, and checks that basic, smooth Turbulent Noise is Fractal Noise with no speed, black to white, number for number; the rule is in document 21.
+
+FX-TURBNOISE-001 (`fx_turbnoise_001.json`): The settings as they start: basic, smooth, not inverted, contrast 100, brightness 0, size 100 at scale 100 by 100, offset 0, complexity 6, evolution 0, seed 0, opacity 100, normal. Grey clouds so large that the card sees a small part of one: close greys near the middle. Every pixel keeps its covering, the empty ones stay empty, and with nothing keyed frame 4 is frame 0: Turbulent Noise has no speed of its own. Frames 0, 4.
+
+FX-TURBNOISE-002 (`fx_turbnoise_002.json`): Size 4: four pixels a cloud, so the greys vary across the card. Frames 0.
+
+FX-TURBNOISE-003 (`fx_turbnoise_003.json`): Size 4, fractal type turbulent: each octave's distance from the middle, so the clouds crease into dark veins. Frames 0.
+
+FX-TURBNOISE-004 (`fx_turbnoise_004.json`): Size 4, noise type block: each cell of each octave one grey, square steps. Frames 0.
+
+FX-TURBNOISE-005 (`fx_turbnoise_005.json`): Size 4, turbulent and block together. Frames 0.
+
+FX-TURBNOISE-006 (`fx_turbnoise_006.json`): Size 4, invert on: FX-TURBNOISE-002 turned over about the middle grey, light where it was dark. Frames 0.
+
+FX-TURBNOISE-007 (`fx_turbnoise_007.json`): Size 4, complexity 1.9, which counts as 1: one octave, the smooth value noise itself. Frames 0.
+
+FX-TURBNOISE-008 (`fx_turbnoise_008.json`): Size 4, complexity 20, the most: twenty octaves. Frames 0.
+
+FX-TURBNOISE-009 (`fx_turbnoise_009.json`): Size 4, contrast 300: FX-TURBNOISE-002's greys three times as far from the middle, held at black and white. Frames 0.
+
+FX-TURBNOISE-010 (`fx_turbnoise_010.json`): Size 4, brightness 30: FX-TURBNOISE-002 lifted by 0.3, held at white. Frames 0.
+
+FX-TURBNOISE-011 (`fx_turbnoise_011.json`): Brightness -100: held at 0 everywhere, every shown pixel black. Frames 0.
+
+FX-TURBNOISE-012 (`fx_turbnoise_012.json`): Size 4, evolution 360: one full turn moves the field one cell through its third direction, clouds of their own. Frames 0.
+
+FX-TURBNOISE-013 (`fx_turbnoise_013.json`): Size 4, evolution keyed from 0 at frame 0 to 720 at frame 4, linear: frame 0 is FX-TURBNOISE-002 and frame 2, at 360, is FX-TURBNOISE-012. Frames 0, 2, 4.
+
+FX-TURBNOISE-014 (`fx_turbnoise_014.json`): Size 4, seed 7: clouds of their own. Frames 0.
+
+FX-TURBNOISE-015 (`fx_turbnoise_015.json`): Size 4, seed 7.9, which counts as 7: FX-TURBNOISE-014. Frames 0.
+
+FX-TURBNOISE-016 (`fx_turbnoise_016.json`): Size 4, scale width 200 and scale height 50: clouds twice as wide and half as tall. Frames 0.
+
+FX-TURBNOISE-017 (`fx_turbnoise_017.json`): Size 4, offset 2.5 right and 3 up: the clouds slide with it. Frames 0.
+
+FX-TURBNOISE-018 (`fx_turbnoise_018.json`): Size 4, blend multiply: the card darkened by the clouds; the black patch stays black. Frames 0.
+
+FX-TURBNOISE-019 (`fx_turbnoise_019.json`): Size 4, blend screen, opacity 50: the card lightened, none darkened. Frames 0.
+
+FX-TURBNOISE-020 (`fx_turbnoise_020.json`): Size 4, blend add, opacity 50: added at half strength, not held, so the white patch goes past its covering. Frames 0.
+
+FX-TURBNOISE-021 (`fx_turbnoise_021.json`): Size 4, opacity keyed from 0 at frame 0 to 100 at frame 4, eased past its end: frame 0 is the drawing; frame 2 is held at 100 and is frame 4, FX-TURBNOISE-002. Frames 0, 2, 4.
+
+FX-TURBNOISE-022 (`fx_turbnoise_022.json`): FX-TURBNOISE-002 moved three pixels right: the clouds are worked in the drawing's own space, so they move with it. Frames 0, 3.
+
+FX-TURBNOISE-023 (`fx_turbnoise_023.json`): Size 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-024 (`fx_turbnoise_024.json`): Complexity 21, above 20. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-025 (`fx_turbnoise_025.json`): Contrast 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-026 (`fx_turbnoise_026.json`): Brightness keyed to -1200 at frame 4, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-027 (`fx_turbnoise_027.json`): Seed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-028 (`fx_turbnoise_028.json`): Scale width 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-029 (`fx_turbnoise_029.json`): Fractal type "dynamic", one of After Effects' that is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-030 (`fx_turbnoise_030.json`): Noise type "spline", one of After Effects' that is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-031 (`fx_turbnoise_031.json`): Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-032 (`fx_turbnoise_032.json`): Blend "overlay", which is not a blend here. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
