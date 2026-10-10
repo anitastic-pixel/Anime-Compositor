@@ -205151,6 +205151,78 @@ FX-TILES-020 (`fx_tiles_020.json`): Centre at 1001, 50, past ten widths. The fil
 
 FX-TILES-021 (`fx_tiles_021.json`): Scale keyed to 0 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Magnify (D-405)
+
+Magnify (`core.magnify`), after After Effects' Magnify (B-284): a round or square part of the layer enlarged about its centre and laid back over the layer by a blending mode, the layer grown to hold it when Resize Layer is on. Every case is a project of one composition 16 by 10, five frames, one drawing (Tiles' card, `media/card.png`) with the effect. `tools/magnify_reference.py` works the expected frames, `Fixtures/magnify/expected_magnify.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-MAGNIFY-001 (`fx_magnify_001.json`): The settings as they start: a circle of radius 100 round the middle, magnification 200, standard scaling, Normal: the whole picture enlarged twice round (8, 5), blocks of 2 by 2 pixels, laid over the drawing, which shows through only where the enlargement is clear or soft (After Effects' doubling). Frames 0, 4.
+
+FX-MAGNIFY-002 (`fx_magnify_002.json`): Magnification 100 with blending mode None: the area reads each pixel itself, so the drawing comes back untouched. Frames 0.
+
+FX-MAGNIFY-003 (`fx_magnify_003.json`): Size 4: a circle of radius 4 round (8, 5) enlarged twice, the drawing round it. Frames 0.
+
+FX-MAGNIFY-004 (`fx_magnify_004.json`): Size 4, square: the area a square 8 by 8 round (8, 5). Frames 0.
+
+FX-MAGNIFY-005 (`fx_magnify_005.json`): Size 4, feather 2: the circle fades over the last 2 pixels inside its edge. Frames 0.
+
+FX-MAGNIFY-006 (`fx_magnify_006.json`): Link size to magnification, size 2: the radius 200 per cent of 2, so FX-MAGNIFY-003 exactly. Frames 0.
+
+FX-MAGNIFY-007 (`fx_magnify_007.json`): Link size and feather, size 2, feather 1: radius 4, feather 2, so FX-MAGNIFY-005 exactly. Frames 0.
+
+FX-MAGNIFY-008 (`fx_magnify_008.json`): Size 4, opacity 50: the area at half its covering, over the drawing. Frames 0.
+
+FX-MAGNIFY-009 (`fx_magnify_009.json`): Soft scaling: as FX-MAGNIFY-001 with each place read by document 21's bilinear sample, smooth instead of blocky. Frames 0.
+
+FX-MAGNIFY-010 (`fx_magnify_010.json`): Scatter scaling: as FX-MAGNIFY-001 with each place nudged by up to a half a picture pixel each way (j = 1/2 at 200 per cent) by Noise's hash, so the blocks' edges break up. Frames 0.
+
+FX-MAGNIFY-011 (`fx_magnify_011.json`): Size 4, blending mode None: the circle alone, clear round it. Frames 0.
+
+FX-MAGNIFY-012 (`fx_magnify_012.json`): Size 5, Multiply over the drawing. Frames 0.
+
+FX-MAGNIFY-013 (`fx_magnify_013.json`): Size 5, Screen. Frames 0.
+
+FX-MAGNIFY-014 (`fx_magnify_014.json`): Size 5, Add, each straight colour held to 1. Frames 0.
+
+FX-MAGNIFY-015 (`fx_magnify_015.json`): Size 5, Overlay, on the encoded colours. Frames 0.
+
+FX-MAGNIFY-016 (`fx_magnify_016.json`): Size 5, Soft Light, on the encoded colours. Frames 0.
+
+FX-MAGNIFY-017 (`fx_magnify_017.json`): Resize Layer on, size 4, centre at 90, 50 (14.4, 5), the layer moved 3 pixels left: the circle reaches 2.4 pixels past the right edge, so the layer grows 3 pixels on every side and the area shows past the drawing's edge, in columns 13 to 15. Frames 0.
+
+FX-MAGNIFY-018 (`fx_magnify_018.json`): FX-MAGNIFY-017 with the link at size (size 2, so radius 4): After Effects turns Resize Layer off when linked, so nothing grows and the circle is cut at the drawing's edge. Frames 0.
+
+FX-MAGNIFY-019 (`fx_magnify_019.json`): Magnification keyed from 100 at frame 0 to 400 at frame 4, size 4, linear: 175 at frame 1, 400 at frame 4. Frames 0, 1, 4.
+
+FX-MAGNIFY-020 (`fx_magnify_020.json`): Centre keyed from 25, 50 at frame 0 to 75, 50 at frame 4, size 3: the lens slides across. Frames 0, 2, 4.
+
+FX-MAGNIFY-021 (`fx_magnify_021.json`): Size 4 with the layer moved 3 pixels right: the same area, moved; columns 0 to 2 empty. Frames 0.
+
+FX-MAGNIFY-022 (`fx_magnify_022.json`): Magnification 300, size 100: blocks of 3 by 3 pixels. Frames 0.
+
+FX-MAGNIFY-023 (`fx_magnify_023.json`): Size eased from 4 at frame 0 to 0 at frame 4 on a curve that overshoots: at frame 2 it would pass below 0 and is held there, so frames 2 and 4 show no area, the drawing as it is. Frames 0, 2, 4.
+
+FX-MAGNIFY-024 (`fx_magnify_024.json`): Magnification 99, below 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAGNIFY-025 (`fx_magnify_025.json`): Magnification 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAGNIFY-026 (`fx_magnify_026.json`): Size -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAGNIFY-027 (`fx_magnify_027.json`): Feather 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAGNIFY-028 (`fx_magnify_028.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAGNIFY-029 (`fx_magnify_029.json`): Centre at 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAGNIFY-030 (`fx_magnify_030.json`): Shape "oval". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAGNIFY-031 (`fx_magnify_031.json`): Link "feather". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAGNIFY-032 (`fx_magnify_032.json`): Scaling "bicubic". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAGNIFY-033 (`fx_magnify_033.json`): Blending mode "difference", which this build does not offer. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MAGNIFY-034 (`fx_magnify_034.json`): Resize layer "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Arbitrary Map (D-395)
 
 Arbitrary Map (`core.arbitrary_map`), after After Effects' PS Arbitrary Map (B-274): the layer's colours through a Photoshop arbitrary map (.amp), a lookup file of the project as Color Lookup's .cube is. Every case is a project of one composition 16 by 10, five frames, one drawing of `tools/invert_reference.py`'s bands with the effect; the map files are in `Fixtures/arbitrary_map/maps` (refused ones in `maps/refused`). `tools/arbitrary_map_reference.py` works the expected frames, `Fixtures/arbitrary_map/expected_arbitrary_map.json`, tolerance 2e-5; the rule is in document 21.

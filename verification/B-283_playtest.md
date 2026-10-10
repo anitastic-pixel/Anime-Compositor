@@ -36,9 +36,9 @@ for byte). The pictures are in `verification/D-404 pictures/`.
    layer shrinks into more and more copies. Then key Center across: the grid slides and wraps.
 7. **Saved and opened again.** Save, close and open the project: the same settings and picture.
 
-With Draw on: GPU, Tiles at scale 25 costs about 16 ms a 1080p layer on the graphics card and
-about 28 ms on the processor; at scale 7 about 173 ms on the card
-(`verification/B-283_tiles_timing_table.md`, provisional: the machine was busy). Very small
+With Draw on: GPU, Tiles at scale 25 costs about 13 ms a 1080p layer on the graphics card and
+about 28 ms on the processor; at scale 7 about 169 ms on the card
+(`verification/B-283_tiles_timing_table.md`, measured on a quiet machine). Very small
 scales are slow because each pixel averages many points.
 
 ## Not built

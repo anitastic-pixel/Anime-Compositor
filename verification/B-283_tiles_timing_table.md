@@ -1,12 +1,13 @@
 # B-283: frame times with Tiles
 
-**PROVISIONAL.** Measured on 2026-10-09 on the code commit (fd577a37). Another lane's cargo
-builds and tests were running when the card round started and again when the processor round
-ended, so the machine was not quiet; the owner's app was not touched. "Noise alone" on the card
-came out at 16.7 ms against 12.0 on the quiet B-273 run, which shows the load. To be measured
-again on a quiet machine. The timing test is `b283_tiles_timing` in `tests/b283_tiles.rs`, built
-with `cargo test --release --test b283_tiles` and run with `--ignored b283_tiles_timing`
-(`B283_CPU` set for the processor).
+Measured again on 2026-10-09 on a quiet machine, on the Magnify code commit (5f297f6c), which
+leaves Tiles as its code commit (fd577a37) wrote it. No other cargo or rustc process was running:
+checked before the card round and after each round, none; the owner's app was not touched. The
+first measurement, PROVISIONAL because another lane was building, is replaced by this one ("Noise
+alone" on the card was 16.7 ms then, 11.8 now, against 12.0 on the quiet B-273 run). The timing
+test is `b283_tiles_timing` in `tests/b283_tiles.rs`, built with
+`cargo test --release --test b283_tiles` and run with `--ignored b283_tiles_timing` (`B283_CPU`
+set for the processor). One round each, so these are single figures, not medians of rounds.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD Ryzen 9 9900X (AMD64 Family 26 Model 68), 24 threads
@@ -21,18 +22,18 @@ the median of the loops after it (8 loops on the card, 3 on the processor). Mill
 
 | Shot | Card first | Card again | Processor first | Processor again |
 |---|---:|---:|---:|---:|
-| Noise alone | 25.5 | 16.7 | 39.6 | 40.5 |
-| Noise, then Motion Tile, tiles 25 per cent (its sized tile is drawn by the processor) | 221.2 | 259.6 | 124.8 | 124.3 |
-| Noise, then Tiles, scale 25 | 61.8 | 65.6 | 122.9 | 125.0 |
-| Noise, then Tiles, scale 7, blend 20 | 539.3 | 536.4 | 1704.8 | 1808.5 |
+| Noise alone | 16.1 | 11.8 | 40.4 | 40.9 |
+| Noise, then Motion Tile, tiles 25 per cent (its sized tile is drawn by the processor) | 127.6 | 138.5 | 124.6 | 124.6 |
+| Noise, then Tiles, scale 25 | 62.5 | 49.8 | 123.7 | 124.3 |
+| Noise, then Tiles, scale 7, blend 20 | 520.5 | 517.6 | 1643.1 | 1662.3 |
 
 **Reading it.** Per 1080p layer, from the "again" figures over three layers:
 
 | Effect | Card | Card against its target | Processor |
 |---|---|---|---|
-| Tiles, scale 25 (4 by 4 points a pixel) | about 16 ms (65.6 against 16.7) | over Target P2's 4 ms | about 28 ms (125.0 against 40.5) |
-| Tiles, scale 7 (15 by 15 points a pixel) | about 173 ms (536.4 against 16.7) | over P2 | about 589 ms (1808.5 against 40.5) |
-| Motion Tile, tiles 25 per cent, for comparison | about 81 ms (the layer goes to the processor and back) | not on the card | about 28 ms |
+| Tiles, scale 25 (4 by 4 points a pixel) | about 13 ms (49.8 against 11.8) | over Target P2's 4 ms | about 28 ms (124.3 against 40.9) |
+| Tiles, scale 7 (15 by 15 points a pixel) | about 169 ms (517.6 against 11.8) | over P2 | about 541 ms (1662.3 against 40.9) |
+| Motion Tile, tiles 25 per cent, for comparison | about 42 ms (the layer goes to the processor and back) | not on the card | about 28 ms |
 
 The cost follows the number of points each pixel averages, ceil(100 / scale) squared, so it grows
 quickly below a scale of about 10. Motion Tile's rule fixes that count (D-304); an area average
