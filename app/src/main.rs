@@ -3573,13 +3573,19 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             invert: "off".to_string(),
             blend: "multiply".to_string(),
         }),
-        // D-124: white rays half way out from the middle.
-        LIGHT_RAYS => Some(Effect::LightRays {
+        // D-423: CC Light Rays' controls, the source a round 50 pixels about the middle, the
+        // layer's own colours laid over it; D-124's form only opens from an older project.
+        LIGHT_RAYS => Some(Effect::CcLightRays {
+            intensity: 100.0,
             center: [50.0, 50.0],
-            length: 50.0,
-            threshold: 70.0,
-            intensity: 1.0,
+            radius: 50.0,
+            warp_softness: 50.0,
+            shape: "round".to_string(),
+            direction: 0.0,
+            color_from_source: "on".to_string(),
+            allow_brightening: "on".to_string(),
             color: "#ffffff".to_string(),
+            transfer_mode: "none".to_string(),
         }),
         // D-125: a quarter of a stop either way, a new brightness every frame.
         EXPOSURE_FLICKER => Some(Effect::ExposureFlicker {
@@ -5153,12 +5159,25 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             invert: word("invert")?,
             blend: word("blend")?,
         }),
-        LIGHT_RAYS => Ok(Effect::LightRays {
+        // D-423: with a length, D-124's form, as an older project holds it.
+        LIGHT_RAYS if parameter(query, "length").is_some() => Ok(Effect::LightRays {
             center: pair("center")?,
             length: number("length")?,
             threshold: number("threshold")?,
             intensity: number("intensity")?,
             color: word("color")?,
+        }),
+        LIGHT_RAYS => Ok(Effect::CcLightRays {
+            intensity: number("intensity")?,
+            center: pair("center")?,
+            radius: number("radius")?,
+            warp_softness: number("warp_softness")?,
+            shape: word("shape")?,
+            direction: number("direction")?,
+            color_from_source: word("color_from_source")?,
+            allow_brightening: word("allow_brightening")?,
+            color: word("color")?,
+            transfer_mode: word("transfer_mode")?,
         }),
         EXPOSURE_FLICKER => Ok(Effect::ExposureFlicker {
             amount: number("amount")?,
@@ -29562,6 +29581,22 @@ mod contract {
                 ("threshold", "60"),
                 ("intensity", "2.5"),
                 ("color", "%23ffc070"),
+            ],
+        ),
+        // D-423: CC Light Rays' numbers, centre, words and colour.
+        (
+            "core.light_rays",
+            &[
+                ("intensity", "250"),
+                ("center", "30,70"),
+                ("radius", "80"),
+                ("warp_softness", "120"),
+                ("shape", "square"),
+                ("direction", "30"),
+                ("color_from_source", "off"),
+                ("allow_brightening", "off"),
+                ("color", "%23ffc070"),
+                ("transfer_mode", "screen"),
             ],
         ),
         // D-125: the three numbers.

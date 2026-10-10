@@ -831,7 +831,7 @@ pub(crate) fn light_rays(
         }
     });
     crate::blurs::radial_blur(&mut rays, false, length, center, false, None);
-    add_rays(source, &rays, intensity, color.map(crate::grade::to_linear), false);
+    add_rays(source, &rays, intensity, color.map(crate::grade::to_linear), false, 0);
 }
 
 /// D-422: Light Burst. The whole layer is the light, zoomed about `center` by `sweep` with
@@ -851,22 +851,80 @@ pub(crate) fn light_burst(
     let mut rays = source.clone();
     crate::blurs::radial_blur(&mut rays, false, length, center, false, Some(sweep));
     let c = tint.map_or([1.0; 3], |c| c.map(crate::grade::to_linear));
-    add_rays(source, &rays, k, c, tint.is_some());
+    add_rays(source, &rays, k, c, tint.is_some(), 0);
 }
 
-/// D-124's last step, shared with D-422: O + `intensity` C R in colour, the covering
-/// min(1, O.a + `intensity` R.a); with `from_alpha`, R's covering stands for its colour.
-fn add_rays(source: &mut WorkingBuffer, rays: &WorkingBuffer, intensity: f64, c: [f64; 3], from_alpha: bool) {
+/// D-423: Light Rays with CC Light Rays' controls. The light is the layer times each pixel's
+/// share of a source `radius` pixels about `center` (round, or with `square`, the sine and cosine
+/// of its turn, a square), zoomed out from the centre at amount 100 and spun `turn` degrees, then
+/// laid on by `mode` (as [`crate::effects::ray_mode`]) `k` times; with `tint`, an encoded
+/// colour, the rays are that colour at their covering. The settings are already valid.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn cc_light_rays(
+    source: &mut WorkingBuffer,
+    center: (f64, f64),
+    k: f64,
+    radius: f64,
+    square: Option<(f64, f64)>,
+    turn: f64,
+    tint: Option<[f64; 3]>,
+    mode: u8,
+) {
+    if k == 0.0 {
+        return;
+    }
+    let mut rays = source.clone();
+    let w = rays.width();
+    rays.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let m = light_share(((i % w) as f64 + 0.5 - center.0, (i / w) as f64 + 0.5 - center.1), radius, square);
+        for v in px.iter_mut() {
+            *v = (*v as f64 * m) as f32;
+        }
+    });
+    crate::blurs::radial_blur(&mut rays, false, 100.0, center, false, None);
+    crate::blurs::radial_blur(&mut rays, true, turn, center, false, None);
+    let c = tint.map_or([1.0; 3], |c| c.map(crate::grade::to_linear));
+    add_rays(source, &rays, k, c, tint.is_some(), mode);
+}
+
+/// D-423: how much of a pixel `d` from the centre the light source takes, a pixel-wide soft
+/// edge at `radius`: round, or with `square` (sine, cosine), max(|u|, |v|) of `d` turned back.
+fn light_share(d: (f64, f64), radius: f64, square: Option<(f64, f64)>) -> f64 {
+    let (dx, dy) = d;
+    let distance = match square {
+        Some((s, c)) => (dx * c + dy * s).abs().max((-dx * s + dy * c).abs()),
+        None => (dx * dx + dy * dy).sqrt(),
+    };
+    (radius + 0.5 - distance).clamp(0.0, 1.0)
+}
+
+/// D-124's last step, shared with D-422 and D-423: with `mode` 0, O + `intensity` C R in
+/// colour, the covering min(1, O.a + `intensity` R.a); with `from_alpha`, R's covering stands
+/// for its colour. D-423's other modes lay Q = `intensity` C R, covering a = min(1, `intensity`
+/// R.a), on O: 1 over it, Q + O (1 - a); 2 screened, O + Q - O Q; 3 the larger.
+fn add_rays(source: &mut WorkingBuffer, rays: &WorkingBuffer, intensity: f64, c: [f64; 3], from_alpha: bool, mode: u8) {
     source
         .data_mut()
         .par_chunks_exact_mut(4)
         .zip(rays.data().par_chunks_exact(4))
         .for_each(|(px, r)| {
+            let (o, a) = (px[3] as f64, (intensity * r[3] as f64).min(1.0));
             for k in 0..3 {
                 let v = if from_alpha { r[3] } else { r[k] };
-                px[k] = (px[k] as f64 + intensity * c[k] * v as f64) as f32;
+                let (p, q) = (px[k] as f64, intensity * c[k] * v as f64);
+                px[k] = match mode {
+                    1 => q + p * (1.0 - a),
+                    2 => p + q - p * q,
+                    3 => p.max(q),
+                    _ => p + q,
+                } as f32;
             }
-            px[3] = (px[3] as f64 + intensity * r[3] as f64).min(1.0) as f32;
+            px[3] = match mode {
+                1 => a + o * (1.0 - a),
+                2 => o + a - o * a,
+                3 => o.max(a),
+                _ => (o + intensity * r[3] as f64).min(1.0),
+            } as f32;
         });
 }
 

@@ -646,6 +646,25 @@ pub enum Effect {
         set_color: String,
         color: String,
     },
+    /// D-423: Light Rays with CC Light Rays' controls, saved under `core.light_rays` as D-124's
+    /// form is; a file with D-124's `length` or `threshold` opens as that form instead.
+    /// `intensity`, 0 to 2000; `center`, per cent of the drawing's width and height, -1000 to
+    /// 1000; `radius`, 0 to 10000 pixels; `warp_softness`, 0 to 1000; `shape`, "round" or
+    /// "square"; `direction`, -3600 to 3600 degrees; `color_from_source` and
+    /// `allow_brightening`, "off" or "on"; `color`, `#rrggbb`, kept as written so a wrong one is
+    /// reported; and `transfer_mode`, "none", "add", "lighten" or "screen".
+    CcLightRays {
+        intensity: f64,
+        center: [f64; 2],
+        radius: f64,
+        warp_softness: f64,
+        shape: String,
+        direction: f64,
+        color_from_source: String,
+        allow_brightening: String,
+        color: String,
+        transfer_mode: String,
+    },
     /// D-125: `amount`, 0 to 4 stops either way; `hold`, 1 to 100 frames, its whole part
     /// counted; and `seed`, 0 to 100000, its whole part counted. `frame` is not a setting and is
     /// never saved: it is the composition frame the settings were resolved at, as Noise's is.
@@ -2752,6 +2771,13 @@ impl Effect {
                 ("intensity", vec![intensity], 0.0, 2000.0),
                 ("ray_length", vec![ray_length], 0.0, 100.0),
             ],
+            Effect::CcLightRays { intensity, center, radius, warp_softness, direction, .. } => vec![
+                ("intensity", vec![intensity], 0.0, 2000.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("radius", vec![radius], 0.0, 10000.0),
+                ("warp_softness", vec![warp_softness], 0.0, 1000.0),
+                ("direction", vec![direction], -3600.0, 3600.0),
+            ],
             Effect::ExposureFlicker {
                 amount, hold, seed, ..
             } => vec![
@@ -4126,6 +4152,7 @@ impl Effect {
                 *feather = scale(*feather);
             }
             Effect::Spherize { radius, .. } => *radius = scale(*radius),
+            Effect::CcLightRays { radius, .. } => *radius = scale(*radius),
             Effect::Checkerboard { width, height, feather_width, feather_height, .. } => {
                 // At its least, as Mosaic's size: a draft's half-pixel square is drawn a pixel
                 // wide rather than the whole effect bypassed.
@@ -4330,7 +4357,7 @@ impl Effect {
             Effect::Noise { .. } => "Noise",
             Effect::ChromaticAberration { .. } | Effect::LensChromaticAberration { .. } => "Chromatic Aberration",
             Effect::DistanceGradation { .. } => "Distance Gradation",
-            Effect::LightRays { .. } => "Light Rays",
+            Effect::LightRays { .. } | Effect::CcLightRays { .. } => "Light Rays",
             Effect::LightBurst { .. } => "Light Burst",
             Effect::ExposureFlicker { .. } => "Exposure Flicker",
             Effect::Vignette { .. } => "Vignette",
@@ -4498,7 +4525,7 @@ impl Effect {
             Effect::Noise { .. } => NOISE,
             Effect::ChromaticAberration { .. } | Effect::LensChromaticAberration { .. } => CHROMATIC_ABERRATION,
             Effect::DistanceGradation { .. } => DISTANCE_GRADATION,
-            Effect::LightRays { .. } => LIGHT_RAYS,
+            Effect::LightRays { .. } | Effect::CcLightRays { .. } => LIGHT_RAYS,
             Effect::LightBurst { .. } => LIGHT_BURST,
             Effect::ExposureFlicker { .. } => EXPOSURE_FLICKER,
             Effect::Vignette { .. } => VIGNETTE,
@@ -5098,6 +5125,12 @@ impl Effect {
             Effect::LightBurst { burst, set_color, color, .. } => (!["straight", "fade", "center"].contains(&burst.as_str()))
                 .then(|| format!("{name}'s burst is \"straight\", \"fade\" or \"center\", and this is \"{burst}\"."))
                 .or_else(|| (!["off", "on"].contains(&set_color.as_str())).then(|| format!("{name}'s set colour is \"off\" or \"on\", and this is \"{set_color}\".")))
+                .or_else(|| hex_fault(name, "colour", color)),
+            Effect::CcLightRays { shape, color_from_source, allow_brightening, color, transfer_mode, .. } => (!["round", "square"].contains(&shape.as_str()))
+                .then(|| format!("{name}'s shape is \"round\" or \"square\", and this is \"{shape}\"."))
+                .or_else(|| (!["off", "on"].contains(&color_from_source.as_str())).then(|| format!("{name}'s colour from source is \"off\" or \"on\", and this is \"{color_from_source}\".")))
+                .or_else(|| (!["off", "on"].contains(&allow_brightening.as_str())).then(|| format!("{name}'s allow brightening is \"off\" or \"on\", and this is \"{allow_brightening}\".")))
+                .or_else(|| (!RAY_MODES.contains(&transfer_mode.as_str())).then(|| format!("{name}'s transfer mode is \"none\", \"add\", \"lighten\" or \"screen\", and this is \"{transfer_mode}\".")))
                 .or_else(|| hex_fault(name, "colour", color)),
             Effect::ColorLink { layer, sample, stencil, blending_mode, .. } => (!layer.is_string())
                 .then(|| format!("{name}'s source layer is the name of a layer of this composition, and this is {layer}."))
@@ -6337,6 +6370,20 @@ pub(crate) fn burst_sweep(burst: &str, ray_length: f64) -> crate::blurs::Sweep {
     Sweep { from, weigh, density: 1.0 }
 }
 
+/// D-423: Light Rays' transfer modes, as the file writes them.
+pub(crate) const RAY_MODES: [&str; 4] = ["none", "add", "lighten", "screen"];
+
+/// D-423: a transfer mode as `layer_fx::add_rays` and the card's rays pass take it; 0, add, is
+/// D-124's own last step.
+pub(crate) fn ray_mode(mode: &str) -> u8 {
+    match mode {
+        "none" => 1,
+        "screen" => 2,
+        "lighten" => 3,
+        _ => 0,
+    }
+}
+
 /// D-378: Bender's amount in pixels, from per cent of the axis from `base` to `top` when
 /// `adjust` is "on".
 pub(crate) fn bender_amount(amount: f64, adjust: &str, base: (f64, f64), top: (f64, f64)) -> f64 {
@@ -6916,6 +6963,16 @@ pub(crate) fn apply_stack_at(
                 let sweep = burst_sweep(burst, *ray_length);
                 crate::perf::time(crate::perf::Stage::EffectLightBurst, || {
                     crate::layer_fx::light_burst(source, c, *intensity / 100.0, *ray_length, sweep, tint)
+                })
+            }
+            // D-423: the centre a share of the drawing's own size, the radius in its pixels.
+            Effect::CcLightRays { intensity, center, radius, warp_softness, shape, direction, color_from_source, allow_brightening, color, transfer_mode } => {
+                let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
+                let k = if allow_brightening == "on" { intensity / 100.0 } else { (intensity / 100.0).min(1.0) };
+                let square = (shape == "square").then(|| direction.to_radians().sin_cos());
+                let tint = (color_from_source == "off").then(|| encoded(color));
+                crate::perf::time(crate::perf::Stage::EffectLightRays, || {
+                    crate::layer_fx::cc_light_rays(source, c, k, *radius, square, warp_softness / 10.0, tint, ray_mode(transfer_mode))
                 })
             }
             // D-125: Noise's hash of the seed and the frame over the hold gives the stops.

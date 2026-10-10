@@ -1684,9 +1684,9 @@ fn slide(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>((1.0lf - k[1]) * top + k[1] * bottom));
 }
 
-// B-76, layer_fx::light_rays' last step: `other` is the bright pixels zoomed out. k: the
-// intensity, the colour in linear light, and (D-422, Light Burst's Set Color) 1 when the rays'
-// covering stands for their colour, else 0.
+// B-76, layer_fx::light_rays' last step (layer_fx::add_rays): `other` is the bright pixels
+// zoomed out. k: the intensity, the colour in linear light, (D-422, Light Burst's Set Color) 1
+// when the rays' covering stands for their colour, else 0, and (D-423) the mode, 0 D-124's add.
 @compute @workgroup_size(16, 16)
 fn rays(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -1696,11 +1696,32 @@ fn rays(@builtin(global_invocation_id) id: vec3<u32>) {
     let p = textureLoad(input, id.xy, 0);
     let r = textureLoad(other, id.xy, 0);
     let lit = select(r, vec4(r.w), k[4] == 1.0lf);
+    let mode = u32(k[5]);
+    let a = min(k[0] * f64(r.w), 1.0lf);
     var out: vec4<f32>;
     for (var c = 0u; c < 3u; c++) {
-        out[c] = f32(f64(p[c]) + k[0] * k[1u + c] * f64(lit[c]));
+        let q = k[0] * k[1u + c] * f64(lit[c]);
+        let o = f64(p[c]);
+        if mode == 1u {
+            out[c] = f32(q + o * (1.0lf - a));
+        } else if mode == 2u {
+            out[c] = f32(o + q - o * q);
+        } else if mode == 3u {
+            out[c] = f32(max(o, q));
+        } else {
+            out[c] = f32(f64(p[c]) + k[0] * k[1u + c] * f64(lit[c]));
+        }
     }
-    out.w = f32(min(f64(p.w) + k[0] * f64(r.w), 1.0lf));
+    let o = f64(p.w);
+    if mode == 1u {
+        out.w = f32(a + o * (1.0lf - a));
+    } else if mode == 2u {
+        out.w = f32(o + a - o * a);
+    } else if mode == 3u {
+        out.w = f32(max(o, a));
+    } else {
+        out.w = f32(min(f64(p.w) + k[0] * f64(r.w), 1.0lf));
+    }
     textureStore(output, id.xy, out);
 }
 
@@ -4077,6 +4098,20 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
             }
             textureStore(output, id.xy, vec4(f32(p.x), f32(p.y), f32(p.z), f32(p.w)));
+            return;
+        }
+        case 33u: {
+            // D-423, layer_fx::light_share: the drawing times its share of Light Rays' source.
+            // k: the centre, the radius, 1 for a square, its turn's sine and cosine.
+            let dx = x - k[0];
+            let dy = y - k[1];
+            var d = sqrt(dx * dx + dy * dy);
+            if k[3] == 1.0lf {
+                d = max(abs(dx * k[5] + dy * k[4]), abs(-dx * k[4] + dy * k[5]));
+            }
+            let m = clamp(k[2] + 0.5lf - d, 0.0lf, 1.0lf);
+            let p = textureLoad(input, id.xy, 0);
+            textureStore(output, id.xy, vec4(f32(f64(p.x) * m), f32(f64(p.y) * m), f32(f64(p.z) * m), f32(f64(p.w) * m)));
             return;
         }
         default: {
@@ -9026,7 +9061,7 @@ impl Gpu {
                 let rays = self.blur(steps, &lit, (w, h), Radial { spin: false, amount: *length, center, repeat: false, sweep: None });
                 let mut k = vec![*intensity];
                 k.extend(linear(color));
-                k.push(0.0);
+                k.extend([0.0, 0.0]);
                 same(steps, &passes.rays, FxParams::default(), &k, Some(&rays))
             }
             // D-422: the layer itself is the light, through Spin & Zoom Blur's zoom, then Light
@@ -9042,7 +9077,31 @@ impl Gpu {
                 } else {
                     k.extend([1.0; 3]);
                 }
-                k.push(on as u8 as f64);
+                k.extend([on as u8 as f64, 0.0]);
+                same(steps, &passes.rays, FxParams::default(), &k, Some(&rays))
+            }
+            // D-423: the layer times the source's share, zoomed out and spun, then the rays pass
+            // in its transfer mode.
+            E::CcLightRays { intensity, center, radius, warp_softness, shape, direction, color_from_source, allow_brightening, color, transfer_mode } => {
+                let center = crate::effects::radial_center(*center, (w, h), f.origin);
+                let (s, c) = direction.to_radians().sin_cos();
+                let k = [center.0, center.1, *radius, (shape == "square") as u8 as f64, s, c];
+                let (lit, _) = same(steps, &passes.warp, FxParams { mode: 33, ..Default::default() }, &k, None);
+                let zoomed = self.blur(steps, &lit, (w, h), Radial { spin: false, amount: 100.0, center, repeat: false, sweep: None });
+                let turn = warp_softness / 10.0;
+                let rays = if turn == 0.0 {
+                    zoomed
+                } else {
+                    self.blur(steps, &zoomed, (w, h), Radial { spin: true, amount: turn, center, repeat: false, sweep: None })
+                };
+                let tinted = color_from_source == "off";
+                let mut k = vec![if allow_brightening == "on" { intensity / 100.0 } else { (intensity / 100.0).min(1.0) }];
+                if tinted {
+                    k.extend(linear(color));
+                } else {
+                    k.extend([1.0; 3]);
+                }
+                k.extend([tinted as u8 as f64, crate::effects::ray_mode(transfer_mode) as f64]);
                 same(steps, &passes.rays, FxParams::default(), &k, Some(&rays))
             }
             E::DistanceGradation { color, width, opacity, invert, blend: b } => {

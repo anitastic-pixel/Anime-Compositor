@@ -1546,6 +1546,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("set_color".into(), J::from(set_color.as_str()));
             params.insert("color".into(), J::from(color.as_str()));
         }
+        Effect::CcLightRays { intensity, center, radius, warp_softness, shape, direction, color_from_source, allow_brightening, color, transfer_mode } => {
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("radius".into(), num(*radius));
+            params.insert("warp_softness".into(), num(*warp_softness));
+            params.insert("shape".into(), J::from(shape.as_str()));
+            params.insert("direction".into(), num(*direction));
+            params.insert("color_from_source".into(), J::from(color_from_source.as_str()));
+            params.insert("allow_brightening".into(), J::from(allow_brightening.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("transfer_mode".into(), J::from(transfer_mode.as_str()));
+        }
         Effect::ExposureFlicker {
             amount, hold, seed, ..
         } => {
@@ -4785,7 +4797,22 @@ fn parse_effect(
                 blend: effect_word(params, "blend", &at)?,
             })
         }
-        // D-124: the colour is read in small letters, as a new colour is.
+        // D-124: the colour is read in small letters, as a new colour is. D-423: a file with
+        // D-124's length or threshold is D-124's form, drawn as before; otherwise CC's controls.
+        crate::effects::LIGHT_RAYS if !params.is_some_and(|p| p.get("length").is_some() || p.get("threshold").is_some()) => {
+            Some(crate::effects::Effect::CcLightRays {
+                intensity: effect_number(params, "intensity", &at)?,
+                center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                radius: effect_number(params, "radius", &at)?,
+                warp_softness: effect_number(params, "warp_softness", &at)?,
+                shape: effect_word(params, "shape", &at)?,
+                direction: effect_number(params, "direction", &at)?,
+                color_from_source: effect_word(params, "color_from_source", &at)?,
+                allow_brightening: effect_word(params, "allow_brightening", &at)?,
+                color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                transfer_mode: effect_word(params, "transfer_mode", &at)?,
+            })
+        }
         crate::effects::LIGHT_RAYS => Some(crate::effects::Effect::LightRays {
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
             length: effect_number(params, "length", &at)?,

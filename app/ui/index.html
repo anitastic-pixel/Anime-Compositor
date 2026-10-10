@@ -8162,6 +8162,8 @@ function fxKey(fx) {
   if (fx.type_id === 'core.tint' && (fx.parameters || {}).color !== undefined) return 'core.tint.old';
   // D-409: a Chromatic Aberration saved before its mode keeps its amount and centre alone.
   if (fx.type_id === 'core.chromatic_aberration' && (fx.parameters || {}).mode === undefined) return 'core.chromatic_aberration.old';
+  // D-423: a Light Rays saved before CC's controls keeps D-124's length, threshold and colour.
+  if (fx.type_id === 'core.light_rays' && (fx.parameters || {}).length !== undefined) return 'core.light_rays.old';
   return fx.type_id === 'core.glow' && (fx.parameters || {}).falloff === 'physical' ? 'core.glow.physical' : fx.type_id;
 }
 function fxParts(layer, prop) {
@@ -9399,6 +9401,7 @@ const EFFECT_NAMES = {
 // D-401: an older Tint's name, kept out of the lists an effect is added from.
 Object.defineProperty(EFFECT_NAMES, 'core.tint.old', { value: 'Tint' });
 Object.defineProperty(EFFECT_NAMES, 'core.chromatic_aberration.old', { value: 'Chromatic Aberration' });
+Object.defineProperty(EFFECT_NAMES, 'core.light_rays.old', { value: 'Light Rays' });
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
 // every folder still shows, under Other, so a new one can never go missing from the panel.
@@ -9462,7 +9465,7 @@ const EFFECT_SEARCH = {
   'core.glow': 'shine',
   'core.glow.physical': 'soft physical glow deep glow realistic light bloom haze exponential falloff exposure threshold aspect anamorphic stretch',
   'core.bloom': 'glow shine highlights',
-  'core.light_rays': 'god rays shaft beams',
+  'core.light_rays': 'god rays shaft beams cc light rays source radius warp softness transfer mode',
   'core.rim_light': 'edge light backlight',
   'core.light_wrap': 'edge spill background',
   'core.cross_glare': 'star sparkle twinkle flare',
@@ -9628,7 +9631,7 @@ const EFFECT_ABOUT = {
   'core.noise': 'Adds film grain, still or moving.',
   'core.chromatic_aberration': 'Splits red, green and blue apart toward the edges, as a cheap lens does, or in a straight line (RGB Separation), each colour by its own amount, with soft fringes if wanted.',
   'core.distance_gradation': 'Shades a colour in from the drawing\'s edge, darkest at the edge.',
-  'core.light_rays': 'Beams of light streaming from a point through the bright parts.',
+  'core.light_rays': 'Beams of light streaming out from a round or square light source, in the layer's own colours or one colour, laid over, added, screened or lightened.',
   'core.exposure_flicker': 'Makes the brightness jump from frame to frame, as old film does.',
   'core.vignette': 'Darkens the corners and edges of the frame.',
   'core.turbulent_displace': 'Warps the layer with rolling noise, for heat haze or wobble, or lines that boil with a new seed every few frames; a drift makes heat shimmer rise.',
@@ -9892,7 +9895,13 @@ const EFFECT_PARAMS = {
   'core.distance_gradation': [['width', 'Width', 1, 0.5, 'pixels in from the edge, 0 to 1000'],
     ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
   // D-124: the centre as a share of the drawing, as Radial Blur's is.
-  'core.light_rays': [['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
+  // D-423: CC Light Rays' controls.
+  'core.light_rays': [['intensity', 'Intensity', 1, 1, '0 to 2000'],
+    ['center', 'Center', 2, 1, '% of the width and height, -1000 to 1000'],
+    ['radius', 'Radius', 1, 1, 'pixels, 0 to 10000'],
+    ['warp_softness', 'Warp Softness', 1, 1, '0 to 1000'],
+    ['direction', 'Direction', 1, 1, 'degrees, Square only, -3600 to 3600']],
+  'core.light_rays.old': [['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
     ['length', 'Length', 1, 0.5, '% of the way to the centre, 0 to 100'],
     ['threshold', 'Threshold', 1, 0.5, '0 to 100'],
     ['intensity', 'Intensity', 1, 0.02, '0 to 10']],
@@ -10713,7 +10722,15 @@ const EFFECT_WORDS = {
     colours: [['color', 'Colour']],
   },
   // D-124.
-  'core.light_rays': { colours: [['color', 'Colour']] },
+  'core.light_rays.old': { colours: [['color', 'Colour']] },
+  // D-423.
+  'core.light_rays': {
+    choices: [['shape', 'Shape', [['round', 'Round'], ['square', 'Square']]],
+      ['color_from_source', 'Color from Source', [['off', 'Off'], ['on', 'On']]],
+      ['allow_brightening', 'Allow Brightening', [['off', 'Off'], ['on', 'On']]],
+      ['transfer_mode', 'Transfer Mode', [['none', 'None'], ['add', 'Add'], ['lighten', 'Lighten'], ['screen', 'Screen']]]],
+    colours: [['color', 'Color']],
+  },
   // D-126.
   'core.vignette': { colours: [['color', 'Colour']] },
   // D-127.
