@@ -1,0 +1,112 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-writeon-001",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-stripes",
+      "kind": "still",
+      "name": "stripes",
+      "path": "media/stripes.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 12,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 12
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-stripes",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 12,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.write_on",
+              "enabled": true,
+              "parameters": {
+                "brush_position": [
+                  50,
+                  50
+                ],
+                "color": "#ffffff",
+                "brush_size": 6,
+                "brush_hardness": 75,
+                "brush_opacity": 100,
+                "stroke_length": 0,
+                "brush_spacing": 0.01,
+                "paint_time_properties": "none",
+                "brush_time_properties": "none",
+                "paint_style": "on_original"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
