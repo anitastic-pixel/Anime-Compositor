@@ -1119,6 +1119,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             );
             params.insert("amount".into(), num(*amount));
         }
+        Effect::TintMap { map_black_to, map_white_to, amount_to_tint } => {
+            params.insert("map_black_to".into(), J::from(map_black_to.as_str()));
+            params.insert("map_white_to".into(), J::from(map_white_to.as_str()));
+            params.insert("amount_to_tint".into(), num(*amount_to_tint));
+        }
         Effect::LineSmooth {
             softness,
             threshold,
@@ -4169,9 +4174,17 @@ fn parse_effect(
             // D-321: a file from before it means sigma.
             units: effect_word_or(params, "units", &at, "sigma")?,
         }),
-        crate::effects::TINT => Some(crate::effects::Effect::Tint {
-            color: effect_array(params, "color", "a linear RGB triple", &at)?,
-            amount: effect_number(params, "amount", &at)?,
+        // D-401: a file with the older `color` or `amount` is the older Tint, drawn as it was.
+        crate::effects::TINT if params.is_some_and(|p| p.get("color").is_some() || p.get("amount").is_some()) => {
+            Some(crate::effects::Effect::Tint {
+                color: effect_array(params, "color", "a linear RGB triple", &at)?,
+                amount: effect_number(params, "amount", &at)?,
+            })
+        }
+        crate::effects::TINT => Some(crate::effects::Effect::TintMap {
+            map_black_to: effect_word(params, "map_black_to", &at)?.to_ascii_lowercase(),
+            map_white_to: effect_word(params, "map_white_to", &at)?.to_ascii_lowercase(),
+            amount_to_tint: effect_number(params, "amount_to_tint", &at)?,
         }),
         crate::effects::LINE_SMOOTH => Some(crate::effects::Effect::LineSmooth {
             softness: effect_number(params, "softness", &at)?,

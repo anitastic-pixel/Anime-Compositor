@@ -8158,6 +8158,8 @@ const fxName = (fx, name) => 'fx:' + fx.instance_id + ':' + name;
 // D-353: the panel's own key for an effect. Soft Physical Glow is Glow with the "physical"
 // falloff, and has its own name, settings and place in the list.
 function fxKey(fx) {
+  // D-401: a Tint saved before After Effects' settings keeps its colour and amount.
+  if (fx.type_id === 'core.tint' && (fx.parameters || {}).color !== undefined) return 'core.tint.old';
   return fx.type_id === 'core.glow' && (fx.parameters || {}).falloff === 'physical' ? 'core.glow.physical' : fx.type_id;
 }
 function fxParts(layer, prop) {
@@ -9376,6 +9378,8 @@ const EFFECT_NAMES = {
   'core.refine_soft_matte': 'Refine Soft Matte',
   'core.stroke': 'Path Stroke',
 };
+// D-401: an older Tint's name, kept out of the lists an effect is added from.
+Object.defineProperty(EFFECT_NAMES, 'core.tint.old', { value: 'Tint' });
 
 // W-29: the Effects panel's folders, After Effects' where it has one. An effect left out of
 // every folder still shows, under Other, so a new one can never go missing from the panel.
@@ -9430,7 +9434,7 @@ const EFFECT_SEARCH = {
   'core.hue_saturation': 'colorize desaturate',
   'core.vibrance': 'saturation',
   'core.black_white': 'greyscale grayscale monochrome desaturate',
-  'core.tint': 'monochrome',
+  'core.tint': 'monochrome duotone map black to map white to amount to tint swap colors',
   'core.gradient_map': 'tritone colorama',
   'core.leave_color': 'keep one',
   'core.invert': 'negative',
@@ -9730,7 +9734,9 @@ const EFFECT_PARAMS = {
     // D-335: After Effects' Offset and Gamma Correction; a file without them has 0 and 1.
     ['offset', 'Offset', 1, 0.002, '-0.5 to 0.5, added to every colour', '', 0],
     ['gamma', 'Gamma Correction', 1, 0.01, '0.01 to 9.99, above 1 lifts the middle', '', 1]],
-  'core.tint': [['color', 'Colour', 3, 0.01, 'linear RGB'], ['amount', 'Amount', 1, 0.01, '0 to 1']],
+  // D-401: After Effects' Tint; its two colours are in EFFECT_WORDS.
+  'core.tint': [['amount_to_tint', 'Amount to Tint', 1, 0.5, '0 to 100']],
+  'core.tint.old': [['color', 'Colour', 3, 0.01, 'linear RGB'], ['amount', 'Amount', 1, 0.01, '0 to 1']],
   // D-86.
   'core.line_smooth': [['softness', 'Softness', 1, 0.5, '0 to 100'],
     ['threshold', 'Threshold', 1, 0.5, '0 to 255']],
@@ -10520,6 +10526,8 @@ const EFFECT_WORDS = {
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
     colours: [['dark_color', 'Dark Colour'], ['light_color', 'Light Colour']],
   },
+  // D-401.
+  'core.tint': { colours: [['map_black_to', 'Map Black To'], ['map_white_to', 'Map White To']] },
   // D-129.
   'core.gradient_map': {
     colours: [['shadow_color', 'Shadow Colour'], ['midtone_color', 'Midtone Colour'], ['highlight_color', 'Highlight Colour']],
@@ -11943,6 +11951,18 @@ function effectRow(layer, fx, at, of) {
       dd.append(swatch, ' ', text);
     }
     dl.append(dt, dd);
+  }
+  // D-401: After Effects' Swap Colors, a button that trades Tint's two colours; not a setting.
+  if (fxKey(fx) === 'core.tint') {
+    const swap = Object.assign(document.createElement('button'),
+      { textContent: 'Swap Colors', title: 'Trade Map Black To and Map White To' });
+    swap.onclick = () => {
+      [words.map_black_to, words.map_white_to] = [words.map_white_to, words.map_black_to];
+      sendParameters();
+    };
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    dd.append(swap);
+    dl.append(Object.assign(document.createElement('dt'), { className: 'wide' }), dd);
   }
   // D-182: the file, by its asset's name, and the button that asks for one. The window reads a
   // chosen file first and refuses one it cannot read, saying why, so nothing is sent from here.

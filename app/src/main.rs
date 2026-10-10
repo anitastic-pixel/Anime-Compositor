@@ -3359,9 +3359,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             // D-321: one added from now on takes After Effects' Blurriness.
             units: "blurriness".to_string(),
         }),
-        TINT => Some(Effect::Tint {
-            color: [0.0, 0.0, 0.0],
-            amount: 0.0,
+        // D-401: After Effects' Tint, black to black and white to white, which turns it grey.
+        TINT => Some(Effect::TintMap {
+            map_black_to: "#000000".to_string(),
+            map_white_to: "#ffffff".to_string(),
+            amount_to_tint: 100.0,
         }),
         LINE_SMOOTH => Some(Effect::LineSmooth {
             softness: 50.0,
@@ -4645,6 +4647,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             dimensions: word("dimensions").unwrap_or_else(|_| "both".to_string()),
             // D-321: sigma when the command does not say, as a file without it.
             units: word("units").unwrap_or_else(|_| "sigma".to_string()),
+        }),
+        // D-401: without the older `color`, After Effects' settings.
+        TINT if parameter(query, "color").is_none() => Ok(Effect::TintMap {
+            map_black_to: word("map_black_to")?,
+            map_white_to: word("map_white_to")?,
+            amount_to_tint: number("amount_to_tint")?,
         }),
         TINT => {
             let Some(text) = parameter(query, "color") else {
@@ -14839,6 +14847,8 @@ mod editing {
             open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
         );
         run(&viewer, "effect.add?layer=layer-cel&type=core.tint");
+        // D-401: the older Tint, whose colour is a keyable number setting.
+        run(&viewer, "effect.set_parameters?layer=layer-cel&effect=fx-1&color=0,0,0&amount=0");
         let expression = || {
             let held = held(&viewer);
             let comp = held.document.project().composition(&held.composition).cloned().unwrap();

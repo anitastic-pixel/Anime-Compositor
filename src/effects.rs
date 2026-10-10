@@ -364,6 +364,10 @@ pub enum Effect {
     GaussianBlur { sigma_px: f64, edges: String, dimensions: String, units: String },
     /// Document 21: "parameter color is linear RGB and amount `t` in 0..1."
     Tint { color: [f64; 3], amount: f64 },
+    /// D-401: After Effects' Tint under the same `core.tint`: `map_black_to` and `map_white_to`,
+    /// `#rrggbb`, kept as written; `amount_to_tint`, 0 to 100. A file with `color` is the older
+    /// [`Tint`](Self::Tint), drawn as it always was.
+    TintMap { map_black_to: String, map_white_to: String, amount_to_tint: f64 },
     /// D-86: "`softness`, 0 to 100 ... and `threshold`, 0 to 255". Document 21's line smoothing.
     LineSmooth { softness: f64, threshold: f64 },
     /// D-87: "`blur`, 0 to 200 pixels ... `colors`, the chosen colours, up to eight, each
@@ -2123,6 +2127,7 @@ impl Effect {
                 ("color", color.iter_mut().collect(), f64::MIN, f64::MAX),
                 ("amount", vec![amount], 0.0, 1.0),
             ],
+            Effect::TintMap { amount_to_tint, .. } => vec![("amount_to_tint", vec![amount_to_tint], 0.0, 100.0)],
             Effect::LineSmooth {
                 softness,
                 threshold,
@@ -3666,7 +3671,7 @@ impl Effect {
         match self {
             Effect::Exposure { .. } => "Exposure",
             Effect::GaussianBlur { .. } => "Gaussian Blur",
-            Effect::Tint { .. } => "Tint",
+            Effect::Tint { .. } | Effect::TintMap { .. } => "Tint",
             Effect::LineSmooth { .. } => "Line Smoothing",
             Effect::SelectiveColorBlur { .. } => "Selective Colour Blur",
             Effect::Glow { .. } => "Glow",
@@ -3818,7 +3823,7 @@ impl Effect {
         match self {
             Effect::Exposure { .. } => EXPOSURE,
             Effect::GaussianBlur { .. } => GAUSSIAN_BLUR,
-            Effect::Tint { .. } => TINT,
+            Effect::Tint { .. } | Effect::TintMap { .. } => TINT,
             Effect::LineSmooth { .. } => LINE_SMOOTH,
             Effect::SelectiveColorBlur { .. } => SELECTIVE_COLOR_BLUR,
             Effect::Glow { .. } => GLOW,
@@ -4531,6 +4536,8 @@ impl Effect {
             } => hex_fault("Gradient Map", "shadow colour", shadow_color)
                 .or_else(|| hex_fault("Gradient Map", "midtone colour", midtone_color))
                 .or_else(|| hex_fault("Gradient Map", "highlight colour", highlight_color)),
+            Effect::TintMap { map_black_to, map_white_to, .. } => hex_fault("Tint", "Map Black To", map_black_to)
+                .or_else(|| hex_fault("Tint", "Map White To", map_white_to)),
             Effect::ColorBalance {
                 shadows,
                 midtones,
@@ -5134,6 +5141,12 @@ fn hex_fault(effect: &str, what: &str, c: &str) -> Option<String> {
         .then(|| format!("{effect}'s {what} is written #rrggbb, and this is \"{c}\"."))
 }
 
+/// D-401: Tint's two colours as Gradient Map's three stops, the midtone halfway, encoded.
+pub(crate) fn tint_ramp(black: &str, white: &str) -> [[f64; 3]; 3] {
+    let (b, w) = (encoded(black), encoded(white));
+    [b, [0, 1, 2].map(|c| (b[c] + w[c]) / 2.0), w]
+}
+
 /// A colour already found valid, encoded 0 to 1.
 pub(crate) fn encoded(c: &str) -> [f64; 3] {
     crate::selective_blur::parse_hex(c)
@@ -5599,6 +5612,13 @@ pub(crate) fn apply_stack_at(
             Effect::Tint { color, amount } => {
                 crate::perf::time(crate::perf::Stage::EffectTint, || {
                     tint(source, *color, *amount)
+                })
+            }
+            // D-401: Gradient Map's ramp with its midtone halfway, which is the straight line
+            // between the two colours.
+            Effect::TintMap { map_black_to, map_white_to, amount_to_tint } => {
+                crate::perf::time(crate::perf::Stage::EffectTint, || {
+                    crate::grade::gradient_map(source, tint_ramp(map_black_to, map_white_to), 50.0, *amount_to_tint)
                 })
             }
             Effect::GaussianBlur { sigma_px, edges, dimensions, units } => {
