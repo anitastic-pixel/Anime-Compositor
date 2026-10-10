@@ -978,6 +978,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::Split2 { .. }
                 // D-404: Tiles.
                 | crate::effects::Effect::Tiles { .. }
+                // D-405: Magnify.
+                | crate::effects::Effect::Magnify { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
                 // B-225 (D-344): five generators; D-345, Radio Waves.
                 | crate::effects::Effect::Beam { .. }
@@ -1285,6 +1287,8 @@ fn card_effect(
                 E::Split2 { point_a, point_b, split_1, split_2 } => (*split_1, *split_2) == (0.0, 0.0) || point_a == point_b,
                 // D-404: the original mixed back whole, or the one tile the picture itself.
                 E::Tiles { scale, center, blend } => *blend >= 100.0 || (*scale == 100.0 && *center == crate::layer_fx::PLAIN_TILE),
+                // D-405: a clear area laid over the layer, as layer_fx::magnify returns at once.
+                E::Magnify { opacity, blending_mode, .. } => *opacity == 0.0 && blending_mode != "none",
                 // D-360: the mean of two untouched copies is the layer.
                 E::CrossBlur { radius_x, radius_y, mode, .. } => {
                     mode == "blend" && crate::effects::box_reach(*radius_x, 1.0).max(crate::effects::box_reach(*radius_y, 1.0)) == 0
@@ -1337,6 +1341,11 @@ fn card_effect(
                 }
                 E::MotionTile { output_width, output_height, .. } => {
                     crate::layer_fx::tile_growth((*output_width, *output_height), size)
+                }
+                // D-405: a Magnify by its area, when Resize Layer is on and nothing is linked.
+                E::Magnify { center, magnification, link, size: radius, feather, resize_layer, .. } => {
+                    let g = crate::layer_fx::magnify_lens(*center, *magnification, link, [*radius, *feather], resize_layer == "on", size, *offset).3;
+                    (g, g)
                 }
                 // B-151: a Radial Shadow grows by its cast and the cast's blur, a Corner Pin
                 // by its corners; both as their own functions do.

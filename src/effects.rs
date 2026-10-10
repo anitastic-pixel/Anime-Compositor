@@ -1695,6 +1695,25 @@ pub enum Effect {
     /// reaches the effect, -1000 to 1000, where a tile sits; `blend`, 0 to 100 per cent of the
     /// original mixed back.
     Tiles { scale: f64, center: [f64; 2], blend: f64 },
+    /// D-405: after After Effects' Magnify. `shape` "circle" or "square"; `center`, per cent of
+    /// the picture as it reaches the effect, -1000 to 1000; `magnification`, 100 to 1000 per
+    /// cent; `link` "none", "size" or "size_feather" (the radius, and the feather, times the
+    /// magnification); `size`, the radius, and `feather`, inside the edge, 0 to 1000 pixels;
+    /// `opacity`, 0 to 100; `scaling` "standard", "soft" or "scatter"; `blending_mode` "none",
+    /// "normal", "add", "multiply", "screen", "overlay" or "soft_light"; `resize_layer` "off"
+    /// or "on", which grows the layer to hold the area unless linked.
+    Magnify {
+        shape: String,
+        center: [f64; 2],
+        magnification: f64,
+        link: String,
+        size: f64,
+        feather: f64,
+        opacity: f64,
+        scaling: String,
+        blending_mode: String,
+        resize_layer: String,
+    },
     /// D-395: after After Effects' PS Arbitrary Map. `map`, the id of an asset of kind lut that
     /// is a Photoshop arbitrary map (.amp), or empty for none; `phase`, -255 to 255 levels, every
     /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
@@ -2158,6 +2177,7 @@ pub const SMEAR: &str = "core.smear";
 pub const SPLIT: &str = "core.split";
 pub const SPLIT_2: &str = "core.split_2";
 pub const TILES: &str = "core.tiles";
+pub const MAGNIFY: &str = "core.magnify";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3028,6 +3048,13 @@ impl Effect {
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("blend", vec![blend], 0.0, 100.0),
             ],
+            Effect::Magnify { center, magnification, size, feather, opacity, .. } => vec![
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("magnification", vec![magnification], 100.0, 1000.0),
+                ("size", vec![size], 0.0, 1000.0),
+                ("feather", vec![feather], 0.0, 1000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::ArbitraryMap { phase, .. } => vec![("phase", vec![phase], -255.0, 255.0)],
             Effect::SelectiveColor { families, .. } => SELECTIVE_COLOR_FAMILIES
                 .into_iter()
@@ -3763,6 +3790,10 @@ impl Effect {
                 *fade = scale(*fade);
             }
             Effect::Twirl { radius, .. } => *radius = scale(*radius),
+            Effect::Magnify { size, feather, .. } => {
+                *size = scale(*size);
+                *feather = scale(*feather);
+            }
             Effect::Bulge { radius, vertical_radius, taper_radius, .. } => {
                 *radius = scale(*radius);
                 *vertical_radius = scale(*vertical_radius);
@@ -4024,6 +4055,7 @@ impl Effect {
             Effect::Split { .. } => "Split",
             Effect::Split2 { .. } => "Split 2",
             Effect::Tiles { .. } => "Tiles",
+            Effect::Magnify { .. } => "Magnify",
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::SelectiveColor { .. } => "Selective Color",
             Effect::ShadowHighlight { .. } => "Shadow/Highlight",
@@ -4181,6 +4213,7 @@ impl Effect {
             Effect::Split { .. } => SPLIT,
             Effect::Split2 { .. } => SPLIT_2,
             Effect::Tiles { .. } => TILES,
+            Effect::Magnify { .. } => MAGNIFY,
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
             Effect::ShadowHighlight { .. } => SHADOW_HIGHLIGHT,
@@ -5277,6 +5310,25 @@ impl Effect {
             )),
             Effect::ArbitraryMap { apply_to_alpha, .. } if !["off", "on"].contains(&apply_to_alpha.as_str()) => Some(format!(
                 "Arbitrary Map's apply phase map to alpha is \"off\" or \"on\", and this is \"{apply_to_alpha}\"."
+            )),
+            Effect::Magnify { shape, .. } if !["circle", "square"].contains(&shape.as_str()) => Some(format!(
+                "Magnify's shape is \"circle\" or \"square\", and this is \"{shape}\"."
+            )),
+            Effect::Magnify { link, .. } if !["none", "size", "size_feather"].contains(&link.as_str()) => Some(format!(
+                "Magnify's link is \"none\", \"size\" or \"size_feather\", and this is \"{link}\"."
+            )),
+            Effect::Magnify { scaling, .. } if !["standard", "soft", "scatter"].contains(&scaling.as_str()) => Some(format!(
+                "Magnify's scaling is \"standard\", \"soft\" or \"scatter\", and this is \"{scaling}\"."
+            )),
+            Effect::Magnify { blending_mode, .. }
+                if !["none", "normal", "add", "multiply", "screen", "overlay", "soft_light"].contains(&blending_mode.as_str()) =>
+            {
+                Some(format!(
+                    "Magnify's blending mode is \"none\", \"normal\", \"add\", \"multiply\", \"screen\", \"overlay\" or \"soft_light\", and this is \"{blending_mode}\"."
+                ))
+            }
+            Effect::Magnify { resize_layer, .. } if !["off", "on"].contains(&resize_layer.as_str()) => Some(format!(
+                "Magnify's resize layer is \"off\" or \"on\", and this is \"{resize_layer}\"."
             )),
             Effect::HsvKey { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "HSV Key's invert is \"off\" or \"on\", and this is \"{invert}\"."
@@ -6760,6 +6812,15 @@ pub(crate) fn apply_stack_at(
             // D-404: the layer never grows.
             Effect::Tiles { scale, center, blend } => {
                 crate::perf::time(crate::perf::Stage::EffectTiles, || crate::layer_fx::tiles(source, *scale, *center, *blend))
+            }
+            // D-405: Resize Layer may grow the layer to hold the area.
+            Effect::Magnify { shape, center, magnification, link, size, feather, opacity, scaling, blending_mode, resize_layer } => {
+                let g = crate::perf::time(crate::perf::Stage::EffectMagnify, || {
+                    let words = [shape.as_str(), link.as_str(), scaling.as_str(), blending_mode.as_str()];
+                    crate::layer_fx::magnify(source, words, [*magnification, *size, *feather, *opacity], *center, resize_layer == "on", (ox, oy))
+                });
+                ox += g;
+                oy += g;
             }
             // D-379: the map compose read for this frame, if a layer is named, is the blob.
             Effect::Blobbylize {

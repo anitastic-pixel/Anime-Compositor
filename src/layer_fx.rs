@@ -2067,6 +2067,94 @@ pub(crate) fn tiles(source: &mut WorkingBuffer, scale: f64, center: [f64; 2], bl
     }
 }
 
+/// D-405: Magnify's centre in a buffer `dims` whose drawing's corner is at `origin`, its radius
+/// and feather (times the magnification when linked), and how far it grows the buffer on every
+/// side: when Resize Layer is on and nothing is linked, enough to hold the square round the area.
+pub(crate) fn magnify_lens(
+    center: [f64; 2],
+    magnification: f64,
+    link: &str,
+    [size, feather]: [f64; 2],
+    resize: bool,
+    dims: (usize, usize),
+    origin: (usize, usize),
+) -> ((f64, f64), f64, f64, usize) {
+    let m = magnification / 100.0;
+    let r = if link == "none" { size } else { size * m };
+    let f = if link == "size_feather" { feather * m } else { feather };
+    let (cx, cy) = crate::effects::radial_center(center, dims, origin);
+    let (w, h) = (dims.0 as f64, dims.1 as f64);
+    let g = if resize && link == "none" { 0f64.max(r - cx).max(cx + r - w).max(r - cy).max(cy + r - h).ceil() as usize } else { 0 };
+    ((cx, cy), r, f, g)
+}
+
+/// D-405: Magnify. `words`, the shape, link, scaling and blending mode, already valid; `numbers`,
+/// the magnification, size, feather and opacity. The area round the centre is read at
+/// `c + v / m`, weighed by its covering and the opacity, and laid over the buffer by the
+/// blending mode (document 21's layer blend), or alone for "none". Returns the growth on every
+/// side; a clear area over the buffer grows nothing, as it changes nothing.
+pub(crate) fn magnify(
+    source: &mut WorkingBuffer,
+    [shape, link, scaling, blend]: [&str; 4],
+    [magnification, size, feather, opacity]: [f64; 4],
+    center: [f64; 2],
+    resize: bool,
+    origin: (usize, usize),
+) -> usize {
+    if opacity == 0.0 && blend != "none" {
+        return 0;
+    }
+    let (w, h) = (source.width(), source.height());
+    let ((cx, cy), r, f, g) = magnify_lens(center, magnification, link, [size, feather], resize, (w, h), origin);
+    let m = magnification / 100.0;
+    let jit = 1.0 - 1.0 / m;
+    let base = crate::grade::mix(0);
+    let mode = crate::model::BlendMode::from_str(blend);
+    let gw = w + 2 * g;
+    let drawing = std::mem::replace(source, WorkingBuffer::transparent(gw, h + 2 * g));
+    let read = |i: i64, j: i64| {
+        if (0..w as i64).contains(&i) && (0..h as i64).contains(&j) {
+            drawing.pixel(i as usize, j as usize)
+        } else {
+            [0.0; 4]
+        }
+    };
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(n, px)| {
+        let (i, j) = ((n % gw) as i64 - g as i64, (n / gw) as i64 - g as i64);
+        let (vx, vy) = (i as f64 + 0.5 - cx, j as f64 + 0.5 - cy);
+        let (d, inside) = if shape == "square" {
+            let d = vx.abs().max(vy.abs());
+            (d, d <= r)
+        } else {
+            let s = vx * vx + vy * vy;
+            (s.sqrt(), s <= r * r)
+        };
+        let k = if f == 0.0 { f64::from(u8::from(inside)) } else { ((r - d) / f).clamp(0.0, 1.0) };
+        let mut a = [0.0f32; 4];
+        if k > 0.0 {
+            let (mut qx, mut qy) = (cx + vx / m, cy + vy / m);
+            let p = if scaling == "soft" {
+                sample_bilinear(&drawing, qx, qy)
+            } else {
+                if scaling == "scatter" {
+                    // Noise's hash at the pixel's place in the drawing, so it stays with it.
+                    let (hx, hy) = (i - origin.0 as i64, j - origin.1 as i64);
+                    qx += jit * crate::grade::unit(base, hx, hy, 0, 0);
+                    qy += jit * crate::grade::unit(base, hx, hy, 0, 1);
+                }
+                read(qx.floor() as i64, qy.floor() as i64)
+            };
+            let weight = (k * (opacity / 100.0)) as f32;
+            a = p.map(|v| v * weight);
+        }
+        px.copy_from_slice(&match mode {
+            Some(mode) => crate::composite::blend_pixel(mode, a, read(i, j)),
+            None => a,
+        });
+    });
+    g
+}
+
 /// D-304: where a Motion Tile's tiles sit when nothing moved them, the buffer's middle.
 pub(crate) const PLAIN_TILE: [f64; 2] = [50.0, 50.0];
 

@@ -3741,6 +3741,70 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             textureStore(output, id.xy, t * (1.0 - bl) + textureLoad(input, id.xy, 0) * bl);
             return;
         }
+        case 23u: {
+            // D-405, layer_fx::magnify, the output grown by F.g on every side. k: the centre,
+            // the magnification (a share), the radius, the feather, the opacity (a share), the
+            // scatter's reach, square, the scaling (0 standard, 1 soft, 2 scatter), the blend
+            // (0 none, 1 normal, 2 multiply, 3 screen, 4 add, 5 overlay, 6 soft light), the
+            // drawing's corner, 0. Each product rounded once, as the CPU's are.
+            let px = vec2<i32>(id.xy) - vec2(F.g);
+            let vx = f64(px.x) + 0.5lf - k[0];
+            let vy = f64(px.y) + 0.5lf - k[1];
+            var d = max(abs(vx), abs(vy));
+            var inside = d <= k[3];
+            if k[7] == 0.0lf {
+                let s = product(vx, vx, k[12]) + product(vy, vy, k[12]);
+                d = sqrt(s);
+                inside = s <= product(k[3], k[3], k[12]);
+            }
+            var cover = select(0.0lf, 1.0lf, inside);
+            if k[4] != 0.0lf {
+                cover = clamp(quotient(k[3] - d, k[4]), 0.0lf, 1.0lf);
+            }
+            let o = at(input, px);
+            var a = vec4(0.0);
+            if cover > 0.0lf {
+                var qx = k[0] + quotient(vx, k[2]);
+                var qy = k[1] + quotient(vy, k[2]);
+                var p: vec4<f32>;
+                if k[8] == 1.0lf {
+                    p = bilinear(input, qx, qy);
+                } else {
+                    if k[8] == 2.0lf {
+                        let hx = px.x - i32(k[10]);
+                        let hy = px.y - i32(k[11]);
+                        qx += product(k[6], hashed(hx, hy, 0, 0u), k[12]);
+                        qy += product(k[6], hashed(hx, hy, 0, 1u), k[12]);
+                    }
+                    p = at(input, vec2<i32>(i32(floor(qx)), i32(floor(qy))));
+                }
+                a = p * f32(product(cover, k[5], k[12]));
+            }
+            let mode = u32(k[9]);
+            var out = a;
+            if mode == 1u {
+                out = a + o * (1.0 - a.w);
+            } else if mode >= 2u {
+                let ca = select(a.xyz / a.w, vec3(0.0), a.w == 0.0);
+                let co = select(o.xyz / o.w, vec3(0.0), o.w == 0.0);
+                var b = vec3(0.0);
+                for (var c = 0; c < 3; c++) {
+                    switch mode {
+                        case 2u: { b[c] = ca[c] * co[c]; }
+                        case 3u: { b[c] = ca[c] + co[c] - ca[c] * co[c]; }
+                        case 4u: { b[c] = min(ca[c] + co[c], 1.0); }
+                        default: {
+                            let eo = to_srgb(clamp(f64(co[c]), 0.0lf, 1.0lf));
+                            let ea = to_srgb(clamp(f64(ca[c]), 0.0lf, 1.0lf));
+                            b[c] = f32(to_linear(mixed_with(mode - 1u, eo, ea)));
+                        }
+                    }
+                }
+                out = vec4((1.0 - a.w) * o.xyz + (1.0 - o.w) * a.xyz + a.w * o.w * b, a.w + o.w - a.w * o.w);
+            }
+            textureStore(output, id.xy, out);
+            return;
+        }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
             let vx = x - f64(F.g) - k[0] - k[2];
@@ -8856,6 +8920,26 @@ impl Gpu {
                 let (tx, ty) = (nx * s, ny * s);
                 let k = [center[0] / 100.0 * nx - tx / 2.0, tx, s, center[1] / 100.0 * ny - ty / 2.0, ty, points, points, blend / 100.0, 0.0];
                 same(steps, &passes.warp, FxParams { mode: 25, ..Default::default() }, &k, None)
+            }
+            // D-405: grown as layer_fx::magnify_lens says, as compose's growth for it.
+            E::Magnify { shape, center, magnification, link, size: radius, feather, opacity, scaling, blending_mode, resize_layer } => {
+                let ((cx, cy), r, fe, g) =
+                    crate::layer_fx::magnify_lens(*center, *magnification, link, [*radius, *feather], resize_layer == "on", (w, h), f.origin);
+                let m = magnification / 100.0;
+                let scaling = match scaling.as_str() {
+                    "soft" => 1.0,
+                    "scatter" => 2.0,
+                    _ => 0.0,
+                };
+                let blend = ["none", "normal", "multiply", "screen", "add", "overlay", "soft_light"].iter().position(|b| b == blending_mode).unwrap_or(1);
+                let (ox, oy) = (f.origin.0 as f64, f.origin.1 as f64);
+                let k = [cx, cy, m, r, fe, opacity / 100.0, 1.0 - 1.0 / m, (shape == "square") as u8 as f64, scaling, blend as f64, ox, oy, 0.0];
+                let base = crate::grade::mix(0);
+                let (tw, th) = (w + 2 * g, h + 2 * g);
+                let out = self.scratch("D-405 magnify", tw, th);
+                let p = FxParams { mode: 23, g: g as i32, base: [base as u32, (base >> 32) as u32], ..Default::default() };
+                self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
+                (out, (tw, th))
             }
             E::Mirror { center, angle } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
