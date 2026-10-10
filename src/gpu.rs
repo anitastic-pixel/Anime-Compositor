@@ -2746,6 +2746,33 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
                 o = o * (luma(e) / luma(o));
             }
         }
+        case 60u: {
+            // D-396, as grade::selective_color. k: the nine families' cyan, magenta, yellow and
+            // black as shares, in SELECTIVE_COLOR_FAMILIES' order; then 1 for relative.
+            let mx = max(max(e.x, e.y), e.z);
+            let mn = min(min(e.x, e.y), e.z);
+            let md = max(min(e.x, e.y), min(max(e.x, e.y), e.z));
+            let top = mx - md;
+            let low = md - mn;
+            var w = array<f64, 9>(
+                select(0.0lf, top, e.x == mx), select(0.0lf, low, e.z == mn),
+                select(0.0lf, top, e.y == mx), select(0.0lf, low, e.x == mn),
+                select(0.0lf, top, e.z == mx), select(0.0lf, low, e.y == mn),
+                2.0lf * mn - 1.0lf, 1.0lf - (abs(mx - 0.5lf) + abs(mn - 0.5lf)), 1.0lf - 2.0lf * mx);
+            for (var f = 0u; f < 9u; f++) {
+                if w[f] <= 0.0lf {
+                    continue;
+                }
+                for (var c = 0u; c < 3u; c++) {
+                    let s = k[4u * f + c];
+                    var t = (-1.0lf - s) * k[4u * f + 3u] - s;
+                    if k[36] != 0.0lf {
+                        t = t * (1.0lf - e[c]);
+                    }
+                    o[c] = o[c] + clamp(t, -e[c], 1.0lf - e[c]) * w[f];
+                }
+            }
+        }
         case 6u: {
             // k: the three rows, each from red, green, blue and a constant.
             for (var c = 0u; c < 3u; c++) {
@@ -6548,6 +6575,8 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::GammaPedestalGain { .. }
             // D-384.
             | E::PhotoFilter { .. }
+            // D-396.
+            | E::SelectiveColor { .. }
     )
 }
 
@@ -8784,6 +8813,11 @@ impl Gpu {
                 let mut k = crate::effects::photo_filter_colour(filter, color).to_vec();
                 k.extend([density / 100.0, (preserve_luminosity == "on") as u8 as f64]);
                 same(steps, &passes.tone, FxParams { mode: 32, ..Default::default() }, &k, None)
+            }
+            E::SelectiveColor { method, families } => {
+                let mut k: Vec<f64> = crate::effects::selective_color_amounts(families).iter().flatten().map(|v| v / 100.0).collect();
+                k.push((method == "relative") as u8 as f64);
+                same(steps, &passes.tone, FxParams { mode: 60, ..Default::default() }, &k, None)
             }
             E::ColorLink { sample, clip, stencil, opacity, blending_mode: b, map, .. } => {
                 // card_can leaves only a named layer's picture; its colour is read here, once.

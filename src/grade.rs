@@ -1540,6 +1540,57 @@ pub(crate) fn photo_filter(source: &mut WorkingBuffer, filter: [f64; 3], d: f64,
     });
 }
 
+/// D-396: Selective Color with every amount 0 leaves the layer exactly as it is.
+pub(crate) fn selective_color_untouched(families: &[[f64; 4]; 9]) -> bool {
+    families.iter().flatten().all(|v| *v == 0.0)
+}
+
+/// D-396: Selective Color, by Bœsch's reverse-engineering of Photoshop's (FFmpeg's
+/// selectivecolor), in fractions. On the encoded colour e with largest, middle and smallest mx,
+/// md, mn, each family's weight: reds, greens, blues mx - md where red, green, blue is the
+/// largest; cyans, magentas, yellows md - mn where red, green, blue is the smallest; whites
+/// 2 mn - 1; neutrals 1 - (|mx - 0.5| + |mn - 0.5|); blacks 1 - 2 mx. For each family weighing
+/// above 0, with its amounts over 100, each channel moves by w times (-1 - s) k - s (s its own
+/// of cyan, magenta, yellow; k the black), times 1 - e when `relative`, held inside -e to 1 - e.
+/// `families` in [`crate::effects::SELECTIVE_COLOR_FAMILIES`]' order, per cent.
+pub(crate) fn selective_color(source: &mut WorkingBuffer, families: &[[f64; 4]; 9], relative: bool) {
+    if selective_color_untouched(families) {
+        return;
+    }
+    grade_pixels(source, false, |_, e| {
+        let mx = e[0].max(e[1]).max(e[2]);
+        let mn = e[0].min(e[1]).min(e[2]);
+        let md = e[0].min(e[1]).max(e[0].max(e[1]).min(e[2]));
+        let (top, low) = (mx - md, md - mn);
+        let pick = |on: bool, w: f64| if on { w } else { 0.0 };
+        let weights = [
+            pick(e[0] == mx, top),
+            pick(e[2] == mn, low),
+            pick(e[1] == mx, top),
+            pick(e[0] == mn, low),
+            pick(e[2] == mx, top),
+            pick(e[1] == mn, low),
+            2.0 * mn - 1.0,
+            1.0 - ((mx - 0.5).abs() + (mn - 0.5).abs()),
+            1.0 - 2.0 * mx,
+        ];
+        let mut o = e;
+        for (f, w) in families.iter().zip(weights) {
+            if w <= 0.0 {
+                continue;
+            }
+            let k = f[3] / 100.0;
+            for c in 0..3 {
+                let s = f[c] / 100.0;
+                let t = (-1.0 - s) * k - s;
+                let t = if relative { t * (1.0 - e[c]) } else { t };
+                o[c] += t.clamp(-e[c], 1.0 - e[c]) * w;
+            }
+        }
+        o
+    });
+}
+
 /// D-376: the mean encoded straight colour, each pixel weighted by its covering, of the pixels
 /// of `source` whose centres lie within `r` of (`px`, `py`); with none, the pixel holding the
 /// point, held inside the picture. `None` when what is counted has no covering.

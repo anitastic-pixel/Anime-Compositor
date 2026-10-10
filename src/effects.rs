@@ -1623,6 +1623,11 @@ pub enum Effect {
     /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
     /// alpha table. `table` is not a setting: it is the file, read by `crate::lut::fill`.
     ArbitraryMap { map: String, phase: f64, apply_to_alpha: String, table: Option<crate::lut::Map> },
+    /// D-396: after After Effects' Selective Color. `method`, "relative" or "absolute";
+    /// `families`, one per name of [`SELECTIVE_COLOR_FAMILIES`] in its order, each the cyan,
+    /// magenta, yellow and black change, -100 to 100 per cent. Kept as written, so a family of
+    /// the wrong count is reported rather than refusing the file.
+    SelectiveColor { method: String, families: [Vec<f64>; 9] },
     /// D-379: after CycoreFX's CC Blobbylize. `layer` and `fit`, D-189's layer setting, the blob
     /// map, "" the layer itself; `property`, one of [`BLOBBYLIZE_PROPERTIES`]; `softness`, 0 to
     /// 100 pixels; `cut_away`, 0 to 100; `light_intensity`, 0 to 400; `light_color`, `#rrggbb`;
@@ -2010,6 +2015,15 @@ pub const SMEAR: &str = "core.smear";
 pub const SPLIT: &str = "core.split";
 pub const SPLIT_2: &str = "core.split_2";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
+pub const SELECTIVE_COLOR: &str = "core.selective_color";
+/// D-396: Selective Color's colour families, each a setting, in the order the card numbers them.
+pub const SELECTIVE_COLOR_FAMILIES: [&str; 9] =
+    ["reds", "yellows", "greens", "cyans", "blues", "magentas", "whites", "neutrals", "blacks"];
+
+/// D-396: Selective Color's families as numbers; each is four once the effect is valid.
+pub fn selective_color_amounts(families: &[Vec<f64>; 9]) -> [[f64; 4]; 9] {
+    std::array::from_fn(|i| std::array::from_fn(|c| families[i][c]))
+}
 /// D-388: Page Turn's ways of placing the fold, the line itself or the corner turned.
 pub const PAGE_TURN_CONTROLS: [&str; 5] = ["classic", "top_left", "top_right", "bottom_left", "bottom_right"];
 /// D-388: what Page Turn draws, in the order the card numbers them.
@@ -2781,6 +2795,11 @@ impl Effect {
                 ("split_2", vec![split_2], 0.0, 1000.0),
             ],
             Effect::ArbitraryMap { phase, .. } => vec![("phase", vec![phase], -255.0, 255.0)],
+            Effect::SelectiveColor { families, .. } => SELECTIVE_COLOR_FAMILIES
+                .into_iter()
+                .zip(families.iter_mut())
+                .map(|(name, row)| (name, row.iter_mut().collect(), -100.0, 100.0))
+                .collect(),
             Effect::Blobbylize {
                 softness,
                 cut_away,
@@ -3748,6 +3767,7 @@ impl Effect {
             Effect::Split { .. } => "Split",
             Effect::Split2 { .. } => "Split 2",
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
+            Effect::SelectiveColor { .. } => "Selective Color",
             Effect::Blobbylize { .. } => "Blobbylize",
             Effect::MomentMap { .. } => "Moment Map",
             Effect::PassExtract { .. } => "Pass Extract",
@@ -3898,6 +3918,7 @@ impl Effect {
             Effect::Split { .. } => SPLIT,
             Effect::Split2 { .. } => SPLIT_2,
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
+            Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
             Effect::Blobbylize { .. } => BLOBBYLIZE,
             Effect::MomentMap { .. } => MOMENT_MAP,
             Effect::PassExtract { .. } => PASS_EXTRACT,
@@ -4781,6 +4802,21 @@ impl Effect {
                 .or_else(|| {
                     (!["off", "on"].contains(&monochrome.as_str())).then(|| {
                         format!("Channel Mixer's monochrome is \"off\" or \"on\", and this is \"{monochrome}\".")
+                    })
+                }),
+            Effect::SelectiveColor { method, families } => SELECTIVE_COLOR_FAMILIES
+                .into_iter()
+                .zip(families)
+                .find(|(_, row)| row.len() != 4)
+                .map(|(what, row)| {
+                    format!(
+                        "Selective Color's {what} are four numbers, the cyan, magenta, yellow and black, and this has {}.",
+                        row.len()
+                    )
+                })
+                .or_else(|| {
+                    (!["relative", "absolute"].contains(&method.as_str())).then(|| {
+                        format!("Selective Color's method is \"relative\" or \"absolute\", and this is \"{method}\".")
                     })
                 }),
             Effect::LeaveColor { color, .. } => hex_fault("Leave Color", "colour", color),
@@ -7038,6 +7074,9 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
+            Effect::SelectiveColor { method, families } => crate::perf::time(crate::perf::Stage::EffectSelectiveColor, || {
+                crate::grade::selective_color(source, &selective_color_amounts(families), method == "relative")
+            }),
             Effect::LineBlur {
                 length,
                 strength,

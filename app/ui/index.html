@@ -9336,6 +9336,7 @@ const EFFECT_NAMES = {
   'core.split': 'Split',
   'core.split_2': 'Split 2',
   'core.arbitrary_map': 'Arbitrary Map',
+  'core.selective_color': 'Selective Color',
   'core.color_balance_hls': 'Color Balance (HLS)',
   'core.color_link': 'Color Link',
   'core.color_stabilizer': 'Color Stabilizer',
@@ -9389,7 +9390,7 @@ const EFFECT_GROUPS = [
     'core.stretch_levels', 'core.stretch_contrast', 'core.stretch_color', 'core.spread_tones',
     'core.broadcast_safe', 'core.color_neutralizer', 'core.color_offset', 'core.kernel', 'core.toner',
     'core.change_color', 'core.color_balance_hls', 'core.color_link', 'core.color_stabilizer',
-    'core.gamma_pedestal_gain', 'core.photo_filter']],
+    'core.gamma_pedestal_gain', 'core.photo_filter', 'core.selective_color']],
   ['Light & Glow', ['core.glow', 'core.glow.physical', 'core.bloom', 'core.light_rays', 'core.rim_light',
     'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.lightning_bolt', 'core.exposure_flicker',
     'core.paraffin']],
@@ -9501,6 +9502,7 @@ const EFFECT_SEARCH = {
   'core.split': 'split cc split crack open tear gap rip slit cut seam distort',
   'core.split_2': 'split 2 cc split 2 crack open tear gap rip slit cut seam distort two sides each side',
   'core.arbitrary_map': 'arbitrary map ps arbitrary map photoshop amp curves map file phase cycle psychedelic solarize',
+  'core.selective_color': 'selective color colour cmyk cyan magenta yellow black reds yellows greens cyans blues magentas whites neutrals blacks relative absolute photoshop print grade',
   'core.blobbylize': 'blobbylize cc blobbylize blob blobs liquid goo slime metal chrome melt drops bubbles lit shiny',
   'core.color_balance_hls': 'color balance hls colour hue lightness saturation shift wheel',
   'core.color_link': 'color link colour match average median tint layer stencil blend another layer',
@@ -9664,6 +9666,7 @@ const EFFECT_ABOUT = {
   'core.split': 'Tears the layer open along the line between two points, the gap widest in the middle and closed at the ends.',
   'core.split_2': 'Tears the layer open like Split, each side of the tear opened by its own amount.',
   'core.arbitrary_map': 'Recolours the layer through a Photoshop arbitrary map (.amp), a curve drawn by hand, which Phase cycles for shifting colours.',
+  'core.selective_color': 'Turns the cyan, magenta, yellow and black up or down in one family of colours at a time (reds, yellows, greens, cyans, blues, magentas, whites, neutrals, blacks), as Photoshop\'s Selective Color does.',
   'core.blobbylize': 'Turns the layer, or the shape of another layer, into soft shiny blobs lit by a light, like drops of liquid metal or slime.',
   'core.color_balance_hls': 'Turns every colour round the wheel and makes it lighter or darker, stronger or greyer, by the same amounts everywhere.',
   'core.color_link': 'Reads one colour from a layer (the average, median, brightest and so on) and lays it over this one as a tint. Source layer none reads this layer itself.',
@@ -10268,6 +10271,16 @@ const EFFECT_PARAMS = {
     ['point_b', 'Point B', 2, 1, '% of the width and height, -1000 to 1000, the other end'],
     ['split', 'Split', 1, 1, 'pixels, 0 to 1000, how wide the gap opens at the middle']],
   'core.arbitrary_map': [['phase', 'Phase', 1, 1, 'levels, -255 to 255, cycles the map to the right']],
+  // D-396.
+  'core.selective_color': [['reds', 'Reds', 4, 1, 'cyan, magenta, yellow, black, per cent, -100 to 100'],
+    ['yellows', 'Yellows', 4, 1, 'cyan, magenta, yellow, black, per cent, -100 to 100'],
+    ['greens', 'Greens', 4, 1, 'cyan, magenta, yellow, black, per cent, -100 to 100'],
+    ['cyans', 'Cyans', 4, 1, 'cyan, magenta, yellow, black, per cent, -100 to 100'],
+    ['blues', 'Blues', 4, 1, 'cyan, magenta, yellow, black, per cent, -100 to 100'],
+    ['magentas', 'Magentas', 4, 1, 'cyan, magenta, yellow, black, per cent, -100 to 100'],
+    ['whites', 'Whites', 4, 1, 'cyan, magenta, yellow, black, per cent, -100 to 100'],
+    ['neutrals', 'Neutrals', 4, 1, 'cyan, magenta, yellow, black, per cent, -100 to 100'],
+    ['blacks', 'Blacks', 4, 1, 'cyan, magenta, yellow, black, per cent, -100 to 100']],
   'core.split_2': [['point_a', 'Point A', 2, 1, '% of the width and height, -1000 to 1000, one end of the tear'],
     ['point_b', 'Point B', 2, 1, '% of the width and height, -1000 to 1000, the other end'],
     ['split_1', 'Split 1', 1, 1, 'pixels, 0 to 1000, how far the side on your left (walking from A to B) opens'],
@@ -10783,6 +10796,8 @@ const EFFECT_WORDS = {
   'core.rain': { colours: [['color', 'Colour']] },
   // D-182.
   'core.color_lookup': { files: [['lut', 'Lookup File']] },
+  // D-396.
+  'core.selective_color': { choices: [['method', 'Method', [['relative', 'Relative'], ['absolute', 'Absolute']]]] },
   // D-395.
   'core.arbitrary_map': {
     files: [['map', 'Map File', 'amp']],

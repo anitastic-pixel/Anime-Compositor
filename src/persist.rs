@@ -2801,6 +2801,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("phase".into(), num(*phase));
             params.insert("apply_to_alpha".into(), J::from(apply_to_alpha.as_str()));
         }
+        Effect::SelectiveColor { method, families } => {
+            params.insert("method".into(), J::from(method.as_str()));
+            for (name, row) in crate::effects::SELECTIVE_COLOR_FAMILIES.into_iter().zip(families) {
+                params.insert(name.into(), J::Array(row.iter().map(|v| num(*v)).collect()));
+            }
+        }
         Effect::Blobbylize {
             layer,
             fit,
@@ -4115,6 +4121,7 @@ fn parse_effect(
         crate::effects::SPLIT,
         crate::effects::SPLIT_2,
         crate::effects::ARBITRARY_MAP,
+        crate::effects::SELECTIVE_COLOR,
         crate::effects::MOMENT_MAP,
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
@@ -5247,6 +5254,14 @@ fn parse_effect(
             apply_to_alpha: effect_word(params, "apply_to_alpha", &at)?,
             table: None,
         }),
+        // D-396: each family kept as written, as Channel Mixer's rows.
+        crate::effects::SELECTIVE_COLOR => {
+            let mut families: [Vec<f64>; 9] = Default::default();
+            for (row, name) in families.iter_mut().zip(crate::effects::SELECTIVE_COLOR_FAMILIES) {
+                *row = effect_list(params, name, &at)?;
+            }
+            Some(crate::effects::Effect::SelectiveColor { method: effect_word(params, "method", &at)?, families })
+        }
         // D-379: the layer is kept as written, as CC Glass's is.
         crate::effects::BLOBBYLIZE => Some(crate::effects::Effect::Blobbylize {
             layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
