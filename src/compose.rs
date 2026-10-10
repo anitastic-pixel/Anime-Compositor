@@ -988,6 +988,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::Circle { .. }
                 // D-415: Ellipse.
                 | crate::effects::Effect::Ellipse { .. }
+                // D-420: Audio Spectrum, its levels worked out here first.
+                | crate::effects::Effect::AudioSpectrum { .. }
                 // D-407: Detail-preserving Upscale.
                 | crate::effects::Effect::DetailUpscale { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
@@ -1345,6 +1347,8 @@ fn card_effect(
                 E::LineWidth { width, .. } => *width == 0.0,
                 // B-235: with no path the layer is left as it is.
                 E::Stroke { paths, .. } => paths.is_none(),
+                // D-420: with no levels the layer is left as it is.
+                E::AudioSpectrum { levels, .. } => levels.is_none(),
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -2241,6 +2245,56 @@ fn resolve_rest(
                 );
             }
             *paths = (!found.is_empty()).then_some(found);
+        }
+    }
+    // D-420: each Audio Spectrum's levels, from the sound layer it names as it is heard at this
+    // frame, and the mask it stands along, at the size the effects run at. No Audio Layer is
+    // silence. A mask or a layer that is not there, or a layer that holds no sound, leaves the
+    // layer as it is and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::AudioSpectrum {
+            audio_layer,
+            path,
+            start_frequency,
+            end_frequency,
+            frequency_bands,
+            audio_duration,
+            audio_offset,
+            duration_averaging,
+            levels,
+            outline,
+            ..
+        } = &mut instance.effect
+        {
+            *levels = None;
+            *outline = None;
+            if path.floor() >= 1.0 {
+                match masks.get(path.floor() as usize - 1).filter(|m| m.enabled && m.points.len() >= 2) {
+                    Some(m) => *outline = Some(m.outline()),
+                    None => {
+                        log.record(frame, layer.name.clone(), spectrum_path_missing(&layer.name, *path, &format!("Frame {frame} is drawn")));
+                        continue;
+                    }
+                }
+            }
+            let bands = frequency_bands.floor() as usize;
+            let freqs: Vec<f64> = (0..bands)
+                .map(|b| *start_frequency + (*end_frequency - *start_frequency) * (b as f64 + 0.5) / bands as f64)
+                .collect();
+            let named = audio_layer.as_str().unwrap_or_default();
+            if named.is_empty() {
+                *levels = Some(vec![0.0; bands]);
+                continue;
+            }
+            let Some(heard) = comp.layer(&Id::new(named)) else {
+                log.record(frame, layer.name.clone(), crate::layer_map::missing(&layer.name, named, &format!("frame {frame} is drawn")));
+                continue;
+            };
+            if heard.kind != crate::model::LayerKind::Audio {
+                log.record(frame, layer.name.clone(), spectrum_sound_missing(&layer.name, &heard.name, &format!("Frame {frame} is drawn")));
+                continue;
+            }
+            *levels = Some(sound_levels(project, root, comp, heard, at, [*audio_duration, *audio_offset], &freqs, duration_averaging == "on", log, frame, &layer.name));
         }
     }
     // The mask itself is drawn below, once it is known whether the effect cache already holds
@@ -3246,6 +3300,69 @@ fn fill_passes(
             }
         };
     }
+}
+
+/// D-420: EFFECT_PATH_MISSING for an Audio Spectrum on layer `holder` whose Path names no mask
+/// that is on with two points or more; `when` is "Frame 3 is drawn" or "Every frame is drawn".
+pub(crate) fn spectrum_path_missing(holder: &str, path: f64, when: &str) -> Diagnostic {
+    Diagnostic::new(
+        DiagnosticId::EffectPathMissing,
+        Severity::Warning,
+        format!("Layer {holder}'s Audio Spectrum has no mask {} that is on with two points or more to stand along, so it draws nothing.", path.floor()),
+        format!("{when} without the spectrum. The effect is kept as it is."),
+    )
+    .with_remediation("Draw a mask on the layer, set Path to a mask it has, or set Path to 0 for the line.")
+}
+
+/// D-420: EFFECT_SOUND_MISSING for an Audio Spectrum on layer `holder` listening to layer
+/// `heard`, which holds no sound.
+pub(crate) fn spectrum_sound_missing(holder: &str, heard: &str, when: &str) -> Diagnostic {
+    Diagnostic::new(
+        DiagnosticId::EffectSoundMissing,
+        Severity::Warning,
+        format!("Layer {holder}'s Audio Spectrum listens to layer {heard}, which holds no sound, so it draws nothing."),
+        format!("{when} without the spectrum. The setting is kept as written."),
+    )
+    .with_remediation("Choose a sound layer for Audio Layer, or none.")
+}
+
+/// D-420: the levels at `freqs` of the sound layer `heard` at frame `at`: its window `duration`
+/// milliseconds long, starting `offset` milliseconds after the frame's first sample (ADR-018's).
+/// Silence outside the layer, and for a file that cannot be read, which is said.
+#[allow(clippy::too_many_arguments)]
+fn sound_levels(
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    heard: &crate::model::Layer,
+    at: i32,
+    [duration, offset]: [f64; 2],
+    freqs: &[f64],
+    averaging: bool,
+    log: &mut FrameLog,
+    frame: i32,
+    holder: &str,
+) -> Vec<f64> {
+    let silence = vec![0.0; freqs.len()];
+    let Some(n) = heard.timing().local_frame(at) else {
+        return silence;
+    };
+    let Some(path) = project.assets.iter().find(|a| a.id == heard.asset_id).and_then(|a| a.path.as_ref()) else {
+        return silence;
+    };
+    let sound = match crate::audio::load(&root.join(path)) {
+        Ok(sound) => sound,
+        Err(d) => {
+            log.record(frame, holder.to_string(), d);
+            return silence;
+        }
+    };
+    let (num, den) = (comp.frame_rate.numerator() as i128, comp.frame_rate.denominator() as i128);
+    let rate = sound.rate as f64;
+    let s = (n as i128 * sound.rate as i128 * den).div_euclid(num) as i64;
+    let s0 = s + (offset * rate / 1000.0 + 0.5).floor() as i64;
+    let count = ((duration * rate / 1000.0 + 0.5).floor() as usize).max(1);
+    sound.levels(s0, count, freqs, 10f64.powf(heard.gain_db / 20.0), averaging)
 }
 
 /// D-349: `p` stretched to `size`, each pixel the one under its centre.

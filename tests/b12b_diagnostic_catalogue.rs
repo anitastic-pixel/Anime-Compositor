@@ -372,6 +372,11 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "D-407_detail_upscale_table.md",
     ),
     (
+        DiagnosticId::EffectSoundMissing,
+        "EFFECT_SOUND_MISSING",
+        "D-420_audio_spectrum_table.md",
+    ),
+    (
         DiagnosticId::TextAnimatorNoText,
         "TEXT_ANIMATOR_NO_TEXT",
         "D-350_text_animator_table.md",
@@ -452,7 +457,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "64 identifiers",
+        "65 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

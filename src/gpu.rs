@@ -6098,6 +6098,103 @@ fn stroke(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-420, layer_fx::draw_marks: k half the thickness, the softness, how (0 over, 1 alone, 2 add),
+// 1 to blend, the pieces' count, then from 5 each piece (its ends, its mark, its inside and
+// outside colours in linear light) and its box, then for each band of 16 rows where its list of
+// pieces starts and how many, then the lists. A pixel looks only at its band's pieces within
+// their boxes; out of them a mark covers nothing.
+@compute @workgroup_size(16, 16)
+fn marks(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let px = textureLoad(input, id.xy, 0);
+    let x = f64(id.x) + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    let r = k[0];
+    let sw = max(2.0lf * r * k[1] / 100.0lf, 1.0lf);
+    let blend = k[3] != 0.0lf;
+    let band = 5u + 15u * u32(k[4]) + 2u * (id.y / 16u);
+    let first = u32(k[band]);
+    let n = u32(k[band + 1u]);
+    var acc = array<f64, 4>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+    var total = array<f64, 3>(0.0lf, 0.0lf, 0.0lf);
+    var weight = 0.0lf;
+    var clear = 1.0lf;
+    var best = 0u;
+    var bd = 0.0lf;
+    for (var i = 0u; i <= n; i++) {
+        var o = 0u;
+        var hit = false;
+        if i < n {
+            o = 5u + 15u * u32(k[first + i]);
+            hit = x > k[o + 11u] && x < k[o + 12u] && y > k[o + 13u] && y < k[o + 14u];
+        }
+        if best != 0u && (i == n || (hit && k[o + 4u] != k[best + 4u])) {
+            let c = clamp((min(bd + sw / 2.0lf, r) - max(bd - sw / 2.0lf, -r)) / sw, 0.0lf, 1.0lf);
+            var q = 1.0lf;
+            if r != 0.0lf {
+                q = min(bd / r, 1.0lf);
+            }
+            for (var j = 0u; j < 3u; j++) {
+                let l = (1.0lf - q) * k[best + 5u + j] + q * k[best + 8u + j];
+                if blend {
+                    total[j] += l * c;
+                } else {
+                    acc[j] = l * c + acc[j] * (1.0lf - c);
+                }
+            }
+            if blend {
+                weight += c;
+                clear *= 1.0lf - c;
+            } else {
+                acc[3] = c + acc[3] * (1.0lf - c);
+            }
+            best = 0u;
+        }
+        if hit {
+            let dx = k[o + 2u] - k[o];
+            let dy = k[o + 3u] - k[o + 1u];
+            let l2 = dx * dx + dy * dy;
+            var t = 0.0lf;
+            if l2 != 0.0lf {
+                t = clamp(((x - k[o]) * dx + (y - k[o + 1u]) * dy) / l2, 0.0lf, 1.0lf);
+            }
+            let ex = x - k[o] - t * dx;
+            let ey = y - k[o + 1u] - t * dy;
+            let d = sqrt(ex * ex + ey * ey);
+            if best == 0u || d < bd {
+                best = o;
+                bd = d;
+            }
+        }
+    }
+    if blend {
+        acc[3] = 1.0lf - clear;
+        for (var j = 0u; j < 3u; j++) {
+            acc[j] = select(0.0lf, total[j] / weight * acc[3], weight > 0.0lf);
+        }
+    }
+    var out = px;
+    let how = k[2];
+    for (var j = 0u; j < 4u; j++) {
+        let p = f64(px[j]);
+        if how == 1.0lf {
+            out[j] = f32(acc[j]);
+        } else if how == 2.0lf {
+            if j == 3u {
+                out[j] = f32(min(p + acc[j], 1.0lf));
+            } else {
+                out[j] = f32(p + acc[j]);
+            }
+        } else {
+            out[j] = f32(acc[j] + p * (1.0lf - acc[3]));
+        }
+    }
+    textureStore(output, id.xy, out);
+}
+
 // B-225, layer_fx::bevel_edges: k the thickness in pixels, the light's direction (1, 2), the
 // intensity, then the light in linear light. A pixel nearer than the thickness to the buffer's
 // nearest side, the first of left, top, right and bottom among equals, takes that side's slope.
@@ -6998,6 +7095,8 @@ struct FxPasses {
     bolt: Pass,
     /// B-235.
     stroke: Pass,
+    /// D-420.
+    marks: Pass,
     edges: Pass,
     /// B-226.
     dissolve: Pass,
@@ -7631,6 +7730,7 @@ impl Gpu {
                 waves: pass("waves", &[0, 1, 2, 3]),
                 bolt: pass("bolt", &[0, 1, 2, 3]),
                 stroke: pass("stroke", &[0, 1, 2, 3]),
+                marks: pass("marks", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
                 gwipe: pass("gwipe", &[0, 1, 2, 3, 4]),
@@ -9141,6 +9241,25 @@ impl Gpu {
                 same(steps, &passes.warp, FxParams { mode: 27, ..Default::default() }, &k, None)
             }
             // D-415: as effects' arm reads it, the layer never grows.
+            // D-420: the marks worked out here as the CPU works them, from the levels compose
+            // found; with none the card is not asked (`compose::card_effect`).
+            e @ E::AudioSpectrum { .. } => {
+                let m = crate::layer_fx::spectrum_marks(e, (w, h), f.origin).unwrap_or_default();
+                let boxes = m.boxes();
+                let bands = crate::layer_fx::Marks::bands(&boxes, h);
+                let mut k = vec![m.r, m.softness, m.how as f64, m.blend as u8 as f64, m.pieces.len() as f64];
+                for (p, b) in m.pieces.iter().zip(&boxes) {
+                    k.extend(p);
+                    k.extend(b);
+                }
+                let mut first = k.len() + 2 * bands.len();
+                for band in &bands {
+                    k.extend([first as f64, band.len() as f64]);
+                    first += band.len();
+                }
+                k.extend(bands.concat().into_iter().map(f64::from));
+                same(steps, &passes.marks, FxParams::default(), &k, None)
+            }
             E::Ellipse { center, width, height, thickness, softness, inside_color, outside_color, composite } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
                 let mut k = vec![cx, cy, width / 2.0, height / 2.0, thickness / 2.0, *softness, (composite == "off") as u8 as f64];

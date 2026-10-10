@@ -89,6 +89,43 @@ pub(crate) fn distance(run: &Run, x: f64, y: f64) -> f64 {
     (x - px - t * dx).hypot(y - py - t * dy)
 }
 
+/// D-420: the way across `(dx, dy)` to its left on the screen, `(dy, -dx)` at length one: up
+/// for a way drawn left to right, and up when it has no length.
+pub(crate) fn facing(dx: f64, dy: f64) -> (f64, f64) {
+    let length = dx.hypot(dy);
+    if length == 0.0 {
+        (0.0, -1.0)
+    } else {
+        (dy / length, -dx / length)
+    }
+}
+
+/// D-420: the point a share `u` of the way round the closed outline `o` (0 its first point, 1
+/// back to it), and the facing of the piece it falls on.
+pub(crate) fn point_along(o: &[(f64, f64)], u: f64) -> ((f64, f64), (f64, f64)) {
+    if o.is_empty() {
+        return ((0.0, 0.0), (0.0, -1.0));
+    }
+    let piece = |i: usize| (o[i], o[(i + 1) % o.len()]);
+    let length = |(a, b): ((f64, f64), (f64, f64))| (b.0 - a.0).hypot(b.1 - a.1);
+    let total: f64 = (0..o.len()).map(|i| length(piece(i))).sum();
+    if total == 0.0 {
+        return (o[0], (0.0, -1.0));
+    }
+    let (s, mut walked) = (u * total, 0.0);
+    for i in 0..o.len() {
+        let (a, b) = piece(i);
+        let l = length((a, b));
+        if l > 0.0 && walked + l >= s {
+            let v = (s - walked) / l;
+            return ((a.0 + v * (b.0 - a.0), a.1 + v * (b.1 - a.1)), facing(b.0 - a.0, b.1 - a.1));
+        }
+        walked += l;
+    }
+    let (a, b) = (0..o.len()).rev().map(piece).find(|(a, b)| a != b).unwrap_or(piece(0));
+    (b, facing(b.0 - a.0, b.1 - a.1))
+}
+
 /// A run's box, outside which it is further than `reach` from every point: left, right, top,
 /// bottom.
 pub(crate) fn run_box(run: &Run, reach: f64) -> [f64; 4] {

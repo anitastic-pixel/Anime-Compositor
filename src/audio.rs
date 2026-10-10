@@ -78,6 +78,11 @@ fn u32_at(b: &[u8], at: usize) -> u32 {
 // ponytail: the whole file is read to measure it. Read the chunk headers with seeks if a long
 // recording makes import slow.
 pub fn read_wav(raw: &[u8]) -> Result<Wav, Diagnostic> {
+    layout(raw).map(|(wav, _)| wav)
+}
+
+/// `read_wav`, and where the data chunk's samples start in `raw`.
+fn layout(raw: &[u8]) -> Result<(Wav, usize), Diagnostic> {
     if raw.len() < 12 || &raw[..4] != b"RIFF" || &raw[8..12] != b"WAVE" {
         return Err(unreadable("not a RIFF WAVE file"));
     }
@@ -87,7 +92,7 @@ pub fn read_wav(raw: &[u8]) -> Result<Wav, Diagnostic> {
         let body = &raw[at + 8..(at + 8).saturating_add(size).min(raw.len())];
         match &raw[at..at + 4] {
             b"fmt " if form.is_none() => form = Some(body),
-            b"data" if sound.is_none() => sound = Some((size, body.len())),
+            b"data" if sound.is_none() => sound = Some((size, body.len(), at + 8)),
             _ => {}
         }
         at = at.saturating_add(8 + size + size % 2);
@@ -96,7 +101,7 @@ pub fn read_wav(raw: &[u8]) -> Result<Wav, Diagnostic> {
         Some(f) if f.len() >= 16 => f,
         _ => return Err(unreadable("no format chunk")),
     };
-    let Some((said, there)) = sound else {
+    let Some((said, there, data)) = sound else {
         return Err(unreadable("no data chunk"));
     };
     let (mut tag, channels, sample_rate) = (u16_at(form, 0), u16_at(form, 2), u32_at(form, 4));
@@ -112,23 +117,145 @@ pub fn read_wav(raw: &[u8]) -> Result<Wav, Diagnostic> {
         (3, 32 | 64) => Encoding::Float,
         (1 | 3, _) => return Err(unreadable("a sample size this build does not read")),
         _ => {
-            return Ok(Wav::Other {
-                channels,
-                sample_rate,
-            })
+            return Ok((
+                Wav::Other {
+                    channels,
+                    sample_rate,
+                },
+                data,
+            ))
         }
     };
     if align as u32 != channels as u32 * bits as u32 / 8 {
         return Err(unreadable("a sample size this build does not read"));
     }
-    Ok(Wav::Read {
-        encoding,
-        channels,
-        sample_rate,
-        bits,
-        samples: (there / align as usize) as u64,
-        cut_short: there < said,
-    })
+    Ok((
+        Wav::Read {
+            encoding,
+            channels,
+            sample_rate,
+            bits,
+            samples: (there / align as usize) as u64,
+            cut_short: there < said,
+        },
+        data,
+    ))
+}
+
+/// D-420: a WAV's samples, read for an effect that listens to a sound layer.
+pub struct Sound {
+    raw: Vec<u8>,
+    data: usize,
+    encoding: Encoding,
+    channels: usize,
+    bits: u16,
+    pub rate: u32,
+    pub samples: u64,
+}
+
+impl Sound {
+    /// The file's samples, or MEDIA_AUDIO_UNREADABLE for a file `read_wav` refuses or only
+    /// measures (ADPCM and the like).
+    pub fn read(raw: Vec<u8>) -> Result<Sound, Diagnostic> {
+        match layout(&raw)? {
+            (Wav::Read { encoding, channels, sample_rate, bits, samples, .. }, data) => Ok(Sound {
+                raw,
+                data,
+                encoding,
+                channels: channels as usize,
+                bits,
+                rate: sample_rate,
+                samples,
+            }),
+            (Wav::Other { .. }, _) => Err(unreadable("an encoding this build plays but does not read")),
+        }
+    }
+
+    /// Sample `i` of channel `ch`, -1 to 1 (8-bit `(v - 128) / 128`, 16-bit `v / 32768` and so
+    /// on, floating point as written); 0 before the first sample and past the last.
+    pub fn at(&self, ch: usize, i: i64) -> f64 {
+        if i < 0 || i as u64 >= self.samples {
+            return 0.0;
+        }
+        let size = self.bits as usize / 8;
+        let b = &self.raw[self.data + (i as usize * self.channels + ch) * size..][..size];
+        match (self.encoding, self.bits) {
+            (Encoding::Pcm, 8) => (b[0] as f64 - 128.0) / 128.0,
+            (Encoding::Pcm, 16) => i16::from_le_bytes([b[0], b[1]]) as f64 / 32768.0,
+            (Encoding::Pcm, 24) => (i32::from_le_bytes([0, b[0], b[1], b[2]]) >> 8) as f64 / 8388608.0,
+            (Encoding::Pcm, _) => i32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64 / 2147483648.0,
+            (Encoding::Float, 32) => f32::from_le_bytes([b[0], b[1], b[2], b[3]]) as f64,
+            (Encoding::Float, _) => f64::from_le_bytes(b.try_into().unwrap_or([0; 8])),
+        }
+    }
+
+    /// Sample `i`, its channels' mean.
+    pub fn mean(&self, i: i64) -> f64 {
+        (0..self.channels).map(|ch| self.at(ch, i)).sum::<f64>() / self.channels as f64
+    }
+
+    /// D-420, Audio Spectrum's levels: for each of `freqs`, 2 |sum x_k w_k e^(-2 pi i f k / rate)|
+    /// / sum w_k over the `count` samples from `start`, w the Hann window
+    /// 1/2 - 1/2 cos(2 pi (k + 1/2) / count), x the channels' mean times `gain`; a sine of
+    /// amplitude A at f reads A. With `averaging`, the mean over windows starting half a window
+    /// before and after as well.
+    // ponytail: one sum per band, count x bands sines a frame. A transform would be quicker for
+    // thousands of bands over long windows, but changes the rule.
+    pub fn levels(&self, start: i64, count: usize, freqs: &[f64], gain: f64, averaging: bool) -> Vec<f64> {
+        use rayon::prelude::*;
+        let w: Vec<f64> = (0..count)
+            .map(|k| 0.5 - 0.5 * (2.0 * std::f64::consts::PI * (k as f64 + 0.5) / count as f64).cos())
+            .collect();
+        let sw: f64 = w.iter().sum();
+        let half = (count / 2) as i64;
+        let starts = if averaging { vec![start - half, start, start + half] } else { vec![start] };
+        let windows: Vec<Vec<f64>> = starts
+            .iter()
+            .map(|s| (0..count).map(|k| self.mean(s + k as i64) * gain * w[k]).collect())
+            .collect();
+        let rate = self.rate as f64;
+        freqs
+            .par_iter()
+            .map(|f| {
+                let total: f64 = windows
+                    .iter()
+                    .map(|x| {
+                        let (mut re, mut im) = (0.0, 0.0);
+                        for (k, v) in x.iter().enumerate() {
+                            let a = 2.0 * std::f64::consts::PI * f * k as f64 / rate;
+                            re += v * a.cos();
+                            im -= v * a.sin();
+                        }
+                        2.0 * re.hypot(im) / sw
+                    })
+                    .sum();
+                total / windows.len() as f64
+            })
+            .collect()
+    }
+}
+
+/// D-420: the sound at `path`, read once and kept while the file's length and time stay the same.
+// ponytail: every sound read stays for the session. Bound it if long recordings pile up.
+pub fn load(path: &std::path::Path) -> Result<std::sync::Arc<Sound>, Diagnostic> {
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex, OnceLock};
+    type Kept = HashMap<std::path::PathBuf, (u64, Option<std::time::SystemTime>, Arc<Sound>)>;
+    static KEPT: OnceLock<Mutex<Kept>> = OnceLock::new();
+    let meta = std::fs::metadata(path).map_err(|e| unreadable(&format!("the file could not be opened ({e})")))?;
+    let stamp = (meta.len(), meta.modified().ok());
+    let kept = KEPT.get_or_init(Default::default);
+    if let Some((len, time, sound)) = kept.lock().unwrap_or_else(|e| e.into_inner()).get(path) {
+        if (*len, *time) == stamp {
+            return Ok(sound.clone());
+        }
+    }
+    let raw = std::fs::read(path).map_err(|e| unreadable(&format!("the file could not be read ({e})")))?;
+    let sound = Arc::new(Sound::read(raw)?);
+    kept.lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(path.to_path_buf(), (stamp.0, stamp.1, sound.clone()));
+    Ok(sound)
 }
 
 /// The warning a file cut short carries. It is still read as far as it goes.

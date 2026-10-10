@@ -2971,6 +2971,56 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("outside_color".into(), J::from(outside_color.as_str()));
             params.insert("composite".into(), J::from(composite.as_str()));
         }
+        Effect::AudioSpectrum {
+            audio_layer,
+            start_point,
+            end_point,
+            path,
+            use_polar_path,
+            start_frequency,
+            end_frequency,
+            frequency_bands,
+            maximum_height,
+            audio_duration,
+            audio_offset,
+            thickness,
+            softness,
+            inside_color,
+            outside_color,
+            blend_overlapping_colors,
+            hue_interpolation,
+            dynamic_hue_phase,
+            color_symmetry,
+            display_options,
+            side_options,
+            duration_averaging,
+            composite,
+            ..
+        } => {
+            params.insert("audio_layer".into(), audio_layer.clone());
+            params.insert("start_point".into(), J::Array(start_point.iter().map(|c| num(*c)).collect()));
+            params.insert("end_point".into(), J::Array(end_point.iter().map(|c| num(*c)).collect()));
+            params.insert("path".into(), num(*path));
+            params.insert("use_polar_path".into(), J::from(use_polar_path.as_str()));
+            params.insert("start_frequency".into(), num(*start_frequency));
+            params.insert("end_frequency".into(), num(*end_frequency));
+            params.insert("frequency_bands".into(), num(*frequency_bands));
+            params.insert("maximum_height".into(), num(*maximum_height));
+            params.insert("audio_duration".into(), num(*audio_duration));
+            params.insert("audio_offset".into(), num(*audio_offset));
+            params.insert("thickness".into(), num(*thickness));
+            params.insert("softness".into(), num(*softness));
+            params.insert("inside_color".into(), J::from(inside_color.as_str()));
+            params.insert("outside_color".into(), J::from(outside_color.as_str()));
+            params.insert("blend_overlapping_colors".into(), J::from(blend_overlapping_colors.as_str()));
+            params.insert("hue_interpolation".into(), num(*hue_interpolation));
+            params.insert("dynamic_hue_phase".into(), J::from(dynamic_hue_phase.as_str()));
+            params.insert("color_symmetry".into(), J::from(color_symmetry.as_str()));
+            params.insert("display_options".into(), J::from(display_options.as_str()));
+            params.insert("side_options".into(), J::from(side_options.as_str()));
+            params.insert("duration_averaging".into(), J::from(duration_averaging.as_str()));
+            params.insert("composite".into(), J::from(composite.as_str()));
+        }
         Effect::DetailUpscale { scale, reduce_noise, detail } => {
             params.insert("scale".into(), num(*scale));
             params.insert("reduce_noise".into(), num(*reduce_noise));
@@ -4320,6 +4370,7 @@ fn parse_effect(
         crate::effects::CIRCLE,
         crate::effects::ELLIPSE,
         crate::effects::DETAIL_UPSCALE,
+        crate::effects::AUDIO_SPECTRUM,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5585,6 +5636,33 @@ fn parse_effect(
             inside_color: effect_word(params, "inside_color", &at)?.to_ascii_lowercase(),
             outside_color: effect_word(params, "outside_color", &at)?.to_ascii_lowercase(),
             composite: effect_word(params, "composite", &at)?,
+        }),
+        crate::effects::AUDIO_SPECTRUM => Some(crate::effects::Effect::AudioSpectrum {
+            audio_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "audio_layer")?.clone(),
+            start_point: effect_array(params, "start_point", "two numbers, x then y", &at)?,
+            end_point: effect_array(params, "end_point", "two numbers, x then y", &at)?,
+            path: effect_number(params, "path", &at)?,
+            use_polar_path: effect_word(params, "use_polar_path", &at)?,
+            start_frequency: effect_number(params, "start_frequency", &at)?,
+            end_frequency: effect_number(params, "end_frequency", &at)?,
+            frequency_bands: effect_number(params, "frequency_bands", &at)?,
+            maximum_height: effect_number(params, "maximum_height", &at)?,
+            audio_duration: effect_number(params, "audio_duration", &at)?,
+            audio_offset: effect_number(params, "audio_offset", &at)?,
+            thickness: effect_number(params, "thickness", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            inside_color: effect_word(params, "inside_color", &at)?.to_ascii_lowercase(),
+            outside_color: effect_word(params, "outside_color", &at)?.to_ascii_lowercase(),
+            blend_overlapping_colors: effect_word(params, "blend_overlapping_colors", &at)?,
+            hue_interpolation: effect_number(params, "hue_interpolation", &at)?,
+            dynamic_hue_phase: effect_word(params, "dynamic_hue_phase", &at)?,
+            color_symmetry: effect_word(params, "color_symmetry", &at)?,
+            display_options: effect_word(params, "display_options", &at)?,
+            side_options: effect_word(params, "side_options", &at)?,
+            duration_averaging: effect_word(params, "duration_averaging", &at)?,
+            composite: effect_word(params, "composite", &at)?,
+            levels: None,
+            outline: None,
         }),
         crate::effects::DETAIL_UPSCALE => Some(crate::effects::Effect::DetailUpscale {
             scale: effect_number(params, "scale", &at)?,
@@ -7702,6 +7780,31 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
                 for (named, _) in instance.effect.layer_settings() {
                     if !named.is_empty() && composition.layer(&crate::model::Id::new(named)).is_none() {
                         warnings.push(crate::layer_map::missing(&layer.name, named, "every frame is drawn"));
+                    }
+                }
+            }
+        }
+    }
+
+    // D-420: an Audio Spectrum whose Audio Layer is not there or holds no sound, or whose Path
+    // names no mask to stand along, is kept as written and said here as each frame says it
+    // (FX-ASPEC-020 to 022).
+    for composition in &project.compositions {
+        for layer in composition.layers_in_order() {
+            for instance in &layer.effects {
+                if let crate::effects::Effect::AudioSpectrum { audio_layer, path, .. } = &instance.effect {
+                    let named = audio_layer.as_str().unwrap_or_default();
+                    let at = path.floor();
+                    if at >= 1.0 && !layer.masks.get(at as usize - 1).is_some_and(|m| m.enabled && m.points.len() >= 2) {
+                        warnings.push(crate::compose::spectrum_path_missing(&layer.name, *path, "Every frame is drawn"));
+                    } else if !named.is_empty() {
+                        match composition.layer(&crate::model::Id::new(named)) {
+                            None => warnings.push(crate::layer_map::missing(&layer.name, named, "every frame is drawn")),
+                            Some(heard) if heard.kind != crate::model::LayerKind::Audio => {
+                                warnings.push(crate::compose::spectrum_sound_missing(&layer.name, &heard.name, "Every frame is drawn"))
+                            }
+                            Some(_) => {}
+                        }
                     }
                 }
             }

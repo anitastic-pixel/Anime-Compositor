@@ -2446,6 +2446,262 @@ pub(crate) fn ellipse(source: &mut WorkingBuffer, c: (f64, f64), [a, b, thicknes
         });
 }
 
+/// D-420 (Audio Spectrum) and D-421 (Audio Waveform): one straight piece of a mark, a dot when
+/// its ends meet: its ends x0 y0 x1 y1 in the buffer's pixels, the mark it belongs to, and its
+/// inside and outside colours in linear light.
+pub(crate) type Piece = [f64; 11];
+
+/// The marks one effect draws, in order: `r` half their thickness, `softness` Beam's (D-207),
+/// `how` 0 over the layer, 1 alone, 2 added to it, `blend` Blend Overlapping Colors.
+#[derive(Default)]
+pub(crate) struct Marks {
+    pub pieces: Vec<Piece>,
+    pub r: f64,
+    pub softness: f64,
+    pub how: u8,
+    pub blend: bool,
+}
+
+impl Marks {
+    /// Each piece's box, left right top bottom, out of which it covers nothing: its ends, out by
+    /// `r` and half the ramp.
+    pub(crate) fn boxes(&self) -> Vec<[f64; 4]> {
+        let reach = self.r + (2.0 * self.r * self.softness / 100.0).max(1.0) / 2.0;
+        self.pieces
+            .iter()
+            .map(|p| [p[0].min(p[2]) - reach, p[0].max(p[2]) + reach, p[1].min(p[3]) - reach, p[1].max(p[3]) + reach])
+            .collect()
+    }
+
+    /// For each band of 16 rows of a buffer `h` tall, the pieces whose boxes reach it, in order.
+    pub(crate) fn bands(boxes: &[[f64; 4]], h: usize) -> Vec<Vec<u32>> {
+        let mut bands = vec![Vec::new(); h.div_ceil(16)];
+        if h == 0 {
+            return bands;
+        }
+        for (j, b) in boxes.iter().enumerate() {
+            let rows = (b[2] - 0.5).floor().max(0.0) as usize..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h - 1);
+            for band in bands.iter_mut().take(rows.end() / 16 + 1).skip(rows.start() / 16) {
+                band.push(j as u32);
+            }
+        }
+        bands
+    }
+}
+
+/// How far `(x, y)` lies from a piece.
+fn piece_distance(p: &Piece, x: f64, y: f64) -> f64 {
+    let (dx, dy) = (p[2] - p[0], p[3] - p[1]);
+    let l2 = dx * dx + dy * dy;
+    let t = if l2 == 0.0 { 0.0 } else { (((x - p[0]) * dx + (y - p[1]) * dy) / l2).clamp(0.0, 1.0) };
+    let (ex, ey) = (x - p[0] - t * dx, y - p[1] - t * dy);
+    (ex * ex + ey * ey).sqrt()
+}
+
+/// D-420: the marks drawn. A mark's distance is the least to its pieces and its colours the
+/// nearest piece's (the first of equals); its covering and colour are Beam's (`line_profile`).
+/// Blend off, each mark laid over the last; on, the covering 1 - prod(1 - c) and the colour the
+/// mean weighted by c. A piece is looked at only within its box, the pixel's band's pieces only:
+/// out of it a mark covers nothing, so leaving it out changes nothing.
+pub(crate) fn draw_marks(source: &mut WorkingBuffer, m: &Marks) {
+    let w = source.width();
+    let boxes = m.boxes();
+    let bands = Marks::bands(&boxes, source.height());
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let (mut acc, mut total, mut weight, mut clear) = ([0.0f64; 4], [0.0f64; 3], 0.0, 1.0);
+        let mut lay = |d: f64, p: &Piece| {
+            let (c, q) = line_profile(d, m.r, m.softness);
+            for ch in 0..3 {
+                let l = (1.0 - q) * p[5 + ch] + q * p[8 + ch];
+                if m.blend {
+                    total[ch] += l * c;
+                } else {
+                    acc[ch] = l * c + acc[ch] * (1.0 - c);
+                }
+            }
+            if m.blend {
+                weight += c;
+                clear *= 1.0 - c;
+            } else {
+                acc[3] = c + acc[3] * (1.0 - c);
+            }
+        };
+        let mut best: Option<(f64, usize)> = None;
+        for &j in &bands[i / w / 16] {
+            let (j, b) = (j as usize, boxes[j as usize]);
+            if x <= b[0] || x >= b[1] || y <= b[2] || y >= b[3] {
+                continue;
+            }
+            if let Some((d, k)) = best {
+                if m.pieces[k][4] != m.pieces[j][4] {
+                    lay(d, &m.pieces[k]);
+                    best = None;
+                }
+            }
+            let d = piece_distance(&m.pieces[j], x, y);
+            if best.is_none_or(|(e, _)| d < e) {
+                best = Some((d, j));
+            }
+        }
+        if let Some((d, k)) = best {
+            lay(d, &m.pieces[k]);
+        }
+        if m.blend {
+            acc[3] = 1.0 - clear;
+            for ch in 0..3 {
+                acc[ch] = if weight > 0.0 { total[ch] / weight * acc[3] } else { 0.0 };
+            }
+        }
+        let p = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
+        let out = match m.how {
+            1 => acc,
+            2 => [p[0] + acc[0], p[1] + acc[1], p[2] + acc[2], (p[3] + acc[3]).min(1.0)],
+            _ => std::array::from_fn(|ch| acc[ch] + p[ch] * (1.0 - acc[3])),
+        };
+        for ch in 0..4 {
+            px[ch] = out[ch] as f32;
+        }
+    });
+}
+
+/// One piece from `a` to `b` of mark `group`, coloured `inside` and `outside`.
+fn piece(a: (f64, f64), b: (f64, f64), group: usize, [inside, outside]: [[f64; 3]; 2]) -> Piece {
+    [a.0, a.1, b.0, b.1, group as f64, inside[0], inside[1], inside[2], outside[0], outside[1], outside[2]]
+}
+
+/// D-420 (and D-421): the marks through each band's tips, `feet` each band's foot and facing,
+/// `closed` whether the way goes round, the tips `heights` out along the facing (Side A) or
+/// back (Side B). Digital: a piece from foot to tip, or tip to tip for both sides; Analog Lines:
+/// one line through each side's tips, band b's colours from tip b to tip b + 1 (and from the
+/// last to the first when closed); Analog Dots: a dot at each tip, band by band.
+pub(crate) fn mark_pieces(feet: &[((f64, f64), (f64, f64))], closed: bool, heights: &[f64], colours: &[[[f64; 3]; 2]], display: &str, side: &str) -> Vec<Piece> {
+    let sides: &[f64] = match side {
+        "side_a" => &[1.0],
+        "side_b" => &[-1.0],
+        _ => &[1.0, -1.0],
+    };
+    let tip = |b: usize, s: f64| {
+        let ((x, y), (nx, ny)) = feet[b];
+        (x + s * heights[b] * nx, y + s * heights[b] * ny)
+    };
+    let n = feet.len();
+    let mut out = Vec::new();
+    match display {
+        "digital" => {
+            for b in 0..n {
+                let (p, q) = if sides.len() == 2 { (tip(b, -1.0), tip(b, 1.0)) } else { (feet[b].0, tip(b, sides[0])) };
+                out.push(piece(p, q, b, colours[b]));
+            }
+        }
+        "analog_lines" => {
+            for (g, &s) in sides.iter().enumerate() {
+                if n == 1 {
+                    out.push(piece(tip(0, s), tip(0, s), g, colours[0]));
+                    continue;
+                }
+                for b in 0..n - 1 {
+                    out.push(piece(tip(b, s), tip(b + 1, s), g, colours[b]));
+                }
+                if closed {
+                    out.push(piece(tip(n - 1, s), tip(0, s), g, colours[n - 1]));
+                }
+            }
+        }
+        _ => {
+            for b in 0..n {
+                for &s in sides {
+                    let g = out.len();
+                    out.push(piece(tip(b, s), tip(b, s), g, colours[b]));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// D-420: Audio Spectrum's marks in the pixels of a buffer `size` whose drawing starts at
+/// `origin`, from the levels and outline compose filled in; `None` when it filled in none. The
+/// bands stand at (b + 1/2) / B of the way: along the line from Start Point to End Point, facing
+/// to its left; round Start Point from straight up, clockwise (Use Polar Path); or round the
+/// mask Path names. Each band's colours are turned round the hue by Hue Interpolation times its
+/// share, counted from the loudest band with Dynamic Hue Phase and folded with Color Symmetry.
+pub(crate) fn spectrum_marks(effect: &crate::effects::Effect, size: (usize, usize), (ox, oy): (usize, usize)) -> Option<Marks> {
+    let crate::effects::Effect::AudioSpectrum {
+        start_point,
+        end_point,
+        use_polar_path,
+        maximum_height,
+        thickness,
+        softness,
+        inside_color,
+        outside_color,
+        blend_overlapping_colors,
+        hue_interpolation,
+        dynamic_hue_phase,
+        color_symmetry,
+        display_options,
+        side_options,
+        composite,
+        levels: Some(levels),
+        outline,
+        ..
+    } = effect
+    else {
+        return None;
+    };
+    let bands = levels.len();
+    let t: Vec<f64> = (0..bands).map(|b| (b as f64 + 0.5) / bands as f64).collect();
+    let (feet, closed): (Vec<((f64, f64), (f64, f64))>, bool) = match outline {
+        Some(o) => {
+            let o: Vec<(f64, f64)> = o.iter().map(|&(x, y)| (x + ox as f64, y + oy as f64)).collect();
+            (t.iter().map(|&u| crate::along::point_along(&o, u)).collect(), true)
+        }
+        None if use_polar_path == "on" => {
+            let p = crate::effects::radial_center(*start_point, size, (ox, oy));
+            let at = |u: f64| -std::f64::consts::PI / 2.0 + 2.0 * std::f64::consts::PI * u;
+            (t.iter().map(|&u| (p, (at(u).cos(), at(u).sin()))).collect(), true)
+        }
+        None => {
+            let p = crate::effects::radial_center(*start_point, size, (ox, oy));
+            let q = crate::effects::radial_center(*end_point, size, (ox, oy));
+            let n = crate::along::facing(q.0 - p.0, q.1 - p.1);
+            (t.iter().map(|&u| ((p.0 + u * (q.0 - p.0), p.1 + u * (q.1 - p.1)), n)).collect(), false)
+        }
+    };
+    let heights: Vec<f64> = levels.iter().map(|a| maximum_height * a.min(1.0)).collect();
+    let loudest = if dynamic_hue_phase == "on" {
+        levels.iter().enumerate().fold((0, f64::NEG_INFINITY), |(m, top), (b, &a)| if a > top { (b, a) } else { (m, top) }).0
+    } else {
+        0
+    };
+    let turned = |hex: &str, degrees: f64| {
+        let c = crate::effects::encoded(hex);
+        let c = if degrees == 0.0 {
+            c
+        } else {
+            let [h, s, l] = crate::grade::to_hsl(c);
+            crate::grade::from_hsl([h + degrees, s, l])
+        };
+        c.map(crate::grade::to_linear)
+    };
+    let colours: Vec<[[f64; 3]; 2]> = (0..bands)
+        .map(|b| {
+            let u = (((b + bands - loudest) % bands) as f64 + 0.5) / bands as f64;
+            let u = if color_symmetry == "on" { 1.0 - (2.0 * u - 1.0).abs() } else { u };
+            let turn = hue_interpolation * u;
+            [turned(inside_color, turn), turned(outside_color, turn)]
+        })
+        .collect();
+    Some(Marks {
+        pieces: mark_pieces(&feet, closed, &heights, &colours, display_options, side_options),
+        r: thickness / 2.0,
+        softness: *softness,
+        how: if composite == "on" { 0 } else { 1 },
+        blend: blend_overlapping_colors == "on",
+    })
+}
+
 /// D-304: where a Motion Tile's tiles sit when nothing moved them, the buffer's middle.
 pub(crate) const PLAIN_TILE: [f64; 2] = [50.0, 50.0];
 

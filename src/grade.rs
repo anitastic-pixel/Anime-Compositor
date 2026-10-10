@@ -234,7 +234,7 @@ pub(crate) fn to_hsl([r, g, b]: [f64; 3]) -> [f64; 3] {
 }
 
 /// D-113: hue, saturation and lightness back to a colour, by the sextant of the hue.
-fn from_hsl([h, s, l]: [f64; 3]) -> [f64; 3] {
+pub(crate) fn from_hsl([h, s, l]: [f64; 3]) -> [f64; 3] {
     let c = (1.0 - (2.0 * l - 1.0).abs()) * s;
     let x = c * (1.0 - ((h / 60.0).rem_euclid(2.0) - 1.0).abs());
     let m = l - c / 2.0;

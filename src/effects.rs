@@ -1776,6 +1776,46 @@ pub enum Effect {
     /// layer growing with it about its middle; `reduce_noise`, 0 to 100, a softening before;
     /// `detail`, 0 to 100, a sharpening after.
     DetailUpscale { scale: f64, reduce_noise: f64, detail: f64 },
+    /// D-420: after After Effects' Audio Spectrum. `audio_layer`, a sound layer's id ("" none,
+    /// silence); `start_point` and `end_point`, per cent of the drawing, -1000 to 1000; `path`, 0
+    /// to 1000, a mask's number (0 none); `use_polar_path`, "on" or "off"; `start_frequency` and
+    /// `end_frequency`, 1 to 20000 hertz; `frequency_bands`, 1 to 4096, its floor taken;
+    /// `maximum_height`, 0 to 10000 pixels; `audio_duration`, 1 to 30000 milliseconds;
+    /// `audio_offset`, -30000 to 30000 milliseconds; `thickness`, 0 to 10000 pixels; `softness`,
+    /// 0 to 100; `inside_color` and `outside_color`, `#rrggbb`; `blend_overlapping_colors`,
+    /// `dynamic_hue_phase`, `color_symmetry`, `duration_averaging` and `composite`, "on" or
+    /// "off"; `hue_interpolation`, -3600 to 3600 degrees; `display_options`, "digital",
+    /// "analog_lines" or "analog_dots"; `side_options`, "side_a", "side_b" or "side_a_b".
+    /// `levels` and `outline` are not settings and are never saved: compose fills them each frame
+    /// with each band's level and the mask Path names, flattened, `levels` `None` when the effect
+    /// draws nothing (a mask or layer that is not there, a layer with no sound).
+    AudioSpectrum {
+        audio_layer: serde_json::Value,
+        start_point: [f64; 2],
+        end_point: [f64; 2],
+        path: f64,
+        use_polar_path: String,
+        start_frequency: f64,
+        end_frequency: f64,
+        frequency_bands: f64,
+        maximum_height: f64,
+        audio_duration: f64,
+        audio_offset: f64,
+        thickness: f64,
+        softness: f64,
+        inside_color: String,
+        outside_color: String,
+        blend_overlapping_colors: String,
+        hue_interpolation: f64,
+        dynamic_hue_phase: String,
+        color_symmetry: String,
+        display_options: String,
+        side_options: String,
+        duration_averaging: String,
+        composite: String,
+        levels: Option<Vec<f64>>,
+        outline: Option<Vec<(f64, f64)>>,
+    },
     /// D-395: after After Effects' PS Arbitrary Map. `map`, the id of an asset of kind lut that
     /// is a Photoshop arbitrary map (.amp), or empty for none; `phase`, -255 to 255 levels, every
     /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
@@ -2250,6 +2290,7 @@ pub const ELLIPSE: &str = "core.ellipse";
 /// (`layer_fx::lay_pattern`).
 pub const PATTERN_MODES: [&str; 8] = ["none", "normal", "add", "multiply", "screen", "overlay", "soft_light", "stencil_alpha"];
 pub const DETAIL_UPSCALE: &str = "core.detail_upscale";
+pub const AUDIO_SPECTRUM: &str = "core.audio_spectrum";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3160,6 +3201,34 @@ impl Effect {
                 ("reduce_noise", vec![reduce_noise], 0.0, 100.0),
                 ("detail", vec![detail], 0.0, 100.0),
             ],
+            Effect::AudioSpectrum {
+                start_point,
+                end_point,
+                path,
+                start_frequency,
+                end_frequency,
+                frequency_bands,
+                maximum_height,
+                audio_duration,
+                audio_offset,
+                thickness,
+                softness,
+                hue_interpolation,
+                ..
+            } => vec![
+                ("start_point", start_point.iter_mut().collect(), -1000.0, 1000.0),
+                ("end_point", end_point.iter_mut().collect(), -1000.0, 1000.0),
+                ("path", vec![path], 0.0, 1000.0),
+                ("start_frequency", vec![start_frequency], 1.0, 20000.0),
+                ("end_frequency", vec![end_frequency], 1.0, 20000.0),
+                ("frequency_bands", vec![frequency_bands], 1.0, 4096.0),
+                ("maximum_height", vec![maximum_height], 0.0, 10000.0),
+                ("audio_duration", vec![audio_duration], 1.0, 30000.0),
+                ("audio_offset", vec![audio_offset], -30000.0, 30000.0),
+                ("thickness", vec![thickness], 0.0, 10000.0),
+                ("softness", vec![softness], 0.0, 100.0),
+                ("hue_interpolation", vec![hue_interpolation], -3600.0, 3600.0),
+            ],
             Effect::ArbitraryMap { phase, .. } => vec![("phase", vec![phase], -255.0, 255.0)],
             Effect::SelectiveColor { families, .. } => SELECTIVE_COLOR_FAMILIES
                 .into_iter()
@@ -3931,6 +4000,11 @@ impl Effect {
             }
             // D-407: Scale is a share; Detail's blur follows it, so only Reduce Noise is a distance.
             Effect::DetailUpscale { reduce_noise, .. } => *reduce_noise = scale(*reduce_noise),
+            // D-420: the bands' height and the marks' thickness; the points are shares.
+            Effect::AudioSpectrum { maximum_height, thickness, .. } => {
+                *maximum_height = scale(*maximum_height);
+                *thickness = scale(*thickness);
+            }
             Effect::Bulge { radius, vertical_radius, taper_radius, .. } => {
                 *radius = scale(*radius);
                 *vertical_radius = scale(*vertical_radius);
@@ -4197,6 +4271,7 @@ impl Effect {
             Effect::Checkerboard { .. } => "Checkerboard",
             Effect::Circle { .. } => "Circle",
             Effect::Ellipse { .. } => "Ellipse",
+            Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::DetailUpscale { .. } => "Detail-preserving Upscale",
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::SelectiveColor { .. } => "Selective Color",
@@ -4360,6 +4435,7 @@ impl Effect {
             Effect::Checkerboard { .. } => CHECKERBOARD,
             Effect::Circle { .. } => CIRCLE,
             Effect::Ellipse { .. } => ELLIPSE,
+            Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::DetailUpscale { .. } => DETAIL_UPSCALE,
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
@@ -4789,6 +4865,45 @@ impl Effect {
                     (!["off", "on"].contains(&invert_mask.as_str()))
                         .then(|| format!("{name}'s invert mask is \"off\" or \"on\", and this is \"{invert_mask}\"."))
                 }),
+            Effect::AudioSpectrum {
+                audio_layer,
+                use_polar_path,
+                inside_color,
+                outside_color,
+                blend_overlapping_colors,
+                dynamic_hue_phase,
+                color_symmetry,
+                display_options,
+                side_options,
+                duration_averaging,
+                composite,
+                ..
+            } => (!audio_layer.is_string())
+                .then(|| format!("{name}'s audio layer is the name of a layer of this composition, and this is {audio_layer}."))
+                .or_else(|| {
+                    [
+                        ("use polar path", use_polar_path),
+                        ("blend overlapping colors", blend_overlapping_colors),
+                        ("dynamic hue phase", dynamic_hue_phase),
+                        ("color symmetry", color_symmetry),
+                        ("duration averaging", duration_averaging),
+                        ("composite", composite),
+                    ]
+                    .into_iter()
+                    .find(|(_, v)| !["off", "on"].contains(&v.as_str()))
+                    .map(|(what, v)| format!("{name}'s {what} is \"off\" or \"on\", and this is \"{v}\"."))
+                })
+                .or_else(|| {
+                    (!["digital", "analog_lines", "analog_dots"].contains(&display_options.as_str())).then(|| {
+                        format!("{name}'s display options is \"digital\", \"analog_lines\" or \"analog_dots\", and this is \"{display_options}\".")
+                    })
+                })
+                .or_else(|| {
+                    (!["side_a", "side_b", "side_a_b"].contains(&side_options.as_str()))
+                        .then(|| format!("{name}'s side options is \"side_a\", \"side_b\" or \"side_a_b\", and this is \"{side_options}\"."))
+                })
+                .or_else(|| hex_fault(name, "inside colour", inside_color))
+                .or_else(|| hex_fault(name, "outside colour", outside_color)),
             Effect::ColorLink { layer, sample, stencil, blending_mode, .. } => (!layer.is_string())
                 .then(|| format!("{name}'s source layer is the name of a layer of this composition, and this is {layer}."))
                 .or_else(|| {
@@ -7035,6 +7150,13 @@ pub(crate) fn apply_stack_at(
                     let cover = |x, y| crate::layer_fx::circle_cover((x, y), c, ring, inverted);
                     crate::layer_fx::lay_pattern(source, cover, encoded(color).map(crate::grade::to_linear), *opacity / 100.0, blending_mode)
                 })
+            }
+            // D-420: the marks stand where compose's levels and path put them; the layer never
+            // grows. With no levels the layer is left as it is.
+            e @ Effect::AudioSpectrum { .. } => {
+                if let Some(marks) = crate::layer_fx::spectrum_marks(e, (source.width(), source.height()), (ox, oy)) {
+                    crate::perf::time(crate::perf::Stage::EffectAudioSpectrum, || crate::layer_fx::draw_marks(source, &marks))
+                }
             }
             // D-415: the centre is a share of the drawing's own size; the layer never grows.
             Effect::Ellipse { center, width, height, thickness, softness, inside_color, outside_color, composite } => {
