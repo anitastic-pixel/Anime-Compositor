@@ -3121,6 +3121,23 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("grain_size".into(), num(*grain_size));
             params.insert("noise_phase".into(), num(*noise_phase));
         }
+        // D-445: the composition's depth is never saved.
+        Effect::TurbulentNoise { fractal_type, noise_type, invert, contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, blend, .. } => {
+            params.insert("fractal_type".into(), J::from(fractal_type.as_str()));
+            params.insert("noise_type".into(), J::from(noise_type.as_str()));
+            params.insert("invert".into(), J::from(invert.as_str()));
+            params.insert("contrast".into(), num(*contrast));
+            params.insert("brightness".into(), num(*brightness));
+            params.insert("size".into(), num(*size));
+            params.insert("scale_width".into(), num(*scale_width));
+            params.insert("scale_height".into(), num(*scale_height));
+            params.insert("offset".into(), J::Array(offset.iter().map(|v| num(*v)).collect()));
+            params.insert("complexity".into(), num(*complexity));
+            params.insert("evolution".into(), num(*evolution));
+            params.insert("seed".into(), num(*seed));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("blend".into(), J::from(blend.as_str()));
+        }
         // D-446: the frame and the composition's depth are never saved.
         Effect::CurlNoise {
             source,
@@ -4773,6 +4790,7 @@ fn parse_effect(
         crate::effects::NOISE_ALPHA,
         crate::effects::NOISE_HLS,
         crate::effects::CURL_NOISE,
+        crate::effects::TURBULENT_NOISE,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6149,6 +6167,23 @@ fn parse_effect(
             saturation: effect_number(params, "saturation", &at)?,
             grain_size: effect_number(params, "grain_size", &at)?,
             noise_phase: effect_number(params, "noise_phase", &at)?,
+        }),
+        crate::effects::TURBULENT_NOISE => Some(crate::effects::Effect::TurbulentNoise {
+            fractal_type: effect_word(params, "fractal_type", &at)?,
+            noise_type: effect_word(params, "noise_type", &at)?,
+            invert: effect_word(params, "invert", &at)?,
+            contrast: effect_number(params, "contrast", &at)?,
+            brightness: effect_number(params, "brightness", &at)?,
+            size: effect_number(params, "size", &at)?,
+            scale_width: effect_number(params, "scale_width", &at)?,
+            scale_height: effect_number(params, "scale_height", &at)?,
+            offset: effect_array(params, "offset", "two numbers, x then y", &at)?,
+            complexity: effect_number(params, "complexity", &at)?,
+            evolution: effect_number(params, "evolution", &at)?,
+            seed: effect_number(params, "seed", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            blend: effect_word(params, "blend", &at)?,
+            float: false,
         }),
         crate::effects::CURL_NOISE => Some(crate::effects::Effect::CurlNoise {
             source: effect_word(params, "source", &at)?,

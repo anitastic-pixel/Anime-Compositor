@@ -902,6 +902,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Vignette { .. }
                 | crate::effects::Effect::TurbulentDisplace { .. }
                 | crate::effects::Effect::FractalNoise { .. }
+                // D-445: Turbulent Noise.
+                | crate::effects::Effect::TurbulentNoise { .. }
                 | crate::effects::Effect::GradientMap { .. }
                 | crate::effects::Effect::TintMap { .. }
                 | crate::effects::Effect::Tritone { .. }
@@ -1216,7 +1218,7 @@ fn card_effect(
                 | E::GradientMap { amount, .. } => *amount == 0.0,
                 E::TintMap { amount_to_tint, .. } => *amount_to_tint == 0.0,
                 E::Tritone { blend_with_original, .. } => *blend_with_original == 100.0,
-                E::FractalNoise { opacity, .. } => *opacity == 0.0,
+                E::FractalNoise { opacity, .. } | E::TurbulentNoise { opacity, .. } => *opacity == 0.0,
                 E::ColorBalance { shadows, midtones, highlights, .. } => {
                     [shadows, midtones, highlights].iter().all(|t| t.iter().all(|v| *v == 0.0))
                 }
@@ -1991,8 +1993,8 @@ fn effect_now(
     log: &mut FrameLog,
 ) -> crate::effects::EffectInstance {
     let (mut now, failed) = crate::expr::effect_at(comp, &layer.id, instance, at, u);
-    // D-319: Fractal Noise is held to white only in Display depth.
-    if let crate::effects::Effect::FractalNoise { float: f, .. } = &mut now.effect {
+    // D-319: Fractal Noise is held to white only in Display depth; D-445: Turbulent Noise too.
+    if let crate::effects::Effect::FractalNoise { float: f, .. } | crate::effects::Effect::TurbulentNoise { float: f, .. } = &mut now.effect {
         *f = float;
     }
     // D-446: Curl Noise keeps past white only in a Float composition.

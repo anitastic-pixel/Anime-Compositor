@@ -9269,6 +9269,7 @@ const EFFECT_NAMES = {
   'core.vignette': 'Vignette',
   'core.turbulent_displace': 'Turbulent Displace',
   'core.fractal_noise': 'Fractal Noise',
+  'core.turbulent_noise': 'Turbulent Noise',
   'core.gradient_map': 'Gradient Map',
   'core.color_balance': 'Color Balance',
   'core.offset': 'Offset',
@@ -9442,7 +9443,7 @@ const EFFECT_GROUPS = [
     'core.corner_pin', 'core.polar_coordinates', 'core.optics_compensation', 'core.bend_it', 'core.bender',
     'core.blobbylize', 'core.flow_motion', 'core.griddler', 'core.fisheye', 'core.page_turn', 'core.power_pin',
     'core.ripple_pulse', 'core.slant', 'core.smear', 'core.split', 'core.split_2', 'core.transform', 'core.tiles', 'core.magnify', 'core.spherize', 'core.detail_upscale']],
-  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.noise', 'core.add_grain', 'core.noise_alpha', 'core.noise_hls', 'core.curl_noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
+  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.turbulent_noise', 'core.noise', 'core.add_grain', 'core.noise_alpha', 'core.noise_hls', 'core.curl_noise', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
@@ -9500,6 +9501,7 @@ const EFFECT_SEARCH = {
   'core.motion_tile': 'repeat tile',
   'core.gradient': 'ramp',
   'core.fractal_noise': 'clouds smoke fog',
+  'core.turbulent_noise': 'turbulent noise clouds smoke fog fire veins fractal noise generate',
   'core.noise': 'grain film',
   'core.add_grain': 'add grain film stock noise texture analog analogue retro vintage speckle overlay noise and grain',
   'core.noise_alpha': 'noise alpha transparency opacity speckle dissolve holes grain matte noise and grain',
@@ -9665,6 +9667,7 @@ const EFFECT_ABOUT = {
   'core.vignette': 'Darkens the corners and edges of the frame.',
   'core.turbulent_displace': 'Warps the layer with rolling noise, for heat haze or wobble, or lines that boil with a new seed every few frames; a drift makes heat shimmer rise.',
   'core.fractal_noise': 'Draws cloudy, smoky noise, still or moving.',
+  'core.turbulent_noise': 'Draws grey clouds, smoke or veins, After Effects\' faster Fractal Noise; key Evolution to move them.',
   'core.gradient_map': 'Replaces each brightness with a colour from a ramp.',
   'core.color_balance': 'Pushes the shadows, midtones and highlights toward other colours.',
   'core.offset': 'Slides the layer across the frame, wrapping it around the edges.',
@@ -10006,6 +10009,17 @@ const EFFECT_PARAMS = {
     ['scale_width', 'Scale Width', 1, 0.5, 'per cent of the size, 1 to 10000', '', 100],
     ['scale_height', 'Scale Height', 1, 0.5, 'per cent of the size, 1 to 10000', '', 100],
     ['cycle', 'Cycle Evolution', 1, 1, 'turns before it repeats, 0 for never, 0 to 1000']],
+  // D-445, After Effects' own words.
+  'core.turbulent_noise': [['contrast', 'Contrast', 1, 1, '0 to 1000'],
+    ['brightness', 'Brightness', 1, 0.5, '-1000 to 1000'],
+    ['size', 'Size', 1, 0.5, 'pixels a cloud, 1 to 1000'],
+    ['scale_width', 'Scale Width', 1, 0.5, 'per cent of the size, 1 to 10000'],
+    ['scale_height', 'Scale Height', 1, 0.5, 'per cent of the size, 1 to 10000'],
+    ['offset', 'Offset Turbulence', 2, 1, 'pixels, x then y, -100000 to 100000'],
+    ['complexity', 'Complexity', 1, 1, '1 to 20'],
+    ['evolution', 'Evolution', 1, 1, 'degrees; key it to move the clouds, a full turn a new one', 'dial'],
+    ['seed', 'Random Seed', 1, 1, '0 to 100000'],
+    ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
   // D-129.
   'core.gradient_map': [['midpoint', 'Midpoint', 1, 0.5, 'brightness of the midtone, 1 to 99'],
     ['amount', 'Amount', 1, 0.5, '0 to 100']],
@@ -10924,6 +10938,13 @@ const EFFECT_WORDS = {
       ['noise_type', 'Noise Type', [['smooth', 'Smooth'], ['block', 'Block']]],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
     colours: [['dark_color', 'Dark Colour'], ['light_color', 'Light Colour']],
+  },
+  // D-445.
+  'core.turbulent_noise': {
+    choices: [['fractal_type', 'Fractal Type', [['basic', 'Basic'], ['turbulent', 'Turbulent']]],
+      ['noise_type', 'Noise Type', [['smooth', 'Smooth'], ['block', 'Block']]],
+      ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]],
+      ['blend', 'Blending Mode', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
   },
   // D-401.
   'core.tint': { colours: [['map_black_to', 'Map Black To'], ['map_white_to', 'Map White To']] },
@@ -12414,7 +12435,7 @@ function effectRow(layer, fx, at, of) {
   const k = { fields, words, live, close, send: () => sendParameters(), redraws };
   // A shift is pixels, not a place on the drawing, so the offset has no point box; nor has
   // Fractal Noise's (D-299), nor a text animator's move and scale (D-350).
-  const pairs = ['core.offset', 'core.fractal_noise', 'core.curl_noise', 'core.text_animator'].includes(fx.type_id) ? [] : known.filter((p) => p[2] === 2).map(([n, w]) => [n, w]);
+  const pairs = ['core.offset', 'core.fractal_noise', 'core.turbulent_noise', 'core.curl_noise', 'core.text_animator'].includes(fx.type_id) ? [] : known.filter((p) => p[2] === 2).map(([n, w]) => [n, w]);
   const picture = fx.type_id === 'core.levels' ? fxLevels(k, label)
     : fx.type_id === 'core.hue_saturation' ? fxHues(k, label)
       : fx.type_id === 'core.lens_blur' ? fxIris(k, label)

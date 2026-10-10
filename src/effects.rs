@@ -757,6 +757,32 @@ pub enum Effect {
         frame: i32,
         float: bool,
     },
+    /// D-445: after After Effects' Turbulent Noise, a second name over Fractal Noise's engine
+    /// ([`turbulent_fractal`]): `fractal_type`, "basic" or "turbulent"; `noise_type`, "smooth"
+    /// or "block"; `invert`, "off" or "on", kept as written; `contrast`, 0 to 1000;
+    /// `brightness`, -1000 to 1000; `size`, 1 to 1000 pixels a cloud; `scale_width` and
+    /// `scale_height`, 1 to 10000 per cent of it; `offset`, x then y in pixels, -100000 to
+    /// 100000; `complexity`, 1 to 20, and `seed`, 0 to 100000, their whole parts counted;
+    /// `evolution`, -100000 to 100000 degrees; `opacity`, 0 to 100; `blend`, "normal",
+    /// "multiply", "screen" or "add". No speed, colours or cycle, as After Effects' has none.
+    /// `float` is not a setting and is never saved: D-319's working depth, as Fractal Noise's.
+    TurbulentNoise {
+        fractal_type: String,
+        noise_type: String,
+        invert: String,
+        contrast: f64,
+        brightness: f64,
+        size: f64,
+        scale_width: f64,
+        scale_height: f64,
+        offset: [f64; 2],
+        complexity: f64,
+        evolution: f64,
+        seed: f64,
+        opacity: f64,
+        blend: String,
+        float: bool,
+    },
     /// D-129: `shadow_color`, `midtone_color` and `highlight_color`, `#rrggbb`, kept as written
     /// so a wrong one is reported; `midpoint`, 1 to 99; and `amount`, 0 to 100.
     GradientMap {
@@ -2479,6 +2505,7 @@ pub const EXPOSURE_FLICKER: &str = "core.exposure_flicker";
 pub const VIGNETTE: &str = "core.vignette";
 pub const TURBULENT_DISPLACE: &str = "core.turbulent_displace";
 pub const FRACTAL_NOISE: &str = "core.fractal_noise";
+pub const TURBULENT_NOISE: &str = "core.turbulent_noise";
 pub const GRADIENT_MAP: &str = "core.gradient_map";
 pub const COLOR_BALANCE: &str = "core.color_balance";
 pub const OFFSET: &str = "core.offset";
@@ -3183,6 +3210,18 @@ impl Effect {
                 ("scale_width", vec![scale_width], 1.0, 10000.0),
                 ("scale_height", vec![scale_height], 1.0, 10000.0),
                 ("cycle", vec![cycle], 0.0, 1000.0),
+            ],
+            Effect::TurbulentNoise { contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, .. } => vec![
+                ("contrast", vec![contrast], 0.0, 1000.0),
+                ("brightness", vec![brightness], -1000.0, 1000.0),
+                ("size", vec![size], 1.0, 1000.0),
+                ("scale_width", vec![scale_width], 1.0, 10000.0),
+                ("scale_height", vec![scale_height], 1.0, 10000.0),
+                ("offset", offset.iter_mut().collect(), -100000.0, 100000.0),
+                ("complexity", vec![complexity], 1.0, 20.0),
+                ("evolution", vec![evolution], -100000.0, 100000.0),
+                ("seed", vec![seed], 0.0, 100000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
             ],
             Effect::GradientMap {
                 midpoint, amount, ..
@@ -4633,7 +4672,7 @@ impl Effect {
                 *amount = if units == "after_effects" { push * 100.0 / size.min(100.0) } else { push };
             }
             // D-128: held at one in a draft, as D-127's wave is.
-            Effect::FractalNoise { size, offset, .. } => {
+            Effect::FractalNoise { size, offset, .. } | Effect::TurbulentNoise { size, offset, .. } => {
                 *size = scale(*size).max(1.0);
                 // D-299: the slide in pixels, as Offset's.
                 *offset = offset.map(&scale);
@@ -4947,6 +4986,7 @@ impl Effect {
             Effect::Vignette { .. } => "Vignette",
             Effect::TurbulentDisplace { .. } => "Turbulent Displace",
             Effect::FractalNoise { .. } => "Fractal Noise",
+            Effect::TurbulentNoise { .. } => "Turbulent Noise",
             Effect::GradientMap { .. } => "Gradient Map",
             Effect::ColorBalance { .. } => "Color Balance",
             Effect::Offset { .. } => "Offset",
@@ -5128,6 +5168,7 @@ impl Effect {
             Effect::Vignette { .. } => VIGNETTE,
             Effect::TurbulentDisplace { .. } => TURBULENT_DISPLACE,
             Effect::FractalNoise { .. } => FRACTAL_NOISE,
+            Effect::TurbulentNoise { .. } => TURBULENT_NOISE,
             Effect::GradientMap { .. } => GRADIENT_MAP,
             Effect::ColorBalance { .. } => COLOR_BALANCE,
             Effect::Offset { .. } => OFFSET,
@@ -5914,6 +5955,18 @@ impl Effect {
                         format!("Fractal Noise's {what} is \"{a}\" or \"{b}\", and this is \"{word}\".")
                     })
                 }),
+            // D-445: in Turbulent Noise's own name.
+            Effect::TurbulentNoise { blend, .. } if !["normal", "multiply", "screen", "add"].contains(&blend.as_str()) => Some(format!(
+                "Turbulent Noise's blending mode is \"normal\", \"multiply\", \"screen\" or \"add\", and this is \"{blend}\"."
+            )),
+            Effect::TurbulentNoise { fractal_type, noise_type, invert, .. } => [
+                ("fractal type", fractal_type, ["basic", "turbulent"]),
+                ("noise type", noise_type, ["smooth", "block"]),
+                ("invert", invert, ["off", "on"]),
+            ]
+            .into_iter()
+            .find(|(_, word, allowed)| !allowed.contains(&word.as_str()))
+            .map(|(what, word, [a, b])| format!("Turbulent Noise's {what} is \"{a}\" or \"{b}\", and this is \"{word}\".")),
             Effect::GradientMap {
                 shadow_color,
                 midtone_color,
@@ -7301,7 +7354,9 @@ pub(crate) fn apply_stack_at(
         if display {
             encode(source, true, top);
         }
-        match &instance.effect {
+        // D-445: Turbulent Noise is drawn as the Fractal Noise it names.
+        let turned = turbulent_fractal(&instance.effect);
+        match turned.as_ref().unwrap_or(&instance.effect) {
             Effect::Unsupported { .. } => {
                 report(at, instance, Bypassed::NotImplemented);
                 continue;
@@ -9462,6 +9517,7 @@ pub(crate) fn apply_stack_at(
                 ox += r;
                 oy += r;
             }
+            Effect::TurbulentNoise { .. } => unreachable!("D-445: Turbulent Noise is turned into Fractal Noise above"),
         }
         if display {
             encode(source, false, top);
@@ -9538,6 +9594,36 @@ pub(crate) fn flicker_stops(amount: f64, hold: f64, seed: f64, frame: i32) -> f6
 /// D-127 and D-128: one full turn of evolution moves the field one cell.
 pub(crate) fn depth(evolution: f64, speed: f64, frame: i32) -> f64 {
     (evolution + speed * frame as f64) / 360.0
+}
+
+/// D-445: Turbulent Noise as the Fractal Noise it is a second name for: no speed, black to
+/// white, never cycling; anything else is not one.
+pub(crate) fn turbulent_fractal(e: &Effect) -> Option<Effect> {
+    let Effect::TurbulentNoise { fractal_type, noise_type, invert, contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, blend, float } = e else {
+        return None;
+    };
+    Some(Effect::FractalNoise {
+        size: *size,
+        complexity: *complexity,
+        contrast: *contrast,
+        brightness: *brightness,
+        evolution: *evolution,
+        speed: 0.0,
+        seed: *seed,
+        dark_color: "#000000".to_string(),
+        light_color: "#ffffff".to_string(),
+        opacity: *opacity,
+        blend: blend.clone(),
+        fractal_type: fractal_type.clone(),
+        noise_type: noise_type.clone(),
+        invert: invert.clone(),
+        offset: *offset,
+        scale_width: *scale_width,
+        scale_height: *scale_height,
+        cycle: 0.0,
+        frame: 0,
+        float: *float,
+    })
 }
 
 /// D-299: Fractal Noise's type, noise type and cycle as the noise reads them.

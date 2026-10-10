@@ -8091,6 +8091,7 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::Tritone { .. }
             | E::Vignette { .. }
             | E::FractalNoise { .. }
+            | E::TurbulentNoise { .. }
             | E::Invert { .. }
             | E::BrightnessContrast { .. }
             | E::BlackWhite { .. }
@@ -9480,7 +9481,9 @@ impl Gpu {
             (view, crate::effects::kernel_radius(sigma))
         };
         let (ox, oy) = f.origin;
-        match &f.instance.effect {
+        // D-445: Turbulent Noise is Fractal Noise's pass.
+        let turned = crate::effects::turbulent_fractal(&f.instance.effect);
+        match turned.as_ref().unwrap_or(&f.instance.effect) {
             E::Curves { master, red, green, blue, .. } => {
                 // Where each curve starts, then each curve's count, ins, outs and second derivatives.
                 let mut k = vec![0.0; 4];
