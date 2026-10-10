@@ -644,6 +644,79 @@ pub(crate) fn chromatic_aberration(
         });
 }
 
+/// D-409: Chromatic Aberration's new form. Each channel is sampled at its own shift, `scales`
+/// (red, green, blue, as fractions) of `amount` pixels: radial, outward from `center` and
+/// growing as the distance times (distance / half diagonal)^(2 falloff / 100); offset, along
+/// [`crate::blurs::along`]`(angle)`. With fringe blur each channel is the mean of
+/// [`crate::effects::lens_aberration_counts`] samples evenly along its shift, `fringe_blur`
+/// (a fraction) of its length, summed in order and divided once. The covering is the largest of
+/// the three channels'. The layer does not grow. The settings are already valid.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn lens_chromatic_aberration(
+    source: &mut WorkingBuffer,
+    offset: bool,
+    amount: f64,
+    center: [f64; 2],
+    angle: f64,
+    falloff: f64,
+    scales: [f64; 3],
+    fringe_blur: f64,
+    origin: (usize, usize),
+) {
+    if amount == 0.0 || scales == [0.0; 3] {
+        return;
+    }
+    let (cx, cy) = crate::effects::radial_center(center, (source.width(), source.height()), origin);
+    let w0 = (source.width() - 2 * origin.0) as f64;
+    let h0 = (source.height() - 2 * origin.1) as f64;
+    let rc = (w0 * w0 + h0 * h0).sqrt() / 2.0;
+    let k = amount / rc;
+    let e = 2.0 * falloff / 100.0;
+    let (ux, uy) = crate::blurs::along(angle);
+    let counts = crate::effects::lens_aberration_counts(amount, scales, fringe_blur);
+    let drawing = source.clone();
+    let w = source.width();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (dx, dy) = (x - cx, y - cy);
+            let g = if e == 0.0 {
+                1.0
+            } else {
+                let rho = (dx * dx + dy * dy).sqrt() / rc;
+                if rho > 0.0 { rho.powf(e) } else { 0.0 }
+            };
+            let mut chans = [[0.0f32; 4]; 3];
+            for c in 0..3 {
+                let (s, n) = (scales[c], counts[c]);
+                let mut total = [0.0f32; 4];
+                for j in 0..n {
+                    let t = if n > 1 { j as f64 / (n - 1) as f64 - 0.5 } else { 0.0 };
+                    let q = if offset {
+                        let m = amount * (t * fringe_blur * s.abs() - s);
+                        sample_bilinear(&drawing, x + ux * m, y + uy * m)
+                    } else {
+                        let f = 1.0 - s * k * g + t * fringe_blur * s.abs() * k * g;
+                        sample_bilinear(&drawing, cx + dx * f, cy + dy * f)
+                    };
+                    for v in 0..4 {
+                        total[v] += q[v];
+                    }
+                }
+                for v in 0..4 {
+                    chans[c][v] = total[v] / n as f32;
+                }
+            }
+            px[0] = chans[0][0];
+            px[1] = chans[1][1];
+            px[2] = chans[2][2];
+            px[3] = chans[0][3].max(chans[1][3]).max(chans[2][3]);
+        });
+}
+
 /// D-123: each place's squared distance along a line to the nearest place where `f` is 0, the
 /// lower envelope of the parabolas rooted there (Felzenszwalb and Huttenlocher's pass). Every
 /// other place holds a number far past any distance.

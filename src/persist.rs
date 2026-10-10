@@ -1488,6 +1488,27 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 J::Array(center.iter().map(|c| num(*c)).collect()),
             );
         }
+        Effect::LensChromaticAberration {
+            mode,
+            amount,
+            center,
+            angle,
+            falloff,
+            red_scale,
+            green_scale,
+            blue_scale,
+            fringe_blur,
+        } => {
+            params.insert("mode".into(), J::from(mode.as_str()));
+            params.insert("amount".into(), num(*amount));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("angle".into(), num(*angle));
+            params.insert("falloff".into(), num(*falloff));
+            params.insert("red_scale".into(), num(*red_scale));
+            params.insert("green_scale".into(), num(*green_scale));
+            params.insert("blue_scale".into(), num(*blue_scale));
+            params.insert("fringe_blur".into(), num(*fringe_blur));
+        }
         Effect::DistanceGradation {
             color,
             width,
@@ -4491,6 +4512,20 @@ fn parse_effect(
             animate: effect_word(params, "animate", &at)?,
             frame: 0,
         }),
+        // D-409: the new form carries its mode; a file without one is D-120's form, drawn as before.
+        crate::effects::CHROMATIC_ABERRATION if params.is_some_and(|p| p.get("mode").is_some()) => {
+            Some(crate::effects::Effect::LensChromaticAberration {
+                mode: effect_word(params, "mode", &at)?,
+                amount: effect_number(params, "amount", &at)?,
+                center: effect_array(params, "center", "two numbers, x then y", &at)?,
+                angle: effect_number(params, "angle", &at)?,
+                falloff: effect_number(params, "falloff", &at)?,
+                red_scale: effect_number(params, "red_scale", &at)?,
+                green_scale: effect_number(params, "green_scale", &at)?,
+                blue_scale: effect_number(params, "blue_scale", &at)?,
+                fringe_blur: effect_number(params, "fringe_blur", &at)?,
+            })
+        }
         crate::effects::CHROMATIC_ABERRATION => {
             Some(crate::effects::Effect::ChromaticAberration {
                 amount: effect_number(params, "amount", &at)?,

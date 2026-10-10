@@ -597,6 +597,23 @@ pub enum Effect {
     /// D-120: `amount`, 0 to 100 pixels, how far red and blue each move at the drawing's
     /// corner; and `center`, per cent of the drawing's width and height, -1000 to 1000.
     ChromaticAberration { amount: f64, center: [f64; 2] },
+    /// D-409: Chromatic Aberration's new form, read from a file whose effect carries `mode`
+    /// (one without it is D-120's form above, drawn as before). `mode`, "radial" or "offset";
+    /// `amount`, 0 to 100 pixels; `center`, per cent, -1000 to 1000 (radial); `angle`, -3600 to
+    /// 3600 degrees (offset); `falloff`, 0 to 100 (radial); `red_scale`, `green_scale` and
+    /// `blue_scale`, -200 to 200 per cent; `fringe_blur`, 0 to 100 per cent of each channel's
+    /// shift.
+    LensChromaticAberration {
+        mode: String,
+        amount: f64,
+        center: [f64; 2],
+        angle: f64,
+        falloff: f64,
+        red_scale: f64,
+        green_scale: f64,
+        blue_scale: f64,
+        fringe_blur: f64,
+    },
     /// D-123: `color`, `#rrggbb`; `width`, 0 to 1000 pixels in from the edge; `opacity`, 0 to
     /// 100; `invert`, "off" or "on"; and `blend`, "normal", "multiply", "screen" or "add". The
     /// words and the colour are kept as written, so a wrong one is reported.
@@ -2159,6 +2176,12 @@ pub(crate) fn transform_moment(effect: &Effect) -> Option<[f64; 10]> {
         _ => None,
     }
 }
+/// D-409: how many samples each channel of Chromatic Aberration's new form takes, red, green,
+/// blue: one with no smear, else one a pixel of its longest shift and one more. `scales` and
+/// `fringe_blur` are fractions. The processor and the card both read it, so they sum alike.
+pub(crate) fn lens_aberration_counts(amount: f64, scales: [f64; 3], fringe_blur: f64) -> [usize; 3] {
+    scales.map(|s| if fringe_blur * s == 0.0 { 1 } else { (amount * s.abs() * fringe_blur).ceil() as usize + 1 })
+}
 /// D-396: Selective Color's colour families, each a setting, in the order the card numbers them.
 pub const SELECTIVE_COLOR_FAMILIES: [&str; 9] =
     ["reds", "yellows", "greens", "cyans", "blues", "magentas", "whites", "neutrals", "blacks"];
@@ -2452,6 +2475,26 @@ impl Effect {
             Effect::ChromaticAberration { amount, center } => vec![
                 ("amount", vec![amount], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+            ],
+            Effect::LensChromaticAberration {
+                amount,
+                center,
+                angle,
+                falloff,
+                red_scale,
+                green_scale,
+                blue_scale,
+                fringe_blur,
+                ..
+            } => vec![
+                ("amount", vec![amount], 0.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("angle", vec![angle], -3600.0, 3600.0),
+                ("falloff", vec![falloff], 0.0, 100.0),
+                ("red_scale", vec![red_scale], -200.0, 200.0),
+                ("green_scale", vec![green_scale], -200.0, 200.0),
+                ("blue_scale", vec![blue_scale], -200.0, 200.0),
+                ("fringe_blur", vec![fringe_blur], 0.0, 100.0),
             ],
             Effect::DistanceGradation { width, opacity, .. } => vec![
                 ("width", vec![width], 0.0, 1000.0),
@@ -3638,7 +3681,9 @@ impl Effect {
                 *radius = scale(*radius);
                 *length = scale(*length);
             }
-            Effect::ChromaticAberration { amount, .. } => *amount = scale(*amount),
+            Effect::ChromaticAberration { amount, .. } | Effect::LensChromaticAberration { amount, .. } => {
+                *amount = scale(*amount)
+            }
             Effect::DistanceGradation { width, .. } => *width = scale(*width),
             Effect::TurbulentDisplace { amount, size, units, .. } => {
                 let push = scale(turbulent_push(*amount, *size, units));
@@ -3847,7 +3892,7 @@ impl Effect {
             Effect::RimLight { .. } => "Rim Light",
             Effect::Outline { .. } => "Outline",
             Effect::Noise { .. } => "Noise",
-            Effect::ChromaticAberration { .. } => "Chromatic Aberration",
+            Effect::ChromaticAberration { .. } | Effect::LensChromaticAberration { .. } => "Chromatic Aberration",
             Effect::DistanceGradation { .. } => "Distance Gradation",
             Effect::LightRays { .. } => "Light Rays",
             Effect::ExposureFlicker { .. } => "Exposure Flicker",
@@ -4003,7 +4048,7 @@ impl Effect {
             Effect::RimLight { .. } => RIM_LIGHT,
             Effect::Outline { .. } => OUTLINE,
             Effect::Noise { .. } => NOISE,
-            Effect::ChromaticAberration { .. } => CHROMATIC_ABERRATION,
+            Effect::ChromaticAberration { .. } | Effect::LensChromaticAberration { .. } => CHROMATIC_ABERRATION,
             Effect::DistanceGradation { .. } => DISTANCE_GRADATION,
             Effect::LightRays { .. } => LIGHT_RAYS,
             Effect::ExposureFlicker { .. } => EXPOSURE_FLICKER,
@@ -4726,6 +4771,8 @@ impl Effect {
                 .or_else(|| (!["center", "stretch", "tile"].contains(&fit.as_str())).then(|| format!(
                     "Aerial Haze's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
                 ))),
+            Effect::LensChromaticAberration { mode, .. } => (!["radial", "offset"].contains(&mode.as_str()))
+                .then(|| format!("Chromatic Aberration's mode is \"radial\" or \"offset\", and this is \"{mode}\".")),
             Effect::Transform { uniform_scale, use_composition_shutter_angle, sampling, .. } => {
                 [("uniform scale", uniform_scale), ("use composition's shutter angle", use_composition_shutter_angle)]
                     .into_iter()
@@ -6165,6 +6212,29 @@ pub(crate) fn apply_stack_at(
                     crate::layer_fx::chromatic_aberration(source, *amount, *center, (ox, oy))
                 })
             }
+            Effect::LensChromaticAberration {
+                mode,
+                amount,
+                center,
+                angle,
+                falloff,
+                red_scale,
+                green_scale,
+                blue_scale,
+                fringe_blur,
+            } => crate::perf::time(crate::perf::Stage::EffectChromaticAberration, || {
+                crate::layer_fx::lens_chromatic_aberration(
+                    source,
+                    mode == "offset",
+                    *amount,
+                    *center,
+                    *angle,
+                    *falloff,
+                    [*red_scale / 100.0, *green_scale / 100.0, *blue_scale / 100.0],
+                    *fringe_blur / 100.0,
+                    (ox, oy),
+                )
+            }),
             Effect::DistanceGradation {
                 color,
                 width,

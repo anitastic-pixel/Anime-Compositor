@@ -1322,11 +1322,49 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
-// layer_fx::chromatic_aberration. k: the centre, 1 - k and 1 + k.
+// layer_fx::chromatic_aberration. k: the centre, 1 - k and 1 + k. With `flag` 1 (radial) or
+// 2 (offset), layer_fx::lens_chromatic_aberration (D-409). k: the centre, the half diagonal,
+// amount over it, the falloff's power, the angle's step across and down, the amount, the fringe
+// blur, the three scales and the three sample counts.
 @compute @workgroup_size(16, 16)
 fn aberr(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
     if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    if F.flag != 0u {
+        let x = f64(id.x) + 0.5lf;
+        let y = f64(id.y) + 0.5lf;
+        let ldx = x - k[0];
+        let ldy = y - k[1];
+        var g = 1.0lf;
+        if k[4] != 0.0lf {
+            let rho = sqrt(ldx * ldx + ldy * ldy) / k[2];
+            g = select(0.0lf, f64(pow(f32(rho), f32(k[4]))), rho > 0.0lf);
+        }
+        var o = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        for (var c = 0u; c < 3u; c++) {
+            let s = k[9u + c];
+            let n = u32(k[12u + c]);
+            var total = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+            for (var j = 0u; j < n; j++) {
+                var t = 0.0lf;
+                if n > 1u {
+                    t = f64(j) / f64(n - 1u) - 0.5lf;
+                }
+                if F.flag == 2u {
+                    let m = k[7] * (t * k[8] * abs(s) - s);
+                    total += bilinear(input, x + k[5] * m, y + k[6] * m);
+                } else {
+                    let f = 1.0lf - s * k[3] * g + t * k[8] * abs(s) * k[3] * g;
+                    total += bilinear(input, k[0] + ldx * f, k[1] + ldy * f);
+                }
+            }
+            let mean = total / f32(n);
+            o[c] = mean[c];
+            o.w = max(o.w, mean.w);
+        }
+        textureStore(output, id.xy, o);
         return;
     }
     let dx = f64(id.x) + 0.5lf - k[0];
@@ -8272,6 +8310,31 @@ impl Gpu {
                 let (w0, h0) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
                 let k = amount / ((w0 * w0 + h0 * h0).sqrt() / 2.0);
                 same(steps, &passes.aberr, FxParams::default(), &[cx, cy, 1.0 - k, 1.0 + k], None)
+            }
+            E::LensChromaticAberration {
+                mode,
+                amount,
+                center,
+                angle,
+                falloff,
+                red_scale,
+                green_scale,
+                blue_scale,
+                fringe_blur,
+            } => {
+                let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
+                let (w0, h0) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let rc = (w0 * w0 + h0 * h0).sqrt() / 2.0;
+                let (ux, uy) = crate::blurs::along(*angle);
+                let scales = [*red_scale / 100.0, *green_scale / 100.0, *blue_scale / 100.0];
+                let b = *fringe_blur / 100.0;
+                let n = crate::effects::lens_aberration_counts(*amount, scales, b);
+                let p = FxParams { flag: if mode == "offset" { 2 } else { 1 }, ..Default::default() };
+                let k = [
+                    cx, cy, rc, amount / rc, 2.0 * falloff / 100.0, ux, uy, *amount, b,
+                    scales[0], scales[1], scales[2], n[0] as f64, n[1] as f64, n[2] as f64,
+                ];
+                same(steps, &passes.aberr, p, &k, None)
             }
             E::RimLight { color, direction, width, softness, intensity, blend: b } => {
                 let (blurred, r) = covering(steps, still, (w, h), softness / 3.0);

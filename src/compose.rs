@@ -880,6 +880,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64) -> bool {
                 | crate::effects::Effect::Outline { .. }
                 | crate::effects::Effect::Noise { .. }
                 | crate::effects::Effect::ChromaticAberration { .. }
+                | crate::effects::Effect::LensChromaticAberration { .. }
                 | crate::effects::Effect::DistanceGradation { .. }
                 | crate::effects::Effect::LightRays { .. }
                 | crate::effects::Effect::ExposureFlicker { .. }
@@ -1144,6 +1145,10 @@ fn card_effect(
                 E::RimLight { intensity, .. } => *intensity == 0.0,
                 E::Outline { width, .. } => *width == 0.0,
                 E::Noise { amount, .. } | E::ChromaticAberration { amount, .. } => *amount == 0.0,
+                // D-409: as layer_fx::lens_chromatic_aberration returns at once.
+                E::LensChromaticAberration { amount, red_scale, green_scale, blue_scale, .. } => {
+                    *amount == 0.0 || [*red_scale, *green_scale, *blue_scale] == [0.0; 3]
+                }
                 E::DistanceGradation { width, opacity, .. } => *width == 0.0 || *opacity == 0.0,
                 E::LightRays { intensity, .. } => *intensity == 0.0,
                 E::ExposureFlicker { amount, .. }

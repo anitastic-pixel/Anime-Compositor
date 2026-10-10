@@ -3552,10 +3552,18 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             animate: "on".to_string(),
             frame: 0,
         }),
-        // D-120: a slight split about the middle.
-        CHROMATIC_ABERRATION => Some(Effect::ChromaticAberration {
+        // D-120: a slight split about the middle; D-409's form, which draws D-120's split
+        // until a new setting is moved.
+        CHROMATIC_ABERRATION => Some(Effect::LensChromaticAberration {
+            mode: "radial".to_string(),
             amount: 3.0,
             center: [50.0, 50.0],
+            angle: 90.0,
+            falloff: 0.0,
+            red_scale: 100.0,
+            green_scale: 0.0,
+            blue_scale: -100.0,
+            fringe_blur: 0.0,
         }),
         // D-123: violet multiplied in at up to 50, ten pixels in from the edge.
         DISTANCE_GRADATION => Some(Effect::DistanceGradation {
@@ -4962,9 +4970,21 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             animate: word("animate")?,
             frame: 0,
         }),
-        CHROMATIC_ABERRATION => Ok(Effect::ChromaticAberration {
+        // D-409: without a mode, D-120's form, as an older project holds it.
+        CHROMATIC_ABERRATION if parameter(query, "mode").is_none() => Ok(Effect::ChromaticAberration {
             amount: number("amount")?,
             center: pair("center")?,
+        }),
+        CHROMATIC_ABERRATION => Ok(Effect::LensChromaticAberration {
+            mode: word("mode")?,
+            amount: number("amount")?,
+            center: pair("center")?,
+            angle: number("angle")?,
+            falloff: number("falloff")?,
+            red_scale: number("red_scale")?,
+            green_scale: number("green_scale")?,
+            blue_scale: number("blue_scale")?,
+            fringe_blur: number("fringe_blur")?,
         }),
         DISTANCE_GRADATION => Ok(Effect::DistanceGradation {
             color: word("color")?,
@@ -29120,6 +29140,21 @@ mod contract {
         (
             "core.chromatic_aberration",
             &[("amount", "7"), ("center", "30,70")],
+        ),
+        // D-409: the new form's mode, numbers and scales.
+        (
+            "core.chromatic_aberration",
+            &[
+                ("mode", "offset"),
+                ("amount", "7"),
+                ("center", "30,70"),
+                ("angle", "45"),
+                ("falloff", "50"),
+                ("red_scale", "150"),
+                ("green_scale", "10"),
+                ("blue_scale", "-80"),
+                ("fringe_blur", "40"),
+            ],
         ),
         // D-123: the two numbers, the colour and the two words.
         (
