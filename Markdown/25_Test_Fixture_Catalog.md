@@ -207566,3 +207566,43 @@ FX-NOISEHLSAUTO-022 (`fx_noisehlsauto_022.json`): Noise "Squared", in capitals, 
 FX-NOISEHLSAUTO-023 (`fx_noisehlsauto_023.json`): Noise "film", not one of its three words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-NOISEHLSAUTO-024 (`fx_noisehlsauto_024.json`): Saturation keyed to 120 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Dust & Scratches (D-453)
+
+After Effects' Dust & Scratches (Noise & Grain), `core.dust_scratches` (B-333). Every case is a composition 16 by 10 at 24 frames a second, 5 frames long, holding the specks drawing (`Fixtures/dust_scratches/media/specks.png`): skin with a line, three specks, fine grain, a hole and a half-covered column, unmoved unless the case says. `tools/dust_scratches_reference.py` works the expected frames, `Fixtures/dust_scratches/expected_dust_scratches.json`, tolerance 2e-5, and checks them against D-203's Median; the rule is in document 21.
+
+FX-DUST-001 (`fx_dust_001.json`): Dust & Scratches as it starts, Radius 1, Threshold 0 and Operate on Alpha off: a disc of five, the pixel and its four neighbours, so the three specks are gone into the skin and the line, two pixels wide, is kept; the hole stays a hole and the half-covered column stays at half. Frames 0.
+
+FX-DUST-002 (`fx_dust_002.json`): Radius 0: the drawing, untouched. Frames 0.
+
+FX-DUST-003 (`fx_dust_003.json`): Radius 2, Threshold 0: D-203's Median at Radius 2, FX-MEDIAN-001, the specks gone and the grain mostly skin. Frames 0.
+
+FX-DUST-004 (`fx_dust_004.json`): Radius 2, Threshold 16: the dark specks, far more than 16 from the skin, are gone as in FX-DUST-003, and the white speck, 9, 41 and 65 above the skin in red, green and blue, keeps its red and takes the skin's green and blue; the grain, 8 from the skin, is kept just as drawn. Frames 0.
+
+FX-DUST-005 (`fx_dust_005.json`): Radius 2, Threshold 64: the dark specks are gone; the white speck, 9, 41 and 65 above the skin in red, green and blue, keeps its red and green and takes the skin's blue, the one channel more than 64 apart, so it turns yellow. The grain is kept. Frames 0.
+
+FX-DUST-006 (`fx_dust_006.json`): Radius 2, Threshold 255: nothing is ever more than 255 apart, so the drawing is unchanged. Frames 0.
+
+FX-DUST-007 (`fx_dust_007.json`): Radius 2, Threshold 16, Operate on Alpha on: the specks go as in FX-DUST-004 and the hole, 255 from the skin round it in its covering, is filled with skin; the drawing's top-left corner, with more of its disc outside the drawing than in, is cut away, and the grain is kept. Frames 0.
+
+FX-DUST-008 (`fx_dust_008.json`): Radius 2, Threshold 0, Operate on Alpha off: the hole stays a hole, for a pixel keeps its own covering. Frames 0.
+
+FX-DUST-009 (`fx_dust_009.json`): Threshold keyed from 0 at frame 0 to 16 at frame 4, linear, at Radius 2: frame 0 is FX-DUST-003 and frame 4 is FX-DUST-004; at frame 2, Threshold 8, the grain 8 from the median is kept. Frames 0, 2, 4.
+
+FX-DUST-010 (`fx_dust_010.json`): Radius keyed from 0 at frame 0 to 10 at frame 4, eased past its end (about 13 at frame 2), at Threshold 0: frame 2 is held at 10, the same as frame 4, where every pixel that shows is the skin at its own covering. Frames 0, 2, 4.
+
+FX-DUST-011 (`fx_dust_011.json`): Dust & Scratches as it starts, the layer moved three pixels right: FX-DUST-001 moved with it. Frames 0.
+
+FX-DUST-012 (`fx_dust_012.json`): Radius 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DUST-013 (`fx_dust_013.json`): Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DUST-014 (`fx_dust_014.json`): Radius keyed to 20 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DUST-015 (`fx_dust_015.json`): Threshold 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DUST-016 (`fx_dust_016.json`): Threshold -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DUST-017 (`fx_dust_017.json`): Threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DUST-018 (`fx_dust_018.json`): Operate on Alpha "sometimes", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
