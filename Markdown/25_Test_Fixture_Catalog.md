@@ -205316,3 +205316,57 @@ FX-TRITONE-013 (`fx_tritone_013.json`): Highlights written "#12345", one digit s
 FX-TRITONE-014 (`fx_tritone_014.json`): Midtones written "brown", a name, not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-TRITONE-015 (`fx_tritone_015.json`): Shadows written "#00000g", not a hex digit. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Aerial Haze (D-403)
+
+Aerial Haze (`core.aerial_haze`), PLUGINS.md's pick #8 (B-282). Every case is a project of one composition 16 by 10, five frames: Gradient Wipe's map layers, every one switched off, and on top of them the drawing `holder` with the effect. `tools/aerial_haze_reference.py` works the expected frames, `Fixtures/aerial_haze/expected_aerial_haze.json`, tolerance 2e-5; the rule is in document 21. `cycle_two.json`, two layers whose Aerial Hazes name each other, is refused with EFFECT_LAYER_CYCLE.
+
+FX-HAZE-001 (`fx_haze_001.json`): As added: a pale sky blue, #b4c8dc, amount 30, no layer named: every pixel that shows three tenths of the way to the sky blue, evenly; the clear corner stays clear. Frames 0.
+
+FX-HAZE-002 (`fx_haze_002.json`): Amount 0: nothing changes. Frames 0.
+
+FX-HAZE-003 (`fx_haze_003.json`): Amount 100: every pixel that shows is the sky blue at its own covering. Frames 0.
+
+FX-HAZE-004 (`fx_haze_004.json`): White haze, #ffffff, amount 50: every channel halfway to white, the darkest parts lifted most, as raising Levels' output black. Frames 0.
+
+FX-HAZE-005 (`fx_haze_005.json`): FX-HAZE-001 with its colour written in capitals, #B4C8DC: the same. Frames 0.
+
+FX-HAZE-006 (`fx_haze_006.json`): The grey ramp as the matte, amount 100: column 0 (black) untouched, column 15 (white) the sky blue, the columns between hazed by the ramp's brightness. The ramp layer is moved, scaled and switched off, none of which the matte reads. Frames 0.
+
+FX-HAZE-007 (`fx_haze_007.json`): The ramp, amount 60: as FX-HAZE-006 at six tenths. Frames 0.
+
+FX-HAZE-008 (`fx_haze_008.json`): A white solid as the matte, amount 30: the same as no matte, FX-HAZE-001. Frames 0.
+
+FX-HAZE-009 (`fx_haze_009.json`): A black solid as the matte, amount 100: nothing changes. Frames 0.
+
+FX-HAZE-010 (`fx_haze_010.json`): A white matte clear at the top and more covering down each row, amount 100: a clear matte reads as black, so row 0 is untouched and the haze grows down the rows. Frames 0.
+
+FX-HAZE-011 (`fx_haze_011.json`): A 4 by 2 checker of white and black, centred, amount 100: outside it the matte is clear, black, so only its four white pixels are hazed. Frames 0.
+
+FX-HAZE-012 (`fx_haze_012.json`): The checker tiled, amount 100: hazed and untouched in a checker over the whole layer. Frames 0.
+
+FX-HAZE-013 (`fx_haze_013.json`): The checker stretched to 16 by 10, amount 100: soft squares of haze. Frames 0.
+
+FX-HAZE-014 (`fx_haze_014.json`): The holder names itself, amount 100: its cream squares, the brightest, are hazed most, its red and blue ones less, and the clear corner stays clear. Frames 0.
+
+FX-HAZE-015 (`fx_haze_015.json`): Amount keyed from 0 at frame 0 to 100 at frame 4, no matte: frame 0 the drawing, frame 2 halfway, frame 4 as FX-HAZE-003. Frames 0, 2, 4.
+
+FX-HAZE-016 (`fx_haze_016.json`): A layer that is not in the composition, `gone`, amount 100: nothing changes, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-HAZE-017 (`fx_haze_017.json`): A white solid whose in point is frame 4 as the matte, amount 100: before it the matte is empty, which reads as black, so at frame 0 nothing changes; at frame 4 it is FX-HAZE-003. Frames 0, 4.
+
+FX-HAZE-018 (`fx_haze_018.json`): FX-HAZE-007 on the holder moved 2 right and 1 down: the same picture moved, since the matte lies on the layer. Frames 0.
+
+FX-HAZE-019 (`fx_haze_019.json`): The effect on an adjustment layer above the holder, the ramp as its matte, amount 60: the matte lies on the frame, which here is the holder's own rectangle, so this is FX-HAZE-007. Frames 0.
+
+FX-HAZE-020 (`fx_haze_020.json`): Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAZE-021 (`fx_haze_021.json`): Amount -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAZE-022 (`fx_haze_022.json`): Amount keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAZE-023 (`fx_haze_023.json`): A haze colour written "#12345", five digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAZE-024 (`fx_haze_024.json`): A fit written "fill". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAZE-025 (`fx_haze_025.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
