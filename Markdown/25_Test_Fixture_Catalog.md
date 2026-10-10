@@ -207458,3 +207458,59 @@ FX-NOISEALPHA-029 (`fx_noisealpha_029.json`): Overflow "wrapback", not one of it
 FX-NOISEALPHA-030 (`fx_noisealpha_030.json`): Cycle Noise "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-NOISEALPHA-031 (`fx_noisealpha_031.json`): Amount keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Noise HLS (D-451)
+
+After Effects' Noise HLS (Noise & Grain), `core.noise_hls` (B-331). Every case is a composition 16 by 10 at 24 frames a second, 5 frames long, holding Hue/Saturation's bands (red, green, blue, grey, skin, magenta, line and a soft edge; `Fixtures/noisehls/media`), the same size, unmoved unless the case says. `tools/noisehls_reference.py` works the expected frames, `Fixtures/noisehls/expected_noisehls.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-NOISEHLS-001 (`fx_noisehls_001.json`): The settings as they start: Uniform, Lightness 10: each shown pixel's lightness moves up to 0.1 either way, its own amount, keeping its hue and saturation and its covering; the empty pixels are left; the same on every frame. Frames 0, 2.
+
+FX-NOISEHLS-002 (`fx_noisehls_002.json`): Hue 50, Lightness 0: each coloured pixel's hue turns up to 90 degrees either way, its lightness and saturation kept; the grey has no hue and is left. Frames 0.
+
+FX-NOISEHLS-003 (`fx_noisehls_003.json`): Saturation 50, Lightness 0: the saturation moves up to 0.5 either way, held in 0 and 1, so the full primaries only lose saturation and the grey only gains it. Frames 0.
+
+FX-NOISEHLS-004 (`fx_noisehls_004.json`): Lightness 100: the lightness moves up to 1 either way, held, so some pixels turn white or black. Frames 0.
+
+FX-NOISEHLS-005 (`fx_noisehls_005.json`): Hue, Lightness and Saturation 30 together, each with its own noise. Frames 0.
+
+FX-NOISEHLS-006 (`fx_noisehls_006.json`): Squared, Lightness 30: the noise pushed out towards its ends, so every pixel's lightness moves at least as far as in Uniform, the same way. Frames 0.
+
+FX-NOISEHLS-007 (`fx_noisehls_007.json`): Grain, Grain Size 1, Lightness 30: smooth noise in cells of a pixel. Frames 0.
+
+FX-NOISEHLS-008 (`fx_noisehls_008.json`): Grain, Grain Size 4, Lightness 30: the cells four pixels across, so neighbouring pixels move nearly together. Frames 0.
+
+FX-NOISEHLS-009 (`fx_noisehls_009.json`): Grain, Grain Size 2.5, Hue 40, Saturation 40, Lightness 0. Frames 0.
+
+FX-NOISEHLS-010 (`fx_noisehls_010.json`): Uniform at phase 180, Lightness 30: half way between the noise at depth 0 and at depth 1. Frames 0.
+
+FX-NOISEHLS-011 (`fx_noisehls_011.json`): Noise Phase keyed from 0 at frame 0 to 720 at frame 4, Lightness 30: a new noise each turn, reached smoothly; frame 1 is phase 180, FX-NOISEHLS-010's. Frames 0, 1, 2, 4.
+
+FX-NOISEHLS-012 (`fx_noisehls_012.json`): Phase -90, Hue 100: the phase runs below 0 too, a quarter of the way back from depth 0 to depth -1. Frames 0.
+
+FX-NOISEHLS-013 (`fx_noisehls_013.json`): Hue, Lightness and Saturation 0: the drawing, untouched. Frames 0, 2.
+
+FX-NOISEHLS-014 (`fx_noisehls_014.json`): FX-NOISEHLS-005 moved three pixels right: the noise is the drawing's own, so it moves with it. Frames 0.
+
+FX-NOISEHLS-015 (`fx_noisehls_015.json`): After a Motion Tile that grows the layer: the noise is worked in the drawing's own pixels, so the frame is FX-NOISEHLS-005's. Frames 0.
+
+FX-NOISEHLS-016 (`fx_noisehls_016.json`): Lightness keyed from 0 at frame 0 to 40 at frame 4: frame 0 is the drawing. Frames 0, 2, 4.
+
+FX-NOISEHLS-017 (`fx_noisehls_017.json`): Grain, Grain Size 0.5, Lightness 30: cells of half a pixel. Frames 0.
+
+FX-NOISEHLS-018 (`fx_noisehls_018.json`): Grain, Grain Size 3, Hue 20, Lightness 25, Saturation 60, phase keyed 0 to 500: the controls together. Frames 0, 1, 2, 3, 4.
+
+FX-NOISEHLS-019 (`fx_noisehls_019.json`): Hue 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLS-020 (`fx_noisehls_020.json`): Lightness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLS-021 (`fx_noisehls_021.json`): Saturation 150, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLS-022 (`fx_noisehls_022.json`): Grain Size 0.25, below 0.5. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLS-023 (`fx_noisehls_023.json`): Noise Phase 200000, above 100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLS-024 (`fx_noisehls_024.json`): Noise "Uniform", in capitals, kept as written and not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLS-025 (`fx_noisehls_025.json`): Noise "grainy", not one of its three words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-NOISEHLS-026 (`fx_noisehls_026.json`): Lightness keyed to 120 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
