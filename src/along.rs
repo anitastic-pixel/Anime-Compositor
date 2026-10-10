@@ -190,6 +190,262 @@ fn lay(px: &mut [f32], c: f64, color: [f64; 3], style: &str) {
     }
 }
 
+/// D-442: Scribble's runs in a buffer `size` pixels across with the drawing's corner at
+/// `origin`: lines across the masks compose chose, joined into open paths and trimmed to Start
+/// and End, laid all along. Document 21's Scribble paragraph is the rule; an effect that is not a
+/// Scribble with masks has none.
+pub(crate) fn scribble_runs(effect: &crate::effects::Effect, (bw, bh): (usize, usize), (ox, oy): (usize, usize)) -> Vec<Run> {
+    let crate::effects::Effect::Scribble { scribble, fill_type, edge_width, angle, start, end, fill_paths_sequentially, masks: Some(masks), .. } = effect else {
+        return Vec::new();
+    };
+    let (s, c) = angle.to_radians().sin_cos();
+    let uv = |x: f64, y: f64| (x * c - y * s, x * s + y * c);
+    let bw = bw as f64;
+    let bh = bh as f64;
+    let frame = [uv(0.0, 0.0), uv(bw, 0.0), uv(bw, bh), uv(0.0, bh)];
+    let chosen: Vec<Mask> = masks.iter().map(|(o, mode, inv)| (o.iter().map(|&(x, y)| uv(x + ox as f64, y + oy as f64)).collect(), *mode, *inv)).collect();
+    let using = scribble == "all_masks_using_modes";
+    let groups: Vec<Vec<Mask>> = match scribble.as_str() {
+        "all_masks" => chosen.into_iter().map(|m| vec![m]).collect(),
+        "all_masks_using_modes" => vec![chosen.into_iter().filter(|m| m.1 != crate::mask::MaskMode::None).collect()],
+        _ => vec![chosen],
+    };
+    let back = |(u, v): (f64, f64)| (u * c + v * s, -u * s + v * c);
+    let lines: Vec<Vec<Vec<(f64, f64)>>> = groups
+        .iter()
+        .enumerate()
+        .map(|(g, group)| group_lines(effect, g as u32, group, &frame, using, fill_type, *edge_width).into_iter().map(|p| p.into_iter().map(back).collect()).collect())
+        .collect();
+    let open = |paths: Vec<Vec<(f64, f64)>>| -> Vec<(Vec<(f64, f64)>, bool)> { paths.into_iter().map(|p| (p, false)).collect() };
+    if fill_paths_sequentially == "on" && scribble == "all_masks" {
+        runs(&open(lines.concat()), *start, *end, 0.0, true)
+    } else {
+        lines.into_iter().flat_map(|group| runs(&open(group), *start, *end, 0.0, true)).collect()
+    }
+}
+
+/// A mask as Scribble reads it: its outline (turned so its lines run along u), mode and
+/// whether it is inverted.
+type Mask = (Vec<(f64, f64)>, crate::mask::MaskMode, bool);
+
+/// Scribble's 32-bit mix.
+fn mix(mut x: u32) -> u32 {
+    x ^= x >> 16;
+    x = x.wrapping_mul(0x7feb_352d);
+    x ^= x >> 15;
+    x = x.wrapping_mul(0x846c_a68b);
+    x ^ (x >> 16)
+}
+
+/// A number from 0 to 1 for (seed, slot, kind, group, line, end).
+fn hashed(seed: u32, slot: i64, rest: [u32; 4]) -> f64 {
+    let mut h = mix(seed);
+    for v in std::iter::once(slot as u32).chain(rest) {
+        h = mix(h ^ v);
+    }
+    h as f64 / 4294967296.0
+}
+
+/// The even-odd inside of an outline on the line at `v`, as intervals of u.
+fn crossings(poly: &[(f64, f64)], v: f64) -> Vec<(f64, f64)> {
+    let mut xs: Vec<f64> = Vec::new();
+    for (k, &(u0, v0)) in poly.iter().enumerate() {
+        let (u1, v1) = poly[(k + 1) % poly.len()];
+        if (v0 <= v) != (v1 <= v) {
+            xs.push(u0 + (v - v0) / (v1 - v0) * (u1 - u0));
+        }
+    }
+    xs.sort_by(f64::total_cmp);
+    xs.chunks_exact(2).filter(|p| p[1] > p[0]).map(|p| (p[0], p[1])).collect()
+}
+
+/// Where the line at `v` crosses the points within `r` of the piece a-b.
+fn capsule(a: (f64, f64), b: (f64, f64), r: f64, v: f64) -> Option<(f64, f64)> {
+    let mut found: Vec<f64> = Vec::new();
+    for (pu, pv) in [a, b] {
+        let dv = v - pv;
+        if dv * dv <= r * r {
+            let s = (r * r - dv * dv).sqrt();
+            found.extend([pu - s, pu + s]);
+        }
+    }
+    let (du, dw) = (b.0 - a.0, b.1 - a.1);
+    let length = du.hypot(dw);
+    if length > 0.0 {
+        let (nu, nv) = (-dw / length * r, du / length * r);
+        let quad = [(a.0 + nu, a.1 + nv), (b.0 + nu, b.1 + nv), (b.0 - nu, b.1 - nv), (a.0 - nu, a.1 - nv)];
+        for k in 0..4 {
+            let ((q0u, q0v), (q1u, q1v)) = (quad[k], quad[(k + 1) % 4]);
+            if (q0v - v) * (q1v - v) <= 0.0 && q0v != q1v {
+                found.push(q0u + (v - q0v) / (q1v - q0v) * (q1u - q0u));
+            }
+        }
+    }
+    (!found.is_empty()).then(|| (found.iter().copied().fold(f64::INFINITY, f64::min), found.iter().copied().fold(f64::NEG_INFINITY, f64::max)))
+}
+
+/// The points within `r` of an outline on the line at `v`.
+fn band(poly: &[(f64, f64)], r: f64, v: f64) -> Vec<(f64, f64)> {
+    let mut pieces: Vec<(f64, f64)> = (0..poly.len()).filter_map(|k| capsule(poly[k], poly[(k + 1) % poly.len()], r, v)).filter(|c| c.1 > c.0).collect();
+    pieces.sort_by(|p, q| p.0.total_cmp(&q.0).then(p.1.total_cmp(&q.1)));
+    let mut out: Vec<(f64, f64)> = Vec::new();
+    for (lo, hi) in pieces {
+        match out.last_mut() {
+            Some(last) if lo <= last.1 => last.1 = last.1.max(hi),
+            _ => out.push((lo, hi)),
+        }
+    }
+    out
+}
+
+/// The intervals where `op(in a, in b)` holds.
+fn combine(a: &[(f64, f64)], b: &[(f64, f64)], op: fn(bool, bool) -> bool) -> Vec<(f64, f64)> {
+    let mut xs: Vec<f64> = a.iter().chain(b).flat_map(|&(lo, hi)| [lo, hi]).collect();
+    xs.sort_by(f64::total_cmp);
+    xs.dedup();
+    let inside = |set: &[(f64, f64)], m: f64| set.iter().any(|&(lo, hi)| lo < m && m < hi);
+    let mut out: Vec<(f64, f64)> = Vec::new();
+    for x in xs.windows(2) {
+        let m = (x[0] + x[1]) / 2.0;
+        if op(inside(a, m), inside(b, m)) {
+            match out.last_mut() {
+                Some(last) if last.1 == x[0] => last.1 = x[1],
+                _ => out.push((x[0], x[1])),
+            }
+        }
+    }
+    out
+}
+
+/// One mask's own region on the line at `v`, by the fill type.
+fn region(poly: &[(f64, f64)], kind: &str, w: f64, v: f64) -> Vec<(f64, f64)> {
+    let inside = crossings(poly, v);
+    let clockwise = || (0..poly.len()).map(|k| poly[k].0 * poly[(k + 1) % poly.len()].1 - poly[(k + 1) % poly.len()].0 * poly[k].1).sum::<f64>() >= 0.0;
+    let inner = match kind {
+        "inside" => return inside,
+        "centered_edge" => return band(poly, w / 2.0, v),
+        "inside_edge" => true,
+        "outside_edge" => false,
+        side => (side == "right_edge") == clockwise(),
+    };
+    let op: fn(bool, bool) -> bool = if inner { |p, q| p && q } else { |p, q| p && !q };
+    combine(&band(poly, w, v), &inside, op)
+}
+
+/// A group's open lines in u and v, `g` its place.
+fn group_lines(effect: &crate::effects::Effect, g: u32, group: &[Mask], frame: &[(f64, f64)], using: bool, kind: &str, w: f64) -> Vec<Vec<(f64, f64)>> {
+    use crate::mask::MaskMode;
+    let crate::effects::Effect::Scribble {
+        curviness, curviness_variation, spacing, spacing_variation, path_overlap, path_overlap_variation, wiggle_type, wiggles_per_second, random_seed, time, ..
+    } = effect
+    else {
+        return Vec::new();
+    };
+    let seed = random_seed.floor() as u32;
+    let wiggled = |kind: u32, i: u32, j: u32| {
+        let r = |slot: i64| hashed(seed, slot, [kind, g, i, j]);
+        let f = time * wiggles_per_second;
+        match wiggle_type.as_str() {
+            _ if *wiggles_per_second == 0.0 => r(0),
+            "static" => r(0),
+            "jumpy" => r((f + 1e-9).floor() as i64),
+            _ => {
+                let s = f.floor();
+                let q = f - s;
+                let e = q * q * (3.0 - 2.0 * q);
+                r(s as i64) * (1.0 - e) + r(s as i64 + 1) * e
+            }
+        }
+    };
+    let varied = |base: f64, spread: f64, kind: u32, i: u32, j: u32| base + spread * (2.0 * wiggled(kind, i, j) - 1.0);
+    let gap = |i: u32| varied(*spacing, *spacing_variation, 1, i, 0).max(0.5);
+    let edge = if kind == "inside" { 0.0 } else { w };
+    let vs = group.iter().flat_map(|m| m.0.iter().map(|p| p.1));
+    let (mut lo, mut hi) = vs.fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), v| (lo.min(v), hi.max(v)));
+    if group.iter().all(|m| m.0.is_empty()) {
+        return Vec::new();
+    }
+    lo -= edge;
+    hi += edge;
+    if using && (group.iter().any(|m| m.2) || matches!(group[0].1, MaskMode::Subtract | MaskMode::Intersect)) {
+        for p in frame {
+            lo = lo.min(p.1);
+            hi = hi.max(p.1);
+        }
+    }
+    let line = |v: f64| -> Vec<(f64, f64)> {
+        if !using {
+            return region(&group[0].0, kind, w, v);
+        }
+        let whole = crossings(frame, v);
+        let mut acc: Option<Vec<(f64, f64)>> = None;
+        for (poly, mode, inverted) in group {
+            let mut r = region(poly, kind, w, v);
+            if *inverted {
+                r = combine(&whole, &r, |p, q| p && !q);
+            }
+            let into = acc.get_or_insert_with(|| if matches!(mode, MaskMode::Subtract | MaskMode::Intersect) { whole.clone() } else { Vec::new() });
+            let op: fn(bool, bool) -> bool = match mode {
+                MaskMode::Subtract => |p, q| p && !q,
+                MaskMode::Intersect => |p, q| p && q,
+                MaskMode::Difference => |p, q| p != q,
+                _ => |p, q| p || q,
+            };
+            *into = combine(into, &r, op);
+        }
+        acc.unwrap_or_default()
+    };
+    let (mut out, mut cur, mut last): (Vec<Vec<(f64, f64)>>, Option<Vec<(f64, f64)>>, Option<u32>) = (Vec::new(), None, None);
+    let mut i = 0u32;
+    let mut v = lo + gap(0) / 2.0;
+    // ponytail: at most 100000 lines a group, ample for any spacing over any buffer this program
+    // draws; a cap only so a mask far off the frame cannot hang a frame.
+    while v <= hi && i < 100_000 {
+        let mut spans: Vec<(f64, f64)> = Vec::new();
+        for (k, (a, b)) in line(v).into_iter().enumerate() {
+            let k = k as u32;
+            let a = a - varied(*path_overlap, *path_overlap_variation, 2, i, 2 * k);
+            let b = b + varied(*path_overlap, *path_overlap_variation, 2, i, 2 * k + 1);
+            if b > a {
+                spans.push((a, b));
+            }
+        }
+        if i % 2 == 1 {
+            spans = spans.into_iter().rev().map(|(a, b)| (b, a)).collect();
+        }
+        for (k, &(a, b)) in spans.iter().enumerate() {
+            match cur.as_mut() {
+                Some(path) if k == 0 && last == Some(i.wrapping_sub(1)) && i > 0 => {
+                    let p0 = *path.last().unwrap_or(&(a, v));
+                    let p3 = (a, v);
+                    let t = if (i - 1) % 2 == 0 { 1.0 } else { -1.0 };
+                    let cv = varied(*curviness, *curviness_variation, 3, i - 1, 0).max(0.0);
+                    let h = cv / 100.0 * (2.0 / 3.0) * (p3.0 - p0.0).hypot(p3.1 - p0.1);
+                    let (p1, p2) = ((p0.0 + h * t, p0.1), (p3.0 + h * t, p3.1));
+                    for m in 1..=8 {
+                        let q = m as f64 / 8.0;
+                        let mq = 1.0 - q;
+                        let (b0, b1, b2, b3) = (mq * mq * mq, 3.0 * mq * mq * q, 3.0 * mq * q * q, q * q * q);
+                        path.push((b0 * p0.0 + b1 * p1.0 + b2 * p2.0 + b3 * p3.0, b0 * p0.1 + b1 * p1.1 + b2 * p2.1 + b3 * p3.1));
+                    }
+                    path.push((b, v));
+                }
+                _ => {
+                    out.extend(cur.take());
+                    cur = Some(vec![(a, v), (b, v)]);
+                }
+            }
+        }
+        if !spans.is_empty() {
+            last = Some(i);
+        }
+        i += 1;
+        v += gap(i);
+    }
+    out.extend(cur);
+    out
+}
+
 /// D-441: Write-on. Path Stroke's round brush laid once at each of `marks`, [x, y (in the
 /// buffer's coordinates), size, hardness, opacity], the mark covering most winning at each pixel
 /// (marks do not build up); `color` linear, `style` as Path Stroke's. The buffer never grows.

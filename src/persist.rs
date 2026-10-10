@@ -3017,6 +3017,53 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("brush_time_properties".into(), J::from(brush_time_properties.as_str()));
             params.insert("paint_style".into(), J::from(paint_style.as_str()));
         }
+        // D-442: the masks and the time are found each frame and never saved.
+        Effect::Scribble {
+            scribble,
+            mask,
+            fill_type,
+            edge_width,
+            color,
+            opacity,
+            angle,
+            stroke_width,
+            curviness,
+            curviness_variation,
+            spacing,
+            spacing_variation,
+            path_overlap,
+            path_overlap_variation,
+            start,
+            end,
+            fill_paths_sequentially,
+            wiggle_type,
+            wiggles_per_second,
+            random_seed,
+            composite,
+            ..
+        } => {
+            params.insert("scribble".into(), J::from(scribble.as_str()));
+            params.insert("mask".into(), num(*mask));
+            params.insert("fill_type".into(), J::from(fill_type.as_str()));
+            params.insert("edge_width".into(), num(*edge_width));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("angle".into(), num(*angle));
+            params.insert("stroke_width".into(), num(*stroke_width));
+            params.insert("curviness".into(), num(*curviness));
+            params.insert("curviness_variation".into(), num(*curviness_variation));
+            params.insert("spacing".into(), num(*spacing));
+            params.insert("spacing_variation".into(), num(*spacing_variation));
+            params.insert("path_overlap".into(), num(*path_overlap));
+            params.insert("path_overlap_variation".into(), num(*path_overlap_variation));
+            params.insert("start".into(), num(*start));
+            params.insert("end".into(), num(*end));
+            params.insert("fill_paths_sequentially".into(), J::from(fill_paths_sequentially.as_str()));
+            params.insert("wiggle_type".into(), J::from(wiggle_type.as_str()));
+            params.insert("wiggles_per_second".into(), num(*wiggles_per_second));
+            params.insert("random_seed".into(), num(*random_seed));
+            params.insert("composite".into(), J::from(composite.as_str()));
+        }
         // D-418: the paths are found each frame and never saved.
         Effect::Fill { mask, all_masks, color, invert, horizontal_feather, vertical_feather, opacity, .. } => {
             params.insert("mask".into(), num(*mask));
@@ -4597,6 +4644,7 @@ fn parse_effect(
         crate::effects::EYEDROPPER_FILL,
         crate::effects::PAINT_BUCKET,
         crate::effects::WRITE_ON,
+        crate::effects::SCRIBBLE,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5910,6 +5958,31 @@ fn parse_effect(
             brush_time_properties: effect_word(params, "brush_time_properties", &at)?,
             paint_style: effect_word(params, "paint_style", &at)?,
             marks: Vec::new(),
+        }),
+        crate::effects::SCRIBBLE => Some(crate::effects::Effect::Scribble {
+            scribble: effect_word(params, "scribble", &at)?,
+            mask: effect_number(params, "mask", &at)?,
+            fill_type: effect_word(params, "fill_type", &at)?,
+            edge_width: effect_number(params, "edge_width", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            opacity: effect_number(params, "opacity", &at)?,
+            angle: effect_number(params, "angle", &at)?,
+            stroke_width: effect_number(params, "stroke_width", &at)?,
+            curviness: effect_number(params, "curviness", &at)?,
+            curviness_variation: effect_number(params, "curviness_variation", &at)?,
+            spacing: effect_number(params, "spacing", &at)?,
+            spacing_variation: effect_number(params, "spacing_variation", &at)?,
+            path_overlap: effect_number(params, "path_overlap", &at)?,
+            path_overlap_variation: effect_number(params, "path_overlap_variation", &at)?,
+            start: effect_number(params, "start", &at)?,
+            end: effect_number(params, "end", &at)?,
+            fill_paths_sequentially: effect_word(params, "fill_paths_sequentially", &at)?,
+            wiggle_type: effect_word(params, "wiggle_type", &at)?,
+            wiggles_per_second: effect_number(params, "wiggles_per_second", &at)?,
+            random_seed: effect_number(params, "random_seed", &at)?,
+            composite: effect_word(params, "composite", &at)?,
+            masks: None,
+            time: 0.0,
         }),
         crate::effects::FILL => Some(crate::effects::Effect::Fill {
             mask: effect_number(params, "mask", &at)?,

@@ -10969,13 +10969,24 @@ impl Gpu {
             }
             // B-235 (D-356): Path Stroke's runs, worked out here as the CPU works them, from the
             // paths compose found; with none the card is not asked (`compose::card_effect`).
-            E::Stroke { all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, paths, .. } => {
-                let runs = match paths {
-                    Some(p) if *brush_size != 0.0 && *opacity != 0.0 => {
-                        let sequential = all_masks == "on" && stroke_sequentially == "on";
-                        crate::along::stroke_runs(p, f.origin, [*start, *end, *spacing, *brush_size], sequential)
+            // D-442: Scribble's lines are drawn by the same pass, found here as the CPU finds them.
+            e @ (E::Stroke { .. } | E::Scribble { .. }) => {
+                let (runs, brush_size, brush_hardness, opacity, color, paint_style) = match e {
+                    E::Stroke { all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, paths, .. } => {
+                        let runs = match paths {
+                            Some(p) if *brush_size != 0.0 && *opacity != 0.0 => {
+                                let sequential = all_masks == "on" && stroke_sequentially == "on";
+                                crate::along::stroke_runs(p, f.origin, [*start, *end, *spacing, *brush_size], sequential)
+                            }
+                            _ => Vec::new(),
+                        };
+                        (runs, brush_size, brush_hardness, opacity, color, paint_style)
                     }
-                    _ => Vec::new(),
+                    E::Scribble { color, opacity, stroke_width, composite, .. } => {
+                        let runs = if *stroke_width != 0.0 && *opacity != 0.0 { crate::along::scribble_runs(e, (w as usize, h as usize), f.origin) } else { Vec::new() };
+                        (runs, stroke_width, &100.0, opacity, color, composite)
+                    }
+                    _ => unreachable!("matched as a Path Stroke or a Scribble"),
                 };
                 let style = crate::effects::PAINT_STYLES.iter().position(|s| s == paint_style).unwrap_or(0) as f64;
                 let mut k = vec![*brush_size, *brush_hardness, *opacity];

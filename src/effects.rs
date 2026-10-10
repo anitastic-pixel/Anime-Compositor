@@ -1876,6 +1876,44 @@ pub enum Effect {
         paint_style: String,
         marks: Vec<[f64; 5]>,
     },
+    /// D-442: after After Effects' Scribble (`along`, document 21): lines zigzagging over a
+    /// layer's closed masks. `scribble`, one of [`SCRIBBLE_MASKS`]; `mask`, 1 to 1000, its floor;
+    /// `fill_type`, one of [`SCRIBBLE_FILL_TYPES`]; `edge_width`, 0 to 1000 pixels; `color`,
+    /// `#rrggbb`; `opacity`, 0 to 100; `angle`, -3600 to 3600 degrees; `stroke_width`, 0 to 1000
+    /// pixels; `curviness` and `curviness_variation`, 0 to 100 per cent; `spacing`, 1 to 1000
+    /// pixels; `spacing_variation`, 0 to 1000; `path_overlap`, -1000 to 1000; and
+    /// `path_overlap_variation`, 0 to 1000 pixels; `start` and `end`, 0 to 100 per cent;
+    /// `fill_paths_sequentially`, "off" or "on"; `wiggle_type`, one of [`SCRIBBLE_WIGGLES`];
+    /// `wiggles_per_second`, 0 to 100; `random_seed`, 0 to 100000, its floor; `composite`, one of
+    /// [`PAINT_STYLES`]. `masks` and `time` are not settings and are never saved: compose fills
+    /// `masks` each frame with the masks chosen, flattened, each with its mode and whether it is
+    /// inverted, at the size the effects run at (`None` when there are none), and `time` with
+    /// the layer's key time from its in point, in seconds.
+    Scribble {
+        scribble: String,
+        mask: f64,
+        fill_type: String,
+        edge_width: f64,
+        color: String,
+        opacity: f64,
+        angle: f64,
+        stroke_width: f64,
+        curviness: f64,
+        curviness_variation: f64,
+        spacing: f64,
+        spacing_variation: f64,
+        path_overlap: f64,
+        path_overlap_variation: f64,
+        start: f64,
+        end: f64,
+        fill_paths_sequentially: String,
+        wiggle_type: String,
+        wiggles_per_second: f64,
+        random_seed: f64,
+        composite: String,
+        masks: Option<Vec<(Vec<(f64, f64)>, crate::mask::MaskMode, bool)>>,
+        time: f64,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2546,6 +2584,11 @@ pub const WRITE_ON: &str = "core.write_on";
 /// time it was laid.
 pub const WRITE_ON_PAINT_TIMES: [&str; 4] = ["none", "color", "opacity", "color_and_opacity"];
 pub const WRITE_ON_BRUSH_TIMES: [&str; 4] = ["none", "size", "hardness", "size_and_hardness"];
+pub const SCRIBBLE: &str = "core.scribble";
+/// D-442: Scribble's words: which masks it fills, how, and how its lines wiggle.
+pub const SCRIBBLE_MASKS: [&str; 3] = ["single_mask", "all_masks", "all_masks_using_modes"];
+pub const SCRIBBLE_FILL_TYPES: [&str; 6] = ["inside", "centered_edge", "inside_edge", "outside_edge", "left_edge", "right_edge"];
+pub const SCRIBBLE_WIGGLES: [&str; 3] = ["static", "jumpy", "smooth"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3482,6 +3525,40 @@ impl Effect {
                 ("brush_opacity", vec![brush_opacity], 0.0, 100.0),
                 ("stroke_length", vec![stroke_length], 0.0, 3600.0),
                 ("brush_spacing", vec![brush_spacing], 0.001, 10.0),
+            ],
+            Effect::Scribble {
+                mask,
+                edge_width,
+                opacity,
+                angle,
+                stroke_width,
+                curviness,
+                curviness_variation,
+                spacing,
+                spacing_variation,
+                path_overlap,
+                path_overlap_variation,
+                start,
+                end,
+                wiggles_per_second,
+                random_seed,
+                ..
+            } => vec![
+                ("mask", vec![mask], 1.0, 1000.0),
+                ("edge_width", vec![edge_width], 0.0, 1000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+                ("angle", vec![angle], -3600.0, 3600.0),
+                ("stroke_width", vec![stroke_width], 0.0, 1000.0),
+                ("curviness", vec![curviness], 0.0, 100.0),
+                ("curviness_variation", vec![curviness_variation], 0.0, 100.0),
+                ("spacing", vec![spacing], 1.0, 1000.0),
+                ("spacing_variation", vec![spacing_variation], 0.0, 1000.0),
+                ("path_overlap", vec![path_overlap], -1000.0, 1000.0),
+                ("path_overlap_variation", vec![path_overlap_variation], 0.0, 1000.0),
+                ("start", vec![start], 0.0, 100.0),
+                ("end", vec![end], 0.0, 100.0),
+                ("wiggles_per_second", vec![wiggles_per_second], 0.0, 100.0),
+                ("random_seed", vec![random_seed], 0.0, 100000.0),
             ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
@@ -4420,6 +4497,12 @@ impl Effect {
                     m[2] = scale(m[2]);
                 }
             }
+            // D-442: every distance; the masks are found at the draft's size.
+            Effect::Scribble { edge_width, stroke_width, spacing, spacing_variation, path_overlap, path_overlap_variation, .. } => {
+                for d in [edge_width, stroke_width, spacing, spacing_variation, path_overlap, path_overlap_variation] {
+                    *d = scale(*d);
+                }
+            }
             // D-417: the cells held at least a pixel, as Checkerboard's.
             Effect::Grid { width, height, border, feather_width, feather_height, .. } => {
                 *width = scale(*width).max(1.0);
@@ -4734,6 +4817,7 @@ impl Effect {
             Effect::EyedropperFill { .. } => "Eyedropper Fill",
             Effect::PaintBucket { .. } => "Paint Bucket",
             Effect::WriteOn { .. } => "Write-on",
+            Effect::Scribble { .. } => "Scribble",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -4909,6 +4993,7 @@ impl Effect {
             Effect::EyedropperFill { .. } => EYEDROPPER_FILL,
             Effect::PaintBucket { .. } => PAINT_BUCKET,
             Effect::WriteOn { .. } => WRITE_ON,
+            Effect::Scribble { .. } => SCRIBBLE,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6186,6 +6271,26 @@ impl Effect {
                 PAINT_STYLES.join(", ")
             )),
             Effect::WriteOn { color, .. } => hex_fault("Write-on", "colour", color),
+            Effect::Scribble { scribble: v, .. } if !SCRIBBLE_MASKS.contains(&v.as_str()) => Some(format!(
+                "Scribble's scribble is one of {}, and this is \"{v}\".",
+                SCRIBBLE_MASKS.join(", ")
+            )),
+            Effect::Scribble { fill_type: v, .. } if !SCRIBBLE_FILL_TYPES.contains(&v.as_str()) => Some(format!(
+                "Scribble's fill type is one of {}, and this is \"{v}\".",
+                SCRIBBLE_FILL_TYPES.join(", ")
+            )),
+            Effect::Scribble { fill_paths_sequentially: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Scribble's fill paths sequentially is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::Scribble { wiggle_type: v, .. } if !SCRIBBLE_WIGGLES.contains(&v.as_str()) => Some(format!(
+                "Scribble's wiggle type is one of {}, and this is \"{v}\".",
+                SCRIBBLE_WIGGLES.join(", ")
+            )),
+            Effect::Scribble { composite: v, .. } if !PAINT_STYLES.contains(&v.as_str()) => Some(format!(
+                "Scribble's composite is one of {}, and this is \"{v}\".",
+                PAINT_STYLES.join(", ")
+            )),
+            Effect::Scribble { color, .. } => hex_fault("Scribble", "colour", color),
             Effect::Ellipse { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
                 "Ellipse's composite is \"on\" or \"off\", and this is \"{composite}\"."
             )),
@@ -7858,6 +7963,16 @@ pub(crate) fn apply_stack_at(
                     crate::along::write_on(source, &at, encoded(color).map(crate::grade::to_linear), paint_style)
                 })
             }
+            // D-442: the lines over the masks compose found, in the drawing's own space however an
+            // effect above grew it; with none, the layer is left as it is (EFFECT_PATH_MISSING was
+            // said when they were looked for). The layer never grows.
+            e @ Effect::Scribble { color, opacity, stroke_width, composite, masks: Some(_), .. } => {
+                crate::perf::time(crate::perf::Stage::EffectScribble, || {
+                    let runs = crate::along::scribble_runs(e, (source.width(), source.height()), (ox, oy));
+                    crate::along::path_stroke(source, &runs, [*stroke_width, 100.0, *opacity], encoded(color).map(crate::grade::to_linear), composite)
+                })
+            }
+            Effect::Scribble { .. } => {}
             // D-417: the anchor and corner as Checkerboard's; the layer never grows.
             Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {
                 let (a, cell) = crate::layer_fx::checker_cells(*anchor, size_from, *corner, [*width, *height], (source.width(), source.height()), (ox, oy));

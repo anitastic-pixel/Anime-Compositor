@@ -1014,6 +1014,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::PaintBucket { .. }
                 // D-441: Write-on.
                 | crate::effects::Effect::WriteOn { .. }
+                // D-442: Scribble (the lines are found on the processor).
+                | crate::effects::Effect::Scribble { .. }
                 // D-407: Detail-preserving Upscale.
                 | crate::effects::Effect::DetailUpscale { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
@@ -1392,6 +1394,8 @@ fn card_effect(
                 }
                 // D-441: on the layer, with no mark that covers anything.
                 E::WriteOn { paint_style, marks, .. } => paint_style == "on_original" && marks.iter().all(|m| m[2] == 0.0 || m[4] == 0.0),
+                // D-442: no mask found.
+                E::Scribble { masks, .. } => masks.is_none(),
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -2047,6 +2051,11 @@ fn effect_now(
                 })
                 .collect();
         }
+        // D-442: Scribble wiggles by the layer's key time from its in point, in seconds.
+        if let crate::effects::Effect::Scribble { time, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            *time = (u - layer.in_frame as f64) / fps;
+        }
     }
     for (name, e) in failed {
         let what = format!("{} {name}", instance.effect.name());
@@ -2445,6 +2454,35 @@ fn resolve_rest(
                     .with_remediation("Draw a mask on the layer, set Fill Mask to a mask it has, or set it to 0 to fill the whole layer."),
                 );
             }
+        }
+    }
+    // D-442: each Scribble's masks, chosen as Path Stroke's are (on, with two points), with
+    // their modes and whether each is inverted, as they are at this frame and at the size the
+    // effects run at. Finding none, the layer is left as it is and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::Scribble { scribble, mask, masks: chosen, .. } = &mut instance.effect {
+            let usable = |n: usize| masks.get(n).filter(|m| m.enabled && m.points.len() >= 2).map(|m| (m.outline(), m.mode, m.inverted));
+            let single = scribble == "single_mask";
+            let found: Vec<_> = if single { usable(mask.floor() as usize - 1).into_iter().collect() } else { (0..masks.len()).filter_map(usable).collect() };
+            if found.is_empty() {
+                let which = if single {
+                    format!("no mask {} that is on with two points or more", mask.floor())
+                } else {
+                    "no mask that is on with two points or more".to_string()
+                };
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!("Layer {}'s Scribble has {which} to fill, so it draws nothing.", layer.name),
+                        format!("Frame {frame} is drawn without the scribble. The effect is kept as it is."),
+                    )
+                    .with_remediation("Draw a closed mask on the layer, or set Mask to a mask it has."),
+                );
+            }
+            *chosen = (!found.is_empty()).then_some(found);
         }
     }
     // The mask itself is drawn below, once it is known whether the effect cache already holds
