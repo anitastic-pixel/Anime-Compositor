@@ -206010,3 +206010,113 @@ FX-ELLIPSE-025 (`fx_ellipse_025.json`): Inside colour "#12345", not six hex digi
 FX-ELLIPSE-026 (`fx_ellipse_026.json`): Outside colour "red", not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-ELLIPSE-027 (`fx_ellipse_027.json`): Width keyed to 10001 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Audio Spectrum (D-420)
+
+After Effects' Audio Spectrum (Generate), `core.audio_spectrum` (B-299). Every case is a composition 16 by 10 at 24 frames a second holding Gradient's cel, the same size, unmoved unless the case says, and a sound layer "sound" over all five frames, its sound written by the reference into `Fixtures/audio_spectrum/media/` (4800 samples a second, a second long: `tone.wav`, 0.5 at 300 Hz and 0.25 at 1200 Hz, in 16, 24, 32-bit floating point and 8-bit, and `stereo.wav`, 0.6 at 600 Hz left and 0.3 at 900 Hz right). `tools/audio_spectrum_reference.py` works the expected frames, `Fixtures/audio_spectrum/expected_audio_spectrum.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-ASPEC-001 (`fx_aspec_001.json`): The settings as they start, no Audio Layer: silence, so 64 dots of Side A and Side B together, 3 thick, along the line through the middle, alone. Frames 0.
+
+FX-ASPEC-002 (`fx_aspec_002.json`): Four bands at 300, 600, 900 and 1200 Hz, 8 tall at most, Side A, 2 thick, sharp, alone: the 300 Hz bar half as tall as it can be (4), the 1200 Hz bar a quarter (2), the two between all but nothing. Frames 0, 2.
+
+FX-ASPEC-003 (`fx_aspec_003.json`): FX-ASPEC-002 with Composite On Original on: over the cel. Frames 0.
+
+FX-ASPEC-004 (`fx_aspec_004.json`): Side B: the bars hang down. Frames 0.
+
+FX-ASPEC-005 (`fx_aspec_005.json`): Side A & B: each bar both ways. Frames 0.
+
+FX-ASPEC-006 (`fx_aspec_006.json`): Analog Lines: one line through the bars' tips. Frames 0.
+
+FX-ASPEC-007 (`fx_aspec_007.json`): Analog Dots: a dot at each tip. Frames 0.
+
+FX-ASPEC-008 (`fx_aspec_008.json`): Thickness 3, softness 100. Frames 0.
+
+FX-ASPEC-009 (`fx_aspec_009.json`): Orange inside, violet outside, Hue Interpolation 180, thickness 3: each band's colours turned further round the hue. Frames 0.
+
+FX-ASPEC-010 (`fx_aspec_010.json`): FX-ASPEC-009 with Color Symmetry on: the first and last bands match. Frames 0.
+
+FX-ASPEC-011 (`fx_aspec_011.json`): FX-ASPEC-009 with Dynamic Hue Phase on: the turn starts at the loudest band, 300 Hz, the first, so the frame is FX-ASPEC-009's. Frames 0.
+
+FX-ASPEC-012 (`fx_aspec_012.json`): Eight bands at 300, 450 .. 1350 Hz, thickness 3, Side A & B, Blend Overlapping Colors on, orange inside: neighbouring bars overlap and their colours are blended. Frames 0.
+
+FX-ASPEC-013 (`fx_aspec_013.json`): FX-ASPEC-012 with Blend Overlapping Colors off: each bar laid over the last. Frames 0.
+
+FX-ASPEC-014 (`fx_aspec_014.json`): Duration Averaging on: three windows half a window apart, averaged. Frames 0, 2.
+
+FX-ASPEC-015 (`fx_aspec_015.json`): Audio Offset 50 ms: the window starts 240 samples later. Frames 0, 2.
+
+FX-ASPEC-016 (`fx_aspec_016.json`): Audio Duration 20 ms: a window of 96 samples, too short to keep 300 Hz from 600 Hz, so the levels spread. Frames 0.
+
+FX-ASPEC-017 (`fx_aspec_017.json`): Use Polar Path on about the middle, eight bands at 300, 450 .. 1350 Hz, 4 tall at most: the bars stand out round the centre from straight up, clockwise. Frames 0.
+
+FX-ASPEC-018 (`fx_aspec_018.json`): FX-ASPEC-017 as Analog Lines: a closed line round the centre. Frames 0.
+
+FX-ASPEC-019 (`fx_aspec_019.json`): Path 1, a mask (mode None) round the box from (2, 2) to (14, 8), eight bands, 3 tall at most, Side A: the bars stand outward round the box. Frames 0.
+
+FX-ASPEC-020 (`fx_aspec_020.json`): Path 2 with only one mask: none to draw along, so nothing is drawn and EFFECT_PATH_MISSING is said; the cel as it was. Warning `EFFECT_PATH_MISSING`. Frames 0.
+
+FX-ASPEC-021 (`fx_aspec_021.json`): Audio Layer "ghost", not in the composition: EFFECT_LAYER_MISSING is said and the cel is as it was. Warning `EFFECT_LAYER_MISSING`. Frames 0.
+
+FX-ASPEC-022 (`fx_aspec_022.json`): Audio Layer "art", the cel itself, which holds no sound: EFFECT_SOUND_MISSING is said and the cel is as it was. Warning `EFFECT_SOUND_MISSING`. Frames 0.
+
+FX-ASPEC-023 (`fx_aspec_023.json`): The stereo file, bands at 600 and 900 Hz among the four: its two channels averaged, 0.3 at 600 Hz and 0.15 at 900 Hz. Frames 0.
+
+FX-ASPEC-024 (`fx_aspec_024.json`): The 24-bit file: as FX-ASPEC-002 within the tolerance. Frames 0.
+
+FX-ASPEC-025 (`fx_aspec_025.json`): The 32-bit floating point file. Frames 0.
+
+FX-ASPEC-026 (`fx_aspec_026.json`): The 8-bit file. Frames 0.
+
+FX-ASPEC-027 (`fx_aspec_027.json`): The sound layer starting at frame 2: frames 0 and 1 silent, frame 4 its own frame 2. Frames 0, 4.
+
+FX-ASPEC-028 (`fx_aspec_028.json`): The sound layer at -6.0206 dB, half as loud: the bars half as tall. Frames 0.
+
+FX-ASPEC-029 (`fx_aspec_029.json`): Maximum Height keyed from 0 at frame 0 to 8 at frame 4, linear. Frames 0, 2, 4.
+
+FX-ASPEC-030 (`fx_aspec_030.json`): FX-ASPEC-002 moved three pixels right: the bars move with the layer. Frames 0.
+
+FX-ASPEC-031 (`fx_aspec_031.json`): After a Motion Tile that grows the layer: the points are the drawing's own, so the frame is FX-ASPEC-002's. Frames 0.
+
+FX-ASPEC-032 (`fx_aspec_032.json`): One band, 150 to 450 Hz: one bar at 300 Hz in the middle of the line. Frames 0.
+
+FX-ASPEC-033 (`fx_aspec_033.json`): Start Frequency 1350, End Frequency 150: the bands in the other order, 1200 Hz first. Frames 0.
+
+FX-ASPEC-034 (`fx_aspec_034.json`): Thickness 0: nothing drawn, the cel as it was. Frames 0.
+
+FX-ASPEC-035 (`fx_aspec_035.json`): Frequency Bands 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-036 (`fx_aspec_036.json`): Frequency Bands 4097, above 4096. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-037 (`fx_aspec_037.json`): Start Frequency 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-038 (`fx_aspec_038.json`): End Frequency 20001, above 20000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-039 (`fx_aspec_039.json`): Maximum Height -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-040 (`fx_aspec_040.json`): Audio Duration 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-041 (`fx_aspec_041.json`): Audio Offset 30001, above 30000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-042 (`fx_aspec_042.json`): Thickness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-043 (`fx_aspec_043.json`): Softness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-044 (`fx_aspec_044.json`): Hue Interpolation 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-045 (`fx_aspec_045.json`): Path -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-046 (`fx_aspec_046.json`): Start Point 1001 per cent across, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-047 (`fx_aspec_047.json`): Display Options "bars", not digital, analog_lines or analog_dots. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-048 (`fx_aspec_048.json`): Side Options "side_c". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-049 (`fx_aspec_049.json`): Composite "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-050 (`fx_aspec_050.json`): Inside colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-051 (`fx_aspec_051.json`): Use Polar Path "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-052 (`fx_aspec_052.json`): Audio Layer 5, a number, not a layer's name. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ASPEC-053 (`fx_aspec_053.json`): Frequency Bands keyed to 4097 at frame 4, above 4096. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
