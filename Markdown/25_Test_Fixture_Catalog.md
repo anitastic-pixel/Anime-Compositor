@@ -204431,6 +204431,50 @@ FX-LVLIC-019 (`fx_lvlic_019.json`): Alpha gamma 11, above 10. The file is read, 
 
 FX-LVLIC-020 (`fx_lvlic_020.json`): Levels with the channel "luma", which is not one of rgb, red, green, blue or alpha. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Photo Filter (D-384)
+
+Photo Filter (`core.photo_filter`), after After Effects' Photo Filter (B-263): the filter's colour, a preset's or a custom one, laid over each pixel by multiplying at its density, and with Preserve Luminosity the result scaled back to the pixel's own Rec. 709 luma on the encoded values. Every case is Broadcast Safe's drawing: pure colours, greys, a skin tone, orange and three warm tones. `tools/photo_filter_reference.py` works the expected frames, `expected_photo_filter.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-PFILT-001 (`fx_pfilt_001.json`): The settings as they start: Warming Filter (85), density 25, preserve luminosity on: every colour a little warmer, its brightness kept; black stays black, white turns a pale warm white. Frames 0.
+
+FX-PFILT-002 (`fx_pfilt_002.json`): The same with preserve luminosity off: warmer and a little darker, since the orange glass holds back some of the green and blue. Frames 0.
+
+FX-PFILT-003 (`fx_pfilt_003.json`): Density 100, preserve luminosity on: the full filter, the brightness kept; pure blue, which the orange glass stops entirely, goes black. Frames 0.
+
+FX-PFILT-004 (`fx_pfilt_004.json`): Density 100, preserve luminosity off: each channel multiplied by the filter's colour, white becomes the filter's orange itself. Frames 0.
+
+FX-PFILT-005 (`fx_pfilt_005.json`): Density 0: no filter, the drawing exactly as it is. Frames 0.
+
+FX-PFILT-006 (`fx_pfilt_006.json`): Warming Filter (81), density 50: a yellower warming. Frames 0.
+
+FX-PFILT-007 (`fx_pfilt_007.json`): Cooling Filter (80), density 50: everything bluer, the brightness kept. Frames 0.
+
+FX-PFILT-008 (`fx_pfilt_008.json`): Cooling Filter (82), density 50: a paler, cyan cooling. Frames 0.
+
+FX-PFILT-009 (`fx_pfilt_009.json`): Sepia, density 60: a brown tint, the brightness kept. Frames 0.
+
+FX-PFILT-010 (`fx_pfilt_010.json`): Underwater, density 60: a green-blue tint, the reds pulled down. Frames 0.
+
+FX-PFILT-011 (`fx_pfilt_011.json`): Custom magenta #ff00ff, density 50, preserve luminosity off: the green channel halved, red and blue kept. Frames 0.
+
+FX-PFILT-012 (`fx_pfilt_012.json`): Warming Filter (85) with the colour set to magenta: the colour is used only for a custom filter, so the same as FX-PFILT-001. Frames 0.
+
+FX-PFILT-013 (`fx_pfilt_013.json`): Density keyed from 0 at frame 0 to 100 at frame 4, linear, preserve luminosity off: frame 0 untouched, frame 2 halfway, frame 4 the full filter as FX-PFILT-004. Frames 0, 2, 4.
+
+FX-PFILT-014 (`fx_pfilt_014.json`): FX-PFILT-011 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-PFILT-015 (`fx_pfilt_015.json`): Density -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PFILT-016 (`fx_pfilt_016.json`): Density 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PFILT-017 (`fx_pfilt_017.json`): Filter "warming", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PFILT-018 (`fx_pfilt_018.json`): Filter "Warming_85": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PFILT-019 (`fx_pfilt_019.json`): Color "#fff", which is not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PFILT-020 (`fx_pfilt_020.json`): Preserve luminosity "yes", which is not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Flow Motion (D-385)
 
 Flow Motion (`core.flow_motion`), after CycoreFX's CC Flo Motion (B-264): two knots, each drawing the picture in towards itself (a positive amount) or blowing it out (a negative one), the pull fading with distance by Falloff, the edges mirrored or left clear, a pixel averaged over 1, 2 or 4 points a side. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/flow_motion_reference.py` works the expected frames, `Fixtures/flow_motion/expected_flow_motion.json`, tolerance 2e-5; the rule is in document 21.
