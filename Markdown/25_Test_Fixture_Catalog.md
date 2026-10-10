@@ -204475,6 +204475,78 @@ FX-PFILT-019 (`fx_pfilt_019.json`): Color "#fff", which is not #rrggbb. The file
 
 FX-PFILT-020 (`fx_pfilt_020.json`): Preserve luminosity "yes", which is not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Color Grade (D-397)
+
+Color Grade (`core.color_grade`), after Premiere Pro's and After Effects' Lumetri Color (B-276), its first unit: Basic Correction (white balance, exposure, contrast, highlights, shadows, whites, blacks, saturation), Creative (a look file read as Color Lookup reads it, its intensity, faded film, vibrance, creative saturation, shadow and highlight tints with their balance) and Vignette, each step that changes anything run in Lumetri's order. Every case is Broadcast Safe's drawing: pure colours, greys, a skin tone, orange and three warm tones, darker row by row. The look, `luts/look.cube`, is the reference's own gentle S-curve with less colour, cool shadows and warm highlights; none of Adobe's looks is used. `tools/color_grade_reference.py` writes the projects and `expected_color_grade.json`, tolerance 2e-5.
+
+FX-GRADE-001 (`fx_grade_001.json`): Every setting as added, no look: the drawing exactly as it is. Frames 0.
+
+FX-GRADE-002 (`fx_grade_002.json`): Temperature 60: warmer, red up and blue down in linear light, white's brightness kept, so white itself turns cream with its red held at 1. Frames 0.
+
+FX-GRADE-003 (`fx_grade_003.json`): Temperature -60, tint 40: cooler and toward magenta. Frames 0.
+
+FX-GRADE-004 (`fx_grade_004.json`): Exposure 1: one stop brighter in linear light, the brightest colours held at white. Frames 0.
+
+FX-GRADE-005 (`fx_grade_005.json`): Exposure -1.5: a stop and a half darker. Frames 0.
+
+FX-GRADE-006 (`fx_grade_006.json`): Contrast 80: darks darker, lights lighter, middle grey and the pure colours' 0 and 1 kept. Frames 0.
+
+FX-GRADE-007 (`fx_grade_007.json`): Contrast -60: flatter, everything toward the middle. Frames 0.
+
+FX-GRADE-008 (`fx_grade_008.json`): Highlights -70, shadows 70: the lights brought down and the darks opened up, black and white kept. Frames 0.
+
+FX-GRADE-009 (`fx_grade_009.json`): Whites 50, blacks -50: white past 1 and held, black below 0 and held, more contrast at the ends. Frames 0.
+
+FX-GRADE-010 (`fx_grade_010.json`): Whites -60, blacks 60: white lowered and black lifted, a faded picture. Frames 0.
+
+FX-GRADE-011 (`fx_grade_011.json`): Saturation 0: every colour its own grey, L of its encoded colour. Frames 0.
+
+FX-GRADE-012 (`fx_grade_012.json`): Saturation 160: stronger colours, the pure ones already at the edge held there. Frames 0.
+
+FX-GRADE-013 (`fx_grade_013.json`): The look at intensity 100: the look file's table as Color Lookup reads it. Frames 0.
+
+FX-GRADE-014 (`fx_grade_014.json`): The look at intensity 50: halfway from the drawing to the look. Frames 0.
+
+FX-GRADE-015 (`fx_grade_015.json`): The look at intensity 200: the look's change doubled, held inside 0 to 1. Frames 0.
+
+FX-GRADE-016 (`fx_grade_016.json`): The look named, intensity 0: the drawing exactly as it is. Frames 0.
+
+FX-GRADE-017 (`fx_grade_017.json`): Faded film 70: black lifted to about 0.18 and white lowered to 0.93, a washed-out print. Frames 0.
+
+FX-GRADE-018 (`fx_grade_018.json`): Vibrance 80: the dull colours (skin, the warm tones) strengthened more than the strong ones; greys unchanged. Frames 0.
+
+FX-GRADE-019 (`fx_grade_019.json`): Vibrance -50 with creative saturation 140. Frames 0.
+
+FX-GRADE-020 (`fx_grade_020.json`): Shadow tint hue 195 at 60, highlight tint hue 35 at 50: teal shadows, orange highlights, middle grey untouched. Frames 0.
+
+FX-GRADE-021 (`fx_grade_021.json`): The same with tint balance 60: the shadows' tint weaker, the highlights' stronger. Frames 0.
+
+FX-GRADE-022 (`fx_grade_022.json`): Vignette -3, midpoint 50, roundness 0, feather 50: the corners darkened toward black by 60 per cent, the middle untouched. Frames 0.
+
+FX-GRADE-023 (`fx_grade_023.json`): Vignette 2, midpoint 20, roundness 100, feather 10: a round, firm white edge. Frames 0.
+
+FX-GRADE-024 (`fx_grade_024.json`): A whole grade: white balance, exposure, the tone sliders, saturation, the look at 80, faded film, vibrance, teal and orange tints and a dark vignette, each step in its order. Frames 0.
+
+FX-GRADE-025 (`fx_grade_025.json`): Exposure keyed from 0 at frame 0 to 2 at frame 4, linear: frame 0 untouched, frame 2 one stop up, frame 4 two. Frames 0, 2, 4.
+
+FX-GRADE-026 (`fx_grade_026.json`): Contrast 50 and vignette -4 moved three pixels right: the same, moved; the vignette goes with the layer. Frames 0, 3.
+
+FX-GRADE-027 (`fx_grade_027.json`): Contrast 50 with the look naming the drawing, which is not a lookup file: drawn with the contrast and without the look, with a warning on opening and on each frame. Warning `EFFECT_PARAMETER_INVALID`. Frames 0.
+
+FX-GRADE-028 (`fx_grade_028.json`): Temperature 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE-029 (`fx_grade_029.json`): Exposure -5.5, below -5. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE-030 (`fx_grade_030.json`): Saturation 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE-031 (`fx_grade_031.json`): Look intensity -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE-032 (`fx_grade_032.json`): Shadow tint hue 361, past a full turn. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE-033 (`fx_grade_033.json`): Vignette amount 5.5, above 5. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE-034 (`fx_grade_034.json`): Vignette roundness -20: Lumetri's squarer vignette, below 0, which this effect does not draw (a gap). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Flow Motion (D-385)
 
 Flow Motion (`core.flow_motion`), after CycoreFX's CC Flo Motion (B-264): two knots, each drawing the picture in towards itself (a positive amount) or blowing it out (a negative one), the pull fading with distance by Falloff, the edges mirrored or left clear, a pixel averaged over 1, 2 or 4 points a side. Every case is a project of one composition 16 by 10, five frames, one drawing of stripes with the effect. `tools/flow_motion_reference.py` works the expected frames, `Fixtures/flow_motion/expected_flow_motion.json`, tolerance 2e-5; the rule is in document 21.
