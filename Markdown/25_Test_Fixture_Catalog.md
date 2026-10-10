@@ -204994,3 +204994,53 @@ FX-AMAP-019 (`fx_amap_019.json`): Phase -256, below -255. The file is read, the 
 FX-AMAP-020 (`fx_amap_020.json`): Phase keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-AMAP-021 (`fx_amap_021.json`): Apply Phase Map To Alpha "yes", not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Selective Color (D-396)
+
+Selective Color (`core.selective_color`), after After Effects' Selective Color, which is Photoshop's (B-275). Every case is a project of one composition 16 by 10, five frames, one drawing, Broadcast Safe's (`tools/broadcast_safe_reference.py`: pure colours, greys, a skin tone, orange and three warm tones), with the effect. `tools/selective_color_reference.py` works the expected frames, `Fixtures/selective_color/expected_selective_color.json`, tolerance 2e-5, and its check reproduces Clement Boesch's Photoshop measurements on (180, 100, 50) within 1 level; the rule is in document 21.
+
+FX-SELC-001 (`fx_selc_001.json`): The settings as they start: relative, every amount 0: the drawing exactly as it is. Frames 0.
+
+FX-SELC-002 (`fx_selc_002.json`): Reds, cyan +100, absolute: the reds lose their red by as much as they are red, pure red goes black, orange olive, skin greyer; colours with no red family (greys, green, cyan, blue) are untouched. Frames 0.
+
+FX-SELC-003 (`fx_selc_003.json`): The same, relative: a channel's change is scaled by how much room it has below full, so pure red and orange, whose red is full, are untouched and the darker rows change most. Frames 0.
+
+FX-SELC-004 (`fx_selc_004.json`): Yellows, yellow -100, absolute: the yellows' blue raised by as much as they are yellow: pure yellow becomes white, orange pink, the warm tones greyer. Frames 0.
+
+FX-SELC-005 (`fx_selc_005.json`): Greens, magenta +100, absolute: the greens' green taken down, pure green to black; yellow and cyan, where green ties for largest, untouched. Frames 0.
+
+FX-SELC-006 (`fx_selc_006.json`): Cyans, cyan -100, relative: the cyans' red raised, pure cyan becomes white. Frames 0.
+
+FX-SELC-007 (`fx_selc_007.json`): Blues, yellow +100, absolute: the blues' blue taken down, pure blue to black; cyan and magenta, where blue ties for largest, untouched. Frames 0.
+
+FX-SELC-008 (`fx_selc_008.json`): Magentas, magenta -50 and black +50, absolute: the black darkens red and blue by half; on green the black and the magenta cut partly cancel, so pure magenta's green rises a quarter. Frames 0.
+
+FX-SELC-009 (`fx_selc_009.json`): Whites, black +100, absolute: the light pixels darkened by how light they are, white to black, the light greys and the skin and warm highlight darker; nothing at or below half grey changes. Frames 0.
+
+FX-SELC-010 (`fx_selc_010.json`): The same, relative: a full channel can't be changed, so pure white stays white (Adobe's note); the light greys still darken. Frames 0.
+
+FX-SELC-011 (`fx_selc_011.json`): Neutrals, cyan -30, yellow +40, relative: the midtones warmed, more red and less blue, most at half grey; pure colours, black and white untouched. Frames 0.
+
+FX-SELC-012 (`fx_selc_012.json`): Blacks, black -50, relative: the dark pixels lifted by how dark they are, black to half grey's level; nothing at or above half grey changes. Frames 0.
+
+FX-SELC-013 (`fx_selc_013.json`): Reds, cyan 40, magenta -60, yellow 10, black 20, absolute, Bœsch's Photoshop settings: the black darkening every channel as the colour changes shift them. Frames 0.
+
+FX-SELC-014 (`fx_selc_014.json`): Reds, every amount +100, absolute: each change held at the channel's own floor, the reds go to black by as much as they are red. Frames 0.
+
+FX-SELC-015 (`fx_selc_015.json`): All nine families at once, relative: each pixel moved by every family it belongs to, added together. Frames 0.
+
+FX-SELC-016 (`fx_selc_016.json`): All nine, absolute: the same amounts, unscaled, so larger changes. Frames 0.
+
+FX-SELC-017 (`fx_selc_017.json`): Reds keyed from 0, 0, 0, 0 at frame 0 to cyan +100 at frame 4, linear, absolute: frame 0 untouched, frame 2 cyan +50, frame 4 as FX-SELC-002. Frames 0, 2, 4.
+
+FX-SELC-018 (`fx_selc_018.json`): FX-SELC-015 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-SELC-019 (`fx_selc_019.json`): Reds' cyan 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SELC-020 (`fx_selc_020.json`): Blacks' black -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SELC-021 (`fx_selc_021.json`): Greens three numbers, not four. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SELC-022 (`fx_selc_022.json`): Method "Relative": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SELC-023 (`fx_selc_023.json`): Method "percentage", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
