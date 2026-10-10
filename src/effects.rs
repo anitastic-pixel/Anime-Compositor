@@ -1816,6 +1816,33 @@ pub enum Effect {
         levels: Option<Vec<f64>>,
         outline: Option<Vec<(f64, f64)>>,
     },
+    /// D-421: after After Effects' Audio Waveform. `audio_layer`, `start_point`, `end_point`,
+    /// `path`, `maximum_height`, `audio_duration`, `audio_offset`, `thickness`, `softness`,
+    /// `inside_color`, `outside_color`, `display_options` and `composite` as Audio Spectrum's;
+    /// `displayed_samples`, 1 to 4096, its floor taken; `random_seed`, 0 to 100000, its whole
+    /// part counted; `waveform_options`, "mono", "left" or "right". `levels` and `outline` are
+    /// filled by compose each frame as Audio Spectrum's, `levels` each displayed sample's least
+    /// and greatest in turn.
+    AudioWaveform {
+        audio_layer: serde_json::Value,
+        start_point: [f64; 2],
+        end_point: [f64; 2],
+        path: f64,
+        displayed_samples: f64,
+        maximum_height: f64,
+        audio_duration: f64,
+        audio_offset: f64,
+        thickness: f64,
+        softness: f64,
+        random_seed: f64,
+        inside_color: String,
+        outside_color: String,
+        waveform_options: String,
+        display_options: String,
+        composite: String,
+        levels: Option<Vec<f64>>,
+        outline: Option<Vec<(f64, f64)>>,
+    },
     /// D-395: after After Effects' PS Arbitrary Map. `map`, the id of an asset of kind lut that
     /// is a Photoshop arbitrary map (.amp), or empty for none; `phase`, -255 to 255 levels, every
     /// table cycled right; `apply_to_alpha`, "off" or "on", the covering through the file's
@@ -2291,6 +2318,7 @@ pub const ELLIPSE: &str = "core.ellipse";
 pub const PATTERN_MODES: [&str; 8] = ["none", "normal", "add", "multiply", "screen", "overlay", "soft_light", "stencil_alpha"];
 pub const DETAIL_UPSCALE: &str = "core.detail_upscale";
 pub const AUDIO_SPECTRUM: &str = "core.audio_spectrum";
+pub const AUDIO_WAVEFORM: &str = "core.audio_waveform";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3229,6 +3257,30 @@ impl Effect {
                 ("softness", vec![softness], 0.0, 100.0),
                 ("hue_interpolation", vec![hue_interpolation], -3600.0, 3600.0),
             ],
+            Effect::AudioWaveform {
+                start_point,
+                end_point,
+                path,
+                displayed_samples,
+                maximum_height,
+                audio_duration,
+                audio_offset,
+                thickness,
+                softness,
+                random_seed,
+                ..
+            } => vec![
+                ("start_point", start_point.iter_mut().collect(), -1000.0, 1000.0),
+                ("end_point", end_point.iter_mut().collect(), -1000.0, 1000.0),
+                ("path", vec![path], 0.0, 1000.0),
+                ("displayed_samples", vec![displayed_samples], 1.0, 4096.0),
+                ("maximum_height", vec![maximum_height], 0.0, 10000.0),
+                ("audio_duration", vec![audio_duration], 1.0, 30000.0),
+                ("audio_offset", vec![audio_offset], -30000.0, 30000.0),
+                ("thickness", vec![thickness], 0.0, 10000.0),
+                ("softness", vec![softness], 0.0, 100.0),
+                ("random_seed", vec![random_seed], 0.0, 100000.0),
+            ],
             Effect::ArbitraryMap { phase, .. } => vec![("phase", vec![phase], -255.0, 255.0)],
             Effect::SelectiveColor { families, .. } => SELECTIVE_COLOR_FAMILIES
                 .into_iter()
@@ -4000,8 +4052,8 @@ impl Effect {
             }
             // D-407: Scale is a share; Detail's blur follows it, so only Reduce Noise is a distance.
             Effect::DetailUpscale { reduce_noise, .. } => *reduce_noise = scale(*reduce_noise),
-            // D-420: the bands' height and the marks' thickness; the points are shares.
-            Effect::AudioSpectrum { maximum_height, thickness, .. } => {
+            // D-420, D-421: the marks' height and thickness; the points are shares.
+            Effect::AudioSpectrum { maximum_height, thickness, .. } | Effect::AudioWaveform { maximum_height, thickness, .. } => {
                 *maximum_height = scale(*maximum_height);
                 *thickness = scale(*thickness);
             }
@@ -4272,6 +4324,7 @@ impl Effect {
             Effect::Circle { .. } => "Circle",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
+            Effect::AudioWaveform { .. } => "Audio Waveform",
             Effect::DetailUpscale { .. } => "Detail-preserving Upscale",
             Effect::ArbitraryMap { .. } => "Arbitrary Map",
             Effect::SelectiveColor { .. } => "Selective Color",
@@ -4436,6 +4489,7 @@ impl Effect {
             Effect::Circle { .. } => CIRCLE,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
+            Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
             Effect::DetailUpscale { .. } => DETAIL_UPSCALE,
             Effect::ArbitraryMap { .. } => ARBITRARY_MAP,
             Effect::SelectiveColor { .. } => SELECTIVE_COLOR,
@@ -4902,6 +4956,20 @@ impl Effect {
                     (!["side_a", "side_b", "side_a_b"].contains(&side_options.as_str()))
                         .then(|| format!("{name}'s side options is \"side_a\", \"side_b\" or \"side_a_b\", and this is \"{side_options}\"."))
                 })
+                .or_else(|| hex_fault(name, "inside colour", inside_color))
+                .or_else(|| hex_fault(name, "outside colour", outside_color)),
+            Effect::AudioWaveform { audio_layer, inside_color, outside_color, waveform_options, display_options, composite, .. } => (!audio_layer.is_string())
+                .then(|| format!("{name}'s audio layer is the name of a layer of this composition, and this is {audio_layer}."))
+                .or_else(|| {
+                    (!["mono", "left", "right"].contains(&waveform_options.as_str()))
+                        .then(|| format!("{name}'s waveform options is \"mono\", \"left\" or \"right\", and this is \"{waveform_options}\"."))
+                })
+                .or_else(|| {
+                    (!["digital", "analog_lines", "analog_dots"].contains(&display_options.as_str())).then(|| {
+                        format!("{name}'s display options is \"digital\", \"analog_lines\" or \"analog_dots\", and this is \"{display_options}\".")
+                    })
+                })
+                .or_else(|| (!["off", "on"].contains(&composite.as_str())).then(|| format!("{name}'s composite is \"off\" or \"on\", and this is \"{composite}\".")))
                 .or_else(|| hex_fault(name, "inside colour", inside_color))
                 .or_else(|| hex_fault(name, "outside colour", outside_color)),
             Effect::ColorLink { layer, sample, stencil, blending_mode, .. } => (!layer.is_string())
@@ -7156,6 +7224,12 @@ pub(crate) fn apply_stack_at(
             e @ Effect::AudioSpectrum { .. } => {
                 if let Some(marks) = crate::layer_fx::spectrum_marks(e, (source.width(), source.height()), (ox, oy)) {
                     crate::perf::time(crate::perf::Stage::EffectAudioSpectrum, || crate::layer_fx::draw_marks(source, &marks))
+                }
+            }
+            // D-421: as Audio Spectrum's.
+            e @ Effect::AudioWaveform { .. } => {
+                if let Some(marks) = crate::layer_fx::waveform_marks(e, (source.width(), source.height()), (ox, oy)) {
+                    crate::perf::time(crate::perf::Stage::EffectAudioWaveform, || crate::layer_fx::draw_marks(source, &marks))
                 }
             }
             // D-415: the centre is a share of the drawing's own size; the layer never grows.

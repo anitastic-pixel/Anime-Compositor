@@ -323,6 +323,8 @@ pub enum Stage {
     EffectDetailUpscale,
     /// D-420's Audio Spectrum.
     EffectAudioSpectrum,
+    /// D-421's Audio Waveform.
+    EffectAudioWaveform,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -340,7 +342,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 167] = [
+    pub const ALL: [Stage; 168] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -501,6 +503,7 @@ impl Stage {
         Stage::EffectEllipse,
         Stage::EffectDetailUpscale,
         Stage::EffectAudioSpectrum,
+        Stage::EffectAudioWaveform,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -673,6 +676,7 @@ impl Stage {
             Stage::EffectEllipse => "effect: ellipse",
             Stage::EffectDetailUpscale => "effect: detail-preserving upscale",
             Stage::EffectAudioSpectrum => "effect: audio spectrum",
+            Stage::EffectAudioWaveform => "effect: audio waveform",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

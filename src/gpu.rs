@@ -9243,8 +9243,9 @@ impl Gpu {
             // D-415: as effects' arm reads it, the layer never grows.
             // D-420: the marks worked out here as the CPU works them, from the levels compose
             // found; with none the card is not asked (`compose::card_effect`).
-            e @ E::AudioSpectrum { .. } => {
-                let m = crate::layer_fx::spectrum_marks(e, (w, h), f.origin).unwrap_or_default();
+            // D-421: Audio Waveform's marks on the same pass.
+            e @ (E::AudioSpectrum { .. } | E::AudioWaveform { .. }) => {
+                let m = crate::layer_fx::spectrum_marks(e, (w, h), f.origin).or_else(|| crate::layer_fx::waveform_marks(e, (w, h), f.origin)).unwrap_or_default();
                 let boxes = m.boxes();
                 let bands = crate::layer_fx::Marks::bands(&boxes, h);
                 let mut k = vec![m.r, m.softness, m.how as f64, m.blend as u8 as f64, m.pieces.len() as f64];

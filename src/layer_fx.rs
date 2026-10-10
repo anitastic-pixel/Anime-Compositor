@@ -2651,24 +2651,7 @@ pub(crate) fn spectrum_marks(effect: &crate::effects::Effect, size: (usize, usiz
         return None;
     };
     let bands = levels.len();
-    let t: Vec<f64> = (0..bands).map(|b| (b as f64 + 0.5) / bands as f64).collect();
-    let (feet, closed): (Vec<((f64, f64), (f64, f64))>, bool) = match outline {
-        Some(o) => {
-            let o: Vec<(f64, f64)> = o.iter().map(|&(x, y)| (x + ox as f64, y + oy as f64)).collect();
-            (t.iter().map(|&u| crate::along::point_along(&o, u)).collect(), true)
-        }
-        None if use_polar_path == "on" => {
-            let p = crate::effects::radial_center(*start_point, size, (ox, oy));
-            let at = |u: f64| -std::f64::consts::PI / 2.0 + 2.0 * std::f64::consts::PI * u;
-            (t.iter().map(|&u| (p, (at(u).cos(), at(u).sin()))).collect(), true)
-        }
-        None => {
-            let p = crate::effects::radial_center(*start_point, size, (ox, oy));
-            let q = crate::effects::radial_center(*end_point, size, (ox, oy));
-            let n = crate::along::facing(q.0 - p.0, q.1 - p.1);
-            (t.iter().map(|&u| ((p.0 + u * (q.0 - p.0), p.1 + u * (q.1 - p.1)), n)).collect(), false)
-        }
-    };
+    let (feet, closed) = sound_feet(bands, outline.as_deref(), use_polar_path == "on", [*start_point, *end_point], size, (ox, oy));
     let heights: Vec<f64> = levels.iter().map(|a| maximum_height * a.min(1.0)).collect();
     let loudest = if dynamic_hue_phase == "on" {
         levels.iter().enumerate().fold((0, f64::NEG_INFINITY), |(m, top), (b, &a)| if a > top { (b, a) } else { (m, top) }).0
@@ -2700,6 +2683,74 @@ pub(crate) fn spectrum_marks(effect: &crate::effects::Effect, size: (usize, usiz
         how: if composite == "on" { 0 } else { 1 },
         blend: blend_overlapping_colors == "on",
     })
+}
+
+/// D-420, D-421: where `n` marks stand, at (b + 1/2) / n of the way, and the way they face, and
+/// whether the way is closed: round the mask `outline` (the drawing's own pixels); round the
+/// first of `points` from straight up, clockwise (`polar`); or along the line from the first of
+/// `points` to the second, facing to its left.
+fn sound_feet(n: usize, outline: Option<&[(f64, f64)]>, polar: bool, [start, end]: [[f64; 2]; 2], size: (usize, usize), (ox, oy): (usize, usize)) -> (Vec<((f64, f64), (f64, f64))>, bool) {
+    let t: Vec<f64> = (0..n).map(|b| (b as f64 + 0.5) / n as f64).collect();
+    match outline {
+        Some(o) => {
+            let o: Vec<(f64, f64)> = o.iter().map(|&(x, y)| (x + ox as f64, y + oy as f64)).collect();
+            (t.iter().map(|&u| crate::along::point_along(&o, u)).collect(), true)
+        }
+        None if polar => {
+            let p = crate::effects::radial_center(start, size, (ox, oy));
+            let at = |u: f64| -std::f64::consts::PI / 2.0 + 2.0 * std::f64::consts::PI * u;
+            (t.iter().map(|&u| (p, (at(u).cos(), at(u).sin()))).collect(), true)
+        }
+        None => {
+            let p = crate::effects::radial_center(start, size, (ox, oy));
+            let q = crate::effects::radial_center(end, size, (ox, oy));
+            let n = crate::along::facing(q.0 - p.0, q.1 - p.1);
+            (t.iter().map(|&u| ((p.0 + u * (q.0 - p.0), p.1 + u * (q.1 - p.1)), n)).collect(), false)
+        }
+    }
+}
+
+/// D-421: Audio Waveform's marks, standing as Audio Spectrum's do along the line or round the
+/// mask (never round a point), from the least and greatest compose filled into `levels`;
+/// `None` when it filled in none. Digital: a piece from the least to the greatest; Analog Lines
+/// and Dots: the greatest where the top bit of mix(mix(seed) ^ j) is set, else the least, drawn
+/// as Audio Spectrum's Side A.
+pub(crate) fn waveform_marks(effect: &crate::effects::Effect, size: (usize, usize), origin: (usize, usize)) -> Option<Marks> {
+    let crate::effects::Effect::AudioWaveform {
+        start_point,
+        end_point,
+        maximum_height,
+        thickness,
+        softness,
+        random_seed,
+        inside_color,
+        outside_color,
+        display_options,
+        composite,
+        levels: Some(levels),
+        outline,
+        ..
+    } = effect
+    else {
+        return None;
+    };
+    let shown = levels.len() / 2;
+    let (feet, closed) = sound_feet(shown, outline.as_deref(), false, [*start_point, *end_point], size, origin);
+    let colours = [inside_color, outside_color].map(|c| crate::effects::encoded(c).map(crate::grade::to_linear));
+    let pieces = if display_options == "digital" {
+        (0..shown)
+            .map(|j| {
+                let ((x, y), (nx, ny)) = feet[j];
+                let at = |v: f64| (x + maximum_height * v * nx, y + maximum_height * v * ny);
+                piece(at(levels[2 * j]), at(levels[2 * j + 1]), j, colours)
+            })
+            .collect()
+    } else {
+        let seed = crate::grade::mix(random_seed.floor() as u64);
+        let heights: Vec<f64> = (0..shown).map(|j| maximum_height * levels[2 * j + (crate::grade::mix(seed ^ j as u64) >> 63) as usize]).collect();
+        mark_pieces(&feet, closed, &heights, &vec![colours; shown], display_options, "side_a")
+    };
+    Some(Marks { pieces, r: thickness / 2.0, softness: *softness, how: if composite == "on" { 2 } else { 1 }, blend: false })
 }
 
 /// D-304: where a Motion Tile's tiles sit when nothing moved them, the buffer's middle.

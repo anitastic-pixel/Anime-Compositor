@@ -235,6 +235,30 @@ impl Sound {
     }
 }
 
+impl Sound {
+    /// D-421, Audio Waveform's: for each of `shown` displayed samples, the least and greatest of
+    /// its share of the `count` samples from `start` (samples floor(j count / shown) up to
+    /// floor((j + 1) count / shown), or the first alone), each the channels' mean or channel
+    /// `channel` (the last when the file has fewer) times `gain`, held to -1..1; least and
+    /// greatest in turn.
+    pub fn spans(&self, start: i64, count: usize, shown: usize, gain: f64, channel: Option<usize>) -> Vec<f64> {
+        let x = |i: i64| {
+            let v = match channel {
+                None => self.mean(i),
+                Some(ch) => self.at(ch.min(self.channels - 1), i),
+            };
+            (v * gain).clamp(-1.0, 1.0)
+        };
+        (0..shown)
+            .flat_map(|j| {
+                let (a, b) = (j * count / shown, (j + 1) * count / shown);
+                let (lo, hi) = (a..b.max(a + 1)).map(|k| x(start + k as i64)).fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), v| (lo.min(v), hi.max(v)));
+                [lo, hi]
+            })
+            .collect()
+    }
+}
+
 /// D-420: the sound at `path`, read once and kept while the file's length and time stay the same.
 // ponytail: every sound read stays for the session. Bound it if long recordings pile up.
 pub fn load(path: &std::path::Path) -> Result<std::sync::Arc<Sound>, Diagnostic> {
