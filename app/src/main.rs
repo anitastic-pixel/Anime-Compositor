@@ -3951,6 +3951,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             max_vertical: 5.0,
             wrap: "off".to_string(),
             expand: "off".to_string(),
+            red_amount: 100.0,
+            green_amount: 100.0,
+            blue_amount: 100.0,
+            spectrum: 3.0,
             map: None,
         }),
         // D-194: After Effects' own: nothing wiped yet, a hard edge, stretched.
@@ -5391,6 +5395,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             wrap: word("wrap")?,
             // D-315: off when the command does not say.
             expand: word("expand").unwrap_or_else(|_| "off".to_string()),
+            // D-412: every colour moving alike, three samples, when the command does not say.
+            red_amount: if parameter(query, "red_amount").is_some() { number("red_amount")? } else { 100.0 },
+            green_amount: if parameter(query, "green_amount").is_some() { number("green_amount")? } else { 100.0 },
+            blue_amount: if parameter(query, "blue_amount").is_some() { number("blue_amount")? } else { 100.0 },
+            spectrum: if parameter(query, "spectrum").is_some() { number("spectrum")? } else { 3.0 },
             map: None,
         }),
         // D-189: as Compound Blur's, the setting travels as `map_layer`.
@@ -29557,6 +29566,10 @@ mod contract {
                 ("vertical", "alpha"),
                 ("max_vertical", "30"),
                 ("wrap", "on"),
+                ("red_amount", "50"),
+                ("green_amount", "100"),
+                ("blue_amount", "150"),
+                ("spectrum", "9"),
             ],
         ),
         (

@@ -2164,7 +2164,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("invert".into(), J::from(invert.as_str()));
             params.insert("edges".into(), J::from(edges.as_str()));
         }
-        Effect::DisplacementMap { layer, fit, horizontal, max_horizontal, vertical, max_vertical, wrap, expand, .. } => {
+        Effect::DisplacementMap {
+            layer, fit, horizontal, max_horizontal, vertical, max_vertical, wrap, expand, red_amount, green_amount, blue_amount, spectrum, ..
+        } => {
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
             params.insert("horizontal".into(), J::from(horizontal.as_str()));
@@ -2175,6 +2177,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             // D-315: as D-303's, written only when changed or in the file already.
             if expand != "off" || params.contains_key("expand") {
                 params.insert("expand".into(), J::from(expand.as_str()));
+            }
+            // D-412: each written when changed, keyed or in the file already.
+            for (key, value, absent) in [
+                ("red_amount", *red_amount, 100.0),
+                ("green_amount", *green_amount, 100.0),
+                ("blue_amount", *blue_amount, 100.0),
+                ("spectrum", *spectrum, 3.0),
+            ] {
+                if value != absent || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(value));
+                }
             }
         }
         Effect::GradientWipe { layer, fit, completion, softness, invert, .. } => {
@@ -4953,6 +4966,10 @@ fn parse_effect(
             max_vertical: effect_number(params, "max_vertical", &at)?,
             wrap: effect_word(params, "wrap", &at)?,
             expand: effect_word_or(params, "expand", &at, "off")?,
+            red_amount: effect_number_or(params, "red_amount", &at, 100.0)?,
+            green_amount: effect_number_or(params, "green_amount", &at, 100.0)?,
+            blue_amount: effect_number_or(params, "blue_amount", &at, 100.0)?,
+            spectrum: effect_number_or(params, "spectrum", &at, 3.0)?,
             map: None,
         }),
         // D-194: the layer is kept as written, as Compound Blur's is.

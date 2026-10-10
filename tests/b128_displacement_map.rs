@@ -34,6 +34,10 @@ fn dmap(layer: J, fit: &str, horizontal: &str, max_horizontal: f64, vertical: &s
         max_vertical,
         wrap: wrap.to_string(),
         expand: "off".to_string(),
+        red_amount: 100.0,
+        green_amount: 100.0,
+        blue_amount: 100.0,
+        spectrum: 3.0,
         map: None,
     }
 }

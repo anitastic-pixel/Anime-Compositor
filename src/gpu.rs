@@ -5458,7 +5458,8 @@ fn wrapped(t: texture_2d<f32>, x: f64, y: f64) -> vec4<f32> {
 // B-224, layer_fx::displacement_map: each pixel of the output, the drawing (`input`) grown by F.g,
 // the drawing read bilinearly where the map (`other`, its corner F.ox, F.oy in the drawing) moves
 // it; past the map's edge, when grown, the map's nearest edge pixel, else clear. k: across's and
-// down's `push` kind, their most, 1 to wrap round the drawing.
+// down's `push` kind, their most, 1 to wrap round the drawing; D-412: the spectrum's samples (0
+// for none) and the three colours' shares, read as layer_fx::chromatic_samples reads them.
 @compute @workgroup_size(16, 16)
 fn dmap(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -5474,8 +5475,37 @@ fn dmap(@builtin(global_invocation_id) id: vec3<u32>) {
         m = textureLoad(other, clamp(mp, vec2(0), ms - vec2(1)), 0);
     }
     let g = f64(F.g);
-    let sx = f64(id.x) + 0.5lf + (2.0lf * push(u32(k[0]), m) - 1.0lf) * k[2] - g;
-    let sy = f64(id.y) + 0.5lf + (2.0lf * push(u32(k[1]), m) - 1.0lf) * k[3] - g;
+    let dx = (2.0lf * push(u32(k[0]), m) - 1.0lf) * k[2];
+    let dy = (2.0lf * push(u32(k[1]), m) - 1.0lf) * k[3];
+    let n = u32(k[5]);
+    if n >= 2u {
+        let cx = f64(id.x) + 0.5lf - g;
+        let cy = f64(id.y) + 0.5lf - g;
+        var sum = array<f64, 3>(0.0lf, 0.0lf, 0.0lf);
+        var total = array<f64, 3>(0.0lf, 0.0lf, 0.0lf);
+        var cover = 0.0;
+        for (var i = 0u; i < n; i++) {
+            let t = f64(i) / f64(n - 1u);
+            var a = k[7] + (k[8] - k[7]) * (2.0lf * t - 1.0lf);
+            if t <= 0.5lf {
+                a = k[6] + (k[7] - k[6]) * 2.0lf * t;
+            }
+            let wt = array<f64, 3>(max(0.0lf, 1.0lf - 2.0lf * t), 1.0lf - abs(2.0lf * t - 1.0lf), max(0.0lf, 2.0lf * t - 1.0lf));
+            var p = bilinear(input, cx + a * dx, cy + a * dy);
+            if k[4] == 1.0lf {
+                p = wrapped(input, cx + a * dx, cy + a * dy);
+            }
+            for (var c = 0; c < 3; c++) {
+                sum[c] += wt[c] * f64(p[c]);
+                total[c] += wt[c];
+            }
+            cover = max(cover, p.w);
+        }
+        textureStore(output, id.xy, vec4(f32(sum[0] / total[0]), f32(sum[1] / total[1]), f32(sum[2] / total[2]), cover));
+        return;
+    }
+    let sx = f64(id.x) + 0.5lf + dx - g;
+    let sy = f64(id.y) + 0.5lf + dy - g;
     if k[4] == 1.0lf {
         textureStore(output, id.xy, wrapped(input, sx, sy));
     } else {
@@ -9740,7 +9770,7 @@ impl Gpu {
                 (out, (w, h))
             }
             // B-224 (D-343): two that read a map, each as its CPU function.
-            E::DisplacementMap { horizontal, max_horizontal, vertical, max_vertical, wrap, map, .. } => {
+            E::DisplacementMap { horizontal, max_horizontal, vertical, max_vertical, wrap, red_amount, green_amount, blue_amount, spectrum, map, .. } => {
                 let map = self.map_texture(&map.as_ref().expect("compose leaves a Displacement Map with a map").0);
                 // `push`'s kinds: `phase`'s, 9 full, 10 off.
                 let kind = |word: &str| match word {
@@ -9749,7 +9779,11 @@ impl Gpu {
                     _ => crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == word).expect("compose leaves a valid Displacement Map") as f64,
                 };
                 let g = f.grow.0;
-                let k = [kind(horizontal), kind(vertical), *max_horizontal, *max_vertical, (wrap == "on") as u8 as f64];
+                // D-412: then the samples' count (0 for none) and the three shares.
+                let (most, a) = crate::effects::chromatic_amounts([*max_horizontal, *max_vertical], [*red_amount, *green_amount, *blue_amount]);
+                let n = if a.is_some() { spectrum.floor() } else { 0.0 };
+                let a = a.unwrap_or([1.0; 3]);
+                let k = [kind(horizontal), kind(vertical), most[0], most[1], (wrap == "on") as u8 as f64, n, a[0], a[1], a[2]];
                 let (tw, th) = (w + 2 * g, h + 2 * g);
                 let out = self.scratch("B-224 displacement", tw, th);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, g: g as i32, ..Default::default() };

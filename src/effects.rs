@@ -1103,7 +1103,10 @@ pub enum Effect {
     /// D-193: `layer` and `fit`, D-189's layer setting as Compound Blur has them;
     /// `horizontal` and `vertical`, which of the map's channels moves the picture across and
     /// down; `max_horizontal` and `max_vertical`, -1000 to 1000 pixels, how far; `wrap`,
-    /// `off` or `on`; and D-315's `expand`, `off` or `on`. `map` is not a setting and is never
+    /// `off` or `on`; and D-315's `expand`, `off` or `on`. D-412: `red_amount`, `green_amount`
+    /// and `blue_amount`, -1000 to 1000 per cent of that displacement, how far each colour moves,
+    /// and `spectrum`, 3 to 32 samples taken whole, how many colours between red and blue are
+    /// read; 100, 100, 100 and 3 when a file does not say. `map` is not a setting and is never
     /// saved: compose reads it for each frame.
     DisplacementMap {
         layer: serde_json::Value,
@@ -1114,6 +1117,10 @@ pub enum Effect {
         max_vertical: f64,
         wrap: String,
         expand: String,
+        red_amount: f64,
+        green_amount: f64,
+        blue_amount: f64,
+        spectrum: f64,
         map: Option<crate::layer_map::Map>,
     },
     /// D-194: `layer` and `fit`, D-189's layer setting as Compound Blur has them; `completion`
@@ -3297,9 +3304,13 @@ impl Effect {
                 ("obstacle", vec![obstacle], -100.0, 100.0),
             ],
             Effect::CompoundBlur { max_blur, .. } => vec![("max_blur", vec![max_blur], 0.0, 500.0)],
-            Effect::DisplacementMap { max_horizontal, max_vertical, .. } => vec![
+            Effect::DisplacementMap { max_horizontal, max_vertical, red_amount, green_amount, blue_amount, spectrum, .. } => vec![
                 ("max_horizontal", vec![max_horizontal], -1000.0, 1000.0),
                 ("max_vertical", vec![max_vertical], -1000.0, 1000.0),
+                ("red_amount", vec![red_amount], -1000.0, 1000.0),
+                ("green_amount", vec![green_amount], -1000.0, 1000.0),
+                ("blue_amount", vec![blue_amount], -1000.0, 1000.0),
+                ("spectrum", vec![spectrum], 3.0, 32.0),
             ],
             Effect::GradientWipe { completion, softness, .. } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
@@ -4344,11 +4355,14 @@ impl Effect {
             Effect::TurbulentDisplace { amount, size, edges, units, .. } if edges != "repeat" => {
                 turbulent_push(*amount, *size, units).ceil() as usize
             }
-            // D-315: with Expand Output the larger maximum rounded up, unless the push wraps.
-            Effect::DisplacementMap { max_horizontal, max_vertical, wrap, expand, .. }
+            // D-315: with Expand Output the larger maximum rounded up, unless the push wraps; D-412:
+            // the maximum times the largest amount.
+            Effect::DisplacementMap { max_horizontal, max_vertical, wrap, expand, red_amount, green_amount, blue_amount, .. }
                 if expand == "on" && wrap != "on" =>
             {
-                max_horizontal.abs().max(max_vertical.abs()).ceil() as usize
+                let (most, a) = chromatic_amounts([*max_horizontal, *max_vertical], [*red_amount, *green_amount, *blue_amount]);
+                let top = a.map_or(1.0, |a| a.iter().fold(0.0f64, |t, v| t.max(v.abs())));
+                (most[0].abs().max(most[1].abs()) * top).ceil() as usize
             }
             // D-115: the shadow's move, rounded up, and its blur's reach.
             Effect::DropShadow {
@@ -5685,6 +5699,19 @@ pub(crate) fn turbulent_seed(seed: f64, new_seed_every: f64, frame: i32) -> u64 
 
 /// D-411: how far the field has slid by `frame`, `speed` pixels a frame along `direction`
 /// (degrees clockwise from up), as D-127's evolution speed is read: speed times frame.
+/// D-412: the displacement's maxima and the three colours' shares as fractions. Equal amounts
+/// move every colour alike: the maxima times that share and no spectrum (`None`), so 100, what a
+/// file without the settings means, is D-193's rule to the bit; otherwise the maxima as they are
+/// and the shares, which the spectrum reads between.
+pub(crate) fn chromatic_amounts(most: [f64; 2], amounts: [f64; 3]) -> ([f64; 2], Option<[f64; 3]>) {
+    let a = amounts.map(|p| p / 100.0);
+    if a[0] == a[1] && a[1] == a[2] {
+        (most.map(|m| m * a[0]), None)
+    } else {
+        (most, Some(a))
+    }
+}
+
 pub(crate) fn turbulent_drift(direction: f64, speed: f64, frame: i32) -> (f64, f64) {
     let a = direction.to_radians();
     let v = speed * frame as f64;
@@ -7683,16 +7710,20 @@ pub(crate) fn apply_stack_at(
             }
             // D-193: the map compose read for this frame; with none, nothing moves. D-315: with
             // Expand Output the layer grows first.
-            Effect::DisplacementMap { horizontal, max_horizontal, vertical, max_vertical, wrap, expand, map, .. } => {
+            Effect::DisplacementMap {
+                horizontal, max_horizontal, vertical, max_vertical, wrap, expand, red_amount, green_amount, blue_amount, spectrum, map, ..
+            } => {
                 if let Some(map) = map {
+                    let (most, amounts) = chromatic_amounts([*max_horizontal, *max_vertical], [*red_amount, *green_amount, *blue_amount]);
                     let r = crate::perf::time(crate::perf::Stage::EffectDisplacementMap, || {
                         crate::layer_fx::displacement_map(
                             source,
                             &map.0,
                             (ox, oy),
                             [horizontal, vertical],
-                            [*max_horizontal, *max_vertical],
+                            most,
                             (wrap == "on", expand == "on"),
+                            amounts.map(|a| (a, spectrum.floor() as usize)),
                         )
                     });
                     ox += r;

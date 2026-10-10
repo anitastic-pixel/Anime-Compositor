@@ -4356,6 +4356,9 @@ pub(crate) fn compound_blur(
 /// Outside the picture is clear, or with `wrap`, the picture's far side. D-315: with `expand`
 /// and not `wrap`, the buffer first grows clear by the larger maximum rounded up, returned, and a
 /// place past the map's edge reads the map's nearest edge pixel, so a push carries on outward.
+/// D-412: with `spectrum`, the three colours' shares of the push and the samples' count, each
+/// sample read at its own share and each colour the weighted mean of the samples
+/// ([`chromatic_samples`]), the covering the largest; the growth then the largest share's.
 pub(crate) fn displacement_map(
     source: &mut WorkingBuffer,
     map: &WorkingBuffer,
@@ -4363,6 +4366,7 @@ pub(crate) fn displacement_map(
     words: [&str; 2],
     most: [f64; 2],
     (wrap, expand): (bool, bool),
+    spectrum: Option<([f64; 3], usize)>,
 ) -> usize {
     let value = |word: &str, m: [f32; 4]| {
         let a = m[3] as f64;
@@ -4386,7 +4390,9 @@ pub(crate) fn displacement_map(
         };
         0.5 + a * (k - 0.5)
     };
-    let g = if expand && !wrap { most[0].abs().max(most[1].abs()).ceil() as usize } else { 0 };
+    let samples = spectrum.map(|(a, n)| chromatic_samples(a, n.max(2)));
+    let top = spectrum.map_or(1.0, |(a, _)| a.iter().fold(0.0f64, |t, v| t.max(v.abs())));
+    let g = if expand && !wrap { (most[0].abs().max(most[1].abs()) * top).ceil() as usize } else { 0 };
     let from = std::mem::replace(source, WorkingBuffer::transparent(0, 0));
     let (w, h) = (from.width(), from.height());
     let (mw, mh) = (map.width(), map.height());
@@ -4402,14 +4408,45 @@ pub(crate) fn displacement_map(
             } else {
                 [0.0; 4]
             };
-            let sx = x as f64 + 0.5 + (2.0 * value(words[0], m) - 1.0) * most[0] - g as f64;
-            let sy = y as f64 + 0.5 + (2.0 * value(words[1], m) - 1.0) * most[1] - g as f64;
-            let p = if wrap { wrapped(&from, (w, h), sx, sy) } else { sample_bilinear(&from, sx, sy) };
-            o.copy_from_slice(&p);
+            let read = |sx: f64, sy: f64| if wrap { wrapped(&from, (w, h), sx, sy) } else { sample_bilinear(&from, sx, sy) };
+            let dx = (2.0 * value(words[0], m) - 1.0) * most[0];
+            let dy = (2.0 * value(words[1], m) - 1.0) * most[1];
+            let (cx, cy) = (x as f64 + 0.5 - g as f64, y as f64 + 0.5 - g as f64);
+            match &samples {
+                None => o.copy_from_slice(&read(x as f64 + 0.5 + dx - g as f64, y as f64 + 0.5 + dy - g as f64)),
+                Some(samples) => {
+                    let (mut sum, mut total, mut cover) = ([0.0f64; 3], [0.0f64; 3], 0.0f32);
+                    for (a, wt) in samples {
+                        let p = read(cx + a * dx, cy + a * dy);
+                        for c in 0..3 {
+                            sum[c] += wt[c] * p[c] as f64;
+                            total[c] += wt[c];
+                        }
+                        cover = cover.max(p[3]);
+                    }
+                    for c in 0..3 {
+                        o[c] = (sum[c] / total[c]) as f32;
+                    }
+                    o[3] = cover;
+                }
+            }
         }
     });
     *source = out;
     g
+}
+
+/// D-412: the spectrum's `n` samples from red (t = 0) through green (1/2) to blue (1), each its
+/// share of the push, straight between the three `amounts`, and its weights toward red, green
+/// and blue: max(0, 1 - 2t), 1 - |2t - 1| and max(0, 2t - 1). The card reads the same.
+pub(crate) fn chromatic_samples(a: [f64; 3], n: usize) -> Vec<(f64, [f64; 3])> {
+    (0..n)
+        .map(|i| {
+            let t = i as f64 / (n - 1) as f64;
+            let share = if t <= 0.5 { a[0] + (a[1] - a[0]) * 2.0 * t } else { a[1] + (a[2] - a[1]) * (2.0 * t - 1.0) };
+            (share, [(1.0 - 2.0 * t).max(0.0), 1.0 - (2.0 * t - 1.0).abs(), (2.0 * t - 1.0).max(0.0)])
+        })
+        .collect()
 }
 
 /// Document 21's bilinear read, the four pixels' places taken round the picture's edges.

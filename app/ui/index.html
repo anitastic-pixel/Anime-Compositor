@@ -9485,7 +9485,7 @@ const EFFECT_SEARCH = {
   'core.kira_kira': 'sparkle twinkle glint star highlight shine gleam anime kira',
   'core.lightning_bolt': 'lightning advanced electric electricity spark thunder storm bolt zap',
   'core.compound_blur': 'compound variable map depth focus blur layer',
-  'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction',
+  'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction chromatic prism water spectrum rainbow colour color fringe',
   'core.gradient_wipe': 'gradient wipe reveal transition dissolve luma matte map layer',
   'core.echo': 'echo time trail trails ghost ghosting onion skin smear afterimage frames',
   'core.posterize_time': 'posterize time twos threes on twos stepped frame rate choppy limited animation hold',
@@ -9656,7 +9656,7 @@ const EFFECT_ABOUT = {
   'core.kira_kira': 'Sets small twinkling stars on the near-white highlights, an eye\'s glint or a blade\'s edge, each on its own beat.',
   'core.lightning_bolt': 'Draws a jagged, forking bolt of light from one point to another, a new one every few frames.',
   'core.compound_blur': 'Blurs the layer more where another layer of the composition is brighter.',
-  'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition.',
+  'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition; different colour amounts part the colours, as light through water or glass.',
   'core.gradient_wipe': 'Wipes the layer away from the darkest parts of another layer of the composition to the brightest.',
   'core.echo': 'Lays copies of the layer from earlier or later frames over it, each fainter than the last: a trail.',
   'core.posterize_time': 'Holds the layer\'s drawing and effects for several frames at a time, as if drawn at a lower frame rate: on twos, on threes.',
@@ -10194,7 +10194,13 @@ const EFFECT_PARAMS = {
   // D-193.
   'core.displacement_map': [
     ['max_horizontal', 'Max Horizontal Displacement', 1, 0.5, 'px, -1000 to 1000, left where the channel is white'],
-    ['max_vertical', 'Max Vertical Displacement', 1, 0.5, 'px, -1000 to 1000, up where the channel is white']],
+    ['max_vertical', 'Max Vertical Displacement', 1, 0.5, 'px, -1000 to 1000, up where the channel is white'],
+    // D-412: each colour's share of the push; different shares part the colours, as light through
+    // water or glass.
+    ['red_amount', 'Red Amount', 1, 1, '% of the displacement, -1000 to 1000; 100 for all three moves every colour alike', '', 100],
+    ['green_amount', 'Green Amount', 1, 1, '% of the displacement, -1000 to 1000', '', 100],
+    ['blue_amount', 'Blue Amount', 1, 1, '% of the displacement, -1000 to 1000', '', 100],
+    ['spectrum', 'Spectrum', 1, 1, 'samples, 3 to 32; 3 parts three colours, 9 or more a smooth rainbow', '', 3]],
   // D-194.
   'core.gradient_wipe': [['completion', 'Transition Completion', 1, 1, '% wiped away, 0 to 100'],
     ['softness', 'Transition Softness', 1, 1, '%, 0 to 100, how soft the edge is']],
