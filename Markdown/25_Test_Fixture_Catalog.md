@@ -205090,3 +205090,39 @@ FX-SHHI-019 (`fx_shhi_019.json`): Shadow tonal width 101, above 100. The file is
 FX-SHHI-020 (`fx_shhi_020.json`): Highlight radius 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SHHI-021 (`fx_shhi_021.json`): Colour correction -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Tint with After Effects' settings (D-401)
+
+Tint (`core.tint`) with After Effects' Map Black To, Map White To and Amount to Tint (B-280). The older Tint's own cases, FX-ADJ-008 to 010 and FX-FXK-004, 005, 008 and 009, are unchanged. Every case is a project of one composition 16 by 10, five frames, one drawing, Broadcast Safe's (`tools/broadcast_safe_reference.py`: pure colours, greys, a skin tone, orange and three warm tones, each column darker down the rows), with the effect. `tools/tint_reference.py` works the expected frames, `Fixtures/tint/expected_tint.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-TINT-001 (`fx_tint_001.json`): The settings as they start: black to #000000, white to #ffffff, amount 100. Every pixel that shows turns grey by its lightness, red, green and blue alike; black stays black and white white; the yellow at half covering takes the same grey as the yellow, at its own covering. Frames 0.
+
+FX-TINT-002 (`fx_tint_002.json`): Amount 0: the drawing exactly as it is. Frames 0.
+
+FX-TINT-003 (`fx_tint_003.json`): Amount 50: every pixel halfway, in linear light, between the drawing and FX-TINT-001. Frames 0.
+
+FX-TINT-004 (`fx_tint_004.json`): Black to #1a2a6c, a navy, and white to #fdbb2d, a gold: a two-colour picture; the black pixels turn exactly #1a2a6c and the white #fdbb2d, the rest between by their lightness. Frames 0.
+
+FX-TINT-005 (`fx_tint_005.json`): Black to #ffffff and white to #000000, the two swapped from as they start (Swap Colors): a negative in grey; black turns white and white black. Frames 0.
+
+FX-TINT-006 (`fx_tint_006.json`): FX-TINT-004's colours swapped: black to the gold and white to the navy. Frames 0.
+
+FX-TINT-007 (`fx_tint_007.json`): Both colours #6450a0: every pixel that shows is #6450a0 at its own covering, whatever its lightness. Frames 0.
+
+FX-TINT-008 (`fx_tint_008.json`): FX-TINT-004 with its colours written in capitals: the same. Frames 0.
+
+FX-TINT-009 (`fx_tint_009.json`): FX-TINT-004 at amount 30: each pixel 30 per cent of the way, in linear light, toward its colour. Frames 0.
+
+FX-TINT-010 (`fx_tint_010.json`): Amount keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 is the drawing, frame 2 is FX-TINT-003, frame 4 is FX-TINT-001. Frames 0, 2, 4.
+
+FX-TINT-011 (`fx_tint_011.json`): FX-TINT-004 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-TINT-012 (`fx_tint_012.json`): Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TINT-013 (`fx_tint_013.json`): Amount -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TINT-014 (`fx_tint_014.json`): Amount keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TINT-015 (`fx_tint_015.json`): Map Black To written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TINT-016 (`fx_tint_016.json`): Map White To written "white", a name, not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
