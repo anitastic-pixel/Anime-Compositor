@@ -999,6 +999,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::AudioWaveform { .. }
                 // D-416: Fractal.
                 | crate::effects::Effect::Fractal { .. }
+                // D-417: Grid.
+                | crate::effects::Effect::Grid { .. }
                 // D-407: Detail-preserving Upscale.
                 | crate::effects::Effect::DetailUpscale { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
@@ -1317,7 +1319,7 @@ fn card_effect(
                 E::Magnify { opacity, blending_mode, .. } => *opacity == 0.0 && blending_mode != "none",
                 E::Spherize { radius, .. } => *radius <= 0.0,
                 // D-413: a clear pattern laid on the layer; None and Stencil Alpha still clear it.
-                E::Checkerboard { opacity, blending_mode, .. } | E::Circle { opacity, blending_mode, .. } => {
+                E::Checkerboard { opacity, blending_mode, .. } | E::Circle { opacity, blending_mode, .. } | E::Grid { opacity, blending_mode, .. } => {
                     *opacity == 0.0 && !["none", "stencil_alpha"].contains(&blending_mode.as_str())
                 }
                 E::DetailUpscale { scale, reduce_noise, detail } => *scale == 100.0 && *reduce_noise <= 0.0 && *detail <= 0.0,

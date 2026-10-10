@@ -2961,6 +2961,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
         }
+        Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {
+            params.insert("anchor".into(), J::Array(anchor.iter().map(|c| num(*c)).collect()));
+            params.insert("size_from".into(), J::from(size_from.as_str()));
+            params.insert("corner".into(), J::Array(corner.iter().map(|c| num(*c)).collect()));
+            params.insert("width".into(), num(*width));
+            params.insert("height".into(), num(*height));
+            params.insert("border".into(), num(*border));
+            params.insert("feather_width".into(), num(*feather_width));
+            params.insert("feather_height".into(), num(*feather_height));
+            params.insert("invert".into(), J::from(invert.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
+        }
         Effect::Ellipse { center, width, height, thickness, softness, inside_color, outside_color, composite } => {
             params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
             params.insert("width".into(), num(*width));
@@ -4446,6 +4460,7 @@ fn parse_effect(
         crate::effects::AUDIO_SPECTRUM,
         crate::effects::AUDIO_WAVEFORM,
         crate::effects::FRACTAL,
+        crate::effects::GRID,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5697,6 +5712,20 @@ fn parse_effect(
             edge_thickness: effect_number(params, "edge_thickness", &at)?,
             feather_outer: effect_number(params, "feather_outer", &at)?,
             feather_inner: effect_number(params, "feather_inner", &at)?,
+            invert: effect_word(params, "invert", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            opacity: effect_number(params, "opacity", &at)?,
+            blending_mode: effect_word(params, "blending_mode", &at)?,
+        }),
+        crate::effects::GRID => Some(crate::effects::Effect::Grid {
+            anchor: effect_array(params, "anchor", "two numbers, x then y", &at)?,
+            size_from: effect_word(params, "size_from", &at)?,
+            corner: effect_array(params, "corner", "two numbers, x then y", &at)?,
+            width: effect_number(params, "width", &at)?,
+            height: effect_number(params, "height", &at)?,
+            border: effect_number(params, "border", &at)?,
+            feather_width: effect_number(params, "feather_width", &at)?,
+            feather_height: effect_number(params, "feather_height", &at)?,
             invert: effect_word(params, "invert", &at)?,
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             opacity: effect_number(params, "opacity", &at)?,

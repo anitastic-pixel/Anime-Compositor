@@ -3235,6 +3235,17 @@ fn checker_axis(x: f64, a: f64, w: f64, half: f64) -> f64 {
     return select(1.0lf, -1.0lf, odd != 0.0lf) * min(quotient(d, half), 1.0lf);
 }
 
+// D-417, layer_fx::grid_cover's one axis: lines `b` thick seen through a box `r` wide.
+fn grid_line(d: f64, b: f64, r: f64) -> f64 {
+    return clamp(quotient(min(d + r / 2.0lf, b / 2.0lf) - max(d - r / 2.0lf, -b / 2.0lf), r), 0.0lf, 1.0lf);
+}
+
+fn grid_axis(x: f64, a: f64, w: f64, b: f64, r: f64) -> f64 {
+    let u = quotient(x - a, w);
+    let t = u - floor(u);
+    return min(grid_line(w * t, b, r) + grid_line(w * (1.0lf - t), b, r), 1.0lf);
+}
+
 // D-416, layer_fx::fractal's pieces. k: the Mandelbrot view (centre, a pixel's size), the Julia
 // view, the drawing's corner in the buffer, half the drawing's width and height, the escape
 // limits, the power, 1 for the Julia choices, the inverse ones, the "over Julia" ones, the
@@ -4009,6 +4020,18 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             }
             out.w = f32(f64(px.w) * keep + c);
             textureStore(output, id.xy, out);
+            return;
+        }
+        case 31u: {
+            // D-417, layer_fx::grid_cover laid as Checkerboard's. k: the anchor, the cell's width
+            // and height, the border, the boxes (max(feather, 1)) across and down, the colour
+            // (linear), the opacity (a share), the blend (as `laid`'s), 1 to invert.
+            let gx = grid_axis(x, k[0], k[2], k[4], k[5]);
+            let gy = grid_axis(y, k[1], k[3], k[4], k[6]);
+            let c = gx + gy - gx * gy;
+            let cover = select(c, 1.0lf - c, k[12] != 0.0lf) * k[10];
+            let s = vec4(f32(k[7] * cover), f32(k[8] * cover), f32(k[9] * cover), f32(cover));
+            textureStore(output, id.xy, laid(s, textureLoad(input, id.xy, 0), u32(k[11])));
             return;
         }
         case 30u: {
@@ -9376,6 +9399,13 @@ impl Gpu {
                 let c = linear(color);
                 let k = [cx, cy, ro, ri, fo, fi, c[0], c[1], c[2], opacity / 100.0, laid(blending_mode), (invert == "on") as u8 as f64];
                 same(steps, &passes.warp, FxParams { mode: 27, ..Default::default() }, &k, None)
+            }
+            // D-417: as effects' arm reads it, the layer never grows.
+            E::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {
+                let ((ax, ay), (cw, ch)) = crate::layer_fx::checker_cells(*anchor, size_from, *corner, [*width, *height], (w, h), f.origin);
+                let c = linear(color);
+                let k = [ax, ay, cw, ch, *border, feather_width.max(1.0), feather_height.max(1.0), c[0], c[1], c[2], opacity / 100.0, laid(blending_mode), (invert == "on") as u8 as f64];
+                same(steps, &passes.warp, FxParams { mode: 31, ..Default::default() }, &k, None)
             }
             // D-415: as effects' arm reads it, the layer never grows.
             // D-420: the marks worked out here as the CPU works them, from the levels compose

@@ -1759,6 +1759,24 @@ pub enum Effect {
         opacity: f64,
         blending_mode: String,
     },
+    /// D-417: after After Effects' Grid. `anchor`, `size_from`, `corner`, `width`, `height`,
+    /// `feather_width`, `feather_height`, `color`, `opacity` and `blending_mode` as
+    /// Checkerboard's; `border`, the lines' thickness, 0 to 10000 pixels; `invert`, "off" or
+    /// "on".
+    Grid {
+        anchor: [f64; 2],
+        size_from: String,
+        corner: [f64; 2],
+        width: f64,
+        height: f64,
+        border: f64,
+        feather_width: f64,
+        feather_height: f64,
+        invert: String,
+        color: String,
+        opacity: f64,
+        blending_mode: String,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2349,6 +2367,7 @@ pub const FRACTAL: &str = "core.fractal";
 /// D-416: Fractal's sets and palettes, After Effects' own.
 pub const FRACTAL_SETS: [&str; 6] = ["mandelbrot", "mandelbrot_inverse", "mandelbrot_over_julia", "mandelbrot_inverse_over_julia", "julia", "julia_inverse"];
 pub const FRACTAL_PALETTES: [&str; 4] = ["lightness_gradient", "hue_wheel", "black_and_white", "solid_color"];
+pub const GRID: &str = "core.grid";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3247,6 +3266,16 @@ impl Effect {
                 ("feather_inner", vec![feather_inner], 0.0, 10000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
+                ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
+                ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
+                ("width", vec![width], 1.0, 10000.0),
+                ("height", vec![height], 1.0, 10000.0),
+                ("border", vec![border], 0.0, 10000.0),
+                ("feather_width", vec![feather_width], 0.0, 10000.0),
+                ("feather_height", vec![feather_height], 0.0, 10000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::Ellipse { center, width, height, thickness, softness, .. } => vec![
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("width", vec![width], 1.0, 10000.0),
@@ -4098,6 +4127,14 @@ impl Effect {
                     *feather_inner = scale(*feather_inner);
                 }
             }
+            // D-417: the cells held at least a pixel, as Checkerboard's.
+            Effect::Grid { width, height, border, feather_width, feather_height, .. } => {
+                *width = scale(*width).max(1.0);
+                *height = scale(*height).max(1.0);
+                *border = scale(*border);
+                *feather_width = scale(*feather_width);
+                *feather_height = scale(*feather_height);
+            }
             // D-415: the axes held at least a pixel, as Checkerboard's cells.
             Effect::Ellipse { width, height, thickness, .. } => {
                 *width = scale(*width).max(1.0);
@@ -4384,6 +4421,7 @@ impl Effect {
             Effect::Spherize { .. } => "Spherize",
             Effect::Checkerboard { .. } => "Checkerboard",
             Effect::Circle { .. } => "Circle",
+            Effect::Grid { .. } => "Grid",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -4550,6 +4588,7 @@ impl Effect {
             Effect::Spherize { .. } => SPHERIZE,
             Effect::Checkerboard { .. } => CHECKERBOARD,
             Effect::Circle { .. } => CIRCLE,
+            Effect::Grid { .. } => GRID,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -5748,6 +5787,20 @@ impl Effect {
                 "Circle's blending mode is \"none\", \"normal\", \"add\", \"multiply\", \"screen\", \"overlay\", \"soft_light\" or \"stencil_alpha\", and this is \"{blending_mode}\"."
             )),
             Effect::Circle { color, .. } => hex_fault("Circle", "colour", color),
+            Effect::Grid { size_from, .. }
+                if !["corner_point", "width_slider", "width_and_height_sliders"].contains(&size_from.as_str()) =>
+            {
+                Some(format!(
+                    "Grid's size from is \"corner_point\", \"width_slider\" or \"width_and_height_sliders\", and this is \"{size_from}\"."
+                ))
+            }
+            Effect::Grid { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
+                "Grid's invert is \"off\" or \"on\", and this is \"{invert}\"."
+            )),
+            Effect::Grid { blending_mode, .. } if !PATTERN_MODES.contains(&blending_mode.as_str()) => Some(format!(
+                "Grid's blending mode is \"none\", \"normal\", \"add\", \"multiply\", \"screen\", \"overlay\", \"soft_light\" or \"stencil_alpha\", and this is \"{blending_mode}\"."
+            )),
+            Effect::Grid { color, .. } => hex_fault("Grid", "colour", color),
             Effect::Ellipse { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
                 "Ellipse's composite is \"on\" or \"off\", and this is \"{composite}\"."
             )),
@@ -7313,6 +7366,16 @@ pub(crate) fn apply_stack_at(
                 if let Some(marks) = crate::layer_fx::waveform_marks(e, (source.width(), source.height()), (ox, oy)) {
                     crate::perf::time(crate::perf::Stage::EffectAudioWaveform, || crate::layer_fx::draw_marks(source, &marks))
                 }
+            }
+            // D-417: the anchor and corner as Checkerboard's; the layer never grows.
+            Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {
+                let (a, cell) = crate::layer_fx::checker_cells(*anchor, size_from, *corner, [*width, *height], (source.width(), source.height()), (ox, oy));
+                let ramps = [*feather_width, *feather_height].map(|f| f.max(1.0));
+                let inverted = invert == "on";
+                crate::perf::time(crate::perf::Stage::EffectGrid, || {
+                    let cover = |x, y| crate::layer_fx::grid_cover((x, y), a, cell, *border, ramps, inverted);
+                    crate::layer_fx::lay_pattern(source, cover, encoded(color).map(crate::grade::to_linear), *opacity / 100.0, blending_mode)
+                })
             }
             // D-415: the centre is a share of the drawing's own size; the layer never grows.
             Effect::Ellipse { center, width, height, thickness, softness, inside_color, outside_color, composite } => {

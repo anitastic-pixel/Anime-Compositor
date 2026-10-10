@@ -2372,6 +2372,22 @@ pub(crate) fn checker_cover((x, y): (f64, f64), (ax, ay): (f64, f64), (w, h): (f
     (1.0 + axis(x, ax, w, rx) * axis(y, ay, h, ry)) / 2.0
 }
 
+/// D-417: Grid's covering at `(x, y)`, in the buffer's pixels, cells `(w, h)` from the anchor
+/// `a`, lines `border` thick along the cells' edges. On each axis the share of a box `ramps`
+/// wide (max(feather, 1)) about the pixel that falls inside the two nearest lines, held to 1;
+/// the covering is gx + gy - gx gy, 1 minus that when `invert`.
+pub(crate) fn grid_cover((x, y): (f64, f64), (ax, ay): (f64, f64), (w, h): (f64, f64), border: f64, [rx, ry]: [f64; 2], invert: bool) -> f64 {
+    let line = |d: f64, r: f64| (((d + r / 2.0).min(border / 2.0) - (d - r / 2.0).max(-border / 2.0)) / r).clamp(0.0, 1.0);
+    let axis = |x: f64, a: f64, w: f64, r: f64| {
+        let u = (x - a) / w;
+        let t = u - u.floor();
+        (line(w * t, r) + line(w * (1.0 - t), r)).min(1.0)
+    };
+    let (gx, gy) = (axis(x, ax, w, rx), axis(y, ay, h, ry));
+    let c = gx + gy - gx * gy;
+    if invert { 1.0 - c } else { c }
+}
+
 /// D-414: Circle's ring, `[outer, inner, outer ramp, inner ramp]`: the radii it runs between
 /// and the widths of the ramps on them, max(feather, 1). "none" is a disk; "edge_radius" runs
 /// between the radius and the edge radius; "thickness" inward from the radius; the two
