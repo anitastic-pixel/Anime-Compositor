@@ -6577,6 +6577,34 @@ fn dkey(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-418, layer_fx::fill. F.mode 0: the covering before its feathers (`row`, the buffer grown by
+// F.g on every side, layer_fx::fill_cover) into `output`. F.mode 1: the drawing (`input`) with the
+// colour laid on as the covering (`other`, grown by F.g) says; k: the colour (linear), the
+// opacity (a share), 1 to invert, 1 for the whole layer (no covering).
+@compute @workgroup_size(16, 16)
+fn fillfx(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    if F.mode == 0u {
+        textureStore(output, id.xy, vec4(row[id.y * size.x + id.x], 0.0, 0.0, 0.0));
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    var m = 1.0lf;
+    if k[5] == 0.0lf {
+        m = f64(textureLoad(other, vec2<i32>(id.xy) + vec2(F.g), 0).x);
+    }
+    let c = select(m, 1.0lf - m, k[4] != 0.0lf) * k[3];
+    let a = f64(p.w);
+    var out = p;
+    for (var i = 0u; i < 3u; i++) {
+        out[i] = f32(f64(p[i]) * (1.0lf - c) + k[i] * a * c);
+    }
+    textureStore(output, id.xy, out);
+}
+
 // B-229, layer_fx::id_key. k[2] 0: the matte of the ids (`other`, as big as `input`), 1 where
 // the id is within a half of k[0], turned over where k[1] is 1. k[2] 1: the drawing (`input`)
 // times the matte (`other`, blurred) lying at (F.ox, F.oy), 0 outside it.
@@ -7306,6 +7334,7 @@ struct FxPasses {
     dkey: Pass,
     /// B-229.
     idkey: Pass,
+    fill: Pass,
     smoothscan: Pass,
     smoothmix: Pass,
     /// D-352.
@@ -7935,6 +7964,7 @@ impl Gpu {
                 passx: pass("passx", &[0, 1, 2, 3, 4]),
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
                 idkey: pass("idkey", &[0, 1, 2, 3, 4]),
+                fill: pass("fillfx", &[0, 1, 2, 3, 4, 5]),
                 lwidth: pass("lwidth", &[0, 1, 2, 3, 5]),
                 smoothscan: pass("smoothscan", &[0, 1, 3, 5, 6]),
                 smoothmix: pass("smoothmix", &[0, 1, 2, 5, 6]),
@@ -10643,6 +10673,41 @@ impl Gpu {
                 let out = self.scratch("B-228 key", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.dkey, p, Some(still), Some(&out), Some(&k), Some(&pass), none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-418: the covering worked out as layer_fx::fill_cover works it, reaching the
+            // feathers' radius past the layer, sent once, feathered with Bloom's `gauss` (its
+            // edges held, the shorter taps padded with zeros), then laid on.
+            E::Fill { color, invert, horizontal_feather, vertical_feather, opacity, paths, .. } => {
+                let paths = paths.as_ref().expect("compose leaves a Fill with its paths");
+                let c = linear(color);
+                let k = [c[0], c[1], c[2], opacity / 100.0, (invert == "on") as u8 as f64, paths.is_empty() as u8 as f64];
+                let ([tx, ty], r) = crate::layer_fx::fill_taps([*horizontal_feather, *vertical_feather]);
+                let (fw, fh) = (w + 2 * r, h + 2 * r);
+                let cover = if paths.is_empty() { vec![0.0f32] } else { crate::layer_fx::fill_cover(paths, f.origin, (w, h), r) };
+                let cover = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("B-297 covering"),
+                    contents: bytemuck::cast_slice(&cover),
+                    usage: wgpu::BufferUsages::STORAGE,
+                });
+                let field = (!paths.is_empty()).then(|| {
+                    let field = self.scratch("B-297 covering", fw, fh);
+                    self.fx_step(steps, &passes.fill, FxParams::default(), Some(still), Some(&field), Some(&k), Some(still), [Some(&cover)], tiles(fw, fh));
+                    if r == 0 {
+                        return field;
+                    }
+                    let pad = |t: Vec<f32>| {
+                        let mut p = vec![0.0f32; r - t.len() / 2];
+                        p.extend(&t);
+                        p.resize(2 * r + 1, 0.0);
+                        p
+                    };
+                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                    self.gauss(steps, bloom, "B-297 feather", &field, (fw, fh), [&pad(tx), &pad(ty)], 0, true)
+                });
+                let out = self.scratch("B-297 fill", w, h);
+                let p = FxParams { mode: 1, g: r as i32, ..Default::default() };
+                self.fx_step(steps, &passes.fill, p, Some(still), Some(&out), Some(&k), Some(field.as_ref().unwrap_or(still)), [Some(&cover)], tiles(w, h));
                 (out, (w, h))
             }
             // B-229: the matte at the ids' size, blurred with its edges held, then laid on.

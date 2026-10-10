@@ -2981,6 +2981,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blending_mode".into(), J::from(blending_mode.as_str()));
         }
+        // D-418: the paths are found each frame and never saved.
+        Effect::Fill { mask, all_masks, color, invert, horizontal_feather, vertical_feather, opacity, .. } => {
+            params.insert("mask".into(), num(*mask));
+            params.insert("all_masks".into(), J::from(all_masks.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("invert".into(), J::from(invert.as_str()));
+            params.insert("horizontal_feather".into(), num(*horizontal_feather));
+            params.insert("vertical_feather".into(), num(*vertical_feather));
+            params.insert("opacity".into(), num(*opacity));
+        }
         Effect::Grid { anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode } => {
             params.insert("anchor".into(), J::Array(anchor.iter().map(|c| num(*c)).collect()));
             params.insert("size_from".into(), J::from(size_from.as_str()));
@@ -4482,6 +4492,7 @@ fn parse_effect(
         crate::effects::AUDIO_WAVEFORM,
         crate::effects::FRACTAL,
         crate::effects::GRID,
+        crate::effects::FILL,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5761,6 +5772,16 @@ fn parse_effect(
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             opacity: effect_number(params, "opacity", &at)?,
             blending_mode: effect_word(params, "blending_mode", &at)?,
+        }),
+        crate::effects::FILL => Some(crate::effects::Effect::Fill {
+            mask: effect_number(params, "mask", &at)?,
+            all_masks: effect_word(params, "all_masks", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            invert: effect_word(params, "invert", &at)?,
+            horizontal_feather: effect_number(params, "horizontal_feather", &at)?,
+            vertical_feather: effect_number(params, "vertical_feather", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            paths: None,
         }),
         crate::effects::GRID => Some(crate::effects::Effect::Grid {
             anchor: effect_array(params, "anchor", "two numbers, x then y", &at)?,

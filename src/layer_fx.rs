@@ -2456,6 +2456,59 @@ pub(crate) fn checker_cover((x, y): (f64, f64), (ax, ay): (f64, f64), (w, h): (f
     (1.0 + axis(x, ax, w, rx) * axis(y, ay, h, ry)) / 2.0
 }
 
+/// D-418: Fill's feathers as the taps across and down (document 21's Gaussian, sigma feather / 2)
+/// and how far the covering must reach past the buffer for both: the larger radius.
+pub(crate) fn fill_taps(feathers: [f64; 2]) -> ([Vec<f32>; 2], usize) {
+    let taps = feathers.map(|f| crate::effects::gaussian_weights(f / 2.0));
+    let r = taps[0].len().max(taps[1].len()) / 2;
+    (taps, r)
+}
+
+/// D-418: Fill's covering before its feathers, of the buffer `(w, h)` grown by `r` on every
+/// side, row by row: each path, moved into the buffer by `origin`, covered as ADR-016 covers a
+/// mask (`mask::scanline_field`), the paths joined as a mask's Add joins them,
+/// 1 - (1 - m1)(1 - m2)...
+pub(crate) fn fill_cover(paths: &[Vec<(f64, f64)>], (ox, oy): (usize, usize), (w, h): (usize, usize), r: usize) -> Vec<f32> {
+    let (fw, fh) = (w + 2 * r, h + 2 * r);
+    let mut rest = vec![1.0f32; fw * fh];
+    for path in paths {
+        let moved: Vec<(f64, f64)> = path.iter().map(|&(x, y)| (x + ox as f64, y + oy as f64)).collect();
+        for (v, m) in rest.iter_mut().zip(crate::mask::scanline_field(&moved, fw, fh, r)) {
+            *v *= 1.0 - m;
+        }
+    }
+    rest.iter_mut().for_each(|v| *v = 1.0 - *v);
+    rest
+}
+
+/// D-418: Fill. The covering m is 1 with no paths (the whole layer), else [`fill_cover`]
+/// feathered across and down, each with its edges held: the covering reaches `r` past the
+/// buffer, so every pixel reads it as it lies on the plane. Invert makes it 1 - m; with
+/// k = m * opacity each premultiplied pixel P becomes P (1 - k) + C P.a k, its alpha kept.
+pub(crate) fn fill(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64)>], origin: (usize, usize), feathers: [f64; 2], color: [f64; 3], invert: bool, opacity: f64) {
+    let (w, h) = (source.width(), source.height());
+    let ([tx, ty], r) = fill_taps(feathers);
+    let field = (!paths.is_empty()).then(|| {
+        let cover = fill_cover(paths, origin, (w, h), r);
+        let mut grown = WorkingBuffer::transparent(w + 2 * r, h + 2 * r);
+        for (p, v) in grown.data_mut().chunks_exact_mut(4).zip(&cover) {
+            p[0] = *v;
+        }
+        crate::effects::held_blur_axes(&mut grown, &tx, (true, false));
+        crate::effects::held_blur_axes(&mut grown, &ty, (false, true));
+        grown
+    });
+    let fw = w + 2 * r;
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, p)| {
+        let m = field.as_ref().map_or(1.0, |f| f.data()[((i / w + r) * fw + i % w + r) * 4] as f64);
+        let k = if invert { 1.0 - m } else { m } * opacity;
+        let a = p[3] as f64;
+        for (c, v) in p[..3].iter_mut().enumerate() {
+            *v = (*v as f64 * (1.0 - k) + color[c] * a * k) as f32;
+        }
+    });
+}
+
 /// D-417: Grid's covering at `(x, y)`, in the buffer's pixels, cells `(w, h)` from the anchor
 /// `a`, lines `border` thick along the cells' edges. On each axis the share of a box `ramps`
 /// wide (max(feather, 1)) about the pixel that falls inside the two nearest lines, held to 1;

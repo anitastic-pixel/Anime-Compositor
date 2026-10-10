@@ -1003,6 +1003,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Fractal { .. }
                 // D-417: Grid.
                 | crate::effects::Effect::Grid { .. }
+                // D-418: Fill.
+                | crate::effects::Effect::Fill { .. }
                 // D-407: Detail-preserving Upscale.
                 | crate::effects::Effect::DetailUpscale { .. }
                 | crate::effects::Effect::ArbitraryMap { .. }
@@ -1367,6 +1369,10 @@ fn card_effect(
                 E::Stroke { paths, .. } => paths.is_none(),
                 // D-420: with no levels the layer is left as it is.
                 E::AudioSpectrum { levels, .. } | E::AudioWaveform { levels, .. } => levels.is_none(),
+                // D-418: no mask found, nothing laid on, or the whole layer turned over.
+                E::Fill { paths, invert, opacity, .. } => {
+                    *opacity == 0.0 || paths.as_ref().is_none_or(|p| p.is_empty() && invert == "on")
+                }
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -2333,6 +2339,40 @@ fn resolve_rest(
         }
         let window = sound_window(project, root, comp, heard, at, window, log, frame, &layer.name);
         *levels = Some(hear(window.as_ref().map(|(s, s0, count, gain)| (&**s, *s0, *count, *gain))));
+    }
+    // D-418: each Fill's masks, chosen as Path Stroke's are (on, with two points, whatever the
+    // mode), as they are at this frame and at the size the effects run at; Fill Mask 0 with All
+    // Masks off is none, the whole layer. Asked for a mask and finding none, the layer is left as
+    // it is and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::Fill { mask, all_masks, paths, .. } = &mut instance.effect {
+            let usable = |n: usize| masks.get(n).filter(|m| m.enabled && m.points.len() >= 2).map(|m| m.outline());
+            *paths = if all_masks == "on" {
+                Some((0..masks.len()).filter_map(usable).collect::<Vec<_>>()).filter(|p| !p.is_empty())
+            } else if *mask < 1.0 {
+                Some(Vec::new())
+            } else {
+                usable(mask.floor() as usize - 1).map(|p| vec![p])
+            };
+            if paths.is_none() {
+                let which = if all_masks == "on" {
+                    "no mask that is on with two points or more".to_string()
+                } else {
+                    format!("no mask {} that is on with two points or more", mask.floor())
+                };
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!("Layer {}'s Fill has {which} to fill, so it fills nothing.", layer.name),
+                        format!("Frame {frame} is drawn without the fill. The effect is kept as it is."),
+                    )
+                    .with_remediation("Draw a mask on the layer, set Fill Mask to a mask it has, or set it to 0 to fill the whole layer."),
+                );
+            }
+        }
     }
     // The mask itself is drawn below, once it is known whether the effect cache already holds
     // the drawing it makes (B-170).

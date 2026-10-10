@@ -1808,6 +1808,22 @@ pub enum Effect {
         opacity: f64,
         blending_mode: String,
     },
+    /// D-418: after After Effects' Fill. `mask`, 0 to 1000, the mask numbered so (its floor
+    /// taken), 0 for none, the whole layer; `all_masks` and `invert`, "off" or "on"; `color`,
+    /// `#rrggbb`; `horizontal_feather` and `vertical_feather`, 0 to 1000 pixels; `opacity`, 0 to
+    /// 100. `paths` is not a setting and is never saved: compose fills it each frame with the
+    /// masks chosen, flattened, at the size the effects run at, `Some` of none for the whole
+    /// layer and `None` when a mask was asked for and there is none.
+    Fill {
+        mask: f64,
+        all_masks: String,
+        color: String,
+        invert: String,
+        horizontal_feather: f64,
+        vertical_feather: f64,
+        opacity: f64,
+        paths: Option<Vec<Vec<(f64, f64)>>>,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2400,6 +2416,7 @@ pub const FRACTAL: &str = "core.fractal";
 pub const FRACTAL_SETS: [&str; 6] = ["mandelbrot", "mandelbrot_inverse", "mandelbrot_over_julia", "mandelbrot_inverse_over_julia", "julia", "julia_inverse"];
 pub const FRACTAL_PALETTES: [&str; 4] = ["lightness_gradient", "hue_wheel", "black_and_white", "solid_color"];
 pub const GRID: &str = "core.grid";
+pub const FILL: &str = "core.fill";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3310,6 +3327,12 @@ impl Effect {
                 ("feather_inner", vec![feather_inner], 0.0, 10000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::Fill { mask, horizontal_feather, vertical_feather, opacity, .. } => vec![
+                ("mask", vec![mask], 0.0, 1000.0),
+                ("horizontal_feather", vec![horizontal_feather], 0.0, 1000.0),
+                ("vertical_feather", vec![vertical_feather], 0.0, 1000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -4172,6 +4195,11 @@ impl Effect {
                     *feather_inner = scale(*feather_inner);
                 }
             }
+            // D-418: the feathers are distances; the masks are scaled as they always are.
+            Effect::Fill { horizontal_feather, vertical_feather, .. } => {
+                *horizontal_feather = scale(*horizontal_feather);
+                *vertical_feather = scale(*vertical_feather);
+            }
             // D-417: the cells held at least a pixel, as Checkerboard's.
             Effect::Grid { width, height, border, feather_width, feather_height, .. } => {
                 *width = scale(*width).max(1.0);
@@ -4468,6 +4496,7 @@ impl Effect {
             Effect::Checkerboard { .. } => "Checkerboard",
             Effect::Circle { .. } => "Circle",
             Effect::Grid { .. } => "Grid",
+            Effect::Fill { .. } => "Fill",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -4636,6 +4665,7 @@ impl Effect {
             Effect::Checkerboard { .. } => CHECKERBOARD,
             Effect::Circle { .. } => CIRCLE,
             Effect::Grid { .. } => GRID,
+            Effect::Fill { .. } => FILL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -5858,6 +5888,13 @@ impl Effect {
                 "Grid's blending mode is \"none\", \"normal\", \"add\", \"multiply\", \"screen\", \"overlay\", \"soft_light\" or \"stencil_alpha\", and this is \"{blending_mode}\"."
             )),
             Effect::Grid { color, .. } => hex_fault("Grid", "colour", color),
+            Effect::Fill { all_masks: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Fill's all masks is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::Fill { invert: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Fill's invert is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::Fill { color, .. } => hex_fault("Fill", "colour", color),
             Effect::Ellipse { composite, .. } if !["on", "off"].contains(&composite.as_str()) => Some(format!(
                 "Ellipse's composite is \"on\" or \"off\", and this is \"{composite}\"."
             )),
@@ -7467,6 +7504,17 @@ pub(crate) fn apply_stack_at(
             e @ Effect::AudioWaveform { .. } => {
                 if let Some(marks) = crate::layer_fx::waveform_marks(e, (source.width(), source.height()), (ox, oy)) {
                     crate::perf::time(crate::perf::Stage::EffectAudioWaveform, || crate::layer_fx::draw_marks(source, &marks))
+                }
+            }
+            // D-418: the masks compose found for this frame, in the drawing's own space however an
+            // effect above grew it; with none, the layer is left as it is (EFFECT_PATH_MISSING was
+            // said when they were looked for). The layer never grows.
+            Effect::Fill { color, invert, horizontal_feather, vertical_feather, opacity, paths, .. } => {
+                if let Some(paths) = paths {
+                    crate::perf::time(crate::perf::Stage::EffectFill, || {
+                        let c = encoded(color).map(crate::grade::to_linear);
+                        crate::layer_fx::fill(source, paths, (ox, oy), [*horizontal_feather, *vertical_feather], c, invert == "on", *opacity / 100.0)
+                    })
                 }
             }
             // D-417: the anchor and corner as Checkerboard's; the layer never grows.
