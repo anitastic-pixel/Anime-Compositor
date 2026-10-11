@@ -208936,3 +208936,71 @@ FX-GMELT-031 (`fx_gmelt_031.json`): A reveal layer written as the number 3, not 
 FX-GMELT-032 (`fx_gmelt_032.json`): A gradient layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-GMELT-033 (`fx_gmelt_033.json`): Completion keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Time Difference (D-521)
+
+Time Difference (`core.time_difference`), after After Effects' Time Difference (B-401), the rule ours. Every case is a project of one composition 16 by 10, eight frames at 24 a second: switched-off layers to name (`plate`, a still of the background; `late`, the plate from frame 4; `twin`, the holder's own drawings), and on top the layer `holder`, a ball running right over a striped background in five drawings, with the effect. `tools/time_difference_reference.py` works the expected frames, `Fixtures/time_difference/expected_time_difference.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-TDIFF-001 (`fx_tdiff_001.json`): As added: the layer against itself now, so nothing differs and every pixel that shows is black, the clear ones clear. Frames 2.
+
+FX-TDIFF-002 (`fx_tdiff_002.json`): Against itself one frame back: the ball's old and new places show, the rest is black. At frame 0 the frame before is outside the layer, a clear target, so the layer shows as it is. Frames 0, 2.
+
+FX-TDIFF-003 (`fx_tdiff_003.json`): Against itself one frame ahead. At frame 4 the next frame holds the same drawing, so all black; at frame 7 the next frame is past the out point, so the layer as it is. Frames 2, 4, 7.
+
+FX-TDIFF-004 (`fx_tdiff_004.json`): Absolute Difference off, one frame back: no difference is mid grey, lighter where the layer is lighter now, darker where it was lighter. Frames 2.
+
+FX-TDIFF-005 (`fx_tdiff_005.json`): Contrast 20, one frame back: every difference three times as strong, held at white. Frames 2.
+
+FX-TDIFF-006 (`fx_tdiff_006.json`): Alpha Channel Target, one frame back: the covering is the target's, so the ball's old place on the stripe shows and its new place does not. Frames 2.
+
+FX-TDIFF-007 (`fx_tdiff_007.json`): Alpha Channel Blend: the mean of the two coverings. Frames 2.
+
+FX-TDIFF-008 (`fx_tdiff_008.json`): Alpha Channel Max: the larger of the two coverings. Frames 2.
+
+FX-TDIFF-009 (`fx_tdiff_009.json`): Alpha Channel Full On: every pixel covered, the clear corner black. Frames 2.
+
+FX-TDIFF-010 (`fx_tdiff_010.json`): Alpha Channel Lightness Of Result: covered as far as the difference is light, so the still background goes clear. Frames 2.
+
+FX-TDIFF-011 (`fx_tdiff_011.json`): Alpha Channel Max Of Result: covered by the strongest channel of the difference. Frames 2.
+
+FX-TDIFF-012 (`fx_tdiff_012.json`): Alpha Channel Alpha Difference: covered by how much the covering changed, only on the stripe where the ball came and went. Frames 2.
+
+FX-TDIFF-013 (`fx_tdiff_013.json`): Alpha Channel Alpha Difference Only: as FX-TDIFF-012, with every colour white. Frames 2.
+
+FX-TDIFF-014 (`fx_tdiff_014.json`): The plate as the target, now: the background matches and goes black, only the ball and its trail show. Frames 2, 4.
+
+FX-TDIFF-015 (`fx_tdiff_015.json`): The plate from frame 4 as the target: at frame 2 it is clear, so the layer shows as it is; at frame 4 it is FX-TDIFF-014. Frames 2, 4.
+
+FX-TDIFF-016 (`fx_tdiff_016.json`): A layer that is not in the composition, `gone`: nothing changes, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-TDIFF-017 (`fx_tdiff_017.json`): A second layer of the same drawings as the target, one frame back: FX-TDIFF-002. Frames 2.
+
+FX-TDIFF-018 (`fx_tdiff_018.json`): Time Offset keyed from 0 at frame 0 to -4 frames at frame 4: at frame 0 black; at frame 2 two frames back; at frame 4 four frames back. Frames 0, 2, 4.
+
+FX-TDIFF-019 (`fx_tdiff_019.json`): FX-TDIFF-002 on the holder moved 2 right and 1 down: the same picture moved, since the target lies on the layer. Frames 2.
+
+FX-TDIFF-020 (`fx_tdiff_020.json`): An Exposure of +1 before Time Difference, against itself now: the target is the drawing without its effects, so the brightening shows as a difference. Frames 2.
+
+FX-TDIFF-021 (`fx_tdiff_021.json`): FX-TDIFF-004 with an Exposure of -1 after Time Difference: the grey picture darkened. Frames 2.
+
+FX-TDIFF-022 (`fx_tdiff_022.json`): On an adjustment layer above the holder with no target named: an adjustment layer has no picture of its own, so nothing changes. Frames 2.
+
+FX-TDIFF-023 (`fx_tdiff_023.json`): On an adjustment layer with the plate as the target: the frame beneath, here the holder's own rectangle, against the plate, FX-TDIFF-014. Frames 2.
+
+FX-TDIFF-024 (`fx_tdiff_024.json`): Contrast 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDIFF-025 (`fx_tdiff_025.json`): Contrast -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDIFF-026 (`fx_tdiff_026.json`): Time Offset 61 seconds, above 60. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDIFF-027 (`fx_tdiff_027.json`): Time Offset -61 seconds, below -60. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDIFF-028 (`fx_tdiff_028.json`): An Alpha Channel written "lightness". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDIFF-029 (`fx_tdiff_029.json`): An Absolute Difference written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDIFF-030 (`fx_tdiff_030.json`): A target written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TDIFF-031 (`fx_tdiff_031.json`): Time Offset keyed to 100 seconds at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+`cycle_two.json`: `a` and `b`, each the ball, each with a Time Difference whose target is the other: refused, `EFFECT_LAYER_CYCLE`.
