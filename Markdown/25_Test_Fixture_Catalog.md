@@ -209048,3 +209048,63 @@ FX-BURN-018 (`fx_burn_018.json`): Random Seed -1, below 0. The file is read, the
 FX-BURN-019 (`fx_burn_019.json`): Random Seed 100001, above 100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BURN-020 (`fx_burn_020.json`): Burn keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Tile Wipe (D-510)
+
+Tile Wipe (`core.tile_wipe`), after the purpose of CycoreFX's CC Grid Wipe (B-390, EFFECTS.md row 272), the rule ours. Every case is a project of one composition 16 by 10, five frames, the drawing Broadcast Colors' (with transparent columns and a half-covered one) with the effect. `tools/tile_wipe_reference.py` works the expected frames, `Fixtures/tile_wipe/expected_tile_wipe.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-TILE-001 (`fx_tile_001.json`): The settings as they start: completion 0, so nothing changes. Frames 0.
+
+FX-TILE-002 (`fx_tile_002.json`): Completion 100: every tile gone, every pixel clear. Frames 0.
+
+FX-TILE-003 (`fx_tile_003.json`): Completion 50, tiles 4 (tiles 4 pixels wide), radial: the tiles round the middle gone, the next ring shrinking, the corners whole. Frames 0.
+
+FX-TILE-004 (`fx_tile_004.json`): FX-TILE-003 with shape rectangle: the tiles go in square rings. Frames 0.
+
+FX-TILE-005 (`fx_tile_005.json`): FX-TILE-003 with shape doors: the tiles go in columns from the middle out, splitting the layer in two. Frames 0.
+
+FX-TILE-006 (`fx_tile_006.json`): FX-TILE-003 reversed: the corners go first, the middle stays. Frames 0.
+
+FX-TILE-007 (`fx_tile_007.json`): FX-TILE-003 with border 2: each shrinking tile's edge soft over 2 pixels. Frames 0.
+
+FX-TILE-008 (`fx_tile_008.json`): FX-TILE-003 with rotation 30: the whole grid turned, not each tile. Frames 0.
+
+FX-TILE-009 (`fx_tile_009.json`): Center [0, 0], completion 50, tiles 4: the wipe starts from the top-left corner. Frames 0.
+
+FX-TILE-010 (`fx_tile_010.json`): Tiles 1, completion 10: one tile the drawing's width, four tenths of the way gone, shrunk about the middle. Frames 0.
+
+FX-TILE-011 (`fx_tile_011.json`): Tiles 2.5, completion 60, rectangle: tile 6.4 pixels wide, so the tiles need not fit the drawing. Frames 0.
+
+FX-TILE-012 (`fx_tile_012.json`): Completion keyed from 0 at frame 0 to 100 at frame 4, linear, tiles 4, border 1: frame 2 is completion 50. Frames 0, 2, 4.
+
+FX-TILE-013 (`fx_tile_013.json`): Rotation keyed from 0 at frame 0 to 40 at frame 4, linear, completion 50, tiles 4: frame 2 is rotation 20. Frames 0, 2, 4.
+
+FX-TILE-014 (`fx_tile_014.json`): Center keyed from [25, 50] at frame 0 to [75, 50] at frame 4, linear, completion 40, tiles 4, rectangle. Frames 0, 4.
+
+FX-TILE-015 (`fx_tile_015.json`): FX-TILE-007 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-TILE-016 (`fx_tile_016.json`): Doors reversed, completion 70, tiles 8, border 0.5: the outer columns gone, a soft middle left. Frames 0.
+
+FX-TILE-017 (`fx_tile_017.json`): Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILE-018 (`fx_tile_018.json`): Completion -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILE-019 (`fx_tile_019.json`): Center x 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILE-020 (`fx_tile_020.json`): Rotation 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILE-021 (`fx_tile_021.json`): Border -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILE-022 (`fx_tile_022.json`): Border 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILE-023 (`fx_tile_023.json`): Tiles 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILE-024 (`fx_tile_024.json`): Tiles 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILE-025 (`fx_tile_025.json`): Shape "Radial": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILE-026 (`fx_tile_026.json`): Shape "star": not a shape of Tile Wipe. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILE-027 (`fx_tile_027.json`): Reverse "yes": "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TILE-028 (`fx_tile_028.json`): Completion keyed to 200 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
