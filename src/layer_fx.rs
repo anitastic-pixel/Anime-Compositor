@@ -6602,15 +6602,41 @@ fn wrapped(src: &WorkingBuffer, (w, h): (usize, usize), x: f64, y: f64) -> [f32;
     out
 }
 
+/// D-512: Channel Wipe's reading of the premultiplied pixel `p` by `property`: the encoded
+/// channels of its colour over black, its covering, its picture luma, or the HSL of the encoded
+/// colour (hue over 360).
+fn wipe_reading(property: &str, p: [f32; 4]) -> f64 {
+    match property {
+        "luminance" => picture_luma(p),
+        "alpha" => p[3] as f64,
+        _ => {
+            let e = [0, 1, 2].map(|c| crate::grade::to_srgb((p[c] as f64).clamp(0.0, 1.0)));
+            let [h, s, l] = crate::grade::to_hsl(e);
+            match property {
+                "red" => e[0],
+                "green" => e[1],
+                "blue" => e[2],
+                "hue" => h / 360.0,
+                "saturation" => s,
+                _ => l,
+            }
+        }
+    }
+}
+
 /// D-194: Gradient Wipe. Each pixel is kept by how far the picture luma of the map under it lies
 /// above the edge `completion` has reached, over a band `softness` wide; the map lies on the
 /// layer's own picture, which sits at `origin` in `source`, and reads black outside it.
+/// D-512 (Channel Wipe), the same engine: `map` `None` for the input itself lying on itself;
+/// the map read by `reading.0` ([`wipe_reading`]; Gradient Wipe's is `luminance`), and with
+/// `reading.1` above 0 the readings blurred at sigma `reading.1 / 2`, the outer pixels repeated.
 pub(crate) fn gradient_wipe(
     source: &mut WorkingBuffer,
-    map: &WorkingBuffer,
+    map: Option<&WorkingBuffer>,
     origin: (usize, usize),
     completion: f64,
     softness: f64,
+    (property, blur): (&str, f64),
     invert: bool,
 ) {
     if completion == 0.0 {
@@ -6622,11 +6648,28 @@ pub(crate) fn gradient_wipe(
     }
     let (c, s) = (completion / 100.0, softness / 100.0);
     let edge = -s / 2.0 + c * (1.0 + s);
-    let w = source.width();
+    let (w, h) = (source.width(), source.height());
+    let itself = map.is_none().then(|| source.clone());
+    let (map, origin) = match map {
+        Some(m) => (m, origin),
+        None => (itself.as_ref().expect("cloned when there is no map"), (0, 0)),
+    };
     let (mw, mh) = (map.width(), map.height());
-    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+    let read = |i: usize| {
         let (x, y) = ((i % w).wrapping_sub(origin.0), (i / w).wrapping_sub(origin.1));
-        let v = if x < mw && y < mh { picture_luma(map.pixel(x, y)) } else { 0.0 };
+        if x < mw && y < mh { wipe_reading(property, map.pixel(x, y)) } else { 0.0 }
+    };
+    let field = (blur > 0.0).then(|| {
+        let mut f = WorkingBuffer::transparent(w, h);
+        f.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| px[3] = read(i) as f32);
+        crate::effects::held_blur_axes(&mut f, &crate::effects::gaussian_weights(blur / 2.0), (true, true));
+        f
+    });
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let v = match &field {
+            Some(f) => f.data()[i * 4 + 3] as f64,
+            None => read(i),
+        };
         let v = if invert { 1.0 - v } else { v };
         let k = if s > 0.0 {
             ((v - edge) / s + 0.5).clamp(0.0, 1.0)

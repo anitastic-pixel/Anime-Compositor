@@ -2353,6 +2353,21 @@ pub enum Effect {
         width: f64,
         shape: String,
     },
+    /// D-512: Channel Wipe, after CycoreFX's CC Image Wipe, its rule and its settings when added
+    /// ours: Gradient Wipe's engine (`layer_fx::gradient_wipe`) with the gradient read by
+    /// `property`, one of [`VECTOR_BLUR_PROPERTIES`], and blurred by `blur`, 0 to 100 pixels.
+    /// `layer` and `fit` as Gradient Wipe's, "" for the layer itself; `completion` and
+    /// `softness`, 0 to 100; `invert`, `off` or `on`. `map` is not a setting and is never saved.
+    ChannelWipe {
+        layer: serde_json::Value,
+        fit: String,
+        completion: f64,
+        softness: f64,
+        property: String,
+        blur: f64,
+        invert: String,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-507: after CycoreFX's CC Spotlight, its rule and its settings when added ours
     /// (`layer_fx::cc_spotlight`, document 21). `from` and `to`, x then y, per cent of the
     /// drawing, -1000 to 1000; `height`, 0 to 1000 per cent of the drawing's width; `cone_angle`,
@@ -3272,6 +3287,7 @@ pub const THREE_D_GLASSES: &str = "core.three_d_glasses";
 pub const GLASS_MELT: &str = "core.glass_melt";
 pub const TILE_WIPE: &str = "core.tile_wipe";
 pub const TEETH_WIPE: &str = "core.teeth_wipe";
+pub const CHANNEL_WIPE: &str = "core.channel_wipe";
 /// D-511: Teeth Wipe's shapes.
 pub const TEETH_SHAPES: [&str; 3] = ["spikes", "trapezoids", "blocks"];
 /// D-510: Tile Wipe's shapes.
@@ -3524,6 +3540,11 @@ impl Effect {
                 ("direction", vec![direction], -3600.0, 3600.0),
                 ("height", vec![height], 0.0, 1000.0),
                 ("width", vec![width], 1.0, 1000.0),
+            ],
+            Effect::ChannelWipe { completion, softness, blur, .. } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("softness", vec![softness], 0.0, 100.0),
+                ("blur", vec![blur], 0.0, 100.0),
             ],
             Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, intensity, .. } => vec![
                 ("from", from.iter_mut().collect(), -1000.0, 1000.0),
@@ -5630,6 +5651,8 @@ impl Effect {
                 *height = scale(*height);
                 *width = scale(*width);
             }
+            // D-512: the blur is a distance.
+            Effect::ChannelWipe { blur, .. } => *blur = scale(*blur),
             // D-502: the radius, thin and feather are distances; the masks are scaled as they
             // always are.
             Effect::InnerOuterKey { single_mask_highlight_radius, edge_thin, edge_feather, .. } => {
@@ -6016,6 +6039,7 @@ impl Effect {
             Effect::GlassMelt { .. } => "Glass Melt",
             Effect::TileWipe { .. } => "Tile Wipe",
             Effect::TeethWipe { .. } => "Teeth Wipe",
+            Effect::ChannelWipe { .. } => "Channel Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
@@ -6227,6 +6251,7 @@ impl Effect {
             Effect::GlassMelt { .. } => GLASS_MELT,
             Effect::TileWipe { .. } => TILE_WIPE,
             Effect::TeethWipe { .. } => TEETH_WIPE,
+            Effect::ChannelWipe { .. } => CHANNEL_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
@@ -6506,6 +6531,7 @@ impl Effect {
             Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::ChannelWipe { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::AerialHaze { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::DifferenceMatte { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Glass { layer: serde_json::Value::String(layer), fit, .. }
@@ -6543,6 +6569,7 @@ impl Effect {
             Effect::CompoundBlur { layer, map, .. }
             | Effect::DisplacementMap { layer, map, .. }
             | Effect::GradientWipe { layer, map, .. }
+            | Effect::ChannelWipe { layer, map, .. }
             | Effect::AerialHaze { layer, map, .. }
             | Effect::DifferenceMatte { layer, map, .. }
             | Effect::Glass { layer, map, .. }
@@ -7891,6 +7918,18 @@ impl Effect {
                     "Radial Wipe's wipe is \"clockwise\", \"counterclockwise\" or \"both\", and this is \"{wipe}\"."
                 ))
             }
+            Effect::ChannelWipe { layer, fit, property, invert, .. } => (!layer.is_string())
+                .then(|| format!("Channel Wipe's layer is the name of a layer of this composition, and this is {layer}."))
+                .or_else(|| (!["center", "stretch", "tile"].contains(&fit.as_str())).then(|| format!(
+                    "Channel Wipe's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+                )))
+                .or_else(|| (!VECTOR_BLUR_PROPERTIES.contains(&property.as_str())).then(|| format!(
+                    "Channel Wipe's property is \"red\", \"green\", \"blue\", \"alpha\", \"luminance\", \"lightness\", \"hue\" \
+                     or \"saturation\", and this is \"{property}\"."
+                )))
+                .or_else(|| (!["off", "on"].contains(&invert.as_str())).then(|| format!(
+                    "Channel Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
+                ))),
             Effect::TeethWipe { shape, .. } if !TEETH_SHAPES.contains(&shape.as_str()) => Some(format!(
                 "Teeth Wipe's shape is \"spikes\", \"trapezoids\" or \"blocks\", and this is \"{shape}\"."
             )),
@@ -10653,7 +10692,17 @@ pub(crate) fn apply_stack_at(
             Effect::GradientWipe { completion, softness, invert, map, .. } => {
                 if let Some(map) = map {
                     crate::perf::time(crate::perf::Stage::EffectGradientWipe, || {
-                        crate::layer_fx::gradient_wipe(source, &map.0, (ox, oy), *completion, *softness, invert == "on")
+                        crate::layer_fx::gradient_wipe(source, Some(&*map.0), (ox, oy), *completion, *softness, ("luminance", 0.0), invert == "on")
+                    })
+                }
+            }
+            // D-512: Gradient Wipe's engine; "" for the layer itself; a layer named but not read
+            // leaves the layer as it is, with D-189's warning. Never grows.
+            Effect::ChannelWipe { layer, completion, softness, property, blur, invert, map, .. } => {
+                if map.is_some() || layer.as_str() == Some("") {
+                    crate::perf::time(crate::perf::Stage::EffectChannelWipe, || {
+                        let map = map.as_ref().map(|m| &*m.0);
+                        crate::layer_fx::gradient_wipe(source, map, (ox, oy), *completion, *softness, (property, *blur), invert == "on")
                     })
                 }
             }

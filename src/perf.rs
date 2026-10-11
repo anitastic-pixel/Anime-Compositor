@@ -415,6 +415,8 @@ pub enum Stage {
     EffectTeethWipe,
     /// D-462's Mr. Smoothie.
     EffectMrSmoothie,
+    /// D-512: Channel Wipe.
+    EffectChannelWipe,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -432,7 +434,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 213] = [
+    pub const ALL: [Stage; 214] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -639,6 +641,7 @@ impl Stage {
         Stage::EffectHexTile,
         Stage::EffectTeethWipe,
         Stage::EffectMrSmoothie,
+        Stage::EffectChannelWipe,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -857,6 +860,7 @@ impl Stage {
             Stage::EffectHexTile => "effect: hex tile",
             Stage::EffectTeethWipe => "effect: teeth wipe",
             Stage::EffectMrSmoothie => "effect: mr smoothie",
+            Stage::EffectChannelWipe => "effect: channel wipe",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

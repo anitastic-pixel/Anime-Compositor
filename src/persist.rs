@@ -2504,6 +2504,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("remove_color_matting".into(), J::from(remove_color_matting.as_str()));
             params.insert("clip_hdr_results".into(), J::from(clip_hdr_results.as_str()));
         }
+        Effect::ChannelWipe { layer, fit, completion, softness, property, blur, invert, .. } => {
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("completion".into(), num(*completion));
+            params.insert("softness".into(), num(*softness));
+            params.insert("property".into(), J::from(property.as_str()));
+            params.insert("blur".into(), num(*blur));
+            params.insert("invert".into(), J::from(invert.as_str()));
+        }
         Effect::TeethWipe { completion, center, direction, height, width, shape } => {
             params.insert("completion".into(), num(*completion));
             params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
@@ -5052,6 +5061,7 @@ fn parse_effect(
         crate::effects::GLASS_MELT,
         crate::effects::TILE_WIPE,
         crate::effects::TEETH_WIPE,
+        crate::effects::CHANNEL_WIPE,
         crate::effects::CC_SPOTLIGHT,
         crate::effects::ENERGY_STROKE,
         crate::effects::SIMPLE_WIRE_REMOVAL,
@@ -6088,6 +6098,17 @@ fn parse_effect(
             softness: effect_number(params, "softness", &at)?,
             remove_color_matting: effect_word(params, "remove_color_matting", &at)?,
             clip_hdr_results: effect_word(params, "clip_hdr_results", &at)?,
+        }),
+        // D-512: the layer is kept as written, as Gradient Wipe's is.
+        crate::effects::CHANNEL_WIPE => Some(crate::effects::Effect::ChannelWipe {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            completion: effect_number(params, "completion", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            property: effect_word(params, "property", &at)?,
+            blur: effect_number(params, "blur", &at)?,
+            invert: effect_word(params, "invert", &at)?,
+            map: None,
         }),
         crate::effects::TEETH_WIPE => Some(crate::effects::Effect::TeethWipe {
             completion: effect_number(params, "completion", &at)?,

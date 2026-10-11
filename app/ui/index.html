@@ -9318,6 +9318,7 @@ const EFFECT_NAMES = {
   'core.glass_melt': 'Glass Melt',
   'core.tile_wipe': 'Tile Wipe',
   'core.teeth_wipe': 'Teeth Wipe',
+  'core.channel_wipe': 'Channel Wipe',
   'core.echo': 'Echo',
   'core.cc_wide_time': 'CC Wide Time',
   'core.time_difference': 'Time Difference',
@@ -9483,7 +9484,7 @@ const EFFECT_GROUPS = [
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key']],
   ['Text', ['core.text_animator']],
-  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
+  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
 const EFFECT_SEARCH = {
@@ -9549,6 +9550,7 @@ const EFFECT_SEARCH = {
   'core.compound_blur': 'compound variable map depth focus blur layer',
   'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction chromatic prism water spectrum rainbow colour color fringe',
   'core.gradient_wipe': 'gradient wipe reveal transition dissolve luma matte map layer',
+  'core.channel_wipe': 'channel wipe image wipe gradient wipe reveal transition dissolve luma matte map layer red green blue alpha hue saturation lightness blur',
   'core.teeth_wipe': 'teeth wipe jaws teeth zigzag split break cut part transition reveal spikes trapezoids blocks',
   'core.tile_wipe': 'tile wipe grid wipe squares tiles blocks grid transition reveal doors radial rectangle shrink',
   'core.glass_melt': 'glass melt glass wipe melt transition reveal refraction bend liquid melting dissolve gradient layer displacement',
@@ -9772,6 +9774,7 @@ const EFFECT_ABOUT = {
   'core.compound_blur': 'Blurs the layer more where another layer of the composition is brighter.',
   'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition; different colour amounts part the colours, as light through water or glass.',
   'core.gradient_wipe': 'Wipes the layer away from the darkest parts of another layer of the composition to the brightest.',
+  'core.channel_wipe': 'Wipes the layer away from the lowest values of a gradient layer to the highest, read by the Property you pick: a colour channel, alpha, luminance, lightness, hue or saturation. With no layer named the layer itself is the gradient. Blur smooths the gradient first; Softness widens the edge. As it is added, nothing changes.',
   'core.teeth_wipe': 'Splits the layer in two along a toothed cut through the Center, and moves the two parts apart until, at 100, both are gone. Direction turns the cut; Height and Width size the teeth; Shape picks spikes, flat-topped trapezoids or square blocks. As it is added, nothing changes.',
   'core.tile_wipe': 'Cuts the layer into a grid of square tiles that shrink away, from the Center out (or the edges in, reversed), in a round, square or two-door order. Rotation turns the whole grid; Border softens each tile\u2019s edge; Tiles is how many tiles across. As it is added, nothing changes.',
   'core.glass_melt': 'Melts the layer away like bending glass, from the darkest parts of a gradient layer to the brightest, showing another layer beneath. Completion is how far it has gone; Softness smooths the gradient and widens the bend; Displacement Amount is how far the edge bends the two pictures. As it is added, nothing changes.',
@@ -10428,6 +10431,9 @@ const EFFECT_PARAMS = {
   // D-194.
   'core.gradient_wipe': [['completion', 'Transition Completion', 1, 1, '% wiped away, 0 to 100'],
     ['softness', 'Transition Softness', 1, 1, '%, 0 to 100, how soft the edge is']],
+  'core.channel_wipe': [['completion', 'Completion', 1, 1, '% wiped away, 0 to 100'],
+    ['softness', 'Border Softness', 1, 1, '%, 0 to 100, how soft the edge is'],
+    ['blur', 'Blur', 1, 0.5, 'pixels, 0 to 100, how much the gradient is smoothed first']],
   'core.teeth_wipe': [['completion', 'Completion', 1, 1, '% parted, 0 to 100'],
     ['center', 'Center', 2, 1, '% of the width and height, -1000 to 1000, where the cut goes through and turns about'],
     ['direction', 'Direction', 1, 1, '-3600 to 3600 degrees, the cut turned'],
@@ -11782,6 +11788,14 @@ const EFFECT_WORDS = {
   },
   // D-194, After Effects' own words.
   // D-511: our names for CycoreFX's three teeth.
+  // D-512.
+  'core.channel_wipe': {
+    layers: [['layer', 'Gradient Layer', 'map_layer']],
+    choices: [['property', 'Property', [['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha'],
+        ['luminance', 'Luminance'], ['lightness', 'Lightness'], ['hue', 'Hue'], ['saturation', 'Saturation']]],
+      ['fit', 'Gradient Placement', [['stretch', 'Stretch Gradient to Fit'], ['center', 'Center Gradient'], ['tile', 'Tile Gradient']]],
+      ['invert', 'Inverse Gradient', [['off', 'Off'], ['on', 'On']]]],
+  },
   'core.teeth_wipe': {
     choices: [['shape', 'Shape', [['spikes', 'Spikes'], ['trapezoids', 'Trapezoids'], ['blocks', 'Blocks']]]],
   },

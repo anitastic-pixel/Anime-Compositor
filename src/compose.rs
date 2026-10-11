@@ -1125,6 +1125,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::TileWipe { .. }
                 // D-511.
                 | crate::effects::Effect::TeethWipe { .. }
+                // D-512.
+                | crate::effects::Effect::ChannelWipe { .. }
                 // D-400.
                 | crate::effects::Effect::ShadowHighlight { .. }
                 // D-397.
@@ -1463,6 +1465,8 @@ fn card_effect(
                 // B-226: as each one's own function returns at once.
                 E::BlockDissolve { completion, .. } => *completion == 0.0,
                 E::GradientWipe { completion, map, .. } => map.is_none() || *completion == 0.0,
+                // D-512: nothing wiped yet, or a layer named but not read.
+                E::ChannelWipe { completion, layer, map, .. } => *completion == 0.0 || (map.is_none() && layer.as_str() != Some("")),
                 // D-403: even with no layer named; a layer named but not read leaves it as it is.
                 E::AerialHaze { amount, layer, map, .. } => *amount == 0.0 || (layer.as_str() != Some("") && map.is_none()),
                 // D-501: no plate read, none named or one named but not read.

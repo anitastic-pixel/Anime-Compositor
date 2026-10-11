@@ -8062,8 +8062,33 @@ fn dissolve(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, textureLoad(input, id.xy, 0) * f32(kept));
 }
 
+// D-512, layer_fx::wipe_reading: the reading `kind` (VECTOR_BLUR_PROPERTIES' order) of `q`.
+fn wipe_reading(kind: u32, q: vec4<f32>) -> f64 {
+    if kind == 3u {
+        return f64(q.w);
+    }
+    if kind == 4u {
+        return picture_luma(q);
+    }
+    let c = vec3(
+        to_srgb(clamp(f64(q.x), 0.0lf, 1.0lf)),
+        to_srgb(clamp(f64(q.y), 0.0lf, 1.0lf)),
+        to_srgb(clamp(f64(q.z), 0.0lf, 1.0lf)),
+    );
+    switch kind {
+        case 0u: { return c.x; }
+        case 1u: { return c.y; }
+        case 2u: { return c.z; }
+        case 5u: { return hsl(c).z; }
+        case 6u: { return hsl(c).x / 360.0lf; }
+        default: { return hsl(c).y; }
+    }
+}
+
 // B-226, layer_fx::gradient_wipe: the map (`other`) lying on the drawing at (F.ox, F.oy); k the
-// edge, the softness as a share, invert, and 1 to clear the drawing.
+// edge, the softness as a share, invert, and 1 to clear the drawing. D-512: k[4] the reading's
+// kind (Gradient Wipe's 4, luminance); k[5] 0 to read the map, 2 to store the reading as the
+// output's alpha (to be blurred), 1 to read that blurred reading, `other`'s alpha.
 @compute @workgroup_size(16, 16)
 fn gwipe(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -8075,7 +8100,15 @@ fn gwipe(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, vec4(0.0));
         return;
     }
-    var v = picture_luma(at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy)));
+    let q = at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy));
+    var v = f64(q.w);
+    if k[5] != 1.0lf {
+        v = wipe_reading(u32(k[4]), q);
+    }
+    if k[5] == 2.0lf {
+        textureStore(output, id.xy, vec4(0.0, 0.0, 0.0, f32(v)));
+        return;
+    }
     if k[2] == 1.0lf {
         v = 1.0lf - v;
     }
@@ -13142,10 +13175,37 @@ impl Gpu {
             E::GradientWipe { completion, softness, invert, map, .. } => {
                 let map = self.map_texture(&map.as_ref().expect("compose leaves a Gradient Wipe with a map").0);
                 let (c, s) = (completion / 100.0, softness / 100.0);
-                let k = [-s / 2.0 + c * (1.0 + s), s, (invert == "on") as u8 as f64, (*completion == 100.0) as u8 as f64];
+                let luminance = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == "luminance").expect("luminance is a reading");
+                let k = [-s / 2.0 + c * (1.0 + s), s, (invert == "on") as u8 as f64, (*completion == 100.0) as u8 as f64, luminance as f64, 0.0];
                 let out = self.scratch("B-226 wipe", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.gwipe, p, Some(still), Some(&out), Some(&k), Some(&map), none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-512: compose leaves the card a Channel Wipe only when it wipes and its layer, if
+            // one is named, was read; "" for the layer itself.
+            E::ChannelWipe { completion, softness, property, blur, invert, map, .. } => {
+                let (picture, (mx, my)) = match map {
+                    Some(m) => (self.map_texture(&m.0), (ox, oy)),
+                    None => (still.clone(), (0, 0)),
+                };
+                let kind = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == property.as_str()).expect("compose leaves a Channel Wipe whose property is a reading");
+                let (c, s) = (completion / 100.0, softness / 100.0);
+                let mut k = [-s / 2.0 + c * (1.0 + s), s, (invert == "on") as u8 as f64, (*completion == 100.0) as u8 as f64, kind as f64, 0.0];
+                let out = self.scratch("D-512 wipe", w, h);
+                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
+                if *blur > 0.0 && *completion != 100.0 {
+                    let raw = self.scratch("D-512 reading", w, h);
+                    k[5] = 2.0;
+                    self.fx_step(steps, &passes.gwipe, p, Some(still), Some(&raw), Some(&k), Some(&picture), none, tiles(w, h));
+                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                    let taps = crate::effects::gaussian_weights(blur / 2.0);
+                    let field = self.gauss(steps, bloom, "D-512 reading", &raw, (w, h), [&taps, &taps], 0, true);
+                    k[5] = 1.0;
+                    self.fx_step(steps, &passes.gwipe, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&field), none, tiles(w, h));
+                } else {
+                    self.fx_step(steps, &passes.gwipe, p, Some(still), Some(&out), Some(&k), Some(&picture), none, tiles(w, h));
+                }
                 (out, (w, h))
             }
             // D-403: compose leaves the card a haze only when it is even or its matte was read.
