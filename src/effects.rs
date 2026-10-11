@@ -5174,6 +5174,8 @@ impl Effect {
                 *horizontal_feather = scale(*horizontal_feather);
                 *vertical_feather = scale(*vertical_feather);
             }
+            // D-501 (B-381b): the blur is a distance; the tolerance and softness are not.
+            Effect::DifferenceMatte { blur_before_difference, .. } => *blur_before_difference = scale(*blur_before_difference),
             // D-502: the radius, thin and feather are distances; the masks are scaled as they
             // always are.
             Effect::InnerOuterKey { single_mask_highlight_radius, edge_thin, edge_feather, .. } => {

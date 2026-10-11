@@ -288,6 +288,14 @@ fn b381_difference_matte() {
             *matching_tolerance = 5.0;
         }
     });
+    let blurred = |b: f64| {
+        with(&|e| {
+            if let Effect::DifferenceMatte { matching_tolerance, matching_softness, blur_before_difference, .. } = e {
+                (*matching_tolerance, *matching_softness, *blur_before_difference) = (5.0, 10.0, b);
+            }
+        })
+    };
+    let (mut draft, half) = (blurred(4.0), blurred(2.0));
     refused(
         &mut t,
         &mut document,
@@ -306,6 +314,14 @@ fn b381_difference_matte() {
             ("the plate as the difference layer at tolerance 5", set_holder(plate)),
             ("tolerance keyed from 0 to 10", keys_holder("matching_tolerance", &[(0, 0.0), (4, 10.0)])),
         ],
+    );
+
+    // B-381b: Draft halves the blur, as every other distance; the tolerance and softness stay.
+    draft.scale_distances(|d| d * 0.5);
+    t.row(
+        "a half-size draft preview halves Blur Before Difference and keeps the tolerance and softness (B-381b)",
+        &format!("{draft:?}"),
+        draft == half,
     );
 
     t.heading("The frame does not depend on how it is cut up");

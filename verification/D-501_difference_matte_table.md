@@ -132,6 +132,7 @@ B-381: `core.difference_matte`, after After Effects' Difference Matte (Keying): 
 | the plate as the difference layer at tolerance 5 is taken | taken | yes |
 | tolerance keyed from 0 to 10 is taken | taken | yes |
 | undo 2 times: frame 0 is the frame it was | byte-identical | yes |
+| a half-size draft preview halves Blur Before Difference and keeps the tolerance and softness (B-381b) | DifferenceMatte { view: "final", layer: String(""), fit: "center", matching_tolerance: 5.0, matching_softness: 10.0, blur_before_difference: 2.0, map: None } | yes |
 
 ## The frame does not depend on how it is cut up
 
@@ -197,7 +198,7 @@ B-381: `core.difference_matte`, after After Effects' Difference Matte (Keying): 
 | the reference shot, Difference Matte against layer 4, tolerance 5, softness 10, blurred at 2 on three layers, frame 0, Full | largest difference 1 of 255, 3781 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Difference Matte against layer 4, tolerance 5, softness 10, blurred at 2 on three layers, frame 100, Full | largest difference 1 of 255, 1418 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Difference Matte against layer 4, tolerance 5, softness 10, blurred at 2 on three layers, frame 239, Full | largest difference 1 of 255, 1772 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Difference Matte against layer 4, tolerance 5, softness 10, blurred at 2 on three layers, frame 0, Draft | largest difference 1 of 255, 129 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Difference Matte against layer 4, tolerance 5, softness 10, blurred at 2 on three layers, frame 0, Draft | largest difference 1 of 255, 128 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Difference Matte against layer 4, tolerance 5, softness 10, blurred at 2 on three layers, frame 100, Draft | largest difference 1 of 255, 32 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Difference Matte against layer 4, tolerance 5, softness 10, blurred at 2 on three layers, frame 239, Draft | largest difference 1 of 255, 47 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
@@ -212,4 +213,4 @@ B-381: `core.difference_matte`, after After Effects' Difference Matte (Keying): 
 
 ## Result
 
-173 of 173 checks pass.
+174 of 174 checks pass.
