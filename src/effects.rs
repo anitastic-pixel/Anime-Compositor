@@ -2772,6 +2772,11 @@ pub enum Effect {
         texture_contrast: f64,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-468: CycoreFX's CC Threshold as Channel Threshold, a second name over Threshold's rule
+    /// (`grade::channel_threshold`, as D-383 and D-394): `threshold`, 0 to 255; `channel`,
+    /// "luminance", "rgb", "saturation" or "alpha"; `invert`, "off" or "on";
+    /// `blend_with_original`, 0 to 100.
+    ChannelThreshold { threshold: f64, channel: String, invert: String, blend_with_original: f64 },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -3767,6 +3772,8 @@ pub const STROBE_LIGHT_MODES: [&str; 2] = ["color_only", "transparent"];
 pub const STROBE_LIGHT_OPERATORS: [&str; 12] =
     ["copy", "add", "subtract", "multiply", "difference", "and", "or", "xor", "minimum", "maximum", "darken", "lighten"];
 pub const TEXTURIZE: &str = "core.texturize";
+pub const CHANNEL_THRESHOLD: &str = "core.channel_threshold";
+pub const CHANNEL_THRESHOLD_CHANNELS: [&str; 4] = ["luminance", "rgb", "saturation", "alpha"];
 /// D-464: Repeat Tile's ways of laying the copies, After Effects' sixteen in its order.
 pub const REPEAT_TILE_TILINGS: [&str; 16] = [
     "repeat",
@@ -5227,6 +5234,10 @@ impl Effect {
             Effect::Texturize { light_direction, texture_contrast, .. } => vec![
                 ("light_direction", vec![light_direction], -3600.0, 3600.0),
                 ("texture_contrast", vec![texture_contrast], 0.0, 2.0),
+            ],
+            Effect::ChannelThreshold { threshold, blend_with_original, .. } => vec![
+                ("threshold", vec![threshold], 0.0, 255.0),
+                ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
             ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
@@ -6724,6 +6735,7 @@ impl Effect {
             Effect::Scatter { .. } => "Scatter",
             Effect::StrobeLight { .. } => "Strobe Light",
             Effect::Texturize { .. } => "Texturize",
+            Effect::ChannelThreshold { .. } => "Channel Threshold",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -6954,6 +6966,7 @@ impl Effect {
             Effect::Scatter { .. } => SCATTER,
             Effect::StrobeLight { .. } => STROBE_LIGHT,
             Effect::Texturize { .. } => TEXTURIZE,
+            Effect::ChannelThreshold { .. } => CHANNEL_THRESHOLD,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -8394,6 +8407,12 @@ impl Effect {
             )),
             Effect::Texturize { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
                 "Texturize's texture placement is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
+            Effect::ChannelThreshold { channel, .. } if !CHANNEL_THRESHOLD_CHANNELS.contains(&channel.as_str()) => Some(format!(
+                "Channel Threshold's channel is \"luminance\", \"rgb\", \"saturation\" or \"alpha\", and this is \"{channel}\"."
+            )),
+            Effect::ChannelThreshold { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
+                "Channel Threshold's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
@@ -11054,6 +11073,11 @@ pub(crate) fn apply_stack_at(
                     let k = crate::layer_fx::strobe_setup(encoded(strobe_color).map(crate::grade::to_linear), *blend_with_original, strobe, strobe_operator);
                     crate::perf::time(crate::perf::Stage::EffectStrobeLight, || crate::layer_fx::strobe_light(source, k));
                 }
+            }
+            Effect::ChannelThreshold { threshold, channel, invert, blend_with_original } => {
+                crate::perf::time(crate::perf::Stage::EffectThreshold, || {
+                    crate::grade::channel_threshold(source, [*threshold; 3], channel, [invert == "on"; 3], 1.0 - blend_with_original / 100.0)
+                })
             }
             // D-467: the texture compose read for this frame; with none, nothing happens.
             Effect::Texturize { light_direction, texture_contrast, map, .. } => {

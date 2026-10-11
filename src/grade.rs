@@ -1884,6 +1884,41 @@ pub(crate) fn threshold(source: &mut WorkingBuffer, level: f64) {
     grade_pixels(source, false, |_, e| [if 255.0 * luma(e) + 1e-4 >= level { 1.0 } else { 0.0 }; 3])
 }
 
+/// D-468/D-469: Threshold's rule on a chosen channel, a second engine beside [`threshold`] (which
+/// stays as it is). Each of the three decisions is 1 where 255 times the value plus 1e-4 reaches
+/// its level in `levels`, else 0, turned over where `inverts` says. "luminance" decides the
+/// encoded luma and "saturation" the HSL saturation, once for all three channels; "rgb" decides
+/// each encoded channel by its own level; "alpha" decides the covering, the colour kept. The
+/// result is mixed back toward the straight linear colour by `keep`, 1 for none of the layer and
+/// 0 for all of it. A pixel that does not show is left as it is.
+pub(crate) fn channel_threshold(source: &mut WorkingBuffer, levels: [f64; 3], channel: &str, inverts: [bool; 3], keep: f64) {
+    let decide = |v: f64, c: usize| if (255.0 * v + 1e-4 >= levels[c]) != inverts[c] { 1.0 } else { 0.0 };
+    each_pixel(source, |px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let b: [f64; 3] = std::array::from_fn(|c| (px[c] as f64 / a).clamp(0.0, 1.0));
+        if channel == "alpha" {
+            let n = a + keep * (decide(a, 0) - a);
+            for c in 0..3 {
+                px[c] = (b[c] * n) as f32;
+            }
+            px[3] = n as f32;
+            return;
+        }
+        let e = b.map(to_srgb);
+        let m = match channel {
+            "rgb" => [decide(e[0], 0), decide(e[1], 1), decide(e[2], 2)],
+            "saturation" => [decide(to_hsl(e)[1], 0); 3],
+            _ => [decide(luma(e), 0); 3],
+        };
+        for c in 0..3 {
+            px[c] = ((b[c] + keep * (m[c] - b[c])) * a) as f32;
+        }
+    });
+}
+
 /// D-212: each shown pixel kept, all four channels alike, by how far its value in `channel`, 0
 /// to 255, lies inside the black and white points `[b, w]`, fading over the softnesses `[s, t]`
 /// inside each; with `invert` the other side is kept.

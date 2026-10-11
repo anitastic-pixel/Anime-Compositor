@@ -2223,6 +2223,12 @@ fn picked(q: vec3<f64>) -> bool {
 }
 
 // B-222, grade::hls: the HSV hue (-1 for a grey), the lightness and the saturation of `e`.
+// D-468/D-469, grade::channel_threshold's decision on `v` for channel `c`: k[c] the level, k[4 + c]
+// 1 to turn it over.
+fn th_decide(v: f64, c: u32) -> f64 {
+    return select(0.0lf, 1.0lf, (255.0lf * v + 1e-4lf >= k[c]) != (k[4u + c] != 0.0lf));
+}
+
 fn hls(e: vec3<f64>) -> vec3<f64> {
     let mx = max(max(e.x, e.y), e.z);
     let mn = min(min(e.x, e.y), e.z);
@@ -2579,6 +2585,33 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     if a <= 0.0lf {
         textureStore(output, id.xy, p);
+        return;
+    }
+    if F.mode == 100u {
+        // D-468/D-469, grade::channel_threshold. k: the three levels, the channel (0 luminance,
+        // 1 rgb, 2 saturation, 3 alpha), 1 to turn each of the three over, and the share of the
+        // decision kept (1 less the blend over 100).
+        var b: vec3<f64>;
+        for (var c = 0u; c < 3u; c++) {
+            b[c] = clamp(f64(p[c]) / a, 0.0lf, 1.0lf);
+        }
+        if k[3] == 3.0lf {
+            let n = a + k[7] * (th_decide(a, 0u) - a);
+            textureStore(output, id.xy, vec4(f32(b.x * n), f32(b.y * n), f32(b.z * n), f32(n)));
+            return;
+        }
+        let e = vec3(to_srgb(b.x), to_srgb(b.y), to_srgb(b.z));
+        var m = vec3(th_decide(luma(e), 0u));
+        if k[3] == 1.0lf {
+            m = vec3(th_decide(e.x, 0u), th_decide(e.y, 1u), th_decide(e.z, 2u));
+        } else if k[3] == 2.0lf {
+            m = vec3(th_decide(hls(e).z, 0u));
+        }
+        var out = p;
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32((b[c] + k[7] * (m[c] - b[c])) * a);
+        }
+        textureStore(output, id.xy, out);
         return;
     }
     if F.mode == 12u {
@@ -12508,6 +12541,13 @@ impl Gpu {
             E::StrobeLight { strobe_color, blend_with_original, strobe, strobe_operator, .. } => {
                 let k = crate::layer_fx::strobe_setup(linear(strobe_color), *blend_with_original, strobe, strobe_operator);
                 same(steps, &passes.warp, FxParams { mode: 103, ..Default::default() }, &[k[0], k[1], k[2], k[3], k[4], k[5], 0.0], None)
+            }
+            // D-468: tone mode 100, one level and one Invert for all three.
+            E::ChannelThreshold { threshold, channel, invert, blend_with_original } => {
+                let ch = crate::effects::CHANNEL_THRESHOLD_CHANNELS.iter().position(|c| c == channel).expect("a valid channel") as f64;
+                let i = (invert == "on") as u8 as f64;
+                let k = [*threshold, *threshold, *threshold, ch, i, i, i, 1.0 - blend_with_original / 100.0];
+                same(steps, &passes.tone, FxParams { mode: 100, ..Default::default() }, &k, None)
             }
             // D-467: the texture's luminance as Plastic's bump, then one pass that presses it in.
             E::Texturize { light_direction, texture_contrast, map, .. } => {

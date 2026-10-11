@@ -2755,6 +2755,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("strobe_operator".into(), J::from(strobe_operator.as_str()));
             params.insert("random_seed".into(), num(*random_seed));
         }
+        Effect::ChannelThreshold { threshold, channel, invert, blend_with_original } => {
+            params.insert("threshold".into(), num(*threshold));
+            params.insert("channel".into(), J::from(channel.as_str()));
+            params.insert("invert".into(), J::from(invert.as_str()));
+            params.insert("blend_with_original".into(), num(*blend_with_original));
+        }
         Effect::Texturize { layer, fit, light_direction, texture_contrast, .. } => {
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
@@ -5437,6 +5443,7 @@ fn parse_effect(
         crate::effects::SCATTER,
         crate::effects::STROBE_LIGHT,
         crate::effects::TEXTURIZE,
+        crate::effects::CHANNEL_THRESHOLD,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6636,6 +6643,12 @@ fn parse_effect(
             random_seed: effect_number(params, "random_seed", &at)?,
             time: 0.0,
             count: 0,
+        }),
+        crate::effects::CHANNEL_THRESHOLD => Some(crate::effects::Effect::ChannelThreshold {
+            threshold: effect_number(params, "threshold", &at)?,
+            channel: effect_word(params, "channel", &at)?,
+            invert: effect_word(params, "invert", &at)?,
+            blend_with_original: effect_number(params, "blend_with_original", &at)?,
         }),
         // D-467: the layer kept as written, as Plastic's.
         crate::effects::TEXTURIZE => Some(crate::effects::Effect::Texturize {
