@@ -5469,6 +5469,237 @@ fn texturize(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-470, layer_fx::contour_flow's luminance held inside the picture: `input`'s alpha at `p`.
+fn cp_lum(p: vec2<i32>) -> f64 {
+    let size = vec2<i32>(textureDimensions(input));
+    return f64(textureLoad(input, clamp(p, vec2(0), size - vec2(1)), 0).w);
+}
+
+// D-470, layer_fx::contour_flow's tensor: Sobel's slopes over 8 of the luminance (`input`'s
+// alpha), each neighbour held inside, as (gx², gx gy, gy²).
+@compute @workgroup_size(16, 16)
+fn cptensor(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let c = vec2<i32>(id.xy);
+    let gx = (cp_lum(c + vec2(1, -1)) + 2.0lf * cp_lum(c + vec2(1, 0)) + cp_lum(c + vec2(1, 1)) - cp_lum(c + vec2(-1, -1))
+        - 2.0lf * cp_lum(c + vec2(-1, 0)) - cp_lum(c + vec2(-1, 1))) * 0.125lf;
+    let gy = (cp_lum(c + vec2(-1, 1)) + 2.0lf * cp_lum(c + vec2(0, 1)) + cp_lum(c + vec2(1, 1)) - cp_lum(c + vec2(-1, -1))
+        - 2.0lf * cp_lum(c + vec2(0, -1)) - cp_lum(c + vec2(1, -1))) * 0.125lf;
+    textureStore(output, id.xy, vec4(f32(gx * gx), f32(gx * gy), f32(gy * gy), 0.0));
+}
+
+// D-470, layer_fx::contour_tangent on the blurred tensor `input`: the flow across and down and
+// its strength. k: the turn's cosine and sine, then F.n directions across and down.
+@compute @workgroup_size(16, 16)
+fn cptangent(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let t = textureLoad(input, id.xy, 0);
+    let a = f64(t.x);
+    let b = f64(t.y);
+    let c = f64(t.z);
+    let r = sqrt((a - c) * (a - c) + 4.0lf * b * b);
+    var tx = b;
+    var ty = -(a - c + r) * 0.5lf;
+    if a < c {
+        tx = -(c - a + r) * 0.5lf;
+        ty = b;
+    }
+    let n = sqrt(tx * tx + ty * ty);
+    let e = min(4.0lf * sqrt(r), 1.0lf);
+    if n == 0.0lf {
+        textureStore(output, id.xy, vec4(0.0, 0.0, f32(e), 0.0));
+        return;
+    }
+    let ux = quotient(tx, n);
+    let uy = quotient(ty, n);
+    let rx = ux * k[0] - uy * k[1];
+    let ry = ux * k[1] + uy * k[0];
+    var ox = rx;
+    var oy = ry;
+    var best = -1.0lf;
+    for (var j = 0u; j < F.n; j++) {
+        let wx = k[2u + 2u * j];
+        let wy = k[3u + 2u * j];
+        let d = abs(rx * wx + ry * wy);
+        if d > best {
+            best = d;
+            ox = wx;
+            oy = wy;
+        }
+    }
+    textureStore(output, id.xy, vec4(f32(ox), f32(oy), f32(e), 0.0));
+}
+
+// D-470, layer_fx::contour_way: the flow (`other`) at (x, y), each of the four pixels round it
+// held inside and turned to face (dx, dy) first.
+struct CpWay {
+    x: f64,
+    y: f64,
+}
+
+fn cp_way(x: f64, y: f64, dx: f64, dy: f64) -> CpWay {
+    let size = vec2<i32>(textureDimensions(other));
+    let fx = x - 0.5lf;
+    let fy = y - 0.5lf;
+    let x0 = floor(fx);
+    let y0 = floor(fy);
+    let ux = fx - x0;
+    let uy = fy - y0;
+    var out = CpWay(0.0lf, 0.0lf);
+    for (var j = 0; j < 2; j++) {
+        let wy = select(1.0lf - uy, uy, j == 1);
+        let qy = clamp(i32(y0) + j, 0, size.y - 1);
+        for (var i = 0; i < 2; i++) {
+            let wx = select(1.0lf - ux, ux, i == 1);
+            let qx = clamp(i32(x0) + i, 0, size.x - 1);
+            let t = textureLoad(other, vec2(qx, qy), 0);
+            let tx = f64(t.x);
+            let ty = f64(t.y);
+            let sgn = select(1.0lf, -1.0lf, tx * dx + ty * dy < 0.0lf);
+            out.x += sgn * tx * wx * wy;
+            out.y += sgn * ty * wx * wy;
+        }
+    }
+    return out;
+}
+
+// D-470, layer_fx::contour_smear: one pass of the smear of `input` along the flow `other`. k: the
+// F.n step weights; F.flag 1 keeps the covering.
+@compute @workgroup_size(16, 16)
+fn cpsmear(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let f = textureLoad(other, id.xy, 0);
+    let tx = f64(f.x);
+    let ty = f64(f.y);
+    let e = f64(f.z);
+    if tx == 0.0lf && ty == 0.0lf {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    let fw = f64(size.x);
+    let fh = f64(size.y);
+    var acc = array<f64, 4>(f64(p.x), f64(p.y), f64(p.z), f64(p.w));
+    var total = 1.0lf;
+    for (var side = 0; side < 2; side++) {
+        let s = select(1.0lf, -1.0lf, side == 1);
+        var x = f64(id.x) + 0.5lf;
+        var y = f64(id.y) + 0.5lf;
+        var dx = s * tx;
+        var dy = s * ty;
+        for (var j = 0u; j < F.n; j++) {
+            x = clamp(x + dx, 0.5lf, fw - 0.5lf);
+            y = clamp(y + dy, 0.5lf, fh - 0.5lf);
+            let q = bilinear(input, x, y);
+            let wt = k[j];
+            acc[0] += f64(q.x) * wt;
+            acc[1] += f64(q.y) * wt;
+            acc[2] += f64(q.z) * wt;
+            acc[3] += f64(q.w) * wt;
+            total += wt;
+            let m = cp_way(x, y, dx, dy);
+            let ln = sqrt(m.x * m.x + m.y * m.y);
+            if ln <= 0.000001lf {
+                break;
+            }
+            dx = quotient(m.x, ln);
+            dy = quotient(m.y, ln);
+        }
+    }
+    var res = array<f64, 4>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+    for (var c = 0; c < 4; c++) {
+        let o = f64(p[c]);
+        res[c] = o + e * (quotient(acc[c], total) - o);
+    }
+    var out = vec4(f32(res[0]), f32(res[1]), f32(res[2]), f32(res[3]));
+    if F.flag == 1u {
+        out.w = p.w;
+        for (var c = 0; c < 3; c++) {
+            out[c] = select(0.0, f32(quotient(res[c], res[3]) * f64(p.w)), res[3] > 0.0lf);
+        }
+    }
+    textureStore(output, id.xy, out);
+}
+
+// D-470, layer_fx::contour_fill: `input` filled from the palette where the flow strength
+// (`other`'s blue) times 100 lies from k[0] to k[1]. k[2] the palette's n colours, then each
+// encoded, then each linear; F.flag 1 clears elsewhere.
+@compute @workgroup_size(16, 16)
+fn cpfill(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let a = f64(p.w);
+    let v = 100.0lf * f64(textureLoad(other, id.xy, 0).z);
+    if a > 0.0lf && k[0] <= v && v <= k[1] {
+        let n = u32(k[2]);
+        let r = to_srgb(clamp(quotient(f64(p.x), a), 0.0lf, 1.0lf));
+        let g = to_srgb(clamp(quotient(f64(p.y), a), 0.0lf, 1.0lf));
+        let b = to_srgb(clamp(quotient(f64(p.z), a), 0.0lf, 1.0lf));
+        var best = 0u;
+        var near = 0.0lf;
+        for (var j = 0u; j < n; j++) {
+            let dr = k[3u + 3u * j] - r;
+            let dg = k[4u + 3u * j] - g;
+            let db = k[5u + 3u * j] - b;
+            let d = dr * dr + dg * dg + db * db;
+            if j == 0u || d < near {
+                near = d;
+                best = j;
+            }
+        }
+        let base = 3u + 3u * n + 3u * best;
+        textureStore(output, id.xy, vec4(f32(k[base] * a), f32(k[base + 1u] * a), f32(k[base + 2u] * a), p.w));
+    } else if F.flag == 1u {
+        textureStore(output, id.xy, vec4(0.0));
+    } else {
+        textureStore(output, id.xy, p);
+    }
+}
+
+// D-470, layer_fx::contour_edges: the Edge Map view of the flow `input`. k: the cell, the pixel.
+@compute @workgroup_size(16, 16)
+fn cpedge(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let cell = k[0];
+    let px = k[1];
+    let g = to_linear(f64(textureLoad(input, id.xy, 0).z));
+    let x = f64(id.x) + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    let cx = (floor(quotient(x, cell)) + 0.5lf) * cell;
+    let cy = (floor(quotient(y, cell)) + 0.5lf) * cell;
+    let q = vec2(min(u32(floor(cx)), size.x - 1u), min(u32(floor(cy)), size.y - 1u));
+    let t = textureLoad(input, q, 0);
+    let tx = f64(t.x);
+    let ty = f64(t.y);
+    var cov = 0.0lf;
+    if tx != 0.0lf || ty != 0.0lf {
+        let reach = 0.4lf * cell;
+        let vx = x - cx;
+        let vy = y - cy;
+        let along = clamp(vx * tx + vy * ty, -reach, reach);
+        let ax = vx - along * tx;
+        let ay = vy - along * ty;
+        let d = sqrt(ax * ax + ay * ay);
+        cov = f64(t.z) * clamp(1.0lf - quotient(d, px), 0.0lf, 1.0lf);
+    }
+    textureStore(output, id.xy, vec4(f32(g + cov * (0.0lf - g)), f32(g + cov * (1.0lf - g)), f32(g + cov * (1.0lf - g)), 1.0));
+}
+
 // D-463, layer_fx::plastic's cut of the bump `v`: k[0] lo, k[1] hi.
 fn plastic_cut(v: f64) -> f64 {
     if k[1] == k[0] {
@@ -10209,6 +10440,12 @@ struct FxPasses {
     plastic: Pass,
     /// D-467.
     texturize: Pass,
+    /// D-470.
+    cptensor: Pass,
+    cptangent: Pass,
+    cpsmear: Pass,
+    cpfill: Pass,
+    cpedge: Pass,
     /// D-517.
     twist: Pass,
     /// D-518.
@@ -10911,6 +11148,11 @@ impl Gpu {
                 smoothie: pass("smoothie", &[0, 1, 2, 3, 4]),
                 plastic: pass("plastic", &[0, 1, 2, 3, 4]),
                 texturize: pass("texturize", &[0, 1, 2, 3, 4]),
+                cptensor: pass("cptensor", &[0, 1, 2]),
+                cptangent: pass("cptangent", &[0, 1, 2, 3]),
+                cpsmear: pass("cpsmear", &[0, 1, 2, 3, 4]),
+                cpfill: pass("cpfill", &[0, 1, 2, 3, 4]),
+                cpedge: pass("cpedge", &[0, 1, 2, 3]),
                 twist: pass("twist", &[0, 1, 2, 3, 4]),
                 wreact: pass("wreact", &[0, 1, 2, 3, 4]),
                 warpb: pass("warpb", &[0, 1, 2, 3, 4, 7]),
@@ -12843,6 +13085,77 @@ impl Gpu {
                 let [i0, i1, i2] = [invert_red, invert_green, invert_blue].map(|v| (v == "on") as u8 as f64);
                 let k = [*red_threshold, *green_threshold, *blue_threshold, 1.0, i0, i1, i2, 1.0 - blend_with_original / 100.0];
                 same(steps, &passes.tone, FxParams { mode: 100, ..Default::default() }, &k, None)
+            }
+            // D-470: the flow as CC Vector Blur's luminance, the tensor, D-400's held blur and the
+            // tangent; then each smear pass, and the fills from compose's palette.
+            E::ContourPaint {
+                view,
+                stylization,
+                cleanliness,
+                smear_iterations,
+                apply_to_alpha,
+                draw_color_fills,
+                low_strength,
+                high_strength,
+                offset_flow_angles,
+                quantize_flow_angles,
+                px,
+                palette,
+                map,
+                ..
+            } => {
+                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let (sigma, turn, ways) = crate::layer_fx::contour_setup(*cleanliness, *offset_flow_angles, *quantize_flow_angles, *px);
+                let taps = crate::effects::gaussian_weights(sigma);
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == "luminance").expect("luminance is a property");
+                let mut tk = vec![turn.0, turn.1];
+                tk.extend(ways.iter().flat_map(|&(x, y)| [x, y]));
+                let picture = map.as_ref().map(|m| self.map_texture(&m.0));
+                let flow = |steps: &mut Vec<Step>, from: &wgpu::TextureView| {
+                    let (from, (mx, my)) = match &picture {
+                        Some(p) => (p, (ox, oy)),
+                        None => (from, (0, 0)),
+                    };
+                    let lum = self.scratch("D-470 luminance", w, h);
+                    let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
+                    self.fx_step(steps, &passes.vheight, p, Some(from), Some(&lum), Some(&[place as f64]), None, none, tiles(w, h));
+                    let tensor = self.scratch("D-470 tensor", w, h);
+                    self.fx_step(steps, &passes.cptensor, FxParams::default(), Some(&lum), Some(&tensor), None, None, none, tiles(w, h));
+                    let blurred = self.gauss(steps, bloom, "D-470 blur", &tensor, (w, h), [&taps, &taps], 0, true);
+                    let out = self.scratch("D-470 flow", w, h);
+                    let p = FxParams { n: ways.len() as u32, ..Default::default() };
+                    self.fx_step(steps, &passes.cptangent, p, Some(&blurred), Some(&out), Some(&tk), None, none, tiles(w, h));
+                    out
+                };
+                if view == "edge_map" {
+                    let field = flow(steps, still);
+                    let out = self.scratch("D-470 edges", w, h);
+                    self.fx_step(steps, &passes.cpedge, FxParams::default(), Some(&field), Some(&out), Some(&[12.0 * px, *px]), None, none, tiles(w, h));
+                    (out, (w, h))
+                } else {
+                    let fixed = picture.as_ref().map(|_| flow(steps, still));
+                    let weights = crate::layer_fx::contour_weights(*stylization, *px);
+                    let keep = FxParams { n: weights.len() as u32, flag: (apply_to_alpha == "off") as u32, ..Default::default() };
+                    let mut cur = still.clone();
+                    for _ in 0..smear_iterations.floor() as usize {
+                        let field = fixed.clone().unwrap_or_else(|| flow(steps, &cur));
+                        let out = self.scratch("D-470 smear", w, h);
+                        self.fx_step(steps, &passes.cpsmear, keep, Some(&cur), Some(&out), Some(&weights), Some(&field), none, tiles(w, h));
+                        cur = out;
+                    }
+                    let palette = palette.as_ref().expect("compose fills Contour Paint's palette");
+                    if draw_color_fills != "none" && !palette.is_empty() {
+                        let field = fixed.unwrap_or_else(|| flow(steps, &cur));
+                        let mut k = vec![*low_strength, *high_strength, palette.len() as f64];
+                        k.extend(palette.iter().flatten());
+                        k.extend(palette.iter().flat_map(|q| q.map(crate::grade::to_linear)));
+                        let p = FxParams { flag: (draw_color_fills == "only") as u32, ..Default::default() };
+                        let out = self.scratch("D-470 fills", w, h);
+                        self.fx_step(steps, &passes.cpfill, p, Some(&cur), Some(&out), Some(&k), Some(&field), none, tiles(w, h));
+                        cur = out;
+                    }
+                    (cur, (w, h))
+                }
             }
             // D-467: the texture's luminance as Plastic's bump, then one pass that presses it in.
             E::Texturize { light_direction, texture_contrast, map, .. } => {

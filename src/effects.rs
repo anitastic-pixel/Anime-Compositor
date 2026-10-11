@@ -2852,6 +2852,33 @@ pub enum Effect {
         invert_blue: String,
         blend_with_original: f64,
     },
+    /// D-470: after After Effects' Contour Paint (Stylize) (`layer_fx::contour_flow` and its
+    /// neighbours, document 21): `view`, "final_result" or "edge_map"; `stylization`,
+    /// `cleanliness`, `low_strength`, `high_strength`, 0 to 100; `smear_iterations`, 0 to 100;
+    /// `apply_to_alpha`, "off" or "on"; `draw_color_fills`, "none", "over_smeared_image" or
+    /// "only"; `reduction_method`, "k_means" or "median"; `posterization_level`, 2 to 32;
+    /// `offset_flow_angles`, -3600 to 3600 degrees; `quantize_flow_angles`, 0 to 90 degrees;
+    /// `edge_map_layer`, D-189's layer setting, centred, "" for none. `px` (D-259's pixel),
+    /// `palette` (compose's, from the whole drawing) and `map` are not settings and are never
+    /// saved.
+    ContourPaint {
+        view: String,
+        stylization: f64,
+        cleanliness: f64,
+        smear_iterations: f64,
+        apply_to_alpha: String,
+        draw_color_fills: String,
+        reduction_method: String,
+        posterization_level: f64,
+        low_strength: f64,
+        high_strength: f64,
+        offset_flow_angles: f64,
+        quantize_flow_angles: f64,
+        edge_map_layer: serde_json::Value,
+        px: f64,
+        palette: Option<Vec<[f64; 3]>>,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -3867,6 +3894,7 @@ pub const STROBE_LIGHT_OPERATORS: [&str; 12] =
 pub const TEXTURIZE: &str = "core.texturize";
 pub const CHANNEL_THRESHOLD: &str = "core.channel_threshold";
 pub const THRESHOLD_RGB: &str = "core.threshold_rgb";
+pub const CONTOUR_PAINT: &str = "core.contour_paint";
 pub const CHANNEL_THRESHOLD_CHANNELS: [&str; 4] = ["luminance", "rgb", "saturation", "alpha"];
 /// D-464: Repeat Tile's ways of laying the copies, After Effects' sixteen in its order.
 pub const REPEAT_TILE_TILINGS: [&str; 16] = [
@@ -5385,6 +5413,26 @@ impl Effect {
                 ("blue_threshold", vec![blue_threshold], 0.0, 255.0),
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
             ],
+            Effect::ContourPaint {
+                stylization,
+                cleanliness,
+                smear_iterations,
+                posterization_level,
+                low_strength,
+                high_strength,
+                offset_flow_angles,
+                quantize_flow_angles,
+                ..
+            } => vec![
+                ("stylization", vec![stylization], 0.0, 100.0),
+                ("cleanliness", vec![cleanliness], 0.0, 100.0),
+                ("smear_iterations", vec![smear_iterations], 0.0, 100.0),
+                ("posterization_level", vec![posterization_level], 2.0, 32.0),
+                ("low_strength", vec![low_strength], 0.0, 100.0),
+                ("high_strength", vec![high_strength], 0.0, 100.0),
+                ("offset_flow_angles", vec![offset_flow_angles], -3600.0, 3600.0),
+                ("quantize_flow_angles", vec![quantize_flow_angles], 0.0, 90.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -6279,6 +6327,8 @@ impl Effect {
                 *edge_width = scale(*edge_width);
             }
             Effect::BlockLoad { pixel, .. } => *pixel = scale(*pixel),
+            // D-470: the strokes, the flow's blur and the Edge Map's cells keep their size.
+            Effect::ContourPaint { px, .. } => *px = scale(*px),
             // D-461: the tiles keep their size on the picture.
             Effect::HexTile { radius, .. } => *radius = scale(*radius),
             // D-462: the bands keep their softness on the picture.
@@ -6891,6 +6941,7 @@ impl Effect {
             Effect::Texturize { .. } => "Texturize",
             Effect::ChannelThreshold { .. } => "Channel Threshold",
             Effect::ThresholdRgb { .. } => "Threshold RGB",
+            Effect::ContourPaint { .. } => "Contour Paint",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -7126,6 +7177,7 @@ impl Effect {
             Effect::Texturize { .. } => TEXTURIZE,
             Effect::ChannelThreshold { .. } => CHANNEL_THRESHOLD,
             Effect::ThresholdRgb { .. } => THRESHOLD_RGB,
+            Effect::ContourPaint { .. } => CONTOUR_PAINT,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -7442,6 +7494,8 @@ impl Effect {
             Effect::Twister { backside: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             // D-518: the layer revealed centred, as Glass Melt's.
             Effect::WarpBlend { layer_to_reveal: serde_json::Value::String(layer), .. } => Some((layer, "center")),
+            // D-470: the edge map centred on the drawing; Adobe does not say how it lies.
+            Effect::ContourPaint { edge_map_layer: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             _ => None,
         }
     }
@@ -7487,6 +7541,7 @@ impl Effect {
             Effect::Twister { backside, map, .. } => Some((backside, map)),
             Effect::WarpBlend { layer_to_reveal, map, .. } => Some((layer_to_reveal, map)),
             Effect::CcEnvironment { environment, map, .. } => Some((environment, map)),
+            Effect::ContourPaint { edge_map_layer, map, .. } => Some((edge_map_layer, map)),
             _ => None,
         }
     }
@@ -8612,6 +8667,23 @@ impl Effect {
                 .into_iter()
                 .find(|(_, v)| !["off", "on"].contains(&v.as_str()))
                 .map(|(name, v)| format!("Threshold RGB's invert {name} is \"off\" or \"on\", and this is \"{v}\".")),
+            Effect::ContourPaint { view, apply_to_alpha, draw_color_fills, reduction_method, edge_map_layer, .. } => {
+                if !["final_result", "edge_map"].contains(&view.as_str()) {
+                    Some(format!("Contour Paint's view is \"final_result\" or \"edge_map\", and this is \"{view}\"."))
+                } else if !["off", "on"].contains(&apply_to_alpha.as_str()) {
+                    Some(format!("Contour Paint's apply to alpha is \"off\" or \"on\", and this is \"{apply_to_alpha}\"."))
+                } else if !["none", "over_smeared_image", "only"].contains(&draw_color_fills.as_str()) {
+                    Some(format!(
+                        "Contour Paint's draw color fills is \"none\", \"over_smeared_image\" or \"only\", and this is \"{draw_color_fills}\"."
+                    ))
+                } else if !["k_means", "median"].contains(&reduction_method.as_str()) {
+                    Some(format!("Contour Paint's reduction method is \"k_means\" or \"median\", and this is \"{reduction_method}\"."))
+                } else if !edge_map_layer.is_string() {
+                    Some(format!("Contour Paint's external edge map is the name of a layer of this composition, and this is {edge_map_layer}."))
+                } else {
+                    None
+                }
+            }
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
             )),
@@ -11300,6 +11372,55 @@ pub(crate) fn apply_stack_at(
                     crate::grade::channel_threshold(source, [*red_threshold, *green_threshold, *blue_threshold], "rgb", inverts, 1.0 - blend_with_original / 100.0)
                 })
             }
+            // D-470: the edge map compose read for this frame, or the drawing; compose's palette,
+            // read from the whole drawing, or this one's when it is drawn alone.
+            Effect::ContourPaint {
+                view,
+                stylization,
+                cleanliness,
+                smear_iterations,
+                apply_to_alpha,
+                draw_color_fills,
+                reduction_method,
+                posterization_level,
+                low_strength,
+                high_strength,
+                offset_flow_angles,
+                quantize_flow_angles,
+                px,
+                palette,
+                map,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectContourPaint, || {
+                let (sigma, turn, ways) = crate::layer_fx::contour_setup(*cleanliness, *offset_flow_angles, *quantize_flow_angles, *px);
+                let map = map.as_ref().map(|m| (&*m.0, (ox, oy)));
+                let flow = |b: &WorkingBuffer| crate::layer_fx::contour_flow(b, map, sigma, turn, &ways);
+                if view == "edge_map" {
+                    let field = flow(source);
+                    crate::layer_fx::contour_edges(source, &field, *px);
+                    return;
+                }
+                let passes = smear_iterations.floor() as usize;
+                if passes == 0 && draw_color_fills == "none" {
+                    return;
+                }
+                let fixed = map.map(|_| flow(source));
+                let palette = match (draw_color_fills.as_str(), palette) {
+                    ("none", _) => Vec::new(),
+                    (_, Some(p)) => p.clone(),
+                    _ => crate::layer_fx::contour_palette(source, posterization_level.floor() as usize, reduction_method == "k_means"),
+                };
+                let weights = crate::layer_fx::contour_weights(*stylization, *px);
+                for _ in 0..passes {
+                    let field = fixed.clone().unwrap_or_else(|| flow(source));
+                    crate::layer_fx::contour_smear(source, &field, &weights, apply_to_alpha == "off");
+                }
+                if !palette.is_empty() {
+                    let field = fixed.unwrap_or_else(|| flow(source));
+                    let range = (*low_strength, *high_strength);
+                    crate::layer_fx::contour_fill(source, &field, &palette, range, draw_color_fills == "only");
+                }
+            }),
             // D-467: the texture compose read for this frame; with none, nothing happens.
             Effect::Texturize { light_direction, texture_contrast, map, .. } => {
                 if let Some(map) = map {

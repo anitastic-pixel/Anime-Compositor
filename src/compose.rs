@@ -980,6 +980,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::ChannelThreshold { .. }
                 // D-469: Threshold RGB.
                 | crate::effects::Effect::ThresholdRgb { .. }
+                // D-470: Contour Paint, once compose has made its palette.
+                | crate::effects::Effect::ContourPaint { palette: Some(_), .. }
                 // D-467: Texturize, with a texture.
                 | crate::effects::Effect::Texturize { .. }
                 | crate::effects::Effect::SmartBlur { .. }
@@ -1217,6 +1219,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // D-455: so does Remove Grain's Unsharp Mask.
         && !matches!(&instance.effect, crate::effects::Effect::RemoveGrain { unsharp_amount, unsharp_threshold, .. }
             if *unsharp_amount != 0.0 && *unsharp_threshold != 0.0)
+        // D-470: Contour Paint's snapped flow is a step, which the card's last-bit rounding would
+        // tip either way along the strokes, so it stays here (D-122's reason).
+        && !matches!(&instance.effect, crate::effects::Effect::ContourPaint { quantize_flow_angles, .. } if *quantize_flow_angles != 0.0)
         // D-408: a Transform through the shutter is drawn here, as D-188's motion blur is.
         && !matches!(&instance.effect, crate::effects::Effect::Transform { moments, .. } if !moments.is_empty())
         // D-310: the card swells a circle without a taper only.
@@ -1416,6 +1421,10 @@ fn card_effect(
                         || !crate::layer_fx::strobe_on(*strobe_duration, *strobe_period, *random_strobe_probability, *random_seed, *time, *count)
                 }
                 E::ChannelThreshold { blend_with_original, .. } | E::ThresholdRgb { blend_with_original, .. } => *blend_with_original == 100.0,
+                // D-470: no smear and no fills, as `Effect::apply` returns at once.
+                E::ContourPaint { view, smear_iterations, draw_color_fills, .. } => {
+                    view != "edge_map" && smear_iterations.floor() == 0.0 && draw_color_fills == "none"
+                }
                 // D-467: no texture, or none of its relief.
                 E::Texturize { map, texture_contrast, .. } => map.is_none() || *texture_contrast == 0.0,
                 // B-123: the batch's five new ones, each as its own function returns at once.
@@ -3840,7 +3849,8 @@ fn fill_wire(
 /// D-455: each switched-on Remove Grain's noise: the holder at this frame with the effects before
 /// this one, measured whole (`grade::grain_levels`), so every tile and the card read the same
 /// number. Noise Reduction 0 removes nothing and is not measured. What the holder says on the way
-/// is said by the frame itself, so it is not said again here.
+/// is said by the frame itself, so it is not said again here. D-470: each Contour Paint's palette
+/// the same way (`layer_fx::contour_palette`), empty when it draws no fills.
 // ponytail: the holder is drawn once more up to the effect; keep the drawing from the main pass
 // if a Remove Grain after heavy effects is slow.
 #[allow(clippy::too_many_arguments)]
@@ -3855,17 +3865,34 @@ fn fill_noise(
     cache: &mut CelCache,
 ) {
     for i in 0..effects.len() {
+        let drawn = |cache: &mut CelCache| {
+            let mut upto = holder.clone();
+            upto.effects.truncate(i);
+            let mut inside = FrameLog::new(usize::MAX);
+            resolve_layer(project, comp, &upto, frame, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
+        };
+        if let crate::effects::Effect::ContourPaint { view, draw_color_fills, reduction_method, posterization_level, .. } = &effects[i].effect {
+            if !effects[i].enabled || !effects[i].is_valid() {
+                continue;
+            }
+            let made = if view == "edge_map" || draw_color_fills == "none" {
+                Vec::new()
+            } else {
+                let (levels, k_means) = (posterization_level.floor() as usize, reduction_method == "k_means");
+                drawn(cache).map_or_else(Vec::new, |p| crate::layer_fx::contour_palette(&p.source, levels, k_means))
+            };
+            if let crate::effects::Effect::ContourPaint { palette: slot, .. } = &mut effects[i].effect {
+                *slot = Some(made);
+            }
+            continue;
+        }
         let n = match &effects[i] {
             e if !e.enabled || !e.is_valid() => continue,
             crate::effects::EffectInstance { effect: crate::effects::Effect::RemoveGrain { noise_reduction, .. }, .. } => *noise_reduction,
             _ => continue,
         };
         let noise = if n > 0.0 {
-            let mut upto = holder.clone();
-            upto.effects.truncate(i);
-            let mut inside = FrameLog::new(usize::MAX);
-            resolve_layer(project, comp, &upto, frame, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
-                .map_or([0.0; 3], |p| crate::grade::grain_levels(&p.source))
+            drawn(cache).map_or([0.0; 3], |p| crate::grade::grain_levels(&p.source))
         } else {
             [0.0; 3]
         };

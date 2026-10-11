@@ -2775,6 +2775,36 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("invert_blue".into(), J::from(invert_blue.as_str()));
             params.insert("blend_with_original".into(), num(*blend_with_original));
         }
+        Effect::ContourPaint {
+            view,
+            stylization,
+            cleanliness,
+            smear_iterations,
+            apply_to_alpha,
+            draw_color_fills,
+            reduction_method,
+            posterization_level,
+            low_strength,
+            high_strength,
+            offset_flow_angles,
+            quantize_flow_angles,
+            edge_map_layer,
+            ..
+        } => {
+            params.insert("view".into(), J::from(view.as_str()));
+            params.insert("stylization".into(), num(*stylization));
+            params.insert("cleanliness".into(), num(*cleanliness));
+            params.insert("smear_iterations".into(), num(*smear_iterations));
+            params.insert("apply_to_alpha".into(), J::from(apply_to_alpha.as_str()));
+            params.insert("draw_color_fills".into(), J::from(draw_color_fills.as_str()));
+            params.insert("reduction_method".into(), J::from(reduction_method.as_str()));
+            params.insert("posterization_level".into(), num(*posterization_level));
+            params.insert("low_strength".into(), num(*low_strength));
+            params.insert("high_strength".into(), num(*high_strength));
+            params.insert("offset_flow_angles".into(), num(*offset_flow_angles));
+            params.insert("quantize_flow_angles".into(), num(*quantize_flow_angles));
+            params.insert("edge_map_layer".into(), edge_map_layer.clone());
+        }
         Effect::Texturize { layer, fit, light_direction, texture_contrast, .. } => {
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
@@ -5534,6 +5564,7 @@ fn parse_effect(
         crate::effects::TEXTURIZE,
         crate::effects::CHANNEL_THRESHOLD,
         crate::effects::THRESHOLD_RGB,
+        crate::effects::CONTOUR_PAINT,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6752,6 +6783,25 @@ fn parse_effect(
             invert_green: effect_word(params, "invert_green", &at)?,
             invert_blue: effect_word(params, "invert_blue", &at)?,
             blend_with_original: effect_number(params, "blend_with_original", &at)?,
+        }),
+        // D-470: the edge map kept as written, as Texturize's layer.
+        crate::effects::CONTOUR_PAINT => Some(crate::effects::Effect::ContourPaint {
+            view: effect_word(params, "view", &at)?,
+            stylization: effect_number(params, "stylization", &at)?,
+            cleanliness: effect_number(params, "cleanliness", &at)?,
+            smear_iterations: effect_number(params, "smear_iterations", &at)?,
+            apply_to_alpha: effect_word(params, "apply_to_alpha", &at)?,
+            draw_color_fills: effect_word(params, "draw_color_fills", &at)?,
+            reduction_method: effect_word(params, "reduction_method", &at)?,
+            posterization_level: effect_number(params, "posterization_level", &at)?,
+            low_strength: effect_number(params, "low_strength", &at)?,
+            high_strength: effect_number(params, "high_strength", &at)?,
+            offset_flow_angles: effect_number(params, "offset_flow_angles", &at)?,
+            quantize_flow_angles: effect_number(params, "quantize_flow_angles", &at)?,
+            edge_map_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "edge_map_layer")?.clone(),
+            px: 1.0,
+            palette: None,
+            map: None,
         }),
         // D-467: the layer kept as written, as Plastic's.
         crate::effects::TEXTURIZE => Some(crate::effects::Effect::Texturize {

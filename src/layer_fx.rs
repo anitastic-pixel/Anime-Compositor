@@ -3286,6 +3286,274 @@ pub(crate) fn texturize(source: &mut WorkingBuffer, map: (&WorkingBuffer, (usize
     });
 }
 
+/// D-470: Contour Paint's numbers (document 21): the tensor's blur, (0.5 + 4.5 `cleanliness` /
+/// 100) `px`; the turn `offset` degrees as its cosine and sine, exact at whole quarter turns; and
+/// with `quantize` q above 0 the directions (cos kq, sin kq), k = 0 to ceil(180 / q) - 1.
+pub(crate) fn contour_setup(cleanliness: f64, offset: f64, quantize: f64, px: f64) -> (f64, (f64, f64), Vec<(f64, f64)>) {
+    let sigma = (0.5 + 4.5 * cleanliness / 100.0) * px;
+    let q = offset.rem_euclid(360.0);
+    let turn = if q == 0.0 {
+        (1.0, 0.0)
+    } else if q == 90.0 {
+        (0.0, 1.0)
+    } else if q == 180.0 {
+        (-1.0, 0.0)
+    } else if q == 270.0 {
+        (0.0, -1.0)
+    } else {
+        (offset.to_radians().cos(), offset.to_radians().sin())
+    };
+    // ponytail: one direction per step, so a tiny Quantize (0.01 is 18000 directions) is slow
+    // on the processor; work the nearest by its angle if that is ever used.
+    let ways = if quantize > 0.0 {
+        (0..(180.0 / quantize).ceil() as usize).map(|k| ((k as f64 * quantize).to_radians().cos(), (k as f64 * quantize).to_radians().sin())).collect()
+    } else {
+        Vec::new()
+    };
+    (sigma, turn, ways)
+}
+
+/// D-470: the smear's step weights, exp(-k² / 2 s²) for k = 1 to ceil(2 s), s = (0.5 + 7.5
+/// `stylization` / 100) `px`.
+pub(crate) fn contour_weights(stylization: f64, px: f64) -> Vec<f64> {
+    let s = (0.5 + 7.5 * stylization / 100.0) * px;
+    (1..=(2.0 * s).ceil() as usize).map(|k| (-((k * k) as f64) / (2.0 * s * s)).exp()).collect()
+}
+
+/// D-470: the flow and its strength from the blurred tensor (a, b, c): Line Blur's tangent, made
+/// one long (none where its length is 0), turned by `turn`, then snapped to the first of `ways`
+/// nearest it; the strength min(1, 4 sqrt(r)).
+pub(crate) fn contour_tangent(a: f64, b: f64, c: f64, turn: (f64, f64), ways: &[(f64, f64)]) -> [f64; 3] {
+    let r = ((a - c) * (a - c) + 4.0 * b * b).sqrt();
+    let (tx, ty) = if a >= c { (b, -(a - c + r) / 2.0) } else { (-(c - a + r) / 2.0, b) };
+    let n = (tx * tx + ty * ty).sqrt();
+    let e = (4.0 * r.sqrt()).min(1.0);
+    if n == 0.0 {
+        return [0.0, 0.0, e];
+    }
+    let (tx, ty) = (tx / n, ty / n);
+    let (mut tx, mut ty) = (tx * turn.0 - ty * turn.1, tx * turn.1 + ty * turn.0);
+    let mut best = -1.0;
+    let (ux, uy) = (tx, ty);
+    for &(wx, wy) in ways {
+        let d = (ux * wx + uy * wy).abs();
+        if d > best {
+            best = d;
+            (tx, ty) = (wx, wy);
+        }
+    }
+    [tx, ty, e]
+}
+
+/// D-470: Contour Paint's flow (document 21) at each pixel of `source`, or of `map` lying on it
+/// with its corner at the given origin: CC Vector Blur's luminance, Sobel's slopes over 8 with
+/// each neighbour held inside, the tensor (gx², gx gy, gy²) blurred by D-109's held Gaussian of
+/// `sigma`, then [`contour_tangent`].
+pub(crate) fn contour_flow(source: &WorkingBuffer, map: Option<(&WorkingBuffer, (usize, usize))>, sigma: f64, turn: (f64, f64), ways: &[(f64, f64)]) -> Vec<[f64; 3]> {
+    let (w, h) = (source.width(), source.height());
+    let (lum, _) = flow_height(source, map, "luminance", 0.0);
+    let l = lum.data();
+    let at = |x: isize, y: isize| l[(y.clamp(0, h as isize - 1) as usize * w + x.clamp(0, w as isize - 1) as usize) * 4 + 3] as f64;
+    let mut tensor = WorkingBuffer::transparent(w, h);
+    tensor.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as isize, (i / w) as isize);
+        let gx = (at(x + 1, y - 1) + 2.0 * at(x + 1, y) + at(x + 1, y + 1) - at(x - 1, y - 1) - 2.0 * at(x - 1, y) - at(x - 1, y + 1)) / 8.0;
+        let gy = (at(x - 1, y + 1) + 2.0 * at(x, y + 1) + at(x + 1, y + 1) - at(x - 1, y - 1) - 2.0 * at(x, y - 1) - at(x + 1, y - 1)) / 8.0;
+        px[0] = (gx * gx) as f32;
+        px[1] = (gx * gy) as f32;
+        px[2] = (gy * gy) as f32;
+    });
+    crate::effects::held_blur(&mut tensor, sigma);
+    tensor.data().par_chunks_exact(4).map(|p| contour_tangent(p[0] as f64, p[1] as f64, p[2] as f64, turn, ways)).collect()
+}
+
+/// D-470: the flow at (x, y) for a walk facing `d`: the bilinear mix of the flow at the four
+/// pixels round it, each held inside and turned to face `d` first.
+fn contour_way(field: &[[f64; 3]], (w, h): (usize, usize), (x, y): (f64, f64), d: (f64, f64)) -> (f64, f64) {
+    let (fx, fy) = (x - 0.5, y - 0.5);
+    let (x0, y0) = (fx.floor(), fy.floor());
+    let (ux, uy) = (fx - x0, fy - y0);
+    let mut out = (0.0, 0.0);
+    for (dy, wy) in [(0, 1.0 - uy), (1, uy)] {
+        for (dx, wx) in [(0, 1.0 - ux), (1, ux)] {
+            let qx = (x0 as isize + dx).clamp(0, w as isize - 1) as usize;
+            let qy = (y0 as isize + dy).clamp(0, h as isize - 1) as usize;
+            let [tx, ty, _] = field[qy * w + qx];
+            let sgn = if tx * d.0 + ty * d.1 < 0.0 { -1.0 } else { 1.0 };
+            out.0 += sgn * tx * wx * wy;
+            out.1 += sgn * ty * wx * wy;
+        }
+    }
+    out
+}
+
+/// D-470: one pass of Contour Paint's smear (document 21): each pixel with a flow walks from its
+/// centre both ways, a pixel a step, held inside the pixel centres, sampling the picture at the
+/// `weights`, turning to the flow where it stands, ending where that has no length; the pass is
+/// O + e (S - O), S the weighted mean with the pixel at 1. With `keep` the covering is kept.
+pub(crate) fn contour_smear(source: &mut WorkingBuffer, field: &[[f64; 3]], weights: &[f64], keep: bool) {
+    let (w, h) = (source.width(), source.height());
+    let (fw, fh) = (w as f64, h as f64);
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let [tx, ty, e] = field[i];
+        if tx == 0.0 && ty == 0.0 {
+            return;
+        }
+        let p: [f64; 4] = std::array::from_fn(|c| px[c] as f64);
+        let (mut acc, mut total) = (p, 1.0);
+        for side in [1.0, -1.0] {
+            let mut pt = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let mut d = (side * tx, side * ty);
+            for &wt in weights {
+                pt = ((pt.0 + d.0).clamp(0.5, fw - 0.5), (pt.1 + d.1).clamp(0.5, fh - 0.5));
+                let s = sample_bilinear(&still, pt.0, pt.1);
+                for c in 0..4 {
+                    acc[c] += s[c] as f64 * wt;
+                }
+                total += wt;
+                let m = contour_way(field, (w, h), pt, d);
+                let ln = (m.0 * m.0 + m.1 * m.1).sqrt();
+                if ln <= 1e-6 {
+                    break;
+                }
+                d = (m.0 / ln, m.1 / ln);
+            }
+        }
+        let res: [f64; 4] = std::array::from_fn(|c| p[c] + e * (acc[c] / total - p[c]));
+        if keep {
+            for c in 0..3 {
+                px[c] = if res[3] > 0.0 { (res[c] / res[3] * p[3]) as f32 } else { 0.0 };
+            }
+        } else {
+            for c in 0..4 {
+                px[c] = res[c] as f32;
+            }
+        }
+    });
+}
+
+/// D-470: the encoded straight colour of a covered pixel.
+fn contour_encoded(p: &[f32], a: f64) -> [f64; 3] {
+    std::array::from_fn(|c| crate::grade::to_srgb((p[c] as f64 / a).clamp(0.0, 1.0)))
+}
+
+/// D-470: the palette colour nearest `v`, the first on a tie.
+fn contour_nearest(palette: &[[f64; 3]], v: &[f64; 3]) -> usize {
+    let mut best = (f64::INFINITY, 0);
+    for (j, q) in palette.iter().enumerate() {
+        let d = (q[0] - v[0]).powi(2) + (q[1] - v[1]).powi(2) + (q[2] - v[2]).powi(2);
+        if d < best.0 {
+            best = (d, j);
+        }
+    }
+    best.1
+}
+
+/// D-470: Contour Paint's palette from `source` (document 21): the encoded straight colours
+/// sampled every g pixels, g = max(1, floor(sqrt(w h / 4096))), cut by Heckbert's median cut to
+/// `levels` boxes and each box's mean, then with `k_means` moved 8 times to the mean of the
+/// samples nearest each. Empty where nothing is covered.
+pub(crate) fn contour_palette(source: &WorkingBuffer, levels: usize, k_means: bool) -> Vec<[f64; 3]> {
+    let (w, h) = (source.width(), source.height());
+    let g = (((w * h) as f64 / 4096.0).sqrt().floor() as usize).max(1);
+    let mut samples = Vec::new();
+    for y in (0..h).step_by(g) {
+        for x in (0..w).step_by(g) {
+            let p = source.pixel(x, y);
+            if p[3] > 0.0 {
+                samples.push(contour_encoded(&p, p[3] as f64));
+            }
+        }
+    }
+    if samples.is_empty() {
+        return Vec::new();
+    }
+    let spans = |b: &[[f64; 3]]| -> [f64; 3] {
+        std::array::from_fn(|c| b.iter().map(|v| v[c]).fold(f64::NEG_INFINITY, f64::max) - b.iter().map(|v| v[c]).fold(f64::INFINITY, f64::min))
+    };
+    let widest = |s: [f64; 3]| (0..3).fold(0, |m, c| if s[c] > s[m] { c } else { m });
+    let mut boxes = vec![samples.clone()];
+    while boxes.len() < levels {
+        let all: Vec<[f64; 3]> = boxes.iter().map(|b| spans(b)).collect();
+        let i = (0..boxes.len()).fold(0, |m, j| if all[j][widest(all[j])] > all[m][widest(all[m])] { j } else { m });
+        let ch = widest(all[i]);
+        if all[i][ch] <= 0.0 {
+            break;
+        }
+        let mut b = boxes.remove(i);
+        b.sort_by(|p, q| p[ch].partial_cmp(&q[ch]).expect("colours are numbers"));
+        let upper = b.split_off(b.len() / 2);
+        boxes.insert(i, b);
+        boxes.insert(i + 1, upper);
+    }
+    let mean = |b: &[[f64; 3]]| -> [f64; 3] { std::array::from_fn(|c| b.iter().map(|v| v[c]).sum::<f64>() / b.len() as f64) };
+    let mut palette: Vec<[f64; 3]> = boxes.iter().map(|b| mean(b)).collect();
+    if k_means {
+        for _ in 0..8 {
+            let mut sums = vec![([0.0; 3], 0usize); palette.len()];
+            for v in &samples {
+                let j = contour_nearest(&palette, v);
+                for c in 0..3 {
+                    sums[j].0[c] += v[c];
+                }
+                sums[j].1 += 1;
+            }
+            for (q, (s, n)) in palette.iter_mut().zip(sums) {
+                if n > 0 {
+                    *q = s.map(|v| v / n as f64);
+                }
+            }
+        }
+    }
+    palette
+}
+
+/// D-470: Contour Paint's fills (document 21): each covered pixel whose flow strength times 100
+/// lies from `low` to `high` takes the palette colour nearest its encoded straight colour, at its
+/// covering; elsewhere it is kept, or cleared with `only`.
+pub(crate) fn contour_fill(source: &mut WorkingBuffer, field: &[[f64; 3]], palette: &[[f64; 3]], (low, high): (f64, f64), only: bool) {
+    let linear: Vec<[f64; 3]> = palette.iter().map(|q| q.map(crate::grade::to_linear)).collect();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let a = px[3] as f64;
+        let v = 100.0 * field[i][2];
+        if a > 0.0 && low <= v && v <= high {
+            let q = linear[contour_nearest(palette, &contour_encoded(px, a))];
+            for c in 0..3 {
+                px[c] = (q[c] * a) as f32;
+            }
+        } else if only {
+            px.copy_from_slice(&[0.0; 4]);
+        }
+    });
+}
+
+/// D-470: Contour Paint's Edge Map view (document 21): each pixel opaque grey, its flow strength
+/// encoded, and in cells 12 `px` square a cyan line along the flow at the pixel nearest the
+/// cell's middle, 0.4 of the cell each way, laid on at that pixel's strength times
+/// clamp(1 - d / px, 0, 1), d the pixel centre's distance from the line.
+pub(crate) fn contour_edges(source: &mut WorkingBuffer, field: &[[f64; 3]], px: f64) {
+    let (w, h) = (source.width(), source.height());
+    let cell = 12.0 * px;
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, out)| {
+        let g = crate::grade::to_linear(field[i][2]);
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let (cx, cy) = (((x / cell).floor() + 0.5) * cell, ((y / cell).floor() + 0.5) * cell);
+        let (qx, qy) = ((cx.floor() as usize).min(w - 1), (cy.floor() as usize).min(h - 1));
+        let [tx, ty, e] = field[qy * w + qx];
+        let mut c = [g, g, g];
+        if tx != 0.0 || ty != 0.0 {
+            let half = 0.4 * cell;
+            let (vx, vy) = (x - cx, y - cy);
+            let along = (vx * tx + vy * ty).clamp(-half, half);
+            let d = ((vx - along * tx).powi(2) + (vy - along * ty).powi(2)).sqrt();
+            let cov = e * (1.0 - d / px).clamp(0.0, 1.0);
+            c = [0.0, 1.0, 1.0].map(|k| g + cov * (k - g));
+        }
+        out.copy_from_slice(&[c[0] as f32, c[1] as f32, c[2] as f32, 1.0]);
+    });
+}
+
 /// D-404: Tiles, Motion Tile's sized tile held at the buffer's size, `scale` per cent across
 /// and down round `center`, then `blend` per cent of the original mixed back.
 pub(crate) fn tiles(source: &mut WorkingBuffer, scale: f64, center: [f64; 2], blend: f64) {

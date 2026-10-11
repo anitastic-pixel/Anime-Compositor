@@ -9284,6 +9284,7 @@ const EFFECT_NAMES = {
   'core.threshold': 'Threshold',
   'core.channel_threshold': 'Channel Threshold',
   'core.threshold_rgb': 'Threshold RGB',
+  'core.contour_paint': 'Contour Paint',
   'core.channel_mixer': 'Channel Mixer',
   'core.vibrance': 'Vibrance',
   'core.leave_color': 'Leave Color',
@@ -9501,7 +9502,7 @@ const EFFECT_GROUPS = [
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas', 'core.energy_stroke', 'core.cc_ball_action']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
-    'core.posterize', 'core.threshold', 'core.channel_threshold', 'core.threshold_rgb', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie', 'core.plastic', 'core.repeat_tile', 'core.scatter', 'core.strobe_light', 'core.texturize']],
+    'core.posterize', 'core.threshold', 'core.channel_threshold', 'core.threshold_rgb', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie', 'core.plastic', 'core.repeat_tile', 'core.scatter', 'core.strobe_light', 'core.texturize', 'core.contour_paint']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight', 'core.cc_cylinder', 'core.cc_environment']],
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
@@ -9725,6 +9726,7 @@ const EFFECT_SEARCH = {
   'core.find_edges': 'lines sketch',
   'core.posterize': 'bands levels',
   'core.threshold': 'black white',
+  'core.contour_paint': 'contour paint painterly oil paint brush smear flow strokes posterize fills kuwahara watercolor stylize',
   'core.threshold_rgb': 'threshold rgb cc red green blue per channel black white invert blend with original posterize',
   'core.channel_threshold': 'channel threshold cc black white rgb saturation alpha invert blend with original two tone',
   'core.solarize': 'sabattier',
@@ -9787,6 +9789,7 @@ const EFFECT_ABOUT = {
   'core.black_white': 'Turns the layer grey, with control over how bright each colour becomes.',
   'core.posterize': 'Cuts the colours down to a few flat bands.',
   'core.threshold': 'Turns every pixel pure black or pure white.',
+  'core.contour_paint': 'Smears the layer\'s colours along its own contours, so it looks painted in long strokes that follow the shapes, with flat colour fills if wanted.',
   'core.threshold_rgb': 'Threshold on red, green and blue, each with its own level and its own Invert, so every pixel turns one of eight pure colours.',
   'core.channel_threshold': 'Threshold on the channel you choose: lightness, each of red, green and blue, saturation or transparency, turned over if you like and blended with the layer as it was.',
   'core.channel_mixer': 'Builds each colour channel from a mix of the others.',
@@ -10243,6 +10246,15 @@ const EFFECT_PARAMS = {
   'core.posterize': [['levels', 'Levels', 1, 1, 'steps per channel, 2 to 256']],
   // D-138.
   'core.threshold': [['level', 'Level', 1, 1, 'lightness of 255 that turns white, 0 to 255']],
+  // D-470, After Effects' own controls.
+  'core.contour_paint': [['stylization', 'Stylization', 1, 1, '0 to 100, how long the strokes run along the larger contours'],
+    ['cleanliness', 'Cleanliness', 1, 1, '0 to 100, how much small detail the flow passes over'],
+    ['smear_iterations', 'Smear Iterations', 1, 1, '0 to 100, how many times the smear runs'],
+    ['posterization_level', 'Posterization Level', 1, 1, '2 to 32, how many colours the fills use'],
+    ['low_strength', 'Low Strength', 1, 1, '0 to 100, the weakest edge strength that takes a fill'],
+    ['high_strength', 'High Strength', 1, 1, '0 to 100, the strongest edge strength that takes a fill'],
+    ['offset_flow_angles', 'Offset Flow Angles', 1, 1, 'degrees the flow is turned clockwise', 'dial'],
+    ['quantize_flow_angles', 'Quantize Flow Angles', 1, 1, '0 to 90 degrees, the step the flow snaps to, 0 for none']],
   // D-469, CC Threshold RGB's own controls.
   'core.threshold_rgb': [['red_threshold', 'Red Threshold', 1, 1, '0 to 255, the red that turns full'],
     ['green_threshold', 'Green Threshold', 1, 1, '0 to 255, the green that turns full'],
@@ -11846,6 +11858,14 @@ const EFFECT_WORDS = {
     choices: [['render', 'Render', [['regular', 'Regular'], ['glass_edge', 'Glass Edge']]],
       ['shadow_only', 'Shadow Only', [['off', 'Off'], ['on', 'On']]]],
     colours: [['color', 'Shadow Color']],
+  },
+  // D-470: After Effects' words; Final Result, no fills and K-Means as it is added.
+  'core.contour_paint': {
+    layers: [['edge_map_layer', 'External Edge Map', 'map_layer']],
+    choices: [['view', 'View', [['final_result', 'Final Result'], ['edge_map', 'Edge Map']]],
+      ['apply_to_alpha', 'Apply to Alpha', [['off', 'Off'], ['on', 'On']]],
+      ['draw_color_fills', 'Draw Color Fills', [['none', 'None'], ['over_smeared_image', 'Over Smeared Image'], ['only', 'Only']]],
+      ['reduction_method', 'Reduction Method', [['k_means', 'K-Means'], ['median', 'Median']]]],
   },
   // D-469, CC Threshold RGB's own words; nothing turned over as it is added.
   'core.threshold_rgb': {

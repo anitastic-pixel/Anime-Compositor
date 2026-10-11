@@ -458,6 +458,8 @@ pub enum Stage {
     EffectTimecode,
     /// D-467's Texturize.
     EffectTexturize,
+    /// D-470's Contour Paint.
+    EffectContourPaint,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -475,7 +477,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 234] = [
+    pub const ALL: [Stage; 235] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -703,6 +705,7 @@ impl Stage {
         Stage::EffectNumbers,
         Stage::EffectTimecode,
         Stage::EffectTexturize,
+        Stage::EffectContourPaint,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -942,6 +945,7 @@ impl Stage {
             Stage::EffectNumbers => "effect: numbers",
             Stage::EffectTimecode => "effect: timecode",
             Stage::EffectTexturize => "effect: texturize",
+            Stage::EffectContourPaint => "effect: contour paint",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
