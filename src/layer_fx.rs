@@ -2991,6 +2991,143 @@ pub(crate) fn motion_tile(source: &mut WorkingBuffer, size: (f64, f64), mirror: 
     (gx, gy)
 }
 
+/// D-464: how far Repeat Tile grows a `w` by `h` buffer across and down, on each side: the
+/// larger of the two expansions each way (right and left, down and up), each rounded up to
+/// whole pixels; nothing for an empty buffer. The card's plan asks it too.
+pub(crate) fn repeat_tile_growth(expand: [f64; 4], (w, h): (usize, usize)) -> (usize, usize) {
+    if w == 0 || h == 0 {
+        return (0, 0);
+    }
+    let e = expand.map(|e| e.ceil().max(0.0) as usize);
+    (e[0].max(e[1]), e[2].max(e[3]))
+}
+
+/// D-464: Repeat Tile's numbers (document 21) from its expansions (right, left, down, up), its
+/// Tiling and its Blend Borders: the Tiling's place in `REPEAT_TILE_TILINGS`, the left, right,
+/// top and bottom expansions in whole pixels, and the blend as a share, 0 under Unfold, None and
+/// Slide, which ignore it. The card's warp mode 101 reads the same six.
+pub(crate) fn repeat_tile_setup(expand: [f64; 4], tiling: &str, blend: f64) -> [f64; 6] {
+    let t = crate::effects::REPEAT_TILE_TILINGS.iter().position(|m| *m == tiling).unwrap_or(3);
+    let b = if ["unfold", "none", "slide"].contains(&tiling) { 0.0 } else { blend / 100.0 };
+    let e = expand.map(f64::ceil);
+    [t as f64, e[1], e[0], e[3], e[2], b]
+}
+
+/// D-464: the way, 0 to 7, Repeat Tile lays tile (i, j) under Tiling `mode`: 1 flips across, 2
+/// flips down and 4 swaps across and down, so 3 is a half turn, 5 a quarter anticlockwise and 6
+/// a quarter clockwise.
+fn repeat_way(mode: usize, i: i64, j: i64) -> u32 {
+    let quarter = |q: i64| [0, 6, 3, 5][q.rem_euclid(4) as usize];
+    let p = (i + j).rem_euclid(2) as u32;
+    match mode {
+        1 => p,
+        2 => 2 * p,
+        4 => 3 * p,
+        5 => 4 * p,
+        6 => 6 * p,
+        7 => 5 * p,
+        3 => (i.rem_euclid(2) + 2 * j.rem_euclid(2)) as u32,
+        8 => match (i.rem_euclid(2), j.rem_euclid(2)) {
+            (0, 0) => 0,
+            (1, 0) => 6,
+            (1, 1) => 3,
+            _ => 5,
+        },
+        9 => {
+            let mut t = (i as u32).wrapping_mul(0x9E37_79B1) ^ (j as u32).wrapping_mul(0x85EB_CA77);
+            t ^= t >> 15;
+            t = t.wrapping_mul(0x2C1B_3C6D);
+            t ^= t >> 12;
+            t % 8
+        }
+        11 => quarter(i + j),
+        12 => quarter(-(i + j)),
+        13 => quarter(i - j),
+        _ => 0,
+    }
+}
+
+/// D-464: the input pixel Repeat Tile's output place (x, y), counted from the input's corner,
+/// reads, or None where the output is clear; `k` from `repeat_tile_setup`. Every choice is made
+/// in whole numbers, so the card's warp mode 101 makes the same ones.
+pub(crate) fn repeat_tile_at(k: &[f64; 6], x: i64, y: i64, (w, h): (i64, i64)) -> Option<(usize, usize)> {
+    let mode = k[0] as usize;
+    if x < -(k[1] as i64) || x >= w + k[2] as i64 || y < -(k[3] as i64) || y >= h + k[4] as i64 {
+        return None;
+    }
+    if mode == 14 {
+        return Some((x.clamp(0, w - 1) as usize, y.clamp(0, h - 1) as usize));
+    }
+    if mode == 10 {
+        return ((0..w).contains(&x) && (0..h).contains(&y)).then_some((x as usize, y as usize));
+    }
+    let j = y.div_euclid(h);
+    let x = if mode == 15 && j.rem_euclid(2) == 1 { x - w / 2 } else { x };
+    let i = x.div_euclid(w);
+    let (lx, ly) = (x - i * w, y - j * h);
+    let o = repeat_way(mode, i, j);
+    let q = |t: i64, n: i64, m: i64| (2 * t + 1) * m / (2 * n);
+    let (mut u, mut v) = if o & 4 != 0 { (q(ly, h, w), q(lx, w, h)) } else { (lx, ly) };
+    if o & 1 != 0 {
+        u = w - 1 - u;
+    }
+    if o & 2 != 0 {
+        v = h - 1 - v;
+    }
+    Some((u as usize, v as usize))
+}
+
+/// D-464: after After Effects' CC RepeTile. The buffer grown by `repeat_tile_growth` on each
+/// side, the room within the expansions filled with copies of the buffer laid as
+/// `repeat_tile_at` says, the rest clear; with a blend, each pixel mixed towards the tile's
+/// edges with the one half a tile on, so copies meet without a seam. Returns the growth on the
+/// left and on the top. The settings are already valid.
+pub(crate) fn repeat_tile(source: &mut WorkingBuffer, k: &[f64; 6]) -> (usize, usize) {
+    let (w, h) = (source.width(), source.height());
+    if w == 0 || h == 0 {
+        return (0, 0);
+    }
+    let (gx, gy) = (k[1].max(k[2]) as usize, k[3].max(k[4]) as usize);
+    if (gx, gy) == (0, 0) && k[5] == 0.0 {
+        return (0, 0);
+    }
+    let weight = |t: usize, n: usize| {
+        if k[5] == 0.0 {
+            return 0.0;
+        }
+        let e = (t as f64 + 0.5).min(n as f64 - t as f64 - 0.5);
+        (1.0 - e / (k[5] * n as f64 / 2.0)).clamp(0.0, 1.0) as f32
+    };
+    let ow = w + 2 * gx;
+    let mut out = WorkingBuffer::transparent(ow, h + 2 * gy);
+    let d = source.data();
+    let at = |u: usize, v: usize| {
+        let s = (v * w + u) * 4;
+        [d[s], d[s + 1], d[s + 2], d[s + 3]]
+    };
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let place = ((i % ow) as i64 - gx as i64, (i / ow) as i64 - gy as i64);
+            let Some((u, v)) = repeat_tile_at(k, place.0, place.1, (w as i64, h as i64)) else {
+                return;
+            };
+            let (wx, wy) = (weight(u, w), weight(v, h));
+            if wx == 0.0 && wy == 0.0 {
+                px.copy_from_slice(&at(u, v));
+                return;
+            }
+            let (u2, v2) = ((u + w / 2) % w, (v + h / 2) % h);
+            let (a, b, c, e) = (at(u, v), at(u2, v), at(u, v2), at(u2, v2));
+            for n in 0..4 {
+                px[n] = (1.0 - wy) * ((1.0 - wx) * a[n] + wx * b[n]) + wy * ((1.0 - wx) * c[n] + wx * e[n]);
+            }
+        });
+    *source = out;
+    (gx, gy)
+}
+
 /// D-404: Tiles, Motion Tile's sized tile held at the buffer's size, `scale` per cent across
 /// and down round `center`, then `blend` per cent of the original mixed back.
 pub(crate) fn tiles(source: &mut WorkingBuffer, scale: f64, center: [f64; 2], blend: f64) {

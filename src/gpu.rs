@@ -3726,6 +3726,98 @@ fn hex_fold(u: f64, n: f64, z: f64) -> f64 {
     return clamp(select(m, t - m, m > n), 0.5lf, n - 0.5lf);
 }
 
+// D-464, layer_fx::repeat_tile_at's floor division and remainder, for any sign of a.
+fn repeat_div(a: i32, n: i32) -> i32 {
+    return select(a / n, (a + 1) / n - 1, a < 0);
+}
+
+fn repeat_mod(a: i32, n: i32) -> i32 {
+    return a - repeat_div(a, n) * n;
+}
+
+fn repeat_quarter(q: i32) -> u32 {
+    return select(select(select(5u, 3u, q == 2), 6u, q == 1), 0u, q == 0);
+}
+
+// D-464, layer_fx::repeat_way: the way 0 to 7 tile (i, j) is laid under Tiling `mode`.
+fn repeat_way(mode: i32, i: i32, j: i32) -> u32 {
+    let p = u32(repeat_mod(i + j, 2));
+    switch mode {
+        case 1: { return p; }
+        case 2: { return 2u * p; }
+        case 4: { return 3u * p; }
+        case 5: { return 4u * p; }
+        case 6: { return 6u * p; }
+        case 7: { return 5u * p; }
+        case 3: { return u32(repeat_mod(i, 2) + 2 * repeat_mod(j, 2)); }
+        case 8: {
+            let a = repeat_mod(i, 2) == 1;
+            let b = repeat_mod(j, 2) == 1;
+            return select(select(0u, 5u, b), select(6u, 3u, b), a);
+        }
+        case 9: {
+            var t = (u32(i) * 0x9E3779B1u) ^ (u32(j) * 0x85EBCA77u);
+            t = t ^ (t >> 15u);
+            t = t * 0x2C1B3C6Du;
+            t = t ^ (t >> 12u);
+            return t % 8u;
+        }
+        case 11: { return repeat_quarter(repeat_mod(i + j, 4)); }
+        case 12: { return repeat_quarter(repeat_mod(-(i + j), 4)); }
+        case 13: { return repeat_quarter(repeat_mod(i - j, 4)); }
+        default: { return 0u; }
+    }
+}
+
+// D-464, layer_fx::repeat_tile_at: the input pixel the place (x, y) from the input's corner
+// reads, or x = -1 where the output is clear.
+fn repeat_at(x0: i32, y: i32, n: vec2<i32>) -> vec2<i32> {
+    let mode = i32(k[0]);
+    if x0 < -i32(k[1]) || x0 >= n.x + i32(k[2]) || y < -i32(k[3]) || y >= n.y + i32(k[4]) {
+        return vec2(-1, 0);
+    }
+    if mode == 14 {
+        return vec2(clamp(x0, 0, n.x - 1), clamp(y, 0, n.y - 1));
+    }
+    if mode == 10 {
+        if x0 < 0 || y < 0 || x0 >= n.x || y >= n.y {
+            return vec2(-1, 0);
+        }
+        return vec2(x0, y);
+    }
+    let j = repeat_div(y, n.y);
+    var x = x0;
+    if mode == 15 && repeat_mod(j, 2) == 1 {
+        x -= n.x / 2;
+    }
+    let i = repeat_div(x, n.x);
+    let lx = x - i * n.x;
+    let ly = y - j * n.y;
+    let o = repeat_way(mode, i, j);
+    var u = lx;
+    var v = ly;
+    if (o & 4u) != 0u {
+        u = (2 * ly + 1) * n.x / (2 * n.y);
+        v = (2 * lx + 1) * n.y / (2 * n.x);
+    }
+    if (o & 1u) != 0u {
+        u = n.x - 1 - u;
+    }
+    if (o & 2u) != 0u {
+        v = n.y - 1 - v;
+    }
+    return vec2(u, v);
+}
+
+// D-464, layer_fx::repeat_tile's weight towards the pixel half a tile on, k[5] the blend.
+fn repeat_weight(t: i32, n: i32) -> f32 {
+    if k[5] == 0.0lf {
+        return 0.0;
+    }
+    let e = min(f64(t) + 0.5lf, f64(n - t) - 0.5lf);
+    return f32(clamp(1.0lf - quotient(e, k[5] * f64(n) / 2.0lf), 0.0lf, 1.0lf));
+}
+
 @compute @workgroup_size(16, 16)
 fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -4676,6 +4768,33 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             sy = k[1] + product(s, lu, z) + product(c, lv, z) + product(m, product(s, mu, z) + product(c, mv, z), z);
             sx = hex_fold(sx, f64(size.x), z);
             sy = hex_fold(sy, f64(size.y), z);
+        }
+        case 101u: {
+            // D-464, layer_fx::repeat_tile: k as repeat_tile_setup lays it, every choice made in
+            // whole numbers as the CPU's are; F.ox and F.oy are the growth.
+            let n = vec2<i32>(textureDimensions(input));
+            let px = i32(id.x) - F.ox;
+            let py = i32(id.y) - F.oy;
+            let at = repeat_at(px, py, n);
+            if at.x < 0 {
+                textureStore(output, id.xy, vec4<f32>(0.0));
+                return;
+            }
+            let uv = vec2<i32>(at.x, at.y);
+            let p = textureLoad(input, uv, 0);
+            let wx = repeat_weight(uv.x, n.x);
+            let wy = repeat_weight(uv.y, n.y);
+            if wx == 0.0 && wy == 0.0 {
+                textureStore(output, id.xy, p);
+                return;
+            }
+            let u2 = (uv.x + n.x / 2) % n.x;
+            let v2 = (uv.y + n.y / 2) % n.y;
+            let b = textureLoad(input, vec2(u2, uv.y), 0);
+            let c = textureLoad(input, vec2(uv.x, v2), 0);
+            let e = textureLoad(input, vec2(u2, v2), 0);
+            textureStore(output, id.xy, (1.0 - wy) * ((1.0 - wx) * p + wx * b) + wy * ((1.0 - wx) * c + wx * e));
+            return;
         }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
@@ -11941,6 +12060,16 @@ impl Gpu {
                 let out = self.scratch("B-115 tile", tw, th);
                 let p = FxParams { mode: 6, flag: (mirror == "on") as u32, ox: gx as i32, oy: gy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&[0.0]), None, none, tiles(tw, th));
+                (out, (tw, th))
+            }
+            // D-464: one warp pass, mode 101, into the grown buffer.
+            E::RepeatTile { expand_right, expand_left, expand_down, expand_up, tiling, blend_borders } => {
+                let (gx, gy) = f.grow;
+                let (tw, th) = (w + 2 * gx, h + 2 * gy);
+                let out = self.scratch("D-464 repeat tile", tw, th);
+                let k = crate::layer_fx::repeat_tile_setup([*expand_right, *expand_left, *expand_down, *expand_up], tiling, *blend_borders);
+                let p = FxParams { mode: 101, ox: gx as i32, oy: gy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
                 (out, (tw, th))
             }
             E::LinearWipe { completion, angle, feather } => {

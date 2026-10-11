@@ -2676,6 +2676,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("roughness".into(), num(*roughness));
             params.insert("metal".into(), num(*metal));
         }
+        Effect::RepeatTile { expand_right, expand_left, expand_down, expand_up, tiling, blend_borders } => {
+            params.insert("expand_right".into(), num(*expand_right));
+            params.insert("expand_left".into(), num(*expand_left));
+            params.insert("expand_down".into(), num(*expand_down));
+            params.insert("expand_up".into(), num(*expand_up));
+            params.insert("tiling".into(), J::from(tiling.as_str()));
+            params.insert("blend_borders".into(), num(*blend_borders));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -5215,6 +5223,7 @@ fn parse_effect(
         crate::effects::HEX_TILE,
         crate::effects::MR_SMOOTHIE,
         crate::effects::PLASTIC,
+        crate::effects::REPEAT_TILE,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6323,6 +6332,14 @@ fn parse_effect(
             roughness: effect_number(params, "roughness", &at)?,
             metal: effect_number(params, "metal", &at)?,
             map: None,
+        }),
+        crate::effects::REPEAT_TILE => Some(crate::effects::Effect::RepeatTile {
+            expand_right: effect_number(params, "expand_right", &at)?,
+            expand_left: effect_number(params, "expand_left", &at)?,
+            expand_down: effect_number(params, "expand_down", &at)?,
+            expand_up: effect_number(params, "expand_up", &at)?,
+            tiling: effect_word(params, "tiling", &at)?,
+            blend_borders: effect_number(params, "blend_borders", &at)?,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

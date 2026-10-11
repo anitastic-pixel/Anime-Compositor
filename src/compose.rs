@@ -970,6 +970,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::MrSmoothie { .. }
                 // D-463: Plastic.
                 | crate::effects::Effect::Plastic { .. }
+                // D-464: Repeat Tile, which grows the layer.
+                | crate::effects::Effect::RepeatTile { .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }
@@ -1358,6 +1360,11 @@ fn card_effect(
                     crate::layer_fx::tile_growth((*output_width, *output_height), size) == (0, 0)
                         && (*tile_center, *tile_width, *tile_height) == (crate::layer_fx::PLAIN_TILE, 100.0, 100.0)
                 }
+                // D-464: nothing grown and no blend, as `layer_fx::repeat_tile` returns at once.
+                E::RepeatTile { expand_right, expand_left, expand_down, expand_up, tiling, blend_borders } => {
+                    let k = crate::layer_fx::repeat_tile_setup([*expand_right, *expand_left, *expand_down, *expand_up], tiling, *blend_borders);
+                    crate::layer_fx::repeat_tile_growth([*expand_right, *expand_left, *expand_down, *expand_up], size) == (0, 0) && k[5] == 0.0
+                }
                 // B-123: the batch's five new ones, each as its own function returns at once.
                 E::ColorLookup { table, .. } => table.is_none(),
                 E::ArbitraryMap { table, .. } => table.is_none(),
@@ -1528,6 +1535,10 @@ fn card_effect(
                 }
                 E::MotionTile { output_width, output_height, .. } => {
                     crate::layer_fx::tile_growth((*output_width, *output_height), size)
+                }
+                // D-464: by its expansions, the same both ways.
+                E::RepeatTile { expand_right, expand_left, expand_down, expand_up, .. } => {
+                    crate::layer_fx::repeat_tile_growth([*expand_right, *expand_left, *expand_down, *expand_up], size)
                 }
                 // D-405: a Magnify by its area, when Resize Layer is on and nothing is linked.
                 E::Magnify { center, magnification, link, size: radius, feather, resize_layer, .. } => {

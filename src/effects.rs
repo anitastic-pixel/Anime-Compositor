@@ -2527,6 +2527,18 @@ pub enum Effect {
         metal: f64,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-464: after After Effects' CC RepeTile (`layer_fx::repeat_tile`, document 21).
+    /// `expand_right`, `expand_left`, `expand_down` and `expand_up`, 0 to 4000 pixels,
+    /// draft-scaled; `tiling`, one of [`REPEAT_TILE_TILINGS`], kept as written so a wrong one is
+    /// reported; `blend_borders`, 0 to 100 per cent.
+    RepeatTile {
+        expand_right: f64,
+        expand_left: f64,
+        expand_down: f64,
+        expand_up: f64,
+        tiling: String,
+        blend_borders: f64,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -3374,6 +3386,26 @@ pub const BURN_FILM: &str = "core.burn_film";
 pub const HEX_TILE: &str = "core.hex_tile";
 pub const MR_SMOOTHIE: &str = "core.mr_smoothie";
 pub const PLASTIC: &str = "core.plastic";
+pub const REPEAT_TILE: &str = "core.repeat_tile";
+/// D-464: Repeat Tile's ways of laying the copies, After Effects' sixteen in its order.
+pub const REPEAT_TILE_TILINGS: [&str; 16] = [
+    "repeat",
+    "checker_flip_h",
+    "checker_flip_v",
+    "unfold",
+    "checker_180",
+    "checker_flip_45",
+    "checker_90_cw",
+    "checker_90_ccw",
+    "rosette",
+    "random",
+    "none",
+    "turn_cw",
+    "turn_ccw",
+    "twist",
+    "slide",
+    "brick",
+];
 /// D-462: Mr. Smoothie's colour loops, After Effects' AB, BA, ABA and BAB.
 pub const MR_SMOOTHIE_LOOPS: [&str; 4] = ["ab", "ba", "aba", "bab"];
 /// D-461: Hex Tile's ways of filling a tile, After Effects' Tile, Fold Aligned and Fold
@@ -4738,6 +4770,13 @@ impl Effect {
                 ("roughness", vec![roughness], 0.001, 1.0),
                 ("metal", vec![metal], 0.0, 100.0),
             ],
+            Effect::RepeatTile { expand_right, expand_left, expand_down, expand_up, blend_borders, .. } => vec![
+                ("expand_right", vec![expand_right], 0.0, 4000.0),
+                ("expand_left", vec![expand_left], 0.0, 4000.0),
+                ("expand_down", vec![expand_down], 0.0, 4000.0),
+                ("expand_up", vec![expand_up], 0.0, 4000.0),
+                ("blend_borders", vec![blend_borders], 0.0, 100.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -5594,6 +5633,12 @@ impl Effect {
                     *light_height = scale(*light_height);
                 }
             }
+            // D-464: the layer grows as far on the picture.
+            Effect::RepeatTile { expand_right, expand_left, expand_down, expand_up, .. } => {
+                for e in [expand_right, expand_left, expand_down, expand_up] {
+                    *e = scale(*e);
+                }
+            }
             Effect::Snowfall {
                 spacing,
                 size,
@@ -6152,6 +6197,7 @@ impl Effect {
             Effect::HexTile { .. } => "Hex Tile",
             Effect::MrSmoothie { .. } => "Mr. Smoothie",
             Effect::Plastic { .. } => "Plastic",
+            Effect::RepeatTile { .. } => "Repeat Tile",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -6366,6 +6412,7 @@ impl Effect {
             Effect::HexTile { .. } => HEX_TILE,
             Effect::MrSmoothie { .. } => MR_SMOOTHIE,
             Effect::Plastic { .. } => PLASTIC,
+            Effect::RepeatTile { .. } => REPEAT_TILE,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -7730,6 +7777,10 @@ impl Effect {
             Effect::Plastic { light_color, ambient_light_color, .. } => {
                 hex_fault("Plastic", "light colour", light_color).or_else(|| hex_fault("Plastic", "ambient light colour", ambient_light_color))
             }
+            Effect::RepeatTile { tiling, .. } if !REPEAT_TILE_TILINGS.contains(&tiling.as_str()) => Some(format!(
+                "Repeat Tile's tiling is one of {}, and this is \"{tiling}\".",
+                REPEAT_TILE_TILINGS.join(", ")
+            )),
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
             )),
@@ -10267,6 +10318,14 @@ pub(crate) fn apply_stack_at(
                     [*ambient / 100.0, *diffuse / 100.0, *dust / 100.0, *specular / 100.0, *roughness, *metal / 100.0],
                 )
             }),
+            // D-464: the whole buffer is the tile, however an effect above grew it, and the
+            // layer grows by the expansions, the same both ways.
+            Effect::RepeatTile { expand_right, expand_left, expand_down, expand_up, tiling, blend_borders } => {
+                let k = crate::layer_fx::repeat_tile_setup([*expand_right, *expand_left, *expand_down, *expand_up], tiling, *blend_borders);
+                let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectRepeatTile, || crate::layer_fx::repeat_tile(source, &k));
+                ox += gx;
+                oy += gy;
+            }
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
                 crate::median::smart_blur(source, *radius, *threshold)
             }),
