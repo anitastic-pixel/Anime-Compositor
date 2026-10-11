@@ -211272,3 +211272,25 @@ FX-SSUP-013 (`fx_ssup_013.json`): Suppression keyed to 150 at frame 4. The file 
 FX-SSUP-014 (`fx_ssup_014.json`): Color To Suppress written "blue", a name, not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SSUP-015 (`fx_ssup_015.json`): Color To Suppress written "#00ff0", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Reduce Interlace Flicker (D-549)
+
+Reduce Interlace Flicker, after After Effects' Reduce Interlace Flicker (Stylize, Obsolete), `core.reduce_interlace_flicker` (B-429), a second name over Gaussian Blur's one-way blur, vertical, edges repeated. Every case is Broadcast Safe's drawing (`media/colours.png`); `tools/reduce_interlace_flicker_reference.py` works the expected frames, `Fixtures/reduce_interlace_flicker/expected_reduce_interlace_flicker.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-RIF-001 (`fx_rif_001.json`): The setting as it starts: Softness 1, a Gaussian of sigma 1 down each column reaching 3 rows. Each row takes a little of the rows above and below it, so the darkening down each column is smoothed; the colours of neighbouring columns never mix; the top and bottom rows read themselves past the edge, so they do not fade; every covering is kept. Frames 0.
+
+FX-RIF-002 (`fx_rif_002.json`): Softness 0: the drawing exactly as it is. Frames 0.
+
+FX-RIF-003 (`fx_rif_003.json`): Softness 2.5: reaching 8 rows, every column far smoother than FX-RIF-001. Frames 0.
+
+FX-RIF-004 (`fx_rif_004.json`): Softness 0.3: reaching one row, a slight softening. Frames 0.
+
+FX-RIF-005 (`fx_rif_005.json`): Softness keyed from 0 at frame 0 to 2 at frame 4, linear: frame 0 is the drawing, frame 2 is FX-RIF-001. Frames 0, 2, 4.
+
+FX-RIF-006 (`fx_rif_006.json`): FX-RIF-001 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-RIF-007 (`fx_rif_007.json`): Softness 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RIF-008 (`fx_rif_008.json`): Softness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RIF-009 (`fx_rif_009.json`): Softness keyed to 600 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
