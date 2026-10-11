@@ -24,4 +24,4 @@ First loops (empty caches): card 13.8, 54.8, 80.5; processor 19.8, 219.0, 335.4.
 
 **Reading it.** The row asks Target P2, 4 ms or less added on the card, so this is over Target P2 (4 ms or less added on the card): about 13.7 to 21.2 ms a layer on the card; on the processor about 71 to 95 ms a layer.
 Most of it is the blur, worked in double precision so the card stays within 1 level of the
-processor; a single-precision blur is left as a proposal.
+processor; a single-precision blur is left as a proposal. D-550 (B-430) took it up: `verification/B-430_deband_single_precision_timing_table.md`.
