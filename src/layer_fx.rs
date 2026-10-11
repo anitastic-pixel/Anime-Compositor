@@ -1022,6 +1022,21 @@ pub(crate) fn offset(source: &mut WorkingBuffer, shift: [f64; 2]) {
         });
 }
 
+/// Each run of `n` columns, or of rows, that falls in one block `size` wide laid from `o`, as
+/// D-144's Mosaic and D-449's Block Load cut them.
+pub(crate) fn block_runs(n: usize, o: usize, size: f64) -> Vec<std::ops::Range<usize>> {
+    let block = |p: usize| ((p as f64 - o as f64) / size).floor();
+    let mut runs = Vec::new();
+    let mut start = 0;
+    for p in 1..=n {
+        if p == n || block(p) != block(start) {
+            runs.push(start..p);
+            start = p;
+        }
+    }
+    runs
+}
+
 /// D-144: every block `size` pixels wide, laid from the drawing's corner `(ox, oy)` in `source`,
 /// painted the mean of the buffer's premultiplied pixels in it, empty ones counted as empty. A
 /// block past the right or bottom edge is cut short. Size 1 or less changes nothing.
@@ -1030,20 +1045,7 @@ pub(crate) fn mosaic(source: &mut WorkingBuffer, size: f64, (ox, oy): (usize, us
         return;
     }
     let (w, h) = (source.width(), source.height());
-    // Each run of columns, or of rows, that falls in one block.
-    let runs = |n: usize, o: usize| {
-        let block = |p: usize| ((p as f64 - o as f64) / size).floor();
-        let mut runs = Vec::new();
-        let mut start = 0;
-        for p in 1..=n {
-            if p == n || block(p) != block(start) {
-                runs.push(start..p);
-                start = p;
-            }
-        }
-        runs
-    };
-    let (columns, rows) = (runs(w, ox), runs(h, oy));
+    let (columns, rows) = (block_runs(w, ox, size), block_runs(h, oy, size));
     // P-22: each row of blocks on a thread of its own, its rows cut from the buffer in order.
     let mut rest = source.data_mut();
     let mut bands = Vec::new();
@@ -1074,6 +1076,122 @@ pub(crate) fn mosaic(source: &mut WorkingBuffer, size: f64, (ox, oy): (usize, us
             }
         }
     });
+}
+
+/// D-449: Block Load's pass under way at `completion` (0 to 100) with `scans` (its whole part):
+/// the power of two its blocks are wide, whether the picture before it is empty (Start Cleared's
+/// first pass), and how far through it is. None when every pass is done, the layer as it is.
+pub(crate) fn block_load_pass(completion: f64, scans: f64, cleared: bool) -> Option<(i32, bool, f64)> {
+    let n = scans.floor() as i32;
+    let first = if cleared { 0 } else { 1 };
+    let t = n + 1 - first;
+    let q = completion / 100.0 * t as f64;
+    let j = q.floor();
+    if j >= t as f64 {
+        return None;
+    }
+    let k = first + j as i32;
+    Some((n - k, k == 0, q - j))
+}
+
+/// D-449: the first buffer row the pass under way has not reached: of the rows of blocks `size`
+/// wide laid from `oy`, the first floor(f m) are done.
+pub(crate) fn block_load_edge(h: usize, oy: usize, size: f64, f: f64) -> usize {
+    let rows = block_runs(h, oy, size);
+    let done = (f * rows.len() as f64).floor() as usize;
+    rows.get(done).map_or(h, |r| r.start)
+}
+
+/// D-449: after After Effects' CC Block Load. The pass under way paints blocks 2^e `pixel` wide
+/// (D-144's, or blended between their centres when `bilinear`) down to its edge; below it the
+/// pass before, blocks twice as wide, or nothing before Start Cleared's first pass. The layer
+/// never grows.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn block_load(source: &mut WorkingBuffer, completion: f64, scans: f64, cleared: bool, bilinear: bool, pixel: f64, origin: (usize, usize)) {
+    let Some((e, empty, f)) = block_load_pass(completion, scans, cleared) else {
+        return;
+    };
+    let size = 2f64.powi(e) * pixel;
+    let (w, h) = (source.width(), source.height());
+    let edge = block_load_edge(h, origin.1, size, f);
+    let before = (edge < h && !empty).then(|| {
+        let mut b = source.clone();
+        block_picture(&mut b, size * 2.0, bilinear, origin);
+        b
+    });
+    block_picture(source, size, bilinear, origin);
+    if edge < h {
+        let below = &mut source.data_mut()[edge * w * 4..];
+        match &before {
+            Some(b) => below.copy_from_slice(&b.data()[edge * w * 4..]),
+            None => below.fill(0.0),
+        }
+    }
+}
+
+/// Blocks `size` wide as D-144's Mosaic lays them, flat, or when `bilinear` each pixel the blend,
+/// across then down, of the means of the two blocks whose centres are either side of it (the edge
+/// block's alone past the first or last centre).
+fn block_picture(source: &mut WorkingBuffer, size: f64, bilinear: bool, (ox, oy): (usize, usize)) {
+    if !bilinear || size <= 1.0 {
+        return mosaic(source, size, (ox, oy));
+    }
+    let (w, h) = (source.width(), source.height());
+    let (columns, rows) = (block_runs(w, ox, size), block_runs(h, oy, size));
+    let data = source.data();
+    let means: Vec<[f32; 4]> = rows
+        .par_iter()
+        .flat_map_iter(|ys| {
+            columns.iter().map(move |xs| {
+                let mut sum = [0.0f64; 4];
+                for y in ys.clone() {
+                    for x in xs.clone() {
+                        let i = 4 * (y * w + x);
+                        for c in 0..4 {
+                            sum[c] += data[i + c] as f64;
+                        }
+                    }
+                }
+                let n = (ys.len() * xs.len()) as f64;
+                sum.map(|v| (v / n) as f32)
+            })
+        })
+        .collect();
+    // For each pixel along, the two blocks either side of its centre and how far between.
+    let pairs = |runs: &[std::ops::Range<usize>]| {
+        let centre = |c: usize| (runs[c].start + runs[c].end) as f64 / 2.0;
+        let mut out = Vec::new();
+        for (c, r) in runs.iter().enumerate() {
+            for p in r.clone() {
+                let p = p as f64 + 0.5;
+                let (a, b) = if p < centre(c) { (c.wrapping_sub(1), c) } else { (c, c + 1) };
+                out.push(if a == usize::MAX {
+                    (0, 0, 0.0)
+                } else if b >= runs.len() {
+                    (runs.len() - 1, runs.len() - 1, 0.0)
+                } else {
+                    (a, b, (p - centre(a)) / (centre(b) - centre(a)))
+                });
+            }
+        }
+        out
+    };
+    let (across, down) = (pairs(&columns), pairs(&rows));
+    let nc = columns.len();
+    let mut out = vec![0.0f32; w * h * 4];
+    out.par_chunks_mut(w * 4).enumerate().for_each(|(y, line)| {
+        let (ya, yb, ty) = down[y];
+        for (x, px) in line.chunks_mut(4).enumerate() {
+            let (xa, xb, tx) = across[x];
+            for c in 0..4 {
+                let m = |r: usize, k: usize| means[r * nc + k][c] as f64;
+                let top = (1.0 - tx) * m(ya, xa) + tx * m(ya, xb);
+                let bottom = (1.0 - tx) * m(yb, xa) + tx * m(yb, xb);
+                px[c] = ((1.0 - ty) * top + ty * bottom) as f32;
+            }
+        }
+    });
+    source.data_mut().copy_from_slice(&out);
 }
 
 /// The picture luma of a premultiplied pixel, its colour over black, encoded.

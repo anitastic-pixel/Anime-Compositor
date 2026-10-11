@@ -4756,7 +4756,33 @@ fn blocks(@builtin(global_invocation_id) id: vec3<u32>) {
     row[i + 3u] = f32(a / n);
 }
 
+// D-449: the two blocks, of the `n` whose starts are k[base..], either side of pixel centre `p`
+// in block `c`, and how far between their centres; the edge block alone past the end ones.
+struct TilePair {
+    a: u32,
+    b: u32,
+    t: f64,
+}
+
+fn tile_pair(base: u32, n: u32, c: u32, p: f64) -> TilePair {
+    var a = c;
+    var b = c + 1u;
+    if p < (k[base + c] + k[base + c + 1u]) / 2.0lf {
+        if c == 0u {
+            return TilePair(0u, 0u, 0.0lf);
+        }
+        a = c - 1u;
+        b = c;
+    } else if b >= n {
+        return TilePair(c, c, 0.0lf);
+    }
+    let ca = (k[base + a] + k[base + a + 1u]) / 2.0lf;
+    let cb = (k[base + b] + k[base + b + 1u]) / 2.0lf;
+    return TilePair(a, b, (p - ca) / (cb - ca));
+}
+
 // Each pixel its block's mean. k as for `blocks`, then each column's block, then each row's.
+// D-449: mode 1 blends the means between the blocks' centres, as layer_fx::block_picture.
 @compute @workgroup_size(16, 16)
 fn tiles(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -4766,8 +4792,37 @@ fn tiles(@builtin(global_invocation_id) id: vec3<u32>) {
     let nc = u32(k[0]);
     let nr = u32(k[1]);
     let start = 4u + nc + nr;
-    let i = 4u * (u32(k[start + size.x + id.y]) * nc + u32(k[start + id.x]));
+    let col = u32(k[start + id.x]);
+    let rw = u32(k[start + size.x + id.y]);
+    if F.mode == 1u {
+        let x = tile_pair(2u, nc, col, f64(id.x) + 0.5lf);
+        let y = tile_pair(3u + nc, nr, rw, f64(id.y) + 0.5lf);
+        var out = vec4(0.0);
+        for (var c = 0u; c < 4u; c++) {
+            let top = (1.0lf - x.t) * f64(row[4u * (y.a * nc + x.a) + c]) + x.t * f64(row[4u * (y.a * nc + x.b) + c]);
+            let bottom = (1.0lf - x.t) * f64(row[4u * (y.b * nc + x.a) + c]) + x.t * f64(row[4u * (y.b * nc + x.b) + c]);
+            out[c] = f32((1.0lf - y.t) * top + y.t * bottom);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
+    let i = 4u * (rw * nc + col);
     textureStore(output, id.xy, vec4(row[i], row[i + 1u], row[i + 2u], row[i + 3u]));
+}
+
+// D-449, layer_fx::block_load: rows above k[0] from `input`, the pass under way; the rest from
+// `other`, the pass before, or (mode 1, Start Cleared's first pass) empty.
+@compute @workgroup_size(16, 16)
+fn blockload(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    var p = textureLoad(input, id.xy, 0);
+    if f64(id.y) >= k[0] {
+        p = select(textureLoad(other, id.xy, 0), vec4(0.0), F.mode == 1u);
+    }
+    textureStore(output, id.xy, p);
 }
 
 // layer_fx::picture_luma.
@@ -8882,6 +8937,8 @@ struct FxPasses {
     cartoon: Pass,
     /// D-508.
     energy: Pass,
+    /// D-449.
+    blockload: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -9555,6 +9612,7 @@ impl Gpu {
                 cartoonedge: pass("cartoonedge", &[0, 1, 2, 3]),
                 cartoon: pass("cartoon", &[0, 1, 2, 3, 4]),
                 energy: pass("energy", &[0, 1, 2, 3]),
+                blockload: pass("blockload", &[0, 1, 2, 3, 4]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -10452,6 +10510,35 @@ impl Gpu {
             same(steps, &passes.bilat, FxParams { mode: 1, ..p }, &k, Some(&levels))
         };
         let (ox, oy) = f.origin;
+        // D-144's Mosaic on `still`, blocks `size` wide from the drawing's corner, or (D-449)
+        // blended between their centres. Size 1 or less is `still` as it is.
+        let mosaic = |steps: &mut Vec<Step>, size: f64, bilinear: bool| {
+            if size <= 1.0 {
+                return still.clone();
+            }
+            // Where each run of columns, or of rows, in one block starts, the end last, and
+            // each column's or row's run, as layer_fx::block_runs cuts them.
+            let runs = |n: usize, o: usize| {
+                let runs = crate::layer_fx::block_runs(n, o, size);
+                let mut of = Vec::with_capacity(n);
+                for (i, r) in runs.iter().enumerate() {
+                    of.extend(r.clone().map(|_| i as f64));
+                }
+                let mut starts: Vec<f64> = runs.iter().map(|r| r.start as f64).collect();
+                starts.push(n as f64);
+                (starts, of)
+            };
+            let ((cs, col_of), (rs, row_of)) = (runs(w, ox), runs(h, oy));
+            let (nc, nr) = (cs.len() - 1, rs.len() - 1);
+            let mut k = vec![nc as f64, nr as f64];
+            k.extend(cs.into_iter().chain(rs).chain(col_of).chain(row_of));
+            let means = buffer(16 * nc * nr);
+            self.fx_step(steps, &passes.blocks, FxParams::default(), Some(still), None, Some(&k), None, [Some(&means), None, None, None], tiles(nc, nr));
+            let out = self.scratch("B-107 mosaic", w, h);
+            let p = FxParams { mode: bilinear as u32, ..Default::default() };
+            self.fx_step(steps, &passes.tiles, p, Some(still), Some(&out), Some(&k), None, [Some(&means), None, None, None], tiles(w, h));
+            out
+        };
         // D-445: Turbulent Noise is Fractal Noise's pass.
         // D-454: a Match Grain is drawn as the Add Grain it lays; compose left out one that lays none.
         let turned = crate::effects::turbulent_fractal(&f.instance.effect)
@@ -11004,29 +11091,22 @@ impl Gpu {
                 let p = FxParams { mode: 10, ox: ox as i32, oy: oy as i32, ..Default::default() };
                 same(steps, &passes.tone, p, &k, None)
             }
-            E::Mosaic { size } => {
-                // Where each run of columns, or of rows, in one block starts, the end last, and
-                // each column's or row's run, as layer_fx::mosaic cuts them.
-                let runs = |n: usize, o: usize| {
-                    let block = |p: usize| ((p as f64 - o as f64) / size).floor();
-                    let (mut starts, mut of) = (vec![0.0], Vec::with_capacity(n));
-                    for p in 0..n {
-                        if p > 0 && block(p) != block(starts[starts.len() - 1] as usize) {
-                            starts.push(p as f64);
-                        }
-                        of.push((starts.len() - 1) as f64);
-                    }
-                    starts.push(n as f64);
-                    (starts, of)
-                };
-                let ((cs, col_of), (rs, row_of)) = (runs(w, ox), runs(h, oy));
-                let (nc, nr) = (cs.len() - 1, rs.len() - 1);
-                let mut k = vec![nc as f64, nr as f64];
-                k.extend(cs.into_iter().chain(rs).chain(col_of).chain(row_of));
-                let means = buffer(16 * nc * nr);
-                self.fx_step(steps, &passes.blocks, FxParams::default(), Some(still), None, Some(&k), None, [Some(&means), None, None, None], tiles(nc, nr));
-                let out = self.scratch("B-107 mosaic", w, h);
-                self.fx_step(steps, &passes.tiles, FxParams::default(), Some(still), Some(&out), Some(&k), None, [Some(&means), None, None, None], tiles(w, h));
+            E::Mosaic { size } => (mosaic(steps, *size, false), (w, h)),
+            // D-449: compose left out one with every pass done.
+            E::BlockLoad { completion, scans, start_cleared, bilinear, pixel } => {
+                let (e, empty, f) = crate::layer_fx::block_load_pass(*completion, *scans, start_cleared == "on")
+                    .expect("compose leaves out a Block Load with every pass done");
+                let size = 2f64.powi(e) * pixel;
+                let bilinear = bilinear == "on";
+                let now = mosaic(steps, size, bilinear);
+                let edge = crate::layer_fx::block_load_edge(h, oy, size, f);
+                if edge >= h {
+                    return (now, (w, h));
+                }
+                let before = if empty { now.clone() } else { mosaic(steps, size * 2.0, bilinear) };
+                let out = self.scratch("D-449 block load", w, h);
+                let p = FxParams { mode: empty as u32, ..Default::default() };
+                self.fx_step(steps, &passes.blockload, p, Some(&now), Some(&out), Some(&[edge as f64]), Some(&before), none, tiles(w, h));
                 (out, (w, h))
             }
             E::Emboss { direction, relief, contrast, mode } => {

@@ -2347,6 +2347,17 @@ pub enum Effect {
         frame_offset: f64,
         picture: Option<crate::layer_map::Map>,
     },
+    /// D-449: after After Effects' CC Block Load (`layer_fx::block_load`, document 21).
+    /// `completion`, 0 to 100; `scans`, 1 to 16, its whole part; `start_cleared` and `bilinear`,
+    /// "on" or "off". `pixel` is not a setting and is never saved: one pixel's width, scaled by a
+    /// draft so the blocks keep their size on the picture.
+    BlockLoad {
+        completion: f64,
+        scans: f64,
+        start_cleared: String,
+        bilinear: String,
+        pixel: f64,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -3154,6 +3165,7 @@ pub const GLASSES_VIEWS: [&str; 8] = [
 pub const SIMPLE_WIRE_REMOVAL: &str = "core.simple_wire_removal";
 /// D-458: CC Simple Wire Removal's styles.
 pub const WIRE_STYLES: [&str; 4] = ["fade", "frame_offset", "displace", "displace_horizontal"];
+pub const BLOCK_LOAD: &str = "core.block_load";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -4408,6 +4420,10 @@ impl Effect {
                 ("edge_noise_reduction", vec![edge_noise_reduction], 0.0, 100.0),
                 ("noise_reseed_interval", vec![noise_reseed_interval], 0.0, 100.0),
             ],
+            Effect::BlockLoad { completion, scans, .. } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("scans", vec![scans], 1.0, 16.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -5246,6 +5262,7 @@ impl Effect {
                 *detail_radius = scale(*detail_radius);
                 *edge_width = scale(*edge_width);
             }
+            Effect::BlockLoad { pixel, .. } => *pixel = scale(*pixel),
             Effect::Snowfall {
                 spacing,
                 size,
@@ -5773,6 +5790,7 @@ impl Effect {
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
+            Effect::BlockLoad { .. } => "Block Load",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5975,6 +5993,7 @@ impl Effect {
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
+            Effect::BlockLoad { .. } => BLOCK_LOAD,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -7267,6 +7286,12 @@ impl Effect {
             Effect::Deband { view, .. } if !DEBAND_VIEWS.contains(&view.as_str()) => Some(format!(
                 "Deband's view is one of {}, and this is \"{view}\".",
                 DEBAND_VIEWS.join(", ")
+            )),
+            Effect::BlockLoad { start_cleared: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
+                "Block Load's start cleared is \"on\" or \"off\", and this is \"{v}\"."
+            )),
+            Effect::BlockLoad { bilinear: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
+                "Block Load's bilinear is \"on\" or \"off\", and this is \"{v}\"."
             )),
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
@@ -9661,6 +9686,10 @@ pub(crate) fn apply_stack_at(
             }
             // D-448: the layer never grows.
             e @ Effect::Cartoon { .. } => crate::perf::time(crate::perf::Stage::EffectCartoon, || crate::median::cartoon(source, e)),
+            // D-449: the layer never grows.
+            Effect::BlockLoad { completion, scans, start_cleared, bilinear, pixel } => crate::perf::time(crate::perf::Stage::EffectBlockLoad, || {
+                crate::layer_fx::block_load(source, *completion, *scans, start_cleared == "on", bilinear == "on", *pixel, (ox, oy))
+            }),
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
                 crate::median::smart_blur(source, *radius, *threshold)
             }),

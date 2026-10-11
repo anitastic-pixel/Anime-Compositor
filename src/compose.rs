@@ -959,6 +959,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Cartoon { .. }
                 // D-456: Deband.
                 | crate::effects::Effect::Deband { .. }
+                // D-449: Block Load.
+                | crate::effects::Effect::BlockLoad { .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }
@@ -1300,6 +1302,9 @@ fn card_effect(
                 }
                 E::Vibrance { vibrance, saturation } => [*vibrance, *saturation] == [0.0; 2],
                 E::Mosaic { size } => *size <= 1.0,
+                E::BlockLoad { completion, scans, start_cleared, .. } => {
+                    crate::layer_fx::block_load_pass(*completion, *scans, start_cleared == "on").is_none()
+                }
                 E::FindEdges { amount, .. } => *amount <= 0.0,
                 E::Sharpen { amount, radius, .. } => *amount <= 0.0 || *radius <= 0.0,
                 E::Diffusion { amount, radius, second_amount, .. } => *radius <= 0.0 || (*amount <= 0.0 && *second_amount <= 0.0),

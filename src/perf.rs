@@ -396,6 +396,8 @@ pub enum Stage {
     EffectCcWideTime,
     /// D-508: Energy Stroke.
     EffectEnergyStroke,
+    /// D-449's Block Load.
+    EffectBlockLoad,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -611,6 +613,7 @@ impl Stage {
         Stage::EffectCcSpotlight,
         Stage::EffectCcWideTime,
         Stage::EffectEnergyStroke,
+        Stage::EffectBlockLoad,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -820,6 +823,7 @@ impl Stage {
             Stage::EffectCcSpotlight => "effect: cc spotlight",
             Stage::EffectCcWideTime => "effect: cc wide time",
             Stage::EffectEnergyStroke => "effect: energy stroke",
+            Stage::EffectBlockLoad => "effect: block load",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

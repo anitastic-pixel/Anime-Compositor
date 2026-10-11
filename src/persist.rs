@@ -2527,6 +2527,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("intensity".into(), num(*intensity));
             params.insert("render".into(), J::from(render.as_str()));
         }
+        Effect::BlockLoad { completion, scans, start_cleared, bilinear, .. } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("scans".into(), num(*scans));
+            params.insert("start_cleared".into(), J::from(start_cleared.as_str()));
+            params.insert("bilinear".into(), J::from(bilinear.as_str()));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -5041,6 +5047,7 @@ fn parse_effect(
         crate::effects::NOISE_HLS_AUTO,
         crate::effects::BRUSH_STROKES,
         crate::effects::CARTOON,
+        crate::effects::BLOCK_LOAD,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6017,6 +6024,13 @@ fn parse_effect(
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             intensity: effect_number(params, "intensity", &at)?,
             render: effect_word(params, "render", &at)?,
+        }),
+        crate::effects::BLOCK_LOAD => Some(crate::effects::Effect::BlockLoad {
+            completion: effect_number(params, "completion", &at)?,
+            scans: effect_number(params, "scans", &at)?,
+            start_cleared: effect_word(params, "start_cleared", &at)?,
+            bilinear: effect_word(params, "bilinear", &at)?,
+            pixel: 1.0,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,
