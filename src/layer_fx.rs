@@ -7871,6 +7871,143 @@ pub(crate) fn cc_spotlight(source: &mut WorkingBuffer, e: &crate::effects::Effec
     });
 }
 
+/// D-530: CC Cylinder's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
+/// the render (an index into `effects::CYLINDER_RENDERS`), the eye E (three), M = Rz Ry Rx by
+/// rows (nine), the eye in the cylinder's own space M^T (E - C) (three), the radius, the light's
+/// direction in the cylinder's own space (three), the intensity share, the light's linear colour
+/// (three), ambient, diffuse, specular and metal as shares, the highlight's power (0 for none),
+/// `w0` and `h0`.
+pub(crate) fn cylinder_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 31] {
+    let crate::effects::Effect::CcCylinder {
+        radius,
+        position,
+        position_z,
+        rotation_x,
+        rotation_y,
+        rotation_z,
+        render,
+        light_intensity,
+        light_color,
+        light_height,
+        light_direction,
+        ambient,
+        diffuse,
+        specular,
+        roughness,
+        metal,
+    } = e
+    else {
+        unreachable!("CC Cylinder's numbers of another effect")
+    };
+    type M3 = [[f64; 3]; 3];
+    let mul = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum())) };
+    let (sx, cx) = rotation_x.to_radians().sin_cos();
+    let (sy, cy) = rotation_y.to_radians().sin_cos();
+    let (sz, cz) = rotation_z.to_radians().sin_cos();
+    let rx = [[1.0, 0.0, 0.0], [0.0, cx, -sx], [0.0, sx, cx]];
+    let ry = [[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]];
+    let rz = [[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]];
+    let m = mul(rz, mul(ry, rx));
+    let own = |v: [f64; 3]| -> [f64; 3] { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
+    // A 50 mm lens on a 36 mm frame.
+    let eye = [w0 / 2.0, h0 / 2.0, -w0 * 50.0 / 36.0];
+    let c = [position[0] * w0 / 100.0, position[1] * h0 / 100.0, position_z * w0 / 100.0];
+    let o = own([eye[0] - c[0], eye[1] - c[1], eye[2] - c[2]]);
+    let (el, g) = ((light_height * 0.9).to_radians(), light_direction.to_radians());
+    let l = own([el.cos() * g.sin(), -el.cos() * g.cos(), -el.sin()]);
+    let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
+    let mode = crate::effects::CYLINDER_RENDERS.iter().position(|r| r == render).expect("CC Cylinder's render was checked");
+    let power = if *roughness > 0.0 { 2.0 / (roughness / 100.0).powi(2) } else { 0.0 };
+    [
+        mode as f64,
+        eye[0],
+        eye[1],
+        eye[2],
+        m[0][0],
+        m[0][1],
+        m[0][2],
+        m[1][0],
+        m[1][1],
+        m[1][2],
+        m[2][0],
+        m[2][1],
+        m[2][2],
+        o[0],
+        o[1],
+        o[2],
+        radius * w0 / 200.0,
+        l[0],
+        l[1],
+        l[2],
+        light_intensity / 100.0,
+        lc[0],
+        lc[1],
+        lc[2],
+        ambient / 100.0,
+        diffuse / 100.0,
+        specular / 100.0,
+        metal / 100.0,
+        power,
+        w0,
+        h0,
+    ]
+}
+
+/// D-530: one hit's lit colour from its premultiplied sample `c`, at `hit` in the cylinder's own
+/// space on the ray `v`, the inside's normal turned round (document 21).
+fn cylinder_shade(k: &[f64; 31], c: [f64; 4], hit: [f64; 3], v: [f64; 3], inside: bool) -> [f64; 4] {
+    let sg = if inside { -1.0 } else { 1.0 };
+    let n = [sg * hit[0] / k[16], sg * hit[2] / k[16]];
+    let lv = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+    let hv = [k[17] - v[0] / lv, k[18] - v[1] / lv, k[19] - v[2] / lv];
+    let hl = (hv[0] * hv[0] + hv[1] * hv[1] + hv[2] * hv[2]).sqrt();
+    let nl = n[0] * k[17] + n[1] * k[19];
+    let s = if k[28] > 0.0 && nl > 0.0 && hl > 0.0 { ((n[0] * hv[0] + n[1] * hv[2]) / hl).max(0.0).powf(k[28]) } else { 0.0 };
+    let (diff, spec) = (k[25] * k[20] * nl.max(0.0), k[26] * k[20] * s);
+    let lit = |j: usize| c[j] * (k[24] + diff * k[21 + j]) + spec * (k[27] * c[j] + (1.0 - k[27]) * k[21 + j] * c[3]);
+    [lit(0), lit(1), lit(2), c[3]]
+}
+
+/// D-530: after CycoreFX's CC Cylinder, the rule ours (document 21): the drawing, whose corner is
+/// at `(ox, oy)` in the buffer, wrapped round a lit open cylinder seen by a fixed eye; one ray a
+/// pixel. Never grows.
+pub(crate) fn cc_cylinder(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let (w, h) = (source.width(), source.height());
+    let (dw, dh) = (w - 2 * ox, h - 2 * oy);
+    let k = cylinder_numbers(e, dw as f64, dh as f64);
+    let mut out = WorkingBuffer::transparent(w, h);
+    let drawing = &*source;
+    let (o, r, mode) = ([k[13], k[14], k[15]], k[16], k[0] as usize);
+    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let d = [(i % w) as f64 - ox as f64 + 0.5 - k[1], (i / w) as f64 - oy as f64 + 0.5 - k[2], -k[3]];
+        let v: [f64; 3] = std::array::from_fn(|n| k[4 + n] * d[0] + k[7 + n] * d[1] + k[10 + n] * d[2]);
+        let a = v[0] * v[0] + v[2] * v[2];
+        let b = o[0] * v[0] + o[2] * v[2];
+        let disc = b * b - a * (o[0] * o[0] + o[2] * o[2] - r * r);
+        if r == 0.0 || a == 0.0 || disc < 0.0 {
+            return;
+        }
+        let sq = disc.sqrt();
+        let mut got = [0.0f64; 4];
+        // The inside first, the outside laid over it.
+        for (t, inside) in [((-b + sq) / a, true), ((-b - sq) / a, false)] {
+            let hy = o[1] + t * v[1];
+            if (inside && mode == 1) || (!inside && mode == 2) || !(t > 0.0 && hy.abs() <= k[30] / 2.0) {
+                continue;
+            }
+            let hit = [o[0] + t * v[0], hy, o[2] + t * v[2]];
+            let phi = hit[0].atan2(-hit[2]);
+            let s = sample_round(drawing, k[29] / 2.0 + phi / std::f64::consts::TAU * k[29], hy + k[30] / 2.0 + oy as f64, dw as isize, ox as isize);
+            let lit = cylinder_shade(&k, s.map(f64::from), hit, v, inside);
+            got = std::array::from_fn(|j| lit[j] + (1.0 - lit[3]) * got[j]);
+        }
+        for (p, g) in px.iter_mut().zip(got) {
+            *p = g as f32;
+        }
+    });
+    *source = out;
+}
+
 /// D-506: 3D Glasses. Each view is read in the drawing's own space, a map at (u, v) or the layer
 /// itself at (u + ox, v + oy), transparent outside, by document 21's bilinear. The anaglyphs and
 /// the interlace read the left view half the convergence c to the right and half the alignment

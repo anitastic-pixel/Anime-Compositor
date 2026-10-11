@@ -8923,6 +8923,63 @@ fn over(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, q + p * (1.0 - q.w));
 }
 
+// D-530, layer_fx::cc_cylinder: k as layer_fx::cylinder_numbers; the drawing's corner at
+// (F.ox, F.oy). The highlight's power is taken in single precision.
+@compute @workgroup_size(16, 16)
+fn cylinder(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let d = vec3<f64>(f64(i32(id.x) - F.ox) + 0.5lf - k[1], f64(i32(id.y) - F.oy) + 0.5lf - k[2], -k[3]);
+    let v = vec3<f64>(
+        k[4] * d.x + k[7] * d.y + k[10] * d.z,
+        k[5] * d.x + k[8] * d.y + k[11] * d.z,
+        k[6] * d.x + k[9] * d.y + k[12] * d.z,
+    );
+    let o = vec3<f64>(k[13], k[14], k[15]);
+    let r = k[16];
+    let a = v.x * v.x + v.z * v.z;
+    let b = o.x * v.x + o.z * v.z;
+    let disc = b * b - a * (o.x * o.x + o.z * o.z - r * r);
+    var got = vec4<f64>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+    if r != 0.0lf && a != 0.0lf && disc >= 0.0lf {
+        let sq = sqrt(disc);
+        let mode = u32(k[0]);
+        let lv = sqrt(dot(v, v));
+        let l = vec3<f64>(k[17], k[18], k[19]);
+        let hv = l - v / lv;
+        let hl = sqrt(dot(hv, hv));
+        let lc = vec3<f64>(k[21], k[22], k[23]);
+        // The inside first, the outside laid over it.
+        for (var j = 0; j < 2; j++) {
+            let inside = j == 0;
+            let t = select((-b - sq) / a, (-b + sq) / a, inside);
+            let hy = o.y + t * v.y;
+            if (inside && mode == 1u) || (!inside && mode == 2u) || !(t > 0.0lf && abs(hy) <= k[30] / 2.0lf) {
+                continue;
+            }
+            let hx = o.x + t * v.x;
+            let hz = o.z + t * v.z;
+            let phi = atan2_64(hx, -hz);
+            let s = round_tap(k[29] / 2.0lf + phi / 6.283185307179586lf * k[29], hy + k[30] / 2.0lf + f64(F.oy), k[29], f64(F.ox));
+            let p = vec4<f64>(f64(s.x), f64(s.y), f64(s.z), f64(s.w));
+            let sg = select(1.0lf, -1.0lf, inside);
+            let n = vec3<f64>(sg * hx / r, 0.0lf, sg * hz / r);
+            let nl = dot(n, l);
+            var sp = 0.0lf;
+            if k[28] > 0.0lf && nl > 0.0lf && hl > 0.0lf {
+                sp = f64(pow(f32(max(dot(n, hv) / hl, 0.0lf)), f32(k[28])));
+            }
+            let diff = k[25] * k[20] * max(nl, 0.0lf);
+            let spec = k[26] * k[20] * sp;
+            let lit = p.xyz * (vec3<f64>(k[24], k[24], k[24]) + diff * lc) + spec * (k[27] * p.xyz + (1.0lf - k[27]) * lc * p.w);
+            got = vec4<f64>(lit, p.w) + (1.0lf - p.w) * got;
+        }
+    }
+    textureStore(output, id.xy, vec4<f32>(f32(got.x), f32(got.y), f32(got.z), f32(got.w)));
+}
+
 // B-228, layer_fx::pass_extract: the pass (`other`) lying on the drawing at (F.ox, F.oy), alpha 1
 // on it and 0 outside it; k black, white, invert, clamp.
 @compute @workgroup_size(16, 16)
@@ -9951,6 +10008,8 @@ struct FxPasses {
     glasses: Pass,
     /// D-507.
     spotlight: Pass,
+    /// D-530.
+    cylinder: Pass,
     lwidth: Pass,
     /// B-228.
     passx: Pass,
@@ -10637,6 +10696,7 @@ impl Gpu {
                 dmatte: pass("dmatte", &[0, 1, 2, 3, 4]),
                 glasses: pass("glasses", &[0, 1, 2, 3, 4]),
                 spotlight: pass("spotlight", &[0, 1, 2, 3]),
+                cylinder: pass("cylinder", &[0, 1, 2, 3]),
                 passx: pass("passx", &[0, 1, 2, 3, 4]),
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
                 idkey: pass("idkey", &[0, 1, 2, 3, 4]),
@@ -14129,6 +14189,13 @@ impl Gpu {
                     let p = FxParams { mode: 1, ox: ox as i32, oy: oy as i32, ..Default::default() };
                     self.fx_step(steps, &passes.dmatte, p, Some(still), Some(&out), Some(&k), Some(&plate), none, tiles(w, h));
                 }
+                (out, (w, h))
+            }
+            e @ E::CcCylinder { .. } => {
+                let k = crate::layer_fx::cylinder_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let out = self.scratch("D-530 cylinder", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.cylinder, p, Some(still), Some(&out), Some(&k), None, none, tiles(w, h));
                 (out, (w, h))
             }
             e @ E::CcSpotlight { .. } => {

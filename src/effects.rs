@@ -2626,6 +2626,32 @@ pub enum Effect {
         frame: i32,
         paths: Option<Vec<(Vec<(f64, f64)>, bool)>>,
     },
+    /// D-530: after CycoreFX's CC Cylinder, its rule and its settings when added ours
+    /// (`layer_fx::cc_cylinder`, document 21), its own fake 3D (no composition camera). `radius`,
+    /// 0 to 1000 per cent of half the drawing's width; `position`, x then y, per cent of the
+    /// drawing, and `position_z`, per cent of its width, -1000 to 1000; `rotation_x`, `rotation_y`
+    /// and `rotation_z`, -3600 to 3600 degrees; `render`, one of [`CYLINDER_RENDERS`];
+    /// `light_intensity`, 0 to 1000 per cent; `light_color`, `#rrggbb`; `light_height`, -100 to
+    /// 100; `light_direction`, -3600 to 3600 degrees; `ambient`, `diffuse`, `specular`,
+    /// `roughness` and `metal`, 0 to 100.
+    CcCylinder {
+        radius: f64,
+        position: [f64; 2],
+        position_z: f64,
+        rotation_x: f64,
+        rotation_y: f64,
+        rotation_z: f64,
+        render: String,
+        light_intensity: f64,
+        light_color: String,
+        light_height: f64,
+        light_direction: f64,
+        ambient: f64,
+        diffuse: f64,
+        specular: f64,
+        roughness: f64,
+        metal: f64,
+    },
     /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
     /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
     /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
@@ -3742,6 +3768,9 @@ pub const ENERGY_STROKE: &str = "core.energy_stroke";
 pub const ENERGY_SOURCES: [&str; 4] = ["points", "masks", "shapes", "text"];
 /// D-508: how Energy Stroke's light meets the layer.
 pub const ENERGY_COMPOSITES: [&str; 3] = ["add", "transparent", "black"];
+pub const CC_CYLINDER: &str = "core.cc_cylinder";
+/// D-530: CC Cylinder's renders: the outside over the inside, the outside alone, the inside alone.
+pub const CYLINDER_RENDERS: [&str; 3] = ["full", "outside", "inside"];
 /// D-506: 3D Glasses' views, the anaglyphs last.
 pub const GLASSES_VIEWS: [&str; 8] = [
     "side_by_side",
@@ -4127,6 +4156,38 @@ impl Effect {
                 ("distortion_scale", vec![distortion_scale], 1.0, 1000.0),
                 ("distortion_speed", vec![distortion_speed], 0.0, 100.0),
                 ("random_seed", vec![random_seed], 0.0, 10000.0),
+            ],
+            Effect::CcCylinder {
+                radius,
+                position,
+                position_z,
+                rotation_x,
+                rotation_y,
+                rotation_z,
+                light_intensity,
+                light_height,
+                light_direction,
+                ambient,
+                diffuse,
+                specular,
+                roughness,
+                metal,
+                ..
+            } => vec![
+                ("radius", vec![radius], 0.0, 1000.0),
+                ("position", position.iter_mut().collect(), -1000.0, 1000.0),
+                ("position_z", vec![position_z], -1000.0, 1000.0),
+                ("rotation_x", vec![rotation_x], -3600.0, 3600.0),
+                ("rotation_y", vec![rotation_y], -3600.0, 3600.0),
+                ("rotation_z", vec![rotation_z], -3600.0, 3600.0),
+                ("light_intensity", vec![light_intensity], 0.0, 1000.0),
+                ("light_height", vec![light_height], -100.0, 100.0),
+                ("light_direction", vec![light_direction], -3600.0, 3600.0),
+                ("ambient", vec![ambient], 0.0, 100.0),
+                ("diffuse", vec![diffuse], 0.0, 100.0),
+                ("specular", vec![specular], 0.0, 100.0),
+                ("roughness", vec![roughness], 0.0, 100.0),
+                ("metal", vec![metal], 0.0, 100.0),
             ],
             Effect::Transform {
                 anchor_point,
@@ -6725,6 +6786,7 @@ impl Effect {
             Effect::ChannelWipe { .. } => "Channel Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::EnergyStroke { .. } => "Energy Stroke",
+            Effect::CcCylinder { .. } => "CC Cylinder",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::BlockLoad { .. } => "Block Load",
             Effect::BurnFilm { .. } => "Burn Film",
@@ -6956,6 +7018,7 @@ impl Effect {
             Effect::ChannelWipe { .. } => CHANNEL_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
+            Effect::CcCylinder { .. } => CC_CYLINDER,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::BlockLoad { .. } => BLOCK_LOAD,
             Effect::BurnFilm { .. } => BURN_FILM,
@@ -7505,6 +7568,12 @@ impl Effect {
                     (!SPOT_RENDERS.contains(&render.as_str()))
                         .then(|| format!("CC Spotlight's render is one of {renders}, and this is \"{render}\"."))
                 }
+            }),
+            Effect::CcCylinder { light_color, render, .. } => hex_fault("CC Cylinder", "light colour", light_color).or_else(|| {
+                (!CYLINDER_RENDERS.contains(&render.as_str())).then(|| {
+                    let renders = CYLINDER_RENDERS.map(|r| format!("\"{r}\"")).join(", ");
+                    format!("CC Cylinder's render is one of {renders}, and this is \"{render}\".")
+                })
             }),
             Effect::DifferenceMatte { view, layer, fit, .. } => (!["final", "matte"].contains(&view.as_str()))
                 .then(|| format!("{name}'s view is \"final\" or \"matte\", and this is \"{view}\"."))
@@ -10569,6 +10638,10 @@ pub(crate) fn apply_stack_at(
             // path the layer is left as it is (EFFECT_PATH_MISSING was said). Never grows.
             e @ Effect::EnergyStroke { .. } => crate::perf::time(crate::perf::Stage::EffectEnergyStroke, || {
                 crate::along::energy_stroke(source, e, (ox, oy))
+            }),
+            // D-530: every distance a share of the drawing; never grows.
+            e @ Effect::CcCylinder { .. } => crate::perf::time(crate::perf::Stage::EffectCcCylinder, || {
+                crate::layer_fx::cc_cylinder(source, e, (ox, oy))
             }),
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {

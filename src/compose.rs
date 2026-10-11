@@ -1164,6 +1164,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::WarpBlend { .. }
                 // D-512.
                 | crate::effects::Effect::ChannelWipe { .. }
+                // D-530.
+                | crate::effects::Effect::CcCylinder { .. }
                 // D-400.
                 | crate::effects::Effect::ShadowHighlight { .. }
                 // D-397.

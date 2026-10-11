@@ -2767,6 +2767,45 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("light_direction".into(), num(*light_direction));
             params.insert("texture_contrast".into(), num(*texture_contrast));
         }
+        Effect::CcCylinder {
+            radius,
+            position,
+            position_z,
+            rotation_x,
+            rotation_y,
+            rotation_z,
+            render,
+            light_intensity,
+            light_color,
+            light_height,
+            light_direction,
+            ambient,
+            diffuse,
+            specular,
+            roughness,
+            metal,
+        } => {
+            params.insert("radius".into(), num(*radius));
+            params.insert("position".into(), J::Array(position.iter().map(|c| num(*c)).collect()));
+            for (n, v) in [
+                ("position_z", position_z),
+                ("rotation_x", rotation_x),
+                ("rotation_y", rotation_y),
+                ("rotation_z", rotation_z),
+                ("light_intensity", light_intensity),
+                ("light_height", light_height),
+                ("light_direction", light_direction),
+                ("ambient", ambient),
+                ("diffuse", diffuse),
+                ("specular", specular),
+                ("roughness", roughness),
+                ("metal", metal),
+            ] {
+                params.insert(n.into(), num(*v));
+            }
+            params.insert("render".into(), J::from(render.as_str()));
+            params.insert("light_color".into(), J::from(light_color.as_str()));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -5356,6 +5395,7 @@ fn parse_effect(
         crate::effects::CHANNEL_WIPE,
         crate::effects::CC_SPOTLIGHT,
         crate::effects::ENERGY_STROKE,
+        crate::effects::CC_CYLINDER,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
@@ -6657,6 +6697,24 @@ fn parse_effect(
             light_direction: effect_number(params, "light_direction", &at)?,
             texture_contrast: effect_number(params, "texture_contrast", &at)?,
             map: None,
+        }),
+        crate::effects::CC_CYLINDER => Some(crate::effects::Effect::CcCylinder {
+            radius: effect_number(params, "radius", &at)?,
+            position: effect_array(params, "position", "two numbers, x then y", &at)?,
+            position_z: effect_number(params, "position_z", &at)?,
+            rotation_x: effect_number(params, "rotation_x", &at)?,
+            rotation_y: effect_number(params, "rotation_y", &at)?,
+            rotation_z: effect_number(params, "rotation_z", &at)?,
+            render: effect_word(params, "render", &at)?,
+            light_intensity: effect_number(params, "light_intensity", &at)?,
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            light_height: effect_number(params, "light_height", &at)?,
+            light_direction: effect_number(params, "light_direction", &at)?,
+            ambient: effect_number(params, "ambient", &at)?,
+            diffuse: effect_number(params, "diffuse", &at)?,
+            specular: effect_number(params, "specular", &at)?,
+            roughness: effect_number(params, "roughness", &at)?,
+            metal: effect_number(params, "metal", &at)?,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,
