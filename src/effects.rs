@@ -11993,7 +11993,7 @@ pub(crate) fn apply_stack_at(
                         if output == "alpha_matte" {
                             crate::layer_fx::keep_by(source, &shown, (ox, oy))
                         } else {
-                            crate::layer_fx::pass_extract(source, &shown, (ox, oy), 0.0, 1.0, false, false)
+                            crate::layer_fx::pass_extract(source, &shown, (ox, oy), 0.0, 1.0, false, false, false)
                         }
                     })
                 }
@@ -12018,7 +12018,7 @@ pub(crate) fn apply_stack_at(
                         if output == "keyed" {
                             crate::layer_fx::keep_by(source, &pass.0, (ox, oy))
                         } else {
-                            crate::layer_fx::pass_extract(source, &pass.0, (ox, oy), 0.0, 1.0, false, false)
+                            crate::layer_fx::pass_extract(source, &pass.0, (ox, oy), 0.0, 1.0, false, false, false)
                         }
                     })
                 }
