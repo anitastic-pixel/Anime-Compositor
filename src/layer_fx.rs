@@ -1619,7 +1619,7 @@ pub(crate) fn vector_blur(
     });
 }
 
-/// D-336/D-462: Vector Blur's and Mr. Smoothie's height, in the alpha of a buffer: the
+/// D-336/D-462/D-463: Vector Blur's, Mr. Smoothie's and Plastic's height, in the alpha of a buffer: the
 /// `property` phase of the drawing, or of `map` lying on it with its corner at the given origin
 /// (clear outside it), times the covering unless the property is alpha, blurred at sigma
 /// `softness / 2` with nothing outside. The buffer is grown by the reach it returns.
@@ -1688,6 +1688,72 @@ pub(crate) fn mr_smoothie(source: &mut WorkingBuffer, map: Option<(&WorkingBuffe
         let qa = q[3] as f64;
         for c in 0..3 {
             px[c] = if qa > 0.0 { (q[c] as f64 / qa * a) as f32 } else { 0.0 };
+        }
+    });
+}
+
+/// D-463: Plastic, after After Effects' CC Plastic (document 21). The bump is `flow_height` at
+/// `softness`, cut to b = (v - lo) / (hi - lo) held to 0..1 (a step at lo when lo = hi); its
+/// surface, normal (-k gx, -k gy, 1) with k = `height` / 100 1.25 max(softness, 1) and g the cut
+/// bump's central differences, is lit as Blobbylize's, with the ambient share in the ambient
+/// light's colour and a dust term, Lommel and Seeliger's N.L / (N.L + Nz), beside the diffuse.
+/// The layer keeps its own straight colour under the light and its own covering. The settings are
+/// already valid, the shares out of 1 and the colours linear.
+pub(crate) fn plastic(
+    source: &mut WorkingBuffer,
+    map: Option<(&WorkingBuffer, (usize, usize))>,
+    property: &str,
+    (softness, height, lo, hi): (f64, f64, f64, f64),
+    (point, direction, light_height, light, intensity): (Option<(f64, f64)>, f64, f64, [f64; 3], f64),
+    ambient_light: [f64; 3],
+    [ambient, diffuse, dust, specular, roughness, metal]: [f64; 6],
+) {
+    let w = source.width();
+    if w == 0 || source.height() == 0 {
+        return;
+    }
+    let (bump, r) = flow_height(source, map, property, softness);
+    let (bw, bh, data) = (bump.width() as isize, bump.height() as isize, bump.data());
+    let cut = |v: f64| {
+        if hi == lo {
+            if v >= lo { 1.0 } else { 0.0 }
+        } else {
+            ((v - lo) / (hi - lo)).clamp(0.0, 1.0)
+        }
+    };
+    let at = |x: isize, y: isize| {
+        let (bx, by) = (x + r, y + r);
+        cut(if bx < 0 || by < 0 || bx >= bw || by >= bh { 0.0 } else { data[((by * bw + bx) * 4 + 3) as usize] as f64 })
+    };
+    let k = height / 100.0 * 1.25 * softness.max(1.0);
+    let unit = |v: [f64; 3]| {
+        let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        if l > 0.0 { v.map(|c| c / l) } else { [0.0; 3] }
+    };
+    let (ux, uy) = crate::blurs::along(direction);
+    let distant = unit([100.0 * ux, 100.0 * uy, light_height]);
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            px.fill(0.0);
+            return;
+        }
+        let (x, y) = ((i % w) as isize, (i / w) as isize);
+        let color = [0, 1, 2].map(|c| px[c] as f64 / a);
+        let (gx, gy) = ((at(x + 1, y) - at(x - 1, y)) / 2.0, (at(x, y + 1) - at(x, y - 1)) / 2.0);
+        let n = unit([-k * gx, -k * gy, 1.0]);
+        let l = match point {
+            Some((lx, ly)) => unit([lx - (x as f64 + 0.5), ly - (y as f64 + 0.5), light_height]),
+            None => distant,
+        };
+        let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
+        let dusty = if nl > 0.0 { nl / (nl + n[2]) } else { 0.0 };
+        let rz = 2.0 * nl * n[2] - l[2];
+        let shine = if nl > 0.0 && rz > 0.0 { rz.powf(1.0 / roughness) } else { 0.0 };
+        for c in 0..3 {
+            let lit = color[c] * (ambient * ambient_light[c] + diffuse * intensity * light[c] * nl.max(0.0) + dust * intensity * light[c] * dusty)
+                + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
+            px[c] = (lit * a) as f32;
         }
     });
 }

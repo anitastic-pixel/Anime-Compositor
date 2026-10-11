@@ -968,6 +968,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::HexTile { .. }
                 // D-462: Mr. Smoothie.
                 | crate::effects::Effect::MrSmoothie { .. }
+                // D-463: Plastic.
+                | crate::effects::Effect::Plastic { .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }

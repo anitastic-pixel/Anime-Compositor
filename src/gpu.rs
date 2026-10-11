@@ -5065,6 +5065,60 @@ fn smoothie(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-463, layer_fx::plastic's cut of the bump `v`: k[0] lo, k[1] hi.
+fn plastic_cut(v: f64) -> f64 {
+    if k[1] == k[0] {
+        return select(0.0lf, 1.0lf, v >= k[0]);
+    }
+    return clamp(quotient(v - k[0], k[1] - k[0]), 0.0lf, 1.0lf);
+}
+
+// D-463, layer_fx::plastic: the drawing `input` lit on the cut bump (`other`'s alpha, grown by
+// F.r), its own colour and covering kept. k: lo, hi, the slope's scale, 1 for a point light, its
+// place and the height, the distant light's direction, the light and the ambient light in linear
+// light, the intensity, ambient, diffuse, dust, specular, roughness, metal. The highlight's power
+// is single precision, as `blobby`'s.
+@compute @workgroup_size(16, 16)
+fn plastic(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let o = textureLoad(input, id.xy, 0);
+    let a = f64(o.w);
+    if a <= 0.0lf {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    let x = i32(id.x) + F.r;
+    let y = i32(id.y) + F.r;
+    let gx = (plastic_cut(f64(at(other, vec2(x + 1, y)).w)) - plastic_cut(f64(at(other, vec2(x - 1, y)).w))) / 2.0lf;
+    let gy = (plastic_cut(f64(at(other, vec2(x, y + 1)).w)) - plastic_cut(f64(at(other, vec2(x, y - 1)).w))) / 2.0lf;
+    let n = blob_unit(vec3(-k[2] * gx, -k[2] * gy, 1.0lf));
+    var l = vec3(k[7], k[8], k[9]);
+    if k[3] == 1.0lf {
+        l = blob_unit(vec3(k[4] - (f64(id.x) + 0.5lf), k[5] - (f64(id.y) + 0.5lf), k[6]));
+    }
+    let nl = n.x * l.x + n.y * l.y + n.z * l.z;
+    var dusty = 0.0lf;
+    if nl > 0.0lf {
+        dusty = quotient(nl, nl + n.z);
+    }
+    let rz = 2.0lf * nl * n.z - l.z;
+    var shine = 0.0lf;
+    if nl > 0.0lf && rz > 0.0lf {
+        shine = f64(pow(f32(rz), f32(1.0lf / k[21])));
+    }
+    var out = vec4(0.0, 0.0, 0.0, o.w);
+    for (var c = 0u; c < 3u; c++) {
+        let cc = quotient(f64(o[c]), a);
+        let lc = k[10u + c];
+        let lit = cc * (k[17] * k[13u + c] + k[18] * k[16] * lc * max(nl, 0.0lf) + k[19] * k[16] * lc * dusty) + k[20] * k[16] * (lc + (cc - lc) * k[22]) * shine;
+        out[c] = f32(lit * a);
+    }
+    textureStore(output, id.xy, out);
+}
+
 // layer_fx::picture_luma.
 fn picture_luma(p: vec4<f32>) -> f64 {
     return to_srgb(clamp(0.2126lf * f64(p.x) + 0.7152lf * f64(p.y) + 0.0722lf * f64(p.z), 0.0lf, 1.0lf));
@@ -9282,6 +9336,8 @@ struct FxPasses {
     burnfilm: Pass,
     /// D-462.
     smoothie: Pass,
+    /// D-463.
+    plastic: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -9962,6 +10018,7 @@ impl Gpu {
                 gmelt: pass("gmelt", &[0, 1, 2, 3, 4, 7]),
                 burnfilm: pass("burnfilm", &[0, 1, 2, 3]),
                 smoothie: pass("smoothie", &[0, 1, 2, 3, 4]),
+                plastic: pass("plastic", &[0, 1, 2, 3, 4]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -12664,6 +12721,81 @@ impl Gpu {
                 let k = crate::layer_fx::mr_smoothie_setup(*phase, color_loop, *sample_a, *sample_b, (w, h), (ox, oy));
                 let out = self.scratch("D-462 smoothie", w, h);
                 self.fx_step(steps, &passes.smoothie, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&height), none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-463: the bump as Blobbylize's, then one pass that lights the drawing on it.
+            E::Plastic {
+                property,
+                softness,
+                height,
+                cut_min,
+                cut_max,
+                light_intensity,
+                light_color,
+                light_type,
+                light_height,
+                light_position,
+                light_direction,
+                ambient_light_color,
+                ambient,
+                diffuse,
+                dust,
+                specular,
+                roughness,
+                metal,
+                map,
+                ..
+            } => {
+                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let (picture, (mx, my)) = match map {
+                    Some(m) => (self.map_texture(&m.0), (ox, oy)),
+                    None => (still.clone(), (0, 0)),
+                };
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| p == property).expect("compose leaves a valid Plastic");
+                let raw = self.scratch("D-463 bump", w, h);
+                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
+                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let (bump, r) = if *softness > 0.0 {
+                    let taps = crate::effects::gaussian_weights(softness / 2.0);
+                    let r = taps.len() / 2;
+                    (self.gauss(steps, bloom, "D-463 bump", &raw, (w, h), [&taps, &taps], r, false), r)
+                } else {
+                    (raw, 0)
+                };
+                let (ux, uy) = crate::blurs::along(*light_direction);
+                let d = [100.0 * ux, 100.0 * uy, *light_height];
+                let dl = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+                let d = if dl > 0.0 { d.map(|c| c / dl) } else { [0.0; 3] };
+                let (px, py) = crate::effects::radial_center(*light_position, (w, h), f.origin);
+                let l = linear(light_color);
+                let al = linear(ambient_light_color);
+                let k = [
+                    cut_min / 100.0,
+                    cut_max / 100.0,
+                    height / 100.0 * 1.25 * softness.max(1.0),
+                    (light_type == "point") as u8 as f64,
+                    px,
+                    py,
+                    *light_height,
+                    d[0],
+                    d[1],
+                    d[2],
+                    l[0],
+                    l[1],
+                    l[2],
+                    al[0],
+                    al[1],
+                    al[2],
+                    light_intensity / 100.0,
+                    ambient / 100.0,
+                    diffuse / 100.0,
+                    dust / 100.0,
+                    specular / 100.0,
+                    *roughness,
+                    metal / 100.0,
+                ];
+                let out = self.scratch("D-463 plastic", w, h);
+                self.fx_step(steps, &passes.plastic, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&bump), none, tiles(w, h));
                 (out, (w, h))
             }
             E::CompoundBlur { max_blur, invert, edges, map, .. } => {

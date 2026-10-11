@@ -2481,6 +2481,37 @@ pub enum Effect {
         color_loop: String,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-463: after After Effects' CC Plastic (`layer_fx::plastic`, document 21). `layer` and
+    /// `fit`, D-189's layer setting, the bump layer, "" the layer itself; `property`, one of
+    /// [`BLOBBYLIZE_PROPERTIES`]; `softness`, 0 to 100 pixels; `height`, -100 to 100; `cut_min`
+    /// and `cut_max`, 0 to 100; `light_intensity`, 0 to 400; `light_color` and
+    /// `ambient_light_color`, `#rrggbb`; `light_type`, "distant" or "point"; `light_height`,
+    /// -1000 to 1000; `light_position`, per cent of the drawing, -1000 to 1000; `light_direction`,
+    /// -3600 to 3600 degrees clockwise from up; `ambient`, `diffuse`, `dust`, `specular` and
+    /// `metal`, 0 to 100; `roughness`, 0.001 to 1. `map` is not a setting and is never saved.
+    Plastic {
+        layer: serde_json::Value,
+        fit: String,
+        property: String,
+        softness: f64,
+        height: f64,
+        cut_min: f64,
+        cut_max: f64,
+        light_intensity: f64,
+        light_color: String,
+        light_type: String,
+        light_height: f64,
+        light_position: [f64; 2],
+        light_direction: f64,
+        ambient_light_color: String,
+        ambient: f64,
+        diffuse: f64,
+        dust: f64,
+        specular: f64,
+        roughness: f64,
+        metal: f64,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -3324,6 +3355,7 @@ pub const BLOCK_LOAD: &str = "core.block_load";
 pub const BURN_FILM: &str = "core.burn_film";
 pub const HEX_TILE: &str = "core.hex_tile";
 pub const MR_SMOOTHIE: &str = "core.mr_smoothie";
+pub const PLASTIC: &str = "core.plastic";
 /// D-462: Mr. Smoothie's colour loops, After Effects' AB, BA, ABA and BAB.
 pub const MR_SMOOTHIE_LOOPS: [&str; 4] = ["ab", "ba", "aba", "bab"];
 /// D-461: Hex Tile's ways of filling a tile, After Effects' Tile, Fold Aligned and Fold
@@ -4650,6 +4682,38 @@ impl Effect {
                 ("sample_b", sample_b.iter_mut().collect(), -1000.0, 1000.0),
                 ("phase", vec![phase], -3600.0, 3600.0),
             ],
+            Effect::Plastic {
+                softness,
+                height,
+                cut_min,
+                cut_max,
+                light_intensity,
+                light_height,
+                light_position,
+                light_direction,
+                ambient,
+                diffuse,
+                dust,
+                specular,
+                roughness,
+                metal,
+                ..
+            } => vec![
+                ("softness", vec![softness], 0.0, 100.0),
+                ("height", vec![height], -100.0, 100.0),
+                ("cut_min", vec![cut_min], 0.0, 100.0),
+                ("cut_max", vec![cut_max], 0.0, 100.0),
+                ("light_intensity", vec![light_intensity], 0.0, 400.0),
+                ("light_height", vec![light_height], -1000.0, 1000.0),
+                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("light_direction", vec![light_direction], -3600.0, 3600.0),
+                ("ambient", vec![ambient], 0.0, 100.0),
+                ("diffuse", vec![diffuse], 0.0, 100.0),
+                ("dust", vec![dust], 0.0, 100.0),
+                ("specular", vec![specular], 0.0, 100.0),
+                ("roughness", vec![roughness], 0.001, 1.0),
+                ("metal", vec![metal], 0.0, 100.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -5499,6 +5563,13 @@ impl Effect {
             Effect::HexTile { radius, .. } => *radius = scale(*radius),
             // D-462: the bands keep their softness on the picture.
             Effect::MrSmoothie { smoothness, .. } => *smoothness = scale(*smoothness),
+            // D-463: as Blobbylize's, a distant light's height is a slope against 100.
+            Effect::Plastic { softness, light_type, light_height, .. } => {
+                *softness = scale(*softness);
+                if light_type == "point" {
+                    *light_height = scale(*light_height);
+                }
+            }
             Effect::Snowfall {
                 spacing,
                 size,
@@ -6055,6 +6126,7 @@ impl Effect {
             Effect::BurnFilm { .. } => "Burn Film",
             Effect::HexTile { .. } => "Hex Tile",
             Effect::MrSmoothie { .. } => "Mr. Smoothie",
+            Effect::Plastic { .. } => "Plastic",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -6267,6 +6339,7 @@ impl Effect {
             Effect::BurnFilm { .. } => BURN_FILM,
             Effect::HexTile { .. } => HEX_TILE,
             Effect::MrSmoothie { .. } => MR_SMOOTHIE,
+            Effect::Plastic { .. } => PLASTIC,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6545,6 +6618,7 @@ impl Effect {
             | Effect::Glass { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::VectorBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::MrSmoothie { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::Plastic { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Blobbylize { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::MomentMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::LensBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
@@ -6583,6 +6657,7 @@ impl Effect {
             | Effect::Glass { layer, map, .. }
             | Effect::VectorBlur { layer, map, .. }
             | Effect::MrSmoothie { layer, map, .. }
+            | Effect::Plastic { layer, map, .. }
             | Effect::Blobbylize { layer, map, .. }
             | Effect::MomentMap { layer, map, .. }
             | Effect::TimeDifference { layer, map, .. }
@@ -7614,6 +7689,21 @@ impl Effect {
             Effect::MrSmoothie { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
                 "Mr. Smoothie's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
             )),
+            Effect::Plastic { property, .. } if !BLOBBYLIZE_PROPERTIES.contains(&property.as_str()) => Some(format!(
+                "Plastic's property is red, green, blue, alpha, luminance or lightness, and this is \"{property}\"."
+            )),
+            Effect::Plastic { layer, .. } if !layer.is_string() => Some(format!(
+                "Plastic's bump layer is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::Plastic { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
+                "Plastic's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
+            Effect::Plastic { light_type, .. } if !["distant", "point"].contains(&light_type.as_str()) => Some(format!(
+                "Plastic's light type is distant or point, and this is \"{light_type}\"."
+            )),
+            Effect::Plastic { light_color, ambient_light_color, .. } => {
+                hex_fault("Plastic", "light colour", light_color).or_else(|| hex_fault("Plastic", "ambient light colour", ambient_light_color))
+            }
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
             )),
@@ -10103,6 +10193,42 @@ pub(crate) fn apply_stack_at(
                     crate::layer_fx::mr_smoothie(source, map.as_ref().map(|m| (&*m.0, (ox, oy))), property, *smoothness, &k)
                 })
             }
+            // D-463: the map compose read for this frame, if a layer is named, is the bump.
+            Effect::Plastic {
+                property,
+                softness,
+                height,
+                cut_min,
+                cut_max,
+                light_intensity,
+                light_color,
+                light_type,
+                light_height,
+                light_position,
+                light_direction,
+                ambient_light_color,
+                ambient,
+                diffuse,
+                dust,
+                specular,
+                roughness,
+                metal,
+                map,
+                ..
+            } => crate::perf::time(crate::perf::Stage::EffectPlastic, || {
+                let light = encoded(light_color).map(crate::grade::to_linear);
+                let ambient_light = encoded(ambient_light_color).map(crate::grade::to_linear);
+                let point = (light_type == "point").then(|| radial_center(*light_position, (source.width(), source.height()), (ox, oy)));
+                crate::layer_fx::plastic(
+                    source,
+                    map.as_ref().map(|m| (&*m.0, (ox, oy))),
+                    property,
+                    (*softness, *height, cut_min / 100.0, cut_max / 100.0),
+                    (point, *light_direction, *light_height, light, light_intensity / 100.0),
+                    ambient_light,
+                    [*ambient / 100.0, *diffuse / 100.0, *dust / 100.0, *specular / 100.0, *roughness, *metal / 100.0],
+                )
+            }),
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
                 crate::median::smart_blur(source, *radius, *threshold)
             }),

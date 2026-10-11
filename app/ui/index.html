@@ -9350,6 +9350,7 @@ const EFFECT_NAMES = {
   'core.burn_film': 'Burn Film',
   'core.hex_tile': 'Hex Tile',
   'core.mr_smoothie': 'Mr. Smoothie',
+  'core.plastic': 'Plastic',
   'core.smart_blur': 'Smart Blur',
   'core.bilateral_blur': 'Bilateral Blur',
   'core.cross_blur': 'Cross Blur',
@@ -9478,7 +9479,7 @@ const EFFECT_GROUPS = [
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas', 'core.energy_stroke']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
-    'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie']],
+    'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie', 'core.plastic']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight']],
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
@@ -9564,6 +9565,7 @@ const EFFECT_SEARCH = {
   'core.radio_waves': 'radio waves ring rings shockwave sonar ping ripple pulse signal circle wave target',
   'core.polar_coordinates': 'polar coordinates rect to polar polar to rect focus lines speed lines tiny planet round circle ring bend wrap unroll',
   'core.median': 'median noise grain dust specks speckle clean cleanup despeckle scan pinhole denoise',
+  'core.plastic': 'plastic cc plastic emboss bump relief shiny gloss glossy wrap button lit light shading specular dust metal bevel stylize',
   'core.mr_smoothie': 'mr smoothie mister cc smooth flow liquid psychedelic bands gradient colour color loop phase marble swirl paint pattern stylize',
   'core.hex_tile': 'hex tile hextile cc hexagon hexagonal honeycomb tiles tiling repeat fold mirror kaleida kaleidoscope smear pattern background stylize',
   'core.burn_film': 'burn film cc burning burnt melting melt projector stuck film holes scorch char fire transition stylize',
@@ -9788,6 +9790,7 @@ const EFFECT_ABOUT = {
   'core.radio_waves': 'Sends rings out from a point, a new one every few frames, over the layer as it plays.',
   'core.polar_coordinates': 'Bends the layer round its middle, its rows into rings and its columns into spokes, or unrolls it back.',
   'core.median': 'Cleans away specks and pinholes: each pixel takes the middle colour of those round it, so edges stay.',
+  'core.plastic': 'Gives the layer a lit, shiny relief from its own shape or another layer, from a matte emboss to glossy plastic, keeping its colours.',
   'core.mr_smoothie': 'Repaints the layer in smooth flowing bands of its own colours, picked between two sample points along the shapes of a channel of this layer or another; Phase cycles the colours.',
   'core.hex_tile': 'Repeats the picture in a honeycomb of hexagons, each tile a copy, six turned triangles or six mirrored ones that meet without a seam; Smearing lets each tile show a different part.',
   'core.burn_film': 'Burns holes through the layer like film melting in a projector: they open round a centre and then elsewhere, ringed by scorched black edges, until the layer is gone.',
@@ -10506,6 +10509,21 @@ const EFFECT_PARAMS = {
     ['seed', 'Random Seed', 1, 1, '0 to 100000, where the other burns start']],
   // D-461, After Effects' own controls.
   // D-462, After Effects' own controls.
+  // D-463, After Effects' own controls.
+  'core.plastic': [['softness', 'Softness', 1, 0.5, 'pixels, 0 to 100, how soft and rounded the bumps are'],
+    ['height', 'Height', 1, 1, '-100 to 100, how high the bumps stand; below 0 they sink'],
+    ['cut_min', 'Cut Min', 1, 1, '0 to 100, the bump values below this lie flat'],
+    ['cut_max', 'Cut Max', 1, 1, '0 to 100, the bump values above this lie flat; below Cut Min turns the bumps inside out'],
+    ['light_intensity', 'Light Intensity', 1, 1, '0 to 400'],
+    ['light_height', 'Light Height', 1, 1, '-1000 to 1000, how high the light is above the layer'],
+    ['light_position', 'Light Position', 2, 1, '% of the width and height, for a point light'],
+    ['light_direction', 'Light Direction', 1, 1, 'degrees clockwise from up, for a distant light', 'dial'],
+    ['ambient', 'Ambient', 1, 1, '0 to 100, light everywhere, in the ambient light colour'],
+    ['diffuse', 'Diffuse', 1, 1, '0 to 100, light on slopes facing it'],
+    ['dust', 'Dust', 1, 1, '0 to 100, a softer, dusty light'],
+    ['specular', 'Specular', 1, 1, '0 to 100, the shine'],
+    ['roughness', 'Roughness', 1, 0.01, '0.001 to 1; small is a tight sharp shine'],
+    ['metal', 'Metal', 1, 1, '0 to 100, 0 a shine in the light\'s colour (plastic), 100 in the layer\'s (metal)']],
   'core.mr_smoothie': [['smoothness', 'Smoothness', 1, 0.5, 'pixels, 0 to 100, how much the flow layer is softened first'],
     ['sample_a', 'Sample A', 2, 1, '% of the width and height, -1000 to 1000, where the gradient starts'],
     ['sample_b', 'Sample B', 2, 1, '% of the width and height, -1000 to 1000, where the gradient ends'],
@@ -11297,6 +11315,15 @@ const EFFECT_WORDS = {
   'core.remove_grain': { choices: [['mode', 'Mode', [['multichannel', 'Multichannel'], ['single_channel', 'Single Channel']]]] },
   // D-461: After Effects' words; Tile and unlocked as it is added.
   // D-462: After Effects' words; the layer itself, Luminance and ABA as it is added.
+  // D-463: After Effects' words; the layer itself and Alpha as it is added.
+  'core.plastic': {
+    layers: [['layer', 'Bump Layer', 'map_layer']],
+    choices: [['property', 'Property', [['alpha', 'Alpha'], ['luminance', 'Luminance'], ['lightness', 'Lightness'],
+        ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue']]],
+      ['fit', 'Bump Layer Placement', [['stretch', 'Stretch to Fit'], ['center', 'Centre'], ['tile', 'Tile']]],
+      ['light_type', 'Light Type', [['distant', 'Distant Light'], ['point', 'Point Light']]]],
+    colours: [['light_color', 'Light Color'], ['ambient_light_color', 'Ambient Light Color']],
+  },
   'core.mr_smoothie': {
     layers: [['layer', 'Flow Layer', 'map_layer']],
     choices: [['property', 'Property', [['luminance', 'Luminance'], ['lightness', 'Lightness'], ['red', 'Red'], ['green', 'Green'],

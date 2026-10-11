@@ -2622,6 +2622,50 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("phase".into(), num(*phase));
             params.insert("color_loop".into(), J::from(color_loop.as_str()));
         }
+        Effect::Plastic {
+            layer,
+            fit,
+            property,
+            softness,
+            height,
+            cut_min,
+            cut_max,
+            light_intensity,
+            light_color,
+            light_type,
+            light_height,
+            light_position,
+            light_direction,
+            ambient_light_color,
+            ambient,
+            diffuse,
+            dust,
+            specular,
+            roughness,
+            metal,
+            ..
+        } => {
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("property".into(), J::from(property.as_str()));
+            params.insert("softness".into(), num(*softness));
+            params.insert("height".into(), num(*height));
+            params.insert("cut_min".into(), num(*cut_min));
+            params.insert("cut_max".into(), num(*cut_max));
+            params.insert("light_intensity".into(), num(*light_intensity));
+            params.insert("light_color".into(), J::from(light_color.as_str()));
+            params.insert("light_type".into(), J::from(light_type.as_str()));
+            params.insert("light_height".into(), num(*light_height));
+            params.insert("light_position".into(), J::Array(light_position.iter().map(|c| num(*c)).collect()));
+            params.insert("light_direction".into(), num(*light_direction));
+            params.insert("ambient_light_color".into(), J::from(ambient_light_color.as_str()));
+            params.insert("ambient".into(), num(*ambient));
+            params.insert("diffuse".into(), num(*diffuse));
+            params.insert("dust".into(), num(*dust));
+            params.insert("specular".into(), num(*specular));
+            params.insert("roughness".into(), num(*roughness));
+            params.insert("metal".into(), num(*metal));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -5159,6 +5203,7 @@ fn parse_effect(
         crate::effects::BURN_FILM,
         crate::effects::HEX_TILE,
         crate::effects::MR_SMOOTHIE,
+        crate::effects::PLASTIC,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6232,6 +6277,30 @@ fn parse_effect(
             sample_b: effect_array(params, "sample_b", "two numbers, x then y", &at)?,
             phase: effect_number(params, "phase", &at)?,
             color_loop: effect_word(params, "color_loop", &at)?,
+            map: None,
+        }),
+        // D-463: the layer kept as written and the colours read in small letters, as Blobbylize's.
+        crate::effects::PLASTIC => Some(crate::effects::Effect::Plastic {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            property: effect_word(params, "property", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            height: effect_number(params, "height", &at)?,
+            cut_min: effect_number(params, "cut_min", &at)?,
+            cut_max: effect_number(params, "cut_max", &at)?,
+            light_intensity: effect_number(params, "light_intensity", &at)?,
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            light_type: effect_word(params, "light_type", &at)?,
+            light_height: effect_number(params, "light_height", &at)?,
+            light_position: effect_array(params, "light_position", "two numbers, x then y", &at)?,
+            light_direction: effect_number(params, "light_direction", &at)?,
+            ambient_light_color: effect_word(params, "ambient_light_color", &at)?.to_ascii_lowercase(),
+            ambient: effect_number(params, "ambient", &at)?,
+            diffuse: effect_number(params, "diffuse", &at)?,
+            dust: effect_number(params, "dust", &at)?,
+            specular: effect_number(params, "specular", &at)?,
+            roughness: effect_number(params, "roughness", &at)?,
+            metal: effect_number(params, "metal", &at)?,
             map: None,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
