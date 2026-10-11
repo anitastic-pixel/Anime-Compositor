@@ -208704,3 +208704,113 @@ FX-WIDE-017 (`fx_wide_017.json`): Backward steps -1, below 0. The file is read, 
 FX-WIDE-018 (`fx_wide_018.json`): Backward steps keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-WIDE-019 (`fx_wide_019.json`): Native Motion Blur written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Energy Stroke (D-508)
+
+Energy Stroke (`core.energy_stroke`), after the purpose of Video Copilot's Saber (B-388, PLUGINS.md pick #11), the rule ours. Every case but the text ones is a project of one composition 16 by 10, five frames, holding Lightning Bolt's night drawing with masks of mode None, as Path Stroke's cases, or a shape layer as D-357's; the text cases are D-373's "Yes" on a text layer 48 by 30. `tools/energy_stroke_reference.py` works the expected frames, `Fixtures/energy_stroke/expected_energy_stroke.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-ENERGY-001 (`fx_energy_001.json`): The settings as added: a beam from a quarter across to three quarters across, half way down, core 8 across, softness 30, a blue glow spread 40 at intensity 100, added to the drawing. On a drawing this small the glow reaches every pixel. Frames 0.
+
+FX-ENERGY-002 (`fx_energy_002.json`): Core 3, spread 6: a thin white line with its blue glow, the rest of the drawing lit faintly. Frames 0.
+
+FX-ENERGY-003 (`fx_energy_003.json`): Composite transparent: the light alone, the night sky gone. Frames 0.
+
+FX-ENERGY-004 (`fx_energy_004.json`): Composite black: the light over black, every pixel whole. Frames 0.
+
+FX-ENERGY-005 (`fx_energy_005.json`): Glow spread 0: the core alone, no glow anywhere. Frames 0.
+
+FX-ENERGY-006 (`fx_energy_006.json`): Core size 0: the glow alone, blue all through, no white. Frames 0.
+
+FX-ENERGY-007 (`fx_energy_007.json`): Core softness 0 and 100: hard, then soft from the middle out. Frames 0.
+
+FX-ENERGY-008 (`fx_energy_008.json`): Core softness 100. Frames 0.
+
+FX-ENERGY-009 (`fx_energy_009.json`): Glow intensity 400, an orange glow: past 1 where the glow is strong. Frames 0.
+
+FX-ENERGY-010 (`fx_energy_010.json`): End offset 50: the beam from its start to half way, ending at the middle. Frames 0.
+
+FX-ENERGY-011 (`fx_energy_011.json`): Start offset 75, End offset 25: taken smaller first, the middle half. Frames 0.
+
+FX-ENERGY-012 (`fx_energy_012.json`): Start offset 40, End offset 40: nothing drawn, the drawing as it was. Frames 0.
+
+FX-ENERGY-013 (`fx_energy_013.json`): End offset keyed from 0 at frame 0 to 100 at frame 4, linear: the beam draws on, frames 0, 2 and 4. Frames 0, 2, 4.
+
+FX-ENERGY-014 (`fx_energy_014.json`): Start size 100, End size 0: the beam tapers to a point at its end. Frames 0.
+
+FX-ENERGY-015 (`fx_energy_015.json`): Start size 0 and End size 0: no width anywhere, nothing drawn. Frames 0.
+
+FX-ENERGY-016 (`fx_energy_016.json`): Core start and end keyed: the beam from the top-left corner to the bottom-right at frame 0, swinging to the bottom-left to the top-right at frame 4, frames 0 and 4. Frames 0, 4.
+
+FX-ENERGY-017 (`fx_energy_017.json`): Path From Masks, the box from (2, 2) to (13, 7): the beam all round it. Frames 0.
+
+FX-ENERGY-018 (`fx_energy_018.json`): The box, End offset 50: half way round it, from its top-left corner. Frames 0.
+
+FX-ENERGY-019 (`fx_energy_019.json`): The box, End offset 50, Evolution 90: the same half, begun a quarter of the way round, at the top-right corner. Frames 0.
+
+FX-ENERGY-020 (`fx_energy_020.json`): The box, End offset 50, Evolution 450: a turn and a quarter, FX-ENERGY-019's frame. Frames 0.
+
+FX-ENERGY-021 (`fx_energy_021.json`): The box, End offset 25, Evolution keyed from 0 at frame 0 to 360 at frame 4: a quarter of the box travelling round it, frames 0, 1, 2 and 4. Frames 0, 1, 2, 4.
+
+FX-ENERGY-022 (`fx_energy_022.json`): Two masks, the box and a small box inside it: both, the glow of each the nearer's. Frames 0.
+
+FX-ENERGY-023 (`fx_energy_023.json`): The box, distortion 1.5 at scale 4, speed 0: the beam wobbles but stays joined round the box, and is the same at frame 0 and 3. Frames 0, 3.
+
+FX-ENERGY-024 (`fx_energy_024.json`): Distortion 1.5 at scale 4, speed 50: the wobble moves, frames 0, 1 and 2. Frames 0, 1, 2.
+
+FX-ENERGY-025 (`fx_energy_025.json`): FX-ENERGY-023 with Random Seed 7: a different wobble. Frames 0.
+
+FX-ENERGY-026 (`fx_energy_026.json`): The straight beam with distortion 1 at scale 3: an open path wobbles too. Frames 0.
+
+FX-ENERGY-027 (`fx_energy_027.json`): Flicker 80 at speed 30: the whole light dims and brightens frame by frame, frames 0 to 4. Frames 0, 1, 2, 3, 4.
+
+FX-ENERGY-028 (`fx_energy_028.json`): Flicker 80 at speed 0: held, the same each frame, frames 0 and 4. Frames 0, 4.
+
+FX-ENERGY-029 (`fx_energy_029.json`): Path From Shapes, the box as a shape layer's shape: FX-ENERGY-017's beam on the shape layer (transparent), added. Frames 0.
+
+FX-ENERGY-030 (`fx_energy_030.json`): An open shape, a roof of two legs: drawn open, nothing along the bottom. Frames 0.
+
+FX-ENERGY-031 (`fx_energy_031.json`): The open roof, Evolution 180: an open path has no evolution, FX-ENERGY-030's frame. Frames 0.
+
+FX-ENERGY-032 (`fx_energy_032.json`): The box mask with Path From Points: the mask is not used, the straight beam, FX-ENERGY-002's frame. Frames 0.
+
+FX-ENERGY-033 (`fx_energy_033.json`): FX-ENERGY-002 moved three pixels right: the beam moves with the drawing. Frames 0.
+
+FX-ENERGY-034 (`fx_energy_034.json`): Path From Text Outlines, "Yes" (D-373's text layer, 48 by 30): every outline glows, core 1.5, spread 3, the light alone (Transparent). Frames 0.
+
+FX-ENERGY-035 (`fx_energy_035.json`): "Yes", End offset keyed from 0 at frame 0 to 100 at frame 4: each outline draws on round itself, frames 0, 2 and 4. Frames 0, 2, 4.
+
+FX-ENERGY-036 (`fx_energy_036.json`): Path From Masks, no masks. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-ENERGY-037 (`fx_energy_037.json`): Path From Masks, the one mask switched off. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-ENERGY-038 (`fx_energy_038.json`): Path From Shapes on the night drawing, which is not a shape layer. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-ENERGY-039 (`fx_energy_039.json`): Path From Text Outlines on a shape layer with no shapes. Nothing to draw along: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-ENERGY-040 (`fx_energy_040.json`): Core size 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-041 (`fx_energy_041.json`): Core softness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-042 (`fx_energy_042.json`): Glow spread 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-043 (`fx_energy_043.json`): Glow intensity 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-044 (`fx_energy_044.json`): Start offset -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-045 (`fx_energy_045.json`): End size 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-046 (`fx_energy_046.json`): Distortion scale 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-047 (`fx_energy_047.json`): Flicker amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-048 (`fx_energy_048.json`): Core start x 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-049 (`fx_energy_049.json`): Evolution 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-050 (`fx_energy_050.json`): Random seed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-051 (`fx_energy_051.json`): Composite "screen", which is not "add", "transparent" or "black". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-052 (`fx_energy_052.json`): Path From "mask", which is not "points", "masks", "shapes" or "text". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGY-053 (`fx_energy_053.json`): Glow colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
