@@ -210448,3 +210448,67 @@ FX-TEXTURIZE-018 (`fx_texturize_018.json`): A Texture Layer written as the numbe
 FX-TEXTURIZE-019 (`fx_texturize_019.json`): Light Direction 4000, past 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-TEXTURIZE-020 (`fx_texturize_020.json`): Texture Contrast keyed to 3 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Twister (D-517)
+
+Twister (`core.twister`), after the purpose of CycoreFX's CC Twister (B-397, EFFECTS.md row 279), the rule ours. Every case is a project of one composition 16 by 10, five frames: the map layers `paint`, `small` (a smaller picture, centred) and `late` (in at frame 4), every one switched off, and on top of them the drawing `holder` with the effect. `tools/twister_reference.py` works the expected frames, `Fixtures/twister/expected_twister.json`, tolerance 2e-5, with `cycle_two.json`, two layers each on the other's back, refused with `EFFECT_LAYER_CYCLE`; the rule is in document 21.
+
+FX-TWIST-001 (`fx_twist_001.json`): As added: completion 0, so nothing changes. Frames 0.
+
+FX-TWIST-002 (`fx_twist_002.json`): Completion 100 with nothing on the back: every pixel clear. Frames 0.
+
+FX-TWIST-003 (`fx_twist_003.json`): Completion 100 with the paint on the back: the paint exactly, shading on but every strip flat again. Frames 0.
+
+FX-TWIST-004 (`fx_twist_004.json`): Completion 25, the paint on the back, shading off: the left half twisting (the far left nearly edge on), the right half untouched. Frames 0.
+
+FX-TWIST-005 (`fx_twist_005.json`): FX-TWIST-004 with shading on: the twisting strips darker the more they have turned. Frames 0.
+
+FX-TWIST-006 (`fx_twist_006.json`): Completion 50, the paint on the back: the left half shows the paint, the right half the holder, squeezed toward the middle row where they turn. Frames 0.
+
+FX-TWIST-007 (`fx_twist_007.json`): Completion 60, axis 90: the twist runs downward, the top rows over first. Frames 0.
+
+FX-TWIST-008 (`fx_twist_008.json`): Completion 45, axis 30, Center at 40, 60: a slanted twist off the middle. Frames 0.
+
+FX-TWIST-009 (`fx_twist_009.json`): Completion 70, axis -135, shading off: the twist from the bottom right. Frames 0.
+
+FX-TWIST-010 (`fx_twist_010.json`): Completion 50, nothing on the back: where the paint was, clear. Frames 0.
+
+FX-TWIST-011 (`fx_twist_011.json`): The holder on its own back, completion 50: the layer twists into itself. Frames 0.
+
+FX-TWIST-012 (`fx_twist_012.json`): The paint's middle 8 by 6 on the back, centred: it lies where it was cut, clear round it. Frames 0.
+
+FX-TWIST-013 (`fx_twist_013.json`): Completion keyed from 0 at frame 0 to 100 at frame 4: frame 0 the holder, frame 2 FX-TWIST-006, frame 4 the paint. Frames 0, 2, 4.
+
+FX-TWIST-014 (`fx_twist_014.json`): Axis keyed from 0 at frame 0 to 90 at frame 4, completion 60: frame 4 is FX-TWIST-007. Frames 0, 2, 4.
+
+FX-TWIST-015 (`fx_twist_015.json`): Center keyed from 50, 50 at frame 0 to 40, 60 at frame 4, completion 45, axis 30: frame 4 is FX-TWIST-008. Frames 0, 4.
+
+FX-TWIST-016 (`fx_twist_016.json`): A back layer that is not in the composition, `gone`: nothing changes, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-TWIST-017 (`fx_twist_017.json`): The paint with its in point at frame 4 on the back: before it the back is clear; at frame 4 FX-TWIST-006. Frames 0, 4.
+
+FX-TWIST-018 (`fx_twist_018.json`): FX-TWIST-006 on the holder moved 2 right and 1 down: the same picture moved, since the back lies on the layer. Frames 0.
+
+FX-TWIST-019 (`fx_twist_019.json`): The effect on an adjustment layer above the holder: the back lies on the frame, which here is the holder's own rectangle, so this is FX-TWIST-006. Frames 0.
+
+FX-TWIST-020 (`fx_twist_020.json`): Completion 50, Center at -200, 50: the line far off to the left, so the twist reaches across the drawing at once, every strip partly turned. Frames 0.
+
+FX-TWIST-021 (`fx_twist_021.json`): Axis 360: the same as axis 0, FX-TWIST-006. Frames 0.
+
+FX-TWIST-022 (`fx_twist_022.json`): Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TWIST-023 (`fx_twist_023.json`): Completion -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TWIST-024 (`fx_twist_024.json`): Axis 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TWIST-025 (`fx_twist_025.json`): Axis -3601, below -3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TWIST-026 (`fx_twist_026.json`): Center x 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TWIST-027 (`fx_twist_027.json`): Center y -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TWIST-028 (`fx_twist_028.json`): Shading "maybe", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TWIST-029 (`fx_twist_029.json`): A back layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TWIST-030 (`fx_twist_030.json`): Completion keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
