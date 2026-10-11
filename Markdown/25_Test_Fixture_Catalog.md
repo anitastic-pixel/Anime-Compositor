@@ -210232,3 +210232,75 @@ FX-NUM-043 (`fx_num_043.json`): Decimal places 11. The file is read, the effect 
 FX-NUM-044 (`fx_num_044.json`): Font written "../fonts/x.ttf", a path. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
 FX-NUM-045 (`fx_num_045.json`): Fill colour written "white". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### Timecode (D-527)
+
+Timecode (`core.timecode`), after After Effects' Timecode (Text, B-407), the rule ours. Each case is a project of one composition 480 by 160 carrying the effect on a dark blue plate. `tools/timecode_reference.py` works the string each frame shows with integer arithmetic and checks the drop-frame labels a second way by counting them out frame by frame, `Fixtures/timecode/expected_timecode.json`; every frame names a project in `Fixtures/timecode/same/` that draws the same box (a solid) and characters (text layers, D-263) and no Timecode, and the case's frame must match it within 2e-5. A layer with a file says PROJECT_FEATURE_UNSUPPORTED (information) each frame. The rule is in document 21.
+
+FX-TC-001 (`fx_tc_001.json`): As added: the layer's own time in SMPTE on a black box, at frames 0 and 37 of a 24-frame composition: 00:00:00:00 and 00:00:01:13.
+
+FX-TC-002 (`fx_tc_002.json`): Layer source on a layer starting at frame 10: its source counts from there, 00:00:01:00 at frame 34.
+
+FX-TC-003 (`fx_tc_003.json`): Layer source on a composition layer stretched to 200 per cent: source frame 12.5 at frame 25, taken down to 00:00:00:12.
+
+FX-TC-004 (`fx_tc_004.json`): Composition source on a layer starting at frame 10: the composition's frame, 00:00:01:10 at frame 34.
+
+FX-TC-005 (`fx_tc_005.json`): Composition source in a composition starting at frame 86,400: an hour at 24, 01:00:00:05 at its sixth frame.
+
+FX-TC-006 (`fx_tc_006.json`): Composition source at 29.97: drop frame, 00:00:59;29 then 00:01:00;02, the two frame numbers of the new minute left out.
+
+FX-TC-007 (`fx_tc_007.json`): Composition source at 29.97 at the tenth minute, where nothing is left out: 00:09:59;29 then 00:10:00;00.
+
+FX-TC-008 (`fx_tc_008.json`): Composition source at 25: 00:00:01:05 at frame 30.
+
+FX-TC-009 (`fx_tc_009.json`): Composition source at 23.976: counted non-drop at 24, 00:00:01:06 at frame 30.
+
+FX-TC-010 (`fx_tc_010.json`): Custom at 30 time units in a 24-frame composition: half a second, 00:00:00:15, at frame 12.
+
+FX-TC-011 (`fx_tc_011.json`): Custom, drop frame at 30, starting frame 107,892: the layer's first frame is 01:00:00;00.
+
+FX-TC-012 (`fx_tc_012.json`): Custom, drop frame at 60 time units, starting frame 3,600 (a minute of frames, the first minute dropping none): 00:01:00;04, four numbers left out.
+
+FX-TC-013 (`fx_tc_013.json`): Custom at 25 time units, starting frame -50: one second in, -00:00:01:00.
+
+FX-TC-014 (`fx_tc_014.json`): Custom on a composition layer stretched to 50 per cent counts by its key time: 00:00:00:15 at frame 6.
+
+FX-TC-015 (`fx_tc_015.json`): Custom with time units 29.9, taken down to 29: one second in is 29 frames, 00:00:01:00, at frame 24.
+
+FX-TC-016 (`fx_tc_016.json`): Frames: 00037 at frame 37.
+
+FX-TC-017 (`fx_tc_017.json`): Frames past five digits: 123456 as it is.
+
+FX-TC-018 (`fx_tc_018.json`): Feet and frames of 35mm: 37 frames is 0002+05.
+
+FX-TC-019 (`fx_tc_019.json`): Feet and frames of 16mm: frame 1,000 is 0025+00.
+
+FX-TC-020 (`fx_tc_020.json`): No box: the words alone over the plate.
+
+FX-TC-021 (`fx_tc_021.json`): A blue box at 50 per cent under yellow words.
+
+FX-TC-022 (`fx_tc_022.json`): Composite off: the box and the words alone on transparent.
+
+FX-TC-023 (`fx_tc_023.json`): Composite off and no box: the words alone on transparent.
+
+FX-TC-024 (`fx_tc_024.json`): Near the top left corner, size 28: the box runs off the picture's edges.
+
+FX-TC-025 (`fx_tc_025.json`): Size 80, in the middle.
+
+FX-TC-026 (`fx_tc_026.json`): Box opacity 0: only the words show.
+
+FX-TC-027 (`fx_tc_027.json`): Layer source on a composition layer starting at frame 10 with a source offset of 48: 00:00:02:00 at frame 10.
+
+FX-TC-040 (`fx_tc_040.json`): Display format written "seconds". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-TC-041 (`fx_tc_041.json`): Time source written "clock". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-TC-042 (`fx_tc_042.json`): Time units 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-TC-043 (`fx_tc_043.json`): Drop frame at 25 time units. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-TC-044 (`fx_tc_044.json`): Text colour written "white". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-TC-045 (`fx_tc_045.json`): Opacity 150. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-TC-046 (`fx_tc_046.json`): Starting frame 20,000,000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
