@@ -208104,3 +208104,67 @@ FX-SPILL-026 (`fx_spill_026.json`): Method "Standard": the word is exact, so a c
 FX-SPILL-027 (`fx_spill_027.json`): Method "auto", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SPILL-028 (`fx_spill_028.json`): Key colour "green", not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### CC Simple Wire Removal (D-458)
+
+CC Simple Wire Removal (`core.simple_wire_removal`), after CycoreFX's CC Simple Wire Removal (B-338), the rule ours. Every case is a project of one composition 16 by 10, four frames, holding the layer `holder`, a run of two drawings: a colour ramp with an empty column 0 and a half-covered column 15, the first with a near-white wire along row 5 (frames 0 and 2), the second without it and redder (frames 1 and 3), the clean plate. `tools/simple_wire_removal_reference.py` works the expected frames, `expected_simple_wire_removal.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-WIRE-001 (`fx_wire_001.json`): The settings as added: displace, from 25, 50 to 75, 50, thickness 5, slope 50, mirror blend 25. The remover reaches 5 pixels each side of the line between columns 4 and 12, so the whole height there is smoothed, most at the middle. Frames 0, 1.
+
+FX-WIRE-002 (`fx_wire_002.json`): Fade along the wire, thickness 3: the wire and a soft edge each side made clear, the ramp showing through the edges; past the ends untouched. Frames 0.
+
+FX-WIRE-003 (`fx_wire_003.json`): Frame offset 1 along the wire: frames 0 and 2 take the band from the clean, redder plate after them, so the wire is gone; frame 3 would read frame 4, where the layer does not show, so it is untouched. Frames 0, 2, 3.
+
+FX-WIRE-004 (`fx_wire_004.json`): Frame offset -1: frame 0 would read frame -1, so it is untouched; frame 2 reads frame 1, the clean plate. Frames 0, 2.
+
+FX-WIRE-005 (`fx_wire_005.json`): Frame offset 1.7, taken down to 1: the same as FX-WIRE-003. Frames 0.
+
+FX-WIRE-006 (`fx_wire_006.json`): Displace along the wire, thickness 3: the wire replaced by the ramp above and below it, mixed across the band, a quarter mirrored. Frames 0.
+
+FX-WIRE-007 (`fx_wire_007.json`): Mirror blend 0: the band is only the mix of the two edges. Frames 0.
+
+FX-WIRE-008 (`fx_wire_008.json`): Mirror blend 100: the band is only the picture reflected in its edges. Frames 0.
+
+FX-WIRE-009 (`fx_wire_009.json`): Slope 0: the edge fades over a whole thickness each side. Frames 0.
+
+FX-WIRE-010 (`fx_wire_010.json`): Slope 100, thickness 4: a hard edge, every pixel within 2 of the line replaced whole and none past it touched. Frames 0.
+
+FX-WIRE-011 (`fx_wire_011.json`): Thickness 0: the drawing, untouched. Frames 0.
+
+FX-WIRE-012 (`fx_wire_012.json`): Both points at 50, 54: the drawing, untouched. Frames 0.
+
+FX-WIRE-013 (`fx_wire_013.json`): Displace horizontal along the flat wire: no row crosses it, so the drawing is untouched. Frames 0.
+
+FX-WIRE-014 (`fx_wire_014.json`): Displace on a wire straight down the middle, from 50, 0 to 50, 100. Frames 0.
+
+FX-WIRE-015 (`fx_wire_015.json`): Displace horizontal on the same upright wire: across it is along a row, so the same as FX-WIRE-014. Frames 0.
+
+FX-WIRE-016 (`fx_wire_016.json`): Displace horizontal on a slanting wire from 20, 10 to 80, 90: each sample taken along its own row. Frames 0.
+
+FX-WIRE-017 (`fx_wire_017.json`): Displace on the same slanting wire: the samples taken across the wire, so not the same as FX-WIRE-016. Frames 0.
+
+FX-WIRE-018 (`fx_wire_018.json`): Thickness keyed from 2 at frame 0 to 6 at frame 2, linear: 2, 4 and 6. Frames 0, 1, 2.
+
+FX-WIRE-019 (`fx_wire_019.json`): FX-WIRE-006 with the layer moved three pixels right: the same, moved; nothing grows. Frames 0.
+
+FX-WIRE-020 (`fx_wire_020.json`): A wire along the top edge, from 10, 4 to 90, 4, thickness 4: the samples above the picture are held to its top row. Frames 0.
+
+FX-WIRE-021 (`fx_wire_021.json`): Frame offset on an adjustment layer above the holder: the frames beneath at other times are not to hand, so each frame as it is, with a warning each frame. Warning `TEMPORAL_SMOOTHING_SKIPPED` each frame. Frames 0, 2.
+
+FX-WIRE-022 (`fx_wire_022.json`): Displace on an adjustment layer above the holder: the frame beneath is the holder alone, so the same as FX-WIRE-006. Frames 0.
+
+FX-WIRE-023 (`fx_wire_023.json`): Removal style "clone", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 2.
+
+FX-WIRE-024 (`fx_wire_024.json`): Removal style "Displace": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 2.
+
+FX-WIRE-025 (`fx_wire_025.json`): Thickness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 2.
+
+FX-WIRE-026 (`fx_wire_026.json`): Slope -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 2.
+
+FX-WIRE-027 (`fx_wire_027.json`): Mirror blend 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 2.
+
+FX-WIRE-028 (`fx_wire_028.json`): Frame offset 1001, past 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 2.
+
+FX-WIRE-029 (`fx_wire_029.json`): Point A at 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 2.
+
+FX-WIRE-030 (`fx_wire_030.json`): Thickness keyed to 150 at frame 2. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 2.
