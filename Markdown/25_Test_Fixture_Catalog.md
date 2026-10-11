@@ -209862,3 +209862,53 @@ FX-PUSH-015 (`fx_push_015.json`): Reverse "yes": it is "off" or "on". The file i
 FX-PUSH-016 (`fx_push_016.json`): Reverse "On": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PUSH-017 (`fx_push_017.json`): Completion keyed to 150 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Cryptomatte (D-522)
+
+Cryptomatte (`core.cryptomatte`), after After Effects' Cryptomatte (B-402), the settings and colours ours. Every case is a project of one composition 8 by 6, five frames at 24 a second, of one EXR still with Cryptomatte layers written with OpenEXR's own library (`media/crypto.exr`: CryptoObject and CryptoMaterial, two levels; `media/blender.exr`: Blender's `ViewLayer.CryptoObject`, one level; `media/odd.exr`: one rank, a lower-case type name, a coverage that is not a number; `media/plain.exr`: no Cryptomatte; `media/card.png`). `tools/cryptomatte_reference.py` works the expected frames, `Fixtures/cryptomatte/expected_cryptomatte.json`, tolerance 2e-5; the rule is in document 21. `Fixtures/cryptomatte/sample/balls.exr` (320 by 180, three balls over a floor, object and material Cryptomattes) is the playtest's sample.
+
+FX-CRYPTO-001 (`fx_crypto_001.json`): Colors with the layer name empty: the first layer in the file's order, CryptoMaterial (sorted before CryptoObject): two flat colours, column 3 mixed three to one.
+
+FX-CRYPTO-002 (`fx_crypto_002.json`): Colors of CryptoObject, nothing picked: four flat colours, the sky black, the edge pixels mixed by coverage; opaque.
+
+FX-CRYPTO-003 (`fx_crypto_003.json`): Colors of CryptoObject, ball picked: the ball white.
+
+FX-CRYPTO-004 (`fx_crypto_004.json`): Matte of ball: white on the ball, 0.6 at (3, 2), 0.3 at (2, 5).
+
+FX-CRYPTO-005 (`fx_crypto_005.json`): Matte of ball and floor together: the coverages added.
+
+FX-CRYPTO-006 (`fx_crypto_006.json`): Keyed on ball: the picture kept on the ball, soft at its edge.
+
+FX-CRYPTO-007 (`fx_crypto_007.json`): Keyed on a name with a space and one beyond ASCII (UTF-8): big box and Kugel_ü, extra spaces and an empty name around them.
+
+FX-CRYPTO-008 (`fx_crypto_008.json`): Keyed on a name the file lacks: all transparent.
+
+FX-CRYPTO-009 (`fx_crypto_009.json`): Keyed with nothing picked: all transparent.
+
+FX-CRYPTO-010 (`fx_crypto_010.json`): Matte of steel from CryptoMaterial: columns 0 to 2 white, column 3 at 0.75.
+
+FX-CRYPTO-011 (`fx_crypto_011.json`): The layer name in another case finds the same layer: as FX-CRYPTO-004.
+
+FX-CRYPTO-012 (`fx_crypto_012.json`): Blender's layout, found by the last dotted word: one level only, so the third and fourth objects in a pixel are not there.
+
+FX-CRYPTO-013 (`fx_crypto_013.json`): Blender's layout by its whole name, keyed on Kugel_ü.
+
+FX-CRYPTO-014 (`fx_crypto_014.json`): A layer name the file lacks: unchanged, said each frame. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-CRYPTO-015 (`fx_crypto_015.json`): An EXR with no Cryptomatte: unchanged, said each frame. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-CRYPTO-016 (`fx_crypto_016.json`): On a PNG layer: unchanged, said each frame. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-CRYPTO-017 (`fx_crypto_017.json`): On a solid: unchanged, said each frame. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-CRYPTO-018 (`fx_crypto_018.json`): One rank (no blue or alpha), a lower-case type name, a coverage that is not a number (read as 0, said each frame): rock on the even columns. Each frame says `MEDIA_EXR_ADJUSTED`.
+
+FX-CRYPTO-019 (`fx_crypto_019.json`): The layer moved 2 right and 1 down: the matte moves with it.
+
+FX-CRYPTO-020 (`fx_crypto_020.json`): After an Exposure of -1: the darker picture keyed.
+
+FX-CRYPTO-021 (`fx_crypto_021.json`): On an adjustment layer above: no file of its own, so unchanged, said each frame. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-CRYPTO-022 (`fx_crypto_022.json`): Colors with the floor and Kugel_ü picked, then an Exposure of +1.
+
+FX-CRYPTO-023 (`fx_crypto_023.json`): Cryptomatte's output written "preview". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
