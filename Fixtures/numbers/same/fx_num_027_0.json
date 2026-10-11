@@ -24,10 +24,10 @@
         "end_frame_exclusive": 60
       },
       "layer_order": [
-        "cut",
-        "ring",
+        "plate",
         "fills",
-        "plate"
+        "ring",
+        "cut"
       ],
       "layers": [
         {

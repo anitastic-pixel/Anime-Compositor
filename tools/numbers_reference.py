@@ -274,11 +274,11 @@ def nest(lid, comp, c, matte=None):
 
 
 def composition(cid, layers):
-    """`layers` bottom first; a file lists them top first."""
+    """`layers` bottom first, as a file lists them (document 19 draws `layer_order` bottom first)."""
     return {"id": cid, "name": cid, "width": W, "height": H, "pixel_aspect_ratio": 1,
             "frame_rate": {"numerator": FPS, "denominator": 1}, "start_frame": 0,
             "duration_frames": FRAMES, "work_area": {"start_frame": 0, "end_frame_exclusive": FRAMES},
-            "layer_order": [l["id"] for l in reversed(layers)], "layers": layers}
+            "layer_order": [l["id"] for l in layers], "layers": layers}
 
 
 def project(pid, comps):

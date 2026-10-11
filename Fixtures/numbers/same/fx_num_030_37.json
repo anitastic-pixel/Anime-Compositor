@@ -24,9 +24,9 @@
         "end_frame_exclusive": 60
       },
       "layer_order": [
-        "fills",
+        "plate",
         "strokes",
-        "plate"
+        "fills"
       ],
       "layers": [
         {
@@ -193,17 +193,17 @@
         "end_frame_exclusive": 60
       },
       "layer_order": [
-        "fill-10",
-        "fill-9",
-        "fill-8",
-        "fill-7",
-        "fill-6",
-        "fill-5",
-        "fill-4",
-        "fill-3",
-        "fill-2",
+        "fill-0",
         "fill-1",
-        "fill-0"
+        "fill-2",
+        "fill-3",
+        "fill-4",
+        "fill-5",
+        "fill-6",
+        "fill-7",
+        "fill-8",
+        "fill-9",
+        "fill-10"
       ],
       "layers": [
         {
@@ -874,17 +874,17 @@
         "end_frame_exclusive": 60
       },
       "layer_order": [
-        "stroke-10",
-        "stroke-9",
-        "stroke-8",
-        "stroke-7",
-        "stroke-6",
-        "stroke-5",
-        "stroke-4",
-        "stroke-3",
-        "stroke-2",
+        "stroke-0",
         "stroke-1",
-        "stroke-0"
+        "stroke-2",
+        "stroke-3",
+        "stroke-4",
+        "stroke-5",
+        "stroke-6",
+        "stroke-7",
+        "stroke-8",
+        "stroke-9",
+        "stroke-10"
       ],
       "layers": [
         {

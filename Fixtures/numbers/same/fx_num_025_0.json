@@ -24,9 +24,9 @@
         "end_frame_exclusive": 60
       },
       "layer_order": [
-        "cut",
+        "plate",
         "ring",
-        "plate"
+        "cut"
       ],
       "layers": [
         {

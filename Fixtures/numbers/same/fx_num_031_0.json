@@ -24,9 +24,9 @@
         "end_frame_exclusive": 60
       },
       "layer_order": [
-        "cut",
+        "plate",
         "ring",
-        "plate"
+        "cut"
       ],
       "layers": [
         {
@@ -197,10 +197,10 @@
         "end_frame_exclusive": 60
       },
       "layer_order": [
-        "fill-3",
-        "fill-2",
+        "fill-0",
         "fill-1",
-        "fill-0"
+        "fill-2",
+        "fill-3"
       ],
       "layers": [
         {
@@ -458,10 +458,10 @@
         "end_frame_exclusive": 60
       },
       "layer_order": [
-        "stroke-3",
-        "stroke-2",
+        "stroke-0",
         "stroke-1",
-        "stroke-0"
+        "stroke-2",
+        "stroke-3"
       ],
       "layers": [
         {

@@ -24,9 +24,9 @@
         "end_frame_exclusive": 60
       },
       "layer_order": [
-        "fills",
+        "plate",
         "strokes",
-        "plate"
+        "fills"
       ],
       "layers": [
         {
