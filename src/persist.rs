@@ -3108,6 +3108,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("animate_smoothly".into(), J::from(animate_smoothly.as_str()));
             params.insert("random_seed".into(), num(*random_seed));
         }
+        // D-454: Add Grain's settings as Add Grain writes them, and the source layer; the map is
+        // never saved.
+        Effect::MatchGrain { layer, grain, .. } => {
+            let inner = crate::effects::EffectInstance::new(instance.instance_id.clone(), (**grain).clone());
+            if let Some(p) = effect_json(None, &inner).get("parameters").and_then(J::as_object) {
+                params.extend(p.clone());
+            }
+            params.insert("layer".into(), layer.clone());
+        }
         Effect::NoiseAlpha { noise, amount, original_alpha, overflow, random_seed, noise_phase, cycle_noise, cycle } => {
             params.insert("noise".into(), J::from(noise.as_str()));
             params.insert("amount".into(), num(*amount));
@@ -4732,6 +4741,7 @@ fn parse_effect(
         crate::effects::POLAR_COORDINATES,
         crate::effects::MEDIAN,
         crate::effects::DUST_SCRATCHES,
+        crate::effects::MATCH_GRAIN,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
         crate::effects::CROSS_BLUR,
@@ -6151,25 +6161,12 @@ fn parse_effect(
             masks: None,
             time: 0.0,
         }),
-        crate::effects::ADD_GRAIN => Some(crate::effects::Effect::AddGrain {
-            intensity: effect_number(params, "intensity", &at)?,
-            size: effect_number(params, "size", &at)?,
-            softness: effect_number(params, "softness", &at)?,
-            aspect_ratio: effect_number(params, "aspect_ratio", &at)?,
-            red_intensity: effect_number(params, "red_intensity", &at)?,
-            green_intensity: effect_number(params, "green_intensity", &at)?,
-            blue_intensity: effect_number(params, "blue_intensity", &at)?,
-            monochromatic: effect_word(params, "monochromatic", &at)?,
-            saturation: effect_number(params, "saturation", &at)?,
-            blending_mode: effect_word(params, "blending_mode", &at)?,
-            shadows: effect_number(params, "shadows", &at)?,
-            midtones: effect_number(params, "midtones", &at)?,
-            highlights: effect_number(params, "highlights", &at)?,
-            midpoint: effect_number(params, "midpoint", &at)?,
-            animation_speed: effect_number(params, "animation_speed", &at)?,
-            animate_smoothly: effect_word(params, "animate_smoothly", &at)?,
-            random_seed: effect_number(params, "random_seed", &at)?,
-            frame: 0,
+        crate::effects::ADD_GRAIN => Some(add_grain_from(params, &at)?),
+        // D-454: Add Grain's settings, and the source layer kept as written.
+        crate::effects::MATCH_GRAIN => Some(crate::effects::Effect::MatchGrain {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            grain: Box::new(add_grain_from(params, &at)?),
+            map: None,
         }),
         crate::effects::NOISE_ALPHA => Some(crate::effects::Effect::NoiseAlpha {
             noise: effect_word(params, "noise", &at)?,
@@ -6637,6 +6634,30 @@ fn parse_effect(
         effect: effect_value,
         tracks,
         mix,
+    })
+}
+
+/// D-443 and D-454: Add Grain's settings, for Add Grain and for the Match Grain that holds one.
+fn add_grain_from(params: Option<&J>, at: &str) -> Result<crate::effects::Effect, Diagnostic> {
+    Ok(crate::effects::Effect::AddGrain {
+        intensity: effect_number(params, "intensity", &at)?,
+        size: effect_number(params, "size", &at)?,
+        softness: effect_number(params, "softness", &at)?,
+        aspect_ratio: effect_number(params, "aspect_ratio", &at)?,
+        red_intensity: effect_number(params, "red_intensity", &at)?,
+        green_intensity: effect_number(params, "green_intensity", &at)?,
+        blue_intensity: effect_number(params, "blue_intensity", &at)?,
+        monochromatic: effect_word(params, "monochromatic", &at)?,
+        saturation: effect_number(params, "saturation", &at)?,
+        blending_mode: effect_word(params, "blending_mode", &at)?,
+        shadows: effect_number(params, "shadows", &at)?,
+        midtones: effect_number(params, "midtones", &at)?,
+        highlights: effect_number(params, "highlights", &at)?,
+        midpoint: effect_number(params, "midpoint", &at)?,
+        animation_speed: effect_number(params, "animation_speed", &at)?,
+        animate_smoothly: effect_word(params, "animate_smoothly", &at)?,
+        random_seed: effect_number(params, "random_seed", &at)?,
+        frame: 0,
     })
 }
 

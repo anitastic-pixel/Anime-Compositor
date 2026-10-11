@@ -327,6 +327,12 @@ impl EffectInstance {
             if let Effect::CurlNoise { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-454: Match Grain's, in the Add Grain it holds.
+            if let Effect::MatchGrain { grain, .. } = &mut effect {
+                if let Effect::AddGrain { frame: f, .. } = grain.as_mut() {
+                    *f = frame;
+                }
+            }
             // D-452: Noise HLS Auto's frame.
             if let Effect::NoiseHlsAuto { frame: f, .. } = &mut effect {
                 *f = frame;
@@ -2055,6 +2061,11 @@ pub enum Effect {
     /// D-453: after After Effects' Dust & Scratches, D-203's Median with a threshold. `radius`,
     /// 0 to 10 pixels; `threshold`, 0 to 255 levels; `operate_on_alpha`, "off" or "on".
     DustScratches { radius: f64, threshold: f64, operate_on_alpha: String },
+    /// D-454: after After Effects' Match Grain (`grade::matched_grain`, document 21). `layer`,
+    /// D-189's layer setting, read whole, "" no source (nothing measured); `grain`, an
+    /// [`Effect::AddGrain`] holding Add Grain's settings, whose ranges and checks it shares.
+    /// `map` is not a setting and is never saved: compose reads the named layer into it.
+    MatchGrain { layer: serde_json::Value, grain: Box<Effect>, map: Option<crate::layer_map::Map> },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2780,6 +2791,7 @@ pub const CURL_VIEWS: [&str; 3] = ["final_render", "input_noise", "curl_generati
 pub const CURL_CHANNELS: [&str; 5] = ["rgb", "red", "green", "blue", "alpha"];
 pub const NOISE_HLS_AUTO: &str = "core.noise_hls_auto";
 pub const DUST_SCRATCHES: &str = "core.dust_scratches";
+pub const MATCH_GRAIN: &str = "core.match_grain";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3841,6 +3853,7 @@ impl Effect {
             Effect::DustScratches { radius, threshold, .. } => {
                 vec![("radius", vec![radius], 0.0, 10.0), ("threshold", vec![threshold], 0.0, 255.0)]
             }
+            Effect::MatchGrain { grain, .. } => grain.numbers(),
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -4714,6 +4727,8 @@ impl Effect {
             Effect::CellPattern { size, .. } => *size = scale(*size).max(1.0),
             // D-443: the grain keeps its size on the picture, below a pixel if need be.
             Effect::AddGrain { size, .. } => *size = scale(*size),
+            // D-454: as Add Grain's.
+            Effect::MatchGrain { grain, .. } => grain.scale_distances(&scale as &dyn Fn(f64) -> f64),
             // D-451: the same for Noise HLS's grain, held at its smallest, half a pixel, rather
             // than bypassed.
             Effect::NoiseHls { grain_size, .. } | Effect::NoiseHlsAuto { grain_size, .. } => {
@@ -5139,6 +5154,7 @@ impl Effect {
             Effect::CurlNoise { .. } => "Curl Noise",
             Effect::NoiseHlsAuto { .. } => "Noise HLS Auto",
             Effect::DustScratches { .. } => "Dust & Scratches",
+            Effect::MatchGrain { .. } => "Match Grain",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5323,6 +5339,7 @@ impl Effect {
             Effect::CurlNoise { .. } => CURL_NOISE,
             Effect::NoiseHlsAuto { .. } => NOISE_HLS_AUTO,
             Effect::DustScratches { .. } => DUST_SCRATCHES,
+            Effect::MatchGrain { .. } => MATCH_GRAIN,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -5592,7 +5609,8 @@ impl Effect {
             | Effect::MomentMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::LensBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
             // D-375: read whole, never fitted to the holder.
-            Effect::ColorLink { layer: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
+            Effect::ColorLink { layer: serde_json::Value::String(layer), .. }
+            | Effect::MatchGrain { layer: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
             // D-388: the back page is laid on the drawing, stretched to it.
             Effect::PageTurn { back_page: serde_json::Value::String(layer), .. } => Some((layer, "stretch")),
             _ => None,
@@ -5619,7 +5637,8 @@ impl Effect {
             | Effect::Blobbylize { layer, map, .. }
             | Effect::MomentMap { layer, map, .. }
             | Effect::LensBlur { layer, map, .. }
-            | Effect::ColorLink { layer, map, .. } => Some((layer, map)),
+            | Effect::ColorLink { layer, map, .. }
+            | Effect::MatchGrain { layer, map, .. } => Some((layer, map)),
             Effect::PageTurn { back_page, map, .. } => Some((back_page, map)),
             _ => None,
         }
@@ -6657,6 +6676,10 @@ impl Effect {
             Effect::AddGrain { animate_smoothly: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
                 "Add Grain's animate smoothly is \"on\" or \"off\", and this is \"{v}\"."
             )),
+            // D-454: its source layer, then Add Grain's own checks under its name.
+            Effect::MatchGrain { layer, grain, .. } => (!layer.is_string())
+                .then(|| format!("{name}'s noise source layer is the name of a layer of this composition, and this is {layer}."))
+                .or_else(|| grain.fault().map(|m| m.replace("Add Grain", "Match Grain"))),
             Effect::NoiseAlpha { noise: v, .. } if !NOISE_ALPHA_KINDS.contains(&v.as_str()) => Some(format!(
                 "Noise Alpha's noise is one of {}, and this is \"{v}\".",
                 NOISE_ALPHA_KINDS.join(", ")
@@ -8393,6 +8416,11 @@ pub(crate) fn apply_stack_at(
             e @ Effect::AddGrain { .. } => {
                 crate::perf::time(crate::perf::Stage::EffectAddGrain, || crate::grade::add_grain(source, e, (ox, oy)))
             }
+            e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
+                if let Some(g) = crate::grade::matched_grain(e) {
+                    crate::grade::add_grain(source, &g, (ox, oy))
+                }
+            }),
             // D-450: the noise in the drawing's own space, however an effect above grew it.
             e @ Effect::NoiseAlpha { .. } => {
                 crate::perf::time(crate::perf::Stage::EffectNoiseAlpha, || crate::grade::noise_alpha(source, e, (ox, oy)))

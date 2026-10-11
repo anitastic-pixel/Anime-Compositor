@@ -886,6 +886,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Noise { .. }
                 // D-443: Add Grain.
                 | crate::effects::Effect::AddGrain { .. }
+                // D-454: Match Grain, as the Add Grain it lays.
+                | crate::effects::Effect::MatchGrain { .. }
                 // D-450: Noise Alpha.
                 | crate::effects::Effect::NoiseAlpha { .. }
                 // D-451: Noise HLS.
@@ -1208,6 +1210,7 @@ fn card_effect(
                 E::Outline { width, .. } => *width == 0.0,
                 E::Noise { amount, .. } | E::ChromaticAberration { amount, .. } | E::NoiseAlpha { amount, .. } => *amount == 0.0,
                 E::AddGrain { intensity, .. } => *intensity == 0.0,
+                E::MatchGrain { .. } => crate::grade::matched_grain(&effect).is_none(),
                 E::NoiseHls { hue, lightness, saturation, .. } | E::NoiseHlsAuto { hue, lightness, saturation, .. } => {
                     [*hue, *lightness, *saturation] == [0.0; 3]
                 }

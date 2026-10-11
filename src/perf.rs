@@ -360,6 +360,8 @@ pub enum Stage {
     EffectNoiseHlsAuto,
     /// D-453's Dust & Scratches.
     EffectDustScratches,
+    /// D-454's Match Grain.
+    EffectMatchGrain,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -377,7 +379,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 186] = [
+    pub const ALL: [Stage; 187] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -557,6 +559,7 @@ impl Stage {
         Stage::EffectCurlNoise,
         Stage::EffectNoiseHlsAuto,
         Stage::EffectDustScratches,
+        Stage::EffectMatchGrain,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -748,6 +751,7 @@ impl Stage {
             Stage::EffectCurlNoise => "effect: curl noise",
             Stage::EffectNoiseHlsAuto => "effect: noise hls auto",
             Stage::EffectDustScratches => "effect: dust and scratches",
+            Stage::EffectMatchGrain => "effect: match grain",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

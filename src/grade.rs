@@ -612,6 +612,70 @@ pub(crate) fn add_grain(source: &mut WorkingBuffer, e: &crate::effects::Effect, 
     });
 }
 
+/// D-454: the grain in `picture`, per channel of its straight colour through the sRGB curve,
+/// held in 0 to 1, by Immerkaer's fast noise estimate (J. Immerkaer, "Fast Noise Variance
+/// Estimation", CVIU 64(2):300-302, 1996): sqrt(pi / 2) / (6 N) times the sum of
+/// |[[1,-2,1],[-2,4,-2],[1,-2,1]] * I| over the N 3 by 3 windows whose nine pixels all show; 0
+/// when there is none.
+pub(crate) fn grain_levels(picture: &WorkingBuffer) -> [f64; 3] {
+    let (w, h, d) = (picture.width(), picture.height(), picture.data());
+    if w < 3 || h < 3 {
+        return [0.0; 3];
+    }
+    let enc: Vec<Option<[f64; 3]>> = d
+        .par_chunks_exact(4)
+        .map(|p| {
+            let a = p[3] as f64;
+            (a > 0.0).then(|| std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0))))
+        })
+        .collect();
+    const MASK: [f64; 9] = [1.0, -2.0, 1.0, -2.0, 4.0, -2.0, 1.0, -2.0, 1.0];
+    let (sum, n) = (0..h - 2)
+        .into_par_iter()
+        .map(|y| {
+            let (mut s, mut n) = ([0.0f64; 3], 0usize);
+            'window: for x in 0..w - 2 {
+                let mut f = [0.0f64; 3];
+                for (k, m) in MASK.iter().enumerate() {
+                    let Some(e) = enc[(y + k / 3) * w + x + k % 3] else {
+                        continue 'window;
+                    };
+                    for c in 0..3 {
+                        f[c] += m * e[c];
+                    }
+                }
+                for c in 0..3 {
+                    s[c] += f[c].abs();
+                }
+                n += 1;
+            }
+            (s, n)
+        })
+        .reduce(|| ([0.0; 3], 0), |a, b| ([a.0[0] + b.0[0], a.0[1] + b.0[1], a.0[2] + b.0[2]], a.1 + b.1));
+    if n == 0 {
+        return [0.0; 3];
+    }
+    sum.map(|s| (std::f64::consts::PI / 2.0).sqrt() / (6.0 * n as f64) * s)
+}
+
+/// D-454: Match Grain as the Add Grain it lays: its channel intensities times the source's
+/// measured grain, sigma 10 sqrt(3) (Add Grain's block grain at intensity 1 spreads 0.1 /
+/// sqrt(3)). None when nothing would be added: no source picture, intensity 0 or no channel left.
+pub(crate) fn matched_grain(e: &crate::effects::Effect) -> Option<crate::effects::Effect> {
+    let crate::effects::Effect::MatchGrain { grain, map: Some(m), .. } = e else {
+        return None;
+    };
+    let mut g = (**grain).clone();
+    let crate::effects::Effect::AddGrain { intensity, red_intensity, green_intensity, blue_intensity, .. } = &mut g else {
+        return None;
+    };
+    let (s, k) = (grain_levels(&m.0), 10.0 * 3f64.sqrt());
+    *red_intensity *= s[0] * k;
+    *green_intensity *= s[1] * k;
+    *blue_intensity *= s[2] * k;
+    (*intensity != 0.0 && [*red_intensity, *green_intensity, *blue_intensity] != [0.0; 3]).then_some(g)
+}
+
 /// D-450: After Effects' Noise Alpha, by document 21's rule. The noise at the pixel in the
 /// drawing's own space (its corner at `(ox, oy)` in `source`): the Random kinds [`unit`] for the
 /// seed, the Animation kinds [`value`] in blocks of a pixel at depth phase / 360 for seed 0,
