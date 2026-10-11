@@ -210638,3 +210638,53 @@ FX-WARPB-037 (`fx_warpb_037.json`): Warp direction "sideways", not one of the th
 FX-WARPB-038 (`fx_warpb_038.json`): A reveal layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-WARPB-039 (`fx_warpb_039.json`): Completion keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Channel Threshold (D-468)
+
+Channel Threshold, after CycoreFX's CC Threshold (Stylize), `core.channel_threshold` (B-348), a second name over Threshold's rule. Every case is Threshold's drawing; `tools/channel_threshold_reference.py` works the expected frames, `Fixtures/channel_threshold/expected_channel_threshold.json`, tolerance 2e-5; the rule is in document 21. Threshold's FX-THRESH cases are unchanged.
+
+FX-CHTHRESH-001 (`fx_chthresh_001.json`): As added: Threshold 128, Luminance, Invert off, Blend 0: exactly Threshold at 128 (FX-THRESH-001), grey 128 and everything lighter white, the rest black, each soft edge at its own covering. Frames 0.
+
+FX-CHTHRESH-002 (`fx_chthresh_002.json`): Threshold 50: exactly Threshold at 50 (FX-THRESH-005), red white and blue black. Frames 0.
+
+FX-CHTHRESH-003 (`fx_chthresh_003.json`): Invert on: FX-CHTHRESH-001 turned over, what was white black and what was black white. Frames 0.
+
+FX-CHTHRESH-004 (`fx_chthresh_004.json`): RGB at 128: each channel on its own, so red stays pure red, green pure green, blue pure blue, both skins white and grey 127 black. Frames 0.
+
+FX-CHTHRESH-005 (`fx_chthresh_005.json`): RGB at 200: the lit skin, red and green above 200 and blue below, turns yellow; the shadow skin keeps only its red; the light grey turns black. Frames 0.
+
+FX-CHTHRESH-006 (`fx_chthresh_006.json`): Saturation at 128: the pure colours and both skins white; the greys, black, white and the dull line black. Frames 0.
+
+FX-CHTHRESH-007 (`fx_chthresh_007.json`): Saturation at 150: the shadow skin, saturation 136, turns black while the lit skin, 193, stays white. Frames 0.
+
+FX-CHTHRESH-008 (`fx_chthresh_008.json`): Alpha at 129: the two soft edges, covering 128, turn clear; every opaque pixel keeps its colour and covering. Frames 0.
+
+FX-CHTHRESH-009 (`fx_chthresh_009.json`): Alpha at 100: the soft edges turn opaque in their own colours; the empty pixels stay empty. Frames 0.
+
+FX-CHTHRESH-010 (`fx_chthresh_010.json`): Alpha at 129, Invert on: the soft edges turn opaque and every opaque pixel clear. Frames 0.
+
+FX-CHTHRESH-011 (`fx_chthresh_011.json`): Blend With Original 50: every pixel halfway, in linear light, between the drawing and FX-CHTHRESH-001. Frames 0.
+
+FX-CHTHRESH-012 (`fx_chthresh_012.json`): Blend With Original 100: the drawing exactly as it was. Frames 0.
+
+FX-CHTHRESH-013 (`fx_chthresh_013.json`): RGB, Invert on, Blend 25: each channel turned over, 75 per cent of the way from the drawing. Frames 0.
+
+FX-CHTHRESH-014 (`fx_chthresh_014.json`): Alpha at 129, Blend 50: the soft edges at half their covering, the rest as it was. Frames 0.
+
+FX-CHTHRESH-015 (`fx_chthresh_015.json`): Threshold keyed from 0 at frame 0 to 255 at frame 4, linear: frame 2 is Threshold 127.5, grey 128 white and grey 127 black. Frames 0, 2, 4.
+
+FX-CHTHRESH-016 (`fx_chthresh_016.json`): Blend eased from 50 at frame 0 to 100 at frame 4 on a curve that overshoots: at frame 2 it would pass 100, is held at 100, and the frame is the drawing. Frames 0, 2.
+
+FX-CHTHRESH-017 (`fx_chthresh_017.json`): FX-CHTHRESH-004 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-CHTHRESH-018 (`fx_chthresh_018.json`): Threshold 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHTHRESH-019 (`fx_chthresh_019.json`): Threshold -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHTHRESH-020 (`fx_chthresh_020.json`): A channel written "red", not one of the four. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHTHRESH-021 (`fx_chthresh_021.json`): Invert written "yes", not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHTHRESH-022 (`fx_chthresh_022.json`): Blend With Original 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CHTHRESH-023 (`fx_chthresh_023.json`): Blend With Original keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
