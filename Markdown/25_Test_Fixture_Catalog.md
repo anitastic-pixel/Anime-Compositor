@@ -211352,3 +211352,33 @@ FX-GLASS-025 (`fx_glass_025.json`): Specular -1, below 0. The file is read, the 
 FX-GLASS-026 (`fx_glass_026.json`): Light Position 50, -1001, beyond -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-GLASS-027 (`fx_glass_027.json`): Metal keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Fast Blur (Legacy) (D-471)
+
+Fast Blur (Legacy), after After Effects' Fast Blur (Legacy) (Obsolete), `core.fast_blur_legacy` (B-351), a second name over Fast Box Blur's rule. Every case is blurriness_reference's drawing `block`; `tools/fast_blur_legacy_reference.py` works the expected frames, `Fixtures/fast_blur_legacy/expected_fast_blur_legacy.json`, tolerance 2e-5; the rule is in document 21. Fast Box Blur's FX-FASTBOX cases are unchanged.
+
+FX-FASTLEG-001 (`fx_fastleg_001.json`): Blurriness 10: Fast Box Blur at radius 3.7 and 3 iterations, reaching 12 pixels; column 15, twelve right of the square, is lit and column 16 is clear. Frames 0.
+
+FX-FASTLEG-002 (`fx_fastleg_002.json`): Blurriness 5: radius 1.85, the box of 3 pixels and 0.85 of the next on each side, laid on three times, reaching 6 pixels. Frames 0.
+
+FX-FASTLEG-003 (`fx_fastleg_003.json`): FX-FASTLEG-001 with Repeat Edge Pixels: the square's orange is read past the left edge, and the layer does not grow. Frames 0.
+
+FX-FASTLEG-004 (`fx_fastleg_004.json`): FX-FASTLEG-001 with Blur Dimensions horizontal: spread across only. Frames 0.
+
+FX-FASTLEG-005 (`fx_fastleg_005.json`): FX-FASTLEG-001 with Blur Dimensions vertical: spread down only. Frames 0.
+
+FX-FASTLEG-006 (`fx_fastleg_006.json`): Blurriness 0: the drawing untouched. Frames 0.
+
+FX-FASTLEG-007 (`fx_fastleg_007.json`): Blurriness keyed from 0 at frame 0 to 20 at frame 4, linear: frame 2 is Blurriness 10, FX-FASTLEG-001's picture. Frames 0, 2, 4.
+
+FX-FASTLEG-008 (`fx_fastleg_008.json`): A Float composition: Blurriness 5, then Exposure +6. The light falls away to nothing 6 pixels right of the square and no further. Frames 0.
+
+FX-FASTLEG-009 (`fx_fastleg_009.json`): Blurriness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FASTLEG-010 (`fx_fastleg_010.json`): Blurriness 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FASTLEG-011 (`fx_fastleg_011.json`): Blur Dimensions "Both": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FASTLEG-012 (`fx_fastleg_012.json`): Repeat Edge Pixels "on": the word is "transparent" or "repeat". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FASTLEG-013 (`fx_fastleg_013.json`): Blurriness keyed to 1200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
