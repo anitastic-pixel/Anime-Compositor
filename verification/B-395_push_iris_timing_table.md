@@ -15,8 +15,8 @@ against 57.4 ms in B-390's busy table. A quiet re-measure is owed.
 - Build: release
 
 **What is timed.** The reference shot (1920 by 1080, 24 a second, 240 frames) with a Noise that
-changes every frame on each of its first three layers (so nothing is kept), then the Stripe
-Sweep, every eighth frame asked for whole at Full. **Again** is the median of the loops after the
+changes every frame on each of its first three layers (so nothing is kept), then the Push
+Iris, every eighth frame asked for whole at Full. **Again** is the median of the loops after the
 first (seven on the card, two on the processor), milliseconds a frame.
 
 | Shot | Card | Processor |

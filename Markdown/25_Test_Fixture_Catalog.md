@@ -210366,3 +210366,41 @@ FX-TC-044 (`fx_tc_044.json`): Text colour written "white". The file is read, the
 FX-TC-045 (`fx_tc_045.json`): Opacity 150. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
 FX-TC-046 (`fx_tc_046.json`): Starting frame 20,000,000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### Stretch Wipe (D-516)
+
+Stretch Wipe (`core.stretch_wipe`), after the purpose of CycoreFX's CC Scale Wipe (B-396, EFFECTS.md row 278), the rule ours. Every case is a project of one composition 16 by 10, five frames, the drawing Broadcast Colors' (with transparent columns and a half-covered one) with the effect. `tools/stretch_wipe_reference.py` works the expected frames, `Fixtures/stretch_wipe/expected_stretch_wipe.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-STRETCH-001 (`fx_stretch_001.json`): The settings as they start: scale 100, so nothing changes. Frames 0.
+
+FX-STRETCH-002 (`fx_stretch_002.json`): Scale 200: the right half stretched twice as wide, from the middle. Frames 0.
+
+FX-STRETCH-003 (`fx_stretch_003.json`): Scale 400, direction 90: the bottom half stretched four times down. Frames 0.
+
+FX-STRETCH-004 (`fx_stretch_004.json`): Scale 100000: the right half a streak of the middle column. Frames 0.
+
+FX-STRETCH-005 (`fx_stretch_005.json`): Scale 300, direction 30: the stretch turned. Frames 0.
+
+FX-STRETCH-006 (`fx_stretch_006.json`): Center [25, 30], scale 250: stretched from a line further left. Frames 0.
+
+FX-STRETCH-007 (`fx_stretch_007.json`): Center [-20, 50], scale 150: the line off the drawing to the left, the whole drawing stretched, its left edge pulled in from outside it. Frames 0.
+
+FX-STRETCH-008 (`fx_stretch_008.json`): Direction 180, scale 300: the left half stretched to the left. Frames 0.
+
+FX-STRETCH-009 (`fx_stretch_009.json`): Scale keyed from 100 at frame 0 to 500 at frame 4, linear: frame 2 is scale 300. Frames 0, 2, 4.
+
+FX-STRETCH-010 (`fx_stretch_010.json`): Direction keyed from 0 at frame 0 to 90 at frame 4, linear, scale 300: frame 2 is direction 45. Frames 0, 2, 4.
+
+FX-STRETCH-011 (`fx_stretch_011.json`): FX-STRETCH-002 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-STRETCH-012 (`fx_stretch_012.json`): Direction -135, Center [60, 40], scale 175. Frames 0.
+
+FX-STRETCH-013 (`fx_stretch_013.json`): Scale 99, below 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRETCH-014 (`fx_stretch_014.json`): Scale 100001, above 100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRETCH-015 (`fx_stretch_015.json`): Center y -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRETCH-016 (`fx_stretch_016.json`): Direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRETCH-017 (`fx_stretch_017.json`): Scale keyed to 200000 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

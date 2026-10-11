@@ -3,8 +3,8 @@
 Measured on 2026-10-11, built with `cargo test --release --test b394_stripe_sweep` from
 ef25bca1 (B-394's code), and run with `--ignored b394_stripe_sweep_timing`: once on the card,
 then once with `B394_CPU` set on the processor.
-**The machine was not quiet.** Five other cargo processes (other lanes' tests and builds) were
-running before and during both runs, and three after. The numbers below are recorded as they
+**The machine was not quiet.** Six other cargo processes (other lanes' tests and builds) were
+running before and during both runs, and four after. The numbers below are recorded as they
 came out. They are not a clean measurement of Stripe Sweep: the card's Noise alone took 76.2 ms
 a frame here, against 11.8 ms on the quiet machine in B-387's table, and the processor's 143.5 ms
 against 57.4 ms in B-390's busy table. A quiet re-measure is owed.
