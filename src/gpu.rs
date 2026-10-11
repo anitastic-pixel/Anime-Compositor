@@ -7565,6 +7565,78 @@ fn marks(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-508, along::energy_stroke: k as along::energy_numbers (twelve), the bits' count, then from 13
+// each bit as `along::energy_bits` gives it and its box, then for each band of 16 rows where its
+// list of bits starts and how many, then the lists, as Path Stroke's. The core and the glow are
+// each the largest over the bits; the rings' exponentials are worked in single precision, which
+// has no double exp. B-222: the pixel read and written one channel at a time.
+@compute @workgroup_size(16, 16)
+fn energy(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let px = textureLoad(input, id.xy, 0);
+    let xi = f64(id.x);
+    let x = xi + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    var c = 0.0lf;
+    var g = 0.0lf;
+    let band = 13u + 10u * u32(k[12]) + 2u * (id.y / 16u);
+    let first = u32(k[band]);
+    let n = u32(k[band + 1u]);
+    for (var i = 0u; i < n; i++) {
+        let o = 13u + 10u * u32(k[first + i]);
+        if y <= k[o + 8u] || y >= k[o + 9u] || xi < ceil(k[o + 6u] - 0.5lf) || xi > floor(k[o + 7u] - 0.5lf) {
+            continue;
+        }
+        let sx = k[o];
+        let sy = k[o + 1u];
+        let dx = k[o + 2u] - sx;
+        let dy = k[o + 3u] - sy;
+        let l2 = dx * dx + dy * dy;
+        var t = 0.0lf;
+        if l2 != 0.0lf {
+            t = clamp(((x - sx) * dx + (y - sy) * dy) / l2, 0.0lf, 1.0lf);
+        }
+        let ex = x - sx - t * dx;
+        let ey = y - sy - t * dy;
+        let d2 = ex * ex + ey * ey;
+        let d = sqrt(d2);
+        let w = k[o + 4u] + (k[o + 5u] - k[o + 4u]) * t;
+        let r = k[0] * w / 2.0lf;
+        if r > 0.0lf {
+            let soft = max(r * k[1], 1.0lf);
+            let u = clamp((r + 0.5lf - d) / soft, 0.0lf, 1.0lf);
+            c = max(c, u * u * (3.0lf - 2.0lf * u));
+        }
+        if k[2] > 0.0lf {
+            var s = 0.0lf;
+            for (var j = 3u; j < 7u; j++) {
+                s += f64(exp(f32(-d2 / (2.0lf * k[j] * k[j]))));
+            }
+            g = max(g, w * s / 4.0lf);
+        }
+    }
+    let mode = u32(k[11]);
+    if mode == 0u && c == 0.0lf && g == 0.0lf {
+        textureStore(output, id.xy, px);
+        return;
+    }
+    var light = vec3<f64>(0.0lf);
+    for (var j = 0u; j < 3u; j++) {
+        light[j] = k[10] * c + (1.0lf - c) * g * k[7u + j];
+    }
+    let a = min(max(max(light.x, light.y), light.z), 1.0lf);
+    var out = vec4<f32>(f32(light.x), f32(light.y), f32(light.z), f32(a));
+    if mode == 0u {
+        out = vec4<f32>(f32(f64(px.x) + light.x), f32(f64(px.y) + light.y), f32(f64(px.z) + light.z), f32(f64(px.w) + (1.0lf - f64(px.w)) * a));
+    } else if mode == 2u {
+        out.w = 1.0;
+    }
+    textureStore(output, id.xy, out);
+}
+
 // D-441, along::write_on: k the paint style (0 on the original, 1 on transparent, 2 reveal), the
 // colour in linear light, the marks' count, then from 5 each mark's centre, radius, soft edge,
 // covering at most and box, then for each band of 16 rows where its list of marks starts and how
@@ -8808,6 +8880,8 @@ struct FxPasses {
     /// D-448.
     cartoonedge: Pass,
     cartoon: Pass,
+    /// D-508.
+    energy: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -9480,6 +9554,7 @@ impl Gpu {
                 brush: pass("brush", &[0, 1, 2, 3]),
                 cartoonedge: pass("cartoonedge", &[0, 1, 2, 3]),
                 cartoon: pass("cartoon", &[0, 1, 2, 3, 4]),
+                energy: pass("energy", &[0, 1, 2, 3]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -12560,6 +12635,30 @@ impl Gpu {
                 }
                 k.extend(bands.concat());
                 same(steps, &passes.stroke, FxParams::default(), &k, None)
+            }
+            // D-508: Energy Stroke's bits and numbers, worked out here as the CPU works them;
+            // with no path the card is not asked (`compose::card_effect`).
+            e @ E::EnergyStroke { .. } => {
+                let n = crate::along::energy_numbers(e);
+                let mut k = n.to_vec();
+                let bits = crate::along::energy_bits(e, (w as usize, h as usize), f.origin, &n);
+                k.push(bits.len() as f64);
+                let mut bands = vec![Vec::new(); (h as usize).div_ceil(16)];
+                for (j, (bit, b)) in bits.iter().enumerate() {
+                    k.extend(bit);
+                    k.extend(b);
+                    let rows = (b[2] - 0.5).floor().max(0.0) as usize..=((b[3] - 0.5).ceil().max(0.0) as usize).min(h as usize - 1);
+                    for band in bands.iter_mut().take(rows.end() / 16 + 1).skip(rows.start() / 16) {
+                        band.push(j as f64);
+                    }
+                }
+                let mut first = k.len() + 2 * bands.len();
+                for band in &bands {
+                    k.extend([first as f64, band.len() as f64]);
+                    first += band.len();
+                }
+                k.extend(bands.concat());
+                same(steps, &passes.energy, FxParams::default(), &k, None)
             }
             // D-441: Write-on's marks, placed here as the CPU places them.
             E::WriteOn { color, paint_style, marks, .. } => {

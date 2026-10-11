@@ -319,6 +319,10 @@ impl EffectInstance {
             if let Effect::LightningBolt { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-508: the beam's wobble and flicker frame.
+            if let Effect::EnergyStroke { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
             // D-200: the waves' frame.
             if let Effect::RadioWaves { frame: f, .. } = &mut effect {
                 *f = frame;
@@ -2290,6 +2294,42 @@ pub enum Effect {
         intensity: f64,
         render: String,
     },
+    /// D-508: Energy Stroke, after the purpose of Video Copilot's Saber (`docs/effects/PLUGINS.md`
+    /// pick #11), its rule and settings ours (`along::energy_stroke`, document 21): a glowing beam,
+    /// a white core inside a coloured glow. `source`, one of [`ENERGY_SOURCES`]: "points" from
+    /// `core_start` to `core_end` (x then y, per cent of the drawing, -1000 to 1000), or every
+    /// mask, shape or text outline of the layer; `evolution`, -3600 to 3600 degrees, where a closed
+    /// path begins; `start_offset`, `end_offset`, `start_size` and `end_size`, 0 to 100 per cent;
+    /// `core_size`, 0 to 200 pixels; `core_softness`, 0 to 100; `glow_color`, `#rrggbb`;
+    /// `glow_intensity`, 0 to 1000 per cent; `glow_spread`, 0 to 1000 pixels; `flicker_amount`
+    /// and `flicker_speed`, 0 to 100; `distortion_amount`, 0 to 500 pixels; `distortion_scale`, 1
+    /// to 1000 pixels; `distortion_speed`, 0 to 100; `random_seed`, 0 to 10000, its floor taken;
+    /// `composite`, one of [`ENERGY_COMPOSITES`]. `frame` and `paths` are not settings and are
+    /// never saved: the frame is set by `at_time`, the paths by compose as Path Stroke's are.
+    EnergyStroke {
+        source: String,
+        core_start: [f64; 2],
+        core_end: [f64; 2],
+        evolution: f64,
+        start_offset: f64,
+        end_offset: f64,
+        start_size: f64,
+        end_size: f64,
+        core_size: f64,
+        core_softness: f64,
+        glow_color: String,
+        glow_intensity: f64,
+        glow_spread: f64,
+        flicker_amount: f64,
+        flicker_speed: f64,
+        distortion_amount: f64,
+        distortion_scale: f64,
+        distortion_speed: f64,
+        random_seed: f64,
+        composite: String,
+        frame: i32,
+        paths: Option<Vec<(Vec<(f64, f64)>, bool)>>,
+    },
     /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
     /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
     /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
@@ -3095,6 +3135,11 @@ pub const THREE_D_GLASSES: &str = "core.three_d_glasses";
 pub const CC_SPOTLIGHT: &str = "core.cc_spotlight";
 /// D-507: CC Spotlight's renders, without its four Gel renders, which are not built.
 pub const SPOT_RENDERS: [&str; 4] = ["light_only", "light_add", "light_add_plus", "light_shadow"];
+pub const ENERGY_STROKE: &str = "core.energy_stroke";
+/// D-508: where Energy Stroke's beam runs.
+pub const ENERGY_SOURCES: [&str; 4] = ["points", "masks", "shapes", "text"];
+/// D-508: how Energy Stroke's light meets the layer.
+pub const ENERGY_COMPOSITES: [&str; 3] = ["add", "transparent", "black"];
 /// D-506: 3D Glasses' views, the anaglyphs last.
 pub const GLASSES_VIEWS: [&str; 8] = [
     "side_by_side",
@@ -3293,6 +3338,44 @@ impl Effect {
                 ("cone_angle", vec![cone_angle], 0.0, 180.0),
                 ("edge_softness", vec![edge_softness], 0.0, 100.0),
                 ("intensity", vec![intensity], 0.0, 1000.0),
+            ],
+            Effect::EnergyStroke {
+                core_start,
+                core_end,
+                evolution,
+                start_offset,
+                end_offset,
+                start_size,
+                end_size,
+                core_size,
+                core_softness,
+                glow_intensity,
+                glow_spread,
+                flicker_amount,
+                flicker_speed,
+                distortion_amount,
+                distortion_scale,
+                distortion_speed,
+                random_seed,
+                ..
+            } => vec![
+                ("core_start", core_start.iter_mut().collect(), -1000.0, 1000.0),
+                ("core_end", core_end.iter_mut().collect(), -1000.0, 1000.0),
+                ("evolution", vec![evolution], -3600.0, 3600.0),
+                ("start_offset", vec![start_offset], 0.0, 100.0),
+                ("end_offset", vec![end_offset], 0.0, 100.0),
+                ("start_size", vec![start_size], 0.0, 100.0),
+                ("end_size", vec![end_size], 0.0, 100.0),
+                ("core_size", vec![core_size], 0.0, 200.0),
+                ("core_softness", vec![core_softness], 0.0, 100.0),
+                ("glow_intensity", vec![glow_intensity], 0.0, 1000.0),
+                ("glow_spread", vec![glow_spread], 0.0, 1000.0),
+                ("flicker_amount", vec![flicker_amount], 0.0, 100.0),
+                ("flicker_speed", vec![flicker_speed], 0.0, 100.0),
+                ("distortion_amount", vec![distortion_amount], 0.0, 500.0),
+                ("distortion_scale", vec![distortion_scale], 1.0, 1000.0),
+                ("distortion_speed", vec![distortion_speed], 0.0, 100.0),
+                ("random_seed", vec![random_seed], 0.0, 10000.0),
             ],
             Effect::Transform {
                 anchor_point,
@@ -5390,6 +5473,13 @@ impl Effect {
             // D-356: the masks are scaled as they always are, before the stack.
             Effect::Stroke { brush_size, .. } => *brush_size = scale(*brush_size),
             Effect::Vegas { width, .. } => *width = scale(*width),
+            // D-508: the paths as Path Stroke's; the points are shares of the drawing.
+            Effect::EnergyStroke { core_size, glow_spread, distortion_amount, distortion_scale, .. } => {
+                *core_size = scale(*core_size);
+                *glow_spread = scale(*glow_spread);
+                *distortion_amount = scale(*distortion_amount);
+                *distortion_scale = scale(*distortion_scale);
+            }
             Effect::SoftGlow { radius, .. } => *radius = scale(*radius),
             Effect::SpeedLines { inner, .. } => *inner = scale(*inner),
             Effect::CrossGlare { length, .. } => *length = scale(*length),
@@ -5681,6 +5771,7 @@ impl Effect {
             Effect::Unmult { .. } => "Unmult",
             Effect::ThreeDGlasses { .. } => "3D Glasses",
             Effect::CcSpotlight { .. } => "CC Spotlight",
+            Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
@@ -5882,6 +5973,7 @@ impl Effect {
             Effect::Unmult { .. } => UNMULT,
             Effect::ThreeDGlasses { .. } => THREE_D_GLASSES,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
+            Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
@@ -6353,6 +6445,11 @@ impl Effect {
                         GLASSES_VIEWS.map(|v| format!("\"{v}\"")).join(", ")
                     )))
             }
+            Effect::EnergyStroke { source, glow_color, composite, .. } => (!ENERGY_SOURCES.contains(&source.as_str()))
+                .then(|| format!("Energy Stroke's path from is \"points\", \"masks\", \"shapes\" or \"text\", and this is \"{source}\"."))
+                .or_else(|| (!ENERGY_COMPOSITES.contains(&composite.as_str()))
+                    .then(|| format!("Energy Stroke's composite is \"add\", \"transparent\" or \"black\", and this is \"{composite}\".")))
+                .or_else(|| hex_fault("Energy Stroke", "glow colour", glow_color)),
             Effect::CcSpotlight { color, render, .. } => hex_fault("CC Spotlight", "colour", color).or_else(|| {
                 let renders = SPOT_RENDERS.map(|r| format!("\"{r}\"")).join(", ");
                 if ["gel_only", "gel_add", "gel_add_plus", "gel_shadow"].contains(&render.as_str()) {
@@ -9147,6 +9244,11 @@ pub(crate) fn apply_stack_at(
             // D-507: every distance a share of the drawing; never grows.
             e @ Effect::CcSpotlight { .. } => crate::perf::time(crate::perf::Stage::EffectCcSpotlight, || {
                 crate::layer_fx::cc_spotlight(source, e, (ox, oy))
+            }),
+            // D-508: the paths compose found, or the points, in the drawing's own space; with no
+            // path the layer is left as it is (EFFECT_PATH_MISSING was said). Never grows.
+            e @ Effect::EnergyStroke { .. } => crate::perf::time(crate::perf::Stage::EffectEnergyStroke, || {
+                crate::along::energy_stroke(source, e, (ox, oy))
             }),
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {

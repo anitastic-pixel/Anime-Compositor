@@ -1106,6 +1106,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::ThreeDGlasses { .. }
                 // D-507.
                 | crate::effects::Effect::CcSpotlight { .. }
+                // D-508 (the bits are found on the processor).
+                | crate::effects::Effect::EnergyStroke { .. }
                 // D-400.
                 | crate::effects::Effect::ShadowHighlight { .. }
                 // D-397.
@@ -1454,6 +1456,8 @@ fn card_effect(
                 E::LineWidth { width, .. } => *width == 0.0,
                 // B-235: with no path the layer is left as it is.
                 E::Stroke { paths, .. } | E::Vegas { paths, .. } => paths.is_none(),
+                // D-508: with no path the layer is left as it is.
+                E::EnergyStroke { source, paths, .. } => source != "points" && paths.is_none(),
                 // D-420: with no levels the layer is left as it is.
                 E::AudioSpectrum { levels, .. } | E::AudioWaveform { levels, .. } => levels.is_none(),
                 // D-418: no mask found, nothing laid on, or the whole layer turned over.
@@ -2401,11 +2405,17 @@ fn resolve_rest(
     // says, a shape a path when it is on and has two points, whatever its fill and stroke. D-373:
     // with Path From Text Outlines, the text layer's outlines as they are drawn at this frame,
     // every one closed, in reading order. With none, the layer is left as it is and that is said
-    // every frame. D-444: Vegas's the same way, from its Stroke setting.
+    // every frame. D-444: Vegas's the same way, from its Stroke setting. D-508: an Energy Stroke's
+    // paths are found the same way, every one of its kind, unless it runs between its points.
     for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
-        let vegas = matches!(instance.effect, crate::effects::Effect::Vegas { .. });
-        let (name, from, pick) = if vegas { ("Vegas", "Stroke", "Mask") } else { ("Path Stroke", "Path From", "Path") };
-        if let crate::effects::Effect::Stroke { mask, all_masks, source, paths, .. } | crate::effects::Effect::Vegas { mask, all_masks, stroke: source, paths, .. } = &mut instance.effect {
+        let (mask, all_masks, source, paths, vegas, energy) = match &mut instance.effect {
+            crate::effects::Effect::Stroke { mask, all_masks, source, paths, .. } => (mask.floor(), all_masks == "on", source.as_str(), paths, false, false),
+            crate::effects::Effect::Vegas { mask, all_masks, stroke: source, paths, .. } => (mask.floor(), all_masks == "on", source.as_str(), paths, true, false),
+            crate::effects::Effect::EnergyStroke { source, paths, .. } if source != "points" => (1.0, true, source.as_str(), paths, false, true),
+            _ => continue,
+        };
+        let (from, pick) = if vegas { ("Stroke", "Mask") } else { ("Path From", "Path") };
+        {
             let (shapes, text) = (source == "shapes", source == "text");
             let outlines: Vec<Vec<(f64, f64)>> = match &layer.text {
                 Some(words) if text => crate::text::outlines(words, &text_animators(comp, layer, at))
@@ -2426,15 +2436,16 @@ fn resolve_rest(
                 }
             };
             let count = if text { outlines.len() } else if shapes { layer.shapes.len() } else { masks.len() };
-            let found: Vec<(Vec<(f64, f64)>, bool)> = if all_masks == "on" { (0..count).filter_map(path).collect() } else { path(mask.floor() as usize - 1).into_iter().collect() };
+            let found: Vec<(Vec<(f64, f64)>, bool)> = if all_masks { (0..count).filter_map(path).collect() } else { path(mask as usize - 1).into_iter().collect() };
             if found.is_empty() {
                 let kind = if shapes { "shape" } else { "mask" };
-                let which = match (text, all_masks == "on") {
+                let which = match (text, all_masks) {
                     (true, true) => "no text outline".to_string(),
-                    (true, false) => format!("no text outline {}", mask.floor()),
+                    (true, false) => format!("no text outline {mask}"),
                     (false, true) => format!("no {kind} that is on with two points or more"),
-                    (false, false) => format!("no {kind} {} that is on with two points or more", mask.floor()),
+                    (false, false) => format!("no {kind} {mask} that is on with two points or more"),
                 };
+                let (name, what) = if energy { ("Energy Stroke", "beam") } else if vegas { ("Vegas", "stroke") } else { ("Path Stroke", "stroke") };
                 log.record(
                     frame,
                     layer.name.clone(),
@@ -2442,9 +2453,16 @@ fn resolve_rest(
                         DiagnosticId::EffectPathMissing,
                         Severity::Warning,
                         format!("Layer {}'s {name} has {which} to draw along, so it draws nothing.", layer.name),
-                        format!("Frame {frame} is drawn without the stroke. The effect is kept as it is."),
+                        format!("Frame {frame} is drawn without the {what}. The effect is kept as it is."),
                     )
-                    .with_remediation(if text {
+                    .with_remediation(if energy {
+                        match source {
+                            "text" => "Put the beam on a text layer whose font is on this computer and type words with letters, or set Path From to Points.",
+                            "shapes" => "Draw a shape on the shape layer, or set Path From to Points.",
+                            _ => "Draw a mask on the layer, or set Path From to Points.",
+                        }
+                        .to_string()
+                    } else if text {
                         "Put the stroke on a text layer whose font is on this computer, type words with letters, set Path to an outline they have, or set Path From to Masks.".to_string()
                     } else if shapes {
                         format!("Draw a shape on the shape layer, set {pick} to a shape it has, or set {from} to Masks.")

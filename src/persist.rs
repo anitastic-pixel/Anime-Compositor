@@ -2491,6 +2491,32 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("three_d_view".into(), J::from(three_d_view.as_str()));
             params.insert("balance".into(), num(*balance));
         }
+        Effect::EnergyStroke {
+            source, core_start, core_end, evolution, start_offset, end_offset, start_size, end_size, core_size, core_softness, glow_color,
+            glow_intensity, glow_spread, flicker_amount, flicker_speed, distortion_amount, distortion_scale, distortion_speed, random_seed,
+            composite, ..
+        } => {
+            params.insert("source".into(), J::from(source.as_str()));
+            params.insert("core_start".into(), J::Array(core_start.iter().map(|c| num(*c)).collect()));
+            params.insert("core_end".into(), J::Array(core_end.iter().map(|c| num(*c)).collect()));
+            params.insert("evolution".into(), num(*evolution));
+            params.insert("start_offset".into(), num(*start_offset));
+            params.insert("end_offset".into(), num(*end_offset));
+            params.insert("start_size".into(), num(*start_size));
+            params.insert("end_size".into(), num(*end_size));
+            params.insert("core_size".into(), num(*core_size));
+            params.insert("core_softness".into(), num(*core_softness));
+            params.insert("glow_color".into(), J::from(glow_color.as_str()));
+            params.insert("glow_intensity".into(), num(*glow_intensity));
+            params.insert("glow_spread".into(), num(*glow_spread));
+            params.insert("flicker_amount".into(), num(*flicker_amount));
+            params.insert("flicker_speed".into(), num(*flicker_speed));
+            params.insert("distortion_amount".into(), num(*distortion_amount));
+            params.insert("distortion_scale".into(), num(*distortion_scale));
+            params.insert("distortion_speed".into(), num(*distortion_speed));
+            params.insert("random_seed".into(), num(*random_seed));
+            params.insert("composite".into(), J::from(composite.as_str()));
+        }
         Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, color, intensity, render } => {
             params.insert("from".into(), J::Array(from.iter().map(|c| num(*c)).collect()));
             params.insert("to".into(), J::Array(to.iter().map(|c| num(*c)).collect()));
@@ -4936,6 +4962,7 @@ fn parse_effect(
         crate::effects::UNMULT,
         crate::effects::THREE_D_GLASSES,
         crate::effects::CC_SPOTLIGHT,
+        crate::effects::ENERGY_STROKE,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
@@ -5956,6 +5983,30 @@ fn parse_effect(
             balance: effect_number(params, "balance", &at)?,
             left_map: None,
             right_map: None,
+        }),
+        crate::effects::ENERGY_STROKE => Some(crate::effects::Effect::EnergyStroke {
+            source: effect_word(params, "source", &at)?,
+            core_start: effect_array(params, "core_start", "two numbers, x then y", &at)?,
+            core_end: effect_array(params, "core_end", "two numbers, x then y", &at)?,
+            evolution: effect_number(params, "evolution", &at)?,
+            start_offset: effect_number(params, "start_offset", &at)?,
+            end_offset: effect_number(params, "end_offset", &at)?,
+            start_size: effect_number(params, "start_size", &at)?,
+            end_size: effect_number(params, "end_size", &at)?,
+            core_size: effect_number(params, "core_size", &at)?,
+            core_softness: effect_number(params, "core_softness", &at)?,
+            glow_color: effect_word(params, "glow_color", &at)?.to_ascii_lowercase(),
+            glow_intensity: effect_number(params, "glow_intensity", &at)?,
+            glow_spread: effect_number(params, "glow_spread", &at)?,
+            flicker_amount: effect_number(params, "flicker_amount", &at)?,
+            flicker_speed: effect_number(params, "flicker_speed", &at)?,
+            distortion_amount: effect_number(params, "distortion_amount", &at)?,
+            distortion_scale: effect_number(params, "distortion_scale", &at)?,
+            distortion_speed: effect_number(params, "distortion_speed", &at)?,
+            random_seed: effect_number(params, "random_seed", &at)?,
+            composite: effect_word(params, "composite", &at)?,
+            frame: 0,
+            paths: None,
         }),
         crate::effects::CC_SPOTLIGHT => Some(crate::effects::Effect::CcSpotlight {
             from: effect_array(params, "from", "two numbers, x then y", &at)?,

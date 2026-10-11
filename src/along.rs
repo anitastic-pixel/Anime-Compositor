@@ -3,8 +3,8 @@
 //! A path here is an outline as `mask::flatten` or `shape::flatten` gives it, with whether it is
 //! closed (D-357: a shape's path may be open), in the coordinates it is drawn in. [`runs`] measures the paths along their length, trims them to a start and an end, and
 //! lays dabs on them a step apart; [`distance`] finds the nearest dab of one run. Path Stroke
-//! (`core.stroke`) is the first effect drawn with them; Vegas, Scribble, Write-on, Fill, Audio
-//! Waveform and Energy Stroke are to be.
+//! (`core.stroke`) is the first effect drawn with them; Vegas, Scribble, Write-on, Audio Waveform
+//! and Energy Stroke (D-508) followed.
 
 use rayon::prelude::*;
 
@@ -607,4 +607,217 @@ pub(crate) fn vegas(buffer: &mut WorkingBuffer, bits: &[Bit], [width, hardness]:
             }
         }
     });
+}
+
+/// D-508: value noise for Energy Stroke: on the whole-number grid each corner (i, j) has
+/// [`hashed`]`(seed, slot, [channel, i, j, 0])`, i taken modulo `period` when there is one;
+/// between corners each axis is eased by smoothstep and mixed.
+fn noise(seed: u32, slot: i64, channel: u32, x: f64, y: f64, period: Option<i64>) -> f64 {
+    let (i, j) = (x.floor(), y.floor());
+    let (fx, fy) = (x - i, y - j);
+    let (sx, sy) = (fx * fx * (3.0 - 2.0 * fx), fy * fy * (3.0 - 2.0 * fy));
+    let (i, j) = (i as i64, j as i64);
+    let v = |a: i64, b: i64| hashed(seed, slot, [channel, period.map_or(a, |p| a.rem_euclid(p)) as u32, b as u32, 0]);
+    let top = v(i, j) + (v(i + 1, j) - v(i, j)) * sx;
+    let low = v(i, j + 1) + (v(i + 1, j + 1) - v(i, j + 1)) * sx;
+    top + (low - top) * sy
+}
+
+/// D-508: every straight bit of Energy Stroke's beam in a buffer `size` pixels across with the
+/// drawing's corner at `origin`: [ax, ay, bx, by, width at a, width at b], the widths shares of
+/// the core and glow, each with its box (as [`run_box`]'s) outside which it does not reach, `k`
+/// being [`energy_numbers`]; a bit that reaches nowhere is left out. Document 21's Energy Stroke
+/// paragraph is the rule; the processor and the card share it. An effect that is not an Energy
+/// Stroke, or has no paths, has none.
+pub(crate) fn energy_bits(effect: &crate::effects::Effect, (bw, bh): (usize, usize), (ox, oy): (usize, usize), k: &[f64; 12]) -> Vec<([f64; 6], [f64; 4])> {
+    let crate::effects::Effect::EnergyStroke {
+        source,
+        core_start: a,
+        core_end: b,
+        evolution,
+        start_offset,
+        end_offset,
+        start_size,
+        end_size,
+        distortion_amount: amount,
+        distortion_scale: scale,
+        distortion_speed,
+        random_seed,
+        frame,
+        paths,
+        ..
+    } = effect
+    else {
+        return Vec::new();
+    };
+    let (dw, dh) = ((bw - 2 * ox) as f64, (bh - 2 * oy) as f64);
+    let line;
+    let paths: &[(Vec<(f64, f64)>, bool)] = if source == "points" {
+        line = [(vec![(a[0] / 100.0 * dw, a[1] / 100.0 * dh), (b[0] / 100.0 * dw, b[1] / 100.0 * dh)], false)];
+        &line
+    } else {
+        paths.as_deref().unwrap_or(&[])
+    };
+    let (s, e) = (start_offset.min(*end_offset) / 100.0, start_offset.max(*end_offset) / 100.0);
+    let seed = random_seed.floor() as u32;
+    let tau = *frame as f64 * distortion_speed / 10.0;
+    let step = (scale / 8.0).clamp(0.5, 2.0);
+    let mut out = Vec::new();
+    for (n, (outline, closed)) in paths.iter().enumerate() {
+        let pieces = crate::shape::path_segments(outline, *closed);
+        let mut starts = Vec::with_capacity(pieces.len());
+        let mut l = 0.0;
+        for (p, q) in &pieces {
+            starts.push(l);
+            l += (q.0 - p.0).hypot(q.1 - p.1);
+        }
+        let (lo, hi) = (s * l, e * l);
+        if l == 0.0 || lo >= hi {
+            continue;
+        }
+        let g0 = if *closed { (evolution / 360.0).rem_euclid(1.0) * l } else { 0.0 };
+        let (from, to) = (g0 + lo, g0 + hi);
+        let mut stops = vec![from, to];
+        for &at in &starts {
+            for c in [Some(at), closed.then_some(at + l)].into_iter().flatten() {
+                if from < c && c < to {
+                    stops.push(c);
+                }
+            }
+        }
+        if *amount > 0.0 {
+            for q in (from / step).floor() as i64..=(to / step).ceil() as i64 {
+                let g = q as f64 * step;
+                if from < g && g < to {
+                    stops.push(g);
+                }
+            }
+        }
+        stops.sort_by(f64::total_cmp);
+        stops.dedup();
+        let period = ((l / scale + 0.5).floor() as i64).max(1);
+        let place = |u: f64| -> (f64, f64) {
+            for ((p, q), &at) in pieces.iter().zip(&starts) {
+                let n = (q.0 - p.0).hypot(q.1 - p.1);
+                if n > 0.0 && u <= at + n {
+                    let f = ((u - at) / n).clamp(0.0, 1.0);
+                    return (p.0 + f * (q.0 - p.0), p.1 + f * (q.1 - p.1));
+                }
+            }
+            pieces.iter().rev().find(|(p, q)| p != q).map_or(outline[0], |&(_, q)| q)
+        };
+        let cuts: Vec<((f64, f64), f64)> = stops
+            .iter()
+            .map(|&g| {
+                let round = if *closed && g >= l { g - l } else { g };
+                let mut p = place(round);
+                if *amount > 0.0 {
+                    let (x, per) = if *closed { (round * period as f64 / l, Some(period)) } else { (g / scale, None) };
+                    p.0 += amount * (2.0 * noise(seed, n as i64, 1, x, tau, per) - 1.0);
+                    p.1 += amount * (2.0 * noise(seed, n as i64, 2, x, tau, per) - 1.0);
+                }
+                (p, (start_size + (end_size - start_size) * (g - g0 - lo) / (hi - lo)) / 100.0)
+            })
+            .collect();
+        let (fx, fy) = (ox as f64, oy as f64);
+        out.extend(cuts.windows(2).filter_map(|c| {
+            let bit = [c[0].0 .0 + fx, c[0].0 .1 + fy, c[1].0 .0 + fx, c[1].0 .1 + fy, c[0].1, c[1].1];
+            let reach = energy_reach(k, bit[4], bit[5]);
+            (reach > 0.0).then(|| (bit, run_box(&[bit[0], bit[1], bit[2], bit[3], -1.0], reach)))
+        }));
+    }
+    out
+}
+
+/// D-508: Energy Stroke's numbers, shared with the card: the core size, its softness as a share,
+/// the glow spread, the four rings' sigmas, the light per channel at full glow (the flicker times
+/// the glow colour, linear, times the intensity share), the flicker and the composite (an index
+/// into `effects::ENERGY_COMPOSITES`).
+pub(crate) fn energy_numbers(effect: &crate::effects::Effect) -> [f64; 12] {
+    let crate::effects::Effect::EnergyStroke {
+        core_size, core_softness, glow_color, glow_intensity, glow_spread, flicker_amount, flicker_speed, random_seed, composite, frame, ..
+    } = effect
+    else {
+        unreachable!("Energy Stroke's numbers of another effect")
+    };
+    let g = crate::effects::encoded(glow_color).map(crate::grade::to_linear);
+    let i = glow_intensity / 100.0;
+    let f = 1.0 - flicker_amount / 100.0 * noise(random_seed.floor() as u32, 0, 3, *frame as f64 * flicker_speed / 10.0, 0.0, None);
+    let sig = |j: i32| (glow_spread / 3.0 / 2f64.powi(j)).max(0.25);
+    let mode = crate::effects::ENERGY_COMPOSITES.iter().position(|c| c == composite).expect("Energy Stroke's composite was checked");
+    [*core_size, core_softness / 100.0, *glow_spread, sig(0), sig(1), sig(2), sig(3), f * g[0] * i, f * g[1] * i, f * g[2] * i, f, mode as f64]
+}
+
+/// D-508: how far from a bit of widths `wa` and `wb` the beam reaches: the core's edge, and six
+/// of the widest ring's sigmas for the glow, past which it is under a ten-millionth.
+fn energy_reach(k: &[f64; 12], wa: f64, wb: f64) -> f64 {
+    let core = k[0] * wa.max(wb) / 2.0;
+    let core = if core > 0.0 { core + 0.5 } else { 0.0 };
+    core.max(if k[2] > 0.0 && wa.max(wb) > 0.0 { 6.0 * k[3] } else { 0.0 })
+}
+
+/// D-508: Energy Stroke (document 21), `origin` the drawing's corner in the buffer: the core's
+/// covering and the glow, each the largest over every bit, lit and laid on by the composite.
+/// With no path to run along the layer is left as it is. The buffer never grows.
+pub(crate) fn energy_stroke(buffer: &mut WorkingBuffer, effect: &crate::effects::Effect, origin: (usize, usize)) {
+    let crate::effects::Effect::EnergyStroke { source, paths, .. } = effect else {
+        return;
+    };
+    if source != "points" && paths.is_none() {
+        return;
+    }
+    let w = buffer.width();
+    let k = energy_numbers(effect);
+    let bits = energy_bits(effect, (w, buffer.height()), origin, &k);
+    let mode = k[11] as usize;
+    buffer.data_mut().par_chunks_exact_mut(4 * w).enumerate().for_each(|(j, row)| {
+        let y = j as f64 + 0.5;
+        let (mut core, mut glow) = (vec![0.0f64; w], vec![0.0f64; w]);
+        for (b, [left, right, top, bottom]) in &bits {
+            if y <= *top || y >= *bottom {
+                continue;
+            }
+            let x0 = (left - 0.5).ceil().max(0.0) as usize;
+            let x1 = ((right - 0.5).floor().max(-1.0) + 1.0).min(w as f64) as usize;
+            for i in x0..x1 {
+                let (c, g) = energy_shade(&k, b, i as f64 + 0.5, y);
+                core[i] = core[i].max(c);
+                glow[i] = glow[i].max(g);
+            }
+        }
+        for (i, px) in row.chunks_exact_mut(4).enumerate() {
+            let (c, g) = (core[i], glow[i]);
+            if mode == 0 && c == 0.0 && g == 0.0 {
+                continue;
+            }
+            let light = [0, 1, 2].map(|ch| k[10] * c + (1.0 - c) * g * k[7 + ch]);
+            let a = light[0].max(light[1]).max(light[2]).min(1.0);
+            let out = match mode {
+                0 => [px[0] as f64 + light[0], px[1] as f64 + light[1], px[2] as f64 + light[2], px[3] as f64 + (1.0 - px[3] as f64) * a],
+                1 => [light[0], light[1], light[2], a],
+                _ => [light[0], light[1], light[2], 1.0],
+            };
+            for (v, o) in px.iter_mut().zip(out) {
+                *v = o as f32;
+            }
+        }
+    });
+}
+
+/// D-508: the core's covering and the glow of bit `b` at (`x`, `y`).
+fn energy_shade(k: &[f64; 12], b: &[f64; 6], x: f64, y: f64) -> (f64, f64) {
+    let (dx, dy) = (b[2] - b[0], b[3] - b[1]);
+    let l2 = dx * dx + dy * dy;
+    let t = if l2 == 0.0 { 0.0 } else { (((x - b[0]) * dx + (y - b[1]) * dy) / l2).clamp(0.0, 1.0) };
+    let d = (x - b[0] - t * dx).hypot(y - b[1] - t * dy);
+    let w = b[4] + (b[5] - b[4]) * t;
+    let r = k[0] * w / 2.0;
+    let mut core = 0.0;
+    if r > 0.0 {
+        let soft = (r * k[1]).max(1.0);
+        let u = ((r + 0.5 - d) / soft).clamp(0.0, 1.0);
+        core = u * u * (3.0 - 2.0 * u);
+    }
+    let glow = if k[2] > 0.0 { w * k[3..7].iter().map(|q| (-d * d / (2.0 * q * q)).exp()).sum::<f64>() / 4.0 } else { 0.0 };
+    (core, glow)
 }

@@ -394,6 +394,8 @@ pub enum Stage {
     /// D-520: CC Wide Time, its frames put together and laid on the layer; drawing them is timed
     /// as any drawing is.
     EffectCcWideTime,
+    /// D-508: Energy Stroke.
+    EffectEnergyStroke,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -411,7 +413,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 203] = [
+    pub const ALL: [Stage; 204] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -608,6 +610,7 @@ impl Stage {
         Stage::Effect3dGlasses,
         Stage::EffectCcSpotlight,
         Stage::EffectCcWideTime,
+        Stage::EffectEnergyStroke,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -816,6 +819,7 @@ impl Stage {
             Stage::Effect3dGlasses => "effect: 3d glasses",
             Stage::EffectCcSpotlight => "effect: cc spotlight",
             Stage::EffectCcWideTime => "effect: cc wide time",
+            Stage::EffectEnergyStroke => "effect: energy stroke",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
