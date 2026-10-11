@@ -209160,3 +209160,51 @@ FX-SKEY-022 (`fx_skey_022.json`): Shrink/grow 101, above 100. The file is read, 
 FX-SKEY-023 (`fx_skey_023.json`): View "Status": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SKEY-024 (`fx_skey_024.json`): Screen colour "green", not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Hex Tile (D-461)
+
+Hex Tile, after After Effects' CC HexTile (Stylize), `core.hex_tile` (B-341). Every case is a composition 16 by 10 holding Wave Warp's stripes, unmoved unless the case says; `tools/hex_tile_reference.py` works the expected frames, `Fixtures/hex_tile/expected_hex_tile.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-HEX-001 (`fx_hex_001.json`): The settings as they start: Tile, radius 50, the centre in the middle, unlocked, no turn, no smearing. The middle tile holds all of this small drawing, so the picture is as it was. Frames 0.
+
+FX-HEX-002 (`fx_hex_002.json`): Radius 3, Tile: the hexagon round the middle repeated in a honeycomb, every tile the same. Frames 0.
+
+FX-HEX-003 (`fx_hex_003.json`): Radius 3, Fold Aligned: each tile six turned copies of one triangle of the middle. Frames 0.
+
+FX-HEX-004 (`fx_hex_004.json`): Radius 3, Fold Seamlessly: each tile six triangles, every other one mirrored, meeting their neighbours with no seam. Frames 0.
+
+FX-HEX-005 (`fx_hex_005.json`): Radius 3, Rotate 30: the honeycomb turned a twelfth round. Frames 0.
+
+FX-HEX-006 (`fx_hex_006.json`): Radius 3, the centre at 30 per cent across and 40 down: the tiles show the picture there, and the honeycomb starts there. Frames 0.
+
+FX-HEX-007 (`fx_hex_007.json`): FX-HEX-006 with Lock Center Tile on: the same picture in the tiles, the honeycomb started at the drawing's middle. Frames 0.
+
+FX-HEX-008 (`fx_hex_008.json`): Radius 3, Smearing 50: each tile shows the picture half way from the centre to its own place. Frames 0.
+
+FX-HEX-009 (`fx_hex_009.json`): Radius 3, Smearing 100, Tile, unlocked: every tile shows its own place, the picture as it was. Frames 0.
+
+FX-HEX-010 (`fx_hex_010.json`): Radius keyed from 2 at frame 0 to 6 at frame 4, linear: frame 2 is radius 4. Frames 0, 2, 4.
+
+FX-HEX-011 (`fx_hex_011.json`): Smearing keyed from 50 at frame 0 to 100 at frame 4, eased past its end, radius 3: frame 2 would pass 100, is held at 100, and is FX-HEX-009. Frames 0, 2.
+
+FX-HEX-012 (`fx_hex_012.json`): FX-HEX-002 moved three pixels right: the honeycomb moves with the drawing and the three columns left bare stay empty. Frames 0.
+
+FX-HEX-013 (`fx_hex_013.json`): After a Motion Tile that grows the layer, radius 3: the centre is the drawing's own, not the grown buffer's, and each tile is FX-HEX-002's. Frames 0.
+
+FX-HEX-014 (`fx_hex_014.json`): Radius 4, Fold Seamlessly, Rotate 15, the centre at 40, 60, Smearing 25: everything at once. Frames 0.
+
+FX-HEX-015 (`fx_hex_015.json`): Radius 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HEX-016 (`fx_hex_016.json`): Radius 4001, above 4000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HEX-017 (`fx_hex_017.json`): Render "honeycomb", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HEX-018 (`fx_hex_018.json`): Lock Center Tile "maybe", neither on nor off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HEX-019 (`fx_hex_019.json`): Smearing 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HEX-020 (`fx_hex_020.json`): Rotate 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HEX-021 (`fx_hex_021.json`): Centre across 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HEX-022 (`fx_hex_022.json`): Radius keyed to 5000 at frame 4, above 4000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
