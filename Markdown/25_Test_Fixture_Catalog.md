@@ -209912,3 +209912,67 @@ FX-CRYPTO-021 (`fx_crypto_021.json`): On an adjustment layer above: no file of i
 FX-CRYPTO-022 (`fx_crypto_022.json`): Colors with the floor and Kugel_ü picked, then an Exposure of +1.
 
 FX-CRYPTO-023 (`fx_crypto_023.json`): Cryptomatte's output written "preview". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### Strobe Light (D-466)
+
+Strobe Light, after After Effects' Strobe Light (Stylize), `core.strobe_light` (B-346). Every case is a composition 16 by 10, 24 frames a second, holding Motion Tile's drawing, 6 by 4, at (5, 3), unless the case says; `tools/strobe_light_reference.py` works the expected frames, `Fixtures/strobe_light/expected_strobe_light.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-STROBE-001 (`fx_strobe_001.json`): The settings as they start: white, Copy, a strobe 0.1 seconds long every second. Frames 0, 1 and 2 (0 to 0.083 seconds) are white where the drawing is; frame 3 (0.125) is the drawing; frame 24 (1 second) is white again. Frames 0, 2, 3, 24.
+
+FX-STROBE-002 (`fx_strobe_002.json`): Strobe Operator Add with #8040c0, frame 0. Frames 0.
+
+FX-STROBE-003 (`fx_strobe_003.json`): Strobe Operator Subtract with #8040c0, frame 0. Frames 0.
+
+FX-STROBE-004 (`fx_strobe_004.json`): Strobe Operator Multiply with #8040c0, frame 0. Frames 0.
+
+FX-STROBE-005 (`fx_strobe_005.json`): Strobe Operator Difference with #8040c0, frame 0. Frames 0.
+
+FX-STROBE-006 (`fx_strobe_006.json`): Strobe Operator And with #8040c0, frame 0. Frames 0.
+
+FX-STROBE-007 (`fx_strobe_007.json`): Strobe Operator Or with #8040c0, frame 0. Frames 0.
+
+FX-STROBE-008 (`fx_strobe_008.json`): Strobe Operator Xor with #8040c0, frame 0. Frames 0.
+
+FX-STROBE-009 (`fx_strobe_009.json`): Strobe Operator Minimum with #8040c0, frame 0. Frames 0.
+
+FX-STROBE-010 (`fx_strobe_010.json`): Strobe Operator Maximum with #8040c0, frame 0. Frames 0.
+
+FX-STROBE-011 (`fx_strobe_011.json`): Strobe Operator Darken with #8040c0, frame 0. Frames 0.
+
+FX-STROBE-012 (`fx_strobe_012.json`): Strobe Operator Lighten with #8040c0, frame 0. Frames 0.
+
+FX-STROBE-013 (`fx_strobe_013.json`): Copy in red with Blend With Original 50: halfway between the drawing and red. Frames 0.
+
+FX-STROBE-014 (`fx_strobe_014.json`): Makes Layer Transparent: frame 0 is empty, frame 3 the drawing. Frames 0, 3.
+
+FX-STROBE-015 (`fx_strobe_015.json`): Makes Layer Transparent with Blend With Original 25: the drawing at a quarter strength. Frames 0.
+
+FX-STROBE-016 (`fx_strobe_016.json`): Strobe Period 0.05, below the 0.1 duration: on at every frame. Frames 0, 3, 13.
+
+FX-STROBE-017 (`fx_strobe_017.json`): Strobe Duration 0: never on. Frames 0, 1.
+
+FX-STROBE-018 (`fx_strobe_018.json`): Random Strobe Probability 50, seed 3, no regular strobe (duration 0, period 100): some frames strobe and some do not. Frames 0, 1, 2, 3, 4, 5, 6, 7, 8, 9.
+
+FX-STROBE-019 (`fx_strobe_019.json`): Random Strobe Probability 50, seed 4: a different choice of frames from FX-STROBE-018. Frames 0, 1, 2, 3, 4, 5, 6, 7, 8, 9.
+
+FX-STROBE-020 (`fx_strobe_020.json`): Random Strobe Probability 100: every frame strobes. Frames 0, 3, 7.
+
+FX-STROBE-021 (`fx_strobe_021.json`): Blend With Original keyed from 0 at frame 0 to 100 at frame 4, linear, Strobe Period 0.01 so every frame strobes: frame 2 is half strength, frame 4 the drawing. Frames 0, 2, 4.
+
+FX-STROBE-022 (`fx_strobe_022.json`): FX-STROBE-002 moved three pixels right. Frames 0.
+
+FX-STROBE-023 (`fx_strobe_023.json`): After a drop shadow that grows the layer to 10 by 8, Copy in purple: the shadow is purple too, at its own alpha. Frames 0.
+
+FX-STROBE-024 (`fx_strobe_024.json`): The layer starting at frame 2: its time counts from there, so frame 2 and 4 strobe and frame 5 does not. Frames 2, 4, 5.
+
+FX-STROBE-025 (`fx_strobe_025.json`): Blend With Original 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROBE-026 (`fx_strobe_026.json`): Strobe Duration -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROBE-027 (`fx_strobe_027.json`): Strobe Operator "screen", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROBE-028 (`fx_strobe_028.json`): Strobe "flash", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROBE-029 (`fx_strobe_029.json`): Strobe Color "white", which is not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STROBE-030 (`fx_strobe_030.json`): Random Strobe Probability keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
