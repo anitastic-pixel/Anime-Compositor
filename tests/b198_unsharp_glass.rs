@@ -79,6 +79,15 @@ fn glass(layer: &str, property: &str, softness: f64, height: f64, displacement: 
         light_angle: angle,
         light_color: color.into(),
         light_intensity: intensity,
+        // D-561: D-317's light, as a file without the light type reads.
+        light_type: "classic".into(),
+        light_height: 25.0,
+        light_position: [50.0, 50.0],
+        ambient: 75.0,
+        diffuse: 90.0,
+        specular: 25.0,
+        roughness: 0.1,
+        metal: 100.0,
         map: None,
     }
 }

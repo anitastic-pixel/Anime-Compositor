@@ -1479,6 +1479,14 @@ pub(crate) fn bevel_alpha(source: &mut WorkingBuffer, thickness: f64, angle: f64
     );
 }
 
+/// D-561: CC Glass's distant or point light: the point in the buffer's pixels, if any, the
+/// light's height and the ambient, diffuse, specular, roughness and metal shares out of 1.
+pub(crate) struct GlassLight {
+    pub(crate) point: Option<(f64, f64)>,
+    pub(crate) height: f64,
+    pub(crate) shares: [f64; 5],
+}
+
 /// D-317: After Effects' CC Glass, reduced. The bump is the phase (D-316) `property` reads from
 /// the drawing, or from `map` lying on it with its corner at the given origin (clear outside it),
 /// times the covering unless the property is alpha, blurred at sigma `softness / 2`. Its slope `n`
@@ -1486,15 +1494,17 @@ pub(crate) fn bevel_alpha(source: &mut WorkingBuffer, thickness: f64, angle: f64
 /// max(softness, 1)`. Each pixel takes the drawing read bilinearly `displacement` pixels along `n`,
 /// then is lit as Bevel Alpha lights it, its slope toward the light `-(n . u)` held to -1..1. So
 /// at height 100 and no displacement it is Bevel Alpha with an edge thickness of the softness.
-/// The settings are already valid.
+/// D-561: with `full`, the bent pixel is lit instead as Plastic's light lights it (N = (-nx, -ny,
+/// 1) made one long), without the dust or an ambient colour. The settings are already valid.
 pub(crate) fn glass(
     source: &mut WorkingBuffer,
     map: Option<(&WorkingBuffer, (usize, usize))>,
     property: &str,
     (softness, height, displacement): (f64, f64, f64),
     (angle, light, intensity): (f64, [f64; 3], f64),
+    full: Option<GlassLight>,
 ) {
-    if height == 0.0 || (displacement == 0.0 && intensity <= 0.0) {
+    if full.is_none() && (height == 0.0 || (displacement == 0.0 && intensity <= 0.0)) {
         return;
     }
     let w = source.width();
@@ -1537,7 +1547,37 @@ pub(crate) fn glass(
             px.copy_from_slice(&sample_bilinear(&still, x + displacement * nx, y + displacement * ny));
         });
     }
-    if intensity > 0.0 {
+    if let Some(GlassLight { point, height: light_height, shares: [ambient, diffuse, specular, roughness, metal] }) = full {
+        let unit = |v: [f64; 3]| {
+            let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+            if l > 0.0 { v.map(|c| c / l) } else { [0.0; 3] }
+        };
+        let (ux, uy) = crate::blurs::along(angle);
+        let distant = unit([100.0 * ux, 100.0 * uy, light_height]);
+        source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+            let a = px[3] as f64;
+            if a <= 0.0 {
+                px.fill(0.0);
+                return;
+            }
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let color = [0, 1, 2].map(|c| px[c] as f64 / a);
+            let (nx, ny) = slope[i];
+            let n = unit([-nx, -ny, 1.0]);
+            let l = match point {
+                Some((lx, ly)) => unit([lx - x, ly - y, light_height]),
+                None => distant,
+            };
+            let nl = n[0] * l[0] + n[1] * l[1] + n[2] * l[2];
+            let rz = 2.0 * nl * n[2] - l[2];
+            let shine = if nl > 0.0 && rz > 0.0 { rz.powf(1.0 / roughness) } else { 0.0 };
+            for c in 0..3 {
+                let lit = color[c] * (ambient + diffuse * intensity * light[c] * nl.max(0.0))
+                    + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
+                px[c] = (lit * a) as f32;
+            }
+        });
+    } else if intensity > 0.0 {
         let (ux, uy) = crate::blurs::along(angle);
         bevel_shade(source, |x, y| {
             let (nx, ny) = slope[y * w + x];

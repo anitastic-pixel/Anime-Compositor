@@ -1529,8 +1529,9 @@ fn card_effect(
                 }
                 // B-224: as each one's own function returns at once.
                 E::DisplacementMap { map, .. } => map.is_none(),
-                E::Glass { height, displacement, light_intensity, .. } => {
-                    *height == 0.0 || (*displacement == 0.0 && *light_intensity <= 0.0)
+                // D-561: only the classic light leaves a flat or unlit glass alone.
+                E::Glass { height, displacement, light_intensity, light_type, .. } => {
+                    light_type == "classic" && (*height == 0.0 || (*displacement == 0.0 && *light_intensity <= 0.0))
                 }
                 // B-225: as each one's own function returns at once; a bolt off its original
                 // still clears the layer.

@@ -10465,7 +10465,15 @@ const EFFECT_PARAMS = {
     ['height', 'Height', 1, 1, '-100 to 100, how steep the bump is; below 0 it dips'],
     ['displacement', 'Displacement', 1, 1, 'pixels, -500 to 500, how far a slope bends the picture'],
     ['light_angle', 'Light Direction', 1, 1, 'degrees clockwise from up, where the light comes from', 'dial'],
-    ['light_intensity', 'Light Intensity', 1, 1, '0 to 100, how strongly the light and shade show']],
+    ['light_intensity', 'Light Intensity', 1, 1, '0 to 100, how strongly the light and shade show'],
+    // D-561: the rest of CC Glass's light, read by the distant and point lights.
+    ['light_height', 'Light Height', 1, 1, '-1000 to 1000, how high the light is above the layer'],
+    ['light_position', 'Light Position', 2, 1, '% of the width and height, for a point light'],
+    ['ambient', 'Ambient', 1, 1, '0 to 100, light everywhere'],
+    ['diffuse', 'Diffuse', 1, 1, '0 to 100, light on slopes facing it'],
+    ['specular', 'Specular', 1, 1, '0 to 100, the shine'],
+    ['roughness', 'Roughness', 1, 0.01, '0.001 to 1; small is a tight sharp shine'],
+    ['metal', 'Metal', 1, 1, '0 to 100, 0 a shine in the light\'s colour, 100 in the layer\'s']],
   // D-316, After Effects' own words where it has them.
   'core.colorama': [['phase_shift', 'Phase Shift', 1, 1, 'degrees, -3600 to 3600, turns the ring'],
     ['cycle_repetitions', 'Cycle Repetitions', 1, 0.1, '0 to 100, times round the ring from black to white'],
@@ -12028,7 +12036,8 @@ const EFFECT_WORDS = {
     layers: [['layer', 'Bump Map', 'map_layer']],
     choices: [['property', 'Property', [['alpha', 'Alpha'], ['luminance', 'Luminance'], ['intensity', 'Intensity'],
         ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue']]],
-      ['fit', 'Bump Map Placement', [['stretch', 'Stretch to Fit'], ['center', 'Centre'], ['tile', 'Tile']]]],
+      ['fit', 'Bump Map Placement', [['stretch', 'Stretch to Fit'], ['center', 'Centre'], ['tile', 'Tile']]],
+      ['light_type', 'Light Type', [['distant', 'Distant Light'], ['point', 'Point Light'], ['classic', 'Bevel (older projects)']]]],
     colours: [['light_color', 'Light Color']],
   },
   // D-316. D-381: the rest, a file without them at their start.

@@ -3398,6 +3398,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             light_angle,
             light_color,
             light_intensity,
+            light_type,
+            light_height,
+            light_position,
+            ambient,
+            diffuse,
+            specular,
+            roughness,
+            metal,
             ..
         } => {
             params.insert("layer".into(), layer.clone());
@@ -3409,6 +3417,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("light_angle".into(), num(*light_angle));
             params.insert("light_color".into(), J::from(light_color.as_str()));
             params.insert("light_intensity".into(), num(*light_intensity));
+            // D-561: as D-109's edges, the classic light with the rest at their starts is not
+            // written, so a file from before it saves the same.
+            let starts = light_type == "classic"
+                && *light_height == 25.0
+                && *light_position == [50.0, 50.0]
+                && [*ambient, *diffuse, *specular, *roughness, *metal] == [75.0, 90.0, 25.0, 0.1, 100.0];
+            if !starts {
+                params.insert("light_type".into(), J::from(light_type.as_str()));
+                params.insert("light_height".into(), num(*light_height));
+                params.insert("light_position".into(), J::Array(light_position.iter().map(|c| num(*c)).collect()));
+                params.insert("ambient".into(), num(*ambient));
+                params.insert("diffuse".into(), num(*diffuse));
+                params.insert("specular".into(), num(*specular));
+                params.insert("roughness".into(), num(*roughness));
+                params.insert("metal".into(), num(*metal));
+            }
         }
         Effect::VectorBlur { kind, amount, angle_offset, ridge_smoothness, layer, fit, property, map_softness, .. } => {
             params.insert("type".into(), J::from(kind.as_str()));
@@ -7241,18 +7265,37 @@ fn parse_effect(
             map: None,
         }),
         // D-317: the layer is kept as written, as Compound Blur's is.
-        crate::effects::GLASS => Some(crate::effects::Effect::Glass {
-            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
-            fit: effect_word(params, "fit", &at)?,
-            property: effect_word(params, "property", &at)?,
-            softness: effect_number(params, "softness", &at)?,
-            height: effect_number(params, "height", &at)?,
-            displacement: effect_number(params, "displacement", &at)?,
-            light_angle: effect_number(params, "light_angle", &at)?,
-            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
-            light_intensity: effect_number(params, "light_intensity", &at)?,
-            map: None,
-        }),
+        // D-561: a file without the light type is from before it, CC Glass's classic light with
+        // the other new settings at their starts; a file with it carries them all.
+        crate::effects::GLASS => {
+            let old = params.and_then(|p| p.get("light_type")).is_none();
+            let number = |key: &str, start: f64| if old { effect_number_or(params, key, &at, start) } else { effect_number(params, key, &at) };
+            let light_position = if old && params.and_then(|p| p.get("light_position")).is_none() {
+                [50.0, 50.0]
+            } else {
+                effect_array(params, "light_position", "two numbers, x then y", &at)?
+            };
+            Some(crate::effects::Effect::Glass {
+                layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+                fit: effect_word(params, "fit", &at)?,
+                property: effect_word(params, "property", &at)?,
+                softness: effect_number(params, "softness", &at)?,
+                height: effect_number(params, "height", &at)?,
+                displacement: effect_number(params, "displacement", &at)?,
+                light_angle: effect_number(params, "light_angle", &at)?,
+                light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+                light_intensity: effect_number(params, "light_intensity", &at)?,
+                light_type: effect_word_or(params, "light_type", &at, "classic")?,
+                light_height: number("light_height", 25.0)?,
+                light_position,
+                ambient: number("ambient", 75.0)?,
+                diffuse: number("diffuse", 90.0)?,
+                specular: number("specular", 25.0)?,
+                roughness: number("roughness", 0.1)?,
+                metal: number("metal", 100.0)?,
+                map: None,
+            })
+        }
         // D-336: the layer is kept as written, as CC Glass's is.
         crate::effects::VECTOR_BLUR => Some(crate::effects::Effect::VectorBlur {
             kind: effect_word(params, "type", &at)?,

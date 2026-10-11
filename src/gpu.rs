@@ -7653,7 +7653,10 @@ fn dmap(@builtin(global_invocation_id) id: vec3<u32>) {
 // B-224, layer_fx::glass: the bump's slope (`other`, grown by F.r) by central differences times
 // k[1]; each pixel the drawing read bilinearly k[0] pixels along it, then lit as `bevel` lights
 // it, its slope toward the light (k[2], k[3]) held to -1..1. k[4] the intensity, then the light
-// in linear light.
+// in linear light. D-561: k[8] 0 for that classic light, 1 distant, 2 point, lit then as
+// `plastic` lights it without the dust or an ambient colour: k[9], k[10] the point and k[11] the
+// height, k[12..15] the distant light's direction, then ambient, diffuse, specular, roughness,
+// metal. The highlight's power is single precision, as `plastic`'s.
 @compute @workgroup_size(16, 16)
 fn glass(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -7669,6 +7672,31 @@ fn glass(@builtin(global_invocation_id) id: vec3<u32>) {
         px = bilinear(input, f64(id.x) + 0.5lf + k[0] * nx, f64(id.y) + 0.5lf + k[0] * ny);
     }
     let a = f64(px.w);
+    if k[8] != 0.0lf {
+        if a <= 0.0lf {
+            textureStore(output, id.xy, vec4(0.0));
+            return;
+        }
+        let n = blob_unit(vec3(-nx, -ny, 1.0lf));
+        var l = vec3(k[12], k[13], k[14]);
+        if k[8] == 2.0lf {
+            l = blob_unit(vec3(k[9] - (f64(id.x) + 0.5lf), k[10] - (f64(id.y) + 0.5lf), k[11]));
+        }
+        let nl = n.x * l.x + n.y * l.y + n.z * l.z;
+        let rz = 2.0lf * nl * n.z - l.z;
+        var shine = 0.0lf;
+        if nl > 0.0lf && rz > 0.0lf {
+            shine = f64(pow(f32(rz), f32(1.0lf / k[18])));
+        }
+        for (var c = 0u; c < 3u; c++) {
+            let cc = quotient(f64(px[c]), a);
+            let lc = k[5u + c];
+            let lit = cc * (k[15] + k[16] * k[4] * lc * max(nl, 0.0lf)) + k[17] * k[4] * (lc + (cc - lc) * k[19]) * shine;
+            px[c] = f32(lit * a);
+        }
+        textureStore(output, id.xy, px);
+        return;
+    }
     if k[4] > 0.0lf && a > 0.0lf {
         let s = clamp(-(nx * k[2] + ny * k[3]), -1.0lf, 1.0lf);
         for (var c = 0u; c < 3u; c++) {
@@ -14227,7 +14255,25 @@ impl Gpu {
                 self.fx_step(steps, &passes.dmap, p, Some(still), Some(&out), Some(&k), Some(&map), none, tiles(tw, th));
                 (out, (tw, th))
             }
-            E::Glass { property, softness, height, displacement, light_angle, light_color, light_intensity, map, .. } => {
+            E::Glass {
+                property,
+                softness,
+                height,
+                displacement,
+                light_angle,
+                light_color,
+                light_intensity,
+                light_type,
+                light_height,
+                light_position,
+                ambient,
+                diffuse,
+                specular,
+                roughness,
+                metal,
+                map,
+                ..
+            } => {
                 let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
                 // The bump from the map compose read, lying on the drawing at its corner, or the drawing.
                 let (picture, (mx, my)) = match map {
@@ -14250,7 +14296,37 @@ impl Gpu {
                 };
                 let (ux, uy) = crate::blurs::along(*light_angle);
                 let l = linear(light_color);
-                let k = [*displacement, height / 100.0 * 1.25 * softness.max(1.0), ux, uy, light_intensity / 100.0, l[0], l[1], l[2]];
+                let mode = match light_type.as_str() {
+                    "distant" => 1.0,
+                    "point" => 2.0,
+                    _ => 0.0,
+                };
+                let (px, py) = crate::effects::radial_center(*light_position, (w, h), (ox, oy));
+                let d = [100.0 * ux, 100.0 * uy, *light_height];
+                let dl = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+                let d = if dl > 0.0 { d.map(|c| c / dl) } else { [0.0; 3] };
+                let k = [
+                    *displacement,
+                    height / 100.0 * 1.25 * softness.max(1.0),
+                    ux,
+                    uy,
+                    light_intensity / 100.0,
+                    l[0],
+                    l[1],
+                    l[2],
+                    mode,
+                    px,
+                    py,
+                    *light_height,
+                    d[0],
+                    d[1],
+                    d[2],
+                    ambient / 100.0,
+                    diffuse / 100.0,
+                    specular / 100.0,
+                    *roughness,
+                    metal / 100.0,
+                ];
                 let out = self.scratch("B-224 glass", w, h);
                 self.fx_step(steps, &passes.glass, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&bump), none, tiles(w, h));
                 (out, (w, h))

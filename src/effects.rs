@@ -1835,7 +1835,11 @@ pub enum Effect {
     /// bump map, "" the layer itself; `property`, one of [`COLORAMA_PHASES`]; `softness`, 0 to
     /// 100 pixels; `height`, -100 to 100; `displacement`, -500 to 500 pixels; `light_angle`,
     /// -3600 to 3600 degrees clockwise from up; `light_color`, `#rrggbb`; `light_intensity`, 0 to
-    /// 100. `map` is not a setting and is never saved.
+    /// 100. D-561 gives it the rest of CC Glass's light: `light_type` classic (D-317's Bevel Alpha
+    /// light, which a file without it keeps), distant or point; `light_height`, -1000 to 1000;
+    /// `light_position`, -1000 to 1000 per cent of the layer each way; `ambient`, `diffuse`,
+    /// `specular` and `metal`, 0 to 100; `roughness`, 0.001 to 1. `map` is not a setting and is
+    /// never saved.
     Glass {
         layer: serde_json::Value,
         fit: String,
@@ -1846,6 +1850,14 @@ pub enum Effect {
         light_angle: f64,
         light_color: String,
         light_intensity: f64,
+        light_type: String,
+        light_height: f64,
+        light_position: [f64; 2],
+        ambient: f64,
+        diffuse: f64,
+        specular: f64,
+        roughness: f64,
+        metal: f64,
         map: Option<crate::layer_map::Map>,
     },
     /// D-336: After Effects' CC Vector Blur, this program's own reading of CycoreFX's manual.
@@ -5024,6 +5036,13 @@ impl Effect {
                 displacement,
                 light_angle,
                 light_intensity,
+                light_height,
+                light_position,
+                ambient,
+                diffuse,
+                specular,
+                roughness,
+                metal,
                 ..
             } => vec![
                 ("softness", vec![softness], 0.0, 100.0),
@@ -5031,6 +5050,13 @@ impl Effect {
                 ("displacement", vec![displacement], -500.0, 500.0),
                 ("light_angle", vec![light_angle], -3600.0, 3600.0),
                 ("light_intensity", vec![light_intensity], 0.0, 100.0),
+                ("light_height", vec![light_height], -1000.0, 1000.0),
+                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("ambient", vec![ambient], 0.0, 100.0),
+                ("diffuse", vec![diffuse], 0.0, 100.0),
+                ("specular", vec![specular], 0.0, 100.0),
+                ("roughness", vec![roughness], 0.001, 1.0),
+                ("metal", vec![metal], 0.0, 100.0),
             ],
             Effect::VectorBlur { amount, angle_offset, ridge_smoothness, map_softness, .. } => vec![
                 ("amount", vec![amount], 0.0, 500.0),
@@ -6713,9 +6739,13 @@ impl Effect {
                 *glow = scale(*glow);
             }
             Effect::CompoundBlur { max_blur, .. } => *max_blur = scale(*max_blur),
-            Effect::Glass { softness, displacement, .. } => {
+            Effect::Glass { softness, displacement, light_type, light_height, .. } => {
                 *softness = scale(*softness);
                 *displacement = scale(*displacement);
+                // D-561: as Plastic's, a distant light's height is a slope against 100.
+                if light_type == "point" {
+                    *light_height = scale(*light_height);
+                }
             }
             Effect::VectorBlur { amount, map_softness, .. } => {
                 *amount = scale(*amount);
@@ -8183,6 +8213,9 @@ impl Effect {
             )),
             Effect::Glass { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
                 "CC Glass's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
+            Effect::Glass { light_type, .. } if !["classic", "distant", "point"].contains(&light_type.as_str()) => Some(format!(
+                "CC Glass's light type is classic, distant or point, and this is \"{light_type}\"."
             )),
             Effect::Glass { light_color, .. } => hex_fault("CC Glass", "light colour", light_color),
             Effect::VectorBlur { kind, .. } if !VECTOR_BLUR_TYPES.contains(&kind.as_str()) => Some(format!(
@@ -11118,16 +11151,31 @@ pub(crate) fn apply_stack_at(
                 light_angle,
                 light_color,
                 light_intensity,
+                light_type,
+                light_height,
+                light_position,
+                ambient,
+                diffuse,
+                specular,
+                roughness,
+                metal,
                 map,
                 ..
             } => crate::perf::time(crate::perf::Stage::EffectGlass, || {
                 let light = encoded(light_color).map(crate::grade::to_linear);
+                // D-561: None is the classic light; else the point, if any, and the shares.
+                let full = (light_type != "classic").then(|| crate::layer_fx::GlassLight {
+                    point: (light_type == "point").then(|| radial_center(*light_position, (source.width(), source.height()), (ox, oy))),
+                    height: *light_height,
+                    shares: [*ambient / 100.0, *diffuse / 100.0, *specular / 100.0, *roughness, *metal / 100.0],
+                });
                 crate::layer_fx::glass(
                     source,
                     map.as_ref().map(|m| (&*m.0, (ox, oy))),
                     property,
                     (*softness, *height, *displacement),
                     (*light_angle, light, *light_intensity / 100.0),
+                    full,
                 )
             }),
             // D-316: the map compose read for this frame, if a layer is named, adds to the phase.
