@@ -9355,6 +9355,7 @@ const EFFECT_NAMES = {
   'core.three_d_glasses': '3D Glasses',
   'core.cc_spotlight': 'CC Spotlight',
   'core.cc_cylinder': 'CC Cylinder',
+  'core.cc_ball_action': 'CC Ball Action',
   'core.simple_wire_removal': 'CC Simple Wire Removal',
   'core.block_load': 'Block Load',
   'core.burn_film': 'Burn Film',
@@ -9497,7 +9498,7 @@ const EFFECT_GROUPS = [
     'core.ripple_pulse', 'core.slant', 'core.smear', 'core.split', 'core.split_2', 'core.transform', 'core.tiles', 'core.magnify', 'core.spherize', 'core.detail_upscale']],
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.turbulent_noise', 'core.noise', 'core.add_grain', 'core.match_grain', 'core.noise_alpha', 'core.noise_hls', 'core.curl_noise', 'core.noise_hls_auto', 'core.speed_lines', 'core.rain', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
-    'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas', 'core.energy_stroke']],
+    'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas', 'core.energy_stroke', 'core.cc_ball_action']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.channel_threshold', 'core.threshold_rgb', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie', 'core.plastic', 'core.repeat_tile', 'core.scatter', 'core.strobe_light', 'core.texturize']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
@@ -9611,6 +9612,7 @@ const EFFECT_SEARCH = {
   'core.difference_matte': 'difference matte keying key out clean plate background plate compare tolerance softness blur',
   'core.inner_outer_key': 'inner outer key keying knock out mask hair edge foreground background inside outside highlight radius thin feather threshold extract',
   'core.cc_cylinder': 'cc cylinder tube can wrap round roll 3d rotate spin turn lit light shading ambient diffuse specular roughness metal shiny highlight inside outside perspective cycore',
+  'core.cc_ball_action': 'cc ball action balls ball grid dots spheres beads pixels to balls array scatter explode rotation axis twist instability grid spacing ball size 3d simulation cycore',
   'core.cc_spotlight': 'cc spotlight spot light cone lamp beam pool of light stage light from to height cone angle edge softness intensity shadow perspective cycore gel slide projector projection gobo',
   'core.three_d_glasses': '3d glasses three d stereo stereoscopic anaglyph red cyan red green red blue left view right view eye convergence vertical alignment side by side over under interlace balance perspective',
   'core.unmult': 'unmult unmultiply un-multiply remove black background remove white background keying fire smoke flare explosion sparks stock footage screen black level white level softness remove color matting clip hdr transparency',
@@ -9858,6 +9860,7 @@ const EFFECT_ABOUT = {
   'core.difference_matte': 'Keys out every pixel that matches a clean plate: another layer of the shot without the subject. Matching Tolerance is how different a pixel may be and still be keyed; Matching Softness fades the edge; Blur Before Difference softens both first, for grain. Nothing is keyed until you choose the plate.',
   'core.inner_outer_key': 'Keys out a subject by two masks you draw on the layer: Foreground (Inside) round what stays, Background (Outside) round the edge, so what lies between them, hair and soft edges, is made see-through as much as it is the colour outside, with that colour taken back out. With no background, the pixels within Single Mask Highlight Radius of the one mask are worked out. Edge Thin, Edge Feather and Edge Threshold shape the edge; Blend With Original brings the picture back. Nothing is keyed until you choose the foreground mask.',
   'core.cc_cylinder': 'Wraps the layer round a lit cylinder, as if printed on a tube: Radius sets its size, Position where it stands (Z farther away), Rotation X, Y and Z turn it, and Render shows the outside, the inside or both. The light comes from Light Direction, Light Height up towards you (below 0 from behind), in Light Color at Light Intensity; Ambient, Diffuse and Specular set how much of the plain picture, the lit side and the shine show, Roughness how wide and dull the shine is, and Metal whether the shine takes the picture’s colour or the light’s. It draws its own 3D: the composition’s camera is not used.',
+  'core.cc_ball_action': 'Turns the layer into a grid of lit balls, each the colour under its centre, which can be turned, twisted and scattered in 3D. Grid Spacing sets how far apart the balls are and Ball Size how big each is; Rotation turns the whole grid about the Rotation Axis; Twist Angle turns each ball more or less by the Twist Property; Scatter throws the balls out in all directions and Instability State turns each one’s throw. Only fully covered pixels make balls. It has its own eye and light: it does not follow a comp camera.',
   'core.cc_spotlight': 'Shines a spotlight onto the layer from a point above it: From places the lamp, To where it points, Height how far above it is, Cone Angle how wide the beam opens and Edge Softness how soft its rim is. Render chooses the light alone, the light added to the layer (or to its transparent parts too), or the layer dark outside the beam; the Gel renders shine the light through the Gel Layer, like a slide projector.',
   'core.three_d_glasses': 'Combines a left-eye and a right-eye view into one 3D picture to watch with coloured glasses, or lays the two side by side, one over the other or on alternate rows. Left View and Right View are the two layers (the layer itself when none is chosen); Scene Convergence slides the two views apart sideways and Vertical Alignment up and down; Balance, for the balanced views, draws the two eyes towards each other to cut ghosting. As it is added, nothing changes.',
   'core.unmult': 'Turns a black or white background into see-through, so fire, smoke, sparks or a flare shot on black lays over the shot below cleanly: the further a pixel is from the background colour, the more it covers. Black Level (with a black background) or White Level (with white) makes the colours near the background go entirely; Softness fades them in instead. Remove Color Matting takes the background’s tint out of the see-through edges.',
@@ -10758,6 +10761,12 @@ const EFFECT_PARAMS = {
     ['specular', 'Specular', 1, 1, '0 to 100, the shine'],
     ['roughness', 'Roughness', 1, 1, '0 to 100, higher a wider, duller shine; 0 none'],
     ['metal', 'Metal', 1, 1, '0 to 100: 100 the shine takes the picture’s colour, 0 the light’s']],
+  'core.cc_ball_action': [['scatter', 'Scatter', 1, 1, '0 to 1000 pixels, how far the balls are thrown out, each its own way'],
+    ['rotation', 'Rotation', 1, 1, '-36000 to 36000 degrees, how far the grid is turned about the rotation axis'],
+    ['twist_angle', 'Twist Angle', 1, 1, '-36000 to 36000 degrees, how far each ball is turned more, by the twist property'],
+    ['grid_spacing', 'Grid Spacing', 1, 1, '2 to 200 pixels, how far apart the balls are; more makes fewer and larger balls'],
+    ['ball_size', 'Ball Size', 1, 1, '0 to 400, per cent of the grid spacing, how wide each ball is'],
+    ['instability_state', 'Instability State', 1, 1, '-36000 to 36000 degrees, how far each ball’s scatter is turned about its own axis; needs Scatter']],
   'core.cc_spotlight': [['from', 'From', 2, 1, '% of the width and height, -1000 to 1000, where the lamp is'],
     ['to', 'To', 2, 1, '% of the width and height, -1000 to 1000, where the lamp points'],
     ['height', 'Height', 1, 1, '0 to 1000, per cent of the layer’s width, how far above the layer the lamp is'],
@@ -11546,6 +11555,12 @@ const EFFECT_WORDS = {
   'core.cc_cylinder': {
     colours: [['light_color', 'Light Color']],
     choices: [['render', 'Render', [['full', 'Full'], ['outside', 'Outside'], ['inside', 'Inside']]]],
+  },
+  // D-551: CC Ball Action’s rotation axes and twist properties, as CycoreFX names them.
+  'core.cc_ball_action': {
+    choices: [['rotation_axis', 'Rotation Axis', [['x', 'X'], ['y', 'Y'], ['z', 'Z'], ['xy', 'XY'], ['xz', 'XZ'], ['yz', 'YZ'], ['xyz', 'XYZ'], ['x15z', 'X15Z'], ['xy15z', 'XY15Z']]],
+      ['twist_property', 'Twist Property', [['x_axis', 'X Axis'], ['y_axis', 'Y Axis'], ['center_x', 'Center-X'], ['center_y', 'Center-Y'], ['radius', 'Radius'], ['random', 'Random'],
+        ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['brightness', 'Brightness'], ['diamond', 'Diamond'], ['rectangle', 'Rectangle'], ['fast_top', 'Fast Top']]]],
   },
   // D-507: CC Spotlight’s points, colour and renders; D-519: its Gel renders and Gel Layer.
   'core.cc_spotlight': {

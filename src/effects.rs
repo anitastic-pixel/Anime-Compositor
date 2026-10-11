@@ -2594,6 +2594,22 @@ pub enum Effect {
         gel_layer: serde_json::Value,
         gel_map: Option<crate::layer_map::Map>,
     },
+    /// D-551: after CycoreFX's CC Ball Action, its rule and its settings when added ours
+    /// (`layer_fx::cc_ball_action`, document 21). `scatter`, 0 to 1000 pixels; `rotation_axis`,
+    /// one of [`BALL_AXES`]; `rotation`, -36000 to 36000 degrees; `twist_property`, one of
+    /// [`BALL_TWISTS`]; `twist_angle`, -36000 to 36000 degrees; `grid_spacing`, 2 to 200 pixels;
+    /// `ball_size`, 0 to 400 per cent of the grid spacing; `instability_state`, -36000 to 36000
+    /// degrees.
+    CcBallAction {
+        scatter: f64,
+        rotation_axis: String,
+        rotation: f64,
+        twist_property: String,
+        twist_angle: f64,
+        grid_spacing: f64,
+        ball_size: f64,
+        instability_state: f64,
+    },
     /// D-508: Energy Stroke, after the purpose of Video Copilot's Saber (`docs/effects/PLUGINS.md`
     /// pick #11), its rule and settings ours (`along::energy_stroke`, document 21): a glowing beam,
     /// a white core inside a coloured glow. `source`, one of [`ENERGY_SOURCES`]: "points" from
@@ -3782,6 +3798,14 @@ pub const CC_SPOTLIGHT: &str = "core.cc_spotlight";
 /// with the light let through the gel.
 pub const SPOT_RENDERS: [&str; 8] =
     ["light_only", "light_add", "light_add_plus", "light_shadow", "gel_only", "gel_add", "gel_add_plus", "gel_shadow"];
+pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
+/// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
+pub const BALL_AXES: [&str; 9] = ["x", "y", "z", "xy", "xz", "yz", "xyz", "x15z", "xy15z"];
+/// D-551: CC Ball Action's twist properties, as CycoreFX lists them.
+pub const BALL_TWISTS: [&str; 13] = [
+    "x_axis", "y_axis", "center_x", "center_y", "radius", "random", "red", "green", "blue", "brightness", "diamond",
+    "rectangle", "fast_top",
+];
 pub const ENERGY_STROKE: &str = "core.energy_stroke";
 /// D-508: where Energy Stroke's beam runs.
 pub const ENERGY_SOURCES: [&str; 4] = ["points", "masks", "shapes", "text"];
@@ -4138,6 +4162,14 @@ impl Effect {
                 ("cone_angle", vec![cone_angle], 0.0, 180.0),
                 ("edge_softness", vec![edge_softness], 0.0, 100.0),
                 ("intensity", vec![intensity], 0.0, 1000.0),
+            ],
+            Effect::CcBallAction { scatter, rotation, twist_angle, grid_spacing, ball_size, instability_state, .. } => vec![
+                ("scatter", vec![scatter], 0.0, 1000.0),
+                ("rotation", vec![rotation], -36000.0, 36000.0),
+                ("twist_angle", vec![twist_angle], -36000.0, 36000.0),
+                ("grid_spacing", vec![grid_spacing], 2.0, 200.0),
+                ("ball_size", vec![ball_size], 0.0, 400.0),
+                ("instability_state", vec![instability_state], -36000.0, 36000.0),
             ],
             Effect::EnergyStroke {
                 core_start,
@@ -6526,6 +6558,11 @@ impl Effect {
                 *spacing = scale(*spacing);
                 *size = scale(*size);
             }
+            // D-551: a spacing below 1 is worked as 1.
+            Effect::CcBallAction { scatter, grid_spacing, .. } => {
+                *scatter = scale(*scatter);
+                *grid_spacing = scale(*grid_spacing);
+            }
             Effect::LightningBolt { width, glow, .. } => {
                 *width = scale(*width);
                 *glow = scale(*glow);
@@ -6811,6 +6848,7 @@ impl Effect {
             Effect::WarpBlend { .. } => "Warp Blend",
             Effect::ChannelWipe { .. } => "Channel Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
+            Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
@@ -7044,6 +7082,7 @@ impl Effect {
             Effect::WarpBlend { .. } => WARP_BLEND,
             Effect::ChannelWipe { .. } => CHANNEL_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
+            Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
@@ -7593,6 +7632,15 @@ impl Effect {
                 .or_else(|| (!ENERGY_COMPOSITES.contains(&composite.as_str()))
                     .then(|| format!("Energy Stroke's composite is \"add\", \"transparent\" or \"black\", and this is \"{composite}\".")))
                 .or_else(|| hex_fault("Energy Stroke", "glow colour", glow_color)),
+            Effect::CcBallAction { rotation_axis, twist_property, .. } => (!BALL_AXES.contains(&rotation_axis.as_str()))
+                .then(|| format!(
+                    "CC Ball Action's rotation axis is one of {}, and this is \"{rotation_axis}\".",
+                    BALL_AXES.map(|a| format!("\"{a}\"")).join(", ")
+                ))
+                .or_else(|| (!BALL_TWISTS.contains(&twist_property.as_str())).then(|| format!(
+                    "CC Ball Action's twist property is one of {}, and this is \"{twist_property}\".",
+                    BALL_TWISTS.map(|t| format!("\"{t}\"")).join(", ")
+                ))),
             Effect::CcSpotlight { color, render, gel_layer, .. } => hex_fault("CC Spotlight", "colour", color)
                 .or_else(|| {
                     let renders = SPOT_RENDERS.map(|r| format!("\"{r}\"")).join(", ");
@@ -10674,6 +10722,10 @@ pub(crate) fn apply_stack_at(
                     crate::perf::time(crate::perf::Stage::EffectCcSpotlight, || crate::layer_fx::cc_spotlight(source, e, gel, (ox, oy)))
                 }
             }
+            // D-551: its own eye and light, no comp camera (P0-12); never grows.
+            e @ Effect::CcBallAction { .. } => crate::perf::time(crate::perf::Stage::EffectCcBallAction, || {
+                crate::layer_fx::cc_ball_action(source, e, (ox, oy))
+            }),
             // D-508: the paths compose found, or the points, in the drawing's own space; with no
             // path the layer is left as it is (EFFECT_PATH_MISSING was said). Never grows.
             e @ Effect::EnergyStroke { .. } => crate::perf::time(crate::perf::Stage::EffectEnergyStroke, || {

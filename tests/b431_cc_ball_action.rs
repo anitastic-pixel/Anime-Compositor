@@ -1,0 +1,349 @@
+//! B-431: D-551, after CycoreFX's CC Ball Action (Simulation): the layer as a grid of lit balls,
+//! turned, twisted and scattered in a fake 3D with its own eye and light (P0-12: no comp camera
+//! or 3D layers). The CycoreFX manual names the controls but publishes no formula, no lighting and
+//! no settings when added: the rule and those settings are ours, stated in
+//! `tools/cc_ball_action_reference.py`.
+//!
+//! Writes `verification/D-551_cc_ball_action_table.md` and draws pictures into
+//! `verification/D-551 pictures/`.
+//!
+//! Every expected pixel is `Fixtures/cc_ball_action/expected_cc_ball_action.json`, written by the
+//! tool before this code existed and printed in document 25 as FX-BALL-001 to 045. Tolerance
+//! 2e-5. Nothing here is a snapshot of a run.
+
+mod effect_table;
+
+use std::fs;
+use std::path::Path;
+
+use effect_table::{repo, Table, MAIN};
+use serde_json::{json, Value as J};
+
+use anime_compositor::cache::CelCache;
+use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
+use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
+use anime_compositor::effects::Effect;
+use anime_compositor::gpu::Gpu;
+use anime_compositor::model::{Id, Project};
+use anime_compositor::preview::{self, PreviewQuality};
+use anime_compositor::{persist, png_out, render, OutputDepth};
+
+fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
+    assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
+    let (mut largest, mut pixels) = (0, 0);
+    for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
+        if p[3] == 0 && q[3] == 0 {
+            continue;
+        }
+        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        largest = largest.max(d);
+        pixels += (d > 0) as usize;
+    }
+    (largest, pixels)
+}
+
+fn said(log: FrameLog) -> String {
+    let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
+    ids.sort();
+    ids.dedup();
+    ids.join(", ")
+}
+
+/// The CC Ball Actions the card's plan leaves to the card, over every layer.
+fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
+    let mut log = FrameLog::new(3);
+    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    plan.layers
+        .iter()
+        .flat_map(|l| &l.on_card)
+        .filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if matches!(f.instance.effect, Effect::CcBallAction { .. })))
+        .count()
+}
+
+/// The processor and the card, each drawing the frame the page receives: the largest
+/// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
+fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+    let mut cache = CelCache::viewer();
+    let mut log = FrameLog::new(3);
+    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
+        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let said_cpu = said(log);
+    let mut log = FrameLog::new(3);
+    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
+        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let said_gpu = said(log);
+    let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
+    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+}
+
+/// The reference shot (1920 by 1080) with `stack` on its first three layers.
+
+fn reference(stack: impl Fn(&str) -> J) -> Project {
+    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
+    let layers = &mut j["compositions"][0]["layers"];
+    for (i, id) in ["a", "b", "c"].iter().enumerate() {
+        layers[i]["effects"] = stack(id);
+    }
+    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+}
+
+
+/// Every fixture file on the card against the processor, frames 0 to 4 at Full and Draft. The
+/// files numbered in `none` are left out with a warning.
+fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
+    let comp = Id::new(MAIN);
+    for n in 1..=45 {
+        let file = format!("fx_ball_{n:03}.json");
+        let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
+        let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
+        for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+            for frame in 0..5 {
+                let (d, r, a, b) = both(gpu, &project, &comp, &t.root, frame, quality);
+                largest = largest.max(d.0);
+                refused |= r;
+                agree &= a == b;
+                card += on_card(&project, &comp, &t.root, frame, quality);
+            }
+        }
+        t.row(
+            &format!("{file}, frames 0 to 4 at Full and Draft"),
+            &format!("largest difference {largest} of 255; on the card in {card} of 10 frames; refused by the card: {refused}; the same warnings: {agree}"),
+            largest <= 1 && !refused && agree && (card == 0) == none.contains(&n),
+        );
+    }
+}
+
+/// The reference shot with each setting on its first three layers, frames 0, 100 and 239 at Full
+/// and Draft, on the card against the processor; `want` of 3 on the card each frame.
+fn card_reference(t: &mut Table, gpu: &mut Gpu, settings: &[(&str, J, usize)]) {
+    let ref_comp = Id::new("comp-reference-shot");
+    let ref_root = repo("Fixtures/reference_shot");
+    let cpu = |project: &Project| {
+        let mut log = FrameLog::new(3);
+        preview::preview_frame_cached(project, &ref_comp, 100, &ref_root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
+            .expect("the reference shot draws")
+            .to_srgb8_straight()
+    };
+    let plain = cpu(&reference(|_| json!([])));
+    for (what, p, want) in settings {
+        let project = reference(|id| json!([fx(&format!("b431-{id}"), p)]));
+        let changed = distance(&cpu(&project), &plain).1;
+        t.row(
+            &format!("the reference shot, CC Ball Action {what}: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect"),
+            &format!("{changed} pixels changed"),
+            changed > 0,
+        );
+        for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+            for frame in [0, 100, 239] {
+                let (d, r, a, b) = both(gpu, &project, &ref_comp, &ref_root, frame, quality);
+                let card = on_card(&project, &ref_comp, &ref_root, frame, quality);
+                t.row(
+                    &format!("the reference shot, CC Ball Action {what} on three layers, frame {frame}, {}", quality.label()),
+                    &format!("largest difference {} of 255, {} pixels differ; {card} of 3 on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
+                    d.0 <= 1 && !r && a == b && card == *want,
+                );
+            }
+        }
+    }
+}
+
+/// `effects` on the still `asset` (in `dir`, `size` pixels), drawn on the processor, straight
+/// 8-bit, with what it warned of.
+fn picture(dir: &Path, asset: &str, size: (usize, usize), effects: J) -> (Vec<u8>, Vec<String>) {
+    let mut project: J = serde_json::from_str(&fs::read_to_string(repo("Fixtures/kernel/fx_kernel_001.json")).unwrap()).unwrap();
+    project["assets"][0]["path"] = J::from(asset);
+    let comp = &mut project["compositions"][0];
+    comp["width"] = J::from(size.0);
+    comp["height"] = J::from(size.1);
+    let layer = &mut comp["layers"][0];
+    let middle = json!([size.0 as f64 / 2.0, size.1 as f64 / 2.0]);
+    layer["transform"]["anchor"]["base"] = middle.clone();
+    layer["transform"]["position"]["base"] = middle;
+    layer["effects"] = effects;
+    let loaded = persist::load_str(&project.to_string()).expect("the picture's project reads");
+    let mut log = FrameLog::new(3);
+    let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
+    let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
+    (frame.to_srgb8_straight(), said)
+}
+
+
+/// The `art` layer's effect in `file`, changed by `f`.
+fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
+    let d = t.load(file).document;
+    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone();
+    f(&mut e);
+    e
+}
+
+/// A CC Ball Action with the settings `p`, every one `p` leaves out as it is added.
+fn fx(id: &str, p: &J) -> J {
+    let mut all = json!({"scatter": 0, "rotation_axis": "x", "rotation": 0, "twist_property": "x_axis", "twist_angle": 0,
+        "grid_spacing": 8, "ball_size": 100, "instability_state": 0});
+    for (k, v) in p.as_object().unwrap() {
+        all[k] = v.clone();
+    }
+    json!({"instance_id": id, "type_id": "core.cc_ball_action", "enabled": true, "parameters": all})
+}
+
+#[test]
+fn b431_cc_ball_action() {
+    let mut t = Table::new(
+        "cc_ball_action",
+        "# D-551: CC Ball Action\n\nB-431, after CycoreFX's CC Ball Action (Simulation): the layer \
+         as a grid of lit balls, each the colour under its cell's centre, turned about a rotation \
+         axis, twisted ball by ball by a twist property and scattered, in a fake 3D with its own \
+         eye (D-530's 50 mm lens on a 36 mm frame) and its own light from the upper left (P0-12: \
+         no comp camera or 3D layers). Only completely opaque pixels make balls. The CycoreFX \
+         manual names the controls but publishes no formula, no lighting and no settings when \
+         added, so the rule and those settings are ours, stated in \
+         `tools/cc_ball_action_reference.py`. Every expected pixel is \
+         `Fixtures/cc_ball_action/expected_cc_ball_action.json`, written by the tool before this \
+         code existed and printed in document 25 as FX-BALL-001 to 045. Tolerance 2e-5.\n",
+    );
+
+    t.heading("FX-BALL-001 to 045 (document 25)");
+    t.fixtures_numbered("expected_cc_ball_action.json", 1..=45);
+
+    t.heading("The file");
+    let files: Vec<String> = (1..=45).map(|n| format!("fx_ball_{n:03}.json")).collect();
+    t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
+    let saved = t.saved_parameters("fx_ball_017.json");
+    t.row(
+        "fx_ball_017.json is saved with its eight settings, rotation axis xy15z, rotation 6, grid spacing 4",
+        &saved.to_string(),
+        saved.as_object().unwrap().len() == 8
+            && saved["rotation_axis"] == "xy15z"
+            && saved["twist_property"] == "x_axis"
+            && saved["rotation"] == 6
+            && saved["grid_spacing"] == 4,
+    );
+    for (file, want) in [
+        ("fx_ball_038.json", "scatter"),
+        ("fx_ball_039.json", "scatter"),
+        ("fx_ball_040.json", "grid spacing"),
+        ("fx_ball_041.json", "ball size"),
+        ("fx_ball_042.json", "rotation"),
+        ("fx_ball_043.json", "rotation axis"),
+        ("fx_ball_044.json", "rotation axis"),
+        ("fx_ball_045.json", "twist property"),
+    ] {
+        let why = changed(&t, file, |_| {}).why_invalid();
+        t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
+    }
+    t.shape_refused(
+        "fx_ball_001.json",
+        "a CC Ball Action whose grid spacing is a word",
+        r##"{"scatter": 0, "rotation_axis": "x", "rotation": 0, "twist_property": "x_axis", "twist_angle": 0, "grid_spacing": "fine", "ball_size": 100, "instability_state": 0}"##,
+    );
+    t.shape_refused(
+        "fx_ball_001.json",
+        "a CC Ball Action whose rotation axis is a number",
+        r##"{"scatter": 0, "rotation_axis": 1, "rotation": 0, "twist_property": "x_axis", "twist_angle": 0, "grid_spacing": 8, "ball_size": 100, "instability_state": 0}"##,
+    );
+
+    t.heading("On the card (D-551)");
+    let mut gpu = Gpu::new().expect("a graphics card");
+    card_fixtures(&mut t, &mut gpu, &[38, 39, 40, 41, 42, 43, 44, 45]);
+    card_reference(
+        &mut t,
+        &mut gpu,
+        &[
+            ("as added", json!({}), 3),
+            ("grid spacing 24, rotation 40 about XY, twist radius 90", json!({"grid_spacing": 24, "rotation_axis": "xy", "rotation": 40, "twist_property": "radius", "twist_angle": 90}), 3),
+            ("scatter 60, instability state 120, ball size 160", json!({"scatter": 60, "instability_state": 120, "ball_size": 160}), 3),
+            ("fast top 200, rotation keyed 0 to 720 about Y", json!({"rotation_axis": "y", "twist_property": "fast_top", "twist_angle": 200, "rotation": {"base": 0, "keyframes": [{"frame": 0, "value": 0, "interp": "linear"}, {"frame": 239, "value": 720, "interp": "linear"}]}}), 3),
+        ],
+    );
+
+    t.heading("Pictures (verification/D-551 pictures)");
+    let dir = repo("verification/D-506 pictures");
+    let out = repo("verification/D-551 pictures");
+    fs::create_dir_all(&out).unwrap();
+    let street = picture(&dir, "1_left.png", (480, 270), json!([])).0;
+    for (name, p) in [
+        ("1_as_added", json!({})),
+        ("2_large_balls", json!({"grid_spacing": 16})),
+        ("3_turned_about_y", json!({"grid_spacing": 12, "rotation_axis": "y", "rotation": 50})),
+        ("4_twist_radius", json!({"grid_spacing": 12, "twist_property": "radius", "twist_angle": 120})),
+        ("5_scattered", json!({"grid_spacing": 12, "scatter": 40, "instability_state": 90})),
+    ] {
+        let (bytes, said) = picture(&dir, "1_left.png", (480, 270), json!([fx("pic", &p)]));
+        png_out::write_rgba(&out.join(format!("{name}.png")), 480, 270, OutputDepth::Eight, &[], &bytes).unwrap();
+        let covered = bytes.chunks_exact(4).filter(|p| p[3] > 0).count();
+        t.row(
+            &format!("{name}.png: drawn without a warning, the street changed, balls drawn"),
+            &format!("{} pixels changed; {covered} pixels covered; warnings {said:?}", distance(&bytes, &street).1),
+            said.is_empty() && distance(&bytes, &street).1 > 0 && covered > 0,
+        );
+    }
+    t.finish("D-551_cc_ball_action_table.md");
+}
+
+
+fn median(mut v: Vec<f64>) -> f64 {
+    v.sort_by(f64::total_cmp);
+    v[v.len() / 2]
+}
+
+/// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise
+/// that changes every frame on its first three layers, so nothing is kept, then the effect,
+/// every eighth frame asked for as the viewer asks, whole. The first loop starts with empty
+/// caches and its 30 frames' median is "first"; the median of the loops after it is "again".
+/// With `B431_CPU` set, the processor draws instead.
+#[test]
+#[ignore = "B-431: a measurement, run deliberately with --release --ignored"]
+fn b431_cc_ball_action_timing() {
+    use std::fmt::Write as _;
+
+    let cpu = std::env::var("B431_CPU").is_ok();
+    let passes = if cpu { 3 } else { 8 };
+    let mut gpu = Gpu::new().expect("a usable card");
+    let mut s = format!(
+        "- Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n- Drawn by: {}\n- Loops: {passes}\n\n\
+         | Shot | Quality | First | Again |\n|---|---|---:|---:|\n",
+        gpu.about(),
+        std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
+        std::thread::available_parallelism().map_or(0, |n| n.get()),
+        std::env::consts::OS,
+        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cpu { "the processor" } else { "the card" },
+    );
+    let shots: [(&str, Option<J>); 4] = [
+        ("Noise alone", None),
+        ("Noise, then CC Ball Action as added", Some(json!({}))),
+        ("Noise, then CC Ball Action, grid spacing 4, rotation 40 about XY", Some(json!({"grid_spacing": 4, "rotation_axis": "xy", "rotation": 40}))),
+        ("Noise, then CC Ball Action, scatter 60, ball size 300", Some(json!({"scatter": 60, "ball_size": 300}))),
+    ];
+    for (name, e) in shots {
+        let project = reference(|id| {
+            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            if let Some(p) = &e {
+                v.push(fx(&format!("{id}u"), p));
+            }
+            J::Array(v)
+        });
+        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
+        let mut cache = CelCache::viewer();
+        gpu.forget();
+        let (mut first, mut times) = (Vec::new(), Vec::new());
+        for pass in 0..passes {
+            for frame in (0..240).step_by(8) {
+                let mut log = FrameLog::new(3);
+                let t = std::time::Instant::now();
+                if cpu {
+                    drop(preview::preview_frame_cached(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache).expect("CPU frame"));
+                } else {
+                    drop(preview::preview_frame_srgb8(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                }
+                let ms = t.elapsed().as_secs_f64() * 1000.0;
+                if pass > 0 { times.push(ms) } else { first.push(ms) }
+            }
+        }
+        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+    }
+    let out = std::env::var("B431_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-431_timing_raw.md"));
+    fs::write(out, s).expect("write the timing table");
+}

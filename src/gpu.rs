@@ -6165,6 +6165,92 @@ fn kira(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(vec4(o.xyz + s * vec3(k[3], k[4], k[5]), o.w + s * (1.0lf - o.w))));
 }
 
+// D-551, layer_fx::ball_cover: how much ball b covers the own point (x, y).
+fn ball_cover(b: u32, x: f64, y: f64) -> f64 {
+    let e = sqrt((x - k[b]) * (x - k[b]) + (y - k[b + 1u]) * (y - k[b + 1u]));
+    return clamp(k[b + 2u] + 0.5lf - e, 0.0lf, 1.0lf) * min(2.0lf * k[b + 2u], 1.0lf);
+}
+
+// D-551, layer_fx::ball_shade: ball b lit at the own point (x, y).
+fn ball_shade(b: u32, x: f64, y: f64) -> vec3<f64> {
+    let dx = (x - k[b]) / k[b + 2u];
+    let dy = (y - k[b + 1u]) / k[b + 2u];
+    let q = dx * dx + dy * dy;
+    var n = vec3(dx, dy, -sqrt(1.0lf - q));
+    if q >= 1.0lf {
+        n = vec3(dx / sqrt(q), dy / sqrt(q), 0.0lf);
+    }
+    let dif = max(n.x * k[0] + n.y * k[1] + n.z * k[2], 0.0lf);
+    var sp = max(n.x * k[3] + n.y * k[4] + n.z * k[5], 0.0lf);
+    for (var i = 0; i < 5; i++) {
+        sp *= sp;
+    }
+    return vec3(k[b + 3u], k[b + 4u], k[b + 5u]) * (0.25lf + 0.75lf * dif) + 0.5lf * sp;
+}
+
+// D-551, cc_ball_action's balls laid, a ball a workgroup, as layer_fx::ball_numbers puts them in
+// k (from 6, six each, farthest first), the drawing's corner at (F.ox, F.oy). Mode 0 keeps each
+// pixel's highest numbered ball (1 up) in glints; mode 1, after it, the highest below that in
+// glints from w h: its first and second balls.
+@compute @workgroup_size(64)
+fn balls(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) li: u32) {
+    let n = wg.x + wg.y * 65535u;
+    if n >= F.count {
+        return;
+    }
+    let b = 6u + 6u * n;
+    let size = textureDimensions(input);
+    let o = vec2<f64>(f64(F.ox), f64(F.oy));
+    let x0 = u32(clamp(floor(k[b] + o.x - k[b + 2u] - 1.5lf), 0.0lf, f64(size.x)));
+    let x1 = u32(clamp(ceil(k[b] + o.x + k[b + 2u] + 1.5lf), 0.0lf, f64(size.x)));
+    let y0 = u32(clamp(floor(k[b + 1u] + o.y - k[b + 2u] - 1.5lf), 0.0lf, f64(size.y)));
+    let y1 = u32(clamp(ceil(k[b + 1u] + o.y + k[b + 2u] + 1.5lf), 0.0lf, f64(size.y)));
+    if x0 >= x1 || y0 >= y1 {
+        return;
+    }
+    let bw = x1 - x0;
+    let key = n + 1u;
+    for (var i = li; i < bw * (y1 - y0); i += 64u) {
+        let x = x0 + i % bw;
+        let y = y0 + i / bw;
+        if ball_cover(b, f64(x) - o.x + 0.5lf, f64(y) - o.y + 0.5lf) > 0.0lf {
+            let p = y * size.x + x;
+            if F.mode == 0u {
+                atomicMax(&glints[p], key);
+            } else if key < atomicLoad(&glints[p]) {
+                atomicMax(&glints[size.x * size.y + p], key);
+            }
+        }
+    }
+}
+
+// D-551, layer_fx::ball_pixel, a pixel a thread, from its two balls in glints.
+@compute @workgroup_size(16, 16)
+fn ballshade(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = id.y * size.x + id.x;
+    let first = atomicLoad(&glints[p]);
+    if first == 0u {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    let second = atomicLoad(&glints[size.x * size.y + p]);
+    let x = f64(i32(id.x) - F.ox) + 0.5lf;
+    let y = f64(i32(id.y) - F.oy) + 0.5lf;
+    let b1 = 6u * first;
+    let c1 = ball_cover(b1, x, y);
+    var out = vec4(c1 * ball_shade(b1, x, y), c1);
+    if second != 0u {
+        let b2 = 6u * second;
+        let t = (1.0lf - c1) * ball_cover(b2, x, y);
+        out = vec4(out.xyz + t * ball_shade(b2, x, y), c1 + t);
+    }
+    textureStore(output, id.xy, vec4<f32>(out));
+}
+
 // B-151, median.rs's straight colour of a pixel, each channel over the covering in single
 // precision as the CPU divides it, or nothing where nothing shows.
 fn straight(p: vec4<f32>) -> vec4<f32> {
@@ -9931,6 +10017,9 @@ struct FxPasses {
     line_blur: Pass,
     stars: Pass,
     kira: Pass,
+    /// D-551.
+    balls: Pass,
+    ballshade: Pass,
     /// B-151.
     median: Pass,
     smart: Pass,
@@ -10655,6 +10744,8 @@ impl Gpu {
                 line_blur: pass("lineblur", &[0, 1, 2, 3]),
                 stars: pass("stars", &[0, 1, 3, 9]),
                 kira: pass("kira", &[0, 1, 2, 3, 9]),
+                balls: pass("balls", &[0, 1, 3, 9]),
+                ballshade: pass("ballshade", &[0, 2, 3, 9]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
@@ -13245,6 +13336,21 @@ impl Gpu {
                 self.fx_step(steps, &passes.kira, p, Some(still), Some(&out), Some(&k), None, [None, None, None, None, Some(&lit)], tiles(tw, th));
                 (out, (tw, th))
             }
+            // D-551: the balls from the drawing the layer sent, as Kira-kira's stars; each pixel's
+            // first and second ball laid, then lit.
+            e @ E::CcBallAction { .. } => {
+                let k = crate::layer_fx::ball_numbers(source, e, f.origin);
+                let n = ((k.len() - crate::layer_fx::BALL_HEAD) / 6) as u32;
+                let keys = buffer(2 * w * h * 4);
+                let p = FxParams { count: n, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                for mode in [0, 1].into_iter().filter(|_| n > 0) {
+                    let groups = (n.min(65535), n.div_ceil(65535));
+                    self.fx_step(steps, &passes.balls, FxParams { mode, ..p }, Some(still), None, Some(&k), None, [None, None, None, None, Some(&keys)], groups);
+                }
+                let out = self.scratch("D-551 balls", w, h);
+                self.fx_step(steps, &passes.ballshade, p, None, Some(&out), Some(&k), None, [None, None, None, None, Some(&keys)], tiles(w, h));
+                (out, (w, h))
+            }
             // B-151: ten of the fourth batch.
             E::Median { radius, operate_on_alpha } => {
                 let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
@@ -14745,6 +14851,12 @@ impl Gpu {
                             crate::effects::Effect::KiraKira { spacing, .. } => {
                                 let cells = (w as f64 / spacing + 2.0) * (h as f64 / spacing + 2.0);
                                 (((w + 2 * f.grow.0) * (h + 2 * f.grow.1) * 4) as f64).max((19.0 + 4.0 * cells) * 8.0) as u64
+                            }
+                            // D-551: CC Ball Action's two balls a pixel, and its balls, at most one
+                            // a cell, with its settings.
+                            crate::effects::Effect::CcBallAction { grid_spacing, .. } => {
+                                let cells = (w as f64 / grid_spacing.max(1.0)) * (h as f64 / grid_spacing.max(1.0));
+                                ((2 * w * h * 4) as f64).max((6.0 + 6.0 * cells) * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,

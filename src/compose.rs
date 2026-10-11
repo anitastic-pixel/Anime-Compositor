@@ -1144,6 +1144,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::ThreeDGlasses { .. }
                 // D-507.
                 | crate::effects::Effect::CcSpotlight { .. }
+                // D-551.
+                | crate::effects::Effect::CcBallAction { .. }
                 // D-508 (the bits are found on the processor).
                 | crate::effects::Effect::EnergyStroke { .. }
                 // D-509.
@@ -1668,7 +1670,7 @@ fn mixed(card: render::OnCard, instance: &crate::effects::EffectInstance) -> ren
 
 /// B-156 (D-225): an adjustment layer's stack as the card runs it on the frame beneath, `size`,
 /// from its corner; or `None` when the CPU must run it, for an effect the card cannot draw, one
-/// that looks at its drawing before the card is asked (Bloom, Glow, Paraffin, Kira-kira), which
+/// that looks at its drawing before the card is asked (Bloom, Glow, Paraffin, Kira-kira, CC Ball Action), which
 /// the frame beneath is not yet, or an HSV Key, which only begins a run on a drawing the CPU made
 /// (D-224). `stack` is the plan's, its distances already the draft's (`preview::scale_plan`).
 pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)) -> Option<Vec<render::OnCard>> {
@@ -1689,6 +1691,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
                 | E::Glow { .. }
                 | E::Paraffin { .. }
                 | E::KiraKira { .. }
+                | E::CcBallAction { .. }
                 | E::HsvKey { .. }
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }
@@ -2951,6 +2954,7 @@ fn resolve_rest(
                 | E::Glow { .. }
                 | E::Paraffin { .. }
                 | E::KiraKira { .. }
+                | E::CcBallAction { .. }
                 | E::HsvKey { .. }
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }

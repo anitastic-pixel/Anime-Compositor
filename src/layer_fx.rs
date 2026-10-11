@@ -8061,6 +8061,217 @@ pub(crate) fn cc_cylinder(source: &mut WorkingBuffer, e: &crate::effects::Effect
     *source = out;
 }
 
+type M3 = [[f64; 3]; 3];
+
+fn m3_mul(a: &M3, b: &M3) -> M3 {
+    std::array::from_fn(|i| std::array::from_fn(|j| a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j]))
+}
+
+fn m3_apply(m: &M3, v: [f64; 3]) -> [f64; 3] {
+    std::array::from_fn(|i| m[i][0] * v[0] + m[i][1] * v[1] + m[i][2] * v[2])
+}
+
+/// D-551: the right-handed turn by `t` radians about axis 0 (x), 1 (y) or 2 (z).
+fn m3_turn(axis: usize, t: f64) -> M3 {
+    let (c, s) = (t.cos(), t.sin());
+    match axis {
+        0 => [[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]],
+        1 => [[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]],
+        _ => [[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]],
+    }
+}
+
+/// D-551: CC Ball Action's turn for its rotation axis by `theta` degrees (document 21).
+fn ball_turn(axis: &str, theta: f64) -> M3 {
+    let t = theta.to_radians();
+    let (x, y, z) = (m3_turn(0, t), m3_turn(1, t), m3_turn(2, t));
+    match axis {
+        "x" => x,
+        "y" => y,
+        "z" => z,
+        "xy" => m3_mul(&y, &x),
+        "xz" => m3_mul(&z, &x),
+        "yz" => m3_mul(&z, &y),
+        "xyz" => m3_mul(&z, &m3_mul(&y, &x)),
+        "x15z" => m3_mul(&m3_turn(2, 15.0 * t), &x),
+        _ => m3_mul(&m3_turn(2, 15.0 * t), &m3_mul(&y, &x)),
+    }
+}
+
+/// D-551: `v` turned `theta` degrees about `a`, Rodrigues' way; left alone when `a` is 0.
+fn rodrigues(v: [f64; 3], a: [f64; 3], theta: f64) -> [f64; 3] {
+    let n = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt();
+    if n == 0.0 {
+        return v;
+    }
+    let k = a.map(|c| c / n);
+    let t = theta.to_radians();
+    let (c, s) = (t.cos(), t.sin());
+    let cr = [k[1] * v[2] - k[2] * v[1], k[2] * v[0] - k[0] * v[2], k[0] * v[1] - k[1] * v[0]];
+    let d = k[0] * v[0] + k[1] * v[1] + k[2] * v[2];
+    std::array::from_fn(|i| v[i] * c + cr[i] * s + k[i] * d * (1.0 - c))
+}
+
+/// D-551: how many numbers lead [`ball_numbers`]: the light L and the half-way vector Hv.
+pub(crate) const BALL_HEAD: usize = 6;
+
+/// D-551: CC Ball Action's balls, shared with the card: L and Hv (three each), then for each ball
+/// drawn, farthest first, its centre X and Y and radius R in the drawing's own space and its
+/// colour, linear (six). `source` is the layer, its drawing's corner at `(ox, oy)` (document 21).
+pub(crate) fn ball_numbers(source: &WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) -> Vec<f64> {
+    let crate::effects::Effect::CcBallAction {
+        scatter,
+        rotation_axis,
+        rotation,
+        twist_property,
+        twist_angle,
+        grid_spacing,
+        ball_size,
+        instability_state,
+    } = e
+    else {
+        unreachable!("CC Ball Action's balls of another effect")
+    };
+    let w = source.width();
+    let (w0, h0) = ((w - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+    let s = grid_spacing.max(1.0);
+    let (cols, rows) = ((w0 / s).floor() as usize, (h0 / s).floor() as usize);
+    let (gx, gy) = ((w0 - cols as f64 * s) / 2.0, (h0 - rows as f64 * s) / 2.0);
+    let (cx, cy) = (w0 / 2.0, h0 / 2.0);
+    let r = s * ball_size / 200.0;
+    let z = w0 * 50.0 / 36.0;
+    let base = crate::grade::mix(551);
+    let data = source.data();
+    let mut balls: Vec<(f64, usize, [f64; 6])> = (0..rows * cols)
+        .into_par_iter()
+        .filter_map(|cell| {
+            let (i, j) = (cell % cols, cell / cols);
+            let (x, y) = (gx + (i as f64 + 0.5) * s, gy + (j as f64 + 0.5) * s);
+            let at = ((y.floor() as usize + oy) * w + x.floor() as usize + ox) * 4;
+            if data[at + 3] != 1.0 {
+                return None;
+            }
+            let col = [data[at] as f64, data[at + 1] as f64, data[at + 2] as f64];
+            let un: [f64; 7] = std::array::from_fn(|ch| crate::grade::unit(base, i as i64, j as i64, 0, ch as u64));
+            let mut u = [un[0], un[1], un[2]];
+            if *instability_state != 0.0 {
+                u = rodrigues(u, [un[3], un[4], un[5]], *instability_state);
+            }
+            let (xn, yn) = ((x - cx) / (w0 / 2.0), (y - cy) / (h0 / 2.0));
+            let rho = (xn * xn + yn * yn).sqrt() / std::f64::consts::SQRT_2;
+            let held = |v: f64| v.clamp(0.0, 1.0);
+            let f = match twist_property.as_str() {
+                "x_axis" => xn,
+                "y_axis" => yn,
+                "center_x" => xn.abs(),
+                "center_y" => yn.abs(),
+                "random" => (un[6] + 1.0) / 2.0,
+                "red" => 1.0 - held(col[0]),
+                "green" => 1.0 - held(col[1]),
+                "blue" => 1.0 - held(col[2]),
+                "brightness" => 1.0 - held(0.2126 * col[0] + 0.7152 * col[1] + 0.0722 * col[2]),
+                "diamond" => 1.0 - (xn.abs() + yn.abs()) / 2.0,
+                "rectangle" => 1.0 - xn.abs().max(yn.abs()),
+                // radius and fast_top
+                _ => 1.0 - rho,
+            };
+            let m = if twist_property == "fast_top" {
+                let phi = (twist_angle * f).to_radians();
+                m3_mul(&ball_turn(rotation_axis, *rotation), &m3_mul(&m3_turn(1, 2.0 * phi), &m3_turn(0, phi)))
+            } else {
+                ball_turn(rotation_axis, rotation + twist_angle * f)
+            };
+            let q = m3_apply(&m, [x - cx + scatter * u[0], y - cy + scatter * u[1], scatter * u[2]]);
+            let d = z + q[2];
+            (d > z / 100.0).then(|| (d, cell, [cx + q[0] * z / d, cy + q[1] * z / d, r * z / d, col[0], col[1], col[2]]))
+        })
+        .collect();
+    balls.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    let l = [-1.0, -1.0, -2.0].map(|v: f64| v / 6f64.sqrt());
+    let hv = [l[0], l[1], l[2] - 1.0];
+    let n = (hv[0] * hv[0] + hv[1] * hv[1] + hv[2] * hv[2]).sqrt();
+    let mut k = vec![l[0], l[1], l[2], hv[0] / n, hv[1] / n, hv[2] / n];
+    k.extend(balls.iter().flat_map(|b| b.2));
+    k
+}
+
+/// D-551: how much the ball `b` (X, Y, R) covers the own point (x, y).
+fn ball_cover(b: &[f64], x: f64, y: f64) -> f64 {
+    let e = ((x - b[0]) * (x - b[0]) + (y - b[1]) * (y - b[1])).sqrt();
+    (b[2] + 0.5 - e).clamp(0.0, 1.0) * (2.0 * b[2]).min(1.0)
+}
+
+/// D-551: the ball `b` lit at the own point (x, y), by the light and half-way vector in `head`.
+fn ball_shade(head: &[f64], b: &[f64], x: f64, y: f64) -> [f64; 3] {
+    let (dx, dy) = ((x - b[0]) / b[2], (y - b[1]) / b[2]);
+    let q = dx * dx + dy * dy;
+    let n = if q >= 1.0 { [dx / q.sqrt(), dy / q.sqrt(), 0.0] } else { [dx, dy, -(1.0 - q).sqrt()] };
+    let dif = (n[0] * head[0] + n[1] * head[1] + n[2] * head[2]).max(0.0);
+    let mut sp = (n[0] * head[3] + n[1] * head[4] + n[2] * head[5]).max(0.0);
+    for _ in 0..5 {
+        sp *= sp;
+    }
+    [0, 1, 2].map(|c| b[3 + c] * (0.25 + 0.75 * dif) + 0.5 * sp)
+}
+
+/// D-551: along one side of a buffer `size` long, the pixels a ball centred at `c` with radius
+/// `r` may cover, the drawing's corner at `o`, as the card's `balls` pass bounds them.
+fn ball_span(c: f64, r: f64, o: usize, size: usize) -> std::ops::Range<usize> {
+    let lo = (c + o as f64 - r - 1.5).floor().clamp(0.0, size as f64) as usize;
+    let hi = (c + o as f64 + r + 1.5).ceil().clamp(0.0, size as f64) as usize;
+    lo..hi.max(lo)
+}
+
+/// D-551: the pixel at the own point (x, y) from its first and second balls, numbered 1 up (0
+/// for none), as the card's `ballshade` pass has it.
+pub(crate) fn ball_pixel(k: &[f64], first: u32, second: u32, x: f64, y: f64) -> [f64; 4] {
+    if first == 0 {
+        return [0.0; 4];
+    }
+    let ball = |key: u32| &k[BALL_HEAD + 6 * (key as usize - 1)..][..6];
+    let (b1, c1) = (ball(first), ball_cover(ball(first), x, y));
+    let s1 = ball_shade(k, b1, x, y);
+    let mut p = [c1 * s1[0], c1 * s1[1], c1 * s1[2], c1];
+    if second != 0 {
+        let b2 = ball(second);
+        let (c2, s2) = (ball_cover(b2, x, y), ball_shade(k, b2, x, y));
+        let t = (1.0 - c1) * c2;
+        p = [p[0] + t * s2[0], p[1] + t * s2[1], p[2] + t * s2[2], c1 + t];
+    }
+    p
+}
+
+/// D-551: after CycoreFX's CC Ball Action, the rule ours (document 21): the drawing as a grid of
+/// lit balls, turned, twisted and scattered in a fake 3D with its own eye and light (P0-12: no
+/// comp camera). `(ox, oy)` the drawing's corner in the buffer. Never grows.
+pub(crate) fn cc_ball_action(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let (w, h) = (source.width(), source.height());
+    let k = ball_numbers(source, e, (ox, oy));
+    // The first and second balls at each pixel, numbered 1 up; laid farthest first, so each
+    // ball covering a pixel is nearer than the one it moves to second.
+    // ponytail: one thread lays every ball, the sum of their boxes' areas; lay rows of the
+    // buffer in parallel if large balls at a fine spacing come to be slow.
+    let (mut first, mut second) = (vec![0u32; w * h], vec![0u32; w * h]);
+    for (n, b) in k[BALL_HEAD..].chunks_exact(6).enumerate() {
+        for by in ball_span(b[1], b[2], oy, h) {
+            let y = by as f64 - oy as f64 + 0.5;
+            for bx in ball_span(b[0], b[2], ox, w) {
+                if ball_cover(b, bx as f64 - ox as f64 + 0.5, y) > 0.0 {
+                    let p = by * w + bx;
+                    second[p] = first[p];
+                    first[p] = n as u32 + 1;
+                }
+            }
+        }
+    }
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let out = ball_pixel(&k, first[i], second[i], (i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
+        for (v, o) in px.iter_mut().zip(out) {
+            *v = o as f32;
+        }
+    });
+}
+
 /// D-506: 3D Glasses. Each view is read in the drawing's own space, a map at (u, v) or the layer
 /// itself at (u + ox, v + oy), transparent outside, by document 21's bilinear. The anaglyphs and
 /// the interlace read the left view half the convergence c to the right and half the alignment

@@ -2820,6 +2820,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("render".into(), J::from(render.as_str()));
             params.insert("light_color".into(), J::from(light_color.as_str()));
         }
+        Effect::CcBallAction {
+            scatter,
+            rotation_axis,
+            rotation,
+            twist_property,
+            twist_angle,
+            grid_spacing,
+            ball_size,
+            instability_state,
+        } => {
+            params.insert("scatter".into(), num(*scatter));
+            params.insert("rotation_axis".into(), J::from(rotation_axis.as_str()));
+            params.insert("rotation".into(), num(*rotation));
+            params.insert("twist_property".into(), J::from(twist_property.as_str()));
+            params.insert("twist_angle".into(), num(*twist_angle));
+            params.insert("grid_spacing".into(), num(*grid_spacing));
+            params.insert("ball_size".into(), num(*ball_size));
+            params.insert("instability_state".into(), num(*instability_state));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -5408,6 +5427,7 @@ fn parse_effect(
         crate::effects::WARP_BLEND,
         crate::effects::CHANNEL_WIPE,
         crate::effects::CC_SPOTLIGHT,
+        crate::effects::CC_BALL_ACTION,
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
         crate::effects::SIMPLE_WIRE_REMOVAL,
@@ -6743,6 +6763,16 @@ fn parse_effect(
             specular: effect_number(params, "specular", &at)?,
             roughness: effect_number(params, "roughness", &at)?,
             metal: effect_number(params, "metal", &at)?,
+        }),
+        crate::effects::CC_BALL_ACTION => Some(crate::effects::Effect::CcBallAction {
+            scatter: effect_number(params, "scatter", &at)?,
+            rotation_axis: effect_word(params, "rotation_axis", &at)?,
+            rotation: effect_number(params, "rotation", &at)?,
+            twist_property: effect_word(params, "twist_property", &at)?,
+            twist_angle: effect_number(params, "twist_angle", &at)?,
+            grid_spacing: effect_number(params, "grid_spacing", &at)?,
+            ball_size: effect_number(params, "ball_size", &at)?,
+            instability_state: effect_number(params, "instability_state", &at)?,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

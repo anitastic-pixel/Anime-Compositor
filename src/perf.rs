@@ -400,6 +400,8 @@ pub enum Stage {
     /// D-520: CC Wide Time, its frames put together and laid on the layer; drawing them is timed
     /// as any drawing is.
     EffectCcWideTime,
+    /// D-551: CC Ball Action.
+    EffectCcBallAction,
     /// D-508: Energy Stroke.
     EffectEnergyStroke,
     /// D-449's Block Load.
@@ -471,7 +473,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 232] = [
+    pub const ALL: [Stage; 233] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -671,6 +673,7 @@ impl Stage {
         Stage::EffectCcSpotlight,
         Stage::EffectCcCylinder,
         Stage::EffectCcWideTime,
+        Stage::EffectCcBallAction,
         Stage::EffectEnergyStroke,
         Stage::EffectBlockLoad,
         Stage::EffectGlassMelt,
@@ -908,6 +911,7 @@ impl Stage {
             Stage::EffectCcSpotlight => "effect: cc spotlight",
             Stage::EffectCcCylinder => "effect: cc cylinder",
             Stage::EffectCcWideTime => "effect: cc wide time",
+            Stage::EffectCcBallAction => "effect: cc ball action",
             Stage::EffectEnergyStroke => "effect: energy stroke",
             Stage::EffectBlockLoad => "effect: block load",
             Stage::EffectGlassMelt => "effect: glass melt",
