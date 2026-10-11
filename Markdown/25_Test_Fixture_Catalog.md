@@ -208866,3 +208866,73 @@ FX-BLOCKLOAD-022 (`fx_blockload_022.json`): Start Cleared "yes", not on or off. 
 FX-BLOCKLOAD-023 (`fx_blockload_023.json`): Bilinear "On", in capitals, not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BLOCKLOAD-024 (`fx_blockload_024.json`): Completion keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Glass Melt (D-509)
+
+Glass Melt (`core.glass_melt`), after the purpose of CycoreFX's CC Glass Wipe (B-389, EFFECTS.md row 271), the rule ours. Every case is a project of one composition 16 by 10, five frames, holding the map layers (switched off) and on top the drawing `holder` with the effect, as Displacement Map's cases. `tools/glass_melt_reference.py` works the expected frames, `Fixtures/glass_melt/expected_glass_melt.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-GMELT-001 (`fx_gmelt_001.json`): As added: completion 0, so nothing changes. Frames 0.
+
+FX-GMELT-002 (`fx_gmelt_002.json`): Completion 100 with nothing to reveal: every pixel clear. Frames 0.
+
+FX-GMELT-003 (`fx_gmelt_003.json`): Completion 100 revealing the paint: the paint exactly. Frames 0.
+
+FX-GMELT-004 (`fx_gmelt_004.json`): The grey ramp as the gradient, completion 50, softness 0, no bend: the dark half gone to the paint, the light half kept, the middle column part of each. Frames 0.
+
+FX-GMELT-005 (`fx_gmelt_005.json`): FX-GMELT-004 with displacement 20: the ramp's even slope bends the melting column sideways. Frames 0.
+
+FX-GMELT-006 (`fx_gmelt_006.json`): The ramp, completion 50, softness 4, displacement 10: the blur rounds the ramp's ends, so the edge columns bend less. Frames 0.
+
+FX-GMELT-007 (`fx_gmelt_007.json`): The holder as its own gradient (as added), completion 40, softness 2, displacement 8: its dark red and blue squares melt first, bending round their edges. Frames 0.
+
+FX-GMELT-008 (`fx_gmelt_008.json`): The dome as the gradient, completion 50, softness 2, displacement 6: the dark rim goes first, the bright middle stays, bent outward. Frames 0.
+
+FX-GMELT-009 (`fx_gmelt_009.json`): FX-GMELT-008 with displacement -6: bent the other way. Frames 0.
+
+FX-GMELT-010 (`fx_gmelt_010.json`): The dome, completion 50, nothing revealed: the gone part clear. Frames 0.
+
+FX-GMELT-011 (`fx_gmelt_011.json`): A white gradient, softness 100, displacement 500: flat, so nothing bends, and at completion 50 nothing is dark enough to go. Frames 0.
+
+FX-GMELT-012 (`fx_gmelt_012.json`): The checker stretched to 16 by 10, completion 50, softness 3, displacement 5: soft squares melt. Frames 0.
+
+FX-GMELT-013 (`fx_gmelt_013.json`): Completion keyed from 0 at frame 0 to 100 at frame 4, the dome: frame 0 the holder, frame 2 FX-GMELT-008, frame 4 the paint. Frames 0, 2, 4.
+
+FX-GMELT-014 (`fx_gmelt_014.json`): Displacement keyed from 0 at frame 0 to 12 at frame 4, the dome at 50: frame 2 is FX-GMELT-008. Frames 0, 2, 4.
+
+FX-GMELT-015 (`fx_gmelt_015.json`): Softness keyed from 0 at frame 0 to 4 at frame 4, the ramp: frame 0 FX-GMELT-005's softness, frame 4 a softer ramp. Frames 0, 4.
+
+FX-GMELT-016 (`fx_gmelt_016.json`): A reveal layer that is not in the composition, `gone`: nothing changes, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-GMELT-017 (`fx_gmelt_017.json`): A gradient layer that is not in the composition, `gone`: nothing changes, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-GMELT-018 (`fx_gmelt_018.json`): The paint with its in point at frame 4 as the reveal: before it nothing is revealed, so the gone part is clear; at frame 4 FX-GMELT-008. Frames 0, 4.
+
+FX-GMELT-019 (`fx_gmelt_019.json`): The paint's middle 8 by 6 as the reveal, centred: it lies where it was cut, clear round it. Frames 0.
+
+FX-GMELT-020 (`fx_gmelt_020.json`): The holder revealing itself, the dome, completion 50: the layer bends into itself. Frames 0.
+
+FX-GMELT-021 (`fx_gmelt_021.json`): FX-GMELT-008 on the holder moved 2 right and 1 down: the same picture moved, since the maps lie on the layer. Frames 0.
+
+FX-GMELT-022 (`fx_gmelt_022.json`): The effect on an adjustment layer above the holder: the maps lie on the frame, which here is the holder's own rectangle, so this is FX-GMELT-008. Frames 0.
+
+FX-GMELT-023 (`fx_gmelt_023.json`): The ramp, completion 25, softness 0, displacement 0: only the darkest columns gone. Frames 0.
+
+FX-GMELT-024 (`fx_gmelt_024.json`): The ramp, completion 75, softness 0, displacement 0: only the lightest columns kept. Frames 0.
+
+FX-GMELT-025 (`fx_gmelt_025.json`): Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GMELT-026 (`fx_gmelt_026.json`): Completion -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GMELT-027 (`fx_gmelt_027.json`): Softness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GMELT-028 (`fx_gmelt_028.json`): Softness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GMELT-029 (`fx_gmelt_029.json`): Displacement 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GMELT-030 (`fx_gmelt_030.json`): Displacement -501, below -500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GMELT-031 (`fx_gmelt_031.json`): A reveal layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GMELT-032 (`fx_gmelt_032.json`): A gradient layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GMELT-033 (`fx_gmelt_033.json`): Completion keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
