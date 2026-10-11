@@ -972,6 +972,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Plastic { .. }
                 // D-464: Repeat Tile, which grows the layer.
                 | crate::effects::Effect::RepeatTile { .. }
+                // D-465: Scatter.
+                | crate::effects::Effect::Scatter { .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }
@@ -1368,6 +1370,8 @@ fn card_effect(
                     let k = crate::layer_fx::repeat_tile_setup([*expand_right, *expand_left, *expand_down, *expand_up], tiling, *blend_borders);
                     crate::layer_fx::repeat_tile_growth([*expand_right, *expand_left, *expand_down, *expand_up], size) == (0, 0) && k[5] == 0.0
                 }
+                // D-465: no reach, as `layer_fx::scatter` returns at once.
+                E::Scatter { scatter_amount, grain, .. } => crate::layer_fx::scatter_setup(*scatter_amount, grain)[0] == 0,
                 // B-123: the batch's five new ones, each as its own function returns at once.
                 E::ColorLookup { table, .. } => table.is_none(),
                 E::ArbitraryMap { table, .. } => table.is_none(),

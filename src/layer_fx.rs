@@ -3128,6 +3128,57 @@ pub(crate) fn repeat_tile(source: &mut WorkingBuffer, k: &[f64; 6]) -> (usize, u
     (gx, gy)
 }
 
+/// D-465: Scatter's numbers (document 21): its reach in whole pixels, floor(amount + 1/2), and
+/// its Grain's place in `SCATTER_GRAINS`, 0 both ways, 1 across only, 2 down only. The card's
+/// warp mode 102 reads the same two.
+pub(crate) fn scatter_setup(amount: f64, grain: &str) -> [u32; 2] {
+    let g = crate::effects::SCATTER_GRAINS.iter().position(|m| *m == grain).unwrap_or(0);
+    [(amount + 0.5).floor().max(0.0) as u32, g as u32]
+}
+
+/// D-465: Scatter's move, across and down, for output place (x, y) at frame `f`, reach `k[0]`
+/// and Grain `k[1]`: each a whole number from -reach to reach, from a 32-bit hash of the place,
+/// the frame and the direction. The card's warp mode 102 works it the same way.
+pub(crate) fn scatter_move(k: [u32; 2], x: u32, y: u32, f: i32) -> (i64, i64) {
+    let hash = |d: u32| {
+        let mut t = x.wrapping_mul(0x9E37_79B1) ^ y.wrapping_mul(0x85EB_CA77) ^ (f as u32).wrapping_mul(0xC2B2_AE3D) ^ d.wrapping_mul(0x27D4_EB2F);
+        t ^= t >> 15;
+        t = t.wrapping_mul(0x2C1B_3C6D);
+        t ^= t >> 12;
+        t = t.wrapping_mul(0x297A_2D39);
+        t ^ (t >> 15)
+    };
+    let span = 2 * k[0] + 1;
+    let dx = if k[1] == 2 { 0 } else { (hash(0) % span) as i64 - k[0] as i64 };
+    let dy = if k[1] == 1 { 0 } else { (hash(1) % span) as i64 - k[0] as i64 };
+    (dx, dy)
+}
+
+/// D-465: after After Effects' Scatter. Each pixel the buffer's pixel `scatter_move` away, or
+/// clear where that lies outside it; nothing is mixed and nothing grows. `k` from
+/// `scatter_setup`; a reach of 0 leaves the buffer as it is.
+pub(crate) fn scatter(source: &mut WorkingBuffer, k: [u32; 2], f: i32) {
+    let (w, h) = (source.width(), source.height());
+    if k[0] == 0 || w == 0 || h == 0 {
+        return;
+    }
+    let mut out = WorkingBuffer::transparent(w, h);
+    let d = source.data();
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = (i % w, i / w);
+            let (dx, dy) = scatter_move(k, x as u32, y as u32, f);
+            let (u, v) = (x as i64 + dx, y as i64 + dy);
+            if (0..w as i64).contains(&u) && (0..h as i64).contains(&v) {
+                let s = (v as usize * w + u as usize) * 4;
+                px.copy_from_slice(&d[s..s + 4]);
+            }
+        });
+    *source = out;
+}
+
 /// D-404: Tiles, Motion Tile's sized tile held at the buffer's size, `scale` per cent across
 /// and down round `center`, then `blend` per cent of the original mixed back.
 pub(crate) fn tiles(source: &mut WorkingBuffer, scale: f64, center: [f64; 2], blend: f64) {

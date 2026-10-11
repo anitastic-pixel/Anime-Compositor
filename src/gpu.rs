@@ -3726,6 +3726,16 @@ fn hex_fold(u: f64, n: f64, z: f64) -> f64 {
     return clamp(select(m, t - m, m > n), 0.5lf, n - 0.5lf);
 }
 
+// D-465, layer_fx::scatter_move's hash of the place, the frame and the direction.
+fn scatter_hash(x: u32, y: u32, d: u32) -> u32 {
+    var t = (x * 0x9E3779B1u) ^ (y * 0x85EBCA77u) ^ (u32(F.frame) * 0xC2B2AE3Du) ^ (d * 0x27D4EB2Fu);
+    t = t ^ (t >> 15u);
+    t = t * 0x2C1B3C6Du;
+    t = t ^ (t >> 12u);
+    t = t * 0x297A2D39u;
+    return t ^ (t >> 15u);
+}
+
 // D-464, layer_fx::repeat_tile_at's floor division and remainder, for any sign of a.
 fn repeat_div(a: i32, n: i32) -> i32 {
     return select(a / n, (a + 1) / n - 1, a < 0);
@@ -4768,6 +4778,27 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             sy = k[1] + product(s, lu, z) + product(c, lv, z) + product(m, product(s, mu, z) + product(c, mv, z), z);
             sx = hex_fold(sx, f64(size.x), z);
             sy = hex_fold(sy, f64(size.y), z);
+        }
+        case 102u: {
+            // D-465, layer_fx::scatter: k[0] the reach, k[1] the Grain; the move worked in
+            // whole numbers as the CPU's is.
+            let n = vec2<i32>(textureDimensions(input));
+            let r = u32(k[0]);
+            let span = 2u * r + 1u;
+            var d = vec2<i32>(0);
+            if k[1] != 2.0lf {
+                d.x = i32(scatter_hash(id.x, id.y, 0u) % span) - i32(r);
+            }
+            if k[1] != 1.0lf {
+                d.y = i32(scatter_hash(id.x, id.y, 1u) % span) - i32(r);
+            }
+            let q = vec2<i32>(id.xy) + d;
+            if q.x < 0 || q.y < 0 || q.x >= n.x || q.y >= n.y {
+                textureStore(output, id.xy, vec4<f32>(0.0));
+            } else {
+                textureStore(output, id.xy, textureLoad(input, q, 0));
+            }
+            return;
         }
         case 101u: {
             // D-464, layer_fx::repeat_tile: k as repeat_tile_setup lays it, every choice made in
@@ -12089,6 +12120,11 @@ impl Gpu {
                 let p = FxParams { mode: 101, ox: gx as i32, oy: gy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.warp, p, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
                 (out, (tw, th))
+            }
+            // D-465: one warp pass, mode 102.
+            E::Scatter { scatter_amount, grain, frame, .. } => {
+                let k = crate::layer_fx::scatter_setup(*scatter_amount, grain);
+                same(steps, &passes.warp, FxParams { mode: 102, frame: *frame, ..Default::default() }, &[k[0] as f64, k[1] as f64], None)
             }
             E::LinearWipe { completion, angle, feather } => {
                 let ((ux, uy), edge) = crate::layer_fx::linear_edge(*completion, *angle, *feather, (w, h), f.origin);

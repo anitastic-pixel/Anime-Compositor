@@ -273,6 +273,10 @@ impl EffectInstance {
             if let Effect::BrushStrokes { animate, frame: f, .. } = &mut effect {
                 *f = if animate == "on" { frame } else { 0 };
             }
+            // D-465: a new jumble each frame, or the same one.
+            if let Effect::Scatter { randomize, frame: f, .. } = &mut effect {
+                *f = if randomize == "on" { frame } else { 0 };
+            }
             // D-125, D-127 and D-128: the flicker's, the wobble's and the clouds' frame.
             if let Effect::ExposureFlicker { frame: f, .. } = &mut effect {
                 *f = frame;
@@ -2549,6 +2553,17 @@ pub enum Effect {
         tiling: String,
         blend_borders: f64,
     },
+    /// D-465: after After Effects' Scatter (`layer_fx::scatter`, document 21).
+    /// `scatter_amount`, 0 to 127 pixels, draft-scaled; `grain`, one of [`SCATTER_GRAINS`];
+    /// `randomize`, "on" or "off", a new jumble each frame or the same one. Words are kept as
+    /// written so a wrong one is reported. `frame` is the composition frame when `randomize` is
+    /// on, else 0; never saved.
+    Scatter {
+        scatter_amount: f64,
+        grain: String,
+        randomize: String,
+        frame: i32,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -3403,6 +3418,9 @@ pub const HEX_TILE: &str = "core.hex_tile";
 pub const MR_SMOOTHIE: &str = "core.mr_smoothie";
 pub const PLASTIC: &str = "core.plastic";
 pub const REPEAT_TILE: &str = "core.repeat_tile";
+pub const SCATTER: &str = "core.scatter";
+/// D-465: Scatter's grains, After Effects' three in its order.
+pub const SCATTER_GRAINS: [&str; 3] = ["both", "horizontal", "vertical"];
 /// D-464: Repeat Tile's ways of laying the copies, After Effects' sixteen in its order.
 pub const REPEAT_TILE_TILINGS: [&str; 16] = [
     "repeat",
@@ -4799,6 +4817,7 @@ impl Effect {
                 ("expand_up", vec![expand_up], 0.0, 4000.0),
                 ("blend_borders", vec![blend_borders], 0.0, 100.0),
             ],
+            Effect::Scatter { scatter_amount, .. } => vec![("scatter_amount", vec![scatter_amount], 0.0, 127.0)],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -5667,6 +5686,8 @@ impl Effect {
                     *e = scale(*e);
                 }
             }
+            // D-465: the pixels move as far on the picture.
+            Effect::Scatter { scatter_amount, .. } => *scatter_amount = scale(*scatter_amount),
             Effect::Snowfall {
                 spacing,
                 size,
@@ -6229,6 +6250,7 @@ impl Effect {
             Effect::MrSmoothie { .. } => "Mr. Smoothie",
             Effect::Plastic { .. } => "Plastic",
             Effect::RepeatTile { .. } => "Repeat Tile",
+            Effect::Scatter { .. } => "Scatter",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -6445,6 +6467,7 @@ impl Effect {
             Effect::MrSmoothie { .. } => MR_SMOOTHIE,
             Effect::Plastic { .. } => PLASTIC,
             Effect::RepeatTile { .. } => REPEAT_TILE,
+            Effect::Scatter { .. } => SCATTER,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -7819,6 +7842,13 @@ impl Effect {
             Effect::RepeatTile { tiling, .. } if !REPEAT_TILE_TILINGS.contains(&tiling.as_str()) => Some(format!(
                 "Repeat Tile's tiling is one of {}, and this is \"{tiling}\".",
                 REPEAT_TILE_TILINGS.join(", ")
+            )),
+            Effect::Scatter { grain, .. } if !SCATTER_GRAINS.contains(&grain.as_str()) => Some(format!(
+                "Scatter's grain is one of {}, and this is \"{grain}\".",
+                SCATTER_GRAINS.join(", ")
+            )),
+            Effect::Scatter { randomize, .. } if !["on", "off"].contains(&randomize.as_str()) => Some(format!(
+                "Scatter's randomize every frame is \"on\" or \"off\", and this is \"{randomize}\"."
             )),
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
@@ -10371,6 +10401,11 @@ pub(crate) fn apply_stack_at(
                 let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectRepeatTile, || crate::layer_fx::repeat_tile(source, &k));
                 ox += gx;
                 oy += gy;
+            }
+            // D-465: each pixel read from a whole-pixel move within reach, the layer's size kept.
+            Effect::Scatter { scatter_amount, grain, frame, .. } => {
+                let k = crate::layer_fx::scatter_setup(*scatter_amount, grain);
+                crate::perf::time(crate::perf::Stage::EffectScatter, || crate::layer_fx::scatter(source, k, *frame));
             }
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
                 crate::median::smart_blur(source, *radius, *threshold)

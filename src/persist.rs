@@ -2691,6 +2691,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("tiling".into(), J::from(tiling.as_str()));
             params.insert("blend_borders".into(), num(*blend_borders));
         }
+        Effect::Scatter { scatter_amount, grain, randomize, .. } => {
+            params.insert("scatter_amount".into(), num(*scatter_amount));
+            params.insert("grain".into(), J::from(grain.as_str()));
+            params.insert("randomize".into(), J::from(randomize.as_str()));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -5245,6 +5250,7 @@ fn parse_effect(
         crate::effects::MR_SMOOTHIE,
         crate::effects::PLASTIC,
         crate::effects::REPEAT_TILE,
+        crate::effects::SCATTER,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6373,6 +6379,12 @@ fn parse_effect(
             expand_up: effect_number(params, "expand_up", &at)?,
             tiling: effect_word(params, "tiling", &at)?,
             blend_borders: effect_number(params, "blend_borders", &at)?,
+        }),
+        crate::effects::SCATTER => Some(crate::effects::Effect::Scatter {
+            scatter_amount: effect_number(params, "scatter_amount", &at)?,
+            grain: effect_word(params, "grain", &at)?,
+            randomize: effect_word(params, "randomize", &at)?,
+            frame: 0,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,
