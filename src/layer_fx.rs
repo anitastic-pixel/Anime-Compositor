@@ -1567,19 +1567,7 @@ pub(crate) fn vector_blur(
         return;
     }
     let w = source.width();
-    let mut height = WorkingBuffer::transparent(w, source.height());
-    let from = source.data();
-    height.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let q = match map {
-            Some((m, (ox, oy))) => {
-                let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
-                if mx < m.width() && my < m.height() { m.pixel(mx, my) } else { [0.0; 4] }
-            }
-            None => [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]],
-        };
-        px[3] = (crate::grade::phase_of(property, &q) * if property == "alpha" { 1.0 } else { q[3] as f64 }) as f32;
-    });
-    let r = if softness > 0.0 { blur(&mut height, softness / 2.0) as isize } else { 0 };
+    let (height, r) = flow_height(source, map, property, softness);
     let (bw, bh) = (height.width() as isize, height.height() as isize);
     let data = height.data();
     let at = |x: isize, y: isize| {
@@ -1627,6 +1615,79 @@ pub(crate) fn vector_blur(
         }
         for c in 0..4 {
             px[c] = (acc[c] / total) as f32;
+        }
+    });
+}
+
+/// D-336/D-462: Vector Blur's and Mr. Smoothie's height, in the alpha of a buffer: the
+/// `property` phase of the drawing, or of `map` lying on it with its corner at the given origin
+/// (clear outside it), times the covering unless the property is alpha, blurred at sigma
+/// `softness / 2` with nothing outside. The buffer is grown by the reach it returns.
+fn flow_height(source: &WorkingBuffer, map: Option<(&WorkingBuffer, (usize, usize))>, property: &str, softness: f64) -> (WorkingBuffer, isize) {
+    let w = source.width();
+    let mut height = WorkingBuffer::transparent(w, source.height());
+    let from = source.data();
+    height.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let q = match map {
+            Some((m, (ox, oy))) => {
+                let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
+                if mx < m.width() && my < m.height() { m.pixel(mx, my) } else { [0.0; 4] }
+            }
+            None => [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]],
+        };
+        px[3] = (crate::grade::phase_of(property, &q) * if property == "alpha" { 1.0 } else { q[3] as f64 }) as f32;
+    });
+    let r = if softness > 0.0 { blur(&mut height, softness / 2.0) as isize } else { 0 };
+    (height, r)
+}
+
+/// D-462: Mr. Smoothie's numbers for a buffer `size` whose drawing's corner is at `origin`: the
+/// phase over 360, the colour loop's place in [`crate::effects::MR_SMOOTHIE_LOOPS`], Sample A's x
+/// and y and Sample B's in the buffer, and a 0 for the card's rounded products.
+pub(crate) fn mr_smoothie_setup(phase: f64, color_loop: &str, a: [f64; 2], b: [f64; 2], size: (usize, usize), origin: (usize, usize)) -> [f64; 7] {
+    let (ax, ay) = crate::effects::radial_center(a, size, origin);
+    let (bx, by) = crate::effects::radial_center(b, size, origin);
+    let lp = crate::effects::MR_SMOOTHIE_LOOPS.iter().position(|l| *l == color_loop).unwrap_or(2);
+    [phase / 360.0, lp as f64, ax, ay, bx, by, 0.0]
+}
+
+/// D-462: after After Effects' CC Mr. Smoothie (document 21). The flow is `flow_height` at
+/// `smoothness`, held to 0 to 1 and moved on by the phase, wrapped only outside 0 to 1; the
+/// colour loop makes it a place s along the line from Sample A to Sample B (AB s = t, BA 1 - t,
+/// ABA 1 - |2t - 1|, BAB |2t - 1|), and each pixel takes the straight colour of the bilinear
+/// sample there, held inside the pixel centres, times its own covering. `k` from
+/// `mr_smoothie_setup`; the card's `smoothie` pass works the same products in the same order.
+pub(crate) fn mr_smoothie(source: &mut WorkingBuffer, map: Option<(&WorkingBuffer, (usize, usize))>, property: &str, smoothness: f64, k: &[f64; 7]) {
+    let (w, h) = (source.width(), source.height());
+    if w == 0 || h == 0 {
+        return;
+    }
+    let (height, r) = flow_height(source, map, property, smoothness);
+    let (bw, data) = (height.width() as isize, height.data());
+    let (fw, fh) = (w as f64, h as f64);
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            px.copy_from_slice(&[0.0; 4]);
+            return;
+        }
+        let (x, y) = ((i % w) as isize + r, (i / w) as isize + r);
+        let v = (data[((y * bw + x) * 4 + 3) as usize] as f64).clamp(0.0, 1.0);
+        let mut t = v + k[0];
+        if t < 0.0 || t > 1.0 {
+            t -= t.floor();
+        }
+        let s = match k[1] as u8 {
+            0 => t,
+            1 => 1.0 - t,
+            2 => 1.0 - (2.0 * t - 1.0).abs(),
+            _ => (2.0 * t - 1.0).abs(),
+        };
+        let q = sample_bilinear(&still, (k[2] + s * (k[4] - k[2])).clamp(0.5, fw - 0.5), (k[3] + s * (k[5] - k[3])).clamp(0.5, fh - 0.5));
+        let qa = q[3] as f64;
+        for c in 0..3 {
+            px[c] = if qa > 0.0 { (q[c] as f64 / qa * a) as f32 } else { 0.0 };
         }
     });
 }

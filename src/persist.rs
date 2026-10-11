@@ -2603,6 +2603,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("rotate".into(), num(*rotate));
             params.insert("smearing".into(), num(*smearing));
         }
+        Effect::MrSmoothie { layer, fit, property, smoothness, sample_a, sample_b, phase, color_loop, .. } => {
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("property".into(), J::from(property.as_str()));
+            params.insert("smoothness".into(), num(*smoothness));
+            params.insert("sample_a".into(), J::Array(sample_a.iter().map(|c| num(*c)).collect()));
+            params.insert("sample_b".into(), J::Array(sample_b.iter().map(|c| num(*c)).collect()));
+            params.insert("phase".into(), num(*phase));
+            params.insert("color_loop".into(), J::from(color_loop.as_str()));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -5125,6 +5135,7 @@ fn parse_effect(
         crate::effects::BLOCK_LOAD,
         crate::effects::BURN_FILM,
         crate::effects::HEX_TILE,
+        crate::effects::MR_SMOOTHIE,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6171,6 +6182,18 @@ fn parse_effect(
             lock_center: effect_word(params, "lock_center", &at)?,
             rotate: effect_number(params, "rotate", &at)?,
             smearing: effect_number(params, "smearing", &at)?,
+        }),
+        // D-462: the layer is kept as written, as CC Vector Blur's is.
+        crate::effects::MR_SMOOTHIE => Some(crate::effects::Effect::MrSmoothie {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            property: effect_word(params, "property", &at)?,
+            smoothness: effect_number(params, "smoothness", &at)?,
+            sample_a: effect_array(params, "sample_a", "two numbers, x then y", &at)?,
+            sample_b: effect_array(params, "sample_b", "two numbers, x then y", &at)?,
+            phase: effect_number(params, "phase", &at)?,
+            color_loop: effect_word(params, "color_loop", &at)?,
+            map: None,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

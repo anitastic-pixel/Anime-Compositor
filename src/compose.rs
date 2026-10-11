@@ -966,6 +966,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::BurnFilm { .. }
                 // D-461: Hex Tile, its sines worked by the processor.
                 | crate::effects::Effect::HexTile { .. }
+                // D-462: Mr. Smoothie.
+                | crate::effects::Effect::MrSmoothie { .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }

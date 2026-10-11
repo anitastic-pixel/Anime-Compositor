@@ -5025,6 +5025,46 @@ fn burnfilm(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-462, layer_fx::mr_smoothie: k the phase over 360, the colour loop (ab, ba, aba, bab), Sample
+// A's x and y, Sample B's, and a 0 for the rounded products; `other` the height, its corner F.r
+// pixels out, as `vblur`'s.
+@compute @workgroup_size(16, 16)
+fn smoothie(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let a = f64(textureLoad(input, id.xy, 0).w);
+    if a <= 0.0lf {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    let z = k[6];
+    let v = clamp(height(vec2<i32>(id.xy)), 0.0lf, 1.0lf);
+    var t = v + k[0];
+    if t < 0.0lf || t > 1.0lf {
+        t = t - floor(t);
+    }
+    let lp = u32(k[1]);
+    var s = t;
+    if lp == 1u {
+        s = 1.0lf - t;
+    } else if lp == 2u {
+        s = 1.0lf - abs(2.0lf * t - 1.0lf);
+    } else if lp == 3u {
+        s = abs(2.0lf * t - 1.0lf);
+    }
+    let px = clamp(k[2] + product(s, k[4] - k[2], z), 0.5lf, f64(size.x) - 0.5lf);
+    let py = clamp(k[3] + product(s, k[5] - k[3], z), 0.5lf, f64(size.y) - 0.5lf);
+    let q = bilinear(input, px, py);
+    let qa = f64(q.w);
+    var out = vec4(0.0, 0.0, 0.0, f32(a));
+    if qa > 0.0lf {
+        out = vec4(f32(quotient(f64(q.x), qa) * a), f32(quotient(f64(q.y), qa) * a), f32(quotient(f64(q.z), qa) * a), f32(a));
+    }
+    textureStore(output, id.xy, out);
+}
+
 // layer_fx::picture_luma.
 fn picture_luma(p: vec4<f32>) -> f64 {
     return to_srgb(clamp(0.2126lf * f64(p.x) + 0.7152lf * f64(p.y) + 0.0722lf * f64(p.z), 0.0lf, 1.0lf));
@@ -9184,6 +9224,8 @@ struct FxPasses {
     gmelt: Pass,
     /// D-460.
     burnfilm: Pass,
+    /// D-462.
+    smoothie: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -9863,6 +9905,7 @@ impl Gpu {
                 gmeltk: pass("gmeltk", &[0, 1, 3, 7]),
                 gmelt: pass("gmelt", &[0, 1, 2, 3, 4, 7]),
                 burnfilm: pass("burnfilm", &[0, 1, 2, 3]),
+                smoothie: pass("smoothie", &[0, 1, 2, 3, 4]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -12529,6 +12572,29 @@ impl Gpu {
                 let k = [*amount, *angle_offset, *ridge_smoothness, amount.ceil(), kind_at as f64, turn.cos(), turn.sin()];
                 let out = self.scratch("B-223 vector", w, h);
                 self.fx_step(steps, &passes.vblur, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&height), none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-462: the height as CC Vector Blur's, then one pass that samples the drawing.
+            E::MrSmoothie { property, smoothness, sample_a, sample_b, phase, color_loop, map, .. } => {
+                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let (picture, (mx, my)) = match map {
+                    Some(m) => (self.map_texture(&m.0), (ox, oy)),
+                    None => (still.clone(), (0, 0)),
+                };
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| p == property).expect("compose leaves a valid Mr. Smoothie");
+                let raw = self.scratch("D-462 height", w, h);
+                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
+                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let (height, r) = if *smoothness > 0.0 {
+                    let taps = crate::effects::gaussian_weights(smoothness / 2.0);
+                    let r = taps.len() / 2;
+                    (self.gauss(steps, bloom, "D-462 height", &raw, (w, h), [&taps, &taps], r, false), r)
+                } else {
+                    (raw, 0)
+                };
+                let k = crate::layer_fx::mr_smoothie_setup(*phase, color_loop, *sample_a, *sample_b, (w, h), (ox, oy));
+                let out = self.scratch("D-462 smoothie", w, h);
+                self.fx_step(steps, &passes.smoothie, FxParams { r: r as i32, ..Default::default() }, Some(still), Some(&out), Some(&k), Some(&height), none, tiles(w, h));
                 (out, (w, h))
             }
             E::CompoundBlur { max_blur, invert, edges, map, .. } => {
