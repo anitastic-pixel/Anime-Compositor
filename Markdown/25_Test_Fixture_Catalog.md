@@ -208814,3 +208814,55 @@ FX-ENERGY-051 (`fx_energy_051.json`): Composite "screen", which is not "add", "t
 FX-ENERGY-052 (`fx_energy_052.json`): Path From "mask", which is not "points", "masks", "shapes" or "text". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-ENERGY-053 (`fx_energy_053.json`): Glow colour "#12345", not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Block Load (D-449)
+
+Block Load, after After Effects' CC Block Load (Stylize), `core.block_load` (B-329). Every case is a composition 16 by 10 holding D-144's strip, unmoved unless the case says; `tools/block_load_reference.py` works the expected frames, `Fixtures/block_load/expected_block_load.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-BLOCKLOAD-001 (`fx_blockload_001.json`): The settings as they start: Completion 0, Scans 4, Start Cleared on: nothing shows yet. Frames 0.
+
+FX-BLOCKLOAD-002 (`fx_blockload_002.json`): Completion 100: every pass done, the drawing as it is. Frames 0.
+
+FX-BLOCKLOAD-003 (`fx_blockload_003.json`): Scans 3, Start Cleared off, Completion 0: the roughest picture, blocks 8 pixels square, as Mosaic size 8 draws it (FX-MOSAIC-009). Frames 0.
+
+FX-BLOCKLOAD-004 (`fx_blockload_004.json`): Scans 2, Completion 20: three passes, the first, blocks 4 wide, a little over half under way: its first row of blocks, rows 0 to 3, drawn; below it nothing yet. Frames 0.
+
+FX-BLOCKLOAD-005 (`fx_blockload_005.json`): Scans 2, Completion 50: the second pass, blocks 2 wide, half under way: rows 0 to 3 in blocks 2 wide, rows 4 to 9 still in blocks 4 wide. Frames 0.
+
+FX-BLOCKLOAD-006 (`fx_blockload_006.json`): Scans 2, Start Cleared off, Completion 50: two passes, the first done and the last not begun: all in blocks 2 wide, Mosaic size 2. Frames 0.
+
+FX-BLOCKLOAD-007 (`fx_blockload_007.json`): Scans 2, Start Cleared off, Completion 78: the last pass a little over half way: rows 0 to 4 the drawing as it is, rows 5 to 9 in blocks 2 wide. Frames 0.
+
+FX-BLOCKLOAD-008 (`fx_blockload_008.json`): Scans 1, Start Cleared off, Completion 0: blocks 2 wide. Frames 0.
+
+FX-BLOCKLOAD-009 (`fx_blockload_009.json`): Scans 16, Start Cleared off, Completion 0: one block, the whole drawing's mean (FX-MOSAIC-007). Frames 0.
+
+FX-BLOCKLOAD-010 (`fx_blockload_010.json`): Scans 2.7: its whole part, FX-BLOCKLOAD-005. Frames 0.
+
+FX-BLOCKLOAD-011 (`fx_blockload_011.json`): Bilinear, Scans 2, Start Cleared off, Completion 0: the blocks 4 wide blended smoothly into each other instead of flat. Frames 0.
+
+FX-BLOCKLOAD-012 (`fx_blockload_012.json`): Bilinear, Scans 2, Completion 50: FX-BLOCKLOAD-005 blended. Frames 0.
+
+FX-BLOCKLOAD-013 (`fx_blockload_013.json`): Bilinear, Completion 100: the drawing as it is. Frames 0.
+
+FX-BLOCKLOAD-014 (`fx_blockload_014.json`): Completion keyed from 0 at frame 0 to 100 at frame 4, linear, Scans 2: frame 0 nothing; frame 1 the first pass three quarters done, rows 0 to 7 in blocks 4 wide; frame 2 FX-BLOCKLOAD-005; frame 3 the last pass a quarter done, rows 0 and 1 as drawn, the rest in blocks 2 wide; frame 4 the drawing. Frames 0, 1, 2, 3, 4.
+
+FX-BLOCKLOAD-015 (`fx_blockload_015.json`): Scans keyed from 1 at frame 0 to 3 at frame 4, eased past its end, Start Cleared off, Completion 0: blocks 2 wide at frame 0, then 4 or 8. Frames 0, 2, 4.
+
+FX-BLOCKLOAD-016 (`fx_blockload_016.json`): FX-BLOCKLOAD-005 moved three pixels right: the blocks are laid from the drawing's own corner, so they move with it. Frames 0.
+
+FX-BLOCKLOAD-017 (`fx_blockload_017.json`): After a directional blur (direction 90, length 4) that grows the layer two pixels on every side, Scans 2, Completion 50: the blocks are laid from the drawing's corner, and the pass's rows of blocks are the grown layer's, the two grown rows above the drawing a short row of their own. Frames 0.
+
+FX-BLOCKLOAD-018 (`fx_blockload_018.json`): Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOCKLOAD-019 (`fx_blockload_019.json`): Completion -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOCKLOAD-020 (`fx_blockload_020.json`): Scans 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOCKLOAD-021 (`fx_blockload_021.json`): Scans 17, above 16. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOCKLOAD-022 (`fx_blockload_022.json`): Start Cleared "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOCKLOAD-023 (`fx_blockload_023.json`): Bilinear "On", in capitals, not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BLOCKLOAD-024 (`fx_blockload_024.json`): Completion keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
