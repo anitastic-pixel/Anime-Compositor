@@ -10722,6 +10722,8 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::Unmult { .. }
             // D-540.
             | E::ScreenKey { .. }
+            // D-548.
+            | E::SpillSuppressor { .. }
     )
 }
 
@@ -12155,7 +12157,9 @@ impl Gpu {
         let turned = crate::effects::turbulent_fractal(&f.instance.effect)
             .or_else(|| crate::grade::matched_grain(&f.instance.effect))
             // D-523: Depth of Field as its Lens Blur.
-            .or_else(|| crate::effects::depth_lens(&f.instance.effect));
+            .or_else(|| crate::effects::depth_lens(&f.instance.effect))
+            // D-548: Spill Suppressor as its Screen Key.
+            .or_else(|| crate::effects::second_name(&f.instance.effect));
         match turned.as_ref().unwrap_or(&f.instance.effect) {
             E::MatchGrain { .. } => (still.clone(), (w, h)),
             E::RemoveGrain { passes: count, mode, unsharp_amount, unsharp_radius, .. } => {

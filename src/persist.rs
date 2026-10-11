@@ -1100,6 +1100,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("bypass".into(), J::from(bypass.as_str()));
             }
         }
+        Effect::ReduceInterlaceFlicker { softness } => {
+            params.insert("softness".into(), num(*softness));
+        }
+        Effect::SpillSuppressor { color_to_suppress, suppression } => {
+            params.insert("color_to_suppress".into(), J::from(color_to_suppress.as_str()));
+            params.insert("suppression".into(), num(*suppression));
+        }
         Effect::GaussianBlur { sigma_px, edges, dimensions, units } => {
             params.insert("sigma_px".into(), num(*sigma_px));
             put_edges(&mut params, edges);
@@ -5495,6 +5502,8 @@ fn parse_effect(
         crate::effects::KEY_CLEANER,
         crate::effects::LINEAR_COLOR_KEY,
         crate::effects::SCREEN_KEY,
+        crate::effects::SPILL_SUPPRESSOR,
+        crate::effects::REDUCE_INTERLACE_FLICKER,
         crate::effects::UNMULT,
         crate::effects::THREE_D_GLASSES,
         crate::effects::GLASS_MELT,
@@ -5643,6 +5652,13 @@ fn parse_effect(
             offset: effect_number_or(params, "offset", &at, 0.0)?,
             gamma: effect_number_or(params, "gamma", &at, 1.0)?,
             bypass: effect_word_or(params, "bypass", &at, "off")?,
+        }),
+        crate::effects::REDUCE_INTERLACE_FLICKER => Some(crate::effects::Effect::ReduceInterlaceFlicker {
+            softness: effect_number(params, "softness", &at)?,
+        }),
+        crate::effects::SPILL_SUPPRESSOR => Some(crate::effects::Effect::SpillSuppressor {
+            color_to_suppress: effect_word(params, "color_to_suppress", &at)?,
+            suppression: effect_number(params, "suppression", &at)?,
         }),
         crate::effects::GAUSSIAN_BLUR => Some(crate::effects::Effect::GaussianBlur {
             sigma_px: effect_number(params, "sigma_px", &at)?,

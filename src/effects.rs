@@ -527,6 +527,10 @@ pub enum Effect {
     /// D-321: `units`, "sigma" (`sigma_px` is the sigma) or "blurriness" (After Effects'
     /// Blurriness, [`blur_reach`]).
     GaussianBlur { sigma_px: f64, edges: String, dimensions: String, units: String },
+    /// D-549: After Effects' Reduce Interlace Flicker (Obsolete), a second name over Gaussian
+    /// Blur ([`second_name`]): `softness`, 0 to 500, the sigma in pixels of a Gaussian Blur
+    /// along the vertical only, its edges repeated.
+    ReduceInterlaceFlicker { softness: f64 },
     /// Document 21: "parameter color is linear RGB and amount `t` in 0..1."
     Tint { color: [f64; 3], amount: f64 },
     /// D-401: After Effects' Tint under the same `core.tint`: `map_black_to` and `map_white_to`,
@@ -2419,6 +2423,10 @@ pub enum Effect {
         softness: f64,
         edge_refine: f64,
     },
+    /// D-548: After Effects' Spill Suppressor (Obsolete), a second name over Screen Key's
+    /// despill with its matte off ([`second_name`]): `color_to_suppress`, "#rrggbb", whose
+    /// largest channel is the one held down; `suppression`, 0 to 100, the despill.
+    SpillSuppressor { color_to_suppress: String, suppression: f64 },
     /// D-505: after After Effects' Unmult, its rule and its settings when added ours
     /// (`grade::unmult`, document 21). `background_color`, "black" or "white"; `black_level`
     /// (used with black), `white_level` (used with white) and `softness`, 0 to 100 per cent;
@@ -3467,6 +3475,7 @@ pub enum Effect {
 /// `vendor.future.effect` is, so a built-in and a third-party effect can never collide.
 pub const EXPOSURE: &str = "core.exposure";
 pub const GAUSSIAN_BLUR: &str = "core.gaussian_blur";
+pub const REDUCE_INTERLACE_FLICKER: &str = "core.reduce_interlace_flicker";
 pub const TINT: &str = "core.tint";
 pub const LINE_SMOOTH: &str = "core.line_smooth";
 pub const SELECTIVE_COLOR_BLUR: &str = "core.selective_color_blur";
@@ -3838,6 +3847,7 @@ pub const LCKEY_MATCHES: [&str; 3] = ["rgb", "hue", "chroma"];
 /// D-541: Linear Color Key's key operations, Key Colors and Keep Colors.
 pub const LCKEY_OPERATIONS: [&str; 2] = ["key", "keep"];
 pub const SCREEN_KEY: &str = "core.screen_key";
+pub const SPILL_SUPPRESSOR: &str = "core.spill_suppressor";
 /// D-540: Screen Key's views.
 pub const SKEY_VIEWS: [&str; 3] = ["final", "screen_matte", "status"];
 pub const UNMULT: &str = "core.unmult";
@@ -4101,6 +4111,8 @@ impl Effect {
                 ("gamma", vec![gamma], 0.01, 9.99),
             ],
             Effect::GaussianBlur { sigma_px, .. } => vec![("sigma_px", vec![sigma_px], 0.0, 500.0)],
+            Effect::ReduceInterlaceFlicker { softness } => vec![("softness", vec![softness], 0.0, 500.0)],
+            Effect::SpillSuppressor { suppression, .. } => vec![("suppression", vec![suppression], 0.0, 100.0)],
             // A colour in linear light has no range but being a number.
             Effect::Tint { color, amount } => vec![
                 ("color", color.iter_mut().collect(), f64::MIN, f64::MAX),
@@ -6341,6 +6353,7 @@ impl Effect {
         }
         match self {
             Effect::GaussianBlur { sigma_px, .. } => *sigma_px = scale(*sigma_px),
+            Effect::ReduceInterlaceFlicker { softness } => *softness = scale(*softness),
             Effect::ChannelBlur {
                 red_blurriness,
                 green_blurriness,
@@ -6806,6 +6819,8 @@ impl Effect {
         match self {
             Effect::Exposure { .. } => "Exposure",
             Effect::GaussianBlur { .. } => "Gaussian Blur",
+            Effect::ReduceInterlaceFlicker { .. } => "Reduce Interlace Flicker",
+            Effect::SpillSuppressor { .. } => "Spill Suppressor",
             Effect::Tint { .. } | Effect::TintMap { .. } => "Tint",
             Effect::LineSmooth { .. } => "Line Smoothing",
             Effect::SelectiveColorBlur { .. } => "Selective Colour Blur",
@@ -7043,6 +7058,8 @@ impl Effect {
         match self {
             Effect::Exposure { .. } => EXPOSURE,
             Effect::GaussianBlur { .. } => GAUSSIAN_BLUR,
+            Effect::ReduceInterlaceFlicker { .. } => REDUCE_INTERLACE_FLICKER,
+            Effect::SpillSuppressor { .. } => SPILL_SUPPRESSOR,
             Effect::Tint { .. } | Effect::TintMap { .. } => TINT,
             Effect::LineSmooth { .. } => LINE_SMOOTH,
             Effect::SelectiveColorBlur { .. } => SELECTIVE_COLOR_BLUR,
@@ -7739,6 +7756,7 @@ impl Effect {
             Effect::ScreenKey { view, screen_color, .. } => (!SKEY_VIEWS.contains(&view.as_str()))
                 .then(|| format!("{name}'s view is \"final\", \"screen_matte\" or \"status\", and this is \"{view}\"."))
                 .or_else(|| hex_fault(name, "screen colour", screen_color)),
+            Effect::SpillSuppressor { color_to_suppress, .. } => hex_fault(name, "color to suppress", color_to_suppress),
             Effect::Unmult { background_color: b, remove_color_matting: r, clip_hdr_results: c, .. } => {
                 (!["black", "white"].contains(&b.as_str()))
                     .then(|| format!("{name}'s background color is \"black\" or \"white\", and this is \"{b}\"."))
@@ -9743,6 +9761,7 @@ pub(crate) fn apply_stack_at(
             && matches!(
                 instance.effect,
                 Effect::GaussianBlur { .. }
+                    | Effect::ReduceInterlaceFlicker { .. }
                     | Effect::FastBoxBlur { .. }
                     | Effect::DirectionalBlur { .. }
                     | Effect::RadialBlur { .. }
@@ -9757,7 +9776,10 @@ pub(crate) fn apply_stack_at(
         }
         // D-445: Turbulent Noise is drawn as the Fractal Noise it names.
         // D-523: Depth of Field as the Lens Blur it draws with its map.
-        let turned = turbulent_fractal(&instance.effect).or_else(|| depth_lens(&instance.effect));
+        // D-548, D-549: Spill Suppressor and Reduce Interlace Flicker as the effects they name.
+        let turned = turbulent_fractal(&instance.effect)
+            .or_else(|| depth_lens(&instance.effect))
+            .or_else(|| second_name(&instance.effect));
         match turned.as_ref().unwrap_or(&instance.effect) {
             Effect::Unsupported { .. } => {
                 report(at, instance, Bypassed::NotImplemented);
@@ -12354,6 +12376,9 @@ pub(crate) fn apply_stack_at(
                 oy += r;
             }
             Effect::TurbulentNoise { .. } => unreachable!("D-445: Turbulent Noise is turned into Fractal Noise above"),
+            Effect::SpillSuppressor { .. } | Effect::ReduceInterlaceFlicker { .. } => {
+                unreachable!("D-548, D-549: turned into Screen Key and Gaussian Blur above")
+            }
         }
         if display {
             encode(source, false, top);
@@ -12525,6 +12550,35 @@ pub(crate) fn turbulent_fractal(e: &Effect) -> Option<Effect> {
         frame: 0,
         float: *float,
     })
+}
+
+/// D-548, D-549: an Obsolete effect as the effect it is a second name for. Spill Suppressor is
+/// Screen Key's despill with its matte off: no gain (every covering kept), the bias half way,
+/// the despill its suppression. Reduce Interlace Flicker is a Gaussian Blur of sigma `softness`
+/// along the vertical only, its edges repeated. Anything else is not one.
+pub(crate) fn second_name(e: &Effect) -> Option<Effect> {
+    match e {
+        Effect::SpillSuppressor { color_to_suppress, suppression } => Some(Effect::ScreenKey {
+            view: "final".to_string(),
+            screen_color: color_to_suppress.clone(),
+            screen_gain: 0.0,
+            screen_balance: 50.0,
+            clip_black: 0.0,
+            clip_white: 100.0,
+            despill_bias: 50.0,
+            despill: *suppression,
+            shrink_grow: 0.0,
+            softness: 0.0,
+            edge_refine: 0.0,
+        }),
+        Effect::ReduceInterlaceFlicker { softness } => Some(Effect::GaussianBlur {
+            sigma_px: *softness,
+            edges: "repeat".to_string(),
+            dimensions: "vertical".to_string(),
+            units: "sigma".to_string(),
+        }),
+        _ => None,
+    }
 }
 
 /// D-523: how far out of focus a pixel at depth `z` is, 0 (sharp) to 1 (Maximum Radius): with

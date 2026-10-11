@@ -1140,6 +1140,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Unmult { .. }
                 // D-540.
                 | crate::effects::Effect::ScreenKey { .. }
+                // D-548: Spill Suppressor, drawn as its Screen Key.
+                | crate::effects::Effect::SpillSuppressor { .. }
                 // D-501.
                 | crate::effects::Effect::DifferenceMatte { .. }
                 // D-506.
