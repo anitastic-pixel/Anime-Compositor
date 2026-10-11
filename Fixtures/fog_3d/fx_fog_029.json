@@ -1,0 +1,189 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-fog-029",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-scene",
+      "kind": "still",
+      "name": "scene",
+      "path": "media/scene.exr",
+      "interpretation": {
+        "color_space": "linear-srgb",
+        "alpha": "premultiplied"
+      }
+    },
+    {
+      "id": "asset-card",
+      "kind": "still",
+      "name": "card",
+      "path": "media/card.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-grad",
+      "kind": "still",
+      "name": "grad",
+      "path": "media/grad.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 8,
+      "height": 6,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 5,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 5
+      },
+      "layer_order": [
+        "scene",
+        "grad"
+      ],
+      "layers": [
+        {
+          "id": "scene",
+          "kind": "raster",
+          "name": "scene",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-1",
+              "type_id": "core.fog_3d",
+              "enabled": true,
+              "parameters": {
+                "fog_start_depth": 0,
+                "fog_end_depth": {
+                  "base": 0,
+                  "keyframes": [
+                    {
+                      "frame": 0,
+                      "value": 0,
+                      "interp": "linear"
+                    },
+                    {
+                      "frame": 4,
+                      "value": 2000000.0,
+                      "interp": "linear"
+                    }
+                  ]
+                },
+                "fog_opacity": 100,
+                "scattering_density": 50,
+                "layer_contribution": 100,
+                "fog_color": "#ffffff",
+                "foggy_background": "on",
+                "gradient_layer": ""
+              }
+            }
+          ],
+          "asset_id": "asset-scene",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "grad",
+          "kind": "raster",
+          "name": "grad",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-grad",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        }
+      ]
+    }
+  ]
+}
