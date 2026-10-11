@@ -208264,3 +208264,61 @@ FX-CRANGE-016 (`fx_crange_016.json`): Max (b, V, B) -1, below 0. The file is rea
 FX-CRANGE-017 (`fx_crange_017.json`): Colour space "Lab": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CRANGE-018 (`fx_crange_018.json`): Colour space "hsl": not one of Lab, YUV and RGB. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Difference Matte (D-501)
+
+Difference Matte (`core.difference_matte`), after After Effects' Difference Matte (B-381), the rule ours. Every case is a project of one composition 16 by 10, five frames: the plates, every one switched off, and on top of them the layer `holder`, showing the drawing `shot` (Compound Blur's holder drawing, the plate, with a green (40, 200, 60) subject at x 4 to 7, y 3 to 5), with the effect. The plates: `plate` (the holder drawing), `dim` (10 levels darker), `grain` (8 levels lighter and darker by turns), `patch` (the plate's middle 8 by 6) and `late` (the plate, from frame 4). `tools/difference_matte_reference.py` works the expected frames, `expected_difference_matte.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-DMATTE-001 (`fx_dmatte_001.json`): As added: no layer named, so nothing changes. Frames 0.
+
+FX-DMATTE-002 (`fx_dmatte_002.json`): The plate as the difference layer, tolerance 15: every pixel the shot shares with the plate keyed out, the green subject kept whole, the clear corner clear. Frames 0.
+
+FX-DMATTE-003 (`fx_dmatte_003.json`): FX-DMATTE-002 as the matte: the subject white, the rest black, the clear corner clear. Frames 0.
+
+FX-DMATTE-004 (`fx_dmatte_004.json`): A plate 10 levels darker, tolerance 3: every difference is 3.92 per cent, above 3, so nothing is keyed and nothing changes. Frames 0.
+
+FX-DMATTE-005 (`fx_dmatte_005.json`): The darker plate, tolerance 5: 3.92 is within 5, so the background is keyed and only the subject stays. Frames 0.
+
+FX-DMATTE-006 (`fx_dmatte_006.json`): The darker plate, tolerance 2, softness 4: the background kept at (3.92 - 2) / 4, about 0.48, the subject whole. Frames 0.
+
+FX-DMATTE-007 (`fx_dmatte_007.json`): A grainy plate, 8 levels lighter and darker by turns, tolerance 2, no blur: every difference is 3.14 per cent, so nothing is keyed. Frames 0.
+
+FX-DMATTE-008 (`fx_dmatte_008.json`): The grainy plate, tolerance 2, softness 4, blurred at 1 before the difference: the blur smooths the grain away, so most of the background is keyed, while the subject and its edge stay. Frames 0.
+
+FX-DMATTE-009 (`fx_dmatte_009.json`): The plate, tolerance 5, softness 10, blurred at 1: the subject kept whole and a soft halo of the background around it, the rest keyed. Frames 0.
+
+FX-DMATTE-010 (`fx_dmatte_010.json`): The plate's middle 8 by 6 centred: it lies exactly where it was cut, so the background inside it is keyed; outside it the plate is clear, which differs from everything that shows, so that is kept. Frames 0.
+
+FX-DMATTE-011 (`fx_dmatte_011.json`): The middle 8 by 6 stretched to 16 by 10: it no longer lies on the shot, so far less is keyed. Frames 0.
+
+FX-DMATTE-012 (`fx_dmatte_012.json`): The holder names itself, tolerance 0: every pixel matches itself, so everything is keyed. Frames 0.
+
+FX-DMATTE-013 (`fx_dmatte_013.json`): A layer that is not in the composition, `gone`: nothing changes, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-DMATTE-014 (`fx_dmatte_014.json`): The plate with its in point at frame 4: before it the plate is empty, clear, which differs from everything that shows, so at frame 0 nothing changes; at frame 4 it is FX-DMATTE-002. Frames 0, 4.
+
+FX-DMATTE-015 (`fx_dmatte_015.json`): The darker plate, tolerance keyed from 0 at frame 0 to 10 at frame 4: frame 0 unchanged, frames 2 and 4 the background keyed. Frames 0, 2, 4.
+
+FX-DMATTE-016 (`fx_dmatte_016.json`): FX-DMATTE-006 on the holder moved 2 right and 1 down: the same picture moved, since the plate lies on the layer. Frames 0.
+
+FX-DMATTE-017 (`fx_dmatte_017.json`): The effect on an adjustment layer above the holder, the plate as its difference layer: the plate lies on the frame, which here is the holder's own rectangle, so this is FX-DMATTE-002. Frames 0.
+
+FX-DMATTE-018 (`fx_dmatte_018.json`): Tolerance 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DMATTE-019 (`fx_dmatte_019.json`): Tolerance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DMATTE-020 (`fx_dmatte_020.json`): Softness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DMATTE-021 (`fx_dmatte_021.json`): Blur 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DMATTE-022 (`fx_dmatte_022.json`): Blur -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DMATTE-023 (`fx_dmatte_023.json`): A view written "alpha". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DMATTE-024 (`fx_dmatte_024.json`): A fit written "tile", which After Effects' sizes do not offer. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DMATTE-025 (`fx_dmatte_025.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DMATTE-026 (`fx_dmatte_026.json`): Tolerance keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+`cycle_two.json`: `a` and `b`, each the shot, each with a Difference Matte whose difference layer is the other: refused, `EFFECT_LAYER_CYCLE`.
