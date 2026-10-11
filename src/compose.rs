@@ -3522,6 +3522,12 @@ fn fill_time_difference(
 /// frame from `backward_steps` before to `forward_steps` after, averaged at `size`. With native
 /// motion blur `off`, the compositions inside are drawn with their blur switched off, on a project
 /// copy and with no cache, so no frame drawn that way is remembered for the real one.
+///
+/// D-528: played frame after frame, one frame's span is the last one's moved on by one, so each
+/// frame of the holder drawn here is kept with the viewer's composition frames (B-171), under the
+/// key of everything the composition is drawn from, and used again while every file it read is
+/// as it was. A frame that said something is not kept. An export, with no effect budget, draws
+/// every one itself.
 #[allow(clippy::too_many_arguments)]
 fn fill_wide_time(
     effects: &mut [crate::effects::EffectInstance],
@@ -3552,15 +3558,37 @@ fn fill_wide_time(
             None => (project, &mut *cache),
         };
         let drawing = bare(holder, true);
-        let mut inside = FrameLog::new(usize::MAX);
+        let base = (cache.effect_budget() > 0)
+            .then(|| {
+                let (float, bits) = (float_depth(project, &[], comp), bits(project, &[], comp));
+                inner_key(project, &comp.id, root, quality, 0, &[], &Id::new(""), float, bits)
+            })
+            .flatten()
+            .map(|key| format!("{key}\nCC Wide Time: layer {:?} at {size:?}, frame ", holder.id));
+        let mut inside = Vec::new();
         let mut fold = crate::layer_fx::EchoFold::new("blend", size);
         for at in frame - backward_steps.floor() as i32..=frame + forward_steps.floor() as i32 {
-            let p = resolve_layer(project, comp, &drawing, at, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
-                .map(|r| crate::layer_map::cut(&r.source, (0, 0), size));
-            crate::perf::time(crate::perf::Stage::EffectCcWideTime, || fold.add(p.as_ref(), 1.0));
+            let key = base.as_ref().map(|base| format!("{base}{at}"));
+            let p = match key.as_deref().and_then(|key| cache.inner_frame(key)) {
+                Some(kept) => Some(kept),
+                None => {
+                    let started = std::time::Instant::now();
+                    let mut one = FrameLog::new(usize::MAX);
+                    let (p, files) = crate::cache::files_read(|| {
+                        resolve_layer(project, comp, &drawing, at, root, quality, cache, &mut one, &mut Vec::new(), false, true)
+                            .map(|r| std::sync::Arc::new(crate::layer_map::cut(&r.source, (0, 0), size)))
+                    });
+                    if let (Some(key), Some(p), true) = (key, &p, one.is_empty()) {
+                        cache.store_inner(key, files, std::sync::Arc::clone(p), started.elapsed());
+                    }
+                    inside.extend(one.finish());
+                    p
+                }
+            };
+            crate::perf::time(crate::perf::Stage::EffectCcWideTime, || fold.add(p.as_deref(), 1.0));
         }
         let mut said = Vec::new();
-        for d in inside.finish() {
+        for d in inside {
             if !said.contains(&d.id) {
                 said.push(d.id);
                 log.record(frame, holder.name.clone(), d);

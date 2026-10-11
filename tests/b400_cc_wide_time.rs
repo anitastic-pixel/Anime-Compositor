@@ -327,6 +327,35 @@ fn b400_cc_wide_time() {
         said.is_empty() && dw == w / 4 && got.0.abs_diff(58) <= 2 && got.1.abs_diff(94) <= 2,
     );
 
+    t.heading("Played frame after frame with the viewer's cache (D-528)");
+    let played = picture(effect(3, 3));
+    let mut cache = anime_compositor::cache::CelCache::viewer();
+    let warm = |cache: &mut anime_compositor::cache::CelCache, frame: i32| {
+        let mut log = FrameLog::new(3);
+        preview::preview_frame_cached(played.project(), &main_comp(), frame, &balls, full, 64, &mut log, cache).expect("the picture draws")
+    };
+    let alone = |frame: i32| {
+        let mut log = FrameLog::new(3);
+        preview::preview_frame(played.project(), &main_comp(), frame, &balls, full, 64, &mut log).expect("the picture draws")
+    };
+    let same = (0..FRAMES as i32).filter(|&frame| warm(&mut cache, frame).data() == alone(frame).data()).count();
+    t.row(
+        "as added, frames 0 to 23 asked for in order through one viewer's cache, as playing asks: \
+         each is byte-identical to the same frame drawn alone with no cache, as an export draws it",
+        &format!("{same} of {FRAMES} byte-identical; {} bytes kept for effects", cache.effect_held_bytes()),
+        same == FRAMES,
+    );
+    let before = warm(&mut cache, 15).data().to_vec();
+    png_out::write_rgba(&balls.join("ball_17.png"), w, h, OutputDepth::Eight, &[], &ball(0)).unwrap();
+    let changed = warm(&mut cache, 15);
+    t.row(
+        "drawing 17 (inside frame 15's span, 12 to 18) rewritten as drawing 1 after it was played: \
+         frame 15 through the same cache shows the new drawing, byte-identical to frame 15 drawn alone",
+        &format!("{}, {}", if changed.data() == alone(15).data() { "byte-identical" } else { "differs" }, if changed.data() != before.as_slice() { "changed" } else { "unchanged" }),
+        changed.data() == alone(15).data() && changed.data() != before.as_slice(),
+    );
+    png_out::write_rgba(&balls.join("ball_17.png"), w, h, OutputDepth::Eight, &[], &ball(16)).unwrap();
+
     t.heading("The frame does not depend on how it is cut up");
     t.tiles(&[
         ("fx_wide_001.json", 3),
@@ -367,13 +396,19 @@ fn b400_cc_wide_time_timing() {
         std::env::consts::OS,
         if cfg!(debug_assertions) { "debug" } else { "release" },
     );
-    let shots: [(&str, Option<(i32, i32)>); 3] = [
-        ("Noise alone", None),
-        ("CC Wide Time as added (3 and 3, 7 frames), then Noise", Some((3, 3))),
-        ("CC Wide Time 10 and 10 (21 frames), then Noise", Some((10, 10))),
+    // D-528: the last two rows ask for frames 0 to 47 in order, as playing does, through a cache
+    // the size the window gives the viewer with Memory set to Automatic; first is the first play's
+    // median, again the second's.
+    let automatic = anime_compositor::cache::automatic_budget();
+    let shots: [(&str, Option<(i32, i32)>, bool); 5] = [
+        ("Noise alone", None, false),
+        ("CC Wide Time as added (3 and 3, 7 frames), then Noise", Some((3, 3)), false),
+        ("CC Wide Time 10 and 10 (21 frames), then Noise", Some((10, 10)), false),
+        ("Noise alone, played", None, true),
+        ("CC Wide Time as added, then Noise, played", Some((3, 3)), true),
     ];
     let text = fs::read_to_string(effect_table::repo("verification/B-08a_project.json")).expect("read the reference shot");
-    for (name, steps) in shots {
+    for (name, steps, played) in shots {
         let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
         for (i, id) in ["a", "b", "c"].iter().enumerate() {
             let mut v = Vec::new();
@@ -387,11 +422,12 @@ fn b400_cc_wide_time_timing() {
         }
         let project = persist::load_str(&j.to_string()).expect("the reference shot reads").document.project().clone();
         let (comp, root) = (Id::new("comp-reference-shot"), effect_table::repo("Fixtures/reference_shot"));
-        let mut cache = CelCache::viewer();
+        let mut cache = if played { CelCache::viewer_sized(automatic) } else { CelCache::viewer() };
         gpu.forget();
         let (mut first, mut times) = (Vec::new(), Vec::new());
-        for pass in 0..8 {
-            for frame in (0..240).step_by(8) {
+        let (passes, frames): (usize, Vec<i32>) = if played { (2, (0..48).collect()) } else { (8, (0..240).step_by(8).collect()) };
+        for pass in 0..passes {
+            for &frame in &frames {
                 let mut log = FrameLog::new(3);
                 let t = std::time::Instant::now();
                 drop(preview::preview_frame_srgb8(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
@@ -401,6 +437,7 @@ fn b400_cc_wide_time_timing() {
         }
         let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
     }
+    let _ = writeln!(s, "\nPlayed rows: frames 0 to 47 in order, twice, the viewer's cache {} MB (Memory: Automatic).", automatic / 1_000_000);
     let out = std::env::var("B400_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-400_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");
 }
