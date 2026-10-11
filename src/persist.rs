@@ -3935,6 +3935,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("feather".into(), num(*feather));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        // D-527: the count is worked each frame and never saved.
+        Effect::Timecode { display_format, time_source, time_units, drop_frame, starting_frame, text_position, text_size, text_color, show_box, box_color, opacity, composite_on_original, .. } => {
+            params.insert("display_format".into(), J::from(display_format.as_str()));
+            params.insert("time_source".into(), J::from(time_source.as_str()));
+            params.insert("time_units".into(), num(*time_units));
+            params.insert("drop_frame".into(), J::from(drop_frame.as_str()));
+            params.insert("starting_frame".into(), num(*starting_frame));
+            params.insert("text_position".into(), J::Array(text_position.iter().map(|c| num(*c)).collect()));
+            params.insert("text_size".into(), num(*text_size));
+            params.insert("text_color".into(), J::from(text_color.as_str()));
+            params.insert("show_box".into(), J::from(show_box.as_str()));
+            params.insert("box_color".into(), J::from(box_color.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("composite_on_original".into(), J::from(composite_on_original.as_str()));
+        }
         // D-526: the clock is worked each frame and never saved.
         Effect::Numbers { kind, random_values, value, decimal_places, position, display, fill_color, stroke_color, stroke_width, size, tracking, proportional_spacing, composite_on_original, font, alignment, .. } => {
             params.insert("type".into(), J::from(kind.as_str()));
@@ -5356,6 +5371,7 @@ fn parse_effect(
         crate::effects::ID_KEY,
         crate::effects::IDENTIFIER,
         crate::effects::NUMBERS,
+        crate::effects::TIMECODE,
         crate::effects::CRYPTOMATTE,
         crate::effects::DEPTH_OF_FIELD,
         crate::effects::FOG_3D,
@@ -7372,6 +7388,21 @@ fn parse_effect(
             feather: effect_number(params, "feather", &at)?,
             invert: effect_word(params, "invert", &at)?,
             channels: None,
+        }),
+        crate::effects::TIMECODE => Some(crate::effects::Effect::Timecode {
+            display_format: effect_word(params, "display_format", &at)?,
+            time_source: effect_word(params, "time_source", &at)?,
+            time_units: effect_number(params, "time_units", &at)?,
+            drop_frame: effect_word(params, "drop_frame", &at)?,
+            starting_frame: effect_number(params, "starting_frame", &at)?,
+            text_position: effect_array(params, "text_position", "two numbers, x then y", &at)?,
+            text_size: effect_number(params, "text_size", &at)?,
+            text_color: effect_word(params, "text_color", &at)?.to_ascii_lowercase(),
+            show_box: effect_word(params, "show_box", &at)?,
+            box_color: effect_word(params, "box_color", &at)?.to_ascii_lowercase(),
+            opacity: effect_number(params, "opacity", &at)?,
+            composite_on_original: effect_word(params, "composite_on_original", &at)?,
+            count: [0.0; 3],
         }),
         crate::effects::NUMBERS => Some(crate::effects::Effect::Numbers {
             kind: effect_word(params, "type", &at)?,

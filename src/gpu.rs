@@ -14009,6 +14009,16 @@ impl Gpu {
                 self.fx_step(steps, &passes.idkey, p, Some(still), Some(&out), Some(&k), Some(&matte), none, tiles(w, h));
                 (out, (w, h))
             }
+            // D-527: the box and the words drawn on the processor, in the bundled font, laid over
+            // the drawing or alone.
+            e @ E::Timecode { composite_on_original, .. } => {
+                let words = crate::layer_fx::timecode_picture(e, (w, h), (ox, oy)).expect("the bundled font is always there");
+                let words = self.map_texture(&words);
+                let out = self.scratch("D-527 timecode", w, h);
+                let k = [(composite_on_original == "on") as u8 as f64];
+                self.fx_step(steps, &passes.over, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&words), none, tiles(w, h));
+                (out, (w, h))
+            }
             // D-526: the words drawn on the processor, as compose leaves Numbers only a font it can
             // draw in, laid over the drawing or alone.
             e @ E::Numbers { composite_on_original, .. } => {

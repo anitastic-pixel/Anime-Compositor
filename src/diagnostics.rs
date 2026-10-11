@@ -66,8 +66,9 @@ pub enum DiagnosticId {
     /// Masks were the only case until B-06 drew them on 2026-09-06. A mask this build refuses
     /// now says so through `MaskInvalidOutline`, which D-43 added to document 28 because a
     /// crossed outline is a specific fault with a specific fix rather than an unimplemented
-    /// feature. Nothing produces this identifier today; it is kept because D-24 registered it
-    /// and because export still treats it as grounds for marking a file's fidelity incomplete.
+    /// feature. D-24 registered it, and export treats it as grounds for marking a file's fidelity
+    /// incomplete. D-527: Timecode on a layer with a file says it, as information, since the
+    /// file's own starting timecode is not read.
     ProjectFeatureUnsupported,
     /// Document 28: requested drawing number absent; do not substitute adjacent frame.
     MediaSequenceGap,

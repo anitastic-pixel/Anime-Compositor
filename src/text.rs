@@ -251,6 +251,14 @@ pub fn advance(font: &str, size: f64, ch: char) -> Option<f64> {
     Some(f64::from(face.glyph_hor_advance(glyph)?) * size / f64::from(face.units_per_em()))
 }
 
+/// D-527: the top of a character's outline above the baseline in pixels at `size`. `None` when
+/// the font is not on this computer, is not a font, or has no outline for it.
+pub fn top(font: &str, size: f64, ch: char) -> Option<f64> {
+    let face = ttf_parser::Face::parse(font_bytes(font)?, 0).ok()?;
+    let glyph = face.glyph_index(ch)?;
+    Some(f64::from(face.glyph_bounding_box(glyph)?.y_max) * size / f64::from(face.units_per_em()))
+}
+
 /// Where Windows keeps fonts: for everyone, and for the person signed in.
 pub fn installed_fonts() -> Vec<PathBuf> {
     let mut dirs = Vec::new();

@@ -2877,6 +2877,32 @@ pub enum Effect {
         invert: String,
         channels: Option<crate::layer_map::Map>,
     },
+    /// D-527: Timecode, after After Effects' Timecode (Text): the layer's or the composition's
+    /// time, or a count of its own, burnt onto the picture on a box
+    /// ([`crate::layer_fx::timecode_picture`]). `display_format`, one of [`TIMECODE_FORMATS`];
+    /// `time_source`, one of [`TIMECODE_SOURCES`]; `time_units`, 1 to 999 frames a second, its
+    /// floor; `drop_frame`, "off" or "on", "on" only at time units that are a multiple of 30;
+    /// `starting_frame`, -10,000,000 to 10,000,000, its floor (the last three read with the custom
+    /// source only); `text_position`, per cent of the drawing, -1000 to 1000; `text_size`, 1 to
+    /// 2000 pixels; `text_color` and `box_color`, `#rrggbb`; `show_box` and
+    /// `composite_on_original`, "off" or "on"; `opacity`, the box's, 0 to 100. `count` is not a
+    /// setting and is never saved: compose fills it each frame with the frame counted, the rate
+    /// it is labelled at and 1 when it drops frames (0 when not).
+    Timecode {
+        display_format: String,
+        time_source: String,
+        time_units: f64,
+        drop_frame: String,
+        starting_frame: f64,
+        text_position: [f64; 2],
+        text_size: f64,
+        text_color: String,
+        show_box: String,
+        box_color: String,
+        opacity: f64,
+        composite_on_original: String,
+        count: [f64; 3],
+    },
     /// D-526: Numbers, after After Effects' Numbers (Text): a number, timecode, time, date or
     /// hexadecimal number drawn as words ([`crate::layer_fx::numbers_picture`]). `kind` (saved as
     /// "type"), one of [`NUMBERS_TYPES`]; `random_values`, "off" or "on"; `value`, -30,000 to
@@ -3652,6 +3678,11 @@ pub const NUMBERS_TYPES: [&str; 10] = [
 ];
 /// D-526: how Numbers draws its fill and stroke.
 pub const NUMBERS_DISPLAYS: [&str; 4] = ["fill_only", "stroke_only", "fill_over_stroke", "stroke_over_fill"];
+pub const TIMECODE: &str = "core.timecode";
+/// D-527: how Timecode writes its count.
+pub const TIMECODE_FORMATS: [&str; 4] = ["smpte", "frames", "feet_frames_35mm", "feet_frames_16mm"];
+/// D-527: what Timecode counts.
+pub const TIMECODE_SOURCES: [&str; 3] = ["layer_source", "composition", "custom"];
 /// D-525: IDentifier's outputs.
 pub const IDENT_OUTPUTS: [&str; 4] = ["colors", "luma_matte", "alpha_matte", "raw"];
 /// D-522: Cryptomatte's outputs.
@@ -5202,6 +5233,13 @@ impl Effect {
                 ("depth", vec![depth], -1e6, 1e6),
                 ("feather", vec![feather], 0.0, 1e6),
             ],
+            Effect::Timecode { time_units, starting_frame, text_position, text_size, opacity, .. } => vec![
+                ("time_units", vec![time_units], 1.0, 999.0),
+                ("starting_frame", vec![starting_frame], -1e7, 1e7),
+                ("text_position", text_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("text_size", vec![text_size], 1.0, 2000.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+            ],
             Effect::Numbers { value, decimal_places, position, stroke_width, size, tracking, .. } => vec![
                 ("value", vec![value], -30000.0, 30000.0),
                 ("decimal_places", vec![decimal_places], 0.0, 10.0),
@@ -6073,6 +6111,8 @@ impl Effect {
                 }
             }
             // D-442: every distance; the masks are found at the draft's size.
+            // D-527: the words' size, held at a pixel as a text's least; the box goes with it.
+            Effect::Timecode { text_size, .. } => *text_size = scale(*text_size).max(1.0),
             // D-526: the words' size, held at a pixel as a text's least, and the stroke.
             Effect::Numbers { size, stroke_width, .. } => {
                 *size = scale(*size).max(1.0);
@@ -6473,6 +6513,7 @@ impl Effect {
             Effect::IdKey { .. } => "ID Key",
             Effect::Identifier { .. } => "IDentifier",
             Effect::Numbers { .. } => "Numbers",
+            Effect::Timecode { .. } => "Timecode",
             Effect::Cryptomatte { .. } => "Cryptomatte",
             Effect::DepthOfField { .. } => "Depth of Field",
             Effect::Fog3d { .. } => "Fog 3D",
@@ -6698,6 +6739,7 @@ impl Effect {
             Effect::IdKey { .. } => ID_KEY,
             Effect::Identifier { .. } => IDENTIFIER,
             Effect::Numbers { .. } => NUMBERS,
+            Effect::Timecode { .. } => TIMECODE,
             Effect::Cryptomatte { .. } => CRYPTOMATTE,
             Effect::DepthOfField { .. } => DEPTH_OF_FIELD,
             Effect::Fog3d { .. } => FOG_3D,
@@ -7658,6 +7700,7 @@ impl Effect {
                 "Cryptomatte's output is \"colors\", \"matte\" or \"keyed\", and this is \"{output}\"."
             )),
             e @ Effect::Numbers { .. } => numbers_fault(e),
+            e @ Effect::Timecode { .. } => timecode_fault(e),
             Effect::Identifier { aux_channel, .. } if !["object_id", "material_id"].contains(&aux_channel.as_str()) => Some(format!(
                 "IDentifier's channel is \"object_id\" or \"material_id\", and this is \"{aux_channel}\"."
             )),
@@ -8481,6 +8524,28 @@ impl Effect {
 /// and the mid-point's place.
 pub(crate) fn vegas_fade(start: f64, mid: f64, position: f64, end: f64) -> [f64; 4] {
     [start, (start + position * (end - start) + mid).clamp(0.0, 1.0), end, position]
+}
+
+/// D-527: the first of Timecode's words this build cannot use, as a sentence.
+fn timecode_fault(e: &Effect) -> Option<String> {
+    let Effect::Timecode { display_format, time_source, time_units, drop_frame, text_color, show_box, box_color, composite_on_original, .. } = e else {
+        return None;
+    };
+    let one_of = |what: &str, v: &str, all: &[&str]| {
+        (!all.contains(&v)).then(|| format!("Timecode's {what} is one of {}, and this is \"{v}\".", all.join(", ")))
+    };
+    one_of("display format", display_format, &TIMECODE_FORMATS)
+        .or_else(|| one_of("time source", time_source, &TIMECODE_SOURCES))
+        .or_else(|| one_of("drop frame", drop_frame, &["off", "on"]))
+        .or_else(|| one_of("show box", show_box, &["off", "on"]))
+        .or_else(|| one_of("composite on original", composite_on_original, &["off", "on"]))
+        .or_else(|| {
+            (drop_frame == "on" && time_units.floor() % 30.0 != 0.0).then(|| {
+                format!("Timecode's drop frame counts only at time units that are a multiple of 30, and this is {}.", time_units.floor())
+            })
+        })
+        .or_else(|| hex_fault("Timecode", "text colour", text_color))
+        .or_else(|| hex_fault("Timecode", "box colour", box_color))
 }
 
 /// D-526: the first of Numbers' words this build cannot use, as a sentence.
@@ -11392,6 +11457,16 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
+            // D-527: the box and the words drawn over the layer, or alone.
+            e @ Effect::Timecode { composite_on_original, .. } => crate::perf::time(crate::perf::Stage::EffectTimecode, || {
+                if let Some(words) = crate::layer_fx::timecode_picture(e, (source.width(), source.height()), (ox, oy)) {
+                    if composite_on_original == "on" {
+                        crate::composite::over(&words, source).expect("the words are drawn at the layer's size");
+                    } else {
+                        *source = words;
+                    }
+                }
+            }),
             // D-526: the words drawn over the layer, or alone; with a font this computer does not
             // have, nothing (compose said so).
             e @ Effect::Numbers { composite_on_original, .. } => {

@@ -1086,6 +1086,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Identifier { .. }
                 // D-526: Numbers (its words are drawn on the processor).
                 | crate::effects::Effect::Numbers { .. }
+                // D-527: Timecode (its box and words are drawn on the processor).
+                | crate::effects::Effect::Timecode { .. }
                 // D-522: Cryptomatte (the matte is read on the processor).
                 | crate::effects::Effect::Cryptomatte { .. }
                 // D-523: Depth of Field, drawn as its Lens Blur.
@@ -2257,6 +2259,39 @@ fn effect_now(
                         ),
                     )
                     .with_remediation("Install the font, or choose another in Effect controls."),
+                );
+            }
+        }
+        // D-527: Timecode's count, rules 1 and 2 of tools/timecode_reference.py: the frame, the
+        // rate it is labelled at, and 1 when it drops frames. A layer with a file counts from the
+        // file's first frame, and says so each frame: a timecode written in the file is not read.
+        if let crate::effects::Effect::Timecode { time_source, time_units, drop_frame, starting_frame, count, .. } = &mut now.effect {
+            let den = comp.frame_rate.denominator() as f64;
+            let fps = comp.frame_rate.numerator() as f64 / den;
+            let nominal = fps.round();
+            let ntsc = f64::from(den == 1001.0 && nominal % 30.0 == 0.0);
+            *count = match time_source.as_str() {
+                "composition" => [at as f64, nominal, ntsc],
+                "custom" => {
+                    let units = time_units.floor();
+                    let t = (u - layer.in_frame as f64) / fps;
+                    [starting_frame.floor() + (t * units + 1e-6).floor(), units, f64::from(drop_frame == "on")]
+                }
+                _ => [(layer.source_time(at).unwrap_or((at - layer.in_frame) as f64) + 1e-6).floor(), nominal, ntsc],
+            };
+            if time_source == "layer_source" && matches!(layer.kind, crate::model::LayerKind::Raster) {
+                log.record(
+                    frame,
+                    format!("{}/{} file timecode", layer.name, instance.effect.name()),
+                    Diagnostic::new(
+                        DiagnosticId::ProjectFeatureUnsupported,
+                        Severity::Info,
+                        format!("Layer {}'s Timecode counts from the file's first frame, 0: a starting timecode written in the file is not read.", layer.name),
+                        "D-527: reading a file's own timecode (a QuickTime timecode track, a DPX header) needs a media metadata reader this \
+                         build does not have."
+                            .to_string(),
+                    )
+                    .with_remediation("Choose the Custom time source and a starting frame to count from a number of your own."),
                 );
             }
         }

@@ -7964,20 +7964,24 @@ pub(crate) fn numbers_font_ok(font: &str) -> bool {
 /// the display says: F; F over S; S x (1 - F's alpha); or that over F. `None` when the font
 /// cannot be drawn.
 pub(crate) fn numbers_picture(e: &crate::effects::Effect, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
+    numbers_words(e, &numbers_shown(e), (w, h), origin)
+}
+
+/// D-526: [`numbers_picture`] of the words `s`; D-527's Timecode draws its count through it.
+fn numbers_words(e: &crate::effects::Effect, s: &str, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
     let crate::effects::Effect::Numbers {
         position, display, fill_color, stroke_color, stroke_width, size, tracking, proportional_spacing, font, alignment, ..
     } = e
     else {
         return None;
     };
-    let s = numbers_shown(e);
     let (px, py) = crate::effects::radial_center(*position, (w, h), origin);
     let align = crate::text::Align::parse(alignment)?;
     let linear = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
     let base = crate::text::Text { font: font.clone(), size: *size, ..Default::default() };
     let texts = |color: [f64; 3], stroke: Option<crate::text::Stroke>| -> Option<Vec<crate::text::Text>> {
         if proportional_spacing == "on" {
-            return Some(vec![crate::text::Text { text: s.clone(), color, at: [px, py], align, tracking: *tracking, stroke, ..base.clone() }]);
+            return Some(vec![crate::text::Text { text: s.to_string(), color, at: [px, py], align, tracking: *tracking, stroke, ..base.clone() }]);
         }
         let cell = ('0'..='9').map(|c| crate::text::advance(font, *size, c)).try_fold(0.0f64, |m, a| a.map(|a| m.max(a)))?;
         let a = *tracking / 1000.0 * *size;
@@ -8025,6 +8029,92 @@ pub(crate) fn numbers_picture(e: &crate::effects::Effect, (w, h): (usize, usize)
     }
     let mut out = fill;
     crate::composite::over(&stroke, &mut out).ok()?;
+    Some(out)
+}
+
+/// D-527: what Timecode shows, rule 3 of `tools/timecode_reference.py`, from the count compose
+/// worked: a minus when it is below 0, then on its size: five digits or more of frames; feet
+/// (16 or 40 frames a foot) with four digits, a plus and the frames over with two; or
+/// hh:mm:ss:ff, with drop frame R / 15 frame numbers left out at each minute but every tenth and
+/// a semicolon before the frames.
+pub(crate) fn timecode_shown(e: &crate::effects::Effect) -> String {
+    let crate::effects::Effect::Timecode { display_format, count: [f, rate, drop], .. } = e else {
+        return String::new();
+    };
+    let sign = if *f < 0.0 { "-" } else { "" };
+    let mut f = f.abs() as i64;
+    let rate = (*rate as i64).max(1);
+    match display_format.as_str() {
+        "frames" => format!("{sign}{f:05}"),
+        "feet_frames_35mm" | "feet_frames_16mm" => {
+            let per = if display_format == "feet_frames_35mm" { 16 } else { 40 };
+            format!("{sign}{:04}+{:02}", f / per, f % per)
+        }
+        _ => {
+            let mut sep = ':';
+            if *drop == 1.0 {
+                let d = rate / 15;
+                let per_ten = 600 * rate - 9 * d;
+                let (tens, m) = (f / per_ten, f % per_ten);
+                f += 9 * d * tens + if m > d { d * ((m - d) / (60 * rate - d)) } else { 0 };
+                sep = ';';
+            }
+            format!("{sign}{:02}:{:02}:{:02}{sep}{:02}", f / (rate * 3600), f / (rate * 60) % 60, f / rate % 60, f % rate)
+        }
+    }
+}
+
+/// D-527: Timecode's picture `w` by `h` with the drawing at `origin`, rules 4 and 5 of
+/// `tools/timecode_reference.py`: [`timecode_shown`] in the bundled font, each character centred
+/// in a cell as wide as its widest digit (Numbers' words with proportional spacing off, centred
+/// on the position), over the box with show box on: the line's cells and size / 5 round them,
+/// up to the top of the font's "0", each edge at the nearest whole pixel, in the box colour at
+/// the opacity. `None` when the bundled font cannot be read.
+pub(crate) fn timecode_picture(e: &crate::effects::Effect, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
+    let crate::effects::Effect::Timecode { text_position, text_size, text_color, show_box, box_color, opacity, .. } = e else {
+        return None;
+    };
+    let font = crate::text::Text::BUNDLED_FONT;
+    let s = timecode_shown(e);
+    let numbers = crate::effects::Effect::Numbers {
+        kind: "number".into(),
+        random_values: "off".into(),
+        value: 0.0,
+        decimal_places: 0.0,
+        position: *text_position,
+        display: "fill_only".into(),
+        fill_color: text_color.clone(),
+        stroke_color: text_color.clone(),
+        stroke_width: 0.0,
+        size: *text_size,
+        tracking: 0.0,
+        proportional_spacing: "off".into(),
+        composite_on_original: "on".into(),
+        font: font.into(),
+        alignment: "center".into(),
+        clock: [0.0; 2],
+    };
+    let words = numbers_words(&numbers, &s, (w, h), origin)?;
+    if show_box != "on" {
+        return Some(words);
+    }
+    let (px, py) = crate::effects::radial_center(*text_position, (w, h), origin);
+    let cell = ('0'..='9').map(|c| crate::text::advance(font, *text_size, c)).try_fold(0.0f64, |m, a| a.map(|a| m.max(a)))?;
+    let line = s.chars().count() as f64 * cell;
+    let x0 = px - line / 2.0;
+    let (p, k) = (*text_size / 5.0, crate::text::top(font, *text_size, '0')?);
+    let edge = |v: f64, most: usize| ((v + 0.5).floor().max(0.0) as usize).min(most);
+    let (l, r, t, b) = (edge(x0 - p, w), edge(x0 + line + p, w), edge(py - k - p, h), edge(py + p, h));
+    let a = *opacity / 100.0;
+    let c = crate::effects::encoded(box_color).map(crate::grade::to_linear);
+    let fill = [c[0] * a, c[1] * a, c[2] * a, a].map(|v| v as f32);
+    let mut out = WorkingBuffer::transparent(w, h);
+    if l < r {
+        for y in t..b {
+            out.data_mut()[(y * w + l) * 4..(y * w + r) * 4].chunks_exact_mut(4).for_each(|q| q.copy_from_slice(&fill));
+        }
+    }
+    crate::composite::over(&words, &mut out).ok()?;
     Some(out)
 }
 
