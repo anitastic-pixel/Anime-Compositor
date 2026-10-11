@@ -208604,3 +208604,61 @@ FX-GLASSES-035 (`fx_glasses_035.json`): A left view written as the number 3, not
 FX-GLASSES-036 (`fx_glasses_036.json`): A right view written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-GLASSES-037 (`fx_glasses_037.json`): Balance keyed to 20 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### CC Spotlight (D-507)
+
+CC Spotlight (`core.cc_spotlight`), after CycoreFX's CC Spotlight (B-387), the rule ours. Every case is a project of one composition 16 by 10, five frames, one drawing, Broadcast Safe's (`tools/broadcast_safe_reference.py`, with transparent columns and a half-covered one), with the effect. `tools/cc_spotlight_reference.py` works the expected frames, `Fixtures/cc_spotlight/expected_cc_spotlight.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SPOT-001 (`fx_spot_001.json`): The settings as they start: a white light at a quarter across and down, half the width above the drawing, pointed at its middle, opening 40 degrees, edge softness 20, intensity 100, render light shadow. Inside the cone the drawing is as it was, outside it is black, between it fades. Frames 0.
+
+FX-SPOT-002 (`fx_spot_002.json`): Render light only: the drawing is gone and the light alone is left, white and whole inside the cone, fading to transparent at its edge. Frames 0.
+
+FX-SPOT-003 (`fx_spot_003.json`): Render light add: the light added to the drawing where it is covered; the transparent columns stay transparent. Frames 0.
+
+FX-SPOT-004 (`fx_spot_004.json`): Render light add plus: the light added everywhere, so inside the cone the transparent first column, the light aimed at it, becomes white light. Frames 0.
+
+FX-SPOT-005 (`fx_spot_005.json`): Edge softness 0: the cone's edge is a hard step, every pixel whole or black. Frames 0.
+
+FX-SPOT-006 (`fx_spot_006.json`): Edge softness 100: the light fades from the axis itself to the edge. Frames 0.
+
+FX-SPOT-007 (`fx_spot_007.json`): Cone angle 90: a wider pool of light. Frames 0.
+
+FX-SPOT-008 (`fx_spot_008.json`): Height 10: the light low and to one side, so its pool is a long oval reaching away from it. Frames 0.
+
+FX-SPOT-009 (`fx_spot_009.json`): An orange light, render light add: orange added inside the cone. Frames 0.
+
+FX-SPOT-010 (`fx_spot_010.json`): Intensity 250, render light add: two and a half times the light, so the lit pixels run past 1. Frames 0.
+
+FX-SPOT-011 (`fx_spot_011.json`): Intensity 50, render light shadow: outside the cone half as dark. Frames 0.
+
+FX-SPOT-012 (`fx_spot_012.json`): Intensity 0, render light shadow, white: no shadow and no tint, so the drawing is exactly as it was. Frames 0.
+
+FX-SPOT-013 (`fx_spot_013.json`): From at the middle, straight above the target: a round pool in the middle. Frames 0.
+
+FX-SPOT-014 (`fx_spot_014.json`): Height 0 with From on To: the light has no direction, so nothing is lit and light shadow leaves the drawing black. Frames 0.
+
+FX-SPOT-015 (`fx_spot_015.json`): From keyed from [0, 0] at frame 0 to [100, 0] at frame 4, linear, render light add: the light swings across the top. Frames 0, 2, 4.
+
+FX-SPOT-016 (`fx_spot_016.json`): Cone angle keyed from 10 at frame 0 to 70 at frame 4, linear. Frames 0, 2, 4.
+
+FX-SPOT-017 (`fx_spot_017.json`): FX-SPOT-003 moved three pixels right: the same, moved, light and all. Frames 0, 3.
+
+FX-SPOT-018 (`fx_spot_018.json`): To at [150, 50], past the right edge: only the right side is lit, faintly at the rim. Frames 0.
+
+FX-SPOT-019 (`fx_spot_019.json`): From x 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPOT-020 (`fx_spot_020.json`): Height -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPOT-021 (`fx_spot_021.json`): Cone angle 181, above 180. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPOT-022 (`fx_spot_022.json`): Edge softness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPOT-023 (`fx_spot_023.json`): Intensity 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPOT-024 (`fx_spot_024.json`): Render "gel_add": CC Spotlight's Gel renders are not built yet. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPOT-025 (`fx_spot_025.json`): Render "Light_Add": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPOT-026 (`fx_spot_026.json`): Color "#ff80": not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPOT-027 (`fx_spot_027.json`): Color "white": not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
