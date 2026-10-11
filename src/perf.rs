@@ -281,6 +281,8 @@ pub enum Stage {
     EffectRefineMatte,
     /// D-353's Soft Physical Glow: the light, the levels' cells and passes, and the finish.
     EffectSoftGlow,
+    /// D-544's Halation, on the same engine.
+    EffectHalation,
     /// D-356's Path Stroke: the runs along the paths and the brush laid on them.
     EffectStroke,
     /// D-360..D-362's Cross Blur, Spin & Zoom Blur and Fast Zoom Blur, per pixel.
@@ -444,7 +446,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 219] = [
+    pub const ALL: [Stage; 220] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -580,6 +582,7 @@ impl Stage {
         Stage::EffectMatteChoker,
         Stage::EffectRefineMatte,
         Stage::EffectSoftGlow,
+        Stage::EffectHalation,
         Stage::EffectStroke,
         Stage::EffectCrossBlur,
         Stage::EffectSpinZoomBlur,
@@ -804,6 +807,7 @@ impl Stage {
             Stage::EffectMatteChoker => "effect: matte choker",
             Stage::EffectRefineMatte => "effect: refine hard or soft matte",
             Stage::EffectSoftGlow => "effect: soft physical glow",
+            Stage::EffectHalation => "effect: halation",
             Stage::EffectStroke => "effect: path stroke",
             Stage::EffectCrossBlur => "effect: cross blur",
             Stage::EffectSpinZoomBlur => "effect: spin & zoom blur",

@@ -4005,6 +4005,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("source".into(), J::from(source.as_str()));
             }
         }
+        Effect::Halation { threshold, threshold_smooth, radius, amount, color } => {
+            params.insert("threshold".into(), num(*threshold));
+            params.insert("threshold_smooth".into(), num(*threshold_smooth));
+            params.insert("radius".into(), num(*radius));
+            params.insert("amount".into(), num(*amount));
+            params.insert("color".into(), J::from(color.as_str()));
+        }
         Effect::SoftGlow {
             falloff,
             threshold_mode,
@@ -5066,6 +5073,7 @@ fn parse_effect(
         crate::effects::LINE_SMOOTH,
         crate::effects::SELECTIVE_COLOR_BLUR,
         crate::effects::GLOW,
+        crate::effects::HALATION,
         crate::effects::LINE_RECOLOR,
         crate::effects::DIRECTIONAL_BLUR,
         crate::effects::SELECT_COLOR,
@@ -5377,6 +5385,13 @@ fn parse_effect(
                 spectral_blue: effect_number_or(params, "spectral_blue", &at, 120.0)?,
             })
         }
+        crate::effects::HALATION => Some(crate::effects::Effect::Halation {
+            threshold: effect_number(params, "threshold", &at)?,
+            threshold_smooth: effect_number(params, "threshold_smooth", &at)?,
+            radius: effect_number(params, "radius", &at)?,
+            amount: effect_number(params, "amount", &at)?,
+            color: effect_word(params, "color", &at)?,
+        }),
         crate::effects::GLOW => Some(crate::effects::Effect::Glow {
             based_on: effect_word(params, "based_on", &at)?,
             threshold: effect_number(params, "threshold", &at)?,

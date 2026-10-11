@@ -9242,6 +9242,7 @@ const EFFECT_NAMES = {
   'core.selective_color_blur': 'Selective Colour Blur',
   'core.glow': 'Glow',
   'core.glow.physical': 'Soft Physical Glow',
+  'core.halation': 'Halation',
   'core.line_recolor': 'Line Recolour',
   'core.directional_blur': 'Directional Blur',
   'core.select_color': 'Select Colour',
@@ -9467,7 +9468,7 @@ const EFFECT_GROUPS = [
     'core.broadcast_safe', 'core.color_neutralizer', 'core.color_offset', 'core.kernel', 'core.toner',
     'core.change_color', 'core.color_balance_hls', 'core.color_link', 'core.color_stabilizer',
     'core.gamma_pedestal_gain', 'core.photo_filter', 'core.selective_color', 'core.shadow_highlight', 'core.color_grade', 'core.tritone', 'core.aerial_haze']],
-  ['Light & Glow', ['core.glow', 'core.glow.physical', 'core.bloom', 'core.light_rays', 'core.rim_light',
+  ['Light & Glow', ['core.glow', 'core.glow.physical', 'core.halation', 'core.bloom', 'core.light_rays', 'core.rim_light',
     'core.light_wrap', 'core.cross_glare', 'core.kira_kira', 'core.lightning_bolt', 'core.exposure_flicker',
     'core.paraffin']],
   ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_blur', 'core.line_recolor', 'core.outline',
@@ -9513,6 +9514,7 @@ const EFFECT_SEARCH = {
   'core.leave_color': 'keep one',
   'core.invert': 'negative',
   'core.glow': 'shine',
+  'core.halation': 'halation film red halo bleed emulsion highlights glow edge warm orange cinematic analog',
   'core.glow.physical': 'soft physical glow deep glow realistic light bloom haze exponential falloff exposure threshold aspect anamorphic stretch tint colour color core edge inner outer duocolor monocolor',
   'core.bloom': 'glow shine highlights',
   'core.light_rays': 'god rays shaft beams cc light rays source radius warp softness transfer mode',
@@ -9710,6 +9712,7 @@ const EFFECT_ABOUT = {
   'core.line_smooth': 'Smooths the jagged, stair-stepped edges of drawn lines.',
   'core.selective_color_blur': 'Blurs only the areas painted in the colours you choose, such as the shadows.',
   'core.glow': 'Makes the bright parts shine softly into their surroundings.',
+  'core.halation': 'A warm red-orange halo just outside the brightest parts, as film gives when light bounces back through it: it hugs bright edges and leaves the highlights themselves alone. Threshold picks how bright, Radius how far it spreads, Amount how strong.',
   'core.glow.physical': 'A glow with a bright core and a long soft tail, as real light spreads, from several blur sizes added together; it can be stretched, and tinted one colour or from a core colour out to an edge colour.',
   'core.line_recolor': 'Recolours the drawing\'s lines, for coloured trace lines.',
   'core.directional_blur': 'Smears the layer along one direction, as fast motion does.',
@@ -9962,6 +9965,11 @@ const EFFECT_PARAMS = {
     ['spectral_red', 'Spectral Red', 1, 1, 'per cent of Radius, 0 to 200, how far red reaches', '', 80],
     ['spectral_green', 'Spectral Green', 1, 1, 'per cent of Radius, 0 to 200, how far green reaches', '', 100],
     ['spectral_blue', 'Spectral Blue', 1, 1, 'per cent of Radius, 0 to 200, how far blue reaches', '', 120]],
+  // D-544, pick #13. Its colour is drawn apart.
+  'core.halation': [['threshold', 'Threshold', 1, 0.5, 'per cent, 0 to 100, how bright the light that makes it'],
+    ['threshold_smooth', 'Threshold Smooth', 1, 0.5, 'per cent, 0 to 100, how soft the threshold is'],
+    ['radius', 'Radius', 1, 1, 'pixels, 0 to 2000, how far it spreads'],
+    ['amount', 'Amount', 1, 1, 'per cent, 0 to 400, how strong it is']],
   'core.glow': [['threshold', 'Glow Threshold', 1, 0.5, '0 to 100'],
     ['radius', 'Glow Radius', 1, 0.5, '0 to 500'],
     ['intensity', 'Glow Intensity', 1, 0.02, '0 to 10'],
@@ -11151,6 +11159,8 @@ const EFFECT_WORDS = {
       ['spectral', 'Spectral', [['off', 'Off'], ['on', 'On']]]],
     colours: [['inner_color', 'Inner Colour'], ['outer_color', 'Outer Colour']],
   },
+  // D-544.
+  'core.halation': { colours: [['color', 'Colour']] },
   // D-89. The colours show only when a glow is based on them, and are kept when it is not.
   'core.glow': {
     choices: [['based_on', 'Glow Based On', [['bright', 'Bright parts'], ['colors', 'Chosen colours']]],

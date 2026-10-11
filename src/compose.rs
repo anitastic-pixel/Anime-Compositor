@@ -1081,8 +1081,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::DepthKey { .. }
                 | crate::effects::Effect::IdKey { .. }
                 | crate::effects::Effect::LineWidth { .. }
-                // D-353: Soft Physical Glow.
+                // D-353: Soft Physical Glow; D-544: Halation, on its engine.
                 | crate::effects::Effect::SoftGlow { .. }
+                | crate::effects::Effect::Halation { .. }
                 // D-356: Path Stroke.
                 | crate::effects::Effect::Stroke { .. }
                 // D-360..D-362: Cross Blur, Spin & Zoom Blur and Fast Zoom Blur.
@@ -1146,6 +1147,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // D-353: a Soft Physical Glow's threshold with no smooth is a step, so it stays on the
         // CPU for D-122's reason.
         && !matches!(&instance.effect, crate::effects::Effect::SoftGlow { threshold, threshold_smooth, .. }
+            | crate::effects::Effect::Halation { threshold, threshold_smooth, .. }
             if *threshold > 0.0 && *threshold_smooth == 0.0)
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.

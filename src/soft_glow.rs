@@ -50,6 +50,13 @@ pub(crate) struct Settings {
     pub tint: Option<Tint>,
     /// D-543, pick #10: Spectral's red, green and blue sizes, per cent of Radius, `None` when off.
     pub spectral: Option<[f64; 3]>,
+    /// D-544, pick #13: Halation's colour (linear), `None` for a glow.
+    pub halation: Option<[f32; 3]>,
+}
+
+/// Rec. 709 brightness, as `light`'s Luminance mode tests it.
+fn y709(v: [f32; 3]) -> f32 {
+    0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]
 }
 
 /// D-543: the radius each chain of levels is worked at, and the channel it gives (`None`, all
@@ -379,6 +386,12 @@ pub(crate) fn soft_glow(source: &mut WorkingBuffer, s: &Settings) -> usize {
                     None => glow = sum,
                     Some(c) => glow[*c] = sum[*c],
                 }
+            }
+            if let Some(colour) = s.halation {
+                // D-544: only where the light spreads onto something darker than itself.
+                let here = if inside { y709([lit[i * 3], lit[i * 3 + 1], lit[i * 3 + 2]]) } else { 0.0 };
+                let h = (y709(glow) - here).max(0.0);
+                glow = colour.map(|c| c * h);
             }
             let p = if inside { [src[i * 4], src[i * 4 + 1], src[i * 4 + 2], src[i * 4 + 3]] } else { [0.0; 4] };
             o.copy_from_slice(&finish(glow, p, s));

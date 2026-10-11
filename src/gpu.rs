@@ -9411,6 +9411,21 @@ fn sgfinish(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     textureStore(output, id.xy, vec4(v, min(ga + o * p.w, 1.0)));
 }
+
+// D-544, soft_glow::soft_glow's halation: the spread's Rec. 709 brightness past the light's own
+// at the pixel (`other`, at the grow; 0 outside the layer), in Halation's colour. k: the grow,
+// then the colour (linear).
+@compute @workgroup_size(16, 16)
+fn sghalo(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let s = textureLoad(input, id.xy, 0).xyz;
+    let l = at(other, vec2<i32>(id.xy) - vec2(i32(k[0]))).xyz;
+    let h = max((0.2126 * s.x + 0.7152 * s.y + 0.0722 * s.z) - (0.2126 * l.x + 0.7152 * l.y + 0.0722 * l.z), 0.0);
+    textureStore(output, id.xy, vec4(h * vec3(f32(k[1]), f32(k[2]), f32(k[3])), 0.0));
+}
 "#;
 
 /// B-65: [`FX_SHADER`]'s numbers, laid out as its `Fx`; each pass reads what it needs.
@@ -9578,6 +9593,8 @@ struct FxPasses {
     sgpass: Pass,
     sgadd: Pass,
     sgfinish: Pass,
+    /// D-544.
+    sghalo: Pass,
     /// D-388.
     pageturn: Pass,
 }
@@ -10248,6 +10265,7 @@ impl Gpu {
                 sgpass: pass("sgpass", &[0, 1, 2, 3]),
                 sgadd: pass("sgadd", &[0, 1, 2, 3, 4]),
                 sgfinish: pass("sgfinish", &[0, 1, 2, 3, 4]),
+                sghalo: pass("sghalo", &[0, 1, 2, 3, 4]),
                 pageturn: pass("pageturn", &[0, 1, 2, 3, 4]),
                 chain: {
                     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -12243,34 +12261,14 @@ impl Gpu {
             // D-353: the light, then each level's cells spread two ways and added between its
             // cells, then laid with the layer, grown by the plan's reach. The three planes are
             // the largest level's size, each level using its own corner of them.
-            E::SoftGlow {
-                threshold_mode,
-                threshold,
-                threshold_smooth,
-                saturation_bias,
-                radius,
-                exposure,
-                aspect_ratio,
-                aspect_angle,
-                operation,
-                source_opacity,
-                unmult,
-                tint,
-                inner_color,
-                outer_color,
-                tint_amount,
-                spectral,
-                spectral_red,
-                spectral_green,
-                spectral_blue,
-                ..
-            } => {
+            // D-544: a Halation is one, with one pass more.
+            e @ (E::SoftGlow { .. } | E::Halation { .. }) => {
+                let s = crate::effects::soft_glow_settings(e).expect("a soft glow's settings");
                 // D-543: one chain of levels, or one a channel at its own radius, each level adding
                 // only its chain's channel; the light's own share is each chain's for its channel.
-                let sizes = crate::soft_glow::sizes(spectral, *spectral_red, *spectral_green, *spectral_blue);
-                let chains: Vec<_> = crate::soft_glow::chains(*radius, sizes)
+                let chains: Vec<_> = crate::soft_glow::chains(s.radius, s.spectral)
                     .into_iter()
-                    .map(|(r, c)| (r, crate::soft_glow::plan(r, *aspect_ratio, *aspect_angle), c))
+                    .map(|(r, c)| (r, crate::soft_glow::plan(r, s.aspect, s.angle), c))
                     .collect();
                 let mut own = [0.0f64; 3];
                 for (_, plan, c) in &chains {
@@ -12280,7 +12278,7 @@ impl Gpu {
                     }
                 }
                 // D-542: the tint's numbers for each level k at a radius, all 0 when off.
-                let tint = crate::soft_glow::Tint::of(tint, inner_color, outer_color, *tint_amount);
+                let tint = &s.tint;
                 let tinted = |radius: f64, k: usize| -> [f64; 8] {
                     let Some(t) = &tint else { return [0.0; 8] };
                     let c = t.colour(radius, k);
@@ -12290,7 +12288,7 @@ impl Gpu {
                 let (ow, oh) = (w + 2 * g, h + 2 * g);
                 let single = |v: f64| v as f32 as f64;
                 let lit = self.scratch("D-353 light", w, h);
-                let k = [single(threshold / 100.0), single(saturation_bias / 100.0), single(threshold_smooth / 100.0), f64::from(threshold_mode == "luminance")];
+                let k = [single(s.threshold / 100.0), single(s.bias / 100.0), single(s.smooth / 100.0), f64::from(s.luminance)];
                 self.fx_step(steps, &passes.sglight, FxParams::default(), Some(still), Some(&lit), Some(&k), None, none, tiles(w, h));
                 let size = |lv: &crate::soft_glow::Level| (w.div_ceil(lv.d) + 2 * lv.reach.0, h.div_ceil(lv.d) + 2 * lv.reach.1);
                 let (mw, mh) = chains.iter().flat_map(|(_, plan, _)| &plan.levels).map(size).fold((1, 1), |(a, b), (x, y)| (a.max(x), b.max(y)));
@@ -12330,15 +12328,20 @@ impl Gpu {
                 if done == 0 {
                     // No level: the light's own share alone.
                     let mut k = vec![0.0, 1.0, 0.0, 0.0, g as f64, own[0], 0.0, 0.0];
-                    k.extend(tinted(*radius, 0));
+                    k.extend(tinted(s.radius, 0));
                     k.extend([1.0; 3]);
                     k.extend(own);
                     let p = FxParams { flag: 1, count: 0, ..Default::default() };
                     self.fx_step(steps, &passes.sgadd, p, Some(&planes[2]), Some(&sums[0]), Some(&k), Some(&lit), none, tiles(ow, oh));
                     done = 1;
                 }
+                if let Some(c) = s.halation {
+                    let k = [g as f64, c[0] as f64, c[1] as f64, c[2] as f64];
+                    self.fx_step(steps, &passes.sghalo, FxParams::default(), Some(&sums[(done + 1) % 2]), Some(&sums[done % 2]), Some(&k), Some(&lit), none, tiles(ow, oh));
+                    done += 1;
+                }
                 let out = self.scratch("D-353 soft glow", ow, oh);
-                let k = [g as f64, single(*exposure), single(source_opacity / 100.0), f64::from(operation == "screen"), f64::from(unmult == "on")];
+                let k = [g as f64, single(s.exposure), single(s.opacity / 100.0), f64::from(s.screen), f64::from(s.unmult)];
                 self.fx_step(steps, &passes.sgfinish, FxParams::default(), Some(&sums[(done + 1) % 2]), Some(&out), Some(&k), Some(still), none, tiles(ow, oh));
                 (out, (ow, oh))
             }

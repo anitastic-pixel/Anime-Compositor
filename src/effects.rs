@@ -2971,6 +2971,16 @@ pub enum Effect {
         spectral_green: f64,
         spectral_blue: f64,
     },
+    /// D-544: Halation (EFFECTS.md pick #13), on D-353's engine (`soft_glow`, document 21):
+    /// `threshold` and `threshold_smooth`, 0 to 100 per cent; `radius`, 0 to 2,000 pixels;
+    /// `amount`, 0 to 400 per cent; `color`, `#rrggbb`.
+    Halation {
+        threshold: f64,
+        threshold_smooth: f64,
+        radius: f64,
+        amount: f64,
+        color: String,
+    },
     /// D-356: Path Stroke, after After Effects' Stroke (`along`, document 21): a brush drawn
     /// along the layer's masks. `mask`, 1 to 1000, the mask numbered so, its floor taken;
     /// `all_masks` and `stroke_sequentially`, "off" or "on"; `color`, `#rrggbb`; `brush_size`, 0
@@ -3008,6 +3018,7 @@ pub const TINT: &str = "core.tint";
 pub const LINE_SMOOTH: &str = "core.line_smooth";
 pub const SELECTIVE_COLOR_BLUR: &str = "core.selective_color_blur";
 pub const GLOW: &str = "core.glow";
+pub const HALATION: &str = "core.halation";
 pub const LINE_RECOLOR: &str = "core.line_recolor";
 pub const DIRECTIONAL_BLUR: &str = "core.directional_blur";
 pub const SELECT_COLOR: &str = "core.select_color";
@@ -5117,6 +5128,12 @@ impl Effect {
                 ("spectral_green", vec![spectral_green], 0.0, 200.0),
                 ("spectral_blue", vec![spectral_blue], 0.0, 200.0),
             ],
+            Effect::Halation { threshold, threshold_smooth, radius, amount, .. } => vec![
+                ("threshold", vec![threshold], 0.0, 100.0),
+                ("threshold_smooth", vec![threshold_smooth], 0.0, 100.0),
+                ("radius", vec![radius], 0.0, 2000.0),
+                ("amount", vec![amount], 0.0, 400.0),
+            ],
             Effect::Stroke { mask, brush_size, brush_hardness, opacity, start, end, spacing, .. } => vec![
                 ("mask", vec![mask], 1.0, 1000.0),
                 ("brush_size", vec![brush_size], 0.0, 200.0),
@@ -5943,7 +5960,7 @@ impl Effect {
                 *distortion_amount = scale(*distortion_amount);
                 *distortion_scale = scale(*distortion_scale);
             }
-            Effect::SoftGlow { radius, .. } => *radius = scale(*radius),
+            Effect::SoftGlow { radius, .. } | Effect::Halation { radius, .. } => *radius = scale(*radius),
             Effect::SpeedLines { inner, .. } => *inner = scale(*inner),
             Effect::CrossGlare { length, .. } => *length = scale(*length),
             Effect::CameraShake { amount, .. } => *amount = scale(*amount),
@@ -6281,6 +6298,7 @@ impl Effect {
             Effect::RefineMatte { .. } => "Refine Soft Matte",
             Effect::Stroke { .. } => "Path Stroke",
             Effect::SoftGlow { .. } => "Soft Physical Glow",
+            Effect::Halation { .. } => "Halation",
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -6498,6 +6516,7 @@ impl Effect {
             Effect::RefineMatte { .. } => REFINE_SOFT_MATTE,
             Effect::Stroke { .. } => STROKE,
             Effect::SoftGlow { .. } => GLOW,
+            Effect::Halation { .. } => HALATION,
             Effect::Unsupported { type_id } => type_id,
         }
     }
@@ -6542,6 +6561,8 @@ impl Effect {
                 let sizes = crate::soft_glow::sizes(spectral, *spectral_red, *spectral_green, *spectral_blue);
                 crate::soft_glow::grow(*radius, *aspect_ratio, *aspect_angle, sizes)
             }
+            // D-544: the spread's reach, round.
+            Effect::Halation { radius, .. } if self.fault().is_none() => crate::soft_glow::grow(*radius, 1.0, 0.0, None),
             // D-89: the light reaches `radius` pixels, blur's reach at sigma radius / 3.
             Effect::Glow { radius, units, .. } => {
                 let (sigma, long) = glow_reach(*radius, units);
@@ -7465,6 +7486,7 @@ impl Effect {
                 .then(|| format!("{name}'s tint is \"off\", \"one_color\" or \"core_to_edge\", and this is \"{v}\"."))
                 .or_else(|| hex_fault(name, "inner colour", inner_color))
                 .or_else(|| hex_fault(name, "outer colour", outer_color)),
+            Effect::Halation { color, .. } => hex_fault(name, "colour", color),
             Effect::SpreadTones { equalize, .. } if !EQUALIZE.contains(&equalize.as_str()) => Some(format!(
                 "Spread Tones equalizes by \"rgb\", \"brightness\" or \"photoshop\", and this is \"{equalize}\"."
             )),
@@ -11187,45 +11209,12 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
-            // D-353: the layer grows by the plan's reach on every side.
-            Effect::SoftGlow {
-                threshold_mode,
-                threshold,
-                threshold_smooth,
-                saturation_bias,
-                radius,
-                exposure,
-                aspect_ratio,
-                aspect_angle,
-                operation,
-                source_opacity,
-                unmult,
-                tint,
-                inner_color,
-                outer_color,
-                tint_amount,
-                spectral,
-                spectral_red,
-                spectral_green,
-                spectral_blue,
-                ..
-            } => {
-                let s = crate::soft_glow::Settings {
-                    luminance: threshold_mode == "luminance",
-                    threshold: *threshold,
-                    smooth: *threshold_smooth,
-                    bias: *saturation_bias,
-                    radius: *radius,
-                    exposure: *exposure,
-                    aspect: *aspect_ratio,
-                    angle: *aspect_angle,
-                    screen: operation == "screen",
-                    opacity: *source_opacity,
-                    unmult: unmult == "on",
-                    tint: crate::soft_glow::Tint::of(tint, inner_color, outer_color, *tint_amount),
-                    spectral: crate::soft_glow::sizes(spectral, *spectral_red, *spectral_green, *spectral_blue),
-                };
-                let r = crate::perf::time(crate::perf::Stage::EffectSoftGlow, || crate::soft_glow::soft_glow(source, &s));
+            // D-353: the layer grows by the plan's reach on every side; D-544's Halation is worked
+            // by the same engine.
+            e @ (Effect::SoftGlow { .. } | Effect::Halation { .. }) => {
+                let s = soft_glow_settings(e).expect("a soft glow's settings");
+                let stage = if s.halation.is_some() { crate::perf::Stage::EffectHalation } else { crate::perf::Stage::EffectSoftGlow };
+                let r = crate::perf::time(stage, || crate::soft_glow::soft_glow(source, &s));
                 ox += r;
                 oy += r;
             }
@@ -11306,6 +11295,68 @@ pub(crate) fn flicker_stops(amount: f64, hold: f64, seed: f64, frame: i32) -> f6
 /// D-127 and D-128: one full turn of evolution moves the field one cell.
 pub(crate) fn depth(evolution: f64, speed: f64, frame: i32) -> f64 {
     (evolution + speed * frame as f64) / 360.0
+}
+
+/// D-353's settings for a Soft Physical Glow, for the processor and the card alike; and D-544's
+/// for a Halation, which is one: the light by brightness, spread round at Radius, Amount as its
+/// Exposure, laid with Screen and Unmult at full Source Opacity, in its colour (linear).
+pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Settings> {
+    match e {
+        Effect::SoftGlow {
+            threshold_mode,
+            threshold,
+            threshold_smooth,
+            saturation_bias,
+            radius,
+            exposure,
+            aspect_ratio,
+            aspect_angle,
+            operation,
+            source_opacity,
+            unmult,
+            tint,
+            inner_color,
+            outer_color,
+            tint_amount,
+            spectral,
+            spectral_red,
+            spectral_green,
+            spectral_blue,
+            ..
+        } => Some(crate::soft_glow::Settings {
+            luminance: threshold_mode == "luminance",
+            threshold: *threshold,
+            smooth: *threshold_smooth,
+            bias: *saturation_bias,
+            radius: *radius,
+            exposure: *exposure,
+            aspect: *aspect_ratio,
+            angle: *aspect_angle,
+            screen: operation == "screen",
+            opacity: *source_opacity,
+            unmult: unmult == "on",
+            tint: crate::soft_glow::Tint::of(tint, inner_color, outer_color, *tint_amount),
+            spectral: crate::soft_glow::sizes(spectral, *spectral_red, *spectral_green, *spectral_blue),
+            halation: None,
+        }),
+        Effect::Halation { threshold, threshold_smooth, radius, amount, color } => Some(crate::soft_glow::Settings {
+            luminance: true,
+            threshold: *threshold,
+            smooth: *threshold_smooth,
+            bias: 0.0,
+            radius: *radius,
+            exposure: amount / 100.0,
+            aspect: 1.0,
+            angle: 0.0,
+            screen: true,
+            opacity: 100.0,
+            unmult: true,
+            tint: None,
+            spectral: None,
+            halation: Some(encoded(color).map(|v| crate::grade::to_linear(v) as f32)),
+        }),
+        _ => None,
+    }
 }
 
 /// D-445: Turbulent Noise as the Fractal Noise it is a second name for: no speed, black to
