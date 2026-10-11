@@ -210098,3 +210098,53 @@ FX-FOG-028 (`fx_fog_028.json`): Fog colour written "white". The file is read, th
 FX-FOG-029 (`fx_fog_029.json`): Fog End Depth keyed to 2,000,000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
 FX-FOG-030 (`fx_fog_030.json`): Layer Contribution 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### IDentifier (D-525)
+
+IDentifier (`core.identifier`), after After Effects' IDentifier (fnord's ProEXR, B-405), the rule ours. Each case is a project of one composition 8 by 6, five frames at 24 a second, the depth fixtures' scene with their id files, in `Fixtures/identifier/media/`: `blender.exr` (object ids 0 to 5 in blocks, material ids 1 to 3 on the diagonals with 2.4 and 2.6 between), `ids.exr` (a bare ObjectID and a materialID layer), `big.exr` (object ids 0 to 350, -3, an infinity and a not-a-number), `scene.exr` (no ids) and `card.png`. `tools/identifier_reference.py` works the expected frames, `Fixtures/identifier/expected_identifier.json`, tolerance 2e-5; the rule is in document 21. The playtest's sample is D-349's `Fixtures/depth_channel/sample/spheres_blender.exr`.
+
+FX-IDENT-001 (`fx_ident_001.json`): As added: the object ids 0 to 5 as six colours, one to each block of three by three, opaque.
+
+FX-IDENT-002 (`fx_ident_002.json`): The material ids as colours: 1 to 3 on the diagonals, 2.4 coloured as 2 and 2.6 as 3.
+
+FX-IDENT-003 (`fx_ident_003.json`): Luma matte of object 4: the bottom-middle block white, the rest black.
+
+FX-IDENT-004 (`fx_ident_004.json`): Alpha matte of object 4: the scene kept in the bottom-middle block, transparent elsewhere.
+
+FX-IDENT-005 (`fx_ident_005.json`): Raw object ids: greys whose 8-bit values are 0 to 5.
+
+FX-IDENT-006 (`fx_ident_006.json`): Raw material ids: 2.4 and 2.6 as they are, not rounded.
+
+FX-IDENT-007 (`fx_ident_007.json`): Luma matte of material 2: the 2 diagonal and the 2.4 pixel, not the 2.6.
+
+FX-IDENT-008 (`fx_ident_008.json`): The id keyed from 0 at frame 0 to 4 at frame 4, luma matte: block 0, 2, then 4.
+
+FX-IDENT-009 (`fx_ident_009.json`): A bare ObjectID channel, 0 to 3 by column: four colours.
+
+FX-IDENT-010 (`fx_ident_010.json`): materialID.R (7 or 8 by row), not its G (100) or B (200): luma matte of 8, the odd rows.
+
+FX-IDENT-011 (`fx_ident_011.json`): Ids from 0 to 350 by column, -3, an infinity and not-a-number, raw: white past 255, black at -3, the infinity white and the not-a-number black; the warning every frame. Each frame says `MEDIA_EXR_ADJUSTED`.
+
+FX-IDENT-012 (`fx_ident_012.json`): The same ids as colours: each its own colour, the infinity too. Each frame says `MEDIA_EXR_ADJUSTED`.
+
+FX-IDENT-013 (`fx_ident_013.json`): A file with no ids: unchanged, the warning every frame. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-IDENT-014 (`fx_ident_014.json`): On a PNG drawing: unchanged, the warning. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-IDENT-015 (`fx_ident_015.json`): On an adjustment layer above the EXR: no file of its own, unchanged, the warning. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-IDENT-016 (`fx_ident_016.json`): The layer moved 2 right and 1 down: FX-IDENT-001 moved.
+
+FX-IDENT-017 (`fx_ident_017.json`): An Exposure of +1 before it, alpha matte of object 0: the brighter scene kept in the top-left block.
+
+FX-IDENT-018 (`fx_ident_018.json`): An Exposure of -1 after it, colours: each colour halved.
+
+FX-IDENT-019 (`fx_ident_019.json`): Alpha matte of object 9, which no pixel has: all transparent.
+
+FX-IDENT-020 (`fx_ident_020.json`): Output written "matte". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-IDENT-021 (`fx_ident_021.json`): Aux channel written "depth". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-IDENT-022 (`fx_ident_022.json`): Id -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-IDENT-023 (`fx_ident_023.json`): Id keyed to 1,000,001 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
