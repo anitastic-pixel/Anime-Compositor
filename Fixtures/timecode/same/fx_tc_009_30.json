@@ -1,0 +1,800 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-tc-009-same-30",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 480,
+      "height": 160,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24000,
+        "denominator": 1001
+      },
+      "start_frame": 0,
+      "duration_frames": 60,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 60
+      },
+      "layer_order": [
+        "plate",
+        "box",
+        "char-0",
+        "char-1",
+        "char-2",
+        "char-3",
+        "char-4",
+        "char-5",
+        "char-6",
+        "char-7",
+        "char-8",
+        "char-9",
+        "char-10"
+      ],
+      "layers": [
+        {
+          "id": "plate",
+          "kind": "solid",
+          "name": "plate",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "solid": {
+            "color": [
+              0.02,
+              0.05,
+              0.12
+            ],
+            "width": 480,
+            "height": 160
+          }
+        },
+        {
+          "id": "box",
+          "kind": "solid",
+          "name": "box",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                130.0,
+                20.5
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                122.5
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1.0,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "solid": {
+            "color": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "width": 260,
+            "height": 41
+          }
+        },
+        {
+          "id": "char-0",
+          "kind": "text",
+          "name": "char-0",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "0",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 36,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              117.24,
+              136.0
+            ],
+            "align": "left"
+          }
+        },
+        {
+          "id": "char-1",
+          "kind": "text",
+          "name": "char-1",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "0",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 36,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              139.56,
+              136.0
+            ],
+            "align": "left"
+          }
+        },
+        {
+          "id": "char-2",
+          "kind": "text",
+          "name": "char-2",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": ":",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 36,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              166.488,
+              136.0
+            ],
+            "align": "left"
+          }
+        },
+        {
+          "id": "char-3",
+          "kind": "text",
+          "name": "char-3",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "0",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 36,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              184.2,
+              136.0
+            ],
+            "align": "left"
+          }
+        },
+        {
+          "id": "char-4",
+          "kind": "text",
+          "name": "char-4",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "0",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 36,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              206.51999999999998,
+              136.0
+            ],
+            "align": "left"
+          }
+        },
+        {
+          "id": "char-5",
+          "kind": "text",
+          "name": "char-5",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": ":",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 36,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              233.44799999999998,
+              136.0
+            ],
+            "align": "left"
+          }
+        },
+        {
+          "id": "char-6",
+          "kind": "text",
+          "name": "char-6",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "0",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 36,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              251.16000000000003,
+              136.0
+            ],
+            "align": "left"
+          }
+        },
+        {
+          "id": "char-7",
+          "kind": "text",
+          "name": "char-7",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "1",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 36,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              273.48,
+              136.0
+            ],
+            "align": "left"
+          }
+        },
+        {
+          "id": "char-8",
+          "kind": "text",
+          "name": "char-8",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": ":",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 36,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              300.408,
+              136.0
+            ],
+            "align": "left"
+          }
+        },
+        {
+          "id": "char-9",
+          "kind": "text",
+          "name": "char-9",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "0",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 36,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              318.12,
+              136.0
+            ],
+            "align": "left"
+          }
+        },
+        {
+          "id": "char-10",
+          "kind": "text",
+          "name": "char-10",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "6",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 36,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              340.44,
+              136.0
+            ],
+            "align": "left"
+          }
+        }
+      ]
+    }
+  ]
+}
