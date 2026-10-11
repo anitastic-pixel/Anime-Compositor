@@ -207766,3 +207766,53 @@ FX-TURBNOISE-030 (`fx_turbnoise_030.json`): Noise type "spline", one of After Ef
 FX-TURBNOISE-031 (`fx_turbnoise_031.json`): Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-TURBNOISE-032 (`fx_turbnoise_032.json`): Blend "overlay", which is not a blend here. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Match Grain (D-454)
+
+After Effects' Match Grain (Noise & Grain), `core.match_grain` (B-334). Every case is a composition 16 by 10 at 24 frames a second, 5 frames long: the layer `holder`, Noise's card (`Fixtures/match_grain/media/card.png`) at the top-left, holding the Match Grain, and hidden source layers: `steady` (`steady.png`, 12 by 8, grainy, red grain strongest), `holes` (the same with one empty pixel and a half-covered column), `seq` (`seq_1.png` then `seq_2.png`, light grain then heavy) and `flat` (`flat.png`, 6 by 4, one colour). `tools/match_grain_reference.py` works the expected frames, `Fixtures/match_grain/expected_match_grain.json`, tolerance 2e-5, measuring the grain as document 21 says and laying it with D-443's Add Grain rule; the rule is in document 21.
+
+FX-MATCHGRAIN-001 (`fx_matchgrain_001.json`): The settings as added: no source layer, so nothing is measured and the card is left as it is. Frames 0.
+
+FX-MATCHGRAIN-002 (`fx_matchgrain_002.json`): Source `steady`, hidden, the rest as added (Film): the card gains grain as strong as steady's, its red grain strongest and blue weakest, a new grain each frame. Frames 0, 2.
+
+FX-MATCHGRAIN-003 (`fx_matchgrain_003.json`): Source `seq`: light grain at frame 0, heavy grain at frame 3 when the source's drawing changes. Frames 0, 3.
+
+FX-MATCHGRAIN-004 (`fx_matchgrain_004.json`): Blending Mode Add: the grain's spread per channel is steady's. Frames 0.
+
+FX-MATCHGRAIN-005 (`fx_matchgrain_005.json`): Intensity 2, Add: twice FX-MATCHGRAIN-004's grain. Frames 0.
+
+FX-MATCHGRAIN-006 (`fx_matchgrain_006.json`): Monochromatic, Add: one grain pattern in all three channels, each at its measured strength. Frames 0.
+
+FX-MATCHGRAIN-007 (`fx_matchgrain_007.json`): Channel intensities 0, 1 and 2, Add: no red grain, green as measured, blue doubled. Frames 0.
+
+FX-MATCHGRAIN-008 (`fx_matchgrain_008.json`): Saturation 0, Add. Frames 0.
+
+FX-MATCHGRAIN-009 (`fx_matchgrain_009.json`): Size 3, Softness 0.5, Aspect Ratio 2: bigger, softer, wider grains. Frames 0.
+
+FX-MATCHGRAIN-010 (`fx_matchgrain_010.json`): Shadows 0, Highlights 0, Add: no grain in the card's black and white patches. Frames 0.
+
+FX-MATCHGRAIN-011 (`fx_matchgrain_011.json`): Blending Mode Overlay, intensity 2. Frames 0.
+
+FX-MATCHGRAIN-012 (`fx_matchgrain_012.json`): Animation Speed 0: the same grain on frames 0, 2 and 4. Frames 0, 2, 4.
+
+FX-MATCHGRAIN-013 (`fx_matchgrain_013.json`): Source `holes`, with one empty pixel and a half-covered column: the windows over the empty pixel are not counted. Frames 0.
+
+FX-MATCHGRAIN-014 (`fx_matchgrain_014.json`): Source `flat`, one colour: no grain measured, the card as it is. Frames 0, 2.
+
+FX-MATCHGRAIN-015 (`fx_matchgrain_015.json`): Source `ghost`, not a layer of the composition: the card as it is, with EFFECT_LAYER_MISSING each frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 3.
+
+FX-MATCHGRAIN-016 (`fx_matchgrain_016.json`): Intensity keyed from 0 at frame 0 to 4 at frame 4, speed 0, Add: frame 0 the card; frame 4's grain twice frame 2's. Frames 0, 2, 4.
+
+FX-MATCHGRAIN-017 (`fx_matchgrain_017.json`): Random Seed 7: a different grain from FX-MATCHGRAIN-002's. Frames 0.
+
+FX-MATCHGRAIN-018 (`fx_matchgrain_018.json`): Animation Speed 0.5, Animate Smoothly off: frame 1 holds frame 0's grain. Frames 0, 1, 3.
+
+FX-MATCHGRAIN-019 (`fx_matchgrain_019.json`): Intensity 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MATCHGRAIN-020 (`fx_matchgrain_020.json`): Size 0.05, below 0.1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MATCHGRAIN-021 (`fx_matchgrain_021.json`): Blending Mode "screen", not one of its three words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MATCHGRAIN-022 (`fx_matchgrain_022.json`): Monochromatic "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MATCHGRAIN-023 (`fx_matchgrain_023.json`): Source layer the number 5, not a layer's id. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
