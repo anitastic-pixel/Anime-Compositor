@@ -1094,6 +1094,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::AdvancedSpillSuppressor { .. }
                 // D-459.
                 | crate::effects::Effect::ColorDifferenceKey { .. }
+                // D-500.
+                | crate::effects::Effect::ColorRange { .. }
                 // D-400.
                 | crate::effects::Effect::ShadowHighlight { .. }
                 // D-397.

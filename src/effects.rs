@@ -2171,6 +2171,15 @@ pub enum Effect {
         partial_b: [f64; 5],
         matte: [f64; 3],
     },
+    /// D-500: after After Effects' Color Range, its rule and its settings when added ours
+    /// (`grade::color_range`, document 21). `color_space`, one of [`CRANGE_SPACES`];
+    /// `fuzziness`, 0 to 255; `range`, the low and high end of each of the space's three
+    /// components, 0 to 255, named as [`CRANGE_NAMES`].
+    ColorRange {
+        color_space: String,
+        fuzziness: f64,
+        range: [f64; 6],
+    },
     /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
     /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
     /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
@@ -2957,6 +2966,12 @@ pub const CDK_NAMES: [&str; 13] = [
     "matte_in_white",
     "matte_gamma",
 ];
+pub const COLOR_RANGE: &str = "core.color_range";
+/// D-500: Color Range's colour spaces.
+pub const CRANGE_SPACES: [&str; 3] = ["lab", "yuv", "rgb"];
+/// D-500: Color Range's box in the file: the first component's low and high end, the second's,
+/// the third's.
+pub const CRANGE_NAMES: [&str; 6] = ["min_1", "max_1", "min_2", "max_2", "min_3", "max_3"];
 pub const SIMPLE_WIRE_REMOVAL: &str = "core.simple_wire_removal";
 /// D-458: CC Simple Wire Removal's styles.
 pub const WIRE_STYLES: [&str; 4] = ["fade", "frame_offset", "displace", "displace_horizontal"];
@@ -4097,6 +4112,10 @@ impl Effect {
                     true => (n, vec![v], 0.1, 10.0),
                     false => (n, vec![v], 0.0, 255.0),
                 })
+                .collect(),
+            Effect::ColorRange { fuzziness, range, .. } => std::iter::once(("fuzziness", fuzziness))
+                .chain(CRANGE_NAMES.into_iter().zip(range.iter_mut()))
+                .map(|(n, v)| (n, vec![v], 0.0, 255.0))
                 .collect(),
             Effect::Deband {
                 edge_threshold,
@@ -5447,6 +5466,7 @@ impl Effect {
             Effect::Deband { .. } => "Deband",
             Effect::AdvancedSpillSuppressor { .. } => "Advanced Spill Suppressor",
             Effect::ColorDifferenceKey { .. } => "Color Difference Key",
+            Effect::ColorRange { .. } => "Color Range",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
@@ -5639,6 +5659,7 @@ impl Effect {
             Effect::Deband { .. } => DEBAND,
             Effect::AdvancedSpillSuppressor { .. } => ADVANCED_SPILL_SUPPRESSOR,
             Effect::ColorDifferenceKey { .. } => COLOR_DIFFERENCE_KEY,
+            Effect::ColorRange { .. } => COLOR_RANGE,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
@@ -6066,6 +6087,8 @@ impl Effect {
                 .then(|| format!("{name}'s view is one of {}, and this is \"{view}\".",
                     CDK_VIEWS.map(|v| format!("\"{v}\"")).join(", ")))
                 .or_else(|| hex_fault(name, "key colour", key_color)),
+            Effect::ColorRange { color_space, .. } => (!CRANGE_SPACES.contains(&color_space.as_str()))
+                .then(|| format!("{name}'s colour space is \"lab\", \"yuv\" or \"rgb\", and this is \"{color_space}\".")),
             Effect::PhotoFilter { filter, color, preserve_luminosity, .. } => (filter != "custom"
                 && !PHOTO_FILTERS.iter().any(|(f, _)| f == filter))
                 .then(|| format!("{name}'s filter is one of {} or \"custom\", and this is \"{filter}\".",
@@ -8764,6 +8787,9 @@ pub(crate) fn apply_stack_at(
             }),
             e @ Effect::ColorDifferenceKey { .. } => crate::perf::time(crate::perf::Stage::EffectColorDifferenceKey, || {
                 crate::grade::color_difference_key(source, &crate::grade::cdk_settings(e))
+            }),
+            e @ Effect::ColorRange { .. } => crate::perf::time(crate::perf::Stage::EffectColorRange, || {
+                crate::grade::color_range(source, &crate::grade::crange_settings(e))
             }),
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {

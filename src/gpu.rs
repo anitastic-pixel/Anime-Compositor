@@ -2754,6 +2754,32 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, vec4(v, v, v, p.w));
         return;
     }
+    if F.mode == 71u {
+        // D-500, as grade::crange_kept; k: grade::crange_settings.
+        var v = 255.0lf * e;
+        if k[0] == 0.0lf {
+            let l = sh_lab(vec3(to_linear(e.x), to_linear(e.y), to_linear(e.z)));
+            v = vec3(255.0lf * l.x, 128.0lf + 128.0lf * l.y, 128.0lf + 128.0lf * l.z);
+        } else if k[0] == 1.0lf {
+            v = vec3(255.0lf * (0.299lf * e.x + 0.587lf * e.y + 0.114lf * e.z),
+                128.0lf + 255.0lf * (-0.168736lf * e.x - 0.331264lf * e.y + 0.5lf * e.z),
+                128.0lf + 255.0lf * (0.5lf * e.x - 0.418688lf * e.y - 0.081312lf * e.z));
+        }
+        var d = 0.0lf;
+        for (var c = 0u; c < 3u; c++) {
+            d = max(d, max(max(k[2u + 2u * c] - v[c], v[c] - k[3u + 2u * c]), 0.0lf));
+        }
+        var m = select(0.0lf, 1.0lf, d > 0.0lf);
+        if k[1] != 0.0lf {
+            m = min(d / k[1], 1.0lf);
+        }
+        // A channel at a time, as Extract's.
+        for (var c = 0u; c < 4u; c++) {
+            out[c] = f32(f64(p[c]) * m);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
     if F.mode == 0u {
         // k: the amount as a share.
         for (var c = 0u; c < 3u; c++) {
@@ -8733,6 +8759,8 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::AdvancedSpillSuppressor { .. }
             // D-459.
             | E::ColorDifferenceKey { .. }
+            // D-500.
+            | E::ColorRange { .. }
     )
 }
 
@@ -11528,6 +11556,9 @@ impl Gpu {
             }
             cdk @ E::ColorDifferenceKey { .. } => {
                 same(steps, &passes.tone, FxParams { mode: 70, ..Default::default() }, &crate::grade::cdk_settings(cdk), None)
+            }
+            crange @ E::ColorRange { .. } => {
+                same(steps, &passes.tone, FxParams { mode: 71, ..Default::default() }, &crate::grade::crange_settings(crange), None)
             }
             E::ColorLink { sample, clip, stencil, opacity, blending_mode: b, map, .. } => {
                 // card_can leaves only a named layer's picture; its colour is read here, once.

@@ -9330,6 +9330,7 @@ const EFFECT_NAMES = {
   'core.deband': 'Deband',
   'core.advanced_spill_suppressor': 'Advanced Spill Suppressor',
   'core.color_difference_key': 'Color Difference Key',
+  'core.color_range': 'Color Range',
   'core.simple_wire_removal': 'CC Simple Wire Removal',
   'core.smart_blur': 'Smart Blur',
   'core.bilateral_blur': 'Bilateral Blur',
@@ -9447,7 +9448,7 @@ const EFFECT_GROUPS = [
     'core.paraffin']],
   ['Lines & Mattes', ['core.line_smooth', 'core.line_width', 'core.line_blur', 'core.line_recolor', 'core.outline',
     'core.simple_choker', 'core.select_color', 'core.color_key', 'core.hsv_key', 'core.extract', 'core.advanced_spill_suppressor',
-    'core.simple_wire_removal', 'core.color_difference_key',
+    'core.simple_wire_removal', 'core.color_difference_key', 'core.color_range',
     'core.matte_choker', 'core.refine_hard_matte', 'core.refine_soft_matte']],
   ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple',
     'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile',
@@ -9544,6 +9545,7 @@ const EFFECT_SEARCH = {
   'core.remove_grain': 'remove grain denoise noise reduction degrain clean smooth film grain sensor noise unsharp mask sharpen noise and grain',
   'core.deband': 'deband debanding banding bands gradient steps posterized contour smooth dither diffusion noise 8 bit sky celfx noise and grain',
   'core.simple_wire_removal': 'cc simple wire removal rig removal wire rig string harness clean plate paint out remove line fade frame offset displace horizontal mirror blend thickness slope',
+  'core.color_range': 'color range colour range keying key out a range lab yuv rgb fuzziness min max green screen blue screen chroma key',
   'core.color_difference_key': 'color difference key colour difference matte keying green screen blue screen chroma key partial a partial b matte in black in white gamma out black out white key colour view',
   'core.advanced_spill_suppressor': 'advanced spill suppressor despill de-spill spill green screen blue screen keying fringe edge colour cast standard ultra key colour tolerance desaturate luma correction',
   'core.smart_blur': 'smart blur surface blur skin smooth smoothing grain noise denoise edge preserving bilateral clean',
@@ -9748,6 +9750,7 @@ const EFFECT_ABOUT = {
   'core.remove_grain': 'Measures how grainy the layer is and smooths the grain away while keeping edges hard, then can sharpen the result. Noise Reduction 0 leaves the layer as it is.',
   'core.deband': 'Smooths away the steps in a soft gradient (banding) by blurring only the flat areas, then adds a fine dither so the steps do not come back; hard edges are kept. Blur, diffusion and noise all 0 leave the layer as it is.',
   'core.simple_wire_removal': 'Paints out a thin wire or rig between two points: fades it away, fills it from another frame of the layer, or covers it with the picture either side of it, with a soft edge you can set.',
+  'core.color_range': 'Keys out every colour inside a box you set in Lab, YUV or RGB: a low and high end for each of the three parts of the colour. Fuzziness fades the colours just outside the box instead of keeping them whole. When added the box is empty, so nothing is keyed until you set it.',
   'core.color_difference_key': 'Keys out a screen colour by pulling two mattes from it, A and B, each with its own black point, white point and gamma, then joining them into one matte with its own levels. The View menu shows each matte as grey so you can tune it, or the finished, keyed layer.',
   'core.advanced_spill_suppressor': 'Takes the green or blue cast a screen throws onto a keyed subject (hair, skin, edges) back out. Standard finds the screen colour by itself; Ultra works from a key colour you choose, with controls for how wide a range of hues it touches and how the colour and brightness are put back.',
   'core.smart_blur': 'Smooths flat colour and grain while keeping lines sharp: each pixel mixes only with close colours round it.',
@@ -10457,6 +10460,13 @@ const EFFECT_PARAMS = {
     ['slope', 'Slope', 1, 1, 'per cent, 0 to 100, how hard the band’s edge is; 100 is a hard edge, 0 a soft edge as wide again'],
     ['mirror_blend', 'Mirror Blend', 1, 1, 'per cent, 0 to 100, Displace only: how much of the picture mirrored across the wire is mixed in'],
     ['frame_offset', 'Frame Offset', 1, 1, 'frames, -1000 to 1000, Frame Offset only: which frame, from this one, fills the wire']],
+  'core.color_range': [['fuzziness', 'Fuzziness', 1, 0.5, '0 to 255, how far outside the box a colour still fades; 0 keys only what is inside'],
+    ['min_1', 'Min (L, Y, R)', 1, 0.5, '0 to 255, the low end of the first part: lightness, luma or red'],
+    ['max_1', 'Max (L, Y, R)', 1, 0.5, '0 to 255, the high end of the first part'],
+    ['min_2', 'Min (a, U, G)', 1, 0.5, '0 to 255, the low end of the second part: a (green to red, 128 grey), U or green'],
+    ['max_2', 'Max (a, U, G)', 1, 0.5, '0 to 255, the high end of the second part'],
+    ['min_3', 'Min (b, V, B)', 1, 0.5, '0 to 255, the low end of the third part: b (blue to yellow, 128 grey), V or blue'],
+    ['max_3', 'Max (b, V, B)', 1, 0.5, '0 to 255, the high end of the third part']],
   'core.color_difference_key': [['A', 'a', 'Partial A '], ['B', 'b', 'Partial B ']]
     .flatMap(([which, pre, title]) => [['in_black', 'In Black', 1, 0.5, '0 to 255, matte ' + which + ' at or below this turns black'],
       ['in_white', 'In White', 1, 0.5, '0 to 255, matte ' + which + ' at or above this turns white'],
@@ -11141,6 +11151,8 @@ const EFFECT_WORDS = {
   'core.deband': { choices: [['view', 'View', [['normal', 'Normal'], ['edge_only', 'Edge Only'], ['selected_edge', 'Selected Edge']]]] },
   // D-458: CycoreFX’s words.
   'core.simple_wire_removal': { choices: [['removal_style', 'Removal Style', [['fade', 'Fade'], ['frame_offset', 'Frame Offset'], ['displace', 'Displace'], ['displace_horizontal', 'Displace Horizontal']]]] },
+  // D-500: After Effects’ colour spaces; Lab as it is added.
+  'core.color_range': { choices: [['color_space', 'Color Space', [['lab', 'Lab'], ['yuv', 'YUV'], ['rgb', 'RGB']]]] },
   // D-459: After Effects’ views, but for its four-up one.
   'core.color_difference_key': { choices: [['view', 'View', [['final', 'Final Output'], ['source', 'Source'], ['partial_a_uncorrected', 'Uncorrected Partial A'], ['partial_a', 'Corrected Partial A'], ['partial_b_uncorrected', 'Uncorrected Partial B'], ['partial_b', 'Corrected Partial B'], ['matte_uncorrected', 'Uncorrected Matte'], ['matte', 'Corrected Matte']]]], colours: [['key_color', 'Key Color']] },
   // D-457.

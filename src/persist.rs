@@ -2411,6 +2411,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert(name.into(), num(*v));
             }
         }
+        Effect::ColorRange { color_space, fuzziness, range } => {
+            params.insert("color_space".into(), J::from(color_space.as_str()));
+            params.insert("fuzziness".into(), num(*fuzziness));
+            for (v, name) in range.iter().zip(crate::effects::CRANGE_NAMES) {
+                params.insert(name.into(), num(*v));
+            }
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4835,6 +4842,7 @@ fn parse_effect(
         crate::effects::DEBAND,
         crate::effects::ADVANCED_SPILL_SUPPRESSOR,
         crate::effects::COLOR_DIFFERENCE_KEY,
+        crate::effects::COLOR_RANGE,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
@@ -5783,6 +5791,17 @@ fn parse_effect(
                 partial_a: [v[0], v[1], v[2], v[3], v[4]],
                 partial_b: [v[5], v[6], v[7], v[8], v[9]],
                 matte: [v[10], v[11], v[12]],
+            })
+        }
+        crate::effects::COLOR_RANGE => {
+            let mut range = [0.0; 6];
+            for (v, name) in range.iter_mut().zip(crate::effects::CRANGE_NAMES) {
+                *v = effect_number(params, name, &at)?;
+            }
+            Some(crate::effects::Effect::ColorRange {
+                color_space: effect_word(params, "color_space", &at)?,
+                fuzziness: effect_number(params, "fuzziness", &at)?,
+                range,
             })
         }
         crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {

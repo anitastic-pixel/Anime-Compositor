@@ -2527,6 +2527,60 @@ pub(crate) fn color_difference_key(source: &mut WorkingBuffer, k: &[f64; 17]) {
     });
 }
 
+/// D-500: Color Range's settings as the card reads them: the colour space's place in
+/// [`crate::effects::CRANGE_SPACES`], the fuzziness, then the box's six ends.
+pub(crate) fn crange_settings(effect: &crate::effects::Effect) -> [f64; 8] {
+    let crate::effects::Effect::ColorRange { color_space, fuzziness, range } = effect else {
+        unreachable!("crange_settings takes Color Range")
+    };
+    let mut k = [0.0; 8];
+    k[0] = crate::effects::CRANGE_SPACES.iter().position(|v| v == color_space).unwrap_or(0) as f64;
+    k[1] = *fuzziness;
+    k[2..].copy_from_slice(range);
+    k
+}
+
+/// D-500: the share of the encoded colour e that Color Range keeps. Its three components on a
+/// 0 to 255 scale (Lab from the linear colour by Shadow/Highlight's conversion, a* and b* about
+/// 128; full-range BT.601 YUV; RGB), how far each lies outside its end of the box, the largest,
+/// over the fuzziness; with fuzziness 0, 0 inside the box and 1 outside. Our rule (document 21).
+pub(crate) fn crange_kept(e: [f64; 3], k: &[f64; 8]) -> f64 {
+    let [r, g, b] = e;
+    let v = match k[0] as usize {
+        0 => {
+            let [l, p, q] = shadow_highlight_lab(e.map(to_linear));
+            [255.0 * l, 128.0 + 128.0 * p, 128.0 + 128.0 * q]
+        }
+        1 => [
+            255.0 * (0.299 * r + 0.587 * g + 0.114 * b),
+            128.0 + 255.0 * (-0.168736 * r - 0.331264 * g + 0.5 * b),
+            128.0 + 255.0 * (0.5 * r - 0.418688 * g - 0.081312 * b),
+        ],
+        _ => e.map(|c| 255.0 * c),
+    };
+    let d = (0..3).map(|i| (k[2 + 2 * i] - v[i]).max(v[i] - k[3 + 2 * i]).max(0.0)).fold(0.0, f64::max);
+    match k[1] == 0.0 {
+        true => if d == 0.0 { 0.0 } else { 1.0 },
+        false => (d / k[1]).min(1.0),
+    }
+}
+
+/// D-500: Color Range. Every channel times the share kept, so the colour is kept and only the
+/// covering falls.
+pub(crate) fn color_range(source: &mut WorkingBuffer, k: &[f64; 8]) {
+    each_pixel(source, |px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let e = [0, 1, 2].map(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)));
+        let m = crange_kept(e, k);
+        for c in px.iter_mut() {
+            *c = (*c as f64 * m) as f32;
+        }
+    });
+}
+
 /// D-396: Selective Color with every amount 0 leaves the layer exactly as it is.
 pub(crate) fn selective_color_untouched(families: &[[f64; 4]; 9]) -> bool {
     families.iter().flatten().all(|v| *v == 0.0)
