@@ -6857,6 +6857,105 @@ fn curlflow(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-448, median::cartoon_k's numbers in k; median::cartoon's edges: each pixel's edge from Sobel
+// on the smoothed picture luma, the border repeated, into red.
+@compute @workgroup_size(16, 16)
+fn cartoonedge(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let most = vec2<i32>(size) - vec2(1);
+    let q = vec2<i32>(id.xy);
+    var l: array<f64, 9>;
+    for (var j = 0; j < 3; j++) {
+        for (var i = 0; i < 3; i++) {
+            l[j * 3 + i] = picture_luma(textureLoad(input, clamp(q + vec2(i - 1, j - 1), vec2(0), most), 0));
+        }
+    }
+    let gx = l[2] + 2.0lf * l[5] + l[8] - l[0] - 2.0lf * l[3] - l[6];
+    let gy = l[6] + 2.0lf * l[7] + l[8] - l[0] - 2.0lf * l[1] - l[2];
+    let e = clamp((10.0lf * sqrt(gx * gx + gy * gy) / 2.0lf - k[0]) / k[1], 0.0lf, 1.0lf);
+    textureStore(output, id.xy, vec4(f32(e), 0.0, 0.0, 0.0));
+}
+
+// D-448, median::cartoon_fill: a smoothed pixel's fill, encoded, with its covering in w (all 0
+// where it does not show).
+fn cartoon_fill(p: vec4<f32>) -> vec4<f64> {
+    let a = f64(p.w);
+    if a <= 0.0lf {
+        return vec4(0.0lf);
+    }
+    let c = vec3(f64(p.x) / a, f64(p.y) / a, f64(p.z) / a);
+    let l = to_srgb(clamp(0.2126lf * c.x + 0.7152lf * c.y + 0.0722lf * c.z, 0.0lf, 1.0lf));
+    let q = l * k[5];
+    let n = floor(q);
+    let t = q - n;
+    var ramp = select(0.0lf, 1.0lf, t >= 0.5lf);
+    if k[6] != 0.0lf {
+        ramp = clamp((t - 0.5lf) / k[6] + 0.5lf, 0.0lf, 1.0lf);
+    }
+    let shade = (n + ramp) / k[5];
+    var f = vec4(0.0lf, 0.0lf, 0.0lf, a);
+    for (var i = 0u; i < 3u; i++) {
+        f[i] = clamp(to_srgb(clamp(c[i], 0.0lf, 1.0lf)) + shade - l, 0.0lf, 1.0lf);
+    }
+    return f;
+}
+
+// D-448, median::cartoon: `input` the smoothed layer, `other` its edges (cartoonedge).
+@compute @workgroup_size(16, 16)
+fn cartoon(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    var f = cartoon_fill(textureLoad(input, id.xy, 0));
+    let a = f.w;
+    if a <= 0.0lf {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    let most = vec2<i32>(size) - vec2(1);
+    let q = vec2<i32>(id.xy);
+    if k[7] != 0.0lf {
+        var m = vec3(0.0lf);
+        var count = 0.0lf;
+        for (var dy = -1; dy <= 1; dy++) {
+            for (var dx = -1; dx <= 1; dx++) {
+                let g = cartoon_fill(textureLoad(input, clamp(q + vec2(dx, dy), vec2(0), most), 0));
+                if g.w > 0.0lf {
+                    m += g.xyz;
+                    count += 1.0lf;
+                }
+            }
+        }
+        let e = f64(textureLoad(other, id.xy, 0).x);
+        for (var c = 0u; c < 3u; c++) {
+            f[c] = clamp(f[c] + k[7] * e * (f[c] - m[c] / count), 0.0lf, 1.0lf);
+        }
+    }
+    let r = i32(k[10]);
+    var ink = 0.0lf;
+    for (var ty = max(q.y - r, 0); ty <= min(q.y + r, most.y); ty++) {
+        for (var tx = max(q.x - r, 0); tx <= min(q.x + r, most.x); tx++) {
+            let dx = tx - q.x;
+            let dy = ty - q.y;
+            let wt = clamp((k[2] + 0.5lf - sqrt(f64(dx * dx + dy * dy))) / (2.0lf * k[3]) + 0.5lf, 0.0lf, 1.0lf);
+            ink = max(ink, f64(textureLoad(other, vec2(tx, ty), 0).x) * wt);
+        }
+    }
+    ink *= k[4];
+    let b = k[8];
+    var c = f.xyz;
+    if k[9] == 1.0lf {
+        c = vec3((1.0lf - b) * (1.0lf - ink) + b * ink);
+    } else if k[9] == 2.0lf {
+        c = f.xyz * (1.0lf - ink) + vec3(b * ink);
+    }
+    textureStore(output, id.xy, vec4(f32(to_linear(c.x) * a), f32(to_linear(c.y) * a), f32(to_linear(c.z) * a), f32(a)));
+}
+
 // D-447: grade::brush_strokes' number k of 0 to 5 for the cell whose hash so far is `g`.
 fn brush_h(g: vec2<u32>, k: u32) -> f64 {
     let h = shr64(splitmix(g ^ vec2(k, 0u)), 11u);
@@ -8143,6 +8242,9 @@ struct FxPasses {
     curlflow: Pass,
     /// D-447.
     brush: Pass,
+    /// D-448.
+    cartoonedge: Pass,
+    cartoon: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -8795,6 +8897,8 @@ impl Gpu {
                 curlfield: pass("curlfield", &[0, 2, 3]),
                 curlflow: pass("curlflow", &[0, 1, 2, 3, 4]),
                 brush: pass("brush", &[0, 1, 2, 3]),
+                cartoonedge: pass("cartoonedge", &[0, 1, 2, 3]),
+                cartoon: pass("cartoon", &[0, 1, 2, 3, 4]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -9671,6 +9775,22 @@ impl Gpu {
         let covering = |steps: &mut Vec<Step>, input: &wgpu::TextureView, size, sigma: f64| {
             let (view, _) = self.gaussian(steps, input, size, Gaussian { sigma, repeat: false, long: false });
             (view, crate::effects::kernel_radius(sigma))
+        };
+        // D-358's Bilateral Blur on `still`, its two passes. B-237: Radius below 1 or Threshold 0
+        // counts only the pixel itself, a disc of one with both bells flat.
+        let bilateral = |steps: &mut Vec<Step>, radius: f64, threshold: f64, colorize: bool| {
+            let alone = radius < 1.0 || threshold <= 0.0;
+            let (r, k) = if alone {
+                (0, vec![0.0, 0.0, 0.0])
+            } else {
+                let s = radius / 2.0;
+                let mut k = vec![1.0 / (2.0 * threshold * threshold), 1.0 / (2.0 * s * s)];
+                k.extend(crate::layer_fx::disc_runs(radius).iter().map(|&(_, hw)| hw as f64));
+                (radius.floor() as i32, k)
+            };
+            let p = FxParams { r, n: 2, flag: colorize as u32, ..Default::default() };
+            let (levels, _) = same(steps, &passes.bilat, p, &k, Some(still));
+            same(steps, &passes.bilat, FxParams { mode: 1, ..p }, &k, Some(&levels))
         };
         let (ox, oy) = f.origin;
         // D-445: Turbulent Noise is Fractal Noise's pass.
@@ -11095,21 +11215,22 @@ impl Gpu {
                 let (levels, _) = same(steps, &passes.smart, p, &k, Some(still));
                 same(steps, &passes.smart, FxParams { mode: 1, ..p }, &k, Some(&levels))
             }
-            // B-237: Radius below 1 or Threshold 0 counts only the pixel itself, a disc of one
-            // with both bells flat; only Colorize off reaches here so.
-            E::BilateralBlur { radius, threshold, colorize } => {
-                let alone = *radius < 1.0 || *threshold <= 0.0;
-                let (r, k) = if alone {
-                    (0, vec![0.0, 0.0, 0.0])
+            // B-237: alone, only Colorize off reaches here.
+            E::BilateralBlur { radius, threshold, colorize } => bilateral(steps, *radius, *threshold, colorize == "on"),
+            // D-448: the smoothing as Bilateral Blur's (none when it would count only the pixel
+            // itself), then the edges, then the fill and the line.
+            e @ E::Cartoon { detail_radius, detail_threshold, .. } => {
+                let k = crate::median::cartoon_k(e).expect("a Cartoon");
+                let smooth = if *detail_radius < 1.0 || *detail_threshold <= 0.0 {
+                    still.clone()
                 } else {
-                    let s = radius / 2.0;
-                    let mut k = vec![1.0 / (2.0 * threshold * threshold), 1.0 / (2.0 * s * s)];
-                    k.extend(crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64));
-                    (radius.floor() as i32, k)
+                    bilateral(steps, *detail_radius, *detail_threshold, true).0
                 };
-                let p = FxParams { r, n: 2, flag: (colorize == "on") as u32, ..Default::default() };
-                let (levels, _) = same(steps, &passes.bilat, p, &k, Some(still));
-                same(steps, &passes.bilat, FxParams { mode: 1, ..p }, &k, Some(&levels))
+                let edge = self.scratch("D-448 edges", w, h);
+                self.fx_step(steps, &passes.cartoonedge, FxParams::default(), Some(&smooth), Some(&edge), Some(&k), None, none, tiles(w, h));
+                let out = self.scratch("D-448", w, h);
+                self.fx_step(steps, &passes.cartoon, FxParams::default(), Some(&smooth), Some(&out), Some(&k), Some(&edge), none, tiles(w, h));
+                (out, (w, h))
             }
             E::RoughenEdges { edge_type, edge_color, border, size, complexity, evolution, speed, seed, frame } => {
                 let base = crate::grade::mix(seed.floor() as u64);

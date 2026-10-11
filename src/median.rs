@@ -231,3 +231,123 @@ pub(crate) fn bilateral_blur(source: &mut WorkingBuffer, radius: f64, threshold:
         });
     *source = out;
 }
+
+/// D-448: Cartoon's numbers, as the processor and the card share them: Edge Threshold, the edge's
+/// ramp (10.01 - 10 Edge Contrast), Edge Width, the line's half softness (0.5 + Softness / 100 x
+/// Width), Edge Opacity out of 1, the shading steps less one, Shading Smoothness out of 1, Edge
+/// Enhancement out of 1, Edge Black Level, the render's number in [`crate::effects::CARTOON_RENDERS`]
+/// and how far a line can reach.
+pub(crate) fn cartoon_k(e: &crate::effects::Effect) -> Option<[f64; 11]> {
+    let crate::effects::Effect::Cartoon {
+        render,
+        shading_steps,
+        shading_smoothness,
+        edge_threshold,
+        edge_width,
+        edge_softness,
+        edge_opacity,
+        edge_enhancement,
+        edge_black_level,
+        edge_contrast,
+        ..
+    } = e
+    else {
+        return None;
+    };
+    let soft = 0.5 + edge_softness / 100.0 * edge_width;
+    Some([
+        *edge_threshold,
+        10.01 - 10.0 * edge_contrast,
+        *edge_width,
+        soft,
+        edge_opacity / 100.0,
+        shading_steps.floor() - 1.0,
+        shading_smoothness / 100.0,
+        edge_enhancement / 100.0,
+        *edge_black_level,
+        crate::effects::CARTOON_RENDERS.iter().position(|v| v == render).unwrap_or(2) as f64,
+        (edge_width + 0.5 + soft).floor() + 1.0,
+    ])
+}
+
+/// D-448: the fill of a smoothed pixel, encoded; None where it does not show. `n` is the shading
+/// steps less one, `s` the smoothness out of 1.
+fn cartoon_fill(p: &[f32], n: f64, s: f64) -> Option<[f64; 3]> {
+    let a = p[3] as f64;
+    if a <= 0.0 {
+        return None;
+    }
+    let c = [0, 1, 2].map(|i| p[i] as f64 / a);
+    let l = crate::grade::to_srgb((0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]).clamp(0.0, 1.0));
+    let q = l * n;
+    let k = q.floor();
+    let t = q - k;
+    let ramp = if s == 0.0 { (t >= 0.5) as u8 as f64 } else { ((t - 0.5) / s + 0.5).clamp(0.0, 1.0) };
+    let shade = (k + ramp) / n;
+    Some(c.map(|v| (crate::grade::to_srgb(v.clamp(0.0, 1.0)) + shade - l).clamp(0.0, 1.0)))
+}
+
+/// D-448's Cartoon (document 21): the layer smoothed by [`bilateral_blur`]; each pixel's edge from
+/// Sobel on the smoothed picture luma, the border repeated; the line the strongest edge round the
+/// pixel, faded by its distance; the fill's shading cut into steps and, with Edge Enhancement,
+/// pushed from or towards its neighbours; then laid out by the render. Every pixel keeps its
+/// covering; the settings are already valid.
+pub(crate) fn cartoon(source: &mut WorkingBuffer, e: &crate::effects::Effect) {
+    let crate::effects::Effect::Cartoon { detail_radius, detail_threshold, .. } = e else { return };
+    let Some([threshold, ramp, width, soft, opacity, n, s, enhance, black, render, reach]) = cartoon_k(e) else { return };
+    bilateral_blur(source, *detail_radius, *detail_threshold, true);
+    let (w, h) = (source.width() as i64, source.height() as i64);
+    let src = source.data();
+    let held = |x: i64, y: i64| (y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize;
+    let lumas: Vec<f64> = src.par_chunks_exact(4).map(|p| crate::layer_fx::picture_luma([p[0], p[1], p[2], p[3]])).collect();
+    let edges: Vec<f64> = (0..w * h)
+        .into_par_iter()
+        .map(|i| {
+            let (x, y) = (i % w, i / w);
+            let at = |x: i64, y: i64| lumas[held(x, y)];
+            let gx = at(x + 1, y - 1) + 2.0 * at(x + 1, y) + at(x + 1, y + 1) - at(x - 1, y - 1) - 2.0 * at(x - 1, y) - at(x - 1, y + 1);
+            let gy = at(x - 1, y + 1) + 2.0 * at(x, y + 1) + at(x + 1, y + 1) - at(x - 1, y - 1) - 2.0 * at(x, y - 1) - at(x + 1, y - 1);
+            ((10.0 * (gx * gx + gy * gy).sqrt() / 2.0 - threshold) / ramp).clamp(0.0, 1.0)
+        })
+        .collect();
+    let fills: Vec<Option<[f64; 3]>> = src.par_chunks_exact(4).map(|p| cartoon_fill(p, n, s)).collect();
+    let r = reach as i64;
+    let mut out = WorkingBuffer::transparent(w as usize, h as usize);
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let Some(mut f) = fills[i] else { return };
+            let a = src[4 * i + 3];
+            let (x, y) = (i as i64 % w, i as i64 / w);
+            if enhance != 0.0 {
+                let (mut m, mut count) = ([0.0f64; 3], 0.0);
+                for dy in -1..=1 {
+                    for dx in -1..=1 {
+                        if let Some(g) = fills[held(x + dx, y + dy)] {
+                            (0..3).for_each(|c| m[c] += g[c]);
+                            count += 1.0;
+                        }
+                    }
+                }
+                f = std::array::from_fn(|c| (f[c] + enhance * edges[i] * (f[c] - m[c] / count)).clamp(0.0, 1.0));
+            }
+            let mut ink = 0.0f64;
+            for ty in (y - r).max(0)..=(y + r).min(h - 1) {
+                for tx in (x - r).max(0)..=(x + r).min(w - 1) {
+                    let (dx, dy) = (tx - x, ty - y);
+                    let wt = ((width + 0.5 - ((dx * dx + dy * dy) as f64).sqrt()) / (2.0 * soft) + 0.5).clamp(0.0, 1.0);
+                    ink = ink.max(edges[(ty * w + tx) as usize] * wt);
+                }
+            }
+            ink *= opacity;
+            let c = match render as u8 {
+                0 => f,
+                1 => [(1.0 - black) * (1.0 - ink) + black * ink; 3],
+                _ => f.map(|v| v * (1.0 - ink) + black * ink),
+            };
+            (0..3).for_each(|k| px[k] = (crate::grade::to_linear(c[k]) * a as f64) as f32);
+            px[3] = a;
+        });
+    *source = out;
+}

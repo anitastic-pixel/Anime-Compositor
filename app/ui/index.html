@@ -9326,6 +9326,7 @@ const EFFECT_NAMES = {
   'core.dust_scratches': 'Dust & Scratches',
   'core.remove_grain': 'Remove Grain',
   'core.brush_strokes': 'Brush Strokes',
+  'core.cartoon': 'Cartoon',
   'core.smart_blur': 'Smart Blur',
   'core.bilateral_blur': 'Bilateral Blur',
   'core.cross_blur': 'Cross Blur',
@@ -9452,7 +9453,7 @@ const EFFECT_GROUPS = [
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
-    'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes']],
+    'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake']],
   ['Time', ['core.echo', 'core.posterize_time', 'core.moment_map']],
@@ -9532,6 +9533,7 @@ const EFFECT_SEARCH = {
   'core.radio_waves': 'radio waves ring rings shockwave sonar ping ripple pulse signal circle wave target',
   'core.polar_coordinates': 'polar coordinates rect to polar polar to rect focus lines speed lines tiny planet round circle ring bend wrap unroll',
   'core.median': 'median noise grain dust specks speckle clean cleanup despeckle scan pinhole denoise',
+  'core.cartoon': 'cartoon comic cel toon anime flat shading posterize outline ink lines edges cel-shade stylize',
   'core.brush_strokes': 'brush strokes paint painterly painting oil watercolour watercolor impressionist artistic dabs smear pointillism stylize',
   'core.dust_scratches': 'dust and scratches specks speckle scratch clean cleanup despeckle scan film damage pinhole denoise noise and grain',
   'core.remove_grain': 'remove grain denoise noise reduction degrain clean smooth film grain sensor noise unsharp mask sharpen noise and grain',
@@ -9731,6 +9733,7 @@ const EFFECT_ABOUT = {
   'core.radio_waves': 'Sends rings out from a point, a new one every few frames, over the layer as it plays.',
   'core.polar_coordinates': 'Bends the layer round its middle, its rows into rings and its columns into spokes, or unrolls it back.',
   'core.median': 'Cleans away specks and pinholes: each pixel takes the middle colour of those round it, so edges stay.',
+  'core.cartoon': 'Makes the layer look drawn: smooths it into flat areas, cuts its shading into a few steps and inks dark lines along its edges.',
   'core.brush_strokes': 'Repaints the layer as short dabs of paint all leaning one way, as if painted with a brush; new strokes each frame unless Animate is off.',
   'core.dust_scratches': 'Cleans away dust and specks but keeps fine grain: only colours further than the threshold from those round them are replaced.',
   'core.remove_grain': 'Measures how grainy the layer is and smooths the grain away while keeping edges hard, then can sharpen the result. Noise Reduction 0 leaves the layer as it is.',
@@ -10396,6 +10399,18 @@ const EFFECT_PARAMS = {
     ['end_width', 'End Width', 1, 0.5, 'pixels, 0 to 1000, its width as it dies']],
   'core.polar_coordinates': [['interpolation', 'Interpolation', 1, 1, '0 to 100, how far to go; 0 leaves the layer as it is']],
   'core.median': [['radius', 'Radius', 1, 0.5, 'pixels, 0 to 10; below 1 leaves the layer as it is']],
+  // D-448, After Effects' own controls; the ranges are ours.
+  'core.cartoon': [['detail_radius', 'Detail Radius', 1, 0.5, 'pixels, 0 to 50, how far the smoothing reaches'],
+    ['detail_threshold', 'Detail Threshold', 1, 1, '0 to 255, how different a colour can be and still be smoothed in'],
+    ['shading_steps', 'Shading Steps', 1, 1, '2 to 64, how many shades the fill keeps'],
+    ['shading_smoothness', 'Shading Smoothness', 1, 1, '0 to 100, 0 hard steps, 100 the shading as it was'],
+    ['edge_threshold', 'Edge Threshold', 1, 0.1, '0 to 10, how strong an edge must be to be inked'],
+    ['edge_width', 'Edge Width', 1, 0.1, 'pixels, 0 to 10, how thick the lines are'],
+    ['edge_softness', 'Edge Softness', 1, 1, '0 to 100, how soft the lines\' sides are'],
+    ['edge_opacity', 'Edge Opacity', 1, 1, '%, 0 to 100'],
+    ['edge_enhancement', 'Edge Enhancement', 1, 1, '-100 to 100, above 0 sharper edges, below 0 softer'],
+    ['edge_black_level', 'Edge Black Level', 1, 0.01, '0 to 1, the lines\' shade, 0 black'],
+    ['edge_contrast', 'Edge Contrast', 1, 0.01, '0 to 1, how suddenly the lines appear']],
   // D-447, After Effects' own controls; Random Seed is ours.
   'core.brush_strokes': [['stroke_angle', 'Stroke Angle', 1, 1, 'degrees the strokes run towards, 0 up, 90 right', 'dial'],
     ['brush_size', 'Brush Size', 1, 0.5, 'pixels, 0.5 to 20, how thick each stroke is'],
@@ -11069,6 +11084,8 @@ const EFFECT_WORDS = {
   'core.dust_scratches': { choices: [['operate_on_alpha', 'Operate on Alpha', [['off', 'Off'], ['on', 'On']]]] },
   // D-455: After Effects’ words; Multichannel as it is added.
   'core.remove_grain': { choices: [['mode', 'Mode', [['multichannel', 'Multichannel'], ['single_channel', 'Single Channel']]]] },
+  // D-448: After Effects' words.
+  'core.cartoon': { choices: [['render', 'Render', [['fill', 'Fill'], ['edges', 'Edges'], ['fill_and_edges', 'Fill & Edges']]]] },
   // D-447: After Effects' words; Animate is ours, on as After Effects does it.
   'core.brush_strokes': {
     choices: [['paint_surface', 'Paint Surface', [['original', 'Paint On Original Image'], ['transparent', 'Paint On Transparent'], ['white', 'Paint On White'], ['black', 'Paint On Black']]],

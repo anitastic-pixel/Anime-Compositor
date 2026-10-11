@@ -2353,6 +2353,33 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("random_seed".into(), num(*random_seed));
             params.insert("animate".into(), J::from(animate.as_str()));
         }
+        Effect::Cartoon {
+            render,
+            detail_radius,
+            detail_threshold,
+            shading_steps,
+            shading_smoothness,
+            edge_threshold,
+            edge_width,
+            edge_softness,
+            edge_opacity,
+            edge_enhancement,
+            edge_black_level,
+            edge_contrast,
+        } => {
+            params.insert("render".into(), J::from(render.as_str()));
+            params.insert("detail_radius".into(), num(*detail_radius));
+            params.insert("detail_threshold".into(), num(*detail_threshold));
+            params.insert("shading_steps".into(), num(*shading_steps));
+            params.insert("shading_smoothness".into(), num(*shading_smoothness));
+            params.insert("edge_threshold".into(), num(*edge_threshold));
+            params.insert("edge_width".into(), num(*edge_width));
+            params.insert("edge_softness".into(), num(*edge_softness));
+            params.insert("edge_opacity".into(), num(*edge_opacity));
+            params.insert("edge_enhancement".into(), num(*edge_enhancement));
+            params.insert("edge_black_level".into(), num(*edge_black_level));
+            params.insert("edge_contrast".into(), num(*edge_contrast));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4840,6 +4867,7 @@ fn parse_effect(
         crate::effects::TURBULENT_NOISE,
         crate::effects::NOISE_HLS_AUTO,
         crate::effects::BRUSH_STROKES,
+        crate::effects::CARTOON,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5660,6 +5688,20 @@ fn parse_effect(
             random_seed: effect_number(params, "random_seed", &at)?,
             animate: effect_word(params, "animate", &at)?,
             frame: 0,
+        }),
+        crate::effects::CARTOON => Some(crate::effects::Effect::Cartoon {
+            render: effect_word(params, "render", &at)?,
+            detail_radius: effect_number(params, "detail_radius", &at)?,
+            detail_threshold: effect_number(params, "detail_threshold", &at)?,
+            shading_steps: effect_number(params, "shading_steps", &at)?,
+            shading_smoothness: effect_number(params, "shading_smoothness", &at)?,
+            edge_threshold: effect_number(params, "edge_threshold", &at)?,
+            edge_width: effect_number(params, "edge_width", &at)?,
+            edge_softness: effect_number(params, "edge_softness", &at)?,
+            edge_opacity: effect_number(params, "edge_opacity", &at)?,
+            edge_enhancement: effect_number(params, "edge_enhancement", &at)?,
+            edge_black_level: effect_number(params, "edge_black_level", &at)?,
+            edge_contrast: effect_number(params, "edge_contrast", &at)?,
         }),
         crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

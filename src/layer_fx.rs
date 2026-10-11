@@ -1077,7 +1077,7 @@ pub(crate) fn mosaic(source: &mut WorkingBuffer, size: f64, (ox, oy): (usize, us
 }
 
 /// The picture luma of a premultiplied pixel, its colour over black, encoded.
-fn picture_luma(p: [f32; 4]) -> f64 {
+pub(crate) fn picture_luma(p: [f32; 4]) -> f64 {
     let y = 0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64;
     crate::grade::to_srgb(y.clamp(0.0, 1.0))
 }

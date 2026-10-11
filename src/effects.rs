@@ -2102,6 +2102,25 @@ pub enum Effect {
         animate: String,
         frame: i32,
     },
+    /// D-448: after After Effects' Cartoon (`median::cartoon`, document 21). `render`, one of
+    /// [`CARTOON_RENDERS`]; `detail_radius`, 0 to 50 pixels; `detail_threshold`, 0 to 255;
+    /// `shading_steps`, 2 to 64, its floor; `shading_smoothness`, 0 to 100; `edge_threshold`, 0
+    /// to 10; `edge_width`, 0 to 10 pixels; `edge_softness` and `edge_opacity`, 0 to 100;
+    /// `edge_enhancement`, -100 to 100; `edge_black_level` and `edge_contrast`, 0 to 1.
+    Cartoon {
+        render: String,
+        detail_radius: f64,
+        detail_threshold: f64,
+        shading_steps: f64,
+        shading_smoothness: f64,
+        edge_threshold: f64,
+        edge_width: f64,
+        edge_softness: f64,
+        edge_opacity: f64,
+        edge_enhancement: f64,
+        edge_black_level: f64,
+        edge_contrast: f64,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2833,6 +2852,9 @@ pub const REMOVE_GRAIN_MODES: [&str; 2] = ["multichannel", "single_channel"];
 pub const BRUSH_STROKES: &str = "core.brush_strokes";
 /// D-447: Brush Strokes' paint surfaces, in the card's numbering.
 pub const BRUSH_SURFACES: [&str; 4] = ["original", "transparent", "white", "black"];
+pub const CARTOON: &str = "core.cartoon";
+/// D-448: Cartoon's renders, in the card's numbering.
+pub const CARTOON_RENDERS: [&str; 3] = ["fill", "edges", "fill_and_edges"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3911,6 +3933,32 @@ impl Effect {
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
                 ("random_seed", vec![random_seed], 0.0, 100000.0),
             ],
+            Effect::Cartoon {
+                detail_radius,
+                detail_threshold,
+                shading_steps,
+                shading_smoothness,
+                edge_threshold,
+                edge_width,
+                edge_softness,
+                edge_opacity,
+                edge_enhancement,
+                edge_black_level,
+                edge_contrast,
+                ..
+            } => vec![
+                ("detail_radius", vec![detail_radius], 0.0, 50.0),
+                ("detail_threshold", vec![detail_threshold], 0.0, 255.0),
+                ("shading_steps", vec![shading_steps], 2.0, 64.0),
+                ("shading_smoothness", vec![shading_smoothness], 0.0, 100.0),
+                ("edge_threshold", vec![edge_threshold], 0.0, 10.0),
+                ("edge_width", vec![edge_width], 0.0, 10.0),
+                ("edge_softness", vec![edge_softness], 0.0, 100.0),
+                ("edge_opacity", vec![edge_opacity], 0.0, 100.0),
+                ("edge_enhancement", vec![edge_enhancement], -100.0, 100.0),
+                ("edge_black_level", vec![edge_black_level], 0.0, 1.0),
+                ("edge_contrast", vec![edge_contrast], 0.0, 1.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -4740,6 +4788,11 @@ impl Effect {
                 *brush_size = scale(*brush_size).max(0.5);
                 *stroke_length = scale(*stroke_length);
             }
+            // D-448: the smoothing and the line keep their size on the picture.
+            Effect::Cartoon { detail_radius, edge_width, .. } => {
+                *detail_radius = scale(*detail_radius);
+                *edge_width = scale(*edge_width);
+            }
             Effect::Snowfall {
                 spacing,
                 size,
@@ -5221,6 +5274,7 @@ impl Effect {
             Effect::MatchGrain { .. } => "Match Grain",
             Effect::RemoveGrain { .. } => "Remove Grain",
             Effect::BrushStrokes { .. } => "Brush Strokes",
+            Effect::Cartoon { .. } => "Cartoon",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5408,6 +5462,7 @@ impl Effect {
             Effect::MatchGrain { .. } => MATCH_GRAIN,
             Effect::RemoveGrain { .. } => REMOVE_GRAIN,
             Effect::BrushStrokes { .. } => BRUSH_STROKES,
+            Effect::Cartoon { .. } => CARTOON,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6614,6 +6669,10 @@ impl Effect {
             )),
             Effect::BrushStrokes { animate: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
                 "Brush Strokes's animate is \"on\" or \"off\", and this is \"{v}\"."
+            )),
+            Effect::Cartoon { render: v, .. } if !CARTOON_RENDERS.contains(&v.as_str()) => Some(format!(
+                "Cartoon's render is one of {}, and this is \"{v}\".",
+                CARTOON_RENDERS.join(", ")
             )),
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
@@ -8906,6 +8965,8 @@ pub(crate) fn apply_stack_at(
             e @ Effect::BrushStrokes { .. } => {
                 crate::perf::time(crate::perf::Stage::EffectBrushStrokes, || crate::grade::brush_strokes(source, e, (ox, oy)))
             }
+            // D-448: the layer never grows.
+            e @ Effect::Cartoon { .. } => crate::perf::time(crate::perf::Stage::EffectCartoon, || crate::median::cartoon(source, e)),
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
                 crate::median::smart_blur(source, *radius, *threshold)
             }),
