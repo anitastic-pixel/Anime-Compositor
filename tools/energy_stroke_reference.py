@@ -72,7 +72,9 @@ only near each bit and writes single precision into its buffers.
 Every case but the text ones is a composition 16 pixels by 10 holding Lightning Bolt's night
 drawing (its left half a night sky, its right half empty), with masks of mode None, as Path
 Stroke's cases (tools/stroke_reference.py), or a shape layer as D-357's. The text cases are
-D-373's: "Yes" on a text layer 48 by 30 (tools/stroke_text_reference.py). The projects go into
+D-373's: "Yes" on a text layer 48 by 30 (tools/stroke_text_reference.py), Composite
+Transparent so the light alone is the frame, as Path Stroke's text cases draw On Transparent: this
+file does not fill the letters. The projects go into
 `Fixtures/energy_stroke`, the expected frames into
 `Fixtures/energy_stroke/expected_energy_stroke.json`.
 
@@ -227,7 +229,7 @@ def case(base=None, **settings):
 
 
 def text(**settings):
-    return case(ST.case(all_masks="on"), source="text", **settings)
+    return case(ST.case(all_masks="on"), source="text", composite="transparent", **settings)
 
 
 def settings(c, frame_no):
@@ -375,7 +377,7 @@ CASES = {
     "FX-ENERGY-033": ("FX-ENERGY-002 moved three pixels right: the beam moves with the drawing.",
                       case(SR.case(masks=[], shift=3), **SMALL_LINE), [0]),
     "FX-ENERGY-034": ("Path From Text Outlines, \"Yes\" (D-373's text layer, 48 by 30): every "
-                      "outline glows, core 1.5, spread 3, added over nothing.",
+                      "outline glows, core 1.5, spread 3, the light alone (Transparent).",
                       text(core_size=1.5, glow_spread=3), [0]),
     "FX-ENERGY-035": ("\"Yes\", End offset keyed from 0 at frame 0 to 100 at frame 4: each "
                       "outline draws on round itself, frames 0, 2 and 4.",

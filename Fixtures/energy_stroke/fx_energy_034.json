@@ -115,7 +115,7 @@
                 "distortion_scale": 60,
                 "distortion_speed": 20,
                 "random_seed": 0,
-                "composite": "add"
+                "composite": "transparent"
               }
             }
           ]

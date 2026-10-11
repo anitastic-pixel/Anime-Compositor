@@ -45416,7 +45416,7 @@
    }
   },
   "FX-ENERGY-034": {
-   "says": "Path From Text Outlines, \"Yes\" (D-373's text layer, 48 by 30): every outline glows, core 1.5, spread 3, added over nothing.",
+   "says": "Path From Text Outlines, \"Yes\" (D-373's text layer, 48 by 30): every outline glows, core 1.5, spread 3, the light alone (Transparent).",
    "project": "fx_energy_034.json",
    "frames": {
     "0": [
