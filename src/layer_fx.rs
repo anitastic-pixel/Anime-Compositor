@@ -3021,6 +3021,240 @@ pub(crate) fn fill(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64)>], origin
     });
 }
 
+/// D-502: the Chebyshev distance from every pixel to the nearest one of `region` equal to
+/// `want`, by the two passes of the 3 by 3 chamfer whose steps all cost 1 (exact for that
+/// distance); `None` when there is none.
+fn chessboard(region: &[u8], want: u8, (w, h): (usize, usize)) -> Option<Vec<u32>> {
+    if !region.contains(&want) {
+        return None;
+    }
+    let far = u32::MAX / 2;
+    let mut d: Vec<u32> = region.iter().map(|&r| if r == want { 0 } else { far }).collect();
+    for y in 0..h {
+        for x in 0..w {
+            let mut v = d[y * w + x];
+            if x > 0 {
+                v = v.min(d[y * w + x - 1] + 1);
+            }
+            if y > 0 {
+                for nx in x.saturating_sub(1)..(x + 2).min(w) {
+                    v = v.min(d[(y - 1) * w + nx] + 1);
+                }
+            }
+            d[y * w + x] = v;
+        }
+    }
+    for y in (0..h).rev() {
+        for x in (0..w).rev() {
+            let mut v = d[y * w + x];
+            if x + 1 < w {
+                v = v.min(d[y * w + x + 1] + 1);
+            }
+            if y + 1 < h {
+                for nx in x.saturating_sub(1)..(x + 2).min(w) {
+                    v = v.min(d[(y + 1) * w + nx] + 1);
+                }
+            }
+            d[y * w + x] = v;
+        }
+    }
+    Some(d)
+}
+
+/// D-502: Inner/Outer Key, the rule ours (document 21, `tools/inner_outer_key_reference.py`).
+/// `paths` holds the foreground's outline and, in the two-mask way, the background's, in the
+/// drawing's own space; `origin` is where the drawing's corner lies in the buffer. Pixels are
+/// kept inside the foreground, gone outside the background (one mask: beyond `radius` of the
+/// outline, inside or out), and the rest worked out between the colours of the nearest kept
+/// and gone pixels, the edge colour taken back out; then the matte is thinned, feathered and
+/// thresholded and mixed back with the picture by `blend` (a share). The layer never grows.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn inner_outer_key(source: &mut WorkingBuffer, paths: &[Vec<(f64, f64)>], origin: (usize, usize), radius: f64, thin: f64, feather: f64, threshold: f64, invert: bool, blend: f64) {
+    let (w, h) = (source.width(), source.height());
+    let n = w * h;
+    if n == 0 || paths.is_empty() {
+        return;
+    }
+    let cin = fill_cover(&paths[..1], origin, (w, h), 0);
+    let cout = (paths.len() > 1).then(|| fill_cover(&paths[1..2], origin, (w, h), 0));
+    // The single mask's band: every pixel whose centre lies within `radius` of a side, row by
+    // row in parallel.
+    let band = cout.is_none().then(|| {
+        let mut near = vec![false; n];
+        let p = &paths[0];
+        let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+        let span = |lo: f64, hi: f64, o: f64, len: usize| {
+            let first = (lo - radius - 0.5 + o).floor().max(0.0);
+            let last = (hi + radius - 0.5 + o).ceil().min(len as f64 - 1.0);
+            (first as usize, last)
+        };
+        near.par_chunks_mut(w).enumerate().for_each(|(y, row)| {
+            for i in 0..p.len() {
+                let (a, b) = (p[i], p[(i + 1) % p.len()]);
+                let (y0, y1) = span(a.1.min(b.1), a.1.max(b.1), oy, h);
+                if y1 < 0.0 || y < y0 || y > y1 as usize {
+                    continue;
+                }
+                let (x0, x1) = span(a.0.min(b.0), a.0.max(b.0), ox, w);
+                if x1 < 0.0 {
+                    continue;
+                }
+                let py = y as f64 - oy + 0.5;
+                for x in x0..=x1 as usize {
+                    if !row[x] && crate::mask::distance_to_segment(a, b, x as f64 - ox + 0.5, py) <= radius {
+                        row[x] = true;
+                    }
+                }
+            }
+        });
+        near
+    });
+    // 0 unknown, 1 kept, 2 gone.
+    let region: Vec<u8> = (0..n)
+        .into_par_iter()
+        .map(|i| {
+            let inside = cin[i] >= 0.5;
+            let (k, g) = match (&cout, &band) {
+                (Some(c), _) => (inside, !inside && c[i] < 0.5),
+                (None, Some(near)) => (inside && !near[i], !inside && !near[i]),
+                (None, None) => unreachable!(),
+            };
+            let (k, g) = if invert { (g, k) } else { (k, g) };
+            if k { 1 } else if g { 2 } else { 0 }
+        })
+        .collect();
+    // Summed-area tables of each set's premultiplied colour and alpha, (w + 1) by (h + 1): each
+    // row's running sums in parallel, then the rows added down, the same sums in the same order.
+    let table = |want: u8| {
+        let mut s = vec![[0.0f64; 4]; (w + 1) * (h + 1)];
+        let data = source.data();
+        s.par_chunks_mut(w + 1).skip(1).enumerate().for_each(|(y, out)| {
+            let mut row = [0.0f64; 4];
+            for x in 0..w {
+                if region[y * w + x] == want {
+                    for c in 0..4 {
+                        row[c] += data[(y * w + x) * 4 + c] as f64;
+                    }
+                }
+                out[x + 1] = row;
+            }
+        });
+        for y in 1..h {
+            let (done, rest) = s.split_at_mut((y + 1) * (w + 1));
+            let above = &done[y * (w + 1)..];
+            for (o, a) in rest[..w + 1].iter_mut().zip(above) {
+                *o = [o[0] + a[0], o[1] + a[1], o[2] + a[2], o[3] + a[3]];
+            }
+        }
+        s
+    };
+    let ((dk, sk), (dg, sg)) = rayon::join(|| (chessboard(&region, 1, (w, h)), table(1)), || (chessboard(&region, 2, (w, h)), table(2)));
+    // E_S: the straight colour of the set's pixels in the square of half-side d about (x, y).
+    let mean = |s: &[[f64; 4]], d: u32, x: usize, y: usize| -> [f64; 3] {
+        let d = d as usize;
+        let (x0, y0, x1, y1) = (x.saturating_sub(d), y.saturating_sub(d), (x + d + 1).min(w), (y + d + 1).min(h));
+        let at = |x: usize, y: usize| s[y * (w + 1) + x];
+        let (a, b, c, e) = (at(x1, y1), at(x0, y1), at(x1, y0), at(x0, y0));
+        let sum: [f64; 4] = [0, 1, 2, 3].map(|k| a[k] - b[k] - c[k] + e[k]);
+        if sum[3] > 0.0 {
+            [sum[0] / sum[3], sum[1] / sum[3], sum[2] / sum[3]]
+        } else {
+            [0.0; 3]
+        }
+    };
+    let data = source.data();
+    // The extraction and the kept colour of each pixel.
+    let worked: Vec<(f64, [f64; 3])> = (0..n)
+        .into_par_iter()
+        .map(|i| {
+            let (x, y) = (i % w, i / w);
+            let p = &data[i * 4..i * 4 + 4];
+            let a = p[3] as f64;
+            let c: [f64; 3] = if a > 0.0 { [p[0] as f64 / a, p[1] as f64 / a, p[2] as f64 / a] } else { [0.0; 3] };
+            let f = dk.as_ref().map_or([0.0; 3], |d| mean(&sk, d[i], x, y));
+            let b = dg.as_ref().map_or([0.0; 3], |d| mean(&sg, d[i], x, y));
+            let al = match (region[i], &dk, &dg) {
+                (1, _, _) => 1.0,
+                (2, _, _) => 0.0,
+                (_, None, _) => 0.0,
+                (_, _, None) => 1.0,
+                (_, Some(k), Some(g)) => {
+                    let v = [f[0] - b[0], f[1] - b[1], f[2] - b[2]];
+                    let vv = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+                    if vv > 1e-12 {
+                        (((c[0] - b[0]) * v[0] + (c[1] - b[1]) * v[1] + (c[2] - b[2]) * v[2]) / vv).clamp(0.0, 1.0)
+                    } else {
+                        g[i] as f64 / (k[i] + g[i]) as f64
+                    }
+                }
+            };
+            let fc = match region[i] {
+                1 => c,
+                0 if al > 0.0 => [0, 1, 2].map(|k| ((c[k] - (1.0 - al) * b[k]) / al).clamp(0.0, 1.0)),
+                _ => f,
+            };
+            (al, fc)
+        })
+        .collect();
+    let mut m: Vec<f32> = worked.iter().map(|&(a, _)| a as f32).collect();
+    // Edge Thin: the least (thinning) or greatest (growing) within the disc, inside the buffer.
+    if thin != 0.0 {
+        let pick: fn(f32, f32) -> f32 = if thin > 0.0 { f32::min } else { f32::max };
+        let runs = disc_runs(thin.abs());
+        let top = runs.iter().map(|&(_, hw)| hw).max().unwrap_or(0);
+        let mut wide = m.clone();
+        let mut out = vec![if thin > 0.0 { f32::INFINITY } else { f32::NEG_INFINITY }; n];
+        for k in 0..=top {
+            if k > 0 {
+                // Each row's extreme within k, from its extreme within k - 1.
+                let prev = wide.clone();
+                wide.par_chunks_mut(w).zip(prev.par_chunks(w)).for_each(|(row, was)| {
+                    for x in 0..w {
+                        let mut v = was[x];
+                        if x > 0 {
+                            v = pick(v, was[x - 1]);
+                        }
+                        if x + 1 < w {
+                            v = pick(v, was[x + 1]);
+                        }
+                        row[x] = v;
+                    }
+                });
+            }
+            for &(dy, _) in runs.iter().filter(|&&(_, hw)| hw == k) {
+                out.par_chunks_mut(w).enumerate().for_each(|(y, row)| {
+                    let sy = y as isize + dy;
+                    if sy >= 0 && (sy as usize) < h {
+                        for (o, &v) in row.iter_mut().zip(&wide[sy as usize * w..(sy as usize + 1) * w]) {
+                            *o = pick(*o, v);
+                        }
+                    }
+                });
+            }
+        }
+        m = out;
+    }
+    // Edge Feather: document 21's Gaussian, the buffer's edges held.
+    if feather > 0.0 {
+        let mut b = WorkingBuffer::transparent(w, h);
+        for (p, &v) in b.data_mut().chunks_exact_mut(4).zip(&m) {
+            p[0] = v;
+        }
+        crate::effects::held_blur_axes(&mut b, &crate::effects::gaussian_weights(feather / 2.0), (true, true));
+        m = b.data().chunks_exact(4).map(|p| p[0]).collect();
+    }
+    let q = threshold / 100.0;
+    source.data_mut().par_chunks_exact_mut(4).zip(worked.par_iter()).zip(m.par_iter()).for_each(|((p, (_, fc)), &v)| {
+        let v = v as f64;
+        let v = if q < 1.0 { ((v - q) / (1.0 - q)).clamp(0.0, 1.0) } else if v >= 1.0 { 1.0 } else { 0.0 };
+        let a = p[3] as f64;
+        let out = [a * v * fc[0], a * v * fc[1], a * v * fc[2], a * v];
+        for (c, o) in p.iter_mut().zip(out) {
+            *c = (o * (1.0 - blend) + *c as f64 * blend) as f32;
+        }
+    });
+}
+
 /// D-417: Grid's covering at `(x, y)`, in the buffer's pixels, cells `(w, h)` from the anchor
 /// `a`, lines `border` thick along the cells' edges. On each axis the share of a box `ramps`
 /// wide (max(feather, 1)) about the pixel that falls inside the two nearest lines, held to 1;

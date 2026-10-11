@@ -1426,6 +1426,8 @@ fn card_effect(
                 E::AerialHaze { amount, layer, map, .. } => *amount == 0.0 || (layer.as_str() != Some("") && map.is_none()),
                 // D-501: no plate read, none named or one named but not read.
                 E::DifferenceMatte { map, .. } => map.is_none(),
+                // D-502: no foreground, or a mask named not found.
+                E::InnerOuterKey { paths, .. } => paths.is_none(),
                 // D-408: as layer_fx::transform returns at once (the map is then the unchanged one).
                 E::Transform { anchor_point, position, uniform_scale, scale_height, scale_width, skew, rotation, opacity, moments, .. } => {
                     anchor_point == position
@@ -2543,6 +2545,41 @@ fn resolve_rest(
                     )
                     .with_remediation("Draw a mask on the layer, set Fill Mask to a mask it has, or set it to 0 to fill the whole layer."),
                 );
+            }
+        }
+    }
+    // D-502: each Inner/Outer Key's foreground mask and, when one is named, its background mask,
+    // chosen as Fill's are, as they are at this frame and at the size the effects run at.
+    // Foreground 0 keys nothing and says nothing; a mask named and not found leaves the layer as
+    // it is and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::InnerOuterKey { foreground, background, paths, .. } = &mut instance.effect {
+            let usable = |n: f64| masks.get(n.floor() as usize - 1).filter(|m| m.enabled && m.points.len() >= 2).map(|m| m.outline());
+            *paths = None;
+            if *foreground < 1.0 {
+                continue;
+            }
+            let fg = usable(*foreground);
+            let bg = (*background >= 1.0).then(|| usable(*background));
+            let missing = if fg.is_none() { Some(*foreground) } else if let Some(None) = bg { Some(*background) } else { None };
+            if let Some(n) = missing {
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!(
+                            "Layer {}'s Inner/Outer Key has no mask {} that is on with two points or more, so it keys nothing.",
+                            layer.name,
+                            n.floor()
+                        ),
+                        format!("Frame {frame} is drawn without the key. The effect is kept as it is."),
+                    )
+                    .with_remediation("Draw the mask on the layer, or set Foreground and Background to masks it has."),
+                );
+            } else {
+                *paths = fg.map(|f| std::iter::once(f).chain(bg.flatten()).collect());
             }
         }
     }

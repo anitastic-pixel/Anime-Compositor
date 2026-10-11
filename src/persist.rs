@@ -2426,6 +2426,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("matching_softness".into(), num(*matching_softness));
             params.insert("blur_before_difference".into(), num(*blur_before_difference));
         }
+        Effect::InnerOuterKey {
+            foreground,
+            background,
+            single_mask_highlight_radius,
+            edge_thin,
+            edge_feather,
+            edge_threshold,
+            invert_extraction,
+            blend_with_original,
+            ..
+        } => {
+            params.insert("foreground".into(), num(*foreground));
+            params.insert("background".into(), num(*background));
+            params.insert("single_mask_highlight_radius".into(), num(*single_mask_highlight_radius));
+            params.insert("edge_thin".into(), num(*edge_thin));
+            params.insert("edge_feather".into(), num(*edge_feather));
+            params.insert("edge_threshold".into(), num(*edge_threshold));
+            params.insert("invert_extraction".into(), J::from(invert_extraction.as_str()));
+            params.insert("blend_with_original".into(), num(*blend_with_original));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4852,6 +4872,7 @@ fn parse_effect(
         crate::effects::COLOR_DIFFERENCE_KEY,
         crate::effects::COLOR_RANGE,
         crate::effects::DIFFERENCE_MATTE,
+        crate::effects::INNER_OUTER_KEY,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
@@ -5822,6 +5843,17 @@ fn parse_effect(
             matching_softness: effect_number(params, "matching_softness", &at)?,
             blur_before_difference: effect_number(params, "blur_before_difference", &at)?,
             map: None,
+        }),
+        crate::effects::INNER_OUTER_KEY => Some(crate::effects::Effect::InnerOuterKey {
+            foreground: effect_number(params, "foreground", &at)?,
+            background: effect_number(params, "background", &at)?,
+            single_mask_highlight_radius: effect_number(params, "single_mask_highlight_radius", &at)?,
+            edge_thin: effect_number(params, "edge_thin", &at)?,
+            edge_feather: effect_number(params, "edge_feather", &at)?,
+            edge_threshold: effect_number(params, "edge_threshold", &at)?,
+            invert_extraction: effect_word(params, "invert_extraction", &at)?,
+            blend_with_original: effect_number(params, "blend_with_original", &at)?,
+            paths: None,
         }),
         crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

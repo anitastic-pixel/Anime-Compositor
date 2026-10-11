@@ -2195,6 +2195,26 @@ pub enum Effect {
         blur_before_difference: f64,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-502: after After Effects' Inner/Outer Key, its rule, ranges and settings when added ours
+    /// (`layer_fx::inner_outer_key`, document 21). `foreground` and `background`, 0 to 1000, the
+    /// masks numbered so (their floors taken), 0 for none (no foreground keys nothing; no
+    /// background is the single-mask way); `single_mask_highlight_radius`, 0 to 1000 pixels;
+    /// `edge_thin`, -100 to 100 pixels; `edge_feather`, 0 to 1000 pixels; `edge_threshold` and
+    /// `blend_with_original`, 0 to 100; `invert_extraction`, "off" or "on". `paths` is not a
+    /// setting and is never saved: compose fills it each frame with the foreground's outline and,
+    /// when one is named, the background's, flattened, at the size the effects run at, `None`
+    /// when there is no foreground or a mask named is not there.
+    InnerOuterKey {
+        foreground: f64,
+        background: f64,
+        single_mask_highlight_radius: f64,
+        edge_thin: f64,
+        edge_feather: f64,
+        edge_threshold: f64,
+        invert_extraction: String,
+        blend_with_original: f64,
+        paths: Option<Vec<Vec<(f64, f64)>>>,
+    },
     /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
     /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
     /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
@@ -2988,6 +3008,7 @@ pub const CRANGE_SPACES: [&str; 3] = ["lab", "yuv", "rgb"];
 /// the third's.
 pub const CRANGE_NAMES: [&str; 6] = ["min_1", "max_1", "min_2", "max_2", "min_3", "max_3"];
 pub const DIFFERENCE_MATTE: &str = "core.difference_matte";
+pub const INNER_OUTER_KEY: &str = "core.inner_outer_key";
 pub const SIMPLE_WIRE_REMOVAL: &str = "core.simple_wire_removal";
 /// D-458: CC Simple Wire Removal's styles.
 pub const WIRE_STYLES: [&str; 4] = ["fade", "frame_offset", "displace", "displace_horizontal"];
@@ -3130,6 +3151,24 @@ impl Effect {
                 ("matching_tolerance", vec![matching_tolerance], 0.0, 100.0),
                 ("matching_softness", vec![matching_softness], 0.0, 100.0),
                 ("blur_before_difference", vec![blur_before_difference], 0.0, 100.0),
+            ],
+            Effect::InnerOuterKey {
+                foreground,
+                background,
+                single_mask_highlight_radius,
+                edge_thin,
+                edge_feather,
+                edge_threshold,
+                blend_with_original,
+                ..
+            } => vec![
+                ("foreground", vec![foreground], 0.0, 1000.0),
+                ("background", vec![background], 0.0, 1000.0),
+                ("single_mask_highlight_radius", vec![single_mask_highlight_radius], 0.0, 1000.0),
+                ("edge_thin", vec![edge_thin], -100.0, 100.0),
+                ("edge_feather", vec![edge_feather], 0.0, 1000.0),
+                ("edge_threshold", vec![edge_threshold], 0.0, 100.0),
+                ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
             ],
             Effect::Transform {
                 anchor_point,
@@ -5135,6 +5174,13 @@ impl Effect {
                 *horizontal_feather = scale(*horizontal_feather);
                 *vertical_feather = scale(*vertical_feather);
             }
+            // D-502: the radius, thin and feather are distances; the masks are scaled as they
+            // always are.
+            Effect::InnerOuterKey { single_mask_highlight_radius, edge_thin, edge_feather, .. } => {
+                *single_mask_highlight_radius = scale(*single_mask_highlight_radius);
+                *edge_thin = scale(*edge_thin);
+                *edge_feather = scale(*edge_feather);
+            }
             // D-419: the radius is a distance; the point a share of the drawing.
             Effect::EyedropperFill { sample_radius, .. } => *sample_radius = scale(*sample_radius),
             // D-440: the three distances; the point a share of the drawing.
@@ -5489,6 +5535,7 @@ impl Effect {
             Effect::ColorDifferenceKey { .. } => "Color Difference Key",
             Effect::ColorRange { .. } => "Color Range",
             Effect::DifferenceMatte { .. } => "Difference Matte",
+            Effect::InnerOuterKey { .. } => "Inner/Outer Key",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
@@ -5683,6 +5730,7 @@ impl Effect {
             Effect::ColorDifferenceKey { .. } => COLOR_DIFFERENCE_KEY,
             Effect::ColorRange { .. } => COLOR_RANGE,
             Effect::DifferenceMatte { .. } => DIFFERENCE_MATTE,
+            Effect::InnerOuterKey { .. } => INNER_OUTER_KEY,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
@@ -6122,6 +6170,8 @@ impl Effect {
                 .or_else(|| (!["center", "stretch"].contains(&fit.as_str())).then(|| format!(
                     "{name}'s fit is \"center\" or \"stretch\", and this is \"{fit}\"."
                 ))),
+            Effect::InnerOuterKey { invert_extraction: v, .. } => (!["off", "on"].contains(&v.as_str()))
+                .then(|| format!("{name}'s invert extraction is \"off\" or \"on\", and this is \"{v}\".")),
             Effect::PhotoFilter { filter, color, preserve_luminosity, .. } => (filter != "custom"
                 && !PHOTO_FILTERS.iter().any(|(f, _)| f == filter))
                 .then(|| format!("{name}'s filter is one of {} or \"custom\", and this is \"{filter}\".",
@@ -8837,6 +8887,35 @@ pub(crate) fn apply_stack_at(
                             *matching_softness,
                             *blur_before_difference,
                             view == "matte",
+                        )
+                    })
+                }
+            }
+            // D-502: the masks compose found for this frame, in the drawing's own space however an
+            // effect above grew it; with none, the layer is left as it is (EFFECT_PATH_MISSING was
+            // said when a mask named was not there). The layer never grows.
+            Effect::InnerOuterKey {
+                single_mask_highlight_radius,
+                edge_thin,
+                edge_feather,
+                edge_threshold,
+                invert_extraction,
+                blend_with_original,
+                paths,
+                ..
+            } => {
+                if let Some(paths) = paths {
+                    crate::perf::time(crate::perf::Stage::EffectInnerOuterKey, || {
+                        crate::layer_fx::inner_outer_key(
+                            source,
+                            paths,
+                            (ox, oy),
+                            *single_mask_highlight_radius,
+                            *edge_thin,
+                            *edge_feather,
+                            *edge_threshold,
+                            invert_extraction == "on",
+                            *blend_with_original / 100.0,
                         )
                     })
                 }
