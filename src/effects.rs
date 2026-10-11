@@ -2144,6 +2144,21 @@ pub enum Effect {
         noise_reseed_interval: f64,
         frame: i32,
     },
+    /// D-457: after After Effects' Advanced Spill Suppressor, its rule ours
+    /// (`grade::advanced_spill_suppressor`, document 21). `method`, one of
+    /// [`SPILL_METHODS`]; `suppression`, 0 to 100 per cent. Read only for "ultra": `key_color`,
+    /// `#rrggbb`; `tolerance`, `desaturate`, `spill_range`, `spill_color_correction` and
+    /// `luma_correction`, 0 to 100.
+    AdvancedSpillSuppressor {
+        method: String,
+        suppression: f64,
+        key_color: String,
+        tolerance: f64,
+        desaturate: f64,
+        spill_range: f64,
+        spill_color_correction: f64,
+        luma_correction: f64,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2881,6 +2896,9 @@ pub const CARTOON_RENDERS: [&str; 3] = ["fill", "edges", "fill_and_edges"];
 pub const DEBAND: &str = "core.deband";
 /// D-456: what Deband shows.
 pub const DEBAND_VIEWS: [&str; 3] = ["normal", "edge_only", "selected_edge"];
+pub const ADVANCED_SPILL_SUPPRESSOR: &str = "core.advanced_spill_suppressor";
+/// D-457: Advanced Spill Suppressor's methods.
+pub const SPILL_METHODS: [&str; 2] = ["standard", "ultra"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3984,6 +4002,22 @@ impl Effect {
                 ("edge_enhancement", vec![edge_enhancement], -100.0, 100.0),
                 ("edge_black_level", vec![edge_black_level], 0.0, 1.0),
                 ("edge_contrast", vec![edge_contrast], 0.0, 1.0),
+            ],
+            Effect::AdvancedSpillSuppressor {
+                suppression,
+                tolerance,
+                desaturate,
+                spill_range,
+                spill_color_correction,
+                luma_correction,
+                ..
+            } => vec![
+                ("suppression", vec![suppression], 0.0, 100.0),
+                ("tolerance", vec![tolerance], 0.0, 100.0),
+                ("desaturate", vec![desaturate], 0.0, 100.0),
+                ("spill_range", vec![spill_range], 0.0, 100.0),
+                ("spill_color_correction", vec![spill_color_correction], 0.0, 100.0),
+                ("luma_correction", vec![luma_correction], 0.0, 100.0),
             ],
             Effect::Deband {
                 edge_threshold,
@@ -5331,6 +5365,7 @@ impl Effect {
             Effect::BrushStrokes { .. } => "Brush Strokes",
             Effect::Cartoon { .. } => "Cartoon",
             Effect::Deband { .. } => "Deband",
+            Effect::AdvancedSpillSuppressor { .. } => "Advanced Spill Suppressor",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5520,6 +5555,7 @@ impl Effect {
             Effect::BrushStrokes { .. } => BRUSH_STROKES,
             Effect::Cartoon { .. } => CARTOON,
             Effect::Deband { .. } => DEBAND,
+            Effect::AdvancedSpillSuppressor { .. } => ADVANCED_SPILL_SUPPRESSOR,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -5939,6 +5975,9 @@ impl Effect {
                     (!["off", "mask"].contains(&key_view.as_str()))
                         .then(|| format!("{name}'s key view is \"off\" or \"mask\", and this is \"{key_view}\"."))
                 }),
+            Effect::AdvancedSpillSuppressor { method, key_color, .. } => (!SPILL_METHODS.contains(&method.as_str()))
+                .then(|| format!("{name}'s method is \"standard\" or \"ultra\", and this is \"{method}\"."))
+                .or_else(|| hex_fault(name, "key colour", key_color)),
             Effect::PhotoFilter { filter, color, preserve_luminosity, .. } => (filter != "custom"
                 && !PHOTO_FILTERS.iter().any(|(f, _)| f == filter))
                 .then(|| format!("{name}'s filter is one of {} or \"custom\", and this is \"{filter}\".",
@@ -8621,6 +8660,9 @@ pub(crate) fn apply_stack_at(
             e @ Effect::Deband { .. } => {
                 crate::perf::time(crate::perf::Stage::EffectDeband, || crate::grade::deband(source, e, (ox, oy)))
             }
+            e @ Effect::AdvancedSpillSuppressor { .. } => crate::perf::time(crate::perf::Stage::EffectAdvancedSpillSuppressor, || {
+                crate::grade::advanced_spill_suppressor(source, &crate::grade::spill_settings(e))
+            }),
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {
                     crate::grade::add_grain(source, &g, (ox, oy))

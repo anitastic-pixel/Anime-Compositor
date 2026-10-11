@@ -3093,6 +3093,41 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
             }
         }
+        case 61u: {
+            // D-457, as grade::advanced_spill_suppressor; k: grade::spill_settings.
+            if k[0] == 0.0lf {
+                for (var s = 1u; s < 3u; s++) {
+                    let excess = e[s] - max(e[0u], e[3u - s]);
+                    if excess > 0.0lf {
+                        o[s] = e[s] - k[1] * excess;
+                    }
+                }
+            } else {
+                let h = hsv_hue(e);
+                if h >= 0.0lf && k[5] >= 0.0lf {
+                    let s = u32(k[2]);
+                    let pc = u32(k[3]);
+                    let qc = u32(k[4]);
+                    let d = abs(euclid(h - k[5] + 180.0lf, 360.0lf) - 180.0lf);
+                    let w = max(1.0lf - d / (1.8lf * k[6]), 0.0lf);
+                    let hi = max(e[pc], e[qc]);
+                    let lo = min(e[pc], e[qc]);
+                    let x = k[1] * w * max(e[s] - (hi - k[8] * (hi - lo)), 0.0lf);
+                    o[s] = o[s] - x;
+                    let give = k[9] * x / 2.0lf;
+                    o[pc] = o[pc] + give;
+                    o[qc] = o[qc] + give;
+                    var f = 0.0lf;
+                    if e[s] > 0.0lf {
+                        f = x / e[s];
+                    }
+                    let y = luma(o);
+                    let t = k[7] * f;
+                    o = o + (vec3(y) - o) * t;
+                    o = o + vec3(k[10] * (luma(e) - luma(o)));
+                }
+            }
+        }
         case 6u: {
             // k: the three rows, each from red, green, blue and a constant.
             for (var c = 0u; c < 3u; c++) {
@@ -8572,6 +8607,8 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::PhotoFilter { .. }
             // D-396.
             | E::SelectiveColor { .. }
+            // D-457.
+            | E::AdvancedSpillSuppressor { .. }
     )
 }
 
@@ -11346,6 +11383,9 @@ impl Gpu {
                 let mut k: Vec<f64> = crate::effects::selective_color_amounts(families).iter().flatten().map(|v| v / 100.0).collect();
                 k.push((method == "relative") as u8 as f64);
                 same(steps, &passes.tone, FxParams { mode: 60, ..Default::default() }, &k, None)
+            }
+            spill @ E::AdvancedSpillSuppressor { .. } => {
+                same(steps, &passes.tone, FxParams { mode: 61, ..Default::default() }, &crate::grade::spill_settings(spill), None)
             }
             E::ColorLink { sample, clip, stencil, opacity, blending_mode: b, map, .. } => {
                 // card_can leaves only a named layer's picture; its colour is read here, once.

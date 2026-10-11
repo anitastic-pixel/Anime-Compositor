@@ -2351,6 +2351,102 @@ pub(crate) fn photo_filter(source: &mut WorkingBuffer, filter: [f64; 3], d: f64,
     });
 }
 
+/// D-457: Advanced Spill Suppressor's settings as the card reads them: 1 for Ultra, the
+/// suppression as a share, the screen channel and the other two (the key colour's largest, green
+/// before blue before red on a tie), the key's HSV hue (-1 for a grey), the tolerance (0 to 100),
+/// then the desaturate, spill range, spill colour correction and luma correction as shares.
+pub(crate) fn spill_settings(effect: &crate::effects::Effect) -> [f64; 11] {
+    let crate::effects::Effect::AdvancedSpillSuppressor {
+        method,
+        suppression,
+        key_color,
+        tolerance,
+        desaturate,
+        spill_range,
+        spill_color_correction,
+        luma_correction,
+    } = effect
+    else {
+        unreachable!("spill_settings takes Advanced Spill Suppressor")
+    };
+    let key = crate::effects::encoded(key_color);
+    let s = [1, 2, 0].into_iter().fold(1, |s, i| if key[i] > key[s] { i } else { s });
+    let [p, q] = match s {
+        0 => [1, 2],
+        1 => [0, 2],
+        _ => [0, 1],
+    };
+    [
+        (method == "ultra") as u8 as f64,
+        suppression / 100.0,
+        s as f64,
+        p as f64,
+        q as f64,
+        hsv_hue(key).unwrap_or(-1.0),
+        *tolerance,
+        desaturate / 100.0,
+        spill_range / 100.0,
+        spill_color_correction / 100.0,
+        luma_correction / 100.0,
+    ]
+}
+
+/// D-457: Advanced Spill Suppressor with the suppression 0, or Ultra with the tolerance 0,
+/// leaves the layer exactly as it is.
+pub(crate) fn spill_untouched(k: &[f64; 11]) -> bool {
+    k[1] == 0.0 || (k[0] != 0.0 && k[6] == 0.0)
+}
+
+/// D-457: Advanced Spill Suppressor, the rule ours (Adobe publishes none). On the encoded colour
+/// e, with S the suppression: Standard takes S times the excess of green, or of blue, over the
+/// larger other channel off that channel (at most one has one). Ultra, on the screen channel s
+/// and the other two p, q (`spill_settings`): the hue weight w = max(0, 1 - d / (1.8 T)), d the
+/// distance round the wheel from the key's hue, 0 for a grey; the limit L = hi - R (hi - lo) on
+/// the larger and smaller of e_p and e_q; x = S w max(0, e_s - L) taken off e_s and C x / 2
+/// added to each of e_p and e_q; the colour moved toward its luma by D x / e_s; then each
+/// channel raised by U times the luma lost. Held inside 0 to 1.
+pub(crate) fn advanced_spill_suppressor(source: &mut WorkingBuffer, k: &[f64; 11]) {
+    if spill_untouched(k) {
+        return;
+    }
+    let sup = k[1];
+    if k[0] == 0.0 {
+        grade_pixels(source, false, |_, e| {
+            let mut o = e;
+            for (s, p, q) in [(1, 0, 2), (2, 0, 1)] {
+                let excess = e[s] - e[p].max(e[q]);
+                if excess > 0.0 {
+                    o[s] = e[s] - sup * excess;
+                }
+            }
+            o
+        });
+        return;
+    }
+    let (s, p, q, hk) = (k[2] as usize, k[3] as usize, k[4] as usize, k[5]);
+    grade_pixels(source, false, |_, e| {
+        let Some(h) = hsv_hue(e).filter(|_| hk >= 0.0) else {
+            return e;
+        };
+        let d = ((h - hk + 180.0).rem_euclid(360.0) - 180.0).abs();
+        let w = (1.0 - d / (1.8 * k[6])).max(0.0);
+        let (hi, lo) = (e[p].max(e[q]), e[p].min(e[q]));
+        let limit = hi - k[8] * (hi - lo);
+        let x = sup * w * (e[s] - limit).max(0.0);
+        let mut o = e;
+        o[s] -= x;
+        let give = k[9] * x / 2.0;
+        o[p] += give;
+        o[q] += give;
+        let f = if e[s] > 0.0 { x / e[s] } else { 0.0 };
+        let y = luma(o);
+        let t = k[7] * f;
+        let o = o.map(|v| v + (y - v) * t);
+        let lift = k[10] * (luma(e) - luma(o));
+        o.map(|v| v + lift)
+    });
+}
+
 /// D-396: Selective Color with every amount 0 leaves the layer exactly as it is.
 pub(crate) fn selective_color_untouched(families: &[[f64; 4]; 9]) -> bool {
     families.iter().flatten().all(|v| *v == 0.0)

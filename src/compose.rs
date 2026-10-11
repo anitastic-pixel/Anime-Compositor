@@ -1088,6 +1088,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::PhotoFilter { .. }
                 // D-396.
                 | crate::effects::Effect::SelectiveColor { .. }
+                // D-457.
+                | crate::effects::Effect::AdvancedSpillSuppressor { .. }
                 // D-400.
                 | crate::effects::Effect::ShadowHighlight { .. }
                 // D-397.
@@ -1261,6 +1263,7 @@ fn card_effect(
                 E::SelectiveColor { families, .. } => {
                     crate::grade::selective_color_untouched(&crate::effects::selective_color_amounts(families))
                 }
+                e @ E::AdvancedSpillSuppressor { .. } => crate::grade::spill_untouched(&crate::grade::spill_settings(e)),
                 E::ShadowHighlight { shadow_amount, highlight_amount, .. } => {
                     crate::grade::shadow_highlight_untouched(*shadow_amount, *highlight_amount)
                 }
