@@ -9316,6 +9316,7 @@ const EFFECT_NAMES = {
   'core.displacement_map': 'Displacement Map',
   'core.gradient_wipe': 'Gradient Wipe',
   'core.glass_melt': 'Glass Melt',
+  'core.tile_wipe': 'Tile Wipe',
   'core.echo': 'Echo',
   'core.cc_wide_time': 'CC Wide Time',
   'core.time_difference': 'Time Difference',
@@ -9478,7 +9479,7 @@ const EFFECT_GROUPS = [
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key']],
   ['Text', ['core.text_animator']],
-  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
+  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
 const EFFECT_SEARCH = {
@@ -9544,6 +9545,7 @@ const EFFECT_SEARCH = {
   'core.compound_blur': 'compound variable map depth focus blur layer',
   'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction chromatic prism water spectrum rainbow colour color fringe',
   'core.gradient_wipe': 'gradient wipe reveal transition dissolve luma matte map layer',
+  'core.tile_wipe': 'tile wipe grid wipe squares tiles blocks grid transition reveal doors radial rectangle shrink',
   'core.glass_melt': 'glass melt glass wipe melt transition reveal refraction bend liquid melting dissolve gradient layer displacement',
   'core.echo': 'echo time trail trails ghost ghosting onion skin smear afterimage frames',
   'core.time_difference': 'time difference motion detect detection compare frames offset changes moved movement difference matte alpha absolute contrast',
@@ -9762,6 +9764,7 @@ const EFFECT_ABOUT = {
   'core.compound_blur': 'Blurs the layer more where another layer of the composition is brighter.',
   'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition; different colour amounts part the colours, as light through water or glass.',
   'core.gradient_wipe': 'Wipes the layer away from the darkest parts of another layer of the composition to the brightest.',
+  'core.tile_wipe': 'Cuts the layer into a grid of square tiles that shrink away, from the Center out (or the edges in, reversed), in a round, square or two-door order. Rotation turns the whole grid; Border softens each tile\u2019s edge; Tiles is how many tiles across. As it is added, nothing changes.',
   'core.glass_melt': 'Melts the layer away like bending glass, from the darkest parts of a gradient layer to the brightest, showing another layer beneath. Completion is how far it has gone; Softness smooths the gradient and widens the bend; Displacement Amount is how far the edge bends the two pictures. As it is added, nothing changes.',
   'core.echo': 'Lays copies of the layer from earlier or later frames over it, each fainter than the last: a trail.',
   'core.time_difference': 'Shows how the layer differs from a target layer at another moment: what moved shows, what stood still goes black, or mid grey with Absolute Difference off. With no target the layer is compared with itself, so it stays black until Time Offset is set (try -0.04 seconds, one frame back at 24). Contrast strengthens the difference; Alpha Channel chooses what covers the result. It reads the layer as drawn, without its effects.',
@@ -10413,6 +10416,11 @@ const EFFECT_PARAMS = {
   // D-194.
   'core.gradient_wipe': [['completion', 'Transition Completion', 1, 1, '% wiped away, 0 to 100'],
     ['softness', 'Transition Softness', 1, 1, '%, 0 to 100, how soft the edge is']],
+  'core.tile_wipe': [['completion', 'Completion', 1, 1, '% wiped away, 0 to 100'],
+    ['center', 'Center', 2, 1, '% of the width and height, -1000 to 1000, where the wipe starts'],
+    ['rotation', 'Rotation', 1, 1, '-3600 to 3600 degrees, the whole grid turned'],
+    ['border', 'Border', 1, 0.5, 'pixels, 0 to 100, how soft each shrinking tile\u2019s edge is'],
+    ['tiles', 'Tiles', 1, 0.5, '1 to 200, how many tiles across the layer']],
   'core.glass_melt': [['completion', 'Completion', 1, 1, '% melted away, 0 to 100'],
     ['softness', 'Softness', 1, 0.5, 'pixels, 0 to 100, how much the gradient is smoothed before it bends the picture'],
     ['displacement_amount', 'Displacement Amount', 1, 1, '-500 to 500, how far the melting edge bends the two pictures']],
@@ -11724,6 +11732,10 @@ const EFFECT_WORDS = {
       ['expand', 'Expand Output', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-194, After Effects' own words.
+  // D-510: CycoreFX's shapes and reverse.
+  'core.tile_wipe': {
+    choices: [['shape', 'Shape', [['doors', 'Doors'], ['radial', 'Radial'], ['rectangle', 'Rectangle']]], ['reverse', 'Reverse Transition', [['off', 'Off'], ['on', 'On']]]],
+  },
   // D-509.
   'core.glass_melt': {
     layers: [['layer_to_reveal', 'Layer to Reveal', 'layer_to_reveal'], ['gradient_layer', 'Gradient Layer', 'gradient_layer']],

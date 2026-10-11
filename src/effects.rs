@@ -2306,6 +2306,20 @@ pub enum Effect {
         reveal_map: Option<crate::layer_map::Map>,
         gradient_map: Option<crate::layer_map::Map>,
     },
+    /// D-510: Tile Wipe, after CycoreFX's CC Grid Wipe, its rule and its settings when added ours
+    /// (`layer_fx::tile_wipe`, document 21). `completion`, 0 to 100; `center`, x then y, per cent
+    /// of the drawing, -1000 to 1000; `rotation`, -3600 to 3600 degrees; `border`, 0 to 100
+    /// pixels; `tiles`, 1 to 200 across the drawing's width; `shape`, one of [`TILE_SHAPES`];
+    /// `reverse`, "off" or "on".
+    TileWipe {
+        completion: f64,
+        center: [f64; 2],
+        rotation: f64,
+        border: f64,
+        tiles: f64,
+        shape: String,
+        reverse: String,
+    },
     /// D-507: after CycoreFX's CC Spotlight, its rule and its settings when added ours
     /// (`layer_fx::cc_spotlight`, document 21). `from` and `to`, x then y, per cent of the
     /// drawing, -1000 to 1000; `height`, 0 to 1000 per cent of the drawing's width; `cone_angle`,
@@ -3189,6 +3203,9 @@ pub const LCKEY_MATCHES: [&str; 3] = ["rgb", "hue", "chroma"];
 pub const UNMULT: &str = "core.unmult";
 pub const THREE_D_GLASSES: &str = "core.three_d_glasses";
 pub const GLASS_MELT: &str = "core.glass_melt";
+pub const TILE_WIPE: &str = "core.tile_wipe";
+/// D-510: Tile Wipe's shapes.
+pub const TILE_SHAPES: [&str; 3] = ["doors", "radial", "rectangle"];
 pub const CC_SPOTLIGHT: &str = "core.cc_spotlight";
 /// D-507: CC Spotlight's renders, without its four Gel renders, which are not built.
 pub const SPOT_RENDERS: [&str; 4] = ["light_only", "light_add", "light_add_plus", "light_shadow"];
@@ -3394,6 +3411,13 @@ impl Effect {
                 ("completion", vec![completion], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
                 ("displacement_amount", vec![displacement_amount], -500.0, 500.0),
+            ],
+            Effect::TileWipe { completion, center, rotation, border, tiles, .. } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("rotation", vec![rotation], -3600.0, 3600.0),
+                ("border", vec![border], 0.0, 100.0),
+                ("tiles", vec![tiles], 1.0, 200.0),
             ],
             Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, intensity, .. } => vec![
                 ("from", from.iter_mut().collect(), -1000.0, 1000.0),
@@ -5477,6 +5501,8 @@ impl Effect {
                 *softness = scale(*softness);
                 *displacement_amount = scale(*displacement_amount);
             }
+            // D-510: the border is a distance; the tiles are a share of the drawing's width.
+            Effect::TileWipe { border, .. } => *border = scale(*border),
             // D-502: the radius, thin and feather are distances; the masks are scaled as they
             // always are.
             Effect::InnerOuterKey { single_mask_highlight_radius, edge_thin, edge_feather, .. } => {
@@ -5855,6 +5881,7 @@ impl Effect {
             Effect::Unmult { .. } => "Unmult",
             Effect::ThreeDGlasses { .. } => "3D Glasses",
             Effect::GlassMelt { .. } => "Glass Melt",
+            Effect::TileWipe { .. } => "Tile Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
@@ -6061,6 +6088,7 @@ impl Effect {
             Effect::Unmult { .. } => UNMULT,
             Effect::ThreeDGlasses { .. } => THREE_D_GLASSES,
             Effect::GlassMelt { .. } => GLASS_MELT,
+            Effect::TileWipe { .. } => TILE_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
@@ -7696,6 +7724,10 @@ impl Effect {
                     "Radial Wipe's wipe is \"clockwise\", \"counterclockwise\" or \"both\", and this is \"{wipe}\"."
                 ))
             }
+            Effect::TileWipe { shape, reverse, .. } => (!TILE_SHAPES.contains(&shape.as_str()))
+                .then(|| format!("Tile Wipe's shape is \"doors\", \"radial\" or \"rectangle\", and this is \"{shape}\"."))
+                .or_else(|| (!["off", "on"].contains(&reverse.as_str()))
+                    .then(|| format!("Tile Wipe's reverse is \"off\" or \"on\", and this is \"{reverse}\"."))),
             Effect::IrisWipe { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "Iris Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
@@ -9370,6 +9402,10 @@ pub(crate) fn apply_stack_at(
                     crate::perf::time(crate::perf::Stage::EffectGlassMelt, || crate::layer_fx::glass_melt(source, &g, (ox, oy)))
                 }
             }
+            // D-510: never grows.
+            e @ Effect::TileWipe { .. } => crate::perf::time(crate::perf::Stage::EffectTileWipe, || {
+                crate::layer_fx::tile_wipe(source, e, (ox, oy))
+            }),
             // D-507: every distance a share of the drawing; never grows.
             e @ Effect::CcSpotlight { .. } => crate::perf::time(crate::perf::Stage::EffectCcSpotlight, || {
                 crate::layer_fx::cc_spotlight(source, e, (ox, oy))

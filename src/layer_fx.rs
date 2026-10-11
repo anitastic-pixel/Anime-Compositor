@@ -6629,6 +6629,78 @@ pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>
     })
 }
 
+/// D-510: how long each tile takes to go, a share of the whole transition (document 21).
+const TILE_SPREAD: f64 = 0.25;
+
+/// D-510: Tile Wipe's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
+/// the centre (two), the turn's cosine and sine, the tile size, the furthest tile distance, the
+/// completion share, the shape (an index into `effects::TILE_SHAPES`), 1 when reversed, and the
+/// border.
+pub(crate) fn tile_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 10] {
+    let crate::effects::Effect::TileWipe { completion, center, rotation, border, tiles, shape, reverse } = e else {
+        unreachable!("Tile Wipe's numbers of another effect")
+    };
+    let (sn, cs) = rotation.to_radians().sin_cos();
+    let mode = crate::effects::TILE_SHAPES.iter().position(|s| s == shape).expect("Tile Wipe's shape was checked");
+    let mut k = [center[0] / 100.0 * w0, center[1] / 100.0 * h0, cs, sn, w0 / tiles, 0.0, completion / 100.0, mode as f64, (reverse == "on") as u8 as f64, *border];
+    k[5] = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)].iter().map(|&(x, y)| tile_measure(&k, tile_turn(&k, x, y))).fold(0.0, f64::max);
+    k
+}
+
+/// D-510: the own point (x, y) less the centre, turned back by the rotation.
+fn tile_turn(k: &[f64; 10], x: f64, y: f64) -> (f64, f64) {
+    let (dx, dy) = (x - k[0], y - k[1]);
+    (dx * k[2] + dy * k[3], -dx * k[3] + dy * k[2])
+}
+
+/// D-510: a tile centre's distance from the centre by the shape: doors, radial, rectangle.
+fn tile_measure(k: &[f64; 10], t: (f64, f64)) -> f64 {
+    match k[7] as usize {
+        0 => t.0.abs(),
+        1 => (t.0 * t.0 + t.1 * t.1).sqrt(),
+        _ => t.0.abs().max(t.1.abs()),
+    }
+}
+
+/// D-510: the share of the pixel kept at the own point (x, y) (document 21).
+fn tile_keep(k: &[f64; 10], x: f64, y: f64) -> f64 {
+    let q = tile_turn(k, x, y);
+    let s = k[4];
+    let t = ((q.0 / s + 0.5).floor() * s, (q.1 / s + 0.5).floor() * s);
+    let m = (q.0 - t.0).abs().max((q.1 - t.1).abs());
+    let mut u = if k[5] > 0.0 { (tile_measure(k, t) / k[5]).min(1.0) } else { 0.0 };
+    if k[8] == 1.0 {
+        u = 1.0 - u;
+    }
+    let p = ((k[6] - u * (1.0 - TILE_SPREAD)) / TILE_SPREAD).clamp(0.0, 1.0);
+    let b = k[9];
+    let a = (1.0 - p) * (s / 2.0 + b) - b / 2.0;
+    if b > 0.0 {
+        ((a - m) / b + 0.5).clamp(0.0, 1.0)
+    } else if m < a {
+        1.0
+    } else {
+        0.0
+    }
+}
+
+/// D-510: after CycoreFX's CC Grid Wipe, the rule ours (document 21); `(ox, oy)` the drawing's
+/// corner in the buffer. Never grows; at completion 0 returns at once (compose leaves it off the
+/// card then), so a pixel on a tile's side is never lost.
+pub(crate) fn tile_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    if matches!(e, crate::effects::Effect::TileWipe { completion, .. } if *completion == 0.0) {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let k = tile_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let f = tile_keep(&k, (i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5) as f32;
+        for v in px.iter_mut() {
+            *v *= f;
+        }
+    });
+}
+
 /// D-507: CC Spotlight's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
 /// the render (an index into `effects::SPOT_RENDERS`), the light F (three), the axis A = T - F
 /// (three), the half opening and the inner angle in radians, the intensity share, the light's

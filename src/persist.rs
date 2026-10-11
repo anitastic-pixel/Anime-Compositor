@@ -2478,6 +2478,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("remove_color_matting".into(), J::from(remove_color_matting.as_str()));
             params.insert("clip_hdr_results".into(), J::from(clip_hdr_results.as_str()));
         }
+        Effect::TileWipe { completion, center, rotation, border, tiles, shape, reverse } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("rotation".into(), num(*rotation));
+            params.insert("border".into(), num(*border));
+            params.insert("tiles".into(), num(*tiles));
+            params.insert("shape".into(), J::from(shape.as_str()));
+            params.insert("reverse".into(), J::from(reverse.as_str()));
+        }
         Effect::GlassMelt { completion, layer_to_reveal, gradient_layer, softness, displacement_amount, .. } => {
             params.insert("completion".into(), num(*completion));
             params.insert("layer_to_reveal".into(), layer_to_reveal.clone());
@@ -4988,6 +4997,7 @@ fn parse_effect(
         crate::effects::UNMULT,
         crate::effects::THREE_D_GLASSES,
         crate::effects::GLASS_MELT,
+        crate::effects::TILE_WIPE,
         crate::effects::CC_SPOTLIGHT,
         crate::effects::ENERGY_STROKE,
         crate::effects::SIMPLE_WIRE_REMOVAL,
@@ -6007,6 +6017,15 @@ fn parse_effect(
             softness: effect_number(params, "softness", &at)?,
             remove_color_matting: effect_word(params, "remove_color_matting", &at)?,
             clip_hdr_results: effect_word(params, "clip_hdr_results", &at)?,
+        }),
+        crate::effects::TILE_WIPE => Some(crate::effects::Effect::TileWipe {
+            completion: effect_number(params, "completion", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            rotation: effect_number(params, "rotation", &at)?,
+            border: effect_number(params, "border", &at)?,
+            tiles: effect_number(params, "tiles", &at)?,
+            shape: effect_word(params, "shape", &at)?,
+            reverse: effect_word(params, "reverse", &at)?,
         }),
         // D-509: the two layers are kept as written, as Difference Matte's layer is.
         crate::effects::GLASS_MELT => Some(crate::effects::Effect::GlassMelt {

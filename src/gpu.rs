@@ -4647,7 +4647,8 @@ fn pageturn(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // B-107, the four wipes: layer_fx::linear_wipe (mode 0), radial_wipe (1, `count` the way round),
-// venetian_blinds (2) and iris_wipe (3). `flag` is complete, every pixel gone.
+// venetian_blinds (2) and iris_wipe (3); D-510's layer_fx::tile_wipe (4). `flag` is complete,
+// every pixel gone.
 @compute @workgroup_size(16, 16)
 fn wipe(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -4700,6 +4701,36 @@ fn wipe(@builtin(global_invocation_id) id: vec3<u32>) {
             s = along - product(k[2], floor(along / k[2]), k[5]);
             edge = k[3];
             feather = k[4];
+        }
+        case 4u: {
+            // D-510, layer_fx::tile_keep: k as layer_fx::tile_numbers; the kept share runs over
+            // the border from the shrinking tile's edge.
+            let dx = x - k[0];
+            let dy = y - k[1];
+            let qx = dx * k[2] + dy * k[3];
+            let qy = -dx * k[3] + dy * k[2];
+            let tx = floor(qx / k[4] + 0.5lf) * k[4];
+            let ty = floor(qy / k[4] + 0.5lf) * k[4];
+            let m = max(abs(qx - tx), abs(qy - ty));
+            var d = abs(tx);
+            if k[7] == 1.0lf {
+                d = sqrt(tx * tx + ty * ty);
+            } else if k[7] == 2.0lf {
+                d = max(abs(tx), abs(ty));
+            }
+            var u = 0.0lf;
+            if k[5] > 0.0lf {
+                u = min(d / k[5], 1.0lf);
+            }
+            if k[8] == 1.0lf {
+                u = 1.0lf - u;
+            }
+            let p = clamp((k[6] - u * 0.75lf) / 0.25lf, 0.0lf, 1.0lf);
+            let a = (1.0lf - p) * (k[4] / 2.0lf + k[9]) - k[9] / 2.0lf;
+            // Border 0: kept where m < a, strictly, as the CPU keeps it.
+            s = select(a - m, select(-1.0lf, 1.0lf, m < a), k[9] == 0.0lf);
+            edge = 0.0lf;
+            feather = k[9];
         }
         default: {
             // k: the centre, the radius, the feather, invert.
@@ -11605,6 +11636,11 @@ impl Gpu {
                 let ((cx, cy), r) = crate::layer_fx::iris_circle(*completion, *center, *feather, invert, (w, h), f.origin);
                 let p = FxParams { mode: 3, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
                 same(steps, &passes.wipe, p, &[cx, cy, r, *feather, invert as u8 as f64], None)
+            }
+            e @ E::TileWipe { .. } => {
+                let k = crate::layer_fx::tile_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let p = FxParams { mode: 4, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                same(steps, &passes.wipe, p, &k, None)
             }
             E::SimpleChoker { choke } => {
                 let spread = *choke < 0.0;
