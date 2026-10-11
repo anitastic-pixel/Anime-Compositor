@@ -208526,3 +208526,81 @@ FX-UNMULT-017 (`fx_unmult_017.json`): Background color "grey": not black or whit
 FX-UNMULT-018 (`fx_unmult_018.json`): Remove color matting "yes": not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-UNMULT-019 (`fx_unmult_019.json`): Clip HDR results "On": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### 3D Glasses (D-506)
+
+3D Glasses (`core.three_d_glasses`), after After Effects' 3D Glasses (B-386), the rule ours. Every case is a project of one composition 16 by 10, five frames: the view layers `left`, `right`, `small` (the middle 8 by 6 of `left`) and `late` (`right` from frame 4), every one switched off, and on top the layer `holder`, showing the drawing `shot`, with the effect. `left` and `right` are a grey card with an orange 4 by 3 square, at column 5 in the left view and column 7 in the right, and a half-covered white dot. `tools/three_d_glasses_reference.py` works the expected frames, `expected_three_d_glasses.json`, tolerance 2e-5; `cycle_two.json` holds two layers whose views read each other, refused with `EFFECT_LAYER_CYCLE`; the rule is in document 21.
+
+FX-GLASSES-001 (`fx_glasses_001.json`): As added: both views the layer itself, balanced colored red blue, so nothing changes. Frames 0.
+
+FX-GLASSES-002 (`fx_glasses_002.json`): The stereo pair as red blue: the right view's grey in red, the left's in green and blue; the orange square red-fringed on its right, cyan on its left. Frames 0.
+
+FX-GLASSES-003 (`fx_glasses_003.json`): The pair as red green: the left view's grey in green only, blue empty. Frames 0.
+
+FX-GLASSES-004 (`fx_glasses_004.json`): The pair as balanced red blue at 0.75: the fringes a quarter softer than FX-GLASSES-002's. Frames 0.
+
+FX-GLASSES-005 (`fx_glasses_005.json`): The pair as balanced red green at 0.75. Frames 0.
+
+FX-GLASSES-006 (`fx_glasses_006.json`): The pair as balanced colored red blue at 0.75: the colours kept where the views agree, red and cyan fringes where the square differs. Frames 0.
+
+FX-GLASSES-007 (`fx_glasses_007.json`): The pair side by side: the left view squeezed into the left half, the right view into the right half. Frames 0.
+
+FX-GLASSES-008 (`fx_glasses_008.json`): The pair over under: the left view squeezed into the top half, the right into the bottom. Frames 0.
+
+FX-GLASSES-009 (`fx_glasses_009.json`): The pair interlaced: even rows from the left view, odd rows from the right. Frames 0.
+
+FX-GLASSES-010 (`fx_glasses_010.json`): Red blue with scene convergence 2: the left view 1 pixel right, the right view 1 pixel left, so the squares lie 0 apart and line up. Frames 0.
+
+FX-GLASSES-011 (`fx_glasses_011.json`): Scene convergence 3: each view moved a pixel and a half, read between pixels. Frames 0.
+
+FX-GLASSES-012 (`fx_glasses_012.json`): Vertical alignment 2: the left view 1 pixel up, the right 1 pixel down. Frames 0.
+
+FX-GLASSES-013 (`fx_glasses_013.json`): In per cent: convergence 12.5 of 16 is 2 and alignment 20 of 10 is 2, so this is convergence 2 and alignment 2 in pixels. Frames 0.
+
+FX-GLASSES-014 (`fx_glasses_014.json`): FX-GLASSES-013 written in pixels. Frames 0.
+
+FX-GLASSES-015 (`fx_glasses_015.json`): FX-GLASSES-002 with left and right swapped. Frames 0.
+
+FX-GLASSES-016 (`fx_glasses_016.json`): Balanced colored at balance 0: the two views made one, the mean of the two, no depth. Frames 0.
+
+FX-GLASSES-017 (`fx_glasses_017.json`): Balanced colored at balance 2: the views pushed apart, the fringes stronger, colour held at 0. Frames 0.
+
+FX-GLASSES-018 (`fx_glasses_018.json`): Convergence keyed from 0 at frame 0 to 4 at frame 4: frame 0 is FX-GLASSES-002, frame 2 FX-GLASSES-010. Frames 0, 2, 4.
+
+FX-GLASSES-019 (`fx_glasses_019.json`): A left view that is not in the composition, `gone`: nothing changes, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-GLASSES-020 (`fx_glasses_020.json`): The right view with its in point at frame 4: before it the right view is empty, so red is empty; at frame 4 it is FX-GLASSES-002. Frames 0, 4.
+
+FX-GLASSES-021 (`fx_glasses_021.json`): FX-GLASSES-006 on the holder moved 2 right and 1 down: the same picture moved, since the views lie on the layer. Frames 0.
+
+FX-GLASSES-022 (`fx_glasses_022.json`): The effect on an adjustment layer above the holder, the pair named: the views lie on the frame, the composition's size, so this is FX-GLASSES-006. Frames 0.
+
+FX-GLASSES-023 (`fx_glasses_023.json`): Only the left view named, the right the layer itself, red blue. Frames 0.
+
+FX-GLASSES-024 (`fx_glasses_024.json`): The left view's middle 8 by 6 as the left view, centred: it lies where it was cut, clear around it. Frames 0.
+
+FX-GLASSES-025 (`fx_glasses_025.json`): Side by side with convergence 5 and alignment 3: both unused, so this is FX-GLASSES-007. Frames 0.
+
+FX-GLASSES-026 (`fx_glasses_026.json`): The layer itself as both views, red blue, convergence 2: the shot as a grey anaglyph, its edges fringed. Frames 0.
+
+FX-GLASSES-027 (`fx_glasses_027.json`): Scene convergence 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASSES-028 (`fx_glasses_028.json`): Scene convergence -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASSES-029 (`fx_glasses_029.json`): Vertical alignment 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASSES-030 (`fx_glasses_030.json`): Balance 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASSES-031 (`fx_glasses_031.json`): Balance -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASSES-032 (`fx_glasses_032.json`): A 3D view written "anaglyph". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASSES-033 (`fx_glasses_033.json`): Units written "inches". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASSES-034 (`fx_glasses_034.json`): Swap written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASSES-035 (`fx_glasses_035.json`): A left view written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASSES-036 (`fx_glasses_036.json`): A right view written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASSES-037 (`fx_glasses_037.json`): Balance keyed to 20 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
