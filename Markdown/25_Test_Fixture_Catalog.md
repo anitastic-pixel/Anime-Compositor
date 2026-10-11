@@ -210556,3 +210556,85 @@ FX-TWIST-028 (`fx_twist_028.json`): Shading "maybe", not on or off. The file is 
 FX-TWIST-029 (`fx_twist_029.json`): A back layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-TWIST-030 (`fx_twist_030.json`): Completion keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Warp Blend (D-518)
+
+Warp Blend (`core.warp_blend`), after the purpose of CycoreFX's CC WarpoMatic (B-398, EFFECTS.md row 280), the rule ours. Every case is a project of one composition 16 by 10, five frames: the map layers `paint`, `small` (a smaller picture, centred) and `late` (in at frame 4), every one switched off, and on top of them the drawing `holder` with the effect. `tools/warp_blend_reference.py` works the expected frames, `Fixtures/warp_blend/expected_warp_blend.json`, tolerance 2e-5, with `cycle_two.json`, two layers each revealing the other, refused with `EFFECT_LAYER_CYCLE`; the rule is in document 21.
+
+FX-WARPB-001 (`fx_warpb_001.json`): As added: completion 0, so nothing changes. Frames 0.
+
+FX-WARPB-002 (`fx_warpb_002.json`): Completion 100 with nothing to reveal: every pixel clear. Frames 0.
+
+FX-WARPB-003 (`fx_warpb_003.json`): Completion 100 revealing the paint: the paint exactly. Frames 0.
+
+FX-WARPB-004 (`fx_warpb_004.json`): Completion 25, brightness, smoothness 2, amount 8, joint, span 50: the blend has not begun, so this is the holder alone, pulled a quarter of the way. Frames 0.
+
+FX-WARPB-005 (`fx_warpb_005.json`): Completion 50, otherwise FX-WARPB-004: half each, both pulled half the way. Frames 0.
+
+FX-WARPB-006 (`fx_warpb_006.json`): Completion 75, otherwise FX-WARPB-004: the blend done, so this is the paint alone, a quarter of the pull left. Frames 0.
+
+FX-WARPB-007 (`fx_warpb_007.json`): FX-WARPB-005 opposing: the paint pulled the other way. Frames 0.
+
+FX-WARPB-008 (`fx_warpb_008.json`): FX-WARPB-005 twisting: both pulled a quarter turn round. Frames 0.
+
+FX-WARPB-009 (`fx_warpb_009.json`): FX-WARPB-005 with amount -8: pulled the other way. Frames 0.
+
+FX-WARPB-010 (`fx_warpb_010.json`): FX-WARPB-005 with brightness differences. Frames 0.
+
+FX-WARPB-011 (`fx_warpb_011.json`): FX-WARPB-005 with contrast differences. Frames 0.
+
+FX-WARPB-012 (`fx_warpb_012.json`): FX-WARPB-005 with local differences. Frames 0.
+
+FX-WARPB-013 (`fx_warpb_013.json`): Smoothness 0, amount 4, completion 50: the reactor's own steps pull. Frames 0.
+
+FX-WARPB-014 (`fx_warpb_014.json`): Smoothness 6, amount 20, completion 50: a broad, soft pull. Frames 0.
+
+FX-WARPB-015 (`fx_warpb_015.json`): Blend span 0, completion 50: the paint alone, half the pull left. Frames 0.
+
+FX-WARPB-016 (`fx_warpb_016.json`): Blend span 100, completion 30: three tenths the paint. Frames 0.
+
+FX-WARPB-017 (`fx_warpb_017.json`): Completion 50 with nothing to reveal: the pulled holder at half its covering. Frames 0.
+
+FX-WARPB-018 (`fx_warpb_018.json`): A reveal layer that is not in the composition, `gone`: nothing changes, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-WARPB-019 (`fx_warpb_019.json`): The paint with its in point at frame 4 as the reveal: before it, FX-WARPB-017; at frame 4 FX-WARPB-005. Frames 0, 4.
+
+FX-WARPB-020 (`fx_warpb_020.json`): The paint's middle 8 by 6 as the reveal, centred: it lies where it was cut, clear round it. Frames 0.
+
+FX-WARPB-021 (`fx_warpb_021.json`): The holder revealing itself, completion 50: the layer warped on its own, pulled half one way and half the other. Frames 0.
+
+FX-WARPB-022 (`fx_warpb_022.json`): FX-WARPB-005 on the holder moved 2 right and 1 down: the same picture moved, since the reveal lies on the layer. Frames 0.
+
+FX-WARPB-023 (`fx_warpb_023.json`): The effect on an adjustment layer above the holder: the reveal lies on the frame, which here is the holder's own rectangle, so this is FX-WARPB-005. Frames 0.
+
+FX-WARPB-024 (`fx_warpb_024.json`): Completion keyed from 0 at frame 0 to 100 at frame 4: frame 0 the holder, frame 2 FX-WARPB-005, frame 4 the paint. Frames 0, 2, 4.
+
+FX-WARPB-025 (`fx_warpb_025.json`): Amount keyed from 0 at frame 0 to 16 at frame 4, completion 50: frame 2 is FX-WARPB-005. Frames 0, 2, 4.
+
+FX-WARPB-026 (`fx_warpb_026.json`): Smoothness keyed from 0 at frame 0 to 4 at frame 4, completion 50, amount 8: frame 0 smoothness 0, frame 4 softer. Frames 0, 4.
+
+FX-WARPB-027 (`fx_warpb_027.json`): Blend span keyed from 0 at frame 0 to 100 at frame 4, completion 30: frame 0 the pulled holder alone, frame 4 FX-WARPB-016. Frames 0, 4.
+
+FX-WARPB-028 (`fx_warpb_028.json`): Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARPB-029 (`fx_warpb_029.json`): Completion -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARPB-030 (`fx_warpb_030.json`): Smoothness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARPB-031 (`fx_warpb_031.json`): Smoothness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARPB-032 (`fx_warpb_032.json`): Warp amount 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARPB-033 (`fx_warpb_033.json`): Warp amount -501, below -500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARPB-034 (`fx_warpb_034.json`): Blend span 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARPB-035 (`fx_warpb_035.json`): Blend span -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARPB-036 (`fx_warpb_036.json`): Reactor "hue", not one of the four words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARPB-037 (`fx_warpb_037.json`): Warp direction "sideways", not one of the three words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARPB-038 (`fx_warpb_038.json`): A reveal layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARPB-039 (`fx_warpb_039.json`): Completion keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
