@@ -209690,3 +209690,55 @@ FX-REPEAT-028 (`fx_repeat_028.json`): Tiling "wallpaper", which is not one. The 
 FX-REPEAT-029 (`fx_repeat_029.json`): Blend Borders 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-REPEAT-030 (`fx_repeat_030.json`): Expand Left keyed to 5000 at frame 4, above 4000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Stripe Sweep (D-514)
+
+Stripe Sweep (`core.stripe_sweep`), after the purpose of CycoreFX's CC Line Sweep (B-394, EFFECTS.md row 276), the rule ours. Every case is a project of one composition 16 by 10, five frames, the drawing Broadcast Colors' (with transparent columns and a half-covered one) with the effect. `tools/stripe_sweep_reference.py` works the expected frames, `Fixtures/stripe_sweep/expected_stripe_sweep.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-STRIPE-001 (`fx_stripe_001.json`): The settings as they start: completion 0, so nothing changes. Frames 0.
+
+FX-STRIPE-002 (`fx_stripe_002.json`): Completion 100: every pixel gone. Frames 0.
+
+FX-STRIPE-003 (`fx_stripe_003.json`): Thickness 3, completion 40: four lines across the drawing, each wiped from the left, the top one furthest along. Frames 0.
+
+FX-STRIPE-004 (`fx_stripe_004.json`): Thickness 3, slant 0, completion 40: the top line done, the second part way, the others not started. Frames 0.
+
+FX-STRIPE-005 (`fx_stripe_005.json`): Thickness 3, slant 99, completion 40: all four lines together, a straight edge. Frames 0.
+
+FX-STRIPE-006 (`fx_stripe_006.json`): FX-STRIPE-003 flipped: the lines wiped from the right. Frames 0.
+
+FX-STRIPE-007 (`fx_stripe_007.json`): Direction 90, thickness 4, completion 40: the lines are columns, wiped downward. Frames 0.
+
+FX-STRIPE-008 (`fx_stripe_008.json`): Direction 30, thickness 3, completion 50: the lines turned. Frames 0.
+
+FX-STRIPE-009 (`fx_stripe_009.json`): Thickness 1, completion 50: ten one-pixel lines, a staircase edge. Frames 0.
+
+FX-STRIPE-010 (`fx_stripe_010.json`): Thickness 20 (as added), completion 60: one line, a straight wipe. Frames 0.
+
+FX-STRIPE-011 (`fx_stripe_011.json`): Completion keyed from 0 at frame 0 to 100 at frame 4, linear, thickness 3: frame 2 is completion 50, frame 4 all clear. Frames 0, 2, 4.
+
+FX-STRIPE-012 (`fx_stripe_012.json`): Thickness keyed from 2 at frame 0 to 6 at frame 4, linear, completion 50: frame 2 is thickness 4. Frames 0, 2, 4.
+
+FX-STRIPE-013 (`fx_stripe_013.json`): FX-STRIPE-003 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-STRIPE-014 (`fx_stripe_014.json`): Direction -135, flipped, slant 20, thickness 2, completion 65. Frames 0.
+
+FX-STRIPE-015 (`fx_stripe_015.json`): Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRIPE-016 (`fx_stripe_016.json`): Completion -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRIPE-017 (`fx_stripe_017.json`): Direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRIPE-018 (`fx_stripe_018.json`): Thickness 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRIPE-019 (`fx_stripe_019.json`): Thickness 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRIPE-020 (`fx_stripe_020.json`): Slant -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRIPE-021 (`fx_stripe_021.json`): Slant 100, above 99. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRIPE-022 (`fx_stripe_022.json`): Flip "yes": it is "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRIPE-023 (`fx_stripe_023.json`): Flip "On": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-STRIPE-024 (`fx_stripe_024.json`): Slant keyed to 120 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
