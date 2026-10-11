@@ -209824,3 +209824,41 @@ FX-SCATTER-017 (`fx_scatter_017.json`): Grain "diagonal", which is not one. The 
 FX-SCATTER-018 (`fx_scatter_018.json`): Randomize Every Frame "sometimes", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SCATTER-019 (`fx_scatter_019.json`): Scatter Amount keyed to 200 at frame 4, above 127. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Push Iris (D-515)
+
+Push Iris (`core.push_iris`), after the purpose of CycoreFX's CC Radial ScaleWipe (B-395, EFFECTS.md row 277), the rule ours. Every case is a project of one composition 16 by 10, five frames, the drawing Broadcast Colors' (with transparent columns and a half-covered one) with the effect. `tools/push_iris_reference.py` works the expected frames, `Fixtures/push_iris/expected_push_iris.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-PUSH-001 (`fx_push_001.json`): The settings as they start: completion 0, so nothing changes. Frames 0.
+
+FX-PUSH-002 (`fx_push_002.json`): Completion 100: every pixel clear. Frames 0.
+
+FX-PUSH-003 (`fx_push_003.json`): Completion 30: a hole in the middle, the picture pushed out round it, its middle stretched round the hole's edge. Frames 0.
+
+FX-PUSH-004 (`fx_push_004.json`): Completion 60: a bigger hole, more of the picture pushed off. Frames 0.
+
+FX-PUSH-005 (`fx_push_005.json`): Reversed, completion 30: the outside closed in, the picture pulled toward the middle. Frames 0.
+
+FX-PUSH-006 (`fx_push_006.json`): Center [25, 30], completion 30: the hole moved up and to the left. Frames 0.
+
+FX-PUSH-007 (`fx_push_007.json`): Completion 7.3: a small hole, every pixel read between pixels. Frames 0.
+
+FX-PUSH-008 (`fx_push_008.json`): Center [120, 50], off the drawing to the right, completion 40: the hole's edge sweeps in from the right. Frames 0.
+
+FX-PUSH-009 (`fx_push_009.json`): Completion keyed from 0 at frame 0 to 100 at frame 4, linear: frame 2 is completion 50, frame 4 all clear. Frames 0, 2, 4.
+
+FX-PUSH-010 (`fx_push_010.json`): FX-PUSH-003 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-PUSH-011 (`fx_push_011.json`): Reversed, completion 65, Center [60, 40]. Frames 0.
+
+FX-PUSH-012 (`fx_push_012.json`): Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PUSH-013 (`fx_push_013.json`): Completion -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PUSH-014 (`fx_push_014.json`): Center x 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PUSH-015 (`fx_push_015.json`): Reverse "yes": it is "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PUSH-016 (`fx_push_016.json`): Reverse "On": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PUSH-017 (`fx_push_017.json`): Completion keyed to 150 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
