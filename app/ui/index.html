@@ -9324,6 +9324,7 @@ const EFFECT_NAMES = {
   'core.push_iris': 'Push Iris',
   'core.stretch_wipe': 'Stretch Wipe',
   'core.twister': 'Twister',
+  'core.warp_blend': 'Warp Blend',
   'core.channel_wipe': 'Channel Wipe',
   'core.echo': 'Echo',
   'core.cc_wide_time': 'CC Wide Time',
@@ -9501,7 +9502,7 @@ const EFFECT_GROUPS = [
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key', 'core.cryptomatte', 'core.depth_of_field', 'core.fog_3d', 'core.identifier']],
   ['Text', ['core.text_animator', 'core.numbers', 'core.timecode']],
-  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.push_iris', 'core.stretch_wipe', 'core.twister', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
+  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.push_iris', 'core.stretch_wipe', 'core.twister', 'core.warp_blend', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
 const EFFECT_SEARCH = {
@@ -9569,6 +9570,7 @@ const EFFECT_SEARCH = {
   'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction chromatic prism water spectrum rainbow colour color fringe',
   'core.gradient_wipe': 'gradient wipe reveal transition dissolve luma matte map layer',
   'core.channel_wipe': 'channel wipe image wipe gradient wipe reveal transition dissolve luma matte map layer red green blue alpha hue saturation lightness blur',
+  'core.warp_blend': 'warp blend warpomatic warpo matic morph warp transition reveal stretch pull bend dissolve liquid',
   'core.twister': 'twister twist turn over flip ribbon spin rotate 3d back side backside transition reveal page',
   'core.stretch_wipe': 'stretch wipe scale wipe stretch smear streak pull off push on transition reveal slit scan',
   'core.push_iris': 'push iris radial scale wipe radial scalewipe hole open iris fold bulge push out pull in transition reveal circle',
@@ -9810,6 +9812,7 @@ const EFFECT_ABOUT = {
   'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition; different colour amounts part the colours, as light through water or glass.',
   'core.gradient_wipe': 'Wipes the layer away from the darkest parts of another layer of the composition to the brightest.',
   'core.channel_wipe': 'Wipes the layer away from the lowest values of a gradient layer to the highest, read by the Property you pick: a colour channel, alpha, luminance, lightness, hue or saturation. With no layer named the layer itself is the gradient. Blur smooths the gradient first; Softness widens the edge. As it is added, nothing changes.',
+  'core.warp_blend': 'Pulls the layer and another layer out of shape along what differs between them while one blends into the other, like a morph. Reactor is what the pull follows; Smoothness softens it; Warp Direction pulls the two the same way, opposite ways or round; Blend Span is how much of the transition they blend over. As it is added, nothing changes.',
   'core.twister': 'Twists the layer over round a line through the Center, like a ribbon turned a strip at a time, to show another layer on its back. Axis is the way the twist runs; Shading darkens the strips as they turn edge on. As it is added, nothing changes.',
   'core.stretch_wipe': 'Stretches everything past a line through the Center along the Direction, Scale times, so the line\u2019s own colours draw out in streaks. Move the Center across the layer (keyframe it) to stretch the layer off the screen, or onto it. As it is added, nothing changes.',
   'core.push_iris': 'Opens a round hole at the Center and pushes the picture out of its way, the middle of the picture stretched round the hole\u2019s edge. Reverse Transition closes the outside in like an iris instead, the picture pulled toward the middle. As it is added, nothing changes.',
@@ -10531,6 +10534,10 @@ const EFFECT_PARAMS = {
   'core.channel_wipe': [['completion', 'Completion', 1, 1, '% wiped away, 0 to 100'],
     ['softness', 'Border Softness', 1, 1, '%, 0 to 100, how soft the edge is'],
     ['blur', 'Blur', 1, 0.5, 'pixels, 0 to 100, how much the gradient is smoothed first']],
+  'core.warp_blend': [['completion', 'Completion', 1, 1, '% of the way to the other layer, 0 to 100'],
+    ['smoothness', 'Smoothness', 1, 0.5, 'pixels, 0 to 100, how much the reactor is smoothed before it pulls'],
+    ['warp_amount', 'Warp Amount', 1, 1, '-500 to 500, how far the two pictures are pulled; below 0 the other way'],
+    ['blend_span', 'Blend Span', 1, 1, '% of the transition over which the two blend, 0 to 100']],
   'core.twister': [['completion', 'Completion', 1, 1, '% turned over, 0 to 100'],
     ['center', 'Center', 2, 1, '% of the width and height, -1000 to 1000, where the line goes through'],
     ['axis', 'Axis', 1, 1, '-3600 to 3600 degrees, the way the twist runs']],
@@ -12015,6 +12022,13 @@ const EFFECT_WORDS = {
       ['expand', 'Expand Output', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-194, After Effects' own words.
+  // D-518: CycoreFX's Layer to Reveal, Reactor and Warp Direction.
+  'core.warp_blend': {
+    layers: [['layer_to_reveal', 'Layer to Reveal', 'layer_to_reveal']],
+    choices: [['reactor', 'Reactor', [['brightness', 'Brightness'], ['contrast_differences', 'Contrast Differences'],
+      ['brightness_differences', 'Brightness Differences'], ['local_differences', 'Local Differences']]],
+      ['warp_direction', 'Warp Direction', [['joint', 'Joint'], ['opposing', 'Opposing'], ['twisting', 'Twisting']]]],
+  },
   // D-517: CycoreFX's Backside and Shading.
   'core.twister': {
     layers: [['backside', 'Backside', 'backside']],

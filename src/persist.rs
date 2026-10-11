@@ -2526,6 +2526,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("blur".into(), num(*blur));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        Effect::WarpBlend { completion, layer_to_reveal, reactor, smoothness, warp_amount, warp_direction, blend_span, .. } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("layer_to_reveal".into(), layer_to_reveal.clone());
+            params.insert("reactor".into(), J::from(reactor.as_str()));
+            params.insert("smoothness".into(), num(*smoothness));
+            params.insert("warp_amount".into(), num(*warp_amount));
+            params.insert("warp_direction".into(), J::from(warp_direction.as_str()));
+            params.insert("blend_span".into(), num(*blend_span));
+        }
         Effect::Twister { completion, backside, shading, center, axis, .. } => {
             params.insert("completion".into(), num(*completion));
             params.insert("backside".into(), backside.clone());
@@ -5337,6 +5346,7 @@ fn parse_effect(
         crate::effects::PUSH_IRIS,
         crate::effects::STRETCH_WIPE,
         crate::effects::TWISTER,
+        crate::effects::WARP_BLEND,
         crate::effects::CHANNEL_WIPE,
         crate::effects::CC_SPOTLIGHT,
         crate::effects::ENERGY_STROKE,
@@ -6422,6 +6432,17 @@ fn parse_effect(
             property: effect_word(params, "property", &at)?,
             blur: effect_number(params, "blur", &at)?,
             invert: effect_word(params, "invert", &at)?,
+            map: None,
+        }),
+        // D-518: the layer is kept as written, as Glass Melt's are.
+        crate::effects::WARP_BLEND => Some(crate::effects::Effect::WarpBlend {
+            completion: effect_number(params, "completion", &at)?,
+            layer_to_reveal: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer_to_reveal")?.clone(),
+            reactor: effect_word(params, "reactor", &at)?,
+            smoothness: effect_number(params, "smoothness", &at)?,
+            warp_amount: effect_number(params, "warp_amount", &at)?,
+            warp_direction: effect_word(params, "warp_direction", &at)?,
+            blend_span: effect_number(params, "blend_span", &at)?,
             map: None,
         }),
         // D-517: the back is kept as written, as Difference Matte's layer is.

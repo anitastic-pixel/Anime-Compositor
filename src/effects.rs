@@ -2478,6 +2478,21 @@ pub enum Effect {
         shape: String,
         reverse: String,
     },
+    /// D-518: Warp Blend, after CycoreFX's CC WarpoMatic, its rule and its settings when added ours
+    /// (`layer_fx::warp_blend`, document 21). `completion`, 0 to 100; `layer_to_reveal`, D-189's
+    /// layer setting as written, "" for nothing; `reactor`, one of [`WARP_BLEND_REACTORS`];
+    /// `smoothness`, 0 to 100 pixels; `warp_amount`, -500 to 500; `warp_direction`, one of
+    /// [`WARP_BLEND_DIRECTIONS`]; `blend_span`, 0 to 100. `map` is not a setting and is never saved.
+    WarpBlend {
+        completion: f64,
+        layer_to_reveal: serde_json::Value,
+        reactor: String,
+        smoothness: f64,
+        warp_amount: f64,
+        warp_direction: String,
+        blend_span: f64,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-517: Twister, after CycoreFX's CC Twister, its rule and its settings when added ours
     /// (`layer_fx::twister`, document 21). `completion`, 0 to 100; `backside`, D-189's layer
     /// setting as written, "" for nothing on the back; `shading`, "on" or "off"; `center`, x then
@@ -3702,6 +3717,11 @@ pub const STRIPE_SWEEP: &str = "core.stripe_sweep";
 pub const PUSH_IRIS: &str = "core.push_iris";
 pub const STRETCH_WIPE: &str = "core.stretch_wipe";
 pub const TWISTER: &str = "core.twister";
+pub const WARP_BLEND: &str = "core.warp_blend";
+/// D-518: what Warp Blend's pull follows, in the card's order.
+pub const WARP_BLEND_REACTORS: [&str; 4] = ["brightness", "contrast_differences", "brightness_differences", "local_differences"];
+/// D-518: the ways Warp Blend pulls the two layers, in the card's order.
+pub const WARP_BLEND_DIRECTIONS: [&str; 3] = ["joint", "opposing", "twisting"];
 /// D-513: Glow Wipe's shapes.
 pub const GLOW_SHAPES: [&str; 3] = ["doors", "radial", "rectangular"];
 pub const CHANNEL_WIPE: &str = "core.channel_wipe";
@@ -4010,6 +4030,12 @@ impl Effect {
                 ("rotation", vec![rotation], -3600.0, 3600.0),
                 ("border", vec![border], 0.0, 100.0),
                 ("tiles", vec![tiles], 1.0, 200.0),
+            ],
+            Effect::WarpBlend { completion, smoothness, warp_amount, blend_span, .. } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("smoothness", vec![smoothness], 0.0, 100.0),
+                ("warp_amount", vec![warp_amount], -500.0, 500.0),
+                ("blend_span", vec![blend_span], 0.0, 100.0),
             ],
             Effect::Twister { completion, center, axis, .. } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
@@ -6263,6 +6289,11 @@ impl Effect {
                     *vertical_alignment = scale(*vertical_alignment);
                 }
             }
+            // D-518: the smoothness and the pull are distances.
+            Effect::WarpBlend { smoothness, warp_amount, .. } => {
+                *smoothness = scale(*smoothness);
+                *warp_amount = scale(*warp_amount);
+            }
             // D-509: the softness and the bend are distances.
             Effect::GlassMelt { softness, displacement_amount, .. } => {
                 *softness = scale(*softness);
@@ -6679,6 +6710,7 @@ impl Effect {
             Effect::PushIris { .. } => "Push Iris",
             Effect::StretchWipe { .. } => "Stretch Wipe",
             Effect::Twister { .. } => "Twister",
+            Effect::WarpBlend { .. } => "Warp Blend",
             Effect::ChannelWipe { .. } => "Channel Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::EnergyStroke { .. } => "Energy Stroke",
@@ -6908,6 +6940,7 @@ impl Effect {
             Effect::PushIris { .. } => PUSH_IRIS,
             Effect::StretchWipe { .. } => STRETCH_WIPE,
             Effect::Twister { .. } => TWISTER,
+            Effect::WarpBlend { .. } => WARP_BLEND,
             Effect::ChannelWipe { .. } => CHANNEL_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
@@ -7229,6 +7262,8 @@ impl Effect {
             Effect::PageTurn { back_page: serde_json::Value::String(layer), .. } => Some((layer, "stretch")),
             // D-517: the back centred on the drawing, as CycoreFX's manual has it.
             Effect::Twister { backside: serde_json::Value::String(layer), .. } => Some((layer, "center")),
+            // D-518: the layer revealed centred, as Glass Melt's.
+            Effect::WarpBlend { layer_to_reveal: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             _ => None,
         }
     }
@@ -7271,6 +7306,7 @@ impl Effect {
             Effect::Fog3d { gradient_layer, map, .. } => Some((gradient_layer, map)),
             Effect::SoftGlow { dirt, .. } | Effect::LensFlare { dirt, .. } => Some((&mut dirt.layer, &mut dirt.map)),
             Effect::Twister { backside, map, .. } => Some((backside, map)),
+            Effect::WarpBlend { layer_to_reveal, map, .. } => Some((layer_to_reveal, map)),
             _ => None,
         }
     }
@@ -8686,6 +8722,16 @@ impl Effect {
                 )))
                 .or_else(|| (!["off", "on"].contains(&invert.as_str())).then(|| format!(
                     "Channel Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
+                ))),
+            Effect::WarpBlend { layer_to_reveal, reactor, warp_direction, .. } => (!layer_to_reveal.is_string())
+                .then(|| format!("{name}'s layer to reveal is the name of a layer of this composition, and this is {layer_to_reveal}."))
+                .or_else(|| (!WARP_BLEND_REACTORS.contains(&reactor.as_str())).then(|| format!(
+                    "{name}'s reactor is one of {}, and this is \"{reactor}\".",
+                    WARP_BLEND_REACTORS.join(", ")
+                )))
+                .or_else(|| (!WARP_BLEND_DIRECTIONS.contains(&warp_direction.as_str())).then(|| format!(
+                    "{name}'s warp direction is one of {}, and this is \"{warp_direction}\".",
+                    WARP_BLEND_DIRECTIONS.join(", ")
                 ))),
             Effect::Twister { backside, shading, .. } => (!backside.is_string())
                 .then(|| format!("Twister's backside is the name of a layer of this composition, and this is {backside}."))
@@ -10456,6 +10502,13 @@ pub(crate) fn apply_stack_at(
             e @ Effect::GlassMelt { .. } => {
                 if let Some(g) = crate::layer_fx::melt_settings(e) {
                     crate::perf::time(crate::perf::Stage::EffectGlassMelt, || crate::layer_fx::glass_melt(source, &g, (ox, oy)))
+                }
+            }
+            // D-518: a layer named but not read leaves the layer as it is, with D-189's warning.
+            // Never grows.
+            e @ Effect::WarpBlend { .. } => {
+                if let Some(g) = crate::layer_fx::warp_settings(e) {
+                    crate::perf::time(crate::perf::Stage::EffectWarpBlend, || crate::layer_fx::warp_blend(source, &g, (ox, oy)))
                 }
             }
             // D-517: a back named but not read leaves the layer as it is, with D-189's warning.

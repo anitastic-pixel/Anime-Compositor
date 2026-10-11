@@ -427,6 +427,8 @@ pub enum Stage {
     EffectStretchWipe,
     /// D-517: Twister.
     EffectTwister,
+    /// D-518: Warp Blend.
+    EffectWarpBlend,
     /// D-512: Channel Wipe.
     EffectChannelWipe,
     /// D-463's Plastic.
@@ -467,7 +469,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 230] = [
+    pub const ALL: [Stage; 231] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -680,6 +682,7 @@ impl Stage {
         Stage::EffectPushIris,
         Stage::EffectStretchWipe,
         Stage::EffectTwister,
+        Stage::EffectWarpBlend,
         Stage::EffectChannelWipe,
         Stage::EffectPlastic,
         Stage::EffectRepeatTile,
@@ -915,6 +918,7 @@ impl Stage {
             Stage::EffectPushIris => "effect: push iris",
             Stage::EffectStretchWipe => "effect: stretch wipe",
             Stage::EffectTwister => "effect: twister",
+            Stage::EffectWarpBlend => "effect: warp blend",
             Stage::EffectChannelWipe => "effect: channel wipe",
             Stage::EffectPlastic => "effect: plastic",
             Stage::EffectRepeatTile => "effect: repeat tile",

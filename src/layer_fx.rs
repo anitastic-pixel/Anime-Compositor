@@ -7294,6 +7294,119 @@ pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>
     })
 }
 
+/// D-518: Warp Blend for one frame: the reveal's map, `None` for nothing; the completion; the
+/// reactor and the direction as places in their lists; the smoothness, the pull and the span.
+pub(crate) struct Warp<'a> {
+    pub reveal: Option<&'a WorkingBuffer>,
+    pub completion: f64,
+    pub reactor: usize,
+    pub smoothness: f64,
+    pub amount: f64,
+    pub direction: usize,
+    pub span: f64,
+}
+
+/// D-518: [`Warp`] from a Warp Blend whose settings are valid, or `None` when a layer is named but
+/// was not read, which leaves the layer as it is.
+pub(crate) fn warp_settings(e: &crate::effects::Effect) -> Option<Warp<'_>> {
+    let crate::effects::Effect::WarpBlend { completion, layer_to_reveal, reactor, smoothness, warp_amount, warp_direction, blend_span, map } = e
+    else {
+        return None;
+    };
+    let reveal = match map {
+        Some(m) => Some(&*m.0),
+        None if layer_to_reveal.as_str() == Some("") => None,
+        None => return None,
+    };
+    Some(Warp {
+        reveal,
+        completion: *completion,
+        reactor: crate::effects::WARP_BLEND_REACTORS.iter().position(|r| r == reactor)?,
+        smoothness: *smoothness,
+        amount: *warp_amount,
+        direction: crate::effects::WARP_BLEND_DIRECTIONS.iter().position(|d| d == warp_direction)?,
+        span: *blend_span,
+    })
+}
+
+/// D-518: Warp Blend's share of the reveal at completion share `c` with the blend span `span`
+/// per cent: clamp((c - (1/2 - s/2)) / s, 0, 1), s the span as a share; with s 0, 1 from the
+/// middle on.
+pub(crate) fn blend_share(c: f64, span: f64) -> f64 {
+    let s = span / 100.0;
+    if s == 0.0 {
+        return if c >= 0.5 { 1.0 } else { 0.0 };
+    }
+    ((c - (0.5 - s / 2.0)) / s).clamp(0.0, 1.0)
+}
+
+/// D-518: Warp Blend's reactor at a pixel of the layer `a` and of the reveal `b`, by the place
+/// `kind` in [`crate::effects::WARP_BLEND_REACTORS`], from the luminance phase (D-316) and the
+/// red, green and blue phases, each times its covering.
+fn reactor_of(kind: usize, a: &[f32; 4], b: &[f32; 4]) -> f64 {
+    let ph = |get: &str, q: &[f32; 4]| crate::grade::phase_of(get, q) * q[3] as f64;
+    let (la, lb) = (ph("luminance", a), ph("luminance", b));
+    match kind {
+        0 => (la + lb) / 2.0,
+        1 => ((la - 0.5).abs() - (lb - 0.5).abs()).abs(),
+        2 => (la - lb).abs(),
+        _ => ["red", "green", "blue"].iter().map(|c| (ph(c, a) - ph(c, b)).abs()).fold(0.0, f64::max),
+    }
+}
+
+/// D-518: Warp Blend, after CycoreFX's CC WarpoMatic, the rule ours
+/// (`tools/warp_blend_reference.py`). The reactor of the layer and the reveal (lying on the
+/// drawing at its corner, clear outside it or with none), blurred at sigma `smoothness / 2` with
+/// the outer pixels repeated; the pull D its slope by central differences, the neighbours held
+/// inside, times `amount` and `1.25 max(smoothness, 1)`, turned a quarter when twisting. With c
+/// the completion over 100 and m [`blend_share`], each pixel is (1 - m) A(p + c D) + m B(p -+
+/// (1 - c) D), minus for joint and twisting, plus for opposing, both by document 21's bilinear.
+/// At completion 0 nothing changes. The layer never grows.
+pub(crate) fn warp_blend(source: &mut WorkingBuffer, g: &Warp, origin: (usize, usize)) {
+    if g.completion <= 0.0 {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let mut bump = WorkingBuffer::transparent(w, h);
+    let from = source.data();
+    bump.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let a = [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]];
+        let b = g.reveal.map_or([0.0; 4], |m| on_drawing(m, i, w, origin));
+        px[3] = reactor_of(g.reactor, &a, &b) as f32;
+    });
+    if g.smoothness > 0.0 {
+        crate::effects::held_blur_axes(&mut bump, &crate::effects::gaussian_weights(g.smoothness / 2.0), (true, true));
+    }
+    let data = bump.data();
+    let at = |x: isize, y: isize| {
+        let (x, y) = (x.clamp(0, w as isize - 1) as usize, y.clamp(0, h as isize - 1) as usize);
+        data[(y * w + x) * 4 + 3] as f64
+    };
+    let gain = 1.25 * g.smoothness.max(1.0);
+    let c = g.completion / 100.0;
+    let m = blend_share(c, g.span);
+    let t = if g.direction == 1 { 1.0 } else { -1.0 };
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as isize, (i / w) as isize);
+        let mut dx = g.amount * (at(x + 1, y) - at(x - 1, y)) / 2.0 * gain;
+        let mut dy = g.amount * (at(x, y + 1) - at(x, y - 1)) / 2.0 * gain;
+        if g.direction == 2 {
+            (dx, dy) = (-dy, dx);
+        }
+        let (sx, sy) = (x as f64 + 0.5, y as f64 + 0.5);
+        let a = sample_bilinear(&still, sx + c * dx, sy + c * dy);
+        let b = match g.reveal {
+            Some(r) if m > 0.0 => sample_bilinear(r, sx + t * (1.0 - c) * dx - ox, sy + t * (1.0 - c) * dy - oy),
+            _ => [0.0; 4],
+        };
+        for k in 0..4 {
+            px[k] = ((1.0 - m) * a[k] as f64 + m * b[k] as f64) as f32;
+        }
+    });
+}
+
 /// D-517: Twister's back for one frame: `Some(None)` with none named, `Some(Some(map))` when it
 /// was read, and `None` when a layer is named but was not read, which leaves the layer as it is.
 pub(crate) fn twist_back(e: &crate::effects::Effect) -> Option<Option<&WorkingBuffer>> {

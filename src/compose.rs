@@ -1158,6 +1158,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::StretchWipe { .. }
                 // D-517.
                 | crate::effects::Effect::Twister { .. }
+                // D-518.
+                | crate::effects::Effect::WarpBlend { .. }
                 // D-512.
                 | crate::effects::Effect::ChannelWipe { .. }
                 // D-400.
@@ -1531,6 +1533,8 @@ fn card_effect(
                 E::GlassMelt { completion, .. } => *completion <= 0.0 || crate::layer_fx::melt_settings(&effect).is_none(),
                 // D-517: nothing turned yet, or a back named but not read.
                 E::Twister { completion, .. } => *completion == 0.0 || crate::layer_fx::twist_back(&effect).is_none(),
+                // D-518: not begun, or a layer named but not read.
+                E::WarpBlend { completion, .. } => *completion <= 0.0 || crate::layer_fx::warp_settings(&effect).is_none(),
                 // D-502: no foreground, or a mask named not found.
                 E::InnerOuterKey { paths, .. } => paths.is_none(),
                 // D-408: as layer_fx::transform returns at once (the map is then the unchanged one).

@@ -8703,6 +8703,67 @@ fn glasses(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(out));
 }
 
+// D-518, layer_fx::warp_blend's reactor as the alpha of the output (the buffer's size): k[0] its
+// place in effects::WARP_BLEND_REACTORS; `other` the reveal lying on the drawing at (F.ox, F.oy)
+// when k[1] is 1, clear when 0.
+@compute @workgroup_size(16, 16)
+fn wreact(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let a = textureLoad(input, vec2<i32>(id.xy), 0);
+    var b = vec4<f32>(0.0);
+    if k[1] == 1.0lf {
+        b = at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy));
+    }
+    let la = phase(4u, a) * f64(a.w);
+    let lb = phase(4u, b) * f64(b.w);
+    var r = 0.0lf;
+    switch u32(k[0]) {
+        case 0u: { r = (la + lb) / 2.0lf; }
+        case 1u: { r = abs(abs(la - 0.5lf) - abs(lb - 0.5lf)); }
+        case 2u: { r = abs(la - lb); }
+        default: {
+            for (var c = 0u; c < 3u; c++) {
+                r = max(r, abs(phase(c, a) * f64(a.w) - phase(c, b) * f64(b.w)));
+            }
+        }
+    }
+    textureStore(output, id.xy, vec4(0.0, 0.0, 0.0, f32(r)));
+}
+
+// D-518, layer_fx::warp_blend: `input` the layer, `other` the reveal lying on the drawing at
+// (F.ox, F.oy) when k[3] is 1, `sums` from gmeltk (the pull in y and z); k[0] the completion as
+// a share, k[1] the direction's place (joint, opposing, twisting), k[2] the reveal's share.
+@compute @workgroup_size(16, 16)
+fn warpb(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let s = sums[id.y * size.x + id.x];
+    var dx = s.y;
+    var dy = s.z;
+    if k[1] == 2.0lf {
+        dx = -s.z;
+        dy = s.y;
+    }
+    var t = -1.0lf;
+    if k[1] == 1.0lf {
+        t = 1.0lf;
+    }
+    let c = k[0];
+    let sx = f64(id.x) + 0.5lf;
+    let sy = f64(id.y) + 0.5lf;
+    let a = vec4<f64>(bilinear(input, sx + c * dx, sy + c * dy));
+    var b = vec4<f64>(0.0lf);
+    if k[3] == 1.0lf && k[2] > 0.0lf {
+        b = vec4<f64>(bilinear(other, sx + t * (1.0lf - c) * dx - f64(F.ox), sy + t * (1.0lf - c) * dy - f64(F.oy)));
+    }
+    textureStore(output, id.xy, vec4<f32>((1.0lf - k[2]) * a + k[2] * b));
+}
+
 // D-517, layer_fx::twister: k as layer_fx::twist_numbers; `other` the back lying on the drawing
 // at its corner when k[7] is 1, both read between pixels; the strip edge on clear.
 @compute @workgroup_size(16, 16)
@@ -9836,6 +9897,9 @@ struct FxPasses {
     texturize: Pass,
     /// D-517.
     twist: Pass,
+    /// D-518.
+    wreact: Pass,
+    warpb: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -10528,6 +10592,8 @@ impl Gpu {
                 plastic: pass("plastic", &[0, 1, 2, 3, 4]),
                 texturize: pass("texturize", &[0, 1, 2, 3, 4]),
                 twist: pass("twist", &[0, 1, 2, 3, 4]),
+                wreact: pass("wreact", &[0, 1, 2, 3, 4]),
+                warpb: pass("warpb", &[0, 1, 2, 3, 4, 7]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -14030,6 +14096,33 @@ impl Gpu {
                 let out = self.scratch("D-507 spotlight", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.spotlight, p, Some(still), Some(&out), Some(&k), None, none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-518: compose leaves the card a Warp Blend only when it has begun and any layer named
+            // was read.
+            e @ E::WarpBlend { .. } => {
+                let g = crate::layer_fx::warp_settings(e).expect("compose leaves a Warp Blend whose layer was read");
+                let reveal = g.reveal.map(|m| self.map_texture(m));
+                let raw = self.scratch("D-518 reactor", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let k = [g.reactor as f64, reveal.is_some() as u8 as f64];
+                self.fx_step(steps, &passes.wreact, p, Some(still), Some(&raw), Some(&k), Some(reveal.as_ref().unwrap_or(still)), none, tiles(w, h));
+                let bump = if g.smoothness > 0.0 {
+                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                    let taps = crate::effects::gaussian_weights(g.smoothness / 2.0);
+                    self.gauss(steps, bloom, "D-518 reactor", &raw, (w, h), [&taps, &taps], 0, true)
+                } else {
+                    raw
+                };
+                let sums = buffer(w * h * 32);
+                let work = [None, None, Some(&sums), None];
+                // Glass Melt's slope pass; its share (k[2], k[3]) is not read here.
+                let k = [g.amount, 1.25 * g.smoothness.max(1.0), 0.0, 1.0];
+                self.fx_step(steps, &passes.gmeltk, FxParams::default(), Some(&bump), None, Some(&k), None, work, tiles(w, h));
+                let out = self.scratch("D-518 warp", w, h);
+                let c = g.completion / 100.0;
+                let k = [c, g.direction as f64, crate::layer_fx::blend_share(c, g.span), reveal.is_some() as u8 as f64];
+                self.fx_step(steps, &passes.warpb, p, Some(still), Some(&out), Some(&k), Some(reveal.as_ref().unwrap_or(still)), work, tiles(w, h));
                 (out, (w, h))
             }
             // D-517: compose leaves the card a Twister only when it turns and any back named was
