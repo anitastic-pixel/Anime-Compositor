@@ -209108,3 +209108,55 @@ FX-TILE-026 (`fx_tile_026.json`): Shape "star": not a shape of Tile Wipe. The fi
 FX-TILE-027 (`fx_tile_027.json`): Reverse "yes": "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-TILE-028 (`fx_tile_028.json`): Completion keyed to 200 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Screen Key (D-540)
+
+Screen Key (`core.screen_key`), this program's own green and blue screen keyer in Keylight's place (B-420), the rule ours. Every case is a project of one composition 16 by 10, five frames, holding the layer `art`, the still `media/colours.png` (Color Difference Key's picture): one colour a column (empty, black, white, grey 128, a green screen (40, 180, 60), a blue screen (30, 70, 200), skin (230, 180, 150), pure blue, cyan, pure green, yellow, red, magenta, a violet (128, 64, 255), a pale blue (150, 170, 230) and the blue screen at half covering), each row 8% darker than the one above. `tools/screen_key_reference.py` works the expected frames, `Fixtures/screen_key/expected_screen_key.json`, tolerance 2e-5; the rule is in document 21. Settings not named are as added (final, pure green, gain 100, balance 50, clip 0 to 100, despill bias 50 at 100, no shrink, softness or edge refine).
+
+FX-SKEY-001 (`fx_skey_001.json`): The settings as they start: screen colour pure green, gain 100, balance 50, no clip, despill bias 50 at full strength. Pure green's top row is keyed out, its darker rows keep a share in step with their darkness; the green screen, less saturated than pure green, keeps about half its covering and loses its green spill; skin, the greys and the reds keep all of theirs. Frames 0.
+
+FX-SKEY-002 (`fx_skey_002.json`): Screen colour picked from the green screen (40, 180, 60): its top row is keyed out, its darker rows keep a little more each (their green stands less above the rest); pure green, more saturated than the screen, is gone in its top five rows; skin, greys, reds and blues are untouched apart from the despill. Frames 0.
+
+FX-SKEY-003 (`fx_skey_003.json`): Screen gain 150: more is keyed; the green screen's darker rows fall further and cyan and yellow, which stand half as far above, lose more. Frames 0.
+
+FX-SKEY-004 (`fx_skey_004.json`): Screen balance 0: the screen channel is measured against the larger of the other two, so yellow and cyan no longer read as screen. Frames 0.
+
+FX-SKEY-005 (`fx_skey_005.json`): Screen balance 100: against the smaller of the other two, so yellow and cyan read as screen as strongly as green. Frames 0.
+
+FX-SKEY-006 (`fx_skey_006.json`): Clip black 30, clip white 70: the matte below 0.3 is screen, above 0.7 foreground, stretched between; the green screen's darker rows clean up. Frames 0.
+
+FX-SKEY-007 (`fx_skey_007.json`): Clip black 53 and clip white 53: a hard matte, each pixel in or out. Frames 0.
+
+FX-SKEY-008 (`fx_skey_008.json`): Despill bias 0: the green is held to the larger of red and blue, the gentlest despill. Frames 0.
+
+FX-SKEY-009 (`fx_skey_009.json`): Despill bias 100: the green is held to the smaller of red and blue, the strongest despill. Frames 0.
+
+FX-SKEY-010 (`fx_skey_010.json`): Despill 0: the matte as FX-SKEY-002, the colours not despilled. Frames 0.
+
+FX-SKEY-011 (`fx_skey_011.json`): Blue screen (30, 70, 200) at balance 95, the advice for blue screens: the blue screen and its half-covered copy are keyed, pure blue is gone, and so are cyan, magenta and violet, whose blue stands as far above; pale blue keeps a share; green, yellow and red keep all their covering. Frames 0.
+
+FX-SKEY-012 (`fx_skey_012.json`): View screen matte, FX-SKEY-006's settings: the matte as grey, covering kept. Frames 0.
+
+FX-SKEY-013 (`fx_skey_013.json`): View status, FX-SKEY-006's settings: white where all foreground, black where all screen, one grey for every blend. Frames 0.
+
+FX-SKEY-014 (`fx_skey_014.json`): Shrink/grow -1: the foreground matte shrinks a pixel, so the columns beside the keyed green screen and pure green lose their covering too; the frame's own edge is not eaten. Frames 0.
+
+FX-SKEY-015 (`fx_skey_015.json`): Shrink/grow 1.5: the foreground matte grows a pixel and a half, filling the keyed green screen from its neighbours; pure green, between cyan and yellow that are keyed too at the top, stays keyed there. Frames 0.
+
+FX-SKEY-016 (`fx_skey_016.json`): Softness 1: the matte blurred at sigma 1, the edge between the screen and the foreground soft. Frames 0.
+
+FX-SKEY-017 (`fx_skey_017.json`): Edge refine 2: Refine Soft Matte's guided fit at radius 2 on the keyed result's edges. Frames 0.
+
+FX-SKEY-018 (`fx_skey_018.json`): Screen gain keyed from 0 at frame 0 to 200 at frame 4, linear: nothing keyed at frame 0, twice FX-SKEY-002's at frame 4. Frames 0, 2, 4.
+
+FX-SKEY-019 (`fx_skey_019.json`): FX-SKEY-014 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-SKEY-020 (`fx_skey_020.json`): Screen gain 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SKEY-021 (`fx_skey_021.json`): Clip black -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SKEY-022 (`fx_skey_022.json`): Shrink/grow 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SKEY-023 (`fx_skey_023.json`): View "Status": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SKEY-024 (`fx_skey_024.json`): Screen colour "green", not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
