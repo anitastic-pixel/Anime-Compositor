@@ -7261,6 +7261,46 @@ pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>
     })
 }
 
+/// D-516: Stretch Wipe's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
+/// the centre (two), the direction's cosine and sine, and the scale as a factor.
+pub(crate) fn stretch_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 5] {
+    let crate::effects::Effect::StretchWipe { scale, center, direction } = e else {
+        unreachable!("Stretch Wipe's numbers of another effect")
+    };
+    let (sn, cs) = direction.to_radians().sin_cos();
+    [center[0] / 100.0 * w0, center[1] / 100.0 * h0, cs, sn, scale / 100.0]
+}
+
+/// D-516: where the own point (x, y) is read from past the line through the centre, in the
+/// drawing's own space, or None where it is behind the line and stays itself (document 21).
+fn stretch_from(k: &[f64; 5], x: f64, y: f64) -> Option<(f64, f64)> {
+    let (dx, dy) = (x - k[0], y - k[1]);
+    let (u, v) = (dx * k[2] + dy * k[3], -dx * k[3] + dy * k[2]);
+    if u <= 0.0 {
+        return None;
+    }
+    let a = u / k[4];
+    Some((k[0] + a * k[2] - v * k[3], k[1] + a * k[3] + v * k[2]))
+}
+
+/// D-516: after CycoreFX's CC Scale Wipe, the rule ours (document 21); `(ox, oy)` the drawing's
+/// corner in the buffer. Never grows; at scale 100 returns at once (compose leaves it off the
+/// card then).
+pub(crate) fn stretch_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    if matches!(e, crate::effects::Effect::StretchWipe { scale, .. } if *scale == 100.0) {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let k = stretch_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    let still = source.clone();
+    let (fx, fy) = (ox as f64, oy as f64);
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        if let Some((x, y)) = stretch_from(&k, (i % w) as f64 - fx + 0.5, (i / w) as f64 - fy + 0.5) {
+            px.copy_from_slice(&sample_bilinear(&still, x + fx, y + fy));
+        }
+    });
+}
+
 /// D-515: Push Iris's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
 /// the centre (two), the largest distance of a corner from it, the hole's radius, and 1 reversed.
 pub(crate) fn push_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 5] {

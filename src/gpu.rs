@@ -4993,8 +4993,9 @@ fn pageturn(@builtin(global_invocation_id) id: vec3<u32>) {
 // venetian_blinds (2) and iris_wipe (3); D-510's layer_fx::tile_wipe (4); D-511's
 // layer_fx::teeth_wipe (5), which moves the two parts and returns early; D-513's
 // layer_fx::glow_wipe (6), which adds its light and returns early; D-514's
-// layer_fx::stripe_sweep (7); D-515's layer_fx::push_iris (8), which reads between pixels and
-// returns early. `flag` is complete, every pixel gone.
+// layer_fx::stripe_sweep (7); D-515's layer_fx::push_iris (8) and D-516's
+// layer_fx::stretch_wipe (9), which read between pixels and return early. `flag` is complete,
+// every pixel gone.
 @compute @workgroup_size(16, 16)
 fn wipe(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -5106,6 +5107,23 @@ fn wipe(@builtin(global_invocation_id) id: vec3<u32>) {
             let bx = f64(id.x) + 0.5lf;
             let by = f64(id.y) + 0.5lf;
             textureStore(output, id.xy, bilinear(input, bx + m * -k[3], by + m * k[2]));
+            return;
+        }
+        case 9u: {
+            // D-516, layer_fx::stretch_from: k as layer_fx::stretch_numbers; behind the line the
+            // pixel itself, past it read between pixels.
+            let dx = x - k[0];
+            let dy = y - k[1];
+            let u = dx * k[2] + dy * k[3];
+            let v = -dx * k[3] + dy * k[2];
+            if u <= 0.0lf {
+                textureStore(output, id.xy, textureLoad(input, id.xy, 0));
+                return;
+            }
+            let a = u / k[4];
+            let tx = k[0] + a * k[2] - v * k[3];
+            let ty = k[1] + a * k[3] + v * k[2];
+            textureStore(output, id.xy, bilinear(input, tx + f64(F.ox), ty + f64(F.oy)));
             return;
         }
         case 8u: {
@@ -12382,6 +12400,11 @@ impl Gpu {
                 let ((cx, cy), r) = crate::layer_fx::iris_circle(*completion, *center, *feather, invert, (w, h), f.origin);
                 let p = FxParams { mode: 3, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
                 same(steps, &passes.wipe, p, &[cx, cy, r, *feather, invert as u8 as f64], None)
+            }
+            e @ E::StretchWipe { .. } => {
+                let k = crate::layer_fx::stretch_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let p = FxParams { mode: 9, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                same(steps, &passes.wipe, p, &k, None)
             }
             e @ E::PushIris { .. } => {
                 let k = crate::layer_fx::push_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);

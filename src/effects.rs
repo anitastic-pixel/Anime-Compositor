@@ -2406,6 +2406,15 @@ pub enum Effect {
         shape: String,
         reverse: String,
     },
+    /// D-516: Stretch Wipe, after CycoreFX's CC Scale Wipe, its rule and its settings when added
+    /// ours (`layer_fx::stretch_wipe`, document 21). `scale`, 100 to 100000 per cent; `center`, x
+    /// then y, per cent of the drawing's width and height, -1000 to 1000; `direction`, -3600 to
+    /// 3600 degrees.
+    StretchWipe {
+        scale: f64,
+        center: [f64; 2],
+        direction: f64,
+    },
     /// D-515: Push Iris, after CycoreFX's CC Radial ScaleWipe, its rule and its settings when
     /// added ours (`layer_fx::push_iris`, document 21). `completion`, 0 to 100; `center`, x then
     /// y, per cent of the drawing's width and height, -1000 to 1000; `reverse`, "off" or "on".
@@ -3595,6 +3604,7 @@ pub const TEETH_WIPE: &str = "core.teeth_wipe";
 pub const GLOW_WIPE: &str = "core.glow_wipe";
 pub const STRIPE_SWEEP: &str = "core.stripe_sweep";
 pub const PUSH_IRIS: &str = "core.push_iris";
+pub const STRETCH_WIPE: &str = "core.stretch_wipe";
 /// D-513: Glow Wipe's shapes.
 pub const GLOW_SHAPES: [&str; 3] = ["doors", "radial", "rectangular"];
 pub const CHANNEL_WIPE: &str = "core.channel_wipe";
@@ -3902,6 +3912,11 @@ impl Effect {
                 ("rotation", vec![rotation], -3600.0, 3600.0),
                 ("border", vec![border], 0.0, 100.0),
                 ("tiles", vec![tiles], 1.0, 200.0),
+            ],
+            Effect::StretchWipe { scale, center, direction } => vec![
+                ("scale", vec![scale], 100.0, 100000.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("direction", vec![direction], -3600.0, 3600.0),
             ],
             Effect::PushIris { completion, center, .. } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
@@ -6551,6 +6566,7 @@ impl Effect {
             Effect::GlowWipe { .. } => "Glow Wipe",
             Effect::StripeSweep { .. } => "Stripe Sweep",
             Effect::PushIris { .. } => "Push Iris",
+            Effect::StretchWipe { .. } => "Stretch Wipe",
             Effect::ChannelWipe { .. } => "Channel Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::EnergyStroke { .. } => "Energy Stroke",
@@ -6777,6 +6793,7 @@ impl Effect {
             Effect::GlowWipe { .. } => GLOW_WIPE,
             Effect::StripeSweep { .. } => STRIPE_SWEEP,
             Effect::PushIris { .. } => PUSH_IRIS,
+            Effect::StretchWipe { .. } => STRETCH_WIPE,
             Effect::ChannelWipe { .. } => CHANNEL_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
@@ -10309,6 +10326,10 @@ pub(crate) fn apply_stack_at(
                     crate::perf::time(crate::perf::Stage::EffectGlassMelt, || crate::layer_fx::glass_melt(source, &g, (ox, oy)))
                 }
             }
+            // D-516: never grows.
+            e @ Effect::StretchWipe { .. } => crate::perf::time(crate::perf::Stage::EffectStretchWipe, || {
+                crate::layer_fx::stretch_wipe(source, e, (ox, oy))
+            }),
             // D-515: never grows.
             e @ Effect::PushIris { .. } => crate::perf::time(crate::perf::Stage::EffectPushIris, || {
                 crate::layer_fx::push_iris(source, e, (ox, oy))

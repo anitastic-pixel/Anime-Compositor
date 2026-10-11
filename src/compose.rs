@@ -1152,6 +1152,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::StripeSweep { .. }
                 // D-515.
                 | crate::effects::Effect::PushIris { .. }
+                // D-516.
+                | crate::effects::Effect::StretchWipe { .. }
                 // D-512.
                 | crate::effects::Effect::ChannelWipe { .. }
                 // D-400.
@@ -1375,6 +1377,7 @@ fn card_effect(
                 | E::GlowWipe { completion, .. }
                 | E::StripeSweep { completion, .. }
                 | E::PushIris { completion, .. } => *completion == 0.0,
+                E::StretchWipe { scale, .. } => *scale == 100.0,
                 E::SimpleChoker { choke } => *choke == 0.0,
                 E::CrossGlare { length, intensity, .. } => length.floor() == 0.0 || *intensity == 0.0,
                 E::CameraShake { amount, rotation, .. } => [*amount, *rotation] == [0.0; 2],
