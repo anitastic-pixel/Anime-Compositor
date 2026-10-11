@@ -211114,3 +211114,71 @@ FX-SOLIDC-017 (`fx_solidc_017.json`): Colour "white": a colour is written #rrggb
 FX-SOLIDC-018 (`fx_solidc_018.json`): Colour "#12345": five digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SOLIDC-019 (`fx_solidc_019.json`): Opacity keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Contour Paint (D-470)
+
+Contour Paint, after After Effects' Contour Paint (Stylize, beta), `core.contour_paint` (B-350). The holder is a photo of two-pixel squares or a few flat shapes, with the maps dots, ramp and spot as External Edge Maps; `tools/contour_paint_reference.py` works the expected frames, `Fixtures/contour_paint/expected_contour_paint.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-CONTOUR-001 (`fx_contour_001.json`): As added: Stylization 50, Cleanliness 50, 3 smear passes: the photo's two-pixel squares smeared along their edges into diagonal strokes. Frames 0.
+
+FX-CONTOUR-002 (`fx_contour_002.json`): Smear Iterations 0, no fills: nothing happens. Frames 0.
+
+FX-CONTOUR-003 (`fx_contour_003.json`): Stylization 0: short strokes, nearer the photo than FX-CONTOUR-001. Frames 0.
+
+FX-CONTOUR-004 (`fx_contour_004.json`): Stylization 100: long strokes, further from it. Frames 0.
+
+FX-CONTOUR-005 (`fx_contour_005.json`): Cleanliness 0: the flow follows each small square. Frames 0.
+
+FX-CONTOUR-006 (`fx_contour_006.json`): Cleanliness 100: the flow follows only the broad pattern. Frames 0.
+
+FX-CONTOUR-007 (`fx_contour_007.json`): Smear Iterations 12: smeared again and again, the strokes run together. Frames 0.
+
+FX-CONTOUR-008 (`fx_contour_008.json`): The two blocks with clear round them, Apply to Alpha off: the colours smear, every covering kept exactly, every clear pixel clear. Frames 0.
+
+FX-CONTOUR-009 (`fx_contour_009.json`): The same with Apply to Alpha on: the blocks' edges smear out into the clear round them. Frames 0.
+
+FX-CONTOUR-010 (`fx_contour_010.json`): Draw Color Fills Over Smeared Image, K-Means, 4 colours: every pixel one of four flat colours. Frames 0.
+
+FX-CONTOUR-011 (`fx_contour_011.json`): The same with Median: four colours by median cut alone. Frames 0.
+
+FX-CONTOUR-012 (`fx_contour_012.json`): Fills Only, Low Strength 38: the fills only where the flow is at least 38 per cent strong, clear elsewhere. Frames 0.
+
+FX-CONTOUR-013 (`fx_contour_013.json`): Fills Over Smeared Image, High Strength 38: the fills where the flow is weak, the smear where it is strong. Frames 0.
+
+FX-CONTOUR-014 (`fx_contour_014.json`): View Edge Map: the flow's strength in grey, two cyan lines along the flow in the two cells. Frames 0.
+
+FX-CONTOUR-015 (`fx_contour_015.json`): Offset Flow Angles 90: the strokes run across the edges instead. Frames 0.
+
+FX-CONTOUR-016 (`fx_contour_016.json`): Quantize Flow Angles 90: every stroke straight across or straight down. Frames 0.
+
+FX-CONTOUR-017 (`fx_contour_017.json`): The ramp as the External Edge Map: its edges all run straight down, so the photo is smeared straight down. Frames 0.
+
+FX-CONTOUR-018 (`fx_contour_018.json`): Edge Map with the ramp as the External Edge Map: the grey the same down each column, and one cyan line straight down the first cell (the second cell's middle lies past the drawing's right edge, and its line with it). Frames 0.
+
+FX-CONTOUR-019 (`fx_contour_019.json`): An External Edge Map that is not in the composition, `gone`: the layer's own edges, FX-CONTOUR-001, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-CONTOUR-020 (`fx_contour_020.json`): FX-CONTOUR-001 on the holder moved 2 right and 1 down: the same, moved. Frames 0.
+
+FX-CONTOUR-021 (`fx_contour_021.json`): Stylization keyed from 0 at frame 0 to 100 at frame 4, linear: frame 2 is Stylization 50, FX-CONTOUR-001. Frames 0, 2, 4.
+
+FX-CONTOUR-022 (`fx_contour_022.json`): Posterization Level eased from 3 at frame 0 to 32 at frame 4 on a curve that overshoots: at frame 2 it would pass 32, is held at 32. Frames 0, 2, 4.
+
+FX-CONTOUR-023 (`fx_contour_023.json`): Stylization 120, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CONTOUR-024 (`fx_contour_024.json`): Smear Iterations -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CONTOUR-025 (`fx_contour_025.json`): A View written "arrows". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CONTOUR-026 (`fx_contour_026.json`): Draw Color Fills written "under". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CONTOUR-027 (`fx_contour_027.json`): Reduction Method "custom", After Effects' Match to Nearest Custom Color, which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CONTOUR-028 (`fx_contour_028.json`): Posterization Level 1, below 2. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CONTOUR-029 (`fx_contour_029.json`): Quantize Flow Angles 100, past 90. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CONTOUR-030 (`fx_contour_030.json`): An External Edge Map written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CONTOUR-031 (`fx_contour_031.json`): Apply to Alpha written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CONTOUR-032 (`fx_contour_032.json`): Smear Iterations keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
