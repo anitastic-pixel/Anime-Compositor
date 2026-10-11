@@ -6857,6 +6857,111 @@ fn curlflow(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-447: grade::brush_strokes' number k of 0 to 5 for the cell whose hash so far is `g`.
+fn brush_h(g: vec2<u32>, k: u32) -> f64 {
+    let h = shr64(splitmix(g ^ vec2(k, 0u)), 11u);
+    return (f64(h.y) * 4294967296.0lf + f64(h.x)) / 9007199254740992.0lf;
+}
+
+// D-447, grade::brush_strokes: k the stroke direction (two numbers), the cells' length and
+// width, the stroke length, the brush size, min(randomness, 1), the largest slope and its sine,
+// the reach, the surface (0 original, 1 transparent, 2 white, 3 black) and the blend out of 1;
+// the seed's hash in `base`, the frame in `frame`, the drawing's corner in (ox, oy).
+@compute @workgroup_size(16, 16)
+fn brush(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let pf = textureLoad(input, id.xy, 0);
+    let p = vec4(f64(pf.x), f64(pf.y), f64(pf.z), f64(pf.w));
+    let d = vec2(k[0], k[1]);
+    let n = vec2(-d.y, d.x);
+    let su = k[2];
+    let sv = k[3];
+    let len0 = k[4];
+    let r = k[5];
+    let m = k[6];
+    let slope = k[7];
+    let s = k[8];
+    let reach = k[9];
+    let qx = f64(id.x) + 0.5lf - f64(F.ox);
+    let qy = f64(id.y) + 0.5lf - f64(F.oy);
+    let pu = qx * d.x + qy * d.y;
+    let pv = qx * n.x + qy * n.y;
+    var p0 = -1.0lf;
+    var c0 = vec4(0.0lf);
+    var v0 = 0.0lf;
+    var p1 = -1.0lf;
+    var c1 = vec4(0.0lf);
+    var v1 = 0.0lf;
+    let i0 = i32(floor((pu - len0 - reach) / su)) - 1;
+    let i1 = i32(floor((pu + reach) / su));
+    let j0 = i32(floor((pv - reach - len0 * s) / sv)) - 1;
+    let j1 = i32(floor((pv + reach + len0 * s) / sv));
+    let fw = wide(F.frame);
+    for (var i = i0; i <= i1; i++) {
+        let gi = splitmix(F.base ^ wide(i));
+        for (var j = j0; j <= j1; j++) {
+            let g = splitmix(splitmix(gi ^ wide(j)) ^ fw);
+            let cu = (f64(i) + 0.5lf + (brush_h(g, 0u) - 0.5lf) * m) * su;
+            let cv = (f64(j) + 0.5lf + (brush_h(g, 1u) - 0.5lf) * m) * sv;
+            let t = (2.0lf * brush_h(g, 2u) - 1.0lf) * slope;
+            let el = sqrt(1.0lf + t * t);
+            let eu = 1.0lf / el;
+            let ev = t / el;
+            let len = len0 * (1.0lf - 0.5lf * m * brush_h(g, 3u));
+            let rho = r * (1.0lf + 0.25lf * m * (2.0lf * brush_h(g, 4u) - 1.0lf));
+            let wu = pu - cu;
+            let wv = pv - cv;
+            let a = min(max(wu * eu + wv * ev, 0.0lf), len);
+            let du = wu - a * eu;
+            let dv = wv - a * ev;
+            let cov = clamp(rho + 0.5lf - sqrt(du * du + dv * dv), 0.0lf, 1.0lf);
+            if cov <= 0.0lf {
+                continue;
+            }
+            let pile = brush_h(g, 5u);
+            if pile <= p1 {
+                continue;
+            }
+            let sx = min(u32(max(floor(cu * d.x + cv * n.x + f64(F.ox)), 0.0lf)), size.x - 1u);
+            let sy = min(u32(max(floor(cu * d.y + cv * n.y + f64(F.oy)), 0.0lf)), size.y - 1u);
+            let cf = textureLoad(input, vec2(sx, sy), 0);
+            let col = vec4(f64(cf.x), f64(cf.y), f64(cf.z), f64(cf.w));
+            if pile > p0 {
+                p1 = p0;
+                c1 = c0;
+                v1 = v0;
+                p0 = pile;
+                c0 = col;
+                v0 = cov;
+            } else {
+                p1 = pile;
+                c1 = col;
+                v1 = cov;
+            }
+        }
+    }
+    var o = p;
+    let surface = u32(k[10]);
+    if surface == 1u {
+        o = vec4(0.0lf);
+    } else if surface == 2u {
+        o = vec4(1.0lf);
+    } else if surface == 3u {
+        o = vec4(0.0lf, 0.0lf, 0.0lf, 1.0lf);
+    }
+    if p1 >= 0.0lf {
+        o = c1 * v1 + o * (1.0lf - v1 * c1.w);
+    }
+    if p0 >= 0.0lf {
+        o = c0 * v0 + o * (1.0lf - v0 * c0.w);
+    }
+    let out = o + k[11] * (p - o);
+    textureStore(output, id.xy, vec4(f32(out.x), f32(out.y), f32(out.z), f32(out.w)));
+}
+
 // D-420, layer_fx::draw_marks: k half the thickness, the softness, how (0 over, 1 alone, 2 add),
 // 1 to blend, the pieces' count, then from 5 each piece (its ends, its mark, its inside and
 // outside colours in linear light) and its box, then for each band of 16 rows where its list of
@@ -8036,6 +8141,8 @@ struct FxPasses {
     /// D-446.
     curlfield: Pass,
     curlflow: Pass,
+    /// D-447.
+    brush: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -8687,6 +8794,7 @@ impl Gpu {
                 vegas: pass("vegas", &[0, 1, 2, 3]),
                 curlfield: pass("curlfield", &[0, 2, 3]),
                 curlflow: pass("curlflow", &[0, 1, 2, 3, 4]),
+                brush: pass("brush", &[0, 1, 2, 3]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -11494,6 +11602,13 @@ impl Gpu {
                     at(&crate::effects::CURL_CHANNELS, channel),
                 ];
                 same(steps, &passes.curlflow, FxParams { g: m as i32, ..Default::default() }, &k, Some(&field))
+            }
+            // D-447: one pass, as grade::brush_strokes works it.
+            e @ E::BrushStrokes { .. } => {
+                let b = crate::grade::Brush::new(e).expect("a Brush Strokes");
+                let k = [b.d[0], b.d[1], b.su, b.sv, b.len, b.r, b.m, b.slope, b.s, b.reach, b.surface as f64, b.blend];
+                let p = FxParams { base: [b.base as u32, (b.base >> 32) as u32], frame: b.frame as i32, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                same(steps, &passes.brush, p, &k, None)
             }
             // B-225 (D-344): five generators, each as its CPU function; the bolt's segments are
             // worked out here, as the CPU works them, and handed over in `k`.

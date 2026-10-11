@@ -364,6 +364,8 @@ pub enum Stage {
     EffectMatchGrain,
     /// D-455's Remove Grain.
     EffectRemoveGrain,
+    /// D-447's Brush Strokes.
+    EffectBrushStrokes,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -381,7 +383,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 188] = [
+    pub const ALL: [Stage; 189] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -563,6 +565,7 @@ impl Stage {
         Stage::EffectDustScratches,
         Stage::EffectMatchGrain,
         Stage::EffectRemoveGrain,
+        Stage::EffectBrushStrokes,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -756,6 +759,7 @@ impl Stage {
             Stage::EffectDustScratches => "effect: dust and scratches",
             Stage::EffectMatchGrain => "effect: match grain",
             Stage::EffectRemoveGrain => "effect: remove grain",
+            Stage::EffectBrushStrokes => "effect: brush strokes",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

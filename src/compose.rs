@@ -953,6 +953,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::DustScratches { .. }
                 // D-455: Remove Grain, once compose has measured its noise.
                 | crate::effects::Effect::RemoveGrain { noise: Some(_), .. }
+                // D-447: Brush Strokes.
+                | crate::effects::Effect::BrushStrokes { .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }

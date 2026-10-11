@@ -269,6 +269,10 @@ impl EffectInstance {
             if let Effect::Noise { animate, frame: f, .. } = &mut effect {
                 *f = if animate == "on" { frame } else { 0 };
             }
+            // D-447: new strokes each frame, or the same ones.
+            if let Effect::BrushStrokes { animate, frame: f, .. } = &mut effect {
+                *f = if animate == "on" { frame } else { 0 };
+            }
             // D-125, D-127 and D-128: the flicker's, the wobble's and the clouds' frame.
             if let Effect::ExposureFlicker { frame: f, .. } = &mut effect {
                 *f = frame;
@@ -2080,6 +2084,24 @@ pub enum Effect {
         unsharp_threshold: f64,
         noise: Option<[f64; 3]>,
     },
+    /// D-447: after After Effects' Brush Strokes (`grade::brush_strokes`, document 21).
+    /// `stroke_angle`, -100000 to 100000 degrees (0 up, 90 right); `brush_size`, 0.5 to 20
+    /// pixels; `stroke_length`, 0 to 100 pixels; `stroke_density`, 0.1 to 4;
+    /// `stroke_randomness`, 0 to 2; `paint_surface`, one of [`BRUSH_SURFACES`];
+    /// `blend_with_original`, 0 to 100; `random_seed`, 0 to 100000, its floor; `animate`, "on"
+    /// or "off". `frame` is the composition frame when `animate` is on, else 0; never saved.
+    BrushStrokes {
+        stroke_angle: f64,
+        brush_size: f64,
+        stroke_length: f64,
+        stroke_density: f64,
+        stroke_randomness: f64,
+        paint_surface: String,
+        blend_with_original: f64,
+        random_seed: f64,
+        animate: String,
+        frame: i32,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2808,6 +2830,9 @@ pub const DUST_SCRATCHES: &str = "core.dust_scratches";
 pub const MATCH_GRAIN: &str = "core.match_grain";
 pub const REMOVE_GRAIN: &str = "core.remove_grain";
 pub const REMOVE_GRAIN_MODES: [&str; 2] = ["multichannel", "single_channel"];
+pub const BRUSH_STROKES: &str = "core.brush_strokes";
+/// D-447: Brush Strokes' paint surfaces, in the card's numbering.
+pub const BRUSH_SURFACES: [&str; 4] = ["original", "transparent", "white", "black"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3877,6 +3902,15 @@ impl Effect {
                 ("unsharp_radius", vec![unsharp_radius], 0.0, 100.0),
                 ("unsharp_threshold", vec![unsharp_threshold], 0.0, 255.0),
             ],
+            Effect::BrushStrokes { stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, blend_with_original, random_seed, .. } => vec![
+                ("stroke_angle", vec![stroke_angle], -100000.0, 100000.0),
+                ("brush_size", vec![brush_size], 0.5, 20.0),
+                ("stroke_length", vec![stroke_length], 0.0, 100.0),
+                ("stroke_density", vec![stroke_density], 0.1, 4.0),
+                ("stroke_randomness", vec![stroke_randomness], 0.0, 2.0),
+                ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
+                ("random_seed", vec![random_seed], 0.0, 100000.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -4701,6 +4735,11 @@ impl Effect {
             | Effect::DustScratches { radius, .. } => {
                 *radius = scale(*radius)
             }
+            // D-447: the strokes keep their size on the picture, the brush at least half a pixel.
+            Effect::BrushStrokes { brush_size, stroke_length, .. } => {
+                *brush_size = scale(*brush_size).max(0.5);
+                *stroke_length = scale(*stroke_length);
+            }
             Effect::Snowfall {
                 spacing,
                 size,
@@ -5181,6 +5220,7 @@ impl Effect {
             Effect::DustScratches { .. } => "Dust & Scratches",
             Effect::MatchGrain { .. } => "Match Grain",
             Effect::RemoveGrain { .. } => "Remove Grain",
+            Effect::BrushStrokes { .. } => "Brush Strokes",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5367,6 +5407,7 @@ impl Effect {
             Effect::DustScratches { .. } => DUST_SCRATCHES,
             Effect::MatchGrain { .. } => MATCH_GRAIN,
             Effect::RemoveGrain { .. } => REMOVE_GRAIN,
+            Effect::BrushStrokes { .. } => BRUSH_STROKES,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6566,6 +6607,13 @@ impl Effect {
             )),
             Effect::RemoveGrain { mode, .. } if !REMOVE_GRAIN_MODES.contains(&mode.as_str()) => Some(format!(
                 "Remove Grain's mode is \"multichannel\" or \"single_channel\", and this is \"{mode}\"."
+            )),
+            Effect::BrushStrokes { paint_surface: v, .. } if !BRUSH_SURFACES.contains(&v.as_str()) => Some(format!(
+                "Brush Strokes's paint surface is one of {}, and this is \"{v}\".",
+                BRUSH_SURFACES.join(", ")
+            )),
+            Effect::BrushStrokes { animate: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
+                "Brush Strokes's animate is \"on\" or \"off\", and this is \"{v}\"."
             )),
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
@@ -8853,6 +8901,10 @@ pub(crate) fn apply_stack_at(
                 crate::perf::time(crate::perf::Stage::EffectDustScratches, || {
                     crate::median::median(source, *radius, *threshold, operate_on_alpha == "on")
                 })
+            }
+            // D-447: the strokes in the drawing's own space; the layer never grows.
+            e @ Effect::BrushStrokes { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectBrushStrokes, || crate::grade::brush_strokes(source, e, (ox, oy)))
             }
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
                 crate::median::smart_blur(source, *radius, *threshold)

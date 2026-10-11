@@ -2341,6 +2341,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("unsharp_radius".into(), num(*unsharp_radius));
             params.insert("unsharp_threshold".into(), num(*unsharp_threshold));
         }
+        // D-447: the frame is never saved.
+        Effect::BrushStrokes { stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, paint_surface, blend_with_original, random_seed, animate, .. } => {
+            params.insert("stroke_angle".into(), num(*stroke_angle));
+            params.insert("brush_size".into(), num(*brush_size));
+            params.insert("stroke_length".into(), num(*stroke_length));
+            params.insert("stroke_density".into(), num(*stroke_density));
+            params.insert("stroke_randomness".into(), num(*stroke_randomness));
+            params.insert("paint_surface".into(), J::from(paint_surface.as_str()));
+            params.insert("blend_with_original".into(), num(*blend_with_original));
+            params.insert("random_seed".into(), num(*random_seed));
+            params.insert("animate".into(), J::from(animate.as_str()));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4827,6 +4839,7 @@ fn parse_effect(
         crate::effects::CURL_NOISE,
         crate::effects::TURBULENT_NOISE,
         crate::effects::NOISE_HLS_AUTO,
+        crate::effects::BRUSH_STROKES,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -5635,6 +5648,18 @@ fn parse_effect(
             unsharp_radius: effect_number(params, "unsharp_radius", &at)?,
             unsharp_threshold: effect_number(params, "unsharp_threshold", &at)?,
             noise: None,
+        }),
+        crate::effects::BRUSH_STROKES => Some(crate::effects::Effect::BrushStrokes {
+            stroke_angle: effect_number(params, "stroke_angle", &at)?,
+            brush_size: effect_number(params, "brush_size", &at)?,
+            stroke_length: effect_number(params, "stroke_length", &at)?,
+            stroke_density: effect_number(params, "stroke_density", &at)?,
+            stroke_randomness: effect_number(params, "stroke_randomness", &at)?,
+            paint_surface: effect_word(params, "paint_surface", &at)?,
+            blend_with_original: effect_number(params, "blend_with_original", &at)?,
+            random_seed: effect_number(params, "random_seed", &at)?,
+            animate: effect_word(params, "animate", &at)?,
+            frame: 0,
         }),
         crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

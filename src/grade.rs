@@ -1160,6 +1160,127 @@ pub(crate) fn curl_noise(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     });
 }
 
+/// D-447: Brush Strokes' numbers, as the processor and the card share them: the stroke
+/// direction `d` (across it is (-d.y, d.x)), the cells' length `su` and width `sv`, the stroke
+/// length, the brush size, min(randomness, 1), the largest slope, the largest sine of it, how far
+/// past its line a stroke can reach, the hash's seed and frame, the surface's number in
+/// [`crate::effects::BRUSH_SURFACES`] and the blend out of 1.
+pub(crate) struct Brush {
+    pub d: [f64; 2],
+    pub su: f64,
+    pub sv: f64,
+    pub len: f64,
+    pub r: f64,
+    pub m: f64,
+    pub slope: f64,
+    pub s: f64,
+    pub reach: f64,
+    pub base: u64,
+    pub frame: i64,
+    pub surface: usize,
+    pub blend: f64,
+}
+
+impl Brush {
+    pub(crate) fn new(e: &crate::effects::Effect) -> Option<Brush> {
+        let crate::effects::Effect::BrushStrokes {
+            stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, paint_surface, blend_with_original, random_seed, frame, ..
+        } = e
+        else {
+            return None;
+        };
+        let t = stroke_angle.to_radians();
+        let (r, len, density) = (*brush_size, *stroke_length, *stroke_density);
+        let slope = stroke_randomness * 10f64.to_radians().tan();
+        Some(Brush {
+            d: [t.sin(), -t.cos()],
+            su: (len.max(2.0 * r) / density).max(1.0),
+            sv: (2.0 * r / density).max(1.0),
+            len,
+            r,
+            m: stroke_randomness.min(1.0),
+            slope,
+            s: slope / (1.0 + slope * slope).sqrt(),
+            reach: 1.25 * r + 0.5,
+            base: mix(random_seed.floor() as u64),
+            frame: *frame as i64,
+            surface: crate::effects::BRUSH_SURFACES.iter().position(|v| v == paint_surface).unwrap_or(0),
+            blend: blend_with_original / 100.0,
+        })
+    }
+}
+
+/// D-447: Brush Strokes (document 21). Each pixel, at `q` in the drawing's own space (its corner
+/// at `(ox, oy)` in `source`), looks at the cells of strokes that can reach it on the grid turned
+/// to the stroke direction, keeps the two highest in the pile that cover it, and lays them, the
+/// lower first, on the paint surface; then mixes back towards itself by the blend. A stroke's
+/// colour is `source`'s pixel under its start, held inside the buffer. The layer never grows.
+pub(crate) fn brush_strokes(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let Some(b) = Brush::new(e) else { return };
+    let (w, h) = (source.width(), source.height());
+    let src = source.clone();
+    let n = [-b.d[1], b.d[0]];
+    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
+        for (x, px) in row.chunks_exact_mut(4).enumerate() {
+            let p = src.pixel(x, y).map(|v| v as f64);
+            let (qx, qy) = (x as f64 + 0.5 - ox as f64, y as f64 + 0.5 - oy as f64);
+            let (pu, pv) = (qx * b.d[0] + qy * b.d[1], qx * n[0] + qy * n[1]);
+            // The two highest strokes covering the pixel: their place in the pile, colour and
+            // covering.
+            let mut top: [(f64, [f64; 4], f64); 2] = [(-1.0, [0.0; 4], 0.0); 2];
+            let i0 = ((pu - b.len - b.reach) / b.su).floor() as i64 - 1;
+            let i1 = ((pu + b.reach) / b.su).floor() as i64;
+            let j0 = ((pv - b.reach - b.len * b.s) / b.sv).floor() as i64 - 1;
+            let j1 = ((pv + b.reach + b.len * b.s) / b.sv).floor() as i64;
+            for i in i0..=i1 {
+                for j in j0..=j1 {
+                    let g = mix(mix(mix(b.base ^ i as u64) ^ j as u64) ^ b.frame as u64);
+                    let hk = |k: u64| (mix(g ^ k) >> 11) as f64 / (1u64 << 53) as f64;
+                    let cu = (i as f64 + 0.5 + (hk(0) - 0.5) * b.m) * b.su;
+                    let cv = (j as f64 + 0.5 + (hk(1) - 0.5) * b.m) * b.sv;
+                    let t = (2.0 * hk(2) - 1.0) * b.slope;
+                    let el = (1.0 + t * t).sqrt();
+                    let (eu, ev) = (1.0 / el, t / el);
+                    let len = b.len * (1.0 - 0.5 * b.m * hk(3));
+                    let rho = b.r * (1.0 + 0.25 * b.m * (2.0 * hk(4) - 1.0));
+                    let (wu, wv) = (pu - cu, pv - cv);
+                    let a = (wu * eu + wv * ev).max(0.0).min(len);
+                    let cov = (rho + 0.5 - (wu - a * eu).hypot(wv - a * ev)).clamp(0.0, 1.0);
+                    if cov <= 0.0 {
+                        continue;
+                    }
+                    let pile = hk(5);
+                    if pile <= top[1].0 {
+                        continue;
+                    }
+                    let sx = ((cu * b.d[0] + cv * n[0] + ox as f64).floor().max(0.0) as usize).min(w - 1);
+                    let sy = ((cu * b.d[1] + cv * n[1] + oy as f64).floor().max(0.0) as usize).min(h - 1);
+                    let stroke = (pile, src.pixel(sx, sy).map(|v| v as f64), cov);
+                    if pile > top[0].0 {
+                        top = [stroke, top[0]];
+                    } else {
+                        top[1] = stroke;
+                    }
+                }
+            }
+            let mut o = match b.surface {
+                1 => [0.0; 4],
+                2 => [1.0; 4],
+                3 => [0.0, 0.0, 0.0, 1.0],
+                _ => p,
+            };
+            for (pile, col, cov) in [top[1], top[0]] {
+                if pile >= 0.0 {
+                    o = std::array::from_fn(|c| col[c] * cov + o[c] * (1.0 - cov * col[3]));
+                }
+            }
+            for c in 0..4 {
+                px[c] = (o[c] + b.blend * (p[c] - o[c])) as f32;
+            }
+        }
+    });
+}
+
 /// D-209: each cell's point and grey for Cell Pattern over a `w` by `h` buffer, worked once for
 /// the cells the buffer sees and two round them: the first cell across and down, the cells
 /// across, and the points row by row. The numbers are the disperse, size, evolution in degrees
