@@ -1102,6 +1102,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Unmult { .. }
                 // D-501.
                 | crate::effects::Effect::DifferenceMatte { .. }
+                // D-506.
+                | crate::effects::Effect::ThreeDGlasses { .. }
                 // D-400.
                 | crate::effects::Effect::ShadowHighlight { .. }
                 // D-397.
@@ -1430,6 +1432,8 @@ fn card_effect(
                 E::AerialHaze { amount, layer, map, .. } => *amount == 0.0 || (layer.as_str() != Some("") && map.is_none()),
                 // D-501: no plate read, none named or one named but not read.
                 E::DifferenceMatte { map, .. } => map.is_none(),
+                // D-506: a view named but not read.
+                E::ThreeDGlasses { .. } => crate::layer_fx::glasses_settings(&effect).is_none(),
                 // D-502: no foreground, or a mask named not found.
                 E::InnerOuterKey { paths, .. } => paths.is_none(),
                 // D-408: as layer_fx::transform returns at once (the map is then the unchanged one).

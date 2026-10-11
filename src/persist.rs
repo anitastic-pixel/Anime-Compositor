@@ -2466,6 +2466,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("remove_color_matting".into(), J::from(remove_color_matting.as_str()));
             params.insert("clip_hdr_results".into(), J::from(clip_hdr_results.as_str()));
         }
+        Effect::ThreeDGlasses {
+            left_view,
+            right_view,
+            scene_convergence,
+            vertical_alignment,
+            units,
+            swap_left_right,
+            three_d_view,
+            balance,
+            ..
+        } => {
+            params.insert("left_view".into(), left_view.clone());
+            params.insert("right_view".into(), right_view.clone());
+            params.insert("scene_convergence".into(), num(*scene_convergence));
+            params.insert("vertical_alignment".into(), num(*vertical_alignment));
+            params.insert("units".into(), J::from(units.as_str()));
+            params.insert("swap_left_right".into(), J::from(swap_left_right.as_str()));
+            params.insert("three_d_view".into(), J::from(three_d_view.as_str()));
+            params.insert("balance".into(), num(*balance));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4896,6 +4916,7 @@ fn parse_effect(
         crate::effects::KEY_CLEANER,
         crate::effects::LINEAR_COLOR_KEY,
         crate::effects::UNMULT,
+        crate::effects::THREE_D_GLASSES,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
@@ -5897,6 +5918,19 @@ fn parse_effect(
             softness: effect_number(params, "softness", &at)?,
             remove_color_matting: effect_word(params, "remove_color_matting", &at)?,
             clip_hdr_results: effect_word(params, "clip_hdr_results", &at)?,
+        }),
+        // D-506: the two views are kept as written, as Difference Matte's layer is.
+        crate::effects::THREE_D_GLASSES => Some(crate::effects::Effect::ThreeDGlasses {
+            left_view: field(effect_params(params, &at)?, &format!("{at}/parameters"), "left_view")?.clone(),
+            right_view: field(effect_params(params, &at)?, &format!("{at}/parameters"), "right_view")?.clone(),
+            scene_convergence: effect_number(params, "scene_convergence", &at)?,
+            vertical_alignment: effect_number(params, "vertical_alignment", &at)?,
+            units: effect_word(params, "units", &at)?,
+            swap_left_right: effect_word(params, "swap_left_right", &at)?,
+            three_d_view: effect_word(params, "three_d_view", &at)?,
+            balance: effect_number(params, "balance", &at)?,
+            left_map: None,
+            right_map: None,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

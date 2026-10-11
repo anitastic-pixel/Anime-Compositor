@@ -7794,6 +7794,67 @@ fn dmatte(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-506, layer_fx::three_d_glasses: the left view `input`, its drawing's corner at (k[6], k[7]),
+// and the right view `other`, its corner at (k[8], k[9]), already swapped; the output's corner at
+// (F.ox, F.oy). k[0] the view, an index into effects::GLASSES_VIEWS; k[1] and k[2] the
+// convergence and alignment in pixels; k[3] and k[4] the drawing's own size; k[5] the balance.
+fn glasses_read(side: u32, x: f64, y: f64) -> vec4<f64> {
+    if side == 0u {
+        return vec4<f64>(bilinear(input, x + k[6], y + k[7]));
+    }
+    return vec4<f64>(bilinear(other, x + k[8], y + k[9]));
+}
+
+fn glasses_luma(p: vec4<f64>) -> f64 {
+    return 0.2126lf * p.x + 0.7152lf * p.y + 0.0722lf * p.z;
+}
+
+@compute @workgroup_size(16, 16)
+fn glasses(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let view = u32(k[0]);
+    let x = f64(i32(id.x) - F.ox);
+    let y = f64(i32(id.y) - F.oy);
+    var out: vec4<f64>;
+    if view == 0u {
+        if 2.0lf * x < k[3] {
+            out = glasses_read(0u, 2.0lf * x + 1.0lf, y + 0.5lf);
+        } else {
+            out = glasses_read(1u, 2.0lf * x + 1.0lf - k[3], y + 0.5lf);
+        }
+    } else if view == 1u {
+        if 2.0lf * y < k[4] {
+            out = glasses_read(0u, x + 0.5lf, 2.0lf * y + 1.0lf);
+        } else {
+            out = glasses_read(1u, x + 0.5lf, 2.0lf * y + 1.0lf - k[4]);
+        }
+    } else {
+        var l = glasses_read(0u, x + 0.5lf - k[1] / 2.0lf, y + 0.5lf + k[2] / 2.0lf);
+        var r = glasses_read(1u, x + 0.5lf + k[1] / 2.0lf, y + 0.5lf - k[2] / 2.0lf);
+        if view == 2u {
+            out = select(r, l, (i32(id.y) - F.oy) % 2 == 0);
+        } else {
+            if view >= 5u {
+                let m = (l + r) / 2.0lf;
+                l = m + k[5] * (l - m);
+                r = m + k[5] * (r - m);
+            }
+            let a = clamp(max(l.w, r.w), 0.0lf, 1.0lf);
+            var rgb = vec3(glasses_luma(r), glasses_luma(l), glasses_luma(l));
+            if view == 3u || view == 5u {
+                rgb.z = 0.0lf;
+            } else if view == 7u {
+                rgb = vec3(r.x, l.y, l.z);
+            }
+            out = vec4(max(rgb, vec3(0.0lf)), a);
+        }
+    }
+    textureStore(output, id.xy, vec4<f32>(out));
+}
+
 // B-228, layer_fx::pass_extract: the pass (`other`) lying on the drawing at (F.ox, F.oy), alpha 1
 // on it and 0 outside it; k black, white, invert, clamp.
 @compute @workgroup_size(16, 16)
@@ -8715,6 +8776,8 @@ struct FxPasses {
     haze: Pass,
     /// D-501.
     dmatte: Pass,
+    /// D-506.
+    glasses: Pass,
     lwidth: Pass,
     /// B-228.
     passx: Pass,
@@ -9379,6 +9442,7 @@ impl Gpu {
                 gwipe: pass("gwipe", &[0, 1, 2, 3, 4]),
                 haze: pass("haze", &[0, 1, 2, 3, 4]),
                 dmatte: pass("dmatte", &[0, 1, 2, 3, 4]),
+                glasses: pass("glasses", &[0, 1, 2, 3, 4]),
                 passx: pass("passx", &[0, 1, 2, 3, 4]),
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
                 idkey: pass("idkey", &[0, 1, 2, 3, 4]),
@@ -12553,6 +12617,25 @@ impl Gpu {
                     let p = FxParams { mode: 1, ox: ox as i32, oy: oy as i32, ..Default::default() };
                     self.fx_step(steps, &passes.dmatte, p, Some(still), Some(&out), Some(&k), Some(&plate), none, tiles(w, h));
                 }
+                (out, (w, h))
+            }
+            // D-506: compose leaves the card a 3D Glasses only when every view named was read.
+            e @ E::ThreeDGlasses { .. } => {
+                let g = crate::layer_fx::glasses_settings(e).expect("compose leaves a 3D Glasses whose views were read");
+                let (w0, h0) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let (c, v) = if g.percent {
+                    (g.convergence / 100.0 * w0, g.alignment / 100.0 * h0)
+                } else {
+                    (g.convergence, g.alignment)
+                };
+                let maps = g.maps.map(|m| m.map(|m| self.map_texture(m)));
+                let corner = |m: &Option<wgpu::TextureView>| if m.is_some() { [0.0, 0.0] } else { [ox as f64, oy as f64] };
+                let [l, r] = [corner(&maps[0]), corner(&maps[1])];
+                let k = [g.view as f64, c, v, w0, h0, g.balance, l[0], l[1], r[0], r[1]];
+                let out = self.scratch("D-506 glasses", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let [left, right] = [maps[0].as_ref().unwrap_or(still), maps[1].as_ref().unwrap_or(still)];
+                self.fx_step(steps, &passes.glasses, p, Some(left), Some(&out), Some(&k), Some(right), none, tiles(w, h));
                 (out, (w, h))
             }
             E::PassExtract { channels, black_point, white_point, invert, clamp, .. } => {

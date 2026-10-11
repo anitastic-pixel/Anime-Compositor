@@ -2247,6 +2247,25 @@ pub enum Effect {
         remove_color_matting: String,
         clip_hdr_results: String,
     },
+    /// D-506: after After Effects' 3D Glasses, its rule and its settings when added ours
+    /// (`layer_fx::three_d_glasses`, document 21). `left_view` and `right_view`, D-189's layer
+    /// settings as written, "" for the layer itself; `scene_convergence` and
+    /// `vertical_alignment`, -1000 to 1000, pixels or, with `units` "percent", per cent of the
+    /// drawing's width and height; `swap_left_right`, "off" or "on"; `three_d_view`, one of
+    /// [`GLASSES_VIEWS`]; `balance`, 0 to 10. `left_map` and `right_map` are not settings and are
+    /// never saved.
+    ThreeDGlasses {
+        left_view: serde_json::Value,
+        right_view: serde_json::Value,
+        scene_convergence: f64,
+        vertical_alignment: f64,
+        units: String,
+        swap_left_right: String,
+        three_d_view: String,
+        balance: f64,
+        left_map: Option<crate::layer_map::Map>,
+        right_map: Option<crate::layer_map::Map>,
+    },
     /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
     /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
     /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
@@ -3047,6 +3066,18 @@ pub const LINEAR_COLOR_KEY: &str = "core.linear_color_key";
 pub const LCKEY_VIEWS: [&str; 3] = ["final", "source", "matte"];
 pub const LCKEY_MATCHES: [&str; 3] = ["rgb", "hue", "chroma"];
 pub const UNMULT: &str = "core.unmult";
+pub const THREE_D_GLASSES: &str = "core.three_d_glasses";
+/// D-506: 3D Glasses' views, the anaglyphs last.
+pub const GLASSES_VIEWS: [&str; 8] = [
+    "side_by_side",
+    "over_under",
+    "interlace",
+    "red_green",
+    "red_blue",
+    "balanced_red_green",
+    "balanced_red_blue",
+    "balanced_colored_red_blue",
+];
 pub const SIMPLE_WIRE_REMOVAL: &str = "core.simple_wire_removal";
 /// D-458: CC Simple Wire Removal's styles.
 pub const WIRE_STYLES: [&str; 4] = ["fade", "frame_offset", "displace", "displace_horizontal"];
@@ -3221,6 +3252,11 @@ impl Effect {
                 ("black_level", vec![black_level], 0.0, 100.0),
                 ("white_level", vec![white_level], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
+            ],
+            Effect::ThreeDGlasses { scene_convergence, vertical_alignment, balance, .. } => vec![
+                ("scene_convergence", vec![scene_convergence], -1000.0, 1000.0),
+                ("vertical_alignment", vec![vertical_alignment], -1000.0, 1000.0),
+                ("balance", vec![balance], 0.0, 10.0),
             ],
             Effect::Transform {
                 anchor_point,
@@ -5228,6 +5264,13 @@ impl Effect {
             }
             // D-501 (B-381b): the blur is a distance; the tolerance and softness are not.
             Effect::DifferenceMatte { blur_before_difference, .. } => *blur_before_difference = scale(*blur_before_difference),
+            // D-506: the two distances in pixels; in per cent they follow the drawing unscaled.
+            Effect::ThreeDGlasses { scene_convergence, vertical_alignment, units, .. } => {
+                if units == "pixels" {
+                    *scene_convergence = scale(*scene_convergence);
+                    *vertical_alignment = scale(*vertical_alignment);
+                }
+            }
             // D-502: the radius, thin and feather are distances; the masks are scaled as they
             // always are.
             Effect::InnerOuterKey { single_mask_highlight_radius, edge_thin, edge_feather, .. } => {
@@ -5595,6 +5638,7 @@ impl Effect {
             Effect::KeyCleaner { .. } => "Key Cleaner",
             Effect::LinearColorKey { .. } => "Linear Color Key",
             Effect::Unmult { .. } => "Unmult",
+            Effect::ThreeDGlasses { .. } => "3D Glasses",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
@@ -5793,6 +5837,7 @@ impl Effect {
             Effect::KeyCleaner { .. } => KEY_CLEANER,
             Effect::LinearColorKey { .. } => LINEAR_COLOR_KEY,
             Effect::Unmult { .. } => UNMULT,
+            Effect::ThreeDGlasses { .. } => THREE_D_GLASSES,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
@@ -6048,6 +6093,10 @@ impl Effect {
         if let Effect::Colorama { layer, mask_layer, fit, .. } = self {
             return [layer, mask_layer].map(|l| (l.as_str().unwrap_or(""), fit.as_str())).to_vec();
         }
+        // D-506: the two views, each centred on the drawing.
+        if let Effect::ThreeDGlasses { left_view, right_view, .. } = self {
+            return [left_view, right_view].map(|l| (l.as_str().unwrap_or(""), "center")).to_vec();
+        }
         self.layer_setting().into_iter().collect()
     }
 
@@ -6077,6 +6126,9 @@ impl Effect {
     pub fn layer_settings_mut(&mut self) -> Vec<(&mut serde_json::Value, &mut Option<crate::layer_map::Map>)> {
         if let Effect::Colorama { layer, map, mask_layer, mask_map, .. } = self {
             return vec![(layer, map), (mask_layer, mask_map)];
+        }
+        if let Effect::ThreeDGlasses { left_view, left_map, right_view, right_map, .. } = self {
+            return vec![(left_view, left_map), (right_view, right_map)];
         }
         self.layer_setting_mut().into_iter().collect()
     }
@@ -6238,6 +6290,23 @@ impl Effect {
                     )))
                     .or_else(|| (!["off", "on"].contains(&c.as_str())).then(|| format!(
                         "{name}'s clip HDR results is \"off\" or \"on\", and this is \"{c}\"."
+                    )))
+            }
+            Effect::ThreeDGlasses { left_view, right_view, units, swap_left_right: s, three_d_view: v, .. } => {
+                (!left_view.is_string())
+                    .then(|| format!("{name}'s left view is the name of a layer of this composition, and this is {left_view}."))
+                    .or_else(|| (!right_view.is_string()).then(|| format!(
+                        "{name}'s right view is the name of a layer of this composition, and this is {right_view}."
+                    )))
+                    .or_else(|| (!["pixels", "percent"].contains(&units.as_str())).then(|| format!(
+                        "{name}'s units are \"pixels\" or \"percent\", and this is \"{units}\"."
+                    )))
+                    .or_else(|| (!["off", "on"].contains(&s.as_str())).then(|| format!(
+                        "{name}'s swap left-right is \"off\" or \"on\", and this is \"{s}\"."
+                    )))
+                    .or_else(|| (!GLASSES_VIEWS.contains(&v.as_str())).then(|| format!(
+                        "{name}'s 3D view is one of {}, and this is \"{v}\".",
+                        GLASSES_VIEWS.map(|v| format!("\"{v}\"")).join(", ")
                     )))
             }
             Effect::DifferenceMatte { view, layer, fit, .. } => (!["final", "matte"].contains(&view.as_str()))
@@ -9010,6 +9079,15 @@ pub(crate) fn apply_stack_at(
             e @ Effect::Unmult { .. } => crate::perf::time(crate::perf::Stage::EffectUnmult, || {
                 crate::grade::unmult(source, &crate::grade::unmult_settings(e))
             }),
+            // D-506: a view named but not read (not in the composition) leaves the layer as it
+            // is, with D-189's warning; a view with no name is the layer itself. Never grows.
+            e @ Effect::ThreeDGlasses { .. } => {
+                if let Some(g) = crate::layer_fx::glasses_settings(e) {
+                    crate::perf::time(crate::perf::Stage::Effect3dGlasses, || {
+                        crate::layer_fx::three_d_glasses(source, &g, (ox, oy))
+                    })
+                }
+            }
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {
                     crate::grade::add_grain(source, &g, (ox, oy))

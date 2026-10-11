@@ -6360,6 +6360,119 @@ pub(crate) fn difference_matte(
     });
 }
 
+/// D-506: 3D Glasses for one frame: each view's map, `None` for the layer itself, already
+/// swapped; the two distances; the view, an index into [`crate::effects::GLASSES_VIEWS`]; the
+/// balance.
+pub(crate) struct Glasses<'a> {
+    pub maps: [Option<&'a WorkingBuffer>; 2],
+    pub convergence: f64,
+    pub alignment: f64,
+    pub percent: bool,
+    pub view: usize,
+    pub balance: f64,
+}
+
+/// D-506: [`Glasses`] from a 3D Glasses whose settings are valid, or `None` when a view is
+/// named but was not read, which leaves the layer as it is.
+pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>> {
+    let crate::effects::Effect::ThreeDGlasses {
+        left_view,
+        right_view,
+        scene_convergence,
+        vertical_alignment,
+        units,
+        swap_left_right,
+        three_d_view,
+        balance,
+        left_map,
+        right_map,
+    } = e
+    else {
+        return None;
+    };
+    fn view<'a>(name: &serde_json::Value, map: &'a Option<crate::layer_map::Map>) -> Option<Option<&'a WorkingBuffer>> {
+        match map {
+            Some(m) => Some(Some(&*m.0)),
+            None => (name.as_str() == Some("")).then_some(None),
+        }
+    }
+    let mut maps = [view(left_view, left_map)?, view(right_view, right_map)?];
+    if swap_left_right == "on" {
+        maps.swap(0, 1);
+    }
+    Some(Glasses {
+        maps,
+        convergence: *scene_convergence,
+        alignment: *vertical_alignment,
+        percent: units == "percent",
+        view: crate::effects::GLASSES_VIEWS.iter().position(|v| v == three_d_view)?,
+        balance: *balance,
+    })
+}
+
+/// D-506: 3D Glasses. Each view is read in the drawing's own space, a map at (u, v) or the layer
+/// itself at (u + ox, v + oy), transparent outside, by document 21's bilinear. The anaglyphs and
+/// the interlace read the left view half the convergence c to the right and half the alignment
+/// v up, the right view the other way: l = L(x + 1/2 - c/2, y + 1/2 + v/2), r = R(x + 1/2 + c/2,
+/// y + 1/2 - v/2). Side by side squeezes each view into a half (the mean of each two columns),
+/// over under likewise down; interlace takes even rows from the left. The balanced views first
+/// draw the two toward their mean by the balance; then red green is (Y(r), Y(l), 0), red blue
+/// (Y(r), Y(l), Y(l)) and balanced colored red blue (r.r, l.g, l.b), the alpha the larger, the
+/// colour held at 0 or above and the alpha within 0 to 1. The layer never grows.
+pub(crate) fn three_d_glasses(source: &mut WorkingBuffer, g: &Glasses, (ox, oy): (usize, usize)) {
+    let (w, h) = (source.width(), source.height());
+    let (w0, h0) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    let (c, v) = if g.percent {
+        (g.convergence / 100.0 * w0, g.alignment / 100.0 * h0)
+    } else {
+        (g.convergence, g.alignment)
+    };
+    let src = source.clone();
+    let read = |side: usize, sx: f64, sy: f64| -> [f64; 4] {
+        let p = match g.maps[side] {
+            Some(m) => sample_bilinear(m, sx, sy),
+            None => sample_bilinear(&src, sx + ox as f64, sy + oy as f64),
+        };
+        p.map(|v| v as f64)
+    };
+    let luma = |p: [f64; 4]| 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+    let view = crate::effects::GLASSES_VIEWS[g.view];
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 - ox as f64, (i / w) as f64 - oy as f64);
+        let out = match view {
+            "side_by_side" if 2.0 * x < w0 => read(0, 2.0 * x + 1.0, y + 0.5),
+            "side_by_side" => read(1, 2.0 * x + 1.0 - w0, y + 0.5),
+            "over_under" if 2.0 * y < h0 => read(0, x + 0.5, 2.0 * y + 1.0),
+            "over_under" => read(1, x + 0.5, 2.0 * y + 1.0 - h0),
+            _ => {
+                let mut l = read(0, x + 0.5 - c / 2.0, y + 0.5 + v / 2.0);
+                let mut r = read(1, x + 0.5 + c / 2.0, y + 0.5 - v / 2.0);
+                if view == "interlace" {
+                    if (y as i64).rem_euclid(2) == 0 { l } else { r }
+                } else {
+                    if view.starts_with("balanced") {
+                        for k in 0..4 {
+                            let m = (l[k] + r[k]) / 2.0;
+                            l[k] = m + g.balance * (l[k] - m);
+                            r[k] = m + g.balance * (r[k] - m);
+                        }
+                    }
+                    let a = l[3].max(r[3]).clamp(0.0, 1.0);
+                    let rgb = match view {
+                        "red_green" | "balanced_red_green" => [luma(r), luma(l), 0.0],
+                        "balanced_colored_red_blue" => [r[0], l[1], l[2]],
+                        _ => [luma(r), luma(l), luma(l)],
+                    };
+                    [rgb[0].max(0.0), rgb[1].max(0.0), rgb[2].max(0.0), a]
+                }
+            }
+        };
+        for k in 0..4 {
+            px[k] = out[k] as f32;
+        }
+    });
+}
+
 /// D-348: the pass's pixel under the drawing's pixel `i` of a buffer `w` wide with the drawing's
 /// top-left at `origin`, as an index into `pass`'s data, or `None` outside the drawing.
 fn pass_at(pass: &WorkingBuffer, i: usize, w: usize, origin: (usize, usize)) -> Option<usize> {
