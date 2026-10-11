@@ -209582,3 +209582,67 @@ FX-GLOW-026 (`fx_glow_026.json`): Color "#ff80": not six hex digits. The file is
 FX-GLOW-027 (`fx_glow_027.json`): Reverse "true": it is "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-GLOW-028 (`fx_glow_028.json`): Intensity keyed to 2000 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Repeat Tile (D-464)
+
+Repeat Tile, after After Effects' CC RepeTile (Stylize), `core.repeat_tile` (B-344). Every case is a composition 16 by 10, five frames, holding Motion Tile's drawing, 6 by 4, at (5, 3); `tools/repeat_tile_reference.py` works the expected frames, `Fixtures/repeat_tile/expected_repeat_tile.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-REPEAT-001 (`fx_repeat_001.json`): The settings as they start: Unfold, nothing grown, no blending. The picture as it was, and nothing grows. Frames 0.
+
+FX-REPEAT-002 (`fx_repeat_002.json`): Repeat: the picture copied as it is, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-003 (`fx_repeat_003.json`): Checker Flip H: every other copy, as a chequerboard, flipped across, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-004 (`fx_repeat_004.json`): Checker Flip V: every other copy flipped down, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-005 (`fx_repeat_005.json`): Unfold: copies flipped across in odd columns and down in odd rows, so they meet edge to matching edge, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-006 (`fx_repeat_006.json`): Checker 180: every other copy turned half round, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-007 (`fx_repeat_007.json`): Checker Flip 45: every other copy flipped on its diagonal, squeezed to the tile's shape, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-008 (`fx_repeat_008.json`): Checker 90 CW: every other copy turned a quarter clockwise, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-009 (`fx_repeat_009.json`): Checker 90 CCW: every other copy turned a quarter anticlockwise, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-010 (`fx_repeat_010.json`): Rosette: each square of four copies turned a quarter on round it, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-011 (`fx_repeat_011.json`): Random: each copy one of the eight ways, chosen by its place, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-012 (`fx_repeat_012.json`): None: the room grows but stays clear, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-013 (`fx_repeat_013.json`): Turn CW: each copy a quarter turn clockwise on from the one before it, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-014 (`fx_repeat_014.json`): Turn CCW: each copy a quarter turn anticlockwise on, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-015 (`fx_repeat_015.json`): Twist: turning clockwise across and anticlockwise down, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-016 (`fx_repeat_016.json`): Slide: the edge pixels drawn on outwards, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-017 (`fx_repeat_017.json`): Brick: copies as they are, every other row moved half a tile across, grown 5 across and 3 down each way. Frames 0.
+
+FX-REPEAT-018 (`fx_repeat_018.json`): Repeat, grown 4 right, 1 left, 2 up and none down: the layer grows 4 both ways across and 2 both ways down, the room past each expansion clear. Frames 0.
+
+FX-REPEAT-019 (`fx_repeat_019.json`): Repeat, nothing grown, Blend Borders 50: the picture's own edges mixed with its middle, ready to repeat without a seam. Frames 0.
+
+FX-REPEAT-020 (`fx_repeat_020.json`): Repeat grown all round, Blend Borders 100: the copies meet with no seam. Frames 0.
+
+FX-REPEAT-021 (`fx_repeat_021.json`): Unfold grown all round, Blend Borders 100: Unfold ignores the blending and is FX-REPEAT-005. Frames 0.
+
+FX-REPEAT-022 (`fx_repeat_022.json`): Expand Right keyed from 0 at frame 0 to 6 at frame 4, linear, Repeat: frame 1 is 1.5, rounded up to 2; frame 2 is 3. Frames 0, 1, 2, 4.
+
+FX-REPEAT-023 (`fx_repeat_023.json`): Blend Borders keyed from 50 at frame 0 to 100 at frame 4, eased past its end, Repeat grown all round: frame 2 would pass 100, is held at 100, and is FX-REPEAT-020. Frames 0, 2.
+
+FX-REPEAT-024 (`fx_repeat_024.json`): FX-REPEAT-002 moved three pixels right: the copies move with the drawing and the three columns left bare stay empty. Frames 0.
+
+FX-REPEAT-025 (`fx_repeat_025.json`): After a drop shadow that grows the layer to 10 by 8, Checker Flip H grown 2 each way: the copies are of the grown layer, shadow and all. Frames 0.
+
+FX-REPEAT-026 (`fx_repeat_026.json`): Expand Right -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-REPEAT-027 (`fx_repeat_027.json`): Expand Up 4001, above 4000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-REPEAT-028 (`fx_repeat_028.json`): Tiling "wallpaper", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-REPEAT-029 (`fx_repeat_029.json`): Blend Borders 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-REPEAT-030 (`fx_repeat_030.json`): Expand Left keyed to 5000 at frame 4, above 4000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
