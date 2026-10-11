@@ -978,6 +978,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::StrobeLight { .. }
                 // D-468: Channel Threshold.
                 | crate::effects::Effect::ChannelThreshold { .. }
+                // D-469: Threshold RGB.
+                | crate::effects::Effect::ThresholdRgb { .. }
                 // D-467: Texturize, with a texture.
                 | crate::effects::Effect::Texturize { .. }
                 | crate::effects::Effect::SmartBlur { .. }
@@ -1409,7 +1411,7 @@ fn card_effect(
                     *blend_with_original == 100.0
                         || !crate::layer_fx::strobe_on(*strobe_duration, *strobe_period, *random_strobe_probability, *random_seed, *time, *count)
                 }
-                E::ChannelThreshold { blend_with_original, .. } => *blend_with_original == 100.0,
+                E::ChannelThreshold { blend_with_original, .. } | E::ThresholdRgb { blend_with_original, .. } => *blend_with_original == 100.0,
                 // D-467: no texture, or none of its relief.
                 E::Texturize { map, texture_contrast, .. } => map.is_none() || *texture_contrast == 0.0,
                 // B-123: the batch's five new ones, each as its own function returns at once.

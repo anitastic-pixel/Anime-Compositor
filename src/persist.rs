@@ -2766,6 +2766,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("invert".into(), J::from(invert.as_str()));
             params.insert("blend_with_original".into(), num(*blend_with_original));
         }
+        Effect::ThresholdRgb { red_threshold, green_threshold, blue_threshold, invert_red, invert_green, invert_blue, blend_with_original } => {
+            params.insert("red_threshold".into(), num(*red_threshold));
+            params.insert("green_threshold".into(), num(*green_threshold));
+            params.insert("blue_threshold".into(), num(*blue_threshold));
+            params.insert("invert_red".into(), J::from(invert_red.as_str()));
+            params.insert("invert_green".into(), J::from(invert_green.as_str()));
+            params.insert("invert_blue".into(), J::from(invert_blue.as_str()));
+            params.insert("blend_with_original".into(), num(*blend_with_original));
+        }
         Effect::Texturize { layer, fit, light_direction, texture_contrast, .. } => {
             params.insert("layer".into(), layer.clone());
             params.insert("fit".into(), J::from(fit.as_str()));
@@ -5489,6 +5498,7 @@ fn parse_effect(
         crate::effects::STROBE_LIGHT,
         crate::effects::TEXTURIZE,
         crate::effects::CHANNEL_THRESHOLD,
+        crate::effects::THRESHOLD_RGB,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6697,6 +6707,15 @@ fn parse_effect(
             threshold: effect_number(params, "threshold", &at)?,
             channel: effect_word(params, "channel", &at)?,
             invert: effect_word(params, "invert", &at)?,
+            blend_with_original: effect_number(params, "blend_with_original", &at)?,
+        }),
+        crate::effects::THRESHOLD_RGB => Some(crate::effects::Effect::ThresholdRgb {
+            red_threshold: effect_number(params, "red_threshold", &at)?,
+            green_threshold: effect_number(params, "green_threshold", &at)?,
+            blue_threshold: effect_number(params, "blue_threshold", &at)?,
+            invert_red: effect_word(params, "invert_red", &at)?,
+            invert_green: effect_word(params, "invert_green", &at)?,
+            invert_blue: effect_word(params, "invert_blue", &at)?,
             blend_with_original: effect_number(params, "blend_with_original", &at)?,
         }),
         // D-467: the layer kept as written, as Plastic's.

@@ -9283,6 +9283,7 @@ const EFFECT_NAMES = {
   'core.posterize': 'Posterize',
   'core.threshold': 'Threshold',
   'core.channel_threshold': 'Channel Threshold',
+  'core.threshold_rgb': 'Threshold RGB',
   'core.channel_mixer': 'Channel Mixer',
   'core.vibrance': 'Vibrance',
   'core.leave_color': 'Leave Color',
@@ -9498,7 +9499,7 @@ const EFFECT_GROUPS = [
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas', 'core.energy_stroke']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
-    'core.posterize', 'core.threshold', 'core.channel_threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie', 'core.plastic', 'core.repeat_tile', 'core.scatter', 'core.strobe_light', 'core.texturize']],
+    'core.posterize', 'core.threshold', 'core.channel_threshold', 'core.threshold_rgb', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie', 'core.plastic', 'core.repeat_tile', 'core.scatter', 'core.strobe_light', 'core.texturize']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight', 'core.cc_cylinder']],
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
@@ -9720,6 +9721,7 @@ const EFFECT_SEARCH = {
   'core.find_edges': 'lines sketch',
   'core.posterize': 'bands levels',
   'core.threshold': 'black white',
+  'core.threshold_rgb': 'threshold rgb cc red green blue per channel black white invert blend with original posterize',
   'core.channel_threshold': 'channel threshold cc black white rgb saturation alpha invert blend with original two tone',
   'core.solarize': 'sabattier',
   'core.vignette': 'dark corners',
@@ -9781,6 +9783,7 @@ const EFFECT_ABOUT = {
   'core.black_white': 'Turns the layer grey, with control over how bright each colour becomes.',
   'core.posterize': 'Cuts the colours down to a few flat bands.',
   'core.threshold': 'Turns every pixel pure black or pure white.',
+  'core.threshold_rgb': 'Threshold on red, green and blue, each with its own level and its own Invert, so every pixel turns one of eight pure colours.',
   'core.channel_threshold': 'Threshold on the channel you choose: lightness, each of red, green and blue, saturation or transparency, turned over if you like and blended with the layer as it was.',
   'core.channel_mixer': 'Builds each colour channel from a mix of the others.',
   'core.vibrance': 'Strengthens the dull colours more than the strong ones.',
@@ -10234,6 +10237,11 @@ const EFFECT_PARAMS = {
   'core.posterize': [['levels', 'Levels', 1, 1, 'steps per channel, 2 to 256']],
   // D-138.
   'core.threshold': [['level', 'Level', 1, 1, 'lightness of 255 that turns white, 0 to 255']],
+  // D-469, CC Threshold RGB's own controls.
+  'core.threshold_rgb': [['red_threshold', 'Red Threshold', 1, 1, '0 to 255, the red that turns full'],
+    ['green_threshold', 'Green Threshold', 1, 1, '0 to 255, the green that turns full'],
+    ['blue_threshold', 'Blue Threshold', 1, 1, '0 to 255, the blue that turns full'],
+    ['blend_with_original', 'Blend With Original', 1, 0.5, '0 to 100, how much of the layer as it was shows through']],
   // D-468, CC Threshold's own controls.
   'core.channel_threshold': [['threshold', 'Threshold', 1, 1, '0 to 255, the value that turns full'],
     ['blend_with_original', 'Blend With Original', 1, 0.5, '0 to 100, how much of the layer as it was shows through']],
@@ -11811,6 +11819,12 @@ const EFFECT_WORDS = {
     choices: [['render', 'Render', [['regular', 'Regular'], ['glass_edge', 'Glass Edge']]],
       ['shadow_only', 'Shadow Only', [['off', 'Off'], ['on', 'On']]]],
     colours: [['color', 'Shadow Color']],
+  },
+  // D-469, CC Threshold RGB's own words; nothing turned over as it is added.
+  'core.threshold_rgb': {
+    choices: [['invert_red', 'Invert Red', [['off', 'Off'], ['on', 'On']]],
+      ['invert_green', 'Invert Green', [['off', 'Off'], ['on', 'On']]],
+      ['invert_blue', 'Invert Blue', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-468, CC Threshold's own words; Luminance and Invert off as it is added.
   'core.channel_threshold': {

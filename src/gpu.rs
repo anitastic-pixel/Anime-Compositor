@@ -12618,6 +12618,12 @@ impl Gpu {
                 let k = [*threshold, *threshold, *threshold, ch, i, i, i, 1.0 - blend_with_original / 100.0];
                 same(steps, &passes.tone, FxParams { mode: 100, ..Default::default() }, &k, None)
             }
+            // D-469: Channel Threshold's tone mode 100 on RGB, a level and an Invert each.
+            E::ThresholdRgb { red_threshold, green_threshold, blue_threshold, invert_red, invert_green, invert_blue, blend_with_original } => {
+                let [i0, i1, i2] = [invert_red, invert_green, invert_blue].map(|v| (v == "on") as u8 as f64);
+                let k = [*red_threshold, *green_threshold, *blue_threshold, 1.0, i0, i1, i2, 1.0 - blend_with_original / 100.0];
+                same(steps, &passes.tone, FxParams { mode: 100, ..Default::default() }, &k, None)
+            }
             // D-467: the texture's luminance as Plastic's bump, then one pass that presses it in.
             E::Texturize { light_direction, texture_contrast, map, .. } => {
                 let picture = self.map_texture(&map.as_ref().expect("compose leaves a Texturize with a texture").0);
