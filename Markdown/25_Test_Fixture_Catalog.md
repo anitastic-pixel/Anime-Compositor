@@ -176413,6 +176413,50 @@ FX-GTINT-021 (`fx_gtint_021.json`): Tint Amount -1, below 0. The file is read, t
 
 FX-GTINT-022 (`fx_gtint_022.json`): Tint Amount keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Soft Physical Glow's Spectral (D-543)
+
+Pick #10, Spectral Glow: Soft Physical Glow's settings `spectral` ("off", "on"), `spectral_red`, `spectral_green` and `spectral_blue` (B-423). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/spectral_glow/`, built as D-353's are, on its drawings (`media/patches.png`, `media/faint.png`, `media/grey.png`). **Every number is produced by `tools/spectral_glow_reference.py`**, which works D-353's and D-542's references (`tools/soft_glow_reference.py`, `tools/glow_tint_reference.py`) once for each channel at that channel's radius, in double precision; the numbers are in `Fixtures/spectral_glow/expected_spectral_glow.json`. Tolerance 2e-5. B-423 checks them, runs D-353's FX-SGLOW-001 to 045 and D-542's FX-GTINT-001 to 022 again unchanged, and draws the playtest's pictures, in `verification/D-543_spectral_glow_table.md`.
+
+FX-SPGLOW-001 (`fx_spglow_001.json`): Spectral on at its defaults (red 80, green 100, blue 120 per cent), radius 12, everything else at Soft Physical Glow's defaults: red stays closer to each patch and blue reaches further, so the tail turns bluer outward. Frames 0.
+
+FX-SPGLOW-002 (`fx_spglow_002.json`): Spectral on, all three at 100: the same as Soft Physical Glow with Spectral off (FX-SGLOW-001). Frames 0.
+
+FX-SPGLOW-003 (`fx_spglow_003.json`): Spectral off written in the file, with sizes set: Soft Physical Glow as before (FX-SGLOW-001). Frames 0.
+
+FX-SPGLOW-004 (`fx_spglow_004.json`): Spectral on, radius 100, red 50, green 100, blue 200: a strong fringe, the blue tail far wider than the red. Frames 0.
+
+FX-SPGLOW-005 (`fx_spglow_005.json`): Spectral on, red 200, green 100, blue 50, the other way round: a red tail outside a blue core. Frames 0.
+
+FX-SPGLOW-006 (`fx_spglow_006.json`): Spectral on, red 0: red does not spread at all, the light laid on itself only; green and blue glow as before. Frames 0.
+
+FX-SPGLOW-007 (`fx_spglow_007.json`): Spectral on with the grey drawing: the grey patch, white light, glows white close in and fringes in colour further out. Frames 0.
+
+FX-SPGLOW-008 (`fx_spglow_008.json`): Spectral on with Tint Core to Edge: each channel's levels tinted at its own radius, then the channels taken one from each. Frames 0.
+
+FX-SPGLOW-009 (`fx_spglow_009.json`): Spectral on with Tint One Colour orange at 60 per cent, Threshold 30 and Smooth 50 in Luminance. Frames 0.
+
+FX-SPGLOW-010 (`fx_spglow_010.json`): Blue keyed from 100 at frame 0 to 200 at frame 4, linear, red and green at 100: frame 0 is FX-SPGLOW-002, frame 2 has blue at 150. Frames 0, 2, 4.
+
+FX-SPGLOW-011 (`fx_spglow_011.json`): Spectral on, Blend Mode Add, exposure 3: the fringed light adds up past white. Frames 0.
+
+FX-SPGLOW-012 (`fx_spglow_012.json`): Spectral on, Unmult off, Source Opacity 0: the fringed glow alone, on black. Frames 0.
+
+FX-SPGLOW-013 (`fx_spglow_013.json`): Spectral on, Aspect Ratio 1.5 at Angle 30, moved three pixels right. Frames 0.
+
+FX-SPGLOW-014 (`fx_spglow_014.json`): Spectral on, radius 2.25, red 50, blue 200: red has no level (radius 1.125), green one half-in level, blue two. Frames 0.
+
+FX-SPGLOW-015 (`fx_spglow_015.json`): Spectral on, radius 2,000, red 50, blue 200: blue's radius 4,000, past Radius's own top, is worked as it is. Frames 0.
+
+FX-SPGLOW-016 (`fx_spglow_016.json`): Spectral on, the patches half covering: the light counts at half. Frames 0.
+
+FX-SPGLOW-017 (`fx_spglow_017.json`): Spectral "yes", which is not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPGLOW-018 (`fx_spglow_018.json`): Spectral Red 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPGLOW-019 (`fx_spglow_019.json`): Spectral Blue -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPGLOW-020 (`fx_spglow_020.json`): Spectral Green keyed to 250 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Path Stroke (D-356)
 
 Effects that draw along paths (EFFECTS.md P0-22), proved with Path Stroke (`core.stroke`), after After Effects' Stroke (Generate) (B-235). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/stroke/`: the layer `art` holding Lightning Bolt's night drawing the same size (its left half a night sky, its right half empty), unmoved unless the case says, with masks of mode None unless the case says, and the effect `fx-0-0`. **Every number is produced by `tools/stroke_reference.py`**, which lists every dab and finds the nearest by brute force in double precision, from the drawing's 8-bit values; the numbers are in `Fixtures/stroke/expected_stroke.json`. Tolerance 2e-5. B-235 checks them, and draws the playtest's pictures, in `verification/D-356_stroke_table.md`.
