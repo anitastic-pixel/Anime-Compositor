@@ -632,15 +632,22 @@ pub fn draw(text: &Text, width: usize, height: usize) -> Option<WorkingBuffer> {
 /// filled together, as all of them are without animators; every stroke is drawn before every
 /// fill, and the shadow is cast by them all.
 pub fn animated(text: &Text, animators: &[crate::effects::Effect], width: usize, height: usize) -> Option<WorkingBuffer> {
+    animated_rows(text, animators, width, height, false).map(|(picture, _)| picture)
+}
+
+/// D-529: [`draw`] of only the rows the words can reach, and the first of them: the picture is
+/// `width` wide and as tall as those rows, each pixel the one [`draw`] gives there, every pixel
+/// outside them transparent. With a background or a shadow, which reach further, the whole frame
+/// and row 0.
+pub fn draw_rows(text: &Text, width: usize, height: usize) -> Option<(WorkingBuffer, usize)> {
+    animated_rows(text, &[], width, height, true)
+}
+
+/// [`animated`] as a picture of the rows it reaches and the first of them; without `tight`, of
+/// the whole frame and row 0.
+fn animated_rows(text: &Text, animators: &[crate::effects::Effect], width: usize, height: usize, tight: bool) -> Option<(WorkingBuffer, usize)> {
     let laid = lay_out(text, animators, false)?;
     let (w, h) = (width, height);
-    let mut picture = WorkingBuffer::transparent(w, h);
-    if let Some(b) = &text.background {
-        let p = b.padding;
-        let [l, t, r, bottom] = laid.bounds;
-        let field = fill(&[rounded_box(l - p, t - p, r + p, bottom + p, b.roundness)], w, h);
-        crate::shape::paint(picture.data_mut(), &field, w, b.color, b.opacity, None);
-    }
     let bold = if text.faux_bold { text.size * 0.02 } else { 0.0 };
     // The characters by opacity and colour, in the order each first comes; one not seen is left.
     let mut groups: Vec<(f64, [f64; 3], Vec<Vec<(f64, f64)>>)> = Vec::new();
@@ -659,27 +666,47 @@ pub fn animated(text: &Text, animators: &[crate::effects::Effect], width: usize,
     }
     // Each group's fill and stroke cover, and the rows they reach: nothing outside them is painted.
     let reach = bold + text.stroke.as_ref().map_or(0.0, |s| s.width);
+    // The band of rows outlines paint, from their highest and lowest points.
+    let band = |ys: &mut dyn Iterator<Item = f64>| {
+        let (lo, hi) = ys.fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), y| (lo.min(y), hi.max(y)));
+        let top = (lo - reach - 2.0).floor().clamp(0.0, h as f64) as usize;
+        let bottom = (hi + reach + 3.0).ceil().clamp(0.0, h as f64) as usize;
+        top..bottom.max(top)
+    };
+    // D-529: the rows this picture holds; every group's band lies inside them.
+    let window = if tight && text.background.is_none() && text.shadow.is_none() {
+        if groups.is_empty() { 0..0 } else { band(&mut groups.iter().flat_map(|g| g.2.iter().flatten().map(|p| p.1))) }
+    } else {
+        0..h
+    };
+    let (r0, rh) = (window.start, window.len());
+    let mut picture = WorkingBuffer::transparent(w, rh);
+    if let Some(b) = &text.background {
+        let p = b.padding;
+        let [l, t, r, bottom] = laid.bounds;
+        let field = fill_rows(&[rounded_box(l - p, t - p, r + p, bottom + p, b.roundness)], w, h, window.clone());
+        crate::shape::paint(picture.data_mut(), &field, w, b.color, b.opacity, None);
+    }
     type Field = (f64, [f64; 3], Vec<f32>, Option<Vec<f32>>, std::ops::Range<usize>);
     let fields: Vec<Field> = groups
         .iter()
         .map(|(opacity, color, contours)| {
-            let mut ink = fill(contours, w, h);
+            let mut ink = fill_rows(contours, w, h, window.clone());
             if bold > 0.0 {
-                union(&mut ink, &around(contours, bold, w, h));
+                union(&mut ink, &around(contours, bold, w, h, window.clone()));
             }
             let lined = text.stroke.as_ref().map(|s| {
-                let mut f = around(contours, bold + s.width, w, h);
+                let mut f = around(contours, bold + s.width, w, h, window.clone());
                 union(&mut f, &ink);
                 f
             });
-            let ys = || contours.iter().flatten().map(|p| p.1);
-            let top = (ys().fold(f64::INFINITY, f64::min) - reach - 2.0).floor().clamp(0.0, h as f64) as usize;
-            let bottom = (ys().fold(f64::NEG_INFINITY, f64::max) + reach + 3.0).ceil().clamp(0.0, h as f64) as usize;
-            (*opacity, *color, ink, lined, top..bottom.max(top))
+            (*opacity, *color, ink, lined, band(&mut contours.iter().flatten().map(|p| p.1)))
         })
         .collect();
     let rows = |data: &mut [f32], field: &[f32], band: &std::ops::Range<usize>, color: [f64; 3], opacity: f64| {
-        crate::shape::paint(&mut data[band.start * w * 4..band.end * w * 4], &field[band.start * w..band.end * w], w, color, opacity, None);
+        // A band of no outlines (a space) is empty, h..h, which may lie past the window.
+        let (a, b) = (band.start.clamp(r0, r0 + rh) - r0, band.end.clamp(r0, r0 + rh) - r0);
+        crate::shape::paint(&mut data[a * w * 4..b * w * 4], &field[a * w..b * w], w, color, opacity, None);
     };
     if let (Some(s), false) = (&text.shadow, fields.is_empty()) {
         // Every group's letters, each as seen.
@@ -727,7 +754,7 @@ pub fn animated(text: &Text, animators: &[crate::effects::Effect], width: usize,
     for (opacity, color, ink, _, band) in &fields {
         rows(picture.data_mut(), ink, band, *color, *opacity);
     }
-    Some(picture)
+    Some((picture, r0))
 }
 
 /// D-265: [`draw`], keeping the last few pictures drawn. Text settings have no keys, so a text
@@ -1049,9 +1076,9 @@ fn rounded_box(l: f64, t: f64, r_: f64, b: f64, round: f64) -> Vec<(f64, f64)> {
 }
 
 /// Every pixel's cover by the band within `reach` of the outlines, which is shape strokes'
-/// field asked only over the outlines' box.
-fn around(contours: &[Vec<(f64, f64)>], reach: f64, w: usize, h: usize) -> Vec<f32> {
-    let mut field = vec![0.0f32; w * h];
+/// field asked only over the outlines' box; D-529: of the rows `rows` only, row `rows.start` first.
+fn around(contours: &[Vec<(f64, f64)>], reach: f64, w: usize, h: usize, rows: std::ops::Range<usize>) -> Vec<f32> {
+    let mut field = vec![0.0f32; w * rows.len()];
     let points = || contours.iter().flatten();
     if contours.is_empty() || w == 0 || h == 0 {
         return field;
@@ -1071,7 +1098,10 @@ fn around(contours: &[Vec<(f64, f64)>], reach: f64, w: usize, h: usize) -> Vec<f
         .collect();
     let part = crate::shape::stroke_field(&segments, right - left, bottom - top, reach);
     for (y, row) in part.chunks_exact(right - left).enumerate() {
-        field[(top + y) * w + left..(top + y) * w + right].copy_from_slice(row);
+        if rows.contains(&(top + y)) {
+            let y = top + y - rows.start;
+            field[y * w + left..y * w + right].copy_from_slice(row);
+        }
     }
     field
 }
@@ -1124,8 +1154,14 @@ fn shifted(field: &[f32], w: usize, h: usize, dx: f64, dy: f64, [l, t, r, b]: [u
 /// edge crossed adds one going down and takes one going up, and a sample is inside when the
 /// count is not zero. Only the rows the outlines reach are visited.
 pub fn fill(contours: &[Vec<(f64, f64)>], w: usize, h: usize) -> Vec<f32> {
+    fill_rows(contours, w, h, 0..h)
+}
+
+/// D-529: [`fill`] of the rows `rows` only, row `rows.start` first; each row worked as [`fill`]
+/// works it, so every value is the same.
+fn fill_rows(contours: &[Vec<(f64, f64)>], w: usize, h: usize, rows: std::ops::Range<usize>) -> Vec<f32> {
     let n = SAMPLES_PER_SIDE;
-    let mut field = vec![0.0f32; w * h];
+    let mut field = vec![0.0f32; w * rows.len()];
     let edges: Vec<[f64; 4]> = contours
         .iter()
         .flat_map(|c| (0..c.len()).map(move |i| {
@@ -1139,9 +1175,9 @@ pub fn fill(contours: &[Vec<(f64, f64)>], w: usize, h: usize) -> Vec<f32> {
     }
     let top = edges.iter().map(|e| e[1].min(e[3])).fold(f64::INFINITY, f64::min);
     let bottom = edges.iter().map(|e| e[1].max(e[3])).fold(f64::NEG_INFINITY, f64::max);
-    let first = (top.floor().max(0.0) as usize).min(h);
-    let last = (bottom.ceil().max(0.0) as usize).min(h);
-    field[first * w..last * w]
+    let first = (top.floor().max(0.0) as usize).min(h).clamp(rows.start, rows.end);
+    let last = (bottom.ceil().max(0.0) as usize).min(h).clamp(first, rows.end);
+    field[(first - rows.start) * w..(last - rows.start) * w]
         .par_chunks_mut(w)
         .enumerate()
         .for_each_init(

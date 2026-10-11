@@ -8107,7 +8107,46 @@ pub(crate) fn numbers_picture(e: &crate::effects::Effect, (w, h): (usize, usize)
 }
 
 /// D-526: [`numbers_picture`] of the words `s`; D-527's Timecode draws its count through it.
+/// D-529: the last few pictures are kept by the words and how they are drawn, not by the frame,
+/// so words that stay the same from frame to frame are drawn once.
+// ponytail: four 1080p pictures, about 130 MB, as `text::drawn` keeps; key by layer if a project
+// shows more Numbers or Timecode words than that redrawing on every frame.
 fn numbers_words(e: &crate::effects::Effect, s: &str, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
+    let crate::effects::Effect::Numbers {
+        position, display, fill_color, stroke_color, stroke_width, size, tracking, proportional_spacing, font, alignment, ..
+    } = e
+    else {
+        return None;
+    };
+    // Every f64 written as Rust's shortest exact form, so two keys are equal only when every
+    // setting is.
+    let key = format!(
+        "{position:?}|{display}|{fill_color}|{stroke_color}|{stroke_width:?}|{size:?}|{tracking:?}|{proportional_spacing}|{font}|{alignment}|{w}x{h}|{origin:?}|{s}"
+    );
+    static KEPT: std::sync::Mutex<Vec<(String, WorkingBuffer)>> = std::sync::Mutex::new(Vec::new());
+    let hit = |kept: &mut Vec<(String, WorkingBuffer)>| {
+        let i = kept.iter().position(|(k, _)| *k == key)?;
+        let found = kept.remove(i);
+        let picture = found.1.clone();
+        kept.push(found);
+        Some(picture)
+    };
+    if let Some(p) = hit(&mut KEPT.lock().unwrap_or_else(|e| e.into_inner())) {
+        return Some(p);
+    }
+    let picture = numbers_drawn(e, s, (w, h), origin)?;
+    let mut kept = KEPT.lock().unwrap_or_else(|e| e.into_inner());
+    if hit(&mut kept).is_none() {
+        if kept.len() == 4 {
+            kept.remove(0);
+        }
+        kept.push((key, picture.clone()));
+    }
+    Some(picture)
+}
+
+/// [`numbers_words`] drawn afresh.
+fn numbers_drawn(e: &crate::effects::Effect, s: &str, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
     let crate::effects::Effect::Numbers {
         position, display, fill_color, stroke_color, stroke_width, size, tracking, proportional_spacing, font, alignment, ..
     } = e
@@ -8142,7 +8181,13 @@ fn numbers_words(e: &crate::effects::Effect, s: &str, (w, h): (usize, usize), or
     let draw = |texts: Vec<crate::text::Text>| -> Option<WorkingBuffer> {
         let mut out = WorkingBuffer::transparent(w, h);
         for t in &texts {
-            crate::composite::over(&crate::text::draw(t, w, h)?, &mut out).ok()?;
+            // D-529: each character drawn and laid over only in the rows it reaches; over every
+            // other row it is transparent, which leaves the pixel under it as it is.
+            let (part, top) = crate::text::draw_rows(t, w, h)?;
+            out.data_mut()[top * w * 4..(top + part.height()) * w * 4]
+                .par_chunks_exact_mut(4)
+                .zip(part.data().par_chunks_exact(4))
+                .for_each(|(d, s)| d.copy_from_slice(&crate::composite::over_pixel([s[0], s[1], s[2], s[3]], [d[0], d[1], d[2], d[3]])));
         }
         Some(out)
     };

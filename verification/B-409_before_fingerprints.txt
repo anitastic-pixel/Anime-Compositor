@@ -1,0 +1,10 @@
+Numbers as added (proportional)	9408dbee1646c298
+Numbers, monospaced long date, stroke over fill 6, size 60	cdb08992446898e7
+Numbers, monospaced timecode 30, fill over stroke, frame 37	d67050202573d5c5
+Numbers, monospaced random with two places, stroke only, frame 9	e336186567d1b03a
+Numbers, monospaced, stroke over fill, partly above the top	941f381da96b23e2
+Numbers, monospaced, stroke over fill, partly below the bottom	c8f4dfdd4c403fa7
+Numbers, monospaced leading zeros, right, tracking 200, composite off	fe53c477487f953e
+Timecode as added, frame 50	61d469f3adbbb637
+Timecode, custom drop frame, size 120, half-opacity box, composite off, 1920 by 1080	d44a6c8d8bff6909
+Timecode, feet and frames 35mm, size 120, box past the top	18e97c0506a82198
