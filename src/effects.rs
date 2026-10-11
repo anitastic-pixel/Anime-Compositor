@@ -2901,6 +2901,26 @@ pub enum Effect {
         focal_bias: f64,
         channels: Option<crate::layer_map::Map>,
     },
+    /// D-524: Fog 3D, after After Effects' Fog 3D (3D Channel): fog laid over the layer, thicker
+    /// the further each pixel lies by the depth in the layer's EXR file
+    /// ([`crate::layer_fx::fog_shares`]). `fog_color`, `#rrggbb`, kept as written;
+    /// `fog_start_depth` and `fog_end_depth`, -1,000,000 to 1,000,000 in the depth's own units;
+    /// `fog_opacity`, `scattering_density` and `layer_contribution`, 0 to 100;
+    /// `foggy_background`, "on" or "off"; `gradient_layer`, D-189's layer setting as written, ""
+    /// for none, laid centred on the drawing. `map` (the gradient) and `channels` (the depth)
+    /// are not settings and are never saved.
+    Fog3d {
+        fog_color: String,
+        fog_start_depth: f64,
+        fog_end_depth: f64,
+        fog_opacity: f64,
+        scattering_density: f64,
+        foggy_background: String,
+        gradient_layer: serde_json::Value,
+        layer_contribution: f64,
+        map: Option<crate::layer_map::Map>,
+        channels: Option<crate::layer_map::Map>,
+    },
     /// D-350: Text Animator, after After Effects' text animators and their Range Selector: the
     /// letters of a text layer moved, scaled, turned, faded, recoloured and spaced one by one, each
     /// by how much the selector picks it (`text::lay_out`, document 21). `position`, x then y,
@@ -3576,6 +3596,7 @@ pub const DEPTH_KEY: &str = "core.depth_key";
 pub const ID_KEY: &str = "core.id_key";
 pub const CRYPTOMATTE: &str = "core.cryptomatte";
 pub const DEPTH_OF_FIELD: &str = "core.depth_of_field";
+pub const FOG_3D: &str = "core.fog_3d";
 /// D-522: Cryptomatte's outputs.
 pub const CRYPTO_OUTPUTS: [&str; 3] = ["colors", "matte", "keyed"];
 pub const TEXT_ANIMATOR: &str = "core.text_animator";
@@ -5128,6 +5149,13 @@ impl Effect {
                 ("id", vec![id], 0.0, 1e6),
                 ("feather", vec![feather], 0.0, 100.0),
             ],
+            Effect::Fog3d { fog_start_depth, fog_end_depth, fog_opacity, scattering_density, layer_contribution, .. } => vec![
+                ("fog_start_depth", vec![fog_start_depth], -1e6, 1e6),
+                ("fog_end_depth", vec![fog_end_depth], -1e6, 1e6),
+                ("fog_opacity", vec![fog_opacity], 0.0, 100.0),
+                ("scattering_density", vec![scattering_density], 0.0, 100.0),
+                ("layer_contribution", vec![layer_contribution], 0.0, 100.0),
+            ],
             Effect::DepthOfField { focal_plane, maximum_radius, focal_plane_thickness, focal_bias, .. } => vec![
                 ("focal_plane", vec![focal_plane], -1e6, 1e6),
                 ("maximum_radius", vec![maximum_radius], 0.0, 200.0),
@@ -6374,6 +6402,7 @@ impl Effect {
             Effect::IdKey { .. } => "ID Key",
             Effect::Cryptomatte { .. } => "Cryptomatte",
             Effect::DepthOfField { .. } => "Depth of Field",
+            Effect::Fog3d { .. } => "Fog 3D",
             Effect::TextAnimator { .. } => "Text Animator",
             Effect::AutoTone { kind: "levels", .. } => "Stretch Levels",
             Effect::AutoTone { kind: "contrast", .. } => "Stretch Contrast",
@@ -6596,6 +6625,7 @@ impl Effect {
             Effect::IdKey { .. } => ID_KEY,
             Effect::Cryptomatte { .. } => CRYPTOMATTE,
             Effect::DepthOfField { .. } => DEPTH_OF_FIELD,
+            Effect::Fog3d { .. } => FOG_3D,
             Effect::TextAnimator { .. } => TEXT_ANIMATOR,
             Effect::AutoTone { kind: "levels", .. } => STRETCH_LEVELS,
             Effect::AutoTone { kind: "contrast", .. } => STRETCH_CONTRAST,
@@ -6852,6 +6882,8 @@ impl Effect {
         match self {
             // D-521: the target lies on the drawing, centred.
             Effect::TimeDifference { layer: serde_json::Value::String(layer), .. } => Some((layer, "center")),
+            // D-524: the gradient lies on the drawing, centred.
+            Effect::Fog3d { gradient_layer: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. }
@@ -6908,6 +6940,7 @@ impl Effect {
             | Effect::ColorLink { layer, map, .. }
             | Effect::MatchGrain { layer, map, .. } => Some((layer, map)),
             Effect::PageTurn { back_page, map, .. } => Some((back_page, map)),
+            Effect::Fog3d { gradient_layer, map, .. } => Some((gradient_layer, map)),
             _ => None,
         }
     }
@@ -7393,6 +7426,13 @@ impl Effect {
                 )))
                 .or_else(|| (!["center", "stretch", "tile"].contains(&fit.as_str())).then(|| format!(
                     "Aerial Haze's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+                ))),
+            Effect::Fog3d { fog_color, foggy_background, gradient_layer, .. } => hex_fault("Fog 3D", "Fog Color", fog_color)
+                .or_else(|| (!["on", "off"].contains(&foggy_background.as_str())).then(|| format!(
+                    "Fog 3D's foggy background is \"on\" or \"off\", and this is \"{foggy_background}\"."
+                )))
+                .or_else(|| (!gradient_layer.is_string()).then(|| format!(
+                    "Fog 3D's gradient layer is the name of a layer of this composition, and this is {gradient_layer}."
                 ))),
             Effect::LensChromaticAberration { mode, .. } => (!["radial", "offset"].contains(&mode.as_str()))
                 .then(|| format!("Chromatic Aberration's mode is \"radial\" or \"offset\", and this is \"{mode}\".")),
@@ -11248,6 +11288,15 @@ pub(crate) fn apply_stack_at(
                 if let Some(pass) = channels {
                     crate::perf::time(crate::perf::Stage::EffectIdKey, || {
                         crate::layer_fx::id_key(source, &pass.0, (ox, oy), *id, *feather, invert == "on")
+                    })
+                }
+            }
+            // D-524: with the depth read, and the gradient when one is named; else the layer is
+            // left as it is, with the warning compose said.
+            Effect::Fog3d { fog_color, .. } => {
+                if let Some(shares) = crate::layer_fx::fog_shares(&instance.effect) {
+                    crate::perf::time(crate::perf::Stage::EffectFog3d, || {
+                        crate::layer_fx::fog_3d(source, &shares, (ox, oy), encoded(fog_color).map(crate::grade::to_linear))
                     })
                 }
             }

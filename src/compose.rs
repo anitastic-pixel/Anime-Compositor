@@ -1086,6 +1086,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Cryptomatte { .. }
                 // D-523: Depth of Field, drawn as its Lens Blur.
                 | crate::effects::Effect::DepthOfField { .. }
+                // D-524: Fog 3D (the shares are worked on the processor).
+                | crate::effects::Effect::Fog3d { .. }
                 | crate::effects::Effect::LineWidth { .. }
                 // D-353: Soft Physical Glow; D-544: Halation, on its engine.
                 | crate::effects::Effect::SoftGlow { .. }
@@ -1528,6 +1530,10 @@ fn card_effect(
                 | E::IdKey { channels, .. }
                 | E::Cryptomatte { channels, .. }
                 | E::DepthOfField { channels, .. } => channels.is_none(),
+                // D-524: no depth, no fog, or a gradient named and not read.
+                E::Fog3d { fog_opacity, gradient_layer, map, channels, .. } => {
+                    channels.is_none() || *fog_opacity == 0.0 || (gradient_layer.as_str() != Some("") && map.is_none())
+                }
                 E::LineSmooth { softness, .. } => *softness <= 0.0,
                 E::LineWidth { width, .. } => *width == 0.0,
                 // B-235: with no path the layer is left as it is.
@@ -3857,7 +3863,9 @@ fn fill_passes(
                 },
                 channels,
             ),
-            Effect::DepthKey { channels, .. } | Effect::DepthOfField { channels, .. } => (Pass::Depth, channels),
+            Effect::DepthKey { channels, .. } | Effect::DepthOfField { channels, .. } | Effect::Fog3d { channels, .. } => {
+                (Pass::Depth, channels)
+            }
             Effect::IdKey { aux_channel, channels, .. } => {
                 (if aux_channel == "material_id" { Pass::MaterialId } else { Pass::ObjectId }, channels)
             }

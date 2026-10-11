@@ -7033,6 +7033,77 @@ pub(crate) fn aerial_haze(source: &mut WorkingBuffer, matte: Option<(&WorkingBuf
     });
 }
 
+/// D-524: Fog 3D's shares at each pixel of the drawing, from the depth z compose read and, with
+/// a gradient layer named, the picture luma L of its map (both lie on the drawing at the same
+/// corner, the map transparent outside itself): t = clamp((z - start) / (end - start), 0, 1), a
+/// cut at start where the two are equal; f = t at density 0, else (1 - e^(-d t)) / (1 - e^(-d))
+/// with d = density / 10; g = 1 - c + c L (1 without a gradient), c the contribution; the fog
+/// on the pixel f g o in the first number and behind it g o (0 with Foggy Background off) in
+/// the second, o the opacity. None where the layer is left as it is: no depth read, or a
+/// gradient named and not read.
+pub(crate) fn fog_shares(e: &crate::effects::Effect) -> Option<WorkingBuffer> {
+    let crate::effects::Effect::Fog3d {
+        fog_start_depth: start,
+        fog_end_depth: end,
+        fog_opacity,
+        scattering_density,
+        foggy_background,
+        gradient_layer,
+        layer_contribution,
+        map,
+        channels: Some(depth),
+        ..
+    } = e
+    else {
+        return None;
+    };
+    let gradient = match (gradient_layer.as_str(), map) {
+        (Some(""), _) => None,
+        (_, Some(m)) => Some(m.0.as_ref()),
+        _ => return None,
+    };
+    let (o, c, d) = (fog_opacity / 100.0, layer_contribution / 100.0, scattering_density / 10.0);
+    let behind = foggy_background == "on";
+    let (w, h) = (depth.0.width(), depth.0.height());
+    let mut out = WorkingBuffer::transparent(w, h);
+    out.data_mut().par_chunks_exact_mut(4).zip(depth.0.data().par_chunks_exact(4)).enumerate().for_each(|(i, (px, z))| {
+        let z = z[0] as f64;
+        let t = if end == start {
+            if z >= *start { 1.0 } else { 0.0 }
+        } else {
+            ((z - start) / (end - start)).clamp(0.0, 1.0)
+        };
+        let f = if d == 0.0 { t } else { (1.0 - (-d * t).exp()) / (1.0 - (-d).exp()) };
+        let g = gradient.map_or(1.0, |m| {
+            let (x, y) = (i % w, i / w);
+            1.0 - c + c * if x < m.width() && y < m.height() { picture_luma(m.pixel(x, y)) } else { 0.0 }
+        });
+        px[0] = (f * g * o) as f32;
+        px[1] = if behind { (g * o) as f32 } else { 0.0 };
+    });
+    Some(out)
+}
+
+/// D-524: Fog 3D laid on with its shares (F, B) lying at `origin`: each colour moves toward the
+/// fog colour `fog` (linear) by F as Aerial Haze moves it, and what does not cover the pixel lets
+/// B of the fog behind it show, (rgb + F (fog a - rgb) + (1 - a) B fog, a + (1 - a) B). Outside
+/// the shares nothing changes.
+pub(crate) fn fog_3d(source: &mut WorkingBuffer, shares: &WorkingBuffer, origin: (usize, usize), fog: [f64; 3]) {
+    let w = source.width();
+    let s = shares.data();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let Some(j) = pass_at(shares, i, w, origin) else {
+            return;
+        };
+        let (f, b, a) = (s[j] as f64, s[j + 1] as f64, px[3] as f64);
+        for c in 0..3 {
+            let q = px[c] as f64;
+            px[c] = (q + f * (fog[c] * a - q) + (1.0 - a) * b * fog[c]) as f32;
+        }
+        px[3] = (a + (1.0 - a) * b) as f32;
+    });
+}
+
 /// D-501: Difference Matte. Each pixel compared with the plate `map` under it (the plate lies
 /// on the layer's own picture, at `origin` in `source`, transparent outside it), both blurred
 /// first by a Gaussian at `sigma` when above 0: the largest difference of the straight encoded

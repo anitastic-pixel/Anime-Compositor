@@ -3941,6 +3941,27 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("selection".into(), J::from(selection.as_str()));
             params.insert("output".into(), J::from(output.as_str()));
         }
+        // D-524: the gradient and depth read for a frame are never saved.
+        Effect::Fog3d {
+            fog_color,
+            fog_start_depth,
+            fog_end_depth,
+            fog_opacity,
+            scattering_density,
+            foggy_background,
+            gradient_layer,
+            layer_contribution,
+            ..
+        } => {
+            params.insert("fog_color".into(), J::from(fog_color.as_str()));
+            params.insert("fog_start_depth".into(), num(*fog_start_depth));
+            params.insert("fog_end_depth".into(), num(*fog_end_depth));
+            params.insert("fog_opacity".into(), num(*fog_opacity));
+            params.insert("scattering_density".into(), num(*scattering_density));
+            params.insert("foggy_background".into(), J::from(foggy_background.as_str()));
+            params.insert("gradient_layer".into(), gradient_layer.clone());
+            params.insert("layer_contribution".into(), num(*layer_contribution));
+        }
         // D-523: the fractions read for a frame are never saved.
         Effect::DepthOfField { focal_plane, maximum_radius, focal_plane_thickness, focal_bias, .. } => {
             params.insert("focal_plane".into(), num(*focal_plane));
@@ -5311,6 +5332,7 @@ fn parse_effect(
         crate::effects::ID_KEY,
         crate::effects::CRYPTOMATTE,
         crate::effects::DEPTH_OF_FIELD,
+        crate::effects::FOG_3D,
         crate::effects::TEXT_ANIMATOR,
         crate::effects::STRETCH_LEVELS,
         crate::effects::STRETCH_CONTRAST,
@@ -7338,6 +7360,19 @@ fn parse_effect(
             layer: effect_word(params, "layer", &at)?,
             selection: effect_word(params, "selection", &at)?,
             output: effect_word(params, "output", &at)?,
+            channels: None,
+        }),
+        // D-524: the colour read in small letters; the gradient layer kept as written.
+        crate::effects::FOG_3D => Some(crate::effects::Effect::Fog3d {
+            fog_color: effect_word(params, "fog_color", &at)?.to_ascii_lowercase(),
+            fog_start_depth: effect_number(params, "fog_start_depth", &at)?,
+            fog_end_depth: effect_number(params, "fog_end_depth", &at)?,
+            fog_opacity: effect_number(params, "fog_opacity", &at)?,
+            scattering_density: effect_number(params, "scattering_density", &at)?,
+            foggy_background: effect_word(params, "foggy_background", &at)?,
+            gradient_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer")?.clone(),
+            layer_contribution: effect_number(params, "layer_contribution", &at)?,
+            map: None,
             channels: None,
         }),
         crate::effects::DEPTH_OF_FIELD => Some(crate::effects::Effect::DepthOfField {

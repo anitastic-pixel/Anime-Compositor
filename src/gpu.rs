@@ -8488,6 +8488,28 @@ fn haze(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-524, layer_fx::fog_3d: k[0] to k[2] the fog colour in linear light; `other` the shares, F
+// then B, lying on the drawing at (F.ox, F.oy), transparent outside it.
+@compute @workgroup_size(16, 16)
+fn fog(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let s = at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy));
+    let a = f64(p.w);
+    let f = f64(s.x);
+    let b = f64(s.y);
+    var out = p;
+    for (var c = 0u; c < 3u; c++) {
+        let q = f64(p[c]);
+        out[c] = f32(q + f * (k[c] * a - q) + (1.0lf - a) * b * k[c]);
+    }
+    out.w = f32(a + (1.0lf - a) * b);
+    textureStore(output, id.xy, out);
+}
+
 // D-501, layer_fx::difference_matte: a pixel as straight encoded colour and its alpha.
 fn dm_straight(p: vec4<f32>) -> vec4<f64> {
     let a = f64(p.w);
@@ -9652,6 +9674,8 @@ struct FxPasses {
     gwipe: Pass,
     /// D-403.
     haze: Pass,
+    /// D-524.
+    fog: Pass,
     /// D-501.
     dmatte: Pass,
     /// D-506.
@@ -10332,6 +10356,7 @@ impl Gpu {
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
                 gwipe: pass("gwipe", &[0, 1, 2, 3, 4]),
                 haze: pass("haze", &[0, 1, 2, 3, 4]),
+                fog: pass("fog", &[0, 1, 2, 3, 4]),
                 dmatte: pass("dmatte", &[0, 1, 2, 3, 4]),
                 glasses: pass("glasses", &[0, 1, 2, 3, 4]),
                 spotlight: pass("spotlight", &[0, 1, 2, 3]),
@@ -13743,6 +13768,19 @@ impl Gpu {
                 let out = self.scratch("D-403 haze", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.haze, p, Some(still), Some(&out), Some(&k), Some(matte.as_ref().unwrap_or(still)), none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-524: compose leaves the card a Fog 3D only when its depth (and gradient) was read.
+            // ponytail: the shares are worked on the processor each frame; a shader reading the
+            // depth and the gradient together if Fog 3D shows in the card's timings.
+            e @ E::Fog3d { .. } => {
+                let shares = crate::layer_fx::fog_shares(e).expect("compose leaves a Fog 3D whose depth was read");
+                let shares = self.map_texture(&shares);
+                let E::Fog3d { fog_color, .. } = e else { unreachable!() };
+                let k = crate::effects::encoded(fog_color).map(crate::grade::to_linear);
+                let out = self.scratch("D-524 fog", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.fog, p, Some(still), Some(&out), Some(&k), Some(&shares), none, tiles(w, h));
                 (out, (w, h))
             }
             // D-501: compose leaves the card a Difference Matte only when its plate was read. With
