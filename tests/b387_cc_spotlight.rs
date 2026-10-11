@@ -1,7 +1,7 @@
 //! B-387: D-507, after CycoreFX's CC Spotlight (Perspective): a spotlight cone shining down on
 //! the layer. The CycoreFX manual names the controls but publishes no formula and no settings
 //! when added: the rule and those settings are ours, stated in `tools/cc_spotlight_reference.py`.
-//! The four Gel renders are not built and are refused in a sentence.
+//! The four Gel renders are D-519's (`tests/b399_cc_spotlight_gel.rs`).
 //!
 //! Writes `verification/D-507_cc_spotlight_table.md` and draws pictures into
 //! `verification/D-507 pictures/`.
@@ -203,7 +203,7 @@ fn b387_cc_spotlight() {
          `tools/cc_spotlight_reference.py`: a lamp at From, Height above the drawing, pointed at \
          To; a pixel's share of the light is 1 inside the inner angle, 0 outside half the Cone \
          Angle, smoothstep between; Light Only, Light Add, Light Add+ and Light Shadow use it. \
-         The four Gel renders are not built. Every expected pixel is \
+         The four Gel renders are D-519's. Every expected pixel is \
          `Fixtures/cc_spotlight/expected_cc_spotlight.json`, written by the tool before this code \
          existed and printed in document 25 as FX-SPOT-001 to 027. Tolerance 2e-5.\n",
     );
@@ -229,7 +229,7 @@ fn b387_cc_spotlight() {
         ("fx_spot_021.json", "cone angle"),
         ("fx_spot_022.json", "edge softness"),
         ("fx_spot_023.json", "intensity"),
-        ("fx_spot_024.json", "gel renders are not built yet"),
+        ("fx_spot_024.json", "render"),
         ("fx_spot_025.json", "render"),
         ("fx_spot_026.json", "colour"),
         ("fx_spot_027.json", "colour"),

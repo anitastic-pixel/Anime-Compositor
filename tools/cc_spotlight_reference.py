@@ -9,14 +9,16 @@ Edge Softness ("lower values result in sharper edges"), Color, Intensity ("highe
 brighter results"), Render (Light Only, Light Add, Light Add+, Light Shadow, and four Gel
 renders that project a Gel Layer) and Gel Layer. It publishes no formula and no settings when
 added, so the rule and those settings are ours (document 21, D-507). The four Gel renders and
-the Gel Layer are not built yet: a Gel render is refused with a sentence saying so.
+the Gel Layer are D-519's, worked in `tools/cc_spotlight_gel_reference.py`; here a render that is
+not one of the eight words is refused.
 
 The settings. `from` and `to`, x then y, -1000 to 1000 per cent of the drawing's own width and
 height (as Radial Shadow's light), [25, 25] and [50, 50] when added; `height`, 0 to 1000 per cent
 of the drawing's own width, 50 when added; `cone_angle`, 0 to 180 degrees, the whole opening, 40
 when added; `edge_softness`, 0 to 100, 20 when added; `intensity`, 0 to 1000 per cent, 100 when
 added; all six keyable. `color`, `#rrggbb`, "#ffffff" when added; `render`, "light_only",
-"light_add", "light_add_plus" or "light_shadow" (when added), exact.
+"light_add", "light_add_plus" or "light_shadow" (when added), exact; the four Gel words are
+D-519's.
 
 The rule, in the drawing's own W by H space, at the pixel's centre P = (x + 1/2, y + 1/2, 0): the
 light sits at F = (from_x W / 100, from_y H / 100, -height W / 100) and points at
@@ -205,8 +207,9 @@ INVALID = {
     "FX-SPOT-021": ("Cone angle 181, above 180.", case(cone_angle=181)),
     "FX-SPOT-022": ("Edge softness 101, above 100.", case(edge_softness=101)),
     "FX-SPOT-023": ("Intensity 1001, above 1000.", case(intensity=1001)),
-    "FX-SPOT-024": ("Render \"gel_add\": CC Spotlight's Gel renders are not built yet.",
-                    case("gel_add")),
+    "FX-SPOT-024": ("Render \"gel\": not one of the eight renders (D-519 changed this from "
+                    "\"gel_add\", refused while the Gel renders were not built).",
+                    case("gel")),
     "FX-SPOT-025": ("Render \"Light_Add\": the word is exact, so a capital is not it.",
                     case("Light_Add")),
     "FX-SPOT-026": ("Color \"#ff80\": not six hex digits.", case(color="#ff80")),

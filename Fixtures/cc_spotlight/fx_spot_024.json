@@ -90,7 +90,7 @@
               "enabled": true,
               "parameters": {
                 "color": "#ffffff",
-                "render": "gel_add",
+                "render": "gel",
                 "from": [
                   25,
                   25

@@ -31893,7 +31893,7 @@
    "warning": "EFFECT_PARAMETER_INVALID"
   },
   "FX-SPOT-024": {
-   "says": "Render \"gel_add\": CC Spotlight's Gel renders are not built yet. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "says": "Render \"gel\": not one of the eight renders (D-519 changed this from \"gel_add\", refused while the Gel renders were not built). The file is read, the effect is kept as written and left out of every frame, with a warning.",
    "project": "fx_spot_024.json",
    "frames": {
     "0": [
