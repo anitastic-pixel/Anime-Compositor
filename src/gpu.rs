@@ -9369,6 +9369,64 @@ fn environment(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 
+// D-532, layer_fx::cc_sphere: k as layer_fx::cylinder_numbers; the drawing's corner at
+// (F.ox, F.oy). The highlight's power is taken in single precision.
+@compute @workgroup_size(16, 16)
+fn sphere(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let d = vec3<f64>(f64(i32(id.x) - F.ox) + 0.5lf - k[1], f64(i32(id.y) - F.oy) + 0.5lf - k[2], -k[3]);
+    let v = vec3<f64>(
+        k[4] * d.x + k[7] * d.y + k[10] * d.z,
+        k[5] * d.x + k[8] * d.y + k[11] * d.z,
+        k[6] * d.x + k[9] * d.y + k[12] * d.z,
+    );
+    let o = vec3<f64>(k[13], k[14], k[15]);
+    let r = k[16];
+    let a = dot(v, v);
+    let b = dot(o, v);
+    let disc = b * b - a * (dot(o, o) - r * r);
+    var got = vec4<f64>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+    if r != 0.0lf && disc >= 0.0lf {
+        let sq = sqrt(disc);
+        let mode = u32(k[0]);
+        let lv = sqrt(dot(v, v));
+        let l = vec3<f64>(k[17], k[18], k[19]);
+        let hv = l - v / lv;
+        let hl = sqrt(dot(hv, hv));
+        let lc = vec3<f64>(k[21], k[22], k[23]);
+        // The inside first, the outside laid over it.
+        for (var j = 0; j < 2; j++) {
+            let inside = j == 0;
+            let t = select((-b - sq) / a, (-b + sq) / a, inside);
+            if (inside && mode == 1u) || (!inside && mode == 2u) || !(t > 0.0lf) {
+                continue;
+            }
+            let hit = o + t * v;
+            let phi = atan2_64(hit.x, -hit.z);
+            let lat = atan2_64(hit.y, sqrt(hit.x * hit.x + hit.z * hit.z));
+            // The taps' rows held to the drawing: the same as the row held half a pixel in.
+            let y = min(max(k[30] / 2.0lf + lat / 3.141592653589793lf * k[30], 0.5lf), k[30] - 0.5lf);
+            let s = round_tap(k[29] / 2.0lf + phi / 6.283185307179586lf * k[29], y + f64(F.oy), k[29], f64(F.ox));
+            let p = vec4<f64>(f64(s.x), f64(s.y), f64(s.z), f64(s.w));
+            let sg = select(1.0lf, -1.0lf, inside);
+            let n = hit * (sg / r);
+            let nl = dot(n, l);
+            var sp = 0.0lf;
+            if k[28] > 0.0lf && nl > 0.0lf && hl > 0.0lf {
+                sp = f64(pow(f32(max(dot(n, hv) / hl, 0.0lf)), f32(k[28])));
+            }
+            let diff = k[25] * k[20] * max(nl, 0.0lf);
+            let spec = k[26] * k[20] * sp;
+            let lit = p.xyz * (vec3<f64>(k[24], k[24], k[24]) + diff * lc) + spec * (k[27] * p.xyz + (1.0lf - k[27]) * lc * p.w);
+            got = vec4<f64>(lit, p.w) + (1.0lf - p.w) * got;
+        }
+    }
+    textureStore(output, id.xy, vec4<f32>(f32(got.x), f32(got.y), f32(got.z), f32(got.w)));
+}
+
 // D-530, layer_fx::cc_cylinder: k as layer_fx::cylinder_numbers; the drawing's corner at
 // (F.ox, F.oy). The highlight's power is taken in single precision.
 @compute @workgroup_size(16, 16)
@@ -10471,6 +10529,8 @@ struct FxPasses {
     spotlight: Pass,
     /// D-530.
     cylinder: Pass,
+    /// D-532.
+    sphere: Pass,
     /// D-531.
     environment: Pass,
     lwidth: Pass,
@@ -11167,6 +11227,7 @@ impl Gpu {
                 glasses: pass("glasses", &[0, 1, 2, 3, 4]),
                 spotlight: pass("spotlight", &[0, 1, 2, 3, 4]),
                 cylinder: pass("cylinder", &[0, 1, 2, 3]),
+                sphere: pass("sphere", &[0, 1, 2, 3]),
                 environment: pass("environment", &[0, 1, 2, 3, 4]),
                 passx: pass("passx", &[0, 1, 2, 3, 4]),
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
@@ -14766,6 +14827,13 @@ impl Gpu {
                 let out = self.scratch("D-531 environment", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.environment, p, Some(still), Some(&out), Some(&k), Some(&env), none, tiles(w, h));
+                (out, (w, h))
+            }
+            e @ E::CcSphere { .. } => {
+                let k = crate::layer_fx::cylinder_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let out = self.scratch("D-532 sphere", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.sphere, p, Some(still), Some(&out), Some(&k), None, none, tiles(w, h));
                 (out, (w, h))
             }
             e @ E::CcCylinder { .. } => {

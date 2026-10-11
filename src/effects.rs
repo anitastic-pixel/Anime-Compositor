@@ -2662,6 +2662,30 @@ pub enum Effect {
         filter_environment: String,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-532: after CycoreFX's CC Sphere, its rule and its settings when added ours
+    /// (`layer_fx::cc_sphere`, document 21), its own fake 3D (no composition camera). `radius`,
+    /// 0 to 1000 per cent of half the drawing's width; `offset`, x then y, per cent of the
+    /// drawing, -1000 to 1000; `rotation_x`, `rotation_y` and `rotation_z`, -3600 to 3600
+    /// degrees; `render`, one of [`CYLINDER_RENDERS`]; `light_intensity`, 0 to 1000 per cent;
+    /// `light_color`, `#rrggbb`; `light_height`, -100 to 100; `light_direction`, -3600 to 3600
+    /// degrees; `ambient`, `diffuse`, `specular`, `roughness` and `metal`, 0 to 100.
+    CcSphere {
+        radius: f64,
+        offset: [f64; 2],
+        rotation_x: f64,
+        rotation_y: f64,
+        rotation_z: f64,
+        render: String,
+        light_intensity: f64,
+        light_color: String,
+        light_height: f64,
+        light_direction: f64,
+        ambient: f64,
+        diffuse: f64,
+        specular: f64,
+        roughness: f64,
+        metal: f64,
+    },
     /// D-530: after CycoreFX's CC Cylinder, its rule and its settings when added ours
     /// (`layer_fx::cc_cylinder`, document 21), its own fake 3D (no composition camera). `radius`,
     /// 0 to 1000 per cent of half the drawing's width; `position`, x then y, per cent of the
@@ -3857,7 +3881,8 @@ pub const ENERGY_SOURCES: [&str; 4] = ["points", "masks", "shapes", "text"];
 /// D-508: how Energy Stroke's light meets the layer.
 pub const ENERGY_COMPOSITES: [&str; 3] = ["add", "transparent", "black"];
 pub const CC_CYLINDER: &str = "core.cc_cylinder";
-/// D-530: CC Cylinder's renders: the outside over the inside, the outside alone, the inside alone.
+pub const CC_SPHERE: &str = "core.cc_sphere";
+/// D-530: CC Cylinder's renders, and D-532 CC Sphere's: the outside over the inside, the outside alone, the inside alone.
 pub const CYLINDER_RENDERS: [&str; 3] = ["full", "outside", "inside"];
 pub const CC_ENVIRONMENT: &str = "core.cc_environment";
 /// D-531: CC Environment's mappings: latitude and longitude, an angular light probe, a vertical cross.
@@ -4278,6 +4303,36 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 1000.0),
                 ("position", position.iter_mut().collect(), -1000.0, 1000.0),
                 ("position_z", vec![position_z], -1000.0, 1000.0),
+                ("rotation_x", vec![rotation_x], -3600.0, 3600.0),
+                ("rotation_y", vec![rotation_y], -3600.0, 3600.0),
+                ("rotation_z", vec![rotation_z], -3600.0, 3600.0),
+                ("light_intensity", vec![light_intensity], 0.0, 1000.0),
+                ("light_height", vec![light_height], -100.0, 100.0),
+                ("light_direction", vec![light_direction], -3600.0, 3600.0),
+                ("ambient", vec![ambient], 0.0, 100.0),
+                ("diffuse", vec![diffuse], 0.0, 100.0),
+                ("specular", vec![specular], 0.0, 100.0),
+                ("roughness", vec![roughness], 0.0, 100.0),
+                ("metal", vec![metal], 0.0, 100.0),
+            ],
+            Effect::CcSphere {
+                radius,
+                offset,
+                rotation_x,
+                rotation_y,
+                rotation_z,
+                light_intensity,
+                light_height,
+                light_direction,
+                ambient,
+                diffuse,
+                specular,
+                roughness,
+                metal,
+                ..
+            } => vec![
+                ("radius", vec![radius], 0.0, 1000.0),
+                ("offset", offset.iter_mut().collect(), -1000.0, 1000.0),
                 ("rotation_x", vec![rotation_x], -3600.0, 3600.0),
                 ("rotation_y", vec![rotation_y], -3600.0, 3600.0),
                 ("rotation_z", vec![rotation_z], -3600.0, 3600.0),
@@ -6928,6 +6983,7 @@ impl Effect {
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
+            Effect::CcSphere { .. } => "CC Sphere",
             Effect::CcEnvironment { .. } => "CC Environment",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::BlockLoad { .. } => "Block Load",
@@ -7164,6 +7220,7 @@ impl Effect {
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
+            Effect::CcSphere { .. } => CC_SPHERE,
             Effect::CcEnvironment { .. } => CC_ENVIRONMENT,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::BlockLoad { .. } => BLOCK_LOAD,
@@ -7746,6 +7803,12 @@ impl Effect {
                 .or_else(|| (!["on", "off"].contains(&f.as_str())).then(|| format!(
                     "CC Environment's filter environment is \"on\" or \"off\", and this is \"{f}\"."
                 ))),
+            Effect::CcSphere { light_color, render, .. } => hex_fault("CC Sphere", "light colour", light_color).or_else(|| {
+                (!CYLINDER_RENDERS.contains(&render.as_str())).then(|| {
+                    let renders = CYLINDER_RENDERS.map(|r| format!("\"{r}\"")).join(", ");
+                    format!("CC Sphere's render is one of {renders}, and this is \"{render}\".")
+                })
+            }),
             Effect::CcCylinder { light_color, render, .. } => hex_fault("CC Cylinder", "light colour", light_color).or_else(|| {
                 (!CYLINDER_RENDERS.contains(&render.as_str())).then(|| {
                     let renders = CYLINDER_RENDERS.map(|r| format!("\"{r}\"")).join(", ");
@@ -10853,6 +10916,10 @@ pub(crate) fn apply_stack_at(
                 crate::layer_fx::cc_environment(source, e, (ox, oy))
             }),
             Effect::CcEnvironment { .. } => {}
+            // D-532: every distance a share of the drawing; never grows.
+            e @ Effect::CcSphere { .. } => crate::perf::time(crate::perf::Stage::EffectCcSphere, || {
+                crate::layer_fx::cc_sphere(source, e, (ox, oy))
+            }),
             // D-530: every distance a share of the drawing; never grows.
             e @ Effect::CcCylinder { .. } => crate::perf::time(crate::perf::Stage::EffectCcCylinder, || {
                 crate::layer_fx::cc_cylinder(source, e, (ox, oy))

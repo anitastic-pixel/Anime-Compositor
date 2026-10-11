@@ -2821,6 +2821,43 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("field_of_view".into(), num(*field_of_view));
             params.insert("filter_environment".into(), J::from(filter_environment.as_str()));
         }
+        Effect::CcSphere {
+            radius,
+            offset,
+            rotation_x,
+            rotation_y,
+            rotation_z,
+            render,
+            light_intensity,
+            light_color,
+            light_height,
+            light_direction,
+            ambient,
+            diffuse,
+            specular,
+            roughness,
+            metal,
+        } => {
+            params.insert("radius".into(), num(*radius));
+            params.insert("offset".into(), J::Array(offset.iter().map(|c| num(*c)).collect()));
+            for (n, v) in [
+                ("rotation_x", rotation_x),
+                ("rotation_y", rotation_y),
+                ("rotation_z", rotation_z),
+                ("light_intensity", light_intensity),
+                ("light_height", light_height),
+                ("light_direction", light_direction),
+                ("ambient", ambient),
+                ("diffuse", diffuse),
+                ("specular", specular),
+                ("roughness", roughness),
+                ("metal", metal),
+            ] {
+                params.insert(n.into(), num(*v));
+            }
+            params.insert("render".into(), J::from(render.as_str()));
+            params.insert("light_color".into(), J::from(light_color.as_str()));
+        }
         Effect::CcCylinder {
             radius,
             position,
@@ -5474,6 +5511,7 @@ fn parse_effect(
         crate::effects::CC_BALL_ACTION,
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
+        crate::effects::CC_SPHERE,
         crate::effects::CC_ENVIRONMENT,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
@@ -6821,6 +6859,23 @@ fn parse_effect(
             field_of_view: effect_number(params, "field_of_view", &at)?,
             filter_environment: effect_word(params, "filter_environment", &at)?,
             map: None,
+        }),
+        crate::effects::CC_SPHERE => Some(crate::effects::Effect::CcSphere {
+            radius: effect_number(params, "radius", &at)?,
+            offset: effect_array(params, "offset", "two numbers, x then y", &at)?,
+            rotation_x: effect_number(params, "rotation_x", &at)?,
+            rotation_y: effect_number(params, "rotation_y", &at)?,
+            rotation_z: effect_number(params, "rotation_z", &at)?,
+            render: effect_word(params, "render", &at)?,
+            light_intensity: effect_number(params, "light_intensity", &at)?,
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            light_height: effect_number(params, "light_height", &at)?,
+            light_direction: effect_number(params, "light_direction", &at)?,
+            ambient: effect_number(params, "ambient", &at)?,
+            diffuse: effect_number(params, "diffuse", &at)?,
+            specular: effect_number(params, "specular", &at)?,
+            roughness: effect_number(params, "roughness", &at)?,
+            metal: effect_number(params, "metal", &at)?,
         }),
         crate::effects::CC_CYLINDER => Some(crate::effects::Effect::CcCylinder {
             radius: effect_number(params, "radius", &at)?,

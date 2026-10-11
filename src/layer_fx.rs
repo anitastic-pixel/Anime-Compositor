@@ -8341,28 +8341,17 @@ pub(crate) fn cc_environment(source: &mut WorkingBuffer, e: &crate::effects::Eff
 /// rows (nine), the eye in the cylinder's own space M^T (E - C) (three), the radius, the light's
 /// direction in the cylinder's own space (three), the intensity share, the light's linear colour
 /// (three), ambient, diffuse, specular and metal as shares, the highlight's power (0 for none),
-/// `w0` and `h0`.
+/// `w0` and `h0`. D-532: CC Sphere's the same, its offset the position and its centre in the
+/// drawing's plane.
 pub(crate) fn cylinder_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 31] {
-    let crate::effects::Effect::CcCylinder {
-        radius,
-        position,
-        position_z,
-        rotation_x,
-        rotation_y,
-        rotation_z,
-        render,
-        light_intensity,
-        light_color,
-        light_height,
-        light_direction,
-        ambient,
-        diffuse,
-        specular,
-        roughness,
-        metal,
-    } = e
-    else {
-        unreachable!("CC Cylinder's numbers of another effect")
+    use crate::effects::Effect as E;
+    #[rustfmt::skip]
+    let (radius, position, position_z, rotation_x, rotation_y, rotation_z, render, light_intensity, light_color, light_height, light_direction, ambient, diffuse, specular, roughness, metal) = match e {
+        E::CcCylinder { radius, position, position_z, rotation_x, rotation_y, rotation_z, render, light_intensity, light_color, light_height, light_direction, ambient, diffuse, specular, roughness, metal } =>
+            (radius, position, position_z, rotation_x, rotation_y, rotation_z, render, light_intensity, light_color, light_height, light_direction, ambient, diffuse, specular, roughness, metal),
+        E::CcSphere { radius, offset, rotation_x, rotation_y, rotation_z, render, light_intensity, light_color, light_height, light_direction, ambient, diffuse, specular, roughness, metal } =>
+            (radius, offset, &0.0, rotation_x, rotation_y, rotation_z, render, light_intensity, light_color, light_height, light_direction, ambient, diffuse, specular, roughness, metal),
+        _ => unreachable!("CC Cylinder's numbers of another effect"),
     };
     type M3 = [[f64; 3]; 3];
     let mul = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum())) };
@@ -8418,16 +8407,17 @@ pub(crate) fn cylinder_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> 
     ]
 }
 
-/// D-530: one hit's lit colour from its premultiplied sample `c`, at `hit` in the cylinder's own
-/// space on the ray `v`, the inside's normal turned round (document 21).
+/// D-530: one hit's lit colour from its premultiplied sample `c`, its normal along `hit` in the
+/// cylinder's own space (the hit itself on CC Sphere's, D-532, its axial part 0 on CC Cylinder's)
+/// on the ray `v`, the inside's normal turned round (document 21).
 fn cylinder_shade(k: &[f64; 31], c: [f64; 4], hit: [f64; 3], v: [f64; 3], inside: bool) -> [f64; 4] {
     let sg = if inside { -1.0 } else { 1.0 };
-    let n = [sg * hit[0] / k[16], sg * hit[2] / k[16]];
+    let n = hit.map(|q| sg * q / k[16]);
     let lv = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
     let hv = [k[17] - v[0] / lv, k[18] - v[1] / lv, k[19] - v[2] / lv];
     let hl = (hv[0] * hv[0] + hv[1] * hv[1] + hv[2] * hv[2]).sqrt();
-    let nl = n[0] * k[17] + n[1] * k[19];
-    let s = if k[28] > 0.0 && nl > 0.0 && hl > 0.0 { ((n[0] * hv[0] + n[1] * hv[2]) / hl).max(0.0).powf(k[28]) } else { 0.0 };
+    let nl = n[0] * k[17] + n[1] * k[18] + n[2] * k[19];
+    let s = if k[28] > 0.0 && nl > 0.0 && hl > 0.0 { ((n[0] * hv[0] + n[1] * hv[1] + n[2] * hv[2]) / hl).max(0.0).powf(k[28]) } else { 0.0 };
     let (diff, spec) = (k[25] * k[20] * nl.max(0.0), k[26] * k[20] * s);
     let lit = |j: usize| c[j] * (k[24] + diff * k[21 + j]) + spec * (k[27] * c[j] + (1.0 - k[27]) * k[21 + j] * c[3]);
     [lit(0), lit(1), lit(2), c[3]]
@@ -8463,6 +8453,48 @@ pub(crate) fn cc_cylinder(source: &mut WorkingBuffer, e: &crate::effects::Effect
             let hit = [o[0] + t * v[0], hy, o[2] + t * v[2]];
             let phi = hit[0].atan2(-hit[2]);
             let s = sample_round(drawing, k[29] / 2.0 + phi / std::f64::consts::TAU * k[29], hy + k[30] / 2.0 + oy as f64, dw as isize, ox as isize);
+            let lit = cylinder_shade(&k, s.map(f64::from), [hit[0], 0.0, hit[2]], v, inside);
+            got = std::array::from_fn(|j| lit[j] + (1.0 - lit[3]) * got[j]);
+        }
+        for (p, g) in px.iter_mut().zip(got) {
+            *p = g as f32;
+        }
+    });
+    *source = out;
+}
+
+/// D-532: after CycoreFX's CC Sphere, the rule ours (document 21): the drawing, whose corner is
+/// at `(ox, oy)` in the buffer, wrapped round a lit sphere as a map of the world, seen by CC
+/// Cylinder's fixed eye and lit by its light; one ray a pixel. Never grows.
+pub(crate) fn cc_sphere(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let (w, h) = (source.width(), source.height());
+    let (dw, dh) = (w - 2 * ox, h - 2 * oy);
+    let k = cylinder_numbers(e, dw as f64, dh as f64);
+    let mut out = WorkingBuffer::transparent(w, h);
+    let drawing = &*source;
+    let (o, r, mode) = ([k[13], k[14], k[15]], k[16], k[0] as usize);
+    let dot = |p: [f64; 3], q: [f64; 3]| p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let d = [(i % w) as f64 - ox as f64 + 0.5 - k[1], (i / w) as f64 - oy as f64 + 0.5 - k[2], -k[3]];
+        let v: [f64; 3] = std::array::from_fn(|n| k[4 + n] * d[0] + k[7 + n] * d[1] + k[10 + n] * d[2]);
+        let (a, b) = (dot(v, v), dot(o, v));
+        let disc = b * b - a * (dot(o, o) - r * r);
+        if r == 0.0 || disc < 0.0 {
+            return;
+        }
+        let sq = disc.sqrt();
+        let mut got = [0.0f64; 4];
+        // The inside first, the outside laid over it.
+        for (t, inside) in [((-b + sq) / a, true), ((-b - sq) / a, false)] {
+            if (inside && mode == 1) || (!inside && mode == 2) || !(t > 0.0) {
+                continue;
+            }
+            let hit: [f64; 3] = std::array::from_fn(|n| o[n] + t * v[n]);
+            let phi = hit[0].atan2(-hit[2]);
+            let lat = hit[1].atan2((hit[0] * hit[0] + hit[2] * hit[2]).sqrt());
+            // The taps' rows held to the drawing: the same as the row held half a pixel in.
+            let y = (k[30] / 2.0 + lat / std::f64::consts::PI * k[30]).clamp(0.5, k[30] - 0.5);
+            let s = sample_round(drawing, k[29] / 2.0 + phi / std::f64::consts::TAU * k[29], y + oy as f64, dw as isize, ox as isize);
             let lit = cylinder_shade(&k, s.map(f64::from), hit, v, inside);
             got = std::array::from_fn(|j| lit[j] + (1.0 - lit[3]) * got[j]);
         }
