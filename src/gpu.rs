@@ -5463,6 +5463,70 @@ fn bilat(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4(f32(o0 * a), f32(o1 * a), f32(o2 * a), s.w));
 }
 
+// B-335 (D-455), grade::remove_grain's denoise. Mode 0: each pixel that shows its straight colour
+// through the sRGB curve, held in 0 to 1, and its covering. Mode 1, on those, pass k: each pixel
+// that shows the mean of the taps that show within the disc, each weighed by its covering, a bell
+// on its distance and one on its colour difference, with `flag` 1 one bell on the mean of the
+// three squared differences, else one per channel. k: each channel's 1 / 2h^2, below 0 keeping
+// the channel; the distance's 1 / 2s^2; then from `n` the disc's rows. Mode 2: back through the
+// curve, times the covering. Summed in single precision, as Bilateral Blur's.
+@compute @workgroup_size(16, 16)
+fn degrain(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = vec2<i32>(textureDimensions(input));
+    let p = vec2<i32>(id.xy);
+    if p.x >= size.x || p.y >= size.y {
+        return;
+    }
+    let s = textureLoad(input, p, 0);
+    if s.w <= 0.0 {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    let a = f64(s.w);
+    if F.mode == 0u {
+        let e = vec3(to_srgb(clamp(f64(s.x) / a, 0.0lf, 1.0lf)), to_srgb(clamp(f64(s.y) / a, 0.0lf, 1.0lf)), to_srgb(clamp(f64(s.z) / a, 0.0lf, 1.0lf)));
+        textureStore(output, id.xy, vec4(f32(e.x), f32(e.y), f32(e.z), s.w));
+        return;
+    }
+    if F.mode == 2u {
+        textureStore(output, id.xy, vec4(f32(to_linear(f64(s.x)) * a), f32(to_linear(f64(s.y)) * a), f32(to_linear(f64(s.z)) * a), s.w));
+        return;
+    }
+    let inv = vec3(f32(k[0]), f32(k[1]), f32(k[2]));
+    let bell = max(inv, vec3(0.0));
+    let k3 = f32(k[3]);
+    var sum = vec3(0.0);
+    var weight = vec3(0.0);
+    for (var dy = -F.r; dy <= F.r; dy++) {
+        let hw = i32(k[F.n + u32(dy + F.r)]);
+        for (var dx = -hw; dx <= hw; dx++) {
+            let q = p + vec2(dx, dy);
+            if any(q < vec2(0)) || any(q >= size) {
+                continue;
+            }
+            let t = textureLoad(input, q, 0);
+            if t.w <= 0.0 {
+                continue;
+            }
+            let near = exp(-f32(dx * dx + dy * dy) * k3) * t.w;
+            let d = t.xyz - s.xyz;
+            var x = near * exp(-d * d * bell);
+            if F.flag == 1u {
+                x = vec3(near * exp(-dot(d, d) / 3.0 * bell.x));
+            }
+            sum += x * t.xyz;
+            weight += x;
+        }
+    }
+    var out = s;
+    for (var c = 0u; c < 3u; c++) {
+        if inv[c] >= 0.0 {
+            out[c] = f32(quotient(f64(sum[c]), f64(weight[c])));
+        }
+    }
+    textureStore(output, id.xy, out);
+}
+
 // B-151, layer_fx::roughen_edges' least covering at `e` either way across and down.
 fn least(x: f64, y: f64, e: f64) -> f64 {
     let c = f64(bilinear(input, x, y).w);
@@ -7927,6 +7991,7 @@ struct FxPasses {
     smart: Pass,
     /// B-237.
     bilat: Pass,
+    degrain: Pass,
     rough: Pass,
     rshadow: Pass,
     bevel: Pass,
@@ -8590,6 +8655,7 @@ impl Gpu {
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
+                degrain: pass("degrain", &[0, 1, 2, 3]),
                 rough: pass("rough", &[0, 1, 2, 3]),
                 rshadow: pass("rshadow", &[0, 1, 2, 3, 4]),
                 bevel: pass("bevel", &[0, 1, 2, 3, 4]),
@@ -9505,6 +9571,36 @@ impl Gpu {
             .or_else(|| crate::grade::matched_grain(&f.instance.effect));
         match turned.as_ref().unwrap_or(&f.instance.effect) {
             E::MatchGrain { .. } => (still.clone(), (w, h)),
+            E::RemoveGrain { passes: count, mode, unsharp_amount, unsharp_radius, .. } => {
+                // D-455, as grade::remove_grain: the colour encoded, each pass, back, then
+                // Sharpen's pass; compose sends one only with its noise and no threshold.
+                let mut pic = still.clone();
+                if let Some(spread) = crate::grade::grain_spreads(&f.instance.effect) {
+                    let mut cur = self.scratch("D-455 encoded", w, h);
+                    self.fx_step(steps, &passes.degrain, FxParams::default(), Some(still), Some(&cur), Some(&[0.0]), None, none, tiles(w, h));
+                    for k in 1..=count.floor() as usize {
+                        let mut kk: Vec<f64> = spread.iter().map(|&s| if s > 0.0 { 1.0 / (2.0 * s * s) } else { -1.0 }).collect();
+                        kk.push(1.0 / (2.0 * (k * k) as f64));
+                        kk.extend(crate::layer_fx::disc_runs((2 * k) as f64).iter().map(|&(_, hw)| hw as f64));
+                        let p = FxParams { mode: 1, flag: (mode == "multichannel") as u32, r: 2 * k as i32, n: 4, ..Default::default() };
+                        let next = self.scratch("D-455 pass", w, h);
+                        self.fx_step(steps, &passes.degrain, p, Some(&cur), Some(&next), Some(&kk), None, none, tiles(w, h));
+                        cur = next;
+                    }
+                    let back = self.scratch("D-455 decoded", w, h);
+                    let p = FxParams { mode: 2, ..Default::default() };
+                    self.fx_step(steps, &passes.degrain, p, Some(&cur), Some(&back), Some(&[0.0]), None, none, tiles(w, h));
+                    pic = back;
+                }
+                if *unsharp_amount > 0.0 && *unsharp_radius > 0.0 {
+                    let (blurred, r) = covering(steps, &pic, (w, h), *unsharp_radius);
+                    let out = self.scratch("D-455 sharpened", w, h);
+                    let p = FxParams { r: r as i32, ..Default::default() };
+                    self.fx_step(steps, &passes.sharp, p, Some(&pic), Some(&out), Some(&[unsharp_amount / 100.0]), Some(&blurred), none, tiles(w, h));
+                    pic = out;
+                }
+                (pic, (w, h))
+            }
             E::Curves { master, red, green, blue, .. } => {
                 // Where each curve starts, then each curve's count, ins, outs and second derivatives.
                 let mut k = vec![0.0; 4];

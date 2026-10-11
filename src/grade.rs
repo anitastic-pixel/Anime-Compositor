@@ -664,6 +664,106 @@ pub(crate) fn grain_levels(picture: &WorkingBuffer) -> [f64; 3] {
     sum.map(|s| (std::f64::consts::PI / 2.0).sqrt() / (6.0 * n as f64) * s)
 }
 
+/// D-455: Remove Grain's range spreads h per channel, for a measured noise: 2 n sigma_c (the
+/// ratio from Zhang and Gunturk, IEEE TIP 17(12), 2008), or with Multichannel one spread for all
+/// three, 2 n sqrt(mean of sigma_c^2). None when nothing would be removed (n 0, no noise, or not
+/// yet measured).
+pub(crate) fn grain_spreads(e: &crate::effects::Effect) -> Option<[f64; 3]> {
+    let crate::effects::Effect::RemoveGrain { noise_reduction: n, mode, noise: Some(s), .. } = e else {
+        return None;
+    };
+    let h = if mode == "multichannel" {
+        [2.0 * n * ((s[0] * s[0] + s[1] * s[1] + s[2] * s[2]) / 3.0).sqrt(); 3]
+    } else {
+        s.map(|s| 2.0 * n * s)
+    };
+    (h.iter().any(|&h| h > 0.0)).then_some(h)
+}
+
+/// D-455: After Effects' Remove Grain, by document 21's rule. The layer's grain `noise` (measured
+/// here when compose did not), then a bilateral filter (Tomasi and Manduchi, ICCV 1998) on the
+/// encoded straight colour, pass k of `passes` over the last pass's output: each pixel that shows
+/// the mean of the taps within 2k pixels that show, weighed by covering, a bell on distance of
+/// spread k and a bell on the colour difference of spread [`grain_spreads`] (Multichannel one
+/// bell on the mean squared difference, Single Channel one per channel, a channel with spread 0
+/// kept). Back through the curve at the pixel's covering, then the Unsharp Mask as Sharpen's
+/// (`layer_fx::sharpen`). The settings are already valid.
+// ponytail: each pass weighs its whole disc, about 200 taps at the fourth pass; a separable or
+// guided approximation would be the upgrade, at the price of the rule.
+pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effect) {
+    let crate::effects::Effect::RemoveGrain { noise_reduction, passes, mode, unsharp_amount, unsharp_radius, unsharp_threshold, noise } = e else {
+        return;
+    };
+    let mut measured = e.clone();
+    if noise.is_none() && *noise_reduction > 0.0 {
+        if let crate::effects::Effect::RemoveGrain { noise, .. } = &mut measured {
+            *noise = Some(grain_levels(source));
+        }
+    }
+    if let Some(h) = grain_spreads(&measured) {
+        let (w, ht) = (source.width(), source.height());
+        let multi = mode == "multichannel";
+        let inv = h.map(|h| if h > 0.0 { 1.0 / (2.0 * h * h) } else { 0.0 });
+        let cover: Vec<f64> = source.data().chunks_exact(4).map(|p| p[3] as f64).collect();
+        let mut enc: Vec<[f64; 3]> = source
+            .data()
+            .par_chunks_exact(4)
+            .map(|p| {
+                let a = p[3] as f64;
+                if a > 0.0 { std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0))) } else { [0.0; 3] }
+            })
+            .collect();
+        for k in 1..=passes.floor() as isize {
+            let r = 2 * k;
+            let taps: Vec<(isize, isize, f64)> = (-r..=r)
+                .flat_map(|dy| (-r..=r).map(move |dx| (dx, dy)))
+                .filter(|&(dx, dy)| dx * dx + dy * dy <= r * r)
+                .map(|(dx, dy)| (dx, dy, (-((dx * dx + dy * dy) as f64) / (2.0 * (k * k) as f64)).exp()))
+                .collect();
+            enc = (0..w * ht)
+                .into_par_iter()
+                .map(|i| {
+                    let own = enc[i];
+                    if cover[i] <= 0.0 {
+                        return own;
+                    }
+                    let (x, y) = ((i % w) as isize, (i / w) as isize);
+                    let (mut sum, mut weight) = ([0.0f64; 3], [0.0f64; 3]);
+                    for &(dx, dy, g) in &taps {
+                        let (tx, ty) = (x + dx, y + dy);
+                        if tx < 0 || ty < 0 || tx >= w as isize || ty >= ht as isize {
+                            continue;
+                        }
+                        let j = ty as usize * w + tx as usize;
+                        if cover[j] <= 0.0 {
+                            continue;
+                        }
+                        let (t, ga) = (enc[j], g * cover[j]);
+                        let d: [f64; 3] = std::array::from_fn(|c| t[c] - own[c]);
+                        let wt: [f64; 3] = if multi {
+                            [ga * (-(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) / 3.0 * inv[0]).exp(); 3]
+                        } else {
+                            std::array::from_fn(|c| ga * (-d[c] * d[c] * inv[c]).exp())
+                        };
+                        for c in 0..3 {
+                            sum[c] += wt[c] * t[c];
+                            weight[c] += wt[c];
+                        }
+                    }
+                    std::array::from_fn(|c| if h[c] > 0.0 { sum[c] / weight[c] } else { own[c] })
+                })
+                .collect();
+        }
+        source.data_mut().par_chunks_exact_mut(4).zip(enc.par_iter()).for_each(|(px, e)| {
+            let a = px[3] as f64;
+            if a > 0.0 {
+                (0..3).for_each(|c| px[c] = (to_linear(e[c]) * a) as f32);
+            }
+        });
+    }
+    crate::layer_fx::sharpen(source, *unsharp_amount, *unsharp_radius, *unsharp_threshold);
+}
+
 /// D-454: Match Grain as the Add Grain it lays: its channel intensities times the source's
 /// measured grain, sigma 10 sqrt(3) (Add Grain's block grain at intensity 1 spreads 0.1 /
 /// sqrt(3)). None when nothing would be added: no source picture, intensity 0 or no channel left.

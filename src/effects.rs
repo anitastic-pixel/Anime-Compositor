@@ -2066,6 +2066,20 @@ pub enum Effect {
     /// [`Effect::AddGrain`] holding Add Grain's settings, whose ranges and checks it shares.
     /// `map` is not a setting and is never saved: compose reads the named layer into it.
     MatchGrain { layer: serde_json::Value, grain: Box<Effect>, map: Option<crate::layer_map::Map> },
+    /// D-455: after After Effects' Remove Grain (`grade::remove_grain`, document 21).
+    /// `noise_reduction`, 0 to 3; `passes`, 1 to 4, its whole part; `mode`, "multichannel" or
+    /// "single_channel"; `unsharp_amount`, 0 to 500 per cent; `unsharp_radius`, 0 to 100 pixels;
+    /// `unsharp_threshold`, 0 to 255 levels. `noise` is not a setting and is never saved:
+    /// compose measures the layer as it reaches the effect into it (None: measured in place).
+    RemoveGrain {
+        noise_reduction: f64,
+        passes: f64,
+        mode: String,
+        unsharp_amount: f64,
+        unsharp_radius: f64,
+        unsharp_threshold: f64,
+        noise: Option<[f64; 3]>,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2792,6 +2806,8 @@ pub const CURL_CHANNELS: [&str; 5] = ["rgb", "red", "green", "blue", "alpha"];
 pub const NOISE_HLS_AUTO: &str = "core.noise_hls_auto";
 pub const DUST_SCRATCHES: &str = "core.dust_scratches";
 pub const MATCH_GRAIN: &str = "core.match_grain";
+pub const REMOVE_GRAIN: &str = "core.remove_grain";
+pub const REMOVE_GRAIN_MODES: [&str; 2] = ["multichannel", "single_channel"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3854,6 +3870,13 @@ impl Effect {
                 vec![("radius", vec![radius], 0.0, 10.0), ("threshold", vec![threshold], 0.0, 255.0)]
             }
             Effect::MatchGrain { grain, .. } => grain.numbers(),
+            Effect::RemoveGrain { noise_reduction, passes, unsharp_amount, unsharp_radius, unsharp_threshold, .. } => vec![
+                ("noise_reduction", vec![noise_reduction], 0.0, 3.0),
+                ("passes", vec![passes], 1.0, 4.0),
+                ("unsharp_amount", vec![unsharp_amount], 0.0, 500.0),
+                ("unsharp_radius", vec![unsharp_radius], 0.0, 100.0),
+                ("unsharp_threshold", vec![unsharp_threshold], 0.0, 255.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -4729,6 +4752,8 @@ impl Effect {
             Effect::AddGrain { size, .. } => *size = scale(*size),
             // D-454: as Add Grain's.
             Effect::MatchGrain { grain, .. } => grain.scale_distances(&scale as &dyn Fn(f64) -> f64),
+            // D-455: the Unsharp Mask's radius, as Sharpen's; the denoise's discs are kept.
+            Effect::RemoveGrain { unsharp_radius, .. } => *unsharp_radius = scale(*unsharp_radius),
             // D-451: the same for Noise HLS's grain, held at its smallest, half a pixel, rather
             // than bypassed.
             Effect::NoiseHls { grain_size, .. } | Effect::NoiseHlsAuto { grain_size, .. } => {
@@ -5155,6 +5180,7 @@ impl Effect {
             Effect::NoiseHlsAuto { .. } => "Noise HLS Auto",
             Effect::DustScratches { .. } => "Dust & Scratches",
             Effect::MatchGrain { .. } => "Match Grain",
+            Effect::RemoveGrain { .. } => "Remove Grain",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5340,6 +5366,7 @@ impl Effect {
             Effect::NoiseHlsAuto { .. } => NOISE_HLS_AUTO,
             Effect::DustScratches { .. } => DUST_SCRATCHES,
             Effect::MatchGrain { .. } => MATCH_GRAIN,
+            Effect::RemoveGrain { .. } => REMOVE_GRAIN,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6536,6 +6563,9 @@ impl Effect {
             )),
             Effect::DustScratches { operate_on_alpha, .. } if !["off", "on"].contains(&operate_on_alpha.as_str()) => Some(format!(
                 "Dust & Scratches's operate on alpha is \"off\" or \"on\", and this is \"{operate_on_alpha}\"."
+            )),
+            Effect::RemoveGrain { mode, .. } if !REMOVE_GRAIN_MODES.contains(&mode.as_str()) => Some(format!(
+                "Remove Grain's mode is \"multichannel\" or \"single_channel\", and this is \"{mode}\"."
             )),
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
@@ -8415,6 +8445,9 @@ pub(crate) fn apply_stack_at(
             // D-443: the grain in the drawing's own space, however an effect above grew it.
             e @ Effect::AddGrain { .. } => {
                 crate::perf::time(crate::perf::Stage::EffectAddGrain, || crate::grade::add_grain(source, e, (ox, oy)))
+            }
+            e @ Effect::RemoveGrain { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectRemoveGrain, || crate::grade::remove_grain(source, e))
             }
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {

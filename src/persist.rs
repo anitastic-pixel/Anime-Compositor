@@ -2332,6 +2332,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("threshold".into(), num(*threshold));
             params.insert("operate_on_alpha".into(), J::from(operate_on_alpha.as_str()));
         }
+        // D-455: the measured noise is never saved.
+        Effect::RemoveGrain { noise_reduction, passes, mode, unsharp_amount, unsharp_radius, unsharp_threshold, .. } => {
+            params.insert("noise_reduction".into(), num(*noise_reduction));
+            params.insert("passes".into(), num(*passes));
+            params.insert("mode".into(), J::from(mode.as_str()));
+            params.insert("unsharp_amount".into(), num(*unsharp_amount));
+            params.insert("unsharp_radius".into(), num(*unsharp_radius));
+            params.insert("unsharp_threshold".into(), num(*unsharp_threshold));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4742,6 +4751,7 @@ fn parse_effect(
         crate::effects::MEDIAN,
         crate::effects::DUST_SCRATCHES,
         crate::effects::MATCH_GRAIN,
+        crate::effects::REMOVE_GRAIN,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
         crate::effects::CROSS_BLUR,
@@ -5616,6 +5626,15 @@ fn parse_effect(
             radius: effect_number(params, "radius", &at)?,
             threshold: effect_number(params, "threshold", &at)?,
             operate_on_alpha: effect_word(params, "operate_on_alpha", &at)?,
+        }),
+        crate::effects::REMOVE_GRAIN => Some(crate::effects::Effect::RemoveGrain {
+            noise_reduction: effect_number(params, "noise_reduction", &at)?,
+            passes: effect_number(params, "passes", &at)?,
+            mode: effect_word(params, "mode", &at)?,
+            unsharp_amount: effect_number(params, "unsharp_amount", &at)?,
+            unsharp_radius: effect_number(params, "unsharp_radius", &at)?,
+            unsharp_threshold: effect_number(params, "unsharp_threshold", &at)?,
+            noise: None,
         }),
         crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

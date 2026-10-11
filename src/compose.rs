@@ -951,6 +951,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::KiraKira { .. }
                 | crate::effects::Effect::Median { .. }
                 | crate::effects::Effect::DustScratches { .. }
+                // D-455: Remove Grain, once compose has measured its noise.
+                | crate::effects::Effect::RemoveGrain { noise: Some(_), .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }
@@ -1113,6 +1115,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
             if crate::layer_fx::FractalView::of(e, 1.0).is_some_and(|v| v.card_work(pixels) > FRACTAL_CARD_WORK))
         // D-317: the card sharpens without a threshold only.
         && !matches!(&instance.effect, crate::effects::Effect::Sharpen { threshold, .. } if *threshold != 0.0)
+        // D-455: so does Remove Grain's Unsharp Mask.
+        && !matches!(&instance.effect, crate::effects::Effect::RemoveGrain { unsharp_amount, unsharp_threshold, .. }
+            if *unsharp_amount != 0.0 && *unsharp_threshold != 0.0)
         // D-408: a Transform through the shutter is drawn here, as D-188's motion blur is.
         && !matches!(&instance.effect, crate::effects::Effect::Transform { moments, .. } if !moments.is_empty())
         // D-310: the card swells a circle without a taper only.
@@ -1297,6 +1302,9 @@ fn card_effect(
                 E::Median { radius, .. } | E::SmartBlur { radius, .. } => *radius < 1.0,
                 // D-453: no two 8-bit values are more than 255 apart, so nothing is changed.
                 E::DustScratches { radius, threshold, .. } => *radius < 1.0 || *threshold >= 255.0,
+                E::RemoveGrain { unsharp_amount, unsharp_radius, .. } => {
+                    crate::grade::grain_spreads(&effect).is_none() && (*unsharp_amount <= 0.0 || *unsharp_radius <= 0.0)
+                }
                 E::BilateralBlur { radius, threshold, colorize } => colorize == "on" && (*radius < 1.0 || *threshold == 0.0),
                 E::RoughenEdges { border, .. } => *border == 0.0,
                 E::BevelAlpha { edge_thickness, light_intensity, .. } => *edge_thickness <= 0.0 || *light_intensity <= 0.0,
@@ -2242,6 +2250,7 @@ fn resolve_rest(
         fill_stats(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_stabilizer(&mut effects, project, root, comp, layer, at, quality, pre, float, cache, log);
         fill_moment_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
+        fill_noise(&mut effects, project, root, comp, layer, at, quality, cache);
     }
     // B-24d: a mask whose path has keys is resolved to its shape at this frame here, before the
     // draft divisor, before the rasterizer and before document 27's cache key, exactly as an
@@ -3351,6 +3360,44 @@ fn fill_stabilizer(
         }
         if let crate::effects::Effect::ColorStabilizer { reference, .. } = &mut effects[i].effect {
             *reference = samples;
+        }
+    }
+}
+
+/// D-455: each switched-on Remove Grain's noise: the holder at this frame with the effects before
+/// this one, measured whole (`grade::grain_levels`), so every tile and the card read the same
+/// number. Noise Reduction 0 removes nothing and is not measured. What the holder says on the way
+/// is said by the frame itself, so it is not said again here.
+// ponytail: the holder is drawn once more up to the effect; keep the drawing from the main pass
+// if a Remove Grain after heavy effects is slow.
+#[allow(clippy::too_many_arguments)]
+fn fill_noise(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    cache: &mut CelCache,
+) {
+    for i in 0..effects.len() {
+        let n = match &effects[i] {
+            e if !e.enabled || !e.is_valid() => continue,
+            crate::effects::EffectInstance { effect: crate::effects::Effect::RemoveGrain { noise_reduction, .. }, .. } => *noise_reduction,
+            _ => continue,
+        };
+        let noise = if n > 0.0 {
+            let mut upto = holder.clone();
+            upto.effects.truncate(i);
+            let mut inside = FrameLog::new(usize::MAX);
+            resolve_layer(project, comp, &upto, frame, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
+                .map_or([0.0; 3], |p| crate::grade::grain_levels(&p.source))
+        } else {
+            [0.0; 3]
+        };
+        if let crate::effects::Effect::RemoveGrain { noise: slot, .. } = &mut effects[i].effect {
+            *slot = Some(noise);
         }
     }
 }
