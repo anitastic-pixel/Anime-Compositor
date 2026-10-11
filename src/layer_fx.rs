@@ -1129,6 +1129,132 @@ pub(crate) fn block_load(source: &mut WorkingBuffer, completion: f64, scans: f64
     }
 }
 
+/// D-461: Hex Tile's numbers for a buffer `w` by `h` whose drawing's corner is at `origin`
+/// (document 21): the centre and the honeycomb's origin in the buffer, the turn's cosine and
+/// sine, the three factors to the tile's axial place, the two from it to the tile's middle, the
+/// smearing as a share, the render (0 tile, 1 fold aligned, 2 fold seamless), sqrt(3) / 2, the
+/// cosine and sine of each of the six triangles' turns, and a 0 for the card's rounded products.
+pub(crate) fn hex_tile_setup(
+    render: &str,
+    radius: f64,
+    center: [f64; 2],
+    lock: bool,
+    rotate: f64,
+    smearing: f64,
+    size: (usize, usize),
+    origin: (usize, usize),
+) -> Vec<f64> {
+    let (cx, cy) = crate::effects::radial_center(center, size, origin);
+    let (ox, oy) = if lock { crate::effects::radial_center([50.0, 50.0], size, origin) } else { (cx, cy) };
+    let a = rotate.to_radians();
+    let r3 = 3.0f64.sqrt();
+    let mode = match render {
+        "fold_aligned" => 1.0,
+        "fold_seamless" => 2.0,
+        _ => 0.0,
+    };
+    let mut k = vec![
+        cx,
+        cy,
+        ox,
+        oy,
+        a.cos(),
+        a.sin(),
+        2.0 / (3.0 * radius),
+        -1.0 / (3.0 * radius),
+        r3 / (3.0 * radius),
+        1.5 * radius,
+        r3 * radius,
+        smearing / 100.0,
+        mode,
+        r3 / 2.0,
+    ];
+    for i in 0..6 {
+        let t = (60.0 * i as f64).to_radians();
+        k.extend([t.cos(), t.sin()]);
+    }
+    k.push(0.0);
+    k
+}
+
+/// D-461: where Hex Tile's pixel whose centre is (x, y), in the buffer, reads, `k` from
+/// `hex_tile_setup`: its tile is the nearest middle of a flat-topped honeycomb, its place in the
+/// tile is kept (tile) or folded into the tile's first triangle (the folds, every odd one
+/// mirrored when seamless), and it reads that place round the centre, moved out towards its own
+/// tile by the smearing. The card's `warp` mode 100 works the same products in the same order.
+pub(crate) fn hex_tile_at(k: &[f64], x: f64, y: f64) -> (f64, f64) {
+    let (dx, dy) = (x - k[2], y - k[3]);
+    let (c, s) = (k[4], k[5]);
+    let u = c * dx + s * dy;
+    let v = c * dy - s * dx;
+    let qf = u * k[6];
+    let rf = u * k[7] + v * k[8];
+    let t = [qf, -qf - rf, rf];
+    let mut r = t.map(|e| (e + 0.5).floor());
+    let g = [(r[0] - t[0]).abs(), (r[1] - t[1]).abs(), (r[2] - t[2]).abs()];
+    if g[0] > g[1] && g[0] > g[2] {
+        r[0] = -r[1] - r[2];
+    } else if g[1] > g[2] {
+        r[1] = -r[0] - r[2];
+    } else {
+        r[2] = -r[0] - r[1];
+    }
+    let (mu, mv) = (k[9] * r[0], k[10] * (r[2] + r[0] / 2.0));
+    let (mut lu, mut lv) = (u - mu, v - mv);
+    if k[12] != 0.0 {
+        let h = k[13];
+        let e1 = lv / 2.0 - h * lu;
+        let e2 = -lv / 2.0 - h * lu;
+        let n = if lv >= 0.0 {
+            if e1 < 0.0 {
+                0
+            } else if e2 < 0.0 {
+                1
+            } else {
+                2
+            }
+        } else if e1 > 0.0 {
+            3
+        } else if e2 > 0.0 {
+            4
+        } else {
+            5
+        };
+        let (ck, sk) = (k[14 + 2 * n], k[15 + 2 * n]);
+        (lu, lv) = (ck * lu + sk * lv, ck * lv - sk * lu);
+        if k[12] == 2.0 && n % 2 == 1 {
+            (lu, lv) = (lu / 2.0 + h * lv, h * lu - lv / 2.0);
+        }
+    }
+    let m = k[11];
+    (k[0] + c * lu - s * lv + m * (c * mu - s * mv), k[1] + s * lu + c * lv + m * (s * mu + c * mv))
+}
+
+/// D-461: after After Effects' CC HexTile. Each pixel reads `hex_tile_at`'s place, folded back
+/// into the buffer by mirroring at its edges and held inside its pixel centres, so the honeycomb
+/// never goes clear. The buffer keeps its size.
+pub(crate) fn hex_tile(source: &mut WorkingBuffer, k: &[f64]) {
+    let (w, h) = (source.width(), source.height());
+    if w == 0 || h == 0 {
+        return;
+    }
+    let fold = |u: f64, n: f64| {
+        let t = 2.0 * n;
+        let m = u - t * (u / t).floor();
+        (if m > n { t - m } else { m }).clamp(0.5, n - 0.5)
+    };
+    let mut out = WorkingBuffer::transparent(w, h);
+    let drawing = &*source;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (sx, sy) = hex_tile_at(k, (i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            px.copy_from_slice(&sample_bilinear(drawing, fold(sx, w as f64), fold(sy, h as f64)));
+        });
+    *source = out;
+}
+
 /// D-460: Burn Film's ragged edge, scorched edge and char line, as shares of the diagonal.
 const BURN_ROUGH: f64 = 0.12;
 const BURN_SCORCH: f64 = 0.06;

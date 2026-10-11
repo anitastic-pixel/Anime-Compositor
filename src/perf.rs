@@ -409,6 +409,8 @@ pub enum Stage {
     EffectBurnFilm,
     /// D-510: Tile Wipe.
     EffectTileWipe,
+    /// D-461's Hex Tile.
+    EffectHexTile,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -426,7 +428,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 210] = [
+    pub const ALL: [Stage; 211] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -630,6 +632,7 @@ impl Stage {
         Stage::EffectTimeDifference,
         Stage::EffectBurnFilm,
         Stage::EffectTileWipe,
+        Stage::EffectHexTile,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -845,6 +848,7 @@ impl Stage {
             Stage::EffectTimeDifference => "effect: time difference",
             Stage::EffectBurnFilm => "effect: burn film",
             Stage::EffectTileWipe => "effect: tile wipe",
+            Stage::EffectHexTile => "effect: hex tile",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

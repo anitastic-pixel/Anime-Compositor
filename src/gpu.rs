@@ -3714,6 +3714,14 @@ fn fractal_cross(x: i32, y: i32) -> bool {
     return (y == cy && abs(x - cx) <= arm) || (x == cx && abs(y - cy) <= arm);
 }
 
+// D-461, layer_fx::hex_tile's fold: u folded into 0..n by mirroring at the edges, then held
+// inside the pixel centres, the products rounded as the CPU's are.
+fn hex_fold(u: f64, n: f64, z: f64) -> f64 {
+    let t = 2.0lf * n;
+    let m = u - product(t, floor(quotient(u, t)), z);
+    return clamp(select(m, t - m, m > n), 0.5lf, n - 0.5lf);
+}
+
 @compute @workgroup_size(16, 16)
 fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -4605,6 +4613,65 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             let lifted = p.w + (1.0 - p.w) * min(1.0, max(light.x, max(light.y, light.z)));
             textureStore(output, id.xy, vec4(p.xyz + keep * light, p.w + keep * (lifted - p.w)));
             return;
+        }
+        case 100u: {
+            // D-461, layer_fx::hex_tile_at then hex_tile's fold: k as hex_tile_setup lays it,
+            // every product rounded before the add it goes into, as the CPU's are.
+            let z = k[26];
+            let dx = x - k[2];
+            let dy = y - k[3];
+            let c = k[4];
+            let s = k[5];
+            let u = product(c, dx, z) + product(s, dy, z);
+            let v = product(c, dy, z) - product(s, dx, z);
+            let qf = product(u, k[6], z);
+            let rf = product(u, k[7], z) + product(v, k[8], z);
+            let t = array<f64, 3>(qf, -qf - rf, rf);
+            var r = array<f64, 3>(floor(t[0] + 0.5lf), floor(t[1] + 0.5lf), floor(t[2] + 0.5lf));
+            let g0 = abs(r[0] - t[0]);
+            let g1 = abs(r[1] - t[1]);
+            let g2 = abs(r[2] - t[2]);
+            if g0 > g1 && g0 > g2 {
+                r[0] = -r[1] - r[2];
+            } else if g1 > g2 {
+                r[1] = -r[0] - r[2];
+            } else {
+                r[2] = -r[0] - r[1];
+            }
+            let mu = product(k[9], r[0], z);
+            let mv = product(k[10], r[2] + r[0] * 0.5lf, z);
+            var lu = u - mu;
+            var lv = v - mv;
+            if k[12] != 0.0lf {
+                let h = k[13];
+                let e1 = lv * 0.5lf - product(h, lu, z);
+                let e2 = -lv * 0.5lf - product(h, lu, z);
+                var n = 5u;
+                if lv >= 0.0lf {
+                    n = select(select(2u, 1u, e2 < 0.0lf), 0u, e1 < 0.0lf);
+                } else if e1 > 0.0lf {
+                    n = 3u;
+                } else if e2 > 0.0lf {
+                    n = 4u;
+                }
+                let ck = k[14u + 2u * n];
+                let sk = k[15u + 2u * n];
+                let a = product(ck, lu, z) + product(sk, lv, z);
+                let b = product(ck, lv, z) - product(sk, lu, z);
+                lu = a;
+                lv = b;
+                if k[12] == 2.0lf && n % 2u == 1u {
+                    let a2 = lu * 0.5lf + product(h, lv, z);
+                    let b2 = product(h, lu, z) - lv * 0.5lf;
+                    lu = a2;
+                    lv = b2;
+                }
+            }
+            let m = k[11];
+            sx = k[0] + product(c, lu, z) - product(s, lv, z) + product(m, product(c, mu, z) - product(s, mv, z), z);
+            sy = k[1] + product(s, lu, z) + product(c, lv, z) + product(m, product(s, mu, z) + product(c, mv, z), z);
+            sx = hex_fold(sx, f64(size.x), z);
+            sy = hex_fold(sy, f64(size.y), z);
         }
         default: {
             // k: the centre, the jolt across and down, the turn's sine and cosine.
@@ -11262,6 +11329,11 @@ impl Gpu {
                 let (base, k) = crate::layer_fx::burn_film_setup((w, h), *burn, *center, *seed);
                 let p = FxParams { base: [base as u32, (base >> 32) as u32], ..Default::default() };
                 same(steps, &passes.burnfilm, p, &k, None)
+            }
+            // D-461: one warp pass, mode 100, its sines worked here.
+            E::HexTile { render, radius, center, lock_center, rotate, smearing } => {
+                let k = crate::layer_fx::hex_tile_setup(render, *radius, *center, lock_center == "on", *rotate, *smearing, (w, h), f.origin);
+                same(steps, &passes.warp, FxParams { mode: 100, ..Default::default() }, &k, None)
             }
             E::Emboss { direction, relief, contrast, mode } => {
                 let (ux, uy) = crate::blurs::along(*direction);

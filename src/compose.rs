@@ -964,6 +964,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::BlockLoad { .. }
                 // D-460: Burn Film.
                 | crate::effects::Effect::BurnFilm { .. }
+                // D-461: Hex Tile, its sines worked by the processor.
+                | crate::effects::Effect::HexTile { .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }

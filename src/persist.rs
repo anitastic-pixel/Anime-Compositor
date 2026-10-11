@@ -2586,6 +2586,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
             params.insert("seed".into(), num(*seed));
         }
+        Effect::HexTile { render, radius, center, lock_center, rotate, smearing } => {
+            params.insert("render".into(), J::from(render.as_str()));
+            params.insert("radius".into(), num(*radius));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("lock_center".into(), J::from(lock_center.as_str()));
+            params.insert("rotate".into(), num(*rotate));
+            params.insert("smearing".into(), num(*smearing));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -5106,6 +5114,7 @@ fn parse_effect(
         crate::effects::CARTOON,
         crate::effects::BLOCK_LOAD,
         crate::effects::BURN_FILM,
+        crate::effects::HEX_TILE,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6134,6 +6143,14 @@ fn parse_effect(
             burn: effect_number(params, "burn", &at)?,
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
             seed: effect_number(params, "seed", &at)?,
+        }),
+        crate::effects::HEX_TILE => Some(crate::effects::Effect::HexTile {
+            render: effect_word(params, "render", &at)?,
+            radius: effect_number(params, "radius", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            lock_center: effect_word(params, "lock_center", &at)?,
+            rotate: effect_number(params, "rotate", &at)?,
+            smearing: effect_number(params, "smearing", &at)?,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,
