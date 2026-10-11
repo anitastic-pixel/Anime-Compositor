@@ -9031,6 +9031,113 @@ fn over(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, q + p * (1.0 - q.w));
 }
 
+// D-531, layer_fx::environment_tap: `other` (the environment) at (u, v), rows held, columns
+// taken round with `wrap`, else held.
+fn env_tap(u: f64, v: f64, wrap: bool) -> vec4<f64> {
+    let size = vec2<i32>(textureDimensions(other));
+    let fx = u - 0.5lf;
+    let fy = v - 0.5lf;
+    let x0 = floor(fx);
+    let y0 = floor(fy);
+    let ux = fx - x0;
+    let uy = fy - y0;
+    var out = vec4<f64>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+    for (var j = 0; j < 2; j++) {
+        let wy = select(1.0lf - uy, uy, j == 1);
+        if wy == 0.0lf {
+            continue;
+        }
+        let sy = clamp(i32(y0) + j, 0, size.y - 1);
+        for (var i = 0; i < 2; i++) {
+            let wx = select(1.0lf - ux, ux, i == 1);
+            if wx == 0.0lf {
+                continue;
+            }
+            var sx = i32(x0) + i;
+            if wrap {
+                sx = ((sx % size.x) + size.x) % size.x;
+            } else {
+                sx = clamp(sx, 0, size.x - 1);
+            }
+            let p = textureLoad(other, vec2(sx, sy), 0);
+            out += vec4<f64>(f64(p.x), f64(p.y), f64(p.z), f64(p.w)) * (wx * wy);
+        }
+    }
+    return out;
+}
+
+// D-531, layer_fx::environment_look: k as layer_fx::environment_numbers.
+fn env_look(x: f64, y: f64) -> vec4<f64> {
+    let c = vec3<f64>(x - k[11], y - k[12], k[13]);
+    let d0 = vec3<f64>(
+        k[2] * c.x + k[3] * c.y + k[4] * c.z,
+        k[5] * c.x + k[6] * c.y + k[7] * c.z,
+        k[8] * c.x + k[9] * c.y + k[10] * c.z,
+    );
+    let d = d0 / sqrt(dot(d0, d0));
+    let ew = k[14];
+    let eh = k[15];
+    let mode = u32(k[0]);
+    if mode == 0u {
+        let s = clamp(-d.y, -1.0lf, 1.0lf);
+        let u = ew * (0.5lf + atan2_64(d.x, d.z) / 6.283185307179586lf);
+        let v = eh * (0.5lf - atan2_64(s, sqrt(1.0lf - s * s)) / 3.141592653589793lf);
+        return env_tap(u, v, true);
+    }
+    if mode == 1u {
+        let s = sqrt(d.x * d.x + d.y * d.y);
+        var q = 0.0lf;
+        if s != 0.0lf {
+            let z = clamp(d.z, -1.0lf, 1.0lf);
+            q = atan2_64(sqrt(1.0lf - z * z), z) / (3.141592653589793lf * s);
+        }
+        return env_tap(ew * (1.0lf + d.x * q) / 2.0lf, eh * (1.0lf + d.y * q) / 2.0lf, false);
+    }
+    let a = abs(d);
+    var f = vec4<f64>(1.0lf, 3.0lf, d.x / a.z, -d.y / a.z);
+    if a.x >= a.y && a.x >= a.z {
+        f = select(vec4<f64>(0.0lf, 1.0lf, d.z / a.x, d.y / a.x), vec4<f64>(2.0lf, 1.0lf, -d.z / d.x, d.y / d.x), d.x > 0.0lf);
+    } else if a.y >= a.z {
+        f = select(vec4<f64>(1.0lf, 2.0lf, d.x / d.y, -d.z / d.y), vec4<f64>(1.0lf, 0.0lf, d.x / a.y, d.z / a.y), d.y < 0.0lf);
+    } else if d.z > 0.0lf {
+        f = vec4<f64>(1.0lf, 1.0lf, d.x / d.z, d.y / d.z);
+    }
+    let fw = ew / 3.0lf;
+    let fh = eh / 4.0lf;
+    let u = min(max(fw * (f.x + (f.z + 1.0lf) / 2.0lf), f.x * fw + 0.5lf), (f.x + 1.0lf) * fw - 0.5lf);
+    let v = min(max(fh * (f.y + (f.w + 1.0lf) / 2.0lf), f.y * fh + 0.5lf), (f.y + 1.0lf) * fh - 0.5lf);
+    return env_tap(u, v, false);
+}
+
+// D-531, layer_fx::cc_environment: the holder `input`, its drawing's corner at (F.ox, F.oy); the
+// environment `other` (one clear pixel for an empty one).
+@compute @workgroup_size(16, 16)
+fn environment(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let a = textureLoad(input, vec2<i32>(id.xy), 0).w;
+    var got = vec4<f64>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+    if a != 0.0 {
+        let x = f64(i32(id.x) - F.ox);
+        let y = f64(i32(id.y) - F.oy);
+        if k[1] == 1.0lf {
+            for (var j = 0; j < 2; j++) {
+                for (var i = 0; i < 2; i++) {
+                    got += env_look(x + select(0.25lf, 0.75lf, i == 1), y + select(0.25lf, 0.75lf, j == 1));
+                }
+            }
+            got = got / 4.0lf;
+        } else {
+            got = env_look(x + 0.5lf, y + 0.5lf);
+        }
+        got = got * f64(a);
+    }
+    textureStore(output, id.xy, vec4<f32>(f32(got.x), f32(got.y), f32(got.z), f32(got.w)));
+}
+
+
 // D-530, layer_fx::cc_cylinder: k as layer_fx::cylinder_numbers; the drawing's corner at
 // (F.ox, F.oy). The highlight's power is taken in single precision.
 @compute @workgroup_size(16, 16)
@@ -10127,6 +10234,8 @@ struct FxPasses {
     spotlight: Pass,
     /// D-530.
     cylinder: Pass,
+    /// D-531.
+    environment: Pass,
     lwidth: Pass,
     /// B-228.
     passx: Pass,
@@ -10816,6 +10925,7 @@ impl Gpu {
                 glasses: pass("glasses", &[0, 1, 2, 3, 4]),
                 spotlight: pass("spotlight", &[0, 1, 2, 3, 4]),
                 cylinder: pass("cylinder", &[0, 1, 2, 3]),
+                environment: pass("environment", &[0, 1, 2, 3, 4]),
                 passx: pass("passx", &[0, 1, 2, 3, 4]),
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
                 idkey: pass("idkey", &[0, 1, 2, 3, 4]),
@@ -14329,6 +14439,20 @@ impl Gpu {
                     let p = FxParams { mode: 1, ox: ox as i32, oy: oy as i32, ..Default::default() };
                     self.fx_step(steps, &passes.dmatte, p, Some(still), Some(&out), Some(&k), Some(&plate), none, tiles(w, h));
                 }
+                (out, (w, h))
+            }
+            // D-531: compose leaves the card a CC Environment only with its environment read.
+            e @ E::CcEnvironment { map, .. } => {
+                let m = &map.as_ref().expect("compose leaves the card a CC Environment whose environment was read").0;
+                let k = crate::layer_fx::environment_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64, (m.width(), m.height()));
+                let env = if m.width() == 0 || m.height() == 0 {
+                    self.map_texture(&crate::WorkingBuffer::transparent(1, 1))
+                } else {
+                    self.map_texture(m)
+                };
+                let out = self.scratch("D-531 environment", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.environment, p, Some(still), Some(&out), Some(&k), Some(&env), none, tiles(w, h));
                 (out, (w, h))
             }
             e @ E::CcCylinder { .. } => {

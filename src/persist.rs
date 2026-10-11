@@ -2781,6 +2781,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("light_direction".into(), num(*light_direction));
             params.insert("texture_contrast".into(), num(*texture_contrast));
         }
+        // D-531: the environment read for a frame is never saved.
+        Effect::CcEnvironment { environment, mapping, horizontal_pan, tilt, roll, field_of_view, filter_environment, .. } => {
+            params.insert("environment".into(), environment.clone());
+            params.insert("mapping".into(), J::from(mapping.as_str()));
+            params.insert("horizontal_pan".into(), num(*horizontal_pan));
+            params.insert("tilt".into(), num(*tilt));
+            params.insert("roll".into(), num(*roll));
+            params.insert("field_of_view".into(), num(*field_of_view));
+            params.insert("filter_environment".into(), J::from(filter_environment.as_str()));
+        }
         Effect::CcCylinder {
             radius,
             position,
@@ -5434,6 +5444,7 @@ fn parse_effect(
         crate::effects::CC_BALL_ACTION,
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
+        crate::effects::CC_ENVIRONMENT,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
@@ -6748,6 +6759,17 @@ fn parse_effect(
             fit: effect_word(params, "fit", &at)?,
             light_direction: effect_number(params, "light_direction", &at)?,
             texture_contrast: effect_number(params, "texture_contrast", &at)?,
+            map: None,
+        }),
+        // D-531: the environment layer kept as written.
+        crate::effects::CC_ENVIRONMENT => Some(crate::effects::Effect::CcEnvironment {
+            environment: field(effect_params(params, &at)?, &format!("{at}/parameters"), "environment")?.clone(),
+            mapping: effect_word(params, "mapping", &at)?,
+            horizontal_pan: effect_number(params, "horizontal_pan", &at)?,
+            tilt: effect_number(params, "tilt", &at)?,
+            roll: effect_number(params, "roll", &at)?,
+            field_of_view: effect_number(params, "field_of_view", &at)?,
+            filter_environment: effect_word(params, "filter_environment", &at)?,
             map: None,
         }),
         crate::effects::CC_CYLINDER => Some(crate::effects::Effect::CcCylinder {

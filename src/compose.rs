@@ -1170,6 +1170,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::ChannelWipe { .. }
                 // D-530.
                 | crate::effects::Effect::CcCylinder { .. }
+                // D-531: with its environment read.
+                | crate::effects::Effect::CcEnvironment { map: Some(_), .. }
                 // D-400.
                 | crate::effects::Effect::ShadowHighlight { .. }
                 // D-397.
@@ -1546,6 +1548,8 @@ fn card_effect(
                 E::Twister { completion, .. } => *completion == 0.0 || crate::layer_fx::twist_back(&effect).is_none(),
                 // D-518: not begun, or a layer named but not read.
                 E::WarpBlend { completion, .. } => *completion <= 0.0 || crate::layer_fx::warp_settings(&effect).is_none(),
+                // D-531: no environment read, none named or one named but not read.
+                E::CcEnvironment { map, .. } => map.is_none(),
                 // D-502: no foreground, or a mask named not found.
                 E::InnerOuterKey { paths, .. } => paths.is_none(),
                 // D-408: as layer_fx::transform returns at once (the map is then the unchanged one).

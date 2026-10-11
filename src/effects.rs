@@ -2646,6 +2646,22 @@ pub enum Effect {
         frame: i32,
         paths: Option<Vec<(Vec<(f64, f64)>, bool)>>,
     },
+    /// D-531: after CycoreFX's CC Environment, its rule and its settings when added ours
+    /// (`layer_fx::cc_environment`, document 21), its own fake 3D (no composition camera).
+    /// `environment`, D-189's layer setting as written, "" for none, read whole at its own size;
+    /// `mapping`, one of [`ENV_MAPPINGS`]; `horizontal_pan`, `tilt` and `roll`, -3600 to 3600
+    /// degrees; `field_of_view`, 1 to 179 degrees across the drawing's width;
+    /// `filter_environment`, "on" or "off". `map` is not a setting and is never saved.
+    CcEnvironment {
+        environment: serde_json::Value,
+        mapping: String,
+        horizontal_pan: f64,
+        tilt: f64,
+        roll: f64,
+        field_of_view: f64,
+        filter_environment: String,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-530: after CycoreFX's CC Cylinder, its rule and its settings when added ours
     /// (`layer_fx::cc_cylinder`, document 21), its own fake 3D (no composition camera). `radius`,
     /// 0 to 1000 per cent of half the drawing's width; `position`, x then y, per cent of the
@@ -3816,6 +3832,9 @@ pub const ENERGY_COMPOSITES: [&str; 3] = ["add", "transparent", "black"];
 pub const CC_CYLINDER: &str = "core.cc_cylinder";
 /// D-530: CC Cylinder's renders: the outside over the inside, the outside alone, the inside alone.
 pub const CYLINDER_RENDERS: [&str; 3] = ["full", "outside", "inside"];
+pub const CC_ENVIRONMENT: &str = "core.cc_environment";
+/// D-531: CC Environment's mappings: latitude and longitude, an angular light probe, a vertical cross.
+pub const ENV_MAPPINGS: [&str; 3] = ["spherical", "probe", "vertical_cross"];
 /// D-506: 3D Glasses' views, the anaglyphs last.
 pub const GLASSES_VIEWS: [&str; 8] = [
     "side_by_side",
@@ -4242,6 +4261,12 @@ impl Effect {
                 ("specular", vec![specular], 0.0, 100.0),
                 ("roughness", vec![roughness], 0.0, 100.0),
                 ("metal", vec![metal], 0.0, 100.0),
+            ],
+            Effect::CcEnvironment { horizontal_pan, tilt, roll, field_of_view, .. } => vec![
+                ("horizontal_pan", vec![horizontal_pan], -3600.0, 3600.0),
+                ("tilt", vec![tilt], -3600.0, 3600.0),
+                ("roll", vec![roll], -3600.0, 3600.0),
+                ("field_of_view", vec![field_of_view], 1.0, 179.0),
             ],
             Effect::Transform {
                 anchor_point,
@@ -6853,6 +6878,7 @@ impl Effect {
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
+            Effect::CcEnvironment { .. } => "CC Environment",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::BlockLoad { .. } => "Block Load",
             Effect::BurnFilm { .. } => "Burn Film",
@@ -7087,6 +7113,7 @@ impl Effect {
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
+            Effect::CcEnvironment { .. } => CC_ENVIRONMENT,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::BlockLoad { .. } => BLOCK_LOAD,
             Effect::BurnFilm { .. } => BURN_FILM,
@@ -7381,6 +7408,8 @@ impl Effect {
         match self {
             // D-521: the target lies on the drawing, centred.
             Effect::TimeDifference { layer: serde_json::Value::String(layer), .. } => Some((layer, "center")),
+            // D-531: the environment read whole, at its own size.
+            Effect::CcEnvironment { environment: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
             // D-524: the gradient lies on the drawing, centred.
             Effect::Fog3d { gradient_layer: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
@@ -7457,6 +7486,7 @@ impl Effect {
             Effect::SoftGlow { dirt, .. } | Effect::LensFlare { dirt, .. } => Some((&mut dirt.layer, &mut dirt.map)),
             Effect::Twister { backside, map, .. } => Some((backside, map)),
             Effect::WarpBlend { layer_to_reveal, map, .. } => Some((layer_to_reveal, map)),
+            Effect::CcEnvironment { environment, map, .. } => Some((environment, map)),
             _ => None,
         }
     }
@@ -7651,6 +7681,15 @@ impl Effect {
                 })
                 .or_else(|| (!gel_layer.is_string()).then(|| format!(
                     "CC Spotlight's gel layer is the name of a layer of this composition, and this is {gel_layer}."
+                ))),
+            Effect::CcEnvironment { environment, mapping, filter_environment: f, .. } => (!environment.is_string())
+                .then(|| format!("CC Environment's environment is the name of a layer of this composition, and this is {environment}."))
+                .or_else(|| (!ENV_MAPPINGS.contains(&mapping.as_str())).then(|| format!(
+                    "CC Environment's mapping is one of {}, and this is \"{mapping}\".",
+                    ENV_MAPPINGS.map(|m| format!("\"{m}\"")).join(", ")
+                )))
+                .or_else(|| (!["on", "off"].contains(&f.as_str())).then(|| format!(
+                    "CC Environment's filter environment is \"on\" or \"off\", and this is \"{f}\"."
                 ))),
             Effect::CcCylinder { light_color, render, .. } => hex_fault("CC Cylinder", "light colour", light_color).or_else(|| {
                 (!CYLINDER_RENDERS.contains(&render.as_str())).then(|| {
@@ -10736,6 +10775,12 @@ pub(crate) fn apply_stack_at(
             e @ Effect::EnergyStroke { .. } => crate::perf::time(crate::perf::Stage::EffectEnergyStroke, || {
                 crate::along::energy_stroke(source, e, (ox, oy))
             }),
+            // D-531: with no environment read (none named, or one not in the composition, which
+            // compose said), the layer is left as it is. Never grows.
+            e @ Effect::CcEnvironment { map: Some(_), .. } => crate::perf::time(crate::perf::Stage::EffectCcEnvironment, || {
+                crate::layer_fx::cc_environment(source, e, (ox, oy))
+            }),
+            Effect::CcEnvironment { .. } => {}
             // D-530: every distance a share of the drawing; never grows.
             e @ Effect::CcCylinder { .. } => crate::perf::time(crate::perf::Stage::EffectCcCylinder, || {
                 crate::layer_fx::cc_cylinder(source, e, (ox, oy))

@@ -7924,6 +7924,150 @@ pub(crate) fn cc_spotlight(source: &mut WorkingBuffer, e: &crate::effects::Effec
     });
 }
 
+/// D-531: CC Environment's numbers for a drawing `w0` by `h0` and an environment `ew` by `eh`,
+/// shared with the card: the mapping (an index into `effects::ENV_MAPPINGS`), 1 for four rays a
+/// pixel (Filter Environment on a spherical map) else 0, the view's turn M = Ry(pan) Rx(tilt)
+/// Rz(roll) by rows (nine), W/2, H/2, the focal length F, `ew` and `eh`.
+pub(crate) fn environment_numbers(e: &crate::effects::Effect, w0: f64, h0: f64, (ew, eh): (usize, usize)) -> [f64; 16] {
+    let crate::effects::Effect::CcEnvironment { mapping, horizontal_pan, tilt, roll, field_of_view, filter_environment, .. } = e else {
+        unreachable!("CC Environment's numbers of another effect")
+    };
+    type M3 = [[f64; 3]; 3];
+    let mul = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum())) };
+    let (sr, cr) = roll.to_radians().sin_cos();
+    let (st, ct) = tilt.to_radians().sin_cos();
+    let (sp, cp) = horizontal_pan.to_radians().sin_cos();
+    let rz = [[cr, -sr, 0.0], [sr, cr, 0.0], [0.0, 0.0, 1.0]];
+    let rx = [[1.0, 0.0, 0.0], [0.0, ct, -st], [0.0, st, ct]];
+    let ry = [[cp, 0.0, sp], [0.0, 1.0, 0.0], [-sp, 0.0, cp]];
+    let m = mul(ry, mul(rx, rz));
+    let mode = crate::effects::ENV_MAPPINGS.iter().position(|r| r == mapping).expect("CC Environment's mapping was checked");
+    let four = mode == 0 && filter_environment == "on";
+    [
+        mode as f64,
+        if four { 1.0 } else { 0.0 },
+        m[0][0],
+        m[0][1],
+        m[0][2],
+        m[1][0],
+        m[1][1],
+        m[1][2],
+        m[2][0],
+        m[2][1],
+        m[2][2],
+        w0 / 2.0,
+        h0 / 2.0,
+        (w0 / 2.0) / (field_of_view.to_radians() / 2.0).tan(),
+        ew as f64,
+        eh as f64,
+    ]
+}
+
+/// D-531: document 21's bilinear on the environment at (u, v), rows held within it and columns
+/// taken round its width with `wrap`, else held; transparent when it is empty.
+fn environment_tap(env: &WorkingBuffer, u: f64, v: f64, wrap: bool) -> [f64; 4] {
+    let (w, h) = (env.width() as isize, env.height() as isize);
+    let mut out = [0.0; 4];
+    if w == 0 || h == 0 {
+        return out;
+    }
+    let (fx, fy) = (u - 0.5, v - 0.5);
+    let (x0, y0) = (fx.floor(), fy.floor());
+    let (ux, uy) = (fx - x0, fy - y0);
+    let (x0, y0) = (x0 as isize, y0 as isize);
+    for (dy, wy) in [(0isize, 1.0 - uy), (1, uy)] {
+        if wy == 0.0 {
+            continue;
+        }
+        let sy = (y0 + dy).clamp(0, h - 1);
+        for (dx, wx) in [(0isize, 1.0 - ux), (1, ux)] {
+            if wx == 0.0 {
+                continue;
+            }
+            let sx = if wrap { (x0 + dx).rem_euclid(w) } else { (x0 + dx).clamp(0, w - 1) };
+            let px = env.pixel(sx as usize, sy as usize);
+            for i in 0..4 {
+                out[i] += px[i] as f64 * wx * wy;
+            }
+        }
+    }
+    out
+}
+
+/// D-531: the environment's colour along the ray through the drawing's point (x, y) (document 21).
+fn environment_look(env: &WorkingBuffer, k: &[f64; 16], x: f64, y: f64) -> [f64; 4] {
+    let c = [x - k[11], y - k[12], k[13]];
+    let d: [f64; 3] = std::array::from_fn(|i| k[2 + 3 * i] * c[0] + k[3 + 3 * i] * c[1] + k[4 + 3 * i] * c[2]);
+    let n = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+    let [dx, dy, dz] = d.map(|q| q / n);
+    let (ew, eh) = (k[14], k[15]);
+    match k[0] as usize {
+        0 => {
+            let u = ew * (0.5 + dx.atan2(dz) / std::f64::consts::TAU);
+            let v = eh * (0.5 - (-dy).clamp(-1.0, 1.0).asin() / std::f64::consts::PI);
+            environment_tap(env, u, v, true)
+        }
+        1 => {
+            let s = (dx * dx + dy * dy).sqrt();
+            let q = if s == 0.0 { 0.0 } else { dz.clamp(-1.0, 1.0).acos() / (std::f64::consts::PI * s) };
+            environment_tap(env, ew * (1.0 + dx * q) / 2.0, eh * (1.0 + dy * q) / 2.0, false)
+        }
+        _ => {
+            let (ax, ay, az) = (dx.abs(), dy.abs(), dz.abs());
+            let (col, row, a, b) = if ax >= ay && ax >= az {
+                if dx > 0.0 { (2.0, 1.0, -dz / dx, dy / dx) } else { (0.0, 1.0, dz / ax, dy / ax) }
+            } else if ay >= az {
+                if dy < 0.0 { (1.0, 0.0, dx / ay, dz / ay) } else { (1.0, 2.0, dx / dy, -dz / dy) }
+            } else if dz > 0.0 {
+                (1.0, 1.0, dx / dz, dy / dz)
+            } else {
+                (1.0, 3.0, dx / az, -dy / az)
+            };
+            let (fw, fh) = (ew / 3.0, eh / 4.0);
+            let u = (fw * (col + (a + 1.0) / 2.0)).max(col * fw + 0.5).min((col + 1.0) * fw - 0.5);
+            let v = (fh * (row + (b + 1.0) / 2.0)).max(row * fh + 0.5).min((row + 1.0) * fh - 0.5);
+            environment_tap(env, u, v, false)
+        }
+    }
+}
+
+/// D-531: after CycoreFX's CC Environment, the rule ours (document 21): the environment read
+/// round a view turned by pan, tilt and roll, filling the layer's shape, whose drawing's corner
+/// is at `(ox, oy)` in the buffer. Never grows.
+pub(crate) fn cc_environment(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let crate::effects::Effect::CcEnvironment { map: Some(map), .. } = e else {
+        unreachable!("CC Environment drawn with no environment read")
+    };
+    let env = &*map.0;
+    let (w, h) = (source.width(), source.height());
+    let k = environment_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64, (env.width(), env.height()));
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let a = px[3];
+        if a == 0.0 {
+            px.fill(0.0);
+            return;
+        }
+        let (x, y) = ((i % w) as f64 - ox as f64, (i / w) as f64 - oy as f64);
+        let got = if k[1] == 1.0 {
+            let mut sum = [0.0; 4];
+            for sy in [-0.25, 0.25] {
+                for sx in [-0.25, 0.25] {
+                    let t = environment_look(env, &k, x + 0.5 + sx, y + 0.5 + sy);
+                    for j in 0..4 {
+                        sum[j] += t[j];
+                    }
+                }
+            }
+            sum.map(|s| s / 4.0)
+        } else {
+            environment_look(env, &k, x + 0.5, y + 0.5)
+        };
+        for (p, g) in px.iter_mut().zip(got) {
+            *p = (g * a as f64) as f32;
+        }
+    });
+}
+
 /// D-530: CC Cylinder's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
 /// the render (an index into `effects::CYLINDER_RENDERS`), the eye E (three), M = Rz Ry Rx by
 /// rows (nine), the eye in the cylinder's own space M^T (E - C) (three), the radius, the light's
