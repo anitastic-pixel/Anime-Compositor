@@ -176559,6 +176559,50 @@ FX-DIRT-028 (`fx_dirt_028.json`): Lens Flare, dirt opacity -1, below 0. The file
 
 FX-DIRT-029 (`fx_dirt_029.json`): Lens Flare, dirt gamma keyed to 11 at frame 4, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Glint Streaks (D-546)
+
+Pick #15, Glint Streaks: four settings on Cross Glare (`core.cross_glare`), `ray_colors`, `color_2`, `shimmer` and `shimmer_period` (B-426). Every case is a project of one composition 16 by 10 at 24 fps, nine frames long, in `Fixtures/glint_streaks/`, on D-161's drawing (`media/sparks.png`). **Every number is produced by `tools/glint_streaks_reference.py`**, which works D-161's light and arms (`tools/cross_glare_reference.py`) and then each ray's colour and strength in double precision; the numbers are in `Fixtures/glint_streaks/expected_glint_streaks.json`. Tolerance 2e-5. B-426 checks them, runs D-161's FX-GLARE-001 to 029 again unchanged, and draws the playtest's pictures, in `verification/D-546_glint_streaks_table.md`.
+
+FX-GLINT-001 (`fx_glint_001.json`): The four new settings written at their start values (one colour, #80c0ff, shimmer 0, period 24) on Cross Glare's FX-GLARE-005 (angle 45, white): FX-GLARE-005's numbers, so a glare drawn before Glint Streaks draws the same. Frames 0.
+
+FX-GLINT-002 (`fx_glint_002.json`): Alternate, orange #ff8000 and blue #0080ff, a plus (angle 0): rays 0 and 2, up and down, are orange; rays 1 and 3, right and left, are blue. The pixel right of the yellow point takes 0.8 squared over 1.2 of its light in blue. Frames 0.
+
+FX-GLINT-003 (`fx_glint_003.json`): Gradient from red #ff0000 to blue #0000ff: up is red, right two thirds red and one third blue, down one third red and two thirds blue, left blue, mixed in linear light. Frames 0.
+
+FX-GLINT-004 (`fx_glint_004.json`): Alternate with one ray: the ray is ray 0, so it is orange; Cross Glare with points 1, orange. Frames 0.
+
+FX-GLINT-005 (`fx_glint_005.json`): Gradient with one ray: the ray is the first colour; FX-GLINT-004 exactly. Frames 0.
+
+FX-GLINT-006 (`fx_glint_006.json`): Alternate on eight rays from angle 0: up, right, down and left orange, the four diagonals blue. Frames 0.
+
+FX-GLINT-007 (`fx_glint_007.json`): Alternate with the second colour the same as the first: one colour, Cross Glare's own glare. Frames 0.
+
+FX-GLINT-008 (`fx_glint_008.json`): FX-GLINT-002 with the second colour written in capitals, #0080FF: the same. Frames 0.
+
+FX-GLINT-009 (`fx_glint_009.json`): Shimmer 100, period 8, one colour: on frame 0 ray 0 (up) is at full and the others are dimmed by their own phases; on frame 4, half a period on, ray 0 is gone; frame 8, a whole period on, is frame 0 again. Frames 0, 2, 4, 8.
+
+FX-GLINT-010 (`fx_glint_010.json`): Shimmer 50, period 8, alternate: each ray breathes between half and full strength in its own colour, never gone. Frames 0, 3.
+
+FX-GLINT-011 (`fx_glint_011.json`): Shimmer keyed from 0 at frame 0 to 100 at frame 4, linear, period 8: frame 0 is the plain glare, frame 4 is FX-GLINT-009's frame 4. Frames 0, 2, 4.
+
+FX-GLINT-012 (`fx_glint_012.json`): Shimmer 100, period 16: frame 4 is a quarter period on, as frame 2 is at period 8, so it is FX-GLINT-009's frame 2. Frames 4.
+
+FX-GLINT-013 (`fx_glint_013.json`): Shimmer 100, period 1: every whole frame is a whole period on, so the rays hold still, each dimmed by its own phase. Frames 0, 1, 5.
+
+FX-GLINT-014 (`fx_glint_014.json`): FX-GLINT-002 moved three pixels right: the layer grew by 4, and the yellow's blue left ray shows in the two grown columns left of the drawing. Frames 0.
+
+FX-GLINT-015 (`fx_glint_015.json`): Shimmer 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLINT-016 (`fx_glint_016.json`): Shimmer period 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLINT-017 (`fx_glint_017.json`): Shimmer period 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLINT-018 (`fx_glint_018.json`): Ray colours "rainbow", not one of "one", "alternate" or "gradient". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLINT-019 (`fx_glint_019.json`): A second colour written "#12345", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLINT-020 (`fx_glint_020.json`): Shimmer keyed to 120 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Path Stroke (D-356)
 
 Effects that draw along paths (EFFECTS.md P0-22), proved with Path Stroke (`core.stroke`), after After Effects' Stroke (Generate) (B-235). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/stroke/`: the layer `art` holding Lightning Bolt's night drawing the same size (its left half a night sky, its right half empty), unmoved unless the case says, with masks of mode None unless the case says, and the effect `fx-0-0`. **Every number is produced by `tools/stroke_reference.py`**, which lists every dab and finds the nearest by brute force in double precision, from the drawing's 8-bit values; the numbers are in `Fixtures/stroke/expected_stroke.json`. Tolerance 2e-5. B-235 checks them, and draws the playtest's pictures, in `verification/D-356_stroke_table.md`.
