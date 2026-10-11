@@ -207924,3 +207924,71 @@ FX-BRUSH-027 (`fx_brush_027.json`): Paint Surface "White", in capitals, kept as 
 FX-BRUSH-028 (`fx_brush_028.json`): Animate "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BRUSH-029 (`fx_brush_029.json`): Stroke Length keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Cartoon (D-448)
+
+Cartoon, after After Effects' Cartoon (Stylize), `core.cartoon` (B-328). Every case is a composition 16 by 10 holding D-203's skin with specks, a hole, a line two pixels wide, a patch of grain and a column at half covering, unmoved unless the case says; `tools/cartoon_reference.py` works the expected frames, `Fixtures/cartoon/expected_cartoon.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-CARTOON-001 (`fx_cartoon_001.json`): The settings as they start: Fill & Edges, Detail Radius 8, Threshold 10, 8 shading steps at smoothness 40, edges at threshold 1.6, width 1.5, softness 60: the grain smoothed into the skin, the skin's shading cut into steps, and dark lines along the line, the specks, the hole and the drawing's outline. Frames 0.
+
+FX-CARTOON-002 (`fx_cartoon_002.json`): Render Fill: the smoothed, stepped colours, no lines. Frames 0.
+
+FX-CARTOON-003 (`fx_cartoon_003.json`): Render Edges: the lines alone, black on white, at the drawing's own covering. Frames 0.
+
+FX-CARTOON-004 (`fx_cartoon_004.json`): Detail Radius 0: nothing smoothed, so the grain keeps its edges. Frames 0.
+
+FX-CARTOON-005 (`fx_cartoon_005.json`): Detail Threshold 255: the smoothing hardly minds the colours, a soft blur that softens the lines. Frames 0.
+
+FX-CARTOON-006 (`fx_cartoon_006.json`): Render Fill, 2 shading steps, smoothness 0: every pixel's shade pushed to black or white. Frames 0.
+
+FX-CARTOON-007 (`fx_cartoon_007.json`): Render Fill, Detail Radius 0, smoothness 100: the drawing as it was. Frames 0.
+
+FX-CARTOON-008 (`fx_cartoon_008.json`): Edge Threshold 10: only the strongest edges are drawn. Frames 0.
+
+FX-CARTOON-009 (`fx_cartoon_009.json`): Edge Width 0, softness 0: lines one pixel wide, on the edges alone. Frames 0.
+
+FX-CARTOON-010 (`fx_cartoon_010.json`): Edge Width 4: thick lines. Frames 0.
+
+FX-CARTOON-011 (`fx_cartoon_011.json`): Edge Softness 0: the lines' sides hard. Frames 0.
+
+FX-CARTOON-012 (`fx_cartoon_012.json`): Edge Opacity 0: no lines, the same as Render Fill. Frames 0.
+
+FX-CARTOON-013 (`fx_cartoon_013.json`): Edge Opacity 50: the lines at half strength. Frames 0.
+
+FX-CARTOON-014 (`fx_cartoon_014.json`): Render Fill, Edge Enhancement 100: the colours either side of an edge pushed apart. Frames 0.
+
+FX-CARTOON-015 (`fx_cartoon_015.json`): Render Fill, Edge Enhancement -100: the colours either side of an edge drawn together. Frames 0.
+
+FX-CARTOON-016 (`fx_cartoon_016.json`): Edge Black Level 0.5: grey lines. Frames 0.
+
+FX-CARTOON-017 (`fx_cartoon_017.json`): Render Edges, Edge Black Level 1: white lines on black. Frames 0.
+
+FX-CARTOON-018 (`fx_cartoon_018.json`): Edge Contrast 1: every edge past the threshold drawn fully. Frames 0.
+
+FX-CARTOON-019 (`fx_cartoon_019.json`): Edge Contrast 0: the lines fade in slowly with the edge. Frames 0.
+
+FX-CARTOON-020 (`fx_cartoon_020.json`): Detail Radius keyed from 0 at frame 0 to 16 at frame 4, linear, 8 at frame 2; Edge Width keyed from 0 to 10, eased past its end, held at 10 at frame 2. Frames 0, 2, 4.
+
+FX-CARTOON-021 (`fx_cartoon_021.json`): FX-CARTOON-001 moved three pixels right. Frames 0.
+
+FX-CARTOON-022 (`fx_cartoon_022.json`): After a Motion Tile that grows the layer, unmirrored: the edges are the grown buffer's, so the tile's empty row and column now meet the top row and the left column, and lines run along the top and the left. Frames 0.
+
+FX-CARTOON-023 (`fx_cartoon_023.json`): Detail Radius 3, Threshold 30, 5 steps at smoothness 20, edges at threshold 2.5, width 2.5, softness 30, opacity 80, enhancement 40, black level 0.2, contrast 0.7: the controls together. Frames 0.
+
+FX-CARTOON-024 (`fx_cartoon_024.json`): Render "outline", not one of fill, edges or fill_and_edges. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CARTOON-025 (`fx_cartoon_025.json`): Detail Radius 51, above 50. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CARTOON-026 (`fx_cartoon_026.json`): Detail Threshold -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CARTOON-027 (`fx_cartoon_027.json`): Shading Steps 1, below 2. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CARTOON-028 (`fx_cartoon_028.json`): Shading Steps 65, above 64. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CARTOON-029 (`fx_cartoon_029.json`): Edge Width 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CARTOON-030 (`fx_cartoon_030.json`): Edge Enhancement -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CARTOON-031 (`fx_cartoon_031.json`): Edge Black Level 1.5, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CARTOON-032 (`fx_cartoon_032.json`): Edge Contrast keyed to 2 at frame 4, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
