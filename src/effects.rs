@@ -2661,6 +2661,17 @@ pub enum Effect {
         time: f64,
         count: i64,
     },
+    /// D-467: after After Effects' Texturize (`layer_fx::texturize`, document 21). `layer` and
+    /// `fit`, D-189's layer setting, the texture layer, "" for none; `light_direction`, -3600 to
+    /// 3600 degrees clockwise from up; `texture_contrast`, 0 to 2. `map` is not a setting and is
+    /// never saved.
+    Texturize {
+        layer: serde_json::Value,
+        fit: String,
+        light_direction: f64,
+        texture_contrast: f64,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -3649,6 +3660,7 @@ pub const STROBE_LIGHT_MODES: [&str; 2] = ["color_only", "transparent"];
 /// D-466: Strobe Light's operators, Copy first as it starts; the list past Copy is ours.
 pub const STROBE_LIGHT_OPERATORS: [&str; 12] =
     ["copy", "add", "subtract", "multiply", "difference", "and", "or", "xor", "minimum", "maximum", "darken", "lighten"];
+pub const TEXTURIZE: &str = "core.texturize";
 /// D-464: Repeat Tile's ways of laying the copies, After Effects' sixteen in its order.
 pub const REPEAT_TILE_TILINGS: [&str; 16] = [
     "repeat",
@@ -5090,6 +5102,10 @@ impl Effect {
                 ("strobe_period", vec![strobe_period], 0.0, 100.0),
                 ("random_strobe_probability", vec![random_strobe_probability], 0.0, 100.0),
                 ("random_seed", vec![random_seed], 0.0, 100000.0),
+            ],
+            Effect::Texturize { light_direction, texture_contrast, .. } => vec![
+                ("light_direction", vec![light_direction], -3600.0, 3600.0),
+                ("texture_contrast", vec![texture_contrast], 0.0, 2.0),
             ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
@@ -6579,6 +6595,7 @@ impl Effect {
             Effect::RepeatTile { .. } => "Repeat Tile",
             Effect::Scatter { .. } => "Scatter",
             Effect::StrobeLight { .. } => "Strobe Light",
+            Effect::Texturize { .. } => "Texturize",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -6806,6 +6823,7 @@ impl Effect {
             Effect::RepeatTile { .. } => REPEAT_TILE,
             Effect::Scatter { .. } => SCATTER,
             Effect::StrobeLight { .. } => STROBE_LIGHT,
+            Effect::Texturize { .. } => TEXTURIZE,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -7100,6 +7118,7 @@ impl Effect {
             | Effect::VectorBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::MrSmoothie { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Plastic { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::Texturize { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Blobbylize { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::MomentMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::LensBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
@@ -7142,6 +7161,7 @@ impl Effect {
             | Effect::VectorBlur { layer, map, .. }
             | Effect::MrSmoothie { layer, map, .. }
             | Effect::Plastic { layer, map, .. }
+            | Effect::Texturize { layer, map, .. }
             | Effect::Blobbylize { layer, map, .. }
             | Effect::MomentMap { layer, map, .. }
             | Effect::TimeDifference { layer, map, .. }
@@ -8233,6 +8253,12 @@ impl Effect {
                 STROBE_LIGHT_OPERATORS.join(", ")
             )),
             Effect::StrobeLight { strobe_color, .. } => hex_fault("Strobe Light", "strobe colour", strobe_color),
+            Effect::Texturize { layer, .. } if !layer.is_string() => Some(format!(
+                "Texturize's texture layer is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::Texturize { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
+                "Texturize's texture placement is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
+            )),
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
             )),
@@ -10861,6 +10887,14 @@ pub(crate) fn apply_stack_at(
                 if crate::layer_fx::strobe_on(*strobe_duration, *strobe_period, *random_strobe_probability, *random_seed, *time, *count) {
                     let k = crate::layer_fx::strobe_setup(encoded(strobe_color).map(crate::grade::to_linear), *blend_with_original, strobe, strobe_operator);
                     crate::perf::time(crate::perf::Stage::EffectStrobeLight, || crate::layer_fx::strobe_light(source, k));
+                }
+            }
+            // D-467: the texture compose read for this frame; with none, nothing happens.
+            Effect::Texturize { light_direction, texture_contrast, map, .. } => {
+                if let Some(map) = map {
+                    crate::perf::time(crate::perf::Stage::EffectTexturize, || {
+                        crate::layer_fx::texturize(source, (&map.0, (ox, oy)), *light_direction, *texture_contrast)
+                    })
                 }
             }
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {

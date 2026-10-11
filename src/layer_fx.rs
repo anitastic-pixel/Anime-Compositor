@@ -3256,6 +3256,36 @@ pub(crate) fn strobe_light(source: &mut WorkingBuffer, k: [f64; 6]) {
     });
 }
 
+/// D-467: after After Effects' Texturize (document 21): Emboss's colour relief, read from the
+/// luminance of the texture `map` (the drawing's size, its corner at the given place) one pixel
+/// ahead and behind along `direction`, each sample held inside the pixel centres, times
+/// `contrast` over 2. The colours, covering and size are kept. The settings are already valid.
+pub(crate) fn texturize(source: &mut WorkingBuffer, map: (&WorkingBuffer, (usize, usize)), direction: f64, contrast: f64) {
+    let (w, h) = (source.width(), source.height());
+    if w == 0 || h == 0 {
+        return;
+    }
+    let (height, _) = flow_height(source, Some(map), "luminance", 0.0);
+    let (ux, uy) = crate::blurs::along(direction);
+    let (fw, fh) = (w as f64, h as f64);
+    let hold = |x: f64, y: f64| (x.max(0.5).min(fw - 0.5), y.max(0.5).min(fh - 0.5));
+    let k = contrast / 2.0;
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let (ax, ay) = hold(x + ux, y + uy);
+        let (bx, by) = hold(x - ux, y - uy);
+        let v = (sample_bilinear(&height, ax, ay)[3] as f64 - sample_bilinear(&height, bx, by)[3] as f64) * k;
+        for c in 0..3 {
+            let e = crate::grade::to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)) + v;
+            px[c] = (crate::grade::to_linear(e.clamp(0.0, 1.0)) * a) as f32;
+        }
+    });
+}
+
 /// D-404: Tiles, Motion Tile's sized tile held at the buffer's size, `scale` per cent across
 /// and down round `center`, then `blend` per cent of the original mixed back.
 pub(crate) fn tiles(source: &mut WorkingBuffer, scale: f64, center: [f64; 2], blend: f64) {

@@ -2726,6 +2726,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("strobe_operator".into(), J::from(strobe_operator.as_str()));
             params.insert("random_seed".into(), num(*random_seed));
         }
+        Effect::Texturize { layer, fit, light_direction, texture_contrast, .. } => {
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("light_direction".into(), num(*light_direction));
+            params.insert("texture_contrast".into(), num(*texture_contrast));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -5399,6 +5405,7 @@ fn parse_effect(
         crate::effects::REPEAT_TILE,
         crate::effects::SCATTER,
         crate::effects::STROBE_LIGHT,
+        crate::effects::TEXTURIZE,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6570,6 +6577,14 @@ fn parse_effect(
             random_seed: effect_number(params, "random_seed", &at)?,
             time: 0.0,
             count: 0,
+        }),
+        // D-467: the layer kept as written, as Plastic's.
+        crate::effects::TEXTURIZE => Some(crate::effects::Effect::Texturize {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            light_direction: effect_number(params, "light_direction", &at)?,
+            texture_contrast: effect_number(params, "texture_contrast", &at)?,
+            map: None,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

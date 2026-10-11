@@ -976,6 +976,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Scatter { .. }
                 // D-466: Strobe Light, while it is on.
                 | crate::effects::Effect::StrobeLight { .. }
+                // D-467: Texturize, with a texture.
+                | crate::effects::Effect::Texturize { .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }
@@ -1399,6 +1401,8 @@ fn card_effect(
                     *blend_with_original == 100.0
                         || !crate::layer_fx::strobe_on(*strobe_duration, *strobe_period, *random_strobe_probability, *random_seed, *time, *count)
                 }
+                // D-467: no texture, or none of its relief.
+                E::Texturize { map, texture_contrast, .. } => map.is_none() || *texture_contrast == 0.0,
                 // B-123: the batch's five new ones, each as its own function returns at once.
                 E::ColorLookup { table, .. } => table.is_none(),
                 E::ArbitraryMap { table, .. } => table.is_none(),

@@ -446,6 +446,8 @@ pub enum Stage {
     EffectNumbers,
     /// D-527: Timecode, its box and words drawn and laid on.
     EffectTimecode,
+    /// D-467's Texturize.
+    EffectTexturize,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -463,7 +465,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 228] = [
+    pub const ALL: [Stage; 229] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -685,6 +687,7 @@ impl Stage {
         Stage::EffectIdentifier,
         Stage::EffectNumbers,
         Stage::EffectTimecode,
+        Stage::EffectTexturize,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -918,6 +921,7 @@ impl Stage {
             Stage::EffectIdentifier => "effect: identifier",
             Stage::EffectNumbers => "effect: numbers",
             Stage::EffectTimecode => "effect: timecode",
+            Stage::EffectTexturize => "effect: texturize",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

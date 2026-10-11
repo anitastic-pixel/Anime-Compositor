@@ -5404,6 +5404,36 @@ fn smoothie(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-467, layer_fx::texturize: the drawing `input` with the relief of the texture's luminance
+// (`other`'s alpha, the drawing's size) one pixel ahead and behind, each sample held inside the
+// pixel centres. k: the step along the light across and down, the contrast over 2.
+@compute @workgroup_size(16, 16)
+fn texturize(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let a = f64(p.w);
+    if a <= 0.0lf {
+        textureStore(output, id.xy, p);
+        return;
+    }
+    let x = f64(id.x) + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    let fw = f64(size.x);
+    let fh = f64(size.y);
+    let ahead = f64(bilinear(other, min(max(x + k[0], 0.5lf), fw - 0.5lf), min(max(y + k[1], 0.5lf), fh - 0.5lf)).w);
+    let behind = f64(bilinear(other, min(max(x - k[0], 0.5lf), fw - 0.5lf), min(max(y - k[1], 0.5lf), fh - 0.5lf)).w);
+    let v = (ahead - behind) * k[2];
+    var out = p;
+    for (var c = 0u; c < 3u; c++) {
+        let e = to_srgb(clamp(f64(p[c]) / a, 0.0lf, 1.0lf)) + v;
+        out[c] = f32(to_linear(clamp(e, 0.0lf, 1.0lf)) * a);
+    }
+    textureStore(output, id.xy, out);
+}
+
 // D-463, layer_fx::plastic's cut of the bump `v`: k[0] lo, k[1] hi.
 fn plastic_cut(v: f64) -> f64 {
     if k[1] == k[0] {
@@ -9767,6 +9797,8 @@ struct FxPasses {
     smoothie: Pass,
     /// D-463.
     plastic: Pass,
+    /// D-467.
+    texturize: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -10457,6 +10489,7 @@ impl Gpu {
                 burnfilm: pass("burnfilm", &[0, 1, 2, 3]),
                 smoothie: pass("smoothie", &[0, 1, 2, 3, 4]),
                 plastic: pass("plastic", &[0, 1, 2, 3, 4]),
+                texturize: pass("texturize", &[0, 1, 2, 3, 4]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -12371,6 +12404,18 @@ impl Gpu {
             E::StrobeLight { strobe_color, blend_with_original, strobe, strobe_operator, .. } => {
                 let k = crate::layer_fx::strobe_setup(linear(strobe_color), *blend_with_original, strobe, strobe_operator);
                 same(steps, &passes.warp, FxParams { mode: 103, ..Default::default() }, &[k[0], k[1], k[2], k[3], k[4], k[5], 0.0], None)
+            }
+            // D-467: the texture's luminance as Plastic's bump, then one pass that presses it in.
+            E::Texturize { light_direction, texture_contrast, map, .. } => {
+                let picture = self.map_texture(&map.as_ref().expect("compose leaves a Texturize with a texture").0);
+                let place = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == "luminance").expect("luminance is a property");
+                let raw = self.scratch("D-467 height", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[place as f64]), None, none, tiles(w, h));
+                let (ux, uy) = crate::blurs::along(*light_direction);
+                let out = self.scratch("D-467 texturize", w, h);
+                self.fx_step(steps, &passes.texturize, FxParams::default(), Some(still), Some(&out), Some(&[ux, uy, texture_contrast / 2.0]), Some(&raw), none, tiles(w, h));
+                (out, (w, h))
             }
             E::LinearWipe { completion, angle, feather } => {
                 let ((ux, uy), edge) = crate::layer_fx::linear_edge(*completion, *angle, *feather, (w, h), f.origin);
