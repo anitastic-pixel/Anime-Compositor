@@ -2341,6 +2341,21 @@ pub enum Effect {
         shape: String,
         reverse: String,
     },
+    /// D-513: Glow Wipe, after CycoreFX's CC Light Wipe, its rule and its settings when added ours
+    /// (`layer_fx::glow_wipe`, document 21). `completion`, 0 to 100; `center`, x then y, per cent
+    /// of the drawing, -1000 to 1000; `intensity`, 0 to 1000 per cent; `direction`, -3600 to 3600
+    /// degrees; `shape`, one of [`GLOW_SHAPES`]; `color_from_source` and `reverse`, "off" or "on";
+    /// `color`, `#rrggbb`.
+    GlowWipe {
+        completion: f64,
+        center: [f64; 2],
+        intensity: f64,
+        direction: f64,
+        shape: String,
+        color_from_source: String,
+        color: String,
+        reverse: String,
+    },
     /// D-511: Teeth Wipe, after CycoreFX's CC Jaws, its rule and its settings when added ours
     /// (`layer_fx::teeth_wipe`, document 21). `completion`, 0 to 100; `center`, x then y, per cent
     /// of the drawing, -1000 to 1000; `direction`, -3600 to 3600 degrees; `height`, 0 to 1000
@@ -3324,6 +3339,9 @@ pub const THREE_D_GLASSES: &str = "core.three_d_glasses";
 pub const GLASS_MELT: &str = "core.glass_melt";
 pub const TILE_WIPE: &str = "core.tile_wipe";
 pub const TEETH_WIPE: &str = "core.teeth_wipe";
+pub const GLOW_WIPE: &str = "core.glow_wipe";
+/// D-513: Glow Wipe's shapes.
+pub const GLOW_SHAPES: [&str; 3] = ["doors", "radial", "rectangular"];
 pub const CHANNEL_WIPE: &str = "core.channel_wipe";
 /// D-511: Teeth Wipe's shapes.
 pub const TEETH_SHAPES: [&str; 3] = ["spikes", "trapezoids", "blocks"];
@@ -3571,6 +3589,12 @@ impl Effect {
                 ("rotation", vec![rotation], -3600.0, 3600.0),
                 ("border", vec![border], 0.0, 100.0),
                 ("tiles", vec![tiles], 1.0, 200.0),
+            ],
+            Effect::GlowWipe { completion, center, intensity, direction, .. } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("intensity", vec![intensity], 0.0, 1000.0),
+                ("direction", vec![direction], -3600.0, 3600.0),
             ],
             Effect::TeethWipe { completion, center, direction, height, width, .. } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
@@ -6118,6 +6142,7 @@ impl Effect {
             Effect::GlassMelt { .. } => "Glass Melt",
             Effect::TileWipe { .. } => "Tile Wipe",
             Effect::TeethWipe { .. } => "Teeth Wipe",
+            Effect::GlowWipe { .. } => "Glow Wipe",
             Effect::ChannelWipe { .. } => "Channel Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::EnergyStroke { .. } => "Energy Stroke",
@@ -6331,6 +6356,7 @@ impl Effect {
             Effect::GlassMelt { .. } => GLASS_MELT,
             Effect::TileWipe { .. } => TILE_WIPE,
             Effect::TeethWipe { .. } => TEETH_WIPE,
+            Effect::GlowWipe { .. } => GLOW_WIPE,
             Effect::ChannelWipe { .. } => CHANNEL_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
@@ -8032,6 +8058,14 @@ impl Effect {
                 .or_else(|| (!["off", "on"].contains(&invert.as_str())).then(|| format!(
                     "Channel Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
                 ))),
+            Effect::GlowWipe { shape, color_from_source, color, reverse, .. } => (!GLOW_SHAPES.contains(&shape.as_str()))
+                .then(|| format!("Glow Wipe's shape is \"doors\", \"radial\" or \"rectangular\", and this is \"{shape}\"."))
+                .or_else(|| (!["off", "on"].contains(&color_from_source.as_str())).then(|| {
+                    format!("Glow Wipe's color from source is \"off\" or \"on\", and this is \"{color_from_source}\".")
+                }))
+                .or_else(|| hex_fault("Glow Wipe", "colour", color))
+                .or_else(|| (!["off", "on"].contains(&reverse.as_str()))
+                    .then(|| format!("Glow Wipe's reverse is \"off\" or \"on\", and this is \"{reverse}\"."))),
             Effect::TeethWipe { shape, .. } if !TEETH_SHAPES.contains(&shape.as_str()) => Some(format!(
                 "Teeth Wipe's shape is \"spikes\", \"trapezoids\" or \"blocks\", and this is \"{shape}\"."
             )),
@@ -9741,6 +9775,10 @@ pub(crate) fn apply_stack_at(
                     crate::perf::time(crate::perf::Stage::EffectGlassMelt, || crate::layer_fx::glass_melt(source, &g, (ox, oy)))
                 }
             }
+            // D-513: never grows.
+            e @ Effect::GlowWipe { .. } => crate::perf::time(crate::perf::Stage::EffectGlowWipe, || {
+                crate::layer_fx::glow_wipe(source, e, (ox, oy))
+            }),
             // D-511: never grows.
             e @ Effect::TeethWipe { .. } => crate::perf::time(crate::perf::Stage::EffectTeethWipe, || {
                 crate::layer_fx::teeth_wipe(source, e, (ox, oy))

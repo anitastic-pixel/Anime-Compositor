@@ -415,6 +415,8 @@ pub enum Stage {
     EffectTeethWipe,
     /// D-462's Mr. Smoothie.
     EffectMrSmoothie,
+    /// D-513: Glow Wipe.
+    EffectGlowWipe,
     /// D-512: Channel Wipe.
     EffectChannelWipe,
     /// D-463's Plastic.
@@ -436,7 +438,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 215] = [
+    pub const ALL: [Stage; 216] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -643,6 +645,7 @@ impl Stage {
         Stage::EffectHexTile,
         Stage::EffectTeethWipe,
         Stage::EffectMrSmoothie,
+        Stage::EffectGlowWipe,
         Stage::EffectChannelWipe,
         Stage::EffectPlastic,
         Stage::EffectCache,
@@ -863,6 +866,7 @@ impl Stage {
             Stage::EffectHexTile => "effect: hex tile",
             Stage::EffectTeethWipe => "effect: teeth wipe",
             Stage::EffectMrSmoothie => "effect: mr smoothie",
+            Stage::EffectGlowWipe => "effect: glow wipe",
             Stage::EffectChannelWipe => "effect: channel wipe",
             Stage::EffectPlastic => "effect: plastic",
             Stage::EffectCache => "effect result cache: lookup and admit",

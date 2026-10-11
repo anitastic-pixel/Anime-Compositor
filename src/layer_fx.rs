@@ -6925,6 +6925,73 @@ pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>
     })
 }
 
+/// D-513: Glow Wipe's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
+/// the centre (two), the direction's cosine and sine, the shape (an index into
+/// `effects::GLOW_SHAPES`), the farthest corner's distance, the band, the front, the intensity
+/// as a share, 1 reversed, 1 with the light's colour from the layer, and the light's linear
+/// colour (three).
+pub(crate) fn glow_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 14] {
+    let crate::effects::Effect::GlowWipe { completion, center, intensity, direction, shape, color_from_source, color, reverse } = e else {
+        unreachable!("Glow Wipe's numbers of another effect")
+    };
+    let (sn, cs) = direction.to_radians().sin_cos();
+    let mode = crate::effects::GLOW_SHAPES.iter().position(|s| s == shape).expect("Glow Wipe's shape was checked");
+    let c = crate::effects::encoded(color).map(crate::grade::to_linear);
+    let mut k = [center[0] / 100.0 * w0, center[1] / 100.0 * h0, cs, sn, mode as f64, 0.0, 0.0, 0.0, intensity / 100.0,
+        (reverse == "on") as u8 as f64, (color_from_source == "on") as u8 as f64, c[0], c[1], c[2]];
+    let far = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)].iter().map(|&(x, y)| glow_distance(&k, x, y)).fold(0.0, f64::max);
+    let b = far / 10.0;
+    k[5] = far;
+    k[6] = b;
+    k[7] = completion / 100.0 * (far + 2.0 * b) - b;
+    k
+}
+
+/// D-513: the shape's distance of the own point (x, y) from the centre (document 21).
+fn glow_distance(k: &[f64; 14], x: f64, y: f64) -> f64 {
+    let (dx, dy) = (x - k[0], y - k[1]);
+    let (u, v) = (dx * k[2] + dy * k[3], -dx * k[3] + dy * k[2]);
+    match k[4] as usize {
+        0 => u.abs(),
+        1 => (u * u + v * v).sqrt(),
+        _ => u.abs().max(v.abs()),
+    }
+}
+
+/// D-513: the own point (x, y) of premultiplied `p`: kept or cleared, the band's light added
+/// (document 21).
+fn glow_pixel(k: &[f64; 14], p: [f64; 4], x: f64, y: f64) -> [f64; 4] {
+    let d = glow_distance(k, x, y);
+    let s = if k[9] == 1.0 { k[5] - d } else { d };
+    let keep = if s >= k[7] { 1.0 } else { 0.0 };
+    let g = (1.0 - (s - k[7]).abs() / k[6]).max(0.0) * k[8];
+    let (l, cover) = if k[10] == 1.0 {
+        ([p[0] * g, p[1] * g, p[2] * g], (g * p[3]).min(1.0))
+    } else {
+        ([k[11] * g, k[12] * g, k[13] * g], g.min(1.0))
+    };
+    let qa = p[3] * keep;
+    [p[0] * keep + l[0], p[1] * keep + l[1], p[2] * keep + l[2], qa + (1.0 - qa) * cover]
+}
+
+/// D-513: after CycoreFX's CC Light Wipe, the rule ours (document 21); `(ox, oy)` the drawing's
+/// corner in the buffer. Never grows; at completion 0 returns at once (compose leaves it off the
+/// card then).
+pub(crate) fn glow_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    if matches!(e, crate::effects::Effect::GlowWipe { completion, .. } if *completion == 0.0) {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let k = glow_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let p = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
+        let out = glow_pixel(&k, p, (i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
+        for (v, o) in px.iter_mut().zip(out) {
+            *v = o as f32;
+        }
+    });
+}
+
 /// D-511: Teeth Wipe's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
 /// the centre (two), the direction's cosine and sine, the teeth's height and width, how far each
 /// part has moved, and the shape (an index into `effects::TEETH_SHAPES`).

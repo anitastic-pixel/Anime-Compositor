@@ -2513,6 +2513,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("blur".into(), num(*blur));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        Effect::GlowWipe { completion, center, intensity, direction, shape, color_from_source, color, reverse } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("direction".into(), num(*direction));
+            params.insert("shape".into(), J::from(shape.as_str()));
+            params.insert("color_from_source".into(), J::from(color_from_source.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("reverse".into(), J::from(reverse.as_str()));
+        }
         Effect::TeethWipe { completion, center, direction, height, width, shape } => {
             params.insert("completion".into(), num(*completion));
             params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
@@ -5118,6 +5128,7 @@ fn parse_effect(
         crate::effects::GLASS_MELT,
         crate::effects::TILE_WIPE,
         crate::effects::TEETH_WIPE,
+        crate::effects::GLOW_WIPE,
         crate::effects::CHANNEL_WIPE,
         crate::effects::CC_SPOTLIGHT,
         crate::effects::ENERGY_STROKE,
@@ -6172,6 +6183,16 @@ fn parse_effect(
             blur: effect_number(params, "blur", &at)?,
             invert: effect_word(params, "invert", &at)?,
             map: None,
+        }),
+        crate::effects::GLOW_WIPE => Some(crate::effects::Effect::GlowWipe {
+            completion: effect_number(params, "completion", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            intensity: effect_number(params, "intensity", &at)?,
+            direction: effect_number(params, "direction", &at)?,
+            shape: effect_word(params, "shape", &at)?,
+            color_from_source: effect_word(params, "color_from_source", &at)?,
+            color: effect_word(params, "color", &at)?,
+            reverse: effect_word(params, "reverse", &at)?,
         }),
         crate::effects::TEETH_WIPE => Some(crate::effects::Effect::TeethWipe {
             completion: effect_number(params, "completion", &at)?,
