@@ -210824,3 +210824,97 @@ FX-THRESHRGB-012 (`fx_threshrgb_012.json`): Blue Threshold keyed to 300 at frame
 FX-THRESHRGB-013 (`fx_threshrgb_013.json`): Invert Red written "true", not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-THRESHRGB-014 (`fx_threshrgb_014.json`): Blend With Original -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### CC Ball Action (D-551)
+
+CC Ball Action (`core.cc_ball_action`), after CycoreFX's CC Ball Action (B-431, EFFECTS.md row 351), the rule ours. Every case is a project of one composition 16 by 10, five frames, with the drawing `art` (Broadcast Colors' picture, a transparent first column and a half-covered last one) carrying the effect. `tools/cc_ball_action_reference.py` works the expected frames, `Fixtures/cc_ball_action/expected_cc_ball_action.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-BALL-001 (`fx_ball_001.json`): The settings as they start: grid spacing 8, so two cells across and one down, each a ball 8 pixels wide of the colour under its centre (yellow on the left, the warm shadow on the right), lit from the upper left, with transparent round them. Frames 0.
+
+FX-BALL-002 (`fx_ball_002.json`): Grid spacing 4: four balls across and two down, touching. Frames 0.
+
+FX-BALL-003 (`fx_ball_003.json`): Grid spacing 3: five across and three down, half a pixel in from each edge. Frames 0.
+
+FX-BALL-004 (`fx_ball_004.json`): Grid spacing 5: three across and two down; the left cell's centre falls on a covered column. Frames 0.
+
+FX-BALL-005 (`fx_ball_005.json`): Grid spacing 2, the least: a ball on every other column and row, seven across and five down, the half-covered last column making none. Frames 0.
+
+FX-BALL-006 (`fx_ball_006.json`): Ball size 50: the balls half as wide as their cells, with gaps between. Frames 0.
+
+FX-BALL-007 (`fx_ball_007.json`): Ball size 160: the balls overlap, each later one in its row and each lower row in front at the same depth. Frames 0.
+
+FX-BALL-008 (`fx_ball_008.json`): Ball size 0: no balls, the layer transparent. Frames 0.
+
+FX-BALL-009 (`fx_ball_009.json`): Rotation 40 about X: the grid tips back at the top, its upper row farther and smaller, its lower row nearer and larger. Frames 0.
+
+FX-BALL-010 (`fx_ball_010.json`): Rotation 60 about Y: the grid swings, its left side nearer and larger, its right farther, the columns closing up. Frames 0.
+
+FX-BALL-011 (`fx_ball_011.json`): Rotation 30 about Z: the grid turns flat in the picture. Frames 0.
+
+FX-BALL-012 (`fx_ball_012.json`): Rotation 35 about XY. Frames 0.
+
+FX-BALL-013 (`fx_ball_013.json`): Rotation 35 about XZ. Frames 0.
+
+FX-BALL-014 (`fx_ball_014.json`): Rotation 35 about YZ. Frames 0.
+
+FX-BALL-015 (`fx_ball_015.json`): Rotation 25 about XYZ. Frames 0.
+
+FX-BALL-016 (`fx_ball_016.json`): Rotation 8 about X15Z: 8 degrees about X and 120 about Z. Frames 0.
+
+FX-BALL-017 (`fx_ball_017.json`): Rotation 6 about XY15Z: 6 degrees about X and Y and 90 about Z. Frames 0.
+
+FX-BALL-018 (`fx_ball_018.json`): Rotation 90 about Y: the grid edge on, every ball in one column, the nearest in front. Frames 0.
+
+FX-BALL-019 (`fx_ball_019.json`): Twist X Axis, 80 degrees about Y: each column turned by its place across, the left ones one way and the right ones the other. Frames 0.
+
+FX-BALL-020 (`fx_ball_020.json`): Twist Y Axis, 80 degrees about X: each row turned by its place down. Frames 0.
+
+FX-BALL-021 (`fx_ball_021.json`): Twist Center-X: the columns farther from the middle turned more. Frames 0.
+
+FX-BALL-022 (`fx_ball_022.json`): Twist Center-Y, about X: the rows farther from the middle turned more. Frames 0.
+
+FX-BALL-023 (`fx_ball_023.json`): Twist Radius: the balls near the middle turned most. Frames 0.
+
+FX-BALL-024 (`fx_ball_024.json`): Twist Random: each ball turned by its own fixed amount. Frames 0.
+
+FX-BALL-025 (`fx_ball_025.json`): Twist Red: the balls with least red turned most. Frames 0.
+
+FX-BALL-026 (`fx_ball_026.json`): Twist Green. Frames 0.
+
+FX-BALL-027 (`fx_ball_027.json`): Twist Blue. Frames 0.
+
+FX-BALL-028 (`fx_ball_028.json`): Twist Brightness: the darkest balls turned most. Frames 0.
+
+FX-BALL-029 (`fx_ball_029.json`): Twist Diamond. Frames 0.
+
+FX-BALL-030 (`fx_ball_030.json`): Twist Rectangle. Frames 0.
+
+FX-BALL-031 (`fx_ball_031.json`): Twist Fast Top: each ball's place turned about X and twice as fast about Y, most near the middle. Frames 0.
+
+FX-BALL-032 (`fx_ball_032.json`): Scatter 3: each ball moved up to 3 pixels its own way, nearer ones larger. Frames 0.
+
+FX-BALL-033 (`fx_ball_033.json`): Scatter 3 with Instability State 120: each ball's scatter turned 120 degrees about its own axis. Frames 0.
+
+FX-BALL-034 (`fx_ball_034.json`): Instability State 120 with Scatter 0: nothing scattered, so the same as FX-BALL-002. Frames 0.
+
+FX-BALL-035 (`fx_ball_035.json`): Rotation keyed from 0 at frame 0 to 80 at frame 4, linear, about X. Frames 0, 2, 4.
+
+FX-BALL-036 (`fx_ball_036.json`): FX-BALL-002 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-BALL-037 (`fx_ball_037.json`): Rotation 360 about X: once round, the same as FX-BALL-002. Frames 0.
+
+FX-BALL-038 (`fx_ball_038.json`): Scatter -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BALL-039 (`fx_ball_039.json`): Scatter 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BALL-040 (`fx_ball_040.json`): Grid spacing 1.5, below 2. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BALL-041 (`fx_ball_041.json`): Ball size 401, above 400. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BALL-042 (`fx_ball_042.json`): Rotation 36001, above 36000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BALL-043 (`fx_ball_043.json`): Rotation axis "w": not one of the nine. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BALL-044 (`fx_ball_044.json`): Rotation axis "X": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BALL-045 (`fx_ball_045.json`): Twist property "spiral": not one of the thirteen. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
