@@ -2486,6 +2486,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("three_d_view".into(), J::from(three_d_view.as_str()));
             params.insert("balance".into(), num(*balance));
         }
+        Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, color, intensity, render } => {
+            params.insert("from".into(), J::Array(from.iter().map(|c| num(*c)).collect()));
+            params.insert("to".into(), J::Array(to.iter().map(|c| num(*c)).collect()));
+            params.insert("height".into(), num(*height));
+            params.insert("cone_angle".into(), num(*cone_angle));
+            params.insert("edge_softness".into(), num(*edge_softness));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("intensity".into(), num(*intensity));
+            params.insert("render".into(), J::from(render.as_str()));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4414,6 +4424,8 @@ fn effect_tracks(params: Option<&J>, at: &str) -> Result<(Option<J>, Tracks), Di
             "red" | "green" | "blue" => (4, "four numbers, from red, green, blue and a constant"),
             // D-350: a text animator's Start and End are one number each, a gradient's points.
             "start" | "end" if !record.get("base").is_some_and(J::is_array) => (1, "one number"),
+            // D-507: CC Spotlight's From and To are points.
+            "from" | "to" if record.get("base").is_some_and(J::is_array) => (2, "two numbers, x then y"),
             "center" | "start" | "end" | "shift" | "upper_left" | "upper_right" | "lower_left"
             | "lower_right" | "producer_point" | "point_1" | "point_2" | "point_3" | "point_4" | "light"
             | "tile_center" => {
@@ -4917,6 +4929,7 @@ fn parse_effect(
         crate::effects::LINEAR_COLOR_KEY,
         crate::effects::UNMULT,
         crate::effects::THREE_D_GLASSES,
+        crate::effects::CC_SPOTLIGHT,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
@@ -5931,6 +5944,16 @@ fn parse_effect(
             balance: effect_number(params, "balance", &at)?,
             left_map: None,
             right_map: None,
+        }),
+        crate::effects::CC_SPOTLIGHT => Some(crate::effects::Effect::CcSpotlight {
+            from: effect_array(params, "from", "two numbers, x then y", &at)?,
+            to: effect_array(params, "to", "two numbers, x then y", &at)?,
+            height: effect_number(params, "height", &at)?,
+            cone_angle: effect_number(params, "cone_angle", &at)?,
+            edge_softness: effect_number(params, "edge_softness", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            intensity: effect_number(params, "intensity", &at)?,
+            render: effect_word(params, "render", &at)?,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

@@ -7855,6 +7855,48 @@ fn glasses(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(out));
 }
 
+// D-507, layer_fx::cc_spotlight: k as layer_fx::spotlight_numbers; the drawing's corner at
+// (F.ox, F.oy). The angle is worked in single precision, which has no double atan2.
+@compute @workgroup_size(16, 16)
+fn spotlight(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    // B-222: one channel at a time.
+    let t = textureLoad(input, id.xy, 0);
+    let p = vec4<f64>(f64(t.x), f64(t.y), f64(t.z), f64(t.w));
+    var f = 0.0lf;
+    if k[13] != 0.0lf {
+        let d = vec3<f64>(f64(i32(id.x) - F.ox) + 0.5lf - k[1], f64(i32(id.y) - F.oy) + 0.5lf - k[2], -k[3]);
+        let a = vec3<f64>(k[4], k[5], k[6]);
+        let c64 = vec3<f64>(a.y * d.z - a.z * d.y, a.z * d.x - a.x * d.z, a.x * d.y - a.y * d.x);
+        let cr = vec3<f32>(f32(c64.x), f32(c64.y), f32(c64.z));
+        let th = f64(atan2(length(cr), f32(dot(a, d))));
+        if th <= k[8] {
+            f = 1.0lf;
+        } else if th < k[7] {
+            let t = (k[7] - th) / (k[7] - k[8]);
+            f = t * t * (3.0lf - 2.0lf * t);
+        }
+    }
+    let q = f * k[9];
+    let c = vec3<f64>(k[10], k[11], k[12]);
+    let mode = u32(k[0]);
+    var out: vec4<f64>;
+    if mode == 0u {
+        out = vec4(c * q, min(q, 1.0lf));
+    } else if mode == 1u {
+        out = vec4(p.xyz + c * q * p.w, p.w);
+    } else if mode == 2u {
+        out = vec4(p.xyz + c * q, p.w + (1.0lf - p.w) * min(q, 1.0lf));
+    } else {
+        let dark = (1.0lf - f) * (1.0lf - min(k[9], 1.0lf));
+        out = vec4(p.xyz * (vec3(dark) + f * c), p.w);
+    }
+    textureStore(output, id.xy, vec4<f32>(f32(out.x), f32(out.y), f32(out.z), f32(out.w)));
+}
+
 // B-228, layer_fx::pass_extract: the pass (`other`) lying on the drawing at (F.ox, F.oy), alpha 1
 // on it and 0 outside it; k black, white, invert, clamp.
 @compute @workgroup_size(16, 16)
@@ -8778,6 +8820,8 @@ struct FxPasses {
     dmatte: Pass,
     /// D-506.
     glasses: Pass,
+    /// D-507.
+    spotlight: Pass,
     lwidth: Pass,
     /// B-228.
     passx: Pass,
@@ -9443,6 +9487,7 @@ impl Gpu {
                 haze: pass("haze", &[0, 1, 2, 3, 4]),
                 dmatte: pass("dmatte", &[0, 1, 2, 3, 4]),
                 glasses: pass("glasses", &[0, 1, 2, 3, 4]),
+                spotlight: pass("spotlight", &[0, 1, 2, 3]),
                 passx: pass("passx", &[0, 1, 2, 3, 4]),
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
                 idkey: pass("idkey", &[0, 1, 2, 3, 4]),
@@ -12617,6 +12662,13 @@ impl Gpu {
                     let p = FxParams { mode: 1, ox: ox as i32, oy: oy as i32, ..Default::default() };
                     self.fx_step(steps, &passes.dmatte, p, Some(still), Some(&out), Some(&k), Some(&plate), none, tiles(w, h));
                 }
+                (out, (w, h))
+            }
+            e @ E::CcSpotlight { .. } => {
+                let k = crate::layer_fx::spotlight_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let out = self.scratch("D-507 spotlight", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.spotlight, p, Some(still), Some(&out), Some(&k), None, none, tiles(w, h));
                 (out, (w, h))
             }
             // D-506: compose leaves the card a 3D Glasses only when every view named was read.

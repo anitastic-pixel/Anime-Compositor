@@ -1104,6 +1104,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::DifferenceMatte { .. }
                 // D-506.
                 | crate::effects::Effect::ThreeDGlasses { .. }
+                // D-507.
+                | crate::effects::Effect::CcSpotlight { .. }
                 // D-400.
                 | crate::effects::Effect::ShadowHighlight { .. }
                 // D-397.

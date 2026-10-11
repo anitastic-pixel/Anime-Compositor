@@ -2266,6 +2266,21 @@ pub enum Effect {
         left_map: Option<crate::layer_map::Map>,
         right_map: Option<crate::layer_map::Map>,
     },
+    /// D-507: after CycoreFX's CC Spotlight, its rule and its settings when added ours
+    /// (`layer_fx::cc_spotlight`, document 21). `from` and `to`, x then y, per cent of the
+    /// drawing, -1000 to 1000; `height`, 0 to 1000 per cent of the drawing's width; `cone_angle`,
+    /// 0 to 180 degrees; `edge_softness`, 0 to 100; `color`, `#rrggbb`; `intensity`, 0 to 1000
+    /// per cent; `render`, one of [`SPOT_RENDERS`] (the Gel renders are not built).
+    CcSpotlight {
+        from: [f64; 2],
+        to: [f64; 2],
+        height: f64,
+        cone_angle: f64,
+        edge_softness: f64,
+        color: String,
+        intensity: f64,
+        render: String,
+    },
     /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
     /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
     /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
@@ -3067,6 +3082,9 @@ pub const LCKEY_VIEWS: [&str; 3] = ["final", "source", "matte"];
 pub const LCKEY_MATCHES: [&str; 3] = ["rgb", "hue", "chroma"];
 pub const UNMULT: &str = "core.unmult";
 pub const THREE_D_GLASSES: &str = "core.three_d_glasses";
+pub const CC_SPOTLIGHT: &str = "core.cc_spotlight";
+/// D-507: CC Spotlight's renders, without its four Gel renders, which are not built.
+pub const SPOT_RENDERS: [&str; 4] = ["light_only", "light_add", "light_add_plus", "light_shadow"];
 /// D-506: 3D Glasses' views, the anaglyphs last.
 pub const GLASSES_VIEWS: [&str; 8] = [
     "side_by_side",
@@ -3257,6 +3275,14 @@ impl Effect {
                 ("scene_convergence", vec![scene_convergence], -1000.0, 1000.0),
                 ("vertical_alignment", vec![vertical_alignment], -1000.0, 1000.0),
                 ("balance", vec![balance], 0.0, 10.0),
+            ],
+            Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, intensity, .. } => vec![
+                ("from", from.iter_mut().collect(), -1000.0, 1000.0),
+                ("to", to.iter_mut().collect(), -1000.0, 1000.0),
+                ("height", vec![height], 0.0, 1000.0),
+                ("cone_angle", vec![cone_angle], 0.0, 180.0),
+                ("edge_softness", vec![edge_softness], 0.0, 100.0),
+                ("intensity", vec![intensity], 0.0, 1000.0),
             ],
             Effect::Transform {
                 anchor_point,
@@ -5639,6 +5665,7 @@ impl Effect {
             Effect::LinearColorKey { .. } => "Linear Color Key",
             Effect::Unmult { .. } => "Unmult",
             Effect::ThreeDGlasses { .. } => "3D Glasses",
+            Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
@@ -5838,6 +5865,7 @@ impl Effect {
             Effect::LinearColorKey { .. } => LINEAR_COLOR_KEY,
             Effect::Unmult { .. } => UNMULT,
             Effect::ThreeDGlasses { .. } => THREE_D_GLASSES,
+            Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
@@ -6309,6 +6337,15 @@ impl Effect {
                         GLASSES_VIEWS.map(|v| format!("\"{v}\"")).join(", ")
                     )))
             }
+            Effect::CcSpotlight { color, render, .. } => hex_fault("CC Spotlight", "colour", color).or_else(|| {
+                let renders = SPOT_RENDERS.map(|r| format!("\"{r}\"")).join(", ");
+                if ["gel_only", "gel_add", "gel_add_plus", "gel_shadow"].contains(&render.as_str()) {
+                    Some(format!("CC Spotlight's gel renders are not built yet, so its render is one of {renders}, and this is \"{render}\"."))
+                } else {
+                    (!SPOT_RENDERS.contains(&render.as_str()))
+                        .then(|| format!("CC Spotlight's render is one of {renders}, and this is \"{render}\"."))
+                }
+            }),
             Effect::DifferenceMatte { view, layer, fit, .. } => (!["final", "matte"].contains(&view.as_str()))
                 .then(|| format!("{name}'s view is \"final\" or \"matte\", and this is \"{view}\"."))
                 .or_else(|| (!layer.is_string()).then(|| format!(
@@ -9088,6 +9125,10 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
+            // D-507: every distance a share of the drawing; never grows.
+            e @ Effect::CcSpotlight { .. } => crate::perf::time(crate::perf::Stage::EffectCcSpotlight, || {
+                crate::layer_fx::cc_spotlight(source, e, (ox, oy))
+            }),
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {
                     crate::grade::add_grain(source, &g, (ox, oy))

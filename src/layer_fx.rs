@@ -6410,6 +6410,67 @@ pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>
     })
 }
 
+/// D-507: CC Spotlight's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
+/// the render (an index into `effects::SPOT_RENDERS`), the light F (three), the axis A = T - F
+/// (three), the half opening and the inner angle in radians, the intensity share, the light's
+/// linear colour (three), and 1 when there is any light at all (an axis and an opening).
+pub(crate) fn spotlight_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 14] {
+    let crate::effects::Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, color, intensity, render } = e else {
+        unreachable!("CC Spotlight's numbers of another effect")
+    };
+    let f = [from[0] / 100.0 * w0, from[1] / 100.0 * h0, -height / 100.0 * w0];
+    let a = [to[0] / 100.0 * w0 - f[0], to[1] / 100.0 * h0 - f[1], -f[2]];
+    let o = cone_angle.to_radians() / 2.0;
+    let c = crate::effects::encoded(color).map(crate::grade::to_linear);
+    let mode = crate::effects::SPOT_RENDERS.iter().position(|r| r == render).expect("CC Spotlight's render was checked");
+    let lit = if a == [0.0; 3] || o == 0.0 { 0.0 } else { 1.0 };
+    [mode as f64, f[0], f[1], f[2], a[0], a[1], a[2], o, o * (1.0 - edge_softness / 100.0), intensity / 100.0, c[0], c[1], c[2], lit]
+}
+
+/// D-507: the light's share at the own point (x, y) (document 21).
+fn spot_share(k: &[f64; 14], x: f64, y: f64) -> f64 {
+    if k[13] == 0.0 {
+        return 0.0;
+    }
+    let (a, d) = ([k[4], k[5], k[6]], [x - k[1], y - k[2], -k[3]]);
+    let cr = [a[1] * d[2] - a[2] * d[1], a[2] * d[0] - a[0] * d[2], a[0] * d[1] - a[1] * d[0]];
+    let th = (cr[0] * cr[0] + cr[1] * cr[1] + cr[2] * cr[2]).sqrt().atan2(a[0] * d[0] + a[1] * d[1] + a[2] * d[2]);
+    let (o, n) = (k[7], k[8]);
+    if th <= n {
+        1.0
+    } else if th >= o {
+        0.0
+    } else {
+        let t = (o - th) / (o - n);
+        t * t * (3.0 - 2.0 * t)
+    }
+}
+
+/// D-507: after CycoreFX's CC Spotlight, the rule ours (document 21); `(ox, oy)` the drawing's
+/// corner in the buffer. Never grows.
+pub(crate) fn cc_spotlight(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let (w, h) = (source.width(), source.height());
+    let k = spotlight_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    let (s, c) = (k[9], [k[10], k[11], k[12]]);
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let f = spot_share(&k, (i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
+        let q = f * s;
+        let p = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
+        let out = match k[0] as usize {
+            0 => [c[0] * q, c[1] * q, c[2] * q, q.min(1.0)],
+            1 => [p[0] + c[0] * q * p[3], p[1] + c[1] * q * p[3], p[2] + c[2] * q * p[3], p[3]],
+            2 => [p[0] + c[0] * q, p[1] + c[1] * q, p[2] + c[2] * q, p[3] + (1.0 - p[3]) * q.min(1.0)],
+            _ => {
+                let dark = (1.0 - f) * (1.0 - s.min(1.0));
+                [p[0] * (dark + f * c[0]), p[1] * (dark + f * c[1]), p[2] * (dark + f * c[2]), p[3]]
+            }
+        };
+        for (v, o) in px.iter_mut().zip(out) {
+            *v = o as f32;
+        }
+    });
+}
+
 /// D-506: 3D Glasses. Each view is read in the drawing's own space, a map at (u, v) or the layer
 /// itself at (u + ox, v + oy), transparent outside, by document 21's bilinear. The anaglyphs and
 /// the interlace read the left view half the convergence c to the right and half the alignment

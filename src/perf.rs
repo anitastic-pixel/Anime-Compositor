@@ -389,6 +389,8 @@ pub enum Stage {
     EffectUnmult,
     /// D-506: 3D Glasses.
     Effect3dGlasses,
+    /// D-507: CC Spotlight.
+    EffectCcSpotlight,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -406,7 +408,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 201] = [
+    pub const ALL: [Stage; 202] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -601,6 +603,7 @@ impl Stage {
         Stage::EffectLinearColorKey,
         Stage::EffectUnmult,
         Stage::Effect3dGlasses,
+        Stage::EffectCcSpotlight,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -807,6 +810,7 @@ impl Stage {
             Stage::EffectLinearColorKey => "effect: linear color key",
             Stage::EffectUnmult => "effect: unmult",
             Stage::Effect3dGlasses => "effect: 3d glasses",
+            Stage::EffectCcSpotlight => "effect: cc spotlight",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

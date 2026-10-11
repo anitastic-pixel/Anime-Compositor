@@ -9337,6 +9337,7 @@ const EFFECT_NAMES = {
   'core.linear_color_key': 'Linear Color Key',
   'core.unmult': 'Unmult',
   'core.three_d_glasses': '3D Glasses',
+  'core.cc_spotlight': 'CC Spotlight',
   'core.simple_wire_removal': 'CC Simple Wire Removal',
   'core.smart_blur': 'Smart Blur',
   'core.bilateral_blur': 'Bilateral Blur',
@@ -9467,7 +9468,7 @@ const EFFECT_GROUPS = [
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
-    'core.camera_shake', 'core.three_d_glasses']],
+    'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight']],
   ['Time', ['core.echo', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key']],
   ['Text', ['core.text_animator']],
@@ -9554,6 +9555,7 @@ const EFFECT_SEARCH = {
   'core.color_range': 'color range colour range keying key out a range lab yuv rgb fuzziness min max green screen blue screen chroma key',
   'core.difference_matte': 'difference matte keying key out clean plate background plate compare tolerance softness blur',
   'core.inner_outer_key': 'inner outer key keying knock out mask hair edge foreground background inside outside highlight radius thin feather threshold extract',
+  'core.cc_spotlight': 'cc spotlight spot light cone lamp beam pool of light stage light from to height cone angle edge softness intensity shadow perspective cycore',
   'core.three_d_glasses': '3d glasses three d stereo stereoscopic anaglyph red cyan red green red blue left view right view eye convergence vertical alignment side by side over under interlace balance perspective',
   'core.unmult': 'unmult unmultiply un-multiply remove black background remove white background keying fire smoke flare explosion sparks stock footage screen black level white level softness remove color matting clip hdr transparency',
   'core.linear_color_key': 'linear color key colour key keying key out match a colour rgb hue chroma matching tolerance softness matte only final output source green screen blue screen',
@@ -9765,6 +9767,7 @@ const EFFECT_ABOUT = {
   'core.color_range': 'Keys out every colour inside a box you set in Lab, YUV or RGB: a low and high end for each of the three parts of the colour. Fuzziness fades the colours just outside the box instead of keeping them whole. When added the box is empty, so nothing is keyed until you set it.',
   'core.difference_matte': 'Keys out every pixel that matches a clean plate: another layer of the shot without the subject. Matching Tolerance is how different a pixel may be and still be keyed; Matching Softness fades the edge; Blur Before Difference softens both first, for grain. Nothing is keyed until you choose the plate.',
   'core.inner_outer_key': 'Keys out a subject by two masks you draw on the layer: Foreground (Inside) round what stays, Background (Outside) round the edge, so what lies between them, hair and soft edges, is made see-through as much as it is the colour outside, with that colour taken back out. With no background, the pixels within Single Mask Highlight Radius of the one mask are worked out. Edge Thin, Edge Feather and Edge Threshold shape the edge; Blend With Original brings the picture back. Nothing is keyed until you choose the foreground mask.',
+  'core.cc_spotlight': 'Shines a spotlight onto the layer from a point above it: From places the lamp, To where it points, Height how far above it is, Cone Angle how wide the beam opens and Edge Softness how soft its rim is. Render chooses the light alone, the light added to the layer (or to its transparent parts too), or the layer dark outside the beam.',
   'core.three_d_glasses': 'Combines a left-eye and a right-eye view into one 3D picture to watch with coloured glasses, or lays the two side by side, one over the other or on alternate rows. Left View and Right View are the two layers (the layer itself when none is chosen); Scene Convergence slides the two views apart sideways and Vertical Alignment up and down; Balance, for the balanced views, draws the two eyes towards each other to cut ghosting. As it is added, nothing changes.',
   'core.unmult': 'Turns a black or white background into see-through, so fire, smoke, sparks or a flare shot on black lays over the shot below cleanly: the further a pixel is from the background colour, the more it covers. Black Level (with a black background) or White Level (with white) makes the colours near the background go entirely; Softness fades them in instead. Remove Color Matting takes the background’s tint out of the see-through edges.',
   'core.linear_color_key': 'Keys out the colours close to a key colour: the closer a pixel is, by its red, green and blue, its hue alone or its colour without its brightness, the more see-through it becomes. Matching Tolerance is how close counts as the key colour; Matching Softness fades the colours just beyond it. The View menu shows the matte as grey.',
@@ -10497,6 +10500,12 @@ const EFFECT_PARAMS = {
     ['blend_with_original', 'Blend With Original', 1, 0.5, '0 to 100 per cent of the picture brought back']],
   'core.linear_color_key': [['matching_tolerance', 'Matching Tolerance', 1, 0.5, '0 to 100 per cent, how close to the key colour a pixel is keyed out; 100 keys out everything'],
     ['matching_softness', 'Matching Softness', 1, 0.5, '0 to 100 per cent, how far beyond the tolerance colours fade; 0 is a hard edge, under 20 works best']],
+  'core.cc_spotlight': [['from', 'From', 2, 1, '% of the width and height, -1000 to 1000, where the lamp is'],
+    ['to', 'To', 2, 1, '% of the width and height, -1000 to 1000, where the lamp points'],
+    ['height', 'Height', 1, 1, '0 to 1000, per cent of the layer’s width, how far above the layer the lamp is'],
+    ['cone_angle', 'Cone Angle', 1, 1, '0 to 180 degrees, how wide the beam opens'],
+    ['edge_softness', 'Edge Softness', 1, 1, '0 to 100, how soft the rim of the beam is'],
+    ['intensity', 'Intensity', 1, 1, '0 to 1000, per cent, how strong the light (or, in Light Shadow, how dark the shadow) is']],
   'core.three_d_glasses': [['scene_convergence', 'Scene Convergence', 1, 0.5, '-1000 to 1000, pixels or per cent of the width, how far apart sideways the two views are slid'],
     ['vertical_alignment', 'Vertical Alignment', 1, 0.5, '-1000 to 1000, pixels or per cent of the height, how far apart up and down the two views are slid'],
     ['balance', 'Balance', 1, 0.05, '0 to 10, for the balanced views: how much of each eye is kept apart from their mean; 1 keeps them as they are']],
@@ -11192,6 +11201,11 @@ const EFFECT_WORDS = {
   'core.simple_wire_removal': { choices: [['removal_style', 'Removal Style', [['fade', 'Fade'], ['frame_offset', 'Frame Offset'], ['displace', 'Displace'], ['displace_horizontal', 'Displace Horizontal']]]] },
   // D-505: After Effects’ words.
   'core.unmult': { choices: [['background_color', 'Background Color', [['black', 'Black'], ['white', 'White']]], ['remove_color_matting', 'Remove Color Matting', [['on', 'On'], ['off', 'Off']]], ['clip_hdr_results', 'Clip HDR Results', [['off', 'Off'], ['on', 'On']]]] },
+  // D-507: CC Spotlight’s points, colour and renders (the Gel renders are not built).
+  'core.cc_spotlight': {
+    colours: [['color', 'Color']],
+    choices: [['render', 'Render', [['light_only', 'Light Only'], ['light_add', 'Light Add'], ['light_add_plus', 'Light Add+'], ['light_shadow', 'Light Shadow']]]],
+  },
   // D-506: After Effects’ 3D views, units and swap.
   'core.three_d_glasses': {
     layers: [['left_view', 'Left View', 'left_view'], ['right_view', 'Right View', 'right_view']],
