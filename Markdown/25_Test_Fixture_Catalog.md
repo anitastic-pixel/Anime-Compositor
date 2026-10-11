@@ -208404,3 +208404,43 @@ FX-IOK-037 (`fx_iok_037.json`): Blend With Original 101, above 100. The file is 
 FX-IOK-038 (`fx_iok_038.json`): Invert Extraction "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-IOK-039 (`fx_iok_039.json`): Blend With Original keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Key Cleaner (D-503)
+
+Key Cleaner (`core.key_cleaner`), after After Effects' Key Cleaner (B-383), the rule ours. Every case is a project of one composition 24 by 16 at 24 fps, five frames, in `Fixtures/key_cleaner/`, holding the drawing `media/subject.png` unmoved unless the case says: Matte Choker's drawing (D-352), an orange disc on a teal ramp, a hard rectangle matte with a one-pixel hole, a half-covered edge, a speck and part-covered strands. `tools/key_cleaner_reference.py` works the expected frames, with D-352's `tools/matte_refine_reference.py`, into `expected_key_cleaner.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-KCLEAN-001 (`fx_kclean_001.json`): Key Cleaner as added: Additional Edge Radius 10, Alpha Contrast 0, Strength 100. Within 10 pixels of the matte's edge, on so small a drawing nearly all of it, the covering is fitted to the colours: the strands' covering follows their orange and teal rows, the rectangle's teal ring and right side lose some, and empty pixels near the matte gain a little, in the colours about them. Frames 0.
+
+FX-KCLEAN-002 (`fx_kclean_002.json`): Additional Edge Radius 4: the fit is worked over smaller squares, so it follows the colours more closely. Frames 0.
+
+FX-KCLEAN-003 (`fx_kclean_003.json`): Additional Edge Radius 0, Alpha Contrast 0: nothing to do, the output is the drawing. Frames 0.
+
+FX-KCLEAN-004 (`fx_kclean_004.json`): Additional Edge Radius 4, Alpha Contrast 50: FX-KCLEAN-002's covering steepened, below a quarter gone and above three quarters full. Frames 0.
+
+FX-KCLEAN-005 (`fx_kclean_005.json`): Additional Edge Radius 4, Alpha Contrast 100: every pixel full or empty, full where FX-KCLEAN-002's covering is above a half. Frames 0.
+
+FX-KCLEAN-006 (`fx_kclean_006.json`): Additional Edge Radius 0, Alpha Contrast 50: no fit, only the part-covered pixels steepened: the strands and the half-covered right edge. Frames 0.
+
+FX-KCLEAN-007 (`fx_kclean_007.json`): FX-KCLEAN-002 at Strength 50: halfway between the drawing and FX-KCLEAN-002, premultiplied. Frames 0.
+
+FX-KCLEAN-008 (`fx_kclean_008.json`): Strength 0: the output is the drawing. Frames 0.
+
+FX-KCLEAN-009 (`fx_kclean_009.json`): Additional Edge Radius keyed from 0 at frame 0 to 6 at frame 4: whole pixels, so frame 1 (1.5) works at 1, frame 2 at 3 and frame 3 (4.5) at 4. Frames 0, 1, 2, 3.
+
+FX-KCLEAN-010 (`fx_kclean_010.json`): Strength keyed from 0 at frame 0 to 100 at frame 4: the drawing, then halfway at frame 2, then FX-KCLEAN-001. Frames 0, 2, 4.
+
+FX-KCLEAN-011 (`fx_kclean_011.json`): FX-KCLEAN-001 moved three pixels right: worked in the drawing's own space, so the same, moved. Frames 0.
+
+FX-KCLEAN-012 (`fx_kclean_012.json`): Additional Edge Radius 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-KCLEAN-013 (`fx_kclean_013.json`): Additional Edge Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-KCLEAN-014 (`fx_kclean_014.json`): Alpha Contrast 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-KCLEAN-015 (`fx_kclean_015.json`): Alpha Contrast -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-KCLEAN-016 (`fx_kclean_016.json`): Strength 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-KCLEAN-017 (`fx_kclean_017.json`): Strength -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-KCLEAN-018 (`fx_kclean_018.json`): Strength keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
