@@ -2862,7 +2862,9 @@ pub enum Effect {
     /// "chroma" or "luminance"; `threshold`, `threshold_smooth` and `source_opacity` 0 to 100 per
     /// cent; `saturation_bias` -100 to 100 per cent; `radius` 0 to 2,000 pixels; `exposure` 0 to
     /// 100; `aspect_ratio` 0 to 2 and `aspect_angle` -3,600 to 3,600 degrees; `operation` "add"
-    /// or "screen"; `unmult` "off" or "on".
+    /// or "screen"; `unmult` "off" or "on". D-542 (pick #6): `tint`, "off", "one_color" or
+    /// "core_to_edge"; `inner_color` and `outer_color`, `#rrggbb`; `tint_amount`, 0 to 100 per
+    /// cent (`soft_glow::Tint`).
     SoftGlow {
         falloff: String,
         threshold_mode: String,
@@ -2876,6 +2878,10 @@ pub enum Effect {
         operation: String,
         source_opacity: f64,
         unmult: String,
+        tint: String,
+        inner_color: String,
+        outer_color: String,
+        tint_amount: f64,
     },
     /// D-356: Path Stroke, after After Effects' Stroke (`along`, document 21): a brush drawn
     /// along the layer's masks. `mask`, 1 to 1000, the mask numbered so, its floor taken;
@@ -4924,6 +4930,7 @@ impl Effect {
                 aspect_ratio,
                 aspect_angle,
                 source_opacity,
+                tint_amount,
                 ..
             } => vec![
                 ("threshold", vec![threshold], 0.0, 100.0),
@@ -4934,6 +4941,7 @@ impl Effect {
                 ("aspect_ratio", vec![aspect_ratio], 0.0, 2.0),
                 ("aspect_angle", vec![aspect_angle], -3600.0, 3600.0),
                 ("source_opacity", vec![source_opacity], 0.0, 100.0),
+                ("tint_amount", vec![tint_amount], 0.0, 100.0),
             ],
             Effect::Stroke { mask, brush_size, brush_hardness, opacity, start, end, spacing, .. } => vec![
                 ("mask", vec![mask], 1.0, 1000.0),
@@ -7243,6 +7251,10 @@ impl Effect {
             Effect::SoftGlow { unmult: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "{name}'s unmult is \"off\" or \"on\", and this is \"{v}\"."
             )),
+            Effect::SoftGlow { tint: v, inner_color, outer_color, .. } => (!["off", "one_color", "core_to_edge"].contains(&v.as_str()))
+                .then(|| format!("{name}'s tint is \"off\", \"one_color\" or \"core_to_edge\", and this is \"{v}\"."))
+                .or_else(|| hex_fault(name, "inner colour", inner_color))
+                .or_else(|| hex_fault(name, "outer colour", outer_color)),
             Effect::SpreadTones { equalize, .. } if !EQUALIZE.contains(&equalize.as_str()) => Some(format!(
                 "Spread Tones equalizes by \"rgb\", \"brightness\" or \"photoshop\", and this is \"{equalize}\"."
             )),
@@ -10884,6 +10896,10 @@ pub(crate) fn apply_stack_at(
                 operation,
                 source_opacity,
                 unmult,
+                tint,
+                inner_color,
+                outer_color,
+                tint_amount,
                 ..
             } => {
                 let s = crate::soft_glow::Settings {
@@ -10898,6 +10914,7 @@ pub(crate) fn apply_stack_at(
                     screen: operation == "screen",
                     opacity: *source_opacity,
                     unmult: unmult == "on",
+                    tint: crate::soft_glow::Tint::of(tint, inner_color, outer_color, *tint_amount),
                 };
                 let r = crate::perf::time(crate::perf::Stage::EffectSoftGlow, || crate::soft_glow::soft_glow(source, &s));
                 ox += r;

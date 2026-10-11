@@ -3944,6 +3944,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             operation,
             source_opacity,
             unmult,
+            tint,
+            inner_color,
+            outer_color,
+            tint_amount,
         } => {
             params.insert("falloff".into(), J::from(falloff.as_str()));
             params.insert("threshold_mode".into(), J::from(threshold_mode.as_str()));
@@ -3957,6 +3961,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("operation".into(), J::from(operation.as_str()));
             params.insert("source_opacity".into(), num(*source_opacity));
             params.insert("unmult".into(), J::from(unmult.as_str()));
+            // D-542: as D-357's source, written only when changed or in the file already.
+            for (key, word, start) in [("tint", tint, "off"), ("inner_color", inner_color, "#ffffff"), ("outer_color", outer_color, "#4080ff")] {
+                if word.as_str() != start || params.contains_key(key) {
+                    params.insert(key.into(), J::from(word.as_str()));
+                }
+            }
+            if *tint_amount != 100.0 || params.contains_key("tint_amount") {
+                params.insert("tint_amount".into(), num(*tint_amount));
+            }
         }
         Effect::Unsupported { .. } => {}
     }
@@ -5260,6 +5273,11 @@ fn parse_effect(
                 operation: effect_word(params, "operation", &at)?,
                 source_opacity: effect_number(params, "source_opacity", &at)?,
                 unmult: effect_word(params, "unmult", &at)?,
+                // D-542: a file without them has no tint.
+                tint: effect_word_or(params, "tint", &at, "off")?,
+                inner_color: effect_word_or(params, "inner_color", &at, "#ffffff")?,
+                outer_color: effect_word_or(params, "outer_color", &at, "#4080ff")?,
+                tint_amount: effect_number_or(params, "tint_amount", &at, 100.0)?,
             })
         }
         crate::effects::GLOW => Some(crate::effects::Effect::Glow {

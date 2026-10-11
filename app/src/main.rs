@@ -3346,6 +3346,11 @@ fn soft_glow_added() -> Effect {
         operation: "screen".to_string(),
         source_opacity: 100.0,
         unmult: "on".to_string(),
+        // D-542: no tint, the colours ready for one.
+        tint: "off".to_string(),
+        inner_color: "#ffffff".to_string(),
+        outer_color: "#4080ff".to_string(),
+        tint_amount: 100.0,
     }
 }
 
@@ -5516,6 +5521,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             operation: word("operation")?,
             source_opacity: number("source_opacity")?,
             unmult: word("unmult")?,
+            // D-542: left out, as before it.
+            tint: if parameter(query, "tint").is_some() { word("tint")? } else { "off".to_string() },
+            inner_color: if parameter(query, "inner_color").is_some() { word("inner_color")? } else { "#ffffff".to_string() },
+            outer_color: if parameter(query, "outer_color").is_some() { word("outer_color")? } else { "#4080ff".to_string() },
+            tint_amount: if parameter(query, "tint_amount").is_some() { number("tint_amount")? } else { 100.0 },
         }),
         // D-89: the words and colours as written, the colours as one comma-separated list and
         // the tint empty for none. Whether each is right is the core's check, in its words.

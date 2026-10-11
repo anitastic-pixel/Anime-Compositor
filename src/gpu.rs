@@ -9051,10 +9051,17 @@ fn sgpass(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4(acc, 0.0));
 }
 
+// D-542, soft_glow::tinted.
+fn sgtint(p: vec3<f32>, c: vec3<f32>, a: f32) -> vec3<f32> {
+    let m = max(max(p.x, p.y), p.z);
+    return (1.0 - a) * p + a * m * c;
+}
+
 // D-353, soft_glow::soft_glow's sum: the glow so far (`other`; on the first level, `flag`, the
 // light at the layer's own place times its share) and, unless `count` is 0, one level's plane
 // read between its cells. k: the level's weight, d, rx and ry, the grow, the light's own share
-// and the plane's size.
+// and the plane's size; D-542: then 1 when tinted, Tint Amount, the level's colour and the inner
+// colour (the own share's), linear.
 @compute @workgroup_size(16, 16)
 fn sgadd(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -9065,10 +9072,16 @@ fn sgadd(@builtin(global_invocation_id) id: vec3<u32>) {
     let x = i32(id.x) - g;
     let y = i32(id.y) - g;
     var sum = vec3(0.0);
+    let tint = k[8] != 0.0lf;
+    let amount = f32(k[9]);
     if F.flag == 1u {
         let own = f32(k[5]);
         if own > 0.0 {
-            sum = own * at(other, vec2(x, y)).xyz;
+            var l = at(other, vec2(x, y)).xyz;
+            if tint {
+                l = sgtint(l, vec3(f32(k[13]), f32(k[14]), f32(k[15])), amount);
+            }
+            sum = own * l;
         }
     } else {
         sum = textureLoad(other, id.xy, 0).xyz;
@@ -9080,6 +9093,8 @@ fn sgadd(@builtin(global_invocation_id) id: vec3<u32>) {
         let pw = i32(k[6]);
         let ph = i32(k[7]);
         let weight = f32(k[0]);
+        let scale = select(weight, 1.0, tint);
+        var lvl = vec3(0.0);
         let u = (f32(x) + 0.5) / d - 0.5;
         let v = (f32(y) + 0.5) / d - 0.5;
         let u0 = floor(u);
@@ -9098,8 +9113,16 @@ fn sgadd(@builtin(global_invocation_id) id: vec3<u32>) {
                 if wi == 0.0 || cx < 0 || cx >= pw {
                     continue;
                 }
-                sum += weight * wj * wi * textureLoad(input, vec2(cx, cy), 0).xyz;
+                let s = scale * wj * wi * textureLoad(input, vec2(cx, cy), 0).xyz;
+                if tint {
+                    lvl += s;
+                } else {
+                    sum += s;
+                }
             }
+        }
+        if tint {
+            sum += weight * sgtint(lvl, vec3(f32(k[10]), f32(k[11]), f32(k[12])), amount);
         }
     }
     textureStore(output, id.xy, vec4(sum, 0.0));
@@ -11946,9 +11969,20 @@ impl Gpu {
                 operation,
                 source_opacity,
                 unmult,
+                tint,
+                inner_color,
+                outer_color,
+                tint_amount,
                 ..
             } => {
                 let plan = crate::soft_glow::plan(*radius, *aspect_ratio, *aspect_angle);
+                // D-542: the tint's numbers for each level k, all 0 when off.
+                let tint = crate::soft_glow::Tint::of(tint, inner_color, outer_color, *tint_amount);
+                let tinted = |k: usize| -> [f64; 8] {
+                    let Some(t) = &tint else { return [0.0; 8] };
+                    let c = t.colour(*radius, k);
+                    [1.0, t.amount as f64, c[0] as f64, c[1] as f64, c[2] as f64, t.inner[0] as f64, t.inner[1] as f64, t.inner[2] as f64]
+                };
                 let g = plan.grow;
                 let (ow, oh) = (w + 2 * g, h + 2 * g);
                 let single = |v: f64| v as f32 as f64;
@@ -11975,7 +12009,8 @@ impl Gpu {
                     let p = FxParams { count: lv.second.len() as u32, ..Default::default() };
                     let k = along(&lv.second, !lv.first_y, lv.mu, (pw, ph));
                     self.fx_step(steps, &passes.sgpass, p, Some(&planes[1]), Some(&planes[2]), Some(&k), None, none, tiles(pw, ph));
-                    let k = [lv.weight as f64, lv.d as f64, rx, ry, g as f64, plan.own as f64, pw as f64, ph as f64];
+                    let mut k = vec![lv.weight as f64, lv.d as f64, rx, ry, g as f64, plan.own as f64, pw as f64, ph as f64];
+                    k.extend(tinted(done));
                     let p = FxParams { flag: (done == 0) as u32, count: 1, ..Default::default() };
                     let before = if done == 0 { &lit } else { &sums[(done + 1) % 2] };
                     self.fx_step(steps, &passes.sgadd, p, Some(&planes[2]), Some(&sums[done % 2]), Some(&k), Some(before), none, tiles(ow, oh));
@@ -11983,7 +12018,8 @@ impl Gpu {
                 }
                 if done == 0 {
                     // No level: the light's own share alone.
-                    let k = [0.0, 1.0, 0.0, 0.0, g as f64, plan.own as f64, 0.0, 0.0];
+                    let mut k = vec![0.0, 1.0, 0.0, 0.0, g as f64, plan.own as f64, 0.0, 0.0];
+                    k.extend(tinted(0));
                     let p = FxParams { flag: 1, count: 0, ..Default::default() };
                     self.fx_step(steps, &passes.sgadd, p, Some(&planes[2]), Some(&sums[0]), Some(&k), Some(&lit), none, tiles(ow, oh));
                     done = 1;

@@ -46,6 +46,42 @@ pub(crate) struct Settings {
     pub screen: bool,
     pub opacity: f64,
     pub unmult: bool,
+    /// D-542, pick #6: the tint, `None` when off.
+    pub tint: Option<Tint>,
+}
+
+/// D-542: the inner and outer colours (linear), one colour for every level when `one`, and Tint
+/// Amount as a fraction.
+pub(crate) struct Tint {
+    pub inner: [f32; 3],
+    pub outer: [f32; 3],
+    pub one: bool,
+    pub amount: f32,
+}
+
+impl Tint {
+    /// The settings' words as a tint, `None` when off; the colours made linear.
+    pub(crate) fn of(tint: &str, inner: &str, outer: &str, amount: f64) -> Option<Tint> {
+        let linear = |c: &str| crate::effects::encoded(c).map(|v| crate::grade::to_linear(v) as f32);
+        (tint != "off").then(|| Tint { inner: linear(inner), outer: linear(outer), one: tint == "one_color", amount: (amount / 100.0) as f32 })
+    }
+
+    /// Level k's colour (k = 0 the widest): the inner mixed towards the outer by
+    /// clamp(1 - k / log2(2 Radius / 3), 0, 1), by octave, so it moves smoothly with Radius.
+    pub(crate) fn colour(&self, radius: f64, k: usize) -> [f32; 3] {
+        if self.one {
+            return self.inner;
+        }
+        let span = (2.0 * radius / 3.0).log2();
+        let t = if span > 0.0 { (1.0 - k as f64 / span).clamp(0.0, 1.0) } else { 0.0 };
+        std::array::from_fn(|c| (self.inner[c] as f64 + t * (self.outer[c] - self.inner[c]) as f64) as f32)
+    }
+}
+
+/// D-542: P' = (1 - a) P + a max(P) C, so every light of a brightness glows the colour alike.
+pub(crate) fn tinted(p: [f32; 3], colour: [f32; 3], a: f32) -> [f32; 3] {
+    let m = p[0].max(p[1]).max(p[2]);
+    std::array::from_fn(|c| (1.0 - a) * p[c] + a * m * colour[c])
 }
 
 /// The largest power of two `d` with 8 d <= sigma, at least 1: a level is always blurred at 4 to
@@ -249,6 +285,10 @@ pub(crate) fn soft_glow(source: &mut WorkingBuffer, s: &Settings) -> usize {
     let lit: Vec<f32> = source.data().par_chunks_exact(4).flat_map_iter(|px| light(px, s)).collect();
     let planes: Vec<Vec<f32>> = plan.levels.iter().map(|lv| spread(&lit, w, h, lv)).collect();
     let (ow, oh) = (w + 2 * g, h + 2 * g);
+    let colours: Vec<[f32; 3]> = match &s.tint {
+        Some(t) => (0..plan.levels.len()).map(|k| t.colour(s.radius, k)).collect(),
+        None => Vec::new(),
+    };
     let mut out = WorkingBuffer::transparent(ow, oh);
     let src = source.data();
     out.data_mut().par_chunks_exact_mut(ow * 4).enumerate().for_each(|(row, line)| {
@@ -259,11 +299,21 @@ pub(crate) fn soft_glow(source: &mut WorkingBuffer, s: &Settings) -> usize {
             let i = if inside { y as usize * w + x as usize } else { 0 };
             let mut sum = [0.0f32; 3];
             if inside && plan.own > 0.0 {
+                // D-542: the light's own share is the core, in the inner colour.
+                let l = [lit[i * 3], lit[i * 3 + 1], lit[i * 3 + 2]];
+                let l = match &s.tint {
+                    Some(t) => tinted(l, t.inner, t.amount),
+                    None => l,
+                };
                 for c in 0..3 {
-                    sum[c] += plan.own * lit[i * 3 + c];
+                    sum[c] += plan.own * l[c];
                 }
             }
-            for (lv, plane) in plan.levels.iter().zip(&planes) {
+            for (k, (lv, plane)) in plan.levels.iter().zip(&planes).enumerate() {
+                // D-542: tinted, a level is read unweighted, tinted, then weighed; untinted, the
+                // sum of D-353 exactly.
+                let mut read = [0.0f32; 3];
+                let (into, scale) = if s.tint.is_some() { (&mut read, 1.0) } else { (&mut sum, lv.weight) };
                 let d = lv.d as f32;
                 let (pw, ph) = (w.div_ceil(lv.d) + 2 * lv.reach.0, h.div_ceil(lv.d) + 2 * lv.reach.1);
                 let (u, v) = ((x as f32 + 0.5) / d - 0.5, (y as f32 + 0.5) / d - 0.5);
@@ -279,11 +329,17 @@ pub(crate) fn soft_glow(source: &mut WorkingBuffer, s: &Settings) -> usize {
                         if wi == 0.0 || cx < 0 || cx >= pw as isize {
                             continue;
                         }
-                        let k = (cy as usize * pw + cx as usize) * 3;
-                        let wt = lv.weight * wj * wi;
+                        let at = (cy as usize * pw + cx as usize) * 3;
+                        let wt = scale * wj * wi;
                         for c in 0..3 {
-                            sum[c] += wt * plane[k + c];
+                            into[c] += wt * plane[at + c];
                         }
+                    }
+                }
+                if let Some(t) = &s.tint {
+                    let p = tinted(read, colours[k], t.amount);
+                    for c in 0..3 {
+                        sum[c] += lv.weight * p[c];
                     }
                 }
             }
