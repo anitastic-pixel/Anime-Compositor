@@ -7664,6 +7664,55 @@ fn haze(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// D-501, layer_fx::difference_matte: a pixel as straight encoded colour and its alpha.
+fn dm_straight(p: vec4<f32>) -> vec4<f64> {
+    let a = f64(p.w);
+    if a <= 0.0lf {
+        return vec4<f64>(0.0lf);
+    }
+    let c = clamp(vec3<f64>(f64(p.x), f64(p.y), f64(p.z)) / a, vec3(0.0lf), vec3(1.0lf));
+    return vec4<f64>(to_srgb(c.x), to_srgb(c.y), to_srgb(c.z), min(a, 1.0lf));
+}
+
+// D-501, layer_fx::difference_matte: k the tolerance, the softness, and 1 for the matte view.
+// Mode 0 writes the share kept to `output` from the (blurred) drawing `input`, read F.r in, and
+// the (blurred) plate `other` lying at (F.ox, F.oy); mode 1 does the same unblurred and applies
+// it to `input`; mode 2 applies the shares `other` to `input`.
+@compute @workgroup_size(16, 16)
+fn dmatte(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let q = vec2<i32>(id.xy);
+    var kept: f64;
+    if F.mode == 2u {
+        kept = f64(textureLoad(other, id.xy, 0).x);
+    } else {
+        let d4 = abs(dm_straight(at(input, q + vec2(F.r))) - dm_straight(at(other, q - vec2(F.ox, F.oy))));
+        let d = 100.0lf * max(max(d4.x, d4.y), max(d4.z, d4.w));
+        kept = select(1.0lf, 0.0lf, d <= k[0]);
+        if k[1] > 0.0lf {
+            kept = clamp((d - k[0]) / k[1], 0.0lf, 1.0lf);
+        }
+        if F.mode == 0u {
+            textureStore(output, id.xy, vec4(f32(kept)));
+            return;
+        }
+    }
+    let p = textureLoad(input, id.xy, 0);
+    if k[2] == 1.0lf {
+        let g = f32(to_linear(kept) * f64(p.w));
+        textureStore(output, id.xy, vec4(g, g, g, p.w));
+        return;
+    }
+    var out = p;
+    for (var c = 0u; c < 4u; c++) {
+        out[c] = f32(f64(p[c]) * kept);
+    }
+    textureStore(output, id.xy, out);
+}
+
 // B-228, layer_fx::pass_extract: the pass (`other`) lying on the drawing at (F.ox, F.oy), alpha 1
 // on it and 0 outside it; k black, white, invert, clamp.
 @compute @workgroup_size(16, 16)
@@ -8583,6 +8632,8 @@ struct FxPasses {
     gwipe: Pass,
     /// D-403.
     haze: Pass,
+    /// D-501.
+    dmatte: Pass,
     lwidth: Pass,
     /// B-228.
     passx: Pass,
@@ -9242,6 +9293,7 @@ impl Gpu {
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
                 gwipe: pass("gwipe", &[0, 1, 2, 3, 4]),
                 haze: pass("haze", &[0, 1, 2, 3, 4]),
+                dmatte: pass("dmatte", &[0, 1, 2, 3, 4]),
                 passx: pass("passx", &[0, 1, 2, 3, 4]),
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
                 idkey: pass("idkey", &[0, 1, 2, 3, 4]),
@@ -12386,6 +12438,30 @@ impl Gpu {
                 let out = self.scratch("D-403 haze", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.haze, p, Some(still), Some(&out), Some(&k), Some(matte.as_ref().unwrap_or(still)), none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-501: compose leaves the card a Difference Matte only when its plate was read. With
+            // a blur, the shares are worked from both blurred (grown by r) and then applied.
+            E::DifferenceMatte { view, matching_tolerance, matching_softness, blur_before_difference, map, .. } => {
+                let map = &map.as_ref().expect("compose leaves a Difference Matte with a plate").0;
+                let plate = self.map_texture(map);
+                let k = [*matching_tolerance, *matching_softness, (view == "matte") as u8 as f64];
+                let out = self.scratch("D-501 matte", w, h);
+                if *blur_before_difference > 0.0 {
+                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                    let taps = crate::effects::gaussian_weights(*blur_before_difference);
+                    let r = taps.len() / 2;
+                    let soft = self.gauss(steps, bloom, "D-501 shot", still, (w, h), [&taps, &taps], r, false);
+                    let soft_plate = self.gauss(steps, bloom, "D-501 plate", &plate, (map.width(), map.height()), [&taps, &taps], r, false);
+                    let shares = self.scratch("D-501 shares", w, h);
+                    let p = FxParams { r: r as i32, ox: ox as i32 - r as i32, oy: oy as i32 - r as i32, ..Default::default() };
+                    self.fx_step(steps, &passes.dmatte, p, Some(&soft), Some(&shares), Some(&k), Some(&soft_plate), none, tiles(w, h));
+                    let p = FxParams { mode: 2, ..Default::default() };
+                    self.fx_step(steps, &passes.dmatte, p, Some(still), Some(&out), Some(&k), Some(&shares), none, tiles(w, h));
+                } else {
+                    let p = FxParams { mode: 1, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                    self.fx_step(steps, &passes.dmatte, p, Some(still), Some(&out), Some(&k), Some(&plate), none, tiles(w, h));
+                }
                 (out, (w, h))
             }
             E::PassExtract { channels, black_point, white_point, invert, clamp, .. } => {

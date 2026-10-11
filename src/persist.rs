@@ -2418,6 +2418,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert(name.into(), num(*v));
             }
         }
+        Effect::DifferenceMatte { view, layer, fit, matching_tolerance, matching_softness, blur_before_difference, .. } => {
+            params.insert("view".into(), J::from(view.as_str()));
+            params.insert("layer".into(), layer.clone());
+            params.insert("fit".into(), J::from(fit.as_str()));
+            params.insert("matching_tolerance".into(), num(*matching_tolerance));
+            params.insert("matching_softness".into(), num(*matching_softness));
+            params.insert("blur_before_difference".into(), num(*blur_before_difference));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4843,6 +4851,7 @@ fn parse_effect(
         crate::effects::ADVANCED_SPILL_SUPPRESSOR,
         crate::effects::COLOR_DIFFERENCE_KEY,
         crate::effects::COLOR_RANGE,
+        crate::effects::DIFFERENCE_MATTE,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
@@ -5804,6 +5813,16 @@ fn parse_effect(
                 range,
             })
         }
+        // D-501: the layer is kept as written, as Aerial Haze's is.
+        crate::effects::DIFFERENCE_MATTE => Some(crate::effects::Effect::DifferenceMatte {
+            view: effect_word(params, "view", &at)?,
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            fit: effect_word(params, "fit", &at)?,
+            matching_tolerance: effect_number(params, "matching_tolerance", &at)?,
+            matching_softness: effect_number(params, "matching_softness", &at)?,
+            blur_before_difference: effect_number(params, "blur_before_difference", &at)?,
+            map: None,
+        }),
         crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,
             threshold: effect_number(params, "threshold", &at)?,

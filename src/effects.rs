@@ -2180,6 +2180,21 @@ pub enum Effect {
         fuzziness: f64,
         range: [f64; 6],
     },
+    /// D-501: after After Effects' Difference Matte, its rule and its settings when added ours
+    /// (`layer_fx::difference_matte`, document 21). `view`, `final` or `matte`; `layer`, D-189's
+    /// layer setting as written, the clean plate, "" for none (the layer is left as it is);
+    /// `fit`, `center` or `stretch`; `matching_tolerance` and `matching_softness`, 0 to 100 per
+    /// cent; `blur_before_difference`, 0 to 100 pixels of Gaussian sigma. `map` is not a
+    /// setting and is never saved.
+    DifferenceMatte {
+        view: String,
+        layer: serde_json::Value,
+        fit: String,
+        matching_tolerance: f64,
+        matching_softness: f64,
+        blur_before_difference: f64,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
     /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
     /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
@@ -2972,6 +2987,7 @@ pub const CRANGE_SPACES: [&str; 3] = ["lab", "yuv", "rgb"];
 /// D-500: Color Range's box in the file: the first component's low and high end, the second's,
 /// the third's.
 pub const CRANGE_NAMES: [&str; 6] = ["min_1", "max_1", "min_2", "max_2", "min_3", "max_3"];
+pub const DIFFERENCE_MATTE: &str = "core.difference_matte";
 pub const SIMPLE_WIRE_REMOVAL: &str = "core.simple_wire_removal";
 /// D-458: CC Simple Wire Removal's styles.
 pub const WIRE_STYLES: [&str; 4] = ["fade", "frame_offset", "displace", "displace_horizontal"];
@@ -3110,6 +3126,11 @@ impl Effect {
             Effect::TintMap { amount_to_tint, .. } => vec![("amount_to_tint", vec![amount_to_tint], 0.0, 100.0)],
             Effect::Tritone { blend_with_original, .. } => vec![("blend_with_original", vec![blend_with_original], 0.0, 100.0)],
             Effect::AerialHaze { amount, .. } => vec![("amount", vec![amount], 0.0, 100.0)],
+            Effect::DifferenceMatte { matching_tolerance, matching_softness, blur_before_difference, .. } => vec![
+                ("matching_tolerance", vec![matching_tolerance], 0.0, 100.0),
+                ("matching_softness", vec![matching_softness], 0.0, 100.0),
+                ("blur_before_difference", vec![blur_before_difference], 0.0, 100.0),
+            ],
             Effect::Transform {
                 anchor_point,
                 position,
@@ -5467,6 +5488,7 @@ impl Effect {
             Effect::AdvancedSpillSuppressor { .. } => "Advanced Spill Suppressor",
             Effect::ColorDifferenceKey { .. } => "Color Difference Key",
             Effect::ColorRange { .. } => "Color Range",
+            Effect::DifferenceMatte { .. } => "Difference Matte",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
@@ -5660,6 +5682,7 @@ impl Effect {
             Effect::AdvancedSpillSuppressor { .. } => ADVANCED_SPILL_SUPPRESSOR,
             Effect::ColorDifferenceKey { .. } => COLOR_DIFFERENCE_KEY,
             Effect::ColorRange { .. } => COLOR_RANGE,
+            Effect::DifferenceMatte { .. } => DIFFERENCE_MATTE,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
@@ -5924,6 +5947,7 @@ impl Effect {
             | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::AerialHaze { layer: serde_json::Value::String(layer), fit, .. }
+            | Effect::DifferenceMatte { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Glass { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::VectorBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::Blobbylize { layer: serde_json::Value::String(layer), fit, .. }
@@ -5953,6 +5977,7 @@ impl Effect {
             | Effect::DisplacementMap { layer, map, .. }
             | Effect::GradientWipe { layer, map, .. }
             | Effect::AerialHaze { layer, map, .. }
+            | Effect::DifferenceMatte { layer, map, .. }
             | Effect::Glass { layer, map, .. }
             | Effect::VectorBlur { layer, map, .. }
             | Effect::Blobbylize { layer, map, .. }
@@ -6089,6 +6114,14 @@ impl Effect {
                 .or_else(|| hex_fault(name, "key colour", key_color)),
             Effect::ColorRange { color_space, .. } => (!CRANGE_SPACES.contains(&color_space.as_str()))
                 .then(|| format!("{name}'s colour space is \"lab\", \"yuv\" or \"rgb\", and this is \"{color_space}\".")),
+            Effect::DifferenceMatte { view, layer, fit, .. } => (!["final", "matte"].contains(&view.as_str()))
+                .then(|| format!("{name}'s view is \"final\" or \"matte\", and this is \"{view}\"."))
+                .or_else(|| (!layer.is_string()).then(|| format!(
+                    "{name}'s difference layer is the name of a layer of this composition, and this is {layer}."
+                )))
+                .or_else(|| (!["center", "stretch"].contains(&fit.as_str())).then(|| format!(
+                    "{name}'s fit is \"center\" or \"stretch\", and this is \"{fit}\"."
+                ))),
             Effect::PhotoFilter { filter, color, preserve_luminosity, .. } => (filter != "custom"
                 && !PHOTO_FILTERS.iter().any(|(f, _)| f == filter))
                 .then(|| format!("{name}'s filter is one of {} or \"custom\", and this is \"{filter}\".",
@@ -8791,6 +8824,23 @@ pub(crate) fn apply_stack_at(
             e @ Effect::ColorRange { .. } => crate::perf::time(crate::perf::Stage::EffectColorRange, || {
                 crate::grade::color_range(source, &crate::grade::crange_settings(e))
             }),
+            // D-501: no plate read (none named, or named but not in the composition) leaves the
+            // layer as it is, the latter with D-189's warning.
+            Effect::DifferenceMatte { view, matching_tolerance, matching_softness, blur_before_difference, map, .. } => {
+                if let Some(map) = map {
+                    crate::perf::time(crate::perf::Stage::EffectDifferenceMatte, || {
+                        crate::layer_fx::difference_matte(
+                            source,
+                            &map.0,
+                            (ox, oy),
+                            *matching_tolerance,
+                            *matching_softness,
+                            *blur_before_difference,
+                            view == "matte",
+                        )
+                    })
+                }
+            }
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {
                     crate::grade::add_grain(source, &g, (ox, oy))

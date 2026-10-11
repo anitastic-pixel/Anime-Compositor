@@ -6066,6 +6066,66 @@ pub(crate) fn aerial_haze(source: &mut WorkingBuffer, matte: Option<(&WorkingBuf
     });
 }
 
+/// D-501: Difference Matte. Each pixel compared with the plate `map` under it (the plate lies
+/// on the layer's own picture, at `origin` in `source`, transparent outside it), both blurred
+/// first by a Gaussian at `sigma` when above 0: the largest difference of the straight encoded
+/// colour and the alpha, in per cent, `d`. The share kept is `clamp((d - tolerance) / softness,
+/// 0, 1)`, or at softness 0 nothing where `d <= tolerance` and all elsewhere. `matte` draws
+/// the share as a grey under the layer's covering; else every channel is times the share.
+pub(crate) fn difference_matte(
+    source: &mut WorkingBuffer,
+    map: &WorkingBuffer,
+    origin: (usize, usize),
+    tolerance: f64,
+    softness: f64,
+    sigma: f64,
+    matte: bool,
+) {
+    let straight = |p: [f32; 4]| -> [f64; 4] {
+        let a = p[3] as f64;
+        if a <= 0.0 {
+            return [0.0; 4];
+        }
+        let [r, g, b] = [0, 1, 2].map(|c| crate::grade::to_srgb((p[c] as f64 / a).clamp(0.0, 1.0)));
+        [r, g, b, a.min(1.0)]
+    };
+    let blurred = (sigma > 0.0).then(|| {
+        let (mut s, mut m) = (source.clone(), map.clone());
+        blur(&mut s, sigma);
+        blur(&mut m, sigma);
+        (s, m)
+    });
+    let (s, m, r) = match &blurred {
+        Some((s, m)) => (s, m, kernel_radius(sigma) as isize),
+        None => (&*source, map, 0),
+    };
+    let w = source.width();
+    let (ox, oy) = (origin.0 as isize, origin.1 as isize);
+    let shares: Vec<f64> = (0..source.width() * source.height())
+        .into_par_iter()
+        .map(|i| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let (a, b) = (straight(at(s, x + r, y + r)), straight(at(m, x - ox + r, y - oy + r)));
+            let d = 100.0 * (0..4).map(|c| (a[c] - b[c]).abs()).fold(0.0, f64::max);
+            if softness > 0.0 {
+                ((d - tolerance) / softness).clamp(0.0, 1.0)
+            } else if d <= tolerance {
+                0.0
+            } else {
+                1.0
+            }
+        })
+        .collect();
+    source.data_mut().par_chunks_exact_mut(4).zip(shares).for_each(|(px, k)| {
+        if matte {
+            let g = (crate::grade::to_linear(k) * px[3] as f64) as f32;
+            px[..3].fill(g);
+        } else {
+            px.iter_mut().for_each(|v| *v = (*v as f64 * k) as f32);
+        }
+    });
+}
+
 /// D-348: the pass's pixel under the drawing's pixel `i` of a buffer `w` wide with the drawing's
 /// top-left at `origin`, as an index into `pass`'s data, or `None` outside the drawing.
 fn pass_at(pass: &WorkingBuffer, i: usize, w: usize, origin: (usize, usize)) -> Option<usize> {
