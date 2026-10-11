@@ -208662,3 +208662,45 @@ FX-SPOT-025 (`fx_spot_025.json`): Render "Light_Add": the word is exact, so a ca
 FX-SPOT-026 (`fx_spot_026.json`): Color "#ff80": not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SPOT-027 (`fx_spot_027.json`): Color "white": not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### CC Wide Time (D-520)
+
+CC Wide Time (`core.cc_wide_time`), after CycoreFX's CC Wide Time (B-400), the rule ours. Every case is a project of one composition 16 by 10, eight frames, the drawing `holder`, Echo's ball running right across five drawings (`tools/echo_reference.py`), with the effect. `tools/cc_wide_time_reference.py` works the expected frames, `Fixtures/cc_wide_time/expected_cc_wide_time.json`, tolerance 2e-5; the rule is in document 21. Native Motion Blur on a composition inside is checked by `tests/b400_cc_wide_time.rs` on the build's own frames.
+
+FX-WIDE-001 (`fx_wide_001.json`): As added: three frames before and three after, seven averaged. At frame 3 drawings 1 to 4 and drawing 5 three times; at frame 0 the three frames before the layer are empty but still counted, so the ball is faint; at frame 6 frame 8 is past the out point. Frames 0, 3, 6.
+
+FX-WIDE-002 (`fx_wide_002.json`): No steps either way: the layer exactly as it is. Frames 0, 3.
+
+FX-WIDE-003 (`fx_wide_003.json`): Two forward steps only: frames 1, 2 and 3 averaged at frame 1. Frames 1.
+
+FX-WIDE-004 (`fx_wide_004.json`): Two backward steps only: frames 2, 3 and 4 averaged at frame 4. Frames 4.
+
+FX-WIDE-005 (`fx_wide_005.json`): One step each way, the layer's in point at frame 2: at frame 2 the frame before is outside the layer and counts empty. Frames 2, 3.
+
+FX-WIDE-006 (`fx_wide_006.json`): One step each way, drawings on twos: at frame 2 drawings 1, 2 and 2; at frame 3 drawings 2, 2 and 3. Frames 2, 3.
+
+FX-WIDE-007 (`fx_wide_007.json`): Forward steps keyed from 0 at frame 0 to 4 at frame 4, no backward steps: 2 at frame 2. Frames 0, 2, 4.
+
+FX-WIDE-008 (`fx_wide_008.json`): Steps 1.5 forward and 1.9 back count as one each. Frames 3.
+
+FX-WIDE-009 (`fx_wide_009.json`): An Exposure of +1 before CC Wide Time is not seen: it reads the drawing, not what came before it. FX-WIDE-001. Frames 3.
+
+FX-WIDE-010 (`fx_wide_010.json`): An Exposure of -1 after CC Wide Time darkens the smear too. Frames 3.
+
+FX-WIDE-011 (`fx_wide_011.json`): A mask keeping columns 0 to 6: every frame is masked. Frames 3.
+
+FX-WIDE-012 (`fx_wide_012.json`): The holder moved 2 right and 3 down: FX-WIDE-001 moved, since the frames lie on the layer. Frames 3.
+
+FX-WIDE-013 (`fx_wide_013.json`): The effect on an adjustment layer above the holder: nothing changes. Frames 3.
+
+FX-WIDE-014 (`fx_wide_014.json`): Native Motion Blur on, with no composition inside: FX-WIDE-001. Frames 3.
+
+FX-WIDE-015 (`fx_wide_015.json`): Ten steps each way, past both ends of the layer: 21 frames counted, eight of them drawn. Frames 4.
+
+FX-WIDE-016 (`fx_wide_016.json`): Forward steps 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WIDE-017 (`fx_wide_017.json`): Backward steps -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WIDE-018 (`fx_wide_018.json`): Backward steps keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WIDE-019 (`fx_wide_019.json`): Native Motion Blur written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
