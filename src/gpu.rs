@@ -2234,6 +2234,27 @@ fn hls(e: vec3<f64>) -> vec3<f64> {
     return vec3(hsv_hue(e), l, s);
 }
 
+// D-459, grade::cdk_mattes' hue window: 0 within 60 degrees of `centre`, 1 from 120.
+fn cdk_window(h: f64, centre: f64) -> f64 {
+    let d = euclid(h - centre, 360.0lf);
+    return clamp((min(d, 360.0lf - d) - 60.0lf) / 60.0lf, 0.0lf, 1.0lf);
+}
+
+// D-459, grade::cdk_level on the five levels at k[i]; the power in single precision, as
+// Levels'.
+fn cdk_level(t: f64, i: u32) -> f64 {
+    let x = 255.0lf * t;
+    var v = select(0.0lf, 1.0lf, x >= k[i]);
+    if k[i + 1u] != k[i] {
+        v = clamp((x - k[i]) / (k[i + 1u] - k[i]), 0.0lf, 1.0lf);
+    }
+    var g = 0.0lf;
+    if v > 0.0lf {
+        g = f64(pow(f32(v), f32(1.0lf / k[i + 2u])));
+    }
+    return (k[i + 3u] + g * (k[i + 4u] - k[i + 3u])) / 255.0lf;
+}
+
 // D-370, grade::change_distance: how far `e` is from `c`, by the match's place in
 // CHANGE_MATCHES; 1 by hue when either is a grey.
 fn match_distance(e: vec3<f64>, c: vec3<f64>, kind: f64) -> f64 {
@@ -2697,6 +2718,40 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
             out[c] = f32(f64(p[c]) * m);
         }
         textureStore(output, id.xy, out);
+        return;
+    }
+    if F.mode == 70u {
+        // D-459, as grade::color_difference_key; k: grade::cdk_settings.
+        if k[0] == 1.0lf {
+            textureStore(output, id.xy, p);
+            return;
+        }
+        let h = hls(e);
+        let hue = max(h.x, 0.0lf);
+        let ta = h.z * cdk_window(hue, k[1] - 60.0lf) + (1.0lf - h.z) / 2.0lf;
+        let tb = h.z * cdk_window(hue, k[1]) + (1.0lf - h.z) / 2.0lf;
+        var m: array<f64, 6>;
+        if h.y < 0.5lf {
+            m[0] = 2.0lf * ta * h.y;
+            m[2] = 1.0lf - 2.0lf * (1.0lf - tb) * h.y;
+        } else {
+            m[0] = 1.0lf - 2.0lf * (1.0lf - ta) * (1.0lf - h.y);
+            m[2] = 2.0lf * tb * (1.0lf - h.y);
+        }
+        m[1] = cdk_level(m[0], 2u);
+        m[3] = cdk_level(m[2], 7u);
+        m[4] = 1.0lf - (1.0lf - m[0]) * (1.0lf - m[2]);
+        m[5] = cdk_level(1.0lf - (1.0lf - m[1]) * (1.0lf - m[3]), 12u);
+        if k[0] == 0.0lf {
+            // A channel at a time, as Extract's.
+            for (var c = 0u; c < 4u; c++) {
+                out[c] = f32(f64(p[c]) * m[5]);
+            }
+            textureStore(output, id.xy, out);
+            return;
+        }
+        let v = f32(to_linear(m[u32(k[0]) - 2u]) * a);
+        textureStore(output, id.xy, vec4(v, v, v, p.w));
         return;
     }
     if F.mode == 0u {
@@ -8676,6 +8731,8 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::SelectiveColor { .. }
             // D-457.
             | E::AdvancedSpillSuppressor { .. }
+            // D-459.
+            | E::ColorDifferenceKey { .. }
     )
 }
 
@@ -11468,6 +11525,9 @@ impl Gpu {
             }
             spill @ E::AdvancedSpillSuppressor { .. } => {
                 same(steps, &passes.tone, FxParams { mode: 61, ..Default::default() }, &crate::grade::spill_settings(spill), None)
+            }
+            cdk @ E::ColorDifferenceKey { .. } => {
+                same(steps, &passes.tone, FxParams { mode: 70, ..Default::default() }, &crate::grade::cdk_settings(cdk), None)
             }
             E::ColorLink { sample, clip, stencil, opacity, blending_mode: b, map, .. } => {
                 // card_can leaves only a named layer's picture; its colour is read here, once.

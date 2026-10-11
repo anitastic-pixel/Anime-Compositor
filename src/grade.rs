@@ -2447,6 +2447,86 @@ pub(crate) fn advanced_spill_suppressor(source: &mut WorkingBuffer, k: &[f64; 11
     });
 }
 
+/// D-459: Color Difference Key's settings as the card reads them: the view's place in
+/// [`crate::effects::CDK_VIEWS`], the key colour's HSV hue (0 for a grey), partial A's five
+/// levels, partial B's, then the matte's five (its output always 0 to 255).
+pub(crate) fn cdk_settings(effect: &crate::effects::Effect) -> [f64; 17] {
+    let crate::effects::Effect::ColorDifferenceKey { view, key_color, partial_a, partial_b, matte } = effect else {
+        unreachable!("cdk_settings takes Color Difference Key")
+    };
+    let mut k = [0.0; 17];
+    k[0] = crate::effects::CDK_VIEWS.iter().position(|v| v == view).unwrap_or(0) as f64;
+    k[1] = hsv_hue(crate::effects::encoded(key_color)).unwrap_or(0.0);
+    k[2..7].copy_from_slice(partial_a);
+    k[7..12].copy_from_slice(partial_b);
+    k[12..15].copy_from_slice(matte);
+    k[16] = 255.0;
+    k
+}
+
+/// D-459: D-112's levels step on a matte value t, 0 to 1, as 255 t, back over 255.
+fn cdk_level([ib, iw, gamma, ob, ow]: [f64; 5], t: f64) -> f64 {
+    let x = 255.0 * t;
+    let v = if iw == ib {
+        if x >= ib { 1.0 } else { 0.0 }
+    } else {
+        ((x - ib) / (iw - ib)).clamp(0.0, 1.0)
+    };
+    (ob + v.powf(1.0 / gamma) * (ow - ob)) / 255.0
+}
+
+/// D-459: the encoded colour e's partial A uncorrected and corrected, partial B uncorrected and
+/// corrected, and the matte uncorrected and corrected, in that order (the views' after "final"
+/// and "source"). Hue windows of 60 degrees with a 60-degree shoulder about the key's hue (B)
+/// and 60 degrees short of it (A), weighted by the HLS saturation toward a half, then a hard
+/// light by the lightness; the partials combined by a screen. After Ihringer's reverse-
+/// engineering of After Effects' (document 21).
+pub(crate) fn cdk_mattes(e: [f64; 3], k: &[f64; 17]) -> [f64; 6] {
+    let (h, l, s) = hls(e);
+    let h = h.unwrap_or(0.0);
+    let window = |centre: f64| {
+        let d = (h - centre).rem_euclid(360.0);
+        ((d.min(360.0 - d) - 60.0) / 60.0).clamp(0.0, 1.0)
+    };
+    let ta = s * window(k[1] - 60.0) + (1.0 - s) / 2.0;
+    let tb = s * window(k[1]) + (1.0 - s) / 2.0;
+    let (a, b) = if l < 0.5 {
+        (2.0 * ta * l, 1.0 - 2.0 * (1.0 - tb) * l)
+    } else {
+        (1.0 - 2.0 * (1.0 - ta) * (1.0 - l), 2.0 * tb * (1.0 - l))
+    };
+    let set = |i: usize| [k[i], k[i + 1], k[i + 2], k[i + 3], k[i + 4]];
+    let (ca, cb) = (cdk_level(set(2), a), cdk_level(set(7), b));
+    let screen = |a: f64, b: f64| 1.0 - (1.0 - a) * (1.0 - b);
+    [a, ca, b, cb, screen(a, b), cdk_level(set(12), screen(ca, cb))]
+}
+
+/// D-459: Color Difference Key. "final" multiplies every channel by the corrected matte, so the
+/// colour is kept and the covering falls; "source" leaves the layer as it is; any other view
+/// shows its matte as an encoded grey at the pixel's covering.
+pub(crate) fn color_difference_key(source: &mut WorkingBuffer, k: &[f64; 17]) {
+    let view = k[0] as usize;
+    if view == 1 {
+        return;
+    }
+    each_pixel(source, |px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let e = [0, 1, 2].map(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)));
+        let m = cdk_mattes(e, k);
+        if view == 0 {
+            for c in px.iter_mut() {
+                *c = (*c as f64 * m[5]) as f32;
+            }
+            return;
+        }
+        let v = (to_linear(m[view - 2]) * a) as f32;
+        px[..3].fill(v);
+    });
+}
+
 /// D-396: Selective Color with every amount 0 leaves the layer exactly as it is.
 pub(crate) fn selective_color_untouched(families: &[[f64; 4]; 9]) -> bool {
     families.iter().flatten().all(|v| *v == 0.0)

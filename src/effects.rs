@@ -2159,6 +2159,18 @@ pub enum Effect {
         spill_color_correction: f64,
         luma_correction: f64,
     },
+    /// D-459: after After Effects' Color Difference Key, the rule after Ihringer's reverse-
+    /// engineering (`grade::color_difference_key`, document 21). `view`, one of [`CDK_VIEWS`];
+    /// `key_color`, `#rrggbb`; `partial_a` and `partial_b`, D-112's five levels (in black, in
+    /// white, gamma, out black, out white; 0 to 255, the gamma 0.1 to 10), named as
+    /// [`CDK_NAMES`]; `matte`, the in black, in white and gamma.
+    ColorDifferenceKey {
+        view: String,
+        key_color: String,
+        partial_a: [f64; 5],
+        partial_b: [f64; 5],
+        matte: [f64; 3],
+    },
     /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
     /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
     /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
@@ -2916,6 +2928,35 @@ pub const DEBAND_VIEWS: [&str; 3] = ["normal", "edge_only", "selected_edge"];
 pub const ADVANCED_SPILL_SUPPRESSOR: &str = "core.advanced_spill_suppressor";
 /// D-457: Advanced Spill Suppressor's methods.
 pub const SPILL_METHODS: [&str; 2] = ["standard", "ultra"];
+pub const COLOR_DIFFERENCE_KEY: &str = "core.color_difference_key";
+/// D-459: what Color Difference Key shows.
+pub const CDK_VIEWS: [&str; 8] = [
+    "final",
+    "source",
+    "partial_a_uncorrected",
+    "partial_a",
+    "partial_b_uncorrected",
+    "partial_b",
+    "matte_uncorrected",
+    "matte",
+];
+/// D-459: Color Difference Key's numbers in the file: partial A's five, partial B's, the matte's
+/// three.
+pub const CDK_NAMES: [&str; 13] = [
+    "partial_a_in_black",
+    "partial_a_in_white",
+    "partial_a_gamma",
+    "partial_a_out_black",
+    "partial_a_out_white",
+    "partial_b_in_black",
+    "partial_b_in_white",
+    "partial_b_gamma",
+    "partial_b_out_black",
+    "partial_b_out_white",
+    "matte_in_black",
+    "matte_in_white",
+    "matte_gamma",
+];
 pub const SIMPLE_WIRE_REMOVAL: &str = "core.simple_wire_removal";
 /// D-458: CC Simple Wire Removal's styles.
 pub const WIRE_STYLES: [&str; 4] = ["fade", "frame_offset", "displace", "displace_horizontal"];
@@ -4047,6 +4088,16 @@ impl Effect {
                 ("spill_color_correction", vec![spill_color_correction], 0.0, 100.0),
                 ("luma_correction", vec![luma_correction], 0.0, 100.0),
             ],
+            Effect::ColorDifferenceKey { partial_a, partial_b, matte, .. } => partial_a
+                .iter_mut()
+                .chain(partial_b.iter_mut())
+                .chain(matte.iter_mut())
+                .zip(CDK_NAMES)
+                .map(|(v, n)| match n.ends_with("gamma") {
+                    true => (n, vec![v], 0.1, 10.0),
+                    false => (n, vec![v], 0.0, 255.0),
+                })
+                .collect(),
             Effect::Deband {
                 edge_threshold,
                 edge_softness,
@@ -5395,6 +5446,7 @@ impl Effect {
             Effect::Cartoon { .. } => "Cartoon",
             Effect::Deband { .. } => "Deband",
             Effect::AdvancedSpillSuppressor { .. } => "Advanced Spill Suppressor",
+            Effect::ColorDifferenceKey { .. } => "Color Difference Key",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
@@ -5586,6 +5638,7 @@ impl Effect {
             Effect::Cartoon { .. } => CARTOON,
             Effect::Deband { .. } => DEBAND,
             Effect::AdvancedSpillSuppressor { .. } => ADVANCED_SPILL_SUPPRESSOR,
+            Effect::ColorDifferenceKey { .. } => COLOR_DIFFERENCE_KEY,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
@@ -6008,6 +6061,10 @@ impl Effect {
                 }),
             Effect::AdvancedSpillSuppressor { method, key_color, .. } => (!SPILL_METHODS.contains(&method.as_str()))
                 .then(|| format!("{name}'s method is \"standard\" or \"ultra\", and this is \"{method}\"."))
+                .or_else(|| hex_fault(name, "key colour", key_color)),
+            Effect::ColorDifferenceKey { view, key_color, .. } => (!CDK_VIEWS.contains(&view.as_str()))
+                .then(|| format!("{name}'s view is one of {}, and this is \"{view}\".",
+                    CDK_VIEWS.map(|v| format!("\"{v}\"")).join(", ")))
                 .or_else(|| hex_fault(name, "key colour", key_color)),
             Effect::PhotoFilter { filter, color, preserve_luminosity, .. } => (filter != "custom"
                 && !PHOTO_FILTERS.iter().any(|(f, _)| f == filter))
@@ -8704,6 +8761,9 @@ pub(crate) fn apply_stack_at(
             }
             e @ Effect::AdvancedSpillSuppressor { .. } => crate::perf::time(crate::perf::Stage::EffectAdvancedSpillSuppressor, || {
                 crate::grade::advanced_spill_suppressor(source, &crate::grade::spill_settings(e))
+            }),
+            e @ Effect::ColorDifferenceKey { .. } => crate::perf::time(crate::perf::Stage::EffectColorDifferenceKey, || {
+                crate::grade::color_difference_key(source, &crate::grade::cdk_settings(e))
             }),
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {
