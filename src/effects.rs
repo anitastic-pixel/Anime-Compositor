@@ -2572,6 +2572,25 @@ pub enum Effect {
         randomize: String,
         frame: i32,
     },
+    /// D-466: after After Effects' Strobe Light (`layer_fx::strobe_light`, document 21).
+    /// `strobe_color` written `#rrggbb`; `blend_with_original` 0 to 100; `strobe_duration` and
+    /// `strobe_period` 0 to 100 seconds; `random_strobe_probability` 0 to 100 per cent;
+    /// `strobe` one of [`STROBE_LIGHT_MODES`]; `strobe_operator` one of
+    /// [`STROBE_LIGHT_OPERATORS`]; `random_seed` 0 to 100000, its whole part counted. Words are
+    /// kept as written so a wrong one is reported. `time` (seconds) and `count` (frames) are the
+    /// layer's key time from its in point, filled per frame; never saved.
+    StrobeLight {
+        strobe_color: String,
+        blend_with_original: f64,
+        strobe_duration: f64,
+        strobe_period: f64,
+        random_strobe_probability: f64,
+        strobe: String,
+        strobe_operator: String,
+        random_seed: f64,
+        time: f64,
+        count: i64,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -3452,6 +3471,12 @@ pub const REPEAT_TILE: &str = "core.repeat_tile";
 pub const SCATTER: &str = "core.scatter";
 /// D-465: Scatter's grains, After Effects' three in its order.
 pub const SCATTER_GRAINS: [&str; 3] = ["both", "horizontal", "vertical"];
+pub const STROBE_LIGHT: &str = "core.strobe_light";
+/// D-466: Strobe Light's Strobe, After Effects' two in its order.
+pub const STROBE_LIGHT_MODES: [&str; 2] = ["color_only", "transparent"];
+/// D-466: Strobe Light's operators, Copy first as it starts; the list past Copy is ours.
+pub const STROBE_LIGHT_OPERATORS: [&str; 12] =
+    ["copy", "add", "subtract", "multiply", "difference", "and", "or", "xor", "minimum", "maximum", "darken", "lighten"];
 /// D-464: Repeat Tile's ways of laying the copies, After Effects' sixteen in its order.
 pub const REPEAT_TILE_TILINGS: [&str; 16] = [
     "repeat",
@@ -4856,6 +4881,13 @@ impl Effect {
                 ("blend_borders", vec![blend_borders], 0.0, 100.0),
             ],
             Effect::Scatter { scatter_amount, .. } => vec![("scatter_amount", vec![scatter_amount], 0.0, 127.0)],
+            Effect::StrobeLight { blend_with_original, strobe_duration, strobe_period, random_strobe_probability, random_seed, .. } => vec![
+                ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
+                ("strobe_duration", vec![strobe_duration], 0.0, 100.0),
+                ("strobe_period", vec![strobe_period], 0.0, 100.0),
+                ("random_strobe_probability", vec![random_strobe_probability], 0.0, 100.0),
+                ("random_seed", vec![random_seed], 0.0, 100000.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -6297,6 +6329,7 @@ impl Effect {
             Effect::Plastic { .. } => "Plastic",
             Effect::RepeatTile { .. } => "Repeat Tile",
             Effect::Scatter { .. } => "Scatter",
+            Effect::StrobeLight { .. } => "Strobe Light",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -6517,6 +6550,7 @@ impl Effect {
             Effect::Plastic { .. } => PLASTIC,
             Effect::RepeatTile { .. } => REPEAT_TILE,
             Effect::Scatter { .. } => SCATTER,
+            Effect::StrobeLight { .. } => STROBE_LIGHT,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -7907,6 +7941,14 @@ impl Effect {
             Effect::Scatter { randomize, .. } if !["on", "off"].contains(&randomize.as_str()) => Some(format!(
                 "Scatter's randomize every frame is \"on\" or \"off\", and this is \"{randomize}\"."
             )),
+            Effect::StrobeLight { strobe, .. } if !STROBE_LIGHT_MODES.contains(&strobe.as_str()) => Some(format!(
+                "Strobe Light's strobe is \"color_only\" or \"transparent\", and this is \"{strobe}\"."
+            )),
+            Effect::StrobeLight { strobe_operator, .. } if !STROBE_LIGHT_OPERATORS.contains(&strobe_operator.as_str()) => Some(format!(
+                "Strobe Light's strobe operator is one of {}, and this is \"{strobe_operator}\".",
+                STROBE_LIGHT_OPERATORS.join(", ")
+            )),
+            Effect::StrobeLight { strobe_color, .. } => hex_fault("Strobe Light", "strobe colour", strobe_color),
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
             )),
@@ -10470,6 +10512,24 @@ pub(crate) fn apply_stack_at(
             Effect::Scatter { scatter_amount, grain, frame, .. } => {
                 let k = crate::layer_fx::scatter_setup(*scatter_amount, grain);
                 crate::perf::time(crate::perf::Stage::EffectScatter, || crate::layer_fx::scatter(source, k, *frame));
+            }
+            // D-466: on at this moment or not; when on, the colour worked or the layer faded.
+            Effect::StrobeLight {
+                strobe_color,
+                blend_with_original,
+                strobe_duration,
+                strobe_period,
+                random_strobe_probability,
+                strobe,
+                strobe_operator,
+                random_seed,
+                time,
+                count,
+            } => {
+                if crate::layer_fx::strobe_on(*strobe_duration, *strobe_period, *random_strobe_probability, *random_seed, *time, *count) {
+                    let k = crate::layer_fx::strobe_setup(encoded(strobe_color).map(crate::grade::to_linear), *blend_with_original, strobe, strobe_operator);
+                    crate::perf::time(crate::perf::Stage::EffectStrobeLight, || crate::layer_fx::strobe_light(source, k));
+                }
             }
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
                 crate::median::smart_blur(source, *radius, *threshold)

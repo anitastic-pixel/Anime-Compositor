@@ -3726,6 +3726,42 @@ fn hex_fold(u: f64, n: f64, z: f64) -> f64 {
     return clamp(select(m, t - m, m > n), 0.5lf, n - 0.5lf);
 }
 
+// D-466, layer_fx::strobe_operate's whole level of 255, the product rounded as the CPU's is.
+fn strobe_level(v: f64, z: f64) -> u32 {
+    return u32(floor(product(255.0lf, clamp(v, 0.0lf, 1.0lf), z) + 0.5lf));
+}
+
+// D-466, layer_fx::strobe_operate: operator `op` on the straight colour `c` and the strobe colour
+// `s`, held in 0 to 1; `z` a 0 read from the settings, for `product`.
+fn strobe_operate(op: u32, c: vec3<f64>, s: vec3<f64>, z: f64) -> vec3<f64> {
+    let lc = 0.2126lf * c.x + 0.7152lf * c.y + 0.0722lf * c.z;
+    let ls = 0.2126lf * s.x + 0.7152lf * s.y + 0.0722lf * s.z;
+    var r = s;
+    switch op {
+        case 1u: { r = c + s; }
+        case 2u: { r = c - s; }
+        case 3u: { r = c * s; }
+        case 4u: { r = abs(c - s); }
+        case 5u, 6u, 7u: {
+            let a = vec3<u32>(strobe_level(c.x, z), strobe_level(c.y, z), strobe_level(c.z, z));
+            let b = vec3<u32>(strobe_level(s.x, z), strobe_level(s.y, z), strobe_level(s.z, z));
+            var m = a & b;
+            if op == 6u {
+                m = a | b;
+            } else if op == 7u {
+                m = a ^ b;
+            }
+            r = vec3<f64>(m) / 255.0lf;
+        }
+        case 8u: { r = min(c, s); }
+        case 9u: { r = max(c, s); }
+        case 10u: { r = select(c, s, ls < lc); }
+        case 11u: { r = select(c, s, ls > lc); }
+        default: {}
+    }
+    return clamp(r, vec3(0.0lf), vec3(1.0lf));
+}
+
 // D-465, layer_fx::scatter_move's hash of the place, the frame and the direction.
 fn scatter_hash(x: u32, y: u32, d: u32) -> u32 {
     var t = (x * 0x9E3779B1u) ^ (y * 0x85EBCA77u) ^ (u32(F.frame) * 0xC2B2AE3Du) ^ (d * 0x27D4EB2Fu);
@@ -4778,6 +4814,26 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             sy = k[1] + product(s, lu, z) + product(c, lv, z) + product(m, product(s, mu, z) + product(c, mv, z), z);
             sx = hex_fold(sx, f64(size.x), z);
             sy = hex_fold(sy, f64(size.y), z);
+        }
+        case 103u: {
+            // D-466, layer_fx::strobe_light while it is on: k as strobe_setup lays it, then a 0
+            // for `product`; worked in double precision as the CPU's is.
+            let p = textureLoad(input, vec2<i32>(id.xy), 0);
+            let b = k[3];
+            if k[5] != 0.0lf {
+                // Each channel on its own: vec4<f64>(p) * b came back as nothing on this card.
+            textureStore(output, id.xy, vec4<f32>(f32(f64(p.x) * b), f32(f64(p.y) * b), f32(f64(p.z) * b), f32(f64(p.a) * b)));
+                return;
+            }
+            let a = f64(p.a);
+            if a <= 0.0lf {
+                textureStore(output, id.xy, p);
+                return;
+            }
+            let c = vec3<f64>(quotient(f64(p.x), a), quotient(f64(p.y), a), quotient(f64(p.z), a));
+            let r = strobe_operate(u32(k[4]), c, vec3<f64>(k[0], k[1], k[2]), k[6]);
+            textureStore(output, id.xy, vec4<f32>(vec3<f32>(((1.0lf - b) * r + b * c) * a), p.a));
+            return;
         }
         case 102u: {
             // D-465, layer_fx::scatter: k[0] the reach, k[1] the Grain; the move worked in
@@ -12174,6 +12230,11 @@ impl Gpu {
             E::Scatter { scatter_amount, grain, frame, .. } => {
                 let k = crate::layer_fx::scatter_setup(*scatter_amount, grain);
                 same(steps, &passes.warp, FxParams { mode: 102, frame: *frame, ..Default::default() }, &[k[0] as f64, k[1] as f64], None)
+            }
+            // D-466: one warp pass, mode 103; the card's plan leaves out a Strobe Light that is off.
+            E::StrobeLight { strobe_color, blend_with_original, strobe, strobe_operator, .. } => {
+                let k = crate::layer_fx::strobe_setup(linear(strobe_color), *blend_with_original, strobe, strobe_operator);
+                same(steps, &passes.warp, FxParams { mode: 103, ..Default::default() }, &[k[0], k[1], k[2], k[3], k[4], k[5], 0.0], None)
             }
             E::LinearWipe { completion, angle, feather } => {
                 let ((ux, uy), edge) = crate::layer_fx::linear_edge(*completion, *angle, *feather, (w, h), f.origin);

@@ -974,6 +974,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::RepeatTile { .. }
                 // D-465: Scatter.
                 | crate::effects::Effect::Scatter { .. }
+                // D-466: Strobe Light, while it is on.
+                | crate::effects::Effect::StrobeLight { .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }
@@ -1379,6 +1381,11 @@ fn card_effect(
                 }
                 // D-465: no reach, as `layer_fx::scatter` returns at once.
                 E::Scatter { scatter_amount, grain, .. } => crate::layer_fx::scatter_setup(*scatter_amount, grain)[0] == 0,
+                // D-466: off at this moment, or blended wholly back to the original.
+                E::StrobeLight { blend_with_original, strobe_duration, strobe_period, random_strobe_probability, random_seed, time, count, .. } => {
+                    *blend_with_original == 100.0
+                        || !crate::layer_fx::strobe_on(*strobe_duration, *strobe_period, *random_strobe_probability, *random_seed, *time, *count)
+                }
                 // B-123: the batch's five new ones, each as its own function returns at once.
                 E::ColorLookup { table, .. } => table.is_none(),
                 E::ArbitraryMap { table, .. } => table.is_none(),
@@ -2207,6 +2214,12 @@ fn effect_now(
         if let crate::effects::Effect::Scribble { time, .. } = &mut now.effect {
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             *time = (u - layer.in_frame as f64) / fps;
+        }
+        // D-466: Strobe Light strobes by the same time, and draws by the frame count from it.
+        if let crate::effects::Effect::StrobeLight { time, count, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            *time = (u - layer.in_frame as f64) / fps;
+            *count = (u - layer.in_frame as f64 + 1e-9).floor() as i64;
         }
     }
     for (name, e) in failed {

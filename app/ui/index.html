@@ -9357,6 +9357,7 @@ const EFFECT_NAMES = {
   'core.plastic': 'Plastic',
   'core.repeat_tile': 'Repeat Tile',
   'core.scatter': 'Scatter',
+  'core.strobe_light': 'Strobe Light',
   'core.smart_blur': 'Smart Blur',
   'core.bilateral_blur': 'Bilateral Blur',
   'core.cross_blur': 'Cross Blur',
@@ -9486,7 +9487,7 @@ const EFFECT_GROUPS = [
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas', 'core.energy_stroke']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
-    'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie', 'core.plastic', 'core.repeat_tile', 'core.scatter']],
+    'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie', 'core.plastic', 'core.repeat_tile', 'core.scatter', 'core.strobe_light']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight']],
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
@@ -9576,6 +9577,7 @@ const EFFECT_SEARCH = {
   'core.radio_waves': 'radio waves ring rings shockwave sonar ping ripple pulse signal circle wave target',
   'core.polar_coordinates': 'polar coordinates rect to polar polar to rect focus lines speed lines tiny planet round circle ring bend wrap unroll',
   'core.median': 'median noise grain dust specks speckle clean cleanup despeckle scan pinhole denoise',
+  'core.strobe_light': 'strobe light flash flicker blink pulse strobing lightning camera flash disco rave beat stylize',
   'core.scatter': 'scatter jumble shuffle scramble smear diffuse dither frosted glass grain pixels random spread stylize',
   'core.repeat_tile': 'repeat tile repetile cc tiles tiling expand grow pattern wallpaper background checker flip mirror unfold rosette brick slide seamless blend borders stylize',
   'core.plastic': 'plastic cc plastic emboss bump relief shiny gloss glossy wrap button lit light shading specular dust metal bevel stylize',
@@ -9808,6 +9810,7 @@ const EFFECT_ABOUT = {
   'core.radio_waves': 'Sends rings out from a point, a new one every few frames, over the layer as it plays.',
   'core.polar_coordinates': 'Bends the layer round its middle, its rows into rings and its columns into spokes, or unrolls it back.',
   'core.median': 'Cleans away specks and pinholes: each pixel takes the middle colour of those round it, so edges stay.',
+  'core.strobe_light': 'Flashes the layer with a colour, or makes it vanish, for a moment at regular times or at random, like a strobe light or a camera flash.',
   'core.scatter': 'Jumbles the layer\'s pixels, each moved a random distance up to the Scatter Amount, for a frosted or smeared look; the same jumble every frame unless Randomize Every Frame is on.',
   'core.repeat_tile': 'Grows the layer on any side and fills the room with copies of the picture, repeated, flipped, turned, as bricks or drawn out from its edges, with the seams blended away if you like.',
   'core.plastic': 'Gives the layer a lit, shiny relief from its own shape or another layer, from a matte emboss to glossy plastic, keeping its colours.',
@@ -10551,6 +10554,12 @@ const EFFECT_PARAMS = {
     ['seed', 'Random Seed', 1, 1, '0 to 100000, where the other burns start']],
   // D-461, After Effects' own controls.
   // D-462, After Effects' own controls.
+  // D-466, After Effects' own controls.
+  'core.strobe_light': [['blend_with_original', 'Blend With Original', 1, 1, 'per cent, 0 to 100; 0 shows the strobe at full strength'],
+    ['strobe_duration', 'Strobe Duration', 1, 0.01, 'seconds, 0 to 100, how long each strobe lasts'],
+    ['strobe_period', 'Strobe Period', 1, 0.01, 'seconds, 0 to 100, from one strobe\'s start to the next; below the duration it strobes all the time'],
+    ['random_strobe_probability', 'Random Strobe Probability', 1, 1, 'per cent, 0 to 100, the chance any frame strobes'],
+    ['random_seed', 'Random Seed', 1, 1, '0 to 100000, which frames the random strobes fall on']],
   // D-465, After Effects' own controls.
   'core.scatter': [['scatter_amount', 'Scatter Amount', 1, 1, 'pixels, 0 to 127, how far each pixel may move']],
   // D-464, After Effects' own controls.
@@ -11369,6 +11378,12 @@ const EFFECT_WORDS = {
   'core.remove_grain': { choices: [['mode', 'Mode', [['multichannel', 'Multichannel'], ['single_channel', 'Single Channel']]]] },
   // D-461: After Effects' words; Tile and unlocked as it is added.
   // D-462: After Effects' words; the layer itself, Luminance and ABA as it is added.
+  // D-466: After Effects' words; Operates On Color Only and Copy as it is added.
+  'core.strobe_light': { choices: [['strobe', 'Strobe', [['color_only', 'Operates On Color Only'], ['transparent', 'Makes Layer Transparent']]],
+    ['strobe_operator', 'Strobe Operator', [['copy', 'Copy'], ['add', 'Add'], ['subtract', 'Subtract'], ['multiply', 'Multiply'],
+      ['difference', 'Difference'], ['and', 'And'], ['or', 'Or'], ['xor', 'Xor'], ['minimum', 'Minimum'], ['maximum', 'Maximum'],
+      ['darken', 'Darken'], ['lighten', 'Lighten']]]],
+    colours: [['strobe_color', 'Strobe Color']] },
   // D-465: After Effects' words; both ways and the same jumble as it is added.
   'core.scatter': { choices: [['grain', 'Grain', [['both', 'Both'], ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]],
     ['randomize', 'Randomize Every Frame', [['off', 'Off'], ['on', 'On']]]] },

@@ -2701,6 +2701,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("grain".into(), J::from(grain.as_str()));
             params.insert("randomize".into(), J::from(randomize.as_str()));
         }
+        Effect::StrobeLight {
+            strobe_color,
+            blend_with_original,
+            strobe_duration,
+            strobe_period,
+            random_strobe_probability,
+            strobe,
+            strobe_operator,
+            random_seed,
+            ..
+        } => {
+            params.insert("strobe_color".into(), J::from(strobe_color.as_str()));
+            params.insert("blend_with_original".into(), num(*blend_with_original));
+            params.insert("strobe_duration".into(), num(*strobe_duration));
+            params.insert("strobe_period".into(), num(*strobe_period));
+            params.insert("random_strobe_probability".into(), num(*random_strobe_probability));
+            params.insert("strobe".into(), J::from(strobe.as_str()));
+            params.insert("strobe_operator".into(), J::from(strobe_operator.as_str()));
+            params.insert("random_seed".into(), num(*random_seed));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -5271,6 +5291,7 @@ fn parse_effect(
         crate::effects::PLASTIC,
         crate::effects::REPEAT_TILE,
         crate::effects::SCATTER,
+        crate::effects::STROBE_LIGHT,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6418,6 +6439,18 @@ fn parse_effect(
             grain: effect_word(params, "grain", &at)?,
             randomize: effect_word(params, "randomize", &at)?,
             frame: 0,
+        }),
+        crate::effects::STROBE_LIGHT => Some(crate::effects::Effect::StrobeLight {
+            strobe_color: effect_word(params, "strobe_color", &at)?.to_ascii_lowercase(),
+            blend_with_original: effect_number(params, "blend_with_original", &at)?,
+            strobe_duration: effect_number(params, "strobe_duration", &at)?,
+            strobe_period: effect_number(params, "strobe_period", &at)?,
+            random_strobe_probability: effect_number(params, "random_strobe_probability", &at)?,
+            strobe: effect_word(params, "strobe", &at)?,
+            strobe_operator: effect_word(params, "strobe_operator", &at)?,
+            random_seed: effect_number(params, "random_seed", &at)?,
+            time: 0.0,
+            count: 0,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

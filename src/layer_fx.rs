@@ -3179,6 +3179,79 @@ pub(crate) fn scatter(source: &mut WorkingBuffer, k: [u32; 2], f: i32) {
     *source = out;
 }
 
+/// D-466: whether Strobe Light is on at `time` seconds and frame `count` from the layer's in
+/// point (document 21): always when the period is at most the duration, in the first `duration`
+/// seconds of each period, or when the frame's random draw from the seed is below the
+/// probability.
+pub(crate) fn strobe_on(duration: f64, period: f64, probability: f64, seed: f64, time: f64, count: i64) -> bool {
+    if period <= duration || time - period * (time / period).floor() < duration {
+        return true;
+    }
+    let mut h = (count as u32).wrapping_mul(0x9E37_79B1) ^ (seed.floor() as u32).wrapping_mul(0x85EB_CA77);
+    h ^= h >> 15;
+    h = h.wrapping_mul(0x2C1B_3C6D);
+    h ^= h >> 12;
+    h = h.wrapping_mul(0x297A_2D39);
+    h ^= h >> 15;
+    (h as f64) / 4_294_967_296.0 < probability / 100.0
+}
+
+/// D-466: Strobe Light's numbers: the strobe colour in the working space, Blend With Original
+/// over 100, the operator's place in `STROBE_LIGHT_OPERATORS`, and 1 for Makes Layer
+/// Transparent. The card's warp mode 103 reads the same six.
+pub(crate) fn strobe_setup(colour: [f64; 3], blend: f64, strobe: &str, op: &str) -> [f64; 6] {
+    let o = crate::effects::STROBE_LIGHT_OPERATORS.iter().position(|m| *m == op).unwrap_or(0);
+    [colour[0], colour[1], colour[2], blend / 100.0, o as f64, (strobe == "transparent") as u8 as f64]
+}
+
+/// D-466: Strobe Light's operator `op` (its place in `STROBE_LIGHT_OPERATORS`) on the straight
+/// colour `c` and the strobe colour `s`, held in 0 to 1. And, Or and Xor work on whole levels of
+/// 255; Darken and Lighten take the whole colour of lower or higher brightness, `c` on a tie.
+pub(crate) fn strobe_operate(op: usize, c: [f64; 3], s: [f64; 3]) -> [f64; 3] {
+    let luma = |v: [f64; 3]| 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+    let level = |v: f64| (255.0 * v.clamp(0.0, 1.0) + 0.5).floor() as u32;
+    let bits = |f: fn(u32, u32) -> u32| -> [f64; 3] { std::array::from_fn(|i| f(level(c[i]), level(s[i])) as f64 / 255.0) };
+    let each = |f: fn(f64, f64) -> f64| -> [f64; 3] { std::array::from_fn(|i| f(c[i], s[i])) };
+    let r = match op {
+        0 => s,
+        1 => each(|a, b| a + b),
+        2 => each(|a, b| a - b),
+        3 => each(|a, b| a * b),
+        4 => each(|a, b| (a - b).abs()),
+        5 => bits(|a, b| a & b),
+        6 => bits(|a, b| a | b),
+        7 => bits(|a, b| a ^ b),
+        8 => each(f64::min),
+        9 => each(f64::max),
+        10 => if luma(s) < luma(c) { s } else { c },
+        _ => if luma(s) > luma(c) { s } else { c },
+    };
+    r.map(|v| v.clamp(0.0, 1.0))
+}
+
+/// D-466: after After Effects' Strobe Light, while it is on. `k` from `strobe_setup`. Makes
+/// Layer Transparent scales every channel by the blend; otherwise each covered pixel's straight
+/// colour is worked by the operator, mixed back with the blend and laid over its own alpha,
+/// which is kept.
+pub(crate) fn strobe_light(source: &mut WorkingBuffer, k: [f64; 6]) {
+    let (s, b, op, clear) = ([k[0], k[1], k[2]], k[3], k[4] as usize, k[5] != 0.0);
+    source.data_mut().par_chunks_exact_mut(4).for_each(|px| {
+        if clear {
+            px.iter_mut().for_each(|v| *v = (*v as f64 * b) as f32);
+            return;
+        }
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let c = [px[0] as f64 / a, px[1] as f64 / a, px[2] as f64 / a];
+        let r = strobe_operate(op, c, s);
+        for i in 0..3 {
+            px[i] = (((1.0 - b) * r[i] + b * c[i]) * a) as f32;
+        }
+    });
+}
+
 /// D-404: Tiles, Motion Tile's sized tile held at the buffer's size, `scale` per cent across
 /// and down round `center`, then `blend` per cent of the original mixed back.
 pub(crate) fn tiles(source: &mut WorkingBuffer, scale: f64, center: [f64; 2], blend: f64) {
