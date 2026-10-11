@@ -2471,6 +2471,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("remove_color_matting".into(), J::from(remove_color_matting.as_str()));
             params.insert("clip_hdr_results".into(), J::from(clip_hdr_results.as_str()));
         }
+        Effect::GlassMelt { completion, layer_to_reveal, gradient_layer, softness, displacement_amount, .. } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("layer_to_reveal".into(), layer_to_reveal.clone());
+            params.insert("gradient_layer".into(), gradient_layer.clone());
+            params.insert("softness".into(), num(*softness));
+            params.insert("displacement_amount".into(), num(*displacement_amount));
+        }
         Effect::ThreeDGlasses {
             left_view,
             right_view,
@@ -4967,6 +4974,7 @@ fn parse_effect(
         crate::effects::LINEAR_COLOR_KEY,
         crate::effects::UNMULT,
         crate::effects::THREE_D_GLASSES,
+        crate::effects::GLASS_MELT,
         crate::effects::CC_SPOTLIGHT,
         crate::effects::ENERGY_STROKE,
         crate::effects::SIMPLE_WIRE_REMOVAL,
@@ -5977,6 +5985,16 @@ fn parse_effect(
             softness: effect_number(params, "softness", &at)?,
             remove_color_matting: effect_word(params, "remove_color_matting", &at)?,
             clip_hdr_results: effect_word(params, "clip_hdr_results", &at)?,
+        }),
+        // D-509: the two layers are kept as written, as Difference Matte's layer is.
+        crate::effects::GLASS_MELT => Some(crate::effects::Effect::GlassMelt {
+            completion: effect_number(params, "completion", &at)?,
+            layer_to_reveal: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer_to_reveal")?.clone(),
+            gradient_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer")?.clone(),
+            softness: effect_number(params, "softness", &at)?,
+            displacement_amount: effect_number(params, "displacement_amount", &at)?,
+            reveal_map: None,
+            gradient_map: None,
         }),
         // D-506: the two views are kept as written, as Difference Matte's layer is.
         crate::effects::THREE_D_GLASSES => Some(crate::effects::Effect::ThreeDGlasses {

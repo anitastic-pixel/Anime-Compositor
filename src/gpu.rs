@@ -7982,6 +7982,46 @@ fn glasses(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(out));
 }
 
+// D-509, layer_fx::glass_melt's share and bend into `sums` as (k, dx, dy, 0): `input` the bump
+// in its alpha, the neighbours held inside; k[0] the amount, k[1] the gain, k[2] the edge, k[3]
+// the band.
+fn gmelt_h(p: vec2<i32>) -> f64 {
+    let size = vec2<i32>(textureDimensions(input));
+    return f64(textureLoad(input, clamp(p, vec2(0), size - vec2(1)), 0).w);
+}
+
+@compute @workgroup_size(16, 16)
+fn gmeltk(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = vec2<i32>(id.xy);
+    let dx = k[0] * (gmelt_h(p + vec2(1, 0)) - gmelt_h(p - vec2(1, 0))) / 2.0lf * k[1];
+    let dy = k[0] * (gmelt_h(p + vec2(0, 1)) - gmelt_h(p - vec2(0, 1))) / 2.0lf * k[1];
+    let kk = clamp((gmelt_h(p) - k[2]) / k[3] + 0.5lf, 0.0lf, 1.0lf);
+    sums[id.y * size.x + id.x] = vec4(kk, dx, dy, 0.0lf);
+}
+
+// D-509, layer_fx::glass_melt: `input` the layer, `other` the layer to reveal lying on the drawing
+// at (F.ox, F.oy) when k[0] is 1 (nothing revealed when 0), `sums` from gmeltk.
+@compute @workgroup_size(16, 16)
+fn gmelt(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let s = sums[id.y * size.x + id.x];
+    let sx = f64(id.x) + 0.5lf;
+    let sy = f64(id.y) + 0.5lf;
+    let o = vec4<f64>(bilinear(input, sx + (1.0lf - s.x) * s.y, sy + (1.0lf - s.x) * s.z));
+    var r = vec4<f64>(0.0lf);
+    if k[0] == 1.0lf && s.x < 1.0lf {
+        r = vec4<f64>(bilinear(other, sx - s.x * s.y - f64(F.ox), sy - s.x * s.z - f64(F.oy)));
+    }
+    textureStore(output, id.xy, vec4<f32>(s.x * o + (1.0lf - s.x) * r));
+}
+
 // D-507, layer_fx::cc_spotlight: k as layer_fx::spotlight_numbers; the drawing's corner at
 // (F.ox, F.oy). The angle is worked in single precision, which has no double atan2.
 @compute @workgroup_size(16, 16)
@@ -8939,6 +8979,9 @@ struct FxPasses {
     energy: Pass,
     /// D-449.
     blockload: Pass,
+    /// D-509.
+    gmeltk: Pass,
+    gmelt: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -9613,6 +9656,8 @@ impl Gpu {
                 cartoon: pass("cartoon", &[0, 1, 2, 3, 4]),
                 energy: pass("energy", &[0, 1, 2, 3]),
                 blockload: pass("blockload", &[0, 1, 2, 3, 4]),
+                gmeltk: pass("gmeltk", &[0, 1, 3, 7]),
+                gmelt: pass("gmelt", &[0, 1, 2, 3, 4, 7]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -12848,6 +12893,37 @@ impl Gpu {
                 let out = self.scratch("D-507 spotlight", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.spotlight, p, Some(still), Some(&out), Some(&k), None, none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-509: compose leaves the card a Glass Melt only when it melts and every layer named
+            // was read.
+            e @ E::GlassMelt { .. } => {
+                let g = crate::layer_fx::melt_settings(e).expect("compose leaves a Glass Melt whose layers were read");
+                let (picture, (mx, my)) = match g.gradient {
+                    Some(m) => (self.map_texture(m), (ox, oy)),
+                    None => (still.clone(), (0, 0)),
+                };
+                let luminance = crate::effects::VECTOR_BLUR_PROPERTIES.iter().position(|p| *p == "luminance").expect("luminance is a phase");
+                let raw = self.scratch("D-509 bump", w, h);
+                let p = FxParams { ox: mx as i32, oy: my as i32, ..Default::default() };
+                self.fx_step(steps, &passes.vheight, p, Some(&picture), Some(&raw), Some(&[luminance as f64]), None, none, tiles(w, h));
+                let bump = if g.softness > 0.0 {
+                    let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                    let taps = crate::effects::gaussian_weights(g.softness / 2.0);
+                    self.gauss(steps, bloom, "D-509 bump", &raw, (w, h), [&taps, &taps], 0, true)
+                } else {
+                    raw
+                };
+                let sums = buffer(w * h * 32);
+                let work = [None, None, Some(&sums), None];
+                let edge = -crate::layer_fx::MELT_BAND / 2.0 + g.completion / 100.0 * (1.0 + crate::layer_fx::MELT_BAND);
+                let k = [g.amount, 1.25 * g.softness.max(1.0), edge, crate::layer_fx::MELT_BAND];
+                self.fx_step(steps, &passes.gmeltk, FxParams::default(), Some(&bump), None, Some(&k), None, work, tiles(w, h));
+                let reveal = g.reveal.map(|m| self.map_texture(m));
+                let out = self.scratch("D-509 melt", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let k = [reveal.is_some() as u8 as f64];
+                self.fx_step(steps, &passes.gmelt, p, Some(still), Some(&out), Some(&k), Some(reveal.as_ref().unwrap_or(still)), work, tiles(w, h));
                 (out, (w, h))
             }
             // D-506: compose leaves the card a 3D Glasses only when every view named was read.

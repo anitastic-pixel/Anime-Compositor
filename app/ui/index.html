@@ -9315,6 +9315,7 @@ const EFFECT_NAMES = {
   'core.compound_blur': 'Compound Blur',
   'core.displacement_map': 'Displacement Map',
   'core.gradient_wipe': 'Gradient Wipe',
+  'core.glass_melt': 'Glass Melt',
   'core.echo': 'Echo',
   'core.cc_wide_time': 'CC Wide Time',
   'core.posterize_time': 'Posterize Time',
@@ -9475,7 +9476,7 @@ const EFFECT_GROUPS = [
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key']],
   ['Text', ['core.text_animator']],
-  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
+  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
 const EFFECT_SEARCH = {
@@ -9541,6 +9542,7 @@ const EFFECT_SEARCH = {
   'core.compound_blur': 'compound variable map depth focus blur layer',
   'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction chromatic prism water spectrum rainbow colour color fringe',
   'core.gradient_wipe': 'gradient wipe reveal transition dissolve luma matte map layer',
+  'core.glass_melt': 'glass melt glass wipe melt transition reveal refraction bend liquid melting dissolve gradient layer displacement',
   'core.echo': 'echo time trail trails ghost ghosting onion skin smear afterimage frames',
   'core.cc_wide_time': 'cc wide time temporal blur smear average frames motion blur forward backward steps before after timelapse staccato cycore',
   'core.posterize_time': 'posterize time twos threes on twos stepped frame rate choppy limited animation hold',
@@ -9756,6 +9758,7 @@ const EFFECT_ABOUT = {
   'core.compound_blur': 'Blurs the layer more where another layer of the composition is brighter.',
   'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition; different colour amounts part the colours, as light through water or glass.',
   'core.gradient_wipe': 'Wipes the layer away from the darkest parts of another layer of the composition to the brightest.',
+  'core.glass_melt': 'Melts the layer away like bending glass, from the darkest parts of a gradient layer to the brightest, showing another layer beneath. Completion is how far it has gone; Softness smooths the gradient and widens the bend; Displacement Amount is how far the edge bends the two pictures. As it is added, nothing changes.',
   'core.echo': 'Lays copies of the layer from earlier or later frames over it, each fainter than the last: a trail.',
   'core.cc_wide_time': 'Averages the layer over a span of frames, Backward Steps before the present one and Forward Steps after, every frame counted the same: a smearing blur for anything moving over a still background. It reads the layer as drawn, so effects meant to be smeared go inside a precomposition. Native Motion Blur Off draws the compositions inside without their own motion blur.',
   'core.posterize_time': 'Holds the layer\'s drawing and effects for several frames at a time, as if drawn at a lower frame rate: on twos, on threes.',
@@ -10404,6 +10407,9 @@ const EFFECT_PARAMS = {
   // D-194.
   'core.gradient_wipe': [['completion', 'Transition Completion', 1, 1, '% wiped away, 0 to 100'],
     ['softness', 'Transition Softness', 1, 1, '%, 0 to 100, how soft the edge is']],
+  'core.glass_melt': [['completion', 'Completion', 1, 1, '% melted away, 0 to 100'],
+    ['softness', 'Softness', 1, 0.5, 'pixels, 0 to 100, how much the gradient is smoothed before it bends the picture'],
+    ['displacement_amount', 'Displacement Amount', 1, 1, '-500 to 500, how far the melting edge bends the two pictures']],
   // D-195, in After Effects' order.
   'core.echo': [['echo_time', 'Echo Time', 1, 1, 'frames, -120 to 120, below 0 earlier frames, above 0 later'],
     ['echoes', 'Number Of Echoes', 1, 1, '0 to 30'],
@@ -11705,6 +11711,10 @@ const EFFECT_WORDS = {
       ['expand', 'Expand Output', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-194, After Effects' own words.
+  // D-509.
+  'core.glass_melt': {
+    layers: [['layer_to_reveal', 'Layer to Reveal', 'layer_to_reveal'], ['gradient_layer', 'Gradient Layer', 'gradient_layer']],
+  },
   'core.gradient_wipe': {
     layers: [['layer', 'Gradient Layer', 'map_layer']],
     choices: [['fit', 'Gradient Placement', [['stretch', 'Stretch Gradient to Fit'], ['center', 'Center Gradient'], ['tile', 'Tile Gradient']]],

@@ -6652,6 +6652,108 @@ pub(crate) fn three_d_glasses(source: &mut WorkingBuffer, g: &Glasses, (ox, oy):
     });
 }
 
+/// D-509: Glass Melt for one frame: the gradient's map, `None` for the layer itself; the reveal's
+/// map, `None` for nothing; the completion, the softness and the displacement.
+pub(crate) struct Melt<'a> {
+    pub gradient: Option<&'a WorkingBuffer>,
+    pub reveal: Option<&'a WorkingBuffer>,
+    pub completion: f64,
+    pub softness: f64,
+    pub amount: f64,
+}
+
+/// D-509: Glass Melt's wipe band, in the bump's 0 to 1.
+pub(crate) const MELT_BAND: f64 = 0.1;
+
+/// D-509: [`Melt`] from a Glass Melt whose settings are valid, or `None` when a layer is named but
+/// was not read, which leaves the layer as it is.
+pub(crate) fn melt_settings(e: &crate::effects::Effect) -> Option<Melt<'_>> {
+    let crate::effects::Effect::GlassMelt {
+        completion,
+        layer_to_reveal,
+        gradient_layer,
+        softness,
+        displacement_amount,
+        reveal_map,
+        gradient_map,
+    } = e
+    else {
+        return None;
+    };
+    fn read<'a>(name: &serde_json::Value, map: &'a Option<crate::layer_map::Map>) -> Option<Option<&'a WorkingBuffer>> {
+        match map {
+            Some(m) => Some(Some(&*m.0)),
+            None => (name.as_str() == Some("")).then_some(None),
+        }
+    }
+    Some(Melt {
+        gradient: read(gradient_layer, gradient_map)?,
+        reveal: read(layer_to_reveal, reveal_map)?,
+        completion: *completion,
+        softness: *softness,
+        amount: *displacement_amount,
+    })
+}
+
+/// D-509: the pixel of `map` lying on the drawing with its corner at (ox, oy) under the buffer's
+/// pixel `i` of a buffer `w` wide, transparent outside it.
+fn on_drawing(map: &WorkingBuffer, i: usize, w: usize, (ox, oy): (usize, usize)) -> [f32; 4] {
+    let (mx, my) = ((i % w).wrapping_sub(ox), (i / w).wrapping_sub(oy));
+    if mx < map.width() && my < map.height() { map.pixel(mx, my) } else { [0.0; 4] }
+}
+
+/// D-509: Glass Melt, after CycoreFX's CC Glass Wipe, the rule ours
+/// (`tools/glass_melt_reference.py`). The bump h is the luminance phase (D-316) of the gradient,
+/// the map lying on the drawing at its corner (clear outside it) or the input itself, times its
+/// covering, blurred at sigma `softness / 2` with the outer pixels repeated. Its slope n by
+/// central differences, the neighbours held inside, times `1.25 max(softness, 1)`; the bend
+/// D = `amount` n. With E = -B/2 + c(1 + B), c the completion over 100 and B [`MELT_BAND`],
+/// k = clamp((h - E) / B + 1/2, 0, 1), and each pixel is k O(p + (1 - k) D) + (1 - k) R(p - k D),
+/// both by document 21's bilinear, R the reveal lying on the drawing (clear with none). At
+/// completion 0 nothing changes. The layer never grows.
+pub(crate) fn glass_melt(source: &mut WorkingBuffer, g: &Melt, origin: (usize, usize)) {
+    if g.completion <= 0.0 {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let mut bump = WorkingBuffer::transparent(w, h);
+    let from = source.data();
+    bump.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let q = match g.gradient {
+            Some(m) => on_drawing(m, i, w, origin),
+            None => [from[i * 4], from[i * 4 + 1], from[i * 4 + 2], from[i * 4 + 3]],
+        };
+        px[3] = (crate::grade::phase_of("luminance", &q) * q[3] as f64) as f32;
+    });
+    if g.softness > 0.0 {
+        crate::effects::held_blur_axes(&mut bump, &crate::effects::gaussian_weights(g.softness / 2.0), (true, true));
+    }
+    let data = bump.data();
+    let at = |x: isize, y: isize| {
+        let (x, y) = (x.clamp(0, w as isize - 1) as usize, y.clamp(0, h as isize - 1) as usize);
+        data[(y * w + x) * 4 + 3] as f64
+    };
+    let gain = 1.25 * g.softness.max(1.0);
+    let edge = -MELT_BAND / 2.0 + g.completion / 100.0 * (1.0 + MELT_BAND);
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as isize, (i / w) as isize);
+        let dx = g.amount * (at(x + 1, y) - at(x - 1, y)) / 2.0 * gain;
+        let dy = g.amount * (at(x, y + 1) - at(x, y - 1)) / 2.0 * gain;
+        let k = ((at(x, y) - edge) / MELT_BAND + 0.5).clamp(0.0, 1.0);
+        let (sx, sy) = (x as f64 + 0.5, y as f64 + 0.5);
+        let o = sample_bilinear(&still, sx + (1.0 - k) * dx, sy + (1.0 - k) * dy);
+        let r = match g.reveal {
+            Some(m) if k < 1.0 => sample_bilinear(m, sx - k * dx - ox, sy - k * dy - oy),
+            _ => [0.0; 4],
+        };
+        for c in 0..4 {
+            px[c] = (k * o[c] as f64 + (1.0 - k) * r[c] as f64) as f32;
+        }
+    });
+}
+
 /// D-348: the pass's pixel under the drawing's pixel `i` of a buffer `w` wide with the drawing's
 /// top-left at `origin`, as an index into `pass`'s data, or `None` outside the drawing.
 fn pass_at(pass: &WorkingBuffer, i: usize, w: usize, origin: (usize, usize)) -> Option<usize> {

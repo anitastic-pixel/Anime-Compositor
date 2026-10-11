@@ -1110,6 +1110,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::CcSpotlight { .. }
                 // D-508 (the bits are found on the processor).
                 | crate::effects::Effect::EnergyStroke { .. }
+                // D-509.
+                | crate::effects::Effect::GlassMelt { .. }
                 // D-400.
                 | crate::effects::Effect::ShadowHighlight { .. }
                 // D-397.
@@ -1443,6 +1445,8 @@ fn card_effect(
                 E::DifferenceMatte { map, .. } => map.is_none(),
                 // D-506: a view named but not read.
                 E::ThreeDGlasses { .. } => crate::layer_fx::glasses_settings(&effect).is_none(),
+                // D-509: nothing melted yet, or a layer named but not read.
+                E::GlassMelt { completion, .. } => *completion <= 0.0 || crate::layer_fx::melt_settings(&effect).is_none(),
                 // D-502: no foreground, or a mask named not found.
                 E::InnerOuterKey { paths, .. } => paths.is_none(),
                 // D-408: as layer_fx::transform returns at once (the map is then the unchanged one).

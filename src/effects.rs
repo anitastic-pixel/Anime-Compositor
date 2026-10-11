@@ -2279,6 +2279,20 @@ pub enum Effect {
         left_map: Option<crate::layer_map::Map>,
         right_map: Option<crate::layer_map::Map>,
     },
+    /// D-509: Glass Melt, after CycoreFX's CC Glass Wipe, its rule and its settings when added
+    /// ours (`layer_fx::glass_melt`, document 21). `completion`, 0 to 100; `layer_to_reveal` and
+    /// `gradient_layer`, D-189's layer settings as written, "" for nothing to reveal and for the
+    /// layer itself; `softness`, 0 to 100, pixels; `displacement_amount`, -500 to 500.
+    /// `reveal_map` and `gradient_map` are not settings and are never saved.
+    GlassMelt {
+        completion: f64,
+        layer_to_reveal: serde_json::Value,
+        gradient_layer: serde_json::Value,
+        softness: f64,
+        displacement_amount: f64,
+        reveal_map: Option<crate::layer_map::Map>,
+        gradient_map: Option<crate::layer_map::Map>,
+    },
     /// D-507: after CycoreFX's CC Spotlight, its rule and its settings when added ours
     /// (`layer_fx::cc_spotlight`, document 21). `from` and `to`, x then y, per cent of the
     /// drawing, -1000 to 1000; `height`, 0 to 1000 per cent of the drawing's width; `cone_angle`,
@@ -3143,6 +3157,7 @@ pub const LCKEY_VIEWS: [&str; 3] = ["final", "source", "matte"];
 pub const LCKEY_MATCHES: [&str; 3] = ["rgb", "hue", "chroma"];
 pub const UNMULT: &str = "core.unmult";
 pub const THREE_D_GLASSES: &str = "core.three_d_glasses";
+pub const GLASS_MELT: &str = "core.glass_melt";
 pub const CC_SPOTLIGHT: &str = "core.cc_spotlight";
 /// D-507: CC Spotlight's renders, without its four Gel renders, which are not built.
 pub const SPOT_RENDERS: [&str; 4] = ["light_only", "light_add", "light_add_plus", "light_shadow"];
@@ -3342,6 +3357,11 @@ impl Effect {
                 ("scene_convergence", vec![scene_convergence], -1000.0, 1000.0),
                 ("vertical_alignment", vec![vertical_alignment], -1000.0, 1000.0),
                 ("balance", vec![balance], 0.0, 10.0),
+            ],
+            Effect::GlassMelt { completion, softness, displacement_amount, .. } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("softness", vec![softness], 0.0, 100.0),
+                ("displacement_amount", vec![displacement_amount], -500.0, 500.0),
             ],
             Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, intensity, .. } => vec![
                 ("from", from.iter_mut().collect(), -1000.0, 1000.0),
@@ -5411,6 +5431,11 @@ impl Effect {
                     *vertical_alignment = scale(*vertical_alignment);
                 }
             }
+            // D-509: the softness and the bend are distances.
+            Effect::GlassMelt { softness, displacement_amount, .. } => {
+                *softness = scale(*softness);
+                *displacement_amount = scale(*displacement_amount);
+            }
             // D-502: the radius, thin and feather are distances; the masks are scaled as they
             // always are.
             Effect::InnerOuterKey { single_mask_highlight_radius, edge_thin, edge_feather, .. } => {
@@ -5787,6 +5812,7 @@ impl Effect {
             Effect::LinearColorKey { .. } => "Linear Color Key",
             Effect::Unmult { .. } => "Unmult",
             Effect::ThreeDGlasses { .. } => "3D Glasses",
+            Effect::GlassMelt { .. } => "Glass Melt",
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
@@ -5990,6 +6016,7 @@ impl Effect {
             Effect::LinearColorKey { .. } => LINEAR_COLOR_KEY,
             Effect::Unmult { .. } => UNMULT,
             Effect::ThreeDGlasses { .. } => THREE_D_GLASSES,
+            Effect::GlassMelt { .. } => GLASS_MELT,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
@@ -6252,6 +6279,10 @@ impl Effect {
         if let Effect::ThreeDGlasses { left_view, right_view, .. } = self {
             return [left_view, right_view].map(|l| (l.as_str().unwrap_or(""), "center")).to_vec();
         }
+        // D-509: the layer to reveal centred on the drawing, the gradient stretched over it.
+        if let Effect::GlassMelt { layer_to_reveal, gradient_layer, .. } = self {
+            return vec![(layer_to_reveal.as_str().unwrap_or(""), "center"), (gradient_layer.as_str().unwrap_or(""), "stretch")];
+        }
         self.layer_setting().into_iter().collect()
     }
 
@@ -6284,6 +6315,9 @@ impl Effect {
         }
         if let Effect::ThreeDGlasses { left_view, left_map, right_view, right_map, .. } = self {
             return vec![(left_view, left_map), (right_view, right_map)];
+        }
+        if let Effect::GlassMelt { layer_to_reveal, reveal_map, gradient_layer, gradient_map, .. } = self {
+            return vec![(layer_to_reveal, reveal_map), (gradient_layer, gradient_map)];
         }
         self.layer_setting_mut().into_iter().collect()
     }
@@ -6447,6 +6481,11 @@ impl Effect {
                         "{name}'s clip HDR results is \"off\" or \"on\", and this is \"{c}\"."
                     )))
             }
+            Effect::GlassMelt { layer_to_reveal, gradient_layer, .. } => (!layer_to_reveal.is_string())
+                .then(|| format!("{name}'s layer to reveal is the name of a layer of this composition, and this is {layer_to_reveal}."))
+                .or_else(|| (!gradient_layer.is_string()).then(|| format!(
+                    "{name}'s gradient layer is the name of a layer of this composition, and this is {gradient_layer}."
+                ))),
             Effect::ThreeDGlasses { left_view, right_view, units, swap_left_right: s, three_d_view: v, .. } => {
                 (!left_view.is_string())
                     .then(|| format!("{name}'s left view is the name of a layer of this composition, and this is {left_view}."))
@@ -9264,6 +9303,13 @@ pub(crate) fn apply_stack_at(
                     crate::perf::time(crate::perf::Stage::Effect3dGlasses, || {
                         crate::layer_fx::three_d_glasses(source, &g, (ox, oy))
                     })
+                }
+            }
+            // D-509: a layer named but not read leaves the layer as it is, with D-189's warning.
+            // Never grows.
+            e @ Effect::GlassMelt { .. } => {
+                if let Some(g) = crate::layer_fx::melt_settings(e) {
+                    crate::perf::time(crate::perf::Stage::EffectGlassMelt, || crate::layer_fx::glass_melt(source, &g, (ox, oy)))
                 }
             }
             // D-507: every distance a share of the drawing; never grows.

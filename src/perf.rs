@@ -398,6 +398,8 @@ pub enum Stage {
     EffectEnergyStroke,
     /// D-449's Block Load.
     EffectBlockLoad,
+    /// D-509: Glass Melt.
+    EffectGlassMelt,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -415,7 +417,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 205] = [
+    pub const ALL: [Stage; 206] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -614,6 +616,7 @@ impl Stage {
         Stage::EffectCcWideTime,
         Stage::EffectEnergyStroke,
         Stage::EffectBlockLoad,
+        Stage::EffectGlassMelt,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -824,6 +827,7 @@ impl Stage {
             Stage::EffectCcWideTime => "effect: cc wide time",
             Stage::EffectEnergyStroke => "effect: energy stroke",
             Stage::EffectBlockLoad => "effect: block load",
+            Stage::EffectGlassMelt => "effect: glass melt",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
