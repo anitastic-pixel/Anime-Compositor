@@ -2503,6 +2503,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("remove_color_matting".into(), J::from(remove_color_matting.as_str()));
             params.insert("clip_hdr_results".into(), J::from(clip_hdr_results.as_str()));
         }
+        Effect::TeethWipe { completion, center, direction, height, width, shape } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("direction".into(), num(*direction));
+            params.insert("height".into(), num(*height));
+            params.insert("width".into(), num(*width));
+            params.insert("shape".into(), J::from(shape.as_str()));
+        }
         Effect::TileWipe { completion, center, rotation, border, tiles, shape, reverse } => {
             params.insert("completion".into(), num(*completion));
             params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
@@ -5032,6 +5040,7 @@ fn parse_effect(
         crate::effects::THREE_D_GLASSES,
         crate::effects::GLASS_MELT,
         crate::effects::TILE_WIPE,
+        crate::effects::TEETH_WIPE,
         crate::effects::CC_SPOTLIGHT,
         crate::effects::ENERGY_STROKE,
         crate::effects::SIMPLE_WIRE_REMOVAL,
@@ -6065,6 +6074,14 @@ fn parse_effect(
             softness: effect_number(params, "softness", &at)?,
             remove_color_matting: effect_word(params, "remove_color_matting", &at)?,
             clip_hdr_results: effect_word(params, "clip_hdr_results", &at)?,
+        }),
+        crate::effects::TEETH_WIPE => Some(crate::effects::Effect::TeethWipe {
+            completion: effect_number(params, "completion", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            direction: effect_number(params, "direction", &at)?,
+            height: effect_number(params, "height", &at)?,
+            width: effect_number(params, "width", &at)?,
+            shape: effect_word(params, "shape", &at)?,
         }),
         crate::effects::TILE_WIPE => Some(crate::effects::Effect::TileWipe {
             completion: effect_number(params, "completion", &at)?,

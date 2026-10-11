@@ -4748,7 +4748,8 @@ fn pageturn(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // B-107, the four wipes: layer_fx::linear_wipe (mode 0), radial_wipe (1, `count` the way round),
-// venetian_blinds (2) and iris_wipe (3); D-510's layer_fx::tile_wipe (4). `flag` is complete,
+// venetian_blinds (2) and iris_wipe (3); D-510's layer_fx::tile_wipe (4); D-511's
+// layer_fx::teeth_wipe (5), which moves the two parts and returns early. `flag` is complete,
 // every pixel gone.
 @compute @workgroup_size(16, 16)
 fn wipe(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -4832,6 +4833,36 @@ fn wipe(@builtin(global_invocation_id) id: vec3<u32>) {
             s = select(a - m, select(-1.0lf, 1.0lf, m < a), k[9] == 0.0lf);
             edge = 0.0lf;
             feather = k[9];
+        }
+        case 5u: {
+            // D-511, layer_fx::teeth_side: k as layer_fx::teeth_numbers; each part read from
+            // across the cut, the gap clear.
+            let dx = x - k[0];
+            let dy = y - k[1];
+            let v = dx * k[2] + dy * k[3];
+            let w = -dx * k[3] + dy * k[2];
+            let f = v / k[5];
+            let t = abs(2.0lf * (f - floor(f)) - 1.0lf);
+            var sh = t;
+            if k[7] == 1.0lf {
+                sh = clamp(2.0lf * t - 0.5lf, 0.0lf, 1.0lf);
+            } else if k[7] == 2.0lf {
+                sh = select(0.0lf, 1.0lf, t > 0.5lf);
+            }
+            let g = k[4] * (sh - 0.5lf);
+            var m = 0.0lf;
+            if w + k[6] < g {
+                m = k[6];
+            } else if w - k[6] >= g {
+                m = -k[6];
+            } else {
+                textureStore(output, id.xy, vec4(0.0));
+                return;
+            }
+            let bx = f64(id.x) + 0.5lf;
+            let by = f64(id.y) + 0.5lf;
+            textureStore(output, id.xy, bilinear(input, bx + m * -k[3], by + m * k[2]));
+            return;
         }
         default: {
             // k: the centre, the radius, the feather, invert.
@@ -11744,6 +11775,11 @@ impl Gpu {
                 let ((cx, cy), r) = crate::layer_fx::iris_circle(*completion, *center, *feather, invert, (w, h), f.origin);
                 let p = FxParams { mode: 3, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
                 same(steps, &passes.wipe, p, &[cx, cy, r, *feather, invert as u8 as f64], None)
+            }
+            e @ E::TeethWipe { .. } => {
+                let k = crate::layer_fx::teeth_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let p = FxParams { mode: 5, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                same(steps, &passes.wipe, p, &k, None)
             }
             e @ E::TileWipe { .. } => {
                 let k = crate::layer_fx::tile_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);

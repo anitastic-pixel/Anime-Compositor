@@ -6755,6 +6755,66 @@ pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>
     })
 }
 
+/// D-511: Teeth Wipe's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
+/// the centre (two), the direction's cosine and sine, the teeth's height and width, how far each
+/// part has moved, and the shape (an index into `effects::TEETH_SHAPES`).
+pub(crate) fn teeth_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 8] {
+    let crate::effects::Effect::TeethWipe { completion, center, direction, height, width, shape } = e else {
+        unreachable!("Teeth Wipe's numbers of another effect")
+    };
+    let (sn, cs) = direction.to_radians().sin_cos();
+    let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
+    let far = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)]
+        .iter()
+        .map(|&(x, y)| (-(x - cx) * sn + (y - cy) * cs).abs())
+        .fold(0.0, f64::max);
+    let mode = crate::effects::TEETH_SHAPES.iter().position(|s| s == shape).expect("Teeth Wipe's shape was checked");
+    [cx, cy, cs, sn, *height, *width, completion / 100.0 * (height / 2.0 + far), mode as f64]
+}
+
+/// D-511: how far across the cut the own point (x, y) is read from: `Some(o)` in the first
+/// part, `Some(-o)` in the second, `None` in the gap between them (document 21).
+fn teeth_side(k: &[f64; 8], x: f64, y: f64) -> Option<f64> {
+    let (dx, dy) = (x - k[0], y - k[1]);
+    let v = dx * k[2] + dy * k[3];
+    let w = -dx * k[3] + dy * k[2];
+    let f = v / k[5];
+    let t = (2.0 * (f - f.floor()) - 1.0).abs();
+    let s = match k[7] as usize {
+        0 => t,
+        1 => (2.0 * t - 0.5).clamp(0.0, 1.0),
+        _ => (t > 0.5) as u8 as f64,
+    };
+    let g = k[4] * (s - 0.5);
+    if w + k[6] < g {
+        Some(k[6])
+    } else if w - k[6] >= g {
+        Some(-k[6])
+    } else {
+        None
+    }
+}
+
+/// D-511: after CycoreFX's CC Jaws, the rule ours (document 21); `(ox, oy)` the drawing's corner
+/// in the buffer. Never grows; at completion 0 returns at once (compose leaves it off the card
+/// then).
+pub(crate) fn teeth_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    if matches!(e, crate::effects::Effect::TeethWipe { completion, .. } if *completion == 0.0) {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let k = teeth_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    let still = source.clone();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let p = match teeth_side(&k, x - ox as f64, y - oy as f64) {
+            Some(m) => sample_bilinear(&still, x + m * -k[3], y + m * k[2]),
+            None => [0.0; 4],
+        };
+        px.copy_from_slice(&p);
+    });
+}
+
 /// D-510: how long each tile takes to go, a share of the whole transition (document 21).
 const TILE_SPREAD: f64 = 0.25;
 

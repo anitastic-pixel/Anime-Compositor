@@ -1121,6 +1121,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::GlassMelt { .. }
                 // D-510.
                 | crate::effects::Effect::TileWipe { .. }
+                // D-511.
+                | crate::effects::Effect::TeethWipe { .. }
                 // D-400.
                 | crate::effects::Effect::ShadowHighlight { .. }
                 // D-397.
@@ -1333,7 +1335,8 @@ fn card_effect(
                 | E::RadialWipe { completion, .. }
                 | E::VenetianBlinds { completion, .. }
                 | E::IrisWipe { completion, .. }
-                | E::TileWipe { completion, .. } => *completion == 0.0,
+                | E::TileWipe { completion, .. }
+                | E::TeethWipe { completion, .. } => *completion == 0.0,
                 E::SimpleChoker { choke } => *choke == 0.0,
                 E::CrossGlare { length, intensity, .. } => length.floor() == 0.0 || *intensity == 0.0,
                 E::CameraShake { amount, rotation, .. } => [*amount, *rotation] == [0.0; 2],
