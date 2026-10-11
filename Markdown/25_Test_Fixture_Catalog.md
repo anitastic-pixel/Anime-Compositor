@@ -207816,3 +207816,49 @@ FX-MATCHGRAIN-021 (`fx_matchgrain_021.json`): Blending Mode "screen", not one of
 FX-MATCHGRAIN-022 (`fx_matchgrain_022.json`): Monochromatic "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-MATCHGRAIN-023 (`fx_matchgrain_023.json`): Source layer the number 5, not a layer's id. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Remove Grain (D-455)
+
+After Effects' Remove Grain (Noise & Grain), `core.remove_grain` (B-335). Every case is a composition 16 by 10 at 24 frames a second, 5 frames long, holding one layer `holder` the same size, with the Remove Grain, whose drawing the case names (`Fixtures/remove_grain/media/`): `grainy`, a warm left half and a blue right half, each with grain of a few levels per channel and a hard edge between them; `red_only`, the same with grain in red alone; `holes`, `grainy` with one empty pixel and one half-covered column; `heavy`, `grainy` with three times the grain; `flat`, one colour. `tools/remove_grain_reference.py` works the expected frames, `Fixtures/remove_grain/expected_remove_grain.json` (with each drawing's measured noise under `levels`), tolerance 2e-5; the rule is in document 21.
+
+FX-REMOVEGRAIN-001 (`fx_removegrain_001.json`): The settings as added (Noise Reduction 1, one pass, Multichannel, no Unsharp Mask) on `grainy`: the grain in each half is smoothed, the edge between the halves stays hard. Frames 0.
+
+FX-REMOVEGRAIN-002 (`fx_removegrain_002.json`): Noise Reduction 0: the drawing as it is. Frames 0.
+
+FX-REMOVEGRAIN-003 (`fx_removegrain_003.json`): Noise Reduction 2: smoother than FX-REMOVEGRAIN-001. Frames 0.
+
+FX-REMOVEGRAIN-004 (`fx_removegrain_004.json`): Noise Reduction 3: smoother still, the edge still hard. Frames 0.
+
+FX-REMOVEGRAIN-005 (`fx_removegrain_005.json`): Passes 2: a second, wider pass, smoother than FX-REMOVEGRAIN-001. Frames 0.
+
+FX-REMOVEGRAIN-006 (`fx_removegrain_006.json`): Passes 4: four passes, the widest within 8 pixels. Frames 0.
+
+FX-REMOVEGRAIN-007 (`fx_removegrain_007.json`): Single Channel: each channel smoothed by its own noise. Frames 0.
+
+FX-REMOVEGRAIN-008 (`fx_removegrain_008.json`): `red_only`, Single Channel: red smoothed, green and blue, which have no grain, kept exactly. Frames 0.
+
+FX-REMOVEGRAIN-009 (`fx_removegrain_009.json`): Unsharp Mask amount 100, radius 1: FX-REMOVEGRAIN-001 sharpened, the edge crisper. Frames 0.
+
+FX-REMOVEGRAIN-010 (`fx_removegrain_010.json`): Unsharp Mask amount 200, radius 2, threshold 20: only the edge is sharpened; the smoothed halves away from it keep FX-REMOVEGRAIN-001's values. Frames 0.
+
+FX-REMOVEGRAIN-011 (`fx_removegrain_011.json`): `holes`, with one empty pixel and a half-covered column: the empty pixel stays empty and the column keeps its covering. Frames 0.
+
+FX-REMOVEGRAIN-012 (`fx_removegrain_012.json`): `flat`, one colour: no noise measured, the drawing as it is. Frames 0, 2.
+
+FX-REMOVEGRAIN-013 (`fx_removegrain_013.json`): Noise Reduction keyed from 0 at frame 0 to 3 at frame 4: frame 0 the drawing, frame 4 FX-REMOVEGRAIN-004. Frames 0, 2, 4.
+
+FX-REMOVEGRAIN-014 (`fx_removegrain_014.json`): Passes 2.6: its whole part, FX-REMOVEGRAIN-005. Frames 0.
+
+FX-REMOVEGRAIN-015 (`fx_removegrain_015.json`): `heavy`, three times the grain, as added: the noise measured is larger, so the same setting smooths harder. Frames 0.
+
+FX-REMOVEGRAIN-016 (`fx_removegrain_016.json`): Noise Reduction 0 with Unsharp Mask amount 100: no denoise, the drawing sharpened as Sharpen would. Frames 0.
+
+FX-REMOVEGRAIN-017 (`fx_removegrain_017.json`): Noise Reduction 3.5, above 3. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-REMOVEGRAIN-018 (`fx_removegrain_018.json`): Passes 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-REMOVEGRAIN-019 (`fx_removegrain_019.json`): Mode "both", not one of its two words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-REMOVEGRAIN-020 (`fx_removegrain_020.json`): Unsharp Mask amount 600, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-REMOVEGRAIN-021 (`fx_removegrain_021.json`): Unsharp Mask threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
