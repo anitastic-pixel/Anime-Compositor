@@ -208168,3 +208168,59 @@ FX-WIRE-028 (`fx_wire_028.json`): Frame offset 1001, past 1000. The file is read
 FX-WIRE-029 (`fx_wire_029.json`): Point A at 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 2.
 
 FX-WIRE-030 (`fx_wire_030.json`): Thickness keyed to 150 at frame 2. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 2.
+
+### Color Difference Key (D-459)
+
+Color Difference Key (`core.color_difference_key`), after After Effects' Color Difference Key (B-339), the rule ours after Ihringer. Every case is a project of one composition 16 by 10, five frames, holding the layer `art`, the still `media/colours.png`: one colour a column (empty, black, white, grey 128, a green screen (40, 180, 60), a blue screen (30, 70, 200), skin (230, 180, 150), pure blue, cyan, pure green, yellow, red, magenta, a violet (128, 64, 255), a pale blue (150, 170, 230) and the blue screen at half covering), each row 8% darker than the one above. `tools/color_difference_key_reference.py` works the expected frames, `expected_color_difference_key.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-CDK-001 (`fx_cdk_001.json`): The settings as they start: a blue key, the final view, every levels plain. Blue and cyan (partial A's centre, 60 degrees short of blue) lose all their covering, the blue screen most of it, the violet half; grey keeps three quarters, black and white all of theirs; green, red and yellow, far from blue, keep all of it. Colour is kept, only the covering falls. Frames 0.
+
+FX-CDK-002 (`fx_cdk_002.json`): View source: the layer exactly as it is, whatever the levels. Frames 0.
+
+FX-CDK-003 (`fx_cdk_003.json`): View partial A uncorrected: partial A as grey, its levels not applied. Frames 0.
+
+FX-CDK-004 (`fx_cdk_004.json`): View partial A: partial A through its levels (in 40 to 200, gamma 1.5, out 10 to 245). Frames 0.
+
+FX-CDK-005 (`fx_cdk_005.json`): View partial B uncorrected: partial B as grey; blue near black, the colours far from blue's hue bright. Frames 0.
+
+FX-CDK-006 (`fx_cdk_006.json`): View partial B: partial B through its levels (in 30 to 180, gamma 0.7, out 0 to 250). Frames 0.
+
+FX-CDK-007 (`fx_cdk_007.json`): View matte uncorrected: the screen of the two uncorrected partials; every levels set and ignored. Frames 0.
+
+FX-CDK-008 (`fx_cdk_008.json`): View matte: the corrected partials screened, through the matte's levels (in 60 to 220, gamma 1.3). Frames 0.
+
+FX-CDK-009 (`fx_cdk_009.json`): Final with every levels set: the covering times the corrected matte of FX-CDK-008. Frames 0.
+
+FX-CDK-010 (`fx_cdk_010.json`): A green key, #00ff00: green and yellow (partial A's centre) fall, the green screen most of the way; blue keeps all its covering. Frames 0.
+
+FX-CDK-011 (`fx_cdk_011.json`): A sampled screen green, #28b43c, partial B in 0 to 128: the screen's hue window, sharpened. Frames 0.
+
+FX-CDK-012 (`fx_cdk_012.json`): View matte with matte gamma 0.4: the matte darkened toward the key. Frames 0.
+
+FX-CDK-013 (`fx_cdk_013.json`): View matte with matte in black and in white both 150: a hard step, white where the matte is 150 or more, black below. Frames 0.
+
+FX-CDK-014 (`fx_cdk_014.json`): View partial A with output black 255 and output white 0: partial A turned over. Frames 0.
+
+FX-CDK-015 (`fx_cdk_015.json`): A grey key, #808080: a grey's hue is read as 0, so the key is red's: red and magenta fall, blue keeps its covering. Frames 0.
+
+FX-CDK-016 (`fx_cdk_016.json`): Final, partial B in white keyed from 255 at frame 0 to 100 at frame 4, linear. Frames 0, 2, 4.
+
+FX-CDK-017 (`fx_cdk_017.json`): View matte, matte gamma keyed from 1 at frame 0 to 3 at frame 4. Frames 0, 2, 4.
+
+FX-CDK-018 (`fx_cdk_018.json`): FX-CDK-009 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-CDK-019 (`fx_cdk_019.json`): Partial A in black 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CDK-020 (`fx_cdk_020.json`): Partial B out white -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CDK-021 (`fx_cdk_021.json`): Partial A gamma 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CDK-022 (`fx_cdk_022.json`): Matte gamma 0.05, below 0.1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CDK-023 (`fx_cdk_023.json`): Matte in white 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CDK-024 (`fx_cdk_024.json`): View "Final": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CDK-025 (`fx_cdk_025.json`): View "all": After Effects' four-up view is not one here. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CDK-026 (`fx_cdk_026.json`): Key colour "blue", not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

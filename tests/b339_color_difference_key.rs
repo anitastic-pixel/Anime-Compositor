@@ -1,7 +1,7 @@
 //! B-339: D-459, after After Effects' Color Difference Key (Keying): a matte from a key colour
 //! as two partial mattes, A and B, each with its own levels, screened together and taken through
 //! levels of its own as the layer's covering. Adobe describes the effect but publishes no
-//! formula: the rule is ours, after Robert Ihringer's reverse engineering, stated in
+//! formula: the rule is ours, after Stefan Ihringer's reverse engineering, stated in
 //! `tools/color_difference_key_reference.py`.
 //!
 //! Writes `verification/D-459_color_difference_key_table.md` and draws pictures into
@@ -227,7 +227,7 @@ fn b339_color_difference_key() {
         "# D-459: Color Difference Key\n\nB-339, after After Effects' Color Difference Key \
          (Keying): a matte from a key colour as two partial mattes, A and B, each with its own \
          levels, screened together and taken through levels of its own as the layer's covering. \
-         Adobe describes the effect but publishes no formula, so the rule is ours, after Robert \
+         Adobe describes the effect but publishes no formula, so the rule is ours, after Stefan \
          Ihringer's reverse engineering (bildfehler.de, 2007), stated in \
          `tools/color_difference_key_reference.py`: each pixel's hue against a window round the \
          key (partial B) and 60 degrees short of it (partial A), weighted by saturation and laid \
