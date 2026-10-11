@@ -1,7 +1,7 @@
 # Effects audit against After Effects
 
 Audit date 2026-10-08. Source list: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/effects-and-animation-presets/effect-list.html (the page refused automated reading, HTTP 403, so the list was compiled from Adobe's per-category effect pages and web searches; newer additions were checked against release notes, see Sources at the bottom).
-Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 171 done, 12 partial, 57 missing.
+Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 172 done, 12 partial, 56 missing.
 Priority 0: 23 items: 17 done, 1 partial, 4 parked last, 1 skipped.
 Plus 27 effects (25 done, 2 partial) of ours that are not on Adobe's list (last table).
 Plus 18 rows of the owner's picks from `docs/effects/PLUGINS.md` (marked **Pick #N**, its top-20 rank), placed after Adobe's rows in each category: 11 done, 4 missing, 2 parked last, 1 skipped as a preset. Picks #5, #7 and #9 fill Adobe rows that already exist and are marked there.
@@ -250,7 +250,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 | Stylize | Motion Tile — repeats the layer as tiles with mirrored edges and phase (`core.motion_tile`) | done | none | On card (done); a sized output on CPU | Target P2 | FX-TILE-001..023, b97, b189, B-97 table, D-154, D-304 |
 | Stylize | Posterize — reduces each channel to a few levels (`core.posterize`) | done | none | On card (done), fused | Target P1; measured CPU 38.4 / GPU 25.5 ms (B-107) | FX-POSTER-001..018, b80, B-80 table, D-137 |
 | Stylize | Roughen Edges — eats into alpha edges with fractal noise, rust or spiky styles (`core.roughen_edges`) | done | P0-19 | On card (done) | Target P3; measured CPU 98.7 / GPU 17.9 ms (B-151) | FX-ROUGH-001..024, b141, B-141 table, D-206 |
-| Stylize | Scatter — jumbles pixels randomly within a distance | missing | none | Add card pass | Target P2 | none yet |
+| Stylize | Scatter — jumbles pixels randomly within a distance (our Scatter, `core.scatter`) | done | none | On card (done), warp pass mode 102 | Target P2; reference shot, 3 layers after a moving Noise, played again, card / processor: as added 72.3 / 189.5 ms, amount 127 with Randomize Every Frame on 79.7 / 363.0, against 71.2 / 121.0 without; a busy machine cannot say whether the card is quicker than the processor here; PROVISIONAL, the machine was busy (`verification/B-345_scatter_timing_table.md`) | FX-SCATTER-001..019 (`tools/scatter_reference.py`), b345, D-465 table 143 of 143 checks, card within 1 level, D-465, awaiting playtest. Controls from Qt's ports (Adobe's page unread); rule ours (hash, even whole-pixel moves, no growth). Gaps: not matched pixel for pixel. |
 | Stylize | Strobe Light — flashes colour or transparency on a beat | missing | none | Add card pass (P1) | Target P1 | none yet |
 | Stylize | Texturize — embosses a texture layer onto the image | missing | P0-3, Emboss | Add card pass | Target P2 | none yet |
 | Stylize | Threshold — turns the image pure black and white at a brightness level (`core.threshold`) | done | none | On card (done), fused | Target P1; measured CPU 37.8 / GPU 25.0 ms (B-107) | FX-THRESH-001..019, b81, B-81 table, D-138 |

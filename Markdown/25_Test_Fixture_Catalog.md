@@ -209742,3 +209742,45 @@ FX-STRIPE-022 (`fx_stripe_022.json`): Flip "yes": it is "off" or "on". The file 
 FX-STRIPE-023 (`fx_stripe_023.json`): Flip "On": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-STRIPE-024 (`fx_stripe_024.json`): Slant keyed to 120 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Scatter (D-465)
+
+Scatter, after After Effects' Scatter (Stylize), `core.scatter` (B-345). Every case is a composition 16 by 10 holding Motion Tile's drawing, 6 by 4, at (5, 3), unless the case says; `tools/scatter_reference.py` works the expected frames, `Fixtures/scatter/expected_scatter.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SCATTER-001 (`fx_scatter_001.json`): The settings as they start: Scatter Amount 10, both ways, the same jumble every frame. On a 6 by 4 drawing most pixels read from outside it and are clear. Frames 0.
+
+FX-SCATTER-002 (`fx_scatter_002.json`): Scatter Amount 1, both ways: each pixel from one of its nine neighbours or itself. Frames 0.
+
+FX-SCATTER-003 (`fx_scatter_003.json`): Scatter Amount 2, both ways. Frames 0.
+
+FX-SCATTER-004 (`fx_scatter_004.json`): Scatter Amount 2, Grain Horizontal: every pixel stays in its own row. Frames 0.
+
+FX-SCATTER-005 (`fx_scatter_005.json`): Scatter Amount 2, Grain Vertical: every pixel stays in its own column. Frames 0.
+
+FX-SCATTER-006 (`fx_scatter_006.json`): Scatter Amount 0: the picture as it was. Frames 0.
+
+FX-SCATTER-007 (`fx_scatter_007.json`): Scatter Amount 0.4, which rounds to no reach: the picture as it was. Frames 0.
+
+FX-SCATTER-008 (`fx_scatter_008.json`): Scatter Amount 0.5, which rounds to a reach of 1: FX-SCATTER-002. Frames 0.
+
+FX-SCATTER-009 (`fx_scatter_009.json`): Scatter Amount 2, Randomize Every Frame on: a new jumble each frame; frame 0 is FX-SCATTER-003. Frames 0, 1, 2.
+
+FX-SCATTER-010 (`fx_scatter_010.json`): Scatter Amount 2, Randomize Every Frame off: frame 3 is frame 0. Frames 0, 3.
+
+FX-SCATTER-011 (`fx_scatter_011.json`): Scatter Amount keyed from 0 at frame 0 to 4 at frame 4, linear: frame 1 is 1, frame 2 is 2 and FX-SCATTER-003. Frames 0, 1, 2, 4.
+
+FX-SCATTER-012 (`fx_scatter_012.json`): Scatter Amount keyed from 100 at frame 0 to 127 at frame 4, eased past its end: frame 2 would pass 127, is held at 127, and is frame 4. Frames 0, 2, 4.
+
+FX-SCATTER-013 (`fx_scatter_013.json`): FX-SCATTER-003 moved three pixels right: the jumble moves with the drawing. Frames 0.
+
+FX-SCATTER-014 (`fx_scatter_014.json`): After a drop shadow that grows the layer to 10 by 8, Scatter Amount 1: the shadow is jumbled with the drawing. Frames 0.
+
+FX-SCATTER-015 (`fx_scatter_015.json`): Scatter Amount -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCATTER-016 (`fx_scatter_016.json`): Scatter Amount 128, above 127. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCATTER-017 (`fx_scatter_017.json`): Grain "diagonal", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCATTER-018 (`fx_scatter_018.json`): Randomize Every Frame "sometimes", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCATTER-019 (`fx_scatter_019.json`): Scatter Amount keyed to 200 at frame 4, above 127. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
