@@ -1082,6 +1082,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::PassExtract { .. }
                 | crate::effects::Effect::DepthKey { .. }
                 | crate::effects::Effect::IdKey { .. }
+                // D-525: IDentifier (its picture is worked on the processor).
+                | crate::effects::Effect::Identifier { .. }
                 // D-522: Cryptomatte (the matte is read on the processor).
                 | crate::effects::Effect::Cryptomatte { .. }
                 // D-523: Depth of Field, drawn as its Lens Blur.
@@ -1528,6 +1530,7 @@ fn card_effect(
                 E::PassExtract { channels, .. }
                 | E::DepthKey { channels, .. }
                 | E::IdKey { channels, .. }
+                | E::Identifier { channels, .. }
                 | E::Cryptomatte { channels, .. }
                 | E::DepthOfField { channels, .. } => channels.is_none(),
                 // D-524: no depth, no fog, or a gradient named and not read.
@@ -3866,7 +3869,7 @@ fn fill_passes(
             Effect::DepthKey { channels, .. } | Effect::DepthOfField { channels, .. } | Effect::Fog3d { channels, .. } => {
                 (Pass::Depth, channels)
             }
-            Effect::IdKey { aux_channel, channels, .. } => {
+            Effect::IdKey { aux_channel, channels, .. } | Effect::Identifier { aux_channel, channels, .. } => {
                 (if aux_channel == "material_id" { Pass::MaterialId } else { Pass::ObjectId }, channels)
             }
             // D-522: the matte, or for "colors" the colours, worked out as the file is read.

@@ -7876,6 +7876,46 @@ pub(crate) fn id_key(
     keep_by(source, &matte, origin);
 }
 
+/// D-525: IDentifier's picture at the ids' size from each id v. "colors": the nearest whole id
+/// k = floor(v + 0.5) at hue (k x 0.618033988749895) mod 1, HSV (hue, 0.7, 0.9) taken to linear;
+/// "luma_matte": white where |v - id| < 0.5, else black; "raw": the grey clamp(v / 255, 0, 1)
+/// taken to linear, so the 8-bit picture reads the id. All opaque. "alpha_matte": the matte
+/// (1 or 0) in the first number, for [`keep_by`].
+pub(crate) fn identifier(pass: &WorkingBuffer, id: f64, output: &str) -> WorkingBuffer {
+    let mut out = WorkingBuffer::transparent(pass.width(), pass.height());
+    out.data_mut().par_chunks_exact_mut(4).zip(pass.data().par_chunks_exact(4)).for_each(|(px, p)| {
+        let v = p[0] as f64;
+        let rgb = match output {
+            "colors" => {
+                let h = ((v + 0.5).floor() * 0.618033988749895).rem_euclid(1.0);
+                hsv(h, 0.7, 0.9).map(crate::grade::to_linear)
+            }
+            "raw" => [crate::grade::to_linear((v / 255.0).clamp(0.0, 1.0)); 3],
+            _ => [if (v - id).abs() < 0.5 { 1.0 } else { 0.0 }; 3],
+        };
+        for c in 0..3 {
+            px[c] = rgb[c] as f32;
+        }
+        px[3] = 1.0;
+    });
+    out
+}
+
+/// HSV to RGB as Python's `colorsys.hsv_to_rgb` works it, `h` in 0..1.
+fn hsv(h: f64, s: f64, v: f64) -> [f64; 3] {
+    let i = (h * 6.0) as i64;
+    let f = h * 6.0 - i as f64;
+    let (p, q, t) = (v * (1.0 - s), v * (1.0 - s * f), v * (1.0 - s * (1.0 - f)));
+    match i % 6 {
+        0 => [v, t, p],
+        1 => [q, v, p],
+        2 => [p, v, t],
+        3 => [p, q, v],
+        4 => [t, p, v],
+        _ => [v, p, q],
+    }
+}
+
 /// D-349, D-522: the drawing times the matte's first number, the matte lying at `origin`;
 /// transparent outside it.
 pub(crate) fn keep_by(source: &mut WorkingBuffer, matte: &WorkingBuffer, origin: (usize, usize)) {

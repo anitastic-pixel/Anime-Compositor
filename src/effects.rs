@@ -2877,6 +2877,16 @@ pub enum Effect {
         invert: String,
         channels: Option<crate::layer_map::Map>,
     },
+    /// D-525: IDentifier, after After Effects' IDentifier (3D Channel, fnord's ProEXR): the
+    /// object or material ids in the layer's EXR file shown as a picture
+    /// ([`crate::layer_fx::identifier`]). `aux_channel`, "object_id" or "material_id"; `id`, 0 to
+    /// 1,000,000; `output`, one of [`IDENT_OUTPUTS`]. `channels` as ID Key's.
+    Identifier {
+        aux_channel: String,
+        id: f64,
+        output: String,
+        channels: Option<crate::layer_map::Map>,
+    },
     /// D-522: Cryptomatte, after After Effects' Cryptomatte (3D Channel): the objects or
     /// materials named in `selection` (commas between) picked from the Cryptomatte layer `layer`
     /// (`""` the first) of the layer's EXR file, by Psyop's specification 1.2.0. `output`,
@@ -3597,6 +3607,9 @@ pub const ID_KEY: &str = "core.id_key";
 pub const CRYPTOMATTE: &str = "core.cryptomatte";
 pub const DEPTH_OF_FIELD: &str = "core.depth_of_field";
 pub const FOG_3D: &str = "core.fog_3d";
+pub const IDENTIFIER: &str = "core.identifier";
+/// D-525: IDentifier's outputs.
+pub const IDENT_OUTPUTS: [&str; 4] = ["colors", "luma_matte", "alpha_matte", "raw"];
 /// D-522: Cryptomatte's outputs.
 pub const CRYPTO_OUTPUTS: [&str; 3] = ["colors", "matte", "keyed"];
 pub const TEXT_ANIMATOR: &str = "core.text_animator";
@@ -5145,6 +5158,7 @@ impl Effect {
                 ("depth", vec![depth], -1e6, 1e6),
                 ("feather", vec![feather], 0.0, 1e6),
             ],
+            Effect::Identifier { id, .. } => vec![("id", vec![id], 0.0, 1e6)],
             Effect::IdKey { id, feather, .. } => vec![
                 ("id", vec![id], 0.0, 1e6),
                 ("feather", vec![feather], 0.0, 100.0),
@@ -6400,6 +6414,7 @@ impl Effect {
             Effect::PassExtract { .. } => "Pass Extract",
             Effect::DepthKey { .. } => "Depth Key",
             Effect::IdKey { .. } => "ID Key",
+            Effect::Identifier { .. } => "IDentifier",
             Effect::Cryptomatte { .. } => "Cryptomatte",
             Effect::DepthOfField { .. } => "Depth of Field",
             Effect::Fog3d { .. } => "Fog 3D",
@@ -6623,6 +6638,7 @@ impl Effect {
             Effect::PassExtract { .. } => PASS_EXTRACT,
             Effect::DepthKey { .. } => DEPTH_KEY,
             Effect::IdKey { .. } => ID_KEY,
+            Effect::Identifier { .. } => IDENTIFIER,
             Effect::Cryptomatte { .. } => CRYPTOMATTE,
             Effect::DepthOfField { .. } => DEPTH_OF_FIELD,
             Effect::Fog3d { .. } => FOG_3D,
@@ -7581,6 +7597,12 @@ impl Effect {
             )),
             Effect::Cryptomatte { output, .. } if !CRYPTO_OUTPUTS.contains(&output.as_str()) => Some(format!(
                 "Cryptomatte's output is \"colors\", \"matte\" or \"keyed\", and this is \"{output}\"."
+            )),
+            Effect::Identifier { aux_channel, .. } if !["object_id", "material_id"].contains(&aux_channel.as_str()) => Some(format!(
+                "IDentifier's channel is \"object_id\" or \"material_id\", and this is \"{aux_channel}\"."
+            )),
+            Effect::Identifier { output, .. } if !IDENT_OUTPUTS.contains(&output.as_str()) => Some(format!(
+                "IDentifier's output is \"colors\", \"luma_matte\", \"alpha_matte\" or \"raw\", and this is \"{output}\"."
             )),
             Effect::IdKey { aux_channel, .. } if !["object_id", "material_id"].contains(&aux_channel.as_str()) => Some(format!(
                 "ID Key's channel is \"object_id\" or \"material_id\", and this is \"{aux_channel}\"."
@@ -11288,6 +11310,20 @@ pub(crate) fn apply_stack_at(
                 if let Some(pass) = channels {
                     crate::perf::time(crate::perf::Stage::EffectIdKey, || {
                         crate::layer_fx::id_key(source, &pass.0, (ox, oy), *id, *feather, invert == "on")
+                    })
+                }
+            }
+            // D-525: the ids shown, as Pass Extract shows a pass; the alpha matte keeps the drawing
+            // as ID Key does.
+            Effect::Identifier { id, output, channels, .. } => {
+                if let Some(pass) = channels {
+                    crate::perf::time(crate::perf::Stage::EffectIdentifier, || {
+                        let shown = crate::layer_fx::identifier(&pass.0, *id, output);
+                        if output == "alpha_matte" {
+                            crate::layer_fx::keep_by(source, &shown, (ox, oy))
+                        } else {
+                            crate::layer_fx::pass_extract(source, &shown, (ox, oy), 0.0, 1.0, false, false)
+                        }
                     })
                 }
             }

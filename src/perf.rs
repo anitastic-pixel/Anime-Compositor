@@ -438,6 +438,8 @@ pub enum Stage {
     EffectStrobeLight,
     /// D-524: Fog 3D, its shares worked and laid on.
     EffectFog3d,
+    /// D-525: IDentifier, its picture worked and laid on.
+    EffectIdentifier,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -455,7 +457,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 224] = [
+    pub const ALL: [Stage; 225] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -673,6 +675,7 @@ impl Stage {
         Stage::EffectCryptomatte,
         Stage::EffectStrobeLight,
         Stage::EffectFog3d,
+        Stage::EffectIdentifier,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -902,6 +905,7 @@ impl Stage {
             Stage::EffectCryptomatte => "effect: cryptomatte",
             Stage::EffectStrobeLight => "effect: strobe light",
             Stage::EffectFog3d => "effect: fog 3d",
+            Stage::EffectIdentifier => "effect: identifier",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

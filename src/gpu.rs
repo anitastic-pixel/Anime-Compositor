@@ -13994,6 +13994,20 @@ impl Gpu {
                 self.fx_step(steps, &passes.idkey, p, Some(still), Some(&out), Some(&k), Some(&matte), none, tiles(w, h));
                 (out, (w, h))
             }
+            // D-525: the picture worked on the processor at the ids' size, then laid on as
+            // Cryptomatte's is: the alpha matte as ID Key's matte, the rest as Pass Extract's pass.
+            E::Identifier { channels, id, output, .. } => {
+                let ids = &channels.as_ref().expect("compose leaves an IDentifier with ids").0;
+                let pass = self.map_texture(&crate::layer_fx::identifier(ids, *id, output));
+                let out = self.scratch("D-525 identifier", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                if output == "alpha_matte" {
+                    self.fx_step(steps, &passes.idkey, p, Some(still), Some(&out), Some(&[0.0, 0.0, 1.0]), Some(&pass), none, tiles(w, h));
+                } else {
+                    self.fx_step(steps, &passes.passx, p, Some(still), Some(&out), Some(&[0.0, 1.0, 0.0, 0.0]), Some(&pass), none, tiles(w, h));
+                }
+                (out, (w, h))
+            }
             // D-522: the colours or the matte as Pass Extract's pass at 0 to 1 unclamped; keyed,
             // the drawing times the matte as ID Key lays its matte on.
             E::Cryptomatte { channels, output, .. } => {

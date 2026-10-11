@@ -3935,6 +3935,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("feather".into(), num(*feather));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        // D-525: the ids read for a frame are never saved.
+        Effect::Identifier { aux_channel, id, output, .. } => {
+            params.insert("aux_channel".into(), J::from(aux_channel.as_str()));
+            params.insert("id".into(), num(*id));
+            params.insert("output".into(), J::from(output.as_str()));
+        }
         // D-522: the matte read for a frame is never saved.
         Effect::Cryptomatte { layer, selection, output, .. } => {
             params.insert("layer".into(), J::from(layer.as_str()));
@@ -5330,6 +5336,7 @@ fn parse_effect(
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
         crate::effects::ID_KEY,
+        crate::effects::IDENTIFIER,
         crate::effects::CRYPTOMATTE,
         crate::effects::DEPTH_OF_FIELD,
         crate::effects::FOG_3D,
@@ -7345,6 +7352,12 @@ fn parse_effect(
             depth: effect_number(params, "depth", &at)?,
             feather: effect_number(params, "feather", &at)?,
             invert: effect_word(params, "invert", &at)?,
+            channels: None,
+        }),
+        crate::effects::IDENTIFIER => Some(crate::effects::Effect::Identifier {
+            aux_channel: effect_word(params, "aux_channel", &at)?,
+            id: effect_number(params, "id", &at)?,
+            output: effect_word(params, "output", &at)?,
             channels: None,
         }),
         crate::effects::ID_KEY => Some(crate::effects::Effect::IdKey {
