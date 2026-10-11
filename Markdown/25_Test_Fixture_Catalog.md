@@ -208905,7 +208905,7 @@ FX-SPOT-022 (`fx_spot_022.json`): Edge softness 101, above 100. The file is read
 
 FX-SPOT-023 (`fx_spot_023.json`): Intensity 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-SPOT-024 (`fx_spot_024.json`): Render "gel_add": CC Spotlight's Gel renders are not built yet. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-SPOT-024 (`fx_spot_024.json`): Render "gel": not one of the eight renders (D-519 changed this from "gel_add", refused while the Gel renders were not built). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SPOT-025 (`fx_spot_025.json`): Render "Light_Add": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -210746,3 +210746,49 @@ FX-CYL-025 (`fx_cyl_025.json`): Ambient 101, above 100. The file is read, the ef
 FX-CYL-026 (`fx_cyl_026.json`): Roughness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
 FX-CYL-027 (`fx_cyl_027.json`): Light height 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### CC Spotlight gels (D-519)
+
+CC Spotlight's Gel renders and Gel Layer (`core.cc_spotlight`, D-507), after CycoreFX's CC Spotlight (B-399, EFFECTS.md row 341), the rule ours. Every case is a project of one composition 16 by 10, five frames: the gel layers `paint`, `small` (the paint's middle 8 by 6, centred), `slide` (clear, with a blue cross and a half-covering red square) and `late` (the slide, in at frame 4), every one switched off, and on top of them the drawing `holder` with the effect. `tools/cc_spotlight_gel_reference.py` works the expected frames, `Fixtures/cc_spotlight_gel/expected_cc_spotlight_gel.json`, tolerance 2e-5, with `cycle_two.json`, two layers each using the other as its gel, refused with `EFFECT_LAYER_CYCLE`, and `light_names_other.json`, the same with Light renders, which opens; the rule is in document 21. FX-SPOT-024 (D-507) now names the render "gel" (D-519's specification change).
+
+FX-SPOTGEL-001 (`fx_spotgel_001.json`): Render gel only, the paint as the gel, the light straight down on the middle, opening 90 degrees: the drawing is gone and the paint is projected in a round pool, its long side across the pool, fading at the edge. Frames 0.
+
+FX-SPOTGEL-002 (`fx_spotgel_002.json`): Render gel add: the paint's light added to the drawing where it is covered; the transparent corner at the bottom right stays transparent. Frames 0.
+
+FX-SPOTGEL-003 (`fx_spotgel_003.json`): Render gel add plus, the light straight down on the transparent corner at the bottom right: the paint's light falls on the transparent part too. Frames 0.
+
+FX-SPOTGEL-004 (`fx_spotgel_004.json`): Render gel shadow, the slide as the gel: outside the cone black, inside the drawing as it was where the slide is clear and tinted blue under its cross. Frames 0.
+
+FX-SPOTGEL-005 (`fx_spotgel_005.json`): Render gel add with no gel layer: exactly light add. Frames 0.
+
+FX-SPOTGEL-006 (`fx_spotgel_006.json`): Render light add with the paint named as the gel: a Light render ignores the gel, so exactly light add. Frames 0.
+
+FX-SPOTGEL-007 (`fx_spotgel_007.json`): Gel add, the small paint (8 by 6) as the gel: centred on the drawing, so its light is the paint's in the middle and white around it. Frames 0.
+
+FX-SPOTGEL-008 (`fx_spotgel_008.json`): Gel add, the gel a layer that starts at frame 4: plain white light before, the slide from frame 4. Frames 0, 4.
+
+FX-SPOTGEL-009 (`fx_spotgel_009.json`): Gel add, the gel layer "gone" not in the composition: the drawing unchanged, warned every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 2.
+
+FX-SPOTGEL-010 (`fx_spotgel_010.json`): Gel only, the light low at the top left, height 20, opening 60: the paint is drawn out into a long oval. Frames 0.
+
+FX-SPOTGEL-011 (`fx_spotgel_011.json`): Gel add, an orange light at intensity 250 through the slide: orange light past 1 through the clear parts, darker under the cross. Frames 0.
+
+FX-SPOTGEL-012 (`fx_spotgel_012.json`): Gel shadow at intensity 50 through the paint: outside the cone half as dark, inside tinted by the paint. Frames 0.
+
+FX-SPOTGEL-013 (`fx_spotgel_013.json`): Gel only, the holder itself as the gel: its own drawing projected onto the cleared layer. Frames 0.
+
+FX-SPOTGEL-014 (`fx_spotgel_014.json`): Gel add, opening 180: the gel's spread is held at 89 degrees, so its middle colours the whole lit drawing. Frames 0.
+
+FX-SPOTGEL-015 (`fx_spotgel_015.json`): Gel add with From keyed from [30, 50] at frame 0 to [70, 50] at frame 4, linear: the gel slides and stretches as the light swings. Frames 0, 2, 4.
+
+FX-SPOTGEL-016 (`fx_spotgel_016.json`): FX-SPOTGEL-004 on an adjustment layer above the drawing: the same. Frames 0.
+
+FX-SPOTGEL-017 (`fx_spotgel_017.json`): FX-SPOTGEL-002 moved three pixels right: the same, moved, light and all. Frames 0.
+
+FX-SPOTGEL-018 (`fx_spotgel_018.json`): Gel add, the light along the drawing (height 0) from the left middle to the right middle: the axis lies along x, so the gel's across is the drawing's y. Frames 0.
+
+FX-SPOTGEL-019 (`fx_spotgel_019.json`): A gel layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPOTGEL-020 (`fx_spotgel_020.json`): Render "Gel_Add": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPOTGEL-021 (`fx_spotgel_021.json`): Render "gel_glow": not one of CC Spotlight's renders. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

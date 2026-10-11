@@ -1,6 +1,6 @@
 # D-507: CC Spotlight
 
-B-387, after CycoreFX's CC Spotlight (Perspective): a spotlight cone shining down on the layer. The CycoreFX manual names the controls but publishes no formula and no settings when added, so the rule and those settings are ours, stated in `tools/cc_spotlight_reference.py`: a lamp at From, Height above the drawing, pointed at To; a pixel's share of the light is 1 inside the inner angle, 0 outside half the Cone Angle, smoothstep between; Light Only, Light Add, Light Add+ and Light Shadow use it. The four Gel renders are not built. Every expected pixel is `Fixtures/cc_spotlight/expected_cc_spotlight.json`, written by the tool before this code existed and printed in document 25 as FX-SPOT-001 to 027. Tolerance 2e-5.
+B-387, after CycoreFX's CC Spotlight (Perspective): a spotlight cone shining down on the layer. The CycoreFX manual names the controls but publishes no formula and no settings when added, so the rule and those settings are ours, stated in `tools/cc_spotlight_reference.py`: a lamp at From, Height above the drawing, pointed at To; a pixel's share of the light is 1 inside the inner angle, 0 outside half the Cone Angle, smoothstep between; Light Only, Light Add, Light Add+ and Light Shadow use it. The four Gel renders are D-519's. Every expected pixel is `Fixtures/cc_spotlight/expected_cc_spotlight.json`, written by the tool before this code existed and printed in document 25 as FX-SPOT-001 to 027. Tolerance 2e-5.
 
 ## FX-SPOT-001 to 027 (document 25)
 
@@ -62,8 +62,8 @@ B-387, after CycoreFX's CC Spotlight (Perspective): a spotlight cone shining dow
 | FX-SPOT-023 frame 0: Intensity 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SPOT-023 frame 4: Intensity 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SPOT-023: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-SPOT-024 frame 0: Render "gel_add": CC Spotlight's Gel renders are not built yet. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-SPOT-024 frame 4: Render "gel_add": CC Spotlight's Gel renders are not built yet. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SPOT-024 frame 0: Render "gel": not one of the eight renders (D-519 changed this from "gel_add", refused while the Gel renders were not built). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-SPOT-024 frame 4: Render "gel": not one of the eight renders (D-519 changed this from "gel_add", refused while the Gel renders were not built). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SPOT-024: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-SPOT-025 frame 0: Render "Light_Add": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-SPOT-025 frame 4: Render "Light_Add": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -112,8 +112,8 @@ B-387, after CycoreFX's CC Spotlight (Perspective): a spotlight cone shining dow
 | fx_spot_021.json is refused in a sentence naming cone angle | CC Spotlight's cone angle runs from 0 to 180, and this is 181. | yes |
 | fx_spot_022.json is refused in a sentence naming edge softness | CC Spotlight's edge softness runs from 0 to 100, and this is 101. | yes |
 | fx_spot_023.json is refused in a sentence naming intensity | CC Spotlight's intensity runs from 0 to 1000, and this is 1001. | yes |
-| fx_spot_024.json is refused in a sentence naming gel renders are not built yet | CC Spotlight's gel renders are not built yet, so its render is one of "light_only", "light_add", "light_add_plus", "light_shadow", and this is "gel_add". | yes |
-| fx_spot_025.json is refused in a sentence naming render | CC Spotlight's render is one of "light_only", "light_add", "light_add_plus", "light_shadow", and this is "Light_Add". | yes |
+| fx_spot_024.json is refused in a sentence naming render | CC Spotlight's render is one of "light_only", "light_add", "light_add_plus", "light_shadow", "gel_only", "gel_add", "gel_add_plus", "gel_shadow", and this is "gel". | yes |
+| fx_spot_025.json is refused in a sentence naming render | CC Spotlight's render is one of "light_only", "light_add", "light_add_plus", "light_shadow", "gel_only", "gel_add", "gel_add_plus", "gel_shadow", and this is "Light_Add". | yes |
 | fx_spot_026.json is refused in a sentence naming colour | CC Spotlight's colour is written #rrggbb, and this is "#ff80". | yes |
 | fx_spot_027.json is refused in a sentence naming colour | CC Spotlight's colour is written #rrggbb, and this is "white". | yes |
 | a file with a CC Spotlight whose height is a word is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
