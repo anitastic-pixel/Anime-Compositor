@@ -1245,6 +1245,19 @@ pub enum Effect {
         native_motion_blur: String,
         picture: Option<crate::layer_map::Map>,
     },
+    /// D-521: after After Effects' Time Difference, its rule and its settings when added ours
+    /// (`layer_fx::time_difference`, document 21). `layer`, D-189's layer setting as written, the
+    /// target, "" for the layer itself; `time_offset`, -60 to 60 seconds; `contrast`, 0 to 100;
+    /// `absolute_difference`, `off` or `on`; `alpha_channel`, one of [`TDIFF_ALPHAS`]. `map` is
+    /// not a setting and is never saved: compose reads the target at its offset into it.
+    TimeDifference {
+        layer: serde_json::Value,
+        time_offset: f64,
+        contrast: f64,
+        absolute_difference: String,
+        alpha_channel: String,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-197: `from` and `to`, `#rrggbb`; `change`, `hue`, `hue_lightness`, `hue_saturation` or
     /// `hue_lightness_saturation`, what of `to` is taken; `change_by`, `setting` or
     /// `transforming`; the three tolerances and `softness`, 0 to 100; `view_matte`, `off` or `on`.
@@ -2889,6 +2902,19 @@ pub const DISPLACEMENT_MAP: &str = "core.displacement_map";
 pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
 pub const ECHO: &str = "core.echo";
 pub const CC_WIDE_TIME: &str = "core.cc_wide_time";
+pub const TIME_DIFFERENCE: &str = "core.time_difference";
+/// D-521: Time Difference's Alpha Channel words, in After Effects' order.
+pub const TDIFF_ALPHAS: [&str; 9] = [
+    "original",
+    "target",
+    "blend",
+    "max",
+    "full_on",
+    "lightness_of_result",
+    "max_of_result",
+    "alpha_difference",
+    "alpha_difference_only",
+];
 pub const POSTERIZE_TIME: &str = "core.posterize_time";
 pub const CHANGE_TO_COLOR: &str = "core.change_to_color";
 pub const CORNER_PIN: &str = "core.corner_pin";
@@ -4868,6 +4894,10 @@ impl Effect {
                 ("forward_steps", vec![forward_steps], 0.0, 100.0),
                 ("backward_steps", vec![backward_steps], 0.0, 100.0),
             ],
+            Effect::TimeDifference { time_offset, contrast, .. } => vec![
+                ("time_offset", vec![time_offset], -60.0, 60.0),
+                ("contrast", vec![contrast], 0.0, 100.0),
+            ],
             Effect::PosterizeTime { frame_rate } => vec![("frame_rate", vec![frame_rate], 0.1, 99.0)],
             Effect::ChangeToColor {
                 hue_tolerance,
@@ -5726,6 +5756,7 @@ impl Effect {
             Effect::GradientWipe { .. } => "Gradient Wipe",
             Effect::Echo { .. } => "Echo",
             Effect::CcWideTime { .. } => "CC Wide Time",
+            Effect::TimeDifference { .. } => "Time Difference",
             Effect::PosterizeTime { .. } => "Posterize Time",
             Effect::ChangeToColor { .. } => "Change to Color",
             Effect::CornerPin { .. } => "Corner Pin",
@@ -5930,6 +5961,7 @@ impl Effect {
             Effect::GradientWipe { .. } => GRADIENT_WIPE,
             Effect::Echo { .. } => ECHO,
             Effect::CcWideTime { .. } => CC_WIDE_TIME,
+            Effect::TimeDifference { .. } => TIME_DIFFERENCE,
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
             Effect::CornerPin { .. } => CORNER_PIN,
@@ -6288,6 +6320,8 @@ impl Effect {
 
     fn layer_setting(&self) -> Option<(&str, &str)> {
         match self {
+            // D-521: the target lies on the drawing, centred.
+            Effect::TimeDifference { layer: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::DisplacementMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::GradientWipe { layer: serde_json::Value::String(layer), fit, .. }
@@ -6333,6 +6367,7 @@ impl Effect {
             | Effect::VectorBlur { layer, map, .. }
             | Effect::Blobbylize { layer, map, .. }
             | Effect::MomentMap { layer, map, .. }
+            | Effect::TimeDifference { layer, map, .. }
             | Effect::LensBlur { layer, map, .. }
             | Effect::ColorLink { layer, map, .. }
             | Effect::MatchGrain { layer, map, .. } => Some((layer, map)),
@@ -7630,6 +7665,16 @@ impl Effect {
             )),
             Effect::CcWideTime { native_motion_blur, .. } if !["off", "on"].contains(&native_motion_blur.as_str()) => Some(format!(
                 "CC Wide Time's native motion blur is \"off\" or \"on\", and this is \"{native_motion_blur}\"."
+            )),
+            Effect::TimeDifference { layer, .. } if !layer.is_string() => Some(format!(
+                "Time Difference's target is the name of a layer of this composition, and this is {layer}."
+            )),
+            Effect::TimeDifference { absolute_difference, .. } if !["off", "on"].contains(&absolute_difference.as_str()) => Some(format!(
+                "Time Difference's absolute difference is \"off\" or \"on\", and this is \"{absolute_difference}\"."
+            )),
+            Effect::TimeDifference { alpha_channel, .. } if !TDIFF_ALPHAS.contains(&alpha_channel.as_str()) => Some(format!(
+                "Time Difference's alpha channel is one of {}, and this is \"{alpha_channel}\".",
+                TDIFF_ALPHAS.map(|w| format!("\"{w}\"")).join(", ")
             )),
             Effect::RadialWipe { wipe, .. }
                 if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
@@ -10383,6 +10428,17 @@ pub(crate) fn apply_stack_at(
                 if let Some(picture) = picture {
                     crate::perf::time(crate::perf::Stage::EffectCcWideTime, || {
                         crate::layer_fx::lay(source, &picture.0, (ox, oy))
+                    })
+                }
+            }
+            // D-521: the target compose read at its offset; with none (no layer of its own on an
+            // adjustment layer, a layer named not in the composition, or a circle), the layer is
+            // left as it is, the last two with D-189's word.
+            Effect::TimeDifference { contrast, absolute_difference, alpha_channel, map, .. } => {
+                if let Some(map) = map {
+                    let alpha = TDIFF_ALPHAS.iter().position(|w| w == alpha_channel).unwrap_or(0);
+                    crate::perf::time(crate::perf::Stage::EffectTimeDifference, || {
+                        crate::layer_fx::time_difference(source, &map.0, (ox, oy), *contrast, absolute_difference == "on", alpha)
                     })
                 }
             }

@@ -6478,6 +6478,49 @@ pub(crate) fn difference_matte(
     });
 }
 
+/// D-521: Time Difference. Each pixel against the target `map` under it (the target lies on the
+/// layer's own picture, at `origin` in `source`, transparent outside it), both as straight
+/// encoded colour and alpha: the difference `d`, all four numbers, times the gain
+/// `1 + contrast / 10`, taken whole (`absolute`, so no difference is black) or about mid grey,
+/// and held within 0 and 1: `e`. The covering is chosen by `alpha`, an index into
+/// [`crate::effects::TDIFF_ALPHAS`]; the colour is `e`'s (white for the last), premultiplied.
+pub(crate) fn time_difference(source: &mut WorkingBuffer, map: &WorkingBuffer, origin: (usize, usize), contrast: f64, absolute: bool, alpha: usize) {
+    let straight = |p: [f32; 4]| -> [f64; 4] {
+        let a = p[3] as f64;
+        if a <= 0.0 {
+            return [0.0; 4];
+        }
+        let [r, g, b] = [0, 1, 2].map(|c| crate::grade::to_srgb((p[c] as f64 / a).clamp(0.0, 1.0)));
+        [r, g, b, a.min(1.0)]
+    };
+    let gain = 1.0 + contrast / 10.0;
+    let w = source.width();
+    let (ox, oy) = (origin.0 as isize, origin.1 as isize);
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as isize, (i / w) as isize);
+        let (s, m) = (straight([px[0], px[1], px[2], px[3]]), straight(at(map, x - ox, y - oy)));
+        let e: [f64; 4] = std::array::from_fn(|c| {
+            let d = s[c] - m[c];
+            if absolute { (gain * d.abs()).clamp(0.0, 1.0) } else { (0.5 + gain * d / 2.0).clamp(0.0, 1.0) }
+        });
+        let (hi, lo) = (e[0].max(e[1]).max(e[2]), e[0].min(e[1]).min(e[2]));
+        let a = match alpha {
+            0 => s[3],
+            1 => m[3],
+            2 => (s[3] + m[3]) / 2.0,
+            3 => s[3].max(m[3]),
+            4 => 1.0,
+            5 => (hi + lo) / 2.0,
+            6 => hi,
+            _ => e[3],
+        };
+        for c in 0..3 {
+            px[c] = (if alpha == 8 { a } else { crate::grade::to_linear(e[c]) * a }) as f32;
+        }
+        px[3] = a as f32;
+    });
+}
+
 /// D-506: 3D Glasses for one frame: each view's map, `None` for the layer itself, already
 /// swapped; the two distances; the view, an index into [`crate::effects::GLASSES_VIEWS`]; the
 /// balance.

@@ -405,6 +405,7 @@ fn plan_inside(
                     // D-191: an adjustment layer's maps lie on the frame it runs on.
                     let size = quality.extent(comp.width as usize, comp.height as usize);
                     fill_maps(&mut effects, project, root, comp, layer, frame, quality, size, cache, log);
+                    fill_time_difference(&mut effects, project, root, comp, layer, frame, quality, size, cache, log);
                     effects
                 }),
                 nested: resolved.nested,
@@ -2321,6 +2322,7 @@ fn resolve_rest(
             PreviewQuality::Draft
         };
         fill_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
+        fill_time_difference(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_echoes(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_wide_time(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_stats(&mut effects, project, root, comp, layer, at, quality, cache, log);
@@ -3320,6 +3322,47 @@ fn fill_maps(
         for ((_, slot), map) in instance.effect.layer_settings_mut().into_iter().zip(maps) {
             *slot = map.map(|m| crate::layer_map::Map(std::sync::Arc::new(m)));
         }
+    }
+}
+
+/// D-521: each switched-on Time Difference's target at its offset, whole frames of the
+/// composition's rate: with no layer named, the holder's own drawing through its masks at that
+/// frame (none on an adjustment layer, which has no picture of its own); with one named and the
+/// offset not 0, D-189's map at that frame in place of [`fill_maps`]'s at this one. A layer named
+/// but not read (not in the composition, or a circle) was said by [`fill_maps`] and stays unread.
+#[allow(clippy::too_many_arguments)]
+fn fill_time_difference(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    size: (usize, usize),
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        let crate::effects::Effect::TimeDifference { layer, time_offset, map, .. } = &mut instance.effect else {
+            continue;
+        };
+        let shift = (*time_offset * fps + 1e-6).floor() as i32;
+        let named = layer.as_str().unwrap_or("").to_string();
+        let target = if named.is_empty() {
+            if holder.is_adjustment() {
+                continue;
+            }
+            holder.id.as_str().to_string()
+        } else if shift == 0 || map.is_none() {
+            continue;
+        } else {
+            named
+        };
+        let picture = setting_map(project, comp, holder, &target, "center", frame + shift, root, quality, size, cache, log)
+            .unwrap_or_else(|| WorkingBuffer::transparent(size.0, size.1));
+        *map = Some(crate::layer_map::Map(std::sync::Arc::new(picture)));
     }
 }
 

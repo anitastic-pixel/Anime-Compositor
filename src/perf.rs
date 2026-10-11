@@ -400,6 +400,9 @@ pub enum Stage {
     EffectBlockLoad,
     /// D-509: Glass Melt.
     EffectGlassMelt,
+    /// D-521: Time Difference, its target compared with the layer; drawing the target is timed
+    /// as any drawing is.
+    EffectTimeDifference,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -417,7 +420,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 206] = [
+    pub const ALL: [Stage; 207] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -617,6 +620,7 @@ impl Stage {
         Stage::EffectEnergyStroke,
         Stage::EffectBlockLoad,
         Stage::EffectGlassMelt,
+        Stage::EffectTimeDifference,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -828,6 +832,7 @@ impl Stage {
             Stage::EffectEnergyStroke => "effect: energy stroke",
             Stage::EffectBlockLoad => "effect: block load",
             Stage::EffectGlassMelt => "effect: glass melt",
+            Stage::EffectTimeDifference => "effect: time difference",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

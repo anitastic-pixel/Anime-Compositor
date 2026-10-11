@@ -2229,6 +2229,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("backward_steps".into(), num(*backward_steps));
             params.insert("native_motion_blur".into(), J::from(native_motion_blur.as_str()));
         }
+        Effect::TimeDifference { layer, time_offset, contrast, absolute_difference, alpha_channel, .. } => {
+            params.insert("layer".into(), layer.clone());
+            params.insert("time_offset".into(), num(*time_offset));
+            params.insert("contrast".into(), num(*contrast));
+            params.insert("absolute_difference".into(), J::from(absolute_difference.as_str()));
+            params.insert("alpha_channel".into(), J::from(alpha_channel.as_str()));
+        }
         Effect::PosterizeTime { frame_rate } => {
             params.insert("frame_rate".into(), num(*frame_rate));
         }
@@ -4954,6 +4961,7 @@ fn parse_effect(
         crate::effects::GRADIENT_WIPE,
         crate::effects::ECHO,
         crate::effects::CC_WIDE_TIME,
+        crate::effects::TIME_DIFFERENCE,
         crate::effects::POSTERIZE_TIME,
         crate::effects::CHANGE_TO_COLOR,
         crate::effects::CORNER_PIN,
@@ -5797,6 +5805,14 @@ fn parse_effect(
             backward_steps: effect_number(params, "backward_steps", &at)?,
             native_motion_blur: effect_word(params, "native_motion_blur", &at)?,
             picture: None,
+        }),
+        crate::effects::TIME_DIFFERENCE => Some(crate::effects::Effect::TimeDifference {
+            layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
+            time_offset: effect_number(params, "time_offset", &at)?,
+            contrast: effect_number(params, "contrast", &at)?,
+            absolute_difference: effect_word(params, "absolute_difference", &at)?,
+            alpha_channel: effect_word(params, "alpha_channel", &at)?,
+            map: None,
         }),
         crate::effects::POSTERIZE_TIME => Some(crate::effects::Effect::PosterizeTime {
             frame_rate: effect_number(params, "frame_rate", &at)?,
