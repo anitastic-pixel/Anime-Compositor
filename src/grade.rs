@@ -2658,6 +2658,69 @@ pub(crate) fn linear_color_key(source: &mut WorkingBuffer, k: &[f64; 8]) {
     });
 }
 
+/// D-505: Unmult's settings as the card reads them: 1 for a white background, the level L as a
+/// share (black: black level; white: 1 - white level), the softness as a share, 1 to remove
+/// colour matting, 1 to clip HDR results.
+pub(crate) fn unmult_settings(effect: &crate::effects::Effect) -> [f64; 5] {
+    let crate::effects::Effect::Unmult {
+        background_color,
+        black_level,
+        white_level,
+        softness,
+        remove_color_matting,
+        clip_hdr_results,
+    } = effect
+    else {
+        unreachable!("unmult_settings takes Unmult")
+    };
+    let white = background_color == "white";
+    [
+        white as u8 as f64,
+        if white { 1.0 - white_level / 100.0 } else { black_level / 100.0 },
+        softness / 100.0,
+        (remove_color_matting == "on") as u8 as f64,
+        (clip_hdr_results == "on") as u8 as f64,
+    ]
+}
+
+/// D-505: Unmult, on the linear premultiplied pixel (c, a); a = 0 is left as it is. m, how far
+/// the pixel is from the background, held inside 0 to a: black, its brightest channel; white,
+/// a less its darkest. The share (m - L) / softness held inside 0 to 1 (softness 0: 1 above L,
+/// else 0); the new covering m times the share. Remove Color Matting on takes the colour from
+/// before the background, c / m or (c - a + m) / m, held inside 0 to 1 if clipping; off keeps
+/// c / a. Our rule (document 21); as added, Soft Physical Glow's unmult.
+pub(crate) fn unmult(source: &mut WorkingBuffer, k: &[f64; 5]) {
+    each_pixel(source, |px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let c = [0, 1, 2].map(|i| px[i] as f64);
+        let white = k[0] == 1.0;
+        let m = if white { a - c.iter().cloned().fold(f64::INFINITY, f64::min) } else { c.iter().cloned().fold(f64::NEG_INFINITY, f64::max) };
+        let m = m.clamp(0.0, a);
+        let share = match k[2] == 0.0 {
+            true => if m > k[1] { 1.0 } else { 0.0 },
+            false => ((m - k[1]) / k[2]).clamp(0.0, 1.0),
+        };
+        let cover = m * share;
+        if cover == 0.0 {
+            px.fill(0.0);
+            return;
+        }
+        for i in 0..3 {
+            let u = match (k[3] == 1.0, white) {
+                (false, _) => c[i] / a,
+                (true, false) => c[i] / m,
+                (true, true) => (c[i] - a + m) / m,
+            };
+            let u = if k[3] == 1.0 && k[4] == 1.0 { u.clamp(0.0, 1.0) } else { u };
+            px[i] = (u * cover) as f32;
+        }
+        px[3] = cover as f32;
+    });
+}
+
 /// D-396: Selective Color with every amount 0 leaves the layer exactly as it is.
 pub(crate) fn selective_color_untouched(families: &[[f64; 4]; 9]) -> bool {
     families.iter().flatten().all(|v| *v == 0.0)

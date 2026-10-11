@@ -2235,6 +2235,18 @@ pub enum Effect {
         matching_tolerance: f64,
         matching_softness: f64,
     },
+    /// D-505: after After Effects' Unmult, its rule and its settings when added ours
+    /// (`grade::unmult`, document 21). `background_color`, "black" or "white"; `black_level`
+    /// (used with black), `white_level` (used with white) and `softness`, 0 to 100 per cent;
+    /// `remove_color_matting`, "on" or "off"; `clip_hdr_results`, "off" or "on".
+    Unmult {
+        background_color: String,
+        black_level: f64,
+        white_level: f64,
+        softness: f64,
+        remove_color_matting: String,
+        clip_hdr_results: String,
+    },
     /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
     /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
     /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
@@ -3034,6 +3046,7 @@ pub const LINEAR_COLOR_KEY: &str = "core.linear_color_key";
 /// D-504: Linear Color Key's views and ways of matching.
 pub const LCKEY_VIEWS: [&str; 3] = ["final", "source", "matte"];
 pub const LCKEY_MATCHES: [&str; 3] = ["rgb", "hue", "chroma"];
+pub const UNMULT: &str = "core.unmult";
 pub const SIMPLE_WIRE_REMOVAL: &str = "core.simple_wire_removal";
 /// D-458: CC Simple Wire Removal's styles.
 pub const WIRE_STYLES: [&str; 4] = ["fade", "frame_offset", "displace", "displace_horizontal"];
@@ -3203,6 +3216,11 @@ impl Effect {
             Effect::LinearColorKey { matching_tolerance, matching_softness, .. } => vec![
                 ("matching_tolerance", vec![matching_tolerance], 0.0, 100.0),
                 ("matching_softness", vec![matching_softness], 0.0, 100.0),
+            ],
+            Effect::Unmult { black_level, white_level, softness, .. } => vec![
+                ("black_level", vec![black_level], 0.0, 100.0),
+                ("white_level", vec![white_level], 0.0, 100.0),
+                ("softness", vec![softness], 0.0, 100.0),
             ],
             Effect::Transform {
                 anchor_point,
@@ -5576,6 +5594,7 @@ impl Effect {
             Effect::InnerOuterKey { .. } => "Inner/Outer Key",
             Effect::KeyCleaner { .. } => "Key Cleaner",
             Effect::LinearColorKey { .. } => "Linear Color Key",
+            Effect::Unmult { .. } => "Unmult",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
@@ -5773,6 +5792,7 @@ impl Effect {
             Effect::InnerOuterKey { .. } => INNER_OUTER_KEY,
             Effect::KeyCleaner { .. } => KEY_CLEANER,
             Effect::LinearColorKey { .. } => LINEAR_COLOR_KEY,
+            Effect::Unmult { .. } => UNMULT,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
@@ -6210,6 +6230,16 @@ impl Effect {
                     "{name}'s match colors is \"rgb\", \"hue\" or \"chroma\", and this is \"{match_colors}\"."
                 )))
                 .or_else(|| hex_fault(name, "key colour", key_color)),
+            Effect::Unmult { background_color: b, remove_color_matting: r, clip_hdr_results: c, .. } => {
+                (!["black", "white"].contains(&b.as_str()))
+                    .then(|| format!("{name}'s background color is \"black\" or \"white\", and this is \"{b}\"."))
+                    .or_else(|| (!["on", "off"].contains(&r.as_str())).then(|| format!(
+                        "{name}'s remove color matting is \"on\" or \"off\", and this is \"{r}\"."
+                    )))
+                    .or_else(|| (!["off", "on"].contains(&c.as_str())).then(|| format!(
+                        "{name}'s clip HDR results is \"off\" or \"on\", and this is \"{c}\"."
+                    )))
+            }
             Effect::DifferenceMatte { view, layer, fit, .. } => (!["final", "matte"].contains(&view.as_str()))
                 .then(|| format!("{name}'s view is \"final\" or \"matte\", and this is \"{view}\"."))
                 .or_else(|| (!layer.is_string()).then(|| format!(
@@ -8976,6 +9006,9 @@ pub(crate) fn apply_stack_at(
             }
             e @ Effect::LinearColorKey { .. } => crate::perf::time(crate::perf::Stage::EffectLinearColorKey, || {
                 crate::grade::linear_color_key(source, &crate::grade::lckey_settings(e))
+            }),
+            e @ Effect::Unmult { .. } => crate::perf::time(crate::perf::Stage::EffectUnmult, || {
+                crate::grade::unmult(source, &crate::grade::unmult_settings(e))
             }),
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {

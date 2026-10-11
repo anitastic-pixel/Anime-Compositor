@@ -2458,6 +2458,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("matching_tolerance".into(), num(*matching_tolerance));
             params.insert("matching_softness".into(), num(*matching_softness));
         }
+        Effect::Unmult { background_color, black_level, white_level, softness, remove_color_matting, clip_hdr_results } => {
+            params.insert("background_color".into(), J::from(background_color.as_str()));
+            params.insert("black_level".into(), num(*black_level));
+            params.insert("white_level".into(), num(*white_level));
+            params.insert("softness".into(), num(*softness));
+            params.insert("remove_color_matting".into(), J::from(remove_color_matting.as_str()));
+            params.insert("clip_hdr_results".into(), J::from(clip_hdr_results.as_str()));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4887,6 +4895,7 @@ fn parse_effect(
         crate::effects::INNER_OUTER_KEY,
         crate::effects::KEY_CLEANER,
         crate::effects::LINEAR_COLOR_KEY,
+        crate::effects::UNMULT,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
@@ -5880,6 +5889,14 @@ fn parse_effect(
             match_colors: effect_word(params, "match_colors", &at)?,
             matching_tolerance: effect_number(params, "matching_tolerance", &at)?,
             matching_softness: effect_number(params, "matching_softness", &at)?,
+        }),
+        crate::effects::UNMULT => Some(crate::effects::Effect::Unmult {
+            background_color: effect_word(params, "background_color", &at)?,
+            black_level: effect_number(params, "black_level", &at)?,
+            white_level: effect_number(params, "white_level", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            remove_color_matting: effect_word(params, "remove_color_matting", &at)?,
+            clip_hdr_results: effect_word(params, "clip_hdr_results", &at)?,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

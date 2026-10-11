@@ -1098,6 +1098,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::ColorRange { .. }
                 // D-504.
                 | crate::effects::Effect::LinearColorKey { .. }
+                // D-505.
+                | crate::effects::Effect::Unmult { .. }
                 // D-501.
                 | crate::effects::Effect::DifferenceMatte { .. }
                 // D-400.

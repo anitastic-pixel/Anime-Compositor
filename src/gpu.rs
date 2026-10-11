@@ -2827,6 +2827,40 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, vec4(v, v, v, p.w));
         return;
     }
+    if F.mode == 73u {
+        // D-505, as grade::unmult; k: grade::unmult_settings.
+        if a <= 0.0lf {
+            textureStore(output, id.xy, p);
+            return;
+        }
+        let c = vec3<f64>(p.xyz);
+        var m = max(max(c.x, c.y), c.z);
+        if k[0] == 1.0lf {
+            m = a - min(min(c.x, c.y), c.z);
+        }
+        m = clamp(m, 0.0lf, a);
+        var share = select(0.0lf, 1.0lf, m > k[1]);
+        if k[2] != 0.0lf {
+            share = clamp((m - k[1]) / k[2], 0.0lf, 1.0lf);
+        }
+        let cover = m * share;
+        if cover == 0.0lf {
+            textureStore(output, id.xy, vec4(0.0));
+            return;
+        }
+        var u = c / a;
+        if k[3] == 1.0lf {
+            u = c / m;
+            if k[0] == 1.0lf {
+                u = (c - vec3(a - m)) / m;
+            }
+            if k[4] == 1.0lf {
+                u = clamp(u, vec3(0.0lf), vec3(1.0lf));
+            }
+        }
+        textureStore(output, id.xy, vec4(vec3<f32>(u * cover), f32(cover)));
+        return;
+    }
     if F.mode == 0u {
         // k: the amount as a share.
         for (var c = 0u; c < 3u; c++) {
@@ -8861,6 +8895,8 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::ColorRange { .. }
             // D-504.
             | E::LinearColorKey { .. }
+            // D-505.
+            | E::Unmult { .. }
     )
 }
 
@@ -11663,6 +11699,9 @@ impl Gpu {
             }
             lckey @ E::LinearColorKey { .. } => {
                 same(steps, &passes.tone, FxParams { mode: 72, ..Default::default() }, &crate::grade::lckey_settings(lckey), None)
+            }
+            u @ E::Unmult { .. } => {
+                same(steps, &passes.tone, FxParams { mode: 73, ..Default::default() }, &crate::grade::unmult_settings(u), None)
             }
             E::ColorLink { sample, clip, stencil, opacity, blending_mode: b, map, .. } => {
                 // card_can leaves only a named layer's picture; its colour is read here, once.
