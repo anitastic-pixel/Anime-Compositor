@@ -209522,3 +209522,63 @@ FX-PLASTIC-029 (`fx_plastic_029.json`): A layer written as the number 3, not a w
 FX-PLASTIC-030 (`fx_plastic_030.json`): An ambient light colour written "blue", not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PLASTIC-031 (`fx_plastic_031.json`): Dust keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Glow Wipe (D-513)
+
+Glow Wipe (`core.glow_wipe`), after the purpose of CycoreFX's CC Light Wipe (B-393, EFFECTS.md row 275), the rule ours. Every case is a project of one composition 16 by 10, five frames, the drawing Broadcast Colors' (with transparent columns and a half-covered one) with the effect. `tools/glow_wipe_reference.py` works the expected frames, `Fixtures/glow_wipe/expected_glow_wipe.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-GLOW-001 (`fx_glow_001.json`): The settings as they start: completion 0, so nothing changes. Frames 0.
+
+FX-GLOW-002 (`fx_glow_002.json`): Completion 100: every pixel gone, and no light left. Frames 0.
+
+FX-GLOW-003 (`fx_glow_003.json`): Radial, completion 40: a hole from the centre, a white glow around its edge on the layer and inside the hole. Frames 0.
+
+FX-GLOW-004 (`fx_glow_004.json`): Doors, completion 40: two walls of light moving left and right from the centre. Frames 0.
+
+FX-GLOW-005 (`fx_glow_005.json`): Rectangular, completion 40: a growing square of light. Frames 0.
+
+FX-GLOW-006 (`fx_glow_006.json`): Rectangular, direction 30, completion 40: the square turned. Frames 0.
+
+FX-GLOW-007 (`fx_glow_007.json`): Doors, direction 90, completion 40: the walls move up and down. Frames 0.
+
+FX-GLOW-008 (`fx_glow_008.json`): Radial, completion 40, Color from Source on: the glow is the layer's own colour, and none over the transparent columns. Frames 0.
+
+FX-GLOW-009 (`fx_glow_009.json`): Radial, completion 40, colour #ff8000, intensity 250: a strong orange glow. Frames 0.
+
+FX-GLOW-010 (`fx_glow_010.json`): Radial, completion 40, intensity 0: the hole alone, no light. Frames 0.
+
+FX-GLOW-011 (`fx_glow_011.json`): Radial, completion 40, reversed: the wipe from the outside in, the middle kept. Frames 0.
+
+FX-GLOW-012 (`fx_glow_012.json`): Radial, Center [25, 30], completion 30: the hole moved up and to the left. Frames 0.
+
+FX-GLOW-013 (`fx_glow_013.json`): Completion keyed from 0 at frame 0 to 100 at frame 4, linear: frame 2 is completion 50, frame 4 all clear. Frames 0, 2, 4.
+
+FX-GLOW-014 (`fx_glow_014.json`): Intensity keyed from 0 at frame 0 to 400 at frame 4, linear, completion 40: frame 2 is intensity 200. Frames 0, 2, 4.
+
+FX-GLOW-015 (`fx_glow_015.json`): FX-GLOW-003 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-GLOW-016 (`fx_glow_016.json`): Doors, direction -135, reversed, Color from Source on, Center [60, 40], completion 55. Frames 0.
+
+FX-GLOW-017 (`fx_glow_017.json`): Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLOW-018 (`fx_glow_018.json`): Completion -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLOW-019 (`fx_glow_019.json`): Center y -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLOW-020 (`fx_glow_020.json`): Intensity -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLOW-021 (`fx_glow_021.json`): Intensity 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLOW-022 (`fx_glow_022.json`): Direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLOW-023 (`fx_glow_023.json`): Shape "Radial": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLOW-024 (`fx_glow_024.json`): Shape "round": not a shape of Glow Wipe. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLOW-025 (`fx_glow_025.json`): Color from Source "yes": it is "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLOW-026 (`fx_glow_026.json`): Color "#ff80": not six hex digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLOW-027 (`fx_glow_027.json`): Reverse "true": it is "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLOW-028 (`fx_glow_028.json`): Intensity keyed to 2000 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
