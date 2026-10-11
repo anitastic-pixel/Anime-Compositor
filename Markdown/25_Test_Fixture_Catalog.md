@@ -209004,3 +209004,47 @@ FX-TDIFF-030 (`fx_tdiff_030.json`): A target written as the number 3, not a word
 FX-TDIFF-031 (`fx_tdiff_031.json`): Time Offset keyed to 100 seconds at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 `cycle_two.json`: `a` and `b`, each the ball, each with a Time Difference whose target is the other: refused, `EFFECT_LAYER_CYCLE`.
+
+### Burn Film (D-460)
+
+Burn Film, after After Effects' CC Burn Film (Stylize), `core.burn_film` (B-340). Every case is a composition 16 by 10 holding D-144's strip, unmoved unless the case says; `tools/burn_film_reference.py` works the expected frames, `Fixtures/burn_film/expected_burn_film.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-BURN-001 (`fx_burn_001.json`): The settings as they start: Burn 0, nothing burned, the drawing as it is. Frames 0.
+
+FX-BURN-002 (`fx_burn_002.json`): Burn 100: everything burned away, the layer empty. Frames 0.
+
+FX-BURN-003 (`fx_burn_003.json`): Burn 30: a hole has opened round the middle, ringed by black char and a scorched edge; the corners untouched. Frames 0.
+
+FX-BURN-004 (`fx_burn_004.json`): Burn 50: the hole has spread over most of the middle. Frames 0.
+
+FX-BURN-005 (`fx_burn_005.json`): Burn 75: nearly all of the layer gone, scorched edges round what is left. Frames 0.
+
+FX-BURN-006 (`fx_burn_006.json`): Center 0, 0, Burn 25: the burning starts at the top left corner. Frames 0.
+
+FX-BURN-007 (`fx_burn_007.json`): Center 100, 50, the middle of the right edge, Burn 25: the burning starts at the right, and the middle is untouched. Frames 0.
+
+FX-BURN-008 (`fx_burn_008.json`): Random Seed 7, Burn 50: the other burns start elsewhere, and the edges are ragged differently, from FX-BURN-004. Frames 0.
+
+FX-BURN-009 (`fx_burn_009.json`): Random Seed 7.9: its whole part, FX-BURN-008. Frames 0.
+
+FX-BURN-010 (`fx_burn_010.json`): Burn keyed from 0 at frame 0 to 100 at frame 4, linear: the drawing, then Burn 25, 50 and 75, then empty. Frames 0, 1, 2, 3, 4.
+
+FX-BURN-011 (`fx_burn_011.json`): Center keyed from 25, 50 at frame 0 to 75, 50 at frame 4, Burn 20: the first hole moves across. Frames 0, 2, 4.
+
+FX-BURN-012 (`fx_burn_012.json`): Burn keyed from 30 at frame 0 to 0 at frame 4, eased past its end: below 0 it is held at 0, the drawing as it is. Frames 0, 2, 4.
+
+FX-BURN-013 (`fx_burn_013.json`): FX-BURN-004 moved three pixels right: the burn belongs to the layer, so it moves with it. Frames 0.
+
+FX-BURN-014 (`fx_burn_014.json`): After a directional blur (direction 90, length 4) that grows the layer two pixels on every side, Burn 50: the burn is laid over the grown layer, 20 by 14, its middle and size. Frames 0.
+
+FX-BURN-015 (`fx_burn_015.json`): Burn 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURN-016 (`fx_burn_016.json`): Burn -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURN-017 (`fx_burn_017.json`): Center at 1001, 50, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURN-018 (`fx_burn_018.json`): Random Seed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURN-019 (`fx_burn_019.json`): Random Seed 100001, above 100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BURN-020 (`fx_burn_020.json`): Burn keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
