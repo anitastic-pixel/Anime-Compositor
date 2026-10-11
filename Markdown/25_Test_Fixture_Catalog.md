@@ -211072,3 +211072,45 @@ FX-SHIFT-018 (`fx_shift_018.json`): Alpha from "yes", not a word Shift Channels 
 FX-SHIFT-019 (`fx_shift_019.json`): Green from "brightness": this program's word is "luminance". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SHIFT-020 (`fx_shift_020.json`): Blue from "", no word at all. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Solid Composite (D-560)
+
+Solid Composite (`core.solid_composite`, D-312), after After Effects' Solid Composite (B-440, EFFECTS.md row 448). Every case is a composition 16 by 10 holding one drawing the same size, Channel Mixer's swatches (`media/swatches.png`), unmoved unless the case says. `tools/solid_composite_reference.py` works the expected frames, `Fixtures/solid_composite/expected_solid_composite.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SOLIDC-001 (`fx_solidc_001.json`): The settings as they start, source opacity 100, colour #ffffff, opacity 100, normal: the drawing over white: the empty border turns white, the soft edges the line and the skin half over white, every solid pixel as it was. Frames 0.
+
+FX-SOLIDC-002 (`fx_solidc_002.json`): Colour #3366cc: the drawing over a blue: the border turns #3366cc, every solid pixel as it was. Frames 0.
+
+FX-SOLIDC-003 (`fx_solidc_003.json`): Colour #3366cc at opacity 50: the border is the blue at half covering, a soft edge covers three quarters, every solid pixel as it was. Frames 0.
+
+FX-SOLIDC-004 (`fx_solidc_004.json`): Opacity 0: no solid at all: the drawing, untouched. Frames 0.
+
+FX-SOLIDC-005 (`fx_solidc_005.json`): Source opacity 50 over the blue: the drawing at half strength over a solid blue, everything opaque. Frames 0.
+
+FX-SOLIDC-006 (`fx_solidc_006.json`): Source opacity 0: the blue alone, every pixel #3366cc. Frames 0.
+
+FX-SOLIDC-007 (`fx_solidc_007.json`): Add, colour #404040: every solid pixel raised by the grey (in linear light, held at the top): the black turns #404040, the white stays white; the border is the grey. Frames 0.
+
+FX-SOLIDC-008 (`fx_solidc_008.json`): Screen, colour #808080: every solid pixel lightened, the black turns #808080, the white stays white; the border is the grey. Frames 0.
+
+FX-SOLIDC-009 (`fx_solidc_009.json`): Multiply, colour #ff8040: every solid pixel darkened by the orange: the white turns #ff8040, the black stays black; the border is the orange. Frames 0.
+
+FX-SOLIDC-010 (`fx_solidc_010.json`): Multiply, colour #ff8040 at opacity 60, source opacity 70: the drawing at 70 per cent multiplied with the orange at 60, where both show. Frames 0.
+
+FX-SOLIDC-011 (`fx_solidc_011.json`): Colour #3366cc, opacity keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 the drawing untouched, frame 2 FX-SOLIDC-003 (opacity 50), frame 4 FX-SOLIDC-002. Frames 0, 2, 4.
+
+FX-SOLIDC-012 (`fx_solidc_012.json`): Colour #3366cc, source opacity eased from 0 at frame 0 to 100 at frame 4 on a curve that overshoots: frame 0 FX-SOLIDC-006; at frame 2 it has gone past 100 and is held there, so frames 2 and 4 are both FX-SOLIDC-002. Frames 0, 2, 4.
+
+FX-SOLIDC-013 (`fx_solidc_013.json`): FX-SOLIDC-007 moved three pixels right: the same, moved; the grey fills only the layer, so columns 0 to 2 of the frame stay empty. Frames 0, 3.
+
+FX-SOLIDC-014 (`fx_solidc_014.json`): Opacity 101: above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SOLIDC-015 (`fx_solidc_015.json`): Source opacity -1: below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SOLIDC-016 (`fx_solidc_016.json`): Blend "difference": this program's Solid Composite blends normal, add, screen or multiply. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SOLIDC-017 (`fx_solidc_017.json`): Colour "white": a colour is written #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SOLIDC-018 (`fx_solidc_018.json`): Colour "#12345": five digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SOLIDC-019 (`fx_solidc_019.json`): Opacity keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
