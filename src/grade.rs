@@ -622,32 +622,38 @@ pub(crate) fn grain_levels(picture: &WorkingBuffer) -> [f64; 3] {
     if w < 3 || h < 3 {
         return [0.0; 3];
     }
-    let enc: Vec<Option<[f64; 3]>> = d
-        .par_chunks_exact(4)
-        .map(|p| {
-            let a = p[3] as f64;
-            (a > 0.0).then(|| std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0))))
-        })
-        .collect();
     const MASK: [f64; 9] = [1.0, -2.0, 1.0, -2.0, 4.0, -2.0, 1.0, -2.0, 1.0];
-    let (sum, n) = (0..h - 2)
+    // Bands of window rows, each encoding only its own rows (and the two below) so the whole
+    // picture is never held encoded at once.
+    const BAND: usize = 32;
+    let (sum, n) = (0..(h - 2).div_ceil(BAND))
         .into_par_iter()
-        .map(|y| {
+        .map(|b| {
+            let (y0, y1) = (b * BAND, ((b + 1) * BAND).min(h - 2));
+            let enc: Vec<Option<[f64; 3]>> = d[y0 * w * 4..(y1 + 2) * w * 4]
+                .chunks_exact(4)
+                .map(|p| {
+                    let a = p[3] as f64;
+                    (a > 0.0).then(|| std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0))))
+                })
+                .collect();
             let (mut s, mut n) = ([0.0f64; 3], 0usize);
-            'window: for x in 0..w - 2 {
-                let mut f = [0.0f64; 3];
-                for (k, m) in MASK.iter().enumerate() {
-                    let Some(e) = enc[(y + k / 3) * w + x + k % 3] else {
-                        continue 'window;
-                    };
-                    for c in 0..3 {
-                        f[c] += m * e[c];
+            for y in 0..y1 - y0 {
+                'window: for x in 0..w - 2 {
+                    let mut f = [0.0f64; 3];
+                    for (k, m) in MASK.iter().enumerate() {
+                        let Some(e) = enc[(y + k / 3) * w + x + k % 3] else {
+                            continue 'window;
+                        };
+                        for c in 0..3 {
+                            f[c] += m * e[c];
+                        }
                     }
+                    for c in 0..3 {
+                        s[c] += f[c].abs();
+                    }
+                    n += 1;
                 }
-                for c in 0..3 {
-                    s[c] += f[c].abs();
-                }
-                n += 1;
             }
             (s, n)
         })
