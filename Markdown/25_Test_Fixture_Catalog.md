@@ -209208,3 +209208,61 @@ FX-HEX-020 (`fx_hex_020.json`): Rotate 3601, above 3600. The file is read, the e
 FX-HEX-021 (`fx_hex_021.json`): Centre across 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-HEX-022 (`fx_hex_022.json`): Radius keyed to 5000 at frame 4, above 4000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Teeth Wipe (D-511)
+
+Teeth Wipe (`core.teeth_wipe`), after the purpose of CycoreFX's CC Jaws (B-391, EFFECTS.md row 274), the rule ours. Every case is a project of one composition 16 by 10, five frames, the drawing Broadcast Colors' (with transparent columns and a half-covered one) with the effect. `tools/teeth_wipe_reference.py` works the expected frames, `Fixtures/teeth_wipe/expected_teeth_wipe.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-TEETH-001 (`fx_teeth_001.json`): The settings as they start: completion 0, so nothing changes. Frames 0.
+
+FX-TEETH-002 (`fx_teeth_002.json`): Completion 100: both parts gone from the drawing, every pixel clear. Frames 0.
+
+FX-TEETH-003 (`fx_teeth_003.json`): Completion 20, spikes 3 high and 4 wide: the drawing parted across its middle along a zigzag, the top half moved up, the bottom half down. Frames 0.
+
+FX-TEETH-004 (`fx_teeth_004.json`): Trapezoids 3 high and 7 wide, completion 20: flat-topped teeth. Frames 0.
+
+FX-TEETH-005 (`fx_teeth_005.json`): FX-TEETH-003 with blocks: square teeth. Frames 0.
+
+FX-TEETH-006 (`fx_teeth_006.json`): FX-TEETH-003 with direction 90: the cut runs top to bottom, the halves move left and right. Frames 0.
+
+FX-TEETH-007 (`fx_teeth_007.json`): FX-TEETH-003 with direction 30: the cut turned about the centre. Frames 0.
+
+FX-TEETH-008 (`fx_teeth_008.json`): Center [25, 30], completion 20: the cut moved up and to the left, the teeth counted from the new centre. Frames 0.
+
+FX-TEETH-009 (`fx_teeth_009.json`): Height 0, completion 20: a straight cut, no teeth. Frames 0.
+
+FX-TEETH-010 (`fx_teeth_010.json`): Completion 7.3: a move of part of a pixel, each part read between pixels. Frames 0.
+
+FX-TEETH-011 (`fx_teeth_011.json`): Spikes 5 high and 2.5 wide, completion 15: tall narrow teeth. Frames 0.
+
+FX-TEETH-012 (`fx_teeth_012.json`): Completion keyed from 0 at frame 0 to 97 at frame 4, linear: frame 2 is completion 48.5; at frame 4 every pixel is in the gap. Frames 0, 2, 4.
+
+FX-TEETH-013 (`fx_teeth_013.json`): Direction keyed from 0 at frame 0 to 60 at frame 4, linear, completion 20: frame 2 is direction 30. Frames 0, 2, 4.
+
+FX-TEETH-014 (`fx_teeth_014.json`): Height keyed from 0 at frame 0 to 6 at frame 4, linear, completion 20, blocks. Frames 0, 4.
+
+FX-TEETH-015 (`fx_teeth_015.json`): FX-TEETH-003 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-TEETH-016 (`fx_teeth_016.json`): Direction -135, trapezoids 2 high and 3 wide, completion 35, Center [60, 40]. Frames 0.
+
+FX-TEETH-017 (`fx_teeth_017.json`): Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEETH-018 (`fx_teeth_018.json`): Completion -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEETH-019 (`fx_teeth_019.json`): Center y -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEETH-020 (`fx_teeth_020.json`): Direction -3601, below -3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEETH-021 (`fx_teeth_021.json`): Height -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEETH-022 (`fx_teeth_022.json`): Height 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEETH-023 (`fx_teeth_023.json`): Width 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEETH-024 (`fx_teeth_024.json`): Width 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEETH-025 (`fx_teeth_025.json`): Shape "Spikes": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEETH-026 (`fx_teeth_026.json`): Shape "robo_jaw": not a shape of Teeth Wipe. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEETH-027 (`fx_teeth_027.json`): Width keyed to 2000 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
