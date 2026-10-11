@@ -210404,3 +210404,47 @@ FX-STRETCH-015 (`fx_stretch_015.json`): Center y -1001, below -1000. The file is
 FX-STRETCH-016 (`fx_stretch_016.json`): Direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-STRETCH-017 (`fx_stretch_017.json`): Scale keyed to 200000 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Texturize (D-467)
+
+Texturize, after After Effects' Texturize (Stylize), `core.texturize` (B-347). Every case is a project of one composition 16 by 10, five frames, the drawing `holder` at the top with the effect and the texture layers under it, switched off; `tools/texturize_reference.py` works the expected frames, `Fixtures/texturize/expected_texturize.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-TEXTURIZE-001 (`fx_texturize_001.json`): As added: no Texture Layer, so nothing happens and the photo comes back untouched. Frames 0.
+
+FX-TEXTURIZE-002 (`fx_texturize_002.json`): The dots layer as the texture, Light Direction 135, Texture Contrast 1, Tile: the two white squares pressed into the photo, their top and left edges lighter, their bottom and right edges darker, the rest as it was. Frames 0.
+
+FX-TEXTURIZE-003 (`fx_texturize_003.json`): Light Direction -45: turned round, the top and left edges darker. Frames 0.
+
+FX-TEXTURIZE-004 (`fx_texturize_004.json`): Texture Contrast 0: nothing happens. Frames 0.
+
+FX-TEXTURIZE-005 (`fx_texturize_005.json`): Texture Contrast 2: twice as strong, the lightest edges clipped to white. Frames 0.
+
+FX-TEXTURIZE-006 (`fx_texturize_006.json`): The ramp, black at the left to white at the right, as the texture, Light Direction 90: one even slope, every column but the two at the sides 17 levels of 255 lighter, those two 8.5. Frames 0.
+
+FX-TEXTURIZE-007 (`fx_texturize_007.json`): The 8 by 5 spot as the texture, Tile: four red discs pressed in, two across and two down. Frames 0.
+
+FX-TEXTURIZE-008 (`fx_texturize_008.json`): The spot, Center: one disc in the middle, the photo untouched round it. Frames 0.
+
+FX-TEXTURIZE-009 (`fx_texturize_009.json`): The spot, Stretch: one oval filling the middle. Frames 0.
+
+FX-TEXTURIZE-010 (`fx_texturize_010.json`): The dots on the two blocks with clear round them: the blocks pressed where the squares cross them, every clear pixel still clear and the covering kept exactly. Frames 0.
+
+FX-TEXTURIZE-011 (`fx_texturize_011.json`): FX-TEXTURIZE-002 on the holder moved 2 right and 1 down: the same, moved, the texture lying on the drawing. Frames 0.
+
+FX-TEXTURIZE-012 (`fx_texturize_012.json`): A Texture Layer that is not in the composition, `gone`: nothing happens, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-TEXTURIZE-013 (`fx_texturize_013.json`): Light Direction keyed from 0 at frame 0 to 180 at frame 4, linear: frame 2 is Light Direction 90. Frames 0, 2, 4.
+
+FX-TEXTURIZE-014 (`fx_texturize_014.json`): Texture Contrast eased from 1 at frame 0 to 2 at frame 4 on a curve that overshoots: at frame 2 it would pass 2, is held at 2, and the frame is FX-TEXTURIZE-005. Frames 0, 2, 4.
+
+FX-TEXTURIZE-015 (`fx_texturize_015.json`): Texture Contrast 2.5, above 2. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEXTURIZE-016 (`fx_texturize_016.json`): Texture Contrast -0.5, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEXTURIZE-017 (`fx_texturize_017.json`): A placement written "mirror". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEXTURIZE-018 (`fx_texturize_018.json`): A Texture Layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEXTURIZE-019 (`fx_texturize_019.json`): Light Direction 4000, past 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TEXTURIZE-020 (`fx_texturize_020.json`): Texture Contrast keyed to 3 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
