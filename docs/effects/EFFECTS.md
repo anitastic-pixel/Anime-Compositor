@@ -1,7 +1,7 @@
 # Effects audit against After Effects
 
 Audit date 2026-10-08. Source list: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/effects-and-animation-presets/effect-list.html (the page refused automated reading, HTTP 403, so the list was compiled from Adobe's per-category effect pages and web searches; newer additions were checked against release notes, see Sources at the bottom).
-Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 192 done, 11 partial, 34 missing. Skipped as no clean mapping: 3 (Lightning, Path Text, Basic 3D, 2026-10-11).
+Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 193 done, 11 partial, 33 missing. Skipped as no clean mapping: 3 (Lightning, Path Text, Basic 3D, 2026-10-11).
 Priority 0: 23 items: 17 done, 1 partial, 4 parked last, 1 skipped.
 Plus 27 effects (25 done, 2 partial) of ours that are not on Adobe's list (last table).
 Plus 18 rows of the owner's picks from `docs/effects/PLUGINS.md` (marked **Pick #N**, its top-20 rank), placed after Adobe's rows in each category: 14 done, 1 missing, 2 parked last, 1 skipped as a preset. Picks #5, #7 and #9 fill Adobe rows that already exist and are marked there.
@@ -402,7 +402,7 @@ Every row here: skip unless needed.
 | Obsolete | Luma Key — keys out by brightness; skip unless needed (Extract covers most of it) | missing | Extract | skip unless needed | n/a | none |
 | Obsolete | Path Text — old text along a path; skip unless needed | skip: no clean mapping (lane A, 2026-10-11) | P0-7, P0-8 | n/a | n/a | Not built. Our text engine (P0-7, `src/text.rs`) lays words on straight lines and in boxes only, so fewer than half of Path Text's controls map onto anything we have: Text, Font, Fill and Stroke, Fill Color, Stroke Color, Stroke Width, Size, Tracking, Kerning, Line Spacing, Alignment and Composite On Original do; Shape Type (Bezier, Circle, Loop, Line), the Control Points, Custom Path, Reverse Path, Character Rotation, Character Horizontal and Vertical Shear, Left and Right Margin, Baseline Shift, Visible Characters, Fade Time, Mode and the four Jitter Settings do not. Text on a path would be a new piece of the text engine, better built for text layers (After Effects' own Path Options) than for an obsolete effect. The owner can reverse this. |
 | Obsolete | Reduce Interlace Flicker — softens thin horizontal lines for interlaced video; skip unless needed | missing | none | skip unless needed | n/a | none |
-| Obsolete | Spill Suppressor — old screen-colour despill; skip unless needed (our keyer's despill covers it) | missing | none | skip unless needed | n/a | none |
+| Obsolete | Spill Suppressor — old screen-colour despill (our Spill Suppressor, `core.spill_suppressor`, a second name over Screen Key's despill, D-383 and D-394) | done | Screen Key | On card (done), Screen Key's tone mode 90, fused | n/a; card 37.2 ms a frame as added against 23.4 for the Noise alone, processor 70.9 against 42.6 (B-428 timing table, PROVISIONAL, machine not quiet) | FX-SSUP-001..015 (`tools/spill_suppressor_reference.py`), b428, D-548 table 169 of 169 checks, card within 1 level, Screen Key's fixtures unchanged, D-548, awaiting playtest. Deviations: no Color Accuracy (one careful rule, as D-459); the rule is ours (leading channel held toward the plain mean of the other two, a grey colour names green, values over 1 held at 1); Suppression's range ours |
 
 ## Recent Adobe additions outside the categories above
 

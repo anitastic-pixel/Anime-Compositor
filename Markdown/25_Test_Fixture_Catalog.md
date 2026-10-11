@@ -211238,3 +211238,37 @@ FX-SPH-024 (`fx_sph_024.json`): Metal 101, above 100. The file is read, the effe
 FX-SPH-025 (`fx_sph_025.json`): Roughness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
 FX-SPH-026 (`fx_sph_026.json`): Light intensity 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### Spill Suppressor (D-548)
+
+Spill Suppressor, after After Effects' Spill Suppressor (Keying, Obsolete), `core.spill_suppressor` (B-428), a second name over Screen Key's despill with its matte off. Every case is Broadcast Safe's drawing (`media/colours.png`); `tools/spill_suppressor_reference.py` works the expected frames, `Fixtures/spill_suppressor/expected_spill_suppressor.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SSUP-001 (`fx_ssup_001.json`): The settings as they start: Color To Suppress blue, Suppression 100. Each pixel's blue is held no higher than the mean of its red and green: pure blue turns black, cyan and magenta keep half their blue, the greys, white, yellow, green, red, skin and the warm tones are untouched; every covering is kept. Frames 0.
+
+FX-SSUP-002 (`fx_ssup_002.json`): Color To Suppress green: green turns black, yellow and cyan keep half their green; blue, magenta, red, the greys and skin are untouched. Frames 0.
+
+FX-SSUP-003 (`fx_ssup_003.json`): Color To Suppress green, Suppression 50: each green half way, in encoded values, between the drawing's and FX-SSUP-002's. Frames 0.
+
+FX-SSUP-004 (`fx_ssup_004.json`): Suppression 0: the drawing exactly as it is. Frames 0.
+
+FX-SSUP-005 (`fx_ssup_005.json`): Color To Suppress picked from a green screen, (40, 180, 60): green leads it, so it is FX-SSUP-002 exactly. Frames 0.
+
+FX-SSUP-006 (`fx_ssup_006.json`): Color To Suppress red: red turns black, yellow and magenta keep half their red; skin and orange, whose red leads, lose some of it. Frames 0.
+
+FX-SSUP-007 (`fx_ssup_007.json`): Color To Suppress #808080, a grey: no channel leads, so green is taken, as Screen Key takes it: FX-SSUP-002 exactly. Frames 0.
+
+FX-SSUP-008 (`fx_ssup_008.json`): FX-SSUP-002 with its colour written in capitals, #00FF00: the same. Frames 0.
+
+FX-SSUP-009 (`fx_ssup_009.json`): Suppression keyed from 0 at frame 0 to 100 at frame 4, linear, green: frame 0 is the drawing, frame 2 is FX-SSUP-003, frame 4 is FX-SSUP-002. Frames 0, 2, 4.
+
+FX-SSUP-010 (`fx_ssup_010.json`): FX-SSUP-002 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-SSUP-011 (`fx_ssup_011.json`): Suppression 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SSUP-012 (`fx_ssup_012.json`): Suppression -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SSUP-013 (`fx_ssup_013.json`): Suppression keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SSUP-014 (`fx_ssup_014.json`): Color To Suppress written "blue", a name, not #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SSUP-015 (`fx_ssup_015.json`): Color To Suppress written "#00ff0", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
