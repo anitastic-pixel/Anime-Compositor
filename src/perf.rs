@@ -431,6 +431,9 @@ pub enum Stage {
     EffectRepeatTile,
     /// D-465's Scatter.
     EffectScatter,
+    /// D-522: Cryptomatte, the matte or colours laid on (reading them from the file is timed
+    /// with the file's other passes).
+    EffectCryptomatte,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -448,7 +451,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 221] = [
+    pub const ALL: [Stage; 222] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -663,6 +666,7 @@ impl Stage {
         Stage::EffectPlastic,
         Stage::EffectRepeatTile,
         Stage::EffectScatter,
+        Stage::EffectCryptomatte,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -889,6 +893,7 @@ impl Stage {
             Stage::EffectPlastic => "effect: plastic",
             Stage::EffectRepeatTile => "effect: repeat tile",
             Stage::EffectScatter => "effect: scatter",
+            Stage::EffectCryptomatte => "effect: cryptomatte",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

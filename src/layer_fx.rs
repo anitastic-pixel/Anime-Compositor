@@ -7729,10 +7729,16 @@ pub(crate) fn id_key(
     if feather > 0.0 {
         crate::effects::held_blur_axes(&mut matte, &crate::effects::gaussian_weights(feather), (true, true));
     }
+    keep_by(source, &matte, origin);
+}
+
+/// D-349, D-522: the drawing times the matte's first number, the matte lying at `origin`;
+/// transparent outside it.
+pub(crate) fn keep_by(source: &mut WorkingBuffer, matte: &WorkingBuffer, origin: (usize, usize)) {
     let w = source.width();
     let m = matte.data();
     source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let k = pass_at(pass, i, w, origin).map_or(0.0, |j| m[j] as f64);
+        let k = pass_at(matte, i, w, origin).map_or(0.0, |j| m[j] as f64);
         for v in px.iter_mut() {
             *v = (*v as f64 * k) as f32;
         }

@@ -9439,6 +9439,7 @@ const EFFECT_NAMES = {
   'core.pass_extract': 'Pass Extract',
   'core.depth_key': 'Depth Key',
   'core.id_key': 'ID Key',
+  'core.cryptomatte': 'Cryptomatte',
   'core.text_animator': 'Text Animator',
   'core.stretch_levels': 'Stretch Levels',
   'core.stretch_contrast': 'Stretch Contrast',
@@ -9489,7 +9490,7 @@ const EFFECT_GROUPS = [
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight']],
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
-  ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key']],
+  ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key', 'core.cryptomatte']],
   ['Text', ['core.text_animator']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.push_iris', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
@@ -9677,6 +9678,7 @@ const EFFECT_SEARCH = {
   'core.moment_map': 'moment map time displacement displace slit scan warp delay offset ripple map brightness frames',
   'core.pass_extract': 'pass extract 3d channel extract extractor depth z zdepth normals object material id named channel exr render pass aov channel black white point',
   'core.id_key': 'id key id matte object id material id index indexob indexma exr render pass aov cut out isolate',
+  'core.cryptomatte': 'cryptomatte crypto matte object material asset name names pick select isolate cut out exr render pass aov psyop blender redshift arnold vray coverage soft edge keyed colors',
   'core.text_animator': 'text animator animate range selector per character letter word typewriter type on fade in by character wave tracking offset',
   'core.stretch_levels': 'stretch levels auto levels automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
   'core.stretch_contrast': 'stretch contrast auto contrast automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
@@ -9910,6 +9912,7 @@ const EFFECT_ABOUT = {
   'core.moment_map': 'Takes each pixel from a different moment of the layer, earlier where a map is dark and later where it is bright.',
   'core.pass_extract': 'Shows the depth, the normals, the object or material ids, or any named channel a 3D render saved in the layer\'s EXR file, as a picture.',
   'core.id_key': 'Keeps only the object or material with one id, read from the ids a 3D render saved in the layer\'s EXR file.',
+  'core.cryptomatte': 'Picks objects or materials by name from the Cryptomatte a 3D render saved in the layer\'s EXR file, with soft edges: shows every object in its own colour, the matte of the ones named, or the picture kept only where they are.',
   'core.text_animator': 'Moves, scales, turns, fades or recolours the letters of a text layer one by one, as far as a range selector picks them: a typewriter, a fade by character, a wave.',
   'core.stretch_levels': 'Stretches each colour channel of the layer to its own darkest and lightest, read from the whole picture, so a dull picture fills the range and a cast lessens.',
   'core.stretch_contrast': 'Stretches the layer\'s darkest and lightest to black and white, the three channels together, so the colours keep their balance.',
@@ -10292,6 +10295,8 @@ const EFFECT_PARAMS = {
   // D-349, After Effects' own words.
   'core.id_key': [['id', 'ID Selection', 1, 1, 'the id kept, 0 to 1,000,000; an id within a half of it counts'],
     ['feather', 'Feather', 1, 0.1, 'pixels of soft edge, 0 to 100']],
+  // D-522: no numbers; its settings are words.
+  'core.cryptomatte': [],
   // D-350, After Effects' own words: the animator's properties, then its Range Selector.
   'core.text_animator': [['position', 'Position', 2, 1, 'pixels each picked letter moves, x then y'],
     ['scale', 'Scale', 2, 1, 'per cent, x then y, about each letter\'s foot'],
@@ -11702,6 +11707,14 @@ const EFFECT_WORDS = {
     choices: [['aux_channel', 'Aux. Channel', [['object_id', 'Object ID'], ['material_id', 'Material ID']]],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
   },
+  // D-522: the layer travels as crypto_layer, since layer names the layer the effect is on.
+  'core.cryptomatte': {
+    choices: [['output', 'Output', [['colors', 'Colors'], ['matte', 'Matte'], ['keyed', 'Keyed']]]],
+    texts: [['crypto_layer', 'Layer', 'first in the file, or CryptoObject', null,
+      'The Cryptomatte layer as the file names it, such as CryptoObject or CryptoMaterial; empty takes the first'],
+      ['selection', 'Selection', 'names, a comma between', null,
+      'The objects or materials picked, by the names the 3D program gave them, a comma between']],
+  },
   // D-350.
   'core.text_animator': {
     choices: [['fill', 'Fill Color', [['off', 'Off'], ['on', 'On']]],
@@ -12785,6 +12798,8 @@ function effectRow(layer, fx, at, of) {
     words[w] = Array.isArray(v) ? v.map((p) => p.join(' ')).join(', ') : v ?? '';
   }
   for (const [w, , sent] of spec.layers || []) words[sent] = fx.parameters[w] ?? '';
+  // D-522: Cryptomatte's layer name travels as crypto_layer.
+  if (fxKey(fx) === 'core.cryptomatte') words.crypto_layer = fx.parameters.layer ?? '';
   // D-353: the falloff travels with every change, so the glow stays physical.
   if (fxKey(fx) === 'core.glow.physical') {
     words.falloff = 'physical';

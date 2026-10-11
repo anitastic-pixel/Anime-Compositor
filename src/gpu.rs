@@ -13893,6 +13893,19 @@ impl Gpu {
                 self.fx_step(steps, &passes.idkey, p, Some(still), Some(&out), Some(&k), Some(&matte), none, tiles(w, h));
                 (out, (w, h))
             }
+            // D-522: the colours or the matte as Pass Extract's pass at 0 to 1 unclamped; keyed,
+            // the drawing times the matte as ID Key lays its matte on.
+            E::Cryptomatte { channels, output, .. } => {
+                let pass = self.map_texture(&channels.as_ref().expect("compose leaves a Cryptomatte with its matte").0);
+                let out = self.scratch("B-402 cryptomatte", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                if output == "keyed" {
+                    self.fx_step(steps, &passes.idkey, p, Some(still), Some(&out), Some(&[0.0, 0.0, 1.0]), Some(&pass), none, tiles(w, h));
+                } else {
+                    self.fx_step(steps, &passes.passx, p, Some(still), Some(&out), Some(&[0.0, 1.0, 0.0, 0.0]), Some(&pass), none, tiles(w, h));
+                }
+                (out, (w, h))
+            }
             E::LineWidth { width, based_on, colors, tolerance } => {
                 let shape = based_on == "shape";
                 let disc = crate::line_width::disc(*width);

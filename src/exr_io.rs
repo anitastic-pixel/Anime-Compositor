@@ -104,6 +104,8 @@ pub fn read(path: &Path) -> Result<ExrPicture, Diagnostic> {
         .iter()
         .filter_map(|p| pass_channels(&names, p))
         .flatten()
+        // D-522: and a Cryptomatte layer's ranks.
+        .chain(crypto_channels(&names))
         .collect();
     let ignored: Vec<String> = names
         .iter()
@@ -294,6 +296,9 @@ pub enum Pass {
     ObjectId,
     MaterialId,
     Named(String),
+    /// D-522: a Cryptomatte layer (`""` the first), the names picked (commas between), and
+    /// whether the ids' colours are wanted rather than the matte.
+    Cryptomatte { layer: String, selection: String, colours: bool },
 }
 
 impl Pass {
@@ -304,6 +309,8 @@ impl Pass {
             Pass::ObjectId => "object id pass".into(),
             Pass::MaterialId => "material id pass".into(),
             Pass::Named(names) => format!("channel named \"{names}\""),
+            Pass::Cryptomatte { layer, .. } if layer.is_empty() => "Cryptomatte layer".into(),
+            Pass::Cryptomatte { layer, .. } => format!("Cryptomatte layer \"{layer}\""),
         }
     }
 }
@@ -367,6 +374,8 @@ pub fn pass_channels(names: &[String], pass: &Pass) -> Option<[String; 3]> {
             let at = |i: usize| wanted[i % wanted.len()].to_string();
             Some([at(0), at(1), at(2)])
         }
+        // D-522: read by `read_cryptomatte`, many channels to one picture.
+        Pass::Cryptomatte { .. } => None,
     }
 }
 
@@ -408,6 +417,9 @@ pub fn read_pass(path: &Path, pass: &Pass) -> Result<(WorkingBuffer, usize), Dia
     let meta = checked(path)?;
     let header = &meta.headers[0];
     let names: Vec<String> = header.channels.list.iter().map(|c| c.name.to_string()).collect();
+    if let Pass::Cryptomatte { layer, selection, colours } = pass {
+        return read_cryptomatte(path, header, &names, pass, layer, selection, *colours);
+    }
     let Some(chosen) = pass_channels(&names, pass) else {
         return Err(pass_missing(
             format!("{} holds no {}.", name(path), pass.word()),
@@ -440,6 +452,175 @@ pub fn read_pass(path: &Path, pass: &Pass) -> Result<(WorkingBuffer, usize), Dia
             non_finite += 1;
             if v.is_nan() { 0.0 } else { f32::MAX.copysign(v) }
         };
+    }
+    Ok((buffer, non_finite))
+}
+
+/// D-522: the Cryptomatte layers among `names` (the file's order) by their type names T: a
+/// name's prefix (before its last dot) ending in `00` after at least one character, with a part
+/// `r`, case ignored (Psyop's specification 1.2.0 names the ranks `T00.r`, `T00.g`, ...).
+pub fn crypto_layers(names: &[String]) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    for n in names {
+        let Some((prefix, part)) = n.rsplit_once('.') else { continue };
+        if part.eq_ignore_ascii_case("r") && prefix.len() > 2 && prefix.ends_with("00") {
+            let t = &prefix[..prefix.len() - 2];
+            if !found.iter().any(|f| f == t) {
+                found.push(t.to_string());
+            }
+        }
+    }
+    found
+}
+
+/// D-522: the channels of `names` that are a Cryptomatte layer's ranks, `T` and two digits or
+/// more before the last dot.
+fn crypto_channels(names: &[String]) -> Vec<String> {
+    let layers = crypto_layers(names);
+    names
+        .iter()
+        .filter(|n| {
+            n.rsplit_once('.').is_some_and(|(prefix, _)| {
+                layers.iter().any(|t| {
+                    prefix.strip_prefix(t.as_str()).is_some_and(|d| d.len() >= 2 && d.bytes().all(|b| b.is_ascii_digit()))
+                })
+            })
+        })
+        .cloned()
+        .collect()
+}
+
+/// MurmurHash3_x86_32 with seed 0, as Austin Appleby published it.
+fn murmur3_32(data: &[u8]) -> u32 {
+    const C1: u32 = 0xcc9e_2d51;
+    const C2: u32 = 0x1b87_3593;
+    let mix = |k: u32| k.wrapping_mul(C1).rotate_left(15).wrapping_mul(C2);
+    let mut h = 0u32;
+    let chunks = data.chunks_exact(4);
+    let tail = chunks.remainder();
+    for c in chunks {
+        h = (h ^ mix(u32::from_le_bytes([c[0], c[1], c[2], c[3]]))).rotate_left(13).wrapping_mul(5).wrapping_add(0xe654_6b64);
+    }
+    if !tail.is_empty() {
+        h ^= mix(tail.iter().rev().fold(0u32, |k, b| (k << 8) | *b as u32));
+    }
+    h ^= data.len() as u32;
+    h ^= h >> 16;
+    h = h.wrapping_mul(0x85eb_ca6b);
+    h ^= h >> 13;
+    h = h.wrapping_mul(0xc2b2_ae35);
+    h ^ (h >> 16)
+}
+
+/// D-522: the id of an object or material named `name`, by Psyop's specification 1.2.0: its
+/// UTF-8 bytes hashed by MurmurHash3_x86_32, bit 23 flipped where bits 23 to 30 are all 0 or all
+/// 1 (so the number is neither tiny nor infinite), read as a single-precision number.
+pub fn crypto_id(name: &str) -> f32 {
+    let mut h = murmur3_32(name.as_bytes());
+    if matches!((h >> 23) & 255, 0 | 255) {
+        h ^= 1 << 23;
+    }
+    f32::from_bits(h)
+}
+
+/// D-522: the colour Cryptomatte shows an id in: the low bits of its number, which the hash
+/// scatters, as (bits 0-7 over 255, bits 8-15 over 255, bits 16-22 over 127).
+fn crypto_colour(v: f32) -> [f64; 3] {
+    let b = v.to_bits();
+    [(b & 255) as f64 / 255.0, ((b >> 8) & 255) as f64 / 255.0, ((b >> 16) & 127) as f64 / 127.0]
+}
+
+/// D-522: the matte (each of the three numbers the summed coverage of the ids picked, held in 0
+/// to 1) or, with `colours`, every id in its colour (the picked white) mixed by coverage, of the
+/// Cryptomatte layer `wanted` (`""` the first; else matched whole or by its last dotted word,
+/// case ignored), laid out as [`read_pass`] lays a pass. Levels `T00`, `T01`, ... are read while
+/// they have a part `r`: red with green, and blue with alpha when both are there. A coverage that
+/// is not finite is read as D-62 reads one, an id that is not finite as 0 (no object); with how
+/// many such numbers there were.
+fn read_cryptomatte(
+    path: &Path,
+    header: &exr::meta::header::Header,
+    names: &[String],
+    pass: &Pass,
+    wanted: &str,
+    selection: &str,
+    colours: bool,
+) -> Result<(WorkingBuffer, usize), Diagnostic> {
+    let layers = crypto_layers(names);
+    let w = wanted.to_lowercase();
+    let chosen = if w.is_empty() {
+        layers.first()
+    } else {
+        layers.iter().find(|t| t.to_lowercase() == w || t.rsplit('.').next().unwrap_or("").to_lowercase() == w)
+    };
+    let Some(t) = chosen else {
+        return Err(pass_missing(
+            format!("{} holds no {}.", name(path), pass.word()),
+            format!(
+                "Its Cryptomatte layers are {}. D-522 reads a layer T from the channels T00.r, \
+                 T00.g, T00.b, T00.a, T01.r and on, as Psyop's Cryptomatte specification names \
+                 them; an empty layer name takes the first, and a name is matched whole or by its \
+                 last dotted word, case ignored.",
+                if layers.is_empty() { "none".to_string() } else { layers.join(", ") }
+            ),
+        ));
+    };
+    let part = |kk: usize, p: &str| {
+        let level = format!("{t}{kk:02}");
+        names.iter().find(|n| n.rsplit_once('.').is_some_and(|(pre, q)| pre == level && q.to_lowercase() == p)).cloned()
+    };
+    let mut pairs = Vec::new();
+    let mut kk = 0;
+    while let Some(r) = part(kk, "r") {
+        if let Some(g) = part(kk, "g") {
+            pairs.push((r, g));
+        }
+        if let (Some(b), Some(a)) = (part(kk, "b"), part(kk, "a")) {
+            pairs.push((b, a));
+        }
+        kk += 1;
+    }
+    // ponytail: every channel is decoded, as read_pass does.
+    let file = read_all(path)?;
+    let layer = &file.layer_data[0];
+    let get = |n: &String| values(layer, n).expect("a channel the header names");
+    let planes: Vec<(Vec<f32>, Vec<f32>)> = pairs.iter().map(|(i, c)| (get(i), get(c))).collect();
+    let picked: Vec<f32> = selection.split(',').map(str::trim).filter(|s| !s.is_empty()).map(crypto_id).collect();
+    let n = layer.size.0 * layer.size.1;
+    let mut non_finite = 0;
+    let mut out = [vec![0f32; n], vec![0f32; n], vec![0f32; n]];
+    for s in 0..n {
+        let (mut m, mut p) = (0f64, [0f64; 3]);
+        for (ids, cover) in &planes {
+            let (v, c) = (ids[s], cover[s]);
+            non_finite += !v.is_finite() as usize + !c.is_finite() as usize;
+            let v = if v.is_finite() { v } else { 0.0 };
+            let c = if c.is_finite() {
+                c
+            } else if c.is_nan() {
+                0.0
+            } else {
+                f32::MAX.copysign(c)
+            } as f64;
+            let hit = picked.contains(&v);
+            if hit {
+                m += c;
+            }
+            let colour = if hit { [1.0; 3] } else { crypto_colour(v) };
+            for k in 0..3 {
+                p[k] += c * colour[k];
+            }
+        }
+        let v = if colours { p } else { [m.clamp(0.0, 1.0); 3] };
+        for k in 0..3 {
+            out[k][s] = v[k] as f32;
+        }
+    }
+    let display = header.shared_attributes.display_window;
+    let (data, _) = place(display, layer, out.map(Some).into_iter().chain([None]).collect::<Vec<_>>().try_into().expect("four"));
+    let mut buffer = WorkingBuffer::transparent(display.size.0, display.size.1);
+    for (i, (o, v)) in buffer.data_mut().iter_mut().zip(data).enumerate() {
+        *o = if i % 4 == 3 { 1.0 } else { v };
     }
     Ok((buffer, non_finite))
 }

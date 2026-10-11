@@ -2858,6 +2858,17 @@ pub enum Effect {
         invert: String,
         channels: Option<crate::layer_map::Map>,
     },
+    /// D-522: Cryptomatte, after After Effects' Cryptomatte (3D Channel): the objects or
+    /// materials named in `selection` (commas between) picked from the Cryptomatte layer `layer`
+    /// (`""` the first) of the layer's EXR file, by Psyop's specification 1.2.0. `output`,
+    /// "colors", "matte" or "keyed". `channels` is not a setting and is never saved: compose
+    /// reads the matte (or, for "colors", the colours) from the file for each frame.
+    Cryptomatte {
+        layer: String,
+        selection: String,
+        output: String,
+        channels: Option<crate::layer_map::Map>,
+    },
     /// D-350: Text Animator, after After Effects' text animators and their Range Selector: the
     /// letters of a text layer moved, scaled, turned, faded, recoloured and spaced one by one, each
     /// by how much the selector picks it (`text::lay_out`, document 21). `position`, x then y,
@@ -3525,6 +3536,9 @@ pub const MOMENT_MAP: &str = "core.moment_map";
 pub const PASS_EXTRACT: &str = "core.pass_extract";
 pub const DEPTH_KEY: &str = "core.depth_key";
 pub const ID_KEY: &str = "core.id_key";
+pub const CRYPTOMATTE: &str = "core.cryptomatte";
+/// D-522: Cryptomatte's outputs.
+pub const CRYPTO_OUTPUTS: [&str; 3] = ["colors", "matte", "keyed"];
 pub const TEXT_ANIMATOR: &str = "core.text_animator";
 pub const STRETCH_LEVELS: &str = "core.stretch_levels";
 pub const STRETCH_CONTRAST: &str = "core.stretch_contrast";
@@ -5605,6 +5619,7 @@ impl Effect {
                 ("start_width", vec![start_width], 0.0, 1000.0),
                 ("end_width", vec![end_width], 0.0, 1000.0),
             ],
+            Effect::Cryptomatte { .. } => vec![],
             Effect::Unsupported { .. } => vec![],
         }
     }
@@ -6302,6 +6317,7 @@ impl Effect {
             Effect::PassExtract { .. } => "Pass Extract",
             Effect::DepthKey { .. } => "Depth Key",
             Effect::IdKey { .. } => "ID Key",
+            Effect::Cryptomatte { .. } => "Cryptomatte",
             Effect::TextAnimator { .. } => "Text Animator",
             Effect::AutoTone { kind: "levels", .. } => "Stretch Levels",
             Effect::AutoTone { kind: "contrast", .. } => "Stretch Contrast",
@@ -6521,6 +6537,7 @@ impl Effect {
             Effect::PassExtract { .. } => PASS_EXTRACT,
             Effect::DepthKey { .. } => DEPTH_KEY,
             Effect::IdKey { .. } => ID_KEY,
+            Effect::Cryptomatte { .. } => CRYPTOMATTE,
             Effect::TextAnimator { .. } => TEXT_ANIMATOR,
             Effect::AutoTone { kind: "levels", .. } => STRETCH_LEVELS,
             Effect::AutoTone { kind: "contrast", .. } => STRETCH_CONTRAST,
@@ -7463,6 +7480,9 @@ impl Effect {
             )),
             Effect::PassExtract { pass, .. } if !PASSES.contains(&pass.as_str()) => Some(format!(
                 "Pass Extract's pass is \"depth\", \"normals\", \"object_id\", \"material_id\" or \"named\", and this is \"{pass}\"."
+            )),
+            Effect::Cryptomatte { output, .. } if !CRYPTO_OUTPUTS.contains(&output.as_str()) => Some(format!(
+                "Cryptomatte's output is \"colors\", \"matte\" or \"keyed\", and this is \"{output}\"."
             )),
             Effect::IdKey { aux_channel, .. } if !["object_id", "material_id"].contains(&aux_channel.as_str()) => Some(format!(
                 "ID Key's channel is \"object_id\" or \"material_id\", and this is \"{aux_channel}\"."
@@ -11143,6 +11163,19 @@ pub(crate) fn apply_stack_at(
                 if let Some(pass) = channels {
                     crate::perf::time(crate::perf::Stage::EffectIdKey, || {
                         crate::layer_fx::id_key(source, &pass.0, (ox, oy), *id, *feather, invert == "on")
+                    })
+                }
+            }
+            // D-522: the colours or the matte compose read, as Pass Extract shows a pass; keyed,
+            // the drawing times the matte.
+            Effect::Cryptomatte { output, channels, .. } => {
+                if let Some(pass) = channels {
+                    crate::perf::time(crate::perf::Stage::EffectCryptomatte, || {
+                        if output == "keyed" {
+                            crate::layer_fx::keep_by(source, &pass.0, (ox, oy))
+                        } else {
+                            crate::layer_fx::pass_extract(source, &pass.0, (ox, oy), 0.0, 1.0, false, false)
+                        }
                     })
                 }
             }

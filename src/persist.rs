@@ -3915,6 +3915,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("feather".into(), num(*feather));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        // D-522: the matte read for a frame is never saved.
+        Effect::Cryptomatte { layer, selection, output, .. } => {
+            params.insert("layer".into(), J::from(layer.as_str()));
+            params.insert("selection".into(), J::from(selection.as_str()));
+            params.insert("output".into(), J::from(output.as_str()));
+        }
         Effect::TextAnimator {
             position, scale, rotation, opacity, fill, color, tracking, start, end, offset, amount, based_on, shape, smoothness, ease_high, ease_low,
         } => {
@@ -5275,6 +5281,7 @@ fn parse_effect(
         crate::effects::PASS_EXTRACT,
         crate::effects::DEPTH_KEY,
         crate::effects::ID_KEY,
+        crate::effects::CRYPTOMATTE,
         crate::effects::TEXT_ANIMATOR,
         crate::effects::STRETCH_LEVELS,
         crate::effects::STRETCH_CONTRAST,
@@ -7282,6 +7289,14 @@ fn parse_effect(
             id: effect_number(params, "id", &at)?,
             feather: effect_number(params, "feather", &at)?,
             invert: effect_word(params, "invert", &at)?,
+            channels: None,
+        }),
+        // D-522: the names kept as typed; the output as written, so one outside the contract is
+        // refused by name.
+        crate::effects::CRYPTOMATTE => Some(crate::effects::Effect::Cryptomatte {
+            layer: effect_word(params, "layer", &at)?,
+            selection: effect_word(params, "selection", &at)?,
+            output: effect_word(params, "output", &at)?,
             channels: None,
         }),
         // D-350: the words kept as written, so one outside the contract is refused by name.

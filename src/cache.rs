@@ -898,7 +898,8 @@ impl CelCache {
     ) -> Result<(Arc<WorkingBuffer>, usize), Diagnostic> {
         let key = Key::of(path, interpretation).map(|mut key| {
             let mut named = key.path.into_os_string();
-            named.push(format!("#{}", pass.word()));
+            // D-522: the whole pass, so a Cryptomatte's names and output are part of it.
+            named.push(format!("#{pass:?}"));
             key.path = named.into();
             key
         });

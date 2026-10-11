@@ -1080,6 +1080,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::PassExtract { .. }
                 | crate::effects::Effect::DepthKey { .. }
                 | crate::effects::Effect::IdKey { .. }
+                // D-522: Cryptomatte (the matte is read on the processor).
+                | crate::effects::Effect::Cryptomatte { .. }
                 | crate::effects::Effect::LineWidth { .. }
                 // D-353: Soft Physical Glow; D-544: Halation, on its engine.
                 | crate::effects::Effect::SoftGlow { .. }
@@ -1512,7 +1514,10 @@ fn card_effect(
                         && moments.is_empty()
                 }
                 // B-228: with no pass read, the layer is left as it is.
-                E::PassExtract { channels, .. } | E::DepthKey { channels, .. } | E::IdKey { channels, .. } => channels.is_none(),
+                E::PassExtract { channels, .. }
+                | E::DepthKey { channels, .. }
+                | E::IdKey { channels, .. }
+                | E::Cryptomatte { channels, .. } => channels.is_none(),
                 E::LineSmooth { softness, .. } => *softness <= 0.0,
                 E::LineWidth { width, .. } => *width == 0.0,
                 // B-235: with no path the layer is left as it is.
@@ -3840,6 +3845,11 @@ fn fill_passes(
             Effect::IdKey { aux_channel, channels, .. } => {
                 (if aux_channel == "material_id" { Pass::MaterialId } else { Pass::ObjectId }, channels)
             }
+            // D-522: the matte, or for "colors" the colours, worked out as the file is read.
+            Effect::Cryptomatte { layer, selection, output, channels } => (
+                Pass::Cryptomatte { layer: layer.clone(), selection: selection.clone(), colours: output == "colors" },
+                channels,
+            ),
             _ => continue,
         };
         let read = match cel {
