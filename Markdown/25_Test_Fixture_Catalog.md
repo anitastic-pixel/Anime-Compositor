@@ -176457,6 +176457,46 @@ FX-SPGLOW-019 (`fx_spglow_019.json`): Spectral Blue -1, below 0. The file is rea
 
 FX-SPGLOW-020 (`fx_spglow_020.json`): Spectral Green keyed to 250 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Halation (D-544)
+
+Pick #13, Halation: `core.halation`, "Halation", with `threshold`, `threshold_smooth`, `radius`, `amount` and `color` (B-424). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/halation/`, on D-353's drawings (`media/patches.png`, `media/faint.png`, `media/grey.png`). **Every number is produced by `tools/halation_reference.py`**, which works D-353's engine (`tools/soft_glow_reference.py`, through `tools/spectral_glow_reference.py`'s glow sum) and then the halation in double precision; the numbers are in `Fixtures/halation/expected_halation.json`. Tolerance 2e-5. B-424 checks them, runs D-353's FX-SGLOW-001 to 045, D-542's FX-GTINT-001 to 022 and D-543's FX-SPGLOW-001 to 020 again unchanged, and draws the playtest's pictures, in `verification/D-544_halation_table.md`.
+
+FX-HALO-001 (`fx_halo_001.json`): Halation as added (threshold 60, smooth 50, amount 100, red-orange #ff4020), radius 12: the yellow patch, the only light bright enough, gets a red-orange halo round it, strongest at its edge; the yellow itself is untouched. Frames 0.
+
+FX-HALO-002 (`fx_halo_002.json`): Threshold 0: every pixel's light counts, so each patch spreads onto anything darker beside it: halation round all three patches and on the darker patches' near edges. Frames 0.
+
+FX-HALO-003 (`fx_halo_003.json`): Radius 0: nothing spreads, so there is no halation: the drawing as it is. Frames 0.
+
+FX-HALO-004 (`fx_halo_004.json`): Radius 100: the halation spread wide and faint. Frames 0.
+
+FX-HALO-005 (`fx_halo_005.json`): Amount 300: three times as strong as FX-HALO-001 off the drawing. Frames 0.
+
+FX-HALO-006 (`fx_halo_006.json`): Amount 0: no halation: the drawing as it is. Frames 0.
+
+FX-HALO-007 (`fx_halo_007.json`): Colour white: the same halo, colourless. Frames 0.
+
+FX-HALO-008 (`fx_halo_008.json`): Amount keyed from 0 at frame 0 to 200 at frame 4, linear: frame 0 is the drawing, frame 2 is FX-HALO-001. Frames 0, 2, 4.
+
+FX-HALO-009 (`fx_halo_009.json`): The grey drawing: the grey patch is bright enough to give some halation too. Frames 0.
+
+FX-HALO-010 (`fx_halo_010.json`): The patches half covering: the light counts at half, and the halation outside the drawing covers by its brightest channel. Frames 0.
+
+FX-HALO-011 (`fx_halo_011.json`): Moved three pixels right: the halation follows, and none is cut off at the layer's edge. Frames 0.
+
+FX-HALO-012 (`fx_halo_012.json`): Threshold 30, smooth 0: a hard step: the yellow glows fully and nothing else. Frames 0.
+
+FX-HALO-013 (`fx_halo_013.json`): Radius 2.25: one level, half in: a thin halo one pixel wide. Frames 0.
+
+FX-HALO-014 (`fx_halo_014.json`): Threshold 90, smooth 50: the yellow only partly bright enough, a weaker halo. Frames 0.
+
+FX-HALO-015 (`fx_halo_015.json`): Threshold 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HALO-016 (`fx_halo_016.json`): Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HALO-017 (`fx_halo_017.json`): Colour "orange", not a colour #rrggbb. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HALO-018 (`fx_halo_018.json`): Amount keyed to 500 at frame 4, above 400. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Path Stroke (D-356)
 
 Effects that draw along paths (EFFECTS.md P0-22), proved with Path Stroke (`core.stroke`), after After Effects' Stroke (Generate) (B-235). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/stroke/`: the layer `art` holding Lightning Bolt's night drawing the same size (its left half a night sky, its right half empty), unmoved unless the case says, with masks of mode None unless the case says, and the effect `fx-0-0`. **Every number is produced by `tools/stroke_reference.py`**, which lists every dab and finds the nearest by brute force in double precision, from the drawing's 8-bit values; the numbers are in `Fixtures/stroke/expected_stroke.json`. Tolerance 2e-5. B-235 checks them, and draws the playtest's pictures, in `verification/D-356_stroke_table.md`.
