@@ -1783,6 +1783,11 @@ pub enum Effect {
         edges: String,
         dimensions: String,
     },
+    /// D-471: After Effects' Fast Blur (Legacy), a second name over Fast Box Blur's engine (as
+    /// D-383 and D-394): `blurriness`, 0 to 1000, drawn as Fast Box Blur at radius
+    /// [`FAST_BLUR_LEGACY_FACTOR`] times it and 3 iterations; `edges` and `dimensions` as Fast
+    /// Box Blur's.
+    FastBlurLegacy { blurriness: f64, edges: String, dimensions: String },
     /// D-316: After Effects' Colorama, reduced. `get_phase`, one of [`COLORAMA_PHASES`];
     /// `layer` and `fit`, D-189's layer setting, whose brightness is added to the phase;
     /// `phase_shift`, -3600 to 3600 degrees; `cycle_repetitions`, 0 to 100; `stops`, 2 to 5,
@@ -3711,6 +3716,12 @@ pub const SHIFT_CHANNELS: &str = "core.shift_channels";
 pub const SOLID_COMPOSITE: &str = "core.solid_composite";
 pub const CHANNEL_BLUR: &str = "core.channel_blur";
 pub const FAST_BOX_BLUR: &str = "core.fast_box_blur";
+pub const FAST_BLUR_LEGACY: &str = "core.fast_blur_legacy";
+/// D-471: Fast Box Blur's radius for each unit of Fast Blur (Legacy)'s Blurriness, Stu
+/// Maschwitz's visual match ("Five Blurs": Fast Blur (Legacy) 100 is Fast Box Blur 37), at
+/// [`FAST_BLUR_LEGACY_ITERATIONS`], Fast Blur's fixed three.
+pub const FAST_BLUR_LEGACY_FACTOR: f64 = 0.37;
+pub const FAST_BLUR_LEGACY_ITERATIONS: f64 = 3.0;
 pub const COLORAMA: &str = "core.colorama";
 /// D-316: what Colorama reads a pixel's phase from.
 pub const COLORAMA_PHASES: [&str; 6] = ["intensity", "luminance", "red", "green", "blue", "alpha"];
@@ -5004,6 +5015,7 @@ impl Effect {
                 ("radius", vec![radius], 0.0, 500.0),
                 ("iterations", vec![iterations], 1.0, 50.0),
             ],
+            Effect::FastBlurLegacy { blurriness, .. } => vec![("blurriness", vec![blurriness], 0.0, 1000.0)],
             Effect::Colorama {
                 phase_shift,
                 cycle_repetitions,
@@ -6392,6 +6404,7 @@ impl Effect {
                 }
             }
             Effect::FastBoxBlur { radius, .. } => *radius = scale(*radius),
+            Effect::FastBlurLegacy { blurriness, .. } => *blurriness = scale(*blurriness),
             Effect::CrossBlur { radius_x, radius_y, .. } => {
                 *radius_x = scale(*radius_x);
                 *radius_y = scale(*radius_y);
@@ -6967,6 +6980,7 @@ impl Effect {
             Effect::SolidComposite { .. } => "Solid Composite",
             Effect::ChannelBlur { .. } => "Channel Blur",
             Effect::FastBoxBlur { .. } => "Fast Box Blur",
+            Effect::FastBlurLegacy { .. } => "Fast Blur (Legacy)",
             Effect::Colorama { .. } => "Colorama",
             Effect::Glass { .. } => "CC Glass",
             Effect::VectorBlur { .. } => "CC Vector Blur",
@@ -7206,6 +7220,7 @@ impl Effect {
             Effect::SolidComposite { .. } => SOLID_COMPOSITE,
             Effect::ChannelBlur { .. } => CHANNEL_BLUR,
             Effect::FastBoxBlur { .. } => FAST_BOX_BLUR,
+            Effect::FastBlurLegacy { .. } => FAST_BLUR_LEGACY,
             Effect::Colorama { .. } => COLORAMA,
             Effect::Glass { .. } => GLASS,
             Effect::VectorBlur { .. } => VECTOR_BLUR,
@@ -7350,6 +7365,10 @@ impl Effect {
             // D-327: the box's reach, once a pass.
             Effect::FastBoxBlur { radius, iterations, edges, .. } if edges != "repeat" => {
                 box_reach(*radius, *iterations)
+            }
+            // D-471: Fast Box Blur's at its radius.
+            Effect::FastBlurLegacy { blurriness, edges, .. } if edges != "repeat" => {
+                box_reach(FAST_BLUR_LEGACY_FACTOR * blurriness, FAST_BLUR_LEGACY_ITERATIONS)
             }
             // D-360: the longer box's reach.
             Effect::CrossBlur { radius_x, radius_y, edges, .. } if edges != "repeat" => {
@@ -8475,7 +8494,8 @@ impl Effect {
                 Some(format!("{name}'s units are \"sigma\" or \"blurriness\", and this is \"{units}\"."))
             }
             Effect::ChannelBlur { edges: e, dimensions, .. }
-            | Effect::FastBoxBlur { edges: e, dimensions, .. } => edges(e).or_else(|| {
+            | Effect::FastBoxBlur { edges: e, dimensions, .. }
+            | Effect::FastBlurLegacy { edges: e, dimensions, .. } => edges(e).or_else(|| {
                 (!["both", "horizontal", "vertical"].contains(&dimensions.as_str())).then(|| {
                     format!("{name}'s dimensions are \"both\", \"horizontal\" or \"vertical\", and this is \"{dimensions}\".")
                 })
@@ -9796,6 +9816,7 @@ pub(crate) fn apply_stack_at(
                 Effect::GaussianBlur { .. }
                     | Effect::ReduceInterlaceFlicker { .. }
                     | Effect::FastBoxBlur { .. }
+                    | Effect::FastBlurLegacy { .. }
                     | Effect::DirectionalBlur { .. }
                     | Effect::RadialBlur { .. }
                     | Effect::CrossBlur { .. }
@@ -11270,6 +11291,21 @@ pub(crate) fn apply_stack_at(
             }
             Effect::FastBoxBlur { radius, iterations, edges, dimensions } => {
                 let taps = box_weights(*radius, *iterations);
+                let axes = (dimensions != "vertical", dimensions != "horizontal");
+                let r = crate::perf::time(crate::perf::Stage::EffectFastBoxBlur, || {
+                    if edges == "repeat" {
+                        held_blur_axes(source, &taps, axes);
+                        0
+                    } else {
+                        blur_axes(source, &taps, axes)
+                    }
+                });
+                ox += r;
+                oy += r;
+            }
+            // D-471: Fast Box Blur's engine and stage, at its radius and 3 iterations.
+            Effect::FastBlurLegacy { blurriness, edges, dimensions } => {
+                let taps = box_weights(FAST_BLUR_LEGACY_FACTOR * blurriness, FAST_BLUR_LEGACY_ITERATIONS);
                 let axes = (dimensions != "vertical", dimensions != "horizontal");
                 let r = crate::perf::time(crate::perf::Stage::EffectFastBoxBlur, || {
                     if edges == "repeat" {

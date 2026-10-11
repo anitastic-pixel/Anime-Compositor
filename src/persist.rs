@@ -3310,6 +3310,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("dimensions".into(), J::from(dimensions.as_str()));
             }
         }
+        Effect::FastBlurLegacy { blurriness, edges, dimensions } => {
+            params.insert("blurriness".into(), num(*blurriness));
+            put_edges(&mut params, edges);
+            if dimensions != "both" || params.contains_key("dimensions") {
+                params.insert("dimensions".into(), J::from(dimensions.as_str()));
+            }
+        }
         Effect::Colorama {
             get_phase,
             layer,
@@ -5580,6 +5587,7 @@ fn parse_effect(
         crate::effects::SOLID_COMPOSITE,
         crate::effects::CHANNEL_BLUR,
         crate::effects::FAST_BOX_BLUR,
+        crate::effects::FAST_BLUR_LEGACY,
         crate::effects::COLORAMA,
         crate::effects::GLASS,
         crate::effects::VECTOR_BLUR,
@@ -7224,6 +7232,11 @@ fn parse_effect(
         crate::effects::FAST_BOX_BLUR => Some(crate::effects::Effect::FastBoxBlur {
             radius: effect_number(params, "radius", &at)?,
             iterations: effect_number(params, "iterations", &at)?,
+            edges: effect_edges(params, &at)?,
+            dimensions: effect_word_or(params, "dimensions", &at, "both")?,
+        }),
+        crate::effects::FAST_BLUR_LEGACY => Some(crate::effects::Effect::FastBlurLegacy {
+            blurriness: effect_number(params, "blurriness", &at)?,
             edges: effect_edges(params, &at)?,
             dimensions: effect_word_or(params, "dimensions", &at, "both")?,
         }),

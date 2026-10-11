@@ -1007,6 +1007,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Extract { .. }
                 // B-223 (D-342): five blurs.
                 | crate::effects::Effect::FastBoxBlur { .. }
+                // D-471: Fast Blur (Legacy), Fast Box Blur's passes.
+                | crate::effects::Effect::FastBlurLegacy { .. }
                 | crate::effects::Effect::ChannelBlur { .. }
                 | crate::effects::Effect::CompoundBlur { .. }
                 | crate::effects::Effect::SelectiveColorBlur { .. }
@@ -1468,6 +1470,9 @@ fn card_effect(
                 }
                 // B-223: as each one's own function returns at once.
                 E::FastBoxBlur { radius, iterations, .. } => crate::effects::box_reach(*radius, *iterations) == 0,
+                E::FastBlurLegacy { blurriness, .. } => {
+                    crate::effects::box_reach(crate::effects::FAST_BLUR_LEGACY_FACTOR * blurriness, crate::effects::FAST_BLUR_LEGACY_ITERATIONS) == 0
+                }
                 E::ChannelBlur { red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, .. } => {
                     [red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness].iter().all(|s| crate::effects::kernel_radius(**s) == 0)
                 }

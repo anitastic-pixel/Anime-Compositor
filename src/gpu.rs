@@ -14024,6 +14024,17 @@ impl Gpu {
                 let out = self.gauss(steps, bloom, "B-223 box", still, (w, h), [pick(dimensions != "vertical"), pick(dimensions != "horizontal")], e, repeat);
                 (out, (w + 2 * e, h + 2 * e))
             }
+            // D-471: Fast Box Blur's passes at its radius and 3 iterations.
+            E::FastBlurLegacy { blurriness, edges, dimensions } => {
+                let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
+                let taps = crate::effects::box_weights(crate::effects::FAST_BLUR_LEGACY_FACTOR * blurriness, crate::effects::FAST_BLUR_LEGACY_ITERATIONS);
+                let flat = crate::effects::still_weights(taps.len() / 2);
+                let pick = |on: bool| if on { &taps[..] } else { &flat[..] };
+                let repeat = edges == "repeat";
+                let e = if repeat { 0 } else { taps.len() / 2 };
+                let out = self.gauss(steps, bloom, "D-471 box", still, (w, h), [pick(dimensions != "vertical"), pick(dimensions != "horizontal")], e, repeat);
+                (out, (w + 2 * e, h + 2 * e))
+            }
             // D-360: Fast Box Blur's passes across and, apart, down, then laid together.
             E::CrossBlur { radius_x, radius_y, mode, edges } => {
                 let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
