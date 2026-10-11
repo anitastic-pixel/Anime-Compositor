@@ -210148,3 +210148,87 @@ FX-IDENT-021 (`fx_ident_021.json`): Aux channel written "depth". The file is rea
 FX-IDENT-022 (`fx_ident_022.json`): Id -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
 FX-IDENT-023 (`fx_ident_023.json`): Id keyed to 1,000,001 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### Numbers (D-526)
+
+Numbers (`core.numbers`), after After Effects' Numbers (Text, B-406), the rule ours. Each case is a project of one composition 480 by 160 at 24 frames a second, a dark blue plate carrying the effect. `tools/numbers_reference.py` works the string each frame shows, `Fixtures/numbers/expected_numbers.json`; every frame names a project in `Fixtures/numbers/same/` that draws the same words from text layers (D-263, D-264) and no Numbers, and the case's frame must match it within 2e-5. The rule is in document 21.
+
+FX-NUM-001 (`fx_num_001.json`): As added: 0 in white, centred, over the plate. Shows frame 0: "0".
+
+FX-NUM-002 (`fx_num_002.json`): 1234.5678 with two places: 1234.57. Shows frame 0: "1234.57".
+
+FX-NUM-003 (`fx_num_003.json`): -12.5 with no places: -12, the tie to even. Shows frame 0: "-12".
+
+FX-NUM-004 (`fx_num_004.json`): -0.004 with two places shows 0.00, its minus dropped. Shows frame 0: "0.00".
+
+FX-NUM-005 (`fx_num_005.json`): Leading zeros, 42.75 with one place: 00042.8. Shows frame 0: "00042.8".
+
+FX-NUM-006 (`fx_num_006.json`): Leading zeros, -7: -00007. Shows frame 0: "-00007".
+
+FX-NUM-007 (`fx_num_007.json`): Decimal places 2.9 is taken down to 2: 3.14. Shows frame 0: "3.14".
+
+FX-NUM-008 (`fx_num_008.json`): Timecode 30 at frames 0 and 50 of a 24-frame composition: 00:00:00:00 and 00:00:02:02. Shows frame 0: "00:00:00:00", frame 50: "00:00:02:02".
+
+FX-NUM-009 (`fx_num_009.json`): Timecode 25 with value 3600: an hour on, 01:00:02:02 at frame 50. Shows frame 50: "01:00:02:02".
+
+FX-NUM-010 (`fx_num_010.json`): Timecode 24 on a layer starting at frame 10: 00:00:01:00 at frame 34. Shows frame 34: "00:00:01:00".
+
+FX-NUM-011 (`fx_num_011.json`): Timecode 30 with value -1 at frame 12: -00:00:00:15. Shows frame 12: "-00:00:00:15".
+
+FX-NUM-012 (`fx_num_012.json`): Time 13.5: 13:30. Shows frame 0: "13:30".
+
+FX-NUM-013 (`fx_num_013.json`): Time 25.25 wraps round the day: 01:15. Shows frame 0: "01:15".
+
+FX-NUM-014 (`fx_num_014.json`): Time -0.5: 23:30. Shows frame 0: "23:30".
+
+FX-NUM-015 (`fx_num_015.json`): Numerical date 0: 1/1/1995. Shows frame 0: "1/1/1995".
+
+FX-NUM-016 (`fx_num_016.json`): Short date 10000: May 19, 2022. Shows frame 0: "May 19, 2022".
+
+FX-NUM-017 (`fx_num_017.json`): Long date 365: Monday, January 1, 1996, left-aligned from 3 per cent. Shows frame 0: "Monday, January 1, 1996".
+
+FX-NUM-018 (`fx_num_018.json`): Long date -1: Saturday, December 31, 1994. Shows frame 0: "Saturday, December 31, 1994".
+
+FX-NUM-019 (`fx_num_019.json`): Hexadecimal 1.5: 18000. Shows frame 0: "18000".
+
+FX-NUM-020 (`fx_num_020.json`): Hexadecimal -0.25: -4000. Shows frame 0: "-4000".
+
+FX-NUM-021 (`fx_num_021.json`): Random values up to 100 with two places, a new number each frame. Shows frame 0: "21.36", frame 1: "7.37", frame 7: "90.47".
+
+FX-NUM-022 (`fx_num_022.json`): Random values with value 0: anywhere up to 30,000. Shows frame 3: "9700".
+
+FX-NUM-023 (`fx_num_023.json`): Random timecode 30 up to 60 seconds: a random time, not the layer's. Shows frame 5: "00:00:02:28".
+
+FX-NUM-024 (`fx_num_024.json`): A counter: value keyed from 0 at frame 0 to 100 at frame 10, 40 at frame 4 and 100 from frame 10 on. Shows frame 4: "40", frame 12: "100".
+
+FX-NUM-025 (`fx_num_025.json`): Stroke only, width 4: the ring outside the letters. Shows frame 0: "2026".
+
+FX-NUM-026 (`fx_num_026.json`): Fill over stroke, width 6. Shows frame 0: "2026".
+
+FX-NUM-027 (`fx_num_027.json`): Stroke over fill, width 6. Shows frame 0: "2026".
+
+FX-NUM-028 (`fx_num_028.json`): Stroke only with width 0: nothing drawn. Shows frame 0: "2026".
+
+FX-NUM-029 (`fx_num_029.json`): Monospaced 1.11 with tracking 100: each character in a digit's cell. Shows frame 0: "1.11".
+
+FX-NUM-030 (`fx_num_030.json`): Monospaced timecode 25, fill over stroke, left-aligned from 5 per cent: the colons in cells as wide as the digits. Shows frame 37: "00:00:01:13".
+
+FX-NUM-031 (`fx_num_031.json`): Monospaced, stroke only, right-aligned at 95 per cent. Shows frame 0: "-3.5".
+
+FX-NUM-032 (`fx_num_032.json`): Monospaced, stroke over fill, composite off: the words alone on transparent. Shows frame 0: "88".
+
+FX-NUM-033 (`fx_num_033.json`): Composite off, right-aligned at 90, 70 per cent, size 40, tracking -50. Shows frame 0: "512".
+
+FX-NUM-034 (`fx_num_034.json`): A font this computer does not have: said each frame, nothing drawn, the plate as it was. Each frame says `TEXT_FONT_MISSING`.
+
+FX-NUM-040 (`fx_num_040.json`): Type written "roman". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-NUM-041 (`fx_num_041.json`): Display written "outline". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-NUM-042 (`fx_num_042.json`): Value 40,000, past 30,000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-NUM-043 (`fx_num_043.json`): Decimal places 11. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-NUM-044 (`fx_num_044.json`): Font written "../fonts/x.ttf", a path. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-NUM-045 (`fx_num_045.json`): Fill colour written "white". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
