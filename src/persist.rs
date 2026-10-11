@@ -3013,6 +3013,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("split_1".into(), num(*split_1));
             params.insert("split_2".into(), num(*split_2));
         }
+        // D-458: the other frame's picture is read at each frame, never saved.
+        Effect::SimpleWireRemoval { point_a, point_b, removal_style, thickness, slope, mirror_blend, frame_offset, picture: _ } => {
+            params.insert("point_a".into(), J::Array(point_a.iter().map(|c| num(*c)).collect()));
+            params.insert("point_b".into(), J::Array(point_b.iter().map(|c| num(*c)).collect()));
+            params.insert("removal_style".into(), J::from(removal_style.as_str()));
+            params.insert("thickness".into(), num(*thickness));
+            params.insert("slope".into(), num(*slope));
+            params.insert("mirror_blend".into(), num(*mirror_blend));
+            params.insert("frame_offset".into(), num(*frame_offset));
+        }
         Effect::Tiles { scale, center, blend } => {
             params.insert("scale".into(), num(*scale));
             params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
@@ -4817,6 +4827,7 @@ fn parse_effect(
         crate::effects::REMOVE_GRAIN,
         crate::effects::DEBAND,
         crate::effects::ADVANCED_SPILL_SUPPRESSOR,
+        crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
         crate::effects::CROSS_BLUR,
@@ -6192,6 +6203,16 @@ fn parse_effect(
             point_b: effect_array(params, "point_b", "two numbers, x then y", &at)?,
             split_1: effect_number(params, "split_1", &at)?,
             split_2: effect_number(params, "split_2", &at)?,
+        }),
+        crate::effects::SIMPLE_WIRE_REMOVAL => Some(crate::effects::Effect::SimpleWireRemoval {
+            point_a: effect_array(params, "point_a", "two numbers, x then y", &at)?,
+            point_b: effect_array(params, "point_b", "two numbers, x then y", &at)?,
+            removal_style: effect_word(params, "removal_style", &at)?,
+            thickness: effect_number(params, "thickness", &at)?,
+            slope: effect_number(params, "slope", &at)?,
+            mirror_blend: effect_number(params, "mirror_blend", &at)?,
+            frame_offset: effect_number(params, "frame_offset", &at)?,
+            picture: None,
         }),
         crate::effects::TILES => Some(crate::effects::Effect::Tiles {
             scale: effect_number(params, "scale", &at)?,

@@ -2159,6 +2159,23 @@ pub enum Effect {
         spill_color_correction: f64,
         luma_correction: f64,
     },
+    /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
+    /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
+    /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
+    /// `mirror_blend`, 0 to 100 per cent; `frame_offset`, -1000 to 1000 frames, taken down.
+    /// `picture` is not a setting and is never saved: for "frame_offset", the holder at that frame
+    /// with the effects before this one, which compose reads (`fill_wire`); `None` leaves the
+    /// layer as it was.
+    SimpleWireRemoval {
+        point_a: [f64; 2],
+        point_b: [f64; 2],
+        removal_style: String,
+        thickness: f64,
+        slope: f64,
+        mirror_blend: f64,
+        frame_offset: f64,
+        picture: Option<crate::layer_map::Map>,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2899,6 +2916,9 @@ pub const DEBAND_VIEWS: [&str; 3] = ["normal", "edge_only", "selected_edge"];
 pub const ADVANCED_SPILL_SUPPRESSOR: &str = "core.advanced_spill_suppressor";
 /// D-457: Advanced Spill Suppressor's methods.
 pub const SPILL_METHODS: [&str; 2] = ["standard", "ultra"];
+pub const SIMPLE_WIRE_REMOVAL: &str = "core.simple_wire_removal";
+/// D-458: CC Simple Wire Removal's styles.
+pub const WIRE_STYLES: [&str; 4] = ["fade", "frame_offset", "displace", "displace_horizontal"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3783,6 +3803,14 @@ impl Effect {
                 ("point_a", point_a.iter_mut().collect(), -1000.0, 1000.0),
                 ("point_b", point_b.iter_mut().collect(), -1000.0, 1000.0),
                 ("split", vec![split], 0.0, 1000.0),
+            ],
+            Effect::SimpleWireRemoval { point_a, point_b, thickness, slope, mirror_blend, frame_offset, .. } => vec![
+                ("point_a", point_a.iter_mut().collect(), -1000.0, 1000.0),
+                ("point_b", point_b.iter_mut().collect(), -1000.0, 1000.0),
+                ("thickness", vec![thickness], 0.0, 100.0),
+                ("slope", vec![slope], 0.0, 100.0),
+                ("mirror_blend", vec![mirror_blend], 0.0, 100.0),
+                ("frame_offset", vec![frame_offset], -1000.0, 1000.0),
             ],
             Effect::Split2 { point_a, point_b, split_1, split_2 } => vec![
                 ("point_a", point_a.iter_mut().collect(), -1000.0, 1000.0),
@@ -5128,6 +5156,7 @@ impl Effect {
             Effect::Smear { radius, .. } => *radius = scale(*radius),
             Effect::Split { split, .. } => *split = scale(*split),
             Effect::Split2 { split_1, split_2, .. } => (*split_1, *split_2) = (scale(*split_1), scale(*split_2)),
+            Effect::SimpleWireRemoval { thickness, .. } => *thickness = scale(*thickness),
             // D-379: a distant light's height is a slope against 100, no distance.
             Effect::Blobbylize { softness, light_type, light_height, .. } => {
                 *softness = scale(*softness);
@@ -5366,6 +5395,7 @@ impl Effect {
             Effect::Cartoon { .. } => "Cartoon",
             Effect::Deband { .. } => "Deband",
             Effect::AdvancedSpillSuppressor { .. } => "Advanced Spill Suppressor",
+            Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5556,6 +5586,7 @@ impl Effect {
             Effect::Cartoon { .. } => CARTOON,
             Effect::Deband { .. } => DEBAND,
             Effect::AdvancedSpillSuppressor { .. } => ADVANCED_SPILL_SUPPRESSOR,
+            Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6077,6 +6108,9 @@ impl Effect {
                         format!("{name}'s blending mode is \"normal\", \"multiply\", \"screen\", \"add\", \"overlay\" or \"soft_light\", and this is \"{blending_mode}\".")
                     })
                 }),
+            Effect::SimpleWireRemoval { removal_style, .. } => (!WIRE_STYLES.contains(&removal_style.as_str())).then(|| {
+                format!("{name}'s removal style is \"fade\", \"frame_offset\", \"displace\" or \"displace_horizontal\", and this is \"{removal_style}\".")
+            }),
             Effect::ColorStabilizer { stabilize, .. } => (!STABILIZE_MODES.contains(&stabilize.as_str()))
                 .then(|| format!("{name}'s stabilize is \"brightness\", \"levels\" or \"curves\", and this is \"{stabilize}\".")),
             Effect::RadialBlur { kind, edges: e, .. } => (!["spin", "zoom"]
@@ -8538,6 +8572,14 @@ pub(crate) fn apply_stack_at(
                 let dims = (source.width(), source.height());
                 let (a, b) = (radial_center(*point_a, dims, (ox, oy)), radial_center(*point_b, dims, (ox, oy)));
                 crate::perf::time(crate::perf::Stage::EffectSplit, || crate::layer_fx::split(source, a, b, [*split_1, *split_2]))
+            }
+            // D-458: the layer never grows.
+            Effect::SimpleWireRemoval { point_a, point_b, removal_style, thickness, slope, mirror_blend, picture, .. } => {
+                let dims = (source.width(), source.height());
+                let (a, b) = (radial_center(*point_a, dims, (ox, oy)), radial_center(*point_b, dims, (ox, oy)));
+                crate::perf::time(crate::perf::Stage::EffectSimpleWireRemoval, || {
+                    crate::layer_fx::wire_removal(source, a, b, removal_style, [*thickness, *slope, *mirror_blend], picture.as_ref().map(|m| &*m.0))
+                })
             }
             // D-404: the layer never grows.
             Effect::Tiles { scale, center, blend } => {

@@ -93,6 +93,12 @@ impl Table {
 
     /// The cases of `expected` whose number is in `numbers`, as [`fixtures`](Self::fixtures).
     pub fn fixtures_numbered(&mut self, expected: &str, numbers: std::ops::RangeInclusive<u32>) {
+        self.fixtures_warned_at(expected, numbers, 4);
+    }
+
+    /// As [`fixtures_numbered`](Self::fixtures_numbered), what each frame warns of read at
+    /// `warn_frame`, for a fixture whose composition ends before frame 4 (D-458's has 4 frames).
+    pub fn fixtures_warned_at(&mut self, expected: &str, numbers: std::ops::RangeInclusive<u32>, warn_frame: i32) {
         let expected: J =
             serde_json::from_str(&fs::read_to_string(self.root.join(expected)).unwrap()).unwrap();
         let tolerance = expected["tolerance"].as_f64().unwrap();
@@ -117,7 +123,7 @@ impl Table {
             let _ = plan_frame(
                 loaded.document.project(),
                 &Id::new(MAIN),
-                4,
+                warn_frame,
                 &self.root,
                 &mut log,
             );
@@ -131,7 +137,7 @@ impl Table {
             let mut want_at_frame = want.clone();
             want_at_frame.extend(case.get("frame_warning").and_then(J::as_str));
             self.row(
-                &format!("{name}: what opening it warns of, and what frame 4 warns of"),
+                &format!("{name}: what opening it warns of, and what frame {warn_frame} warns of"),
                 &format!("{on_open:?} and {at_frame:?}"),
                 on_open == want && at_frame == want_at_frame,
             );

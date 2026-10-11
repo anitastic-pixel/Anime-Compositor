@@ -4156,6 +4156,76 @@ pub(crate) fn split(source: &mut WorkingBuffer, a: (f64, f64), b: (f64, f64), sp
     });
 }
 
+/// D-458: CC Simple Wire Removal, this program's own reading of CycoreFX's (document 21). Along
+/// `a` to `b`, length L, unit step u and n = (-u_y, u_x) across it, a pixel's centre t of the way
+/// along and d to the side has the weight w = 1 within h = thickness / 2, falling to 0 over r =
+/// thickness (1 - slope / 100) past it, and 0 past E = h + r or for t outside 0 to 1. It becomes
+/// c (1 - w) + R w: R clear for "fade"; `other`'s pixel for "frame_offset"; for "displace", the
+/// samples at F - E n and F + E n (F its foot on the wire) mixed by (d + E) / 2E, then
+/// `numbers[2]` per cent of the sample at F + sign(d) (2E - |d|) n, mixed in; "displace_horizontal"
+/// takes each sample along the pixel's own row instead, where the row has that d, and leaves a
+/// wire lying flat alone. Samples are held inside the buffer's pixel centres (D-109's repeat).
+/// `numbers`: thickness, slope, mirror blend. Thickness 0, `a` on `b`, or "frame_offset" with no
+/// `other` leaves the buffer as it was. The settings are already valid.
+pub(crate) fn wire_removal(source: &mut WorkingBuffer, a: (f64, f64), b: (f64, f64), style: &str, numbers: [f64; 3], other: Option<&WorkingBuffer>) {
+    let [thickness, slope, mirror] = numbers;
+    let length = (b.0 - a.0).hypot(b.1 - a.1);
+    if length == 0.0 || thickness <= 0.0 || (style == "frame_offset" && other.is_none()) {
+        return;
+    }
+    let (ux, uy) = ((b.0 - a.0) / length, (b.1 - a.1) / length);
+    let (nx, ny) = (-uy, ux);
+    if style == "displace_horizontal" && nx == 0.0 {
+        return;
+    }
+    let h = thickness / 2.0;
+    let r = thickness * (1.0 - slope / 100.0);
+    let e = h + r;
+    let m = mirror / 100.0;
+    let (w, ht) = (source.width(), source.height());
+    let still = source.clone();
+    let held = |x: f64, y: f64| sample_bilinear(&still, x.clamp(0.5, w as f64 - 0.5), y.clamp(0.5, ht as f64 - 0.5));
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (cx, cy) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+        let (x, y) = (cx - a.0, cy - a.1);
+        let along = x * ux + y * uy;
+        let d = x * nx + y * ny;
+        let t = along / length;
+        let q = d.abs();
+        if !(0.0..=1.0).contains(&t) || q >= e {
+            return;
+        }
+        let weight = if q <= h { 1.0 } else { 1.0 - (q - h) / r };
+        let rr: [f64; 4] = match style {
+            "fade" => [0.0; 4],
+            "frame_offset" => {
+                let o = other.expect("frame_offset with no picture returned above");
+                let p = if i % w < o.width() && i / w < o.height() { o.pixel(i % w, i / w) } else { [0.0; 4] };
+                p.map(f64::from)
+            }
+            _ => {
+                let at = |k: f64| {
+                    if style == "displace" {
+                        held(a.0 + along * ux + k * nx, a.1 + along * uy + k * ny)
+                    } else {
+                        held(cx + (k - d) / nx, cy)
+                    }
+                };
+                let s = if d >= 0.0 { 1.0 } else { -1.0 };
+                let (lo, hi, mir) = (at(-e), at(e), at(s * (2.0 * e - q)));
+                let f = (d + e) / (2.0 * e);
+                std::array::from_fn(|ch| {
+                    let inter = lo[ch] as f64 + (hi[ch] as f64 - lo[ch] as f64) * f;
+                    inter + (mir[ch] as f64 - inter) * m
+                })
+            }
+        };
+        for ch in 0..4 {
+            px[ch] = (px[ch] as f64 * (1.0 - weight) + rr[ch] * weight) as f32;
+        }
+    });
+}
+
 /// D-198: the drawing, whose corner is at `origin` in the buffer, stretched in perspective so
 /// its upper left, upper right, lower left and lower right corners land on `pins`, each in per
 /// cent of the drawing's width and height. Returns how far it grew on the left and on the top,

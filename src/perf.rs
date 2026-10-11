@@ -372,6 +372,8 @@ pub enum Stage {
     EffectDeband,
     /// D-457's Advanced Spill Suppressor.
     EffectAdvancedSpillSuppressor,
+    /// D-458: CC Simple Wire Removal.
+    EffectSimpleWireRemoval,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -389,7 +391,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 192] = [
+    pub const ALL: [Stage; 193] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -575,6 +577,7 @@ impl Stage {
         Stage::EffectCartoon,
         Stage::EffectDeband,
         Stage::EffectAdvancedSpillSuppressor,
+        Stage::EffectSimpleWireRemoval,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -772,6 +775,7 @@ impl Stage {
             Stage::EffectCartoon => "effect: cartoon",
             Stage::EffectDeband => "effect: deband",
             Stage::EffectAdvancedSpillSuppressor => "effect: advanced spill suppressor",
+            Stage::EffectSimpleWireRemoval => "effect: simple wire removal",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

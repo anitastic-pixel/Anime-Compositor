@@ -6281,6 +6281,71 @@ fn wrapped(t: texture_2d<f32>, x: f64, y: f64) -> vec4<f32> {
     return out;
 }
 
+// D-458, layer_fx::wire_removal: F.mode the style (0 fade, 1 frame offset, 2 displace, 3 along
+// the rows); `other` the other frame's picture for 1. k: the wire's start, its unit step, its
+// length, h, r, E, the mirror's share, a 0.
+fn wire_held(x: f64, y: f64) -> vec4<f32> {
+    let size = vec2<f64>(textureDimensions(input));
+    return bilinear(input, clamp(x, 0.5lf, size.x - 0.5lf), clamp(y, 0.5lf, size.y - 0.5lf));
+}
+
+fn wire_at(j: f64, along: f64, d: f64, cx: f64, cy: f64) -> vec4<f32> {
+    let z = k[9];
+    if F.mode == 2u {
+        return wire_held(k[0] + product(along, k[2], z) + product(j, -k[3], z), k[1] + product(along, k[3], z) + product(j, k[2], z));
+    }
+    return wire_held(cx + quotient(j - d, -k[3]), cy);
+}
+
+@compute @workgroup_size(16, 16)
+fn wire(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let z = k[9];
+    let c = textureLoad(input, vec2<i32>(id.xy), 0);
+    let cx = f64(id.x) + 0.5lf;
+    let cy = f64(id.y) + 0.5lf;
+    let x = cx - k[0];
+    let y = cy - k[1];
+    let along = product(x, k[2], z) + product(y, k[3], z);
+    let d = product(x, -k[3], z) + product(y, k[2], z);
+    let t = quotient(along, k[4]);
+    let q = abs(d);
+    let e = k[7];
+    if t < 0.0lf || t > 1.0lf || q >= e {
+        textureStore(output, vec2<i32>(id.xy), c);
+        return;
+    }
+    var weight = 1.0lf;
+    if q > k[5] {
+        weight = 1.0lf - quotient(q - k[5], k[6]);
+    }
+    var rr = vec4<f64>(0.0lf);
+    if F.mode == 1u {
+        rr = vec4<f64>(at(other, vec2<i32>(id.xy)));
+    } else if F.mode >= 2u {
+        var s = -1.0lf;
+        if d >= 0.0lf {
+            s = 1.0lf;
+        }
+        let lo = vec4<f64>(wire_at(-e, along, d, cx, cy));
+        let hi = vec4<f64>(wire_at(e, along, d, cx, cy));
+        let mir = vec4<f64>(wire_at(s * (2.0lf * e - q), along, d, cx, cy));
+        let f = quotient(d + e, 2.0lf * e);
+        for (var ch = 0; ch < 4; ch++) {
+            let inter = lo[ch] + product(hi[ch] - lo[ch], f, z);
+            rr[ch] = inter + product(mir[ch] - inter, k[8], z);
+        }
+    }
+    var out = vec4(0.0);
+    for (var ch = 0; ch < 4; ch++) {
+        out[ch] = f32(product(f64(c[ch]), 1.0lf - weight, z) + product(rr[ch], weight, z));
+    }
+    textureStore(output, vec2<i32>(id.xy), out);
+}
+
 // B-224, layer_fx::displacement_map: each pixel of the output, the drawing (`input`) grown by F.g,
 // the drawing read bilinearly where the map (`other`, its corner F.ox, F.oy in the drawing) moves
 // it; past the map's edge, when grown, the map's nearest edge pixel, else clear. k: across's and
@@ -8401,6 +8466,8 @@ struct FxPasses {
     cmix: Pass,
     /// B-224.
     dmap: Pass,
+    /// D-458.
+    wire: Pass,
     glass: Pass,
     /// D-379.
     blobover: Pass,
@@ -9067,6 +9134,7 @@ impl Gpu {
                 csigma: pass("csigma", &[0, 1, 3, 8]),
                 cmix: pass("cmix", &[0, 1, 2, 3, 4, 8]),
                 dmap: pass("dmap", &[0, 1, 2, 3, 4]),
+                wire: pass("wire", &[0, 1, 2, 3, 4]),
                 glass: pass("glass", &[0, 1, 2, 3, 4]),
                 blobover: pass("blobover", &[0, 1, 2, 4]),
                 blobby: pass("blobby", &[0, 1, 2, 3, 4]),
@@ -10805,6 +10873,20 @@ impl Gpu {
                 }
                 let k = [ax, ay, (bx - ax) / length, (by - ay) / length, length, *split_2, 0.0, *split_1];
                 same(steps, &passes.warp, FxParams { mode: 21, ..Default::default() }, &k, None)
+            }
+            // D-458: compose leaves only a wire that changes the layer.
+            E::SimpleWireRemoval { point_a, point_b, removal_style, thickness, slope, mirror_blend, picture, .. } => {
+                let (ax, ay) = crate::effects::radial_center(*point_a, (w, h), f.origin);
+                let (bx, by) = crate::effects::radial_center(*point_b, (w, h), f.origin);
+                let length = (bx - ax).hypot(by - ay);
+                let mode = crate::effects::WIRE_STYLES.iter().position(|s| s == removal_style).expect("compose leaves a valid Simple Wire Removal") as u32;
+                let (hh, r) = (thickness / 2.0, thickness * (1.0 - slope / 100.0));
+                let k = [ax, ay, (bx - ax) / length, (by - ay) / length, length, hh, r, hh + r, mirror_blend / 100.0, 0.0];
+                let other = match picture {
+                    Some(m) if mode == 1 => self.map_texture(&m.0),
+                    _ => still.clone(),
+                };
+                same(steps, &passes.wire, FxParams { mode, ..Default::default() }, &k, Some(&other))
             }
             // D-404: Motion Tile's sized tile held at the picture's size, as layer_fx::sized_tile
             // works its numbers, then the original mixed back.

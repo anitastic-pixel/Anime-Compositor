@@ -1011,6 +1011,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Smear { .. }
                 | crate::effects::Effect::Split { .. }
                 | crate::effects::Effect::Split2 { .. }
+                // D-458: CC Simple Wire Removal.
+                | crate::effects::Effect::SimpleWireRemoval { .. }
                 // D-404: Tiles.
                 | crate::effects::Effect::Tiles { .. }
                 // D-405: Magnify.
@@ -1374,6 +1376,13 @@ fn card_effect(
                 E::Smear { from, to, reach, radius } => *radius == 0.0 || *reach == 0.0 || from == to,
                 E::Split { point_a, point_b, split } => *split == 0.0 || point_a == point_b,
                 E::Split2 { point_a, point_b, split_1, split_2 } => (*split_1, *split_2) == (0.0, 0.0) || point_a == point_b,
+                // D-458: no wire, no other frame, or a flat wire taken along its own rows.
+                E::SimpleWireRemoval { point_a, point_b, removal_style, thickness, picture, .. } => {
+                    *thickness <= 0.0
+                        || point_a == point_b
+                        || (removal_style == "frame_offset" && picture.is_none())
+                        || (removal_style == "displace_horizontal" && point_a[1] == point_b[1])
+                }
                 // D-404: the original mixed back whole, or the one tile the picture itself.
                 E::Tiles { scale, center, blend } => *blend >= 100.0 || (*scale == 100.0 && *center == crate::layer_fx::PLAIN_TILE),
                 // D-405: a clear area laid over the layer, as layer_fx::magnify returns at once.
@@ -2246,6 +2255,26 @@ fn resolve_rest(
             .with_remediation("Put the Color Stabilizer on the layer itself, or precompose the layers beneath and put it on the composition layer."),
         );
     }
+    // D-458: nor another frame, so a Simple Wire Removal set to Frame Offset there changes nothing.
+    if layer.is_adjustment()
+        && effects.iter().any(|i| {
+            i.enabled
+                && i.is_valid()
+                && matches!(&i.effect, crate::effects::Effect::SimpleWireRemoval { removal_style, .. } if removal_style == "frame_offset")
+        })
+    {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::TemporalSmoothingSkipped,
+                Severity::Warning,
+                format!("Adjustment layer {} has a CC Simple Wire Removal set to Frame Offset, which needs another frame an adjustment layer cannot read.", layer.name),
+                format!("Frame {frame} is drawn without it. The setting is kept as it is."),
+            )
+            .with_remediation("Put the CC Simple Wire Removal on the layer itself, or precompose the layers beneath and put it on the composition layer."),
+        );
+    }
     // D-191: each layer setting's map, made at the size the effects run at. An adjustment
     // layer's are made where its stack runs, on the frame.
     if !layer.is_adjustment() {
@@ -2261,6 +2290,7 @@ fn resolve_rest(
         fill_echoes(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_stats(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_stabilizer(&mut effects, project, root, comp, layer, at, quality, pre, float, cache, log);
+        fill_wire(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_moment_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_noise(&mut effects, project, root, comp, layer, at, quality, cache);
     }
@@ -3372,6 +3402,47 @@ fn fill_stabilizer(
         }
         if let crate::effects::Effect::ColorStabilizer { reference, .. } = &mut effects[i].effect {
             *reference = samples;
+        }
+    }
+}
+
+/// D-458: each switched-on Simple Wire Removal set to Frame Offset's other picture: the holder
+/// at this frame plus its Frame Offset, taken down, with the effects before this one. None when
+/// the layer does not show there; the effect then changes nothing.
+#[allow(clippy::too_many_arguments)]
+fn fill_wire(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    for i in 0..effects.len() {
+        let other = match &effects[i] {
+            e if !e.enabled || !e.is_valid() => continue,
+            crate::effects::EffectInstance {
+                effect: crate::effects::Effect::SimpleWireRemoval { removal_style, frame_offset, thickness, point_a, point_b, .. },
+                ..
+            } if removal_style == "frame_offset" && *thickness > 0.0 && point_a != point_b => frame + frame_offset.floor() as i32,
+            _ => continue,
+        };
+        let mut upto = holder.clone();
+        upto.effects.truncate(i);
+        let mut inside = FrameLog::new(usize::MAX);
+        let drawn = resolve_layer(project, comp, &upto, other, root, quality, cache, &mut inside, &mut Vec::new(), false, true);
+        let mut said = Vec::new();
+        for d in inside.finish() {
+            if !said.contains(&d.id) {
+                said.push(d.id);
+                log.record(frame, holder.name.clone(), d);
+            }
+        }
+        if let crate::effects::Effect::SimpleWireRemoval { picture, .. } = &mut effects[i].effect {
+            *picture = drawn.map(|r| crate::layer_map::Map(r.source.clone()));
         }
     }
 }
