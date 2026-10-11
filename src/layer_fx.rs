@@ -7810,12 +7810,31 @@ pub(crate) fn tile_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, 
     });
 }
 
+/// D-519: CC Spotlight's gel for one frame: `Some(None)` for a Light render or with no gel named,
+/// `Some(Some(map))` when it was read, and `None` when a gel is named but was not read, which
+/// leaves the layer as it is.
+pub(crate) fn spot_gel(e: &crate::effects::Effect) -> Option<Option<&WorkingBuffer>> {
+    let crate::effects::Effect::CcSpotlight { render, gel_layer, gel_map, .. } = e else {
+        return None;
+    };
+    if !render.starts_with("gel_") {
+        return Some(None);
+    }
+    match gel_map {
+        Some(m) => Some(Some(&*m.0)),
+        None => (gel_layer.as_str() == Some("")).then_some(None),
+    }
+}
+
 /// D-507: CC Spotlight's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
-/// the render (an index into `effects::SPOT_RENDERS`), the light F (three), the axis A = T - F
-/// (three), the half opening and the inner angle in radians, the intensity share, the light's
-/// linear colour (three), and 1 when there is any light at all (an axis and an opening).
-pub(crate) fn spotlight_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 14] {
-    let crate::effects::Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, color, intensity, render } = e else {
+/// the Light render (an index into the first four of `effects::SPOT_RENDERS`), the light F
+/// (three), the axis A = T - F (three), the half opening and the inner angle in radians, the
+/// intensity share, the light's linear colour (three), and 1 when there is any light at all (an
+/// axis and an opening). D-519: 1 with a gel read, the axis's unit a (three), the gel's across e1
+/// (three) and down e2 (three), the tangent of the half opening held at 89 degrees, half the
+/// larger side, and the drawing's middle (two).
+pub(crate) fn spotlight_numbers(e: &crate::effects::Effect, gel: bool, w0: f64, h0: f64) -> [f64; 28] {
+    let crate::effects::Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, color, intensity, render, .. } = e else {
         unreachable!("CC Spotlight's numbers of another effect")
     };
     let f = [from[0] / 100.0 * w0, from[1] / 100.0 * h0, -height / 100.0 * w0];
@@ -7824,11 +7843,35 @@ pub(crate) fn spotlight_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) ->
     let c = crate::effects::encoded(color).map(crate::grade::to_linear);
     let mode = crate::effects::SPOT_RENDERS.iter().position(|r| r == render).expect("CC Spotlight's render was checked");
     let lit = if a == [0.0; 3] || o == 0.0 { 0.0 } else { 1.0 };
-    [mode as f64, f[0], f[1], f[2], a[0], a[1], a[2], o, o * (1.0 - edge_softness / 100.0), intensity / 100.0, c[0], c[1], c[2], lit]
+    let unit = |v: [f64; 3]| {
+        let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        if n > 0.0 { v.map(|c| c / n) } else { v }
+    };
+    let u = unit(a);
+    let mut e1 = [1.0 - u[0] * u[0], -u[0] * u[1], -u[0] * u[2]];
+    if (e1[0] * e1[0] + e1[1] * e1[1] + e1[2] * e1[2]).sqrt() < 1e-9 {
+        e1 = [-u[1] * u[0], 1.0 - u[1] * u[1], -u[1] * u[2]];
+    }
+    let e1 = unit(e1);
+    let e2 = [u[1] * e1[2] - u[2] * e1[1], u[2] * e1[0] - u[0] * e1[2], u[0] * e1[1] - u[1] * e1[0]];
+    [
+        (mode % 4) as f64, f[0], f[1], f[2], a[0], a[1], a[2], o, o * (1.0 - edge_softness / 100.0), intensity / 100.0, c[0], c[1], c[2], lit,
+        gel as u8 as f64, u[0], u[1], u[2], e1[0], e1[1], e1[2], e2[0], e2[1], e2[2],
+        o.min(89f64.to_radians()).tan(), w0.max(h0) / 2.0, w0 / 2.0, h0 / 2.0,
+    ]
+}
+
+/// D-519: where the gel is read for the own point (x, y): g = (D . e1, D . e2) / ((D . a) tan o'),
+/// at the middle plus g times half the larger side (document 21).
+fn spot_gel_point(k: &[f64; 28], x: f64, y: f64) -> (f64, f64) {
+    let d = [x - k[1], y - k[2], -k[3]];
+    let dot = |v: &[f64]| d[0] * v[0] + d[1] * v[1] + d[2] * v[2];
+    let s = dot(&k[15..18]) * k[24];
+    (k[26] + dot(&k[18..21]) / s * k[25], k[27] + dot(&k[21..24]) / s * k[25])
 }
 
 /// D-507: the light's share at the own point (x, y) (document 21).
-fn spot_share(k: &[f64; 14], x: f64, y: f64) -> f64 {
+fn spot_share(k: &[f64; 28], x: f64, y: f64) -> f64 {
     if k[13] == 0.0 {
         return 0.0;
     }
@@ -7847,14 +7890,24 @@ fn spot_share(k: &[f64; 14], x: f64, y: f64) -> f64 {
 }
 
 /// D-507: after CycoreFX's CC Spotlight, the rule ours (document 21); `(ox, oy)` the drawing's
-/// corner in the buffer. Never grows.
-pub(crate) fn cc_spotlight(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+/// corner in the buffer. D-519: `gel` the map lying on the drawing at its corner; where the light
+/// falls its colour is multiplied by the gel over white. Never grows.
+pub(crate) fn cc_spotlight(source: &mut WorkingBuffer, e: &crate::effects::Effect, gel: Option<&WorkingBuffer>, (ox, oy): (usize, usize)) {
     let (w, h) = (source.width(), source.height());
-    let k = spotlight_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
-    let (s, c) = (k[9], [k[10], k[11], k[12]]);
+    let k = spotlight_numbers(e, gel.is_some(), (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    let s = k[9];
     source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
-        let f = spot_share(&k, (i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
+        let (x, y) = ((i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
+        let f = spot_share(&k, x, y);
         let q = f * s;
+        let mut c = [k[10], k[11], k[12]];
+        if let Some(m) = gel.filter(|_| f > 0.0) {
+            let (gx, gy) = spot_gel_point(&k, x, y);
+            let g = sample_bilinear(m, gx, gy);
+            for (j, v) in c.iter_mut().enumerate() {
+                *v *= (1.0 - g[3] as f64) + g[j] as f64;
+            }
+        }
         let p = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
         let out = match k[0] as usize {
             0 => [c[0] * q, c[1] * q, c[2] * q, q.min(1.0)],

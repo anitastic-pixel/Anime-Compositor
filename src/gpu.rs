@@ -8870,7 +8870,8 @@ fn gmelt(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // D-507, layer_fx::cc_spotlight: k as layer_fx::spotlight_numbers; the drawing's corner at
-// (F.ox, F.oy). The angle is worked in single precision, which has no double atan2.
+// (F.ox, F.oy). The angle is worked in single precision, which has no double atan2. D-519: with
+// k[14] 1, `other` the gel lying on the drawing at its corner, read between pixels.
 @compute @workgroup_size(16, 16)
 fn spotlight(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -8895,7 +8896,15 @@ fn spotlight(@builtin(global_invocation_id) id: vec3<u32>) {
         }
     }
     let q = f * k[9];
-    let c = vec3<f64>(k[10], k[11], k[12]);
+    var c = vec3<f64>(k[10], k[11], k[12]);
+    if k[14] == 1.0lf && f > 0.0lf {
+        let d = vec3<f64>(f64(i32(id.x) - F.ox) + 0.5lf - k[1], f64(i32(id.y) - F.oy) + 0.5lf - k[2], -k[3]);
+        let s = dot(d, vec3<f64>(k[15], k[16], k[17])) * k[24];
+        let gx = k[26] + dot(d, vec3<f64>(k[18], k[19], k[20])) / s * k[25];
+        let gy = k[27] + dot(d, vec3<f64>(k[21], k[22], k[23])) / s * k[25];
+        let g = vec4<f64>(bilinear(other, gx, gy));
+        c = c * (vec3(1.0lf - g.w) + g.xyz);
+    }
     let mode = u32(k[0]);
     var out: vec4<f64>;
     if mode == 0u {
@@ -10695,7 +10704,7 @@ impl Gpu {
                 over: pass("over", &[0, 1, 2, 3, 4]),
                 dmatte: pass("dmatte", &[0, 1, 2, 3, 4]),
                 glasses: pass("glasses", &[0, 1, 2, 3, 4]),
-                spotlight: pass("spotlight", &[0, 1, 2, 3]),
+                spotlight: pass("spotlight", &[0, 1, 2, 3, 4]),
                 cylinder: pass("cylinder", &[0, 1, 2, 3]),
                 passx: pass("passx", &[0, 1, 2, 3, 4]),
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
@@ -14198,11 +14207,14 @@ impl Gpu {
                 self.fx_step(steps, &passes.cylinder, p, Some(still), Some(&out), Some(&k), None, none, tiles(w, h));
                 (out, (w, h))
             }
+            // D-519: compose leaves the card a CC Spotlight only when any gel named was read.
             e @ E::CcSpotlight { .. } => {
-                let k = crate::layer_fx::spotlight_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let gel = crate::layer_fx::spot_gel(e).expect("compose leaves a CC Spotlight whose gel was read");
+                let k = crate::layer_fx::spotlight_numbers(e, gel.is_some(), (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let gel = gel.map(|m| self.map_texture(m));
                 let out = self.scratch("D-507 spotlight", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
-                self.fx_step(steps, &passes.spotlight, p, Some(still), Some(&out), Some(&k), None, none, tiles(w, h));
+                self.fx_step(steps, &passes.spotlight, p, Some(still), Some(&out), Some(&k), Some(gel.as_ref().unwrap_or(still)), none, tiles(w, h));
                 (out, (w, h))
             }
             // D-518: compose leaves the card a Warp Blend only when it has begun and any layer named

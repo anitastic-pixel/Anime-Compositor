@@ -1534,6 +1534,8 @@ fn card_effect(
                 E::DifferenceMatte { map, .. } => map.is_none(),
                 // D-506: a view named but not read.
                 E::ThreeDGlasses { .. } => crate::layer_fx::glasses_settings(&effect).is_none(),
+                // D-519: a gel named but not read.
+                E::CcSpotlight { .. } => crate::layer_fx::spot_gel(&effect).is_none(),
                 // D-509: nothing melted yet, or a layer named but not read.
                 E::GlassMelt { completion, .. } => *completion <= 0.0 || crate::layer_fx::melt_settings(&effect).is_none(),
                 // D-517: nothing turned yet, or a back named but not read.

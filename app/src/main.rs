@@ -5008,6 +5008,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             color: "#ffffff".to_string(),
             intensity: 100.0,
             render: "light_shadow".to_string(),
+            gel_layer: serde_json::Value::from(""),
+            gel_map: None,
         }),
         // D-510: as added (CycoreFX gives no values we found): nothing wiped, from the middle,
         // ten tiles across, round, no border.
@@ -7364,6 +7366,9 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             color: word("color")?,
             intensity: number("intensity")?,
             render: word("render")?,
+            // D-519: the gel is read by compose each frame; none sent is none.
+            gel_layer: serde_json::Value::from(parameter(query, "gel_layer").unwrap_or_default().trim()),
+            gel_map: None,
         }),
         // D-512: as Gradient Wipe's, the layer travels as `map_layer`.
         CHANNEL_WIPE => Ok(Effect::ChannelWipe {
@@ -31811,7 +31816,7 @@ mod contract {
                 ("metal", "25"),
             ],
         ),
-        // D-507: the points, the numbers and the words.
+        // D-507: the points, the numbers and the words; D-519: a Gel render and its gel.
         (
             "core.cc_spotlight",
             &[
@@ -31822,7 +31827,8 @@ mod contract {
                 ("edge_softness", "10"),
                 ("color", "#ff8000"),
                 ("intensity", "150"),
-                ("render", "light_add"),
+                ("render", "gel_add"),
+                ("gel_layer", "layer-4"),
             ],
         ),
         // D-518: the numbers, the layer and the two words.

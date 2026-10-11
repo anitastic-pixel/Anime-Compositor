@@ -2639,7 +2639,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("random_seed".into(), num(*random_seed));
             params.insert("composite".into(), J::from(composite.as_str()));
         }
-        Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, color, intensity, render } => {
+        Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, color, intensity, render, gel_layer, .. } => {
             params.insert("from".into(), J::Array(from.iter().map(|c| num(*c)).collect()));
             params.insert("to".into(), J::Array(to.iter().map(|c| num(*c)).collect()));
             params.insert("height".into(), num(*height));
@@ -2648,6 +2648,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("color".into(), J::from(color.as_str()));
             params.insert("intensity".into(), num(*intensity));
             params.insert("render".into(), J::from(render.as_str()));
+            // D-519: no gel is written only if the file had it, so a file from before D-519 saves
+            // as it was.
+            if gel_layer.as_str() != Some("") || params.contains_key("gel_layer") {
+                params.insert("gel_layer".into(), gel_layer.clone());
+            }
         }
         Effect::BlockLoad { completion, scans, start_cleared, bilinear, .. } => {
             params.insert("completion".into(), num(*completion));
@@ -6601,6 +6606,10 @@ fn parse_effect(
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
             intensity: effect_number(params, "intensity", &at)?,
             render: effect_word(params, "render", &at)?,
+            // D-519: kept as written, as Difference Matte's layer is; a file that leaves it out
+            // has no gel (D-360's precedent).
+            gel_layer: params.and_then(|p| p.get("gel_layer")).cloned().unwrap_or_else(|| J::from("")),
+            gel_map: None,
         }),
         crate::effects::BLOCK_LOAD => Some(crate::effects::Effect::BlockLoad {
             completion: effect_number(params, "completion", &at)?,

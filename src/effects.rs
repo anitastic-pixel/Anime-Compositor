@@ -2579,7 +2579,9 @@ pub enum Effect {
     /// (`layer_fx::cc_spotlight`, document 21). `from` and `to`, x then y, per cent of the
     /// drawing, -1000 to 1000; `height`, 0 to 1000 per cent of the drawing's width; `cone_angle`,
     /// 0 to 180 degrees; `edge_softness`, 0 to 100; `color`, `#rrggbb`; `intensity`, 0 to 1000
-    /// per cent; `render`, one of [`SPOT_RENDERS`] (the Gel renders are not built).
+    /// per cent; `render`, one of [`SPOT_RENDERS`]; D-519: `gel_layer`, D-189's layer setting as
+    /// written, "" (when added, and when a file leaves it out) for no gel. `gel_map` is not a
+    /// setting and is never saved.
     CcSpotlight {
         from: [f64; 2],
         to: [f64; 2],
@@ -2589,6 +2591,8 @@ pub enum Effect {
         color: String,
         intensity: f64,
         render: String,
+        gel_layer: serde_json::Value,
+        gel_map: Option<crate::layer_map::Map>,
     },
     /// D-508: Energy Stroke, after the purpose of Video Copilot's Saber (`docs/effects/PLUGINS.md`
     /// pick #11), its rule and settings ours (`along::energy_stroke`, document 21): a glowing beam,
@@ -3761,8 +3765,10 @@ pub const TEETH_SHAPES: [&str; 3] = ["spikes", "trapezoids", "blocks"];
 /// D-510: Tile Wipe's shapes.
 pub const TILE_SHAPES: [&str; 3] = ["doors", "radial", "rectangle"];
 pub const CC_SPOTLIGHT: &str = "core.cc_spotlight";
-/// D-507: CC Spotlight's renders, without its four Gel renders, which are not built.
-pub const SPOT_RENDERS: [&str; 4] = ["light_only", "light_add", "light_add_plus", "light_shadow"];
+/// D-507: CC Spotlight's renders; D-519: the four Gel renders after them, each its Light render
+/// with the light let through the gel.
+pub const SPOT_RENDERS: [&str; 8] =
+    ["light_only", "light_add", "light_add_plus", "light_shadow", "gel_only", "gel_add", "gel_add_plus", "gel_shadow"];
 pub const ENERGY_STROKE: &str = "core.energy_stroke";
 /// D-508: where Energy Stroke's beam runs.
 pub const ENERGY_SOURCES: [&str; 4] = ["points", "masks", "shapes", "text"];
@@ -7334,6 +7340,10 @@ impl Effect {
             // D-375: read whole, never fitted to the holder.
             | Effect::ColorLink { layer: serde_json::Value::String(layer), .. }
             | Effect::MatchGrain { layer: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
+            // D-519: the gel centred on the drawing, read only by a Gel render.
+            Effect::CcSpotlight { gel_layer: serde_json::Value::String(layer), render, .. } if render.starts_with("gel_") => {
+                Some((layer, "center"))
+            }
             // D-388: the back page is laid on the drawing, stretched to it.
             Effect::PageTurn { back_page: serde_json::Value::String(layer), .. } => Some((layer, "stretch")),
             // D-517: the back centred on the drawing, as CycoreFX's manual has it.
@@ -7378,6 +7388,7 @@ impl Effect {
             | Effect::LensBlur { layer, map, .. }
             | Effect::ColorLink { layer, map, .. }
             | Effect::MatchGrain { layer, map, .. } => Some((layer, map)),
+            Effect::CcSpotlight { gel_layer, gel_map, .. } => Some((gel_layer, gel_map)),
             Effect::PageTurn { back_page, map, .. } => Some((back_page, map)),
             Effect::Fog3d { gradient_layer, map, .. } => Some((gradient_layer, map)),
             Effect::SoftGlow { dirt, .. } | Effect::LensFlare { dirt, .. } => Some((&mut dirt.layer, &mut dirt.map)),
@@ -7560,15 +7571,15 @@ impl Effect {
                 .or_else(|| (!ENERGY_COMPOSITES.contains(&composite.as_str()))
                     .then(|| format!("Energy Stroke's composite is \"add\", \"transparent\" or \"black\", and this is \"{composite}\".")))
                 .or_else(|| hex_fault("Energy Stroke", "glow colour", glow_color)),
-            Effect::CcSpotlight { color, render, .. } => hex_fault("CC Spotlight", "colour", color).or_else(|| {
-                let renders = SPOT_RENDERS.map(|r| format!("\"{r}\"")).join(", ");
-                if ["gel_only", "gel_add", "gel_add_plus", "gel_shadow"].contains(&render.as_str()) {
-                    Some(format!("CC Spotlight's gel renders are not built yet, so its render is one of {renders}, and this is \"{render}\"."))
-                } else {
+            Effect::CcSpotlight { color, render, gel_layer, .. } => hex_fault("CC Spotlight", "colour", color)
+                .or_else(|| {
+                    let renders = SPOT_RENDERS.map(|r| format!("\"{r}\"")).join(", ");
                     (!SPOT_RENDERS.contains(&render.as_str()))
                         .then(|| format!("CC Spotlight's render is one of {renders}, and this is \"{render}\"."))
-                }
-            }),
+                })
+                .or_else(|| (!gel_layer.is_string()).then(|| format!(
+                    "CC Spotlight's gel layer is the name of a layer of this composition, and this is {gel_layer}."
+                ))),
             Effect::CcCylinder { light_color, render, .. } => hex_fault("CC Cylinder", "light colour", light_color).or_else(|| {
                 (!CYLINDER_RENDERS.contains(&render.as_str())).then(|| {
                     let renders = CYLINDER_RENDERS.map(|r| format!("\"{r}\"")).join(", ");
@@ -10630,10 +10641,13 @@ pub(crate) fn apply_stack_at(
             e @ Effect::TileWipe { .. } => crate::perf::time(crate::perf::Stage::EffectTileWipe, || {
                 crate::layer_fx::tile_wipe(source, e, (ox, oy))
             }),
-            // D-507: every distance a share of the drawing; never grows.
-            e @ Effect::CcSpotlight { .. } => crate::perf::time(crate::perf::Stage::EffectCcSpotlight, || {
-                crate::layer_fx::cc_spotlight(source, e, (ox, oy))
-            }),
+            // D-507: every distance a share of the drawing; never grows. D-519: a gel named but not
+            // read leaves the layer as it is, with D-189's warning.
+            e @ Effect::CcSpotlight { .. } => {
+                if let Some(gel) = crate::layer_fx::spot_gel(e) {
+                    crate::perf::time(crate::perf::Stage::EffectCcSpotlight, || crate::layer_fx::cc_spotlight(source, e, gel, (ox, oy)))
+                }
+            }
             // D-508: the paths compose found, or the points, in the drawing's own space; with no
             // path the layer is left as it is (EFFECT_PATH_MISSING was said). Never grows.
             e @ Effect::EnergyStroke { .. } => crate::perf::time(crate::perf::Stage::EffectEnergyStroke, || {
