@@ -210918,3 +210918,49 @@ FX-BALL-043 (`fx_ball_043.json`): Rotation axis "w": not one of the nine. The fi
 FX-BALL-044 (`fx_ball_044.json`): Rotation axis "X": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BALL-045 (`fx_ball_045.json`): Twist property "spiral": not one of the thirteen. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Pass Extract's alpha and UnMult (D-552)
+
+Pass Extract (`core.pass_extract`) with four channel names and UnMult, after fnord's EXtractoR (B-432, EFFECTS.md row 378), the arithmetic ours. Every case is a project of one composition 8 by 6, five frames, 24 a second, whose one layer is an EXR still (`media/render.exr`, or `window.exr` with a data window, or `odd.exr` with not-a-number and infinities in its alpha) carrying a premultiplied render in `Reflect.R`, `.G`, `.B`, `.A` (alpha by column 0, 0.25, 0.5, 0.75, 1, 1.5, -0.25, 0.6) and `Mask.Y`. `tools/extractor_alpha_reference.py` works the expected frames, `Fixtures/extractor_alpha/expected_extractor_alpha.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-EXA-001 (`fx_exa_001.json`): Red, green, blue and alpha named, Reflect.R, .G, .B, .A, UnMult left out (off), the points as added: the stored colour taken as straight and laid over its alpha, so the soft columns are darkened twice; clear where the alpha is 0 or below. Frames 0.
+
+FX-EXA-002 (`fx_exa_002.json`): The same, UnMult on: the render back as it was written, its colour divided by its alpha and multiplied again; the column whose alpha is past 1 is held at 1. Frames 0.
+
+FX-EXA-003 (`fx_exa_003.json`): UnMult on, Black 0.2, White 0.8: the straight colour stretched, then laid over the alpha. Frames 0.
+
+FX-EXA-004 (`fx_exa_004.json`): UnMult on, Invert on: the straight colour turned over, the alpha kept. Frames 0.
+
+FX-EXA-005 (`fx_exa_005.json`): UnMult on, Black 0.25, White 0.5, Clamp off: values past 1 kept, times the alpha. Frames 0.
+
+FX-EXA-006 (`fx_exa_006.json`): UnMult off, Black 0.25, White 0.5, Clamp off. Frames 0.
+
+FX-EXA-007 (`fx_exa_007.json`): UnMult on, Black and White both 0.5: a cut on the straight colour. Frames 0.
+
+FX-EXA-008 (`fx_exa_008.json`): The alpha from another channel, Mask.Y (0 at the top to 1 at the bottom), UnMult on: the colour fades in down the picture, the top row clear. Frames 0.
+
+FX-EXA-009 (`fx_exa_009.json`): One channel three times and an alpha, Reflect.G x3, Reflect.A, UnMult on: a grey over the alpha. Frames 0.
+
+FX-EXA-010 (`fx_exa_010.json`): Three names, UnMult on: no alpha, so the picture is opaque and UnMult changes nothing (D-349's picture, as FX-EXA-011). Frames 0.
+
+FX-EXA-011 (`fx_exa_011.json`): Three names, UnMult off: D-349's opaque picture. Frames 0.
+
+FX-EXA-012 (`fx_exa_012.json`): One name, UnMult on: opaque, as UnMult off. Frames 0.
+
+FX-EXA-013 (`fx_exa_013.json`): The data window only columns 2 to 6 of rows 1 to 4, UnMult on: outside it the alpha is 0, clear. Frames 0.
+
+FX-EXA-014 (`fx_exa_014.json`): Not-a-number and infinities in the alpha, UnMult on: not-a-number (0) and minus infinity clear, plus infinity held at 1; the warning every frame. Warning `MEDIA_EXR_ADJUSTED`. Frames 0.
+
+FX-EXA-015 (`fx_exa_015.json`): The layer moved 2 right and 1 down: FX-EXA-002 moved. Frames 0.
+
+FX-EXA-016 (`fx_exa_016.json`): White Point keyed from 1 at frame 0 to 0.5 at frame 4, UnMult on: frame 0 is FX-EXA-002. Frames 0, 4.
+
+FX-EXA-017 (`fx_exa_017.json`): An Exposure of -1 after it: the colour halved, the alpha kept, the picture being premultiplied. Frames 0.
+
+FX-EXA-018 (`fx_exa_018.json`): Four names, the alpha one the file lacks (Reflect.Alpha): nothing changes, the warning every frame. Warning `EFFECT_CHANNEL_MISSING`. Frames 0.
+
+FX-EXA-019 (`fx_exa_019.json`): Five names: nothing changes, the warning every frame. Warning `EFFECT_CHANNEL_MISSING`. Frames 0.
+
+FX-EXA-020 (`fx_exa_020.json`): UnMult written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-EXA-021 (`fx_exa_021.json`): UnMult written "On" (the words are lower case). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
