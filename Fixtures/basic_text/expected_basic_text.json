@@ -1,0 +1,222 @@
+{
+ "tolerance": 2e-05,
+ "width": 480,
+ "height": 160,
+ "cases": {
+  "FX-BTEXT-001": {
+   "says": "As added: Text in white, centred, over the plate.",
+   "project": "fx_btext_001.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_001_0.json",
+     "shows": "Text"
+    }
+   }
+  },
+  "FX-BTEXT-002": {
+   "says": "Hello, world at size 48, left-aligned from 5 per cent.",
+   "project": "fx_btext_002.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_002_0.json",
+     "shows": "Hello, world"
+    }
+   }
+  },
+  "FX-BTEXT-003": {
+   "says": "Right-aligned at 95, 70 per cent, tracking 200.",
+   "project": "fx_btext_003.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_003_0.json",
+     "shows": "Spaced"
+    }
+   }
+  },
+  "FX-BTEXT-004": {
+   "says": "Stroke only, width 4: the ring outside the letters.",
+   "project": "fx_btext_004.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_004_0.json",
+     "shows": "Ring"
+    }
+   }
+  },
+  "FX-BTEXT-005": {
+   "says": "Fill over stroke, width 6.",
+   "project": "fx_btext_005.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_005_0.json",
+     "shows": "Edge"
+    }
+   }
+  },
+  "FX-BTEXT-006": {
+   "says": "Stroke over fill, width 6.",
+   "project": "fx_btext_006.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_006_0.json",
+     "shows": "Edge"
+    }
+   }
+  },
+  "FX-BTEXT-007": {
+   "says": "Stroke only with width 0: nothing drawn.",
+   "project": "fx_btext_007.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_007_0.json",
+     "shows": "Gone"
+    }
+   }
+  },
+  "FX-BTEXT-008": {
+   "says": "Composite off, stroke over fill in blues: the words alone on transparent.",
+   "project": "fx_btext_008.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_008_0.json",
+     "shows": "Alone"
+    }
+   }
+  },
+  "FX-BTEXT-009": {
+   "says": "Two lines, Basic over Text, at size 40: the second a line below at the font's own line height.",
+   "project": "fx_btext_009.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_009_0.json",
+     "shows": "Basic\nText"
+    }
+   }
+  },
+  "FX-BTEXT-010": {
+   "says": "Kana in the bundled font: konnichiwa.",
+   "project": "fx_btext_010.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_010_0.json",
+     "shows": "\u3053\u3093\u306b\u3061\u306f"
+    }
+   }
+  },
+  "FX-BTEXT-011": {
+   "says": "An empty text: nothing drawn, the plate as it was.",
+   "project": "fx_btext_011.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_011_0.json",
+     "shows": ""
+    }
+   }
+  },
+  "FX-BTEXT-012": {
+   "says": "Size keyed from 20 at frame 0 to 120 at frame 10: 70 at frame 5, 120 from frame 10 on.",
+   "project": "fx_btext_012.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_012_0.json",
+     "shows": "Grow"
+    },
+    "5": {
+     "same": "same/fx_btext_012_5.json",
+     "shows": "Grow"
+    },
+    "12": {
+     "same": "same/fx_btext_012_12.json",
+     "shows": "Grow"
+    }
+   }
+  },
+  "FX-BTEXT-013": {
+   "says": "Position keyed from 10, 50 per cent at frame 0 to 90, 50 at frame 8, left-aligned: 50, 50 at frame 4.",
+   "project": "fx_btext_013.json",
+   "frames": {
+    "4": {
+     "same": "same/fx_btext_013_4.json",
+     "shows": "Slide"
+    }
+   }
+  },
+  "FX-BTEXT-014": {
+   "says": "A font this computer does not have: said each frame, nothing drawn, the plate as it was.",
+   "project": "fx_btext_014.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_014_0.json",
+     "shows": null
+    }
+   },
+   "frame_warning": "TEXT_FONT_MISSING"
+  },
+  "FX-BTEXT-020": {
+   "says": "Display written \"outline\". The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_btext_020.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_020_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  },
+  "FX-BTEXT-021": {
+   "says": "A text of 1001 characters, past 1000. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_btext_021.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_021_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  },
+  "FX-BTEXT-022": {
+   "says": "Font written \"../fonts/x.ttf\", a path. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_btext_022.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_022_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  },
+  "FX-BTEXT-023": {
+   "says": "Fill colour written \"white\". The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_btext_023.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_023_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  },
+  "FX-BTEXT-024": {
+   "says": "Alignment written \"justify\". The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_btext_024.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_024_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  },
+  "FX-BTEXT-025": {
+   "says": "Size keyed to 3000 at frame 4, past 2000. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_btext_025.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_btext_025_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  }
+ }
+}

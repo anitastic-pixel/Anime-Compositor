@@ -1,0 +1,214 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-btext-009-same-0",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 480,
+      "height": 160,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 60,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 60
+      },
+      "layer_order": [
+        "plate",
+        "fills"
+      ],
+      "layers": [
+        {
+          "id": "plate",
+          "kind": "solid",
+          "name": "plate",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "solid": {
+            "color": [
+              0.02,
+              0.05,
+              0.12
+            ],
+            "width": 480,
+            "height": 160
+          }
+        },
+        {
+          "id": "fills",
+          "kind": "composition",
+          "name": "fills",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "composition_id": "comp-fills",
+          "source_offset_frames": 0
+        }
+      ]
+    },
+    {
+      "id": "comp-fills",
+      "name": "comp-fills",
+      "width": 480,
+      "height": 160,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 60,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 60
+      },
+      "layer_order": [
+        "fill-0"
+      ],
+      "layers": [
+        {
+          "id": "fill-0",
+          "kind": "text",
+          "name": "fill-0",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "Basic\nText",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 40,
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "at": [
+              240.0,
+              64.0
+            ],
+            "align": "center"
+          }
+        }
+      ]
+    }
+  ]
+}

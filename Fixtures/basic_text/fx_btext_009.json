@@ -1,0 +1,108 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-btext-009",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 480,
+      "height": 160,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 60,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 60
+      },
+      "layer_order": [
+        "plate"
+      ],
+      "layers": [
+        {
+          "id": "plate",
+          "kind": "solid",
+          "name": "plate",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-1",
+              "type_id": "core.basic_text",
+              "enabled": true,
+              "parameters": {
+                "text": "Basic\nText",
+                "position": [
+                  50,
+                  40
+                ],
+                "display": "fill_only",
+                "fill_color": "#ffffff",
+                "stroke_color": "#ff3300",
+                "stroke_width": 3,
+                "size": 40,
+                "tracking": 0,
+                "composite_on_original": "on",
+                "font": "MPLUSRounded1c-Regular.ttf",
+                "alignment": "center"
+              }
+            }
+          ],
+          "masks": [],
+          "solid": {
+            "color": [
+              0.02,
+              0.05,
+              0.12
+            ],
+            "width": 480,
+            "height": 160
+          }
+        }
+      ]
+    }
+  ]
+}
