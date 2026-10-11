@@ -1131,6 +1131,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::TeethWipe { .. }
                 // D-513.
                 | crate::effects::Effect::GlowWipe { .. }
+                // D-514.
+                | crate::effects::Effect::StripeSweep { .. }
                 // D-512.
                 | crate::effects::Effect::ChannelWipe { .. }
                 // D-400.
@@ -1350,7 +1352,8 @@ fn card_effect(
                 | E::IrisWipe { completion, .. }
                 | E::TileWipe { completion, .. }
                 | E::TeethWipe { completion, .. }
-                | E::GlowWipe { completion, .. } => *completion == 0.0,
+                | E::GlowWipe { completion, .. }
+                | E::StripeSweep { completion, .. } => *completion == 0.0,
                 E::SimpleChoker { choke } => *choke == 0.0,
                 E::CrossGlare { length, intensity, .. } => length.floor() == 0.0 || *intensity == 0.0,
                 E::CameraShake { amount, rotation, .. } => [*amount, *rotation] == [0.0; 2],

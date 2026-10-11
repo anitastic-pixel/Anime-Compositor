@@ -4873,8 +4873,8 @@ fn pageturn(@builtin(global_invocation_id) id: vec3<u32>) {
 // B-107, the four wipes: layer_fx::linear_wipe (mode 0), radial_wipe (1, `count` the way round),
 // venetian_blinds (2) and iris_wipe (3); D-510's layer_fx::tile_wipe (4); D-511's
 // layer_fx::teeth_wipe (5), which moves the two parts and returns early; D-513's
-// layer_fx::glow_wipe (6), which adds its light and returns early. `flag` is complete, every
-// pixel gone.
+// layer_fx::glow_wipe (6), which adds its light and returns early; D-514's
+// layer_fx::stripe_sweep (7). `flag` is complete, every pixel gone.
 @compute @workgroup_size(16, 16)
 fn wipe(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -4987,6 +4987,22 @@ fn wipe(@builtin(global_invocation_id) id: vec3<u32>) {
             let by = f64(id.y) + 0.5lf;
             textureStore(output, id.xy, bilinear(input, bx + m * -k[3], by + m * k[2]));
             return;
+        }
+        case 7u: {
+            // D-514, layer_fx::stripe_place: k as layer_fx::stripe_numbers; kept where the place
+            // along the line is not below how far the line has gone.
+            let dx = x - k[0];
+            let dy = y - k[1];
+            let u = dx * k[2] + dy * k[3];
+            let v = -dx * k[3] + dy * k[2];
+            let i = min(floor((v + k[5]) / k[6]), k[7] - 1.0lf);
+            var t = (u + k[4]) / (2.0lf * k[4]);
+            if k[11] == 1.0lf {
+                t = 1.0lf - t;
+            }
+            s = t;
+            edge = clamp((k[10] - i * k[9] * (1.0lf - k[8])) / k[9], 0.0lf, 1.0lf);
+            feather = 0.0lf;
         }
         case 6u: {
             // D-513, layer_fx::glow_pixel: k as layer_fx::glow_numbers; the layer kept or
@@ -12102,6 +12118,11 @@ impl Gpu {
                 let ((cx, cy), r) = crate::layer_fx::iris_circle(*completion, *center, *feather, invert, (w, h), f.origin);
                 let p = FxParams { mode: 3, flag: (*completion == 100.0) as u32, ox: ox as i32, oy: oy as i32, ..Default::default() };
                 same(steps, &passes.wipe, p, &[cx, cy, r, *feather, invert as u8 as f64], None)
+            }
+            e @ E::StripeSweep { .. } => {
+                let k = crate::layer_fx::stripe_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let p = FxParams { mode: 7, ox: ox as i32, oy: oy as i32, ..Default::default() };
+                same(steps, &passes.wipe, p, &k, None)
             }
             e @ E::GlowWipe { .. } => {
                 let k = crate::layer_fx::glow_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);

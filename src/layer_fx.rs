@@ -7062,6 +7062,52 @@ pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>
     })
 }
 
+/// D-514: Stripe Sweep's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
+/// the middle (two), the direction's cosine and sine, the largest distance of a corner along the
+/// sweep and across it, the thickness, the number of lines, the overlap (the slant as a share of
+/// 99), each line's share of the transition, the completion as a share, and 1 flipped.
+pub(crate) fn stripe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 12] {
+    let crate::effects::Effect::StripeSweep { completion, direction, thickness, slant, flip } = e else {
+        unreachable!("Stripe Sweep's numbers of another effect")
+    };
+    let (sn, cs) = direction.to_radians().sin_cos();
+    let corners = [(-w0 / 2.0, -h0 / 2.0), (w0 / 2.0, -h0 / 2.0), (-w0 / 2.0, h0 / 2.0), (w0 / 2.0, h0 / 2.0)];
+    let along = corners.iter().map(|&(x, y)| (x * cs + y * sn).abs()).fold(0.0, f64::max);
+    let across = corners.iter().map(|&(x, y)| (-x * sn + y * cs).abs()).fold(0.0, f64::max);
+    let n = (2.0 * across / thickness).ceil().max(1.0);
+    let o = slant / 99.0;
+    let s = 1.0 / (1.0 + (n - 1.0) * (1.0 - o));
+    [w0 / 2.0, h0 / 2.0, cs, sn, along, across, *thickness, n, o, s, completion / 100.0, (flip == "on") as u8 as f64]
+}
+
+/// D-514: where the own point (x, y) is along its line, 0 to 1, and how far that line has gone;
+/// the point is kept where the first is not below the second (document 21).
+fn stripe_place(k: &[f64; 12], x: f64, y: f64) -> (f64, f64) {
+    let (dx, dy) = (x - k[0], y - k[1]);
+    let (u, v) = (dx * k[2] + dy * k[3], -dx * k[3] + dy * k[2]);
+    let i = ((v + k[5]) / k[6]).floor().min(k[7] - 1.0);
+    let t = (u + k[4]) / (2.0 * k[4]);
+    let t = if k[11] == 1.0 { 1.0 - t } else { t };
+    (t, ((k[10] - i * k[9] * (1.0 - k[8])) / k[9]).clamp(0.0, 1.0))
+}
+
+/// D-514: after CycoreFX's CC Line Sweep, the rule ours (document 21); `(ox, oy)` the drawing's
+/// corner in the buffer. Never grows; at completion 0 returns at once (compose leaves it off the
+/// card then).
+pub(crate) fn stripe_sweep(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    if matches!(e, crate::effects::Effect::StripeSweep { completion, .. } if *completion == 0.0) {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let k = stripe_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (t, p) = stripe_place(&k, (i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
+        if t < p {
+            px.fill(0.0);
+        }
+    });
+}
+
 /// D-513: Glow Wipe's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
 /// the centre (two), the direction's cosine and sine, the shape (an index into
 /// `effects::GLOW_SHAPES`), the farthest corner's distance, the band, the front, the intensity

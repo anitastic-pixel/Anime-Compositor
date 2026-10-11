@@ -2341,6 +2341,16 @@ pub enum Effect {
         shape: String,
         reverse: String,
     },
+    /// D-514: Stripe Sweep, after CycoreFX's CC Line Sweep, its rule and its settings when added
+    /// ours (`layer_fx::stripe_sweep`, document 21). `completion`, 0 to 100; `direction`, -3600
+    /// to 3600 degrees; `thickness`, 1 to 1000 pixels; `slant`, 0 to 99; `flip`, "off" or "on".
+    StripeSweep {
+        completion: f64,
+        direction: f64,
+        thickness: f64,
+        slant: f64,
+        flip: String,
+    },
     /// D-513: Glow Wipe, after CycoreFX's CC Light Wipe, its rule and its settings when added ours
     /// (`layer_fx::glow_wipe`, document 21). `completion`, 0 to 100; `center`, x then y, per cent
     /// of the drawing, -1000 to 1000; `intensity`, 0 to 1000 per cent; `direction`, -3600 to 3600
@@ -3357,6 +3367,7 @@ pub const GLASS_MELT: &str = "core.glass_melt";
 pub const TILE_WIPE: &str = "core.tile_wipe";
 pub const TEETH_WIPE: &str = "core.teeth_wipe";
 pub const GLOW_WIPE: &str = "core.glow_wipe";
+pub const STRIPE_SWEEP: &str = "core.stripe_sweep";
 /// D-513: Glow Wipe's shapes.
 pub const GLOW_SHAPES: [&str; 3] = ["doors", "radial", "rectangular"];
 pub const CHANNEL_WIPE: &str = "core.channel_wipe";
@@ -3626,6 +3637,12 @@ impl Effect {
                 ("rotation", vec![rotation], -3600.0, 3600.0),
                 ("border", vec![border], 0.0, 100.0),
                 ("tiles", vec![tiles], 1.0, 200.0),
+            ],
+            Effect::StripeSweep { completion, direction, thickness, slant, .. } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("direction", vec![direction], -3600.0, 3600.0),
+                ("thickness", vec![thickness], 1.0, 1000.0),
+                ("slant", vec![slant], 0.0, 99.0),
             ],
             Effect::GlowWipe { completion, center, intensity, direction, .. } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
@@ -5810,6 +5827,8 @@ impl Effect {
                 *height = scale(*height);
                 *width = scale(*width);
             }
+            // D-514: the thickness is a distance.
+            Effect::StripeSweep { thickness, .. } => *thickness = scale(*thickness),
             // D-512: the blur is a distance.
             Effect::ChannelWipe { blur, .. } => *blur = scale(*blur),
             // D-502: the radius, thin and feather are distances; the masks are scaled as they
@@ -6199,6 +6218,7 @@ impl Effect {
             Effect::TileWipe { .. } => "Tile Wipe",
             Effect::TeethWipe { .. } => "Teeth Wipe",
             Effect::GlowWipe { .. } => "Glow Wipe",
+            Effect::StripeSweep { .. } => "Stripe Sweep",
             Effect::ChannelWipe { .. } => "Channel Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::EnergyStroke { .. } => "Energy Stroke",
@@ -6414,6 +6434,7 @@ impl Effect {
             Effect::TileWipe { .. } => TILE_WIPE,
             Effect::TeethWipe { .. } => TEETH_WIPE,
             Effect::GlowWipe { .. } => GLOW_WIPE,
+            Effect::StripeSweep { .. } => STRIPE_SWEEP,
             Effect::ChannelWipe { .. } => CHANNEL_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
@@ -8127,6 +8148,9 @@ impl Effect {
                 .or_else(|| (!["off", "on"].contains(&invert.as_str())).then(|| format!(
                     "Channel Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
                 ))),
+            Effect::StripeSweep { flip, .. } if !["off", "on"].contains(&flip.as_str()) => {
+                Some(format!("Stripe Sweep's flip is \"off\" or \"on\", and this is \"{flip}\"."))
+            }
             Effect::GlowWipe { shape, color_from_source, color, reverse, .. } => (!GLOW_SHAPES.contains(&shape.as_str()))
                 .then(|| format!("Glow Wipe's shape is \"doors\", \"radial\" or \"rectangular\", and this is \"{shape}\"."))
                 .or_else(|| (!["off", "on"].contains(&color_from_source.as_str())).then(|| {
@@ -9844,6 +9868,10 @@ pub(crate) fn apply_stack_at(
                     crate::perf::time(crate::perf::Stage::EffectGlassMelt, || crate::layer_fx::glass_melt(source, &g, (ox, oy)))
                 }
             }
+            // D-514: never grows.
+            e @ Effect::StripeSweep { .. } => crate::perf::time(crate::perf::Stage::EffectStripeSweep, || {
+                crate::layer_fx::stripe_sweep(source, e, (ox, oy))
+            }),
             // D-513: never grows.
             e @ Effect::GlowWipe { .. } => crate::perf::time(crate::perf::Stage::EffectGlowWipe, || {
                 crate::layer_fx::glow_wipe(source, e, (ox, oy))

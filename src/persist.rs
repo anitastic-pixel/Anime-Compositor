@@ -2513,6 +2513,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("blur".into(), num(*blur));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        Effect::StripeSweep { completion, direction, thickness, slant, flip } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("direction".into(), num(*direction));
+            params.insert("thickness".into(), num(*thickness));
+            params.insert("slant".into(), num(*slant));
+            params.insert("flip".into(), J::from(flip.as_str()));
+        }
         Effect::GlowWipe { completion, center, intensity, direction, shape, color_from_source, color, reverse } => {
             params.insert("completion".into(), num(*completion));
             params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
@@ -5150,6 +5157,7 @@ fn parse_effect(
         crate::effects::TILE_WIPE,
         crate::effects::TEETH_WIPE,
         crate::effects::GLOW_WIPE,
+        crate::effects::STRIPE_SWEEP,
         crate::effects::CHANNEL_WIPE,
         crate::effects::CC_SPOTLIGHT,
         crate::effects::ENERGY_STROKE,
@@ -6210,6 +6218,13 @@ fn parse_effect(
             blur: effect_number(params, "blur", &at)?,
             invert: effect_word(params, "invert", &at)?,
             map: None,
+        }),
+        crate::effects::STRIPE_SWEEP => Some(crate::effects::Effect::StripeSweep {
+            completion: effect_number(params, "completion", &at)?,
+            direction: effect_number(params, "direction", &at)?,
+            thickness: effect_number(params, "thickness", &at)?,
+            slant: effect_number(params, "slant", &at)?,
+            flip: effect_word(params, "flip", &at)?,
         }),
         crate::effects::GLOW_WIPE => Some(crate::effects::Effect::GlowWipe {
             completion: effect_number(params, "completion", &at)?,
