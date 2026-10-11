@@ -6511,15 +6511,21 @@ fn db_away(v: f64) -> i32 {
 }
 
 // B-336, what the pixel at `q` lends the blur across: its colour times a (1 - E) and that
-// weight, from the drawing in `input` and mode 0's in `other`.
-fn db_lent(q: vec2<i32>) -> vec4<f64> {
+// weight, from the drawing in `input` and mode 0's in `other`. B-430 (D-550): single precision.
+fn db_lent(q: vec2<i32>) -> vec4<f32> {
     let t = textureLoad(input, q, 0);
     if t.w <= 0.0 {
-        return vec4(0.0lf);
+        return vec4(0.0);
     }
     let ew = textureLoad(other, q, 0);
-    let wt = f64(t.w) * f64(ew.w);
-    return vec4(vec3<f64>(ew.xyz) * wt, wt);
+    let wt = t.w * ew.w;
+    return vec4(ew.xyz * wt, wt);
+}
+
+// B-430 (D-550): the sums across at pixel index `i`, four to a pixel in `row`.
+fn db_sum(i: i32) -> vec4<f32> {
+    let j = u32(i) * 4u;
+    return vec4(row[j], row[j + 1u], row[j + 2u], row[j + 3u]);
 }
 
 // B-336 (D-456), grade::deband. k: the threshold and the softness, the Edge Blur Reduction as a
@@ -6528,8 +6534,9 @@ fn db_lent(q: vec2<i32>) -> vec4<f64> {
 // the middle out, `r` past it. Mode 0, on the drawing: each pixel's colour through the curve and
 // 1 - E, its edge weight's complement, which single precision keeps however near 0 it is. Mode
 // 2, on the drawing with mode 0's in `other`: the sums across of colour times weight and of
-// weight, each tap weighed a (1 - E) and stopped by the edges between, into `sums` in double
-// precision, as tiny weights there can decide a ratio. Mode 3, on the drawing with mode 0's in
+// weight, each tap weighed a (1 - E) and stopped by the edges between, into `row` in single
+// precision (B-430, D-550: the double-precision sums of B-336 held within the same 1 level and
+// cost most of the effect's time). Mode 3, on the drawing with mode 0's in
 // `other`: the same down from `sums`, then the blurred colour pulled back on edges, and 1 - E.
 // Mode 5, on mode 3's (mode 0's without a blur) with the drawing in `other`: the diffusion at
 // step `frame`, the dither at step `g`, the view, back through the curve at the covering.
@@ -6555,39 +6562,43 @@ fn deband(@builtin(global_invocation_id) id: vec3<u32>) {
     if F.mode == 2u || F.mode == 3u {
         let across = F.mode == 2u;
         let dir = select(vec2(0, 1), vec2(1, 0), across);
-        var total: vec4<f64>;
+        var total: vec4<f32>;
         if across {
-            total = db_lent(p) * k[8];
+            total = db_lent(p) * f32(k[8]);
         } else {
-            total = sums[p.y * size.x + p.x] * k[8];
+            total = db_sum(p.y * size.x + p.x) * f32(k[8]);
         }
         for (var sg = -1; sg <= 1; sg += 2) {
-            var through = 1.0lf;
+            var through = 1.0;
             for (var d = 1; d <= F.r; d++) {
                 let q = p + dir * (sg * d);
                 if any(q < vec2(0)) || any(q >= size) {
                     break;
                 }
-                var lent: vec4<f64>;
+                var lent: vec4<f32>;
                 if across {
                     lent = db_lent(q);
                 } else {
-                    lent = sums[q.y * size.x + q.x];
+                    lent = db_sum(q.y * size.x + q.x);
                 }
-                total += lent * (k[8u + u32(d)] * through);
-                through *= f64(textureLoad(other, q, 0).w);
+                total += lent * (f32(k[8u + u32(d)]) * through);
+                through *= textureLoad(other, q, 0).w;
             }
         }
         if across {
-            sums[p.y * size.x + p.x] = total;
+            let j = u32(p.y * size.x + p.x) * 4u;
+            row[j] = total.x;
+            row[j + 1u] = total.y;
+            row[j + 2u] = total.z;
+            row[j + 3u] = total.w;
             return;
         }
         let ew = textureLoad(other, p, 0);
-        var m = vec3<f64>(ew.xyz);
-        if s.w > 0.0 && total.w > 0.0lf {
-            m += (total.xyz / total.w - m) * (1.0lf - (1.0lf - f64(ew.w)) * k[2]);
+        var m = ew.xyz;
+        if s.w > 0.0 && total.w > 0.0 {
+            m += (total.xyz / total.w - m) * (1.0 - (1.0 - ew.w) * f32(k[2]));
         }
-        textureStore(output, id.xy, vec4(vec3<f32>(m), ew.w));
+        textureStore(output, id.xy, vec4(m, ew.w));
         return;
     }
     let still = textureLoad(other, p, 0);
@@ -10648,7 +10659,7 @@ impl Gpu {
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
                 degrain: pass("degrain", &[0, 1, 2, 3]),
-                deband: pass("deband", &[0, 1, 2, 3, 4, 7]),
+                deband: pass("deband", &[0, 1, 2, 3, 4, 5]),
                 rough: pass("rough", &[0, 1, 2, 3]),
                 rshadow: pass("rshadow", &[0, 1, 2, 3, 4]),
                 bevel: pass("bevel", &[0, 1, 2, 3, 4]),
@@ -11705,10 +11716,10 @@ impl Gpu {
                     oy: oy as i32,
                     ..Default::default()
                 };
-                // The sums across, in double precision, which every pass binds.
-                let sums = buffer(if r > 0 { w * h * 32 } else { 32 });
+                // The sums across, in single precision (B-430, D-550), which every pass binds.
+                let sums = buffer(if r > 0 { w * h * 16 } else { 16 });
                 let mut run = |mode: u32, input: &wgpu::TextureView, out: &wgpu::TextureView, other: &wgpu::TextureView| {
-                    let work = [None, None, Some(&sums), None];
+                    let work = [Some(&sums), None, None, None];
                     self.fx_step(steps, &passes.deband, FxParams { mode, ..p }, Some(input), Some(out), Some(&k), Some(other), work, tiles(w, h));
                 };
                 let edges = self.scratch("D-456 edges", w, h);

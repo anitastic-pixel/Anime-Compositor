@@ -156,25 +156,25 @@ B-336, this program's own Deband on the control list of CelFX's Deband (P_Deband
 | fx_deband_023.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_deband_024.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot with Deband as added: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1126175 pixels changed | yes |
-| the reference shot, Deband as added on three layers, frame 0, Full | largest difference 1 of 255, 1602 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband as added on three layers, frame 100, Full | largest difference 1 of 255, 1763 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband as added on three layers, frame 239, Full | largest difference 1 of 255, 1386 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband as added on three layers, frame 0, Draft | largest difference 1 of 255, 73 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband as added on three layers, frame 100, Draft | largest difference 1 of 255, 45 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband as added on three layers, frame 0, Full | largest difference 1 of 255, 1622 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband as added on three layers, frame 100, Full | largest difference 1 of 255, 1794 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband as added on three layers, frame 239, Full | largest difference 1 of 255, 1426 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband as added on three layers, frame 0, Draft | largest difference 1 of 255, 74 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband as added on three layers, frame 100, Draft | largest difference 1 of 255, 46 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Deband as added on three layers, frame 239, Draft | largest difference 1 of 255, 41 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot with Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1973790 pixels changed | yes |
-| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 0, Full | largest difference 1 of 255, 517 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 100, Full | largest difference 1 of 255, 406 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 239, Full | largest difference 1 of 255, 359 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 0, Draft | largest difference 1 of 255, 20 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 100, Draft | largest difference 1 of 255, 6 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 239, Draft | largest difference 1 of 255, 13 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 0, Full | largest difference 1 of 255, 587 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 100, Full | largest difference 1 of 255, 484 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 239, Full | largest difference 1 of 255, 428 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 0, Draft | largest difference 1 of 255, 23 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 100, Draft | largest difference 1 of 255, 11 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband blur 30, diffusion 4, noise 4 reseeded every 3 frames, Selected Edge on three layers, frame 239, Draft | largest difference 1 of 255, 18 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot with Deband threshold keyed 2 to 20, Edge Blur Reduction 50: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1417603 pixels changed | yes |
-| the reference shot, Deband threshold keyed 2 to 20, Edge Blur Reduction 50 on three layers, frame 0, Full | largest difference 1 of 255, 12097 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband threshold keyed 2 to 20, Edge Blur Reduction 50 on three layers, frame 100, Full | largest difference 1 of 255, 5691 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband threshold keyed 2 to 20, Edge Blur Reduction 50 on three layers, frame 239, Full | largest difference 1 of 255, 6565 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband threshold keyed 2 to 20, Edge Blur Reduction 50 on three layers, frame 0, Draft | largest difference 1 of 255, 125 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Deband threshold keyed 2 to 20, Edge Blur Reduction 50 on three layers, frame 100, Draft | largest difference 1 of 255, 65 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband threshold keyed 2 to 20, Edge Blur Reduction 50 on three layers, frame 0, Full | largest difference 1 of 255, 11976 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband threshold keyed 2 to 20, Edge Blur Reduction 50 on three layers, frame 100, Full | largest difference 1 of 255, 5560 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband threshold keyed 2 to 20, Edge Blur Reduction 50 on three layers, frame 239, Full | largest difference 1 of 255, 6580 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband threshold keyed 2 to 20, Edge Blur Reduction 50 on three layers, frame 0, Draft | largest difference 1 of 255, 152 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Deband threshold keyed 2 to 20, Edge Blur Reduction 50 on three layers, frame 100, Draft | largest difference 1 of 255, 63 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Deband threshold keyed 2 to 20, Edge Blur Reduction 50 on three layers, frame 239, Draft | largest difference 1 of 255, 49 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: a banded dusk sky, in `verification/D-456 pictures/`
