@@ -209456,3 +209456,69 @@ FX-CWIPE-033 (`fx_cwipe_033.json`): Completion keyed to 200 at frame 4. The file
 `cycle_two.json`: `a` and `b`, each the holder's drawing, each with a Channel Wipe whose layer is the other: refused, `EFFECT_LAYER_CYCLE`.
 
 `cycle_mixed.json`: `a`'s Channel Wipe names `b`, and `b`'s Gradient Wipe names `a`: refused the same.
+
+### Plastic (D-463)
+
+Plastic, after After Effects' CC Plastic (Stylize), `core.plastic` (B-343). Every case is a composition 16 by 10, five frames, with the drawing `holder` carrying the effect above the map layers, every one switched off; `tools/plastic_reference.py` works the expected frames, `Fixtures/plastic/expected_plastic.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-PLASTIC-001 (`fx_plastic_001.json`): As added: the layer's own covering as the bump, Softness 10, Height 50, Cut 0 to 100, a white distant light from the top left at height 100, Ambient 25, Diffuse 75, Dust 0, Specular 50, Roughness 0.05, Metal 0: the two blocks keep their colours and shapes, their edges lit as if raised, lighter facing the top left. Frames 0.
+
+FX-PLASTIC-002 (`fx_plastic_002.json`): Ambient 100, Diffuse 0, Specular 0, a white ambient light: nothing is lit, so the drawing comes back untouched. Frames 0.
+
+FX-PLASTIC-003 (`fx_plastic_003.json`): Height 0: a flat surface, every covered pixel its colour times Ambient plus Diffuse times 0.71, and the faintest highlight. Frames 0.
+
+FX-PLASTIC-004 (`fx_plastic_004.json`): Softness 4: a narrower, steeper rim round each block, lighter on the top and left edges, darker on the bottom and right. Frames 0.
+
+FX-PLASTIC-005 (`fx_plastic_005.json`): The light's Direction 135, from the bottom right: the other edges light. Frames 0.
+
+FX-PLASTIC-006 (`fx_plastic_006.json`): A point light at 25, 30 per cent, 10 pixels up: brightest near (4, 3), falling away across the blocks. Frames 0.
+
+FX-PLASTIC-007 (`fx_plastic_007.json`): The light's Height -50, behind the layer: the flat middles face away from it, so only Ambient lights them. Frames 0.
+
+FX-PLASTIC-008 (`fx_plastic_008.json`): Specular 100, Roughness 0.5, Metal 0, an orange light, Diffuse 0, light Height 40: a broad highlight in the light's own orange on the blue block too. Frames 0.
+
+FX-PLASTIC-009 (`fx_plastic_009.json`): The same with Metal 100: the highlight takes each block's own colour, so the blue block's shine is blue. Frames 0.
+
+FX-PLASTIC-010 (`fx_plastic_010.json`): A blue ambient light, Ambient 100, Diffuse 0, Specular 0: every colour multiplied by the blue, the red block near black. Frames 0.
+
+FX-PLASTIC-011 (`fx_plastic_011.json`): Dust 100 alone (Ambient, Diffuse and Specular 0), Height 0: a softer light than Diffuse's, every covered pixel at 0.41 of its colour where Diffuse would give 0.71. Frames 0.
+
+FX-PLASTIC-012 (`fx_plastic_012.json`): The ramp's luminance as the bump on the photo, Softness 0, Height 100: one even slope rising to the right, lit alike in every column but the two at the sides. Frames 0.
+
+FX-PLASTIC-013 (`fx_plastic_013.json`): The same, Cut Min 30 and Cut Max 70: the darkest and brightest columns lie flat, the slope steeper between. Frames 0.
+
+FX-PLASTIC-014 (`fx_plastic_014.json`): The same, Cut Min 70 and Cut Max 30: the slope turned inside out, falling to the right. Frames 0.
+
+FX-PLASTIC-015 (`fx_plastic_015.json`): Cut Min and Cut Max both 50: a single step where the ramp passes 50 per cent, flat either side. Frames 0.
+
+FX-PLASTIC-016 (`fx_plastic_016.json`): The dots layer as the bump, its covering, Softness 2, on the solid photo: two round lit bumps where the dots are, the photo whole. Frames 0.
+
+FX-PLASTIC-017 (`fx_plastic_017.json`): The 8 by 5 spot stretched to the drawing's size, Property Red, Softness 2, on the photo: an oval bump in the middle. Frames 0.
+
+FX-PLASTIC-018 (`fx_plastic_018.json`): A layer that is not in the composition, `gone`: the layer itself is the bump, as FX-PLASTIC-001, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-PLASTIC-019 (`fx_plastic_019.json`): Softness keyed from 0 at frame 0 to 8 at frame 4, linear: frame 2 is FX-PLASTIC-004. Frames 0, 2, 4.
+
+FX-PLASTIC-020 (`fx_plastic_020.json`): FX-PLASTIC-004 on the holder moved 2 right and 1 down: the same, moved. Frames 0.
+
+FX-PLASTIC-021 (`fx_plastic_021.json`): Cut Min eased from 0 at frame 0 to 100 at frame 4 on a curve that overshoots: at frame 2 it would pass 100, is held at 100, and the bump is a step at full covering, as at frame 4. Frames 0, 2, 4.
+
+FX-PLASTIC-022 (`fx_plastic_022.json`): Property Lightness on the photo itself, Softness 2, Height -50: the cream squares sunk below the red and blue. Frames 0.
+
+FX-PLASTIC-023 (`fx_plastic_023.json`): Softness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PLASTIC-024 (`fx_plastic_024.json`): Height 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PLASTIC-025 (`fx_plastic_025.json`): Cut Min -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PLASTIC-026 (`fx_plastic_026.json`): A property written "hue", which Plastic does not read. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PLASTIC-027 (`fx_plastic_027.json`): A light type written "spot". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PLASTIC-028 (`fx_plastic_028.json`): Roughness 0, below 0.001. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PLASTIC-029 (`fx_plastic_029.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PLASTIC-030 (`fx_plastic_030.json`): An ambient light colour written "blue", not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PLASTIC-031 (`fx_plastic_031.json`): Dust keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
