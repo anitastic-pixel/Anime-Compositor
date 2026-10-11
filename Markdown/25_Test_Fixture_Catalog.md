@@ -208484,3 +208484,45 @@ FX-LCKEY-016 (`fx_lckey_016.json`): View "Final": the word is exact, so a capita
 FX-LCKEY-017 (`fx_lckey_017.json`): Match colors "lab": not one of RGB, hue and chroma. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-LCKEY-018 (`fx_lckey_018.json`): Key colour "blue", not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Unmult (D-505)
+
+Unmult (`core.unmult`), after After Effects' Unmult (B-385), the rule ours. Every case is a project of one composition 16 by 10, five frames, holding the layer `art`, the still `media/colours.png` (Color Difference Key's picture): one colour a column (empty, black, white, grey 128, a green screen (40, 180, 60), a blue screen (30, 70, 200), skin (230, 180, 150), pure blue, cyan, pure green, yellow, red, magenta, a violet (128, 64, 255), a pale blue (150, 170, 230) and the blue screen at half covering), each row 8% darker than the one above. FX-UNMULT-010 and 011 put an Exposure of 2 stops before the Unmult, so colours run past 1. `tools/unmult_reference.py` works the expected frames, `expected_unmult.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-UNMULT-001 (`fx_unmult_001.json`): The settings as they start: background black, black level 0, softness 0, remove color matting on, clip HDR results off. Every pixel's covering becomes its brightest channel in linear light, so black is gone, white stays whole and a mid grey keeps about a fifth; the colour over black is exactly as it was. Frames 0.
+
+FX-UNMULT-002 (`fx_unmult_002.json`): Black level 10, softness 0: every pixel whose brightest channel is 10% or less is gone too, the rest as FX-UNMULT-001. Frames 0.
+
+FX-UNMULT-003 (`fx_unmult_003.json`): Black level 10, softness 20: those pixels fade in over the next 20% instead of starting at once. Frames 0.
+
+FX-UNMULT-004 (`fx_unmult_004.json`): Remove color matting off: the same coverings as FX-UNMULT-001, but each pixel keeps its own colour, so the part-covered ones look darker over black than before. Frames 0.
+
+FX-UNMULT-005 (`fx_unmult_005.json`): Background white, white level 100: white is gone, black stays whole, a colour's covering is how far its darkest channel is below white; the colour over white is exactly as it was. Frames 0.
+
+FX-UNMULT-006 (`fx_unmult_006.json`): Background white, white level 80, softness 20: the pixels within 20% of white in their darkest channel go, the next 20% fade in. Frames 0.
+
+FX-UNMULT-007 (`fx_unmult_007.json`): Background white, remove color matting off: FX-UNMULT-005's coverings with each pixel's own colour. Frames 0.
+
+FX-UNMULT-008 (`fx_unmult_008.json`): Softness 50 at black level 0: every covering is the brightest channel times the brightest channel over half, so the darker pixels thin out faster. Frames 0.
+
+FX-UNMULT-009 (`fx_unmult_009.json`): Black level 100, softness 10: no pixel is brighter than it, so the whole layer is gone. Frames 0.
+
+FX-UNMULT-010 (`fx_unmult_010.json`): An Exposure of 2 stops first, so the brighter pixels run past 1, then the settings as they start: a pixel brighter than 1 stays whole with its colour past 1 kept. Frames 0.
+
+FX-UNMULT-011 (`fx_unmult_011.json`): The same with clip HDR results on: the colours past 1 are held at 1, so white comes back to white, the brightest colours lose their brightness. Frames 0.
+
+FX-UNMULT-012 (`fx_unmult_012.json`): Black level keyed from 0 at frame 0 to 40 at frame 4, linear, softness 10. Frames 0, 2, 4.
+
+FX-UNMULT-013 (`fx_unmult_013.json`): Softness keyed from 0 at frame 0 to 40 at frame 4, linear, background white, white level 90. Frames 2, 4.
+
+FX-UNMULT-014 (`fx_unmult_014.json`): FX-UNMULT-003 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-UNMULT-015 (`fx_unmult_015.json`): Black level 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-UNMULT-016 (`fx_unmult_016.json`): Softness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-UNMULT-017 (`fx_unmult_017.json`): Background color "grey": not black or white. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-UNMULT-018 (`fx_unmult_018.json`): Remove color matting "yes": not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-UNMULT-019 (`fx_unmult_019.json`): Clip HDR results "On": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
