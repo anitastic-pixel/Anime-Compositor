@@ -2513,6 +2513,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("blur".into(), num(*blur));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        Effect::Twister { completion, backside, shading, center, axis, .. } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("backside".into(), backside.clone());
+            params.insert("shading".into(), J::from(shading.as_str()));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("axis".into(), num(*axis));
+        }
         Effect::StretchWipe { scale, center, direction } => {
             params.insert("scale".into(), num(*scale));
             params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
@@ -5316,6 +5323,7 @@ fn parse_effect(
         crate::effects::STRIPE_SWEEP,
         crate::effects::PUSH_IRIS,
         crate::effects::STRETCH_WIPE,
+        crate::effects::TWISTER,
         crate::effects::CHANNEL_WIPE,
         crate::effects::CC_SPOTLIGHT,
         crate::effects::ENERGY_STROKE,
@@ -6393,6 +6401,15 @@ fn parse_effect(
             property: effect_word(params, "property", &at)?,
             blur: effect_number(params, "blur", &at)?,
             invert: effect_word(params, "invert", &at)?,
+            map: None,
+        }),
+        // D-517: the back is kept as written, as Difference Matte's layer is.
+        crate::effects::TWISTER => Some(crate::effects::Effect::Twister {
+            completion: effect_number(params, "completion", &at)?,
+            backside: field(effect_params(params, &at)?, &format!("{at}/parameters"), "backside")?.clone(),
+            shading: effect_word(params, "shading", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            axis: effect_number(params, "axis", &at)?,
             map: None,
         }),
         crate::effects::STRETCH_WIPE => Some(crate::effects::Effect::StretchWipe {

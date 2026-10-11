@@ -7291,6 +7291,71 @@ pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>
     })
 }
 
+/// D-517: Twister's back for one frame: `Some(None)` with none named, `Some(Some(map))` when it
+/// was read, and `None` when a layer is named but was not read, which leaves the layer as it is.
+pub(crate) fn twist_back(e: &crate::effects::Effect) -> Option<Option<&WorkingBuffer>> {
+    let crate::effects::Effect::Twister { backside, map, .. } = e else {
+        return None;
+    };
+    match map {
+        Some(m) => Some(Some(&*m.0)),
+        None => (backside.as_str() == Some("")).then_some(None),
+    }
+}
+
+/// D-517: Twister's numbers in the drawing's own `w0` by `h0` pixels, shared with the card: the
+/// centre (two), the axis's cosine and sine, the largest distance of a corner along the axis,
+/// twice the completion as a share, 1 with shading, and 1 with a back.
+pub(crate) fn twist_numbers(e: &crate::effects::Effect, back: bool, w0: f64, h0: f64) -> [f64; 8] {
+    let crate::effects::Effect::Twister { completion, shading, center, axis, .. } = e else {
+        unreachable!("Twister's numbers of another effect")
+    };
+    let (sn, cs) = axis.to_radians().sin_cos();
+    let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
+    let far = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)].iter().map(|&(x, y)| ((x - cx) * cs + (y - cy) * sn).abs()).fold(0.0, f64::max);
+    [cx, cy, cs, sn, far, 2.0 * (completion / 100.0), (shading == "on") as u8 as f64, back as u8 as f64]
+}
+
+/// D-517: at the own point (x, y), cos theta of the strip there and the point it reads, in the
+/// drawing's own space (document 21).
+fn twist_from(k: &[f64; 8], x: f64, y: f64) -> (f64, f64, f64) {
+    let (dx, dy) = (x - k[0], y - k[1]);
+    let (u, v) = (dx * k[2] + dy * k[3], -dx * k[3] + dy * k[2]);
+    let t = (u + k[4]) / (2.0 * k[4]);
+    let c = (std::f64::consts::PI * (k[5] - t).clamp(0.0, 1.0)).cos();
+    let b = v / c.abs();
+    (c, k[0] + u * k[2] - b * k[3], k[1] + u * k[3] + b * k[2])
+}
+
+/// D-517: after CycoreFX's CC Twister, the rule ours (document 21); `back` the map lying on the
+/// drawing at its corner, `(ox, oy)` the drawing's corner in the buffer. The front where the
+/// strip faces the viewer, the back where it is turned over, clear edge on; shading multiplies
+/// the colour by |cos theta|. Never grows; at completion 0 returns at once (compose leaves it off
+/// the card then).
+pub(crate) fn twister(source: &mut WorkingBuffer, e: &crate::effects::Effect, back: Option<&WorkingBuffer>, (ox, oy): (usize, usize)) {
+    if matches!(e, crate::effects::Effect::Twister { completion, .. } if *completion == 0.0) {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let k = twist_numbers(e, back.is_some(), (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    let still = source.clone();
+    let (fx, fy) = (ox as f64, oy as f64);
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (c, x, y) = twist_from(&k, (i % w) as f64 - fx + 0.5, (i / w) as f64 - fy + 0.5);
+        let mut p = match back {
+            _ if c > 0.0 => sample_bilinear(&still, x + fx, y + fy),
+            Some(m) if c < 0.0 => sample_bilinear(m, x, y),
+            _ => [0.0; 4],
+        };
+        if k[6] == 1.0 {
+            for ch in &mut p[..3] {
+                *ch = (*ch as f64 * c.abs()) as f32;
+            }
+        }
+        px.copy_from_slice(&p);
+    });
+}
+
 /// D-516: Stretch Wipe's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
 /// the centre (two), the direction's cosine and sine, and the scale as a factor.
 pub(crate) fn stretch_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 5] {

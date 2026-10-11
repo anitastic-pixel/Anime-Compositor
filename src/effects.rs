@@ -2406,6 +2406,19 @@ pub enum Effect {
         shape: String,
         reverse: String,
     },
+    /// D-517: Twister, after CycoreFX's CC Twister, its rule and its settings when added ours
+    /// (`layer_fx::twister`, document 21). `completion`, 0 to 100; `backside`, D-189's layer
+    /// setting as written, "" for nothing on the back; `shading`, "on" or "off"; `center`, x then
+    /// y, per cent of the drawing's width and height, -1000 to 1000; `axis`, -3600 to 3600
+    /// degrees. `map` is not a setting and is never saved.
+    Twister {
+        completion: f64,
+        backside: serde_json::Value,
+        shading: String,
+        center: [f64; 2],
+        axis: f64,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-516: Stretch Wipe, after CycoreFX's CC Scale Wipe, its rule and its settings when added
     /// ours (`layer_fx::stretch_wipe`, document 21). `scale`, 100 to 100000 per cent; `center`, x
     /// then y, per cent of the drawing's width and height, -1000 to 1000; `direction`, -3600 to
@@ -3616,6 +3629,7 @@ pub const GLOW_WIPE: &str = "core.glow_wipe";
 pub const STRIPE_SWEEP: &str = "core.stripe_sweep";
 pub const PUSH_IRIS: &str = "core.push_iris";
 pub const STRETCH_WIPE: &str = "core.stretch_wipe";
+pub const TWISTER: &str = "core.twister";
 /// D-513: Glow Wipe's shapes.
 pub const GLOW_SHAPES: [&str; 3] = ["doors", "radial", "rectangular"];
 pub const CHANNEL_WIPE: &str = "core.channel_wipe";
@@ -3924,6 +3938,11 @@ impl Effect {
                 ("rotation", vec![rotation], -3600.0, 3600.0),
                 ("border", vec![border], 0.0, 100.0),
                 ("tiles", vec![tiles], 1.0, 200.0),
+            ],
+            Effect::Twister { completion, center, axis, .. } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("axis", vec![axis], -3600.0, 3600.0),
             ],
             Effect::StretchWipe { scale, center, direction } => vec![
                 ("scale", vec![scale], 100.0, 100000.0),
@@ -6583,6 +6602,7 @@ impl Effect {
             Effect::StripeSweep { .. } => "Stripe Sweep",
             Effect::PushIris { .. } => "Push Iris",
             Effect::StretchWipe { .. } => "Stretch Wipe",
+            Effect::Twister { .. } => "Twister",
             Effect::ChannelWipe { .. } => "Channel Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::EnergyStroke { .. } => "Energy Stroke",
@@ -6811,6 +6831,7 @@ impl Effect {
             Effect::StripeSweep { .. } => STRIPE_SWEEP,
             Effect::PushIris { .. } => PUSH_IRIS,
             Effect::StretchWipe { .. } => STRETCH_WIPE,
+            Effect::Twister { .. } => TWISTER,
             Effect::ChannelWipe { .. } => CHANNEL_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
@@ -7130,6 +7151,8 @@ impl Effect {
             | Effect::MatchGrain { layer: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
             // D-388: the back page is laid on the drawing, stretched to it.
             Effect::PageTurn { back_page: serde_json::Value::String(layer), .. } => Some((layer, "stretch")),
+            // D-517: the back centred on the drawing, as CycoreFX's manual has it.
+            Effect::Twister { backside: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             _ => None,
         }
     }
@@ -7171,6 +7194,7 @@ impl Effect {
             Effect::PageTurn { back_page, map, .. } => Some((back_page, map)),
             Effect::Fog3d { gradient_layer, map, .. } => Some((gradient_layer, map)),
             Effect::SoftGlow { dirt, .. } | Effect::LensFlare { dirt, .. } => Some((&mut dirt.layer, &mut dirt.map)),
+            Effect::Twister { backside, map, .. } => Some((backside, map)),
             _ => None,
         }
     }
@@ -8586,6 +8610,11 @@ impl Effect {
                 )))
                 .or_else(|| (!["off", "on"].contains(&invert.as_str())).then(|| format!(
                     "Channel Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
+                ))),
+            Effect::Twister { backside, shading, .. } => (!backside.is_string())
+                .then(|| format!("Twister's backside is the name of a layer of this composition, and this is {backside}."))
+                .or_else(|| (!["on", "off"].contains(&shading.as_str())).then(|| format!(
+                    "Twister's shading is \"on\" or \"off\", and this is \"{shading}\"."
                 ))),
             Effect::PushIris { reverse, .. } if !["off", "on"].contains(&reverse.as_str()) => {
                 Some(format!("Push Iris's reverse is \"off\" or \"on\", and this is \"{reverse}\"."))
@@ -10350,6 +10379,13 @@ pub(crate) fn apply_stack_at(
             e @ Effect::GlassMelt { .. } => {
                 if let Some(g) = crate::layer_fx::melt_settings(e) {
                     crate::perf::time(crate::perf::Stage::EffectGlassMelt, || crate::layer_fx::glass_melt(source, &g, (ox, oy)))
+                }
+            }
+            // D-517: a back named but not read leaves the layer as it is, with D-189's warning.
+            // Never grows.
+            e @ Effect::Twister { .. } => {
+                if let Some(back) = crate::layer_fx::twist_back(e) {
+                    crate::perf::time(crate::perf::Stage::EffectTwister, || crate::layer_fx::twister(source, e, back, (ox, oy)))
                 }
             }
             // D-516: never grows.

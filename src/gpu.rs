@@ -8700,6 +8700,38 @@ fn glasses(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(out));
 }
 
+// D-517, layer_fx::twister: k as layer_fx::twist_numbers; `other` the back lying on the drawing
+// at its corner when k[7] is 1, both read between pixels; the strip edge on clear.
+@compute @workgroup_size(16, 16)
+fn twist(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let dx = f64(i32(id.x) - F.ox) + 0.5lf - k[0];
+    let dy = f64(i32(id.y) - F.oy) + 0.5lf - k[1];
+    let u = dx * k[2] + dy * k[3];
+    let v = -dx * k[3] + dy * k[2];
+    let t = (u + k[4]) / (2.0lf * k[4]);
+    let c = cos64(3.141592653589793lf * clamp(k[5] - t, 0.0lf, 1.0lf));
+    let s = abs(c);
+    var p = vec4<f64>(0.0lf);
+    if s != 0.0lf {
+        let b = v / s;
+        let x = k[0] + u * k[2] - b * k[3];
+        let y = k[1] + u * k[3] + b * k[2];
+        if c > 0.0lf {
+            p = vec4<f64>(bilinear(input, x + f64(F.ox), y + f64(F.oy)));
+        } else if k[7] == 1.0lf {
+            p = vec4<f64>(bilinear(other, x, y));
+        }
+        if k[6] == 1.0lf {
+            p = vec4<f64>(p.xyz * s, p.w);
+        }
+    }
+    textureStore(output, id.xy, vec4<f32>(p));
+}
+
 // D-509, layer_fx::glass_melt's share and bend into `sums` as (k, dx, dy, 0): `input` the bump
 // in its alpha, the neighbours held inside; k[0] the amount, k[1] the gain, k[2] the edge, k[3]
 // the band.
@@ -9799,6 +9831,8 @@ struct FxPasses {
     plastic: Pass,
     /// D-467.
     texturize: Pass,
+    /// D-517.
+    twist: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -10490,6 +10524,7 @@ impl Gpu {
                 smoothie: pass("smoothie", &[0, 1, 2, 3, 4]),
                 plastic: pass("plastic", &[0, 1, 2, 3, 4]),
                 texturize: pass("texturize", &[0, 1, 2, 3, 4]),
+                twist: pass("twist", &[0, 1, 2, 3, 4]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -13989,6 +14024,17 @@ impl Gpu {
                 let out = self.scratch("D-507 spotlight", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.spotlight, p, Some(still), Some(&out), Some(&k), None, none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-517: compose leaves the card a Twister only when it turns and any back named was
+            // read.
+            e @ E::Twister { .. } => {
+                let back = crate::layer_fx::twist_back(e).expect("compose leaves a Twister whose back was read");
+                let k = crate::layer_fx::twist_numbers(e, back.is_some(), (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let back = back.map(|m| self.map_texture(m));
+                let out = self.scratch("D-517 twist", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.twist, p, Some(still), Some(&out), Some(&k), Some(back.as_ref().unwrap_or(still)), none, tiles(w, h));
                 (out, (w, h))
             }
             // D-509: compose leaves the card a Glass Melt only when it melts and every layer named
