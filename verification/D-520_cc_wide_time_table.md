@@ -122,6 +122,13 @@ D-520, under the owner's /loop request of 2026-10-11. Every expected pixel is `F
 | 4_ahead.png, four steps forward only: a smear ahead, to drawing 21, draws cleanly in columns 282 to 394 | [], columns 282 to 393 | yes |
 | 5_as_added_draft.png, as added at Draft, draws cleanly, a quarter the size: the smear in columns 58 to 94 (the last row, half covered by the solid, left out) | [], 120 wide, columns 58 to 94 | yes |
 
+## Played frame after frame with the viewer's cache (D-528)
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| as added, frames 0 to 23 asked for in order through one viewer's cache, as playing asks: each is byte-identical to the same frame drawn alone with no cache, as an export draws it | 24 of 24 byte-identical; 99532800 bytes kept for effects | yes |
+| drawing 17 (inside frame 15's span, 12 to 18) rewritten as drawing 1 after it was played: frame 15 through the same cache shows the new drawing, byte-identical to frame 15 drawn alone | byte-identical, changed | yes |
+
 ## The frame does not depend on how it is cut up
 
 | Check | The build's answer | Matches |
@@ -133,4 +140,4 @@ D-520, under the owner's /loop request of 2026-10-11. Every expected pixel is `F
 
 ## Result
 
-94 of 94 checks pass.
+96 of 96 checks pass.
