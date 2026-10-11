@@ -207862,3 +207862,65 @@ FX-REMOVEGRAIN-019 (`fx_removegrain_019.json`): Mode "both", not one of its two 
 FX-REMOVEGRAIN-020 (`fx_removegrain_020.json`): Unsharp Mask amount 600, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-REMOVEGRAIN-021 (`fx_removegrain_021.json`): Unsharp Mask threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Brush Strokes (D-447)
+
+Brush Strokes, after After Effects' Brush Strokes (Stylize), `core.brush_strokes` (B-327). Every case is a composition 16 by 10 holding Noise's card, the same size, unmoved unless the case says; `tools/brush_strokes_reference.py` works the expected frames, `Fixtures/brush_strokes/expected_brush_strokes.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-BRUSH-001 (`fx_brush_001.json`): The settings as they start: angle 135, brush 2, length 8, density 1, randomness 1, on the original: the card smeared down and to the right in strokes, new ones each frame. Frames 0, 1.
+
+FX-BRUSH-002 (`fx_brush_002.json`): Animate off: the same strokes on frames 0 and 3. Frames 0, 3.
+
+FX-BRUSH-003 (`fx_brush_003.json`): Random Seed 7, held: a different set of strokes from FX-BRUSH-002's. Frames 0.
+
+FX-BRUSH-004 (`fx_brush_004.json`): Stroke Length 0, held: dots, not strokes. Frames 0.
+
+FX-BRUSH-005 (`fx_brush_005.json`): Stroke Angle 90, Randomness 0, on transparent, held: level strokes running right, each the colour where it starts. Frames 0.
+
+FX-BRUSH-006 (`fx_brush_006.json`): Stroke Angle 0, held: strokes running up. Frames 0.
+
+FX-BRUSH-007 (`fx_brush_007.json`): Randomness 0, held: every stroke the same length and width, on a regular grid. Frames 0.
+
+FX-BRUSH-008 (`fx_brush_008.json`): Randomness 2, held: the strokes tilt further from the angle. Frames 0.
+
+FX-BRUSH-009 (`fx_brush_009.json`): Brush Size 4, held: fatter strokes. Frames 0.
+
+FX-BRUSH-010 (`fx_brush_010.json`): Density 3, held: more strokes, overlapping. Frames 0.
+
+FX-BRUSH-011 (`fx_brush_011.json`): Density 0.4, held: fewer strokes, the card showing between them. Frames 0.
+
+FX-BRUSH-012 (`fx_brush_012.json`): Paint on transparent, held: between the strokes nothing shows. Frames 0.
+
+FX-BRUSH-013 (`fx_brush_013.json`): Paint on white, held: white between the strokes. Frames 0.
+
+FX-BRUSH-014 (`fx_brush_014.json`): Paint on black, held: black between the strokes. Frames 0.
+
+FX-BRUSH-015 (`fx_brush_015.json`): Blend With Original 100: the card as it was. Frames 0.
+
+FX-BRUSH-016 (`fx_brush_016.json`): Blend With Original 50, held: halfway between FX-BRUSH-002 and the card. Frames 0.
+
+FX-BRUSH-017 (`fx_brush_017.json`): Brush Size keyed from 0.5 at frame 0 to 4 at frame 4, held. Frames 0, 2, 4.
+
+FX-BRUSH-018 (`fx_brush_018.json`): FX-BRUSH-002 moved three pixels right: the strokes are the drawing's own, so they move with it. Frames 0.
+
+FX-BRUSH-019 (`fx_brush_019.json`): After a Motion Tile that grows the layer: the strokes sit where they did, and pick their colours from the grown buffer. Frames 0.
+
+FX-BRUSH-020 (`fx_brush_020.json`): Angle 200, brush 1.5, length 5.5, density 1.8, randomness 0.6, on black, blend 20, seed 31: the controls together. Frames 0, 3.
+
+FX-BRUSH-021 (`fx_brush_021.json`): Brush Size 0.4, below 0.5. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BRUSH-022 (`fx_brush_022.json`): Stroke Length 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BRUSH-023 (`fx_brush_023.json`): Stroke Density 0.05, below 0.1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BRUSH-024 (`fx_brush_024.json`): Stroke Randomness 2.5, above 2. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BRUSH-025 (`fx_brush_025.json`): Blend With Original 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BRUSH-026 (`fx_brush_026.json`): Random Seed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BRUSH-027 (`fx_brush_027.json`): Paint Surface "White", in capitals, kept as written and not the word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BRUSH-028 (`fx_brush_028.json`): Animate "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BRUSH-029 (`fx_brush_029.json`): Stroke Length keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

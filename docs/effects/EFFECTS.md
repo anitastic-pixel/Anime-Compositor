@@ -1,7 +1,7 @@
 # Effects audit against After Effects
 
 Audit date 2026-10-08. Source list: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/effects-and-animation-presets/effect-list.html (the page refused automated reading, HTTP 403, so the list was compiled from Adobe's per-category effect pages and web searches; newer additions were checked against release notes, see Sources at the bottom).
-Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 143 done, 11 partial, 86 missing.
+Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 144 done, 11 partial, 85 missing.
 Priority 0: 23 items: 17 done, 1 partial, 4 parked last, 1 skipped.
 Plus 27 effects (25 done, 2 partial) of ours that are not on Adobe's list (last table).
 Plus 18 rows of the owner's picks from `docs/effects/PLUGINS.md` (marked **Pick #N**, its top-20 rank), placed after Adobe's rows in each category: 8 done, 7 missing, 2 parked last, 1 skipped as a preset. Picks #5, #7 and #9 fill Adobe rows that already exist and are marked there.
@@ -228,7 +228,7 @@ Effect descriptions are in our own words; nothing here copies Adobe's text, and 
 
 | Category | Effect (AE behaviour, in our words) | Status | Depends on | GPU plan | Perf target | Reference / test |
 |---|---|---|---|---|---|---|
-| Stylize | Brush Strokes — repaints the image as painterly strokes | missing | none | Add card pass | Target P3 | none yet |
+| Stylize | Brush Strokes — repaints the image as painterly strokes (`core.brush_strokes`) | done | P0-19's hash | On card (done), one pass of its own (`brush`) | Target P3; reference shot, 3 layers after a moving Noise, played again, card / processor: as added 498.1 / 222.9 ms, brush 6, length 30, density 4, randomness 2 842.5 / 1048.9, against 250.9 / 61.7 without; a busy machine cannot say whether the card is quicker than the processor here; PROVISIONAL, the machine was busy (`verification/B-327_brush_strokes_timing_table.md`) | FX-BRUSH-001..029 (`tools/brush_strokes_reference.py`), b327, D-447 table 181 of 181 checks, card within 1 level, D-447, awaiting playtest. Rule, ranges and starting look ours; Random Seed and Animate ours. Gaps: none of After Effects' controls is left out; only the two highest strokes a pixel are laid; a stroke's colour is one pixel; strokes cut at the layer's edge. |
 | Stylize | Cartoon — flattens colours and adds dark edges for a cel look | missing | Posterize, Find Edges, Smart Blur | Combine card passes | Target P3 | none yet |
 | Stylize | CC Block Load — reveals the image in progressive coarse-to-fine blocks | missing | Mosaic | Reuse Mosaic card pass | Target P2 | none yet |
 | Stylize | CC Burn Film — burning-film holes that spread over time | missing | P0-19 | Add card pass | Target P2 | none yet |
