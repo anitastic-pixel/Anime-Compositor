@@ -211028,3 +211028,47 @@ FX-ENV-028 (`fx_env_028.json`): Field of view 180, above 179. The file is read, 
 FX-ENV-029 (`fx_env_029.json`): An environment written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
 FX-ENV-030 (`fx_env_030.json`): Field of view keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### Shift Channels (D-553)
+
+Shift Channels (`core.shift_channels`, D-305), after After Effects' Shift Channels (B-433, EFFECTS.md row 446). Every case is a composition 16 by 10 holding one drawing the same size, Channel Mixer's swatches (`media/swatches.png`), unmoved unless the case says. `tools/shift_channels_reference.py` works the expected frames, `Fixtures/shift_channels/expected_shift_channels.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SHIFT-001 (`fx_shift_001.json`): The settings as they start, alpha from alpha, red from red, green from green, blue from blue: the drawing, untouched. Frames 0.
+
+FX-SHIFT-002 (`fx_shift_002.json`): Red from blue and blue from red, the two swapped: the red swatch turns blue, #2828c8, the blue turns #ff6040, the skin a pale blue, #bed6f6; every grey stays as it is, and every covering is kept. Frames 0.
+
+FX-SHIFT-003 (`fx_shift_003.json`): Red, green and blue all from green: each pixel turns the grey of its own green: the red #282828, the green #b4b4b4, the skin #d6d6d6. Frames 0.
+
+FX-SHIFT-004 (`fx_shift_004.json`): Red, green and blue from luminance: each pixel turns the grey of its encoded luma, 0.2126 red + 0.7152 green + 0.0722 blue: the red 74.016 of 255, the green 147.268; white, grey and black stay as they are. Frames 0.
+
+FX-SHIFT-005 (`fx_shift_005.json`): Red, green and blue from hue: each pixel turns the grey of its HSV hue, a full turn the whole scale: the red, at 0 degrees, turns black, the green (130 degrees) 92.08 of 255, the blue (229.95 degrees) 162.88 and the skin (25.71 degrees) 18.21; a grey has no hue and turns black. Frames 0.
+
+FX-SHIFT-006 (`fx_shift_006.json`): Red, green and blue from lightness, the middle of the largest and the smallest channel: the red 120 of 255, the skin 218, the blue 159.5; every grey stays as it is. Frames 0.
+
+FX-SHIFT-007 (`fx_shift_007.json`): Red, green and blue from saturation, HSL's: the red two thirds of the scale (170), the green half (127.5), the blue the whole; every grey has none and turns black. Frames 0.
+
+FX-SHIFT-008 (`fx_shift_008.json`): Red full, green half and blue off: every pixel that shows turns orange, full red and green at half of the encoded scale (127.5), its covering kept, so the soft edges are orange at half covering. Frames 0.
+
+FX-SHIFT-009 (`fx_shift_009.json`): Alpha from luminance, the Colorful Glitch tutorial's use: the dark parts drop out: the black is gone, the white stays, the grey shows at 128 of 255, the red at 74.016, the line at 27.57; a soft edge's covering is its colour's luma, so the soft line is as faint as the line and the soft skin as strong as the skin. Frames 0.
+
+FX-SHIFT-010 (`fx_shift_010.json`): Alpha full: everything shows, at full covering: the empty border turns black, and the soft edges turn solid line and solid skin. Frames 0.
+
+FX-SHIFT-011 (`fx_shift_011.json`): Alpha off: nothing shows. Frames 0.
+
+FX-SHIFT-012 (`fx_shift_012.json`): Alpha half: everything shows at half covering, the empty border black at half, the soft edges no fainter than the rest. Frames 0.
+
+FX-SHIFT-013 (`fx_shift_013.json`): Red, green and blue from alpha: the covering as grey: the drawing white, its soft edges a half grey (128 of 255) at half covering, the border still empty. Frames 0.
+
+FX-SHIFT-014 (`fx_shift_014.json`): Alpha from saturation: every grey drops out, the blue stays whole, the red shows at two thirds and the green at half. Frames 0.
+
+FX-SHIFT-015 (`fx_shift_015.json`): All four at once: red from hue, green from saturation, blue from lightness and alpha from luminance, the swatches seen as HSL over their brightness. Frames 0.
+
+FX-SHIFT-016 (`fx_shift_016.json`): FX-SHIFT-009 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-SHIFT-017 (`fx_shift_017.json`): Red from "Full": the words are lower case. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHIFT-018 (`fx_shift_018.json`): Alpha from "yes", not a word Shift Channels takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHIFT-019 (`fx_shift_019.json`): Green from "brightness": this program's word is "luminance". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHIFT-020 (`fx_shift_020.json`): Blue from "", no word at all. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
