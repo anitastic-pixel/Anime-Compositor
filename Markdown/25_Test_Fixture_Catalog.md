@@ -209334,3 +209334,77 @@ FX-SMOOTHIE-024 (`fx_smoothie_024.json`): Phase 3601, above 3600. The file is re
 FX-SMOOTHIE-025 (`fx_smoothie_025.json`): A fit written "fill". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SMOOTHIE-026 (`fx_smoothie_026.json`): Smoothness keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Channel Wipe (D-512)
+
+Channel Wipe (`core.channel_wipe`), after the purpose of CycoreFX's CC Image Wipe (B-392, EFFECTS.md row 273), the rule ours, a second effect over Gradient Wipe's engine. Every case is a project of one composition 16 by 10, five frames, the map layers switched off and on top of them the drawing `holder` with the effect. `tools/channel_wipe_reference.py` works the expected frames, `Fixtures/channel_wipe/expected_channel_wipe.json`, tolerance 2e-5; the rule is in document 21. FX-CWIPE-002 to 006 are Gradient Wipe's own numbers (FX-GWIPE-016, 003, 004, 008, 012).
+
+FX-CWIPE-001 (`fx_cwipe_001.json`): As added: the layer itself as the gradient, completion 0, so nothing changes. Frames 0.
+
+FX-CWIPE-002 (`fx_cwipe_002.json`): The layer itself, completion 50, softness 0, luminance: its red and blue squares, darker than half, go, its cream ones stay, and the clear corner stays clear; Gradient Wipe's FX-GWIPE-016 exactly. Frames 0.
+
+FX-CWIPE-003 (`fx_cwipe_003.json`): The grey ramp, completion 50, softness 0, luminance: the eight dark columns gone; Gradient Wipe's FX-GWIPE-003 exactly. Frames 0.
+
+FX-CWIPE-004 (`fx_cwipe_004.json`): The ramp, completion 50, softness 100: kept by the ramp's brightness; FX-GWIPE-004 exactly. Frames 0.
+
+FX-CWIPE-005 (`fx_cwipe_005.json`): FX-CWIPE-003 with Invert on: the light columns go; FX-GWIPE-008 exactly. Frames 0.
+
+FX-CWIPE-006 (`fx_cwipe_006.json`): A white map clear at the top and more covering down each row, completion 50, softness 0, luminance: a clear map reads 0, so rows 0 and 1 go; FX-GWIPE-012 exactly. Frames 0.
+
+FX-CWIPE-007 (`fx_cwipe_007.json`): The same map, alpha: rows 0 to 4, less than half covered, go, rows 5 to 9 stay. Frames 0.
+
+FX-CWIPE-008 (`fx_cwipe_008.json`): The painted map, red (40 + 8 y of 255 down each row), completion 30, softness 0: rows 0 to 4 gone, 5 to 9 kept. Frames 0.
+
+FX-CWIPE-009 (`fx_cwipe_009.json`): The painted map, green (30 + 14 x across each row), completion 50, softness 0: columns 0 to 6 gone, 7 to 15 kept. Frames 0.
+
+FX-CWIPE-010 (`fx_cwipe_010.json`): The painted map, blue, completion 50, softness 20: falling to the right, so the right side fades. Frames 0.
+
+FX-CWIPE-011 (`fx_cwipe_011.json`): The painted map, lightness, completion 50, softness 30. Frames 0.
+
+FX-CWIPE-012 (`fx_cwipe_012.json`): The painted map, hue, completion 50, softness 10. Frames 0.
+
+FX-CWIPE-013 (`fx_cwipe_013.json`): The painted map, saturation, completion 60, softness 20. Frames 0.
+
+FX-CWIPE-014 (`fx_cwipe_014.json`): The ramp blurred, blur 4, completion 50, softness 0: an even slope is not changed by the blur inside, so the cut is FX-CWIPE-003's. Frames 0.
+
+FX-CWIPE-015 (`fx_cwipe_015.json`): The ramp blurred, blur 6, completion 10, softness 0: the outer pixels repeated, the dark end is lifted, so fewer columns go than without blur. Frames 0.
+
+FX-CWIPE-016 (`fx_cwipe_016.json`): The checker stretched to 16 by 10, blur 3, completion 50, softness 20: soft squares. Frames 0.
+
+FX-CWIPE-017 (`fx_cwipe_017.json`): The 4 by 2 checker centred, alpha, completion 50, softness 0: outside it the map is clear, 0, so only its eight pixels are kept. Frames 0.
+
+FX-CWIPE-018 (`fx_cwipe_018.json`): Completion 100: every pixel clear. Frames 0.
+
+FX-CWIPE-019 (`fx_cwipe_019.json`): Completion keyed from 0 at frame 0 to 100 at frame 4, the ramp, softness 0: frame 0 whole, frame 2 FX-CWIPE-003, frame 4 clear. Frames 0, 2, 4.
+
+FX-CWIPE-020 (`fx_cwipe_020.json`): Blur keyed from 0 at frame 0 to 12 at frame 4, the ramp at 10, softness 0: frame 2 FX-CWIPE-015. Frames 0, 2, 4.
+
+FX-CWIPE-021 (`fx_cwipe_021.json`): A layer that is not in the composition, `gone`, completion 50: nothing changes, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-CWIPE-022 (`fx_cwipe_022.json`): A white solid whose in point is frame 4, alpha, completion 50: before it the map is empty, alpha 0, so at frame 0 everything is gone; at frame 4 nothing is. Frames 0, 4.
+
+FX-CWIPE-023 (`fx_cwipe_023.json`): FX-CWIPE-009 on the holder moved 2 right and 1 down: the same picture moved, since the map lies on the layer. Frames 0.
+
+FX-CWIPE-024 (`fx_cwipe_024.json`): The effect on an adjustment layer above the holder, the painted map, green: the map lies on the frame, the holder's own rectangle here, so this is FX-CWIPE-009. Frames 0.
+
+FX-CWIPE-025 (`fx_cwipe_025.json`): Completion 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CWIPE-026 (`fx_cwipe_026.json`): Softness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CWIPE-027 (`fx_cwipe_027.json`): Blur 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CWIPE-028 (`fx_cwipe_028.json`): Blur -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CWIPE-029 (`fx_cwipe_029.json`): A property written "value". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CWIPE-030 (`fx_cwipe_030.json`): A fit written "fill". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CWIPE-031 (`fx_cwipe_031.json`): Invert written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CWIPE-032 (`fx_cwipe_032.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CWIPE-033 (`fx_cwipe_033.json`): Completion keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+`cycle_two.json`: `a` and `b`, each the holder's drawing, each with a Channel Wipe whose layer is the other: refused, `EFFECT_LAYER_CYCLE`.
+
+`cycle_mixed.json`: `a`'s Channel Wipe names `b`, and `b`'s Gradient Wipe names `a`: refused the same.
