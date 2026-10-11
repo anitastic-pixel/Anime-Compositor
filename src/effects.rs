@@ -2215,6 +2215,15 @@ pub enum Effect {
         blend_with_original: f64,
         paths: Option<Vec<Vec<(f64, f64)>>>,
     },
+    /// D-503: after After Effects' Key Cleaner, its rule, ranges and settings when added ours but
+    /// the radius's 10 (`matte_refine::key_cleaner`, document 21). `additional_edge_radius`, 0 to
+    /// 100 pixels, whole pixels; `alpha_contrast` and `strength`, 0 to 100 per cent. Reduce
+    /// Chatter, a smoothing over time, is not built.
+    KeyCleaner {
+        additional_edge_radius: f64,
+        alpha_contrast: f64,
+        strength: f64,
+    },
     /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
     /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
     /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
@@ -3009,6 +3018,7 @@ pub const CRANGE_SPACES: [&str; 3] = ["lab", "yuv", "rgb"];
 pub const CRANGE_NAMES: [&str; 6] = ["min_1", "max_1", "min_2", "max_2", "min_3", "max_3"];
 pub const DIFFERENCE_MATTE: &str = "core.difference_matte";
 pub const INNER_OUTER_KEY: &str = "core.inner_outer_key";
+pub const KEY_CLEANER: &str = "core.key_cleaner";
 pub const SIMPLE_WIRE_REMOVAL: &str = "core.simple_wire_removal";
 /// D-458: CC Simple Wire Removal's styles.
 pub const WIRE_STYLES: [&str; 4] = ["fade", "frame_offset", "displace", "displace_horizontal"];
@@ -3169,6 +3179,11 @@ impl Effect {
                 ("edge_feather", vec![edge_feather], 0.0, 1000.0),
                 ("edge_threshold", vec![edge_threshold], 0.0, 100.0),
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
+            ],
+            Effect::KeyCleaner { additional_edge_radius, alpha_contrast, strength } => vec![
+                ("additional_edge_radius", vec![additional_edge_radius], 0.0, 100.0),
+                ("alpha_contrast", vec![alpha_contrast], 0.0, 100.0),
+                ("strength", vec![strength], 0.0, 100.0),
             ],
             Effect::Transform {
                 anchor_point,
@@ -5183,6 +5198,8 @@ impl Effect {
                 *edge_thin = scale(*edge_thin);
                 *edge_feather = scale(*edge_feather);
             }
+            // D-503: the radius is a distance; the contrast and strength are not.
+            Effect::KeyCleaner { additional_edge_radius, .. } => *additional_edge_radius = scale(*additional_edge_radius),
             // D-419: the radius is a distance; the point a share of the drawing.
             Effect::EyedropperFill { sample_radius, .. } => *sample_radius = scale(*sample_radius),
             // D-440: the three distances; the point a share of the drawing.
@@ -5538,6 +5555,7 @@ impl Effect {
             Effect::ColorRange { .. } => "Color Range",
             Effect::DifferenceMatte { .. } => "Difference Matte",
             Effect::InnerOuterKey { .. } => "Inner/Outer Key",
+            Effect::KeyCleaner { .. } => "Key Cleaner",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
@@ -5733,6 +5751,7 @@ impl Effect {
             Effect::ColorRange { .. } => COLOR_RANGE,
             Effect::DifferenceMatte { .. } => DIFFERENCE_MATTE,
             Effect::InnerOuterKey { .. } => INNER_OUTER_KEY,
+            Effect::KeyCleaner { .. } => KEY_CLEANER,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
@@ -8921,6 +8940,12 @@ pub(crate) fn apply_stack_at(
                         )
                     })
                 }
+            }
+            // D-503: on the processor, the layer never grows.
+            Effect::KeyCleaner { additional_edge_radius, alpha_contrast, strength } => {
+                crate::perf::time(crate::perf::Stage::EffectKeyCleaner, || {
+                    crate::matte_refine::key_cleaner(source, *additional_edge_radius, *alpha_contrast, *strength / 100.0)
+                })
             }
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {

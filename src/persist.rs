@@ -2446,6 +2446,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("invert_extraction".into(), J::from(invert_extraction.as_str()));
             params.insert("blend_with_original".into(), num(*blend_with_original));
         }
+        Effect::KeyCleaner { additional_edge_radius, alpha_contrast, strength } => {
+            params.insert("additional_edge_radius".into(), num(*additional_edge_radius));
+            params.insert("alpha_contrast".into(), num(*alpha_contrast));
+            params.insert("strength".into(), num(*strength));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4873,6 +4878,7 @@ fn parse_effect(
         crate::effects::COLOR_RANGE,
         crate::effects::DIFFERENCE_MATTE,
         crate::effects::INNER_OUTER_KEY,
+        crate::effects::KEY_CLEANER,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
@@ -5854,6 +5860,11 @@ fn parse_effect(
             invert_extraction: effect_word(params, "invert_extraction", &at)?,
             blend_with_original: effect_number(params, "blend_with_original", &at)?,
             paths: None,
+        }),
+        crate::effects::KEY_CLEANER => Some(crate::effects::Effect::KeyCleaner {
+            additional_edge_radius: effect_number(params, "additional_edge_radius", &at)?,
+            alpha_contrast: effect_number(params, "alpha_contrast", &at)?,
+            strength: effect_number(params, "strength", &at)?,
         }),
         crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

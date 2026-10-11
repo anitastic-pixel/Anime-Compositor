@@ -304,6 +304,34 @@ pub(crate) fn refine_matte(source: &mut WorkingBuffer, s: &Refine) {
     write(source, &out);
 }
 
+/// D-503: Key Cleaner, document 21's rule: Refine Soft Matte's fit at `radius` with `contrast`
+/// and nothing else, then `strength` (0 to 1) of the way from the layer to that, premultiplied.
+/// The settings are valid.
+pub(crate) fn key_cleaner(source: &mut WorkingBuffer, radius: f64, contrast: f64, strength: f64) {
+    if strength <= 0.0 {
+        return;
+    }
+    let before = (strength < 1.0).then(|| source.data().to_vec());
+    let s = Refine {
+        soft: true,
+        edge_radius: radius,
+        view_edge_region: "off",
+        feather: 0.0,
+        contrast,
+        shift_edge: 0.0,
+        decontaminate: "off",
+        decontamination_amount: 0.0,
+        decontamination_radius: 0.0,
+        view_decontamination_map: "off",
+    };
+    refine_matte(source, &s);
+    if let Some(before) = before {
+        for (d, b) in source.data_mut().iter_mut().zip(before) {
+            *d = (b as f64 + strength * (*d as f64 - b as f64)) as f32;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

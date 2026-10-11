@@ -381,6 +381,8 @@ pub enum Stage {
     /// D-501: Difference Matte.
     EffectDifferenceMatte,
     EffectInnerOuterKey,
+    /// D-503: Key Cleaner.
+    EffectKeyCleaner,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -398,7 +400,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 197] = [
+    pub const ALL: [Stage; 198] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -589,6 +591,7 @@ impl Stage {
         Stage::EffectColorRange,
         Stage::EffectDifferenceMatte,
         Stage::EffectInnerOuterKey,
+        Stage::EffectKeyCleaner,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -791,6 +794,7 @@ impl Stage {
             Stage::EffectColorRange => "effect: color range",
             Stage::EffectDifferenceMatte => "effect: difference matte",
             Stage::EffectInnerOuterKey => "effect: inner outer key",
+            Stage::EffectKeyCleaner => "effect: key cleaner",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",
