@@ -209976,3 +209976,61 @@ FX-STROBE-028 (`fx_strobe_028.json`): Strobe "flash", which is not one. The file
 FX-STROBE-029 (`fx_strobe_029.json`): Strobe Color "white", which is not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-STROBE-030 (`fx_strobe_030.json`): Random Strobe Probability keyed to 150 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Depth of Field (D-523)
+
+Depth of Field (`core.depth_of_field`), after After Effects' Depth of Field (B-403), the rule ours. The compositions are D-348's (Pass Extract and Depth Key, above): 8 by 6, five frames at 24 a second, the layer `scene`, an EXR still written with OpenEXR's own library, in `Fixtures/depth_of_field/media/`: `scene.exr` (D-348's colour and depth Z = 0.5 + 1.25 x + 0.75 y), `negative.exr` (Z negated), `far.exr` (an infinity, a negative infinity and a not-a-number in row 5), `plain.exr` (no depth), `blender.exr` (Blender's layout) and `card.png`. `tools/depth_of_field_reference.py` works the expected frames, `Fixtures/depth_of_field/expected_depth_of_field.json`, tolerance 2e-5; the rule is in document 21. The playtest's sample is D-348's `Fixtures/depth_channel/sample/spheres.exr`.
+
+FX-DOF-001 (`fx_dof_001.json`): As added: Focal Plane 0, so every depth is out of focus by its whole distance, fully; the whole picture at the full radius 10, edges repeated.
+
+FX-DOF-002 (`fx_dof_002.json`): Focal Plane 6, radius 3: the diagonal at depth 6 sharp, the near top left fully blurred, the far bottom right about half.
+
+FX-DOF-003 (`fx_dof_003.json`): Focal Plane 6, Thickness 4: everything from 4 to 8 sharp.
+
+FX-DOF-004 (`fx_dof_004.json`): Focal Plane 6, Bias 100: out of focus twice as fast.
+
+FX-DOF-005 (`fx_dof_005.json`): Focal Plane 6, Bias 25: half as fast.
+
+FX-DOF-006 (`fx_dof_006.json`): Bias 0: nothing leaves focus, the picture unchanged.
+
+FX-DOF-007 (`fx_dof_007.json`): Maximum Radius 0: the picture unchanged.
+
+FX-DOF-008 (`fx_dof_008.json`): Maximum Radius 2.5: three levels mixed.
+
+FX-DOF-009 (`fx_dof_009.json`): Focal Plane keyed from 0 at frame 0 to 13 at frame 4: the sharp band moves from near to far.
+
+FX-DOF-010 (`fx_dof_010.json`): Maximum Radius keyed from 0 at frame 0 to 4 at frame 4.
+
+FX-DOF-011 (`fx_dof_011.json`): The depth written negative, Focal Plane -6: FX-DOF-002.
+
+FX-DOF-012 (`fx_dof_012.json`): Thickness 1,000,000: everything in focus, unchanged.
+
+FX-DOF-013 (`fx_dof_013.json`): Infinities and not-a-number in the depth: each read as D-348 reads it, all three fully out of focus; the warning every frame. Each frame says `MEDIA_EXR_ADJUSTED`.
+
+FX-DOF-014 (`fx_dof_014.json`): Blender's layout, the depth in ViewLayer.Depth.Z and the colour in ViewLayer.Combined: FX-DOF-002.
+
+FX-DOF-015 (`fx_dof_015.json`): A file with no depth: unchanged, the warning every frame. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-DOF-016 (`fx_dof_016.json`): On a PNG drawing: unchanged, the warning. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-DOF-017 (`fx_dof_017.json`): On a solid: unchanged, the warning. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-DOF-018 (`fx_dof_018.json`): On an adjustment layer above the EXR: no file of its own, unchanged, the warning. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-DOF-019 (`fx_dof_019.json`): The layer moved 2 right and 1 down: FX-DOF-002 moved.
+
+FX-DOF-020 (`fx_dof_020.json`): An Exposure of +1 before it: the brighter picture blurred.
+
+FX-DOF-021 (`fx_dof_021.json`): An Exposure of -1 after it.
+
+FX-DOF-022 (`fx_dof_022.json`): Focal Plane 13, radius 3, Thickness 2: the far corner sharp, the near side fully blurred.
+
+FX-DOF-023 (`fx_dof_023.json`): Maximum Radius 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-DOF-024 (`fx_dof_024.json`): Maximum Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-DOF-025 (`fx_dof_025.json`): Focal Bias 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-DOF-026 (`fx_dof_026.json`): Focal Plane Thickness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-DOF-027 (`fx_dof_027.json`): Focal Plane keyed to 2,000,000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
