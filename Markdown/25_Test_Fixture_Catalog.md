@@ -210688,3 +210688,61 @@ FX-CHTHRESH-021 (`fx_chthresh_021.json`): Invert written "yes", not "on" or "off
 FX-CHTHRESH-022 (`fx_chthresh_022.json`): Blend With Original 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CHTHRESH-023 (`fx_chthresh_023.json`): Blend With Original keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### CC Cylinder (D-530)
+
+CC Cylinder (`core.cc_cylinder`), after CycoreFX's CC Cylinder (B-410), the rule ours. Each case is a project of one composition holding Broadcast Colors' 16 by 10 drawing (a transparent column and a half-covered one), as each case's project names. `tools/cc_cylinder_reference.py` works the expected frames, `Fixtures/cc_cylinder/expected_cc_cylinder.json`, tolerance 2e-5, every case checked clear of a graze, an open end and the highlight's cut; the rule is in document 21. The playtest's pictures are drawn on D-506's street picture.
+
+FX-CYL-001 (`fx_cyl_001.json`): The settings as they start: the drawing wrapped round an upright cylinder half the drawing's half width in radius, in the middle, its middle column facing the viewer, lit from the upper left; its sides fall away round the curve, the corners beside it are transparent, and the inside's far wall is hidden behind the front.
+
+FX-CYL-002 (`fx_cyl_002.json`): Render outside: the outside alone.
+
+FX-CYL-003 (`fx_cyl_003.json`): Render inside: the inside alone, the far wall, the drawing seen from behind and so mirrored, its middle at the drawing's two side edges.
+
+FX-CYL-004 (`fx_cyl_004.json`): Rotation Y 90: the cylinder turned a quarter about its upright axis, so the drawing three quarters of the way across faces the viewer.
+
+FX-CYL-005 (`fx_cyl_005.json`): Rotation X 30: the cylinder tipped, its top towards the viewer, so the open end shows the inside.
+
+FX-CYL-006 (`fx_cyl_006.json`): Rotation Z 90: the cylinder lying on its side, the drawing's columns wrapped round it from top to bottom and its rows running along it.
+
+FX-CYL-007 (`fx_cyl_007.json`): Radius 100: a cylinder as wide as the drawing, nearer the viewer and so running past the drawing's sides.
+
+FX-CYL-008 (`fx_cyl_008.json`): Radius 0: no cylinder, so nothing is drawn and the layer is transparent.
+
+FX-CYL-009 (`fx_cyl_009.json`): Position Z 100: the cylinder a drawing's width farther away, smaller.
+
+FX-CYL-010 (`fx_cyl_010.json`): Position [25, 50]: the cylinder a quarter of the way across, seen a little from the side.
+
+FX-CYL-011 (`fx_cyl_011.json`): Light intensity 0: the ambient light alone, every pixel the wrapped drawing at 40 per cent.
+
+FX-CYL-012 (`fx_cyl_012.json`): Ambient 100, diffuse 0, specular 0: no shading, the wrapped drawing as it is.
+
+FX-CYL-013 (`fx_cyl_013.json`): An orange light, metal 0: the lit side and the highlight orange; with no blue in the light, blue is the ambient's alone.
+
+FX-CYL-014 (`fx_cyl_014.json`): Roughness 50, specular 100: a larger, duller highlight.
+
+FX-CYL-015 (`fx_cyl_015.json`): Light height -50: the light from behind, so the side facing the viewer is darker.
+
+FX-CYL-016 (`fx_cyl_016.json`): Light direction 90: the light from the right.
+
+FX-CYL-017 (`fx_cyl_017.json`): Rotation Y keyed from 0 at frame 0 to 360 at frame 4, linear: one whole turn, half way at frame 2.
+
+FX-CYL-018 (`fx_cyl_018.json`): FX-CYL-001 moved three pixels right: the same, moved, cylinder and all.
+
+FX-CYL-019 (`fx_cyl_019.json`): Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CYL-020 (`fx_cyl_020.json`): Radius 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CYL-021 (`fx_cyl_021.json`): Position Z 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CYL-022 (`fx_cyl_022.json`): Rotation Y 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CYL-023 (`fx_cyl_023.json`): Render "Full": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CYL-024 (`fx_cyl_024.json`): Light color "white": not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CYL-025 (`fx_cyl_025.json`): Ambient 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CYL-026 (`fx_cyl_026.json`): Roughness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CYL-027 (`fx_cyl_027.json`): Light height 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
