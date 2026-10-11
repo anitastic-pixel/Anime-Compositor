@@ -1105,6 +1105,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::LinearColorKey { .. }
                 // D-505.
                 | crate::effects::Effect::Unmult { .. }
+                // D-540.
+                | crate::effects::Effect::ScreenKey { .. }
                 // D-501.
                 | crate::effects::Effect::DifferenceMatte { .. }
                 // D-506.
@@ -1130,6 +1132,11 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
         && !matches!(instance.effect, crate::effects::Effect::Levels { input_black, input_white, .. } if input_black == input_white)
+        // D-540: the card draws a Screen Key's colour, one pixel at a time: its shrink, softness
+        // and edge refine read the pixels round it, and a hard clip and the status view are
+        // thresholds (D-122's reason), so those stay on the CPU.
+        && !matches!(&instance.effect, crate::effects::Effect::ScreenKey { view, clip_black, clip_white, shrink_grow, softness, edge_refine, .. }
+            if *shrink_grow != 0.0 || *softness != 0.0 || *edge_refine >= 1.0 || clip_white <= clip_black || view == "status")
         // D-383: and a set of a Levels with one for each channel; the card bends the colour
         // only, so one whose alpha set is not plain is drawn here, as D-302's Curves.
         // ponytail: give the card's grade the alpha set if one is slow here.

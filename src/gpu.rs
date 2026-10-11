@@ -2827,6 +2827,40 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, vec4(v, v, v, p.w));
         return;
     }
+    if F.mode == 90u {
+        // D-540, as grade::skey_matte and grade::skey_despill; k: grade::skey_settings. The
+        // card draws "final" and "screen_matte" with no shrink, softness or edge refine only.
+        let s = u32(k[1]);
+        let o1 = u32(k[2]);
+        let o2 = u32(k[3]);
+        var scr = vec3(k[10], k[11], k[12]);
+        let ds = scr[s] - (max(scr[o1], scr[o2]) * (1.0lf - k[5]) + min(scr[o1], scr[o2]) * k[5]);
+        var m = 1.0lf;
+        if ds > 0.0lf {
+            let de = e[s] - (max(e[o1], e[o2]) * (1.0lf - k[5]) + min(e[o1], e[o2]) * k[5]);
+            m = clamp(1.0lf - k[4] * de / ds, 0.0lf, 1.0lf);
+        }
+        if k[7] > k[6] {
+            m = clamp((m - k[6]) / (k[7] - k[6]), 0.0lf, 1.0lf);
+        } else {
+            m = select(0.0lf, 1.0lf, m > k[6]);
+        }
+        if k[0] == 1.0lf {
+            let v = f32(to_linear(m) * a);
+            textureStore(output, id.xy, vec4(v, v, v, p.w));
+            return;
+        }
+        var c = e;
+        let limit = max(e[o1], e[o2]) * (1.0lf - k[8]) + min(e[o1], e[o2]) * k[8];
+        c[s] = e[s] - k[9] * max(e[s] - limit, 0.0lf);
+        // A channel at a time (B-222).
+        for (var j = 0u; j < 3u; j++) {
+            out[j] = f32(to_linear(c[j]) * a * m);
+        }
+        out.w = f32(a * m);
+        textureStore(output, id.xy, out);
+        return;
+    }
     if F.mode == 73u {
         // D-505, as grade::unmult; k: grade::unmult_settings.
         if a <= 0.0lf {
@@ -9244,6 +9278,8 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::LinearColorKey { .. }
             // D-505.
             | E::Unmult { .. }
+            // D-540.
+            | E::ScreenKey { .. }
     )
 }
 
@@ -12089,6 +12125,9 @@ impl Gpu {
             }
             u @ E::Unmult { .. } => {
                 same(steps, &passes.tone, FxParams { mode: 73, ..Default::default() }, &crate::grade::unmult_settings(u), None)
+            }
+            skey @ E::ScreenKey { .. } => {
+                same(steps, &passes.tone, FxParams { mode: 90, ..Default::default() }, &crate::grade::skey_settings(skey), None)
             }
             E::ColorLink { sample, clip, stencil, opacity, blending_mode: b, map, .. } => {
                 // card_can leaves only a named layer's picture; its colour is read here, once.

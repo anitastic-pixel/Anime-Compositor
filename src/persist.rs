@@ -2470,6 +2470,31 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("matching_tolerance".into(), num(*matching_tolerance));
             params.insert("matching_softness".into(), num(*matching_softness));
         }
+        Effect::ScreenKey {
+            view,
+            screen_color,
+            screen_gain,
+            screen_balance,
+            clip_black,
+            clip_white,
+            despill_bias,
+            despill,
+            shrink_grow,
+            softness,
+            edge_refine,
+        } => {
+            params.insert("view".into(), J::from(view.as_str()));
+            params.insert("screen_color".into(), J::from(screen_color.as_str()));
+            params.insert("screen_gain".into(), num(*screen_gain));
+            params.insert("screen_balance".into(), num(*screen_balance));
+            params.insert("clip_black".into(), num(*clip_black));
+            params.insert("clip_white".into(), num(*clip_white));
+            params.insert("despill_bias".into(), num(*despill_bias));
+            params.insert("despill".into(), num(*despill));
+            params.insert("shrink_grow".into(), num(*shrink_grow));
+            params.insert("softness".into(), num(*softness));
+            params.insert("edge_refine".into(), num(*edge_refine));
+        }
         Effect::Unmult { background_color, black_level, white_level, softness, remove_color_matting, clip_hdr_results } => {
             params.insert("background_color".into(), J::from(background_color.as_str()));
             params.insert("black_level".into(), num(*black_level));
@@ -4994,6 +5019,7 @@ fn parse_effect(
         crate::effects::INNER_OUTER_KEY,
         crate::effects::KEY_CLEANER,
         crate::effects::LINEAR_COLOR_KEY,
+        crate::effects::SCREEN_KEY,
         crate::effects::UNMULT,
         crate::effects::THREE_D_GLASSES,
         crate::effects::GLASS_MELT,
@@ -6009,6 +6035,19 @@ fn parse_effect(
             match_colors: effect_word(params, "match_colors", &at)?,
             matching_tolerance: effect_number(params, "matching_tolerance", &at)?,
             matching_softness: effect_number(params, "matching_softness", &at)?,
+        }),
+        crate::effects::SCREEN_KEY => Some(crate::effects::Effect::ScreenKey {
+            view: effect_word(params, "view", &at)?,
+            screen_color: effect_word(params, "screen_color", &at)?,
+            screen_gain: effect_number(params, "screen_gain", &at)?,
+            screen_balance: effect_number(params, "screen_balance", &at)?,
+            clip_black: effect_number(params, "clip_black", &at)?,
+            clip_white: effect_number(params, "clip_white", &at)?,
+            despill_bias: effect_number(params, "despill_bias", &at)?,
+            despill: effect_number(params, "despill", &at)?,
+            shrink_grow: effect_number(params, "shrink_grow", &at)?,
+            softness: effect_number(params, "softness", &at)?,
+            edge_refine: effect_number(params, "edge_refine", &at)?,
         }),
         crate::effects::UNMULT => Some(crate::effects::Effect::Unmult {
             background_color: effect_word(params, "background_color", &at)?,

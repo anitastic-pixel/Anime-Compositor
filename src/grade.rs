@@ -2658,6 +2658,151 @@ pub(crate) fn linear_color_key(source: &mut WorkingBuffer, k: &[f64; 8]) {
     });
 }
 
+/// D-540: Screen Key's settings as the card reads them: the view's place in
+/// [`crate::effects::SKEY_VIEWS`], the screen channel and the other two (0 red, 1 green, 2 blue),
+/// the gain, balance, clip black and clip white, despill bias and despill as shares, and the
+/// screen colour encoded.
+pub(crate) fn skey_settings(effect: &crate::effects::Effect) -> [f64; 13] {
+    let crate::effects::Effect::ScreenKey {
+        view,
+        screen_color,
+        screen_gain,
+        screen_balance,
+        clip_black,
+        clip_white,
+        despill_bias,
+        despill,
+        ..
+    } = effect
+    else {
+        unreachable!("skey_settings takes Screen Key")
+    };
+    let k = crate::effects::encoded(screen_color);
+    // The largest channel; on a tie green, then blue, then red.
+    let s = [1usize, 2, 0].into_iter().fold(1, |best, i| if k[i] > k[best] { i } else { best });
+    let others: Vec<usize> = (0..3).filter(|&i| i != s).collect();
+    [
+        crate::effects::SKEY_VIEWS.iter().position(|v| v == view).unwrap_or(0) as f64,
+        s as f64,
+        others[0] as f64,
+        others[1] as f64,
+        screen_gain / 100.0,
+        screen_balance / 100.0,
+        clip_black / 100.0,
+        clip_white / 100.0,
+        despill_bias / 100.0,
+        despill / 100.0,
+        k[0],
+        k[1],
+        k[2],
+    ]
+}
+
+/// D-540: the larger of c's two other channels at 1 - t, the smaller at t.
+fn skey_weigh(c: [f64; 3], k: &[f64; 13], t: f64) -> f64 {
+    let (a, b) = (c[k[2] as usize], c[k[3] as usize]);
+    a.max(b) * (1.0 - t) + a.min(b) * t
+}
+
+/// D-540: Screen Key's matte at the encoded colour e, 1 foreground and 0 screen, clip levels
+/// taken (document 21's steps 1 and 2).
+pub(crate) fn skey_matte(e: [f64; 3], k: &[f64; 13]) -> f64 {
+    let s = k[1] as usize;
+    let screen = [k[10], k[11], k[12]];
+    let ds = screen[s] - skey_weigh(screen, k, k[5]);
+    let m = if ds <= 0.0 { 1.0 } else { (1.0 - k[4] * (e[s] - skey_weigh(e, k, k[5])) / ds).clamp(0.0, 1.0) };
+    skey_clip(m, k)
+}
+
+/// D-540: the clip levels: (m - black) / (white - black) held inside 0 to 1; a step at black
+/// where white <= black.
+fn skey_clip(m: f64, k: &[f64; 13]) -> f64 {
+    match k[7] > k[6] {
+        true => ((m - k[6]) / (k[7] - k[6])).clamp(0.0, 1.0),
+        false => if m <= k[6] { 0.0 } else { 1.0 },
+    }
+}
+
+/// D-540: the encoded colour e with its screen channel held no higher than the blend of the
+/// other two at the despill bias, by the despill share.
+pub(crate) fn skey_despill(e: [f64; 3], k: &[f64; 13]) -> [f64; 3] {
+    let s = k[1] as usize;
+    let mut out = e;
+    out[s] -= k[9] * (e[s] - skey_weigh(e, k, k[8])).max(0.0);
+    out
+}
+
+/// D-540: Screen Key, document 21's rule: the matte (empty pixels count as foreground), shrunk
+/// or grown over Simple Choker's disc and softened by document 21's Gaussian, both with the
+/// picture's edge held; then the view; then, for "final", Key Cleaner's fit at the edge refine.
+/// The settings are valid.
+pub(crate) fn screen_key(source: &mut WorkingBuffer, effect: &crate::effects::Effect) {
+    let crate::effects::Effect::ScreenKey { shrink_grow, softness, edge_refine, .. } = *effect else {
+        unreachable!("screen_key takes Screen Key")
+    };
+    let k = skey_settings(effect);
+    let (w, h) = (source.width(), source.height());
+    let straight = |px: &[f32]| [0, 1, 2].map(|c| to_srgb((px[c] as f64 / px[3] as f64).clamp(0.0, 1.0)));
+    let mut m: Vec<f32> = source
+        .data()
+        .par_chunks_exact(4)
+        .map(|px| if px[3] <= 0.0 { skey_clip(1.0, &k) } else { skey_matte(straight(px), &k) } as f32)
+        .collect();
+    if shrink_grow != 0.0 && w > 0 && h > 0 {
+        // The matte as a layer's covering, padded with its edge pixels held, through Simple
+        // Choker (whose positive choke shrinks).
+        let n = shrink_grow.abs().ceil() as usize;
+        let (pw, ph) = (w + 2 * n, h + 2 * n);
+        let mut pad = WorkingBuffer::transparent(pw, ph);
+        pad.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+            let x = (i % pw).saturating_sub(n).min(w - 1);
+            let y = (i / pw).saturating_sub(n).min(h - 1);
+            px.fill(m[y * w + x]);
+        });
+        let g = crate::layer_fx::simple_choker(&mut pad, -shrink_grow);
+        let (bw, out) = (pw + 2 * g, pad.data());
+        m.par_iter_mut().enumerate().for_each(|(i, v)| {
+            *v = out[((i / w + n + g) * bw + i % w + n + g) * 4 + 3];
+        });
+    }
+    if softness > 0.0 {
+        let mut b = WorkingBuffer::transparent(w, h);
+        b.data_mut().par_chunks_exact_mut(4).zip(&m).for_each(|(px, &v)| px.fill(v));
+        crate::effects::held_blur(&mut b, softness);
+        m.par_iter_mut().zip(b.data().par_chunks_exact(4)).for_each(|(v, px)| *v = px[3]);
+    }
+    let view = k[0] as usize;
+    source.data_mut().par_chunks_exact_mut(4).zip(&m).for_each(|(px, &v)| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            px.fill(0.0);
+            return;
+        }
+        let v = v as f64;
+        match view {
+            0 => {
+                let c = skey_despill(straight(px), &k);
+                for j in 0..3 {
+                    px[j] = (to_linear(c[j]) * a * v) as f32;
+                }
+                px[3] = (a * v) as f32;
+            }
+            _ => {
+                let v = match view {
+                    1 => v,
+                    _ if v >= 0.999 => 1.0,
+                    _ if v <= 0.001 => 0.0,
+                    _ => 0.5,
+                };
+                px[..3].fill((to_linear(v) * a) as f32);
+            }
+        }
+    });
+    if view == 0 && edge_refine >= 1.0 {
+        crate::matte_refine::key_cleaner(source, edge_refine, 0.0, 1.0);
+    }
+}
+
 /// D-505: Unmult's settings as the card reads them: 1 for a white background, the level L as a
 /// share (black: black level; white: 1 - white level), the softness as a share, 1 to remove
 /// colour matting, 1 to clip HDR results.

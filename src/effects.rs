@@ -2261,6 +2261,24 @@ pub enum Effect {
         matching_tolerance: f64,
         matching_softness: f64,
     },
+    /// D-540: Screen Key, this program's own green and blue screen keyer (not a copy of
+    /// Keylight; `grade::screen_key`, document 21). `screen_color`, "#rrggbb"; `screen_gain`, 0
+    /// to 200; `screen_balance`, `clip_black`, `clip_white`, `despill_bias` and `despill`, 0 to
+    /// 100; `shrink_grow`, -100 to 100 pixels; `softness` and `edge_refine`, 0 to 100 pixels;
+    /// `view`, one of [`SKEY_VIEWS`].
+    ScreenKey {
+        view: String,
+        screen_color: String,
+        screen_gain: f64,
+        screen_balance: f64,
+        clip_black: f64,
+        clip_white: f64,
+        despill_bias: f64,
+        despill: f64,
+        shrink_grow: f64,
+        softness: f64,
+        edge_refine: f64,
+    },
     /// D-505: after After Effects' Unmult, its rule and its settings when added ours
     /// (`grade::unmult`, document 21). `background_color`, "black" or "white"; `black_level`
     /// (used with black), `white_level` (used with white) and `softness`, 0 to 100 per cent;
@@ -3200,6 +3218,9 @@ pub const LINEAR_COLOR_KEY: &str = "core.linear_color_key";
 /// D-504: Linear Color Key's views and ways of matching.
 pub const LCKEY_VIEWS: [&str; 3] = ["final", "source", "matte"];
 pub const LCKEY_MATCHES: [&str; 3] = ["rgb", "hue", "chroma"];
+pub const SCREEN_KEY: &str = "core.screen_key";
+/// D-540: Screen Key's views.
+pub const SKEY_VIEWS: [&str; 3] = ["final", "screen_matte", "status"];
 pub const UNMULT: &str = "core.unmult";
 pub const THREE_D_GLASSES: &str = "core.three_d_glasses";
 pub const GLASS_MELT: &str = "core.glass_melt";
@@ -3396,6 +3417,28 @@ impl Effect {
             Effect::LinearColorKey { matching_tolerance, matching_softness, .. } => vec![
                 ("matching_tolerance", vec![matching_tolerance], 0.0, 100.0),
                 ("matching_softness", vec![matching_softness], 0.0, 100.0),
+            ],
+            Effect::ScreenKey {
+                screen_gain,
+                screen_balance,
+                clip_black,
+                clip_white,
+                despill_bias,
+                despill,
+                shrink_grow,
+                softness,
+                edge_refine,
+                ..
+            } => vec![
+                ("screen_gain", vec![screen_gain], 0.0, 200.0),
+                ("screen_balance", vec![screen_balance], 0.0, 100.0),
+                ("clip_black", vec![clip_black], 0.0, 100.0),
+                ("clip_white", vec![clip_white], 0.0, 100.0),
+                ("despill_bias", vec![despill_bias], 0.0, 100.0),
+                ("despill", vec![despill], 0.0, 100.0),
+                ("shrink_grow", vec![shrink_grow], -100.0, 100.0),
+                ("softness", vec![softness], 0.0, 100.0),
+                ("edge_refine", vec![edge_refine], 0.0, 100.0),
             ],
             Effect::Unmult { black_level, white_level, softness, .. } => vec![
                 ("black_level", vec![black_level], 0.0, 100.0),
@@ -5512,6 +5555,11 @@ impl Effect {
             }
             // D-503: the radius is a distance; the contrast and strength are not.
             Effect::KeyCleaner { additional_edge_radius, .. } => *additional_edge_radius = scale(*additional_edge_radius),
+            Effect::ScreenKey { shrink_grow, softness, edge_refine, .. } => {
+                *shrink_grow = scale(*shrink_grow);
+                *softness = scale(*softness);
+                *edge_refine = scale(*edge_refine);
+            }
             // D-419: the radius is a distance; the point a share of the drawing.
             Effect::EyedropperFill { sample_radius, .. } => *sample_radius = scale(*sample_radius),
             // D-440: the three distances; the point a share of the drawing.
@@ -5878,6 +5926,7 @@ impl Effect {
             Effect::InnerOuterKey { .. } => "Inner/Outer Key",
             Effect::KeyCleaner { .. } => "Key Cleaner",
             Effect::LinearColorKey { .. } => "Linear Color Key",
+            Effect::ScreenKey { .. } => "Screen Key",
             Effect::Unmult { .. } => "Unmult",
             Effect::ThreeDGlasses { .. } => "3D Glasses",
             Effect::GlassMelt { .. } => "Glass Melt",
@@ -6085,6 +6134,7 @@ impl Effect {
             Effect::InnerOuterKey { .. } => INNER_OUTER_KEY,
             Effect::KeyCleaner { .. } => KEY_CLEANER,
             Effect::LinearColorKey { .. } => LINEAR_COLOR_KEY,
+            Effect::ScreenKey { .. } => SCREEN_KEY,
             Effect::Unmult { .. } => UNMULT,
             Effect::ThreeDGlasses { .. } => THREE_D_GLASSES,
             Effect::GlassMelt { .. } => GLASS_MELT,
@@ -6547,6 +6597,9 @@ impl Effect {
                     "{name}'s match colors is \"rgb\", \"hue\" or \"chroma\", and this is \"{match_colors}\"."
                 )))
                 .or_else(|| hex_fault(name, "key colour", key_color)),
+            Effect::ScreenKey { view, screen_color, .. } => (!SKEY_VIEWS.contains(&view.as_str()))
+                .then(|| format!("{name}'s view is \"final\", \"screen_matte\" or \"status\", and this is \"{view}\"."))
+                .or_else(|| hex_fault(name, "screen colour", screen_color)),
             Effect::Unmult { background_color: b, remove_color_matting: r, clip_hdr_results: c, .. } => {
                 (!["black", "white"].contains(&b.as_str()))
                     .then(|| format!("{name}'s background color is \"black\" or \"white\", and this is \"{b}\"."))
@@ -9383,6 +9436,9 @@ pub(crate) fn apply_stack_at(
             e @ Effect::LinearColorKey { .. } => crate::perf::time(crate::perf::Stage::EffectLinearColorKey, || {
                 crate::grade::linear_color_key(source, &crate::grade::lckey_settings(e))
             }),
+            e @ Effect::ScreenKey { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectScreenKey, || crate::grade::screen_key(source, e))
+            }
             e @ Effect::Unmult { .. } => crate::perf::time(crate::perf::Stage::EffectUnmult, || {
                 crate::grade::unmult(source, &crate::grade::unmult_settings(e))
             }),

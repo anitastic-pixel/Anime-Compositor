@@ -385,6 +385,8 @@ pub enum Stage {
     EffectKeyCleaner,
     /// D-504: Linear Color Key.
     EffectLinearColorKey,
+    /// D-540: Screen Key.
+    EffectScreenKey,
     /// D-505: Unmult.
     EffectUnmult,
     /// D-506: 3D Glasses.
@@ -424,7 +426,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 209] = [
+    pub const ALL: [Stage; 210] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -617,6 +619,7 @@ impl Stage {
         Stage::EffectInnerOuterKey,
         Stage::EffectKeyCleaner,
         Stage::EffectLinearColorKey,
+        Stage::EffectScreenKey,
         Stage::EffectUnmult,
         Stage::Effect3dGlasses,
         Stage::EffectCcSpotlight,
@@ -831,6 +834,7 @@ impl Stage {
             Stage::EffectInnerOuterKey => "effect: inner outer key",
             Stage::EffectKeyCleaner => "effect: key cleaner",
             Stage::EffectLinearColorKey => "effect: linear color key",
+            Stage::EffectScreenKey => "effect: screen key",
             Stage::EffectUnmult => "effect: unmult",
             Stage::Effect3dGlasses => "effect: 3d glasses",
             Stage::EffectCcSpotlight => "effect: cc spotlight",
