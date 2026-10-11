@@ -2581,6 +2581,83 @@ pub(crate) fn color_range(source: &mut WorkingBuffer, k: &[f64; 8]) {
     });
 }
 
+/// D-504: Linear Color Key's settings as the card reads them: the view's place in
+/// [`crate::effects::LCKEY_VIEWS`], the match's in [`crate::effects::LCKEY_MATCHES`], the
+/// tolerance and softness, the key colour encoded, and its hue (-1 for a grey).
+pub(crate) fn lckey_settings(effect: &crate::effects::Effect) -> [f64; 8] {
+    let crate::effects::Effect::LinearColorKey { view, key_color, match_colors, matching_tolerance, matching_softness } =
+        effect
+    else {
+        unreachable!("lckey_settings takes Linear Color Key")
+    };
+    let key = crate::effects::encoded(key_color);
+    let place = |list: &[&str], w: &str| list.iter().position(|v| *v == w).unwrap_or(0) as f64;
+    [
+        place(&crate::effects::LCKEY_VIEWS, view),
+        place(&crate::effects::LCKEY_MATCHES, match_colors),
+        *matching_tolerance,
+        *matching_softness,
+        key[0],
+        key[1],
+        key[2],
+        hsv_hue(key).unwrap_or(-1.0),
+    ]
+}
+
+/// D-504: the share of the encoded colour e that Linear Color Key keeps. Its distance from the
+/// key, 0 to 100: RGB, the largest channel difference; hue, the angle between their hues over
+/// 180, 100 when either is a grey; chroma, the largest difference of their chromaticities
+/// e / (eR + eG + eB), a black's a third each. Then (d - tolerance) / softness held inside 0 to
+/// 1; with softness 0, 0 at or within the tolerance and 1 beyond. Our rule (document 21).
+pub(crate) fn lckey_kept(e: [f64; 3], k: &[f64; 8]) -> f64 {
+    let key = [k[4], k[5], k[6]];
+    let chroma = |c: [f64; 3]| {
+        let s = c[0] + c[1] + c[2];
+        if s == 0.0 { [1.0 / 3.0; 3] } else { c.map(|v| v / s) }
+    };
+    let most = |a: [f64; 3], b: [f64; 3]| (0..3).map(|i| (a[i] - b[i]).abs()).fold(0.0, f64::max);
+    let d = match k[1] as usize {
+        0 => 100.0 * most(e, key),
+        1 => match (hsv_hue(e), k[7] >= 0.0) {
+            (Some(h), true) => {
+                let a = (h - k[7]).abs() % 360.0;
+                100.0 * a.min(360.0 - a) / 180.0
+            }
+            _ => 100.0,
+        },
+        _ => 100.0 * most(chroma(e), chroma(key)),
+    };
+    match k[3] == 0.0 {
+        true => if d <= k[2] { 0.0 } else { 1.0 },
+        false => ((d - k[2]) / k[3]).clamp(0.0, 1.0),
+    }
+}
+
+/// D-504: Linear Color Key. "final" multiplies every channel by the share kept, so the colour is
+/// kept and the covering falls; "source" leaves the layer as it is; "matte" shows the share as
+/// an encoded grey at the pixel's covering.
+pub(crate) fn linear_color_key(source: &mut WorkingBuffer, k: &[f64; 8]) {
+    let view = k[0] as usize;
+    if view == 1 {
+        return;
+    }
+    each_pixel(source, |px| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let e = [0, 1, 2].map(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0)));
+        let m = lckey_kept(e, k);
+        if view == 0 {
+            for c in px.iter_mut() {
+                *c = (*c as f64 * m) as f32;
+            }
+            return;
+        }
+        px[..3].fill((to_linear(m) * a) as f32);
+    });
+}
+
 /// D-396: Selective Color with every amount 0 leaves the layer exactly as it is.
 pub(crate) fn selective_color_untouched(families: &[[f64; 4]; 9]) -> bool {
     families.iter().flatten().all(|v| *v == 0.0)

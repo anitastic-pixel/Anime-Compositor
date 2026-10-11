@@ -2780,6 +2780,53 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, out);
         return;
     }
+    if F.mode == 72u {
+        // D-504, as grade::lckey_kept; k: grade::lckey_settings.
+        if k[0] == 1.0lf {
+            textureStore(output, id.xy, p);
+            return;
+        }
+        let key = vec3(k[4], k[5], k[6]);
+        var d = 100.0lf;
+        if k[1] == 0.0lf {
+            let q = abs(e - key);
+            d = 100.0lf * max(max(q.x, q.y), q.z);
+        } else if k[1] == 1.0lf {
+            let h = hsv_hue(e);
+            if h >= 0.0lf && k[7] >= 0.0lf {
+                let t = abs(h - k[7]);
+                d = 100.0lf * min(t, 360.0lf - t) / 180.0lf;
+            }
+        } else {
+            var ce = vec3(1.0lf / 3.0lf);
+            let se = e.x + e.y + e.z;
+            if se != 0.0lf {
+                ce = e / se;
+            }
+            var ck = vec3(1.0lf / 3.0lf);
+            let sk = key.x + key.y + key.z;
+            if sk != 0.0lf {
+                ck = key / sk;
+            }
+            let q = abs(ce - ck);
+            d = 100.0lf * max(max(q.x, q.y), q.z);
+        }
+        var m = select(0.0lf, 1.0lf, d > k[2]);
+        if k[3] != 0.0lf {
+            m = clamp((d - k[2]) / k[3], 0.0lf, 1.0lf);
+        }
+        if k[0] == 0.0lf {
+            // A channel at a time, as Extract's.
+            for (var c = 0u; c < 4u; c++) {
+                out[c] = f32(f64(p[c]) * m);
+            }
+            textureStore(output, id.xy, out);
+            return;
+        }
+        let v = f32(to_linear(m) * a);
+        textureStore(output, id.xy, vec4(v, v, v, p.w));
+        return;
+    }
     if F.mode == 0u {
         // k: the amount as a share.
         for (var c = 0u; c < 3u; c++) {
@@ -8812,6 +8859,8 @@ fn one_pixel(effect: &crate::effects::Effect) -> bool {
             | E::ColorDifferenceKey { .. }
             // D-500.
             | E::ColorRange { .. }
+            // D-504.
+            | E::LinearColorKey { .. }
     )
 }
 
@@ -11611,6 +11660,9 @@ impl Gpu {
             }
             crange @ E::ColorRange { .. } => {
                 same(steps, &passes.tone, FxParams { mode: 71, ..Default::default() }, &crate::grade::crange_settings(crange), None)
+            }
+            lckey @ E::LinearColorKey { .. } => {
+                same(steps, &passes.tone, FxParams { mode: 72, ..Default::default() }, &crate::grade::lckey_settings(lckey), None)
             }
             E::ColorLink { sample, clip, stencil, opacity, blending_mode: b, map, .. } => {
                 // card_can leaves only a named layer's picture; its colour is read here, once.

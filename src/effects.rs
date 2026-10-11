@@ -2224,6 +2224,17 @@ pub enum Effect {
         alpha_contrast: f64,
         strength: f64,
     },
+    /// D-504: after After Effects' Linear Color Key, its rule and its settings when added ours
+    /// (`grade::linear_color_key`, document 21). `view`, one of [`LCKEY_VIEWS`]; `key_color`,
+    /// "#rrggbb"; `match_colors`, one of [`LCKEY_MATCHES`]; `matching_tolerance` and
+    /// `matching_softness`, 0 to 100 per cent. Key Operation's Keep Colors is not built.
+    LinearColorKey {
+        view: String,
+        key_color: String,
+        match_colors: String,
+        matching_tolerance: f64,
+        matching_softness: f64,
+    },
     /// D-458: after CycoreFX's CC Simple Wire Removal, the rule ours (`layer_fx::wire_removal`,
     /// document 21). `point_a` and `point_b`, per cent of the drawing, -1000 to 1000;
     /// `removal_style`, one of [`WIRE_STYLES`]; `thickness`, 0 to 100 pixels; `slope` and
@@ -3019,6 +3030,10 @@ pub const CRANGE_NAMES: [&str; 6] = ["min_1", "max_1", "min_2", "max_2", "min_3"
 pub const DIFFERENCE_MATTE: &str = "core.difference_matte";
 pub const INNER_OUTER_KEY: &str = "core.inner_outer_key";
 pub const KEY_CLEANER: &str = "core.key_cleaner";
+pub const LINEAR_COLOR_KEY: &str = "core.linear_color_key";
+/// D-504: Linear Color Key's views and ways of matching.
+pub const LCKEY_VIEWS: [&str; 3] = ["final", "source", "matte"];
+pub const LCKEY_MATCHES: [&str; 3] = ["rgb", "hue", "chroma"];
 pub const SIMPLE_WIRE_REMOVAL: &str = "core.simple_wire_removal";
 /// D-458: CC Simple Wire Removal's styles.
 pub const WIRE_STYLES: [&str; 4] = ["fade", "frame_offset", "displace", "displace_horizontal"];
@@ -3184,6 +3199,10 @@ impl Effect {
                 ("additional_edge_radius", vec![additional_edge_radius], 0.0, 100.0),
                 ("alpha_contrast", vec![alpha_contrast], 0.0, 100.0),
                 ("strength", vec![strength], 0.0, 100.0),
+            ],
+            Effect::LinearColorKey { matching_tolerance, matching_softness, .. } => vec![
+                ("matching_tolerance", vec![matching_tolerance], 0.0, 100.0),
+                ("matching_softness", vec![matching_softness], 0.0, 100.0),
             ],
             Effect::Transform {
                 anchor_point,
@@ -5556,6 +5575,7 @@ impl Effect {
             Effect::DifferenceMatte { .. } => "Difference Matte",
             Effect::InnerOuterKey { .. } => "Inner/Outer Key",
             Effect::KeyCleaner { .. } => "Key Cleaner",
+            Effect::LinearColorKey { .. } => "Linear Color Key",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
@@ -5752,6 +5772,7 @@ impl Effect {
             Effect::DifferenceMatte { .. } => DIFFERENCE_MATTE,
             Effect::InnerOuterKey { .. } => INNER_OUTER_KEY,
             Effect::KeyCleaner { .. } => KEY_CLEANER,
+            Effect::LinearColorKey { .. } => LINEAR_COLOR_KEY,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
@@ -6183,6 +6204,12 @@ impl Effect {
                 .or_else(|| hex_fault(name, "key colour", key_color)),
             Effect::ColorRange { color_space, .. } => (!CRANGE_SPACES.contains(&color_space.as_str()))
                 .then(|| format!("{name}'s colour space is \"lab\", \"yuv\" or \"rgb\", and this is \"{color_space}\".")),
+            Effect::LinearColorKey { view, key_color, match_colors, .. } => (!LCKEY_VIEWS.contains(&view.as_str()))
+                .then(|| format!("{name}'s view is \"final\", \"source\" or \"matte\", and this is \"{view}\"."))
+                .or_else(|| (!LCKEY_MATCHES.contains(&match_colors.as_str())).then(|| format!(
+                    "{name}'s match colors is \"rgb\", \"hue\" or \"chroma\", and this is \"{match_colors}\"."
+                )))
+                .or_else(|| hex_fault(name, "key colour", key_color)),
             Effect::DifferenceMatte { view, layer, fit, .. } => (!["final", "matte"].contains(&view.as_str()))
                 .then(|| format!("{name}'s view is \"final\" or \"matte\", and this is \"{view}\"."))
                 .or_else(|| (!layer.is_string()).then(|| format!(
@@ -8947,6 +8974,9 @@ pub(crate) fn apply_stack_at(
                     crate::matte_refine::key_cleaner(source, *additional_edge_radius, *alpha_contrast, *strength / 100.0)
                 })
             }
+            e @ Effect::LinearColorKey { .. } => crate::perf::time(crate::perf::Stage::EffectLinearColorKey, || {
+                crate::grade::linear_color_key(source, &crate::grade::lckey_settings(e))
+            }),
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {
                     crate::grade::add_grain(source, &g, (ox, oy))

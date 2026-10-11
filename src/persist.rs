@@ -2451,6 +2451,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("alpha_contrast".into(), num(*alpha_contrast));
             params.insert("strength".into(), num(*strength));
         }
+        Effect::LinearColorKey { view, key_color, match_colors, matching_tolerance, matching_softness } => {
+            params.insert("view".into(), J::from(view.as_str()));
+            params.insert("key_color".into(), J::from(key_color.as_str()));
+            params.insert("match_colors".into(), J::from(match_colors.as_str()));
+            params.insert("matching_tolerance".into(), num(*matching_tolerance));
+            params.insert("matching_softness".into(), num(*matching_softness));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4879,6 +4886,7 @@ fn parse_effect(
         crate::effects::DIFFERENCE_MATTE,
         crate::effects::INNER_OUTER_KEY,
         crate::effects::KEY_CLEANER,
+        crate::effects::LINEAR_COLOR_KEY,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
@@ -5866,7 +5874,14 @@ fn parse_effect(
             alpha_contrast: effect_number(params, "alpha_contrast", &at)?,
             strength: effect_number(params, "strength", &at)?,
         }),
-        crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
+        crate::effects::LINEAR_COLOR_KEY => Some(crate::effects::Effect::LinearColorKey {
+            view: effect_word(params, "view", &at)?,
+            key_color: effect_word(params, "key_color", &at)?,
+            match_colors: effect_word(params, "match_colors", &at)?,
+            matching_tolerance: effect_number(params, "matching_tolerance", &at)?,
+            matching_softness: effect_number(params, "matching_softness", &at)?,
+        }),
+        crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,
             threshold: effect_number(params, "threshold", &at)?,
         }),
