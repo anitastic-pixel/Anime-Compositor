@@ -3881,11 +3881,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("shadowing".into(), num(*shadowing));
             params.insert("texture".into(), num(*texture));
         }
-        Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original } => {
+        Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original, dirt } => {
             params.insert("flare_center".into(), J::Array(flare_center.iter().map(|c| num(*c)).collect()));
             params.insert("flare_brightness".into(), num(*flare_brightness));
             params.insert("lens_type".into(), J::from(lens_type.as_str()));
             params.insert("blend_with_original".into(), num(*blend_with_original));
+            dirt_json(&mut params, dirt, instance);
         }
         Effect::Vegas { stroke, mask, all_masks, segments, length, segment_distribution, rotation, random_phase, random_seed, blend_mode, color, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity, .. } => {
             params.insert("stroke".into(), J::from(stroke.as_str()));
@@ -4131,6 +4132,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             spectral_red,
             spectral_green,
             spectral_blue,
+            dirt,
         } => {
             params.insert("falloff".into(), J::from(falloff.as_str()));
             params.insert("threshold_mode".into(), J::from(threshold_mode.as_str()));
@@ -4162,6 +4164,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                     params.insert(key.into(), num(*value));
                 }
             }
+            dirt_json(&mut params, dirt, instance);
         }
         Effect::Unsupported { .. } => {}
     }
@@ -4183,6 +4186,37 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         }
     }
     record
+}
+
+/// D-545: Lens Dirt's settings, each written only when changed, keyed or in the file already, so
+/// a file from before them saves the same.
+fn dirt_json(params: &mut Map<String, J>, dirt: &crate::effects::LensDirt, instance: &crate::effects::EffectInstance) {
+    for (key, value, start) in [
+        ("dirt_layer", dirt.layer.clone(), dirt.layer.as_str() == Some("")),
+        ("dirt_opacity", num(dirt.opacity), dirt.opacity == 100.0),
+        ("dirt_inherit", num(dirt.inherit), dirt.inherit == 0.0),
+        ("dirt_exposure", num(dirt.exposure), dirt.exposure == 0.0),
+        ("dirt_gamma", num(dirt.gamma), dirt.gamma == 1.0),
+        ("dirt_repeat", J::from(dirt.repeat.as_str()), dirt.repeat == "on"),
+    ] {
+        if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
+            params.insert(key.into(), value);
+        }
+    }
+}
+
+/// D-545: Lens Dirt's settings, read at their start values from a file without them, the layer
+/// kept as written, as Lens Blur's is.
+fn dirt_of(params: Option<&J>, at: &str) -> Result<crate::effects::LensDirt, Diagnostic> {
+    Ok(crate::effects::LensDirt {
+        layer: params.and_then(|p| p.get("dirt_layer")).cloned().unwrap_or_else(|| J::from("")),
+        opacity: effect_number_or(params, "dirt_opacity", at, 100.0)?,
+        inherit: effect_number_or(params, "dirt_inherit", at, 0.0)?,
+        exposure: effect_number_or(params, "dirt_exposure", at, 0.0)?,
+        gamma: effect_number_or(params, "dirt_gamma", at, 1.0)?,
+        repeat: effect_word_or(params, "dirt_repeat", at, "on")?,
+        map: None,
+    })
 }
 
 /// D-68: a keyed setting of one or more channels as one property record, whose base is `plain`
@@ -5489,6 +5523,8 @@ fn parse_effect(
                 spectral_red: effect_number_or(params, "spectral_red", &at, 80.0)?,
                 spectral_green: effect_number_or(params, "spectral_green", &at, 100.0)?,
                 spectral_blue: effect_number_or(params, "spectral_blue", &at, 120.0)?,
+                // D-545: a file without them has no dirt.
+                dirt: dirt_of(params, &at)?,
             })
         }
         crate::effects::HALATION => Some(crate::effects::Effect::Halation {
@@ -7343,6 +7379,7 @@ fn parse_effect(
             flare_brightness: effect_number(params, "flare_brightness", &at)?,
             lens_type: effect_word(params, "lens_type", &at)?,
             blend_with_original: effect_number(params, "blend_with_original", &at)?,
+            dirt: dirt_of(params, &at)?,
         }),
         crate::effects::VEGAS => Some(crate::effects::Effect::Vegas {
             stroke: effect_word(params, "stroke", &at)?,

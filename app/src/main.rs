@@ -3356,6 +3356,8 @@ fn soft_glow_added() -> Effect {
         spectral_red: 80.0,
         spectral_green: 100.0,
         spectral_blue: 120.0,
+        // D-545: no dirt.
+        dirt: Default::default(),
     }
 }
 
@@ -5213,6 +5215,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             flare_brightness: 100.0,
             lens_type: "zoom".to_string(),
             blend_with_original: 0.0,
+            // D-545: no dirt.
+            dirt: Default::default(),
         }),
         // D-445: After Effects' Turbulent Noise controls over Fractal Noise's engine; Complexity
         // 6 as After Effects', the rest as Fractal Noise starts.
@@ -5580,6 +5584,20 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             })
             .collect()
     };
+    // D-545: Lens Dirt's settings, as added when the command leaves them out; the layer travels
+    // as `dirt_layer`, as written, "" for none.
+    let dirt = || -> Result<anime_compositor::effects::LensDirt, String> {
+        let or = |name: &str, start: f64| if parameter(query, name).is_some() { number(name) } else { Ok(start) };
+        Ok(anime_compositor::effects::LensDirt {
+            layer: serde_json::Value::from(parameter(query, "dirt_layer").unwrap_or_default().trim()),
+            opacity: or("dirt_opacity", 100.0)?,
+            inherit: or("dirt_inherit", 0.0)?,
+            exposure: or("dirt_exposure", 0.0)?,
+            gamma: or("dirt_gamma", 1.0)?,
+            repeat: if parameter(query, "dirt_repeat").is_some() { word("dirt_repeat")? } else { "on".to_string() },
+            map: None,
+        })
+    };
     match type_id {
         EXPOSURE => Ok(Effect::Exposure {
             stops: number("stops")?,
@@ -5698,6 +5716,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             spectral_red: if parameter(query, "spectral_red").is_some() { number("spectral_red")? } else { 80.0 },
             spectral_green: if parameter(query, "spectral_green").is_some() { number("spectral_green")? } else { 100.0 },
             spectral_blue: if parameter(query, "spectral_blue").is_some() { number("spectral_blue")? } else { 120.0 },
+            dirt: dirt()?,
         }),
         // D-89: the words and colours as written, the colours as one comma-separated list and
         // the tint empty for none. Whether each is right is the core's check, in its words.
@@ -7494,6 +7513,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             flare_brightness: number("flare_brightness")?,
             lens_type: word("lens_type")?,
             blend_with_original: number("blend_with_original")?,
+            dirt: dirt()?,
         }),
         // D-445: the depth is set by compose each frame.
         TURBULENT_NOISE => Ok(Effect::TurbulentNoise {

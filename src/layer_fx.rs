@@ -2350,9 +2350,9 @@ pub(crate) fn flare_parts(lens: &str, flare: (f64, f64), middle: (f64, f64), siz
 
 /// D-426: Lens Flare. The light of the placed `parts` added to each pixel, its covering raised by
 /// the light's brightest channel, the result kept by `keep` (1 - Blend With Original) against the
-/// pixel as it was.
-pub(crate) fn lens_flare(source: &mut WorkingBuffer, parts: &[[f64; 9]], keep: f64) {
-    let w = source.width();
+/// pixel as it was. D-545: with `dirt`, the light first has the dirt matted by it on top.
+pub(crate) fn lens_flare(source: &mut WorkingBuffer, parts: &[[f64; 9]], keep: f64, dirt: Option<&crate::soft_glow::Dirt>) {
+    let (w, h) = (source.width(), source.height());
     source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
         let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
         let mut light = [0.0f64; 3];
@@ -2371,6 +2371,10 @@ pub(crate) fn lens_flare(source: &mut WorkingBuffer, parts: &[[f64; 9]], keep: f
             light[0] += red * v;
             light[1] += green * v;
             light[2] += blue * v;
+        }
+        if let Some(d) = dirt {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            light = d.lit(light.map(|v| v as f32), d.at(x, y, w, h)).map(f64::from);
         }
         let a = px[3] as f64;
         let lifted = a + (1.0 - a) * light[0].max(light[1]).max(light[2]).min(1.0);

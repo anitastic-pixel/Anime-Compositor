@@ -52,6 +52,57 @@ pub(crate) struct Settings {
     pub spectral: Option<[f64; 3]>,
     /// D-544, pick #13: Halation's colour (linear), `None` for a glow.
     pub halation: Option<[f32; 3]>,
+    /// D-545, pick #14: Lens Dirt, `None` when none is added.
+    pub dirt: Option<Dirt>,
+}
+
+/// D-545, pick #14: Lens Dirt as the processor and the card take it (`effects::LensDirt::lit`),
+/// for Soft Physical Glow and Lens Flare alike: the dirt picture (linear premultiplied, read
+/// whole), Opacity and Inherit Glow Color as fractions, the matte's gain (2 to the Matte
+/// Exposure) and power (1 / Matte Gamma), and whether it mirror-repeats.
+pub(crate) struct Dirt {
+    pub picture: std::sync::Arc<WorkingBuffer>,
+    pub opacity: f32,
+    pub inherit: f32,
+    pub gain: f32,
+    pub power: f32,
+    pub repeat: bool,
+}
+
+impl Dirt {
+    /// Step 1 of document 21's rule: the dirt at the layer's pixel (x, y), the layer `w` by `h`:
+    /// the picture centred on the layer, mirrored back into itself outside it when it repeats
+    /// (period twice its size, the edge pixel twice), clear there when not.
+    pub fn at(&self, x: isize, y: isize, w: usize, h: usize) -> [f32; 3] {
+        let (dw, dh) = (self.picture.width() as isize, self.picture.height() as isize);
+        let place = |s: isize, n: isize| {
+            if self.repeat {
+                let m = s.rem_euclid(2 * n);
+                Some(if m < n { m } else { 2 * n - 1 - m })
+            } else {
+                (0..n).contains(&s).then_some(s)
+            }
+        };
+        match (place(x - (w as isize - dw).div_euclid(2), dw), place(y - (h as isize - dh).div_euclid(2), dh)) {
+            (Some(sx), Some(sy)) => {
+                let (d, i) = (self.picture.data(), (sy * dw + sx) as usize * 4);
+                [d[i], d[i + 1], d[i + 2]]
+            }
+            _ => [0.0; 3],
+        }
+    }
+
+    /// Steps 2 to 4: the light `g` with the dirt `d` on top, matted by the light's Rec. 709
+    /// brightness (Inherit 0) or by the light channel by channel (Inherit 1), the matte times its
+    /// gain, held to 0..1, raised to its power.
+    pub fn lit(&self, g: [f32; 3], d: [f32; 3]) -> [f32; 3] {
+        let y = y709(g);
+        std::array::from_fn(|c| {
+            let m = (((1.0 - self.inherit) * y + self.inherit * g[c]) * self.gain).clamp(0.0, 1.0);
+            let m = if self.power == 1.0 { m } else { m.powf(self.power) };
+            g[c] + self.opacity * m * d[c]
+        })
+    }
 }
 
 /// Rec. 709 brightness, as `light`'s Luminance mode tests it.
@@ -284,10 +335,14 @@ pub(crate) fn spread(lit: &[f32], w: usize, h: usize, lv: &Level) -> Vec<f32> {
 
 /// Stage 3 at one pixel: the glow `g` (the levels' sum) times Exposure, laid with the untouched
 /// pixel `p` at Source Opacity. Screen adds and holds each channel at 1; Unmult on makes the
-/// glow's covering its brightest channel, off lays it on solid black.
-pub(crate) fn finish(g: [f32; 3], p: [f32; 4], s: &Settings) -> [f32; 4] {
+/// glow's covering its brightest channel, off lays it on solid black. D-545: the dirt picture
+/// `dirt` at the pixel is matted by the glow and goes on top of it, before Screen holds it.
+pub(crate) fn finish(g: [f32; 3], p: [f32; 4], s: &Settings, dirt: [f32; 3]) -> [f32; 4] {
     let (e, o) = (s.exposure as f32, (s.opacity / 100.0) as f32);
     let mut g = g.map(|v| v * e);
+    if let Some(d) = &s.dirt {
+        g = d.lit(g, dirt);
+    }
     if s.screen {
         g = g.map(|v| v.min(1.0));
     }
@@ -394,7 +449,8 @@ pub(crate) fn soft_glow(source: &mut WorkingBuffer, s: &Settings) -> usize {
                 glow = colour.map(|c| c * h);
             }
             let p = if inside { [src[i * 4], src[i * 4 + 1], src[i * 4 + 2], src[i * 4 + 3]] } else { [0.0; 4] };
-            o.copy_from_slice(&finish(glow, p, s));
+            let dirt = s.dirt.as_ref().map_or([0.0; 3], |d| d.at(x, y, w, h));
+            o.copy_from_slice(&finish(glow, p, s, dirt));
         }
     });
     *source = out;

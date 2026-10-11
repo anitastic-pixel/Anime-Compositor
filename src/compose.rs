@@ -1439,6 +1439,8 @@ fn card_effect(
                 E::CompoundBlur { map, max_blur, .. } => map.is_none() || *max_blur == 0.0,
                 // D-359: a blur layer named and not read this frame is drawn without the effect.
                 E::LensBlur { layer, map, .. } => layer.as_str().is_some_and(|l| !l.is_empty()) && map.is_none(),
+                // D-545: as Lens Blur's, for a dirt layer.
+                E::SoftGlow { dirt, .. } | E::LensFlare { dirt, .. } => dirt.missing(),
                 E::SelectiveColorBlur { blur, colors, .. } => (blur + 0.5).floor() == 0.0 || crate::selective_blur::targets(colors).is_empty(),
                 E::VectorBlur { amount, .. } => *amount == 0.0,
                 // D-377/D-378: no bar, or no push.

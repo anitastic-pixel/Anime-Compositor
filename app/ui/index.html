@@ -9957,6 +9957,14 @@ const LEVELS_SETS = [['', ''], ['red_', 'Red '], ['green_', 'Green '], ['blue_',
     ['output_black', 'Output Black', 1, 0.5, '0 to 255', '', 0],
     ['output_white', 'Output White', 1, 0.5, '0 to 255', '', 255]]
     .map(([n, l, ...rest]) => [pre + n, title + l, ...rest]));
+// D-545, pick #14: Lens Dirt on Soft Physical Glow and Lens Flare, Deep Glow 2's controls;
+// absent from a file, as added.
+const DIRT_NUMBERS = [['dirt_opacity', 'Dirt Opacity', 1, 1, 'per cent, 0 to 100, how much dirt shows', '', 100],
+  ['dirt_inherit', 'Dirt Inherit Glow Colour', 1, 1, 'per cent, 0 to 100; 100 lights the dirt in the light's own colours', '', 0],
+  ['dirt_exposure', 'Dirt Matte Exposure', 1, 0.05, 'stops, -10 to 10, how much light it takes to show the dirt', '', 0],
+  ['dirt_gamma', 'Dirt Matte Gamma', 1, 0.01, '0.1 to 10; above 1 shows the dirt in fainter light', '', 1]];
+const DIRT_REPEAT = ['dirt_repeat', 'Dirt Repeat Edges', [['on', 'On'], ['off', 'Off']]];
+const DIRT_LAYER = ['dirt_layer', 'Dirt Layer', 'dirt_layer'];
 const EFFECT_PARAMS = {
   'core.gaussian_blur': [['sigma_px', 'Radius σ (px)', 1, 0.1, '0 to 500 source pixels']],
   'core.exposure': [['stops', 'Exposure (stops)', 1, 0.02, '-40 to 40 stops'],
@@ -9988,7 +9996,8 @@ const EFFECT_PARAMS = {
     // D-543, pick #10: Deep Glow's Glow Aberration sizes; absent from a file, as added.
     ['spectral_red', 'Spectral Red', 1, 1, 'per cent of Radius, 0 to 200, how far red reaches', '', 80],
     ['spectral_green', 'Spectral Green', 1, 1, 'per cent of Radius, 0 to 200, how far green reaches', '', 100],
-    ['spectral_blue', 'Spectral Blue', 1, 1, 'per cent of Radius, 0 to 200, how far blue reaches', '', 120]],
+    ['spectral_blue', 'Spectral Blue', 1, 1, 'per cent of Radius, 0 to 200, how far blue reaches', '', 120],
+    ...DIRT_NUMBERS],
   // D-544, pick #13. Its colour is drawn apart.
   'core.halation': [['threshold', 'Threshold', 1, 0.5, 'per cent, 0 to 100, how bright the light that makes it'],
     ['threshold_smooth', 'Threshold Smooth', 1, 0.5, 'per cent, 0 to 100, how soft the threshold is'],
@@ -10950,7 +10959,8 @@ const EFFECT_PARAMS = {
     ['end_opacity', 'End Opacity', 1, 0.01, '0 to 1, at each dash’s end']],
   'core.lens_flare': [['flare_center', 'Flare Center', 2, 1, '% of the width and height, where the light is'],
     ['flare_brightness', 'Flare Brightness', 1, 1, '%, 0 to 300'],
-    ['blend_with_original', 'Blend With Original', 1, 1, '%, 0 to 100; 100 shows the layer without the flare']],
+    ['blend_with_original', 'Blend With Original', 1, 1, '%, 0 to 100; 100 shows the layer without the flare'],
+    ...DIRT_NUMBERS],
   'core.threads': [['width', 'Width', 1, 1, 'pixels between the up-and-down threads, 1 to 1000'],
     ['height', 'Height', 1, 1, 'pixels between the across threads, 1 to 1000'],
     ['overlaps', 'Overlaps', 1, 1, '1 to 10, how many threads each passes over and under'],
@@ -11211,8 +11221,9 @@ const EFFECT_WORDS = {
       // D-542, pick #6: Deep Glow's Tint Mode, in our words.
       ['tint', 'Tint', [['off', 'Off'], ['one_color', 'One Colour'], ['core_to_edge', 'Core to Edge']]],
       // D-543, pick #10: each colour glows at its own size.
-      ['spectral', 'Spectral', [['off', 'Off'], ['on', 'On']]]],
+      ['spectral', 'Spectral', [['off', 'Off'], ['on', 'On']]], DIRT_REPEAT],
     colours: [['inner_color', 'Inner Colour'], ['outer_color', 'Outer Colour']],
+    layers: [DIRT_LAYER],
   },
   // D-544.
   'core.halation': { colours: [['color', 'Colour']] },
@@ -11559,7 +11570,8 @@ const EFFECT_WORDS = {
     colours: [['color', 'Color']],
   },
   'core.lens_flare': {
-    choices: [['lens_type', 'Lens Type', [['zoom', '50-300mm Zoom'], ['35mm', '35mm Prime'], ['105mm', '105mm Prime']]]],
+    choices: [['lens_type', 'Lens Type', [['zoom', '50-300mm Zoom'], ['35mm', '35mm Prime'], ['105mm', '105mm Prime']]], DIRT_REPEAT],
+    layers: [DIRT_LAYER],
   },
   'core.audio_waveform': {
     layers: [['audio_layer', 'Audio Layer', 'map_layer']],

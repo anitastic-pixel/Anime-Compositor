@@ -3864,6 +3864,74 @@ fn repeat_weight(t: i32, n: i32) -> f32 {
     return f32(clamp(1.0lf - quotient(e, k[5] * f64(n) / 2.0lf), 0.0lf, 1.0lf));
 }
 
+// D-426, layer_fx::lens_flare's light at the pixel centre (x, y). k: what is kept (1 - blend),
+// the parts' count, then each part's kind, place, size, edge, rays and colour
+// (layer_fx::flare_parts). The light in single precision.
+fn flare_light(x: f64, y: f64) -> vec3<f32> {
+    let count = u32(k[1]);
+    var light = vec3(0.0);
+    for (var i = 0u; i < count; i++) {
+        let b = 2u + 9u * i;
+        let dx = f32(x - k[b + 1u]);
+        let dy = f32(y - k[b + 2u]);
+        let d = sqrt(dx * dx + dy * dy);
+        let big = f32(k[b + 3u]);
+        let edge = f32(k[b + 4u]);
+        let kind = u32(k[b]);
+        var v = 0.0;
+        if kind == 0u {
+            v = exp(-(d / big) * (d / big));
+        } else if kind == 1u {
+            let q = (d - big) / edge;
+            v = exp(-q * q);
+        } else if kind == 2u {
+            v = clamp((big - d) / edge + 0.5, 0.0, 1.0);
+        } else {
+            var a = 0.0;
+            if d > 0.0 {
+                a = atan2(dy, dx);
+            }
+            let s = (1.0 + cos(f32(k[b + 5u]) * a)) / 2.0;
+            if s > 0.0 {
+                v = exp(-d / big) * pow(s, edge);
+            }
+        }
+        light += vec3(f32(k[b + 6u]), f32(k[b + 7u]), f32(k[b + 8u])) * v;
+    }
+    return light;
+}
+
+// D-426: the pixel `p` with the flare's `light` added, its covering raised by the light's
+// brightest channel, kept by k[0] against the pixel as it was.
+fn flare_lay(p: vec4<f32>, light: vec3<f32>) -> vec4<f32> {
+    let keep = f32(k[0]);
+    let lifted = p.w + (1.0 - p.w) * min(1.0, max(light.x, max(light.y, light.z)));
+    return vec4(p.xyz + keep * light, p.w + keep * (lifted - p.w));
+}
+
+// D-545, soft_glow::Dirt: the light `g` at the output pixel `p` with the dirt (`other`) matted
+// by it on top. k from `b`: Opacity and Inherit Glow Color as fractions, the matte's gain and
+// power, 1 to repeat, then the dirt's corner in the output (gpu::dirt_k).
+fn dirtlit(g: vec3<f32>, p: vec2<i32>, b: u32) -> vec3<f32> {
+    let n = vec2<i32>(textureDimensions(other));
+    var s = p - vec2(i32(k[b + 5u]), i32(k[b + 6u]));
+    if k[b + 4u] != 0.0lf {
+        // The mirror is the same either side of -0.5, so `%` sees no negative number: this
+        // card's signed `%` was found to work as unsigned (-1 % 12 gave 3).
+        let m = select(s, -1 - s, s < vec2(0)) % (2 * n);
+        s = select(m, 2 * n - 1 - m, m >= n);
+    }
+    let d = at(other, s).xyz;
+    let y = 0.2126 * g.x + 0.7152 * g.y + 0.0722 * g.z;
+    let i = f32(k[b + 1u]);
+    var m = clamp(((1.0 - i) * y + i * g) * f32(k[b + 2u]), vec3(0.0), vec3(1.0));
+    let power = f32(k[b + 3u]);
+    if power != 1.0 {
+        m = select(vec3(0.0), pow(m, vec3(power)), m > vec3(0.0));
+    }
+    return g + f32(k[b]) * m * d;
+}
+
 @compute @workgroup_size(16, 16)
 fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -4717,43 +4785,7 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             return;
         }
         case 36u: {
-            // D-426, layer_fx::lens_flare. k: what is kept (1 - blend), the parts' count, then each
-            // part's kind, place, size, edge, rays and colour (layer_fx::flare_parts). The light
-            // in single precision.
-            let count = u32(k[1]);
-            var light = vec3(0.0);
-            for (var i = 0u; i < count; i++) {
-                let b = 2u + 9u * i;
-                let dx = f32(x - k[b + 1u]);
-                let dy = f32(y - k[b + 2u]);
-                let d = sqrt(dx * dx + dy * dy);
-                let big = f32(k[b + 3u]);
-                let edge = f32(k[b + 4u]);
-                let kind = u32(k[b]);
-                var v = 0.0;
-                if kind == 0u {
-                    v = exp(-(d / big) * (d / big));
-                } else if kind == 1u {
-                    let q = (d - big) / edge;
-                    v = exp(-q * q);
-                } else if kind == 2u {
-                    v = clamp((big - d) / edge + 0.5, 0.0, 1.0);
-                } else {
-                    var a = 0.0;
-                    if d > 0.0 {
-                        a = atan2(dy, dx);
-                    }
-                    let s = (1.0 + cos(f32(k[b + 5u]) * a)) / 2.0;
-                    if s > 0.0 {
-                        v = exp(-d / big) * pow(s, edge);
-                    }
-                }
-                light += vec3(f32(k[b + 6u]), f32(k[b + 7u]), f32(k[b + 8u])) * v;
-            }
-            let p = textureLoad(input, id.xy, 0);
-            let keep = f32(k[0]);
-            let lifted = p.w + (1.0 - p.w) * min(1.0, max(light.x, max(light.y, light.z)));
-            textureStore(output, id.xy, vec4(p.xyz + keep * light, p.w + keep * (lifted - p.w)));
+            textureStore(output, id.xy, flare_lay(textureLoad(input, id.xy, 0), flare_light(x, y)));
             return;
         }
         case 100u: {
@@ -9547,7 +9579,46 @@ fn sghalo(@builtin(global_invocation_id) id: vec3<u32>) {
     let h = max((0.2126 * s.x + 0.7152 * s.y + 0.0722 * s.z) - (0.2126 * l.x + 0.7152 * l.y + 0.0722 * l.z), 0.0);
     textureStore(output, id.xy, vec4(h * vec3(f32(k[1]), f32(k[2]), f32(k[3])), 0.0));
 }
+
+// D-545, soft_glow::finish's dirt: the glow times Exposure with the dirt on top, for sgfinish at
+// Exposure 1. k: Exposure, then the dirt's (dirtlit).
+@compute @workgroup_size(16, 16)
+fn sgdirt(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let g = textureLoad(input, id.xy, 0).xyz * f32(k[0]);
+    textureStore(output, id.xy, vec4(dirtlit(g, vec2<i32>(id.xy), 1u), 0.0));
+}
+
+// D-545, layer_fx::lens_flare with dirt: the flare's light with the dirt on top, then laid as
+// case 36 lays it. k: case 36's, then the dirt's (dirtlit) after the parts.
+@compute @workgroup_size(16, 16)
+fn flaredirt(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let light = dirtlit(flare_light(f64(id.x) + 0.5lf, f64(id.y) + 0.5lf), vec2<i32>(id.xy), 2u + 9u * u32(k[1]));
+    textureStore(output, id.xy, flare_lay(textureLoad(input, id.xy, 0), light));
+}
 "#;
+
+/// D-545: Lens Dirt's numbers for FX_SHADER's `dirtlit`, the layer `w` by `h` grown by `g` on
+/// every side, the dirt centred on the layer as `soft_glow::Dirt::at` places it.
+fn dirt_k(d: &crate::soft_glow::Dirt, (w, h): (usize, usize), g: usize) -> [f64; 7] {
+    let corner = |n: usize, dn: usize| (g as isize + (n as isize - dn as isize).div_euclid(2)) as f64;
+    [
+        f64::from(d.opacity),
+        f64::from(d.inherit),
+        f64::from(d.gain),
+        f64::from(d.power),
+        f64::from(u8::from(d.repeat)),
+        corner(w, d.picture.width()),
+        corner(h, d.picture.height()),
+    ]
+}
 
 /// B-65: [`FX_SHADER`]'s numbers, laid out as its `Fx`; each pass reads what it needs.
 #[repr(C)]
@@ -9720,6 +9791,9 @@ struct FxPasses {
     sgfinish: Pass,
     /// D-544.
     sghalo: Pass,
+    /// D-545.
+    sgdirt: Pass,
+    flaredirt: Pass,
     /// D-388.
     pageturn: Pass,
 }
@@ -10393,6 +10467,8 @@ impl Gpu {
                 sgadd: pass("sgadd", &[0, 1, 2, 3, 4]),
                 sgfinish: pass("sgfinish", &[0, 1, 2, 3, 4]),
                 sghalo: pass("sghalo", &[0, 1, 2, 3, 4]),
+                sgdirt: pass("sgdirt", &[0, 1, 2, 3, 4]),
+                flaredirt: pass("flaredirt", &[0, 1, 2, 3, 4]),
                 pageturn: pass("pageturn", &[0, 1, 2, 3, 4]),
                 chain: {
                     let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -12479,8 +12555,18 @@ impl Gpu {
                     self.fx_step(steps, &passes.sghalo, FxParams::default(), Some(&sums[(done + 1) % 2]), Some(&sums[done % 2]), Some(&k), Some(&lit), none, tiles(ow, oh));
                     done += 1;
                 }
+                // D-545: the glow times Exposure with the dirt on top, then laid at Exposure 1.
+                let mut exposure = single(s.exposure);
+                if let Some(d) = &s.dirt {
+                    let mut k = vec![exposure];
+                    k.extend(dirt_k(d, (w, h), g));
+                    let picture = self.map_texture(&d.picture);
+                    self.fx_step(steps, &passes.sgdirt, FxParams::default(), Some(&sums[(done + 1) % 2]), Some(&sums[done % 2]), Some(&k), Some(&picture), none, tiles(ow, oh));
+                    done += 1;
+                    exposure = 1.0;
+                }
                 let out = self.scratch("D-353 soft glow", ow, oh);
-                let k = [g as f64, single(s.exposure), single(s.opacity / 100.0), f64::from(s.screen), f64::from(s.unmult)];
+                let k = [g as f64, exposure, single(s.opacity / 100.0), f64::from(s.screen), f64::from(s.unmult)];
                 self.fx_step(steps, &passes.sgfinish, FxParams::default(), Some(&sums[(done + 1) % 2]), Some(&out), Some(&k), Some(still), none, tiles(ow, oh));
                 (out, (ow, oh))
             }
@@ -13413,7 +13499,7 @@ impl Gpu {
                 same(steps, &passes.warp, FxParams { mode: 35, ..Default::default() }, &k, None)
             }
             // D-426: one warp pass, the parts placed on the processor.
-            E::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original } => {
+            E::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original, dirt } => {
                 let (ox, oy) = f.origin;
                 let parts = crate::layer_fx::flare_parts(
                     lens_type,
@@ -13424,7 +13510,15 @@ impl Gpu {
                 );
                 let mut k = vec![1.0 - blend_with_original / 100.0, parts.len() as f64];
                 k.extend(parts.iter().flatten());
-                same(steps, &passes.warp, FxParams { mode: 36, ..Default::default() }, &k, None)
+                // D-545: with dirt, its own pass reading the dirt picture.
+                match dirt.lit() {
+                    Some(d) => {
+                        k.extend(dirt_k(&d, (w, h), 0));
+                        let picture = self.map_texture(&d.picture);
+                        same(steps, &passes.flaredirt, FxParams::default(), &k, Some(&picture))
+                    }
+                    None => same(steps, &passes.warp, FxParams { mode: 36, ..Default::default() }, &k, None),
+                }
             }
             // D-444: its own pass, the dashes' bits worked out here as the CPU works them, from
             // the paths compose found, in bands as Path Stroke's runs are; with no path the card

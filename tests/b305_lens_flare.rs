@@ -179,6 +179,7 @@ fn flare(change: impl FnOnce(&mut Effect)) -> Effect {
         flare_brightness: 100.0,
         lens_type: "zoom".to_string(),
         blend_with_original: 0.0,
+        dirt: Default::default(),
     };
     change(&mut e);
     e
@@ -328,7 +329,7 @@ fn b305_lens_flare() {
             (
                 "the tops: centre 1000, 1000, brightness 300, blend 100, the 35mm prime",
                 set_holder(flare(|e| {
-                    if let Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original } = e {
+                    if let Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original, .. } = e {
                         *flare_center = [1000.0, 1000.0];
                         *flare_brightness = 300.0;
                         *lens_type = "35mm".to_string();
@@ -339,7 +340,7 @@ fn b305_lens_flare() {
             (
                 "the bottoms: centre -1000, -1000, brightness 0, blend 0, the 105mm prime",
                 set_holder(flare(|e| {
-                    if let Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original } = e {
+                    if let Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original, .. } = e {
                         *flare_center = [-1000.0, -1000.0];
                         *flare_brightness = 0.0;
                         *lens_type = "105mm".to_string();

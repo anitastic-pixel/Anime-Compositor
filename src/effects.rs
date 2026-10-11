@@ -374,6 +374,67 @@ impl EffectInstance {
     }
 }
 
+/// D-545 (EFFECTS.md pick #14): Lens Dirt, a dirt picture from another layer lit where the
+/// light is bright, on Soft Physical Glow and Lens Flare alike (`soft_glow::Dirt`, document 21).
+/// `layer`, D-189's layer setting as written, "" for none, read whole; `opacity` and `inherit`,
+/// 0 to 100 per cent; `exposure`, -10 to 10 stops; `gamma`, 0.1 to 10; `repeat`, "on" or "off".
+/// `map` is not a setting and is never saved.
+#[derive(Clone, PartialEq, Debug)]
+pub struct LensDirt {
+    pub layer: serde_json::Value,
+    pub opacity: f64,
+    pub inherit: f64,
+    pub exposure: f64,
+    pub gamma: f64,
+    pub repeat: String,
+    pub map: Option<crate::layer_map::Map>,
+}
+
+impl Default for LensDirt {
+    /// No dirt, every setting as added.
+    fn default() -> Self {
+        LensDirt { layer: serde_json::Value::from(""), opacity: 100.0, inherit: 0.0, exposure: 0.0, gamma: 1.0, repeat: "on".into(), map: None }
+    }
+}
+
+impl LensDirt {
+    /// D-189 step 4: a dirt layer named and not read this frame (missing, or a circle) leaves the
+    /// layer drawn without the effect, as its diagnostic says.
+    pub(crate) fn missing(&self) -> bool {
+        self.layer.as_str().is_some_and(|l| !l.is_empty()) && self.map.is_none()
+    }
+
+    /// The dirt as the processor and the card take it; `None` when none is added (no layer, an
+    /// empty picture, or Opacity 0, which adds nothing).
+    pub(crate) fn lit(&self) -> Option<crate::soft_glow::Dirt> {
+        let m = self.map.as_ref().filter(|m| m.0.width() > 0 && m.0.height() > 0 && self.opacity > 0.0)?;
+        Some(crate::soft_glow::Dirt {
+            picture: m.0.clone(),
+            opacity: (self.opacity / 100.0) as f32,
+            inherit: (self.inherit / 100.0) as f32,
+            gain: 2f64.powf(self.exposure) as f32,
+            power: (1.0 / self.gamma) as f32,
+            repeat: self.repeat == "on",
+        })
+    }
+
+    fn fault(&self, name: &str) -> Option<String> {
+        if !self.layer.is_string() {
+            return Some(format!("{name}'s dirt layer is the name of a layer of this composition, and this is {}.", self.layer));
+        }
+        (!["on", "off"].contains(&self.repeat.as_str())).then(|| format!("{name}'s dirt repeat is \"on\" or \"off\", and this is \"{}\".", self.repeat))
+    }
+
+    fn numbers(&mut self) -> [(&'static str, Vec<&mut f64>, f64, f64); 4] {
+        [
+            ("dirt_opacity", vec![&mut self.opacity], 0.0, 100.0),
+            ("dirt_inherit", vec![&mut self.inherit], 0.0, 100.0),
+            ("dirt_exposure", vec![&mut self.exposure], -10.0, 10.0),
+            ("dirt_gamma", vec![&mut self.gamma], 0.1, 10.0),
+        ]
+    }
+}
+
 /// The typed parameter map of document 19, made a type per effect rather than a map.
 ///
 /// A map would have to be validated at every read; document 19 requires that "effect parameter
@@ -2802,12 +2863,14 @@ pub enum Effect {
     /// D-426: After Effects' Lens Flare: the flare a bright light makes in a camera lens, laid
     /// over the layer. `flare_center`, per cent of the drawing, -1000 to 1000; `flare_brightness`,
     /// 0 to 300; `lens_type`, "zoom" (50-300mm Zoom), "35mm" or "105mm" (the primes), each a
-    /// fixed set of glows, rings, rays and ghosts; `blend_with_original`, 0 to 100.
+    /// fixed set of glows, rings, rays and ghosts; `blend_with_original`, 0 to 100. D-545
+    /// (pick #14): `dirt`, Lens Dirt's settings ([`LensDirt`]).
     LensFlare {
         flare_center: [f64; 2],
         flare_brightness: f64,
         lens_type: String,
         blend_with_original: f64,
+        dirt: LensDirt,
     },
     /// D-444: After Effects' Vegas: dashes running along the layer's masks or a shape layer's
     /// paths, each fading from its start to its end, turning round as Rotation moves. `stroke`,
@@ -3083,7 +3146,8 @@ pub enum Effect {
     /// or "screen"; `unmult` "off" or "on". D-542 (pick #6): `tint`, "off", "one_color" or
     /// "core_to_edge"; `inner_color` and `outer_color`, `#rrggbb`; `tint_amount`, 0 to 100 per
     /// cent (`soft_glow::Tint`). D-543 (pick #10): `spectral`, "off" or "on";
-    /// `spectral_red`, `spectral_green` and `spectral_blue`, 0 to 200 per cent of Radius.
+    /// `spectral_red`, `spectral_green` and `spectral_blue`, 0 to 200 per cent of Radius. D-545
+    /// (pick #14): `dirt`, Lens Dirt's settings ([`LensDirt`]).
     SoftGlow {
         falloff: String,
         threshold_mode: String,
@@ -3105,6 +3169,7 @@ pub enum Effect {
         spectral_red: f64,
         spectral_green: f64,
         spectral_blue: f64,
+        dirt: LensDirt,
     },
     /// D-544: Halation (EFFECTS.md pick #13), on D-353's engine (`soft_glow`, document 21):
     /// `threshold` and `threshold_smooth`, 0 to 100 per cent; `radius`, 0 to 2,000 pixels;
@@ -5200,11 +5265,14 @@ impl Effect {
                 ("shadowing", vec![shadowing], 0.0, 100.0),
                 ("texture", vec![texture], 0.0, 100.0),
             ],
-            Effect::LensFlare { flare_center, flare_brightness, blend_with_original, .. } => vec![
+            Effect::LensFlare { flare_center, flare_brightness, blend_with_original, dirt, .. } => vec![
                 ("flare_center", flare_center.iter_mut().collect(), -1000.0, 1000.0),
                 ("flare_brightness", vec![flare_brightness], 0.0, 300.0),
                 ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
-            ],
+            ]
+            .into_iter()
+            .chain(dirt.numbers())
+            .collect(),
             Effect::Vegas {
                 mask, segments, length, rotation, random_seed, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity, ..
             } => vec![
@@ -5324,6 +5392,7 @@ impl Effect {
                 spectral_red,
                 spectral_green,
                 spectral_blue,
+                dirt,
                 ..
             } => vec![
                 ("threshold", vec![threshold], 0.0, 100.0),
@@ -5338,7 +5407,10 @@ impl Effect {
                 ("spectral_red", vec![spectral_red], 0.0, 200.0),
                 ("spectral_green", vec![spectral_green], 0.0, 200.0),
                 ("spectral_blue", vec![spectral_blue], 0.0, 200.0),
-            ],
+            ]
+            .into_iter()
+            .chain(dirt.numbers())
+            .collect(),
             Effect::Halation { threshold, threshold_smooth, radius, amount, .. } => vec![
                 ("threshold", vec![threshold], 0.0, 100.0),
                 ("threshold_smooth", vec![threshold_smooth], 0.0, 100.0),
@@ -7014,8 +7086,11 @@ impl Effect {
             | Effect::Blobbylize { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::MomentMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::LensBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
+            // D-545: the dirt is read whole, and centred on the layer by the effect.
+            Effect::SoftGlow { dirt: LensDirt { layer: serde_json::Value::String(layer), .. }, .. }
+            | Effect::LensFlare { dirt: LensDirt { layer: serde_json::Value::String(layer), .. }, .. }
             // D-375: read whole, never fitted to the holder.
-            Effect::ColorLink { layer: serde_json::Value::String(layer), .. }
+            | Effect::ColorLink { layer: serde_json::Value::String(layer), .. }
             | Effect::MatchGrain { layer: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
             // D-388: the back page is laid on the drawing, stretched to it.
             Effect::PageTurn { back_page: serde_json::Value::String(layer), .. } => Some((layer, "stretch")),
@@ -7058,6 +7133,7 @@ impl Effect {
             | Effect::MatchGrain { layer, map, .. } => Some((layer, map)),
             Effect::PageTurn { back_page, map, .. } => Some((back_page, map)),
             Effect::Fog3d { gradient_layer, map, .. } => Some((gradient_layer, map)),
+            Effect::SoftGlow { dirt, .. } | Effect::LensFlare { dirt, .. } => Some((&mut dirt.layer, &mut dirt.map)),
             _ => None,
         }
     }
@@ -7674,6 +7750,8 @@ impl Effect {
                 .then(|| format!("{name}'s paint style is \"plain\" or \"wobbly\", and this is \"{paint_style}\"."))
                 .or_else(|| (!["distant", "point"].contains(&light_type.as_str())).then(|| format!("{name}'s light type is distant or point, and this is \"{light_type}\".")))
                 .or_else(|| hex_fault(name, "light colour", light_color)),
+            // D-545: Lens Dirt's layer and its repeat.
+            Effect::SoftGlow { dirt, .. } | Effect::LensFlare { dirt, .. } if dirt.fault(name).is_some() => dirt.fault(name),
             Effect::LensFlare { lens_type, .. } => (!crate::layer_fx::FLARE_LENSES.iter().any(|(l, _)| l == lens_type))
                 .then(|| format!("{name}'s lens type is \"zoom\", \"35mm\" or \"105mm\", and this is \"{lens_type}\".")),
             // D-444: the owner's decision of 2026-10-10, "Masks only for now".
@@ -10408,7 +10486,9 @@ pub(crate) fn apply_stack_at(
                 })
             }
             // D-426: the flare's parts placed on the line from it through the layer's middle.
-            Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original } => {
+            // D-545: a dirt layer named and not read this frame leaves it drawn without (D-189).
+            Effect::LensFlare { dirt, .. } if dirt.missing() => {}
+            Effect::LensFlare { flare_center, flare_brightness, lens_type, blend_with_original, dirt } => {
                 crate::perf::time(crate::perf::Stage::EffectLensFlare, || {
                     let dims = (source.width(), source.height());
                     let parts = crate::layer_fx::flare_parts(
@@ -10418,7 +10498,7 @@ pub(crate) fn apply_stack_at(
                         ((dims.0 - 2 * ox) as f64).hypot((dims.1 - 2 * oy) as f64),
                         flare_brightness / 100.0,
                     );
-                    crate::layer_fx::lens_flare(source, &parts, 1.0 - blend_with_original / 100.0)
+                    crate::layer_fx::lens_flare(source, &parts, 1.0 - blend_with_original / 100.0, dirt.lit().as_ref())
                 })
             }
             // D-317: the map compose read for this frame, if a layer is named, is the bump.
@@ -11604,6 +11684,9 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
+            // D-545: a dirt layer named and not read this frame leaves it drawn without (D-189),
+            // grown by nothing.
+            Effect::SoftGlow { dirt, .. } if dirt.missing() => {}
             // D-353: the layer grows by the plan's reach on every side; D-544's Halation is worked
             // by the same engine.
             e @ (Effect::SoftGlow { .. } | Effect::Halation { .. }) => {
@@ -11717,6 +11800,7 @@ pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Setting
             spectral_red,
             spectral_green,
             spectral_blue,
+            dirt,
             ..
         } => Some(crate::soft_glow::Settings {
             luminance: threshold_mode == "luminance",
@@ -11733,6 +11817,7 @@ pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Setting
             tint: crate::soft_glow::Tint::of(tint, inner_color, outer_color, *tint_amount),
             spectral: crate::soft_glow::sizes(spectral, *spectral_red, *spectral_green, *spectral_blue),
             halation: None,
+            dirt: dirt.lit(),
         }),
         Effect::Halation { threshold, threshold_smooth, radius, amount, color } => Some(crate::soft_glow::Settings {
             luminance: true,
@@ -11749,6 +11834,7 @@ pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Setting
             tint: None,
             spectral: None,
             halation: Some(encoded(color).map(|v| crate::grade::to_linear(v) as f32)),
+            dirt: None,
         }),
         _ => None,
     }
