@@ -4032,7 +4032,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("fit".into(), J::from(fit.as_str()));
         }
         // D-348: the pass read for a frame is never saved; it is read from the file again.
-        Effect::PassExtract { pass, black_point, white_point, invert, clamp, channel, .. } => {
+        Effect::PassExtract { pass, black_point, white_point, invert, clamp, channel, unmult, .. } => {
             params.insert("pass".into(), J::from(pass.as_str()));
             params.insert("black_point".into(), num(*black_point));
             params.insert("white_point".into(), num(*white_point));
@@ -4041,6 +4041,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             // D-349: the channel names, left out of the file while empty.
             if !channel.is_empty() || params.contains_key("channel") {
                 params.insert("channel".into(), J::from(channel.as_str()));
+            }
+            // D-552: left out of the file while off, so a project saved before is unchanged.
+            if unmult != "off" || params.contains_key("unmult") {
+                params.insert("unmult".into(), J::from(unmult.as_str()));
             }
         }
         Effect::DepthKey { depth, feather, invert, .. } => {
@@ -7632,6 +7636,7 @@ fn parse_effect(
             invert: effect_word(params, "invert", &at)?,
             clamp: effect_word(params, "clamp", &at)?,
             channel: effect_word_or(params, "channel", &at, "")?,
+            unmult: effect_word_or(params, "unmult", &at, "off")?,
             channels: None,
         }),
         crate::effects::DEPTH_KEY => Some(crate::effects::Effect::DepthKey {

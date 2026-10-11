@@ -9089,7 +9089,9 @@ fn cylinder(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // B-228, layer_fx::pass_extract: the pass (`other`) lying on the drawing at (F.ox, F.oy), alpha 1
-// on it and 0 outside it; k black, white, invert, clamp.
+// on it and 0 outside it; k black, white, invert, clamp. D-552: the pass's alpha (1 unless a named
+// pass picks one) held to 0..1, each value divided by it first when k[4] (unmult), the result
+// laid over it; an alpha of 0 or below is clear, as outside.
 @compute @workgroup_size(16, 16)
 fn passx(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -9099,8 +9101,12 @@ fn passx(@builtin(global_invocation_id) id: vec3<u32>) {
     let q = at(other, vec2<i32>(id.xy) - vec2(F.ox, F.oy));
     var out = vec4(0.0);
     if q.w > 0.0 {
+        let a = min(f64(q.w), 1.0lf);
         for (var c = 0u; c < 3u; c++) {
-            let v = f64(q[c]);
+            var v = f64(q[c]);
+            if k[4] == 1.0lf {
+                v = v / a;
+            }
             var o = select(0.0lf, 1.0lf, v >= k[1]);
             if k[1] != k[0] {
                 o = (v - k[0]) / (k[1] - k[0]);
@@ -9111,9 +9117,9 @@ fn passx(@builtin(global_invocation_id) id: vec3<u32>) {
             if k[3] == 1.0lf {
                 o = clamp(o, 0.0lf, 1.0lf);
             }
-            out[c] = f32(o);
+            out[c] = f32(o * a);
         }
-        out.w = 1.0;
+        out.w = f32(a);
     }
     textureStore(output, id.xy, out);
 }
@@ -14430,9 +14436,10 @@ impl Gpu {
                 self.fx_step(steps, &passes.glasses, p, Some(left), Some(&out), Some(&k), Some(right), none, tiles(w, h));
                 (out, (w, h))
             }
-            E::PassExtract { channels, black_point, white_point, invert, clamp, .. } => {
+            E::PassExtract { channels, black_point, white_point, invert, clamp, unmult, .. } => {
                 let pass = self.map_texture(&channels.as_ref().expect("compose leaves a Pass Extract with a pass").0);
-                let k = [*black_point, *white_point, (invert == "on") as u8 as f64, (clamp == "on") as u8 as f64];
+                let on = |w: &String| (w == "on") as u8 as f64;
+                let k = [*black_point, *white_point, on(invert), on(clamp), on(unmult)];
                 let out = self.scratch("B-228 pass", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.passx, p, Some(still), Some(&out), Some(&k), Some(&pass), none, tiles(w, h));

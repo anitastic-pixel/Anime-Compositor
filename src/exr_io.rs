@@ -323,7 +323,8 @@ impl Pass {
 /// `z`, failing that all of `r`, `g`, `b`. D-349: an id is the first channel whose layer's last
 /// word (or, with no layer, whose name), without `_`, `-` and spaces, is one of
 /// [`OBJECT_IDS`] or [`MATERIAL_IDS`], one with a layer and a part `x` or `r` first; a named pass
-/// is one name or three with commas between, exactly as the file writes them.
+/// is one name or three with commas between, exactly as the file writes them (D-552: or four,
+/// the fourth the alpha, which [`pass_alpha`] names).
 pub fn pass_channels(names: &[String], pass: &Pass) -> Option<[String; 3]> {
     let split = |n: &str| {
         let (layer, part) = n.rsplit_once('.').unwrap_or(("", n));
@@ -368,7 +369,7 @@ pub fn pass_channels(names: &[String], pass: &Pass) -> Option<[String; 3]> {
         }
         Pass::Named(text) => {
             let wanted: Vec<&str> = text.split(',').map(str::trim).collect();
-            if !matches!(wanted.len(), 1 | 3) || wanted.iter().any(|w| !names.iter().any(|n| n == w)) {
+            if !matches!(wanted.len(), 1 | 3 | 4) || wanted.iter().any(|w| !names.iter().any(|n| n == w)) {
                 return None;
             }
             let at = |i: usize| wanted[i % wanted.len()].to_string();
@@ -377,6 +378,13 @@ pub fn pass_channels(names: &[String], pass: &Pass) -> Option<[String; 3]> {
         // D-522: read by `read_cryptomatte`, many channels to one picture.
         Pass::Cryptomatte { .. } => None,
     }
+}
+
+/// D-552: the alpha a named pass of four names picks, its fourth; `None` for every other pass.
+pub fn pass_alpha(pass: &Pass) -> Option<String> {
+    let Pass::Named(text) = pass else { return None };
+    let wanted: Vec<&str> = text.split(',').map(str::trim).collect();
+    (wanted.len() == 4).then(|| wanted[3].to_string())
 }
 
 /// D-349: the colour of a Blender multilayer file, as the prefix of its channels: a layer
@@ -409,7 +417,8 @@ pub fn pass_missing(title: String, detail: String) -> Diagnostic {
 }
 
 /// D-348: the pass in the EXR file at `path`, laid out as the colour is (D-62): each pixel its
-/// three numbers and alpha 1 over the whole display window. With how many of its numbers were
+/// three numbers and alpha 1 over the whole display window (D-552: or the alpha channel a named
+/// pass of four names picks, 0 outside the data window). With how many of its numbers were
 /// not finite: not-a-number reads as 0 and an infinity as the largest single-precision number of
 /// its sign. `EFFECT_CHANNEL_MISSING` when the file has no such pass; [`read`]'s refusals as it
 /// gives them.
@@ -429,7 +438,8 @@ pub fn read_pass(path: &Path, pass: &Pass) -> Result<(WorkingBuffer, usize), Dia
                  normal.B); D-349 the object id from IndexOB, ObjectID or the like, the material \
                  id from IndexMA, materialID or the like, Blender's ViewLayer.Depth.Z and the \
                  rest by their last dotted word, and a named pass from one channel name, or \
-                 three with commas between, exactly as the file writes them.",
+                 three with commas between, exactly as the file writes them; D-552 four, the \
+                 fourth the alpha.",
                 names.join(", ")
             ),
         ));
@@ -439,12 +449,15 @@ pub fn read_pass(path: &Path, pass: &Pass) -> Result<(WorkingBuffer, usize), Dia
     let file = read_all(path)?;
     let layer = &file.layer_data[0];
     let [r, g, b] = chosen.map(|n| values(layer, &n));
+    // D-552: a fourth name is the alpha, read as the others are (0 outside the data window).
+    let alpha = pass_alpha(pass);
+    let a = alpha.as_ref().and_then(|n| values(layer, n));
     let display = header.shared_attributes.display_window;
-    let (data, _) = place(display, layer, [r, g, b, None]);
+    let (data, _) = place(display, layer, [r, g, b, a]);
     let mut buffer = WorkingBuffer::transparent(display.size.0, display.size.1);
     let mut non_finite = 0;
     for (i, (out, v)) in buffer.data_mut().iter_mut().zip(data).enumerate() {
-        *out = if i % 4 == 3 {
+        *out = if i % 4 == 3 && alpha.is_none() {
             1.0
         } else if v.is_finite() {
             v

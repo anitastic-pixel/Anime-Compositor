@@ -5432,6 +5432,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             invert: "off".to_string(),
             clamp: "on".to_string(),
             channel: String::new(),
+            // D-552: EXtractoR's UnMult, off so a render's channels are taken as written.
+            unmult: "off".to_string(),
             channels: None,
         }),
         DEPTH_KEY => Some(Effect::DepthKey {
@@ -7817,6 +7819,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             clamp: word("clamp")?,
             // D-349: the channel names are free text, so they travel as typed.
             channel: parameter(query, "channel").unwrap_or_default().trim().to_string(),
+            // D-552.
+            unmult: word("unmult")?,
             channels: None,
         }),
         DEPTH_KEY => Ok(Effect::DepthKey {
@@ -33116,7 +33120,7 @@ mod contract {
         // D-348.
         (
             "core.pass_extract",
-            &[("pass", "normals"), ("black_point", "-1"), ("white_point", "1"), ("invert", "on"), ("clamp", "off")],
+            &[("pass", "normals"), ("black_point", "-1"), ("white_point", "1"), ("invert", "on"), ("clamp", "off"), ("unmult", "on")],
         ),
         ("core.depth_key", &[("depth", "6"), ("feather", "4"), ("invert", "on")]),
         // D-349.

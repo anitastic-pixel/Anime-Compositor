@@ -3104,7 +3104,8 @@ pub enum Effect {
     /// "normals" (D-349: or "object_id", "material_id", or "named" for the channel names in
     /// `channel`); `black_point` and `white_point`, -1,000,000 to 1,000,000; `invert` and
     /// `clamp`, "off" or "on". `channels` is not a setting and is never saved: compose reads the
-    /// pass from the layer's file for each frame.
+    /// pass from the layer's file for each frame. D-552, after EXtractoR: `channel` may name a
+    /// fourth channel, the alpha, and `unmult`, "off" or "on", divides the values by it first.
     PassExtract {
         pass: String,
         black_point: f64,
@@ -3112,6 +3113,7 @@ pub enum Effect {
         invert: String,
         clamp: String,
         channel: String,
+        unmult: String,
         channels: Option<crate::layer_map::Map>,
     },
     /// D-349: ID Key, after After Effects' ID Matte: the pixels whose object or material id is
@@ -8190,6 +8192,9 @@ impl Effect {
             Effect::PassExtract { clamp, .. } if !["off", "on"].contains(&clamp.as_str()) => Some(format!(
                 "Pass Extract's clamp is \"off\" or \"on\", and this is \"{clamp}\"."
             )),
+            Effect::PassExtract { unmult, .. } if !["off", "on"].contains(&unmult.as_str()) => Some(format!(
+                "Pass Extract's unmult is \"off\" or \"on\", and this is \"{unmult}\"."
+            )),
             Effect::Colorama { get_phase, .. } if !COLORAMA_GET.contains(&get_phase.as_str()) => Some(format!(
                 "Colorama gets its phase from intensity, luminance, red, green, blue, alpha, hue, lightness, saturation, \
                  value or zero, and this is \"{get_phase}\"."
@@ -11934,10 +11939,10 @@ pub(crate) fn apply_stack_at(
             }
             // D-348: the pass compose read from the layer's file for this frame; with none, the
             // layer is left as it is (EFFECT_CHANNEL_MISSING was said when it was looked for).
-            Effect::PassExtract { black_point, white_point, invert, clamp, channels, .. } => {
+            Effect::PassExtract { black_point, white_point, invert, clamp, unmult, channels, .. } => {
                 if let Some(pass) = channels {
                     crate::perf::time(crate::perf::Stage::EffectPassExtract, || {
-                        crate::layer_fx::pass_extract(source, &pass.0, (ox, oy), *black_point, *white_point, invert == "on", clamp == "on")
+                        crate::layer_fx::pass_extract(source, &pass.0, (ox, oy), *black_point, *white_point, invert == "on", clamp == "on", unmult == "on")
                     })
                 }
             }

@@ -9697,7 +9697,7 @@ const EFFECT_SEARCH = {
   'core.colorama': 'colorama colour color cycle ring palette rainbow psychedelic phase hue map',
   'core.vector_blur': 'cc vector blur smear streak flow swirl brush painterly map slope ridge lightning electric',
   'core.moment_map': 'moment map time displacement displace slit scan warp delay offset ripple map brightness frames',
-  'core.pass_extract': 'pass extract 3d channel extract extractor depth z zdepth normals object material id named channel exr render pass aov channel black white point',
+  'core.pass_extract': 'pass extract 3d channel extract extractor depth z zdepth normals object material id named channel exr render pass aov channel black white point alpha unmult',
   'core.id_key': 'id key id matte object id material id index indexob indexma exr render pass aov cut out isolate',
   'core.timecode': 'timecode time code smpte frames frame number counter feet film 35mm 16mm drop frame burn in burnt clock box text',
   'core.numbers': 'numbers number counter count digits timecode time code clock date day hexadecimal hex random text type font leading zeros',
@@ -11861,8 +11861,11 @@ const EFFECT_WORDS = {
     choices: [['pass', '3D Channel', [['depth', 'Z-Depth'], ['normals', 'Surface Normals'],
       ['object_id', 'Object ID'], ['material_id', 'Material ID'], ['named', 'Named Channel']]],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]],
-      ['clamp', 'Clamp', [['off', 'Off'], ['on', 'On']]]],
-    // D-349: the names of one channel, or three for red, green and blue, a comma between.
+      ['clamp', 'Clamp', [['off', 'Off'], ['on', 'On']]],
+      // D-552, EXtractoR's word: divide by the alpha a fourth name picks.
+      ['unmult', 'UnMult', [['off', 'Off'], ['on', 'On']]]],
+    // D-349: the names of one channel, or three for red, green and blue, a comma between;
+    // D-552: or four, the fourth the alpha.
     texts: [['channel', 'Channel Names', 'ViewLayer.Mist.Z', 'pass']],
   },
   'core.depth_key': {

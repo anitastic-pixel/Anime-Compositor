@@ -8446,7 +8446,10 @@ fn pass_at(pass: &WorkingBuffer, i: usize, w: usize, origin: (usize, usize)) -> 
 
 /// D-348: Pass Extract. Each of the pass's three values `v` as `(v - black) / (white - black)`,
 /// or a cut at `white` where the two are equal, turned over by `invert` and then held to 0..1 by
-/// `clamp`: an opaque picture over the drawing, transparent outside it.
+/// `clamp`: an opaque picture over the drawing, transparent outside it. D-552: the pass's alpha
+/// `a` (1 unless a named pass picks one), held to 0..1, clear where 0; each value first divided
+/// by `a` with `unmult`, and the result laid over `a`, premultiplied.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn pass_extract(
     source: &mut WorkingBuffer,
     pass: &WorkingBuffer,
@@ -8455,6 +8458,7 @@ pub(crate) fn pass_extract(
     white: f64,
     invert: bool,
     clamp: bool,
+    unmult: bool,
 ) {
     let w = source.width();
     let p = pass.data();
@@ -8463,8 +8467,14 @@ pub(crate) fn pass_extract(
             px.fill(0.0);
             return;
         };
+        let a = (p[j + 3] as f64).clamp(0.0, 1.0);
+        if a <= 0.0 {
+            px.fill(0.0);
+            return;
+        }
         for c in 0..3 {
             let v = p[j + c] as f64;
+            let v = if unmult { v / a } else { v };
             let o = if white != black {
                 (v - black) / (white - black)
             } else if v >= white {
@@ -8473,9 +8483,9 @@ pub(crate) fn pass_extract(
                 0.0
             };
             let o = if invert { 1.0 - o } else { o };
-            px[c] = if clamp { o.clamp(0.0, 1.0) } else { o } as f32;
+            px[c] = (if clamp { o.clamp(0.0, 1.0) } else { o } * a) as f32;
         }
-        px[3] = 1.0;
+        px[3] = a as f32;
     });
 }
 
