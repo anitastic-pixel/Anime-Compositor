@@ -4010,6 +4010,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             inner_color,
             outer_color,
             tint_amount,
+            spectral,
+            spectral_red,
+            spectral_green,
+            spectral_blue,
         } => {
             params.insert("falloff".into(), J::from(falloff.as_str()));
             params.insert("threshold_mode".into(), J::from(threshold_mode.as_str()));
@@ -4031,6 +4035,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
             if *tint_amount != 100.0 || params.contains_key("tint_amount") {
                 params.insert("tint_amount".into(), num(*tint_amount));
+            }
+            // D-543: the same.
+            if spectral.as_str() != "off" || params.contains_key("spectral") {
+                params.insert("spectral".into(), J::from(spectral.as_str()));
+            }
+            for (key, value, start) in [("spectral_red", spectral_red, 80.0), ("spectral_green", spectral_green, 100.0), ("spectral_blue", spectral_blue, 120.0)] {
+                if *value != start || params.contains_key(key) {
+                    params.insert(key.into(), num(*value));
+                }
             }
         }
         Effect::Unsupported { .. } => {}
@@ -5343,6 +5356,11 @@ fn parse_effect(
                 inner_color: effect_word_or(params, "inner_color", &at, "#ffffff")?,
                 outer_color: effect_word_or(params, "outer_color", &at, "#4080ff")?,
                 tint_amount: effect_number_or(params, "tint_amount", &at, 100.0)?,
+                // D-543: a file without them has Spectral off, at its sizes as added.
+                spectral: effect_word_or(params, "spectral", &at, "off")?,
+                spectral_red: effect_number_or(params, "spectral_red", &at, 80.0)?,
+                spectral_green: effect_number_or(params, "spectral_green", &at, 100.0)?,
+                spectral_blue: effect_number_or(params, "spectral_blue", &at, 120.0)?,
             })
         }
         crate::effects::GLOW => Some(crate::effects::Effect::Glow {

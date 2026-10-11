@@ -2922,7 +2922,8 @@ pub enum Effect {
     /// 100; `aspect_ratio` 0 to 2 and `aspect_angle` -3,600 to 3,600 degrees; `operation` "add"
     /// or "screen"; `unmult` "off" or "on". D-542 (pick #6): `tint`, "off", "one_color" or
     /// "core_to_edge"; `inner_color` and `outer_color`, `#rrggbb`; `tint_amount`, 0 to 100 per
-    /// cent (`soft_glow::Tint`).
+    /// cent (`soft_glow::Tint`). D-543 (pick #10): `spectral`, "off" or "on";
+    /// `spectral_red`, `spectral_green` and `spectral_blue`, 0 to 200 per cent of Radius.
     SoftGlow {
         falloff: String,
         threshold_mode: String,
@@ -2940,6 +2941,10 @@ pub enum Effect {
         inner_color: String,
         outer_color: String,
         tint_amount: f64,
+        spectral: String,
+        spectral_red: f64,
+        spectral_green: f64,
+        spectral_blue: f64,
     },
     /// D-356: Path Stroke, after After Effects' Stroke (`along`, document 21): a brush drawn
     /// along the layer's masks. `mask`, 1 to 1000, the mask numbered so, its floor taken;
@@ -5058,6 +5063,9 @@ impl Effect {
                 aspect_angle,
                 source_opacity,
                 tint_amount,
+                spectral_red,
+                spectral_green,
+                spectral_blue,
                 ..
             } => vec![
                 ("threshold", vec![threshold], 0.0, 100.0),
@@ -5069,6 +5077,9 @@ impl Effect {
                 ("aspect_angle", vec![aspect_angle], -3600.0, 3600.0),
                 ("source_opacity", vec![source_opacity], 0.0, 100.0),
                 ("tint_amount", vec![tint_amount], 0.0, 100.0),
+                ("spectral_red", vec![spectral_red], 0.0, 200.0),
+                ("spectral_green", vec![spectral_green], 0.0, 200.0),
+                ("spectral_blue", vec![spectral_blue], 0.0, 200.0),
             ],
             Effect::Stroke { mask, brush_size, brush_hardness, opacity, start, end, spacing, .. } => vec![
                 ("mask", vec![mask], 1.0, 1000.0),
@@ -6479,9 +6490,13 @@ impl Effect {
             Effect::CrossBlur { radius_x, radius_y, edges, .. } if edges != "repeat" => {
                 box_reach(*radius_x, 1.0).max(box_reach(*radius_y, 1.0))
             }
-            // D-353: as far as any level's cells reach, stretched or not (no silent crop).
-            Effect::SoftGlow { radius, aspect_ratio, aspect_angle, .. } if self.fault().is_none() => {
-                crate::soft_glow::plan(*radius, *aspect_ratio, *aspect_angle).grow
+            // D-353: as far as any level's cells reach, stretched or not (no silent crop); D-543:
+            // the widest channel's.
+            Effect::SoftGlow { radius, aspect_ratio, aspect_angle, spectral, spectral_red, spectral_green, spectral_blue, .. }
+                if self.fault().is_none() =>
+            {
+                let sizes = crate::soft_glow::sizes(spectral, *spectral_red, *spectral_green, *spectral_blue);
+                crate::soft_glow::grow(*radius, *aspect_ratio, *aspect_angle, sizes)
             }
             // D-89: the light reaches `radius` pixels, blur's reach at sigma radius / 3.
             Effect::Glow { radius, units, .. } => {
@@ -7398,6 +7413,9 @@ impl Effect {
             )),
             Effect::SoftGlow { unmult: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "{name}'s unmult is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::SoftGlow { spectral: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "{name}'s spectral is \"off\" or \"on\", and this is \"{v}\"."
             )),
             Effect::SoftGlow { tint: v, inner_color, outer_color, .. } => (!["off", "one_color", "core_to_edge"].contains(&v.as_str()))
                 .then(|| format!("{name}'s tint is \"off\", \"one_color\" or \"core_to_edge\", and this is \"{v}\"."))
@@ -11123,6 +11141,10 @@ pub(crate) fn apply_stack_at(
                 inner_color,
                 outer_color,
                 tint_amount,
+                spectral,
+                spectral_red,
+                spectral_green,
+                spectral_blue,
                 ..
             } => {
                 let s = crate::soft_glow::Settings {
@@ -11138,6 +11160,7 @@ pub(crate) fn apply_stack_at(
                     opacity: *source_opacity,
                     unmult: unmult == "on",
                     tint: crate::soft_glow::Tint::of(tint, inner_color, outer_color, *tint_amount),
+                    spectral: crate::soft_glow::sizes(spectral, *spectral_red, *spectral_green, *spectral_blue),
                 };
                 let r = crate::perf::time(crate::perf::Stage::EffectSoftGlow, || crate::soft_glow::soft_glow(source, &s));
                 ox += r;

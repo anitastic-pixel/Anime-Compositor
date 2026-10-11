@@ -48,6 +48,27 @@ pub(crate) struct Settings {
     pub unmult: bool,
     /// D-542, pick #6: the tint, `None` when off.
     pub tint: Option<Tint>,
+    /// D-543, pick #10: Spectral's red, green and blue sizes, per cent of Radius, `None` when off.
+    pub spectral: Option<[f64; 3]>,
+}
+
+/// D-543: the radius each chain of levels is worked at, and the channel it gives (`None`, all
+/// three): one chain at Radius when Spectral is off, else one a channel.
+pub(crate) fn chains(radius: f64, spectral: Option<[f64; 3]>) -> Vec<(f64, Option<usize>)> {
+    match spectral {
+        None => vec![(radius, None)],
+        Some(m) => (0..3).map(|c| (radius * m[c] / 100.0, Some(c))).collect(),
+    }
+}
+
+/// D-543: Spectral's sizes when on.
+pub(crate) fn sizes(spectral: &str, red: f64, green: f64, blue: f64) -> Option<[f64; 3]> {
+    (spectral == "on").then_some([red, green, blue])
+}
+
+/// How far the layer grows: the largest chain's reach (no silent crop).
+pub(crate) fn grow(radius: f64, aspect: f64, angle: f64, spectral: Option<[f64; 3]>) -> usize {
+    chains(radius, spectral).into_iter().map(|(r, _)| plan(r, aspect, angle).grow).max().unwrap_or(0)
 }
 
 /// D-542: the inner and outer colours (linear), one colour for every level when `one`, and Tint
@@ -280,15 +301,24 @@ pub(crate) fn soft_glow(source: &mut WorkingBuffer, s: &Settings) -> usize {
     if w == 0 || h == 0 {
         return 0;
     }
-    let plan = plan(s.radius, s.aspect, s.angle);
-    let g = plan.grow;
+    let g = grow(s.radius, s.aspect, s.angle, s.spectral);
     let lit: Vec<f32> = source.data().par_chunks_exact(4).flat_map_iter(|px| light(px, s)).collect();
-    let planes: Vec<Vec<f32>> = plan.levels.iter().map(|lv| spread(&lit, w, h, lv)).collect();
+    // D-543: one chain of levels, or one a channel at its own radius, each with its colours.
+    // ponytail: each spectral chain spreads all three channels and keeps one, three times the
+    // work; spread one channel when untinted if Spectral's speed matters.
+    let chains: Vec<(Plan, Vec<Vec<f32>>, Vec<[f32; 3]>, Option<usize>)> = chains(s.radius, s.spectral)
+        .into_iter()
+        .map(|(radius, channel)| {
+            let plan = plan(radius, s.aspect, s.angle);
+            let planes = plan.levels.iter().map(|lv| spread(&lit, w, h, lv)).collect();
+            let colours = match &s.tint {
+                Some(t) => (0..plan.levels.len()).map(|k| t.colour(radius, k)).collect(),
+                None => Vec::new(),
+            };
+            (plan, planes, colours, channel)
+        })
+        .collect();
     let (ow, oh) = (w + 2 * g, h + 2 * g);
-    let colours: Vec<[f32; 3]> = match &s.tint {
-        Some(t) => (0..plan.levels.len()).map(|k| t.colour(s.radius, k)).collect(),
-        None => Vec::new(),
-    };
     let mut out = WorkingBuffer::transparent(ow, oh);
     let src = source.data();
     out.data_mut().par_chunks_exact_mut(ow * 4).enumerate().for_each(|(row, line)| {
@@ -297,54 +327,61 @@ pub(crate) fn soft_glow(source: &mut WorkingBuffer, s: &Settings) -> usize {
             let x = col as isize - g as isize;
             let inside = x >= 0 && y >= 0 && x < w as isize && y < h as isize;
             let i = if inside { y as usize * w + x as usize } else { 0 };
-            let mut sum = [0.0f32; 3];
-            if inside && plan.own > 0.0 {
-                // D-542: the light's own share is the core, in the inner colour.
-                let l = [lit[i * 3], lit[i * 3 + 1], lit[i * 3 + 2]];
-                let l = match &s.tint {
-                    Some(t) => tinted(l, t.inner, t.amount),
-                    None => l,
-                };
-                for c in 0..3 {
-                    sum[c] += plan.own * l[c];
-                }
-            }
-            for (k, (lv, plane)) in plan.levels.iter().zip(&planes).enumerate() {
-                // D-542: tinted, a level is read unweighted, tinted, then weighed; untinted, the
-                // sum of D-353 exactly.
-                let mut read = [0.0f32; 3];
-                let (into, scale) = if s.tint.is_some() { (&mut read, 1.0) } else { (&mut sum, lv.weight) };
-                let d = lv.d as f32;
-                let (pw, ph) = (w.div_ceil(lv.d) + 2 * lv.reach.0, h.div_ceil(lv.d) + 2 * lv.reach.1);
-                let (u, v) = ((x as f32 + 0.5) / d - 0.5, (y as f32 + 0.5) / d - 0.5);
-                let (u0, v0) = (u.floor(), v.floor());
-                let (fu, fv) = (u - u0, v - v0);
-                for (dj, wj) in [(0, 1.0 - fv), (1, fv)] {
-                    let cy = v0 as isize + dj + lv.reach.1 as isize;
-                    if wj == 0.0 || cy < 0 || cy >= ph as isize {
-                        continue;
+            let mut glow = [0.0f32; 3];
+            for (plan, planes, colours, channel) in &chains {
+                let mut sum = [0.0f32; 3];
+                if inside && plan.own > 0.0 {
+                    // D-542: the light's own share is the core, in the inner colour.
+                    let l = [lit[i * 3], lit[i * 3 + 1], lit[i * 3 + 2]];
+                    let l = match &s.tint {
+                        Some(t) => tinted(l, t.inner, t.amount),
+                        None => l,
+                    };
+                    for c in 0..3 {
+                        sum[c] += plan.own * l[c];
                     }
-                    for (di, wi) in [(0, 1.0 - fu), (1, fu)] {
-                        let cx = u0 as isize + di + lv.reach.0 as isize;
-                        if wi == 0.0 || cx < 0 || cx >= pw as isize {
+                }
+                for (k, (lv, plane)) in plan.levels.iter().zip(planes).enumerate() {
+                    // D-542: tinted, a level is read unweighted, tinted, then weighed; untinted, the
+                    // sum of D-353 exactly.
+                    let mut read = [0.0f32; 3];
+                    let (into, scale) = if s.tint.is_some() { (&mut read, 1.0) } else { (&mut sum, lv.weight) };
+                    let d = lv.d as f32;
+                    let (pw, ph) = (w.div_ceil(lv.d) + 2 * lv.reach.0, h.div_ceil(lv.d) + 2 * lv.reach.1);
+                    let (u, v) = ((x as f32 + 0.5) / d - 0.5, (y as f32 + 0.5) / d - 0.5);
+                    let (u0, v0) = (u.floor(), v.floor());
+                    let (fu, fv) = (u - u0, v - v0);
+                    for (dj, wj) in [(0, 1.0 - fv), (1, fv)] {
+                        let cy = v0 as isize + dj + lv.reach.1 as isize;
+                        if wj == 0.0 || cy < 0 || cy >= ph as isize {
                             continue;
                         }
-                        let at = (cy as usize * pw + cx as usize) * 3;
-                        let wt = scale * wj * wi;
+                        for (di, wi) in [(0, 1.0 - fu), (1, fu)] {
+                            let cx = u0 as isize + di + lv.reach.0 as isize;
+                            if wi == 0.0 || cx < 0 || cx >= pw as isize {
+                                continue;
+                            }
+                            let at = (cy as usize * pw + cx as usize) * 3;
+                            let wt = scale * wj * wi;
+                            for c in 0..3 {
+                                into[c] += wt * plane[at + c];
+                            }
+                        }
+                    }
+                    if let Some(t) = &s.tint {
+                        let p = tinted(read, colours[k], t.amount);
                         for c in 0..3 {
-                            into[c] += wt * plane[at + c];
+                            sum[c] += lv.weight * p[c];
                         }
                     }
                 }
-                if let Some(t) = &s.tint {
-                    let p = tinted(read, colours[k], t.amount);
-                    for c in 0..3 {
-                        sum[c] += lv.weight * p[c];
-                    }
+                match channel {
+                    None => glow = sum,
+                    Some(c) => glow[*c] = sum[*c],
                 }
             }
             let p = if inside { [src[i * 4], src[i * 4 + 1], src[i * 4 + 2], src[i * 4 + 3]] } else { [0.0; 4] };
-            o.copy_from_slice(&finish(sum, p, s));
+            o.copy_from_slice(&finish(glow, p, s));
         }
     });
     *source = out;

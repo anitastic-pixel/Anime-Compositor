@@ -9951,7 +9951,11 @@ const EFFECT_PARAMS = {
     ['aspect_angle', 'Aspect Angle', 1, 1, '-3600 to 3600 degrees', 'dial'],
     ['source_opacity', 'Source Opacity', 1, 1, 'per cent, 0 to 100, the layer itself under its glow'],
     // D-542: absent from a file, it is 100.
-    ['tint_amount', 'Tint Amount', 1, 1, 'per cent, 0 to 100, how much of the tint', '', 100]],
+    ['tint_amount', 'Tint Amount', 1, 1, 'per cent, 0 to 100, how much of the tint', '', 100],
+    // D-543, pick #10: Deep Glow's Glow Aberration sizes; absent from a file, as added.
+    ['spectral_red', 'Spectral Red', 1, 1, 'per cent of Radius, 0 to 200, how far red reaches', '', 80],
+    ['spectral_green', 'Spectral Green', 1, 1, 'per cent of Radius, 0 to 200, how far green reaches', '', 100],
+    ['spectral_blue', 'Spectral Blue', 1, 1, 'per cent of Radius, 0 to 200, how far blue reaches', '', 120]],
   'core.glow': [['threshold', 'Glow Threshold', 1, 0.5, '0 to 100'],
     ['radius', 'Glow Radius', 1, 0.5, '0 to 500'],
     ['intensity', 'Glow Intensity', 1, 0.02, '0 to 10'],
@@ -11130,7 +11134,9 @@ const EFFECT_WORDS = {
       ['operation', 'Blend Mode', [['screen', 'Screen'], ['add', 'Add']]],
       ['unmult', 'Unmult', [['on', 'On'], ['off', 'Off']]],
       // D-542, pick #6: Deep Glow's Tint Mode, in our words.
-      ['tint', 'Tint', [['off', 'Off'], ['one_color', 'One Colour'], ['core_to_edge', 'Core to Edge']]]],
+      ['tint', 'Tint', [['off', 'Off'], ['one_color', 'One Colour'], ['core_to_edge', 'Core to Edge']]],
+      // D-543, pick #10: each colour glows at its own size.
+      ['spectral', 'Spectral', [['off', 'Off'], ['on', 'On']]]],
     colours: [['inner_color', 'Inner Colour'], ['outer_color', 'Outer Colour']],
   },
   // D-89. The colours show only when a glow is based on them, and are kept when it is not.

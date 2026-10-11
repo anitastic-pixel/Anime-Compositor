@@ -3351,6 +3351,11 @@ fn soft_glow_added() -> Effect {
         inner_color: "#ffffff".to_string(),
         outer_color: "#4080ff".to_string(),
         tint_amount: 100.0,
+        // D-543: Spectral off, at Deep Glow's sizes.
+        spectral: "off".to_string(),
+        spectral_red: 80.0,
+        spectral_green: 100.0,
+        spectral_blue: 120.0,
     }
 }
 
@@ -5574,6 +5579,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             inner_color: if parameter(query, "inner_color").is_some() { word("inner_color")? } else { "#ffffff".to_string() },
             outer_color: if parameter(query, "outer_color").is_some() { word("outer_color")? } else { "#4080ff".to_string() },
             tint_amount: if parameter(query, "tint_amount").is_some() { number("tint_amount")? } else { 100.0 },
+            // D-543: the same.
+            spectral: if parameter(query, "spectral").is_some() { word("spectral")? } else { "off".to_string() },
+            spectral_red: if parameter(query, "spectral_red").is_some() { number("spectral_red")? } else { 80.0 },
+            spectral_green: if parameter(query, "spectral_green").is_some() { number("spectral_green")? } else { 100.0 },
+            spectral_blue: if parameter(query, "spectral_blue").is_some() { number("spectral_blue")? } else { 120.0 },
         }),
         // D-89: the words and colours as written, the colours as one comma-separated list and
         // the tint empty for none. Whether each is right is the core's check, in its words.
