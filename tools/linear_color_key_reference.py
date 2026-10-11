@@ -9,14 +9,16 @@ of 0 makes the entire image opaque; a value of 100 makes the entire image transp
 Softness: Softens the tolerance by tapering the tolerance value ... values under 20% produce the
 best results") and names its views (Final Output, Source Only, Matte Only), but publishes no
 formula and no defaults that we found. The rule and the settings when added are ours (document
-21, D-504); where they differ from Adobe's own maths is a logged gap. Key Operation's Keep Colors
-(a second instance that brings back colours a first one keyed out) is not here: it needs the
-colour under pixels already fully keyed, which this pipeline's premultiplied frames do not keep;
-it is a logged gap. The eyedroppers and thumbnails are After Effects' window, not settings.
+21, D-504); where they differ from Adobe's own maths is a logged gap. D-541 (the owner's word of
+2026-10-11) adds Key Operation's Keep Colors, a later instance that brings back colours the
+keyers above it keyed out (Adobe: "use Keep Colors to restore a color"; the Creative COW
+workflow with a second instance), and makes tolerance 0 key nothing, as Adobe says. The
+eyedroppers and thumbnails are After Effects' window, not settings.
 
 The settings. `view`, "final" (when added), "source" or "matte"; `key_color`, a "#rrggbb"
 colour, "#0000ff" when added; `match_colors`, "rgb" (when added, Adobe's advice), "hue" or
-"chroma"; every word exact. `matching_tolerance` and `matching_softness`, 0 to 100, 10 and 10
+"chroma"; `key_operation`, "key" (when added, and when a file written before D-541 has none) or
+"keep"; every word exact. `matching_tolerance` and `matching_softness`, 0 to 100, 10 and 10
 when added, both keyable.
 
 The rule. At a pixel with covering a > 0, e = (eR, eG, eB) its straight colour through the sRGB
@@ -29,16 +31,30 @@ curve held inside 0 to 1, and k the key colour's 8-bit values over 255. The dist
   the largest of |c_i - ck_i|; a colour and its darker or brighter self are the same here.
 
 The share kept is m = (d - tolerance) / softness held inside 0 to 1; with softness 0 it is 0
-where d <= tolerance and 1 elsewhere. So tolerance 100 keys everything, and tolerance 0 keys
-only the key colour itself (Adobe: "the entire image opaque"; a logged difference). The views:
-"final", every channel of the pixel, colour and covering, times m, so the colour is kept and
-only the covering falls; "source", the layer exactly as it is; "matte", m as an encoded grey,
-back to linear at the pixel's covering, which is kept. A pixel with a = 0 is left as it is.
+where d <= tolerance and 1 elsewhere. Tolerance 0 keys nothing: m = 1 everywhere, whatever the
+softness (D-541, Adobe: "A value of 0 makes the entire image opaque"); tolerance 100 keys
+everything. The views: "final", every channel of the pixel, colour and covering, times m, so the
+colour is kept and only the covering falls; "source", the layer exactly as it is; "matte", m as
+an encoded grey, back to linear at the pixel's covering, which is kept. A pixel with a = 0 is
+left as it is.
+
+Keep Colors (D-541). The run above a "keep" instance is the Linear Color Key instances directly
+above it in the stack, one after another (switched-off and refused instances, which draw
+nothing, are passed over; any other effect ends the run), and the run's input P is the pixels
+before its first instance (the keep instance's own input when nothing above it is a Linear Color
+Key). At a pixel where P has covering a0 > 0, the keep share is kk = 1 - m, m worked as above
+on P's straight colour; Q is the keep instance's input, covering aq. "final": where a0 kk > aq
+the pixel becomes P times kk, colour and covering (P's colour brought back at covering a0 kk),
+else Q stays; "matte": the encoded grey max(aq, a0 kk) / a0, back to linear at covering a0;
+"source": Q as it is. Where a0 = 0, Q stays. So tolerance 0 brings nothing back.
 
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, where the build works on its single-precision buffers. The rule
 is continuous in the colour except where softness is 0 and at a grey in "hue"; the drawing's
 greys are exact, and every case with softness 0 is checked that no pixel lies near its step.
+Every case with more than one instance starts its run at the drawing and stacks only "final"
+instances, which keep the straight colour wherever covering is left, so each instance reads the
+drawing's own colour there (asserted in `render`).
 
 The drawing is Color Difference Key's (tools/color_difference_key_reference.py): black, white,
 grey, a green screen, a blue screen, skin, pure blue, cyan, pure green, yellow, red, magenta,
@@ -67,6 +83,7 @@ OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "linear_color_key"
 NUMBERS = ("matching_tolerance", "matching_softness")
 BLUE_SCREEN = "#1e46c8"   # (30, 70, 200), the drawing's blue screen
 GREEN_SCREEN = "#28b43c"  # (40, 180, 60), the drawing's green screen
+PURE_GREEN = "#00ff00"
 
 
 # --- the rule -------------------------------------------------------------------------------
@@ -89,34 +106,59 @@ def distance(e, k, match):
 
 
 def kept(d, k):
+    if k["tolerance"] == 0:
+        return 1.0
     if k["softness"] == 0:
         return 0.0 if d <= k["tolerance"] else 1.0
     return min(1.0, max(0.0, (d - k["tolerance"]) / k["softness"]))
 
 
-def key(px, k):
+def key(px, k, cur=None):
+    """A "key" instance on cur (the drawing's own pixels when None), reading the straight colour
+    from the drawing (see the note above)."""
+    cur = cur or [R.working(p) for p in px]
     if k["view"] == "source":
-        return [R.working(p) for p in px]
+        return [list(q) for q in cur]
     out = []
-    for p in px:
-        w = R.working(p)
-        if p[3] == 0:
+    for p, w in zip(px, cur):
+        if w[3] == 0:
             out.append(w)
             continue
         m = kept(distance(B.encoded(p), k["key"], k["match"]), k)
         if k["view"] == "final":
             out.append([v * m for v in w])
         else:
-            a = p[3] / 255
+            a = w[3]
             g = S.srgb_to_linear(m) * a
             out.append([g, g, g, a])
     return out
 
 
+def keep(px, cur, k):
+    """A "keep" instance on cur, its run's input the drawing's own pixels."""
+    out = []
+    for p, q in zip(px, cur):
+        w = R.working(p)
+        a0 = w[3]
+        if k["view"] == "source" or a0 == 0:
+            out.append(list(q))
+            continue
+        kk = 1 - kept(distance(B.encoded(p), k["key"], k["match"]), k)
+        if k["view"] == "final":
+            out.append([v * kk for v in w] if a0 * kk > q[3] else list(q))
+        else:
+            g = S.srgb_to_linear(max(q[3], a0 * kk) / a0) * a0
+            out.append([g, g, g, a0])
+    return out
+
+
 # --- the cases ------------------------------------------------------------------------------
 
-def case(view="final", key_color="#0000ff", match_colors="rgb", shift=0, **numbers):
+def case(view="final", key_color="#0000ff", match_colors="rgb", shift=0, key_operation="key",
+         above=(), **numbers):
+    """One instance; `above`, the instances before it on the layer, first first."""
     c = {"view": view, "key_color": key_color, "match_colors": match_colors, "shift": shift,
+         "key_operation": key_operation, "above": list(above),
          "matching_tolerance": 10, "matching_softness": 10}
     for n, v in numbers.items():
         assert n in NUMBERS, n
@@ -127,11 +169,20 @@ def case(view="final", key_color="#0000ff", match_colors="rgb", shift=0, **numbe
 def settings(c, frame_no):
     v = {n: min(100, max(0, value_at(c[n], frame_no))) for n in NUMBERS}
     return {"view": c["view"], "key": D.hex_colour(c["key_color"]), "match": c["match_colors"],
-            "tolerance": v["matching_tolerance"], "softness": v["matching_softness"]}
+            "tolerance": v["matching_tolerance"], "softness": v["matching_softness"],
+            "op": c["key_operation"]}
 
 
 def render(c, frame_no):
-    return R.frame(key(B.pixels(), settings(c, frame_no)), c["shift"])
+    px, cur = B.pixels(), None
+    for i, inst in enumerate([*c["above"], c]):
+        assert i == 0 or c["above"][i - 1]["view"] == "final", "a run of final instances only"
+        k = settings(inst, frame_no)
+        if k["op"] == "keep":
+            cur = keep(px, cur or [R.working(p) for p in px], k)
+        else:
+            cur = key(px, k, cur)
+    return R.frame(cur, c["shift"])
 
 
 def plain(c):
@@ -139,11 +190,20 @@ def plain(c):
 
 
 def file_json(fx, c):
-    params = {"view": c["view"], "key_color": c["key_color"], "match_colors": c["match_colors"]}
-    params.update({n: setting_json(c[n]) for n in NUMBERS})
-    return B.project_json(fx, "core.linear_color_key", params, c["shift"])
+    def params(i):
+        p = {"view": i["view"], "key_color": i["key_color"], "match_colors": i["match_colors"],
+             "key_operation": i["key_operation"]}
+        p.update({n: setting_json(i[n]) for n in NUMBERS})
+        return p
+    project = B.project_json(fx, "core.linear_color_key", params(c), c["shift"])
+    layer = project["compositions"][0]["layers"][0]
+    layer["effects"] = [{"instance_id": f"fx-0-{n}", "type_id": "core.linear_color_key",
+                         "enabled": True, "parameters": params(i)}
+                        for n, i in enumerate([*c["above"], c])]
+    return project
 
 
+FOUR = case(key_color=GREEN_SCREEN, match_colors="hue", matching_tolerance=20)  # FX-LCKEY-004
 CASES = {
     "FX-LCKEY-001": ("The settings as they start: final, key colour pure blue, RGB, tolerance "
                      "10, softness 10. Pure blue's top two rows (within 10% of it) lose all their "
@@ -167,9 +227,9 @@ CASES = {
                      case(key_color=GREEN_SCREEN, match_colors="chroma"), [0]),
     "FX-LCKEY-006": ("Tolerance 100: every pixel is within it, so the whole layer is keyed out.",
                      case(matching_tolerance=100), [0]),
-    "FX-LCKEY-007": ("Tolerance 0, softness 20: only pure blue's top row, the key colour itself, "
-                     "is gone; its next two rows, within 20% of it, keep a share d / 20; every "
-                     "other pixel keeps all its covering.",
+    "FX-LCKEY-007": ("Tolerance 0, softness 20: tolerance 0 makes the whole image opaque, as "
+                     "Adobe documents (D-541), so nothing is keyed, not even pure blue itself, "
+                     "and the layer is as it was.",
                      case(matching_tolerance=0, matching_softness=20), [0]),
     "FX-LCKEY-008": ("Hue with a grey key colour (#808080), tolerance 50: a grey has no hue, so "
                      "nothing matches and the layer is as it was.",
@@ -180,7 +240,8 @@ CASES = {
     "FX-LCKEY-010": ("View source, tolerance 100: the layer exactly as it is.",
                      case("source", matching_tolerance=100), [0]),
     "FX-LCKEY-011": ("Tolerance keyed from 0 at frame 0 to 40 at frame 4, linear, RGB on the "
-                     "blue screen.", case(key_color=BLUE_SCREEN,
+                     "blue screen: at frame 0, tolerance 0, nothing is keyed (D-541); frame 2 is "
+                     "tolerance 20's frame.", case(key_color=BLUE_SCREEN,
                                           matching_tolerance=keyed((0, 0), (4, 40))), [0, 2, 4]),
     "FX-LCKEY-012": ("Softness keyed from 0 at frame 0 to 60 at frame 4, linear, hue on the "
                      "green screen, tolerance 20.",
@@ -188,6 +249,26 @@ CASES = {
                           matching_softness=keyed((0, 0), (4, 60))), [2, 4]),
     "FX-LCKEY-013": ("FX-LCKEY-002 moved three pixels right: the same, moved.",
                      case(key_color=BLUE_SCREEN, shift=3), [0, 3]),
+    "FX-LCKEY-019": ("Keep Colors (D-541): FX-LCKEY-004's hue key on the green screen, then a "
+                     "second instance, keep, RGB, key pure green, tolerance 10, softness 10: "
+                     "pure green's top two rows come back whole and its third row keeps a share; "
+                     "the green screen and every other pixel are as FX-LCKEY-004 left them.",
+                     case(key_color=PURE_GREEN, key_operation="keep", above=[FOUR]), [0]),
+    "FX-LCKEY-020": ("Keep Colors with nothing keyed above it: nothing to bring back, the layer "
+                     "as it was.", case(key_color=PURE_GREEN, key_operation="keep"), [0]),
+    "FX-LCKEY-021": ("Keep Colors after a run of two keys, FX-LCKEY-002's RGB key on the blue "
+                     "screen and FX-LCKEY-004's hue key on the green screen: the colours come "
+                     "back from before the first, so pure green's top rows return as in "
+                     "FX-LCKEY-019 and the blue screen stays keyed as in FX-LCKEY-002.",
+                     case(key_color=PURE_GREEN, key_operation="keep",
+                          above=[case(key_color=BLUE_SCREEN), FOUR]), [0]),
+    "FX-LCKEY-022": ("FX-LCKEY-019 with the keep instance's view matte: the covering after it "
+                     "as grey, at the drawing's covering.",
+                     case("matte", PURE_GREEN, key_operation="keep", above=[FOUR]), [0]),
+    "FX-LCKEY-023": ("FX-LCKEY-019 with the keep instance's tolerance 0: nothing comes back, "
+                     "FX-LCKEY-004's frame.",
+                     case(key_color=PURE_GREEN, key_operation="keep", above=[FOUR],
+                          matching_tolerance=0), [0]),
 }
 
 INVALID = {
@@ -197,6 +278,8 @@ INVALID = {
     "FX-LCKEY-017": ("Match colors \"lab\": not one of RGB, hue and chroma.",
                      case(match_colors="lab")),
     "FX-LCKEY-018": ("Key colour \"blue\", not a #rrggbb colour.", case(key_color="blue")),
+    "FX-LCKEY-024": ("Key operation \"Keep\": the word is exact, so a capital is not it.",
+                     case(key_operation="Keep")),
 }
 
 
@@ -251,8 +334,7 @@ def check(expected):
     five = c["FX-LCKEY-005"]["0"]
     assert all(gone(five, 4, y) for y in range(H)) and full(five, 9, 0)
     assert all(near(p, [0, 0, 0, 0]) for p in c["FX-LCKEY-006"]["0"])
-    seven = c["FX-LCKEY-007"]["0"]
-    assert gone(seven, 7, 0) and 0.01 < cover(seven, 7, 1) < 0.99
+    assert like(c["FX-LCKEY-007"]["0"], drawn)
     assert like(c["FX-LCKEY-008"]["0"], drawn)
     nine = c["FX-LCKEY-009"]["0"]
     for i, (p, q) in enumerate(zip(nine, four)):
@@ -263,7 +345,22 @@ def check(expected):
     assert like(c["FX-LCKEY-010"]["0"], drawn)
     eleven = c["FX-LCKEY-011"]
     assert like(eleven["2"], render(case(key_color=BLUE_SCREEN, matching_tolerance=20), 0))
-    assert gone(eleven["4"], 5, 4) and gone(eleven["0"], 5, 0)
+    assert gone(eleven["4"], 5, 4) and like(eleven["0"], drawn)
+    # Keep Colors.
+    nineteen = c["FX-LCKEY-019"]["0"]
+    assert full(nineteen, 9, 0) and full(nineteen, 9, 1) and 0.3 < cover(nineteen, 9, 2) < 0.5
+    assert all(gone(nineteen, 9, y) for y in range(3, H))
+    assert all(nineteen[at(x, y)] == four[at(x, y)] for x in range(W) if x != 9 for y in range(H))
+    assert like(c["FX-LCKEY-020"]["0"], drawn)
+    twentyone = c["FX-LCKEY-021"]["0"]
+    assert all(near(twentyone[at(9, y)], nineteen[at(9, y)]) for y in range(H))
+    assert all(near(twentyone[at(x, y)], two[at(x, y)]) for x in (5, 15) for y in range(H))
+    for i, (p, q) in enumerate(zip(c["FX-LCKEY-022"]["0"], nineteen)):
+        a = px[i][3] / 255
+        assert abs(p[3] - a) < 1e-12 and p[0] == p[1] == p[2], i
+        if a:
+            assert abs(p[0] - S.srgb_to_linear(q[3] / a) * a) < 1e-12, i
+    assert like(c["FX-LCKEY-023"]["0"], four)
     twelve = c["FX-LCKEY-012"]
     assert like(twelve["2"], render(case(key_color=GREEN_SCREEN, match_colors="hue",
                                          matching_tolerance=20, matching_softness=30), 0))

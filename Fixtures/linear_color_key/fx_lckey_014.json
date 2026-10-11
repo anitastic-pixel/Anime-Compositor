@@ -92,6 +92,7 @@
                 "view": "final",
                 "key_color": "#0000ff",
                 "match_colors": "rgb",
+                "key_operation": "key",
                 "matching_tolerance": 101,
                 "matching_softness": 10
               }
