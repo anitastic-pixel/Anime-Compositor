@@ -176497,6 +176497,68 @@ FX-HALO-017 (`fx_halo_017.json`): Colour "orange", not a colour #rrggbb. The fil
 
 FX-HALO-018 (`fx_halo_018.json`): Amount keyed to 500 at frame 4, above 400. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Lens Dirt (D-545)
+
+Pick #14, Lens Dirt: a setting group on Soft Physical Glow (`core.glow`, falloff `physical`) and on Lens Flare (`core.lens_flare`), with `dirt_layer`, `dirt_opacity`, `dirt_inherit`, `dirt_exposure`, `dirt_gamma` and `dirt_repeat` (B-425). Every case is a project of one composition 16 by 10 at 24 fps in `Fixtures/lens_dirt/`, on D-353's and D-426's drawings (`media/patches.png`, `media/photo.png`), with two dirt drawings of its own as layers turned off: `media/smudge.png` (6 by 4, one pixel clear, one half covered) and `media/specks.png` (20 by 12, larger than the layer, its edge columns red). **Every number is produced by `tools/lens_dirt_reference.py`**, which works D-353's engine (`tools/soft_glow_reference.py`, through `tools/glow_tint_reference.py` and `tools/spectral_glow_reference.py`) or D-426's light (`tools/lens_flare_reference.py`) and then the dirt in double precision; the numbers are in `Fixtures/lens_dirt/expected_lens_dirt.json`. Tolerance 2e-5. B-425 checks them, runs D-353's FX-SGLOW-001 to 045, D-542's FX-GTINT-001 to 022, D-543's FX-SPGLOW-001 to 020, D-544's FX-HALO-001 to 018 and D-426's FX-FLARE-001 to 019 again unchanged, and draws the playtest's pictures, in `verification/D-545_lens_dirt_table.md`.
+
+FX-DIRT-001 (`fx_dirt_001.json`): Soft Physical Glow, radius 12, with the 6 by 4 smudge as its dirt, every dirt setting as added (opacity 100, inherit 0, exposure 0, gamma 1, repeat on): the smudge, mirror-repeated over the whole grown layer, shows where the glow is bright, in its own colours, brightest beside the yellow patch. Frames 0.
+
+FX-DIRT-002 (`fx_dirt_002.json`): Repeat Edges off: the smudge only in the middle, columns 5 to 10 and rows 3 to 6; elsewhere FX-SGLOW-001's glow. Frames 0.
+
+FX-DIRT-003 (`fx_dirt_003.json`): Inherit Glow Color 100: the matte is the glow channel by channel, so the dirt takes the glow's warm colour. Frames 0.
+
+FX-DIRT-004 (`fx_dirt_004.json`): Inherit Glow Color 50: halfway between FX-DIRT-001's matte and FX-DIRT-003's. Frames 0.
+
+FX-DIRT-005 (`fx_dirt_005.json`): Matte Exposure 2: the matte four times as bright, held at 1, so the dirt shows further out from the patches. Frames 0.
+
+FX-DIRT-006 (`fx_dirt_006.json`): Matte Exposure -2: the matte a quarter as bright, the dirt fainter. Frames 0.
+
+FX-DIRT-007 (`fx_dirt_007.json`): Matte Gamma 2.2: the matte's faint parts raised, the dirt reaching further into the glow's tail. Frames 0.
+
+FX-DIRT-008 (`fx_dirt_008.json`): Matte Gamma 0.5: the matte squared, the dirt only where the glow is strongest. Frames 0.
+
+FX-DIRT-009 (`fx_dirt_009.json`): Opacity 0: no dirt, FX-SGLOW-001's glow exactly. Frames 0.
+
+FX-DIRT-010 (`fx_dirt_010.json`): Opacity 50: half FX-DIRT-001's dirt. Frames 0.
+
+FX-DIRT-011 (`fx_dirt_011.json`): Opacity keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 is the glow alone, frame 2 FX-DIRT-010, frame 4 FX-DIRT-001. Frames 0, 2, 4.
+
+FX-DIRT-012 (`fx_dirt_012.json`): The 20 by 12 specks, bigger than the layer: centred, its two red edge columns fall in the grown ring outside the drawing, past the comp's view; the specks show where the glow is bright. Frames 0.
+
+FX-DIRT-013 (`fx_dirt_013.json`): Moved three pixels right: the glow and its dirt move together, the dirt lying on the layer. Frames 0.
+
+FX-DIRT-014 (`fx_dirt_014.json`): Tint core to edge (white to blue) with Inherit 100: the dirt takes the tinted glow's colour, bluer away from the patches. Frames 0.
+
+FX-DIRT-015 (`fx_dirt_015.json`): Blend Mode Add, Exposure 3: the glow not held at 1, the matte held at 1, so the dirt is never brighter than itself. Frames 0.
+
+FX-DIRT-016 (`fx_dirt_016.json`): A dirt layer that is not in the composition, `gone`: the layer drawn without the effect, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-DIRT-017 (`fx_dirt_017.json`): Lens Flare as added on the photo with the smudge as its dirt: the smudge lit where the flare is bright, round its core at (4.8, 3) and on its ghosts. Frames 0.
+
+FX-DIRT-018 (`fx_dirt_018.json`): Lens Flare, Inherit Glow Color 100: the dirt takes the flare's colours. Frames 0.
+
+FX-DIRT-019 (`fx_dirt_019.json`): Lens Flare, Blend With Original 50: halfway between FX-DIRT-017 and the photo. Frames 0.
+
+FX-DIRT-020 (`fx_dirt_020.json`): Lens Flare, Brightness 0: no light, so no matte and no dirt: the photo untouched. Frames 0.
+
+FX-DIRT-021 (`fx_dirt_021.json`): Lens Flare, Repeat Edges off, Matte Exposure 3: the dirt only in the middle, strong. Frames 0.
+
+FX-DIRT-022 (`fx_dirt_022.json`): Lens Flare, no dirt layer named: FX-FLARE-001 exactly. Frames 0.
+
+FX-DIRT-023 (`fx_dirt_023.json`): Soft Physical Glow, dirt opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DIRT-024 (`fx_dirt_024.json`): Soft Physical Glow, dirt inherit -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DIRT-025 (`fx_dirt_025.json`): Soft Physical Glow, dirt exposure 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DIRT-026 (`fx_dirt_026.json`): Soft Physical Glow, dirt gamma 0.05, below 0.1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DIRT-027 (`fx_dirt_027.json`): Soft Physical Glow, dirt repeat written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DIRT-028 (`fx_dirt_028.json`): Lens Flare, dirt opacity -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DIRT-029 (`fx_dirt_029.json`): Lens Flare, dirt gamma keyed to 11 at frame 4, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Path Stroke (D-356)
 
 Effects that draw along paths (EFFECTS.md P0-22), proved with Path Stroke (`core.stroke`), after After Effects' Stroke (Generate) (B-235). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/stroke/`: the layer `art` holding Lightning Bolt's night drawing the same size (its left half a night sky, its right half empty), unmoved unless the case says, with masks of mode None unless the case says, and the effect `fx-0-0`. **Every number is produced by `tools/stroke_reference.py`**, which lists every dab and finds the nearest by brute force in double precision, from the drawing's 8-bit values; the numbers are in `Fixtures/stroke/expected_stroke.json`. Tolerance 2e-5. B-235 checks them, and draws the playtest's pictures, in `verification/D-356_stroke_table.md`.
