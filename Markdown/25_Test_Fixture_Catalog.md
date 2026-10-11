@@ -210792,3 +210792,35 @@ FX-SPOTGEL-019 (`fx_spotgel_019.json`): A gel layer written as the number 3, not
 FX-SPOTGEL-020 (`fx_spotgel_020.json`): Render "Gel_Add": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SPOTGEL-021 (`fx_spotgel_021.json`): Render "gel_glow": not one of CC Spotlight's renders. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Threshold RGB (D-469)
+
+Threshold RGB, after CycoreFX's CC Threshold RGB (Stylize), `core.threshold_rgb` (B-349), a second name over Threshold's rule beside Channel Threshold. Every case is Threshold's drawing; `tools/threshold_rgb_reference.py` works the expected frames, `Fixtures/threshold_rgb/expected_threshold_rgb.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-THRESHRGB-001 (`fx_threshrgb_001.json`): As added: every threshold 128, no Invert, Blend 0: each channel on its own, red stays pure red, green pure green, both skins white, grey 127 black; the same as Channel Threshold's RGB at 128 (FX-CHTHRESH-004). Frames 0.
+
+FX-THRESHRGB-002 (`fx_threshrgb_002.json`): Red 230, green 128, blue 50: the lit skin (246, 214, 190) stays white, the shadow skin (220, 160, 140) loses its red and turns cyan, the light grey (192) loses its red too. Frames 0.
+
+FX-THRESHRGB-003 (`fx_threshrgb_003.json`): Invert Green only: green turned over in every pixel, so pure green turns black, pure red yellow and both skins magenta. Frames 0.
+
+FX-THRESHRGB-004 (`fx_threshrgb_004.json`): All three inverted: FX-THRESHRGB-001 turned over, white black and pure red cyan. Frames 0.
+
+FX-THRESHRGB-005 (`fx_threshrgb_005.json`): Blend With Original 50: every pixel halfway, in linear light, between the drawing and FX-THRESHRGB-001. Frames 0.
+
+FX-THRESHRGB-006 (`fx_threshrgb_006.json`): Red 0, green 255, blue 128: red full in every shown pixel, green only where it is full (green and white), blue as at 128. Frames 0.
+
+FX-THRESHRGB-007 (`fx_threshrgb_007.json`): Red keyed from 0 at frame 0 to 255 at frame 4, linear: frame 2 is red 127.5. Frames 0, 2, 4.
+
+FX-THRESHRGB-008 (`fx_threshrgb_008.json`): Blend eased from 50 at frame 0 to 100 at frame 4 on a curve that overshoots: at frame 2 it is held at 100, the drawing. Frames 0, 2.
+
+FX-THRESHRGB-009 (`fx_threshrgb_009.json`): FX-THRESHRGB-002 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-THRESHRGB-010 (`fx_threshrgb_010.json`): Red Threshold 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THRESHRGB-011 (`fx_threshrgb_011.json`): Green Threshold -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THRESHRGB-012 (`fx_threshrgb_012.json`): Blue Threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THRESHRGB-013 (`fx_threshrgb_013.json`): Invert Red written "true", not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-THRESHRGB-014 (`fx_threshrgb_014.json`): Blend With Original -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
