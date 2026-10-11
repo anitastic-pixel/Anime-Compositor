@@ -2253,11 +2253,14 @@ pub enum Effect {
     /// D-504: after After Effects' Linear Color Key, its rule and its settings when added ours
     /// (`grade::linear_color_key`, document 21). `view`, one of [`LCKEY_VIEWS`]; `key_color`,
     /// "#rrggbb"; `match_colors`, one of [`LCKEY_MATCHES`]; `matching_tolerance` and
-    /// `matching_softness`, 0 to 100 per cent. Key Operation's Keep Colors is not built.
+    /// `matching_softness`, 0 to 100 per cent. D-541: `key_operation`, one of
+    /// [`LCKEY_OPERATIONS`]; "keep" brings back colours the run of Linear Color Keys directly
+    /// above it keyed out ([`apply_stack_at`], `grade::linear_color_keep`).
     LinearColorKey {
         view: String,
         key_color: String,
         match_colors: String,
+        key_operation: String,
         matching_tolerance: f64,
         matching_softness: f64,
     },
@@ -3242,6 +3245,8 @@ pub const LINEAR_COLOR_KEY: &str = "core.linear_color_key";
 /// D-504: Linear Color Key's views and ways of matching.
 pub const LCKEY_VIEWS: [&str; 3] = ["final", "source", "matte"];
 pub const LCKEY_MATCHES: [&str; 3] = ["rgb", "hue", "chroma"];
+/// D-541: Linear Color Key's key operations, Key Colors and Keep Colors.
+pub const LCKEY_OPERATIONS: [&str; 2] = ["key", "keep"];
 pub const SCREEN_KEY: &str = "core.screen_key";
 /// D-540: Screen Key's views.
 pub const SKEY_VIEWS: [&str; 3] = ["final", "screen_matte", "status"];
@@ -6646,10 +6651,13 @@ impl Effect {
                 .or_else(|| hex_fault(name, "key colour", key_color)),
             Effect::ColorRange { color_space, .. } => (!CRANGE_SPACES.contains(&color_space.as_str()))
                 .then(|| format!("{name}'s colour space is \"lab\", \"yuv\" or \"rgb\", and this is \"{color_space}\".")),
-            Effect::LinearColorKey { view, key_color, match_colors, .. } => (!LCKEY_VIEWS.contains(&view.as_str()))
+            Effect::LinearColorKey { view, key_color, match_colors, key_operation, .. } => (!LCKEY_VIEWS.contains(&view.as_str()))
                 .then(|| format!("{name}'s view is \"final\", \"source\" or \"matte\", and this is \"{view}\"."))
                 .or_else(|| (!LCKEY_MATCHES.contains(&match_colors.as_str())).then(|| format!(
                     "{name}'s match colors is \"rgb\", \"hue\" or \"chroma\", and this is \"{match_colors}\"."
+                )))
+                .or_else(|| (!LCKEY_OPERATIONS.contains(&key_operation.as_str())).then(|| format!(
+                    "{name}'s key operation is \"key\" or \"keep\", and this is \"{key_operation}\"."
                 )))
                 .or_else(|| hex_fault(name, "key colour", key_color)),
             Effect::ScreenKey { view, screen_color, .. } => (!SKEY_VIEWS.contains(&view.as_str()))
@@ -8398,6 +8406,13 @@ pub(crate) fn apply_stack_at(
     mut report: impl FnMut(usize, &EffectInstance, Bypassed),
 ) -> (usize, usize) {
     let (mut ox, mut oy) = origin;
+    // D-541: the pixels before the run of Linear Color Keys directly above a Keep Colors, kept
+    // only when the stack has one. Switched-off, refused and unsupported instances draw nothing
+    // and are passed over; any other effect ends the run.
+    let keeps = stack.iter().any(|i| {
+        i.enabled && i.is_valid() && matches!(&i.effect, Effect::LinearColorKey { key_operation, .. } if key_operation == "keep")
+    });
+    let mut run: Option<WorkingBuffer> = None;
     // The position is reported alongside the instance because P-11's effect cache replays a
     // bypass on a hit, and a position is the one thing about an instance that survives being
     // written down and read back next frame.
@@ -8409,6 +8424,17 @@ pub(crate) fn apply_stack_at(
         }
         // D-202: what the effect is given, kept only when its result is to be mixed with it.
         let given = (instance.mix < 100.0).then(|| (source.clone(), ox, oy));
+        if keeps && instance.is_valid() {
+            match &instance.effect {
+                Effect::Unsupported { .. } => {}
+                Effect::LinearColorKey { .. } => {
+                    if run.is_none() {
+                        run = Some(source.clone());
+                    }
+                }
+                _ => run = None,
+            }
+        }
         // D-330, D-333: After Effects in 8 bpc and in its own 32 bpc has no linear working space,
         // so its blurs average the display values; in 32 bpc they are not held at white. D-337:
         // Solid Composite and Glow are laid on there too.
@@ -9496,6 +9522,13 @@ pub(crate) fn apply_stack_at(
             Effect::KeyCleaner { additional_edge_radius, alpha_contrast, strength } => {
                 crate::perf::time(crate::perf::Stage::EffectKeyCleaner, || {
                     crate::matte_refine::key_cleaner(source, *additional_edge_radius, *alpha_contrast, *strength / 100.0)
+                })
+            }
+            // D-541: the run's input is there, this instance having started it if nothing did.
+            e @ Effect::LinearColorKey { key_operation, .. } if key_operation == "keep" => {
+                crate::perf::time(crate::perf::Stage::EffectLinearColorKey, || {
+                    let before = run.as_ref().expect("a Keep Colors starts its own run");
+                    crate::grade::linear_color_keep(source, before, &crate::grade::lckey_settings(e))
                 })
             }
             e @ Effect::LinearColorKey { .. } => crate::perf::time(crate::perf::Stage::EffectLinearColorKey, || {

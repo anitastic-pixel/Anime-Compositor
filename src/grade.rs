@@ -2585,7 +2585,7 @@ pub(crate) fn color_range(source: &mut WorkingBuffer, k: &[f64; 8]) {
 /// [`crate::effects::LCKEY_VIEWS`], the match's in [`crate::effects::LCKEY_MATCHES`], the
 /// tolerance and softness, the key colour encoded, and its hue (-1 for a grey).
 pub(crate) fn lckey_settings(effect: &crate::effects::Effect) -> [f64; 8] {
-    let crate::effects::Effect::LinearColorKey { view, key_color, match_colors, matching_tolerance, matching_softness } =
+    let crate::effects::Effect::LinearColorKey { view, key_color, match_colors, matching_tolerance, matching_softness, .. } =
         effect
     else {
         unreachable!("lckey_settings takes Linear Color Key")
@@ -2608,8 +2608,12 @@ pub(crate) fn lckey_settings(effect: &crate::effects::Effect) -> [f64; 8] {
 /// key, 0 to 100: RGB, the largest channel difference; hue, the angle between their hues over
 /// 180, 100 when either is a grey; chroma, the largest difference of their chromaticities
 /// e / (eR + eG + eB), a black's a third each. Then (d - tolerance) / softness held inside 0 to
-/// 1; with softness 0, 0 at or within the tolerance and 1 beyond. Our rule (document 21).
+/// 1; with softness 0, 0 at or within the tolerance and 1 beyond. D-541: tolerance 0 keeps all,
+/// "the entire image opaque" as Adobe says. Our rule (document 21).
 pub(crate) fn lckey_kept(e: [f64; 3], k: &[f64; 8]) -> f64 {
+    if k[2] == 0.0 {
+        return 1.0;
+    }
     let key = [k[4], k[5], k[6]];
     let chroma = |c: [f64; 3]| {
         let s = c[0] + c[1] + c[2];
@@ -2655,6 +2659,42 @@ pub(crate) fn linear_color_key(source: &mut WorkingBuffer, k: &[f64; 8]) {
             return;
         }
         px[..3].fill((to_linear(m) * a) as f32);
+    });
+}
+
+/// D-541: Linear Color Key's Keep Colors on `source`, `before` the input of the run of keys
+/// above it (the same size: a key moves and grows nothing). Where `before` has covering a0, the
+/// keep share kk is 1 - [`lckey_kept`] of its straight colour. "final": where a0 kk is above the
+/// pixel's covering, the pixel becomes `before`'s times kk; "matte": the encoded grey
+/// max(covering, a0 kk) / a0 at covering a0; "source" leaves the layer as it is.
+pub(crate) fn linear_color_keep(source: &mut WorkingBuffer, before: &WorkingBuffer, k: &[f64; 8]) {
+    let view = k[0] as usize;
+    if view == 1 {
+        return;
+    }
+    debug_assert_eq!((source.width(), source.height()), (before.width(), before.height()));
+    let w = source.width().max(1) * 4;
+    source.data_mut().par_chunks_mut(w).zip(before.data().par_chunks(w)).for_each(|(row, was)| {
+        for (q, p) in row.chunks_exact_mut(4).zip(was.chunks_exact(4)) {
+            let a0 = p[3] as f64;
+            if a0 <= 0.0 {
+                continue;
+            }
+            let e = [0, 1, 2].map(|c| to_srgb((p[c] as f64 / a0).clamp(0.0, 1.0)));
+            let kk = 1.0 - lckey_kept(e, k);
+            if view == 0 {
+                if a0 * kk > q[3] as f64 {
+                    // A channel at a time (B-222).
+                    for c in 0..4 {
+                        q[c] = (p[c] as f64 * kk) as f32;
+                    }
+                }
+                continue;
+            }
+            let s = (q[3] as f64).max(a0 * kk) / a0;
+            q[..3].fill((to_linear(s) * a0) as f32);
+            q[3] = p[3];
+        }
     });
 }
 

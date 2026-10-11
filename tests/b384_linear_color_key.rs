@@ -8,7 +8,8 @@
 //! `verification/D-504 pictures/`.
 //!
 //! Every expected pixel is `Fixtures/linear_color_key/expected_linear_color_key.json`, written by
-//! the tool before this code existed and printed in document 25 as FX-LCKEY-001 to 018.
+//! the tool before this code existed and printed in document 25 as FX-LCKEY-001 to 024 (007
+//! and 011's frame 0 rewritten, and 019 to 024 added, by D-541 on the owner's word).
 //! Tolerance 2e-5. Nothing here is a snapshot of a run.
 
 mod effect_table;
@@ -100,7 +101,7 @@ fn fx(id: &str, p: &J) -> J {
 /// files numbered in `none` are left out with a warning.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
-    for n in 1..=18 {
+    for n in 1..=24 {
         let file = format!("fx_lckey_{n:03}.json");
         let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
@@ -227,34 +228,56 @@ fn b384_linear_color_key() {
          more transparent. Adobe describes the effect and names its controls but publishes no \
          formula and no defaults we found, so the rule and the settings when added are ours, \
          stated in `tools/linear_color_key_reference.py`: a distance from the key from 0 to 100, \
-         less the matching tolerance, over the matching softness, is the share of the pixel kept. \
-         Key Operation's Keep Colors is not built. Every expected pixel is \
-         `Fixtures/linear_color_key/expected_linear_color_key.json`, written by the tool before \
-         this code existed and printed in document 25 as FX-LCKEY-001 to 018. Tolerance 2e-5.\n",
+         less the matching tolerance, over the matching softness, is the share of the pixel kept; \
+         tolerance 0 keys nothing (D-541, as Adobe says). D-541 adds Key Operation's Keep Colors, \
+         which brings back colours the run of Linear Color Keys directly above it keyed out. \
+         Every expected pixel is `Fixtures/linear_color_key/expected_linear_color_key.json`, \
+         written by the tool before this code existed and printed in document 25 as FX-LCKEY-001 \
+         to 024 (007 and 011's frame 0 rewritten, and 019 to 024 added, by D-541 on the owner's \
+         word). Tolerance 2e-5.\n",
     );
 
-    t.heading("FX-LCKEY-001 to 018 (document 25)");
-    t.fixtures_numbered("expected_linear_color_key.json", 1..=18);
+    t.heading("FX-LCKEY-001 to 024 (document 25)");
+    t.fixtures_numbered("expected_linear_color_key.json", 1..=24);
 
     t.heading("The file");
-    let files: Vec<String> = (1..=18).map(|n| format!("fx_lckey_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=24).map(|n| format!("fx_lckey_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_lckey_004.json");
     t.row(
-        "fx_lckey_004.json is saved with its five settings, view final, key colour #28b43c, match colors hue and tolerance 20",
+        "fx_lckey_004.json is saved with its six settings, view final, key colour #28b43c, match colors hue, key operation key and tolerance 20",
         &saved.to_string(),
-        saved.as_object().unwrap().len() == 5
+        saved.as_object().unwrap().len() == 6
             && saved["view"] == "final"
             && saved["key_color"] == "#28b43c"
             && saved["match_colors"] == "hue"
+            && saved["key_operation"] == "key"
             && saved["matching_tolerance"] == 20.0,
     );
+    {
+        // D-541: a file written before Keep Colors has no key operation, and keys.
+        let mut json: J = serde_json::from_str(&fs::read_to_string(t.root.join("fx_lckey_001.json")).unwrap()).unwrap();
+        json["compositions"][0]["layers"][0]["effects"][0]["parameters"]
+            .as_object_mut()
+            .unwrap()
+            .remove("key_operation");
+        let read = persist::load_str(&json.to_string()).map(|l| {
+            l.document.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone()
+        });
+        let op = match &read {
+            Ok(Effect::LinearColorKey { key_operation, .. }) => key_operation.clone(),
+            Ok(_) => "another effect".into(),
+            Err(d) => d.message.clone(),
+        };
+        t.row("a file written before D-541, without a key operation, opens as Key Colors", &op, op == "key");
+    }
     for (file, want) in [
         ("fx_lckey_014.json", "matching tolerance"),
         ("fx_lckey_015.json", "matching softness"),
         ("fx_lckey_016.json", "view"),
         ("fx_lckey_017.json", "match colors"),
         ("fx_lckey_018.json", "key colour"),
+        ("fx_lckey_024.json", "key operation"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         t.row(&format!("{file} is refused in a sentence naming {want}"), &why, why.contains(want));
@@ -314,8 +337,9 @@ fn b384_linear_color_key() {
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    // The refused ones (014 to 018) leave nothing for the card.
-    let none: Vec<u32> = (14..=18).collect();
+    // The refused ones (014 to 018 and 024) leave nothing for the card, and a Keep Colors
+    // (019 to 023) is drawn by the processor with the keys above it (D-541).
+    let none: Vec<u32> = (14..=24).collect();
     card_fixtures(&mut t, &mut gpu, &none);
     card_reference(
         &mut t,
@@ -397,6 +421,36 @@ fn b384_linear_color_key() {
             said.is_empty() && after[3].abs_diff(want) <= 2,
         );
     }
+
+    // D-541: Keep Colors. Everything keyed out (tolerance 100), then a second instance keeps the
+    // shirt's colour: the shirt alone comes back, as it was.
+    let all = json!({"matching_tolerance": 100});
+    let keep = json!({"key_operation": "keep", "key_color": "#283ca0"});
+    let (after, said) = picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &all), fx("fx-0-1", &keep)]));
+    write("5_keep_shirt.png", TOWN, &after);
+    let (s, f, sh) = (cover(&after, screen), cover(&after, face), cover(&after, shirt));
+    let shirt_as_was = at(&after, shirt.0, shirt.1) == at(&before, shirt.0, shirt.1);
+    t.row(
+        "5_keep_shirt.png, everything keyed out (tolerance 100), then Keep Colors on the shirt's colour (40, 60, 160), tolerance 10: the shirt back as it was, the screen and the face still gone; draws cleanly",
+        &format!("{said:?}, screen {s}, face {f}, shirt {sh}, shirt as it was {shirt_as_was}"),
+        said.is_empty() && s == 0 && f == 0 && sh == 255 && shirt_as_was,
+    );
+    let exposure = json!({"instance_id": "fx-0-1", "type_id": "core.exposure", "enabled": true, "parameters": {"stops": 0}});
+    let (broken, said) = picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &all), exposure.clone(), fx("fx-0-2", &keep)]));
+    let (plain, _) = picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &all), exposure]));
+    t.row(
+        "the same with an Exposure of 0 stops between the two: another effect ends the run of keys, so the Keep Colors has nothing above it to bring back, the frame the same as without it; draws cleanly",
+        &format!("{said:?}, {} pixels differ", distance(&broken, &plain).1),
+        said.is_empty() && broken == plain,
+    );
+    let mut off = fx("fx-0-1", &json!({"key_color": "#ffffff"}));
+    off["enabled"] = J::from(false);
+    let (passed, said) = picture(&dir, "portrait.png", TOWN, json!([fx("fx-0-0", &all), off, fx("fx-0-2", &keep)]));
+    t.row(
+        "the same with a switched-off Linear Color Key between the two instead: it draws nothing, so the run goes on and the shirt comes back as in 5_keep_shirt.png; draws cleanly",
+        &format!("{said:?}, {} pixels differ", distance(&passed, &after).1),
+        said.is_empty() && passed == after,
+    );
 
     t.finish("D-504_linear_color_key_table.md");
 }

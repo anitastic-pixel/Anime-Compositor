@@ -2463,10 +2463,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("alpha_contrast".into(), num(*alpha_contrast));
             params.insert("strength".into(), num(*strength));
         }
-        Effect::LinearColorKey { view, key_color, match_colors, matching_tolerance, matching_softness } => {
+        Effect::LinearColorKey { view, key_color, match_colors, key_operation, matching_tolerance, matching_softness } => {
             params.insert("view".into(), J::from(view.as_str()));
             params.insert("key_color".into(), J::from(key_color.as_str()));
             params.insert("match_colors".into(), J::from(match_colors.as_str()));
+            params.insert("key_operation".into(), J::from(key_operation.as_str()));
             params.insert("matching_tolerance".into(), num(*matching_tolerance));
             params.insert("matching_softness".into(), num(*matching_softness));
         }
@@ -6051,6 +6052,8 @@ fn parse_effect(
             view: effect_word(params, "view", &at)?,
             key_color: effect_word(params, "key_color", &at)?,
             match_colors: effect_word(params, "match_colors", &at)?,
+            // D-541: a file from before Keep Colors keys.
+            key_operation: effect_word_or(params, "key_operation", &at, "key")?,
             matching_tolerance: effect_number(params, "matching_tolerance", &at)?,
             matching_softness: effect_number(params, "matching_softness", &at)?,
         }),

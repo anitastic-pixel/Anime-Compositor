@@ -2815,6 +2815,10 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         if k[3] != 0.0lf {
             m = clamp((d - k[2]) / k[3], 0.0lf, 1.0lf);
         }
+        // D-541: tolerance 0 keeps all.
+        if k[2] == 0.0lf {
+            m = 1.0lf;
+        }
         if k[0] == 0.0lf {
             // A channel at a time, as Extract's.
             for (var c = 0u; c < 4u; c++) {
