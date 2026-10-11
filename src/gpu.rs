@@ -4825,6 +4825,39 @@ fn blockload(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, p);
 }
 
+// D-460, layer_fx::burn_film: k the burn front, the diagonal, then the seven burn points' x, y
+// and delay; F.base the seed's mix.
+@compute @workgroup_size(16, 16)
+fn burnfilm(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let p = textureLoad(input, id.xy, 0);
+    let x = f64(id.x) + 0.5lf;
+    let y = f64(id.y) + 0.5lf;
+    let d = k[1];
+    var near = sqrt((x - k[2]) * (x - k[2]) + (y - k[3]) * (y - k[3])) / d + k[4];
+    for (var i = 1u; i < 7u; i++) {
+        let q = 2u + 3u * i;
+        near = min(near, sqrt((x - k[q]) * (x - k[q]) + (y - k[q + 1u]) * (y - k[q + 1u])) / d + k[q + 2u]);
+    }
+    let n = fractal(0u, vec3(x / (d / 10.0lf), y / (d / 10.0lf), 0.0lf), 6u);
+    let g = near + 0.12lf * (n + 1.0lf) / 2.0lf - k[0];
+    var out = p;
+    if g >= 0.06lf {
+        out = p;
+    } else if g >= 0.0lf {
+        let t = g / 0.06lf;
+        out = vec4(f32(f64(p.x) * t), f32(f64(p.y) * t), f32(f64(p.z) * t), p.w);
+    } else if g > -0.02lf {
+        out = vec4(0.0, 0.0, 0.0, f32(f64(p.w) * (1.0lf + g / 0.02lf)));
+    } else {
+        out = vec4(0.0);
+    }
+    textureStore(output, id.xy, out);
+}
+
 // layer_fx::picture_luma.
 fn picture_luma(p: vec4<f32>) -> f64 {
     return to_srgb(clamp(0.2126lf * f64(p.x) + 0.7152lf * f64(p.y) + 0.0722lf * f64(p.z), 0.0lf, 1.0lf));
@@ -8982,6 +9015,8 @@ struct FxPasses {
     /// D-509.
     gmeltk: Pass,
     gmelt: Pass,
+    /// D-460.
+    burnfilm: Pass,
     /// D-441.
     writeon: Pass,
     edges: Pass,
@@ -9658,6 +9693,7 @@ impl Gpu {
                 blockload: pass("blockload", &[0, 1, 2, 3, 4]),
                 gmeltk: pass("gmeltk", &[0, 1, 3, 7]),
                 gmelt: pass("gmelt", &[0, 1, 2, 3, 4, 7]),
+                burnfilm: pass("burnfilm", &[0, 1, 2, 3]),
                 writeon: pass("writeon", &[0, 1, 2, 3]),
                 edges: pass("edges", &[0, 1, 2, 3]),
                 dissolve: pass("dissolve", &[0, 1, 2, 3]),
@@ -11153,6 +11189,12 @@ impl Gpu {
                 let p = FxParams { mode: empty as u32, ..Default::default() };
                 self.fx_step(steps, &passes.blockload, p, Some(&now), Some(&out), Some(&[edge as f64]), Some(&before), none, tiles(w, h));
                 (out, (w, h))
+            }
+            // D-460: compose left out one at Burn 0.
+            E::BurnFilm { burn, center, seed } => {
+                let (base, k) = crate::layer_fx::burn_film_setup((w, h), *burn, *center, *seed);
+                let p = FxParams { base: [base as u32, (base >> 32) as u32], ..Default::default() };
+                same(steps, &passes.burnfilm, p, &k, None)
             }
             E::Emboss { direction, relief, contrast, mode } => {
                 let (ux, uy) = crate::blurs::along(*direction);

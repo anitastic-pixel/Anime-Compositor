@@ -2547,6 +2547,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("start_cleared".into(), J::from(start_cleared.as_str()));
             params.insert("bilinear".into(), J::from(bilinear.as_str()));
         }
+        Effect::BurnFilm { burn, center, seed } => {
+            params.insert("burn".into(), num(*burn));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("seed".into(), num(*seed));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -5064,6 +5069,7 @@ fn parse_effect(
         crate::effects::BRUSH_STROKES,
         crate::effects::CARTOON,
         crate::effects::BLOCK_LOAD,
+        crate::effects::BURN_FILM,
         crate::effects::ARBITRARY_MAP,
         crate::effects::SELECTIVE_COLOR,
         crate::effects::SHADOW_HIGHLIGHT,
@@ -6065,6 +6071,11 @@ fn parse_effect(
             start_cleared: effect_word(params, "start_cleared", &at)?,
             bilinear: effect_word(params, "bilinear", &at)?,
             pixel: 1.0,
+        }),
+        crate::effects::BURN_FILM => Some(crate::effects::Effect::BurnFilm {
+            burn: effect_number(params, "burn", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            seed: effect_number(params, "seed", &at)?,
         }),
         crate::effects::SMART_BLUR =>Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

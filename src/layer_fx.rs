@@ -1129,6 +1129,64 @@ pub(crate) fn block_load(source: &mut WorkingBuffer, completion: f64, scans: f64
     }
 }
 
+/// D-460: Burn Film's ragged edge, scorched edge and char line, as shares of the diagonal.
+const BURN_ROUGH: f64 = 0.12;
+const BURN_SCORCH: f64 = 0.06;
+const BURN_CHAR: f64 = 0.02;
+
+/// D-460: Burn Film's numbers for a picture `w` by `h`: the seed's mix, then the burn front, the
+/// diagonal, and the seven burn points' x, y and delay, the centre first (document 21).
+pub(crate) fn burn_film_setup((w, h): (usize, usize), burn: f64, center: [f64; 2], seed: f64) -> (u64, Vec<f64>) {
+    let base = crate::grade::mix(seed.floor() as u64);
+    let (w, h) = (w as f64, h as f64);
+    let d = w.hypot(h);
+    let (cx, cy) = (center[0] / 100.0 * w, center[1] / 100.0 * h);
+    let far = [(0.0, 0.0), (w, 0.0), (0.0, h), (w, h)].iter().map(|&(x, y)| (x - cx).hypot(y - cy)).fold(0.0, f64::max);
+    let s = burn / 100.0 * (far / d + BURN_ROUGH + BURN_SCORCH + BURN_CHAR) - BURN_SCORCH;
+    let mut k = vec![s, d, cx, cy, 0.0];
+    for i in 1..=6 {
+        let u = |ch| crate::grade::unit(base, i, 0, -1, ch);
+        k.extend([(u(0) + 1.0) / 2.0 * w, (u(1) + 1.0) / 2.0 * h, 0.25 + 0.125 * (u(2) + 1.0)]);
+    }
+    (base, k)
+}
+
+/// D-460: after After Effects' CC Burn Film. Each pixel burns at its distance from the nearest
+/// burn point (over the diagonal, plus that point's delay) plus a ragged edge of D-127's fractal
+/// noise; behind the front it is scorched to black, then a black char line fading out, then
+/// gone. The layer never grows.
+pub(crate) fn burn_film(source: &mut WorkingBuffer, burn: f64, center: [f64; 2], seed: f64) {
+    let (w, h) = (source.width(), source.height());
+    if w == 0 || h == 0 {
+        return;
+    }
+    let (base, k) = burn_film_setup((w, h), burn, center, seed);
+    let (s, d) = (k[0], k[1]);
+    source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, line)| {
+        let py = y as f64 + 0.5;
+        for (x, px) in line.chunks_mut(4).enumerate() {
+            let qx = x as f64 + 0.5;
+            let near = k[2..].chunks(3).map(|q| (qx - q[0]).hypot(py - q[1]) / d + q[2]).fold(f64::INFINITY, f64::min);
+            let n = crate::grade::fractal(base, 0, (qx / (d / 10.0), py / (d / 10.0), 0.0), 6);
+            let g = near + BURN_ROUGH * (n + 1.0) / 2.0 - s;
+            if g >= BURN_SCORCH {
+                continue;
+            }
+            if g >= 0.0 {
+                let t = g / BURN_SCORCH;
+                for c in px[..3].iter_mut() {
+                    *c = (*c as f64 * t) as f32;
+                }
+            } else if g > -BURN_CHAR {
+                px[3] = (px[3] as f64 * (1.0 + g / BURN_CHAR)) as f32;
+                px[..3].fill(0.0);
+            } else {
+                px.fill(0.0);
+            }
+        }
+    });
+}
+
 /// Blocks `size` wide as D-144's Mosaic lays them, flat, or when `bilinear` each pixel the blend,
 /// across then down, of the means of the two blocks whose centres are either side of it (the edge
 /// block's alone past the first or last centre).

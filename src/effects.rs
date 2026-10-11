@@ -2385,6 +2385,11 @@ pub enum Effect {
         bilinear: String,
         pixel: f64,
     },
+    /// D-460: after After Effects' CC Burn Film (`layer_fx::burn_film`, document 21). `burn`, 0 to
+    /// 100; `center`, per cent of the picture as it reaches the effect, -1000 to 1000 each; `seed`,
+    /// 0 to 100000, its whole part. Everything is a share of the picture, so nothing is
+    /// draft-scaled.
+    BurnFilm { burn: f64, center: [f64; 2], seed: f64 },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -3207,6 +3212,7 @@ pub const SIMPLE_WIRE_REMOVAL: &str = "core.simple_wire_removal";
 /// D-458: CC Simple Wire Removal's styles.
 pub const WIRE_STYLES: [&str; 4] = ["fade", "frame_offset", "displace", "displace_horizontal"];
 pub const BLOCK_LOAD: &str = "core.block_load";
+pub const BURN_FILM: &str = "core.burn_film";
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -4469,6 +4475,11 @@ impl Effect {
             Effect::BlockLoad { completion, scans, .. } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("scans", vec![scans], 1.0, 16.0),
+            ],
+            Effect::BurnFilm { burn, center, seed } => vec![
+                ("burn", vec![burn], 0.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("seed", vec![seed], 0.0, 100000.0),
             ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
@@ -5848,6 +5859,7 @@ impl Effect {
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::BlockLoad { .. } => "Block Load",
+            Effect::BurnFilm { .. } => "Burn Film",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -6053,6 +6065,7 @@ impl Effect {
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::BlockLoad { .. } => BLOCK_LOAD,
+            Effect::BurnFilm { .. } => BURN_FILM,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -9781,6 +9794,10 @@ pub(crate) fn apply_stack_at(
             Effect::BlockLoad { completion, scans, start_cleared, bilinear, pixel } => crate::perf::time(crate::perf::Stage::EffectBlockLoad, || {
                 crate::layer_fx::block_load(source, *completion, *scans, start_cleared == "on", bilinear == "on", *pixel, (ox, oy))
             }),
+            // D-460: laid over the picture as it reaches the effect; the layer never grows.
+            Effect::BurnFilm { burn, center, seed } => {
+                crate::perf::time(crate::perf::Stage::EffectBurnFilm, || crate::layer_fx::burn_film(source, *burn, *center, *seed))
+            }
             Effect::SmartBlur { radius, threshold } => crate::perf::time(crate::perf::Stage::EffectSmartBlur, || {
                 crate::median::smart_blur(source, *radius, *threshold)
             }),
