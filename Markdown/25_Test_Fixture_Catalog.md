@@ -176365,6 +176365,54 @@ FX-SGLOW-044 (`fx_sglow_044.json`): Blend Mode "multiply", which is not add or s
 
 FX-SGLOW-045 (`fx_sglow_045.json`): Unmult "yes", which is not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Soft Physical Glow's tint (D-542)
+
+Pick #6, Glow core-to-edge colour: Soft Physical Glow's settings `tint` ("off", "one_color", "core_to_edge"), `inner_color`, `outer_color` and `tint_amount` (B-422). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/glow_tint/`, built as D-353's are, on its drawings (`media/patches.png`, `media/faint.png`, `media/grey.png`). **Every number is produced by `tools/glow_tint_reference.py`**, which takes D-353's reference (`tools/soft_glow_reference.py`) and tints each level's plane in double precision before it is added; the numbers are in `Fixtures/glow_tint/expected_glow_tint.json`. Tolerance 2e-5. B-422 checks them, runs D-353's FX-SGLOW-001 to 045 again unchanged, and draws the playtest's pictures, in `verification/D-542_glow_tint_table.md`.
+
+FX-GTINT-001 (`fx_gtint_001.json`): Tint One Colour, orange, radius 12, everything else at Soft Physical Glow's defaults: the yellow, brown and purple patches all glow orange. Frames 0.
+
+FX-GTINT-002 (`fx_gtint_002.json`): Tint Core to Edge at its defaults, white core and blue edge, radius 12: white close to each patch, turning blue as the glow spreads. Frames 0.
+
+FX-GTINT-003 (`fx_gtint_003.json`): Core to Edge, radius 100: seven levels, so the change from white to blue runs over more steps. Frames 0.
+
+FX-GTINT-004 (`fx_gtint_004.json`): Core to Edge, Tint Amount 50: halfway between the glow's own colours and the tint. Frames 0.
+
+FX-GTINT-005 (`fx_gtint_005.json`): Core to Edge, Tint Amount 0: the glow's own colours, the same as Soft Physical Glow with no tint (FX-SGLOW-001). Frames 0.
+
+FX-GTINT-006 (`fx_gtint_006.json`): Tint Off written in the file, with colours set: Soft Physical Glow as before (FX-SGLOW-001). Frames 0.
+
+FX-GTINT-007 (`fx_gtint_007.json`): One Colour, orange, on the drawing with a grey patch: the grey glows orange too, as brightly as a colour of its brightness would. Frames 0.
+
+FX-GTINT-008 (`fx_gtint_008.json`): Core to Edge, orange core and purple edge, Threshold 30 in Luminance: only the yellow glows, orange near it and purple further out. Frames 0.
+
+FX-GTINT-009 (`fx_gtint_009.json`): Core to Edge, radius 0: nothing spreads; the light laid on itself takes the core colour, white, so each patch brightens towards grey-white. Frames 0.
+
+FX-GTINT-010 (`fx_gtint_010.json`): Core to Edge, radius 2.25: the one level, half in, is the widest, so it is blue, and the half laid on itself is white. Frames 0.
+
+FX-GTINT-011 (`fx_gtint_011.json`): Tint Amount keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 is FX-GTINT-005, frame 2 is FX-GTINT-004, frame 4 is FX-GTINT-002. Frames 0, 2, 4.
+
+FX-GTINT-012 (`fx_gtint_012.json`): Core to Edge, Blend Mode Add, exposure 3: the tinted light adds up past white. Frames 0.
+
+FX-GTINT-013 (`fx_gtint_013.json`): Core to Edge, Unmult off, Source Opacity 0: the tinted glow alone, on black. Frames 0.
+
+FX-GTINT-014 (`fx_gtint_014.json`): Core to Edge, Aspect Ratio 1.5 at Angle 30, moved three pixels right: the leaning glow tinted, and the layer grown to hold it. Frames 0.
+
+FX-GTINT-015 (`fx_gtint_015.json`): Core to Edge, the patches half covering: the light counts at half, so the tint is half as bright. Frames 0.
+
+FX-GTINT-016 (`fx_gtint_016.json`): Core to Edge, radius 2,000: on a drawing this small the wide blue levels spread their light far past the frame, so what stays is mostly the small, near-white levels: a faint wash, white touched with blue. Frames 0.
+
+FX-GTINT-017 (`fx_gtint_017.json`): Tint "duocolor", which is not off, one_color or core_to_edge. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GTINT-018 (`fx_gtint_018.json`): Inner Colour "#12345", not six hexadecimal digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GTINT-019 (`fx_gtint_019.json`): Outer Colour "blue", not a colour word the file takes. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GTINT-020 (`fx_gtint_020.json`): Tint Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GTINT-021 (`fx_gtint_021.json`): Tint Amount -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GTINT-022 (`fx_gtint_022.json`): Tint Amount keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Path Stroke (D-356)
 
 Effects that draw along paths (EFFECTS.md P0-22), proved with Path Stroke (`core.stroke`), after After Effects' Stroke (Generate) (B-235). Every case is a project of one composition 16 by 10 at 24 fps, five frames, in `Fixtures/stroke/`: the layer `art` holding Lightning Bolt's night drawing the same size (its left half a night sky, its right half empty), unmoved unless the case says, with masks of mode None unless the case says, and the effect `fx-0-0`. **Every number is produced by `tools/stroke_reference.py`**, which lists every dab and finds the nearest by brute force in double precision, from the drawing's 8-bit values; the numbers are in `Fixtures/stroke/expected_stroke.json`. Tolerance 2e-5. B-235 checks them, and draws the playtest's pictures, in `verification/D-356_stroke_table.md`.
