@@ -5527,6 +5527,151 @@ fn degrain(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
+// B-336 (D-456), a pixel's straight colour through the sRGB curve, held in 0 to 1.
+fn db_enc(s: vec4<f32>) -> vec3<f64> {
+    let a = f64(s.w);
+    return vec3(to_srgb(clamp(f64(s.x) / a, 0.0lf, 1.0lf)), to_srgb(clamp(f64(s.y) / a, 0.0lf, 1.0lf)), to_srgb(clamp(f64(s.z) / a, 0.0lf, 1.0lf)));
+}
+
+// B-336, the edge weight of the pixel at `p` of `t`, which shows: its largest step in levels to its
+// four neighbours that show, against the threshold and the softness, in double precision.
+fn db_edge(t: texture_2d<f32>, p: vec2<i32>) -> f64 {
+    let e = db_enc(textureLoad(t, p, 0));
+    var g = 0.0lf;
+    var n = array(vec2(-1, 0), vec2(1, 0), vec2(0, -1), vec2(0, 1));
+    for (var i = 0; i < 4; i++) {
+        let q = at(t, p + n[i]);
+        if q.w > 0.0 {
+            let d = abs(db_enc(q) - e) * 255.0lf;
+            g = max(g, max(max(d.x, d.y), d.z));
+        }
+    }
+    var edge = select(0.0lf, 1.0lf, g > k[0]);
+    if k[1] > 0.0lf {
+        edge = clamp((g - k[0]) / k[1], 0.0lf, 1.0lf);
+    }
+    return edge;
+}
+
+// B-336, round half away from 0.
+fn db_away(v: f64) -> i32 {
+    let r = i32(floor(abs(v) + 0.5lf));
+    return select(r, -r, v < 0.0lf);
+}
+
+// B-336, what the pixel at `q` lends the blur across: its colour times a (1 - E) and that
+// weight, from the drawing in `input` and mode 0's in `other`.
+fn db_lent(q: vec2<i32>) -> vec4<f64> {
+    let t = textureLoad(input, q, 0);
+    if t.w <= 0.0 {
+        return vec4(0.0lf);
+    }
+    let ew = textureLoad(other, q, 0);
+    let wt = f64(t.w) * f64(ew.w);
+    return vec4(vec3<f64>(ew.xyz) * wt, wt);
+}
+
+// B-336 (D-456), grade::deband. k: the threshold and the softness, the Edge Blur Reduction as a
+// fraction, the diffusion amount and its reduction, the noise amount over 255 and its
+// reduction, the view (0 Normal, 1 Edge Only, 2 Selected Edge), then from 8 the blur's taps from
+// the middle out, `r` past it. Mode 0, on the drawing: each pixel's colour through the curve and
+// 1 - E, its edge weight's complement, which single precision keeps however near 0 it is. Mode
+// 2, on the drawing with mode 0's in `other`: the sums across of colour times weight and of
+// weight, each tap weighed a (1 - E) and stopped by the edges between, into `sums` in double
+// precision, as tiny weights there can decide a ratio. Mode 3, on the drawing with mode 0's in
+// `other`: the same down from `sums`, then the blurred colour pulled back on edges, and 1 - E.
+// Mode 5, on mode 3's (mode 0's without a blur) with the drawing in `other`: the diffusion at
+// step `frame`, the dither at step `g`, the view, back through the curve at the covering.
+@compute @workgroup_size(16, 16)
+fn deband(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = vec2<i32>(textureDimensions(input));
+    let p = vec2<i32>(id.xy);
+    if p.x >= size.x || p.y >= size.y {
+        return;
+    }
+    let s = textureLoad(input, p, 0);
+    if F.mode == 0u {
+        // An empty pixel is no edge, so the blur passes it.
+        if s.w <= 0.0 {
+            textureStore(output, id.xy, vec4(0.0, 0.0, 0.0, 1.0));
+            return;
+        }
+        let e = db_enc(s);
+        let edge = db_edge(input, p);
+        textureStore(output, id.xy, vec4(f32(e.x), f32(e.y), f32(e.z), f32(1.0lf - edge)));
+        return;
+    }
+    if F.mode == 2u || F.mode == 3u {
+        let across = F.mode == 2u;
+        let dir = select(vec2(0, 1), vec2(1, 0), across);
+        var total: vec4<f64>;
+        if across {
+            total = db_lent(p) * k[8];
+        } else {
+            total = sums[p.y * size.x + p.x] * k[8];
+        }
+        for (var sg = -1; sg <= 1; sg += 2) {
+            var through = 1.0lf;
+            for (var d = 1; d <= F.r; d++) {
+                let q = p + dir * (sg * d);
+                if any(q < vec2(0)) || any(q >= size) {
+                    break;
+                }
+                var lent: vec4<f64>;
+                if across {
+                    lent = db_lent(q);
+                } else {
+                    lent = sums[q.y * size.x + q.x];
+                }
+                total += lent * (k[8u + u32(d)] * through);
+                through *= f64(textureLoad(other, q, 0).w);
+            }
+        }
+        if across {
+            sums[p.y * size.x + p.x] = total;
+            return;
+        }
+        let ew = textureLoad(other, p, 0);
+        var m = vec3<f64>(ew.xyz);
+        if s.w > 0.0 && total.w > 0.0lf {
+            m += (total.xyz / total.w - m) * (1.0lf - (1.0lf - f64(ew.w)) * k[2]);
+        }
+        textureStore(output, id.xy, vec4(vec3<f32>(m), ew.w));
+        return;
+    }
+    let still = textureLoad(other, p, 0);
+    if still.w <= 0.0 {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    // The edge weight again in double precision: the single one kept beside the colour can move
+    // a diffusion offset across a half pixel.
+    let edge = db_edge(other, p);
+    let own = vec3<f64>(s.xyz);
+    var d = own;
+    let lx = p.x - F.ox;
+    let ly = p.y - F.oy;
+    if k[3] > 0.0lf {
+        let kk = k[3] * (1.0lf - edge * k[4]);
+        let q = p + vec2(db_away(kk * hashed(lx, ly, F.frame, 0u)), db_away(kk * hashed(lx, ly, F.frame, 1u)));
+        if all(q >= vec2(0)) && all(q < size) && textureLoad(other, q, 0).w > 0.0 {
+            let t = textureLoad(input, q, 0);
+            let lend = f64(t.w);
+            d = vec3<f64>(t.xyz) * lend + own * (1.0lf - lend);
+        }
+    }
+    let tri = (hashed(lx, ly, F.g, 2u) + hashed(lx, ly, F.g, 3u)) / 2.0lf;
+    let n = tri * k[5] * (1.0lf - edge * k[6]);
+    var o = clamp(d + vec3(n), vec3(0.0lf), vec3(1.0lf));
+    if k[7] == 1.0lf {
+        o = vec3(edge);
+    } else if k[7] == 2.0lf {
+        o = o * (1.0lf - edge) + vec3(edge, 0.0lf, 0.0lf);
+    }
+    let a = f64(still.w);
+    textureStore(output, id.xy, vec4(f32(to_linear(o.x) * a), f32(to_linear(o.y) * a), f32(to_linear(o.z) * a), still.w));
+}
+
 // B-151, layer_fx::roughen_edges' least covering at `e` either way across and down.
 fn least(x: f64, y: f64, e: f64) -> f64 {
     let c = f64(bilinear(input, x, y).w);
@@ -8196,6 +8341,8 @@ struct FxPasses {
     /// B-237.
     bilat: Pass,
     degrain: Pass,
+    /// B-336.
+    deband: Pass,
     rough: Pass,
     rshadow: Pass,
     bevel: Pass,
@@ -8865,6 +9012,7 @@ impl Gpu {
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
                 degrain: pass("degrain", &[0, 1, 2, 3]),
+                deband: pass("deband", &[0, 1, 2, 3, 4, 7]),
                 rough: pass("rough", &[0, 1, 2, 3]),
                 rshadow: pass("rshadow", &[0, 1, 2, 3, 4]),
                 bevel: pass("bevel", &[0, 1, 2, 3, 4]),
@@ -9828,6 +9976,64 @@ impl Gpu {
                     pic = out;
                 }
                 (pic, (w, h))
+            }
+            E::Deband {
+                view,
+                edge_threshold,
+                edge_softness,
+                blur_amount,
+                edge_blur_reduction,
+                diffusion_amount,
+                edge_diffusion_reduction,
+                diffusion_reseed_interval,
+                noise_amount,
+                edge_noise_reduction,
+                noise_reseed_interval,
+                frame,
+            } => {
+                // D-456, as grade::deband: the edges, the blur across then down and pulled back,
+                // then the diffusion, the dither and the view.
+                let taps = crate::effects::gaussian_weights(blur_amount / 3.0);
+                let r = taps.len() / 2;
+                let shown = crate::effects::DEBAND_VIEWS.iter().position(|v| v == view).unwrap_or(0) as f64;
+                let mut k = vec![
+                    *edge_threshold,
+                    *edge_softness,
+                    edge_blur_reduction / 100.0,
+                    *diffusion_amount,
+                    edge_diffusion_reduction / 100.0,
+                    noise_amount / 255.0,
+                    edge_noise_reduction / 100.0,
+                    shown,
+                ];
+                k.extend(taps[r..].iter().map(|&v| v as f64));
+                let base = crate::grade::mix(0);
+                let p = FxParams {
+                    r: r as i32,
+                    frame: crate::effects::turbulent_seed(0.0, *diffusion_reseed_interval, *frame) as i64 as i32,
+                    g: crate::effects::turbulent_seed(0.0, *noise_reseed_interval, *frame) as i64 as i32,
+                    base: [base as u32, (base >> 32) as u32],
+                    ox: ox as i32,
+                    oy: oy as i32,
+                    ..Default::default()
+                };
+                // The sums across, in double precision, which every pass binds.
+                let sums = buffer(if r > 0 { w * h * 32 } else { 32 });
+                let mut run = |mode: u32, input: &wgpu::TextureView, out: &wgpu::TextureView, other: &wgpu::TextureView| {
+                    let work = [None, None, Some(&sums), None];
+                    self.fx_step(steps, &passes.deband, FxParams { mode, ..p }, Some(input), Some(out), Some(&k), Some(other), work, tiles(w, h));
+                };
+                let edges = self.scratch("D-456 edges", w, h);
+                run(0, still, &edges, still);
+                let mut m = edges.clone();
+                if r > 0 {
+                    m = self.scratch("D-456 blurred", w, h);
+                    run(2, still, &m, &edges);
+                    run(3, still, &m, &edges);
+                }
+                let out = self.scratch("D-456 out", w, h);
+                run(5, &m, &out, still);
+                (out, (w, h))
             }
             E::Curves { master, red, green, blue, .. } => {
                 // Where each curve starts, then each curve's count, ins, outs and second derivatives.

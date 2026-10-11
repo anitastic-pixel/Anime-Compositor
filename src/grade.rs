@@ -764,6 +764,152 @@ pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effec
     crate::layer_fx::sharpen(source, *unsharp_amount, *unsharp_radius, *unsharp_threshold);
 }
 
+/// D-456: this program's own Deband, by document 21's rule (`tools/deband_reference.py`). Each
+/// pixel that shows: its straight colour through the sRGB curve, e; its largest step g in
+/// levels to its four neighbours that show; its edge weight E from the threshold and softness.
+/// A normalised blur across then down that edges lend nothing to and that stops at them, pulled
+/// back on edges by the Edge Blur Reduction; then each pixel reads its neighbour by the
+/// diffusion's offset (D-119's hash, seed 0, in the drawing's own space, its corner at
+/// `(ox, oy)` in `source`), an edge lending only by 1 - E; then triangular dither, one number for
+/// the three; each reseeded by P0-23's held step and pulled back on edges by its reduction.
+/// Views Edge Only (E as grey) and Selected Edge (the edges in red). The covering is kept. The
+/// settings are already valid; blur, diffusion and noise all 0 in view Normal change nothing.
+pub(crate) fn deband(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let crate::effects::Effect::Deband {
+        view,
+        edge_threshold: t,
+        edge_softness: s,
+        blur_amount,
+        edge_blur_reduction: ebr,
+        diffusion_amount: dm,
+        edge_diffusion_reduction: edr,
+        diffusion_reseed_interval,
+        noise_amount: na,
+        edge_noise_reduction: enr,
+        noise_reseed_interval,
+        frame,
+    } = e
+    else {
+        return;
+    };
+    if view == "normal" && *blur_amount == 0.0 && *dm == 0.0 && *na == 0.0 {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let cover: Vec<f64> = source.data().chunks_exact(4).map(|p| p[3] as f64).collect();
+    let enc: Vec<[f64; 3]> = source
+        .data()
+        .par_chunks_exact(4)
+        .map(|p| {
+            let a = p[3] as f64;
+            if a > 0.0 { std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0))) } else { [0.0; 3] }
+        })
+        .collect();
+    let on = |x: isize, y: isize| x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h;
+    let edge: Vec<f64> = (0..w * h)
+        .into_par_iter()
+        .map(|i| {
+            if cover[i] <= 0.0 {
+                return 0.0;
+            }
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let mut g = 0.0f64;
+            for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                let (tx, ty) = (x + dx, y + dy);
+                if on(tx, ty) {
+                    let j = ty as usize * w + tx as usize;
+                    if cover[j] > 0.0 {
+                        (0..3).for_each(|c| g = g.max((enc[j][c] - enc[i][c]).abs() * 255.0));
+                    }
+                }
+            }
+            if *s > 0.0 { ((g - t) / s).clamp(0.0, 1.0) } else if g > *t { 1.0 } else { 0.0 }
+        })
+        .collect();
+    let k: Vec<f64> = crate::effects::gaussian_weights(blur_amount / 3.0).into_iter().map(f64::from).collect();
+    let r = k.len() / 2;
+    // Each pixel's sums along a row (or column) of `v`, each tap times its weight and the
+    // product of (1 - E) over the pixels strictly between.
+    let gather = |v: &[[f64; 4]], across: bool| -> Vec<[f64; 4]> {
+        (0..w * h)
+            .into_par_iter()
+            .map(|i| {
+                let (x, y) = ((i % w) as isize, (i / w) as isize);
+                let mut total = v[i].map(|u| k[r] * u);
+                for sign in [-1isize, 1] {
+                    let mut through = 1.0;
+                    for d in 1..=r as isize {
+                        let (tx, ty) = if across { (x + sign * d, y) } else { (x, y + sign * d) };
+                        if !on(tx, ty) {
+                            break;
+                        }
+                        let j = ty as usize * w + tx as usize;
+                        (0..4).for_each(|c| total[c] += k[r + d as usize] * through * v[j][c]);
+                        through *= 1.0 - edge[j];
+                    }
+                }
+                total
+            })
+            .collect()
+    };
+    let m: Vec<[f64; 3]> = if r > 0 {
+        let lent: Vec<[f64; 4]> = (0..w * h)
+            .map(|i| {
+                let wt = if cover[i] > 0.0 { cover[i] * (1.0 - edge[i]) } else { 0.0 };
+                [wt * enc[i][0], wt * enc[i][1], wt * enc[i][2], wt]
+            })
+            .collect();
+        let b = gather(&gather(&lent, true), false);
+        (0..w * h)
+            .map(|i| {
+                if cover[i] > 0.0 && b[i][3] > 0.0 {
+                    let f = 1.0 - edge[i] * ebr / 100.0;
+                    std::array::from_fn(|c| enc[i][c] + (b[i][c] / b[i][3] - enc[i][c]) * f)
+                } else {
+                    enc[i]
+                }
+            })
+            .collect()
+    } else {
+        enc
+    };
+    let base = mix(0);
+    let fd = crate::effects::turbulent_seed(0.0, *diffusion_reseed_interval, *frame) as i64;
+    let fnz = crate::effects::turbulent_seed(0.0, *noise_reseed_interval, *frame) as i64;
+    let away = |v: f64| (v.abs() + 0.5).floor().copysign(v) as isize;
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let a = cover[i];
+        if a <= 0.0 {
+            return;
+        }
+        let (x, y) = ((i % w) as isize, (i / w) as isize);
+        let (lx, ly) = (x as i64 - ox as i64, y as i64 - oy as i64);
+        let own = m[i];
+        let mut d = own;
+        if *dm > 0.0 {
+            let kk = dm * (1.0 - edge[i] * edr / 100.0);
+            let (vx, vy) = (kk * unit(base, lx, ly, fd, 0), kk * unit(base, lx, ly, fd, 1));
+            let (tx, ty) = (x + away(vx), y + away(vy));
+            if on(tx, ty) {
+                let j = ty as usize * w + tx as usize;
+                if cover[j] > 0.0 {
+                    d = std::array::from_fn(|c| m[j][c] * (1.0 - edge[j]) + own[c] * edge[j]);
+                }
+            }
+        }
+        let tri = (unit(base, lx, ly, fnz, 2) + unit(base, lx, ly, fnz, 3)) / 2.0;
+        let n = tri * na / 255.0 * (1.0 - edge[i] * enr / 100.0);
+        let mut o = d.map(|v| (v + n).clamp(0.0, 1.0));
+        let ei = edge[i];
+        match view.as_str() {
+            "edge_only" => o = [ei; 3],
+            "selected_edge" => o = [o[0] * (1.0 - ei) + ei, o[1] * (1.0 - ei), o[2] * (1.0 - ei)],
+            _ => {}
+        }
+        (0..3).for_each(|c| px[c] = (to_linear(o[c]) * a) as f32);
+    });
+}
+
 /// D-454: Match Grain as the Add Grain it lays: its channel intensities times the source's
 /// measured grain, sigma 10 sqrt(3) (Add Grain's block grain at intensity 1 spreads 0.1 /
 /// sqrt(3)). None when nothing would be added: no source picture, intensity 0 or no channel left.

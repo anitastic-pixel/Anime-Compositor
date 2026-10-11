@@ -368,6 +368,8 @@ pub enum Stage {
     EffectBrushStrokes,
     /// D-448's Cartoon.
     EffectCartoon,
+    /// D-456's Deband.
+    EffectDeband,
     /// The lookup and admission of an evaluated effect result (P-11).
     EffectCache,
     /// The tiled sample-and-blend fan-out, wall-clock from fan-out to join.
@@ -385,7 +387,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 190] = [
+    pub const ALL: [Stage; 191] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -569,6 +571,7 @@ impl Stage {
         Stage::EffectRemoveGrain,
         Stage::EffectBrushStrokes,
         Stage::EffectCartoon,
+        Stage::EffectDeband,
         Stage::EffectCache,
         Stage::TileLoop,
         Stage::FrameAssembly,
@@ -764,6 +767,7 @@ impl Stage {
             Stage::EffectRemoveGrain => "effect: remove grain",
             Stage::EffectBrushStrokes => "effect: brush strokes",
             Stage::EffectCartoon => "effect: cartoon",
+            Stage::EffectDeband => "effect: deband",
             Stage::EffectCache => "effect result cache: lookup and admit",
             Stage::TileLoop => "tile loop: sample and blend",
             Stage::FrameAssembly => "assemble the frame from the tiles",

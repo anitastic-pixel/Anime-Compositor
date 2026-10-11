@@ -2380,6 +2380,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("edge_black_level".into(), num(*edge_black_level));
             params.insert("edge_contrast".into(), num(*edge_contrast));
         }
+        // D-456: the frame is never saved.
+        Effect::Deband { view, edge_threshold, edge_softness, blur_amount, edge_blur_reduction, diffusion_amount, edge_diffusion_reduction, diffusion_reseed_interval, noise_amount, edge_noise_reduction, noise_reseed_interval, .. } => {
+            params.insert("view".into(), J::from(view.as_str()));
+            params.insert("edge_threshold".into(), num(*edge_threshold));
+            params.insert("edge_softness".into(), num(*edge_softness));
+            params.insert("blur_amount".into(), num(*blur_amount));
+            params.insert("edge_blur_reduction".into(), num(*edge_blur_reduction));
+            params.insert("diffusion_amount".into(), num(*diffusion_amount));
+            params.insert("edge_diffusion_reduction".into(), num(*edge_diffusion_reduction));
+            params.insert("diffusion_reseed_interval".into(), num(*diffusion_reseed_interval));
+            params.insert("noise_amount".into(), num(*noise_amount));
+            params.insert("edge_noise_reduction".into(), num(*edge_noise_reduction));
+            params.insert("noise_reseed_interval".into(), num(*noise_reseed_interval));
+        }
         Effect::SmartBlur { radius, threshold } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
@@ -4791,6 +4805,7 @@ fn parse_effect(
         crate::effects::DUST_SCRATCHES,
         crate::effects::MATCH_GRAIN,
         crate::effects::REMOVE_GRAIN,
+        crate::effects::DEBAND,
         crate::effects::SMART_BLUR,
         crate::effects::BILATERAL_BLUR,
         crate::effects::CROSS_BLUR,
@@ -5702,6 +5717,20 @@ fn parse_effect(
             edge_enhancement: effect_number(params, "edge_enhancement", &at)?,
             edge_black_level: effect_number(params, "edge_black_level", &at)?,
             edge_contrast: effect_number(params, "edge_contrast", &at)?,
+        }),
+        crate::effects::DEBAND => Some(crate::effects::Effect::Deband {
+            view: effect_word(params, "view", &at)?,
+            edge_threshold: effect_number(params, "edge_threshold", &at)?,
+            edge_softness: effect_number(params, "edge_softness", &at)?,
+            blur_amount: effect_number(params, "blur_amount", &at)?,
+            edge_blur_reduction: effect_number(params, "edge_blur_reduction", &at)?,
+            diffusion_amount: effect_number(params, "diffusion_amount", &at)?,
+            edge_diffusion_reduction: effect_number(params, "edge_diffusion_reduction", &at)?,
+            diffusion_reseed_interval: effect_number(params, "diffusion_reseed_interval", &at)?,
+            noise_amount: effect_number(params, "noise_amount", &at)?,
+            edge_noise_reduction: effect_number(params, "edge_noise_reduction", &at)?,
+            noise_reseed_interval: effect_number(params, "noise_reseed_interval", &at)?,
+            frame: 0,
         }),
         crate::effects::SMART_BLUR => Some(crate::effects::Effect::SmartBlur {
             radius: effect_number(params, "radius", &at)?,

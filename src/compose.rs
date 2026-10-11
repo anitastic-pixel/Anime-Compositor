@@ -957,6 +957,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::BrushStrokes { .. }
                 // D-448: Cartoon.
                 | crate::effects::Effect::Cartoon { .. }
+                // D-456: Deband.
+                | crate::effects::Effect::Deband { .. }
                 | crate::effects::Effect::SmartBlur { .. }
                 | crate::effects::Effect::BilateralBlur { .. }
                 | crate::effects::Effect::RoughenEdges { .. }
@@ -1308,6 +1310,9 @@ fn card_effect(
                 E::DustScratches { radius, threshold, .. } => *radius < 1.0 || *threshold >= 255.0,
                 E::RemoveGrain { unsharp_amount, unsharp_radius, .. } => {
                     crate::grade::grain_spreads(&effect).is_none() && (*unsharp_amount <= 0.0 || *unsharp_radius <= 0.0)
+                }
+                E::Deband { view, blur_amount, diffusion_amount, noise_amount, .. } => {
+                    view == "normal" && [*blur_amount, *diffusion_amount, *noise_amount] == [0.0; 3]
                 }
                 E::BilateralBlur { radius, threshold, colorize } => colorize == "on" && (*radius < 1.0 || *threshold == 0.0),
                 E::RoughenEdges { border, .. } => *border == 0.0,

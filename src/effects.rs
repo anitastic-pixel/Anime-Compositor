@@ -341,6 +341,10 @@ impl EffectInstance {
             if let Effect::NoiseHlsAuto { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-456: Deband's, for its reseeding.
+            if let Effect::Deband { frame: f, .. } = &mut effect {
+                *f = frame;
+            }
         }
         // D-202: the Mix at this frame, held inside 0 to 100; one outside it is kept, so the
         // effect is bypassed.
@@ -2121,6 +2125,25 @@ pub enum Effect {
         edge_black_level: f64,
         edge_contrast: f64,
     },
+    /// D-456: this program's own Deband on CelFX's control list (`grade::deband`, document 21).
+    /// `view`, one of [`DEBAND_VIEWS`]; `edge_threshold` and `edge_softness`, 0 to 255 levels;
+    /// `blur_amount`, 0 to 100; `diffusion_amount`, 0 to 20 pixels; `noise_amount`, 0 to 32
+    /// levels; the three reductions, 0 to 100 per cent; the two reseed intervals, 0 to 100
+    /// frames, their whole part. `frame` is set per frame and never saved.
+    Deband {
+        view: String,
+        edge_threshold: f64,
+        edge_softness: f64,
+        blur_amount: f64,
+        edge_blur_reduction: f64,
+        diffusion_amount: f64,
+        edge_diffusion_reduction: f64,
+        diffusion_reseed_interval: f64,
+        noise_amount: f64,
+        edge_noise_reduction: f64,
+        noise_reseed_interval: f64,
+        frame: i32,
+    },
     /// D-415: after After Effects' Ellipse. `center`, per cent of the drawing, -1000 to 1000;
     /// `width` and `height`, 1 to 10000 pixels; `thickness`, 0 to 10000 pixels; `softness`, 0 to
     /// 100 per cent; `inside_color` and `outside_color`, `#rrggbb`; `composite`, "on" or "off".
@@ -2855,6 +2878,9 @@ pub const BRUSH_SURFACES: [&str; 4] = ["original", "transparent", "white", "blac
 pub const CARTOON: &str = "core.cartoon";
 /// D-448: Cartoon's renders, in the card's numbering.
 pub const CARTOON_RENDERS: [&str; 3] = ["fill", "edges", "fill_and_edges"];
+pub const DEBAND: &str = "core.deband";
+/// D-456: what Deband shows.
+pub const DEBAND_VIEWS: [&str; 3] = ["normal", "edge_only", "selected_edge"];
 pub const ARBITRARY_MAP: &str = "core.arbitrary_map";
 pub const SELECTIVE_COLOR: &str = "core.selective_color";
 pub const SHADOW_HIGHLIGHT: &str = "core.shadow_highlight";
@@ -3959,6 +3985,30 @@ impl Effect {
                 ("edge_black_level", vec![edge_black_level], 0.0, 1.0),
                 ("edge_contrast", vec![edge_contrast], 0.0, 1.0),
             ],
+            Effect::Deband {
+                edge_threshold,
+                edge_softness,
+                blur_amount,
+                edge_blur_reduction,
+                diffusion_amount,
+                edge_diffusion_reduction,
+                diffusion_reseed_interval,
+                noise_amount,
+                edge_noise_reduction,
+                noise_reseed_interval,
+                ..
+            } => vec![
+                ("edge_threshold", vec![edge_threshold], 0.0, 255.0),
+                ("edge_softness", vec![edge_softness], 0.0, 255.0),
+                ("blur_amount", vec![blur_amount], 0.0, 100.0),
+                ("edge_blur_reduction", vec![edge_blur_reduction], 0.0, 100.0),
+                ("diffusion_amount", vec![diffusion_amount], 0.0, 20.0),
+                ("edge_diffusion_reduction", vec![edge_diffusion_reduction], 0.0, 100.0),
+                ("diffusion_reseed_interval", vec![diffusion_reseed_interval], 0.0, 100.0),
+                ("noise_amount", vec![noise_amount], 0.0, 32.0),
+                ("edge_noise_reduction", vec![edge_noise_reduction], 0.0, 100.0),
+                ("noise_reseed_interval", vec![noise_reseed_interval], 0.0, 100.0),
+            ],
             Effect::Grid { anchor, corner, width, height, border, feather_width, feather_height, opacity, .. } => vec![
                 ("anchor", anchor.iter_mut().collect(), -1000.0, 1000.0),
                 ("corner", corner.iter_mut().collect(), -1000.0, 1000.0),
@@ -4846,6 +4896,11 @@ impl Effect {
             Effect::MatchGrain { grain, .. } => grain.scale_distances(&scale as &dyn Fn(f64) -> f64),
             // D-455: the Unsharp Mask's radius, as Sharpen's; the denoise's discs are kept.
             Effect::RemoveGrain { unsharp_radius, .. } => *unsharp_radius = scale(*unsharp_radius),
+            // D-456: the blur and the diffusion are distances; the thresholds are levels.
+            Effect::Deband { blur_amount, diffusion_amount, .. } => {
+                *blur_amount = scale(*blur_amount);
+                *diffusion_amount = scale(*diffusion_amount);
+            }
             // D-451: the same for Noise HLS's grain, held at its smallest, half a pixel, rather
             // than bypassed.
             Effect::NoiseHls { grain_size, .. } | Effect::NoiseHlsAuto { grain_size, .. } => {
@@ -5275,6 +5330,7 @@ impl Effect {
             Effect::RemoveGrain { .. } => "Remove Grain",
             Effect::BrushStrokes { .. } => "Brush Strokes",
             Effect::Cartoon { .. } => "Cartoon",
+            Effect::Deband { .. } => "Deband",
             Effect::Ellipse { .. } => "Ellipse",
             Effect::AudioSpectrum { .. } => "Audio Spectrum",
             Effect::AudioWaveform { .. } => "Audio Waveform",
@@ -5463,6 +5519,7 @@ impl Effect {
             Effect::RemoveGrain { .. } => REMOVE_GRAIN,
             Effect::BrushStrokes { .. } => BRUSH_STROKES,
             Effect::Cartoon { .. } => CARTOON,
+            Effect::Deband { .. } => DEBAND,
             Effect::Ellipse { .. } => ELLIPSE,
             Effect::AudioSpectrum { .. } => AUDIO_SPECTRUM,
             Effect::AudioWaveform { .. } => AUDIO_WAVEFORM,
@@ -6673,6 +6730,10 @@ impl Effect {
             Effect::Cartoon { render: v, .. } if !CARTOON_RENDERS.contains(&v.as_str()) => Some(format!(
                 "Cartoon's render is one of {}, and this is \"{v}\".",
                 CARTOON_RENDERS.join(", ")
+            )),
+            Effect::Deband { view, .. } if !DEBAND_VIEWS.contains(&view.as_str()) => Some(format!(
+                "Deband's view is one of {}, and this is \"{view}\".",
+                DEBAND_VIEWS.join(", ")
             )),
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
@@ -8555,6 +8616,10 @@ pub(crate) fn apply_stack_at(
             }
             e @ Effect::RemoveGrain { .. } => {
                 crate::perf::time(crate::perf::Stage::EffectRemoveGrain, || crate::grade::remove_grain(source, e))
+            }
+            // D-456: the dither in the drawing's own space, however an effect above grew it.
+            e @ Effect::Deband { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectDeband, || crate::grade::deband(source, e, (ox, oy)))
             }
             e @ Effect::MatchGrain { .. } => crate::perf::time(crate::perf::Stage::EffectMatchGrain, || {
                 if let Some(g) = crate::grade::matched_grain(e) {
