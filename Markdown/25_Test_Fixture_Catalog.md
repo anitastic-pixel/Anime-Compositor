@@ -211182,3 +211182,59 @@ FX-CONTOUR-030 (`fx_contour_030.json`): An External Edge Map written as the numb
 FX-CONTOUR-031 (`fx_contour_031.json`): Apply to Alpha written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CONTOUR-032 (`fx_contour_032.json`): Smear Iterations keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### CC Sphere (D-532)
+
+CC Sphere (`core.cc_sphere`), after CycoreFX's CC Sphere (B-412), the rule ours. Each case is a project of one composition holding Broadcast Colors' 16 by 10 drawing (a transparent column and a half-covered one), as each case's project names. `tools/cc_sphere_reference.py` works the expected frames, `Fixtures/cc_sphere/expected_cc_sphere.json`, tolerance 2e-5, every case checked clear of a graze, the highlight's cut and the poles; the rule is in document 21. The playtest's pictures are drawn on D-506's street picture.
+
+FX-SPH-001 (`fx_sph_001.json`): The settings as they start: the drawing wrapped round a sphere half the drawing's half width in radius, in the middle, its middle column facing the viewer and its top row the top pole, lit from the upper left; it darkens round the curve, the corners round it are transparent, and the inside's far wall shows only where the drawing is not covered.
+
+FX-SPH-002 (`fx_sph_002.json`): Render outside: the outside alone.
+
+FX-SPH-003 (`fx_sph_003.json`): Render inside: the inside alone, the far wall, the drawing seen from behind and so mirrored.
+
+FX-SPH-004 (`fx_sph_004.json`): Rotation Y 90: the sphere turned a quarter about its upright axis, so the drawing three quarters of the way across faces the viewer.
+
+FX-SPH-005 (`fx_sph_005.json`): Rotation X 30: the sphere tipped, its top towards the viewer, so the top rows come round to the front.
+
+FX-SPH-006 (`fx_sph_006.json`): Rotation Z 90: the sphere turned on its side, its poles left and right.
+
+FX-SPH-007 (`fx_sph_007.json`): Radius 100: a sphere as wide as the drawing, nearer the viewer and so running past the drawing's top and bottom.
+
+FX-SPH-008 (`fx_sph_008.json`): Radius 0: no sphere, so nothing is drawn and the layer is transparent.
+
+FX-SPH-009 (`fx_sph_009.json`): Offset [25, 50]: the sphere a quarter of the way across, seen a little from the side.
+
+FX-SPH-010 (`fx_sph_010.json`): Light intensity 0: the ambient light alone, every pixel the wrapped drawing at 40 per cent.
+
+FX-SPH-011 (`fx_sph_011.json`): Ambient 100, diffuse 0, specular 0: no shading, the wrapped drawing as it is.
+
+FX-SPH-012 (`fx_sph_012.json`): An orange light, metal 0: the lit side and the highlight orange; with no blue in the light, blue is the ambient's alone.
+
+FX-SPH-013 (`fx_sph_013.json`): Roughness 50, specular 100: a larger, duller highlight.
+
+FX-SPH-014 (`fx_sph_014.json`): Light height -50: the light from behind, so the side facing the viewer is darker.
+
+FX-SPH-015 (`fx_sph_015.json`): Light direction 90: the light from the right.
+
+FX-SPH-016 (`fx_sph_016.json`): Rotation Y keyed from 0 at frame 0 to 360 at frame 4, linear: one whole turn, half way at frame 2.
+
+FX-SPH-017 (`fx_sph_017.json`): FX-SPH-001 moved three pixels right: the same, moved, sphere and all.
+
+FX-SPH-018 (`fx_sph_018.json`): Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-SPH-019 (`fx_sph_019.json`): Radius 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-SPH-020 (`fx_sph_020.json`): Offset [1001, 50], above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-SPH-021 (`fx_sph_021.json`): Rotation X 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-SPH-022 (`fx_sph_022.json`): Render "Full": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-SPH-023 (`fx_sph_023.json`): Light color "white": not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-SPH-024 (`fx_sph_024.json`): Metal 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-SPH-025 (`fx_sph_025.json`): Roughness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-SPH-026 (`fx_sph_026.json`): Light intensity 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
