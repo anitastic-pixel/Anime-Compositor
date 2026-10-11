@@ -208322,3 +208322,85 @@ FX-DMATTE-025 (`fx_dmatte_025.json`): A layer written as the number 3, not a wor
 FX-DMATTE-026 (`fx_dmatte_026.json`): Tolerance keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 `cycle_two.json`: `a` and `b`, each the shot, each with a Difference Matte whose difference layer is the other: refused, `EFFECT_LAYER_CYCLE`.
+
+### Inner/Outer Key (D-502)
+
+Inner/Outer Key (`core.inner_outer_key`), after After Effects' Inner/Outer Key (B-382), the rule ours. Every case is a composition 16 by 10, five frames, holding the drawing `subject`, the same size, unmoved unless the case says: a blue (40, 80, 200) ground, a yellow (240, 210, 40) block (5, 3) to (10, 6) whose edge pixels are mixtures of the two in linear light (its sides a half, its top and bottom rows a quarter, its corners an eighth), the left column half see-through and the right column empty. The masks are of mode None: the inner one (5, 3) to (11, 7), the outer one (3, 1) to (13, 9), others as the case says. `tools/inner_outer_key_reference.py` works the expected frames, `expected_inner_outer_key.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-IOK-001 (`fx_iok_001.json`): The settings as they start: Foreground 0 (none): nothing is keyed, the picture as it was. Frames 0.
+
+FX-IOK-002 (`fx_iok_002.json`): Foreground mask 1 just inside the yellow block, Background mask 2 two pixels outside it: the block kept, the blue outside the outer mask gone, the edge mixtures between them see-through as much as they are blue, their colour the yellow without the blue. Frames 0.
+
+FX-IOK-003 (`fx_iok_003.json`): One mask, the inner one, Single Mask Highlight Radius 1.2: the pixels whose centres lie within 1.2 of its outline are worked out, the rest kept inside it and gone outside. Frames 0.
+
+FX-IOK-004 (`fx_iok_004.json`): One mask with the radius as added, 10: every pixel of this small picture lies within 10 of the outline, so nothing is surely kept and every pixel goes. Frames 0.
+
+FX-IOK-005 (`fx_iok_005.json`): FX-IOK-002 with Invert Extraction: the block is gone and the blue kept. Frames 0.
+
+FX-IOK-006 (`fx_iok_006.json`): Edge Thin 1: the matte shrinks a pixel all round. Frames 0.
+
+FX-IOK-007 (`fx_iok_007.json`): Edge Thin -1: the matte grows a pixel all round. Frames 0.
+
+FX-IOK-008 (`fx_iok_008.json`): Edge Feather 2: the matte's edge softens. Frames 0.
+
+FX-IOK-009 (`fx_iok_009.json`): Edge Threshold 50: the half-kept pixels and less go, the rest harden. Frames 0.
+
+FX-IOK-010 (`fx_iok_010.json`): Blend With Original 50: half way between FX-IOK-002 and the picture. Frames 0.
+
+FX-IOK-011 (`fx_iok_011.json`): Edge Thin 1.5, Edge Feather 3 and Edge Threshold 20 together, in that order. Frames 0.
+
+FX-IOK-012 (`fx_iok_012.json`): One mask, the radius keyed from 0 at frame 0 to 1.2 at frame 4: a hard cut along the outline at frame 0; at frame 2, 0.6, the pixels either side of its straight sides are worked out; at frame 4 its corners too. Frames 0, 2, 4.
+
+FX-IOK-013 (`fx_iok_013.json`): Blend With Original keyed from 0 at frame 0 to 100 at frame 4: FX-IOK-002, half way, then the picture. Frames 0, 2, 4.
+
+FX-IOK-014 (`fx_iok_014.json`): The inner mask's path keyed two rows lower by frame 4: the kept part follows it, frames 0, 2 and 4. Frames 0, 2, 4.
+
+FX-IOK-015 (`fx_iok_015.json`): FX-IOK-002 moved three pixels right: the key moves with the layer. Frames 0.
+
+FX-IOK-016 (`fx_iok_016.json`): After a Motion Tile that grows the layer: the masks are the drawing's own, so they key the drawing's place in the grown buffer, whose copies lie outside the outer mask and are gone. Frames 0.
+
+FX-IOK-017 (`fx_iok_017.json`): Foreground 1.5 and Background 2.7: their floors, FX-IOK-002's frame. Frames 0.
+
+FX-IOK-018 (`fx_iok_018.json`): Foreground and Background the same mask: nothing is unknown, a hard cut along it. Frames 0.
+
+FX-IOK-019 (`fx_iok_019.json`): A foreground mask right of the picture: nothing is kept, so every pixel goes. Frames 0.
+
+FX-IOK-020 (`fx_iok_020.json`): A background mask round the whole picture: nothing is gone, so every pixel is kept as it was. Frames 0.
+
+FX-IOK-021 (`fx_iok_021.json`): One curved mask, a circle 8 across about (8, 5), radius 1.2. Frames 0.
+
+FX-IOK-022 (`fx_iok_022.json`): Blend With Original keyed from 40 at frame 0 to 100 at frame 4 by an ease that passes its end: held at 100 at frame 2, where it would pass it. Frames 0, 2, 4.
+
+FX-IOK-023 (`fx_iok_023.json`): Foreground 0 with a background named: still none, the picture as it was. Frames 0.
+
+FX-IOK-024 (`fx_iok_024.json`): Edge Threshold 100: only the wholly kept pixels stay, whole. Frames 0.
+
+FX-IOK-025 (`fx_iok_025.json`): Foreground 1 with no masks at all. Nothing to key by: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-IOK-026 (`fx_iok_026.json`): Foreground 3, of two. Nothing to key by: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-IOK-027 (`fx_iok_027.json`): Background 3, of two. Nothing to key by: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-IOK-028 (`fx_iok_028.json`): Foreground 1, switched off. Nothing to key by: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-IOK-029 (`fx_iok_029.json`): Background 2, switched off. Nothing to key by: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING`. Frames 0, 4.
+
+FX-IOK-030 (`fx_iok_030.json`): Foreground -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IOK-031 (`fx_iok_031.json`): Background 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IOK-032 (`fx_iok_032.json`): Single Mask Highlight Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IOK-033 (`fx_iok_033.json`): Edge Thin -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IOK-034 (`fx_iok_034.json`): Edge Thin 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IOK-035 (`fx_iok_035.json`): Edge Feather 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IOK-036 (`fx_iok_036.json`): Edge Threshold 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IOK-037 (`fx_iok_037.json`): Blend With Original 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IOK-038 (`fx_iok_038.json`): Invert Extraction "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IOK-039 (`fx_iok_039.json`): Blend With Original keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
