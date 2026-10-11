@@ -208044,3 +208044,63 @@ FX-DEBAND-022 (`fx_deband_022.json`): Blur Amount -1, below 0. The file is read,
 FX-DEBAND-023 (`fx_deband_023.json`): Noise Reseed Interval 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-DEBAND-024 (`fx_deband_024.json`): Noise Amount keyed to 40 at frame 4, above 32. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Advanced Spill Suppressor (D-457)
+
+Advanced Spill Suppressor (`core.advanced_spill_suppressor`), after After Effects' Advanced Spill Suppressor (B-337), the rule ours. Every case is a project of one composition 16 by 10 at 24 fps, five frames, holding one drawing the same size (`media/colours.png`), laid out as Broadcast Safe's, each column one colour and each row 8% darker: empty, black, white, grey, a green screen (40, 180, 60), a blue screen (30, 70, 200), a green-spilled skin (200, 214, 160), a blue-spilled skin (214, 190, 228), a green-spilled dark edge (90, 122, 70), yellow, cyan, green, blue, a blue shirt (40, 60, 160), a yellow-green leaf (150, 200, 40) and the green-spilled skin at half covering. `tools/advanced_spill_suppressor_reference.py` works the expected frames, `expected_advanced_spill_suppressor.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SPILL-001 (`fx_spill_001.json`): The settings as they start: Standard at 100%. The green screen, the green-spilled skin and edge, pure green, the leaf, the blue screen, the blue-spilled skin, pure blue and the shirt lose their leading green or blue down to the next channel; black, white, grey, yellow and cyan are untouched. Frames 0.
+
+FX-SPILL-002 (`fx_spill_002.json`): Standard, suppression 0: the drawing exactly as it is. Frames 0.
+
+FX-SPILL-003 (`fx_spill_003.json`): Standard, suppression 50: half of each lead taken out. Frames 0.
+
+FX-SPILL-004 (`fx_spill_004.json`): Ultra as it starts: green key, tolerance 50, desaturate 25, spill range 50, correction 50, luma 50. The greens cut toward the mean of red and blue, half the cut given back to red and blue, a little greyer, half the lost brightness put back; yellow and cyan, 60 degrees off, a third counted; the blues, further than 90 degrees, untouched. Frames 0.
+
+FX-SPILL-005 (`fx_spill_005.json`): Ultra, blue key: the blue screen, blue skin, blue and the shirt corrected; the greens untouched. Frames 0.
+
+FX-SPILL-006 (`fx_spill_006.json`): Ultra, tolerance 0: the drawing exactly as it is. Frames 0.
+
+FX-SPILL-007 (`fx_spill_007.json`): Ultra, tolerance 100: the hue window reaches round to the opposite hue, so yellow-greens and blue-greens count fully nearer the key. Frames 0.
+
+FX-SPILL-008 (`fx_spill_008.json`): Ultra, spill range 0, nothing given back, no desaturate, no luma: green cut to the larger other channel times the hue weight. Frames 0.
+
+FX-SPILL-009 (`fx_spill_009.json`): Ultra, spill range 100, otherwise as FX-SPILL-008: green cut to the smaller other channel, a harder cut. Frames 0.
+
+FX-SPILL-010 (`fx_spill_010.json`): Ultra, spill colour correction 100, no desaturate, no luma: all that is taken from green given back to red and blue in halves (pure green ends a half magenta). Frames 0.
+
+FX-SPILL-011 (`fx_spill_011.json`): Ultra, desaturate 100, no correction, no luma: a spilled pixel greyed by the share of its green taken out; pure green, whose green all goes, ends black. Frames 0.
+
+FX-SPILL-012 (`fx_spill_012.json`): Ultra, luma correction 100, no correction, no desaturate: every changed pixel keeps its brightness (until a channel reaches full). Frames 0.
+
+FX-SPILL-013 (`fx_spill_013.json`): Ultra with a sampled screen green, #3cbe50: the window centred on that hue instead of pure green's. Frames 0.
+
+FX-SPILL-014 (`fx_spill_014.json`): Ultra with a red key: red is the screen channel, so warm colours near red's hue (yellow, the skins, the leaf) lose some red; the greens, cyan and blues are not touched. Frames 0.
+
+FX-SPILL-015 (`fx_spill_015.json`): Ultra with a grey key: a grey has no hue, so nothing is spill; the drawing as it is. Frames 0.
+
+FX-SPILL-016 (`fx_spill_016.json`): Standard, suppression keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 untouched, frame 2 as 50, frame 4 as FX-SPILL-001. Frames 0, 2, 4.
+
+FX-SPILL-017 (`fx_spill_017.json`): Ultra, tolerance keyed from 20 at frame 0 to 80 at frame 4. Frames 0, 2, 4.
+
+FX-SPILL-018 (`fx_spill_018.json`): FX-SPILL-004 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-SPILL-019 (`fx_spill_019.json`): Suppression 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPILL-020 (`fx_spill_020.json`): Suppression -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPILL-021 (`fx_spill_021.json`): Tolerance 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPILL-022 (`fx_spill_022.json`): Desaturate -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPILL-023 (`fx_spill_023.json`): Spill range 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPILL-024 (`fx_spill_024.json`): Spill colour correction 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPILL-025 (`fx_spill_025.json`): Luma correction -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPILL-026 (`fx_spill_026.json`): Method "Standard": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPILL-027 (`fx_spill_027.json`): Method "auto", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SPILL-028 (`fx_spill_028.json`): Key colour "green", not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
