@@ -210034,3 +210034,67 @@ FX-DOF-025 (`fx_dof_025.json`): Focal Bias 101, above 100. The file is read, the
 FX-DOF-026 (`fx_dof_026.json`): Focal Plane Thickness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
 FX-DOF-027 (`fx_dof_027.json`): Focal Plane keyed to 2,000,000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### Fog 3D (D-524)
+
+Fog 3D (`core.fog_3d`), after After Effects' Fog 3D (B-404), the rule ours. Each case is a project of one composition 8 by 6, five frames at 24 a second, D-348's scene (`Fixtures/fog_3d/media/scene.exr`, colour by column and row, depth 0.5 + 1.25 x + 0.75 y) with a grey ramp layer `grad` switched off beneath it for the gradient, and the depth fixtures' other files as each case names. `tools/fog_3d_reference.py` works the expected frames, `Fixtures/fog_3d/expected_fog_3d.json`, tolerance 2e-5; the rule is in document 21. The playtest's sample is D-348's `Fixtures/depth_channel/sample/spheres.exr`.
+
+FX-FOG-001 (`fx_fog_001.json`): As added: white fog from depth 0 to 10, density 50, opacity 100, Foggy Background on: the near top left lightly fogged, everything past depth 10 white; the clear pixel filled with white fog, the half-covering one half.
+
+FX-FOG-002 (`fx_fog_002.json`): Density 0: the fog grows evenly from depth 0 to 10.
+
+FX-FOG-003 (`fx_fog_003.json`): Density 100: thick almost at once.
+
+FX-FOG-004 (`fx_fog_004.json`): Start 4, End 12, density 0: nothing nearer than 4 fogged, the far corner past 12 all fog.
+
+FX-FOG-005 (`fx_fog_005.json`): Start and End both 6: a cut, no fog nearer than 6, all fog from 6 on.
+
+FX-FOG-006 (`fx_fog_006.json`): Opacity 50: half of FX-FOG-002's fog, the clear pixel half fog.
+
+FX-FOG-007 (`fx_fog_007.json`): Opacity 0: nothing changes.
+
+FX-FOG-008 (`fx_fog_008.json`): Foggy Background off: the clear pixel stays clear and the half-covering one keeps its covering.
+
+FX-FOG-009 (`fx_fog_009.json`): Fog colour #4060a0, a dull blue, density 0.
+
+FX-FOG-010 (`fx_fog_010.json`): The ramp as the gradient, contribution 100, density 0: no fog in column 0 (black), the full fog in column 7 (white).
+
+FX-FOG-011 (`fx_fog_011.json`): The ramp, contribution 50: column 0 half fogged.
+
+FX-FOG-012 (`fx_fog_012.json`): The ramp, contribution 0: FX-FOG-002.
+
+FX-FOG-013 (`fx_fog_013.json`): A gradient layer named that is not in the composition: nothing changes, with D-189's warning. Warning `EFFECT_LAYER_MISSING` on opening.
+
+FX-FOG-014 (`fx_fog_014.json`): End keyed from 1 at frame 0 to 20 at frame 4: the fog draws back.
+
+FX-FOG-015 (`fx_fog_015.json`): Opacity keyed from 0 at frame 0 to 100 at frame 4.
+
+FX-FOG-016 (`fx_fog_016.json`): Start 10, End 2: the other way round, fog thickest nearest.
+
+FX-FOG-017 (`fx_fog_017.json`): Infinities and not-a-number in the depth: each read as D-348 reads it; the warning every frame. Each frame says `MEDIA_EXR_ADJUSTED`.
+
+FX-FOG-018 (`fx_fog_018.json`): Blender's layout, the depth in ViewLayer.Depth.Z: FX-FOG-001.
+
+FX-FOG-019 (`fx_fog_019.json`): A file with no depth: unchanged, the warning every frame. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-FOG-020 (`fx_fog_020.json`): On a PNG drawing: unchanged, the warning. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-FOG-021 (`fx_fog_021.json`): On an adjustment layer above the EXR: no file of its own, unchanged, the warning. Each frame says `EFFECT_CHANNEL_MISSING`.
+
+FX-FOG-022 (`fx_fog_022.json`): The layer moved 2 right and 1 down, the ramp as the gradient: FX-FOG-010 moved, the ramp with it.
+
+FX-FOG-023 (`fx_fog_023.json`): An Exposure of +1 before it.
+
+FX-FOG-024 (`fx_fog_024.json`): An Exposure of -1 after it.
+
+FX-FOG-025 (`fx_fog_025.json`): Fog Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-FOG-026 (`fx_fog_026.json`): Scattering Density -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-FOG-027 (`fx_fog_027.json`): Foggy Background written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-FOG-028 (`fx_fog_028.json`): Fog colour written "white". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-FOG-029 (`fx_fog_029.json`): Fog End Depth keyed to 2,000,000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-FOG-030 (`fx_fog_030.json`): Layer Contribution 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
