@@ -5997,9 +5997,11 @@ pub(crate) fn speed_line_list(
 
 /// D-161: the pixels D-89's bright test lights, streaked `floor(length)` pixels out along
 /// `floor(points)` arms spread evenly round from `angle`, each step's light fading as
-/// (1 - t / (L + 1))^2 over their sum, tinted by `color` (encoded 0 to 1) at `intensity` and
-/// added over the drawing as Light Rays' is. The layer grows by the length on every side,
+/// (1 - t / (L + 1))^2 over their sum, tinted by `color` (linear) at `intensity` and added over
+/// the drawing as Light Rays' is; D-546: each arm's light first tinted by its own of `tints`
+/// (`effects::Glint::tints`, all 1 at its start). The layer grows by the length on every side,
 /// returned; length 0 or intensity 0 changes nothing. The settings are already valid.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn cross_glare(
     source: &mut WorkingBuffer,
     threshold: f64,
@@ -6008,6 +6010,7 @@ pub(crate) fn cross_glare(
     angle: f64,
     intensity: f64,
     color: [f64; 3],
+    tints: &[[f64; 4]],
 ) -> usize {
     let l = length.floor() as usize;
     if l == 0 || intensity == 0.0 {
@@ -6059,7 +6062,7 @@ pub(crate) fn cross_glare(
         .collect();
     let reach = l as isize + 1;
     let (w, h) = (sw + 2 * l, sh + 2 * l);
-    let c = color.map(crate::grade::to_linear);
+    let c = color;
     let mut out = WorkingBuffer::transparent(w, h);
     let drawing = &*source;
     out.data_mut()
@@ -6070,7 +6073,7 @@ pub(crate) fn cross_glare(
             let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
             let mut g = [0.0f64; 4];
             let any = count(x - reach, x + reach + 1, y - reach, y + reach + 1) > 0;
-            for &(vx, vy) in arms.iter().filter(|_| any) {
+            for (&(vx, vy), tint) in arms.iter().zip(tints).filter(|_| any) {
                 for &(t, k) in &steps {
                     let (sx, sy) = (cx - t * vx, cy - t * vy);
                     // sample_bilinear's own corner.
@@ -6083,7 +6086,7 @@ pub(crate) fn cross_glare(
                     }
                     let s = sample_bilinear(&light, sx, sy);
                     for ch in 0..4 {
-                        g[ch] += k * s[ch] as f64;
+                        g[ch] += k * (s[ch] as f64 * tint[ch]);
                     }
                 }
             }

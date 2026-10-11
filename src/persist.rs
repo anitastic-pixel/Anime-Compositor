@@ -2004,6 +2004,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             angle,
             intensity,
             color,
+            glint,
         } => {
             params.insert("threshold".into(), num(*threshold));
             params.insert("length".into(), num(*length));
@@ -2011,6 +2012,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("angle".into(), num(*angle));
             params.insert("intensity".into(), num(*intensity));
             params.insert("color".into(), J::from(color.as_str()));
+            // D-546: Glint Streaks' settings, each written only when changed, keyed or in the
+            // file already, so a file from before them saves the same.
+            for (key, value, start) in [
+                ("ray_colors", J::from(glint.ray_colors.as_str()), glint.ray_colors == "one"),
+                ("color_2", J::from(glint.color_2.as_str()), glint.color_2 == "#80c0ff"),
+                ("shimmer", num(glint.shimmer), glint.shimmer == 0.0),
+                ("shimmer_period", num(glint.shimmer_period), glint.shimmer_period == 24.0),
+            ] {
+                if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), value);
+                }
+            }
         }
         Effect::CameraShake {
             amount,
@@ -6043,6 +6056,14 @@ fn parse_effect(
             angle: effect_number(params, "angle", &at)?,
             intensity: effect_number(params, "intensity", &at)?,
             color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            // D-546: a file without them has one colour and no shimmer.
+            glint: crate::effects::Glint {
+                ray_colors: effect_word_or(params, "ray_colors", &at, "one")?,
+                color_2: effect_word_or(params, "color_2", &at, "#80c0ff")?.to_ascii_lowercase(),
+                shimmer: effect_number_or(params, "shimmer", &at, 0.0)?,
+                shimmer_period: effect_number_or(params, "shimmer_period", &at, 24.0)?,
+                frame: 0,
+            },
         }),
         crate::effects::CAMERA_SHAKE => Some(crate::effects::Effect::CameraShake {
             amount: effect_number(params, "amount", &at)?,

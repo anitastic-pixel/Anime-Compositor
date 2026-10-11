@@ -3861,6 +3861,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             angle: 45.0,
             intensity: 1.0,
             color: "#ffffff".to_string(),
+            // D-546: one colour, no shimmer.
+            glint: Default::default(),
         }),
         // D-162: a ten-pixel jolt every frame, untipped.
         CAMERA_SHAKE => Some(Effect::CameraShake {
@@ -6216,6 +6218,14 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             angle: number("angle")?,
             intensity: number("intensity")?,
             color: word("color")?,
+            // D-546: Glint Streaks' settings, as added when the command leaves them out.
+            glint: anime_compositor::effects::Glint {
+                ray_colors: if parameter(query, "ray_colors").is_some() { word("ray_colors")? } else { "one".to_string() },
+                color_2: if parameter(query, "color_2").is_some() { word("color_2")? } else { "#80c0ff".to_string() },
+                shimmer: if parameter(query, "shimmer").is_some() { number("shimmer")? } else { 0.0 },
+                shimmer_period: if parameter(query, "shimmer_period").is_some() { number("shimmer_period")? } else { 24.0 },
+                frame: 0,
+            },
         }),
         CAMERA_SHAKE => Ok(Effect::CameraShake {
             amount: number("amount")?,

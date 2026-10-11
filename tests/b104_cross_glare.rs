@@ -21,6 +21,7 @@ fn glare(n: [f64; 5], color: &str) -> Effect {
         angle: n[3],
         intensity: n[4],
         color: color.to_string(),
+        glint: Default::default(),
     }
 }
 

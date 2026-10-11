@@ -86,7 +86,7 @@ D-161, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | length 40.7 grows the drawing's bounds by 40 pixels | 40 | yes |
 | length 0.9, taken down to 0, grows them by nothing | 0 | yes |
 | intensity 0 grows them by nothing | 0 | yes |
-| a half-size draft preview halves the length, 40 to 20, and nothing else | CrossGlare { threshold: 80.0, length: 20.0, points: 4.0, angle: 45.0, intensity: 1.0, color: "#ffffff" } | yes |
+| a half-size draft preview halves the length, 40 to 20, and nothing else | CrossGlare { threshold: 80.0, length: 20.0, points: 4.0, angle: 45.0, intensity: 1.0, color: "#ffffff", glint: Glint { ray_colors: "one", color_2: "#80c0ff", shimmer: 0.0, shimmer_period: 24.0, frame: 0 } } | yes |
 
 ## The file
 

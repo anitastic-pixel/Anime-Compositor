@@ -10452,7 +10452,10 @@ const EFFECT_PARAMS = {
     ['length', 'Length', 1, 1, 'pixels, 0 to 1000, how far each arm reaches'],
     ['points', 'Points', 1, 1, '1 to 8 arms'],
     ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600, the way the first arm points, 0 up', 'dial'],
-    ['intensity', 'Intensity', 1, 0.1, '0 to 10, how strongly the arms are added']],
+    ['intensity', 'Intensity', 1, 0.1, '0 to 10, how strongly the arms are added'],
+    // D-546, pick #15: Glint Streaks; absent from a file, as added.
+    ['shimmer', 'Shimmer', 1, 1, '0 to 100, how far each arm dims as it shimmers', '', 0],
+    ['shimmer_period', 'Shimmer Period', 1, 1, 'frames, 1 to 1000, how long an arm takes to dim and come back', '', 24]],
   // D-162.
   'core.camera_shake': [['amount', 'Amount', 1, 1, 'pixels, 0 to 1000, the most a jolt moves the drawing each way'],
     ['rotation', 'Rotation', 1, 0.5, 'degrees, 0 to 45, the most a jolt tips it either way'],
@@ -11942,7 +11945,11 @@ const EFFECT_WORDS = {
   // D-160.
   'core.speed_lines': { colours: [['color', 'Colour']] },
   // D-161.
-  'core.cross_glare': { colours: [['color', 'Colour']] },
+  'core.cross_glare': {
+    // D-546, pick #15: a colour per arm.
+    choices: [['ray_colors', 'Ray Colours', [['one', 'One Colour'], ['alternate', 'Alternate'], ['gradient', 'Gradient']]]],
+    colours: [['color', 'Colour'], ['color_2', 'Second Colour']],
+  },
   // D-163.
   'core.rain': { colours: [['color', 'Colour']] },
   // D-182.

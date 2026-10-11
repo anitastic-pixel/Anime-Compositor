@@ -636,6 +636,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 angle: 45.0,
                 intensity: 1.0,
                 color: "#ffffff".to_string(),
+                glint: Default::default(),
             },
         ),
         (

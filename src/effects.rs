@@ -319,6 +319,10 @@ impl EffectInstance {
             if let Effect::KiraKira { frame: f, .. } = &mut effect {
                 *f = frame;
             }
+            // D-546: the shimmer's frame.
+            if let Effect::CrossGlare { glint, .. } = &mut effect {
+                glint.frame = frame;
+            }
             // D-190: the bolt's frame.
             if let Effect::LightningBolt { frame: f, .. } = &mut effect {
                 *f = frame;
@@ -431,6 +435,72 @@ impl LensDirt {
             ("dirt_inherit", vec![&mut self.inherit], 0.0, 100.0),
             ("dirt_exposure", vec![&mut self.exposure], -10.0, 10.0),
             ("dirt_gamma", vec![&mut self.gamma], 0.1, 10.0),
+        ]
+    }
+}
+
+/// D-546 (EFFECTS.md pick #15): Glint Streaks on Cross Glare, a colour per ray and shimmer
+/// (document 21). `ray_colors`, "one", "alternate" or "gradient"; `color_2`, `#rrggbb`, kept as
+/// written so a wrong one is reported; `shimmer`, 0 to 100; `shimmer_period`, 1 to 1000 frames.
+/// `frame` is not a setting and is never saved: it is the composition frame, as Kira-kira's is.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Glint {
+    pub ray_colors: String,
+    pub color_2: String,
+    pub shimmer: f64,
+    pub shimmer_period: f64,
+    pub frame: i32,
+}
+
+impl Default for Glint {
+    /// One colour and no shimmer, every setting as added: Cross Glare as it was.
+    fn default() -> Self {
+        Glint { ray_colors: "one".into(), color_2: "#80c0ff".into(), shimmer: 0.0, shimmer_period: 24.0, frame: 0 }
+    }
+}
+
+impl Glint {
+    /// The colour that tints the whole glare, linear, and each of the `n` rays' own tint (red,
+    /// green, blue, covering): ray j's colour (1 - f_j) C + f_j C2 times its strength
+    /// m_j = 1 - s (1 - g_j), g_j = 0.5 + 0.5 cos(2 pi (frame / period + frac(j phi))). With one
+    /// colour the whole glare is tinted by `color` and each ray by its strength alone, so at no
+    /// shimmer every tint is exactly 1 and Cross Glare draws as before.
+    pub(crate) fn tints(&self, n: usize, color: &str) -> ([f64; 3], Vec<[f64; 4]>) {
+        let phi = (5f64.sqrt() - 1.0) / 2.0;
+        let s = self.shimmer / 100.0;
+        let m = |j: usize| {
+            let g = 0.5 + 0.5 * (2.0 * std::f64::consts::PI * (self.frame as f64 / self.shimmer_period + (j as f64 * phi).rem_euclid(1.0))).cos();
+            1.0 - s * (1.0 - g)
+        };
+        let c = encoded(color).map(crate::grade::to_linear);
+        if self.ray_colors == "one" {
+            return (c, (0..n).map(|j| [m(j); 4]).collect());
+        }
+        let c2 = encoded(&self.color_2).map(crate::grade::to_linear);
+        let tints = (0..n)
+            .map(|j| {
+                let f = match self.ray_colors.as_str() {
+                    "alternate" => (j % 2) as f64,
+                    _ if n > 1 => j as f64 / (n - 1) as f64,
+                    _ => 0.0,
+                };
+                let k = |ch: usize| m(j) * ((1.0 - f) * c[ch] + f * c2[ch]);
+                [k(0), k(1), k(2), m(j)]
+            })
+            .collect();
+        ([1.0; 3], tints)
+    }
+
+    fn fault(&self) -> Option<String> {
+        (!["one", "alternate", "gradient"].contains(&self.ray_colors.as_str()))
+            .then(|| format!("Cross Glare's ray colours is \"one\", \"alternate\" or \"gradient\", and this is \"{}\".", self.ray_colors))
+            .or_else(|| hex_fault("Cross Glare", "second colour", &self.color_2))
+    }
+
+    fn numbers(&mut self) -> [(&'static str, Vec<&mut f64>, f64, f64); 2] {
+        [
+            ("shimmer", vec![&mut self.shimmer], 0.0, 100.0),
+            ("shimmer_period", vec![&mut self.shimmer_period], 1.0, 1000.0),
         ]
     }
 }
@@ -1116,7 +1186,8 @@ pub enum Effect {
     /// D-161: `threshold`, 0 to 100, D-89's bright test; `length`, 0 to 1000 pixels, its whole
     /// part counted; `points`, 1 to 8 arms, its whole part counted; `angle`, -3600 to 3600
     /// degrees, the first arm's way; `intensity`, 0 to 10; and `color`, `#rrggbb`, kept as
-    /// written so a wrong one is reported.
+    /// written so a wrong one is reported. D-546 (pick #15): `glint`, Glint Streaks' settings
+    /// ([`Glint`]).
     CrossGlare {
         threshold: f64,
         length: f64,
@@ -1124,6 +1195,7 @@ pub enum Effect {
         angle: f64,
         intensity: f64,
         color: String,
+        glint: Glint,
     },
     /// D-162: `amount`, 0 to 1000 pixels, the most a jolt moves the drawing each way; `rotation`,
     /// 0 to 45 degrees, the most it tips it; `hold`, 1 to 100 frames, and `seed`, 0 to 100000,
@@ -4585,6 +4657,7 @@ impl Effect {
                 points,
                 angle,
                 intensity,
+                glint,
                 ..
             } => vec![
                 ("threshold", vec![threshold], 0.0, 100.0),
@@ -4592,7 +4665,10 @@ impl Effect {
                 ("points", vec![points], 1.0, 8.0),
                 ("angle", vec![angle], -3600.0, 3600.0),
                 ("intensity", vec![intensity], 0.0, 10.0),
-            ],
+            ]
+            .into_iter()
+            .chain(glint.numbers())
+            .collect(),
             Effect::CameraShake {
                 amount,
                 rotation,
@@ -8641,7 +8717,8 @@ impl Effect {
                 "Iris Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
             )),
             Effect::SpeedLines { color, .. } => hex_fault("Speed Lines", "colour", color),
-            Effect::CrossGlare { color, .. } => hex_fault("Cross Glare", "colour", color),
+            // D-546: Glint Streaks' ray colours and second colour too.
+            Effect::CrossGlare { color, glint, .. } => hex_fault("Cross Glare", "colour", color).or_else(|| glint.fault()),
             Effect::Rain { color, .. } => hex_fault("Rain", "colour", color),
             Effect::Snowfall { color, .. } => hex_fault("Snowfall", "colour", color),
             _ => None,
@@ -11327,9 +11404,12 @@ pub(crate) fn apply_stack_at(
                 angle,
                 intensity,
                 color,
+                glint,
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectCrossGlare, || {
-                    crate::layer_fx::cross_glare(source, *threshold, *length, *points, *angle, *intensity, encoded(color))
+                    // D-546: each ray's tint.
+                    let (outer, tints) = glint.tints(points.floor() as usize, color);
+                    crate::layer_fx::cross_glare(source, *threshold, *length, *points, *angle, *intensity, outer, &tints)
                 });
                 ox += r;
                 oy += r;

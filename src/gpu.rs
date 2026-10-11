@@ -5863,7 +5863,8 @@ fn lines(@builtin(global_invocation_id) id: vec3<u32>) {
 
 // B-107, layer_fx::cross_glare's last step: `other` is the bright pixels, the output the drawing
 // grown by `g`, the length. k: the intensity, the colour in linear light, the arms' count, each
-// arm's direction, then each step's distance and weight.
+// arm's direction and D-546 tint (red, green, blue, covering; effects::Glint::tints), then each
+// step's distance and weight.
 // ponytail: every sample is taken, where the CPU skips the dark ones; a lit-pixel count like the
 // CPU's if long glares on big layers are ever slow on the card.
 @compute @workgroup_size(16, 16)
@@ -5877,14 +5878,16 @@ fn glare(@builtin(global_invocation_id) id: vec3<u32>) {
     let cx = f64(x) + 0.5lf;
     let cy = f64(y) + 0.5lf;
     let arms = u32(k[4]);
-    let steps = 5u + 2u * arms;
+    let steps = 5u + 6u * arms;
     var g = vec4<f32>(0.0);
     for (var j = 0u; j < arms; j++) {
-        let vx = f32(k[5u + 2u * j]);
-        let vy = f32(k[6u + 2u * j]);
+        let a = 5u + 6u * j;
+        let vx = f32(k[a]);
+        let vy = f32(k[a + 1u]);
+        let tint = vec4(f32(k[a + 2u]), f32(k[a + 3u]), f32(k[a + 4u]), f32(k[a + 5u]));
         for (var t = 0u; t < u32(F.g); t++) {
             let d = f32(k[steps + 2u * t]);
-            g += f32(k[steps + 2u * t + 1u]) * bilinear32(other, f32(cx) - d * vx, f32(cy) - d * vy);
+            g += f32(k[steps + 2u * t + 1u]) * (bilinear32(other, f32(cx) - d * vx, f32(cy) - d * vy) * tint);
         }
     }
     let o = at(input, vec2(x, y));
@@ -12683,7 +12686,7 @@ impl Gpu {
                 k.extend(lines.iter().flat_map(|&(t, h, r)| [t, h, r]));
                 same(steps, &passes.lines, FxParams::default(), &k, None)
             }
-            E::CrossGlare { threshold, length, points, angle, intensity, color } => {
+            E::CrossGlare { threshold, length, points, angle, intensity, color, glint } => {
                 let bloom = self.bloom.as_ref().expect("a Cross Glare is refused without the passes");
                 let empty = self.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                     label: Some("B-107 none"),
@@ -12695,12 +12698,15 @@ impl Gpu {
                 self.step(steps, &bloom.bright, p, still, Some(&lit), None, Some(&empty), tiles(w, h));
                 let l = length.floor() as usize;
                 let n = points.floor();
+                // D-546: each arm's tint after its direction.
+                let (outer, tints) = glint.tints(n as usize, color);
                 let mut k = vec![*intensity];
-                k.extend(linear(color));
+                k.extend(outer);
                 k.push(n);
                 k.extend((0..n as usize).flat_map(|j| {
                     let (vx, vy) = crate::blurs::along(angle + 360.0 * j as f64 / n);
-                    [vx, vy]
+                    let [r, g, b, a] = tints[j];
+                    [vx, vy, r, g, b, a]
                 }));
                 let fade: Vec<f64> = (1..=l).map(|t| (1.0 - t as f64 / (l + 1) as f64).powi(2)).collect();
                 let total: f64 = fade.iter().sum();
