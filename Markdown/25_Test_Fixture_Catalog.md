@@ -208447,7 +208447,7 @@ FX-KCLEAN-018 (`fx_kclean_018.json`): Strength keyed to 101 at frame 4, above 10
 
 ### Linear Color Key (D-504)
 
-Linear Color Key (`core.linear_color_key`), after After Effects' Linear Color Key (B-384), the rule ours. Every case is a project of one composition 16 by 10, five frames, holding the layer `art`, the still `media/colours.png` (Color Difference Key's picture): one colour a column (empty, black, white, grey 128, a green screen (40, 180, 60), a blue screen (30, 70, 200), skin (230, 180, 150), pure blue, cyan, pure green, yellow, red, magenta, a violet (128, 64, 255), a pale blue (150, 170, 230) and the blue screen at half covering), each row 8% darker than the one above. `tools/linear_color_key_reference.py` works the expected frames, `expected_linear_color_key.json`, tolerance 2e-5; the rule is in document 21.
+Linear Color Key (`core.linear_color_key`), after After Effects' Linear Color Key (B-384), the rule ours. Every case is a project of one composition 16 by 10, five frames, holding the layer `art`, the still `media/colours.png` (Color Difference Key's picture): one colour a column (empty, black, white, grey 128, a green screen (40, 180, 60), a blue screen (30, 70, 200), skin (230, 180, 150), pure blue, cyan, pure green, yellow, red, magenta, a violet (128, 64, 255), a pale blue (150, 170, 230) and the blue screen at half covering), each row 8% darker than the one above. Cases FX-LCKEY-019 to 023 hold two or three Linear Color Keys on the layer, `fx-0-0` first. `tools/linear_color_key_reference.py` works the expected frames, `expected_linear_color_key.json`, tolerance 2e-5; the rule is in document 21. D-541 (2026-10-11, owner-authorised) rewrote FX-LCKEY-007 and FX-LCKEY-011's frame 0 for tolerance 0 keying nothing and added FX-LCKEY-019 to 024 for Keep Colors.
 
 FX-LCKEY-001 (`fx_lckey_001.json`): The settings as they start: final, key colour pure blue, RGB, tolerance 10, softness 10. Pure blue's top two rows (within 10% of it) lose all their covering, its third row keeps a share, its darker rows and every other colour keep all of theirs. Frames 0.
 
@@ -208461,7 +208461,7 @@ FX-LCKEY-005 (`fx_lckey_005.json`): Chroma, key colour the green screen, toleran
 
 FX-LCKEY-006 (`fx_lckey_006.json`): Tolerance 100: every pixel is within it, so the whole layer is keyed out. Frames 0.
 
-FX-LCKEY-007 (`fx_lckey_007.json`): Tolerance 0, softness 20: only pure blue's top row, the key colour itself, is gone; its next two rows, within 20% of it, keep a share d / 20; every other pixel keeps all its covering. Frames 0.
+FX-LCKEY-007 (`fx_lckey_007.json`): Tolerance 0, softness 20: tolerance 0 makes the whole image opaque, as Adobe documents (D-541), so nothing is keyed, not even pure blue itself, and the layer is as it was. Frames 0.
 
 FX-LCKEY-008 (`fx_lckey_008.json`): Hue with a grey key colour (#808080), tolerance 50: a grey has no hue, so nothing matches and the layer is as it was. Frames 0.
 
@@ -208469,11 +208469,21 @@ FX-LCKEY-009 (`fx_lckey_009.json`): View matte, FX-LCKEY-004's settings: the sha
 
 FX-LCKEY-010 (`fx_lckey_010.json`): View source, tolerance 100: the layer exactly as it is. Frames 0.
 
-FX-LCKEY-011 (`fx_lckey_011.json`): Tolerance keyed from 0 at frame 0 to 40 at frame 4, linear, RGB on the blue screen. Frames 0, 2, 4.
+FX-LCKEY-011 (`fx_lckey_011.json`): Tolerance keyed from 0 at frame 0 to 40 at frame 4, linear, RGB on the blue screen: at frame 0, tolerance 0, nothing is keyed (D-541); frame 2 is tolerance 20's frame. Frames 0, 2, 4.
 
 FX-LCKEY-012 (`fx_lckey_012.json`): Softness keyed from 0 at frame 0 to 60 at frame 4, linear, hue on the green screen, tolerance 20. Frames 2, 4.
 
 FX-LCKEY-013 (`fx_lckey_013.json`): FX-LCKEY-002 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-LCKEY-019 (`fx_lckey_019.json`): Keep Colors (D-541): FX-LCKEY-004's hue key on the green screen, then a second instance, keep, RGB, key pure green, tolerance 10, softness 10: pure green's top two rows come back whole and its third row keeps a share; the green screen and every other pixel are as FX-LCKEY-004 left them. Frames 0.
+
+FX-LCKEY-020 (`fx_lckey_020.json`): Keep Colors with nothing keyed above it: nothing to bring back, the layer as it was. Frames 0.
+
+FX-LCKEY-021 (`fx_lckey_021.json`): Keep Colors after a run of two keys, FX-LCKEY-002's RGB key on the blue screen and FX-LCKEY-004's hue key on the green screen: the colours come back from before the first, so pure green's top rows return as in FX-LCKEY-019 and the blue screen stays keyed as in FX-LCKEY-002. Frames 0.
+
+FX-LCKEY-022 (`fx_lckey_022.json`): FX-LCKEY-019 with the keep instance's view matte: the covering after it as grey, at the drawing's covering. Frames 0.
+
+FX-LCKEY-023 (`fx_lckey_023.json`): FX-LCKEY-019 with the keep instance's tolerance 0: nothing comes back, FX-LCKEY-004's frame. Frames 0.
 
 FX-LCKEY-014 (`fx_lckey_014.json`): Matching tolerance 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -208484,6 +208494,8 @@ FX-LCKEY-016 (`fx_lckey_016.json`): View "Final": the word is exact, so a capita
 FX-LCKEY-017 (`fx_lckey_017.json`): Match colors "lab": not one of RGB, hue and chroma. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-LCKEY-018 (`fx_lckey_018.json`): Key colour "blue", not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LCKEY-024 (`fx_lckey_024.json`): Key operation "Keep": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 ### Unmult (D-505)
 

@@ -15,13 +15,12 @@ colours close to a key colour: the closer a pixel is, the more see-through it be
   stopping sharply; 0 is a hard edge.
 
 Adobe publishes no formula and no settings when added, so the rule and those settings are ours,
-written down in document 21. Not built: After Effects' **Key Operation: Keep Colors** (used with
-a second Linear Color Key to bring back colours the first keyed out). It needs the colour under
-pixels that are already fully keyed, which this program does not keep; whether to build that is
-your decision. One known difference: at Matching Tolerance 0 we still key the exact key colour,
-where Adobe says 0 leaves the whole picture solid.
+written down in document 21. Since 2026-10-11 (B-421, D-541, its own playtest
+`verification/B-421_playtest.md`): **Key Operation: Keep Colors** is built (a second Linear Color
+Key brings back colours the first keyed out), and Matching Tolerance 0 leaves the whole picture
+solid, as Adobe says.
 
-The check, `verification/D-504_linear_color_key_table.md` (131 of 131), holds every
+The check, `verification/D-504_linear_color_key_table.md` (161 of 161), holds every
 pixel to numbers worked out by a separate program before the code existed, and holds the
 graphics card's picture to within 1 level of the processor's. The pictures are in
 `verification/D-504 pictures/`.

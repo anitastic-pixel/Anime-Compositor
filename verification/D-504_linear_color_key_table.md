@@ -1,8 +1,8 @@
 # D-504: Linear Color Key
 
-B-384, after After Effects' Linear Color Key (Keying): each pixel compared with a key colour by its RGB, its hue or its chroma, the closer ones made more transparent. Adobe describes the effect and names its controls but publishes no formula and no defaults we found, so the rule and the settings when added are ours, stated in `tools/linear_color_key_reference.py`: a distance from the key from 0 to 100, less the matching tolerance, over the matching softness, is the share of the pixel kept. Key Operation's Keep Colors is not built. Every expected pixel is `Fixtures/linear_color_key/expected_linear_color_key.json`, written by the tool before this code existed and printed in document 25 as FX-LCKEY-001 to 018. Tolerance 2e-5.
+B-384, after After Effects' Linear Color Key (Keying): each pixel compared with a key colour by its RGB, its hue or its chroma, the closer ones made more transparent. Adobe describes the effect and names its controls but publishes no formula and no defaults we found, so the rule and the settings when added are ours, stated in `tools/linear_color_key_reference.py`: a distance from the key from 0 to 100, less the matching tolerance, over the matching softness, is the share of the pixel kept; tolerance 0 keys nothing (D-541, as Adobe says). D-541 adds Key Operation's Keep Colors, which brings back colours the run of Linear Color Keys directly above it keyed out. Every expected pixel is `Fixtures/linear_color_key/expected_linear_color_key.json`, written by the tool before this code existed and printed in document 25 as FX-LCKEY-001 to 024 (007 and 011's frame 0 rewritten, and 019 to 024 added, by D-541 on the owner's word). Tolerance 2e-5.
 
-## FX-LCKEY-001 to 018 (document 25)
+## FX-LCKEY-001 to 024 (document 25)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -18,7 +18,7 @@ B-384, after After Effects' Linear Color Key (Keying): each pixel compared with 
 | FX-LCKEY-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-LCKEY-006 frame 0: Tolerance 100: every pixel is within it, so the whole layer is keyed out. | largest difference 0.0e0 | yes |
 | FX-LCKEY-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-LCKEY-007 frame 0: Tolerance 0, softness 20: only pure blue's top row, the key colour itself, is gone; its next two rows, within 20% of it, keep a share d / 20; every other pixel keeps all its covering. | largest difference 2.0e-7 | yes |
+| FX-LCKEY-007 frame 0: Tolerance 0, softness 20: tolerance 0 makes the whole image opaque, as Adobe documents (D-541), so nothing is keyed, not even pure blue itself, and the layer is as it was. | largest difference 1.2e-7 | yes |
 | FX-LCKEY-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-LCKEY-008 frame 0: Hue with a grey key colour (#808080), tolerance 50: a grey has no hue, so nothing matches and the layer is as it was. | largest difference 1.2e-7 | yes |
 | FX-LCKEY-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -26,9 +26,9 @@ B-384, after After Effects' Linear Color Key (Keying): each pixel compared with 
 | FX-LCKEY-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-LCKEY-010 frame 0: View source, tolerance 100: the layer exactly as it is. | largest difference 1.2e-7 | yes |
 | FX-LCKEY-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-LCKEY-011 frame 0: Tolerance keyed from 0 at frame 0 to 40 at frame 4, linear, RGB on the blue screen. | largest difference 4.3e-7 | yes |
-| FX-LCKEY-011 frame 2: Tolerance keyed from 0 at frame 0 to 40 at frame 4, linear, RGB on the blue screen. | largest difference 8.3e-7 | yes |
-| FX-LCKEY-011 frame 4: Tolerance keyed from 0 at frame 0 to 40 at frame 4, linear, RGB on the blue screen. | largest difference 8.2e-7 | yes |
+| FX-LCKEY-011 frame 0: Tolerance keyed from 0 at frame 0 to 40 at frame 4, linear, RGB on the blue screen: at frame 0, tolerance 0, nothing is keyed (D-541); frame 2 is tolerance 20's frame. | largest difference 1.2e-7 | yes |
+| FX-LCKEY-011 frame 2: Tolerance keyed from 0 at frame 0 to 40 at frame 4, linear, RGB on the blue screen: at frame 0, tolerance 0, nothing is keyed (D-541); frame 2 is tolerance 20's frame. | largest difference 8.3e-7 | yes |
+| FX-LCKEY-011 frame 4: Tolerance keyed from 0 at frame 0 to 40 at frame 4, linear, RGB on the blue screen: at frame 0, tolerance 0, nothing is keyed (D-541); frame 2 is tolerance 20's frame. | largest difference 8.2e-7 | yes |
 | FX-LCKEY-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-LCKEY-012 frame 2: Softness keyed from 0 at frame 0 to 60 at frame 4, linear, hue on the green screen, tolerance 20. | largest difference 1.2e-7 | yes |
 | FX-LCKEY-012 frame 4: Softness keyed from 0 at frame 0 to 60 at frame 4, linear, hue on the green screen, tolerance 20. | largest difference 1.7e-7 | yes |
@@ -51,6 +51,19 @@ B-384, after After Effects' Linear Color Key (Keying): each pixel compared with 
 | FX-LCKEY-018 frame 0: Key colour "blue", not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.2e-7 | yes |
 | FX-LCKEY-018 frame 4: Key colour "blue", not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.2e-7 | yes |
 | FX-LCKEY-018: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-LCKEY-019 frame 0: Keep Colors (D-541): FX-LCKEY-004's hue key on the green screen, then a second instance, keep, RGB, key pure green, tolerance 10, softness 10: pure green's top two rows come back whole and its third row keeps a share; the green screen and every other pixel are as FX-LCKEY-004 left them. | largest difference 3.0e-7 | yes |
+| FX-LCKEY-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-LCKEY-020 frame 0: Keep Colors with nothing keyed above it: nothing to bring back, the layer as it was. | largest difference 1.2e-7 | yes |
+| FX-LCKEY-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-LCKEY-021 frame 0: Keep Colors after a run of two keys, FX-LCKEY-002's RGB key on the blue screen and FX-LCKEY-004's hue key on the green screen: the colours come back from before the first, so pure green's top rows return as in FX-LCKEY-019 and the blue screen stays keyed as in FX-LCKEY-002. | largest difference 6.7e-7 | yes |
+| FX-LCKEY-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-LCKEY-022 frame 0: FX-LCKEY-019 with the keep instance's view matte: the covering after it as grey, at the drawing's covering. | largest difference 2.1e-7 | yes |
+| FX-LCKEY-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-LCKEY-023 frame 0: FX-LCKEY-019 with the keep instance's tolerance 0: nothing comes back, FX-LCKEY-004's frame. | largest difference 1.2e-7 | yes |
+| FX-LCKEY-023: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-LCKEY-024 frame 0: Key operation "Keep": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.2e-7 | yes |
+| FX-LCKEY-024 frame 4: Key operation "Keep": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.2e-7 | yes |
+| FX-LCKEY-024: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 
 ## The file
 
@@ -74,12 +87,20 @@ B-384, after After Effects' Linear Color Key (Keying): each pixel compared with 
 | fx_lckey_016.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_lckey_017.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_lckey_018.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
-| fx_lckey_004.json is saved with its five settings, view final, key colour #28b43c, match colors hue and tolerance 20 | {"key_color":"#28b43c","match_colors":"hue","matching_softness":10,"matching_tolerance":20,"view":"final"} | yes |
+| fx_lckey_019.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_lckey_020.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_lckey_021.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_lckey_022.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_lckey_023.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_lckey_024.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_lckey_004.json is saved with its six settings, view final, key colour #28b43c, match colors hue, key operation key and tolerance 20 | {"key_color":"#28b43c","key_operation":"key","match_colors":"hue","matching_softness":10,"matching_tolerance":20,"view":"final"} | yes |
+| a file written before D-541, without a key operation, opens as Key Colors | key | yes |
 | fx_lckey_014.json is refused in a sentence naming matching tolerance | Linear Color Key's matching tolerance runs from 0 to 100, and this is 101. | yes |
 | fx_lckey_015.json is refused in a sentence naming matching softness | Linear Color Key's matching softness runs from 0 to 100, and this is -1. | yes |
 | fx_lckey_016.json is refused in a sentence naming view | Linear Color Key's view is "final", "source" or "matte", and this is "Final". | yes |
 | fx_lckey_017.json is refused in a sentence naming match colors | Linear Color Key's match colors is "rgb", "hue" or "chroma", and this is "lab". | yes |
 | fx_lckey_018.json is refused in a sentence naming key colour | Linear Color Key's key colour is written #rrggbb, and this is "blue". | yes |
+| fx_lckey_024.json is refused in a sentence naming key operation | Linear Color Key's key operation is "key" or "keep", and this is "Keep". | yes |
 | a file with a Linear Color Key whose tolerance is a word is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with a Linear Color Key without its key colour is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with a Linear Color Key without its softness is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
@@ -128,6 +149,12 @@ B-384, after After Effects' Linear Color Key (Keying): each pixel compared with 
 | fx_lckey_016.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_lckey_017.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_lckey_018.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_lckey_019.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_lckey_020.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_lckey_021.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_lckey_022.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_lckey_023.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_lckey_024.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot, Linear Color Key RGB, key white, tolerance 60, softness 20: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1234015 pixels changed | yes |
 | the reference shot, Linear Color Key RGB, key white, tolerance 60, softness 20 on three layers, frame 0, Full | largest difference 1 of 255, 4024 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Linear Color Key RGB, key white, tolerance 60, softness 20 on three layers, frame 100, Full | largest difference 1 of 255, 1521 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
@@ -162,7 +189,10 @@ B-384, after After Effects' Linear Color Key (Keying): each pixel compared with 
 | by hand: the screen half lit (20, 90, 30), in RGB keyed on the screen's colour, tolerance 10, softness 10, keeps covering 255 of 255; draws cleanly | [], covering 255 | yes |
 | by hand: the screen half lit (20, 90, 30), in chroma keyed on the screen's colour, tolerance 10, softness 10, keeps covering 0 of 255; draws cleanly | [], covering 0 | yes |
 | by hand: the screen a little bluer (40, 180, 90), in RGB keyed on the screen's colour, tolerance 10, softness 10, keeps covering 45 of 255; draws cleanly | [], covering 45 | yes |
+| 5_keep_shirt.png, everything keyed out (tolerance 100), then Keep Colors on the shirt's colour (40, 60, 160), tolerance 10: the shirt back as it was, the screen and the face still gone; draws cleanly | [], screen 0, face 0, shirt 255, shirt as it was true | yes |
+| the same with an Exposure of 0 stops between the two: another effect ends the run of keys, so the Keep Colors has nothing above it to bring back, the frame the same as without it; draws cleanly | [], 0 pixels differ | yes |
+| the same with a switched-off Linear Color Key between the two instead: it draws nothing, so the run goes on and the shirt comes back as in 5_keep_shirt.png; draws cleanly | [], 0 pixels differ | yes |
 
 ## Result
 
-131 of 131 checks pass.
+161 of 161 checks pass.
