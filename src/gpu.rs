@@ -1059,7 +1059,9 @@ fn cell_noise_look(ch: u32, p: vec3<f64>, block: bool, period: i32) -> f64 {
         let w = select(vec3(1.0lf) - s, s, d == vec3(1u));
         var z = i.z + i32(d.z);
         if period > 0 {
-            z = ((z % period) + period) % period;
+            // D-547: as rem_euclid, with `%` kept off negative numbers, which this card's
+            // signed `%` takes as unsigned (-7 % 6 gave 3).
+            z = select(z % period, period - 1 - (-1 - z) % period, z < 0);
         }
         // D-443: a corner that weighs nothing adds nothing, as grade::value skips it.
         let wt = w.x * w.y * w.z;
