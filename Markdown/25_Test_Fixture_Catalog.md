@@ -207992,3 +207992,55 @@ FX-CARTOON-030 (`fx_cartoon_030.json`): Edge Enhancement -101, below -100. The f
 FX-CARTOON-031 (`fx_cartoon_031.json`): Edge Black Level 1.5, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CARTOON-032 (`fx_cartoon_032.json`): Edge Contrast keyed to 2 at frame 4, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Deband (D-456)
+
+Our own Deband, after CelFX's Deband (P SOFTHOUSE), `core.deband` (B-336). Every case is a composition 16 by 10 at 24 frames a second, 5 frames long, holding one layer `holder` the same size, with the Deband, whose drawing the case names (`Fixtures/deband/media/`): `banded`, a gradient in bands of 2 or 3 levels on its left twelve columns and a dark block on its right four, a hard edge between; `holes`, `banded` with one empty pixel and one half-covered column; `flat`, one colour. `tools/deband_reference.py` works the expected frames, `Fixtures/deband/expected_deband.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-DEBAND-001 (`fx_deband_001.json`): The settings as added (threshold 4, softness 2, blur 8, diffusion 1, noise 1, every reduction 100, reseeding every frame) on `banded`: the bands smoothed, a little dither, the edge to the dark block kept; frame 1 has fresh dither. Frames 0, 1.
+
+FX-DEBAND-002 (`fx_deband_002.json`): Blur, diffusion and noise all 0: the drawing as it is. Frames 0.
+
+FX-DEBAND-003 (`fx_deband_003.json`): Blur 8 alone: the bands smoothed, the edge pixels exactly as drawn. Frames 0.
+
+FX-DEBAND-004 (`fx_deband_004.json`): Blur 8 with Edge Blur Reduction 0: the edge pixels take the flat ground's blur too. Frames 0.
+
+FX-DEBAND-005 (`fx_deband_005.json`): Threshold 0, softness 0, blur 8: every pixel with any step is an edge, and a flat pixel meets only its own colour before an edge stops the blur: the drawing as it is. Frames 0.
+
+FX-DEBAND-006 (`fx_deband_006.json`): Threshold 255, blur 8: nothing is an edge, the whole layer blurred, the dark block's edge too. Frames 0.
+
+FX-DEBAND-007 (`fx_deband_007.json`): Threshold 2, softness 2, blur 8: the band steps of 3 levels are half edges, half held back. Frames 0.
+
+FX-DEBAND-008 (`fx_deband_008.json`): Diffusion 3 alone: pixels read from up to 3 away inside the flat ground; the edge pixels kept. Frames 0.
+
+FX-DEBAND-009 (`fx_deband_009.json`): Diffusion 3, Edge Diffusion Reduction 0: the edge pixels read from flat ground too. Frames 0.
+
+FX-DEBAND-010 (`fx_deband_010.json`): Noise 4 alone: dither on the flat ground, none on the edge pixels. Frames 0.
+
+FX-DEBAND-011 (`fx_deband_011.json`): Noise 4, Edge Noise Reduction 0: dither everywhere. Frames 0.
+
+FX-DEBAND-012 (`fx_deband_012.json`): Both reseed intervals 0: the dither and diffusion never change, frame 3 as frame 0. Frames 0, 3.
+
+FX-DEBAND-013 (`fx_deband_013.json`): Both reseed intervals 2: frames 0 and 1 the same, frame 2 changed. Frames 0, 1, 2.
+
+FX-DEBAND-014 (`fx_deband_014.json`): View Edge Only, threshold 2: the edge weight as grey, white on the edge to the block, mid grey on the 3-level band steps, black on the flat ground. Frames 0.
+
+FX-DEBAND-015 (`fx_deband_015.json`): View Selected Edge: FX-DEBAND-001 with the edges laid over it in red. Frames 0.
+
+FX-DEBAND-016 (`fx_deband_016.json`): `holes`, with one empty pixel and a half-covered column: the empty pixel stays empty and the column keeps its covering. Frames 0.
+
+FX-DEBAND-017 (`fx_deband_017.json`): `flat`, one colour, as added: no edges, the blur changes nothing, only the dither shows. Frames 0.
+
+FX-DEBAND-018 (`fx_deband_018.json`): Blur keyed from 0 at frame 0 to 16 at frame 4, nothing else: frame 0 the drawing, then smoother. Frames 0, 2, 4.
+
+FX-DEBAND-019 (`fx_deband_019.json`): Both reseed intervals 2.6: their whole part, FX-DEBAND-013. Frames 0, 1, 2.
+
+FX-DEBAND-020 (`fx_deband_020.json`): View "edges", not one of its three words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEBAND-021 (`fx_deband_021.json`): Edge Threshold 300, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEBAND-022 (`fx_deband_022.json`): Blur Amount -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEBAND-023 (`fx_deband_023.json`): Noise Reseed Interval 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DEBAND-024 (`fx_deband_024.json`): Noise Amount keyed to 40 at frame 4, above 32. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

@@ -450,7 +450,7 @@ The one clear gap is **Deband**: smoothing the visible steps in a soft gradient.
 
 **Score (for Deband).** Impact 2, effort 2, frequency 2.
 
-- **Not checked:** I did not confirm CelFX Deband's own controls.
+- **Checked 2026-10-10:** CelFX's own reference page for P_Deband (docs.psoft.co.jp/cfx100w/en/latest/reference/CFX_Deband.html) lists View (Normal, Edge Only, Selected Edge), Edge Threshold, Edge Softness, Blur Amount, Edge Blur Reduction, Diffusion Amount, Edge Diffusion Reduction, Diffusion Reseed Interval, Noise Amount, Edge Noise Reduction and Noise Reseed Interval, with no formula, ranges or starting values. Built as our own Deband (`core.deband`, D-456 / B-336) on that control list, with our own rule, ranges and starting values.
 
 ## 3. Compositor recommendations (VFX and anime satsuei)
 
@@ -531,7 +531,7 @@ For us this means many anime looks are **better served as small upgrades to effe
 | 15 | Glint Streaks | Merge into `core.cross_glare` | 3 / 2 / 3 | Colour per ray and shimmer; Cross Glare and Kira-kira already do the rest |
 | 16 | Zoom Glow and Edge Glow | Skip as effects; presets only | 2 / 1 / 2 | Radial Blur + Glow and Outline + Glow already make them |
 | 17 | Heat Shimmer | Merge: drift direction and speed on `core.turbulent_displace` | 2 / 2 / 2 | Useful, rare; turbulence already does most of it |
-| 18 | Deband | Separate | 2 / 2 / 2 | Anime-specific gap (CelFX); helps soft gradients; controls not confirmed |
+| 18 | Deband | Separate | 2 / 2 / 2 | Anime-specific gap (CelFX); helps soft gradients; controls confirmed from CelFX's page, built as `core.deband` (D-456) |
 | 19 | Map Chromatic Displacement | Merge into `core.displacement_map` | 2 / 3 / 2 | Recommended for water in anime, but niche |
 | 20 | Particle Emitter | Park under L-01 | 5 / 5 / 5 | On every list including anime studios; the charter leaves it out (D-309), so only if the owner asks by name |
 
@@ -707,5 +707,5 @@ Pages marked **(403)** could not be fetched; only search-result snippets were us
 - Resolved 2026-10-08 and moved out of this list: the Glow Mode menu (Exponential is the inverse-square mode); every menu in the 2.3 table; Iris Iterations and Radii Easing; downsampling (via Quality Preset); GPU use; Saber's Core Softness, Flicker, Glow Spread, Glow Bias and the rest of its panel (2.4).
 - The full list of the Universe Distortions pack: only four effects were found.
 - Shine and Starglow being Trapcode products is from memory.
-- The CelFX Deband controls were not checked.
+- Resolved 2026-10-10 and moved out of this list: the CelFX Deband controls (docs.psoft.co.jp/cfx100w/en/latest/reference/CFX_Deband.html); built as D-456.
 - No timing or performance claims are made anywhere in this note.
