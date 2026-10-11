@@ -208224,3 +208224,43 @@ FX-CDK-024 (`fx_cdk_024.json`): View "Final": the word is exact, so a capital is
 FX-CDK-025 (`fx_cdk_025.json`): View "all": After Effects' four-up view is not one here. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CDK-026 (`fx_cdk_026.json`): Key colour "blue", not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Color Range (D-500)
+
+Color Range (`core.color_range`), after After Effects' Color Range (B-380), the rule ours. Every case is a project of one composition 16 by 10, five frames, holding the layer `art`, the still `media/colours.png` (Color Difference Key's picture): one colour a column (empty, black, white, grey 128, a green screen (40, 180, 60), a blue screen (30, 70, 200), skin (230, 180, 150), pure blue, cyan, pure green, yellow, red, magenta, a violet (128, 64, 255), a pale blue (150, 170, 230) and the blue screen at half covering), each row 8% darker than the one above. `tools/color_range_reference.py` works the expected frames, `expected_color_range.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-CRANGE-001 (`fx_crange_001.json`): The settings as they start: Lab, every end of the box 0, fuzziness 0. No colour has a* or b* as low as -128, so nothing is keyed and the layer is as it was. Frames 0.
+
+FX-CRANGE-002 (`fx_crange_002.json`): Lab, a box about the green screen (L 120 to 200, a 40 to 100, b 150 to 220), fuzziness 0: the green screen's top four rows and pure green's middle rows, inside the same box, lose all their covering; everything else keeps all of it. Frames 0.
+
+FX-CRANGE-003 (`fx_crange_003.json`): The same box with fuzziness 30: the screen still all gone; colours just outside the box keep a share of their covering, d / 30. Frames 0.
+
+FX-CRANGE-004 (`fx_crange_004.json`): YUV, a box about the blue screen (Y 20 to 120, U 170 to 230, V 80 to 125), fuzziness 20: the blue screen falls, the half-covered one too; pure blue (U about 255) keeps all its covering and its darker rows fall; the violet keeps a share. Frames 0.
+
+FX-CRANGE-005 (`fx_crange_005.json`): RGB, a box about green (R 0 to 90, G 140 to 255, B 0 to 110), fuzziness 40: pure green and the green screen fall, cyan and yellow, far outside in blue or red, keep all their covering. Frames 0.
+
+FX-CRANGE-006 (`fx_crange_006.json`): RGB, the whole cube (every min 0, every max 255), fuzziness 1: every pixel is inside, so the whole layer is keyed out. Frames 0.
+
+FX-CRANGE-007 (`fx_crange_007.json`): Lab with the whole range of L and b but a* only from -8 to 40 (a 120 to 168), fuzziness 2: the greys, black and white (a* 0), skin, the blue screen and the pale blue fall; the greens (a* below -8) and pure red, magenta and pure blue (above 40) keep their covering. Frames 0.
+
+FX-CRANGE-008 (`fx_crange_008.json`): RGB, a minimum above its maximum (red from 200 down to 100): no colour is inside, and with fuzziness 60 a pixel keeps the share of its distance past the nearer end, so mid reds lose some covering. Frames 0.
+
+FX-CRANGE-009 (`fx_crange_009.json`): Fuzziness 255 about the green screen in Lab: the softest edge; colours near green lose much of their covering, the far ones little. Frames 0.
+
+FX-CRANGE-010 (`fx_crange_010.json`): Fuzziness keyed from 0 at frame 0 to 80 at frame 4, linear, about the green screen in Lab. Frames 0, 2, 4.
+
+FX-CRANGE-011 (`fx_crange_011.json`): RGB, the top of green keyed from 255 at frame 0 to 150 at frame 4, the rest of FX-CRANGE-005: the box shrinks and fewer greens fall. Frames 0, 2, 4.
+
+FX-CRANGE-012 (`fx_crange_012.json`): FX-CRANGE-003 moved three pixels right: the same, moved. Frames 0, 3.
+
+FX-CRANGE-013 (`fx_crange_013.json`): Fuzziness 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CRANGE-014 (`fx_crange_014.json`): Fuzziness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CRANGE-015 (`fx_crange_015.json`): Min (L, Y, R) 256, above 255. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CRANGE-016 (`fx_crange_016.json`): Max (b, V, B) -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CRANGE-017 (`fx_crange_017.json`): Colour space "Lab": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CRANGE-018 (`fx_crange_018.json`): Colour space "hsl": not one of Lab, YUV and RGB. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
