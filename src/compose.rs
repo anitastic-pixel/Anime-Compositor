@@ -2309,6 +2309,7 @@ fn resolve_rest(
         };
         fill_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_echoes(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
+        fill_wide_time(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_stats(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_stabilizer(&mut effects, project, root, comp, layer, at, quality, pre, float, cache, log);
         fill_wire(&mut effects, project, root, comp, layer, at, quality, cache, log);
@@ -3295,6 +3296,60 @@ fn fill_maps(
     }
 }
 
+/// D-520: each switched-on CC Wide Time's frames, the holder's drawing through its masks at every
+/// frame from `backward_steps` before to `forward_steps` after, averaged at `size`. With native
+/// motion blur `off`, the compositions inside are drawn with their blur switched off, on a project
+/// copy and with no cache, so no frame drawn that way is remembered for the real one.
+#[allow(clippy::too_many_arguments)]
+fn fill_wide_time(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    size: (usize, usize),
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        let crate::effects::Effect::CcWideTime { forward_steps, backward_steps, native_motion_blur, picture } = &mut instance.effect else {
+            continue;
+        };
+        let unblurred = (native_motion_blur == "off" && project.compositions.iter().any(|c| c.id != comp.id && c.motion_blur.enabled)).then(|| {
+            let mut copy = project.clone();
+            for c in copy.compositions.iter_mut().filter(|c| c.id != comp.id) {
+                c.motion_blur.enabled = false;
+            }
+            copy
+        });
+        let mut none = CelCache::none();
+        let (project, cache) = match &unblurred {
+            Some(copy) => (copy, &mut none),
+            None => (project, &mut *cache),
+        };
+        let drawing = bare(holder, true);
+        let mut inside = FrameLog::new(usize::MAX);
+        let mut fold = crate::layer_fx::EchoFold::new("blend", size);
+        for at in frame - backward_steps.floor() as i32..=frame + forward_steps.floor() as i32 {
+            let p = resolve_layer(project, comp, &drawing, at, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
+                .map(|r| crate::layer_map::cut(&r.source, (0, 0), size));
+            crate::perf::time(crate::perf::Stage::EffectCcWideTime, || fold.add(p.as_ref(), 1.0));
+        }
+        let mut said = Vec::new();
+        for d in inside.finish() {
+            if !said.contains(&d.id) {
+                said.push(d.id);
+                log.record(frame, holder.name.clone(), d);
+            }
+        }
+        let done = crate::perf::time(crate::perf::Stage::EffectCcWideTime, || fold.finish());
+        *picture = Some(crate::layer_map::Map(std::sync::Arc::new(done)));
+    }
+}
+
+/// D-195: each switched-on Echo's copies, the holder's drawing through its masks at the frames
 /// D-195: each switched-on Echo's copies, the holder's drawing through its masks at the frames
 /// its settings name, put together at `size`. What drawing them logged belongs to this frame,
 /// once for each kind.

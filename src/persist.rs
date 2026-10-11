@@ -2224,6 +2224,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("decay".into(), num(*decay));
             params.insert("operator".into(), J::from(operator.as_str()));
         }
+        Effect::CcWideTime { forward_steps, backward_steps, native_motion_blur, .. } => {
+            params.insert("forward_steps".into(), num(*forward_steps));
+            params.insert("backward_steps".into(), num(*backward_steps));
+            params.insert("native_motion_blur".into(), J::from(native_motion_blur.as_str()));
+        }
         Effect::PosterizeTime { frame_rate } => {
             params.insert("frame_rate".into(), num(*frame_rate));
         }
@@ -4909,6 +4914,7 @@ fn parse_effect(
         crate::effects::DISPLACEMENT_MAP,
         crate::effects::GRADIENT_WIPE,
         crate::effects::ECHO,
+        crate::effects::CC_WIDE_TIME,
         crate::effects::POSTERIZE_TIME,
         crate::effects::CHANGE_TO_COLOR,
         crate::effects::CORNER_PIN,
@@ -5742,6 +5748,12 @@ fn parse_effect(
             intensity: effect_number(params, "intensity", &at)?,
             decay: effect_number(params, "decay", &at)?,
             operator: effect_word(params, "operator", &at)?,
+            picture: None,
+        }),
+        crate::effects::CC_WIDE_TIME => Some(crate::effects::Effect::CcWideTime {
+            forward_steps: effect_number(params, "forward_steps", &at)?,
+            backward_steps: effect_number(params, "backward_steps", &at)?,
+            native_motion_blur: effect_word(params, "native_motion_blur", &at)?,
             picture: None,
         }),
         crate::effects::POSTERIZE_TIME => Some(crate::effects::Effect::PosterizeTime {

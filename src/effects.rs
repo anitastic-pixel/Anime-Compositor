@@ -1232,6 +1232,15 @@ pub enum Effect {
     /// D-196: `frame_rate`, 0.1 to 99 frames a second. Compose takes the layer's content at the
     /// frame it holds (`crate::compose::posterized`); its own step in the stack changes nothing.
     PosterizeTime { frame_rate: f64 },
+    /// D-520: `forward_steps` and `backward_steps`, 0 to 100 frames, each taken whole below; and
+    /// `native_motion_blur`, `off` or `on`. `picture` is not a setting and is never saved: compose
+    /// draws the averaged frames into it for each frame.
+    CcWideTime {
+        forward_steps: f64,
+        backward_steps: f64,
+        native_motion_blur: String,
+        picture: Option<crate::layer_map::Map>,
+    },
     /// D-197: `from` and `to`, `#rrggbb`; `change`, `hue`, `hue_lightness`, `hue_saturation` or
     /// `hue_lightness_saturation`, what of `to` is taken; `change_by`, `setting` or
     /// `transforming`; the three tolerances and `softness`, 0 to 100; `view_matte`, `off` or `on`.
@@ -2814,6 +2823,7 @@ pub const COMPOUND_BLUR: &str = "core.compound_blur";
 pub const DISPLACEMENT_MAP: &str = "core.displacement_map";
 pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
 pub const ECHO: &str = "core.echo";
+pub const CC_WIDE_TIME: &str = "core.cc_wide_time";
 pub const POSTERIZE_TIME: &str = "core.posterize_time";
 pub const CHANGE_TO_COLOR: &str = "core.change_to_color";
 pub const CORNER_PIN: &str = "core.corner_pin";
@@ -4735,6 +4745,10 @@ impl Effect {
                 ("intensity", vec![intensity], 0.0, 1.0),
                 ("decay", vec![decay], 0.0, 1.0),
             ],
+            Effect::CcWideTime { forward_steps, backward_steps, .. } => vec![
+                ("forward_steps", vec![forward_steps], 0.0, 100.0),
+                ("backward_steps", vec![backward_steps], 0.0, 100.0),
+            ],
             Effect::PosterizeTime { frame_rate } => vec![("frame_rate", vec![frame_rate], 0.1, 99.0)],
             Effect::ChangeToColor {
                 hue_tolerance,
@@ -5579,6 +5593,7 @@ impl Effect {
             Effect::DisplacementMap { .. } => "Displacement Map",
             Effect::GradientWipe { .. } => "Gradient Wipe",
             Effect::Echo { .. } => "Echo",
+            Effect::CcWideTime { .. } => "CC Wide Time",
             Effect::PosterizeTime { .. } => "Posterize Time",
             Effect::ChangeToColor { .. } => "Change to Color",
             Effect::CornerPin { .. } => "Corner Pin",
@@ -5779,6 +5794,7 @@ impl Effect {
             Effect::DisplacementMap { .. } => DISPLACEMENT_MAP,
             Effect::GradientWipe { .. } => GRADIENT_WIPE,
             Effect::Echo { .. } => ECHO,
+            Effect::CcWideTime { .. } => CC_WIDE_TIME,
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
             Effect::CornerPin { .. } => CORNER_PIN,
@@ -7450,6 +7466,9 @@ impl Effect {
             Effect::Echo { operator, .. } if !crate::layer_fx::ECHO_OPERATORS.contains(&operator.as_str()) => Some(format!(
                 "Echo's operator is \"add\", \"maximum\", \"minimum\", \"screen\", \"composite_in_back\", \
                  \"composite_in_front\" or \"blend\", and this is \"{operator}\"."
+            )),
+            Effect::CcWideTime { native_motion_blur, .. } if !["off", "on"].contains(&native_motion_blur.as_str()) => Some(format!(
+                "CC Wide Time's native motion blur is \"off\" or \"on\", and this is \"{native_motion_blur}\"."
             )),
             Effect::RadialWipe { wipe, .. }
                 if !["clockwise", "counterclockwise", "both"].contains(&wipe.as_str()) =>
@@ -10178,6 +10197,14 @@ pub(crate) fn apply_stack_at(
             Effect::Echo { picture, .. } => {
                 if let Some(picture) = picture {
                     crate::perf::time(crate::perf::Stage::EffectEcho, || {
+                        crate::layer_fx::lay(source, &picture.0, (ox, oy))
+                    })
+                }
+            }
+            // D-520: the frames compose averaged, laid as Echo's are.
+            Effect::CcWideTime { picture, .. } => {
+                if let Some(picture) = picture {
+                    crate::perf::time(crate::perf::Stage::EffectCcWideTime, || {
                         crate::layer_fx::lay(source, &picture.0, (ox, oy))
                     })
                 }

@@ -9316,6 +9316,7 @@ const EFFECT_NAMES = {
   'core.displacement_map': 'Displacement Map',
   'core.gradient_wipe': 'Gradient Wipe',
   'core.echo': 'Echo',
+  'core.cc_wide_time': 'CC Wide Time',
   'core.posterize_time': 'Posterize Time',
   'core.change_to_color': 'Change to Color',
   'core.corner_pin': 'Corner Pin',
@@ -9469,7 +9470,7 @@ const EFFECT_GROUPS = [
     'core.posterize', 'core.threshold', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon']],
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight']],
-  ['Time', ['core.echo', 'core.posterize_time', 'core.moment_map']],
+  ['Time', ['core.echo', 'core.cc_wide_time', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key']],
   ['Text', ['core.text_animator']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
@@ -9539,6 +9540,7 @@ const EFFECT_SEARCH = {
   'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction chromatic prism water spectrum rainbow colour color fringe',
   'core.gradient_wipe': 'gradient wipe reveal transition dissolve luma matte map layer',
   'core.echo': 'echo time trail trails ghost ghosting onion skin smear afterimage frames',
+  'core.cc_wide_time': 'cc wide time temporal blur smear average frames motion blur forward backward steps before after timelapse staccato cycore',
   'core.posterize_time': 'posterize time twos threes on twos stepped frame rate choppy limited animation hold',
   'core.change_to_color': 'change to color colour replace recolor recolour swap costume palette hue shift',
   'core.corner_pin': 'corner pin perspective four corners screen sign billboard poster distort pin skew keystone',
@@ -9751,6 +9753,7 @@ const EFFECT_ABOUT = {
   'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition; different colour amounts part the colours, as light through water or glass.',
   'core.gradient_wipe': 'Wipes the layer away from the darkest parts of another layer of the composition to the brightest.',
   'core.echo': 'Lays copies of the layer from earlier or later frames over it, each fainter than the last: a trail.',
+  'core.cc_wide_time': 'Averages the layer over a span of frames, Backward Steps before the present one and Forward Steps after, every frame counted the same: a smearing blur for anything moving over a still background. It reads the layer as drawn, so effects meant to be smeared go inside a precomposition. Native Motion Blur Off draws the compositions inside without their own motion blur.',
   'core.posterize_time': 'Holds the layer\'s drawing and effects for several frames at a time, as if drawn at a lower frame rate: on twos, on threes.',
   'core.change_to_color': 'Turns one colour into another, with the shades painted in it, and leaves the rest alone.',
   'core.corner_pin': 'Pins the layer\'s four corners anywhere and stretches it between them in perspective.',
@@ -10401,6 +10404,9 @@ const EFFECT_PARAMS = {
     ['intensity', 'Starting Intensity', 1, 0.01, '0 to 1, how strong the present frame is'],
     ['decay', 'Decay', 1, 0.01, '0 to 1, each echo this much of the one before']],
   // D-196.
+  // D-520, in CycoreFX's order.
+  'core.cc_wide_time': [['forward_steps', 'Forward Steps', 1, 1, 'whole frames after the present one, 0 to 100'],
+    ['backward_steps', 'Backward Steps', 1, 1, 'whole frames before the present one, 0 to 100']],
   'core.posterize_time': [['frame_rate', 'Frame Rate', 1, 1, 'frames a second, 0.1 to 99; 12 in a composition of 24 is on twos, 8 on threes']],
   // D-197.
   'core.change_to_color': [['hue_tolerance', 'Hue Tolerance', 1, 1, '0 to 100, how far round the colour wheel changes whole'],
@@ -11668,6 +11674,10 @@ const EFFECT_WORDS = {
     layers: [['layer', 'Gradient Layer', 'map_layer']],
     choices: [['fit', 'Gradient Placement', [['stretch', 'Stretch Gradient to Fit'], ['center', 'Center Gradient'], ['tile', 'Tile Gradient']]],
       ['invert', 'Invert Gradient', [['off', 'Off'], ['on', 'On']]]],
+  },
+  // D-520.
+  'core.cc_wide_time': {
+    choices: [['native_motion_blur', 'Native Motion Blur', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-195, After Effects' own words.
   'core.echo': {
