@@ -9444,6 +9444,7 @@ const EFFECT_NAMES = {
   'core.depth_of_field': 'Depth of Field',
   'core.fog_3d': 'Fog 3D',
   'core.identifier': 'IDentifier',
+  'core.numbers': 'Numbers',
   'core.text_animator': 'Text Animator',
   'core.stretch_levels': 'Stretch Levels',
   'core.stretch_contrast': 'Stretch Contrast',
@@ -9495,7 +9496,7 @@ const EFFECT_GROUPS = [
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight']],
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key', 'core.cryptomatte', 'core.depth_of_field', 'core.fog_3d', 'core.identifier']],
-  ['Text', ['core.text_animator']],
+  ['Text', ['core.text_animator', 'core.numbers']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.push_iris', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
@@ -9683,6 +9684,7 @@ const EFFECT_SEARCH = {
   'core.moment_map': 'moment map time displacement displace slit scan warp delay offset ripple map brightness frames',
   'core.pass_extract': 'pass extract 3d channel extract extractor depth z zdepth normals object material id named channel exr render pass aov channel black white point',
   'core.id_key': 'id key id matte object id material id index indexob indexma exr render pass aov cut out isolate',
+  'core.numbers': 'numbers number counter count digits timecode time code clock date day hexadecimal hex random text type font leading zeros',
   'core.identifier': 'identifier id object id material id index indexob indexma exr render pass proexr fnord colors colours luma matte alpha matte raw preview',
   'core.fog_3d': 'fog 3d mist haze atmosphere depth distance z zdepth exr render pass scattering density gradient background',
   'core.depth_of_field': 'depth of field dof focus defocus focal plane bokeh lens blur z zdepth exr render pass camera',
@@ -9921,6 +9923,7 @@ const EFFECT_ABOUT = {
   'core.moment_map': 'Takes each pixel from a different moment of the layer, earlier where a map is dark and later where it is bright.',
   'core.pass_extract': 'Shows the depth, the normals, the object or material ids, or any named channel a 3D render saved in the layer\'s EXR file, as a picture.',
   'core.id_key': 'Keeps only the object or material with one id, read from the ids a 3D render saved in the layer\'s EXR file.',
+  'core.numbers': 'Draws a number on the layer: a value you can key to count, the layer\'s timecode, a time of day, a date or a hexadecimal number, in a font, filled, stroked or both, or a random number each frame.',
   'core.identifier': 'Shows the object or material ids a 3D render saved in the layer\'s EXR file: each id in its own colour, one id as a black and white or alpha matte, or the raw numbers as greys.',
   'core.fog_3d': 'Lays fog over a 3D render that thickens with distance, read from the depth saved in the layer\'s EXR file; a grey layer can thin it in places.',
   'core.depth_of_field': 'Blurs a 3D render more the further each part lies from the distance in focus, read from the depth saved in the layer\'s EXR file.',
@@ -10317,6 +10320,12 @@ const EFFECT_PARAMS = {
     ['scattering_density', 'Scattering Density', 1, 1, '0 to 100; higher thickens the fog sooner after its start', '', 50],
     ['layer_contribution', 'Layer Contribution', 1, 1, '0 to 100, how much the gradient layer thins the fog', '', 100]],
   // D-522: no numbers; its settings are words.
+  'core.numbers': [['value', 'Value/Offset/Random Max', 1, 1, '-30,000 to 30,000: the number; seconds added to a timecode; hours for a time; days after 1 January 1995 for a date; with Random Values, the most', '', 0],
+    ['decimal_places', 'Decimal Places', 1, 1, '0 to 10, for the two number types', '', 0],
+    ['position', 'Position', 2, 1, '% of the width and height, where the words\' baseline meets their aligned end'],
+    ['stroke_width', 'Stroke Width', 1, 0.5, '0 to 500 pixels, outside the letters', '', 3],
+    ['size', 'Size', 1, 1, '1 to 2000 pixels', '', 64],
+    ['tracking', 'Tracking', 1, 1, 'thousandths of the size added after each character, -1000 to 1000', '', 0]],
   'core.identifier': [['id', 'ID', 1, 1, 'the id the mattes keep, 0 to 1,000,000; an id within a half of it counts', '', 0]],
   'core.cryptomatte': [],
   // D-350, After Effects' own words: the animator's properties, then its Range Selector.
@@ -11747,6 +11756,19 @@ const EFFECT_WORDS = {
     choices: [['aux_channel', 'Aux. Channel', [['object_id', 'Object ID'], ['material_id', 'Material ID']]],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
   },
+  // D-526: After Effects' words; the type travels as number_type.
+  'core.numbers': {
+    choices: [['number_type', 'Type', [['number', 'Number'], ['number_leading_zeros', 'Number [Leading Zeros]'], ['timecode_30', 'Timecode [30]'],
+        ['timecode_25', 'Timecode [25]'], ['timecode_24', 'Timecode [24]'], ['time', 'Time'], ['numerical_date', 'Numerical Date'],
+        ['short_date', 'Short Date'], ['long_date', 'Long Date'], ['hexadecimal', 'Hexadecimal']]],
+      ['random_values', 'Random Values', [['off', 'Off'], ['on', 'On']]],
+      ['display', 'Display Options', [['fill_only', 'Fill Only'], ['stroke_only', 'Stroke Only'], ['fill_over_stroke', 'Fill Over Stroke'], ['stroke_over_fill', 'Stroke Over Fill']]],
+      ['proportional_spacing', 'Proportional Spacing', [['on', 'On'], ['off', 'Off']]],
+      ['composite_on_original', 'Composite On Original', [['on', 'On'], ['off', 'Off']]],
+      ['alignment', 'Alignment', [['center', 'Center'], ['left', 'Left'], ['right', 'Right']]]],
+    colours: [['fill_color', 'Fill Color'], ['stroke_color', 'Stroke Color']],
+    texts: [['font', 'Font', 'MPLUSRounded1c-Regular.ttf', null, 'The font file\'s name, as a text layer names one, such as arial.ttf']],
+  },
   // D-525.
   'core.identifier': {
     choices: [['aux_channel', 'Channel', [['object_id', 'Object ID'], ['material_id', 'Material ID']]],
@@ -12845,6 +12867,8 @@ function effectRow(layer, fx, at, of) {
   for (const [w, , sent] of spec.layers || []) words[sent] = fx.parameters[w] ?? '';
   // D-522: Cryptomatte's layer name travels as crypto_layer.
   if (fxKey(fx) === 'core.cryptomatte') words.crypto_layer = fx.parameters.layer ?? '';
+  // D-526: Numbers' type travels as number_type.
+  if (fxKey(fx) === 'core.numbers') words.number_type = fx.parameters.type ?? 'number';
   // D-353: the falloff travels with every change, so the glow stays physical.
   if (fxKey(fx) === 'core.glow.physical') {
     words.falloff = 'physical';

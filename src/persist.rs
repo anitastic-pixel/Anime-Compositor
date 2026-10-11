@@ -3935,6 +3935,24 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("feather".into(), num(*feather));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        // D-526: the clock is worked each frame and never saved.
+        Effect::Numbers { kind, random_values, value, decimal_places, position, display, fill_color, stroke_color, stroke_width, size, tracking, proportional_spacing, composite_on_original, font, alignment, .. } => {
+            params.insert("type".into(), J::from(kind.as_str()));
+            params.insert("random_values".into(), J::from(random_values.as_str()));
+            params.insert("value".into(), num(*value));
+            params.insert("decimal_places".into(), num(*decimal_places));
+            params.insert("position".into(), J::Array(position.iter().map(|c| num(*c)).collect()));
+            params.insert("display".into(), J::from(display.as_str()));
+            params.insert("fill_color".into(), J::from(fill_color.as_str()));
+            params.insert("stroke_color".into(), J::from(stroke_color.as_str()));
+            params.insert("stroke_width".into(), num(*stroke_width));
+            params.insert("size".into(), num(*size));
+            params.insert("tracking".into(), num(*tracking));
+            params.insert("proportional_spacing".into(), J::from(proportional_spacing.as_str()));
+            params.insert("composite_on_original".into(), J::from(composite_on_original.as_str()));
+            params.insert("font".into(), J::from(font.as_str()));
+            params.insert("alignment".into(), J::from(alignment.as_str()));
+        }
         // D-525: the ids read for a frame are never saved.
         Effect::Identifier { aux_channel, id, output, .. } => {
             params.insert("aux_channel".into(), J::from(aux_channel.as_str()));
@@ -5337,6 +5355,7 @@ fn parse_effect(
         crate::effects::DEPTH_KEY,
         crate::effects::ID_KEY,
         crate::effects::IDENTIFIER,
+        crate::effects::NUMBERS,
         crate::effects::CRYPTOMATTE,
         crate::effects::DEPTH_OF_FIELD,
         crate::effects::FOG_3D,
@@ -7353,6 +7372,24 @@ fn parse_effect(
             feather: effect_number(params, "feather", &at)?,
             invert: effect_word(params, "invert", &at)?,
             channels: None,
+        }),
+        crate::effects::NUMBERS => Some(crate::effects::Effect::Numbers {
+            kind: effect_word(params, "type", &at)?,
+            random_values: effect_word(params, "random_values", &at)?,
+            value: effect_number(params, "value", &at)?,
+            decimal_places: effect_number(params, "decimal_places", &at)?,
+            position: effect_array(params, "position", "two numbers, x then y", &at)?,
+            display: effect_word(params, "display", &at)?,
+            fill_color: effect_word(params, "fill_color", &at)?.to_ascii_lowercase(),
+            stroke_color: effect_word(params, "stroke_color", &at)?.to_ascii_lowercase(),
+            stroke_width: effect_number(params, "stroke_width", &at)?,
+            size: effect_number(params, "size", &at)?,
+            tracking: effect_number(params, "tracking", &at)?,
+            proportional_spacing: effect_word(params, "proportional_spacing", &at)?,
+            composite_on_original: effect_word(params, "composite_on_original", &at)?,
+            font: effect_word(params, "font", &at)?,
+            alignment: effect_word(params, "alignment", &at)?,
+            clock: [0.0; 2],
         }),
         crate::effects::IDENTIFIER => Some(crate::effects::Effect::Identifier {
             aux_channel: effect_word(params, "aux_channel", &at)?,

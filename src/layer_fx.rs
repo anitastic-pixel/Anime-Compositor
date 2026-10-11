@@ -7876,6 +7876,158 @@ pub(crate) fn id_key(
     keep_by(source, &matte, origin);
 }
 
+/// D-526: what Numbers shows now, rules 1 and 2 of `tools/numbers_reference.py`: with random
+/// values the value is r x (the value, or 30,000 when it is 0), r D-119's number for the layer's
+/// frame; a number with its places (a minus dropped when every digit is 0), padded to five whole
+/// digits with leading zeros; a non-drop timecode of the layer's time plus the value in seconds
+/// (or the random value alone); a 24-hour time of the value in hours; a date the value's days
+/// after 1 January 1995; a hexadecimal number of the value x 65,536.
+pub(crate) fn numbers_shown(e: &crate::effects::Effect) -> String {
+    let crate::effects::Effect::Numbers { kind, random_values, value, decimal_places, clock: [t, fps], .. } = e else {
+        return String::new();
+    };
+    let random = random_values == "on";
+    let mut v = *value;
+    if random {
+        let frame = (t * fps).round() as i64;
+        let r = (crate::grade::unit(crate::grade::mix(0x4E55_4D42), 0, 0, frame, 0) + 1.0) / 2.0;
+        v = r * if v != 0.0 { v } else { 30000.0 };
+    }
+    let d = decimal_places.floor().max(0.0) as usize;
+    let unsigned = |s: String| match s.strip_prefix('-') {
+        Some(rest) if !rest.bytes().any(|b| (b'1'..=b'9').contains(&b)) => rest.to_string(),
+        _ => s,
+    };
+    match kind.as_str() {
+        "number" => unsigned(format!("{v:.d$}")),
+        "number_leading_zeros" => {
+            let s = format!("{:.d$}", v.abs());
+            let (whole, rest) = s.split_at(s.find('.').unwrap_or(s.len()));
+            let s = format!("{whole:0>5}{rest}");
+            if v < 0.0 { unsigned(format!("-{s}")) } else { s }
+        }
+        "timecode_30" | "timecode_25" | "timecode_24" => {
+            let rate: i64 = kind[9..].parse().unwrap_or(30);
+            let when = if random { v } else { t + v };
+            let f = (when.abs() * rate as f64 + 1e-6).floor() as i64;
+            let s = format!("{:02}:{:02}:{:02}:{:02}", f / (rate * 3600), f / (rate * 60) % 60, f / rate % 60, f % rate);
+            if when < 0.0 && f > 0 { format!("-{s}") } else { s }
+        }
+        "time" => {
+            let m = ((v * 60.0 + 1e-6).floor() as i64).rem_euclid(1440);
+            format!("{:02}:{:02}", m / 60, m % 60)
+        }
+        "numerical_date" | "short_date" | "long_date" => {
+            const MONTHS: [&str; 12] =
+                ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const DAYS: [&str; 7] = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            // Days from 1 January 1970, which was a Thursday; 1 January 1995 is day 9131.
+            let z = (v + 1e-6).floor() as i64 + 9131;
+            let (y, m, day) = civil_from_days(z);
+            let month = MONTHS[m as usize - 1];
+            match kind.as_str() {
+                "numerical_date" => format!("{m}/{day}/{y}"),
+                "short_date" => format!("{} {day}, {y}", &month[..3]),
+                _ => format!("{}, {month} {day}, {y}", DAYS[(z + 4).rem_euclid(7) as usize]),
+            }
+        }
+        _ => {
+            let h = (v.abs() * 65536.0 + 1e-6).floor() as i64;
+            format!("{}{h:X}", if v < 0.0 && h > 0 { "-" } else { "" })
+        }
+    }
+}
+
+/// The proleptic Gregorian date `z` days after 1 January 1970: year, month 1 to 12, day 1 to 31
+/// (Howard Hinnant's civil-from-days).
+fn civil_from_days(z: i64) -> (i64, i64, i64) {
+    let z = z + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    (yoe + era * 400 + i64::from(m <= 2), m, day)
+}
+
+/// D-526: whether Numbers can draw in `font` on this computer.
+pub(crate) fn numbers_font_ok(font: &str) -> bool {
+    crate::text::advance(font, 1.0, '0').is_some()
+}
+
+/// D-526: Numbers' words, rules 3 to 5 of `tools/numbers_reference.py`, as a picture `w` by `h`
+/// with the drawing at `origin`: the fill picture F (D-263's text, or with proportional spacing
+/// off each character its own text centred in a cell as wide as the font's widest digit), and
+/// the stroke picture S (the same in the stroke colour with D-264's stroke round it), laid as
+/// the display says: F; F over S; S x (1 - F's alpha); or that over F. `None` when the font
+/// cannot be drawn.
+pub(crate) fn numbers_picture(e: &crate::effects::Effect, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
+    let crate::effects::Effect::Numbers {
+        position, display, fill_color, stroke_color, stroke_width, size, tracking, proportional_spacing, font, alignment, ..
+    } = e
+    else {
+        return None;
+    };
+    let s = numbers_shown(e);
+    let (px, py) = crate::effects::radial_center(*position, (w, h), origin);
+    let align = crate::text::Align::parse(alignment)?;
+    let linear = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
+    let base = crate::text::Text { font: font.clone(), size: *size, ..Default::default() };
+    let texts = |color: [f64; 3], stroke: Option<crate::text::Stroke>| -> Option<Vec<crate::text::Text>> {
+        if proportional_spacing == "on" {
+            return Some(vec![crate::text::Text { text: s.clone(), color, at: [px, py], align, tracking: *tracking, stroke, ..base.clone() }]);
+        }
+        let cell = ('0'..='9').map(|c| crate::text::advance(font, *size, c)).try_fold(0.0f64, |m, a| a.map(|a| m.max(a)))?;
+        let a = *tracking / 1000.0 * *size;
+        let n = s.chars().count() as f64;
+        let line = n * cell + (n - 1.0) * a;
+        let x0 = match align {
+            crate::text::Align::Center => px - line / 2.0,
+            crate::text::Align::Right => px - line,
+            _ => px,
+        };
+        s.chars()
+            .enumerate()
+            .map(|(i, ch)| {
+                let x = x0 + i as f64 * (cell + a) + (cell - crate::text::advance(font, *size, ch)?) / 2.0;
+                Some(crate::text::Text { text: ch.to_string(), color, at: [x, py], stroke: stroke.clone(), ..base.clone() })
+            })
+            .collect()
+    };
+    let draw = |texts: Vec<crate::text::Text>| -> Option<WorkingBuffer> {
+        let mut out = WorkingBuffer::transparent(w, h);
+        for t in &texts {
+            crate::composite::over(&crate::text::draw(t, w, h)?, &mut out).ok()?;
+        }
+        Some(out)
+    };
+    let fill = draw(texts(linear(fill_color), None)?)?;
+    if *stroke_width <= 0.0 || display == "fill_only" {
+        return Some(if display == "stroke_only" { WorkingBuffer::transparent(w, h) } else { fill });
+    }
+    let stroke_color = linear(stroke_color);
+    let mut stroke = draw(texts(stroke_color, Some(crate::text::Stroke { color: stroke_color, width: *stroke_width }))?)?;
+    if display == "fill_over_stroke" {
+        crate::composite::over(&fill, &mut stroke).ok()?;
+        return Some(stroke);
+    }
+    // The ring outside the letters: the stroke where the fill does not cover.
+    stroke.data_mut().par_chunks_exact_mut(4).zip(fill.data().par_chunks_exact(4)).for_each(|(px, f)| {
+        let k = 1.0 - f[3] as f64;
+        for v in px.iter_mut() {
+            *v = (*v as f64 * k) as f32;
+        }
+    });
+    if display == "stroke_only" {
+        return Some(stroke);
+    }
+    let mut out = fill;
+    crate::composite::over(&stroke, &mut out).ok()?;
+    Some(out)
+}
+
 /// D-525: IDentifier's picture at the ids' size from each id v. "colors": the nearest whole id
 /// k = floor(v + 0.5) at hue (k x 0.618033988749895) mod 1, HSV (hue, 0.7, 0.9) taken to linear;
 /// "luma_matte": white where |v - id| < 0.5, else black; "raw": the grey clamp(v / 255, 0, 1)

@@ -2877,6 +2877,34 @@ pub enum Effect {
         invert: String,
         channels: Option<crate::layer_map::Map>,
     },
+    /// D-526: Numbers, after After Effects' Numbers (Text): a number, timecode, time, date or
+    /// hexadecimal number drawn as words ([`crate::layer_fx::numbers_picture`]). `kind` (saved as
+    /// "type"), one of [`NUMBERS_TYPES`]; `random_values`, "off" or "on"; `value`, -30,000 to
+    /// 30,000; `decimal_places`, 0 to 10, its floor; `position`, per cent of the drawing, -1000 to
+    /// 1000; `display`, one of [`NUMBERS_DISPLAYS`]; `fill_color` and `stroke_color`, `#rrggbb`;
+    /// `stroke_width`, 0 to 500 pixels; `size`, 1 to 2000 pixels; `tracking`, thousandths of the
+    /// size, -1000 to 1000; `proportional_spacing` and `composite_on_original`, "off" or "on";
+    /// `font`, a font file's name as a text layer's (D-263); `alignment`, "left", "center" or
+    /// "right". `clock` is not a setting and is never saved: compose fills it each frame with the
+    /// layer's key time from its in point, in seconds, and the frames a second.
+    Numbers {
+        kind: String,
+        random_values: String,
+        value: f64,
+        decimal_places: f64,
+        position: [f64; 2],
+        display: String,
+        fill_color: String,
+        stroke_color: String,
+        stroke_width: f64,
+        size: f64,
+        tracking: f64,
+        proportional_spacing: String,
+        composite_on_original: String,
+        font: String,
+        alignment: String,
+        clock: [f64; 2],
+    },
     /// D-525: IDentifier, after After Effects' IDentifier (3D Channel, fnord's ProEXR): the
     /// object or material ids in the layer's EXR file shown as a picture
     /// ([`crate::layer_fx::identifier`]). `aux_channel`, "object_id" or "material_id"; `id`, 0 to
@@ -3608,6 +3636,22 @@ pub const CRYPTOMATTE: &str = "core.cryptomatte";
 pub const DEPTH_OF_FIELD: &str = "core.depth_of_field";
 pub const FOG_3D: &str = "core.fog_3d";
 pub const IDENTIFIER: &str = "core.identifier";
+pub const NUMBERS: &str = "core.numbers";
+/// D-526: what Numbers shows.
+pub const NUMBERS_TYPES: [&str; 10] = [
+    "number",
+    "number_leading_zeros",
+    "timecode_30",
+    "timecode_25",
+    "timecode_24",
+    "time",
+    "numerical_date",
+    "short_date",
+    "long_date",
+    "hexadecimal",
+];
+/// D-526: how Numbers draws its fill and stroke.
+pub const NUMBERS_DISPLAYS: [&str; 4] = ["fill_only", "stroke_only", "fill_over_stroke", "stroke_over_fill"];
 /// D-525: IDentifier's outputs.
 pub const IDENT_OUTPUTS: [&str; 4] = ["colors", "luma_matte", "alpha_matte", "raw"];
 /// D-522: Cryptomatte's outputs.
@@ -5158,6 +5202,14 @@ impl Effect {
                 ("depth", vec![depth], -1e6, 1e6),
                 ("feather", vec![feather], 0.0, 1e6),
             ],
+            Effect::Numbers { value, decimal_places, position, stroke_width, size, tracking, .. } => vec![
+                ("value", vec![value], -30000.0, 30000.0),
+                ("decimal_places", vec![decimal_places], 0.0, 10.0),
+                ("position", position.iter_mut().collect(), -1000.0, 1000.0),
+                ("stroke_width", vec![stroke_width], 0.0, 500.0),
+                ("size", vec![size], 1.0, 2000.0),
+                ("tracking", vec![tracking], -1000.0, 1000.0),
+            ],
             Effect::Identifier { id, .. } => vec![("id", vec![id], 0.0, 1e6)],
             Effect::IdKey { id, feather, .. } => vec![
                 ("id", vec![id], 0.0, 1e6),
@@ -6021,6 +6073,11 @@ impl Effect {
                 }
             }
             // D-442: every distance; the masks are found at the draft's size.
+            // D-526: the words' size, held at a pixel as a text's least, and the stroke.
+            Effect::Numbers { size, stroke_width, .. } => {
+                *size = scale(*size).max(1.0);
+                *stroke_width = scale(*stroke_width);
+            }
             Effect::Scribble { edge_width, stroke_width, spacing, spacing_variation, path_overlap, path_overlap_variation, .. } => {
                 for d in [edge_width, stroke_width, spacing, spacing_variation, path_overlap, path_overlap_variation] {
                     *d = scale(*d);
@@ -6415,6 +6472,7 @@ impl Effect {
             Effect::DepthKey { .. } => "Depth Key",
             Effect::IdKey { .. } => "ID Key",
             Effect::Identifier { .. } => "IDentifier",
+            Effect::Numbers { .. } => "Numbers",
             Effect::Cryptomatte { .. } => "Cryptomatte",
             Effect::DepthOfField { .. } => "Depth of Field",
             Effect::Fog3d { .. } => "Fog 3D",
@@ -6639,6 +6697,7 @@ impl Effect {
             Effect::DepthKey { .. } => DEPTH_KEY,
             Effect::IdKey { .. } => ID_KEY,
             Effect::Identifier { .. } => IDENTIFIER,
+            Effect::Numbers { .. } => NUMBERS,
             Effect::Cryptomatte { .. } => CRYPTOMATTE,
             Effect::DepthOfField { .. } => DEPTH_OF_FIELD,
             Effect::Fog3d { .. } => FOG_3D,
@@ -7598,6 +7657,7 @@ impl Effect {
             Effect::Cryptomatte { output, .. } if !CRYPTO_OUTPUTS.contains(&output.as_str()) => Some(format!(
                 "Cryptomatte's output is \"colors\", \"matte\" or \"keyed\", and this is \"{output}\"."
             )),
+            e @ Effect::Numbers { .. } => numbers_fault(e),
             Effect::Identifier { aux_channel, .. } if !["object_id", "material_id"].contains(&aux_channel.as_str()) => Some(format!(
                 "IDentifier's channel is \"object_id\" or \"material_id\", and this is \"{aux_channel}\"."
             )),
@@ -8421,6 +8481,25 @@ impl Effect {
 /// and the mid-point's place.
 pub(crate) fn vegas_fade(start: f64, mid: f64, position: f64, end: f64) -> [f64; 4] {
     [start, (start + position * (end - start) + mid).clamp(0.0, 1.0), end, position]
+}
+
+/// D-526: the first of Numbers' words this build cannot use, as a sentence.
+fn numbers_fault(e: &Effect) -> Option<String> {
+    let Effect::Numbers { kind, random_values, display, fill_color, stroke_color, proportional_spacing, composite_on_original, font, alignment, .. } = e else {
+        return None;
+    };
+    let one_of = |what: &str, v: &str, all: &[&str]| {
+        (!all.contains(&v)).then(|| format!("Numbers's {what} is one of {}, and this is \"{v}\".", all.join(", ")))
+    };
+    one_of("type", kind, &NUMBERS_TYPES)
+        .or_else(|| one_of("random values", random_values, &["off", "on"]))
+        .or_else(|| one_of("display", display, &NUMBERS_DISPLAYS))
+        .or_else(|| one_of("proportional spacing", proportional_spacing, &["off", "on"]))
+        .or_else(|| one_of("composite on original", composite_on_original, &["off", "on"]))
+        .or_else(|| one_of("alignment", alignment, &["left", "center", "right"]))
+        .or_else(|| hex_fault("Numbers", "fill colour", fill_color))
+        .or_else(|| hex_fault("Numbers", "stroke colour", stroke_color))
+        .or_else(|| crate::text::Text { font: font.clone(), ..Default::default() }.problem().map(|p| format!("Numbers needs {p}.")))
 }
 
 fn hex_fault(effect: &str, what: &str, c: &str) -> Option<String> {
@@ -11312,6 +11391,19 @@ pub(crate) fn apply_stack_at(
                         crate::layer_fx::id_key(source, &pass.0, (ox, oy), *id, *feather, invert == "on")
                     })
                 }
+            }
+            // D-526: the words drawn over the layer, or alone; with a font this computer does not
+            // have, nothing (compose said so).
+            e @ Effect::Numbers { composite_on_original, .. } => {
+                crate::perf::time(crate::perf::Stage::EffectNumbers, || {
+                    if let Some(words) = crate::layer_fx::numbers_picture(e, (source.width(), source.height()), (ox, oy)) {
+                        if composite_on_original == "on" {
+                            crate::composite::over(&words, source).expect("the words are drawn at the layer's size");
+                        } else {
+                            *source = words;
+                        }
+                    }
+                })
             }
             // D-525: the ids shown, as Pass Extract shows a pass; the alpha matte keeps the drawing
             // as ID Key does.

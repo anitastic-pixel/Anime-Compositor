@@ -8702,6 +8702,18 @@ fn spotlight(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(f32(out.x), f32(out.y), f32(out.z), f32(out.w)));
 }
 
+// D-526: a picture (`other`, as big as `input`) laid over the drawing when k[0] is 1, alone when 0.
+@compute @workgroup_size(16, 16)
+fn over(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(input);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let q = textureLoad(other, id.xy, 0);
+    let p = textureLoad(input, id.xy, 0) * f32(k[0]);
+    textureStore(output, id.xy, q + p * (1.0 - q.w));
+}
+
 // B-228, layer_fx::pass_extract: the pass (`other`) lying on the drawing at (F.ox, F.oy), alpha 1
 // on it and 0 outside it; k black, white, invert, clamp.
 @compute @workgroup_size(16, 16)
@@ -9676,6 +9688,8 @@ struct FxPasses {
     haze: Pass,
     /// D-524.
     fog: Pass,
+    /// D-526.
+    over: Pass,
     /// D-501.
     dmatte: Pass,
     /// D-506.
@@ -10357,6 +10371,7 @@ impl Gpu {
                 gwipe: pass("gwipe", &[0, 1, 2, 3, 4]),
                 haze: pass("haze", &[0, 1, 2, 3, 4]),
                 fog: pass("fog", &[0, 1, 2, 3, 4]),
+                over: pass("over", &[0, 1, 2, 3, 4]),
                 dmatte: pass("dmatte", &[0, 1, 2, 3, 4]),
                 glasses: pass("glasses", &[0, 1, 2, 3, 4]),
                 spotlight: pass("spotlight", &[0, 1, 2, 3]),
@@ -13992,6 +14007,16 @@ impl Gpu {
                 let out = self.scratch("B-229 key", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.idkey, p, Some(still), Some(&out), Some(&k), Some(&matte), none, tiles(w, h));
+                (out, (w, h))
+            }
+            // D-526: the words drawn on the processor, as compose leaves Numbers only a font it can
+            // draw in, laid over the drawing or alone.
+            e @ E::Numbers { composite_on_original, .. } => {
+                let words = crate::layer_fx::numbers_picture(e, (w, h), (ox, oy)).expect("compose leaves Numbers a font it can draw in");
+                let words = self.map_texture(&words);
+                let out = self.scratch("D-526 numbers", w, h);
+                let k = [(composite_on_original == "on") as u8 as f64];
+                self.fx_step(steps, &passes.over, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&words), none, tiles(w, h));
                 (out, (w, h))
             }
             // D-525: the picture worked on the processor at the ids' size, then laid on as
