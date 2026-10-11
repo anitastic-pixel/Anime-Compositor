@@ -9441,6 +9441,7 @@ const EFFECT_NAMES = {
   'core.depth_key': 'Depth Key',
   'core.id_key': 'ID Key',
   'core.cryptomatte': 'Cryptomatte',
+  'core.depth_of_field': 'Depth of Field',
   'core.text_animator': 'Text Animator',
   'core.stretch_levels': 'Stretch Levels',
   'core.stretch_contrast': 'Stretch Contrast',
@@ -9491,7 +9492,7 @@ const EFFECT_GROUPS = [
   ['Camera & Lens', ['core.vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight']],
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
-  ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key', 'core.cryptomatte']],
+  ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key', 'core.cryptomatte', 'core.depth_of_field']],
   ['Text', ['core.text_animator']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.push_iris', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
@@ -9680,6 +9681,7 @@ const EFFECT_SEARCH = {
   'core.moment_map': 'moment map time displacement displace slit scan warp delay offset ripple map brightness frames',
   'core.pass_extract': 'pass extract 3d channel extract extractor depth z zdepth normals object material id named channel exr render pass aov channel black white point',
   'core.id_key': 'id key id matte object id material id index indexob indexma exr render pass aov cut out isolate',
+  'core.depth_of_field': 'depth of field dof focus defocus focal plane bokeh lens blur z zdepth exr render pass camera',
   'core.cryptomatte': 'cryptomatte crypto matte object material asset name names pick select isolate cut out exr render pass aov psyop blender redshift arnold vray coverage soft edge keyed colors',
   'core.text_animator': 'text animator animate range selector per character letter word typewriter type on fade in by character wave tracking offset',
   'core.stretch_levels': 'stretch levels auto levels automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
@@ -9915,6 +9917,7 @@ const EFFECT_ABOUT = {
   'core.moment_map': 'Takes each pixel from a different moment of the layer, earlier where a map is dark and later where it is bright.',
   'core.pass_extract': 'Shows the depth, the normals, the object or material ids, or any named channel a 3D render saved in the layer\'s EXR file, as a picture.',
   'core.id_key': 'Keeps only the object or material with one id, read from the ids a 3D render saved in the layer\'s EXR file.',
+  'core.depth_of_field': 'Blurs a 3D render more the further each part lies from the distance in focus, read from the depth saved in the layer\'s EXR file.',
   'core.cryptomatte': 'Picks objects or materials by name from the Cryptomatte a 3D render saved in the layer\'s EXR file, with soft edges: shows every object in its own colour, the matte of the ones named, or the picture kept only where they are.',
   'core.text_animator': 'Moves, scales, turns, fades or recolours the letters of a text layer one by one, as far as a range selector picks them: a typewriter, a fade by character, a wave.',
   'core.stretch_levels': 'Stretches each colour channel of the layer to its own darkest and lightest, read from the whole picture, so a dull picture fills the range and a cast lessens.',
@@ -10298,6 +10301,10 @@ const EFFECT_PARAMS = {
   // D-349, After Effects' own words.
   'core.id_key': [['id', 'ID Selection', 1, 1, 'the id kept, 0 to 1,000,000; an id within a half of it counts'],
     ['feather', 'Feather', 1, 0.1, 'pixels of soft edge, 0 to 100']],
+  'core.depth_of_field': [['focal_plane', 'Focal Plane', 1, 0.1, 'the depth in focus, in the file\'s own depth units', '', 0],
+    ['maximum_radius', 'Maximum Radius', 1, 0.5, 'pixels of blur for what is furthest out of focus, 0 to 200', '', 10],
+    ['focal_plane_thickness', 'Focal Plane Thickness', 1, 0.1, 'the depths around the plane also in focus, in the same units', '', 0],
+    ['focal_bias', 'Focal Bias', 1, 1, '0 to 100; higher leaves focus faster, 0 keeps all sharp', '', 50]],
   // D-522: no numbers; its settings are words.
   'core.cryptomatte': [],
   // D-350, After Effects' own words: the animator's properties, then its Range Selector.

@@ -1084,6 +1084,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::IdKey { .. }
                 // D-522: Cryptomatte (the matte is read on the processor).
                 | crate::effects::Effect::Cryptomatte { .. }
+                // D-523: Depth of Field, drawn as its Lens Blur.
+                | crate::effects::Effect::DepthOfField { .. }
                 | crate::effects::Effect::LineWidth { .. }
                 // D-353: Soft Physical Glow; D-544: Halation, on its engine.
                 | crate::effects::Effect::SoftGlow { .. }
@@ -1524,7 +1526,8 @@ fn card_effect(
                 E::PassExtract { channels, .. }
                 | E::DepthKey { channels, .. }
                 | E::IdKey { channels, .. }
-                | E::Cryptomatte { channels, .. } => channels.is_none(),
+                | E::Cryptomatte { channels, .. }
+                | E::DepthOfField { channels, .. } => channels.is_none(),
                 E::LineSmooth { softness, .. } => *softness <= 0.0,
                 E::LineWidth { width, .. } => *width == 0.0,
                 // B-235: with no path the layer is left as it is.
@@ -3854,7 +3857,7 @@ fn fill_passes(
                 },
                 channels,
             ),
-            Effect::DepthKey { channels, .. } => (Pass::Depth, channels),
+            Effect::DepthKey { channels, .. } | Effect::DepthOfField { channels, .. } => (Pass::Depth, channels),
             Effect::IdKey { aux_channel, channels, .. } => {
                 (if aux_channel == "material_id" { Pass::MaterialId } else { Pass::ObjectId }, channels)
             }
@@ -3909,6 +3912,15 @@ fn fill_passes(
                 None
             }
         };
+        // D-523: the depth turned into the fraction out of focus, in all four numbers, as
+        // Depth of Field's Lens Blur reads its map.
+        if let Effect::DepthOfField { focal_plane, focal_plane_thickness, focal_bias, channels: Some(m), .. } = &mut instance.effect {
+            let mut f = WorkingBuffer::transparent(m.0.width(), m.0.height());
+            for (o, z) in f.data_mut().chunks_exact_mut(4).zip(m.0.data().chunks_exact(4)) {
+                o.fill(crate::effects::out_of_focus(z[0] as f64, *focal_plane, *focal_plane_thickness, *focal_bias) as f32);
+            }
+            *m = crate::layer_map::Map(std::sync::Arc::new(f));
+        }
     }
 }
 

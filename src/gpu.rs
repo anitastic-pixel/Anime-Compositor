@@ -11257,7 +11257,9 @@ impl Gpu {
         // D-445: Turbulent Noise is Fractal Noise's pass.
         // D-454: a Match Grain is drawn as the Add Grain it lays; compose left out one that lays none.
         let turned = crate::effects::turbulent_fractal(&f.instance.effect)
-            .or_else(|| crate::grade::matched_grain(&f.instance.effect));
+            .or_else(|| crate::grade::matched_grain(&f.instance.effect))
+            // D-523: Depth of Field as its Lens Blur.
+            .or_else(|| crate::effects::depth_lens(&f.instance.effect));
         match turned.as_ref().unwrap_or(&f.instance.effect) {
             E::MatchGrain { .. } => (still.clone(), (w, h)),
             E::RemoveGrain { passes: count, mode, unsharp_amount, unsharp_radius, .. } => {
@@ -14187,7 +14189,7 @@ impl Gpu {
                     }
                     OnCard::Fx(f) => {
                         let bytes = match &f.instance.effect {
-                            crate::effects::Effect::LensBlur { .. } => ((w + 1) * h * 32) as u64,
+                            crate::effects::Effect::LensBlur { .. } | crate::effects::Effect::DepthOfField { .. } => ((w + 1) * h * 32) as u64,
                             crate::effects::Effect::Outline { width, .. } => {
                                 let n = width.ceil() as usize;
                                 ((w + 2 * n) * (h + 2 * n) * 4) as u64

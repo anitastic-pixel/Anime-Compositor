@@ -2888,6 +2888,19 @@ pub enum Effect {
         output: String,
         channels: Option<crate::layer_map::Map>,
     },
+    /// D-523: Depth of Field, after After Effects' Depth of Field (3D Channel): the layer blurred
+    /// by D-359's Lens Blur, each pixel as far as it is out of focus by the depth in the layer's
+    /// EXR file ([`out_of_focus`], [`depth_lens`]). `focal_plane`, -1,000,000 to 1,000,000, and
+    /// `focal_plane_thickness`, 0 to 1,000,000, in the depth's own units; `maximum_radius`, 0 to
+    /// 200 pixels; `focal_bias`, 0 to 100. `channels` is not a setting and is never saved:
+    /// compose reads the depth for each frame and leaves in it the fraction out of focus.
+    DepthOfField {
+        focal_plane: f64,
+        maximum_radius: f64,
+        focal_plane_thickness: f64,
+        focal_bias: f64,
+        channels: Option<crate::layer_map::Map>,
+    },
     /// D-350: Text Animator, after After Effects' text animators and their Range Selector: the
     /// letters of a text layer moved, scaled, turned, faded, recoloured and spaced one by one, each
     /// by how much the selector picks it (`text::lay_out`, document 21). `position`, x then y,
@@ -3562,6 +3575,7 @@ pub const PASS_EXTRACT: &str = "core.pass_extract";
 pub const DEPTH_KEY: &str = "core.depth_key";
 pub const ID_KEY: &str = "core.id_key";
 pub const CRYPTOMATTE: &str = "core.cryptomatte";
+pub const DEPTH_OF_FIELD: &str = "core.depth_of_field";
 /// D-522: Cryptomatte's outputs.
 pub const CRYPTO_OUTPUTS: [&str; 3] = ["colors", "matte", "keyed"];
 pub const TEXT_ANIMATOR: &str = "core.text_animator";
@@ -5114,6 +5128,12 @@ impl Effect {
                 ("id", vec![id], 0.0, 1e6),
                 ("feather", vec![feather], 0.0, 100.0),
             ],
+            Effect::DepthOfField { focal_plane, maximum_radius, focal_plane_thickness, focal_bias, .. } => vec![
+                ("focal_plane", vec![focal_plane], -1e6, 1e6),
+                ("maximum_radius", vec![maximum_radius], 0.0, 200.0),
+                ("focal_plane_thickness", vec![focal_plane_thickness], 0.0, 1e6),
+                ("focal_bias", vec![focal_bias], 0.0, 100.0),
+            ],
             Effect::AutoTone { temporal_smoothing, black_clip, white_clip, .. } => vec![
                 ("temporal_smoothing", vec![temporal_smoothing], 0.0, 10.0),
                 ("black_clip", vec![black_clip], 0.0, 10.0),
@@ -6085,6 +6105,8 @@ impl Effect {
                 *height = scale(*height);
             }
             Effect::IdKey { feather, .. } => *feather = scale(*feather),
+            // D-523: the radius in pixels, as Lens Blur's; the distances are the depth's.
+            Effect::DepthOfField { maximum_radius, .. } => *maximum_radius = scale(*maximum_radius),
             Effect::DisplacementMap { max_horizontal, max_vertical, .. } => {
                 *max_horizontal = scale(*max_horizontal);
                 *max_vertical = scale(*max_vertical);
@@ -6351,6 +6373,7 @@ impl Effect {
             Effect::DepthKey { .. } => "Depth Key",
             Effect::IdKey { .. } => "ID Key",
             Effect::Cryptomatte { .. } => "Cryptomatte",
+            Effect::DepthOfField { .. } => "Depth of Field",
             Effect::TextAnimator { .. } => "Text Animator",
             Effect::AutoTone { kind: "levels", .. } => "Stretch Levels",
             Effect::AutoTone { kind: "contrast", .. } => "Stretch Contrast",
@@ -6572,6 +6595,7 @@ impl Effect {
             Effect::DepthKey { .. } => DEPTH_KEY,
             Effect::IdKey { .. } => ID_KEY,
             Effect::Cryptomatte { .. } => CRYPTOMATTE,
+            Effect::DepthOfField { .. } => DEPTH_OF_FIELD,
             Effect::TextAnimator { .. } => TEXT_ANIMATOR,
             Effect::AutoTone { kind: "levels", .. } => STRETCH_LEVELS,
             Effect::AutoTone { kind: "contrast", .. } => STRETCH_CONTRAST,
@@ -8901,7 +8925,8 @@ pub(crate) fn apply_stack_at(
             encode(source, true, top);
         }
         // D-445: Turbulent Noise is drawn as the Fractal Noise it names.
-        let turned = turbulent_fractal(&instance.effect);
+        // D-523: Depth of Field as the Lens Blur it draws with its map.
+        let turned = turbulent_fractal(&instance.effect).or_else(|| depth_lens(&instance.effect));
         match turned.as_ref().unwrap_or(&instance.effect) {
             Effect::Unsupported { .. } => {
                 report(at, instance, Bypassed::NotImplemented);
@@ -11226,6 +11251,9 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
+            // D-523: with no depth read, the layer is left as it is (with one, it is drawn above
+            // as a Lens Blur).
+            Effect::DepthOfField { .. } => {}
             // D-522: the colours or the matte compose read, as Pass Extract shows a pass; keyed,
             // the drawing times the matte.
             Effect::Cryptomatte { output, channels, .. } => {
@@ -11502,6 +11530,61 @@ pub(crate) fn turbulent_fractal(e: &Effect) -> Option<Effect> {
         frame: 0,
         float: *float,
     })
+}
+
+/// D-523: how far out of focus a pixel at depth `z` is, 0 (sharp) to 1 (Maximum Radius): with
+/// beyond = max(0, |z - focal| - thickness / 2) and k = bias / 50, 0 where beyond or k is 0, 1
+/// where k beyond reaches |z|, k beyond / |z| between (a thin lens's blur circle at bias 50).
+pub(crate) fn out_of_focus(z: f64, focal: f64, thickness: f64, bias: f64) -> f64 {
+    let beyond = ((z - focal).abs() - thickness / 2.0).max(0.0);
+    let k = bias / 50.0;
+    if beyond == 0.0 || k == 0.0 {
+        0.0
+    } else if k * beyond >= z.abs() {
+        1.0
+    } else {
+        k * beyond / z.abs()
+    }
+}
+
+/// D-523: a Depth of Field whose depth compose read as the D-359 Lens Blur it is: a circle of
+/// `maximum_radius`, no highlights, edges repeated, the fractions out of focus its blur map read
+/// by their alpha with focal distance 0; anything else is not one.
+pub(crate) fn depth_lens(e: &Effect) -> Option<Effect> {
+    let Effect::DepthOfField { maximum_radius, channels: Some(map), .. } = e else {
+        return None;
+    };
+    Some(Effect::LensBlur {
+        radius: *maximum_radius,
+        edges: "repeat".to_string(),
+        iris: "circle".to_string(),
+        roundness: 0.0,
+        rotation: 0.0,
+        aspect: 1.0,
+        highlight_gain: 0.0,
+        highlight_threshold: 100.0,
+        layer: serde_json::Value::String(String::new()),
+        fit: "stretch".to_string(),
+        channel: "alpha".to_string(),
+        focal_distance: 0.0,
+        invert: "off".to_string(),
+        map: Some(map.clone()),
+    })
+}
+
+#[cfg(test)]
+mod depth_of_field_tests {
+    #[test]
+    fn out_of_focus_follows_the_rule() {
+        use super::out_of_focus as f;
+        assert_eq!(f(12.0, 6.0, 0.0, 50.0), 0.5);
+        assert_eq!(f(2.0, 6.0, 0.0, 50.0), 1.0);
+        assert_eq!(f(6.0, 6.0, 0.0, 50.0), 0.0);
+        assert_eq!(f(7.0, 6.0, 4.0, 100.0), 0.0);
+        assert_eq!(f(0.0, 6.0, 0.0, 50.0), 1.0);
+        assert_eq!(f(-12.0, -6.0, 0.0, 50.0), 0.5);
+        assert_eq!(f(12.0, 6.0, 0.0, 0.0), 0.0);
+    }
 }
 
 /// D-299: Fractal Noise's type, noise type and cycle as the noise reads them.

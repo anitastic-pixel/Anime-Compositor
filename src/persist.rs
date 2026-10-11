@@ -3941,6 +3941,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("selection".into(), J::from(selection.as_str()));
             params.insert("output".into(), J::from(output.as_str()));
         }
+        // D-523: the fractions read for a frame are never saved.
+        Effect::DepthOfField { focal_plane, maximum_radius, focal_plane_thickness, focal_bias, .. } => {
+            params.insert("focal_plane".into(), num(*focal_plane));
+            params.insert("maximum_radius".into(), num(*maximum_radius));
+            params.insert("focal_plane_thickness".into(), num(*focal_plane_thickness));
+            params.insert("focal_bias".into(), num(*focal_bias));
+        }
         Effect::TextAnimator {
             position, scale, rotation, opacity, fill, color, tracking, start, end, offset, amount, based_on, shape, smoothness, ease_high, ease_low,
         } => {
@@ -5303,6 +5310,7 @@ fn parse_effect(
         crate::effects::DEPTH_KEY,
         crate::effects::ID_KEY,
         crate::effects::CRYPTOMATTE,
+        crate::effects::DEPTH_OF_FIELD,
         crate::effects::TEXT_ANIMATOR,
         crate::effects::STRETCH_LEVELS,
         crate::effects::STRETCH_CONTRAST,
@@ -7330,6 +7338,13 @@ fn parse_effect(
             layer: effect_word(params, "layer", &at)?,
             selection: effect_word(params, "selection", &at)?,
             output: effect_word(params, "output", &at)?,
+            channels: None,
+        }),
+        crate::effects::DEPTH_OF_FIELD => Some(crate::effects::Effect::DepthOfField {
+            focal_plane: effect_number(params, "focal_plane", &at)?,
+            maximum_radius: effect_number(params, "maximum_radius", &at)?,
+            focal_plane_thickness: effect_number(params, "focal_plane_thickness", &at)?,
+            focal_bias: effect_number(params, "focal_bias", &at)?,
             channels: None,
         }),
         // D-350: the words kept as written, so one outside the contract is refused by name.
