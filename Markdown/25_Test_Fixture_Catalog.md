@@ -210964,3 +210964,67 @@ FX-EXA-019 (`fx_exa_019.json`): Five names: nothing changes, the warning every f
 FX-EXA-020 (`fx_exa_020.json`): UnMult written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-EXA-021 (`fx_exa_021.json`): UnMult written "On" (the words are lower case). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### CC Environment (D-531)
+
+CC Environment (`core.cc_environment`), after CycoreFX's CC Environment (B-411), the rule ours. Each case is a project of one composition 16 by 10, five frames, in `Fixtures/cc_environment/`: the environment layers `sphere` (16 by 8), `probe` (8 by 8), `cross` (6 by 8) and `late` (the sphere from frame 4), every one switched off, and on top of them the layer `holder`, showing the drawing `shot` (red, blue and cream squares, the bottom right 4 by 3 clear), with the effect. `tools/cc_environment_reference.py` works the expected frames, `Fixtures/cc_environment/expected_cc_environment.json`, tolerance 2e-5, every case checked clear of a cross face's tie and the probe's point straight behind; the rule is in document 21. The playtest's pictures are drawn on D-506's street picture.
+
+FX-ENV-001 (`fx_env_001.json`): As added: no environment named, so nothing changes.
+
+FX-ENV-002 (`fx_env_002.json`): The spherical map, field of view 90: the middle of the map ahead, red rising to the right, green to the bottom; the clear corner stays clear.
+
+FX-ENV-003 (`fx_env_003.json`): FX-ENV-002 with Filter Environment off: one ray a pixel.
+
+FX-ENV-004 (`fx_env_004.json`): Horizontal Pan 90: the view turned a quarter right, so the map three quarters across lies ahead.
+
+FX-ENV-005 (`fx_env_005.json`): Horizontal Pan 180: looking behind, across the map's left and right edges, which meet with no seam.
+
+FX-ENV-006 (`fx_env_006.json`): Tilt 45: looking up, the map's upper rows.
+
+FX-ENV-007 (`fx_env_007.json`): Tilt 80: looking almost straight up, near the map's top row, which the rows are held to.
+
+FX-ENV-008 (`fx_env_008.json`): Roll 30: the view turned about the way it looks, the map's rows tilted.
+
+FX-ENV-009 (`fx_env_009.json`): Field of view 20, as added otherwise: a narrow view, the map enlarged.
+
+FX-ENV-010 (`fx_env_010.json`): The probe, field of view 90: the probe's middle ahead.
+
+FX-ENV-011 (`fx_env_011.json`): The probe, Horizontal Pan 150: looking nearly behind, toward the rim.
+
+FX-ENV-012 (`fx_env_012.json`): The probe with Filter Environment off: the filter is for Spherical only, so this is FX-ENV-010.
+
+FX-ENV-013 (`fx_env_013.json`): The vertical cross, field of view 90: the green face ahead, edges of red, blue, white and brown at the sides, top and bottom.
+
+FX-ENV-014 (`fx_env_014.json`): The cross, Horizontal Pan 90: the blue face ahead.
+
+FX-ENV-015 (`fx_env_015.json`): The cross, Tilt 90: the white face ahead.
+
+FX-ENV-016 (`fx_env_016.json`): The cross, Horizontal Pan 180: the yellow face behind, its darker pixel turned to the upper left, as the cross keeps it upside down.
+
+FX-ENV-017 (`fx_env_017.json`): Horizontal Pan keyed from 0 at frame 0 to 360 at frame 4: frame 0 is FX-ENV-002, frame 2 is FX-ENV-005, and frame 4 FX-ENV-002 again.
+
+FX-ENV-018 (`fx_env_018.json`): FX-ENV-002 on the holder moved 3 right and 1 down: the same, moved.
+
+FX-ENV-019 (`fx_env_019.json`): An environment layer that is not in the composition, `gone`: nothing changes, and the warning every frame. Warning `EFFECT_LAYER_MISSING` on opening.
+
+FX-ENV-020 (`fx_env_020.json`): The environment with its in point at frame 4: before it there is no picture, so the layer is clear; at frame 4 it is FX-ENV-002.
+
+FX-ENV-021 (`fx_env_021.json`): Field of view 150 with Roll -20 and Tilt -30: wide, looking down, the map's lower rows.
+
+FX-ENV-022 (`fx_env_022.json`): Mapping "Spherical": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-ENV-023 (`fx_env_023.json`): Filter Environment written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-ENV-024 (`fx_env_024.json`): Horizontal Pan 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-ENV-025 (`fx_env_025.json`): Tilt -3601, below -3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-ENV-026 (`fx_env_026.json`): Roll 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-ENV-027 (`fx_env_027.json`): Field of view 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-ENV-028 (`fx_env_028.json`): Field of view 180, above 179. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-ENV-029 (`fx_env_029.json`): An environment written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-ENV-030 (`fx_env_030.json`): Field of view keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
