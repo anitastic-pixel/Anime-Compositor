@@ -3323,6 +3323,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("dimensions".into(), J::from(dimensions.as_str()));
             }
         }
+        Effect::GaussianBlurLegacy { blurriness, dimensions } => {
+            params.insert("blurriness".into(), num(*blurriness));
+            if dimensions != "both" || params.contains_key("dimensions") {
+                params.insert("dimensions".into(), J::from(dimensions.as_str()));
+            }
+        }
         Effect::Colorama {
             get_phase,
             layer,
@@ -5594,6 +5600,7 @@ fn parse_effect(
         crate::effects::CHANNEL_BLUR,
         crate::effects::FAST_BOX_BLUR,
         crate::effects::FAST_BLUR_LEGACY,
+        crate::effects::GAUSSIAN_BLUR_LEGACY,
         crate::effects::COLORAMA,
         crate::effects::GLASS,
         crate::effects::VECTOR_BLUR,
@@ -7251,6 +7258,10 @@ fn parse_effect(
         crate::effects::FAST_BLUR_LEGACY => Some(crate::effects::Effect::FastBlurLegacy {
             blurriness: effect_number(params, "blurriness", &at)?,
             edges: effect_edges(params, &at)?,
+            dimensions: effect_word_or(params, "dimensions", &at, "both")?,
+        }),
+        crate::effects::GAUSSIAN_BLUR_LEGACY => Some(crate::effects::Effect::GaussianBlurLegacy {
+            blurriness: effect_number(params, "blurriness", &at)?,
             dimensions: effect_word_or(params, "dimensions", &at, "both")?,
         }),
         // D-316: the layer is kept as written, as Compound Blur's is. D-381: so is the mask

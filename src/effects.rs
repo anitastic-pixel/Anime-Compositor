@@ -1797,6 +1797,10 @@ pub enum Effect {
     /// [`FAST_BLUR_LEGACY_FACTOR`] times it and 3 iterations; `edges` and `dimensions` as Fast
     /// Box Blur's.
     FastBlurLegacy { blurriness: f64, edges: String, dimensions: String },
+    /// D-472: After Effects' Gaussian Blur (Legacy), a second name over Gaussian Blur's engine in
+    /// Blurriness (D-321, as D-383 and D-394): `blurriness`, 0 to 500, sigma 0.3 times it;
+    /// `dimensions` as Gaussian Blur's; no Repeat Edge Pixels, so its edges are always clear.
+    GaussianBlurLegacy { blurriness: f64, dimensions: String },
     /// D-316: After Effects' Colorama, reduced. `get_phase`, one of [`COLORAMA_PHASES`];
     /// `layer` and `fit`, D-189's layer setting, whose brightness is added to the phase;
     /// `phase_shift`, -3600 to 3600 degrees; `cycle_repetitions`, 0 to 100; `stops`, 2 to 5,
@@ -3732,6 +3736,7 @@ pub const FAST_BLUR_LEGACY: &str = "core.fast_blur_legacy";
 /// [`FAST_BLUR_LEGACY_ITERATIONS`], Fast Blur's fixed three.
 pub const FAST_BLUR_LEGACY_FACTOR: f64 = 0.37;
 pub const FAST_BLUR_LEGACY_ITERATIONS: f64 = 3.0;
+pub const GAUSSIAN_BLUR_LEGACY: &str = "core.gaussian_blur_legacy";
 pub const COLORAMA: &str = "core.colorama";
 /// D-316: what Colorama reads a pixel's phase from.
 pub const COLORAMA_PHASES: [&str; 6] = ["intensity", "luminance", "red", "green", "blue", "alpha"];
@@ -5032,6 +5037,7 @@ impl Effect {
                 ("iterations", vec![iterations], 1.0, 50.0),
             ],
             Effect::FastBlurLegacy { blurriness, .. } => vec![("blurriness", vec![blurriness], 0.0, 1000.0)],
+            Effect::GaussianBlurLegacy { blurriness, .. } => vec![("blurriness", vec![blurriness], 0.0, 500.0)],
             Effect::Colorama {
                 phase_shift,
                 cycle_repetitions,
@@ -6421,6 +6427,7 @@ impl Effect {
             }
             Effect::FastBoxBlur { radius, .. } => *radius = scale(*radius),
             Effect::FastBlurLegacy { blurriness, .. } => *blurriness = scale(*blurriness),
+            Effect::GaussianBlurLegacy { blurriness, .. } => *blurriness = scale(*blurriness),
             Effect::CrossBlur { radius_x, radius_y, .. } => {
                 *radius_x = scale(*radius_x);
                 *radius_y = scale(*radius_y);
@@ -6998,6 +7005,7 @@ impl Effect {
             Effect::ChannelBlur { .. } => "Channel Blur",
             Effect::FastBoxBlur { .. } => "Fast Box Blur",
             Effect::FastBlurLegacy { .. } => "Fast Blur (Legacy)",
+            Effect::GaussianBlurLegacy { .. } => "Gaussian Blur (Legacy)",
             Effect::Colorama { .. } => "Colorama",
             Effect::Glass { .. } => "CC Glass",
             Effect::VectorBlur { .. } => "CC Vector Blur",
@@ -7239,6 +7247,7 @@ impl Effect {
             Effect::ChannelBlur { .. } => CHANNEL_BLUR,
             Effect::FastBoxBlur { .. } => FAST_BOX_BLUR,
             Effect::FastBlurLegacy { .. } => FAST_BLUR_LEGACY,
+            Effect::GaussianBlurLegacy { .. } => GAUSSIAN_BLUR_LEGACY,
             Effect::Colorama { .. } => COLORAMA,
             Effect::Glass { .. } => GLASS,
             Effect::VectorBlur { .. } => VECTOR_BLUR,
@@ -7387,6 +7396,11 @@ impl Effect {
             // D-471: Fast Box Blur's at its radius.
             Effect::FastBlurLegacy { blurriness, edges, .. } if edges != "repeat" => {
                 box_reach(FAST_BLUR_LEGACY_FACTOR * blurriness, FAST_BLUR_LEGACY_ITERATIONS)
+            }
+            // D-472: Gaussian Blur's in Blurriness, its edges always clear.
+            Effect::GaussianBlurLegacy { blurriness, .. } => {
+                let (sigma, long) = blur_reach(*blurriness, "blurriness");
+                reach_radius(sigma, long)
             }
             // D-360: the longer box's reach.
             Effect::CrossBlur { radius_x, radius_y, edges, .. } if edges != "repeat" => {
@@ -8518,6 +8532,11 @@ impl Effect {
                     format!("{name}'s dimensions are \"both\", \"horizontal\" or \"vertical\", and this is \"{dimensions}\".")
                 })
             }),
+            Effect::GaussianBlurLegacy { dimensions, .. } => {
+                (!["both", "horizontal", "vertical"].contains(&dimensions.as_str())).then(|| {
+                    format!("{name}'s dimensions are \"both\", \"horizontal\" or \"vertical\", and this is \"{dimensions}\".")
+                })
+            }
             Effect::ShiftChannels {
                 take_alpha,
                 take_red,
@@ -9835,6 +9854,7 @@ pub(crate) fn apply_stack_at(
                     | Effect::ReduceInterlaceFlicker { .. }
                     | Effect::FastBoxBlur { .. }
                     | Effect::FastBlurLegacy { .. }
+                    | Effect::GaussianBlurLegacy { .. }
                     | Effect::DirectionalBlur { .. }
                     | Effect::RadialBlur { .. }
                     | Effect::CrossBlur { .. }
@@ -11323,6 +11343,15 @@ pub(crate) fn apply_stack_at(
                         blur_axes(source, &taps, axes)
                     }
                 });
+                ox += r;
+                oy += r;
+            }
+            // D-472: Gaussian Blur's engine and stage in Blurriness, its edges clear.
+            Effect::GaussianBlurLegacy { blurriness, dimensions } => {
+                let axes = (dimensions != "vertical", dimensions != "horizontal");
+                let (sigma, long) = blur_reach(*blurriness, "blurriness");
+                let taps = reach_weights(sigma, long);
+                let r = crate::perf::time(crate::perf::Stage::EffectBlur, || blur_axes(source, &taps, axes));
                 ox += r;
                 oy += r;
             }

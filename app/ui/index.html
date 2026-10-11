@@ -9448,6 +9448,7 @@ const EFFECT_NAMES = {
   'core.channel_blur': 'Channel Blur',
   'core.fast_box_blur': 'Fast Box Blur',
   'core.fast_blur_legacy': 'Fast Blur (Legacy)',
+  'core.gaussian_blur_legacy': 'Gaussian Blur (Legacy)',
   'core.colorama': 'Colorama',
   'core.glass': 'CC Glass',
   'core.vector_blur': 'CC Vector Blur',
@@ -9481,7 +9482,7 @@ Object.defineProperty(EFFECT_NAMES, 'core.light_rays.old', { value: 'Light Rays'
 const EFFECT_GROUPS = [
   ['Blur & Sharpen', ['core.gaussian_blur', 'core.directional_blur', 'core.radial_blur',
     'core.lens_blur', 'core.compound_blur', 'core.selective_color_blur', 'core.sharpen',
-    'core.diffusion', 'core.median', 'core.dust_scratches', 'core.remove_grain', 'core.deband', 'core.smart_blur', 'core.channel_blur', 'core.fast_box_blur', 'core.fast_blur_legacy', 'core.vector_blur',
+    'core.diffusion', 'core.median', 'core.dust_scratches', 'core.remove_grain', 'core.deband', 'core.smart_blur', 'core.channel_blur', 'core.fast_box_blur', 'core.fast_blur_legacy', 'core.gaussian_blur_legacy', 'core.vector_blur',
     'core.bilateral_blur', 'core.cross_blur', 'core.spin_zoom_blur', 'core.fast_zoom_blur']],
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.levels_individual', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
@@ -9706,6 +9707,7 @@ const EFFECT_SEARCH = {
   'core.channel_blur': 'channel blur red green blue alpha separate per channel soften',
   'core.fast_box_blur': 'fast box blur radius iterations soften quick',
   'core.fast_blur_legacy': 'fast blur legacy obsolete old blurriness soften quick repeat edge pixels',
+  'core.gaussian_blur_legacy': 'gaussian blur legacy obsolete old blurriness soften',
   'core.colorama': 'colorama colour color cycle ring palette rainbow psychedelic phase hue map',
   'core.vector_blur': 'cc vector blur smear streak flow swirl brush painterly map slope ridge lightning electric',
   'core.moment_map': 'moment map time displacement displace slit scan warp delay offset ripple map brightness frames',
@@ -9965,6 +9967,7 @@ const EFFECT_ABOUT = {
   'core.channel_blur': 'Blurs red, green, blue and alpha each by its own amount.',
   'core.fast_box_blur': 'A box blur laid on several times, ending hard at radius times iterations.',
   'core.fast_blur_legacy': 'After Effects\' old Fast Blur, kept for old projects: Fast Box Blur laid on three times, its Blurriness 100 a radius of 37.',
+  'core.gaussian_blur_legacy': 'After Effects\' old Gaussian Blur, kept for old projects: Gaussian Blur in Blurriness, its edges always fading out.',
   'core.colorama': 'Repaints each brightness with a colour from a ring of colours that can turn and repeat.',
   'core.vector_blur': 'Smears the picture along the slopes of a brightness map, its own or another layer\'s.',
   'core.moment_map': 'Takes each pixel from a different moment of the layer, earlier where a map is dark and later where it is bright.',
@@ -10383,6 +10386,8 @@ const EFFECT_PARAMS = {
     ['iterations', 'Iterations', 1, 1, '1 to 50, how many times the box is laid on']],
   // D-471, After Effects' own name.
   'core.fast_blur_legacy': [['blurriness', 'Blurriness', 1, 0.1, '0 to 1000; Fast Box Blur\'s radius is 0.37 times it']],
+  // D-472, After Effects' own name.
+  'core.gaussian_blur_legacy': [['blurriness', 'Blurriness', 1, 0.1, '0 to 500, as Gaussian Blur\'s Blurriness']],
   // D-348, After Effects' own words.
   'core.pass_extract': [['black_point', 'Black Point', 1, 0.1, 'the pass\'s value drawn black, -1,000,000 to 1,000,000'],
     ['white_point', 'White Point', 1, 0.1, 'the pass\'s value drawn white; equal to Black Point, a cut']],
@@ -12081,6 +12086,8 @@ const EFFECT_WORDS = {
     ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]], EDGES] },
   'core.fast_blur_legacy': { choices: [['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],
     ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]], EDGES] },
+  'core.gaussian_blur_legacy': { choices: [['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],
+    ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]]] },
   // D-305: After Effects' own words and order.
   'core.shift_channels': {
     choices: [['take_alpha', 'Take Alpha From', [['alpha', 'Alpha'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['luminance', 'Luminance'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'], ['full', 'Full'], ['half', 'Half'], ['off', 'Off']]], ['take_red', 'Take Red From', [['alpha', 'Alpha'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['luminance', 'Luminance'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'], ['full', 'Full'], ['half', 'Half'], ['off', 'Off']]],

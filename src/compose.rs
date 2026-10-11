@@ -874,6 +874,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Bloom { .. }
                 | crate::effects::Effect::DirectionalBlur { .. }
                 | crate::effects::Effect::GaussianBlur { .. }
+                | crate::effects::Effect::GaussianBlurLegacy { .. }
                 | crate::effects::Effect::Glow { .. }
                 | crate::effects::Effect::Curves { .. }
                 | crate::effects::Effect::Levels { .. }
@@ -1243,6 +1244,7 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // D-303: the card blurs along both axes only.
         // ponytail: give the card's two passes a still one if a one-way blur is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::GaussianBlur { dimensions, .. } if dimensions != "both")
+        && !matches!(&instance.effect, crate::effects::Effect::GaussianBlurLegacy { dimensions, .. } if dimensions != "both")
         // D-302: the card bends the colour only, so a Curves whose alpha curve bends is drawn here.
         // ponytail: give the card's grade a fifth curve if one is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::Curves { alpha, .. } if !crate::grade::is_straight(alpha))
@@ -1297,6 +1299,13 @@ fn card_effect(
             *offset = (offset.0 + d.grow(), offset.1 + d.grow());
             render::OnCard::Directional(d)
         }),
+        // D-472: as the Gaussian Blur in Blurriness it is, its edges clear.
+        crate::effects::Effect::GaussianBlurLegacy { blurriness, dimensions } => card_effect(
+            crate::effects::Effect::GaussianBlur { sigma_px: blurriness, edges: "transparent".into(), dimensions, units: "blurriness".into() },
+            instance,
+            size,
+            offset,
+        ),
         // B-50: a sigma too small to reach a neighbour changes nothing, so it is not left either.
         crate::effects::Effect::GaussianBlur { sigma_px, edges, units, .. } => {
             let (sigma, long) = crate::effects::blur_reach(sigma_px, &units);
