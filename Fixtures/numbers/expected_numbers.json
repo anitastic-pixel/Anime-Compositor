@@ -1,0 +1,430 @@
+{
+ "tolerance": 2e-05,
+ "width": 480,
+ "height": 160,
+ "cases": {
+  "FX-NUM-001": {
+   "says": "As added: 0 in white, centred, over the plate.",
+   "project": "fx_num_001.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_001_0.json",
+     "shows": "0"
+    }
+   }
+  },
+  "FX-NUM-002": {
+   "says": "1234.5678 with two places: 1234.57.",
+   "project": "fx_num_002.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_002_0.json",
+     "shows": "1234.57"
+    }
+   }
+  },
+  "FX-NUM-003": {
+   "says": "-12.5 with no places: -12, the tie to even.",
+   "project": "fx_num_003.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_003_0.json",
+     "shows": "-12"
+    }
+   }
+  },
+  "FX-NUM-004": {
+   "says": "-0.004 with two places shows 0.00, its minus dropped.",
+   "project": "fx_num_004.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_004_0.json",
+     "shows": "0.00"
+    }
+   }
+  },
+  "FX-NUM-005": {
+   "says": "Leading zeros, 42.75 with one place: 00042.8.",
+   "project": "fx_num_005.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_005_0.json",
+     "shows": "00042.8"
+    }
+   }
+  },
+  "FX-NUM-006": {
+   "says": "Leading zeros, -7: -00007.",
+   "project": "fx_num_006.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_006_0.json",
+     "shows": "-00007"
+    }
+   }
+  },
+  "FX-NUM-007": {
+   "says": "Decimal places 2.9 is taken down to 2: 3.14.",
+   "project": "fx_num_007.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_007_0.json",
+     "shows": "3.14"
+    }
+   }
+  },
+  "FX-NUM-008": {
+   "says": "Timecode 30 at frames 0 and 50 of a 24-frame composition: 00:00:00:00 and 00:00:02:02.",
+   "project": "fx_num_008.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_008_0.json",
+     "shows": "00:00:00:00"
+    },
+    "50": {
+     "same": "same/fx_num_008_50.json",
+     "shows": "00:00:02:02"
+    }
+   }
+  },
+  "FX-NUM-009": {
+   "says": "Timecode 25 with value 3600: an hour on, 01:00:02:02 at frame 50.",
+   "project": "fx_num_009.json",
+   "frames": {
+    "50": {
+     "same": "same/fx_num_009_50.json",
+     "shows": "01:00:02:02"
+    }
+   }
+  },
+  "FX-NUM-010": {
+   "says": "Timecode 24 on a layer starting at frame 10: 00:00:01:00 at frame 34.",
+   "project": "fx_num_010.json",
+   "frames": {
+    "34": {
+     "same": "same/fx_num_010_34.json",
+     "shows": "00:00:01:00"
+    }
+   }
+  },
+  "FX-NUM-011": {
+   "says": "Timecode 30 with value -1 at frame 12: -00:00:00:15.",
+   "project": "fx_num_011.json",
+   "frames": {
+    "12": {
+     "same": "same/fx_num_011_12.json",
+     "shows": "-00:00:00:15"
+    }
+   }
+  },
+  "FX-NUM-012": {
+   "says": "Time 13.5: 13:30.",
+   "project": "fx_num_012.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_012_0.json",
+     "shows": "13:30"
+    }
+   }
+  },
+  "FX-NUM-013": {
+   "says": "Time 25.25 wraps round the day: 01:15.",
+   "project": "fx_num_013.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_013_0.json",
+     "shows": "01:15"
+    }
+   }
+  },
+  "FX-NUM-014": {
+   "says": "Time -0.5: 23:30.",
+   "project": "fx_num_014.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_014_0.json",
+     "shows": "23:30"
+    }
+   }
+  },
+  "FX-NUM-015": {
+   "says": "Numerical date 0: 1/1/1995.",
+   "project": "fx_num_015.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_015_0.json",
+     "shows": "1/1/1995"
+    }
+   }
+  },
+  "FX-NUM-016": {
+   "says": "Short date 10000: May 19, 2022.",
+   "project": "fx_num_016.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_016_0.json",
+     "shows": "May 19, 2022"
+    }
+   }
+  },
+  "FX-NUM-017": {
+   "says": "Long date 365: Monday, January 1, 1996, left-aligned from 3 per cent.",
+   "project": "fx_num_017.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_017_0.json",
+     "shows": "Monday, January 1, 1996"
+    }
+   }
+  },
+  "FX-NUM-018": {
+   "says": "Long date -1: Saturday, December 31, 1994.",
+   "project": "fx_num_018.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_018_0.json",
+     "shows": "Saturday, December 31, 1994"
+    }
+   }
+  },
+  "FX-NUM-019": {
+   "says": "Hexadecimal 1.5: 18000.",
+   "project": "fx_num_019.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_019_0.json",
+     "shows": "18000"
+    }
+   }
+  },
+  "FX-NUM-020": {
+   "says": "Hexadecimal -0.25: -4000.",
+   "project": "fx_num_020.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_020_0.json",
+     "shows": "-4000"
+    }
+   }
+  },
+  "FX-NUM-021": {
+   "says": "Random values up to 100 with two places, a new number each frame.",
+   "project": "fx_num_021.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_021_0.json",
+     "shows": "21.36"
+    },
+    "1": {
+     "same": "same/fx_num_021_1.json",
+     "shows": "7.37"
+    },
+    "7": {
+     "same": "same/fx_num_021_7.json",
+     "shows": "90.47"
+    }
+   }
+  },
+  "FX-NUM-022": {
+   "says": "Random values with value 0: anywhere up to 30,000.",
+   "project": "fx_num_022.json",
+   "frames": {
+    "3": {
+     "same": "same/fx_num_022_3.json",
+     "shows": "9700"
+    }
+   }
+  },
+  "FX-NUM-023": {
+   "says": "Random timecode 30 up to 60 seconds: a random time, not the layer's.",
+   "project": "fx_num_023.json",
+   "frames": {
+    "5": {
+     "same": "same/fx_num_023_5.json",
+     "shows": "00:00:02:28"
+    }
+   }
+  },
+  "FX-NUM-024": {
+   "says": "A counter: value keyed from 0 at frame 0 to 100 at frame 10, 40 at frame 4 and 100 from frame 10 on.",
+   "project": "fx_num_024.json",
+   "frames": {
+    "4": {
+     "same": "same/fx_num_024_4.json",
+     "shows": "40"
+    },
+    "12": {
+     "same": "same/fx_num_024_12.json",
+     "shows": "100"
+    }
+   }
+  },
+  "FX-NUM-025": {
+   "says": "Stroke only, width 4: the ring outside the letters.",
+   "project": "fx_num_025.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_025_0.json",
+     "shows": "2026"
+    }
+   }
+  },
+  "FX-NUM-026": {
+   "says": "Fill over stroke, width 6.",
+   "project": "fx_num_026.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_026_0.json",
+     "shows": "2026"
+    }
+   }
+  },
+  "FX-NUM-027": {
+   "says": "Stroke over fill, width 6.",
+   "project": "fx_num_027.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_027_0.json",
+     "shows": "2026"
+    }
+   }
+  },
+  "FX-NUM-028": {
+   "says": "Stroke only with width 0: nothing drawn.",
+   "project": "fx_num_028.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_028_0.json",
+     "shows": "2026"
+    }
+   }
+  },
+  "FX-NUM-029": {
+   "says": "Monospaced 1.11 with tracking 100: each character in a digit's cell.",
+   "project": "fx_num_029.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_029_0.json",
+     "shows": "1.11"
+    }
+   }
+  },
+  "FX-NUM-030": {
+   "says": "Monospaced timecode 25, fill over stroke, left-aligned from 5 per cent: the colons in cells as wide as the digits.",
+   "project": "fx_num_030.json",
+   "frames": {
+    "37": {
+     "same": "same/fx_num_030_37.json",
+     "shows": "00:00:01:13"
+    }
+   }
+  },
+  "FX-NUM-031": {
+   "says": "Monospaced, stroke only, right-aligned at 95 per cent.",
+   "project": "fx_num_031.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_031_0.json",
+     "shows": "-3.5"
+    }
+   }
+  },
+  "FX-NUM-032": {
+   "says": "Monospaced, stroke over fill, composite off: the words alone on transparent.",
+   "project": "fx_num_032.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_032_0.json",
+     "shows": "88"
+    }
+   }
+  },
+  "FX-NUM-033": {
+   "says": "Composite off, right-aligned at 90, 70 per cent, size 40, tracking -50.",
+   "project": "fx_num_033.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_033_0.json",
+     "shows": "512"
+    }
+   }
+  },
+  "FX-NUM-034": {
+   "says": "A font this computer does not have: said each frame, nothing drawn, the plate as it was.",
+   "project": "fx_num_034.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_034_0.json",
+     "shows": null
+    }
+   },
+   "frame_warning": "TEXT_FONT_MISSING"
+  },
+  "FX-NUM-040": {
+   "says": "Type written \"roman\". The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_num_040.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_040_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  },
+  "FX-NUM-041": {
+   "says": "Display written \"outline\". The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_num_041.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_041_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  },
+  "FX-NUM-042": {
+   "says": "Value 40,000, past 30,000. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_num_042.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_042_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  },
+  "FX-NUM-043": {
+   "says": "Decimal places 11. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_num_043.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_043_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  },
+  "FX-NUM-044": {
+   "says": "Font written \"../fonts/x.ttf\", a path. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_num_044.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_044_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  },
+  "FX-NUM-045": {
+   "says": "Fill colour written \"white\". The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "project": "fx_num_045.json",
+   "frames": {
+    "0": {
+     "same": "same/fx_num_045_0.json",
+     "shows": null
+    }
+   },
+   "warning": "EFFECT_PARAMETER_INVALID"
+  }
+ }
+}

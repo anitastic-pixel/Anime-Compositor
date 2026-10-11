@@ -1,0 +1,475 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-num-032-same-0",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 480,
+      "height": 160,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 60,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 60
+      },
+      "layer_order": [
+        "cut",
+        "ring",
+        "fills"
+      ],
+      "layers": [
+        {
+          "id": "fills",
+          "kind": "composition",
+          "name": "fills",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "composition_id": "comp-fills",
+          "source_offset_frames": 0
+        },
+        {
+          "id": "ring",
+          "kind": "composition",
+          "name": "ring",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": {
+            "layer_id": "cut",
+            "mode": "alpha_inverted",
+            "matte_only": true
+          },
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "composition_id": "comp-strokes",
+          "source_offset_frames": 0
+        },
+        {
+          "id": "cut",
+          "kind": "composition",
+          "name": "cut",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "composition_id": "comp-fills",
+          "source_offset_frames": 0
+        }
+      ]
+    },
+    {
+      "id": "comp-fills",
+      "name": "comp-fills",
+      "width": 480,
+      "height": 160,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 60,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 60
+      },
+      "layer_order": [
+        "fill-1",
+        "fill-0"
+      ],
+      "layers": [
+        {
+          "id": "fill-0",
+          "kind": "text",
+          "name": "fill-0",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "8",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 64,
+            "color": [
+              0.014443843596092545,
+              0.5271151257058131,
+              1.0
+            ],
+            "at": [
+              200.32,
+              80.0
+            ],
+            "align": "left"
+          }
+        },
+        {
+          "id": "fill-1",
+          "kind": "text",
+          "name": "fill-1",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "8",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 64,
+            "color": [
+              0.014443843596092545,
+              0.5271151257058131,
+              1.0
+            ],
+            "at": [
+              240.0,
+              80.0
+            ],
+            "align": "left"
+          }
+        }
+      ]
+    },
+    {
+      "id": "comp-strokes",
+      "name": "comp-strokes",
+      "width": 480,
+      "height": 160,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 60,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 60
+      },
+      "layer_order": [
+        "stroke-1",
+        "stroke-0"
+      ],
+      "layers": [
+        {
+          "id": "stroke-0",
+          "kind": "text",
+          "name": "stroke-0",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "8",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 64,
+            "color": [
+              0.005181516702338386,
+              0.014443843596092545,
+              0.05126945837404324
+            ],
+            "at": [
+              200.32,
+              80.0
+            ],
+            "align": "left",
+            "stroke": {
+              "color": [
+                0.005181516702338386,
+                0.014443843596092545,
+                0.05126945837404324
+              ],
+              "width": 3
+            }
+          }
+        },
+        {
+          "id": "stroke-1",
+          "kind": "text",
+          "name": "stroke-1",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 60,
+          "transform": {
+            "anchor": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                240.0,
+                80.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "source_text": {
+            "text": "8",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 64,
+            "color": [
+              0.005181516702338386,
+              0.014443843596092545,
+              0.05126945837404324
+            ],
+            "at": [
+              240.0,
+              80.0
+            ],
+            "align": "left",
+            "stroke": {
+              "color": [
+                0.005181516702338386,
+                0.014443843596092545,
+                0.05126945837404324
+              ],
+              "width": 3
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
