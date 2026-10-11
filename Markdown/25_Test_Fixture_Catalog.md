@@ -209278,3 +209278,59 @@ FX-TEETH-025 (`fx_teeth_025.json`): Shape "Spikes": the word is exact, so a capi
 FX-TEETH-026 (`fx_teeth_026.json`): Shape "robo_jaw": not a shape of Teeth Wipe. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-TEETH-027 (`fx_teeth_027.json`): Width keyed to 2000 at frame 4: a key outside the range. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Mr. Smoothie (D-462)
+
+Mr. Smoothie, after After Effects' CC Mr. Smoothie (Stylize), `core.mr_smoothie` (B-342). Every case is a composition 16 by 10, five frames, with the drawing `holder` carrying the effect above the map layers, every one switched off; `tools/mr_smoothie_reference.py` works the expected frames, `Fixtures/mr_smoothie/expected_mr_smoothie.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SMOOTHIE-001 (`fx_smoothie_001.json`): As added: the layer's own luminance, Smoothness 5, Sample A at 25, 50 per cent and B at 75, 50, Phase 0, Color Loop ABA: the layer repainted in soft bands of the colours between the two points. Frames 0.
+
+FX-SMOOTHIE-002 (`fx_smoothie_002.json`): The ramp as the flow layer, Smoothness 0, AB: each column takes the colour as far from A toward B as the ramp is bright there, A at the black left, B at the white right. Frames 0.
+
+FX-SMOOTHIE-003 (`fx_smoothie_003.json`): The same, BA: the gradient the other way, B at the left. Frames 0.
+
+FX-SMOOTHIE-004 (`fx_smoothie_004.json`): The same, ABA: A at both sides, B in the middle. Frames 0.
+
+FX-SMOOTHIE-005 (`fx_smoothie_005.json`): The same, BAB: B at both sides, A in the middle. Frames 0.
+
+FX-SMOOTHIE-006 (`fx_smoothie_006.json`): FX-SMOOTHIE-002 with Phase 90: the gradient moved a quarter along, the brightest columns wrapping round to start again near A. Frames 0.
+
+FX-SMOOTHIE-007 (`fx_smoothie_007.json`): FX-SMOOTHIE-002 with Sample A and B swapped: FX-SMOOTHIE-003. Frames 0.
+
+FX-SMOOTHIE-008 (`fx_smoothie_008.json`): Sample A and B both at 25, 50 on the two blocks: every covered pixel the red found there, the blue block turned red, the clear round them kept clear. Frames 0.
+
+FX-SMOOTHIE-009 (`fx_smoothie_009.json`): The two blocks' own luminance, Smoothness 4, AB: the blocks recoloured, their coverings exactly as they were. Frames 0.
+
+FX-SMOOTHIE-010 (`fx_smoothie_010.json`): Property Hue, Smoothness 0: each pixel placed along the gradient by its own hue. Frames 0.
+
+FX-SMOOTHIE-011 (`fx_smoothie_011.json`): Property Saturation of the photo, Smoothness 2, BAB. Frames 0.
+
+FX-SMOOTHIE-012 (`fx_smoothie_012.json`): The dots layer's covering, Smoothness 2, AB: B's colour in two soft round patches where the dots are, A's elsewhere. Frames 0.
+
+FX-SMOOTHIE-013 (`fx_smoothie_013.json`): The 8 by 5 spot, centred and clear round it, Property Red, Smoothness 2: a round patch from further along the gradient in the middle. Frames 0.
+
+FX-SMOOTHIE-014 (`fx_smoothie_014.json`): A layer that is not in the composition, `gone`: the layer itself is the flow layer, as FX-SMOOTHIE-001, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-SMOOTHIE-015 (`fx_smoothie_015.json`): Smoothness keyed from 0 at frame 0 to 8 at frame 4, linear: frame 2 is Smoothness 4. Frames 0, 2, 4.
+
+FX-SMOOTHIE-016 (`fx_smoothie_016.json`): FX-SMOOTHIE-009 on the holder moved 2 right and 1 down: the same, moved. Frames 0.
+
+FX-SMOOTHIE-017 (`fx_smoothie_017.json`): Sample A keyed from 0, 50 at frame 0 to 100, 50 at frame 4, linear: frame 2 has A at 50, 50. Frames 0, 2, 4.
+
+FX-SMOOTHIE-018 (`fx_smoothie_018.json`): Phase keyed from 0 at frame 0 to 180 at frame 4 on the ramp, AB, linear: frame 0 is FX-SMOOTHIE-002 and frame 2 FX-SMOOTHIE-006. Frames 0, 2, 4.
+
+FX-SMOOTHIE-019 (`fx_smoothie_019.json`): Smoothness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMOOTHIE-020 (`fx_smoothie_020.json`): A property written "value", which Mr. Smoothie does not read. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMOOTHIE-021 (`fx_smoothie_021.json`): A colour loop written "abab". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMOOTHIE-022 (`fx_smoothie_022.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMOOTHIE-023 (`fx_smoothie_023.json`): Sample B at 50, 1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMOOTHIE-024 (`fx_smoothie_024.json`): Phase 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMOOTHIE-025 (`fx_smoothie_025.json`): A fit written "fill". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMOOTHIE-026 (`fx_smoothie_026.json`): Smoothness keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
