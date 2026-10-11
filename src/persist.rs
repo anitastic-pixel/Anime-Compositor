@@ -2513,6 +2513,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("blur".into(), num(*blur));
             params.insert("invert".into(), J::from(invert.as_str()));
         }
+        Effect::PushIris { completion, center, reverse } => {
+            params.insert("completion".into(), num(*completion));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("reverse".into(), J::from(reverse.as_str()));
+        }
         Effect::StripeSweep { completion, direction, thickness, slant, flip } => {
             params.insert("completion".into(), num(*completion));
             params.insert("direction".into(), num(*direction));
@@ -5171,6 +5176,7 @@ fn parse_effect(
         crate::effects::TEETH_WIPE,
         crate::effects::GLOW_WIPE,
         crate::effects::STRIPE_SWEEP,
+        crate::effects::PUSH_IRIS,
         crate::effects::CHANNEL_WIPE,
         crate::effects::CC_SPOTLIGHT,
         crate::effects::ENERGY_STROKE,
@@ -6239,6 +6245,11 @@ fn parse_effect(
             blur: effect_number(params, "blur", &at)?,
             invert: effect_word(params, "invert", &at)?,
             map: None,
+        }),
+        crate::effects::PUSH_IRIS => Some(crate::effects::Effect::PushIris {
+            completion: effect_number(params, "completion", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            reverse: effect_word(params, "reverse", &at)?,
         }),
         crate::effects::STRIPE_SWEEP => Some(crate::effects::Effect::StripeSweep {
             completion: effect_number(params, "completion", &at)?,

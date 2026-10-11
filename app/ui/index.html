@@ -9321,6 +9321,7 @@ const EFFECT_NAMES = {
   'core.teeth_wipe': 'Teeth Wipe',
   'core.glow_wipe': 'Glow Wipe',
   'core.stripe_sweep': 'Stripe Sweep',
+  'core.push_iris': 'Push Iris',
   'core.channel_wipe': 'Channel Wipe',
   'core.echo': 'Echo',
   'core.cc_wide_time': 'CC Wide Time',
@@ -9490,7 +9491,7 @@ const EFFECT_GROUPS = [
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key']],
   ['Text', ['core.text_animator']],
-  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
+  ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.push_iris', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
 const EFFECT_SEARCH = {
@@ -9558,6 +9559,7 @@ const EFFECT_SEARCH = {
   'core.displacement_map': 'displacement map displace distort warp layer glass heat haze refraction chromatic prism water spectrum rainbow colour color fringe',
   'core.gradient_wipe': 'gradient wipe reveal transition dissolve luma matte map layer',
   'core.channel_wipe': 'channel wipe image wipe gradient wipe reveal transition dissolve luma matte map layer red green blue alpha hue saturation lightness blur',
+  'core.push_iris': 'push iris radial scale wipe radial scalewipe hole open iris fold bulge push out pull in transition reveal circle',
   'core.stripe_sweep': 'stripe sweep line sweep lines stripes bands staircase stepped wipe transition reveal slant overlap',
   'core.glow_wipe': 'glow wipe light wipe light glow burn flash transition reveal doors radial rectangular circle square walls colour color from source',
   'core.teeth_wipe': 'teeth wipe jaws teeth zigzag split break cut part transition reveal spikes trapezoids blocks',
@@ -9788,6 +9790,7 @@ const EFFECT_ABOUT = {
   'core.displacement_map': 'Moves each pixel of the layer by the colours of another layer of the composition; different colour amounts part the colours, as light through water or glass.',
   'core.gradient_wipe': 'Wipes the layer away from the darkest parts of another layer of the composition to the brightest.',
   'core.channel_wipe': 'Wipes the layer away from the lowest values of a gradient layer to the highest, read by the Property you pick: a colour channel, alpha, luminance, lightness, hue or saturation. With no layer named the layer itself is the gradient. Blur smooths the gradient first; Softness widens the edge. As it is added, nothing changes.',
+  'core.push_iris': 'Opens a round hole at the Center and pushes the picture out of its way, the middle of the picture stretched round the hole\u2019s edge. Reverse Transition closes the outside in like an iris instead, the picture pulled toward the middle. As it is added, nothing changes.',
   'core.stripe_sweep': 'Wipes the layer away in lines, each line swept along from one side. Thickness is how thick the lines are; Slant is how much they overlap: at 0 each line waits for the one before to finish, at 99 they all go together. Direction turns the sweep; Flip sweeps the other way. As it is added, nothing changes.',
   'core.glow_wipe': 'Wipes the layer away from the Center outward (or the edges inward, reversed) behind a band of light: two walls, a circle or a square. Intensity is how bright the light is; Direction turns the walls or the square; the light is the Color, or the layer\u2019s own colour with Color from Source. As it is added, nothing changes.',
   'core.teeth_wipe': 'Splits the layer in two along a toothed cut through the Center, and moves the two parts apart until, at 100, both are gone. Direction turns the cut; Height and Width size the teeth; Shape picks spikes, flat-topped trapezoids or square blocks. As it is added, nothing changes.',
@@ -10463,6 +10466,8 @@ const EFFECT_PARAMS = {
   'core.channel_wipe': [['completion', 'Completion', 1, 1, '% wiped away, 0 to 100'],
     ['softness', 'Border Softness', 1, 1, '%, 0 to 100, how soft the edge is'],
     ['blur', 'Blur', 1, 0.5, 'pixels, 0 to 100, how much the gradient is smoothed first']],
+  'core.push_iris': [['completion', 'Completion', 1, 1, '% opened, 0 to 100'],
+    ['center', 'Center', 2, 1, '% of the width and height, -1000 to 1000, where the hole opens']],
   'core.stripe_sweep': [['completion', 'Completion', 1, 1, '% wiped away, 0 to 100'],
     ['direction', 'Direction', 1, 1, '-3600 to 3600 degrees, the way the lines sweep'],
     ['thickness', 'Thickness', 1, 1, 'pixels, 1 to 1000, how thick each line is'],
@@ -11871,6 +11876,10 @@ const EFFECT_WORDS = {
       ['expand', 'Expand Output', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-194, After Effects' own words.
+  // D-515: CycoreFX's Reverse Transition.
+  'core.push_iris': {
+    choices: [['reverse', 'Reverse Transition', [['off', 'Off'], ['on', 'On']]]],
+  },
   // D-514: CycoreFX's Flip Direction.
   'core.stripe_sweep': {
     choices: [['flip', 'Flip Direction', [['off', 'Off'], ['on', 'On']]]],

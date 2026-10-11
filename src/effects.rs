@@ -2345,6 +2345,14 @@ pub enum Effect {
         shape: String,
         reverse: String,
     },
+    /// D-515: Push Iris, after CycoreFX's CC Radial ScaleWipe, its rule and its settings when
+    /// added ours (`layer_fx::push_iris`, document 21). `completion`, 0 to 100; `center`, x then
+    /// y, per cent of the drawing's width and height, -1000 to 1000; `reverse`, "off" or "on".
+    PushIris {
+        completion: f64,
+        center: [f64; 2],
+        reverse: String,
+    },
     /// D-514: Stripe Sweep, after CycoreFX's CC Line Sweep, its rule and its settings when added
     /// ours (`layer_fx::stripe_sweep`, document 21). `completion`, 0 to 100; `direction`, -3600
     /// to 3600 degrees; `thickness`, 1 to 1000 pixels; `slant`, 0 to 99; `flip`, "off" or "on".
@@ -3394,6 +3402,7 @@ pub const TILE_WIPE: &str = "core.tile_wipe";
 pub const TEETH_WIPE: &str = "core.teeth_wipe";
 pub const GLOW_WIPE: &str = "core.glow_wipe";
 pub const STRIPE_SWEEP: &str = "core.stripe_sweep";
+pub const PUSH_IRIS: &str = "core.push_iris";
 /// D-513: Glow Wipe's shapes.
 pub const GLOW_SHAPES: [&str; 3] = ["doors", "radial", "rectangular"];
 pub const CHANNEL_WIPE: &str = "core.channel_wipe";
@@ -3666,6 +3675,10 @@ impl Effect {
                 ("rotation", vec![rotation], -3600.0, 3600.0),
                 ("border", vec![border], 0.0, 100.0),
                 ("tiles", vec![tiles], 1.0, 200.0),
+            ],
+            Effect::PushIris { completion, center, .. } => vec![
+                ("completion", vec![completion], 0.0, 100.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
             ],
             Effect::StripeSweep { completion, direction, thickness, slant, .. } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
@@ -6257,6 +6270,7 @@ impl Effect {
             Effect::TeethWipe { .. } => "Teeth Wipe",
             Effect::GlowWipe { .. } => "Glow Wipe",
             Effect::StripeSweep { .. } => "Stripe Sweep",
+            Effect::PushIris { .. } => "Push Iris",
             Effect::ChannelWipe { .. } => "Channel Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::EnergyStroke { .. } => "Energy Stroke",
@@ -6475,6 +6489,7 @@ impl Effect {
             Effect::TeethWipe { .. } => TEETH_WIPE,
             Effect::GlowWipe { .. } => GLOW_WIPE,
             Effect::StripeSweep { .. } => STRIPE_SWEEP,
+            Effect::PushIris { .. } => PUSH_IRIS,
             Effect::ChannelWipe { .. } => CHANNEL_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
@@ -8200,6 +8215,9 @@ impl Effect {
                 .or_else(|| (!["off", "on"].contains(&invert.as_str())).then(|| format!(
                     "Channel Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
                 ))),
+            Effect::PushIris { reverse, .. } if !["off", "on"].contains(&reverse.as_str()) => {
+                Some(format!("Push Iris's reverse is \"off\" or \"on\", and this is \"{reverse}\"."))
+            }
             Effect::StripeSweep { flip, .. } if !["off", "on"].contains(&flip.as_str()) => {
                 Some(format!("Stripe Sweep's flip is \"off\" or \"on\", and this is \"{flip}\"."))
             }
@@ -9920,6 +9938,10 @@ pub(crate) fn apply_stack_at(
                     crate::perf::time(crate::perf::Stage::EffectGlassMelt, || crate::layer_fx::glass_melt(source, &g, (ox, oy)))
                 }
             }
+            // D-515: never grows.
+            e @ Effect::PushIris { .. } => crate::perf::time(crate::perf::Stage::EffectPushIris, || {
+                crate::layer_fx::push_iris(source, e, (ox, oy))
+            }),
             // D-514: never grows.
             e @ Effect::StripeSweep { .. } => crate::perf::time(crate::perf::Stage::EffectStripeSweep, || {
                 crate::layer_fx::stripe_sweep(source, e, (ox, oy))

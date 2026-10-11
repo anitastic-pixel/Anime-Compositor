@@ -7113,6 +7113,59 @@ pub(crate) fn glasses_settings(e: &crate::effects::Effect) -> Option<Glasses<'_>
     })
 }
 
+/// D-515: Push Iris's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
+/// the centre (two), the largest distance of a corner from it, the hole's radius, and 1 reversed.
+pub(crate) fn push_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> [f64; 5] {
+    let crate::effects::Effect::PushIris { completion, center, reverse } = e else {
+        unreachable!("Push Iris's numbers of another effect")
+    };
+    let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
+    let far = [(0.0, 0.0), (w0, 0.0), (0.0, h0), (w0, h0)].iter().map(|&(x, y)| (x - cx).hypot(y - cy)).fold(0.0, f64::max);
+    [cx, cy, far, completion / 100.0 * far, (reverse == "on") as u8 as f64]
+}
+
+/// D-515: where the own point (x, y) is read from, in the drawing's own space, or None where it
+/// is clear (document 21).
+fn push_from(k: &[f64; 5], x: f64, y: f64) -> Option<(f64, f64)> {
+    let (dx, dy) = (x - k[0], y - k[1]);
+    let r = (dx * dx + dy * dy).sqrt();
+    let f = if k[4] == 1.0 {
+        if r >= k[2] - k[3] {
+            return None;
+        }
+        if r == 0.0 {
+            return Some((k[0] + k[3], k[1]));
+        }
+        (r + k[3]) / r
+    } else {
+        if r < k[3] {
+            return None;
+        }
+        (r - k[3]) / r
+    };
+    Some((k[0] + dx * f, k[1] + dy * f))
+}
+
+/// D-515: after CycoreFX's CC Radial ScaleWipe, the rule ours (document 21); `(ox, oy)` the
+/// drawing's corner in the buffer. Never grows; at completion 0 returns at once (compose leaves
+/// it off the card then).
+pub(crate) fn push_iris(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    if matches!(e, crate::effects::Effect::PushIris { completion, .. } if *completion == 0.0) {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let k = push_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    let still = source.clone();
+    let (fx, fy) = (ox as f64, oy as f64);
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let p = match push_from(&k, (i % w) as f64 - fx + 0.5, (i / w) as f64 - fy + 0.5) {
+            Some((x, y)) => sample_bilinear(&still, x + fx, y + fy),
+            None => [0.0; 4],
+        };
+        px.copy_from_slice(&p);
+    });
+}
+
 /// D-514: Stripe Sweep's numbers in the drawing's own `w0` by `h0` pixels, shared with the card:
 /// the middle (two), the direction's cosine and sine, the largest distance of a corner along the
 /// sweep and across it, the thickness, the number of lines, the overlap (the slant as a share of
