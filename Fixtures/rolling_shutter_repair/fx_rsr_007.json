@@ -1,0 +1,143 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-rsr-007",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-side",
+      "kind": "image_sequence",
+      "name": "side",
+      "pattern": "side_####.png",
+      "frames": {
+        "1": "media/side_1.png",
+        "2": "media/side_2.png",
+        "3": "media/side_3.png",
+        "4": "media/side_4.png",
+        "5": "media/side_5.png",
+        "6": "media/side_6.png"
+      },
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 32,
+      "height": 32,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 6,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 6
+      },
+      "layer_order": [
+        "holder"
+      ],
+      "layers": [
+        {
+          "id": "holder",
+          "kind": "raster",
+          "name": "holder",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-1",
+              "type_id": "core.rolling_shutter_repair",
+              "enabled": true,
+              "parameters": {
+                "rolling_shutter_rate": 80,
+                "scan_direction": "right_to_left",
+                "method": "warp",
+                "detailed_analysis": "off",
+                "pixel_motion_detail": 20
+              }
+            }
+          ],
+          "asset_id": "asset-side",
+          "source_offset_frames": 0,
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 1,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 1,
+              "end_frame_exclusive": 2,
+              "drawing_number": 2
+            },
+            {
+              "start_frame": 2,
+              "end_frame_exclusive": 3,
+              "drawing_number": 3
+            },
+            {
+              "start_frame": 3,
+              "end_frame_exclusive": 4,
+              "drawing_number": 4
+            },
+            {
+              "start_frame": 4,
+              "end_frame_exclusive": 5,
+              "drawing_number": 5
+            },
+            {
+              "start_frame": 5,
+              "end_frame_exclusive": 6,
+              "drawing_number": 6
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
