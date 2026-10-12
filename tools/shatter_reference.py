@@ -35,7 +35,9 @@ layer widths a second squared, 3; `gravity_direction` -3600 to 3600 degrees, 180
 "color_plus_opacity", "layer_plus_opacity" or "tinted_layer_plus_opacity", when added "layer",
 "tinted_layer" and "layer"; `front_layer`, `side_layer` and `back_layer` layer words, "" when
 added (the layer's own drawing), fitted as `stretch`. The camera and the light, Card Dance's
-exactly: `camera_system` "camera_position" or "comp_camera"; `camera_x_rotation`,
+exactly: `camera_system` "camera_position", "comp_camera" or "corner_pins" (D-634, with Card
+Dance's four pins and `auto_focal_length`, read as when added and written only when given);
+`camera_x_rotation`,
 `camera_y_rotation`, `camera_z_rotation`, `camera_xy_position`, `camera_z_position`,
 `focal_length`, `light_type`, `light_intensity`, `light_color`, `light_position`, `light_depth`,
 `ambient_light`, `diffuse_reflection`, `specular_reflection`, `highlight_sharpness`, with Card
@@ -612,16 +614,17 @@ assert set(DEFAULTS) == set(NUMBERS) | set(WORDS)
 
 
 def case(shift=(0, 0), camera=None, in_frame=0, **kw):
-    c = dict(DEFAULTS, shift=shift, camera=camera, in_frame=in_frame)
+    c = dict(DEFAULTS, **CD.PIN_DEFAULTS, shift=shift, camera=camera, in_frame=in_frame,
+             given=set(kw))
     for n, v in kw.items():
-        assert n in DEFAULTS, n
+        assert n in DEFAULTS or n in CD.PIN_DEFAULTS, n
         c[n] = v
     return c
 
 
 def settings(c, frame):
-    k = {n: value_at(c[n], frame) for n in NUMBERS}
-    k.update({w: c[w] for w in WORDS})
+    k = {n: value_at(c[n], frame) for n in NUMBERS + CD.PINS}
+    k.update({w: c[w] for w in WORDS + ("auto_focal_length",)})
     return k
 
 
@@ -796,8 +799,8 @@ INVALID = {
     "FX-SH-064": ("Render \"most\".", case(render="most")),
     "FX-SH-065": ("Tumble axis \"w\".", case(tumble_axis="w")),
     "FX-SH-066": ("Front mode \"glow\".", case(front_mode="glow")),
-    "FX-SH-067": ("Camera system \"corner_pins\", not built yet (D-634).",
-                  case(camera_system="corner_pins")),
+    "FX-SH-067": ("Camera system \"corner_pins\" with the pins as added (D-634): the camera "
+                  "as added, so FX-SH-001's picture.", case(camera_system="corner_pins")),
     "FX-SH-068": ("Repetitions 0, below 1.", case(repetitions=0)),
     "FX-SH-069": ("Extrusion depth 2, above 1.", case(extrusion_depth=2)),
     "FX-SH-070": ("Force 1 radius -1, below 0.", case(force_1_radius=-1)),
@@ -812,10 +815,41 @@ INVALID = {
     "FX-SH-078": ("Mass variance 101, above 100.", case(mass_variance=101)),
 }
 
+# D-566 (1): FX-SH-067 pinned Corner Pins as refused while it was not built; D-634 builds it.
+BUILT = {"FX-SH-067"}
+
+# D-634: the Corner Pins camera, with Card Dance's pins.
+PIN = dict(camera_system="corner_pins")
+KEYSTONE = dict(PIN, upper_left_corner=[20, 10], upper_right_corner=[85, 0],
+                lower_right_corner=[100, 95])
+QUAD = dict(PIN, upper_left_corner=[5, 10], upper_right_corner=[90, -5],
+            lower_right_corner=[100, 95], lower_left_corner=[-5, 105])
+PIN_CASES = {
+    "FX-SH-079": ("Corner Pins with the pins as added, thrown from the middle: FX-SH-052 "
+                  "exactly.", case(**PIN, **BURST), (3,)),
+    "FX-SH-080": ("Corner Pins, the upper corners pulled in to [20, 10] and [85, 0] and the "
+                  "lower right up to [100, 95], Auto Focal Length on, thrown from the middle.",
+                  case(auto_focal_length="on", **KEYSTONE, **BURST), (3,)),
+    "FX-SH-081": ("Corner Pins on a general four-sided shape, Auto Focal Length off, the "
+                  "pieces tumbling about y, with a point light at the top left, specular 1: the "
+                  "light stays on the layer.",
+                  case(light_type="point", light_position=[10, 10], light_depth=0.3,
+                       specular_reflection=1, highlight_sharpness=10, **QUAD, **TUMBLE_Y),
+                  (3,)),
+}
+PIN_INVALID = {
+    "FX-SH-082": ("Lower right corner [50, 1001], above 1000.",
+                  case(lower_right_corner=[50, 1001], **PIN)),
+    "FX-SH-083": ("Auto focal length \"yes\".", case(auto_focal_length="yes", **PIN)),
+}
+
 
 def effect(fid, c):
     params = {w: c[w] for w in WORDS}
     params.update({n: setting_json(c[n]) for n in NUMBERS})
+    params.update({n: setting_json(c[n]) for n in CD.PINS if n in c["given"]})
+    if "auto_focal_length" in c["given"]:
+        params["auto_focal_length"] = c["auto_focal_length"]
     return {"instance_id": fid, "type_id": "core.shatter", "enabled": True, "parameters": params}
 
 
@@ -863,6 +897,27 @@ def main():
         print(f"{fx}: " + ", ".join(f"frame {f} {sum(px[i] != before[i] for i in range(W * H))} "
                                     "changed" for f, px in rendered.items()))
     for fx, (says, c) in INVALID.items():
+        if fx in BUILT:
+            step_clear(fx, c, (0, 4))
+            expected["cases"][fx] = {"says": says, "project": write(
+                f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+                "frames": {str(f): render(c, f) for f in (0, 4)}}
+            print(f"{fx}: built")
+            continue
+        says += (" The file is read, the effect is kept as written and left out of every frame, "
+                 "with a warning.")
+        before = plain(c)
+        expected["cases"][fx] = {"says": says, "project": write(
+            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+            "frames": {"0": before, "4": before}, "warning": "EFFECT_PARAMETER_INVALID"}
+        print(f"{fx}: invalid")
+    for fx, (says, c, frames) in PIN_CASES.items():
+        step_clear(fx, c, frames)
+        expected["cases"][fx] = {"says": says, "project": write(
+            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+            "frames": {str(f): render(c, f) for f in frames}}
+        print(f"{fx}: built")
+    for fx, (says, c) in PIN_INVALID.items():
         says += (" The file is read, the effect is kept as written and left out of every frame, "
                  "with a warning.")
         before = plain(c)
@@ -977,6 +1032,11 @@ def check(expected):
     assert c["FX-SH-058"]["3"] != c["FX-SH-058"]["4"]
     # A missing gradient: nothing passes, the picture.
     assert near(c["FX-SH-057"]["3"], drawn, 1e-9)
+    # D-634: the pins as added are the camera as added; the pins change the picture.
+    assert near(c["FX-SH-067"]["0"], drawn, 1e-9)
+    assert near(c["FX-SH-067"]["4"], render(case(), 4), 1e-9)
+    assert near(c["FX-SH-079"]["3"], c["FX-SH-052"]["3"], 1e-9)
+    assert not near(c["FX-SH-080"]["3"], c["FX-SH-079"]["3"], 1e-6)
     print("checks passed")
 
 

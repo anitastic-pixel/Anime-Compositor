@@ -19,7 +19,7 @@ ported.
 
 It draws its own fake 3D, as CC Cylinder (D-530) and CC Sphere (D-532) do: a camera and a light
 inside the effect. The composition's camera and lights are not used (P0-12, a gap), so Camera
-System's Corner Pins and Comp Camera and the First Comp Light are not built (gaps). Transform
+System's Comp Camera and the First Comp Light are not built (gaps); its Corner Pins is (D-634). Transform
 Order is fixed (gap), and Position Jitter and Rotation Jitter are not built (gaps). The cards are
 drawn with one ray a pixel, so their edges are not smoothed, and the nearest card a ray meets
 wins even where that card's picture is clear (gaps).
@@ -36,7 +36,11 @@ word, "", fitted as `stretch`; `timing_randomness` 0 to 1, 0; `random_seed` 0 to
 taken down to a whole number. The camera: `x_rotation`, `y_rotation`, `z_rotation` -3600 to 3600
 degrees, 0; `xy_position` x then y, -1000 to 1000 per cent of the drawing's width and height,
 [50, 50]; `z_position` 0.01 to 10, 1, the eye's distance in focal lengths; `focal_length` 1 to
-1000 mm on a 36 mm frame, 50. The light and material: `light_type` "distant" (when added) or
+1000 mm on a 36 mm frame, 50. `camera_system` "camera_position" (when added) or "corner_pins"
+(D-634); `upper_left_corner`, `upper_right_corner`, `lower_left_corner`, `lower_right_corner`
+x then y, -1000 to 1000 per cent, the drawing's corners when added; `auto_focal_length` "off"
+(when added) or "on". These six are read as when added where a file leaves them out (a file
+from before D-634), and written only when given. The light and material: `light_type` "distant" (when added) or
 "point"; `light_intensity` 0 to 10, 1; `light_color` #rrggbb, "#ffffff"; `light_position` x then
 y, -1000 to 1000 per cent, [50, 50]; `light_depth` 0 to 10 drawing widths toward the viewer, 1;
 `ambient_light` 0 to 2, 0.25; `diffuse_reflection` 0 to 2, 0.75; `specular_reflection` 0 to 2, 0;
@@ -65,6 +69,11 @@ The rule, in the drawing's own W by H space, y down, z away from the viewer.
    scene about the drawing's middle C0 = (W/2, H/2, 0) by M = Rz Ry Rx (x first, each as in step
    2's turns, Rz (x cos - y sin, x sin + y cos)): in the cards' space the eye is o = M^T (E - C0)
    and the ray's direction v = M^T d. As added this is the plain picture, each pixel on itself.
+   With "corner_pins" the eye o and the ray's direction v come instead from the four pins by
+   Card Dance's Corner Pins rule (`tools/card_dance_reference.py`, step 4), and M is the identity,
+   so the light stays on the layer; the rotations, position and Z position are not used, and
+   where that rule draws nothing every pixel is clear. The pins as added give the camera as
+   added.
 4. The hits. For card (a, b), with q = (cx - W/2, cy - H/2, 0), the ray in the card's own frame
    is o'' = R^T (o - q), v'' = R^T v, R the card's turn. Where v''z is not 0, t = -o''z / v''z;
    a hit needs t > 0 and |lx| <= hx, |ly| <= hy for (lx, ly) = o''xy + t v''xy. Card Scale 0
@@ -117,6 +126,7 @@ from motion_blur_reference import png  # noqa: E402
 from noise_reference import u as unit  # noqa: E402
 import effect_layer_reference as L  # noqa: E402
 import compound_blur_reference as K  # noqa: E402
+import card_dance_reference as CD  # noqa: E402
 
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "card_wipe"
 TOLERANCE = 2e-5  # document 25's default for a filter
@@ -292,7 +302,13 @@ def shade(k, m, o, d, hit, drawing, back):
 
 
 def view(k):
-    """Step 3: the eye in the cards' space, the turn, and the ray for a pixel."""
+    """Step 3: the eye in the cards' space, the turn, and the ray for a pixel; None where
+    nothing is drawn."""
+    if k["camera_system"] == "corner_pins":
+        cam = CD.corner_camera(k, W, H)
+        if cam is None:
+            return None
+        return [[1, 0, 0], [0, 1, 0], [0, 0, 1]], cam[0], cam[1]
     m = camera_matrix(k)
     f = W * k["focal_length"] / 36
     xy = k["xy_position"]
@@ -302,6 +318,8 @@ def view(k):
 
 def card_wipe(k, drawing, back, grad):
     deck = cards(k, grad)
+    if view(k) is None:
+        return [list(CLEAR) for _ in range(W * H)]
     m, o, ray = view(k)
     out = []
     for y in range(H):
@@ -335,12 +353,14 @@ DEFAULTS = {
     "ambient_light": 0.25, "diffuse_reflection": 0.75, "specular_reflection": 0,
     "highlight_sharpness": 5,
 }
+# D-634: read as when added where a file leaves them out, written only when given.
+PIN_DEFAULTS = dict(CD.PIN_DEFAULTS, camera_system="camera_position")
 
 
 def case(shift=(0, 0), **kw):
-    c = dict(DEFAULTS, shift=shift)
+    c = dict(DEFAULTS, **PIN_DEFAULTS, shift=shift, given=set(kw))
     for n, v in kw.items():
-        assert n in DEFAULTS, n
+        assert n in DEFAULTS or n in PIN_DEFAULTS, n
         c[n] = v
     return c
 
@@ -354,8 +374,8 @@ HALF = dict(transition_completion=50)
 
 
 def settings(c, frame):
-    k = {n: value_at(c[n], frame) for n in NUMBERS}
-    k.update({w: c[w] for w in WORDS})
+    k = {n: value_at(c[n], frame) for n in NUMBERS + CD.PINS}
+    k.update({w: c[w] for w in WORDS + ("camera_system", "auto_focal_length")})
     return k
 
 
@@ -498,10 +518,60 @@ INVALID = {
                   grid(transition_completion=keyed((0, 0), (4, 120)))),
 }
 
+# D-634: the Corner Pins camera, with Card Dance's pin sets.
+PIN = dict(camera_system="corner_pins")
+KEYSTONE = dict(PIN, upper_left_corner=[20, 10], upper_right_corner=[85, 0],
+                lower_right_corner=[100, 95])
+SLANT = dict(PIN, upper_left_corner=[12.5, -12.5], upper_right_corner=[100, 0],
+             lower_right_corner=[87.5, 112.5], lower_left_corner=[0, 100])
+QUAD = dict(PIN, upper_left_corner=[5, 10], upper_right_corner=[90, -5],
+            lower_right_corner=[100, 95], lower_left_corner=[-5, 105])
+BACK_HALF = dict(back_layer="back", **HALF)
+PIN_CASES = {
+    "FX-CW-057": ("Camera system \"corner_pins\" with the pins as added: FX-CW-004 exactly.",
+                  grid(**PIN, **BACK_HALF), (0,)),
+    "FX-CW-058": ("Corner Pins, the upper corners pulled in to [20, 10] and [85, 0] and the "
+                  "lower right up to [100, 95], Auto Focal Length off: FX-CW-004 seen at a slant.",
+                  grid(**KEYSTONE, **BACK_HALF), (0,)),
+    "FX-CW-059": ("FX-CW-058 with Auto Focal Length on: the lens worked out from the pins.",
+                  grid(auto_focal_length="on", **KEYSTONE, **BACK_HALF), (0,)),
+    "FX-CW-060": ("Corner Pins on a parallelogram, Auto Focal Length on: no perspective to work "
+                  "a lens from, so the focal length is used.",
+                  grid(auto_focal_length="on", **SLANT, **BACK_HALF), (0,)),
+    "FX-CW-061": ("FX-CW-060 with Auto Focal Length off: the same picture.",
+                  grid(**SLANT, **BACK_HALF), (0,)),
+    "FX-CW-062": ("Corner Pins on a general four-sided shape, Auto Focal Length on, a point "
+                  "light at [20, 30] depth 0.3, specular 1, sharpness 20: the light stays on "
+                  "the layer.", grid(auto_focal_length="on", light_type="point",
+                                     light_position=[20, 30], light_depth=0.3,
+                                     specular_reflection=1, highlight_sharpness=20, **QUAD,
+                                     **BACK_HALF), (0,)),
+    "FX-CW-063": ("FX-CW-059 with the camera turned 30 about y, at x 40, y 50, Z position 1.7: "
+                  "Corner Pins does not use them, so FX-CW-059.",
+                  grid(auto_focal_length="on", y_rotation=30, xy_position=[40, 50],
+                       z_position=1.7, **KEYSTONE, **BACK_HALF), (0,)),
+    "FX-CW-064": ("Camera system \"camera_position\" written out: FX-CW-004.",
+                  grid(camera_system="camera_position", **BACK_HALF), (0,)),
+    "FX-CW-065": ("Corner Pins with the upper right corner keyed [100, 0] at frame 0 to "
+                  "[80, 20] at frame 4: frame 0 FX-CW-004, frame 4 pulled in.",
+                  grid(upper_right_corner=keyed((0, [100, 0]), (4, [80, 20])), **PIN,
+                       **BACK_HALF), (0, 4)),
+}
+PIN_INVALID = {
+    "FX-CW-066": ("Camera system \"comp_camera\", not built for Card Wipe (a gap).",
+                  grid(camera_system="comp_camera")),
+    "FX-CW-067": ("Camera system \"orbit\".", grid(camera_system="orbit")),
+    "FX-CW-068": ("Upper left corner [-1001, 0], below -1000.",
+                  grid(upper_left_corner=[-1001, 0], **PIN)),
+    "FX-CW-069": ("Auto focal length \"maybe\".", grid(auto_focal_length="maybe", **PIN)),
+}
+
 
 def effect(fid, c):
     params = {w: c[w] for w in WORDS}
     params.update({n: setting_json(c[n]) for n in NUMBERS})
+    params.update({n: setting_json(c[n]) for n in CD.PINS if n in c["given"]})
+    params.update({w: c[w] for w in ("camera_system", "auto_focal_length") if w in c["given"]})
     return {"instance_id": fid, "type_id": "core.card_wipe", "enabled": True,
             "parameters": params}
 
@@ -550,6 +620,20 @@ def main():
             f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
             "frames": {"0": before, "4": before}, "warning": "EFFECT_PARAMETER_INVALID"}
         print(f"{fx}: invalid")
+    for fx, (says, c, frames) in PIN_CASES.items():
+        step_clear(fx, c, frames)
+        expected["cases"][fx] = {"says": says, "project": write(
+            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+            "frames": {str(f): render(c, f) for f in frames}}
+        print(f"{fx}: built")
+    for fx, (says, c) in PIN_INVALID.items():
+        says += (" The file is read, the effect is kept as written and left out of every frame, "
+                 "with a warning.")
+        before = plain(c)
+        expected["cases"][fx] = {"says": says, "project": write(
+            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+            "frames": {"0": before, "4": before}, "warning": "EFFECT_PARAMETER_INVALID"}
+        print(f"{fx}: invalid")
 
     (OUT / "expected_card_wipe.json").write_text(json.dumps(expected, indent=1) + "\n",
                                                  encoding="utf-8")
@@ -570,6 +654,8 @@ def step_clear(fx, c, frames):
         drawing = decoded("shot")
         back, grad = map_picture(c["back_layer"], f), map_picture(c["gradient_layer"], f)
         deck = cards(k, grad)
+        if view(k) is None:
+            continue
         m, o, ray = view(k)
         sc = k["card_scale"]
         for y in range(H):
@@ -664,6 +750,14 @@ def check(expected):
     # Lights change the picture; colour tints it warm.
     for fx in ("FX-CW-032", "FX-CW-033", "FX-CW-034", "FX-CW-035", "FX-CW-036"):
         assert c[fx]["0"] != b4, fx
+    # D-634: the pins as added are the camera as added; the pins change the picture and the
+    # camera's own settings do not.
+    assert near(c["FX-CW-057"]["0"], b4, 1e-9) and near(c["FX-CW-064"]["0"], b4, 1e-12)
+    assert near(c["FX-CW-065"]["0"], b4, 1e-9) and not near(c["FX-CW-065"]["4"], b4, 1e-6)
+    assert not near(c["FX-CW-058"]["0"], b4, 1e-6)
+    assert not near(c["FX-CW-058"]["0"], c["FX-CW-059"]["0"], 1e-6)
+    assert near(c["FX-CW-060"]["0"], c["FX-CW-061"]["0"], 1e-12)
+    assert near(c["FX-CW-063"]["0"], c["FX-CW-059"]["0"], 1e-12)
     print("checks passed")
 
 

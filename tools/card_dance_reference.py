@@ -26,10 +26,14 @@ turns in the order written; `transformation_order` "scale_rotate_position" (when
 `T_multiplier` and `T_offset`, -100 to 100 card sizes for the positions (1 and 0 when added),
 -3600 to 3600 degrees for the rotations (90 and 0), -10 to 10 for the scales (0.5 and 1). When
 added every source is "none" but `z_position_source`, "intensity_1". The camera:
-`camera_system` "camera_position" (when added) or "comp_camera"; Card Wipe's `camera_x_rotation`,
+`camera_system` "camera_position" (when added), "comp_camera" or "corner_pins" (D-634); Card Wipe's `camera_x_rotation`,
 `camera_y_rotation`, `camera_z_rotation` -3600 to 3600 degrees, 0; `camera_xy_position` x then y,
 -1000 to 1000 per cent of the layer, [50, 50]; `camera_z_position` 0.01 to 10, 1;
-`focal_length` 1 to 1000 mm on a 36 mm frame, 50. The light and material, Card Wipe's:
+`focal_length` 1 to 1000 mm on a 36 mm frame, 50; for "corner_pins" (D-634)
+`upper_left_corner`, `upper_right_corner`, `lower_left_corner`, `lower_right_corner` x then y,
+-1000 to 1000 per cent of the layer, when added the layer's own corners [0, 0], [100, 0],
+[0, 100] and [100, 100], and `auto_focal_length` "off" (when added) or "on". Files from before
+D-634 lack those five: they read as when added, and are written only when given. The light and material, Card Wipe's:
 `light_type` "distant" (when added) or "point"; `light_intensity` 0 to 10, 1; `light_color`
 #rrggbb, "#ffffff"; `light_position` x then y, -1000 to 1000 per cent, [50, 50]; `light_depth`
 0 to 10 layer widths toward the viewer, 1; `ambient_light` 0.25, `diffuse_reflection` 0.75,
@@ -62,7 +66,21 @@ middle C0 = (W/2, H/2, 0).
    default one where the file has none, given in the layer's own pixels as its place (ax, ay) and
    its distance A_l from the layer's plane (compose works them out, as for Particle Space): M = I,
    o = (ax - W/2, ay - H/2, -A_l), v = (x + 1/2 - ax, y + 1/2 - ay, A_l); nothing is drawn where
-   A_l <= 0. The camera turns are not used.
+   A_l <= 0. The camera turns are not used. "corner_pins" (D-634, ours; Adobe gives no rule),
+   `corner_camera`: the plane map Hs taking the unit square's corners (0, 0), (1, 0), (1, 1),
+   (0, 1) to the four pins (p W/100 - W/2, q H/100 - H/2), upper left, upper right, lower right,
+   lower left, in the closed form (with d1 = P1 - P2, d2 = P3 - P2, d3 = P0 - P1 + P2 - P3:
+   g = det(d3, d2)/det(d1, d2), h = det(d1, d3)/det(d1, d2), its columns (P1 - P0 + g P1, g),
+   (P3 - P0 + h P3, h) and (P0, 1)); nothing is drawn where det(d1, d2) = 0. The map from the
+   layer's own centred point (u, v): h1 = Hs0/W, h2 = Hs1/H, h3 = (Hs0 + Hs1)/2 + Hs2. f: with
+   `auto_focal_length` "on", sqrt(-(h1x h2x + h1y h2y)/(h1z h2z)) where h1z h2z is not 0 and
+   that lies within Focal Length's range (W/36 to 1000 W/36, so a shape with next to no
+   perspective is not thrown far off by rounding); otherwise F = W focal/36. a1, a2, t = (h1x/f, h1y/f, h1z), the same for h2
+   and h3, each times s = 2/(|a1| + |a2|), its sign that of t's z; nothing is drawn where t's z
+   is 0. a3 = unit(a1 x a2) sqrt(|a1| |a2|), A = [a1 a2 a3]; nothing is drawn where A has no
+   inverse. o = -A^-1 t, v = A^-1 (x + 1/2 - W/2, y + 1/2 - H/2, f), M = I (the light stays on
+   the layer). The camera turns, place, Z position and, with Auto, the focal length are not
+   used. The layer's own corners with Auto "off" are the camera as added, exactly.
 5. The hits. For each card, with A0 and A1 A's first two columns, solve
    lx A0 + ly A1 - t v = o - B - q; the card is missed where that has no single answer (an
    edge-on card, a scale of 0). A hit needs t > 0, |lx| <= cw/2 and |ly| <= ch/2. The nearest hit
@@ -278,6 +296,9 @@ def view(k, cam):
             return None
         ident = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
         return ident, [ax - W / 2, ay - H / 2, -al], lambda x, y: [x + 0.5 - ax, y + 0.5 - ay, al]
+    if k["camera_system"] == "corner_pins":
+        seen = corner_camera(k, W, H)
+        return None if seen is None else ([[1, 0, 0], [0, 1, 0], [0, 0, 1]],) + seen
     m = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
     for axis in "xyz":
         m = mul(rot(axis, k["camera_" + axis + "_rotation"]), m)
@@ -285,6 +306,61 @@ def view(k, cam):
     xy = k["camera_xy_position"]
     o = app_t(m, [xy[0] * W / 100 - W / 2, xy[1] * H / 100 - H / 2, -k["camera_z_position"] * f])
     return m, o, lambda x, y: app_t(m, [x + 0.5 - W / 2, y + 0.5 - H / 2, f])
+
+
+PINS = ("upper_left_corner", "upper_right_corner", "lower_left_corner", "lower_right_corner")
+PIN_DEFAULTS = {"upper_left_corner": [0, 0], "upper_right_corner": [100, 0],
+                "lower_left_corner": [0, 100], "lower_right_corner": [100, 100],
+                "auto_focal_length": "off"}
+
+
+def inverse3(a):
+    """The inverse of a 3 by 3, or None where its determinant is 0."""
+    c = [[a[(r + 1) % 3][(q + 1) % 3] * a[(r + 2) % 3][(q + 2) % 3]
+          - a[(r + 1) % 3][(q + 2) % 3] * a[(r + 2) % 3][(q + 1) % 3] for q in range(3)]
+         for r in range(3)]
+    det = sum(a[0][q] * c[0][q] for q in range(3))
+    if det == 0:
+        return None
+    return [[c[q][r] / det for q in range(3)] for r in range(3)]
+
+
+def corner_camera(k, w, h):
+    """D-634: the eye o and the ray for a pixel from the four pins, on a w by h layer; None
+    where nothing is drawn."""
+    p0, p1, p3, p2 = ([k[n][0] * w / 100 - w / 2, k[n][1] * h / 100 - h / 2] for n in PINS)
+    d1 = [p1[i] - p2[i] for i in range(2)]
+    d2 = [p3[i] - p2[i] for i in range(2)]
+    d3 = [p0[i] - p1[i] + p2[i] - p3[i] for i in range(2)]
+    den = d1[0] * d2[1] - d2[0] * d1[1]
+    if den == 0:
+        return None
+    g = (d3[0] * d2[1] - d2[0] * d3[1]) / den
+    hh = (d1[0] * d3[1] - d3[0] * d1[1]) / den
+    c0 = [p1[0] - p0[0] + g * p1[0], p1[1] - p0[1] + g * p1[1], g]
+    c1 = [p3[0] - p0[0] + hh * p3[0], p3[1] - p0[1] + hh * p3[1], hh]
+    c2 = [p0[0], p0[1], 1.0]
+    h1 = [q / w for q in c0]
+    h2 = [q / h for q in c1]
+    h3 = [(c0[i] + c1[i]) / 2 + c2[i] for i in range(3)]
+    f = w * k["focal_length"] / 36
+    if k["auto_focal_length"] == "on" and h1[2] * h2[2] != 0:
+        ff = -(h1[0] * h2[0] + h1[1] * h2[1]) / (h1[2] * h2[2])
+        if (w / 36) ** 2 <= ff <= (1000 * w / 36) ** 2:
+            f = math.sqrt(ff)
+    a1, a2, tt = ([q[0] / f, q[1] / f, q[2]] for q in (h1, h2, h3))
+    if tt[2] == 0:
+        return None
+    n1, n2 = math.sqrt(dot(a1, a1)), math.sqrt(dot(a2, a2))
+    s = 2 / (n1 + n2) * (1 if tt[2] > 0 else -1)
+    a1, a2, tt = ([q * s for q in v] for v in (a1, a2, tt))
+    n1, n2 = abs(s) * n1, abs(s) * n2
+    a3 = [q * math.sqrt(n1 * n2) for q in unit_vec(cross(a1, a2))]
+    ai = inverse3([[a1[r], a2[r], a3[r]] for r in range(3)])
+    if ai is None:
+        return None
+    o = [-q for q in app(ai, tt)]
+    return o, lambda x, y: app(ai, [x + 0.5 - w / 2, y + 0.5 - h / 2, f])
 
 
 def det3(c0, c1, c2):
@@ -405,9 +481,9 @@ assert set(DEFAULTS) == set(NUMBERS) | set(WORDS)
 def case(shift=(0, 0), camera=None, **kw):
     """Every setting as added, then the case's; `camera` is (x, y, depth, zoom) for a
     composition camera whose plane at depth 0 is drawn 1:1."""
-    c = dict(DEFAULTS, shift=shift, camera=camera)
+    c = dict(DEFAULTS, **PIN_DEFAULTS, shift=shift, camera=camera, given=set(kw))
     for n, v in kw.items():
-        assert n in DEFAULTS, n
+        assert n in DEFAULTS or n in PIN_DEFAULTS, n
         c[n] = v
     return c
 
@@ -419,8 +495,8 @@ def grid(**kw):
 
 
 def settings(c, frame):
-    k = {n: value_at(c[n], frame) for n in NUMBERS}
-    k.update({w: c[w] for w in WORDS})
+    k = {n: value_at(c[n], frame) for n in NUMBERS + PINS}
+    k.update({w: c[w] for w in WORDS + ("auto_focal_length",)})
     return k
 
 
@@ -590,8 +666,8 @@ INVALID = {
     "FX-CD-049": ("Rotation order \"xxy\".", grid(rotation_order="xxy")),
     "FX-CD-050": ("Transformation order \"scale\".", grid(transformation_order="scale")),
     "FX-CD-051": ("X position source \"purple_1\".", grid(x_position_source="purple_1")),
-    "FX-CD-052": ("Camera system \"corner_pins\", not built yet.",
-                  grid(camera_system="corner_pins")),
+    "FX-CD-052": ("Camera system \"corner_pins\" with the pins as added (D-634): the camera "
+                  "as added, so the picture unchanged.", grid(camera_system="corner_pins")),
     "FX-CD-053": ("Rows 0, below 1.", grid(rows=0)),
     "FX-CD-054": ("Columns 1001, above 1000.", grid(columns=1001)),
     "FX-CD-055": ("Z position multiplier 101, above 100.", grid(z_position_multiplier=101)),
@@ -608,10 +684,63 @@ INVALID = {
                   grid(x_position_offset=keyed((0, 0), (4, 120)))),
 }
 
+# D-566 (1): FX-CD-052 pinned Corner Pins as refused while it was not built; D-634 builds it.
+BUILT = {"FX-CD-052"}
+
+# D-634: the Corner Pins camera.
+PIN = dict(camera_system="corner_pins")
+KEYSTONE = dict(PIN, upper_left_corner=[20, 10], upper_right_corner=[85, 0],
+                lower_right_corner=[100, 95])
+SLANT = dict(PIN, upper_left_corner=[12.5, -12.5], upper_right_corner=[100, 0],
+             lower_right_corner=[87.5, 112.5], lower_left_corner=[0, 100])
+QUAD = dict(PIN, upper_left_corner=[5, 10], upper_right_corner=[90, -5],
+            lower_right_corner=[100, 95], lower_left_corner=[-5, 105])
+PIN_CASES = {
+    "FX-CD-065": ("Corner Pins with the pins as added, three turns with the back layer: "
+                  "FX-CD-014 exactly.", grid(**PIN, **SPIN, **BACK), (0,)),
+    "FX-CD-066": ("Corner Pins, the upper corners pulled in to [20, 10] and [85, 0] and the "
+                  "lower right up to [100, 95], Auto Focal Length off: the layer seen leaning "
+                  "back and turned, the nearer cards larger.",
+                  grid(**KEYSTONE, **DEPTH), (0,)),
+    "FX-CD-067": ("FX-CD-066 with Auto Focal Length on: the focal length worked out from the "
+                  "pins.", grid(auto_focal_length="on", **KEYSTONE, **DEPTH), (0,)),
+    "FX-CD-068": ("Corner Pins turned and slanted with no perspective (a parallelogram), Auto "
+                  "Focal Length on: no focal length can be worked out, so Focal Length's.",
+                  grid(auto_focal_length="on", **SLANT, **DEPTH), (0,)),
+    "FX-CD-069": ("FX-CD-068 with Auto Focal Length off: the same.",
+                  grid(**SLANT, **DEPTH), (0,)),
+    "FX-CD-070": ("Corner Pins on a general four-sided shape, Auto Focal Length on, three turns "
+                  "with the back layer.", grid(auto_focal_length="on", **QUAD, **SPIN, **BACK),
+                  (0,)),
+    "FX-CD-071": ("FX-CD-067 with a point light at the top left, depth 0.3, specular 1, "
+                  "sharpness 20: the light stays on the layer.",
+                  grid(auto_focal_length="on", light_type="point", light_position=[20, 30],
+                       light_depth=0.3, specular_reflection=1, highlight_sharpness=20,
+                       **KEYSTONE, **SPIN, **BACK), (0,)),
+    "FX-CD-072": ("FX-CD-067 with the camera turned 30 about y, at x 40 per cent and Z "
+                  "position 3: Corner Pins does not use them, so FX-CD-067.",
+                  grid(auto_focal_length="on", camera_y_rotation=30, camera_xy_position=[40, 50],
+                       camera_z_position=3, **KEYSTONE, **DEPTH), (0,)),
+    "FX-CD-073": ("The upper right pin keyed from [100, 0] at frame 0 to [80, 20] at frame 4: "
+                  "frame 0 FX-CD-003.",
+                  grid(upper_right_corner=keyed((0, [100, 0]), (4, [80, 20])), **PIN, **DEPTH),
+                  (0, 4)),
+}
+PIN_INVALID = {
+    "FX-CD-074": ("Upper left corner [-1001, 0], below -1000.",
+                  grid(upper_left_corner=[-1001, 0], **PIN)),
+    "FX-CD-075": ("Auto focal length \"maybe\".", grid(auto_focal_length="maybe", **PIN)),
+    "FX-CD-076": ("Lower right corner keyed to [100, 1200] at frame 4.",
+                  grid(lower_right_corner=keyed((0, [100, 100]), (4, [100, 1200])), **PIN)),
+}
+
 
 def effect(fid, c):
     params = {w: c[w] for w in WORDS}
     params.update({n: setting_json(c[n]) for n in NUMBERS})
+    params.update({n: setting_json(c[n]) for n in PINS if n in c["given"]})
+    if "auto_focal_length" in c["given"]:
+        params["auto_focal_length"] = c["auto_focal_length"]
     return {"instance_id": fid, "type_id": "core.card_dance", "enabled": True,
             "parameters": params}
 
@@ -663,6 +792,27 @@ def main():
         print(f"{fx}: " + ", ".join(f"frame {f} {sum(px[i] != before[i] for i in range(W * H))} "
                                     "changed" for f, px in rendered.items()))
     for fx, (says, c) in INVALID.items():
+        if fx in BUILT:
+            step_clear(fx, c, (0, 4))
+            expected["cases"][fx] = {"says": says, "project": write(
+                f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+                "frames": {str(f): render(c, f) for f in (0, 4)}}
+            print(f"{fx}: built")
+            continue
+        says += (" The file is read, the effect is kept as written and left out of every frame, "
+                 "with a warning.")
+        before = plain(c)
+        expected["cases"][fx] = {"says": says, "project": write(
+            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+            "frames": {"0": before, "4": before}, "warning": "EFFECT_PARAMETER_INVALID"}
+        print(f"{fx}: invalid")
+    for fx, (says, c, frames) in PIN_CASES.items():
+        step_clear(fx, c, frames)
+        expected["cases"][fx] = {"says": says, "project": write(
+            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+            "frames": {str(f): render(c, f) for f in frames}}
+        print(f"{fx}: built")
+    for fx, (says, c) in PIN_INVALID.items():
         says += (" The file is read, the effect is kept as written and left out of every frame, "
                  "with a warning.")
         before = plain(c)
@@ -763,6 +913,21 @@ def check(expected):
         assert c[fx]["0"] != c["FX-CD-014"]["0"], fx
     # Mirrored across: still the front, so not clear where the picture is not.
     assert any(p[3] > 0 for p in c["FX-CD-026"]["0"])
+    # D-634: the pins as added are the camera as added.
+    assert near(c["FX-CD-052"]["0"], drawn, 1e-9) and near(c["FX-CD-052"]["4"], drawn, 1e-9)
+    assert near(c["FX-CD-065"]["0"], c["FX-CD-014"]["0"], 1e-9)
+    assert near(c["FX-CD-073"]["0"], c["FX-CD-003"]["0"], 1e-9)
+    assert not near(c["FX-CD-073"]["4"], c["FX-CD-003"]["0"], 1e-6)
+    # Auto changes a keystone, not a parallelogram; the camera's own settings are not used.
+    assert not near(c["FX-CD-066"]["0"], c["FX-CD-067"]["0"], 1e-6)
+    assert near(c["FX-CD-068"]["0"], c["FX-CD-069"]["0"], 1e-12)
+    assert near(c["FX-CD-072"]["0"], c["FX-CD-067"]["0"], 1e-12)
+    assert not near(c["FX-CD-066"]["0"], c["FX-CD-003"]["0"], 1e-6)
+    # The flat layer lands on its pins: with nothing moving, the keystone's top row of pixel
+    # centres inside the pins is drawn and the corners outside them are clear.
+    flat = render(grid(**KEYSTONE), 0)
+    assert flat[0] == CLEAR and flat[W - 1] == CLEAR and flat[W // 2][3] > 0
+    assert flat[(H - 1) * W][3] > 0
     print("checks passed")
 
 
