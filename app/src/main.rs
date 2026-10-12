@@ -47,7 +47,7 @@ use anime_compositor::command::{Command, Document, Target, TimeRemap};
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{Diagnostic, DiagnosticId, FrameLog, Severity};
 use anime_compositor::effects::{
-    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, FAST_BLUR_LEGACY, GAUSSIAN_BLUR_LEGACY, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, CC_VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, CC_WIDE_TIME, FORCE_MOTION_BLUR, PIXEL_MOTION_BLUR, CC_RAINFALL, WAVE_WORLD, CAUSTICS, CARD_DANCE, CARD_DANCE_TRANSFORMS, TIME_DIFFERENCE, TDIFF_ALPHAS, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, BILATERAL_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, IDENTIFIER, NUMBERS, BASIC_TEXT, TIMECODE, CRYPTOMATTE, DEPTH_OF_FIELD, FOG_3D, TEXT_ANIMATOR, STRETCH_LEVELS, STRETCH_CONTRAST, STRETCH_COLOR, SPREAD_TONES, MATTE_CHOKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE, STROKE, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, CROSS_BLUR, SPIN_ZOOM_BLUR, FAST_ZOOM_BLUR, BROADCAST_SAFE, COLOR_NEUTRALIZER, COLOR_OFFSET, KERNEL, TONER, CHANGE_COLOR, BEND_IT, BENDER, BLOBBYLIZE, GLUE_GUN, THREADS, LENS_FLARE, VEGAS, CURL_NOISE, TURBULENT_NOISE, COLOR_BALANCE_HLS, COLOR_LINK, COLOR_STABILIZER, GAMMA_PEDESTAL_GAIN, FLOW_MOTION, GRIDDLER, FISHEYE, LEVELS_INDIVIDUAL, LEVELS_NAMES, LEVELS_PLAIN, PHOTO_FILTER, COLOR_GRADE, COLOR_GRADE_SETTINGS, PAGE_TURN, POWER_PIN, BEZIER_WARP, MESH_WARP, WARP, RIPPLE_PULSE, SLANT, SMEAR, SPLIT, SPLIT_2, TILES, MAGNIFY, SPHERIZE, CHECKERBOARD, CIRCLE, ELLIPSE, AUDIO_SPECTRUM, AUDIO_WAVEFORM, LIGHT_BURST, DETAIL_UPSCALE, FRACTAL, GRID, FILL, EYEDROPPER_FILL, PAINT_BUCKET, WRITE_ON, SCRIBBLE, ADD_GRAIN, NOISE_ALPHA, NOISE_HLS, NOISE_HLS_AUTO, DUST_SCRATCHES, BRUSH_STROKES, CARTOON, BLOCK_LOAD, BURN_FILM, HEX_TILE, MR_SMOOTHIE, PLASTIC, REPEAT_TILE, SCATTER, STROBE_LIGHT, TEXTURIZE, CHANNEL_THRESHOLD, THRESHOLD_RGB, CONTOUR_PAINT, ARBITRARY_MAP, SELECTIVE_COLOR, SHADOW_HIGHLIGHT, TRITONE, AERIAL_HAZE, TRANSFORM,
+    Effect, EffectInstance, EffectKey, BLOOM, COLOR_KEY, CURVES, LEVELS, HUE_SATURATION, GRADIENT, DROP_SHADOW, LENS_BLUR, FAST_BLUR_LEGACY, GAUSSIAN_BLUR_LEGACY, RIM_LIGHT, OUTLINE, NOISE, CHROMATIC_ABERRATION, DISTANCE_GRADATION, LIGHT_RAYS, EXPOSURE_FLICKER, VIGNETTE, CC_VIGNETTE, TURBULENT_DISPLACE, FRACTAL_NOISE, GRADIENT_MAP, COLOR_BALANCE, OFFSET, LIGHT_WRAP, INVERT, BRIGHTNESS_CONTRAST, BLACK_WHITE, POSTERIZE, THRESHOLD, CHANNEL_MIXER, VIBRANCE, LEAVE_COLOR, SOLARIZE, HALFTONE, MOSAIC, EMBOSS, FIND_EDGES, SHARPEN, DIFFUSION, WAVE_WARP, RIPPLE, TWIRL, BULGE, MIRROR, MOTION_TILE, LINEAR_WIPE, RADIAL_WIPE, VENETIAN_BLINDS, IRIS_WIPE, SIMPLE_CHOKER, SPEED_LINES, CROSS_GLARE, CAMERA_SHAKE, RAIN, COLOR_LOOKUP, LINE_BLUR, HSV_KEY, PARAFFIN, KIRA_KIRA, LIGHTNING_BOLT, COMPOUND_BLUR, DISPLACEMENT_MAP, GRADIENT_WIPE, ECHO, CC_WIDE_TIME, FORCE_MOTION_BLUR, PIXEL_MOTION_BLUR, CC_RAINFALL, WAVE_WORLD, CAUSTICS, CARD_DANCE, CARD_DANCE_TRANSFORMS, SHATTER, TIME_DIFFERENCE, TDIFF_ALPHAS, POSTERIZE_TIME, CHANGE_TO_COLOR, CORNER_PIN, LIGHT_SWEEP, RADIO_WAVES, POLAR_COORDINATES, MEDIAN, SMART_BLUR, BILATERAL_BLUR, SNOWFALL, KALEIDOSCOPE, ROUGHEN_EDGES, BEAM, FOUR_COLOR_GRADIENT, CELL_PATTERN, OPTICS_COMPENSATION, RADIAL_SHADOW, EXTRACT, BEVEL_ALPHA, BEVEL_EDGES, BLOCK_DISSOLVE, SHIFT_CHANNELS, SOLID_COMPOSITE, CHANNEL_BLUR, FAST_BOX_BLUR, COLORAMA, GLASS, VECTOR_BLUR, MOMENT_MAP, PASS_EXTRACT, DEPTH_KEY, ID_KEY, IDENTIFIER, NUMBERS, BASIC_TEXT, TIMECODE, CRYPTOMATTE, DEPTH_OF_FIELD, FOG_3D, TEXT_ANIMATOR, STRETCH_LEVELS, STRETCH_CONTRAST, STRETCH_COLOR, SPREAD_TONES, MATTE_CHOKER, REFINE_HARD_MATTE, REFINE_SOFT_MATTE, STROKE, HUE_RANGES, DIRECTIONAL_BLUR, EXPOSURE, GAUSSIAN_BLUR, CROSS_BLUR, SPIN_ZOOM_BLUR, FAST_ZOOM_BLUR, BROADCAST_SAFE, COLOR_NEUTRALIZER, COLOR_OFFSET, KERNEL, TONER, CHANGE_COLOR, BEND_IT, BENDER, BLOBBYLIZE, GLUE_GUN, THREADS, LENS_FLARE, VEGAS, CURL_NOISE, TURBULENT_NOISE, COLOR_BALANCE_HLS, COLOR_LINK, COLOR_STABILIZER, GAMMA_PEDESTAL_GAIN, FLOW_MOTION, GRIDDLER, FISHEYE, LEVELS_INDIVIDUAL, LEVELS_NAMES, LEVELS_PLAIN, PHOTO_FILTER, COLOR_GRADE, COLOR_GRADE_SETTINGS, PAGE_TURN, POWER_PIN, BEZIER_WARP, MESH_WARP, WARP, RIPPLE_PULSE, SLANT, SMEAR, SPLIT, SPLIT_2, TILES, MAGNIFY, SPHERIZE, CHECKERBOARD, CIRCLE, ELLIPSE, AUDIO_SPECTRUM, AUDIO_WAVEFORM, LIGHT_BURST, DETAIL_UPSCALE, FRACTAL, GRID, FILL, EYEDROPPER_FILL, PAINT_BUCKET, WRITE_ON, SCRIBBLE, ADD_GRAIN, NOISE_ALPHA, NOISE_HLS, NOISE_HLS_AUTO, DUST_SCRATCHES, BRUSH_STROKES, CARTOON, BLOCK_LOAD, BURN_FILM, HEX_TILE, MR_SMOOTHIE, PLASTIC, REPEAT_TILE, SCATTER, STROBE_LIGHT, TEXTURIZE, CHANNEL_THRESHOLD, THRESHOLD_RGB, CONTOUR_PAINT, ARBITRARY_MAP, SELECTIVE_COLOR, SHADOW_HIGHLIGHT, TRITONE, AERIAL_HAZE, TRANSFORM,
     GLOW, LINE_RECOLOR, LINE_SMOOTH, LINE_WIDTH, RADIAL_BLUR, SELECTIVE_COLOR_BLUR, SELECT_COLOR,
     TINT, MATCH_GRAIN, REMOVE_GRAIN, DEBAND, ADVANCED_SPILL_SUPPRESSOR, COLOR_DIFFERENCE_KEY, CDK_NAMES, COLOR_RANGE, CRANGE_NAMES, DIFFERENCE_MATTE, INNER_OUTER_KEY, KEY_CLEANER, LINEAR_COLOR_KEY, SCREEN_KEY, SPILL_SUPPRESSOR, REDUCE_INTERLACE_FLICKER, UNMULT, THREE_D_GLASSES, GLASS_MELT, TILE_WIPE, TEETH_WIPE, GLOW_WIPE, STRIPE_SWEEP, PUSH_IRIS, STRETCH_WIPE, TWISTER, WARP_BLEND, CHANNEL_WIPE, HALATION, CC_SPOTLIGHT, CC_BALL_ACTION, PARTICLE_SPACE, PARTICLE_SPACE_SETTINGS, PARTICLE_SPACE_WORDS, PARTICLE_SPACE_COLORS, ENERGY_STROKE, CC_CYLINDER, CC_ENVIRONMENT, CC_SPHERE, CARD_WIPE, SIMPLE_WIRE_REMOVAL,
 };
@@ -4080,6 +4080,70 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             fps: 0.0,
             grid_scale: 1.0,
         }),
+        // D-633: ours (Adobe gives few values): ten bricks across, broken by one force at the centre
+        // and thrown down by gravity, seen by its own camera.
+        SHATTER => Some(Effect::Shatter {
+            view: "rendered".to_string(),
+            render: "all".to_string(),
+            pattern: "bricks".to_string(),
+            custom_shatter_map: serde_json::Value::from(""),
+            custom_map: None,
+            white_tiles_fixed: "off".to_string(),
+            repetitions: 10.0,
+            direction: 0.0,
+            origin: [50.0, 50.0],
+            extrusion_depth: 0.2,
+            force_1_position: [50.0, 50.0],
+            force_1_depth: 0.1,
+            force_1_radius: 0.4,
+            force_1_strength: 5.0,
+            force_2_position: [50.0, 50.0],
+            force_2_depth: 0.1,
+            force_2_radius: 0.0,
+            force_2_strength: 5.0,
+            gradient_layer: serde_json::Value::from(""),
+            gradient_map: None,
+            shatter_threshold: 0.0,
+            invert_gradient: "off".to_string(),
+            rotation_speed: 0.2,
+            tumble_axis: "free".to_string(),
+            randomness: 0.1,
+            viscosity: 0.1,
+            mass_variance: 30.0,
+            gravity: 3.0,
+            gravity_direction: 180.0,
+            gravity_inclination: 0.0,
+            color: "#ffffff".to_string(),
+            opacity: 1.0,
+            front_mode: "layer".to_string(),
+            side_mode: "tinted_layer".to_string(),
+            back_mode: "layer".to_string(),
+            front_layer: serde_json::Value::from(""),
+            front_map: None,
+            side_layer: serde_json::Value::from(""),
+            side_map: None,
+            back_layer: serde_json::Value::from(""),
+            back_map: None,
+            camera_system: "camera_position".to_string(),
+            camera_x_rotation: 0.0,
+            camera_y_rotation: 0.0,
+            camera_z_rotation: 0.0,
+            camera_xy_position: [50.0, 50.0],
+            camera_z_position: 1.0,
+            focal_length: 50.0,
+            light_type: "distant".to_string(),
+            light_intensity: 1.0,
+            light_color: "#ffffff".to_string(),
+            light_position: [50.0, 50.0],
+            light_depth: 1.0,
+            ambient_light: 0.25,
+            diffuse_reflection: 0.75,
+            specular_reflection: 0.0,
+            highlight_sharpness: 5.0,
+            seen: [0.0; 3],
+            history: Vec::new(),
+            fps: 0.0,
+        }),
         // D-632: ours (Adobe gives few values): eight by eight cards, each moved toward the viewer
         // by the brightness of the layer's own drawing under it, seen by its own camera.
         CARD_DANCE => Some(Effect::CardDance {
@@ -6846,6 +6910,68 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             history: Vec::new(),
             fps: 0.0,
             grid_scale: 1.0,
+        }),
+        SHATTER => Ok(Effect::Shatter {
+            view: word("view")?,
+            render: word("render")?,
+            pattern: word("pattern")?,
+            white_tiles_fixed: word("white_tiles_fixed")?,
+            invert_gradient: word("invert_gradient")?,
+            tumble_axis: word("tumble_axis")?,
+            color: word("color")?,
+            front_mode: word("front_mode")?,
+            side_mode: word("side_mode")?,
+            back_mode: word("back_mode")?,
+            camera_system: word("camera_system")?,
+            light_type: word("light_type")?,
+            light_color: word("light_color")?,
+            repetitions: number("repetitions")?,
+            direction: number("direction")?,
+            extrusion_depth: number("extrusion_depth")?,
+            force_1_depth: number("force_1_depth")?,
+            force_1_radius: number("force_1_radius")?,
+            force_1_strength: number("force_1_strength")?,
+            force_2_depth: number("force_2_depth")?,
+            force_2_radius: number("force_2_radius")?,
+            force_2_strength: number("force_2_strength")?,
+            shatter_threshold: number("shatter_threshold")?,
+            rotation_speed: number("rotation_speed")?,
+            randomness: number("randomness")?,
+            viscosity: number("viscosity")?,
+            mass_variance: number("mass_variance")?,
+            gravity: number("gravity")?,
+            gravity_direction: number("gravity_direction")?,
+            gravity_inclination: number("gravity_inclination")?,
+            opacity: number("opacity")?,
+            camera_x_rotation: number("camera_x_rotation")?,
+            camera_y_rotation: number("camera_y_rotation")?,
+            camera_z_rotation: number("camera_z_rotation")?,
+            camera_z_position: number("camera_z_position")?,
+            focal_length: number("focal_length")?,
+            light_intensity: number("light_intensity")?,
+            light_depth: number("light_depth")?,
+            ambient_light: number("ambient_light")?,
+            diffuse_reflection: number("diffuse_reflection")?,
+            specular_reflection: number("specular_reflection")?,
+            highlight_sharpness: number("highlight_sharpness")?,
+            origin: pair("origin")?,
+            force_1_position: pair("force_1_position")?,
+            force_2_position: pair("force_2_position")?,
+            camera_xy_position: pair("camera_xy_position")?,
+            light_position: pair("light_position")?,
+            custom_shatter_map: serde_json::Value::from(parameter(query, "custom_shatter_map").unwrap_or_default().trim()),
+            custom_map: None,
+            gradient_layer: serde_json::Value::from(parameter(query, "gradient_layer").unwrap_or_default().trim()),
+            gradient_map: None,
+            front_layer: serde_json::Value::from(parameter(query, "front_layer").unwrap_or_default().trim()),
+            front_map: None,
+            side_layer: serde_json::Value::from(parameter(query, "side_layer").unwrap_or_default().trim()),
+            side_map: None,
+            back_layer: serde_json::Value::from(parameter(query, "back_layer").unwrap_or_default().trim()),
+            back_map: None,
+            seen: [0.0; 3],
+            history: Vec::new(),
+            fps: 0.0,
         }),
         CARD_DANCE => Ok(Effect::CardDance {
             rows_columns: word("rows_columns")?,
@@ -12370,7 +12496,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.speed_lines, core.cross_glare, core.camera_shake, core.rain, \
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
-                             core.compound_blur, core.displacement_map, core.gradient_wipe, core.glass_melt, core.tile_wipe, core.teeth_wipe, core.glow_wipe, core.stripe_sweep, core.push_iris, core.stretch_wipe, core.twister, core.warp_blend, core.channel_wipe, core.halation, core.echo, core.cc_wide_time, core.force_motion_blur, core.cc_rainfall, core.wave_world, core.caustics, core.card_dance, core.time_difference, core.posterize_time, core.pixel_motion_blur, \
+                             core.compound_blur, core.displacement_map, core.gradient_wipe, core.glass_melt, core.tile_wipe, core.teeth_wipe, core.glow_wipe, core.stripe_sweep, core.push_iris, core.stretch_wipe, core.twister, core.warp_blend, core.channel_wipe, core.halation, core.echo, core.cc_wide_time, core.force_motion_blur, core.cc_rainfall, core.wave_world, core.caustics, core.card_dance, core.shatter, core.time_difference, core.posterize_time, core.pixel_motion_blur, \
                              core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.fast_blur_legacy, core.gaussian_blur_legacy, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.cryptomatte, core.depth_of_field, core.fog_3d, core.identifier, core.numbers, core.timecode, core.basic_text, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.glue_gun, core.threads, core.lens_flare, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.bezier_warp, core.mesh_warp, core.warp, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.eyedropper_fill, core.paint_bucket, core.write_on, core.scribble, core.energy_stroke, core.add_grain, core.vegas, core.curl_noise, core.turbulent_noise, core.noise_alpha, core.noise_hls, core.noise_hls_auto, core.dust_scratches, core.match_grain, core.remove_grain, core.brush_strokes, core.cartoon, core.deband, core.advanced_spill_suppressor, core.color_difference_key, core.color_range, core.difference_matte, core.inner_outer_key, core.key_cleaner, core.linear_color_key, core.screen_key, core.spill_suppressor, core.reduce_interlace_flicker, core.unmult, core.three_d_glasses, core.cc_spotlight, core.cc_cylinder, core.cc_ball_action, core.particle_space, core.cc_environment, core.cc_sphere, core.card_wipe, core.simple_wire_removal, core.block_load, core.burn_film, core.hex_tile, core.mr_smoothie, core.plastic, core.repeat_tile, core.scatter, core.strobe_light, core.texturize, core.channel_threshold, core.threshold_rgb, core.contour_paint, core.cc_vignette, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze or core.transform."
                                 .to_string(),
                         );
@@ -12402,7 +12528,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                              core.speed_lines, core.cross_glare, core.camera_shake, core.rain, \
                              core.color_lookup, core.line_blur, core.hsv_key, \
                              core.paraffin, core.kira_kira, core.lightning_bolt, \
-                             core.compound_blur, core.displacement_map, core.gradient_wipe, core.glass_melt, core.tile_wipe, core.teeth_wipe, core.glow_wipe, core.stripe_sweep, core.push_iris, core.stretch_wipe, core.twister, core.warp_blend, core.channel_wipe, core.halation, core.echo, core.cc_wide_time, core.force_motion_blur, core.cc_rainfall, core.wave_world, core.caustics, core.card_dance, core.time_difference, core.posterize_time, core.pixel_motion_blur, \
+                             core.compound_blur, core.displacement_map, core.gradient_wipe, core.glass_melt, core.tile_wipe, core.teeth_wipe, core.glow_wipe, core.stripe_sweep, core.push_iris, core.stretch_wipe, core.twister, core.warp_blend, core.channel_wipe, core.halation, core.echo, core.cc_wide_time, core.force_motion_blur, core.cc_rainfall, core.wave_world, core.caustics, core.card_dance, core.shatter, core.time_difference, core.posterize_time, core.pixel_motion_blur, \
                              core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.fast_blur_legacy, core.gaussian_blur_legacy, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.cryptomatte, core.depth_of_field, core.fog_3d, core.identifier, core.numbers, core.timecode, core.basic_text, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.glue_gun, core.threads, core.lens_flare, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.bezier_warp, core.mesh_warp, core.warp, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.eyedropper_fill, core.paint_bucket, core.write_on, core.scribble, core.energy_stroke, core.add_grain, core.vegas, core.curl_noise, core.turbulent_noise, core.noise_alpha, core.noise_hls, core.noise_hls_auto, core.dust_scratches, core.match_grain, core.remove_grain, core.brush_strokes, core.cartoon, core.deband, core.advanced_spill_suppressor, core.color_difference_key, core.color_range, core.difference_matte, core.inner_outer_key, core.key_cleaner, core.linear_color_key, core.screen_key, core.spill_suppressor, core.reduce_interlace_flicker, core.unmult, core.three_d_glasses, core.cc_spotlight, core.cc_cylinder, core.cc_ball_action, core.particle_space, core.cc_environment, core.cc_sphere, core.card_wipe, core.simple_wire_removal, core.block_load, core.burn_film, core.hex_tile, core.mr_smoothie, core.plastic, core.repeat_tile, core.scatter, core.strobe_light, core.texturize, core.channel_threshold, core.threshold_rgb, core.contour_paint, core.cc_vignette, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze and core.transform."
                         ));
                     };
@@ -18103,7 +18229,7 @@ mod editing {
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
-             core.compound_blur, core.displacement_map, core.gradient_wipe, core.glass_melt, core.tile_wipe, core.teeth_wipe, core.glow_wipe, core.stripe_sweep, core.push_iris, core.stretch_wipe, core.twister, core.warp_blend, core.channel_wipe, core.halation, core.echo, core.cc_wide_time, core.force_motion_blur, core.cc_rainfall, core.wave_world, core.caustics, core.card_dance, core.time_difference, core.posterize_time, core.pixel_motion_blur, \
+             core.compound_blur, core.displacement_map, core.gradient_wipe, core.glass_melt, core.tile_wipe, core.teeth_wipe, core.glow_wipe, core.stripe_sweep, core.push_iris, core.stretch_wipe, core.twister, core.warp_blend, core.channel_wipe, core.halation, core.echo, core.cc_wide_time, core.force_motion_blur, core.cc_rainfall, core.wave_world, core.caustics, core.card_dance, core.shatter, core.time_difference, core.posterize_time, core.pixel_motion_blur, \
              core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.fast_blur_legacy, core.gaussian_blur_legacy, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.cryptomatte, core.depth_of_field, core.fog_3d, core.identifier, core.numbers, core.timecode, core.basic_text, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.glue_gun, core.threads, core.lens_flare, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.bezier_warp, core.mesh_warp, core.warp, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.eyedropper_fill, core.paint_bucket, core.write_on, core.scribble, core.energy_stroke, core.add_grain, core.vegas, core.curl_noise, core.turbulent_noise, core.noise_alpha, core.noise_hls, core.noise_hls_auto, core.dust_scratches, core.match_grain, core.remove_grain, core.brush_strokes, core.cartoon, core.deband, core.advanced_spill_suppressor, core.color_difference_key, core.color_range, core.difference_matte, core.inner_outer_key, core.key_cleaner, core.linear_color_key, core.screen_key, core.spill_suppressor, core.reduce_interlace_flicker, core.unmult, core.three_d_glasses, core.cc_spotlight, core.cc_cylinder, core.cc_ball_action, core.particle_space, core.cc_environment, core.cc_sphere, core.card_wipe, core.simple_wire_removal, core.block_load, core.burn_film, core.hex_tile, core.mr_smoothie, core.plastic, core.repeat_tile, core.scatter, core.strobe_light, core.texturize, core.channel_threshold, core.threshold_rgb, core.contour_paint, core.cc_vignette, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze and core.transform.",
             run(&viewer, "effect.add?layer=layer-cel&type=core.not_yet_made"),
         );
@@ -18125,7 +18251,7 @@ mod editing {
              core.iris_wipe, core.simple_choker, core.speed_lines, core.cross_glare, \
              core.camera_shake, core.rain, core.color_lookup, core.line_blur, \
              core.hsv_key, core.paraffin, core.kira_kira, core.lightning_bolt, \
-             core.compound_blur, core.displacement_map, core.gradient_wipe, core.glass_melt, core.tile_wipe, core.teeth_wipe, core.glow_wipe, core.stripe_sweep, core.push_iris, core.stretch_wipe, core.twister, core.warp_blend, core.channel_wipe, core.halation, core.echo, core.cc_wide_time, core.force_motion_blur, core.cc_rainfall, core.wave_world, core.caustics, core.card_dance, core.time_difference, core.posterize_time, core.pixel_motion_blur, \
+             core.compound_blur, core.displacement_map, core.gradient_wipe, core.glass_melt, core.tile_wipe, core.teeth_wipe, core.glow_wipe, core.stripe_sweep, core.push_iris, core.stretch_wipe, core.twister, core.warp_blend, core.channel_wipe, core.halation, core.echo, core.cc_wide_time, core.force_motion_blur, core.cc_rainfall, core.wave_world, core.caustics, core.card_dance, core.shatter, core.time_difference, core.posterize_time, core.pixel_motion_blur, \
              core.change_to_color, core.corner_pin, core.light_sweep, core.radio_waves, core.polar_coordinates, core.median, core.smart_blur, core.snowfall, core.kaleidoscope, core.roughen_edges, core.beam, core.four_color_gradient, core.cell_pattern, core.optics_compensation, core.radial_shadow, core.extract, core.bevel_alpha, core.bevel_edges, core.block_dissolve, core.shift_channels, core.solid_composite, core.channel_blur, core.fast_box_blur, core.fast_blur_legacy, core.gaussian_blur_legacy, core.colorama, core.glass, core.vector_blur, core.moment_map, core.pass_extract, core.depth_key, core.id_key, core.cryptomatte, core.depth_of_field, core.fog_3d, core.identifier, core.numbers, core.timecode, core.basic_text, core.text_animator, core.stretch_levels, core.stretch_contrast, core.stretch_color, core.spread_tones, core.matte_choker, core.refine_hard_matte, core.refine_soft_matte, core.stroke, core.bilateral_blur, core.cross_blur, core.spin_zoom_blur, core.fast_zoom_blur, core.broadcast_safe, core.color_neutralizer, core.color_offset, core.kernel, core.toner, core.change_color, core.bend_it, core.bender, core.blobbylize, core.glue_gun, core.threads, core.lens_flare, core.color_balance_hls, core.color_link, core.color_stabilizer, core.gamma_pedestal_gain, core.flow_motion, core.griddler, core.fisheye, core.levels_individual, core.photo_filter, core.color_grade, core.page_turn, core.power_pin, core.bezier_warp, core.mesh_warp, core.warp, core.ripple_pulse, core.slant, core.smear, core.split, core.split_2, core.tiles, core.magnify, core.spherize, core.checkerboard, core.circle, core.ellipse, core.detail_upscale, core.audio_spectrum, core.audio_waveform, core.fractal, core.grid, core.light_burst, core.fill, core.eyedropper_fill, core.paint_bucket, core.write_on, core.scribble, core.energy_stroke, core.add_grain, core.vegas, core.curl_noise, core.turbulent_noise, core.noise_alpha, core.noise_hls, core.noise_hls_auto, core.dust_scratches, core.match_grain, core.remove_grain, core.brush_strokes, core.cartoon, core.deband, core.advanced_spill_suppressor, core.color_difference_key, core.color_range, core.difference_matte, core.inner_outer_key, core.key_cleaner, core.linear_color_key, core.screen_key, core.spill_suppressor, core.reduce_interlace_flicker, core.unmult, core.three_d_glasses, core.cc_spotlight, core.cc_cylinder, core.cc_ball_action, core.particle_space, core.cc_environment, core.cc_sphere, core.card_wipe, core.simple_wire_removal, core.block_load, core.burn_film, core.hex_tile, core.mr_smoothie, core.plastic, core.repeat_tile, core.scatter, core.strobe_light, core.texturize, core.channel_threshold, core.threshold_rgb, core.contour_paint, core.cc_vignette, core.arbitrary_map, core.selective_color, core.shadow_highlight, core.tritone, core.aerial_haze or core.transform.",
             run(&viewer, "effect.add?layer=layer-cel"),
         );
@@ -32332,6 +32458,64 @@ mod contract {
                 ("producer_2_amplitude", "0.3"),
                 ("producer_2_frequency", "3"),
                 ("producer_2_phase", "0"),
+            ],
+        ),
+        // D-633: five layers, the patterns and modes, two forces, the physics, the camera and light.
+        (
+            "core.shatter",
+            &[
+                ("view", "rendered"),
+                ("render", "pieces"),
+                ("pattern", "hexagons"),
+                ("custom_shatter_map", "layer-4"),
+                ("white_tiles_fixed", "on"),
+                ("repetitions", "12"),
+                ("direction", "30"),
+                ("origin", "40,60"),
+                ("extrusion_depth", "0.3"),
+                ("force_1_position", "30,40"),
+                ("force_1_depth", "0.2"),
+                ("force_1_radius", "0.5"),
+                ("force_1_strength", "-2"),
+                ("force_2_position", "70,60"),
+                ("force_2_depth", "-0.1"),
+                ("force_2_radius", "0.25"),
+                ("force_2_strength", "8"),
+                ("gradient_layer", "layer-4"),
+                ("shatter_threshold", "40"),
+                ("invert_gradient", "on"),
+                ("rotation_speed", "0.5"),
+                ("tumble_axis", "xz"),
+                ("randomness", "0.3"),
+                ("viscosity", "0.5"),
+                ("mass_variance", "60"),
+                ("gravity", "6"),
+                ("gravity_direction", "90"),
+                ("gravity_inclination", "20"),
+                ("color", "#ffeecc"),
+                ("opacity", "0.75"),
+                ("front_mode", "color"),
+                ("side_mode", "layer_plus_opacity"),
+                ("back_mode", "tinted_layer_plus_opacity"),
+                ("front_layer", "layer-4"),
+                ("side_layer", "layer-4"),
+                ("back_layer", "layer-4"),
+                ("camera_system", "comp_camera"),
+                ("camera_x_rotation", "15"),
+                ("camera_y_rotation", "-30"),
+                ("camera_z_rotation", "5"),
+                ("camera_xy_position", "40,60"),
+                ("camera_z_position", "2"),
+                ("focal_length", "35"),
+                ("light_type", "point"),
+                ("light_intensity", "1.5"),
+                ("light_color", "#ffeecc"),
+                ("light_position", "20,30"),
+                ("light_depth", "0.8"),
+                ("ambient_light", "0.2"),
+                ("diffuse_reflection", "1"),
+                ("specular_reflection", "0.5"),
+                ("highlight_sharpness", "20"),
             ],
         ),
         // D-632: three layers, the eight sources, multipliers and offsets, the camera and light.

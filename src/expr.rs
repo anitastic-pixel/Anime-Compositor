@@ -313,11 +313,12 @@ fn splitmix64(x: u64) -> u64 {
     z ^ (z >> 31)
 }
 
-fn mix(a: u64, b: u64) -> u64 {
+/// D-633: also Shatter's glass seeds and its pieces' randoms.
+pub(crate) fn mix(a: u64, b: u64) -> u64 {
     splitmix64(a ^ splitmix64(b))
 }
 
-fn unit(x: u64) -> f64 {
+pub(crate) fn unit(x: u64) -> f64 {
     (x >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
 }
 

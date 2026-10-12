@@ -2331,22 +2331,24 @@ fn effect_now(
         }
         // D-630: Wave World's history, every number at each frame from the in point to this
         // one, read as the layer's keys are; the water runs again from the in point each frame.
+        // D-633: Shatter's the same, its pieces freed and thrown again from the in point.
         // ponytail: O(frames from the in point) reads a frame; keep them between frames if long
         // shots crawl (the water's own cost dwarfs this).
-        if matches!(now.effect, crate::effects::Effect::WaveWorld { .. }) {
+        if matches!(now.effect, crate::effects::Effect::WaveWorld { .. } | crate::effects::Effect::Shatter { .. }) {
             let mut then: Vec<Vec<f64>> = (layer.in_frame..at)
                 .map(|f| crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect.wave_numbers())
                 .collect();
             then.push(now.effect.wave_numbers());
-            if let crate::effects::Effect::WaveWorld { history, fps, .. } = &mut now.effect {
+            if let crate::effects::Effect::WaveWorld { history, fps, .. } | crate::effects::Effect::Shatter { history, fps, .. } = &mut now.effect {
                 *history = then;
                 *fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             }
         }
         // D-632: Card Dance's composition camera in the layer's own pixels (D-58's default where
         // the file has none): its place, and its distance from the layer's plane over the
-        // layer's scale; 0 far, drawing nothing, where it cannot be worked out.
-        if let crate::effects::Effect::CardDance { view, .. } = &mut now.effect {
+        // layer's scale; 0 far, drawing nothing, where it cannot be worked out. D-633: Shatter's
+        // the same.
+        if let crate::effects::Effect::CardDance { view, .. } | crate::effects::Effect::Shatter { seen: view, .. } = &mut now.effect {
             let m = world_transform(comp, &layer.id, at);
             *view = match (camera_at(comp, at), m.invert()) {
                 (Some(cam), Some(inv)) => {

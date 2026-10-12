@@ -10813,3 +10813,578 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     });
     *source = out;
 }
+
+/// D-633: after After Effects' Shatter (Simulation), `tools/shatter_reference.py`'s rule: the
+/// layer broken into pieces of a tiling pattern or of a custom map, each freed at the first of
+/// four steps a frame from the in point where a force sphere reaches one of its pixel centres (a
+/// gradient layer allowing), then thrown, pulled, slowed and turned, drawn as a slab of its pixel
+/// boxes seen by Card Dance's camera and lit by Card Wipe's light. compose hands over every
+/// frame's numbers from the in point (`history`, as Wave World) and the composition camera
+/// (`seen`, as Card Dance's `view`). One ray a pixel, the nearest piece winning, the lower number
+/// where two tie; pieces binned to 16-pixel tiles by their slab's screen box; a ray walks only
+/// the pixel boxes it crosses (a grid walk), each tried exactly. Never grows.
+/// ponytail: pieces are pixel sets, so a piece seen large and close has a staircase outline;
+/// polygon pieces for the patterns if that shows.
+/// ponytail: the release walk is pieces x steps up to the release, every frame from the in point
+/// (a 10-minute keyed sweep at Glass 60 is about 10^8 sphere tests a frame), and the flight is
+/// summed step by step; Wave World's checkpoint idea if long shots crawl.
+pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    #[rustfmt::skip]
+    let crate::effects::Effect::Shatter { render, pattern, custom_shatter_map, custom_map, white_tiles_fixed, repetitions, direction, origin, extrusion_depth, gradient_layer, gradient_map, invert_gradient, tumble_axis, color, opacity, front_mode, side_mode, back_mode, front_layer, front_map, side_layer, side_map, back_layer, back_map, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, seen, history, fps, .. } = e
+    else {
+        unreachable!("Shatter of another effect")
+    };
+    type V3 = [f64; 3];
+    type M3 = [[f64; 3]; 3];
+    const I3: M3 = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+    const TILE: usize = 16;
+    const NONE: u32 = u32::MAX;
+    // The places of `Effect::wave_numbers` read along the way: each force's position (two), depth,
+    // radius and strength from 5 and 10, then the threshold and the flight's eight.
+    const FORCE: [usize; 2] = [5, 10];
+    const THRESHOLD: usize = 15;
+    const SPIN: usize = 16;
+    const RANDOM: usize = 17;
+    const VISCOSITY: usize = 18;
+    const MASS: usize = 19;
+    const GRAVITY: usize = 20;
+    const G_DIRECTION: usize = 21;
+    const G_INCLINATION: usize = 22;
+    let (w, h) = (source.width(), source.height());
+    let (lw, lh) = (w - 2 * ox, h - 2 * oy);
+    let mut out = WorkingBuffer::transparent(w, h);
+    let comp_camera = camera_system == "comp_camera";
+    if lw == 0 || lh == 0 || (comp_camera && !(seen[2] > 0.0)) {
+        *source = out;
+        return;
+    }
+    let (wf, hf) = (lw as f64, lh as f64);
+    let mul = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum())) };
+    let app = |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[i][j] * v[j]).sum()) };
+    let app_t = |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
+    let rot = |axis: u8, deg: f64| -> M3 {
+        let (s, c) = deg.to_radians().sin_cos();
+        match axis {
+            b'x' => [[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]],
+            b'y' => [[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]],
+            _ => [[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]],
+        }
+    };
+    let dot = |p: V3, q: V3| p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+    let unit = |p: V3| {
+        let n = dot(p, p).sqrt();
+        if n == 0.0 { [0.0; 3] } else { p.map(|q| q / n) }
+    };
+    let hash = |i: u64, a: u64| crate::expr::unit(crate::expr::mix(i, a));
+
+    // Card Dance's step 4: the camera's turn M, the eye o, and the ray through a pixel.
+    let (m, o, centre, f) = if comp_camera {
+        let [ax, ay, away] = *seen;
+        (I3, [ax - wf / 2.0, ay - hf / 2.0, -away], [ax, ay], away)
+    } else {
+        let m = mul(rot(b'z', *camera_z_rotation), mul(rot(b'y', *camera_y_rotation), rot(b'x', *camera_x_rotation)));
+        let f = wf * focal_length / 36.0;
+        let o = app_t(&m, [camera_xy_position[0] * wf / 100.0 - wf / 2.0, camera_xy_position[1] * hf / 100.0 - hf / 2.0, -camera_z_position * f]);
+        (m, o, [wf / 2.0, hf / 2.0], f)
+    };
+
+    // Steps 1 and 2: each layer pixel's piece, pieces numbered by their first pixel.
+    let drawing = &*source;
+    let mut owner = vec![NONE; lw * lh];
+    let mut white: Vec<bool> = Vec::new();
+    if pattern == "custom" {
+        // Eight colours, each channel at least half or not; 8 for no piece (alpha under half, or
+        // a map named but not read).
+        let colour: Vec<u8> = (0..lw * lh)
+            .into_par_iter()
+            .map(|i| {
+                let (x, y) = (i % lw, i / lw);
+                let p = if custom_shatter_map.as_str() == Some("") {
+                    drawing.pixel(ox + x, oy + y)
+                } else {
+                    custom_map.as_ref().map_or([0.0; 4], |m| if x < m.0.width() && y < m.0.height() { m.0.pixel(x, y) } else { [0.0; 4] })
+                };
+                if (p[3] as f64) < 0.5 {
+                    return 8;
+                }
+                (0..3).map(|c| u8::from(crate::grade::to_srgb((p[c] as f64).clamp(0.0, 1.0)) >= 0.5) << c).sum::<u8>()
+            })
+            .collect();
+        let mut stack = Vec::new();
+        for i in 0..lw * lh {
+            if colour[i] == 8 || owner[i] != NONE {
+                continue;
+            }
+            let n = white.len() as u32;
+            white.push(colour[i] == 7);
+            owner[i] = n;
+            stack.push(i);
+            while let Some(c) = stack.pop() {
+                let (x, y) = (c % lw, c / lw);
+                let near = [(x + 1 < lw).then(|| c + 1), (x > 0).then(|| c - 1), (y + 1 < lh).then(|| c + lw), (y > 0).then(|| c - lw)];
+                for nb in near.into_iter().flatten() {
+                    if colour[nb] == colour[i] && owner[nb] == NONE {
+                        owner[nb] = n;
+                        stack.push(nb);
+                    }
+                }
+            }
+        }
+    } else {
+        let r3 = 3f64.sqrt() / 2.0;
+        let (s, c) = (-direction).to_radians().sin_cos();
+        let sc = repetitions / wf;
+        let kind = pattern.as_str();
+        let glass = |i: i64, j: i64, a: u64| crate::expr::unit(crate::expr::mix(crate::expr::mix(i as u64, j as u64), 100 + a));
+        let keys: Vec<(u8, i64, i64)> = (0..lw * lh)
+            .into_par_iter()
+            .map(|i| {
+                let ax = (i % lw) as f64 + 0.5 - origin[0] * wf / 100.0;
+                let ay = (i / lw) as f64 + 0.5 - origin[1] * hf / 100.0;
+                let (qx, qy) = ((ax * c - ay * s) * sc, (ax * s + ay * c) * sc);
+                let fl = |v: f64| v.floor() as i64;
+                let (a, b) = (qy / r3, qx - qy / r3 / 2.0);
+                match kind {
+                    "squares" => (0, fl(qx), fl(qy)),
+                    "bricks" => {
+                        let r = fl(2.0 * qy);
+                        (0, fl(qx + r.rem_euclid(2) as f64 / 2.0), r)
+                    }
+                    "planks" => {
+                        let r = fl(4.0 * qy);
+                        (0, fl((qx + 0.7 * r as f64) / 2.0), r)
+                    }
+                    "triangles_1" => (u8::from(qx - qx.floor() > qy - qy.floor()), fl(qx), fl(qy)),
+                    "triangles_2" => (u8::from((b - b.floor()) + (a - a.floor()) > 1.0), fl(b), fl(a)),
+                    "rhombus" => (0, fl(qx + qy), fl(qx - qy)),
+                    "hexagons" => {
+                        let mut best = (f64::INFINITY, 0, 0);
+                        for dj in 0..2 {
+                            for di in 0..2 {
+                                let (i, j) = (fl(b) + di, fl(a) + dj);
+                                let (cx, cy) = (i as f64 + j as f64 / 2.0, j as f64 * r3);
+                                let d2 = (qx - cx) * (qx - cx) + (qy - cy) * (qy - cy);
+                                if d2 < best.0 {
+                                    best = (d2, i, j);
+                                }
+                            }
+                        }
+                        (0, best.1, best.2)
+                    }
+                    "herringbone_1" => {
+                        let c = fl(2.0 * qx);
+                        let s = if c.rem_euclid(2) == 0 { 1.0 } else { -1.0 };
+                        (0, c, fl(2.0 * qy + s * (2.0 * qx - c as f64)))
+                    }
+                    "octagons_squares" => {
+                        let (i, j) = (fl(qx + 0.5), fl(qy + 0.5));
+                        if (qx - i as f64).abs() + (qy - j as f64).abs() <= 2f64.sqrt() / 2.0 {
+                            (1, i, j)
+                        } else {
+                            (0, fl(qx), fl(qy))
+                        }
+                    }
+                    _ => {
+                        // Glass: the nearest jittered seed of the cells within two.
+                        let mut best = (f64::INFINITY, 0, 0);
+                        for dj in -2..=2 {
+                            for di in -2..=2 {
+                                let (ci, cj) = (fl(qx) + di, fl(qy) + dj);
+                                let (sx, sy) = (ci as f64 + glass(ci, cj, 0), cj as f64 + glass(ci, cj, 1));
+                                let d2 = (qx - sx) * (qx - sx) + (qy - sy) * (qy - sy);
+                                if d2 < best.0 {
+                                    best = (d2, ci, cj);
+                                }
+                            }
+                        }
+                        (0, best.1, best.2)
+                    }
+                }
+            })
+            .collect();
+        let mut number = std::collections::HashMap::new();
+        for (i, key) in keys.into_iter().enumerate() {
+            let n = white.len() as u32;
+            owner[i] = *number.entry(key).or_insert_with(|| {
+                white.push(false);
+                n
+            });
+        }
+    }
+    let count = white.len();
+    // Each piece's balance point (pixel centres summed rows then columns, as the tool), its box
+    // of pixels and its pixels, rows then columns.
+    let mut sum = vec![(0.0f64, 0.0f64, 0usize); count];
+    let mut bbox = vec![[usize::MAX, 0, usize::MAX, 0]; count];
+    for (i, &k) in owner.iter().enumerate() {
+        if k == NONE {
+            continue;
+        }
+        let (x, y, k) = (i % lw, i / lw, k as usize);
+        sum[k] = (sum[k].0 + (x as f64 + 0.5), sum[k].1 + (y as f64 + 0.5), sum[k].2 + 1);
+        bbox[k] = [bbox[k][0].min(x), bbox[k][1].max(x), bbox[k][2].min(y), bbox[k][3].max(y)];
+    }
+    let mut start = vec![0usize; count + 1];
+    for k in 0..count {
+        start[k + 1] = start[k] + sum[k].2;
+    }
+    let mut cells = vec![0u32; start[count]];
+    let mut fill = start.clone();
+    for (i, &k) in owner.iter().enumerate() {
+        if k != NONE {
+            cells[fill[k as usize]] = i as u32;
+            fill[k as usize] += 1;
+        }
+    }
+    let balance: Vec<(f64, f64)> = sum.iter().map(|&(sx, sy, n)| (sx / n as f64, sy / n as f64)).collect();
+
+    // Step 3: the numbers at every step, four a frame from the in point, the timed ones read in
+    // a straight line between frames.
+    let now = e.wave_numbers();
+    let samples: Vec<&[f64]> = if history.is_empty() { vec![&now] } else { history.iter().map(Vec::as_slice).collect() };
+    let last = 4 * (samples.len() - 1);
+    let timed = |m: usize| -> [f64; 18] {
+        let (fr, part) = (m / 4, (m % 4) as f64 / 4.0);
+        let (a, b) = (samples[fr], samples[(fr + 1).min(samples.len() - 1)]);
+        std::array::from_fn(|n| a[5 + n] + (b[5 + n] - a[5 + n]) * part)
+    };
+    let steps: Vec<[f64; 18]> = (0..=last).map(timed).collect();
+    let at = |m: usize, n: usize| steps[m][n - 5];
+    // The release reads only the forces and the threshold: unchanged throughout, step 0 says all.
+    let walk = if samples.iter().all(|s| s[5..=THRESHOLD] == samples[0][5..=THRESHOLD]) { 0 } else { last };
+    let force_centre = |m: usize, n: usize| -> V3 {
+        let p = FORCE[n];
+        [at(m, p) * wf / 100.0 - wf / 2.0, at(m, p + 1) * hf / 100.0 - hf / 2.0, -at(m, p + 2) * wf]
+    };
+
+    // Step 4: the release, (step, force) or none.
+    let gradient_none = gradient_layer.as_str() == Some("");
+    let fixed = pattern == "custom" && white_tiles_fixed == "on";
+    let released: Vec<Option<(usize, usize)>> = (0..count)
+        .into_par_iter()
+        .map(|k| {
+            if fixed && white[k] {
+                return None;
+            }
+            let (bx, by) = balance[k];
+            let v = (!gradient_none).then(|| {
+                let (gx, gy) = ((bx.floor() as usize).min(lw - 1), (by.floor() as usize).min(lh - 1));
+                let p = gradient_map.as_ref().map_or([0.0; 4], |m| if gx < m.0.width() && gy < m.0.height() { m.0.pixel(gx, gy) } else { [0.0; 4] });
+                let v = picture_luma(p);
+                if invert_gradient == "on" { 1.0 - v } else { v }
+            });
+            let [x0, x1, y0, y1] = bbox[k];
+            let (lo, hi) = ([x0 as f64 + 0.5 - wf / 2.0, y0 as f64 + 0.5 - hf / 2.0], [x1 as f64 + 0.5 - wf / 2.0, y1 as f64 + 0.5 - hf / 2.0]);
+            for m in 0..=walk {
+                if v.is_some_and(|v| v + at(m, THRESHOLD) / 100.0 < 1.0) {
+                    continue;
+                }
+                for n in 0..2 {
+                    let (c, r) = (force_centre(m, n), at(m, FORCE[n] + 3) * wf);
+                    if r <= 0.0 {
+                        continue;
+                    }
+                    // Its box of pixel centres wholly outside the sphere: none of them inside.
+                    let near = |a: usize| c[a] - c[a].clamp(lo[a], hi[a]);
+                    if near(0) * near(0) + near(1) * near(1) + c[2] * c[2] >= r * r {
+                        continue;
+                    }
+                    let inside = cells[start[k]..start[k + 1]].iter().any(|&i| {
+                        let (dx, dy) = ((i as usize % lw) as f64 + 0.5 - wf / 2.0 - c[0], (i as usize / lw) as f64 + 0.5 - hf / 2.0 - c[1]);
+                        dx * dx + dy * dy + c[2] * c[2] < r * r
+                    });
+                    if inside {
+                        return Some((m, n));
+                    }
+                }
+            }
+            None
+        })
+        .collect();
+
+    // Step 5: the flight of each piece drawn, its turn R and its move x. Each step's gravity,
+    // viscosity and drag worked out once.
+    let dt = 1.0 / (4.0 * fps);
+    let physics: Vec<(V3, f64, f64)> = (0..last)
+        .map(|m| {
+            let (d, c) = (at(m, G_DIRECTION).to_radians(), at(m, G_INCLINATION).to_radians());
+            let g = at(m, GRAVITY) * wf;
+            let k = at(m, VISCOSITY);
+            ([g * d.sin() * c.cos(), -g * d.cos() * c.cos(), -g * c.sin()], k, (-k * dt).exp())
+        })
+        .collect();
+    struct Shard {
+        k: usize,
+        r: M3,
+        x: V3,
+        b: V3,
+        bx: f64,
+        by: f64,
+    }
+    let keep = |freed: bool| match render.as_str() {
+        "layer" => !freed,
+        "pieces" => freed,
+        _ => true,
+    };
+    let deck: Vec<Shard> = (0..count)
+        .into_par_iter()
+        .filter(|&k| keep(released[k].is_some()))
+        .map(|k| {
+            let (bx, by) = balance[k];
+            let b = [bx - wf / 2.0, by - hf / 2.0, 0.0];
+            let Some((m0, n)) = released[k] else {
+                return Shard { k, r: I3, x: [0.0; 3], b, bx, by };
+            };
+            let ku = k as u64;
+            let mass = 1.0 + at(m0, MASS) / 100.0 * (hash(ku, 2) - 0.5);
+            let speed = at(m0, FORCE[n] + 4) * wf * (1.0 + at(m0, RANDOM) * (2.0 * hash(ku, 1) - 1.0)) / mass;
+            let c = force_centre(m0, n);
+            let mut v = unit([b[0] - c[0], b[1] - c[1], b[2] - c[2]]).map(|q| speed * q);
+            let mut spin = 2.0 * std::f64::consts::PI * at(m0, SPIN) * (1.0 + at(m0, RANDOM) * (2.0 * hash(ku, 3) - 1.0));
+            let axis = match tumble_axis.as_str() {
+                "none" => None,
+                "x" => Some([1.0, 0.0, 0.0]),
+                "y" => Some([0.0, 1.0, 0.0]),
+                "z" => Some([0.0, 0.0, 1.0]),
+                t => {
+                    let a: V3 = std::array::from_fn(|n| 2.0 * hash(ku, 4 + n as u64) - 1.0);
+                    let a: V3 = if t == "free" { a } else { std::array::from_fn(|n| if t.as_bytes().contains(&(b'x' + n as u8)) { a[n] } else { 0.0 }) };
+                    Some(unit(a))
+                }
+            };
+            let (mut x, mut angle) = ([0.0; 3], 0.0);
+            for &(g, kk, e) in &physics[m0.min(last)..] {
+                if kk > 1e-9 {
+                    for j in 0..3 {
+                        x[j] = x[j] + (v[j] - g[j] / kk) * (1.0 - e) / kk + g[j] * dt / kk;
+                        v[j] = v[j] * e + g[j] * (1.0 - e) / kk;
+                    }
+                    angle += spin * (1.0 - e) / kk;
+                    spin *= e;
+                } else {
+                    for j in 0..3 {
+                        x[j] = x[j] + v[j] * dt + g[j] * dt * dt / 2.0;
+                        v[j] += g[j] * dt;
+                    }
+                    angle += spin * dt;
+                }
+            }
+            let r = match axis {
+                Some([ax, ay, az]) if angle != 0.0 => {
+                    let (s, c) = angle.sin_cos();
+                    let t = 1.0 - c;
+                    [
+                        [c + ax * ax * t, ax * ay * t - az * s, ax * az * t + ay * s],
+                        [ay * ax * t + az * s, c + ay * ay * t, ay * az * t - ax * s],
+                        [az * ax * t - ay * s, az * ay * t + ax * s, c + az * az * t],
+                    ]
+                }
+                _ => I3,
+            };
+            Shard { k, r, x, b, bx, by }
+        })
+        .collect();
+
+    // The bins: each piece in the tiles its slab's eight corners cover on the screen.
+    let depth = extrusion_depth * wf;
+    let (tx, ty) = (w.div_ceil(TILE), h.div_ceil(TILE));
+    let mut tiles: Vec<Vec<u32>> = vec![Vec::new(); tx * ty];
+    let mut everywhere: Vec<u32> = Vec::new();
+    for (s, shard) in deck.iter().enumerate() {
+        let [x0, x1, y0, y1] = bbox[shard.k];
+        let mut lo = [f64::INFINITY; 2];
+        let mut hi = [f64::NEG_INFINITY; 2];
+        let (mut behind, mut gone) = (0, 0);
+        for corner in 0..8 {
+            let u = if corner & 1 == 0 { x0 as f64 } else { (x1 + 1) as f64 };
+            let v = if corner & 2 == 0 { y0 as f64 } else { (y1 + 1) as f64 };
+            let z = if corner & 4 == 0 { 0.0 } else { depth };
+            let p = app(&shard.r, [u - shard.bx, v - shard.by, z]);
+            let q = app(&m, std::array::from_fn(|n| p[n] + shard.b[n] + shard.x[n] - o[n]));
+            if !(q[2] > 1e-9 * f) {
+                behind += 1;
+                gone += usize::from(!(q[2] > 0.0));
+                continue;
+            }
+            for (n, at) in [(0, centre[0] + f * q[0] / q[2] + ox as f64), (1, centre[1] + f * q[1] / q[2] + oy as f64)] {
+                lo[n] = lo[n].min(at);
+                hi[n] = hi[n].max(at);
+            }
+        }
+        if gone == 8 {
+            continue;
+        }
+        if behind > 0 {
+            everywhere.push(s as u32);
+            continue;
+        }
+        let span = |lo: f64, hi: f64, n: usize| -> Option<(usize, usize)> {
+            let (a, b) = ((lo - 1.5).floor(), (hi + 0.5).ceil());
+            (b >= 0.0 && a < n as f64).then(|| (a.max(0.0) as usize / TILE, (b.min(n as f64 - 1.0) as usize) / TILE))
+        };
+        if let (Some((x0, x1)), Some((y0, y1))) = (span(lo[0], hi[0], w), span(lo[1], hi[1], h)) {
+            for row in tiles[y0 * tx..(y1 + 1) * tx].chunks_exact_mut(tx) {
+                for tile in &mut row[x0..=x1] {
+                    tile.push(s as u32);
+                }
+            }
+        }
+    }
+
+    // Step 6 for one pixel box [i, i+1] x [j, j+1] x [0, depth]: the entry and its face, 0 and 1
+    // a side across or down, 2 the front, 3 the back.
+    let box_hit = |ol: V3, dl: V3, i: f64, j: f64| -> Option<(f64, u8)> {
+        let (lo, hi) = ([i, j, 0.0], [i + 1.0, j + 1.0, depth]);
+        let (mut enter, mut leave, mut axis) = (f64::NEG_INFINITY, f64::INFINITY, 3usize);
+        for a in 0..3 {
+            if dl[a] == 0.0 {
+                if !(lo[a] <= ol[a] && ol[a] <= hi[a]) {
+                    return None;
+                }
+                continue;
+            }
+            let (t0, t1) = ((lo[a] - ol[a]) / dl[a], (hi[a] - ol[a]) / dl[a]);
+            let (t0, t1) = if t0 > t1 { (t1, t0) } else { (t0, t1) };
+            if t0 > enter {
+                (enter, axis) = (t0, a);
+            }
+            leave = leave.min(t1);
+        }
+        if axis == 3 || enter >= leave || enter <= 0.0 {
+            return None;
+        }
+        Some((enter, if axis < 2 { axis as u8 } else if dl[2] > 0.0 { 2 } else { 3 }))
+    };
+    let owns = |i: i64, j: i64, k: usize| i >= 0 && j >= 0 && (i as usize) < lw && (j as usize) < lh && owner[j as usize * lw + i as usize] == k as u32;
+    // A piece's nearest box along the ray in its own space: the plane where it is flat, else the
+    // boxes the ray's track crosses, nearest first, within the slab and the piece's box.
+    let piece_hit = |shard: &Shard, ol: V3, dl: V3, best: Option<f64>| -> Option<(f64, u8)> {
+        let [x0, x1, y0, y1] = bbox[shard.k];
+        if depth == 0.0 {
+            if dl[2] == 0.0 {
+                return None;
+            }
+            let t = -ol[2] / dl[2];
+            if t <= 0.0 {
+                return None;
+            }
+            let (u, v) = (ol[0] + t * dl[0], ol[1] + t * dl[1]);
+            return owns(u.floor() as i64, v.floor() as i64, shard.k).then_some((t, if dl[2] > 0.0 { 2 } else { 3 }));
+        }
+        let (lo, hi) = ([x0 as f64, y0 as f64, 0.0], [(x1 + 1) as f64, (y1 + 1) as f64, depth]);
+        let (mut ta, mut tb) = (0.0f64, f64::INFINITY);
+        for a in 0..3 {
+            if dl[a] == 0.0 {
+                if !(lo[a] <= ol[a] && ol[a] <= hi[a]) {
+                    return None;
+                }
+                continue;
+            }
+            let (t0, t1) = ((lo[a] - ol[a]) / dl[a], (hi[a] - ol[a]) / dl[a]);
+            ta = ta.max(t0.min(t1));
+            tb = tb.min(t0.max(t1));
+        }
+        if ta > tb {
+            return None;
+        }
+        let (mut ci, mut cj) = (((ol[0] + ta * dl[0]).floor() as i64).clamp(x0 as i64, x1 as i64), ((ol[1] + ta * dl[1]).floor() as i64).clamp(y0 as i64, y1 as i64));
+        let mut tc = ta;
+        loop {
+            if best.is_some_and(|bt| tc > bt) {
+                return None;
+            }
+            if owns(ci, cj, shard.k) {
+                if let Some(hit) = box_hit(ol, dl, ci as f64, cj as f64) {
+                    return Some(hit);
+                }
+            }
+            // The next column or row edge the track crosses.
+            let next = |c: i64, a: usize| if dl[a] > 0.0 { ((c + 1) as f64 - ol[a]) / dl[a] } else if dl[a] < 0.0 { (c as f64 - ol[a]) / dl[a] } else { f64::INFINITY };
+            let (nx, ny) = (next(ci, 0), next(cj, 1));
+            tc = nx.min(ny);
+            if tc > tb {
+                return None;
+            }
+            if nx <= ny {
+                ci += if dl[0] > 0.0 { 1 } else { -1 };
+            } else {
+                cj += if dl[1] > 0.0 { 1 } else { -1 };
+            }
+            if ci < x0 as i64 || ci > x1 as i64 || cj < y0 as i64 || cj > y1 as i64 {
+                return None;
+            }
+        }
+    };
+
+    // Steps 7 and 8, per pixel.
+    let picture = |word: &serde_json::Value, map: &Option<crate::layer_map::Map>, u: f64, v: f64| -> [f32; 4] {
+        if word.as_str() == Some("") {
+            sample_bilinear(drawing, u + ox as f64, v + oy as f64)
+        } else {
+            map.as_ref().map_or([0.0; 4], |m| sample_bilinear(&m.0, u, v))
+        }
+    };
+    let col = crate::effects::encoded(color).map(crate::grade::to_linear);
+    let pl = app_t(&m, [light_position[0] * wf / 100.0 - wf / 2.0, light_position[1] * hf / 100.0 - hf / 2.0, -light_depth * wf]);
+    let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
+    let point = light_type == "point";
+    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (bx, by) = (i % w, i / w);
+        let d = app_t(&m, [bx as f64 - ox as f64 + 0.5 - centre[0], by as f64 - oy as f64 + 0.5 - centre[1], f]);
+        let mut best: Option<(f64, usize, u8, V3, V3)> = None;
+        for &s in tiles[(by / TILE) * tx + bx / TILE].iter().chain(&everywhere) {
+            let (s, shard) = (s as usize, &deck[s as usize]);
+            let rel: V3 = std::array::from_fn(|n| o[n] - shard.b[n] - shard.x[n]);
+            let ol = app_t(&shard.r, rel);
+            let ol = [ol[0] + shard.bx, ol[1] + shard.by, ol[2]];
+            let dl = app_t(&shard.r, d);
+            let Some((t, face)) = piece_hit(shard, ol, dl, best.map(|b| b.0)) else {
+                continue;
+            };
+            if best.is_some_and(|(bt, bs, ..)| t > bt || (t == bt && s > bs)) {
+                continue;
+            }
+            best = Some((t, s, face, ol, dl));
+        }
+        let Some((t, s, face, ol, dl)) = best else {
+            return;
+        };
+        let shard = &deck[s];
+        let (u, v) = (ol[0] + t * dl[0], ol[1] + t * dl[1]);
+        let (mode, p) = match face {
+            2 => (front_mode, picture(front_layer, front_map, u, v)),
+            3 => (back_mode, picture(back_layer, back_map, 2.0 * shard.bx - u, v)),
+            _ => (side_mode, picture(side_layer, side_map, u, v)),
+        };
+        let mut p = p.map(f64::from);
+        if mode.starts_with("color") {
+            p = [col[0], col[1], col[2], 1.0];
+        } else if mode.starts_with("tinted_layer") {
+            p = [p[0] * col[0], p[1] * col[1], p[2] * col[2], p[3]];
+        }
+        if mode.ends_with("_plus_opacity") {
+            p = p.map(|q| q * opacity);
+        }
+        let mut nl: V3 = match face {
+            2 => [0.0, 0.0, -1.0],
+            3 => [0.0, 0.0, 1.0],
+            _ => [0.0; 3],
+        };
+        if face < 2 {
+            nl[face as usize] = if dl[face as usize] > 0.0 { -1.0 } else { 1.0 };
+        }
+        let n = app(&shard.r, nl);
+        let hit: V3 = std::array::from_fn(|n| o[n] + t * d[n]);
+        let lv = unit(if point { std::array::from_fn(|n| pl[n] - hit[n]) } else { pl });
+        let vv = unit(d.map(|q| -q));
+        let hv = [lv[0] + vv[0], lv[1] + vv[1], lv[2] + vv[2]];
+        let nd = dot(n, lv);
+        let hn = dot(hv, hv).sqrt();
+        let sp = if nd > 0.0 && hn > 0.0 { (dot(n, hv) / hn).max(0.0).powf(*highlight_sharpness) } else { 0.0 };
+        for j in 0..3 {
+            px[j] = (p[j] * (ambient_light + diffuse_reflection * light_intensity * lc[j] * nd.max(0.0)) + specular_reflection * light_intensity * sp * lc[j] * p[3]) as f32;
+        }
+        px[3] = p[3] as f32;
+    });
+    *source = out;
+}

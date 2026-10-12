@@ -1593,6 +1593,86 @@ pub enum Effect {
         highlight_sharpness: f64,
         view: [f64; 3],
     },
+    /// D-633: after After Effects' Shatter (Simulation), its rule, its units and its settings
+    /// when added ours (`layer_fx::shatter`, `tools/shatter_reference.py`, document 21). `view`
+    /// "rendered"; `render` "all", "layer" or "pieces"; `pattern` one of [`SHATTER_PATTERNS`];
+    /// `custom_shatter_map`, `gradient_layer`, `front_layer`, `side_layer` and `back_layer` D-189's
+    /// layer settings as written, each stretched to the layer ("" the layer's own drawing, but no
+    /// gradient at all for `gradient_layer`); `white_tiles_fixed` and `invert_gradient` "off" or
+    /// "on"; `repetitions` 1 to 1000 tiles across; `direction` -3600 to 3600 degrees; `origin` x
+    /// then y, -1000 to 1000 per cent; `extrusion_depth` 0 to 1 layer widths. Each force: position
+    /// x then y, -1000 to 1000 per cent; depth -10 to 10 and radius 0 to 10 layer widths; strength
+    /// -100 to 100 layer widths a second. `shatter_threshold` 0 to 100 per cent;
+    /// `rotation_speed` 0 to 10 turns a second; `tumble_axis` one of [`SHATTER_TUMBLE`];
+    /// `randomness` 0 to 1; `viscosity` 0 to 10 a second; `mass_variance` 0 to 100 per cent;
+    /// `gravity` 0 to 100 layer widths a second squared; `gravity_direction` -3600 to 3600 and
+    /// `gravity_inclination` -90 to 90 degrees; `color` #rrggbb; `opacity` 0 to 1; the three modes
+    /// one of [`SHATTER_MODES`]. Card Dance's camera and Card Wipe's light. Not settings, never
+    /// saved: the five maps compose reads; `seen`, the composition camera as Card Dance's `view`;
+    /// `history` and `fps`, every number at each frame from the in point and the frame rate, as
+    /// Wave World's.
+    Shatter {
+        view: String,
+        render: String,
+        pattern: String,
+        custom_shatter_map: serde_json::Value,
+        custom_map: Option<crate::layer_map::Map>,
+        white_tiles_fixed: String,
+        repetitions: f64,
+        direction: f64,
+        origin: [f64; 2],
+        extrusion_depth: f64,
+        force_1_position: [f64; 2],
+        force_1_depth: f64,
+        force_1_radius: f64,
+        force_1_strength: f64,
+        force_2_position: [f64; 2],
+        force_2_depth: f64,
+        force_2_radius: f64,
+        force_2_strength: f64,
+        gradient_layer: serde_json::Value,
+        gradient_map: Option<crate::layer_map::Map>,
+        shatter_threshold: f64,
+        invert_gradient: String,
+        rotation_speed: f64,
+        tumble_axis: String,
+        randomness: f64,
+        viscosity: f64,
+        mass_variance: f64,
+        gravity: f64,
+        gravity_direction: f64,
+        gravity_inclination: f64,
+        color: String,
+        opacity: f64,
+        front_mode: String,
+        side_mode: String,
+        back_mode: String,
+        front_layer: serde_json::Value,
+        front_map: Option<crate::layer_map::Map>,
+        side_layer: serde_json::Value,
+        side_map: Option<crate::layer_map::Map>,
+        back_layer: serde_json::Value,
+        back_map: Option<crate::layer_map::Map>,
+        camera_system: String,
+        camera_x_rotation: f64,
+        camera_y_rotation: f64,
+        camera_z_rotation: f64,
+        camera_xy_position: [f64; 2],
+        camera_z_position: f64,
+        focal_length: f64,
+        light_type: String,
+        light_intensity: f64,
+        light_color: String,
+        light_position: [f64; 2],
+        light_depth: f64,
+        ambient_light: f64,
+        diffuse_reflection: f64,
+        specular_reflection: f64,
+        highlight_sharpness: f64,
+        seen: [f64; 3],
+        history: Vec<Vec<f64>>,
+        fps: f64,
+    },
     /// D-521: after After Effects' Time Difference, its rule and its settings when added ours
     /// (`layer_fx::time_difference`, document 21). `layer`, D-189's layer setting as written, the
     /// target, "" for the layer itself; `time_offset`, -60 to 60 seconds; `contrast`, 0 to 100;
@@ -3938,6 +4018,37 @@ pub const CC_RAINFALL: &str = "core.cc_rainfall";
 pub const WAVE_WORLD: &str = "core.wave_world";
 pub const CAUSTICS: &str = "core.caustics";
 pub const CARD_DANCE: &str = "core.card_dance";
+pub const SHATTER: &str = "core.shatter";
+/// D-633: Shatter's patterns built in B-513.
+pub const SHATTER_PATTERNS: [&str; 11] = [
+    "bricks",
+    "squares",
+    "hexagons",
+    "triangles_1",
+    "triangles_2",
+    "rhombus",
+    "planks",
+    "herringbone_1",
+    "octagons_squares",
+    "glass",
+    "custom",
+];
+/// D-633: After Effects' other ten patterns, refused until D-636 builds them.
+const SHATTER_LATER_PATTERNS: [&str; 10] = [
+    "herringbone_2",
+    "squares_triangles",
+    "stars_triangles",
+    "overlapping_squares",
+    "chevrons",
+    "puzzle",
+    "js",
+    "eggs",
+    "crescents",
+    "carpenters_wheel",
+];
+pub const SHATTER_TUMBLE: [&str; 8] = ["free", "none", "x", "y", "z", "xy", "xz", "yz"];
+pub const SHATTER_MODES: [&str; 6] =
+    ["color", "layer", "tinted_layer", "color_plus_opacity", "layer_plus_opacity", "tinted_layer_plus_opacity"];
 /// D-632: what Card Dance's sources, multipliers and offsets move, in their order.
 pub const CARD_DANCE_TRANSFORMS: [&str; 8] =
     ["x_position", "y_position", "z_position", "x_rotation", "y_rotation", "z_rotation", "x_scale", "y_scale"];
@@ -6843,6 +6954,79 @@ impl Effect {
                 ]);
                 table
             }
+            Effect::Shatter {
+                repetitions,
+                direction,
+                origin,
+                extrusion_depth,
+                force_1_position,
+                force_1_depth,
+                force_1_radius,
+                force_1_strength,
+                force_2_position,
+                force_2_depth,
+                force_2_radius,
+                force_2_strength,
+                shatter_threshold,
+                rotation_speed,
+                randomness,
+                viscosity,
+                mass_variance,
+                gravity,
+                gravity_direction,
+                gravity_inclination,
+                opacity,
+                camera_x_rotation,
+                camera_y_rotation,
+                camera_z_rotation,
+                camera_xy_position,
+                camera_z_position,
+                focal_length,
+                light_intensity,
+                light_position,
+                light_depth,
+                ambient_light,
+                diffuse_reflection,
+                specular_reflection,
+                highlight_sharpness,
+                ..
+            } => vec![
+                // `layer_fx::shatter` reads these by place in `wave_numbers`: keep the order.
+                ("repetitions", vec![repetitions], 1.0, 1000.0),
+                ("direction", vec![direction], -3600.0, 3600.0),
+                ("origin", origin.iter_mut().collect(), -1000.0, 1000.0),
+                ("extrusion_depth", vec![extrusion_depth], 0.0, 1.0),
+                ("force_1_position", force_1_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("force_1_depth", vec![force_1_depth], -10.0, 10.0),
+                ("force_1_radius", vec![force_1_radius], 0.0, 10.0),
+                ("force_1_strength", vec![force_1_strength], -100.0, 100.0),
+                ("force_2_position", force_2_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("force_2_depth", vec![force_2_depth], -10.0, 10.0),
+                ("force_2_radius", vec![force_2_radius], 0.0, 10.0),
+                ("force_2_strength", vec![force_2_strength], -100.0, 100.0),
+                ("shatter_threshold", vec![shatter_threshold], 0.0, 100.0),
+                ("rotation_speed", vec![rotation_speed], 0.0, 10.0),
+                ("randomness", vec![randomness], 0.0, 1.0),
+                ("viscosity", vec![viscosity], 0.0, 10.0),
+                ("mass_variance", vec![mass_variance], 0.0, 100.0),
+                ("gravity", vec![gravity], 0.0, 100.0),
+                ("gravity_direction", vec![gravity_direction], -3600.0, 3600.0),
+                ("gravity_inclination", vec![gravity_inclination], -90.0, 90.0),
+                ("opacity", vec![opacity], 0.0, 1.0),
+                ("camera_x_rotation", vec![camera_x_rotation], -3600.0, 3600.0),
+                ("camera_y_rotation", vec![camera_y_rotation], -3600.0, 3600.0),
+                ("camera_z_rotation", vec![camera_z_rotation], -3600.0, 3600.0),
+                ("camera_xy_position", camera_xy_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("camera_z_position", vec![camera_z_position], 0.01, 10.0),
+                ("focal_length", vec![focal_length], 1.0, 1000.0),
+                ("light_intensity", vec![light_intensity], 0.0, 10.0),
+                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("light_depth", vec![light_depth], 0.0, 10.0),
+                ("ambient_light", vec![ambient_light], 0.0, 2.0),
+                ("diffuse_reflection", vec![diffuse_reflection], 0.0, 2.0),
+                ("specular_reflection", vec![specular_reflection], 0.0, 2.0),
+                ("highlight_sharpness", vec![highlight_sharpness], 1.0, 100.0),
+            ],
             Effect::TimeDifference { time_offset, contrast, .. } => vec![
                 ("time_offset", vec![time_offset], -60.0, 60.0),
                 ("contrast", vec![contrast], 0.0, 100.0),
@@ -7592,6 +7776,8 @@ impl Effect {
             Effect::WaveWorld { grid_scale, .. } => *grid_scale = scale(*grid_scale),
             // D-632: the composition camera, in the layer's own pixels; all else is a share.
             Effect::CardDance { view, .. } => *view = view.map(&scale),
+            // D-633: the composition camera, in the layer's own pixels; all else is a share.
+            Effect::Shatter { seen, .. } => *seen = seen.map(&scale),
             Effect::KiraKira { spacing, size, .. } => {
                 *spacing = scale(*spacing);
                 *size = scale(*size);
@@ -7807,6 +7993,7 @@ impl Effect {
             Effect::WaveWorld { .. } => "Wave World",
             Effect::Caustics { .. } => "Caustics",
             Effect::CardDance { .. } => "Card Dance",
+            Effect::Shatter { .. } => "Shatter",
             Effect::TimeDifference { .. } => "Time Difference",
             Effect::PosterizeTime { .. } => "Posterize Time",
             Effect::ChangeToColor { .. } => "Change to Color",
@@ -8061,6 +8248,7 @@ impl Effect {
             Effect::WaveWorld { .. } => WAVE_WORLD,
             Effect::Caustics { .. } => CAUSTICS,
             Effect::CardDance { .. } => CARD_DANCE,
+            Effect::Shatter { .. } => SHATTER,
             Effect::TimeDifference { .. } => TIME_DIFFERENCE,
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
@@ -8482,6 +8670,10 @@ impl Effect {
         if let Effect::CardDance { back_layer, gradient_layer_1, gradient_layer_2, .. } = self {
             return [back_layer, gradient_layer_1, gradient_layer_2].map(|l| (l.as_str().unwrap_or(""), "stretch")).to_vec();
         }
+        // D-633: the custom map, the gradient and the three textures, each stretched to the layer.
+        if let Effect::Shatter { custom_shatter_map, gradient_layer, front_layer, side_layer, back_layer, .. } = self {
+            return [custom_shatter_map, gradient_layer, front_layer, side_layer, back_layer].map(|l| (l.as_str().unwrap_or(""), "stretch")).to_vec();
+        }
         self.layer_setting().into_iter().collect()
     }
 
@@ -8557,6 +8749,9 @@ impl Effect {
         }
         if let Effect::CardDance { back_layer, back_map, gradient_layer_1, gradient_map_1, gradient_layer_2, gradient_map_2, .. } = self {
             return vec![(back_layer, back_map), (gradient_layer_1, gradient_map_1), (gradient_layer_2, gradient_map_2)];
+        }
+        if let Effect::Shatter { custom_shatter_map, custom_map, gradient_layer, gradient_map, front_layer, front_map, side_layer, side_map, back_layer, back_map, .. } = self {
+            return vec![(custom_shatter_map, custom_map), (gradient_layer, gradient_map), (front_layer, front_map), (side_layer, side_map), (back_layer, back_map)];
         }
         self.layer_setting_mut().into_iter().collect()
     }
@@ -10228,6 +10423,63 @@ impl Effect {
                     .or_else(|| one_of("camera system", &["camera_position", "comp_camera"], camera_system))
                     .or_else(|| one_of("light type", &["distant", "point"], light_type))
                     .or_else(|| hex_fault("Card Dance", "light colour", light_color))
+            }
+            Effect::Shatter {
+                view,
+                render,
+                pattern,
+                custom_shatter_map,
+                white_tiles_fixed,
+                gradient_layer,
+                invert_gradient,
+                tumble_axis,
+                color,
+                front_mode,
+                side_mode,
+                back_mode,
+                front_layer,
+                side_layer,
+                back_layer,
+                camera_system,
+                light_type,
+                light_color,
+                ..
+            } => {
+                let one_of = |what: &str, words: &[&str], w: &str| {
+                    (!words.contains(&w)).then(|| {
+                        let words = words.iter().map(|w| format!("\"{w}\"")).collect::<Vec<_>>().join(", ");
+                        format!("Shatter's {what} is one of {words}, and this is \"{w}\".")
+                    })
+                };
+                // Words After Effects has that are not built yet: refused, never drawn as another.
+                let later = |what: &str, words: &[&str], w: &str, by: &str| {
+                    words.contains(&w).then(|| format!("Shatter's {what} \"{w}\" is not built yet ({by}), so the effect is left out."))
+                };
+                let modes = [("front mode", front_mode), ("side mode", side_mode), ("back mode", back_mode)];
+                [
+                    ("custom shatter map", custom_shatter_map),
+                    ("gradient layer", gradient_layer),
+                    ("front layer", front_layer),
+                    ("side layer", side_layer),
+                    ("back layer", back_layer),
+                ]
+                .into_iter()
+                .find(|(_, l)| !l.is_string())
+                .map(|(what, l)| format!("Shatter's {what} is the name of a layer of this composition, and this is {l}."))
+                .or_else(|| later("view", &["wireframe_front", "wireframe", "wireframe_front_forces", "wireframe_forces"], view, "D-635"))
+                .or_else(|| one_of("view", &["rendered"], view))
+                .or_else(|| one_of("render", &["all", "layer", "pieces"], render))
+                .or_else(|| later("pattern", &SHATTER_LATER_PATTERNS, pattern, "D-636"))
+                .or_else(|| one_of("pattern", &SHATTER_PATTERNS, pattern))
+                .or_else(|| one_of("white tiles fixed", &["off", "on"], white_tiles_fixed))
+                .or_else(|| one_of("invert gradient", &["off", "on"], invert_gradient))
+                .or_else(|| one_of("tumble axis", &SHATTER_TUMBLE, tumble_axis))
+                .or_else(|| modes.iter().find_map(|(what, m)| one_of(what, &SHATTER_MODES, m)))
+                .or_else(|| hex_fault("Shatter", "colour", color))
+                .or_else(|| later("camera system", &["corner_pins"], camera_system, "D-634"))
+                .or_else(|| one_of("camera system", &["camera_position", "comp_camera"], camera_system))
+                .or_else(|| one_of("light type", &["distant", "point"], light_type))
+                .or_else(|| hex_fault("Shatter", "light colour", light_color))
             }
             Effect::WaveWorld {
                 render_dry_areas,
@@ -12203,6 +12455,11 @@ pub(crate) fn apply_stack_at(
             // grows. A back not read is clear; a gradient not read is clear.
             e @ Effect::CardDance { .. } => crate::perf::time(crate::perf::Stage::EffectCardDance, || {
                 crate::layer_fx::card_dance(source, e, (ox, oy))
+            }),
+            // D-633: every length a share of the layer, the composition camera in its pixels; never
+            // grows. A map named but not read is clear; no gradient named frees every piece reached.
+            e @ Effect::Shatter { .. } => crate::perf::time(crate::perf::Stage::EffectShatter, || {
+                crate::layer_fx::shatter(source, e, (ox, oy))
             }),
             // D-580: every distance a share of the drawing; never grows. A back or gradient layer
             // not read (none named, or one not in the composition, which compose said) is none.

@@ -2311,6 +2311,24 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 }
             }
         }
+        Effect::Shatter { view, render, pattern, custom_shatter_map, white_tiles_fixed, origin, force_1_position, force_2_position, gradient_layer, invert_gradient, tumble_axis, color, front_mode, side_mode, back_mode, front_layer, side_layer, back_layer, camera_system, camera_xy_position, light_type, light_color, light_position, .. } => {
+            for (n, v) in [("custom_shatter_map", custom_shatter_map), ("gradient_layer", gradient_layer), ("front_layer", front_layer), ("side_layer", side_layer), ("back_layer", back_layer)] {
+                params.insert(n.into(), v.clone());
+            }
+            for (n, v) in [("view", view), ("render", render), ("pattern", pattern), ("white_tiles_fixed", white_tiles_fixed), ("invert_gradient", invert_gradient), ("tumble_axis", tumble_axis), ("color", color), ("front_mode", front_mode), ("side_mode", side_mode), ("back_mode", back_mode), ("camera_system", camera_system), ("light_type", light_type), ("light_color", light_color)] {
+                params.insert(n.into(), J::from(v.as_str()));
+            }
+            let arrays = [("origin", origin), ("force_1_position", force_1_position), ("force_2_position", force_2_position), ("camera_xy_position", camera_xy_position), ("light_position", light_position)];
+            for (n, v) in arrays {
+                params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
+            }
+            // D-633: every other number, by its name in the effect's table.
+            for n in instance.effect.names() {
+                if !arrays.iter().any(|(a, _)| *a == n) {
+                    params.insert(n.into(), num(instance.effect.get(n).unwrap()[0]));
+                }
+            }
+        }
         Effect::CcRainfall { color, transfer_mode, composite_with_original, drops, size, scene_depth, speed, wind, wind_variation, spread, opacity, ground_level, random_seed, .. } => {
             params.insert("drops".into(), num(*drops));
             params.insert("size".into(), num(*size));
@@ -5759,6 +5777,7 @@ fn parse_effect(
         crate::effects::WAVE_WORLD,
         crate::effects::CAUSTICS,
         crate::effects::CARD_DANCE,
+        crate::effects::SHATTER,
         crate::effects::POSTERIZE_TIME,
         crate::effects::CHANGE_TO_COLOR,
         crate::effects::CORNER_PIN,
@@ -6802,6 +6821,68 @@ fn parse_effect(
                 view: [0.0; 3],
             })
         }
+        crate::effects::SHATTER => Some(crate::effects::Effect::Shatter {
+                view: effect_word(params, "view", &at)?,
+                render: effect_word(params, "render", &at)?,
+                pattern: effect_word(params, "pattern", &at)?,
+                white_tiles_fixed: effect_word(params, "white_tiles_fixed", &at)?,
+                invert_gradient: effect_word(params, "invert_gradient", &at)?,
+                tumble_axis: effect_word(params, "tumble_axis", &at)?,
+                front_mode: effect_word(params, "front_mode", &at)?,
+                side_mode: effect_word(params, "side_mode", &at)?,
+                back_mode: effect_word(params, "back_mode", &at)?,
+                camera_system: effect_word(params, "camera_system", &at)?,
+                light_type: effect_word(params, "light_type", &at)?,
+                color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+                light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+                repetitions: effect_number(params, "repetitions", &at)?,
+                direction: effect_number(params, "direction", &at)?,
+                extrusion_depth: effect_number(params, "extrusion_depth", &at)?,
+                force_1_depth: effect_number(params, "force_1_depth", &at)?,
+                force_1_radius: effect_number(params, "force_1_radius", &at)?,
+                force_1_strength: effect_number(params, "force_1_strength", &at)?,
+                force_2_depth: effect_number(params, "force_2_depth", &at)?,
+                force_2_radius: effect_number(params, "force_2_radius", &at)?,
+                force_2_strength: effect_number(params, "force_2_strength", &at)?,
+                shatter_threshold: effect_number(params, "shatter_threshold", &at)?,
+                rotation_speed: effect_number(params, "rotation_speed", &at)?,
+                randomness: effect_number(params, "randomness", &at)?,
+                viscosity: effect_number(params, "viscosity", &at)?,
+                mass_variance: effect_number(params, "mass_variance", &at)?,
+                gravity: effect_number(params, "gravity", &at)?,
+                gravity_direction: effect_number(params, "gravity_direction", &at)?,
+                gravity_inclination: effect_number(params, "gravity_inclination", &at)?,
+                opacity: effect_number(params, "opacity", &at)?,
+                camera_x_rotation: effect_number(params, "camera_x_rotation", &at)?,
+                camera_y_rotation: effect_number(params, "camera_y_rotation", &at)?,
+                camera_z_rotation: effect_number(params, "camera_z_rotation", &at)?,
+                camera_z_position: effect_number(params, "camera_z_position", &at)?,
+                focal_length: effect_number(params, "focal_length", &at)?,
+                light_intensity: effect_number(params, "light_intensity", &at)?,
+                light_depth: effect_number(params, "light_depth", &at)?,
+                ambient_light: effect_number(params, "ambient_light", &at)?,
+                diffuse_reflection: effect_number(params, "diffuse_reflection", &at)?,
+                specular_reflection: effect_number(params, "specular_reflection", &at)?,
+                highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
+                origin: effect_array(params, "origin", "two numbers, x then y", &at)?,
+                force_1_position: effect_array(params, "force_1_position", "two numbers, x then y", &at)?,
+                force_2_position: effect_array(params, "force_2_position", "two numbers, x then y", &at)?,
+                camera_xy_position: effect_array(params, "camera_xy_position", "two numbers, x then y", &at)?,
+                light_position: effect_array(params, "light_position", "two numbers, x then y", &at)?,
+                custom_shatter_map: field(effect_params(params, &at)?, &format!("{at}/parameters"), "custom_shatter_map")?.clone(),
+                custom_map: None,
+                gradient_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer")?.clone(),
+                gradient_map: None,
+                front_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "front_layer")?.clone(),
+                front_map: None,
+                side_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "side_layer")?.clone(),
+                side_map: None,
+                back_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "back_layer")?.clone(),
+                back_map: None,
+                seen: [0.0; 3],
+                history: Vec::new(),
+                fps: 0.0,
+            }),
         crate::effects::CC_RAINFALL => Some(crate::effects::Effect::CcRainfall {
             drops: effect_number(params, "drops", &at)?,
             size: effect_number(params, "size", &at)?,

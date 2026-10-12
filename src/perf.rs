@@ -435,6 +435,8 @@ pub enum Stage {
     EffectCaustics,
     /// D-632: Card Dance, the layer cut into cards moved by gradient layers.
     EffectCardDance,
+    /// D-633: Shatter, the layer broken into pieces thrown by forces.
+    EffectShatter,
     /// D-521: Time Difference, its target compared with the layer; drawing the target is timed
     /// as any drawing is.
     EffectTimeDifference,
@@ -502,7 +504,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 248] = [
+    pub const ALL: [Stage; 249] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -720,6 +722,7 @@ impl Stage {
         Stage::EffectWaveWorld,
         Stage::EffectCaustics,
         Stage::EffectCardDance,
+        Stage::EffectShatter,
         Stage::EffectTimeDifference,
         Stage::EffectBurnFilm,
         Stage::EffectTileWipe,
@@ -973,6 +976,7 @@ impl Stage {
             Stage::EffectWaveWorld => "effect: wave world",
             Stage::EffectCaustics => "effect: caustics",
             Stage::EffectCardDance => "effect: card dance",
+            Stage::EffectShatter => "effect: shatter",
             Stage::EffectTimeDifference => "effect: time difference",
             Stage::EffectBurnFilm => "effect: burn film",
             Stage::EffectTileWipe => "effect: tile wipe",
