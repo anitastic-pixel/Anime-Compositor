@@ -211864,3 +211864,67 @@ FX-GRADE3-032 (`fx_grade3_032.json`): Key denoise 101, above 100. The file is re
 FX-GRADE3-033 (`fx_grade3_033.json`): Key blur -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-GRADE3-034 (`fx_grade3_034.json`): Secondary highlight lightness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### CC Force Motion Blur (D-581)
+
+CC Force Motion Blur (`core.force_motion_blur`), after CycoreFX's CC Force Motion Blur (B-470), the rule ours. Each case is a project whose composition `comp-main` is 20 by 1, five frames, in `Fixtures/force_motion_blur/`; the holder shows `comp-in`, also 20 by 1, where a bar four pixels wide runs 16 pixels a frame, its left edge at 6 on frame 1. `tools/force_motion_blur_reference.py` works the expected frames, `Fixtures/force_motion_blur/expected_force_motion_blur.json`, tolerance 2e-5, through `tools/motion_blur_reference.py`'s slide and resampling, reading each key at the moment's time directly; the rule is in document 21.
+
+FX-FMB-001 (`fx_fmb_001.json`): As added (8 samples, the composition's 180 degrees, its blur and the holder's switch on): on frame 1 the bar is drawn at 6 to 13, a pixel apart, an eighth each. The holder itself is still, so its own blur draws it once.
+
+FX-FMB-002 (`fx_fmb_002.json`): Override on at 180 degrees and 4 samples, in a composition whose blur is off and a holder whose switch is off: the bar at 6, 8, 10 and 12, a quarter each.
+
+FX-FMB-003 (`fx_fmb_003.json`): Override off and the composition's blur off: no shutter, so the bar sharp at 6, as without the effect.
+
+FX-FMB-004 (`fx_fmb_004.json`): Override off and the holder's switch off: sharp at 6.
+
+FX-FMB-005 (`fx_fmb_005.json`): Override on at 360 degrees, 4 samples: a whole frame, the bar at 6, 10, 14 and 18, the last cut at the edge.
+
+FX-FMB-006 (`fx_fmb_006.json`): Override on at 0 degrees: one moment, the frame itself.
+
+FX-FMB-007 (`fx_fmb_007.json`): One sample: the frame itself, whatever the angle.
+
+FX-FMB-008 (`fx_fmb_008.json`): 2.9 samples count as 2: the bar at 6 and 10, a half each.
+
+FX-FMB-009 (`fx_fmb_009.json`): Three samples at 180 degrees: moments a sixth of a frame apart, the bar at 6, 8 2/3 and 11 1/3, so its edges fall between pixels.
+
+FX-FMB-010 (`fx_fmb_010.json`): The bar still at 6 with its opacity keyed 0 to 1 over frames 0 to 2: read at each moment, 0.5, 0.5625, 0.625 and 0.6875, so 0.59375 on average.
+
+FX-FMB-011 (`fx_fmb_011.json`): A held key at 720 degrees, 4 samples: the bar sits at 2 until frame 1, then 12; on frame 0 the moments are 0, 0.5, 1 and 1.5, so it is seen twice at half.
+
+FX-FMB-012 (`fx_fmb_012.json`): A drawing red on frame 0 and blue after, at 720 degrees on frame 0: the moments reach past frame 1 but the drawing holds, so all four are red.
+
+FX-FMB-013 (`fx_fmb_013.json`): Native Motion Blur on, with comp-in's own blur on (180, -90, 4) and the bar's switch on: each of the four moments is itself blurred, the bar at 3, 5, 7 and 9 plus 2k.
+
+FX-FMB-014 (`fx_fmb_014.json`): The same with Native Motion Blur off: comp-in's blur is switched off inside, so FX-FMB-002.
+
+FX-FMB-015 (`fx_fmb_015.json`): The bar still on a null running 16 pixels a frame: parents are read at each moment too, so FX-FMB-002.
+
+FX-FMB-016 (`fx_fmb_016.json`): The bar's in point at frame 2, its run a frame later (at 6 on frame 2), at 720 degrees: on frame 1 the moments reach frame 2.5 but the in point holds, so nothing; on frame 2 the moments 2 to 3.5 put it at 6, 14, 22 and 30.
+
+FX-FMB-017 (`fx_fmb_017.json`): Two levels deep: the holder shows comp-mid, which shows comp-in. The moments reach every level, so FX-FMB-002.
+
+FX-FMB-018 (`fx_fmb_018.json`): The holder itself moving 4 pixels a frame with its own switch on, in a composition blurred at 180, -90, 4, override off and 4 samples: the effect's picture is FX-FMB-002's, then the holder's own blur moves it at -0.75, -0.25, 0.25 and 0.75.
+
+FX-FMB-019 (`fx_fmb_019.json`): The holder stretched to 200%: on frame 2 it shows comp-in's frame 1, and its moments are half as far apart there, the bar at 6, 7, 8 and 9.
+
+FX-FMB-020 (`fx_fmb_020.json`): Samples keyed from 1 at frame 0 to 8 at frame 2: 4.5 on frame 1, so four moments, FX-FMB-002's frame; one on frame 0.
+
+FX-FMB-021 (`fx_fmb_021.json`): The effect on a solid: only a composition layer is blurred, so the solid is drawn as it is, and each frame says so.
+
+FX-FMB-022 (`fx_fmb_022.json`): The effect on an adjustment layer above the holder: the composition below is drawn sharp, and each frame says the effect does nothing there.
+
+FX-FMB-023 (`fx_fmb_023.json`): A holder with a Time Remap (here one that changes nothing): not blurred yet, drawn as it is, and each frame says so.
+
+FX-FMB-024 (`fx_fmb_024.json`): Motion Blur Samples 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-FMB-025 (`fx_fmb_025.json`): Motion Blur Samples 65, above 64. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-FMB-026 (`fx_fmb_026.json`): Shutter Angle 721, above 720. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-FMB-027 (`fx_fmb_027.json`): Shutter Angle -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-FMB-028 (`fx_fmb_028.json`): Override Native Shutter written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-FMB-029 (`fx_fmb_029.json`): Native Motion Blur written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-FMB-030 (`fx_fmb_030.json`): Motion Blur Samples keyed to 100 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
