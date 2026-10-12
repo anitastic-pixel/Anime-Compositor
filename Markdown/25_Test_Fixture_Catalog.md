@@ -212296,3 +212296,43 @@ FX-BEZIER-015 (`fx_bezier_015.json`): Quality 0, below 1. The file is read, the 
 FX-BEZIER-016 (`fx_bezier_016.json`): The top left vertex at (-401, 0), its x below -400. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BEZIER-017 (`fx_bezier_017.json`): The bottom left tangent keyed to (100, 600) at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Mesh Warp (D-603)
+
+Mesh Warp (`core.mesh_warp`, B-482, EFFECTS.md row 156), after After Effects' Mesh Warp, the rule ours. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size; the media are in `Fixtures/mesh_warp/media/`. `tools/mesh_warp_reference.py` works the expected frames, `Fixtures/mesh_warp/expected_mesh_warp.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-MESH-001 (`fx_mesh_001.json`): The settings as they start, the mesh at rest (an empty list): the drawing, untouched. Frames 0.
+
+FX-MESH-002 (`fx_mesh_002.json`): The 7 by 7 mesh written out where it rests: the drawing, untouched. Frames 0.
+
+FX-MESH-003 (`fx_mesh_003.json`): A 2 by 2 mesh, its middle vertex pushed from 50 to 75 per cent across: the stripes bow right round it, smoothly, and the edges stay. Frames 0.
+
+FX-MESH-004 (`fx_mesh_004.json`): FX-MESH-003 at Quality 1: each cell left whole, so the bow is a few straight pieces and the frame differs. Frames 0.
+
+FX-MESH-005 (`fx_mesh_005.json`): A 3 by 3 mesh, the top edge's inner vertices raised and lowered and the bottom's too: the top and bottom edges wave, clear where they dip in. Frames 0.
+
+FX-MESH-006 (`fx_mesh_006.json`): A 1 by 1 mesh, its top left vertex pulled in to (20, 20): with only the corners the bend is straight-edged, the corner it left clear. Frames 0.
+
+FX-MESH-007 (`fx_mesh_007.json`): FX-MESH-003's middle vertex keyed from where it rests at frame 0 to 75 per cent at frame 4, linear: frame 0 the drawing, frame 4 FX-MESH-003, frame 2 between. Frames 0, 2, 4.
+
+FX-MESH-008 (`fx_mesh_008.json`): FX-MESH-003 with the layer moved three pixels right: the bent drawing moves with it. Frames 0.
+
+FX-MESH-009 (`fx_mesh_009.json`): The middle vertex dragged out to 150 per cent, past the right edge: the mesh folds; where it overlaps, the part later in the grid is on top. Frames 0.
+
+FX-MESH-010 (`fx_mesh_010.json`): Four rows by two columns, the inner vertices twisted: the stripes bend one way above the middle and the other way below. Frames 0.
+
+FX-MESH-011 (`fx_mesh_011.json`): Quality keyed from 1 at frame 0 to 10 at frame 4, eased past its end, with FX-MESH-003's push: frame 2 would pass 10 and is held there, the same as frame 4. Frames 0, 2, 4.
+
+FX-MESH-012 (`fx_mesh_012.json`): Rows 2.4 and Columns 1.6, which round to 2 and 2: the same as FX-MESH-003. Frames 0.
+
+FX-MESH-013 (`fx_mesh_013.json`): Rows 32, above 31. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MESH-014 (`fx_mesh_014.json`): Columns 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MESH-015 (`fx_mesh_015.json`): A 2 by 2 mesh written with 16 numbers, not 18. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MESH-016 (`fx_mesh_016.json`): A vertex at 501 per cent across, past 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MESH-017 (`fx_mesh_017.json`): Quality 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MESH-018 (`fx_mesh_018.json`): The middle vertex keyed out to 600 per cent at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
