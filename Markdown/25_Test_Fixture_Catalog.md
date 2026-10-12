@@ -211668,3 +211668,25 @@ FX-CW-054 (`fx_cw_054.json`): A back layer written as the number 3, not a word. 
 FX-CW-055 (`fx_cw_055.json`): Rows & Columns "both". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
 FX-CW-056 (`fx_cw_056.json`): Completion keyed to 120 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### Contour Paint, Match to Nearest Custom Color (D-584)
+
+Contour Paint's Match to Nearest Custom Color (B-462), more cases of Contour Paint (D-470) in the same folder and expected file: `tools/contour_paint_reference.py` writes `Fixtures/contour_paint/expected_contour_paint.json`, tolerance 2e-5; the rule is in document 21. FX-CONTOUR-001 to 032 are unchanged.
+
+FX-CONTOUR-033 (`fx_contour_033.json`): Match to Nearest Custom Color with four custom colours, a brick red, a blue, a mid grey and a cream, Over Smeared Image: every pixel one of the four, each the nearest as the eye sees it, which for some pixels is not the nearest by red, green and blue. Frames 0.
+
+FX-CONTOUR-034 (`fx_contour_034.json`): The same, Fills Only with Low Strength 38: the four colours only where the flow is at least 38 per cent strong, clear elsewhere. Frames 0.
+
+FX-CONTOUR-035 (`fx_contour_035.json`): Match to Nearest Custom Color with no custom colours: nothing is filled, the smear alone, FX-CONTOUR-001. Frames 0.
+
+FX-CONTOUR-036 (`fx_contour_036.json`): One custom colour, the blue: every pixel blue. Frames 0.
+
+FX-CONTOUR-037 (`fx_contour_037.json`): The two blocks with clear round them, pure red and pure blue as the custom colours: the red block red, the blue block blue, every covering kept, every clear pixel clear. Frames 0.
+
+FX-CONTOUR-038 (`fx_contour_038.json`): The four custom colours kept but K-Means chosen: they are not used, FX-CONTOUR-010. Frames 0.
+
+FX-CONTOUR-039 (`fx_contour_039.json`): A custom colour written "#c0303", five digits. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CONTOUR-040 (`fx_contour_040.json`): Nine custom colours, past eight. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CONTOUR-041 (`fx_contour_041.json`): A custom colour written "red", a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
