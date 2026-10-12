@@ -1093,6 +1093,133 @@ fn fractal_look(ch: u32, p: vec3<f64>, octaves: u32, turbulent: bool, block: boo
     return sum / total;
 }
 
+// D-567: grade::value_kind and grade::fractal_kind, the noise types past smooth and block and
+// the fractal types past basic and turbulent, each in the same order as there.
+fn wrap_depth(z: i32, period: i32) -> i32 {
+    if period > 0 {
+        return select(z % period, period - 1 - (-1 - z) % period, z < 0);
+    }
+    return z;
+}
+
+fn catmull(t: f64) -> vec4<f64> {
+    let t2 = t * t;
+    let t3 = t2 * t;
+    return vec4((-t3 + 2.0lf * t2 - t) / 2.0lf, (3.0lf * t3 - 5.0lf * t2 + 2.0lf) / 2.0lf,
+        (-3.0lf * t3 + 4.0lf * t2 + t) / 2.0lf, (t3 - t2) / 2.0lf);
+}
+
+fn cell_noise_kind(ch: u32, p: vec3<f64>, noise: u32, period: i32) -> f64 {
+    if noise < 2u {
+        return cell_noise_look(ch, p, noise == 1u, period);
+    }
+    let c = floor(p);
+    let t = p - c;
+    let i = vec3<i32>(c);
+    var v = 0.0lf;
+    if noise == 4u {
+        var wx = catmull(t.x);
+        var wy = catmull(t.y);
+        let sz = fade(t.z);
+        for (var dk = 0; dk < 2; dk++) {
+            let wz = select(1.0lf - sz, sz, dk == 1);
+            let z = wrap_depth(i.z + dk, period);
+            for (var b = 0; b < 4; b++) {
+                for (var a = 0; a < 4; a++) {
+                    let w = wx[a] * wy[b] * wz;
+                    if w != 0.0lf {
+                        v += w * hashed(i.x + a - 1, i.y + b - 1, z, ch);
+                    }
+                }
+            }
+        }
+        return clamp(v, -1.0lf, 1.0lf);
+    }
+    var s = t;
+    if noise == 3u {
+        s = t * t * (vec3(3.0lf) - 2.0lf * t);
+    }
+    for (var corner = 0u; corner < 8u; corner++) {
+        let d = vec3(corner & 1u, (corner >> 1u) & 1u, corner >> 2u);
+        let w = select(vec3(1.0lf) - s, s, d == vec3(1u));
+        let wt = w.x * w.y * w.z;
+        if wt != 0.0lf {
+            v += wt * hashed(i.x + i32(d.x), i.y + i32(d.y), wrap_depth(i.z + i32(d.z), period), ch);
+        }
+    }
+    return v;
+}
+
+fn fractal_kind(ch: u32, p: vec3<f64>, octaves: u32, kind: u32, noise: u32, cycle: i32) -> f64 {
+    let pi = 3.141592653589793lf;
+    let step = select(0.5lf, 0.35lf, kind == 11u);
+    var fine = select(1.0lf, 4.0lf, kind == 14u);
+    var sum = 0.0lf;
+    var total = 0.0lf;
+    var amp = 1.0lf;
+    var so_far = 0.0lf;
+    var prev = 0.0lf;
+    var prev_ridge = 1.0lf;
+    var best = 0.0lf;
+    for (var o = 0u; o < octaves; o++) {
+        var px = p.x * fine;
+        var py = p.y * fine;
+        let fo = f64(o);
+        if kind == 4u {
+            px += 4.0lf * so_far;
+            py += 4.0lf * prev;
+        } else if kind == 5u {
+            px += 2.0lf * fo * so_far;
+            py += 2.0lf * fo * prev;
+        } else if kind == 6u && o > 0u {
+            px += 2.0lf * cos64(2.0lf * pi * so_far);
+            py += 2.0lf * sin64(2.0lf * pi * so_far);
+        } else if kind == 8u && o > 0u {
+            px = px / 4.0lf + 2.0lf * so_far;
+        }
+        let v = cell_noise_kind(8u * o + ch, vec3(px, py, p.z * fine), noise, cycle << o);
+        let ridge = (1.0lf - abs(v)) * (1.0lf - abs(v));
+        var g = v;
+        if kind == 1u {
+            g = abs(v);
+        } else if kind == 2u {
+            g = v * v;
+        } else if kind == 3u {
+            g = sqrt(abs(v));
+        } else if kind == 12u {
+            g = ridge * prev_ridge;
+        } else if kind == 16u {
+            g = 2.0lf * max(1.0lf - 6.0lf * abs(v), 0.0lf) - 1.0lf;
+        }
+        if kind == 13u && o > 0u {
+            g *= (prev + 1.0lf) / 2.0lf;
+        }
+        sum += amp * g;
+        total += amp;
+        so_far = sum / total;
+        best = select(best + amp * max(v - best, 0.0lf), v, o == 0u);
+        prev = v;
+        prev_ridge = ridge;
+        amp *= step;
+        fine *= 2.0lf;
+    }
+    let b = sum / total;
+    if kind == 1u || kind == 2u || kind == 3u || kind == 12u {
+        return 2.0lf * b - 1.0lf;
+    } else if kind == 7u {
+        return best;
+    } else if kind == 9u {
+        return sin64(3.0lf * pi * b);
+    } else if kind == 10u {
+        return clamp(floor(2.0lf * b + 0.5lf) / 2.0lf, -1.0lf, 1.0lf);
+    } else if kind == 11u {
+        return (b + 1.0lf) * (b + 1.0lf) / 2.0lf - 1.0lf;
+    } else if kind == 15u {
+        return 2.0lf * max(1.0lf - 6.0lf * abs(b), 0.0lf) - 1.0lf;
+    }
+    return b;
+}
+
 // B-157 (G6): `hashed`, `cell_noise` and `fractal` in single precision, for Turbulent Displace,
 // where the noise only moves where a pixel is read from, by far less than a pixel's rounding.
 // `hashed`'s 53 bits are (h.y 2^32 + h.x) / 2^52 - 1, h.y's 21 bits exact in single precision.
@@ -1238,14 +1365,17 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, out);
         return;
     }
-    if F.mode == 9u {
+    if F.mode == 9u || F.mode == 111u {
         // k: the size, the depth, the contrast and brightness, the opacity as a share, the dark
         // and light colours encoded. `count` is the octaves. D-299: then the size down, the
-        // offset, turbulent, block, the cycle and invert, each 1 when on.
+        // offset, turbulent, block, the cycle and invert, each 1 when on. D-567: mode 111 is
+        // the types past basic, turbulent, smooth and block, their places then.
         let x = (f64(i32(id.x) - F.ox) + 0.5lf - k[12]) / k[0];
         let y = (f64(i32(id.y) - F.oy) + 0.5lf - k[13]) / k[11];
         var n = 0.0lf;
-        if k[14] == 0.0lf && k[15] == 0.0lf && k[16] == 0.0lf {
+        if F.mode == 111u {
+            n = fractal_kind(0u, vec3(x, y, k[1]), F.count, u32(k[18]), u32(k[19]), i32(k[16]));
+        } else if k[14] == 0.0lf && k[15] == 0.0lf && k[16] == 0.0lf {
             n = fractal(0u, vec3(x, y, k[1]), F.count);
         } else {
             n = fractal_look(0u, vec3(x, y, k[1]), F.count, k[14] == 1.0lf, k[15] == 1.0lf, i32(k[16]));
@@ -13075,9 +13205,14 @@ impl Gpu {
                 // D-299.
                 let look = crate::effects::fractal_look(fractal_type, noise_type, *cycle);
                 let on = |b: bool| b as u8 as f64;
-                k.extend([size * (scale_height / 100.0), offset[0], offset[1], on(look.turbulent), on(look.block), look.cycle as f64, on(invert == "on")]);
+                k.extend([size * (scale_height / 100.0), offset[0], offset[1], on(look.kind == 1), on(look.noise == 1), look.cycle as f64, on(invert == "on")]);
+                // D-567: the types past basic, turbulent, smooth and block, mode 111.
+                let wide = look.kind > 1 || look.noise > 1;
+                if wide {
+                    k.extend([look.kind as f64, look.noise as f64]);
+                }
                 let p = FxParams {
-                    mode: 9,
+                    mode: if wide { 111 } else { 9 },
                     blend: blend(b),
                     count: complexity.floor() as u32,
                     base: [base as u32, (base >> 32) as u32],

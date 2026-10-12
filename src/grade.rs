@@ -1030,9 +1030,11 @@ pub(crate) fn noise_hls(source: &mut WorkingBuffer, noise: &str, amounts: [f64; 
 /// basic, smooth noise that never repeats.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub(crate) struct Look {
-    /// Each octave's distance from the middle, so the clouds crease where it is nought.
-    pub turbulent: bool,
-    pub block: bool,
+    /// D-567: the fractal type's place in `effects::FRACTAL_TYPES`, 0 basic and 1 turbulent
+    /// (each octave's distance from the middle, so the clouds crease where it is nought).
+    pub kind: usize,
+    /// D-567: the noise type's place in `effects::NOISE_TYPES`, 0 smooth and 1 block.
+    pub noise: usize,
     /// Whole turns of evolution after which it repeats, 0 for never.
     pub cycle: i64,
 }
@@ -1048,15 +1050,115 @@ pub(crate) fn fractal(base: u64, ch: u64, p: (f64, f64, f64), octaves: usize) ->
 /// share back to -1..1; octave `o`'s depth is `2^o` times finer, so it repeats after `2^o`
 /// times the cycle's cells.
 pub(crate) fn fractal_with(base: u64, ch: u64, (x, y, z): (f64, f64, f64), octaves: usize, look: Look) -> f64 {
+    if look.kind > 1 || look.noise > 1 {
+        return fractal_kind(base, ch, (x, y, z), octaves, look);
+    }
+    let (turbulent, block) = (look.kind == 1, look.noise == 1);
     let (mut sum, mut total, mut amp, mut fine) = (0.0, 0.0, 1.0, 1.0);
     for o in 0..octaves {
-        let v = value(base, 8 * o as u64 + ch, x * fine, y * fine, z * fine, look.block, look.cycle << o);
-        sum += amp * if look.turbulent { v.abs() } else { v };
+        let v = value(base, 8 * o as u64 + ch, x * fine, y * fine, z * fine, block, look.cycle << o);
+        sum += amp * if turbulent { v.abs() } else { v };
         total += amp;
         amp *= 0.5;
         fine *= 2.0;
     }
-    if look.turbulent { 2.0 * sum / total - 1.0 } else { sum / total }
+    if turbulent { 2.0 * sum / total - 1.0 } else { sum / total }
+}
+
+/// D-567: [`value`] for the noise types past smooth and block, by document 21's rule: linear
+/// (2) mixes the eight corners by the parts past the whole points, soft linear (3) by
+/// 3t^2 - 2t^3; spline (4) four points across and four down by the Catmull-Rom curve and the
+/// depth by smooth's, held to -1..1. `period` as [`value`]'s.
+fn value_kind(base: u64, ch: u64, x: f64, y: f64, z: f64, noise: usize, period: i64) -> f64 {
+    if noise < 2 {
+        return value(base, ch, x, y, z, noise == 1, period);
+    }
+    let (i, j, k) = (x.floor(), y.floor(), z.floor());
+    let (tx, ty, tz) = (x - i, y - j, z - k);
+    let (i, j, k) = (i as i64, j as i64, k as i64);
+    let depth = |k: i64| if period > 0 { k.rem_euclid(period) } else { k };
+    let mut v = 0.0;
+    if noise == 4 {
+        let catmull = |t: f64| {
+            let (t2, t3) = (t * t, t * t * t);
+            [(-t3 + 2.0 * t2 - t) / 2.0, (3.0 * t3 - 5.0 * t2 + 2.0) / 2.0, (-3.0 * t3 + 4.0 * t2 + t) / 2.0, (t3 - t2) / 2.0]
+        };
+        let (wx, wy) = (catmull(tx), catmull(ty));
+        let sz = tz * tz * tz * (tz * (6.0 * tz - 15.0) + 10.0);
+        for (dk, wz) in [(0, 1.0 - sz), (1, sz)] {
+            for b in 0..4 {
+                for a in 0..4 {
+                    let w = wx[a] * wy[b] * wz;
+                    if w != 0.0 {
+                        v += w * unit(base, i + a as i64 - 1, j + b as i64 - 1, depth(k + dk), ch);
+                    }
+                }
+            }
+        }
+        return v.clamp(-1.0, 1.0);
+    }
+    let curve = |t: f64| if noise == 2 { t } else { t * t * (3.0 - 2.0 * t) };
+    let s = [curve(tx), curve(ty), curve(tz)];
+    for corner in 0..8 {
+        let d = [corner & 1, (corner >> 1) & 1, corner >> 2];
+        let w: f64 = (0..3).map(|a| if d[a] == 1 { s[a] } else { 1.0 - s[a] }).product();
+        if w != 0.0 {
+            v += w * unit(base, i + d[0] as i64, j + d[1] as i64, depth(k + d[2] as i64), ch);
+        }
+    }
+    v
+}
+
+/// D-567: the fractal types past basic and turbulent, by document 21's rule, each this
+/// program's own after its name (`tools/turbulent_noise_types_reference.py`). "So far" is the
+/// weighted octaves before this one over the sum of their strengths.
+fn fractal_kind(base: u64, ch: u64, (x, y, z): (f64, f64, f64), octaves: usize, look: Look) -> f64 {
+    use std::f64::consts::PI;
+    let kind = look.kind;
+    let step = if kind == 11 { 0.35 } else { 0.5 };
+    let mut fine = if kind == 14 { 4.0 } else { 1.0 };
+    let (mut sum, mut total, mut amp) = (0.0, 0.0, 1.0);
+    let (mut so_far, mut prev, mut prev_ridge, mut best) = (0.0, 0.0, 1.0, 0.0);
+    for o in 0..octaves {
+        let (mut px, mut py) = (x * fine, y * fine);
+        match kind {
+            4 => (px, py) = (px + 4.0 * so_far, py + 4.0 * prev),
+            5 => (px, py) = (px + 2.0 * o as f64 * so_far, py + 2.0 * o as f64 * prev),
+            6 if o > 0 => (px, py) = (px + 2.0 * (2.0 * PI * so_far).cos(), py + 2.0 * (2.0 * PI * so_far).sin()),
+            8 if o > 0 => px = px / 4.0 + 2.0 * so_far,
+            _ => {}
+        }
+        let v = value_kind(base, 8 * o as u64 + ch, px, py, z * fine, look.noise, look.cycle << o);
+        let ridge = (1.0 - v.abs()) * (1.0 - v.abs());
+        let mut g = match kind {
+            1 => v.abs(),
+            2 => v * v,
+            3 => v.abs().sqrt(),
+            12 => ridge * prev_ridge,
+            16 => 2.0 * (1.0 - 6.0 * v.abs()).max(0.0) - 1.0,
+            _ => v,
+        };
+        if kind == 13 && o > 0 {
+            g *= (prev + 1.0) / 2.0;
+        }
+        sum += amp * g;
+        total += amp;
+        so_far = sum / total;
+        best = if o == 0 { v } else { best + amp * (v - best).max(0.0) };
+        (prev, prev_ridge) = (v, ridge);
+        amp *= step;
+        fine *= 2.0;
+    }
+    let b = sum / total;
+    match kind {
+        1 | 2 | 3 | 12 => 2.0 * b - 1.0,
+        7 => best,
+        9 => (3.0 * PI * b).sin(),
+        10 => ((2.0 * b + 0.5).floor() / 2.0).clamp(-1.0, 1.0),
+        11 => (b + 1.0) * (b + 1.0) / 2.0 - 1.0,
+        15 => 2.0 * (1.0 - 6.0 * b.abs()).max(0.0) - 1.0,
+        _ => b,
+    }
 }
 
 /// D-128's settings, read once for a frame: the noise's size, octaves and depth (`z`, the

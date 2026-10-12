@@ -11454,6 +11454,9 @@ const COLORAMA_GET = [['intensity', 'Intensity'], ['luminance', 'Luminance'], ['
 const MAP_CHANNELS = [['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha'],
   ['luminance', 'Luminance'], ['hue', 'Hue'], ['lightness', 'Lightness'], ['saturation', 'Saturation'],
   ['full', 'Full'], ['off', 'Off']];
+// D-567: After Effects' seventeen fractal types and four noise types, with this program's Smooth first.
+const FRACTAL_TYPE_WORDS = [['basic', 'Basic'], ['turbulent', 'Turbulent Basic'], ['turbulent_smooth', 'Turbulent Smooth'], ['turbulent_sharp', 'Turbulent Sharp'], ['dynamic', 'Dynamic'], ['dynamic_progressive', 'Dynamic Progressive'], ['dynamic_twist', 'Dynamic Twist'], ['max', 'Max'], ['smeary', 'Smeary'], ['swirly', 'Swirly'], ['rocky', 'Rocky'], ['cloudy', 'Cloudy'], ['terrain', 'Terrain'], ['subscale', 'Subscale'], ['small_bumps', 'Small Bumps'], ['strings', 'Strings'], ['threads', 'Threads']];
+const NOISE_TYPE_WORDS = [['smooth', 'Smooth'], ['block', 'Block'], ['linear', 'Linear'], ['soft_linear', 'Soft Linear'], ['spline', 'Spline']];
 const EFFECT_WORDS = {
   // D-335: the file leaves it out when Off, so Off is first.
   'core.exposure': { choices: [['bypass', 'Bypass Linear Light Conversion', [['off', 'Off'], ['on', 'On']]]] },
@@ -11603,15 +11606,15 @@ const EFFECT_WORDS = {
   'core.fractal_noise': {
     choices: [['blend', 'Blend', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]],
       // D-299.
-      ['fractal_type', 'Fractal Type', [['basic', 'Basic'], ['turbulent', 'Turbulent']]],
-      ['noise_type', 'Noise Type', [['smooth', 'Smooth'], ['block', 'Block']]],
+      ['fractal_type', 'Fractal Type', FRACTAL_TYPE_WORDS],
+      ['noise_type', 'Noise Type', NOISE_TYPE_WORDS],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]],
     colours: [['dark_color', 'Dark Colour'], ['light_color', 'Light Colour']],
   },
   // D-445.
   'core.turbulent_noise': {
-    choices: [['fractal_type', 'Fractal Type', [['basic', 'Basic'], ['turbulent', 'Turbulent']]],
-      ['noise_type', 'Noise Type', [['smooth', 'Smooth'], ['block', 'Block']]],
+    choices: [['fractal_type', 'Fractal Type', FRACTAL_TYPE_WORDS],
+      ['noise_type', 'Noise Type', NOISE_TYPE_WORDS],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]],
       ['blend', 'Blending Mode', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
   },

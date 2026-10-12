@@ -270,12 +270,12 @@ fn b325_turbulent_noise() {
     t.heading("Commands");
     let mut document = t.load("fx_turbnoise_001.json").document;
     let over = changed(&t, "fx_turbnoise_001.json", |e| if let Effect::TurbulentNoise { complexity, .. } = e { *complexity = 21.0 });
-    let bad = changed(&t, "fx_turbnoise_001.json", |e| if let Effect::TurbulentNoise { noise_type, .. } = e { *noise_type = "spline".into() });
+    let bad = changed(&t, "fx_turbnoise_001.json", |e| if let Effect::TurbulentNoise { noise_type, .. } = e { *noise_type = "cubic".into() });
     t.refused(
         &mut document,
         vec![
             ("complexity 21", set(over)),
-            ("noise type spline", set(bad)),
+            ("noise type cubic", set(bad)),
             ("opacity keyed to 150", keys("opacity", &[(0, &[0.0]), (4, &[150.0])])),
         ],
     );

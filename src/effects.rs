@@ -899,7 +899,7 @@ pub enum Effect {
     /// "normal", "multiply", "screen" or "add". The words and the colours are kept as written,
     /// so a wrong one is reported. `frame` is not a setting and is never saved: it is the
     /// composition frame, as Noise's is. D-299, each kept as written and drawing as before at
-    /// its start: `fractal_type`, "basic" or "turbulent"; `noise_type`, "smooth" or "block";
+    /// its start: `fractal_type`, one of [`FRACTAL_TYPES`]; `noise_type`, one of [`NOISE_TYPES`] (D-567);
     /// `invert`, "off" or "on"; `offset`, x then y in pixels, -100000 to 100000; `scale_width`
     /// and `scale_height`, 1 to 10000 per cent of the size, 100 at the start; and `cycle`, 0 to
     /// 1000 turns of evolution after which it repeats, its whole part counted, 0 for never.
@@ -928,8 +928,8 @@ pub enum Effect {
         float: bool,
     },
     /// D-445: after After Effects' Turbulent Noise, a second name over Fractal Noise's engine
-    /// ([`turbulent_fractal`]): `fractal_type`, "basic" or "turbulent"; `noise_type`, "smooth"
-    /// or "block"; `invert`, "off" or "on", kept as written; `contrast`, 0 to 1000;
+    /// ([`turbulent_fractal`]): `fractal_type`, one of [`FRACTAL_TYPES`]; `noise_type`, one of
+    /// [`NOISE_TYPES`] (D-567); `invert`, "off" or "on", kept as written; `contrast`, 0 to 1000;
     /// `brightness`, -1000 to 1000; `size`, 1 to 1000 pixels a cloud; `scale_width` and
     /// `scale_height`, 1 to 10000 per cent of it; `offset`, x then y in pixels, -100000 to
     /// 100000; `complexity`, 1 to 20, and `seed`, 0 to 100000, their whole parts counted;
@@ -4175,7 +4175,16 @@ pub const PARTICLE_SPACE_COLORS: [(&str, &str); 8] = [
 ];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
-pub const BALL_AXES: [&str; 9] = ["x", "y", "z", "xy", "xz", "yz", "xyz", "x15z", "xy15z"];
+/// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
+/// "turbulent" is After Effects' Turbulent Basic. The place in the list is `grade::Look::kind`.
+pub const FRACTAL_TYPES: [&str; 17] = [
+    "basic", "turbulent", "turbulent_smooth", "turbulent_sharp", "dynamic", "dynamic_progressive", "dynamic_twist", "max",
+    "smeary", "swirly", "rocky", "cloudy", "terrain", "subscale", "small_bumps", "strings", "threads",
+];
+/// D-567: their noise types: this program's smooth (D-128), then After Effects' four. The place
+/// in the list is `grade::Look::noise`.
+pub const NOISE_TYPES: [&str; 5] = ["smooth", "block", "linear", "soft_linear", "spline"];
+pub const BALL_AXES: [&str; 9] =["x", "y", "z", "xy", "xz", "yz", "xyz", "x15z", "xy15z"];
 /// D-551: CC Ball Action's twist properties, as CycoreFX lists them.
 pub const BALL_TWISTS: [&str; 13] = [
     "x_axis", "y_axis", "center_x", "center_y", "radius", "random", "red", "green", "blue", "brightness", "diamond",
@@ -8644,31 +8653,12 @@ impl Effect {
                 ..
             } => hex_fault("Fractal Noise", "dark colour", dark_color)
                 .or_else(|| hex_fault("Fractal Noise", "light colour", light_color))
-                .or_else(|| {
-                    // D-299.
-                    [
-                        ("fractal type", fractal_type, ["basic", "turbulent"]),
-                        ("noise type", noise_type, ["smooth", "block"]),
-                        ("invert", invert, ["off", "on"]),
-                    ]
-                    .into_iter()
-                    .find(|(_, word, allowed)| !allowed.contains(&word.as_str()))
-                    .map(|(what, word, [a, b])| {
-                        format!("Fractal Noise's {what} is \"{a}\" or \"{b}\", and this is \"{word}\".")
-                    })
-                }),
+                .or_else(|| fractal_look_fault("Fractal Noise", fractal_type, noise_type, invert)),
             // D-445: in Turbulent Noise's own name.
             Effect::TurbulentNoise { blend, .. } if !["normal", "multiply", "screen", "add"].contains(&blend.as_str()) => Some(format!(
                 "Turbulent Noise's blending mode is \"normal\", \"multiply\", \"screen\" or \"add\", and this is \"{blend}\"."
             )),
-            Effect::TurbulentNoise { fractal_type, noise_type, invert, .. } => [
-                ("fractal type", fractal_type, ["basic", "turbulent"]),
-                ("noise type", noise_type, ["smooth", "block"]),
-                ("invert", invert, ["off", "on"]),
-            ]
-            .into_iter()
-            .find(|(_, word, allowed)| !allowed.contains(&word.as_str()))
-            .map(|(what, word, [a, b])| format!("Turbulent Noise's {what} is \"{a}\" or \"{b}\", and this is \"{word}\".")),
+            Effect::TurbulentNoise { fractal_type, noise_type, invert, .. } => fractal_look_fault("Turbulent Noise", fractal_type, noise_type, invert),
             Effect::GradientMap {
                 shadow_color,
                 midtone_color,
@@ -13371,9 +13361,25 @@ mod depth_of_field_tests {
     }
 }
 
-/// D-299: Fractal Noise's type, noise type and cycle as the noise reads them.
+/// D-299: Fractal Noise's type, noise type and cycle as the noise reads them. D-567: the places
+/// in [`FRACTAL_TYPES`] and [`NOISE_TYPES`]; the words are already valid.
 pub(crate) fn fractal_look(fractal_type: &str, noise_type: &str, cycle: f64) -> crate::grade::Look {
-    crate::grade::Look { turbulent: fractal_type == "turbulent", block: noise_type == "block", cycle: cycle.floor() as i64 }
+    let at = |list: &[&str], w: &str| list.iter().position(|v| *v == w).unwrap_or(0);
+    crate::grade::Look { kind: at(&FRACTAL_TYPES, fractal_type), noise: at(&NOISE_TYPES, noise_type), cycle: cycle.floor() as i64 }
+}
+
+/// D-299, D-445 and D-567: what is wrong with Fractal or Turbulent Noise's words, in `name`.
+fn fractal_look_fault(name: &str, fractal_type: &str, noise_type: &str, invert: &str) -> Option<String> {
+    let quoted = |list: &[&str]| list.iter().map(|v| format!("\"{v}\"")).collect::<Vec<_>>().join(", ");
+    if !FRACTAL_TYPES.contains(&fractal_type) {
+        Some(format!("{name}'s fractal type is one of {}, and this is \"{fractal_type}\".", quoted(&FRACTAL_TYPES)))
+    } else if !NOISE_TYPES.contains(&noise_type) {
+        Some(format!("{name}'s noise type is one of {}, and this is \"{noise_type}\".", quoted(&NOISE_TYPES)))
+    } else if !["off", "on"].contains(&invert) {
+        Some(format!("{name}'s invert is \"off\" or \"on\", and this is \"{invert}\"."))
+    } else {
+        None
+    }
 }
 
 /// D-126: the ellipse in the drawing's own size, however far the layer has grown (its corner at

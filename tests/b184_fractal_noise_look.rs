@@ -141,7 +141,7 @@ fn the_file_keeps_the_look_and_reports_a_wrong_one() {
         assert_eq!(saved[k].to_string(), v.to_string(), "{k} is kept");
     }
     let (_, wrong) = effect(&shot(json!({"fractal_type": "wavy"})));
-    assert_eq!(wrong.why_invalid(), "Fractal Noise's fractal type is \"basic\" or \"turbulent\", and this is \"wavy\".");
+    assert_eq!(wrong.why_invalid(), "Fractal Noise's fractal type is one of \"basic\", \"turbulent\", \"turbulent_smooth\", \"turbulent_sharp\", \"dynamic\", \"dynamic_progressive\", \"dynamic_twist\", \"max\", \"smeary\", \"swirly\", \"rocky\", \"cloudy\", \"terrain\", \"subscale\", \"small_bumps\", \"strings\", \"threads\", and this is \"wavy\".");
     let (_, wrong) = effect(&shot(json!({"scale_width": 0})));
     assert!(!wrong.is_valid(), "a Scale Width of 0 is refused: {}", wrong.why_invalid());
     let (_, mut draft) = effect(&shot(json!({"offset": [40, -10]})));
