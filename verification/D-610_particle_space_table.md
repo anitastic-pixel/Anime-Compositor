@@ -289,7 +289,7 @@ B-490, the particle engine's first effect (P0-6), after the purpose of CycoreFX'
 | fx_pspace_063.json is refused in a sentence naming camera fov | Particle Space's camera fov runs from 1 to 170, and this is 171. | yes |
 | fx_pspace_064.json is refused in a sentence naming animation | Particle Space's animation is one of "explosive", "direction_axis", "cone_axis", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni", "fractal_uni", and this is "spiral". | yes |
 | fx_pspace_065.json is refused in a sentence naming animation | Particle Space's animation is one of "explosive", "direction_axis", "cone_axis", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni", "fractal_uni", and this is "Explosive". | yes |
-| fx_pspace_066.json is refused in a sentence naming particle type | Particle Space's particle type is one of "line", "faded_sphere", "shaded_sphere", "disc", "bubble", and this is "star". | yes |
+| fx_pspace_066.json is refused in a sentence naming particle type | Particle Space's particle type is one of "line", "faded_sphere", "shaded_sphere", "disc", "bubble", "textured_square", "textured_disc", "textured_faded_disc", and this is "star". | yes |
 | fx_pspace_067.json is refused in a sentence naming floor action | Particle Space's floor action is one of "none", "ice", "glue", "bounce", and this is "slide". | yes |
 | fx_pspace_068.json is refused in a sentence naming birth colour | Particle Space's birth colour is written #rrggbb, and this is "#12345". | yes |
 | fx_pspace_069.json is refused in a sentence naming composite on original | Particle Space's composite on original is one of "off", "on", and this is "yes". | yes |

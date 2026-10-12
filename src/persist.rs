@@ -2992,9 +2992,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("render".into(), J::from(render.as_str()));
             params.insert("light_color".into(), J::from(light_color.as_str()));
         }
-        Effect::ParticleSpace { values, words, colors, .. } => {
-            for ((name, ..), v) in crate::effects::PARTICLE_SPACE_SETTINGS.iter().zip(values) {
-                params.insert((*name).into(), num(*v));
+        Effect::ParticleSpace { values, words, colors, texture_layer, .. } => {
+            // D-611: its three later settings each written only when not as added, keyed, or
+            // already in the file.
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_SPACE_SETTINGS.iter().zip(values).enumerate() {
+                if n < 44 || v != start || instance.tracks.contains_key(*name) || params.contains_key(*name) {
+                    params.insert((*name).into(), num(*v));
+                }
+            }
+            if texture_layer.as_str() != Some("") || params.contains_key("texture_layer") {
+                params.insert("texture_layer".into(), texture_layer.clone());
             }
             for ((name, ..), w) in crate::effects::PARTICLE_SPACE_WORDS.iter().zip(words) {
                 params.insert((*name).into(), J::from(w.as_str()));
@@ -7198,9 +7205,10 @@ fn parse_effect(
         // D-610: the words and colours kept as written, so one outside the contract is refused
         // by name.
         crate::effects::PARTICLE_SPACE => {
-            let mut values = [0.0; 44];
-            for ((name, ..), v) in crate::effects::PARTICLE_SPACE_SETTINGS.iter().zip(values.iter_mut()) {
-                *v = effect_number(params, name, &at)?;
+            let mut values = [0.0; 46];
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_SPACE_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
+                // D-611: a file written before it has the turn as added.
+                *v = if n < 44 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *start)? };
             }
             let mut words: [String; 7] = Default::default();
             for ((name, ..), w) in crate::effects::PARTICLE_SPACE_WORDS.iter().zip(words.iter_mut()) {
@@ -7210,7 +7218,16 @@ fn parse_effect(
             for ((name, _), c) in crate::effects::PARTICLE_SPACE_COLORS.iter().zip(colors.iter_mut()) {
                 *c = effect_word(params, name, &at)?;
             }
-            Some(crate::effects::Effect::ParticleSpace { values, words, colors, clock: [0.0; 2], view: [0.0; 4], history: None })
+            Some(crate::effects::Effect::ParticleSpace {
+                values,
+                words,
+                colors,
+                clock: [0.0; 2],
+                view: [0.0; 4],
+                history: None,
+                texture_layer: params.and_then(|p| p.get("texture_layer")).cloned().unwrap_or_else(|| J::from("")),
+                texture: None,
+            })
         }
         crate::effects::CC_BALL_ACTION => Some(crate::effects::Effect::CcBallAction {
             scatter: effect_number(params, "scatter", &at)?,

@@ -6800,11 +6800,115 @@ fn ballshade(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(out));
 }
 
-// D-610, particles::cover: sprite n of k (from 7, ten each) at the own point (x, y),
+// D-611, particles::levels: level j of the texture's atlas (other) as x, y, w, h: level 0, F.n
+// by F.r, at the corner, each next half as big (rounded up) stacked down its right.
+fn tex_level(j: u32) -> vec4<u32> {
+    var l = vec4(0u, 0u, F.n, u32(F.r));
+    for (var i = 0u; i < j; i++) {
+        if i == 0u {
+            l = vec4(F.n, 0u, l.z, l.w);
+        } else {
+            l.y += l.w;
+        }
+        l.z = (l.z + 1u) / 2u;
+        l.w = (l.w + 1u) / 2u;
+    }
+    return l;
+}
+
+// D-611: the last level's number.
+fn tex_top() -> u32 {
+    var w = F.n;
+    var h = u32(F.r);
+    var t = 0u;
+    while w > 1u || h > 1u {
+        w = (w + 1u) / 2u;
+        h = (h + 1u) / 2u;
+        t++;
+    }
+    return t;
+}
+
+// D-611, particles::texel's held: document 21's bilinear on level l at (s w, u h), each tap
+// held to the level's edge pixels.
+fn tex_held(l: vec4<u32>, s: f64, u: f64) -> vec4<f64> {
+    let fx = s * f64(l.z) - 0.5lf;
+    let fy = u * f64(l.w) - 0.5lf;
+    let bx = floor(fx);
+    let by = floor(fy);
+    let ux = fx - bx;
+    let uy = fy - by;
+    var out = vec4(0.0lf);
+    for (var dy = 0; dy < 2; dy++) {
+        for (var dx = 0; dx < 2; dx++) {
+            let px = clamp(i32(bx) + dx, 0, i32(l.z) - 1);
+            let py = clamp(i32(by) + dy, 0, i32(l.w) - 1);
+            // Each part widened on its own: the whole read widened as one comes back wrong on
+            // this card's driver (B-491).
+            let t = textureLoad(other, vec2(i32(l.x) + px, i32(l.y) + py), 0);
+            let q = vec4(f64(t.x), f64(t.y), f64(t.z), f64(t.w));
+            var wx = 1.0lf - ux;
+            if dx == 1 {
+                wx = ux;
+            }
+            var wy = 1.0lf - uy;
+            if dy == 1 {
+                wy = uy;
+            }
+            out += q * (wx * wy);
+        }
+    }
+    return out;
+}
+
+// D-611, particles::cover's textured kinds (5 square, 6 disc, 7 faded disc) from k[s]: turned,
+// never lit; the texture read when F.flag is 1, at level log2(size / 2 R) mixed with the next.
+fn textured_cover(s: u32, x: f64, y: f64) -> vec4<f64> {
+    let kind = k[s];
+    let r = k[s + 3u];
+    let dx = x - k[s + 1u];
+    let dy = y - k[s + 2u];
+    let a = dx * k[s + 4u] + dy * k[s + 5u];
+    let c = -dx * k[s + 5u] + dy * k[s + 4u];
+    let e = sqrt(dx * dx + dy * dy);
+    var m = 0.0lf;
+    if kind == 5.0lf {
+        m = clamp(r - abs(a) + 0.5lf, 0.0lf, 1.0lf) * clamp(r - abs(c) + 0.5lf, 0.0lf, 1.0lf);
+    } else if kind == 6.0lf {
+        m = clamp(r - e + 0.5lf, 0.0lf, 1.0lf);
+    } else {
+        let t = max(1.0lf - (e / r) * (e / r), 0.0lf);
+        m = t * t;
+    }
+    if m <= 0.0lf {
+        return vec4(0.0lf);
+    }
+    let aa = k[s + 6u] * m;
+    let col = vec3(k[s + 7u], k[s + 8u], k[s + 9u]);
+    if F.flag == 0u {
+        return vec4(col * aa, aa);
+    }
+    let top = tex_top();
+    let lam = clamp(f64(log2(f32(max(F.n, u32(F.r))) / f32(2.0lf * r))), 0.0lf, f64(top));
+    let j = u32(floor(lam));
+    let su = a / (2.0lf * r) + 0.5lf;
+    let tu = c / (2.0lf * r) + 0.5lf;
+    var q = tex_held(tex_level(j), su, tu);
+    if j < top {
+        q += (tex_held(tex_level(j + 1u), su, tu) - q) * (lam - f64(j));
+    }
+    let fd = k[s + 10u];
+    return vec4(aa * (fd * q.xyz + (1.0lf - fd) * col * q.w), aa * q.w);
+}
+
+// D-610, particles::cover: sprite n of k (from 7, eleven each) at the own point (x, y),
 // premultiplied; nothing where it does not reach.
 fn sprite_cover(n: u32, x: f64, y: f64) -> vec4<f64> {
-    let s = 7u + 10u * n;
+    let s = 7u + 11u * n;
     let kind = k[s];
+    if kind >= 5.0lf {
+        return textured_cover(s, x, y);
+    }
     var cv = 0.0lf;
     var shade = 1.0lf;
     if kind == 0.0lf {
@@ -6873,7 +6977,7 @@ fn particles(@builtin(global_invocation_id) id: vec3<u32>) {
     let tw = (size.x + 15u) / 16u;
     let nt = tw * ((size.y + 15u) / 16u);
     let t = (id.y / 16u) * tw + id.x / 16u;
-    let o = 7u + 10u * u32(k[6]);
+    let o = 7u + 11u * u32(k[6]);
     let x = f64(i32(id.x) - F.ox) + 0.5lf;
     let y = f64(i32(id.y) - F.oy) + 0.5lf;
     for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
@@ -11875,7 +11979,7 @@ impl Gpu {
                 kira: pass("kira", &[0, 1, 2, 3, 9]),
                 balls: pass("balls", &[0, 1, 3, 9]),
                 ballshade: pass("ballshade", &[0, 2, 3, 9]),
-                particles: pass("particles", &[0, 1, 2, 3]),
+                particles: pass("particles", &[0, 1, 2, 3, 4]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
@@ -14600,14 +14704,21 @@ impl Gpu {
                 (out, (w, h))
             }
             // D-610: the sprites from the drawing the layer sent, binned into the card's tiles,
-            // the lists after them.
+            // the lists after them. D-611: the texture's levels as the other picture, its size
+            // as n by r (a clear 1 by 1 with none read).
             e @ E::ParticleSpace { .. } => {
                 let mut k = crate::particles::sprite_numbers(source, e, f.origin);
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
-                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let tex = crate::particles::texture(e);
+                let atlas = match tex {
+                    Some(t) => self.map_texture(&crate::particles::atlas(t)),
+                    None => self.map_texture(&crate::WorkingBuffer::transparent(1, 1)),
+                };
+                let (tw, th) = tex.map_or((1, 1), |t| (t.width(), t.height()));
+                let p = FxParams { ox: ox as i32, oy: oy as i32, flag: tex.is_some() as u32, n: tw as u32, r: th as i32, ..Default::default() };
                 let out = self.scratch("D-610 particles", w, h);
-                self.fx_step(steps, &passes.particles, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                self.fx_step(steps, &passes.particles, p, Some(still), Some(&out), Some(&k), Some(&atlas), [None; 5], tiles(w, h));
                 (out, (w, h))
             }
             // B-151: ten of the fourth batch.

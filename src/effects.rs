@@ -2706,14 +2706,18 @@ pub enum Effect {
     /// point and the frames a second; `view` with the composition camera in the layer's own
     /// pixels [1, x, y, distance from the layer's plane] when the file has one, else zeros; and
     /// `history` with the settings at each frame from the in point to the frame after this one
-    /// when any is keyed (document 20: no state is carried from frame to frame).
+    /// when any is keyed (document 20: no state is carried from frame to frame). D-611:
+    /// `texture_layer`, D-189's layer setting as written, "" for none, read whole at its own size
+    /// as the textured particles' picture; `texture` is not a setting and is never saved.
     ParticleSpace {
-        values: [f64; 44],
+        values: [f64; 46],
         words: [String; 7],
         colors: [String; 8],
         clock: [f64; 2],
         view: [f64; 4],
-        history: Option<std::sync::Arc<Vec<[f64; 44]>>>,
+        history: Option<std::sync::Arc<Vec<[f64; 46]>>>,
+        texture_layer: serde_json::Value,
+        texture: Option<crate::layer_map::Map>,
     },
     CcBallAction {
         scatter: f64,
@@ -4140,8 +4144,9 @@ pub const PARTICLE_SPACE: &str = "core.particle_space";
 /// D-610: Particle Space's keyable settings, in the order `values` holds them: name, lowest,
 /// highest, and the value when the effect is added. Distances are in the layer's widths, the
 /// origin its centre, Y down and Z away; sizes in hundredths of its width; times in seconds;
-/// Birth Rate in hundreds of particles a second.
-pub const PARTICLE_SPACE_SETTINGS: [(&str, f64, f64, f64); 44] = [
+/// Birth Rate in hundreds of particles a second. D-611 adds the textured particles' turn last, in
+/// degrees (a second, and the most a particle starts turned).
+pub const PARTICLE_SPACE_SETTINGS: [(&str, f64, f64, f64); 46] = [
     ("birth_rate", 0.0, 100.0, 2.0),
     ("longevity", 0.0, 30.0, 1.0),
     ("producer_x", -10.0, 10.0, 0.0),
@@ -4186,6 +4191,8 @@ pub const PARTICLE_SPACE_SETTINGS: [(&str, f64, f64, f64); 44] = [
     ("light_direction", -36000.0, 36000.0, 45.0),
     ("light_height", -90.0, 90.0, 45.0),
     ("random_seed", 0.0, 10000.0, 0.0),
+    ("rotation_speed", -3600.0, 3600.0, 0.0),
+    ("initial_rotation", 0.0, 360.0, 0.0),
 ];
 /// D-610: Particle Space's words: name, the words, the word when added.
 pub const PARTICLE_SPACE_WORDS: [(&str, &[&str], &str); 7] = [
@@ -4198,7 +4205,11 @@ pub const PARTICLE_SPACE_WORDS: [(&str, &[&str], &str); 7] = [
         "explosive",
     ),
     ("floor_action", &["none", "ice", "glue", "bounce"], "none"),
-    ("particle_type", &["line", "faded_sphere", "shaded_sphere", "disc", "bubble"], "line"),
+    (
+        "particle_type",
+        &["line", "faded_sphere", "shaded_sphere", "disc", "bubble", "textured_square", "textured_disc", "textured_faded_disc"],
+        "line",
+    ),
     ("color_map", &["birth_to_death", "origin_to_death", "birth_to_origin", "origin_constant", "custom"], "birth_to_death"),
     ("transfer_mode", &["composite", "screen", "add"], "composite"),
     ("depth_cue", &["none", "fade", "fog"], "none"),
@@ -8091,6 +8102,8 @@ impl Effect {
             Effect::TimeDifference { layer: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             // D-531: the environment read whole, at its own size.
             Effect::CcEnvironment { environment: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
+            // D-611: the texture read whole, at its own size.
+            Effect::ParticleSpace { texture_layer: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
             // D-524: the gradient lies on the drawing, centred.
             Effect::Fog3d { gradient_layer: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
@@ -8177,6 +8190,7 @@ impl Effect {
             Effect::Twister { backside, map, .. } => Some((backside, map)),
             Effect::WarpBlend { layer_to_reveal, map, .. } => Some((layer_to_reveal, map)),
             Effect::CcEnvironment { environment, map, .. } => Some((environment, map)),
+            Effect::ParticleSpace { texture_layer, texture, .. } => Some((texture_layer, texture)),
             Effect::ContourPaint { edge_map_layer, map, .. } => Some((edge_map_layer, map)),
             Effect::CurlNoise { source_layer, map, .. } => Some((source_layer, map)),
             _ => None,
@@ -8374,7 +8388,7 @@ impl Effect {
                     .then(|| format!("Energy Stroke's alpha mode is \"off\", \"masks\", \"core\" or \"glow\", and this is \"{alpha_mode}\".")))
                 .or_else(|| (!["off", "on"].contains(&invert_masks.as_str()))
                     .then(|| format!("Energy Stroke's invert masks is \"on\" or \"off\", and this is \"{invert_masks}\"."))),
-            Effect::ParticleSpace { words, colors, .. } => PARTICLE_SPACE_WORDS
+            Effect::ParticleSpace { words, colors, texture_layer, .. } => PARTICLE_SPACE_WORDS
                 .iter()
                 .zip(words)
                 .find(|((_, list, _), w)| !list.contains(&w.as_str()))
@@ -8387,7 +8401,10 @@ impl Effect {
                         .iter()
                         .zip(colors)
                         .find_map(|((name, _), c)| hex_fault("Particle Space", &name.replace('_', " ").replace("color", "colour"), c))
-                }),
+                })
+                .or_else(|| (!texture_layer.is_string()).then(|| format!(
+                    "Particle Space's texture layer is the name of a layer of this composition, and this is {texture_layer}."
+                ))),
             Effect::CcBallAction { rotation_axis, twist_property, .. } => (!BALL_AXES.contains(&rotation_axis.as_str()))
                 .then(|| format!(
                     "CC Ball Action's rotation axis is one of {}, and this is \"{rotation_axis}\".",

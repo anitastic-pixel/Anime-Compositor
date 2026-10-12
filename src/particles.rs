@@ -82,6 +82,8 @@ const CUE_DISTANCE: usize = 40;
 const LIGHT_DIRECTION: usize = 41;
 const LIGHT_HEIGHT: usize = 42;
 const SEED: usize = 43;
+const ROTATION_SPEED: usize = 44;
+const INITIAL_ROTATION: usize = 45;
 
 // The animation modes, in `PARTICLE_SPACE_WORDS[0]`'s order.
 const DIRECTION_AXIS: usize = 1;
@@ -96,15 +98,17 @@ const FRACTAL_OMNI: usize = 9;
 const FRACTAL_UNI: usize = 10;
 
 /// The sprite list's head: Volume Shade / 100, the light (three), the transfer mode, 1 with
-/// Composite With Original on, the count; then ten numbers a sprite, farthest first.
+/// Composite With Original on, the count; then [`STRIDE`] numbers a sprite, farthest first.
 pub(crate) const HEAD: usize = 7;
+/// D-611: the numbers a sprite.
+pub(crate) const STRIDE: usize = 11;
 /// The tiles the sprites are binned into, as the card's workgroups.
 pub(crate) const TILE: usize = 16;
 
 /// The settings' history for one frame, as the reference's `Run`.
 struct Run<'a> {
-    now: &'a [f64; 44],
-    samples: Option<&'a [[f64; 44]]>,
+    now: &'a [f64; 46],
+    samples: Option<&'a [[f64; 46]]>,
     u: i64,
     fps: f64,
     seed: u64,
@@ -431,7 +435,7 @@ fn closed(x: V, v: V, a: V, k: f64, h: f64) -> (V, V) {
 }
 
 fn run_of<'a>(e: &'a Effect) -> Option<(Run<'a>, &'a [String; 7], &'a [String; 8], &'a [f64; 4])> {
-    let Effect::ParticleSpace { values, words, colors, clock, view, history } = e else {
+    let Effect::ParticleSpace { values, words, colors, clock, view, history, .. } = e else {
         unreachable!("Particle Space's particles of another effect")
     };
     let u = clock[0] as i64;
@@ -461,8 +465,12 @@ pub fn alive(e: &Effect) -> Vec<[f64; 8]> {
 /// D-610: the sprite list the processor and the card both draw (see [`HEAD`]): each sprite its
 /// kind (0 line, 1 faded sphere, 2 shaded sphere, 3 disc, 4 bubble), its centre (X, Y) in the
 /// drawing's own pixels, a line's other end (X2, Y2) and width or the others' radius, its
-/// opacity and its linear colour. `source` is the drawing as it reaches the effect, its corner at
-/// `(ox, oy)`. Before the in point, none and the drawing kept.
+/// opacity and its linear colour, then 0. D-611's textured kinds (5 square, 6 disc, 7 faded
+/// disc): kind, X, Y, radius, the turn's cosine and sine, opacity, the colour (Depth Cue's colour
+/// when a texture is read, else the Color Map's, fogged) and Depth Cue Fog's share fd. With a
+/// layer named whose picture is empty, the textured kinds draw nothing. `source` is the drawing
+/// as it reaches the effect, its corner at `(ox, oy)`. Before the in point, none and the drawing
+/// kept.
 pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) -> Vec<f64> {
     let Some((run, words, colors, view)) = run_of(e) else {
         return vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
@@ -508,6 +516,10 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
     let (birth, death, cue_color) = (linear(&colors[0]), linear(&colors[1]), linear(&colors[7]));
     let stops: Vec<V> = (2..7).map(|i| linear(&colors[i])).collect();
     let (kind, cmap, cue) = (word(words, 2), word(words, 3), word(words, 5));
+    let (textured, read) = (kind >= 5, texture(e).is_some());
+    if textured && !read && texture_named(e) {
+        return vec![0.0, 0.0, 0.0, 0.0, word(words, 4) as f64, if word(words, 6) == 1 { 1.0 } else { 0.0 }, 0.0];
+    }
     let colour = |f: f64, org: V| match cmap {
         0 => mix3(birth, death, f),
         1 => mix3(org, death, f),
@@ -518,7 +530,7 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
             mix3(stops[i], stops[i + 1], f * 4.0 - i as f64)
         }
     };
-    let mut drawn: Vec<(f64, i64, [f64; 10])> = run
+    let mut drawn: Vec<(f64, i64, [f64; STRIDE])> = run
         .alive()
         .into_iter()
         .filter_map(|(p, f)| {
@@ -528,23 +540,32 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
             let mut rad = size / 100.0 * ppu / 2.0;
             let mut col = colour(f, origin(p.x0));
             let mut alpha = now[OPACITY] / 100.0;
+            let mut fog = 1.0;
             if cue != 0 {
                 let fd = (1.0 - depth / now[CUE_DISTANCE]).clamp(0.0, 1.0);
                 if cue == 1 {
                     alpha *= fd;
                 } else {
                     col = mix3(col, cue_color, 1.0 - fd);
+                    fog = fd;
                 }
             }
             let sprite = if kind == 0 {
                 let tail = see(sub(p.x, mul(p.v, size / 0.15 / run.fps)))?;
-                [0.0, x, y, tail[0], tail[1], (2.0 * rad).max(1.0), alpha, col[0], col[1], col[2]]
+                [0.0, x, y, tail[0], tail[1], (2.0 * rad).max(1.0), alpha, col[0], col[1], col[2], 0.0]
             } else {
                 if rad < 0.7 {
                     alpha *= (rad / 0.7) * (rad / 0.7);
                     rad = 0.7;
                 }
-                [kind as f64, x, y, rad, 0.0, 0.0, alpha, col[0], col[1], col[2]]
+                if textured {
+                    let age = (run.u as f64 - p.b) / run.fps;
+                    let turn = (run.at(INITIAL_ROTATION, p.b) * run.r(p.k, 10) + run.at(ROTATION_SPEED, p.b) * age).to_radians();
+                    let c = if read { cue_color } else { col };
+                    [kind as f64, x, y, rad, turn.cos(), turn.sin(), alpha, c[0], c[1], c[2], fog]
+                } else {
+                    [kind as f64, x, y, rad, 0.0, 0.0, alpha, col[0], col[1], col[2], 0.0]
+                }
             };
             Some((depth, p.k, sprite))
         })
@@ -560,7 +581,7 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
         if word(words, 6) == 1 { 1.0 } else { 0.0 },
         drawn.len() as f64,
     ];
-    k.reserve(10 * drawn.len());
+    k.reserve(STRIDE * drawn.len());
     for (_, _, s) in drawn {
         k.extend(s);
     }
@@ -573,12 +594,13 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
 pub(crate) fn tile_lists(k: &[f64], (ox, oy): (usize, usize), w: usize, h: usize) -> (Vec<usize>, Vec<usize>) {
     let (tw, th) = (w.div_ceil(TILE), h.div_ceil(TILE));
     let mut lists = vec![Vec::new(); tw * th];
-    for (n, s) in k[HEAD..].chunks_exact(10).enumerate() {
+    for (n, s) in k[HEAD..].chunks_exact(STRIDE).enumerate() {
         let (xs, ys) = if s[0] == 0.0 {
             let r = s[5] / 2.0 + 1.0;
             ((s[1].min(s[3]) - r, s[1].max(s[3]) + r), (s[2].min(s[4]) - r, s[2].max(s[4]) + r))
         } else {
-            let r = s[3] + 1.0;
+            // D-611: a turned square reaches as far as its corners.
+            let r = s[3] * if s[0] == 5.0 { std::f64::consts::SQRT_2 } else { 1.0 } + 1.0;
             ((s[1] - r, s[1] + r), (s[2] - r, s[2] + r))
         };
         let span = |lo: f64, hi: f64, o: usize, size: usize| {
@@ -603,9 +625,34 @@ pub(crate) fn tile_lists(k: &[f64], (ox, oy): (usize, usize), w: usize, h: usize
     (starts, all)
 }
 
-/// D-610: sprite `n` of `k` at the own pixel centre (x, y), premultiplied, or `None`.
-fn cover(k: &[f64], n: usize, x: f64, y: f64) -> Option<[f64; 4]> {
-    let s = &k[HEAD + 10 * n..][..10];
+/// D-610: sprite `n` of `k` at the own pixel centre (x, y), premultiplied, or `None`. D-611:
+/// `tex` the texture's atlas and levels, when one is read.
+fn cover(k: &[f64], n: usize, x: f64, y: f64, tex: Option<Tex>) -> Option<[f64; 4]> {
+    let s = &k[HEAD + STRIDE * n..][..STRIDE];
+    if s[0] >= 5.0 {
+        let (rad, dx, dy) = (s[3], x - s[1], y - s[2]);
+        let (a, c) = (dx * s[4] + dy * s[5], -dx * s[5] + dy * s[4]);
+        let e = dx.hypot(dy);
+        let m = if s[0] == 5.0 {
+            (rad - a.abs() + 0.5).clamp(0.0, 1.0) * (rad - c.abs() + 0.5).clamp(0.0, 1.0)
+        } else if s[0] == 6.0 {
+            (rad - e + 0.5).clamp(0.0, 1.0)
+        } else {
+            let t = (1.0 - (e / rad) * (e / rad)).max(0.0);
+            t * t
+        };
+        if m <= 0.0 {
+            return None;
+        }
+        let aa = s[6] * m;
+        let Some(tex) = tex else {
+            return Some([s[7] * aa, s[8] * aa, s[9] * aa, aa]);
+        };
+        let q = texel(tex, a / (2.0 * rad) + 0.5, c / (2.0 * rad) + 0.5, rad);
+        let fd = s[10];
+        let rgb = |i: usize| aa * (fd * q[i] + (1.0 - fd) * s[7 + i] * q[3]);
+        return Some([rgb(0), rgb(1), rgb(2), aa * q[3]]);
+    }
     let (cv, shade) = if s[0] == 0.0 {
         let (ax, ay, dx, dy) = (s[1], s[2], s[3] - s[1], s[4] - s[2]);
         let ll = dx * dx + dy * dy;
@@ -641,10 +688,10 @@ fn cover(k: &[f64], n: usize, x: f64, y: f64) -> Option<[f64; 4]> {
 
 /// D-610: the sprites `ids` of `k` laid over `d` at the own pixel centre (x, y), by the
 /// transfer mode.
-fn pixel(k: &[f64], ids: &[usize], x: f64, y: f64, mut d: [f64; 4]) -> [f64; 4] {
+fn pixel(k: &[f64], ids: &[usize], x: f64, y: f64, mut d: [f64; 4], tex: Option<Tex>) -> [f64; 4] {
     let mode = k[4];
     for &n in ids {
-        let Some(s) = cover(k, n, x, y) else { continue };
+        let Some(s) = cover(k, n, x, y, tex) else { continue };
         d = if mode == 0.0 {
             [0, 1, 2, 3].map(|i| s[i] + (1.0 - s[3]) * d[i])
         } else if mode == 1.0 {
@@ -660,10 +707,15 @@ fn pixel(k: &[f64], ids: &[usize], x: f64, y: f64, mut d: [f64; 4]) -> [f64; 4] 
 /// particles drawn over a clear layer, or over the drawing with Composite With Original on,
 /// farthest first. `(ox, oy)` the drawing's corner in the buffer. Never grows.
 pub(crate) fn particle_space(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) {
+    if texture_missing(e) {
+        return;
+    }
     let k = sprite_numbers(source, e, (ox, oy));
     if k[5] == 1.0 && k[6] == 0.0 {
         return;
     }
+    let tex = texture(e).map(|t| (atlas(t), levels(t.width(), t.height())));
+    let tex = tex.as_ref().map(|(a, l)| (a, l.as_slice()));
     let (w, h) = (source.width(), source.height());
     let (starts, list) = tile_lists(&k, (ox, oy), w, h);
     let (tw, keep) = (w.div_ceil(TILE), k[5] == 1.0);
@@ -673,11 +725,109 @@ pub(crate) fn particle_space(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (
             for (bx, px) in line.chunks_exact_mut(4).enumerate() {
                 let t = ty * tw + bx / TILE;
                 let d = if keep { [px[0], px[1], px[2], px[3]].map(f64::from) } else { [0.0; 4] };
-                let out = pixel(&k, &list[starts[t]..starts[t + 1]], bx as f64 - ox as f64 + 0.5, y, d);
+                let out = pixel(&k, &list[starts[t]..starts[t + 1]], bx as f64 - ox as f64 + 0.5, y, d, tex);
                 for (v, o) in px.iter_mut().zip(out) {
                     *v = o as f32;
                 }
             }
         }
     });
+}
+
+/// D-611: a texture's atlas and its levels.
+type Tex<'a> = (&'a WorkingBuffer, &'a [[usize; 4]]);
+
+fn texture_named(e: &Effect) -> bool {
+    matches!(e, Effect::ParticleSpace { texture_layer, .. } if texture_layer.as_str() != Some(""))
+}
+
+/// D-611: a texture layer named but not read (not in the composition, which compose said, or a
+/// circle): the effect is left out (D-189's rule 4).
+pub(crate) fn texture_missing(e: &Effect) -> bool {
+    matches!(e, Effect::ParticleSpace { texture: None, .. }) && texture_named(e)
+}
+
+/// D-611: the texture read, when it has a picture.
+pub(crate) fn texture(e: &Effect) -> Option<&WorkingBuffer> {
+    let Effect::ParticleSpace { texture: Some(t), .. } = e else { return None };
+    (t.0.width() > 0 && t.0.height() > 0).then_some(&*t.0)
+}
+
+/// D-611: a texture's levels, level 0 first, as [x, y, w, h] in its atlas: level 0 at the
+/// corner, each next ceil(w / 2) by ceil(h / 2) down to 1 by 1, stacked down level 0's right.
+pub(crate) fn levels(w: usize, h: usize) -> Vec<[usize; 4]> {
+    let mut out = vec![[0, 0, w, h]];
+    while let Some(&[x, y, lw, lh]) = out.last().filter(|l| l[2] > 1 || l[3] > 1) {
+        let (nx, ny) = if out.len() == 1 { (w, 0) } else { (x, y + lh) };
+        out.push([nx, ny, lw.div_ceil(2), lh.div_ceil(2)]);
+    }
+    out
+}
+
+/// D-611: the atlas of [`levels`], each pixel of a level the mean of the 2 by 2 under it that
+/// are inside.
+// ponytail: the levels are made again every frame; keep them with the map if large textures
+// grow slow.
+pub(crate) fn atlas(t: &WorkingBuffer) -> WorkingBuffer {
+    let lv = levels(t.width(), t.height());
+    let width = lv.iter().map(|l| l[0] + l[2]).max().unwrap_or(0);
+    let height = lv.iter().map(|l| l[1] + l[3]).max().unwrap_or(0);
+    let mut out = WorkingBuffer::transparent(width, height);
+    let mut prev: Vec<[f64; 4]> = t.data().chunks_exact(4).map(|p| [0, 1, 2, 3].map(|i| f64::from(p[i]))).collect();
+    let set = |out: &mut WorkingBuffer, x: usize, y: usize, v: [f32; 4]| out.data_mut()[(y * width + x) * 4..][..4].copy_from_slice(&v);
+    for y in 0..t.height() {
+        for x in 0..t.width() {
+            set(&mut out, x, y, t.pixel(x, y));
+        }
+    }
+    for j in 1..lv.len() {
+        let ([_, _, pw, ph], [x0, y0, w, h]) = (lv[j - 1], lv[j]);
+        let mut next = Vec::with_capacity(w * h);
+        for y in 0..h {
+            for x in 0..w {
+                let taps: Vec<[f64; 4]> = [(0, 0), (1, 0), (0, 1), (1, 1)]
+                    .iter()
+                    .map(|(dx, dy)| (2 * x + dx, 2 * y + dy))
+                    .filter(|&(xx, yy)| xx < pw && yy < ph)
+                    .map(|(xx, yy)| prev[yy * pw + xx])
+                    .collect();
+                let m = [0, 1, 2, 3].map(|i| taps.iter().map(|p| p[i]).sum::<f64>() / taps.len() as f64);
+                set(&mut out, x0 + x, y0 + y, m.map(|v| v as f32));
+                next.push(m);
+            }
+        }
+        prev = next;
+    }
+    out
+}
+
+/// D-611: the texture at (s, u) across a sprite of radius `rad`: document 21's bilinear, each
+/// tap held to its level's edge, at level log2(size / 2 rad) mixed towards the next.
+fn texel((t, lv): Tex, s: f64, u: f64, rad: f64) -> [f64; 4] {
+    let top = lv.len() - 1;
+    let lam = (lv[0][2].max(lv[0][3]) as f64 / (2.0 * rad)).log2().clamp(0.0, top as f64);
+    let j = lam.floor() as usize;
+    let held = |[x0, y0, w, h]: [usize; 4]| {
+        let (fx, fy) = (s * w as f64 - 0.5, u * h as f64 - 0.5);
+        let (bx, by) = (fx.floor(), fy.floor());
+        let (ux, uy) = (fx - bx, fy - by);
+        let mut out = [0.0; 4];
+        for (dy, wy) in [(0.0, 1.0 - uy), (1.0, uy)] {
+            for (dx, wx) in [(0.0, 1.0 - ux), (1.0, ux)] {
+                let px = (bx + dx).clamp(0.0, (w - 1) as f64) as usize;
+                let py = (by + dy).clamp(0.0, (h - 1) as f64) as usize;
+                let q = t.pixel(x0 + px, y0 + py);
+                for i in 0..4 {
+                    out[i] += f64::from(q[i]) * wx * wy;
+                }
+            }
+        }
+        out
+    };
+    let a = held(lv[j]);
+    if j == top {
+        return a;
+    }
+    let (b, f) = (held(lv[j + 1]), lam - j as f64);
+    [0, 1, 2, 3].map(|i| a[i] + (b[i] - a[i]) * f)
 }

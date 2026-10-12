@@ -5193,6 +5193,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             clock: [0.0; 2],
             view: [0.0; 4],
             history: None,
+            texture_layer: serde_json::Value::from(""),
+            texture: None,
         }),
         // D-510: as added (CycoreFX gives no values we found): nothing wiped, from the middle,
         // ten tiles across, round, no border.
@@ -7773,9 +7775,10 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             ball_size: number("ball_size")?,
             instability_state: number("instability_state")?,
         }),
-        // D-610: every setting by its name; compose fills the clock, view and history.
+        // D-610: every setting by its name; compose fills the clock, view and history. D-611: the
+        // texture layer travels as `map_layer`.
         PARTICLE_SPACE => {
-            let mut values = [0.0; 44];
+            let mut values = [0.0; 46];
             for (v, s) in values.iter_mut().zip(PARTICLE_SPACE_SETTINGS) {
                 *v = number(s.0)?;
             }
@@ -7787,7 +7790,16 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             for (c, s) in colors.iter_mut().zip(PARTICLE_SPACE_COLORS) {
                 *c = word(s.0)?;
             }
-            Ok(Effect::ParticleSpace { values, words, colors, clock: [0.0; 2], view: [0.0; 4], history: None })
+            Ok(Effect::ParticleSpace {
+                values,
+                words,
+                colors,
+                clock: [0.0; 2],
+                view: [0.0; 4],
+                history: None,
+                texture_layer: serde_json::Value::from(parameter(query, "map_layer").unwrap_or_default().trim()),
+                texture: None,
+            })
         }
         // D-512: as Gradient Wipe's, the layer travels as `map_layer`.
         CHANNEL_WIPE => Ok(Effect::ChannelWipe {
@@ -32450,6 +32462,9 @@ mod contract {
                 ("light_direction", "45"),
                 ("light_height", "45"),
                 ("random_seed", "0"),
+                ("rotation_speed", "90"),
+                ("initial_rotation", "180"),
+                ("map_layer", "layer-4"),
                 ("animation", "vortex"),
                 ("floor_action", "bounce"),
                 ("particle_type", "shaded_sphere"),
