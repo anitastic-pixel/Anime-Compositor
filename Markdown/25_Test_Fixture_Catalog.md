@@ -211462,3 +211462,47 @@ FX-GAUSSLEG-009 (`fx_gaussleg_009.json`): Blurriness 501, above 500. The file is
 FX-GAUSSLEG-010 (`fx_gaussleg_010.json`): Blur Dimensions "Both": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-GAUSSLEG-011 (`fx_gaussleg_011.json`): Blurriness keyed to 600 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Basic Text (D-473)
+
+Basic Text, after After Effects' Basic Text (Obsolete), `core.basic_text` (B-353), Numbers' words rule with the words typed. Every case's frame names a second project in `Fixtures/basic_text/same/` that draws the same words as text layers; `tools/basic_text_reference.py` writes both and `Fixtures/basic_text/expected_basic_text.json`, tolerance 2e-5; the rule is in document 21. Numbers' FX-NUM cases are unchanged.
+
+FX-BTEXT-001 (`fx_btext_001.json`): As added: Text in white, centred, over the plate. Frames 0.
+
+FX-BTEXT-002 (`fx_btext_002.json`): Hello, world at size 48, left-aligned from 5 per cent. Frames 0.
+
+FX-BTEXT-003 (`fx_btext_003.json`): Right-aligned at 95, 70 per cent, tracking 200. Frames 0.
+
+FX-BTEXT-004 (`fx_btext_004.json`): Stroke only, width 4: the ring outside the letters. Frames 0.
+
+FX-BTEXT-005 (`fx_btext_005.json`): Fill over stroke, width 6. Frames 0.
+
+FX-BTEXT-006 (`fx_btext_006.json`): Stroke over fill, width 6. Frames 0.
+
+FX-BTEXT-007 (`fx_btext_007.json`): Stroke only with width 0: nothing drawn. Frames 0.
+
+FX-BTEXT-008 (`fx_btext_008.json`): Composite off, stroke over fill in blues: the words alone on transparent. Frames 0.
+
+FX-BTEXT-009 (`fx_btext_009.json`): Two lines, Basic over Text, at size 40: the second a line below at the font's own line height. Frames 0.
+
+FX-BTEXT-010 (`fx_btext_010.json`): Kana in the bundled font: konnichiwa. Frames 0.
+
+FX-BTEXT-011 (`fx_btext_011.json`): An empty text: nothing drawn, the plate as it was. Frames 0.
+
+FX-BTEXT-012 (`fx_btext_012.json`): Size keyed from 20 at frame 0 to 120 at frame 10: 70 at frame 5, 120 from frame 10 on. Frames 0, 5, 12.
+
+FX-BTEXT-013 (`fx_btext_013.json`): Position keyed from 10, 50 per cent at frame 0 to 90, 50 at frame 8, left-aligned: 50, 50 at frame 4. Frames 4.
+
+FX-BTEXT-014 (`fx_btext_014.json`): A font this computer does not have: said each frame, nothing drawn, the plate as it was. Frames 0.
+
+FX-BTEXT-020 (`fx_btext_020.json`): Display written "outline". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0.
+
+FX-BTEXT-021 (`fx_btext_021.json`): A text of 1001 characters, past 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0.
+
+FX-BTEXT-022 (`fx_btext_022.json`): Font written "../fonts/x.ttf", a path. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0.
+
+FX-BTEXT-023 (`fx_btext_023.json`): Fill colour written "white". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0.
+
+FX-BTEXT-024 (`fx_btext_024.json`): Alignment written "justify". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0.
+
+FX-BTEXT-025 (`fx_btext_025.json`): Size keyed to 3000 at frame 4, past 2000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0.
