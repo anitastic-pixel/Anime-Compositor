@@ -89,7 +89,7 @@
               "type_id": "core.turbulent_noise",
               "enabled": true,
               "parameters": {
-                "fractal_type": "dynamic",
+                "fractal_type": "plasma",
                 "noise_type": "smooth",
                 "invert": "off",
                 "contrast": 100,

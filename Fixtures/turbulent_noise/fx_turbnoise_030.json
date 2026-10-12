@@ -90,7 +90,7 @@
               "enabled": true,
               "parameters": {
                 "fractal_type": "basic",
-                "noise_type": "spline",
+                "noise_type": "cubic",
                 "invert": "off",
                 "contrast": 100,
                 "brightness": 0,

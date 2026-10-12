@@ -38658,7 +38658,7 @@
    "warning": "EFFECT_PARAMETER_INVALID"
   },
   "FX-TURBNOISE-029": {
-   "says": "Fractal type \"dynamic\", one of After Effects' that is not built. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "says": "Fractal type \"plasma\", which is not one of the seventeen. The file is read, the effect is kept as written and left out of every frame, with a warning.",
    "project": "fx_turbnoise_029.json",
    "frames": {
     "0": [
@@ -40589,7 +40589,7 @@
    "warning": "EFFECT_PARAMETER_INVALID"
   },
   "FX-TURBNOISE-030": {
-   "says": "Noise type \"spline\", one of After Effects' that is not built. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "says": "Noise type \"cubic\", which is not one of the five. The file is read, the effect is kept as written and left out of every frame, with a warning.",
    "project": "fx_turbnoise_030.json",
    "frames": {
     "0": [
