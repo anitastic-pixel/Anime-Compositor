@@ -2,7 +2,7 @@
 
 Audit date 2026-10-08. Source list: https://helpx.adobe.com/after-effects/desktop/apply-effects-and-animation-presets/effects-and-animation-presets/effect-list.html (the page refused automated reading, HTTP 403, so the list was compiled from Adobe's per-category effect pages and web searches; newer additions were checked against release notes, see Sources at the bottom).
 Status counts over the rows taken from Adobe's list (including Obsolete and the recent additions): 240 rows: 208 done, 8 partial, 17 missing. Skipped as no clean mapping: 4 (Lightning, Path Text, Basic 3D, Luma Key, 2026-10-11). Skipped by the owner's choice (D-600, 2026-10-12): 3 (3D Camera Tracker, mocha shape, Camera-Shake Deblur; also Object Matte, a tool, not counted).
-Priority 0: 23 items: 18 done, 1 partial, 3 missing (queued in the owner's order, D-600), 1 skipped.
+Priority 0: 23 items: 18 done, 2 partial, 2 missing (queued in the owner's order, D-600), 1 skipped.
 Plus 27 effects (25 done, 2 partial) of ours that are not on Adobe's list (last table).
 Plus 18 rows of the owner's picks from `docs/effects/PLUGINS.md` (marked **Pick #N**, its top-20 rank), placed after Adobe's rows in each category: 14 done, 1 missing, 2 waiting on particles (P0-6, D-600), 1 skipped as a preset. Picks #5, #7 and #9 fill Adobe rows that already exist and are marked there.
 "done" = in the effect list with fixtures and a verification table. "partial" = it exists but is limited, approximate, reduced, or has no fixture folder. "missing" = we have nothing for it.
