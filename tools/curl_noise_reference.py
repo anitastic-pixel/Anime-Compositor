@@ -90,6 +90,13 @@ expected frames are in `Fixtures/curl_noise/expected_curl_noise.json`.
 
 D-583 (D-566): FX-CURL-033 recorded This Layer refused while it was not built and is now a
 working This Layer case; FX-CURL-034 stays refused, now for naming no layer, its frames unchanged.
+033 was first written with the settings as they start (flow lines 30 long, 12 samples). The build
+missed it at one pixel, (6, 7), by 9.9e-5 against 2e-5: the build holds the drawing's decoded
+pixels in single precision from its own power, this file in double, so a few lightness values
+differ in the last bit, and 30-pixel flow lines crossing the card's sharp edges magnify that
+about a thousand times. Before any code was committed against it, 033 took the small cells and
+lines the other D-583 cases use (the coordinator's ruling, 2026-10-12); the settings as they
+start are compared card against processor on the reference shot by B-461 instead.
 
 Fixtures are read-only to implementation work: this file is run when the specification changes,
 and never to make a build pass.
@@ -537,10 +544,11 @@ CASES = {
                           sample_radius=6.5, flow_softness=10, edge_definition=30, flow_falloff=40,
                           contrast=150, brightness=-5, channel="green"), [0, 3]),
     # D-583 (D-566: FX-CURL-033 was refused while This Layer was not built).
-    "FX-CURL-033": ("Source This Layer, the settings as they start: the card's own lightness is "
-                    "the noise, so its flat patches are even greys streaked by the seed and its "
-                    "edges steer the flow lines; Speed 10 slides it 1 pixel up a frame.",
-                    case(source="this_layer"), [0, 4]),
+    "FX-CURL-033": ("Source This Layer, small cells and lines, otherwise as added: the card's own "
+                    "lightness is the noise, so its flat patches are even greys streaked by the "
+                    "seed and its edges steer the flow lines; Speed 10 slides it 1 pixel up a "
+                    "frame.",
+                    small(source="this_layer"), [0, 4]),
     "FX-CURL-045": ("Source This Layer, still, Input Noise: each shown pixel's grey is its own "
                     "luminance times its covering.",
                     small(source="this_layer", view="input_noise", **STILL), [0]),
