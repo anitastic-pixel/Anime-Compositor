@@ -207913,9 +207913,9 @@ FX-CURL-031 (`fx_curl_031.json`): After a Motion Tile that grows the layer: the 
 
 FX-CURL-032 (`fx_curl_032.json`): Swirl -200, Speed 35, Direction 200, Evolution 45, Turbulence Speed 60, Density -30, Smoothness 20, Vertical Bias 70, 9 samples, radius 6.5, Flow Softness 10, Edge Definition 30, Falloff 40, Contrast 150, Brightness -5, Channel Green: the controls together. Frames 0, 3.
 
-FX-CURL-033 (`fx_curl_033.json`): Source This Layer, not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-CURL-033 (`fx_curl_033.json`): Source This Layer, small cells and lines, otherwise as added: the card's own lightness is the noise, so its flat patches are even greys streaked by the seed and its edges steer the flow lines; Speed 10 slides it 1 pixel up a frame. Frames 0, 4. (Regenerated under D-566 by D-583.)
 
-FX-CURL-034 (`fx_curl_034.json`): Source Other Layer, not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-CURL-034 (`fx_curl_034.json`): Source Other Layer, with Source Layer naming no layer. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4. (Regenerated under D-566 by D-583.)
 
 FX-CURL-035 (`fx_curl_035.json`): Source "noise", not one of its words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -212006,3 +212006,39 @@ FX-RAIN3D-035 (`fx_rain3d_035.json`): Composite With Original written "maybe". T
 FX-RAIN3D-036 (`fx_rain3d_036.json`): A colour written "#c8d8f", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
 FX-RAIN3D-037 (`fx_rain3d_037.json`): Speed keyed to 30000 at frame 4, above 20000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### Curl Noise, Source This Layer and Other Layer (D-583)
+
+Curl Noise's Source This Layer and Other Layer (B-461), more cases of Curl Noise (D-446) in the same folder and expected file: `tools/curl_noise_reference.py` writes `Fixtures/curl_noise/expected_curl_noise.json`, tolerance 2e-5; the rule is in document 21. FX-CURL-033 and 034, above, were regenerated under D-566 (033 a working This Layer case with small cells and lines, 034 still refused for naming no layer); FX-CURL-033 was first written (0ba12eef) with the settings as they start (flow lines 30 long, 12 samples) and the build missed it at one pixel, (6, 7), by 9.9e-5 against document 25's 2e-5. The cause, traced: the build decodes the drawing's pixels in single precision, the reference in double, so a few lightness values differ in the last bit, and 30-pixel flow lines crossing the card's sharp edges magnify that about 1000 times. By the coordinator's ruling of 2026-10-12, before any code was committed against it, a second fixtures commit (175346ea) gave 033 the small cells and lines the other D-583 cases use; the settings as they start are compared card against processor on the reference shot instead (B-461's "This Layer as added" rows, within 1 level). FX-CURL-001 to 032 and 035 to 044 are unchanged.
+
+FX-CURL-045 (`fx_curl_045.json`): Source This Layer, still, Input Noise: each shown pixel's grey is its own luminance times its covering. Frames 0.
+
+FX-CURL-046 (`fx_curl_046.json`): Source This Layer, still, Curl Generation: inside a flat patch there is no flow (red and green the middle grey); at the edges the flow runs along them. Frames 0.
+
+FX-CURL-047 (`fx_curl_047.json`): Source Other Layer, layer "ramp" (8 by 5 greys), Source Mapping Fill, still, Input Noise: the ramp stretched over the card. Frames 0.
+
+FX-CURL-048 (`fx_curl_048.json`): Source Other Layer, "ramp", Source Mapping Center, still, Input Noise: the ramp at its own size in the middle, black round it. Frames 0.
+
+FX-CURL-049 (`fx_curl_049.json`): Source Other Layer, "ramp", Fill, still: flow lines across the ramp's slope. Frames 0.
+
+FX-CURL-050 (`fx_curl_050.json`): Source This Layer, Softness 20, still, Input Noise: FX-CURL-045's greys blurred, sigma 2 pixels. Frames 0.
+
+FX-CURL-051 (`fx_curl_051.json`): Source This Layer, Offset 5 right, Mirror at Edge on, still, Input Noise: left of the card's edge the card is read mirrored. Frames 0.
+
+FX-CURL-052 (`fx_curl_052.json`): Source This Layer, Offset 5 right, Mirror at Edge off, still, Input Noise: left of the card's edge is black. Frames 0.
+
+FX-CURL-053 (`fx_curl_053.json`): Source Other Layer naming "gone", not in the composition: the frames are drawn without the effect, with D-189's warning. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-CURL-054 (`fx_curl_054.json`): FX-CURL-046 moved three pixels right: the picture is the drawing's own, so it moves with it. Frames 0.
+
+FX-CURL-055 (`fx_curl_055.json`): FX-CURL-046 after a Motion Tile that grows the layer: the picture is the layer as it reaches the effect, so at the card's edges the tiles beyond it turn the flow; inside, the frame is FX-CURL-046's. Frames 0.
+
+FX-CURL-056 (`fx_curl_056.json`): Source This Layer, Softness keyed from 0 at frame 0 to 30 at frame 4, still, Input Noise: frame 0 is FX-CURL-045. Frames 0, 4.
+
+FX-CURL-057 (`fx_curl_057.json`): Softness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-058 (`fx_curl_058.json`): Source Mapping "stretch", not fill or center. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-059 (`fx_curl_059.json`): Mirror at Edge "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-060 (`fx_curl_060.json`): Source Layer 3, a number and not a layer's word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
