@@ -1,0 +1,242 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-ww-007",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-shot",
+      "kind": "still",
+      "name": "shot",
+      "path": "media/shot.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-logo",
+      "kind": "still",
+      "name": "logo",
+      "path": "media/logo.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 32,
+      "height": 18,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 49,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 49
+      },
+      "layer_order": [
+        "logo",
+        "late",
+        "holder"
+      ],
+      "layers": [
+        {
+          "id": "logo",
+          "kind": "raster",
+          "name": "logo",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-logo",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "late",
+          "kind": "raster",
+          "name": "late",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 4,
+          "out_frame": 49,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-logo",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "holder",
+          "kind": "raster",
+          "name": "holder",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 49,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-1",
+              "type_id": "core.wave_world",
+              "enabled": true,
+              "parameters": {
+                "render_dry_areas": "level",
+                "grid_res_downsamples": "off",
+                "reflect_edges": "none",
+                "ground_layer": "",
+                "producer_1_type": "ring",
+                "producer_2_type": "ring",
+                "brightness": 0.5,
+                "contrast": 0.5,
+                "gamma": 1,
+                "transparency": 0,
+                "grid_resolution": 16,
+                "wave_speed": 0.25,
+                "damping": 0.05,
+                "pre_roll": 0,
+                "steepness": 0.25,
+                "height": 0.5,
+                "wave_strength": 0,
+                "producer_1_position": [
+                  50,
+                  50
+                ],
+                "producer_1_height": 0.25,
+                "producer_1_width": 0.25,
+                "producer_1_angle": 0,
+                "producer_1_amplitude": 0.5,
+                "producer_1_frequency": 1,
+                "producer_1_phase": 0,
+                "producer_2_position": [
+                  75,
+                  25
+                ],
+                "producer_2_height": 0.2,
+                "producer_2_width": 0.2,
+                "producer_2_angle": 0,
+                "producer_2_amplitude": 0.6,
+                "producer_2_frequency": 1,
+                "producer_2_phase": 90
+              }
+            }
+          ],
+          "asset_id": "asset-shot",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        }
+      ]
+    }
+  ]
+}
