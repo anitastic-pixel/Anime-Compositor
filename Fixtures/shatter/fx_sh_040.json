@@ -1,0 +1,446 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-sh-040",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-shot",
+      "kind": "still",
+      "name": "shot",
+      "path": "media/shot.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-back",
+      "kind": "still",
+      "name": "back",
+      "path": "media/back.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-ramp",
+      "kind": "still",
+      "name": "ramp",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-colours",
+      "kind": "still",
+      "name": "colours",
+      "path": "media/colours.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-cracks",
+      "kind": "still",
+      "name": "cracks",
+      "path": "media/cracks.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 16,
+      "height": 8,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 8,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 8
+      },
+      "layer_order": [
+        "back",
+        "ramp",
+        "colours",
+        "cracks",
+        "late",
+        "holder"
+      ],
+      "layers": [
+        {
+          "id": "back",
+          "kind": "raster",
+          "name": "back",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 8,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-back",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "ramp",
+          "kind": "raster",
+          "name": "ramp",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 8,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-ramp",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "colours",
+          "kind": "raster",
+          "name": "colours",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 8,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-colours",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "cracks",
+          "kind": "raster",
+          "name": "cracks",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 8,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-cracks",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "late",
+          "kind": "raster",
+          "name": "late",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 4,
+          "out_frame": 8,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-back",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "holder",
+          "kind": "raster",
+          "name": "holder",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 8,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-1",
+              "type_id": "core.shatter",
+              "enabled": true,
+              "parameters": {
+                "view": "rendered",
+                "render": "layer",
+                "pattern": "bricks",
+                "white_tiles_fixed": "off",
+                "invert_gradient": "off",
+                "tumble_axis": "free",
+                "color": "#ffffff",
+                "front_mode": "layer",
+                "side_mode": "tinted_layer",
+                "back_mode": "layer",
+                "camera_system": "camera_position",
+                "light_type": "distant",
+                "light_color": "#ffffff",
+                "custom_shatter_map": "",
+                "gradient_layer": "",
+                "front_layer": "",
+                "side_layer": "",
+                "back_layer": "",
+                "repetitions": 4,
+                "direction": 0,
+                "origin": [
+                  50,
+                  50
+                ],
+                "extrusion_depth": 0.2,
+                "force_1_position": [
+                  50,
+                  50
+                ],
+                "force_1_depth": 0.1,
+                "force_1_radius": 0.25,
+                "force_1_strength": 0.5,
+                "force_2_position": [
+                  50,
+                  50
+                ],
+                "force_2_depth": 0.1,
+                "force_2_radius": 0,
+                "force_2_strength": 5,
+                "shatter_threshold": 0,
+                "rotation_speed": 0.2,
+                "randomness": 0.1,
+                "viscosity": 0.1,
+                "mass_variance": 30,
+                "gravity": 0.5,
+                "gravity_direction": 180,
+                "gravity_inclination": 0,
+                "opacity": 1,
+                "camera_x_rotation": 0,
+                "camera_y_rotation": 0,
+                "camera_z_rotation": 0,
+                "camera_xy_position": [
+                  51.3,
+                  48.6
+                ],
+                "camera_z_position": 1,
+                "focal_length": 50,
+                "light_intensity": 1,
+                "light_position": [
+                  50,
+                  50
+                ],
+                "light_depth": 1,
+                "ambient_light": 0.25,
+                "diffuse_reflection": 0.75,
+                "specular_reflection": 0,
+                "highlight_sharpness": 5
+              }
+            }
+          ],
+          "asset_id": "asset-shot",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        }
+      ]
+    }
+  ]
+}
