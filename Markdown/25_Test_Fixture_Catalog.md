@@ -211690,3 +211690,35 @@ FX-CONTOUR-039 (`fx_contour_039.json`): A custom colour written "#c0303", five d
 FX-CONTOUR-040 (`fx_contour_040.json`): Nine custom colours, past eight. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CONTOUR-041 (`fx_contour_041.json`): A custom colour written "red", a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Shadow/Highlight's Auto Amounts, Temporal Smoothing and Scene Detect (D-564)
+
+Shadow/Highlight (`core.shadow_highlight`) with Auto Amounts, Temporal Smoothing and Scene Detect, after After Effects' Shadow/Highlight (B-444, EFFECTS.md row 125). Every case is a composition 16 pixels by 10, eight frames, holding D-351's run of drawings flickering in brightness with a cut to a darker, colder scene at frame 4 (layer `holder`); the media are in `Fixtures/shadow_highlight_auto/media/`. `tools/shadow_highlight_auto_reference.py` works the expected frames, `Fixtures/shadow_highlight_auto/expected_shadow_highlight_auto.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SHAUTO-001 (`fx_shauto_001.json`): A file written before D-564, without the three settings, at Shadow/Highlight's starting settings: the sliders' lift, as D-400 drew it. Frames 0, 4.
+
+FX-SHAUTO-002 (`fx_shauto_002.json`): The three written at their starting values, off, 0 and off: the same as FX-SHAUTO-001. Frames 0, 4.
+
+FX-SHAUTO-003 (`fx_shauto_003.json`): Auto Amounts on: frame 0, the light warm scene, lifted a little by its own lightness; frame 4, the darker cold scene, lifted more. Frames 0, 4.
+
+FX-SHAUTO-004 (`fx_shauto_004.json`): Auto Amounts on with the sliders at 90 and 90: the sliders are not used, so the same as FX-SHAUTO-003. Frames 0, 4.
+
+FX-SHAUTO-005 (`fx_shauto_005.json`): Auto Amounts on, midtone contrast 40 and both clips 5: the auto lift, then D-563's steps on the frame's own lightness. Frames 0, 4.
+
+FX-SHAUTO-006 (`fx_shauto_006.json`): Temporal Smoothing 0.1 and Scene Detect on with Auto Amounts off: they do nothing without it, so the same as FX-SHAUTO-001. Frames 0, 4.
+
+FX-SHAUTO-007 (`fx_shauto_007.json`): Auto Amounts on, Temporal Smoothing 0.1 seconds, two frames each side: frame 0 judged by frames 0 to 2 (the two before are outside the layer); frame 3 by 1 to 5, across the cut, so lifted more than by itself; frame 7 by 5 to 7. Frames 0, 3, 7.
+
+FX-SHAUTO-008 (`fx_shauto_008.json`): FX-SHAUTO-007 with Scene Detect: frame 3 judged by 1 to 3 only and frame 4 by 4 to 6 only, each side of the cut. Frames 3, 4.
+
+FX-SHAUTO-009 (`fx_shauto_009.json`): Auto Amounts on, on an adjustment layer above the holder: the frame beneath is the drawing, so the same as FX-SHAUTO-003. Frames 0, 4.
+
+FX-SHAUTO-010 (`fx_shauto_010.json`): Auto Amounts on with Temporal Smoothing 0.1 on an adjustment layer: the frames beneath at other times are not to hand, so each frame is judged by itself, as FX-SHAUTO-003, with a warning each frame. Warning `TEMPORAL_SMOOTHING_SKIPPED`. Frames 0, 3.
+
+FX-SHAUTO-011 (`fx_shauto_011.json`): Auto Amounts written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHAUTO-012 (`fx_shauto_012.json`): Scene Detect written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHAUTO-013 (`fx_shauto_013.json`): Temporal Smoothing 11 seconds, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHAUTO-014 (`fx_shauto_014.json`): Temporal Smoothing -1 seconds, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
