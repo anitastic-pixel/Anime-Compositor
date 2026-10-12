@@ -212336,3 +212336,67 @@ FX-MESH-016 (`fx_mesh_016.json`): A vertex at 501 per cent across, past 500. The
 FX-MESH-017 (`fx_mesh_017.json`): Quality 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-MESH-018 (`fx_mesh_018.json`): The middle vertex keyed out to 600 per cent at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Space textured particles (D-611)
+
+Particle Space's textured particles (B-491, P0-6), after the purpose of CC Particle World's textured types, the rules ours. Every case is a project of one composition 16 by 10 at 24 frames a second, with the drawing `art` carrying the effect and, under it, the switched-off texture layers `dot` (4 by 4), `big` (20 by 12) and, where the composition is long enough, `late` (starting at frame 15); FX-PTEX-026 to 030 have no `late` (D-566 correction, 3956d225). `tools/particle_texture_reference.py` works the expected frames, `Fixtures/particle_texture/expected_particle_texture.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-PTEX-001 (`fx_ptex_001.json`): Textured Square with no texture: a square about 9 pixels across in the Color Map's colour, a fifth of the way from yellow to red, unlit. Frames 20.
+
+FX-PTEX-002 (`fx_ptex_002.json`): Textured Disc with no texture, D-610's size: D-610's Disc (FX-PSPACE-002). Frames 20.
+
+FX-PTEX-003 (`fx_ptex_003.json`): Textured Faded Disc with no texture, D-610's size: D-610's Faded Sphere (FX-PSPACE-003). Frames 20.
+
+FX-PTEX-004 (`fx_ptex_004.json`): Textured Square with the dot texture: its red, green, blue and white quarters, upright, the red one at the top left with a fainter pixel. Frames 20.
+
+FX-PTEX-005 (`fx_ptex_005.json`): Textured Disc with the dot: the same quarters cut round. Frames 20.
+
+FX-PTEX-006 (`fx_ptex_006.json`): Textured Faded Disc with the dot: the quarters fading to nothing at the edge. Frames 20.
+
+FX-PTEX-007 (`fx_ptex_007.json`): Initial Rotation 360: the square turned by its own random amount. Frames 20.
+
+FX-PTEX-008 (`fx_ptex_008.json`): Rotation Speed 90 a second: at 10.8 frames old, turned about 40 degrees clockwise. Frames 20.
+
+FX-PTEX-009 (`fx_ptex_009.json`): Rotation Speed keyed from -180 at frame 0 to 180 at frame 24: read at the particle's birth (frame 9.2), so it turns anticlockwise at about 42 a second for life. Frames 20.
+
+FX-PTEX-010 (`fx_ptex_010.json`): The 20 by 12 texture on the square: taken down between its second and third levels, so its blue checker greys. Frames 20.
+
+FX-PTEX-011 (`fx_ptex_011.json`): A spread of turned textured squares at many depths: each read at its own level. Frames 20.
+
+FX-PTEX-012 (`fx_ptex_012.json`): The big texture on the spread: the far ones greyer. Frames 20.
+
+FX-PTEX-013 (`fx_ptex_013.json`): Depth Cue Fog towards blue, distance 3: the texture two thirds of the way to blue, its fainter pixel fainter blue. Frames 20.
+
+FX-PTEX-014 (`fx_ptex_014.json`): Depth Cue Fade, distance 3: the texture at a third. Frames 20.
+
+FX-PTEX-015 (`fx_ptex_015.json`): Two textured discs, Composite: the nearer over the farther. Frames 20.
+
+FX-PTEX-016 (`fx_ptex_016.json`): The two, Screen. Frames 20.
+
+FX-PTEX-017 (`fx_ptex_017.json`): The two, Add. Frames 20.
+
+FX-PTEX-018 (`fx_ptex_018.json`): The two over the drawing (Composite With Original on), Max Opacity 70. Frames 20.
+
+FX-PTEX-019 (`fx_ptex_019.json`): The texture layer starting at frame 15: at frame 10 it has no picture, so nothing is drawn; at frame 20 it is FX-PTEX-005. Frames 10, 20.
+
+FX-PTEX-020 (`fx_ptex_020.json`): A texture layer not in the composition, `gone`: the effect is left out, the drawing shows, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 20.
+
+FX-PTEX-021 (`fx_ptex_021.json`): FX-PTEX-004 with the layer moved 3 pixels right. Frames 20.
+
+FX-PTEX-022 (`fx_ptex_022.json`): The composition's camera, as added, on the spread. Frames 20.
+
+FX-PTEX-023 (`fx_ptex_023.json`): A burst of turning textured squares, Rotation Speed 180 and Initial Rotation 360, at frames 12 and 24. Frames 12, 24.
+
+FX-PTEX-024 (`fx_ptex_024.json`): A tiny textured disc, size 1: drawn 1.4 pixels across and fainter, the texture taken down to its last levels. Frames 20.
+
+FX-PTEX-025 (`fx_ptex_025.json`): A Disc (not textured) with the texture and rotation set: D-610's Disc, the texture not used (FX-PSPACE-002). Frames 20.
+
+FX-PTEX-026 (`fx_ptex_026.json`): Particle Type "textured_polygon": not one of the eight. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PTEX-027 (`fx_ptex_027.json`): Rotation Speed 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PTEX-028 (`fx_ptex_028.json`): Initial Rotation -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PTEX-029 (`fx_ptex_029.json`): Initial Rotation 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PTEX-030 (`fx_ptex_030.json`): A texture layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
