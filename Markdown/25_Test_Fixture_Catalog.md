@@ -212400,3 +212400,103 @@ FX-PTEX-028 (`fx_ptex_028.json`): Initial Rotation -1, below 0. The file is read
 FX-PTEX-029 (`fx_ptex_029.json`): Initial Rotation 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PTEX-030 (`fx_ptex_030.json`): A texture layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Wave World (D-630)
+
+Wave World (`core.wave_world`), after After Effects' Wave World (B-510), the rule ours. Each case is a composition 32 by 18, 49 frames at 24 a second, in `Fixtures/wave_world/`: the map layers `logo` and `late` (its in point frame 4), switched off, and on top the layer `holder`, showing the drawing `shot`, with the effect. `tools/wave_world_reference.py` works the expected frames, `Fixtures/wave_world/expected_wave_world.json`, tolerance 2e-5, every case checked that no cell or pixel lies near the edge of dry land or the end of a line producer; the rule is in document 21.
+
+FX-WW-001 (`fx_ww_001.json`): As added: frame 0 is flat water, grey 0.5 everywhere and opaque; then a small ring of ripples spreads from the middle.
+
+FX-WW-002 (`fx_ww_002.json`): Grid 16 and a ring a quarter wide: the water rises in the middle, then rings spread out.
+
+FX-WW-003 (`fx_ww_003.json`): Phase 180: the same ripples upside down, dipping first.
+
+FX-WW-004 (`fx_ww_004.json`): Frequency 2.5: closer ripples.
+
+FX-WW-005 (`fx_ww_005.json`): A turned ring, 0.4 by 0.15 at 30 degrees: an oval source.
+
+FX-WW-006 (`fx_ww_006.json`): A line 0.55 long and 0.2 wide at 20 degrees: waves leave both sides of it.
+
+FX-WW-007 (`fx_ww_007.json`): Producer 2 switched on (amplitude 0.6, phase 90): two sources whose waves cross.
+
+FX-WW-008 (`fx_ww_008.json`): Amplitude keyed 0 at frame 0 to 1 at frame 12: the source grows.
+
+FX-WW-009 (`fx_ww_009.json`): Frequency keyed 0.5 at frame 0 to 3 at frame 18: the source speeds up smoothly, its phase the running sum of the frequency.
+
+FX-WW-010 (`fx_ww_010.json`): Damping 0.5: the rings fade as they spread.
+
+FX-WW-011 (`fx_ww_011.json`): Wave speed 0.6: the rings spread faster (more steps a frame).
+
+FX-WW-012 (`fx_ww_012.json`): A source near the right edge, edges absorbing (none): the waves leave.
+
+FX-WW-013 (`fx_ww_013.json`): FX-WW-012 with reflect edges all: the waves come back off the edges.
+
+FX-WW-014 (`fx_ww_014.json`): Frame 40 of FX-WW-002, drawn alone: the same whether or not the frames before it were drawn.
+
+FX-WW-015 (`fx_ww_015.json`): Pre-roll 0.5 seconds: frame 0 already has ripples.
+
+FX-WW-016 (`fx_ww_016.json`): Pre-roll 0.5 with amplitude keyed 0.8 at frame 0 to 0 at frame 6: the pre-roll runs on frame 0's amplitude, then the source stops.
+
+FX-WW-017 (`fx_ww_017.json`): The holder's in point at frame 3: flat there, and frame 15 is FX-WW-002's frame 12 (time counts from the in point).
+
+FX-WW-018 (`fx_ww_018.json`): The logo as ground, steepness 0.6: the white disc is dry land, drawn level; the waves go round it.
+
+FX-WW-019 (`fx_ww_019.json`): FX-WW-018 drawing dry areas transparent: the disc is clear.
+
+FX-WW-020 (`fx_ww_020.json`): The logo as ground, steepness 0.3: all water, slower over the shallow disc.
+
+FX-WW-021 (`fx_ww_021.json`): FX-WW-020 with transparency 0.8: clearer where shallow.
+
+FX-WW-022 (`fx_ww_022.json`): Steepness keyed 0 to 0.3 over frames 0 to 12, wave strength 1, no source: the rising ground alone makes waves.
+
+FX-WW-023 (`fx_ww_023.json`): FX-WW-022 with wave strength 0: no waves, flat grey.
+
+FX-WW-024 (`fx_ww_024.json`): A ground layer whose in point is frame 4, `late`: read at the holder's in point (frame 0) it is empty, so the ground is flat, as FX-WW-002.
+
+FX-WW-025 (`fx_ww_025.json`): A ground layer not in the composition, `gone`: flat ground, as FX-WW-002, and the warning. Warning `EFFECT_LAYER_MISSING` on opening and every frame.
+
+FX-WW-026 (`fx_ww_026.json`): Brightness 0.3, contrast 2, gamma 2.2.
+
+FX-WW-027 (`fx_ww_027.json`): Contrast 8: the peaks and troughs clipped to white and black.
+
+FX-WW-028 (`fx_ww_028.json`): Gamma 0.5: darker greys.
+
+FX-WW-029 (`fx_ww_029.json`): Height 0: every cell dry, drawn level, the brightness everywhere.
+
+FX-WW-030 (`fx_ww_030.json`): Height 0 drawing dry areas transparent: clear.
+
+FX-WW-031 (`fx_ww_031.json`): FX-WW-002 on the holder moved 3 right and 1 down: the same, moved.
+
+FX-WW-032 (`fx_ww_032.json`): Grid 7 (7 by 4 cells): coarse, smooth water.
+
+FX-WW-033 (`fx_ww_033.json`): Grid 1: one cell, the whole layer rising and falling as one.
+
+FX-WW-034 (`fx_ww_034.json`): Brightness keyed 0.2 to 0.8 over frames 0 to 12: the map follows the frame drawn, not the history.
+
+FX-WW-035 (`fx_ww_035.json`): Grid resolution 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-036 (`fx_ww_036.json`): Grid resolution 601, above 600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-037 (`fx_ww_037.json`): Wave speed -0.1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-038 (`fx_ww_038.json`): Damping 1.5, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-039 (`fx_ww_039.json`): Pre-roll -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-040 (`fx_ww_040.json`): Gamma 0, below 0.1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-041 (`fx_ww_041.json`): Transparency 2, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-042 (`fx_ww_042.json`): Reflect edges "some". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-043 (`fx_ww_043.json`): Render dry areas as "hidden". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-044 (`fx_ww_044.json`): Grid res downsamples "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-045 (`fx_ww_045.json`): Producer 1 type "dot". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-046 (`fx_ww_046.json`): A ground layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-047 (`fx_ww_047.json`): Steepness keyed to 1.5 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-048 (`fx_ww_048.json`): Producer 2 position with one number. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
