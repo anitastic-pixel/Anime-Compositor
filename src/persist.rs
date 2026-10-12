@@ -4069,7 +4069,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert(name.into(), J::Array(row.iter().map(|v| num(*v)).collect()));
             }
         }
-        Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip } => {
+        Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip, auto_amounts, temporal_smoothing, scene_detect, .. } => {
             params.insert("shadow_amount".into(), num(*shadow_amount));
             params.insert("highlight_amount".into(), num(*highlight_amount));
             params.insert("shadow_tonal_width".into(), num(*shadow_tonal_width));
@@ -4081,6 +4081,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             for (key, value) in [("midtone_contrast", *midtone_contrast), ("black_clip", *black_clip), ("white_clip", *white_clip)] {
                 if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), num(value));
+                }
+            }
+            // D-564: likewise.
+            if *temporal_smoothing != 0.0 || instance.tracks.contains_key("temporal_smoothing") || params.contains_key("temporal_smoothing") {
+                params.insert("temporal_smoothing".into(), num(*temporal_smoothing));
+            }
+            for (key, value) in [("auto_amounts", auto_amounts), ("scene_detect", scene_detect)] {
+                if value != "off" || params.contains_key(key) {
+                    params.insert(key.into(), J::from(value.as_str()));
                 }
             }
         }
@@ -7864,6 +7873,11 @@ fn parse_effect(
             midtone_contrast: effect_number_or(params, "midtone_contrast", &at, 0.0)?,
             black_clip: effect_number_or(params, "black_clip", &at, 0.0)?,
             white_clip: effect_number_or(params, "white_clip", &at, 0.0)?,
+            // D-564: likewise, a file from before reads off, 0 and off.
+            auto_amounts: effect_word_or(params, "auto_amounts", &at, "off")?,
+            temporal_smoothing: effect_number_or(params, "temporal_smoothing", &at, 0.0)?,
+            scene_detect: effect_word_or(params, "scene_detect", &at, "off")?,
+            stats: None,
         }),
         // D-379: the layer is kept as written, as CC Glass's is.
         crate::effects::BLOBBYLIZE => Some(crate::effects::Effect::Blobbylize {

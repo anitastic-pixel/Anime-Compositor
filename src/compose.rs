@@ -1200,7 +1200,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
             if *threshold > 0.0 && *threshold_smooth == 0.0)
         // D-563: a Shadow/Highlight clip reads the count of the whole lifted picture, which the
         // card does not make, so a clip above 0 keeps the effect on the processor.
-        && !matches!(instance.effect, crate::effects::Effect::ShadowHighlight { black_clip, white_clip, .. } if black_clip > 0.0 || white_clip > 0.0)
+        // D-564: and Auto Amounts reads the whole picture, or the frames either side, likewise.
+        && !matches!(&instance.effect, crate::effects::Effect::ShadowHighlight { black_clip, white_clip, auto_amounts, .. } if *black_clip > 0.0 || *white_clip > 0.0 || auto_amounts == "on")
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
         && !matches!(instance.effect, crate::effects::Effect::Levels { input_black, input_white, .. } if input_black == input_white)
@@ -1386,6 +1387,7 @@ fn card_effect(
                 }
                 e @ E::AdvancedSpillSuppressor { .. } => crate::grade::spill_untouched(&crate::grade::spill_settings(e)),
                 E::ColorDifferenceKey { view, .. } => view == "source",
+                E::ShadowHighlight { auto_amounts, .. } if auto_amounts == "on" => false,
                 E::ShadowHighlight { shadow_amount, highlight_amount, midtone_contrast, black_clip, white_clip, .. } => {
                     crate::grade::shadow_highlight_untouched(*shadow_amount, *highlight_amount, *midtone_contrast, *black_clip, *white_clip)
                 }
@@ -2510,6 +2512,26 @@ fn resolve_rest(
                 format!("Frame {frame} is stretched by itself, without the frames either side. The setting is kept as it is."),
             )
             .with_remediation("Put the Stretch effect on the layer itself, or precompose the layers beneath and put it on the composition layer."),
+        );
+    }
+    // D-564: likewise a Shadow/Highlight's Auto Amounts reads its own frame only.
+    if layer.is_adjustment()
+        && effects.iter().any(|i| {
+            i.enabled
+                && i.is_valid()
+                && matches!(&i.effect, crate::effects::Effect::ShadowHighlight { auto_amounts, temporal_smoothing, .. } if auto_amounts == "on" && smoothing_reach(comp, *temporal_smoothing) > 0)
+        })
+    {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::TemporalSmoothingSkipped,
+                Severity::Warning,
+                format!("Adjustment layer {} has a Shadow/Highlight with Auto Amounts and Temporal Smoothing, which an adjustment layer cannot do.", layer.name),
+                format!("Frame {frame} is judged by itself, without the frames either side. The setting is kept as it is."),
+            )
+            .with_remediation("Put the Shadow/Highlight on the layer itself, or precompose the layers beneath and put it on the composition layer."),
         );
     }
     // D-376: nor its reference frame, so a Color Stabilizer there changes nothing.
@@ -3761,6 +3783,11 @@ fn fill_stats(
                 effect: crate::effects::Effect::AutoTone { temporal_smoothing, scene_detect, .. },
                 ..
             } => (smoothing_reach(comp, *temporal_smoothing), scene_detect == "on"),
+            // D-564: Shadow/Highlight's, read only with Auto Amounts on.
+            crate::effects::EffectInstance {
+                effect: crate::effects::Effect::ShadowHighlight { auto_amounts, temporal_smoothing, scene_detect, .. },
+                ..
+            } if auto_amounts == "on" => (smoothing_reach(comp, *temporal_smoothing), scene_detect == "on"),
             _ => continue,
         };
         if reach < 1 {
@@ -3795,7 +3822,7 @@ fn fill_stats(
                 log.record(frame, holder.name.clone(), d);
             }
         }
-        if let crate::effects::Effect::AutoTone { stats, .. } = &mut effects[i].effect {
+        if let crate::effects::Effect::AutoTone { stats, .. } | crate::effects::Effect::ShadowHighlight { stats, .. } = &mut effects[i].effect {
             *stats = crate::frame_stats::Stats::added(&counted).map(std::sync::Arc::new);
         }
     }

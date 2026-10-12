@@ -10999,7 +10999,9 @@ const EFFECT_PARAMS = {
     // D-563.
     ['midtone_contrast', 'Midtone Contrast', 1, 1, '-100 to 100, more or less contrast in the middle tones; 0 leaves them'],
     ['black_clip', 'Black Clip', 1, 0.05, 'per cent of the darkest pixels taken to the darkest in the picture, 0 to 50; above 0 runs on the processor'],
-    ['white_clip', 'White Clip', 1, 0.05, 'per cent of the lightest pixels taken to the lightest in the picture, 0 to 50; above 0 runs on the processor']],
+    ['white_clip', 'White Clip', 1, 0.05, 'per cent of the lightest pixels taken to the lightest in the picture, 0 to 50; above 0 runs on the processor'],
+    // D-564: read only with Auto Amounts on; its words are in EFFECT_WORDS.
+    ['temporal_smoothing', 'Temporal Smoothing (seconds)', 1, 0.05, 'with Auto Amounts on, seconds each side whose pictures are read with this one, 0 to 10; 0 reads this frame only']],
   // D-402: its three colours are in EFFECT_WORDS.
   'core.tritone': [['blend_with_original', 'Blend With Original', 1, 0.5, '0 to 100, how much of the layer as it was shows through']],
   // D-403: its colour, matte layer and fit are in EFFECT_WORDS.
@@ -12064,6 +12066,11 @@ const EFFECT_WORDS = {
         ['words', 'Words']]],
       ['shape', 'Shape', [['square', 'Square'], ['ramp_up', 'Ramp Up'], ['ramp_down', 'Ramp Down'], ['triangle', 'Triangle'],
         ['round', 'Round'], ['smooth', 'Smooth']]]],
+  },
+  // D-564: Auto Amounts runs on the processor.
+  'core.shadow_highlight': {
+    choices: [['auto_amounts', 'Auto Amounts', [['off', 'Off'], ['on', 'On (amounts from the picture, runs on the processor)']]],
+      ['scene_detect', 'Scene Detect', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-351.
   'core.stretch_levels': { choices: [['scene_detect', 'Scene Detect', [['off', 'Off'], ['on', 'On']]]] },

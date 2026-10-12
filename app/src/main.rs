@@ -5358,6 +5358,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             midtone_contrast: 0.0,
             black_clip: 0.0,
             white_clip: 0.0,
+            // D-564: off; After Effects is recalled to start with Auto Amounts on.
+            auto_amounts: "off".to_string(),
+            temporal_smoothing: 0.0,
+            scene_detect: "off".to_string(),
+            stats: None,
         }),
         RIPPLE_PULSE => Some(Effect::RipplePulse {
             center: [50.0, 50.0],
@@ -7885,6 +7890,10 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             midtone_contrast: number("midtone_contrast")?,
             black_clip: number("black_clip")?,
             white_clip: number("white_clip")?,
+            auto_amounts: word("auto_amounts")?,
+            temporal_smoothing: number("temporal_smoothing")?,
+            scene_detect: word("scene_detect")?,
+            stats: None,
         }),
         RIPPLE_PULSE => Ok(Effect::RipplePulse {
             center: pair("center")?,
@@ -33392,6 +33401,10 @@ mod contract {
                 ("midtone_contrast", "25"),
                 ("black_clip", "2"),
                 ("white_clip", "3"),
+                // D-564.
+                ("auto_amounts", "on"),
+                ("temporal_smoothing", "0.5"),
+                ("scene_detect", "on"),
             ],
         ),
         // D-402: the three colours and the blend.

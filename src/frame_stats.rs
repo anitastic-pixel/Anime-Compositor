@@ -249,6 +249,20 @@ pub(crate) fn apply(source: &mut WorkingBuffer, effect: &crate::effects::Effect)
     }
 }
 
+/// D-564: Shadow/Highlight's Auto Amounts, this program's own rule: from the brightness
+/// histogram, d the covering-weighted mean of max(0, 1 - 2 y)^2 and b of max(0, 2 y - 1)^2, y each
+/// bin's brightness; the shadow amount 100 min(1, 2 d) and the highlight amount 100 min(1, 2 b).
+pub(crate) fn auto_amounts(s: &Stats) -> (f64, f64) {
+    let (mut d, mut b) = (0.0, 0.0);
+    for (k, w) in s.hist[3].iter().enumerate() {
+        let y = k as f64 / 255.0;
+        d += w * (1.0 - 2.0 * y).max(0.0).powi(2);
+        b += w * (2.0 * y - 1.0).max(0.0).powi(2);
+    }
+    let t = s.total();
+    (100.0 * (2.0 * d / t).min(1.0), 100.0 * (2.0 * b / t).min(1.0))
+}
+
 /// D-375: Color Link's colour, each channel 0 to 1, from a picture's statistics: `sample` one of
 /// `effects::LINK_SAMPLES`, `clip` 0 to 49 per cent each end.
 pub(crate) fn link_colour(s: &Stats, sample: &str, clip: f64) -> [f64; 3] {

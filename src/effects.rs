@@ -3114,7 +3114,11 @@ pub enum Effect {
     /// `highlight_amount`, 0 to 100; `shadow_tonal_width` and `highlight_tonal_width`, 0 to
     /// 100; `shadow_radius` and `highlight_radius`, 0 to 500 pixels; `color_correction`, 0 to 100.
     /// D-563: `midtone_contrast`, -100 to 100; `black_clip` and `white_clip`, 0 to 50 per cent,
-    /// each 0 in a file written before them.
+    /// each 0 in a file written before them. D-564: `auto_amounts`, "off" or "on", the two amounts
+    /// from the picture's own lightness instead of the sliders; `temporal_smoothing`, 0 to 10
+    /// seconds, and `scene_detect`, "off" or "on", D-351's, read only with `auto_amounts` on; each
+    /// "off", 0 and "off" in a file written before them. `stats` is not a setting and is never
+    /// saved, as Stretch Levels' (D-351).
     ShadowHighlight {
         shadow_amount: f64,
         highlight_amount: f64,
@@ -3126,6 +3130,10 @@ pub enum Effect {
         midtone_contrast: f64,
         black_clip: f64,
         white_clip: f64,
+        auto_amounts: String,
+        temporal_smoothing: f64,
+        scene_detect: String,
+        stats: Option<std::sync::Arc<crate::frame_stats::Stats>>,
     },
     /// D-379: after CycoreFX's CC Blobbylize. `layer` and `fit`, D-189's layer setting, the blob
     /// map, "" the layer itself; `property`, one of [`BLOBBYLIZE_PROPERTIES`]; `softness`, 0 to
@@ -5799,7 +5807,7 @@ impl Effect {
                 .zip(families.iter_mut())
                 .map(|(name, row)| (name, row.iter_mut().collect(), -100.0, 100.0))
                 .collect(),
-            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip } => vec![
+            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip, temporal_smoothing, .. } => vec![
                 ("shadow_amount", vec![shadow_amount], 0.0, 100.0),
                 ("highlight_amount", vec![highlight_amount], 0.0, 100.0),
                 ("shadow_tonal_width", vec![shadow_tonal_width], 0.0, 100.0),
@@ -5810,6 +5818,7 @@ impl Effect {
                 ("midtone_contrast", vec![midtone_contrast], -100.0, 100.0),
                 ("black_clip", vec![black_clip], 0.0, 50.0),
                 ("white_clip", vec![white_clip], 0.0, 50.0),
+                ("temporal_smoothing", vec![temporal_smoothing], 0.0, 10.0),
             ],
             Effect::Blobbylize {
                 softness,
@@ -8578,6 +8587,9 @@ impl Effect {
             )),
             Effect::TextAnimator { shape, .. } if !TEXT_SHAPES.contains(&shape.as_str()) => Some(format!(
                 "Text Animator's shape is \"square\", \"ramp_up\", \"ramp_down\", \"triangle\", \"round\" or \"smooth\", and this is \"{shape}\"."
+            )),
+            Effect::ShadowHighlight { auto_amounts: v, .. } | Effect::ShadowHighlight { scene_detect: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Shadow/Highlight's auto amounts and scene detect are \"off\" or \"on\", and this is \"{v}\"."
             )),
             Effect::AutoTone { scene_detect, .. } if !["off", "on"].contains(&scene_detect.as_str()) => Some(format!(
                 "{name}'s scene detect is \"off\" or \"on\", and this is \"{scene_detect}\"."
@@ -12328,9 +12340,16 @@ pub(crate) fn apply_stack_at(
             Effect::SelectiveColor { method, families } => crate::perf::time(crate::perf::Stage::EffectSelectiveColor, || {
                 crate::grade::selective_color(source, &selective_color_amounts(families), method == "relative")
             }),
-            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip } => {
+            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip, auto_amounts, stats, .. } => {
                 crate::perf::time(crate::perf::Stage::EffectShadowHighlight, || {
-                    crate::grade::shadow_highlight(source, [*shadow_amount, *highlight_amount, *shadow_tonal_width, *shadow_radius, *highlight_tonal_width, *highlight_radius, *color_correction, *midtone_contrast, *black_clip, *white_clip])
+                    // D-564: the amounts from the frames compose added up, or this picture's own.
+                    let (shadow_amount, highlight_amount) = if auto_amounts == "on" {
+                        let own = if stats.is_none() { crate::frame_stats::Stats::of(source) } else { None };
+                        stats.as_deref().or(own.as_ref()).map_or((0.0, 0.0), crate::frame_stats::auto_amounts)
+                    } else {
+                        (*shadow_amount, *highlight_amount)
+                    };
+                    crate::grade::shadow_highlight(source, [shadow_amount, highlight_amount, *shadow_tonal_width, *shadow_radius, *highlight_tonal_width, *highlight_radius, *color_correction, *midtone_contrast, *black_clip, *white_clip])
                 })
             }
             Effect::LineBlur {
