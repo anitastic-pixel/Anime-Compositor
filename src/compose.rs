@@ -2343,6 +2343,19 @@ fn effect_now(
                 *fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             }
         }
+        // D-632: Card Dance's composition camera in the layer's own pixels (D-58's default where
+        // the file has none): its place, and its distance from the layer's plane over the
+        // layer's scale; 0 far, drawing nothing, where it cannot be worked out.
+        if let crate::effects::Effect::CardDance { view, .. } = &mut now.effect {
+            let m = world_transform(comp, &layer.id, at);
+            *view = match (camera_at(comp, at), m.invert()) {
+                (Some(cam), Some(inv)) => {
+                    let a = inv.apply(cam.position.0, cam.position.1);
+                    [a.0, a.1, (world_depth(comp, &layer.id, at) - cam.depth) / (m.a * m.d - m.b * m.c).abs().sqrt()]
+                }
+                _ => [0.0; 3],
+            };
+        }
         // D-582: CC Rainfall falls by the composition frame, in seconds, as Glue Gun's clock.
         if let crate::effects::Effect::CcRainfall { clock, .. } = &mut now.effect {
             *clock = [at as f64, comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64];

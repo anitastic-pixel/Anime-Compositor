@@ -433,6 +433,8 @@ pub enum Stage {
     EffectWaveWorld,
     /// D-631: Caustics, a bottom seen through bent water under a lit surface.
     EffectCaustics,
+    /// D-632: Card Dance, the layer cut into cards moved by gradient layers.
+    EffectCardDance,
     /// D-521: Time Difference, its target compared with the layer; drawing the target is timed
     /// as any drawing is.
     EffectTimeDifference,
@@ -500,7 +502,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 247] = [
+    pub const ALL: [Stage; 248] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -717,6 +719,7 @@ impl Stage {
         Stage::EffectCcRainfall,
         Stage::EffectWaveWorld,
         Stage::EffectCaustics,
+        Stage::EffectCardDance,
         Stage::EffectTimeDifference,
         Stage::EffectBurnFilm,
         Stage::EffectTileWipe,
@@ -969,6 +972,7 @@ impl Stage {
             Stage::EffectCcRainfall => "effect: cc rainfall",
             Stage::EffectWaveWorld => "effect: wave world",
             Stage::EffectCaustics => "effect: caustics",
+            Stage::EffectCardDance => "effect: card dance",
             Stage::EffectTimeDifference => "effect: time difference",
             Stage::EffectBurnFilm => "effect: burn film",
             Stage::EffectTileWipe => "effect: tile wipe",

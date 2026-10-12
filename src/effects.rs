@@ -1545,6 +1545,54 @@ pub enum Effect {
         specular_reflection: f64,
         highlight_sharpness: f64,
     },
+    /// D-632: after After Effects' Card Dance (Simulation), its rule and its settings when added
+    /// ours (`layer_fx::card_dance`, `tools/card_dance_reference.py`, document 21).
+    /// `rows_columns` one of [`CARD_ROWS_COLUMNS`]; `rows` and `columns` 1 to 1000, rounded;
+    /// `back_layer`, `gradient_layer_1` and `gradient_layer_2` D-189's layer settings as written,
+    /// each stretched to the layer ("" clear backs, or the layer's own drawing for a gradient);
+    /// `rotation_order` the letters x, y and z in any order, the first turned first;
+    /// `transformation_order` "scale", "rotate" and "position" joined by "_" in any order. For
+    /// each of [`CARD_DANCE_TRANSFORMS`], in that order: `sources` "none", or "red", "green",
+    /// "blue", "intensity" or "alpha" then "_1" or "_2"; `multipliers` and `offsets`, -100 to
+    /// 100 card sizes for the positions, -3600 to 3600 degrees for the rotations, -10 to 10 for
+    /// the scales. `camera_system` "camera_position" or "comp_camera"; the camera's turns, -3600
+    /// to 3600 degrees; `camera_xy_position`, x then y, -1000 to 1000 per cent of the layer;
+    /// `camera_z_position` 0.01 to 10 focal lengths; `focal_length` 1 to 1000 mm. Card Wipe's
+    /// light and material. Not settings, never saved: the three maps compose reads, and `view`,
+    /// the composition camera in the layer's own pixels, its place then its distance.
+    CardDance {
+        rows_columns: String,
+        rows: f64,
+        columns: f64,
+        back_layer: serde_json::Value,
+        back_map: Option<crate::layer_map::Map>,
+        gradient_layer_1: serde_json::Value,
+        gradient_map_1: Option<crate::layer_map::Map>,
+        gradient_layer_2: serde_json::Value,
+        gradient_map_2: Option<crate::layer_map::Map>,
+        rotation_order: String,
+        transformation_order: String,
+        sources: [String; 8],
+        multipliers: [f64; 8],
+        offsets: [f64; 8],
+        camera_system: String,
+        camera_x_rotation: f64,
+        camera_y_rotation: f64,
+        camera_z_rotation: f64,
+        camera_xy_position: [f64; 2],
+        camera_z_position: f64,
+        focal_length: f64,
+        light_type: String,
+        light_intensity: f64,
+        light_color: String,
+        light_position: [f64; 2],
+        light_depth: f64,
+        ambient_light: f64,
+        diffuse_reflection: f64,
+        specular_reflection: f64,
+        highlight_sharpness: f64,
+        view: [f64; 3],
+    },
     /// D-521: after After Effects' Time Difference, its rule and its settings when added ours
     /// (`layer_fx::time_difference`, document 21). `layer`, D-189's layer setting as written, the
     /// target, "" for the layer itself; `time_offset`, -60 to 60 seconds; `contrast`, 0 to 100;
@@ -3889,6 +3937,30 @@ pub const PIXEL_MOTION_BLUR: &str = "core.pixel_motion_blur";
 pub const CC_RAINFALL: &str = "core.cc_rainfall";
 pub const WAVE_WORLD: &str = "core.wave_world";
 pub const CAUSTICS: &str = "core.caustics";
+pub const CARD_DANCE: &str = "core.card_dance";
+/// D-632: what Card Dance's sources, multipliers and offsets move, in their order.
+pub const CARD_DANCE_TRANSFORMS: [&str; 8] =
+    ["x_position", "y_position", "z_position", "x_rotation", "y_rotation", "z_rotation", "x_scale", "y_scale"];
+const CARD_DANCE_MULTIPLIERS: [&str; 8] = [
+    "x_position_multiplier",
+    "y_position_multiplier",
+    "z_position_multiplier",
+    "x_rotation_multiplier",
+    "y_rotation_multiplier",
+    "z_rotation_multiplier",
+    "x_scale_multiplier",
+    "y_scale_multiplier",
+];
+const CARD_DANCE_OFFSETS: [&str; 8] = [
+    "x_position_offset",
+    "y_position_offset",
+    "z_position_offset",
+    "x_rotation_offset",
+    "y_rotation_offset",
+    "z_rotation_offset",
+    "x_scale_offset",
+    "y_scale_offset",
+];
 pub const TIME_DIFFERENCE: &str = "core.time_difference";
 /// D-521: Time Difference's Alpha Channel words, in After Effects' order.
 pub const TDIFF_ALPHAS: [&str; 9] = [
@@ -6726,6 +6798,51 @@ impl Effect {
                 ("specular_reflection", vec![specular_reflection], 0.0, 2.0),
                 ("highlight_sharpness", vec![highlight_sharpness], 1.0, 100.0),
             ],
+            Effect::CardDance {
+                rows,
+                columns,
+                multipliers,
+                offsets,
+                camera_x_rotation,
+                camera_y_rotation,
+                camera_z_rotation,
+                camera_xy_position,
+                camera_z_position,
+                focal_length,
+                light_intensity,
+                light_position,
+                light_depth,
+                ambient_light,
+                diffuse_reflection,
+                specular_reflection,
+                highlight_sharpness,
+                ..
+            } => {
+                let mut table: Vec<(&'static str, Vec<&mut f64>, f64, f64)> =
+                    vec![("rows", vec![rows], 1.0, 1000.0), ("columns", vec![columns], 1.0, 1000.0)];
+                // Card sizes for the positions, degrees for the turns, times for the scales.
+                let reach = [100.0, 100.0, 100.0, 3600.0, 3600.0, 3600.0, 10.0, 10.0];
+                for (n, (m, o)) in multipliers.iter_mut().zip(offsets.iter_mut()).enumerate() {
+                    table.push((CARD_DANCE_MULTIPLIERS[n], vec![m], -reach[n], reach[n]));
+                    table.push((CARD_DANCE_OFFSETS[n], vec![o], -reach[n], reach[n]));
+                }
+                table.extend([
+                    ("camera_x_rotation", vec![camera_x_rotation], -3600.0, 3600.0),
+                    ("camera_y_rotation", vec![camera_y_rotation], -3600.0, 3600.0),
+                    ("camera_z_rotation", vec![camera_z_rotation], -3600.0, 3600.0),
+                    ("camera_xy_position", camera_xy_position.iter_mut().collect(), -1000.0, 1000.0),
+                    ("camera_z_position", vec![camera_z_position], 0.01, 10.0),
+                    ("focal_length", vec![focal_length], 1.0, 1000.0),
+                    ("light_intensity", vec![light_intensity], 0.0, 10.0),
+                    ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                    ("light_depth", vec![light_depth], 0.0, 10.0),
+                    ("ambient_light", vec![ambient_light], 0.0, 2.0),
+                    ("diffuse_reflection", vec![diffuse_reflection], 0.0, 2.0),
+                    ("specular_reflection", vec![specular_reflection], 0.0, 2.0),
+                    ("highlight_sharpness", vec![highlight_sharpness], 1.0, 100.0),
+                ]);
+                table
+            }
             Effect::TimeDifference { time_offset, contrast, .. } => vec![
                 ("time_offset", vec![time_offset], -60.0, 60.0),
                 ("contrast", vec![contrast], 0.0, 100.0),
@@ -7473,6 +7590,8 @@ impl Effect {
             }
             // D-630: every length is a share of the layer; only a grid that downsamples follows.
             Effect::WaveWorld { grid_scale, .. } => *grid_scale = scale(*grid_scale),
+            // D-632: the composition camera, in the layer's own pixels; all else is a share.
+            Effect::CardDance { view, .. } => *view = view.map(&scale),
             Effect::KiraKira { spacing, size, .. } => {
                 *spacing = scale(*spacing);
                 *size = scale(*size);
@@ -7687,6 +7806,7 @@ impl Effect {
             Effect::CcRainfall { .. } => "CC Rainfall",
             Effect::WaveWorld { .. } => "Wave World",
             Effect::Caustics { .. } => "Caustics",
+            Effect::CardDance { .. } => "Card Dance",
             Effect::TimeDifference { .. } => "Time Difference",
             Effect::PosterizeTime { .. } => "Posterize Time",
             Effect::ChangeToColor { .. } => "Change to Color",
@@ -7940,6 +8060,7 @@ impl Effect {
             Effect::CcRainfall { .. } => CC_RAINFALL,
             Effect::WaveWorld { .. } => WAVE_WORLD,
             Effect::Caustics { .. } => CAUSTICS,
+            Effect::CardDance { .. } => CARD_DANCE,
             Effect::TimeDifference { .. } => TIME_DIFFERENCE,
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
@@ -8357,6 +8478,10 @@ impl Effect {
         if let Effect::Caustics { bottom_layer, water_surface, sky_layer, .. } = self {
             return [(bottom_layer, "whole"), (water_surface, "stretch"), (sky_layer, "whole")].map(|(l, f)| (l.as_str().unwrap_or(""), f)).to_vec();
         }
+        // D-632: the back and the two gradients, each stretched to the layer.
+        if let Effect::CardDance { back_layer, gradient_layer_1, gradient_layer_2, .. } = self {
+            return [back_layer, gradient_layer_1, gradient_layer_2].map(|l| (l.as_str().unwrap_or(""), "stretch")).to_vec();
+        }
         self.layer_setting().into_iter().collect()
     }
 
@@ -8429,6 +8554,9 @@ impl Effect {
         }
         if let Effect::Caustics { bottom_layer, bottom_map, water_surface, surface_map, sky_layer, sky_map, .. } = self {
             return vec![(bottom_layer, bottom_map), (water_surface, surface_map), (sky_layer, sky_map)];
+        }
+        if let Effect::CardDance { back_layer, back_map, gradient_layer_1, gradient_map_1, gradient_layer_2, gradient_map_2, .. } = self {
+            return vec![(back_layer, back_map), (gradient_layer_1, gradient_map_1), (gradient_layer_2, gradient_map_2)];
         }
         self.layer_setting_mut().into_iter().collect()
     }
@@ -10048,6 +10176,58 @@ impl Effect {
                         "Caustics' light position is two numbers, x then y, and this has {}.",
                         light_position.len()
                     )))
+            }
+            Effect::CardDance {
+                back_layer,
+                gradient_layer_1,
+                gradient_layer_2,
+                rows_columns,
+                rotation_order,
+                transformation_order,
+                sources,
+                camera_system,
+                light_type,
+                light_color,
+                ..
+            } => {
+                let one_of = |what: &str, words: &[&str], w: &str| {
+                    (!words.contains(&w)).then(|| {
+                        let words = words.iter().map(|w| format!("\"{w}\"")).collect::<Vec<_>>().join(", ");
+                        format!("Card Dance's {what} is one of {words}, and this is \"{w}\".")
+                    })
+                };
+                let channels = ["red", "green", "blue", "intensity", "alpha"];
+                let sourced: Vec<String> = std::iter::once("none".to_string())
+                    .chain(["1", "2"].iter().flat_map(|n| channels.map(|c| format!("{c}_{n}"))))
+                    .collect();
+                let sourced: Vec<&str> = sourced.iter().map(String::as_str).collect();
+                [("back layer", back_layer), ("gradient layer 1", gradient_layer_1), ("gradient layer 2", gradient_layer_2)]
+                    .into_iter()
+                    .find(|(_, l)| !l.is_string())
+                    .map(|(what, l)| format!("Card Dance's {what} is the name of a layer of this composition, and this is {l}."))
+                    .or_else(|| one_of("rows & columns", &CARD_ROWS_COLUMNS, rows_columns))
+                    .or_else(|| one_of("rotation order", &["xyz", "xzy", "yxz", "yzx", "zxy", "zyx"], rotation_order))
+                    .or_else(|| {
+                        let orders = [
+                            "scale_rotate_position",
+                            "scale_position_rotate",
+                            "rotate_scale_position",
+                            "rotate_position_scale",
+                            "position_scale_rotate",
+                            "position_rotate_scale",
+                        ];
+                        one_of("transformation order", &orders, transformation_order)
+                    })
+                    .or_else(|| {
+                        CARD_DANCE_TRANSFORMS
+                            .iter()
+                            .zip(sources)
+                            .find_map(|(t, s)| one_of(&format!("{} source", t.replace('_', " ")), &sourced, s))
+                    })
+                    // D-634 adds "corner_pins".
+                    .or_else(|| one_of("camera system", &["camera_position", "comp_camera"], camera_system))
+                    .or_else(|| one_of("light type", &["distant", "point"], light_type))
+                    .or_else(|| hex_fault("Card Dance", "light colour", light_color))
             }
             Effect::WaveWorld {
                 render_dry_areas,
@@ -12018,6 +12198,11 @@ pub(crate) fn apply_stack_at(
             // clear; a water surface or sky not read is none.
             e @ Effect::Caustics { .. } => crate::perf::time(crate::perf::Stage::EffectCaustics, || {
                 crate::layer_fx::caustics(source, e, (ox, oy))
+            }),
+            // D-632: every length a share of the layer, the composition camera in its pixels; never
+            // grows. A back not read is clear; a gradient not read is clear.
+            e @ Effect::CardDance { .. } => crate::perf::time(crate::perf::Stage::EffectCardDance, || {
+                crate::layer_fx::card_dance(source, e, (ox, oy))
             }),
             // D-580: every distance a share of the drawing; never grows. A back or gradient layer
             // not read (none named, or one not in the composition, which compose said) is none.

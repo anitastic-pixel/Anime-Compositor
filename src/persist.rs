@@ -2291,6 +2291,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 }
             }
         }
+        Effect::CardDance { back_layer, gradient_layer_1, gradient_layer_2, rows_columns, rotation_order, transformation_order, sources, camera_system, light_type, light_color, camera_xy_position, light_position, .. } => {
+            for (n, v) in [("back_layer", back_layer), ("gradient_layer_1", gradient_layer_1), ("gradient_layer_2", gradient_layer_2)] {
+                params.insert(n.into(), v.clone());
+            }
+            for (n, v) in [("rows_columns", rows_columns), ("rotation_order", rotation_order), ("transformation_order", transformation_order), ("camera_system", camera_system), ("light_type", light_type), ("light_color", light_color)] {
+                params.insert(n.into(), J::from(v.as_str()));
+            }
+            for (t, s) in crate::effects::CARD_DANCE_TRANSFORMS.iter().zip(sources) {
+                params.insert(format!("{t}_source"), J::from(s.as_str()));
+            }
+            for (n, v) in [("camera_xy_position", camera_xy_position), ("light_position", light_position)] {
+                params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
+            }
+            // D-632: every other number, by its name in the effect's table.
+            for n in instance.effect.names() {
+                if n != "camera_xy_position" && n != "light_position" {
+                    params.insert(n.into(), num(instance.effect.get(n).unwrap()[0]));
+                }
+            }
+        }
         Effect::CcRainfall { color, transfer_mode, composite_with_original, drops, size, scene_depth, speed, wind, wind_variation, spread, opacity, ground_level, random_seed, .. } => {
             params.insert("drops".into(), num(*drops));
             params.insert("size".into(), num(*size));
@@ -5738,6 +5758,7 @@ fn parse_effect(
         crate::effects::CC_RAINFALL,
         crate::effects::WAVE_WORLD,
         crate::effects::CAUSTICS,
+        crate::effects::CARD_DANCE,
         crate::effects::POSTERIZE_TIME,
         crate::effects::CHANGE_TO_COLOR,
         crate::effects::CORNER_PIN,
@@ -6742,6 +6763,45 @@ fn parse_effect(
             specular_reflection: effect_number(params, "specular_reflection", &at)?,
             highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
         }),
+        crate::effects::CARD_DANCE => {
+            let each = |end: &str| crate::effects::CARD_DANCE_TRANSFORMS.map(|t| format!("{t}_{end}"));
+            let numbers = |end: &str| -> Result<[f64; 8], Diagnostic> {
+                Ok(each(end).iter().map(|n| effect_number(params, n, &at)).collect::<Result<Vec<_>, _>>()?.try_into().unwrap())
+            };
+            Some(crate::effects::Effect::CardDance {
+                rows_columns: effect_word(params, "rows_columns", &at)?,
+                rows: effect_number(params, "rows", &at)?,
+                columns: effect_number(params, "columns", &at)?,
+                back_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "back_layer")?.clone(),
+                back_map: None,
+                gradient_layer_1: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer_1")?.clone(),
+                gradient_map_1: None,
+                gradient_layer_2: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer_2")?.clone(),
+                gradient_map_2: None,
+                rotation_order: effect_word(params, "rotation_order", &at)?,
+                transformation_order: effect_word(params, "transformation_order", &at)?,
+                sources: each("source").iter().map(|n| effect_word(params, n, &at)).collect::<Result<Vec<_>, _>>()?.try_into().unwrap(),
+                multipliers: numbers("multiplier")?,
+                offsets: numbers("offset")?,
+                camera_system: effect_word(params, "camera_system", &at)?,
+                camera_x_rotation: effect_number(params, "camera_x_rotation", &at)?,
+                camera_y_rotation: effect_number(params, "camera_y_rotation", &at)?,
+                camera_z_rotation: effect_number(params, "camera_z_rotation", &at)?,
+                camera_xy_position: effect_array(params, "camera_xy_position", "two numbers, x then y", &at)?,
+                camera_z_position: effect_number(params, "camera_z_position", &at)?,
+                focal_length: effect_number(params, "focal_length", &at)?,
+                light_type: effect_word(params, "light_type", &at)?,
+                light_intensity: effect_number(params, "light_intensity", &at)?,
+                light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+                light_position: effect_array(params, "light_position", "two numbers, x then y", &at)?,
+                light_depth: effect_number(params, "light_depth", &at)?,
+                ambient_light: effect_number(params, "ambient_light", &at)?,
+                diffuse_reflection: effect_number(params, "diffuse_reflection", &at)?,
+                specular_reflection: effect_number(params, "specular_reflection", &at)?,
+                highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
+                view: [0.0; 3],
+            })
+        }
         crate::effects::CC_RAINFALL => Some(crate::effects::Effect::CcRainfall {
             drops: effect_number(params, "drops", &at)?,
             size: effect_number(params, "size", &at)?,

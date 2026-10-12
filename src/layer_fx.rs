@@ -10587,3 +10587,229 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
     });
     *source = out;
 }
+
+/// D-632: After Effects' Card Dance, the rule ours (`tools/card_dance_reference.py`, document 21):
+/// the drawing, whose corner is at `(ox, oy)` in the buffer, cut into a grid of cards, each moved,
+/// turned and scaled by the gradient pictures under its centre, seen by the effect's own camera
+/// or by the composition's (which compose put in `view`, in the layer's own pixels) and lit by
+/// Card Wipe's light. One ray a pixel, the nearest card it meets winning, the first in rows then
+/// columns where two tie. Each card is binned by the 16-pixel tiles its corners cover on the
+/// screen, so a pixel tries only the cards over its tile; a card with a corner at or behind the
+/// eye is tried everywhere. Never grows.
+/// ponytail: every card's numbers are held at once, about 100 bytes a card, so 1000 by 1000
+/// cards hold about 100 MB; work them a band at a time if that bites.
+pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    #[rustfmt::skip]
+    let crate::effects::Effect::CardDance { rows_columns, rows, columns, back_map, gradient_layer_1, gradient_map_1, gradient_layer_2, gradient_map_2, rotation_order, transformation_order, sources, multipliers, offsets, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, view, .. } = e
+    else {
+        unreachable!("Card Dance of another effect")
+    };
+    type V3 = [f64; 3];
+    type M3 = [[f64; 3]; 3];
+    const I3: M3 = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+    const TILE: usize = 16;
+    let (w, h) = (source.width(), source.height());
+    let (lw, lh) = (w - 2 * ox, h - 2 * oy);
+    let mut out = WorkingBuffer::transparent(w, h);
+    let comp_camera = camera_system == "comp_camera";
+    if lw == 0 || lh == 0 || (comp_camera && !(view[2] > 0.0)) {
+        *source = out;
+        return;
+    }
+    let (wf, hf) = (lw as f64, lh as f64);
+    let mul = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum())) };
+    let app = |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[i][j] * v[j]).sum()) };
+    let app_t = |m: &M3, v: V3| -> V3 { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
+    let rot = |axis: u8, deg: f64| -> M3 {
+        let (s, c) = deg.to_radians().sin_cos();
+        match axis {
+            b'x' => [[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]],
+            b'y' => [[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]],
+            _ => [[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]],
+        }
+    };
+    let dot = |p: V3, q: V3| p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+    let cross = |a: V3, b: V3| [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    let det3 = |a: V3, b: V3, c: V3| dot(a, cross(b, c));
+    let unit = |p: V3| {
+        let n = dot(p, p).sqrt();
+        if n == 0.0 { [0.0; 3] } else { p.map(|q| q / n) }
+    };
+
+    // Step 4: the camera's turn M, the eye o, and the ray through pixel (x, y),
+    // v = M^T (x + 1/2 - centre x, y + 1/2 - centre y, f).
+    let (m, o, centre, f) = if comp_camera {
+        let [ax, ay, away] = *view;
+        (I3, [ax - wf / 2.0, ay - hf / 2.0, -away], [ax, ay], away)
+    } else {
+        let m = mul(rot(b'z', *camera_z_rotation), mul(rot(b'y', *camera_y_rotation), rot(b'x', *camera_x_rotation)));
+        let f = wf * focal_length / 36.0;
+        let o = app_t(&m, [camera_xy_position[0] * wf / 100.0 - wf / 2.0, camera_xy_position[1] * hf / 100.0 - hf / 2.0, -camera_z_position * f]);
+        (m, o, [wf / 2.0, hf / 2.0], f)
+    };
+
+    // Steps 1 to 3: the cards, rows then columns, each its first two axes, its middle from the
+    // layer's middle, the sign of its scales and its home centre.
+    let r = (rows + 0.5).floor();
+    let c = if rows_columns == "columns_follow_rows" { r } else { (columns + 0.5).floor() };
+    let (cw, ch) = (wf / c, hf / r);
+    let cols = c as usize;
+    let grads = [(gradient_layer_1, gradient_map_1), (gradient_layer_2, gradient_map_2)];
+    let drawing = &*source;
+    let pixel_of = |n: usize, gx: usize, gy: usize| -> [f32; 4] {
+        let (name, map) = grads[n];
+        if name.as_str() == Some("") {
+            drawing.pixel(ox + gx, oy + gy)
+        } else {
+            // A layer named but not read (not in the composition, or not begun) is clear.
+            map.as_ref().map_or([0.0; 4], |m| if gx < m.0.width() && gy < m.0.height() { m.0.pixel(gx, gy) } else { [0.0; 4] })
+        }
+    };
+    let value = |word: &str, px: &[[f32; 4]; 2]| -> f64 {
+        let (channel, n) = word.rsplit_once('_').unwrap_or((word, "1"));
+        let p = px[if n == "2" { 1 } else { 0 }];
+        let encoded = |q: f32| crate::grade::to_srgb((q as f64).clamp(0.0, 1.0));
+        match channel {
+            "red" => encoded(p[0]),
+            "green" => encoded(p[1]),
+            "blue" => encoded(p[2]),
+            "intensity" => picture_luma(p),
+            _ => p[3] as f64,
+        }
+    };
+    struct Card {
+        a0: V3,
+        a1: V3,
+        base: V3,
+        s: f64,
+        cx: f64,
+        cy: f64,
+    }
+    let order: Vec<u8> = rotation_order.bytes().collect();
+    let deck: Vec<Card> = (0..r as usize * cols)
+        .into_par_iter()
+        .map(|i| {
+            let (cx, cy) = ((((i % cols) as f64) + 0.5) * cw, (((i / cols) as f64) + 0.5) * ch);
+            let (gx, gy) = (cx.floor().min(wf - 1.0) as usize, cy.floor().min(hf - 1.0) as usize);
+            let px = [pixel_of(0, gx, gy), pixel_of(1, gx, gy)];
+            let num: [f64; 8] = std::array::from_fn(|t| {
+                if sources[t] == "none" { offsets[t] } else { (2.0 * value(&sources[t], &px) - 1.0) * multipliers[t] + offsets[t] }
+            });
+            let sm = [[num[6], 0.0, 0.0], [0.0, num[7], 0.0], [0.0, 0.0, 1.0]];
+            let rm = order.iter().fold(I3, |acc, &a| mul(rot(a, num[3 + (a - b'x') as usize]), acc));
+            let (mut am, mut b) = (I3, [0.0; 3]);
+            for step in transformation_order.split('_') {
+                match step {
+                    "scale" => (am, b) = (mul(sm, am), app(&sm, b)),
+                    "rotate" => (am, b) = (mul(rm, am), app(&rm, b)),
+                    _ => b = [b[0] + num[0] * cw, b[1] + num[1] * ch, b[2] - num[2] * ch],
+                }
+            }
+            let sxy = num[6] * num[7];
+            Card {
+                a0: [am[0][0], am[1][0], am[2][0]],
+                a1: [am[0][1], am[1][1], am[2][1]],
+                base: [b[0] + cx - wf / 2.0, b[1] + cy - hf / 2.0, b[2]],
+                s: if sxy > 0.0 { 1.0 } else if sxy < 0.0 { -1.0 } else { 0.0 },
+                cx,
+                cy,
+            }
+        })
+        .collect();
+
+    // The bins: each card in the tiles its corners' screen box covers, a pixel spare each way.
+    let (tx, ty) = (w.div_ceil(TILE), h.div_ceil(TILE));
+    let mut tiles: Vec<Vec<u32>> = vec![Vec::new(); tx * ty];
+    let mut everywhere: Vec<u32> = Vec::new();
+    for (k, card) in deck.iter().enumerate() {
+        let mut lo = [f64::INFINITY; 2];
+        let mut hi = [f64::NEG_INFINITY; 2];
+        let (mut behind, mut gone) = (0, 0);
+        for (u, v) in [(-0.5, -0.5), (0.5, -0.5), (-0.5, 0.5), (0.5, 0.5)] {
+            let p: V3 = std::array::from_fn(|n| card.base[n] + card.a0[n] * u * cw + card.a1[n] * v * ch - o[n]);
+            let q = app(&m, p);
+            if !(q[2] > 1e-9 * f) {
+                behind += 1;
+                gone += usize::from(!(q[2] > 0.0));
+                continue;
+            }
+            for (n, at) in [(0, centre[0] + f * q[0] / q[2] + ox as f64), (1, centre[1] + f * q[1] / q[2] + oy as f64)] {
+                lo[n] = lo[n].min(at);
+                hi[n] = hi[n].max(at);
+            }
+        }
+        if gone == 4 {
+            // A card wholly at or behind the eye: every point of it is, so no ray meets it.
+            continue;
+        }
+        if behind > 0 {
+            everywhere.push(k as u32);
+            continue;
+        }
+        // Pixel X's centre is at X + 1/2 on the screen.
+        let span = |lo: f64, hi: f64, n: usize| -> Option<(usize, usize)> {
+            let (a, b) = ((lo - 1.5).floor(), (hi + 0.5).ceil());
+            (b >= 0.0 && a < n as f64).then(|| (a.max(0.0) as usize / TILE, (b.min(n as f64 - 1.0) as usize) / TILE))
+        };
+        if let (Some((x0, x1)), Some((y0, y1))) = (span(lo[0], hi[0], w), span(lo[1], hi[1], h)) {
+            for row in tiles[y0 * tx..(y1 + 1) * tx].chunks_exact_mut(tx) {
+                for tile in &mut row[x0..=x1] {
+                    tile.push(k as u32);
+                }
+            }
+        }
+    }
+
+    // Steps 5 to 8, per pixel.
+    let back = back_map.as_ref().map(|m| &*m.0);
+    let pl = app_t(&m, [light_position[0] * wf / 100.0 - wf / 2.0, light_position[1] * hf / 100.0 - hf / 2.0, -light_depth * wf]);
+    let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
+    let point = light_type == "point";
+    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (bx, by) = (i % w, i / w);
+        let v = app_t(&m, [bx as f64 - ox as f64 + 0.5 - centre[0], by as f64 - oy as f64 + 0.5 - centre[1], f]);
+        let nv = v.map(|q| -q);
+        let mut best: Option<(f64, usize, f64, f64)> = None;
+        for &k in tiles[(by / TILE) * tx + bx / TILE].iter().chain(&everywhere) {
+            let (k, card) = (k as usize, &deck[k as usize]);
+            let det = det3(card.a0, card.a1, nv);
+            if det == 0.0 {
+                continue;
+            }
+            let rhs: V3 = std::array::from_fn(|n| o[n] - card.base[n]);
+            let t = det3(card.a0, card.a1, rhs) / det;
+            if t <= 0.0 || best.is_some_and(|(bt, bk, ..)| t > bt || (t == bt && k > bk)) {
+                continue;
+            }
+            let (lx, ly) = (det3(rhs, card.a1, nv) / det, det3(card.a0, rhs, nv) / det);
+            if lx.abs() <= cw / 2.0 && ly.abs() <= ch / 2.0 {
+                best = Some((t, k, lx, ly));
+            }
+        }
+        let Some((t, k, lx, ly)) = best else {
+            return;
+        };
+        let card = &deck[k];
+        let nn = cross(card.a0, card.a1);
+        let front = card.s * dot(v, nn) > 0.0;
+        let p = if front {
+            sample_bilinear(drawing, card.cx + lx + ox as f64, card.cy + ly + oy as f64)
+        } else {
+            back.map_or([0.0; 4], |b| sample_bilinear(b, card.cx - lx, card.cy + ly))
+        }
+        .map(f64::from);
+        let n = unit(nn).map(|q| if front { -card.s * q } else { card.s * q });
+        let hit: V3 = std::array::from_fn(|n| o[n] + t * v[n]);
+        let lv = unit(if point { std::array::from_fn(|n| pl[n] - hit[n]) } else { pl });
+        let vv = unit(nv);
+        let hv = [lv[0] + vv[0], lv[1] + vv[1], lv[2] + vv[2]];
+        let nl = dot(n, lv);
+        let hn = dot(hv, hv).sqrt();
+        let sp = if nl > 0.0 && hn > 0.0 { (dot(n, hv) / hn).max(0.0).powf(*highlight_sharpness) } else { 0.0 };
+        for j in 0..3 {
+            px[j] = (p[j] * (ambient_light + diffuse_reflection * light_intensity * lc[j] * nl.max(0.0)) + specular_reflection * light_intensity * sp * lc[j] * p[3]) as f32;
+        }
+        px[3] = p[3] as f32;
+    });
+    *source = out;
+}
