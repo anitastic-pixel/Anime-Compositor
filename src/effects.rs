@@ -2274,6 +2274,12 @@ pub enum Effect {
     /// one of [`WARP_STYLES`]; `warp_axis`, "horizontal" or "vertical"; `bend`,
     /// `horizontal_distortion` and `vertical_distortion`, -100 to 100.
     Warp { warp_style: String, warp_axis: String, bend: f64, horizontal_distortion: f64, vertical_distortion: f64 },
+    /// D-605: after After Effects' Liquify (`mesh::liquify_field`, document 21). `tool`, one of
+    /// [`LIQUIFY_TOOLS`]; `brush_size`, 1 to 1000 pixels; `brush_pressure`, 1 to 100;
+    /// `stroke`, the brush's path, empty or x then y for each point, per cent of the drawing,
+    /// -100 to 200; `distortion_percentage`, 0 to 200; `distortion_mesh_offset`, pixels,
+    /// -10000 to 10000.
+    Liquify { tool: String, brush_size: f64, brush_pressure: f64, stroke: Vec<f64>, distortion_percentage: f64, distortion_mesh_offset: [f64; 2] },
     /// D-390: after CycoreFX's CC Ripple Pulse. `center`, per cent of the drawing, -1000 to 1000;
     /// `pulse_level`, -1000 to 1000; `time_span`, 0 to 10 seconds; `amplitude`, 0 to 1000;
     /// `render_bump_map`, "off" or "on". `levels` is not a setting and is never saved: the pulse
@@ -4313,6 +4319,7 @@ pub const POWER_PIN: &str = "core.power_pin";
 pub const BEZIER_WARP: &str = "core.bezier_warp";
 pub const MESH_WARP: &str = "core.mesh_warp";
 pub const WARP: &str = "core.warp";
+pub const LIQUIFY: &str = "core.liquify";
 /// D-602: Bezier Warp's twelve points as they are saved, round the outline from the top left:
 /// each edge's vertex, then its two tangents.
 pub const BEZIER_POINTS: [&str; 12] = [
@@ -4789,6 +4796,9 @@ pub const PAGE_TURN_RENDERS: [&str; 3] = ["full", "front", "back"];
 pub const FLOW_MOTION_ANTIALIASING: [&str; 3] = ["low", "medium", "high"];
 /// D-377: Bend It's words for the drawing before Start, in the order the card numbers them.
 pub const BEND_IT_PRESTARTS: [&str; 4] = ["none", "static", "bend", "mirror"];
+/// D-605: Liquify's brushes, in After Effects' order.
+pub const LIQUIFY_TOOLS: [&str; 6] = ["warp", "twirl_clockwise", "twirl_counterclockwise", "pucker", "bloat", "shift_pixels"];
+
 /// D-604: Warp's styles, in After Effects' order.
 pub const WARP_STYLES: [&str; 15] = [
     "arc",
@@ -5967,6 +5977,13 @@ impl Effect {
                 ("fold_radius", vec![fold_radius], 0.0, 1000.0),
                 ("light_direction", vec![light_direction], -3600.0, 3600.0),
                 ("back_opacity", vec![back_opacity], 0.0, 100.0),
+            ],
+            Effect::Liquify { brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset, .. } => vec![
+                ("brush_size", vec![brush_size], 1.0, 1000.0),
+                ("brush_pressure", vec![brush_pressure], 1.0, 100.0),
+                ("stroke", stroke.iter_mut().collect(), -100.0, 200.0),
+                ("distortion_percentage", vec![distortion_percentage], 0.0, 200.0),
+                ("distortion_mesh_offset", distortion_mesh_offset.iter_mut().collect(), -10000.0, 10000.0),
             ],
             Effect::Warp { bend, horizontal_distortion, vertical_distortion, .. } => vec![
                 ("bend", vec![bend], -100.0, 100.0),
@@ -7882,6 +7899,11 @@ impl Effect {
             // D-356: the masks are scaled as they always are, before the stack.
             Effect::Stroke { brush_size, .. } => *brush_size = scale(*brush_size),
             Effect::Vegas { width, .. } => *width = scale(*width),
+            // D-605: the brush and the offset are distances; the stroke is a share of the drawing.
+            Effect::Liquify { brush_size, distortion_mesh_offset, .. } => {
+                *brush_size = scale(*brush_size);
+                *distortion_mesh_offset = distortion_mesh_offset.map(scale);
+            }
             // D-508: the paths as Path Stroke's; the points are shares of the drawing.
             Effect::EnergyStroke { core_size, glow_spread, distortion_amount, distortion_scale, .. } => {
                 *core_size = scale(*core_size);
@@ -8191,6 +8213,7 @@ impl Effect {
             Effect::BezierWarp { .. } => "Bezier Warp",
             Effect::MeshWarp { .. } => "Mesh Warp",
             Effect::Warp { .. } => "Warp",
+            Effect::Liquify { .. } => "Liquify",
             Effect::RipplePulse { .. } => "Ripple Pulse",
             Effect::Slant { .. } => "Slant",
             Effect::Smear { .. } => "Smear",
@@ -8448,6 +8471,7 @@ impl Effect {
             Effect::BezierWarp { .. } => BEZIER_WARP,
             Effect::MeshWarp { .. } => MESH_WARP,
             Effect::Warp { .. } => WARP,
+            Effect::Liquify { .. } => LIQUIFY,
             Effect::RipplePulse { .. } => RIPPLE_PULSE,
             Effect::Slant { .. } => SLANT,
             Effect::Smear { .. } => SMEAR,
@@ -9609,6 +9633,14 @@ impl Effect {
             Effect::PageTurn { paper_color, .. } if hex_fault("Page Turn", "paper colour", paper_color).is_some() => {
                 hex_fault("Page Turn", "paper colour", paper_color)
             }
+            // D-605: the brush by name, and the stroke in whole points.
+            Effect::Liquify { tool, .. } if !LIQUIFY_TOOLS.contains(&tool.as_str()) => Some(format!(
+                "Liquify's tool is warp, twirl_clockwise, twirl_counterclockwise, pucker, bloat or shift_pixels, and this is \"{tool}\"."
+            )),
+            Effect::Liquify { stroke, .. } if stroke.len() % 2 == 1 => Some(format!(
+                "Liquify's stroke is none, or x then y for each point, and this has {} numbers.",
+                stroke.len()
+            )),
             // D-604: the words, by name.
             Effect::Warp { warp_style, .. } if !WARP_STYLES.contains(&warp_style.as_str()) => Some(format!(
                 "Warp's warp style is arc, arc_lower, arc_upper, arch, bulge, shell_lower, shell_upper, flag, wave, fish, rise, fisheye, inflate, squeeze or twist, and this is \"{warp_style}\"."
@@ -12229,6 +12261,14 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
+            // D-605: the drawing pushed by the brush in its own space; the layer never grows.
+            Effect::Liquify { tool, brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset } => crate::perf::time(crate::perf::Stage::EffectLiquify, || {
+                if !stroke.is_empty() && *distortion_percentage != 0.0 {
+                    let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+                    let field = crate::mesh::liquify_field(tool, *brush_size, *brush_pressure, stroke, size);
+                    crate::mesh::draw_field(source, &field, *distortion_percentage / 100.0, *distortion_mesh_offset, (ox, oy));
+                }
+            }),
             // D-604: the drawing bent to its style in its own space; the layer never grows.
             Effect::Warp { warp_style, warp_axis, bend, horizontal_distortion, vertical_distortion } => crate::perf::time(crate::perf::Stage::EffectWarp, || {
                 let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);

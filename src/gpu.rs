@@ -5151,6 +5151,32 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             sx = hex_fold(sx, f64(size.x), z);
             sy = hex_fold(sy, f64(size.y), z);
         }
+        case 151u: {
+            // D-601, mesh::draw_field, for D-605's Liquify. k as mesh::field_numbers lays it: a
+            // 0, the cells across and down, the drawing's size and corner, the share, the
+            // offset, 0, 0; then each grid corner's step, row by row. Every product rounded once,
+            // as the CPU's are.
+            let z = k[0];
+            let gx = k[1];
+            let gy = k[2];
+            let px = x - k[5];
+            let py = y - k[6];
+            let fx = clamp(product(quotient(px - k[8], k[3]), gx, z), 0.0lf, gx);
+            let fy = clamp(product(quotient(py - k[9], k[4]), gy, z), 0.0lf, gy);
+            let i = min(floor(fx), gx - 1.0lf);
+            let j = min(floor(fy), gy - 1.0lf);
+            let u = fx - i;
+            let v = fy - j;
+            let n = u32(gx) + 1u;
+            let at = 12u + 2u * (u32(j) * n + u32(i));
+            let below = at + 2u * n;
+            let dx = product(1.0lf - v, product(1.0lf - u, k[at], z) + product(u, k[at + 2u], z), z)
+                + product(v, product(1.0lf - u, k[below], z) + product(u, k[below + 2u], z), z);
+            let dy = product(1.0lf - v, product(1.0lf - u, k[at + 1u], z) + product(u, k[at + 3u], z), z)
+                + product(v, product(1.0lf - u, k[below + 1u], z) + product(u, k[below + 3u], z), z);
+            sx = px + product(k[7], dx, z) + k[5];
+            sy = py + product(k[7], dy, z) + k[6];
+        }
         case 150u: {
             // D-601, mesh::draw, for D-602's Bezier Warp and the forward meshes after it. k as
             // mesh::mesh_numbers lays it: a 0, the columns and rows, the drawing's size and
@@ -13923,6 +13949,16 @@ impl Gpu {
                 let out = self.scratch("D-389 power pin", tw, th);
                 self.fx_step(steps, &passes.warp, FxParams { mode: 17, ..Default::default() }, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
                 (out, (tw, th))
+            }
+            // D-605, mesh::liquify_field, drawn as mesh::draw_field draws it: warp mode 151.
+            E::Liquify { tool, brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset } => {
+                if stroke.is_empty() || *distortion_percentage == 0.0 {
+                    (still.clone(), (w, h))
+                } else {
+                    let field = crate::mesh::liquify_field(tool, *brush_size, *brush_pressure, stroke, ((w - 2 * ox) as f64, (h - 2 * oy) as f64));
+                    let k = crate::mesh::field_numbers(&field, *distortion_percentage / 100.0, *distortion_mesh_offset, (w, h), f.origin);
+                    same(steps, &passes.warp, FxParams { mode: 151, ..Default::default() }, &k, None)
+                }
             }
             // D-604, mesh::warp_preset_mesh, drawn the same way.
             E::Warp { warp_style, warp_axis, bend, horizontal_distortion, vertical_distortion } => {

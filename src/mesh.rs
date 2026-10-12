@@ -368,6 +368,75 @@ pub(crate) fn warp_preset_mesh(style: &str, axis: &str, bend: f64, horizontal: f
     Some(Mesh { cols: g, rows: g, at })
 }
 
+/// D-605: where Liquify's brush lands along `stroke` (x then y, per cent of the drawing `dw` by
+/// `dh`) at reach `reach`, and how far each dab moves, as `tools/liquify_reference.py` lays them.
+fn liquify_dabs(stroke: &[f64], reach: f64, (dw, dh): (f64, f64)) -> Vec<([f64; 2], [f64; 2])> {
+    let pts: Vec<[f64; 2]> = stroke.chunks_exact(2).map(|p| [p[0] / 100.0 * dw, p[1] / 100.0 * dh]).collect();
+    let pieces: Vec<([f64; 2], [f64; 2], f64)> = pts.windows(2).map(|w| (w[0], w[1], (w[1][0] - w[0][0]).hypot(w[1][1] - w[0][1]))).collect();
+    let length = pieces.iter().fold(0.0, |s, p| s + p.2);
+    if length == 0.0 {
+        return vec![(pts[0], [0.0, 0.0])];
+    }
+    let n = (length / (reach / 4.0).max(0.5)).ceil().max(1.0) as usize;
+    let mut out = Vec::with_capacity(n);
+    for k in 1..=n {
+        let mut left = k as f64 * length / n as f64;
+        for (m, &(a, b, l)) in pieces.iter().enumerate() {
+            if l == 0.0 {
+                continue;
+            }
+            if left <= l || m == pieces.len() - 1 {
+                let u = (left / l).min(1.0);
+                let c = [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+                let d = [(b[0] - a[0]) / l * length / n as f64, (b[1] - a[1]) / l * length / n as f64];
+                out.push((c, d));
+                break;
+            }
+            left -= l;
+        }
+    }
+    out
+}
+
+/// D-605: Liquify's backward field over the drawing `dw` by `dh`: each dab's step, by `tool`,
+/// added up at each corner of a grid of cells two pixels across (at most 256 each way).
+pub(crate) fn liquify_field(tool: &str, brush_size: f64, brush_pressure: f64, stroke: &[f64], (dw, dh): (f64, f64)) -> Field {
+    let (gx, gy) = ((dw / 2.0).ceil().min(256.0) as usize, (dh / 2.0).ceil().min(256.0) as usize);
+    let reach = brush_size / 2.0;
+    let pressure = brush_pressure / 100.0;
+    let landed = liquify_dabs(stroke, reach, (dw, dh));
+    let step = (0..(gx + 1) * (gy + 1))
+        .into_par_iter()
+        .map(|n| {
+            let p = [(n % (gx + 1)) as f64 * dw / gx as f64, (n / (gx + 1)) as f64 * dh / gy as f64];
+            let mut s = [0.0, 0.0];
+            for &(c, d) in &landed {
+                let t = (p[0] - c[0]).hypot(p[1] - c[1]) / reach;
+                if t >= 1.0 {
+                    continue;
+                }
+                let e = 1.0 - t * t;
+                let f = pressure * (e * e);
+                let (qx, qy) = (p[0] - c[0], p[1] - c[1]);
+                let [a, b] = match tool {
+                    "warp" => [-f * d[0], -f * d[1]],
+                    "twirl_clockwise" | "twirl_counterclockwise" => {
+                        let a = 0.2 * f * if tool == "twirl_clockwise" { -1.0 } else { 1.0 };
+                        [qx * a.cos() - qy * a.sin() - qx, qx * a.sin() + qy * a.cos() - qy]
+                    }
+                    "pucker" => [0.2 * f * qx, 0.2 * f * qy],
+                    "bloat" => [-0.2 * f * qx, -0.2 * f * qy],
+                    _ => [-f * d[1], f * d[0]], // shift_pixels
+                };
+                s[0] += a;
+                s[1] += b;
+            }
+            s
+        })
+        .collect();
+    Field { gx, gy, step }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -3735,6 +3735,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("back_opacity".into(), num(*back_opacity));
             params.insert("paper_color".into(), J::from(paper_color.as_str()));
         }
+        // D-605: the stroke as one flat list, empty for none.
+        Effect::Liquify { tool, brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset } => {
+            params.insert("tool".into(), J::from(tool.as_str()));
+            params.insert("brush_size".into(), num(*brush_size));
+            params.insert("brush_pressure".into(), num(*brush_pressure));
+            params.insert("stroke".into(), J::Array(stroke.iter().map(|v| num(*v)).collect()));
+            params.insert("distortion_percentage".into(), num(*distortion_percentage));
+            params.insert("distortion_mesh_offset".into(), J::Array(distortion_mesh_offset.iter().map(|c| num(*c)).collect()));
+        }
         // D-604: the words as written.
         Effect::Warp { warp_style, warp_axis, bend, horizontal_distortion, vertical_distortion } => {
             params.insert("warp_style".into(), J::from(warp_style.as_str()));
@@ -5932,6 +5941,7 @@ fn parse_effect(
         crate::effects::BEZIER_WARP,
         crate::effects::MESH_WARP,
         crate::effects::WARP,
+        crate::effects::LIQUIFY,
         crate::effects::RIPPLE_PULSE,
         crate::effects::SLANT,
         crate::effects::SMEAR,
@@ -8049,6 +8059,15 @@ fn parse_effect(
             expansion_left: effect_number(params, "expansion_left", &at)?,
             expansion_right: effect_number(params, "expansion_right", &at)?,
             expansion_bottom: effect_number(params, "expansion_bottom", &at)?,
+        }),
+        // D-605: the tool kept as written, so one outside the contract is refused by name.
+        crate::effects::LIQUIFY => Some(crate::effects::Effect::Liquify {
+            tool: effect_word(params, "tool", &at)?,
+            brush_size: effect_number(params, "brush_size", &at)?,
+            brush_pressure: effect_number(params, "brush_pressure", &at)?,
+            stroke: effect_list(params, "stroke", &at)?,
+            distortion_percentage: effect_number(params, "distortion_percentage", &at)?,
+            distortion_mesh_offset: effect_array(params, "distortion_mesh_offset", "two numbers, x then y", &at)?,
         }),
         // D-604: the words kept as written, so one outside the contract is refused by name.
         crate::effects::WARP => Some(crate::effects::Effect::Warp {

@@ -1041,6 +1041,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::MeshWarp { .. }
                 // D-604: Warp.
                 | crate::effects::Effect::Warp { .. }
+                // D-605: Liquify.
+                | crate::effects::Effect::Liquify { .. }
                 | crate::effects::Effect::RipplePulse { .. }
                 // D-391..D-393: Slant, Smear and Split.
                 | crate::effects::Effect::Slant { .. }
@@ -1547,6 +1549,8 @@ fn card_effect(
                 E::BezierWarp { points, .. } => *points == crate::effects::BEZIER_START,
                 // D-603: the mesh at rest.
                 E::MeshWarp { rows, columns, distortion_mesh, .. } => crate::mesh::warp_rests(*rows, *columns, distortion_mesh),
+                // D-605: no stroke, or none of it drawn.
+                E::Liquify { stroke, distortion_percentage, .. } => stroke.is_empty() || *distortion_percentage == 0.0,
                 // D-604: no bend and no distortion.
                 E::Warp { bend, horizontal_distortion, vertical_distortion, .. } => {
                     *bend == 0.0 && *horizontal_distortion == 0.0 && *vertical_distortion == 0.0
