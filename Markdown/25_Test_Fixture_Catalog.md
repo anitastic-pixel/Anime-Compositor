@@ -207997,9 +207997,9 @@ FX-TURBNOISE-027 (`fx_turbnoise_027.json`): Seed -1, below 0. The file is read, 
 
 FX-TURBNOISE-028 (`fx_turbnoise_028.json`): Scale width 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-TURBNOISE-029 (`fx_turbnoise_029.json`): Fractal type "dynamic", one of After Effects' that is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-TURBNOISE-029 (`fx_turbnoise_029.json`): Fractal type "plasma", which is not one of the seventeen. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4. (Regenerated under D-566 for D-567: before, it pinned a type then not built.)
 
-FX-TURBNOISE-030 (`fx_turbnoise_030.json`): Noise type "spline", one of After Effects' that is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-TURBNOISE-030 (`fx_turbnoise_030.json`): Noise type "cubic", which is not one of the five. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4. (Regenerated under D-566 for D-567: before, it pinned a type then not built.)
 
 FX-TURBNOISE-031 (`fx_turbnoise_031.json`): Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -212204,3 +212204,57 @@ FX-CONTOUR-045 (`fx_contour_045.json`): Arrowheads on with the ramp as the Exter
 FX-CONTOUR-046 (`fx_contour_046.json`): Arrowheads on with View Final Result: the heads belong to the Edge Map, so FX-CONTOUR-001. Frames 0.
 
 FX-CONTOUR-047 (`fx_contour_047.json`): Arrowheads written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Turbulent Noise's full type lists (D-567)
+
+Turbulent Noise (`core.turbulent_noise`) with the fractal and noise types After Effects lists past basic, turbulent, smooth and block (B-446, EFFECTS.md rows 224 and 216; Fractal Noise takes the same words, one engine), each rule ours. Every case is a composition 16 by 10, five frames, holding Noise's card, as D-445's cases; the media are in `Fixtures/turbulent_noise_types/media/`. `tools/turbulent_noise_types_reference.py` works the expected frames, `Fixtures/turbulent_noise_types/expected_turbulent_noise_types.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-TURBTYPE-001 (`fx_turbtype_001.json`): Size 4, fractal type turbulent_smooth: rounded creases, softer than turbulent's. Frames 0.
+
+FX-TURBTYPE-002 (`fx_turbtype_002.json`): Size 4, fractal type turbulent_sharp: thin, sharp creases. Frames 0.
+
+FX-TURBTYPE-003 (`fx_turbtype_003.json`): Size 4, fractal type dynamic: each octave pushed by the clouds so far, the clouds drawn out. Frames 0.
+
+FX-TURBTYPE-004 (`fx_turbtype_004.json`): Size 4, fractal type dynamic_progressive: each octave pushed further than the last. Frames 0.
+
+FX-TURBTYPE-005 (`fx_turbtype_005.json`): Size 4, fractal type dynamic_twist: each octave pushed in a direction the clouds turn, like smoke. Frames 0.
+
+FX-TURBTYPE-006 (`fx_turbtype_006.json`): Size 4, fractal type max: each octave only ever lightening the clouds, light clouds. Frames 0.
+
+FX-TURBTYPE-007 (`fx_turbtype_007.json`): Size 4, fractal type smeary: the finer octaves streaked across. Frames 0.
+
+FX-TURBTYPE-008 (`fx_turbtype_008.json`): Size 4, fractal type swirly: bands that follow the clouds, like agate. Frames 0.
+
+FX-TURBTYPE-009 (`fx_turbtype_009.json`): Size 4, fractal type rocky: flat patches in five greys, like camouflage. Frames 0.
+
+FX-TURBTYPE-010 (`fx_turbtype_010.json`): Size 4, fractal type cloudy: soft light puffs on dark. Frames 0.
+
+FX-TURBTYPE-011 (`fx_turbtype_011.json`): Size 4, fractal type terrain: light ridges. Frames 0.
+
+FX-TURBTYPE-012 (`fx_turbtype_012.json`): Size 4, fractal type subscale: the fine detail only where the coarser clouds are light. Frames 0.
+
+FX-TURBTYPE-013 (`fx_turbtype_013.json`): Size 4, fractal type small_bumps: small bumps, starting two octaves finer. Frames 0.
+
+FX-TURBTYPE-014 (`fx_turbtype_014.json`): Size 4, fractal type strings: thin light lines where the clouds cross the middle grey. Frames 0.
+
+FX-TURBTYPE-015 (`fx_turbtype_015.json`): Size 4, fractal type threads: thin threads at every scale. Frames 0.
+
+FX-TURBTYPE-016 (`fx_turbtype_016.json`): Size 4, noise type linear: straight lines between the points, a harder look than smooth. Frames 0.
+
+FX-TURBTYPE-017 (`fx_turbtype_017.json`): Size 4, noise type soft_linear: softer at the points than linear. Frames 0.
+
+FX-TURBTYPE-018 (`fx_turbtype_018.json`): Size 4, noise type spline: a smooth wave through every point. Frames 0.
+
+FX-TURBTYPE-019 (`fx_turbtype_019.json`): Size 4, dynamic_twist on spline, inverted, evolution keyed from 0 at frame 0 to 720 at frame 4, linear: the smoke moves as it evolves. Frames 0, 2, 4.
+
+FX-TURBTYPE-020 (`fx_turbtype_020.json`): Size 4, rocky on block, contrast 200: square flat patches. Frames 0.
+
+FX-TURBTYPE-021 (`fx_turbtype_021.json`): Size 4, terrain on linear at complexity 20, the most. Frames 0.
+
+FX-TURBTYPE-022 (`fx_turbtype_022.json`): Size 4, swirly at complexity 1.9, which counts as 1: sin(3 pi v) of the one octave. Frames 0.
+
+FX-TURBTYPE-023 (`fx_turbtype_023.json`): FX-TURBTYPE-006 (max) moved three pixels right: worked in the drawing's own space, so it moves with it. Frames 0, 3.
+
+FX-TURBTYPE-024 (`fx_turbtype_024.json`): Fractal type "Turbulent Basic", the name shown and not the word written. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBTYPE-025 (`fx_turbtype_025.json`): Noise type "soft linear", with a space and not the underscore. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
