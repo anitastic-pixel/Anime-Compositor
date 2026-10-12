@@ -1433,6 +1433,58 @@ pub enum Effect {
         random_seed: f64,
         clock: [f64; 2],
     },
+    /// D-630: after After Effects' Wave World (Simulation), its rule and its settings when added
+    /// ours (`layer_fx::wave_world`, `tools/wave_world_reference.py`, document 21). Map:
+    /// `brightness` 0 to 1, `contrast` 0 to 10, `gamma` 0.1 to 10, `render_dry_areas` `level` or
+    /// `transparent`, `transparency` 0 to 1. Simulation: `grid_resolution` 1 to 600,
+    /// `grid_res_downsamples` `off` or `on`, `wave_speed` 0 to 1 layer widths a second,
+    /// `damping` 0 to 1, `reflect_edges` `none` or `all`, `pre_roll` 0 to 10 seconds. Ground:
+    /// `ground_layer` D-189's layer setting as written, `steepness`, `height` 0 to 1,
+    /// `wave_strength` 0 to 10. Producers 1 and 2: `type` `ring` or `line`, `position` per cent
+    /// of the layer -1000 to 1000, `height` and `width` 0 to 10 layer widths, `angle` -3600 to
+    /// 3600, `amplitude` 0 to 10, `frequency` 0 to 30 a second, `phase` -3600 to 3600. A
+    /// position of other than two numbers is kept as written and faults, as the fixtures ask.
+    /// Not settings, never saved: `ground_map`, compose reads the ground into it at the layer's
+    /// in point; `history`, compose fills it with every number ([`Effect::wave_numbers`]) at
+    /// each frame from the in point to this one, as the water runs again each frame (D-610's
+    /// rule); `fps`, the composition's frames a second; `grid_scale`, the draft's scale.
+    WaveWorld {
+        brightness: f64,
+        contrast: f64,
+        gamma: f64,
+        render_dry_areas: String,
+        transparency: f64,
+        grid_resolution: f64,
+        grid_res_downsamples: String,
+        wave_speed: f64,
+        damping: f64,
+        reflect_edges: String,
+        pre_roll: f64,
+        ground_layer: serde_json::Value,
+        ground_map: Option<crate::layer_map::Map>,
+        steepness: f64,
+        height: f64,
+        wave_strength: f64,
+        producer_1_type: String,
+        producer_1_position: Vec<f64>,
+        producer_1_height: f64,
+        producer_1_width: f64,
+        producer_1_angle: f64,
+        producer_1_amplitude: f64,
+        producer_1_frequency: f64,
+        producer_1_phase: f64,
+        producer_2_type: String,
+        producer_2_position: Vec<f64>,
+        producer_2_height: f64,
+        producer_2_width: f64,
+        producer_2_angle: f64,
+        producer_2_amplitude: f64,
+        producer_2_frequency: f64,
+        producer_2_phase: f64,
+        history: Vec<Vec<f64>>,
+        fps: f64,
+        grid_scale: f64,
+    },
     /// D-521: after After Effects' Time Difference, its rule and its settings when added ours
     /// (`layer_fx::time_difference`, document 21). `layer`, D-189's layer setting as written, the
     /// target, "" for the layer itself; `time_offset`, -60 to 60 seconds; `contrast`, 0 to 100;
@@ -3770,6 +3822,7 @@ pub const ECHO: &str = "core.echo";
 pub const CC_WIDE_TIME: &str = "core.cc_wide_time";
 pub const FORCE_MOTION_BLUR: &str = "core.force_motion_blur";
 pub const CC_RAINFALL: &str = "core.cc_rainfall";
+pub const WAVE_WORLD: &str = "core.wave_world";
 pub const TIME_DIFFERENCE: &str = "core.time_difference";
 /// D-521: Time Difference's Alpha Channel words, in After Effects' order.
 pub const TDIFF_ALPHAS: [&str; 9] = [
@@ -6482,6 +6535,61 @@ impl Effect {
                 ("ground_level", vec![ground_level], 0.0, 100.0),
                 ("random_seed", vec![random_seed], 0.0, 100000.0),
             ],
+            // D-630: in `layer_fx::wave_world`'s order, which reads them by place.
+            Effect::WaveWorld {
+                brightness,
+                contrast,
+                gamma,
+                transparency,
+                grid_resolution,
+                wave_speed,
+                damping,
+                pre_roll,
+                steepness,
+                height,
+                wave_strength,
+                producer_1_position,
+                producer_1_height,
+                producer_1_width,
+                producer_1_angle,
+                producer_1_amplitude,
+                producer_1_frequency,
+                producer_1_phase,
+                producer_2_position,
+                producer_2_height,
+                producer_2_width,
+                producer_2_angle,
+                producer_2_amplitude,
+                producer_2_frequency,
+                producer_2_phase,
+                ..
+            } => vec![
+                ("brightness", vec![brightness], 0.0, 1.0),
+                ("contrast", vec![contrast], 0.0, 10.0),
+                ("gamma", vec![gamma], 0.1, 10.0),
+                ("transparency", vec![transparency], 0.0, 1.0),
+                ("grid_resolution", vec![grid_resolution], 1.0, 600.0),
+                ("wave_speed", vec![wave_speed], 0.0, 1.0),
+                ("damping", vec![damping], 0.0, 1.0),
+                ("pre_roll", vec![pre_roll], 0.0, 10.0),
+                ("steepness", vec![steepness], 0.0, 1.0),
+                ("height", vec![height], 0.0, 1.0),
+                ("wave_strength", vec![wave_strength], 0.0, 10.0),
+                ("producer_1_position", producer_1_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("producer_1_height", vec![producer_1_height], 0.0, 10.0),
+                ("producer_1_width", vec![producer_1_width], 0.0, 10.0),
+                ("producer_1_angle", vec![producer_1_angle], -3600.0, 3600.0),
+                ("producer_1_amplitude", vec![producer_1_amplitude], 0.0, 10.0),
+                ("producer_1_frequency", vec![producer_1_frequency], 0.0, 30.0),
+                ("producer_1_phase", vec![producer_1_phase], -3600.0, 3600.0),
+                ("producer_2_position", producer_2_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("producer_2_height", vec![producer_2_height], 0.0, 10.0),
+                ("producer_2_width", vec![producer_2_width], 0.0, 10.0),
+                ("producer_2_angle", vec![producer_2_angle], -3600.0, 3600.0),
+                ("producer_2_amplitude", vec![producer_2_amplitude], 0.0, 10.0),
+                ("producer_2_frequency", vec![producer_2_frequency], 0.0, 30.0),
+                ("producer_2_phase", vec![producer_2_phase], -3600.0, 3600.0),
+            ],
             Effect::TimeDifference { time_offset, contrast, .. } => vec![
                 ("time_offset", vec![time_offset], -60.0, 60.0),
                 ("contrast", vec![contrast], 0.0, 100.0),
@@ -6827,6 +6935,12 @@ impl Effect {
     /// D-332: the name of every setting a key can be put on.
     pub fn names(&self) -> Vec<&'static str> {
         self.clone().numbers().into_iter().map(|n| n.0).collect()
+    }
+
+    /// D-630: every number of this effect in its table's order, one after another: one sample
+    /// of Wave World's history.
+    pub fn wave_numbers(&self) -> Vec<f64> {
+        self.clone().numbers().into_iter().flat_map(|n| n.1.into_iter().map(|v| *v).collect::<Vec<_>>()).collect()
     }
 
     /// The numbers the setting of this name holds, or `None` when this effect has no such setting.
@@ -7221,6 +7335,8 @@ impl Effect {
                 *speed = scale(*speed);
                 *wind = scale(*wind);
             }
+            // D-630: every length is a share of the layer; only a grid that downsamples follows.
+            Effect::WaveWorld { grid_scale, .. } => *grid_scale = scale(*grid_scale),
             Effect::KiraKira { spacing, size, .. } => {
                 *spacing = scale(*spacing);
                 *size = scale(*size);
@@ -7432,6 +7548,7 @@ impl Effect {
             Effect::CcWideTime { .. } => "CC Wide Time",
             Effect::ForceMotionBlur { .. } => "CC Force Motion Blur",
             Effect::CcRainfall { .. } => "CC Rainfall",
+            Effect::WaveWorld { .. } => "Wave World",
             Effect::TimeDifference { .. } => "Time Difference",
             Effect::PosterizeTime { .. } => "Posterize Time",
             Effect::ChangeToColor { .. } => "Change to Color",
@@ -7681,6 +7798,7 @@ impl Effect {
             Effect::CcWideTime { .. } => CC_WIDE_TIME,
             Effect::ForceMotionBlur { .. } => FORCE_MOTION_BLUR,
             Effect::CcRainfall { .. } => CC_RAINFALL,
+            Effect::WaveWorld { .. } => WAVE_WORLD,
             Effect::TimeDifference { .. } => TIME_DIFFERENCE,
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
@@ -8132,6 +8250,8 @@ impl Effect {
             }
             // D-388: the back page is laid on the drawing, stretched to it.
             Effect::PageTurn { back_page: serde_json::Value::String(layer), .. } => Some((layer, "stretch")),
+            // D-630: the ground stretched to the layer, read at its in point only.
+            Effect::WaveWorld { ground_layer: serde_json::Value::String(layer), .. } => Some((layer, "stretch")),
             // D-517: the back centred on the drawing, as CycoreFX's manual has it.
             Effect::Twister { backside: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             // D-518: the layer revealed centred, as Glass Melt's.
@@ -8185,6 +8305,7 @@ impl Effect {
             | Effect::MatchGrain { layer, map, .. } => Some((layer, map)),
             Effect::CcSpotlight { gel_layer, gel_map, .. } => Some((gel_layer, gel_map)),
             Effect::PageTurn { back_page, map, .. } => Some((back_page, map)),
+            Effect::WaveWorld { ground_layer, ground_map, .. } => Some((ground_layer, ground_map)),
             Effect::Fog3d { gradient_layer, map, .. } => Some((gradient_layer, map)),
             Effect::SoftGlow { dirt, .. } | Effect::LensFlare { dirt, .. } => Some((&mut dirt.layer, &mut dirt.map)),
             Effect::Twister { backside, map, .. } => Some((backside, map)),
@@ -9733,6 +9854,36 @@ impl Effect {
             Effect::CcRainfall { composite_with_original, .. } if !["off", "on"].contains(&composite_with_original.as_str()) => Some(format!(
                 "CC Rainfall's composite with original is \"off\" or \"on\", and this is \"{composite_with_original}\"."
             )),
+            Effect::WaveWorld {
+                render_dry_areas,
+                grid_res_downsamples,
+                reflect_edges,
+                ground_layer,
+                producer_1_type,
+                producer_2_type,
+                producer_1_position,
+                producer_2_position,
+                ..
+            } => {
+                let one_of = |what: &str, words: &[&str], w: &str| {
+                    (!words.contains(&w)).then(|| {
+                        let words = words.iter().map(|w| format!("\"{w}\"")).collect::<Vec<_>>().join(" or ");
+                        format!("Wave World's {what} is {words}, and this is \"{w}\".")
+                    })
+                };
+                (!ground_layer.is_string())
+                    .then(|| format!("Wave World's ground layer is the name of a layer of this composition, and this is {ground_layer}."))
+                    .or_else(|| one_of("render dry areas as", &["level", "transparent"], render_dry_areas))
+                    .or_else(|| one_of("grid res downsamples", &["off", "on"], grid_res_downsamples))
+                    .or_else(|| one_of("reflect edges", &["none", "all"], reflect_edges))
+                    .or_else(|| one_of("producer 1 type", &["ring", "line"], producer_1_type))
+                    .or_else(|| one_of("producer 2 type", &["ring", "line"], producer_2_type))
+                    .or_else(|| [producer_1_position, producer_2_position].iter().enumerate().find(|(_, v)| v.len() != 2).map(|(i, v)| format!(
+                        "Wave World's producer {} position is two numbers, x then y, and this has {}.",
+                        i + 1,
+                        v.len()
+                    )))
+            }
             Effect::TimeDifference { layer, .. } if !layer.is_string() => Some(format!(
                 "Time Difference's target is the name of a layer of this composition, and this is {layer}."
             )),
@@ -11658,6 +11809,11 @@ pub(crate) fn apply_stack_at(
             Effect::CcEnvironment { .. } => {}
             // D-580: every distance a share of the drawing; never grows. A back or gradient layer
             // not read (none named, or one not in the composition, which compose said) is none.
+            // D-630: the water drawn over the drawing in its place; never grows. A ground not read
+            // (none named, not in the composition, or not begun at the in point) is flat.
+            e @ Effect::WaveWorld { .. } => crate::perf::time(crate::perf::Stage::EffectWaveWorld, || {
+                crate::layer_fx::wave_world(source, e, (ox, oy))
+            }),
             e @ Effect::CardWipe { .. } => crate::perf::time(crate::perf::Stage::EffectCardWipe, || {
                 crate::layer_fx::card_wipe(source, e, (ox, oy))
             }),

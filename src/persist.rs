@@ -2255,6 +2255,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("shutter_angle".into(), num(*shutter_angle));
             params.insert("native_motion_blur".into(), J::from(native_motion_blur.as_str()));
         }
+        Effect::WaveWorld { ground_layer, producer_1_position, producer_2_position, render_dry_areas, grid_res_downsamples, reflect_edges, producer_1_type, producer_2_type, .. } => {
+            params.insert("ground_layer".into(), ground_layer.clone());
+            for (n, v) in [("producer_1_position", producer_1_position), ("producer_2_position", producer_2_position)] {
+                params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
+            }
+            for (n, v) in [("render_dry_areas", render_dry_areas), ("grid_res_downsamples", grid_res_downsamples), ("reflect_edges", reflect_edges), ("producer_1_type", producer_1_type), ("producer_2_type", producer_2_type)] {
+                params.insert(n.into(), J::from(v.as_str()));
+            }
+            // D-630: every other number, by its name in the effect's table.
+            for n in instance.effect.names() {
+                if !n.ends_with("_position") {
+                    params.insert(n.into(), num(instance.effect.get(n).unwrap()[0]));
+                }
+            }
+        }
         Effect::CcRainfall { color, transfer_mode, composite_with_original, drops, size, scene_depth, speed, wind, wind_variation, spread, opacity, ground_level, random_seed, .. } => {
             params.insert("drops".into(), num(*drops));
             params.insert("size".into(), num(*size));
@@ -5691,6 +5706,7 @@ fn parse_effect(
         crate::effects::FORCE_MOTION_BLUR,
         crate::effects::TIME_DIFFERENCE,
         crate::effects::CC_RAINFALL,
+        crate::effects::WAVE_WORLD,
         crate::effects::POSTERIZE_TIME,
         crate::effects::CHANGE_TO_COLOR,
         crate::effects::CORNER_PIN,
@@ -6616,6 +6632,43 @@ fn parse_effect(
             shutter_angle: effect_number(params, "shutter_angle", &at)?,
             native_motion_blur: effect_word(params, "native_motion_blur", &at)?,
             picture: None,
+        }),
+        crate::effects::WAVE_WORLD => Some(crate::effects::Effect::WaveWorld {
+            brightness: effect_number(params, "brightness", &at)?,
+            contrast: effect_number(params, "contrast", &at)?,
+            gamma: effect_number(params, "gamma", &at)?,
+            transparency: effect_number(params, "transparency", &at)?,
+            grid_resolution: effect_number(params, "grid_resolution", &at)?,
+            wave_speed: effect_number(params, "wave_speed", &at)?,
+            damping: effect_number(params, "damping", &at)?,
+            pre_roll: effect_number(params, "pre_roll", &at)?,
+            steepness: effect_number(params, "steepness", &at)?,
+            height: effect_number(params, "height", &at)?,
+            wave_strength: effect_number(params, "wave_strength", &at)?,
+            producer_1_height: effect_number(params, "producer_1_height", &at)?,
+            producer_1_width: effect_number(params, "producer_1_width", &at)?,
+            producer_1_angle: effect_number(params, "producer_1_angle", &at)?,
+            producer_1_amplitude: effect_number(params, "producer_1_amplitude", &at)?,
+            producer_1_frequency: effect_number(params, "producer_1_frequency", &at)?,
+            producer_1_phase: effect_number(params, "producer_1_phase", &at)?,
+            producer_2_height: effect_number(params, "producer_2_height", &at)?,
+            producer_2_width: effect_number(params, "producer_2_width", &at)?,
+            producer_2_angle: effect_number(params, "producer_2_angle", &at)?,
+            producer_2_amplitude: effect_number(params, "producer_2_amplitude", &at)?,
+            producer_2_frequency: effect_number(params, "producer_2_frequency", &at)?,
+            producer_2_phase: effect_number(params, "producer_2_phase", &at)?,
+            render_dry_areas: effect_word(params, "render_dry_areas", &at)?,
+            grid_res_downsamples: effect_word(params, "grid_res_downsamples", &at)?,
+            reflect_edges: effect_word(params, "reflect_edges", &at)?,
+            producer_1_type: effect_word(params, "producer_1_type", &at)?,
+            producer_2_type: effect_word(params, "producer_2_type", &at)?,
+            producer_1_position: effect_list(params, "producer_1_position", &at)?,
+            producer_2_position: effect_list(params, "producer_2_position", &at)?,
+            ground_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "ground_layer")?.clone(),
+            ground_map: None,
+            history: Vec::new(),
+            fps: 0.0,
+            grid_scale: 1.0,
         }),
         crate::effects::CC_RAINFALL => Some(crate::effects::Effect::CcRainfall {
             drops: effect_number(params, "drops", &at)?,

@@ -10108,3 +10108,247 @@ pub(crate) fn transform(source: &mut WorkingBuffer, moments: &[(Option<[f64; 6]>
         });
     *source = out;
 }
+
+/// D-630: Wave World, `tools/wave_world_reference.py`'s rule step for step, in double
+/// precision: the water run on its grid from the layer's in point (after the pre-roll) to this
+/// frame through the settings history compose filled, then drawn as a grey height map over the
+/// drawing in its place. The layer's own picture is not used. The settings are already valid.
+pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let crate::effects::Effect::WaveWorld {
+        render_dry_areas,
+        grid_res_downsamples,
+        reflect_edges,
+        ground_map,
+        producer_1_type,
+        producer_2_type,
+        history,
+        fps,
+        grid_scale,
+        ..
+    } = e
+    else {
+        unreachable!("Wave World of another effect")
+    };
+    // The places of `Effect::wave_numbers`; a producer's eight from 11 and 19.
+    const BRIGHT: usize = 0;
+    const CONTRAST: usize = 1;
+    const GAMMA: usize = 2;
+    const CLEAR: usize = 3;
+    const GRID: usize = 4;
+    const SPEED: usize = 5;
+    const DAMP: usize = 6;
+    const PRE: usize = 7;
+    const STEEP: usize = 8;
+    const HEIGHT: usize = 9;
+    const STRENGTH: usize = 10;
+    const PROD: [usize; 2] = [11, 19];
+    let (w, h) = (source.width(), source.height());
+    let (lw, lh) = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    let now = e.wave_numbers();
+    let samples: Vec<&[f64]> = if history.is_empty() { vec![&now] } else { history.iter().map(Vec::as_slice).collect() };
+    let (k0, kn) = (samples[0], samples[samples.len() - 1]);
+    let r = *fps;
+    let tau = 2.0 * std::f64::consts::PI;
+
+    // Step 2: the grid.
+    let rnd = |v: f64| (v + 0.5).floor();
+    let mut n = rnd(k0[GRID]).max(1.0);
+    if grid_res_downsamples == "on" {
+        n = rnd(n * grid_scale).max(1.0);
+    }
+    let m = rnd(n * lh / lw).max(1.0);
+    let (n, m) = (n as usize, m as usize);
+    let (dx, dy) = (1.0 / n as f64, lh / (m as f64 * lw));
+
+    // Step 3: the ground's luma per cell, rows then columns.
+    let g: Vec<f64> = (0..n * m)
+        .map(|c| match ground_map {
+            Some(map) => picture_luma(sample_bilinear(&map.0, ((c % n) as f64 + 0.5) * dx * lw, ((c / n) as f64 + 0.5) * dy * lw)),
+            None => 0.0,
+        })
+        .collect();
+    let steps_for = |ks: &[&[f64]]| {
+        let cmax = ks.iter().map(|k| k[SPEED] * (2.0 * k[HEIGHT]).sqrt()).fold(f64::MIN, f64::max);
+        ((1.6 * cmax / (r * dx.min(dy))).ceil() as usize).max(4)
+    };
+    // Step 6: a producer's weight per cell and its drive.
+    let types = [producer_1_type, producer_2_type];
+    let weights = |k: &[f64], p: usize| {
+        let o = PROD[p];
+        let (ht, wd) = (k[o + 2], k[o + 3]);
+        let mut out = vec![0.0; n * m];
+        if wd == 0.0 || ht == 0.0 {
+            return out;
+        }
+        let (cx, cy) = (k[o] * lw / 100.0 / lw, k[o + 1] * lh / 100.0 / lw);
+        let th = k[o + 4].to_radians();
+        let (co, si) = (th.cos(), th.sin());
+        for (c, wc) in out.iter_mut().enumerate() {
+            let (ox, oy) = (((c % n) as f64 + 0.5) * dx - cx, ((c / n) as f64 + 0.5) * dy - cy);
+            let (a, b) = (ox * co + oy * si, -ox * si + oy * co);
+            if types[p] == "ring" {
+                let rr = (2.0 * a / wd).powi(2) + (2.0 * b / ht).powi(2);
+                if rr < 1.0 {
+                    *wc = (1.0 - rr).powi(2);
+                }
+            } else if a.abs() <= ht / 2.0 && (2.0 * b).abs() < wd {
+                *wc = (1.0 - (2.0 * b / wd).powi(2)).powi(2);
+            }
+        }
+        out
+    };
+    let drive = |k: &[f64], p: usize, t: f64| {
+        let ph = k[PROD[p] + 7].to_radians();
+        k[PROD[p] + 5] * ((t + ph).sin() - ph.sin())
+    };
+
+    // Steps 4 and 5: the water, still at the start.
+    let (mut hh, mut uu) = (vec![0.0; n * m], vec![0.0; n * m]);
+    let mut lap = vec![0.0; n * m];
+    let reflect = reflect_edges == "all";
+    // The last weights worked, by the producer's place, size and angle.
+    let mut cached: [(Vec<f64>, Vec<f64>); 2] = Default::default();
+    let mut one = |ka: &[f64], kb: &[f64], ta: [f64; 2], tb: [f64; 2], dt: f64| {
+        let d: Vec<f64> = g.iter().map(|gi| ka[HEIGHT] - ka[STEEP] * gi).collect();
+        let c2: Vec<f64> = d.iter().map(|di| 2.0 * di * ka[SPEED].powi(2)).collect();
+        let (h0, u0) = (&hh, &uu);
+        lap.par_chunks_mut(n).enumerate().for_each(|(j, row)| {
+            let at = |i: isize, jj: isize, c: usize, s: f64| {
+                if (0..n as isize).contains(&i) && (0..m as isize).contains(&jj) {
+                    let q = jj as usize * n + i as usize;
+                    return if d[q] > 0.0 { h0[q] } else { h0[c] };
+                }
+                if reflect || c2[c] == 0.0 {
+                    h0[c]
+                } else {
+                    h0[c] - s * u0[c] / c2[c].sqrt()
+                }
+            };
+            for (i, l) in row.iter_mut().enumerate() {
+                let c = j * n + i;
+                if d[c] <= 0.0 {
+                    continue;
+                }
+                let (ii, jj) = (i as isize, j as isize);
+                *l = (at(ii - 1, jj, c, dx) + at(ii + 1, jj, c, dx) - 2.0 * h0[c]) / (dx * dx)
+                    + (at(ii, jj - 1, c, dy) + at(ii, jj + 1, c, dy) - 2.0 * h0[c]) / (dy * dy);
+            }
+        });
+        let damp = (-10.0 * ka[DAMP] * dt).exp();
+        for c in 0..n * m {
+            if d[c] > 0.0 {
+                uu[c] += dt * c2[c] * lap[c];
+                uu[c] *= damp;
+                hh[c] += dt * uu[c];
+            }
+        }
+        for p in 0..2 {
+            let dp = drive(kb, p, tb[p]) - drive(ka, p, ta[p]);
+            if dp != 0.0 {
+                let key = &kb[PROD[p]..PROD[p] + 5];
+                if cached[p].0 != key {
+                    cached[p] = (key.to_vec(), weights(kb, p));
+                }
+                for c in 0..n * m {
+                    if d[c] > 0.0 {
+                        hh[c] += cached[p].1[c] * dp;
+                    }
+                }
+            }
+        }
+        if kb[STEEP] != ka[STEEP] {
+            for c in 0..n * m {
+                if d[c] > 0.0 {
+                    hh[c] += kb[STRENGTH] * (kb[STEEP] - ka[STEEP]) * g[c];
+                }
+            }
+        }
+        for c in 0..n * m {
+            if d[c] <= 0.0 {
+                hh[c] = 0.0;
+                uu[c] = 0.0;
+            }
+        }
+    };
+    // The pre-roll, on sample 0, its time before the in point.
+    let pre_frames = (k0[PRE] * r).ceil() as usize;
+    if pre_frames > 0 {
+        let q0 = steps_for(&[k0]);
+        let total = pre_frames * q0;
+        let big_t = |p: usize, s: f64| tau * k0[PROD[p] + 6] * s;
+        for s in 0..total {
+            let sa = (s as f64 - total as f64) / (r * q0 as f64);
+            let sb = (s as f64 + 1.0 - total as f64) / (r * q0 as f64);
+            one(k0, k0, [big_t(0, sa), big_t(1, sa)], [big_t(0, sb), big_t(1, sb)], 1.0 / (r * q0 as f64));
+        }
+    }
+    // The frame intervals; the frequency's running sum at each sample.
+    let count = samples.len() - 1;
+    let mut tsum = [vec![0.0], vec![0.0]];
+    for (p, sum) in tsum.iter_mut().enumerate() {
+        let f = PROD[p] + 6;
+        for j in 0..count {
+            let next = sum[j] + tau / r * (samples[j][f] + samples[j + 1][f]) / 2.0;
+            sum.push(next);
+        }
+    }
+    let big_t = |p: usize, j: usize, f: f64| {
+        if f == 0.0 {
+            return tsum[p][j];
+        }
+        let (fa, fb) = (samples[j][PROD[p] + 6], samples[j + 1][PROD[p] + 6]);
+        tsum[p][j] + tau / r * (fa * f + (fb - fa) * f * f / 2.0)
+    };
+    let lerp = |a: &[f64], b: &[f64], f: f64| -> Vec<f64> { a.iter().zip(b).map(|(x, y)| x + (y - x) * f).collect() };
+    for j in 0..count {
+        let (sa, sb) = (samples[j], samples[j + 1]);
+        let q = steps_for(&[sa, sb]);
+        for i in 0..q {
+            let (fa, fb) = (i as f64 / q as f64, (i + 1) as f64 / q as f64);
+            let ka = lerp(sa, sb, fa);
+            let last = i + 1 == q;
+            let kb = if last { sb.to_vec() } else { lerp(sa, sb, fb) };
+            let ta = [big_t(0, j, fa), big_t(1, j, fa)];
+            let tb = if last { [tsum[0][j + 1], tsum[1][j + 1]] } else { [big_t(0, j, fb), big_t(1, j, fb)] };
+            one(&ka, &kb, ta, tb, 1.0 / (r * q as f64));
+        }
+    }
+
+    // Step 7: the map, this frame's settings, over the drawing in its place.
+    let d: Vec<f64> = g.iter().map(|gi| kn[HEIGHT] - kn[STEEP] * gi).collect();
+    let bilerp = |v: &[f64], gx: f64, gy: f64| {
+        let (gx, gy) = (gx.clamp(0.0, (n - 1) as f64), gy.clamp(0.0, (m - 1) as f64));
+        let (i0, j0) = (gx.floor() as usize, gy.floor() as usize);
+        let (i1, j1) = ((i0 + 1).min(n - 1), (j0 + 1).min(m - 1));
+        let (fx, fy) = (gx - i0 as f64, gy - j0 as f64);
+        (v[j0 * n + i0] * (1.0 - fx) + v[j0 * n + i1] * fx) * (1.0 - fy) + (v[j1 * n + i0] * (1.0 - fx) + v[j1 * n + i1] * fx) * fy
+    };
+    let transparent = render_dry_areas == "transparent";
+    let mut out = WorkingBuffer::transparent(w, h);
+    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let (x, y) = ((i % w) as isize - ox as isize, (i / w) as isize - oy as isize);
+        if x < 0 || y < 0 || x >= lw as isize || y >= lh as isize {
+            return;
+        }
+        let gx = (x as f64 + 0.5) * n as f64 / lw - 0.5;
+        let gy = (y as f64 + 0.5) * m as f64 / lh - 0.5;
+        let dd = bilerp(&d, gx, gy);
+        let mut hv = bilerp(&hh, gx, gy);
+        if dd <= 0.0 {
+            if transparent {
+                return;
+            }
+            hv = 0.0;
+        }
+        let v = (kn[BRIGHT] + kn[CONTRAST] * hv).clamp(0.0, 1.0);
+        let grey = v.powf(1.0 / kn[GAMMA]);
+        let a = if kn[HEIGHT] > 0.0 {
+            (1.0 - kn[CLEAR] * (1.0 - dd.max(0.0) / kn[HEIGHT])).clamp(0.0, 1.0)
+        } else {
+            (1.0 - kn[CLEAR]).clamp(0.0, 1.0)
+        };
+        let lin = crate::grade::to_linear(grey) * a;
+        px.copy_from_slice(&[lin as f32, lin as f32, lin as f32, a as f32]);
+    });
+    *source = out;
+}

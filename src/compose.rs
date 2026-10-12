@@ -2323,6 +2323,20 @@ fn effect_now(
                 })
                 .collect();
         }
+        // D-630: Wave World's history, every number at each frame from the in point to this
+        // one, read as the layer's keys are; the water runs again from the in point each frame.
+        // ponytail: O(frames from the in point) reads a frame; keep them between frames if long
+        // shots crawl (the water's own cost dwarfs this).
+        if matches!(now.effect, crate::effects::Effect::WaveWorld { .. }) {
+            let mut then: Vec<Vec<f64>> = (layer.in_frame..at)
+                .map(|f| crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect.wave_numbers())
+                .collect();
+            then.push(now.effect.wave_numbers());
+            if let crate::effects::Effect::WaveWorld { history, fps, .. } = &mut now.effect {
+                *history = then;
+                *fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            }
+        }
         // D-582: CC Rainfall falls by the composition frame, in seconds, as Glue Gun's clock.
         if let crate::effects::Effect::CcRainfall { clock, .. } = &mut now.effect {
             *clock = [at as f64, comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64];
@@ -3678,10 +3692,16 @@ fn fill_maps(
                 ),
             );
         }
+        // D-630: Wave World reads its ground once, at the holder's in point; a layer not there is
+        // said at this frame.
+        let read_at = |named: &str| match instance.effect {
+            crate::effects::Effect::WaveWorld { .. } if comp.layer(&Id::new(named)).is_some() => holder.in_frame,
+            _ => frame,
+        };
         // D-381: a Colorama's two, each its own map.
         let maps: Vec<_> = named
             .iter()
-            .map(|(named, fit)| (!cycle).then(|| setting_map(project, comp, holder, named, fit, frame, root, quality, size, cache, log)).flatten())
+            .map(|(named, fit)| (!cycle).then(|| setting_map(project, comp, holder, named, fit, read_at(named), root, quality, size, cache, log)).flatten())
             .collect();
         for ((_, slot), map) in instance.effect.layer_settings_mut().into_iter().zip(maps) {
             *slot = map.map(|m| crate::layer_map::Map(std::sync::Arc::new(m)));
