@@ -38,6 +38,7 @@ pub mod exr_io;
 mod glow;
 mod layer_fx;
 mod layer_map;
+mod mesh;
 mod matte_refine;
 mod soft_glow;
 mod grade;
