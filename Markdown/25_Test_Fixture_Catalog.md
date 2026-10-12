@@ -212258,3 +212258,41 @@ FX-TURBTYPE-023 (`fx_turbtype_023.json`): FX-TURBTYPE-006 (max) moved three pixe
 FX-TURBTYPE-024 (`fx_turbtype_024.json`): Fractal type "Turbulent Basic", the name shown and not the word written. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-TURBTYPE-025 (`fx_turbtype_025.json`): Noise type "soft linear", with a space and not the underscore. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Bezier Warp (D-602)
+
+Bezier Warp (`core.bezier_warp`, B-481, EFFECTS.md row 135), after After Effects' Bezier Warp, the rule ours. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size; the media are in `Fixtures/bezier_warp/media/`. `tools/bezier_warp_reference.py` works the expected frames, `Fixtures/bezier_warp/expected_bezier_warp.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-BEZIER-001 (`fx_bezier_001.json`): The settings as they start: the drawing, untouched. Frames 0.
+
+FX-BEZIER-002 (`fx_bezier_002.json`): The top left vertex pulled in to (25, 25), the tangents left where they start: the top and left edges bend in to meet it, and the corner it left is clear. Frames 0.
+
+FX-BEZIER-003 (`fx_bezier_003.json`): Both top tangents pulled down to 60 per cent: the top edge sags into the drawing in a curve, the band of rows above it clear, deepest in the middle. Frames 0.
+
+FX-BEZIER-004 (`fx_bezier_004.json`): Both right tangents pulled in to 50 per cent across: the right edge pinched in to a curve, the right middle columns clear. Frames 0.
+
+FX-BEZIER-005 (`fx_bezier_005.json`): FX-BEZIER-003 at Quality 1: the same sag cut into 4 by 4 cells, so its curve is a coarser chain of straight pieces and the frame differs. Frames 0.
+
+FX-BEZIER-006 (`fx_bezier_006.json`): An S: the top edge's tangents at 50 and -50 per cent down, the bottom's at 150 and 50: both edges wave the same way, the stripes between bent into an S. Frames 0.
+
+FX-BEZIER-007 (`fx_bezier_007.json`): Every point moved into the square from 25 to 75 per cent, the tangents still at the thirds: no curve, the drawing at half its size in the middle, as an even squeeze draws it. Frames 0.
+
+FX-BEZIER-008 (`fx_bezier_008.json`): Every point mirrored left for right in place: the outline is the same square, run the other way, so the drawing is drawn mirrored. Frames 0.
+
+FX-BEZIER-009 (`fx_bezier_009.json`): The top left vertex keyed from (0, 0) at frame 0 to (25, 25) at frame 4, linear: frame 0 the drawing, frame 4 FX-BEZIER-002, frame 2 half way. Frames 0, 2, 4.
+
+FX-BEZIER-010 (`fx_bezier_010.json`): FX-BEZIER-002 with the layer moved three pixels right: the bent drawing moves with it. Frames 0.
+
+FX-BEZIER-011 (`fx_bezier_011.json`): The bottom right vertex dragged past the top left one to (-20, -20): the outline folds over itself; where it overlaps, the part later in the grid is drawn on top. Frames 0.
+
+FX-BEZIER-012 (`fx_bezier_012.json`): Quality keyed from 1 at frame 0 to 10 at frame 4, eased past its end, with the sag: frame 2 would pass 10 and is held there, the same as frame 4. Frames 0, 2, 4.
+
+FX-BEZIER-013 (`fx_bezier_013.json`): The left top tangent flung out to (300, -200): the left edge loops far out past the drawing and back, and what is bent past the edges is cut off. Frames 0.
+
+FX-BEZIER-014 (`fx_bezier_014.json`): Quality 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BEZIER-015 (`fx_bezier_015.json`): Quality 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BEZIER-016 (`fx_bezier_016.json`): The top left vertex at (-401, 0), its x below -400. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BEZIER-017 (`fx_bezier_017.json`): The bottom left tangent keyed to (100, 600) at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
