@@ -211436,3 +211436,29 @@ FX-CCVIG-023 (`fx_ccvig_023.json`): Pin highlights 101, above 100. The file is r
 FX-CCVIG-024 (`fx_ccvig_024.json`): Centre 50, -1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CCVIG-025 (`fx_ccvig_025.json`): Pin highlights keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Gaussian Blur (Legacy) (D-472)
+
+Gaussian Blur (Legacy), after After Effects' Gaussian Blur (Legacy) (Obsolete), `core.gaussian_blur_legacy` (B-352), a second name over Gaussian Blur's rule in Blurriness. Every case is blurriness_reference's drawing `block`; `tools/gaussian_blur_legacy_reference.py` works the expected frames, `Fixtures/gaussian_blur_legacy/expected_gaussian_blur_legacy.json`, tolerance 2e-5; the rule is in document 21. Gaussian Blur's FX-BLURRY cases are unchanged.
+
+FX-GAUSSLEG-001 (`fx_gaussleg_001.json`): Blurriness 10: Gaussian Blur's Blurriness 10, a Gaussian of sigma 3 reaching 20 pixels, FX-BLURRY-001's frame. Frames 0.
+
+FX-GAUSSLEG-002 (`fx_gaussleg_002.json`): Blurriness 4: sigma 1.2, reaching 8 pixels; column 11, eight right of the square, is lit and column 12 is clear. Frames 0.
+
+FX-GAUSSLEG-003 (`fx_gaussleg_003.json`): Blurriness 10, Blur Dimensions horizontal: spread across only. Frames 0.
+
+FX-GAUSSLEG-004 (`fx_gaussleg_004.json`): Blurriness 10, Blur Dimensions vertical: spread down only. Frames 0.
+
+FX-GAUSSLEG-005 (`fx_gaussleg_005.json`): Blurriness 0: the drawing untouched. Frames 0.
+
+FX-GAUSSLEG-006 (`fx_gaussleg_006.json`): Blurriness keyed from 0 at frame 0 to 20 at frame 4, linear: frame 2 is Blurriness 10, FX-GAUSSLEG-001's picture. Frames 0, 2, 4.
+
+FX-GAUSSLEG-007 (`fx_gaussleg_007.json`): A Float composition: Blurriness 4, then Exposure +6. The light falls away smoothly for eight pixels right of the square and no further. Frames 0.
+
+FX-GAUSSLEG-008 (`fx_gaussleg_008.json`): Blurriness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GAUSSLEG-009 (`fx_gaussleg_009.json`): Blurriness 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GAUSSLEG-010 (`fx_gaussleg_010.json`): Blur Dimensions "Both": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GAUSSLEG-011 (`fx_gaussleg_011.json`): Blurriness keyed to 600 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
