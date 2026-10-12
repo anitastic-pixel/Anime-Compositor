@@ -2987,6 +2987,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("render".into(), J::from(render.as_str()));
             params.insert("light_color".into(), J::from(light_color.as_str()));
         }
+        Effect::ParticleSpace { values, words, colors, .. } => {
+            for ((name, ..), v) in crate::effects::PARTICLE_SPACE_SETTINGS.iter().zip(values) {
+                params.insert((*name).into(), num(*v));
+            }
+            for ((name, ..), w) in crate::effects::PARTICLE_SPACE_WORDS.iter().zip(words) {
+                params.insert((*name).into(), J::from(w.as_str()));
+            }
+            for ((name, _), c) in crate::effects::PARTICLE_SPACE_COLORS.iter().zip(colors) {
+                params.insert((*name).into(), J::from(c.as_str()));
+            }
+        }
         Effect::CcBallAction {
             scatter,
             rotation_axis,
@@ -5689,6 +5700,7 @@ fn parse_effect(
         crate::effects::CHANNEL_WIPE,
         crate::effects::CC_SPOTLIGHT,
         crate::effects::CC_BALL_ACTION,
+        crate::effects::PARTICLE_SPACE,
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
         crate::effects::CC_SPHERE,
@@ -7160,6 +7172,23 @@ fn parse_effect(
             roughness: effect_number(params, "roughness", &at)?,
             metal: effect_number(params, "metal", &at)?,
         }),
+        // D-610: the words and colours kept as written, so one outside the contract is refused
+        // by name.
+        crate::effects::PARTICLE_SPACE => {
+            let mut values = [0.0; 44];
+            for ((name, ..), v) in crate::effects::PARTICLE_SPACE_SETTINGS.iter().zip(values.iter_mut()) {
+                *v = effect_number(params, name, &at)?;
+            }
+            let mut words: [String; 7] = Default::default();
+            for ((name, ..), w) in crate::effects::PARTICLE_SPACE_WORDS.iter().zip(words.iter_mut()) {
+                *w = effect_word(params, name, &at)?;
+            }
+            let mut colors: [String; 8] = Default::default();
+            for ((name, _), c) in crate::effects::PARTICLE_SPACE_COLORS.iter().zip(colors.iter_mut()) {
+                *c = effect_word(params, name, &at)?;
+            }
+            Some(crate::effects::Effect::ParticleSpace { values, words, colors, clock: [0.0; 2], view: [0.0; 4], history: None })
+        }
         crate::effects::CC_BALL_ACTION => Some(crate::effects::Effect::CcBallAction {
             scatter: effect_number(params, "scatter", &at)?,
             rotation_axis: effect_word(params, "rotation_axis", &at)?,

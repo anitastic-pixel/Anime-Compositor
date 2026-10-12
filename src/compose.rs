@@ -1157,6 +1157,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::CcSpotlight { .. }
                 // D-551.
                 | crate::effects::Effect::CcBallAction { .. }
+                // D-610.
+                | crate::effects::Effect::ParticleSpace { .. }
                 // D-508 (the bits are found on the processor).
                 | crate::effects::Effect::EnergyStroke { .. }
                 // D-509.
@@ -1745,6 +1747,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
                 | E::Paraffin { .. }
                 | E::KiraKira { .. }
                 | E::CcBallAction { .. }
+                | E::ParticleSpace { .. }
                 | E::HsvKey { .. }
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }
@@ -2324,6 +2327,33 @@ fn effect_now(
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             *time = (u - layer.in_frame as f64) / fps;
             *count = (u - layer.in_frame as f64 + 1e-9).floor() as i64;
+        }
+        // D-610: Particle Space's clock, the composition camera in the layer's own pixels when
+        // the file has one, and the settings at each frame from the in point when any is keyed.
+        if let crate::effects::Effect::ParticleSpace { clock, view, history, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            *clock = [(at - layer.in_frame) as f64, fps];
+            *view = [0.0; 4];
+            if comp.camera.is_some() {
+                let m = world_transform(comp, &layer.id, at);
+                if let (Some(cam), Some(inv)) = (camera_at(comp, at), m.invert()) {
+                    let a = inv.apply(cam.position.0, cam.position.1);
+                    let away = (world_depth(comp, &layer.id, at) - cam.depth) / (m.a * m.d - m.b * m.c).abs().sqrt();
+                    *view = [1.0, a.0, a.1, away];
+                }
+            }
+            // ponytail: every frame reads every frame's settings back to the in point, O(frames);
+            // keep them between frames if long keyed shots grow slow.
+            *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
+                std::sync::Arc::new(
+                    (layer.in_frame..=at + 1)
+                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
+                            crate::effects::Effect::ParticleSpace { values, .. } => values,
+                            _ => unreachable!("Particle Space's settings of another effect"),
+                        })
+                        .collect(),
+                )
+            });
         }
         // D-473: Basic Text's missing font is said each frame, as Numbers' is.
         if let crate::effects::Effect::BasicText { font, .. } = &now.effect {
@@ -3101,6 +3131,7 @@ fn resolve_rest(
                 | E::Paraffin { .. }
                 | E::KiraKira { .. }
                 | E::CcBallAction { .. }
+                | E::ParticleSpace { .. }
                 | E::HsvKey { .. }
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }

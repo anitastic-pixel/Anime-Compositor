@@ -18,6 +18,7 @@ mod cel_fx;
 mod hsv_key;
 mod line_blur;
 mod median;
+pub mod particles;
 mod line_width;
 pub mod color;
 pub mod command;

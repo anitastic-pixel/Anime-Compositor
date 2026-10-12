@@ -6589,6 +6589,98 @@ fn ballshade(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(out));
 }
 
+// D-610, particles::cover: sprite n of k (from 7, ten each) at the own point (x, y),
+// premultiplied; nothing where it does not reach.
+fn sprite_cover(n: u32, x: f64, y: f64) -> vec4<f64> {
+    let s = 7u + 10u * n;
+    let kind = k[s];
+    var cv = 0.0lf;
+    var shade = 1.0lf;
+    if kind == 0.0lf {
+        let ax = k[s + 1u];
+        let ay = k[s + 2u];
+        let dx = k[s + 3u] - ax;
+        let dy = k[s + 4u] - ay;
+        let ll = dx * dx + dy * dy;
+        var t = 0.0lf;
+        if ll > 0.0lf {
+            t = clamp(((x - ax) * dx + (y - ay) * dy) / ll, 0.0lf, 1.0lf);
+        }
+        let ex = x - ax - t * dx;
+        let ey = y - ay - t * dy;
+        cv = clamp(k[s + 5u] / 2.0lf - sqrt(ex * ex + ey * ey) + 0.5lf, 0.0lf, 1.0lf);
+    } else {
+        let r = k[s + 3u];
+        let ex = x - k[s + 1u];
+        let ey = y - k[s + 2u];
+        let e = sqrt(ex * ex + ey * ey);
+        if kind == 1.0lf {
+            let t = max(1.0lf - (e / r) * (e / r), 0.0lf);
+            cv = t * t;
+        } else {
+            cv = clamp(r - e + 0.5lf, 0.0lf, 1.0lf);
+            if kind == 4.0lf {
+                let m = min(e / r, 1.0lf);
+                cv *= 0.25lf + 0.75lf * (m * m) * (m * m);
+            }
+        }
+        var v = k[0];
+        if kind == 2.0lf || kind == 4.0lf {
+            v = 1.0lf;
+        }
+        if v > 0.0lf {
+            let dx = ex / r;
+            let dy = ey / r;
+            let q = dx * dx + dy * dy;
+            var nv = vec3(dx, dy, -sqrt(max(1.0lf - q, 0.0lf)));
+            if q >= 1.0lf {
+                nv = vec3(dx / sqrt(q), dy / sqrt(q), 0.0lf);
+            }
+            shade = 1.0lf - v + v * (0.2lf + 0.8lf * max(nv.x * k[1] + nv.y * k[2] + nv.z * k[3], 0.0lf));
+        }
+    }
+    if cv <= 0.0lf {
+        return vec4(0.0lf);
+    }
+    let a = k[s + 6u] * cv;
+    return vec4(k[s + 7u] * shade * a, k[s + 8u] * shade * a, k[s + 9u] * shade * a, a);
+}
+
+// D-610, particles::particle_space, a pixel a thread: the sprites of its 16 by 16 tile (after
+// the sprites, each tile's start in the list and the end, then the list) laid farthest first by
+// the transfer mode, over the drawing with Composite With Original on or else over nothing.
+@compute @workgroup_size(16, 16)
+fn particles(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    var d = vec4(0.0lf);
+    if k[5] > 0.5lf {
+        d = vec4<f64>(at(input, vec2<i32>(id.xy)));
+    }
+    let tw = (size.x + 15u) / 16u;
+    let nt = tw * ((size.y + 15u) / 16u);
+    let t = (id.y / 16u) * tw + id.x / 16u;
+    let o = 7u + 10u * u32(k[6]);
+    let x = f64(i32(id.x) - F.ox) + 0.5lf;
+    let y = f64(i32(id.y) - F.oy) + 0.5lf;
+    for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
+        let s = sprite_cover(u32(k[o + nt + 1u + j]), x, y);
+        if s.w <= 0.0lf {
+            continue;
+        }
+        if k[4] == 0.0lf {
+            d = s + (1.0lf - s.w) * d;
+        } else if k[4] == 1.0lf {
+            d = s + d - s * d;
+        } else {
+            d = vec4(s.xyz + d.xyz, min(s.w + d.w, 1.0lf));
+        }
+    }
+    textureStore(output, id.xy, vec4<f32>(d));
+}
+
 // B-151, median.rs's straight colour of a pixel, each channel over the covering in single
 // precision as the CPU divides it, or nothing where nothing shows.
 fn straight(p: vec4<f32>) -> vec4<f32> {
@@ -10828,6 +10920,8 @@ struct FxPasses {
     /// D-551.
     balls: Pass,
     ballshade: Pass,
+    /// D-610.
+    particles: Pass,
     /// B-151.
     median: Pass,
     smart: Pass,
@@ -11570,6 +11664,7 @@ impl Gpu {
                 kira: pass("kira", &[0, 1, 2, 3, 9]),
                 balls: pass("balls", &[0, 1, 3, 9]),
                 ballshade: pass("ballshade", &[0, 2, 3, 9]),
+                particles: pass("particles", &[0, 1, 2, 3]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
@@ -14275,6 +14370,17 @@ impl Gpu {
                 self.fx_step(steps, &passes.ballshade, p, None, Some(&out), Some(&k), None, [None, None, None, None, Some(&keys)], tiles(w, h));
                 (out, (w, h))
             }
+            // D-610: the sprites from the drawing the layer sent, binned into the card's tiles,
+            // the lists after them.
+            e @ E::ParticleSpace { .. } => {
+                let mut k = crate::particles::sprite_numbers(source, e, f.origin);
+                let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
+                k.extend(starts.iter().chain(&list).map(|&i| i as f64));
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let out = self.scratch("D-610 particles", w, h);
+                self.fx_step(steps, &passes.particles, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                (out, (w, h))
+            }
             // B-151: ten of the fourth batch.
             E::Median { radius, operate_on_alpha } => {
                 let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
@@ -15916,6 +16022,14 @@ impl Gpu {
                             crate::effects::Effect::CcBallAction { grid_spacing, .. } => {
                                 let cells = (w as f64 / grid_spacing.max(1.0)) * (h as f64 / grid_spacing.max(1.0));
                                 ((2 * w * h * 4) as f64).max((6.0 + 6.0 * cells) * 8.0) as u64
+                            }
+                            // D-610: Particle Space's sprites, ten numbers each and a place in a
+                            // tile's list or several, and its tiles' starts.
+                            // ponytail: reckons a sprite for each particle Birth Rate and
+                            // Longevity keep alive now; a keyed rate can run above it.
+                            crate::effects::Effect::ParticleSpace { values, .. } => {
+                                let alive = 100.0 * values[0] * values[1] + 1.0;
+                                ((7.0 + 14.0 * alive + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,

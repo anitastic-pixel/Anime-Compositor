@@ -2687,6 +2687,24 @@ pub enum Effect {
     /// [`BALL_TWISTS`]; `twist_angle`, -36000 to 36000 degrees; `grid_spacing`, 2 to 200 pixels;
     /// `ball_size`, 0 to 400 per cent of the grid spacing; `instability_state`, -36000 to 36000
     /// degrees.
+    /// D-610: Particle Space, the particle engine's first effect (P0-6), after the purpose of
+    /// CycoreFX's CC Particle World, its rules and settings ours (`particles::particle_space`,
+    /// document 21). `values`, the settings of [`PARTICLE_SPACE_SETTINGS`] in that order; `words`,
+    /// those of [`PARTICLE_SPACE_WORDS`]; `colors`, those of [`PARTICLE_SPACE_COLORS`], `#rrggbb`.
+    /// Kept as written, so a file's wrong one is reported. `clock`, `view` and `history` are not
+    /// settings and are never saved: compose fills `clock` with the frames since the layer's in
+    /// point and the frames a second; `view` with the composition camera in the layer's own
+    /// pixels [1, x, y, distance from the layer's plane] when the file has one, else zeros; and
+    /// `history` with the settings at each frame from the in point to the frame after this one
+    /// when any is keyed (document 20: no state is carried from frame to frame).
+    ParticleSpace {
+        values: [f64; 44],
+        words: [String; 7],
+        colors: [String; 8],
+        clock: [f64; 2],
+        view: [f64; 4],
+        history: Option<std::sync::Arc<Vec<[f64; 44]>>>,
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -4073,6 +4091,86 @@ pub const CC_SPOTLIGHT: &str = "core.cc_spotlight";
 /// with the light let through the gel.
 pub const SPOT_RENDERS: [&str; 8] =
     ["light_only", "light_add", "light_add_plus", "light_shadow", "gel_only", "gel_add", "gel_add_plus", "gel_shadow"];
+pub const PARTICLE_SPACE: &str = "core.particle_space";
+/// D-610: Particle Space's keyable settings, in the order `values` holds them: name, lowest,
+/// highest, and the value when the effect is added. Distances are in the layer's widths, the
+/// origin its centre, Y down and Z away; sizes in hundredths of its width; times in seconds;
+/// Birth Rate in hundreds of particles a second.
+pub const PARTICLE_SPACE_SETTINGS: [(&str, f64, f64, f64); 44] = [
+    ("birth_rate", 0.0, 100.0, 2.0),
+    ("longevity", 0.0, 30.0, 1.0),
+    ("producer_x", -10.0, 10.0, 0.0),
+    ("producer_y", -10.0, 10.0, 0.0),
+    ("producer_z", -10.0, 10.0, 0.0),
+    ("radius_x", 0.0, 10.0, 0.025),
+    ("radius_y", 0.0, 10.0, 0.025),
+    ("radius_z", 0.0, 10.0, 0.025),
+    ("velocity", -10.0, 10.0, 1.0),
+    ("inherit_velocity", -10000.0, 10000.0, 0.0),
+    ("gravity", -10.0, 10.0, 0.5),
+    ("resistance", 0.0, 100.0, 0.0),
+    ("axis_x", -1.0, 1.0, 0.0),
+    ("axis_y", -1.0, 1.0, -1.0),
+    ("axis_z", -1.0, 1.0, 0.0),
+    ("extra", 0.0, 10.0, 0.5),
+    ("extra_angle", 0.0, 360.0, 360.0),
+    ("gravity_x", -1.0, 1.0, 0.0),
+    ("gravity_y", -1.0, 1.0, 1.0),
+    ("gravity_z", -1.0, 1.0, 0.0),
+    ("floor_position", -10.0, 10.0, 0.5),
+    ("bounciness", 0.0, 100.0, 50.0),
+    ("random_bounciness", 0.0, 100.0, 0.0),
+    ("bounce_spread", 0.0, 100.0, 0.0),
+    ("wind_x", -10.0, 10.0, 0.0),
+    ("wind_y", -10.0, 10.0, 0.0),
+    ("wind_z", -10.0, 10.0, 0.0),
+    ("turbulence", 0.0, 10.0, 0.0),
+    ("turbulence_scale", 0.01, 10.0, 0.25),
+    ("turbulence_evolution", -100000.0, 100000.0, 0.0),
+    ("birth_size", 0.0, 10.0, 0.15),
+    ("death_size", 0.0, 10.0, 0.15),
+    ("size_variation", 0.0, 100.0, 0.0),
+    ("max_opacity", 0.0, 100.0, 75.0),
+    ("volume_shade", 0.0, 100.0, 0.0),
+    ("camera_distance", 0.1, 100.0, 2.0),
+    ("camera_rotation_x", -36000.0, 36000.0, 0.0),
+    ("camera_rotation_y", -36000.0, 36000.0, 0.0),
+    ("camera_rotation_z", -36000.0, 36000.0, 0.0),
+    ("camera_fov", 1.0, 170.0, 50.0),
+    ("depth_cue_distance", 0.01, 100.0, 4.0),
+    ("light_direction", -36000.0, 36000.0, 45.0),
+    ("light_height", -90.0, 90.0, 45.0),
+    ("random_seed", 0.0, 10000.0, 0.0),
+];
+/// D-610: Particle Space's words: name, the words, the word when added.
+pub const PARTICLE_SPACE_WORDS: [(&str, &[&str], &str); 7] = [
+    (
+        "animation",
+        &[
+            "explosive", "direction_axis", "cone_axis", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni",
+            "fractal_uni",
+        ],
+        "explosive",
+    ),
+    ("floor_action", &["none", "ice", "glue", "bounce"], "none"),
+    ("particle_type", &["line", "faded_sphere", "shaded_sphere", "disc", "bubble"], "line"),
+    ("color_map", &["birth_to_death", "origin_to_death", "birth_to_origin", "origin_constant", "custom"], "birth_to_death"),
+    ("transfer_mode", &["composite", "screen", "add"], "composite"),
+    ("depth_cue", &["none", "fade", "fog"], "none"),
+    ("composite_on_original", &["off", "on"], "off"),
+];
+/// D-610: Particle Space's colours and each when added; Custom's five run from the birth colour
+/// to the death colour.
+pub const PARTICLE_SPACE_COLORS: [(&str, &str); 8] = [
+    ("birth_color", "#ffd933"),
+    ("death_color", "#cc1a00"),
+    ("custom_color_1", "#ffd933"),
+    ("custom_color_2", "#f2a926"),
+    ("custom_color_3", "#e67a1a"),
+    ("custom_color_4", "#d94a0d"),
+    ("custom_color_5", "#cc1a00"),
+    ("depth_cue_color", "#000000"),
+];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 pub const BALL_AXES: [&str; 9] = ["x", "y", "z", "xy", "xz", "yz", "xyz", "x15z", "xy15z"];
@@ -4469,6 +4567,11 @@ impl Effect {
                 ("edge_softness", vec![edge_softness], 0.0, 100.0),
                 ("intensity", vec![intensity], 0.0, 1000.0),
             ],
+            Effect::ParticleSpace { values, .. } => PARTICLE_SPACE_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .collect(),
             Effect::CcBallAction { scatter, rotation, twist_angle, grid_spacing, ball_size, instability_state, .. } => vec![
                 ("scatter", vec![scatter], 0.0, 1000.0),
                 ("rotation", vec![rotation], -36000.0, 36000.0),
@@ -7046,6 +7149,13 @@ impl Effect {
                 *spacing = scale(*spacing);
                 *size = scale(*size);
             }
+            // D-610: its distances are the layer's widths, which scale with it; only the
+            // composition camera compose found is in pixels.
+            Effect::ParticleSpace { view, .. } => {
+                for v in &mut view[1..] {
+                    *v = scale(*v);
+                }
+            }
             // D-551: a spacing below 1 is worked as 1.
             Effect::CcBallAction { scatter, grid_spacing, .. } => {
                 *scatter = scale(*scatter);
@@ -7347,6 +7457,7 @@ impl Effect {
             Effect::WarpBlend { .. } => "Warp Blend",
             Effect::ChannelWipe { .. } => "Channel Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
+            Effect::ParticleSpace { .. } => "Particle Space",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -7593,6 +7704,7 @@ impl Effect {
             Effect::WarpBlend { .. } => WARP_BLEND,
             Effect::ChannelWipe { .. } => CHANNEL_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
+            Effect::ParticleSpace { .. } => PARTICLE_SPACE,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -8193,6 +8305,20 @@ impl Effect {
                     .then(|| format!("Energy Stroke's alpha mode is \"off\", \"masks\", \"core\" or \"glow\", and this is \"{alpha_mode}\".")))
                 .or_else(|| (!["off", "on"].contains(&invert_masks.as_str()))
                     .then(|| format!("Energy Stroke's invert masks is \"on\" or \"off\", and this is \"{invert_masks}\"."))),
+            Effect::ParticleSpace { words, colors, .. } => PARTICLE_SPACE_WORDS
+                .iter()
+                .zip(words)
+                .find(|((_, list, _), w)| !list.contains(&w.as_str()))
+                .map(|((name, list, _), w)| {
+                    let list = list.iter().map(|a| format!("\"{a}\"")).collect::<Vec<_>>().join(", ");
+                    format!("Particle Space's {} is one of {list}, and this is \"{w}\".", name.replace('_', " "))
+                })
+                .or_else(|| {
+                    PARTICLE_SPACE_COLORS
+                        .iter()
+                        .zip(colors)
+                        .find_map(|((name, _), c)| hex_fault("Particle Space", &name.replace('_', " ").replace("color", "colour"), c))
+                }),
             Effect::CcBallAction { rotation_axis, twist_property, .. } => (!BALL_AXES.contains(&rotation_axis.as_str()))
                 .then(|| format!(
                     "CC Ball Action's rotation axis is one of {}, and this is \"{rotation_axis}\".",
@@ -11418,6 +11544,10 @@ pub(crate) fn apply_stack_at(
                     crate::perf::time(crate::perf::Stage::EffectCcSpotlight, || crate::layer_fx::cc_spotlight(source, e, gel, (ox, oy)))
                 }
             }
+            // D-610: the particles drawn through the composition camera or its own; never grows.
+            e @ Effect::ParticleSpace { .. } => crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {
+                crate::particles::particle_space(source, e, (ox, oy))
+            }),
             // D-551: its own eye and light, no comp camera (P0-12); never grows.
             e @ Effect::CcBallAction { .. } => crate::perf::time(crate::perf::Stage::EffectCcBallAction, || {
                 crate::layer_fx::cc_ball_action(source, e, (ox, oy))
