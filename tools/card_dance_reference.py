@@ -654,6 +654,10 @@ def main():
                                                 project_json(fx, c)), "frames": rendered}
         if "gone" in (c["back_layer"], c["gradient_layer_1"], c["gradient_layer_2"]):
             entry["warning"] = "EFFECT_LAYER_MISSING"
+        # Document 28: the compositor leaves out a layer level with the composition camera or
+        # behind it, with a warning on each frame; the layers here lie at depth 0.
+        if c["camera"] is not None and c["camera"][2] >= 0:
+            entry["frame_warning"] = "CAMERA_PLANE_BEHIND"
         expected["cases"][fx] = entry
         before = plain(c)
         print(f"{fx}: " + ", ".join(f"frame {f} {sum(px[i] != before[i] for i in range(W * H))} "

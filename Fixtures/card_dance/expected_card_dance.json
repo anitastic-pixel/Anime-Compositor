@@ -29489,7 +29489,8 @@
       0.0
      ]
     ]
-   }
+   },
+   "frame_warning": "CAMERA_PLANE_BEHIND"
   },
   "FX-CD-039": {
    "says": "A distant light from the top left, depth 0.5, on turned cards.",
