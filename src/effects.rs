@@ -3285,6 +3285,22 @@ pub enum Effect {
         alignment: String,
         clock: [f64; 2],
     },
+    /// D-473: Basic Text, after After Effects' Basic Text (Obsolete): the words `text`, up to
+    /// 1000 characters, drawn as Numbers draws its words (D-526) with proportional spacing on
+    /// ([`crate::layer_fx::basic_text_picture`]); every other setting as Numbers'.
+    BasicText {
+        text: String,
+        position: [f64; 2],
+        display: String,
+        fill_color: String,
+        stroke_color: String,
+        stroke_width: f64,
+        size: f64,
+        tracking: f64,
+        composite_on_original: String,
+        font: String,
+        alignment: String,
+    },
     /// D-525: IDentifier, after After Effects' IDentifier (3D Channel, fnord's ProEXR): the
     /// object or material ids in the layer's EXR file shown as a picture
     /// ([`crate::layer_fx::identifier`]). `aux_channel`, "object_id" or "material_id"; `id`, 0 to
@@ -4058,6 +4074,7 @@ pub const DEPTH_OF_FIELD: &str = "core.depth_of_field";
 pub const FOG_3D: &str = "core.fog_3d";
 pub const IDENTIFIER: &str = "core.identifier";
 pub const NUMBERS: &str = "core.numbers";
+pub const BASIC_TEXT: &str = "core.basic_text";
 /// D-526: what Numbers shows.
 pub const NUMBERS_TYPES: [&str; 10] = [
     "number",
@@ -5800,6 +5817,12 @@ impl Effect {
                 ("size", vec![size], 1.0, 2000.0),
                 ("tracking", vec![tracking], -1000.0, 1000.0),
             ],
+            Effect::BasicText { position, stroke_width, size, tracking, .. } => vec![
+                ("position", position.iter_mut().collect(), -1000.0, 1000.0),
+                ("stroke_width", vec![stroke_width], 0.0, 500.0),
+                ("size", vec![size], 1.0, 2000.0),
+                ("tracking", vec![tracking], -1000.0, 1000.0),
+            ],
             Effect::Identifier { id, .. } => vec![("id", vec![id], 0.0, 1e6)],
             Effect::IdKey { id, feather, .. } => vec![
                 ("id", vec![id], 0.0, 1e6),
@@ -6680,7 +6703,7 @@ impl Effect {
             // D-527: the words' size, held at a pixel as a text's least; the box goes with it.
             Effect::Timecode { text_size, .. } => *text_size = scale(*text_size).max(1.0),
             // D-526: the words' size, held at a pixel as a text's least, and the stroke.
-            Effect::Numbers { size, stroke_width, .. } => {
+            Effect::Numbers { size, stroke_width, .. } | Effect::BasicText { size, stroke_width, .. } => {
                 *size = scale(*size).max(1.0);
                 *stroke_width = scale(*stroke_width);
             }
@@ -7104,6 +7127,7 @@ impl Effect {
             Effect::IdKey { .. } => "ID Key",
             Effect::Identifier { .. } => "IDentifier",
             Effect::Numbers { .. } => "Numbers",
+            Effect::BasicText { .. } => "Basic Text",
             Effect::Timecode { .. } => "Timecode",
             Effect::Cryptomatte { .. } => "Cryptomatte",
             Effect::DepthOfField { .. } => "Depth of Field",
@@ -7346,6 +7370,7 @@ impl Effect {
             Effect::IdKey { .. } => ID_KEY,
             Effect::Identifier { .. } => IDENTIFIER,
             Effect::Numbers { .. } => NUMBERS,
+            Effect::BasicText { .. } => BASIC_TEXT,
             Effect::Timecode { .. } => TIMECODE,
             Effect::Cryptomatte { .. } => CRYPTOMATTE,
             Effect::DepthOfField { .. } => DEPTH_OF_FIELD,
@@ -8375,6 +8400,7 @@ impl Effect {
                 "Cryptomatte's output is \"colors\", \"matte\" or \"keyed\", and this is \"{output}\"."
             )),
             e @ Effect::Numbers { .. } => numbers_fault(e),
+            e @ Effect::BasicText { .. } => basic_text_fault(e),
             e @ Effect::Timecode { .. } => timecode_fault(e),
             Effect::Identifier { aux_channel, .. } if !["object_id", "material_id"].contains(&aux_channel.as_str()) => Some(format!(
                 "IDentifier's channel is \"object_id\" or \"material_id\", and this is \"{aux_channel}\"."
@@ -9298,6 +9324,25 @@ fn numbers_fault(e: &Effect) -> Option<String> {
         .or_else(|| hex_fault("Numbers", "fill colour", fill_color))
         .or_else(|| hex_fault("Numbers", "stroke colour", stroke_color))
         .or_else(|| crate::text::Text { font: font.clone(), ..Default::default() }.problem().map(|p| format!("Numbers needs {p}.")))
+}
+
+/// D-473: the first of Basic Text's words this build cannot use, as a sentence.
+fn basic_text_fault(e: &Effect) -> Option<String> {
+    let Effect::BasicText { text, display, fill_color, stroke_color, composite_on_original, font, alignment, .. } = e else {
+        return None;
+    };
+    let one_of = |what: &str, v: &str, all: &[&str]| {
+        (!all.contains(&v)).then(|| format!("Basic Text's {what} is one of {}, and this is \"{v}\".", all.join(", ")))
+    };
+    let n = text.chars().count();
+    (n > 1000)
+        .then(|| format!("Basic Text's text is at most 1000 characters, and this is {n}."))
+        .or_else(|| one_of("display", display, &NUMBERS_DISPLAYS))
+        .or_else(|| one_of("composite on original", composite_on_original, &["off", "on"]))
+        .or_else(|| one_of("alignment", alignment, &["left", "center", "right"]))
+        .or_else(|| hex_fault("Basic Text", "fill colour", fill_color))
+        .or_else(|| hex_fault("Basic Text", "stroke colour", stroke_color))
+        .or_else(|| crate::text::Text { font: font.clone(), ..Default::default() }.problem().map(|p| format!("Basic Text needs {p}.")))
 }
 
 fn hex_fault(effect: &str, what: &str, c: &str) -> Option<String> {
@@ -12367,6 +12412,18 @@ pub(crate) fn apply_stack_at(
             e @ Effect::Numbers { composite_on_original, .. } => {
                 crate::perf::time(crate::perf::Stage::EffectNumbers, || {
                     if let Some(words) = crate::layer_fx::numbers_picture(e, (source.width(), source.height()), (ox, oy)) {
+                        if composite_on_original == "on" {
+                            crate::composite::over(&words, source).expect("the words are drawn at the layer's size");
+                        } else {
+                            *source = words;
+                        }
+                    }
+                })
+            }
+            // D-473: Numbers' words with the words typed, timed as Numbers'.
+            e @ Effect::BasicText { composite_on_original, .. } => {
+                crate::perf::time(crate::perf::Stage::EffectNumbers, || {
+                    if let Some(words) = crate::layer_fx::basic_text_picture(e, (source.width(), source.height()), (ox, oy)) {
                         if composite_on_original == "on" {
                             crate::composite::over(&words, source).expect("the words are drawn at the layer's size");
                         } else {

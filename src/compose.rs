@@ -1099,6 +1099,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Identifier { .. }
                 // D-526: Numbers (its words are drawn on the processor).
                 | crate::effects::Effect::Numbers { .. }
+                // D-473: Basic Text (its words are drawn on the processor, as Numbers').
+                | crate::effects::Effect::BasicText { .. }
                 // D-527: Timecode (its box and words are drawn on the processor).
                 | crate::effects::Effect::Timecode { .. }
                 // D-522: Cryptomatte (the matte is read on the processor).
@@ -1627,7 +1629,7 @@ fn card_effect(
                 // D-442: no mask found.
                 E::Scribble { masks, .. } => masks.is_none(),
                 // D-526: a font this computer cannot draw in, said each frame.
-                E::Numbers { font, .. } => !crate::layer_fx::numbers_font_ok(font),
+                E::Numbers { font, .. } | E::BasicText { font, .. } => !crate::layer_fx::numbers_font_ok(font),
                 _ => false,
             };
             // B-107: a shake grows by how far it can carry a corner, which its settings and
@@ -2302,6 +2304,26 @@ fn effect_now(
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             *time = (u - layer.in_frame as f64) / fps;
             *count = (u - layer.in_frame as f64 + 1e-9).floor() as i64;
+        }
+        // D-473: Basic Text's missing font is said each frame, as Numbers' is.
+        if let crate::effects::Effect::BasicText { font, .. } = &now.effect {
+            if !crate::layer_fx::numbers_font_ok(font) {
+                log.record(
+                    frame,
+                    format!("{}/{} font", layer.name, instance.effect.name()),
+                    Diagnostic::new(
+                        DiagnosticId::TextFontMissing,
+                        Severity::Warning,
+                        format!("Layer {}'s Basic Text font \"{font}\" is not on this computer, so its words are not drawn.", layer.name),
+                        format!(
+                            "D-473, as D-263: no other font is put in its place. Looked for it among the fonts that come \
+                             with the program and in {:?}. The layer is left as it was.",
+                            crate::text::installed_fonts()
+                        ),
+                    )
+                    .with_remediation("Install the font, or choose another in Effect controls."),
+                );
+            }
         }
         // D-526: Numbers counts by the layer's key time from its in point, in seconds. A font this
         // computer does not have is said each frame, as a text layer's is, and nothing is drawn.

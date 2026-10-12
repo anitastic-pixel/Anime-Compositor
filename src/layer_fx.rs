@@ -9117,6 +9117,40 @@ pub(crate) fn numbers_picture(e: &crate::effects::Effect, (w, h): (usize, usize)
     numbers_words(e, &numbers_shown(e), (w, h), origin)
 }
 
+/// D-473: Basic Text's picture `w` by `h` with the drawing at `origin`: [`numbers_words`] of its
+/// text with proportional spacing on, its other settings Numbers' own; an empty text draws
+/// nothing. `None` when the font cannot be drawn.
+pub(crate) fn basic_text_picture(e: &crate::effects::Effect, (w, h): (usize, usize), origin: (usize, usize)) -> Option<WorkingBuffer> {
+    let crate::effects::Effect::BasicText {
+        text, position, display, fill_color, stroke_color, stroke_width, size, tracking, composite_on_original, font, alignment,
+    } = e
+    else {
+        return None;
+    };
+    if text.is_empty() {
+        return Some(WorkingBuffer::transparent(w, h));
+    }
+    let numbers = crate::effects::Effect::Numbers {
+        kind: "number".into(),
+        random_values: "off".into(),
+        value: 0.0,
+        decimal_places: 0.0,
+        position: *position,
+        display: display.clone(),
+        fill_color: fill_color.clone(),
+        stroke_color: stroke_color.clone(),
+        stroke_width: *stroke_width,
+        size: *size,
+        tracking: *tracking,
+        proportional_spacing: "on".into(),
+        composite_on_original: composite_on_original.clone(),
+        font: font.clone(),
+        alignment: alignment.clone(),
+        clock: [0.0; 2],
+    };
+    numbers_words(&numbers, text, (w, h), origin)
+}
+
 /// D-526: [`numbers_picture`] of the words `s`; D-527's Timecode draws its count through it.
 /// D-529: the last few pictures are kept by the words and how they are drawn, not by the frame,
 /// so words that stay the same from frame to frame are drawn once.

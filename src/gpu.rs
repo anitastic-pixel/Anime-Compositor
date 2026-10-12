@@ -15198,6 +15198,15 @@ impl Gpu {
                 self.fx_step(steps, &passes.over, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&words), none, tiles(w, h));
                 (out, (w, h))
             }
+            // D-473: as Numbers' words, drawn on the processor.
+            e @ E::BasicText { composite_on_original, .. } => {
+                let words = crate::layer_fx::basic_text_picture(e, (w, h), (ox, oy)).expect("compose leaves Basic Text a font it can draw in");
+                let words = self.map_texture(&words);
+                let out = self.scratch("D-473 basic text", w, h);
+                let k = [(composite_on_original == "on") as u8 as f64];
+                self.fx_step(steps, &passes.over, FxParams::default(), Some(still), Some(&out), Some(&k), Some(&words), none, tiles(w, h));
+                (out, (w, h))
+            }
             // D-526: the words drawn on the processor, as compose leaves Numbers only a font it can
             // draw in, laid over the drawing or alone.
             e @ E::Numbers { composite_on_original, .. } => {

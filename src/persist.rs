@@ -4218,6 +4218,19 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("font".into(), J::from(font.as_str()));
             params.insert("alignment".into(), J::from(alignment.as_str()));
         }
+        Effect::BasicText { text, position, display, fill_color, stroke_color, stroke_width, size, tracking, composite_on_original, font, alignment } => {
+            params.insert("text".into(), J::from(text.as_str()));
+            params.insert("position".into(), J::Array(position.iter().map(|c| num(*c)).collect()));
+            params.insert("display".into(), J::from(display.as_str()));
+            params.insert("fill_color".into(), J::from(fill_color.as_str()));
+            params.insert("stroke_color".into(), J::from(stroke_color.as_str()));
+            params.insert("stroke_width".into(), num(*stroke_width));
+            params.insert("size".into(), num(*size));
+            params.insert("tracking".into(), num(*tracking));
+            params.insert("composite_on_original".into(), J::from(composite_on_original.as_str()));
+            params.insert("font".into(), J::from(font.as_str()));
+            params.insert("alignment".into(), J::from(alignment.as_str()));
+        }
         // D-525: the ids read for a frame are never saved.
         Effect::Identifier { aux_channel, id, output, .. } => {
             params.insert("aux_channel".into(), J::from(aux_channel.as_str()));
@@ -5670,6 +5683,7 @@ fn parse_effect(
         crate::effects::ID_KEY,
         crate::effects::IDENTIFIER,
         crate::effects::NUMBERS,
+        crate::effects::BASIC_TEXT,
         crate::effects::TIMECODE,
         crate::effects::CRYPTOMATTE,
         crate::effects::DEPTH_OF_FIELD,
@@ -7900,6 +7914,19 @@ fn parse_effect(
             font: effect_word(params, "font", &at)?,
             alignment: effect_word(params, "alignment", &at)?,
             clock: [0.0; 2],
+        }),
+        crate::effects::BASIC_TEXT => Some(crate::effects::Effect::BasicText {
+            text: effect_word(params, "text", &at)?,
+            position: effect_array(params, "position", "two numbers, x then y", &at)?,
+            display: effect_word(params, "display", &at)?,
+            fill_color: effect_word(params, "fill_color", &at)?.to_ascii_lowercase(),
+            stroke_color: effect_word(params, "stroke_color", &at)?.to_ascii_lowercase(),
+            stroke_width: effect_number(params, "stroke_width", &at)?,
+            size: effect_number(params, "size", &at)?,
+            tracking: effect_number(params, "tracking", &at)?,
+            composite_on_original: effect_word(params, "composite_on_original", &at)?,
+            font: effect_word(params, "font", &at)?,
+            alignment: effect_word(params, "alignment", &at)?,
         }),
         crate::effects::IDENTIFIER => Some(crate::effects::Effect::Identifier {
             aux_channel: effect_word(params, "aux_channel", &at)?,

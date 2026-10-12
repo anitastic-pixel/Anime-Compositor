@@ -9461,6 +9461,7 @@ const EFFECT_NAMES = {
   'core.fog_3d': 'Fog 3D',
   'core.identifier': 'IDentifier',
   'core.numbers': 'Numbers',
+  'core.basic_text': 'Basic Text',
   'core.timecode': 'Timecode',
   'core.text_animator': 'Text Animator',
   'core.stretch_levels': 'Stretch Levels',
@@ -9513,7 +9514,7 @@ const EFFECT_GROUPS = [
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight', 'core.cc_cylinder', 'core.cc_environment', 'core.cc_sphere']],
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key', 'core.cryptomatte', 'core.depth_of_field', 'core.fog_3d', 'core.identifier']],
-  ['Text', ['core.text_animator', 'core.numbers', 'core.timecode']],
+  ['Text', ['core.text_animator', 'core.numbers', 'core.timecode', 'core.basic_text']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.push_iris', 'core.stretch_wipe', 'core.twister', 'core.warp_blend', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
@@ -9715,6 +9716,7 @@ const EFFECT_SEARCH = {
   'core.id_key': 'id key id matte object id material id index indexob indexma exr render pass aov cut out isolate',
   'core.timecode': 'timecode time code smpte frames frame number counter feet film 35mm 16mm drop frame burn in burnt clock box text',
   'core.numbers': 'numbers number counter count digits timecode time code clock date day hexadecimal hex random text type font leading zeros',
+  'core.basic_text': 'basic text words type title caption font write obsolete old',
   'core.identifier': 'identifier id object id material id index indexob indexma exr render pass proexr fnord colors colours luma matte alpha matte raw preview',
   'core.fog_3d': 'fog 3d mist haze atmosphere depth distance z zdepth exr render pass scattering density gradient background',
   'core.depth_of_field': 'depth of field dof focus defocus focal plane bokeh lens blur z zdepth exr render pass camera',
@@ -9974,6 +9976,7 @@ const EFFECT_ABOUT = {
   'core.pass_extract': 'Shows the depth, the normals, the object or material ids, or any named channel a 3D render saved in the layer\'s EXR file, as a picture.',
   'core.id_key': 'Keeps only the object or material with one id, read from the ids a 3D render saved in the layer\'s EXR file.',
   'core.timecode': 'Burns a timecode onto the layer on a box: the layer\'s own time, the composition\'s, or a count of your own, as SMPTE timecode, a frame number, or feet and frames of film.',
+  'core.basic_text': 'After Effects\' old Basic Text, kept for old projects: words you type drawn on the layer in a font, filled, stroked or both, as Numbers draws its number.',
   'core.numbers': 'Draws a number on the layer: a value you can key to count, the layer\'s timecode, a time of day, a date or a hexadecimal number, in a font, filled, stroked or both, or a random number each frame.',
   'core.identifier': 'Shows the object or material ids a 3D render saved in the layer\'s EXR file: each id in its own colour, one id as a black and white or alpha matte, or the raw numbers as greys.',
   'core.fog_3d': 'Lays fog over a 3D render that thickens with distance, read from the depth saved in the layer\'s EXR file; a grey layer can thin it in places.',
@@ -10414,6 +10417,11 @@ const EFFECT_PARAMS = {
   'core.numbers': [['value', 'Value/Offset/Random Max', 1, 1, '-30,000 to 30,000: the number; seconds added to a timecode; hours for a time; days after 1 January 1995 for a date; with Random Values, the most', '', 0],
     ['decimal_places', 'Decimal Places', 1, 1, '0 to 10, for the two number types', '', 0],
     ['position', 'Position', 2, 1, '% of the width and height, where the words\' baseline meets their aligned end'],
+    ['stroke_width', 'Stroke Width', 1, 0.5, '0 to 500 pixels, outside the letters', '', 3],
+    ['size', 'Size', 1, 1, '1 to 2000 pixels', '', 64],
+    ['tracking', 'Tracking', 1, 1, 'thousandths of the size added after each character, -1000 to 1000', '', 0]],
+  // D-473, After Effects' own names.
+  'core.basic_text': [['position', 'Position', 2, 1, '% of the width and height, where the first line\'s baseline meets its aligned end'],
     ['stroke_width', 'Stroke Width', 1, 0.5, '0 to 500 pixels, outside the letters', '', 3],
     ['size', 'Size', 1, 1, '1 to 2000 pixels', '', 64],
     ['tracking', 'Tracking', 1, 1, 'thousandths of the size added after each character, -1000 to 1000', '', 0]],
@@ -11985,6 +11993,15 @@ const EFFECT_WORDS = {
       ['alignment', 'Alignment', [['center', 'Center'], ['left', 'Left'], ['right', 'Right']]]],
     colours: [['fill_color', 'Fill Color'], ['stroke_color', 'Stroke Color']],
     texts: [['font', 'Font', 'MPLUSRounded1c-Regular.ttf', null, 'The font file\'s name, as a text layer names one, such as arial.ttf']],
+  },
+  // D-473.
+  'core.basic_text': {
+    choices: [['display', 'Display Options', [['fill_only', 'Fill Only'], ['stroke_only', 'Stroke Only'], ['fill_over_stroke', 'Fill Over Stroke'], ['stroke_over_fill', 'Stroke Over Fill']]],
+      ['composite_on_original', 'Composite On Original', [['on', 'On'], ['off', 'Off']]],
+      ['alignment', 'Alignment', [['center', 'Center'], ['left', 'Left'], ['right', 'Right']]]],
+    colours: [['fill_color', 'Fill Color'], ['stroke_color', 'Stroke Color']],
+    texts: [['text', 'Text', 'Text', null, 'The words, up to 1000 characters'],
+      ['font', 'Font', 'MPLUSRounded1c-Regular.ttf', null, 'The font file\'s name, as a text layer names one, such as arial.ttf']],
   },
   // D-525.
   'core.identifier': {
