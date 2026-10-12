@@ -212500,3 +212500,55 @@ FX-WW-046 (`fx_ww_046.json`): A ground layer written as the number 3, not a word
 FX-WW-047 (`fx_ww_047.json`): Steepness keyed to 1.5 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
 
 FX-WW-048 (`fx_ww_048.json`): Producer 2 position with one number. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+### Pixel Motion Blur (D-650)
+
+Pixel Motion Blur (`core.pixel_motion_blur`), after After Effects' Pixel Motion Blur (B-530), the estimate and the rule ours. Every case is a project of one composition 32 by 32, six frames, the drawing `holder`, either a soft shaded disc running 3 right and 1 down a frame across six drawings or a textured card sliding 1.5 to the right a frame, with the effect. `tools/pixel_motion_blur_reference.py` works the expected frames, `Fixtures/pixel_motion_blur/expected_pixel_motion_blur.json`, tolerance 2e-5, with the motion estimate worked a second way by `tools/flow_reference.py`; the rule is in document 21. The viewer cache on twos, the neighbour frames never saved, and the tiles are checked by `tests/b530_pixel_motion_blur.rs` on the build's own frames.
+
+FX-PMB-001 (`fx_pmb_001.json`): As added: Automatic, so the composition's 180 degrees and 16 samples, Vector Detail 20. The disc is smeared along its run, half a frame's travel; at frame 0 the frame before is the layer's first, and at frame 5 the frame after is past its out point, so each smears one way only. Frames 0, 2, 5.
+
+FX-PMB-002 (`fx_pmb_002.json`): Manual, 360 degrees in 8 samples: a whole frame's travel. Frames 2.
+
+FX-PMB-003 (`fx_pmb_003.json`): Manual, 0 degrees: the shutter never opens, the layer exactly as it is. Frames 2.
+
+FX-PMB-004 (`fx_pmb_004.json`): Manual, 720 degrees: two frames' travel, the farthest it goes. Frames 2.
+
+FX-PMB-005 (`fx_pmb_005.json`): Vector Detail 100: a vector found for every pixel. Frames 2.
+
+FX-PMB-006 (`fx_pmb_006.json`): Vector Detail 0: the coarsest vectors, on a picture this small those of Vector Detail 20. Frames 2.
+
+FX-PMB-007 (`fx_pmb_007.json`): Vector Detail 50: one vector for every two pixels. Frames 2.
+
+FX-PMB-008 (`fx_pmb_008.json`): A drawing that never moves: the estimate finds no motion and the layer stays as it is. Frames 2.
+
+FX-PMB-009 (`fx_pmb_009.json`): The textured card sliding 1.5 to the right, as added. Frames 2.
+
+FX-PMB-010 (`fx_pmb_010.json`): The card, Manual 360 degrees in 16 samples, Vector Detail 100. Frames 2.
+
+FX-PMB-011 (`fx_pmb_011.json`): Automatic with the composition's blur set to 90 degrees and 4 samples, its switch off: those are the ones used. Frames 2.
+
+FX-PMB-012 (`fx_pmb_012.json`): Manual, 360 degrees in the fewest samples, 2: two copies a half frame apart. Frames 2.
+
+FX-PMB-013 (`fx_pmb_013.json`): An Exposure of +1 before Pixel Motion Blur: the frames either side are brightened too, and the brighter picture is smeared. Frames 2.
+
+FX-PMB-014 (`fx_pmb_014.json`): An Exposure of -1 after Pixel Motion Blur darkens the smear too. Frames 2.
+
+FX-PMB-015 (`fx_pmb_015.json`): The holder moved 3 right and 2 down: FX-PMB-001 moved, since the smear lies on the layer. Frames 2.
+
+FX-PMB-016 (`fx_pmb_016.json`): The effect on an adjustment layer above the holder: nothing changes, and the frame says why. Frame warning `TEMPORAL_SMOOTHING_SKIPPED`. Frames 2.
+
+FX-PMB-017 (`fx_pmb_017.json`): Manual, the angle keyed from 0 at frame 0 to 360 at frame 4: 180 at frame 2. Frames 0, 2.
+
+FX-PMB-018 (`fx_pmb_018.json`): Drawings on twos: at frame 2 the frame after shows the same drawing, so only the motion from the frame before smears; at frame 3 only the motion to the frame after. Frames 2, 3.
+
+FX-PMB-019 (`fx_pmb_019.json`): The layer's in point at frame 2: at frame 2 the frame before is outside the layer, so only the motion to the frame after smears. Frames 2, 3.
+
+FX-PMB-020 (`fx_pmb_020.json`): Shutter Angle 721, above 720. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMB-021 (`fx_pmb_021.json`): Shutter Samples 1, below 2. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMB-022 (`fx_pmb_022.json`): Vector Detail 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMB-023 (`fx_pmb_023.json`): Shutter Control written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMB-024 (`fx_pmb_024.json`): Shutter Samples keyed to 100 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
