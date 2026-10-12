@@ -3078,7 +3078,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
         }
         // D-397: the table read for a frame is never saved.
-        Effect::ColorGrade { values, look, curves, hue_saturation, key_invert, key_view, .. } => {
+        Effect::ColorGrade { values, look, curves, hue_saturation, more_curves, secondary_wheels, key_invert, key_view, .. } => {
             params.insert("look".into(), J::from(look.as_str()));
             for ((name, ..), v) in crate::effects::COLOR_GRADE_SETTINGS.iter().zip(values).take(22) {
                 params.insert((*name).into(), num(*v));
@@ -3097,6 +3097,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 new.push((name, list(points), *points == straight));
             }
             new.push(("hue_saturation", list(hue_saturation), hue_saturation.is_empty()));
+            // D-571: the other curves and the wheels' word likewise, so a D-398 file saves as before.
+            for ((name, ..), points) in crate::effects::COLOR_GRADE_MORE_CURVES.iter().zip(more_curves) {
+                new.push((name, list(points), points.is_empty()));
+            }
+            new.push(("secondary_wheels", J::from(secondary_wheels.as_str()), secondary_wheels == "one"));
             new.push(("key_invert", J::from(key_invert.as_str()), key_invert == "off"));
             new.push(("key_view", J::from(key_view.as_str()), key_view == "off"));
             for (key, value, start) in new {
@@ -7200,7 +7205,7 @@ fn parse_effect(
         }
         crate::effects::COLOR_GRADE => {
             // D-398: a file from D-397, without the later settings, reads each as added.
-            let mut values = [0.0; 46];
+            let mut values = [0.0; 54];
             for (i, ((name, _, _, start), v)) in crate::effects::COLOR_GRADE_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
                 *v = if i < 22 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *start)? };
             }
@@ -7214,6 +7219,8 @@ fn parse_effect(
                 look: effect_word(params, "look", &at)?,
                 curves: [points_or("curve_master", straight())?, points_or("curve_red", straight())?, points_or("curve_green", straight())?, points_or("curve_blue", straight())?],
                 hue_saturation: points_or("hue_saturation", Vec::new())?,
+                more_curves: [points_or("hue_hue", Vec::new())?, points_or("hue_luma", Vec::new())?, points_or("luma_saturation", Vec::new())?, points_or("saturation_saturation", Vec::new())?],
+                secondary_wheels: effect_word_or(params, "secondary_wheels", &at, "one")?,
                 key_invert: effect_word_or(params, "key_invert", &at, "off")?,
                 key_view: effect_word_or(params, "key_view", &at, "off")?,
                 table: None,

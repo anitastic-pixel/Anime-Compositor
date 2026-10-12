@@ -4355,6 +4355,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             look: String::new(),
             curves: std::array::from_fn(|_| vec![vec![0.0, 0.0], vec![255.0, 255.0]]),
             hue_saturation: Vec::new(),
+            more_curves: Default::default(),
+            secondary_wheels: "one".to_string(),
             key_invert: "off".to_string(),
             key_view: "off".to_string(),
             table: None,
@@ -6911,20 +6913,24 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         }),
         // D-397: the look, an asset's id as written, and the numbers. D-398: the curves as
         // Curves' points, the hue curve likewise (empty for none) and the two words; any later
-        // setting the command does not name at its start.
+        // setting the command does not name at its start. D-571: the other curves as the hue
+        // curve, and the wheels' word.
         COLOR_GRADE => {
-            let mut values = [0.0; 46];
+            let mut values = [0.0; 54];
             for (i, ((name, _, _, start), v)) in COLOR_GRADE_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
                 *v = if i < 22 || parameter(query, name).is_some() { number(name)? } else { *start };
             }
             let curve = |name: &str| if parameter(query, name).is_some() { points(name) } else { Ok(vec![vec![0.0, 0.0], vec![255.0, 255.0]]) };
             let hues = parameter(query, "hue_saturation").unwrap_or_default();
             let word_or = |name: &str| if parameter(query, name).is_some() { word(name) } else { Ok("off".to_string()) };
+            let list = |name: &str| if parameter(query, name).unwrap_or_default().trim().is_empty() { Ok(Vec::new()) } else { points(name) };
             Ok(Effect::ColorGrade {
                 values,
                 look: parameter(query, "look").unwrap_or_default().trim().to_string(),
                 curves: [curve("curve_master")?, curve("curve_red")?, curve("curve_green")?, curve("curve_blue")?],
                 hue_saturation: if hues.trim().is_empty() { Vec::new() } else { points("hue_saturation")? },
+                more_curves: [list("hue_hue")?, list("hue_luma")?, list("luma_saturation")?, list("saturation_saturation")?],
+                secondary_wheels: if parameter(query, "secondary_wheels").is_some() { word("secondary_wheels")? } else { "one".to_string() },
                 key_invert: word_or("key_invert")?,
                 key_view: word_or("key_view")?,
                 table: None,
@@ -14654,8 +14660,8 @@ fn choose_lut(viewer: &Mutex<Viewer>, layer_id: Id, instance_id: Id, file: &Path
         Some(Effect::ArbitraryMap { phase, apply_to_alpha, .. }) => {
             (Effect::ArbitraryMap { map: lut.as_str().to_string(), phase, apply_to_alpha, table: None }, "Arbitrary Map")
         }
-        Some(Effect::ColorGrade { values, curves, hue_saturation, key_invert, key_view, .. }) => {
-            (Effect::ColorGrade { values, look: lut.as_str().to_string(), curves, hue_saturation, key_invert, key_view, table: None }, "Color Grade")
+        Some(Effect::ColorGrade { values, curves, hue_saturation, more_curves, secondary_wheels, key_invert, key_view, .. }) => {
+            (Effect::ColorGrade { values, look: lut.as_str().to_string(), curves, hue_saturation, more_curves, secondary_wheels, key_invert, key_view, table: None }, "Color Grade")
         }
         _ => (Effect::ColorLookup { lut: lut.as_str().to_string(), table: None }, "Color Lookup"),
     };

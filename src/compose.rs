@@ -1213,6 +1213,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // thresholds (D-122's reason), so those stay on the CPU.
         && !matches!(&instance.effect, crate::effects::Effect::ScreenKey { view, clip_black, clip_white, shrink_grow, softness, edge_refine, .. }
             if *shrink_grow != 0.0 || *softness != 0.0 || *edge_refine >= 1.0 || clip_white <= clip_black || view == "status")
+        // D-571: the card draws a Color Grade a pixel at a time; its HSL Secondary key's denoise
+        // and blur read the key round each pixel, so a grade with either stays on the CPU.
+        // ponytail: teach the card the key's median and blur if a refined key is slow here.
+        && !matches!(&instance.effect, crate::effects::Effect::ColorGrade { values, .. } if values[52] > 0.0 || values[53] > 0.0)
         // D-541: a Linear Color Key's Keep Colors reads the pixels before the keys above it,
         // which the processor keeps (`effects::apply_stack_at`).
         && !matches!(&instance.effect, crate::effects::Effect::LinearColorKey { key_operation, .. } if key_operation == "keep")

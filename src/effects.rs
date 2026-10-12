@@ -1562,13 +1562,17 @@ pub enum Effect {
     /// the frame by `crate::lut::fill`. D-398: `curves`, Curves' master, red, green and blue
     /// (D-111's form); `hue_saturation`, 0 to 16 points [hue, saturation]; `key_invert`, "off" or
     /// "on"; `key_view`, "off" or "mask". Kept as written, so a file's wrong one is reported.
+    /// D-571: `more_curves`, the curves of `COLOR_GRADE_MORE_CURVES` in that order, 0 to 16
+    /// points each; `secondary_wheels`, "one" or "three".
     ColorGrade {
-        values: [f64; 46],
+        values: [f64; 54],
         look: String,
         curves: [Vec<Vec<f64>>; 4],
         hue_saturation: Vec<Vec<f64>>,
+        more_curves: [Vec<Vec<f64>>; 4],
         key_invert: String,
         key_view: String,
+        secondary_wheels: String,
         table: Option<crate::lut::Table>,
     },
     /// D-375: after After Effects' Color Link. `layer`, D-189's layer setting, "" the layer itself
@@ -3723,9 +3727,9 @@ pub const GAMMA_PEDESTAL_GAIN: &str = "core.gamma_pedestal_gain";
 pub const PHOTO_FILTER: &str = "core.photo_filter";
 pub const COLOR_GRADE: &str = "core.color_grade";
 /// D-397: Color Grade's keyable settings, in the order `values` holds them: name, lowest,
-/// highest, and the value when the effect is added. D-398 adds the last 24, which a file from
-/// before it leaves at their start.
-pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 46] = [
+/// highest, and the value when the effect is added. D-398 adds the 24 after the vignette's, and
+/// D-571 the last 8, which a file from before either leaves at their start.
+pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 54] = [
     ("temperature", -100.0, 100.0, 0.0),
     ("tint", -100.0, 100.0, 0.0),
     ("exposure", -5.0, 5.0, 0.0),
@@ -3772,9 +3776,27 @@ pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 46] = [
     ("secondary_wheel_hue", 0.0, 360.0, 0.0),
     ("secondary_wheel_amount", 0.0, 100.0, 0.0),
     ("secondary_lightness", -100.0, 100.0, 0.0),
+    ("secondary_shadow_wheel_hue", 0.0, 360.0, 0.0),
+    ("secondary_shadow_wheel_amount", 0.0, 100.0, 0.0),
+    ("secondary_shadow_lightness", -100.0, 100.0, 0.0),
+    ("secondary_highlight_wheel_hue", 0.0, 360.0, 0.0),
+    ("secondary_highlight_wheel_amount", 0.0, 100.0, 0.0),
+    ("secondary_highlight_lightness", -100.0, 100.0, 0.0),
+    ("key_denoise", 0.0, 100.0, 0.0),
+    ("key_blur", 0.0, 100.0, 0.0),
 ];
 /// D-398: Color Grade's curves' names, in the order `curves` holds them.
 pub const COLOR_GRADE_CURVES: [&str; 4] = ["curve_master", "curve_red", "curve_green", "curve_blue"];
+/// D-571: Color Grade's other curves, in the order `more_curves` holds them: each name, its
+/// words in a sentence, its two numbers' words, the top of its first number (a hue's 360 not
+/// taken), the range of its second, and the second's flat value, where the curve changes
+/// nothing.
+pub const COLOR_GRADE_MORE_CURVES: [(&str, &str, (&str, &str), f64, (f64, f64), f64); 4] = [
+    ("hue_hue", "hue versus hue", ("hue", "shift"), 360.0, (-180.0, 180.0), 0.0),
+    ("hue_luma", "hue versus luma", ("hue", "luma"), 360.0, (-100.0, 100.0), 0.0),
+    ("luma_saturation", "luma versus saturation", ("luma", "saturation"), 100.0, (0.0, 200.0), 100.0),
+    ("saturation_saturation", "saturation versus saturation", ("saturation", "saturation"), 100.0, (0.0, 200.0), 100.0),
+];
 /// D-384: Photo Filter's presets and their colours, those published for Photoshop's Photo
 /// Filter (fmwconcepts' colorfilter; Aspose agrees on Warming (85)). "custom" uses `color`.
 pub const PHOTO_FILTERS: [(&str, &str); 6] = [
@@ -6610,6 +6632,11 @@ impl Effect {
             Effect::DirectionalBlur { length, .. } => *length = scale(*length),
             Effect::LineWidth { width, .. } => *width = scale(*width),
             Effect::LineBlur { length, .. } => *length = scale(*length),
+            // D-571: the key's denoise and blur are distances too, a tenth of a pixel each.
+            Effect::ColorGrade { values, .. } => {
+                values[52] = scale(values[52]);
+                values[53] = scale(values[53]);
+            }
             // D-203: a radius scaled under one leaves the layer as it is.
             Effect::Median { radius, .. }
             | Effect::SmartBlur { radius, .. }
@@ -7985,11 +8012,21 @@ impl Effect {
                 .or_else(|| hex_fault(name, "midtones", midtones))
                 .or_else(|| hex_fault(name, "darktones", darktones))
                 .or_else(|| hex_fault(name, "shadows", shadows)),
-            Effect::ColorGrade { curves, hue_saturation, key_invert, key_view, .. } => ["master", "red", "green", "blue"]
+            Effect::ColorGrade { curves, hue_saturation, more_curves, key_invert, key_view, secondary_wheels, .. } => ["master", "red", "green", "blue"]
                 .iter()
                 .zip(curves)
                 .find_map(|(curve, points)| curve_fault(curve, points).map(|f| f.replacen("Curves'", &format!("{name}'s"), 1)))
-                .or_else(|| hue_points_fault(name, hue_saturation))
+                .or_else(|| points_fault(name, "hue versus saturation", ("hue", "saturation"), 360.0, (0.0, 200.0), hue_saturation))
+                .or_else(|| {
+                    COLOR_GRADE_MORE_CURVES
+                        .iter()
+                        .zip(more_curves)
+                        .find_map(|((_, words, of, top, range, _), points)| points_fault(name, words, *of, *top, *range, points))
+                })
+                .or_else(|| {
+                    (!["one", "three"].contains(&secondary_wheels.as_str()))
+                        .then(|| format!("{name}'s secondary wheels are \"one\" or \"three\", and this is \"{secondary_wheels}\"."))
+                })
                 .or_else(|| {
                     (!["off", "on"].contains(&key_invert.as_str()))
                         .then(|| format!("{name}'s key invert is \"off\" or \"on\", and this is \"{key_invert}\"."))
@@ -9632,19 +9669,23 @@ fn gradient_fault(shape: &str, start_color: &str, end_color: &str, blend: &str) 
 
 /// D-111: what is wrong with one curve's points, as a sentence, or `None` when nothing is.
 /// D-398: Color Grade's hue-versus-saturation points: 0 to 16, each [hue, saturation], hue 0
-/// to under 360 and rising, saturation 0 to 200.
-fn hue_points_fault(name: &str, points: &[Vec<f64>]) -> Option<String> {
+/// to under 360 and rising, saturation 0 to 200. D-571: any of its curves of 0 to 16 points,
+/// the first number rising from 0 to under `top` for a hue (360) or to `top` itself, the second
+/// inside `range`; `of`, the two numbers' words.
+fn points_fault(name: &str, curve: &str, (first, second): (&str, &str), top: f64, range: (f64, f64), points: &[Vec<f64>]) -> Option<String> {
     if points.len() > 16 {
-        return Some(format!("{name}'s hue versus saturation takes up to 16 points, and this has {}.", points.len()));
+        return Some(format!("{name}'s {curve} takes up to 16 points, and this has {}.", points.len()));
     }
     if let Some(p) = points.iter().find(|p| p.len() != 2) {
-        return Some(format!("Each point of {name}'s hue versus saturation is two numbers, hue then saturation, and this one is {p:?}."));
+        return Some(format!("Each point of {name}'s {curve} is two numbers, {first} then {second}, and this one is {p:?}."));
     }
-    if let Some(p) = points.iter().find(|p| !(0.0..360.0).contains(&p[0]) || !(0.0..=200.0).contains(&p[1])) {
-        return Some(format!("{name}'s hue versus saturation takes hues from 0 to under 360 and saturations from 0 to 200, and this point is {p:?}."));
+    let hue = top == 360.0;
+    let to = if hue { "to under" } else { "to" };
+    if let Some(p) = points.iter().find(|p| !(p[0] >= 0.0 && (p[0] < top || !hue && p[0] == top)) || !(range.0..=range.1).contains(&p[1])) {
+        return Some(format!("{name}'s {curve} takes {first}s from 0 {to} {top} and {second}s from {} to {}, and this point is {p:?}.", range.0, range.1));
     }
     points.windows(2).find(|w| w[1][0] <= w[0][0]).map(|w| {
-        format!("{name}'s hue versus saturation's hue goes up from point to point, and {} is not above {}.", w[1][0], w[0][0])
+        format!("{name}'s {curve}'s {first} goes up from point to point, and {} is not above {}.", w[1][0], w[0][0])
     })
 }
 
@@ -11988,6 +12029,7 @@ pub(crate) fn apply_stack_at(
                         GradeStep::Tints(sh, hi) => crate::grade::color_balance(source, sh, [0.0; 3], hi, false),
                         GradeStep::Curves(c) => crate::grade::curves(source, &c[0], [&c[1], &c[2], &c[3]], &[vec![0.0, 0.0], vec![255.0, 255.0]]),
                         GradeStep::HueSaturation(points) => crate::grade::hue_vs_saturation(source, points),
+                        GradeStep::More(which, points) => crate::grade::grade_curve(source, which, points),
                         GradeStep::Wheels(sh, mid, hi) => crate::grade::color_balance(source, sh, mid, hi, false),
                         GradeStep::Secondary(s) => crate::grade::secondary(source, &s),
                         GradeStep::Vignette(v) => crate::grade::vignette(source, &v),
@@ -13101,6 +13143,8 @@ pub(crate) enum GradeStep<'a> {
     Curves(&'a [Vec<Vec<f64>>; 4]),
     /// D-398: the hue-versus-saturation points.
     HueSaturation(&'a [Vec<f64>]),
+    /// D-571: one of `COLOR_GRADE_MORE_CURVES`, by its place, and its points.
+    More(usize, &'a [Vec<f64>]),
     /// D-398: Color Balance's shadow, midtone and highlight pushes.
     Wheels([f64; 3], [f64; 3], [f64; 3]),
     Secondary(crate::grade::Secondary),
@@ -13111,12 +13155,13 @@ pub(crate) enum GradeStep<'a> {
 /// the grade changes nothing, or `effect` is not a Color Grade. A look without its table (none
 /// named, missing or refused, which `crate::lut::fill` said) is left out and the rest drawn.
 /// D-398: the curves, hue versus saturation, wheels and HSL Secondary before the vignette,
-/// which the mask view leaves out.
+/// which the mask view leaves out. D-571: the other four curves after hue versus saturation, and
+/// the HSL Secondary's three wheels and its key's denoise and blur.
 pub(crate) fn color_grade_steps(effect: &Effect, (w, h): (usize, usize), (ox, oy): (usize, usize)) -> Vec<GradeStep<'_>> {
-    let Effect::ColorGrade { values, curves, hue_saturation, key_invert, key_view, table, .. } = effect else {
+    let Effect::ColorGrade { values, curves, hue_saturation, more_curves, key_invert, key_view, secondary_wheels, table, .. } = effect else {
         return Vec::new();
     };
-    let v: [f64; 46] = std::array::from_fn(|i| values[i].clamp(COLOR_GRADE_SETTINGS[i].1, COLOR_GRADE_SETTINGS[i].2));
+    let v: [f64; 54] = std::array::from_fn(|i| values[i].clamp(COLOR_GRADE_SETTINGS[i].1, COLOR_GRADE_SETTINGS[i].2));
     let [temperature, tint, exposure, contrast, highlights, shadows, whites, blacks, saturation, intensity, faded, vibrance, creative, shadow_hue, shadow_amount, highlight_hue, highlight_amount, balance, vignette, midpoint, roundness, feather] =
         std::array::from_fn(|i| v[i]);
     let gains = |temperature: f64, tint: f64, exposure: f64| {
@@ -13154,6 +13199,11 @@ pub(crate) fn color_grade_steps(effect: &Effect, (w, h): (usize, usize), (ox, oy
     if hue_saturation.iter().any(|p| p[1] != 100.0) {
         out.push(GradeStep::HueSaturation(hue_saturation));
     }
+    for (i, ((.., flat), points)) in COLOR_GRADE_MORE_CURVES.iter().zip(more_curves).enumerate() {
+        if points.iter().any(|p| p[1] != *flat) {
+            out.push(GradeStep::More(i, points));
+        }
+    }
     let w3 = &v[22..31];
     if (0..3).any(|r| w3[3 * r + 1] != 0.0 || w3[3 * r + 2] != 0.0) {
         let [sh, mid, hi] = std::array::from_fn(|r| wheel(w3[3 * r], w3[3 * r + 1], w3[3 * r + 2]));
@@ -13161,7 +13211,12 @@ pub(crate) fn color_grade_steps(effect: &Effect, (w, h): (usize, usize), (ox, oy
     }
     let [s_temperature, s_tint, s_contrast, s_saturation, s_hue, s_amount, s_lightness] = std::array::from_fn(|i| v[39 + i]);
     let mask = key_view == "mask";
-    if mask || [s_temperature, s_tint, s_contrast, s_amount, s_lightness].iter().any(|x| *x != 0.0) || s_saturation != 100.0 {
+    // D-571: with three wheels the shadows' and highlights' too; with one they are not used.
+    let three = secondary_wheels == "three";
+    let [shadow, highlight] = [46, 49].map(|i| (v[i], v[i + 1], v[i + 2]));
+    let turned = three && [shadow, highlight].iter().any(|w| w.1 != 0.0 || w.2 != 0.0);
+    if mask || turned || [s_temperature, s_tint, s_contrast, s_amount, s_lightness].iter().any(|x| *x != 0.0) || s_saturation != 100.0 {
+        let push = |(hue, amount, lightness): (f64, f64, f64)| wheel(hue, amount, lightness).map(|p| p / 200.0);
         out.push(GradeStep::Secondary(crate::grade::Secondary {
             key: std::array::from_fn(|i| v[31 + i]),
             invert: key_invert == "on",
@@ -13169,7 +13224,9 @@ pub(crate) fn color_grade_steps(effect: &Effect, (w, h): (usize, usize), (ox, oy
             gains: (s_temperature != 0.0 || s_tint != 0.0).then(|| gains(s_temperature, s_tint, 0.0)),
             contrast: s_contrast / 100.0,
             saturation: s_saturation / 100.0,
-            push: wheel(s_hue, s_amount, s_lightness).map(|p| p / 200.0),
+            push: push((s_hue, s_amount, s_lightness)),
+            three: three.then(|| [push(shadow), push(highlight)]),
+            refine: (v[52] / 10.0, v[53] / 10.0),
         }));
     }
     if vignette != 0.0 && !mask {

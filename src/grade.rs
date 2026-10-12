@@ -3244,10 +3244,57 @@ pub(crate) fn hue_vs_saturation(source: &mut WorkingBuffer, points: &[Vec<f64>])
     });
 }
 
+/// D-571: Color Grade's luma-versus-saturation and saturation-versus-saturation curve at `x`:
+/// as [`hue_curve`] from each point to the next, held flat past the first and the last.
+/// `points` are valid and not empty.
+pub(crate) fn line_curve(points: &[Vec<f64>], x: f64) -> f64 {
+    let n = points.len();
+    if x <= points[0][0] {
+        return points[0][1];
+    }
+    if x >= points[n - 1][0] {
+        return points[n - 1][1];
+    }
+    for p in points.windows(2) {
+        if p[0][0] <= x && x < p[1][0] {
+            let u = (x - p[0][0]) / (p[1][0] - p[0][0]);
+            return p[0][1] + (p[1][1] - p[0][1]) * u * u * (3.0 - 2.0 * u);
+        }
+    }
+    points[n - 1][1]
+}
+
+/// D-571: one of Color Grade's other curves, by its place in `COLOR_GRADE_MORE_CURVES`. Hue
+/// versus hue turns the colour's hue by the curve, its lightness and saturation kept, a grey
+/// left as it is; hue versus luma adds the curve times the colour's chroma over 200 to each
+/// channel; luma versus saturation and saturation versus saturation are Vibrance's saturation
+/// (D-140) at the curve of 100 times the luma, or the HLS saturation held at 1.
+pub(crate) fn grade_curve(source: &mut WorkingBuffer, which: usize, points: &[Vec<f64>]) {
+    grade_pixels(source, false, |_, e| {
+        let (hue, l, s) = hls(e);
+        match which {
+            0 => hue.map_or(e, |h| from_hls((h + hue_curve(points, h)).rem_euclid(360.0), l, s)),
+            1 => {
+                let (mx, mn) = (e[0].max(e[1]).max(e[2]), e[0].min(e[1]).min(e[2]));
+                let lift = hue_curve(points, hue.unwrap_or(0.0)) * (mx - mn) / 200.0;
+                e.map(|v| v + lift)
+            }
+            _ => {
+                let l = luma(e);
+                let x = if which == 2 { 100.0 * l } else { 100.0 * s.min(1.0) };
+                let k = line_curve(points, x) / 100.0;
+                e.map(|v| l + (v - l) * k)
+            }
+        }
+    });
+}
+
 /// D-398: Color Grade's HSL Secondary, read once for a frame. `key`: the hue, its range and
 /// softness in degrees, then the saturation's low and high, the lightness's low and high and
 /// their softness, per cent. `gains`, the white balance's when either is set; `contrast` and
-/// `saturation` as shares; `push`, the wheel and lightness over 200.
+/// `saturation` as shares; `push`, the wheel and lightness over 200. D-571: `three`, with three
+/// wheels, the shadows' and highlights' pushes likewise, `push` then the midtones'; `refine`,
+/// the key's median radius and Gaussian sigma in pixels.
 pub(crate) struct Secondary {
     pub key: [f64; 8],
     pub invert: bool,
@@ -3256,6 +3303,8 @@ pub(crate) struct Secondary {
     pub contrast: f64,
     pub saturation: f64,
     pub push: [f64; 3],
+    pub three: Option<[[f64; 3]; 2]>,
+    pub refine: (f64, f64),
 }
 
 /// D-398: 1 from `lo` to `hi`, falling to 0 over `soft` outside them, eased.
@@ -3287,12 +3336,37 @@ pub(crate) fn secondary_key(e: [f64; 3], s: &Secondary) -> f64 {
     if s.invert { 1.0 - m } else { m }
 }
 
+/// D-571: HSL Secondary's key for every pixel (0 where it does not show), through Median's
+/// disc (D-203) of radius `refine.0` and then Gaussian Blur's kernel of sigma `refine.1`, the
+/// layer's edge places repeated, as Shadow/Highlight's (D-400).
+fn secondary_refined_key(source: &WorkingBuffer, s: &Secondary) -> Vec<f32> {
+    let w = source.width().max(1);
+    let mut plane = source.clone();
+    plane.data_mut().par_chunks_mut(w * 4).for_each(|row| {
+        for px in row.chunks_exact_mut(4) {
+            let a = px[3] as f64;
+            let m = if a > 0.0 { secondary_key(std::array::from_fn(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0))), s) as f32 } else { 0.0 };
+            px.copy_from_slice(&[m, m, m, 1.0]);
+        }
+    });
+    crate::median::median(&mut plane, s.refine.0, -1.0, false);
+    if s.refine.1 > 0.0 {
+        crate::effects::held_blur_axes(&mut plane, &crate::effects::gaussian_weights(s.refine.1), (true, true));
+    }
+    plane.data().chunks_exact(4).map(|p| p[0]).collect()
+}
+
 /// D-398: HSL Secondary: the key as a grey in the mask view; otherwise `e + m (c - e)`, c the
 /// correction (the gains in linear light held inside 0 to 1, the contrast term, the
-/// saturation about the luma, the push).
+/// saturation about the luma, the push). D-571: the key refined when either refine is set;
+/// with three wheels the push Color Balance's (D-130) from the colour's luma.
 pub(crate) fn secondary(source: &mut WorkingBuffer, s: &Secondary) {
-    grade_pixels(source, false, |_, e| {
-        let m = secondary_key(e, s);
+    let refined = (s.refine != (0.0, 0.0)).then(|| secondary_refined_key(source, s));
+    grade_pixels(source, refined.is_some(), |i, e| {
+        let m = match &refined {
+            Some(r) => r[i] as f64,
+            None => secondary_key(e, s),
+        };
         if s.mask {
             return [m; 3];
         }
@@ -3304,7 +3378,15 @@ pub(crate) fn secondary(source: &mut WorkingBuffer, s: &Secondary) {
         c = c.map(|v| v + k * v * (1.0 - v) * (2.0 * v - 1.0));
         let l = luma(c);
         c = c.map(|v| l + (v - l) * s.saturation);
-        std::array::from_fn(|i| e[i] + m * (c[i] + s.push[i] - e[i]))
+        let push = match s.three {
+            None => s.push,
+            Some([sh, hi]) => {
+                let l = luma(e);
+                let (ws, wh) = ((1.0 - 2.0 * l).clamp(0.0, 1.0), (2.0 * l - 1.0).clamp(0.0, 1.0));
+                std::array::from_fn(|i| ws * sh[i] + (1.0 - ws - wh) * s.push[i] + wh * hi[i])
+            }
+        };
+        std::array::from_fn(|i| e[i] + m * (c[i] + push[i] - e[i]))
     });
 }
 

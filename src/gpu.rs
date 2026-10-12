@@ -2326,6 +2326,40 @@ fn key_band(x: f64, lo: f64, hi: f64, soft: f64) -> f64 {
     return 1.0lf - t * t * (3.0lf - 2.0lf * t);
 }
 
+// D-571, grade::hue_curve (`circle`) or grade::line_curve at `x0`. k: the count, the first
+// numbers, then the second.
+fn grade_curve(x0: f64, circle: bool) -> f64 {
+    let n = u32(k[0]);
+    if !circle {
+        if x0 <= k[1] {
+            return k[1u + n];
+        }
+        if x0 >= k[n] {
+            return k[2u * n];
+        }
+    }
+    for (var i = 0u; i < n && n > 1u; i++) {
+        let j = (i + 1u) % n;
+        if j == 0u && !circle {
+            break;
+        }
+        let h0 = k[1u + i];
+        var h1 = k[1u + j];
+        if j == 0u {
+            h1 += 360.0lf;
+        }
+        var x = x0;
+        if x < h0 && circle {
+            x += 360.0lf;
+        }
+        if h0 <= x && x < h1 {
+            let u = (x - h0) / (h1 - h0);
+            return k[1u + n + i] + (k[1u + n + j] - k[1u + n + i]) * u * u * (3.0lf - 2.0lf * u);
+        }
+    }
+    return k[select(1u + n, 2u * n, !circle)];
+}
+
 // grade::from_hls: an encoded colour from its hue in degrees, lightness and saturation.
 fn from_hls(hue: f64, l: f64, s: f64) -> vec3<f64> {
     let chroma = (1.0lf - abs(2.0lf * l - 1.0lf)) * s;
@@ -3279,10 +3313,32 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
             let l = luma(e);
             o = vec3(l) + (e - vec3(l)) * (s / 100.0lf);
         }
+        case 120u: {
+            // D-571, as grade::grade_curve's hue versus hue. k: as grade_curve's.
+            let h = hls(e);
+            if h.x >= 0.0lf {
+                o = from_hls(euclid(h.x + grade_curve(h.x, true), 360.0lf), h.y, h.z);
+            }
+        }
+        case 121u: {
+            // D-571, hue versus luma.
+            let lift = grade_curve(max(hsv_hue(e), 0.0lf), true) * (max(max(e.x, e.y), e.z) - min(min(e.x, e.y), e.z)) / 200.0lf;
+            o = e + vec3(lift);
+        }
+        case 122u, 123u: {
+            // D-571, luma versus saturation (122) and saturation versus saturation (123).
+            let l = luma(e);
+            var x = 100.0lf * l;
+            if F.mode == 123u {
+                x = 100.0lf * min(hls(e).z, 1.0lf);
+            }
+            o = vec3(l) + (e - vec3(l)) * (grade_curve(x, false) / 100.0lf);
+        }
         case 43u: {
             // D-398, as grade::secondary. k: the key (hue, range, softness; saturation low, high;
             // lightness low, high; their softness), 1 to invert, 1 for the mask view, 1 when the
-            // gains apply, the gains, the contrast and saturation as shares, the push.
+            // gains apply, the gains, the contrast and saturation as shares, the push. D-571: 1
+            // for three wheels, then the shadows' and the highlights' pushes.
             let h = hls(e);
             var wh = 1.0lf;
             if k[1] < 180.0lf {
@@ -3306,8 +3362,17 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
                     c[i] += k[14] * c[i] * (1.0lf - c[i]) * (2.0lf * c[i] - 1.0lf);
                 }
                 let l = luma(c);
+                var push = vec3(k[16], k[17], k[18]);
+                if k[19] != 0.0lf {
+                    let le = luma(e);
+                    let ws = clamp(1.0lf - 2.0lf * le, 0.0lf, 1.0lf);
+                    let wh = clamp(2.0lf * le - 1.0lf, 0.0lf, 1.0lf);
+                    for (var i = 0u; i < 3u; i++) {
+                        push[i] = ws * k[20u + i] + (1.0lf - ws - wh) * push[i] + wh * k[23u + i];
+                    }
+                }
                 for (var i = 0u; i < 3u; i++) {
-                    o[i] = e[i] + m * (l + (c[i] - l) * k[15] + k[16u + i] - e[i]);
+                    o[i] = e[i] + m * (l + (c[i] - l) * k[15] + push[i] - e[i]);
                 }
             }
         }
@@ -13980,6 +14045,14 @@ impl Gpu {
                             k.extend(points.iter().map(|p| p[1]));
                             stage(1, 42, k)
                         }
+                        // D-571: the same count and numbers, modes 120 to 123 in
+                        // COLOR_GRADE_MORE_CURVES' order.
+                        G::More(which, points) => {
+                            let mut k = vec![points.len() as f64];
+                            k.extend(points.iter().map(|p| p[0]));
+                            k.extend(points.iter().map(|p| p[1]));
+                            stage(1, 120 + which as u32, k)
+                        }
                         G::Wheels(sh, mid, hi) => {
                             let mut k = sh.to_vec();
                             k.extend(mid);
@@ -13993,6 +14066,8 @@ impl Gpu {
                             k.extend(s.gains.unwrap_or([1.0; 3]));
                             k.extend([s.contrast, s.saturation]);
                             k.extend(s.push);
+                            k.push(s.three.is_some() as u8 as f64);
+                            k.extend(s.three.unwrap_or([[0.0; 3]; 2]).into_iter().flatten());
                             stage(1, 43, k)
                         }
                         G::Vignette(v) => {
