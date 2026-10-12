@@ -1,0 +1,158 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-pspace-029",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-colours",
+      "kind": "still",
+      "name": "colours",
+      "path": "media/colours.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 26,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 26
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-colours",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 26,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.particle_space",
+              "enabled": true,
+              "parameters": {
+                "birth_rate": 1,
+                "longevity": 1.5,
+                "producer_x": 0,
+                "producer_y": 0,
+                "producer_z": 0,
+                "radius_x": 0.025,
+                "radius_y": 0.025,
+                "radius_z": 0.025,
+                "velocity": 0.6,
+                "inherit_velocity": 0,
+                "gravity": 0,
+                "resistance": 0,
+                "axis_x": 0,
+                "axis_y": -1,
+                "axis_z": 0,
+                "extra": 0.5,
+                "extra_angle": 360,
+                "gravity_x": 0,
+                "gravity_y": 1,
+                "gravity_z": 0,
+                "floor_position": 0.5,
+                "bounciness": 50,
+                "random_bounciness": 0,
+                "bounce_spread": 0,
+                "wind_x": 0,
+                "wind_y": 0,
+                "wind_z": 0,
+                "turbulence": 0,
+                "turbulence_scale": 0.25,
+                "turbulence_evolution": 0,
+                "birth_size": 8,
+                "death_size": 3,
+                "size_variation": 0,
+                "max_opacity": 90,
+                "volume_shade": 0,
+                "camera_distance": 2,
+                "camera_rotation_x": 0,
+                "camera_rotation_y": 0,
+                "camera_rotation_z": 0,
+                "camera_fov": 30,
+                "depth_cue_distance": 4,
+                "light_direction": 45,
+                "light_height": 45,
+                "random_seed": 0,
+                "animation": "twirl",
+                "floor_action": "none",
+                "particle_type": "disc",
+                "color_map": "birth_to_death",
+                "transfer_mode": "composite",
+                "depth_cue": "none",
+                "composite_on_original": "off",
+                "birth_color": "#ffd933",
+                "death_color": "#cc1a00",
+                "custom_color_1": "#ffd933",
+                "custom_color_2": "#f2a926",
+                "custom_color_3": "#e67a1a",
+                "custom_color_4": "#d94a0d",
+                "custom_color_5": "#cc1a00",
+                "depth_cue_color": "#000000"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
