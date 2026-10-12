@@ -4216,7 +4216,7 @@ fn fill_pixel_motion(
     }
 }
 
-/// D-455: each switched-on Remove Grain's noise:/// D-455: each switched-on Remove Grain's noise: the holder at this frame with the effects before
+/// D-455: each switched-on Remove Grain's noise: the holder at this frame with the effects before
 /// this one, measured whole (`grade::grain_levels`), so every tile and the card read the same
 /// number. Noise Reduction 0 removes nothing and is not measured. What the holder says on the way
 /// is said by the frame itself, so it is not said again here. D-470: each Contour Paint's palette
