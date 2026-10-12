@@ -1498,6 +1498,53 @@ pub enum Effect {
         fps: f64,
         grid_scale: f64,
     },
+    /// D-631: after After Effects' Caustics (Simulation), its rule and its settings when added
+    /// ours (`layer_fx::caustics`, `tools/caustics_reference.py`, document 21). Bottom:
+    /// `bottom_layer` D-189's layer setting as written ("" the effect's own drawing),
+    /// `bottom_scaling` 0.1 to 10, `bottom_repeat_mode` `once`, `tiled` or `reflected`,
+    /// `bottom_fit` `center` or `stretch`, `bottom_blur` 0 to 50. Water: `water_surface` a layer
+    /// setting, `wave_height` 0 to 1, `smoothing` 0 to 50, `water_depth` 0 to 1,
+    /// `refractive_index` 1 to 2, `surface_color` `#rrggbb`, `surface_opacity` and
+    /// `caustics_strength` 0 to 1. Sky: `sky_layer` a layer setting, `sky_scaling`,
+    /// `sky_repeat_mode` and `sky_fit` as the bottom's, `sky_intensity` and `sky_convergence` 0
+    /// to 1. Light, Card Wipe's: `light_type` `distant` or `point`, `light_intensity` 0 to 10,
+    /// `light_color`, `light_position` per cent of the layer -1000 to 1000 (other than two
+    /// numbers is kept as written and faults), `light_height` 0 to 10 layer widths,
+    /// `ambient_light`, `diffuse_reflection`, `specular_reflection` 0 to 2,
+    /// `highlight_sharpness` 1 to 100. Not settings, never saved: the three maps compose reads.
+    Caustics {
+        bottom_layer: serde_json::Value,
+        bottom_map: Option<crate::layer_map::Map>,
+        bottom_scaling: f64,
+        bottom_repeat_mode: String,
+        bottom_fit: String,
+        bottom_blur: f64,
+        water_surface: serde_json::Value,
+        surface_map: Option<crate::layer_map::Map>,
+        wave_height: f64,
+        smoothing: f64,
+        water_depth: f64,
+        refractive_index: f64,
+        surface_color: String,
+        surface_opacity: f64,
+        caustics_strength: f64,
+        sky_layer: serde_json::Value,
+        sky_map: Option<crate::layer_map::Map>,
+        sky_scaling: f64,
+        sky_repeat_mode: String,
+        sky_fit: String,
+        sky_intensity: f64,
+        sky_convergence: f64,
+        light_type: String,
+        light_intensity: f64,
+        light_color: String,
+        light_position: Vec<f64>,
+        light_height: f64,
+        ambient_light: f64,
+        diffuse_reflection: f64,
+        specular_reflection: f64,
+        highlight_sharpness: f64,
+    },
     /// D-521: after After Effects' Time Difference, its rule and its settings when added ours
     /// (`layer_fx::time_difference`, document 21). `layer`, D-189's layer setting as written, the
     /// target, "" for the layer itself; `time_offset`, -60 to 60 seconds; `contrast`, 0 to 100;
@@ -3837,6 +3884,7 @@ pub const FORCE_MOTION_BLUR: &str = "core.force_motion_blur";
 pub const PIXEL_MOTION_BLUR: &str = "core.pixel_motion_blur";
 pub const CC_RAINFALL: &str = "core.cc_rainfall";
 pub const WAVE_WORLD: &str = "core.wave_world";
+pub const CAUSTICS: &str = "core.caustics";
 pub const TIME_DIFFERENCE: &str = "core.time_difference";
 /// D-521: Time Difference's Alpha Channel words, in After Effects' order.
 pub const TDIFF_ALPHAS: [&str; 9] = [
@@ -6609,6 +6657,46 @@ impl Effect {
                 ("producer_2_frequency", vec![producer_2_frequency], 0.0, 30.0),
                 ("producer_2_phase", vec![producer_2_phase], -3600.0, 3600.0),
             ],
+            Effect::Caustics {
+                bottom_scaling,
+                bottom_blur,
+                wave_height,
+                smoothing,
+                water_depth,
+                refractive_index,
+                surface_opacity,
+                caustics_strength,
+                sky_scaling,
+                sky_intensity,
+                sky_convergence,
+                light_intensity,
+                light_position,
+                light_height,
+                ambient_light,
+                diffuse_reflection,
+                specular_reflection,
+                highlight_sharpness,
+                ..
+            } => vec![
+                ("bottom_scaling", vec![bottom_scaling], 0.1, 10.0),
+                ("bottom_blur", vec![bottom_blur], 0.0, 50.0),
+                ("wave_height", vec![wave_height], 0.0, 1.0),
+                ("smoothing", vec![smoothing], 0.0, 50.0),
+                ("water_depth", vec![water_depth], 0.0, 1.0),
+                ("refractive_index", vec![refractive_index], 1.0, 2.0),
+                ("surface_opacity", vec![surface_opacity], 0.0, 1.0),
+                ("caustics_strength", vec![caustics_strength], 0.0, 1.0),
+                ("sky_scaling", vec![sky_scaling], 0.1, 10.0),
+                ("sky_intensity", vec![sky_intensity], 0.0, 1.0),
+                ("sky_convergence", vec![sky_convergence], 0.0, 1.0),
+                ("light_intensity", vec![light_intensity], 0.0, 10.0),
+                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("light_height", vec![light_height], 0.0, 10.0),
+                ("ambient_light", vec![ambient_light], 0.0, 2.0),
+                ("diffuse_reflection", vec![diffuse_reflection], 0.0, 2.0),
+                ("specular_reflection", vec![specular_reflection], 0.0, 2.0),
+                ("highlight_sharpness", vec![highlight_sharpness], 1.0, 100.0),
+            ],
             Effect::TimeDifference { time_offset, contrast, .. } => vec![
                 ("time_offset", vec![time_offset], -60.0, 60.0),
                 ("contrast", vec![contrast], 0.0, 100.0),
@@ -7569,6 +7657,7 @@ impl Effect {
             Effect::PixelMotionBlur { .. } => "Pixel Motion Blur",
             Effect::CcRainfall { .. } => "CC Rainfall",
             Effect::WaveWorld { .. } => "Wave World",
+            Effect::Caustics { .. } => "Caustics",
             Effect::TimeDifference { .. } => "Time Difference",
             Effect::PosterizeTime { .. } => "Posterize Time",
             Effect::ChangeToColor { .. } => "Change to Color",
@@ -7820,6 +7909,7 @@ impl Effect {
             Effect::PixelMotionBlur { .. } => PIXEL_MOTION_BLUR,
             Effect::CcRainfall { .. } => CC_RAINFALL,
             Effect::WaveWorld { .. } => WAVE_WORLD,
+            Effect::Caustics { .. } => CAUSTICS,
             Effect::TimeDifference { .. } => TIME_DIFFERENCE,
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
@@ -8232,6 +8322,10 @@ impl Effect {
         if let Effect::CardWipe { back_layer, gradient_layer, .. } = self {
             return [back_layer, gradient_layer].map(|l| (l.as_str().unwrap_or(""), "stretch")).to_vec();
         }
+        // D-631: the bottom and the sky read whole, placed by the effect; the water stretched.
+        if let Effect::Caustics { bottom_layer, water_surface, sky_layer, .. } = self {
+            return [(bottom_layer, "whole"), (water_surface, "stretch"), (sky_layer, "whole")].map(|(l, f)| (l.as_str().unwrap_or(""), f)).to_vec();
+        }
         self.layer_setting().into_iter().collect()
     }
 
@@ -8301,6 +8395,9 @@ impl Effect {
         }
         if let Effect::CardWipe { back_layer, back_map, gradient_layer, gradient_map, .. } = self {
             return vec![(back_layer, back_map), (gradient_layer, gradient_map)];
+        }
+        if let Effect::Caustics { bottom_layer, bottom_map, water_surface, surface_map, sky_layer, sky_map, .. } = self {
+            return vec![(bottom_layer, bottom_map), (water_surface, surface_map), (sky_layer, sky_map)];
         }
         self.layer_setting_mut().into_iter().collect()
     }
@@ -9878,6 +9975,42 @@ impl Effect {
             Effect::CcRainfall { composite_with_original, .. } if !["off", "on"].contains(&composite_with_original.as_str()) => Some(format!(
                 "CC Rainfall's composite with original is \"off\" or \"on\", and this is \"{composite_with_original}\"."
             )),
+            Effect::Caustics {
+                bottom_layer,
+                water_surface,
+                sky_layer,
+                bottom_repeat_mode,
+                bottom_fit,
+                sky_repeat_mode,
+                sky_fit,
+                light_type,
+                surface_color,
+                light_color,
+                light_position,
+                ..
+            } => {
+                let one_of = |what: &str, words: &[&str], w: &str| {
+                    (!words.contains(&w)).then(|| {
+                        let words = words.iter().map(|w| format!("\"{w}\"")).collect::<Vec<_>>().join(", ");
+                        format!("Caustics' {what} is one of {words}, and this is \"{w}\".")
+                    })
+                };
+                [("bottom layer", bottom_layer), ("water surface", water_surface), ("sky layer", sky_layer)]
+                    .into_iter()
+                    .find(|(_, l)| !l.is_string())
+                    .map(|(what, l)| format!("Caustics' {what} is the name of a layer of this composition, and this is {l}."))
+                    .or_else(|| one_of("bottom repeat mode", &["once", "tiled", "reflected"], bottom_repeat_mode))
+                    .or_else(|| one_of("bottom fit", &["center", "stretch"], bottom_fit))
+                    .or_else(|| one_of("sky repeat mode", &["once", "tiled", "reflected"], sky_repeat_mode))
+                    .or_else(|| one_of("sky fit", &["center", "stretch"], sky_fit))
+                    .or_else(|| one_of("light type", &["distant", "point"], light_type))
+                    .or_else(|| hex_fault("Caustics", "surface colour", surface_color))
+                    .or_else(|| hex_fault("Caustics", "light colour", light_color))
+                    .or_else(|| (light_position.len() != 2).then(|| format!(
+                        "Caustics' light position is two numbers, x then y, and this has {}.",
+                        light_position.len()
+                    )))
+            }
             Effect::WaveWorld {
                 render_dry_areas,
                 grid_res_downsamples,
@@ -11831,13 +11964,18 @@ pub(crate) fn apply_stack_at(
                 crate::layer_fx::cc_environment(source, e, (ox, oy))
             }),
             Effect::CcEnvironment { .. } => {}
-            // D-580: every distance a share of the drawing; never grows. A back or gradient layer
-            // not read (none named, or one not in the composition, which compose said) is none.
             // D-630: the water drawn over the drawing in its place; never grows. A ground not read
             // (none named, not in the composition, or not begun at the in point) is flat.
             e @ Effect::WaveWorld { .. } => crate::perf::time(crate::perf::Stage::EffectWaveWorld, || {
                 crate::layer_fx::wave_world(source, e, (ox, oy))
             }),
+            // D-631: every length a share of the layer; never grows. A bottom named but not read is
+            // clear; a water surface or sky not read is none.
+            e @ Effect::Caustics { .. } => crate::perf::time(crate::perf::Stage::EffectCaustics, || {
+                crate::layer_fx::caustics(source, e, (ox, oy))
+            }),
+            // D-580: every distance a share of the drawing; never grows. A back or gradient layer
+            // not read (none named, or one not in the composition, which compose said) is none.
             e @ Effect::CardWipe { .. } => crate::perf::time(crate::perf::Stage::EffectCardWipe, || {
                 crate::layer_fx::card_wipe(source, e, (ox, oy))
             }),

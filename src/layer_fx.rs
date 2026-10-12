@@ -10360,3 +10360,230 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     });
     *source = out;
 }
+
+/// D-631: Caustics, `tools/caustics_reference.py`'s rule step for step, in double precision: a
+/// bottom (the drawing, or a layer read whole) placed, blurred and seen through a water surface
+/// whose waves come from a layer's luma, brightened where the waves gather the light, under a lit
+/// surface colour that can mirror a placed sky. Never grows. The settings are already valid.
+pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let crate::effects::Effect::Caustics {
+        bottom_layer,
+        bottom_map,
+        bottom_scaling,
+        bottom_repeat_mode,
+        bottom_fit,
+        bottom_blur,
+        surface_map,
+        wave_height,
+        smoothing,
+        water_depth,
+        refractive_index,
+        surface_color,
+        surface_opacity,
+        caustics_strength,
+        sky_map,
+        sky_scaling,
+        sky_repeat_mode,
+        sky_fit,
+        sky_intensity,
+        sky_convergence,
+        light_type,
+        light_intensity,
+        light_color,
+        light_position,
+        light_height,
+        ambient_light,
+        diffuse_reflection,
+        specular_reflection,
+        highlight_sharpness,
+        ..
+    } = e
+    else {
+        unreachable!("Caustics of another effect")
+    };
+    let (w, h) = (source.width(), source.height());
+    let (lw, lh) = (w - 2 * ox, h - 2 * oy);
+    let mut out = WorkingBuffer::transparent(w, h);
+    if lw == 0 || lh == 0 {
+        *source = out;
+        return;
+    }
+    let (wf, hf) = (lw as f64, lh as f64);
+    let px = |p: [f32; 4]| p.map(|c| c as f64);
+
+    // Step 1: the pictures, each (width, height, premultiplied pixels by rows).
+    let whole = |m: &crate::layer_map::Map| {
+        let b = &m.0;
+        let pixels = (0..b.width() * b.height()).map(|i| px(b.pixel(i % b.width(), i / b.width()))).collect::<Vec<_>>();
+        (b.width(), b.height(), pixels)
+    };
+    let bottom_q = if bottom_layer.as_str() == Some("") {
+        (lw, lh, (0..lw * lh).map(|i| px(source.pixel(ox + i % lw, oy + i / lw))).collect())
+    } else {
+        bottom_map.as_ref().map(whole).unwrap_or((0, 0, Vec::new()))
+    };
+
+    // Step 2: a picture placed on the layer at its scaling, fit and repeat.
+    let wrap = |i: i64, n: i64, mode: &str| -> Option<usize> {
+        if (0..n).contains(&i) {
+            return Some(i as usize);
+        }
+        match mode {
+            "tiled" => Some(i.rem_euclid(n) as usize),
+            "reflected" => {
+                let m = i.rem_euclid(2 * n);
+                Some(if m < n { m } else { 2 * n - 1 - m } as usize)
+            }
+            _ => None,
+        }
+    };
+    let placed = |(qw, qh, q): &(usize, usize, Vec<[f64; 4]>), s: f64, mode: &str, fit: &str| -> Vec<[f64; 4]> {
+        if *qw == 0 || *qh == 0 {
+            return vec![[0.0; 4]; lw * lh];
+        }
+        (0..lw * lh)
+            .into_par_iter()
+            .map(|i| {
+                let (x, y) = ((i % lw) as f64, (i / lw) as f64);
+                let (a, b) = ((x + 0.5 - wf / 2.0) / s + wf / 2.0, (y + 0.5 - hf / 2.0) / s + hf / 2.0);
+                let (u, v) = if fit == "center" {
+                    (a - ((lw as i64 - *qw as i64).div_euclid(2)) as f64 - 0.5, b - ((lh as i64 - *qh as i64).div_euclid(2)) as f64 - 0.5)
+                } else {
+                    (a * *qw as f64 / wf - 0.5, b * *qh as f64 / hf - 0.5)
+                };
+                let (i0, j0) = (u.floor(), v.floor());
+                let (fu, fv) = (u - i0, v - j0);
+                let mut p = [0.0; 4];
+                for (dj, wv) in [(0, 1.0 - fv), (1, fv)] {
+                    for (di, wu) in [(0, 1.0 - fu), (1, fu)] {
+                        if let (Some(ii), Some(jj)) = (wrap(i0 as i64 + di, *qw as i64, mode), wrap(j0 as i64 + dj, *qh as i64, mode)) {
+                            let s = q[jj * qw + ii];
+                            for c in 0..4 {
+                                p[c] += s[c] * wu * wv;
+                            }
+                        }
+                    }
+                }
+                p
+            })
+            .collect()
+    };
+
+    // Step 3: the Gaussian, across then down, the outer pixels held.
+    // ponytail: direct taps, about 577 a pass at blur 50 on a 1920 layer; a running box or the
+    // FFT path if a big blur is too slow to play.
+    fn gaussian<const N: usize>(v: &[[f64; N]], lw: usize, lh: usize, sigma: f64) -> Vec<[f64; N]> {
+        if sigma <= 0.0 {
+            return v.to_vec();
+        }
+        let r = (3.0 * sigma).ceil() as i64;
+        let t: Vec<f64> = (-r..=r).map(|i| (-((i * i) as f64) / (2.0 * sigma * sigma)).exp()).collect();
+        let total: f64 = t.iter().sum();
+        let t: Vec<f64> = t.iter().map(|v| v / total).collect();
+        let pass = |v: &[[f64; N]], across: bool| -> Vec<[f64; N]> {
+            (0..lw * lh)
+                .into_par_iter()
+                .map(|i| {
+                    let (x, y) = ((i % lw) as i64, (i / lw) as i64);
+                    let mut s = [0.0; N];
+                    for (k, tk) in t.iter().enumerate() {
+                        let o = k as i64 - r;
+                        let j = if across { y * lw as i64 + (x + o).clamp(0, lw as i64 - 1) } else { (y + o).clamp(0, lh as i64 - 1) * lw as i64 + x };
+                        for c in 0..N {
+                            s[c] += tk * v[j as usize][c];
+                        }
+                    }
+                    s
+                })
+                .collect()
+        };
+        pass(&pass(v, true), false)
+    }
+    let bottom = gaussian(&placed(&bottom_q, *bottom_scaling, bottom_repeat_mode, bottom_fit), lw, lh, bottom_blur * wf / 1000.0);
+    let sky = sky_map.as_ref().map(|m| placed(&whole(m), *sky_scaling, sky_repeat_mode, sky_fit));
+    let held = |p: &[[f64; 4]], sx: f64, sy: f64| {
+        let (u, v) = ((sx - 0.5).clamp(0.0, wf - 1.0), (sy - 0.5).clamp(0.0, hf - 1.0));
+        let (i0, j0) = (u.floor() as usize, v.floor() as usize);
+        let (i1, j1) = ((i0 + 1).min(lw - 1), (j0 + 1).min(lh - 1));
+        let (fu, fv) = (u - i0 as f64, v - j0 as f64);
+        let (a, b, c, d) = (p[j0 * lw + i0], p[j0 * lw + i1], p[j1 * lw + i0], p[j1 * lw + i1]);
+        std::array::from_fn::<f64, 4, _>(|k| (a[k] * (1.0 - fu) + b[k] * fu) * (1.0 - fv) + (c[k] * (1.0 - fu) + d[k] * fu) * fv)
+    };
+    let diffs = |v: &[f64], x: usize, y: usize| {
+        (
+            (v[y * lw + (x + 1).min(lw - 1)] - v[y * lw + x.saturating_sub(1)]) / 2.0,
+            (v[(y + 1).min(lh - 1) * lw + x] - v[y.saturating_sub(1) * lw + x]) / 2.0,
+        )
+    };
+
+    // Step 4: the water's heights and normals.
+    let lum: Vec<[f64; 1]> = (0..lw * lh)
+        .map(|i| match surface_map {
+            Some(m) => {
+                let (x, y) = (i % lw, i / lw);
+                [if x < m.0.width() && y < m.0.height() { picture_luma(m.0.pixel(x, y)) } else { 0.0 }]
+            }
+            None => [0.5],
+        })
+        .collect();
+    let z: Vec<f64> = gaussian(&lum, lw, lh, smoothing * wf / 1000.0).iter().map(|l| wave_height * (l[0] - 0.5) * wf / 4.0).collect();
+    let normals: Vec<[f64; 3]> = (0..lw * lh)
+        .map(|i| {
+            let (gx, gy) = diffs(&z, i % lw, i / lw);
+            let n = (gx * gx + gy * gy + 1.0).sqrt();
+            [-gx / n, -gy / n, -1.0 / n]
+        })
+        .collect();
+
+    // Step 5: the bend, as offsets on the bottom.
+    let (eta, depth) = (1.0 / refractive_index, water_depth * wf);
+    let (offx, offy): (Vec<f64>, Vec<f64>) = normals
+        .iter()
+        .map(|n| {
+            let c = -n[2];
+            let f = eta * c - (1.0 - eta * eta * (1.0 - c * c)).sqrt();
+            let t = [f * n[0], f * n[1], eta + f * n[2]];
+            (depth * t[0] / t[2], depth * t[1] / t[2])
+        })
+        .unzip();
+
+    // Steps 6 to 10, each pixel of the layer.
+    let lin = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
+    let (sc, lc) = (lin(surface_color), lin(light_color));
+    let (op, si, conv, cs) = (*surface_opacity, *sky_intensity, *sky_convergence, *caustics_strength);
+    let lp = [light_position[0] * wf / 100.0 - wf / 2.0, light_position[1] * hf / 100.0 - hf / 2.0, -light_height * wf];
+    let point = light_type == "point";
+    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, o)| {
+        let (bx, by) = (i % w, i / w);
+        if bx < ox || by < oy || bx >= ox + lw || by >= oy + lh {
+            return;
+        }
+        let (x, y) = (bx - ox, by - oy);
+        let j = y * lw + x;
+        let n = normals[j];
+        let (dxx, dxy) = diffs(&offx, x, y);
+        let (dyx, dyy) = diffs(&offy, x, y);
+        let det = (1.0 + dxx) * (1.0 + dyy) - dxy * dyx;
+        let m = 1.0 + cs * (1.0 / det.abs().max(0.1) - 1.0);
+        let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
+        let b = held(&bottom, cx + offx[j], cy + offy[j]);
+        let r = match &sky {
+            Some(sky) => held(sky, cx + conv * wf / 2.0 * (-2.0 * n[2] * n[0]), cy + conv * wf / 2.0 * (-2.0 * n[2] * n[1])),
+            None => [0.0; 4],
+        };
+        let s: [f64; 3] = std::array::from_fn(|c| sc[c] * (1.0 - si * r[3]) + si * r[c]);
+        let pl = if point { [lp[0] - (cx - wf / 2.0), lp[1] - (cy - hf / 2.0), lp[2]] } else { lp };
+        let len = (pl[0] * pl[0] + pl[1] * pl[1] + pl[2] * pl[2]).sqrt();
+        let lv = if len == 0.0 { [0.0; 3] } else { pl.map(|q| q / len) };
+        let hv = [lv[0], lv[1], lv[2] - 1.0];
+        let nl = n[0] * lv[0] + n[1] * lv[1] + n[2] * lv[2];
+        let hn = (hv[0] * hv[0] + hv[1] * hv[1] + hv[2] * hv[2]).sqrt();
+        let sp = if nl > 0.0 && hn > 0.0 { ((n[0] * hv[0] + n[1] * hv[1] + n[2] * hv[2]) / hn).max(0.0).powf(*highlight_sharpness) } else { 0.0 };
+        for c in 0..3 {
+            let lit = s[c] * (ambient_light + diffuse_reflection * light_intensity * lc[c] * nl.max(0.0)) + specular_reflection * light_intensity * sp * lc[c];
+            o[c] = (b[c] * m * (1.0 - op) + lit * op) as f32;
+        }
+        o[3] = (b[3] * (1.0 - op) + op) as f32;
+    });
+    *source = out;
+}

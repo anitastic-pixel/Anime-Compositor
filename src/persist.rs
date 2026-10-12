@@ -2276,6 +2276,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("shutter_samples".into(), num(*shutter_samples));
             params.insert("vector_detail".into(), num(*vector_detail));
         }
+        Effect::Caustics { bottom_layer, water_surface, sky_layer, light_position, bottom_repeat_mode, bottom_fit, surface_color, sky_repeat_mode, sky_fit, light_type, light_color, .. } => {
+            for (n, v) in [("bottom_layer", bottom_layer), ("water_surface", water_surface), ("sky_layer", sky_layer)] {
+                params.insert(n.into(), v.clone());
+            }
+            params.insert("light_position".into(), J::Array(light_position.iter().map(|c| num(*c)).collect()));
+            for (n, v) in [("bottom_repeat_mode", bottom_repeat_mode), ("bottom_fit", bottom_fit), ("surface_color", surface_color), ("sky_repeat_mode", sky_repeat_mode), ("sky_fit", sky_fit), ("light_type", light_type), ("light_color", light_color)] {
+                params.insert(n.into(), J::from(v.as_str()));
+            }
+            // D-631: every other number, by its name in the effect's table.
+            for n in instance.effect.names() {
+                if n != "light_position" {
+                    params.insert(n.into(), num(instance.effect.get(n).unwrap()[0]));
+                }
+            }
+        }
         Effect::CcRainfall { color, transfer_mode, composite_with_original, drops, size, scene_depth, speed, wind, wind_variation, spread, opacity, ground_level, random_seed, .. } => {
             params.insert("drops".into(), num(*drops));
             params.insert("size".into(), num(*size));
@@ -5714,6 +5729,7 @@ fn parse_effect(
         crate::effects::TIME_DIFFERENCE,
         crate::effects::CC_RAINFALL,
         crate::effects::WAVE_WORLD,
+        crate::effects::CAUSTICS,
         crate::effects::POSTERIZE_TIME,
         crate::effects::CHANGE_TO_COLOR,
         crate::effects::CORNER_PIN,
@@ -6683,6 +6699,39 @@ fn parse_effect(
             shutter_samples: effect_number(params, "shutter_samples", &at)?,
             vector_detail: effect_number(params, "vector_detail", &at)?,
             frames: None,
+        }),
+        crate::effects::CAUSTICS => Some(crate::effects::Effect::Caustics {
+            bottom_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "bottom_layer")?.clone(),
+            bottom_map: None,
+            bottom_scaling: effect_number(params, "bottom_scaling", &at)?,
+            bottom_repeat_mode: effect_word(params, "bottom_repeat_mode", &at)?,
+            bottom_fit: effect_word(params, "bottom_fit", &at)?,
+            bottom_blur: effect_number(params, "bottom_blur", &at)?,
+            water_surface: field(effect_params(params, &at)?, &format!("{at}/parameters"), "water_surface")?.clone(),
+            surface_map: None,
+            wave_height: effect_number(params, "wave_height", &at)?,
+            smoothing: effect_number(params, "smoothing", &at)?,
+            water_depth: effect_number(params, "water_depth", &at)?,
+            refractive_index: effect_number(params, "refractive_index", &at)?,
+            surface_color: effect_word(params, "surface_color", &at)?,
+            surface_opacity: effect_number(params, "surface_opacity", &at)?,
+            caustics_strength: effect_number(params, "caustics_strength", &at)?,
+            sky_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "sky_layer")?.clone(),
+            sky_map: None,
+            sky_scaling: effect_number(params, "sky_scaling", &at)?,
+            sky_repeat_mode: effect_word(params, "sky_repeat_mode", &at)?,
+            sky_fit: effect_word(params, "sky_fit", &at)?,
+            sky_intensity: effect_number(params, "sky_intensity", &at)?,
+            sky_convergence: effect_number(params, "sky_convergence", &at)?,
+            light_type: effect_word(params, "light_type", &at)?,
+            light_intensity: effect_number(params, "light_intensity", &at)?,
+            light_color: effect_word(params, "light_color", &at)?,
+            light_position: effect_list(params, "light_position", &at)?,
+            light_height: effect_number(params, "light_height", &at)?,
+            ambient_light: effect_number(params, "ambient_light", &at)?,
+            diffuse_reflection: effect_number(params, "diffuse_reflection", &at)?,
+            specular_reflection: effect_number(params, "specular_reflection", &at)?,
+            highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
         }),
         crate::effects::CC_RAINFALL => Some(crate::effects::Effect::CcRainfall {
             drops: effect_number(params, "drops", &at)?,
