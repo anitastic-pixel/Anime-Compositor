@@ -211792,3 +211792,75 @@ FX-ENERGYX-031 (`fx_energyx_031.json`): Noise Along Path "yes", not "on" or "off
 FX-ENERGYX-032 (`fx_energyx_032.json`): Alpha Mode "enable", not "off", "masks", "core" or "glow". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-ENERGYX-033 (`fx_energyx_033.json`): Invert Masks "1", not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Color Grade, third unit (D-571)
+
+Color Grade's third unit (B-450), the last of Lumetri Color's gaps: the hue versus hue, hue versus luma, luma versus saturation and saturation versus saturation curves, run after hue versus saturation in Lumetri's order, and the HSL Secondary's key Denoise (Median's disc, D-203) and Blur (Gaussian Blur's kernel, edges repeated) and its three wheels (Color Balance's rule, D-130, the old wheel the midtones'). Highlight recovery past white is not built (D-571). The drawing and look file are FX-GRADE's (`media/colours.png`, `luts/look.cube`). `tools/color_grade_3_reference.py` writes the projects and `expected_color_grade_3.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-GRADE3-001 (`fx_grade3_001.json`): Every setting as added, the new ones written: the drawing exactly as it is. Frames 0.
+
+FX-GRADE3-002 (`fx_grade3_002.json`): Hue versus hue, one point shifting 60 degrees: every colour turned a sixth of the way round (red to yellow, green to cyan), its lightness and saturation kept; greys, black and white untouched. Frames 0.
+
+FX-GRADE3-003 (`fx_grade3_003.json`): Hue versus hue through (0, 0), (120, 60), (240, 0): the greens turned toward cyan, pure red and pure blue unchanged. Frames 0.
+
+FX-GRADE3-004 (`fx_grade3_004.json`): Hue versus hue, every shift 0, and every other new curve flat: no step, the drawing exactly as it is. Frames 0.
+
+FX-GRADE3-005 (`fx_grade3_005.json`): Hue versus luma, one point at 50: each colour lighter by a quarter of its chroma (pure colours by 0.25), greys untouched. Frames 0.
+
+FX-GRADE3-006 (`fx_grade3_006.json`): Hue versus luma through (0, -60) and (180, 60): reds darker, cyans lighter, greys untouched. Frames 0.
+
+FX-GRADE3-007 (`fx_grade3_007.json`): Luma versus saturation, one point at saturation 0: every colour its own grey, whatever its luma. Frames 0.
+
+FX-GRADE3-008 (`fx_grade3_008.json`): Luma versus saturation through (20, 0) and (80, 150): colours darker than luma 20 grey, lighter than 80 half as strong again, eased between. Frames 0.
+
+FX-GRADE3-009 (`fx_grade3_009.json`): Saturation versus saturation through (0, 100), (50, 100), (100, 40): the strong colours duller, the dull ones untouched. Frames 0.
+
+FX-GRADE3-010 (`fx_grade3_010.json`): Saturation versus saturation through (0, 200) and (40, 100): the dull colours stronger, those of saturation 40 and up untouched. Frames 0.
+
+FX-GRADE3-011 (`fx_grade3_011.json`): Three secondary wheels, the key taking everything, the shadow wheel hue 200 at 60: the darks teal, white untouched. Frames 0.
+
+FX-GRADE3-012 (`fx_grade3_012.json`): Three secondary wheels: highlight wheel hue 40 at 50 with highlight lightness -20, and the secondary (midtone) lightness 20: the lights warmer and lower, the middle lighter, black untouched. Frames 0.
+
+FX-GRADE3-013 (`fx_grade3_013.json`): Three secondary wheels with only the secondary wheel, hue 30 at 50: now the midtones' wheel, so black and white are untouched where one wheel would move them. Frames 0.
+
+FX-GRADE3-014 (`fx_grade3_014.json`): One secondary wheel (as added) with the shadow and highlight wheels set: they are not used, so nothing changes. Frames 0.
+
+FX-GRADE3-015 (`fx_grade3_015.json`): FX-GRADE2-017's red key (softness 30) shown as the mask with denoise 30: the key through a median of radius 3: red's lone keyed column, among unkeyed neighbours, is outvoted, and the warm tones' key evens out across their columns. Frames 0.
+
+FX-GRADE3-016 (`fx_grade3_016.json`): The red key shown as the mask with blur 20: the key softened by a Gaussian of sigma 2, red's column spread to its neighbours. Frames 0.
+
+FX-GRADE3-017 (`fx_grade3_017.json`): The softened red key (softness 30) with denoise 15 and blur 10, secondary saturation 0: red's lone column outvoted (a quarter grey once the blur brings some key back), the warm tones mostly grey, and blue beside them partly grey where the blurred key reaches it. Frames 0.
+
+FX-GRADE3-018 (`fx_grade3_018.json`): Denoise 5, a radius of half a pixel: below 1, nothing; FX-GRADE2-012's picture. Frames 0.
+
+FX-GRADE3-019 (`fx_grade3_019.json`): The red key's mask with blur keyed from 0 at frame 0 to 40 at frame 4, linear: a hard key at frame 0, sigma 2 at frame 2, sigma 4 at frame 4. Frames 0, 2, 4.
+
+FX-GRADE3-020 (`fx_grade3_020.json`): Hue versus hue and a blurred key moved three pixels right: the same, moved. Frames 0.
+
+FX-GRADE3-021 (`fx_grade3_021.json`): A whole grade: D-397's and D-398's sections, the four new curves, a skin key denoised and blurred with three wheels, and a dark vignette, each in its order. Frames 0.
+
+FX-GRADE3-022 (`fx_grade3_022.json`): A D-398 file without the new settings, a red key at secondary saturation 0: D-398's own picture. Frames 0.
+
+FX-GRADE3-023 (`fx_grade3_023.json`): Hue versus hue with a shift of 181, past 180. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE3-024 (`fx_grade3_024.json`): Hue versus hue with a hue of 360, a full turn. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE3-025 (`fx_grade3_025.json`): Hue versus luma with a luma of -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE3-026 (`fx_grade3_026.json`): Hue versus luma with its hues not rising. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE3-027 (`fx_grade3_027.json`): Luma versus saturation with a luma of 101, past 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE3-028 (`fx_grade3_028.json`): Luma versus saturation with a point of three numbers. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE3-029 (`fx_grade3_029.json`): Saturation versus saturation with a saturation of 201. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE3-030 (`fx_grade3_030.json`): Saturation versus saturation of 17 points, past 16. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE3-031 (`fx_grade3_031.json`): Secondary wheels "two", not "one" or "three". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE3-032 (`fx_grade3_032.json`): Key denoise 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE3-033 (`fx_grade3_033.json`): Key blur -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE3-034 (`fx_grade3_034.json`): Secondary highlight lightness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
