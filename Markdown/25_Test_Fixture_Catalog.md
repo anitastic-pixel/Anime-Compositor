@@ -211382,3 +211382,57 @@ FX-FASTLEG-011 (`fx_fastleg_011.json`): Blur Dimensions "Both": the word is exac
 FX-FASTLEG-012 (`fx_fastleg_012.json`): Repeat Edge Pixels "on": the word is "transparent" or "repeat". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-FASTLEG-013 (`fx_fastleg_013.json`): Blurriness keyed to 1200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### CC Vignette (D-562)
+
+CC Vignette (`core.cc_vignette`), after After Effects' CC Vignette (B-442, EFFECTS.md row 243). Every case is a composition 16 pixels by 10 holding Vignette's full-frame backdrop drawing; the media are in `Fixtures/cc_vignette/media/`. `tools/cc_vignette_reference.py` works the expected frames, `Fixtures/cc_vignette/expected_cc_vignette.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-CCVIG-001 (`fx_ccvig_001.json`): The settings as they start: amount 100, angle of view 90, about the middle, pin highlights 0. Each pixel's linear light is multiplied by the cos^4 falloff: the bottom right pixel keeps 0.289 of it, the middle four keep 0.989; nothing is lightened, and the empty corner stays empty. Frames 0.
+
+FX-CCVIG-002 (`fx_ccvig_002.json`): Amount 50: the square root of FX-CCVIG-001's gain at every pixel, the bottom right keeping 0.538. Frames 0.
+
+FX-CCVIG-003 (`fx_ccvig_003.json`): Amount 0: the drawing, untouched. Frames 0.
+
+FX-CCVIG-004 (`fx_ccvig_004.json`): Amount -100: the edges lightened by the inverse of FX-CCVIG-001's gain, every channel held at 1: the skin near the corners turns white, the middle barely changes. Frames 0.
+
+FX-CCVIG-005 (`fx_ccvig_005.json`): Amount -50: lightened by the inverse square root, less than FX-CCVIG-004. Frames 0.
+
+FX-CCVIG-006 (`fx_ccvig_006.json`): Angle of view 0: no falloff at all: the drawing, untouched. Frames 0.
+
+FX-CCVIG-007 (`fx_ccvig_007.json`): Angle of view 150: a wide lens, a much stronger falloff, the bottom right keeping 0.0059 of its light. Frames 0.
+
+FX-CCVIG-008 (`fx_ccvig_008.json`): Angle of view 30: a long lens, a gentle falloff, the bottom right keeping 0.887. Frames 0.
+
+FX-CCVIG-009 (`fx_ccvig_009.json`): Centre 0, 0, the top left corner: the falloff about that corner, so the top left pixel is all but untouched and the bottom right darkest of all. Frames 0.
+
+FX-CCVIG-010 (`fx_ccvig_010.json`): Pin highlights 100: each pixel keeps more of itself the brighter it is: the skin (luma 0.86) loses only about a seventh of what FX-CCVIG-001 takes from it, the dark line along row 7 nearly all of it. Frames 0.
+
+FX-CCVIG-011 (`fx_ccvig_011.json`): Pin highlights 50: half way between FX-CCVIG-001's gain and FX-CCVIG-010's at every pixel. Frames 0.
+
+FX-CCVIG-012 (`fx_ccvig_012.json`): Amount -100, pin highlights 100: the lightening held back on bright pixels as the darkening is. Frames 0.
+
+FX-CCVIG-013 (`fx_ccvig_013.json`): Amount keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 the drawing, frame 2 FX-CCVIG-002 and frame 4 FX-CCVIG-001. Frames 0, 2, 4.
+
+FX-CCVIG-014 (`fx_ccvig_014.json`): Amount eased from 0 at frame 0 to 100 at frame 4 on a curve that overshoots: at frame 2 it would pass 100, is held at 100, and is FX-CCVIG-001; frame 0 is the drawing. Frames 0, 2.
+
+FX-CCVIG-015 (`fx_ccvig_015.json`): Centre keyed from 50, 50 at frame 0 to 0, 0 at frame 4, linear: frame 0 is FX-CCVIG-001, frame 2 is about 25, 25 and frame 4 is FX-CCVIG-009. Frames 0, 2, 4.
+
+FX-CCVIG-016 (`fx_ccvig_016.json`): Angle of view keyed from 0 at frame 0 to 150 at frame 4, linear: frame 0 the drawing, frame 4 FX-CCVIG-007. Frames 0, 2, 4.
+
+FX-CCVIG-017 (`fx_ccvig_017.json`): FX-CCVIG-001 moved three pixels right: the same, moved; the vignette moves with the drawing. Frames 0, 3.
+
+FX-CCVIG-018 (`fx_ccvig_018.json`): A directional blur, direction 90 and length 4, then CC Vignette as it starts: the blur grew the layer two pixels on every side, and the falloff is still the drawing's own, about its own middle. Frames 0.
+
+FX-CCVIG-019 (`fx_ccvig_019.json`): Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CCVIG-020 (`fx_ccvig_020.json`): Amount -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CCVIG-021 (`fx_ccvig_021.json`): Angle of view 180, above 179. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CCVIG-022 (`fx_ccvig_022.json`): Angle of view -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CCVIG-023 (`fx_ccvig_023.json`): Pin highlights 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CCVIG-024 (`fx_ccvig_024.json`): Centre 50, -1001, past ten heights. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CCVIG-025 (`fx_ccvig_025.json`): Pin highlights keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
