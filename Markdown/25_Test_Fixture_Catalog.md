@@ -211171,7 +211171,7 @@ FX-CONTOUR-025 (`fx_contour_025.json`): A View written "arrows". The file is rea
 
 FX-CONTOUR-026 (`fx_contour_026.json`): Draw Color Fills written "under". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-CONTOUR-027 (`fx_contour_027.json`): Reduction Method "custom", After Effects' Match to Nearest Custom Color, which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-CONTOUR-027 (`fx_contour_027.json`): Reduction Method "custom", not one of the method's words (After Effects' Match to Nearest Custom Color is written "match_to_nearest_custom_color", D-584). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4. (Reworded under D-566 by D-585; values unchanged.)
 
 FX-CONTOUR-028 (`fx_contour_028.json`): Posterization Level 1, below 2. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -212188,3 +212188,19 @@ FX-PSPACE-069 (`fx_pspace_069.json`): Composite With Original "yes": only "off" 
 FX-PSPACE-070 (`fx_pspace_070.json`): Transfer Mode "multiply". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PSPACE-071 (`fx_pspace_071.json`): Custom as added, from the birth colour to the death colour: at a fifth of its life, close to FX-PSPACE-002 but not equal (the stops are spaced in 8-bit steps, the mix in linear light). Frames 20.
+
+### Contour Paint, Arrowheads (D-585)
+
+Contour Paint's Arrowheads (B-463), more cases of Contour Paint (D-470) in the same folder and expected file: `tools/contour_paint_reference.py` writes `Fixtures/contour_paint/expected_contour_paint.json`, tolerance 2e-5; the rule is in document 21. FX-CONTOUR-001 to 041 are unchanged in value, 014 and 018 byte-identical; FX-CONTOUR-027's description alone is reworded under D-566.
+
+FX-CONTOUR-042 (`fx_contour_042.json`): View Edge Map with Arrowheads on, as added: FX-CONTOUR-014's two cyan lines, each with a head of two short strokes at its end along the flow. Frames 0.
+
+FX-CONTOUR-043 (`fx_contour_043.json`): The same with Arrowheads off, written: FX-CONTOUR-014 exactly, as a file without the setting. Frames 0.
+
+FX-CONTOUR-044 (`fx_contour_044.json`): Arrowheads on, Offset Flow Angles 180: the same lines, the heads at their other ends. Frames 0.
+
+FX-CONTOUR-045 (`fx_contour_045.json`): Arrowheads on with the ramp as the External Edge Map: FX-CONTOUR-018's line straight down the first cell, its head where the line meets the drawing's lower edge. Frames 0.
+
+FX-CONTOUR-046 (`fx_contour_046.json`): Arrowheads on with View Final Result: the heads belong to the Edge Map, so FX-CONTOUR-001. Frames 0.
+
+FX-CONTOUR-047 (`fx_contour_047.json`): Arrowheads written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
