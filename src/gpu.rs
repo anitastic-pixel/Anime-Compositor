@@ -13660,6 +13660,13 @@ impl Gpu {
                 self.fx_step(steps, &passes.warp, FxParams { mode: 17, ..Default::default() }, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
                 (out, (tw, th))
             }
+            // D-603, mesh::warp_mesh, drawn the same way.
+            E::MeshWarp { rows, columns, quality, distortion_mesh } => {
+                match crate::mesh::warp_mesh(*rows, *columns, *quality, distortion_mesh, ((w - 2 * ox) as f64, (h - 2 * oy) as f64)) {
+                    Some(m) => same(steps, &passes.warp, FxParams { mode: 150, ..Default::default() }, &crate::mesh::mesh_numbers(&m, (w, h), f.origin), None),
+                    None => (still.clone(), (w, h)),
+                }
+            }
             // D-602, mesh::bezier_mesh, drawn as mesh::draw draws it: warp mode 150.
             E::BezierWarp { points, quality } => match crate::mesh::bezier_mesh(points, *quality, ((w - 2 * ox) as f64, (h - 2 * oy) as f64)) {
                 Some(m) => same(steps, &passes.warp, FxParams { mode: 150, ..Default::default() }, &crate::mesh::mesh_numbers(&m, (w, h), f.origin), None),

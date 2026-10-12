@@ -9396,6 +9396,7 @@ const EFFECT_NAMES = {
   'core.page_turn': 'Page Turn',
   'core.power_pin': 'Power Pin',
   'core.bezier_warp': 'Bezier Warp',
+  'core.mesh_warp': 'Mesh Warp',
   'core.ripple_pulse': 'Ripple Pulse',
   'core.slant': 'Slant',
   'core.smear': 'Smear',
@@ -9508,7 +9509,7 @@ const EFFECT_GROUPS = [
   ['Distort', ['core.turbulent_displace', 'core.wave_warp', 'core.ripple',
     'core.displacement_map', 'core.twirl', 'core.bulge', 'core.mirror', 'core.offset', 'core.motion_tile',
     'core.corner_pin', 'core.polar_coordinates', 'core.optics_compensation', 'core.bend_it', 'core.bender',
-    'core.blobbylize', 'core.flow_motion', 'core.griddler', 'core.fisheye', 'core.page_turn', 'core.power_pin', 'core.bezier_warp',
+    'core.blobbylize', 'core.flow_motion', 'core.griddler', 'core.fisheye', 'core.page_turn', 'core.power_pin', 'core.bezier_warp', 'core.mesh_warp',
     'core.ripple_pulse', 'core.slant', 'core.smear', 'core.split', 'core.split_2', 'core.transform', 'core.tiles', 'core.magnify', 'core.spherize', 'core.detail_upscale']],
   ['Generate', ['core.gradient', 'core.fractal_noise', 'core.turbulent_noise', 'core.noise', 'core.add_grain', 'core.match_grain', 'core.noise_alpha', 'core.noise_hls', 'core.curl_noise', 'core.noise_hls_auto', 'core.speed_lines', 'core.rain', 'core.cc_rainfall', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
@@ -9660,6 +9661,7 @@ const EFFECT_SEARCH = {
   'core.griddler': 'griddler cc griddler grid tiles mosaic tile split pieces rotate scale glass block',
   'core.fisheye': 'fisheye fish eye cc lens lens bulge sphere ball globe round warp',
   'core.page_turn': 'page turn cc page turn curl peel corner flip book paper fold turn over transition',
+  'core.mesh_warp': 'mesh warp grid vertices bend smooth liquify reshape distort warp lattice puppet',
   'core.bezier_warp': 'bezier warp curve curves bend outline edges tangents handles warp mesh distort reshape flag wave',
   'core.power_pin': 'power pin cc power pin corner pin four corners perspective screen expand unstretch billboard distort',
   'core.ripple_pulse': 'ripple pulse cc ripple pulse rings beat music bass wave shock throb audio pulse',
@@ -9923,6 +9925,7 @@ const EFFECT_ABOUT = {
   'core.griddler': 'Cuts the layer into square tiles and scales or turns the picture inside each tile about the tile\'s own centre.',
   'core.fisheye': 'Bends the layer into a round lens, as if seen through a glass ball; outside the circle is left clear.',
   'core.page_turn': 'Curls a corner or an edge of the layer over like a page of a book, showing its back as paper or another layer.',
+  'core.mesh_warp': 'Lays a grid over the layer and bends it smoothly with the grid\'s points, typed in as x then y for each.',
   'core.bezier_warp': 'Bends the layer to an outline of four curved edges: drag the corners and each edge\'s two handles.',
   'core.power_pin': 'Pins the four corners as Corner Pin does, with perspective that can be eased off, the picture expanded past the pins, or stretched back out.',
   'core.ripple_pulse': 'Sends rings out from a point each time Pulse Level changes; key Pulse Level (or link it to sound) to make the picture throb.',
@@ -11031,6 +11034,10 @@ const EFFECT_PARAMS = {
     ['fold_radius', 'Fold Radius', 1, 1, 'pixels, 0 to 1000, how round the curl is'],
     ['light_direction', 'Light Direction', 1, 1, 'degrees clockwise from up, -3600 to 3600', 'dial'],
     ['back_opacity', 'Back Opacity', 1, 1, '0 to 100, how much of the back page covers the turned part']],
+  // D-603, After Effects' own controls; the mesh itself is in EFFECT_WORDS.
+  'core.mesh_warp': [['rows', 'Rows', 1, 1, '1 to 31, the grid\'s cells down'],
+    ['columns', 'Columns', 1, 1, '1 to 31, the grid\'s cells across'],
+    ['quality', 'Quality', 1, 1, '1 to 10, how finely each cell is drawn']],
   // D-602, After Effects' own controls.
   'core.bezier_warp': [['top_left_vertex', 'Top Left Vertex', 2, 1, '% of the width and height, -400 to 500'],
     ['top_left_tangent', 'Top Left Tangent', 2, 1, '% of the width and height, -400 to 500'],
@@ -11475,6 +11482,9 @@ const MAP_CHANNELS = [['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['al
 const FRACTAL_TYPE_WORDS = [['basic', 'Basic'], ['turbulent', 'Turbulent Basic'], ['turbulent_smooth', 'Turbulent Smooth'], ['turbulent_sharp', 'Turbulent Sharp'], ['dynamic', 'Dynamic'], ['dynamic_progressive', 'Dynamic Progressive'], ['dynamic_twist', 'Dynamic Twist'], ['max', 'Max'], ['smeary', 'Smeary'], ['swirly', 'Swirly'], ['rocky', 'Rocky'], ['cloudy', 'Cloudy'], ['terrain', 'Terrain'], ['subscale', 'Subscale'], ['small_bumps', 'Small Bumps'], ['strings', 'Strings'], ['threads', 'Threads']];
 const NOISE_TYPE_WORDS = [['smooth', 'Smooth'], ['block', 'Block'], ['linear', 'Linear'], ['soft_linear', 'Soft Linear'], ['spline', 'Spline']];
 const EFFECT_WORDS = {
+  // D-603: Mesh Warp's vertices, typed as one list.
+  'core.mesh_warp': { texts: [['distortion_mesh', 'Distortion Mesh', 'none: the mesh at rest', null,
+    'Each vertex x then y, per cent of the width and height, row by row from the top left, -400 to 500: (rows + 1) times (columns + 1) of them, or none']] },
   // D-335: the file leaves it out when Off, so Off is first.
   'core.exposure': { choices: [['bypass', 'Bypass Linear Light Conversion', [['off', 'Off'], ['on', 'On']]]] },
   // D-303: After Effects' Blur Dimensions; both first, as it starts.
@@ -13307,7 +13317,7 @@ function effectRow(layer, fx, at, of) {
   // D-398: a list of points, as the hue curve, typed as the curves' points are.
   for (const [w] of spec.texts || []) {
     const v = fx.parameters[w];
-    words[w] = Array.isArray(v) ? v.map((p) => p.join(' ')).join(', ') : v ?? '';
+    words[w] = Array.isArray(v) ? v.map((p) => [].concat(p).join(' ')).join(', ') : v ?? '';
   }
   for (const [w, , sent] of spec.layers || []) words[sent] = fx.parameters[w] ?? '';
   // D-522: Cryptomatte's layer name travels as crypto_layer.

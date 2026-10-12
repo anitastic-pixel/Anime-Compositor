@@ -3619,6 +3619,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("back_opacity".into(), num(*back_opacity));
             params.insert("paper_color".into(), J::from(paper_color.as_str()));
         }
+        // D-603: the mesh as one flat list, empty at rest.
+        Effect::MeshWarp { rows, columns, quality, distortion_mesh } => {
+            params.insert("rows".into(), num(*rows));
+            params.insert("columns".into(), num(*columns));
+            params.insert("quality".into(), num(*quality));
+            params.insert("distortion_mesh".into(), J::Array(distortion_mesh.iter().map(|v| num(*v)).collect()));
+        }
         // D-602: each point two numbers under its own name.
         Effect::BezierWarp { points, quality } => {
             for (name, v) in crate::effects::BEZIER_POINTS.iter().zip(points) {
@@ -5770,6 +5777,7 @@ fn parse_effect(
         crate::effects::PAGE_TURN,
         crate::effects::POWER_PIN,
         crate::effects::BEZIER_WARP,
+        crate::effects::MESH_WARP,
         crate::effects::RIPPLE_PULSE,
         crate::effects::SLANT,
         crate::effects::SMEAR,
@@ -7650,6 +7658,12 @@ fn parse_effect(
             expansion_left: effect_number(params, "expansion_left", &at)?,
             expansion_right: effect_number(params, "expansion_right", &at)?,
             expansion_bottom: effect_number(params, "expansion_bottom", &at)?,
+        }),
+        crate::effects::MESH_WARP => Some(crate::effects::Effect::MeshWarp {
+            rows: effect_number(params, "rows", &at)?,
+            columns: effect_number(params, "columns", &at)?,
+            quality: effect_number(params, "quality", &at)?,
+            distortion_mesh: effect_list(params, "distortion_mesh", &at)?,
         }),
         crate::effects::BEZIER_WARP => {
             let mut points = crate::effects::BEZIER_START;
