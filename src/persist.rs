@@ -4025,7 +4025,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert(name.into(), J::Array(row.iter().map(|v| num(*v)).collect()));
             }
         }
-        Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction } => {
+        Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip } => {
             params.insert("shadow_amount".into(), num(*shadow_amount));
             params.insert("highlight_amount".into(), num(*highlight_amount));
             params.insert("shadow_tonal_width".into(), num(*shadow_tonal_width));
@@ -4033,6 +4033,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("highlight_tonal_width".into(), num(*highlight_tonal_width));
             params.insert("highlight_radius".into(), num(*highlight_radius));
             params.insert("color_correction".into(), num(*color_correction));
+            // D-563: as D-304, written only if moved, keyed or already in the file.
+            for (key, value) in [("midtone_contrast", *midtone_contrast), ("black_clip", *black_clip), ("white_clip", *white_clip)] {
+                if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(value));
+                }
+            }
         }
         Effect::Blobbylize {
             layer,
@@ -7772,6 +7778,10 @@ fn parse_effect(
             highlight_tonal_width: effect_number(params, "highlight_tonal_width", &at)?,
             highlight_radius: effect_number(params, "highlight_radius", &at)?,
             color_correction: effect_number(params, "color_correction", &at)?,
+            // D-563: settings added after the effect; a file from before reads 0.
+            midtone_contrast: effect_number_or(params, "midtone_contrast", &at, 0.0)?,
+            black_clip: effect_number_or(params, "black_clip", &at, 0.0)?,
+            white_clip: effect_number_or(params, "white_clip", &at, 0.0)?,
         }),
         // D-379: the layer is kept as written, as CC Glass's is.
         crate::effects::BLOBBYLIZE => Some(crate::effects::Effect::Blobbylize {

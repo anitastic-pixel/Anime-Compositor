@@ -3017,9 +3017,23 @@ pub(crate) fn selective_color(source: &mut WorkingBuffer, families: &[[f64; 4]; 
     });
 }
 
-/// D-400: Shadow/Highlight with both amounts 0 leaves the layer exactly as it is.
-pub(crate) fn shadow_highlight_untouched(shadow: f64, highlight: f64) -> bool {
-    shadow == 0.0 && highlight == 0.0
+/// D-400: Shadow/Highlight with both amounts 0, and (D-563) no midtone contrast and no clip,
+/// leaves the layer exactly as it is.
+pub(crate) fn shadow_highlight_untouched(shadow: f64, highlight: f64, midtone: f64, black_clip: f64, white_clip: f64) -> bool {
+    [shadow, highlight, midtone, black_clip, white_clip] == [0.0; 5]
+}
+
+/// D-563: l, p, q with the lightness `l2`, the chroma following it toward black (times l2 / l)
+/// or white (times (1 - l2) / (1 - l)).
+pub(crate) fn shadow_highlight_follow([l, p, q]: [f64; 3], l2: f64) -> [f64; 3] {
+    let k = if l2 < l {
+        l2 / l
+    } else if l2 > l {
+        (1.0 - l2) / (1.0 - l)
+    } else {
+        1.0
+    };
+    [l2, p * k, q * k]
 }
 
 /// D-400: the sRGB matrix of IEC 61966-2-1, its inverse, and its own white, M (1, 1, 1).
@@ -3079,13 +3093,16 @@ pub(crate) fn shadow_highlight_pixel(lpq: [f64; 3], ts: f64, th: f64, k: [f64; 5
 }
 
 /// D-400: Shadow/Highlight. `v`: the shadow and highlight amounts, the shadow tonal width and
-/// radius, the highlight tonal width and radius, and the colour correction, as the settings
-/// hold them. Each pixel's lightness blurred by Gaussian Blur's kernel at each radius, the edges
-/// repeated, then [`shadow_highlight_pixel`]; the colour held inside 0 to 1 at the pixel's own
-/// covering, which is never changed.
-pub(crate) fn shadow_highlight(source: &mut WorkingBuffer, v: [f64; 7]) {
-    let [shadow, highlight, shadow_width, shadow_radius, highlight_width, highlight_radius, cc] = v;
-    if shadow_highlight_untouched(shadow, highlight) {
+/// radius, the highlight tonal width and radius, the colour correction, and (D-563) the midtone
+/// contrast and black and white clip, as the settings hold them. Each pixel's lightness blurred
+/// by Gaussian Blur's kernel at each radius, the edges repeated, then
+/// [`shadow_highlight_pixel`]; then the midtone contrast, Color Grade's curve on the lightness;
+/// then, with a clip, the lightness along the line from the clip bins of the layer's own count
+/// to its darkest and lightest bins in use (`frame_stats::clip_points`); the chroma following
+/// each change; the colour held inside 0 to 1 at the pixel's own covering, which is never changed.
+pub(crate) fn shadow_highlight(source: &mut WorkingBuffer, v: [f64; 10]) {
+    let [shadow, highlight, shadow_width, shadow_radius, highlight_width, highlight_radius, cc, midtone, black_clip, white_clip] = v;
+    if shadow_highlight_untouched(shadow, highlight, midtone, black_clip, white_clip) {
         return;
     }
     let w = source.width().max(1);
@@ -3102,19 +3119,59 @@ pub(crate) fn shadow_highlight(source: &mut WorkingBuffer, v: [f64; 7]) {
         crate::effects::held_blur_axes(&mut b, &crate::effects::gaussian_weights(sigma), (true, true));
         b
     };
-    let ls = blurred(plane.clone(), shadow_radius);
-    let lh = if highlight_radius == shadow_radius { ls.clone() } else { blurred(plane, highlight_radius) };
+    // With both amounts 0 no step reads the blurs, so the plane stands in for them unblurred.
+    let lifting = shadow != 0.0 || highlight != 0.0;
+    let ls = if lifting { blurred(plane.clone(), shadow_radius) } else { plane.clone() };
+    let lh = if !lifting || highlight_radius == shadow_radius { ls.clone() } else { blurred(plane, highlight_radius) };
     let (ls, lh) = (ls.data(), lh.data());
     let k = [2.0 * shadow / 100.0, 2.0 * highlight / 100.0, (1.0 - shadow_width / 100.0).min(0.99), (1.0 - highlight_width / 100.0).min(0.99), cc / 100.0];
+    let m = midtone / 100.0;
+    let lifted = |px: &[f32], i: usize| -> [f64; 3] {
+        let lpq = shadow_highlight_pixel(shadow_highlight_lab(straight(px, px[3] as f64)), 1.0 - ls[i] as f64, 1.0 - lh[i] as f64, k);
+        let l = lpq[0];
+        shadow_highlight_follow(lpq, l + m * l * (1.0 - l) * (2.0 * l - 1.0))
+    };
+    // D-563: the clip's line, from the count of the lifted lightness, rows in blocks added in
+    // turn so it is the same bits every run.
+    let mut line = None;
+    if black_clip > 0.0 || white_clip > 0.0 {
+        let data = source.data();
+        let blocks: Vec<[f64; 256]> = data
+            .par_chunks(w * 4 * 64)
+            .enumerate()
+            .map(|(b, block)| {
+                let mut h = [0.0; 256];
+                for (j, px) in block.chunks_exact(4).enumerate() {
+                    if px[3] > 0.0 {
+                        h[crate::frame_stats::bin(lifted(px, b * w * 4 * 64 + j * 4)[0])] += px[3] as f64;
+                    }
+                }
+                h
+            })
+            .collect();
+        let mut h = [0.0; 256];
+        for b in &blocks {
+            for (x, y) in h.iter_mut().zip(b) {
+                *x += y;
+            }
+        }
+        let (kb, kw) = crate::frame_stats::clip_points(&h, black_clip, white_clip);
+        let (lo, hi) = crate::frame_stats::clip_points(&h, 0.0, 0.0);
+        if kw > kb {
+            line = Some((kb as f64 / 255.0, lo as f64 / 255.0, (hi - lo) as f64 / (kw - kb) as f64));
+        }
+    }
     source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(y, row)| {
         for (x, px) in row.chunks_exact_mut(4).enumerate() {
             let a = px[3] as f64;
             if a <= 0.0 {
                 continue;
             }
-            let i = (y * w + x) * 4;
-            let lpq = shadow_highlight_lab(straight(px, a));
-            let o = shadow_highlight_unlab(shadow_highlight_pixel(lpq, 1.0 - ls[i] as f64, 1.0 - lh[i] as f64, k));
+            let mut lpq = lifted(px, (y * w + x) * 4);
+            if let Some((kb, lo, slope)) = line {
+                lpq = shadow_highlight_follow(lpq, (lo + (lpq[0] - kb) * slope).clamp(0.0, 1.0));
+            }
+            let o = shadow_highlight_unlab(lpq);
             for c in 0..3 {
                 px[c] = (o[c].clamp(0.0, 1.0) * a) as f32;
             }

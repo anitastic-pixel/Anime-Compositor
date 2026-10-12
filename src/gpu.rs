@@ -5985,7 +5985,8 @@ fn shprep(@builtin(global_invocation_id) id: vec3<u32>) {
 
 // D-400, grade::shadow_highlight_pixel: `other` the lightness blurred at the shadow radius (red)
 // and at the highlight radius (green). k: the shadow and highlight amounts as 2 x / 100, the
-// shadow and highlight compressions, the colour correction as a share.
+// shadow and highlight compressions, the colour correction as a share, (D-563) the midtone
+// contrast as a share.
 @compute @workgroup_size(16, 16)
 fn shhi(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -6030,6 +6031,17 @@ fn shhi(@builtin(global_invocation_id) id: vec3<u32>) {
             qb = qb * (1.0lf - o) + qb * f * o;
         }
     }
+    // D-563, grade::shadow_highlight_follow: the midtone contrast, the chroma following it.
+    let l2 = l + k[5] * l * (1.0lf - l) * (2.0lf * l - 1.0lf);
+    var ck = 1.0lf;
+    if l2 < l {
+        ck = l2 / l;
+    } else if l2 > l {
+        ck = (1.0lf - l2) / (1.0lf - l);
+    }
+    l = l2;
+    pa = pa * ck;
+    qb = qb * ck;
     let o = sh_unlab(vec3(l, pa, qb));
     var out = p;
     out.x = f32(clamp(o.x, 0.0lf, 1.0lf) * a);
@@ -12808,7 +12820,7 @@ impl Gpu {
                 let k = [amount / 100.0, second_amount / 100.0, if second_blend == "overlay" { 4.0 } else { 5.0 }];
                 same(steps, &passes.sharp, FxParams { mode: 1, blend, r: r as i32, ..Default::default() }, &k, Some(&blurred))
             }
-            E::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction } => {
+            E::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, .. } => {
                 // D-400, as grade::shadow_highlight: the lightness, blurred at each radius (the
                 // highlights' blur copied into green, as Channel Blur's channels), then the rule.
                 let bloom = self.bloom.as_ref().expect("a blur is refused without the passes");
@@ -12831,6 +12843,7 @@ impl Gpu {
                     (1.0 - shadow_tonal_width / 100.0).min(0.99),
                     (1.0 - highlight_tonal_width / 100.0).min(0.99),
                     color_correction / 100.0,
+                    midtone_contrast / 100.0,
                 ];
                 same(steps, &passes.shhi, FxParams::default(), &k, Some(&lit))
             }

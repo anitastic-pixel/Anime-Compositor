@@ -10972,7 +10972,11 @@ const EFFECT_PARAMS = {
     ['shadow_radius', 'Shadow Radius', 1, 1, 'pixels, 0 to 500, how far round each pixel counts; about the size of the subject'],
     ['highlight_tonal_width', 'Highlight Tonal Width', 1, 1, '0 to 100, how dark a pixel\'s surroundings may be and still count as highlight'],
     ['highlight_radius', 'Highlight Radius', 1, 1, 'pixels, 0 to 500'],
-    ['color_correction', 'Color Correction', 1, 1, '0 to 100, how much of their colour the changed parts keep']],
+    ['color_correction', 'Color Correction', 1, 1, '0 to 100, how much of their colour the changed parts keep'],
+    // D-563.
+    ['midtone_contrast', 'Midtone Contrast', 1, 1, '-100 to 100, more or less contrast in the middle tones; 0 leaves them'],
+    ['black_clip', 'Black Clip', 1, 0.05, 'per cent of the darkest pixels taken to the darkest in the picture, 0 to 50; above 0 runs on the processor'],
+    ['white_clip', 'White Clip', 1, 0.05, 'per cent of the lightest pixels taken to the lightest in the picture, 0 to 50; above 0 runs on the processor']],
   // D-402: its three colours are in EFFECT_WORDS.
   'core.tritone': [['blend_with_original', 'Blend With Original', 1, 0.5, '0 to 100, how much of the layer as it was shows through']],
   // D-403: its colour, matte layer and fit are in EFFECT_WORDS.

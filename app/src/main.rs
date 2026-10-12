@@ -5316,6 +5316,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             highlight_tonal_width: 50.0,
             highlight_radius: 30.0,
             color_correction: 20.0,
+            // D-563: 0 each; After Effects is recalled to start the clips at 0.01 per cent.
+            midtone_contrast: 0.0,
+            black_clip: 0.0,
+            white_clip: 0.0,
         }),
         RIPPLE_PULSE => Some(Effect::RipplePulse {
             center: [50.0, 50.0],
@@ -7802,6 +7806,9 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             highlight_tonal_width: number("highlight_tonal_width")?,
             highlight_radius: number("highlight_radius")?,
             color_correction: number("color_correction")?,
+            midtone_contrast: number("midtone_contrast")?,
+            black_clip: number("black_clip")?,
+            white_clip: number("white_clip")?,
         }),
         RIPPLE_PULSE => Ok(Effect::RipplePulse {
             center: pair("center")?,
@@ -33272,6 +33279,9 @@ mod contract {
                 ("highlight_tonal_width", "35"),
                 ("highlight_radius", "45"),
                 ("color_correction", "80"),
+                ("midtone_contrast", "25"),
+                ("black_clip", "2"),
+                ("white_clip", "3"),
             ],
         ),
         // D-402: the three colours and the blend.

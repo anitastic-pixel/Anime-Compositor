@@ -3064,6 +3064,8 @@ pub enum Effect {
     /// D-400: after After Effects' Shadow/Highlight, by darktable's rule. `shadow_amount` and
     /// `highlight_amount`, 0 to 100; `shadow_tonal_width` and `highlight_tonal_width`, 0 to
     /// 100; `shadow_radius` and `highlight_radius`, 0 to 500 pixels; `color_correction`, 0 to 100.
+    /// D-563: `midtone_contrast`, -100 to 100; `black_clip` and `white_clip`, 0 to 50 per cent,
+    /// each 0 in a file written before them.
     ShadowHighlight {
         shadow_amount: f64,
         highlight_amount: f64,
@@ -3072,6 +3074,9 @@ pub enum Effect {
         highlight_tonal_width: f64,
         highlight_radius: f64,
         color_correction: f64,
+        midtone_contrast: f64,
+        black_clip: f64,
+        white_clip: f64,
     },
     /// D-379: after CycoreFX's CC Blobbylize. `layer` and `fit`, D-189's layer setting, the blob
     /// map, "" the layer itself; `property`, one of [`BLOBBYLIZE_PROPERTIES`]; `softness`, 0 to
@@ -5681,7 +5686,7 @@ impl Effect {
                 .zip(families.iter_mut())
                 .map(|(name, row)| (name, row.iter_mut().collect(), -100.0, 100.0))
                 .collect(),
-            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction } => vec![
+            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip } => vec![
                 ("shadow_amount", vec![shadow_amount], 0.0, 100.0),
                 ("highlight_amount", vec![highlight_amount], 0.0, 100.0),
                 ("shadow_tonal_width", vec![shadow_tonal_width], 0.0, 100.0),
@@ -5689,6 +5694,9 @@ impl Effect {
                 ("highlight_tonal_width", vec![highlight_tonal_width], 0.0, 100.0),
                 ("highlight_radius", vec![highlight_radius], 0.0, 500.0),
                 ("color_correction", vec![color_correction], 0.0, 100.0),
+                ("midtone_contrast", vec![midtone_contrast], -100.0, 100.0),
+                ("black_clip", vec![black_clip], 0.0, 50.0),
+                ("white_clip", vec![white_clip], 0.0, 50.0),
             ],
             Effect::Blobbylize {
                 softness,
@@ -12159,9 +12167,9 @@ pub(crate) fn apply_stack_at(
             Effect::SelectiveColor { method, families } => crate::perf::time(crate::perf::Stage::EffectSelectiveColor, || {
                 crate::grade::selective_color(source, &selective_color_amounts(families), method == "relative")
             }),
-            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction } => {
+            Effect::ShadowHighlight { shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip } => {
                 crate::perf::time(crate::perf::Stage::EffectShadowHighlight, || {
-                    crate::grade::shadow_highlight(source, [*shadow_amount, *highlight_amount, *shadow_tonal_width, *shadow_radius, *highlight_tonal_width, *highlight_radius, *color_correction])
+                    crate::grade::shadow_highlight(source, [*shadow_amount, *highlight_amount, *shadow_tonal_width, *shadow_radius, *highlight_tonal_width, *highlight_radius, *color_correction, *midtone_contrast, *black_clip, *white_clip])
                 })
             }
             Effect::LineBlur {

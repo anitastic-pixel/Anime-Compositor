@@ -1196,6 +1196,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         && !matches!(&instance.effect, crate::effects::Effect::SoftGlow { threshold, threshold_smooth, .. }
             | crate::effects::Effect::Halation { threshold, threshold_smooth, .. }
             if *threshold > 0.0 && *threshold_smooth == 0.0)
+        // D-563: a Shadow/Highlight clip reads the count of the whole lifted picture, which the
+        // card does not make, so a clip above 0 keeps the effect on the processor.
+        && !matches!(instance.effect, crate::effects::Effect::ShadowHighlight { black_clip, white_clip, .. } if black_clip > 0.0 || white_clip > 0.0)
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
         && !matches!(instance.effect, crate::effects::Effect::Levels { input_black, input_white, .. } if input_black == input_white)
@@ -1381,8 +1384,8 @@ fn card_effect(
                 }
                 e @ E::AdvancedSpillSuppressor { .. } => crate::grade::spill_untouched(&crate::grade::spill_settings(e)),
                 E::ColorDifferenceKey { view, .. } => view == "source",
-                E::ShadowHighlight { shadow_amount, highlight_amount, .. } => {
-                    crate::grade::shadow_highlight_untouched(*shadow_amount, *highlight_amount)
+                E::ShadowHighlight { shadow_amount, highlight_amount, midtone_contrast, black_clip, white_clip, .. } => {
+                    crate::grade::shadow_highlight_untouched(*shadow_amount, *highlight_amount, *midtone_contrast, *black_clip, *white_clip)
                 }
                 E::ColorGrade { .. } => crate::effects::color_grade_steps(&effect, (1, 1), (0, 0)).is_empty(),
                 E::ColorLink { opacity, map, .. } => *opacity == 0.0 || map.as_ref().is_none_or(|m| crate::frame_stats::Stats::of(&m.0).is_none()),
