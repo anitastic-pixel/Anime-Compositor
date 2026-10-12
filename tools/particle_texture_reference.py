@@ -280,8 +280,10 @@ def file_json(fx, c):
     p["assets"] += [L.still(n, f"media/{n}.png") for n in DRAWINGS]
     comp = p["compositions"][0]
     frames = comp["duration_frames"]
+    # A layer starting after the composition ends (`late` in the six-frame refused files) is left
+    # out: its in point past its out point is not a file the project format reads.
     under = [L.raster(n, "asset-" + d, enabled=False, in_frame=start, out_frame=frames)
-             for n, (d, start) in LAYERS.items()]
+             for n, (d, start) in LAYERS.items() if start < frames]
     comp["layers"] += under
     comp["layer_order"] += [l["id"] for l in under]
     return p

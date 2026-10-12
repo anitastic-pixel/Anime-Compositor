@@ -57,8 +57,7 @@
       "layer_order": [
         "art",
         "dot",
-        "big",
-        "late"
+        "big"
       ],
       "layers": [
         {
@@ -269,53 +268,6 @@
           "blend_mode": "normal",
           "effects": [],
           "asset_id": "asset-big",
-          "source_offset_frames": 0,
-          "exposure_spans": []
-        },
-        {
-          "id": "late",
-          "kind": "raster",
-          "name": "late",
-          "enabled": false,
-          "locked": false,
-          "in_frame": 15,
-          "out_frame": 6,
-          "transform": {
-            "anchor": {
-              "base": [
-                0,
-                0
-              ],
-              "keyframes": []
-            },
-            "position": {
-              "base": [
-                0,
-                0
-              ],
-              "keyframes": []
-            },
-            "scale": {
-              "base": [
-                100,
-                100
-              ],
-              "keyframes": []
-            },
-            "rotation": {
-              "base": 0,
-              "keyframes": []
-            },
-            "opacity": {
-              "base": 1,
-              "keyframes": []
-            }
-          },
-          "mask": null,
-          "matte": null,
-          "blend_mode": "normal",
-          "effects": [],
-          "asset_id": "asset-dot",
           "source_offset_frames": 0,
           "exposure_spans": []
         }
