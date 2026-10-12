@@ -59,6 +59,12 @@ size of a pixel (1 at Full, D-259's fraction at Draft):
    its covering, where the flow strength of the smeared picture (steps 1 to 3 read from it, or the
    edge-map layer) times 100 lies from `low_strength` to `high_strength`. `over_smeared_image`
    keeps the smeared pixel elsewhere; `only` leaves elsewhere clear.
+   D-584: `match_to_nearest_custom_color` (After Effects' Match to Nearest Custom Color) takes
+   the palette from `colors` instead, each `#rrggbb` its encoded colour, and nearest is the
+   smallest CIE76 colour difference: the straight Euclidean distance in CIE L*a*b* (D-400's: the
+   sRGB matrix of IEC 61966-2-1 and its own white, L* a* b* unscaled) between the custom colour
+   taken to linear and the pixel's encoded straight colour taken back to linear, the first on a
+   tie. Posterization Level is not used. With no colours nothing is filled.
 8. View `edge_map` instead shows steps 1 to 4 read once from O (or the edge-map layer): each pixel
    opaque grey, its encoded value e, and over it in cells 12 px square from the corner a cyan
    (0, 1, 1) line through the cell's middle along the flow at the pixel nearest the middle (held
@@ -69,12 +75,14 @@ Nothing happens with View `final_result`, Smear Iterations 0 and Draw Color Fill
 
 `view` `final_result` or `edge_map`, `final_result`; `stylization` 0 to 100, 50; `cleanliness`
 0 to 100, 50; `smear_iterations` 0 to 100, 3; `apply_to_alpha` `off` or `on`, `off`;
-`draw_color_fills` `none`, `over_smeared_image` or `only`, `none`; `reduction_method` `k_means` or
-`median`, `k_means`; `posterization_level` 2 to 32, 8; `low_strength` and `high_strength` 0 to
-100, 0 and 100; `offset_flow_angles` -3600 to 3600, 0; `quantize_flow_angles` 0 to 90, 0;
-`edge_map_layer` D-189's word, "". Every number keyable. Every value, range and constant here is
-chosen by this program; Match to Nearest Custom Color, the custom colour set, Freehand Flow
-Adjustments, the arrows' heads and the External Edge Map's placement are not built (gaps logged).
+`draw_color_fills` `none`, `over_smeared_image` or `only`, `none`; `reduction_method` `k_means`,
+`median` or `match_to_nearest_custom_color` (D-584), `k_means`; `posterization_level` 2 to 32, 8;
+`low_strength` and `high_strength` 0 to 100, 0 and 100; `offset_flow_angles` -3600 to 3600, 0;
+`quantize_flow_angles` 0 to 90, 0; `edge_map_layer` D-189's word, ""; `colors` (D-584) D-87's
+list of up to eight `#rrggbb`, none, a file without it having none, not keyable. Every number
+keyable. Every value, range and constant here is chosen by this program; Freehand Flow
+Adjustments, the arrows' heads, keys on the custom colour set and the External Edge Map's
+placement are not built (gaps logged).
 
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawings' 8-bit values, where the build works in single precision.
@@ -100,6 +108,7 @@ from motion_blur_reference import png  # noqa: E402
 from vector_blur_reference import phase  # noqa: E402
 from blobbylize_reference import DRAWINGS, decoded, kernel  # noqa: E402
 from adjust_reference import srgb_to_linear  # noqa: E402
+from shadow_highlight_reference import lab  # noqa: E402
 import smooth_reference as S  # noqa: E402
 import effect_layer_reference as L  # noqa: E402
 
@@ -255,6 +264,20 @@ def nearest(pal, v):
     return min(range(len(pal)), key=lambda j: (sum((pal[j][c] - v[c]) ** 2 for c in range(3)), j))
 
 
+CUSTOM = "match_to_nearest_custom_color"
+
+
+def cie_lab(v):
+    """An encoded colour to unscaled CIE L*a*b* (D-400's matrix and white)."""
+    l, p, q = lab([srgb_to_linear(c) for c in v])
+    return [100 * l, 128 * p, 128 * q]
+
+
+def custom(colors):
+    """D-584's palette: each `#rrggbb` as its encoded colour."""
+    return [[int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)] for h in colors]
+
+
 def edge_view(field, s, w, h, px=1.0):
     cell = 12 * px
     out = []
@@ -290,9 +313,11 @@ def contour_paint(o, m, s, px=1.0):
         cur = smear_pass(cur, fixed if fixed is not None else flow(cur, s, px), s, px)
     if s["draw_color_fills"] == "none":
         return cur
-    pal = palette(o, s)
+    perceptual = s["reduction_method"] == CUSTOM
+    pal = custom(s["colors"]) if perceptual else palette(o, s)
     if not pal:
         return cur
+    keys = [cie_lab(q) for q in pal] if perceptual else pal
     last = fixed if fixed is not None else flow(cur, s, px)
     out = []
     for p, (_, _, e) in zip(cur["px"], last):
@@ -300,7 +325,8 @@ def contour_paint(o, m, s, px=1.0):
         inside = s["low_strength"] <= 100 * e <= s["high_strength"]
         if a > 0 and inside:
             v = [S.linear_to_srgb(min(max(p[c] / a, 0.0), 1.0)) for c in range(3)]
-            out.append([srgb_to_linear(c) * a for c in pal[nearest(pal, v)]] + [a])
+            j = nearest(keys, cie_lab(v) if perceptual else v)
+            out.append([srgb_to_linear(c) * a for c in pal[j]] + [a])
         elif s["draw_color_fills"] == "only":
             out.append([0.0, 0.0, 0.0, 0.0])
         else:
@@ -337,6 +363,7 @@ RANGES = {"stylization": (0, 100), "cleanliness": (0, 100), "smear_iterations": 
 def settings(c, frame):
     """Each number held inside its range after it is worked out (document 20)."""
     s = {k: value_at(c[k], frame) for k in NAMES}
+    s["colors"] = c.get("colors", [])
     for k, (lo, hi) in RANGES.items():
         s[k] = min(hi, max(lo, s[k]))
     return s
@@ -413,6 +440,33 @@ CASES = {
                             posterization_level=keyed((0, 3, OVERSHOOT), (4, 32))), (0, 2, 4)),
 }
 
+# D-584: Match to Nearest Custom Color.
+FOUR = ["#c03030", "#3050c0", "#808080", "#f0f0c0"]
+CUSTOM_FILLS = dict(draw_color_fills="over_smeared_image", reduction_method=CUSTOM)
+CASES.update({
+    "FX-CONTOUR-033": ("Match to Nearest Custom Color with four custom colours, a brick red, a "
+                       "blue, a mid grey and a cream, Over Smeared Image: every pixel one of the "
+                       "four, each the nearest as the eye sees it, which for some pixels is not the "
+                       "nearest by red, green and blue.",
+                       case(colors=FOUR, **CUSTOM_FILLS), (0,)),
+    "FX-CONTOUR-034": ("The same, Fills Only with Low Strength 38: the four colours only where "
+                       "the flow is at least 38 per cent strong, clear elsewhere.",
+                       case(colors=FOUR, draw_color_fills="only", reduction_method=CUSTOM,
+                            low_strength=38), (0,)),
+    "FX-CONTOUR-035": ("Match to Nearest Custom Color with no custom colours: nothing is filled, "
+                       "the smear alone, FX-CONTOUR-001.",
+                       case(colors=[], **CUSTOM_FILLS), (0,)),
+    "FX-CONTOUR-036": ("One custom colour, the blue: every pixel blue.",
+                       case(colors=["#3050c0"], **CUSTOM_FILLS), (0,)),
+    "FX-CONTOUR-037": ("The two blocks with clear round them, pure red and pure blue as the custom "
+                       "colours: the red block red, the blue block blue, every covering kept, "
+                       "every clear pixel clear.",
+                       case(holder="shapes", colors=["#ff0000", "#0000ff"], **CUSTOM_FILLS), (0,)),
+    "FX-CONTOUR-038": ("The four custom colours kept but K-Means chosen: they are not used, "
+                       "FX-CONTOUR-010.",
+                       case(colors=FOUR, **FILLS), (0,)),
+})
+
 INVALID = {
     "FX-CONTOUR-023": ("Stylization 120, above 100.", case(stylization=120)),
     "FX-CONTOUR-024": ("Smear Iterations -1, below 0.", case(smear_iterations=-1)),
@@ -427,12 +481,22 @@ INVALID = {
     "FX-CONTOUR-031": ("Apply to Alpha written \"yes\".", case(apply_to_alpha="yes")),
     "FX-CONTOUR-032": ("Smear Iterations keyed to 150 at frame 4.",
                        case(smear_iterations=keyed((0, 3), (4, 150)))),
+    "FX-CONTOUR-039": ("A custom colour written \"#c0303\", five digits.",
+                       case(colors=["#c03030", "#c0303"], **CUSTOM_FILLS)),
+    "FX-CONTOUR-040": ("Nine custom colours, past eight.",
+                       case(colors=FOUR + FOUR + ["#000000"], **CUSTOM_FILLS)),
+    "FX-CONTOUR-041": ("A custom colour written \"red\", a word.",
+                       case(colors=["red"], **CUSTOM_FILLS)),
 }
 
 
 def effect(c):
+    """D-584: `colors` written only by the cases that have it, as a file from before it."""
+    parameters = {k: setting_json(c[k]) for k in NAMES}
+    if "colors" in c:
+        parameters["colors"] = c["colors"]
     return {"instance_id": "fx-1", "type_id": "core.contour_paint", "enabled": True,
-            "parameters": {k: setting_json(c[k]) for k in NAMES}}
+            "parameters": parameters}
 
 
 def project_json(fx, c):
@@ -533,6 +597,27 @@ def check(expected):
     k22 = c["FX-CONTOUR-022"]
     assert k22["2"] == k22["4"] == render(case(draw_color_fills="over_smeared_image", posterization_level=32), 0)
     assert len({enc(p) for p in k22["0"]}) <= 3
+    # D-584.
+    four = {tuple(round(v * 255) for v in q) for q in custom(FOUR)}
+    t33 = c["FX-CONTOUR-033"]["0"]
+    assert {enc(p) for p in t33} == four
+    s = settings(case(), 0)
+    cur = decoded("photo")
+    for _ in range(3):
+        cur = smear_pass(cur, flow(cur, s), s)
+    pal = custom(FOUR)
+    rgb = [pal[nearest(pal, [S.linear_to_srgb(min(max(v / p[3], 0.0), 1.0)) for v in p[:3]])]
+           for p in cur["px"]]
+    assert any(enc(p) != tuple(round(v * 255) for v in q) for p, q in zip(t33, rgb)), "not RGB's"
+    t34 = c["FX-CONTOUR-034"]["0"]
+    assert any(p[3] == 0 for p in t34) and {enc(p) for p in t34 if p[3] > 0} <= four
+    assert c["FX-CONTOUR-035"]["0"] == one
+    assert {enc(p) for p in c["FX-CONTOUR-036"]["0"]} == {(48, 80, 192)}
+    t37 = c["FX-CONTOUR-037"]["0"]
+    assert all(abs(p[3] - q[3]) < 1e-12 for p, q in zip(t37, shapes))
+    assert all(enc(t37[at(x, y)]) == (255, 0, 0) for x in range(1, 6) for y in range(2, 8))
+    assert all(enc(t37[at(x, y)]) == (0, 0, 255) for x in range(9, 12) for y in range(3, 7))
+    assert c["FX-CONTOUR-038"]["0"] == c["FX-CONTOUR-010"]["0"]
     print("checked")
 
 
