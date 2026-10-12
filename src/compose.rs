@@ -2308,6 +2308,10 @@ fn effect_now(
                 })
                 .collect();
         }
+        // D-582: CC Rainfall falls by the composition frame, in seconds, as Glue Gun's clock.
+        if let crate::effects::Effect::CcRainfall { clock, .. } = &mut now.effect {
+            *clock = [at as f64, comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64];
+        }
         // D-442: Scribble wiggles by the layer's key time from its in point, in seconds.
         if let crate::effects::Effect::Scribble { time, .. } = &mut now.effect {
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;

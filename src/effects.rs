@@ -1407,6 +1407,31 @@ pub enum Effect {
         native_motion_blur: String,
         picture: Option<crate::layer_map::Map>,
     },
+    /// D-582: after CycoreFX's CC Rainfall (Simulation), its rule and its settings when added
+    /// ours (`layer_fx::cc_rainfall`, document 21). `drops`, 0 to 50000, its whole part; `size`,
+    /// 0 to 20 pixels; `scene_depth`, 0 to 20000 pixels; `speed`, 0 to 20000 pixels a second at
+    /// the front; `wind`, -5000 to 5000 pixels a second; `wind_variation`, 0 to 100 per cent;
+    /// `spread`, 0 to 90 degrees; `color`, `#rrggbb`; `opacity`, 0 to 100; `transfer_mode`,
+    /// `composite` or `lighten`; `composite_with_original`, `off` or `on`; `ground_level`, 0 to
+    /// 100 per cent of the height from the top; `random_seed`, 0 to 100000, its whole part.
+    /// `clock` is not a setting and is never saved: compose fills it each frame with the
+    /// composition frame and the frames a second, as Glue Gun's.
+    CcRainfall {
+        drops: f64,
+        size: f64,
+        scene_depth: f64,
+        speed: f64,
+        wind: f64,
+        wind_variation: f64,
+        spread: f64,
+        color: String,
+        opacity: f64,
+        transfer_mode: String,
+        composite_with_original: String,
+        ground_level: f64,
+        random_seed: f64,
+        clock: [f64; 2],
+    },
     /// D-521: after After Effects' Time Difference, its rule and its settings when added ours
     /// (`layer_fx::time_difference`, document 21). `layer`, D-189's layer setting as written, the
     /// target, "" for the layer itself; `time_offset`, -60 to 60 seconds; `contrast`, 0 to 100;
@@ -3702,6 +3727,7 @@ pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
 pub const ECHO: &str = "core.echo";
 pub const CC_WIDE_TIME: &str = "core.cc_wide_time";
 pub const FORCE_MOTION_BLUR: &str = "core.force_motion_blur";
+pub const CC_RAINFALL: &str = "core.cc_rainfall";
 pub const TIME_DIFFERENCE: &str = "core.time_difference";
 /// D-521: Time Difference's Alpha Channel words, in After Effects' order.
 pub const TDIFF_ALPHAS: [&str; 9] = [
@@ -6244,6 +6270,30 @@ impl Effect {
                 ("motion_blur_samples", vec![motion_blur_samples], 1.0, 64.0),
                 ("shutter_angle", vec![shutter_angle], 0.0, 720.0),
             ],
+            Effect::CcRainfall {
+                drops,
+                size,
+                scene_depth,
+                speed,
+                wind,
+                wind_variation,
+                spread,
+                opacity,
+                ground_level,
+                random_seed,
+                ..
+            } => vec![
+                ("drops", vec![drops], 0.0, 50000.0),
+                ("size", vec![size], 0.0, 20.0),
+                ("scene_depth", vec![scene_depth], 0.0, 20000.0),
+                ("speed", vec![speed], 0.0, 20000.0),
+                ("wind", vec![wind], -5000.0, 5000.0),
+                ("wind_variation", vec![wind_variation], 0.0, 100.0),
+                ("spread", vec![spread], 0.0, 90.0),
+                ("opacity", vec![opacity], 0.0, 100.0),
+                ("ground_level", vec![ground_level], 0.0, 100.0),
+                ("random_seed", vec![random_seed], 0.0, 100000.0),
+            ],
             Effect::TimeDifference { time_offset, contrast, .. } => vec![
                 ("time_offset", vec![time_offset], -60.0, 60.0),
                 ("contrast", vec![contrast], 0.0, 100.0),
@@ -6976,6 +7026,12 @@ impl Effect {
                 *width = scale(*width);
                 *speed = scale(*speed);
             }
+            Effect::CcRainfall { size, scene_depth, speed, wind, .. } => {
+                *size = scale(*size);
+                *scene_depth = scale(*scene_depth);
+                *speed = scale(*speed);
+                *wind = scale(*wind);
+            }
             Effect::KiraKira { spacing, size, .. } => {
                 *spacing = scale(*spacing);
                 *size = scale(*size);
@@ -7179,6 +7235,7 @@ impl Effect {
             Effect::Echo { .. } => "Echo",
             Effect::CcWideTime { .. } => "CC Wide Time",
             Effect::ForceMotionBlur { .. } => "CC Force Motion Blur",
+            Effect::CcRainfall { .. } => "CC Rainfall",
             Effect::TimeDifference { .. } => "Time Difference",
             Effect::PosterizeTime { .. } => "Posterize Time",
             Effect::ChangeToColor { .. } => "Change to Color",
@@ -7424,6 +7481,7 @@ impl Effect {
             Effect::Echo { .. } => ECHO,
             Effect::CcWideTime { .. } => CC_WIDE_TIME,
             Effect::ForceMotionBlur { .. } => FORCE_MOTION_BLUR,
+            Effect::CcRainfall { .. } => CC_RAINFALL,
             Effect::TimeDifference { .. } => TIME_DIFFERENCE,
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
@@ -9440,6 +9498,12 @@ impl Effect {
             Effect::ForceMotionBlur { native_motion_blur, .. } if !["off", "on"].contains(&native_motion_blur.as_str()) => Some(format!(
                 "CC Force Motion Blur's native motion blur is \"off\" or \"on\", and this is \"{native_motion_blur}\"."
             )),
+            Effect::CcRainfall { transfer_mode, .. } if !["composite", "lighten"].contains(&transfer_mode.as_str()) => Some(format!(
+                "CC Rainfall's transfer mode is \"composite\" or \"lighten\", and this is \"{transfer_mode}\"."
+            )),
+            Effect::CcRainfall { composite_with_original, .. } if !["off", "on"].contains(&composite_with_original.as_str()) => Some(format!(
+                "CC Rainfall's composite with original is \"off\" or \"on\", and this is \"{composite_with_original}\"."
+            )),
             Effect::TimeDifference { layer, .. } if !layer.is_string() => Some(format!(
                 "Time Difference's target is the name of a layer of this composition, and this is {layer}."
             )),
@@ -9512,6 +9576,7 @@ impl Effect {
             // D-546: Glint Streaks' ray colours and second colour too.
             Effect::CrossGlare { color, glint, .. } => hex_fault("Cross Glare", "colour", color).or_else(|| glint.fault()),
             Effect::Rain { color, .. } => hex_fault("Rain", "colour", color),
+            Effect::CcRainfall { color, .. } => hex_fault("CC Rainfall", "colour", color),
             Effect::Snowfall { color, .. } => hex_fault("Snowfall", "colour", color),
             _ => None,
         };
@@ -12641,6 +12706,36 @@ pub(crate) fn apply_stack_at(
                         crate::layer_fx::lay(source, &picture.0, (ox, oy))
                     })
                 }
+            }
+            // D-582: the drops stay in the drawing's own space; it grows nothing.
+            Effect::CcRainfall {
+                drops,
+                size,
+                scene_depth,
+                speed,
+                wind,
+                wind_variation,
+                spread,
+                color,
+                opacity,
+                transfer_mode,
+                composite_with_original,
+                ground_level,
+                random_seed,
+                clock,
+            } => {
+                let numbers = [*drops, *size, *scene_depth, *speed, *wind, *wind_variation, *spread, *opacity, *ground_level, *random_seed];
+                crate::perf::time(crate::perf::Stage::EffectCcRainfall, || {
+                    crate::layer_fx::cc_rainfall(
+                        source,
+                        encoded(color).map(crate::grade::to_linear),
+                        numbers,
+                        transfer_mode == "lighten",
+                        composite_with_original == "on",
+                        *clock,
+                        (ox, oy),
+                    )
+                })
             }
             // D-581: the moments compose averaged, laid as CC Wide Time's are.
             Effect::ForceMotionBlur { picture, .. } => {

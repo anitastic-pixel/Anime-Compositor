@@ -6536,6 +6536,113 @@ pub(crate) fn rain(
 }
 
 
+/// D-582: CC Rainfall, rain with depth drawn by the effect itself (document 21). Each drop i
+/// takes five numbers by Noise's hash of the seed: its depth in the volume, so its scale F / (F +
+/// depth) with F the drawing's width; its tilt within the spread; its own wind; where it is in
+/// its fall; and where across it starts. It falls `speed` (and drifts with the wind) pixels a
+/// second times its scale, from wholly above the picture to the ground and round again, a
+/// streak of half a frame's travel, `size` times its scale wide, at `opacity` times its scale;
+/// the drops are laid far to near in `color` (linear) onto clear, and that rain is laid over the
+/// layer, or alone, as Composite With Original and the transfer mode say. The numbers are
+/// `[drops, size, scene_depth, speed, wind, wind_variation, spread, opacity, ground_level,
+/// random_seed]`, already held; drops and the seed count by their whole parts. `clock` is the
+/// composition frame and the frames a second. `origin` is the growth of an earlier effect, so
+/// the drops stay in the drawing's own space; it grows nothing. The settings are already valid.
+// ponytail: processor only, and every row tries every drop; a card pass, or the drops sorted
+// into rows first, if many drops on a large picture prove slow.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn cc_rainfall(
+    source: &mut WorkingBuffer,
+    color: [f64; 3],
+    [drops, size, scene_depth, speed, wind, wind_variation, spread, opacity, ground_level, random_seed]: [f64; 10],
+    lighten: bool,
+    with_original: bool,
+    [frame, rate]: [f64; 2],
+    origin: (usize, usize),
+) {
+    let (bw, bh) = (source.width(), source.height());
+    let (w0, h0) = (bw as f64 - 2.0 * origin.0 as f64, bh as f64 - 2.0 * origin.1 as f64);
+    if bw == 0 || w0 <= 0.0 || rate <= 0.0 {
+        return;
+    }
+    let g = ground_level / 100.0 * h0;
+    let tau = frame / rate;
+    let base = crate::grade::mix(random_seed.floor() as u64);
+    // [depth, index, head x, head y, tail x, tail y, width, strength], far first.
+    let mut list: Vec<[f64; 8]> = (0..drops.floor() as i64)
+        .filter_map(|i| {
+            let u = |k| (crate::grade::unit(base, i, 0, 0, k) + 1.0) / 2.0;
+            let d = scene_depth * u(0);
+            let s = w0 / (w0 + d);
+            let theta = (spread * (u(1) - 0.5)).to_radians();
+            let own_wind = wind * (1.0 + wind_variation / 100.0 * (2.0 * u(2) - 1.0));
+            let (vx, vy) = (s * (own_wind + speed * theta.tan()), s * speed);
+            let (lx, ly) = (vx / (2.0 * rate), vy / (2.0 * rate));
+            let ws = size * s;
+            let top = -(ly + (ws / 2.0 + 0.5).max(1.0));
+            let r = g - top;
+            if ws == 0.0 || r <= 0.0 {
+                return None;
+            }
+            let q = u(3) + vy * tau / r;
+            let hy = top + (q - q.floor()) * r;
+            let x0 = w0 * (1.5 * u(4) - 0.25);
+            let hx = if vy > 0.0 { x0 + (vx / vy) * ((q - q.floor()) * r - r / 2.0) } else { x0 };
+            Some([d, i as f64, hx, hy, hx - lx, hy - ly, ws, opacity / 100.0 * s])
+        })
+        .collect();
+    if list.is_empty() && with_original {
+        return;
+    }
+    list.sort_by(|a, b| b[0].total_cmp(&a[0]).then(a[1].total_cmp(&b[1])));
+    let (ox, oy) = (origin.0 as f64, origin.1 as f64);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4 * bw)
+        .enumerate()
+        .for_each(|(row, line)| {
+            let y = row as f64 - oy + 0.5;
+            let mut rain = vec![[0.0f64; 4]; bw];
+            if y <= g {
+                for &[_, _, hx, hy, tx, ty, ws, strength] in &list {
+                    let reach = (ws / 2.0 + 0.5).max(1.0) + 1.0;
+                    if y < hy.min(ty) - reach || y > hy.max(ty) + reach {
+                        continue;
+                    }
+                    let lo = (hx.min(tx) - reach + ox).floor().max(0.0) as usize;
+                    let hi = ((hx.max(tx) + reach + ox).ceil().max(0.0) as usize).min(bw);
+                    let (dx, dy) = (hx - tx, hy - ty);
+                    let ll = dx * dx + dy * dy;
+                    for (bx, r) in rain.iter_mut().enumerate().take(hi).skip(lo) {
+                        let x = bx as f64 - ox + 0.5;
+                        let t = if ll == 0.0 { 0.0 } else { (((x - tx) * dx + (y - ty) * dy) / ll).clamp(0.0, 1.0) };
+                        let delta = (x - (tx + t * dx)).hypot(y - (ty + t * dy));
+                        let cover = if ws >= 1.0 { (ws / 2.0 + 0.5 - delta).clamp(0.0, 1.0) } else { ws * (1.0 - delta).clamp(0.0, 1.0) };
+                        let a = strength * cover;
+                        if a > 0.0 {
+                            *r = [color[0] * a + r[0] * (1.0 - a), color[1] * a + r[1] * (1.0 - a), color[2] * a + r[2] * (1.0 - a), a + r[3] * (1.0 - a)];
+                        }
+                    }
+                }
+            }
+            for (px, r) in line.chunks_exact_mut(4).zip(&rain) {
+                let mut out = *r;
+                if with_original {
+                    let b = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
+                    out = [0, 1, 2, 3].map(|c| r[c] + b[c] * (1.0 - r[3]));
+                    if lighten {
+                        for c in 0..3 {
+                            out[c] = out[c].max(b[c]);
+                        }
+                    }
+                }
+                for c in 0..4 {
+                    px[c] = out[c] as f32;
+                }
+            }
+        });
+}
+
 /// D-204: Snowfall's three planes, nearest first: each one's cell, largest radius, sway, and how
 /// far it has drifted and fallen by `frame`. B-151: the card falls the same way.
 pub(crate) fn snow_planes([spacing, size, depth, speed, wind, wiggle]: [f64; 6], frame: i32) -> [[f64; 5]; 3] {

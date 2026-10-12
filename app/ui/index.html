@@ -9333,6 +9333,7 @@ const EFFECT_NAMES = {
   'core.echo': 'Echo',
   'core.cc_wide_time': 'CC Wide Time',
   'core.force_motion_blur': 'CC Force Motion Blur',
+  'core.cc_rainfall': 'CC Rainfall',
   'core.time_difference': 'Time Difference',
   'core.posterize_time': 'Posterize Time',
   'core.change_to_color': 'Change to Color',
@@ -9507,7 +9508,7 @@ const EFFECT_GROUPS = [
     'core.corner_pin', 'core.polar_coordinates', 'core.optics_compensation', 'core.bend_it', 'core.bender',
     'core.blobbylize', 'core.flow_motion', 'core.griddler', 'core.fisheye', 'core.page_turn', 'core.power_pin',
     'core.ripple_pulse', 'core.slant', 'core.smear', 'core.split', 'core.split_2', 'core.transform', 'core.tiles', 'core.magnify', 'core.spherize', 'core.detail_upscale']],
-  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.turbulent_noise', 'core.noise', 'core.add_grain', 'core.match_grain', 'core.noise_alpha', 'core.noise_hls', 'core.curl_noise', 'core.noise_hls_auto', 'core.speed_lines', 'core.rain', 'core.snowfall',
+  ['Generate', ['core.gradient', 'core.fractal_noise', 'core.turbulent_noise', 'core.noise', 'core.add_grain', 'core.match_grain', 'core.noise_alpha', 'core.noise_hls', 'core.curl_noise', 'core.noise_hls_auto', 'core.speed_lines', 'core.rain', 'core.cc_rainfall', 'core.snowfall',
     'core.light_sweep', 'core.radio_waves', 'core.beam', 'core.four_color_gradient', 'core.checkerboard', 'core.circle', 'core.ellipse', 'core.audio_spectrum', 'core.audio_waveform', 'core.fractal', 'core.grid', 'core.light_burst', 'core.fill', 'core.glue_gun', 'core.threads', 'core.lens_flare', 'core.eyedropper_fill',
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas', 'core.energy_stroke', 'core.cc_ball_action']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
@@ -9597,6 +9598,7 @@ const EFFECT_SEARCH = {
   'core.echo': 'echo time trail trails ghost ghosting onion skin smear afterimage frames',
   'core.time_difference': 'time difference motion detect detection compare frames offset changes moved movement difference matte alpha absolute contrast',
   'core.cc_wide_time': 'cc wide time temporal blur smear average frames motion blur forward backward steps before after timelapse staccato cycore',
+  'core.cc_rainfall': 'cc rainfall rain storm weather drops depth wind simulation cycore',
   'core.force_motion_blur': 'cc force motion blur precomp nested composition shutter angle samples native subframe moments smooth movement cycore',
   'core.posterize_time': 'posterize time twos threes on twos stepped frame rate choppy limited animation hold',
   'core.change_to_color': 'change to color colour replace recolor recolour swap costume palette hue shift',
@@ -9858,6 +9860,7 @@ const EFFECT_ABOUT = {
   'core.echo': 'Lays copies of the layer from earlier or later frames over it, each fainter than the last: a trail.',
   'core.time_difference': 'Shows how the layer differs from a target layer at another moment: what moved shows, what stood still goes black, or mid grey with Absolute Difference off. With no target the layer is compared with itself, so it stays black until Time Offset is set (try -0.04 seconds, one frame back at 24). Contrast strengthens the difference; Alpha Channel chooses what covers the result. It reads the layer as drawn, without its effects.',
   'core.cc_wide_time': 'Averages the layer over a span of frames, Backward Steps before the present one and Forward Steps after, every frame counted the same: a smearing blur for anything moving over a still background. It reads the layer as drawn, so effects meant to be smeared go inside a precomposition. Native Motion Blur Off draws the compositions inside without their own motion blur.',
+  'core.cc_rainfall': 'Rain with depth: drops scattered through a volume behind the picture, the far ones smaller, slower and fainter, falling to the ground level and round again, laid over the layer (Lighten never darkens it) or alone. Not built: Background Reflection, the Refracting look, Offset and Embed Depth.',
   'core.force_motion_blur': 'Motion blur for what moves inside a composition layer: the composition is drawn at several moments inside the shutter, every key inside read at each moment, and averaged. It uses the composition’s own shutter angle when its motion blur and the layer’s switch are on, or its own Shutter Angle with Override Native Shutter On; the shutter opens on the frame. Drawings, text, shapes and expressions inside hold at the frame. Native Motion Blur Off draws the compositions inside without their own motion blur. Only a composition layer is blurred.',
   'core.posterize_time': 'Holds the layer\'s drawing and effects for several frames at a time, as if drawn at a lower frame rate: on twos, on threes.',
   'core.change_to_color': 'Turns one colour into another, with the shades painted in it, and leaves the rest alone.',
@@ -10663,6 +10666,16 @@ const EFFECT_PARAMS = {
   // D-520, in CycoreFX's order.
   'core.cc_wide_time': [['forward_steps', 'Forward Steps', 1, 1, 'whole frames after the present one, 0 to 100'],
     ['backward_steps', 'Backward Steps', 1, 1, 'whole frames before the present one, 0 to 100']],
+  'core.cc_rainfall': [['drops', 'Drops', 1, 1, '0 to 50000, how many; the whole part counts'],
+    ['size', 'Size', 1, 0.5, 'pixels, 0 to 20, how wide a drop at the front is'],
+    ['scene_depth', 'Scene Depth', 1, 1, 'pixels, 0 to 20000, how deep the volume of drops is behind the picture'],
+    ['speed', 'Speed', 1, 1, 'pixels a second, 0 to 20000, how fast a drop at the front falls'],
+    ['wind', 'Wind', 1, 1, 'pixels a second, -5000 to 5000, the drift right, or left when negative'],
+    ['wind_variation', 'Variation % (Wind)', 1, 1, '0 to 100, how much each drop has its own wind'],
+    ['spread', 'Spread', 1, 1, 'degrees, 0 to 90, how far the drops tilt either way'],
+    ['opacity', 'Opacity', 1, 1, '0 to 100, how strongly a drop at the front shows'],
+    ['ground_level', 'Ground Level', 1, 1, '0 to 100 per cent of the height from the top, where the drops stop'],
+    ['random_seed', 'Random Seed', 1, 1, '0 to 100000, which drops']],
   'core.force_motion_blur': [['motion_blur_samples', 'Motion Blur Samples', 1, 1, 'moments averaged, 1 to 64, taken whole'],
     ['shutter_angle', 'Shutter Angle', 1, 1, 'degrees, 0 to 720, used with Override Native Shutter On; 360 is a whole frame']],
   'core.posterize_time': [['frame_rate', 'Frame Rate', 1, 1, 'frames a second, 0.1 to 99; 12 in a composition of 24 is on twos, 8 on threes']],
@@ -12336,6 +12349,12 @@ const EFFECT_WORDS = {
   // D-520.
   'core.cc_wide_time': {
     choices: [['native_motion_blur', 'Native Motion Blur', [['off', 'Off'], ['on', 'On']]]],
+  },
+  // D-582, CycoreFX's own words.
+  'core.cc_rainfall': {
+    colours: [['color', 'Color']],
+    choices: [['transfer_mode', 'Transfer Mode', [['composite', 'Composite'], ['lighten', 'Lighten']]],
+      ['composite_with_original', 'Composite With Original', [['off', 'Off'], ['on', 'On']]]],
   },
   'core.force_motion_blur': {
     choices: [['override_native_shutter', 'Override Native Shutter', [['off', 'Off'], ['on', 'On']]],

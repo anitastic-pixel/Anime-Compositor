@@ -2255,6 +2255,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("shutter_angle".into(), num(*shutter_angle));
             params.insert("native_motion_blur".into(), J::from(native_motion_blur.as_str()));
         }
+        Effect::CcRainfall { color, transfer_mode, composite_with_original, drops, size, scene_depth, speed, wind, wind_variation, spread, opacity, ground_level, random_seed, .. } => {
+            params.insert("drops".into(), num(*drops));
+            params.insert("size".into(), num(*size));
+            params.insert("scene_depth".into(), num(*scene_depth));
+            params.insert("speed".into(), num(*speed));
+            params.insert("wind".into(), num(*wind));
+            params.insert("wind_variation".into(), num(*wind_variation));
+            params.insert("spread".into(), num(*spread));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("ground_level".into(), num(*ground_level));
+            params.insert("random_seed".into(), num(*random_seed));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("transfer_mode".into(), J::from(transfer_mode.as_str()));
+            params.insert("composite_with_original".into(), J::from(composite_with_original.as_str()));
+        }
         Effect::TimeDifference { layer, time_offset, contrast, absolute_difference, alpha_channel, .. } => {
             params.insert("layer".into(), layer.clone());
             params.insert("time_offset".into(), num(*time_offset));
@@ -5622,6 +5637,7 @@ fn parse_effect(
         crate::effects::CC_WIDE_TIME,
         crate::effects::FORCE_MOTION_BLUR,
         crate::effects::TIME_DIFFERENCE,
+        crate::effects::CC_RAINFALL,
         crate::effects::POSTERIZE_TIME,
         crate::effects::CHANGE_TO_COLOR,
         crate::effects::CORNER_PIN,
@@ -6544,6 +6560,22 @@ fn parse_effect(
             shutter_angle: effect_number(params, "shutter_angle", &at)?,
             native_motion_blur: effect_word(params, "native_motion_blur", &at)?,
             picture: None,
+        }),
+        crate::effects::CC_RAINFALL => Some(crate::effects::Effect::CcRainfall {
+            drops: effect_number(params, "drops", &at)?,
+            size: effect_number(params, "size", &at)?,
+            scene_depth: effect_number(params, "scene_depth", &at)?,
+            speed: effect_number(params, "speed", &at)?,
+            wind: effect_number(params, "wind", &at)?,
+            wind_variation: effect_number(params, "wind_variation", &at)?,
+            spread: effect_number(params, "spread", &at)?,
+            opacity: effect_number(params, "opacity", &at)?,
+            ground_level: effect_number(params, "ground_level", &at)?,
+            random_seed: effect_number(params, "random_seed", &at)?,
+            color: effect_word(params, "color", &at)?.to_ascii_lowercase(),
+            transfer_mode: effect_word(params, "transfer_mode", &at)?,
+            composite_with_original: effect_word(params, "composite_with_original", &at)?,
+            clock: [0.0, 0.0],
         }),
         crate::effects::TIME_DIFFERENCE => Some(crate::effects::Effect::TimeDifference {
             layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "layer")?.clone(),
