@@ -1796,6 +1796,31 @@ pub(crate) fn vignette(source: &mut WorkingBuffer, v: &Vignette) {
         });
 }
 
+/// D-562: CC Vignette, `[cx, cy, t, amount, pin]` as `effects::cc_vignette_settings` gives
+/// them. At a shown pixel s = |P - c| t, the gain g = (1 + s^2)^(-2 amount) (cos^4 of the angle
+/// whose tangent is s, raised to the amount), pinned toward 1 by the encoded luma times `pin`,
+/// and each straight channel b becomes min(b G, max(b, 1)): lightening never takes a channel past
+/// 1, nor pulls one already past it back. Amount 0 or angle of view 0 change nothing.
+pub(crate) fn cc_vignette(source: &mut WorkingBuffer, [cx, cy, t, amount, pin]: [f64; 5]) {
+    if amount == 0.0 || t == 0.0 {
+        return;
+    }
+    let w = source.width();
+    source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        let a = px[3] as f64;
+        if a <= 0.0 {
+            return;
+        }
+        let s = ((i % w) as f64 + 0.5 - cx).hypot((i / w) as f64 + 0.5 - cy) * t;
+        let g = (1.0 + s * s).powf(-2.0 * amount);
+        let b: [f64; 3] = std::array::from_fn(|c| px[c] as f64 / a);
+        let gain = g + (1.0 - g) * luma(b.map(|v| to_srgb(v.clamp(0.0, 1.0)))) * pin;
+        for c in 0..3 {
+            px[c] = ((b[c] * gain).min(b[c].max(1.0)) * a) as f32;
+        }
+    });
+}
+
 /// D-134: `channel` (0 red, 1 green, 2 blue, 3 all three) turned toward its opposite by
 /// `amount` per cent in encoded values; the channels not chosen are kept bit for bit.
 pub(crate) fn invert(source: &mut WorkingBuffer, channel: usize, amount: f64) {

@@ -2589,6 +2589,26 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, p);
         return;
     }
+    if F.mode == 110u {
+        // D-562, grade::cc_vignette. k: the centre, tan(angle of view / 2) over half the
+        // drawing's diagonal, the amount and the pin highlights as shares.
+        let dx = f64(id.x) + 0.5lf - k[0];
+        let dy = f64(id.y) + 0.5lf - k[1];
+        let s2 = (dx * dx + dy * dy) * k[2] * k[2];
+        let g = f64(pow(f32(1.0lf + s2), f32(-2.0lf * k[3])));
+        var b: vec3<f64>;
+        for (var c = 0u; c < 3u; c++) {
+            b[c] = f64(p[c]) / a;
+        }
+        let e = vec3(to_srgb(clamp(b.x, 0.0lf, 1.0lf)), to_srgb(clamp(b.y, 0.0lf, 1.0lf)), to_srgb(clamp(b.z, 0.0lf, 1.0lf)));
+        let gain = g + (1.0lf - g) * luma(e) * k[4];
+        var out = p;
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32(min(b[c] * gain, max(b[c], 1.0lf)) * a);
+        }
+        textureStore(output, id.xy, out);
+        return;
+    }
     if F.mode == 100u {
         // D-468/D-469, grade::channel_threshold. k: the three levels, the channel (0 luminance,
         // 1 rgb, 2 saturation, 3 alpha), 1 to turn each of the three over, and the share of the
@@ -13165,6 +13185,11 @@ impl Gpu {
             E::StrobeLight { strobe_color, blend_with_original, strobe, strobe_operator, .. } => {
                 let k = crate::layer_fx::strobe_setup(linear(strobe_color), *blend_with_original, strobe, strobe_operator);
                 same(steps, &passes.warp, FxParams { mode: 103, ..Default::default() }, &[k[0], k[1], k[2], k[3], k[4], k[5], 0.0], None)
+            }
+            // D-562: tone mode 110; the card's plan leaves out one that changes nothing.
+            E::CcVignette { amount, angle_of_view, center, pin_highlights } => {
+                let k = crate::effects::cc_vignette_settings(*amount, *angle_of_view, *center, *pin_highlights, (w, h), f.origin);
+                same(steps, &passes.tone, FxParams { mode: 110, ..Default::default() }, &k, None)
             }
             // D-468: tone mode 100, one level and one Invert for all three.
             E::ChannelThreshold { threshold, channel, invert, blend_with_original } => {

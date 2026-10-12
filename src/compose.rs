@@ -905,6 +905,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::CcLightRays { .. }
                 | crate::effects::Effect::ExposureFlicker { .. }
                 | crate::effects::Effect::Vignette { .. }
+                // D-562: CC Vignette.
+                | crate::effects::Effect::CcVignette { .. }
                 | crate::effects::Effect::TurbulentDisplace { .. }
                 | crate::effects::Effect::FractalNoise { .. }
                 // D-445: Turbulent Noise.
@@ -1340,6 +1342,7 @@ fn card_effect(
                 | E::TurbulentDisplace { amount, .. }
                 | E::GradientMap { amount, .. } => *amount == 0.0,
                 E::TintMap { amount_to_tint, .. } => *amount_to_tint == 0.0,
+                E::CcVignette { amount, angle_of_view, .. } => *amount == 0.0 || *angle_of_view == 0.0,
                 E::Tritone { blend_with_original, .. } => *blend_with_original == 100.0,
                 E::FractalNoise { opacity, .. } | E::TurbulentNoise { opacity, .. } => *opacity == 0.0,
                 E::ColorBalance { shadows, midtones, highlights, .. } => {

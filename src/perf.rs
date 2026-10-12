@@ -370,6 +370,8 @@ pub enum Stage {
     EffectBrushStrokes,
     /// D-448's Cartoon.
     EffectCartoon,
+    /// D-562's CC Vignette.
+    EffectCcVignette,
     /// D-456's Deband.
     EffectDeband,
     /// D-457's Advanced Spill Suppressor.
@@ -479,7 +481,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 236] = [
+    pub const ALL: [Stage; 237] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -664,6 +666,7 @@ impl Stage {
         Stage::EffectRemoveGrain,
         Stage::EffectBrushStrokes,
         Stage::EffectCartoon,
+        Stage::EffectCcVignette,
         Stage::EffectDeband,
         Stage::EffectAdvancedSpillSuppressor,
         Stage::EffectSimpleWireRemoval,
@@ -905,6 +908,7 @@ impl Stage {
             Stage::EffectRemoveGrain => "effect: remove grain",
             Stage::EffectBrushStrokes => "effect: brush strokes",
             Stage::EffectCartoon => "effect: cartoon",
+            Stage::EffectCcVignette => "effect: cc vignette",
             Stage::EffectDeband => "effect: deband",
             Stage::EffectAdvancedSpillSuppressor => "effect: advanced spill suppressor",
             Stage::EffectSimpleWireRemoval => "effect: simple wire removal",

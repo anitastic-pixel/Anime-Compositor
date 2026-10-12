@@ -855,6 +855,15 @@ pub enum Effect {
         softness: f64,
         center: [f64; 2],
     },
+    /// D-562: after After Effects' CC Vignette, a second effect beside D-126's: `amount`, -100 to
+    /// 100, below 0 lightening; `angle_of_view`, 0 to 179 degrees; `center`, per cent of the
+    /// drawing's width and height, -1000 to 1000; `pin_highlights`, 0 to 100.
+    CcVignette {
+        amount: f64,
+        angle_of_view: f64,
+        center: [f64; 2],
+        pin_highlights: f64,
+    },
     /// D-127: `amount`, 0 to 1000 pixels; `size`, 1 to 1000 pixels a wave; `complexity`, 1 to
     /// 8, its whole part counted; `evolution`, -100000 to 100000 degrees; `speed`, -360 to 360
     /// degrees a frame; `seed`, 0 to 100000, its whole part counted; and `edges`,
@@ -3532,6 +3541,7 @@ pub const LIGHT_RAYS: &str = "core.light_rays";
 pub const LIGHT_BURST: &str = "core.light_burst";
 pub const EXPOSURE_FLICKER: &str = "core.exposure_flicker";
 pub const VIGNETTE: &str = "core.vignette";
+pub const CC_VIGNETTE: &str = "core.cc_vignette";
 pub const TURBULENT_DISPLACE: &str = "core.turbulent_displace";
 pub const FRACTAL_NOISE: &str = "core.fractal_noise";
 pub const TURBULENT_NOISE: &str = "core.turbulent_noise";
@@ -4651,6 +4661,12 @@ impl Effect {
                 ("roundness", vec![roundness], 0.0, 100.0),
                 ("softness", vec![softness], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+            ],
+            Effect::CcVignette { amount, angle_of_view, center, pin_highlights } => vec![
+                ("amount", vec![amount], -100.0, 100.0),
+                ("angle_of_view", vec![angle_of_view], 0.0, 179.0),
+                ("center", center.iter_mut().collect(), -1000.0, 1000.0),
+                ("pin_highlights", vec![pin_highlights], 0.0, 100.0),
             ],
             Effect::TurbulentDisplace {
                 amount,
@@ -6891,6 +6907,7 @@ impl Effect {
             Effect::LightBurst { .. } => "Light Burst",
             Effect::ExposureFlicker { .. } => "Exposure Flicker",
             Effect::Vignette { .. } => "Vignette",
+            Effect::CcVignette { .. } => "CC Vignette",
             Effect::TurbulentDisplace { .. } => "Turbulent Displace",
             Effect::FractalNoise { .. } => "Fractal Noise",
             Effect::TurbulentNoise { .. } => "Turbulent Noise",
@@ -7131,6 +7148,7 @@ impl Effect {
             Effect::LightBurst { .. } => LIGHT_BURST,
             Effect::ExposureFlicker { .. } => EXPOSURE_FLICKER,
             Effect::Vignette { .. } => VIGNETTE,
+            Effect::CcVignette { .. } => CC_VIGNETTE,
             Effect::TurbulentDisplace { .. } => TURBULENT_DISPLACE,
             Effect::FractalNoise { .. } => FRACTAL_NOISE,
             Effect::TurbulentNoise { .. } => TURBULENT_NOISE,
@@ -10300,6 +10318,11 @@ pub(crate) fn apply_stack_at(
                     crate::grade::vignette(source, &v)
                 })
             }
+            // D-562: the falloff about the drawing's own centre, however far the layer has grown.
+            Effect::CcVignette { amount, angle_of_view, center, pin_highlights } => {
+                let k = cc_vignette_settings(*amount, *angle_of_view, *center, *pin_highlights, (source.width(), source.height()), (ox, oy));
+                crate::perf::time(crate::perf::Stage::EffectCcVignette, || crate::grade::cc_vignette(source, k))
+            }
             // D-127: one full turn of evolution moves the field one wave.
             Effect::TurbulentDisplace {
                 amount,
@@ -12747,6 +12770,22 @@ pub(crate) fn vignette_settings(
         color: encoded(color),
         amount,
     }
+}
+
+/// D-562: CC Vignette's numbers for a buffer `w` by `h` whose drawing has its corner at
+/// `(ox, oy)`: the centre in the buffer's pixels, tan(angle of view / 2) over half the drawing's
+/// diagonal, and the amount and pin highlights as shares. The processor and the card share it.
+pub(crate) fn cc_vignette_settings(
+    amount: f64,
+    angle_of_view: f64,
+    center: [f64; 2],
+    pin_highlights: f64,
+    (w, h): (usize, usize),
+    (ox, oy): (usize, usize),
+) -> [f64; 5] {
+    let (cx, cy) = radial_center(center, (w, h), (ox, oy));
+    let half = ((w - 2 * ox) as f64).hypot((h - 2 * oy) as f64) / 2.0;
+    [cx, cy, (angle_of_view.to_radians() / 2.0).tan() / half, amount / 100.0, pin_highlights / 100.0]
 }
 
 /// D-397: one of Color Grade's steps, each run as its own pass in this order.

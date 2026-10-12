@@ -2767,6 +2767,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("strobe_operator".into(), J::from(strobe_operator.as_str()));
             params.insert("random_seed".into(), num(*random_seed));
         }
+        Effect::CcVignette { amount, angle_of_view, center, pin_highlights } => {
+            params.insert("amount".into(), num(*amount));
+            params.insert("angle_of_view".into(), num(*angle_of_view));
+            params.insert("center".into(), J::Array(center.iter().map(|c| num(*c)).collect()));
+            params.insert("pin_highlights".into(), num(*pin_highlights));
+        }
         Effect::ChannelThreshold { threshold, channel, invert, blend_with_original } => {
             params.insert("threshold".into(), num(*threshold));
             params.insert("channel".into(), J::from(channel.as_str()));
@@ -5642,6 +5648,7 @@ fn parse_effect(
         crate::effects::STROBE_LIGHT,
         crate::effects::TEXTURIZE,
         crate::effects::CHANNEL_THRESHOLD,
+        crate::effects::CC_VIGNETTE,
         crate::effects::THRESHOLD_RGB,
         crate::effects::CONTOUR_PAINT,
         crate::effects::ARBITRARY_MAP,
@@ -6854,6 +6861,12 @@ fn parse_effect(
             random_seed: effect_number(params, "random_seed", &at)?,
             time: 0.0,
             count: 0,
+        }),
+        crate::effects::CC_VIGNETTE => Some(crate::effects::Effect::CcVignette {
+            amount: effect_number(params, "amount", &at)?,
+            angle_of_view: effect_number(params, "angle_of_view", &at)?,
+            center: effect_array(params, "center", "two numbers, x then y", &at)?,
+            pin_highlights: effect_number(params, "pin_highlights", &at)?,
         }),
         crate::effects::CHANNEL_THRESHOLD => Some(crate::effects::Effect::ChannelThreshold {
             threshold: effect_number(params, "threshold", &at)?,
