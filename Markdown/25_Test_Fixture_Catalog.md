@@ -211294,3 +211294,61 @@ FX-RIF-007 (`fx_rif_007.json`): Softness 501, above 500. The file is read, the e
 FX-RIF-008 (`fx_rif_008.json`): Softness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-RIF-009 (`fx_rif_009.json`): Softness keyed to 600 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### CC Glass, full control set (D-561)
+
+CC Glass (`core.glass`, D-317) with its full control set, after After Effects' CC Glass (B-441, EFFECTS.md row 235). Every case is a composition holding the `holder` drawing and, hidden, the `dots`, `ramp` and `spot` layers a case may name as its bump map; each case's media are in `Fixtures/glass/media/`. `tools/glass_reference.py` works the expected frames, `Fixtures/glass/expected_glass.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-GLASS-001 (`fx_glass_001.json`): As added: the layer's own covering as the bump, Softness 10, Height 50, Displacement 100, a white distant light from the top left at height 25, Ambient 75, Diffuse 90, Specular 25, Roughness 0.1, Metal 100: the two blocks bent outward by their soft edges and lit, lighter toward the top left. Frames 0.
+
+FX-GLASS-002 (`fx_glass_002.json`): A file written before D-561, without the eight new settings, Displacement 20 and Light Intensity 70: read as the classic light, so it draws as CC Glass drew before, D-317's bend and Bevel Alpha's light. Frames 0.
+
+FX-GLASS-003 (`fx_glass_003.json`): The same settings with the light type written `classic`: the same as FX-GLASS-002. Frames 0.
+
+FX-GLASS-004 (`fx_glass_004.json`): Ambient 100, Diffuse 0, Specular 0, Displacement 0: nothing is bent or lit, so the drawing comes back untouched. Frames 0.
+
+FX-GLASS-005 (`fx_glass_005.json`): Height 0: a flat surface, nothing bent, every covered pixel its colour times Ambient plus Diffuse times 0.24, and the faintest highlight in its own colour. Frames 0.
+
+FX-GLASS-006 (`fx_glass_006.json`): Softness 4, Displacement 0: the light alone, lighter on the top and left edges of each block, darker on the bottom and right. Frames 0.
+
+FX-GLASS-007 (`fx_glass_007.json`): The light's Direction 135, from the bottom right: the other edges light. Frames 0.
+
+FX-GLASS-008 (`fx_glass_008.json`): A point light at 25, 30 per cent, 10 pixels up: brightest near (4, 3), falling away across the blocks. Frames 0.
+
+FX-GLASS-009 (`fx_glass_009.json`): The light's Height -50, behind the layer: the flat middles face away from it, so only Ambient lights them, at 0.75 of their colour. Frames 0.
+
+FX-GLASS-010 (`fx_glass_010.json`): Specular 100, Roughness 0.5, Metal 0, an orange light, Ambient and Diffuse 0, light Height 40: a broad highlight in the light's own orange on the blue block too. Frames 0.
+
+FX-GLASS-011 (`fx_glass_011.json`): The same with Metal 100: the highlight takes each block's own colour, so the blue block's shine is blue. Frames 0.
+
+FX-GLASS-012 (`fx_glass_012.json`): Light Intensity 0, Displacement 20: the blocks bent, every covered pixel at Ambient, 0.75, of the colour bent onto it. Frames 0.
+
+FX-GLASS-013 (`fx_glass_013.json`): The ramp's luminance as the bump on the photo, Softness 0, Height 100, Displacement 3: the squares pushed sideways along the even slope, lit alike. Frames 0.
+
+FX-GLASS-014 (`fx_glass_014.json`): The dots layer as the bump, its covering, Softness 2, Displacement 10, on the solid photo: the photo bent and lit round two squares. Frames 0.
+
+FX-GLASS-015 (`fx_glass_015.json`): The 8 by 5 spot stretched to the drawing's size, Property Red, Softness 2, Displacement 10, on the photo: an oval lens in the middle. Frames 0.
+
+FX-GLASS-016 (`fx_glass_016.json`): Property Intensity on the photo itself, Softness 2, Height -50, Displacement 10: the cream squares sunk below the red and blue. Frames 0.
+
+FX-GLASS-017 (`fx_glass_017.json`): A layer that is not in the composition, `gone`: the layer itself is the bump, as FX-GLASS-001, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-GLASS-018 (`fx_glass_018.json`): Softness keyed from 0 at frame 0 to 8 at frame 4, linear, Displacement 0: frame 2 is FX-GLASS-006. Frames 0, 2, 4.
+
+FX-GLASS-019 (`fx_glass_019.json`): FX-GLASS-006 on the holder moved 2 right and 1 down: the same, moved. Frames 0.
+
+FX-GLASS-020 (`fx_glass_020.json`): Ambient eased from 0 at frame 0 to 100 at frame 4 on a curve that overshoots: at frame 2 it would pass 100, is held at 100, as at frame 4. Frames 0, 2, 4.
+
+FX-GLASS-021 (`fx_glass_021.json`): A light type written "spot". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASS-022 (`fx_glass_022.json`): Roughness 0, below 0.001. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASS-023 (`fx_glass_023.json`): Ambient 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASS-024 (`fx_glass_024.json`): Light Height 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASS-025 (`fx_glass_025.json`): Specular -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASS-026 (`fx_glass_026.json`): Light Position 50, -1001, beyond -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GLASS-027 (`fx_glass_027.json`): Metal keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
