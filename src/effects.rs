@@ -1395,6 +1395,18 @@ pub enum Effect {
         native_motion_blur: String,
         picture: Option<crate::layer_map::Map>,
     },
+    /// D-581: after CycoreFX's CC Force Motion Blur, its rule and its settings when added ours.
+    /// `motion_blur_samples`, 1 to 64, taken whole below; `override_native_shutter`, `off` or
+    /// `on`; `shutter_angle`, 0 to 720 degrees; `native_motion_blur`, `off` or `on`. `picture` is
+    /// not a setting and is never saved: compose draws the averaged moments into it for each
+    /// frame (`compose::fill_force_motion_blur`).
+    ForceMotionBlur {
+        motion_blur_samples: f64,
+        override_native_shutter: String,
+        shutter_angle: f64,
+        native_motion_blur: String,
+        picture: Option<crate::layer_map::Map>,
+    },
     /// D-521: after After Effects' Time Difference, its rule and its settings when added ours
     /// (`layer_fx::time_difference`, document 21). `layer`, D-189's layer setting as written, the
     /// target, "" for the layer itself; `time_offset`, -60 to 60 seconds; `contrast`, 0 to 100;
@@ -3689,6 +3701,7 @@ pub const DISPLACEMENT_MAP: &str = "core.displacement_map";
 pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
 pub const ECHO: &str = "core.echo";
 pub const CC_WIDE_TIME: &str = "core.cc_wide_time";
+pub const FORCE_MOTION_BLUR: &str = "core.force_motion_blur";
 pub const TIME_DIFFERENCE: &str = "core.time_difference";
 /// D-521: Time Difference's Alpha Channel words, in After Effects' order.
 pub const TDIFF_ALPHAS: [&str; 9] = [
@@ -6227,6 +6240,10 @@ impl Effect {
                 ("forward_steps", vec![forward_steps], 0.0, 100.0),
                 ("backward_steps", vec![backward_steps], 0.0, 100.0),
             ],
+            Effect::ForceMotionBlur { motion_blur_samples, shutter_angle, .. } => vec![
+                ("motion_blur_samples", vec![motion_blur_samples], 1.0, 64.0),
+                ("shutter_angle", vec![shutter_angle], 0.0, 720.0),
+            ],
             Effect::TimeDifference { time_offset, contrast, .. } => vec![
                 ("time_offset", vec![time_offset], -60.0, 60.0),
                 ("contrast", vec![contrast], 0.0, 100.0),
@@ -7161,6 +7178,7 @@ impl Effect {
             Effect::GradientWipe { .. } => "Gradient Wipe",
             Effect::Echo { .. } => "Echo",
             Effect::CcWideTime { .. } => "CC Wide Time",
+            Effect::ForceMotionBlur { .. } => "CC Force Motion Blur",
             Effect::TimeDifference { .. } => "Time Difference",
             Effect::PosterizeTime { .. } => "Posterize Time",
             Effect::ChangeToColor { .. } => "Change to Color",
@@ -7405,6 +7423,7 @@ impl Effect {
             Effect::GradientWipe { .. } => GRADIENT_WIPE,
             Effect::Echo { .. } => ECHO,
             Effect::CcWideTime { .. } => CC_WIDE_TIME,
+            Effect::ForceMotionBlur { .. } => FORCE_MOTION_BLUR,
             Effect::TimeDifference { .. } => TIME_DIFFERENCE,
             Effect::PosterizeTime { .. } => POSTERIZE_TIME,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
@@ -9414,6 +9433,12 @@ impl Effect {
             )),
             Effect::CcWideTime { native_motion_blur, .. } if !["off", "on"].contains(&native_motion_blur.as_str()) => Some(format!(
                 "CC Wide Time's native motion blur is \"off\" or \"on\", and this is \"{native_motion_blur}\"."
+            )),
+            Effect::ForceMotionBlur { override_native_shutter, .. } if !["off", "on"].contains(&override_native_shutter.as_str()) => Some(format!(
+                "CC Force Motion Blur's override native shutter is \"off\" or \"on\", and this is \"{override_native_shutter}\"."
+            )),
+            Effect::ForceMotionBlur { native_motion_blur, .. } if !["off", "on"].contains(&native_motion_blur.as_str()) => Some(format!(
+                "CC Force Motion Blur's native motion blur is \"off\" or \"on\", and this is \"{native_motion_blur}\"."
             )),
             Effect::TimeDifference { layer, .. } if !layer.is_string() => Some(format!(
                 "Time Difference's target is the name of a layer of this composition, and this is {layer}."
@@ -12613,6 +12638,14 @@ pub(crate) fn apply_stack_at(
             Effect::CcWideTime { picture, .. } => {
                 if let Some(picture) = picture {
                     crate::perf::time(crate::perf::Stage::EffectCcWideTime, || {
+                        crate::layer_fx::lay(source, &picture.0, (ox, oy))
+                    })
+                }
+            }
+            // D-581: the moments compose averaged, laid as CC Wide Time's are.
+            Effect::ForceMotionBlur { picture, .. } => {
+                if let Some(picture) = picture {
+                    crate::perf::time(crate::perf::Stage::EffectForceMotionBlur, || {
                         crate::layer_fx::lay(source, &picture.0, (ox, oy))
                     })
                 }

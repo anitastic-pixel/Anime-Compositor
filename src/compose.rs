@@ -2577,6 +2577,25 @@ fn resolve_rest(
             .with_remediation("Put the CC Simple Wire Removal on the layer itself, or precompose the layers beneath and put it on the composition layer."),
         );
     }
+    // D-581: CC Force Motion Blur blurs what moves inside a composition layer. On any other
+    // layer, an adjustment layer included, and on one with a Time Remap, whose moments its rule
+    // does not yet read, it leaves the layer as it is, and says so.
+    if (layer.kind != crate::model::LayerKind::Composition || layer.time_remap.is_some())
+        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::ForceMotionBlur { .. }))
+    {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::EffectUnsupported,
+                Severity::Warning,
+                format!("Layer {} has a CC Force Motion Blur, which blurs only what moves inside a composition layer without a Time Remap.", layer.name),
+                format!("Frame {frame} is drawn without it. The setting is kept as it is."),
+            )
+            .with_remediation("Precompose the layers to blur and put CC Force Motion Blur on the composition layer."),
+        );
+    }
+
     // D-191: each layer setting's map, made at the size the effects run at. An adjustment
     // layer's are made where its stack runs, on the frame.
     if !layer.is_adjustment() {
@@ -2592,6 +2611,7 @@ fn resolve_rest(
         fill_time_difference(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_echoes(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_wide_time(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
+        fill_force_motion_blur(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_stats(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_stabilizer(&mut effects, project, root, comp, layer, at, quality, pre, float, cache, log);
         fill_wire(&mut effects, project, root, comp, layer, at, quality, cache, log);
@@ -3744,7 +3764,96 @@ fn fill_wide_time(
     }
 }
 
-/// D-195: each switched-on Echo's copies, the holder's drawing through its masks at the frames
+/// D-581: each switched-on CC Force Motion Blur's moments, the composition layer's inside drawn
+/// with every key read a share of the shutter later (`model::at_moment`) and averaged at `size`.
+/// The shutter is the override's, else the composition's when its blur and the holder's switch
+/// are on, else none; it opens on the frame, so the first moment is the frame itself, drawn
+/// with the real cache. The others share its decoded cels but nothing kept by frame number
+/// (`CelCache::cels_only`), which would not know its keys were read later. With native motion
+/// blur `off` the compositions inside are drawn with their blur switched off, on a project
+/// copy, as CC Wide Time's are. The average is kept with the viewer's composition frames when nothing was said.
+#[allow(clippy::too_many_arguments)]
+fn fill_force_motion_blur(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    size: (usize, usize),
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    if holder.kind != crate::model::LayerKind::Composition || holder.time_remap.is_some() {
+        return;
+    }
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        let crate::effects::Effect::ForceMotionBlur { motion_blur_samples, override_native_shutter, shutter_angle, native_motion_blur, picture } = &mut instance.effect else {
+            continue;
+        };
+        let angle = if override_native_shutter == "on" {
+            *shutter_angle
+        } else if comp.motion_blur.enabled && holder.motion_blur {
+            comp.motion_blur.shutter_angle
+        } else {
+            0.0
+        };
+        let n = if angle == 0.0 { 1 } else { motion_blur_samples.floor() as usize };
+        let unblurred = (native_motion_blur == "off" && project.compositions.iter().any(|c| c.id != comp.id && c.motion_blur.enabled)).then(|| {
+            let mut copy = project.clone();
+            for c in copy.compositions.iter_mut().filter(|c| c.id != comp.id) {
+                c.motion_blur.enabled = false;
+            }
+            copy
+        });
+        let mut none = CelCache::none();
+        let (project, cache) = match &unblurred {
+            Some(copy) => (copy, &mut none),
+            None => (project, &mut *cache),
+        };
+        let key = (cache.effect_budget() > 0)
+            .then(|| {
+                let (float, bits) = (float_depth(project, &[], comp), bits(project, &[], comp));
+                inner_key(project, &comp.id, root, quality, 0, &[], &Id::new(""), float, bits)
+            })
+            .flatten()
+            .map(|key| format!("{key}
+CC Force Motion Blur: layer {:?} at {size:?}, frame {frame}, {n} moments, shutter {angle}, native {native_motion_blur}", holder.id));
+        if let Some(kept) = key.as_deref().and_then(|key| cache.inner_frame(key)) {
+            *picture = Some(crate::layer_map::Map(kept));
+            continue;
+        }
+        let drawing = bare(holder, true);
+        let started = std::time::Instant::now();
+        let mut one = FrameLog::new(usize::MAX);
+        let (done, files) = crate::cache::files_read(|| {
+            let mut fold = crate::layer_fx::EchoFold::new("blend", size);
+            for k in 0..n {
+                let by = angle / 360.0 * k as f64 / n as f64 * 100.0 / holder.time_stretch;
+                let mut draw = |cache: &mut CelCache| {
+                    resolve_layer(project, comp, &drawing, frame, root, quality, cache, &mut one, &mut Vec::new(), false, true)
+                        .map(|r| crate::layer_map::cut(&r.source, (0, 0), size))
+                };
+                let p = if k == 0 { draw(cache) } else { crate::model::at_moment(by, || cache.cels_only(draw)) };
+                crate::perf::time(crate::perf::Stage::EffectForceMotionBlur, || fold.add(p.as_ref(), 1.0));
+            }
+            crate::perf::time(crate::perf::Stage::EffectForceMotionBlur, || std::sync::Arc::new(fold.finish()))
+        });
+        if let (Some(key), true) = (key, one.is_empty()) {
+            cache.store_inner(key, files, std::sync::Arc::clone(&done), started.elapsed());
+        }
+        let mut said = Vec::new();
+        for d in one.finish() {
+            if !said.contains(&d.id) {
+                said.push(d.id);
+                log.record(frame, holder.name.clone(), d);
+            }
+        }
+        *picture = Some(crate::layer_map::Map(done));
+    }
+}
+
 /// D-195: each switched-on Echo's copies, the holder's drawing through its masks at the frames
 /// its settings name, put together at `size`. What drawing them logged belongs to this frame,
 /// once for each kind.

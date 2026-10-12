@@ -2249,6 +2249,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("backward_steps".into(), num(*backward_steps));
             params.insert("native_motion_blur".into(), J::from(native_motion_blur.as_str()));
         }
+        Effect::ForceMotionBlur { motion_blur_samples, override_native_shutter, shutter_angle, native_motion_blur, .. } => {
+            params.insert("motion_blur_samples".into(), num(*motion_blur_samples));
+            params.insert("override_native_shutter".into(), J::from(override_native_shutter.as_str()));
+            params.insert("shutter_angle".into(), num(*shutter_angle));
+            params.insert("native_motion_blur".into(), J::from(native_motion_blur.as_str()));
+        }
         Effect::TimeDifference { layer, time_offset, contrast, absolute_difference, alpha_channel, .. } => {
             params.insert("layer".into(), layer.clone());
             params.insert("time_offset".into(), num(*time_offset));
@@ -5614,6 +5620,7 @@ fn parse_effect(
         crate::effects::GRADIENT_WIPE,
         crate::effects::ECHO,
         crate::effects::CC_WIDE_TIME,
+        crate::effects::FORCE_MOTION_BLUR,
         crate::effects::TIME_DIFFERENCE,
         crate::effects::POSTERIZE_TIME,
         crate::effects::CHANGE_TO_COLOR,
@@ -6528,6 +6535,13 @@ fn parse_effect(
         crate::effects::CC_WIDE_TIME => Some(crate::effects::Effect::CcWideTime {
             forward_steps: effect_number(params, "forward_steps", &at)?,
             backward_steps: effect_number(params, "backward_steps", &at)?,
+            native_motion_blur: effect_word(params, "native_motion_blur", &at)?,
+            picture: None,
+        }),
+        crate::effects::FORCE_MOTION_BLUR => Some(crate::effects::Effect::ForceMotionBlur {
+            motion_blur_samples: effect_number(params, "motion_blur_samples", &at)?,
+            override_native_shutter: effect_word(params, "override_native_shutter", &at)?,
+            shutter_angle: effect_number(params, "shutter_angle", &at)?,
             native_motion_blur: effect_word(params, "native_motion_blur", &at)?,
             picture: None,
         }),

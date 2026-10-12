@@ -822,6 +822,16 @@ impl CelCache {
         CelCache::with_budget(0)
     }
 
+    /// D-581: runs `f` with no effect budget, so decoded cels (kept by file) are still shared but
+    /// no composition frame, effect result or picture below an edit is looked up or kept: what a
+    /// moment between frames draws must not be found, or left, under a whole frame's key.
+    pub fn cels_only<R>(&mut self, f: impl FnOnce(&mut CelCache) -> R) -> R {
+        let budget = std::mem::replace(&mut self.effect_budget, 0);
+        let out = f(self);
+        self.effect_budget = budget;
+        out
+    }
+
     /// The cel at `path`, tagged as `interpretation` says and converted into the working space.
     ///
     /// Decoded on a miss, remembered if it fits, returned from memory on a hit. The result is the

@@ -416,6 +416,9 @@ pub enum Stage {
     EffectBlockLoad,
     /// D-509: Glass Melt.
     EffectGlassMelt,
+    /// D-581: CC Force Motion Blur, its moments put together and laid on the layer; drawing
+    /// them is timed as any drawing is.
+    EffectForceMotionBlur,
     /// D-521: Time Difference, its target compared with the layer; drawing the target is timed
     /// as any drawing is.
     EffectTimeDifference,
@@ -483,7 +486,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 238] = [
+    pub const ALL: [Stage; 239] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -691,6 +694,7 @@ impl Stage {
         Stage::EffectEnergyStroke,
         Stage::EffectBlockLoad,
         Stage::EffectGlassMelt,
+        Stage::EffectForceMotionBlur,
         Stage::EffectTimeDifference,
         Stage::EffectBurnFilm,
         Stage::EffectTileWipe,
@@ -934,6 +938,7 @@ impl Stage {
             Stage::EffectEnergyStroke => "effect: energy stroke",
             Stage::EffectBlockLoad => "effect: block load",
             Stage::EffectGlassMelt => "effect: glass melt",
+            Stage::EffectForceMotionBlur => "effect: force motion blur",
             Stage::EffectTimeDifference => "effect: time difference",
             Stage::EffectBurnFilm => "effect: burn film",
             Stage::EffectTileWipe => "effect: tile wipe",

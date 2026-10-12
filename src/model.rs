@@ -19,6 +19,28 @@ use std::fmt;
 
 use crate::time::{ExposureSpan, FrameRate};
 
+thread_local! {
+    static NUDGE: std::cell::Cell<f64> = const { std::cell::Cell::new(0.0) };
+}
+
+/// D-581: runs `f` with every layer's key time read `by` frames later, so CC Force Motion Blur
+/// can draw a composition's inside at a moment between frames (added to any nudge already set,
+/// for one such composition inside another): transforms, parents, masks,
+/// opacity and effect settings move, while drawings, in and out points and expressions hold at
+/// the whole frame. The old nudge comes back when `f` returns or panics.
+/// ponytail: one thread-local nudge, valid because a layer is resolved on one thread (rayon in
+/// compose works only on pixels); a per-call time argument if resolution ever fans out by layer.
+pub fn at_moment<R>(by: f64, f: impl FnOnce() -> R) -> R {
+    struct Back(f64);
+    impl Drop for Back {
+        fn drop(&mut self) {
+            NUDGE.with(|n| n.set(self.0));
+        }
+    }
+    let _back = Back(NUDGE.with(|n| n.replace(n.get() + by)));
+    f()
+}
+
 /// An opaque stable identifier. Document 19: display names are never identity.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Id(String);
@@ -1168,10 +1190,11 @@ impl Layer {
     /// D-216: the key time `u = in + (t - in) * 100 / stretch` its keys are read at, at
     /// composition time `t`: `t` itself at 100, so keys stretch with the layer.
     pub fn key_time(&self, t: f64) -> f64 {
+        let nudge = NUDGE.with(|n| n.get());
         if self.time_stretch == 100.0 {
-            return t;
+            return t + nudge;
         }
-        self.in_frame as f64 + ((t - self.in_frame as f64) * 100.0) / self.time_stretch
+        self.in_frame as f64 + ((t - self.in_frame as f64) * 100.0) / self.time_stretch + nudge
     }
 
     /// D-216: where a key set with the playhead on composition frame `n` is stored: its key
