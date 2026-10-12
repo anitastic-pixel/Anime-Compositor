@@ -8717,8 +8717,9 @@ fn marks(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
-// D-508, along::energy_stroke: k as along::energy_numbers (twelve), the bits' count, then from 13
-// each bit as `along::energy_bits` gives it and its box, then for each band of 16 rows where its
+// D-508, along::energy_stroke: k as along::energy_numbers (twelve), the bits' count, D-565 the
+// shaped ends' count and from 14 each end (six), then each bit as `along::energy_bits` gives it
+// and its box, then for each band of 16 rows where its
 // list of bits starts and how many, then the lists, as Path Stroke's. The core and the glow are
 // each the largest over the bits; the rings' exponentials are worked in single precision, which
 // has no double exp. B-222: the pixel read and written one channel at a time.
@@ -8734,11 +8735,13 @@ fn energy(@builtin(global_invocation_id) id: vec3<u32>) {
     let y = f64(id.y) + 0.5lf;
     var c = 0.0lf;
     var g = 0.0lf;
-    let band = 13u + 10u * u32(k[12]) + 2u * (id.y / 16u);
+    let ends = u32(k[13]);
+    let at = 14u + 6u * ends;
+    let band = at + 10u * u32(k[12]) + 2u * (id.y / 16u);
     let first = u32(k[band]);
     let n = u32(k[band + 1u]);
     for (var i = 0u; i < n; i++) {
-        let o = 13u + 10u * u32(k[first + i]);
+        let o = at + 10u * u32(k[first + i]);
         if y <= k[o + 8u] || y >= k[o + 9u] || xi < ceil(k[o + 6u] - 0.5lf) || xi > floor(k[o + 7u] - 0.5lf) {
             continue;
         }
@@ -8769,6 +8772,26 @@ fn energy(@builtin(global_invocation_id) id: vec3<u32>) {
             }
             g = max(g, w * s / 4.0lf);
         }
+    }
+    // D-565: along::energy_ends.
+    for (var e = 0u; e < ends; e++) {
+        let q0 = 14u + 6u * e;
+        let fx = x - k[q0];
+        let fy = y - k[q0 + 1u];
+        let along = fx * k[q0 + 2u] + fy * k[q0 + 3u];
+        let r = k[q0 + 4u];
+        let q = k[q0 + 5u];
+        if along <= 0.0lf || sqrt(fx * fx + fy * fy) >= r + 0.5lf {
+            continue;
+        }
+        var cap = 0.0lf;
+        if q > 0.0lf {
+            let across = fx * k[q0 + 3u] - fy * k[q0 + 2u];
+            let ql = along / q;
+            let u = clamp((r + 0.5lf - sqrt(across * across + ql * ql)) / max(r * k[1], 1.0lf), 0.0lf, 1.0lf);
+            cap = u * u * (3.0lf - 2.0lf * u);
+        }
+        c = min(c, cap);
     }
     let mode = u32(k[11]);
     if mode == 0u && c == 0.0lf && g == 0.0lf {
@@ -14943,8 +14966,11 @@ impl Gpu {
             e @ E::EnergyStroke { .. } => {
                 let n = crate::along::energy_numbers(e);
                 let mut k = n.to_vec();
-                let bits = crate::along::energy_bits(e, (w as usize, h as usize), f.origin, &n);
+                let (bits, ends) = crate::along::energy_bits(e, (w as usize, h as usize), f.origin, &n);
                 k.push(bits.len() as f64);
+                // D-565: the shaped ends, before the bits.
+                k.push(ends.len() as f64);
+                k.extend(ends.concat());
                 let mut bands = vec![Vec::new(); (h as usize).div_ceil(16)];
                 for (j, (bit, b)) in bits.iter().enumerate() {
                     k.extend(bit);

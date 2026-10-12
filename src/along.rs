@@ -623,13 +623,33 @@ fn noise(seed: u32, slot: i64, channel: u32, x: f64, y: f64, period: Option<i64>
     top + (low - top) * sy
 }
 
+/// D-565: value noise in three axes for Energy Stroke's noise read on the layer: on the
+/// whole-number grid each corner (i, j, l) has [`hashed`]`(seed, -1, [channel, i, j, l])`;
+/// between corners each axis is eased by smoothstep and mixed.
+fn noise3(seed: u32, channel: u32, x: f64, y: f64, z: f64) -> f64 {
+    let s = |f: f64| f * f * (3.0 - 2.0 * f);
+    let (i, j, l) = (x.floor(), y.floor(), z.floor());
+    let (sx, sy, sz) = (s(x - i), s(y - j), s(z - l));
+    let (i, j, l) = (i as i64, j as i64, l as i64);
+    let plane = |c: i64| {
+        let v = |a: i64, b: i64| hashed(seed, -1, [channel, a as u32, b as u32, c as u32]);
+        let top = v(i, j) + (v(i + 1, j) - v(i, j)) * sx;
+        let low = v(i, j + 1) + (v(i + 1, j + 1) - v(i, j + 1)) * sx;
+        top + (low - top) * sy
+    };
+    plane(l) + (plane(l + 1) - plane(l)) * sz
+}
+
 /// D-508: every straight bit of Energy Stroke's beam in a buffer `size` pixels across with the
 /// drawing's corner at `origin`: [ax, ay, bx, by, width at a, width at b], the widths shares of
 /// the core and glow, each with its box (as [`run_box`]'s) outside which it does not reach, `k`
 /// being [`energy_numbers`]; a bit that reaches nowhere is left out. Document 21's Energy Stroke
 /// paragraph is the rule; the processor and the card share it. An effect that is not an Energy
-/// Stroke, or has no paths, has none.
-pub(crate) fn energy_bits(effect: &crate::effects::Effect, (bw, bh): (usize, usize), (ox, oy): (usize, usize), k: &[f64; 12]) -> Vec<([f64; 6], [f64; 4])> {
+/// Stroke, or has no paths, has none. D-565: and each end to shape, [x, y, the unit direction
+/// out of the beam, the core's radius there, the roundness as a share]; an end left round, or
+/// with no width or no direction, is left out.
+pub(crate) type EnergyBits = (Vec<([f64; 6], [f64; 4])>, Vec<[f64; 6]>);
+pub(crate) fn energy_bits(effect: &crate::effects::Effect, (bw, bh): (usize, usize), (ox, oy): (usize, usize), k: &[f64; 12]) -> EnergyBits {
     let crate::effects::Effect::EnergyStroke {
         source,
         core_start: a,
@@ -643,13 +663,17 @@ pub(crate) fn energy_bits(effect: &crate::effects::Effect, (bw, bh): (usize, usi
         distortion_scale: scale,
         distortion_speed,
         random_seed,
+        start_roundness,
+        end_roundness,
+        noise_along_path,
         frame,
         paths,
         ..
     } = effect
     else {
-        return Vec::new();
+        return (Vec::new(), Vec::new());
     };
+    let along_path = noise_along_path == "on";
     let (dw, dh) = ((bw - 2 * ox) as f64, (bh - 2 * oy) as f64);
     let line;
     let paths: &[(Vec<(f64, f64)>, bool)] = if source == "points" {
@@ -663,6 +687,7 @@ pub(crate) fn energy_bits(effect: &crate::effects::Effect, (bw, bh): (usize, usi
     let tau = *frame as f64 * distortion_speed / 10.0;
     let step = (scale / 8.0).clamp(0.5, 2.0);
     let mut out = Vec::new();
+    let mut ends = Vec::new();
     for (n, (outline, closed)) in paths.iter().enumerate() {
         let pieces = crate::shape::path_segments(outline, *closed);
         let mut starts = Vec::with_capacity(pieces.len());
@@ -712,21 +737,62 @@ pub(crate) fn energy_bits(effect: &crate::effects::Effect, (bw, bh): (usize, usi
                 let round = if *closed && g >= l { g - l } else { g };
                 let mut p = place(round);
                 if *amount > 0.0 {
-                    let (x, per) = if *closed { (round * period as f64 / l, Some(period)) } else { (g / scale, None) };
-                    p.0 += amount * (2.0 * noise(seed, n as i64, 1, x, tau, per) - 1.0);
-                    p.1 += amount * (2.0 * noise(seed, n as i64, 2, x, tau, per) - 1.0);
+                    let (n1, n2) = if along_path {
+                        let (x, per) = if *closed { (round * period as f64 / l, Some(period)) } else { (g / scale, None) };
+                        (noise(seed, n as i64, 1, x, tau, per), noise(seed, n as i64, 2, x, tau, per))
+                    } else {
+                        (noise3(seed, 1, p.0 / scale, p.1 / scale, tau), noise3(seed, 2, p.0 / scale, p.1 / scale, tau))
+                    };
+                    p.0 += amount * (2.0 * n1 - 1.0);
+                    p.1 += amount * (2.0 * n2 - 1.0);
                 }
                 (p, (start_size + (end_size - start_size) * (g - g0 - lo) / (hi - lo)) / 100.0)
             })
             .collect();
         let (fx, fy) = (ox as f64, oy as f64);
+        // D-565: the stretch's two ends, unless it is a closed path drawn whole.
+        if !(*closed && s == 0.0 && e == 1.0) {
+            let last = cuts.len() - 1;
+            for (q, (p, w), next) in [
+                (start_roundness, cuts[0], cuts[1..].iter().map(|c| c.0).find(|&c| c != cuts[0].0)),
+                (end_roundness, cuts[last], cuts[..last].iter().rev().map(|c| c.0).find(|&c| c != cuts[last].0)),
+            ] {
+                let r = k[0] * w / 2.0;
+                if let Some(nx) = next.filter(|_| *q < 100.0 && r > 0.0) {
+                    let (dx, dy) = (p.0 - nx.0, p.1 - nx.1);
+                    let d = dx.hypot(dy);
+                    ends.push([p.0 + fx, p.1 + fy, dx / d, dy / d, r, q / 100.0]);
+                }
+            }
+        }
         out.extend(cuts.windows(2).filter_map(|c| {
             let bit = [c[0].0 .0 + fx, c[0].0 .1 + fy, c[1].0 .0 + fx, c[1].0 .1 + fy, c[0].1, c[1].1];
             let reach = energy_reach(k, bit[4], bit[5]);
             (reach > 0.0).then(|| (bit, run_box(&[bit[0], bit[1], bit[2], bit[3], -1.0], reach)))
         }));
     }
-    out
+    (out, ends)
+}
+
+/// D-565: the core's covering `core` at (`x`, `y`) held to each shaped end's: within r + 1/2 of
+/// the end and past its line, at most the round end squeezed along the beam to q r long (flat
+/// at q = 0). Document 21's Energy Stroke paragraph; the card works the same.
+fn energy_ends(k: &[f64; 12], ends: &[[f64; 6]], x: f64, y: f64, mut core: f64) -> f64 {
+    for &[ex, ey, ox, oy, r, q] in ends {
+        let (fx, fy) = (x - ex, y - ey);
+        let along = fx * ox + fy * oy;
+        if along <= 0.0 || fx.hypot(fy) >= r + 0.5 {
+            continue;
+        }
+        let mut cap = 0.0;
+        if q > 0.0 {
+            let d = (fx * oy - fy * ox).hypot(along / q);
+            let u = ((r + 0.5 - d) / (r * k[1]).max(1.0)).clamp(0.0, 1.0);
+            cap = u * u * (3.0 - 2.0 * u);
+        }
+        core = core.min(cap);
+    }
+    core
 }
 
 /// D-508: Energy Stroke's numbers, shared with the card: the core size, its softness as a share,
@@ -760,16 +826,21 @@ fn energy_reach(k: &[f64; 12], wa: f64, wb: f64) -> f64 {
 /// covering and the glow, each the largest over every bit, lit and laid on by the composite.
 /// With no path to run along the layer is left as it is. The buffer never grows.
 pub(crate) fn energy_stroke(buffer: &mut WorkingBuffer, effect: &crate::effects::Effect, origin: (usize, usize)) {
-    let crate::effects::Effect::EnergyStroke { source, paths, .. } = effect else {
+    let crate::effects::Effect::EnergyStroke { source, paths, alpha_mode, invert_masks, matte, .. } = effect else {
         return;
     };
     if source != "points" && paths.is_none() {
         return;
     }
-    let w = buffer.width();
+    let (w, h) = (buffer.width(), buffer.height());
     let k = energy_numbers(effect);
-    let bits = energy_bits(effect, (w, buffer.height()), origin, &k);
+    let (bits, ends) = energy_bits(effect, (w, h), origin, &k);
     let mode = k[11] as usize;
+    // D-565: the masks' matte over the drawing, nothing outside it; turned over when asked.
+    let (dw, dh) = (w - 2 * origin.0, h - 2 * origin.1);
+    let cut = matte.as_deref().filter(|_| alpha_mode != "off").and_then(|m| crate::mask::coverage(m, dw, dh));
+    let (cut_core, cut_glow) = (alpha_mode == "masks" || alpha_mode == "core", alpha_mode == "masks" || alpha_mode == "glow");
+    let turned = invert_masks == "on";
     buffer.data_mut().par_chunks_exact_mut(4 * w).enumerate().for_each(|(j, row)| {
         let y = j as f64 + 0.5;
         let (mut core, mut glow) = (vec![0.0f64; w], vec![0.0f64; w]);
@@ -786,7 +857,18 @@ pub(crate) fn energy_stroke(buffer: &mut WorkingBuffer, effect: &crate::effects:
             }
         }
         for (i, px) in row.chunks_exact_mut(4).enumerate() {
-            let (c, g) = (core[i], glow[i]);
+            let (mut c, mut g) = (energy_ends(&k, &ends, i as f64 + 0.5, y, core[i]), glow[i]);
+            if let Some(field) = &cut {
+                let inside = (origin.0..origin.0 + dw).contains(&i) && (origin.1..origin.1 + dh).contains(&j);
+                let m = if inside { field[(j - origin.1) * dw + i - origin.0] as f64 } else { 0.0 };
+                let m = if turned { 1.0 - m } else { m };
+                if cut_core {
+                    c *= m;
+                }
+                if cut_glow {
+                    g *= m;
+                }
+            }
             if mode == 0 && c == 0.0 && g == 0.0 {
                 continue;
             }

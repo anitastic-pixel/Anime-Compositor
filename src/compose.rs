@@ -1202,6 +1202,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // card does not make, so a clip above 0 keeps the effect on the processor.
         // D-564: and Auto Amounts reads the whole picture, or the frames either side, likewise.
         && !matches!(&instance.effect, crate::effects::Effect::ShadowHighlight { black_clip, white_clip, auto_amounts, .. } if *black_clip > 0.0 || *white_clip > 0.0 || auto_amounts == "on")
+        // D-565: an Energy Stroke cut by the masks reads them, which the card does not hold.
+        // ponytail: send the card the matte as a second picture if a cut beam is slow here.
+        && !matches!(&instance.effect, crate::effects::Effect::EnergyStroke { alpha_mode, .. } if alpha_mode != "off")
         // D-122: a Levels whose input white is its black is a threshold, which a rounding
         // either side of would turn from black to white, so it stays on the CPU.
         && !matches!(instance.effect, crate::effects::Effect::Levels { input_black, input_white, .. } if input_black == input_white)
@@ -2744,6 +2747,35 @@ fn resolve_rest(
             }
             *paths = (!found.is_empty()).then_some(found);
         }
+    }
+    // D-565: an Energy Stroke's matte, every mask that is drawn whatever its mode, at the size
+    // the effects run at; with none, the beam is drawn uncut and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        let crate::effects::Effect::EnergyStroke { alpha_mode, matte, .. } = &mut instance.effect else {
+            continue;
+        };
+        if alpha_mode == "off" {
+            continue;
+        }
+        let drawn: Vec<crate::mask::Mask> = masks
+            .iter()
+            .filter(|m| m.is_renderable())
+            .map(|m| crate::mask::Mask { mode: crate::mask::MaskMode::Add, ..m.clone() })
+            .collect();
+        if drawn.is_empty() {
+            log.record(
+                frame,
+                layer.name.clone(),
+                Diagnostic::new(
+                    DiagnosticId::EffectPathMissing,
+                    Severity::Warning,
+                    format!("Layer {}'s Energy Stroke has Alpha Mode set and no mask that is on to cut by, so nothing is cut.", layer.name),
+                    format!("Frame {frame} is drawn with the beam uncut. The effect is kept as it is."),
+                )
+                .with_remediation("Draw a mask on the layer, or set Alpha Mode to Off."),
+            );
+        }
+        *matte = (!drawn.is_empty()).then_some(drawn);
     }
     // D-420, D-421: each Audio Spectrum's levels and each Audio Waveform's least and greatest,
     // from the sound layer it names as it is heard at this frame, and the mask it stands along,

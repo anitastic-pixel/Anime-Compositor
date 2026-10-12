@@ -2660,6 +2660,11 @@ pub enum Effect {
     /// to 1000 pixels; `distortion_speed`, 0 to 100; `random_seed`, 0 to 10000, its floor taken;
     /// `composite`, one of [`ENERGY_COMPOSITES`]. `frame` and `paths` are not settings and are
     /// never saved: the frame is set by `at_time`, the paths by compose as Path Stroke's are.
+    /// D-565: `start_roundness` and `end_roundness`, 0 to 100, the core's ends (100 round);
+    /// `noise_along_path`, "on" or "off" (the noise read on the layer); `alpha_mode`, one of
+    /// [`ENERGY_ALPHA_MODES`]; `invert_masks`, "on" or "off". `matte`, not a setting and never
+    /// saved, is the layer's masks that are drawn, each in mode Add, set by compose when the
+    /// Alpha Mode is not off.
     EnergyStroke {
         source: String,
         core_start: [f64; 2],
@@ -2681,8 +2686,14 @@ pub enum Effect {
         distortion_speed: f64,
         random_seed: f64,
         composite: String,
+        start_roundness: f64,
+        end_roundness: f64,
+        noise_along_path: String,
+        alpha_mode: String,
+        invert_masks: String,
         frame: i32,
         paths: Option<Vec<(Vec<(f64, f64)>, bool)>>,
+        matte: Option<Vec<crate::mask::Mask>>,
     },
     /// D-531: after CycoreFX's CC Environment, its rule and its settings when added ours
     /// (`layer_fx::cc_environment`, document 21), its own fake 3D (no composition camera).
@@ -4006,6 +4017,9 @@ pub const ENERGY_STROKE: &str = "core.energy_stroke";
 pub const ENERGY_SOURCES: [&str; 4] = ["points", "masks", "shapes", "text"];
 /// D-508: how Energy Stroke's light meets the layer.
 pub const ENERGY_COMPOSITES: [&str; 3] = ["add", "transparent", "black"];
+/// D-565: what the layer's masks cut of Energy Stroke's light: nothing, the core and the glow,
+/// the core alone or the glow alone.
+pub const ENERGY_ALPHA_MODES: [&str; 4] = ["off", "masks", "core", "glow"];
 pub const CC_CYLINDER: &str = "core.cc_cylinder";
 pub const CC_SPHERE: &str = "core.cc_sphere";
 pub const CARD_WIPE: &str = "core.card_wipe";
@@ -4412,6 +4426,8 @@ impl Effect {
                 distortion_scale,
                 distortion_speed,
                 random_seed,
+                start_roundness,
+                end_roundness,
                 ..
             } => vec![
                 ("core_start", core_start.iter_mut().collect(), -1000.0, 1000.0),
@@ -4431,6 +4447,8 @@ impl Effect {
                 ("distortion_scale", vec![distortion_scale], 1.0, 1000.0),
                 ("distortion_speed", vec![distortion_speed], 0.0, 100.0),
                 ("random_seed", vec![random_seed], 0.0, 10000.0),
+                ("start_roundness", vec![start_roundness], 0.0, 100.0),
+                ("end_roundness", vec![end_roundness], 0.0, 100.0),
             ],
             Effect::CcCylinder {
                 radius,
@@ -8034,11 +8052,18 @@ impl Effect {
                         GLASSES_VIEWS.map(|v| format!("\"{v}\"")).join(", ")
                     )))
             }
-            Effect::EnergyStroke { source, glow_color, composite, .. } => (!ENERGY_SOURCES.contains(&source.as_str()))
+            Effect::EnergyStroke { source, glow_color, composite, noise_along_path, alpha_mode, invert_masks, .. } => (!ENERGY_SOURCES.contains(&source.as_str()))
                 .then(|| format!("Energy Stroke's path from is \"points\", \"masks\", \"shapes\" or \"text\", and this is \"{source}\"."))
                 .or_else(|| (!ENERGY_COMPOSITES.contains(&composite.as_str()))
                     .then(|| format!("Energy Stroke's composite is \"add\", \"transparent\" or \"black\", and this is \"{composite}\".")))
-                .or_else(|| hex_fault("Energy Stroke", "glow colour", glow_color)),
+                .or_else(|| hex_fault("Energy Stroke", "glow colour", glow_color))
+                // D-565.
+                .or_else(|| (!["off", "on"].contains(&noise_along_path.as_str()))
+                    .then(|| format!("Energy Stroke's noise along path is \"on\" or \"off\", and this is \"{noise_along_path}\".")))
+                .or_else(|| (!ENERGY_ALPHA_MODES.contains(&alpha_mode.as_str()))
+                    .then(|| format!("Energy Stroke's alpha mode is \"off\", \"masks\", \"core\" or \"glow\", and this is \"{alpha_mode}\".")))
+                .or_else(|| (!["off", "on"].contains(&invert_masks.as_str()))
+                    .then(|| format!("Energy Stroke's invert masks is \"on\" or \"off\", and this is \"{invert_masks}\"."))),
             Effect::CcBallAction { rotation_axis, twist_property, .. } => (!BALL_AXES.contains(&rotation_axis.as_str()))
                 .then(|| format!(
                     "CC Ball Action's rotation axis is one of {}, and this is \"{rotation_axis}\".",

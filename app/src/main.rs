@@ -5024,8 +5024,15 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             distortion_speed: 20.0,
             random_seed: 0.0,
             composite: "add".to_string(),
+            // D-565: D-508's beam: round ends, the noise along the path, nothing cut.
+            start_roundness: 100.0,
+            end_roundness: 100.0,
+            noise_along_path: "on".to_string(),
+            alpha_mode: "off".to_string(),
+            invert_masks: "off".to_string(),
             frame: 0,
             paths: None,
+            matte: None,
         }),
         // D-530: as added (CycoreFX gives no values we found): an upright cylinder half the
         // drawing's half width in radius, in the middle, unturned, both sides drawn, lit white
@@ -7550,8 +7557,14 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             distortion_speed: number("distortion_speed")?,
             random_seed: number("random_seed")?,
             composite: word("composite")?,
+            start_roundness: number("start_roundness")?,
+            end_roundness: number("end_roundness")?,
+            noise_along_path: word("noise_along_path")?,
+            alpha_mode: word("alpha_mode")?,
+            invert_masks: word("invert_masks")?,
             frame: 0,
             paths: None,
+            matte: None,
         }),
         CC_ENVIRONMENT => Ok(Effect::CcEnvironment {
             environment: serde_json::Value::from(
@@ -32118,6 +32131,11 @@ mod contract {
                 ("distortion_speed", "10"),
                 ("random_seed", "7"),
                 ("composite", "transparent"),
+                ("start_roundness", "40"),
+                ("end_roundness", "60"),
+                ("noise_along_path", "off"),
+                ("alpha_mode", "core"),
+                ("invert_masks", "on"),
             ],
         ),
         // D-580: the two layers, the numbers and the words.

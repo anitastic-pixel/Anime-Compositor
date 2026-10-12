@@ -9936,7 +9936,7 @@ const EFFECT_ABOUT = {
   'core.audio_waveform': 'Draws the wave of a sound layer as a line, strokes or dots that move with the music, along a line or round a mask.',
   'core.eyedropper_fill': 'Fills the layer with one colour sampled from a small area of the layer itself.',
   'core.paint_bucket': 'Fills the area of similar colour around a point with a solid colour, like a paint bucket on a cel.',
-  'core.energy_stroke': 'Draws a glowing beam: a white core inside a coloured glow, between two points or along the layer’s masks, shapes or text outlines. Start and End Offset trim it, Start and End Size taper it, Flicker makes the light waver and Distortion makes the beam wobble like plasma. Composite chooses the beam added over the layer, on its own, or over black.',
+  'core.energy_stroke': 'Draws a glowing beam: a white core inside a coloured glow, between two points or along the layer’s masks, shapes or text outlines. Start and End Offset trim it, Start and End Size taper it, Flicker makes the light waver and Distortion makes the beam wobble like plasma. Composite chooses the beam added over the layer, on its own, or over black. Start and End Roundness shape the core’s ends, Noise Along Path chooses whether the wobble travels with the beam, and Alpha Mode lets the layer’s masks cut the core, the glow or both.',
   'core.scribble': 'Scribbles over a closed mask with zigzag lines at an angle, wiggling them over time like a hand-drawn fill.',
   'core.write_on': 'Paints a brush wherever its Brush Position has been, so animating the position writes a line on over time.',
   'core.fill': 'Fills the layer, or one of its masks, or all of them, with one colour, kept to what the layer already covers.',
@@ -11171,7 +11171,10 @@ const EFFECT_PARAMS = {
     ['distortion_amount', 'Distortion Amount', 1, 0.5, '0 to 500 pixels, how far the beam wobbles'],
     ['distortion_scale', 'Distortion Scale', 1, 1, '1 to 1000 pixels, how long the wobbles are'],
     ['distortion_speed', 'Distortion Speed', 1, 1, '0 to 100, how fast the wobbles move'],
-    ['random_seed', 'Random Seed', 1, 1, '0 to 10000, a different flicker and wobble for each']],
+    ['random_seed', 'Random Seed', 1, 1, '0 to 10000, a different flicker and wobble for each'],
+    // D-565.
+    ['start_roundness', 'Start Roundness', 1, 1, '0 to 100, the shape of the core at its start: 100 round, 0 flat'],
+    ['end_roundness', 'End Roundness', 1, 1, '0 to 100, the shape of the core at its end: 100 round, 0 flat']],
   'core.scribble': [['mask', 'Mask', 1, 1, 'the mask numbered so, 1 to 1000, for Single Mask'],
     ['edge_width', 'Edge Width', 1, 1, 'pixels, 0 to 1000, how wide the band is for the edge fill types'],
     ['opacity', 'Opacity', 1, 1, '%, 0 to 100'],
@@ -11811,7 +11814,11 @@ const EFFECT_WORDS = {
   'core.energy_stroke': {
     colours: [['glow_color', 'Glow Color']],
     choices: [['source', 'Path From', [['points', 'Points'], ['masks', 'Masks'], ['shapes', 'Shapes'], ['text', 'Text Outlines']]],
-      ['composite', 'Composite', [['add', 'Add'], ['transparent', 'Transparent'], ['black', 'Black']]]],
+      ['composite', 'Composite', [['add', 'Add'], ['transparent', 'Transparent'], ['black', 'Black']]],
+      // D-565: the masks' cut runs on the processor, which holds the masks.
+      ['noise_along_path', 'Noise Along Path', [['on', 'On (the wobble travels with the beam)'], ['off', 'Off (the wobble stays on the layer)']]],
+      ['alpha_mode', 'Alpha Mode', [['off', 'Off'], ['masks', 'Masks cut core and glow (runs on the processor)'], ['core', 'Masks cut the core (runs on the processor)'], ['glow', 'Masks cut the glow (runs on the processor)']]],
+      ['invert_masks', 'Invert Masks', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-442: After Effects’ words; Single Mask, Inside, On, Smooth and On Original Image as it is added.
   'core.scribble': {

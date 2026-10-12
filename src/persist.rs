@@ -2623,7 +2623,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::EnergyStroke {
             source, core_start, core_end, evolution, start_offset, end_offset, start_size, end_size, core_size, core_softness, glow_color,
             glow_intensity, glow_spread, flicker_amount, flicker_speed, distortion_amount, distortion_scale, distortion_speed, random_seed,
-            composite, ..
+            composite, start_roundness, end_roundness, noise_along_path, alpha_mode, invert_masks, ..
         } => {
             params.insert("source".into(), J::from(source.as_str()));
             params.insert("core_start".into(), J::Array(core_start.iter().map(|c| num(*c)).collect()));
@@ -2645,6 +2645,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("distortion_speed".into(), num(*distortion_speed));
             params.insert("random_seed".into(), num(*random_seed));
             params.insert("composite".into(), J::from(composite.as_str()));
+            // D-565: each written only when moved, keyed or in the file, so D-508's files are
+            // written as they were.
+            for (key, value) in [("start_roundness", *start_roundness), ("end_roundness", *end_roundness)] {
+                if value != 100.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(value));
+                }
+            }
+            for (key, value, absent) in [("noise_along_path", noise_along_path, "on"), ("alpha_mode", alpha_mode, "off"), ("invert_masks", invert_masks, "off")] {
+                if value != absent || params.contains_key(key) {
+                    params.insert(key.into(), J::from(value.as_str()));
+                }
+            }
         }
         Effect::CcSpotlight { from, to, height, cone_angle, edge_softness, color, intensity, render, gel_layer, .. } => {
             params.insert("from".into(), J::Array(from.iter().map(|c| num(*c)).collect()));
@@ -6844,8 +6856,15 @@ fn parse_effect(
             distortion_speed: effect_number(params, "distortion_speed", &at)?,
             random_seed: effect_number(params, "random_seed", &at)?,
             composite: effect_word(params, "composite", &at)?,
+            // D-565: a file from before reads round ends, the noise along the path, no cut.
+            start_roundness: effect_number_or(params, "start_roundness", &at, 100.0)?,
+            end_roundness: effect_number_or(params, "end_roundness", &at, 100.0)?,
+            noise_along_path: effect_word_or(params, "noise_along_path", &at, "on")?,
+            alpha_mode: effect_word_or(params, "alpha_mode", &at, "off")?,
+            invert_masks: effect_word_or(params, "invert_masks", &at, "off")?,
             frame: 0,
             paths: None,
+            matte: None,
         }),
         crate::effects::CC_SPOTLIGHT => Some(crate::effects::Effect::CcSpotlight {
             from: effect_array(params, "from", "two numbers, x then y", &at)?,
