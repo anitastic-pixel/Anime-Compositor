@@ -212696,3 +212696,135 @@ FX-WARP-028 (`fx_warp_028.json`): Bend 101, above 100. The file is read, the eff
 FX-WARP-029 (`fx_warp_029.json`): Horizontal Distortion -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-WARP-030 (`fx_warp_030.json`): Vertical Distortion keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Card Dance (D-632)
+
+Card Dance (`core.card_dance`), after After Effects' Card Dance (B-512), the rule ours. Each case is a composition 16 by 8, five frames at 24 a second, in `Fixtures/card_dance/`: the map layers, every one switched off, and on top the layer `holder`, showing the drawing `shot`, with the effect; some carry a composition camera. `tools/card_dance_reference.py` works the expected frames, `Fixtures/card_dance/expected_card_dance.json`, tolerance 2e-5, every case checked that no pixel lies near a card's edge, a tie, an edge-on card or a cut highlight; the rule is in document 21.
+
+FX-CD-001 (`fx_cd_001.json`): As added: eight by eight cards, each moved toward the viewer by the brightness of the layer's own picture under its centre (white one card height nearer, black one farther). Frame 0.
+
+FX-CD-002 (`fx_cd_002.json`): Four by two cards with every source none: the picture unchanged. Frame 0.
+
+FX-CD-003 (`fx_cd_003.json`): Z position from intensity 1 of the gradient layer `ramp`, multiplier 0.4: the brighter (lower left) cards nearer and larger. Frame 0.
+
+FX-CD-004 (`fx_cd_004.json`): X position offset 0.25: every card a quarter of a card to the right. Frame 0.
+
+FX-CD-005 (`fx_cd_005.json`): Y position from green 1 of `colours`, multiplier 0.3: cards lower where the gradient is greener. Frame 0.
+
+FX-CD-006 (`fx_cd_006.json`): X rotation offset 180 with the back layer: every card turned over top to bottom, showing its share of the back mirrored across. Frame 0.
+
+FX-CD-007 (`fx_cd_007.json`): Y rotation offset 180 with the back layer: the back picture whole, upright, its white marker at the top left. Frame 0.
+
+FX-CD-008 (`fx_cd_008.json`): Y rotation offset 180 without a back layer: every card's back clear. Frame 0.
+
+FX-CD-009 (`fx_cd_009.json`): Z rotation from red 1 of `colours`, multiplier 60: cards turned in the picture's plane, more to the right. Frame 0.
+
+FX-CD-010 (`fx_cd_010.json`): X scale offset 0.5: half-width cards with gaps between them. Frame 0.
+
+FX-CD-011 (`fx_cd_011.json`): Y scale from blue 2 of `colours` as gradient layer 2, multiplier 0.4: taller cards to the left. Frame 0.
+
+FX-CD-012 (`fx_cd_012.json`): X scale from alpha 1 of `colours`, multiplier 0.5, offset 0.5: narrower cards where the gradient is clearer (lower). Frame 0.
+
+FX-CD-013 (`fx_cd_013.json`): Z position from intensity 2 with gradient layer 2 `ramp`. Frame 0.
+
+FX-CD-014 (`fx_cd_014.json`): Three turns, rotation order xyz, with the back layer. Frame 0.
+
+FX-CD-015 (`fx_cd_015.json`): FX-CD-014 with rotation order xzy. Frame 0.
+
+FX-CD-016 (`fx_cd_016.json`): FX-CD-014 with rotation order yxz. Frame 0.
+
+FX-CD-017 (`fx_cd_017.json`): FX-CD-014 with rotation order yzx. Frame 0.
+
+FX-CD-018 (`fx_cd_018.json`): FX-CD-014 with rotation order zxy. Frame 0.
+
+FX-CD-019 (`fx_cd_019.json`): FX-CD-014 with rotation order zyx. Frame 0.
+
+FX-CD-020 (`fx_cd_020.json`): Scale 0.6 by 0.8, turned 30 about z, moved 0.3 right and 0.2 up, in the order scale, rotate, position. Frame 0.
+
+FX-CD-021 (`fx_cd_021.json`): Scale 0.6 by 0.8, turned 30 about z, moved 0.3 right and 0.2 up, in the order scale, position, rotate. Frame 0.
+
+FX-CD-022 (`fx_cd_022.json`): Scale 0.6 by 0.8, turned 30 about z, moved 0.3 right and 0.2 up, in the order rotate, scale, position. Frame 0.
+
+FX-CD-023 (`fx_cd_023.json`): Scale 0.6 by 0.8, turned 30 about z, moved 0.3 right and 0.2 up, in the order rotate, position, scale. Frame 0.
+
+FX-CD-024 (`fx_cd_024.json`): Scale 0.6 by 0.8, turned 30 about z, moved 0.3 right and 0.2 up, in the order position, scale, rotate. Frame 0.
+
+FX-CD-025 (`fx_cd_025.json`): Scale 0.6 by 0.8, turned 30 about z, moved 0.3 right and 0.2 up, in the order position, rotate, scale. Frame 0.
+
+FX-CD-026 (`fx_cd_026.json`): Scale -1 across: each card mirrored left to right, still its front. Frame 0.
+
+FX-CD-027 (`fx_cd_027.json`): Overlapping cards: scale 1.4 at the same depth, the first card in rows then columns on top. Frame 0.
+
+FX-CD-028 (`fx_cd_028.json`): Z position offset 10 card heights toward the viewer: every card behind the camera, nothing drawn. Frame 0.
+
+FX-CD-029 (`fx_cd_029.json`): Columns follow rows, rows 3 (columns 4 ignored), with depth from `ramp`. Frame 0.
+
+FX-CD-030 (`fx_cd_030.json`): The camera turned 30 degrees about y, with depth from `ramp`. Frame 0.
+
+FX-CD-031 (`fx_cd_031.json`): The camera turned -20 about x and 15 about z. Frame 0.
+
+FX-CD-032 (`fx_cd_032.json`): The camera at x 40, y 60 per cent. Frame 0.
+
+FX-CD-033 (`fx_cd_033.json`): Camera Z position 1.7 and focal length 20, turned 25 about y. Frame 0.
+
+FX-CD-034 (`fx_cd_034.json`): Comp Camera with no camera in the file: D-58's default camera, the same as the effect's own camera as added; the effect's camera turns are not used. Frame 0.
+
+FX-CD-035 (`fx_cd_035.json`): Comp Camera with the composition camera 12 pixels back (zoom 12): a strong perspective on the cards. Frame 0.
+
+FX-CD-036 (`fx_cd_036.json`): Comp Camera with the composition camera 2 to the right: the cards seen from the right and the whole picture moved 2 left. Frame 0.
+
+FX-CD-037 (`fx_cd_037.json`): FX-CD-035 on the holder moved 3 right and 1 down: the camera sees the layer from its upper left. Frame 0.
+
+FX-CD-038 (`fx_cd_038.json`): Comp Camera with the composition camera on the layer's plane (depth 0, zoom 12): nothing drawn. Warning `CAMERA_PLANE_BEHIND` on its frames. Frame 0.
+
+FX-CD-039 (`fx_cd_039.json`): A distant light from the top left, depth 0.5, on turned cards. Frame 0.
+
+FX-CD-040 (`fx_cd_040.json`): A point light in the middle, depth 0.3. Frame 0.
+
+FX-CD-041 (`fx_cd_041.json`): Specular 1, sharpness 20: a highlight on the turned cards. Frame 0.
+
+FX-CD-042 (`fx_cd_042.json`): Light colour #ffcc88 at intensity 1.5, ambient 0.5, diffuse 0.25. Frame 0.
+
+FX-CD-043 (`fx_cd_043.json`): Y rotation offset keyed 0 at frame 0 to 180 at frame 4, with the back layer: frame 0 the picture, frame 4 FX-CD-007. Frames 0, 2, 4.
+
+FX-CD-044 (`fx_cd_044.json`): FX-CD-003 on the holder moved 3 right and 1 down: the same, moved. Frame 0.
+
+FX-CD-045 (`fx_cd_045.json`): A gradient layer not in the composition, `gone`: read as clear, so every card at -1 times the multiplier, 0.4 farther; and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-CD-046 (`fx_cd_046.json`): The back layer with its in point at frame 4: clear backs before it, the back at it. Frames 0, 4.
+
+FX-CD-047 (`fx_cd_047.json`): A back layer not in the composition, `gone`: clear backs, and the warning. Warning `EFFECT_LAYER_MISSING`. Frame 0.
+
+FX-CD-048 (`fx_cd_048.json`): Sixteen columns of one row, each turned by red 1 of `colours` about y with the back layer: blinds opening across. Frame 0.
+
+FX-CD-049 (`fx_cd_049.json`): Rotation order "xxy". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-050 (`fx_cd_050.json`): Transformation order "scale". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-051 (`fx_cd_051.json`): X position source "purple_1". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-052 (`fx_cd_052.json`): Camera system "corner_pins", not built yet. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-053 (`fx_cd_053.json`): Rows 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-054 (`fx_cd_054.json`): Columns 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-055 (`fx_cd_055.json`): Z position multiplier 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-056 (`fx_cd_056.json`): X scale offset -11, below -10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-057 (`fx_cd_057.json`): Y rotation offset 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-058 (`fx_cd_058.json`): Camera Z position 0, below 0.01. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-059 (`fx_cd_059.json`): Focal length 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-060 (`fx_cd_060.json`): Light type "spot". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-061 (`fx_cd_061.json`): Light colour "white": not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-062 (`fx_cd_062.json`): Gradient layer 2 written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-063 (`fx_cd_063.json`): Rows & Columns "both". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-064 (`fx_cd_064.json`): X position offset keyed to 120 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
