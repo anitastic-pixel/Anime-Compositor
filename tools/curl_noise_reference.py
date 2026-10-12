@@ -3,12 +3,13 @@
 D-446 adds `core.curl_noise`, after After Effects' Curl Noise (After Effects 26.3 beta, "Curl
 Noise: swirling, animated 2D noise", Adobe's community announcement): a swirling noise whose
 flow lines follow the curl of a smooth noise field (Bridson's "curl noise", 2007). Its settings
-are After Effects' Source (Internal only: This Layer and Other Layer are refused in a sentence,
-not built), Speed and Direction, the Transform's Size and Offset, Evolution, Turbulence Speed,
-Swirl, Density, Smoothness, Vertical Bias, Sample Count, Sample Radius, Flow Softness, Edge
-Definition, Flow Falloff, View, Contrast, Brightness, Clip HDR Results and Channel. Adobe
-publishes no formula; the numbers below are this program's own rule, built on P0-19's value
-noise (`grade::value`, D-127, D-128), and nothing is ported.
+are After Effects' Source (Internal, This Layer or Other Layer; D-583 builds the two layer
+sources, with Source Layer, Softness, Source Mapping and Mirror at Edge), Speed and Direction,
+the Transform's Size and Offset, Evolution, Turbulence Speed, Swirl, Density, Smoothness,
+Vertical Bias, Sample Count, Sample Radius, Flow Softness, Edge Definition, Flow Falloff, View,
+Contrast, Brightness, Clip HDR Results and Channel. Adobe publishes no formula; the numbers
+below are this program's own rule, built on P0-19's value noise (`grade::value`, D-127, D-128),
+and nothing is ported.
 
 The rule, at a point p of the drawing's own pixels (its top-left corner (0, 0), however far an
 effect above grew the buffer):
@@ -45,7 +46,31 @@ effect above grew the buffer):
 
 A pixel that does not show is left.
 
-Settings: `source` `internal` (when added; `this_layer` and `other_layer` refused); `speed` 0
+D-583, Source This Layer or Other Layer: steps 2's noise and slope come from a picture instead.
+
+S1. The picture: This Layer, the layer's pixels as they reach the effect (the whole buffer, so
+    what an effect above grew is in it); Other Layer, D-189's map of the layer `source_layer`
+    names, fitted to the drawing by Source Mapping, `fill` stretched over it (D-189's stretch) or
+    `center` at its own size in the middle (D-189's center). Other Layer naming no layer is
+    refused; a name not in the composition draws the frame without the effect, with D-189's
+    EFFECT_LAYER_MISSING.
+S2. Its lightness plane: each pixel's luminance (`grade::phase_of`: Rec. 709 weights on the
+    straight linear colour, through the sRGB curve) times its covering, so an empty pixel is 0,
+    kept in single precision. With Softness above 0 the plane is blurred by D-109's Gaussian with
+    the edges held, sigma softness / 10 pixels, its sums in single precision.
+S3. At the point p, after the slide of step 1 (p' = p - offset - drift frame), the plane is read
+    at p' on the picture (This Layer: p' plus the buffer corner's distance from the drawing's),
+    pixel centres at halves, between pixels as document 21's bilinear does; outside the plane
+    0, or with Mirror at Edge on, the pixel mirrored back in (... 1 0 | 0 1 ... w-1 | w-1 ...).
+    The picture is read at its own size: Size and Density set only the seed's blocks (step 4).
+S4. N = 2 L(p') - 1, and the slope is L one pixel right less L one pixel left, across, and the
+    same down; a slope under 1e-5 long is nought. Smoothness and the depth do not touch N;
+    Evolution and Turbulence Speed still move the seed. Steps 3 to 8 are unchanged.
+
+Settings: `source` `internal` (when added), `this_layer` or `other_layer`; `source_layer`
+D-189's layer word, "" (when added); `softness` 0 to 100, 0; `source_mapping` `fill` (when
+added) or `center`; `mirror_at_edge` `off` (when added) or `on`. A file without the four reads
+them as when added, and they are written only when they are not (D-304). `speed` 0
 to 100, 10 when added; `direction` -100000 to 100000 degrees, 0; `size` 1 to 1000 pixels, 100;
 `offset` a point, -100000 to 100000, [0, 0]; `evolution` -100000 to 100000 degrees, 0;
 `turbulence_speed` 0 to 200, 20; `swirl` -360 to 360, 45; `density` -100 to 100, 0; `smoothness`
@@ -60,7 +85,11 @@ Every number can be keyed.
 from the drawing's 8-bit values, keeping the single-precision steps the rule names.
 
 Every case is a composition 16 by 10 holding Noise's card, the same size, unmoved unless the case
-says. The expected frames are in `Fixtures/curl_noise/expected_curl_noise.json`.
+says; D-583's Other Layer cases add a switched-off layer "ramp", 8 by 5 greys, under it. The
+expected frames are in `Fixtures/curl_noise/expected_curl_noise.json`.
+
+D-583 (D-566): FX-CURL-033 recorded This Layer refused while it was not built and is now a
+working This Layer case; FX-CURL-034 stays refused, now for naming no layer, its frames unchanged.
 
 Fixtures are read-only to implementation work: this file is run when the specification changes,
 and never to make a build pass.
@@ -79,6 +108,7 @@ from adjust_reference import srgb_to_linear, prop  # noqa: E402
 from fxkey_reference import keyed, value_at, setting_json  # noqa: E402
 import smooth_reference as S  # noqa: E402
 import recolor_reference as R  # noqa: E402
+import effect_layer_reference as L  # noqa: E402
 from drop_shadow_reference import frame  # noqa: E402
 from motion_tile_reference import motion_tile  # noqa: E402
 from noise_reference import DRAWINGS, u  # noqa: E402
@@ -91,8 +121,12 @@ RANGES = {"speed": (0, 100), "direction": (-100000, 100000), "size": (1, 1000),
           "turbulence_speed": (0, 200), "swirl": (-360, 360), "density": (-100, 100),
           "smoothness": (0, 100), "vertical_bias": (0, 100), "sample_count": (3, 24),
           "sample_radius": (0, 200), "flow_softness": (0, 100), "edge_definition": (0, 100),
-          "flow_falloff": (0, 100), "contrast": (0, 1000), "brightness": (-1000, 1000)}
+          "flow_falloff": (0, 100), "contrast": (0, 1000), "brightness": (-1000, 1000),
+          "softness": (0, 100)}
 WORDS = ("source", "view", "clip_hdr_results", "channel")
+# D-583: written only when not as added (D-304), so the files before it are unchanged.
+SOURCE_KEYS = {"source_layer": "", "softness": 0, "source_mapping": "fill",
+               "mirror_at_edge": "off"}
 NAMES = ("source", "speed", "direction", "size", "offset", "evolution", "turbulence_speed",
          "swirl", "density", "smoothness", "vertical_bias", "sample_count", "sample_radius",
          "flow_softness", "edge_definition", "flow_falloff", "view", "contrast", "brightness",
@@ -160,21 +194,51 @@ def setup(n, frame_no):
             "edge": n["edge_definition"] / 100}
 
 
-def field_at(k, swirl, px, py):
-    """The four numbers at the drawing's point (px, py), kept in single precision."""
+def plane_at(src, x, y):
+    """D-583's step S3: the lightness plane read at (x, y), pixel centres at halves, 0 outside
+    or mirrored back in."""
+    p, w, h, mirror = src["plane"], src["w"], src["h"], src["mirror"]
+
+    def get(i, j):
+        if mirror:
+            i, j = i % (2 * w), j % (2 * h)
+            i, j = (2 * w - 1 - i if i >= w else i), (2 * h - 1 - j if j >= h else j)
+        elif not (0 <= i < w and 0 <= j < h):
+            return 0.0
+        return p[j * w + i]
+
+    fx, fy = x - 0.5, y - 0.5
+    i0, j0 = math.floor(fx), math.floor(fy)
+    ux, uy = fx - i0, fy - j0
+    top = (1 - ux) * get(i0, j0) + ux * get(i0 + 1, j0)
+    bottom = (1 - ux) * get(i0, j0 + 1) + ux * get(i0 + 1, j0 + 1)
+    return (1 - uy) * top + uy * bottom
+
+
+def field_at(k, swirl, px, py, src=None):
+    """The four numbers at the drawing's point (px, py), kept in single precision. D-583: with
+    a picture `src`, N and its slope are the picture's (steps S3 and S4)."""
     x, y = px - k["shift"][0], py - k["shift"][1]
     s = k["s"]
-    nv = gx = gy = total = 0.0
-    fine = 1.0
-    for o in range(4):
-        v, a, b = value_slope(8 * o, x / s * fine, y / s * fine, k["z"] * fine)
-        amp = k["amps"][o]
-        nv += amp * v
-        gx += amp * fine * a
-        gy += amp * fine * b
-        total += amp
-        fine *= 2
-    nv, gx, gy = nv / total, gx / total / s, gy / total / s
+    if src is None:
+        nv = gx = gy = total = 0.0
+        fine = 1.0
+        for o in range(4):
+            v, a, b = value_slope(8 * o, x / s * fine, y / s * fine, k["z"] * fine)
+            amp = k["amps"][o]
+            nv += amp * v
+            gx += amp * fine * a
+            gy += amp * fine * b
+            total += amp
+            fine *= 2
+        nv, gx, gy = nv / total, gx / total / s, gy / total / s
+    else:
+        bx, by = x + src["origin"][0], y + src["origin"][1]
+        nv = 2 * plane_at(src, bx, by) - 1
+        gx = plane_at(src, bx + 1, by) - plane_at(src, bx - 1, by)
+        gy = plane_at(src, bx, by + 1) - plane_at(src, bx, by - 1)
+        if math.hypot(gx, gy) < 1e-5:
+            gx = gy = 0.0
     t = math.radians(-90 + swirl * nv)
     c, sn = math.cos(t), math.sin(t)
     vx = (c * gx - sn * gy) * k["bias"][0]
@@ -212,17 +276,68 @@ def bilinear(get, gw, gh, x, y):
     return out
 
 
-def curl_noise(layer, n, w, frame_no, float_depth):
+def luminance(p):
+    """grade::phase_of's luminance of a working pixel, times its covering (step S2)."""
+    a = p[3]
+    if a <= 0:
+        return 0.0
+    b = [min(1.0, max(0.0, p[c] / a)) for c in range(3)]
+    return f32(S.linear_to_srgb(0.2126 * b[0] + 0.7152 * b[1] + 0.0722 * b[2]) * a)
+
+
+def held_blur(plane, w, h, sigma):
+    """D-109's Gaussian with the edges held, across then down, each pixel's taps added in order
+    in single precision, as `effects::held_blur` adds them."""
+    r = math.ceil(3 * sigma)
+    if r == 0:
+        return plane
+    taps = [math.exp(-((i - r) ** 2) / (2 * sigma * sigma)) for i in range(2 * r + 1)]
+    total = sum(taps)
+    taps = [f32(t / total) for t in taps]
+
+    def one(src, across):
+        out = []
+        for y in range(h):
+            for x in range(w):
+                o = 0.0
+                for i, t in enumerate(taps):
+                    sx, sy = (x + i - r, y) if across else (x, y + i - r)
+                    v = src[min(h - 1, max(0, sy)) * w + min(w - 1, max(0, sx))]
+                    o = f32(o + f32(v * t))
+                out.append(o)
+        return out
+
+    return one(one(plane, True), False)
+
+
+def picture(layer, n, w, src_map):
+    """D-583's steps S1 and S2: the lightness plane, its size, where the drawing's corner lies on
+    it and whether it mirrors; None for Internal."""
+    if w["source"] == "internal":
+        return None
+    if w["source"] == "this_layer":
+        pic, origin = layer, (-layer["left"], -layer["top"])
+    else:
+        pic, origin = src_map, (0, 0)
+    plane = [luminance(p) for p in pic["px"]]
+    if n["softness"] > 0:
+        plane = held_blur(plane, pic["w"], pic["h"], n["softness"] / 10)
+    return {"plane": plane, "w": pic["w"], "h": pic["h"], "origin": origin,
+            "mirror": w["mirror_at_edge"] == "on"}
+
+
+def curl_noise(layer, n, w, frame_no, float_depth, src_map=None):
     k = setup(n, frame_no)
     radius, steps = n["sample_radius"], math.floor(n["sample_count"])
     margin = math.ceil(radius) + 2
     gw, gh = layer["w"] + 2 * margin, layer["h"] + 2 * margin
     memo = {}
+    src = picture(layer, n, w, src_map)
 
     def get(gx, gy):
         if (gx, gy) not in memo:
             memo[(gx, gy)] = field_at(k, n["swirl"], layer["left"] + gx - margin + 0.5,
-                                      layer["top"] + gy - margin + 0.5)
+                                      layer["top"] + gy - margin + 0.5, src)
         return memo[(gx, gy)]
 
     fs, ff = n["flow_softness"] / 100, n["flow_falloff"] / 100
@@ -286,7 +401,8 @@ def case(source="internal", speed=10, direction=0, size=100, offset=(0, 0), evol
          turbulence_speed=20, swirl=45, density=0, smoothness=50, vertical_bias=50,
          sample_count=12, sample_radius=30, flow_softness=20, edge_definition=50, flow_falloff=0,
          view="final_render", contrast=100, brightness=0, clip_hdr_results="on", channel="rgb",
-         shift=0, tile=False, float_depth=False):
+         shift=0, tile=False, float_depth=False, source_layer="", softness=0,
+         source_mapping="fill", mirror_at_edge="off"):
     c = dict(locals())
     c["drawing"] = "card"
     return c
@@ -311,9 +427,30 @@ def layer_of(c):
     return motion_tile(layer, 300, 300, "on") if c["tile"] else layer
 
 
+def ramp(x, y):
+    """D-583's other layer: 8 by 5, opaque greys brightening right and down."""
+    v = 30 + 25 * x + 10 * y
+    return (v, v, v, 255)
+
+
+MAPS = {"ramp": [[ramp(x, y) for x in range(8)] for y in range(5)]}
+
+
+def the_map(c):
+    """D-189's map of the layer Source Layer names, fitted by Source Mapping."""
+    if c["source"] != "other_layer" or c["source_layer"] not in MAPS:
+        return None
+    rows = MAPS[c["source_layer"]]
+    pic = L.pic(len(rows[0]), len(rows), [R.working(p) for row in rows for p in row])
+    return L.fit(pic, "center" if c["source_mapping"] == "center" else "stretch", W, H)
+
+
 def render(c, frame_no):
     n = {k: held(c, k, frame_no) for k in RANGES}
-    return frame(curl_noise(layer_of(c), n, {k: c[k] for k in WORDS}, frame_no, c["float_depth"]),
+    if c["source"] == "other_layer" and c["source_layer"] not in MAPS:
+        return plain(c)  # D-189: a layer not in the composition, the frame without the effect
+    words = {k: c[k] for k in WORDS + ("mirror_at_edge",)}
+    return frame(curl_noise(layer_of(c), n, words, frame_no, c["float_depth"], the_map(c)),
                  c["shift"])
 
 
@@ -399,11 +536,56 @@ CASES = {
                           density=-30, smoothness=20, vertical_bias=70, sample_count=9,
                           sample_radius=6.5, flow_softness=10, edge_definition=30, flow_falloff=40,
                           contrast=150, brightness=-5, channel="green"), [0, 3]),
+    # D-583 (D-566: FX-CURL-033 was refused while This Layer was not built).
+    "FX-CURL-033": ("Source This Layer, the settings as they start: the card's own lightness is "
+                    "the noise, so its flat patches are even greys streaked by the seed and its "
+                    "edges steer the flow lines; Speed 10 slides it 1 pixel up a frame.",
+                    case(source="this_layer"), [0, 4]),
+    "FX-CURL-045": ("Source This Layer, still, Input Noise: each shown pixel's grey is its own "
+                    "luminance times its covering.",
+                    small(source="this_layer", view="input_noise", **STILL), [0]),
+    "FX-CURL-046": ("Source This Layer, still, Curl Generation: inside a flat patch there is no "
+                    "flow (red and green the middle grey); at the edges the flow runs along them.",
+                    small(source="this_layer", view="curl_generation", **STILL), [0]),
+    "FX-CURL-047": ("Source Other Layer, layer \"ramp\" (8 by 5 greys), Source Mapping Fill, "
+                    "still, Input Noise: the ramp stretched over the card.",
+                    small(source="other_layer", source_layer="ramp", view="input_noise",
+                          **STILL), [0]),
+    "FX-CURL-048": ("Source Other Layer, \"ramp\", Source Mapping Center, still, Input Noise: the "
+                    "ramp at its own size in the middle, black round it.",
+                    small(source="other_layer", source_layer="ramp", source_mapping="center",
+                          view="input_noise", **STILL), [0]),
+    "FX-CURL-049": ("Source Other Layer, \"ramp\", Fill, still: flow lines across the ramp's "
+                    "slope.", small(source="other_layer", source_layer="ramp", **STILL), [0]),
+    "FX-CURL-050": ("Source This Layer, Softness 20, still, Input Noise: FX-CURL-045's greys "
+                    "blurred, sigma 2 pixels.",
+                    small(source="this_layer", softness=20, view="input_noise", **STILL), [0]),
+    "FX-CURL-051": ("Source This Layer, Offset 5 right, Mirror at Edge on, still, Input Noise: "
+                    "left of the card's edge the card is read mirrored.",
+                    small(source="this_layer", offset=(5, 0), mirror_at_edge="on",
+                          view="input_noise", **STILL), [0]),
+    "FX-CURL-052": ("Source This Layer, Offset 5 right, Mirror at Edge off, still, Input Noise: "
+                    "left of the card's edge is black.",
+                    small(source="this_layer", offset=(5, 0), view="input_noise", **STILL), [0]),
+    "FX-CURL-053": ("Source Other Layer naming \"gone\", not in the composition: the frames are "
+                    "drawn without the effect, with D-189's warning.",
+                    case(source="other_layer", source_layer="gone"), [0, 4]),
+    "FX-CURL-054": ("FX-CURL-046 moved three pixels right: the picture is the drawing's own, so "
+                    "it moves with it.",
+                    small(source="this_layer", view="curl_generation", shift=3, **STILL), [0]),
+    "FX-CURL-055": ("FX-CURL-046 after a Motion Tile that grows the layer: the picture is the "
+                    "layer as it reaches the effect, so at the card's edges the tiles beyond it "
+                    "turn the flow; inside, the frame is FX-CURL-046's.",
+                    small(source="this_layer", view="curl_generation", tile=True, **STILL), [0]),
+    "FX-CURL-056": ("Source This Layer, Softness keyed from 0 at frame 0 to 30 at frame 4, still, "
+                    "Input Noise: frame 0 is FX-CURL-045.",
+                    small(source="this_layer", softness=keyed((0, 0), (4, 30)), view="input_noise",
+                          **STILL), [0, 4]),
 }
 
 INVALID = {
-    "FX-CURL-033": ("Source This Layer, not built.", case(source="this_layer")),
-    "FX-CURL-034": ("Source Other Layer, not built.", case(source="other_layer")),
+    "FX-CURL-034": ("Source Other Layer, with Source Layer naming no layer.",
+                    case(source="other_layer")),
     "FX-CURL-035": ("Source \"noise\", not one of its words.", case(source="noise")),
     "FX-CURL-036": ("Size 0.5, below 1.", case(size=0.5)),
     "FX-CURL-037": ("Speed 101, above 100.", case(speed=101)),
@@ -416,6 +598,13 @@ INVALID = {
     "FX-CURL-043": ("Clip HDR Results \"yes\", not on or off.", case(clip_hdr_results="yes")),
     "FX-CURL-044": ("Density keyed to 150 at frame 4, above 100.",
                     case(density=keyed((0, 0), (4, 150)))),
+    "FX-CURL-057": ("Softness 101, above 100.", case(source="this_layer", softness=101)),
+    "FX-CURL-058": ("Source Mapping \"stretch\", not fill or center.",
+                    case(source="other_layer", source_layer="ramp", source_mapping="stretch")),
+    "FX-CURL-059": ("Mirror at Edge \"yes\", not on or off.",
+                    case(source="this_layer", mirror_at_edge="yes")),
+    "FX-CURL-060": ("Source Layer 3, a number and not a layer's word.",
+                    case(source="other_layer", source_layer=3)),
 }
 
 
@@ -441,7 +630,15 @@ def project_json(fx, c):
                     "enabled": True,
                     "parameters": {k: (c[k] if k in WORDS else setting_json(c[k]))
                                    for k in NAMES}})
+    for k, v in SOURCE_KEYS.items():
+        if c[k] != v:
+            effects[-1]["parameters"][k] = setting_json(c[k]) if k == "softness" else c[k]
     comp["layers"][0]["effects"] = effects
+    if c["source_layer"] in MAPS:
+        p["assets"].append(L.still(c["source_layer"], f"media/{c['source_layer']}.png"))
+        comp["layers"].append(L.raster(c["source_layer"], "asset-" + c["source_layer"],
+                                       enabled=False, out_frame=S.FRAMES))
+        comp["layer_order"].append(c["source_layer"])
     return p
 
 
@@ -453,12 +650,14 @@ def write(fx, c):
 
 def main():
     (OUT / "media").mkdir(parents=True, exist_ok=True)
-    for name, pixels in DRAWINGS.items():
+    for name, pixels in {**DRAWINGS, **MAPS}.items():
         (OUT / "media" / f"{name}.png").write_bytes(S.png(pixels))
     expected = {"tolerance": TOLERANCE, "width": W, "height": H, "cases": {}}
     for fx, (says, c, frames) in CASES.items():
         rendered = {str(f): render(c, f) for f in frames}
         expected["cases"][fx] = {"says": says, "project": write(fx, c), "frames": rendered}
+        if c["source"] == "other_layer" and c["source_layer"] not in MAPS:
+            expected["cases"][fx]["warning"] = "EFFECT_LAYER_MISSING"
         before = plain(c)
         print(f"{fx}: " + ", ".join(
             f"frame {f} {sum(px[i] != before[i] for i in range(W * H))} changed"
@@ -559,6 +758,44 @@ def check(expected):
     assert differ(k32["0"], k32["3"])
     for i in shown:
         assert k32["0"][i][0] == drawn[i][0] and k32["0"][i][2] == drawn[i][2]
+    # D-583.
+    assert differ(c["FX-CURL-033"]["0"], c["FX-CURL-001"]["0"])
+    assert differ(c["FX-CURL-033"]["0"], c["FX-CURL-033"]["4"])
+    k45 = c["FX-CURL-045"]["0"]
+    for i in shown:
+        assert abs(enc(k45[i])[0] - luminance(drawn[i])) < 1e-6
+    k46, mid_enc = c["FX-CURL-046"]["0"], 0.5
+    inner = at(7, 5)  # skin all round
+    assert near(enc(k46[inner])[:2], [mid_enc, mid_enc], 1e-6)
+    assert any(abs(enc(k46[i])[0] - 0.5) > 0.1 for i in shown)
+    k47, k48 = c["FX-CURL-047"]["0"], c["FX-CURL-048"]["0"]
+    for y in range(H - 1):
+        row = [enc(k47[at(x, y)])[0] for x in range(1, W - 1)]
+        assert all(a < b for a, b in zip(row, row[1:])), y
+    for y in range(H - 1):
+        for x in range(1, 4):
+            assert k48[at(x, y)][:3] == [0.0, 0.0, 0.0]
+    assert abs(enc(k48[at(4, 2)])[0] - 30 / 255) < 1e-6
+    assert differ(c["FX-CURL-049"]["0"], k47)
+    k50 = c["FX-CURL-050"]["0"]
+    rough = lambda f: sum(abs(enc(f[at(x + 1, y)])[0] - enc(f[at(x, y)])[0])  # noqa: E731
+                          for x in range(1, W - 2) for y in range(H - 1))
+    assert rough(k50) < rough(k45) and differ(k50, k45)
+    k51, k52 = c["FX-CURL-051"]["0"], c["FX-CURL-052"]["0"]
+    for y in range(H - 1):
+        for x in range(1, 5):
+            assert k52[at(x, y)][:3] == [0.0, 0.0, 0.0]
+    assert any(k51[at(x, y)][0] > 0 for x in range(1, 4) for y in range(H - 1))
+    for y in range(H - 1):
+        for x in range(6, W):
+            assert k51[at(x, y)] == k52[at(x, y)]
+    assert c["FX-CURL-053"]["0"] == c["FX-CURL-053"]["4"] == drawn
+    k54 = c["FX-CURL-054"]["0"]
+    assert all(k54[at(x, y)] == k46[at(x - 3, y)] for x in range(3, W) for y in range(H))
+    k55 = c["FX-CURL-055"]["0"]
+    assert k55[inner] == k46[inner] and k55 != k46
+    k56 = c["FX-CURL-056"]
+    assert k56["0"] == k45 and differ(k56["4"], k45)
     for fx in INVALID:
         assert c[fx]["0"] == c[fx]["4"] == drawn
     for name, frames in c.items():
