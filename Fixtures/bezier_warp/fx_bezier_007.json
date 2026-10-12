@@ -1,0 +1,148 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-bezier-007",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-stripes",
+      "kind": "still",
+      "name": "stripes",
+      "path": "media/stripes.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 5,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 5
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-stripes",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 5,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.bezier_warp",
+              "enabled": true,
+              "parameters": {
+                "top_left_vertex": [
+                  25.0,
+                  25.0
+                ],
+                "top_left_tangent": [
+                  41.66666666666667,
+                  25.0
+                ],
+                "top_right_tangent": [
+                  58.333333333333336,
+                  25.0
+                ],
+                "right_top_vertex": [
+                  75.0,
+                  25.0
+                ],
+                "right_top_tangent": [
+                  75.0,
+                  41.66666666666667
+                ],
+                "right_bottom_tangent": [
+                  75.0,
+                  58.333333333333336
+                ],
+                "bottom_right_vertex": [
+                  75.0,
+                  75.0
+                ],
+                "bottom_right_tangent": [
+                  58.333333333333336,
+                  75.0
+                ],
+                "bottom_left_tangent": [
+                  41.66666666666667,
+                  75.0
+                ],
+                "left_bottom_vertex": [
+                  25.0,
+                  75.0
+                ],
+                "left_bottom_tangent": [
+                  25.0,
+                  58.333333333333336
+                ],
+                "left_top_tangent": [
+                  25.0,
+                  41.66666666666667
+                ],
+                "quality": 8
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
