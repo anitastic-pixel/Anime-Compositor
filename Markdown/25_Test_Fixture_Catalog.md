@@ -212552,3 +212552,83 @@ FX-PMB-022 (`fx_pmb_022.json`): Vector Detail 101, above 100. The file is read, 
 FX-PMB-023 (`fx_pmb_023.json`): Shutter Control written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PMB-024 (`fx_pmb_024.json`): Shutter Samples keyed to 100 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Caustics (D-631)
+
+Caustics (`core.caustics`), after After Effects' Caustics (B-511), the rule ours. Each case is a composition 48 by 27, 9 frames at 24 a second, in `Fixtures/caustics/`: the map layers `ripples`, `floor`, `sky` and `late` (the ripples again, its in point frame 4), switched off, and on top the layer `holder`, showing the drawing `shot`, with the effect. `tools/caustics_reference.py` works the expected frames, `Fixtures/caustics/expected_caustics.json`, tolerance 2e-5, every case with a highlight checked that no pixel lies near where it is cut; the rule is in document 21.
+
+FX-CA-001 (`fx_ca_001.json`): As added, no water surface: flat water, the checker seen straight through, 30% of the blue surface over it, lit evenly.
+
+FX-CA-002 (`fx_ca_002.json`): The ripples as the water surface, wave height 0.4, depth 0.2: the checker bent by the waves.
+
+FX-CA-003 (`fx_ca_003.json`): FX-CA-002 with wave height 0.8 and depth 0.4: bent much further.
+
+FX-CA-004 (`fx_ca_004.json`): Refractive index 1 and surface opacity 0: nothing bends and nothing covers, the checker exactly.
+
+FX-CA-005 (`fx_ca_005.json`): Water depth 0 and surface opacity 0: the checker exactly.
+
+FX-CA-006 (`fx_ca_006.json`): Caustics strength 1: bright and dark patches where the waves gather and spread the light.
+
+FX-CA-007 (`fx_ca_007.json`): Smoothing 40: the waves smoothed before they bend the checker.
+
+FX-CA-008 (`fx_ca_008.json`): Smoothing 0 and refractive index 2: unsmoothed and bent hard.
+
+FX-CA-009 (`fx_ca_009.json`): Bottom blur 25: the checker soft under the waves.
+
+FX-CA-010 (`fx_ca_010.json`): The `floor` layer (20 by 12) as the bottom, stretched to the layer: red and white stripes and a green line, bent.
+
+FX-CA-011 (`fx_ca_011.json`): The floor centred, once: the stripes in the middle, only the surface round them.
+
+FX-CA-012 (`fx_ca_012.json`): The floor centred, tiled at scaling 0.5: many small copies.
+
+FX-CA-013 (`fx_ca_013.json`): The floor centred, reflected at scaling 0.5: copies mirrored at their edges.
+
+FX-CA-014 (`fx_ca_014.json`): The checker as the bottom at scaling 2.3, tiled: larger squares.
+
+FX-CA-015 (`fx_ca_015.json`): The `sky` layer stretched, intensity 1, surface opacity 0.8: the sky mirrored on the water, bent by the waves.
+
+FX-CA-016 (`fx_ca_016.json`): The sky centred, reflected at scaling 0.7, convergence 0.6, intensity 0.7.
+
+FX-CA-017 (`fx_ca_017.json`): Flat water, an orange surface fully opaque, a point light low at the top left: brighter near the light.
+
+FX-CA-018 (`fx_ca_018.json`): The ripples under that point light with a sharp highlight, surface opacity 0.6.
+
+FX-CA-019 (`fx_ca_019.json`): A pink light at intensity 2, ambient 0.1, diffuse 1.2, from the left.
+
+FX-CA-020 (`fx_ca_020.json`): A water surface whose in point is frame 4, `late`: flat before it (a clear picture, every pixel the same), the ripples after.
+
+FX-CA-021 (`fx_ca_021.json`): A water surface not in the composition, `gone`: flat water, and the warning. Warning `EFFECT_LAYER_MISSING`.
+
+FX-CA-022 (`fx_ca_022.json`): A bottom not in the composition, `gone`: a clear bottom, only the surface, and the warning. Warning `EFFECT_LAYER_MISSING`.
+
+FX-CA-023 (`fx_ca_023.json`): A sky not in the composition, `gone`: no sky, as FX-CA-002, and the warning. Warning `EFFECT_LAYER_MISSING`.
+
+FX-CA-024 (`fx_ca_024.json`): Wave height keyed 0 at frame 0 to 0.8 at frame 8: flat at frame 0, then the waves grow.
+
+FX-CA-025 (`fx_ca_025.json`): FX-CA-002 on the holder moved 3 right and 2 down: the same, moved.
+
+FX-CA-026 (`fx_ca_026.json`): The holder's in point at frame 2: nothing at frame 1, FX-CA-002 at frame 3.
+
+FX-CA-027 (`fx_ca_027.json`): The holder named as its own bottom: its own drawing, as FX-CA-002.
+
+FX-CA-028 (`fx_ca_028.json`): Everything at once: caustics, sky, blur and a highlight.
+
+FX-CA-029 (`fx_ca_029.json`): Refractive index 0.9, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-CA-030 (`fx_ca_030.json`): Bottom scaling 0, below 0.1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-CA-031 (`fx_ca_031.json`): Bottom blur 60, above 50. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-CA-032 (`fx_ca_032.json`): Bottom repeat mode "mirror". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-CA-033 (`fx_ca_033.json`): Sky fit "tile", which Caustics does not offer. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-CA-034 (`fx_ca_034.json`): Surface colour "blue". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-CA-035 (`fx_ca_035.json`): Light type "spot". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-CA-036 (`fx_ca_036.json`): A water surface written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-CA-037 (`fx_ca_037.json`): Light position with one number. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-CA-038 (`fx_ca_038.json`): Smoothing keyed to 60 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
