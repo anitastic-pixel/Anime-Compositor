@@ -211722,3 +211722,73 @@ FX-SHAUTO-012 (`fx_shauto_012.json`): Scene Detect written "maybe". The file is 
 FX-SHAUTO-013 (`fx_shauto_013.json`): Temporal Smoothing 11 seconds, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SHAUTO-014 (`fx_shauto_014.json`): Temporal Smoothing -1 seconds, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Energy Stroke's extras (D-565)
+
+Energy Stroke (`core.energy_stroke`) with Start and End Roundness, Noise Along Path and Alpha Mode with Invert Masks (B-445, EFFECTS.md rows 53 and 207), the rule ours. Every case is a composition 16 by 10, five frames, holding Lightning Bolt's night drawing as D-508's cases, with masks where a case says, or D-357's open roof on a shape layer; the media are in `Fixtures/energy_stroke_extras/media/`. `tools/energy_stroke_extras_reference.py` works the expected frames, `Fixtures/energy_stroke_extras/expected_energy_stroke_extras.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-ENERGYX-001 (`fx_energyx_001.json`): A core 6 across from (4, 5) to (12, 5), no glow, Start and End Roundness 100 written out: D-508's round ends, the frame without them. Frames 0.
+
+FX-ENERGYX-002 (`fx_energyx_002.json`): Start and End Roundness 0: both ends flat, cut square across at x 4 and x 12. Frames 0.
+
+FX-ENERGYX-003 (`fx_energyx_003.json`): Start Roundness 0, End Roundness 100: flat at the left, round at the right. Frames 0.
+
+FX-ENERGYX-004 (`fx_energyx_004.json`): Both 50: each end half an ellipse, half as long as the round end. Frames 0.
+
+FX-ENERGYX-005 (`fx_energyx_005.json`): Both 0 with a glow, spread 6: the core's ends flat, the glow still round past them. Frames 0.
+
+FX-ENERGYX-006 (`fx_energyx_006.json`): End Roundness keyed from 0 at frame 0 to 100 at frame 4, linear: the right end rounds out, frames 0, 2 and 4. Frames 0, 2, 4.
+
+FX-ENERGYX-007 (`fx_energyx_007.json`): The box mask as the path, drawn whole, both 0: a closed path drawn whole has no ends, the frame with them round. Frames 0.
+
+FX-ENERGYX-008 (`fx_energyx_008.json`): The box, End offset 50, both 0: half way round, flat at its top-left and bottom-right corners' ends. Frames 0.
+
+FX-ENERGYX-009 (`fx_energyx_009.json`): Both 0, End size 50: the right end flat and half as wide. Frames 0.
+
+FX-ENERGYX-010 (`fx_energyx_010.json`): Both 0 with distortion 1 at scale 3: the ends flat across the wobbled beam's first and last bit. Frames 0.
+
+FX-ENERGYX-011 (`fx_energyx_011.json`): The open roof shape, Start Roundness 0, End Roundness 25, core 4. Frames 0.
+
+FX-ENERGYX-012 (`fx_energyx_012.json`): Noise Along Path on, written out, with distortion 1 at scale 3: D-508's wobble, the frame without the setting. Frames 0.
+
+FX-ENERGYX-013 (`fx_energyx_013.json`): Noise Along Path off: the noise read on the layer, a different wobble. Frames 0.
+
+FX-ENERGYX-014 (`fx_energyx_014.json`): Off on the box, distortion 1.5 at scale 4, speed 0: still joined round the box, the same at frames 0 and 3. Frames 0, 3.
+
+FX-ENERGYX-015 (`fx_energyx_015.json`): Off on the box, speed 50: the wobble moves, frames 0, 1 and 2. Frames 0, 1, 2.
+
+FX-ENERGYX-016 (`fx_energyx_016.json`): Off, End offset keyed from 0 at frame 0 to 100 at frame 4: the beam draws on through a wobble that stays put, frames 2 and 4. Frames 2, 4.
+
+FX-ENERGYX-017 (`fx_energyx_017.json`): Alpha Mode masks, the small box (5, 4) to (9, 6) as a mask of mode None: the core and glow only inside it. Frames 0.
+
+FX-ENERGYX-018 (`fx_energyx_018.json`): Alpha Mode core: the core only inside the small box, the glow everywhere. Frames 0.
+
+FX-ENERGYX-019 (`fx_energyx_019.json`): Alpha Mode glow: the glow only inside, the core all along. Frames 0.
+
+FX-ENERGYX-020 (`fx_energyx_020.json`): Alpha Mode masks, Invert Masks on: everything but the inside. Frames 0.
+
+FX-ENERGYX-021 (`fx_energyx_021.json`): Alpha Mode off with the small box: nothing cut, the frame without it. Frames 0.
+
+FX-ENERGYX-022 (`fx_energyx_022.json`): Alpha Mode masks, the small box feathered 2: a soft cut. Frames 0.
+
+FX-ENERGYX-023 (`fx_energyx_023.json`): Two masks, the left six columns in mode Add and the right five in mode None: both cut alike, the mode not read; the Add mask also cuts the drawing, as a mask always does, and the light is added over it. Frames 0.
+
+FX-ENERGYX-024 (`fx_energyx_024.json`): The small box inverted as a mask (its own Inverted): kept outside it. Frames 0.
+
+FX-ENERGYX-025 (`fx_energyx_025.json`): The box as both the path and the cut: the beam along its edge, half of it outside, the core and glow cut at the box's edge. Frames 0.
+
+FX-ENERGYX-026 (`fx_energyx_026.json`): Alpha Mode masks, composite add, the small box: the drawing beneath is not cut, only the light. Frames 0.
+
+FX-ENERGYX-027 (`fx_energyx_027.json`): Alpha Mode masks with no mask. No mask to cut by: the beam is drawn uncut, the effect is kept as written. Warning `EFFECT_PATH_MISSING` each frame. Frames 0, 4.
+
+FX-ENERGYX-028 (`fx_energyx_028.json`): Alpha Mode core with the one mask switched off. No mask to cut by: the beam is drawn uncut, the effect is kept as written. Warning `EFFECT_PATH_MISSING` each frame. Frames 0, 4.
+
+FX-ENERGYX-029 (`fx_energyx_029.json`): Start roundness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGYX-030 (`fx_energyx_030.json`): End roundness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGYX-031 (`fx_energyx_031.json`): Noise Along Path "yes", not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGYX-032 (`fx_energyx_032.json`): Alpha Mode "enable", not "off", "masks", "core" or "glow". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-ENERGYX-033 (`fx_energyx_033.json`): Invert Masks "1", not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
