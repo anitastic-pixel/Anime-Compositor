@@ -211552,3 +211552,119 @@ FX-SHCLIP-019 (`fx_shclip_019.json`): Midtone contrast -101, below -100. The fil
 FX-SHCLIP-020 (`fx_shclip_020.json`): Black clip -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SHCLIP-021 (`fx_shclip_021.json`): White clip 51, above 50. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Card Wipe (D-580)
+
+Card Wipe (`core.card_wipe`), after After Effects' Card Wipe (B-460), the rule ours. Each case is a project of one composition 16 by 10, five frames, in `Fixtures/card_wipe/`: the map layers `back` (the back picture), `ramp` (a gradient, dark at the top right) and `late` (the back picture from frame 4), every one switched off, and on top of them the layer `holder`, showing the drawing `shot` (red, blue and cream squares, the bottom right 4 by 3 clear), with the effect. `tools/card_wipe_reference.py` works the expected frames, `Fixtures/card_wipe/expected_card_wipe.json`, tolerance 2e-5, every case checked clear of a card's edge, a tie between cards and the highlight's cut; the rule is in document 21. The playtest's pictures are drawn on D-506's street pictures.
+
+FX-CW-001 (`fx_cw_001.json`): As added: nothing has flipped, so the picture is unchanged.
+
+FX-CW-002 (`fx_cw_002.json`): Completion 100 with no back layer: every card turned over, its back clear.
+
+FX-CW-003 (`fx_cw_003.json`): Completion 50, width 50, left to right, four columns: the first column turned over (clear), the second three quarters, the third a quarter, the fourth not begun.
+
+FX-CW-004 (`fx_cw_004.json`): FX-CW-003 with the back layer: the turned cards show its share of the back.
+
+FX-CW-005 (`fx_cw_005.json`): Completion 100 with the back layer: the back picture whole, upright, its white marker at the top left.
+
+FX-CW-006 (`fx_cw_006.json`): FX-CW-004 turning about the y axis.
+
+FX-CW-007 (`fx_cw_007.json`): FX-CW-004 turning the negative way.
+
+FX-CW-008 (`fx_cw_008.json`): Right to left.
+
+FX-CW-009 (`fx_cw_009.json`): Top to bottom.
+
+FX-CW-010 (`fx_cw_010.json`): Bottom to top.
+
+FX-CW-011 (`fx_cw_011.json`): Top left to bottom right.
+
+FX-CW-012 (`fx_cw_012.json`): Bottom left to top right.
+
+FX-CW-013 (`fx_cw_013.json`): Top right to bottom left.
+
+FX-CW-014 (`fx_cw_014.json`): Bottom right to top left.
+
+FX-CW-015 (`fx_cw_015.json`): Flip order by the gradient layer `ramp`: dark cards (top right) first.
+
+FX-CW-016 (`fx_cw_016.json`): Flip order gradient with no gradient layer: every card at the same point, 60 per cent of the way over.
+
+FX-CW-017 (`fx_cw_017.json`): Timing randomness 1, seed 7: the order wholly random.
+
+FX-CW-018 (`fx_cw_018.json`): FX-CW-017 with seed 8: another order.
+
+FX-CW-019 (`fx_cw_019.json`): Random axis and direction, seed 3, timing randomness 0.5.
+
+FX-CW-020 (`fx_cw_020.json`): Width 0: the cards in the first half turned over, the rest not.
+
+FX-CW-021 (`fx_cw_021.json`): Card scale 0.5, not begun: smaller cards, gaps between them.
+
+FX-CW-022 (`fx_cw_022.json`): Card scale 0.5 at completion 40.
+
+FX-CW-023 (`fx_cw_023.json`): Card scale 1.5, four rows, not begun: larger cards overlapping, the first in rows then columns on top.
+
+FX-CW-024 (`fx_cw_024.json`): Card scale 1.5, four rows, at completion 40.
+
+FX-CW-025 (`fx_cw_025.json`): Columns follow rows, rows 3 (columns 4 ignored): three by three.
+
+FX-CW-026 (`fx_cw_026.json`): Rows 5 by columns 8.
+
+FX-CW-027 (`fx_cw_027.json`): The camera turned 30 degrees about y.
+
+FX-CW-028 (`fx_cw_028.json`): The camera turned -20 about x and 15 about z.
+
+FX-CW-029 (`fx_cw_029.json`): The camera at x 40, y 60 per cent: the cards moved right and up.
+
+FX-CW-030 (`fx_cw_030.json`): Z position 1.7: the camera farther away, the cards smaller.
+
+FX-CW-031 (`fx_cw_031.json`): Focal length 20 with the camera turned 40 about y: a wide lens.
+
+FX-CW-032 (`fx_cw_032.json`): A distant light from the top left, depth 0.5.
+
+FX-CW-033 (`fx_cw_033.json`): A point light in the middle, depth 0.3.
+
+FX-CW-034 (`fx_cw_034.json`): Specular 1, sharpness 20: a highlight on the turning cards.
+
+FX-CW-035 (`fx_cw_035.json`): Light colour #ffcc88 at intensity 1.5.
+
+FX-CW-036 (`fx_cw_036.json`): Ambient 0.5, diffuse 0.25.
+
+FX-CW-037 (`fx_cw_037.json`): Completion keyed 0 at frame 0 to 100 at frame 4: frame 0 is the picture, frame 2 FX-CW-004, frame 4 FX-CW-005.
+
+FX-CW-038 (`fx_cw_038.json`): FX-CW-004 on the holder moved 3 right and 1 down: the same, moved.
+
+FX-CW-039 (`fx_cw_039.json`): A back layer not in the composition, `gone`: clear backs, as FX-CW-003, and the warning every frame. Warning `EFFECT_LAYER_MISSING` on opening.
+
+FX-CW-040 (`fx_cw_040.json`): The back layer with its in point at frame 4: clear backs before it, FX-CW-004 at it.
+
+FX-CW-041 (`fx_cw_041.json`): Ten rows, one column, turning about x: venetian blinds.
+
+FX-CW-042 (`fx_cw_042.json`): Flip axis "z". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-043 (`fx_cw_043.json`): Flip order "diagonal". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-044 (`fx_cw_044.json`): Rows 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-045 (`fx_cw_045.json`): Columns 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-046 (`fx_cw_046.json`): Card scale -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-047 (`fx_cw_047.json`): Card scale 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-048 (`fx_cw_048.json`): Timing randomness 1.5, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-049 (`fx_cw_049.json`): Z position 0, below 0.01. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-050 (`fx_cw_050.json`): Focal length 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-051 (`fx_cw_051.json`): Light type "spot". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-052 (`fx_cw_052.json`): Light colour "white": not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-053 (`fx_cw_053.json`): Highlight sharpness 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-054 (`fx_cw_054.json`): A back layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-055 (`fx_cw_055.json`): Rows & Columns "both". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-CW-056 (`fx_cw_056.json`): Completion keyed to 120 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
