@@ -2258,7 +2258,10 @@ pub enum Effect {
         noise_phase: f64,
     },
     /// D-446: after After Effects' Curl Noise (`grade::curl_noise`, document 21). `source`,
-    /// "internal" ("this_layer" and "other_layer" are refused: not built); `speed`, 0 to 100;
+    /// "internal", "this_layer" or "other_layer" (D-583: the noise read from a picture's
+    /// lightness); `source_layer`, D-189's layer setting, read by Other Layer; `softness`, 0 to
+    /// 100, the picture's blur; `source_mapping`, "fill" or "center"; `mirror_at_edge`, "off" or
+    /// "on"; `map`, the Other Layer's picture compose reads for a frame; `speed`, 0 to 100;
     /// `direction`, -100000 to 100000 degrees; `size`, 1 to 1000 pixels; `offset`, -100000 to
     /// 100000 pixels; `evolution`, -100000 to 100000 degrees; `turbulence_speed`, 0 to 200;
     /// `swirl`, -360 to 360; `density`, -100 to 100; `smoothness`, `vertical_bias`,
@@ -2269,6 +2272,11 @@ pub enum Effect {
     /// composition frame the settings were resolved at, and whether it works in Float.
     CurlNoise {
         source: String,
+        source_layer: serde_json::Value,
+        softness: f64,
+        source_mapping: String,
+        mirror_at_edge: String,
+        map: Option<crate::layer_map::Map>,
         speed: f64,
         direction: f64,
         size: f64,
@@ -5553,8 +5561,9 @@ impl Effect {
                 ("noise_phase", vec![noise_phase], -100000.0, 100000.0),
             ],
             Effect::CurlNoise {
-                speed, direction, size, offset, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, sample_count, sample_radius, flow_softness, edge_definition, flow_falloff, contrast, brightness, ..
+                softness, speed, direction, size, offset, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, sample_count, sample_radius, flow_softness, edge_definition, flow_falloff, contrast, brightness, ..
             } => vec![
+                ("softness", vec![softness], 0.0, 100.0),
                 ("speed", vec![speed], 0.0, 100.0),
                 ("direction", vec![direction], -100000.0, 100000.0),
                 ("size", vec![size], 1.0, 1000.0),
@@ -6807,7 +6816,8 @@ impl Effect {
                 *grain_size = scale(*grain_size).max(0.5)
             }
             // D-446: the field, its slide and the flow lines keep their size on the picture.
-            Effect::CurlNoise { size, offset, speed, sample_radius, .. } => {
+            Effect::CurlNoise { size, offset, speed, sample_radius, softness, .. } => {
+                *softness = scale(*softness);
                 *size = scale(*size).max(1.0);
                 *offset = offset.map(&scale);
                 *speed = scale(*speed);
@@ -7934,6 +7944,10 @@ impl Effect {
             Effect::WarpBlend { layer_to_reveal: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             // D-470: the edge map centred on the drawing; Adobe does not say how it lies.
             Effect::ContourPaint { edge_map_layer: serde_json::Value::String(layer), .. } => Some((layer, "center")),
+            // D-583: read only by Source Other Layer, stretched over the drawing (Fill) or centred.
+            Effect::CurlNoise { source, source_layer: serde_json::Value::String(layer), source_mapping, .. } if source == "other_layer" => {
+                Some((layer, if source_mapping == "center" { "center" } else { "stretch" }))
+            }
             _ => None,
         }
     }
@@ -7983,6 +7997,7 @@ impl Effect {
             Effect::WarpBlend { layer_to_reveal, map, .. } => Some((layer_to_reveal, map)),
             Effect::CcEnvironment { environment, map, .. } => Some((environment, map)),
             Effect::ContourPaint { edge_map_layer, map, .. } => Some((edge_map_layer, map)),
+            Effect::CurlNoise { source_layer, map, .. } => Some((source_layer, map)),
             _ => None,
         }
     }
@@ -9355,12 +9370,21 @@ impl Effect {
                 "Noise HLS's noise is one of {}, and this is \"{v}\".",
                 NOISE_HLS_KINDS.join(", ")
             )),
-            Effect::CurlNoise { source: v, .. } if v == "this_layer" || v == "other_layer" => Some(format!(
-                "Curl Noise's {} source is not built yet: it makes its own noise only, so set Source to Internal.",
-                if v == "this_layer" { "This Layer" } else { "Other Layer" }
-            )),
-            Effect::CurlNoise { source: v, .. } if v != "internal" => Some(format!(
+            Effect::CurlNoise { source: v, .. } if !["internal", "this_layer", "other_layer"].contains(&v.as_str()) => Some(format!(
                 "Curl Noise's source is \"internal\", \"this_layer\" or \"other_layer\", and this is \"{v}\"."
+            )),
+            Effect::CurlNoise { source_layer: v, .. } if !v.is_string() => {
+                Some(format!("Curl Noise's source layer is the name of a layer of this composition, and this is {v}."))
+            }
+            Effect::CurlNoise { source, source_layer: v, .. } if source == "other_layer" && v == "" => Some(
+                "Curl Noise's Source is Other Layer, but Source Layer names no layer: choose one, or set Source to Internal or This Layer."
+                    .to_string(),
+            ),
+            Effect::CurlNoise { source_mapping: v, .. } if !["fill", "center"].contains(&v.as_str()) => Some(format!(
+                "Curl Noise's source mapping is \"fill\" or \"center\", and this is \"{v}\"."
+            )),
+            Effect::CurlNoise { mirror_at_edge: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Curl Noise's mirror at edge is \"off\" or \"on\", and this is \"{v}\"."
             )),
             Effect::CurlNoise { view: v, .. } if !CURL_VIEWS.contains(&v.as_str()) => Some(format!(
                 "Curl Noise's view is one of {}, and this is \"{v}\".",

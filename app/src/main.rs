@@ -5485,6 +5485,11 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         // D-446: After Effects' Curl Noise controls (26.3 beta); the starting values are ours.
         CURL_NOISE => Some(Effect::CurlNoise {
             source: "internal".to_string(),
+            source_layer: serde_json::Value::from(""),
+            softness: 0.0,
+            source_mapping: "fill".to_string(),
+            mirror_at_edge: "off".to_string(),
+            map: None,
             speed: 10.0,
             direction: 0.0,
             size: 100.0,
@@ -8045,6 +8050,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         // D-446: the frame and the depth are set by compose each frame.
         CURL_NOISE => Ok(Effect::CurlNoise {
             source: word("source")?,
+            // D-583: the four sent by a window before them read as added.
+            source_layer: serde_json::Value::from(parameter(query, "source_layer").unwrap_or_default().trim()),
+            softness: if parameter(query, "softness").is_some() { number("softness")? } else { 0.0 },
+            source_mapping: if parameter(query, "source_mapping").is_some() { word("source_mapping")? } else { "fill".to_string() },
+            mirror_at_edge: if parameter(query, "mirror_at_edge").is_some() { word("mirror_at_edge")? } else { "off".to_string() },
+            map: None,
             speed: number("speed")?,
             direction: number("direction")?,
             size: number("size")?,

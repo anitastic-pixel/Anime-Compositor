@@ -1461,6 +1461,8 @@ fn card_effect(
                 }
                 // D-467: no texture, or none of its relief.
                 E::Texturize { map, texture_contrast, .. } => map.is_none() || *texture_contrast == 0.0,
+                // D-583: an Other Layer whose layer was not read, as grade::curl_noise returns at once.
+                E::CurlNoise { source, map, .. } => source == "other_layer" && map.is_none(),
                 // B-123: the batch's five new ones, each as its own function returns at once.
                 E::ColorLookup { table, .. } => table.is_none(),
                 E::ArbitraryMap { table, .. } => table.is_none(),

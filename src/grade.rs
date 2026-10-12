@@ -1179,20 +1179,26 @@ impl Curl {
     }
 
     /// The flow across and down (one long, or nought), the noise and the seed at the drawing's
-    /// point `(px, py)`, in single precision as the card keeps them.
-    pub(crate) fn at(&self, px: f64, py: f64) -> [f32; 4] {
+    /// point `(px, py)`, in single precision as the card keeps them. D-583: with a `plane`, the
+    /// noise and its slope are the picture's.
+    pub(crate) fn at(&self, px: f64, py: f64, plane: Option<&CurlPlane>) -> [f32; 4] {
         let base = mix(0);
         let (x, y, s) = (px - self.shift[0], py - self.shift[1], self.size);
-        let (mut n, mut gx, mut gy, mut total, mut fine) = (0.0, 0.0, 0.0, 0.0, 1.0);
-        for (o, amp) in self.amps.iter().enumerate() {
-            let [v, a, b] = value_slope(base, 8 * o as u64, x / s * fine, y / s * fine, self.z * fine);
-            n += amp * v;
-            gx += amp * fine * a;
-            gy += amp * fine * b;
-            total += amp;
-            fine *= 2.0;
-        }
-        let (n, gx, gy) = (n / total, gx / total / s, gy / total / s);
+        let (n, gx, gy) = match plane {
+            Some(p) => p.noise(x, y),
+            None => {
+                let (mut n, mut gx, mut gy, mut total, mut fine) = (0.0, 0.0, 0.0, 0.0, 1.0);
+                for (o, amp) in self.amps.iter().enumerate() {
+                    let [v, a, b] = value_slope(base, 8 * o as u64, x / s * fine, y / s * fine, self.z * fine);
+                    n += amp * v;
+                    gx += amp * fine * a;
+                    gy += amp * fine * b;
+                    total += amp;
+                    fine *= 2.0;
+                }
+                (n / total, gx / total / s, gy / total / s)
+            }
+        };
         let t = (-90.0 + self.swirl * n).to_radians();
         let (c, sn) = (t.cos(), t.sin());
         let vx = (c * gx - sn * gy) * self.bias[0];
@@ -1212,6 +1218,74 @@ impl Curl {
     }
 }
 
+/// D-583: Curl Noise's picture, for Source This Layer or Other Layer: its lightness plane in
+/// the alpha (each pixel's luminance times its covering, blurred by Softness), where the
+/// drawing's corner lies on it, and whether it mirrors at its edges.
+pub(crate) struct CurlPlane {
+    pub plane: WorkingBuffer,
+    pub origin: [f64; 2],
+    pub mirror: bool,
+}
+
+impl CurlPlane {
+    /// None for Internal, and for an Other Layer whose layer was not read.
+    pub(crate) fn new(e: &crate::effects::Effect, source: &WorkingBuffer, (ox, oy): (usize, usize)) -> Option<CurlPlane> {
+        let crate::effects::Effect::CurlNoise { source: word, softness, mirror_at_edge, map, .. } = e else {
+            return None;
+        };
+        let (picture, origin) = match word.as_str() {
+            "this_layer" => (source, [ox as f64, oy as f64]),
+            "other_layer" => (&*map.as_ref()?.0, [0.0, 0.0]),
+            _ => return None,
+        };
+        let mut plane = WorkingBuffer::transparent(picture.width(), picture.height());
+        plane.data_mut().par_chunks_exact_mut(4).zip(picture.data().par_chunks_exact(4)).for_each(|(o, p)| {
+            o[3] = (phase_of("luminance", p) * p[3] as f64) as f32;
+        });
+        if *softness > 0.0 {
+            crate::effects::held_blur(&mut plane, softness / 10.0);
+        }
+        Some(CurlPlane { plane, origin, mirror: mirror_at_edge == "on" })
+    }
+
+    /// The plane at pixel `(i, j)`: 0 outside, or mirrored back in.
+    fn get(&self, i: i64, j: i64) -> f64 {
+        let (w, h) = (self.plane.width() as i64, self.plane.height() as i64);
+        let (i, j) = if self.mirror {
+            let fold = |i: i64, n: i64| {
+                let i = i.rem_euclid(2 * n);
+                if i >= n { 2 * n - 1 - i } else { i }
+            };
+            (fold(i, w), fold(j, h))
+        } else if (0..w).contains(&i) && (0..h).contains(&j) {
+            (i, j)
+        } else {
+            return 0.0;
+        };
+        self.plane.pixel(i as usize, j as usize)[3] as f64
+    }
+
+    /// The plane read between pixels at `(x, y)`, pixel centres at halves.
+    fn read(&self, x: f64, y: f64) -> f64 {
+        let (fx, fy) = (x - 0.5, y - 0.5);
+        let (i0, j0) = (fx.floor(), fy.floor());
+        let (ux, uy) = (fx - i0, fy - j0);
+        let (i0, j0) = (i0 as i64, j0 as i64);
+        let top = (1.0 - ux) * self.get(i0, j0) + ux * self.get(i0 + 1, j0);
+        let bottom = (1.0 - ux) * self.get(i0, j0 + 1) + ux * self.get(i0 + 1, j0 + 1);
+        (1.0 - uy) * top + uy * bottom
+    }
+
+    /// The noise, 2 L - 1, and its slope, L one pixel on less L one pixel back, at the slid point
+    /// `(x, y)` of the drawing; a slope under 1e-5 long is nought.
+    fn noise(&self, x: f64, y: f64) -> (f64, f64, f64) {
+        let (x, y) = (x + self.origin[0], y + self.origin[1]);
+        let (gx, gy) = (self.read(x + 1.0, y) - self.read(x - 1.0, y), self.read(x, y + 1.0) - self.read(x, y - 1.0));
+        let (gx, gy) = if gx.hypot(gy) < 1e-5 { (0.0, 0.0) } else { (gx, gy) };
+        (2.0 * self.read(x, y) - 1.0, gx, gy)
+    }
+}
+
 /// D-446: the margin round the buffer the field is worked over, so a flow line from any pixel
 /// stays inside it.
 pub(crate) fn curl_margin(radius: f64) -> usize {
@@ -1225,12 +1299,18 @@ pub(crate) fn curl_margin(radius: f64) -> usize {
 /// channel chosen. The settings are already valid.
 pub(crate) fn curl_noise(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
     let crate::effects::Effect::CurlNoise {
-        sample_count, sample_radius, flow_softness, flow_falloff, view, contrast, brightness, clip_hdr_results, channel, float, ..
+        source: word, sample_count, sample_radius, flow_softness, flow_falloff, view, contrast, brightness, clip_hdr_results, channel, float, ..
     } = e
     else {
         return;
     };
     let Some(curl) = Curl::new(e) else { return };
+    // D-583: an Other Layer whose layer was not read draws nothing (D-189).
+    let plane = CurlPlane::new(e, source, (ox, oy));
+    if plane.is_none() && word != "internal" {
+        return;
+    }
+    let plane = plane.as_ref();
     let (radius, steps) = (*sample_radius, sample_count.floor());
     let m = curl_margin(radius);
     let (w, h) = (source.width(), source.height());
@@ -1238,7 +1318,7 @@ pub(crate) fn curl_noise(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     let mut field = WorkingBuffer::transparent(gw, gh);
     field.data_mut().par_chunks_mut(gw * 4).enumerate().for_each(|(gy, row)| {
         for (gx, px) in row.chunks_exact_mut(4).enumerate() {
-            let p = curl.at(gx as f64 - m as f64 - ox as f64 + 0.5, gy as f64 - m as f64 - oy as f64 + 0.5);
+            let p = curl.at(gx as f64 - m as f64 - ox as f64 + 0.5, gy as f64 - m as f64 - oy as f64 + 0.5, plane);
             px.copy_from_slice(&p);
         }
     });

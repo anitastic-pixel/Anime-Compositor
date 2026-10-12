@@ -34,6 +34,11 @@ fn curl(n: [f64; 18], w: [&str; 4]) -> Effect {
     let [source, view, clip_hdr_results, channel] = w.map(str::to_string);
     Effect::CurlNoise {
         source,
+        source_layer: J::from(""),
+        softness: 0.0,
+        source_mapping: "fill".into(),
+        mirror_at_edge: "off".into(),
+        map: None,
         speed,
         direction,
         size,
@@ -331,15 +336,15 @@ fn b326_curl_noise() {
          towards the noise by Flow Softness and faded where the noise is low by Flow Falloff. View \
          shows the lines, the noise, or the flow as colours; Contrast and Brightness follow, held in \
          0 and 1 unless Clip HDR Results is off in a Float composition; Channel puts the grey into \
-         the colour, one channel or the covering. Source This Layer and Other Layer are refused in \
-         a sentence, not built. The rule is this program's own; Adobe publishes none. Every expected \
+         the colour, one channel or the covering. Source This Layer and Other Layer (D-583) are \
+         tested by B-461. The rule is this program's own; Adobe publishes none. Every expected \
          pixel is `Fixtures/curl_noise/expected_curl_noise.json`, written by \
          `tools/curl_noise_reference.py` before this code existed and printed in document 25 as \
          FX-CURL-001 to 044. Tolerance 2e-5.\n",
     );
 
     t.heading("FX-CURL-001 to 044 (document 25)");
-    t.fixtures("expected_curl_noise.json");
+    t.fixtures_numbered("expected_curl_noise.json", 1..=44);
 
     t.heading("The file");
     let all = files("fx_curl", 44);
@@ -356,8 +361,8 @@ fn b326_curl_noise() {
     why(
         &mut t,
         &[
-            ("fx_curl_033.json", "Curl Noise's This Layer source is not built yet: it makes its own noise only, so set Source to Internal."),
-            ("fx_curl_034.json", "Curl Noise's Other Layer source is not built yet: it makes its own noise only, so set Source to Internal."),
+            // D-583 (D-566): FX-CURL-033 now draws This Layer; 034 is refused for naming no layer.
+            ("fx_curl_034.json", "Curl Noise's Source is Other Layer, but Source Layer names no layer: choose one, or set Source to Internal or This Layer."),
             ("fx_curl_035.json", "Curl Noise's source is \"internal\", \"this_layer\" or \"other_layer\", and this is \"noise\"."),
             ("fx_curl_036.json", "Curl Noise's size runs from 1 to 1000, and this is 0.5."),
             ("fx_curl_037.json", "Curl Noise's speed runs from 0 to 100, and this is 101."),
@@ -385,7 +390,7 @@ fn b326_curl_noise() {
         vec![
             ("size 0.5", set(curl(numbers(&[(2, 0.5)]), WORDS))),
             ("sample count 25", set(curl(numbers(&[(11, 25.0)]), WORDS))),
-            ("source This Layer", set(curl(ADDED, words(&[(0, "this_layer")])))),
+            ("source Other Layer naming no layer", set(curl(ADDED, words(&[(0, "other_layer")])))),
             ("view \"lines\"", set(curl(ADDED, words(&[(1, "lines")])))),
             ("channel \"Red\"", set(curl(ADDED, words(&[(3, "Red")])))),
             ("density keyed to 150", keys("density", &[(0, &[0.0]), (4, &[150.0])])),
@@ -416,9 +421,10 @@ fn b326_curl_noise() {
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    // FX-CURL-033 to 044 are refused, so the card is not asked; FX-CURL-024 is a Float
-    // composition, which the card refuses whole (D-319), so the processor draws it.
-    let none: Vec<u32> = (33..=44).collect();
+    // FX-CURL-034 to 044 are refused, so the card is not asked (FX-CURL-033, This Layer since
+    // D-583, is drawn); FX-CURL-024 is a Float composition, which the card refuses whole
+    // (D-319), so the processor draws it.
+    let none: Vec<u32> = (34..=44).collect();
     card_fixtures(&mut t, &mut gpu, "fx_curl", 44, &none, &[24], is_curl);
     card_reference(
         &mut t,

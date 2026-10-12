@@ -3881,6 +3881,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         // D-446: the frame and the composition's depth are never saved.
         Effect::CurlNoise {
             source,
+            source_layer,
+            softness,
+            source_mapping,
+            mirror_at_edge,
             speed,
             direction,
             size,
@@ -3904,6 +3908,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             ..
         } => {
             params.insert("source".into(), J::from(source.as_str()));
+            // D-583: as D-304, written only if moved, keyed or already in the file.
+            if source_layer.as_str() != Some("") || params.contains_key("source_layer") {
+                params.insert("source_layer".into(), source_layer.clone());
+            }
+            if *softness != 0.0 || instance.tracks.contains_key("softness") || params.contains_key("softness") {
+                params.insert("softness".into(), num(*softness));
+            }
+            for (key, value, start) in [("source_mapping", source_mapping, "fill"), ("mirror_at_edge", mirror_at_edge, "off")] {
+                if value != start || params.contains_key(key) {
+                    params.insert(key.into(), J::from(value.as_str()));
+                }
+            }
             params.insert("speed".into(), num(*speed));
             params.insert("direction".into(), num(*direction));
             params.insert("size".into(), num(*size));
@@ -7782,6 +7798,12 @@ fn parse_effect(
         }),
         crate::effects::CURL_NOISE => Some(crate::effects::Effect::CurlNoise {
             source: effect_word(params, "source", &at)?,
+            // D-583: a file without them reads them as added (D-304).
+            source_layer: params.and_then(|p| p.get("source_layer")).cloned().unwrap_or_else(|| J::from("")),
+            softness: effect_number_or(params, "softness", &at, 0.0)?,
+            source_mapping: effect_word_or(params, "source_mapping", &at, "fill")?,
+            mirror_at_edge: effect_word_or(params, "mirror_at_edge", &at, "off")?,
+            map: None,
             speed: effect_number(params, "speed", &at)?,
             direction: effect_number(params, "direction", &at)?,
             size: effect_number(params, "size", &at)?,

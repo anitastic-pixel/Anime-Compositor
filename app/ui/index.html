@@ -11120,7 +11120,8 @@ const EFFECT_PARAMS = {
     ['roughness', 'Roughness', 1, 0.01, '0.001 to 1; small is a tight sharp shine'],
     ['metal', 'Metal', 1, 1, '0 to 100, how much the shine takes the paint’s colour']],
   // D-446, After Effects' own words.
-  'core.curl_noise': [['speed', 'Speed', 1, 1, '0 to 100, pixels a second the noise drifts'],
+  'core.curl_noise': [['softness', 'Softness', 1, 1, '0 to 100, blurs the source picture first, with Source This Layer or Other Layer'],
+    ['speed', 'Speed', 1, 1, '0 to 100, pixels a second the noise drifts'],
     ['direction', 'Direction', 1, 1, 'degrees the noise drifts towards, 0 up', 'dial'],
     ['size', 'Size', 1, 1, 'pixels, 1 to 1000, how big the swirls are'],
     ['offset', 'Offset', 2, 1, 'pixels, x then y, slides the noise'],
@@ -11797,9 +11798,13 @@ const EFFECT_WORDS = {
       ['light_type', 'Light Type', [['distant', 'Distant Light'], ['point', 'Point Light']]]],
     colours: [['light_color', 'Light Color']],
   },
-  // D-446: Source This Layer and Other Layer are not built, so Internal is the only source.
+  // D-446, D-583: After Effects' words; Source Layer is read with Source Other Layer only.
   'core.curl_noise': {
-    choices: [['view', 'View', [['final_render', 'Final Render'], ['input_noise', 'Input Noise'], ['curl_generation', 'Curl Generation']]],
+    layers: [['source_layer', 'Source Layer', 'source_layer']],
+    choices: [['source', 'Source', [['internal', 'Internal'], ['this_layer', 'This Layer'], ['other_layer', 'Other Layer']]],
+      ['source_mapping', 'Source Mapping', [['fill', 'Fill'], ['center', 'Center']]],
+      ['mirror_at_edge', 'Mirror at Edge', [['off', 'Off'], ['on', 'On']]],
+      ['view', 'View', [['final_render', 'Final Render'], ['input_noise', 'Input Noise'], ['curl_generation', 'Curl Generation']]],
       ['clip_hdr_results', 'Clip HDR Results', [['on', 'On'], ['off', 'Off']]],
       ['channel', 'Channel', [['rgb', 'RGB'], ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['alpha', 'Alpha']]]],
   },
