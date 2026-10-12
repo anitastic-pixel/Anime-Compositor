@@ -2121,6 +2121,10 @@ pub enum Effect {
     /// at rest, or x then y for each vertex row by row from the top left, per cent of the
     /// drawing, -400 to 500.
     MeshWarp { rows: f64, columns: f64, quality: f64, distortion_mesh: Vec<f64> },
+    /// D-604: after After Effects' Warp (`mesh::warp_preset_mesh`, document 21). `warp_style`,
+    /// one of [`WARP_STYLES`]; `warp_axis`, "horizontal" or "vertical"; `bend`,
+    /// `horizontal_distortion` and `vertical_distortion`, -100 to 100.
+    Warp { warp_style: String, warp_axis: String, bend: f64, horizontal_distortion: f64, vertical_distortion: f64 },
     /// D-390: after CycoreFX's CC Ripple Pulse. `center`, per cent of the drawing, -1000 to 1000;
     /// `pulse_level`, -1000 to 1000; `time_span`, 0 to 10 seconds; `amplitude`, 0 to 1000;
     /// `render_bump_map`, "off" or "on". `levels` is not a setting and is never saved: the pulse
@@ -4072,6 +4076,7 @@ pub const PAGE_TURN: &str = "core.page_turn";
 pub const POWER_PIN: &str = "core.power_pin";
 pub const BEZIER_WARP: &str = "core.bezier_warp";
 pub const MESH_WARP: &str = "core.mesh_warp";
+pub const WARP: &str = "core.warp";
 /// D-602: Bezier Warp's twelve points as they are saved, round the outline from the top left:
 /// each edge's vertex, then its two tangents.
 pub const BEZIER_POINTS: [&str; 12] = [
@@ -4504,6 +4509,25 @@ pub const PAGE_TURN_RENDERS: [&str; 3] = ["full", "front", "back"];
 pub const FLOW_MOTION_ANTIALIASING: [&str; 3] = ["low", "medium", "high"];
 /// D-377: Bend It's words for the drawing before Start, in the order the card numbers them.
 pub const BEND_IT_PRESTARTS: [&str; 4] = ["none", "static", "bend", "mirror"];
+/// D-604: Warp's styles, in After Effects' order.
+pub const WARP_STYLES: [&str; 15] = [
+    "arc",
+    "arc_lower",
+    "arc_upper",
+    "arch",
+    "bulge",
+    "shell_lower",
+    "shell_upper",
+    "flag",
+    "wave",
+    "fish",
+    "rise",
+    "fisheye",
+    "inflate",
+    "squeeze",
+    "twist",
+];
+
 /// D-378: Bender's styles, in the order the card numbers them.
 pub const BENDER_STYLES: [&str; 4] = ["bend", "marilyn", "sharp", "boxer"];
 /// D-379: what Blobbylize reads its blob from, a share of [`VECTOR_BLUR_PROPERTIES`].
@@ -5645,6 +5669,11 @@ impl Effect {
                 ("fold_radius", vec![fold_radius], 0.0, 1000.0),
                 ("light_direction", vec![light_direction], -3600.0, 3600.0),
                 ("back_opacity", vec![back_opacity], 0.0, 100.0),
+            ],
+            Effect::Warp { bend, horizontal_distortion, vertical_distortion, .. } => vec![
+                ("bend", vec![bend], -100.0, 100.0),
+                ("horizontal_distortion", vec![horizontal_distortion], -100.0, 100.0),
+                ("vertical_distortion", vec![vertical_distortion], -100.0, 100.0),
             ],
             Effect::MeshWarp { rows, columns, quality, distortion_mesh } => vec![
                 ("rows", vec![rows], 1.0, 31.0),
@@ -7713,6 +7742,7 @@ impl Effect {
             Effect::PowerPin { .. } => "Power Pin",
             Effect::BezierWarp { .. } => "Bezier Warp",
             Effect::MeshWarp { .. } => "Mesh Warp",
+            Effect::Warp { .. } => "Warp",
             Effect::RipplePulse { .. } => "Ripple Pulse",
             Effect::Slant { .. } => "Slant",
             Effect::Smear { .. } => "Smear",
@@ -7965,6 +7995,7 @@ impl Effect {
             Effect::PowerPin { .. } => POWER_PIN,
             Effect::BezierWarp { .. } => BEZIER_WARP,
             Effect::MeshWarp { .. } => MESH_WARP,
+            Effect::Warp { .. } => WARP,
             Effect::RipplePulse { .. } => RIPPLE_PULSE,
             Effect::Slant { .. } => SLANT,
             Effect::Smear { .. } => SMEAR,
@@ -9096,6 +9127,13 @@ impl Effect {
             Effect::PageTurn { paper_color, .. } if hex_fault("Page Turn", "paper colour", paper_color).is_some() => {
                 hex_fault("Page Turn", "paper colour", paper_color)
             }
+            // D-604: the words, by name.
+            Effect::Warp { warp_style, .. } if !WARP_STYLES.contains(&warp_style.as_str()) => Some(format!(
+                "Warp's warp style is arc, arc_lower, arc_upper, arch, bulge, shell_lower, shell_upper, flag, wave, fish, rise, fisheye, inflate, squeeze or twist, and this is \"{warp_style}\"."
+            )),
+            Effect::Warp { warp_axis, .. } if !["horizontal", "vertical"].contains(&warp_axis.as_str()) => Some(format!(
+                "Warp's warp axis is \"horizontal\" or \"vertical\", and this is \"{warp_axis}\"."
+            )),
             // D-603: none, or two numbers for each vertex of the mesh its rows and columns make.
             Effect::MeshWarp { rows, columns, distortion_mesh, .. }
                 if !distortion_mesh.is_empty() && distortion_mesh.len() != crate::mesh::warp_count(*rows, *columns) =>
@@ -11602,6 +11640,13 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
+            // D-604: the drawing bent to its style in its own space; the layer never grows.
+            Effect::Warp { warp_style, warp_axis, bend, horizontal_distortion, vertical_distortion } => crate::perf::time(crate::perf::Stage::EffectWarp, || {
+                let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+                if let Some(m) = crate::mesh::warp_preset_mesh(warp_style, warp_axis, *bend, *horizontal_distortion, *vertical_distortion, size) {
+                    crate::mesh::draw(source, &m, (ox, oy));
+                }
+            }),
             // D-603: the drawing bent with its mesh in its own space; the layer never grows.
             Effect::MeshWarp { rows, columns, quality, distortion_mesh } => crate::perf::time(crate::perf::Stage::EffectMeshWarp, || {
                 let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);

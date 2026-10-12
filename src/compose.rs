@@ -1039,6 +1039,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::BezierWarp { .. }
                 // D-603: Mesh Warp.
                 | crate::effects::Effect::MeshWarp { .. }
+                // D-604: Warp.
+                | crate::effects::Effect::Warp { .. }
                 | crate::effects::Effect::RipplePulse { .. }
                 // D-391..D-393: Slant, Smear and Split.
                 | crate::effects::Effect::Slant { .. }
@@ -1541,6 +1543,10 @@ fn card_effect(
                 E::BezierWarp { points, .. } => *points == crate::effects::BEZIER_START,
                 // D-603: the mesh at rest.
                 E::MeshWarp { rows, columns, distortion_mesh, .. } => crate::mesh::warp_rests(*rows, *columns, distortion_mesh),
+                // D-604: no bend and no distortion.
+                E::Warp { bend, horizontal_distortion, vertical_distortion, .. } => {
+                    *bend == 0.0 && *horizontal_distortion == 0.0 && *vertical_distortion == 0.0
+                }
                 E::RipplePulse { amplitude, render_bump_map, levels, .. } => {
                     render_bump_map != "on" && (*amplitude == 0.0 || levels.windows(2).all(|w| w[0] == w[1]))
                 }

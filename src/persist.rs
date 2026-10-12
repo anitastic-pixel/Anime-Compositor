@@ -3662,6 +3662,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("back_opacity".into(), num(*back_opacity));
             params.insert("paper_color".into(), J::from(paper_color.as_str()));
         }
+        // D-604: the words as written.
+        Effect::Warp { warp_style, warp_axis, bend, horizontal_distortion, vertical_distortion } => {
+            params.insert("warp_style".into(), J::from(warp_style.as_str()));
+            params.insert("warp_axis".into(), J::from(warp_axis.as_str()));
+            params.insert("bend".into(), num(*bend));
+            params.insert("horizontal_distortion".into(), num(*horizontal_distortion));
+            params.insert("vertical_distortion".into(), num(*vertical_distortion));
+        }
         // D-603: the mesh as one flat list, empty at rest.
         Effect::MeshWarp { rows, columns, quality, distortion_mesh } => {
             params.insert("rows".into(), num(*rows));
@@ -5824,6 +5832,7 @@ fn parse_effect(
         crate::effects::POWER_PIN,
         crate::effects::BEZIER_WARP,
         crate::effects::MESH_WARP,
+        crate::effects::WARP,
         crate::effects::RIPPLE_PULSE,
         crate::effects::SLANT,
         crate::effects::SMEAR,
@@ -7791,6 +7800,14 @@ fn parse_effect(
             expansion_left: effect_number(params, "expansion_left", &at)?,
             expansion_right: effect_number(params, "expansion_right", &at)?,
             expansion_bottom: effect_number(params, "expansion_bottom", &at)?,
+        }),
+        // D-604: the words kept as written, so one outside the contract is refused by name.
+        crate::effects::WARP => Some(crate::effects::Effect::Warp {
+            warp_style: effect_word(params, "warp_style", &at)?,
+            warp_axis: effect_word(params, "warp_axis", &at)?,
+            bend: effect_number(params, "bend", &at)?,
+            horizontal_distortion: effect_number(params, "horizontal_distortion", &at)?,
+            vertical_distortion: effect_number(params, "vertical_distortion", &at)?,
         }),
         crate::effects::MESH_WARP => Some(crate::effects::Effect::MeshWarp {
             rows: effect_number(params, "rows", &at)?,

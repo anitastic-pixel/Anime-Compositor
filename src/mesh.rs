@@ -301,6 +301,73 @@ pub(crate) fn warp_mesh(rows: f64, columns: f64, quality: f64, v: &[f64], (dw, d
     Some(Mesh { cols: c * q, rows: r * q, at })
 }
 
+/// D-604: Warp's grid, cells each way.
+pub(crate) const WARP_GRID: usize = 64;
+
+/// D-604: where Warp's `style` at bend `b` (Bend / 100) takes (u, v), each -1/2 to 1/2 across the
+/// drawing, as `tools/warp_reference.py` works it.
+fn warp_styled(style: &str, b: f64, u: f64, v: f64) -> (f64, f64) {
+    use std::f64::consts::PI;
+    let (e, f) = (1.0 - 4.0 * u * u, 1.0 - 4.0 * v * v);
+    match style {
+        "arc" => {
+            if b == 0.0 {
+                return (u, v);
+            }
+            let t = b * PI / 2.0;
+            let big = 1.0 / t;
+            let (a, r) = (u * t, big - v);
+            (r * a.sin(), big - r * a.cos())
+        }
+        "arc_lower" => (u, v + b * e * (v + 0.5) / 2.0),
+        "arc_upper" => (u, v - b * e * (0.5 - v) / 2.0),
+        "arch" => (u, v - b * e / 2.0),
+        "bulge" => (u, v * (1.0 + b * e / 2.0)),
+        "shell_lower" => (u * (1.0 - b * (v + 0.5) / 2.0), v + b * e * (v + 0.5) / 2.0),
+        "shell_upper" => (u * (1.0 - b * (0.5 - v) / 2.0), v - b * e * (0.5 - v) / 2.0),
+        "flag" => (u, v + b * (2.0 * PI * u).sin() / 4.0),
+        "wave" => (u, v + b * (2.0 * PI * u + PI * (v + 0.5)).sin() / 4.0),
+        "fish" => (u, v * (1.0 + b * (2.0 * PI * u).sin() / 2.0)),
+        "rise" => (u, v - b * (PI * u).sin() / 2.0),
+        "fisheye" => {
+            let s = 1.0 + b * (1.0 - 2.0 * (u * u + v * v)) / 2.0;
+            (u * s, v * s)
+        }
+        "inflate" => (u * (1.0 + b * f / 2.0), v * (1.0 + b * e / 2.0)),
+        "squeeze" => (u * (1.0 - b * f / 2.0), v * (1.0 + b * e / 2.0)),
+        _ => {
+            // twist
+            let p = b * PI * (1.0 - 2.0 * (u * u + v * v)) / 2.0;
+            (u * p.cos() - v * p.sin(), u * p.sin() + v * p.cos())
+        }
+    }
+}
+
+/// D-604: Warp's mesh over the drawing `dw` by `dh`: the `WARP_GRID` grid's points moved by the
+/// style (u and v changing places about it with `axis` "vertical") and then the distortions.
+/// `None` with Bend and both Distortions 0, the drawing as it was.
+pub(crate) fn warp_preset_mesh(style: &str, axis: &str, bend: f64, horizontal: f64, vertical: f64, (dw, dh): (f64, f64)) -> Option<Mesh> {
+    if bend == 0.0 && horizontal == 0.0 && vertical == 0.0 {
+        return None;
+    }
+    let (b, h, d) = (bend / 100.0, horizontal / 100.0, vertical / 100.0);
+    let g = WARP_GRID;
+    let at = (0..=g)
+        .flat_map(|c| (0..=g).map(move |a| (a as f64 / g as f64 - 0.5, c as f64 / g as f64 - 0.5)))
+        .map(|(u, v)| {
+            let (p, q) = if axis == "vertical" {
+                let (q, p) = warp_styled(style, b, v, u);
+                (p, q)
+            } else {
+                warp_styled(style, b, u, v)
+            };
+            let (p, q) = (p * (1.0 + d * q), q * (1.0 + h * p));
+            [(p + 0.5) * dw, (q + 0.5) * dh]
+        })
+        .collect();
+    Some(Mesh { cols: g, rows: g, at })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

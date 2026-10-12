@@ -258,6 +258,8 @@ pub enum Stage {
     EffectBezierWarp,
     /// D-603's Mesh Warp.
     EffectMeshWarp,
+    /// D-604's Warp.
+    EffectWarp,
     /// D-391..D-393: Slant, Smear and Split.
     EffectSlant,
     EffectSmear,
@@ -498,7 +500,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 246] = [
+    pub const ALL: [Stage; 247] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -621,6 +623,7 @@ impl Stage {
         Stage::EffectRipplePulse,
         Stage::EffectBezierWarp,
         Stage::EffectMeshWarp,
+        Stage::EffectWarp,
         Stage::EffectSlant,
         Stage::EffectSmear,
         Stage::EffectSplit,
@@ -871,6 +874,7 @@ impl Stage {
             Stage::EffectPowerPin => "effect: power pin",
             Stage::EffectBezierWarp => "effect: bezier warp",
             Stage::EffectMeshWarp => "effect: mesh warp",
+            Stage::EffectWarp => "effect: warp",
             Stage::EffectRipplePulse => "effect: ripple pulse",
             Stage::EffectSlant => "effect: slant",
             Stage::EffectSmear => "effect: smear",
