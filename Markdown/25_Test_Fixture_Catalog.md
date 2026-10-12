@@ -212632,3 +212632,67 @@ FX-CA-036 (`fx_ca_036.json`): A water surface written as the number 3, not a wor
 FX-CA-037 (`fx_ca_037.json`): Light position with one number. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
 
 FX-CA-038 (`fx_ca_038.json`): Smoothing keyed to 60 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`.
+
+### Warp (D-604)
+
+Warp (`core.warp`, B-483, EFFECTS.md row 169), after After Effects' Warp, the shapes ours. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size; the media are in `Fixtures/warp/media/`. `tools/warp_reference.py` works the expected frames, `Fixtures/warp/expected_warp.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-WARP-001 (`fx_warp_001.json`): The settings as they start: Arc, Bend 50: the drawing bent round a circle, its middle line an eighth of a turn, the sides drooping. Frames 0.
+
+FX-WARP-002 (`fx_warp_002.json`): Bend 0, both Distortions 0: the drawing, untouched. Frames 0.
+
+FX-WARP-003 (`fx_warp_003.json`): Arc Lower, Bend 50: the bottom edge bowed down, the top kept. Frames 0.
+
+FX-WARP-004 (`fx_warp_004.json`): Arc Upper, Bend 50: the top edge bowed up, the bottom kept. Frames 0.
+
+FX-WARP-005 (`fx_warp_005.json`): Arch, Bend 50: lifted in the middle, the sides kept upright, clear below the middle. Frames 0.
+
+FX-WARP-006 (`fx_warp_006.json`): Bulge, Bend 50: the top and bottom bowed out together, cut off at the edges. Frames 0.
+
+FX-WARP-007 (`fx_warp_007.json`): Shell Lower, Bend 50: the bottom bowed down and narrowed toward it. Frames 0.
+
+FX-WARP-008 (`fx_warp_008.json`): Shell Upper, Bend 50: the top bowed up and narrowed toward it. Frames 0.
+
+FX-WARP-009 (`fx_warp_009.json`): Flag, Bend 50: one whole wave across, every row alike. Frames 0.
+
+FX-WARP-010 (`fx_warp_010.json`): Wave, Bend 50: the wave half a turn on from the top to the bottom. Frames 0.
+
+FX-WARP-011 (`fx_warp_011.json`): Fish, Bend 50: thick at one end and thin at the other. Frames 0.
+
+FX-WARP-012 (`fx_warp_012.json`): Rise, Bend 50: the right side raised and the left lowered, smoothly. Frames 0.
+
+FX-WARP-013 (`fx_warp_013.json`): Fisheye, Bend 50: swollen from the middle, the corners kept. Frames 0.
+
+FX-WARP-014 (`fx_warp_014.json`): Inflate, Bend 50: swollen both ways, the corners kept. Frames 0.
+
+FX-WARP-015 (`fx_warp_015.json`): Squeeze, Bend 50: drawn in across and swollen up and down. Frames 0.
+
+FX-WARP-016 (`fx_warp_016.json`): Twist, Bend 50: turned most in the middle, the corners kept. Frames 0.
+
+FX-WARP-017 (`fx_warp_017.json`): Arc at Bend -50: bent the other way, the sides lifted, the mirror image of FX-WARP-001 top for bottom. Frames 0.
+
+FX-WARP-018 (`fx_warp_018.json`): Flag with Warp Axis vertical: the wave runs down the drawing, the columns sway. Frames 0.
+
+FX-WARP-019 (`fx_warp_019.json`): Bend 0, Horizontal Distortion 60: no bend, the right side taller than the left, cut off where it passes the edges. Frames 0.
+
+FX-WARP-020 (`fx_warp_020.json`): Bend 0, Vertical Distortion -60: the bottom narrower than the top. Frames 0.
+
+FX-WARP-021 (`fx_warp_021.json`): Bulge, Bend 40, with both Distortions at 30. Frames 0.
+
+FX-WARP-022 (`fx_warp_022.json`): Bend keyed from 0 at frame 0 to 100 at frame 4, linear, Twist: frame 0 the drawing, frame 4 a whole Twist, frame 2 between. Frames 0, 2, 4.
+
+FX-WARP-023 (`fx_warp_023.json`): Bend keyed from 60 at frame 0 to 100 at frame 4, eased past its end: frame 2 would pass 100 and is held there, the same as frame 4. Frames 0, 2, 4.
+
+FX-WARP-024 (`fx_warp_024.json`): FX-WARP-001 with the layer moved three pixels right: the bent drawing moves with it. Frames 0.
+
+FX-WARP-025 (`fx_warp_025.json`): Twist at Bend 100 with Warp Axis vertical: u and v change places, so the turn runs the other way round from FX-WARP-022's frame 4. Frames 0.
+
+FX-WARP-026 (`fx_warp_026.json`): Warp Style "spiral", not one of the fifteen. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARP-027 (`fx_warp_027.json`): Warp Axis "diagonal". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARP-028 (`fx_warp_028.json`): Bend 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARP-029 (`fx_warp_029.json`): Horizontal Distortion -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WARP-030 (`fx_warp_030.json`): Vertical Distortion keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
