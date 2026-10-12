@@ -2997,6 +2997,19 @@ pub enum Effect {
         clock: [f64; 2],
         history: Option<std::sync::Arc<Vec<[f64; 6]>>>,
     },
+    /// D-672: Drizzle, after CycoreFX's CC Drizzle, its rule and settings when added ours
+    /// (`simulate::drizzle`, document 21): raindrops on a pond from the in point, each a ring of
+    /// ripples bending and lighting the layer. `values`, the settings of [`DRIZZLE_SETTINGS`] in
+    /// that order; `words`, those of [`DRIZZLE_WORDS`], kept as written; `light_color` #rrggbb.
+    /// `clock` and `history` are not settings and are never saved, filled by compose as Bubbles'
+    /// are (document 20).
+    Drizzle {
+        values: [f64; 16],
+        words: [String; 1],
+        light_color: String,
+        clock: [f64; 2],
+        history: Option<std::sync::Arc<Vec<[f64; 16]>>>,
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -4588,6 +4601,32 @@ pub const BUBBLES_WORDS: [(&str, &[&str], &str); 2] = [
     ("reflection", &["inverse", "world"], "inverse"),
     ("shading", &["none", "lighten", "darken", "fade_inwards", "fade_outwards"], "fade_inwards"),
 ];
+pub const DRIZZLE: &str = "core.drizzle";
+/// D-672: Drizzle's keyable settings, in the order `values` holds them: name, lowest, highest,
+/// and the value when the effect is added. Drip rate in drops a second; longevity in seconds,
+/// read at the in point; rippling in degrees, each turn another ring; displacement, ripple height
+/// and spreading in shares of the drawing's height; then Glue Gun's light and shading, the light's
+/// place in per cent of the drawing and its height (in pixels for a point light).
+pub const DRIZZLE_SETTINGS: [(&str, f64, f64, f64); 16] = [
+    ("drip_rate", 0.0, 1000.0, 10.0),
+    ("longevity", 0.0, 100.0, 1.0),
+    ("rippling", 0.0, 3600.0, 360.0),
+    ("displacement", -1000.0, 1000.0, 50.0),
+    ("ripple_height", -1000.0, 1000.0, 50.0),
+    ("spreading", 0.0, 1000.0, 50.0),
+    ("light_intensity", 0.0, 400.0, 100.0),
+    ("light_height", -1000.0, 1000.0, 100.0),
+    ("light_position_x", -1000.0, 1000.0, 30.0),
+    ("light_position_y", -1000.0, 1000.0, 30.0),
+    ("light_direction", -3600.0, 3600.0, -45.0),
+    ("ambient", 0.0, 100.0, 25.0),
+    ("diffuse", 0.0, 100.0, 75.0),
+    ("specular", 0.0, 100.0, 50.0),
+    ("roughness", 0.001, 1.0, 0.05),
+    ("metal", 0.0, 100.0, 100.0),
+];
+/// D-672: Drizzle's words: name, the words, the word when added.
+pub const DRIZZLE_WORDS: [(&str, &[&str], &str); 1] = [("light_type", &["distant", "point"], "distant")];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -5018,6 +5057,11 @@ impl Effect {
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .collect(),
             Effect::Bubbles { values, .. } => BUBBLES_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .collect(),
+            Effect::Drizzle { values, .. } => DRIZZLE_SETTINGS
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
@@ -7923,6 +7967,8 @@ impl Effect {
                     *light_height = scale(*light_height);
                 }
             }
+            // D-672: a point light's height is a distance; every other length a share.
+            Effect::Drizzle { values, words, .. } if words[0] == "point" => values[7] = scale(values[7]),
             // D-424: the stroke's width and the wobble are distances; the brush is a share.
             Effect::GlueGun { stroke_width, wobble_width, wobble_height, light_type, light_height, .. } => {
                 *stroke_width = scale(*stroke_width);
@@ -8195,6 +8241,7 @@ impl Effect {
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::ParticleSpace { .. } => "Particle Space",
             Effect::Bubbles { .. } => "Bubbles",
+            Effect::Drizzle { .. } => "Drizzle",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -8451,6 +8498,7 @@ impl Effect {
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::ParticleSpace { .. } => PARTICLE_SPACE,
             Effect::Bubbles { .. } => BUBBLES,
+            Effect::Drizzle { .. } => DRIZZLE,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -9084,6 +9132,9 @@ impl Effect {
                     format!("Bubbles' {name} is one of {list}, and this is \"{w}\".")
                 },
             ),
+            Effect::Drizzle { words, light_color, .. } => (!["distant", "point"].contains(&words[0].as_str()))
+                .then(|| format!("{name}'s light type is distant or point, and this is \"{}\".", words[0]))
+                .or_else(|| hex_fault(name, "light colour", light_color)),
             Effect::ParticleSpace { words, colors, texture_layer, .. } => PARTICLE_SPACE_WORDS
                 .iter()
                 .zip(words)
@@ -12531,6 +12582,10 @@ pub(crate) fn apply_stack_at(
             // D-671: the bubbles in the drawing's own space; never grows.
             e @ Effect::Bubbles { .. } => crate::perf::time(crate::perf::Stage::EffectBubbles, || {
                 crate::simulate::bubbles(source, e, (ox, oy))
+            }),
+            // D-672: the drops in the drawing's own space; never grows.
+            e @ Effect::Drizzle { .. } => crate::perf::time(crate::perf::Stage::EffectDrizzle, || {
+                crate::simulate::drizzle(source, e, (ox, oy))
             }),
             // D-610: the particles drawn through the composition camera or its own; never grows.
             e @ Effect::ParticleSpace { .. } => crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {

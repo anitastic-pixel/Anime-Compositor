@@ -419,6 +419,8 @@ pub enum Stage {
     EffectParticleSpace,
     /// D-671: Bubbles.
     EffectBubbles,
+    /// D-672: Drizzle.
+    EffectDrizzle,
     /// D-508: Energy Stroke.
     EffectEnergyStroke,
     /// D-449's Block Load.
@@ -506,7 +508,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 250] = [
+    pub const ALL: [Stage; 251] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -716,6 +718,7 @@ impl Stage {
         Stage::EffectCcBallAction,
         Stage::EffectParticleSpace,
         Stage::EffectBubbles,
+        Stage::EffectDrizzle,
         Stage::EffectEnergyStroke,
         Stage::EffectBlockLoad,
         Stage::EffectGlassMelt,
@@ -971,6 +974,7 @@ impl Stage {
             Stage::EffectCcBallAction => "effect: cc ball action",
             Stage::EffectParticleSpace => "effect: particle space",
             Stage::EffectBubbles => "effect: bubbles",
+            Stage::EffectDrizzle => "effect: drizzle",
             Stage::EffectEnergyStroke => "effect: energy stroke",
             Stage::EffectBlockLoad => "effect: block load",
             Stage::EffectGlassMelt => "effect: glass melt",

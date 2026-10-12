@@ -7065,6 +7065,87 @@ fn bubbles(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(d));
 }
 
+// D-672, simulate::drizzle, a pixel a thread: the drops of its 16 by 16 tile (k: k[0] where the
+// light's numbers start, k[6] the count, the drops from 7, ten each, [3, x, y, R, A, ..], then
+// each tile's start and the lists, then simulate::drizzle_light's fifteen numbers), the water's
+// slope summed over them, the layer read through it, clamped to the buffer, and lit by
+// Blobbylize's rule. The highlight's power is single precision, as Glue Gun's.
+@compute @workgroup_size(16, 16)
+fn drizzle(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let tw = (size.x + 15u) / 16u;
+    let nt = tw * ((size.y + 15u) / 16u);
+    let t = (id.y / 16u) * tw + id.x / 16u;
+    let o = 7u + 10u * u32(k[6]);
+    let g = u32(k[0]);
+    let x = f64(i32(id.x) - F.ox) + 0.5lf;
+    let y = f64(i32(id.y) - F.oy) + 0.5lf;
+    let tau = 2.0lf * 3.141592653589793lf * k[g];
+    var zx = 0.0lf;
+    var zy = 0.0lf;
+    for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
+        let s = 7u + 10u * u32(k[o + nt + 1u + j]);
+        let dx = x - k[s + 1u];
+        let dy = y - k[s + 2u];
+        let r = k[s + 3u];
+        let d2 = dx * dx + dy * dy;
+        if d2 >= r * r {
+            continue;
+        }
+        let q = sqrt(d2) / r;
+        let one = 1.0lf - q * q;
+        let ph = tau * q;
+        var sq = tau * tau;
+        if q != 0.0lf {
+            sq = tau * sin64(ph) / q;
+        }
+        let gg = k[s + 4u] * (-4.0lf * one * cos64(ph) - one * one * sq);
+        zx += gg * dx / (r * r);
+        zy += gg * dy / (r * r);
+    }
+    let fx = clamp(x - k[g + 1u] * zx + f64(F.ox) - 0.5lf, 0.0lf, f64(size.x) - 1.0lf);
+    let fy = clamp(y - k[g + 1u] * zy + f64(F.oy) - 0.5lf, 0.0lf, f64(size.y) - 1.0lf);
+    let x0 = i32(fx);
+    let y0 = i32(fy);
+    let x1 = min(x0 + 1, i32(size.x) - 1);
+    let y1 = min(y0 + 1, i32(size.y) - 1);
+    let tx = fx - f64(x0);
+    let ty = fy - f64(y0);
+    let c = (vec4<f64>(at(input, vec2(x0, y0))) * (1.0lf - tx) + vec4<f64>(at(input, vec2(x1, y0))) * tx) * (1.0lf - ty)
+        + (vec4<f64>(at(input, vec2(x0, y1))) * (1.0lf - tx) + vec4<f64>(at(input, vec2(x1, y1))) * tx) * ty;
+    var col = vec3(0.0lf);
+    if c.w > 0.0lf {
+        col = c.xyz / c.w;
+    }
+    let nv = vec3(-zx, -zy, 1.0lf);
+    let n = nv / sqrt(nv.x * nv.x + nv.y * nv.y + nv.z * nv.z);
+    var lv = vec3(k[g + 12u], k[g + 13u], k[g + 14u]);
+    if k[g + 11u] == 1.0lf {
+        lv = vec3(k[g + 12u] - x, k[g + 13u] - y, k[g + 14u]);
+    }
+    let ll = sqrt(lv.x * lv.x + lv.y * lv.y + lv.z * lv.z);
+    var l = vec3(0.0lf);
+    if ll > 0.0lf {
+        l = lv / ll;
+    }
+    let nl = n.x * l.x + n.y * l.y + n.z * l.z;
+    let rz = 2.0lf * nl * n.z - l.z;
+    var shine = 0.0lf;
+    if nl > 0.0lf && rz > 0.0lf {
+        shine = f64(pow(f32(rz), f32(1.0lf / k[g + 10u])));
+    }
+    var out = vec4(0.0lf, 0.0lf, 0.0lf, c.w);
+    for (var ch = 0u; ch < 3u; ch++) {
+        let lc = k[g + 2u + ch];
+        let lit = col[ch] * (k[g + 6u] + k[g + 7u] * k[g + 5u] * lc * max(nl, 0.0lf)) + k[g + 8u] * k[g + 5u] * (lc + (col[ch] - lc) * k[g + 9u]) * shine;
+        out[ch] = lit * c.w;
+    }
+    textureStore(output, id.xy, vec4<f32>(out));
+}
+
 // B-151, median.rs's straight colour of a pixel, each channel over the covering in single
 // precision as the CPU divides it, or nothing where nothing shows.
 fn straight(p: vec4<f32>) -> vec4<f32> {
@@ -11308,6 +11389,8 @@ struct FxPasses {
     particles: Pass,
     /// D-671.
     bubbles: Pass,
+    /// D-672.
+    drizzle: Pass,
     /// B-151.
     median: Pass,
     smart: Pass,
@@ -12052,6 +12135,7 @@ impl Gpu {
                 ballshade: pass("ballshade", &[0, 2, 3, 9]),
                 particles: pass("particles", &[0, 1, 2, 3, 4]),
                 bubbles: pass("bubbles", &[0, 1, 2, 3]),
+                drizzle: pass("drizzle", &[0, 1, 2, 3]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
@@ -14816,6 +14900,21 @@ impl Gpu {
                 self.fx_step(steps, &passes.bubbles, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
                 (out, (w, h))
             }
+            // D-672: the drops in the drawing's own space, binned into the card's tiles as the
+            // particles are, the lists after them, then the light.
+            e @ E::Drizzle { .. } => {
+                let (w0, h0) = (w.saturating_sub(2 * ox), h.saturating_sub(2 * oy));
+                let mut k = crate::simulate::drizzle_list(e, w0 as f64, h0 as f64);
+                let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
+                k[6] = ((k.len() - crate::particles::HEAD) / 10) as f64;
+                k.extend(starts.iter().chain(&list).map(|&i| i as f64));
+                k[0] = k.len() as f64;
+                k.extend(crate::simulate::drizzle_light(e, w0 as f64, h0 as f64));
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let out = self.scratch("D-672 drizzle", w, h);
+                self.fx_step(steps, &passes.drizzle, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                (out, (w, h))
+            }
             // B-151: ten of the fourth batch.
             E::Median { radius, operate_on_alpha } => {
                 let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
@@ -16474,6 +16573,19 @@ impl Gpu {
                                 let r = values[4].clamp(0.0, 100.0) * 1.5 * h as f64 / 40.0;
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
                                 ((7.0 + n * (10.0 + reach) + tiles + 1.0) * 8.0) as u64
+                            }
+                            // D-672: Drizzle's live drops at most (the fastest rate times the
+                            // in point's longevity), ten numbers each and a place in a tile's list
+                            // or several, its tiles' starts and the light.
+                            crate::effects::Effect::Drizzle { values, history, .. } => {
+                                let most = |i: usize| history.as_deref().map_or(values[i], |hs| hs.iter().fold(values[i], |m, v| m.max(v[i])));
+                                let rate = most(0).clamp(0.0, 1000.0);
+                                let life = history.as_deref().and_then(|hs| hs.first()).map_or(values[1], |v| v[1]).clamp(0.0, 100.0);
+                                let n = (rate * life).ceil() + 2.0;
+                                let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
+                                let r = most(5).clamp(0.0, 1000.0) / 100.0 * h as f64 / 4.0;
+                                let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
+                                ((7.0 + n * (10.0 + reach) + tiles + 1.0 + 15.0) * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,
