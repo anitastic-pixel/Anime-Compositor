@@ -28716,7 +28716,7 @@
    }
   },
   "FX-CD-038": {
-   "says": "Comp Camera with the composition camera on the layer's plane (depth 0): nothing drawn.",
+   "says": "Comp Camera with the composition camera on the layer's plane (depth 0, zoom 12): nothing drawn.",
    "project": "fx_cd_038.json",
    "frames": {
     "0": [

@@ -432,7 +432,9 @@ def cam_of(c):
         x, y, depth = W / 2, H / 2, -z
     else:
         x, y, depth, zoom = c["camera"]
-        assert zoom == -depth, "only cameras that draw the layer's plane 1:1"
+        # Only cameras that draw the layer's plane 1:1, or one on the plane, which draws
+        # nothing whatever its zoom (D-58 refuses a zoom of 0).
+        assert zoom == -depth or depth == 0, "only cameras that draw the layer's plane 1:1"
     return (x - c["shift"][0], y - c["shift"][1], 0 - depth)
 
 
@@ -550,8 +552,9 @@ CASES.update({
                   "from its upper left.", grid(camera_system="comp_camera",
                                                camera=(8, 4, -12, 12), shift=(3, 1), **DEPTH),
                   (0,)),
-    "FX-CD-038": ("Comp Camera with the composition camera on the layer's plane (depth 0): "
-                  "nothing drawn.", grid(camera_system="comp_camera", camera=(8, 4, 0, 0),
+    "FX-CD-038": ("Comp Camera with the composition camera on the layer's plane (depth 0, "
+                  "zoom 12): nothing drawn.", grid(camera_system="comp_camera",
+                                                   camera=(8, 4, 0, 12),
                                          **DEPTH), (0,)),
     "FX-CD-039": ("A distant light from the top left, depth 0.5, on turned cards.",
                   grid(light_position=[0, 0], light_depth=0.5, **SPIN, **BACK), (0,)),
