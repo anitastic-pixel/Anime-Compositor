@@ -2834,6 +2834,45 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("field_of_view".into(), num(*field_of_view));
             params.insert("filter_environment".into(), J::from(filter_environment.as_str()));
         }
+        Effect::CardWipe { back_layer, gradient_layer, transition_completion, transition_width, rows, columns, card_scale, timing_randomness, random_seed, x_rotation, y_rotation, z_rotation, z_position, focal_length, light_intensity, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, xy_position, light_position, rows_columns, flip_axis, flip_direction, flip_order, light_type, light_color, .. } => {
+            params.insert("back_layer".into(), back_layer.clone());
+            params.insert("gradient_layer".into(), gradient_layer.clone());
+            for (n, v) in [
+                ("transition_completion", transition_completion),
+                ("transition_width", transition_width),
+                ("rows", rows),
+                ("columns", columns),
+                ("card_scale", card_scale),
+                ("timing_randomness", timing_randomness),
+                ("random_seed", random_seed),
+                ("x_rotation", x_rotation),
+                ("y_rotation", y_rotation),
+                ("z_rotation", z_rotation),
+                ("z_position", z_position),
+                ("focal_length", focal_length),
+                ("light_intensity", light_intensity),
+                ("light_depth", light_depth),
+                ("ambient_light", ambient_light),
+                ("diffuse_reflection", diffuse_reflection),
+                ("specular_reflection", specular_reflection),
+                ("highlight_sharpness", highlight_sharpness),
+            ] {
+                params.insert(n.into(), num(*v));
+            }
+            for (n, v) in [("xy_position", xy_position), ("light_position", light_position)] {
+                params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
+            }
+            for (n, v) in [
+                ("rows_columns", rows_columns),
+                ("flip_axis", flip_axis),
+                ("flip_direction", flip_direction),
+                ("flip_order", flip_order),
+                ("light_type", light_type),
+                ("light_color", light_color),
+            ] {
+                params.insert(n.into(), J::from(v.as_str()));
+            }
+        }
         Effect::CcSphere {
             radius,
             offset,
@@ -5583,6 +5622,7 @@ fn parse_effect(
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
         crate::effects::CC_SPHERE,
+        crate::effects::CARD_WIPE,
         crate::effects::CC_ENVIRONMENT,
         crate::effects::SIMPLE_WIRE_REMOVAL,
         crate::effects::SMART_BLUR,
@@ -6947,6 +6987,38 @@ fn parse_effect(
             field_of_view: effect_number(params, "field_of_view", &at)?,
             filter_environment: effect_word(params, "filter_environment", &at)?,
             map: None,
+        }),
+        crate::effects::CARD_WIPE => Some(crate::effects::Effect::CardWipe {
+            transition_completion: effect_number(params, "transition_completion", &at)?,
+            transition_width: effect_number(params, "transition_width", &at)?,
+            back_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "back_layer")?.clone(),
+            back_map: None,
+            rows_columns: effect_word(params, "rows_columns", &at)?,
+            rows: effect_number(params, "rows", &at)?,
+            columns: effect_number(params, "columns", &at)?,
+            card_scale: effect_number(params, "card_scale", &at)?,
+            flip_axis: effect_word(params, "flip_axis", &at)?,
+            flip_direction: effect_word(params, "flip_direction", &at)?,
+            flip_order: effect_word(params, "flip_order", &at)?,
+            gradient_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "gradient_layer")?.clone(),
+            gradient_map: None,
+            timing_randomness: effect_number(params, "timing_randomness", &at)?,
+            random_seed: effect_number(params, "random_seed", &at)?,
+            x_rotation: effect_number(params, "x_rotation", &at)?,
+            y_rotation: effect_number(params, "y_rotation", &at)?,
+            z_rotation: effect_number(params, "z_rotation", &at)?,
+            xy_position: effect_array(params, "xy_position", "two numbers, x then y", &at)?,
+            z_position: effect_number(params, "z_position", &at)?,
+            focal_length: effect_number(params, "focal_length", &at)?,
+            light_type: effect_word(params, "light_type", &at)?,
+            light_intensity: effect_number(params, "light_intensity", &at)?,
+            light_color: effect_word(params, "light_color", &at)?.to_ascii_lowercase(),
+            light_position: effect_array(params, "light_position", "two numbers, x then y", &at)?,
+            light_depth: effect_number(params, "light_depth", &at)?,
+            ambient_light: effect_number(params, "ambient_light", &at)?,
+            diffuse_reflection: effect_number(params, "diffuse_reflection", &at)?,
+            specular_reflection: effect_number(params, "specular_reflection", &at)?,
+            highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
         }),
         crate::effects::CC_SPHERE => Some(crate::effects::Effect::CcSphere {
             radius: effect_number(params, "radius", &at)?,

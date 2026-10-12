@@ -1183,6 +1183,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::CcCylinder { .. }
                 // D-532.
                 | crate::effects::Effect::CcSphere { .. }
+                // D-580.
+                | crate::effects::Effect::CardWipe { .. }
                 // D-531: with its environment read.
                 | crate::effects::Effect::CcEnvironment { map: Some(_), .. }
                 // D-400.

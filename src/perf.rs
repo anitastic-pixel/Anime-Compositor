@@ -403,6 +403,8 @@ pub enum Stage {
     EffectCcEnvironment,
     /// D-532: CC Sphere.
     EffectCcSphere,
+    /// D-580: Card Wipe.
+    EffectCardWipe,
     /// D-520: CC Wide Time, its frames put together and laid on the layer; drawing them is timed
     /// as any drawing is.
     EffectCcWideTime,
@@ -481,7 +483,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 237] = [
+    pub const ALL: [Stage; 238] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -683,6 +685,7 @@ impl Stage {
         Stage::EffectCcCylinder,
         Stage::EffectCcEnvironment,
         Stage::EffectCcSphere,
+        Stage::EffectCardWipe,
         Stage::EffectCcWideTime,
         Stage::EffectCcBallAction,
         Stage::EffectEnergyStroke,
@@ -925,6 +928,7 @@ impl Stage {
             Stage::EffectCcCylinder => "effect: cc cylinder",
             Stage::EffectCcEnvironment => "effect: cc environment",
             Stage::EffectCcSphere => "effect: cc sphere",
+            Stage::EffectCardWipe => "effect: card wipe",
             Stage::EffectCcWideTime => "effect: cc wide time",
             Stage::EffectCcBallAction => "effect: cc ball action",
             Stage::EffectEnergyStroke => "effect: energy stroke",

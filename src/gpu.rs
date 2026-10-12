@@ -9429,6 +9429,154 @@ fn environment(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 
+// D-580, layer_fx::card_wipe: k as layer_fx::card_wipe_numbers, the back picture `other` (one
+// clear pixel when none was read); the drawing's corner at (F.ox, F.oy). Divisions rounded once
+// as the CPU's are; the highlight's power is taken in single precision.
+fn card_span(lo: f64, hi: f64, size: f64, half_page: f64, reach: f64, n: f64) -> vec2<i32> {
+    let first = floor(quotient(lo + half_page - reach, size) - 0.5lf) - 1.0lf;
+    let last = ceil(quotient(hi + half_page + reach, size) - 0.5lf) + 1.0lf;
+    return vec2<i32>(i32(clamp(first, 0.0lf, n)), i32(clamp(last + 1.0lf, 0.0lf, n)));
+}
+
+fn card_unit(p: vec3<f64>) -> vec3<f64> {
+    let n = sqrt(dot(p, p));
+    if n == 0.0lf {
+        return vec3<f64>(0.0lf, 0.0lf, 0.0lf);
+    }
+    return vec3<f64>(quotient(p.x, n), quotient(p.y, n), quotient(p.z, n));
+}
+
+@compute @workgroup_size(16, 16)
+fn cardwipe(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let cols = k[0];
+    let rows = k[1];
+    let cw = k[2];
+    let ch = k[3];
+    let hx = k[4];
+    let hy = k[5];
+    let w0 = k[6];
+    let h0 = k[7];
+    let sc = k[34];
+    var got = vec4<f64>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
+    let d = vec3<f64>(f64(i32(id.x) - F.ox) + 0.5lf - w0 / 2.0lf, f64(i32(id.y) - F.oy) + 0.5lf - h0 / 2.0lf, k[8]);
+    let v = vec3<f64>(
+        k[12] * d.x + k[15] * d.y + k[18] * d.z,
+        k[13] * d.x + k[16] * d.y + k[19] * d.z,
+        k[14] * d.x + k[17] * d.y + k[20] * d.z,
+    );
+    let o = vec3<f64>(k[9], k[10], k[11]);
+    let zm = k[35] * 1.001lf + 1e-9lf;
+    var sa = vec2<i32>(0, 0);
+    var sb = vec2<i32>(0, 0);
+    if sc != 0.0lf {
+        if v.z != 0.0lf {
+            let ta = quotient(-zm - o.z, v.z);
+            let tb = quotient(zm - o.z, v.z);
+            let t0 = max(min(ta, tb), 0.0lf);
+            let t1 = max(ta, tb);
+            if t1 >= t0 {
+                let xa = o.x + t0 * v.x;
+                let xb = o.x + t1 * v.x;
+                let ya = o.y + t0 * v.y;
+                let yb = o.y + t1 * v.y;
+                sa = card_span(min(xa, xb), max(xa, xb), cw, w0 / 2.0lf, hx, cols);
+                sb = card_span(min(ya, yb), max(ya, yb), ch, h0 / 2.0lf, hy, rows);
+            }
+        } else if abs(o.z) <= zm {
+            sa = vec2<i32>(0, i32(cols));
+            sb = vec2<i32>(0, i32(rows));
+        }
+    }
+    // The nearest hit, the first card in rows then columns where two tie.
+    var found = false;
+    var bt = 0.0lf;
+    var bat = 0u;
+    var bl = vec2<f64>(0.0lf, 0.0lf);
+    var bfront = false;
+    var bc = vec2<f64>(0.0lf, 0.0lf);
+    for (var b = sb.x; b < sb.y; b++) {
+        for (var a = sa.x; a < sa.y; a++) {
+            let ci = u32(36 + 3 * (b * i32(cols) + a));
+            let axis = k[ci];
+            let s = k[ci + 1];
+            let c = k[ci + 2];
+            let cx = (f64(a) + 0.5lf) * cw;
+            let cy = (f64(b) + 0.5lf) * ch;
+            let q = vec3<f64>(o.x - (cx - w0 / 2.0lf), o.y - (cy - h0 / 2.0lf), o.z);
+            var o2 = vec3<f64>(c * q.x - s * q.z, q.y, s * q.x + c * q.z);
+            var d2 = vec3<f64>(c * v.x - s * v.z, v.y, s * v.x + c * v.z);
+            if axis == 0.0lf {
+                o2 = vec3<f64>(q.x, c * q.y + s * q.z, -s * q.y + c * q.z);
+                d2 = vec3<f64>(v.x, c * v.y + s * v.z, -s * v.y + c * v.z);
+            }
+            if d2.z == 0.0lf {
+                continue;
+            }
+            let t = quotient(-o2.z, d2.z);
+            if t <= 0.0lf || (found && t >= bt) {
+                continue;
+            }
+            let lx = o2.x + t * d2.x;
+            let ly = o2.y + t * d2.y;
+            if abs(lx) <= hx && abs(ly) <= hy {
+                found = true;
+                bt = t;
+                bat = ci;
+                bl = vec2<f64>(lx, ly);
+                bfront = d2.z > 0.0lf;
+                bc = vec2<f64>(cx, cy);
+            }
+        }
+    }
+    if found {
+        let axis = k[bat];
+        let s = k[bat + 1];
+        let c = k[bat + 2];
+        let ux = quotient(bl.x, sc);
+        let uy = quotient(bl.y, sc);
+        var p32 = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        if bfront {
+            p32 = bilinear(input, bc.x + ux + f64(F.ox), bc.y + uy + f64(F.oy));
+        } else if k[33] != 0.0lf {
+            if axis == 1.0lf {
+                p32 = bilinear(other, bc.x - ux, bc.y + uy);
+            } else {
+                p32 = bilinear(other, bc.x + ux, bc.y - uy);
+            }
+        }
+        let p = vec4<f64>(f64(p32.x), f64(p32.y), f64(p32.z), f64(p32.w));
+        let pl = vec3<f64>(k[22], k[23], k[24]);
+        let hit = o + bt * v;
+        var lv = card_unit(pl);
+        if k[21] != 0.0lf {
+            lv = card_unit(pl - hit);
+        }
+        var n = vec3<f64>(-s, 0.0lf, -c);
+        if axis == 0.0lf {
+            n = vec3<f64>(0.0lf, s, -c);
+        }
+        if !bfront {
+            n = -n;
+        }
+        let vv = card_unit(-v);
+        let hv = lv + vv;
+        let nl = dot(n, lv);
+        let hn = sqrt(dot(hv, hv));
+        var sp = 0.0lf;
+        if nl > 0.0lf && hn > 0.0lf {
+            sp = f64(pow(f32(max(quotient(dot(n, hv), hn), 0.0lf)), f32(k[32])));
+        }
+        let lc = vec3<f64>(k[26], k[27], k[28]);
+        let lit = p.xyz * (vec3<f64>(k[29], k[29], k[29]) + k[30] * k[25] * lc * max(nl, 0.0lf)) + k[31] * k[25] * sp * lc * p.w;
+        got = vec4<f64>(lit, p.w);
+    }
+    textureStore(output, id.xy, vec4<f32>(f32(got.x), f32(got.y), f32(got.z), f32(got.w)));
+}
+
 // D-532, layer_fx::cc_sphere: k as layer_fx::cylinder_numbers; the drawing's corner at
 // (F.ox, F.oy). The highlight's power is taken in single precision.
 @compute @workgroup_size(16, 16)
@@ -10591,6 +10739,8 @@ struct FxPasses {
     cylinder: Pass,
     /// D-532.
     sphere: Pass,
+    /// D-580.
+    cardwipe: Pass,
     /// D-531.
     environment: Pass,
     lwidth: Pass,
@@ -11290,6 +11440,7 @@ impl Gpu {
                 spotlight: pass("spotlight", &[0, 1, 2, 3, 4]),
                 cylinder: pass("cylinder", &[0, 1, 2, 3]),
                 sphere: pass("sphere", &[0, 1, 2, 3]),
+                cardwipe: pass("cardwipe", &[0, 1, 2, 3, 4]),
                 environment: pass("environment", &[0, 1, 2, 3, 4]),
                 passx: pass("passx", &[0, 1, 2, 3, 4]),
                 dkey: pass("dkey", &[0, 1, 2, 3, 4]),
@@ -14956,6 +15107,17 @@ impl Gpu {
                 let out = self.scratch("D-531 environment", w, h);
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 self.fx_step(steps, &passes.environment, p, Some(still), Some(&out), Some(&k), Some(&env), none, tiles(w, h));
+                (out, (w, h))
+            }
+            e @ E::CardWipe { back_map, .. } => {
+                let k = crate::layer_fx::card_wipe_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+                let back = match back_map {
+                    Some(m) if m.0.width() > 0 && m.0.height() > 0 => self.map_texture(&m.0),
+                    _ => self.map_texture(&crate::WorkingBuffer::transparent(1, 1)),
+                };
+                let out = self.scratch("D-580 cardwipe", w, h);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                self.fx_step(steps, &passes.cardwipe, p, Some(still), Some(&out), Some(&k), Some(&back), none, tiles(w, h));
                 (out, (w, h))
             }
             e @ E::CcSphere { .. } => {

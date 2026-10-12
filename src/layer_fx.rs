@@ -8756,6 +8756,209 @@ pub(crate) fn cc_ball_action(source: &mut WorkingBuffer, e: &crate::effects::Eff
     });
 }
 
+/// D-580: Card Wipe's numbers for a drawing `w0` by `h0`, the CPU's and the card's (document
+/// 21): the columns C and rows R, a card's width and height, its drawn half width and half
+/// height, `w0`, `h0`, the focal length in pixels F, the eye in the cards' space (three), the
+/// camera's turn M by rows (nine), the light's kind (0 distant, 1 point), its place in the cards'
+/// space (three), its intensity, its linear colour (three), ambient, diffuse, specular, the
+/// highlight's sharpness, 1 where a back picture was read, the card scale, the half thickness
+/// of the slab every card lies in, then for each card, rows then columns, its axis (0 x, 1 y)
+/// and the sine and cosine of its turn.
+pub(crate) fn card_wipe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> Vec<f64> {
+    #[rustfmt::skip]
+    let crate::effects::Effect::CardWipe { transition_completion, transition_width, back_map, rows_columns, rows, columns, card_scale, flip_axis, flip_direction, flip_order, gradient_map, timing_randomness, random_seed, x_rotation, y_rotation, z_rotation, xy_position, z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, .. } = e
+    else {
+        unreachable!("Card Wipe's numbers of another effect")
+    };
+    let r = (rows + 0.5).floor();
+    let c = if rows_columns == "columns_follow_rows" { r } else { (columns + 0.5).floor() };
+    let (cw, ch) = (w0 / c, h0 / r);
+    let (hx, hy) = (card_scale * cw / 2.0, card_scale * ch / 2.0);
+    type M3 = [[f64; 3]; 3];
+    let mul = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|n| (0..3).map(|j| a[i][j] * b[j][n]).sum())) };
+    let (sx, cx) = x_rotation.to_radians().sin_cos();
+    let (sy, cy) = y_rotation.to_radians().sin_cos();
+    let (sz, cz) = z_rotation.to_radians().sin_cos();
+    let rx = [[1.0, 0.0, 0.0], [0.0, cx, -sx], [0.0, sx, cx]];
+    let ry = [[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]];
+    let rz = [[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]];
+    let m = mul(rz, mul(ry, rx));
+    let own = |v: [f64; 3]| -> [f64; 3] { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
+    let f = w0 * focal_length / 36.0;
+    let o = own([xy_position[0] * w0 / 100.0 - w0 / 2.0, xy_position[1] * h0 / 100.0 - h0 / 2.0, -z_position * f]);
+    let pl = own([light_position[0] * w0 / 100.0 - w0 / 2.0, light_position[1] * h0 / 100.0 - h0 / 2.0, -light_depth * w0]);
+    let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
+    let mut k = vec![c, r, cw, ch, hx, hy, w0, h0, f, o[0], o[1], o[2]];
+    k.extend(m.iter().flatten());
+    k.extend([if light_type == "point" { 1.0 } else { 0.0 }, pl[0], pl[1], pl[2], *light_intensity, lc[0], lc[1], lc[2]]);
+    k.extend([*ambient_light, *diffuse_reflection, *specular_reflection, *highlight_sharpness]);
+    k.extend([if back_map.is_some() { 1.0 } else { 0.0 }, *card_scale, hx.max(hy)]);
+    let seed = crate::grade::mix(random_seed.floor() as u64);
+    let g = |a: usize, b: usize, ch: u64| crate::grade::unit(seed, a as i64, b as i64, 0, ch);
+    let (tr, done, wide) = (*timing_randomness, transition_completion / 100.0, transition_width / 100.0);
+    let grad = gradient_map.as_ref().map(|m| &*m.0);
+    let (cols, rows) = (c as usize, r as usize);
+    k.reserve(3 * cols * rows);
+    for b in 0..rows {
+        for a in 0..cols {
+            let (u, v) = ((a as f64 + 0.5) / c, (b as f64 + 0.5) / r);
+            let order = match flip_order.as_str() {
+                "right_to_left" => 1.0 - u,
+                "top_to_bottom" => v,
+                "bottom_to_top" => 1.0 - v,
+                "top_left_to_bottom_right" => (u + v) / 2.0,
+                "bottom_left_to_top_right" => (u + 1.0 - v) / 2.0,
+                "top_right_to_bottom_left" => (1.0 - u + v) / 2.0,
+                "bottom_right_to_top_left" => (2.0 - u - v) / 2.0,
+                // The gradient's pixel under the card's centre; none read, every card at 0.
+                "gradient" => grad.map_or(0.0, |p| {
+                    let px = ((a as f64 + 0.5) * cw).floor().min(w0 - 1.0) as usize;
+                    let py = ((b as f64 + 0.5) * ch).floor().min(h0 - 1.0) as usize;
+                    if px < p.width() && py < p.height() { picture_luma(p.pixel(px, py)) } else { 0.0 }
+                }),
+                _ => u,
+            };
+            let o2 = (1.0 - tr) * order + tr * (g(a, b, 0) + 1.0) / 2.0;
+            let p = if wide > 0.0 {
+                ((done * (1.0 + wide) - o2) / wide).clamp(0.0, 1.0)
+            } else if done > 0.0 && done >= o2 {
+                1.0
+            } else {
+                0.0
+            };
+            let axis = match flip_axis.as_str() {
+                "x" => 0.0,
+                "y" => 1.0,
+                _ => if g(a, b, 1) < 0.0 { 0.0 } else { 1.0 },
+            };
+            let sign = match flip_direction.as_str() {
+                "positive" => 1.0,
+                "negative" => -1.0,
+                _ => if g(a, b, 2) < 0.0 { -1.0 } else { 1.0 },
+            };
+            let (s, cs) = (sign * p * std::f64::consts::PI).sin_cos();
+            k.extend([axis, s, cs]);
+        }
+    }
+    k
+}
+
+/// D-580: the columns or rows `0..n` a card of which may hold a point between `lo` and `hi` along
+/// the ray, cards `size` apart with their centres from `size/2 - half_page`, each reaching `reach`
+/// either side: one more each way than the reach asks, held to the deck, as a range.
+fn card_span(lo: f64, hi: f64, size: f64, half_page: f64, reach: f64, n: f64) -> (usize, usize) {
+    let first = ((lo + half_page - reach) / size - 0.5).floor() - 1.0;
+    let last = ((hi + half_page + reach) / size - 0.5).ceil() + 1.0;
+    (first.clamp(0.0, n) as usize, (last + 1.0).clamp(0.0, n) as usize)
+}
+
+/// D-580: After Effects' Card Wipe, the rule ours (document 21): the drawing, whose corner is at
+/// `(ox, oy)` in the buffer, cut into a grid of cards that flip over in turn about their own
+/// axes, seen by the effect's own camera and lit by its own light; each card's back shows its
+/// share of the back picture, or is clear. One ray a pixel, the nearest card it meets winning.
+/// Only the cards near the ray are tried: every card lies within its half size of the drawing's
+/// plane, so a ray meets one only where it crosses that slab. Never grows.
+pub(crate) fn card_wipe(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
+    let crate::effects::Effect::CardWipe { back_map, .. } = e else {
+        unreachable!("Card Wipe of another effect")
+    };
+    let (w, h) = (source.width(), source.height());
+    let k = card_wipe_numbers(e, (w - 2 * ox) as f64, (h - 2 * oy) as f64);
+    let back = back_map.as_ref().map(|m| &*m.0);
+    let mut out = WorkingBuffer::transparent(w, h);
+    let drawing = &*source;
+    let (cols, rows, cw, ch, hx, hy, w0, h0) = (k[0], k[1], k[2], k[3], k[4], k[5], k[6], k[7]);
+    let o = [k[9], k[10], k[11]];
+    let (sc, zmax) = (k[34], k[35]);
+    let dot = |p: [f64; 3], q: [f64; 3]| p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+    let unit = |p: [f64; 3]| {
+        let n = dot(p, p).sqrt();
+        if n == 0.0 { [0.0; 3] } else { p.map(|q| q / n) }
+    };
+    out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+        if sc == 0.0 {
+            return;
+        }
+        let d = [(i % w) as f64 - ox as f64 + 0.5 - w0 / 2.0, (i / w) as f64 - oy as f64 + 0.5 - h0 / 2.0, k[8]];
+        let v: [f64; 3] = std::array::from_fn(|n| k[12 + n] * d[0] + k[15 + n] * d[1] + k[18 + n] * d[2]);
+        // The slab, a little thicker than the cards reach, and the cards over its crossing.
+        let zm = zmax * 1.001 + 1e-9;
+        let ((a0, a1), (b0, b1)) = if v[2] != 0.0 {
+            let (ta, tb) = ((-zm - o[2]) / v[2], (zm - o[2]) / v[2]);
+            let (t0, t1) = (ta.min(tb).max(0.0), ta.max(tb));
+            if t1 < t0 {
+                return;
+            }
+            let (xa, xb) = (o[0] + t0 * v[0], o[0] + t1 * v[0]);
+            let (ya, yb) = (o[1] + t0 * v[1], o[1] + t1 * v[1]);
+            (card_span(xa.min(xb), xa.max(xb), cw, w0 / 2.0, hx, cols), card_span(ya.min(yb), ya.max(yb), ch, h0 / 2.0, hy, rows))
+        } else if o[2].abs() > zm {
+            return;
+        } else {
+            ((0, cols as usize), (0, rows as usize))
+        };
+        // The nearest hit, the first card in rows then columns where two tie.
+        let mut best: Option<(f64, usize, [f64; 2], bool, [f64; 2])> = None;
+        for b in b0..b1 {
+            for a in a0..a1 {
+                let at = 36 + 3 * (b * cols as usize + a);
+                let (axis, s, c) = (k[at], k[at + 1], k[at + 2]);
+                let (cx, cy) = ((a as f64 + 0.5) * cw, (b as f64 + 0.5) * ch);
+                let q = [o[0] - (cx - w0 / 2.0), o[1] - (cy - h0 / 2.0), o[2]];
+                let inv = |p: [f64; 3]| {
+                    if axis == 0.0 {
+                        [p[0], c * p[1] + s * p[2], -s * p[1] + c * p[2]]
+                    } else {
+                        [c * p[0] - s * p[2], p[1], s * p[0] + c * p[2]]
+                    }
+                };
+                let (o2, d2) = (inv(q), inv(v));
+                if d2[2] == 0.0 {
+                    continue;
+                }
+                let t = -o2[2] / d2[2];
+                if t <= 0.0 || best.is_some_and(|(bt, ..)| t >= bt) {
+                    continue;
+                }
+                let (lx, ly) = (o2[0] + t * d2[0], o2[1] + t * d2[1]);
+                if lx.abs() <= hx && ly.abs() <= hy {
+                    best = Some((t, at, [lx, ly], d2[2] > 0.0, [cx, cy]));
+                }
+            }
+        }
+        let Some((t, at, [lx, ly], front, [cx, cy])) = best else {
+            return;
+        };
+        let (axis, s, c) = (k[at], k[at + 1], k[at + 2]);
+        let p = if front {
+            sample_bilinear(drawing, cx + lx / sc + ox as f64, cy + ly / sc + oy as f64)
+        } else {
+            match back {
+                None => [0.0; 4],
+                Some(b) if axis == 1.0 => sample_bilinear(b, cx - lx / sc, cy + ly / sc),
+                Some(b) => sample_bilinear(b, cx + lx / sc, cy - ly / sc),
+            }
+        }
+        .map(f64::from);
+        let pl = [k[22], k[23], k[24]];
+        let hit: [f64; 3] = std::array::from_fn(|n| o[n] + t * v[n]);
+        let lv = unit(if k[21] == 0.0 { pl } else { std::array::from_fn(|n| pl[n] - hit[n]) });
+        let n = if axis == 0.0 { [0.0, s, -c] } else { [-s, 0.0, -c] };
+        let n = if front { n } else { n.map(|q| -q) };
+        let vv = unit(v.map(|q| -q));
+        let hv = [lv[0] + vv[0], lv[1] + vv[1], lv[2] + vv[2]];
+        let nl = dot(n, lv);
+        let hn = dot(hv, hv).sqrt();
+        let sp = if nl > 0.0 && hn > 0.0 { (dot(n, hv) / hn).max(0.0).powf(k[32]) } else { 0.0 };
+        let (i_, a_, d_, s_) = (k[25], k[29], k[30], k[31]);
+        for j in 0..3 {
+            px[j] = (p[j] * (a_ + d_ * i_ * k[26 + j] * nl.max(0.0)) + s_ * i_ * sp * k[26 + j] * p[3]) as f32;
+        }
+        px[3] = p[3] as f32;
+    });
+    *source = out;
+}
+
 /// D-506: 3D Glasses. Each view is read in the drawing's own space, a map at (u, v) or the layer
 /// itself at (u + ox, v + oy), transparent outside, by document 21's bilinear. The anaglyphs and
 /// the interlace read the left view half the convergence c to the right and half the alignment

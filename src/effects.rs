@@ -2724,6 +2724,53 @@ pub enum Effect {
         roughness: f64,
         metal: f64,
     },
+    /// D-580: after After Effects' Card Wipe (Transition), its rule and its settings when added
+    /// ours (`layer_fx::card_wipe`, document 21), its own fake 3D camera and light (no
+    /// composition camera). `transition_completion` and `transition_width`, 0 to 100 per cent;
+    /// `back_layer` and `gradient_layer`, D-189's layer settings as written, "" for none, each
+    /// stretched to the drawing; `rows_columns`, one of [`CARD_ROWS_COLUMNS`]; `rows` and
+    /// `columns`, 1 to 1000, rounded; `card_scale`, 0 to 10; `flip_axis`, one of
+    /// [`CARD_AXES`]; `flip_direction`, one of [`CARD_DIRECTIONS`]; `flip_order`, one of
+    /// [`CARD_ORDERS`]; `timing_randomness`, 0 to 1; `random_seed`, 0 to 100000; `x_rotation`,
+    /// `y_rotation` and `z_rotation`, -3600 to 3600 degrees; `xy_position`, x then y, -1000 to
+    /// 1000 per cent of the drawing; `z_position`, 0.01 to 10 focal lengths; `focal_length`, 1
+    /// to 1000 mm; `light_type`, "distant" or "point"; `light_intensity`, 0 to 10;
+    /// `light_color`, `#rrggbb`; `light_position`, x then y, -1000 to 1000 per cent;
+    /// `light_depth`, 0 to 10 drawing widths; `ambient_light`, `diffuse_reflection` and
+    /// `specular_reflection`, 0 to 2; `highlight_sharpness`, 1 to 100. `back_map` and
+    /// `gradient_map` are not settings and are never saved.
+    CardWipe {
+        transition_completion: f64,
+        transition_width: f64,
+        back_layer: serde_json::Value,
+        back_map: Option<crate::layer_map::Map>,
+        rows_columns: String,
+        rows: f64,
+        columns: f64,
+        card_scale: f64,
+        flip_axis: String,
+        flip_direction: String,
+        flip_order: String,
+        gradient_layer: serde_json::Value,
+        gradient_map: Option<crate::layer_map::Map>,
+        timing_randomness: f64,
+        random_seed: f64,
+        x_rotation: f64,
+        y_rotation: f64,
+        z_rotation: f64,
+        xy_position: [f64; 2],
+        z_position: f64,
+        focal_length: f64,
+        light_type: String,
+        light_intensity: f64,
+        light_color: String,
+        light_position: [f64; 2],
+        light_depth: f64,
+        ambient_light: f64,
+        diffuse_reflection: f64,
+        specular_reflection: f64,
+        highlight_sharpness: f64,
+    },
     /// D-530: after CycoreFX's CC Cylinder, its rule and its settings when added ours
     /// (`layer_fx::cc_cylinder`, document 21), its own fake 3D (no composition camera). `radius`,
     /// 0 to 1000 per cent of half the drawing's width; `position`, x then y, per cent of the
@@ -3951,6 +3998,24 @@ pub const ENERGY_SOURCES: [&str; 4] = ["points", "masks", "shapes", "text"];
 pub const ENERGY_COMPOSITES: [&str; 3] = ["add", "transparent", "black"];
 pub const CC_CYLINDER: &str = "core.cc_cylinder";
 pub const CC_SPHERE: &str = "core.cc_sphere";
+pub const CARD_WIPE: &str = "core.card_wipe";
+/// D-580: Card Wipe's Rows & Columns: each its own, or the columns as many as the rows.
+pub const CARD_ROWS_COLUMNS: [&str; 2] = ["independent", "columns_follow_rows"];
+/// D-580: Card Wipe's flip axes and directions, each with "random" last.
+pub const CARD_AXES: [&str; 3] = ["x", "y", "random"];
+pub const CARD_DIRECTIONS: [&str; 3] = ["positive", "negative", "random"];
+/// D-580: Card Wipe's flip orders, the eight directions then by the gradient layer.
+pub const CARD_ORDERS: [&str; 9] = [
+    "left_to_right",
+    "right_to_left",
+    "top_to_bottom",
+    "bottom_to_top",
+    "top_left_to_bottom_right",
+    "bottom_left_to_top_right",
+    "top_right_to_bottom_left",
+    "bottom_right_to_top_left",
+    "gradient",
+];
 /// D-530: CC Cylinder's renders, and D-532 CC Sphere's: the outside over the inside, the outside alone, the inside alone.
 pub const CYLINDER_RENDERS: [&str; 3] = ["full", "outside", "inside"];
 pub const CC_ENVIRONMENT: &str = "core.cc_environment";
@@ -4416,6 +4481,50 @@ impl Effect {
                 ("specular", vec![specular], 0.0, 100.0),
                 ("roughness", vec![roughness], 0.0, 100.0),
                 ("metal", vec![metal], 0.0, 100.0),
+            ],
+            Effect::CardWipe {
+                transition_completion,
+                transition_width,
+                rows,
+                columns,
+                card_scale,
+                timing_randomness,
+                random_seed,
+                x_rotation,
+                y_rotation,
+                z_rotation,
+                xy_position,
+                z_position,
+                focal_length,
+                light_intensity,
+                light_position,
+                light_depth,
+                ambient_light,
+                diffuse_reflection,
+                specular_reflection,
+                highlight_sharpness,
+                ..
+            } => vec![
+                ("transition_completion", vec![transition_completion], 0.0, 100.0),
+                ("transition_width", vec![transition_width], 0.0, 100.0),
+                ("rows", vec![rows], 1.0, 1000.0),
+                ("columns", vec![columns], 1.0, 1000.0),
+                ("card_scale", vec![card_scale], 0.0, 10.0),
+                ("timing_randomness", vec![timing_randomness], 0.0, 1.0),
+                ("random_seed", vec![random_seed], 0.0, 100000.0),
+                ("x_rotation", vec![x_rotation], -3600.0, 3600.0),
+                ("y_rotation", vec![y_rotation], -3600.0, 3600.0),
+                ("z_rotation", vec![z_rotation], -3600.0, 3600.0),
+                ("xy_position", xy_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("z_position", vec![z_position], 0.01, 10.0),
+                ("focal_length", vec![focal_length], 1.0, 1000.0),
+                ("light_intensity", vec![light_intensity], 0.0, 10.0),
+                ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
+                ("light_depth", vec![light_depth], 0.0, 10.0),
+                ("ambient_light", vec![ambient_light], 0.0, 2.0),
+                ("diffuse_reflection", vec![diffuse_reflection], 0.0, 2.0),
+                ("specular_reflection", vec![specular_reflection], 0.0, 2.0),
+                ("highlight_sharpness", vec![highlight_sharpness], 1.0, 100.0),
             ],
             Effect::CcEnvironment { horizontal_pan, tilt, roll, field_of_view, .. } => vec![
                 ("horizontal_pan", vec![horizontal_pan], -3600.0, 3600.0),
@@ -7099,6 +7208,7 @@ impl Effect {
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
             Effect::CcSphere { .. } => "CC Sphere",
+            Effect::CardWipe { .. } => "Card Wipe",
             Effect::CcEnvironment { .. } => "CC Environment",
             Effect::SimpleWireRemoval { .. } => "CC Simple Wire Removal",
             Effect::BlockLoad { .. } => "Block Load",
@@ -7342,6 +7452,7 @@ impl Effect {
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
             Effect::CcSphere { .. } => CC_SPHERE,
+            Effect::CardWipe { .. } => CARD_WIPE,
             Effect::CcEnvironment { .. } => CC_ENVIRONMENT,
             Effect::SimpleWireRemoval { .. } => SIMPLE_WIRE_REMOVAL,
             Effect::BlockLoad { .. } => BLOCK_LOAD,
@@ -7641,6 +7752,10 @@ impl Effect {
         if let Effect::GlassMelt { layer_to_reveal, gradient_layer, .. } = self {
             return vec![(layer_to_reveal.as_str().unwrap_or(""), "center"), (gradient_layer.as_str().unwrap_or(""), "stretch")];
         }
+        // D-580: the back and the gradient, each stretched to the drawing.
+        if let Effect::CardWipe { back_layer, gradient_layer, .. } = self {
+            return [back_layer, gradient_layer].map(|l| (l.as_str().unwrap_or(""), "stretch")).to_vec();
+        }
         self.layer_setting().into_iter().collect()
     }
 
@@ -7699,6 +7814,9 @@ impl Effect {
         }
         if let Effect::GlassMelt { layer_to_reveal, reveal_map, gradient_layer, gradient_map, .. } = self {
             return vec![(layer_to_reveal, reveal_map), (gradient_layer, gradient_map)];
+        }
+        if let Effect::CardWipe { back_layer, back_map, gradient_layer, gradient_map, .. } = self {
+            return vec![(back_layer, back_map), (gradient_layer, gradient_map)];
         }
         self.layer_setting_mut().into_iter().collect()
     }
@@ -7935,6 +8053,35 @@ impl Effect {
                 .or_else(|| (!["on", "off"].contains(&f.as_str())).then(|| format!(
                     "CC Environment's filter environment is \"on\" or \"off\", and this is \"{f}\"."
                 ))),
+            Effect::CardWipe {
+                back_layer,
+                gradient_layer,
+                rows_columns,
+                flip_axis,
+                flip_direction,
+                flip_order,
+                light_type,
+                light_color,
+                ..
+            } => {
+                let one_of = |what: &str, words: &[&str], w: &str| {
+                    (!words.contains(&w)).then(|| {
+                        let words = words.iter().map(|w| format!("\"{w}\"")).collect::<Vec<_>>().join(", ");
+                        format!("{name}'s {what} is one of {words}, and this is \"{w}\".")
+                    })
+                };
+                (!back_layer.is_string())
+                    .then(|| format!("{name}'s back layer is the name of a layer of this composition, and this is {back_layer}."))
+                    .or_else(|| (!gradient_layer.is_string()).then(|| format!(
+                        "{name}'s gradient layer is the name of a layer of this composition, and this is {gradient_layer}."
+                    )))
+                    .or_else(|| one_of("rows & columns", &CARD_ROWS_COLUMNS, rows_columns))
+                    .or_else(|| one_of("flip axis", &CARD_AXES, flip_axis))
+                    .or_else(|| one_of("flip direction", &CARD_DIRECTIONS, flip_direction))
+                    .or_else(|| one_of("flip order", &CARD_ORDERS, flip_order))
+                    .or_else(|| one_of("light type", &["distant", "point"], light_type))
+                    .or_else(|| hex_fault("Card Wipe", "light colour", light_color))
+            }
             Effect::CcSphere { light_color, render, .. } => hex_fault("CC Sphere", "light colour", light_color).or_else(|| {
                 (!CYLINDER_RENDERS.contains(&render.as_str())).then(|| {
                     let renders = CYLINDER_RENDERS.map(|r| format!("\"{r}\"")).join(", ");
@@ -11088,6 +11235,11 @@ pub(crate) fn apply_stack_at(
                 crate::layer_fx::cc_environment(source, e, (ox, oy))
             }),
             Effect::CcEnvironment { .. } => {}
+            // D-580: every distance a share of the drawing; never grows. A back or gradient layer
+            // not read (none named, or one not in the composition, which compose said) is none.
+            e @ Effect::CardWipe { .. } => crate::perf::time(crate::perf::Stage::EffectCardWipe, || {
+                crate::layer_fx::card_wipe(source, e, (ox, oy))
+            }),
             // D-532: every distance a share of the drawing; never grows.
             e @ Effect::CcSphere { .. } => crate::perf::time(crate::perf::Stage::EffectCcSphere, || {
                 crate::layer_fx::cc_sphere(source, e, (ox, oy))
