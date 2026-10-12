@@ -2984,6 +2984,19 @@ pub enum Effect {
         texture_layer: serde_json::Value,
         texture: Option<crate::layer_map::Map>,
     },
+    /// D-671: Bubbles, after CycoreFX's CC Bubbles, its rule and settings when added ours
+    /// (`simulate::bubbles`, document 21): the layer becomes bubbles rising or falling from the
+    /// in point, wobbling, each reading the picture through itself. `values`, the settings of
+    /// [`BUBBLES_SETTINGS`] in that order; `words`, those of [`BUBBLES_WORDS`], kept as written.
+    /// `clock` and `history` are not settings and are never saved: compose fills `clock` with the
+    /// frames since the layer's in point and the frames a second, and `history` with the settings
+    /// at each frame from the in point to this one when any is keyed (document 20).
+    Bubbles {
+        values: [f64; 6],
+        words: [String; 2],
+        clock: [f64; 2],
+        history: Option<std::sync::Arc<Vec<[f64; 6]>>>,
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -4557,6 +4570,24 @@ pub const PARTICLE_SPACE_COLORS: [(&str, &str); 8] = [
     ("custom_color_5", "#cc1a00"),
     ("depth_cue_color", "#000000"),
 ];
+pub const BUBBLES: &str = "core.bubbles";
+/// D-671: Bubbles' keyable settings, in the order `values` holds them: name, lowest, highest,
+/// and the value when the effect is added. Lengths are shares of the drawing's height (a bubble
+/// of size 1 is about a fortieth of it across the radius; speed 1 lifts a quarter of it a
+/// second); wobble 10 swings a bubble its own radius; wobble frequency in swings a second.
+pub const BUBBLES_SETTINGS: [(&str, f64, f64, f64); 6] = [
+    ("amount", 0.0, 10000.0, 100.0),
+    ("speed", -100.0, 100.0, 0.5),
+    ("wobble_amplitude", 0.0, 1000.0, 5.0),
+    ("wobble_frequency", 0.0, 100.0, 1.0),
+    ("size", 0.0, 100.0, 1.0),
+    ("random_seed", 0.0, 10000.0, 0.0),
+];
+/// D-671: Bubbles' words: name, the words, the word when added.
+pub const BUBBLES_WORDS: [(&str, &[&str], &str); 2] = [
+    ("reflection", &["inverse", "world"], "inverse"),
+    ("shading", &["none", "lighten", "darken", "fade_inwards", "fade_outwards"], "fade_inwards"),
+];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -4982,6 +5013,11 @@ impl Effect {
                 ("intensity", vec![intensity], 0.0, 1000.0),
             ],
             Effect::ParticleSpace { values, .. } => PARTICLE_SPACE_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .collect(),
+            Effect::Bubbles { values, .. } => BUBBLES_SETTINGS
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
@@ -8158,6 +8194,7 @@ impl Effect {
             Effect::ChannelWipe { .. } => "Channel Wipe",
             Effect::CcSpotlight { .. } => "CC Spotlight",
             Effect::ParticleSpace { .. } => "Particle Space",
+            Effect::Bubbles { .. } => "Bubbles",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -8413,6 +8450,7 @@ impl Effect {
             Effect::ChannelWipe { .. } => CHANNEL_WIPE,
             Effect::CcSpotlight { .. } => CC_SPOTLIGHT,
             Effect::ParticleSpace { .. } => PARTICLE_SPACE,
+            Effect::Bubbles { .. } => BUBBLES,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -9040,6 +9078,12 @@ impl Effect {
                     .then(|| format!("Energy Stroke's alpha mode is \"off\", \"masks\", \"core\" or \"glow\", and this is \"{alpha_mode}\".")))
                 .or_else(|| (!["off", "on"].contains(&invert_masks.as_str()))
                     .then(|| format!("Energy Stroke's invert masks is \"on\" or \"off\", and this is \"{invert_masks}\"."))),
+            Effect::Bubbles { words, .. } => BUBBLES_WORDS.iter().zip(words).find(|((_, list, _), w)| !list.contains(&w.as_str())).map(
+                |((name, list, _), w)| {
+                    let list = list.iter().map(|a| format!("\"{a}\"")).collect::<Vec<_>>().join(", ");
+                    format!("Bubbles' {name} is one of {list}, and this is \"{w}\".")
+                },
+            ),
             Effect::ParticleSpace { words, colors, texture_layer, .. } => PARTICLE_SPACE_WORDS
                 .iter()
                 .zip(words)
@@ -12484,6 +12528,10 @@ pub(crate) fn apply_stack_at(
                     crate::perf::time(crate::perf::Stage::EffectCcSpotlight, || crate::layer_fx::cc_spotlight(source, e, gel, (ox, oy)))
                 }
             }
+            // D-671: the bubbles in the drawing's own space; never grows.
+            e @ Effect::Bubbles { .. } => crate::perf::time(crate::perf::Stage::EffectBubbles, || {
+                crate::simulate::bubbles(source, e, (ox, oy))
+            }),
             // D-610: the particles drawn through the composition camera or its own; never grows.
             e @ Effect::ParticleSpace { .. } => crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {
                 crate::particles::particle_space(source, e, (ox, oy))

@@ -6996,6 +6996,75 @@ fn particles(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(d));
 }
 
+// D-671, simulate::bubbles's bilinear read of the drawing (k[2] by k[3], its corner at the
+// origin) at the own point (x, y), the last row and column repeated.
+fn bubble_read(x: f64, y: f64) -> vec4<f64> {
+    let fx = clamp(x - 0.5lf, 0.0lf, k[2] - 1.0lf);
+    let fy = clamp(y - 0.5lf, 0.0lf, k[3] - 1.0lf);
+    let x0 = i32(fx);
+    let y0 = i32(fy);
+    let x1 = min(x0 + 1, i32(k[2]) - 1);
+    let y1 = min(y0 + 1, i32(k[3]) - 1);
+    let tx = fx - f64(x0);
+    let ty = fy - f64(y0);
+    let o = vec2(F.ox, F.oy);
+    let a = vec4<f64>(at(input, vec2(x0, y0) + o));
+    let b = vec4<f64>(at(input, vec2(x1, y0) + o));
+    let c = vec4<f64>(at(input, vec2(x0, y1) + o));
+    let d = vec4<f64>(at(input, vec2(x1, y1) + o));
+    return (a * (1.0lf - tx) + b * tx) * (1.0lf - ty) + (c * (1.0lf - tx) + d * tx) * ty;
+}
+
+// D-671, simulate::bubbles, a pixel a thread: the bubbles of its 16 by 16 tile (k as the
+// particles pass has it: k[0] the reflection's sign, k[1] the shading, k[2] and k[3] the
+// drawing's size, k[6] the count, the bubbles from 7, ten each, then each tile's start and the
+// lists), each read through itself, shaded, laid in order onto clear.
+@compute @workgroup_size(16, 16)
+fn bubbles(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let tw = (size.x + 15u) / 16u;
+    let nt = tw * ((size.y + 15u) / 16u);
+    let t = (id.y / 16u) * tw + id.x / 16u;
+    let o = 7u + 10u * u32(k[6]);
+    let x = f64(i32(id.x) - F.ox) + 0.5lf;
+    let y = f64(i32(id.y) - F.oy) + 0.5lf;
+    var d = vec4(0.0lf);
+    for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
+        let s = 7u + 10u * u32(k[o + nt + 1u + j]);
+        let bx = k[s + 1u];
+        let by = k[s + 2u];
+        let rho = k[s + 3u];
+        let dx = x - bx;
+        let dy = y - by;
+        let dd = sqrt(dx * dx + dy * dy);
+        let cover = clamp(rho - dd + 0.5lf, 0.0lf, 1.0lf);
+        if cover == 0.0lf {
+            continue;
+        }
+        var e = vec2(dx, dy) / rho;
+        if dd > rho {
+            e = vec2(dx, dy) / dd;
+        }
+        let t2 = min(e.x * e.x + e.y * e.y, 1.0lf);
+        let r = 2.0lf * rho / (1.0lf + sqrt(1.0lf - t2));
+        var c = bubble_read(bx + k[0] * r * e.x, by + k[0] * r * e.y);
+        if k[1] == 1.0lf {
+            c = c * (1.0lf - t2) + vec4(t2);
+        } else if k[1] == 2.0lf {
+            c = vec4(c.xyz * (1.0lf - t2), c.w * (1.0lf - t2) + t2);
+        } else if k[1] == 3.0lf {
+            c = c * t2;
+        } else if k[1] == 4.0lf {
+            c = c * (1.0lf - t2);
+        }
+        d = c * cover + d * (1.0lf - c.w * cover);
+    }
+    textureStore(output, id.xy, vec4<f32>(d));
+}
+
 // B-151, median.rs's straight colour of a pixel, each channel over the covering in single
 // precision as the CPU divides it, or nothing where nothing shows.
 fn straight(p: vec4<f32>) -> vec4<f32> {
@@ -11237,6 +11306,8 @@ struct FxPasses {
     ballshade: Pass,
     /// D-610.
     particles: Pass,
+    /// D-671.
+    bubbles: Pass,
     /// B-151.
     median: Pass,
     smart: Pass,
@@ -11980,6 +12051,7 @@ impl Gpu {
                 balls: pass("balls", &[0, 1, 3, 9]),
                 ballshade: pass("ballshade", &[0, 2, 3, 9]),
                 particles: pass("particles", &[0, 1, 2, 3, 4]),
+                bubbles: pass("bubbles", &[0, 1, 2, 3]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
@@ -14729,6 +14801,21 @@ impl Gpu {
                 self.fx_step(steps, &passes.particles, p, Some(still), Some(&out), Some(&k), Some(&atlas), [None; 5], tiles(w, h));
                 (out, (w, h))
             }
+            // D-671: the bubbles in the drawing's own space, binned into the card's tiles as the
+            // particles are, the lists after them.
+            e @ E::Bubbles { words, .. } => {
+                let (w0, h0) = (w.saturating_sub(2 * ox), h.saturating_sub(2 * oy));
+                let mut k = crate::simulate::bubble_list(e, w0 as f64, h0 as f64);
+                let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
+                let shading = crate::effects::BUBBLES_WORDS[1].1.iter().position(|s| *s == words[1]).unwrap_or(3);
+                k[..4].copy_from_slice(&[if words[0] == "world" { 1.0 } else { -1.0 }, shading as f64, w0 as f64, h0 as f64]);
+                k[6] = ((k.len() - crate::particles::HEAD) / 10) as f64;
+                k.extend(starts.iter().chain(&list).map(|&i| i as f64));
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let out = self.scratch("D-671 bubbles", w, h);
+                self.fx_step(steps, &passes.bubbles, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                (out, (w, h))
+            }
             // B-151: ten of the fourth batch.
             E::Median { radius, operate_on_alpha } => {
                 let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
@@ -16378,6 +16465,15 @@ impl Gpu {
                             crate::effects::Effect::ParticleSpace { values, .. } => {
                                 let alive = 100.0 * values[0] * values[1] + 1.0;
                                 ((7.0 + 14.0 * alive + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
+                            }
+                            // D-671: Bubbles' bubbles, ten numbers each and a place in a tile's
+                            // list or several, and its tiles' starts.
+                            crate::effects::Effect::Bubbles { values, .. } => {
+                                let n = values[0].clamp(0.0, 10000.0).floor();
+                                let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
+                                let r = values[4].clamp(0.0, 100.0) * 1.5 * h as f64 / 40.0;
+                                let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
+                                ((7.0 + n * (10.0 + reach) + tiles + 1.0) * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,
