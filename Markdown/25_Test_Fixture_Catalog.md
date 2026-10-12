@@ -211928,3 +211928,81 @@ FX-FMB-028 (`fx_fmb_028.json`): Override Native Shutter written "maybe". The fil
 FX-FMB-029 (`fx_fmb_029.json`): Native Motion Blur written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
 FX-FMB-030 (`fx_fmb_030.json`): Motion Blur Samples keyed to 100 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+### CC Rainfall (D-582)
+
+CC Rainfall (`core.cc_rainfall`), after CycoreFX's CC Rainfall (B-471), the rule ours. Each case is a composition 48 by 32, five frames, in `Fixtures/cc_rainfall/`, holding one drawing the same size, unmoved, as the layer `art`: a night of #1e1a24, a pale wall of #d0d0d0, or the night with its right half clear. `tools/cc_rainfall_reference.py` works the expected frames, `Fixtures/cc_rainfall/expected_cc_rainfall.json`, tolerance 2e-5, every drawn drop checked clear of starting its fall again; the rule is in document 21.
+
+FX-RAIN3D-001 (`fx_rain3d_001.json`): As added: 5000 drops, size 3, scene depth 5000, speed 4000, wind 0, variation 0, spread 15, colour #b4bec8, opacity 25, Lighten, composited with the night. In a picture 48 wide the volume is a hundred times deeper than the focal length, so most drops are far, faint and fine; the few near ones are long pale streaks.
+
+FX-RAIN3D-002 (`fx_rain3d_002.json`): One drop at the front, size 2, falling 240 pixels a second, 10 a frame at 24, a streak 5 long, opacity 100: frame 1 is frame 0's streak 10 pixels lower, frame 4 has it 40 lower, wrapped back to the top.
+
+FX-RAIN3D-003 (`fx_rain3d_003.json`): The same drop, size 0.5: a hairline at half strength.
+
+FX-RAIN3D-004 (`fx_rain3d_004.json`): Size 0: no drop is drawn, so the night is untouched.
+
+FX-RAIN3D-005 (`fx_rain3d_005.json`): Drops 0: the night, untouched.
+
+FX-RAIN3D-006 (`fx_rain3d_006.json`): Wind 120 pixels a second: the drop drifts 5 pixels right a frame as it falls 10, its streak slanting.
+
+FX-RAIN3D-007 (`fx_rain3d_007.json`): Six drops, wind 120, variation 50: each its own wind, between 60 and 180.
+
+FX-RAIN3D-008 (`fx_rain3d_008.json`): Six drops, spread 60: each tilted its own way, up to 30 degrees either side of straight down.
+
+FX-RAIN3D-009 (`fx_rain3d_009.json`): Six drops in a volume 48 deep, the focal length: the far ones down to half size, half speed, half strength, and laid first.
+
+FX-RAIN3D-010 (`fx_rain3d_010.json`): Six drops, ground level 50: nothing below row 16.
+
+FX-RAIN3D-011 (`fx_rain3d_011.json`): Six drops, speed 0: each a round dot, still, so frame 4 is frame 0.
+
+FX-RAIN3D-012 (`fx_rain3d_012.json`): Six drops, seed 7: drops of their own.
+
+FX-RAIN3D-013 (`fx_rain3d_013.json`): Seed 7.9 counts as 7: FX-RAIN3D-012.
+
+FX-RAIN3D-014 (`fx_rain3d_014.json`): Six drops at opacity 40.
+
+FX-RAIN3D-015 (`fx_rain3d_015.json`): Six dark drops (#202020) on the pale wall, Composite: they darken it.
+
+FX-RAIN3D-016 (`fx_rain3d_016.json`): The same with Lighten: rain never darkens, so the wall is untouched.
+
+FX-RAIN3D-017 (`fx_rain3d_017.json`): Six drops, Composite With Original off: the rain alone, on clear.
+
+FX-RAIN3D-018 (`fx_rain3d_018.json`): Six drops on the night with its right half clear: the rain falls over the clear half too.
+
+FX-RAIN3D-019 (`fx_rain3d_019.json`): FX-RAIN3D-007 at 30 frames a second: on frame 2 the drops have fallen for a fifteenth of a second, not a twelfth, and their streaks are a fifth shorter.
+
+FX-RAIN3D-020 (`fx_rain3d_020.json`): Drops keyed from 0 at frame 0 to 12 at frame 4: six on frame 2, FX-RAIN3D-007's six, the same drops.
+
+FX-RAIN3D-021 (`fx_rain3d_021.json`): Forty drops with everything: depth 96, wind -60 with variation 80, spread 30, size 3, opacity 70, ground level 90, seed 3.
+
+FX-RAIN3D-022 (`fx_rain3d_022.json`): FX-RAIN3D-012 with its colour written in capitals, #C8D8FF: the same.
+
+FX-RAIN3D-023 (`fx_rain3d_023.json`): Drops -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-024 (`fx_rain3d_024.json`): Drops 50001, above 50000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-025 (`fx_rain3d_025.json`): Size 21, above 20. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-026 (`fx_rain3d_026.json`): Scene depth -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-027 (`fx_rain3d_027.json`): Speed 20001, above 20000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-028 (`fx_rain3d_028.json`): Wind 5001, above 5000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-029 (`fx_rain3d_029.json`): Variation 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-030 (`fx_rain3d_030.json`): Spread 91, above 90. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-031 (`fx_rain3d_031.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-032 (`fx_rain3d_032.json`): Ground level 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-033 (`fx_rain3d_033.json`): Random seed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-034 (`fx_rain3d_034.json`): Transfer mode written "screen". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-035 (`fx_rain3d_035.json`): Composite With Original written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-036 (`fx_rain3d_036.json`): A colour written "#c8d8f", one digit short. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
+
+FX-RAIN3D-037 (`fx_rain3d_037.json`): Speed keyed to 30000 at frame 4, above 20000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
