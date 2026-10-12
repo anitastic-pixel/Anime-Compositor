@@ -10212,7 +10212,7 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
         let d: Vec<f64> = g.iter().map(|gi| ka[HEIGHT] - ka[STEEP] * gi).collect();
         let c2: Vec<f64> = d.iter().map(|di| 2.0 * di * ka[SPEED].powi(2)).collect();
         let (h0, u0) = (&hh, &uu);
-        lap.par_chunks_mut(n).enumerate().for_each(|(j, row)| {
+        let row_lap = |(j, row): (usize, &mut [f64])| {
             let at = |i: isize, jj: isize, c: usize, s: f64| {
                 if (0..n as isize).contains(&i) && (0..m as isize).contains(&jj) {
                     let q = jj as usize * n + i as usize;
@@ -10233,7 +10233,15 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
                 *l = (at(ii - 1, jj, c, dx) + at(ii + 1, jj, c, dx) - 2.0 * h0[c]) / (dx * dx)
                     + (at(ii, jj - 1, c, dy) + at(ii, jj + 1, c, dy) - 2.0 * h0[c]) / (dy * dy);
             }
-        });
+        };
+        // ponytail: a step's rows go to the threads only on a grid of 65536 cells or more;
+        // below that, waiting for the threads every step cost more than the sums (B-510's
+        // timing). Tune the threshold if a quiet machine says otherwise.
+        if n * m >= 1 << 16 {
+            lap.par_chunks_mut(n).enumerate().for_each(row_lap);
+        } else {
+            lap.chunks_mut(n).enumerate().for_each(row_lap);
+        }
         let damp = (-10.0 * ka[DAMP] * dt).exp();
         for c in 0..n * m {
             if d[c] > 0.0 {
