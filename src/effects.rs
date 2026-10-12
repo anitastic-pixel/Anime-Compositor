@@ -1999,6 +1999,10 @@ pub enum Effect {
         expansion_right: f64,
         expansion_bottom: f64,
     },
+    /// D-602: after After Effects' Bezier Warp (`mesh::bezier_mesh`, document 21). `points`, the
+    /// twelve in [`BEZIER_POINTS`]' order, per cent of the drawing, -400 to 500 each way;
+    /// `quality`, 1 to 10. With every point where it starts, the drawing as it was.
+    BezierWarp { points: [[f64; 2]; 12], quality: f64 },
     /// D-390: after CycoreFX's CC Ripple Pulse. `center`, per cent of the drawing, -1000 to 1000;
     /// `pulse_level`, -1000 to 1000; `time_span`, 0 to 10 seconds; `amplitude`, 0 to 1000;
     /// `render_bump_map`, "off" or "on". `levels` is not a setting and is never saved: the pulse
@@ -3941,6 +3945,38 @@ pub const GRIDDLER: &str = "core.griddler";
 pub const FISHEYE: &str = "core.fisheye";
 pub const PAGE_TURN: &str = "core.page_turn";
 pub const POWER_PIN: &str = "core.power_pin";
+pub const BEZIER_WARP: &str = "core.bezier_warp";
+/// D-602: Bezier Warp's twelve points as they are saved, round the outline from the top left:
+/// each edge's vertex, then its two tangents.
+pub const BEZIER_POINTS: [&str; 12] = [
+    "top_left_vertex",
+    "top_left_tangent",
+    "top_right_tangent",
+    "right_top_vertex",
+    "right_top_tangent",
+    "right_bottom_tangent",
+    "bottom_right_vertex",
+    "bottom_right_tangent",
+    "bottom_left_tangent",
+    "left_bottom_vertex",
+    "left_bottom_tangent",
+    "left_top_tangent",
+];
+/// D-602: where they start, the corners and the thirds of each edge: the drawing as it was.
+pub const BEZIER_START: [[f64; 2]; 12] = [
+    [0.0, 0.0],
+    [100.0 / 3.0, 0.0],
+    [200.0 / 3.0, 0.0],
+    [100.0, 0.0],
+    [100.0, 100.0 / 3.0],
+    [100.0, 200.0 / 3.0],
+    [100.0, 100.0],
+    [200.0 / 3.0, 100.0],
+    [100.0 / 3.0, 100.0],
+    [0.0, 100.0],
+    [0.0, 200.0 / 3.0],
+    [0.0, 100.0 / 3.0],
+];
 pub const RIPPLE_PULSE: &str = "core.ripple_pulse";
 pub const SLANT: &str = "core.slant";
 pub const SMEAR: &str = "core.smear";
@@ -5477,6 +5513,11 @@ impl Effect {
                 ("light_direction", vec![light_direction], -3600.0, 3600.0),
                 ("back_opacity", vec![back_opacity], 0.0, 100.0),
             ],
+            Effect::BezierWarp { points, quality } => {
+                let mut v: Vec<_> = BEZIER_POINTS.iter().zip(points.iter_mut()).map(|(n, p)| (*n, p.iter_mut().collect(), -400.0, 500.0)).collect();
+                v.push(("quality", vec![quality], 1.0, 10.0));
+                v
+            }
             Effect::PowerPin {
                 top_left,
                 top_right,
@@ -7420,6 +7461,7 @@ impl Effect {
             Effect::Fisheye { .. } => "Fisheye",
             Effect::PageTurn { .. } => "Page Turn",
             Effect::PowerPin { .. } => "Power Pin",
+            Effect::BezierWarp { .. } => "Bezier Warp",
             Effect::RipplePulse { .. } => "Ripple Pulse",
             Effect::Slant { .. } => "Slant",
             Effect::Smear { .. } => "Smear",
@@ -7667,6 +7709,7 @@ impl Effect {
             Effect::Fisheye { .. } => FISHEYE,
             Effect::PageTurn { .. } => PAGE_TURN,
             Effect::PowerPin { .. } => POWER_PIN,
+            Effect::BezierWarp { .. } => BEZIER_WARP,
             Effect::RipplePulse { .. } => RIPPLE_PULSE,
             Effect::Slant { .. } => SLANT,
             Effect::Smear { .. } => SMEAR,
@@ -11209,6 +11252,13 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
+            // D-602: the drawing bent to its outline in its own space; the layer never grows.
+            Effect::BezierWarp { points, quality } => crate::perf::time(crate::perf::Stage::EffectBezierWarp, || {
+                let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+                if let Some(m) = crate::mesh::bezier_mesh(points, *quality, size) {
+                    crate::mesh::draw(source, &m, (ox, oy));
+                }
+            }),
             Effect::PowerPin {
                 top_left,
                 top_right,

@@ -3619,6 +3619,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("back_opacity".into(), num(*back_opacity));
             params.insert("paper_color".into(), J::from(paper_color.as_str()));
         }
+        // D-602: each point two numbers under its own name.
+        Effect::BezierWarp { points, quality } => {
+            for (name, v) in crate::effects::BEZIER_POINTS.iter().zip(points) {
+                params.insert((*name).into(), J::Array(v.iter().map(|c| num(*c)).collect()));
+            }
+            params.insert("quality".into(), num(*quality));
+        }
         Effect::PowerPin {
             top_left,
             top_right,
@@ -5762,6 +5769,7 @@ fn parse_effect(
         crate::effects::FISHEYE,
         crate::effects::PAGE_TURN,
         crate::effects::POWER_PIN,
+        crate::effects::BEZIER_WARP,
         crate::effects::RIPPLE_PULSE,
         crate::effects::SLANT,
         crate::effects::SMEAR,
@@ -7643,6 +7651,13 @@ fn parse_effect(
             expansion_right: effect_number(params, "expansion_right", &at)?,
             expansion_bottom: effect_number(params, "expansion_bottom", &at)?,
         }),
+        crate::effects::BEZIER_WARP => {
+            let mut points = crate::effects::BEZIER_START;
+            for (p, name) in points.iter_mut().zip(crate::effects::BEZIER_POINTS) {
+                *p = effect_array(params, name, "two numbers, x then y", &at)?;
+            }
+            Some(crate::effects::Effect::BezierWarp { points, quality: effect_number(params, "quality", &at)? })
+        }
         crate::effects::RIPPLE_PULSE => Some(crate::effects::Effect::RipplePulse {
             center: effect_array(params, "center", "two numbers, x then y", &at)?,
             pulse_level: effect_number(params, "pulse_level", &at)?,

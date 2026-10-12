@@ -193,6 +193,38 @@ pub(crate) fn field_numbers(field: &Field, share: f64, offset: [f64; 2], (w, h):
     k
 }
 
+/// D-602: Bezier Warp's mesh, worked as `tools/bezier_warp_reference.py` works it: the Coons patch
+/// of the outline's four cubic edges over the drawing's 4 q by 4 q grid, q `quality` rounded.
+/// `points` are per cent of the drawing `dw` by `dh`, in [`crate::effects::BEZIER_POINTS`]'
+/// order; `None` when every one is where it starts, the drawing as it was.
+pub(crate) fn bezier_mesh(points: &[[f64; 2]; 12], quality: f64, (dw, dh): (f64, f64)) -> Option<Mesh> {
+    if *points == crate::effects::BEZIER_START {
+        return None;
+    }
+    let p = points.map(|q| [q[0] / 100.0 * dw, q[1] / 100.0 * dh]);
+    let cubic = |a: [f64; 2], b: [f64; 2], c: [f64; 2], d: [f64; 2], t: f64| {
+        let s = 1.0 - t;
+        let (wa, wb, wc, wd) = (s * s * s, 3.0 * s * s * t, 3.0 * s * t * t, t * t * t);
+        [0, 1].map(|k| wa * a[k] + wb * b[k] + wc * c[k] + wd * d[k])
+    };
+    let n = 4 * (quality + 0.5).floor() as usize;
+    let (tl, tr, br, bl) = (p[0], p[3], p[6], p[9]);
+    let at = (0..=n)
+        .flat_map(|j| (0..=n).map(move |i| (i as f64 / n as f64, j as f64 / n as f64)))
+        .map(|(u, v)| {
+            let top = cubic(tl, p[1], p[2], tr, u);
+            let right = cubic(tr, p[4], p[5], br, v);
+            let bottom = cubic(bl, p[8], p[7], br, u);
+            let left = cubic(tl, p[11], p[10], bl, v);
+            [0, 1].map(|k| {
+                (1.0 - v) * top[k] + v * bottom[k] + (1.0 - u) * left[k] + u * right[k]
+                    - ((1.0 - u) * (1.0 - v) * tl[k] + u * (1.0 - v) * tr[k] + (1.0 - u) * v * bl[k] + u * v * br[k])
+            })
+        })
+        .collect();
+    Some(Mesh { cols: n, rows: n, at })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

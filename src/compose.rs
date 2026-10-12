@@ -1035,6 +1035,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 // D-388..D-390: Page Turn, Power Pin and Ripple Pulse.
                 | crate::effects::Effect::PageTurn { .. }
                 | crate::effects::Effect::PowerPin { .. }
+                // D-602: Bezier Warp.
+                | crate::effects::Effect::BezierWarp { .. }
                 | crate::effects::Effect::RipplePulse { .. }
                 // D-391..D-393: Slant, Smear and Split.
                 | crate::effects::Effect::Slant { .. }
@@ -1533,6 +1535,8 @@ fn card_effect(
                     [*top_left, *top_right, *bottom_left, *bottom_right] == [[0.0, 0.0], [100.0, 0.0], [0.0, 100.0], [100.0, 100.0]]
                         && [*expansion_top, *expansion_left, *expansion_right, *expansion_bottom] == [0.0; 4]
                 }
+                // D-602: every point where it starts.
+                E::BezierWarp { points, .. } => *points == crate::effects::BEZIER_START,
                 E::RipplePulse { amplitude, render_bump_map, levels, .. } => {
                     render_bump_map != "on" && (*amplitude == 0.0 || levels.windows(2).all(|w| w[0] == w[1]))
                 }

@@ -4182,6 +4182,60 @@ fn dirtlit(g: vec3<f32>, p: vec2<i32>, b: u32) -> vec3<f32> {
     return g + f32(k[b]) * m * d;
 }
 
+// D-601, mesh::Mesh: grid point `n` of warp mode 150's mesh.
+fn mesh_point(n: u32) -> vec2<f64> {
+    let b = u32(k[8]) + 2u * n;
+    return vec2<f64>(k[b], k[b + 1u]);
+}
+
+// D-601, mesh::Mesh::locate: where the drawing's (px, py) came from in grid units, searching
+// tile `tile`'s triangles from the last as the CPU does; the first number 0 for none, else 1.
+fn mesh_locate(px: f64, py: f64, tile: u32) -> vec3<f64> {
+    let z = k[0];
+    let cols = u32(k[1]);
+    let n = cols + 1u;
+    let first = u32(k[u32(k[9]) + tile]);
+    let list = u32(k[10]);
+    var m = u32(k[u32(k[9]) + tile + 1u]);
+    loop {
+        if m <= first {
+            break;
+        }
+        m = m - 1u;
+        let t = u32(k[list + m]);
+        let c = t / 2u;
+        let i = c % cols;
+        let j = c / cols;
+        let a = mesh_point(j * n + i);
+        let far = mesh_point((j + 1u) * n + i + 1u);
+        var b = mesh_point(j * n + i + 1u);
+        var e = far;
+        if t % 2u == 1u {
+            b = far;
+            e = mesh_point((j + 1u) * n + i);
+        }
+        let bx = b.x - a.x;
+        let by = b.y - a.y;
+        let cx = e.x - a.x;
+        let cy = e.y - a.y;
+        let d = product(bx, cy, z) - product(by, cx, z);
+        if d == 0.0lf {
+            continue;
+        }
+        let qx = px - a.x;
+        let qy = py - a.y;
+        let l1 = quotient(product(qx, cy, z) - product(qy, cx, z), d);
+        let l2 = quotient(product(bx, qy, z) - product(by, qx, z), d);
+        if l1 >= 0.0lf && l2 >= 0.0lf && l1 + l2 <= 1.0lf {
+            if t % 2u == 1u {
+                return vec3<f64>(1.0lf, f64(i) + l1, f64(j) + l1 + l2);
+            }
+            return vec3<f64>(1.0lf, f64(i) + l1 + l2, f64(j) + l2);
+        }
+    }
+    return vec3<f64>(0.0lf);
+}
+
 @compute @workgroup_size(16, 16)
 fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -5096,6 +5150,19 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
             sy = k[1] + product(s, lu, z) + product(c, lv, z) + product(m, product(s, mu, z) + product(c, mv, z), z);
             sx = hex_fold(sx, f64(size.x), z);
             sy = hex_fold(sy, f64(size.y), z);
+        }
+        case 150u: {
+            // D-601, mesh::draw, for D-602's Bezier Warp and the forward meshes after it. k as
+            // mesh::mesh_numbers lays it: a 0, the columns and rows, the drawing's size and
+            // corner, the tiles across, where the points, the offsets and the list start.
+            let z = k[0];
+            let at = mesh_locate(x - k[5], y - k[6], (id.y / 16u) * u32(k[7]) + id.x / 16u);
+            if at.x == 0.0lf {
+                textureStore(output, id.xy, vec4(0.0));
+                return;
+            }
+            sx = product(quotient(at.y, k[1]), k[3], z) + k[5];
+            sy = product(quotient(at.z, k[2]), k[4], z) + k[6];
         }
         case 103u: {
             // D-466, layer_fx::strobe_light while it is on: k as strobe_setup lays it, then a 0
@@ -13593,6 +13660,11 @@ impl Gpu {
                 self.fx_step(steps, &passes.warp, FxParams { mode: 17, ..Default::default() }, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
                 (out, (tw, th))
             }
+            // D-602, mesh::bezier_mesh, drawn as mesh::draw draws it: warp mode 150.
+            E::BezierWarp { points, quality } => match crate::mesh::bezier_mesh(points, *quality, ((w - 2 * ox) as f64, (h - 2 * oy) as f64)) {
+                Some(m) => same(steps, &passes.warp, FxParams { mode: 150, ..Default::default() }, &crate::mesh::mesh_numbers(&m, (w, h), f.origin), None),
+                None => (still.clone(), (w, h)),
+            },
             // D-390, layer_fx::ripple_pulse, with the levels compose read for this frame.
             E::RipplePulse { center, pulse_level, amplitude, render_bump_map, levels, .. } => {
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
