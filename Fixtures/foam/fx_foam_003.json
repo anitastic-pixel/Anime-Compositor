@@ -1,0 +1,131 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-foam-003",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-field",
+      "kind": "still",
+      "name": "field",
+      "path": "media/field.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 48,
+      "height": 32,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 36,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 36
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-field",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 36,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.foam",
+              "enabled": true,
+              "parameters": {
+                "producer_x": 50,
+                "producer_y": 50,
+                "producer_x_size": 0.3,
+                "producer_y_size": 0.3,
+                "producer_orientation": 0,
+                "production_rate": 0.5,
+                "size": 3,
+                "size_variance": 0.5,
+                "lifespan": 300,
+                "growth_speed": 0.1,
+                "strength": 10,
+                "initial_speed": 0,
+                "initial_direction": 0,
+                "wind_speed": 0.5,
+                "wind_direction": 90,
+                "turbulence": 0.5,
+                "wobble": 0.05,
+                "repulsion": 1,
+                "pop_velocity": 0,
+                "viscosity": 0.1,
+                "stickiness": 0.75,
+                "zoom": 1,
+                "universe_size": 1,
+                "reflection_strength": 0,
+                "reflection_convergence": 0,
+                "random_seed": 1,
+                "view": "draft",
+                "zoom_producer_point": "off",
+                "blend_mode": "transparent",
+                "bubble_texture": "default_bubble",
+                "bubble_orientation": "fixed",
+                "quality": "normal"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
