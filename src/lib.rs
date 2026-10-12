@@ -16,6 +16,7 @@ mod blurs;
 mod along;
 mod cel_fx;
 mod hsv_key;
+mod flow;
 mod line_blur;
 mod median;
 pub mod particles;

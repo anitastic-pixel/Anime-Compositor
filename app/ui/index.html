@@ -9333,6 +9333,7 @@ const EFFECT_NAMES = {
   'core.echo': 'Echo',
   'core.cc_wide_time': 'CC Wide Time',
   'core.force_motion_blur': 'CC Force Motion Blur',
+  'core.pixel_motion_blur': 'Pixel Motion Blur',
   'core.cc_rainfall': 'CC Rainfall',
   'core.wave_world': 'Wave World',
   'core.time_difference': 'Time Difference',
@@ -9519,7 +9520,7 @@ const EFFECT_GROUPS = [
     'core.posterize', 'core.threshold', 'core.channel_threshold', 'core.threshold_rgb', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie', 'core.plastic', 'core.repeat_tile', 'core.scatter', 'core.strobe_light', 'core.texturize', 'core.contour_paint', 'core.reduce_interlace_flicker']],
   ['Camera & Lens', ['core.vignette', 'core.cc_vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight', 'core.cc_cylinder', 'core.cc_environment', 'core.cc_sphere']],
-  ['Time', ['core.echo', 'core.cc_wide_time', 'core.force_motion_blur', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
+  ['Time', ['core.echo', 'core.cc_wide_time', 'core.force_motion_blur', 'core.pixel_motion_blur', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key', 'core.cryptomatte', 'core.depth_of_field', 'core.fog_3d', 'core.identifier']],
   ['Text', ['core.text_animator', 'core.numbers', 'core.timecode', 'core.basic_text']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.push_iris', 'core.stretch_wipe', 'core.twister', 'core.warp_blend', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve', 'core.card_wipe']],
@@ -9604,6 +9605,7 @@ const EFFECT_SEARCH = {
   'core.cc_wide_time': 'cc wide time temporal blur smear average frames motion blur forward backward steps before after timelapse staccato cycore',
   'core.cc_rainfall': 'cc rainfall rain storm weather drops depth wind simulation cycore',
   'core.wave_world': 'wave world water ripple ripples pond pool waves ocean sea shore simulation height map displacement caustics',
+  'core.pixel_motion_blur': 'pixel motion blur footage optical flow vectors shutter angle samples vector detail smear live action fast movement automatic manual',
   'core.force_motion_blur': 'cc force motion blur precomp nested composition shutter angle samples native subframe moments smooth movement cycore',
   'core.posterize_time': 'posterize time twos threes on twos stepped frame rate choppy limited animation hold',
   'core.change_to_color': 'change to color colour replace recolor recolour swap costume palette hue shift',
@@ -9870,6 +9872,7 @@ const EFFECT_ABOUT = {
   'core.cc_wide_time': 'Averages the layer over a span of frames, Backward Steps before the present one and Forward Steps after, every frame counted the same: a smearing blur for anything moving over a still background. It reads the layer as drawn, so effects meant to be smeared go inside a precomposition. Native Motion Blur Off draws the compositions inside without their own motion blur.',
   'core.cc_rainfall': 'Rain with depth: drops scattered through a volume behind the picture, the far ones smaller, slower and fainter, falling to the ground level and round again, laid over the layer (Lighten never darkens it) or alone. Not built: Background Reflection, the Refracting look, Offset and Embed Depth.',
   'core.wave_world': 'Water on a grid: ripples from up to two producers, a ring or a line, spread, bounce off a shore made from a ground layer and die away, drawn in place of the layer as a grey height map to feed a displacement or a caustics map. The water runs from the in point of the layer, so a late frame takes longer to draw. Not built: Wireframe Preview.',
+  'core.pixel_motion_blur': 'Motion blur from the pictures themselves: the layer is compared with its frames just before and after, the motion of every part of it found, and each pixel smeared along its own motion while the shutter is open. Automatic uses the composition’s shutter angle and samples; Manual uses its own. Vector Detail sets how finely the motion is found, 100 for every pixel. It works best on footage and drawings that move smoothly; on an adjustment layer it changes nothing, and says so.',
   'core.force_motion_blur': 'Motion blur for what moves inside a composition layer: the composition is drawn at several moments inside the shutter, every key inside read at each moment, and averaged. It uses the composition’s own shutter angle when its motion blur and the layer’s switch are on, or its own Shutter Angle with Override Native Shutter On; the shutter opens on the frame. Drawings, text, shapes and expressions inside hold at the frame. Native Motion Blur Off draws the compositions inside without their own motion blur. Only a composition layer is blurred.',
   'core.posterize_time': 'Holds the layer\'s drawing and effects for several frames at a time, as if drawn at a lower frame rate: on twos, on threes.',
   'core.change_to_color': 'Turns one colour into another, with the shades painted in it, and leaves the rest alone.',
@@ -10716,6 +10719,9 @@ const EFFECT_PARAMS = {
     ['producer_2_phase', 'Producer 2 Phase', 1, 1, 'degrees, -3600 to 3600, where in its beat it starts']],
   'core.force_motion_blur': [['motion_blur_samples', 'Motion Blur Samples', 1, 1, 'moments averaged, 1 to 64, taken whole'],
     ['shutter_angle', 'Shutter Angle', 1, 1, 'degrees, 0 to 720, used with Override Native Shutter On; 360 is a whole frame']],
+  'core.pixel_motion_blur': [['shutter_angle', 'Shutter Angle', 1, 1, 'degrees, 0 to 720, used with Shutter Control Manual; 360 is a whole frame'],
+    ['shutter_samples', 'Shutter Samples', 1, 1, 'moments averaged, 2 to 64, taken whole; used with Shutter Control Manual'],
+    ['vector_detail', 'Vector Detail', 1, 1, '0 to 100: 100 finds the motion of every pixel, 20 one for every four']],
   'core.posterize_time': [['frame_rate', 'Frame Rate', 1, 1, 'frames a second, 0.1 to 99; 12 in a composition of 24 is on twos, 8 on threes']],
   // D-197.
   'core.change_to_color': [['hue_tolerance', 'Hue Tolerance', 1, 1, '0 to 100, how far round the colour wheel changes whole'],
@@ -12500,6 +12506,10 @@ const EFFECT_WORDS = {
   'core.force_motion_blur': {
     choices: [['override_native_shutter', 'Override Native Shutter', [['off', 'Off'], ['on', 'On']]],
       ['native_motion_blur', 'Native Motion Blur', [['off', 'Off'], ['on', 'On']]]],
+  },
+  // D-650, After Effects' own words.
+  'core.pixel_motion_blur': {
+    choices: [['shutter_control', 'Shutter Control', [['automatic', 'Automatic'], ['manual', 'Manual']]]],
   },
   // D-195, After Effects' own words.
   'core.echo': {

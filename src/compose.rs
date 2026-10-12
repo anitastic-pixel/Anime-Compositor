@@ -2637,6 +2637,22 @@ fn resolve_rest(
             .with_remediation("Put the CC Simple Wire Removal on the layer itself, or precompose the layers beneath and put it on the composition layer."),
         );
     }
+    // D-650: nor the frames either side, so a Pixel Motion Blur there changes nothing.
+    if layer.is_adjustment()
+        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::PixelMotionBlur { .. }))
+    {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::TemporalSmoothingSkipped,
+                Severity::Warning,
+                format!("Adjustment layer {} has a Pixel Motion Blur, which needs the frames either side an adjustment layer cannot read.", layer.name),
+                format!("Frame {frame} is drawn without it. The setting is kept as it is."),
+            )
+            .with_remediation("Put the Pixel Motion Blur on the layer itself, or precompose the layers beneath and put it on the composition layer."),
+        );
+    }
     // D-581: CC Force Motion Blur blurs what moves inside a composition layer. On any other
     // layer, an adjustment layer included, and on one with a Time Remap, whose moments its rule
     // does not yet read, it leaves the layer as it is, and says so.
@@ -2675,6 +2691,7 @@ fn resolve_rest(
         fill_stats(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_stabilizer(&mut effects, project, root, comp, layer, at, quality, pre, float, cache, log);
         fill_wire(&mut effects, project, root, comp, layer, at, quality, cache, log);
+        fill_pixel_motion(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_moment_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_noise(&mut effects, project, root, comp, layer, at, quality, cache);
     }
@@ -4134,7 +4151,72 @@ fn fill_wire(
     }
 }
 
-/// D-455: each switched-on Remove Grain's noise: the holder at this frame with the effects before
+/// D-650: each switched-on Pixel Motion Blur's frames either side: the holder one composition
+/// frame before and one after, with the effects before this one, at the drawing's size, and the
+/// shutter angle and sample count its control names (the composition's under `automatic`,
+/// whether its switch is on or not). A frame where the layer does not show is this frame's
+/// drawing. Angle 0 draws nothing.
+// ponytail: nothing is kept between frames, so playing draws each frame three times; keep them
+// with the viewer's composition frames, as CC Wide Time does, if Pixel Motion Blur is slow.
+#[allow(clippy::too_many_arguments)]
+fn fill_pixel_motion(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    for i in 0..effects.len() {
+        let (angle, samples) = match &effects[i] {
+            e if !e.enabled || !e.is_valid() => continue,
+            crate::effects::EffectInstance {
+                effect: crate::effects::Effect::PixelMotionBlur { shutter_control, shutter_angle, shutter_samples, .. },
+                ..
+            } => {
+                if shutter_control == "automatic" {
+                    (comp.motion_blur.shutter_angle, comp.motion_blur.samples)
+                } else {
+                    (*shutter_angle, shutter_samples.floor() as u32)
+                }
+            }
+            _ => continue,
+        };
+        if angle <= 0.0 {
+            continue;
+        }
+        let mut upto = holder.clone();
+        upto.effects.truncate(i);
+        let mut inside = FrameLog::new(usize::MAX);
+        let mut drawn = |at: i32, cache: &mut CelCache| {
+            resolve_layer(project, comp, &upto, at, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
+                .map(|r| crate::layer_map::Map(r.source.clone()))
+        };
+        let before = drawn(frame - 1, cache);
+        let after = drawn(frame + 1, cache);
+        let here = if before.is_none() || after.is_none() { drawn(frame, cache) } else { None };
+        let pair = match (before, after, here) {
+            (Some(b), Some(a), _) => Some((b, a)),
+            (b, a, Some(h)) => Some((b.unwrap_or_else(|| h.clone()), a.unwrap_or(h))),
+            _ => None,
+        };
+        let mut said = Vec::new();
+        for d in inside.finish() {
+            if !said.contains(&d.id) {
+                said.push(d.id);
+                log.record(frame, holder.name.clone(), d);
+            }
+        }
+        if let crate::effects::Effect::PixelMotionBlur { frames, .. } = &mut effects[i].effect {
+            *frames = pair.map(|(b, a)| (b, a, angle, samples));
+        }
+    }
+}
+
+/// D-455: each switched-on Remove Grain's noise:/// D-455: each switched-on Remove Grain's noise: the holder at this frame with the effects before
 /// this one, measured whole (`grade::grain_levels`), so every tile and the card read the same
 /// number. Noise Reduction 0 removes nothing and is not measured. What the holder says on the way
 /// is said by the frame itself, so it is not said again here. D-470: each Contour Paint's palette

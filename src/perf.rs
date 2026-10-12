@@ -424,6 +424,7 @@ pub enum Stage {
     /// D-581: CC Force Motion Blur, its moments put together and laid on the layer; drawing
     /// them is timed as any drawing is.
     EffectForceMotionBlur,
+    EffectPixelMotionBlur,
     /// D-582: CC Rainfall, its drops drawn and laid on the layer.
     EffectCcRainfall,
     /// D-630: Wave World, its water run from the in point and drawn as a height map.
@@ -495,7 +496,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 244] = [
+    pub const ALL: [Stage; 245] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -707,6 +708,7 @@ impl Stage {
         Stage::EffectBlockLoad,
         Stage::EffectGlassMelt,
         Stage::EffectForceMotionBlur,
+        Stage::EffectPixelMotionBlur,
         Stage::EffectCcRainfall,
         Stage::EffectWaveWorld,
         Stage::EffectTimeDifference,
@@ -956,6 +958,7 @@ impl Stage {
             Stage::EffectBlockLoad => "effect: block load",
             Stage::EffectGlassMelt => "effect: glass melt",
             Stage::EffectForceMotionBlur => "effect: force motion blur",
+            Stage::EffectPixelMotionBlur => "effect: pixel motion blur",
             Stage::EffectCcRainfall => "effect: cc rainfall",
             Stage::EffectWaveWorld => "effect: wave world",
             Stage::EffectTimeDifference => "effect: time difference",

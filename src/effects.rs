@@ -1408,6 +1408,19 @@ pub enum Effect {
         native_motion_blur: String,
         picture: Option<crate::layer_map::Map>,
     },
+    /// D-650: after After Effects' Pixel Motion Blur (Time), its rule ours (`flow`, document
+    /// 21). `shutter_control`, `automatic` or `manual`; `shutter_angle`, 0 to 720 degrees;
+    /// `shutter_samples`, 2 to 64, taken whole below; `vector_detail`, 0 to 100. `frames` is not
+    /// a setting and is never saved: compose draws the holder at the frames before and after into
+    /// it, with the angle and the sample count the shutter control names
+    /// (`compose::fill_pixel_motion`).
+    PixelMotionBlur {
+        shutter_control: String,
+        shutter_angle: f64,
+        shutter_samples: f64,
+        vector_detail: f64,
+        frames: Option<(crate::layer_map::Map, crate::layer_map::Map, f64, u32)>,
+    },
     /// D-582: after CycoreFX's CC Rainfall (Simulation), its rule and its settings when added
     /// ours (`layer_fx::cc_rainfall`, document 21). `drops`, 0 to 50000, its whole part; `size`,
     /// 0 to 20 pixels; `scene_depth`, 0 to 20000 pixels; `speed`, 0 to 20000 pixels a second at
@@ -3821,6 +3834,7 @@ pub const GRADIENT_WIPE: &str = "core.gradient_wipe";
 pub const ECHO: &str = "core.echo";
 pub const CC_WIDE_TIME: &str = "core.cc_wide_time";
 pub const FORCE_MOTION_BLUR: &str = "core.force_motion_blur";
+pub const PIXEL_MOTION_BLUR: &str = "core.pixel_motion_blur";
 pub const CC_RAINFALL: &str = "core.cc_rainfall";
 pub const WAVE_WORLD: &str = "core.wave_world";
 pub const TIME_DIFFERENCE: &str = "core.time_difference";
@@ -6511,6 +6525,11 @@ impl Effect {
                 ("motion_blur_samples", vec![motion_blur_samples], 1.0, 64.0),
                 ("shutter_angle", vec![shutter_angle], 0.0, 720.0),
             ],
+            Effect::PixelMotionBlur { shutter_angle, shutter_samples, vector_detail, .. } => vec![
+                ("shutter_angle", vec![shutter_angle], 0.0, 720.0),
+                ("shutter_samples", vec![shutter_samples], 2.0, 64.0),
+                ("vector_detail", vec![vector_detail], 0.0, 100.0),
+            ],
             Effect::CcRainfall {
                 drops,
                 size,
@@ -7547,6 +7566,7 @@ impl Effect {
             Effect::Echo { .. } => "Echo",
             Effect::CcWideTime { .. } => "CC Wide Time",
             Effect::ForceMotionBlur { .. } => "CC Force Motion Blur",
+            Effect::PixelMotionBlur { .. } => "Pixel Motion Blur",
             Effect::CcRainfall { .. } => "CC Rainfall",
             Effect::WaveWorld { .. } => "Wave World",
             Effect::TimeDifference { .. } => "Time Difference",
@@ -7797,6 +7817,7 @@ impl Effect {
             Effect::Echo { .. } => ECHO,
             Effect::CcWideTime { .. } => CC_WIDE_TIME,
             Effect::ForceMotionBlur { .. } => FORCE_MOTION_BLUR,
+            Effect::PixelMotionBlur { .. } => PIXEL_MOTION_BLUR,
             Effect::CcRainfall { .. } => CC_RAINFALL,
             Effect::WaveWorld { .. } => WAVE_WORLD,
             Effect::TimeDifference { .. } => TIME_DIFFERENCE,
@@ -9847,6 +9868,9 @@ impl Effect {
             )),
             Effect::ForceMotionBlur { native_motion_blur, .. } if !["off", "on"].contains(&native_motion_blur.as_str()) => Some(format!(
                 "CC Force Motion Blur's native motion blur is \"off\" or \"on\", and this is \"{native_motion_blur}\"."
+            )),
+            Effect::PixelMotionBlur { shutter_control, .. } if !["automatic", "manual"].contains(&shutter_control.as_str()) => Some(format!(
+                "Pixel Motion Blur's shutter control is \"automatic\" or \"manual\", and this is \"{shutter_control}\"."
             )),
             Effect::CcRainfall { transfer_mode, .. } if !["composite", "lighten"].contains(&transfer_mode.as_str()) => Some(format!(
                 "CC Rainfall's transfer mode is \"composite\" or \"lighten\", and this is \"{transfer_mode}\"."
@@ -13147,6 +13171,24 @@ pub(crate) fn apply_stack_at(
                     crate::perf::time(crate::perf::Stage::EffectForceMotionBlur, || {
                         crate::layer_fx::lay(source, &picture.0, (ox, oy))
                     })
+                }
+            }
+            // D-650: the drawing-sized picture at the drawing's corner, smeared along the motion
+            // `flow` finds to the holder's pictures one frame before and after (compose drew them
+            // into `frames`), laid back as CC Wide Time's are. Angle 0, or no frames, leaves it.
+            Effect::PixelMotionBlur { vector_detail, frames, .. } => {
+                if let Some((before, after, angle, samples)) = frames {
+                    if *angle > 0.0 {
+                        crate::perf::time(crate::perf::Stage::EffectPixelMotionBlur, || {
+                            let size = (before.0.width(), before.0.height());
+                            let o = crate::layer_map::cut(source, (ox, oy), size);
+                            let tuning = crate::flow::Tuning::added(*vector_detail);
+                            let back = crate::flow::estimate(&o, &before.0, &tuning);
+                            let ahead = crate::flow::estimate(&o, &after.0, &tuning);
+                            let out = crate::flow::gather(&o, &back, &ahead, angle / 360.0, *samples);
+                            crate::layer_fx::lay(source, &out, (ox, oy))
+                        })
+                    }
                 }
             }
             // D-521: the target compose read at its offset; with none (no layer of its own on an

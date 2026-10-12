@@ -2270,6 +2270,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 }
             }
         }
+        Effect::PixelMotionBlur { shutter_control, shutter_angle, shutter_samples, vector_detail, .. } => {
+            params.insert("shutter_control".into(), J::from(shutter_control.as_str()));
+            params.insert("shutter_angle".into(), num(*shutter_angle));
+            params.insert("shutter_samples".into(), num(*shutter_samples));
+            params.insert("vector_detail".into(), num(*vector_detail));
+        }
         Effect::CcRainfall { color, transfer_mode, composite_with_original, drops, size, scene_depth, speed, wind, wind_variation, spread, opacity, ground_level, random_seed, .. } => {
             params.insert("drops".into(), num(*drops));
             params.insert("size".into(), num(*size));
@@ -5704,6 +5710,7 @@ fn parse_effect(
         crate::effects::ECHO,
         crate::effects::CC_WIDE_TIME,
         crate::effects::FORCE_MOTION_BLUR,
+        crate::effects::PIXEL_MOTION_BLUR,
         crate::effects::TIME_DIFFERENCE,
         crate::effects::CC_RAINFALL,
         crate::effects::WAVE_WORLD,
@@ -6669,6 +6676,13 @@ fn parse_effect(
             history: Vec::new(),
             fps: 0.0,
             grid_scale: 1.0,
+        }),
+        crate::effects::PIXEL_MOTION_BLUR => Some(crate::effects::Effect::PixelMotionBlur {
+            shutter_control: effect_word(params, "shutter_control", &at)?,
+            shutter_angle: effect_number(params, "shutter_angle", &at)?,
+            shutter_samples: effect_number(params, "shutter_samples", &at)?,
+            vector_detail: effect_number(params, "vector_detail", &at)?,
+            frames: None,
         }),
         crate::effects::CC_RAINFALL => Some(crate::effects::Effect::CcRainfall {
             drops: effect_number(params, "drops", &at)?,
