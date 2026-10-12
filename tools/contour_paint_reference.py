@@ -70,6 +70,11 @@ size of a pixel (1 at Full, D-259's fraction at Draft):
    (0, 1, 1) line through the cell's middle along the flow at the pixel nearest the middle (held
    in the picture), 0.4 of the cell long each way, laid on at that pixel's e times
    clamp(1 - d / px, 0, 1), d the distance from the pixel's centre to the line.
+   D-585: with `arrowheads` `on` each line has a head at its end along the flow t (the line's
+   middle plus 0.4 of the cell times t): two strokes from that end, 0.2 of the cell long, along
+   -t turned 30 degrees each way (cos 30 = 0.8660254037844386, sin 30 = 0.5); d is then the
+   distance to the nearest of the line and the two strokes. So Offset Flow Angles 180 turns the
+   heads to the other ends.
 
 Nothing happens with View `final_result`, Smear Iterations 0 and Draw Color Fills `none`.
 
@@ -79,10 +84,11 @@ Nothing happens with View `final_result`, Smear Iterations 0 and Draw Color Fill
 `median` or `match_to_nearest_custom_color` (D-584), `k_means`; `posterization_level` 2 to 32, 8;
 `low_strength` and `high_strength` 0 to 100, 0 and 100; `offset_flow_angles` -3600 to 3600, 0;
 `quantize_flow_angles` 0 to 90, 0; `edge_map_layer` D-189's word, ""; `colors` (D-584) D-87's
-list of up to eight `#rrggbb`, none, a file without it having none, not keyable. Every number
-keyable. Every value, range and constant here is chosen by this program; Freehand Flow
-Adjustments, the arrows' heads, keys on the custom colour set and the External Edge Map's
-placement are not built (gaps logged).
+list of up to eight `#rrggbb`, none, a file without it having none, not keyable; `arrowheads`
+(D-585) `off` or `on`, `on` when added, `off` for a file without it (so a file from before D-585
+draws as it did, D-304's way), written only when `on`, not keyable. Every number keyable. Every
+value, range and constant here is chosen by this program; Freehand Flow Adjustments, keys on the
+custom colour set and the External Edge Map's placement are not built (gaps logged).
 
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawings' 8-bit values, where the build works in single precision.
@@ -278,8 +284,12 @@ def custom(colors):
     return [[int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)] for h in colors]
 
 
+C30 = 0.8660254037844386
+
+
 def edge_view(field, s, w, h, px=1.0):
     cell = 12 * px
+    heads = s["arrowheads"] == "on"
     out = []
     for y in range(h):
         for x in range(w):
@@ -293,6 +303,12 @@ def edge_view(field, s, w, h, px=1.0):
                 vx, vy = x + 0.5 - cx, y + 0.5 - cy
                 along_ = min(max(vx * tx + vy * ty, -half), half)
                 d = sqrt((vx - along_ * tx) ** 2 + (vy - along_ * ty) ** 2)
+                if heads:
+                    wx, wy = vx - half * tx, vy - half * ty
+                    for sg in (1.0, -1.0):
+                        bx, by = -tx * C30 + ty * sg * 0.5, -tx * sg * 0.5 - ty * C30
+                        a = min(max(wx * bx + wy * by, 0.0), 0.2 * cell)
+                        d = min(d, sqrt((wx - a * bx) ** 2 + (wy - a * by) ** 2))
                 cov = e * min(max(1 - d / px, 0.0), 1.0)
                 px_ = [g + cov * (c - g) for c in (0.0, 1.0, 1.0)] + [1.0]
             out.append(px_)
@@ -364,6 +380,7 @@ def settings(c, frame):
     """Each number held inside its range after it is worked out (document 20)."""
     s = {k: value_at(c[k], frame) for k in NAMES}
     s["colors"] = c.get("colors", [])
+    s["arrowheads"] = c.get("arrowheads", "off")
     for k, (lo, hi) in RANGES.items():
         s[k] = min(hi, max(lo, s[k]))
     return s
@@ -467,13 +484,35 @@ CASES.update({
                        case(colors=FOUR, **FILLS), (0,)),
 })
 
+# D-585: the arrows' heads on the Edge Map view.
+CASES.update({
+    "FX-CONTOUR-042": ("View Edge Map with Arrowheads on, as added: FX-CONTOUR-014's two cyan "
+                       "lines, each with a head of two short strokes at its end along the flow.",
+                       case(view="edge_map", arrowheads="on"), (0,)),
+    "FX-CONTOUR-043": ("The same with Arrowheads off, written: FX-CONTOUR-014 exactly, as a file "
+                       "without the setting.",
+                       case(view="edge_map", arrowheads="off"), (0,)),
+    "FX-CONTOUR-044": ("Arrowheads on, Offset Flow Angles 180: the same lines, the heads at their "
+                       "other ends.",
+                       case(view="edge_map", arrowheads="on", offset_flow_angles=180), (0,)),
+    "FX-CONTOUR-045": ("Arrowheads on with the ramp as the External Edge Map: FX-CONTOUR-018's "
+                       "line straight down the first cell, its head where the line meets the "
+                       "drawing's lower edge.",
+                       case(view="edge_map", edge_map_layer="ramp", arrowheads="on"), (0,)),
+    "FX-CONTOUR-046": ("Arrowheads on with View Final Result: the heads belong to the Edge Map, "
+                       "so FX-CONTOUR-001.",
+                       case(arrowheads="on"), (0,)),
+})
+
 INVALID = {
     "FX-CONTOUR-023": ("Stylization 120, above 100.", case(stylization=120)),
     "FX-CONTOUR-024": ("Smear Iterations -1, below 0.", case(smear_iterations=-1)),
     "FX-CONTOUR-025": ("A View written \"arrows\".", case(view="arrows")),
     "FX-CONTOUR-026": ("Draw Color Fills written \"under\".", case(draw_color_fills="under")),
-    "FX-CONTOUR-027": ("Reduction Method \"custom\", After Effects' Match to Nearest Custom "
-                       "Color, which is not built.", case(reduction_method="custom")),
+    "FX-CONTOUR-027": ("Reduction Method \"custom\", not one of the method's words (After "
+                       "Effects' Match to Nearest Custom Color is written "
+                       "\"match_to_nearest_custom_color\", D-584).",
+                       case(reduction_method="custom")),
     "FX-CONTOUR-028": ("Posterization Level 1, below 2.", case(posterization_level=1)),
     "FX-CONTOUR-029": ("Quantize Flow Angles 100, past 90.", case(quantize_flow_angles=100)),
     "FX-CONTOUR-030": ("An External Edge Map written as the number 3, not a word.",
@@ -487,6 +526,7 @@ INVALID = {
                        case(colors=FOUR + FOUR + ["#000000"], **CUSTOM_FILLS)),
     "FX-CONTOUR-041": ("A custom colour written \"red\", a word.",
                        case(colors=["red"], **CUSTOM_FILLS)),
+    "FX-CONTOUR-047": ("Arrowheads written \"yes\".", case(view="edge_map", arrowheads="yes")),
 }
 
 
@@ -495,6 +535,8 @@ def effect(c):
     parameters = {k: setting_json(c[k]) for k in NAMES}
     if "colors" in c:
         parameters["colors"] = c["colors"]
+    if "arrowheads" in c:
+        parameters["arrowheads"] = c["arrowheads"]
     return {"instance_id": "fx-1", "type_id": "core.contour_paint", "enabled": True,
             "parameters": parameters}
 
@@ -618,6 +660,15 @@ def check(expected):
     assert all(enc(t37[at(x, y)]) == (255, 0, 0) for x in range(1, 6) for y in range(2, 8))
     assert all(enc(t37[at(x, y)]) == (0, 0, 255) for x in range(9, 12) for y in range(3, 7))
     assert c["FX-CONTOUR-038"]["0"] == c["FX-CONTOUR-010"]["0"]
+    # D-585.
+    t42, t44, t45 = c["FX-CONTOUR-042"]["0"], c["FX-CONTOUR-044"]["0"], c["FX-CONTOUR-045"]["0"]
+    cyanish = lambda px: {i for i, p in enumerate(px) if p[0] < p[1] - 1e-9}  # noqa: E731
+    assert cyanish(edge) < cyanish(t42), "the heads add cyan, the lines kept"
+    assert all(p == q for i, (p, q) in enumerate(zip(t42, edge)) if i not in cyanish(t42))
+    assert c["FX-CONTOUR-043"]["0"] == edge
+    assert t44 != t42 and cyanish(edge) <= cyanish(t44)
+    assert cyanish(eighteen) < cyanish(t45)
+    assert c["FX-CONTOUR-046"]["0"] == one
     print("checked")
 
 
