@@ -3,9 +3,9 @@
 D-400 added `core.shadow_highlight`, After Effects' Shadow/Highlight, without three of its
 settings: Midtone Contrast, Black Clip and White Clip (gaps in document 14).
 `tools/shadow_highlight_reference.py` is D-400's rule and is not changed. D-563 adds the three.
-Adobe does not publish what they do, and its pages could not be read (every request refused).
-What is known is only what the panel and the manuals of the two programs that have the effect
-say in words: Midtone Contrast is the contrast of the middle tones, 0 leaving them alone; the
+Adobe does not publish what they do, and no page was read anew for D-563. What is known is
+only what the panel and the manuals of the two programs that have the effect say in words,
+as recalled: Midtone Contrast is the contrast of the middle tones, 0 leaving them alone; the
 clips say how much of the darkest and lightest parts are clipped to the new extreme shadow and
 highlight colours in the picture, a larger value giving more contrast. The rule below is this
 program's own; nothing is ported.

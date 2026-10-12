@@ -211506,3 +211506,49 @@ FX-BTEXT-023 (`fx_btext_023.json`): Fill colour written "white". The file is rea
 FX-BTEXT-024 (`fx_btext_024.json`): Alignment written "justify". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0.
 
 FX-BTEXT-025 (`fx_btext_025.json`): Size keyed to 3000 at frame 4, past 2000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0.
+
+### Shadow/Highlight's Midtone Contrast and Black/White Clip (D-563)
+
+Shadow/Highlight (`core.shadow_highlight`) with Midtone Contrast, Black Clip and White Clip, after After Effects' Shadow/Highlight (B-443, EFFECTS.md row 125). Every case is a composition 16 pixels by 10 holding Broadcast Safe's drawing, as D-400's are; the media are in `Fixtures/shadow_highlight_clip/media/`. `tools/shadow_highlight_clip_reference.py` works the expected frames, `Fixtures/shadow_highlight_clip/expected_shadow_highlight_clip.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SHCLIP-001 (`fx_shclip_001.json`): A file written before D-563, without the three settings, at Shadow/Highlight's starting settings: drawn exactly as FX-SHHI-001. Frames 0.
+
+FX-SHCLIP-002 (`fx_shclip_002.json`): The three written at 0: the same as FX-SHCLIP-001. Frames 0.
+
+FX-SHCLIP-003 (`fx_shclip_003.json`): Midtone contrast 50 after the starting shadow lift: lightnesses above the middle lighter, below it darker; black and white stay. Frames 0.
+
+FX-SHCLIP-004 (`fx_shclip_004.json`): Midtone contrast 100: further than FX-SHCLIP-003. Frames 0.
+
+FX-SHCLIP-005 (`fx_shclip_005.json`): Midtone contrast -50: the middle tones drawn together toward the middle. Frames 0.
+
+FX-SHCLIP-006 (`fx_shclip_006.json`): Midtone contrast -100: further than FX-SHCLIP-005. Frames 0.
+
+FX-SHCLIP-007 (`fx_shclip_007.json`): Midtone contrast 60 with both amounts 0: it works alone, with no lift. Frames 0.
+
+FX-SHCLIP-008 (`fx_shclip_008.json`): Black clip 20: the darkest fifth of the picture pushed to black. Frames 0.
+
+FX-SHCLIP-009 (`fx_shclip_009.json`): White clip 10: the lightest tenth pushed to white. Frames 0.
+
+FX-SHCLIP-010 (`fx_shclip_010.json`): Black clip 15 and white clip 15 together: both ends. Frames 0.
+
+FX-SHCLIP-011 (`fx_shclip_011.json`): Both clips 12 with both amounts 0: the drawing stretched by its own count alone. Frames 0.
+
+FX-SHCLIP-012 (`fx_shclip_012.json`): Both clips 0.01, After Effects' starting numbers as recalled: the drawing's own black and white are more than 0.01 per cent of it, so nothing is clipped and it is drawn as FX-SHCLIP-001. Frames 0.
+
+FX-SHCLIP-013 (`fx_shclip_013.json`): Shadow 70, highlight 30, midtone contrast 40, both clips 10: every step in turn. Frames 0.
+
+FX-SHCLIP-014 (`fx_shclip_014.json`): Midtone contrast keyed from -100 at frame 0 to 100 at frame 4, linear: frame 0 as FX-SHCLIP-006, frame 2 as FX-SHCLIP-002, frame 4 as FX-SHCLIP-004. Frames 0, 2, 4.
+
+FX-SHCLIP-015 (`fx_shclip_015.json`): Black clip keyed from 0 at frame 0 to 40 at frame 4, linear: frame 0 as FX-SHCLIP-002, frame 2 as FX-SHCLIP-008, frame 4 further. Frames 0, 2, 4.
+
+FX-SHCLIP-016 (`fx_shclip_016.json`): FX-SHCLIP-013 moved three pixels right: the count is of the whole layer, so the same, moved. Frames 0, 3.
+
+FX-SHCLIP-017 (`fx_shclip_017.json`): Both clips 50: the black bin is at or above the white bin, so the clips do nothing and it is drawn as FX-SHCLIP-001. Frames 0.
+
+FX-SHCLIP-018 (`fx_shclip_018.json`): Midtone contrast 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHCLIP-019 (`fx_shclip_019.json`): Midtone contrast -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHCLIP-020 (`fx_shclip_020.json`): Black clip -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SHCLIP-021 (`fx_shclip_021.json`): White clip 51, above 50. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
