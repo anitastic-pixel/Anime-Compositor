@@ -2802,8 +2802,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             offset_flow_angles,
             quantize_flow_angles,
             edge_map_layer,
+            colors,
             ..
         } => {
+            // D-584: no custom colours are not written, so a file from before them saves the same.
+            if !colors.is_empty() {
+                params.insert("colors".into(), J::Array(colors.iter().map(|c| J::from(c.as_str())).collect()));
+            }
             params.insert("view".into(), J::from(view.as_str()));
             params.insert("stylization".into(), num(*stylization));
             params.insert("cleanliness".into(), num(*cleanliness));
@@ -6965,6 +6970,11 @@ fn parse_effect(
             offset_flow_angles: effect_number(params, "offset_flow_angles", &at)?,
             quantize_flow_angles: effect_number(params, "quantize_flow_angles", &at)?,
             edge_map_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "edge_map_layer")?.clone(),
+            // D-584: a file without them is from before them, and has none.
+            colors: match params.and_then(|p| p.get("colors")) {
+                Some(_) => effect_colors(params, &at)?,
+                None => Vec::new(),
+            },
             px: 1.0,
             palette: None,
             map: None,

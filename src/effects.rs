@@ -2965,9 +2965,10 @@ pub enum Effect {
     /// neighbours, document 21): `view`, "final_result" or "edge_map"; `stylization`,
     /// `cleanliness`, `low_strength`, `high_strength`, 0 to 100; `smear_iterations`, 0 to 100;
     /// `apply_to_alpha`, "off" or "on"; `draw_color_fills`, "none", "over_smeared_image" or
-    /// "only"; `reduction_method`, "k_means" or "median"; `posterization_level`, 2 to 32;
-    /// `offset_flow_angles`, -3600 to 3600 degrees; `quantize_flow_angles`, 0 to 90 degrees;
-    /// `edge_map_layer`, D-189's layer setting, centred, "" for none. `px` (D-259's pixel),
+    /// "only"; `reduction_method`, "k_means", "median" or (D-584) "match_to_nearest_custom_color";
+    /// `posterization_level`, 2 to 32; `offset_flow_angles`, -3600 to 3600 degrees;
+    /// `quantize_flow_angles`, 0 to 90 degrees; `edge_map_layer`, D-189's layer setting, centred,
+    /// "" for none; `colors` (D-584), D-87's chosen colours, the custom set. `px` (D-259's pixel),
     /// `palette` (compose's, from the whole drawing) and `map` are not settings and are never
     /// saved.
     ContourPaint {
@@ -2984,6 +2985,7 @@ pub enum Effect {
         offset_flow_angles: f64,
         quantize_flow_angles: f64,
         edge_map_layer: serde_json::Value,
+        colors: Vec<String>,
         px: f64,
         palette: Option<Vec<[f64; 3]>>,
         map: Option<crate::layer_map::Map>,
@@ -4053,6 +4055,8 @@ pub const STROBE_LIGHT_OPERATORS: [&str; 12] =
 pub const TEXTURIZE: &str = "core.texturize";
 pub const CHANNEL_THRESHOLD: &str = "core.channel_threshold";
 pub const THRESHOLD_RGB: &str = "core.threshold_rgb";
+/// D-584: Contour Paint's Match to Nearest Custom Color.
+pub const CONTOUR_CUSTOM: &str = "match_to_nearest_custom_color";
 pub const CONTOUR_PAINT: &str = "core.contour_paint";
 pub const CHANNEL_THRESHOLD_CHANNELS: [&str; 4] = ["luminance", "rgb", "saturation", "alpha"];
 /// D-464: Repeat Tile's ways of laying the copies, After Effects' sixteen in its order.
@@ -9019,7 +9023,7 @@ impl Effect {
                 .into_iter()
                 .find(|(_, v)| !["off", "on"].contains(&v.as_str()))
                 .map(|(name, v)| format!("Threshold RGB's invert {name} is \"off\" or \"on\", and this is \"{v}\".")),
-            Effect::ContourPaint { view, apply_to_alpha, draw_color_fills, reduction_method, edge_map_layer, .. } => {
+            Effect::ContourPaint { view, apply_to_alpha, draw_color_fills, reduction_method, edge_map_layer, colors, .. } => {
                 if !["final_result", "edge_map"].contains(&view.as_str()) {
                     Some(format!("Contour Paint's view is \"final_result\" or \"edge_map\", and this is \"{view}\"."))
                 } else if !["off", "on"].contains(&apply_to_alpha.as_str()) {
@@ -9028,12 +9032,14 @@ impl Effect {
                     Some(format!(
                         "Contour Paint's draw color fills is \"none\", \"over_smeared_image\" or \"only\", and this is \"{draw_color_fills}\"."
                     ))
-                } else if !["k_means", "median"].contains(&reduction_method.as_str()) {
-                    Some(format!("Contour Paint's reduction method is \"k_means\" or \"median\", and this is \"{reduction_method}\"."))
+                } else if !["k_means", "median", CONTOUR_CUSTOM].contains(&reduction_method.as_str()) {
+                    Some(format!(
+                        "Contour Paint's reduction method is \"k_means\", \"median\" or \"{CONTOUR_CUSTOM}\", and this is \"{reduction_method}\"."
+                    ))
                 } else if !edge_map_layer.is_string() {
                     Some(format!("Contour Paint's external edge map is the name of a layer of this composition, and this is {edge_map_layer}."))
                 } else {
-                    None
+                    chosen(colors)
                 }
             }
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
@@ -11817,6 +11823,7 @@ pub(crate) fn apply_stack_at(
                 high_strength,
                 offset_flow_angles,
                 quantize_flow_angles,
+                colors,
                 px,
                 palette,
                 map,
@@ -11835,9 +11842,11 @@ pub(crate) fn apply_stack_at(
                     return;
                 }
                 let fixed = map.map(|_| flow(source));
+                let perceptual = reduction_method == CONTOUR_CUSTOM;
                 let palette = match (draw_color_fills.as_str(), palette) {
                     ("none", _) => Vec::new(),
                     (_, Some(p)) => p.clone(),
+                    _ if perceptual => crate::layer_fx::contour_custom(colors),
                     _ => crate::layer_fx::contour_palette(source, posterization_level.floor() as usize, reduction_method == "k_means"),
                 };
                 let weights = crate::layer_fx::contour_weights(*stylization, *px);
@@ -11848,7 +11857,7 @@ pub(crate) fn apply_stack_at(
                 if !palette.is_empty() {
                     let field = fixed.unwrap_or_else(|| flow(source));
                     let range = (*low_strength, *high_strength);
-                    crate::layer_fx::contour_fill(source, &field, &palette, range, draw_color_fills == "only");
+                    crate::layer_fx::contour_fill(source, &field, &palette, range, draw_color_fills == "only", perceptual);
                 }
             }),
             // D-467: the texture compose read for this frame; with none, nothing happens.

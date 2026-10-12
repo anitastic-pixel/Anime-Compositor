@@ -5652,7 +5652,8 @@ fn cpsmear(@builtin(global_invocation_id) id: vec3<u32>) {
 
 // D-470, layer_fx::contour_fill: `input` filled from the palette where the flow strength
 // (`other`'s blue) times 100 lies from k[0] to k[1]. k[2] the palette's n colours, then each
-// encoded, then each linear; F.flag 1 clears elsewhere.
+// encoded, then each linear; F.flag bit 1 clears elsewhere. D-584: with bit 2 each is matched in
+// CIE L*a*b* (layer_fx::contour_lab), the n keys given in it.
 @compute @workgroup_size(16, 16)
 fn cpfill(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -5664,9 +5665,16 @@ fn cpfill(@builtin(global_invocation_id) id: vec3<u32>) {
     let v = 100.0lf * f64(textureLoad(other, id.xy, 0).z);
     if a > 0.0lf && k[0] <= v && v <= k[1] {
         let n = u32(k[2]);
-        let r = to_srgb(clamp(quotient(f64(p.x), a), 0.0lf, 1.0lf));
-        let g = to_srgb(clamp(quotient(f64(p.y), a), 0.0lf, 1.0lf));
-        let b = to_srgb(clamp(quotient(f64(p.z), a), 0.0lf, 1.0lf));
+        let straight = vec3(clamp(quotient(f64(p.x), a), 0.0lf, 1.0lf), clamp(quotient(f64(p.y), a), 0.0lf, 1.0lf), clamp(quotient(f64(p.z), a), 0.0lf, 1.0lf));
+        var r = to_srgb(straight.x);
+        var g = to_srgb(straight.y);
+        var b = to_srgb(straight.z);
+        if (F.flag & 2u) != 0u {
+            let l = sh_lab(straight);
+            r = 100.0lf * l.x;
+            g = 128.0lf * l.y;
+            b = 128.0lf * l.z;
+        }
         var best = 0u;
         var near = 0.0lf;
         for (var j = 0u; j < n; j++) {
@@ -5681,7 +5689,7 @@ fn cpfill(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         let base = 3u + 3u * n + 3u * best;
         textureStore(output, id.xy, vec4(f32(k[base] * a), f32(k[base + 1u] * a), f32(k[base + 2u] * a), p.w));
-    } else if F.flag == 1u {
+    } else if (F.flag & 1u) != 0u {
         textureStore(output, id.xy, vec4(0.0));
     } else {
         textureStore(output, id.xy, p);
@@ -13377,6 +13385,7 @@ impl Gpu {
                 smear_iterations,
                 apply_to_alpha,
                 draw_color_fills,
+                reduction_method,
                 low_strength,
                 high_strength,
                 offset_flow_angles,
@@ -13428,10 +13437,11 @@ impl Gpu {
                     let palette = palette.as_ref().expect("compose fills Contour Paint's palette");
                     if draw_color_fills != "none" && !palette.is_empty() {
                         let field = fixed.unwrap_or_else(|| flow(steps, &cur));
+                        let perceptual = reduction_method == crate::effects::CONTOUR_CUSTOM;
                         let mut k = vec![*low_strength, *high_strength, palette.len() as f64];
-                        k.extend(palette.iter().flatten());
+                        k.extend(palette.iter().flat_map(|&q| if perceptual { crate::layer_fx::contour_lab(q) } else { q }));
                         k.extend(palette.iter().flat_map(|q| q.map(crate::grade::to_linear)));
-                        let p = FxParams { flag: (draw_color_fills == "only") as u32, ..Default::default() };
+                        let p = FxParams { flag: (draw_color_fills == "only") as u32 | (perceptual as u32) << 1, ..Default::default() };
                         let out = self.scratch("D-470 fills", w, h);
                         self.fx_step(steps, &passes.cpfill, p, Some(&cur), Some(&out), Some(&k), Some(&field), none, tiles(w, h));
                         cur = out;

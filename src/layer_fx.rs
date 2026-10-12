@@ -3549,16 +3549,30 @@ pub(crate) fn contour_palette(source: &WorkingBuffer, levels: usize, k_means: bo
     palette
 }
 
+/// D-584: Contour Paint's custom colours as its palette, each `#rrggbb` its encoded colour.
+pub(crate) fn contour_custom(colors: &[String]) -> Vec<[f64; 3]> {
+    colors.iter().filter_map(|c| crate::selective_blur::parse_hex(c)).map(|b| b.map(|v| v as f64 / 255.0)).collect()
+}
+
+/// D-584: an encoded colour as unscaled CIE L*a*b*, D-400's, for CIE76's colour difference.
+pub(crate) fn contour_lab(v: [f64; 3]) -> [f64; 3] {
+    let [l, p, q] = crate::grade::shadow_highlight_lab(v.map(crate::grade::to_linear));
+    [100.0 * l, 128.0 * p, 128.0 * q]
+}
+
 /// D-470: Contour Paint's fills (document 21): each covered pixel whose flow strength times 100
 /// lies from `low` to `high` takes the palette colour nearest its encoded straight colour, at its
-/// covering; elsewhere it is kept, or cleared with `only`.
-pub(crate) fn contour_fill(source: &mut WorkingBuffer, field: &[[f64; 3]], palette: &[[f64; 3]], (low, high): (f64, f64), only: bool) {
+/// covering; elsewhere it is kept, or cleared with `only`. D-584: `perceptual`, nearest in CIE
+/// L*a*b* ([`contour_lab`]) instead.
+pub(crate) fn contour_fill(source: &mut WorkingBuffer, field: &[[f64; 3]], palette: &[[f64; 3]], (low, high): (f64, f64), only: bool, perceptual: bool) {
     let linear: Vec<[f64; 3]> = palette.iter().map(|q| q.map(crate::grade::to_linear)).collect();
+    let key = |v: [f64; 3]| if perceptual { contour_lab(v) } else { v };
+    let keys: Vec<[f64; 3]> = palette.iter().map(|&q| key(q)).collect();
     source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
         let a = px[3] as f64;
         let v = 100.0 * field[i][2];
         if a > 0.0 && low <= v && v <= high {
-            let q = linear[contour_nearest(palette, &contour_encoded(px, a))];
+            let q = linear[contour_nearest(&keys, &key(contour_encoded(px, a)))];
             for c in 0..3 {
                 px[c] = (q[c] * a) as f32;
             }

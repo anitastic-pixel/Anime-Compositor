@@ -3920,12 +3920,15 @@ fn fill_noise(
             let mut inside = FrameLog::new(usize::MAX);
             resolve_layer(project, comp, &upto, frame, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
         };
-        if let crate::effects::Effect::ContourPaint { view, draw_color_fills, reduction_method, posterization_level, .. } = &effects[i].effect {
+        if let crate::effects::Effect::ContourPaint { view, draw_color_fills, reduction_method, posterization_level, colors, .. } = &effects[i].effect {
             if !effects[i].enabled || !effects[i].is_valid() {
                 continue;
             }
             let made = if view == "edge_map" || draw_color_fills == "none" {
                 Vec::new()
+            } else if reduction_method == crate::effects::CONTOUR_CUSTOM {
+                // D-584: the custom colours, whatever the drawing.
+                crate::layer_fx::contour_custom(colors)
             } else {
                 let (levels, k_means) = (posterization_level.floor() as usize, reduction_method == "k_means");
                 drawn(cache).map_or_else(Vec::new, |p| crate::layer_fx::contour_palette(&p.source, levels, k_means))

@@ -4234,6 +4234,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             offset_flow_angles: 0.0,
             quantize_flow_angles: 0.0,
             edge_map_layer: serde_json::Value::from(""),
+            colors: Vec::new(),
             px: 1.0,
             palette: None,
             map: None,
@@ -6781,6 +6782,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             offset_flow_angles: number("offset_flow_angles")?,
             quantize_flow_angles: number("quantize_flow_angles")?,
             edge_map_layer: serde_json::Value::from(parameter(query, "map_layer").unwrap_or_default().trim()),
+            // D-584: the custom colours as D-87's chosen ones; none when the command does not say.
+            colors: if parameter(query, "colors").is_some() { colors()? } else { Vec::new() },
             px: 1.0,
             palette: None,
             map: None,
