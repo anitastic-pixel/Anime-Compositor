@@ -212042,3 +212042,149 @@ FX-CURL-058 (`fx_curl_058.json`): Source Mapping "stretch", not fill or center. 
 FX-CURL-059 (`fx_curl_059.json`): Mirror at Edge "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CURL-060 (`fx_curl_060.json`): Source Layer 3, a number and not a layer's word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Space (D-610)
+
+Particle Space (`core.particle_space`), the particle engine's first effect (P0-6, B-490), after the purpose of CycoreFX's CC Particle World (EFFECTS.md, Simulation), the rules ours. Every case is a project of one composition 16 by 10 at 24 frames a second, with the drawing `art` (Broadcast Colors' picture, a transparent first column and a half-covered last one) carrying the effect; FX-PSPACE-045 to 049 add a composition camera. `tools/particle_space_reference.py` works the expected frames, `Fixtures/particle_space/expected_particle_space.json`, tolerance 2e-5, and for the cases marked below the particles alive at one frame, each its number, birth, place and speed, `Fixtures/particle_space/particles_particle_space.json`, tolerance 1e-7; the rule is in document 21 and document 20 (no state carried from frame to frame).
+
+FX-PSPACE-001 (`fx_pspace_001.json`): The settings as they start, at frames 0, 12 and 24: nothing at frame 0 (the first particle is born 0.06 of a frame after it), then 200 a second thrown out every way from the middle as faint yellow-to-red streaks, falling a little. Frames 0, 12, 24.
+
+FX-PSPACE-002 (`fx_pspace_002.json`): One disc, still, seen close: a round dot about 4.6 pixels across, its colour a fifth of the way from yellow to red, fully covering at the centre (Max Opacity 100). Frames 20.
+
+FX-PSPACE-003 (`fx_pspace_003.json`): The same particle as a Faded Sphere: soft, fading to nothing at its edge. Frames 20.
+
+FX-PSPACE-004 (`fx_pspace_004.json`): As a Shaded Sphere: lit from the upper right and in front, darker at its lower left. Frames 20.
+
+FX-PSPACE-005 (`fx_pspace_005.json`): As a Bubble: a lit rim with a nearly clear middle. Frames 20.
+
+FX-PSPACE-006 (`fx_pspace_006.json`): A Disc with Volume Shade 60: lit, but less than the Shaded Sphere. Frames 20.
+
+FX-PSPACE-007 (`fx_pspace_007.json`): A Shaded Sphere lit from 200 degrees and low (height 10): its bright side moves to the bottom. Frames 20.
+
+FX-PSPACE-008 (`fx_pspace_008.json`): Death Size 2: the disc a fifth of the way from size 10 to 2, so smaller than FX-PSPACE-002. Frames 20.
+
+FX-PSPACE-009 (`fx_pspace_009.json`): A tiny disc, size 1 (under a pixel): drawn 1.4 pixels across and fainter by its true size. Frames 20.
+
+FX-PSPACE-010 (`fx_pspace_010.json`): Size Variation 80 on a spread of still discs: each its own size. Frames 20.
+
+FX-PSPACE-011 (`fx_pspace_011.json`): Birth and death colours blue to green. Frames 20.
+
+FX-PSPACE-012 (`fx_pspace_012.json`): Origin to Death, the producer over the yellow column: the disc starts the drawing's yellow under it and goes towards red. Frames 20.
+
+FX-PSPACE-013 (`fx_pspace_013.json`): Birth to Origin, over the blue column. Frames 20.
+
+FX-PSPACE-014 (`fx_pspace_014.json`): Origin Constant, over the clear first column: black. Frames 20.
+
+FX-PSPACE-015 (`fx_pspace_015.json`): Origin Constant over the half-covered last column: its yellow, not darkened by the half covering. Frames 20.
+
+FX-PSPACE-016 (`fx_pspace_016.json`): Custom with white, yellow, orange, red and near-black: at a fifth of its life, between the first two (white and yellow). Frames 20.
+
+FX-PSPACE-017 (`fx_pspace_017.json`): Two overlapping discs, Composite: the nearer one over the farther. Frames 20.
+
+FX-PSPACE-018 (`fx_pspace_018.json`): The two, Screen: brighter where they overlap, neither over the other. Frames 20.
+
+FX-PSPACE-019 (`fx_pspace_019.json`): The two, Add: the overlap summed. Frames 20.
+
+FX-PSPACE-020 (`fx_pspace_020.json`): The two with Composite With Original on: over the drawing. Frames 20.
+
+FX-PSPACE-021 (`fx_pspace_021.json`): Depth Cue Fade, distance 3: the particle 2 units away fades to a third. Frames 20.
+
+FX-PSPACE-022 (`fx_pspace_022.json`): Depth Cue Fog towards blue, distance 3: two thirds of the way to blue. Frames 20.
+
+FX-PSPACE-023 (`fx_pspace_023.json`): A spread of still shaded spheres at many depths: nearer ones larger and over farther ones. Frames 20.
+
+FX-PSPACE-024 (`fx_pspace_024.json`): A burst of discs falling: Explosive with gravity, at frames 6, 12, 24 and 40. Frame 40 drawn alone is the same as after frames 0 to 39. Frames 6, 12, 24, 40. Particles at frame 12: 50.
+
+FX-PSPACE-025 (`fx_pspace_025.json`): Resistance 3: the burst slows and stays tighter. Frames 12, 24. Particles at frame 24: 100.
+
+FX-PSPACE-026 (`fx_pspace_026.json`): Direction Axis, Extra Angle 30: a jet upwards within 15 degrees. Frames 12, 24.
+
+FX-PSPACE-027 (`fx_pspace_027.json`): Cone Axis, 60 degrees: a hollow cone upwards. Frames 12, 24.
+
+FX-PSPACE-028 (`fx_pspace_028.json`): Viscous: Explosive held back hard. Frames 12, 24.
+
+FX-PSPACE-029 (`fx_pspace_029.json`): Twirl: swirling round the upright axis through the producer. Frames 12, 24. Particles at frame 12: 50.
+
+FX-PSPACE-030 (`fx_pspace_030.json`): Twirly: each particle swirling by its own amount. Frames 12, 24.
+
+FX-PSPACE-031 (`fx_pspace_031.json`): Vortex: swirling and pulled in to the axis. Frames 12, 24. Particles at frame 24: 100.
+
+FX-PSPACE-032 (`fx_pspace_032.json`): Fire: rising against gravity, narrowing and flickering. Frames 12, 24. Particles at frame 24: 6.
+
+FX-PSPACE-033 (`fx_pspace_033.json`): Jet Sideways: out flat round the axis. Frames 12, 24.
+
+FX-PSPACE-034 (`fx_pspace_034.json`): Fractal Omni: Explosive in the turbulence. Frames 12, 24.
+
+FX-PSPACE-035 (`fx_pspace_035.json`): Fractal Uni: Direction Axis in the turbulence. Frames 12, 24.
+
+FX-PSPACE-036 (`fx_pspace_036.json`): Turbulence 3, Scale 0.5, Evolution 2 on Explosive. Frames 12, 24. Particles at frame 24: 6.
+
+FX-PSPACE-037 (`fx_pspace_037.json`): Wind 1.5 to the right: the burst drifts right. Frames 12, 24.
+
+FX-PSPACE-038 (`fx_pspace_038.json`): Gravity Vector to the right: falling sideways. Frames 12, 24.
+
+FX-PSPACE-039 (`fx_pspace_039.json`): Inherit Velocity 100 with the producer keyed across: the particles carry its motion. Frames 12, 24. Particles at frame 24: 100.
+
+FX-PSPACE-040 (`fx_pspace_040.json`): Floor Bounce at 0.1, Bounciness 60, Random 30, Spread 50: the burst lands and hops. Frames 12, 24. Particles at frame 24: 100.
+
+FX-PSPACE-041 (`fx_pspace_041.json`): Floor Ice: the burst lands and slides. Frames 12, 24. Particles at frame 24: 100.
+
+FX-PSPACE-042 (`fx_pspace_042.json`): Floor Glue: the burst lands and stays. Frames 12, 24. Particles at frame 24: 100.
+
+FX-PSPACE-043 (`fx_pspace_043.json`): The effect camera turned 60 degrees about Y and 20 about X: the spread seen from the side and above. Frames 20.
+
+FX-PSPACE-044 (`fx_pspace_044.json`): The effect camera 1 unit away with a 100 degree lens. Frames 20.
+
+FX-PSPACE-045 (`fx_pspace_045.json`): The composition's own camera, as added: the spread drawn through it, nearer particles larger and spread wider. Frames 20.
+
+FX-PSPACE-046 (`fx_pspace_046.json`): The composition camera moved 3 pixels left: the layer moves right on screen, and the particles off its plane move by more or less than it. Frames 20.
+
+FX-PSPACE-047 (`fx_pspace_047.json`): The composition camera dollied in with its lens widened to match (depth -12, zoom 12): the layer's plane unchanged, the depth stronger. Frames 20.
+
+FX-PSPACE-048 (`fx_pspace_048.json`): FX-PSPACE-045 with the layer moved 3 pixels right. Frames 20.
+
+FX-PSPACE-049 (`fx_pspace_049.json`): The camera dollied to 2 pixels from the plane: the particles nearer than it, behind the camera, are not drawn (4 of the 17). Frames 20.
+
+FX-PSPACE-050 (`fx_pspace_050.json`): Birth Rate keyed from 0 at frame 0 to 0.5 at frame 20: births start slowly and quicken. Frames 10, 20, 30. Particles at frame 30: 42.
+
+FX-PSPACE-051 (`fx_pspace_051.json`): Velocity keyed from 0.2 to 1 over frames 0 to 20: each particle keeps the speed it was born with. Frames 10, 20.
+
+FX-PSPACE-052 (`fx_pspace_052.json`): Gravity keyed 0 to 3 over frames 0 to 24: every particle feels it when it changes. Frames 12, 24. Particles at frame 24: 100.
+
+FX-PSPACE-053 (`fx_pspace_053.json`): FX-PSPACE-024 with the layer starting at frame 10: nothing before, and frame 22 the same as FX-PSPACE-024's frame 12. Frames 10, 22.
+
+FX-PSPACE-054 (`fx_pspace_054.json`): FX-PSPACE-024 with the layer moved 3 pixels right. Frames 12.
+
+FX-PSPACE-055 (`fx_pspace_055.json`): Random Seed 7: a different burst. Frames 12.
+
+FX-PSPACE-056 (`fx_pspace_056.json`): Birth Rate 0: nothing. Frames 12.
+
+FX-PSPACE-057 (`fx_pspace_057.json`): Longevity 0: nothing. Frames 12.
+
+FX-PSPACE-058 (`fx_pspace_058.json`): Lines, larger: the streak's length follows Birth Size. Frames 12.
+
+FX-PSPACE-059 (`fx_pspace_059.json`): Birth Rate -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-060 (`fx_pspace_060.json`): Birth Rate 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-061 (`fx_pspace_061.json`): Longevity 31, above 30. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-062 (`fx_pspace_062.json`): Turbulence Scale 0, below 0.01. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-063 (`fx_pspace_063.json`): Camera FOV 171, above 170. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-064 (`fx_pspace_064.json`): Animation "spiral": not one of the eleven. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-065 (`fx_pspace_065.json`): Animation "Explosive": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-066 (`fx_pspace_066.json`): Particle Type "star": not one of the five (stars wait for D-612). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-067 (`fx_pspace_067.json`): Floor Action "slide". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-068 (`fx_pspace_068.json`): Birth Color "#12345": not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-069 (`fx_pspace_069.json`): Composite With Original "yes": only "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-070 (`fx_pspace_070.json`): Transfer Mode "multiply". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSPACE-071 (`fx_pspace_071.json`): Custom as added, from the birth colour to the death colour: at a fifth of its life, close to FX-PSPACE-002 but not equal (the stops are spaced in 8-bit steps, the mix in linear light). Frames 20.
