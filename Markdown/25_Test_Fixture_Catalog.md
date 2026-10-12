@@ -212828,3 +212828,163 @@ FX-CD-062 (`fx_cd_062.json`): Gradient layer 2 written as the number 3, not a wo
 FX-CD-063 (`fx_cd_063.json`): Rows & Columns "both". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CD-064 (`fx_cd_064.json`): X position offset keyed to 120 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Shatter (D-633)
+
+Shatter (`core.shatter`), after After Effects' Shatter (B-513), the rule ours. Each case is a composition 16 by 8, eight frames at 24 a second, in `Fixtures/shatter/`: the map layers, every one switched off, and on top the layer `holder`, showing the drawing `shot`, with the effect. `tools/shatter_reference.py` works the expected frames, `Fixtures/shatter/expected_shatter.json`, tolerance 2e-5, every case checked that nothing lies near a tile's edge, a sphere's surface, the threshold, a box's edge or a tie; the rule is in document 21.
+
+FX-SH-001 (`fx_sh_001.json`): As added: bricks ten across, a force in the middle; at frame 0 nothing has moved yet, by frame 2 the middle pieces fly and fall. Frames 0, 2.
+
+FX-SH-002 (`fx_sh_002.json`): Force 1 radius 0: nothing freed, the picture unchanged. Frames 0, 4.
+
+FX-SH-003 (`fx_sh_003.json`): Pattern bricks, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-004 (`fx_sh_004.json`): Pattern squares, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-005 (`fx_sh_005.json`): Pattern hexagons, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-006 (`fx_sh_006.json`): Pattern triangles 1, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-007 (`fx_sh_007.json`): Pattern triangles 2, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-008 (`fx_sh_008.json`): Pattern rhombus, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-009 (`fx_sh_009.json`): Pattern planks, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-010 (`fx_sh_010.json`): Pattern herringbone 1, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-011 (`fx_sh_011.json`): Pattern octagons squares, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-012 (`fx_sh_012.json`): Pattern glass, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-013 (`fx_sh_013.json`): Bricks turned 30 degrees about an origin at 20, 40 per cent. Frame 3.
+
+FX-SH-014 (`fx_sh_014.json`): A custom map `cracks`: each region of one colour a piece, the clear corner no piece at all. Frame 3.
+
+FX-SH-015 (`fx_sh_015.json`): FX-SH-014 with White Tiles Fixed: the white pieces stay. Frame 3.
+
+FX-SH-016 (`fx_sh_016.json`): Custom with no map named: the layer's own drawing makes the pieces. Frame 3.
+
+FX-SH-017 (`fx_sh_017.json`): A force at 25, 50 per cent, radius 0.2, strength 1: only the left pieces fly. Frames 0, 3.
+
+FX-SH-018 (`fx_sh_018.json`): Force 2 at 80, 30 per cent, radius 0.15, strength -1, pulling its pieces in and through. Frame 3.
+
+FX-SH-019 (`fx_sh_019.json`): Force 1 strength -2: the pieces drawn toward the force and past it. Frame 2.
+
+FX-SH-020 (`fx_sh_020.json`): Gradient layer `ramp`, threshold 50: only the pieces over the lighter half of the ramp freed. Frame 3.
+
+FX-SH-021 (`fx_sh_021.json`): FX-SH-020 with the gradient inverted: the darker half freed. Frame 3.
+
+FX-SH-022 (`fx_sh_022.json`): Force 1 swept from the left edge to the right over frames 0 to 7, radius 0.15: pieces freed one after another, each frame drawn alone. Frames 0, 3, 7.
+
+FX-SH-023 (`fx_sh_023.json`): Threshold keyed 0 to 100 over frames 0 to 7 with gradient `ramp`: the lighter pieces go first. Frames 0, 3, 7.
+
+FX-SH-024 (`fx_sh_024.json`): Gravity 2 alone, every piece freed: the pieces fall. Frames 3, 6.
+
+FX-SH-025 (`fx_sh_025.json`): Gravity 2 to the right (direction 90). Frame 4.
+
+FX-SH-026 (`fx_sh_026.json`): Gravity 2 inclined 45 degrees toward the viewer: falling and nearing. Frame 4.
+
+FX-SH-027 (`fx_sh_027.json`): Viscosity 4 with strength 2: thrown hard and soon slowed. Frame 4.
+
+FX-SH-028 (`fx_sh_028.json`): Viscosity 0 with strength 1: never slowed. Frame 4.
+
+FX-SH-029 (`fx_sh_029.json`): Gravity keyed 0 at frame 0 to 4 at frame 5, stepped four times a frame. Frame 5.
+
+FX-SH-030 (`fx_sh_030.json`): Tumble axis free, every piece freed in place and turning with the back layer `back`. Frame 3.
+
+FX-SH-031 (`fx_sh_031.json`): Tumble axis none, every piece freed in place and turning with the back layer `back`. Frame 3.
+
+FX-SH-032 (`fx_sh_032.json`): Tumble axis x, every piece freed in place and turning with the back layer `back`. Frame 3.
+
+FX-SH-033 (`fx_sh_033.json`): Tumble axis y, every piece freed in place and turning with the back layer `back`. Frame 3.
+
+FX-SH-034 (`fx_sh_034.json`): Tumble axis z, every piece freed in place and turning with the back layer `back`. Frame 3.
+
+FX-SH-035 (`fx_sh_035.json`): Tumble axis xy, every piece freed in place and turning with the back layer `back`. Frame 3.
+
+FX-SH-036 (`fx_sh_036.json`): Tumble axis xz, every piece freed in place and turning with the back layer `back`. Frame 3.
+
+FX-SH-037 (`fx_sh_037.json`): Tumble axis yz, every piece freed in place and turning with the back layer `back`. Frame 3.
+
+FX-SH-038 (`fx_sh_038.json`): Randomness 0: every piece the same speed and spin. Frame 3.
+
+FX-SH-039 (`fx_sh_039.json`): Mass variance 100: speeds from two thirds to twice. Frame 3.
+
+FX-SH-040 (`fx_sh_040.json`): Render Layer: only the pieces not freed, holes where the others were. Frame 3.
+
+FX-SH-041 (`fx_sh_041.json`): Render Pieces: only the freed pieces. Frame 3.
+
+FX-SH-042 (`fx_sh_042.json`): Front mode Color, colour #ffcc88: the freed fronts flat orange, lit. Frame 3.
+
+FX-SH-043 (`fx_sh_043.json`): Front mode Tinted Layer, colour #88ccff. Frame 3.
+
+FX-SH-044 (`fx_sh_044.json`): Side mode Color, colour #ff4040, extrusion 0.3: red sides. Frame 3.
+
+FX-SH-045 (`fx_sh_045.json`): Side mode Layer with the side layer `colours`. Frame 3.
+
+FX-SH-046 (`fx_sh_046.json`): Back mode Color + Opacity, opacity 0.5. Frame 3.
+
+FX-SH-047 (`fx_sh_047.json`): Front mode Layer + Opacity 0.5 with the front layer `colours`. Frame 3.
+
+FX-SH-048 (`fx_sh_048.json`): Front mode Tinted Layer + Opacity, opacity 0.7. Frame 3.
+
+FX-SH-049 (`fx_sh_049.json`): Extrusion 0: flat pieces, no sides. Frame 3.
+
+FX-SH-050 (`fx_sh_050.json`): Extrusion 0.5: thick pieces. Frame 3.
+
+FX-SH-051 (`fx_sh_051.json`): At rest, the camera turned 30 degrees about y: the slabs' sides show at the picture's edge and the back shows nothing. Frame 0.
+
+FX-SH-052 (`fx_sh_052.json`): Comp Camera with no camera in the file: D-58's default camera, as the effect's own as added. Frame 3.
+
+FX-SH-053 (`fx_sh_053.json`): Comp Camera 12 pixels back (zoom 12): a strong perspective on the flight. Frame 3.
+
+FX-SH-054 (`fx_sh_054.json`): FX-SH-053 on the holder moved 3 right and 1 down. Frame 3.
+
+FX-SH-055 (`fx_sh_055.json`): A point light at the top left, depth 0.3, specular 1, sharpness 10. Frame 3.
+
+FX-SH-056 (`fx_sh_056.json`): Light colour #ffcc88, intensity 1.5, ambient 0.5, diffuse 0.25. Frame 3.
+
+FX-SH-057 (`fx_sh_057.json`): A gradient layer not in the composition, `gone`: read as clear, every value 0, nothing passes threshold 50; and the warning. Warning `EFFECT_LAYER_MISSING`. Frame 3.
+
+FX-SH-058 (`fx_sh_058.json`): The back layer with its in point at frame 4: clear backs before it. Frames 3, 4.
+
+FX-SH-059 (`fx_sh_059.json`): The holder starting at frame 2: time counts from its in point, so frame 2 is at rest and frame 5 is FX-SH-017's frame 3. Frames 2, 5.
+
+FX-SH-060 (`fx_sh_060.json`): As added at frame 6. Frame 6.
+
+FX-SH-061 (`fx_sh_061.json`): Pattern "puzzle", not built yet (D-636). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-062 (`fx_sh_062.json`): Pattern "lace". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-063 (`fx_sh_063.json`): View "wireframe_front", not built yet (D-635). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-064 (`fx_sh_064.json`): Render "most". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-065 (`fx_sh_065.json`): Tumble axis "w". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-066 (`fx_sh_066.json`): Front mode "glow". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-067 (`fx_sh_067.json`): Camera system "corner_pins", not built yet (D-634). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-068 (`fx_sh_068.json`): Repetitions 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-069 (`fx_sh_069.json`): Extrusion depth 2, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-070 (`fx_sh_070.json`): Force 1 radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-071 (`fx_sh_071.json`): Shatter threshold 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-072 (`fx_sh_072.json`): Gravity inclination 91, above 90. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-073 (`fx_sh_073.json`): Colour "white": not a #rrggbb colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-074 (`fx_sh_074.json`): Custom shatter map written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-075 (`fx_sh_075.json`): White tiles fixed "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-076 (`fx_sh_076.json`): Gravity keyed to 200 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-077 (`fx_sh_077.json`): Invert gradient "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-078 (`fx_sh_078.json`): Mass variance 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
