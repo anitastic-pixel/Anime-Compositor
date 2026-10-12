@@ -67,8 +67,8 @@ B-350: `core.contour_paint` takes After Effects' Contour Paint controls (View, S
 | FX-CONTOUR-026 frame 0: Draw Color Fills written "under". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CONTOUR-026 frame 4: Draw Color Fills written "under". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CONTOUR-026: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-CONTOUR-027 frame 0: Reduction Method "custom", After Effects' Match to Nearest Custom Color, which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
-| FX-CONTOUR-027 frame 4: Reduction Method "custom", After Effects' Match to Nearest Custom Color, which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
+| FX-CONTOUR-027 frame 0: Reduction Method "custom", not one of the method's words (After Effects' Match to Nearest Custom Color is written "match_to_nearest_custom_color", D-584). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
+| FX-CONTOUR-027 frame 4: Reduction Method "custom", not one of the method's words (After Effects' Match to Nearest Custom Color is written "match_to_nearest_custom_color", D-584). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CONTOUR-027: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-CONTOUR-028 frame 0: Posterization Level 1, below 2. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CONTOUR-028 frame 4: Posterization Level 1, below 2. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
@@ -117,7 +117,7 @@ B-350: `core.contour_paint` takes After Effects' Contour Paint controls (View, S
 | fx_contour_024.json is refused in a sentence naming Contour Paint and its smear iterations | Contour Paint's smear iterations runs from 0 to 100, and this is -1. | yes |
 | fx_contour_025.json is refused in a sentence naming Contour Paint and its view | Contour Paint's view is "final_result" or "edge_map", and this is "arrows". | yes |
 | fx_contour_026.json is refused in a sentence naming Contour Paint and its draw color fills | Contour Paint's draw color fills is "none", "over_smeared_image" or "only", and this is "under". | yes |
-| fx_contour_027.json is refused in a sentence naming Contour Paint and its reduction method | Contour Paint's reduction method is "k_means" or "median", and this is "custom". | yes |
+| fx_contour_027.json is refused in a sentence naming Contour Paint and its reduction method | Contour Paint's reduction method is "k_means", "median" or "match_to_nearest_custom_color", and this is "custom". | yes |
 | fx_contour_028.json is refused in a sentence naming Contour Paint and its posterization level | Contour Paint's posterization level runs from 2 to 32, and this is 1. | yes |
 | fx_contour_029.json is refused in a sentence naming Contour Paint and its quantize flow angles | Contour Paint's quantize flow angles runs from 0 to 90, and this is 100. | yes |
 | fx_contour_030.json is refused in a sentence naming Contour Paint and its external edge map | Contour Paint's external edge map is the name of a layer of this composition, and this is 3. | yes |

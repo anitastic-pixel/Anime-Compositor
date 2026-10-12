@@ -4262,6 +4262,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             quantize_flow_angles: 0.0,
             edge_map_layer: serde_json::Value::from(""),
             colors: Vec::new(),
+            // D-585: the arrows' heads on as it is added, as After Effects' Edge Map shows them.
+            arrowheads: "on".to_string(),
             px: 1.0,
             palette: None,
             map: None,
@@ -6864,6 +6866,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             edge_map_layer: serde_json::Value::from(parameter(query, "map_layer").unwrap_or_default().trim()),
             // D-584: the custom colours as D-87's chosen ones; none when the command does not say.
             colors: if parameter(query, "colors").is_some() { colors()? } else { Vec::new() },
+            // D-585: off when the command does not say, as a file without it.
+            arrowheads: if parameter(query, "arrowheads").is_some() { word("arrowheads")? } else { "off".to_string() },
             px: 1.0,
             palette: None,
             map: None,

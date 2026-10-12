@@ -2836,8 +2836,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             quantize_flow_angles,
             edge_map_layer,
             colors,
+            arrowheads,
             ..
         } => {
+            // D-585: off is not written, so a file from before the heads saves the same.
+            if arrowheads != "off" {
+                params.insert("arrowheads".into(), J::from(arrowheads.as_str()));
+            }
             // D-584: no custom colours are not written, so a file from before them saves the same.
             if !colors.is_empty() {
                 params.insert("colors".into(), J::Array(colors.iter().map(|c| J::from(c.as_str())).collect()));
@@ -7082,6 +7087,8 @@ fn parse_effect(
                 Some(_) => effect_colors(params, &at)?,
                 None => Vec::new(),
             },
+            // D-585: a file without them is from before them, and draws none (D-304).
+            arrowheads: effect_word_or(params, "arrowheads", &at, "off")?,
             px: 1.0,
             palette: None,
             map: None,

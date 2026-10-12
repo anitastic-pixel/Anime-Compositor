@@ -3046,7 +3046,8 @@ pub enum Effect {
     /// "only"; `reduction_method`, "k_means", "median" or (D-584) "match_to_nearest_custom_color";
     /// `posterization_level`, 2 to 32; `offset_flow_angles`, -3600 to 3600 degrees;
     /// `quantize_flow_angles`, 0 to 90 degrees; `edge_map_layer`, D-189's layer setting, centred,
-    /// "" for none; `colors` (D-584), D-87's chosen colours, the custom set. `px` (D-259's pixel),
+    /// "" for none; `colors` (D-584), D-87's chosen colours, the custom set; `arrowheads` (D-585),
+    /// "off" or "on", heads on the Edge Map view's lines. `px` (D-259's pixel),
     /// `palette` (compose's, from the whole drawing) and `map` are not settings and are never
     /// saved.
     ContourPaint {
@@ -3064,6 +3065,7 @@ pub enum Effect {
         quantize_flow_angles: f64,
         edge_map_layer: serde_json::Value,
         colors: Vec<String>,
+        arrowheads: String,
         px: f64,
         palette: Option<Vec<[f64; 3]>>,
         map: Option<crate::layer_map::Map>,
@@ -9315,7 +9317,7 @@ impl Effect {
                 .into_iter()
                 .find(|(_, v)| !["off", "on"].contains(&v.as_str()))
                 .map(|(name, v)| format!("Threshold RGB's invert {name} is \"off\" or \"on\", and this is \"{v}\".")),
-            Effect::ContourPaint { view, apply_to_alpha, draw_color_fills, reduction_method, edge_map_layer, colors, .. } => {
+            Effect::ContourPaint { view, apply_to_alpha, draw_color_fills, reduction_method, edge_map_layer, colors, arrowheads, .. } => {
                 if !["final_result", "edge_map"].contains(&view.as_str()) {
                     Some(format!("Contour Paint's view is \"final_result\" or \"edge_map\", and this is \"{view}\"."))
                 } else if !["off", "on"].contains(&apply_to_alpha.as_str()) {
@@ -9330,6 +9332,8 @@ impl Effect {
                     ))
                 } else if !edge_map_layer.is_string() {
                     Some(format!("Contour Paint's external edge map is the name of a layer of this composition, and this is {edge_map_layer}."))
+                } else if !["off", "on"].contains(&arrowheads.as_str()) {
+                    Some(format!("Contour Paint's arrowheads is \"off\" or \"on\", and this is \"{arrowheads}\"."))
                 } else {
                     chosen(colors)
                 }
@@ -12146,6 +12150,7 @@ pub(crate) fn apply_stack_at(
                 offset_flow_angles,
                 quantize_flow_angles,
                 colors,
+                arrowheads,
                 px,
                 palette,
                 map,
@@ -12156,7 +12161,7 @@ pub(crate) fn apply_stack_at(
                 let flow = |b: &WorkingBuffer| crate::layer_fx::contour_flow(b, map, sigma, turn, &ways);
                 if view == "edge_map" {
                     let field = flow(source);
-                    crate::layer_fx::contour_edges(source, &field, *px);
+                    crate::layer_fx::contour_edges(source, &field, *px, arrowheads == "on");
                     return;
                 }
                 let passes = smear_iterations.floor() as usize;

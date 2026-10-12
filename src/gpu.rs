@@ -5761,7 +5761,8 @@ fn cpfill(@builtin(global_invocation_id) id: vec3<u32>) {
     }
 }
 
-// D-470, layer_fx::contour_edges: the Edge Map view of the flow `input`. k: the cell, the pixel.
+// D-470, layer_fx::contour_edges: the Edge Map view of the flow `input`. k: the cell, the pixel,
+// (D-585) 1 for the heads.
 @compute @workgroup_size(16, 16)
 fn cpedge(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -5787,7 +5788,20 @@ fn cpedge(@builtin(global_invocation_id) id: vec3<u32>) {
         let along = clamp(vx * tx + vy * ty, -reach, reach);
         let ax = vx - along * tx;
         let ay = vy - along * ty;
-        let d = sqrt(ax * ax + ay * ay);
+        var d = sqrt(ax * ax + ay * ay);
+        if k[2] == 1.0lf {
+            let wx = vx - reach * tx;
+            let wy = vy - reach * ty;
+            for (var i = 0; i < 2; i++) {
+                let sg = select(-1.0lf, 1.0lf, i == 0);
+                let bx = -tx * 0.8660254037844386lf + ty * sg * 0.5lf;
+                let by = -tx * sg * 0.5lf - ty * 0.8660254037844386lf;
+                let a = clamp(wx * bx + wy * by, 0.0lf, 0.2lf * cell);
+                let hx = wx - a * bx;
+                let hy = wy - a * by;
+                d = min(d, sqrt(hx * hx + hy * hy));
+            }
+        }
         cov = f64(t.z) * clamp(1.0lf - quotient(d, px), 0.0lf, 1.0lf);
     }
     textureStore(output, id.xy, vec4(f32(g + cov * (0.0lf - g)), f32(g + cov * (1.0lf - g)), f32(g + cov * (1.0lf - g)), 1.0));
@@ -13676,6 +13690,7 @@ impl Gpu {
                 high_strength,
                 offset_flow_angles,
                 quantize_flow_angles,
+                arrowheads,
                 px,
                 palette,
                 map,
@@ -13707,7 +13722,7 @@ impl Gpu {
                 if view == "edge_map" {
                     let field = flow(steps, still);
                     let out = self.scratch("D-470 edges", w, h);
-                    self.fx_step(steps, &passes.cpedge, FxParams::default(), Some(&field), Some(&out), Some(&[12.0 * px, *px]), None, none, tiles(w, h));
+                    self.fx_step(steps, &passes.cpedge, FxParams::default(), Some(&field), Some(&out), Some(&[12.0 * px, *px, (arrowheads == "on") as u8 as f64]), None, none, tiles(w, h));
                     (out, (w, h))
                 } else {
                     let fixed = picture.as_ref().map(|_| flow(steps, still));

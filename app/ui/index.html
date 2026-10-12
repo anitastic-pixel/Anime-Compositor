@@ -12066,6 +12066,9 @@ const EFFECT_WORDS = {
     layers: [['edge_map_layer', 'External Edge Map', 'map_layer']],
     choices: [['view', 'View', [['final_result', 'Final Result'], ['edge_map', 'Edge Map']]],
       ['apply_to_alpha', 'Apply to Alpha', [['off', 'Off'], ['on', 'On']]],
+      // D-585: heads on the Edge Map view's lines, on as it is added; Off first, as a file
+      // without them (D-304), since a switch the file leaves out shows its first choice.
+      ['arrowheads', 'Arrowheads', [['off', 'Off'], ['on', 'On']]],
       ['draw_color_fills', 'Draw Color Fills', [['none', 'None'], ['over_smeared_image', 'Over Smeared Image'], ['only', 'Only']]],
       ['reduction_method', 'Reduction Method', [['k_means', 'K-Means'], ['median', 'Median'],
         ['match_to_nearest_custom_color', 'Match to Nearest Custom Color']]]],

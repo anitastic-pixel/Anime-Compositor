@@ -3586,7 +3586,9 @@ pub(crate) fn contour_fill(source: &mut WorkingBuffer, field: &[[f64; 3]], palet
 /// encoded, and in cells 12 `px` square a cyan line along the flow at the pixel nearest the
 /// cell's middle, 0.4 of the cell each way, laid on at that pixel's strength times
 /// clamp(1 - d / px, 0, 1), d the pixel centre's distance from the line.
-pub(crate) fn contour_edges(source: &mut WorkingBuffer, field: &[[f64; 3]], px: f64) {
+/// D-585: with `heads`, each line also has a head at its end along the flow: two strokes a fifth
+/// of the cell long, back along the line turned 30 degrees each way.
+pub(crate) fn contour_edges(source: &mut WorkingBuffer, field: &[[f64; 3]], px: f64, heads: bool) {
     let (w, h) = (source.width(), source.height());
     let cell = 12.0 * px;
     source.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, out)| {
@@ -3600,13 +3602,24 @@ pub(crate) fn contour_edges(source: &mut WorkingBuffer, field: &[[f64; 3]], px: 
             let half = 0.4 * cell;
             let (vx, vy) = (x - cx, y - cy);
             let along = (vx * tx + vy * ty).clamp(-half, half);
-            let d = ((vx - along * tx).powi(2) + (vy - along * ty).powi(2)).sqrt();
+            let mut d = ((vx - along * tx).powi(2) + (vy - along * ty).powi(2)).sqrt();
+            if heads {
+                let (wx, wy) = (vx - half * tx, vy - half * ty);
+                for sg in [1.0, -1.0] {
+                    let (bx, by) = (-tx * C30 + ty * sg * 0.5, -tx * sg * 0.5 - ty * C30);
+                    let a = (wx * bx + wy * by).clamp(0.0, 0.2 * cell);
+                    d = d.min(((wx - a * bx).powi(2) + (wy - a * by).powi(2)).sqrt());
+                }
+            }
             let cov = e * (1.0 - d / px).clamp(0.0, 1.0);
             c = [0.0, 1.0, 1.0].map(|k| g + cov * (k - g));
         }
         out.copy_from_slice(&[c[0] as f32, c[1] as f32, c[2] as f32, 1.0]);
     });
 }
+
+/// D-585: cos 30 degrees, as tools/contour_paint_reference.py writes it.
+const C30: f64 = 0.8660254037844386;
 
 /// D-404: Tiles, Motion Tile's sized tile held at the buffer's size, `scale` per cent across
 /// and down round `center`, then `blend` per cent of the original mixed back.
