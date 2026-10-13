@@ -213031,7 +213031,7 @@ FX-SH-059 (`fx_sh_059.json`): The holder starting at frame 2: time counts from i
 
 FX-SH-060 (`fx_sh_060.json`): As added at frame 6. Frame 6.
 
-FX-SH-061 (`fx_sh_061.json`): Pattern "puzzle", not built yet (D-636). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-SH-061 (`fx_sh_061.json`): Pattern puzzle, as added (D-636): puzzle pieces ten across; at frame 0 nothing has moved yet, and by frame 4 the middle pieces have flown. Frames 0, 4.
 
 FX-SH-062 (`fx_sh_062.json`): Pattern "lace". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -213094,3 +213094,27 @@ FX-SH-090 (`fx_sh_090.json`): Wireframe through Corner Pins, FX-SH-080's pins: t
 FX-SH-091 (`fx_sh_091.json`): Wireframe Front at rest with the custom map `cracks`: each colour region outlined, the clear corner no piece. Frame 0.
 
 FX-SH-092 (`fx_sh_092.json`): View "solid". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-093 (`fx_sh_093.json`): Pattern herringbone 2, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-094 (`fx_sh_094.json`): Pattern squares triangles, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-095 (`fx_sh_095.json`): Pattern stars triangles, six across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-096 (`fx_sh_096.json`): Pattern overlapping squares, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-097 (`fx_sh_097.json`): Pattern chevrons, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-098 (`fx_sh_098.json`): Pattern puzzle, two across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-099 (`fx_sh_099.json`): Pattern js, three across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-100 (`fx_sh_100.json`): Pattern eggs, two across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-101 (`fx_sh_101.json`): Pattern crescents, two across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-102 (`fx_sh_102.json`): Pattern carpenters wheel, two across, every piece freed in place and turning in the picture's plane at its own speed: the pieces' shapes. Frame 3.
+
+FX-SH-103 (`fx_sh_103.json`): Wireframe Front at rest, pattern puzzle two across turned 30 degrees: each piece's outline, knobs and all. Frame 0.
+
+FX-SH-104 (`fx_sh_104.json`): Pattern "Puzzle": the words are exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
