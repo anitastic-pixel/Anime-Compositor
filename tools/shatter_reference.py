@@ -14,12 +14,16 @@ with Card Wipe and Card Dance). It publishes no formula and few settings when ad
 the units, the shapes of the patterns and most settings when added are ours (document 21), and
 nothing is ported. Time counts from the layer's in point (D-630). D-635 adds the four wireframe
 views (step 9), views only that never change the simulation: their drawing and colours are ours.
+D-636 adds After Effects' other ten patterns (step 1); Adobe names them and shows no geometry, so
+their shapes are ours.
 
 The settings. `view` "rendered" (when added), "wireframe_front", "wireframe",
 "wireframe_front_forces" or "wireframe_forces" (D-635); `render` "all" (when
 added), "layer" (only pieces not yet freed) or "pieces" (only freed pieces); `pattern` "bricks"
 (when added), "squares", "hexagons", "triangles_1", "triangles_2", "rhombus", "planks",
-"herringbone_1", "octagons_squares", "glass" or "custom"; `custom_shatter_map` D-189's layer word,
+"herringbone_1", "octagons_squares", "glass", "custom", or (D-636) "herringbone_2",
+"squares_triangles", "stars_triangles", "overlapping_squares", "chevrons", "puzzle", "js", "eggs",
+"crescents" or "carpenters_wheel"; `custom_shatter_map` D-189's layer word,
 "" when added (the layer's own drawing), fitted as `stretch`; `white_tiles_fixed` "off" (when
 added) or "on"; `repetitions` 1 to 1000 tiles across the layer, 10; `direction` -3600 to 3600
 degrees, 0; `origin` x then y, -1000 to 1000 per cent of the layer, [50, 50]; `extrusion_depth`
@@ -64,7 +68,36 @@ middle C0 = (W/2, H/2, 0).
    the square (fl qx, fl qy); glass, the nearest seed of the cells (ci, cj) within two of
    (fl qx, fl qy), the seed (ci + g(ci, cj, 0), cj + g(ci, cj, 1)), ties to the lower (cj, ci),
    g(i, j, a) = unit(mix(mix(i, j), 100 + a)) with document 22's splitmix64 `mix` and `unit` on
-   two's complement 64-bit integers.
+   two's complement 64-bit integers. D-636's ten, with i = fl qx, j = fl qy, fx = qx - i,
+   fy = qy - j, u = fx - 1/2, v = fy - 1/2, [..] 1 when true and 0 when not, and a corner piece
+   (9, fl(qx + 1/2), fl(qy + 1/2)): herringbone_2, bricks 1 by 1/2 laid in a herringbone:
+   cx = fl 2qx, cy = fl 2qy, the tile (0, cx, cy), (0, cx - 1, cy), (1, cx, cy - 1) or
+   (1, cx, cy) as (cx - cy) mod 4 is 0, 1, 2 or 3; squares_triangles, a chequer of whole squares,
+   (4, i, j) where i + j is even, and squares cut along both diagonals,
+   (2 [fx > fy] + [fx + fy > 1], i, j); stars_triangles, triangles_2's triangles joined into
+   six-pointed stars about the points 3m e1 + 3n e2: a triangle's centroid in (b, a) is
+   (fl b + 2/3, fl a + 2/3) for an upper one and (fl b + 1/3, fl a + 1/3) for a lower, and it
+   joins the star (2, si, sj) of the corner (si, sj) = (3 fl(cb/3) + 0 or 3, 3 fl(ca/3) + 0 or 3)
+   whose distance (db + da/2)^2 + (da r3)^2 to it is under 1.3^2, else it is its own piece
+   ([upper], fl b, fl a); overlapping_squares, squares of 1 and 1/2 in the Pythagorean
+   tiling: with (x, y) = 2q, the square (0, m, n) is [2m - n, 2m - n + 2) by [m + 2n, m + 2n + 2)
+   and the small one (1, m, n) is [2m - n + 2, 2m - n + 3) by [m + 2n, m + 2n + 1), m and n
+   within two of fl((2x + y)/5) and fl((2y - x)/5); chevrons, columns 1 wide of rows 1/2 high
+   bent into a V: (0, i, fl(2 qy - |2 fx - 1|)); puzzle, squares whose edges carry a round knob:
+   the edge right of (i, j) belongs to (i, j) if g(i, j, 2) < 1/2 and to (i + 1, j) if not, the
+   edge below (i, j) to (i, j) if g(i, j, 3) < 1/2 and to (i, j + 1) if not, and each edge's knob
+   is the disc of radius 0.2 about its middle moved 0.1 off it, away from its owner; a point in a
+   knob of one of its square's four edges (squared distance under 0.04) goes to that edge's
+   owner, (0, owner), else it is (0, i, j); js, J-shaped pieces of four cells 1/2 square, two to
+   a block four cells long and two high, every other band of blocks turned over and moved two
+   cells: cx = fl 2qx, cy = fl 2qy, band = fl(cy/2), ry = cy - 2 band, for an odd band cx + 2 and
+   1 - ry in their place, k = fl(cx/4), rx = cx - 4k, the tile
+   (2 (band mod 2) + [not (ry = 0 and rx <= 2 or ry = 1 and rx = 0)], k, band); eggs, an egg in
+   each square, (1, i, j) where (u / (0.32 (1 + 0.35 v / 0.42)))^2 + (v / 0.42)^2 < 1, else the
+   corner piece; crescents, ([u^2 + v^2 < 0.45^2 and (u - 0.2)^2 + v^2 >= 0.4^2], i, j);
+   carpenters_wheel, a wheel in each square: the hub (8, i, j) where u^2 + v^2 < 0.12^2, else
+   one of eight spokes (fl(8 (atan2(v, u) + pi) / (2 pi)) mod 8, i, j) where u^2 + v^2 < 0.45^2,
+   else the corner piece.
 2. The pieces. Pixels of one tile are one piece. "custom": the map picture (the layer's own drawing
    for "", clear for a layer not in the composition or not begun) read per pixel as Card Dance's
    red, green and blue (linear_to_srgb of the clamped premultiplied channel) and alpha: a pixel
@@ -205,7 +238,8 @@ def map_picture(name, frame):
 
 PATTERNS = ("bricks", "squares", "hexagons", "triangles_1", "triangles_2", "rhombus", "planks",
             "herringbone_1", "octagons_squares", "glass", "custom")
-LATER_PATTERNS = ("herringbone_2", "squares_triangles", "stars_triangles", "overlapping_squares",
+# D-636: After Effects' other ten, refused until D-636 built them.
+NEW_PATTERNS = ("herringbone_2", "squares_triangles", "stars_triangles", "overlapping_squares",
                   "chevrons", "puzzle", "js", "eggs", "crescents", "carpenters_wheel")
 TUMBLE = ("free", "none", "x", "y", "z", "xy", "xz", "yz")
 MODES = ("color", "layer", "tinted_layer", "color_plus_opacity", "layer_plus_opacity",
@@ -271,6 +305,81 @@ def tile(pattern, qx, qy):
                 if best is None or d2 < best[0]:
                     best = (d2, ci, cj)
         return best[1:]
+    # D-636: After Effects' other ten patterns, our own shapes.
+    if pattern == "herringbone_2":
+        cx, cy = fl(2 * qx), fl(2 * qy)
+        d = (cx - cy) % 4
+        return ((0, cx, cy), (0, cx - 1, cy), (1, cx, cy - 1), (1, cx, cy))[d]
+    if pattern == "squares_triangles":
+        i, j = fl(qx), fl(qy)
+        if (i + j) % 2 == 0:
+            return (4, i, j)
+        fx, fy = qx - i, qy - j
+        return (2 * (fx > fy) + (fx + fy > 1), i, j)
+    if pattern == "stars_triangles":
+        i, j = fl(b), fl(a)
+        up = (b - i) + (a - j) > 1
+        cb, ca = (i + 2 / 3, j + 2 / 3) if up else (i + 1 / 3, j + 1 / 3)
+        for dj in (0, 3):
+            for di in (0, 3):
+                si, sj = 3 * fl(cb / 3) + di, 3 * fl(ca / 3) + dj
+                db, da = cb - si, ca - sj
+                if (db + da / 2) ** 2 + (da * R3) ** 2 < 1.3 ** 2:
+                    return (2, si, sj)
+        return (int(up), i, j)
+    if pattern == "overlapping_squares":
+        x, y = 2 * qx, 2 * qy
+        m0, n0 = fl((2 * x + y) / 5), fl((2 * y - x) / 5)
+        for n in range(n0 - 2, n0 + 3):
+            for m in range(m0 - 2, m0 + 3):
+                ox, oy = 2 * m - n, m + 2 * n
+                if ox <= x < ox + 2 and oy <= y < oy + 2:
+                    return (0, m, n)
+                if ox + 2 <= x < ox + 3 and oy <= y < oy + 1:
+                    return (1, m, n)
+        raise AssertionError((qx, qy))
+    if pattern == "chevrons":
+        c = fl(qx)
+        return (0, c, fl(2 * qy - abs(2 * (qx - c) - 1)))
+    if pattern == "puzzle":
+        i, j = fl(qx), fl(qy)
+        # Each edge's knob, a disc of radius 0.2 at 0.1 past the edge's middle, belongs to the
+        # cell the hash picks and pokes into the other.
+        for (ei, ej, vertical) in ((i, j, True), (i - 1, j, True), (i, j, False), (i, j - 1, False)):
+            first = g_hash(ei, ej, 2 if vertical else 3) < 0.5
+            s = 1 if first else -1
+            if vertical:
+                kx, ky, owner = ei + 1 + 0.1 * s, ej + 0.5, (ei, ej) if first else (ei + 1, ej)
+            else:
+                kx, ky, owner = ei + 0.5, ej + 1 + 0.1 * s, (ei, ej) if first else (ei, ej + 1)
+            if (qx - kx) ** 2 + (qy - ky) ** 2 < 0.04:
+                return (0,) + owner
+        return (0, i, j)
+    if pattern == "js":
+        cx, cy = fl(2 * qx), fl(2 * qy)
+        band = fl(cy / 2)
+        ry = cy - 2 * band
+        if band % 2:
+            cx, ry = cx + 2, 1 - ry
+        k = fl(cx / 4)
+        rx = cx - 4 * k
+        return (2 * (band % 2) + int(not ((ry == 0 and rx <= 2) or (ry == 1 and rx == 0))), k, band)
+    if pattern in ("eggs", "crescents", "carpenters_wheel"):
+        i, j = fl(qx), fl(qy)
+        u, v = qx - i - 0.5, qy - j - 0.5
+        corner = (9, fl(qx + 0.5), fl(qy + 0.5))
+        if pattern == "eggs":
+            if (u / (0.32 * (1 + 0.35 * v / 0.42))) ** 2 + (v / 0.42) ** 2 < 1:
+                return (1, i, j)
+            return corner
+        if pattern == "crescents":
+            return (int(u * u + v * v < 0.45 ** 2 and (u - 0.2) ** 2 + v * v >= 0.4 ** 2), i, j)
+        rr = u * u + v * v
+        if rr < 0.12 ** 2:
+            return (8, i, j)
+        if rr < 0.45 ** 2:
+            return (fl(8 * (math.atan2(v, u) + math.pi) / (2 * math.pi)) % 8, i, j)
+        return corner
     raise ValueError(pattern)
 
 
@@ -876,7 +985,9 @@ CASES.update({
 })
 
 INVALID = {
-    "FX-SH-061": ("Pattern \"puzzle\", not built yet (D-636).", case(pattern="puzzle")),
+    "FX-SH-061": ("Pattern puzzle, as added (D-636): puzzle pieces ten across; at frame 0 "
+                  "nothing has moved yet, and by frame 4 the middle pieces have flown.",
+                  case(pattern="puzzle")),
     "FX-SH-062": ("Pattern \"lace\".", case(pattern="lace")),
     "FX-SH-063": ("View Wireframe Front, as added (D-635): the bricks' outlines seen straight "
                   "on; at rest at frame 0 every pixel lies on an outline (bricks ten across a "
@@ -905,6 +1016,9 @@ INVALID = {
 BUILT = {"FX-SH-067"}
 # D-566 (1): FX-SH-063 pinned Wireframe Front as refused while it was not built; D-635 builds it.
 BUILT.add("FX-SH-063")
+# D-566 (1): FX-SH-061 pinned the puzzle pattern as refused while it was not built; D-636 builds
+# it.
+BUILT.add("FX-SH-061")
 
 # D-634: the Corner Pins camera, with Card Dance's pins.
 PIN = dict(camera_system="corner_pins")
@@ -963,6 +1077,24 @@ WIRE_CASES = {
 }
 WIRE_INVALID = {
     "FX-SH-092": ("View \"solid\".", case(view="solid")),
+}
+
+# D-636: the other ten patterns, each shown as FX-SH-003 to 012 show theirs, the ones with small
+# parts two across so the parts cover pixels.
+# The stars, three triangles across each, six across.
+ACROSS = {"puzzle": 2, "eggs": 2, "crescents": 2, "carpenters_wheel": 2, "stars_triangles": 6}
+PATTERN_CASES = {
+    f"FX-SH-{93 + n:03d}": (
+        f"Pattern {p.replace('_', ' ')}, {dict(((2, 'two'), (3, 'three'), (6, 'six')))[ACROSS.get(p, 3)]} across, every "
+        "piece freed in place and turning in the picture's plane at its own speed: the pieces' "
+        "shapes.", case(pattern=p, **dict(SPIN, repetitions=ACROSS.get(p, 3))), (3,))
+    for n, p in enumerate(NEW_PATTERNS)}
+PATTERN_CASES["FX-SH-103"] = (
+    "Wireframe Front at rest, pattern puzzle two across turned 30 degrees: each piece's outline, "
+    "knobs and all.", case(view="wireframe_front", pattern="puzzle", repetitions=2, direction=30,
+                           origin=[48.3, 51.7], force_1_radius=0), (0,))
+PATTERN_INVALID = {
+    "FX-SH-104": ("Pattern \"Puzzle\": the words are exact.", case(pattern="Puzzle")),
 }
 
 
@@ -1046,6 +1178,20 @@ def main():
             "frames": {str(f): render(c, f) for f in frames}}
         print(f"{fx}: built")
     for fx, (says, c) in list(PIN_INVALID.items()) + list(WIRE_INVALID.items()):
+        says += (" The file is read, the effect is kept as written and left out of every frame, "
+                 "with a warning.")
+        before = plain(c)
+        expected["cases"][fx] = {"says": says, "project": write(
+            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+            "frames": {"0": before, "4": before}, "warning": "EFFECT_PARAMETER_INVALID"}
+        print(f"{fx}: invalid")
+    for fx, (says, c, frames) in PATTERN_CASES.items():
+        step_clear(fx, c, frames)
+        expected["cases"][fx] = {"says": says, "project": write(
+            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+            "frames": {str(f): render(c, f) for f in frames}}
+        print(f"{fx}: built, {len(pieces(settings(c, 0), None, None))} pieces")
+    for fx, (says, c) in PATTERN_INVALID.items():
         says += (" The file is read, the effect is kept as written and left out of every frame, "
                  "with a warning.")
         before = plain(c)
@@ -1198,26 +1344,36 @@ def check(expected):
     # D-635: white outlines and coloured circles on clear. At rest, seen straight on, a pixel is
     # white just where a side neighbour lies in another piece or off the layer.
     white, red, blue = [1.0, 1.0, 1.0, 1.0], FORCE_COLOURS[1], FORCE_COLOURS[2]
-    for fx in list(WIRE_CASES) + ["FX-SH-063"]:
+    for fx in list(WIRE_CASES) + ["FX-SH-063", "FX-SH-103"]:
         for px in c[fx].values():
             assert all(p in (CLEAR, white, red, blue) for p in px), fx
             assert white in px, fx
-    k = settings(case(), 0)
-    owner = {}
-    for n, p in enumerate(pieces(k, None, None)):
-        for cell in p[0]:
-            owner[cell] = n
-    for y in range(H):
-        for x in range(W):
-            edge = any(owner.get(q) != owner[(x, y)]
-                       for q in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
-            assert c["FX-SH-063"]["0"][y * W + x] == (white if edge else CLEAR), (x, y)
+    for fx, k in (("FX-SH-063", settings(case(), 0)),
+                  ("FX-SH-103", settings(PATTERN_CASES["FX-SH-103"][1], 0))):
+        owner = {}
+        for n, p in enumerate(pieces(k, None, None)):
+            for cell in p[0]:
+                owner[cell] = n
+        for y in range(H):
+            for x in range(W):
+                edge = any(owner.get(q) != owner[(x, y)]
+                           for q in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+                assert c[fx]["0"][y * W + x] == (white if edge else CLEAR), (fx, x, y)
     assert c["FX-SH-063"]["0"] != c["FX-SH-063"]["4"]
     assert red in c["FX-SH-086"]["0"] and blue not in c["FX-SH-086"]["0"]
     assert red in c["FX-SH-087"]["3"] and blue in c["FX-SH-087"]["3"]
     assert sum(p == white for p in c["FX-SH-088"]["3"]) < sum(
         p == white for p in render(case(view="wireframe_front", force_1_radius=0.25,
                                         camera_xy_position=[51.3, 48.6], **BURST), 3))
+    # D-636: every pattern, old and new, differs from every other; the puzzle as added rests at
+    # frame 0 and flies by frame 4, unlike the bricks.
+    pats = [c[f"FX-SH-{n:03d}"]["3"] for n in list(range(3, 13)) + list(range(93, 103))]
+    for i in range(len(pats)):
+        for j in range(i):
+            assert not near(pats[i], pats[j], 1e-6), (i, j)
+    assert near(c["FX-SH-061"]["0"], drawn, 1e-9)
+    assert not near(c["FX-SH-061"]["4"], drawn, 1e-6)
+    assert not near(c["FX-SH-061"]["4"], render(case(), 4), 1e-6)
     print("checks passed")
 
 
