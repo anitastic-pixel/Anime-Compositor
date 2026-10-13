@@ -3029,6 +3029,30 @@ pub enum Effect {
         clock: [f64; 2],
         history: Option<std::sync::Arc<Vec<[f64; 23]>>>,
     },
+    /// D-613: Particle Playground, the particle engine's third effect (P0-6), after the purpose
+    /// of After Effects' Particle Playground, its rules and settings ours
+    /// (`playground::particle_playground`, document 21). `values`, the settings of
+    /// [`PARTICLE_PLAYGROUND_SETTINGS`] in that order; `cannon_position` and `grid_position`, x
+    /// then y, per cent of the drawing, -1000 to 1000; `words`, those of
+    /// [`PARTICLE_PLAYGROUND_WORDS`]; `layers`, D-189's layer settings of
+    /// [`PARTICLE_PLAYGROUND_LAYERS`] as written; `colors`, those of
+    /// [`PARTICLE_PLAYGROUND_COLORS`], `#rrggbb`. Kept as written, so a file's wrong one is
+    /// reported. Not settings, never saved: `maps`, compose reads each layer into its own (the
+    /// Explode Layer at the in point, the others at the frame); `wall`, the mask Wall Mask names
+    /// as compose found it at this frame, flattened, in the drawing's pixels; `clock` and
+    /// `history` as Particle Space's, the history of `playground::numbers`.
+    ParticlePlayground {
+        values: [f64; 29],
+        cannon_position: Vec<f64>,
+        grid_position: Vec<f64>,
+        words: [String; 5],
+        layers: [serde_json::Value; 6],
+        colors: [String; 2],
+        maps: [Option<crate::layer_map::Map>; 6],
+        wall: Option<Vec<[f64; 2]>>,
+        clock: [f64; 2],
+        history: Option<std::sync::Arc<Vec<[f64; 33]>>>,
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -4701,6 +4725,74 @@ pub const PARTICLE_PLANE_COLORS: [(&str, &str); 7] = [
     ("custom_color_4", "#d94a0d"),
     ("custom_color_5", "#cc1a00"),
 ];
+pub const PARTICLE_PLAYGROUND: &str = "core.particle_playground";
+/// D-613: Particle Playground's keyable numbers, in the order `values` holds them: name,
+/// lowest, highest, and the value when the effect is added. Lengths in the drawing's pixels,
+/// speeds in pixels a second, Gravity's Force in pixels a second a second, angles in degrees, 0
+/// up and 90 to the right, times in seconds. Then each Affects' Older/Younger Than and Age
+/// Feather, Particle Exploder, Layer Map, Gravity, Wall.
+pub const PARTICLE_PLAYGROUND_SETTINGS: [(&str, f64, f64, f64); 29] = [
+    ("barrel_radius", -2500.0, 2500.0, 0.0),
+    ("particles_per_second", 0.0, 1000.0, 20.0),
+    ("cannon_direction", -36000.0, 36000.0, 0.0),
+    ("direction_random_spread", 0.0, 360.0, 20.0),
+    ("velocity", -10000.0, 10000.0, 130.0),
+    ("velocity_random_spread", 0.0, 10000.0, 20.0),
+    ("cannon_particle_radius", 0.0, 1000.0, 2.0),
+    ("grid_width", 0.0, 10000.0, 100.0),
+    ("grid_height", 0.0, 10000.0, 100.0),
+    ("particles_across", 0.0, 100.0, 0.0),
+    ("particles_down", 0.0, 100.0, 0.0),
+    ("grid_particle_radius", 0.0, 1000.0, 2.0),
+    ("explode_radius", 0.5, 100.0, 2.0),
+    ("explode_dispersion", 0.0, 10000.0, 20.0),
+    ("particle_exploder_radius", 0.0, 1000.0, 0.0),
+    ("particle_exploder_dispersion", 0.0, 10000.0, 20.0),
+    ("gravity_force", -10000.0, 10000.0, 100.0),
+    ("gravity_random_spread", 0.0, 10000.0, 0.0),
+    ("gravity_direction", -36000.0, 36000.0, 180.0),
+    ("wall_mask", 0.0, 1000.0, 0.0),
+    ("particle_exploder_older_younger_than", -1000.0, 1000.0, 0.0),
+    ("particle_exploder_age_feather", 0.0, 1000.0, 0.0),
+    ("layer_map_older_younger_than", -1000.0, 1000.0, 0.0),
+    ("layer_map_age_feather", 0.0, 1000.0, 0.0),
+    ("gravity_older_younger_than", -1000.0, 1000.0, 0.0),
+    ("gravity_age_feather", 0.0, 1000.0, 0.0),
+    ("wall_older_younger_than", -1000.0, 1000.0, 0.0),
+    ("wall_age_feather", 0.0, 1000.0, 0.0),
+    ("random_seed", 0.0, 10000.0, 0.0),
+];
+/// D-613: the words of each Affects' Particles From: which emitters' particles it takes.
+pub const PARTICLE_PLAYGROUND_FROM: [&str; 15] = [
+    "all",
+    "cannon",
+    "grid",
+    "layer_exploder",
+    "particle_exploder",
+    "cannon_grid",
+    "cannon_layer_exploder",
+    "cannon_particle_exploder",
+    "grid_layer_exploder",
+    "grid_particle_exploder",
+    "layer_exploder_particle_exploder",
+    "all_but_cannon",
+    "all_but_grid",
+    "all_but_layer_exploder",
+    "all_but_particle_exploder",
+];
+/// D-613: Particle Playground's words: name, the words, the word when added.
+pub const PARTICLE_PLAYGROUND_WORDS: [(&str, &[&str], &str); 5] = [
+    ("particle_exploder_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
+    ("layer_map_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
+    ("gravity_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
+    ("wall_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
+    ("auto_orient", &["off", "on"], "off"),
+];
+/// D-613: Particle Playground's layer settings, each "" (none) when added.
+pub const PARTICLE_PLAYGROUND_LAYERS: [&str; 6] =
+    ["explode_layer", "layer_map", "particle_exploder_selection_map", "layer_map_selection_map", "gravity_selection_map", "wall_selection_map"];
+/// D-613: Particle Playground's colours and each when added.
+pub const PARTICLE_PLAYGROUND_COLORS: [(&str, &str); 2] = [("cannon_color", "#ff0000"), ("grid_color", "#ffff00")];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -5147,6 +5239,15 @@ impl Effect {
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .collect(),
+            Effect::ParticlePlayground { values, cannon_position, grid_position, .. } => PARTICLE_PLAYGROUND_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .chain([
+                    ("cannon_position", cannon_position.iter_mut().collect(), -1000.0, 1000.0),
+                    ("grid_position", grid_position.iter_mut().collect(), -1000.0, 1000.0),
+                ])
                 .collect(),
             Effect::CcBallAction { scatter, rotation, twist_angle, grid_spacing, ball_size, instability_state, .. } => vec![
                 ("scatter", vec![scatter], 0.0, 1000.0),
@@ -8022,6 +8123,20 @@ impl Effect {
                     *v = scale(*v);
                 }
             }
+            // D-613: its lengths, speeds and Gravity are the drawing's pixels, and so is every
+            // keyed one in its history; positions are shares of it, and the wall compose found
+            // in the masks already at this size.
+            Effect::ParticlePlayground { values, history, .. } => {
+                const PIXELS: [usize; 13] = [0, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17];
+                for k in PIXELS {
+                    values[k] = scale(values[k]);
+                }
+                for row in history.iter_mut().flat_map(|h| std::sync::Arc::make_mut(h).iter_mut()) {
+                    for k in PIXELS {
+                        row[k] = scale(row[k]);
+                    }
+                }
+            }
             // D-551: a spacing below 1 is worked as 1.
             Effect::CcBallAction { scatter, grid_spacing, .. } => {
                 *scatter = scale(*scatter);
@@ -8338,6 +8453,7 @@ impl Effect {
             Effect::Bubbles { .. } => "Bubbles",
             Effect::Drizzle { .. } => "Drizzle",
             Effect::ParticlePlane { .. } => "Particle Plane",
+            Effect::ParticlePlayground { .. } => "Particle Playground",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -8597,6 +8713,7 @@ impl Effect {
             Effect::Bubbles { .. } => BUBBLES,
             Effect::Drizzle { .. } => DRIZZLE,
             Effect::ParticlePlane { .. } => PARTICLE_PLANE,
+            Effect::ParticlePlayground { .. } => PARTICLE_PLAYGROUND,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -8893,6 +9010,10 @@ impl Effect {
         if let Effect::Colorama { layer, mask_layer, fit, .. } = self {
             return [layer, mask_layer].map(|l| (l.as_str().unwrap_or(""), fit.as_str())).to_vec();
         }
+        // D-613: Particle Playground's six, each centred on the drawing.
+        if let Effect::ParticlePlayground { layers, .. } = self {
+            return layers.iter().map(|l| (l.as_str().unwrap_or(""), "center")).collect();
+        }
         // D-506: the two views, each centred on the drawing.
         if let Effect::ThreeDGlasses { left_view, right_view, .. } = self {
             return [left_view, right_view].map(|l| (l.as_str().unwrap_or(""), "center")).to_vec();
@@ -8980,6 +9101,9 @@ impl Effect {
         }
         if let Effect::ThreeDGlasses { left_view, left_map, right_view, right_map, .. } = self {
             return vec![(left_view, left_map), (right_view, right_map)];
+        }
+        if let Effect::ParticlePlayground { layers, maps, .. } = self {
+            return layers.iter_mut().zip(maps.iter_mut()).collect();
         }
         if let Effect::GlassMelt { layer_to_reveal, reveal_map, gradient_layer, gradient_map, .. } = self {
             return vec![(layer_to_reveal, reveal_map), (gradient_layer, gradient_map)];
@@ -9263,6 +9387,30 @@ impl Effect {
                         .iter()
                         .zip(colors)
                         .find_map(|((name, _), c)| hex_fault("Particle Plane", &name.replace('_', " ").replace("color", "colour"), c))
+                }),
+            Effect::ParticlePlayground { words, colors, layers, cannon_position, grid_position, .. } => PARTICLE_PLAYGROUND_WORDS
+                .iter()
+                .zip(words)
+                .find(|((_, list, _), w)| !list.contains(&w.as_str()))
+                .map(|((name, list, _), w)| {
+                    let list = list.iter().map(|a| format!("\"{a}\"")).collect::<Vec<_>>().join(", ");
+                    format!("Particle Playground's {} is one of {list}, and this is \"{w}\".", name.replace('_', " "))
+                })
+                .or_else(|| {
+                    PARTICLE_PLAYGROUND_COLORS
+                        .iter()
+                        .zip(colors)
+                        .find_map(|((name, _), c)| hex_fault("Particle Playground", &name.replace('_', " ").replace("color", "colour"), c))
+                })
+                .or_else(|| {
+                    PARTICLE_PLAYGROUND_LAYERS.iter().zip(layers).find(|(_, l)| !l.is_string()).map(|(name, l)| {
+                        format!("Particle Playground's {} is the name of a layer of this composition, and this is {l}.", name.replace('_', " "))
+                    })
+                })
+                .or_else(|| {
+                    [("cannon", cannon_position), ("grid", grid_position)].into_iter().find(|(_, v)| v.len() != 2).map(|(n, v)| {
+                        format!("Particle Playground's {n} position is two numbers, x then y, and this has {}.", v.len())
+                    })
                 }),
             Effect::CcBallAction { rotation_axis, twist_property, .. } => (!BALL_AXES.contains(&rotation_axis.as_str()))
                 .then(|| format!(
@@ -12722,6 +12870,12 @@ pub(crate) fn apply_stack_at(
             // D-612: the particles drawn flat onto the layer; never grows.
             e @ Effect::ParticlePlane { .. } => crate::perf::time(crate::perf::Stage::EffectParticlePlane, || {
                 crate::particles::particle_space(source, e, (ox, oy))
+            }),
+            // D-613: the particles drawn over a clear layer; never grows. A map not read (none
+            // named, or not in the composition, which compose said) is none, and so is a wall
+            // compose did not find (said too).
+            e @ Effect::ParticlePlayground { .. } => crate::perf::time(crate::perf::Stage::EffectParticlePlayground, || {
+                crate::playground::apply(source, e, (ox, oy))
             }),
             // D-551: its own eye and light, no comp camera (P0-12); never grows.
             e @ Effect::CcBallAction { .. } => crate::perf::time(crate::perf::Stage::EffectCcBallAction, || {

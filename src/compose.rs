@@ -2462,6 +2462,19 @@ fn effect_now(
                 )
             });
         }
+        // D-613: Particle Playground's clock and history, as Particle Space's; the history of
+        // every number, the positions too, each held inside its range.
+        if let crate::effects::Effect::ParticlePlayground { clock, history, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            *clock = [(at - layer.in_frame) as f64, fps];
+            *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
+                std::sync::Arc::new(
+                    (layer.in_frame..=at + 1)
+                        .map(|f| crate::playground::numbers(&crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect))
+                        .collect(),
+                )
+            });
+        }
         // D-473: Basic Text's missing font is said each frame, as Numbers' is.
         if let crate::effects::Effect::BasicText { font, .. } = &now.effect {
             if !crate::layer_fx::numbers_font_ok(font) {
@@ -3126,6 +3139,25 @@ fn resolve_rest(
                 );
             }
             *chosen = (!found.is_empty()).then_some(found);
+        }
+    }
+    // D-613: each Particle Playground's wall, the mask Wall Mask names (1 the first), on and of
+    // three points or more, as it is at this frame and at the size the effects run at. 0 is no
+    // wall and says nothing; a number naming no such mask is no wall, said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::ParticlePlayground { values, wall, .. } = &mut instance.effect {
+            let n = values[crate::playground::WALL_MASK].floor();
+            *wall = None;
+            if n < 1.0 {
+                continue;
+            }
+            *wall = masks
+                .get(n as usize - 1)
+                .filter(|m| m.enabled && m.points.len() >= 3)
+                .map(|m| m.outline().into_iter().map(|(x, y)| [x, y]).collect());
+            if wall.is_none() {
+                log.record(frame, layer.name.clone(), playground_wall_missing(&layer.name, n, &format!("Frame {frame} is drawn")));
+            }
         }
     }
     // The mask itself is drawn below, once it is known whether the effect cache already holds
@@ -3794,15 +3826,17 @@ fn fill_maps(
             );
         }
         // D-630: Wave World reads its ground once, at the holder's in point; a layer not there is
-        // said at this frame.
-        let read_at = |named: &str| match instance.effect {
+        // said at this frame. D-613: so does Particle Playground its Explode Layer, its first.
+        let read_at = |k: usize, named: &str| match instance.effect {
             crate::effects::Effect::WaveWorld { .. } if comp.layer(&Id::new(named)).is_some() => holder.in_frame,
+            crate::effects::Effect::ParticlePlayground { .. } if k == 0 && comp.layer(&Id::new(named)).is_some() => holder.in_frame,
             _ => frame,
         };
         // D-381: a Colorama's two, each its own map.
         let maps: Vec<_> = named
             .iter()
-            .map(|(named, fit)| (!cycle).then(|| setting_map(project, comp, holder, named, fit, read_at(named), root, quality, size, cache, log)).flatten())
+            .enumerate()
+            .map(|(k, (named, fit))| (!cycle).then(|| setting_map(project, comp, holder, named, fit, read_at(k, named), root, quality, size, cache, log)).flatten())
             .collect();
         for ((_, slot), map) in instance.effect.layer_settings_mut().into_iter().zip(maps) {
             *slot = map.map(|m| crate::layer_map::Map(std::sync::Arc::new(m)));
@@ -4541,6 +4575,19 @@ fn fill_passes(
             *m = crate::layer_map::Map(std::sync::Arc::new(f));
         }
     }
+}
+
+/// D-613: EFFECT_PATH_MISSING for a Particle Playground on layer `holder` whose Wall Mask `n`
+/// names no mask that is on with three points or more; `when` is "Frame 3 is drawn" or "Every
+/// frame is drawn".
+pub(crate) fn playground_wall_missing(holder: &str, n: f64, when: &str) -> Diagnostic {
+    Diagnostic::new(
+        DiagnosticId::EffectPathMissing,
+        Severity::Warning,
+        format!("Layer {holder}'s Particle Playground has no mask {n} that is on with three points or more, so it has no wall."),
+        format!("{when} with the particles free of any wall. The effect is kept as it is."),
+    )
+    .with_remediation("Draw a closed mask on the layer, or set Wall Mask to a mask it has, or to 0 for no wall.")
 }
 
 /// D-420, D-421: EFFECT_PATH_MISSING for an Audio Spectrum or Audio Waveform (`what`) on layer

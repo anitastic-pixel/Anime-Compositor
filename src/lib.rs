@@ -20,6 +20,7 @@ mod flow;
 mod line_blur;
 mod median;
 pub mod particles;
+pub mod playground;
 pub mod simulate;
 mod line_width;
 pub mod color;

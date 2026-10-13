@@ -3130,6 +3130,23 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert((*name).into(), J::from(c.as_str()));
             }
         }
+        Effect::ParticlePlayground { values, cannon_position, grid_position, words, layers, colors, .. } => {
+            for ((name, ..), v) in crate::effects::PARTICLE_PLAYGROUND_SETTINGS.iter().zip(values) {
+                params.insert((*name).into(), num(*v));
+            }
+            for (n, v) in [("cannon_position", cannon_position), ("grid_position", grid_position)] {
+                params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
+            }
+            for ((name, ..), w) in crate::effects::PARTICLE_PLAYGROUND_WORDS.iter().zip(words) {
+                params.insert((*name).into(), J::from(w.as_str()));
+            }
+            for (name, l) in crate::effects::PARTICLE_PLAYGROUND_LAYERS.iter().zip(layers) {
+                params.insert((*name).into(), l.clone());
+            }
+            for ((name, _), c) in crate::effects::PARTICLE_PLAYGROUND_COLORS.iter().zip(colors) {
+                params.insert((*name).into(), J::from(c.as_str()));
+            }
+        }
         Effect::CcBallAction {
             scatter,
             rotation_axis,
@@ -5894,6 +5911,7 @@ fn parse_effect(
         crate::effects::BUBBLES,
         crate::effects::DRIZZLE,
         crate::effects::PARTICLE_PLANE,
+        crate::effects::PARTICLE_PLAYGROUND,
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
         crate::effects::CC_SPHERE,
@@ -7640,6 +7658,37 @@ fn parse_effect(
                 *c = effect_word(params, name, &at)?;
             }
             Some(crate::effects::Effect::ParticlePlane { values, words, colors, clock: [0.0; 2], history: None })
+        }
+        // D-613: every setting by its name; the layers as written, as Wave World's ground.
+        crate::effects::PARTICLE_PLAYGROUND => {
+            let mut values = [0.0; 29];
+            for ((name, ..), v) in crate::effects::PARTICLE_PLAYGROUND_SETTINGS.iter().zip(values.iter_mut()) {
+                *v = effect_number(params, name, &at)?;
+            }
+            let mut words: [String; 5] = Default::default();
+            for ((name, ..), w) in crate::effects::PARTICLE_PLAYGROUND_WORDS.iter().zip(words.iter_mut()) {
+                *w = effect_word(params, name, &at)?;
+            }
+            let mut layers: [J; 6] = Default::default();
+            for (name, l) in crate::effects::PARTICLE_PLAYGROUND_LAYERS.iter().zip(layers.iter_mut()) {
+                *l = field(effect_params(params, &at)?, &format!("{at}/parameters"), name)?.clone();
+            }
+            let mut colors: [String; 2] = Default::default();
+            for ((name, _), c) in crate::effects::PARTICLE_PLAYGROUND_COLORS.iter().zip(colors.iter_mut()) {
+                *c = effect_word(params, name, &at)?;
+            }
+            Some(crate::effects::Effect::ParticlePlayground {
+                values,
+                cannon_position: effect_list(params, "cannon_position", &at)?,
+                grid_position: effect_list(params, "grid_position", &at)?,
+                words,
+                layers,
+                colors,
+                maps: Default::default(),
+                wall: None,
+                clock: [0.0; 2],
+                history: None,
+            })
         }
         crate::effects::CC_BALL_ACTION => Some(crate::effects::Effect::CcBallAction {
             scatter: effect_number(params, "scatter", &at)?,
@@ -10767,6 +10816,21 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
                             }
                             Some(_) => {}
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // D-613: a Particle Playground whose Wall Mask names no mask that is on with three points or
+    // more is kept as written and said here as each frame says it (FX-PPG-048).
+    for composition in &project.compositions {
+        for layer in composition.layers_in_order() {
+            for instance in layer.effects.iter().filter(|i| i.enabled && i.is_valid()) {
+                if let crate::effects::Effect::ParticlePlayground { values, .. } = &instance.effect {
+                    let n = values[crate::playground::WALL_MASK].floor();
+                    if n >= 1.0 && !layer.masks.get(n as usize - 1).is_some_and(|m| m.enabled && m.points.len() >= 3) {
+                        warnings.push(crate::compose::playground_wall_missing(&layer.name, n, "Every frame is drawn"));
                     }
                 }
             }
