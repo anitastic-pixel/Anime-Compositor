@@ -1,7 +1,7 @@
 # B-557: frame times with Foam (D-678)
 
 Measured on 2026-10-13, built with `cargo test --release --test b557_foam` from lane C's
-commit 5ecbd7aa, which holds 5ecbd7aa (B-557's code), and run with `--ignored b557_foam_timing`: once on the card, then once
+commit dd9c6fce, which holds dd9c6fce (B-557's code), and run with `--ignored b557_foam_timing`: once on the card, then once
 with `B557_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, the graphics card had 9.8 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-bee64f3aec, b532_warp_stabilizer-b6a2, cargo.exe. Between the card and processor runs, the graphics card had 9.7 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-bee64f3aec, b446_turbulent_noise_type, b532_warp_stabilizer-b6a2, cargo.exe. After the processor run, the graphics card had 10.1 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-bee64f3aec, b532_warp_stabilizer-b6a2, cargo.exe. Treat them as an upper bound, to be measured again on a quiet machine.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
