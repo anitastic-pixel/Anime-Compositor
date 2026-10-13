@@ -12,9 +12,11 @@ Randomness, Viscosity, Mass Variance, Gravity, its Direction and Inclination; th
 back textures and their modes; Render All, Layer or Pieces; the camera, light and material shared
 with Card Wipe and Card Dance). It publishes no formula and few settings when added, so the rule,
 the units, the shapes of the patterns and most settings when added are ours (document 21), and
-nothing is ported. Time counts from the layer's in point (D-630).
+nothing is ported. Time counts from the layer's in point (D-630). D-635 adds the four wireframe
+views (step 9), views only that never change the simulation: their drawing and colours are ours.
 
-The settings. `view` "rendered" (the wireframe views come with D-635); `render` "all" (when
+The settings. `view` "rendered" (when added), "wireframe_front", "wireframe",
+"wireframe_front_forces" or "wireframe_forces" (D-635); `render` "all" (when
 added), "layer" (only pieces not yet freed) or "pieces" (only freed pieces); `pattern` "bricks"
 (when added), "squares", "hexagons", "triangles_1", "triangles_2", "rhombus", "planks",
 "herringbone_1", "octagons_squares", "glass" or "custom"; `custom_shatter_map` D-189's layer word,
@@ -107,14 +109,27 @@ middle C0 = (W/2, H/2, 0).
    "_plus_opacity" all four times the opacity. Lit by Card Dance's step 7 with the face's normal
    R n (front (0, 0, -1), back (0, 0, 1)).
 8. The output at buffer pixel (X, Y): the winning hit's colour, or clear.
+9. The wireframe views (D-635) draw no faces, only outlines, every drawn piece's showing through
+   the others. A piece's edge pixels are its pixels with a side neighbour not in the piece. For
+   buffer pixel (X, Y), "wireframe_front" and "wireframe_front_forces" take the line
+   o = (X + 1/2 - W/2, Y + 1/2 - H/2, 0), d = (0, 0, 1), every point of it counting (seen
+   straight on, no camera); "wireframe" and "wireframe_forces" take step 6's camera ray, only
+   t > 0 counting, and draw nothing where that camera draws nothing. The pixel is opaque white
+   (1, 1, 1, 1) where the line, seen in a piece that Render draws (step 6's o' and d'), meets
+   the plane z = 0 (d'z not 0) at (u, v) inside [i, i+1) x [j, j+1) of one of the piece's edge
+   pixels (i, j); else clear. The "_forces" views then draw each force F with r = radius W > 0,
+   its centre C as in step 4: where the line's least distance D from C (at t = (C - o).d / d.d,
+   which must be > 0 for a camera ray) has |D - r| < 1/2, the sphere's outline, the pixel is
+   force 1 red (1, 0, 0, 1), then force 2 blue (0, 0, 1, 1) over it.
 
 The layer never grows. A draft changes nothing, every distance being a share of the layer.
 
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawings' 8-bit values, tests every pixel box of every piece for every pixel, and walks
 the release step by step. The rule steps at a tile's edges, at a sphere's surface, at the
-threshold, at a box's edges and where two pieces tie; every case is checked that nothing lies
-near one.
+threshold, at a box's edges and where two pieces tie, and the wireframes at an edge pixel's
+edges and half a pixel from a sphere's outline; every case is checked that nothing lies near
+one.
 
 Every case is a project of one composition 16 by 8, eight frames at 24 a second, in
 `Fixtures/shatter/`: the map layers, every one switched off, and on top of them the layer
@@ -565,7 +580,76 @@ def colour_of(k, m, o, d, hit, pics):
     return lit(k, m, o, d, t, normal(face, dl, R), px)
 
 
+FORCE_COLOURS = {1: [1.0, 0.0, 0.0, 1.0], 2: [0.0, 0.0, 1.0, 1.0]}
+
+
+def edge_cells(piece):
+    cells = set(piece[0])
+    return [(i, j) for i, j in piece[0]
+            if any(q not in cells for q in ((i + 1, j), (i - 1, j), (i, j + 1), (i, j - 1)))]
+
+
+def wire_lines(k, cam):
+    """Step 9's line for a pixel and whether it is a camera ray; None where nothing is drawn."""
+    if k["view"].startswith("wireframe_front"):
+        return (lambda x, y: ([x + 0.5 - W / 2, y + 0.5 - H / 2, 0.0], [0.0, 0.0, 1.0])), False
+    seen = CD.view(k, cam)
+    if seen is None:
+        return None
+    _, o, ray = seen
+    return (lambda x, y: (o, ray(x, y))), True
+
+
+def face_meet(o, d, piece, R, x, edges, grow=0.0):
+    """(t, inside) where the line meets a piece's front plane, or None."""
+    ol, dl = local_ray(o, d, R, x, piece)
+    if dl[2] == 0:
+        return None
+    t = -ol[2] / dl[2]
+    u, v = ol[0] + t * dl[0], ol[1] + t * dl[1]
+    return t, any(i - grow <= u < i + 1 + grow and j - grow <= v < j + 1 + grow
+                  for i, j in edges)
+
+
+def force_ring(k, f, o, d):
+    """(t, D - r) for force f's sphere, or None where its radius is 0."""
+    r = k[f"force_{f}_radius"] * W
+    if r <= 0:
+        return None
+    c = centre(k, f)
+    w = [c[j] - o[j] for j in range(3)]
+    t = CD.dot(w, d) / CD.dot(d, d)
+    return t, math.dist(c, [o[j] + t * d[j] for j in range(3)]) - r
+
+
+def wireframe(k, history, drawing, maps, cam, frame):
+    lines = wire_lines(k, cam)
+    if lines is None:
+        return [list(CLEAR) for _ in range(W * H)]
+    line, rays = lines
+    deck = [(p, R, x, edge_cells(p)) for _, p, R, x in scene(k, history, drawing, maps, frame)]
+    out = []
+    for y in range(H):
+        for x in range(W):
+            o, d = line(x, y)
+            px = list(CLEAR)
+            for p, R, xx, edges in deck:
+                hit = face_meet(o, d, p, R, xx, edges)
+                if hit is not None and hit[1] and (hit[0] > 0 or not rays):
+                    px = [1.0, 1.0, 1.0, 1.0]
+                    break
+            if k["view"].endswith("_forces"):
+                for f in (1, 2):
+                    ring = force_ring(k, f, o, d)
+                    if ring is not None and abs(ring[1]) < 0.5 and (ring[0] > 0 or not rays):
+                        px = list(FORCE_COLOURS[f])
+            out.append(px)
+    return out
+
+
 def shatter(k, history, drawing, maps, cam, frame):
+    if k["view"] != "rendered":
+        return wireframe(k, history, drawing, maps, cam, frame)
     seen = CD.view(k, cam)
     if seen is None:
         return [list(CLEAR) for _ in range(W * H)]
@@ -794,7 +878,9 @@ CASES.update({
 INVALID = {
     "FX-SH-061": ("Pattern \"puzzle\", not built yet (D-636).", case(pattern="puzzle")),
     "FX-SH-062": ("Pattern \"lace\".", case(pattern="lace")),
-    "FX-SH-063": ("View \"wireframe_front\", not built yet (D-635).",
+    "FX-SH-063": ("View Wireframe Front, as added (D-635): the bricks' outlines seen straight "
+                  "on; at rest at frame 0 every pixel lies on an outline (bricks ten across a "
+                  "layer 16 wide), and by frame 4 the middle pieces have flown.",
                   case(view="wireframe_front")),
     "FX-SH-064": ("Render \"most\".", case(render="most")),
     "FX-SH-065": ("Tumble axis \"w\".", case(tumble_axis="w")),
@@ -817,6 +903,8 @@ INVALID = {
 
 # D-566 (1): FX-SH-067 pinned Corner Pins as refused while it was not built; D-634 builds it.
 BUILT = {"FX-SH-067"}
+# D-566 (1): FX-SH-063 pinned Wireframe Front as refused while it was not built; D-635 builds it.
+BUILT.add("FX-SH-063")
 
 # D-634: the Corner Pins camera, with Card Dance's pins.
 PIN = dict(camera_system="corner_pins")
@@ -841,6 +929,40 @@ PIN_INVALID = {
     "FX-SH-082": ("Lower right corner [50, 1001], above 1000.",
                   case(lower_right_corner=[50, 1001], **PIN)),
     "FX-SH-083": ("Auto focal length \"yes\".", case(auto_focal_length="yes", **PIN)),
+}
+
+
+# D-635: the wireframe views.
+WIRE_CASES = {
+    "FX-SH-084": ("Wireframe Front, pattern bricks three across, every piece freed in place and "
+                  "turning in the picture's plane: the outlines turned.",
+                  case(view="wireframe_front", pattern="bricks", **SPIN), (3,)),
+    "FX-SH-085": ("Wireframe through the camera, the pieces tumbling about y: the outlines "
+                  "narrowing as they turn.", case(view="wireframe", **TUMBLE_Y), (3,)),
+    "FX-SH-086": ("Wireframe Front + Forces, bricks four across: the bricks' outlines and force "
+                  "1's sphere as a red circle about the middle; frame 0 at rest, frame 2 flying.",
+                  case(view="wireframe_front_forces", repetitions=4), (0, 2)),
+    "FX-SH-087": ("Wireframe + Forces with FX-SH-018's two forces: a red and a blue circle, "
+                  "seen through the camera.",
+                  case(view="wireframe_forces", force_1_position=[25, 50], force_1_radius=0.2,
+                       force_1_strength=1, force_2_position=[80, 30], force_2_radius=0.15,
+                       force_2_strength=-1, repetitions=4), (3,)),
+    "FX-SH-088": ("Wireframe Front with Render Layer: only the pieces not freed are outlined.",
+                  case(view="wireframe_front", render="layer", force_1_radius=0.25,
+                       camera_xy_position=[51.3, 48.6], **BURST), (3,)),
+    "FX-SH-089": ("Wireframe through a Comp Camera 12 pixels back: FX-SH-053's flight outlined "
+                  "in strong perspective.", case(view="wireframe", camera_system="comp_camera",
+                                                 camera=(8, 4, -12, 12), **BURST), (3,)),
+    "FX-SH-090": ("Wireframe through Corner Pins, FX-SH-080's pins: the outlines on the "
+                  "pinned shape.", case(view="wireframe", auto_focal_length="on", **KEYSTONE,
+                                        **BURST), (3,)),
+    "FX-SH-091": ("Wireframe Front at rest with the custom map `cracks`: each colour region "
+                  "outlined, the clear corner no piece.",
+                  case(view="wireframe_front", pattern="custom", custom_shatter_map="cracks",
+                       force_1_radius=0), (0,)),
+}
+WIRE_INVALID = {
+    "FX-SH-092": ("View \"solid\".", case(view="solid")),
 }
 
 
@@ -917,7 +1039,13 @@ def main():
             f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
             "frames": {str(f): render(c, f) for f in frames}}
         print(f"{fx}: built")
-    for fx, (says, c) in PIN_INVALID.items():
+    for fx, (says, c, frames) in WIRE_CASES.items():
+        step_clear(fx, c, frames)
+        expected["cases"][fx] = {"says": says, "project": write(
+            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+            "frames": {str(f): render(c, f) for f in frames}}
+        print(f"{fx}: built")
+    for fx, (says, c) in list(PIN_INVALID.items()) + list(WIRE_INVALID.items()):
         says += (" The file is read, the effect is kept as written and left out of every frame, "
                  "with a warning.")
         before = plain(c)
@@ -960,6 +1088,9 @@ def step_clear(fx, c, frames):
                         dd = math.sqrt((x + 0.5 - W / 2 - cc[0]) ** 2
                                        + (y + 0.5 - H / 2 - cc[1]) ** 2 + cc[2] ** 2)
                         assert abs(dd - r) > 1e-6, (fx, f, i, m, fo, x, y)
+        if k["view"] != "rendered":
+            wire_clear(fx, f, k, history, drawing, maps, cam)
+            continue
         seen = CD.view(k, cam)
         if seen is None:
             continue
@@ -986,6 +1117,33 @@ def step_clear(fx, c, frames):
                     ) < 1e-12, (fx, f, x, y)
                 if found and k["specular_reflection"] > 0:
                     assert abs(colour_of(k, mm, o, d, found[0], pics)[1]) > 1e-6, (fx, f, x, y)
+
+
+def wire_clear(fx, f, k, history, drawing, maps, cam):
+    """Step 9: no line meets a piece near an edge pixel's edge or near the eye, and no pixel
+    lies near a sphere's outline."""
+    lines = wire_lines(k, cam)
+    if lines is None:
+        return
+    line, rays = lines
+    deck = [(p, R, x, edge_cells(p)) for _, p, R, x in scene(k, history, drawing, maps, f)]
+    for y in range(H):
+        for x in range(W):
+            o, d = line(x, y)
+            for p, R, xx, edges in deck:
+                lo, hi = face_meet(o, d, p, R, xx, edges, -1e-6), face_meet(o, d, p, R, xx, edges, 1e-6)
+                if hi is None or not hi[1]:
+                    continue
+                assert lo[1], (fx, f, x, y)
+                if rays:
+                    assert abs(hi[0]) > 1e-6, (fx, f, x, y)
+            if k["view"].endswith("_forces"):
+                for fo in (1, 2):
+                    ring = force_ring(k, fo, o, d)
+                    if ring is not None:
+                        assert abs(abs(ring[1]) - 0.5) > 1e-6, (fx, f, x, y, fo)
+                        if rays:
+                            assert abs(ring[0]) > 1e-6, (fx, f, x, y, fo)
 
 
 def near(a, b, eps=1e-12):
@@ -1037,6 +1195,29 @@ def check(expected):
     assert near(c["FX-SH-067"]["4"], render(case(), 4), 1e-9)
     assert near(c["FX-SH-079"]["3"], c["FX-SH-052"]["3"], 1e-9)
     assert not near(c["FX-SH-080"]["3"], c["FX-SH-079"]["3"], 1e-6)
+    # D-635: white outlines and coloured circles on clear. At rest, seen straight on, a pixel is
+    # white just where a side neighbour lies in another piece or off the layer.
+    white, red, blue = [1.0, 1.0, 1.0, 1.0], FORCE_COLOURS[1], FORCE_COLOURS[2]
+    for fx in list(WIRE_CASES) + ["FX-SH-063"]:
+        for px in c[fx].values():
+            assert all(p in (CLEAR, white, red, blue) for p in px), fx
+            assert white in px, fx
+    k = settings(case(), 0)
+    owner = {}
+    for n, p in enumerate(pieces(k, None, None)):
+        for cell in p[0]:
+            owner[cell] = n
+    for y in range(H):
+        for x in range(W):
+            edge = any(owner.get(q) != owner[(x, y)]
+                       for q in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+            assert c["FX-SH-063"]["0"][y * W + x] == (white if edge else CLEAR), (x, y)
+    assert c["FX-SH-063"]["0"] != c["FX-SH-063"]["4"]
+    assert red in c["FX-SH-086"]["0"] and blue not in c["FX-SH-086"]["0"]
+    assert red in c["FX-SH-087"]["3"] and blue in c["FX-SH-087"]["3"]
+    assert sum(p == white for p in c["FX-SH-088"]["3"]) < sum(
+        p == white for p in render(case(view="wireframe_front", force_1_radius=0.25,
+                                        camera_xy_position=[51.3, 48.6], **BURST), 3))
     print("checks passed")
 
 

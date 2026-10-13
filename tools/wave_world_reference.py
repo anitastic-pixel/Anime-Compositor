@@ -6,7 +6,9 @@ several do (the pre-roll runs on the first frame's settings; the ground layer is
 first frame, its brightness the floor's height, waves running faster in deep water; Wave Strength
 0 makes no waves from the ground's movement; Phase 0 rises first, 180 dips first). It publishes
 no formula, ranges or settings when added, so those are ours (document 21), and nothing is
-ported. The view stays the height map: Wireframe Preview and its three controls come with D-635.
+ported. D-635 adds the Wireframe Preview and its three controls (step 8), a view only that never
+changes the water: the drawing, its colours and the controls' settings when added are ours, and
+the preview is seen square-on, with no perspective.
 
 No state is carried from frame to frame (D-610's rule): each frame runs the water from its start
 again, so a frame drawn alone equals the same frame drawn after the ones before it.
@@ -23,6 +25,9 @@ and 2: `producer_k_type` "ring" (when added) or "line"; `producer_k_position` x 
 line's length for a line) and `producer_k_width` 0 to 10 layer widths, 0.1; `producer_k_angle`
 -3600 to 3600 degrees, 0; `producer_k_amplitude` 0 to 10, 0.5 and 0 (the second is off when
 added); `producer_k_frequency` 0 to 30 a second, 1; `producer_k_phase` -3600 to 3600 degrees, 0.
+D-635's view: `view` "height_map" (when added) or "wireframe_preview"; `horizontal_rotation`
+-3600 to 3600 degrees, 0; `vertical_rotation` -90 to 90 degrees, 30; `vertical_scale` 0 to 10, 1;
+these four read as when added where missing and written only when given.
 Every number is keyable and held to its range; the words are exact.
 
 The rule, on a layer W by H pixels at r frames a second, drawn at composition frame n, its in
@@ -67,13 +72,26 @@ point n0; lengths are in layer widths, x right and y down from the top left.
    contrast h, 0, 1), grey = v^(1 / gamma), a = clamp(1 - transparency (1 - max(d, 0) /
    height), 0, 1) (a = 1 - transparency where height is 0), and the pixel is
    (srgb_to_linear(grey) a, ..., a). The layer's own picture is not used; the layer never grows.
+8. With `view` "wireframe_preview", in place of step 7 (D-635): each cell's point, in pixels from
+   the layer's middle, a = (i + 1/2) W / N - W/2 and b = (j + 1/2) H / M - H/2, raised by
+   z = h vertical_scale W / 10 (the current frame's h and vertical scale), is turned by the
+   horizontal rotation p about the upright, a' = a cos p - b sin p, b' = a sin p + b cos p, and
+   seen from the vertical rotation t above the water, square-on, at
+   (sx, sy) = (W/2 - 1/2 + a', H/2 - 1/2 + b' sin t - z cos t). A segment joins each wet cell to
+   its right and its lower neighbour where that is wet too (wet by the current frame's d). Buffer
+   pixel (x, y) is opaque white (1, 1, 1, 1) where its centre (x + 1/2, y + 1/2) lies less than
+   1/2 from a segment (from its one point where both ends meet), else clear. Then each producer
+   whose amplitude at the frame is not 0, its centre (px W / 100 - W/2, py H / 100 - H/2) at
+   z = 0 seen the same way, marks the pixel (fl sx, fl sy) and the two beside it on each side,
+   across and down: producer 1 red (1, 0, 0, 1), then producer 2 blue (0, 0, 1, 1) over it.
 
 A draft with downsamples off draws the same water on fewer pixels, every length being a share of
 the layer.
 
 **This file never runs the build's code path.** It works in double precision on lists. The rule
-steps where a cell or a pixel is just dry and where a line producer ends; every case is checked
-that no cell or pixel lies near one.
+steps where a cell or a pixel is just dry and where a line producer ends, and the wireframe where
+a pixel centre lies half a pixel from a segment or a mark's point on a pixel's edge; every case
+is checked that nothing lies near one.
 
 Every case is a project of one composition 32 by 18, 49 frames at 24 a second, in
 `Fixtures/wave_world/`: the map layers, switched off, and on top of them the layer `holder`,
@@ -353,7 +371,54 @@ def pixel(k, d, hv):
     return [lin * a, lin * a, lin * a, a]
 
 
+def wire(c, frame):
+    """Step 8's segments and marks: ([(a, b)], [(colour, (sx, sy))])."""
+    n, m, _, d, hh, k = simulate(c, frame)
+    v = {x: value_at(c[x], frame) for x in WIRE_NUMBERS}
+    p, t = math.radians(v["horizontal_rotation"]), math.radians(v["vertical_rotation"])
+    cp, sp, ct, st = math.cos(p), math.sin(p), math.cos(t), math.sin(t)
+
+    def seen(a, b, z):
+        a2, b2 = a * cp - b * sp, a * sp + b * cp
+        return (W / 2 - 0.5 + a2, H / 2 - 0.5 + b2 * st - z * ct)
+
+    pts = {(i, j): seen((i + 0.5) * W / n - W / 2, (j + 0.5) * H / m - H / 2,
+                        hh[j * n + i] * v["vertical_scale"] * W / 10)
+           for j in range(m) for i in range(n) if d[j * n + i] > 0}
+    segs = [(pts[(i, j)], pts[q]) for (i, j) in pts for q in ((i + 1, j), (i, j + 1)) if q in pts]
+    marks = []
+    for pr, col in ((1, [1.0, 0.0, 0.0, 1.0]), (2, [0.0, 0.0, 1.0, 1.0])):
+        if k[f"producer_{pr}_amplitude"] != 0:
+            pos = k[f"producer_{pr}_position"]
+            marks.append((col, seen(pos[0] * W / 100 - W / 2, pos[1] * H / 100 - H / 2, 0.0)))
+    return segs, marks
+
+
+def seg_dist(x, y, a, b):
+    ex, ey = b[0] - a[0], b[1] - a[1]
+    ll = ex * ex + ey * ey
+    f = 0.0 if ll == 0 else min(max(((x - a[0]) * ex + (y - a[1]) * ey) / ll, 0.0), 1.0)
+    return math.hypot(x - a[0] - f * ex, y - a[1] - f * ey)
+
+
+def wireframe(c, frame):
+    segs, marks = wire(c, frame)
+    out = [list(CLEAR) for _ in range(W * H)]
+    for y in range(H):
+        for x in range(W):
+            if any(seg_dist(x + 0.5, y + 0.5, a, b) < 0.5 for a, b in segs):
+                out[y * W + x] = [1.0, 1.0, 1.0, 1.0]
+    for col, (sx, sy) in marks:
+        fx, fy = math.floor(sx), math.floor(sy)
+        for px, py in [(fx + i, fy) for i in range(-2, 3)] + [(fx, fy + i) for i in (-2, -1, 1, 2)]:
+            if 0 <= px < W and 0 <= py < H:
+                out[py * W + px] = list(col)
+    return out
+
+
 def wave_world(c, frame):
+    if c["view"] == "wireframe_preview":
+        return wireframe(c, frame)
     n, m, _, d, hh, k = simulate(c, frame)
     out = []
     for y in range(H):
@@ -385,10 +450,16 @@ DEFAULTS = {
 }
 
 
+# D-635: the view and the Wireframe Controls, read as when added and written only when given.
+WIRE_NUMBERS = ("horizontal_rotation", "vertical_rotation", "vertical_scale")
+WIRE_DEFAULTS = {"view": "height_map", "horizontal_rotation": 0, "vertical_rotation": 30,
+                 "vertical_scale": 1}
+
+
 def case(shift=(0, 0), in_frame=0, **kw):
-    c = dict(DEFAULTS, shift=shift, in_frame=in_frame)
+    c = dict(DEFAULTS, **WIRE_DEFAULTS, shift=shift, in_frame=in_frame, given=set(kw))
     for n, v in kw.items():
-        assert n in DEFAULTS, n
+        assert n in DEFAULTS or n in WIRE_DEFAULTS, n
         c[n] = v
     return c
 
@@ -518,10 +589,48 @@ INVALID = {
     "FX-WW-048": ("Producer 2 position with one number.", small(producer_2_position=[10])),
 }
 
+# D-635: the Wireframe Preview, on a grid 10 across (10 by 6 cells).
+WIRE = dict(view="wireframe_preview", grid_resolution=10)
+WIRE_CASES = {
+    "FX-WW-049": ("Wireframe Preview with its controls as added: the water's grid seen from 30 "
+                  "degrees above, square-on; flat at frame 0, then the ripples raised, and a red "
+                  "cross on producer 1.", small(**WIRE), (0, 12)),
+    "FX-WW-050": ("Vertical rotation 80: seen from nearly straight above, the grid almost the "
+                  "layer's own shape.", small(vertical_rotation=80, **WIRE), (12,)),
+    "FX-WW-051": ("Vertical rotation 10: seen low, the ripples standing up.",
+                  small(vertical_rotation=10, vertical_scale=2, **WIRE), (12,)),
+    "FX-WW-052": ("Vertical rotation -30: seen from below the water, the grid upside down.",
+                  small(vertical_rotation=-30, **WIRE), (12,)),
+    "FX-WW-053": ("Horizontal rotation 30: the grid turned about the upright.",
+                  small(horizontal_rotation=30, **WIRE), (12,)),
+    "FX-WW-054": ("Horizontal rotation keyed 0 at frame 0 to 60 at frame 24: the view turns as "
+                  "the water runs.", small(horizontal_rotation=keyed((0, 0), (24, 60)), **WIRE),
+                  (6, 24)),
+    "FX-WW-055": ("Vertical scale 4: the ripples drawn four times higher.",
+                  small(vertical_scale=4, **WIRE), (12,)),
+    "FX-WW-056": ("Vertical scale 0: the ripples drawn flat, so frame 12 is FX-WW-049's frame "
+                  "0.", small(vertical_scale=0, **WIRE), (12,)),
+    "FX-WW-057": ("Producer 2 switched on (amplitude 0.6): a blue cross on it as well.",
+                  small(producer_2_amplitude=0.6, producer_2_phase=90, producer_2_width=0.2,
+                        producer_2_height=0.2, **WIRE), (20,)),
+    "FX-WW-058": ("The logo as ground, steepness 0.6, on a grid 15 across: the lines over the dry "
+                  "disc left out.", small(**dict(ISLAND, **dict(WIRE, grid_resolution=15))), (30,)),
+}
+WIRE_INVALID = {
+    "FX-WW-059": ("View \"solid\".", small(view="solid")),
+    "FX-WW-060": ("Vertical rotation 91, above 90.", small(vertical_rotation=91)),
+    "FX-WW-061": ("Vertical scale -1, below 0.", small(vertical_scale=-1)),
+    "FX-WW-062": ("Horizontal rotation keyed to 3601 at frame 4.",
+                  small(horizontal_rotation=keyed((0, 0), (4, 3601)))),
+}
+
 
 def effect(fid, c):
     params = {w: c[w] for w in WORDS}
     params.update({n: setting_json(c[n]) for n in NUMBERS})
+    if "view" in c["given"]:
+        params["view"] = c["view"]
+    params.update({n: setting_json(c[n]) for n in WIRE_NUMBERS if n in c["given"]})
     return {"instance_id": fid, "type_id": "core.wave_world", "enabled": True,
             "parameters": params}
 
@@ -552,26 +661,27 @@ def main():
         (OUT / "media" / f"{name}.png").write_bytes(png(pixels))
 
     expected = {"tolerance": TOLERANCE, "width": W, "height": H, "cases": {}}
-    for fx, (says, c, frames) in CASES.items():
-        step_clear(fx, c, frames)
-        rendered = {str(f): render(c, f) for f in frames}
-        entry = {"says": says, "project": write(f"{fx.lower().replace('-', '_')}.json",
-                                                project_json(fx, c)), "frames": rendered}
-        if c["ground_layer"] == "gone":
-            entry["warning"] = "EFFECT_LAYER_MISSING"
-        expected["cases"][fx] = entry
-        flat = rendered[str(frames[0])][0]
-        print(f"{fx}: " + ", ".join(
-            f"frame {f} {sum(1 for p in px if max(abs(a - b) for a, b in zip(p, flat)) > 1e-4)}"
-            " off the first pixel" for f, px in rendered.items()))
-    for fx, (says, c) in INVALID.items():
-        says += (" The file is read, the effect is kept as written and left out of every frame, "
-                 "with a warning.")
-        before = plain(c)
-        expected["cases"][fx] = {"says": says, "project": write(
-            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
-            "frames": {"0": before, "4": before}, "warning": "EFFECT_PARAMETER_INVALID"}
-        print(f"{fx}: invalid")
+    for built, refused in ((CASES, INVALID), (WIRE_CASES, WIRE_INVALID)):
+        for fx, (says, c, frames) in built.items():
+            step_clear(fx, c, frames)
+            rendered = {str(f): render(c, f) for f in frames}
+            entry = {"says": says, "project": write(f"{fx.lower().replace('-', '_')}.json",
+                                                    project_json(fx, c)), "frames": rendered}
+            if c["ground_layer"] == "gone":
+                entry["warning"] = "EFFECT_LAYER_MISSING"
+            expected["cases"][fx] = entry
+            flat = rendered[str(frames[0])][0]
+            print(f"{fx}: " + ", ".join(
+                f"frame {f} {sum(1 for p in px if max(abs(a - b) for a, b in zip(p, flat)) > 1e-4)}"
+                " off the first pixel" for f, px in rendered.items()))
+        for fx, (says, c) in refused.items():
+            says += (" The file is read, the effect is kept as written and left out of every "
+                     "frame, with a warning.")
+            before = plain(c)
+            expected["cases"][fx] = {"says": says, "project": write(
+                f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+                "frames": {"0": before, "4": before}, "warning": "EFFECT_PARAMETER_INVALID"}
+            print(f"{fx}: invalid")
 
     (OUT / "expected_wave_world.json").write_text(json.dumps(expected, indent=1) + "\n",
                                                   encoding="utf-8")
@@ -604,6 +714,14 @@ def step_clear(fx, c, frames):
                 for x in range(W):
                     dd = bilerp(d, n, m, (x + 0.5) * n / W - 0.5, (y + 0.5) * m / H - 0.5)
                     assert abs(dd) > 1e-6, (fx, f, x, y)
+        if c["view"] == "wireframe_preview":
+            segs, marks = wire(c, f)
+            for y in range(H):
+                for x in range(W):
+                    for a, b in segs:
+                        assert abs(seg_dist(x + 0.5, y + 0.5, a, b) - 0.5) > 1e-6, (fx, f, x, y)
+            for _, (sx, sy) in marks:
+                assert min(abs(sx - round(sx)), abs(sy - round(sy))) > 1e-6, (fx, f, sx, sy)
 
 
 def near(a, b, eps=1e-12):
@@ -705,6 +823,21 @@ def check(expected):
     # Contrast 8 clips somewhere to white and to black.
     vals = [p[0] for p in c["FX-WW-027"]["12"]]
     assert max(vals) == 1.0 and min(vals) == 0.0
+    # D-635: the wireframe is white lines and coloured marks on clear; flat at frame 0, raised
+    # by 12; vertical scale 0 draws the flat grid; producer 2's mark is blue; the dry disc
+    # leaves lines out of the grid.
+    white, red, blue = [1.0, 1.0, 1.0, 1.0], [1.0, 0.0, 0.0, 1.0], [0.0, 0.0, 1.0, 1.0]
+    for fx in WIRE_CASES:
+        for px in c[fx].values():
+            assert all(p in (CLEAR, white, red, blue) for p in px), fx
+            assert white in px and CLEAR in px, fx
+    assert red in c["FX-WW-049"]["0"] and blue not in c["FX-WW-049"]["0"]
+    assert c["FX-WW-049"]["0"] != c["FX-WW-049"]["12"]
+    assert c["FX-WW-056"]["12"] == c["FX-WW-049"]["0"]
+    assert blue in c["FX-WW-057"]["20"]
+    island = small(**dict(ISLAND, **dict(WIRE, grid_resolution=15)))
+    flat_island = small(**dict(WIRE, grid_resolution=15, producer_1_position=[20, 30]))
+    assert len(wire(island, 30)[0]) < len(wire(flat_island, 30)[0])
     print("checks passed")
 
 
