@@ -1,0 +1,167 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx_slay_017",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-clicks",
+      "kind": "audio",
+      "name": "clicks",
+      "path": "media/clicks.wav"
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 4,
+      "height": 2,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 48,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 48
+      },
+      "layer_order": [
+        "nest0",
+        "nest1"
+      ],
+      "layers": [
+        {
+          "id": "nest0",
+          "kind": "composition",
+          "name": "nest 0",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 48,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "composition_id": "comp-inner",
+          "source_offset_frames": 0
+        },
+        {
+          "id": "nest1",
+          "kind": "composition",
+          "name": "nest 1",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 6,
+          "out_frame": 48,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "masks": [],
+          "composition_id": "comp-inner",
+          "source_offset_frames": 0
+        }
+      ]
+    },
+    {
+      "id": "comp-inner",
+      "name": "comp-inner",
+      "width": 4,
+      "height": 2,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 48,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 48
+      },
+      "layer_order": [
+        "sound0"
+      ],
+      "layers": [
+        {
+          "id": "sound0",
+          "kind": "audio",
+          "name": "sound 0",
+          "asset_id": "asset-clicks",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 48,
+          "source_offset_frames": 0,
+          "gain_db": 0
+        }
+      ]
+    }
+  ]
+}
