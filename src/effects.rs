@@ -3270,6 +3270,7 @@ pub enum Effect {
     /// y, per cent of the drawing, -1000 to 1000; `words`, those of [`PARTICLE_GRID_WORDS`];
     /// `layers`, D-189's layer settings of [`PARTICLE_GRID_LAYERS`] as written; `colors`, those of
     /// [`PARTICLE_GRID_COLORS`], `#rrggbb`. Kept as written, so a file's wrong one is reported.
+    /// D-712 added Base Forms Box Strings and Layer and the fourth layer, the Base Layer.
     /// Not settings, never saved: `maps`, compose reads each layer into its own at the frame,
     /// stretched to the drawing; `clock`, `view` and `history` as Particle Emitter's, the history
     /// of `particles::grid_numbers_row`.
@@ -3277,9 +3278,9 @@ pub enum Effect {
         values: [f64; 28],
         form_center: Vec<f64>,
         words: [String; 3],
-        layers: [serde_json::Value; 3],
+        layers: [serde_json::Value; 4],
         colors: [String; 1],
-        maps: [Option<crate::layer_map::Map>; 3],
+        maps: [Option<crate::layer_map::Map>; 4],
         clock: [f64; 2],
         view: [f64; 4],
         history: Option<std::sync::Arc<Vec<[f64; 30]>>>,
@@ -5293,12 +5294,13 @@ pub const PARTICLE_GRID_SETTINGS: [(&str, f64, f64, f64); 28] = [
 ];
 /// D-616: Particle Grid's words: name, the words, the word when added.
 pub const PARTICLE_GRID_WORDS: [(&str, &[&str], &str); 3] = [
-    ("base_form", &["box_grid", "sphere_layered"], "box_grid"),
+    ("base_form", &["box_grid", "sphere_layered", "box_strings", "layer"], "box_grid"),
     ("particle_type", &["sphere", "glow_sphere", "star", "cloudlet"], "sphere"),
     ("transfer_mode", &["normal", "add", "screen"], "normal"),
 ];
-/// D-616: Particle Grid's layer settings, each stretched to the drawing.
-pub const PARTICLE_GRID_LAYERS: [&str; 3] = ["color_map", "size_map", "displace_map"];
+/// D-616: Particle Grid's layer settings, each stretched to the drawing; D-712 added the Base
+/// Layer, whose shape Base Form Layer keeps the points on.
+pub const PARTICLE_GRID_LAYERS: [&str; 4] = ["color_map", "size_map", "displace_map", "base_layer"];
 /// D-616: Particle Grid's colour and its value when added.
 pub const PARTICLE_GRID_COLORS: [(&str, &str); 1] = [("color", "#ffffff")];
 pub const MERCURY: &str = "core.mercury";
@@ -9968,7 +9970,7 @@ impl Effect {
         if let Effect::ParticlePlayground { layers, .. } = self {
             return layers.iter().map(|l| (l.as_str().unwrap_or(""), "center")).collect();
         }
-        // D-616: Particle Grid's three, each stretched to the drawing.
+        // D-616, D-712: Particle Grid's four, each stretched to the drawing.
         if let Effect::ParticleGrid { layers, .. } = self {
             return layers.iter().map(|l| (l.as_str().unwrap_or(""), "stretch")).collect();
         }

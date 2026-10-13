@@ -1532,7 +1532,7 @@ type GridPoint = (usize, V, f64, f64, Option<V>);
 /// D-616: every point of a Particle Grid on a layer `w` by `h`, the maps those of
 /// [`PARTICLE_GRID_LAYERS`] (none where none is named); with the frame's numbers and the words
 /// as indices in [`PARTICLE_GRID_WORDS`]' order. None before the layer's in point.
-fn grid_points(e: &Effect, maps: [Option<&WorkingBuffer>; 3], w: f64, h: f64) -> Option<([f64; 30], [usize; 3], Vec<GridPoint>)> {
+fn grid_points(e: &Effect, maps: [Option<&WorkingBuffer>; 4], w: f64, h: f64) -> Option<([f64; 30], [usize; 3], Vec<GridPoint>)> {
     let Effect::ParticleGrid { words, colors, clock, history, .. } = e else {
         unreachable!("Particle Grid's points of another effect")
     };
@@ -1559,9 +1559,10 @@ fn grid_points(e: &Effect, maps: [Option<&WorkingBuffer>; 3], w: f64, h: f64) ->
     // ones off the layer first if big grids are slow.
     let points = (0..n[0] * n[1] * n[2])
         .into_par_iter()
-        .map(|j| {
+        .filter_map(|j| {
             let (i, l, mm) = (j % n[0], (j / n[0]) % n[1], j / (n[0] * n[1]));
-            let d0 = if kinds[0] == 0 {
+            // D-712: Box Strings and Layer place their points as Box Grid.
+            let d0 = if kinds[0] != 1 {
                 [
                     size[0] * ((i as f64 + 0.5) / n[0] as f64 - 0.5),
                     size[1] * ((l as f64 + 0.5) / n[1] as f64 - 0.5),
@@ -1575,6 +1576,10 @@ fn grid_points(e: &Effect, maps: [Option<&WorkingBuffer>; 3], w: f64, h: f64) ->
             let front = |k: usize| if size[k] > 0.0 { d0[k] / size[k] + 0.5 } else { 0.5 };
             let (a, b) = (front(0), front(1));
             let got = maps.map(|mp| mp.map(|mp| bilinear64(mp, a * mp.width() as f64, b * mp.height() as f64)));
+            // D-712: Layer keeps only the points where the Base Layer is half opaque or more.
+            if kinds[0] == 3 && got[3].is_some_and(|p| p[3] < 0.5) {
+                return None;
+            }
             let q: V = std::array::from_fn(|k| (d0[k] + off[k]) / s[18] + evo * [0.31, 0.57, 0.77][k]);
             let nn: [f64; 5] = std::array::from_fn(|c| noise(seed, c as u64, q));
             let mut d: V = std::array::from_fn(|k| d0[k] + s[15] * (2.0 * r(j, k as u64) - 1.0));
@@ -1600,7 +1605,7 @@ fn grid_points(e: &Effect, maps: [Option<&WorkingBuffer>; 3], w: f64, h: f64) ->
                 }
                 Some(_) => None,
             };
-            (j, x, px, alpha, col)
+            Some((j, x, px, alpha, col))
         })
         .collect();
     Some((s, kinds, points))
@@ -1609,7 +1614,7 @@ fn grid_points(e: &Effect, maps: [Option<&WorkingBuffer>; 3], w: f64, h: f64) ->
 /// D-616: the Grid's points for B-496's test, as [`grid_points`]', each its index, place, size and
 /// opacity, on a layer `w` by `h` with the maps given.
 #[doc(hidden)]
-pub fn grid_alive(e: &Effect, maps: [Option<&WorkingBuffer>; 3], w: f64, h: f64) -> Vec<[f64; 6]> {
+pub fn grid_alive(e: &Effect, maps: [Option<&WorkingBuffer>; 4], w: f64, h: f64) -> Vec<[f64; 6]> {
     let Some((.., points)) = grid_points(e, maps, w, h) else { return Vec::new() };
     points.into_iter().map(|(j, x, size, alpha, _)| [j as f64, x[0], x[1], x[2], size, alpha]).collect()
 }
@@ -1619,18 +1624,36 @@ pub fn grid_alive(e: &Effect, maps: [Option<&WorkingBuffer>; 3], w: f64, h: f64)
 fn grid_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) -> Vec<f64> {
     let (w0, h0) = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
     let Effect::ParticleGrid { view, maps, .. } = e else { unreachable!() };
-    let maps = [0, 1, 2].map(|i| maps[i].as_ref().map(|m| &*m.0));
+    let maps = [0, 1, 2, 3].map(|i| maps[i].as_ref().map(|m| &*m.0));
     let Some((s, kinds, points)) = grid_points(e, maps, w0, h0) else {
         return vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
     };
     let see = seen(*view, w0, h0);
-    let drawn = points
-        .into_iter()
-        .filter_map(|(j, x, size, alpha, col)| {
-            let [px, py, ppu, depth] = see(x)?;
-            Some((depth, j as i64, sprite_dot(kinds[1], px, py, size * ppu / (2.0 * w0), alpha, col?, s[14] / 100.0)))
-        })
-        .collect();
+    let drawn = if kinds[0] == 2 {
+        // D-712: Box Strings, each point but a string's last a line to the next, as the
+        // Emitter's streak, max(1, 2 R) wide at the start point's opacity, colour and depth.
+        let nx = s[3].floor() as usize;
+        points
+            .iter()
+            .filter_map(|&(j, x, size, alpha, col)| {
+                if j % nx == nx - 1 {
+                    return None;
+                }
+                let col = col?;
+                let ([px, py, ppu, depth], [qx, qy, ..]) = (see(x)?, see(points[j + 1].1)?);
+                let wd = (size * ppu / w0).max(1.0);
+                Some((depth, j as i64, [0.0, px, py, qx, qy, wd, alpha, col[0], col[1], col[2], 0.0]))
+            })
+            .collect()
+    } else {
+        points
+            .into_iter()
+            .filter_map(|(j, x, size, alpha, col)| {
+                let [px, py, ppu, depth] = see(x)?;
+                Some((depth, j as i64, sprite_dot(kinds[1], px, py, size * ppu / (2.0 * w0), alpha, col?, s[14] / 100.0)))
+            })
+            .collect()
+    };
     sprite_list(drawn, kinds[2])
 }
 

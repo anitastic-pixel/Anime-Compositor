@@ -3313,8 +3313,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             for ((name, ..), w) in crate::effects::PARTICLE_GRID_WORDS.iter().zip(words) {
                 params.insert((*name).into(), J::from(w.as_str()));
             }
-            for (name, l) in crate::effects::PARTICLE_GRID_LAYERS.iter().zip(layers) {
-                params.insert((*name).into(), l.clone());
+            // D-712: the Base Layer written only when named or already in the file.
+            for (n, (name, l)) in crate::effects::PARTICLE_GRID_LAYERS.iter().zip(layers).enumerate() {
+                if n < 3 || l.as_str() != Some("") || params.contains_key(*name) {
+                    params.insert((*name).into(), l.clone());
+                }
             }
             for ((name, _), c) in crate::effects::PARTICLE_GRID_COLORS.iter().zip(colors) {
                 params.insert((*name).into(), J::from(c.as_str()));
@@ -8135,9 +8138,11 @@ fn parse_effect(
             for ((name, ..), w) in crate::effects::PARTICLE_GRID_WORDS.iter().zip(words.iter_mut()) {
                 *w = effect_word(params, name, &at)?;
             }
-            let mut layers: [J; 3] = Default::default();
-            for (name, l) in crate::effects::PARTICLE_GRID_LAYERS.iter().zip(layers.iter_mut()) {
-                *l = field(effect_params(params, &at)?, &format!("{at}/parameters"), name)?.clone();
+            // D-712: a file written before it has no Base Layer.
+            let mut layers: [J; 4] = Default::default();
+            for (n, (name, l)) in crate::effects::PARTICLE_GRID_LAYERS.iter().zip(layers.iter_mut()).enumerate() {
+                let p = effect_params(params, &at)?;
+                *l = if n < 3 { field(p, &format!("{at}/parameters"), name)?.clone() } else { p.get(*name).cloned().unwrap_or_else(|| J::from("")) };
             }
             let mut colors: [String; 1] = Default::default();
             for ((name, _), c) in crate::effects::PARTICLE_GRID_COLORS.iter().zip(colors.iter_mut()) {

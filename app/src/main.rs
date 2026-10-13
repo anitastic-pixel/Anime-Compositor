@@ -8803,7 +8803,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             for (w, s) in words.iter_mut().zip(PARTICLE_GRID_WORDS) {
                 *w = word(s.0)?;
             }
-            let mut layers: [serde_json::Value; 3] = Default::default();
+            let mut layers: [serde_json::Value; 4] = Default::default();
             for (l, s) in layers.iter_mut().zip(PARTICLE_GRID_LAYERS) {
                 *l = serde_json::Value::from(parameter(query, s).ok_or_else(|| format!("What should {s} be set to?"))?.trim());
             }
@@ -34226,6 +34226,7 @@ mod contract {
                 ("color_map", "layer-4"),
                 ("size_map", "layer-4"),
                 ("displace_map", "layer-4"),
+                ("base_layer", "layer-4"),
                 ("color", "#00ff80"),
             ],
         ),
