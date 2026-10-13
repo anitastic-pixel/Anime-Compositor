@@ -213266,3 +213266,49 @@ FX-DRIZZLE-034 (`fx_drizzle_034.json`): A light colour written "white". The file
 FX-DRIZZLE-035 (`fx_drizzle_035.json`): Light position across 1001, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-DRIZZLE-036 (`fx_drizzle_036.json`): Drip Rate keyed to 2000 at frame 4, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Liquify (D-605)
+
+Liquify (`core.liquify`, B-484, EFFECTS.md row 154), after After Effects' Liquify, the rule ours. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size; the media are in `Fixtures/liquify/media/`. `tools/liquify_reference.py` works the expected frames, `Fixtures/liquify/expected_liquify.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-LIQUIFY-001 (`fx_liquify_001.json`): The settings as they start: Warp, brush 64, pressure 50, and no stroke: the drawing, untouched. Frames 0.
+
+FX-LIQUIFY-002 (`fx_liquify_002.json`): Warp, brush 8, pressure 50, stroked across the middle from a quarter to three quarters: the stripes under the stroke pushed right. Frames 0.
+
+FX-LIQUIFY-003 (`fx_liquify_003.json`): Twirl Clockwise, brush 10, pressure 100, one dab in the middle: the stripes there turned clockwise. Frames 0.
+
+FX-LIQUIFY-004 (`fx_liquify_004.json`): Twirl Counterclockwise, as FX-LIQUIFY-003: turned the other way. Frames 0.
+
+FX-LIQUIFY-005 (`fx_liquify_005.json`): Pucker, brush 10, pressure 100, one dab in the middle: the drawing drawn in toward it. Frames 0.
+
+FX-LIQUIFY-006 (`fx_liquify_006.json`): Bloat, as FX-LIQUIFY-005: swollen out from it. Frames 0.
+
+FX-LIQUIFY-007 (`fx_liquify_007.json`): Shift Pixels, stroked as FX-LIQUIFY-002: the stripes moved square to the stroke, up the picture, to its left. Frames 0.
+
+FX-LIQUIFY-008 (`fx_liquify_008.json`): FX-LIQUIFY-002 at Distortion Percentage 200: pushed twice as far. Frames 0.
+
+FX-LIQUIFY-009 (`fx_liquify_009.json`): FX-LIQUIFY-002 with the Distortion Mesh Offset 3 pixels right: the push lands three pixels on. Frames 0.
+
+FX-LIQUIFY-010 (`fx_liquify_010.json`): FX-LIQUIFY-002 with the layer moved three pixels right: the pushed drawing moves with it. Frames 0.
+
+FX-LIQUIFY-011 (`fx_liquify_011.json`): Distortion Percentage keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 the drawing, frame 4 FX-LIQUIFY-002, frame 2 between. Frames 0, 2, 4.
+
+FX-LIQUIFY-012 (`fx_liquify_012.json`): The stroke keyed from across the middle at frame 0 to rising to the top right at frame 4: the push turns upward. Frames 0, 2, 4.
+
+FX-LIQUIFY-013 (`fx_liquify_013.json`): Warp, brush 6, pressure 80, stroked down and back up in a V: the push follows each leg. Frames 0.
+
+FX-LIQUIFY-014 (`fx_liquify_014.json`): Brush Pressure keyed from 20 at frame 0 to 100 at frame 4, eased past its end: frame 2 would pass 100 and is held there, the same as frame 4. Frames 0, 2, 4.
+
+FX-LIQUIFY-015 (`fx_liquify_015.json`): Warp with a brush of 1000, wider than the drawing: the whole drawing pushed right almost evenly, four pixels, clear down the left. Frames 0.
+
+FX-LIQUIFY-016 (`fx_liquify_016.json`): Tool "freeze", not one of the six. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-017 (`fx_liquify_017.json`): Brush Size 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-018 (`fx_liquify_018.json`): Brush Pressure 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-019 (`fx_liquify_019.json`): A stroke of three numbers, half a point over. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-020 (`fx_liquify_020.json`): Distortion Percentage 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LIQUIFY-021 (`fx_liquify_021.json`): The stroke keyed to end at 300 per cent across at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
