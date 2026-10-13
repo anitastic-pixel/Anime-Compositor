@@ -3144,6 +3144,19 @@ pub enum Effect {
         view: [f64; 4],
         history: Option<std::sync::Arc<Vec<[f64; 30]>>>,
     },
+    /// D-674: Mercury, after CycoreFX's CC Mr. Mercury, its rule and settings when added ours
+    /// (`simulate::mercury`, document 21): the layer turned into drops of liquid metal from the
+    /// in point, born at a producer, thrown and falling, running together and lit. `values`, the
+    /// settings of [`MERCURY_SETTINGS`] in that order; `words`, those of [`MERCURY_WORDS`], kept
+    /// as written; `light_color` #rrggbb. `clock` and `history` are not settings and are never
+    /// saved, filled by compose as Bubbles' are (document 20).
+    Mercury {
+        values: [f64; 24],
+        words: [String; 3],
+        light_color: String,
+        clock: [f64; 2],
+        history: Option<std::sync::Arc<Vec<[f64; 24]>>>,
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -5071,6 +5084,46 @@ pub const PARTICLE_GRID_WORDS: [(&str, &[&str], &str); 3] = [
 pub const PARTICLE_GRID_LAYERS: [&str; 3] = ["color_map", "size_map", "displace_map"];
 /// D-616: Particle Grid's colour and its value when added.
 pub const PARTICLE_GRID_COLORS: [(&str, &str); 1] = [("color", "#ffffff")];
+pub const MERCURY: &str = "core.mercury";
+/// D-674: Mercury's keyable settings, in the order `values` holds them: name, lowest, highest,
+/// and the value when the effect is added. Birth rate in drops a second; longevity in seconds,
+/// read at the in point; the producer's place in per cent of the drawing and its radii in per
+/// cent of its height; direction in degrees; velocity in per cent of the height a second; extra,
+/// the randomness, in per cent; gravity in per cent of the height a second a second; resistance
+/// in hundredths a second; blob influence in per cent; the sizes in per cent of a twentieth of
+/// the height; then Drizzle's light and shading.
+pub const MERCURY_SETTINGS: [(&str, f64, f64, f64); 24] = [
+    ("birth_rate", 0.0, 1000.0, 20.0),
+    ("longevity", 0.0, 100.0, 2.0),
+    ("producer_x", -1000.0, 1000.0, 50.0),
+    ("producer_y", -1000.0, 1000.0, 50.0),
+    ("radius_x", 0.0, 1000.0, 10.0),
+    ("radius_y", 0.0, 1000.0, 10.0),
+    ("direction", -3600.0, 3600.0, 0.0),
+    ("velocity", 0.0, 1000.0, 50.0),
+    ("extra", 0.0, 100.0, 50.0),
+    ("gravity", -1000.0, 1000.0, 50.0),
+    ("resistance", 0.0, 1000.0, 0.0),
+    ("blob_influence", 0.0, 400.0, 100.0),
+    ("birth_size", 0.0, 1000.0, 100.0),
+    ("death_size", 0.0, 1000.0, 50.0),
+    ("light_intensity", 0.0, 400.0, 100.0),
+    ("light_height", -1000.0, 1000.0, 100.0),
+    ("light_position_x", -1000.0, 1000.0, 30.0),
+    ("light_position_y", -1000.0, 1000.0, 30.0),
+    ("light_direction", -3600.0, 3600.0, -45.0),
+    ("ambient", 0.0, 100.0, 20.0),
+    ("diffuse", 0.0, 100.0, 60.0),
+    ("specular", 0.0, 100.0, 80.0),
+    ("roughness", 0.001, 1.0, 0.05),
+    ("metal", 0.0, 100.0, 100.0),
+];
+/// D-674: Mercury's words: name, the words, the word when added.
+pub const MERCURY_WORDS: [(&str, &[&str], &str); 3] = [
+    ("animation", &["explosive", "direction", "twirl", "vortex", "fixed"], "explosive"),
+    ("influence_map", &["in_out", "in", "out", "constant"], "in_out"),
+    ("light_type", &["distant", "point"], "distant"),
+];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -5543,6 +5596,11 @@ impl Effect {
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .chain([("form_center", form_center.iter_mut().collect(), -1000.0, 1000.0)])
+                .collect(),
+            Effect::Mercury { values, .. } => MERCURY_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .collect(),
             Effect::CcBallAction { scatter, rotation, twist_angle, grid_spacing, ball_size, instability_state, .. } => vec![
                 ("scatter", vec![scatter], 0.0, 1000.0),
@@ -8550,6 +8608,8 @@ impl Effect {
             }
             // D-672: a point light's height is a distance; every other length a share.
             Effect::Drizzle { values, words, .. } if words[0] == "point" => values[7] = scale(values[7]),
+            // D-674: a point light's height is a distance; every other length a share.
+            Effect::Mercury { values, words, .. } if words[2] == "point" => values[15] = scale(values[15]),
             // D-424: the stroke's width and the wobble are distances; the brush is a share.
             Effect::GlueGun { stroke_width, wobble_width, wobble_height, light_type, light_height, .. } => {
                 *stroke_width = scale(*stroke_width);
@@ -8831,6 +8891,7 @@ impl Effect {
             Effect::Hair { .. } => "Hair",
             Effect::ParticleEmitter { .. } => "Particle Emitter",
             Effect::ParticleGrid { .. } => "Particle Grid",
+            Effect::Mercury { .. } => "Mercury",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -9096,6 +9157,7 @@ impl Effect {
             Effect::Hair { .. } => HAIR,
             Effect::ParticleEmitter { .. } => PARTICLE_EMITTER,
             Effect::ParticleGrid { .. } => PARTICLE_GRID,
+            Effect::Mercury { .. } => MERCURY,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -9749,6 +9811,14 @@ impl Effect {
             Effect::Hair { words, hair_color, .. } => (!["off", "on"].contains(&words[0].as_str()))
                 .then(|| format!("{name}'s constant mass is off or on, and this is \"{}\".", words[0]))
                 .or_else(|| hex_fault(name, "hair colour", hair_color)),
+            Effect::Mercury { words, light_color, .. } => MERCURY_WORDS
+                .iter()
+                .zip(words)
+                .find(|((_, allowed, _), w)| !allowed.contains(&w.as_str()))
+                .map(|((what, allowed, _), w)| {
+                    format!("{name}'s {} is {}, and this is \"{w}\".", what.replace('_', " "), allowed.join(", "))
+                })
+                .or_else(|| hex_fault(name, "light colour", light_color)),
             Effect::ParticleSpace { words, colors, texture_layer, .. } => PARTICLE_SPACE_WORDS
                 .iter()
                 .zip(words)
@@ -13334,6 +13404,10 @@ pub(crate) fn apply_stack_at(
             }),
             // D-673: the strands in the drawing's own space; never grows.
             e @ Effect::Hair { .. } => crate::perf::time(crate::perf::Stage::EffectHair, || crate::simulate::hair(source, e, (ox, oy))),
+            // D-674: the drops in the drawing's own space; never grows.
+            e @ Effect::Mercury { .. } => crate::perf::time(crate::perf::Stage::EffectMercury, || {
+                crate::simulate::mercury(source, e, (ox, oy))
+            }),
             // D-610: the particles drawn through the composition camera or its own; never grows.
             e @ Effect::ParticleSpace { .. } => crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {
                 crate::particles::particle_space(source, e, (ox, oy))

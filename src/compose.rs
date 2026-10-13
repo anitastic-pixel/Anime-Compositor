@@ -1177,6 +1177,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::ParticlePlane { .. }
                 // D-673.
                 | crate::effects::Effect::Hair { .. }
+                // D-674.
+                | crate::effects::Effect::Mercury { .. }
                 // D-508 (the bits are found on the processor).
                 | crate::effects::Effect::EnergyStroke { .. }
                 // D-509.
@@ -2521,6 +2523,22 @@ fn effect_now(
                 std::sync::Arc::new(
                     (layer.in_frame..=at + 1)
                         .map(|f| crate::particles::grid_numbers_row(&crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect))
+                        .collect(),
+                )
+            });
+        }
+        // D-674: Mercury's clock and history, as Bubbles'.
+        if let crate::effects::Effect::Mercury { clock, history, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            *clock = [(at - layer.in_frame) as f64, fps];
+            // ponytail: O(frames) as Bubbles'.
+            *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
+                std::sync::Arc::new(
+                    (layer.in_frame..=at)
+                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
+                            crate::effects::Effect::Mercury { values, .. } => values,
+                            _ => unreachable!("Mercury's settings of another effect"),
+                        })
                         .collect(),
                 )
             });

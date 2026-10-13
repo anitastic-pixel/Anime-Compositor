@@ -7228,8 +7228,8 @@ fn drizzle(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(out));
 }
 
-// D-673, the layer at a strand's root, at (x, y) in the buffer's own pixels: the bilinear read
-// clamped to the buffer, premultiplied.
+// D-673, D-674, the layer at a strand's root or a drop's birthplace, at (x, y) in the buffer's
+// own pixels: the bilinear read clamped to the buffer, premultiplied.
 fn hair_root(x: f64, y: f64) -> vec4<f64> {
     let size = textureDimensions(input);
     let fx = clamp(x - 0.5lf, 0.0lf, f64(size.x) - 1.0lf);
@@ -7321,6 +7321,98 @@ fn hair(@builtin(global_invocation_id) id: vec3<u32>) {
         res.w = cover + res.w * (1.0lf - cover);
     }
     textureStore(output, id.xy, vec4<f32>(res));
+}
+
+// D-674, simulate::mercury, a pixel a thread: the drops of its 16 by 16 tile in order (k: k[0]
+// where the shared numbers start, k[6] the count, the drops from 7, SPRITE_STRIDE each, [3, x, y, rho, r,
+// x_0, y_0, u_2, ..], then each tile's start and the lists, then simulate::mercury_light's
+// fifteen numbers), each live drop's birthplace read for whether it lives and its colour, the
+// metaball field, its slope and the colour summed, the surface's edge a pixel soft and lit by
+// Drizzle's light. Where no drop covers, clear. The highlight's power is single precision, as
+// Glue Gun's.
+@compute @workgroup_size(16, 16)
+fn mercury(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let tw = (size.x + 15u) / 16u;
+    let nt = tw * ((size.y + 15u) / 16u);
+    let t = (id.y / 16u) * tw + id.x / 16u;
+    let o = 7u + SPRITE_STRIDE * u32(k[6]);
+    let g = u32(k[0]);
+    let x = f64(i32(id.x) - F.ox) + 0.5lf;
+    let y = f64(i32(id.y) - F.oy) + 0.5lf;
+    var field = 0.0lf;
+    var fx = 0.0lf;
+    var fy = 0.0lf;
+    var wt = 0.0lf;
+    var cs = vec3(0.0lf);
+    for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
+        let s = 7u + SPRITE_STRIDE * u32(k[o + nt + 1u + j]);
+        let dx = x - k[s + 1u];
+        let dy = y - k[s + 2u];
+        let rho = k[s + 3u];
+        let q2 = (dx * dx + dy * dy) / (rho * rho);
+        if q2 >= 1.0lf {
+            continue;
+        }
+        let c = hair_root(k[s + 5u] + f64(F.ox), k[s + 6u] + f64(F.oy));
+        if !(k[s + 7u] < c.w) {
+            continue;
+        }
+        let one = 1.0lf - q2;
+        let ff = one * one;
+        field += ff;
+        fx += -4.0lf * one * dx / (rho * rho);
+        fy += -4.0lf * one * dy / (rho * rho);
+        wt += ff * rho;
+        cs += ff * (c.xyz / c.w);
+    }
+    let edge = k[g + 1u];
+    let gl = sqrt(fx * fx + fy * fy);
+    var cov = 0.0lf;
+    if field > 0.0lf {
+        if gl > 0.0lf {
+            cov = clamp((field - edge) / gl + 0.5lf, 0.0lf, 1.0lf);
+        } else if field > edge {
+            cov = 1.0lf;
+        }
+    }
+    if cov == 0.0lf {
+        textureStore(output, id.xy, vec4(0.0));
+        return;
+    }
+    let col = cs / field;
+    let cc = wt / field;
+    let nv = vec3(-cc * fx, -cc * fy, 2.0lf * sqrt(max(field - edge, 0.0lf)));
+    let nlen = sqrt(nv.x * nv.x + nv.y * nv.y + nv.z * nv.z);
+    var n = vec3(0.0lf, 0.0lf, 1.0lf);
+    if nlen > 0.0lf {
+        n = nv / nlen;
+    }
+    var lv = vec3(k[g + 12u], k[g + 13u], k[g + 14u]);
+    if k[g + 11u] == 1.0lf {
+        lv = vec3(k[g + 12u] - x, k[g + 13u] - y, k[g + 14u]);
+    }
+    let ll = sqrt(lv.x * lv.x + lv.y * lv.y + lv.z * lv.z);
+    var l = vec3(0.0lf);
+    if ll > 0.0lf {
+        l = lv / ll;
+    }
+    let nl = n.x * l.x + n.y * l.y + n.z * l.z;
+    let rz = 2.0lf * nl * n.z - l.z;
+    var shine = 0.0lf;
+    if nl > 0.0lf && rz > 0.0lf {
+        shine = f64(pow(f32(rz), f32(1.0lf / k[g + 10u])));
+    }
+    var out = vec4(0.0lf, 0.0lf, 0.0lf, cov);
+    for (var ch = 0u; ch < 3u; ch++) {
+        let lc = k[g + 2u + ch];
+        let lit = col[ch] * (k[g + 6u] + k[g + 7u] * k[g + 5u] * lc * max(nl, 0.0lf)) + k[g + 8u] * k[g + 5u] * (lc + (col[ch] - lc) * k[g + 9u]) * shine;
+        out[ch] = lit * cov;
+    }
+    textureStore(output, id.xy, vec4<f32>(out));
 }
 
 // B-151, median.rs's straight colour of a pixel, each channel over the covering in single
@@ -11570,6 +11662,8 @@ struct FxPasses {
     drizzle: Pass,
     /// D-673.
     hair: Pass,
+    /// D-674.
+    mercury: Pass,
     /// B-151.
     median: Pass,
     smart: Pass,
@@ -12316,6 +12410,7 @@ impl Gpu {
                 bubbles: pass("bubbles", &[0, 1, 2, 3]),
                 drizzle: pass("drizzle", &[0, 1, 2, 3]),
                 hair: pass("hair", &[0, 1, 2, 3]),
+                mercury: pass("mercury", &[0, 1, 2, 3]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
@@ -15133,6 +15228,21 @@ impl Gpu {
                 self.fx_step(steps, &passes.hair, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
                 (out, (w, h))
             }
+            // D-674: the drops in the drawing's own space, binned into the card's tiles as the
+            // particles are, the lists after them, then the light.
+            e @ E::Mercury { .. } => {
+                let (w0, h0) = (w.saturating_sub(2 * ox), h.saturating_sub(2 * oy));
+                let mut k = crate::simulate::mercury_list(e, w0 as f64, h0 as f64);
+                let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
+                k[6] = ((k.len() - crate::particles::HEAD) / crate::particles::STRIDE) as f64;
+                k.extend(starts.iter().chain(&list).map(|&i| i as f64));
+                k[0] = k.len() as f64;
+                k.extend(crate::simulate::mercury_light(e, w0 as f64, h0 as f64));
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let out = self.scratch("D-674 mercury", w, h);
+                self.fx_step(steps, &passes.mercury, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                (out, (w, h))
+            }
             // B-151: ten of the fourth batch.
             E::Median { radius, operate_on_alpha } => {
                 let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
@@ -16818,6 +16928,19 @@ impl Gpu {
                                 let r = values[0].clamp(0.0, 1000.0) / 100.0 * h as f64 / 10.0 * (1.0 + values[2].clamp(-500.0, 500.0).abs() / 100.0)
                                     + values[1].clamp(0.0, 100.0) * h as f64 / 2160.0
                                     + 1.0;
+                                let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
+                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 15.0) * 8.0) as u64
+                            }
+                            // D-674: Mercury's live drops at most (the fastest rate times the
+                            // in point's longevity), eleven numbers each and a place in a tile's list
+                            // or several, its tiles' starts and the light.
+                            crate::effects::Effect::Mercury { values, history, .. } => {
+                                let most = |i: usize| history.as_deref().map_or(values[i], |hs| hs.iter().fold(values[i], |m, v| m.max(v[i])));
+                                let rate = most(0).clamp(0.0, 1000.0);
+                                let life = history.as_deref().and_then(|hs| hs.first()).map_or(values[1], |v| v[1]).clamp(0.0, 100.0);
+                                let n = (rate * life).ceil() + 2.0;
+                                let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
+                                let r = most(12).max(most(13)).clamp(0.0, 1000.0) / 100.0 * h as f64 / 20.0 * (1.0 + values[11].clamp(0.0, 400.0) / 100.0);
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
                                 ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 15.0) * 8.0) as u64
                             }
