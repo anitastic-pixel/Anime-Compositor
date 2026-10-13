@@ -1,0 +1,487 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-pgshp-009",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-colours",
+      "kind": "still",
+      "name": "colours",
+      "path": "media/colours.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-ramp",
+      "kind": "still",
+      "name": "ramp",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-spot",
+      "kind": "still",
+      "name": "spot",
+      "path": "media/spot.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-half",
+      "kind": "still",
+      "name": "half",
+      "path": "media/half.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-ring",
+      "kind": "still",
+      "name": "ring",
+      "path": "media/ring.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-letter",
+      "kind": "still",
+      "name": "letter",
+      "path": "media/letter.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-soft",
+      "kind": "still",
+      "name": "soft",
+      "path": "media/soft.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 6,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 6
+      },
+      "layer_order": [
+        "ramp",
+        "spot",
+        "half",
+        "ring",
+        "letter",
+        "soft",
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "ramp",
+          "kind": "raster",
+          "name": "ramp",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-ramp",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "spot",
+          "kind": "raster",
+          "name": "spot",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-spot",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "half",
+          "kind": "raster",
+          "name": "half",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-half",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "ring",
+          "kind": "raster",
+          "name": "ring",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-ring",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "letter",
+          "kind": "raster",
+          "name": "letter",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-letter",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "soft",
+          "kind": "raster",
+          "name": "soft",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-soft",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-colours",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.particle_grid",
+              "enabled": true,
+              "parameters": {
+                "form_size_x": 16,
+                "form_size_y": 10,
+                "form_size_z": 10,
+                "particles_in_x": 16,
+                "particles_in_y": 10,
+                "particles_in_z": 2,
+                "form_center_z": 0,
+                "form_rotation_x": 0,
+                "form_rotation_y": 0,
+                "form_rotation_z": 0,
+                "size": 1.2,
+                "size_random": 0,
+                "opacity": 100,
+                "opacity_random": 0,
+                "sphere_feather": 50,
+                "disperse": 0,
+                "twist": 0,
+                "displace": 0,
+                "fractal_scale": 100,
+                "flow_x": 0,
+                "flow_y": 0,
+                "flow_z": 0,
+                "flow_evolution": 0,
+                "evolution": 0,
+                "affect_size": 0,
+                "affect_opacity": 0,
+                "map_displace": 100,
+                "random_seed": 0,
+                "form_center": [
+                  50,
+                  50
+                ],
+                "base_form": "layer",
+                "particle_type": "sphere",
+                "transfer_mode": "normal",
+                "color_map": "",
+                "size_map": "",
+                "displace_map": "",
+                "base_layer": "ring",
+                "color": "#ffffff"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
