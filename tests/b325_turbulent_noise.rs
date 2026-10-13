@@ -257,7 +257,6 @@ fn b325_turbulent_noise() {
         ("fx_turbnoise_029.json", "fractal type"),
         ("fx_turbnoise_030.json", "noise type"),
         ("fx_turbnoise_031.json", "invert"),
-        ("fx_turbnoise_032.json", "blending mode"),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         t.row(&format!("{file} is refused in a sentence naming Turbulent Noise and its {want}"), &why, why.contains("Turbulent Noise") && why.contains(want));
@@ -305,8 +304,8 @@ fn b325_turbulent_noise() {
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    // Refused (023 to 032) leave nothing for the card.
-    let none: Vec<u32> = (23..=32).collect();
+    // Refused (023 to 031) leave nothing for the card; 032 is drawn since D-731 (Overlay).
+    let none: Vec<u32> = (23..=31).collect();
     card_fixtures(&mut t, &mut gpu, &none);
     card_reference(
         &mut t,

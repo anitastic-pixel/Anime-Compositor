@@ -345,6 +345,8 @@ pub(crate) fn noise_whole(blend: &str) -> Option<fn([f64; 3], [f64; 3]) -> [f64;
         "saturation" => |b, s| w3c_set_lum(w3c_set_sat(b, w3c_sat(s)), w3c_lum(b)),
         "color" => |b, s| w3c_set_lum(s, w3c_lum(b)),
         "luminosity" => |b, s| w3c_set_lum(b, w3c_lum(s)),
+        // D-731: the W3C's Hue, the same basis.
+        "hue" => |b, s| w3c_set_lum(w3c_set_sat(s, w3c_sat(b)), w3c_lum(b)),
         _ => return None,
     };
     Some(f)

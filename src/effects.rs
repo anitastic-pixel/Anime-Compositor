@@ -5507,7 +5507,7 @@ impl Default for NoiseMore {
 pub const OVERFLOWS: [&str; 4] = ["allow_hdr", "clip", "soft_clamp", "wrap_back"];
 
 /// D-647: Turbulent Noise's blending modes.
-const TURBULENT_BLENDS: [&str; 15] = [
+const TURBULENT_BLENDS: [&str; 17] = [
     "normal",
     "multiply",
     "screen",
@@ -5524,6 +5524,9 @@ const TURBULENT_BLENDS: [&str; 15] = [
     "saturation",
     "color",
     "luminosity",
+    // D-731, by the owner's decision of 2026-10-13 (FX-TURBNOISE-032 and 060 regenerated).
+    "overlay",
+    "hue",
 ];
 pub const BALL_AXES: [&str; 9] =["x", "y", "z", "xy", "xz", "yz", "xyz", "x15z", "xy15z"];
 /// D-551: CC Ball Action's twist properties, as CycoreFX lists them.

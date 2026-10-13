@@ -149,7 +149,8 @@ fn b526_turbulent_more() {
          Every setting as added (Allow HDR Results, 0, off, off, 50, 50, 0, (0, 0), off) draws every file before \
          D-647 as before; After Effects' own Sub Influence 70 and Sub Scaling 56 are not used for that reason. \
          The rule is this program's own; Adobe publishes none. Overlay and the hue, saturation, color, luminosity, \
-         none and stencil modes are not built; adding Overlay needs the owner's fixture decision (FX-TURBNOISE-032). \
+         none and stencil modes are not built here (D-730 builds the last six; D-731, by the owner's decision of \
+         2026-10-13, builds Overlay and Hue, FX-TURBNOISE-032 and 060 regenerated). \
          Every expected pixel is `Fixtures/turbulent_noise/expected_turbulent_more.json`, written by \
          `tools/turbulent_more_reference.py` before this code existed and printed in document 25 as \
          FX-TURBNOISE-033 to 060. Tolerance 2e-5.\n",
@@ -200,7 +201,6 @@ fn b526_turbulent_more() {
         ("fx_turbnoise_057.json", ["sub_scaling", "5"]),
         ("fx_turbnoise_058.json", ["sub_influence", "101"]),
         ("fx_turbnoise_059.json", ["uniform scaling", "\"yes\""]),
-        ("fx_turbnoise_060.json", ["blending mode", "\"hue\""]),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         t.row(
@@ -216,7 +216,6 @@ fn b526_turbulent_more() {
     let refused = vec![
         ("overflow \"hdr\"", set(with(|e| if let Effect::TurbulentNoise { more, .. } = e { more.overflow = "hdr".into() }))),
         ("sub scaling 5", set(with(|e| if let Effect::TurbulentNoise { more, .. } = e { more.sub_scaling = 5.0 }))),
-        ("blending mode \"overlay\"", set(with(|e| if let Effect::TurbulentNoise { blend, .. } = e { *blend = "overlay".into() }))),
     ];
     let taken = vec![(
         "rotation -45, sub rotation 30, center subscale on, wrap back, difference",
@@ -252,11 +251,11 @@ fn b526_turbulent_more() {
                 card += on_card(&project, &comp, &t.root, frame, quality);
             }
         }
-        // The refused ones (056 to 060) leave nothing for the card.
+        // The refused ones (056 to 059) leave nothing for the card; 060 is drawn since D-731 (Hue).
         t.row(
             &format!("{file}, frames 0 to 4 at Full and Draft"),
             &format!("largest difference {largest} of 255; on the card in {card} of 10 frames; refused by the card: {refused}; the same warnings: {agree}"),
-            largest <= 1 && !refused && agree && (card == 0) == (n >= 56),
+            largest <= 1 && !refused && agree && (card == 0) == (56..=59).contains(&n),
         );
     }
     let ref_comp = Id::new("comp-reference-shot");

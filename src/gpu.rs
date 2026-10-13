@@ -913,6 +913,11 @@ fn noise_whole(m: u32, b: vec3<f64>, s: vec3<f64>) -> vec3<f64> {
     if m == 14u {
         return w3c_set_lum(s, w3c_lum(b));
     }
+    // D-731: Hue (16).
+    if m == 16u {
+        let t = max(max(b.x, b.y), b.z) - min(min(b.x, b.y), b.z);
+        return w3c_set_lum(w3c_set_sat(s, t), w3c_lum(b));
+    }
     return w3c_set_lum(b, w3c_lum(s));
 }
 
@@ -14363,6 +14368,8 @@ impl Gpu {
                     "saturation" => 13,
                     "color" => 14,
                     "luminosity" => 15,
+                    // D-731; Overlay is grade::mixer's, code 4 from `blend`.
+                    "hue" => 16,
                     _ => blend(b),
                 };
                 let p = FxParams {

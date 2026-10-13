@@ -147,7 +147,7 @@ fn b600_turbulent_blends() {
          noise at Opacity (D-413), and the stencils keep the layer where the noise's alpha (Stencil Alpha) or lightness \
          (Stencil Luma) is, as the Timeline's stencils do (D-301). Silhouette Alpha and Silhouette Luma are refused: \
          the program has no Timeline rule for them to follow. Hue (FX-TURBNOISE-060) and Overlay (FX-TURBNOISE-032) \
-         stay refused as their fixtures pin; adding either is the owner's fixture decision. Every expected pixel is \
+         were refused here; D-731, by the owner's decision of 2026-10-13, regenerated both and builds them. Every expected pixel is \
          `Fixtures/turbulent_noise/expected_turbulent_blends.json`, written by `tools/turbulent_blends_reference.py` \
          before this code existed and printed in document 25 as FX-TURBNOISE-061 to 074. Tolerance 2e-5.\n",
     );
@@ -180,8 +180,6 @@ fn b600_turbulent_blends() {
     for (file, words) in [
         ("fx_turbnoise_073.json", ["blending mode", "\"silhouette_alpha\""]),
         ("fx_turbnoise_074.json", ["blending mode", "\"silhouette_luma\""]),
-        ("fx_turbnoise_060.json", ["blending mode", "\"hue\""]),
-        ("fx_turbnoise_032.json", ["blending mode", "\"overlay\""]),
     ] {
         let why = changed(&t, file, |_| {}).why_invalid();
         t.row(
@@ -196,8 +194,7 @@ fn b600_turbulent_blends() {
     let with = |f: fn(&mut Effect)| changed(&t, "fx_turbnoise_002.json", f);
     let refused = vec![
         ("blending mode \"silhouette_alpha\"", set(with(|e| if let Effect::TurbulentNoise { blend, .. } = e { *blend = "silhouette_alpha".into() }))),
-        ("blending mode \"hue\"", set(with(|e| if let Effect::TurbulentNoise { blend, .. } = e { *blend = "hue".into() }))),
-        ("blending mode \"overlay\"", set(with(|e| if let Effect::TurbulentNoise { blend, .. } = e { *blend = "overlay".into() }))),
+        ("blending mode \"silhouette_luma\"", set(with(|e| if let Effect::TurbulentNoise { blend, .. } = e { *blend = "silhouette_luma".into() }))),
     ];
     let taken = vec![
         ("blending mode luminosity", set(with(|e| if let Effect::TurbulentNoise { blend, .. } = e { *blend = "luminosity".into() }))),
