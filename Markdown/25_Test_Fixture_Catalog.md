@@ -213118,3 +213118,75 @@ FX-SH-102 (`fx_sh_102.json`): Pattern carpenters wheel, two across, every piece 
 FX-SH-103 (`fx_sh_103.json`): Wireframe Front at rest, pattern puzzle two across turned 30 degrees: each piece's outline, knobs and all. Frame 0.
 
 FX-SH-104 (`fx_sh_104.json`): Pattern "Puzzle": the words are exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Bubbles (D-671)
+
+Bubbles (B-550), after CycoreFX's CC Bubbles (Simulation): `tools/bubbles_reference.py` writes `Fixtures/bubbles/expected_bubbles.json`, tolerance 2e-5; the rule is in document 21. Every case is a composition 48 by 32 holding one drawing the same size, a colour field or the field with its right half clear.
+
+FX-BUBBLE-001 (`fx_bubble_001.json`): As added: 100 bubbles of size 1 (on a picture 32 high, between half a pixel and a pixel and a half in radius), speed 0.5, wobble 5 at once a second, Inverse, Fade Inwards: a scatter of tiny faint dots on clear, the picture itself gone. Frames 0, 24.
+
+FX-BUBBLE-002 (`fx_bubble_002.json`): Six bubbles of size 8, 3 to 10 pixels in radius, each the picture under it turned over and spread, clear in the middle, rising: frame 12 is half a second later. Frames 0, 12.
+
+FX-BUBBLE-003 (`fx_bubble_003.json`): World reflection: each bubble the picture round it, upright. Frames 0.
+
+FX-BUBBLE-004 (`fx_bubble_004.json`): Shading None: fully filled bubbles. Frames 0.
+
+FX-BUBBLE-005 (`fx_bubble_005.json`): Lighten: white towards the rim. Frames 0.
+
+FX-BUBBLE-006 (`fx_bubble_006.json`): Darken: black towards the rim. Frames 0.
+
+FX-BUBBLE-007 (`fx_bubble_007.json`): Fade Outwards: clear at the rim, solid in the middle. Frames 0.
+
+FX-BUBBLE-008 (`fx_bubble_008.json`): Speed -2: falling, half the picture a second at pace 1. Frames 0, 6.
+
+FX-BUBBLE-009 (`fx_bubble_009.json`): Speed 0 and wobble 0: still, so frame 12 is frame 0. Frames 0, 12.
+
+FX-BUBBLE-010 (`fx_bubble_010.json`): Wobble 20 at twice a second: each swings twice its radius either side. Frames 0, 3.
+
+FX-BUBBLE-011 (`fx_bubble_011.json`): Speed 0, wobble frequency 0: the wobble holds where it started, so frame 6 is frame 0. Frames 0, 6.
+
+FX-BUBBLE-012 (`fx_bubble_012.json`): Size 0: no bubble, clear. Frames 3.
+
+FX-BUBBLE-013 (`fx_bubble_013.json`): Amount 0: no bubble, clear. Frames 3.
+
+FX-BUBBLE-014 (`fx_bubble_014.json`): Seed 7: bubbles of their own. Frames 3.
+
+FX-BUBBLE-015 (`fx_bubble_015.json`): Seed 7.9 counts as 7: FX-BUBBLE-014. Frames 3.
+
+FX-BUBBLE-016 (`fx_bubble_016.json`): The picture with its right half clear: a bubble over it shows clear. Frames 0.
+
+FX-BUBBLE-017 (`fx_bubble_017.json`): Speed keyed from 0 at frame 0 to 4 at frame 8: by frame 8 the bubbles have risen as far as at a steady 2 for a third of a second. Frames 4, 8.
+
+FX-BUBBLE-018 (`fx_bubble_018.json`): Wobble frequency keyed from 0 to 3 over 8 frames, wobble 20, speed 0. Frames 4, 8.
+
+FX-BUBBLE-019 (`fx_bubble_019.json`): FX-BUBBLE-002 with the layer starting at frame 6: frame 6 is 002's frame 0 and frame 18 its frame 12, because the bubbles start at the in point. Frames 6, 18.
+
+FX-BUBBLE-020 (`fx_bubble_020.json`): FX-BUBBLE-002 moved 3 pixels right: the same bubbles, moved, cut at the layer's edge. Frames 12.
+
+FX-BUBBLE-021 (`fx_bubble_021.json`): FX-BUBBLE-002 at 30 frames a second: frame 12 is two fifths of a second in, not a half. Frames 12.
+
+FX-BUBBLE-022 (`fx_bubble_022.json`): Forty bubbles with everything: size 5, speed 1.5, wobble 12 at 1.5, World, Lighten, seed 3. Frames 0, 10.
+
+FX-BUBBLE-023 (`fx_bubble_023.json`): Amount keyed from 0 at frame 0 to 12 at frame 4: six at frame 2, FX-BUBBLE-002's six. Frames 0, 2.
+
+FX-BUBBLE-024 (`fx_bubble_024.json`): Size 40: bubbles bigger than the picture, each a fisheye of it. Frames 0.
+
+FX-BUBBLE-025 (`fx_bubble_025.json`): Amount -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BUBBLE-026 (`fx_bubble_026.json`): Amount 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BUBBLE-027 (`fx_bubble_027.json`): Speed 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BUBBLE-028 (`fx_bubble_028.json`): Wobble amplitude -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BUBBLE-029 (`fx_bubble_029.json`): Wobble frequency 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BUBBLE-030 (`fx_bubble_030.json`): Size 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BUBBLE-031 (`fx_bubble_031.json`): Random seed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BUBBLE-032 (`fx_bubble_032.json`): Reflection "mirror". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BUBBLE-033 (`fx_bubble_033.json`): Shading "Lighten": the word is exact, so capitals are not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BUBBLE-034 (`fx_bubble_034.json`): Speed keyed to 200 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
