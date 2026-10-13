@@ -2932,6 +2932,44 @@ FX-GATE-101 to 104, refused with `PROJECT_SCHEMA_INVALID`: Exposure on an audio 
 
 FX-GATE-201: an unknown effect on an audio layer: kept and saved as written, `EFFECT_UNSUPPORTED` on opening and mixing, the sound unchanged.
 
+### Compressor (D-643)
+
+S-5 of D-638 (B-522): the second sound effect (document 21). `tools/compressor_reference.py` writes four 1 kHz square-wave test sounds in `Fixtures/compressor/media` as 32-bit floating-point WAV (a square wave is the same size on every sample, so the gain is read exactly as out / in): `staircase.wav`, -60 to 0 dB in 1 dB steps of 4,800 samples; `step.wav`, -40 dB, 0 dB on samples 24,000 to 71,999, then -40 dB to 4 s; `steady.wav`, a steady -20 dB; `right_step.wav`, the step in the right channel and a steady -40 dB in the left. One project per case (a 4 x 2 composition) and `expected_compressor.json`: the length, the mix at named places (2e-5), each channel's peak (0.01 dB), the warnings, the steady curve at each stair's last sample, and for each step how many samples the gain takes to cover 63% and 90% of the way to the curve's value.
+
+FX-COMP-001: the starting values on the staircase: the soft knee from -23.5 to -8.5 dB, a change of -10.67 dB at 0 dB in.
+
+FX-COMP-002: Knee 0, Ratio 4: a hard corner at -16 dB, -12 dB at 0 dB in.
+
+FX-COMP-003: Ratio 0.4, Release 1 ms: louder above the knee, held at 0 dB by the Output Limit.
+
+FX-COMP-004: the step, Knee 0, Ratio 4: attack 63% after 286 samples, 90% after 663; Auto Release back 63% after 2,099, 90% after 22,278.
+
+FX-COMP-005: Auto Release off: back 63% after 20,998, 90% after 48,630.
+
+FX-COMP-006: Attack 0: the whole cut on the step's first sample.
+
+FX-COMP-007: Makeup +12 dB, Output Limit -6 dB: the loud part held at -6 dB.
+
+FX-COMP-008: Threshold keyed from -40 dB (frame 0) to -10 dB (frame 10) over a steady -20 dB.
+
+FX-COMP-009: Ratio keyed from 1 (frame 0) to 20 (frame 12) at 30000 / 1001 a second.
+
+FX-COMP-010: frames 40 to 59 of FX-COMP-004 mixed alone are the whole mix there.
+
+FX-COMP-011: the layer starting on frame 6 at -6 dB: the compressor counts from the layer's start, before the level.
+
+FX-COMP-012: switched off: the sound unchanged.
+
+FX-COMP-013: a Noise Gate (Threshold -30 dB) then the compressor.
+
+FX-COMP-014: Ratio 50: kept, `EFFECT_PARAMETER_INVALID` on opening and mixing, the sound unchanged.
+
+FX-COMP-015: Auto Release "sometimes": the same.
+
+FX-COMP-016: the right channel's step turns both channels down: left peak -40 dB.
+
+FX-COMP-101 to 103, refused with `PROJECT_SCHEMA_INVALID`: Compressor on a solid; an expression on a Compressor number; a Mix on a Compressor.
+
 ## Format fixtures
 
 D-72, proposed on 2026-09-19; nothing is built against these yet. `tools/formats_reference.py` writes `Fixtures/formats/` and prints what follows. The drawings are one 16 by 12 picture of smooth ramps, saved by Pillow in each format, and each twin is Pillow's own reading of that file.
