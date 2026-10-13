@@ -214062,3 +214062,127 @@ FX-RESHAPE-020 (`fx_reshape_020.json`): Source mask -1, below 0. The file is rea
 FX-RESHAPE-021 (`fx_reshape_021.json`): Boundary mask 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-RESHAPE-022 (`fx_reshape_022.json`): Percent keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Grid (D-616)
+
+Particle Grid (B-496, P0-6, PLUGINS.md 2.2, the parked pick), the rules ours. Every case is a project of one composition 16 by 10 at 24 frames a second, the layer `art` carrying the effect over three switched-off 16 by 10 drawings it can name as maps (`ramp`, `spot`, `half`), one case with a composition camera and one with a late in point. `tools/particle_grid_reference.py` works the expected frames, `Fixtures/particle_grid/expected_particle_grid.json`, tolerance 2e-5, and each point's numbers for some cases, `Fixtures/particle_grid/particles_particle_grid.json`, tolerance 1e-7; the rule is in document 21.
+
+FX-PGRID-001 (`fx_pgrid_001.json`): The settings as added, at frames 0 and 12: a grid 41 by 31 points, 20 pixels apart, so only its middle point lands on this 16 by 10 layer, a white soft dot 4 pixels across in the middle; still; the layer's own picture is gone. Frames 0, 12.
+
+FX-PGRID-002 (`fx_pgrid_002.json`): A small grid: 4 by 2 white dots, 2 pixels across. Frames 0.
+
+FX-PGRID-003 (`fx_pgrid_003.json`): A finer grid: 5 by 3 dots 1.5 pixels across, 3 pixels apart. Frames 0.
+
+FX-PGRID-004 (`fx_pgrid_004.json`): Sphere Feather 0 on big dots: hard edges. Frames 0.
+
+FX-PGRID-005 (`fx_pgrid_005.json`): Glow Spheres on the big dots: solid cores and faint glows. Frames 0.
+
+FX-PGRID-006 (`fx_pgrid_006.json`): Stars: 2 by 1 points, 6 pixels across, five points up. Frames 0.
+
+FX-PGRID-007 (`fx_pgrid_007.json`): Cloudlets on the big dots: soft to the edge. Frames 0.
+
+FX-PGRID-008 (`fx_pgrid_008.json`): Size 1 on the small grid: drawn 1.4 pixels across, fainter by the true size. Frames 0.
+
+FX-PGRID-009 (`fx_pgrid_009.json`): Size Random 80 on the fine grid: each dot its own size. Frames 0.
+
+FX-PGRID-010 (`fx_pgrid_010.json`): Opacity 60: every dot 60 per cent. Frames 0.
+
+FX-PGRID-011 (`fx_pgrid_011.json`): Opacity Random 80 on the fine grid: each dot its own opacity. Frames 0.
+
+FX-PGRID-012 (`fx_pgrid_012.json`): Color orange. Frames 0.
+
+FX-PGRID-013 (`fx_pgrid_013.json`): Big overlapping blue dots, Normal: later points over earlier. Frames 0.
+
+FX-PGRID-014 (`fx_pgrid_014.json`): The same, Add: brighter where they overlap. Frames 0.
+
+FX-PGRID-015 (`fx_pgrid_015.json`): The same, Screen. Frames 0.
+
+FX-PGRID-016 (`fx_pgrid_016.json`): The fine grid turned 30 degrees about Z. Frames 0.
+
+FX-PGRID-017 (`fx_pgrid_017.json`): The fine grid turned 60 degrees about Y: narrower, the right side farther and smaller. Frames 0.
+
+FX-PGRID-018 (`fx_pgrid_018.json`): The deep grid tipped 50 degrees about X: its three layers seen from above. Frames 0.
+
+FX-PGRID-019 (`fx_pgrid_019.json`): The deep grid straight on: the far layers smaller and drawn nearer the middle, the front layer over them. Frames 0.
+
+FX-PGRID-020 (`fx_pgrid_020.json`): The small grid moved up and left, and 10 pixels back. Frames 0.
+
+FX-PGRID-021 (`fx_pgrid_021.json`): Sphere Layered: one shell, 8 points round on 5 rings, 8 pixels across. Frames 0.
+
+FX-PGRID-022 (`fx_pgrid_022.json`): Two shells: an inner ball half the size inside. Frames 0.
+
+FX-PGRID-023 (`fx_pgrid_023.json`): The ball turning: Form Rotation Y keyed from 0 at frame 0 to 80 at frame 24, at frames 0, 12 and 24. Frames 0, 12, 24.
+
+FX-PGRID-024 (`fx_pgrid_024.json`): Disperse 1.5: each dot nudged its own way, the grid loosened. Frames 0.
+
+FX-PGRID-025 (`fx_pgrid_025.json`): Disperse 1.5, Random Seed 7: nudged differently. Frames 0.
+
+FX-PGRID-026 (`fx_pgrid_026.json`): Twist 120: the top row turned one way about the up line, the bottom row the other, so the rows narrow and widen. Frames 0.
+
+FX-PGRID-027 (`fx_pgrid_027.json`): Fractal displace 2 at scale 6: the grid rippled. Frames 0.
+
+FX-PGRID-028 (`fx_pgrid_028.json`): The ripple drifting: Flow X 12 pixels a second, at frames 0, 12 and 24; the field slides through the grid. Frames 0, 12, 24.
+
+FX-PGRID-029 (`fx_pgrid_029.json`): The ripple changing: Flow Evolution 1 a second, at frames 0 and 12. Frames 0, 12.
+
+FX-PGRID-030 (`fx_pgrid_030.json`): Evolution 3: a different ripple, still. Frames 0.
+
+FX-PGRID-031 (`fx_pgrid_031.json`): Affect Size 150 with no displacement: the field grows and shrinks the dots in place. Frames 0.
+
+FX-PGRID-032 (`fx_pgrid_032.json`): Affect Opacity 100: the field fades dots in place. Frames 0.
+
+FX-PGRID-033 (`fx_pgrid_033.json`): Flow Y keyed from 0 at frame 0 to 24 at frame 24: the drift speeds up, by frame 24 moved 12 pixels' worth, at frames 12 and 24. Frames 12, 24.
+
+FX-PGRID-034 (`fx_pgrid_034.json`): Color Map the ramp: the dots red to the right, green lower down. Frames 0.
+
+FX-PGRID-035 (`fx_pgrid_035.json`): Color Map half blue, half clear: only the left half's dots, blue. Frames 0.
+
+FX-PGRID-036 (`fx_pgrid_036.json`): Size Map the spot: big dots in the middle, none at the edges. Frames 0.
+
+FX-PGRID-037 (`fx_pgrid_037.json`): Displace Map the spot, Map Displace 6: the middle pushed towards the camera, larger and spread out. Frames 0.
+
+FX-PGRID-038 (`fx_pgrid_038.json`): Map Displace -6: the middle pushed away, smaller and drawn in. Frames 0.
+
+FX-PGRID-039 (`fx_pgrid_039.json`): All three maps at once on the tipped grid. Frames 0.
+
+FX-PGRID-040 (`fx_pgrid_040.json`): The deep grid through a composition camera 12 pixels in front: the far layers much smaller, the near ones larger. Frames 0.
+
+FX-PGRID-041 (`fx_pgrid_041.json`): FX-PGRID-028 with the layer starting at frame 10: frame 10 as its frame 0, frame 22 as its frame 12. Frames 10, 22.
+
+FX-PGRID-042 (`fx_pgrid_042.json`): FX-PGRID-027 with the layer moved 3 pixels right. Frames 0.
+
+FX-PGRID-043 (`fx_pgrid_043.json`): FX-PGRID-027 with Random Seed 7: a different ripple. Frames 0.
+
+FX-PGRID-044 (`fx_pgrid_044.json`): Particles In X keyed from 2 at frame 0 to 6 at frame 24, whole points only: 3 across at frame 9, 5 at frame 21. Frames 9, 21.
+
+FX-PGRID-045 (`fx_pgrid_045.json`): Size 0: nothing. Frames 0.
+
+FX-PGRID-046 (`fx_pgrid_046.json`): Opacity 0: nothing. Frames 0.
+
+FX-PGRID-047 (`fx_pgrid_047.json`): Form Size 0: all eight dots on one spot in the middle, piled up. Frames 0.
+
+FX-PGRID-048 (`fx_pgrid_048.json`): One point: a single dot in the middle. Frames 0.
+
+FX-PGRID-049 (`fx_pgrid_049.json`): A glowing grid coloured by the ramp, rippling and added. Frames 12.
+
+FX-PGRID-050 (`fx_pgrid_050.json`): Particles In X 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGRID-051 (`fx_pgrid_051.json`): Particles In Z 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGRID-052 (`fx_pgrid_052.json`): Size -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGRID-053 (`fx_pgrid_053.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGRID-054 (`fx_pgrid_054.json`): Fractal Scale 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGRID-055 (`fx_pgrid_055.json`): Base Form "text": not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGRID-056 (`fx_pgrid_056.json`): Base Form "Box_Grid": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGRID-057 (`fx_pgrid_057.json`): Particle Type "streak": a grid does not move, so no streaks. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGRID-058 (`fx_pgrid_058.json`): Transfer Mode "lighten". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGRID-059 (`fx_pgrid_059.json`): Color "#12345": not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PGRID-060 (`fx_pgrid_060.json`): Flow Evolution 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
