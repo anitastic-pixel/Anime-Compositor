@@ -1391,6 +1391,8 @@ B-582 / Particle Grid's points from a layer's shape, and strings, D-712 (P0-6) /
 
 B-583 / Particle Playground's further mapper properties, D-713 (P0-6) / Done on 2026-10-13 under the owner's /loop request. The mappers can set X and Y Scale (dots drawn as turned ovals, pieces and copies stretched), Angular Velocity, Torque, Lifespan and Kinetic and Static Friction. Fixtures aa119565 (FX-PMPH-001..028), code 933d40c0. `verification/D-713_particle_mapper_physics_table.md`: 133 of 133 checks, card against processor within 1 level; b493, b494, b155_gpu_chain; app tests 93 passed, the 2 known failures. **Timing** (`verification/B-583_particle_mapper_physics_timing_table.md`): quiet machine, one run, about 1 to 2 ms a frame over the plain Playground. Playtest: `verification/B-583_playtest.md`.
 
+B-584 / Particle Plane's Textured Square, D-714 (P0-6) / Done on 2026-10-13 after the owner's decision that day on FX-PPLANE-055 (regenerated e0a07b9a, with FX-PPTEX-024). Particle Plane draws Textured Square, as Particle Space does. Fixtures dbb3233c (FX-PPSQ-001..018), code 648521af. `verification/D-714_particle_plane_square_table.md`: 98 of 98 checks, card against processor within 1 level; b492, b580, b155_gpu_chain; app tests 93 passed, the 2 known failures. **Timing** (`verification/B-584_particle_plane_square_timing_table.md`): quiet machine, one run, the same as textured discs. Playtest: `verification/B-584_playtest.md`.
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.

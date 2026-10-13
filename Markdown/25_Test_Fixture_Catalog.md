@@ -213830,7 +213830,7 @@ FX-PPLANE-053 (`fx_pplane_053.json`): Animation "direction_axis": Particle Space
 
 FX-PPLANE-054 (`fx_pplane_054.json`): Animation "Explosive": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-PPLANE-055 (`fx_pplane_055.json`): Particle Type "textured_square": not one of the plane's six. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-PPLANE-055 (`fx_pplane_055.json`): Particle Type "cube": not one of the plane's kinds (D-714, the owner, 2026-10-13: was "textured_square", which the plane now draws). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PPLANE-056 (`fx_pplane_056.json`): Opacity Map "linear". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
