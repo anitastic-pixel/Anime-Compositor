@@ -741,6 +741,8 @@ pub fn mix(
                         format!("The layer \"{}\" has a {name} whose settings this build cannot use.", layer.name),
                         format!("{why} The effect is kept and its sound passes through unchanged."),
                     )));
+                } else if matches!(fx.effect, crate::effects::Effect::Compressor { .. }) {
+                    compressor(&mut y, lo, hi, &first, fx);
                 } else {
                     noise_gate(&mut y, lo, hi, &first, fx);
                 }
@@ -782,7 +784,7 @@ fn noise_gate(
 ) {
     let read = |f: i64| match fx.at(f as i32).effect {
         crate::effects::Effect::NoiseGate { threshold, attack, hold, release } => [threshold, attack, hold, release],
-        _ => unreachable!("only Noise Gate is a sound effect"),
+        _ => unreachable!("called for Noise Gate only"),
     };
     let whole = |ms: f64| (ms * 48.0 + 0.5).floor() as i64;
     let start = first(lo);
@@ -812,6 +814,63 @@ fn noise_gate(
             }
             y[0][i] *= g;
             y[1][i] *= g;
+        }
+    }
+}
+
+/// D-643, document 21: Compressor over `y`, the layer's frames `lo` to `hi` from its first
+/// sample. A gain change g in dB, 0 at the first sample, eases toward the knee curve's change for
+/// the louder channel's level: over attack when it must fall, over release when it may rise (a
+/// tenth of release while Auto Release is on and g is more than 3 dB below). Then Makeup, and an
+/// instant Output Limit on the louder channel that keeps the balance.
+fn compressor(
+    y: &mut [Vec<f64>; 2],
+    lo: i64,
+    hi: i64,
+    first: &dyn Fn(i64) -> i64,
+    fx: &crate::effects::EffectInstance,
+) {
+    let read = |f: i64| match fx.at(f as i32).effect {
+        crate::effects::Effect::Compressor { threshold, ratio, knee, attack, release, makeup, output_limit, .. } => {
+            [threshold, ratio, knee, attack, release, makeup, output_limit]
+        }
+        _ => unreachable!("called for Compressor only"),
+    };
+    let auto = matches!(&fx.effect, crate::effects::Effect::Compressor { auto_release, .. } if auto_release == "on");
+    let start = first(lo);
+    let mut g = 0.0f64;
+    for f in lo..hi {
+        let (s0, s1) = (first(f), first(f + 1));
+        let (a, b) = (read(f), read(f + 1));
+        for s in s0..s1 {
+            let v = |k: usize| a[k] + (b[k] - a[k]) * (s - s0) as f64 / (s1 - s0) as f64;
+            let (t, r, w) = (v(0), v(1), v(2));
+            let i = (s - start) as usize;
+            let x = 20.0 * y[0][i].abs().max(y[1][i].abs()).max(1e-10).log10();
+            let d = x - t;
+            let c = if 2.0 * d < -w {
+                0.0
+            } else if w > 0.0 && 2.0 * d.abs() <= w {
+                (1.0 / r - 1.0) * (d + w / 2.0).powi(2) / (2.0 * w)
+            } else {
+                (1.0 / r - 1.0) * d
+            };
+            let time = if c < g {
+                v(3) * 48.0
+            } else if auto && c - g > 3.0 {
+                v(4) * 48.0 / 10.0
+            } else {
+                v(4) * 48.0
+            };
+            let k = if time > 0.0 { (-1.0 / time).exp() } else { 0.0 };
+            g = k * g + (1.0 - k) * c;
+            let gain = 10f64.powf((g + v(5)) / 20.0);
+            let limit = 10f64.powf(v(6) / 20.0);
+            let (l, rr) = (y[0][i] * gain, y[1][i] * gain);
+            let q = l.abs().max(rr.abs());
+            let scale = if q > limit { limit / q } else { 1.0 };
+            y[0][i] = l * scale;
+            y[1][i] = rr * scale;
         }
     }
 }

@@ -2544,6 +2544,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("hold".into(), num(*hold));
             params.insert("release".into(), num(*release));
         }
+        Effect::Compressor { threshold, ratio, knee, attack, release, auto_release, makeup, output_limit } => {
+            params.insert("threshold".into(), num(*threshold));
+            params.insert("ratio".into(), num(*ratio));
+            params.insert("knee".into(), num(*knee));
+            params.insert("attack".into(), num(*attack));
+            params.insert("release".into(), num(*release));
+            params.insert("auto_release".into(), J::from(auto_release.as_str()));
+            params.insert("makeup".into(), num(*makeup));
+            params.insert("output_limit".into(), num(*output_limit));
+        }
         Effect::BrushStrokes { stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, paint_surface, blend_with_original, random_seed, animate, .. } => {
             params.insert("stroke_angle".into(), num(*stroke_angle));
             params.insert("brush_size".into(), num(*brush_size));
@@ -6140,6 +6150,7 @@ fn parse_effect(
         crate::effects::NOISE_HLS_AUTO,
         crate::effects::BRUSH_STROKES,
         crate::effects::NOISE_GATE,
+        crate::effects::COMPRESSOR,
         crate::effects::CARTOON,
         crate::effects::BLOCK_LOAD,
         crate::effects::BURN_FILM,
@@ -7263,6 +7274,16 @@ fn parse_effect(
             attack: effect_number(params, "attack", &at)?,
             hold: effect_number(params, "hold", &at)?,
             release: effect_number(params, "release", &at)?,
+        }),
+        crate::effects::COMPRESSOR => Some(crate::effects::Effect::Compressor {
+            threshold: effect_number(params, "threshold", &at)?,
+            ratio: effect_number(params, "ratio", &at)?,
+            knee: effect_number(params, "knee", &at)?,
+            attack: effect_number(params, "attack", &at)?,
+            release: effect_number(params, "release", &at)?,
+            auto_release: effect_word(params, "auto_release", &at)?,
+            makeup: effect_number(params, "makeup", &at)?,
+            output_limit: effect_number(params, "output_limit", &at)?,
         }),
         crate::effects::BRUSH_STROKES => Some(crate::effects::Effect::BrushStrokes {
             stroke_angle: effect_number(params, "stroke_angle", &at)?,

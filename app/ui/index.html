@@ -9398,6 +9398,7 @@ const EFFECT_NAMES = {
   'core.dust_scratches': 'Dust & Scratches',
   'core.remove_grain': 'Remove Grain',
   'core.noise_gate': 'Noise Gate',
+  'core.compressor': 'Compressor',
   'core.brush_strokes': 'Brush Strokes',
   'core.cartoon': 'Cartoon',
   'core.deband': 'Deband',
@@ -9588,7 +9589,7 @@ const EFFECT_GROUPS = [
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key', 'core.cryptomatte', 'core.depth_of_field', 'core.fog_3d', 'core.identifier']],
   ['Text', ['core.text_animator', 'core.numbers', 'core.timecode', 'core.basic_text']],
   // D-642: sound effects, which go on sound layers only.
-  ['Audio', ['core.noise_gate']],
+  ['Audio', ['core.compressor', 'core.noise_gate']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.push_iris', 'core.stretch_wipe', 'core.twister', 'core.warp_blend', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve', 'core.card_wipe']],
 ];
 // Other words the search finds an effect by: After Effects' names for it, and what it is for.
@@ -9695,6 +9696,7 @@ const EFFECT_SEARCH = {
   'core.block_load': 'block load cc progressive loading download web jpeg interlaced pixelate mosaic blocks reveal 8-bit retro stylize',
   'core.cartoon': 'cartoon comic cel toon anime flat shading posterize outline ink lines edges cel-shade stylize',
   'core.noise_gate': 'noise gate audio sound hiss hum quiet silence mute expander threshold',
+  'core.compressor': 'compressor audio sound dynamics level even loud quiet ratio threshold limiter squash',
   'core.brush_strokes': 'brush strokes paint painterly painting oil watercolour watercolor impressionist artistic dabs smear pointillism stylize',
   'core.dust_scratches': 'dust and scratches specks speckle scratch clean cleanup despeckle scan film damage pinhole denoise noise and grain',
   'core.remove_grain': 'remove grain denoise noise reduction degrain clean smooth film grain sensor noise unsharp mask sharpen noise and grain',
@@ -9978,6 +9980,7 @@ const EFFECT_ABOUT = {
   'core.burn_film': 'Burns holes through the layer like film melting in a projector: they open round a centre and then elsewhere, ringed by scorched black edges, until the layer is gone.',
   'core.block_load': 'Brings the layer in as an old web page loaded a picture: big blocks first, then finer and finer passes sweeping down until it is sharp.',
   'core.cartoon': 'Makes the layer look drawn: smooths it into flat areas, cuts its shading into a few steps and inks dark lines along its edges.',
+  'core.compressor': 'Turns down the loud parts of a sound above the threshold by the ratio, so a voice or music sits at an even level; Makeup Gain brings it back up and the Output Limit keeps it below a ceiling.',
   'core.noise_gate': 'Silences a sound while it is quieter than the threshold, so hiss and hum between words drop out; opens over the attack, stays open for the hold, closes over the release.',
   'core.brush_strokes': 'Repaints the layer as short dabs of paint all leaning one way, as if painted with a brush; new strokes each frame unless Animate is off.',
   'core.dust_scratches': 'Cleans away dust and specks but keeps fine grain: only colours further than the threshold from those round them are replaced.',
@@ -11036,6 +11039,14 @@ const EFFECT_PARAMS = {
     ['attack', 'Attack', 1, 1, 'milliseconds, 0 to 1000, how long it takes to open'],
     ['hold', 'Hold', 1, 1, 'milliseconds, 0 to 2500, how long it stays open after the sound drops'],
     ['release', 'Release', 1, 1, 'milliseconds, 5 to 4000, how long it takes to close']],
+  // D-643, document 21.
+  'core.compressor': [['threshold', 'Threshold', 1, 1, 'dB, -60 to 0; louder than this is turned down'],
+    ['ratio', 'Ratio', 1, 0.1, '0.4 to 30; 3 means 3 dB louder in gives 1 dB louder out'],
+    ['knee', 'Knee', 1, 1, 'dB, 0 to 30, how gently it starts around the threshold'],
+    ['attack', 'Attack', 1, 1, 'milliseconds, 0 to 400, how fast it turns down'],
+    ['release', 'Release', 1, 1, 'milliseconds, 1 to 4000, how fast it comes back'],
+    ['makeup', 'Makeup Gain', 1, 0.1, 'dB, -30 to 30, added after'],
+    ['output_limit', 'Output Limit', 1, 0.1, 'dB, -30 to 0, the loudest it lets out']],
   // D-447, After Effects' own controls; Random Seed is ours.
   'core.brush_strokes': [['stroke_angle', 'Stroke Angle', 1, 1, 'degrees the strokes run towards, 0 up, 90 right', 'dial'],
     ['brush_size', 'Brush Size', 1, 0.5, 'pixels, 0.5 to 20, how thick each stroke is'],
@@ -12204,6 +12215,8 @@ const EFFECT_WORDS = {
       ['shape', 'Shape', [['ellipse', 'Ellipse, fills the layer'], ['circle', 'Circle']]]],
   },
   // D-203.
+  // D-643: on as it is added.
+  'core.compressor': { choices: [['auto_release', 'Auto Release', [['on', 'On'], ['off', 'Off']]]] },
   'core.median': { choices: [['operate_on_alpha', 'Operate on Alpha', [['off', 'Off'], ['on', 'On']]]] },
   'core.dust_scratches': { choices: [['operate_on_alpha', 'Operate on Alpha', [['off', 'Off'], ['on', 'On']]]] },
   // D-455: After Effects’ words; Multichannel as it is added.
@@ -14345,7 +14358,7 @@ function effectRow(layer, fx, at, of) {
   // how much of the effect is laid over what it was given, 0 to 100. Posterize Time holds the
   // layer in time and has no picture to mix, so it has none; nor has a text animator, which
   // moves the letters before there is a picture (D-350).
-  if (!['core.posterize_time', 'core.text_animator', 'core.noise_gate'].includes(fx.type_id)) {
+  if (!['core.posterize_time', 'core.text_animator', 'core.noise_gate', 'core.compressor'].includes(fx.type_id)) {
     const prop = fxName(fx, 'mix');
     const dt = document.createElement('dt');
     dt.title = 'Mix, 0 to 100 per cent of the effect laid over what it was given; 0 is the layer as it came in';
@@ -17945,7 +17958,7 @@ $('addexposure').onclick = () => {
 // row or the Effect controls adds one; the inspector's button brings the panel up to search.
 function takesEffects(layer) { return !!layer && layer.kind !== 'null'; }
 // D-642: a sound takes sound effects only, and a picture none of them.
-const SOUND_EFFECTS = ['core.noise_gate'];
+const SOUND_EFFECTS = ['core.noise_gate', 'core.compressor'];
 let recentEffects = [];
 try { recentEffects = (JSON.parse(localStorage.getItem('recentEffects') || '[]') || []).filter((t) => EFFECT_NAMES[t]); } catch (e) { recentEffects = []; }
 const closedFolders = new Set();

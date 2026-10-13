@@ -2698,6 +2698,20 @@ pub enum Effect {
         hold: f64,
         release: f64,
     },
+    /// D-643: after After Effects 26.0's Compressor (Audio), a sound effect run by `audio::mix`
+    /// (document 21); on a picture it does nothing. `threshold`, -60 to 0 dB; `ratio`, 0.4 to 30;
+    /// `knee`, 0 to 30 dB; `attack`, 0 to 400 ms; `release`, 1 to 4000 ms; `auto_release`, "on"
+    /// or "off"; `makeup`, -30 to 30 dB; `output_limit`, -30 to 0 dB.
+    Compressor {
+        threshold: f64,
+        ratio: f64,
+        knee: f64,
+        attack: f64,
+        release: f64,
+        auto_release: String,
+        makeup: f64,
+        output_limit: f64,
+    },
     /// D-448: after After Effects' Cartoon (`median::cartoon`, document 21). `render`, one of
     /// [`CARTOON_RENDERS`]; `detail_radius`, 0 to 50 pixels; `detail_threshold`, 0 to 255;
     /// `shading_steps`, 2 to 64, its floor; `shading_smoothness`, 0 to 100; `edge_threshold`, 0
@@ -4587,6 +4601,7 @@ pub const REMOVE_GRAIN: &str = "core.remove_grain";
 pub const REMOVE_GRAIN_MODES: [&str; 2] = ["multichannel", "single_channel"];
 pub const BRUSH_STROKES: &str = "core.brush_strokes";
 pub const NOISE_GATE: &str = "core.noise_gate";
+pub const COMPRESSOR: &str = "core.compressor";
 /// D-447: Brush Strokes' paint surfaces, in the card's numbering.
 pub const BRUSH_SURFACES: [&str; 4] = ["original", "transparent", "white", "black"];
 pub const CARTOON: &str = "core.cartoon";
@@ -6809,6 +6824,15 @@ impl Effect {
                 ("hold", vec![hold], 0.0, 2500.0),
                 ("release", vec![release], 5.0, 4000.0),
             ],
+            Effect::Compressor { threshold, ratio, knee, attack, release, makeup, output_limit, .. } => vec![
+                ("threshold", vec![threshold], -60.0, 0.0),
+                ("ratio", vec![ratio], 0.4, 30.0),
+                ("knee", vec![knee], 0.0, 30.0),
+                ("attack", vec![attack], 0.0, 400.0),
+                ("release", vec![release], 1.0, 4000.0),
+                ("makeup", vec![makeup], -30.0, 30.0),
+                ("output_limit", vec![output_limit], -30.0, 0.0),
+            ],
             Effect::BrushStrokes { stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, blend_with_original, random_seed, .. } => vec![
                 ("stroke_angle", vec![stroke_angle], -100000.0, 100000.0),
                 ("brush_size", vec![brush_size], 0.5, 20.0),
@@ -8903,6 +8927,7 @@ impl Effect {
             Effect::RemoveGrain { .. } => "Remove Grain",
             Effect::BrushStrokes { .. } => "Brush Strokes",
             Effect::NoiseGate { .. } => "Noise Gate",
+            Effect::Compressor { .. } => "Compressor",
             Effect::Cartoon { .. } => "Cartoon",
             Effect::Deband { .. } => "Deband",
             Effect::AdvancedSpillSuppressor { .. } => "Advanced Spill Suppressor",
@@ -9171,6 +9196,7 @@ impl Effect {
             Effect::RemoveGrain { .. } => REMOVE_GRAIN,
             Effect::BrushStrokes { .. } => BRUSH_STROKES,
             Effect::NoiseGate { .. } => NOISE_GATE,
+            Effect::Compressor { .. } => COMPRESSOR,
             Effect::Cartoon { .. } => CARTOON,
             Effect::Deband { .. } => DEBAND,
             Effect::AdvancedSpillSuppressor { .. } => ADVANCED_SPILL_SUPPRESSOR,
@@ -9392,7 +9418,7 @@ impl Effect {
 
     /// D-642: a sound effect, which only an audio layer takes (D-638 decision 3).
     pub fn is_sound(&self) -> bool {
-        matches!(self, Effect::NoiseGate { .. })
+        matches!(self, Effect::NoiseGate { .. } | Effect::Compressor { .. })
     }
 
     /// Whether the parameters are inside the ranges document 21 states.
@@ -10881,6 +10907,9 @@ impl Effect {
                 .or_else(|| edges(e)),
             Effect::MotionTile { mirror, .. } if !["off", "on"].contains(&mirror.as_str()) => Some(format!(
                 "Motion Tile's mirror is \"off\" or \"on\", and this is \"{mirror}\"."
+            )),
+            Effect::Compressor { auto_release, .. } if !["off", "on"].contains(&auto_release.as_str()) => Some(format!(
+                "Compressor's auto release is \"off\" or \"on\", and this is \"{auto_release}\"."
             )),
             Effect::Median { operate_on_alpha, .. } if !["off", "on"].contains(&operate_on_alpha.as_str()) => Some(format!(
                 "Median's operate on alpha is \"off\" or \"on\", and this is \"{operate_on_alpha}\"."
@@ -15015,7 +15044,7 @@ pub(crate) fn apply_stack_at(
             // D-350: the letters were moved where the text was drawn.
             Effect::TextAnimator { .. } => {}
             // D-642: a sound effect is run by `audio::mix`; a picture is left as it is.
-            Effect::NoiseGate { .. } => {}
+            Effect::NoiseGate { .. } | Effect::Compressor { .. } => {}
             // D-351: by the whole picture's statistics, or the frames' compose added up.
             Effect::AutoTone { .. } => crate::perf::time(crate::perf::Stage::EffectAutoTone, || {
                 crate::frame_stats::apply(source, &instance.effect)
