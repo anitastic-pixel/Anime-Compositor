@@ -1,0 +1,173 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-peaux-009",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-colours",
+      "kind": "still",
+      "name": "colours",
+      "path": "media/colours.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 22,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 22
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-colours",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 22,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.particle_emitter",
+              "enabled": true,
+              "parameters": {
+                "particles_per_second": 1.3,
+                "emitter_z": 0,
+                "emitter_size_x": 50,
+                "emitter_size_y": 50,
+                "emitter_size_z": 50,
+                "emitter_rotation_x": 0,
+                "emitter_rotation_y": 0,
+                "emitter_rotation_z": 90,
+                "grid_x": 5,
+                "grid_y": 5,
+                "grid_z": 1,
+                "velocity": 6,
+                "velocity_random": 20,
+                "velocity_from_motion": 0,
+                "direction_spread": 0,
+                "life": 2,
+                "life_random": 0,
+                "size": 3,
+                "size_random": 0,
+                "size_over_life_1": 100,
+                "size_over_life_2": 100,
+                "size_over_life_3": 100,
+                "size_over_life_4": 100,
+                "size_over_life_5": 100,
+                "opacity": 100,
+                "opacity_random": 0,
+                "opacity_over_life_1": 100,
+                "opacity_over_life_2": 100,
+                "opacity_over_life_3": 100,
+                "opacity_over_life_4": 100,
+                "opacity_over_life_5": 100,
+                "color_random": 0,
+                "sphere_feather": 50,
+                "gravity": 0,
+                "air_resistance": 0,
+                "wind_x": 0,
+                "wind_y": 0,
+                "wind_z": 0,
+                "turbulence": 0,
+                "turbulence_scale": 100,
+                "turbulence_evolution": 0,
+                "floor_position": 100,
+                "bounce": 50,
+                "bounce_random": 0,
+                "random_seed": 0,
+                "aux_particles_per_second": 24,
+                "aux_particles_per_bounce": 10,
+                "aux_life": 0.5,
+                "aux_velocity": 0,
+                "aux_inherit_velocity": 0,
+                "aux_size": 3,
+                "aux_size_at_death": 100,
+                "aux_opacity": 100,
+                "aux_opacity_at_death": 0,
+                "emitter_position": [
+                  30,
+                  50
+                ],
+                "emitter_type": "point",
+                "direction": "directional",
+                "particle_type": "sphere",
+                "set_color": "at_birth",
+                "transfer_mode": "add",
+                "floor_action": "none",
+                "aux_emit": "continuously",
+                "aux_particle_type": "glow_sphere",
+                "aux_set_color": "from_main",
+                "color": "#ffffff",
+                "gradient_color_1": "#ffffff",
+                "gradient_color_2": "#ffe066",
+                "gradient_color_3": "#ff9933",
+                "gradient_color_4": "#e6331a",
+                "gradient_color_5": "#4d0d0d",
+                "aux_color": "#ffffff"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
