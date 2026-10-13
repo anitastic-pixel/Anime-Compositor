@@ -6,7 +6,7 @@
 //! No state is carried from frame to frame (document 20): every frame is worked from the layer's
 //! in point, so a frame drawn alone equals the same frame played from the start.
 
-use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS, HAIR_SETTINGS, MERCURY_SETTINGS, POLYGON_SHARDS_SETTINGS, FOAM_SETTINGS};
+use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS, HAIR_SETTINGS, MERCURY_SETTINGS, POLYGON_SHARDS_SETTINGS, FOAM_SETTINGS, SCATTERIZE_SETTINGS};
 use crate::particles::{tile_lists, HEAD, STRIDE, TILE};
 use crate::WorkingBuffer;
 use rayon::prelude::*;
@@ -1216,4 +1216,137 @@ pub(crate) fn foam(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usi
             }
         }
     });
+}
+
+/// D-676: Scatterize's dots on a drawing `w` by `h`, one for every pixel, farthest first: each
+/// `(x, y, n)`, where its pixel n = j w + i ends after the twist and the scatter, in the drawing's
+/// own pixels. Which dots show is left to the drawing (a clear pixel's dot changes nothing in any
+/// mode), so the card's list needs only the settings.
+fn scatter_dots(e: &Effect, w: usize, h: usize) -> Vec<(f64, f64, usize)> {
+    let Effect::Scatterize { values, .. } = e else { unreachable!("Scatterize of another effect") };
+    let v: [f64; 3] = std::array::from_fn(|k| values[k].clamp(SCATTERIZE_SETTINGS[k].1, SCATTERIZE_SETTINGS[k].2));
+    let (wf, hf) = (w as f64, h as f64);
+    let big = v[0] * hf / 1080.0;
+    let base = crate::grade::mix(0);
+    // ponytail: every pixel a dot, sorted, about 64 MB and a sort at 1920 by 1080; the twist alone
+    // sets the order, so an untwisted layer could skip the sort if it shows in the timings.
+    let mut d: Vec<(f64, usize, f64, f64)> = (0..w * h)
+        .into_par_iter()
+        .map(|n| {
+            let (i, j) = (n % w, n / w);
+            let (x, y) = (i as f64 + 0.5, j as f64 + 0.5);
+            let a = (v[2] + (v[1] - v[2]) * x / wf).to_radians();
+            let yt = hf / 2.0 + (y - hf / 2.0) * a.cos();
+            let z = (y - hf / 2.0) * a.sin();
+            let u = |k| (crate::grade::unit(base, i as i64, j as i64, 0, k) + 1.0) / 2.0;
+            let (r, t) = (big * u(0), 2.0 * std::f64::consts::PI * u(1));
+            (z, n, x + r * t.cos(), yt + r * t.sin())
+        })
+        .collect();
+    d.par_sort_unstable_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+    d.into_iter().map(|(_, n, x, y)| (x, y, n)).collect()
+}
+
+/// D-676: the first and last pixel, across or down a drawing `size` long, whose centre can be
+/// within 1 of `p`, or None when none of the drawing's are.
+fn scatter_reach(p: f64, size: usize) -> Option<(usize, usize)> {
+    let (a, b) = ((p - 1.5).floor().max(0.0), ((p + 0.5).floor() + 1.0).min(size as f64 - 1.0));
+    (a <= b).then_some((a as usize, b as usize))
+}
+
+/// D-676: one dot `s` (premultiplied colour times its cover) laid onto `d` by the transfer mode,
+/// its place in [`crate::effects::SCATTERIZE_WORDS`].
+fn scatter_lay(s: [f64; 4], d: [f64; 4], mode: usize) -> [f64; 4] {
+    match mode {
+        1 => [0, 1, 2, 3].map(|c| s[c] + d[c] - s[c] * d[c]),
+        2 => [s[0] + d[0], s[1] + d[1], s[2] + d[2], s[3] + d[3] * (1.0 - s[3])],
+        3 => [s[0] + d[0], s[1] + d[1], s[2] + d[2], (s[3] + d[3]).min(1.0)],
+        _ => [0, 1, 2, 3].map(|c| s[c] + d[c] * (1.0 - s[3])),
+    }
+}
+
+fn scatter_mode(e: &Effect) -> usize {
+    let Effect::Scatterize { words, .. } = e else { unreachable!("Scatterize of another effect") };
+    crate::effects::SCATTERIZE_WORDS[0].1.iter().position(|w| *w == words[0]).unwrap_or(0)
+}
+
+/// D-676: the card's list for Scatterize on a drawing `w0` by `h0` at `(ox, oy)` in a buffer
+/// `bw` by `bh`: k[1] the transfer mode, k[2] and k[3] the drawing's size, k[6] the count; the
+/// dots from 7, three each, `[x, y, n]`, farthest first; then each 16 by 16 tile's start and the
+/// lists, every dot in each tile it can cover, in order.
+pub(crate) fn scatterize_list(e: &Effect, (w0, h0): (usize, usize), (ox, oy): (usize, usize), (bw, bh): (usize, usize)) -> Vec<f64> {
+    let dots = scatter_dots(e, w0, h0);
+    let (tw, th) = (bw.div_ceil(TILE), bh.div_ceil(TILE));
+    let tiles = |&(x, y, _): &(f64, f64, usize)| {
+        let ((x0, x1), (y0, y1)) = (scatter_reach(x, w0)?, scatter_reach(y, h0)?);
+        Some(((x0 + ox) / TILE..=(x1 + ox) / TILE, (y0 + oy) / TILE..=(y1 + oy) / TILE))
+    };
+    let mut starts = vec![0usize; tw * th + 1];
+    for (cols, rows) in dots.iter().filter_map(tiles) {
+        for t in rows.flat_map(|ty| cols.clone().map(move |tx| ty * tw + tx)) {
+            starts[t + 1] += 1;
+        }
+    }
+    for t in 0..tw * th {
+        starts[t + 1] += starts[t];
+    }
+    let mut list = vec![0.0; starts[tw * th]];
+    let mut fill = starts.clone();
+    for (n, d) in dots.iter().enumerate() {
+        if let Some((cols, rows)) = tiles(d) {
+            for t in rows.flat_map(|ty| cols.clone().map(move |tx| ty * tw + tx)) {
+                list[fill[t]] = n as f64;
+                fill[t] += 1;
+            }
+        }
+    }
+    let mut k = vec![0.0; HEAD];
+    k[1] = scatter_mode(e) as f64;
+    k[2] = w0 as f64;
+    k[3] = h0 as f64;
+    k[6] = dots.len() as f64;
+    k.reserve(3 * dots.len() + starts.len() + list.len());
+    k.extend(dots.iter().flat_map(|&(x, y, n)| [x, y, n as f64]));
+    k.extend(starts.iter().map(|&s| s as f64));
+    k.extend(list);
+    k
+}
+
+/// D-676: Scatterize, after CycoreFX's CC Scatterize (document 21): every pixel of the drawing
+/// that shows a dot, twisted about the middle row and thrown away from where it was, laid farthest
+/// first onto clear by the transfer mode. `(ox, oy)` the drawing's corner in the buffer; the dots
+/// are cut at the drawing's edges and the rest of the buffer is clear. Never grows.
+// ponytail: the processor lays the dots one after another on one thread, a few tens of
+// milliseconds at 1920 by 1080; the card's tile lists are the parallel way if it matters.
+pub(crate) fn scatterize(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) {
+    let (bw, bh) = (source.width(), source.height());
+    let (w0, h0) = (bw.saturating_sub(2 * ox), bh.saturating_sub(2 * oy));
+    if w0 == 0 || h0 == 0 {
+        return;
+    }
+    let mode = scatter_mode(e);
+    let drawing = source.data();
+    let mut out = vec![[0.0f64; 4]; bw * bh];
+    for (x, y, n) in scatter_dots(e, w0, h0) {
+        let at = ((n / w0 + oy) * bw + n % w0 + ox) * 4;
+        let col: [f64; 4] = std::array::from_fn(|c| drawing[at + c] as f64);
+        if col[3] <= 0.0 {
+            continue;
+        }
+        let (Some((x0, x1)), Some((y0, y1))) = (scatter_reach(x, w0), scatter_reach(y, h0)) else { continue };
+        for py in y0..=y1 {
+            for px in x0..=x1 {
+                let c = (1.0 - (px as f64 + 0.5 - x).hypot(py as f64 + 0.5 - y)).clamp(0.0, 1.0);
+                if c > 0.0 {
+                    let o = &mut out[(py + oy) * bw + px + ox];
+                    *o = scatter_lay(col.map(|v| v * c), *o, mode);
+                }
+            }
+        }
+    }
+    for (px, o) in source.data_mut().chunks_exact_mut(4).zip(out) {
+        for (v, o) in px.iter_mut().zip(o) {
+            *v = o as f32;
+        }
+    }
 }

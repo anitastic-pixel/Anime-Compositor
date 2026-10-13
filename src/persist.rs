@@ -3328,6 +3328,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert((*name).into(), J::from(w.as_str()));
             }
         }
+        Effect::Scatterize { values, words } => {
+            for ((name, ..), v) in crate::effects::SCATTERIZE_SETTINGS.iter().zip(values) {
+                params.insert((*name).into(), num(*v));
+            }
+            for ((name, ..), w) in crate::effects::SCATTERIZE_WORDS.iter().zip(words) {
+                params.insert((*name).into(), J::from(w.as_str()));
+            }
+        }
         Effect::CcBallAction {
             scatter,
             rotation_axis,
@@ -6148,6 +6156,7 @@ fn parse_effect(
         crate::effects::MERCURY,
         crate::effects::POLYGON_SHARDS,
         crate::effects::FOAM,
+        crate::effects::SCATTERIZE,
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
         crate::effects::CC_SPHERE,
@@ -8110,6 +8119,18 @@ fn parse_effect(
                 *w = effect_word(params, name, &at)?;
             }
             Some(crate::effects::Effect::Foam { values, words, clock: [0.0; 2], history: None })
+        }
+        // D-676: the word kept as written, so one outside the contract is refused by name.
+        crate::effects::SCATTERIZE => {
+            let mut values = [0.0; 3];
+            for ((name, ..), v) in crate::effects::SCATTERIZE_SETTINGS.iter().zip(values.iter_mut()) {
+                *v = effect_number(params, name, &at)?;
+            }
+            let mut words: [String; 1] = Default::default();
+            for ((name, ..), w) in crate::effects::SCATTERIZE_WORDS.iter().zip(words.iter_mut()) {
+                *w = effect_word(params, name, &at)?;
+            }
+            Some(crate::effects::Effect::Scatterize { values, words })
         }
         crate::effects::CC_BALL_ACTION => Some(crate::effects::Effect::CcBallAction {
             scatter: effect_number(params, "scatter", &at)?,

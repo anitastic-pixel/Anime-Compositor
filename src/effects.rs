@@ -3277,6 +3277,15 @@ pub enum Effect {
         clock: [f64; 2],
         history: Option<std::sync::Arc<Vec<[f64; 26]>>>,
     },
+    /// D-676: Scatterize, after CycoreFX's CC Scatterize, its rule and settings when added ours
+    /// (`simulate::scatterize`, document 21): every pixel of the layer a dot, twisted about the
+    /// middle row and thrown away from where it was, laid farthest first by the transfer mode.
+    /// `values`, the settings of [`SCATTERIZE_SETTINGS`] in that order; `words`, those of
+    /// [`SCATTERIZE_WORDS`], kept as written. Nothing moves by itself (document 20).
+    Scatterize {
+        values: [f64; 3],
+        words: [String; 1],
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -5319,6 +5328,17 @@ pub const FOAM_WORDS: [(&str, &[&str], &str); 6] = [
     ("bubble_orientation", &["fixed", "physical", "velocity"], "fixed"),
     ("quality", &["normal", "high", "intense"], "normal"),
 ];
+pub const SCATTERIZE: &str = "core.scatterize";
+/// D-676: Scatterize's keyable settings, in the order `values` holds them: name, lowest, highest,
+/// and the value when the effect is added. The amount is the farthest a dot flies in pixels on a
+/// picture 1080 high; the twists, the right and left edges' turns in degrees.
+pub const SCATTERIZE_SETTINGS: [(&str, f64, f64, f64); 3] = [
+    ("amount", -10000.0, 10000.0, 50.0),
+    ("right_twist", -36000.0, 36000.0, 0.0),
+    ("left_twist", -36000.0, 36000.0, 0.0),
+];
+/// D-676: Scatterize's words: name, the words, the word when added.
+pub const SCATTERIZE_WORDS: [(&str, &[&str], &str); 1] = [("transfer_mode", &["composite", "screen", "add", "alpha_add"], "composite")];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -5843,6 +5863,11 @@ impl Effect {
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .collect(),
             Effect::Foam { values, .. } => FOAM_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .collect(),
+            Effect::Scatterize { values, .. } => SCATTERIZE_SETTINGS
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
@@ -9205,6 +9230,7 @@ impl Effect {
             Effect::Mercury { .. } => "Mercury",
             Effect::PolygonShards { .. } => "Polygon Shards",
             Effect::Foam { .. } => "Foam",
+            Effect::Scatterize { .. } => "Scatterize",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -9479,6 +9505,7 @@ impl Effect {
             Effect::Mercury { .. } => MERCURY,
             Effect::PolygonShards { .. } => POLYGON_SHARDS,
             Effect::Foam { .. } => FOAM,
+            Effect::Scatterize { .. } => SCATTERIZE,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -10153,6 +10180,13 @@ impl Effect {
                     format!("{name}'s {} is {}, and this is \"{w}\".", what.replace('_', " "), allowed.join(", "))
                 }),
             Effect::Foam { words, .. } => FOAM_WORDS
+                .iter()
+                .zip(words)
+                .find(|((_, allowed, _), w)| !allowed.contains(&w.as_str()))
+                .map(|((what, allowed, _), w)| {
+                    format!("{name}'s {} is {}, and this is \"{w}\".", what.replace('_', " "), allowed.join(", "))
+                }),
+            Effect::Scatterize { words, .. } => SCATTERIZE_WORDS
                 .iter()
                 .zip(words)
                 .find(|((_, allowed, _), w)| !allowed.contains(&w.as_str()))
@@ -13809,6 +13843,10 @@ pub(crate) fn apply_stack_at(
             }),
             // D-678: the bubbles in the drawing's own space; never grows.
             e @ Effect::Foam { .. } => crate::perf::time(crate::perf::Stage::EffectFoam, || crate::simulate::foam(source, e, (ox, oy))),
+            // D-676: the dots in the drawing's own space, cut at its edges; never grows.
+            e @ Effect::Scatterize { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectScatterize, || crate::simulate::scatterize(source, e, (ox, oy)))
+            }
             // D-610: the particles drawn through the composition camera or its own; never grows.
             e @ Effect::ParticleSpace { .. } => crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {
                 crate::particles::particle_space(source, e, (ox, oy))

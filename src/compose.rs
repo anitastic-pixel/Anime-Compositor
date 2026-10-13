@@ -1191,6 +1191,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::PolygonShards { .. }
                 // D-678.
                 | crate::effects::Effect::Foam { .. }
+                // D-676.
+                | crate::effects::Effect::Scatterize { .. }
                 // D-508 (the bits are found on the processor).
                 | crate::effects::Effect::EnergyStroke { .. }
                 // D-509.

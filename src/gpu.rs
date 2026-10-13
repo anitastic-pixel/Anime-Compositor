@@ -7735,6 +7735,57 @@ fn foam(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(acc));
 }
 
+// D-676, simulate::scatterize, a pixel a thread (k: k[1] the transfer mode, k[2] and k[3] the
+// drawing's size, k[6] the count, the dots from 7, three each and not sprites, [x, y, n] in the
+// drawing's own pixels, n the pixel j w + i the dot came from, farthest first, then each tile's
+// start and the lists): every dot within 1 of the pixel centre, its colour the drawing's at n,
+// laid onto clear in order by the transfer mode. Clear outside the drawing.
+@compute @workgroup_size(16, 16)
+fn scatterize(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let tw = (size.x + 15u) / 16u;
+    let nt = tw * ((size.y + 15u) / 16u);
+    let t = (id.y / 16u) * tw + id.x / 16u;
+    let o = 7u + u32(k[6]) * 3u;
+    let px = i32(id.x) - F.ox;
+    let py = i32(id.y) - F.oy;
+    var d = vec4(0.0lf);
+    if px >= 0 && py >= 0 && f64(px) < k[2] && f64(py) < k[3] {
+        let w0 = u32(k[2]);
+        let x = f64(px) + 0.5lf;
+        let y = f64(py) + 0.5lf;
+        let mode = k[1];
+        for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
+            let s = 7u + u32(k[o + nt + 1u + j]) * 3u;
+            let dx = x - k[s];
+            let dy = y - k[s + 1u];
+            let c = clamp(1.0lf - sqrt(dx * dx + dy * dy), 0.0lf, 1.0lf);
+            if c <= 0.0lf {
+                continue;
+            }
+            let n = u32(k[s + 2u]);
+            let col = vec4<f64>(at(input, vec2<i32>(i32(n % w0) + F.ox, i32(n / w0) + F.oy)));
+            if col.w <= 0.0lf {
+                continue;
+            }
+            let sc = col * c;
+            if mode == 1.0lf {
+                d = sc + d - sc * d;
+            } else if mode == 2.0lf {
+                d = vec4(sc.xyz + d.xyz, sc.w + d.w * (1.0lf - sc.w));
+            } else if mode == 3.0lf {
+                d = vec4(sc.xyz + d.xyz, min(1.0lf, sc.w + d.w));
+            } else {
+                d = sc + d * (1.0lf - sc.w);
+            }
+        }
+    }
+    textureStore(output, id.xy, vec4<f32>(d));
+}
+
 // B-151, median.rs's straight colour of a pixel, each channel over the covering in single
 // precision as the CPU divides it, or nothing where nothing shows.
 fn straight(p: vec4<f32>) -> vec4<f32> {
@@ -12014,6 +12065,8 @@ struct FxPasses {
     shards: Pass,
     /// D-678.
     foam: Pass,
+    /// D-676.
+    scatterize: Pass,
     /// B-151.
     median: Pass,
     smart: Pass,
@@ -12763,6 +12816,7 @@ impl Gpu {
                 mercury: pass("mercury", &[0, 1, 2, 3]),
                 shards: pass("shards", &[0, 1, 2, 3]),
                 foam: pass("foam", &[0, 1, 2, 3]),
+                scatterize: pass("scatterize", &[0, 1, 2, 3]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
@@ -15673,6 +15727,20 @@ impl Gpu {
                 self.fx_step(steps, &passes.foam, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
                 (out, (w, h))
             }
+            // D-676: the dots worked out and binned into the card's tiles on the processor, three
+            // numbers each, not the particle engine's sprites; the card reads each dot's colour
+            // from the drawing and lays them in order.
+            e @ E::Scatterize { .. } => {
+                let (w0, h0) = (w.saturating_sub(2 * ox), h.saturating_sub(2 * oy));
+                if w0 == 0 || h0 == 0 {
+                    return (still.clone(), (w, h));
+                }
+                let k = crate::simulate::scatterize_list(e, (w0, h0), (ox, oy), (w, h));
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let out = self.scratch("D-676 scatterize", w, h);
+                self.fx_step(steps, &passes.scatterize, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                (out, (w, h))
+            }
             // B-151: ten of the fourth batch.
             E::Median { radius, operate_on_alpha } => {
                 let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
@@ -17429,6 +17497,12 @@ impl Gpu {
                                 let r = most(6).clamp(0.0, 10.0) * 2.0 * h as f64 / 40.0 * most(21).clamp(0.05, 50.0) * 2.0;
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
                                 ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 12.0) * 8.0) as u64
+                            }
+                            // D-676: Scatterize's dots, one a pixel, three numbers each and a
+                            // place in up to four tiles' lists, and its tiles' starts.
+                            crate::effects::Effect::Scatterize { .. } => {
+                                let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
+                                ((7.0 + 7.0 * (w * h) as f64 + tiles + 1.0) * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,
