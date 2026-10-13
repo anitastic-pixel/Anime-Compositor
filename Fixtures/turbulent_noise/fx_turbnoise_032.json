@@ -94,7 +94,7 @@
                 "invert": "off",
                 "contrast": 100,
                 "brightness": 0,
-                "size": 100,
+                "size": 4,
                 "scale_width": 100,
                 "scale_height": 100,
                 "offset": [

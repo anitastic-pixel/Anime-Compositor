@@ -22,8 +22,8 @@ So:
   noise's (g o) (its colour over black, encoded). Clear pixels stay clear.
 - Opacity 0 with None or a stencil clears the layer rather than leaving it, as D-413's patterns.
 
-Not built: Hue (FX-TURBNOISE-060 pins it refused; the owner's fixture decision), Overlay
-(FX-TURBNOISE-032), and Silhouette Alpha and Silhouette Luma (the program has no Timeline rule for
+Hue and Overlay were not built here; the owner's decision of 2026-10-13 (D-731) regenerated
+FX-TURBNOISE-060 and 032 to draw them, in their own tools. Not built: Silhouette Alpha and Silhouette Luma (the program has no Timeline rule for
 them to follow). Those two are refused here with a warning.
 """
 
@@ -78,6 +78,7 @@ WHOLE = {
     "saturation": lambda b, s: set_lum(set_sat(b, sat(s)), lum(b)),
     "color": lambda b, s: set_lum(s, lum(b)),
     "luminosity": lambda b, s: set_lum(b, lum(s)),
+    "hue": lambda b, s: set_lum(set_sat(s, sat(b)), lum(b)),  # D-731, FX-TURBNOISE-060
 }
 
 
