@@ -212343,6 +212343,45 @@ FX-CURL-059 (`fx_curl_059.json`): Mirror at Edge "yes", not on or off. The file 
 
 FX-CURL-060 (`fx_curl_060.json`): Source Layer 3, a number and not a layer's word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Curl Noise, Transform (D-646)
+
+Curl Noise's Rotation, Scale and Perspective Offset (B-525), more cases in the same folder: `tools/curl_transform_reference.py` writes `Fixtures/curl_noise/expected_curl_transform.json` and `fx_curl_061.json` to `fx_curl_077.json`, the 16 by 10 composition of D-446's cases, tolerance 2e-5. Its check also recomputes FX-CURL-002, 011 and 033 with the new settings as added, bit for bit.
+
+FX-CURL-061 (`fx_curl_061.json`): Rotation 90, still, Input Noise: the noise turned a quarter clockwise round the card's middle. Frames 0.
+
+FX-CURL-062 (`fx_curl_062.json`): Rotation 90, still, Swirl 0, Curl Generation: the flow turned with the noise, a quarter clockwise. Frames 0.
+
+FX-CURL-063 (`fx_curl_063.json`): Scale 200, still, Input Noise: the noise twice as big round the card's middle, so it is Size 12 with Offset (-8, -5), FX-CURL-064. Frames 0.
+
+FX-CURL-064 (`fx_curl_064.json`): Size 12, Offset (-8, -5), still, Input Noise. Frames 0.
+
+FX-CURL-065 (`fx_curl_065.json`): Scale 50, still: flow lines through cells half the size. Frames 0.
+
+FX-CURL-066 (`fx_curl_066.json`): Perspective Offset on, Speed 20, Direction 90, Turbulence Speed 0, Input Noise: at frame 0 nothing has slid, so it is FX-CURL-011's frame 0; at frame 1 the finer octaves have slid less than the coarse one. Frames 0, 1.
+
+FX-CURL-067 (`fx_curl_067.json`): Rotation 45, Scale 150, Perspective Offset on, Offset (3, 2), Speed 20, Direction 90: the Transform together, flow lines. Frames 0, 2.
+
+FX-CURL-068 (`fx_curl_068.json`): Source This Layer, Rotation 90, Scale 200, Perspective Offset on, still, Input Noise: the picture is read unturned, so it is FX-CURL-045. Frames 0.
+
+FX-CURL-069 (`fx_curl_069.json`): Source This Layer, Rotation 90, still: only the seed is turned, so the lines differ from Rotation 0's. Frames 0.
+
+FX-CURL-070 (`fx_curl_070.json`): Rotation keyed from 0 at frame 0 to 90 at frame 4, still, Input Noise: frame 0 is the unturned noise, frame 4 FX-CURL-061. Frames 0, 4.
+
+FX-CURL-071 (`fx_curl_071.json`): Rotation 30, still, after a Motion Tile that grows the layer: turned round the drawing's middle, not the grown buffer's, so it is FX-CURL-072. Frames 0.
+
+FX-CURL-072 (`fx_curl_072.json`): Rotation 30, still. Frames 0.
+
+FX-CURL-073 (`fx_curl_073.json`): Rotation 360, still: a whole turn, the noise as unturned (within the tolerance). Frames 0.
+
+FX-CURL-074 (`fx_curl_074.json`): Scale 0.5, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-075 (`fx_curl_075.json`): Rotation 200000, above 100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-076 (`fx_curl_076.json`): Perspective Offset "yes", not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CURL-077 (`fx_curl_077.json`): Scale keyed to 20000 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+
 ### Particle Space (D-610)
 
 Particle Space (`core.particle_space`), the particle engine's first effect (P0-6, B-490), after the purpose of CycoreFX's CC Particle World (EFFECTS.md, Simulation), the rules ours. Every case is a project of one composition 16 by 10 at 24 frames a second, with the drawing `art` (Broadcast Colors' picture, a transparent first column and a half-covered last one) carrying the effect; FX-PSPACE-045 to 049 add a composition camera. `tools/particle_space_reference.py` works the expected frames, `Fixtures/particle_space/expected_particle_space.json`, tolerance 2e-5, and for the cases marked below the particles alive at one frame, each its number, birth, place and speed, `Fixtures/particle_space/particles_particle_space.json`, tolerance 1e-7; the rule is in document 21 and document 20 (no state carried from frame to frame).
