@@ -2477,6 +2477,28 @@ fn effect_now(
                 )
             });
         }
+        // D-615: Particle Emitter's clock, camera and history, as Particle Space's; the history
+        // of its numbers, the position too, each held inside its range.
+        if let crate::effects::Effect::ParticleEmitter { clock, view, history, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            *clock = [(at - layer.in_frame) as f64, fps];
+            *view = [0.0; 4];
+            if comp.camera.is_some() {
+                let m = world_transform(comp, &layer.id, at);
+                if let (Some(cam), Some(inv)) = (camera_at(comp, at), m.invert()) {
+                    let a = inv.apply(cam.position.0, cam.position.1);
+                    let away = (world_depth(comp, &layer.id, at) - cam.depth) / (m.a * m.d - m.b * m.c).abs().sqrt();
+                    *view = [1.0, a.0, a.1, away];
+                }
+            }
+            *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
+                std::sync::Arc::new(
+                    (layer.in_frame..=at + 1)
+                        .map(|f| crate::particles::emitter_numbers_row(&crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect))
+                        .collect(),
+                )
+            });
+        }
         // D-473: Basic Text's missing font is said each frame, as Numbers' is.
         if let crate::effects::Effect::BasicText { font, .. } = &now.effect {
             if !crate::layer_fx::numbers_font_ok(font) {

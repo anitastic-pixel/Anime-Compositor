@@ -3100,6 +3100,22 @@ pub enum Effect {
         words: [String; 1],
         hair_color: String,
     },
+    /// D-615: Particle Emitter, the particle engine's fourth effect (P0-6), after the purpose of
+    /// Trapcode Particular, its rules and settings ours (`particles::particle_space`, document
+    /// 21). `values`, the settings of [`PARTICLE_EMITTER_SETTINGS`] in that order;
+    /// `emitter_position`, x then y, per cent of the drawing, -1000 to 1000; `words`, those of
+    /// [`PARTICLE_EMITTER_WORDS`]; `colors`, those of [`PARTICLE_EMITTER_COLORS`], `#rrggbb`. Kept
+    /// as written, so a file's wrong one is reported. `clock`, `view` and `history` as Particle
+    /// Space's, never saved; the history of `particles::emitter_numbers_row`.
+    ParticleEmitter {
+        values: [f64; 45],
+        emitter_position: Vec<f64>,
+        words: [String; 6],
+        colors: [String; 6],
+        clock: [f64; 2],
+        view: [f64; 4],
+        history: Option<std::sync::Arc<Vec<[f64; 47]>>>,
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -4910,6 +4926,77 @@ pub const HAIR_SETTINGS: [(&str, f64, f64, f64); 13] = [
 ];
 /// D-673: Hair's words: name, the words, the word when added.
 pub const HAIR_WORDS: [(&str, &[&str], &str); 1] = [("constant_mass", &["off", "on"], "off")];
+pub const PARTICLE_EMITTER: &str = "core.particle_emitter";
+/// D-615: Particle Emitter's keyable numbers, in the order `values` holds them: name, lowest,
+/// highest, and the value when the effect is added. Lengths in the layer's pixels, speeds in
+/// pixels a second, Gravity and Wind in pixels a second a second, angles in degrees, times in
+/// seconds, the rest per cent; Floor Position per cent of the height from the top.
+pub const PARTICLE_EMITTER_SETTINGS: [(&str, f64, f64, f64); 45] = [
+    ("particles_per_second", 0.0, 100000.0, 100.0),
+    ("emitter_z", -100000.0, 100000.0, 0.0),
+    ("emitter_size_x", 0.0, 100000.0, 50.0),
+    ("emitter_size_y", 0.0, 100000.0, 50.0),
+    ("emitter_size_z", 0.0, 100000.0, 50.0),
+    ("emitter_rotation_x", -36000.0, 36000.0, 0.0),
+    ("emitter_rotation_y", -36000.0, 36000.0, 0.0),
+    ("emitter_rotation_z", -36000.0, 36000.0, 0.0),
+    ("grid_x", 1.0, 1000.0, 5.0),
+    ("grid_y", 1.0, 1000.0, 5.0),
+    ("grid_z", 1.0, 1000.0, 1.0),
+    ("velocity", -100000.0, 100000.0, 100.0),
+    ("velocity_random", 0.0, 100.0, 20.0),
+    ("velocity_from_motion", -10000.0, 10000.0, 20.0),
+    ("direction_spread", 0.0, 100.0, 20.0),
+    ("life", 0.0, 1000.0, 3.0),
+    ("life_random", 0.0, 100.0, 0.0),
+    ("size", 0.0, 10000.0, 4.0),
+    ("size_random", 0.0, 100.0, 0.0),
+    ("size_over_life_1", 0.0, 1000.0, 100.0),
+    ("size_over_life_2", 0.0, 1000.0, 100.0),
+    ("size_over_life_3", 0.0, 1000.0, 100.0),
+    ("size_over_life_4", 0.0, 1000.0, 100.0),
+    ("size_over_life_5", 0.0, 1000.0, 100.0),
+    ("opacity", 0.0, 100.0, 100.0),
+    ("opacity_random", 0.0, 100.0, 0.0),
+    ("opacity_over_life_1", 0.0, 100.0, 100.0),
+    ("opacity_over_life_2", 0.0, 100.0, 100.0),
+    ("opacity_over_life_3", 0.0, 100.0, 100.0),
+    ("opacity_over_life_4", 0.0, 100.0, 100.0),
+    ("opacity_over_life_5", 0.0, 100.0, 100.0),
+    ("color_random", 0.0, 100.0, 0.0),
+    ("sphere_feather", 0.0, 100.0, 50.0),
+    ("gravity", -100000.0, 100000.0, 0.0),
+    ("air_resistance", 0.0, 100.0, 0.0),
+    ("wind_x", -100000.0, 100000.0, 0.0),
+    ("wind_y", -100000.0, 100000.0, 0.0),
+    ("wind_z", -100000.0, 100000.0, 0.0),
+    ("turbulence", 0.0, 100000.0, 0.0),
+    ("turbulence_scale", 1.0, 100000.0, 100.0),
+    ("turbulence_evolution", -100000.0, 100000.0, 0.0),
+    ("floor_position", -1000.0, 1000.0, 100.0),
+    ("bounce", 0.0, 100.0, 50.0),
+    ("bounce_random", 0.0, 100.0, 0.0),
+    ("random_seed", 0.0, 10000.0, 0.0),
+];
+/// D-615: Particle Emitter's words: name, the words, the word when added.
+pub const PARTICLE_EMITTER_WORDS: [(&str, &[&str], &str); 6] = [
+    ("emitter_type", &["point", "box", "sphere", "grid"], "point"),
+    ("direction", &["uniform", "directional", "bi_directional", "disc", "outwards", "inwards"], "uniform"),
+    ("particle_type", &["sphere", "glow_sphere", "star", "cloudlet", "streak"], "sphere"),
+    ("set_color", &["at_birth", "over_life", "random_from_gradient"], "at_birth"),
+    ("transfer_mode", &["normal", "add", "screen"], "normal"),
+    ("floor_action", &["none", "bounce", "slide", "stick"], "none"),
+];
+/// D-615: Particle Emitter's colours and each when added; the gradient ours, white through
+/// yellow and orange to red and a dark red, a spark's cooling.
+pub const PARTICLE_EMITTER_COLORS: [(&str, &str); 6] = [
+    ("color", "#ffffff"),
+    ("gradient_color_1", "#ffffff"),
+    ("gradient_color_2", "#ffe066"),
+    ("gradient_color_3", "#ff9933"),
+    ("gradient_color_4", "#e6331a"),
+    ("gradient_color_5", "#4d0d0d"),
+];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -5370,6 +5457,12 @@ impl Effect {
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .collect(),
+            Effect::ParticleEmitter { values, emitter_position, .. } => PARTICLE_EMITTER_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .chain([("emitter_position", emitter_position.iter_mut().collect(), -1000.0, 1000.0)])
                 .collect(),
             Effect::CcBallAction { scatter, rotation, twist_angle, grid_spacing, ball_size, instability_state, .. } => vec![
                 ("scatter", vec![scatter], 0.0, 1000.0),
@@ -8295,6 +8388,23 @@ impl Effect {
                     }
                 }
             }
+            // D-615: its lengths, speeds, Gravity, Wind and Turbulence are the layer's pixels, and so
+            // is every keyed one in its history; the position and the floor are shares of it, and
+            // the composition camera compose found is in pixels too.
+            Effect::ParticleEmitter { values, view, history, .. } => {
+                const PIXELS: [usize; 12] = [1, 2, 3, 4, 11, 17, 33, 35, 36, 37, 38, 39];
+                for k in PIXELS {
+                    values[k] = scale(values[k]);
+                }
+                for row in history.iter_mut().flat_map(|h| std::sync::Arc::make_mut(h).iter_mut()) {
+                    for k in PIXELS {
+                        row[k] = scale(row[k]);
+                    }
+                }
+                for v in &mut view[1..] {
+                    *v = scale(*v);
+                }
+            }
             // D-551: a spacing below 1 is worked as 1.
             Effect::CcBallAction { scatter, grid_spacing, .. } => {
                 *scatter = scale(*scatter);
@@ -8614,6 +8724,7 @@ impl Effect {
             Effect::ParticlePlane { .. } => "Particle Plane",
             Effect::ParticlePlayground { .. } => "Particle Playground",
             Effect::Hair { .. } => "Hair",
+            Effect::ParticleEmitter { .. } => "Particle Emitter",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -8876,6 +8987,7 @@ impl Effect {
             Effect::ParticlePlane { .. } => PARTICLE_PLANE,
             Effect::ParticlePlayground { .. } => PARTICLE_PLAYGROUND,
             Effect::Hair { .. } => HAIR,
+            Effect::ParticleEmitter { .. } => PARTICLE_EMITTER,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -9575,6 +9687,25 @@ impl Effect {
                 .or_else(|| {
                     [("cannon", cannon_position), ("grid", grid_position)].into_iter().find(|(_, v)| v.len() != 2).map(|(n, v)| {
                         format!("Particle Playground's {n} position is two numbers, x then y, and this has {}.", v.len())
+                    })
+                }),
+            Effect::ParticleEmitter { words, colors, emitter_position, .. } => PARTICLE_EMITTER_WORDS
+                .iter()
+                .zip(words)
+                .find(|((_, list, _), w)| !list.contains(&w.as_str()))
+                .map(|((name, list, _), w)| {
+                    let list = list.iter().map(|a| format!("\"{a}\"")).collect::<Vec<_>>().join(", ");
+                    format!("Particle Emitter's {} is one of {list}, and this is \"{w}\".", name.replace('_', " "))
+                })
+                .or_else(|| {
+                    PARTICLE_EMITTER_COLORS
+                        .iter()
+                        .zip(colors)
+                        .find_map(|((name, _), c)| hex_fault("Particle Emitter", &name.replace('_', " ").replace("color", "colour"), c))
+                })
+                .or_else(|| {
+                    (emitter_position.len() != 2).then(|| {
+                        format!("Particle Emitter's emitter position is two numbers, x then y, and this has {}.", emitter_position.len())
                     })
                 }),
             Effect::CcBallAction { rotation_axis, twist_property, .. } => (!BALL_AXES.contains(&rotation_axis.as_str()))
@@ -13064,6 +13195,11 @@ pub(crate) fn apply_stack_at(
             // compose did not find (said too).
             e @ Effect::ParticlePlayground { .. } => crate::perf::time(crate::perf::Stage::EffectParticlePlayground, || {
                 crate::playground::apply(source, e, (ox, oy))
+            }),
+            // D-615: the particles drawn over a clear layer through the composition camera, or
+            // straight on; never grows.
+            e @ Effect::ParticleEmitter { .. } => crate::perf::time(crate::perf::Stage::EffectParticleEmitter, || {
+                crate::particles::particle_space(source, e, (ox, oy))
             }),
             // D-551: its own eye and light, no comp camera (P0-12); never grows.
             e @ Effect::CcBallAction { .. } => crate::perf::time(crate::perf::Stage::EffectCcBallAction, || {

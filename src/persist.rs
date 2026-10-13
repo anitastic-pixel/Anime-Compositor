@@ -3208,6 +3208,18 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
             params.insert("hair_color".into(), J::from(hair_color.as_str()));
         }
+        Effect::ParticleEmitter { values, emitter_position, words, colors, .. } => {
+            for ((name, ..), v) in crate::effects::PARTICLE_EMITTER_SETTINGS.iter().zip(values) {
+                params.insert((*name).into(), num(*v));
+            }
+            params.insert("emitter_position".into(), J::Array(emitter_position.iter().map(|c| num(*c)).collect()));
+            for ((name, ..), w) in crate::effects::PARTICLE_EMITTER_WORDS.iter().zip(words) {
+                params.insert((*name).into(), J::from(w.as_str()));
+            }
+            for ((name, _), c) in crate::effects::PARTICLE_EMITTER_COLORS.iter().zip(colors) {
+                params.insert((*name).into(), J::from(c.as_str()));
+            }
+        }
         Effect::CcBallAction {
             scatter,
             rotation_axis,
@@ -5975,6 +5987,7 @@ fn parse_effect(
         crate::effects::PARTICLE_PLANE,
         crate::effects::PARTICLE_PLAYGROUND,
         crate::effects::HAIR,
+        crate::effects::PARTICLE_EMITTER,
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
         crate::effects::CC_SPHERE,
@@ -7794,6 +7807,30 @@ fn parse_effect(
             }
             let hair_color = effect_word(params, "hair_color", &at)?.to_ascii_lowercase();
             Some(crate::effects::Effect::Hair { values, words, hair_color })
+        }
+        // D-615: every setting by its name.
+        crate::effects::PARTICLE_EMITTER => {
+            let mut values = [0.0; 45];
+            for ((name, ..), v) in crate::effects::PARTICLE_EMITTER_SETTINGS.iter().zip(values.iter_mut()) {
+                *v = effect_number(params, name, &at)?;
+            }
+            let mut words: [String; 6] = Default::default();
+            for ((name, ..), w) in crate::effects::PARTICLE_EMITTER_WORDS.iter().zip(words.iter_mut()) {
+                *w = effect_word(params, name, &at)?;
+            }
+            let mut colors: [String; 6] = Default::default();
+            for ((name, _), c) in crate::effects::PARTICLE_EMITTER_COLORS.iter().zip(colors.iter_mut()) {
+                *c = effect_word(params, name, &at)?;
+            }
+            Some(crate::effects::Effect::ParticleEmitter {
+                values,
+                emitter_position: effect_list(params, "emitter_position", &at)?,
+                words,
+                colors,
+                clock: [0.0; 2],
+                view: [0.0; 4],
+                history: None,
+            })
         }
         crate::effects::CC_BALL_ACTION => Some(crate::effects::Effect::CcBallAction {
             scatter: effect_number(params, "scatter", &at)?,

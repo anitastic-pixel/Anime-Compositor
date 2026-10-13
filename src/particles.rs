@@ -11,8 +11,15 @@
 //! Particle Systems II is for: its settings worked as Particle Space's ([`plane_row`]), born,
 //! thrown and swirled in the layer's plane (`Run::flat`), drawn straight onto the layer, with an
 //! Opacity Map and a Star of its own; `tools/particle_plane_reference.py` is its reference.
+//!
+//! D-615: Particle Emitter (`core.particle_emitter`), the same engine in 3D, after what Trapcode
+//! Particular is for: its settings worked as Particle Space's ([`emitter_row`]), born from its
+//! own point, box, ball or grid and thrown its own ways ([`Emitter`]), each particle with its own
+//! life, size, opacity and colour, drawn as two new sprites (soft and glowing spheres, kinds 9
+//! and 10) or as the star, the faded sphere or the line; `tools/particle_emitter_reference.py` is
+//! its reference.
 
-use crate::effects::{Effect, PARTICLE_PLANE_WORDS, PARTICLE_SPACE_WORDS};
+use crate::effects::{Effect, PARTICLE_EMITTER_SETTINGS, PARTICLE_EMITTER_WORDS, PARTICLE_PLANE_WORDS, PARTICLE_SPACE_WORDS};
 use std::borrow::Cow;
 use crate::WorkingBuffer;
 use rayon::prelude::*;
@@ -625,6 +632,10 @@ pub fn alive(e: &Effect) -> Vec<[f64; 8]> {
 /// as it reaches the effect, its corner at `(ox, oy)`. Before the in point, none and the drawing
 /// kept.
 pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) -> Vec<f64> {
+    // D-615: Particle Emitter's own.
+    if let Effect::ParticleEmitter { .. } = e {
+        return emitter_numbers(source, e, (ox, oy));
+    }
     let Some((run, look)) = run_of(e) else {
         return vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
     };
@@ -760,7 +771,8 @@ pub(crate) fn tile_lists(k: &[f64], (ox, oy): (usize, usize), w: usize, h: usize
             ((s[1].min(s[3]) - r, s[1].max(s[3]) + r), (s[2].min(s[4]) - r, s[2].max(s[4]) + r))
         } else {
             // D-611: a turned square reaches as far as its corners.
-            let r = s[3] * if s[0] == 5.0 { std::f64::consts::SQRT_2 } else { 1.0 } + 1.0;
+            // D-615: a soft sphere as far as half its feather beyond.
+            let r = s[3] * if s[0] == 5.0 { std::f64::consts::SQRT_2 } else { 1.0 } + 1.0 + if s[0] == 9.0 { s[4] / 2.0 } else { 0.0 };
             ((s[1] - r, s[1] + r), (s[2] - r, s[2] + r))
         };
         let span = |lo: f64, hi: f64, o: usize, size: usize| {
@@ -791,6 +803,23 @@ fn cover(k: &[f64], n: usize, x: f64, y: f64, tex: Option<Tex>) -> Option<[f64; 
     let s = &k[HEAD + STRIDE * n..][..STRIDE];
     if s[0] == STAR_KIND as f64 {
         let cv = star_cover(s[3], x - s[1], y - s[2]);
+        if cv <= 0.0 {
+            return None;
+        }
+        let a = s[6] * cv;
+        return Some([s[7] * a, s[8] * a, s[9] * a, a]);
+    }
+    // D-615: the Emitter's soft sphere (9), feathered over s[4], and its glowing sphere (10), a
+    // core of half the radius feathered over s[4] and a glow out to the radius; never lit.
+    if s[0] == 9.0 || s[0] == 10.0 {
+        let (rad, w) = (s[3], s[4]);
+        let e = (x - s[1]).hypot(y - s[2]);
+        let cv = if s[0] == 9.0 {
+            ((rad - e) / w + 0.5).clamp(0.0, 1.0)
+        } else {
+            let core = ((rad / 2.0 - e) / w + 0.5).clamp(0.0, 1.0);
+            core + (1.0 - core) * (1.0 - e / rad).max(0.0).powi(2) / 2.0
+        };
         if cv <= 0.0 {
             return None;
         }
@@ -1017,4 +1046,314 @@ fn texel((t, lv): Tex, s: f64, u: f64, rad: f64) -> [f64; 4] {
     }
     let (b, f) = (held(lv[j + 1]), lam - j as f64);
     [0, 1, 2, 3].map(|i| a[i] + (b[i] - a[i]) * f)
+}
+
+/// D-615: Particle Emitter's numbers at one frame, as compose keeps them in its history: the
+/// settings of [`PARTICLE_EMITTER_SETTINGS`] in that order, then Emitter Position's x and y, each
+/// held inside its range.
+#[doc(hidden)]
+pub fn emitter_numbers_row(e: &Effect) -> [f64; 47] {
+    let Effect::ParticleEmitter { values, emitter_position, .. } = e else {
+        unreachable!("Particle Emitter's numbers of another effect")
+    };
+    let mut out = [0.0; 47];
+    for (o, (v, (_, lo, hi, _))) in out.iter_mut().zip(values.iter().zip(PARTICLE_EMITTER_SETTINGS)) {
+        *o = v.clamp(lo, hi);
+    }
+    for c in 0..2 {
+        out[45 + c] = emitter_position.get(c).copied().unwrap_or(0.0).clamp(-1000.0, 1000.0);
+    }
+    out
+}
+
+/// D-615: one frame's Emitter numbers ([`emitter_numbers_row`]) as Particle Space's settings, on
+/// a layer `w` by `h`: the engine's unit is the width, its origin the layer's centre; gravity
+/// straight down; everything the Explosive animation does not read left at 0.
+fn emitter_row(v: &[f64; 47], w: f64, h: f64) -> [f64; 46] {
+    let mut e = [0.0; 46];
+    e[RATE] = v[0] / 100.0;
+    e[LONGEVITY] = v[15];
+    e[PRODUCER] = v[45] / 100.0 - 0.5;
+    e[PRODUCER + 1] = (v[46] / 100.0 - 0.5) * h / w;
+    e[PRODUCER + 2] = v[1] / w;
+    e[GRAVITY] = v[33] / w;
+    e[GRAVITY_VECTOR + 1] = 1.0;
+    e[RESISTANCE] = v[34];
+    for i in 0..3 {
+        e[WIND + i] = v[35 + i] / w;
+    }
+    e[TURBULENCE] = v[38] / w;
+    e[TURBULENCE_SCALE] = v[39] / w;
+    e[EVOLUTION] = v[40];
+    e[FLOOR] = (v[41] / 100.0 - 0.5) * h / w;
+    e[BOUNCINESS] = v[42];
+    e[RANDOM_BOUNCINESS] = v[43];
+    e[SEED] = v[44];
+    e
+}
+
+/// D-615: row `n` of `rows` at frame `t` after the in point, straight-line between frames and held
+/// at either end; `now` when nothing is keyed. As [`Run::at`].
+fn held<const N: usize>(rows: Option<&[[f64; N]]>, now: &[f64; N], n: usize, t: f64) -> f64 {
+    let Some(s) = rows else { return now[n] };
+    let last = s.len() - 1;
+    let i0 = t.floor();
+    if i0 < 0.0 {
+        return s[0][n];
+    }
+    if i0 as usize >= last {
+        return s[last][n];
+    }
+    let (a, b) = (s[i0 as usize][n], s[i0 as usize + 1][n]);
+    a + (b - a) * (t - i0)
+}
+
+/// D-615: the turn Rx Ry Rz of three angles in degrees, Rz first, as Particle Space's camera.
+fn turn3(d: [f64; 3]) -> [[f64; 3]; 3] {
+    type M3 = [[f64; 3]; 3];
+    let mat = |a: M3, b: M3| -> M3 { std::array::from_fn(|i| std::array::from_fn(|j| (0..3).map(|k| a[i][k] * b[k][j]).sum())) };
+    let (sx, cx) = (d[0].to_radians().sin(), d[0].to_radians().cos());
+    let (sy, cy) = (d[1].to_radians().sin(), d[1].to_radians().cos());
+    let (sz, cz) = (d[2].to_radians().sin(), d[2].to_radians().cos());
+    mat([[1.0, 0.0, 0.0], [0.0, cx, -sx], [0.0, sx, cx]], mat([[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]], [[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]]))
+}
+
+fn apply3(m: [[f64; 3]; 3], v: V) -> V {
+    [0, 1, 2].map(|i| m[i][0] * v[0] + m[i][1] * v[1] + m[i][2] * v[2])
+}
+
+/// D-615: one frame of a Particle Emitter: the engine's run on its settings, its own numbers'
+/// history (`own`, or `own_now` alone when nothing is keyed), the layer's width and the words as
+/// indices in [`PARTICLE_EMITTER_WORDS`]' order.
+struct Emitter<'a> {
+    run: Run<'a>,
+    own: Option<&'a [[f64; 47]]>,
+    own_now: [f64; 47],
+    w: f64,
+    kinds: [usize; 6],
+}
+
+// The Emitter's numbers, where [`emitter_numbers_row`] holds them.
+const EM_SIZE: usize = 2;
+const EM_ROTATION: usize = 5;
+const EM_GRID: usize = 8;
+
+fn emitter_of(e: &Effect, w: f64, h: f64) -> Option<Emitter<'_>> {
+    let Effect::ParticleEmitter { words, clock, history, .. } = e else {
+        unreachable!("Particle Emitter's particles of another effect")
+    };
+    let u = clock[0] as i64;
+    if u < 0 {
+        return None;
+    }
+    let kinds = std::array::from_fn(|i| PARTICLE_EMITTER_WORDS[i].1.iter().position(|x| *x == words[i]).unwrap_or(0));
+    let own_now = emitter_numbers_row(e);
+    let own = history.as_deref().map(Vec::as_slice);
+    let now = emitter_row(&own_now, w, h);
+    // ponytail: the numbers at the frame are held inside their ranges again after a draft has
+    // divided the lengths, so a Turbulence Scale below 2 drafted at half is worked as 1; keep the
+    // undivided ones if that ever shows.
+    let run = Run {
+        now,
+        samples: own.map(|s| Cow::Owned(s.iter().map(|r| emitter_row(r, w, h)).collect())),
+        u,
+        fps: clock[1],
+        seed: crate::grade::mix(now[SEED].floor() as u64),
+        mode: 0,
+        floor_action: [0, 3, 1, 2][kinds[5]],
+        flat: false,
+    };
+    Some(Emitter { run, own, own_now, w, kinds })
+}
+
+impl Emitter<'_> {
+    fn mine(&self, n: usize, t: f64) -> f64 {
+        held(self.own, &self.own_now, n, t)
+    }
+
+    /// Particle k's start at b, and its own life (frames), size, opacity, place on the gradient
+    /// and brightness.
+    fn born(&self, k: i64, b: f64) -> (Particle, [f64; 5]) {
+        let run = &self.run;
+        let r = |s| run.r(k, s);
+        let at = |n| self.mine(n, b);
+        let m = turn3([at(EM_ROTATION), at(EM_ROTATION + 1), at(EM_ROTATION + 2)]);
+        let size = [at(EM_SIZE), at(EM_SIZE + 1), at(EM_SIZE + 2)];
+        let off = match self.kinds[0] {
+            0 => [0.0; 3],
+            1 => [size[0] * (r(0) - 0.5), size[1] * (r(1) - 0.5), size[2] * (r(2) - 0.5)],
+            2 => {
+                let rho = r(0).powf(1.0 / 3.0);
+                let d = sphere(1.0 - 2.0 * r(1), 2.0 * PI * r(2));
+                [0, 1, 2].map(|i| size[i] / 2.0 * rho * d[i])
+            }
+            _ => {
+                let n = [0, 1, 2].map(|i| at(EM_GRID + i).floor() as i64);
+                let j = k % (n[0] * n[1] * n[2]);
+                let idx = [j % n[0], (j / n[0]) % n[1], j / (n[0] * n[1])];
+                [0, 1, 2].map(|i| size[i] * ((idx[i] as f64 + 0.5) / n[i] as f64 - 0.5))
+            }
+        };
+        let d = apply3(m, off);
+        let p = run.vec(PRODUCER, b);
+        let x = [0, 1, 2].map(|i| p[i] + d[i] / self.w);
+        let a = apply3(m, [0.0, -1.0, 0.0]);
+        let h = if a[0].abs() >= 0.9 { [0.0, 1.0, 0.0] } else { [1.0, 0.0, 0.0] };
+        let e1 = unit_or(cross(h, a), [1.0, 0.0, 0.0]);
+        let e2 = cross(a, e1);
+        let phi = 2.0 * PI * r(4);
+        let spread = at(14);
+        let alpha = (180.0 * spread / 100.0).to_radians();
+        let u = sphere(1.0 - 2.0 * r(3), phi);
+        let cap = |ct: f64| {
+            let st = (1.0 - ct * ct).max(0.0).sqrt();
+            add(mul(a, ct), mul(add(mul(e1, phi.cos()), mul(e2, phi.sin())), st))
+        };
+        let way = match self.kinds[1] {
+            0 => u,
+            dir @ (1 | 2) => {
+                let w = cap(1.0 - r(3) * (1.0 - alpha.cos()));
+                if dir == 2 && r(10) < 0.5 { mul(w, -1.0) } else { w }
+            }
+            3 => cap(-(alpha / 2.0 * (2.0 * r(3) - 1.0)).sin()),
+            dir => {
+                let o = if d.iter().any(|c| *c != 0.0) { unit_or(d, u) } else { u };
+                let o = if dir == 5 { mul(o, -1.0) } else { o };
+                unit_or(add(o, mul(u, spread / 100.0)), o)
+            }
+        };
+        let speed = at(11) / self.w * (1.0 + at(12) / 100.0 * (2.0 * r(5) - 1.0));
+        let mut v = mul(way, speed);
+        let vm = at(13);
+        if vm != 0.0 {
+            let pv = mul(sub(run.vec(PRODUCER, b + 0.125), run.vec(PRODUCER, b - 0.125)), run.fps / 0.25);
+            v = add(v, mul(pv, vm / 100.0));
+        }
+        let p = Particle { k, b, x, v, x0: x, sizes: (0.0, 0.0), size_factor: 1.0, twirl: 1.0, glued: false, iced: false, bounces: 0 };
+        let own = [
+            self.life(k, b),
+            at(17) * (1.0 + at(18) / 100.0 * (2.0 * r(6) - 1.0)),
+            at(24) / 100.0 * (1.0 - at(25) / 100.0 * r(12)),
+            r(13),
+            1.0 - at(31) / 100.0 * r(14),
+        ];
+        (p, own)
+    }
+
+    /// Particle k's life in frames, born at b.
+    fn life(&self, k: i64, b: f64) -> f64 {
+        self.mine(15, b) * self.run.fps * (1.0 - self.mine(16, b) / 100.0 * self.run.r(k, 11))
+    }
+
+    /// Particle k, born at b, as it is at u, on D-610's steps.
+    fn moved(&self, k: i64, b: f64) -> (Particle, [f64; 5]) {
+        let (mut p, own) = self.born(k, b);
+        let mut t0 = b;
+        for j in (4.0 * b).floor() as i64 + 1..=4 * self.run.u {
+            let t1 = j as f64 / 4.0;
+            self.run.step(&mut p, t0, (t1 - t0) / self.run.fps);
+            t0 = t1;
+        }
+        (p, own)
+    }
+
+    /// The alive particles, oldest first, with their own numbers and age fractions.
+    fn alive(&self) -> Vec<(Particle, [f64; 5], f64)> {
+        let u = self.run.u as f64;
+        self.run
+            .births()
+            .into_par_iter()
+            .filter_map(|(k, b)| {
+                let (life, age) = (self.life(k, b), u - b);
+                (age < life).then(|| {
+                    let (p, own) = self.moved(k, b);
+                    (p, own, age / life)
+                })
+            })
+            .collect()
+    }
+}
+
+/// D-615: the Emitter's particles for B-495's test, as [`alive`]'s, on a layer `w` by `h`.
+#[doc(hidden)]
+pub fn emitter_alive(e: &Effect, w: f64, h: f64) -> Vec<[f64; 8]> {
+    let Some(em) = emitter_of(e, w, h) else { return Vec::new() };
+    em.alive().into_iter().map(|(p, ..)| [p.k as f64, p.b, p.x[0], p.x[1], p.x[2], p.v[0], p.v[1], p.v[2]]).collect()
+}
+
+/// D-615: Particle Emitter's sprite list, as [`sprite_numbers`]': Sphere (kind 9, its feather's
+/// width fifth), Glow Sphere (10, likewise), Star (8), Cloudlet (1, the faded sphere) or Streak
+/// (0, the line), none lit, seen through the composition camera or else straight on from 50/36
+/// of the width in front.
+fn emitter_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) -> Vec<f64> {
+    let (w0, h0) = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+    let Some(em) = emitter_of(e, w0, h0) else {
+        return vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    };
+    let Effect::ParticleEmitter { colors, view, .. } = e else { unreachable!() };
+    let view = if view[0] != 0.0 { *view } else { [1.0, w0 / 2.0, h0 / 2.0, w0 * 50.0 / 36.0] };
+    let see = |x: V| -> Option<[f64; 4]> {
+        let (ax, ay, al) = (view[1], view[2], view[3]);
+        let zp = x[2] * w0;
+        let depth = (al + zp) / w0;
+        if al <= 0.0 || depth <= 0.01 {
+            return None;
+        }
+        let ratio = al / (al + zp);
+        Some([ax + (w0 / 2.0 + x[0] * w0 - ax) * ratio, ay + (h0 / 2.0 + x[1] * w0 - ay) * ratio, w0 * ratio, depth])
+    };
+    let now = &em.own_now;
+    let levels = |from: usize| -> [f64; 5] { std::array::from_fn(|i| now[from + i] / 100.0) };
+    let (sizes, fades, feather) = (levels(19), levels(26), now[32] / 100.0);
+    let curve = |l: [f64; 5], f: f64| {
+        let i = ((f * 4.0).floor() as usize).min(3);
+        l[i] + (l[i + 1] - l[i]) * (f * 4.0 - i as f64)
+    };
+    let linear = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
+    let stops: [V; 5] = std::array::from_fn(|i| linear(&colors[1 + i]));
+    let gradient = |f: f64| {
+        let i = ((f * 4.0).floor() as usize).min(3);
+        [0, 1, 2].map(|c| stops[i][c] + (stops[i + 1][c] - stops[i][c]) * (f * 4.0 - i as f64))
+    };
+    let (kind, set_color) = (em.kinds[2], em.kinds[3]);
+    let mut drawn: Vec<(f64, i64, [f64; STRIDE])> = em
+        .alive()
+        .into_iter()
+        .filter_map(|(p, own, f)| {
+            let [x, y, ppu, depth] = see(p.x)?;
+            let size = own[1] * curve(sizes, f);
+            let mut rad = size * ppu / (2.0 * w0);
+            let mut alpha = own[2] * curve(fades, f);
+            let col = match set_color {
+                0 => linear(&colors[0]),
+                1 => gradient(f),
+                _ => gradient(own[3]),
+            }
+            .map(|c| c * own[4]);
+            let sprite = if kind == 4 {
+                let tail = see(sub(p.x, mul(p.v, 1.0 / em.run.fps)))?;
+                [0.0, x, y, tail[0], tail[1], (2.0 * rad).max(1.0), alpha, col[0], col[1], col[2], 0.0]
+            } else {
+                if rad < 0.7 {
+                    alpha *= (rad / 0.7) * (rad / 0.7);
+                    rad = 0.7;
+                }
+                let (k, w) = match kind {
+                    0 => (9.0, (feather * rad).max(1.0)),
+                    1 => (10.0, (feather * rad / 2.0).max(1.0)),
+                    2 => (STAR_KIND as f64, 0.0),
+                    _ => (1.0, 0.0),
+                };
+                [k, x, y, rad, w, 0.0, alpha, col[0], col[1], col[2], 0.0]
+            };
+            Some((depth, p.k, sprite))
+        })
+        .collect();
+    drawn.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    let mut k = vec![0.0, 0.0, 0.0, 0.0, [0.0, 2.0, 1.0][em.kinds[4]], 0.0, drawn.len() as f64];
+    k.reserve(STRIDE * drawn.len());
+    for (_, _, s) in drawn {
+        k.extend(s);
+    }
+    k
 }
