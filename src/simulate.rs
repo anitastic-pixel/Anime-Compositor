@@ -7,7 +7,7 @@
 //! in point, so a frame drawn alone equals the same frame played from the start.
 
 use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS};
-use crate::particles::{tile_lists, HEAD, TILE};
+use crate::particles::{tile_lists, HEAD, STRIDE, TILE};
 use crate::WorkingBuffer;
 use rayon::prelude::*;
 
@@ -31,7 +31,7 @@ fn bubble_sums(now: &[f64; 6], [u, fps]: [f64; 2], history: Option<&[[f64; 6]]>)
 }
 
 /// D-671: Bubbles' bubbles at this frame, in order, as sprite numbers the particle engine's
-/// binning reads: the head left at zero, then ten numbers a bubble, `[3, x, y, radius, 0 ..]`,
+/// binning reads: the head left at zero, then `STRIDE` numbers a bubble, `[3, x, y, radius, 0 ..]`,
 /// in the drawing's own pixels. `w` and `h` the drawing's size.
 pub(crate) fn bubble_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
     let Effect::Bubbles { values, clock, history, .. } = e else { unreachable!("Bubbles of another effect") };
@@ -50,7 +50,7 @@ pub(crate) fn bubble_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
         let y = h + rho - (q - q.floor()) * r;
         let phi = u(4) + (0.75 + u(5) / 2.0) * f;
         let x = u(0) * (w + 2.0 * rho) - rho + v[2] / 10.0 * rho * (2.0 * std::f64::consts::PI * phi).sin();
-        k.extend([3.0, x, y, rho, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        k.extend([3.0, x, y, rho, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
     }
     k
 }
@@ -115,7 +115,7 @@ pub(crate) fn bubbles(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, 
                 let x = bx as f64 - ox as f64 + 0.5;
                 let mut o = [0.0f64; 4];
                 for &n in &list[starts[t]..starts[t + 1]] {
-                    if let Some((b, cover)) = bubble_at(&k[HEAD + 10 * n..HEAD + 10 * n + 10], x, y, sign, shading, &read) {
+                    if let Some((b, cover)) = bubble_at(&k[HEAD + STRIDE * n..HEAD + STRIDE * n + STRIDE], x, y, sign, shading, &read) {
                         o = [0, 1, 2, 3].map(|c| b[c] * cover + o[c] * (1.0 - b[3] * cover));
                     }
                 }
@@ -160,7 +160,7 @@ fn count_at(c: &[f64], t: f64) -> f64 {
 }
 
 /// D-672: Drizzle's live drops at this frame, in order of birth, as sprite numbers the particle
-/// engine's binning reads: the head left at zero, then ten numbers a drop, `[3, x, y, R, A, 0
+/// engine's binning reads: the head left at zero, then `STRIDE` numbers a drop, `[3, x, y, R, A, 0
 /// ..]`, its place, its ripple's radius and its height, in the drawing's own pixels. `w` and `h`
 /// the drawing's size. The longevity is the in point's (CycoreFX's "cannot be animated").
 pub(crate) fn drizzle_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
@@ -189,7 +189,7 @@ pub(crate) fn drizzle_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
         }
         let a = v[4] / 100.0 * (h / 50.0) * 4.0 * s * (1.0 - s);
         let at = |n| (crate::grade::unit(base, j, 0, 0, n) + 1.0) / 2.0;
-        k.extend([3.0, at(0) * w, at(1) * h, r, a, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        k.extend([3.0, at(0) * w, at(1) * h, r, a, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
     }
     k
 }
@@ -265,7 +265,7 @@ pub(crate) fn drizzle(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, 
                 let x = bx as f64 - ox as f64 + 0.5;
                 let (mut zx, mut zy) = (0.0, 0.0);
                 for &i in &list[starts[t]..starts[t + 1]] {
-                    let s = &k[HEAD + 10 * i..HEAD + 10 * i + 10];
+                    let s = &k[HEAD + STRIDE * i..HEAD + STRIDE * i + STRIDE];
                     let (dx, dy, r) = (x - s[1], y - s[2], s[3]);
                     let d2 = dx * dx + dy * dy;
                     if d2 >= r * r {

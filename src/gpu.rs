@@ -6901,10 +6901,14 @@ fn textured_cover(s: u32, x: f64, y: f64) -> vec4<f64> {
     return vec4(aa * (fd * q.xyz + (1.0lf - fd) * col * q.w), aa * q.w);
 }
 
+// The numbers a sprite takes in every sprite list, `particles::STRIDE` (pinned by the test
+// `the_card_reads_sprites_by_the_processors_stride`).
+const SPRITE_STRIDE: u32 = 11u;
+
 // D-610, particles::cover: sprite n of k (from 7, eleven each) at the own point (x, y),
 // premultiplied; nothing where it does not reach.
 fn sprite_cover(n: u32, x: f64, y: f64) -> vec4<f64> {
-    let s = 7u + 11u * n;
+    let s = 7u + SPRITE_STRIDE * n;
     let kind = k[s];
     if kind >= 5.0lf {
         return textured_cover(s, x, y);
@@ -6977,7 +6981,7 @@ fn particles(@builtin(global_invocation_id) id: vec3<u32>) {
     let tw = (size.x + 15u) / 16u;
     let nt = tw * ((size.y + 15u) / 16u);
     let t = (id.y / 16u) * tw + id.x / 16u;
-    let o = 7u + 11u * u32(k[6]);
+    let o = 7u + SPRITE_STRIDE * u32(k[6]);
     let x = f64(i32(id.x) - F.ox) + 0.5lf;
     let y = f64(i32(id.y) - F.oy) + 0.5lf;
     for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
@@ -7017,7 +7021,7 @@ fn bubble_read(x: f64, y: f64) -> vec4<f64> {
 
 // D-671, simulate::bubbles, a pixel a thread: the bubbles of its 16 by 16 tile (k as the
 // particles pass has it: k[0] the reflection's sign, k[1] the shading, k[2] and k[3] the
-// drawing's size, k[6] the count, the bubbles from 7, ten each, then each tile's start and the
+// drawing's size, k[6] the count, the bubbles from 7, SPRITE_STRIDE each, then each tile's start and the
 // lists), each read through itself, shaded, laid in order onto clear.
 @compute @workgroup_size(16, 16)
 fn bubbles(@builtin(global_invocation_id) id: vec3<u32>) {
@@ -7028,12 +7032,12 @@ fn bubbles(@builtin(global_invocation_id) id: vec3<u32>) {
     let tw = (size.x + 15u) / 16u;
     let nt = tw * ((size.y + 15u) / 16u);
     let t = (id.y / 16u) * tw + id.x / 16u;
-    let o = 7u + 10u * u32(k[6]);
+    let o = 7u + SPRITE_STRIDE * u32(k[6]);
     let x = f64(i32(id.x) - F.ox) + 0.5lf;
     let y = f64(i32(id.y) - F.oy) + 0.5lf;
     var d = vec4(0.0lf);
     for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
-        let s = 7u + 10u * u32(k[o + nt + 1u + j]);
+        let s = 7u + SPRITE_STRIDE * u32(k[o + nt + 1u + j]);
         let bx = k[s + 1u];
         let by = k[s + 2u];
         let rho = k[s + 3u];
@@ -7066,7 +7070,7 @@ fn bubbles(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // D-672, simulate::drizzle, a pixel a thread: the drops of its 16 by 16 tile (k: k[0] where the
-// light's numbers start, k[6] the count, the drops from 7, ten each, [3, x, y, R, A, ..], then
+// light's numbers start, k[6] the count, the drops from 7, SPRITE_STRIDE each, [3, x, y, R, A, ..], then
 // each tile's start and the lists, then simulate::drizzle_light's fifteen numbers), the water's
 // slope summed over them, the layer read through it, clamped to the buffer, and lit by
 // Blobbylize's rule. The highlight's power is single precision, as Glue Gun's.
@@ -7079,7 +7083,7 @@ fn drizzle(@builtin(global_invocation_id) id: vec3<u32>) {
     let tw = (size.x + 15u) / 16u;
     let nt = tw * ((size.y + 15u) / 16u);
     let t = (id.y / 16u) * tw + id.x / 16u;
-    let o = 7u + 10u * u32(k[6]);
+    let o = 7u + SPRITE_STRIDE * u32(k[6]);
     let g = u32(k[0]);
     let x = f64(i32(id.x) - F.ox) + 0.5lf;
     let y = f64(i32(id.y) - F.oy) + 0.5lf;
@@ -7087,7 +7091,7 @@ fn drizzle(@builtin(global_invocation_id) id: vec3<u32>) {
     var zx = 0.0lf;
     var zy = 0.0lf;
     for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
-        let s = 7u + 10u * u32(k[o + nt + 1u + j]);
+        let s = 7u + SPRITE_STRIDE * u32(k[o + nt + 1u + j]);
         let dx = x - k[s + 1u];
         let dy = y - k[s + 2u];
         let r = k[s + 3u];
@@ -14893,7 +14897,7 @@ impl Gpu {
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
                 let shading = crate::effects::BUBBLES_WORDS[1].1.iter().position(|s| *s == words[1]).unwrap_or(3);
                 k[..4].copy_from_slice(&[if words[0] == "world" { 1.0 } else { -1.0 }, shading as f64, w0 as f64, h0 as f64]);
-                k[6] = ((k.len() - crate::particles::HEAD) / 10) as f64;
+                k[6] = ((k.len() - crate::particles::HEAD) / crate::particles::STRIDE) as f64;
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
                 let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
                 let out = self.scratch("D-671 bubbles", w, h);
@@ -14906,7 +14910,7 @@ impl Gpu {
                 let (w0, h0) = (w.saturating_sub(2 * ox), h.saturating_sub(2 * oy));
                 let mut k = crate::simulate::drizzle_list(e, w0 as f64, h0 as f64);
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
-                k[6] = ((k.len() - crate::particles::HEAD) / 10) as f64;
+                k[6] = ((k.len() - crate::particles::HEAD) / crate::particles::STRIDE) as f64;
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
                 k[0] = k.len() as f64;
                 k.extend(crate::simulate::drizzle_light(e, w0 as f64, h0 as f64));
@@ -16565,17 +16569,17 @@ impl Gpu {
                                 let alive = 100.0 * values[0] * values[1] + 1.0;
                                 ((7.0 + 14.0 * alive + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
                             }
-                            // D-671: Bubbles' bubbles, ten numbers each and a place in a tile's
+                            // D-671: Bubbles' bubbles, eleven numbers each and a place in a tile's
                             // list or several, and its tiles' starts.
                             crate::effects::Effect::Bubbles { values, .. } => {
                                 let n = values[0].clamp(0.0, 10000.0).floor();
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
                                 let r = values[4].clamp(0.0, 100.0) * 1.5 * h as f64 / 40.0;
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
-                                ((7.0 + n * (10.0 + reach) + tiles + 1.0) * 8.0) as u64
+                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0) * 8.0) as u64
                             }
                             // D-672: Drizzle's live drops at most (the fastest rate times the
-                            // in point's longevity), ten numbers each and a place in a tile's list
+                            // in point's longevity), eleven numbers each and a place in a tile's list
                             // or several, its tiles' starts and the light.
                             crate::effects::Effect::Drizzle { values, history, .. } => {
                                 let most = |i: usize| history.as_deref().map_or(values[i], |hs| hs.iter().fold(values[i], |m, v| m.max(v[i])));
@@ -16585,7 +16589,7 @@ impl Gpu {
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
                                 let r = most(5).clamp(0.0, 1000.0) / 100.0 * h as f64 / 4.0;
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
-                                ((7.0 + n * (10.0 + reach) + tiles + 1.0 + 15.0) * 8.0) as u64
+                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 15.0) * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,
@@ -17245,5 +17249,24 @@ impl Gpu {
             frame.present();
             Ok(())
         })
+    }
+}
+
+#[cfg(test)]
+mod stride {
+    /// The card reads every sprite list by `particles::STRIDE` from `particles::HEAD`: a change
+    /// to either that the shader misses fails here instead of drawing the wrong sprites.
+    #[test]
+    fn the_card_reads_sprites_by_the_processors_stride() {
+        let s = super::FX_SHADER;
+        let line = format!("const SPRITE_STRIDE: u32 = {}u;", crate::particles::STRIDE);
+        assert!(s.contains(&line), "the shader's sprite stride is not {line}");
+        assert_eq!(crate::particles::HEAD, 7, "the shader reads sprites from 7u");
+        for (i, _) in s.match_indices("7u + ") {
+            let rest = &s[i + 5..];
+            let n = rest.chars().take_while(|c| c.is_ascii_digit()).count();
+            let read = rest[n..].starts_with("u * n;") || rest[n..].starts_with("u * u32(k[");
+            assert!(n == 0 || !read, "a sprite read by a written number: {}", &rest[..40]);
+        }
     }
 }
