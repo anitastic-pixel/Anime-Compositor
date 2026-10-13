@@ -6,7 +6,7 @@
 //! No state is carried from frame to frame (document 20): every frame is worked from the layer's
 //! in point, so a frame drawn alone equals the same frame played from the start.
 
-use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS, HAIR_SETTINGS, MERCURY_SETTINGS};
+use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS, HAIR_SETTINGS, MERCURY_SETTINGS, POLYGON_SHARDS_SETTINGS};
 use crate::particles::{tile_lists, HEAD, STRIDE, TILE};
 use crate::WorkingBuffer;
 use rayon::prelude::*;
@@ -629,6 +629,210 @@ pub(crate) fn mercury(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, 
                     px[ch] = (lit * cov) as f32;
                 }
                 px[3] = cov as f32;
+            }
+        }
+    });
+}
+
+/// D-675: Polygon Shards' settings held inside their ranges.
+fn shards_held(v: &[f64; 9]) -> [f64; 9] {
+    std::array::from_fn(|k| v[k].clamp(POLYGON_SHARDS_SETTINGS[k].1, POLYGON_SHARDS_SETTINGS[k].2))
+}
+
+/// D-675: Polygon Shards' shards at this frame, in the order they are drawn, or `None` before the
+/// start time, when the layer is drawn as it is. Three lists: the sprite numbers the particle
+/// engine's binning reads (the head, k[2] and k[3] the drawing's size, then `STRIDE` numbers a shard,
+/// `[3, x, y, reach, part, r, g, b, a, 0]`: its centre as seen and how far its corners reach from
+/// it, 0 the upper right triangle, 1 the lower left, 2 a square, and its own premultiplied colour,
+/// clear when textured); sixteen numbers a shard, its place P, its turn M by rows, its centre c
+/// and its cell's corner; and the seven every pixel shares, the eye (a_x, a_y, A_l), the drawing's
+/// size, the grid spacing and 1 when textured. `drawing` the buffer's pixels, `bw` its width,
+/// `(ox, oy)` the drawing's corner in it, `w` and `h` the drawing's size. Every setting is this
+/// frame's.
+// ponytail: a cell or two a shard, so a grid spacing of 2 on a large layer is millions of shards;
+// draw only the shards that move if small spacings grow slow.
+pub(crate) fn shards_list(e: &Effect, drawing: &[f32], bw: usize, (ox, oy): (usize, usize), w: usize, h: usize) -> Option<(Vec<f64>, Vec<f64>, [f64; 7])> {
+    let Effect::PolygonShards { values, words, clock: [u, fps], view } = e else { unreachable!("Polygon Shards of another effect") };
+    let v = shards_held(values);
+    let t = u / fps - v[8];
+    if *fps <= 0.0 || !(t > 0.0) {
+        return None;
+    }
+    let (wf, hf, s) = (w as f64, h as f64, v[7]);
+    let (ax, ay, al) = if view[0] != 0.0 { (view[1], view[2], view[3]) } else { (wf / 2.0, hf / 2.0, wf / 2.0 * (1.0 / 19.8f64.to_radians().tan())) };
+    let (cols, rows) = ((wf / s).ceil() as usize, (hf / s).ceil() as usize);
+    let tri = words[0] == "polygon" || words[0] == "textured_polygon";
+    let textured = words[0].starts_with("textured");
+    let (fx, fy) = (v[3] / 100.0 * wf, v[4] / 100.0 * hf);
+    let (dr, sr) = (v[5] / 100.0, v[6] / 100.0);
+    let base = crate::grade::mix(0);
+    let pi = std::f64::consts::PI;
+    let pixel = |x: usize, y: usize| -> [f64; 4] {
+        let i = ((y + oy) * bw + x + ox) * 4;
+        [0, 1, 2, 3].map(|c| drawing[i + c] as f64)
+    };
+    let mut shards: Vec<(f64, usize, [f64; STRIDE], [f64; 16])> = Vec::new();
+    for n in 0..cols * rows {
+        let (x0, y0) = (s * (n % cols) as f64, s * (n / cols) as f64);
+        for part in if tri { 0..2 } else { 2..3 } {
+            let kk = if tri { 2 * n + part } else { n };
+            let (cx, cy) = [(x0 + 2.0 * s / 3.0, y0 + s / 3.0), (x0 + s / 3.0, y0 + 2.0 * s / 3.0), (x0 + s / 2.0, y0 + s / 2.0)][part];
+            // A triangle's last corner repeated, so the three kinds are four corners each.
+            let corners = [
+                [(x0, y0), (x0 + s, y0), (x0 + s, y0 + s), (x0 + s, y0 + s)],
+                [(x0, y0), (x0 + s, y0 + s), (x0, y0 + s), (x0, y0 + s)],
+                [(x0, y0), (x0 + s, y0), (x0 + s, y0 + s), (x0, y0 + s)],
+            ][part];
+            let uq: [f64; 7] = std::array::from_fn(|q| (crate::grade::unit(base, kk as i64, 0, 0, q as u64) + 1.0) / 2.0);
+            let (dx, dy) = (cx - fx, cy - fy);
+            let dist = dx.hypot(dy);
+            let theta = if dist > 0.0 { dy.atan2(dx) } else { 2.0 * pi * uq[0] } + (uq[1] - 0.5) * pi * dr;
+            let phi = (45.0 + (uq[2] - 0.5) * 90.0 * dr).to_radians();
+            let way = [phi.cos() * theta.cos(), phi.cos() * theta.sin(), -phi.sin()];
+            let sp = v[0] / 100.0 * (hf / 4.0) * (hf / (hf + dist)) * (1.0 - sr * uq[3]);
+            let g = v[1] * hf;
+            let p = [cx + sp * way[0] * t, cy + sp * way[1] * t + g * t * t / 2.0, sp * way[2] * t];
+            let z = 2.0 * uq[4] - 1.0;
+            let psi = 2.0 * pi * uq[5];
+            let rr = (1.0 - z * z).max(0.0).sqrt();
+            // Rodrigues' rotation as a matrix, about the unit axis (x, y, z).
+            let (x, y) = (rr * psi.cos(), rr * psi.sin());
+            let (si, co) = (v[2] * (0.5 + uq[6]) * t).to_radians().sin_cos();
+            let c1 = 1.0 - co;
+            let m = [
+                [co + x * x * c1, x * y * c1 - z * si, x * z * c1 + y * si],
+                [y * x * c1 + z * si, co + y * y * c1, y * z * c1 - x * si],
+                [z * x * c1 - y * si, z * y * c1 + x * si, co + z * z * c1],
+            ];
+            if corners.iter().any(|&(px, py)| al + (p[2] + m[2][0] * (px - cx) + m[2][1] * (py - cy)) <= 1.0) {
+                continue;
+            }
+            let see = |a: f64, b: f64| {
+                let q = [0, 1, 2].map(|r| p[r] + m[r][0] * a + m[r][1] * b);
+                let f = al / (al + q[2]);
+                (ax + (q[0] - ax) * f, ay + (q[1] - ay) * f)
+            };
+            let (sx, sy) = see(0.0, 0.0);
+            // Two pixels past the farthest corner: the edge is a pixel soft, more past a corner.
+            let reach = corners
+                .iter()
+                .map(|&(px, py)| {
+                    let (qx, qy) = see(px - cx, py - cy);
+                    (qx - sx).hypot(qy - sy)
+                })
+                .fold(0.0, f64::max)
+                + 2.0;
+            let colour = if textured {
+                [0.0; 4]
+            } else {
+                let (mut acc, mut count) = ([0.0; 4], 0usize);
+                for yy in y0 as usize..h.min((y0 + s) as usize + 1) {
+                    for xx in x0 as usize..w.min((x0 + s) as usize + 1) {
+                        let (a, b) = (xx as f64 + 0.5 - x0, yy as f64 + 0.5 - y0);
+                        if !(0.0..=s).contains(&a) || !(0.0..=s).contains(&b) || (part == 0 && !(b < a)) || (part == 1 && !(b >= a)) {
+                            continue;
+                        }
+                        let c = pixel(xx, yy);
+                        for q in 0..4 {
+                            acc[q] += c[q];
+                        }
+                        count += 1;
+                    }
+                }
+                if count > 0 { acc.map(|a| a / count as f64) } else { [0.0; 4] }
+            };
+            let mut block = [0.0; 16];
+            block[..3].copy_from_slice(&p);
+            block[3..12].copy_from_slice(&m.concat());
+            block[12..].copy_from_slice(&[cx, cy, x0, y0]);
+            shards.push((p[2], kk, [3.0, sx, sy, reach, part as f64, colour[0], colour[1], colour[2], colour[3], 0.0, 0.0], block));
+        }
+    }
+    if words[1] == "on" {
+        // Far to near, then by number; partial_cmp so that 0 and -0 are one place.
+        shards.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal).then(a.1.cmp(&b.1)));
+    }
+    let mut k = vec![0.0; HEAD];
+    k[2] = wf;
+    k[3] = hf;
+    let mut blocks = Vec::with_capacity(16 * shards.len());
+    for (_, _, sprite, block) in &shards {
+        k.extend(sprite);
+        blocks.extend(block);
+    }
+    Some((k, blocks, [ax, ay, al, wf, hf, s, textured as u8 as f64]))
+}
+
+/// D-675: Polygon Shards, after CycoreFX's CC Pixel Polly (document 21): the layer cut along a
+/// grid into triangles or squares thrown away from a force centre in 3D, falling and spinning,
+/// seen through the composition camera or the effect's own eye. The layer is replaced by its
+/// shards from the start time, and drawn as it is before. `(ox, oy)` the drawing's corner in the
+/// buffer: the shards are in the drawing's own space, every pixel of the buffer can be covered,
+/// and a textured shard reads the drawing clamped to the drawing, as Bubbles does. Never grows.
+/// `e`'s clock and view already filled as compose fills them.
+pub(crate) fn polygon_shards(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) {
+    let (bw, bh) = (source.width(), source.height());
+    let (w0, h0) = (bw.saturating_sub(2 * ox), bh.saturating_sub(2 * oy));
+    if w0 == 0 || h0 == 0 {
+        return;
+    }
+    let Some((k, blocks, [ax, ay, al, wf, hf, s, textured])) = shards_list(e, source.data(), bw, (ox, oy), w0, h0) else { return };
+    let (starts, list) = tile_lists(&k, (ox, oy), bw, bh);
+    let drawing = source.data().to_vec();
+    let read = |x: f64, y: f64| -> [f64; 4] {
+        let (fx, fy) = ((x - 0.5).clamp(0.0, (w0 - 1) as f64), (y - 0.5).clamp(0.0, (h0 - 1) as f64));
+        let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
+        let (x1, y1) = ((x0 + 1).min(w0 - 1), (y0 + 1).min(h0 - 1));
+        let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
+        let at = |x: usize, y: usize, c: usize| drawing[((y + oy) * bw + x + ox) * 4 + c] as f64;
+        [0, 1, 2, 3].map(|c| (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty) + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty)
+    };
+    let r2 = std::f64::consts::SQRT_2;
+    let tw = bw.div_ceil(TILE);
+    source.data_mut().par_chunks_mut(bw * 4 * TILE).enumerate().for_each(|(ty, band)| {
+        for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
+            let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
+            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                let t = ty * tw + bx / TILE;
+                let x = bx as f64 - ox as f64 + 0.5;
+                let (rx, ry) = (x - ax, y - ay);
+                let rl = (rx * rx + ry * ry + al * al).sqrt();
+                let mut o = [0.0f64; 4];
+                for &n in &list[starts[t]..starts[t + 1]] {
+                    let sp = &k[HEAD + STRIDE * n..HEAD + STRIDE * n + STRIDE];
+                    let b = &blocks[16 * n..16 * n + 16];
+                    let (p, m) = (&b[..3], &b[3..12]);
+                    let den = m[2] * rx + m[5] * ry + m[8] * al;
+                    if !(den.abs() > 1e-9 * rl) {
+                        continue;
+                    }
+                    let lam = (m[2] * (p[0] - ax) + m[5] * (p[1] - ay) + m[8] * (p[2] + al)) / den;
+                    if !(lam > 0.0) {
+                        continue;
+                    }
+                    let q = [ax + lam * rx, ay + lam * ry, -al + lam * al];
+                    let d = [q[0] - p[0], q[1] - p[1], q[2] - p[2]];
+                    let (x0, y0) = (b[12] + (m[0] * d[0] + m[3] * d[1] + m[6] * d[2]), b[13] + (m[1] * d[0] + m[4] * d[1] + m[7] * d[2]));
+                    let (a, bb) = (x0 - b[14], y0 - b[15]);
+                    let inside = match sp[4] as u8 {
+                        0 => bb.min(s - a).min((a - bb) / r2),
+                        1 => a.min(s - bb).min((bb - a) / r2),
+                        _ => a.min(bb).min(s - a).min(s - bb),
+                    }
+                    .min(x0)
+                    .min(y0)
+                    .min(wf - x0)
+                    .min(hf - y0);
+                    let cov = (inside * al / (al + q[2]) + 0.5).clamp(0.0, 1.0);
+                    if cov == 0.0 {
+                        continue;
+                    }
+                    let col = if textured == 1.0 { read(x0, y0) } else { [sp[5], sp[6], sp[7], sp[8]] };
+                    o = [0, 1, 2, 3].map(|c| col[c] * cov + o[c] * (1.0 - col[3] * cov));
+                }
+                for (v, o) in px.iter_mut().zip(o) {
+                    *v = o as f32;
+                }
             }
         }
     });

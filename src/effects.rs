@@ -3207,6 +3207,18 @@ pub enum Effect {
         clock: [f64; 2],
         history: Option<std::sync::Arc<Vec<[f64; 24]>>>,
     },
+    /// D-675: Polygon Shards, after CycoreFX's CC Pixel Polly, its rule and settings when added
+    /// ours (`simulate::polygon_shards`, document 21): the layer cut along a grid into triangles
+    /// or squares thrown away from a force centre in 3D, falling and spinning, from the start
+    /// time. `values`, the settings of [`POLYGON_SHARDS_SETTINGS`] in that order, each this
+    /// frame's; `words`, those of [`POLYGON_SHARDS_WORDS`], kept as written. `clock` and `view`
+    /// are not settings and are never saved, filled by compose as Particle Space's are.
+    PolygonShards {
+        values: [f64; 9],
+        words: [String; 2],
+        clock: [f64; 2],
+        view: [f64; 4],
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -5180,6 +5192,28 @@ pub const MERCURY_WORDS: [(&str, &[&str], &str); 3] = [
     ("influence_map", &["in_out", "in", "out", "constant"], "in_out"),
     ("light_type", &["distant", "point"], "distant"),
 ];
+pub const POLYGON_SHARDS: &str = "core.polygon_shards";
+/// D-675: Polygon Shards' keyable settings, in the order `values` holds them: name, lowest,
+/// highest, and the value when the effect is added. Force in hundredths of a quarter of the
+/// drawing's height a second; gravity in heights a second a second; spinning in degrees a second;
+/// the force centre in per cent of the drawing; the randomness in per cent; the grid spacing in
+/// pixels; the start time in seconds after the in point.
+pub const POLYGON_SHARDS_SETTINGS: [(&str, f64, f64, f64); 9] = [
+    ("force", 0.0, 1000.0, 300.0),
+    ("gravity", -100.0, 100.0, 1.0),
+    ("spinning", -3600.0, 3600.0, 60.0),
+    ("force_center_x", -1000.0, 1000.0, 50.0),
+    ("force_center_y", -1000.0, 1000.0, 50.0),
+    ("direction_randomness", 0.0, 100.0, 25.0),
+    ("speed_randomness", 0.0, 100.0, 25.0),
+    ("grid_spacing", 2.0, 1000.0, 20.0),
+    ("start_time", 0.0, 3600.0, 0.0),
+];
+/// D-675: Polygon Shards' words: name, the words, the word when added.
+pub const POLYGON_SHARDS_WORDS: [(&str, &[&str], &str); 2] = [
+    ("object", &["polygon", "textured_polygon", "square", "textured_square"], "textured_polygon"),
+    ("depth_sort", &["off", "on"], "on"),
+];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -5654,6 +5688,11 @@ impl Effect {
                 .chain([("form_center", form_center.iter_mut().collect(), -1000.0, 1000.0)])
                 .collect(),
             Effect::Mercury { values, .. } => MERCURY_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .collect(),
+            Effect::PolygonShards { values, .. } => POLYGON_SHARDS_SETTINGS
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
@@ -8699,6 +8738,14 @@ impl Effect {
             Effect::Drizzle { values, words, .. } if words[0] == "point" => values[7] = scale(values[7]),
             // D-674: a point light's height is a distance; every other length a share.
             Effect::Mercury { values, words, .. } if words[2] == "point" => values[15] = scale(values[15]),
+            // D-675: the grid spacing is a distance, and so is the composition camera compose
+            // found; every other length a share of the drawing.
+            Effect::PolygonShards { values, view, .. } => {
+                values[7] = scale(values[7]);
+                for v in &mut view[1..] {
+                    *v = scale(*v);
+                }
+            }
             // D-424: the stroke's width and the wobble are distances; the brush is a share.
             Effect::GlueGun { stroke_width, wobble_width, wobble_height, light_type, light_height, .. } => {
                 *stroke_width = scale(*stroke_width);
@@ -8985,6 +9032,7 @@ impl Effect {
             Effect::ParticleEmitter { .. } => "Particle Emitter",
             Effect::ParticleGrid { .. } => "Particle Grid",
             Effect::Mercury { .. } => "Mercury",
+            Effect::PolygonShards { .. } => "Polygon Shards",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -9255,6 +9303,7 @@ impl Effect {
             Effect::ParticleEmitter { .. } => PARTICLE_EMITTER,
             Effect::ParticleGrid { .. } => PARTICLE_GRID,
             Effect::Mercury { .. } => MERCURY,
+            Effect::PolygonShards { .. } => POLYGON_SHARDS,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -9921,6 +9970,13 @@ impl Effect {
                     format!("{name}'s {} is {}, and this is \"{w}\".", what.replace('_', " "), allowed.join(", "))
                 })
                 .or_else(|| hex_fault(name, "light colour", light_color)),
+            Effect::PolygonShards { words, .. } => POLYGON_SHARDS_WORDS
+                .iter()
+                .zip(words)
+                .find(|((_, allowed, _), w)| !allowed.contains(&w.as_str()))
+                .map(|((what, allowed, _), w)| {
+                    format!("{name}'s {} is {}, and this is \"{w}\".", what.replace('_', " "), allowed.join(", "))
+                }),
             Effect::ParticleSpace { words, colors, texture_layer, .. } => PARTICLE_SPACE_WORDS
                 .iter()
                 .zip(words)
@@ -13529,6 +13585,10 @@ pub(crate) fn apply_stack_at(
             // D-674: the drops in the drawing's own space; never grows.
             e @ Effect::Mercury { .. } => crate::perf::time(crate::perf::Stage::EffectMercury, || {
                 crate::simulate::mercury(source, e, (ox, oy))
+            }),
+            // D-675: the shards through the composition camera or its own eye; never grows.
+            e @ Effect::PolygonShards { .. } => crate::perf::time(crate::perf::Stage::EffectPolygonShards, || {
+                crate::simulate::polygon_shards(source, e, (ox, oy))
             }),
             // D-610: the particles drawn through the composition camera or its own; never grows.
             e @ Effect::ParticleSpace { .. } => crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {

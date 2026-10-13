@@ -1183,6 +1183,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Hair { .. }
                 // D-674.
                 | crate::effects::Effect::Mercury { .. }
+                // D-675.
+                | crate::effects::Effect::PolygonShards { .. }
                 // D-508 (the bits are found on the processor).
                 | crate::effects::Effect::EnergyStroke { .. }
                 // D-509.
@@ -1790,6 +1792,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
                 | E::KiraKira { .. }
                 | E::CcBallAction { .. }
                 | E::ParticleSpace { .. }
+                | E::PolygonShards { .. }
                 | E::ParticlePlane { .. }
                 | E::ParticleEmitter { .. }
                 | E::HsvKey { .. }
@@ -2549,6 +2552,21 @@ fn effect_now(
                         .collect(),
                 )
             });
+        }
+        // D-675: Polygon Shards' clock and the composition camera, as Particle Space's; every
+        // setting is this frame's, so there is no history.
+        if let crate::effects::Effect::PolygonShards { clock, view, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            *clock = [(at - layer.in_frame) as f64, fps];
+            *view = [0.0; 4];
+            if comp.camera.is_some() {
+                let m = world_transform(comp, &layer.id, at);
+                if let (Some(cam), Some(inv)) = (camera_at(comp, at), m.invert()) {
+                    let a = inv.apply(cam.position.0, cam.position.1);
+                    let away = (world_depth(comp, &layer.id, at) - cam.depth) / (m.a * m.d - m.b * m.c).abs().sqrt();
+                    *view = [1.0, a.0, a.1, away];
+                }
+            }
         }
         // D-473: Basic Text's missing font is said each frame, as Numbers' is.
         if let crate::effects::Effect::BasicText { font, .. } = &now.effect {
@@ -3433,6 +3451,7 @@ fn resolve_rest(
                 | E::KiraKira { .. }
                 | E::CcBallAction { .. }
                 | E::ParticleSpace { .. }
+                | E::PolygonShards { .. }
                 | E::ParticlePlane { .. }
                 | E::ParticleEmitter { .. }
                 | E::HsvKey { .. }

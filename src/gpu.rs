@@ -7440,6 +7440,76 @@ fn mercury(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(out));
 }
 
+// D-675, simulate::polygon_shards, a pixel a thread: the shards of its 16 by 16 tile in the order
+// they are drawn (k: k[0] where the shared numbers start, k[2] and k[3] the drawing's size, k[6]
+// the count, the shards from 7, SPRITE_STRIDE each, [3, x, y, reach, part, r, g, b, a, 0], then each tile's
+// start and the lists, then the seven shared numbers, the eye (a_x, a_y, A_l), the drawing's
+// size, the grid spacing and 1 when textured, then sixteen numbers a shard, P, M by rows, c and
+// the cell's corner). The ray from the eye through the pixel meets the shard's plane, the point
+// there of the drawing found, its distance inside the shard and the drawing a pixel soft, and the
+// shard's colour or the drawing there (Bubbles' read) laid over what is below. Clear where no
+// shard covers.
+@compute @workgroup_size(16, 16)
+fn shards(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let tw = (size.x + 15u) / 16u;
+    let nt = tw * ((size.y + 15u) / 16u);
+    let t = (id.y / 16u) * tw + id.x / 16u;
+    let o = 7u + SPRITE_STRIDE * u32(k[6]);
+    let g = u32(k[0]);
+    let x = f64(i32(id.x) - F.ox) + 0.5lf;
+    let y = f64(i32(id.y) - F.oy) + 0.5lf;
+    let ax = k[g];
+    let ay = k[g + 1u];
+    let al = k[g + 2u];
+    let s = k[g + 5u];
+    let rx = x - ax;
+    let ry = y - ay;
+    let rl = sqrt(rx * rx + ry * ry + al * al);
+    var acc = vec4(0.0lf);
+    for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
+        let n = u32(k[o + nt + 1u + j]);
+        let sp = 7u + SPRITE_STRIDE * n;
+        let b = g + 7u + n * 16u;
+        let den = k[b + 5u] * rx + k[b + 8u] * ry + k[b + 11u] * al;
+        if !(abs(den) > 1e-9lf * rl) {
+            continue;
+        }
+        let lam = (k[b + 5u] * (k[b] - ax) + k[b + 8u] * (k[b + 1u] - ay) + k[b + 11u] * (k[b + 2u] + al)) / den;
+        if !(lam > 0.0lf) {
+            continue;
+        }
+        let qz = -al + lam * al;
+        let dx = ax + lam * rx - k[b];
+        let dy = ay + lam * ry - k[b + 1u];
+        let dz = qz - k[b + 2u];
+        let x0 = k[b + 12u] + (k[b + 3u] * dx + k[b + 6u] * dy + k[b + 9u] * dz);
+        let y0 = k[b + 13u] + (k[b + 4u] * dx + k[b + 7u] * dy + k[b + 10u] * dz);
+        let a = x0 - k[b + 14u];
+        let bb = y0 - k[b + 15u];
+        var inside = min(min(a, bb), min(s - a, s - bb));
+        if k[sp + 4u] == 0.0lf {
+            inside = min(min(bb, s - a), (a - bb) / 1.4142135623730951lf);
+        } else if k[sp + 4u] == 1.0lf {
+            inside = min(min(a, s - bb), (bb - a) / 1.4142135623730951lf);
+        }
+        inside = min(min(inside, min(x0, y0)), min(k[g + 3u] - x0, k[g + 4u] - y0));
+        let cov = clamp(inside * al / (al + qz) + 0.5lf, 0.0lf, 1.0lf);
+        if cov == 0.0lf {
+            continue;
+        }
+        var col = vec4(k[sp + 5u], k[sp + 6u], k[sp + 7u], k[sp + 8u]);
+        if k[g + 6u] == 1.0lf {
+            col = bubble_read(x0, y0);
+        }
+        acc = col * cov + acc * (1.0lf - col.w * cov);
+    }
+    textureStore(output, id.xy, vec4<f32>(acc));
+}
+
 // B-151, median.rs's straight colour of a pixel, each channel over the covering in single
 // precision as the CPU divides it, or nothing where nothing shows.
 fn straight(p: vec4<f32>) -> vec4<f32> {
@@ -11689,6 +11759,8 @@ struct FxPasses {
     hair: Pass,
     /// D-674.
     mercury: Pass,
+    /// D-675.
+    shards: Pass,
     /// B-151.
     median: Pass,
     smart: Pass,
@@ -12436,6 +12508,7 @@ impl Gpu {
                 drizzle: pass("drizzle", &[0, 1, 2, 3]),
                 hair: pass("hair", &[0, 1, 2, 3]),
                 mercury: pass("mercury", &[0, 1, 2, 3]),
+                shards: pass("shards", &[0, 1, 2, 3]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
@@ -15277,6 +15350,27 @@ impl Gpu {
                 self.fx_step(steps, &passes.mercury, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
                 (out, (w, h))
             }
+            // D-675: the shards worked on the processor from the drawing the layer sent, which
+            // they only begin a run with (their own colours are read from it), binned into the
+            // card's tiles as the particles are, the lists after them, then the numbers every
+            // pixel shares and each shard's sixteen. Before the start time, the drawing as it is.
+            e @ E::PolygonShards { .. } => {
+                let (sw, sh) = (source.width(), source.height());
+                let (w0, h0) = (sw.saturating_sub(2 * ox), sh.saturating_sub(2 * oy));
+                let Some((mut k, blocks, shared)) = (w0 > 0 && h0 > 0).then(|| crate::simulate::shards_list(e, source.data(), sw, f.origin, w0, h0)).flatten() else {
+                    return (still.clone(), (w, h));
+                };
+                let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
+                k[6] = ((k.len() - crate::particles::HEAD) / crate::particles::STRIDE) as f64;
+                k.extend(starts.iter().chain(&list).map(|&i| i as f64));
+                k[0] = k.len() as f64;
+                k.extend(shared);
+                k.extend(blocks);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let out = self.scratch("D-675 shards", w, h);
+                self.fx_step(steps, &passes.shards, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                (out, (w, h))
+            }
             // B-151: ten of the fourth batch.
             E::Median { radius, operate_on_alpha } => {
                 let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
@@ -16983,6 +17077,19 @@ impl Gpu {
                                 let r = most(12).max(most(13)).clamp(0.0, 1000.0) / 100.0 * h as f64 / 20.0 * (1.0 + values[11].clamp(0.0, 400.0) / 100.0);
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
                                 ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 15.0) * 8.0) as u64
+                            }
+                            // D-675: Polygon Shards' shards, a cell or two each, ten and sixteen
+                            // numbers each and a place in a tile's list or several, its tiles'
+                            // starts and the shared numbers.
+                            // ponytail: a shard thrown towards the eye covers more tiles than
+                            // this allows; count them from the list if the card runs short.
+                            crate::effects::Effect::PolygonShards { values, words, .. } => {
+                                let s = values[7].clamp(2.0, 1000.0);
+                                let per = if words[0].ends_with("polygon") { 2.0 } else { 1.0 };
+                                let n = (w as f64 / s).ceil() * (h as f64 / s).ceil() * per;
+                                let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
+                                let reach = ((2.0 * s + 8.0) / 16.0 + 2.0).powi(2).min(tiles);
+                                ((7.0 + n * (26.0 + reach) + tiles + 1.0 + 7.0) * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,

@@ -3280,6 +3280,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
             params.insert("light_color".into(), J::from(light_color.as_str()));
         }
+        Effect::PolygonShards { values, words, .. } => {
+            for ((name, ..), v) in crate::effects::POLYGON_SHARDS_SETTINGS.iter().zip(values) {
+                params.insert((*name).into(), num(*v));
+            }
+            for ((name, ..), w) in crate::effects::POLYGON_SHARDS_WORDS.iter().zip(words) {
+                params.insert((*name).into(), J::from(w.as_str()));
+            }
+        }
         Effect::CcBallAction {
             scatter,
             rotation_axis,
@@ -6068,6 +6076,7 @@ fn parse_effect(
         crate::effects::PARTICLE_EMITTER,
         crate::effects::PARTICLE_GRID,
         crate::effects::MERCURY,
+        crate::effects::POLYGON_SHARDS,
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
         crate::effects::CC_SPHERE,
@@ -7985,6 +7994,18 @@ fn parse_effect(
             }
             let light_color = effect_word(params, "light_color", &at)?.to_ascii_lowercase();
             Some(crate::effects::Effect::Mercury { values, words, light_color, clock: [0.0; 2], history: None })
+        }
+        // D-675: the words kept as written, so one outside the contract is refused by name.
+        crate::effects::POLYGON_SHARDS => {
+            let mut values = [0.0; 9];
+            for ((name, ..), v) in crate::effects::POLYGON_SHARDS_SETTINGS.iter().zip(values.iter_mut()) {
+                *v = effect_number(params, name, &at)?;
+            }
+            let mut words: [String; 2] = Default::default();
+            for ((name, ..), w) in crate::effects::POLYGON_SHARDS_WORDS.iter().zip(words.iter_mut()) {
+                *w = effect_word(params, name, &at)?;
+            }
+            Some(crate::effects::Effect::PolygonShards { values, words, clock: [0.0; 2], view: [0.0; 4] })
         }
         crate::effects::CC_BALL_ACTION => Some(crate::effects::Effect::CcBallAction {
             scatter: effect_number(params, "scatter", &at)?,
