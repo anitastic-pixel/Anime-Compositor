@@ -5010,14 +5010,14 @@ pub const PARTICLE_PLANE_SETTINGS: [(&str, f64, f64, f64); 25] = [
     ("initial_rotation", 0.0, 360.0, 0.0),
 ];
 /// D-612: Particle Plane's words: name, the words, the word when added. D-710: the two textured
-/// kinds and Composite With Original.
+/// kinds and Composite With Original. D-714: Textured Square, last.
 pub const PARTICLE_PLANE_WORDS: [(&str, &[&str], &str); 6] = [
     (
         "animation",
         &["explosive", "direction", "cone", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni", "fractal_uni"],
         "explosive",
     ),
-    ("particle_type", &["line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star", "textured_disc", "textured_faded_disc"], "line"),
+    ("particle_type", &["line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star", "textured_disc", "textured_faded_disc", "textured_square"], "line"),
     ("opacity_map", &["constant", "fade_in", "fade_out", "fade_in_and_out", "custom"], "constant"),
     ("color_map", &["birth_to_death", "origin_to_death", "birth_to_origin", "origin_constant", "custom"], "birth_to_death"),
     ("transfer_mode", &["composite", "screen", "add"], "composite"),

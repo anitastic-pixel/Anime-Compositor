@@ -594,8 +594,9 @@ fn run_of(e: &Effect) -> Option<(Run<'_>, Look<'_>)> {
                 flat: true,
             };
             let look = Look {
-                // D-710: the textured disc and faded disc, Particle Space's 6 and 7.
-                kind: [0, 1, 2, 3, 4, STAR_KIND, 6, 7][w(1)],
+                // D-710: the textured disc and faded disc, Particle Space's 6 and 7; D-714: the
+                // textured square, its 5.
+                kind: [0, 1, 2, 3, 4, STAR_KIND, 6, 7, 5][w(1)],
                 cmap: w(3),
                 transfer: w(4),
                 cue: 0,

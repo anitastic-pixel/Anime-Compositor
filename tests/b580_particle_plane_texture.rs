@@ -3,7 +3,7 @@
 //! Rotation, and Composite With Original, which draws the particles over the layer instead of on
 //! an empty one. After the purpose of CycoreFX's CC Particle Systems II; CycoreFX publishes no
 //! formula, so the rules are ours, stated in `tools/particle_plane_texture_reference.py`.
-//! Textured Square stays refused (FX-PPLANE-055) until the owner decides on that fixture.
+//! Textured Square came later, by the owner's decision of 2026-10-13 (D-714, B-584).
 //!
 //! Writes `verification/D-710_particle_plane_texture_table.md` and draws pictures into
 //! `verification/D-710 pictures/`.
@@ -218,8 +218,8 @@ fn b580_particle_plane_texture() {
          draws the particles over the layer instead of on an empty one. After the purpose of \
          CycoreFX's CC Particle Systems II; CycoreFX publishes no formula and no settings when \
          added, so the rules are ours, stated in `tools/particle_plane_texture_reference.py`. \
-         Textured Square stays refused on the Plane (FX-PPLANE-055) until the owner decides on \
-         that fixture. A texture layer that is not in the composition leaves the effect out with a \
+         Textured Square came later, by the owner's decision of 2026-10-13 (D-714, B-584). A \
+         texture layer that is not in the composition leaves the effect out with a \
          warning (D-189). Every expected pixel is \
          `Fixtures/particle_plane_texture/expected_particle_plane_texture.json`, written by the \
          tool before this code existed, FX-PPTEX-001 to 029. Tolerance 2e-5.\n",

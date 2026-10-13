@@ -143,8 +143,8 @@ B-492, the particle engine's flat emitter (P0-6), after the purpose of CycoreFX'
 | FX-PPLANE-054 frame 0: Animation "Explosive": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-PPLANE-054 frame 4: Animation "Explosive": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-PPLANE-054: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-PPLANE-055 frame 0: Particle Type "textured_square": not one of the plane's six. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-PPLANE-055 frame 4: Particle Type "textured_square": not one of the plane's six. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-PPLANE-055 frame 0: Particle Type "cube": not one of the plane's kinds (D-714, the owner, 2026-10-13: was "textured_square", which the plane now draws). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-PPLANE-055 frame 4: Particle Type "cube": not one of the plane's kinds (D-714, the owner, 2026-10-13: was "textured_square", which the plane now draws). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-PPLANE-055: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-PPLANE-056 frame 0: Opacity Map "linear". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-PPLANE-056 frame 4: Opacity Map "linear". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -242,7 +242,7 @@ B-492, the particle engine's flat emitter (P0-6), after the purpose of CycoreFX'
 | fx_pplane_052.json is refused in a sentence naming custom opacity 3 | Particle Plane's custom opacity 3 runs from 0 to 100, and this is 120. | yes |
 | fx_pplane_053.json is refused in a sentence naming animation | Particle Plane's animation is one of "explosive", "direction", "cone", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni", "fractal_uni", and this is "direction_axis". | yes |
 | fx_pplane_054.json is refused in a sentence naming animation | Particle Plane's animation is one of "explosive", "direction", "cone", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni", "fractal_uni", and this is "Explosive". | yes |
-| fx_pplane_055.json is refused in a sentence naming particle type | Particle Plane's particle type is one of "line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star", "textured_disc", "textured_faded_disc", and this is "textured_square". | yes |
+| fx_pplane_055.json is refused in a sentence naming particle type | Particle Plane's particle type is one of "line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star", "textured_disc", "textured_faded_disc", "textured_square", and this is "cube". | yes |
 | fx_pplane_056.json is refused in a sentence naming opacity map | Particle Plane's opacity map is one of "constant", "fade_in", "fade_out", "fade_in_and_out", "custom", and this is "linear". | yes |
 | fx_pplane_057.json is refused in a sentence naming birth colour | Particle Plane's birth colour is written #rrggbb, and this is "#12345". | yes |
 | fx_pplane_058.json is refused in a sentence naming transfer mode | Particle Plane's transfer mode is one of "composite", "screen", "add", and this is "multiply". | yes |

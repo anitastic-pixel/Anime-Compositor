@@ -1,6 +1,6 @@
 # D-710: Particle Plane's textured particles and Composite With Original
 
-B-580 (P0-6): Particle Space's Textured Disc and Textured Faded Disc (D-611) on the flat emitter, with Texture Layer, Rotation Speed and Initial Rotation, and Composite With Original, which draws the particles over the layer instead of on an empty one. After the purpose of CycoreFX's CC Particle Systems II; CycoreFX publishes no formula and no settings when added, so the rules are ours, stated in `tools/particle_plane_texture_reference.py`. Textured Square stays refused on the Plane (FX-PPLANE-055) until the owner decides on that fixture. A texture layer that is not in the composition leaves the effect out with a warning (D-189). Every expected pixel is `Fixtures/particle_plane_texture/expected_particle_plane_texture.json`, written by the tool before this code existed, FX-PPTEX-001 to 029. Tolerance 2e-5.
+B-580 (P0-6): Particle Space's Textured Disc and Textured Faded Disc (D-611) on the flat emitter, with Texture Layer, Rotation Speed and Initial Rotation, and Composite With Original, which draws the particles over the layer instead of on an empty one. After the purpose of CycoreFX's CC Particle Systems II; CycoreFX publishes no formula and no settings when added, so the rules are ours, stated in `tools/particle_plane_texture_reference.py`. Textured Square came later, by the owner's decision of 2026-10-13 (D-714, B-584). A texture layer that is not in the composition leaves the effect out with a warning (D-189). Every expected pixel is `Fixtures/particle_plane_texture/expected_particle_plane_texture.json`, written by the tool before this code existed, FX-PPTEX-001 to 029. Tolerance 2e-5.
 
 ## FX-PPTEX-001 to 029
 
@@ -56,8 +56,8 @@ B-580 (P0-6): Particle Space's Textured Disc and Textured Faded Disc (D-611) on 
 | FX-PPTEX-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-PPTEX-023 frame 20: A star over the drawing (Composite With Original on), the texture set and not used. | largest difference 1.9e-7 | yes |
 | FX-PPTEX-023: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-PPTEX-024 frame 0: Particle Type "textured_square": still not one of the plane's (waits on the owner, as FX-PPLANE-055). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-PPTEX-024 frame 4: Particle Type "textured_square": still not one of the plane's (waits on the owner, as FX-PPLANE-055). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-PPTEX-024 frame 0: Particle Type "cube": not one of the plane's kinds (D-714, the owner, 2026-10-13: was "textured_square", which the plane now draws). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-PPTEX-024 frame 4: Particle Type "cube": not one of the plane's kinds (D-714, the owner, 2026-10-13: was "textured_square", which the plane now draws). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-PPTEX-024: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-PPTEX-025 frame 0: Rotation Speed 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-PPTEX-025 frame 4: Rotation Speed 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -110,7 +110,7 @@ B-580 (P0-6): Particle Space's Textured Disc and Textured Faded Disc (D-611) on 
 | fx_pptex_029.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_pptex_008.json is saved with its 39 settings, the texture layer dot, particle type textured_faded_disc, and not the picture it reads | 39 settings; texture layer "dot", particle type "textured_faded_disc", texture None | yes |
 | a file written before D-710, without rotation speed, initial rotation, texture layer or composite with original, reads them as added and is saved without them | as added: true; saved with 35 settings | yes |
-| fx_pptex_024.json is refused in a sentence naming particle type | Particle Plane's particle type is one of "line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star", "textured_disc", "textured_faded_disc", and this is "textured_square". | yes |
+| fx_pptex_024.json is refused in a sentence naming particle type | Particle Plane's particle type is one of "line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star", "textured_disc", "textured_faded_disc", "textured_square", and this is "cube". | yes |
 | fx_pptex_025.json is refused in a sentence naming rotation speed | Particle Plane's rotation speed runs from -3600 to 3600, and this is 3601. | yes |
 | fx_pptex_026.json is refused in a sentence naming initial rotation | Particle Plane's initial rotation runs from 0 to 360, and this is -1. | yes |
 | fx_pptex_027.json is refused in a sentence naming initial rotation | Particle Plane's initial rotation runs from 0 to 360, and this is 361. | yes |
