@@ -2806,6 +2806,38 @@ FX-AUD-034: A level above +12 dB. Refused, `PROJECT_SCHEMA_INVALID`.
 
 FX-AUD-035: A level that is not a number. Refused, `PROJECT_SCHEMA_INVALID`.
 
+### Reading sound (D-639)
+
+S-1 of D-638 (B-518): the core reads FLAC, MP3, Ogg Vorbis and AAC as well as WAV, and turns each into the working sound (document 21). Every file in `Fixtures/sound_read/media` is one 1.5-second test sound: a click of 0.9 on the first sample of frames 2 and 12 at 24 a second (B-112's method), silence between, then from frame 15 a sine of 220 Hz times the channel number plus one, at 0.3. `tools/sound_read_reference.py` makes the files with ffmpeg 8.1 and writes `expected_sound_read.json`: each file's rate, channels, length, the two click samples, and ffmpeg's decode at named places (57 for a 48,000 file, more or fewer as the rate goes); for a file not at 48,000 in two channels, the working sound's length, clicks and values at named places too. Tolerance 2e-5 for WAV and FLAC and for every working-sound value; the fixtures gave the lossy files a pre-code bound of 0.02, and B-518 measured them within 1e-6, so 2e-5 holds for them too (D-639). A place past the length the build reads is not compared. Clicks exact.
+
+FX-SOUND-READ-001 (`stereo_48k.wav`): 48,000, two channels, 72,000 samples, clicks on 4000 and 24000; read as D-71 reads it, sample for sample.
+
+FX-SOUND-READ-002 (`stereo_48k.flac`): the same, exactly.
+
+FX-SOUND-READ-003 (`stereo_48k.mp3`, 192 kilobits): the same length and clicks; values within 2e-5 of ffmpeg's decode.
+
+FX-SOUND-READ-004 (`stereo_48k.ogg`, Vorbis quality 5): the same.
+
+FX-SOUND-READ-005 (`stereo_48k.m4a`, AAC): length 72,000 (the edit list) to 72,704 (ffmpeg keeps the padding), clicks on 4000 and 24000.
+
+FX-SOUND-READ-006 (`stereo_48k.aac`, raw AAC with ADTS headers): 73,728 samples, clicks on 5024 and 25024. The file records no start delay, so it reads 1,024 samples late, as ffmpeg reads it: a gap of the format.
+
+FX-SOUND-READ-007 (`stereo_48k.mp4`): the sound track of a small grey H.264 video, as FX-SOUND-READ-005.
+
+FX-SOUND-READ-008 (`stereo_48k.mov`): the same in a MOV.
+
+FX-SOUND-READ-009 (`mono_44k.wav`): 44,100, one channel, 66,150 samples, clicks on 3675 and 22050; working sound 72,000 samples, clicks on 4000 and 24000, the one channel in both.
+
+FX-SOUND-READ-010 (`mono_44k.flac`): the same.
+
+FX-SOUND-READ-011 (`stereo_96k.flac`): 96,000, 144,000 samples, clicks on 8000 and 48000; working sound 72,000, clicks on 4000 and 24000.
+
+FX-SOUND-READ-012 (`mono_8k.wav`): 8,000, 12,000 samples, clicks on 666 and 4000; working sound 72,000, clicks on 3996 and 24000 (frame 2's first sample at 8,000 is 666.67, so the click is a little early, as the file has it).
+
+FX-SOUND-READ-013 (`six_48k.flac`): six channels; the working sound by document 21's downmix.
+
+FX-SOUND-READ-014 (`stereo_48k.opus`): not read. Warning `MEDIA_AUDIO_PREVIEW_ONLY`; the window still plays it.
+
 ## Format fixtures
 
 D-72, proposed on 2026-09-19; nothing is built against these yet. `tools/formats_reference.py` writes `Fixtures/formats/` and prints what follows. The drawings are one 16 by 12 picture of smooth ramps, saved by Pillow in each format, and each twin is Pillow's own reading of that file.

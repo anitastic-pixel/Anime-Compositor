@@ -53,6 +53,7 @@ One row per identifier this build can print, and the table where a person can re
 | `MEDIA_EXR_ADJUSTED` | yes | `verification/B-16b_exr_table.md` |
 | `MEDIA_AUDIO_CUT_SHORT` | yes | `verification/B-20b_audio_table.md` |
 | `MEDIA_AUDIO_UNREADABLE` | yes | `verification/B-20b_audio_table.md` |
+| `MEDIA_AUDIO_PREVIEW_ONLY` | yes | `verification/D-639_sound_read_table.md` |
 | `TIMESHEET_NOT_FOUND` | yes | `verification/B-28b_timesheet_table.md` |
 | `TIMESHEET_UNREADABLE` | yes | `verification/B-28b_timesheet_table.md` |
 | `TIMESHEET_NO_CELLS` | yes | `verification/B-28b_timesheet_table.md` |
@@ -76,6 +77,7 @@ One row per identifier this build can print, and the table where a person can re
 | `EFFECT_CHANNEL_MISSING` | yes | `verification/D-348_depth_channels_table.md` |
 | `EFFECT_PATH_MISSING` | yes | `verification/D-356_stroke_table.md` |
 | `EFFECT_LAYER_TOO_LARGE` | yes | `verification/D-407_detail_upscale_table.md` |
+| `EFFECT_SOUND_MISSING` | yes | `verification/D-420_audio_spectrum_table.md` |
 | `TEXT_ANIMATOR_NO_TEXT` | yes | `verification/D-350_text_animator_table.md` |
 | `TEMPORAL_SMOOTHING_SKIPPED` | yes | `verification/D-351_auto_tone_table.md` |
 
@@ -107,7 +109,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 64 identifiers | 64 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 66 identifiers | 66 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |
@@ -243,6 +245,9 @@ One row per identifier this build can print, and the table where a person can re
 | MEDIA_AUDIO_UNREADABLE: the enum spells it the way the catalogue does | MEDIA_AUDIO_UNREADABLE | MEDIA_AUDIO_UNREADABLE | pass |
 | MEDIA_AUDIO_UNREADABLE: says truthfully whether document 28 lists it | true | true | pass |
 | MEDIA_AUDIO_UNREADABLE: a table somewhere shows a person this sentence | named in B-20b_audio_table.md | named in B-20b_audio_table.md | pass |
+| MEDIA_AUDIO_PREVIEW_ONLY: the enum spells it the way the catalogue does | MEDIA_AUDIO_PREVIEW_ONLY | MEDIA_AUDIO_PREVIEW_ONLY | pass |
+| MEDIA_AUDIO_PREVIEW_ONLY: says truthfully whether document 28 lists it | true | true | pass |
+| MEDIA_AUDIO_PREVIEW_ONLY: a table somewhere shows a person this sentence | named in D-639_sound_read_table.md | named in D-639_sound_read_table.md | pass |
 | TIMESHEET_NOT_FOUND: the enum spells it the way the catalogue does | TIMESHEET_NOT_FOUND | TIMESHEET_NOT_FOUND | pass |
 | TIMESHEET_NOT_FOUND: says truthfully whether document 28 lists it | true | true | pass |
 | TIMESHEET_NOT_FOUND: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
@@ -312,6 +317,9 @@ One row per identifier this build can print, and the table where a person can re
 | EFFECT_LAYER_TOO_LARGE: the enum spells it the way the catalogue does | EFFECT_LAYER_TOO_LARGE | EFFECT_LAYER_TOO_LARGE | pass |
 | EFFECT_LAYER_TOO_LARGE: says truthfully whether document 28 lists it | true | true | pass |
 | EFFECT_LAYER_TOO_LARGE: a table somewhere shows a person this sentence | named in D-407_detail_upscale_table.md | named in D-407_detail_upscale_table.md | pass |
+| EFFECT_SOUND_MISSING: the enum spells it the way the catalogue does | EFFECT_SOUND_MISSING | EFFECT_SOUND_MISSING | pass |
+| EFFECT_SOUND_MISSING: says truthfully whether document 28 lists it | true | true | pass |
+| EFFECT_SOUND_MISSING: a table somewhere shows a person this sentence | named in D-420_audio_spectrum_table.md | named in D-420_audio_spectrum_table.md | pass |
 | TEXT_ANIMATOR_NO_TEXT: the enum spells it the way the catalogue does | TEXT_ANIMATOR_NO_TEXT | TEXT_ANIMATOR_NO_TEXT | pass |
 | TEXT_ANIMATOR_NO_TEXT: says truthfully whether document 28 lists it | true | true | pass |
 | TEXT_ANIMATOR_NO_TEXT: a table somewhere shows a person this sentence | named in D-350_text_animator_table.md | named in D-350_text_animator_table.md | pass |
@@ -323,7 +331,7 @@ One row per identifier this build can print, and the table where a person can re
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**215 of 215 checks pass.**
+**221 of 221 checks pass.**
 
 ## What this cannot cover
 
