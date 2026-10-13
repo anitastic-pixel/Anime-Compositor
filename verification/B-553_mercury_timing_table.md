@@ -1,7 +1,7 @@
 # B-553: frame times with Mercury (D-674)
 
 Measured on 2026-10-13, built with `cargo test --release --test b553_mercury` from lane C's
-commit eb157aee, which holds eb157aee (B-553's code), and run with `--ignored b553_mercury_timing`: once on the card, then once
+commit be08421f, which holds be08421f (B-553's code), and run with `--ignored b553_mercury_timing`: once on the card, then once
 with `B553_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, the graphics card had 8.7 GB of its memory in use by another program and these build or test programs were running: anime_compositor_app-466e, b155_gpu_chain-e334744fb6, b532_warp_stabilizer-b6a2, cargo.exe. Between the card and processor runs, the graphics card had 9.5 GB of its memory in use by another program and these build or test programs were running: anime_compositor_app-466e, b155_gpu_chain-e334744fb6, b532_warp_stabilizer-b6a2, cargo.exe. After the processor run, the graphics card had 5.1 GB of its memory in use by another program and these build or test programs were running: b532_warp_stabilizer-b6a2, cargo.exe. Treat them as an upper bound, to be measured again on a quiet machine.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
