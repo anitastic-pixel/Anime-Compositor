@@ -21,6 +21,7 @@ What is heard, whether it stays with the picture, and what the bars look like. S
 | the page is told it is an audio layer: no transform, no blend mode, no effects | audio, no transform, no blend_mode, no effects | audio, no transform, no blend_mode, no effects | pass |
 | The level box sends -6 | Set level to -6 dB | Set level to -6 dB | pass |
 | and the page is given it back | -6.0 | -6.0 | pass |
+| D-640: `/mix` gives the page the core's mix of frames 0 to 2, the level in it | 200, the core's samples | 200, the core's samples | pass |
 | A level of 13 is refused and the level stays | A level cannot be set to 13 dB.; -6.0 | A level cannot be set to 13 dB.; -6.0 | pass |
 | A level that is not a number says so | "loud" is not a level. A level is a number of decibels, from -96 to 12. | "loud" is not a level. A level is a number of decibels, from -96 to 12. | pass |
 | A level on a picture layer is refused | "Cel" is not an audio layer, so it has no level. | "Cel" is not an audio layer, so it has no level. | pass |
@@ -34,4 +35,4 @@ What is heard, whether it stays with the picture, and what the bars look like. S
 | A file that is not a WAV inside is imported, kept, and said to be silent | Import not_a_wav.wav: sound. Drag it to the layer list, or press Make a layer, to hear it. This sound file could not be read, so its layer is silent. Relink the layer to a WAV file, or convert this one to WAV. | Import not_a_wav.wav: sound. Drag it to the layer list, or press Make a layer, to hear it. This sound file could not be read, so its layer is silent. Relink the layer to a WAV file, or convert this one to WAV. | pass |
 | both are in the notes, with their document 28 codes | MEDIA_AUDIO_CUT_SHORT, MEDIA_AUDIO_UNREADABLE | MEDIA_AUDIO_CUT_SHORT, MEDIA_AUDIO_UNREADABLE | pass |
 
-**21 of 21 checks pass.**
+**22 of 22 checks pass.**

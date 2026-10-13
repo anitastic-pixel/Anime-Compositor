@@ -2838,6 +2838,38 @@ FX-SOUND-READ-013 (`six_48k.flac`): six channels; the working sound by document 
 
 FX-SOUND-READ-014 (`stereo_48k.opus`): not read. Warning `MEDIA_AUDIO_PREVIEW_ONLY`; the window still plays it.
 
+### Mixing sound (D-640)
+
+S-2 of D-638 (B-519): the core mixes a composition's audio layers (document 21). `tools/sound_mix_reference.py` writes the test sounds in `Fixtures/sound_mix/media` as 32-bit floating-point WAV by hand (a 1 kHz sine at -6 dB, 1 s; two clicks of 0.9 left and -0.5 right on samples 4000 and 24000, the first samples of frames 2 and 12 at 24 a second, 1.5 s; a ramp whose left value is its sample number over 48,000 and right the same negated, so a value tells which sample of the file was read, 1 s; a 300 Hz sine at 0.4, mono at 44,100, 0.5 s) and an Opus file by ffmpeg, one project per case (a 4 x 2 composition of 36 frames, one asset and audio layer per sound), and `expected_sound_mix.json`: the frames mixed, the length at 48,000 a second, the mix at named places in both channels (every 997th sample, the last, and two either side of the samples each case names), each channel's peak in decibels, and the warnings. Tolerance 2e-5; peaks within 0.01 dB.
+
+FX-SOUND-MIX-001: the sine through a level of -6 dB peaks at -12.00 dB in both channels.
+
+FX-SOUND-MIX-002: the same layer switched off: every sample 0.
+
+FX-SOUND-MIX-003: the sine and the clicks (at -3 dB) add, 36 frames, 72,000 samples.
+
+FX-SOUND-MIX-004: the ramp starting at frame 5: silence to sample 10,000, the file's first sample there.
+
+FX-SOUND-MIX-005: the ramp starting at frame 2 with its first 6 frames cut: sample 4000 is the file's 12,000.
+
+FX-SOUND-MIX-006: the ramp ending at frame 10: silence from sample 20,000.
+
+FX-SOUND-MIX-007: the ramp's sound starting 3 frames late (offset -3): silence to sample 6000.
+
+FX-SOUND-MIX-008: 30000 / 1001 frames a second, the ramp starting at frame 1, 20 frames, 32,032 samples: each frame read from its own first sample (frame boundaries 1601, 3203, 4804, 6406).
+
+FX-SOUND-MIX-009: a level of +12 dB: peak +6.00 dB, past 1, not clipped.
+
+FX-SOUND-MIX-010: a level of -96 dB: peak -102.00 dB.
+
+FX-SOUND-MIX-011: an Opus layer is left out with `MEDIA_AUDIO_PREVIEW_ONLY`; the sine beside it is heard.
+
+FX-SOUND-MIX-012: a layer whose file is gone is left out with `MEDIA_AUDIO_UNREADABLE`; the clicks beside it are heard.
+
+FX-SOUND-MIX-013: the 44,100 mono file: its working sound, in both channels.
+
+FX-SOUND-MIX-014: frames 10 to 14 of FX-SOUND-MIX-003 alone, from sample 20,000: the same samples as the whole mix there.
+
 ## Format fixtures
 
 D-72, proposed on 2026-09-19; nothing is built against these yet. `tools/formats_reference.py` writes `Fixtures/formats/` and prints what follows. The drawings are one 16 by 12 picture of smooth ramps, saved by Pillow in each format, and each twin is Pillow's own reading of that file.
