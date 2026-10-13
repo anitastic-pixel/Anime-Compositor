@@ -137,7 +137,7 @@
                 "rotation_speed": 0,
                 "initial_rotation": 0,
                 "animation": "explosive",
-                "particle_type": "textured_square",
+                "particle_type": "cube",
                 "opacity_map": "constant",
                 "color_map": "birth_to_death",
                 "transfer_mode": "composite",

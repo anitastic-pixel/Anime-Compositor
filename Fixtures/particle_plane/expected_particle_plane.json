@@ -80180,7 +80180,7 @@
    "warning": "EFFECT_PARAMETER_INVALID"
   },
   "FX-PPLANE-055": {
-   "says": "Particle Type \"textured_square\": not one of the plane's six. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "says": "Particle Type \"cube\": not one of the plane's kinds (D-714, the owner, 2026-10-13: was \"textured_square\", which the plane now draws). The file is read, the effect is kept as written and left out of every frame, with a warning.",
    "project": "fx_pplane_055.json",
    "frames": {
     "0": [

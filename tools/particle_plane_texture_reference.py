@@ -9,8 +9,9 @@ is ours, and each is D-611's or D-610's rule as Particle Space already draws it
 The settings added:
 
 - `particle_type` takes two more words, after the six: "textured_disc" and
-  "textured_faded_disc". "textured_square" stays refused (FX-PPLANE-055); whether the plane takes
-  it waits on the owner's decision about that fixture.
+  "textured_faded_disc". "textured_square" came later, by the owner's decision of 2026-10-13
+  (D-714, `tools/particle_plane_square_reference.py`); FX-PPLANE-055 and FX-PPTEX-024 now refuse
+  "cube".
 - `rotation_speed`, -3600 to 3600 degrees a second, 0 when added; `initial_rotation`, 0 to 360
   degrees, 0 when added. Both keyable, both read at the particle's birth b_k, as Birth Size is.
 - `texture_layer`, D-189's layer setting, "" when added; the layer named is read whole, at its
@@ -236,8 +237,9 @@ PL.FRAMES_OF = FRAMES_OF
 assert all(PL.in_range(c) for _, c, _ in CASES.values())
 
 INVALID = {
-    "FX-PPTEX-024": ("Particle Type \"textured_square\": still not one of the plane's (waits on "
-                     "the owner, as FX-PPLANE-055).", case(particle_type="textured_square")),
+    "FX-PPTEX-024": ("Particle Type \"cube\": not one of the plane's kinds (D-714, the owner, "
+                     "2026-10-13: was \"textured_square\", which the plane now draws).",
+                     case(particle_type="cube")),
     "FX-PPTEX-025": ("Rotation Speed 3601, above 3600.", case(rotation_speed=3601)),
     "FX-PPTEX-026": ("Initial Rotation -1, below 0.", case(initial_rotation=-1)),
     "FX-PPTEX-027": ("Initial Rotation 361, above 360.", case(initial_rotation=361)),
