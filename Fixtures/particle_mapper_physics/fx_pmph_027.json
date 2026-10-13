@@ -1,0 +1,400 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-pmph-027",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-art",
+      "kind": "still",
+      "name": "art",
+      "path": "media/art.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-logo",
+      "kind": "still",
+      "name": "logo",
+      "path": "media/logo.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-sel",
+      "kind": "still",
+      "name": "sel",
+      "path": "media/sel.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-ramp",
+      "kind": "still",
+      "name": "ramp",
+      "path": "media/ramp.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 6,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 6
+      },
+      "layer_order": [
+        "logo",
+        "sel",
+        "late",
+        "ramp",
+        "holder"
+      ],
+      "layers": [
+        {
+          "id": "logo",
+          "kind": "raster",
+          "name": "logo",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-logo",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "sel",
+          "kind": "raster",
+          "name": "sel",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-sel",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "late",
+          "kind": "raster",
+          "name": "late",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 4,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-logo",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "ramp",
+          "kind": "raster",
+          "name": "ramp",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-ramp",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "holder",
+          "kind": "raster",
+          "name": "holder",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 6,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-1",
+              "type_id": "core.particle_playground",
+              "enabled": true,
+              "parameters": {
+                "barrel_radius": 0,
+                "particles_per_second": 20,
+                "cannon_direction": 0,
+                "direction_random_spread": 20,
+                "velocity": 130,
+                "velocity_random_spread": 20,
+                "cannon_particle_radius": 2,
+                "grid_width": 100,
+                "grid_height": 100,
+                "particles_across": 0,
+                "particles_down": 0,
+                "grid_particle_radius": 2,
+                "explode_radius": 2,
+                "explode_dispersion": 20,
+                "particle_exploder_radius": 0,
+                "particle_exploder_dispersion": 20,
+                "gravity_force": 100,
+                "gravity_random_spread": 0,
+                "gravity_direction": 180,
+                "wall_mask": 0,
+                "particle_exploder_older_younger_than": 0,
+                "particle_exploder_age_feather": 0,
+                "layer_map_older_younger_than": 0,
+                "layer_map_age_feather": 0,
+                "gravity_older_younger_than": 0,
+                "gravity_age_feather": 0,
+                "wall_older_younger_than": 0,
+                "wall_age_feather": 0,
+                "random_seed": 0,
+                "persistent_older_younger_than": 0,
+                "persistent_age_feather": 0,
+                "ephemeral_older_younger_than": 0,
+                "ephemeral_age_feather": 0,
+                "persistent_min_red": 0,
+                "persistent_max_red": 1,
+                "persistent_min_green": 0,
+                "persistent_max_green": 1,
+                "persistent_min_blue": 0,
+                "persistent_max_blue": 1,
+                "ephemeral_min_red": 0,
+                "ephemeral_max_red": 1,
+                "ephemeral_min_green": 0,
+                "ephemeral_max_green": 1,
+                "ephemeral_min_blue": 0,
+                "ephemeral_max_blue": 1,
+                "cannon_position": [
+                  50,
+                  50
+                ],
+                "grid_position": [
+                  50,
+                  50
+                ],
+                "particle_exploder_particles_from": "all",
+                "layer_map_particles_from": "all",
+                "gravity_particles_from": "all",
+                "wall_particles_from": "all",
+                "auto_orient": "off",
+                "persistent_particles_from": "all",
+                "ephemeral_particles_from": "all",
+                "persistent_map_red_to": "none",
+                "persistent_map_green_to": "none",
+                "persistent_map_blue_to": "none",
+                "ephemeral_map_red_to": "none",
+                "ephemeral_map_green_to": "character",
+                "ephemeral_map_blue_to": "none",
+                "ephemeral_operator": "set",
+                "explode_layer": "",
+                "layer_map": "",
+                "particle_exploder_selection_map": "",
+                "layer_map_selection_map": "",
+                "gravity_selection_map": "",
+                "wall_selection_map": "",
+                "persistent_map_layer": "",
+                "ephemeral_map_layer": "",
+                "persistent_selection_map": "",
+                "ephemeral_selection_map": "",
+                "cannon_color": "#ff0000",
+                "grid_color": "#ffff00"
+              }
+            }
+          ],
+          "asset_id": "asset-art",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        }
+      ]
+    }
+  ]
+}
