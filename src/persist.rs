@@ -3175,17 +3175,25 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
         }
         Effect::ParticlePlayground { values, cannon_position, grid_position, words, layers, colors, .. } => {
-            for ((name, ..), v) in crate::effects::PARTICLE_PLAYGROUND_SETTINGS.iter().zip(values) {
-                params.insert((*name).into(), num(*v));
+            // D-614: the Property Mappers' settings (D-613's lists' later ones) each written only
+            // when not as added, keyed, or already in the file.
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_PLAYGROUND_SETTINGS.iter().zip(values).enumerate() {
+                if n < 29 || v != start || instance.tracks.contains_key(*name) || params.contains_key(*name) {
+                    params.insert((*name).into(), num(*v));
+                }
             }
             for (n, v) in [("cannon_position", cannon_position), ("grid_position", grid_position)] {
                 params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
             }
-            for ((name, ..), w) in crate::effects::PARTICLE_PLAYGROUND_WORDS.iter().zip(words) {
-                params.insert((*name).into(), J::from(w.as_str()));
+            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_PLAYGROUND_WORDS.iter().zip(words).enumerate() {
+                if n < 5 || w != start || params.contains_key(*name) {
+                    params.insert((*name).into(), J::from(w.as_str()));
+                }
             }
-            for (name, l) in crate::effects::PARTICLE_PLAYGROUND_LAYERS.iter().zip(layers) {
-                params.insert((*name).into(), l.clone());
+            for (n, (name, l)) in crate::effects::PARTICLE_PLAYGROUND_LAYERS.iter().zip(layers).enumerate() {
+                if n < 6 || l.as_str() != Some("") || params.contains_key(*name) {
+                    params.insert((*name).into(), l.clone());
+                }
             }
             for ((name, _), c) in crate::effects::PARTICLE_PLAYGROUND_COLORS.iter().zip(colors) {
                 params.insert((*name).into(), J::from(c.as_str()));
@@ -7738,18 +7746,23 @@ fn parse_effect(
             Some(crate::effects::Effect::ParticlePlane { values, words, colors, clock: [0.0; 2], history: None })
         }
         // D-613: every setting by its name; the layers as written, as Wave World's ground.
+        // D-614: the Property Mappers' settings each as added when the file leaves it out.
         crate::effects::PARTICLE_PLAYGROUND => {
-            let mut values = [0.0; 29];
-            for ((name, ..), v) in crate::effects::PARTICLE_PLAYGROUND_SETTINGS.iter().zip(values.iter_mut()) {
-                *v = effect_number(params, name, &at)?;
+            let mut values = [0.0; 45];
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_PLAYGROUND_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
+                *v = if n < 29 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *start)? };
             }
-            let mut words: [String; 5] = Default::default();
-            for ((name, ..), w) in crate::effects::PARTICLE_PLAYGROUND_WORDS.iter().zip(words.iter_mut()) {
-                *w = effect_word(params, name, &at)?;
+            let mut words: [String; 14] = Default::default();
+            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_PLAYGROUND_WORDS.iter().zip(words.iter_mut()).enumerate() {
+                *w = if n < 5 { effect_word(params, name, &at)? } else { effect_word_or(params, name, &at, start)? };
             }
-            let mut layers: [J; 6] = Default::default();
-            for (name, l) in crate::effects::PARTICLE_PLAYGROUND_LAYERS.iter().zip(layers.iter_mut()) {
-                *l = field(effect_params(params, &at)?, &format!("{at}/parameters"), name)?.clone();
+            let mut layers: [J; 10] = Default::default();
+            for (n, (name, l)) in crate::effects::PARTICLE_PLAYGROUND_LAYERS.iter().zip(layers.iter_mut()).enumerate() {
+                *l = if n < 6 {
+                    field(effect_params(params, &at)?, &format!("{at}/parameters"), name)?.clone()
+                } else {
+                    params.and_then(|p| p.get(*name)).cloned().unwrap_or_else(|| J::from(""))
+                };
             }
             let mut colors: [String; 2] = Default::default();
             for ((name, _), c) in crate::effects::PARTICLE_PLAYGROUND_COLORS.iter().zip(colors.iter_mut()) {

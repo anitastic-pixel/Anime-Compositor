@@ -3074,18 +3074,20 @@ pub enum Effect {
     /// reported. Not settings, never saved: `maps`, compose reads each layer into its own (the
     /// Explode Layer at the in point, the others at the frame); `wall`, the mask Wall Mask names
     /// as compose found it at this frame, flattened, in the drawing's pixels; `clock` and
-    /// `history` as Particle Space's, the history of `playground::numbers`.
+    /// `history` as Particle Space's, the history of `playground::numbers`. D-614 adds the
+    /// Property Mappers' settings after D-613's in each list, each as added when a file leaves it
+    /// out.
     ParticlePlayground {
-        values: [f64; 29],
+        values: [f64; 45],
         cannon_position: Vec<f64>,
         grid_position: Vec<f64>,
-        words: [String; 5],
-        layers: [serde_json::Value; 6],
+        words: [String; 14],
+        layers: [serde_json::Value; 10],
         colors: [String; 2],
-        maps: [Option<crate::layer_map::Map>; 6],
+        maps: [Option<crate::layer_map::Map>; 10],
         wall: Option<Vec<[f64; 2]>>,
         clock: [f64; 2],
-        history: Option<std::sync::Arc<Vec<[f64; 33]>>>,
+        history: Option<std::sync::Arc<Vec<[f64; 49]>>>,
     },
     /// D-673: Hair, after CycoreFX's CC Hair, its rule and settings when added ours
     /// (`simulate::hair`, document 21): strands grown where the layer is opaque, bent by their
@@ -4776,8 +4778,10 @@ pub const PARTICLE_PLAYGROUND: &str = "core.particle_playground";
 /// lowest, highest, and the value when the effect is added. Lengths in the drawing's pixels,
 /// speeds in pixels a second, Gravity's Force in pixels a second a second, angles in degrees, 0
 /// up and 90 to the right, times in seconds. Then each Affects' Older/Younger Than and Age
-/// Feather, Particle Exploder, Layer Map, Gravity, Wall.
-pub const PARTICLE_PLAYGROUND_SETTINGS: [(&str, f64, f64, f64); 29] = [
+/// Feather, Particle Exploder, Layer Map, Gravity, Wall. D-614: then the Persistent and
+/// Ephemeral Property Mappers' Older/Younger Than and Age Feather, then each mapper's Min and Max
+/// for red, green and blue: the value a channel of 0 gives, and of 1.
+pub const PARTICLE_PLAYGROUND_SETTINGS: [(&str, f64, f64, f64); 45] = [
     ("barrel_radius", -2500.0, 2500.0, 0.0),
     ("particles_per_second", 0.0, 1000.0, 20.0),
     ("cannon_direction", -36000.0, 36000.0, 0.0),
@@ -4807,6 +4811,22 @@ pub const PARTICLE_PLAYGROUND_SETTINGS: [(&str, f64, f64, f64); 29] = [
     ("wall_older_younger_than", -1000.0, 1000.0, 0.0),
     ("wall_age_feather", 0.0, 1000.0, 0.0),
     ("random_seed", 0.0, 10000.0, 0.0),
+    ("persistent_older_younger_than", -1000.0, 1000.0, 0.0),
+    ("persistent_age_feather", 0.0, 1000.0, 0.0),
+    ("ephemeral_older_younger_than", -1000.0, 1000.0, 0.0),
+    ("ephemeral_age_feather", 0.0, 1000.0, 0.0),
+    ("persistent_min_red", -10000.0, 10000.0, 0.0),
+    ("persistent_max_red", -10000.0, 10000.0, 1.0),
+    ("persistent_min_green", -10000.0, 10000.0, 0.0),
+    ("persistent_max_green", -10000.0, 10000.0, 1.0),
+    ("persistent_min_blue", -10000.0, 10000.0, 0.0),
+    ("persistent_max_blue", -10000.0, 10000.0, 1.0),
+    ("ephemeral_min_red", -10000.0, 10000.0, 0.0),
+    ("ephemeral_max_red", -10000.0, 10000.0, 1.0),
+    ("ephemeral_min_green", -10000.0, 10000.0, 0.0),
+    ("ephemeral_max_green", -10000.0, 10000.0, 1.0),
+    ("ephemeral_min_blue", -10000.0, 10000.0, 0.0),
+    ("ephemeral_max_blue", -10000.0, 10000.0, 1.0),
 ];
 /// D-613: the words of each Affects' Particles From: which emitters' particles it takes.
 pub const PARTICLE_PLAYGROUND_FROM: [&str; 15] = [
@@ -4826,17 +4846,45 @@ pub const PARTICLE_PLAYGROUND_FROM: [&str; 15] = [
     "all_but_layer_exploder",
     "all_but_particle_exploder",
 ];
-/// D-613: Particle Playground's words: name, the words, the word when added.
-pub const PARTICLE_PLAYGROUND_WORDS: [(&str, &[&str], &str); 5] = [
+/// D-614: the properties a Property Mapper's channel can set: none, the colour's three channels
+/// (sRGB-coded, 0 to 1), opacity, scale, angle (degrees), place (pixels), speed (pixels a
+/// second) and force (pixels a second a second).
+pub const PARTICLE_PLAYGROUND_PROPERTIES: [&str; 13] =
+    ["none", "red", "green", "blue", "opacity", "scale", "angle", "x", "y", "x_velocity", "y_velocity", "x_force", "y_force"];
+/// D-614: the Ephemeral Property Mapper's operators on the property and the map's value.
+pub const PARTICLE_PLAYGROUND_OPERATORS: [&str; 7] = ["set", "add", "difference", "subtract", "multiply", "min", "max"];
+/// D-613: Particle Playground's words: name, the words, the word when added. D-614: then the
+/// mappers' Particles From, each channel's property, and the Ephemeral operator.
+pub const PARTICLE_PLAYGROUND_WORDS: [(&str, &[&str], &str); 14] = [
     ("particle_exploder_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
     ("layer_map_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
     ("gravity_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
     ("wall_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
     ("auto_orient", &["off", "on"], "off"),
+    ("persistent_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
+    ("ephemeral_particles_from", &PARTICLE_PLAYGROUND_FROM, "all"),
+    ("persistent_map_red_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
+    ("persistent_map_green_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
+    ("persistent_map_blue_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
+    ("ephemeral_map_red_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
+    ("ephemeral_map_green_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
+    ("ephemeral_map_blue_to", &PARTICLE_PLAYGROUND_PROPERTIES, "none"),
+    ("ephemeral_operator", &PARTICLE_PLAYGROUND_OPERATORS, "set"),
 ];
-/// D-613: Particle Playground's layer settings, each "" (none) when added.
-pub const PARTICLE_PLAYGROUND_LAYERS: [&str; 6] =
-    ["explode_layer", "layer_map", "particle_exploder_selection_map", "layer_map_selection_map", "gravity_selection_map", "wall_selection_map"];
+/// D-613: Particle Playground's layer settings, each "" (none) when added. D-614: then each
+/// Property Mapper's map and its Affects' selection map.
+pub const PARTICLE_PLAYGROUND_LAYERS: [&str; 10] = [
+    "explode_layer",
+    "layer_map",
+    "particle_exploder_selection_map",
+    "layer_map_selection_map",
+    "gravity_selection_map",
+    "wall_selection_map",
+    "persistent_map_layer",
+    "ephemeral_map_layer",
+    "persistent_selection_map",
+    "ephemeral_selection_map",
+];
 /// D-613: Particle Playground's colours and each when added.
 pub const PARTICLE_PLAYGROUND_COLORS: [(&str, &str); 2] = [("cannon_color", "#ff0000"), ("grid_color", "#ffff00")];
 pub const HAIR: &str = "core.hair";
@@ -8230,13 +8278,19 @@ impl Effect {
             // D-613: its lengths, speeds and Gravity are the drawing's pixels, and so is every
             // keyed one in its history; positions are shares of it, and the wall compose found
             // in the masks already at this size.
-            Effect::ParticlePlayground { values, history, .. } => {
+            Effect::ParticlePlayground { values, history, words, .. } => {
                 const PIXELS: [usize; 13] = [0, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17];
-                for k in PIXELS {
+                // D-614: and a mapper's Min and Max where its channel sets a place, a speed or a
+                // force (from X on in the properties' list).
+                let mapped = (0..6)
+                    .filter(|&j| PARTICLE_PLAYGROUND_PROPERTIES.iter().position(|w| *w == words[7 + j]).is_some_and(|p| p >= 7))
+                    .flat_map(|j| [33 + 2 * j, 34 + 2 * j]);
+                let pixels: Vec<usize> = PIXELS.into_iter().chain(mapped).collect();
+                for &k in &pixels {
                     values[k] = scale(values[k]);
                 }
                 for row in history.iter_mut().flat_map(|h| std::sync::Arc::make_mut(h).iter_mut()) {
-                    for k in PIXELS {
+                    for &k in &pixels {
                         row[k] = scale(row[k]);
                     }
                 }

@@ -8406,15 +8406,15 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         }
         // D-613: every setting by its name, the layers as written; compose fills the rest.
         PARTICLE_PLAYGROUND => {
-            let mut values = [0.0; 29];
+            let mut values = [0.0; 45];
             for (v, s) in values.iter_mut().zip(PARTICLE_PLAYGROUND_SETTINGS) {
                 *v = number(s.0)?;
             }
-            let mut words: [String; 5] = Default::default();
+            let mut words: [String; 14] = Default::default();
             for (w, s) in words.iter_mut().zip(PARTICLE_PLAYGROUND_WORDS) {
                 *w = word(s.0)?;
             }
-            let mut layers: [serde_json::Value; 6] = Default::default();
+            let mut layers: [serde_json::Value; 10] = Default::default();
             for (l, s) in layers.iter_mut().zip(PARTICLE_PLAYGROUND_LAYERS) {
                 *l = serde_json::Value::from(parameter(query, s).ok_or_else(|| format!("What should {s} be set to?"))?.trim());
             }
@@ -33478,6 +33478,35 @@ mod contract {
                 ("wall_selection_map", "layer-4"),
                 ("cannon_color", "#00ff80"),
                 ("grid_color", "#3366ff"),
+                ("persistent_older_younger_than", "0.5"),
+                ("persistent_age_feather", "0.1"),
+                ("ephemeral_older_younger_than", "-2"),
+                ("ephemeral_age_feather", "0"),
+                ("persistent_min_red", "0.2"),
+                ("persistent_max_red", "0.9"),
+                ("persistent_min_green", "-5"),
+                ("persistent_max_green", "5"),
+                ("persistent_min_blue", "0"),
+                ("persistent_max_blue", "1"),
+                ("ephemeral_min_red", "1"),
+                ("ephemeral_max_red", "2"),
+                ("ephemeral_min_green", "0"),
+                ("ephemeral_max_green", "30"),
+                ("ephemeral_min_blue", "-1"),
+                ("ephemeral_max_blue", "1"),
+                ("persistent_particles_from", "grid"),
+                ("ephemeral_particles_from", "all_but_cannon"),
+                ("persistent_map_red_to", "opacity"),
+                ("persistent_map_green_to", "x_force"),
+                ("persistent_map_blue_to", "none"),
+                ("ephemeral_map_red_to", "scale"),
+                ("ephemeral_map_green_to", "y_velocity"),
+                ("ephemeral_map_blue_to", "angle"),
+                ("ephemeral_operator", "multiply"),
+                ("persistent_map_layer", "layer-4"),
+                ("ephemeral_map_layer", "layer-4"),
+                ("persistent_selection_map", "layer-4"),
+                ("ephemeral_selection_map", "layer-4"),
             ],
         ),
         // D-518: the numbers, the layer and the two words.

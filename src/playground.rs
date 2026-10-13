@@ -8,8 +8,13 @@
 //! No state is carried from frame to frame (document 20): a particle at a frame is a pure
 //! function of the seed, its own numbers and the settings sampled once a frame from the in point,
 //! stepped on D-610's grid of 4 steps a frame. Processor only, as Wave World (no card pass).
+//!
+//! D-614 adds the Persistent and Ephemeral Property Mappers, each reading a layer's red, green
+//! and blue under a particle into its properties (colour, opacity, scale, angle, place, speed or
+//! force); `tools/particle_mapper_reference.py` is their reference. A property is part of the
+//! particle, worked out along its own steps from its birth like its place.
 
-use crate::effects::{Effect, PARTICLE_PLAYGROUND_FROM, PARTICLE_PLAYGROUND_SETTINGS};
+use crate::effects::{Effect, PARTICLE_PLAYGROUND_FROM, PARTICLE_PLAYGROUND_OPERATORS, PARTICLE_PLAYGROUND_PROPERTIES, PARTICLE_PLAYGROUND_SETTINGS};
 use crate::WorkingBuffer;
 use rayon::prelude::*;
 use std::f64::consts::PI;
@@ -35,13 +40,17 @@ const GRAVITY: usize = 16;
 const GRAVITY_SPREAD: usize = 17;
 const GRAVITY_DIRECTION: usize = 18;
 pub const WALL_MASK: usize = 19;
-/// Each Affects' Older/Younger Than at 20 + 2 g, its Age Feather at 21 + 2 g.
+/// Each of D-613's Affects' Older/Younger Than at 20 + 2 g, its Age Feather at 21 + 2 g.
 const AGE: usize = 20;
 pub(crate) const SEED: usize = 28;
+/// D-614: each mapper m's (0 Persistent, 1 Ephemeral) Older/Younger Than at 29 + 2 m and Age
+/// Feather at 30 + 2 m; then each channel c's Min at 33 + 6 m + 2 c and Max after it.
+const MAPPER_AGE: usize = 29;
+const MIN_MAX: usize = 33;
 /// Cannon Position x and y, then Grid Position's, per cent of the drawing.
-const CANNON_AT: usize = 29;
-const GRID_AT: usize = 31;
-pub(crate) const COUNT: usize = 33;
+const CANNON_AT: usize = 45;
+const GRID_AT: usize = 47;
+pub(crate) const COUNT: usize = 49;
 
 /// The emitters each of [`PARTICLE_PLAYGROUND_FROM`]'s words takes, in its order: bit 1 the
 /// Cannon, 2 the Grid, 3 the Layer Exploder, 4 the Particle Exploder's children.
@@ -56,18 +65,24 @@ const BITS: [u8; 15] = [
 /// Auto-Orient, the Cannon's and the Grid's linear colours, the maps (D-189's, fitted `center`
 /// to the drawing; the Explode Layer's read at the in point, the others at this frame; `None`
 /// for none named or not found), the Wall (flattened, closed, in the drawing's pixels) and the
-/// drawing's size.
+/// drawing's size. Groups 4 and 5 are D-614's Persistent and Ephemeral mappers' Affects; each
+/// mapper's map, each of its channels' property as an index of
+/// [`PARTICLE_PLAYGROUND_PROPERTIES`] (0 none), and the Ephemeral operator as an index of
+/// [`PARTICLE_PLAYGROUND_OPERATORS`].
 pub(crate) struct Inputs<'a> {
     pub values: &'a [f64; COUNT],
     pub history: Option<&'a [[f64; COUNT]]>,
     pub u: i64,
     pub fps: f64,
-    pub from: [usize; 4],
+    pub from: [usize; 6],
     pub orient: bool,
     pub colors: [[f64; 3]; 2],
     pub explode: Option<&'a WorkingBuffer>,
     pub layer_map: Option<&'a WorkingBuffer>,
-    pub selection: [Option<&'a WorkingBuffer>; 4],
+    pub selection: [Option<&'a WorkingBuffer>; 6],
+    pub mapper: [Option<&'a WorkingBuffer>; 2],
+    pub map_to: [[usize; 3]; 2],
+    pub operator: usize,
     pub wall: Option<&'a [[f64; 2]]>,
     pub size: (f64, f64),
 }
@@ -85,6 +100,13 @@ struct Particle {
     parent: i64,
     origin: [f64; 2],
     side: f64,
+    /// D-614: the colour a mapper gave it, sRGB-coded and straight (none, its emitter's), its
+    /// opacity, scale, angle in degrees and force in pixels a second a second.
+    rgb: Option<[f64; 3]>,
+    opacity: f64,
+    scale: f64,
+    angle: f64,
+    force: [f64; 2],
 }
 
 impl Particle {
@@ -100,6 +122,15 @@ struct Run<'a> {
 
 fn clamp01(v: f64) -> f64 {
     v.clamp(0.0, 1.0)
+}
+
+/// D-614: a mapper's sRGB-coded value e, put back on the 8-bit level it lies within 1e-4 of a
+/// level of. The map is held in single precision, which moves an 8-bit picture's level by up to
+/// about 1e-7, and a mapper's range multiplies that onto a particle's place. A value further from
+/// every level (a picture finer than 8 bits) is kept as it is.
+fn level(e: f64) -> f64 {
+    let k = (e * 255.0).round();
+    if (e * 255.0 - k).abs() < 1e-4 { k / 255.0 } else { e }
 }
 
 fn heading(deg: f64) -> [f64; 2] {
@@ -124,6 +155,43 @@ fn lay(d: [f64; 4], s: [f64; 4]) -> [f64; 4] {
 
 fn cross2(a: [f64; 2], b: [f64; 2]) -> f64 {
     a[0] * b[1] - a[1] * b[0]
+}
+
+/// D-614: the particle's colour, sRGB-coded and straight.
+fn coded(p: &Particle) -> [f64; 3] {
+    let c = p.col;
+    p.rgb.unwrap_or_else(|| [0, 1, 2].map(|i| if c[3] > 0.0 { crate::grade::to_srgb(c[i] / c[3]) } else { 0.0 }))
+}
+
+/// D-614: the Ephemeral operator on the property `a` and the map's value `v`.
+fn operate(op: usize, a: f64, v: f64) -> f64 {
+    match op {
+        0 => v,
+        1 => a + v,
+        2 => (a - v).abs(),
+        3 => a - v,
+        4 => a * v,
+        5 => a.min(v),
+        _ => a.max(v),
+    }
+}
+
+/// D-614: the Persistent mapper's value set as the property.
+fn put(p: &mut Particle, prop: usize, v: f64) {
+    match prop {
+        1..=3 => {
+            let mut rgb = coded(p);
+            rgb[prop - 1] = v;
+            p.rgb = Some(rgb);
+        }
+        4 => p.opacity = v,
+        5 => p.scale = v,
+        6 => p.angle = v,
+        7 | 8 => p.x[prop - 7] = v,
+        9 | 10 => p.v[prop - 9] = v,
+        11 | 12 => p.force[prop - 11] = v,
+        _ => {}
+    }
 }
 
 impl Run<'_> {
@@ -191,7 +259,24 @@ impl Run<'_> {
     }
 
     fn particle(&self, code: i64, a: i64, b: i64, born: f64, x: [f64; 2], col: [f64; 4], rad: f64) -> Particle {
-        Particle { code, a, b, born, x, v: [0.0; 2], col, rad, parent: 0, origin: [0.0; 2], side: 0.0 }
+        Particle {
+            code,
+            a,
+            b,
+            born,
+            x,
+            v: [0.0; 2],
+            col,
+            rad,
+            parent: 0,
+            origin: [0.0; 2],
+            side: 0.0,
+            rgb: None,
+            opacity: 1.0,
+            scale: 1.0,
+            angle: 0.0,
+            force: [0.0; 2],
+        }
     }
 
     fn cannon(&self) -> Vec<Particle> {
@@ -281,7 +366,8 @@ impl Run<'_> {
             return 0.0;
         }
         let age = (t - p.born) / self.i.fps;
-        let (tt, ff) = (self.at(AGE + 2 * g, t), self.at(AGE + 2 * g + 1, t));
+        let k = if g < 4 { AGE + 2 * g } else { MAPPER_AGE + 2 * (g - 4) };
+        let (tt, ff) = (self.at(k, t), self.at(k + 1, t));
         let mut w = if tt == 0.0 {
             1.0
         } else {
@@ -304,6 +390,27 @@ impl Run<'_> {
         self.weight(g, p, t) > self.r(p, 20 + g as u64)
     }
 
+    /// D-614: the (property, value) pairs mapper `m` gives p at t, in channel order: none when
+    /// its map is none, p is not affected or stands off the drawing.
+    fn mapped(&self, m: usize, p: &Particle, t: f64) -> [Option<(usize, f64)>; 3] {
+        let to = self.i.map_to[m];
+        let Some(map) = self.i.mapper[m] else { return [None; 3] };
+        if to == [0; 3] || !self.affected(4 + m, p, t) {
+            return [None; 3];
+        }
+        let (gx, gy) = (p.x[0].floor(), p.x[1].floor());
+        if !(gx >= 0.0 && gy >= 0.0 && gx < self.i.size.0 && gy < self.i.size.1) {
+            return [None; 3];
+        }
+        let px = at(map, gx as i64, gy as i64);
+        [0, 1, 2].map(|c| {
+            (to[c] != 0).then(|| {
+                let (lo, hi) = (self.at(MIN_MAX + 6 * m + 2 * c, t), self.at(MIN_MAX + 6 * m + 2 * c + 1, t));
+                (to[c], lo + (hi - lo) * level(crate::grade::to_srgb(clamp01(px[c]))))
+            })
+        })
+    }
+
     fn children(&self, p: &Particle, t: f64) -> Vec<Particle> {
         let c = self.at(PE_RADIUS, t);
         let n = ((p.rad / c).powi(2) + 0.5).floor().clamp(1.0, 100.0) as i64;
@@ -311,6 +418,7 @@ impl Run<'_> {
             .map(|i| {
                 let mut ch = self.particle(p.code + 4 * (i + 1), p.a, p.b, t, p.x, p.col, c);
                 ch.parent = p.code;
+                (ch.rgb, ch.opacity, ch.scale, ch.angle, ch.force) = (p.rgb, p.opacity, p.scale, p.angle, p.force);
                 let speed = self.at(PE_DISPERSION, t) * self.r(&ch, 5);
                 let hd = heading(360.0 * self.r(&ch, 3));
                 ch.v = [p.v[0] + speed * hd[0], p.v[1] + speed * hd[1]];
@@ -371,15 +479,30 @@ impl Run<'_> {
             let g = heading(self.at(GRAVITY_DIRECTION, t0));
             a = [f * g[0], f * g[1]];
         }
-        if let Some(wall) = self.i.wall {
-            if self.affected(3, p, t0) {
-                self.bounce(p, wall, a, h);
-                return;
+        // D-614: the particle's force, and the Ephemeral mapper's forces and speeds for this
+        // step only; the change it made to the speed is taken off again after.
+        let (mut force, base) = (p.force, p.v);
+        let mut v = base;
+        for (prop, val) in self.mapped(1, p, t0).into_iter().flatten() {
+            match prop {
+                9 | 10 => v[prop - 9] = operate(self.i.operator, v[prop - 9], val),
+                11 | 12 => force[prop - 11] = operate(self.i.operator, force[prop - 11], val),
+                _ => {}
             }
         }
-        let (x, v) = (p.x, p.v);
-        p.x = [0, 1].map(|i| x[i] + v[i] * h + a[i] * h * h / 2.0);
-        p.v = [0, 1].map(|i| v[i] + a[i] * h);
+        let a = [a[0] + force[0], a[1] + force[1]];
+        p.v = v;
+        match self.i.wall {
+            Some(wall) if self.affected(3, p, t0) => self.bounce(p, wall, a, h),
+            _ => {
+                let x = p.x;
+                p.x = [0, 1].map(|i| x[i] + v[i] * h + a[i] * h * h / 2.0);
+                p.v = [0, 1].map(|i| v[i] + a[i] * h);
+            }
+        }
+        if v != base {
+            p.v = [0, 1].map(|i| p.v[i] - (v[i] - base[i]));
+        }
     }
 
     /// Particle p as it is at u: itself, or its children once it exploded.
@@ -393,6 +516,10 @@ impl Run<'_> {
         for (i, &t0) in pts.iter().enumerate() {
             if explodes && self.at(PE_RADIUS, t0) > 0.0 && self.affected(0, &p, t0) {
                 return self.children(&p, t0).into_iter().flat_map(|c| self.moved(c)).collect();
+            }
+            // D-614: the Persistent mapper's values set, and kept.
+            for (prop, val) in self.mapped(0, &p, t0).into_iter().flatten() {
+                put(&mut p, prop, val);
             }
             if let Some(&t1) = pts.get(i + 1) {
                 self.step(&mut p, t0, (t1 - t0) / self.i.fps);
@@ -439,22 +566,26 @@ pub fn numbers(e: &Effect) -> [f64; COUNT] {
 }
 
 /// `e`'s inputs: its clock and history as compose filled them, `maps` in its layers' order.
-fn inputs<'a>(e: &'a Effect, values: &'a [f64; COUNT], maps: [Option<&'a WorkingBuffer>; 6], wall: Option<&'a [[f64; 2]]>, size: (f64, f64)) -> Inputs<'a> {
+fn inputs<'a>(e: &'a Effect, values: &'a [f64; COUNT], maps: [Option<&'a WorkingBuffer>; 10], wall: Option<&'a [[f64; 2]]>, size: (f64, f64)) -> Inputs<'a> {
     let Effect::ParticlePlayground { words, colors, clock, history, .. } = e else {
         unreachable!("Particle Playground's inputs of another effect")
     };
     let colour = |c: &str| crate::effects::encoded(c).map(crate::grade::to_linear);
+    let word = |k: usize, list: &[&str]| list.iter().position(|w| *w == words[k]).unwrap_or(0);
     Inputs {
         values,
         history: history.as_deref().map(Vec::as_slice),
         u: clock[0] as i64,
         fps: clock[1],
-        from: [0, 1, 2, 3].map(|g| PARTICLE_PLAYGROUND_FROM.iter().position(|w| *w == words[g]).unwrap_or(0)),
+        from: [0, 1, 2, 3, 5, 6].map(|k| word(k, &PARTICLE_PLAYGROUND_FROM)),
         orient: words[4] == "on",
         colors: [colour(&colors[0]), colour(&colors[1])],
         explode: maps[0],
         layer_map: maps[1],
-        selection: [maps[2], maps[3], maps[4], maps[5]],
+        selection: [maps[2], maps[3], maps[4], maps[5], maps[8], maps[9]],
+        mapper: [maps[6], maps[7]],
+        map_to: [0, 1].map(|m| [0, 1, 2].map(|c| word(7 + 3 * m + c, &PARTICLE_PLAYGROUND_PROPERTIES))),
+        operator: word(13, &PARTICLE_PLAYGROUND_OPERATORS),
         wall,
         size,
     }
@@ -464,7 +595,7 @@ fn inputs<'a>(e: &'a Effect, values: &'a [f64; COUNT], maps: [Option<&'a Working
 /// B-493's test: `e`'s clock and history filled as compose fills them, `maps` and `wall` as
 /// compose reads them, `size` the drawing's.
 #[doc(hidden)]
-pub fn listed(e: &Effect, maps: [Option<&WorkingBuffer>; 6], wall: Option<&[[f64; 2]]>, size: (f64, f64)) -> Vec<[f64; 8]> {
+pub fn listed(e: &Effect, maps: [Option<&WorkingBuffer>; 10], wall: Option<&[[f64; 2]]>, size: (f64, f64)) -> Vec<[f64; 8]> {
     let values = numbers(e);
     let i = inputs(e, &values, maps, wall, size);
     let Some(r) = run(&i) else { return Vec::new() };
@@ -481,11 +612,11 @@ pub(crate) fn apply(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, us
     particle_playground(source, &i, (ox, oy));
 }
 
-/// How one particle is drawn.
+/// How one particle is drawn; `scale` and `k` its scale and opacity (D-614).
 enum Look {
     Dot { rad: f64, col: [f64; 4] },
-    Piece { side: f64, origin: [f64; 2] },
-    Copy,
+    Piece { side: f64, origin: [f64; 2], scale: f64, k: f64 },
+    Copy { scale: f64, k: f64 },
 }
 
 /// D-613: the particles laid over a clear layer, in the order born. `(ox, oy)` the drawing's
@@ -502,17 +633,44 @@ fn particle_playground(source: &mut WorkingBuffer, i: &Inputs, (ox, oy): (usize,
     let drawn: Vec<(Look, [f64; 2], [f64; 2], f64)> = r
         .everyone()
         .into_iter()
-        .map(|p| {
-            let o = if i.orient && (p.v[0] != 0.0 || p.v[1] != 0.0) { p.v[0].atan2(-p.v[1]) } else { 0.0 };
+        .filter_map(|p| {
+            // D-614: the Ephemeral mapper's colour, opacity, scale, angle and place, for drawing.
+            let (mut x, mut rgb, mut opacity, mut scale, mut angle) = (p.x, p.rgb, p.opacity, p.scale, p.angle);
+            let op = i.operator;
+            for (prop, val) in r.mapped(1, &p, u).into_iter().flatten() {
+                match prop {
+                    1..=3 => {
+                        let mut c = rgb.unwrap_or_else(|| coded(&p));
+                        c[prop - 1] = operate(op, c[prop - 1], val);
+                        rgb = Some(c);
+                    }
+                    4 => opacity = operate(op, opacity, val),
+                    5 => scale = operate(op, scale, val),
+                    6 => angle = operate(op, angle, val),
+                    7 | 8 => x[prop - 7] = operate(op, x[prop - 7], val),
+                    _ => {}
+                }
+            }
+            let k = clamp01(opacity);
+            if scale <= 0.0 || k <= 0.0 {
+                return None;
+            }
+            let o = (if i.orient && (p.v[0] != 0.0 || p.v[1] != 0.0) { p.v[0].atan2(-p.v[1]) } else { 0.0 }) + angle.to_radians();
             let turn = [o.cos(), o.sin()];
             if i.layer_map.is_some() && r.affected(1, &p, u) {
-                return (Look::Copy, p.x, turn, (mw / 2.0 + 1.0).hypot(mh / 2.0 + 1.0));
+                return Some((Look::Copy { scale, k }, x, turn, (mw / 2.0 + 1.0).hypot(mh / 2.0 + 1.0) * scale));
             }
             if p.code == 3 {
-                return (Look::Piece { side: p.side, origin: p.origin }, p.x, turn, (p.side / 2.0 + 0.5) * std::f64::consts::SQRT_2);
+                let reach = (p.side * scale / 2.0 + 0.5) * std::f64::consts::SQRT_2;
+                return Some((Look::Piece { side: p.side, origin: p.origin, scale, k }, x, turn, reach));
             }
-            let (rad, k) = if p.rad < 0.7 { (0.7, (p.rad / 0.7).powi(2)) } else { (p.rad, 1.0) };
-            (Look::Dot { rad, col: p.col.map(|c| c * k) }, p.x, turn, rad + 0.5)
+            let col = rgb.map_or(p.col, |c| {
+                let a = p.col[3];
+                [crate::grade::to_linear(clamp01(c[0])) * a, crate::grade::to_linear(clamp01(c[1])) * a, crate::grade::to_linear(clamp01(c[2])) * a, a]
+            });
+            let rad = p.rad * scale;
+            let (rad, kk) = if rad < 0.7 { (0.7, (rad / 0.7).powi(2)) } else { (rad, 1.0) };
+            Some((Look::Dot { rad, col: col.map(|c| c * kk * k) }, x, turn, rad + 0.5))
         })
         .collect();
     source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(row, line)| {
@@ -529,18 +687,19 @@ fn particle_playground(source: &mut WorkingBuffer, i: &Inputs, (ox, oy): (usize,
                 // Rot(-o) of (dx, dy).
                 let (lx, ly) = (dx * cs + dy * sn, -dx * sn + dy * cs);
                 match look {
-                    Look::Copy => {
-                        let s = bilinear(i.layer_map.unwrap(), mw / 2.0 + lx, mh / 2.0 + ly);
+                    Look::Copy { scale, k } => {
+                        let s = bilinear(i.layer_map.unwrap(), mw / 2.0 + lx / scale, mh / 2.0 + ly / scale);
                         if s[3] > 0.0 {
-                            *d = lay(*d, s);
+                            *d = lay(*d, s.map(|v| v * k));
                         }
                     }
-                    Look::Piece { side, origin } => {
-                        let cv = clamp01(side / 2.0 - lx.abs() + 0.5) * clamp01(side / 2.0 - ly.abs() + 0.5);
+                    Look::Piece { side, origin, scale, k } => {
+                        let half = side * scale / 2.0;
+                        let cv = clamp01(half - lx.abs() + 0.5) * clamp01(half - ly.abs() + 0.5);
                         if cv > 0.0 {
                             let hold = side / 2.0 - 0.5;
-                            let s = bilinear(i.explode.unwrap(), origin[0] + lx.clamp(-hold, hold), origin[1] + ly.clamp(-hold, hold));
-                            *d = lay(*d, s.map(|v| v * cv));
+                            let s = bilinear(i.explode.unwrap(), origin[0] + (lx / scale).clamp(-hold, hold), origin[1] + (ly / scale).clamp(-hold, hold));
+                            *d = lay(*d, s.map(|v| v * cv * k));
                         }
                     }
                     Look::Dot { rad, col } => {
