@@ -40613,7 +40613,7 @@
    "warning": "EFFECT_PARAMETER_INVALID"
   },
   "FX-GRADE-034": {
-   "says": "Vignette roundness -20: Lumetri's squarer vignette, below 0, which this effect does not draw (a gap). The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "says": "Vignette roundness -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning.",
    "project": "fx_grade_034.json",
    "frames": {
     "0": [

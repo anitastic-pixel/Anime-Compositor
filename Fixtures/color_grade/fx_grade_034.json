@@ -116,7 +116,7 @@
                 "tint_balance": 0,
                 "vignette_amount": 0,
                 "vignette_midpoint": 50,
-                "vignette_roundness": -20,
+                "vignette_roundness": -101,
                 "vignette_feather": 50
               }
             }

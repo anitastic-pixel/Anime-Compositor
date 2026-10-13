@@ -29,7 +29,7 @@ The settings, each keyable but the look, with where they start:
     tint_balance                 -100 to 100, 0
     vignette_amount              -5 to 5, 0
     vignette_midpoint            0 to 100, 50
-    vignette_roundness           0 to 100, 0
+    vignette_roundness           -100 to 100, 0       below 0 squarer (D-637)
     vignette_feather             0 to 100, 50
 
 The rule. At a pixel with covering a > 0, e is its straight colour through the sRGB curve held
@@ -66,7 +66,11 @@ L(c) = 0.2126 c_r + 0.7152 c_g + 0.0722 c_b on encoded values.
    does not brighten.
 7. Vignette, when the amount is not 0: Vignette's rule (D-126) with amount |vignette_amount| x
    20 per cent, the colour black for a negative amount and white for a positive one, size
-   50 + midpoint, roundness as it is, softness the feather, centred on the layer.
+   50 + midpoint, roundness as it is, softness the feather, centred on the layer. D-637: a
+   roundness m below 0 (a share, -1 to 0) keeps the half-axes of roundness 0 and measures the
+   distance by the p-norm, d = (|dx|^p + |dy|^p)^(1/p) / 2^(1/p) with p = 2 / (1 + m): the
+   circle's norm at 0, squarer below, and at -1 the largest of |dx| and |dy|, a rectangle the
+   layer's shape. The rule is ours; Lumetri's squarer vignette publishes none.
 
 A pixel with a = 0 is left as it is; the covering is never changed; with every setting as added
 the layer is left exactly as it is. A `look` naming nothing that is a lut asset of the project
@@ -112,7 +116,7 @@ SETTINGS = {  # name: (low, high, as added)
     "shadow_tint_amount": (0, 100, 0), "highlight_tint_hue": (0, 360, 0),
     "highlight_tint_amount": (0, 100, 0), "tint_balance": (-100, 100, 0),
     "vignette_amount": (-5, 5, 0), "vignette_midpoint": (0, 100, 50),
-    "vignette_roundness": (0, 100, 0), "vignette_feather": (0, 100, 50),
+    "vignette_roundness": (-100, 100, 0), "vignette_feather": (0, 100, 50),
 }
 
 
@@ -215,8 +219,15 @@ def vignette(x, y, v):
     rx, ry = (1 - m) * W / 2 + m * r, (1 - m) * H / 2 + m * r
     outer = (50 + v["vignette_midpoint"]) / 100
     inner = outer * (1 - v["vignette_feather"] / 100)
+    if m < 0:  # D-637: the half-axes of roundness 0, the distance a p-norm
+        rx, ry = W / 2, H / 2
     dx, dy = (x + 0.5 - W / 2) / rx, (y + 0.5 - H / 2) / ry
     d = math.hypot(dx, dy) / math.sqrt(2)
+    if m == -1:
+        d = max(abs(dx), abs(dy))
+    elif m < 0:
+        p = 2 / (1 + m)
+        d = (abs(dx) ** p + abs(dy) ** p) ** (1 / p) / 2 ** (1 / p)
     if inner == outer:
         t = 1.0 if d >= outer else 0.0
     else:
@@ -357,8 +368,7 @@ INVALID = {
     "FX-GRADE-031": ("Look intensity -1, below 0.", case("asset-look", look_intensity=-1)),
     "FX-GRADE-032": ("Shadow tint hue 361, past a full turn.", case(shadow_tint_hue=361)),
     "FX-GRADE-033": ("Vignette amount 5.5, above 5.", case(vignette_amount=5.5)),
-    "FX-GRADE-034": ("Vignette roundness -20: Lumetri's squarer vignette, below 0, which this "
-                     "effect does not draw (a gap).", case(vignette_roundness=-20)),
+    "FX-GRADE-034": ("Vignette roundness -101, below -100.", case(vignette_roundness=-101)),
 }
 
 
