@@ -214446,3 +214446,79 @@ FX-SMEAR-020 (`fx_smear_020.json`): Mask Offset (10001, 0), its x above 10000. T
 FX-SMEAR-021 (`fx_smear_021.json`): Percent keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SMEAR-022 (`fx_smear_022.json`): Source mask -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Polygon Shards (D-675)
+
+Polygon Shards (B-554), after CycoreFX's CC Pixel Polly (Simulation): `tools/polygon_shards_reference.py` writes `Fixtures/polygon_shards/expected_polygon_shards.json`, tolerance 2e-5; the rule is in document 21. Every case is a composition 48 by 32 holding one drawing the same size, Bubbles' colour field or the field with its right half clear.
+
+FX-POLYGON-SHARDS-001 (`fx_polygon_shards_001.json`): As added: a grid of 20 pixels, three cells by two, each cut into two triangles thrown out from the middle and towards the eye, falling and spinning; frame 0 the layer as it is. Frames 0, 6, 12, 24.
+
+FX-POLYGON-SHARDS-002 (`fx_polygon_shards_002.json`): A close look: a grid of 8 pixels, 48 triangles; frame 3 just cracked apart, frame 12 flying. Frames 3, 12.
+
+FX-POLYGON-SHARDS-003 (`fx_polygon_shards_003.json`): Object Polygon: each triangle its own flat colour. Frames 0, 6.
+
+FX-POLYGON-SHARDS-004 (`fx_polygon_shards_004.json`): Object Textured Square: squares carrying the picture. Frames 6.
+
+FX-POLYGON-SHARDS-005 (`fx_polygon_shards_005.json`): Object Square: squares, each its own flat colour. Frames 6.
+
+FX-POLYGON-SHARDS-006 (`fx_polygon_shards_006.json`): Force 0: the shards only fall and spin. Frames 12.
+
+FX-POLYGON-SHARDS-007 (`fx_polygon_shards_007.json`): Gravity 0, Force 100: thrown out slowly, not falling. Frames 12.
+
+FX-POLYGON-SHARDS-008 (`fx_polygon_shards_008.json`): Gravity -1: the shards float up. Frames 12.
+
+FX-POLYGON-SHARDS-009 (`fx_polygon_shards_009.json`): Spinning 0: the shards fly flat, facing the eye. Frames 12.
+
+FX-POLYGON-SHARDS-010 (`fx_polygon_shards_010.json`): Spinning 720: the shards tumble fast. Frames 6.
+
+FX-POLYGON-SHARDS-011 (`fx_polygon_shards_011.json`): The force centre at the top left corner: thrown down and right. Frames 6.
+
+FX-POLYGON-SHARDS-012 (`fx_polygon_shards_012.json`): Direction Randomness 0: each thrown straight out from the centre, 45 degrees towards the eye. Frames 6.
+
+FX-POLYGON-SHARDS-013 (`fx_polygon_shards_013.json`): Direction Randomness 100: thrown every which way, from flat across the layer to straight at the eye. Frames 6.
+
+FX-POLYGON-SHARDS-014 (`fx_polygon_shards_014.json`): Speed Randomness 100: speeds from none to full. Frames 12.
+
+FX-POLYGON-SHARDS-015 (`fx_polygon_shards_015.json`): Depth Sort off: drawn in grid order, later shards over earlier ones whatever their depth. Frames 12.
+
+FX-POLYGON-SHARDS-016 (`fx_polygon_shards_016.json`): Start Time 0.5 seconds: frame 6 the layer as it is, frame 18 FX-POLYGON-SHARDS-002's frame 6. Frames 6, 18.
+
+FX-POLYGON-SHARDS-017 (`fx_polygon_shards_017.json`): The picture with its right half clear: the right half's shards are clear. Frames 6.
+
+FX-POLYGON-SHARDS-018 (`fx_polygon_shards_018.json`): The half picture, Object Polygon: the right half's triangles clear, the left half's flat. Frames 6.
+
+FX-POLYGON-SHARDS-019 (`fx_polygon_shards_019.json`): A grid of 7 pixels, which fits neither side: the last column and row of cells cut at the layer's edge. Frames 6.
+
+FX-POLYGON-SHARDS-020 (`fx_polygon_shards_020.json`): Force keyed from 0 at frame 0 to 600 at frame 24: frame 12 is Force 300 at frame 12, the whole flight from the key's value then. Frames 12.
+
+FX-POLYGON-SHARDS-021 (`fx_polygon_shards_021.json`): FX-POLYGON-SHARDS-002 moved 3 pixels right: the same, moved. Frames 12.
+
+FX-POLYGON-SHARDS-022 (`fx_polygon_shards_022.json`): FX-POLYGON-SHARDS-002 with the layer starting at frame 6: frame 9 is 002's frame 3 and frame 18 its 12. Frames 9, 18.
+
+FX-POLYGON-SHARDS-023 (`fx_polygon_shards_023.json`): Through a composition camera 100 pixels away over the middle: the shards coming at the eye grow less than through the effect's own eye 67 pixels away. Frames 12.
+
+FX-POLYGON-SHARDS-024 (`fx_polygon_shards_024.json`): The composition camera 6 pixels to the right: the frame moved 6 pixels left, the shards seen from the side. Frames 12.
+
+FX-POLYGON-SHARDS-025 (`fx_polygon_shards_025.json`): FX-POLYGON-SHARDS-002 at 30 frames a second: frame 12 is two fifths of a second in, not half. Frames 12.
+
+FX-POLYGON-SHARDS-026 (`fx_polygon_shards_026.json`): Force -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POLYGON-SHARDS-027 (`fx_polygon_shards_027.json`): Gravity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POLYGON-SHARDS-028 (`fx_polygon_shards_028.json`): Spinning 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POLYGON-SHARDS-029 (`fx_polygon_shards_029.json`): Force Center X 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POLYGON-SHARDS-030 (`fx_polygon_shards_030.json`): Direction Randomness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POLYGON-SHARDS-031 (`fx_polygon_shards_031.json`): Speed Randomness -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POLYGON-SHARDS-032 (`fx_polygon_shards_032.json`): Grid Spacing 1, below 2. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POLYGON-SHARDS-033 (`fx_polygon_shards_033.json`): Start Time -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POLYGON-SHARDS-034 (`fx_polygon_shards_034.json`): An object written "triangle". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POLYGON-SHARDS-035 (`fx_polygon_shards_035.json`): A depth sort written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-POLYGON-SHARDS-036 (`fx_polygon_shards_036.json`): Force keyed to 2000 at frame 4, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
