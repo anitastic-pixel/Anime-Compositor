@@ -335,7 +335,7 @@ fn b530_pixel_motion_blur_timing() {
     let mut gpu = Gpu::new().expect("a usable card");
     let mut s = format!(
         "- Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n\n\
-         | Shot | Quality | First | Again |\n|---|---|---:|---:|\n",
+         | Shot | Quality | First | Again | Afresh | Pixel Motion Blur stage, afresh |\n|---|---|---:|---:|---:|---:|\n",
         gpu.about(),
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
@@ -384,7 +384,23 @@ fn b530_pixel_motion_blur_timing() {
                 }
             }
         }
-        let _ = writeln!(s, "| {name} | {quality:?} | {:.1} | {:.1} |", median(first), median(times));
+        // Afresh: every frame with an empty cache, so each Pixel Motion Blur is worked, not reused.
+        let (mut fresh, mut stage) = (Vec::new(), Vec::new());
+        anime_compositor::perf::enable();
+        for frame in (0..240).step_by(8) {
+            let mut cache = CelCache::viewer();
+            gpu.forget();
+            anime_compositor::perf::reset();
+            let mut log = FrameLog::new(3);
+            let t = std::time::Instant::now();
+            drop(
+                preview::preview_frame_srgb8(&project, &comp, frame, &root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu)
+                    .expect("GPU frame"),
+            );
+            fresh.push(t.elapsed().as_secs_f64() * 1000.0);
+            stage.push(anime_compositor::perf::read(anime_compositor::perf::Stage::EffectPixelMotionBlur).0 as f64 / 1e6);
+        }
+        let _ = writeln!(s, "| {name} | {quality:?} | {:.1} | {:.1} | {:.1} | {:.1} |", median(first), median(times), median(fresh), median(stage));
     }
     let out = std::env::var("B530_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| effect_table::repo("verification/B-530_timing_raw.md"));
     fs::write(out, s).expect("write the timing table");

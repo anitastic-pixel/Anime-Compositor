@@ -1421,6 +1421,40 @@ pub enum Effect {
         vector_detail: f64,
         frames: Option<(crate::layer_map::Map, crate::layer_map::Map, f64, u32)>,
     },
+    /// D-652: after After Effects' Timewarp (Time), its rule ours (`tools/timewarp_reference.py`,
+    /// `flow`, document 21). Words: `method` `whole_frames`, `frame_mix` or `pixel_motion`;
+    /// `adjust_time_by` `speed` or `source_frame`; `build_from_one_image`,
+    /// `correct_luminance_changes` and `enable_motion_blur` `off` or `on`; `filtering` `normal`
+    /// or `extreme`; `shutter_control` `automatic` or `manual`. Numbers: `speed` -1000 to 1000
+    /// per cent; `source_frame` -100000 to 100000 frames; `vector_detail` 0 to 100;
+    /// `global_smoothness` and `local_smoothness` 0 to 1; `smoothing_iterations` 1 to 50, taken
+    /// whole; `error_threshold` 0 to 10; `block_size` 2 to 32; `red_weight`, `green_weight` and
+    /// `blue_weight` 0 to 1; `shutter_angle` 0 to 720 degrees; `shutter_samples` 2 to 64, taken
+    /// whole. `picture` is not a setting and is never saved: compose makes the retimed picture
+    /// into it for each frame (`compose::fill_timewarp`).
+    Timewarp {
+        method: String,
+        adjust_time_by: String,
+        speed: f64,
+        source_frame: f64,
+        vector_detail: f64,
+        global_smoothness: f64,
+        local_smoothness: f64,
+        smoothing_iterations: f64,
+        build_from_one_image: String,
+        correct_luminance_changes: String,
+        filtering: String,
+        error_threshold: f64,
+        block_size: f64,
+        red_weight: f64,
+        green_weight: f64,
+        blue_weight: f64,
+        enable_motion_blur: String,
+        shutter_control: String,
+        shutter_angle: f64,
+        shutter_samples: f64,
+        picture: Option<crate::layer_map::Map>,
+    },
     /// D-582: after CycoreFX's CC Rainfall (Simulation), its rule and its settings when added
     /// ours (`layer_fx::cc_rainfall`, document 21). `drops`, 0 to 50000, its whole part; `size`,
     /// 0 to 20 pixels; `scene_depth`, 0 to 20000 pixels; `speed`, 0 to 20000 pixels a second at
@@ -4124,6 +4158,7 @@ pub const ECHO: &str = "core.echo";
 pub const CC_WIDE_TIME: &str = "core.cc_wide_time";
 pub const FORCE_MOTION_BLUR: &str = "core.force_motion_blur";
 pub const PIXEL_MOTION_BLUR: &str = "core.pixel_motion_blur";
+pub const TIMEWARP: &str = "core.timewarp";
 pub const CC_RAINFALL: &str = "core.cc_rainfall";
 pub const WAVE_WORLD: &str = "core.wave_world";
 pub const CAUSTICS: &str = "core.caustics";
@@ -7134,6 +7169,36 @@ impl Effect {
                 ("shutter_samples", vec![shutter_samples], 2.0, 64.0),
                 ("vector_detail", vec![vector_detail], 0.0, 100.0),
             ],
+            Effect::Timewarp {
+                speed,
+                source_frame,
+                vector_detail,
+                global_smoothness,
+                local_smoothness,
+                smoothing_iterations,
+                error_threshold,
+                block_size,
+                red_weight,
+                green_weight,
+                blue_weight,
+                shutter_angle,
+                shutter_samples,
+                ..
+            } => vec![
+                ("speed", vec![speed], -1000.0, 1000.0),
+                ("source_frame", vec![source_frame], -100000.0, 100000.0),
+                ("vector_detail", vec![vector_detail], 0.0, 100.0),
+                ("global_smoothness", vec![global_smoothness], 0.0, 1.0),
+                ("local_smoothness", vec![local_smoothness], 0.0, 1.0),
+                ("smoothing_iterations", vec![smoothing_iterations], 1.0, 50.0),
+                ("error_threshold", vec![error_threshold], 0.0, 10.0),
+                ("block_size", vec![block_size], 2.0, 32.0),
+                ("red_weight", vec![red_weight], 0.0, 1.0),
+                ("green_weight", vec![green_weight], 0.0, 1.0),
+                ("blue_weight", vec![blue_weight], 0.0, 1.0),
+                ("shutter_angle", vec![shutter_angle], 0.0, 720.0),
+                ("shutter_samples", vec![shutter_samples], 2.0, 64.0),
+            ],
             Effect::CcRainfall {
                 drops,
                 size,
@@ -8378,6 +8443,7 @@ impl Effect {
             Effect::CcWideTime { .. } => "CC Wide Time",
             Effect::ForceMotionBlur { .. } => "CC Force Motion Blur",
             Effect::PixelMotionBlur { .. } => "Pixel Motion Blur",
+            Effect::Timewarp { .. } => "Timewarp",
             Effect::CcRainfall { .. } => "CC Rainfall",
             Effect::WaveWorld { .. } => "Wave World",
             Effect::Caustics { .. } => "Caustics",
@@ -8639,6 +8705,7 @@ impl Effect {
             Effect::CcWideTime { .. } => CC_WIDE_TIME,
             Effect::ForceMotionBlur { .. } => FORCE_MOTION_BLUR,
             Effect::PixelMotionBlur { .. } => PIXEL_MOTION_BLUR,
+            Effect::Timewarp { .. } => TIMEWARP,
             Effect::CcRainfall { .. } => CC_RAINFALL,
             Effect::WaveWorld { .. } => WAVE_WORLD,
             Effect::Caustics { .. } => CAUSTICS,
@@ -10800,6 +10867,27 @@ impl Effect {
             )),
             Effect::PixelMotionBlur { shutter_control, .. } if !["automatic", "manual"].contains(&shutter_control.as_str()) => Some(format!(
                 "Pixel Motion Blur's shutter control is \"automatic\" or \"manual\", and this is \"{shutter_control}\"."
+            )),
+            Effect::Timewarp { method, .. } if !["whole_frames", "frame_mix", "pixel_motion"].contains(&method.as_str()) => Some(format!(
+                "Timewarp's method is \"whole_frames\", \"frame_mix\" or \"pixel_motion\", and this is \"{method}\"."
+            )),
+            Effect::Timewarp { adjust_time_by, .. } if !["speed", "source_frame"].contains(&adjust_time_by.as_str()) => Some(format!(
+                "Timewarp's adjust time by is \"speed\" or \"source_frame\", and this is \"{adjust_time_by}\"."
+            )),
+            Effect::Timewarp { build_from_one_image, .. } if !["off", "on"].contains(&build_from_one_image.as_str()) => Some(format!(
+                "Timewarp's build from one image is \"off\" or \"on\", and this is \"{build_from_one_image}\"."
+            )),
+            Effect::Timewarp { correct_luminance_changes, .. } if !["off", "on"].contains(&correct_luminance_changes.as_str()) => Some(format!(
+                "Timewarp's correct luminance changes is \"off\" or \"on\", and this is \"{correct_luminance_changes}\"."
+            )),
+            Effect::Timewarp { filtering, .. } if !["normal", "extreme"].contains(&filtering.as_str()) => Some(format!(
+                "Timewarp's filtering is \"normal\" or \"extreme\", and this is \"{filtering}\"."
+            )),
+            Effect::Timewarp { enable_motion_blur, .. } if !["off", "on"].contains(&enable_motion_blur.as_str()) => Some(format!(
+                "Timewarp's enable motion blur is \"off\" or \"on\", and this is \"{enable_motion_blur}\"."
+            )),
+            Effect::Timewarp { shutter_control, .. } if !["automatic", "manual"].contains(&shutter_control.as_str()) => Some(format!(
+                "Timewarp's shutter control is \"automatic\" or \"manual\", and this is \"{shutter_control}\"."
             )),
             Effect::CcRainfall { transfer_mode, .. } if !["composite", "lighten"].contains(&transfer_mode.as_str()) => Some(format!(
                 "CC Rainfall's transfer mode is \"composite\" or \"lighten\", and this is \"{transfer_mode}\"."
@@ -14312,6 +14400,13 @@ pub(crate) fn apply_stack_at(
                             crate::layer_fx::lay(source, &out, (ox, oy))
                         })
                     }
+                }
+            }
+            // D-652: the drawing-sized picture compose retimed, at the drawing's corner, as CC
+            // Wide Time's. None (an adjustment layer) leaves the layer as it is.
+            Effect::Timewarp { picture, .. } => {
+                if let Some(picture) = picture {
+                    crate::perf::time(crate::perf::Stage::EffectTimewarp, || crate::layer_fx::lay(source, &picture.0, (ox, oy)))
                 }
             }
             // D-521: the target compose read at its offset; with none (no layer of its own on an

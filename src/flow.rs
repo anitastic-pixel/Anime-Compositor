@@ -262,6 +262,53 @@ pub(crate) fn gather(o: &WorkingBuffer, back: &Field, ahead: &Field, share: f64,
     out
 }
 
+/// D-652: Timewarp's picture `g` of the way from `pa` to `pb` (g may lie outside 0 to 1), with
+/// `f01` the field from `pa` to `pb` and `f10` back. Each frame is read along its share of the
+/// two fields, bilinearly by document 21 or, with `extreme`, by Transform's cubic; the two reads
+/// are mixed by g held inside 0 and 1, or with `one_image` the nearer frame's read alone; and the
+/// result is pulled toward the plain mix of the two frames by `threshold` times how far the two
+/// reads differ (`weights` on the colour, plus the covering), at most all the way.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn tween(
+    pa: &WorkingBuffer,
+    pb: &WorkingBuffer,
+    f01: &Field,
+    f10: &Field,
+    g: f64,
+    extreme: bool,
+    one_image: bool,
+    threshold: f64,
+    weights: [f64; 3],
+) -> Vec<[f64; 4]> {
+    let w = pa.width();
+    let h = g.clamp(0.0, 1.0);
+    let read: fn(&WorkingBuffer, f64, f64) -> [f32; 4] = if extreme { crate::layer_fx::sample_bicubic } else { crate::render::sample_bilinear };
+    (0..w * pa.height())
+        .into_par_iter()
+        .map(|i| {
+            let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+            let (ax, ay) = (-(1.0 - g) * g * f01.x[i] + g * g * f10.x[i], -(1.0 - g) * g * f01.y[i] + g * g * f10.y[i]);
+            let (bx, by) = ((1.0 - g) * (1.0 - g) * f01.x[i] - g * (1.0 - g) * f10.x[i], (1.0 - g) * (1.0 - g) * f01.y[i] - g * (1.0 - g) * f10.y[i]);
+            let a = read(pa, x + ax, y + ay).map(f64::from);
+            let b = read(pb, x + bx, y + by).map(f64::from);
+            let (qa, qb) = (&pa.data()[i * 4..i * 4 + 4], &pb.data()[i * 4..i * 4 + 4]);
+            let lum = |p: &[f64; 4]| weights[0] * p[0] + weights[1] * p[1] + weights[2] * p[2];
+            let m = (threshold * ((lum(&a) - lum(&b)).abs() + (a[3] - b[3]).abs())).min(1.0);
+            std::array::from_fn(|c| {
+                let px = if !one_image {
+                    (1.0 - h) * a[c] + h * b[c]
+                } else if g < 0.5 {
+                    a[c]
+                } else {
+                    b[c]
+                };
+                let fm = (1.0 - h) * qa[c] as f64 + h * qb[c] as f64;
+                (1.0 - m) * px + m * fm
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -2751,6 +2751,22 @@ fn resolve_rest(
             .with_remediation("Put the Pixel Motion Blur on the layer itself, or precompose the layers beneath and put it on the composition layer."),
         );
     }
+    // D-652: nor the frames at other times, so a Timewarp there changes nothing.
+    if layer.is_adjustment()
+        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::Timewarp { .. }))
+    {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::TemporalSmoothingSkipped,
+                Severity::Warning,
+                format!("Adjustment layer {} has a Timewarp, which needs frames at other times an adjustment layer cannot read.", layer.name),
+                format!("Frame {frame} is drawn without it. The setting is kept as it is."),
+            )
+            .with_remediation("Put the Timewarp on the layer itself, or precompose the layers beneath and put it on the composition layer."),
+        );
+    }
     // D-581: CC Force Motion Blur blurs what moves inside a composition layer. On any other
     // layer, an adjustment layer included, and on one with a Time Remap, whose moments its rule
     // does not yet read, it leaves the layer as it is, and says so.
@@ -2790,6 +2806,7 @@ fn resolve_rest(
         fill_stabilizer(&mut effects, project, root, comp, layer, at, quality, pre, float, cache, log);
         fill_wire(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_pixel_motion(&mut effects, project, root, comp, layer, at, quality, cache, log);
+        fill_timewarp(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_moment_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_noise(&mut effects, project, root, comp, layer, at, quality, cache);
     }
@@ -4332,6 +4349,181 @@ fn fill_pixel_motion(
         }
         if let crate::effects::Effect::PixelMotionBlur { frames, .. } = &mut effects[i].effect {
             *frames = pair.map(|(b, a)| (b, a, angle, samples));
+        }
+    }
+}
+
+/// D-652: each switched-on Timewarp's picture, by `tools/timewarp_reference.py`'s steps 2 to 5:
+/// the source time and its rate from the layer's in point, the shutter's moments, and for each
+/// moment the holder's frames there (drawn with the effects before this one, by the layer's own
+/// timing, cut to `size`) shown whole, mixed, or moved along `flow`'s estimate between them; the
+/// moments averaged. A frame that cannot be drawn is transparent. Speed and Source Frame are read
+/// at the other frames as the layer's keys are, as Ripple Pulse's levels.
+// ponytail: each frame draws its source frames afresh and sums Speed back to the in point; keep
+// both with the viewer's composition frames, as CC Wide Time does, if long shots play slowly.
+#[allow(clippy::too_many_arguments)]
+fn fill_timewarp(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    size: (usize, usize),
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    use crate::effects::Effect;
+    let (n0, m1) = (holder.in_frame, holder.out_frame - 1);
+    if m1 < n0 {
+        return;
+    }
+    for i in 0..effects.len() {
+        if !effects[i].enabled || !effects[i].is_valid() {
+            continue;
+        }
+        let Effect::Timewarp {
+            method,
+            adjust_time_by,
+            speed,
+            source_frame,
+            vector_detail,
+            global_smoothness,
+            local_smoothness,
+            smoothing_iterations,
+            build_from_one_image,
+            correct_luminance_changes,
+            filtering,
+            error_threshold,
+            block_size,
+            red_weight,
+            green_weight,
+            blue_weight,
+            enable_motion_blur,
+            shutter_control,
+            shutter_angle,
+            shutter_samples,
+            ..
+        } = effects[i].effect.clone()
+        else {
+            continue;
+        };
+        // Step 2: the source time, in composition frames, and its rate.
+        let original = &holder.effects[i];
+        let then = |k: i32, setting: &str, now: f64| {
+            if !original.tracks.contains_key(setting) {
+                return now;
+            }
+            match crate::expr::effect_at(comp, &holder.id, original, k, holder.key_time(k as f64)).0.effect {
+                Effect::Timewarp { speed, .. } if setting == "speed" => speed,
+                Effect::Timewarp { source_frame, .. } => source_frame,
+                _ => now,
+            }
+        };
+        let (t, rate) = if adjust_time_by == "speed" {
+            let mut t = n0 as f64 - 0.5;
+            for k in n0..frame {
+                t += then(k, "speed", speed) / 100.0;
+            }
+            (t + 0.5 * speed / 100.0, speed / 100.0)
+        } else {
+            (n0 as f64 + source_frame, (then(frame + 1, "source_frame", source_frame) - then(frame - 1, "source_frame", source_frame)) / 2.0)
+        };
+        let held = |t: f64| {
+            let t = t.clamp(n0 as f64, m1 as f64);
+            let a = t.floor();
+            (a as i32, (a as i32 + 1).min(m1), t - a)
+        };
+        let t = t.clamp(n0 as f64, m1 as f64);
+        // Step 4: the moments.
+        let (angle, samples) = match (enable_motion_blur.as_str(), shutter_control.as_str()) {
+            ("on", "automatic") => (comp.motion_blur.shutter_angle, comp.motion_blur.samples),
+            ("on", _) => (shutter_angle, shutter_samples.floor() as u32),
+            _ => (0.0, 1),
+        };
+        let shifts: Vec<f64> = if angle == 0.0 || samples == 0 {
+            vec![0.0]
+        } else {
+            (0..samples).map(|k| angle / 360.0 * ((k as f64 + 0.5) / samples as f64 - 0.5) * rate).collect()
+        };
+        // Step 3: the frames the moments need, each drawn once.
+        let mut needed: Vec<i32> = Vec::new();
+        for &d in &shifts {
+            let (a, b, _) = if method == "pixel_motion" { held(t) } else { held(t + d) };
+            needed.push(a);
+            if method != "whole_frames" {
+                needed.push(b);
+            }
+        }
+        needed.sort_unstable();
+        needed.dedup();
+        let mut upto = holder.clone();
+        upto.effects.truncate(i);
+        let mut inside = FrameLog::new(usize::MAX);
+        let frames: std::collections::BTreeMap<i32, crate::WorkingBuffer> = needed
+            .into_iter()
+            .map(|m| {
+                let p = resolve_layer(project, comp, &upto, m, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
+                    .map_or_else(|| crate::WorkingBuffer::transparent(size.0, size.1), |r| crate::layer_map::cut(&r.source, (0, 0), size));
+                (m, p)
+            })
+            .collect();
+        let mut said = Vec::new();
+        for d in inside.finish() {
+            if !said.contains(&d.id) {
+                said.push(d.id);
+                log.record(frame, holder.name.clone(), d);
+            }
+        }
+        // Step 5: each moment's picture, summed in order, then the mean.
+        let done = crate::perf::time(crate::perf::Stage::EffectTimewarp, || {
+            let plain = |p: &crate::WorkingBuffer| p.data().chunks_exact(4).map(|q| std::array::from_fn(|c| q[c] as f64)).collect::<Vec<[f64; 4]>>();
+            let mixed = |p: &crate::WorkingBuffer, q: &crate::WorkingBuffer, g: f64| {
+                p.data().chunks_exact(4).zip(q.data().chunks_exact(4)).map(|(u, v)| std::array::from_fn(|c| (1.0 - g) * u[c] as f64 + g * v[c] as f64)).collect::<Vec<[f64; 4]>>()
+            };
+            let (a, b, f) = held(t);
+            let tuning = crate::flow::Tuning {
+                vector_detail,
+                global_smoothness,
+                local_smoothness,
+                iterations: smoothing_iterations.floor() as u32,
+                block_size,
+                weights: [red_weight, green_weight, blue_weight],
+                correct_luminance: correct_luminance_changes == "on",
+            };
+            let fields = (method == "pixel_motion" && shifts.iter().any(|d| f + d != 0.0))
+                .then(|| (crate::flow::estimate(&frames[&a], &frames[&b], &tuning), crate::flow::estimate(&frames[&b], &frames[&a], &tuning)));
+            let mut sum = vec![[0.0f64; 4]; size.0 * size.1];
+            for &d in &shifts {
+                let one = match (method.as_str(), &fields) {
+                    ("pixel_motion", Some((f01, f10))) if f + d != 0.0 => crate::flow::tween(
+                        &frames[&a],
+                        &frames[&b],
+                        f01,
+                        f10,
+                        f + d,
+                        filtering == "extreme",
+                        build_from_one_image == "on",
+                        error_threshold,
+                        tuning.weights,
+                    ),
+                    ("pixel_motion", _) => plain(&frames[&a]),
+                    ("whole_frames", _) => plain(&frames[&held(t + d).0]),
+                    _ => {
+                        let (a, b, g) = held(t + d);
+                        mixed(&frames[&a], &frames[&b], g)
+                    }
+                };
+                sum.iter_mut().zip(one).for_each(|(s, p)| (0..4).for_each(|c| s[c] += p[c]));
+            }
+            let mut out = crate::WorkingBuffer::transparent(size.0, size.1);
+            let n = shifts.len() as f64;
+            out.data_mut().chunks_exact_mut(4).zip(&sum).for_each(|(o, s)| (0..4).for_each(|c| o[c] = (s[c] / n) as f32));
+            out
+        });
+        if let Effect::Timewarp { picture, .. } = &mut effects[i].effect {
+            *picture = Some(crate::layer_map::Map(std::sync::Arc::new(done)));
         }
     }
 }

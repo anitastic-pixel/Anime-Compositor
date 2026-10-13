@@ -2288,6 +2288,50 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("shutter_samples".into(), num(*shutter_samples));
             params.insert("vector_detail".into(), num(*vector_detail));
         }
+        Effect::Timewarp {
+            method,
+            adjust_time_by,
+            speed,
+            source_frame,
+            vector_detail,
+            global_smoothness,
+            local_smoothness,
+            smoothing_iterations,
+            build_from_one_image,
+            correct_luminance_changes,
+            filtering,
+            error_threshold,
+            block_size,
+            red_weight,
+            green_weight,
+            blue_weight,
+            enable_motion_blur,
+            shutter_control,
+            shutter_angle,
+            shutter_samples,
+            ..
+        } => {
+            params.insert("method".into(), J::from(method.as_str()));
+            params.insert("adjust_time_by".into(), J::from(adjust_time_by.as_str()));
+            params.insert("speed".into(), num(*speed));
+            params.insert("source_frame".into(), num(*source_frame));
+            params.insert("vector_detail".into(), num(*vector_detail));
+            params.insert("global_smoothness".into(), num(*global_smoothness));
+            params.insert("local_smoothness".into(), num(*local_smoothness));
+            params.insert("smoothing_iterations".into(), num(*smoothing_iterations));
+            params.insert("build_from_one_image".into(), J::from(build_from_one_image.as_str()));
+            params.insert("correct_luminance_changes".into(), J::from(correct_luminance_changes.as_str()));
+            params.insert("filtering".into(), J::from(filtering.as_str()));
+            params.insert("error_threshold".into(), num(*error_threshold));
+            params.insert("block_size".into(), num(*block_size));
+            params.insert("red_weight".into(), num(*red_weight));
+            params.insert("green_weight".into(), num(*green_weight));
+            params.insert("blue_weight".into(), num(*blue_weight));
+            params.insert("enable_motion_blur".into(), J::from(enable_motion_blur.as_str()));
+            params.insert("shutter_control".into(), J::from(shutter_control.as_str()));
+            params.insert("shutter_angle".into(), num(*shutter_angle));
+            params.insert("shutter_samples".into(), num(*shutter_samples));
+        }
         Effect::Caustics { bottom_layer, water_surface, sky_layer, light_position, bottom_repeat_mode, bottom_fit, surface_color, sky_repeat_mode, sky_fit, light_type, light_color, .. } => {
             for (n, v) in [("bottom_layer", bottom_layer), ("water_surface", water_surface), ("sky_layer", sky_layer)] {
                 params.insert(n.into(), v.clone());
@@ -5875,6 +5919,7 @@ fn parse_effect(
         crate::effects::CC_WIDE_TIME,
         crate::effects::FORCE_MOTION_BLUR,
         crate::effects::PIXEL_MOTION_BLUR,
+        crate::effects::TIMEWARP,
         crate::effects::TIME_DIFFERENCE,
         crate::effects::CC_RAINFALL,
         crate::effects::WAVE_WORLD,
@@ -6861,6 +6906,29 @@ fn parse_effect(
             shutter_samples: effect_number(params, "shutter_samples", &at)?,
             vector_detail: effect_number(params, "vector_detail", &at)?,
             frames: None,
+        }),
+        crate::effects::TIMEWARP => Some(crate::effects::Effect::Timewarp {
+            method: effect_word(params, "method", &at)?,
+            adjust_time_by: effect_word(params, "adjust_time_by", &at)?,
+            speed: effect_number(params, "speed", &at)?,
+            source_frame: effect_number(params, "source_frame", &at)?,
+            vector_detail: effect_number(params, "vector_detail", &at)?,
+            global_smoothness: effect_number(params, "global_smoothness", &at)?,
+            local_smoothness: effect_number(params, "local_smoothness", &at)?,
+            smoothing_iterations: effect_number(params, "smoothing_iterations", &at)?,
+            build_from_one_image: effect_word(params, "build_from_one_image", &at)?,
+            correct_luminance_changes: effect_word(params, "correct_luminance_changes", &at)?,
+            filtering: effect_word(params, "filtering", &at)?,
+            error_threshold: effect_number(params, "error_threshold", &at)?,
+            block_size: effect_number(params, "block_size", &at)?,
+            red_weight: effect_number(params, "red_weight", &at)?,
+            green_weight: effect_number(params, "green_weight", &at)?,
+            blue_weight: effect_number(params, "blue_weight", &at)?,
+            enable_motion_blur: effect_word(params, "enable_motion_blur", &at)?,
+            shutter_control: effect_word(params, "shutter_control", &at)?,
+            shutter_angle: effect_number(params, "shutter_angle", &at)?,
+            shutter_samples: effect_number(params, "shutter_samples", &at)?,
+            picture: None,
         }),
         crate::effects::CAUSTICS => Some(crate::effects::Effect::Caustics {
             bottom_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "bottom_layer")?.clone(),
