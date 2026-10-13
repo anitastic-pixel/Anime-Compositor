@@ -1457,6 +1457,9 @@ pub enum Effect {
     /// of the layer -1000 to 1000, `height` and `width` 0 to 10 layer widths, `angle` -3600 to
     /// 3600, `amplitude` 0 to 10, `frequency` 0 to 30 a second, `phase` -3600 to 3600. A
     /// position of other than two numbers is kept as written and faults, as the fixtures ask.
+    /// D-635: `view` `height_map` or `wireframe_preview`, and the Wireframe Controls
+    /// `horizontal_rotation` -3600 to 3600, `vertical_rotation` -90 to 90 and `vertical_scale` 0
+    /// to 10, added after the effect and read as when added where a file lacks them.
     /// Not settings, never saved: `ground_map`, compose reads the ground into it at the layer's
     /// in point; `history`, compose fills it with every number ([`Effect::wave_numbers`]) at
     /// each frame from the in point to this one, as the water runs again each frame (D-610's
@@ -1494,6 +1497,10 @@ pub enum Effect {
         producer_2_amplitude: f64,
         producer_2_frequency: f64,
         producer_2_phase: f64,
+        view: String,
+        horizontal_rotation: f64,
+        vertical_rotation: f64,
+        vertical_scale: f64,
         history: Vec<Vec<f64>>,
         fps: f64,
         grid_scale: f64,
@@ -1603,7 +1610,8 @@ pub enum Effect {
     },
     /// D-633: after After Effects' Shatter (Simulation), its rule, its units and its settings
     /// when added ours (`layer_fx::shatter`, `tools/shatter_reference.py`, document 21). `view`
-    /// "rendered"; `render` "all", "layer" or "pieces"; `pattern` one of [`SHATTER_PATTERNS`];
+    /// "rendered", or D-635's "wireframe_front", "wireframe", "wireframe_front_forces" or
+    /// "wireframe_forces"; `render` "all", "layer" or "pieces"; `pattern` one of [`SHATTER_PATTERNS`];
     /// `custom_shatter_map`, `gradient_layer`, `front_layer`, `side_layer` and `back_layer` D-189's
     /// layer settings as written, each stretched to the layer ("" the layer's own drawing, but no
     /// gradient at all for `gradient_layer`); `white_tiles_fixed` and `invert_gradient` "off" or
@@ -6871,6 +6879,9 @@ impl Effect {
                 producer_2_amplitude,
                 producer_2_frequency,
                 producer_2_phase,
+                horizontal_rotation,
+                vertical_rotation,
+                vertical_scale,
                 ..
             } => vec![
                 ("brightness", vec![brightness], 0.0, 1.0),
@@ -6898,6 +6909,10 @@ impl Effect {
                 ("producer_2_amplitude", vec![producer_2_amplitude], 0.0, 10.0),
                 ("producer_2_frequency", vec![producer_2_frequency], 0.0, 30.0),
                 ("producer_2_phase", vec![producer_2_phase], -3600.0, 3600.0),
+                // D-635: the Wireframe Controls, last so the places before them stay.
+                ("horizontal_rotation", vec![horizontal_rotation], -3600.0, 3600.0),
+                ("vertical_rotation", vec![vertical_rotation], -90.0, 90.0),
+                ("vertical_scale", vec![vertical_scale], 0.0, 10.0),
             ],
             Effect::Caustics {
                 bottom_scaling,
@@ -10520,8 +10535,7 @@ impl Effect {
                 .into_iter()
                 .find(|(_, l)| !l.is_string())
                 .map(|(what, l)| format!("Shatter's {what} is the name of a layer of this composition, and this is {l}."))
-                .or_else(|| later("view", &["wireframe_front", "wireframe", "wireframe_front_forces", "wireframe_forces"], view, "D-635"))
-                .or_else(|| one_of("view", &["rendered"], view))
+                .or_else(|| one_of("view", &["rendered", "wireframe_front", "wireframe", "wireframe_front_forces", "wireframe_forces"], view))
                 .or_else(|| one_of("render", &["all", "layer", "pieces"], render))
                 .or_else(|| later("pattern", &SHATTER_LATER_PATTERNS, pattern, "D-636"))
                 .or_else(|| one_of("pattern", &SHATTER_PATTERNS, pattern))
@@ -10544,6 +10558,7 @@ impl Effect {
                 producer_2_type,
                 producer_1_position,
                 producer_2_position,
+                view,
                 ..
             } => {
                 let one_of = |what: &str, words: &[&str], w: &str| {
@@ -10559,6 +10574,7 @@ impl Effect {
                     .or_else(|| one_of("reflect edges", &["none", "all"], reflect_edges))
                     .or_else(|| one_of("producer 1 type", &["ring", "line"], producer_1_type))
                     .or_else(|| one_of("producer 2 type", &["ring", "line"], producer_2_type))
+                    .or_else(|| one_of("view", &["height_map", "wireframe_preview"], view))
                     .or_else(|| [producer_1_position, producer_2_position].iter().enumerate().find(|(_, v)| v.len() != 2).map(|(i, v)| format!(
                         "Wave World's producer {} position is two numbers, x then y, and this has {}.",
                         i + 1,

@@ -9879,10 +9879,10 @@ const EFFECT_ABOUT = {
   'core.time_difference': 'Shows how the layer differs from a target layer at another moment: what moved shows, what stood still goes black, or mid grey with Absolute Difference off. With no target the layer is compared with itself, so it stays black until Time Offset is set (try -0.04 seconds, one frame back at 24). Contrast strengthens the difference; Alpha Channel chooses what covers the result. It reads the layer as drawn, without its effects.',
   'core.cc_wide_time': 'Averages the layer over a span of frames, Backward Steps before the present one and Forward Steps after, every frame counted the same: a smearing blur for anything moving over a still background. It reads the layer as drawn, so effects meant to be smeared go inside a precomposition. Native Motion Blur Off draws the compositions inside without their own motion blur.',
   'core.cc_rainfall': 'Rain with depth: drops scattered through a volume behind the picture, the far ones smaller, slower and fainter, falling to the ground level and round again, laid over the layer (Lighten never darkens it) or alone. Not built: Background Reflection, the Refracting look, Offset and Embed Depth.',
-  'core.wave_world': 'Water on a grid: ripples from up to two producers, a ring or a line, spread, bounce off a shore made from a ground layer and die away, drawn in place of the layer as a grey height map to feed a displacement or a caustics map. The water runs from the in point of the layer, so a late frame takes longer to draw. Not built: Wireframe Preview.',
+  'core.wave_world': 'Water on a grid: ripples from up to two producers, a ring or a line, spread, bounce off a shore made from a ground layer and die away, drawn in place of the layer as a grey height map to feed a displacement or a caustics map. View Wireframe Preview draws the water instead as a white grid seen from above at an angle, the producers marked red and blue, turned by the Wireframe Controls, to see the waves while setting them up. The water runs from the in point of the layer, so a late frame takes longer to draw.',
   'core.pixel_motion_blur': 'Motion blur from the pictures themselves: the layer is compared with its frames just before and after, the motion of every part of it found, and each pixel smeared along its own motion while the shutter is open. Automatic uses the composition’s shutter angle and samples; Manual uses its own. Vector Detail sets how finely the motion is found, 100 for every pixel. It works best on footage and drawings that move smoothly; on an adjustment layer it changes nothing, and says so.',
   'core.caustics': 'A bottom seen through water: the layer itself or a chosen layer, bent by waves taken from the brightness of a water surface layer (best a Wave World), brightened and darkened where the waves gather and spread the light, under a lit surface colour that can mirror a sky layer. Not built: the light from the first composition light, and the depth blur After Effects adds.',
-  'core.shatter': 'Breaks the layer into pieces of a pattern (bricks, hexagons, glass and more, or the regions of a custom map) and throws away those a force sphere reaches, a gradient layer allowing, spinning and falling under gravity; the pieces are slabs with front, side and back textures, seen by its own camera, by four corner pins or by the composition camera, and lit. Time runs from the layer\u2019s in point. Not built: the wireframe views, ten of After Effects\u2019 patterns, and the light from the first composition light.',
+  'core.shatter': 'Breaks the layer into pieces of a pattern (bricks, hexagons, glass and more, or the regions of a custom map) and throws away those a force sphere reaches, a gradient layer allowing, spinning and falling under gravity; the pieces are slabs with front, side and back textures, seen by its own camera, by four corner pins or by the composition camera, and lit. The wireframe views draw only the outlines of the pieces, straight on or through the camera, with the force spheres in red and blue for the Forces views. Time runs from the layer\u2019s in point. Not built: ten of After Effects\u2019 patterns, and the light from the first composition light.',
   'core.card_dance': 'Cuts the layer into a grid of cards and moves, turns and scales each one by the red, green, blue, brightness or alpha of a gradient layer under its centre (white pushes one way, grey not at all, black the other), seen by its own camera, by four corner pins or by the composition camera, and lit. The cards’ backs show the Back Layer, or nothing. Not built: the light from the first composition light.',
   'core.force_motion_blur': 'Motion blur for what moves inside a composition layer: the composition is drawn at several moments inside the shutter, every key inside read at each moment, and averaged. It uses the composition’s own shutter angle when its motion blur and the layer’s switch are on, or its own Shutter Angle with Override Native Shutter On; the shutter opens on the frame. Drawings, text, shapes and expressions inside hold at the frame. Native Motion Blur Off draws the compositions inside without their own motion blur. Only a composition layer is blurred.',
   'core.posterize_time': 'Holds the layer\'s drawing and effects for several frames at a time, as if drawn at a lower frame rate: on twos, on threes.',
@@ -10728,7 +10728,11 @@ const EFFECT_PARAMS = {
     ['producer_2_angle', 'Producer 2 Angle', 1, 1, 'degrees, -3600 to 3600'],
     ['producer_2_amplitude', 'Producer 2 Amplitude', 1, 0.05, '0 to 10; 0 leaves it off'],
     ['producer_2_frequency', 'Producer 2 Frequency', 1, 0.1, 'beats a second, 0 to 30'],
-    ['producer_2_phase', 'Producer 2 Phase', 1, 1, 'degrees, -3600 to 3600, where in its beat it starts']],
+    ['producer_2_phase', 'Producer 2 Phase', 1, 1, 'degrees, -3600 to 3600, where in its beat it starts'],
+    // D-635: the Wireframe Controls.
+    ['horizontal_rotation', 'Horizontal Rotation', 1, 1, 'degrees, -3600 to 3600, turns the wireframe round; Wireframe Preview only', '', 0],
+    ['vertical_rotation', 'Vertical Rotation', 1, 1, 'degrees, -90 to 90, how far above the water it is seen from; Wireframe Preview only', '', 30],
+    ['vertical_scale', 'Vertical Scale', 1, 0.05, '0 to 10, how tall the waves are drawn; Wireframe Preview only', '', 1]],
   // D-631, After Effects' own names; the units are ours.
   'core.caustics': [['bottom_scaling', 'Bottom Scaling', 1, 0.05, '0.1 to 10, the bottom’s size'],
     ['bottom_blur', 'Bottom Blur', 1, 0.5, '0 to 50, softens the bottom'],
@@ -12619,7 +12623,8 @@ const EFFECT_WORDS = {
   // D-630, After Effects' own words.
   'core.wave_world': {
     layers: [['ground_layer', 'Ground Layer', 'map_layer']],
-    choices: [['render_dry_areas', 'Render Dry Areas As', [['level', 'Level'], ['transparent', 'Transparent']]],
+    choices: [['view', 'View', [['height_map', 'Height Map'], ['wireframe_preview', 'Wireframe Preview']]],
+      ['render_dry_areas', 'Render Dry Areas As', [['level', 'Level'], ['transparent', 'Transparent']]],
       ['grid_res_downsamples', 'Grid Res Downsamples', [['off', 'Off'], ['on', 'On']]],
       ['reflect_edges', 'Reflect Edges', [['none', 'None'], ['all', 'All']]],
       ['producer_1_type', 'Producer 1 Type', [['ring', 'Ring'], ['line', 'Line']]],
@@ -12639,7 +12644,7 @@ const EFFECT_WORDS = {
   'core.shatter': {
     layers: [['custom_shatter_map', 'Custom Shatter Map', 'custom_shatter_map'], ['gradient_layer', 'Gradient Layer', 'gradient_layer'], ['front_layer', 'Front Layer', 'front_layer'], ['side_layer', 'Side Layer', 'side_layer'], ['back_layer', 'Back Layer', 'back_layer']],
     colours: [['color', 'Color'], ['light_color', 'Light Color']],
-    choices: [['view', 'View', [['rendered', 'Rendered']]],
+    choices: [['view', 'View', [['rendered', 'Rendered'], ['wireframe_front', 'Wireframe Front View'], ['wireframe', 'Wireframe'], ['wireframe_front_forces', 'Wireframe Front View + Forces'], ['wireframe_forces', 'Wireframe + Forces']]],
       ['render', 'Render', [['all', 'All'], ['layer', 'Layer'], ['pieces', 'Pieces']]],
       ['pattern', 'Pattern', [['bricks', 'Bricks'], ['squares', 'Squares'], ['hexagons', 'Hexagons'], ['triangles_1', 'Triangles 1'], ['triangles_2', 'Triangles 2'], ['rhombus', 'Rhombus'], ['planks', 'Planks'], ['herringbone_1', 'Herringbone 1'], ['octagons_squares', 'Octagons & Squares'], ['glass', 'Glass'], ['custom', 'Custom']]],
       ['white_tiles_fixed', 'White Tiles Fixed', [['off', 'Off'], ['on', 'On']]],

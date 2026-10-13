@@ -10192,6 +10192,7 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
         ground_map,
         producer_1_type,
         producer_2_type,
+        view,
         history,
         fps,
         grid_scale,
@@ -10393,8 +10394,84 @@ pub(crate) fn wave_world(source: &mut WorkingBuffer, e: &crate::effects::Effect,
         }
     }
 
-    // Step 7: the map, this frame's settings, over the drawing in its place.
+    // The depths at this frame's settings, for step 7 or step 8.
     let d: Vec<f64> = g.iter().map(|gi| kn[HEIGHT] - kn[STEEP] * gi).collect();
+
+    // Step 8 (D-635): the Wireframe Preview in place of the map, a white line between each wet
+    // cell and its wet neighbours right and down, seen square-on from the vertical rotation,
+    // then the producers' marks.
+    if view == "wireframe_preview" {
+        const WIRE: usize = 27;
+        let (lwu, lhu) = (w - 2 * ox, h - 2 * oy);
+        let (p, t) = (kn[WIRE].to_radians(), kn[WIRE + 1].to_radians());
+        let (cp, sp, ct, st) = (p.cos(), p.sin(), t.cos(), t.sin());
+        let seen = |a: f64, b: f64, z: f64| {
+            let (a2, b2) = (a * cp - b * sp, a * sp + b * cp);
+            (lw / 2.0 - 0.5 + a2, lh / 2.0 - 0.5 + b2 * st - z * ct)
+        };
+        let point = |c: usize| {
+            seen(((c % n) as f64 + 0.5) * lw / n as f64 - lw / 2.0, ((c / n) as f64 + 0.5) * lh / m as f64 - lh / 2.0, hh[c] * kn[WIRE + 2] * lw / 10.0)
+        };
+        let mut lit = vec![false; lwu * lhu];
+        let mut draw = |a: (f64, f64), b: (f64, f64)| {
+            // Only pixels whose centre can lie within 1/2 of the segment are tried.
+            let span = |lo: f64, hi: f64, len: usize| {
+                let (lo, hi) = ((lo - 1.0).floor().max(0.0), hi.ceil().min(len as f64 - 1.0));
+                (lo <= hi).then(|| (lo as usize, hi as usize))
+            };
+            let (Some((x0, x1)), Some((y0, y1))) = (span(a.0.min(b.0), a.0.max(b.0), lwu), span(a.1.min(b.1), a.1.max(b.1), lhu)) else {
+                return;
+            };
+            let (ex, ey) = (b.0 - a.0, b.1 - a.1);
+            let ll = ex * ex + ey * ey;
+            for y in y0..=y1 {
+                for x in x0..=x1 {
+                    let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
+                    let f = if ll == 0.0 { 0.0 } else { (((cx - a.0) * ex + (cy - a.1) * ey) / ll).clamp(0.0, 1.0) };
+                    if (cx - a.0 - f * ex).hypot(cy - a.1 - f * ey) < 0.5 {
+                        lit[y * lwu + x] = true;
+                    }
+                }
+            }
+        };
+        for c in 0..n * m {
+            if d[c] <= 0.0 {
+                continue;
+            }
+            let (i, j) = (c % n, c / n);
+            if i + 1 < n && d[c + 1] > 0.0 {
+                draw(point(c), point(c + 1));
+            }
+            if j + 1 < m && d[c + n] > 0.0 {
+                draw(point(c), point(c + n));
+            }
+        }
+        let mut out = WorkingBuffer::transparent(w, h);
+        let put = |out: &mut WorkingBuffer, x: usize, y: usize, c: [f32; 4]| out.data_mut()[(y * w + x) * 4..][..4].copy_from_slice(&c);
+        for (k, &on) in lit.iter().enumerate() {
+            if on {
+                put(&mut out, ox + k % lwu, oy + k / lwu, [1.0; 4]);
+            }
+        }
+        for (pr, colour) in [(0, [1.0, 0.0, 0.0, 1.0]), (1, [0.0, 0.0, 1.0, 1.0])] {
+            let o = PROD[pr];
+            if kn[o + 5] == 0.0 {
+                continue;
+            }
+            let (sx, sy) = seen(kn[o] * lw / 100.0 - lw / 2.0, kn[o + 1] * lh / 100.0 - lh / 2.0, 0.0);
+            let (fx, fy) = (sx.floor(), sy.floor());
+            for (dx, dy) in [(-2.0, 0.0), (-1.0, 0.0), (0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (0.0, -2.0), (0.0, -1.0), (0.0, 1.0), (0.0, 2.0)] {
+                let (x, y) = (fx + dx, fy + dy);
+                if x >= 0.0 && y >= 0.0 && x < lw && y < lh {
+                    put(&mut out, ox + x as usize, oy + y as usize, colour);
+                }
+            }
+        }
+        *source = out;
+        return;
+    }
+
+    // Step 7: the map, this frame's settings, over the drawing in its place.
     let bilerp = |v: &[f64], gx: f64, gy: f64| {
         let (gx, gy) = (gx.clamp(0.0, (n - 1) as f64), gy.clamp(0.0, (m - 1) as f64));
         let (i0, j0) = (gx.floor() as usize, gy.floor() as usize);
@@ -10909,7 +10986,7 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
 /// summed step by step; Wave World's checkpoint idea if long shots crawl.
 pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
     #[rustfmt::skip]
-    let crate::effects::Effect::Shatter { render, pattern, custom_shatter_map, custom_map, white_tiles_fixed, repetitions, direction, origin, extrusion_depth, gradient_layer, gradient_map, invert_gradient, tumble_axis, color, opacity, front_mode, side_mode, back_mode, front_layer, front_map, side_layer, side_map, back_layer, back_map, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, seen, history, fps, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } = e
+    let crate::effects::Effect::Shatter { view, render, pattern, custom_shatter_map, custom_map, white_tiles_fixed, repetitions, direction, origin, extrusion_depth, gradient_layer, gradient_map, invert_gradient, tumble_axis, color, opacity, front_mode, side_mode, back_mode, front_layer, front_map, side_layer, side_map, back_layer, back_map, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, seen, history, fps, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } = e
     else {
         unreachable!("Shatter of another effect")
     };
@@ -10936,7 +11013,9 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
     // D-634: the Corner Pins camera; nothing is drawn where it has none.
     let pinned = (camera_system == "corner_pins")
         .then(|| corner_camera(lw as f64, lh as f64, [*upper_left_corner, *upper_right_corner, *lower_left_corner, *lower_right_corner], *focal_length, auto_focal_length == "on"));
-    if lw == 0 || lh == 0 || (comp_camera && !(seen[2] > 0.0)) || matches!(pinned, Some(None)) {
+    // D-635: the front wireframes are seen straight on, with no camera.
+    let front = view.starts_with("wireframe_front");
+    if lw == 0 || lh == 0 || (!front && ((comp_camera && !(seen[2] > 0.0)) || matches!(pinned, Some(None)))) {
         *source = out;
         return;
     }
@@ -11287,13 +11366,20 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
             let v = if corner & 2 == 0 { y0 as f64 } else { (y1 + 1) as f64 };
             let z = if corner & 4 == 0 { 0.0 } else { depth };
             let p = app(&shard.r, [u - shard.bx, v - shard.by, z]);
-            let q = app(&m, std::array::from_fn(|n| p[n] + shard.b[n] + shard.x[n] - o[n]));
-            if !(q[2] > 1e-9 * f) {
-                behind += 1;
-                gone += usize::from(!(q[2] > 0.0));
-                continue;
-            }
-            for (n, at) in [(0, centre[0] + f * q[0] / q[2] + ox as f64), (1, centre[1] + f * q[1] / q[2] + oy as f64)] {
+            let wp: V3 = std::array::from_fn(|n| p[n] + shard.b[n] + shard.x[n]);
+            // D-635: a front wireframe's screen is the layer's plane, straight on.
+            let screen = if front {
+                [wp[0] + wf / 2.0 + ox as f64, wp[1] + hf / 2.0 + oy as f64]
+            } else {
+                let q = app(&m, std::array::from_fn(|n| wp[n] - o[n]));
+                if !(q[2] > 1e-9 * f) {
+                    behind += 1;
+                    gone += usize::from(!(q[2] > 0.0));
+                    continue;
+                }
+                [centre[0] + f * q[0] / q[2] + ox as f64, centre[1] + f * q[1] / q[2] + oy as f64]
+            };
+            for (n, at) in [(0, screen[0]), (1, screen[1])] {
                 lo[n] = lo[n].min(at);
                 hi[n] = hi[n].max(at);
             }
@@ -11402,6 +11488,50 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
             }
         }
     };
+
+    // Step 9 (D-635): the wireframe views, white where the pixel's line meets a drawn piece's
+    // front plane on one of its edge pixels, every piece showing through the others; then, for
+    // the Forces views, each force sphere's outline, force 2 over force 1.
+    if view != "rendered" {
+        let edge = |i: i64, j: i64, k: usize| owns(i, j, k) && !(owns(i + 1, j, k) && owns(i - 1, j, k) && owns(i, j + 1, k) && owns(i, j - 1, k));
+        let forces = view.ends_with("_forces");
+        out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+            let (bx, by) = (i % w, i / w);
+            let (lx, ly) = (bx as f64 - ox as f64 + 0.5, by as f64 - oy as f64 + 0.5);
+            let (o, d) = if front { ([lx - wf / 2.0, ly - hf / 2.0, 0.0], [0.0, 0.0, 1.0]) } else { (o, app_t(&rt, [lx - centre[0], ly - centre[1], f])) };
+            let white = tiles[(by / TILE) * tx + bx / TILE].iter().chain(&everywhere).any(|&s| {
+                let shard = &deck[s as usize];
+                let rel: V3 = std::array::from_fn(|n| o[n] - shard.b[n] - shard.x[n]);
+                let ol = app_t(&shard.r, rel);
+                let ol = [ol[0] + shard.bx, ol[1] + shard.by, ol[2]];
+                let dl = app_t(&shard.r, d);
+                if dl[2] == 0.0 {
+                    return false;
+                }
+                let t = -ol[2] / dl[2];
+                (front || t > 0.0) && edge((ol[0] + t * dl[0]).floor() as i64, (ol[1] + t * dl[1]).floor() as i64, shard.k)
+            });
+            if white {
+                px.copy_from_slice(&[1.0; 4]);
+            }
+            if forces {
+                for (n, colour) in [(0, [1.0, 0.0, 0.0, 1.0]), (1, [0.0, 0.0, 1.0, 1.0])] {
+                    let r = at(last, FORCE[n] + 3) * wf;
+                    if r <= 0.0 {
+                        continue;
+                    }
+                    let c = force_centre(last, n);
+                    let t = dot([c[0] - o[0], c[1] - o[1], c[2] - o[2]], d) / dot(d, d);
+                    let near: V3 = std::array::from_fn(|k| c[k] - (o[k] + t * d[k]));
+                    if (front || t > 0.0) && (dot(near, near).sqrt() - r).abs() < 0.5 {
+                        px.copy_from_slice(&colour);
+                    }
+                }
+            }
+        });
+        *source = out;
+        return;
+    }
 
     // Steps 7 and 8, per pixel.
     let picture = |word: &serde_json::Value, map: &Option<crate::layer_map::Map>, u: f64, v: f64| -> [f32; 4] {

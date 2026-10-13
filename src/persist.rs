@@ -2255,7 +2255,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("shutter_angle".into(), num(*shutter_angle));
             params.insert("native_motion_blur".into(), J::from(native_motion_blur.as_str()));
         }
-        Effect::WaveWorld { ground_layer, producer_1_position, producer_2_position, render_dry_areas, grid_res_downsamples, reflect_edges, producer_1_type, producer_2_type, .. } => {
+        Effect::WaveWorld { ground_layer, producer_1_position, producer_2_position, render_dry_areas, grid_res_downsamples, reflect_edges, producer_1_type, producer_2_type, view, .. } => {
             params.insert("ground_layer".into(), ground_layer.clone());
             for (n, v) in [("producer_1_position", producer_1_position), ("producer_2_position", producer_2_position)] {
                 params.insert(n.into(), J::Array(v.iter().map(|c| num(*c)).collect()));
@@ -2264,9 +2264,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert(n.into(), J::from(v.as_str()));
             }
             // D-630: every other number, by its name in the effect's table.
+            let wire = [("horizontal_rotation", 0.0), ("vertical_rotation", 30.0), ("vertical_scale", 1.0)];
             for n in instance.effect.names() {
-                if !n.ends_with("_position") {
+                if !n.ends_with("_position") && !wire.iter().any(|(w, _)| *w == n) {
                     params.insert(n.into(), num(instance.effect.get(n).unwrap()[0]));
+                }
+            }
+            // D-635: the view and the Wireframe Controls, as D-304, only if moved, keyed or
+            // already in the file.
+            if view != "height_map" || params.contains_key("view") {
+                params.insert("view".into(), J::from(view.as_str()));
+            }
+            for (n, start) in wire {
+                let v = instance.effect.get(n).unwrap()[0];
+                if v != start || instance.tracks.contains_key(n) || params.contains_key(n) {
+                    params.insert(n.into(), num(v));
                 }
             }
         }
@@ -6764,6 +6776,10 @@ fn parse_effect(
             producer_2_type: effect_word(params, "producer_2_type", &at)?,
             producer_1_position: effect_list(params, "producer_1_position", &at)?,
             producer_2_position: effect_list(params, "producer_2_position", &at)?,
+            view: effect_word_or(params, "view", &at, "height_map")?,
+            horizontal_rotation: effect_number_or(params, "horizontal_rotation", &at, 0.0)?,
+            vertical_rotation: effect_number_or(params, "vertical_rotation", &at, 30.0)?,
+            vertical_scale: effect_number_or(params, "vertical_scale", &at, 1.0)?,
             ground_layer: field(effect_params(params, &at)?, &format!("{at}/parameters"), "ground_layer")?.clone(),
             ground_map: None,
             history: Vec::new(),
