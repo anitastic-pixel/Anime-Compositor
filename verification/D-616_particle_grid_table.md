@@ -1,6 +1,6 @@
 # D-616: Particle Grid
 
-B-496, the particle engine's fifth effect (P0-6, PLUGINS.md's parked pick), after what Trapcode Form is for: particles that stay put, in a grid of points or on layered spheres in 3D, turned and moved as one, each point nudged its own way, the whole twisted and rippled by a noise field that can drift and change, coloured, sized and pushed towards the camera by other layers; drawn as soft or glowing spheres, stars or faded clouds over a clear layer, through the composition camera when there is one. Nothing is carried from frame to frame: the drift is the sum of the Flow settings over the frames from the in point, each worked from the settings alone (document 20). Drawn on the processor only. Red Giant publishes no formula and no settings when added, so the rules, those settings and the name are ours, stated in `tools/particle_grid_reference.py`. Every expected pixel is `Fixtures/particle_grid/expected_particle_grid.json` and every expected point `Fixtures/particle_grid/particles_particle_grid.json`, written by the tool before this code existed and printed in document 25 as FX-PGRID-001 to 060. Tolerances 2e-5 and 1e-7.
+B-496, the particle engine's fifth effect (P0-6, PLUGINS.md's parked pick), after what Trapcode Form is for: particles that stay put, in a grid of points or on layered spheres in 3D, turned and moved as one, each point nudged its own way, the whole twisted and rippled by a noise field that can drift and change, coloured, sized and pushed towards the camera by other layers; drawn as soft or glowing spheres, stars or faded clouds over a clear layer, through the composition camera when there is one. Nothing is carried from frame to frame: the drift is the sum of the Flow settings over the frames from the in point, each worked from the settings alone (document 20). The points are worked out on the processor and drawn on the card too (D-618), within 1 level of the processor. Red Giant publishes no formula and no settings when added, so the rules, those settings and the name are ours, stated in `tools/particle_grid_reference.py`. Every expected pixel is `Fixtures/particle_grid/expected_particle_grid.json` and every expected point `Fixtures/particle_grid/particles_particle_grid.json`, written by the tool before this code existed and printed in document 25 as FX-PGRID-001 to 060. Tolerances 2e-5 and 1e-7.
 
 ## FX-PGRID-001 to 060 (document 25)
 
@@ -271,6 +271,99 @@ B-496, the particle engine's fifth effect (P0-6, PLUGINS.md's parked pick), afte
 | 6_twisted_stars.png, frame 0: drawn without a warning, the street changed | 6940 pixels changed; warnings [] | yes |
 | 7_cloudlets.png, frame 0: drawn without a warning, the street changed | 88374 pixels changed; warnings [] | yes |
 
+## On the card (D-618)
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| FX-PGRID-001, fx_pgrid_001.json, frames [0, 12] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-002, fx_pgrid_002.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-003, fx_pgrid_003.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-004, fx_pgrid_004.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-005, fx_pgrid_005.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-006, fx_pgrid_006.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-007, fx_pgrid_007.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-008, fx_pgrid_008.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-009, fx_pgrid_009.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-010, fx_pgrid_010.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-011, fx_pgrid_011.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-012, fx_pgrid_012.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-013, fx_pgrid_013.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-014, fx_pgrid_014.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-015, fx_pgrid_015.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-016, fx_pgrid_016.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-017, fx_pgrid_017.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-018, fx_pgrid_018.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-019, fx_pgrid_019.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-020, fx_pgrid_020.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-021, fx_pgrid_021.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-022, fx_pgrid_022.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-023, fx_pgrid_023.json, frames [0, 12, 24] at Full and Draft | largest difference 0 of 255; on the card in 6 of 6 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-024, fx_pgrid_024.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-025, fx_pgrid_025.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-026, fx_pgrid_026.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-027, fx_pgrid_027.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-028, fx_pgrid_028.json, frames [0, 12, 24] at Full and Draft | largest difference 0 of 255; on the card in 6 of 6 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-029, fx_pgrid_029.json, frames [0, 12] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-030, fx_pgrid_030.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-031, fx_pgrid_031.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-032, fx_pgrid_032.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-033, fx_pgrid_033.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-034, fx_pgrid_034.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-035, fx_pgrid_035.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-036, fx_pgrid_036.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-037, fx_pgrid_037.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-038, fx_pgrid_038.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-039, fx_pgrid_039.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-040, fx_pgrid_040.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-041, fx_pgrid_041.json, frames [10, 22] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-042, fx_pgrid_042.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-043, fx_pgrid_043.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-044, fx_pgrid_044.json, frames [21, 9] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-045, fx_pgrid_045.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-046, fx_pgrid_046.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-047, fx_pgrid_047.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-048, fx_pgrid_048.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-049, fx_pgrid_049.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-050, fx_pgrid_050.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-051, fx_pgrid_051.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-052, fx_pgrid_052.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-053, fx_pgrid_053.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-054, fx_pgrid_054.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-055, fx_pgrid_055.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-056, fx_pgrid_056.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-057, fx_pgrid_057.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-058, fx_pgrid_058.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-059, fx_pgrid_059.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PGRID-060, fx_pgrid_060.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| the reference shot, Particle Grid as added: the processor's frame 100 differs from the shot without it | 1967431 pixels changed | yes |
+| the reference shot, Particle Grid as added, frame 0, Full | largest difference 1 of 255, 10 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Grid as added, frame 100, Full | largest difference 1 of 255, 46 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Grid as added, frame 239, Full | largest difference 1 of 255, 11 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Grid as added, frame 0, Draft | largest difference 1 of 255, 514 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Grid as added, frame 100, Draft | largest difference 1 of 255, 491 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Grid as added, frame 239, Draft | largest difference 1 of 255, 436 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing points rippling and drifting, added: the processor's frame 100 differs from the shot without it | 1967431 pixels changed | yes |
+| the reference shot, glowing points rippling and drifting, added, frame 0, Full | largest difference 1 of 255, 434 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing points rippling and drifting, added, frame 100, Full | largest difference 1 of 255, 578 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing points rippling and drifting, added, frame 239, Full | largest difference 1 of 255, 428 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing points rippling and drifting, added, frame 0, Draft | largest difference 1 of 255, 527 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing points rippling and drifting, added, frame 100, Draft | largest difference 1 of 255, 479 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing points rippling and drifting, added, frame 239, Draft | largest difference 1 of 255, 444 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars on a layered sphere, screened: the processor's frame 100 differs from the shot without it | 1967427 pixels changed | yes |
+| the reference shot, stars on a layered sphere, screened, frame 0, Full | largest difference 1 of 255, 427 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars on a layered sphere, screened, frame 100, Full | largest difference 1 of 255, 508 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars on a layered sphere, screened, frame 239, Full | largest difference 1 of 255, 393 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars on a layered sphere, screened, frame 0, Draft | largest difference 1 of 255, 553 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars on a layered sphere, screened, frame 100, Draft | largest difference 1 of 255, 445 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars on a layered sphere, screened, frame 239, Draft | largest difference 1 of 255, 479 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets tipped, coloured and pushed by a layer: the processor's frame 100 differs from the shot without it | 1967431 pixels changed | yes |
+| the reference shot, cloudlets tipped, coloured and pushed by a layer, frame 0, Full | largest difference 1 of 255, 61 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets tipped, coloured and pushed by a layer, frame 100, Full | largest difference 1 of 255, 75 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets tipped, coloured and pushed by a layer, frame 239, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets tipped, coloured and pushed by a layer, frame 0, Draft | largest difference 1 of 255, 534 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets tipped, coloured and pushed by a layer, frame 100, Draft | largest difference 1 of 255, 480 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets tipped, coloured and pushed by a layer, frame 239, Draft | largest difference 1 of 255, 448 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+
 ## Result
 
-244 of 244 checks pass.
+332 of 332 checks pass.

@@ -1179,6 +1179,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::ParticlePlane { .. }
                 // D-617.
                 | crate::effects::Effect::ParticleEmitter { .. }
+                // D-618.
+                | crate::effects::Effect::ParticleGrid { .. }
                 // D-673.
                 | crate::effects::Effect::Hair { .. }
                 // D-674.
@@ -1795,6 +1797,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
                 | E::PolygonShards { .. }
                 | E::ParticlePlane { .. }
                 | E::ParticleEmitter { .. }
+                | E::ParticleGrid { .. }
                 | E::HsvKey { .. }
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }
@@ -3454,6 +3457,7 @@ fn resolve_rest(
                 | E::PolygonShards { .. }
                 | E::ParticlePlane { .. }
                 | E::ParticleEmitter { .. }
+                | E::ParticleGrid { .. }
                 | E::HsvKey { .. }
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }

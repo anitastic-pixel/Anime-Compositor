@@ -24,8 +24,9 @@ use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
 use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
-use anime_compositor::diagnostics::FrameLog;
+use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
 use anime_compositor::effects::{Effect, PARTICLE_GRID_COLORS, PARTICLE_GRID_LAYERS, PARTICLE_GRID_SETTINGS, PARTICLE_GRID_WORDS};
+use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{particles, persist, png_out, OutputDepth};
@@ -135,7 +136,8 @@ fn b496_particle_grid() {
          spheres, stars or faded clouds over a clear layer, through the composition camera when \
          there is one. Nothing is carried from frame to frame: the drift is the sum of the Flow \
          settings over the frames from the in point, each worked from the settings alone \
-         (document 20). Drawn on the processor only. Red Giant publishes no formula and no \
+         (document 20). The points are worked out on the processor and drawn on the card too \
+         (D-618), within 1 level of the processor. Red Giant publishes no formula and no \
          settings when added, so the rules, those settings and the name are ours, stated in \
          `tools/particle_grid_reference.py`. Every expected pixel is \
          `Fixtures/particle_grid/expected_particle_grid.json` and every expected point \
@@ -259,6 +261,20 @@ fn b496_particle_grid() {
             said.is_empty() && differing(&bytes, &street) > 0,
         );
     }
+    t.heading("On the card (D-618)");
+    let mut gpu = Gpu::new().expect("a graphics card");
+    let mine: fn(&Effect) -> bool = |e| matches!(e, Effect::ParticleGrid { .. });
+    t.card_fixtures(&mut gpu, "expected_particle_grid.json", &(50..=60).collect::<Vec<_>>(), mine);
+    let shots: Vec<(&str, Project, usize)> = [
+        ("Particle Grid as added", json!({})),
+        ("glowing points rippling and drifting, added", json!({"particles_in_x": 60, "particles_in_y": 40, "size": 8, "displace": 40, "flow_x": 40, "flow_evolution": 0.5, "particle_type": "glow_sphere", "transfer_mode": "add"})),
+        ("stars on a layered sphere, screened", json!({"base_form": "sphere_layered", "form_size_z": 600, "particles_in_z": 4, "size": 12, "particle_type": "star", "transfer_mode": "screen"})),
+        ("cloudlets tipped, coloured and pushed by a layer", json!({"particles_in_x": 50, "particles_in_y": 30, "particles_in_z": 3, "form_size_z": 400, "form_rotation_x": 50, "size": 16, "particle_type": "cloudlet", "color_map": "layer-2", "displace_map": "layer-2"})),
+    ]
+    .into_iter()
+    .map(|(what, p)| (what, reference(json!([fx("card", &p)])), 1))
+    .collect();
+    t.card_reference(&mut gpu, &reference(json!([])), &shots, mine);
     t.finish("D-616_particle_grid_table.md");
 }
 
@@ -276,17 +292,20 @@ fn reference(stack: J) -> Project {
 }
 
 /// The frame times, B-493's way: the reference shot (1920 by 1080, 24 a second) with Particle
-/// Grid on its first layer, frames 0, 60, 120 and 239 each drawn on the processor with empty
-/// caches, three times; the median of the three. A grid's points cost the same at every frame;
-/// only the Flow sums grow with the frame, and only when a setting is keyed.
+/// Grid on its first layer, frames 0, 60, 120 and 239 each drawn with empty caches, three times;
+/// the median of the three. A grid's points cost the same at every frame; only the Flow sums grow
+/// with the frame, and only when a setting is keyed. D-618: each shot drawn by the card and by
+/// the processor, the card after one frame unmeasured so its passes are built.
 #[test]
 #[ignore = "B-496: a measurement, run deliberately with --release --ignored"]
 fn b496_particle_grid_timing() {
     use std::fmt::Write as _;
 
+    let mut gpu = Gpu::new().expect("a usable card");
     let mut s = format!(
-        "- Processor: {}, {} threads\n- System: {}\n- Build: {}\n- Drawn by: the processor (Particle Grid has no card path)\n\n\
-         | Shot | Frame 0 | Frame 60 | Frame 120 | Frame 239 |\n|---|---:|---:|---:|---:|\n",
+        "- Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n- Drawn by: the card and the processor (D-618)\n\n\
+         | Shot | Drawn by | Frame 0 | Frame 60 | Frame 120 | Frame 239 |\n|---|---|---:|---:|---:|---:|\n",
+        gpu.about(),
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
@@ -309,7 +328,24 @@ fn b496_particle_grid_timing() {
     ];
     for (name, p) in shots {
         let project = reference(p.map_or(json!([]), |p| json!([fx("timing", &p)])));
-        let _ = write!(s, "| {name} |");
+        let mut card = |frame| {
+            let mut log = FrameLog::new(3);
+            gpu.forget();
+            let t = std::time::Instant::now();
+            drop(
+                preview::preview_frame_srgb8(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer(), &mut gpu)
+                    .expect("GPU frame"),
+            );
+            let ms = t.elapsed().as_secs_f64() * 1000.0;
+            assert!(!log.finish().iter().any(|d| d.id == DiagnosticId::GpuPreviewOnCpu), "the card refused {name}");
+            ms
+        };
+        card(0);
+        let _ = write!(s, "| {name} | card |");
+        for frame in [0, 60, 120, 239] {
+            let _ = write!(s, " {:.1} ms |", median((0..3).map(|_| card(frame)).collect()));
+        }
+        let _ = write!(s, "\n| {name} | processor |");
         for frame in [0, 60, 120, 239] {
             let times: Vec<f64> = (0..3)
                 .map(|_| {

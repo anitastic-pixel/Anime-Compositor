@@ -15300,8 +15300,8 @@ impl Gpu {
             // D-610: the sprites from the drawing the layer sent, binned into the card's tiles,
             // the lists after them. D-611: the texture's levels as the other picture, its size
             // as n by r (a clear 1 by 1 with none read).
-            // D-612: Particle Plane's the same way. D-617: Particle Emitter's too.
-            e @ (E::ParticleSpace { .. } | E::ParticlePlane { .. } | E::ParticleEmitter { .. }) => {
+            // D-612: Particle Plane's the same way. D-617: Particle Emitter's too. D-618: Particle Grid's.
+            e @ (E::ParticleSpace { .. } | E::ParticlePlane { .. } | E::ParticleEmitter { .. } | E::ParticleGrid { .. }) => {
                 let mut k = crate::particles::sprite_numbers(source, e, f.origin);
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
@@ -17084,6 +17084,11 @@ impl Gpu {
                             crate::effects::Effect::ParticleEmitter { values, .. } => {
                                 let alive = values[0] * values[15] * (1.0 + values[16] / 100.0) + 1.0;
                                 ((7.0 + 14.0 * alive + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
+                            }
+                            // D-618: Particle Grid's, a sprite for each point of its grid.
+                            crate::effects::Effect::ParticleGrid { values, .. } => {
+                                let points = values[3] * values[4] * values[5];
+                                ((7.0 + 14.0 * points + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
                             }
                             // D-673: Hair's strands, eleven numbers each and a place in a tile's
                             // list or several, its tiles' starts and the shared numbers.
