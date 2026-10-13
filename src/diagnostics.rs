@@ -85,6 +85,9 @@ pub enum DiagnosticId {
     /// Document 28, added by D-71: a sound file is not what its name claims. The layer is
     /// kept and silent.
     MediaAudioUnreadable,
+    /// Document 28, added by D-639: a sound the core does not read (Opus). The window still
+    /// plays it; exports and sound effects leave it out.
+    MediaAudioPreviewOnly,
     /// **Proposed (D-19).** Files in one sequence disagree on pixel dimensions.
     MediaSequenceDimensionMismatch,
     /// **Proposed (D-19).** Two files in one selection claim the same frame number.
@@ -268,6 +271,7 @@ impl DiagnosticId {
             DiagnosticId::MediaExrAdjusted => "MEDIA_EXR_ADJUSTED",
             DiagnosticId::MediaAudioCutShort => "MEDIA_AUDIO_CUT_SHORT",
             DiagnosticId::MediaAudioUnreadable => "MEDIA_AUDIO_UNREADABLE",
+            DiagnosticId::MediaAudioPreviewOnly => "MEDIA_AUDIO_PREVIEW_ONLY",
             DiagnosticId::MediaSequenceDimensionMismatch => "MEDIA_SEQUENCE_DIMENSION_MISMATCH",
             DiagnosticId::MediaSequenceDuplicateNumber => "MEDIA_SEQUENCE_DUPLICATE_NUMBER",
             DiagnosticId::MediaSequenceUnnumbered => "MEDIA_SEQUENCE_UNNUMBERED",
@@ -348,6 +352,7 @@ impl DiagnosticId {
                 | DiagnosticId::MediaExrAdjusted
                 | DiagnosticId::MediaAudioCutShort
                 | DiagnosticId::MediaAudioUnreadable
+                | DiagnosticId::MediaAudioPreviewOnly
                 | DiagnosticId::MatteReferenceMissing
                 | DiagnosticId::MatteCycle
                 | DiagnosticId::ParentReferenceMissing

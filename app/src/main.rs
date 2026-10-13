@@ -3020,12 +3020,13 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
     }
 }
 
-/// D-71: the sound files the window offers. The core measures a WAV; every format here is played
-/// by the page's own decoder, so the list is what WebView2 decodes.
-const SOUNDS: [&str; 7] = ["wav", "mp3", "ogg", "opus", "flac", "m4a", "aac"];
-const DRAWINGS_AND_SOUND: [&str; 16] = [
+/// D-71: the sound files the window offers, played by the page's own decoder, so the list is what
+/// WebView2 decodes. D-639: the core reads them all but Opus; a video file (`mp4`, `mov`) brings
+/// in its first sound track only.
+const SOUNDS: [&str; 9] = ["wav", "mp3", "ogg", "opus", "flac", "m4a", "aac", "mp4", "mov"];
+const DRAWINGS_AND_SOUND: [&str; 18] = [
     "png", "exr", "bmp", "tga", "tif", "tiff", "webp", "jpg", "jpeg", "wav", "mp3", "ogg", "opus",
-    "flac", "m4a", "aac",
+    "flac", "m4a", "aac", "mp4", "mov",
 ];
 
 fn is_sound(file: &Path) -> bool {
@@ -3035,19 +3036,26 @@ fn is_sound(file: &Path) -> bool {
 
 /// D-71: one audio asset per chosen file. A WAV the core cannot measure is still imported, with
 /// the reason told once, because document 28 keeps the reference and makes the layer silent.
+/// D-639: every other format is read here too (and kept for the effects that listen), so an
+/// unreadable file or an Opus one is told the same way; a video file says its picture stays out.
 fn import_sounds(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
     let mut said = Vec::new();
     let mut warned = String::new();
+    let mut video = false;
     for file in files {
         let name = file.file_name().map_or_else(
             || file.display().to_string(),
             |n| n.to_string_lossy().into_owned(),
         );
         let wav = file.extension().is_some_and(|e| e.eq_ignore_ascii_case("wav"));
+        video |= file
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("mp4") || e.eq_ignore_ascii_case("mov"));
         let told = match wav.then(|| std::fs::read(file).map(|raw| audio::read_wav(&raw))) {
             Some(Ok(Ok(audio::Wav::Read { cut_short: true, .. }))) => Some(audio::cut_short(&name)),
             Some(Ok(Err(unreadable))) => Some(unreadable),
-            _ => None,
+            Some(_) => None,
+            None => audio::load(file).err(),
         };
         let asset = {
             let held = viewer.lock().expect("the viewer lock was poisoned");
@@ -3069,8 +3077,13 @@ fn import_sounds(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
             held.notes.extend(told.iter().map(note));
         }
     }
+    let picture = if video {
+        " Only its sound is brought in; the picture is not."
+    } else {
+        ""
+    };
     format!(
-        "{}: sound. Drag it to the layer list, or press Make a layer, to hear it.{warned}",
+        "{}: sound. Drag it to the layer list, or press Make a layer, to hear it.{picture}{warned}",
         said.join(" ")
     )
 }

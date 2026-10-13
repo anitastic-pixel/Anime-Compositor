@@ -181,6 +181,11 @@ underneath one of them.
   every glyph to HarfBuzz itself. The two fonts that check uses, Noto Sans Arabic and Noto Sans
   Devanagari, are test files only, not shipped, under the SIL Open Font License beside the others
   in `docs/third_party/`.
+- **`symphonia`** reads FLAC, MP3 and Ogg Vorbis sound, by D-638 1 (a) and D-639 (accepted on
+  2026-10-13 by the owner's sound plan decision), with its default features off and only those
+  three formats turned on. AAC is read by Windows' own decoder through the `windows` crate, and
+  Opus is not read at all. It brought seven `symphonia-*` crates, `lazy_static` and `regex-lite`.
+  It is MPL-2.0, below. `tests/b518_sound_read.rs` holds every file it reads to ffmpeg's decode.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the
@@ -214,8 +219,10 @@ Named, not decided. Document 10 reserves that judgement: "legal conclusions requ
 judgment should be recorded by the appropriate reviewer." The first entry is the one that changed
 with the shell and it should be read first.
 
-- **`MPL-2.0` — five crates.** `cssparser`, `cssparser-macros`, `dtoa-short`, `option-ext` and
-  `selectors`, all linked, all arriving under `tauri`. **This graph is no longer entirely
+- **`MPL-2.0` — thirteen crates.** `cssparser`, `cssparser-macros`, `dtoa-short`, `option-ext` and
+  `selectors`, all linked, all arriving under `tauri`; and `symphonia` with its seven
+  `symphonia-*` crates, linked, chosen directly by D-639 to read sound. All eight ship the MPL-2.0
+  text. **This graph is no longer entirely
   permissive.** MPL-2.0 is file-scope copyleft: it attaches to the MPL-licensed files themselves
   rather than to a larger work that links them, so it does not reach this project's own code the
   way a GPL would. It does carry an obligation to make the source of those files available on
@@ -255,7 +262,7 @@ with the shell and it should be read first.
 ## Licence compatibility, as an engineering read
 
 Not a legal opinion, and a less confident one than this section used to give. Every crate above
-offers permissive terms. Five are weak copyleft at file scope (MPL-2.0) and carry a source
+offers permissive terms. Thirteen are weak copyleft at file scope (MPL-2.0) and carry a source
 availability obligation on distribution rather than a licence on this project's own code; nothing
 in the graph is copyleft in the sense that would constrain what licence this project may carry.
 Roughly a dozen crates offer no MIT or Apache option, so a distribution has to satisfy their terms
@@ -281,7 +288,8 @@ replaced by a professional one at any time without changing anything else here.
 - Every licence expression in the table was read. Each is MIT, Apache-2.0, BSD, Zlib, 0BSD, CC0,
   Unlicense, Unicode-3.0 or MPL-2.0, alone or combined. No GPL, LGPL or AGPL, no crate with no
   declared licence, and no crate from outside crates.io.
-- **MPL-2.0.** The five crates are used unmodified. MPL-2.0 section 3.2 asks a binary distribution
+- **MPL-2.0.** The five crates are used unmodified (and the eight `symphonia` crates added on
+  2026-10-13 are too). MPL-2.0 section 3.2 asks a binary distribution
   to say where their source can be had and leaves the larger work under its own licence. The
   table above names each one's version and repository, which is that statement.
 - **Unicode-3.0, Zlib, BSD and Apache-2.0 alone.** Permissive. Each asks that its text and

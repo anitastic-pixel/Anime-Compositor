@@ -46,6 +46,9 @@ ttf-parser = { version = "0.25.1", default-features = false, features = ["std", 
 # D-354, D-371: shapes the words (joining scripts, conjuncts, marks, ligatures). 0.20.1 is the
 # release built on ttf-parser 0.25, so the two share one copy.
 rustybuzz = "0.20.1"
+# D-638 1 (a), D-639: FLAC, MP3 and Ogg Vorbis sound read in the core. Default features off;
+# only those formats' features on (AAC goes through Windows' own decoder, Opus is not read).
+symphonia = { version = "0.6.1", default-features = false, features = ["flac", "mp3", "ogg", "vorbis"] }
 
 # D-72 and D-30: MP4 goes out through the encoder Windows carries. Already in the tree under Tauri.
 [target.'cfg(windows)'.dependencies]

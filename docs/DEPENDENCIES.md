@@ -156,6 +156,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `json-patch` | 3.0.1 | MIT/Apache-2.0 | transitive | linked | https://github.com/idubrov/json-patch | `863726d7afb6bc25…` |
 | `jsonptr` | 0.6.3 | MIT OR Apache-2.0 | transitive | linked | https://github.com/chanced/jsonptr | `5dea2b27dd239b25…` |
 | `keyboard-types` | 0.7.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/pyfisch/keyboard-types | `b750dcadc39a09db…` |
+| `lazy_static` | 1.5.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang-nursery/lazy-static.rs | `20870f649af7073d…` |
 | `lebe` | 0.5.3 | BSD-3-Clause | transitive | linked | https://github.com/johannesvollmer/lebe | `7a79a3332a660948…` |
 | `libc` | 0.2.189 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/libc | `3eaf3ede3fee6db1…` |
 | `libloading` | 0.8.9 | ISC | transitive | linked | https://github.com/nagisa/rust_libloading/ | `d7c4b02199fee7c5…` |
@@ -216,6 +217,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `ref-cast-impl` | 1.0.27 | MIT OR Apache-2.0 | transitive | linked | https://github.com/dtolnay/ref-cast | `92ecd8964f845372…` |
 | `regex` | 1.13.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/regex | `f020237b6c8eed93…` |
 | `regex-automata` | 0.4.18 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/regex | `ad8553b9b2641325…` |
+| `regex-lite` | 0.1.9 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/regex | `cab834c73d247e67…` |
 | `regex-syntax` | 0.8.11 | MIT OR Apache-2.0 | transitive | linked | https://github.com/rust-lang/regex | `d6f6ff9a378485b2…` |
 | `renderdoc-sys` | 1.1.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/ebkalderon/renderdoc-rs | `19b30a45b0cd0bcc…` |
 | `rfd` | 0.16.0 | MIT | transitive | linked | https://github.com/PolyMeilex/rfd | `a15ad77d9e70a924…` |
@@ -257,6 +259,14 @@ stays visible. Several other crates now do the same for the same reason.
 | `string_cache` | 0.9.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/servo/string-cache | `a18596f8c785a729…` |
 | `string_cache_codegen` | 0.6.1 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/servo/string-cache | `585635e46db23105…` |
 | `strsim` | 0.11.1 | MIT | transitive | build-time only | https://github.com/rapidfuzz/strsim-rs | `7da8b5736845d9f2…` |
+| `symphonia` | 0.6.1 | MPL-2.0 | direct | linked | https://github.com/pdeljanov/Symphonia | `a7edef6a96b696d4…` |
+| `symphonia-bundle-flac` | 0.6.1 | MPL-2.0 | transitive | linked | https://github.com/pdeljanov/Symphonia | `6405d5c34ff6f8f7…` |
+| `symphonia-bundle-mp3` | 0.6.1 | MPL-2.0 | transitive | linked | https://github.com/pdeljanov/Symphonia | `98ea5ffc8716bff6…` |
+| `symphonia-codec-vorbis` | 0.6.1 | MPL-2.0 | transitive | linked | https://github.com/pdeljanov/Symphonia | `73d90b4fcf796137…` |
+| `symphonia-common` | 0.6.1 | MPL-2.0 | transitive | linked | https://github.com/pdeljanov/Symphonia | `2acc3fcc18ec9b8c…` |
+| `symphonia-core` | 0.6.1 | MPL-2.0 | transitive | linked | https://github.com/pdeljanov/Symphonia | `01c412864d599d47…` |
+| `symphonia-format-ogg` | 0.6.1 | MPL-2.0 | transitive | linked | https://github.com/pdeljanov/Symphonia | `0b5495e7f7e3c703…` |
+| `symphonia-metadata` | 0.6.1 | MPL-2.0 | transitive | linked | https://github.com/pdeljanov/Symphonia | `83713a97705d77bd…` |
 | `syn` | 2.0.119 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/dtolnay/syn | `872831b642d1a079…` |
 | `syn` | 3.0.5 | MIT OR Apache-2.0 | transitive | build-time only | https://github.com/dtolnay/syn | `12df2e0110f65b77…` |
 | `synstructure` | 0.13.2 | MIT | transitive | build-time only | https://github.com/mystor/synstructure | `728a70f3dbaf5bab…` |
@@ -413,6 +423,11 @@ underneath one of them.
   every glyph to HarfBuzz itself. The two fonts that check uses, Noto Sans Arabic and Noto Sans
   Devanagari, are test files only, not shipped, under the SIL Open Font License beside the others
   in `docs/third_party/`.
+- **`symphonia`** reads FLAC, MP3 and Ogg Vorbis sound, by D-638 1 (a) and D-639 (accepted on
+  2026-10-13 by the owner's sound plan decision), with its default features off and only those
+  three formats turned on. AAC is read by Windows' own decoder through the `windows` crate, and
+  Opus is not read at all. It brought seven `symphonia-*` crates, `lazy_static` and `regex-lite`.
+  It is MPL-2.0, below. `tests/b518_sound_read.rs` holds every file it reads to ffmpeg's decode.
 - **`rayon`** renders frames in parallel. A 240-frame export is 240 independent compositions, and
   the export path is the only place it is used.
 - **`serde_json`** reads and writes the project file. The format is JSON by ADR-008; the
@@ -426,7 +441,7 @@ underneath one of them.
 ## What the shell cost, in crates
 
 This is the honest number and it is worth stating plainly. Before the window, this record held
-**28** crates. With it, **344**. One dependency brought in roughly two hundred and thirty
+**28** crates. With it, **354**. One dependency brought in roughly two hundred and thirty
 others, which is what a browser engine, an async runtime, a CSS selector engine and a bundler
 amount to once they are counted rather than assumed.
 
@@ -446,8 +461,10 @@ Named, not decided. Document 10 reserves that judgement: "legal conclusions requ
 judgment should be recorded by the appropriate reviewer." The first entry is the one that changed
 with the shell and it should be read first.
 
-- **`MPL-2.0` — five crates.** `cssparser`, `cssparser-macros`, `dtoa-short`, `option-ext` and
-  `selectors`, all linked, all arriving under `tauri`. **This graph is no longer entirely
+- **`MPL-2.0` — thirteen crates.** `cssparser`, `cssparser-macros`, `dtoa-short`, `option-ext` and
+  `selectors`, all linked, all arriving under `tauri`; and `symphonia` with its seven
+  `symphonia-*` crates, linked, chosen directly by D-639 to read sound. All eight ship the MPL-2.0
+  text. **This graph is no longer entirely
   permissive.** MPL-2.0 is file-scope copyleft: it attaches to the MPL-licensed files themselves
   rather than to a larger work that links them, so it does not reach this project's own code the
   way a GPL would. It does carry an obligation to make the source of those files available on
@@ -487,7 +504,7 @@ with the shell and it should be read first.
 ## Licence compatibility, as an engineering read
 
 Not a legal opinion, and a less confident one than this section used to give. Every crate above
-offers permissive terms. Five are weak copyleft at file scope (MPL-2.0) and carry a source
+offers permissive terms. Thirteen are weak copyleft at file scope (MPL-2.0) and carry a source
 availability obligation on distribution rather than a licence on this project's own code; nothing
 in the graph is copyleft in the sense that would constrain what licence this project may carry.
 Roughly a dozen crates offer no MIT or Apache option, so a distribution has to satisfy their terms
@@ -513,7 +530,8 @@ replaced by a professional one at any time without changing anything else here.
 - Every licence expression in the table was read. Each is MIT, Apache-2.0, BSD, Zlib, 0BSD, CC0,
   Unlicense, Unicode-3.0 or MPL-2.0, alone or combined. No GPL, LGPL or AGPL, no crate with no
   declared licence, and no crate from outside crates.io.
-- **MPL-2.0.** The five crates are used unmodified. MPL-2.0 section 3.2 asks a binary distribution
+- **MPL-2.0.** The five crates are used unmodified (and the eight `symphonia` crates added on
+  2026-10-13 are too). MPL-2.0 section 3.2 asks a binary distribution
   to say where their source can be had and leaves the larger work under its own licence. The
   table above names each one's version and repository, which is that statement.
 - **Unicode-3.0, Zlib, BSD and Apache-2.0 alone.** Permissive. Each asks that its text and
