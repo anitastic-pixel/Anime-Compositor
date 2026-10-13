@@ -8771,15 +8771,15 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         }
         // D-615: every setting by its name; compose fills the clock, camera and history.
         PARTICLE_EMITTER => {
-            let mut values = [0.0; 45];
+            let mut values = [0.0; 54];
             for (v, s) in values.iter_mut().zip(PARTICLE_EMITTER_SETTINGS) {
                 *v = number(s.0)?;
             }
-            let mut words: [String; 6] = Default::default();
+            let mut words: [String; 9] = Default::default();
             for (w, s) in words.iter_mut().zip(PARTICLE_EMITTER_WORDS) {
                 *w = word(s.0)?;
             }
-            let mut colors: [String; 6] = Default::default();
+            let mut colors: [String; 7] = Default::default();
             for (c, s) in colors.iter_mut().zip(PARTICLE_EMITTER_COLORS) {
                 *c = word(s.0)?;
             }
@@ -34109,7 +34109,8 @@ mod contract {
                 ("ephemeral_selection_map", "layer-4"),
             ],
         ),
-        // D-615: every setting, the position, the words and the colours.
+        // D-615: every setting, the position, the words and the colours. D-711: the second
+        // system's.
         (
             "core.particle_emitter",
             &[
@@ -34158,6 +34159,15 @@ mod contract {
                 ("bounce", "40"),
                 ("bounce_random", "10"),
                 ("random_seed", "7"),
+                ("aux_particles_per_second", "12"),
+                ("aux_particles_per_bounce", "4"),
+                ("aux_life", "0.5"),
+                ("aux_velocity", "25"),
+                ("aux_inherit_velocity", "50"),
+                ("aux_size", "3"),
+                ("aux_size_at_death", "20"),
+                ("aux_opacity", "80"),
+                ("aux_opacity_at_death", "10"),
                 ("emitter_position", "40,60"),
                 ("emitter_type", "box"),
                 ("direction", "directional"),
@@ -34165,12 +34175,16 @@ mod contract {
                 ("set_color", "over_life"),
                 ("transfer_mode", "add"),
                 ("floor_action", "bounce"),
+                ("aux_emit", "continuously"),
+                ("aux_particle_type", "streak"),
+                ("aux_set_color", "own"),
                 ("color", "#00ff80"),
                 ("gradient_color_1", "#ffffff"),
                 ("gradient_color_2", "#ffcc00"),
                 ("gradient_color_3", "#ff6600"),
                 ("gradient_color_4", "#cc0000"),
                 ("gradient_color_5", "#330000"),
+                ("aux_color", "#ff0040"),
             ],
         ),
         // D-616: every setting, the centre, the words, the layers and the colour.

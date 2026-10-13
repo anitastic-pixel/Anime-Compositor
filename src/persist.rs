@@ -3286,15 +3286,23 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("hair_color".into(), J::from(hair_color.as_str()));
         }
         Effect::ParticleEmitter { values, emitter_position, words, colors, .. } => {
-            for ((name, ..), v) in crate::effects::PARTICLE_EMITTER_SETTINGS.iter().zip(values) {
-                params.insert((*name).into(), num(*v));
+            // D-711: the second system's each written only when not as added, keyed, or already
+            // in the file, so a file written before stays as it was.
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_EMITTER_SETTINGS.iter().zip(values).enumerate() {
+                if n < 45 || v != start || instance.tracks.contains_key(*name) || params.contains_key(*name) {
+                    params.insert((*name).into(), num(*v));
+                }
             }
             params.insert("emitter_position".into(), J::Array(emitter_position.iter().map(|c| num(*c)).collect()));
-            for ((name, ..), w) in crate::effects::PARTICLE_EMITTER_WORDS.iter().zip(words) {
-                params.insert((*name).into(), J::from(w.as_str()));
+            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_EMITTER_WORDS.iter().zip(words).enumerate() {
+                if n < 6 || w != start || params.contains_key(*name) {
+                    params.insert((*name).into(), J::from(w.as_str()));
+                }
             }
-            for ((name, _), c) in crate::effects::PARTICLE_EMITTER_COLORS.iter().zip(colors) {
-                params.insert((*name).into(), J::from(c.as_str()));
+            for (n, ((name, start), c)) in crate::effects::PARTICLE_EMITTER_COLORS.iter().zip(colors).enumerate() {
+                if n < 6 || c != start || params.contains_key(*name) {
+                    params.insert((*name).into(), J::from(c.as_str()));
+                }
             }
         }
         Effect::ParticleGrid { values, form_center, words, layers, colors, .. } => {
@@ -8093,18 +8101,19 @@ fn parse_effect(
             Some(crate::effects::Effect::Hair { values, words, hair_color })
         }
         // D-615: every setting by its name.
+        // D-711: a file written before it has the second system as added, off.
         crate::effects::PARTICLE_EMITTER => {
-            let mut values = [0.0; 45];
-            for ((name, ..), v) in crate::effects::PARTICLE_EMITTER_SETTINGS.iter().zip(values.iter_mut()) {
-                *v = effect_number(params, name, &at)?;
+            let mut values = [0.0; 54];
+            for (n, ((name, _, _, start), v)) in crate::effects::PARTICLE_EMITTER_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
+                *v = if n < 45 { effect_number(params, name, &at)? } else { effect_number_or(params, name, &at, *start)? };
             }
-            let mut words: [String; 6] = Default::default();
-            for ((name, ..), w) in crate::effects::PARTICLE_EMITTER_WORDS.iter().zip(words.iter_mut()) {
-                *w = effect_word(params, name, &at)?;
+            let mut words: [String; 9] = Default::default();
+            for (n, ((name, _, start), w)) in crate::effects::PARTICLE_EMITTER_WORDS.iter().zip(words.iter_mut()).enumerate() {
+                *w = if n < 6 { effect_word(params, name, &at)? } else { effect_word_or(params, name, &at, start)? };
             }
-            let mut colors: [String; 6] = Default::default();
-            for ((name, _), c) in crate::effects::PARTICLE_EMITTER_COLORS.iter().zip(colors.iter_mut()) {
-                *c = effect_word(params, name, &at)?;
+            let mut colors: [String; 7] = Default::default();
+            for (n, ((name, start), c)) in crate::effects::PARTICLE_EMITTER_COLORS.iter().zip(colors.iter_mut()).enumerate() {
+                *c = if n < 6 { effect_word(params, name, &at)? } else { effect_word_or(params, name, &at, start)? };
             }
             Some(crate::effects::Effect::ParticleEmitter {
                 values,

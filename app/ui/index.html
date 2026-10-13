@@ -11559,7 +11559,16 @@ const EFFECT_PARAMS = {
     ['floor_position', 'Floor Position', 1, 1, '-1000 to 1000 per cent of the height from the top, where the floor is'],
     ['bounce', 'Bounce', 1, 1, '0 to 100 per cent, how much speed a bounce keeps'],
     ['bounce_random', 'Bounce Random', 1, 1, '0 to 100 per cent, how much each bounce differs'],
-    ['random_seed', 'Random Seed', 1, 1, '0 to 10000 a number, a different seed gives different particles']],
+    ['random_seed', 'Random Seed', 1, 1, '0 to 10000 a number, a different seed gives different particles'],
+    ['aux_particles_per_second', 'Aux Particles/sec', 1, 1, '0 to 1000 a second, how many each particle throws (Aux Emit Continuously)'],
+    ['aux_particles_per_bounce', 'Aux Particles/Bounce', 1, 1, '0 to 1000, how many each bounce on the floor throws (Aux Emit At Bounce)'],
+    ['aux_life', 'Aux Life (sec)', 1, 0.1, '0 to 1000 seconds, how long each thrown particle lives'],
+    ['aux_velocity', 'Aux Velocity', 1, 1, '-100000 to 100000 pixels a second, how fast they are thrown, every way'],
+    ['aux_inherit_velocity', 'Aux Inherit Velocity', 1, 1, '-1000 to 1000 per cent of the thrower’s speed they keep'],
+    ['aux_size', 'Aux Size', 1, 1, '0 to 10000 pixels across'],
+    ['aux_size_at_death', 'Aux Size at Death', 1, 1, '0 to 1000 per cent of their size when they die'],
+    ['aux_opacity', 'Aux Opacity', 1, 1, '0 to 100 per cent'],
+    ['aux_opacity_at_death', 'Aux Opacity at Death', 1, 1, '0 to 100 per cent of their opacity when they die']],
   'core.particle_plane': [['birth_rate', 'Birth Rate', 1, 1, '0 to 100 hundreds of particles a second, how many are born'],
     ['longevity', 'Longevity (sec)', 1, 1, '0 to 30 seconds, how long each lives'],
     ['producer_x', 'Producer Position X', 1, 1, '-10 to 10 layer widths, where they are born, from the middle, right'],
@@ -12594,13 +12603,18 @@ const EFFECT_WORDS = {
   },
   // D-615: Particle Emitter’s colours and words, ours.
   'core.particle_emitter': {
-    colours: [['color', 'Color'], ['gradient_color_1', 'Gradient Color 1'], ['gradient_color_2', 'Gradient Color 2'], ['gradient_color_3', 'Gradient Color 3'], ['gradient_color_4', 'Gradient Color 4'], ['gradient_color_5', 'Gradient Color 5']],
+    colours: [['color', 'Color'], ['gradient_color_1', 'Gradient Color 1'], ['gradient_color_2', 'Gradient Color 2'], ['gradient_color_3', 'Gradient Color 3'], ['gradient_color_4', 'Gradient Color 4'], ['gradient_color_5', 'Gradient Color 5'],
+      ['aux_color', 'Aux Color']],
     choices: [['emitter_type', 'Emitter Type', [['point', 'Point'], ['box', 'Box'], ['sphere', 'Sphere'], ['grid', 'Grid']]],
       ['direction', 'Direction', [['uniform', 'Uniform'], ['directional', 'Directional'], ['bi_directional', 'Bi-Directional'], ['disc', 'Disc'], ['outwards', 'Outwards'], ['inwards', 'Inwards']]],
       ['particle_type', 'Particle Type', [['sphere', 'Sphere'], ['glow_sphere', 'Glow Sphere'], ['star', 'Star'], ['cloudlet', 'Cloudlet'], ['streak', 'Streak']]],
       ['set_color', 'Set Color', [['at_birth', 'At Birth'], ['over_life', 'Over Life'], ['random_from_gradient', 'Random from Gradient']]],
       ['transfer_mode', 'Transfer Mode', [['normal', 'Normal'], ['add', 'Add'], ['screen', 'Screen']]],
-      ['floor_action', 'Floor Action', [['none', 'None'], ['bounce', 'Bounce'], ['slide', 'Slide'], ['stick', 'Stick']]]],
+      ['floor_action', 'Floor Action', [['none', 'None'], ['bounce', 'Bounce'], ['slide', 'Slide'], ['stick', 'Stick']]],
+      // D-711: the second system, particles thrown by the particles.
+      ['aux_emit', 'Aux Emit', [['off', 'Off'], ['continuously', 'Continuously'], ['at_bounce', 'At Bounce']]],
+      ['aux_particle_type', 'Aux Particle Type', [['sphere', 'Sphere'], ['glow_sphere', 'Glow Sphere'], ['star', 'Star'], ['cloudlet', 'Cloudlet'], ['streak', 'Streak']]],
+      ['aux_set_color', 'Aux Set Color', [['from_main', 'From Main'], ['own', 'Own']]]],
   },
   // D-710: its texture layer, textured kinds and Composite With Original.
   'core.particle_plane': {

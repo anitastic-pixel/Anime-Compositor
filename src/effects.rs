@@ -3253,15 +3253,16 @@ pub enum Effect {
     /// `emitter_position`, x then y, per cent of the drawing, -1000 to 1000; `words`, those of
     /// [`PARTICLE_EMITTER_WORDS`]; `colors`, those of [`PARTICLE_EMITTER_COLORS`], `#rrggbb`. Kept
     /// as written, so a file's wrong one is reported. `clock`, `view` and `history` as Particle
-    /// Space's, never saved; the history of `particles::emitter_numbers_row`.
+    /// Space's, never saved; the history of `particles::emitter_numbers_row`. D-711: the second
+    /// system's settings, words and colour come last in each.
     ParticleEmitter {
-        values: [f64; 45],
+        values: [f64; 54],
         emitter_position: Vec<f64>,
-        words: [String; 6],
-        colors: [String; 6],
+        words: [String; 9],
+        colors: [String; 7],
         clock: [f64; 2],
         view: [f64; 4],
-        history: Option<std::sync::Arc<Vec<[f64; 47]>>>,
+        history: Option<std::sync::Arc<Vec<[f64; 56]>>>,
     },
     /// D-616: Particle Grid, the particle engine's fifth effect (P0-6), after the purpose of
     /// Trapcode Form, its rules and settings ours (`particles::particle_space`, document 21).
@@ -5173,7 +5174,9 @@ pub const PARTICLE_EMITTER: &str = "core.particle_emitter";
 /// highest, and the value when the effect is added. Lengths in the layer's pixels, speeds in
 /// pixels a second, Gravity and Wind in pixels a second a second, angles in degrees, times in
 /// seconds, the rest per cent; Floor Position per cent of the height from the top.
-pub const PARTICLE_EMITTER_SETTINGS: [(&str, f64, f64, f64); 45] = [
+/// D-711: the second system's last, Aux Life in seconds, Aux Velocity in pixels a second, Aux
+/// Size in pixels, Aux Inherit Velocity and the two at-death levels per cent.
+pub const PARTICLE_EMITTER_SETTINGS: [(&str, f64, f64, f64); 54] = [
     ("particles_per_second", 0.0, 100000.0, 100.0),
     ("emitter_z", -100000.0, 100000.0, 0.0),
     ("emitter_size_x", 0.0, 100000.0, 50.0),
@@ -5219,25 +5222,39 @@ pub const PARTICLE_EMITTER_SETTINGS: [(&str, f64, f64, f64); 45] = [
     ("bounce", 0.0, 100.0, 50.0),
     ("bounce_random", 0.0, 100.0, 0.0),
     ("random_seed", 0.0, 10000.0, 0.0),
+    ("aux_particles_per_second", 0.0, 1000.0, 30.0),
+    ("aux_particles_per_bounce", 0.0, 1000.0, 10.0),
+    ("aux_life", 0.0, 1000.0, 1.0),
+    ("aux_velocity", -100000.0, 100000.0, 10.0),
+    ("aux_inherit_velocity", -1000.0, 1000.0, 0.0),
+    ("aux_size", 0.0, 10000.0, 2.0),
+    ("aux_size_at_death", 0.0, 1000.0, 100.0),
+    ("aux_opacity", 0.0, 100.0, 100.0),
+    ("aux_opacity_at_death", 0.0, 100.0, 0.0),
 ];
-/// D-615: Particle Emitter's words: name, the words, the word when added.
-pub const PARTICLE_EMITTER_WORDS: [(&str, &[&str], &str); 6] = [
+/// D-615: Particle Emitter's words: name, the words, the word when added. D-711: the second
+/// system's last, off when added.
+pub const PARTICLE_EMITTER_WORDS: [(&str, &[&str], &str); 9] = [
     ("emitter_type", &["point", "box", "sphere", "grid"], "point"),
     ("direction", &["uniform", "directional", "bi_directional", "disc", "outwards", "inwards"], "uniform"),
     ("particle_type", &["sphere", "glow_sphere", "star", "cloudlet", "streak"], "sphere"),
     ("set_color", &["at_birth", "over_life", "random_from_gradient"], "at_birth"),
     ("transfer_mode", &["normal", "add", "screen"], "normal"),
     ("floor_action", &["none", "bounce", "slide", "stick"], "none"),
+    ("aux_emit", &["off", "continuously", "at_bounce"], "off"),
+    ("aux_particle_type", &["sphere", "glow_sphere", "star", "cloudlet", "streak"], "sphere"),
+    ("aux_set_color", &["from_main", "own"], "from_main"),
 ];
 /// D-615: Particle Emitter's colours and each when added; the gradient ours, white through
-/// yellow and orange to red and a dark red, a spark's cooling.
-pub const PARTICLE_EMITTER_COLORS: [(&str, &str); 6] = [
+/// yellow and orange to red and a dark red, a spark's cooling. D-711: the second system's own.
+pub const PARTICLE_EMITTER_COLORS: [(&str, &str); 7] = [
     ("color", "#ffffff"),
     ("gradient_color_1", "#ffffff"),
     ("gradient_color_2", "#ffe066"),
     ("gradient_color_3", "#ff9933"),
     ("gradient_color_4", "#e6331a"),
     ("gradient_color_5", "#4d0d0d"),
+    ("aux_color", "#ffffff"),
 ];
 pub const PARTICLE_GRID: &str = "core.particle_grid";
 /// D-616: Particle Grid's keyable numbers, in the order `values` holds them: name, lowest,
@@ -8986,9 +9003,10 @@ impl Effect {
             }
             // D-615: its lengths, speeds, Gravity, Wind and Turbulence are the layer's pixels, and so
             // is every keyed one in its history; the position and the floor are shares of it, and
-            // the composition camera compose found is in pixels too.
+            // the composition camera compose found is in pixels too. D-711: Aux Velocity and
+            // Aux Size as well.
             Effect::ParticleEmitter { values, view, history, .. } => {
-                const PIXELS: [usize; 12] = [1, 2, 3, 4, 11, 17, 33, 35, 36, 37, 38, 39];
+                const PIXELS: [usize; 14] = [1, 2, 3, 4, 11, 17, 33, 35, 36, 37, 38, 39, 48, 50];
                 for k in PIXELS {
                     values[k] = scale(values[k]);
                 }

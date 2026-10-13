@@ -17554,8 +17554,13 @@ impl Gpu {
                             }
                             // D-617: Particle Emitter's, as Particle Space's: a sprite for each
                             // particle the rate and the longest life keep alive now.
-                            crate::effects::Effect::ParticleEmitter { values, .. } => {
-                                let alive = values[0] * values[15] * (1.0 + values[16] / 100.0) + 1.0;
+                            // D-711: with the second system, each throws Aux Particles/sec (or
+                            // /Bounce) for Aux Life more.
+                            // ponytail: one bounce a second assumed; a floor bouncing them faster
+                            // can run above it.
+                            crate::effects::Effect::ParticleEmitter { values, words, .. } => {
+                                let thrown = if words[6] == "off" { 0.0 } else { values[45].max(values[46]) * values[47] };
+                                let alive = values[0] * values[15] * (1.0 + values[16] / 100.0) * (1.0 + thrown) + 1.0;
                                 ((7.0 + 14.0 * alive + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
                             }
                             // D-619: Particle Playground's, a sprite for each particle the Cannon

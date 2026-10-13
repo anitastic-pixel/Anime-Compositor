@@ -1066,16 +1066,16 @@ fn texel((t, lv): Tex, s: f64, u: f64, rad: f64) -> [f64; 4] {
 /// settings of [`PARTICLE_EMITTER_SETTINGS`] in that order, then Emitter Position's x and y, each
 /// held inside its range.
 #[doc(hidden)]
-pub fn emitter_numbers_row(e: &Effect) -> [f64; 47] {
+pub fn emitter_numbers_row(e: &Effect) -> [f64; 56] {
     let Effect::ParticleEmitter { values, emitter_position, .. } = e else {
         unreachable!("Particle Emitter's numbers of another effect")
     };
-    let mut out = [0.0; 47];
+    let mut out = [0.0; 56];
     for (o, (v, (_, lo, hi, _))) in out.iter_mut().zip(values.iter().zip(PARTICLE_EMITTER_SETTINGS)) {
         *o = v.clamp(lo, hi);
     }
     for c in 0..2 {
-        out[45 + c] = emitter_position.get(c).copied().unwrap_or(0.0).clamp(-1000.0, 1000.0);
+        out[54 + c] = emitter_position.get(c).copied().unwrap_or(0.0).clamp(-1000.0, 1000.0);
     }
     out
 }
@@ -1083,12 +1083,12 @@ pub fn emitter_numbers_row(e: &Effect) -> [f64; 47] {
 /// D-615: one frame's Emitter numbers ([`emitter_numbers_row`]) as Particle Space's settings, on
 /// a layer `w` by `h`: the engine's unit is the width, its origin the layer's centre; gravity
 /// straight down; everything the Explosive animation does not read left at 0.
-fn emitter_row(v: &[f64; 47], w: f64, h: f64) -> [f64; 46] {
+fn emitter_row(v: &[f64; 56], w: f64, h: f64) -> [f64; 46] {
     let mut e = [0.0; 46];
     e[RATE] = v[0] / 100.0;
     e[LONGEVITY] = v[15];
-    e[PRODUCER] = v[45] / 100.0 - 0.5;
-    e[PRODUCER + 1] = (v[46] / 100.0 - 0.5) * h / w;
+    e[PRODUCER] = v[54] / 100.0 - 0.5;
+    e[PRODUCER + 1] = (v[55] / 100.0 - 0.5) * h / w;
     e[PRODUCER + 2] = v[1] / w;
     e[GRAVITY] = v[33] / w;
     e[GRAVITY_VECTOR + 1] = 1.0;
@@ -1141,16 +1141,22 @@ fn apply3(m: [[f64; 3]; 3], v: V) -> V {
 /// indices in [`PARTICLE_EMITTER_WORDS`]' order.
 struct Emitter<'a> {
     run: Run<'a>,
-    own: Option<&'a [[f64; 47]]>,
-    own_now: [f64; 47],
+    own: Option<&'a [[f64; 56]]>,
+    own_now: [f64; 56],
     w: f64,
-    kinds: [usize; 6],
+    kinds: [usize; 9],
 }
 
 // The Emitter's numbers, where [`emitter_numbers_row`] holds them.
 const EM_SIZE: usize = 2;
 const EM_ROTATION: usize = 5;
 const EM_GRID: usize = 8;
+// D-711: the second system's settings, Aux Particles/sec first.
+const EM_AUX: usize = 45;
+
+/// D-711: an aux particle alive at the frame: the particle, its size, opacity, age fraction, and
+/// its thrower's place on the gradient and brightness when it was thrown.
+type Thrown = (Particle, [f64; 5]);
 
 fn emitter_of(e: &Effect, w: f64, h: f64) -> Option<Emitter<'_>> {
     let Effect::ParticleEmitter { words, clock, history, .. } = e else {
@@ -1163,13 +1169,25 @@ fn emitter_of(e: &Effect, w: f64, h: f64) -> Option<Emitter<'_>> {
     let kinds = std::array::from_fn(|i| PARTICLE_EMITTER_WORDS[i].1.iter().position(|x| *x == words[i]).unwrap_or(0));
     let own_now = emitter_numbers_row(e);
     let own = history.as_deref().map(Vec::as_slice);
-    let now = emitter_row(&own_now, w, h);
+    let mut now = emitter_row(&own_now, w, h);
+    let mut samples: Option<Vec<[f64; 46]>> = own.map(|s| s.iter().map(|r| emitter_row(r, w, h)).collect());
+    // D-711: with the second system on, every particle that may still have a thrown one alive is
+    // born: the longest life widened by the longest Aux Life and a frame.
+    if kinds[6] != 0 {
+        let rows = own.unwrap_or(std::slice::from_ref(&own_now));
+        let top = |n: usize| rows.iter().map(|r| r[n]).fold(f64::MIN, f64::max);
+        let wide = top(15) + top(EM_AUX + 2) + 1.0 / clock[1];
+        now[LONGEVITY] = wide;
+        for s in samples.iter_mut().flatten() {
+            s[LONGEVITY] = wide;
+        }
+    }
     // ponytail: the numbers at the frame are held inside their ranges again after a draft has
     // divided the lengths, so a Turbulence Scale below 2 drafted at half is worked as 1; keep the
     // undivided ones if that ever shows.
     let run = Run {
         now,
-        samples: own.map(|s| Cow::Owned(s.iter().map(|r| emitter_row(r, w, h)).collect())),
+        samples: samples.map(Cow::Owned),
         u,
         fps: clock[1],
         seed: crate::grade::mix(now[SEED].floor() as u64),
@@ -1271,6 +1289,100 @@ impl Emitter<'_> {
         (p, own)
     }
 
+    /// D-711: particle k, born at b with `life` frames, stepped as [`Self::moved`] while a step
+    /// starts before its death, and the (t, place, speed, bounces) at b and after each step.
+    #[allow(clippy::type_complexity)]
+    fn path(&self, k: i64, b: f64, life: f64) -> ([f64; 5], Vec<(f64, V, V, u64)>) {
+        let (mut p, own) = self.born(k, b);
+        let mut kept = vec![(b, p.x, p.v, 0)];
+        let mut t0 = b;
+        for j in (4.0 * b).floor() as i64 + 1..=4 * self.run.u {
+            if t0 >= b + life {
+                break;
+            }
+            let t1 = j as f64 / 4.0;
+            self.run.step(&mut p, t0, (t1 - t0) / self.run.fps);
+            kept.push((t1, p.x, p.v, p.bounces));
+            t0 = t1;
+        }
+        (own, kept)
+    }
+
+    /// D-711: the (number, birth, place, speed) of each aux particle a thrower born at b with
+    /// `life` frames throws by u: Continuously at Aux Particles/sec read at b, straight-line
+    /// between its kept steps; At Bounce, Aux Particles/Bounce at each bounce's step end.
+    fn throws(&self, b: f64, life: f64, kept: &[(f64, V, V, u64)]) -> Vec<(i64, f64, V, V)> {
+        let u = self.run.u as f64;
+        let mut out = Vec::new();
+        if self.kinds[6] == 1 {
+            let q = self.mine(EM_AUX, b) / self.run.fps;
+            if q <= 0.0 {
+                return out;
+            }
+            let mut i = 1;
+            for j in 0.. {
+                let c = b + (j as f64 + 0.5) / q;
+                if c >= b + life || c > u {
+                    break;
+                }
+                while kept[i].0 < c {
+                    i += 1;
+                }
+                let ((t0, x0, v0, _), (t1, x1, v1, _)) = (kept[i - 1], kept[i]);
+                let s = (c - t0) / (t1 - t0);
+                out.push((j, c, [0, 1, 2].map(|a| x0[a] + (x1[a] - x0[a]) * s), [0, 1, 2].map(|a| v0[a] + (v1[a] - v0[a]) * s)));
+            }
+            return out;
+        }
+        for w in kept.windows(2) {
+            let ((_, _, _, n0), (t1, x1, v1, n1)) = (w[0], w[1]);
+            for m in n0..n1 {
+                let n = self.mine(EM_AUX + 1, t1).floor() as i64;
+                for i in 0..n {
+                    out.push((1000 * m as i64 + i, t1, x1, v1));
+                }
+            }
+        }
+        out
+    }
+
+    /// D-711: the aux particles alive at u, thrower by thrower, each by number. Aux particle j of
+    /// k is numbered -1 - (2^32 k + j), thrown every way at Aux Velocity plus Aux Inherit Velocity
+    /// of its thrower's speed, then moved on D-610's steps.
+    fn thrown(&self) -> Vec<Thrown> {
+        if self.kinds[6] == 0 {
+            return Vec::new();
+        }
+        let (run, u) = (&self.run, self.run.u as f64);
+        let over_life = self.kinds[3] == 1;
+        run.births()
+            .into_par_iter()
+            .flat_map_iter(|(k, b)| {
+                let life = self.life(k, b);
+                let (own, kept) = self.path(k, b, life);
+                self.throws(b, life, &kept).into_iter().filter_map(move |(j, c, x, vm)| {
+                    let alife = self.mine(EM_AUX + 2, c) * run.fps;
+                    if !(u - c < alife) {
+                        return None;
+                    }
+                    let key = !k.wrapping_shl(32).wrapping_add(j);
+                    let d = sphere(1.0 - 2.0 * run.r(key, 0), 2.0 * PI * run.r(key, 1));
+                    let (speed, inherit) = (self.mine(EM_AUX + 3, c) / self.w, self.mine(EM_AUX + 4, c) / 100.0);
+                    let v = [0, 1, 2].map(|a| d[a] * speed + vm[a] * inherit);
+                    let mut p = Particle { k: key, b: c, x, v, x0: x, sizes: (0.0, 0.0), size_factor: 1.0, twirl: 1.0, glued: false, iced: false, bounces: 0 };
+                    let mut t0 = c;
+                    for jj in (4.0 * c).floor() as i64 + 1..=4 * run.u {
+                        let t1 = jj as f64 / 4.0;
+                        run.step(&mut p, t0, (t1 - t0) / run.fps);
+                        t0 = t1;
+                    }
+                    let g = if over_life { ((c - b) / life).min(1.0) } else { own[3] };
+                    Some((p, [self.mine(EM_AUX + 5, c), self.mine(EM_AUX + 7, c) / 100.0, (u - c) / alife, g, own[4]]))
+                })
+            })
+            .collect()
+    }
+
     /// The alive particles, oldest first, with their own numbers and age fractions.
     fn alive(&self) -> Vec<(Particle, [f64; 5], f64)> {
         let u = self.run.u as f64;
@@ -1289,10 +1401,12 @@ impl Emitter<'_> {
 }
 
 /// D-615: the Emitter's particles for B-495's test, as [`alive`]'s, on a layer `w` by `h`.
+/// D-711: then the aux particles, for B-581's.
 #[doc(hidden)]
 pub fn emitter_alive(e: &Effect, w: f64, h: f64) -> Vec<[f64; 8]> {
     let Some(em) = emitter_of(e, w, h) else { return Vec::new() };
-    em.alive().into_iter().map(|(p, ..)| [p.k as f64, p.b, p.x[0], p.x[1], p.x[2], p.v[0], p.v[1], p.v[2]]).collect()
+    let row = |p: &Particle| [p.k as f64, p.b, p.x[0], p.x[1], p.x[2], p.v[0], p.v[1], p.v[2]];
+    em.alive().iter().map(|(p, ..)| row(p)).chain(em.thrown().iter().map(|(p, _)| row(p))).collect()
 }
 
 /// D-615: Particle Emitter's sprite list, as [`sprite_numbers`]': Sphere (kind 9, its feather's
@@ -1320,29 +1434,42 @@ fn emitter_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize))
         [0, 1, 2].map(|c| stops[i][c] + (stops[i + 1][c] - stops[i][c]) * (f * 4.0 - i as f64))
     };
     let (kind, set_color) = (em.kinds[2], em.kinds[3]);
-    let drawn: Vec<(f64, i64, [f64; STRIDE])> = em
+    let sprite = |kind: usize, p: &Particle, size: f64, alpha: f64, col: V| {
+        let [x, y, ppu, depth] = see(p.x)?;
+        let rad = size * ppu / (2.0 * w0);
+        let sprite = if kind == 4 {
+            let tail = see(sub(p.x, mul(p.v, 1.0 / em.run.fps)))?;
+            [0.0, x, y, tail[0], tail[1], (2.0 * rad).max(1.0), alpha, col[0], col[1], col[2], 0.0]
+        } else {
+            sprite_dot(kind, x, y, rad, alpha, col, feather)
+        };
+        Some((depth, p.k, sprite))
+    };
+    let mut drawn: Vec<(f64, i64, [f64; STRIDE])> = em
         .alive()
         .into_iter()
         .filter_map(|(p, own, f)| {
-            let [x, y, ppu, depth] = see(p.x)?;
-            let size = own[1] * curve(sizes, f);
-            let rad = size * ppu / (2.0 * w0);
-            let alpha = own[2] * curve(fades, f);
             let col = match set_color {
                 0 => linear(&colors[0]),
                 1 => gradient(f),
                 _ => gradient(own[3]),
             }
             .map(|c| c * own[4]);
-            let sprite = if kind == 4 {
-                let tail = see(sub(p.x, mul(p.v, 1.0 / em.run.fps)))?;
-                [0.0, x, y, tail[0], tail[1], (2.0 * rad).max(1.0), alpha, col[0], col[1], col[2], 0.0]
-            } else {
-                sprite_dot(kind, x, y, rad, alpha, col, feather)
-            };
-            Some((depth, p.k, sprite))
+            sprite(kind, &p, own[1] * curve(sizes, f), own[2] * curve(fades, f), col)
         })
         .collect();
+    // D-711: the aux particles, From Main the thrower's colour when thrown, or Aux Color; their
+    // size and opacity straight-line to the at-death levels read now.
+    let (aux_size, aux_fade) = (now[EM_AUX + 6] / 100.0 - 1.0, now[EM_AUX + 8] / 100.0 - 1.0);
+    let aux_color = linear(&colors[6]);
+    drawn.extend(em.thrown().into_iter().filter_map(|(p, own)| {
+        let col = match (em.kinds[8], set_color) {
+            (1, _) => aux_color,
+            (_, 0) => linear(&colors[0]).map(|c| c * own[4]),
+            _ => gradient(own[3]).map(|c| c * own[4]),
+        };
+        sprite(em.kinds[7], &p, own[0] * (1.0 + aux_size * own[2]), own[1] * (1.0 + aux_fade * own[2]), col)
+    }));
     sprite_list(drawn, em.kinds[4])
 }
 
