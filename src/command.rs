@@ -3276,7 +3276,12 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "D-71: a level is from -96 to +12 decibels.",
                 ));
             }
-            layer_mut(project, &comp_id, layer_id)?.gain_db = *value;
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            layer.gain_db = *value;
+            // D-645: on a keyed level the number is its base; the keys stay as they are.
+            if let Some(keys) = &mut layer.gain_keys {
+                keys.set_base(crate::model::Value::Scalar(*value));
+            }
         }
         Command::SetMotionBlur { motion_blur, .. } => {
             let shutter = motion_blur;

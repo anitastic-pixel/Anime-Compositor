@@ -32146,6 +32146,8 @@ mod contract {
                 .unwrap_or(serde_json::Value::Null)
         };
         let eight = comp_of("Fixtures/eight_bpc/fx_8bpc_001.json");
+        // D-645: a pan is written only when set, and only a file sets one, so it is read off one.
+        let panned = comp_of("Fixtures/sound_layer/fx_slay_006.json")["layers"][0].clone();
         let ae32 = comp_of("Fixtures/ae_32bpc/fx_ae32_001.json");
 
         let node = |var: &str| -> serde_json::Value {
@@ -32193,6 +32195,7 @@ mod contract {
                     match holds.get(&field).or_else(|| match field.as_str() {
                         "composition_id" => precomp.get(&field),
                         "gain_db" => sound.get(&field),
+                        "pan" => panned.get(&field),
                         "solid" => solid.get(&field),
                         "shapes" => shape.get(&field),
                         "source_text" => words.get(&field),

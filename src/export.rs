@@ -259,11 +259,10 @@ pub fn export_sequence_watched(
     // D-641: the WAV beside, when asked for and the format takes one.
     let wav = request.choices.wav && !matches!(request.format, OutputFormat::Gif | OutputFormat::Mp4);
     report.files_expected = if one_file { 1 } else { frames.len() } + wav as usize;
-    // D-641: the composition's sound goes into an MP4 when it has any audio layer switched on.
+    // D-641: the composition's sound goes into an MP4 when it has any audio layer switched on;
+    // D-645: here or inside a composition layer switched on.
     let sound_comp = project.composition(&request.composition);
-    let has_sound = sound_comp.is_some_and(|c| {
-        c.layers_in_order().any(|l| l.kind == crate::model::LayerKind::Audio && l.enabled)
-    });
+    let has_sound = sound_comp.is_some_and(|c| crate::audio::has_sound(project, c));
     let mut sound_said = SoundSaid::default();
     // D-642: the MP4's sound is mixed once for the whole range, as a sound effect needs what
     // came before, and each frame's share is handed over after its picture.

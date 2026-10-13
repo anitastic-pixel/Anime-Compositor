@@ -907,9 +907,15 @@ pub struct Layer {
     /// head plane is on the head's plane without anybody saying so twice. Saved as `depth` only
     /// when it is set, as `parent` and `label` are.
     pub depth: Option<Property>,
-    /// D-71: an audio layer's level in decibels, -96 to +12, and 0 on every other kind.
-    // ponytail: one number, not keyed. Make it a Property when a fade is asked for.
+    /// D-71: an audio layer's level in decibels, -96 to +12, and 0 on every other kind. When
+    /// the level is keyed (D-645) this is its base.
     pub gain_db: f64,
+    /// D-645: the level keyed, its base equal to `gain_db`; `None` while the level is one plain
+    /// number, which is how every file written before D-645 says it.
+    pub gain_keys: Option<Property>,
+    /// D-645: an audio layer's pan, -100 (all left) to +100 (all right), plain or keyed; `None`
+    /// is the centre and is not written.
+    pub pan: Option<Property>,
     /// D-74: a solid layer's colour and size, and `None` on every other kind.
     pub solid: Option<Solid>,
     /// D-78: a shape layer's drawn shapes, first to last, and empty on every other kind.
@@ -988,6 +994,8 @@ impl Layer {
             shy: false,
             depth: None,
             gain_db: 0.0,
+            gain_keys: None,
+            pan: None,
             solid: None,
             shapes: Vec::new(),
             text: None,

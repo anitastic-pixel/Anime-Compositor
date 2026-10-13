@@ -156,6 +156,7 @@ const KEY_ORDER: &[&str] = &[
     "out_frame",
     "source_offset_frames",
     "gain_db",
+    "pan",
     "transform",
     "anchor",
     "position",
@@ -601,8 +602,21 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
             ("in_frame", J::from(layer.in_frame)),
             ("out_frame", J::from(layer.out_frame)),
             ("source_offset_frames", J::from(layer.source_offset_frames)),
-            ("gain_db", J::from(layer.gain_db)),
+            // D-645: a keyed level, or one written as keys, is written as keys; otherwise the
+            // plain number every file before D-645 has.
+            match &layer.gain_keys {
+                Some(keys) => ("gain_db", property_json(base.and_then(|b| b.get("gain_db")), keys, 1.0)),
+                None => ("gain_db", J::from(layer.gain_db)),
+            },
         ];
+        // D-645: pan only when set, as written: a number stays a number until it is keyed.
+        if let Some(pan) = &layer.pan {
+            let was = base.and_then(|b| b.get("pan"));
+            owned.push(match was {
+                Some(J::Number(_)) | None if pan.keyframes().is_empty() => ("pan", num(pan.base().as_scalar().unwrap_or(0.0))),
+                _ => ("pan", property_json(was, pan, 1.0)),
+            });
+        }
         if layer.label != 0 || base.is_some_and(|b| b.get("label").is_some()) {
             owned.push(("label", J::from(layer.label)));
         }
@@ -9813,6 +9827,8 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         label: parse_label(v, pointer)?,
         blend_mode,
         gain_db: 0.0,
+        gain_keys: None,
+        pan: None,
         solid,
         shapes,
         text,
@@ -10395,16 +10411,29 @@ fn parse_audio_layer(v: &J, pointer: &str, id: Id, warnings: &mut Vec<Diagnostic
             "in_frame to be before out_frame, which document 19 requires of every layer",
         ));
     }
-    let gain_db = match v.get("gain_db") {
-        None => 0.0,
-        Some(g) => as_f64(g, &format!("{pointer}/gain_db"))?,
+    // D-645: the level and the pan, each a number or a keyed number with every value in its
+    // range, keys only.
+    let sound_number = |key: &str, lo: f64, hi: f64, what: &str| -> Result<Option<Property>, Diagnostic> {
+        let at = format!("{pointer}/{key}");
+        let property = match v.get(key) {
+            None => return Ok(None),
+            Some(n @ J::Number(_)) => Property::constant(crate::model::Value::Scalar(as_f64(n, &at)?)),
+            Some(p) if p.is_object() => parse_property(p, &at, "scalar", false, false, 1.0)?,
+            Some(_) => return Err(invalid(&at, &format!("{what} as a number, or as keys with a base (D-645)"))),
+        };
+        if property.expression().is_some() {
+            return Err(invalid(&at, &format!("no expression on {what}, which is keys only (D-645)")));
+        }
+        let values = std::iter::once(property.base()).chain(property.keyframes().iter().map(|k| k.value));
+        if !values.map(|x| x.as_scalar().unwrap_or(f64::NAN)).all(|x| (lo..=hi).contains(&x)) {
+            return Err(invalid(&at, &format!("{what} from {lo} to {hi} (D-71, D-645)")));
+        }
+        Ok(Some(property))
     };
-    if !(-96.0..=12.0).contains(&gain_db) {
-        return Err(invalid(
-            &format!("{pointer}/gain_db"),
-            "a level from -96 to +12 decibels (D-71)",
-        ));
-    }
+    let gain = sound_number("gain_db", -96.0, 12.0, "a level in decibels")?;
+    let pan = sound_number("pan", -100.0, 100.0, "a pan")?;
+    let gain_db = gain.as_ref().and_then(|g| g.base().as_scalar()).unwrap_or(0.0);
+    let gain_keys = gain.filter(|_| v.get("gain_db").is_some_and(J::is_object));
     let mut layer = Layer::audio(
         id,
         as_str(field(v, pointer, "name")?, &format!("{pointer}/name"))?,
@@ -10422,6 +10451,8 @@ fn parse_audio_layer(v: &J, pointer: &str, id: Id, warnings: &mut Vec<Diagnostic
         &format!("{pointer}/source_offset_frames"),
     )?;
     layer.gain_db = gain_db;
+    layer.gain_keys = gain_keys;
+    layer.pan = pan;
     if let Some(shy) = v.get("shy") {
         layer.shy = as_bool(shy, &format!("{pointer}/shy"))?;
     }

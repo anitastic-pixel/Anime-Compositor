@@ -3020,7 +3020,7 @@ function sing(from, frames) {
       const source = audio.createBufferSource();
       source.buffer = heard.buffer;
       const level = audio.createGain();
-      level.gain.value = Math.pow(10, (layer.gain_db || 0) / 20);
+      level.gain.value = Math.pow(10, levelOf(layer) / 20);
       source.connect(level).connect(audio.destination);
       const start = at + (begin - from) / fps + late;
       const behind = Math.max(0, audio.currentTime - start);
@@ -3034,8 +3034,15 @@ function sing(from, frames) {
 // Called with every frame that arrives. Playing: start the sound, and start it again when the
 // picture and the sound are more than three frames apart, which is also what a loop is. Not
 // playing: a frame that changed sounds for its own length, as a scrub does in After Effects.
+// D-645: a level is a number, or keys whose base is the number the panel shows.
+function levelOf(layer) {
+  const g = layer.gain_db;
+  return typeof g === 'number' ? g : (g && typeof g.base === 'number' ? g.base : 0);
+}
+
 function hear() {
-  if (!layers().some((layer) => layer.kind === 'audio')) return hush();
+  // D-645: a composition layer is heard too, so the window asks for the mix when it has one.
+  if (!layers().some((layer) => layer.kind === 'audio' || layer.composition_id)) return hush();
   audio = audio || new AudioContext();
   const comp = composition();
   const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
@@ -8784,11 +8791,20 @@ function drawInspector() {
     const level = document.createElement('input');
     level.id = 'gain';
     level.type = 'number'; level.min = -96; level.max = 12; level.step = 0.5;
-    level.value = layer.gain_db || 0;
+    level.value = levelOf(layer);
     level.setAttribute('aria-label', 'Level of ' + layer.name + ' in decibels, from -96 to 12');
     level.onchange = () => command('/layer.set_gain?layer=' + encodeURIComponent(layer.id)
       + '&value=' + encodeURIComponent(level.value));
     dl.lastChild.append(level, ' dB');
+    // D-645: keys and pan are read from the project file; the panel shows them and sets the base.
+    if (layer.gain_db && layer.gain_db.keyframes && layer.gain_db.keyframes.length) {
+      field(dl, 'Level keys', layer.gain_db.keyframes.length + ', from the project file; the number above is their base');
+    }
+    if (layer.pan !== undefined) {
+      const p = typeof layer.pan === 'number' ? layer.pan : layer.pan.base;
+      field(dl, 'Pan', (p === 0 ? 'centre' : (p < 0 ? -p + ' left' : p + ' right'))
+        + (layer.pan.keyframes && layer.pan.keyframes.length ? ', keyed (' + layer.pan.keyframes.length + ' keys)' : ''));
+    }
     field(dl, 'Heard', 'in the window, in an MP4 export, and in a WAV beside frames when asked for');
     into.replaceChildren(dl);
     return;

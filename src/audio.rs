@@ -676,15 +676,108 @@ pub fn mix(
     from: i32,
     frames: u32,
 ) -> ([Vec<f64>; 2], Vec<(String, Diagnostic)>) {
+    mix_in(project, root, comp, from as i64, frames as i64, &mut Vec::new())
+}
+
+/// D-645: whether the composition has anything to hear: an audio layer switched on, here or
+/// inside a composition layer switched on.
+pub fn has_sound(project: &crate::model::Project, comp: &crate::model::Composition) -> bool {
+    fn inside(project: &crate::model::Project, comp: &crate::model::Composition, above: &mut Vec<crate::model::Id>) -> bool {
+        if above.contains(&comp.id) {
+            return false;
+        }
+        above.push(comp.id.clone());
+        let heard = comp.layers_in_order().filter(|l| l.enabled).any(|l| {
+            l.kind == crate::model::LayerKind::Audio
+                || l.composition_id.as_ref().and_then(|id| project.composition(id)).is_some_and(|c| inside(project, c, above))
+        });
+        above.pop();
+        heard
+    }
+    inside(project, comp, &mut Vec::new())
+}
+
+/// D-645: a layer's level in dB and pan at composition frame `f`, each held to its range.
+fn level_at(layer: &crate::model::Layer, f: i64) -> (f64, f64) {
+    let read = |p: &Option<crate::model::Property>, plain: f64| {
+        p.as_ref().and_then(|p| p.value_at(f as i32).as_scalar()).unwrap_or(plain)
+    };
+    (read(&layer.gain_keys, layer.gain_db).clamp(-96.0, 12.0), read(&layer.pan, 0.0).clamp(-100.0, 100.0))
+}
+
+/// D-645: the two channels' gains a share `t` of the way from `a` to `b` (each a level in dB
+/// and a pan): the level moves in a straight line in dB, the pan by the balance law, which
+/// keeps the centre at unity.
+fn channel_gains(a: (f64, f64), b: (f64, f64), t: f64) -> [f64; 2] {
+    let (db, p) = (a.0 + (b.0 - a.0) * t, a.1 + (b.1 - a.1) * t);
+    let g = 10f64.powf(db / 20.0);
+    [g * (1.0 - p / 100.0).min(1.0), g * (1.0 + p / 100.0).min(1.0)]
+}
+
+fn mix_in(
+    project: &crate::model::Project,
+    root: &std::path::Path,
+    comp: &crate::model::Composition,
+    from: i64,
+    frames: i64,
+    above: &mut Vec<crate::model::Id>,
+) -> ([Vec<f64>; 2], Vec<(String, Diagnostic)>) {
     let (num, den) = (comp.frame_rate.numerator() as i128, comp.frame_rate.denominator() as i128);
     let first = |f: i64| (f as i128 * WORKING_RATE as i128 * den).div_euclid(num) as i64;
-    let (from, to) = (from as i64, from as i64 + frames as i64);
+    let to = from + frames;
     let s0 = first(from);
     let n = (first(to) - s0) as usize;
     let mut out = [vec![0.0; n], vec![0.0; n]];
     let mut left_out = Vec::new();
     for layer in comp.layers_in_order() {
-        if layer.kind != crate::model::LayerKind::Audio || !layer.enabled {
+        if !layer.enabled {
+            continue;
+        }
+        if let Some(inner_id) = &layer.composition_id {
+            // D-645: a composition layer is heard. A missing composition was said on opening
+            // (COMPOSITION_REFERENCE_MISSING); a cycle cannot open, and is silent here if an edit
+            // makes one.
+            let Some(inner) = project.composition(inner_id) else { continue };
+            if above.contains(inner_id) || &comp.id == inner_id {
+                continue;
+            }
+            let (ni, di) = (inner.frame_rate.numerator() as i128, inner.frame_rate.denominator() as i128);
+            let first_in = |f: i64| (f as i128 * WORKING_RATE as i128 * di).div_euclid(ni) as i64;
+            let (start, end) = (inner.start_frame as i64, inner.start_frame as i64 + inner.duration_frames as i64);
+            // Composition frame f plays inner frame g = floor(source time) from its first sample.
+            let reads: Vec<(i64, i64)> = (from.max(layer.in_frame as i64)..to.min(layer.out_frame as i64))
+                .filter_map(|f| Some((f, layer.source_time(f as i32)?.floor() as i64)))
+                .filter(|&(_, g)| (start..end).contains(&g))
+                .collect();
+            let (Some(lo), Some(need)) = (
+                reads.iter().map(|r| r.1).min(),
+                reads.iter().map(|&(f, g)| first_in(g) + first(f + 1) - first(f)).max(),
+            ) else {
+                continue;
+            };
+            let mut hi = lo + 1;
+            while hi < end && first_in(hi) < need {
+                hi += 1;
+            }
+            above.push(comp.id.clone());
+            let (heard, said) = mix_in(project, root, inner, lo, hi - lo, above);
+            above.pop();
+            left_out.extend(said);
+            let base = first_in(lo);
+            for (f, g) in reads {
+                let (a, src) = (first(f), first_in(g) - base);
+                for s in a..first(f + 1) {
+                    let i = src + (s - a);
+                    if (i as usize) < heard[0].len() {
+                        for c in 0..2 {
+                            out[c][(s - s0) as usize] += heard[c][i as usize];
+                        }
+                    }
+                }
+            }
+            continue;
+        }
+        if layer.kind != crate::model::LayerKind::Audio {
             continue;
         }
         let Some(path) = project.assets.iter().find(|a| a.id == layer.asset_id).and_then(|a| a.path.as_ref()) else {
@@ -698,8 +791,15 @@ pub fn mix(
             }
         };
         let work = sound.working_kept();
-        let gain = 10f64.powf(layer.gain_db / 20.0);
         let timing = layer.timing();
+        // D-645: the level and pan, after the effects, moving straight across each frame.
+        let plain = layer.gain_keys.is_none() && layer.pan.is_none();
+        let fixed = channel_gains(level_at(layer, 0), level_at(layer, 0), 0.0);
+        let gains = |f: i64| {
+            let (a, b) = if plain { ((0.0, 0.0), (0.0, 0.0)) } else { (level_at(layer, f), level_at(layer, f + 1)) };
+            let (s_a, s_b) = (first(f), first(f + 1));
+            move |s: i64| if plain { fixed } else { channel_gains(a, b, (s - s_a) as f64 / (s_b - s_a) as f64) }
+        };
         if !layer.effects.is_empty() {
             // D-642: a sound effect needs what came before, so the layer is made from its
             // first sample, run through its effects in order, then given its level.
@@ -749,9 +849,13 @@ pub fn mix(
                     noise_gate(&mut y, lo, hi, &first, fx);
                 }
             }
-            for s in s0.max(start)..(start + len as i64).min(first(to)) {
-                for c in 0..2 {
-                    out[c][(s - s0) as usize] += gain * y[c][(s - start) as usize];
+            for f in from.max(lo)..hi {
+                let gain = gains(f);
+                for s in first(f)..first(f + 1) {
+                    let g = gain(s);
+                    for c in 0..2 {
+                        out[c][(s - s0) as usize] += g[c] * y[c][(s - start) as usize];
+                    }
                 }
             }
             continue;
@@ -759,13 +863,15 @@ pub fn mix(
         for f in from.max(layer.in_frame as i64)..to.min(layer.out_frame as i64) {
             let Some(local) = timing.local_frame(f as i32) else { continue };
             let (a, b, start) = (first(f), first(f + 1), first(local as i64));
+            let gain = gains(f);
             for s in a..b {
                 let i = start + (s - a);
                 if i < 0 || i as usize >= work[0].len() {
                     continue;
                 }
+                let g = gain(s);
                 for c in 0..2 {
-                    out[c][(s - s0) as usize] += gain * work[c][i as usize];
+                    out[c][(s - s0) as usize] += g[c] * work[c][i as usize];
                 }
             }
         }

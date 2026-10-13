@@ -1229,10 +1229,30 @@
           }
         },
         "gain_db": {
-          "type": "number",
-          "minimum": -96,
-          "maximum": 12,
-          "description": "D-71: the level of an audio layer in decibels. 0 when absent."
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": -96,
+              "maximum": 12
+            },
+            {
+              "$ref": "#/$defs/propertyScalar"
+            }
+          ],
+          "description": "D-71: the level of an audio layer in decibels. 0 when absent. D-645: or keyed, every value from -96 to 12, no expression."
+        },
+        "pan": {
+          "oneOf": [
+            {
+              "type": "number",
+              "minimum": -100,
+              "maximum": 100
+            },
+            {
+              "$ref": "#/$defs/propertyScalar"
+            }
+          ],
+          "description": "D-645: an audio layer's pan, -100 all left to 100 all right, plain or keyed, no expression. Centre when absent."
         }
       }
     },
