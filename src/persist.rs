@@ -3147,6 +3147,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert((*name).into(), J::from(c.as_str()));
             }
         }
+        Effect::Hair { values, words, hair_color } => {
+            for ((name, ..), v) in crate::effects::HAIR_SETTINGS.iter().zip(values) {
+                params.insert((*name).into(), num(*v));
+            }
+            for ((name, ..), w) in crate::effects::HAIR_WORDS.iter().zip(words) {
+                params.insert((*name).into(), J::from(w.as_str()));
+            }
+            params.insert("hair_color".into(), J::from(hair_color.as_str()));
+        }
         Effect::CcBallAction {
             scatter,
             rotation_axis,
@@ -5912,6 +5921,7 @@ fn parse_effect(
         crate::effects::DRIZZLE,
         crate::effects::PARTICLE_PLANE,
         crate::effects::PARTICLE_PLAYGROUND,
+        crate::effects::HAIR,
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
         crate::effects::CC_SPHERE,
@@ -7689,6 +7699,20 @@ fn parse_effect(
                 clock: [0.0; 2],
                 history: None,
             })
+        }
+        // D-673: the word and the colour kept as written, so one outside the contract is refused
+        // by name.
+        crate::effects::HAIR => {
+            let mut values = [0.0; 13];
+            for ((name, ..), v) in crate::effects::HAIR_SETTINGS.iter().zip(values.iter_mut()) {
+                *v = effect_number(params, name, &at)?;
+            }
+            let mut words: [String; 1] = Default::default();
+            for ((name, ..), w) in crate::effects::HAIR_WORDS.iter().zip(words.iter_mut()) {
+                *w = effect_word(params, name, &at)?;
+            }
+            let hair_color = effect_word(params, "hair_color", &at)?.to_ascii_lowercase();
+            Some(crate::effects::Effect::Hair { values, words, hair_color })
         }
         crate::effects::CC_BALL_ACTION => Some(crate::effects::Effect::CcBallAction {
             scatter: effect_number(params, "scatter", &at)?,

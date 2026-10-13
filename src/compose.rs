@@ -1173,6 +1173,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Drizzle { .. }
                 // D-612.
                 | crate::effects::Effect::ParticlePlane { .. }
+                // D-673.
+                | crate::effects::Effect::Hair { .. }
                 // D-508 (the bits are found on the processor).
                 | crate::effects::Effect::EnergyStroke { .. }
                 // D-509.

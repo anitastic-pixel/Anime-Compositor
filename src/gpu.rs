@@ -7228,6 +7228,101 @@ fn drizzle(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(out));
 }
 
+// D-673, the layer at a strand's root, at (x, y) in the buffer's own pixels: the bilinear read
+// clamped to the buffer, premultiplied.
+fn hair_root(x: f64, y: f64) -> vec4<f64> {
+    let size = textureDimensions(input);
+    let fx = clamp(x - 0.5lf, 0.0lf, f64(size.x) - 1.0lf);
+    let fy = clamp(y - 0.5lf, 0.0lf, f64(size.y) - 1.0lf);
+    let x0 = i32(fx);
+    let y0 = i32(fy);
+    let x1 = min(x0 + 1, i32(size.x) - 1);
+    let y1 = min(y0 + 1, i32(size.y) - 1);
+    let tx = fx - f64(x0);
+    let ty = fy - f64(y0);
+    return (vec4<f64>(at(input, vec2(x0, y0))) * (1.0lf - tx) + vec4<f64>(at(input, vec2(x1, y0))) * tx) * (1.0lf - ty)
+        + (vec4<f64>(at(input, vec2(x0, y1))) * (1.0lf - tx) + vec4<f64>(at(input, vec2(x1, y1))) * tx) * ty;
+}
+
+// D-673, simulate::hair, a pixel a thread: the strands of its 16 by 16 tile in order (k: k[0]
+// where the shared numbers start, k[6] the count, the strands from 7, SPRITE_STRIDE each, [3, x, y, reach,
+// d_x, d_y, d_z, L, b, u_2], then each tile's start and the lists, then simulate::hair_light's
+// fifteen numbers), each strand's coverage over its eight pieces, its root read for whether it
+// grows and its colour, lit as hair and laid over. The shine's power is single precision, as
+// Glue Gun's.
+@compute @workgroup_size(16, 16)
+fn hair(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let tw = (size.x + 15u) / 16u;
+    let nt = tw * ((size.y + 15u) / 16u);
+    let t = (id.y / 16u) * tw + id.x / 16u;
+    let o = 7u + SPRITE_STRIDE * u32(k[6]);
+    let g = u32(k[0]);
+    let x = f64(i32(id.x) - F.ox) + 0.5lf;
+    let y = f64(i32(id.y) - F.oy) + 0.5lf;
+    let th = k[g + 5u];
+    let l = vec3(k[g + 7u], k[g + 8u], k[g + 9u]);
+    var res = vec4<f64>(at(input, vec2<i32>(id.xy)));
+    for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
+        let s = 7u + SPRITE_STRIDE * u32(k[o + nt + 1u + j]);
+        let rx = k[s + 1u];
+        let ry = k[s + 2u];
+        let d = vec3(k[s + 4u], k[s + 5u], k[s + 6u]);
+        let sl = k[s + 7u];
+        let b = k[s + 8u];
+        var best = 0.0lf;
+        var sat = 0.0lf;
+        var a = vec2(rx, ry);
+        for (var n = 0u; n < 8u; n++) {
+            let q = f64(n + 1u) / 8.0lf;
+            let e2 = vec2(rx + sl * d.x * q, ry + sl * (d.y * q + b * q * q));
+            let ex = e2.x - a.x;
+            let ey = e2.y - a.y;
+            let ee = ex * ex + ey * ey;
+            var sp = 0.0lf;
+            if ee != 0.0lf {
+                sp = clamp(((x - a.x) * ex + (y - a.y) * ey) / ee, 0.0lf, 1.0lf);
+            }
+            let px = x - (a.x + sp * ex);
+            let py = y - (a.y + sp * ey);
+            let at_s = (f64(n) + sp) / 8.0lf;
+            let cov = clamp(th / 2.0lf * (1.0lf - 0.75lf * at_s) - sqrt(px * px + py * py) + 0.5lf, 0.0lf, 1.0lf);
+            if cov > best {
+                best = cov;
+                sat = at_s;
+            }
+            a = e2;
+        }
+        if best == 0.0lf {
+            continue;
+        }
+        let c = hair_root(rx + f64(F.ox), ry + f64(F.oy));
+        if !(k[s + 9u] < c.w) {
+            continue;
+        }
+        let dv0 = vec3(d.x, d.y + 2.0lf * b * sat, d.z);
+        let dv = dv0 / sqrt(dv0.x * dv0.x + dv0.y * dv0.y + dv0.z * dv0.z);
+        let al = dv.x * l.x + dv.y * l.y + dv.z * l.z;
+        let kd = sqrt(max(1.0lf - al * al, 0.0lf));
+        let br = kd * sqrt(max(1.0lf - dv.z * dv.z, 0.0lf)) - al * dv.z;
+        var ks = 0.0lf;
+        if br > 0.0lf {
+            ks = f64(pow(f32(br), f32(1.0lf / k[g + 13u])));
+        }
+        let cover = best * k[g + 4u];
+        for (var ch = 0u; ch < 3u; ch++) {
+            let col = k[g + ch] * (1.0lf - k[g + 3u]) + c[ch] / c.w * k[g + 3u];
+            let lit = col * (k[g + 10u] + k[g + 11u] * k[g + 6u] * kd) + k[g + 12u] * k[g + 6u] * (1.0lf + (col - 1.0lf) * k[g + 14u]) * ks;
+            res[ch] = lit * cover + res[ch] * (1.0lf - cover);
+        }
+        res.w = cover + res.w * (1.0lf - cover);
+    }
+    textureStore(output, id.xy, vec4<f32>(res));
+}
+
 // B-151, median.rs's straight colour of a pixel, each channel over the covering in single
 // precision as the CPU divides it, or nothing where nothing shows.
 fn straight(p: vec4<f32>) -> vec4<f32> {
@@ -11473,6 +11568,8 @@ struct FxPasses {
     bubbles: Pass,
     /// D-672.
     drizzle: Pass,
+    /// D-673.
+    hair: Pass,
     /// B-151.
     median: Pass,
     smart: Pass,
@@ -12218,6 +12315,7 @@ impl Gpu {
                 particles: pass("particles", &[0, 1, 2, 3, 4]),
                 bubbles: pass("bubbles", &[0, 1, 2, 3]),
                 drizzle: pass("drizzle", &[0, 1, 2, 3]),
+                hair: pass("hair", &[0, 1, 2, 3]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
@@ -15011,6 +15109,21 @@ impl Gpu {
                 self.fx_step(steps, &passes.drizzle, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
                 (out, (w, h))
             }
+            // D-673: the strands in the drawing's own space, binned into the card's tiles as the
+            // particles are, the lists after them, then the shared numbers.
+            e @ E::Hair { .. } => {
+                let (w0, h0) = (w.saturating_sub(2 * ox), h.saturating_sub(2 * oy));
+                let mut k = crate::simulate::hair_list(e, w0 as f64, h0 as f64);
+                let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
+                k[6] = ((k.len() - crate::particles::HEAD) / crate::particles::STRIDE) as f64;
+                k.extend(starts.iter().chain(&list).map(|&i| i as f64));
+                k[0] = k.len() as f64;
+                k.extend(crate::simulate::hair_light(e, h0 as f64));
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let out = self.scratch("D-673 hair", w, h);
+                self.fx_step(steps, &passes.hair, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                (out, (w, h))
+            }
             // B-151: ten of the fourth batch.
             E::Median { radius, operate_on_alpha } => {
                 let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
@@ -16687,6 +16800,17 @@ impl Gpu {
                             crate::effects::Effect::ParticlePlane { values, .. } => {
                                 let alive = 100.0 * values[0] * values[1] + 1.0;
                                 ((7.0 + 14.0 * alive + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
+                            }
+                            // D-673: Hair's strands, eleven numbers each and a place in a tile's
+                            // list or several, its tiles' starts and the shared numbers.
+                            crate::effects::Effect::Hair { values, .. } => {
+                                let n = (values[3].clamp(0.0, 1000.0) / 100.0 * 4000.0 * w as f64 / (h as f64).max(1.0)).floor();
+                                let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
+                                let r = values[0].clamp(0.0, 1000.0) / 100.0 * h as f64 / 10.0 * (1.0 + values[2].clamp(-500.0, 500.0).abs() / 100.0)
+                                    + values[1].clamp(0.0, 100.0) * h as f64 / 2160.0
+                                    + 1.0;
+                                let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
+                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 15.0) * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,

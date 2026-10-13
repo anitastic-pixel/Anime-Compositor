@@ -6,7 +6,7 @@
 //! No state is carried from frame to frame (document 20): every frame is worked from the layer's
 //! in point, so a frame drawn alone equals the same frame played from the start.
 
-use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS};
+use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS, HAIR_SETTINGS};
 use crate::particles::{tile_lists, HEAD, STRIDE, TILE};
 use crate::WorkingBuffer;
 use rayon::prelude::*;
@@ -292,6 +292,146 @@ pub(crate) fn drizzle(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, 
                     px[ch] = (lit * al) as f32;
                 }
                 px[3] = al as f32;
+            }
+        }
+    });
+}
+
+/// D-673: Hair's settings held inside their ranges.
+fn hair_held(v: &[f64; 13]) -> [f64; 13] {
+    std::array::from_fn(|k| v[k].clamp(HAIR_SETTINGS[k].1, HAIR_SETTINGS[k].2))
+}
+
+/// D-673: Hair's strands, every one the density asks for, in order, as sprite numbers the
+/// particle engine's binning reads: the head left at zero, then `STRIDE` numbers a strand, `[3, x, y,
+/// reach, d_x, d_y, d_z, L_j, b_j, u_2]`, its root, how far from the root it can cover, the way it
+/// leaves the root, its length and bend, and the share its root's alpha must pass for it to grow,
+/// in the drawing's own pixels. `w` and `h` the drawing's size. Whether a strand grows is left to
+/// the drawing, which reads the layer at its root.
+pub(crate) fn hair_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
+    let Effect::Hair { values, words, .. } = e else { unreachable!("Hair of another effect") };
+    let v = hair_held(values);
+    let mut k = vec![0.0; HEAD];
+    let big = v[0] / 100.0 * h / 10.0;
+    if big == 0.0 {
+        return k;
+    }
+    let n = (v[3] / 100.0 * 4000.0 * w / h).floor() as i64;
+    let t = v[1] * h / 1080.0;
+    let base = crate::grade::mix(0);
+    k.reserve(STRIDE * n.max(0) as usize);
+    for j in 0..n {
+        let u: [f64; 6] = std::array::from_fn(|c| (crate::grade::unit(base, j, 0, 0, c as u64) + 1.0) / 2.0);
+        let (p, th) = (2.0 * std::f64::consts::PI * u[3], std::f64::consts::PI / 3.0 * u[4]);
+        let d = [th.sin() * p.cos(), th.sin() * p.sin(), th.cos()];
+        let len = big * (0.6 + 0.4 * u[5]);
+        let b = v[2] / 100.0 * if words[0] == "on" { len / big } else { 1.0 };
+        let reach = len * (d[0].hypot(d[1]) + b.abs()) + t / 2.0 + 1.0;
+        k.extend([3.0, u[0] * w, u[1] * h, reach, d[0], d[1], d[2], len, b, u[2], 0.0]);
+    }
+    k
+}
+
+/// D-673: the numbers every pixel of Hair shares, the card's as the processor's: the hair's
+/// colour in linear light, the inheritance and opacity as shares, the thickness in pixels, the
+/// light's intensity, the light's direction (towards it, unit length), ambient, diffuse,
+/// specular, roughness and metal. `h` the drawing's height.
+pub(crate) fn hair_light(e: &Effect, h: f64) -> [f64; 15] {
+    let Effect::Hair { values, hair_color, .. } = e else { unreachable!("Hair of another effect") };
+    let v = hair_held(values);
+    let hc = crate::effects::encoded(hair_color).map(crate::grade::to_linear);
+    let (ux, uy) = crate::blurs::along(v[7]);
+    let l = (ux * ux + uy * uy + 1.0).sqrt();
+    [hc[0], hc[1], hc[2], v[4] / 100.0, v[5] / 100.0, v[1] * h / 1080.0, v[6] / 100.0, ux / l, uy / l, 1.0 / l, v[8] / 100.0, v[9] / 100.0, v[10] / 100.0, v[11], v[12] / 100.0]
+}
+
+/// D-673: Hair, after CycoreFX's CC Hair (document 21): strands grown where the layer is opaque,
+/// 3D curves seen straight on, bent by their weight, coloured from their own colour and the
+/// picture at the root, lit as hair is, and laid over the layer one after another. `(ox, oy)`
+/// the drawing's corner in the buffer: the strands are in the drawing's own space and every
+/// pixel of the buffer can be covered; the roots read the layer clamped to the buffer. Never
+/// grows.
+pub(crate) fn hair(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) {
+    let (bw, bh) = (source.width(), source.height());
+    let (w0, h0) = (bw.saturating_sub(2 * ox), bh.saturating_sub(2 * oy));
+    if w0 == 0 || h0 == 0 {
+        return;
+    }
+    let k = hair_list(e, w0 as f64, h0 as f64);
+    if k.len() == HEAD {
+        return;
+    }
+    let [hr, hg, hb, inh, op, t, inten, lx, ly, lz, amb, dif, spc, rough, metal] = hair_light(e, h0 as f64);
+    let hc = [hr, hg, hb];
+    let (starts, list) = tile_lists(&k, (ox, oy), bw, bh);
+    let still = source.data().to_vec();
+    let read = |x: f64, y: f64| -> [f64; 4] {
+        let (fx, fy) = ((x + ox as f64 - 0.5).clamp(0.0, (bw - 1) as f64), (y + oy as f64 - 0.5).clamp(0.0, (bh - 1) as f64));
+        let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
+        let (x1, y1) = ((x0 + 1).min(bw - 1), (y0 + 1).min(bh - 1));
+        let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
+        let at = |x: usize, y: usize, c: usize| still[(y * bw + x) * 4 + c] as f64;
+        [0, 1, 2, 3].map(|c| (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty) + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty)
+    };
+    // Each strand worked once: its colour, when it grows (the picture's straight colour at its
+    // root mixed in), and its nine points.
+    let strands: Vec<Option<([f64; 3], [[f64; 2]; 9])>> = k[HEAD..]
+        .par_chunks_exact(STRIDE)
+        .map(|s| {
+            let c = read(s[1], s[2]);
+            (s[9] < c[3]).then(|| {
+                let col = std::array::from_fn(|ch| hc[ch] * (1.0 - inh) + c[ch] / c[3] * inh);
+                let pts = std::array::from_fn(|i| {
+                    let q = i as f64 / 8.0;
+                    [s[1] + s[7] * s[4] * q, s[2] + s[7] * (s[5] * q + s[8] * q * q)]
+                });
+                (col, pts)
+            })
+        })
+        .collect();
+    let tw = bw.div_ceil(TILE);
+    source.data_mut().par_chunks_mut(bw * 4 * TILE).enumerate().for_each(|(ty, band)| {
+        for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
+            let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
+            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                let tt = ty * tw + bx / TILE;
+                let x = bx as f64 - ox as f64 + 0.5;
+                let mut o = [px[0] as f64, px[1] as f64, px[2] as f64, px[3] as f64];
+                for &i in &list[starts[tt]..starts[tt + 1]] {
+                    let Some((col, p)) = &strands[i] else { continue };
+                    let (mut best, mut at) = (0.0, 0.0);
+                    for n in 0..8 {
+                        let (ax, ay, ex, ey) = (p[n][0], p[n][1], p[n + 1][0] - p[n][0], p[n + 1][1] - p[n][1]);
+                        let ee = ex * ex + ey * ey;
+                        let s = if ee == 0.0 { 0.0 } else { (((x - ax) * ex + (y - ay) * ey) / ee).clamp(0.0, 1.0) };
+                        let e = (x - (ax + s * ex)).hypot(y - (ay + s * ey));
+                        let along = (n as f64 + s) / 8.0;
+                        let cov = (t / 2.0 * (1.0 - 0.75 * along) - e + 0.5).clamp(0.0, 1.0);
+                        if cov > best {
+                            (best, at) = (cov, along);
+                        }
+                    }
+                    if best == 0.0 {
+                        continue;
+                    }
+                    let sp = &k[HEAD + STRIDE * i..HEAD + STRIDE * i + STRIDE];
+                    let dv = [sp[4], sp[5] + 2.0 * sp[8] * at, sp[6]];
+                    let dl = (dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2]).sqrt();
+                    let dv = dv.map(|c| c / dl);
+                    let a = dv[0] * lx + dv[1] * ly + dv[2] * lz;
+                    let kd = (1.0 - a * a).max(0.0).sqrt();
+                    let br = kd * (1.0 - dv[2] * dv[2]).max(0.0).sqrt() - a * dv[2];
+                    let ks = if br > 0.0 { br.powf(1.0 / rough) } else { 0.0 };
+                    let al = best * op;
+                    for ch in 0..3 {
+                        let lit = col[ch] * (amb + dif * inten * kd) + spc * inten * (1.0 + (col[ch] - 1.0) * metal) * ks;
+                        o[ch] = lit * al + o[ch] * (1.0 - al);
+                    }
+                    o[3] = al + o[3] * (1.0 - al);
+                }
+                for c in 0..4 {
+                    px[c] = o[c] as f32;
+                }
             }
         }
     });

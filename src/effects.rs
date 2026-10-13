@@ -3053,6 +3053,17 @@ pub enum Effect {
         clock: [f64; 2],
         history: Option<std::sync::Arc<Vec<[f64; 33]>>>,
     },
+    /// D-673: Hair, after CycoreFX's CC Hair, its rule and settings when added ours
+    /// (`simulate::hair`, document 21): strands grown where the layer is opaque, bent by their
+    /// weight, coloured from their own colour and the picture at their roots and lit as hair.
+    /// `values`, the settings of [`HAIR_SETTINGS`] in that order; `words`, those of
+    /// [`HAIR_WORDS`], kept as written; `hair_color` #rrggbb. Nothing moves by itself, so no
+    /// clock.
+    Hair {
+        values: [f64; 13],
+        words: [String; 1],
+        hair_color: String,
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -4793,6 +4804,29 @@ pub const PARTICLE_PLAYGROUND_LAYERS: [&str; 6] =
     ["explode_layer", "layer_map", "particle_exploder_selection_map", "layer_map_selection_map", "gravity_selection_map", "wall_selection_map"];
 /// D-613: Particle Playground's colours and each when added.
 pub const PARTICLE_PLAYGROUND_COLORS: [(&str, &str); 2] = [("cannon_color", "#ff0000"), ("grid_color", "#ffff00")];
+pub const HAIR: &str = "core.hair";
+/// D-673: Hair's keyable settings, in the order `values` holds them: name, lowest, highest, and
+/// the value when the effect is added. Length in thousandths of the drawing's height; thickness
+/// in pixels at 1080 high; weight, how far a strand's tip hangs, in per cent of its length;
+/// density, 4000 strands at 100 for a drawing as wide as high; then the colour's share and
+/// opacity, and Glue Gun's light and shading without a light's place or colour.
+pub const HAIR_SETTINGS: [(&str, f64, f64, f64); 13] = [
+    ("length", 0.0, 1000.0, 30.0),
+    ("thickness", 0.0, 100.0, 2.0),
+    ("weight", -500.0, 500.0, 50.0),
+    ("density", 0.0, 1000.0, 100.0),
+    ("color_inheritance", 0.0, 100.0, 50.0),
+    ("opacity", 0.0, 100.0, 100.0),
+    ("light_intensity", 0.0, 400.0, 100.0),
+    ("light_direction", -3600.0, 3600.0, -45.0),
+    ("ambient", 0.0, 100.0, 25.0),
+    ("diffuse", 0.0, 100.0, 75.0),
+    ("specular", 0.0, 100.0, 50.0),
+    ("roughness", 0.001, 1.0, 0.1),
+    ("metal", 0.0, 100.0, 0.0),
+];
+/// D-673: Hair's words: name, the words, the word when added.
+pub const HAIR_WORDS: [(&str, &[&str], &str); 1] = [("constant_mass", &["off", "on"], "off")];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -5248,6 +5282,11 @@ impl Effect {
                     ("cannon_position", cannon_position.iter_mut().collect(), -1000.0, 1000.0),
                     ("grid_position", grid_position.iter_mut().collect(), -1000.0, 1000.0),
                 ])
+                .collect(),
+            Effect::Hair { values, .. } => HAIR_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .collect(),
             Effect::CcBallAction { scatter, rotation, twist_angle, grid_spacing, ball_size, instability_state, .. } => vec![
                 ("scatter", vec![scatter], 0.0, 1000.0),
@@ -8454,6 +8493,7 @@ impl Effect {
             Effect::Drizzle { .. } => "Drizzle",
             Effect::ParticlePlane { .. } => "Particle Plane",
             Effect::ParticlePlayground { .. } => "Particle Playground",
+            Effect::Hair { .. } => "Hair",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -8714,6 +8754,7 @@ impl Effect {
             Effect::Drizzle { .. } => DRIZZLE,
             Effect::ParticlePlane { .. } => PARTICLE_PLANE,
             Effect::ParticlePlayground { .. } => PARTICLE_PLAYGROUND,
+            Effect::Hair { .. } => HAIR,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -9357,6 +9398,9 @@ impl Effect {
             Effect::Drizzle { words, light_color, .. } => (!["distant", "point"].contains(&words[0].as_str()))
                 .then(|| format!("{name}'s light type is distant or point, and this is \"{}\".", words[0]))
                 .or_else(|| hex_fault(name, "light colour", light_color)),
+            Effect::Hair { words, hair_color, .. } => (!["off", "on"].contains(&words[0].as_str()))
+                .then(|| format!("{name}'s constant mass is off or on, and this is \"{}\".", words[0]))
+                .or_else(|| hex_fault(name, "hair colour", hair_color)),
             Effect::ParticleSpace { words, colors, texture_layer, .. } => PARTICLE_SPACE_WORDS
                 .iter()
                 .zip(words)
@@ -12863,6 +12907,8 @@ pub(crate) fn apply_stack_at(
             e @ Effect::Drizzle { .. } => crate::perf::time(crate::perf::Stage::EffectDrizzle, || {
                 crate::simulate::drizzle(source, e, (ox, oy))
             }),
+            // D-673: the strands in the drawing's own space; never grows.
+            e @ Effect::Hair { .. } => crate::perf::time(crate::perf::Stage::EffectHair, || crate::simulate::hair(source, e, (ox, oy))),
             // D-610: the particles drawn through the composition camera or its own; never grows.
             e @ Effect::ParticleSpace { .. } => crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {
                 crate::particles::particle_space(source, e, (ox, oy))
