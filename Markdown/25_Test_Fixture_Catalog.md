@@ -214014,3 +214014,51 @@ FX-PEMIT-061 (`fx_pemit_061.json`): Floor Action "collide". The file is read, th
 FX-PEMIT-062 (`fx_pemit_062.json`): Gradient Color 2 "#12345": not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PEMIT-063 (`fx_pemit_063.json`): Grid X 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Reshape (D-606)
+
+Reshape (`core.reshape`, B-485, EFFECTS.md row 161), after After Effects' Reshape, the rule ours. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size, with masks of mode None; the media are in `Fixtures/reshape/media/`. `tools/reshape_reference.py` works the expected frames, `Fixtures/reshape/expected_reshape.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-RESHAPE-001 (`fx_reshape_001.json`): The settings as they start: no source and no destination mask: the drawing, untouched. Frames 0.
+
+FX-RESHAPE-002 (`fx_reshape_002.json`): Source mask 1, a square from (4, 3) to (8, 7); destination mask 2, the same square three pixels right; Percent 100, Elasticity Normal: the stripes in the square pulled right, the drawing's edges held. Frames 0.
+
+FX-RESHAPE-003 (`fx_reshape_003.json`): Destination a tall strip from (5, 1) to (7, 9): the square squeezed across and stretched down. Frames 0.
+
+FX-RESHAPE-004 (`fx_reshape_004.json`): FX-RESHAPE-002 at Percent 50: half way. Frames 0.
+
+FX-RESHAPE-005 (`fx_reshape_005.json`): FX-RESHAPE-002 with boundary mask 3, (3, 1) to (13, 9): nothing outside it moves, so columns 0 to 1 and 14 to 15 are the drawing's own. Frames 0.
+
+FX-RESHAPE-006 (`fx_reshape_006.json`): FX-RESHAPE-002 at Elasticity Stiff: the pull spread wide. Frames 0.
+
+FX-RESHAPE-007 (`fx_reshape_007.json`): FX-RESHAPE-002 at Elasticity Liquid: the pull kept near the edges. Frames 0.
+
+FX-RESHAPE-008 (`fx_reshape_008.json`): The destination drawn the other way round: turned to wind the source's way first, so FX-RESHAPE-002's frame. Frames 0.
+
+FX-RESHAPE-009 (`fx_reshape_009.json`): Destination a curved circle 5 across about (8, 5): the square rounded. Frames 0.
+
+FX-RESHAPE-010 (`fx_reshape_010.json`): Percent keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 the drawing, frame 2 FX-RESHAPE-004's, frame 4 FX-RESHAPE-002's. Frames 0, 2, 4.
+
+FX-RESHAPE-011 (`fx_reshape_011.json`): FX-RESHAPE-002 with the layer moved three pixels right: the masks are the layer's, so all of it moves with the layer. Frames 0.
+
+FX-RESHAPE-012 (`fx_reshape_012.json`): The destination's path keyed from three pixels right at frame 0 to two rows lower at frame 4: the pull turns downward. Frames 0, 2, 4.
+
+FX-RESHAPE-013 (`fx_reshape_013.json`): Percent keyed from 20 at frame 0 to 100 at frame 4 by an ease that passes its end: held at 100 at frame 2, the same as frame 4. Frames 0, 2, 4.
+
+FX-RESHAPE-014 (`fx_reshape_014.json`): Source and destination the same mask: nothing to pull, the drawing as it is. Frames 0.
+
+FX-RESHAPE-015 (`fx_reshape_015.json`): Source mask 4, of three. Nothing to reshape: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-RESHAPE-016 (`fx_reshape_016.json`): Destination mask 2, switched off. Nothing to reshape: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-RESHAPE-017 (`fx_reshape_017.json`): Boundary mask 3 with two masks. Nothing to reshape: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-RESHAPE-018 (`fx_reshape_018.json`): Elasticity "rubber", not one of the seven. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RESHAPE-019 (`fx_reshape_019.json`): Percent 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RESHAPE-020 (`fx_reshape_020.json`): Source mask -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RESHAPE-021 (`fx_reshape_021.json`): Boundary mask 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RESHAPE-022 (`fx_reshape_022.json`): Percent keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
