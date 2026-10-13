@@ -2861,6 +2861,22 @@ fn resolve_rest(
             .with_remediation("Put the Timewarp on the layer itself, or precompose the layers beneath and put it on the composition layer."),
         );
     }
+    // D-653: nor the frames around, so a Warp Stabilizer there changes nothing.
+    if layer.is_adjustment()
+        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::WarpStabilizer { .. }))
+    {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::TemporalSmoothingSkipped,
+                Severity::Warning,
+                format!("Adjustment layer {} has a Warp Stabilizer, which needs the frames around an adjustment layer cannot read.", layer.name),
+                format!("Frame {frame} is drawn without it. The setting is kept as it is."),
+            )
+            .with_remediation("Put the Warp Stabilizer on the layer itself, or precompose the layers beneath and put it on the composition layer."),
+        );
+    }
     // D-581: CC Force Motion Blur blurs what moves inside a composition layer. On any other
     // layer, an adjustment layer included, and on one with a Time Remap, whose moments its rule
     // does not yet read, it leaves the layer as it is, and says so.
@@ -2901,6 +2917,7 @@ fn resolve_rest(
         fill_wire(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_pixel_motion(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_timewarp(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
+        fill_warp_stabilizer(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_moment_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_noise(&mut effects, project, root, comp, layer, at, quality, cache);
     }
@@ -4676,6 +4693,288 @@ fn fill_timewarp(
             *picture = Some(crate::layer_map::Map(std::sync::Arc::new(done)));
         }
     }
+}
+
+/// D-653: each switched-on Warp Stabilizer's picture, by `tools/warp_stabilizer_reference.py`'s
+/// steps 2 to 7: the holder's frames this one's window needs (drawn with the effects before this
+/// one, by the layer's own timing, cut to `size`), the camera's move between each neighbouring
+/// pair fitted to `flow`'s estimate (`ws_pair`), chained to this frame, smoothed or held to the
+/// in point, and this frame moved back by the difference, cut and scaled. A frame that cannot be
+/// drawn is transparent. The settings are read at this frame, as the layer's keys are.
+// ponytail: every frame finds the moves its window needs afresh, and No Motion reaches back to the
+// in point; keep the pair moves by their two frames' content if long shots play slowly.
+#[allow(clippy::too_many_arguments)]
+fn fill_warp_stabilizer(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    size: (usize, usize),
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    use crate::effects::Effect;
+    use rayon::prelude::*;
+    let (n0, m1, n) = (holder.in_frame, holder.out_frame - 1, frame);
+    if n < n0 || n > m1 {
+        return;
+    }
+    for i in 0..effects.len() {
+        if !effects[i].enabled || !effects[i].is_valid() {
+            continue;
+        }
+        let Effect::WarpStabilizer {
+            result,
+            smoothness,
+            method,
+            preserve_scale,
+            framing,
+            maximum_scale,
+            action_safe_margin,
+            additional_scale,
+            detailed_analysis,
+            ..
+        } = effects[i].effect.clone()
+        else {
+            continue;
+        };
+        // Step 5's window, so only the frames it needs are drawn.
+        let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+        let r = ((fps * smoothness / 200.0 + 0.5).floor() as i32).min(n - n0).min(m1 - n);
+        let (lo, hi) = if result == "no_motion" { (n0, n) } else { (n - r, n + r) };
+        let mut upto = holder.clone();
+        upto.effects.truncate(i);
+        let mut inside = FrameLog::new(usize::MAX);
+        let frames: Vec<crate::WorkingBuffer> = (lo..=hi)
+            .map(|m| {
+                resolve_layer(project, comp, &upto, m, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
+                    .map_or_else(|| crate::WorkingBuffer::transparent(size.0, size.1), |r| crate::layer_map::cut(&r.source, (0, 0), size))
+            })
+            .collect();
+        let mut said = Vec::new();
+        for d in inside.finish() {
+            if !said.contains(&d.id) {
+                said.push(d.id);
+                log.record(frame, holder.name.clone(), d);
+            }
+        }
+        let done = crate::perf::time(crate::perf::Stage::EffectWarpStabilizer, || {
+            let (w, h) = size;
+            let (cx, cy, d) = (w as f64 / 2.0, h as f64 / 2.0, (w as f64).hypot(h as f64) / 2.0);
+            // Step 3: M_k for k from lo to hi - 1.
+            let tuning = crate::flow::Tuning::added(if detailed_analysis == "on" { 100.0 } else { 50.0 });
+            let pairs: Vec<[[f64; 3]; 3]> = frames.windows(2).map(|ab| ws_pair(&ab[0], &ab[1], &tuning, &method, preserve_scale == "on")).collect();
+            // Step 4: T_k, from this frame to frame k.
+            let towards = |k: i32| {
+                let mut t = WS_ONE;
+                for j in n..k {
+                    t = ws_mul(&pairs[(j - lo) as usize], &t);
+                }
+                for j in (k + 1..=n).rev() {
+                    t = ws_mul(&ws_inverse(&pairs[(j - 1 - lo) as usize]), &t);
+                }
+                t
+            };
+            // Step 5: the steadied map.
+            let steady = if result == "no_motion" {
+                towards(n0)
+            } else if r == 0 {
+                WS_ONE
+            } else {
+                let (mut total, mut s) = (0.0, [[0.0f64; 3]; 3]);
+                for k in n - r..=n + r {
+                    let wk = (-(((k - n) * (k - n)) as f64) / (2.0 * (r as f64 / 2.0).powi(2))).exp();
+                    let t = towards(k);
+                    total += wk;
+                    for (row, tr) in s.iter_mut().zip(t) {
+                        for (v, tv) in row.iter_mut().zip(tr) {
+                            *v += wk * tv;
+                        }
+                    }
+                }
+                s.map(|row| row.map(|v| v / total))
+            };
+            let back = ws_inverse(&steady);
+            // Step 6: the largest middle rectangle the move never uncovers, and the scale.
+            let fits = |s: f64| {
+                [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)].iter().all(|&(ex, ey): &(f64, f64)| {
+                    let (x, y) = ws_apply(&back, ex * s * w as f64 / 2.0 / d, ey * s * h as f64 / 2.0 / d);
+                    let (x, y) = (x * d + cx, y * d + cy);
+                    (0.0..=w as f64).contains(&x) && (0.0..=h as f64).contains(&y)
+                })
+            };
+            let mut s = 1.0;
+            if !fits(1.0) {
+                let (mut a, mut b) = (0.0, 1.0);
+                for _ in 0..60 {
+                    let mid = (a + b) / 2.0;
+                    if fits(mid) {
+                        a = mid;
+                    } else {
+                        b = mid;
+                    }
+                }
+                s = a;
+            }
+            let z = if framing == "stabilize_crop_auto_scale" {
+                let top = maximum_scale / 100.0;
+                if s == 0.0 {
+                    top
+                } else {
+                    ((1.0 - 2.0 * (action_safe_margin / 100.0)) / s).max(1.0).min(top)
+                }
+            } else {
+                1.0
+            };
+            let zz = z * additional_scale / 100.0;
+            // Step 7.
+            let o = &frames[(n - lo) as usize];
+            if steady == WS_ONE && zz == 1.0 {
+                return o.clone();
+            }
+            let crop = framing != "stabilize_only";
+            let mut out = crate::WorkingBuffer::transparent(w, h);
+            out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+                let qx = cx + ((i % w) as f64 + 0.5 - cx) / zz;
+                let qy = cy + ((i / w) as f64 + 0.5 - cy) / zz;
+                if crop && ((qx - cx).abs() > s * w as f64 / 2.0 || (qy - cy).abs() > s * h as f64 / 2.0) {
+                    return;
+                }
+                let (sx, sy) = ws_apply(&back, (qx - cx) / d, (qy - cy) / d);
+                px.copy_from_slice(&render::sample_bilinear(o, sx * d + cx, sy * d + cy));
+            });
+            out
+        });
+        if let Effect::WarpStabilizer { picture, .. } = &mut effects[i].effect {
+            *picture = Some(crate::layer_map::Map(std::sync::Arc::new(done)));
+        }
+    }
+}
+
+/// D-653: the unchanged map.
+const WS_ONE: [[f64; 3]; 3] = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+
+/// D-653's step 3: the camera's move from `a` to `b`, in points centred on the picture and divided
+/// by half its diagonal, fitted three times to `flow`'s estimate, each pixel weighted by `a`'s
+/// cover and, after the first fit, by how near the fit before sent it. Two frames that are the
+/// same, or a fit that cannot be solved, give the unchanged map.
+fn ws_pair(a: &WorkingBuffer, b: &WorkingBuffer, tuning: &crate::flow::Tuning, method: &str, preserve: bool) -> [[f64; 3]; 3] {
+    if a.data() == b.data() {
+        return WS_ONE;
+    }
+    let (w, h) = (a.width(), a.height());
+    let (cx, cy, d) = (w as f64 / 2.0, h as f64 / 2.0, (w as f64).hypot(h as f64) / 2.0);
+    let field = crate::flow::estimate(a, b, tuning);
+    let points: Vec<[f64; 4]> = (0..w * h)
+        .map(|i| {
+            let (x, y) = (((i % w) as f64 + 0.5 - cx) / d, ((i / w) as f64 + 0.5 - cy) / d);
+            [x, y, x + field.x[i] / d, y + field.y[i] / d]
+        })
+        .collect();
+    let base: Vec<f64> = a.data().chunks_exact(4).map(|p| p[3] as f64).collect();
+    let mut weights = base.clone();
+    let mut m = None;
+    for _ in 0..3 {
+        m = ws_fit(method, preserve, &points, &weights);
+        let Some(f) = m else { break };
+        weights = base
+            .iter()
+            .zip(&points)
+            .map(|(w0, p)| {
+                let (fx, fy) = ws_apply(&f, p[0], p[1]);
+                let r = (fx - p[2]).hypot(fy - p[3]) * d;
+                w0 / (1.0 + r * r)
+            })
+            .collect();
+    }
+    m.unwrap_or(WS_ONE)
+}
+
+/// D-653: one weighted least-squares fit of `method` to the points' moves, by the normal
+/// equations; None below a weight of 4 or when they cannot be solved.
+fn ws_fit(method: &str, preserve: bool, points: &[[f64; 4]], weights: &[f64]) -> Option<[[f64; 3]; 3]> {
+    let sw: f64 = weights.iter().sum();
+    if sw < 4.0 {
+        return None;
+    }
+    if method == "position" {
+        let tx = points.iter().zip(weights).map(|(p, w)| w * (p[2] - p[0])).sum::<f64>() / sw;
+        let ty = points.iter().zip(weights).map(|(p, w)| w * (p[3] - p[1])).sum::<f64>() / sw;
+        return Some([[1.0, 0.0, tx], [0.0, 1.0, ty], [0.0, 0.0, 1.0]]);
+    }
+    let n = if method == "perspective" { 8 } else { 4 };
+    let mut a = [[0.0f64; 9]; 8];
+    for (&[x, y, tx, ty], &w) in points.iter().zip(weights) {
+        let rows = if n == 4 {
+            [([x, -y, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0], tx), ([y, x, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], ty)]
+        } else {
+            [([x, y, 1.0, 0.0, 0.0, 0.0, -x * tx, -y * tx], tx), ([0.0, 0.0, 0.0, x, y, 1.0, -x * ty, -y * ty], ty)]
+        };
+        for (r, v) in rows {
+            for i in 0..n {
+                for j in 0..n {
+                    a[i][j] += w * r[i] * r[j];
+                }
+                a[i][n] += w * r[i] * v;
+            }
+        }
+    }
+    // Gaussian elimination with partial pivoting, the first largest pivot taken.
+    for i in 0..n {
+        let p = (i..n).fold(i, |p, r| if a[r][i].abs() > a[p][i].abs() { r } else { p });
+        if a[p][i].abs() < 1e-12 {
+            return None;
+        }
+        a.swap(i, p);
+        let top = a[i];
+        for row in a.iter_mut().take(n).skip(i + 1) {
+            let f = row[i] / top[i];
+            for j in i..=n {
+                row[j] -= f * top[j];
+            }
+        }
+    }
+    let mut s = [0.0f64; 8];
+    for i in (0..n).rev() {
+        s[i] = (a[i][n] - (i + 1..n).map(|j| a[i][j] * s[j]).sum::<f64>()) / a[i][i];
+    }
+    if n == 8 {
+        return Some([[s[0], s[1], s[2]], [s[3], s[4], s[5]], [s[6], s[7], 1.0]]);
+    }
+    let (mut ra, mut rb) = (s[0], s[1]);
+    if preserve {
+        let length = ra.hypot(rb);
+        ra /= length;
+        rb /= length;
+    }
+    Some([[ra, -rb, s[2]], [rb, ra, s[3]], [0.0, 0.0, 1.0]])
+}
+
+fn ws_apply(m: &[[f64; 3]; 3], x: f64, y: f64) -> (f64, f64) {
+    let t = m[2][0] * x + m[2][1] * y + m[2][2];
+    ((m[0][0] * x + m[0][1] * y + m[0][2]) / t, (m[1][0] * x + m[1][1] * y + m[1][2]) / t)
+}
+
+/// `a` after `b`, divided through by its corner.
+fn ws_mul(a: &[[f64; 3]; 3], b: &[[f64; 3]; 3]) -> [[f64; 3]; 3] {
+    let m: [[f64; 3]; 3] = std::array::from_fn(|i| std::array::from_fn(|j| (0..3).map(|k| a[i][k] * b[k][j]).sum::<f64>()));
+    let c = m[2][2];
+    m.map(|r| r.map(|v| v / c))
+}
+
+/// The inverse by the adjugate, divided through by its corner.
+fn ws_inverse(m: &[[f64; 3]; 3]) -> [[f64; 3]; 3] {
+    let [[a, b, c], [d, e, f], [g, h, i]] = *m;
+    let adj = [
+        [e * i - f * h, c * h - b * i, b * f - c * e],
+        [f * g - d * i, a * i - c * g, c * d - a * f],
+        [d * h - e * g, b * g - a * h, a * e - b * d],
+    ];
+    let k = adj[2][2];
+    adj.map(|r| r.map(|v| v / k))
 }
 
 /// D-455: each switched-on Remove Grain's noise: the holder at this frame with the effects before

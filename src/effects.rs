@@ -1459,6 +1459,26 @@ pub enum Effect {
         shutter_samples: f64,
         picture: Option<crate::layer_map::Map>,
     },
+    /// D-653: after After Effects' Warp Stabilizer (Distort), its rule ours
+    /// (`tools/warp_stabilizer_reference.py`, `flow`, document 21). Words: `result`
+    /// `smooth_motion` or `no_motion`; `method` `position`, `position_scale_rotation` or
+    /// `perspective`; `preserve_scale` and `detailed_analysis` `off` or `on`; `framing`
+    /// `stabilize_only`, `stabilize_crop` or `stabilize_crop_auto_scale`. Numbers: `smoothness` 0
+    /// to 1000 per cent; `maximum_scale` 100 to 1000 per cent; `action_safe_margin` 0 to 50 per
+    /// cent; `additional_scale` 1 to 1000 per cent. `picture` is not a setting and is never saved:
+    /// compose makes the steadied picture into it for each frame (`compose::fill_warp_stabilizer`).
+    WarpStabilizer {
+        result: String,
+        smoothness: f64,
+        method: String,
+        preserve_scale: String,
+        framing: String,
+        maximum_scale: f64,
+        action_safe_margin: f64,
+        additional_scale: f64,
+        detailed_analysis: String,
+        picture: Option<crate::layer_map::Map>,
+    },
     /// D-582: after CycoreFX's CC Rainfall (Simulation), its rule and its settings when added
     /// ours (`layer_fx::cc_rainfall`, document 21). `drops`, 0 to 50000, its whole part; `size`,
     /// 0 to 20 pixels; `scene_depth`, 0 to 20000 pixels; `speed`, 0 to 20000 pixels a second at
@@ -4286,6 +4306,7 @@ pub const CC_WIDE_TIME: &str = "core.cc_wide_time";
 pub const FORCE_MOTION_BLUR: &str = "core.force_motion_blur";
 pub const PIXEL_MOTION_BLUR: &str = "core.pixel_motion_blur";
 pub const TIMEWARP: &str = "core.timewarp";
+pub const WARP_STABILIZER: &str = "core.warp_stabilizer";
 pub const CC_RAINFALL: &str = "core.cc_rainfall";
 pub const WAVE_WORLD: &str = "core.wave_world";
 pub const CAUSTICS: &str = "core.caustics";
@@ -7618,6 +7639,12 @@ impl Effect {
                 ("shutter_angle", vec![shutter_angle], 0.0, 720.0),
                 ("shutter_samples", vec![shutter_samples], 2.0, 64.0),
             ],
+            Effect::WarpStabilizer { smoothness, maximum_scale, action_safe_margin, additional_scale, .. } => vec![
+                ("smoothness", vec![smoothness], 0.0, 1000.0),
+                ("maximum_scale", vec![maximum_scale], 100.0, 1000.0),
+                ("action_safe_margin", vec![action_safe_margin], 0.0, 50.0),
+                ("additional_scale", vec![additional_scale], 1.0, 1000.0),
+            ],
             Effect::CcRainfall {
                 drops,
                 size,
@@ -8916,6 +8943,7 @@ impl Effect {
             Effect::ForceMotionBlur { .. } => "CC Force Motion Blur",
             Effect::PixelMotionBlur { .. } => "Pixel Motion Blur",
             Effect::Timewarp { .. } => "Timewarp",
+            Effect::WarpStabilizer { .. } => "Warp Stabilizer",
             Effect::CcRainfall { .. } => "CC Rainfall",
             Effect::WaveWorld { .. } => "Wave World",
             Effect::Caustics { .. } => "Caustics",
@@ -9187,6 +9215,7 @@ impl Effect {
             Effect::ForceMotionBlur { .. } => FORCE_MOTION_BLUR,
             Effect::PixelMotionBlur { .. } => PIXEL_MOTION_BLUR,
             Effect::Timewarp { .. } => TIMEWARP,
+            Effect::WarpStabilizer { .. } => WARP_STABILIZER,
             Effect::CcRainfall { .. } => CC_RAINFALL,
             Effect::WaveWorld { .. } => WAVE_WORLD,
             Effect::Caustics { .. } => CAUSTICS,
@@ -11465,6 +11494,21 @@ impl Effect {
             )),
             Effect::Timewarp { shutter_control, .. } if !["automatic", "manual"].contains(&shutter_control.as_str()) => Some(format!(
                 "Timewarp's shutter control is \"automatic\" or \"manual\", and this is \"{shutter_control}\"."
+            )),
+            Effect::WarpStabilizer { result, .. } if !["smooth_motion", "no_motion"].contains(&result.as_str()) => Some(format!(
+                "Warp Stabilizer's result is \"smooth_motion\" or \"no_motion\", and this is \"{result}\"."
+            )),
+            Effect::WarpStabilizer { method, .. } if !["position", "position_scale_rotation", "perspective"].contains(&method.as_str()) => Some(format!(
+                "Warp Stabilizer's method is \"position\", \"position_scale_rotation\" or \"perspective\", and this is \"{method}\"."
+            )),
+            Effect::WarpStabilizer { preserve_scale, .. } if !["off", "on"].contains(&preserve_scale.as_str()) => Some(format!(
+                "Warp Stabilizer's preserve scale is \"off\" or \"on\", and this is \"{preserve_scale}\"."
+            )),
+            Effect::WarpStabilizer { framing, .. } if !["stabilize_only", "stabilize_crop", "stabilize_crop_auto_scale"].contains(&framing.as_str()) => Some(format!(
+                "Warp Stabilizer's framing is \"stabilize_only\", \"stabilize_crop\" or \"stabilize_crop_auto_scale\", and this is \"{framing}\"."
+            )),
+            Effect::WarpStabilizer { detailed_analysis, .. } if !["off", "on"].contains(&detailed_analysis.as_str()) => Some(format!(
+                "Warp Stabilizer's detailed analysis is \"off\" or \"on\", and this is \"{detailed_analysis}\"."
             )),
             Effect::CcRainfall { transfer_mode, .. } if !["composite", "lighten"].contains(&transfer_mode.as_str()) => Some(format!(
                 "CC Rainfall's transfer mode is \"composite\" or \"lighten\", and this is \"{transfer_mode}\"."
@@ -15021,6 +15065,13 @@ pub(crate) fn apply_stack_at(
             Effect::Timewarp { picture, .. } => {
                 if let Some(picture) = picture {
                     crate::perf::time(crate::perf::Stage::EffectTimewarp, || crate::layer_fx::lay(source, &picture.0, (ox, oy)))
+                }
+            }
+            // D-653: the drawing-sized picture compose steadied, at the drawing's corner, as
+            // Timewarp's. None (an adjustment layer) leaves the layer as it is.
+            Effect::WarpStabilizer { picture, .. } => {
+                if let Some(picture) = picture {
+                    crate::perf::time(crate::perf::Stage::EffectWarpStabilizer, || crate::layer_fx::lay(source, &picture.0, (ox, oy)))
                 }
             }
             // D-521: the target compose read at its offset; with none (no layer of its own on an

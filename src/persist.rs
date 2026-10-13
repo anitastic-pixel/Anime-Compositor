@@ -2357,6 +2357,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("shutter_angle".into(), num(*shutter_angle));
             params.insert("shutter_samples".into(), num(*shutter_samples));
         }
+        Effect::WarpStabilizer { result, smoothness, method, preserve_scale, framing, maximum_scale, action_safe_margin, additional_scale, detailed_analysis, .. } => {
+            params.insert("result".into(), J::from(result.as_str()));
+            params.insert("smoothness".into(), num(*smoothness));
+            params.insert("method".into(), J::from(method.as_str()));
+            params.insert("preserve_scale".into(), J::from(preserve_scale.as_str()));
+            params.insert("framing".into(), J::from(framing.as_str()));
+            params.insert("maximum_scale".into(), num(*maximum_scale));
+            params.insert("action_safe_margin".into(), num(*action_safe_margin));
+            params.insert("additional_scale".into(), num(*additional_scale));
+            params.insert("detailed_analysis".into(), J::from(detailed_analysis.as_str()));
+        }
         Effect::Caustics { bottom_layer, water_surface, sky_layer, light_position, bottom_repeat_mode, bottom_fit, surface_color, sky_repeat_mode, sky_fit, light_type, light_color, .. } => {
             for (n, v) in [("bottom_layer", bottom_layer), ("water_surface", water_surface), ("sky_layer", sky_layer)] {
                 params.insert(n.into(), v.clone());
@@ -6052,6 +6063,7 @@ fn parse_effect(
         crate::effects::FORCE_MOTION_BLUR,
         crate::effects::PIXEL_MOTION_BLUR,
         crate::effects::TIMEWARP,
+        crate::effects::WARP_STABILIZER,
         crate::effects::TIME_DIFFERENCE,
         crate::effects::CC_RAINFALL,
         crate::effects::WAVE_WORLD,
@@ -7069,6 +7081,18 @@ fn parse_effect(
             shutter_control: effect_word(params, "shutter_control", &at)?,
             shutter_angle: effect_number(params, "shutter_angle", &at)?,
             shutter_samples: effect_number(params, "shutter_samples", &at)?,
+            picture: None,
+        }),
+        crate::effects::WARP_STABILIZER => Some(crate::effects::Effect::WarpStabilizer {
+            result: effect_word(params, "result", &at)?,
+            smoothness: effect_number(params, "smoothness", &at)?,
+            method: effect_word(params, "method", &at)?,
+            preserve_scale: effect_word(params, "preserve_scale", &at)?,
+            framing: effect_word(params, "framing", &at)?,
+            maximum_scale: effect_number(params, "maximum_scale", &at)?,
+            action_safe_margin: effect_number(params, "action_safe_margin", &at)?,
+            additional_scale: effect_number(params, "additional_scale", &at)?,
+            detailed_analysis: effect_word(params, "detailed_analysis", &at)?,
             picture: None,
         }),
         crate::effects::CAUSTICS => Some(crate::effects::Effect::Caustics {

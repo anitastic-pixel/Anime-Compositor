@@ -454,6 +454,9 @@ pub enum Stage {
     /// D-652: Timewarp, its frames retimed and laid on the layer; drawing them is timed as any
     /// drawing is.
     EffectTimewarp,
+    /// D-653: Warp Stabilizer, its frames' moves found and the layer steadied; drawing the frames
+    /// is timed as any drawing is.
+    EffectWarpStabilizer,
     /// D-582: CC Rainfall, its drops drawn and laid on the layer.
     EffectCcRainfall,
     /// D-630: Wave World, its water run from the in point and drawn as a height map.
@@ -531,7 +534,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 262] = [
+    pub const ALL: [Stage; 263] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -758,6 +761,7 @@ impl Stage {
         Stage::EffectForceMotionBlur,
         Stage::EffectPixelMotionBlur,
         Stage::EffectTimewarp,
+        Stage::EffectWarpStabilizer,
         Stage::EffectCcRainfall,
         Stage::EffectWaveWorld,
         Stage::EffectCaustics,
@@ -1025,6 +1029,7 @@ impl Stage {
             Stage::EffectForceMotionBlur => "effect: force motion blur",
             Stage::EffectPixelMotionBlur => "effect: pixel motion blur",
             Stage::EffectTimewarp => "effect: timewarp",
+            Stage::EffectWarpStabilizer => "effect: warp stabilizer",
             Stage::EffectCcRainfall => "effect: cc rainfall",
             Stage::EffectWaveWorld => "effect: wave world",
             Stage::EffectCaustics => "effect: caustics",
