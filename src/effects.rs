@@ -2712,6 +2712,19 @@ pub enum Effect {
         makeup: f64,
         output_limit: f64,
     },
+    /// D-644: after After Effects 26.0's Distortion (Audio), a sound effect run by `audio::mix`
+    /// (document 21); on a picture it does nothing. `kind` (saved as "type"), one of
+    /// [`DISTORTION_TYPES`]; `drive`, 0 to 100 per cent; `gain`, 0 to 300; `wet` (shown as Mix),
+    /// 0 to 100 per cent; `volume`, 0 to 100; `resolution`, 1 to 24 bits; `downsample`, 1 to 32.
+    Distortion {
+        kind: String,
+        drive: f64,
+        gain: f64,
+        wet: f64,
+        volume: f64,
+        resolution: f64,
+        downsample: f64,
+    },
     /// D-448: after After Effects' Cartoon (`median::cartoon`, document 21). `render`, one of
     /// [`CARTOON_RENDERS`]; `detail_radius`, 0 to 50 pixels; `detail_threshold`, 0 to 255;
     /// `shading_steps`, 2 to 64, its floor; `shading_smoothness`, 0 to 100; `edge_threshold`, 0
@@ -4602,6 +4615,9 @@ pub const REMOVE_GRAIN_MODES: [&str; 2] = ["multichannel", "single_channel"];
 pub const BRUSH_STROKES: &str = "core.brush_strokes";
 pub const NOISE_GATE: &str = "core.noise_gate";
 pub const COMPRESSOR: &str = "core.compressor";
+pub const DISTORTION: &str = "core.distortion";
+/// D-644: Distortion's types, in After Effects 26.0's order.
+pub const DISTORTION_TYPES: [&str; 6] = ["soft_clip", "hard_clip", "saturation_1", "saturation_2", "tube", "fuzz"];
 /// D-447: Brush Strokes' paint surfaces, in the card's numbering.
 pub const BRUSH_SURFACES: [&str; 4] = ["original", "transparent", "white", "black"];
 pub const CARTOON: &str = "core.cartoon";
@@ -6833,6 +6849,14 @@ impl Effect {
                 ("makeup", vec![makeup], -30.0, 30.0),
                 ("output_limit", vec![output_limit], -30.0, 0.0),
             ],
+            Effect::Distortion { drive, gain, wet, volume, resolution, downsample, .. } => vec![
+                ("drive", vec![drive], 0.0, 100.0),
+                ("gain", vec![gain], 0.0, 300.0),
+                ("wet", vec![wet], 0.0, 100.0),
+                ("volume", vec![volume], 0.0, 100.0),
+                ("resolution", vec![resolution], 1.0, 24.0),
+                ("downsample", vec![downsample], 1.0, 32.0),
+            ],
             Effect::BrushStrokes { stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, blend_with_original, random_seed, .. } => vec![
                 ("stroke_angle", vec![stroke_angle], -100000.0, 100000.0),
                 ("brush_size", vec![brush_size], 0.5, 20.0),
@@ -8928,6 +8952,7 @@ impl Effect {
             Effect::BrushStrokes { .. } => "Brush Strokes",
             Effect::NoiseGate { .. } => "Noise Gate",
             Effect::Compressor { .. } => "Compressor",
+            Effect::Distortion { .. } => "Distortion",
             Effect::Cartoon { .. } => "Cartoon",
             Effect::Deband { .. } => "Deband",
             Effect::AdvancedSpillSuppressor { .. } => "Advanced Spill Suppressor",
@@ -9197,6 +9222,7 @@ impl Effect {
             Effect::BrushStrokes { .. } => BRUSH_STROKES,
             Effect::NoiseGate { .. } => NOISE_GATE,
             Effect::Compressor { .. } => COMPRESSOR,
+            Effect::Distortion { .. } => DISTORTION,
             Effect::Cartoon { .. } => CARTOON,
             Effect::Deband { .. } => DEBAND,
             Effect::AdvancedSpillSuppressor { .. } => ADVANCED_SPILL_SUPPRESSOR,
@@ -9418,7 +9444,7 @@ impl Effect {
 
     /// D-642: a sound effect, which only an audio layer takes (D-638 decision 3).
     pub fn is_sound(&self) -> bool {
-        matches!(self, Effect::NoiseGate { .. } | Effect::Compressor { .. })
+        matches!(self, Effect::NoiseGate { .. } | Effect::Compressor { .. } | Effect::Distortion { .. })
     }
 
     /// Whether the parameters are inside the ranges document 21 states.
@@ -10907,6 +10933,10 @@ impl Effect {
                 .or_else(|| edges(e)),
             Effect::MotionTile { mirror, .. } if !["off", "on"].contains(&mirror.as_str()) => Some(format!(
                 "Motion Tile's mirror is \"off\" or \"on\", and this is \"{mirror}\"."
+            )),
+            Effect::Distortion { kind, .. } if !DISTORTION_TYPES.contains(&kind.as_str()) => Some(format!(
+                "Distortion's type is one of {}, and this is \"{kind}\".",
+                DISTORTION_TYPES.join(", ")
             )),
             Effect::Compressor { auto_release, .. } if !["off", "on"].contains(&auto_release.as_str()) => Some(format!(
                 "Compressor's auto release is \"off\" or \"on\", and this is \"{auto_release}\"."
@@ -15044,7 +15074,7 @@ pub(crate) fn apply_stack_at(
             // D-350: the letters were moved where the text was drawn.
             Effect::TextAnimator { .. } => {}
             // D-642: a sound effect is run by `audio::mix`; a picture is left as it is.
-            Effect::NoiseGate { .. } | Effect::Compressor { .. } => {}
+            Effect::NoiseGate { .. } | Effect::Compressor { .. } | Effect::Distortion { .. } => {}
             // D-351: by the whole picture's statistics, or the frames' compose added up.
             Effect::AutoTone { .. } => crate::perf::time(crate::perf::Stage::EffectAutoTone, || {
                 crate::frame_stats::apply(source, &instance.effect)

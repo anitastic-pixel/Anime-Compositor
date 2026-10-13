@@ -743,6 +743,8 @@ pub fn mix(
                     )));
                 } else if matches!(fx.effect, crate::effects::Effect::Compressor { .. }) {
                     compressor(&mut y, lo, hi, &first, fx);
+                } else if matches!(fx.effect, crate::effects::Effect::Distortion { .. }) {
+                    distortion(&mut y, lo, hi, &first, fx);
                 } else {
                     noise_gate(&mut y, lo, hi, &first, fx);
                 }
@@ -871,6 +873,66 @@ fn compressor(
             let scale = if q > limit { limit / q } else { 1.0 };
             y[0][i] = l * scale;
             y[1][i] = rr * scale;
+        }
+    }
+}
+
+/// D-644, document 21: Distortion over `y`, the layer's frames `lo` to `hi` from its first
+/// sample. Each channel's sample x goes through the type's curve at a pre-gain of
+/// 10^(drive / 50), then Resolution's steps and Downsample's hold (counted from the layer's first
+/// sample); the result times gain / 25 is mixed with x by Mix, then scaled by volume / 11.
+/// ponytail: no oversampling, so a high Drive folds harmonics above 24 kHz back down (aliasing),
+/// a ceiling logged in D-644; add a 4x oversampled path if a playtest hears it.
+fn distortion(
+    y: &mut [Vec<f64>; 2],
+    lo: i64,
+    hi: i64,
+    first: &dyn Fn(i64) -> i64,
+    fx: &crate::effects::EffectInstance,
+) {
+    let read = |f: i64| match fx.at(f as i32).effect {
+        crate::effects::Effect::Distortion { drive, gain, wet, volume, resolution, downsample, .. } => {
+            [drive, gain, wet, volume, resolution, downsample]
+        }
+        _ => unreachable!("called for Distortion only"),
+    };
+    let kind = match &fx.effect {
+        crate::effects::Effect::Distortion { kind, .. } => kind.as_str(),
+        _ => unreachable!("called for Distortion only"),
+    };
+    let t4 = 0.25f64.tanh();
+    let curve = |u: f64| match kind {
+        "hard_clip" => u.clamp(-1.0, 1.0),
+        "saturation_1" => u / (1.0 + u.abs()),
+        "saturation_2" => 2.0 / std::f64::consts::PI * (std::f64::consts::PI * u / 2.0).atan(),
+        "tube" => ((u + 0.25).tanh() - t4) / (1.0 - t4 * t4),
+        "fuzz" => u.abs().sqrt().min(1.0).copysign(u),
+        _ => u.tanh(),
+    };
+    let start = first(lo);
+    let (mut count, mut held) = (0i64, [0.0f64; 2]);
+    for f in lo..hi {
+        let (s0, s1) = (first(f), first(f + 1));
+        let (a, b) = (read(f), read(f + 1));
+        for s in s0..s1 {
+            let v = |k: usize| a[k] + (b[k] - a[k]) * (s - s0) as f64 / (s1 - s0) as f64;
+            let i = (s - start) as usize;
+            let k = 10f64.powf(v(0) / 50.0);
+            let bits = v(4).floor() as i32;
+            let mut w = [curve(k * y[0][i]), curve(k * y[1][i])];
+            if bits < 24 {
+                let q = 2f64.powi(bits - 1);
+                w = w.map(|x| (x * q + 0.5).floor() / q);
+            }
+            if count <= 0 {
+                held = w;
+                count = v(5).floor() as i64;
+            }
+            count -= 1;
+            let (m, gain, volume) = (v(2) / 100.0, v(1) / 25.0, v(3) / 11.0);
+            for c in 0..2 {
+                y[c][i] = volume * ((1.0 - m) * y[c][i] + m * held[c] * gain);
+            }
         }
     }
 }

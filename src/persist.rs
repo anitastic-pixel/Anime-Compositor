@@ -2554,6 +2554,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("makeup".into(), num(*makeup));
             params.insert("output_limit".into(), num(*output_limit));
         }
+        Effect::Distortion { kind, drive, gain, wet, volume, resolution, downsample } => {
+            params.insert("type".into(), J::from(kind.as_str()));
+            params.insert("drive".into(), num(*drive));
+            params.insert("gain".into(), num(*gain));
+            params.insert("wet".into(), num(*wet));
+            params.insert("volume".into(), num(*volume));
+            params.insert("resolution".into(), num(*resolution));
+            params.insert("downsample".into(), num(*downsample));
+        }
         Effect::BrushStrokes { stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, paint_surface, blend_with_original, random_seed, animate, .. } => {
             params.insert("stroke_angle".into(), num(*stroke_angle));
             params.insert("brush_size".into(), num(*brush_size));
@@ -6151,6 +6160,7 @@ fn parse_effect(
         crate::effects::BRUSH_STROKES,
         crate::effects::NOISE_GATE,
         crate::effects::COMPRESSOR,
+        crate::effects::DISTORTION,
         crate::effects::CARTOON,
         crate::effects::BLOCK_LOAD,
         crate::effects::BURN_FILM,
@@ -7284,6 +7294,15 @@ fn parse_effect(
             auto_release: effect_word(params, "auto_release", &at)?,
             makeup: effect_number(params, "makeup", &at)?,
             output_limit: effect_number(params, "output_limit", &at)?,
+        }),
+        crate::effects::DISTORTION => Some(crate::effects::Effect::Distortion {
+            kind: effect_word(params, "type", &at)?,
+            drive: effect_number(params, "drive", &at)?,
+            gain: effect_number(params, "gain", &at)?,
+            wet: effect_number(params, "wet", &at)?,
+            volume: effect_number(params, "volume", &at)?,
+            resolution: effect_number(params, "resolution", &at)?,
+            downsample: effect_number(params, "downsample", &at)?,
         }),
         crate::effects::BRUSH_STROKES => Some(crate::effects::Effect::BrushStrokes {
             stroke_angle: effect_number(params, "stroke_angle", &at)?,
