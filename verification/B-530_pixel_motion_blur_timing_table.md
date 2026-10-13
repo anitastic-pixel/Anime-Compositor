@@ -38,6 +38,16 @@ This follows B-227's method:
 
 The estimate is most of the cost. Either way, a frame whose drawings change is far above the row's Target P4 (100 ms a frame on the processor) and far slower than real time (41.7 ms at 24 frames a second).
 
-**Still to measure.** `tests/b530_pixel_motion_blur.rs` now also writes an "Afresh" column (every frame with an empty cache, so each Pixel Motion Blur is worked) and the Pixel Motion Blur stage's own time. It was not run, because builds and test runs were paused while drive C was full. It is to be run, on a quiet machine, before any speed claim is made.
+**Afresh, measured on 2026-10-13 (PROVISIONAL).** `tests/b530_pixel_motion_blur.rs` now also writes an "Afresh" column (every frame with an empty cache, so each Pixel Motion Blur is worked) and the Pixel Motion Blur stage's own time. It was run from 60d69b7e in the same command as B-531's timing, on a busy machine (4 cargo or rustc processes before, 2 after; Noise alone about 100 ms here against 24 ms above), so the numbers are inflated:
+
+| Shot | Quality | First | Again | Afresh | Pixel Motion Blur stage, afresh |
+|---|---|---:|---:|---:|---:|
+| Noise alone | Full | 103.6 | 35.2 | 81.2 | 0.0 |
+| Pixel Motion Blur as added (Automatic: 180 degrees, 16 samples; Vector Detail 20), then Noise | Full | 71.6 | 57.5 | 4451.4 | 4009.9 |
+| Pixel Motion Blur Manual 360 degrees, 64 samples, Vector Detail 100, then Noise | Full | 593.6 | 241.1 | 5483.3 | 4801.4 |
+| Noise alone | Half | 113.9 | 35.5 | 187.3 | 0.0 |
+| Pixel Motion Blur as added, then Noise | Half | 121.0 | 44.9 | 201.8 | 46.0 |
+
+When the estimate runs at Full it costs about 4 s a frame (as added) to 4.8 s (Manual, 64 samples, Vector Detail 100) inside Pixel Motion Blur. The Half row's 46 ms is much lower than a quarter of Full's and is not explained; it is to be checked. No speed claim is made; it is to be run again on a quiet machine.
 
 A card version (D-651, proposed) and a faster estimate would each be separate pieces of work.

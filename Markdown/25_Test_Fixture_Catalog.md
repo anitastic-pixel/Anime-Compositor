@@ -213660,3 +213660,73 @@ FX-HAIR-030 (`fx_hair_030.json`): A hair colour written "brown". The file is rea
 FX-HAIR-031 (`fx_hair_031.json`): Light Direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-HAIR-032 (`fx_hair_032.json`): Weight keyed to 600 at frame 4, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Timewarp (D-652)
+
+Timewarp (`core.timewarp`), after After Effects' Timewarp (B-531), the source time, the in-between rule and the error mix ours. Every case is a project of one composition 32 by 32, six frames, the drawing `holder`, Pixel Motion Blur's soft shaded disc running 3 right and 1 down a frame or its textured card sliding 1.5 to the right a frame, with the effect. `tools/timewarp_reference.py` works the expected frames, `Fixtures/timewarp/expected_timewarp.json`, tolerance 2e-5, with the motion estimate worked a second way by `tools/flow_reference.py`; the rule is in document 21. The viewer cache, the frames it reads never saved, and the tiles are checked by `tests/b531_timewarp.rs` on the build's own frames.
+
+FX-TW-001 (`fx_tw_001.json`): As added: Pixel Motion at Speed 50. Frame 0 is the first drawing (the source time, a quarter frame before the in point, held there); frames 1, 2 and 5 are made a quarter, three quarters and a quarter of the way between drawings. Frames 0, 1, 2, 5.
+
+FX-TW-002 (`fx_tw_002.json`): Whole Frames at Speed 50: each drawing shown twice, no new pictures. Frames 1, 2, 3.
+
+FX-TW-003 (`fx_tw_003.json`): Frame Mix at Speed 50: the two drawings either side faded together. Frames 1, 2.
+
+FX-TW-004 (`fx_tw_004.json`): Speed 100: the layer exactly as it is. Frames 0, 3.
+
+FX-TW-005 (`fx_tw_005.json`): Speed 200: twice as fast, made halfway between drawings 3 and 4 at frame 1; from frame 3 on it holds the last drawing. Frames 1, 3.
+
+FX-TW-006 (`fx_tw_006.json`): Speed keyed from 200 at frame 0 down to 0 at frame 4: it slows to a stop at source time 4.5. Frames 2, 4.
+
+FX-TW-007 (`fx_tw_007.json`): Source Frame keyed from 0 at frame 0 to 5 at frame 4: frame 1 shows source frame 1.25 and frame 2 shows 2.5. Frames 1, 2.
+
+FX-TW-008 (`fx_tw_008.json`): Source Frame 3.5, Frame Mix: halfway between drawings 4 and 5 on every frame. Frames 0, 4.
+
+FX-TW-009 (`fx_tw_009.json`): Build From One Image: a quarter of the way uses the drawing before only, three quarters the drawing after only. Frames 1, 2.
+
+FX-TW-010 (`fx_tw_010.json`): Error Threshold 0: never mixed toward Frame Mix. Frames 1, 2.
+
+FX-TW-011 (`fx_tw_011.json`): Error Threshold 10: wherever the two warped pictures disagree, mixed toward Frame Mix. Frames 1, 2.
+
+FX-TW-012 (`fx_tw_012.json`): Filtering Extreme: the warped pictures read by the cubic. Frames 1, 2.
+
+FX-TW-013 (`fx_tw_013.json`): Correct Luminance Changes on, on the textured card, whose mean brightness changes as it slides. Frames 2.
+
+FX-TW-014 (`fx_tw_014.json`): Tuning changed: Vector Detail 100, Global Smoothness 1, Local Smoothness 0, 8 iterations, Block Size 4, weights 1, 0 and 0. Frames 2.
+
+FX-TW-015 (`fx_tw_015.json`): Motion Blur on, Automatic, with the composition's 180 degrees in 8 samples (its switch off): the moments spread a quarter frame of source time. Frames 2.
+
+FX-TW-016 (`fx_tw_016.json`): Motion Blur on, Manual, 360 degrees in 4 samples, Whole Frames at Speed 200: drawings 2, 3, 3 and 4 averaged, the source times 1.75, 2.25, 2.75 and 3.25. Frames 1.
+
+FX-TW-017 (`fx_tw_017.json`): Motion Blur on, Manual, 360 degrees in 4 samples, Frame Mix on keyed Source Frame. Frames 2.
+
+FX-TW-018 (`fx_tw_018.json`): Motion Blur on, Manual, 0 degrees: as with it off. Frames 2.
+
+FX-TW-019 (`fx_tw_019.json`): The textured card, as added. Frames 1, 2.
+
+FX-TW-020 (`fx_tw_020.json`): An Exposure of +1 before Timewarp: the frames it reads are brightened too. Frames 1.
+
+FX-TW-021 (`fx_tw_021.json`): An Exposure of -1 after Timewarp darkens its picture. Frames 1.
+
+FX-TW-022 (`fx_tw_022.json`): The layer's in point at frame 2: its source time starts there. Frames 2, 3, 4.
+
+FX-TW-023 (`fx_tw_023.json`): The holder moved 3 right and 2 down: FX-TW-001 moved. Frames 1.
+
+FX-TW-024 (`fx_tw_024.json`): The effect on an adjustment layer above the holder: nothing changes, and the frame says why. Frame warning `TEMPORAL_SMOOTHING_SKIPPED`. Frames 2.
+
+FX-TW-025 (`fx_tw_025.json`): Drawings on twos at Speed 50: between two frames of one drawing nothing moves, so that drawing shows exactly. Frames 1, 2.
+
+FX-TW-026 (`fx_tw_026.json`): Speed -100: the source time runs back from the in point, held at the first drawing. Frames 0, 3.
+
+FX-TW-027 (`fx_tw_027.json`): Speed 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TW-028 (`fx_tw_028.json`): Method written "optical". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TW-029 (`fx_tw_029.json`): Error Threshold -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TW-030 (`fx_tw_030.json`): Smoothing Iterations 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TW-031 (`fx_tw_031.json`): Red Weight 2, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TW-032 (`fx_tw_032.json`): Filtering written "sinc". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TW-033 (`fx_tw_033.json`): Shutter Samples keyed to 100 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
