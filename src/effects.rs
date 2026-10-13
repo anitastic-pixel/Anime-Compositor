@@ -1555,7 +1555,10 @@ pub enum Effect {
     /// each of [`CARD_DANCE_TRANSFORMS`], in that order: `sources` "none", or "red", "green",
     /// "blue", "intensity" or "alpha" then "_1" or "_2"; `multipliers` and `offsets`, -100 to
     /// 100 card sizes for the positions, -3600 to 3600 degrees for the rotations, -10 to 10 for
-    /// the scales. `camera_system` "camera_position" or "comp_camera"; the camera's turns, -3600
+    /// the scales. `camera_system` "camera_position", "corner_pins" (D-634) or "comp_camera";
+    /// `upper_left_corner`, `upper_right_corner`, `lower_left_corner` and `lower_right_corner`,
+    /// x then y, -1000 to 1000 per cent, and `auto_focal_length` "off" or "on", read as added
+    /// where a file from before D-634 leaves them out; the camera's turns, -3600
     /// to 3600 degrees; `camera_xy_position`, x then y, -1000 to 1000 per cent of the layer;
     /// `camera_z_position` 0.01 to 10 focal lengths; `focal_length` 1 to 1000 mm. Card Wipe's
     /// light and material. Not settings, never saved: the three maps compose reads, and `view`,
@@ -1590,6 +1593,11 @@ pub enum Effect {
         ambient_light: f64,
         diffuse_reflection: f64,
         specular_reflection: f64,
+        upper_left_corner: [f64; 2],
+        upper_right_corner: [f64; 2],
+        lower_left_corner: [f64; 2],
+        lower_right_corner: [f64; 2],
+        auto_focal_length: String,
         highlight_sharpness: f64,
         view: [f64; 3],
     },
@@ -1668,6 +1676,11 @@ pub enum Effect {
         ambient_light: f64,
         diffuse_reflection: f64,
         specular_reflection: f64,
+        upper_left_corner: [f64; 2],
+        upper_right_corner: [f64; 2],
+        lower_left_corner: [f64; 2],
+        lower_right_corner: [f64; 2],
+        auto_focal_length: String,
         highlight_sharpness: f64,
         seen: [f64; 3],
         history: Vec<Vec<f64>>,
@@ -3073,8 +3086,11 @@ pub enum Effect {
     /// to 1000 mm; `light_type`, "distant" or "point"; `light_intensity`, 0 to 10;
     /// `light_color`, `#rrggbb`; `light_position`, x then y, -1000 to 1000 per cent;
     /// `light_depth`, 0 to 10 drawing widths; `ambient_light`, `diffuse_reflection` and
-    /// `specular_reflection`, 0 to 2; `highlight_sharpness`, 1 to 100. `back_map` and
-    /// `gradient_map` are not settings and are never saved.
+    /// `specular_reflection`, 0 to 2; `highlight_sharpness`, 1 to 100. D-634: `camera_system`,
+    /// "camera_position" or "corner_pins"; `upper_left_corner`, `upper_right_corner`,
+    /// `lower_left_corner` and `lower_right_corner`, x then y, -1000 to 1000 per cent;
+    /// `auto_focal_length`, "off" or "on"; a file from before them reads them as added and
+    /// draws as it did. `back_map` and `gradient_map` are not settings and are never saved.
     CardWipe {
         transition_completion: f64,
         transition_width: f64,
@@ -3106,6 +3122,12 @@ pub enum Effect {
         diffuse_reflection: f64,
         specular_reflection: f64,
         highlight_sharpness: f64,
+        camera_system: String,
+        upper_left_corner: [f64; 2],
+        upper_right_corner: [f64; 2],
+        lower_left_corner: [f64; 2],
+        lower_right_corner: [f64; 2],
+        auto_focal_length: String,
     },
     /// D-530: after CycoreFX's CC Cylinder, its rule and its settings when added ours
     /// (`layer_fx::cc_cylinder`, document 21), its own fake 3D (no composition camera). `radius`,
@@ -5075,6 +5097,10 @@ impl Effect {
                 transition_completion,
                 transition_width,
                 rows,
+                upper_left_corner,
+                upper_right_corner,
+                lower_left_corner,
+                lower_right_corner,
                 columns,
                 card_scale,
                 timing_randomness,
@@ -5107,6 +5133,10 @@ impl Effect {
                 ("xy_position", xy_position.iter_mut().collect(), -1000.0, 1000.0),
                 ("z_position", vec![z_position], 0.01, 10.0),
                 ("focal_length", vec![focal_length], 1.0, 1000.0),
+                ("upper_left_corner", upper_left_corner.iter_mut().collect(), -1000.0, 1000.0),
+                ("upper_right_corner", upper_right_corner.iter_mut().collect(), -1000.0, 1000.0),
+                ("lower_left_corner", lower_left_corner.iter_mut().collect(), -1000.0, 1000.0),
+                ("lower_right_corner", lower_right_corner.iter_mut().collect(), -1000.0, 1000.0),
                 ("light_intensity", vec![light_intensity], 0.0, 10.0),
                 ("light_position", light_position.iter_mut().collect(), -1000.0, 1000.0),
                 ("light_depth", vec![light_depth], 0.0, 10.0),
@@ -6912,6 +6942,10 @@ impl Effect {
             Effect::CardDance {
                 rows,
                 columns,
+                upper_left_corner,
+                upper_right_corner,
+                lower_left_corner,
+                lower_right_corner,
                 multipliers,
                 offsets,
                 camera_x_rotation,
@@ -6950,12 +6984,20 @@ impl Effect {
                     ("ambient_light", vec![ambient_light], 0.0, 2.0),
                     ("diffuse_reflection", vec![diffuse_reflection], 0.0, 2.0),
                     ("specular_reflection", vec![specular_reflection], 0.0, 2.0),
+                    ("upper_left_corner", upper_left_corner.iter_mut().collect(), -1000.0, 1000.0),
+                    ("upper_right_corner", upper_right_corner.iter_mut().collect(), -1000.0, 1000.0),
+                    ("lower_left_corner", lower_left_corner.iter_mut().collect(), -1000.0, 1000.0),
+                    ("lower_right_corner", lower_right_corner.iter_mut().collect(), -1000.0, 1000.0),
                     ("highlight_sharpness", vec![highlight_sharpness], 1.0, 100.0),
                 ]);
                 table
             }
             Effect::Shatter {
                 repetitions,
+                upper_left_corner,
+                upper_right_corner,
+                lower_left_corner,
+                lower_right_corner,
                 direction,
                 origin,
                 extrusion_depth,
@@ -7026,6 +7068,11 @@ impl Effect {
                 ("diffuse_reflection", vec![diffuse_reflection], 0.0, 2.0),
                 ("specular_reflection", vec![specular_reflection], 0.0, 2.0),
                 ("highlight_sharpness", vec![highlight_sharpness], 1.0, 100.0),
+                // D-634: after the rest, so the places above hold.
+                ("upper_left_corner", upper_left_corner.iter_mut().collect(), -1000.0, 1000.0),
+                ("upper_right_corner", upper_right_corner.iter_mut().collect(), -1000.0, 1000.0),
+                ("lower_left_corner", lower_left_corner.iter_mut().collect(), -1000.0, 1000.0),
+                ("lower_right_corner", lower_right_corner.iter_mut().collect(), -1000.0, 1000.0),
             ],
             Effect::TimeDifference { time_offset, contrast, .. } => vec![
                 ("time_offset", vec![time_offset], -60.0, 60.0),
@@ -9029,6 +9076,8 @@ impl Effect {
                 back_layer,
                 gradient_layer,
                 rows_columns,
+                camera_system,
+                auto_focal_length,
                 flip_axis,
                 flip_direction,
                 flip_order,
@@ -9053,6 +9102,9 @@ impl Effect {
                     .or_else(|| one_of("flip order", &CARD_ORDERS, flip_order))
                     .or_else(|| one_of("light type", &["distant", "point"], light_type))
                     .or_else(|| hex_fault("Card Wipe", "light colour", light_color))
+                    // D-634: Corner Pins; Comp Camera is not built for Card Wipe (a gap).
+                    .or_else(|| one_of("camera system", &["camera_position", "corner_pins"], camera_system))
+                    .or_else(|| one_of("auto focal length", &["off", "on"], auto_focal_length))
             }
             Effect::CcSphere { light_color, render, .. } => hex_fault("CC Sphere", "light colour", light_color).or_else(|| {
                 (!CYLINDER_RENDERS.contains(&render.as_str())).then(|| {
@@ -10381,6 +10433,7 @@ impl Effect {
                 transformation_order,
                 sources,
                 camera_system,
+                auto_focal_length,
                 light_type,
                 light_color,
                 ..
@@ -10419,8 +10472,8 @@ impl Effect {
                             .zip(sources)
                             .find_map(|(t, s)| one_of(&format!("{} source", t.replace('_', " ")), &sourced, s))
                     })
-                    // D-634 adds "corner_pins".
-                    .or_else(|| one_of("camera system", &["camera_position", "comp_camera"], camera_system))
+                    .or_else(|| one_of("camera system", &["camera_position", "corner_pins", "comp_camera"], camera_system))
+                    .or_else(|| one_of("auto focal length", &["off", "on"], auto_focal_length))
                     .or_else(|| one_of("light type", &["distant", "point"], light_type))
                     .or_else(|| hex_fault("Card Dance", "light colour", light_color))
             }
@@ -10441,6 +10494,7 @@ impl Effect {
                 side_layer,
                 back_layer,
                 camera_system,
+                auto_focal_length,
                 light_type,
                 light_color,
                 ..
@@ -10476,8 +10530,8 @@ impl Effect {
                 .or_else(|| one_of("tumble axis", &SHATTER_TUMBLE, tumble_axis))
                 .or_else(|| modes.iter().find_map(|(what, m)| one_of(what, &SHATTER_MODES, m)))
                 .or_else(|| hex_fault("Shatter", "colour", color))
-                .or_else(|| later("camera system", &["corner_pins"], camera_system, "D-634"))
-                .or_else(|| one_of("camera system", &["camera_position", "comp_camera"], camera_system))
+                .or_else(|| one_of("camera system", &["camera_position", "corner_pins", "comp_camera"], camera_system))
+                .or_else(|| one_of("auto focal length", &["off", "on"], auto_focal_length))
                 .or_else(|| one_of("light type", &["distant", "point"], light_type))
                 .or_else(|| hex_fault("Shatter", "light colour", light_color))
             }

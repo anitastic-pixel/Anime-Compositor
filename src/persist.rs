@@ -2291,7 +2291,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 }
             }
         }
-        Effect::CardDance { back_layer, gradient_layer_1, gradient_layer_2, rows_columns, rotation_order, transformation_order, sources, camera_system, light_type, light_color, camera_xy_position, light_position, .. } => {
+        Effect::CardDance { back_layer, gradient_layer_1, gradient_layer_2, rows_columns, rotation_order, transformation_order, sources, camera_system, light_type, light_color, camera_xy_position, light_position, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } => {
             for (n, v) in [("back_layer", back_layer), ("gradient_layer_1", gradient_layer_1), ("gradient_layer_2", gradient_layer_2)] {
                 params.insert(n.into(), v.clone());
             }
@@ -2306,12 +2306,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
             // D-632: every other number, by its name in the effect's table.
             for n in instance.effect.names() {
-                if n != "camera_xy_position" && n != "light_position" {
+                if n != "camera_xy_position" && n != "light_position" && !n.ends_with("_corner") {
                     params.insert(n.into(), num(instance.effect.get(n).unwrap()[0]));
                 }
             }
+            corner_pins_json(&mut params, instance, [upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner], auto_focal_length);
         }
-        Effect::Shatter { view, render, pattern, custom_shatter_map, white_tiles_fixed, origin, force_1_position, force_2_position, gradient_layer, invert_gradient, tumble_axis, color, front_mode, side_mode, back_mode, front_layer, side_layer, back_layer, camera_system, camera_xy_position, light_type, light_color, light_position, .. } => {
+        Effect::Shatter { view, render, pattern, custom_shatter_map, white_tiles_fixed, origin, force_1_position, force_2_position, gradient_layer, invert_gradient, tumble_axis, color, front_mode, side_mode, back_mode, front_layer, side_layer, back_layer, camera_system, camera_xy_position, light_type, light_color, light_position, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } => {
             for (n, v) in [("custom_shatter_map", custom_shatter_map), ("gradient_layer", gradient_layer), ("front_layer", front_layer), ("side_layer", side_layer), ("back_layer", back_layer)] {
                 params.insert(n.into(), v.clone());
             }
@@ -2324,10 +2325,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             }
             // D-633: every other number, by its name in the effect's table.
             for n in instance.effect.names() {
-                if !arrays.iter().any(|(a, _)| *a == n) {
+                if !arrays.iter().any(|(a, _)| *a == n) && !n.ends_with("_corner") {
                     params.insert(n.into(), num(instance.effect.get(n).unwrap()[0]));
                 }
             }
+            corner_pins_json(&mut params, instance, [upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner], auto_focal_length);
         }
         Effect::CcRainfall { color, transfer_mode, composite_with_original, drops, size, scene_depth, speed, wind, wind_variation, spread, opacity, ground_level, random_seed, .. } => {
             params.insert("drops".into(), num(*drops));
@@ -2951,7 +2953,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("field_of_view".into(), num(*field_of_view));
             params.insert("filter_environment".into(), J::from(filter_environment.as_str()));
         }
-        Effect::CardWipe { back_layer, gradient_layer, transition_completion, transition_width, rows, columns, card_scale, timing_randomness, random_seed, x_rotation, y_rotation, z_rotation, z_position, focal_length, light_intensity, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, xy_position, light_position, rows_columns, flip_axis, flip_direction, flip_order, light_type, light_color, .. } => {
+        Effect::CardWipe { back_layer, gradient_layer, transition_completion, transition_width, rows, columns, card_scale, timing_randomness, random_seed, x_rotation, y_rotation, z_rotation, z_position, focal_length, light_intensity, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, xy_position, light_position, rows_columns, flip_axis, flip_direction, flip_order, light_type, light_color, camera_system, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } => {
             params.insert("back_layer".into(), back_layer.clone());
             params.insert("gradient_layer".into(), gradient_layer.clone());
             for (n, v) in [
@@ -2989,6 +2991,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             ] {
                 params.insert(n.into(), J::from(v.as_str()));
             }
+            if camera_system != "camera_position" || params.contains_key("camera_system") {
+                params.insert("camera_system".into(), J::from(camera_system.as_str()));
+            }
+            corner_pins_json(&mut params, instance, [upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner], auto_focal_length);
         }
         Effect::CcSphere {
             radius,
@@ -5204,6 +5210,28 @@ fn effect_word(params: Option<&J>, key: &str, at: &str) -> Result<String, Diagno
     Ok(as_str(field(params, &at, key)?, &at)?.to_string())
 }
 
+/// D-634: the Corner Pins settings of Card Wipe, Card Dance and Shatter, each written, as D-304,
+/// only if moved, keyed or already in the file, so a file that never used them stays as it was.
+fn corner_pins_json(params: &mut Map<String, J>, instance: &crate::effects::EffectInstance, pins: [&[f64; 2]; 4], auto_focal_length: &str) {
+    let starts = [("upper_left_corner", [0.0, 0.0]), ("upper_right_corner", [100.0, 0.0]), ("lower_left_corner", [0.0, 100.0]), ("lower_right_corner", [100.0, 100.0])];
+    for ((key, start), value) in starts.into_iter().zip(pins) {
+        if *value != start || instance.tracks.contains_key(key) || params.contains_key(key) {
+            params.insert(key.into(), J::Array(value.iter().map(|c| num(*c)).collect()));
+        }
+    }
+    if auto_focal_length != "off" || params.contains_key("auto_focal_length") {
+        params.insert("auto_focal_length".into(), J::from(auto_focal_length));
+    }
+}
+
+/// D-634: a point added after its effect, x then y, as [`effect_number_or`] is a number.
+fn effect_pair_or(params: Option<&J>, key: &str, at: &str, start: [f64; 2]) -> Result<[f64; 2], Diagnostic> {
+    match params.and_then(|p| p.get(key)) {
+        Some(_) => effect_array(params, key, "two numbers, x then y", at),
+        None => Ok(start),
+    }
+}
+
 /// D-299: a word added after its effect, as [`effect_number_or`] is a number.
 fn effect_word_or(params: Option<&J>, key: &str, at: &str, start: &str) -> Result<String, Diagnostic> {
     match params.and_then(|p| p.get(key)) {
@@ -6817,6 +6845,12 @@ fn parse_effect(
                 ambient_light: effect_number(params, "ambient_light", &at)?,
                 diffuse_reflection: effect_number(params, "diffuse_reflection", &at)?,
                 specular_reflection: effect_number(params, "specular_reflection", &at)?,
+                // D-634: a file from before these draws as it did.
+                upper_left_corner: effect_pair_or(params, "upper_left_corner", &at, [0.0, 0.0])?,
+                upper_right_corner: effect_pair_or(params, "upper_right_corner", &at, [100.0, 0.0])?,
+                lower_left_corner: effect_pair_or(params, "lower_left_corner", &at, [0.0, 100.0])?,
+                lower_right_corner: effect_pair_or(params, "lower_right_corner", &at, [100.0, 100.0])?,
+                auto_focal_length: effect_word_or(params, "auto_focal_length", &at, "off")?,
                 highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
                 view: [0.0; 3],
             })
@@ -6865,6 +6899,12 @@ fn parse_effect(
                 specular_reflection: effect_number(params, "specular_reflection", &at)?,
                 highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
                 origin: effect_array(params, "origin", "two numbers, x then y", &at)?,
+                // D-634: a file from before these draws as it did.
+                upper_left_corner: effect_pair_or(params, "upper_left_corner", &at, [0.0, 0.0])?,
+                upper_right_corner: effect_pair_or(params, "upper_right_corner", &at, [100.0, 0.0])?,
+                lower_left_corner: effect_pair_or(params, "lower_left_corner", &at, [0.0, 100.0])?,
+                lower_right_corner: effect_pair_or(params, "lower_right_corner", &at, [100.0, 100.0])?,
+                auto_focal_length: effect_word_or(params, "auto_focal_length", &at, "off")?,
                 force_1_position: effect_array(params, "force_1_position", "two numbers, x then y", &at)?,
                 force_2_position: effect_array(params, "force_2_position", "two numbers, x then y", &at)?,
                 camera_xy_position: effect_array(params, "camera_xy_position", "two numbers, x then y", &at)?,
@@ -7432,6 +7472,13 @@ fn parse_effect(
             diffuse_reflection: effect_number(params, "diffuse_reflection", &at)?,
             specular_reflection: effect_number(params, "specular_reflection", &at)?,
             highlight_sharpness: effect_number(params, "highlight_sharpness", &at)?,
+            // D-634: a file from before these draws as it did.
+            camera_system: effect_word_or(params, "camera_system", &at, "camera_position")?,
+            upper_left_corner: effect_pair_or(params, "upper_left_corner", &at, [0.0, 0.0])?,
+            upper_right_corner: effect_pair_or(params, "upper_right_corner", &at, [100.0, 0.0])?,
+            lower_left_corner: effect_pair_or(params, "lower_left_corner", &at, [0.0, 100.0])?,
+            lower_right_corner: effect_pair_or(params, "lower_right_corner", &at, [100.0, 100.0])?,
+            auto_focal_length: effect_word_or(params, "auto_focal_length", &at, "off")?,
         }),
         crate::effects::CC_SPHERE => Some(crate::effects::Effect::CcSphere {
             radius: effect_number(params, "radius", &at)?,

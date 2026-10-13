@@ -8890,17 +8890,78 @@ pub(crate) fn cc_ball_action(source: &mut WorkingBuffer, e: &crate::effects::Eff
     });
 }
 
+/// D-634: After Effects' Corner Pins camera, the rule ours (document 21): the camera that shows
+/// a `w0` by `h0` layer's corners at the four pins, upper left, upper right, lower left and lower
+/// right, each x then y in per cent of the layer. The square-to-quad map is split into the
+/// layer's two edges and its middle as the camera sees them; the focal length is `focal_length`
+/// (mm on a 36 mm frame), or with `auto` the one that keeps those edges square, where it lies
+/// within 1 to 1000 mm. Returns the eye o in the layer's centred space; A, taking a point less
+/// the eye to where the camera sees it (as a turn M does); A^-1, taking a pixel's
+/// (x + 1/2 - w0/2, y + 1/2 - h0/2, F) to the ray's direction (as M^T does); and F in pixels.
+/// None where nothing is drawn. The pins as added give o = (0, 0, -F) and A the identity.
+pub(crate) fn corner_camera(w0: f64, h0: f64, pins: [[f64; 2]; 4], focal_length: f64, auto: bool) -> Option<([f64; 3], [[f64; 3]; 3], [[f64; 3]; 3], f64)> {
+    let [p0, p1, p3, p2] = pins.map(|p| [p[0] * w0 / 100.0 - w0 / 2.0, p[1] * h0 / 100.0 - h0 / 2.0]);
+    let det2 = |a: [f64; 2], b: [f64; 2]| a[0] * b[1] - b[0] * a[1];
+    let d1 = [p1[0] - p2[0], p1[1] - p2[1]];
+    let d2 = [p3[0] - p2[0], p3[1] - p2[1]];
+    let d3 = [p0[0] - p1[0] + p2[0] - p3[0], p0[1] - p1[1] + p2[1] - p3[1]];
+    let den = det2(d1, d2);
+    if den == 0.0 {
+        return None;
+    }
+    let (g, hh) = (det2(d3, d2) / den, det2(d1, d3) / den);
+    let c0 = [p1[0] - p0[0] + g * p1[0], p1[1] - p0[1] + g * p1[1], g];
+    let c1 = [p3[0] - p0[0] + hh * p3[0], p3[1] - p0[1] + hh * p3[1], hh];
+    let h1 = c0.map(|q| q / w0);
+    let h2 = c1.map(|q| q / h0);
+    let h3 = [(c0[0] + c1[0]) / 2.0 + p0[0], (c0[1] + c1[1]) / 2.0 + p0[1], (c0[2] + c1[2]) / 2.0 + 1.0];
+    let mut f = w0 * focal_length / 36.0;
+    if auto && h1[2] * h2[2] != 0.0 {
+        let ff = -(h1[0] * h2[0] + h1[1] * h2[1]) / (h1[2] * h2[2]);
+        let (lo, hi) = (w0 / 36.0, 1000.0 * w0 / 36.0);
+        if lo * lo <= ff && ff <= hi * hi {
+            f = ff.sqrt();
+        }
+    }
+    let (a1, a2, t) = ([h1[0] / f, h1[1] / f, h1[2]], [h2[0] / f, h2[1] / f, h2[2]], [h3[0] / f, h3[1] / f, h3[2]]);
+    if t[2] == 0.0 {
+        return None;
+    }
+    let norm = |v: [f64; 3]| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+    let (n1, n2) = (norm(a1), norm(a2));
+    let s = 2.0 / (n1 + n2) * t[2].signum();
+    let (a1, a2, t) = (a1.map(|q| q * s), a2.map(|q| q * s), t.map(|q| q * s));
+    let (n1, n2) = (s.abs() * n1, s.abs() * n2);
+    let cr = [a1[1] * a2[2] - a1[2] * a2[1], a1[2] * a2[0] - a1[0] * a2[2], a1[0] * a2[1] - a1[1] * a2[0]];
+    let cn = norm(cr);
+    let a3 = if cn == 0.0 { [0.0; 3] } else { cr.map(|q| q / cn * (n1 * n2).sqrt()) };
+    let a = [[a1[0], a2[0], a3[0]], [a1[1], a2[1], a3[1]], [a1[2], a2[2], a3[2]]];
+    // The inverse by cofactors; none where the determinant is 0.
+    let co = |r: usize, c: usize| {
+        let (r0, r1, c0, c1) = ((r + 1) % 3, (r + 2) % 3, (c + 1) % 3, (c + 2) % 3);
+        a[r0][c0] * a[r1][c1] - a[r0][c1] * a[r1][c0]
+    };
+    let det = a[0][0] * co(0, 0) + a[0][1] * co(0, 1) + a[0][2] * co(0, 2);
+    if det == 0.0 {
+        return None;
+    }
+    let ai: [[f64; 3]; 3] = std::array::from_fn(|r| std::array::from_fn(|c| co(c, r) / det));
+    let o = std::array::from_fn(|r| -(ai[r][0] * t[0] + ai[r][1] * t[1] + ai[r][2] * t[2]));
+    Some((o, a, ai, f))
+}
+
 /// D-580: Card Wipe's numbers for a drawing `w0` by `h0`, the CPU's and the card's (document
 /// 21): the columns C and rows R, a card's width and height, its drawn half width and half
 /// height, `w0`, `h0`, the focal length in pixels F, the eye in the cards' space (three), the
 /// camera's turn M by rows (nine), the light's kind (0 distant, 1 point), its place in the cards'
 /// space (three), its intensity, its linear colour (three), ambient, diffuse, specular, the
-/// highlight's sharpness, 1 where a back picture was read, the card scale, the half thickness
+/// highlight's sharpness, 1 where a back picture was read, the card scale (0 where the Corner
+/// Pins camera draws nothing, D-634), the half thickness
 /// of the slab every card lies in, then for each card, rows then columns, its axis (0 x, 1 y)
 /// and the sine and cosine of its turn.
 pub(crate) fn card_wipe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> Vec<f64> {
     #[rustfmt::skip]
-    let crate::effects::Effect::CardWipe { transition_completion, transition_width, back_map, rows_columns, rows, columns, card_scale, flip_axis, flip_direction, flip_order, gradient_map, timing_randomness, random_seed, x_rotation, y_rotation, z_rotation, xy_position, z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, .. } = e
+    let crate::effects::Effect::CardWipe { transition_completion, transition_width, back_map, rows_columns, rows, columns, card_scale, flip_axis, flip_direction, flip_order, gradient_map, timing_randomness, random_seed, x_rotation, y_rotation, z_rotation, xy_position, z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, camera_system, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } = e
     else {
         unreachable!("Card Wipe's numbers of another effect")
     };
@@ -8918,15 +8979,25 @@ pub(crate) fn card_wipe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) ->
     let rz = [[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]];
     let m = mul(rz, mul(ry, rx));
     let own = |v: [f64; 3]| -> [f64; 3] { std::array::from_fn(|i| (0..3).map(|j| m[j][i] * v[j]).sum()) };
-    let f = w0 * focal_length / 36.0;
-    let o = own([xy_position[0] * w0 / 100.0 - w0 / 2.0, xy_position[1] * h0 / 100.0 - h0 / 2.0, -z_position * f]);
-    let pl = own([light_position[0] * w0 / 100.0 - w0 / 2.0, light_position[1] * h0 / 100.0 - h0 / 2.0, -light_depth * w0]);
+    let lp = [light_position[0] * w0 / 100.0 - w0 / 2.0, light_position[1] * h0 / 100.0 - h0 / 2.0, -light_depth * w0];
+    // D-634: Corner Pins puts the eye and the rays where the pins say, with no turn, so the light
+    // stays on the layer; the ray's turn is A^-1 by columns, as M^T is.
+    let (f, o, m, pl, drawn) = if camera_system == "corner_pins" {
+        let pins = [*upper_left_corner, *upper_right_corner, *lower_left_corner, *lower_right_corner];
+        match corner_camera(w0, h0, pins, *focal_length, auto_focal_length == "on") {
+            Some((o, _, ai, f)) => (f, o, std::array::from_fn(|i| std::array::from_fn(|n| ai[n][i])), lp, true),
+            None => (w0 * focal_length / 36.0, [0.0; 3], m, lp, false),
+        }
+    } else {
+        let f = w0 * focal_length / 36.0;
+        (f, own([xy_position[0] * w0 / 100.0 - w0 / 2.0, xy_position[1] * h0 / 100.0 - h0 / 2.0, -z_position * f]), m, own(lp), true)
+    };
     let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
     let mut k = vec![c, r, cw, ch, hx, hy, w0, h0, f, o[0], o[1], o[2]];
     k.extend(m.iter().flatten());
     k.extend([if light_type == "point" { 1.0 } else { 0.0 }, pl[0], pl[1], pl[2], *light_intensity, lc[0], lc[1], lc[2]]);
     k.extend([*ambient_light, *diffuse_reflection, *specular_reflection, *highlight_sharpness]);
-    k.extend([if back_map.is_some() { 1.0 } else { 0.0 }, *card_scale, hx.max(hy)]);
+    k.extend([if back_map.is_some() { 1.0 } else { 0.0 }, if drawn { *card_scale } else { 0.0 }, hx.max(hy)]);
     let seed = crate::grade::mix(random_seed.floor() as u64);
     let g = |a: usize, b: usize, ch: u64| crate::grade::unit(seed, a as i64, b as i64, 0, ch);
     let (tr, done, wide) = (*timing_randomness, transition_completion / 100.0, transition_width / 100.0);
@@ -10600,7 +10671,7 @@ pub(crate) fn caustics(source: &mut WorkingBuffer, e: &crate::effects::Effect, (
 /// cards hold about 100 MB; work them a band at a time if that bites.
 pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
     #[rustfmt::skip]
-    let crate::effects::Effect::CardDance { rows_columns, rows, columns, back_map, gradient_layer_1, gradient_map_1, gradient_layer_2, gradient_map_2, rotation_order, transformation_order, sources, multipliers, offsets, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, view, .. } = e
+    let crate::effects::Effect::CardDance { rows_columns, rows, columns, back_map, gradient_layer_1, gradient_map_1, gradient_layer_2, gradient_map_2, rotation_order, transformation_order, sources, multipliers, offsets, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, view, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } = e
     else {
         unreachable!("Card Dance of another effect")
     };
@@ -10612,7 +10683,10 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     let (lw, lh) = (w - 2 * ox, h - 2 * oy);
     let mut out = WorkingBuffer::transparent(w, h);
     let comp_camera = camera_system == "comp_camera";
-    if lw == 0 || lh == 0 || (comp_camera && !(view[2] > 0.0)) {
+    // D-634: the Corner Pins camera; nothing is drawn where it has none.
+    let pinned = (camera_system == "corner_pins")
+        .then(|| corner_camera(lw as f64, lh as f64, [*upper_left_corner, *upper_right_corner, *lower_left_corner, *lower_right_corner], *focal_length, auto_focal_length == "on"));
+    if lw == 0 || lh == 0 || (comp_camera && !(view[2] > 0.0)) || matches!(pinned, Some(None)) {
         *source = out;
         return;
     }
@@ -10638,14 +10712,19 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
 
     // Step 4: the camera's turn M, the eye o, and the ray through pixel (x, y),
     // v = M^T (x + 1/2 - centre x, y + 1/2 - centre y, f).
-    let (m, o, centre, f) = if comp_camera {
+    // M takes a point less the eye to the screen, the ray is R^T (x + 1/2 - centre x,
+    // y + 1/2 - centre y, f), and the light's place is L^T of its own; all three are the turn,
+    // but Corner Pins (D-634) has A, A^-1 by columns and none, so its light stays on the layer.
+    let (m, rt, lt, o, centre, f) = if let Some(Some((o, a, ai, f))) = pinned {
+        (a, std::array::from_fn(|i| std::array::from_fn(|n| ai[n][i])), I3, o, [wf / 2.0, hf / 2.0], f)
+    } else if comp_camera {
         let [ax, ay, away] = *view;
-        (I3, [ax - wf / 2.0, ay - hf / 2.0, -away], [ax, ay], away)
+        (I3, I3, I3, [ax - wf / 2.0, ay - hf / 2.0, -away], [ax, ay], away)
     } else {
         let m = mul(rot(b'z', *camera_z_rotation), mul(rot(b'y', *camera_y_rotation), rot(b'x', *camera_x_rotation)));
         let f = wf * focal_length / 36.0;
         let o = app_t(&m, [camera_xy_position[0] * wf / 100.0 - wf / 2.0, camera_xy_position[1] * hf / 100.0 - hf / 2.0, -camera_z_position * f]);
-        (m, o, [wf / 2.0, hf / 2.0], f)
+        (m, m, m, o, [wf / 2.0, hf / 2.0], f)
     };
 
     // Steps 1 to 3: the cards, rows then columns, each its first two axes, its middle from the
@@ -10762,12 +10841,12 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
 
     // Steps 5 to 8, per pixel.
     let back = back_map.as_ref().map(|m| &*m.0);
-    let pl = app_t(&m, [light_position[0] * wf / 100.0 - wf / 2.0, light_position[1] * hf / 100.0 - hf / 2.0, -light_depth * wf]);
+    let pl = app_t(&lt, [light_position[0] * wf / 100.0 - wf / 2.0, light_position[1] * hf / 100.0 - hf / 2.0, -light_depth * wf]);
     let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
     let point = light_type == "point";
     out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
         let (bx, by) = (i % w, i / w);
-        let v = app_t(&m, [bx as f64 - ox as f64 + 0.5 - centre[0], by as f64 - oy as f64 + 0.5 - centre[1], f]);
+        let v = app_t(&rt, [bx as f64 - ox as f64 + 0.5 - centre[0], by as f64 - oy as f64 + 0.5 - centre[1], f]);
         let nv = v.map(|q| -q);
         let mut best: Option<(f64, usize, f64, f64)> = None;
         for &k in tiles[(by / TILE) * tx + bx / TILE].iter().chain(&everywhere) {
@@ -10830,7 +10909,7 @@ pub(crate) fn card_dance(source: &mut WorkingBuffer, e: &crate::effects::Effect,
 /// summed step by step; Wave World's checkpoint idea if long shots crawl.
 pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (ox, oy): (usize, usize)) {
     #[rustfmt::skip]
-    let crate::effects::Effect::Shatter { render, pattern, custom_shatter_map, custom_map, white_tiles_fixed, repetitions, direction, origin, extrusion_depth, gradient_layer, gradient_map, invert_gradient, tumble_axis, color, opacity, front_mode, side_mode, back_mode, front_layer, front_map, side_layer, side_map, back_layer, back_map, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, seen, history, fps, .. } = e
+    let crate::effects::Effect::Shatter { render, pattern, custom_shatter_map, custom_map, white_tiles_fixed, repetitions, direction, origin, extrusion_depth, gradient_layer, gradient_map, invert_gradient, tumble_axis, color, opacity, front_mode, side_mode, back_mode, front_layer, front_map, side_layer, side_map, back_layer, back_map, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, seen, history, fps, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } = e
     else {
         unreachable!("Shatter of another effect")
     };
@@ -10854,7 +10933,10 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
     let (lw, lh) = (w - 2 * ox, h - 2 * oy);
     let mut out = WorkingBuffer::transparent(w, h);
     let comp_camera = camera_system == "comp_camera";
-    if lw == 0 || lh == 0 || (comp_camera && !(seen[2] > 0.0)) {
+    // D-634: the Corner Pins camera; nothing is drawn where it has none.
+    let pinned = (camera_system == "corner_pins")
+        .then(|| corner_camera(lw as f64, lh as f64, [*upper_left_corner, *upper_right_corner, *lower_left_corner, *lower_right_corner], *focal_length, auto_focal_length == "on"));
+    if lw == 0 || lh == 0 || (comp_camera && !(seen[2] > 0.0)) || matches!(pinned, Some(None)) {
         *source = out;
         return;
     }
@@ -10878,14 +10960,19 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
     let hash = |i: u64, a: u64| crate::expr::unit(crate::expr::mix(i, a));
 
     // Card Dance's step 4: the camera's turn M, the eye o, and the ray through a pixel.
-    let (m, o, centre, f) = if comp_camera {
+    // M takes a point less the eye to the screen, the ray is R^T (x + 1/2 - centre x,
+    // y + 1/2 - centre y, f), and the light's place is L^T of its own; all three are the turn,
+    // but Corner Pins (D-634) has A, A^-1 by columns and none, so its light stays on the layer.
+    let (m, rt, lt, o, centre, f) = if let Some(Some((o, a, ai, f))) = pinned {
+        (a, std::array::from_fn(|i| std::array::from_fn(|n| ai[n][i])), I3, o, [wf / 2.0, hf / 2.0], f)
+    } else if comp_camera {
         let [ax, ay, away] = *seen;
-        (I3, [ax - wf / 2.0, ay - hf / 2.0, -away], [ax, ay], away)
+        (I3, I3, I3, [ax - wf / 2.0, ay - hf / 2.0, -away], [ax, ay], away)
     } else {
         let m = mul(rot(b'z', *camera_z_rotation), mul(rot(b'y', *camera_y_rotation), rot(b'x', *camera_x_rotation)));
         let f = wf * focal_length / 36.0;
         let o = app_t(&m, [camera_xy_position[0] * wf / 100.0 - wf / 2.0, camera_xy_position[1] * hf / 100.0 - hf / 2.0, -camera_z_position * f]);
-        (m, o, [wf / 2.0, hf / 2.0], f)
+        (m, m, m, o, [wf / 2.0, hf / 2.0], f)
     };
 
     // Steps 1 and 2: each layer pixel's piece, pieces numbered by their first pixel.
@@ -11325,12 +11412,12 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
         }
     };
     let col = crate::effects::encoded(color).map(crate::grade::to_linear);
-    let pl = app_t(&m, [light_position[0] * wf / 100.0 - wf / 2.0, light_position[1] * hf / 100.0 - hf / 2.0, -light_depth * wf]);
+    let pl = app_t(&lt, [light_position[0] * wf / 100.0 - wf / 2.0, light_position[1] * hf / 100.0 - hf / 2.0, -light_depth * wf]);
     let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
     let point = light_type == "point";
     out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
         let (bx, by) = (i % w, i / w);
-        let d = app_t(&m, [bx as f64 - ox as f64 + 0.5 - centre[0], by as f64 - oy as f64 + 0.5 - centre[1], f]);
+        let d = app_t(&rt, [bx as f64 - ox as f64 + 0.5 - centre[0], by as f64 - oy as f64 + 0.5 - centre[1], f]);
         let mut best: Option<(f64, usize, u8, V3, V3)> = None;
         for &s in tiles[(by / TILE) * tx + bx / TILE].iter().chain(&everywhere) {
             let (s, shard) = (s as usize, &deck[s as usize]);

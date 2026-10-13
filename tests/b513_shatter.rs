@@ -97,7 +97,6 @@ fn b513_shatter() {
         ("fx_sh_064.json", "render"),
         ("fx_sh_065.json", "tumble axis"),
         ("fx_sh_066.json", "front mode"),
-        ("fx_sh_067.json", "not built yet (d-634)"),
         ("fx_sh_068.json", "repetitions"),
         ("fx_sh_069.json", "extrusion depth"),
         ("fx_sh_070.json", "force 1 radius"),

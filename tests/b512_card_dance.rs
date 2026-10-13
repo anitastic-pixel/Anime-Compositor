@@ -93,7 +93,6 @@ fn b512_card_dance() {
         ("fx_cd_049.json", "rotation order"),
         ("fx_cd_050.json", "transformation order"),
         ("fx_cd_051.json", "x position source"),
-        ("fx_cd_052.json", "camera system"),
         ("fx_cd_053.json", "rows"),
         ("fx_cd_054.json", "columns"),
         ("fx_cd_055.json", "z position multiplier"),
