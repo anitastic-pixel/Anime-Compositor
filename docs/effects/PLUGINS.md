@@ -422,7 +422,7 @@ Most of these are covered elsewhere. The new ones are:
 
 **Overlap.**
 
-- Vector Blur `core.vector_blur`: partial.
+- Vector Blur `core.vector_blur`: done.
 - CC Force Motion Blur: partial.
 - P0-13 (motion estimation): missing, and the charter leaves it out (D-309).
 
