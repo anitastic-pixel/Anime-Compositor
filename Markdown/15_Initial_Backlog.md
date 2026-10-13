@@ -1387,6 +1387,8 @@ B-581 / Particle Emitter's second system, particles thrown by particles, D-711 (
 
 B-582 / Particle Grid's points from a layer's shape, and strings, D-712 (P0-6) / Done on 2026-10-13 under the owner's /loop request. Base Form Box Strings (rows of points drawn as lines) and Layer (points only where the new Base Layer, a drawing, shape or text layer, is half opaque or more). Fixtures 0b6254a4 (FX-PGSHP-001..027), code c3f08101. `verification/D-712_particle_grid_shape_table.md`: 148 of 148 checks, card against processor within 1 level; D-616's table 332 of 332; b155_gpu_chain; app tests 93 passed, the 2 known failures. **Timing** (`verification/B-582_particle_grid_shape_timing_table.md`): PROVISIONAL, machine not quiet. Playtest: `verification/B-582_playtest.md`.
 
+B-583 / Particle Playground's further mapper properties, D-713 (P0-6) / Done on 2026-10-13 under the owner's /loop request. The mappers can set X and Y Scale (dots drawn as turned ovals, pieces and copies stretched), Angular Velocity, Torque, Lifespan and Kinetic and Static Friction. Fixtures aa119565 (FX-PMPH-001..028), code 933d40c0. `verification/D-713_particle_mapper_physics_table.md`: 133 of 133 checks, card against processor within 1 level; b493, b494, b155_gpu_chain; app tests 93 passed, the 2 known failures. **Timing** (`verification/B-583_particle_mapper_physics_timing_table.md`): quiet machine, one run, about 1 to 2 ms a frame over the plain Playground. Playtest: `verification/B-583_playtest.md`.
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.
