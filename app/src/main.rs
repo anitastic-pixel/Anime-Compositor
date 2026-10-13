@@ -5025,7 +5025,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             vertical_distortion: 0.0,
         }),
         // D-603: seven by seven at rest, Quality 8, as After Effects adds it.
-        MESH_WARP => Some(Effect::MeshWarp { rows: 7.0, columns: 7.0, quality: 8.0, distortion_mesh: Vec::new() }),
+        MESH_WARP => Some(Effect::MeshWarp { rows: 7.0, columns: 7.0, quality: 8.0, distortion_mesh: Vec::new(), vertex_handles: Vec::new() }),
         // D-602: every point where it starts, Quality 8, as After Effects adds it.
         BEZIER_WARP => Some(Effect::BezierWarp { points: anime_compositor::effects::BEZIER_START, quality: 8.0 }),
         POWER_PIN => Some(Effect::PowerPin {
@@ -8071,15 +8071,19 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             vertical_distortion: number("vertical_distortion")?,
         }),
         // D-603: the vertices as one list, commas or spaces between, none for the mesh at rest.
-        // How many there should be is the core's check, in its words.
+        // How many there should be is the core's check, in its words. D-701: the handles the same.
         MESH_WARP => {
-            let text = parameter(query, "distortion_mesh").unwrap_or_default();
-            let distortion_mesh = text
-                .split(|ch: char| ch == ',' || ch.is_whitespace())
-                .filter(|p| !p.is_empty())
-                .map(|p| p.parse::<f64>().map_err(|_| format!("Distortion mesh needs numbers, x then y for each vertex. Not \"{p}\".")))
-                .collect::<Result<Vec<_>, _>>()?;
-            Ok(Effect::MeshWarp { rows: number("rows")?, columns: number("columns")?, quality: number("quality")?, distortion_mesh })
+            let list = |name: &str, says: &str| {
+                parameter(query, name)
+                    .unwrap_or_default()
+                    .split(|ch: char| ch == ',' || ch.is_whitespace())
+                    .filter(|p| !p.is_empty())
+                    .map(|p| p.parse::<f64>().map_err(|_| format!("{says} Not \"{p}\".")))
+                    .collect::<Result<Vec<_>, _>>()
+            };
+            let distortion_mesh = list("distortion_mesh", "Distortion mesh needs numbers, x then y for each vertex.")?;
+            let vertex_handles = list("vertex_handles", "Vertex handles need numbers, eight for each vertex.")?;
+            Ok(Effect::MeshWarp { rows: number("rows")?, columns: number("columns")?, quality: number("quality")?, distortion_mesh, vertex_handles })
         }
         // D-602.
         BEZIER_WARP => {
@@ -34926,7 +34930,13 @@ mod contract {
         // D-603.
         (
             "core.mesh_warp",
-            &[("rows", "2"), ("columns", "2"), ("quality", "6"), ("distortion_mesh", "0,0,50,0,100,0,0,50,70,50,100,50,0,100,50,100,100,100")],
+            &[
+                ("rows", "2"),
+                ("columns", "2"),
+                ("quality", "6"),
+                ("distortion_mesh", "0,0,50,0,100,0,0,50,70,50,100,50,0,100,50,100,100,100"),
+                ("vertex_handles", "0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"),
+            ],
         ),
         // D-602.
         (

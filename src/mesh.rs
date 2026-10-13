@@ -238,24 +238,31 @@ pub(crate) fn warp_count(rows: f64, columns: f64) -> usize {
 }
 
 /// D-603: whether Mesh Warp's `v` leaves the drawing as it was: empty, or every vertex where the
-/// mesh at rest has it (per cent, i / C 100 across and j / R 100 down).
-pub(crate) fn warp_rests(rows: f64, columns: f64, v: &[f64]) -> bool {
+/// mesh at rest has it (per cent, i / C 100 across and j / R 100 down). D-701: and no handle `h`
+/// moved.
+pub(crate) fn warp_rests(rows: f64, columns: f64, v: &[f64], h: &[f64]) -> bool {
     let (r, c) = warp_size(rows, columns);
-    v.is_empty()
+    h.iter().all(|x| *x == 0.0)
+        && (v.is_empty()
         || (v.len() == warp_count(rows, columns)
             && (0..=r).all(|j| {
                 (0..=c).all(|i| {
                     let n = 2 * (j * (c + 1) + i);
                     v[n] == i as f64 / c as f64 * 100.0 && v[n + 1] == j as f64 / r as f64 * 100.0
                 })
-            }))
+            })))
 }
 
 /// D-603: Mesh Warp's mesh, worked as `tools/mesh_warp_reference.py` works it: the Catmull-Rom
 /// surface through the vertices `v` (per cent of the drawing `dw` by `dh`), each cell cut into
 /// q by q, q `quality` rounded. `None` when the mesh rests, the drawing as it was.
-pub(crate) fn warp_mesh(rows: f64, columns: f64, quality: f64, v: &[f64], (dw, dh): (f64, f64)) -> Option<Mesh> {
-    if warp_rests(rows, columns, v) {
+///
+/// D-701, as `tools/mesh_handles_reference.py` works it: `h`, empty or eight numbers a vertex
+/// (right, left, lower and upper handle, x then y, per cent), moves the control points of each
+/// cell's Bezier patch; the surface is linear in them, so each moved handle adds its offset times
+/// the two Bernstein weights of the point it moves. An empty `v` is the mesh at rest.
+pub(crate) fn warp_mesh(rows: f64, columns: f64, quality: f64, v: &[f64], h: &[f64], (dw, dh): (f64, f64)) -> Option<Mesh> {
+    if warp_rests(rows, columns, v, h) {
         return None;
     }
     let (r, c) = warp_size(rows, columns);
@@ -274,9 +281,21 @@ pub(crate) fn warp_mesh(rows: f64, columns: f64, quality: f64, v: &[f64], (dw, d
         if i > c {
             return line(vertex(v, r, c, d, c, j), vertex(v, r, c, d, c - 1, j));
         }
+        if v.is_empty() {
+            return [i as f64 / c as f64 * 100.0 / 100.0 * d.0, j as f64 / r as f64 * 100.0 / 100.0 * d.1];
+        }
         let n = 2 * (j * (c + 1) + i) as usize;
         [v[n] / 100.0 * d.0, v[n + 1] / 100.0 * d.1]
     }
+    // D-701: control point (a across, b down) of cell (col, row), moved by vertex (col + di,
+    // row + dj)'s handle `which` (0 right, 1 left, 2 lower, 3 upper).
+    const MOVES: [(usize, usize, usize, usize, usize); 16] = [
+        (1, 0, 0, 0, 0), (2, 0, 1, 0, 1), (1, 3, 0, 1, 0), (2, 3, 1, 1, 1),
+        (0, 1, 0, 0, 2), (0, 2, 0, 1, 3), (3, 1, 1, 0, 2), (3, 2, 1, 1, 3),
+        (1, 1, 0, 0, 0), (1, 1, 0, 0, 2), (2, 1, 1, 0, 1), (2, 1, 1, 0, 2),
+        (1, 2, 0, 1, 0), (1, 2, 0, 1, 3), (2, 2, 1, 1, 1), (2, 2, 1, 1, 3),
+    ];
+    let bern = |s: f64| [(1.0 - s).powi(3), 3.0 * s * (1.0 - s).powi(2), 3.0 * s * s * (1.0 - s), s.powi(3)];
     let cr = |p0: f64, p1: f64, p2: f64, p3: f64, s: f64| {
         0.5 * (2.0 * p1 + (p2 - p0) * s + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * s * s + (3.0 * p1 - p0 - 3.0 * p2 + p3) * s * s * s)
     };
@@ -295,7 +314,16 @@ pub(crate) fn warp_mesh(rows: f64, columns: f64, quality: f64, v: &[f64], (dw, d
                     [0, 1].map(|k| cr(p[0][k], p[1][k], p[2][k], p[3][k], s))
                 })
                 .collect();
-            at.push([0, 1].map(|k| cr(across[0][k], across[1][k], across[2][k], across[3][k], t)));
+            let mut p = [0, 1].map(|k| cr(across[0][k], across[1][k], across[2][k], across[3][k], t));
+            if !h.is_empty() {
+                let (bs, bt) = (bern(s), bern(t));
+                for (ca, cb, di, dj, which) in MOVES {
+                    let n = 8 * ((row + dj) * (c + 1) + col + di) + 2 * which;
+                    p[0] += bs[ca] * bt[cb] * h[n] / 100.0 * dw;
+                    p[1] += bs[ca] * bt[cb] * h[n + 1] / 100.0 * dh;
+                }
+            }
+            at.push(p);
         }
     }
     Some(Mesh { cols: c * q, rows: r * q, at })

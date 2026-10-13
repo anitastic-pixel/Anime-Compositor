@@ -2346,8 +2346,10 @@ pub enum Effect {
     /// D-603: after After Effects' Mesh Warp (`mesh::warp_mesh`, document 21). `rows` and
     /// `columns`, 1 to 31, rounded; `quality`, 1 to 10; `distortion_mesh`, empty for the mesh
     /// at rest, or x then y for each vertex row by row from the top left, per cent of the
-    /// drawing, -400 to 500.
-    MeshWarp { rows: f64, columns: f64, quality: f64, distortion_mesh: Vec<f64> },
+    /// drawing, -400 to 500. D-701: `vertex_handles`, empty for none moved, or eight numbers for
+    /// each vertex in the same order (right, left, lower and upper handle, x then y), how far each
+    /// is moved from where the smooth mesh has it, per cent of the drawing, -400 to 400.
+    MeshWarp { rows: f64, columns: f64, quality: f64, distortion_mesh: Vec<f64>, vertex_handles: Vec<f64> },
     /// D-604: after After Effects' Warp (`mesh::warp_preset_mesh`, document 21). `warp_style`,
     /// one of [`WARP_STYLES`]; `warp_axis`, "horizontal" or "vertical"; `bend`,
     /// `horizontal_distortion` and `vertical_distortion`, -100 to 100.
@@ -6906,11 +6908,12 @@ impl Effect {
                 ("horizontal_distortion", vec![horizontal_distortion], -100.0, 100.0),
                 ("vertical_distortion", vec![vertical_distortion], -100.0, 100.0),
             ],
-            Effect::MeshWarp { rows, columns, quality, distortion_mesh } => vec![
+            Effect::MeshWarp { rows, columns, quality, distortion_mesh, vertex_handles } => vec![
                 ("rows", vec![rows], 1.0, 31.0),
                 ("columns", vec![columns], 1.0, 31.0),
                 ("quality", vec![quality], 1.0, 10.0),
                 ("distortion_mesh", distortion_mesh.iter_mut().collect(), -400.0, 500.0),
+                ("vertex_handles", vertex_handles.iter_mut().collect(), -400.0, 400.0),
             ],
             Effect::BezierWarp { points, quality } => {
                 let mut v: Vec<_> = BEZIER_POINTS.iter().zip(points.iter_mut()).map(|(n, p)| (*n, p.iter_mut().collect(), -400.0, 500.0)).collect();
@@ -10913,6 +10916,16 @@ impl Effect {
                     distortion_mesh.len()
                 ))
             }
+            // D-701: none, or eight numbers for each vertex.
+            Effect::MeshWarp { rows, columns, vertex_handles, .. }
+                if !vertex_handles.is_empty() && vertex_handles.len() != 4 * crate::mesh::warp_count(*rows, *columns) =>
+            {
+                Some(format!(
+                    "Mesh Warp's vertex handles are none, or {} numbers, eight for each vertex, and this has {}.",
+                    4 * crate::mesh::warp_count(*rows, *columns),
+                    vertex_handles.len()
+                ))
+            }
             Effect::PowerPin { unstretch, .. } if !["off", "on"].contains(&unstretch.as_str()) => Some(format!(
                 "Power Pin's unstretch is \"on\" or \"off\", and this is \"{unstretch}\"."
             )),
@@ -13610,9 +13623,9 @@ pub(crate) fn apply_stack_at(
                 }
             }),
             // D-603: the drawing bent with its mesh in its own space; the layer never grows.
-            Effect::MeshWarp { rows, columns, quality, distortion_mesh } => crate::perf::time(crate::perf::Stage::EffectMeshWarp, || {
+            Effect::MeshWarp { rows, columns, quality, distortion_mesh, vertex_handles } => crate::perf::time(crate::perf::Stage::EffectMeshWarp, || {
                 let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
-                if let Some(m) = crate::mesh::warp_mesh(*rows, *columns, *quality, distortion_mesh, size) {
+                if let Some(m) = crate::mesh::warp_mesh(*rows, *columns, *quality, distortion_mesh, vertex_handles, size) {
                     crate::mesh::draw(source, &m, (ox, oy));
                 }
             }),

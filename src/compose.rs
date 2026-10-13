@@ -1575,8 +1575,8 @@ fn card_effect(
                 }
                 // D-602: every point where it starts.
                 E::BezierWarp { points, .. } => *points == crate::effects::BEZIER_START,
-                // D-603: the mesh at rest.
-                E::MeshWarp { rows, columns, distortion_mesh, .. } => crate::mesh::warp_rests(*rows, *columns, distortion_mesh),
+                // D-603: the mesh at rest; D-701: no handle moved.
+                E::MeshWarp { rows, columns, distortion_mesh, vertex_handles, .. } => crate::mesh::warp_rests(*rows, *columns, distortion_mesh, vertex_handles),
                 // D-607: no source, a mask named not found, or none of the way.
                 E::MaskSmear { paths, percent, .. } => paths.is_none() || *percent == 0.0,
                 // D-606: no source or destination, a mask named not found, or none of the way.

@@ -6108,6 +6108,46 @@ function perScreenPixel() {
   return shown.width ? view.width / shown.width : 1;
 }
 
+// D-701: Mesh Warp edited on the viewer, set by its button in the effect's controls, which puts
+// in the mesh it has (`rows`, `cols`, the vertices `v` and handles `h`, both per cent) and `send`
+// each time it is drawn.
+let meshEdit = null;
+// The marks of the mesh being edited, in the viewer's pixels: each vertex, and each handle that
+// moves something (none past the mesh's edge), where the smooth mesh has it plus its own move.
+function meshMarks() {
+  if (!meshEdit || !meshEdit.send) return null;
+  const layer = layers().find((l) => l.id === meshEdit.layer);
+  const space = layer && layerSpace(layer);
+  const { rows: r, cols: c } = meshEdit;
+  if (!space || meshEdit.v.length !== 2 * (r + 1) * (c + 1)) return null;
+  // Vertex (i, j), per cent, carried on in a straight line past the edges, as the core does.
+  const vert = (i, j) => {
+    if (i < 0) return vert(0, j).map((a, k) => 2 * a - vert(1, j)[k]);
+    if (i > c) return vert(c, j).map((a, k) => 2 * a - vert(c - 1, j)[k]);
+    if (j < 0) return vert(i, 0).map((a, k) => 2 * a - vert(i, 1)[k]);
+    if (j > r) return vert(i, r).map((a, k) => 2 * a - vert(i, r - 1)[k]);
+    const n = 2 * (j * (c + 1) + i);
+    return [meshEdit.v[n], meshEdit.v[n + 1]];
+  };
+  const screen = ([x, y]) => space.toFrame(x / 100 * space.w, y / 100 * space.h);
+  const marks = [];
+  for (let j = 0; j <= r; j++) {
+    for (let i = 0; i <= c; i++) {
+      const at = vert(i, j);
+      marks.push({ i, j, which: -1, at, view: screen(at) });
+      const across = vert(i + 1, j).map((a, k) => (a - vert(i - 1, j)[k]) / 6);
+      const down = vert(i, j + 1).map((a, k) => (a - vert(i, j - 1)[k]) / 6);
+      [[i < c, across, 1], [i > 0, across, -1], [j < r, down, 1], [j > 0, down, -1]].forEach(([shown, d, sign], which) => {
+        if (!shown) return;
+        const n = 8 * (j * (c + 1) + i) + 2 * which;
+        const base = [at[0] + sign * d[0], at[1] + sign * d[1]];
+        const moved = [base[0] + (meshEdit.h[n] || 0), base[1] + (meshEdit.h[n + 1] || 0)];
+        marks.push({ i, j, which, base, from: screen(at), view: screen(moved) });
+      });
+    }
+  }
+  return { marks, space, row: (j) => marks.filter((m) => m.which < 0 && m.j === j), column: (i) => marks.filter((m) => m.which < 0 && m.i === i) };
+}
 function drawBoxes() {
   const svg = $('boxes');
   svg.setAttribute('width', view.width);
@@ -6241,6 +6281,44 @@ function drawBoxes() {
         });
       };
       if (had && had.frame === h.key.frame && had.which === h.which) refocus = knob;
+      drawn.push(arm, knob);
+    }
+  }
+  // D-701: the mesh being edited: its rows and columns through the vertices (straight, for the
+  // eye), each vertex a square and each handle a knob on an arm.
+  const mesh = meshMarks();
+  if (mesh) {
+    const lines = [];
+    for (let j = 0; j <= meshEdit.rows; j++) lines.push(mesh.row(j));
+    for (let i = 0; i <= meshEdit.cols; i++) lines.push(mesh.column(i));
+    for (const l of lines) {
+      const line = svgEl('polyline');
+      line.setAttribute('class', 'path');
+      line.setAttribute('points', l.map((m) => m.view.join(',')).join(' '));
+      drawn.push(line);
+    }
+    for (const m of mesh.marks) {
+      if (m.which < 0) {
+        const mark = svgEl('rect');
+        mark.setAttribute('class', 'pathkey');
+        mark.setAttribute('x', m.view[0] - 3 * unit);
+        mark.setAttribute('y', m.view[1] - 3 * unit);
+        mark.setAttribute('width', 6 * unit);
+        mark.setAttribute('height', 6 * unit);
+        drawn.push(mark);
+        continue;
+      }
+      const arm = svgEl('line');
+      arm.setAttribute('class', 'patharm');
+      arm.setAttribute('x1', m.from[0]);
+      arm.setAttribute('y1', m.from[1]);
+      arm.setAttribute('x2', m.view[0]);
+      arm.setAttribute('y2', m.view[1]);
+      const knob = svgEl('circle');
+      knob.setAttribute('class', 'pathgrab');
+      knob.setAttribute('cx', m.view[0]);
+      knob.setAttribute('cy', m.view[1]);
+      knob.setAttribute('r', 3 * unit);
       drawn.push(arm, knob);
     }
   }
@@ -9780,7 +9858,7 @@ const EFFECT_SEARCH = {
   'core.reshape': 'reshape morph mask shape pull stretch source destination boundary elasticity distort',
   'core.liquify': 'liquify brush push smudge twirl pucker bloat pinch swell shift pixels warp turbulence reflection clone reconstruction freeze thaw paint distort',
   'core.warp': 'warp arc arch bulge shell flag wave fish rise fisheye inflate squeeze twist bend envelope text warp',
-  'core.mesh_warp': 'mesh warp grid vertices bend smooth liquify reshape distort warp lattice puppet',
+  'core.mesh_warp': 'mesh warp grid vertices handles bezier bend smooth liquify reshape distort warp lattice puppet',
   'core.bezier_warp': 'bezier warp curve curves bend outline edges tangents handles warp mesh distort reshape flag wave',
   'core.power_pin': 'power pin cc power pin corner pin four corners perspective screen expand unstretch billboard distort',
   'core.ripple_pulse': 'ripple pulse cc ripple pulse rings beat music bass wave shock throb audio pulse',
@@ -10071,7 +10149,7 @@ const EFFECT_ABOUT = {
   'core.reshape': 'Pulls the picture inside one of the layer\'s masks into the shape of another, the rest following; a third mask holds what lies outside it still. Nothing moves until you choose the source and destination masks.',
   'core.liquify': 'Drags a brush along strokes you paint on the viewer or type in to push, twirl, pinch, swell, stir, mirror, copy or put back the layer under it; a Freeze Area stroke or a mask holds what it covers still.',
   'core.warp': 'Bends the layer into one of fifteen shapes, an arc, a flag, a bulge, a twist and more, by Bend, and leans it with the two Distortions.',
-  'core.mesh_warp': 'Lays a grid over the layer and bends it smoothly with the grid\'s points, typed in as x then y for each.',
+  'core.mesh_warp': 'Lays a grid over the layer and bends it smoothly with the grid\'s points and their handles, dragged on the viewer or typed in as numbers.',
   'core.bezier_warp': 'Bends the layer to an outline of four curved edges: drag the corners and each edge\'s two handles.',
   'core.power_pin': 'Pins the four corners as Corner Pin does, with perspective that can be eased off, the picture expanded past the pins, or stretched back out.',
   'core.ripple_pulse': 'Sends rings out from a point each time Pulse Level changes; key Pulse Level (or link it to sound) to make the picture throb.',
@@ -12104,7 +12182,10 @@ const EFFECT_WORDS = {
     ['warp_axis', 'Warp Axis', [['horizontal', 'Horizontal'], ['vertical', 'Vertical']]]] },
   // D-603: Mesh Warp's vertices, typed as one list.
   'core.mesh_warp': { texts: [['distortion_mesh', 'Distortion Mesh', 'none: the mesh at rest', null,
-    'Each vertex x then y, per cent of the width and height, row by row from the top left, -400 to 500: (rows + 1) times (columns + 1) of them, or none']] },
+    'Each vertex x then y, per cent of the width and height, row by row from the top left, -400 to 500: (rows + 1) times (columns + 1) of them, or none'],
+    // D-701: each vertex's four Bezier handles, as one list too.
+    ['vertex_handles', 'Vertex Handles', 'none: no handle moved', null,
+      'For each vertex in the same order, eight numbers: its right, left, lower and upper handle, each x then y, how far it is moved from where the smooth mesh has it, per cent of the width and height, -400 to 400; or none']] },
   // D-335: the file leaves it out when Off, so Off is first.
   'core.exposure': { choices: [['bypass', 'Bypass Linear Light Conversion', [['off', 'Off'], ['on', 'On']]]] },
   // D-303: After Effects' Blur Dimensions; both first, as it starts.
@@ -14465,6 +14546,44 @@ function effectRow(layer, fx, at, of) {
     dd.append(brush, ' ', clear);
     dl.append(dd);
   }
+  // D-701: Mesh Warp's vertices and handles dragged on the viewer. A drag goes when it is let
+  // go, so one drag is one step of undo; the mesh at rest is written out at the first one.
+  if (fxKey(fx) === 'core.mesh_warp') {
+    const mine = meshEdit && meshEdit.id === fx.instance_id;
+    if (mine) {
+      const n = (name) => Math.min(31, Math.max(1, Math.floor(Number(typed(name)) + 0.5) || 1));
+      const [rows, cols] = [n('rows'), n('columns')];
+      const list = (w) => (words[w] || '').split(/[\s,]+/).filter(Boolean).map(Number);
+      let v = list('distortion_mesh');
+      if (!v.length) {
+        for (let j = 0; j <= rows; j++) for (let i = 0; i <= cols; i++) v.push(i / cols * 100, j / rows * 100);
+      }
+      let h = list('vertex_handles');
+      if (h.length !== 8 * (rows + 1) * (cols + 1)) h = new Array(8 * (rows + 1) * (cols + 1)).fill(0);
+      Object.assign(meshEdit, { rows, cols, v, h, send: (nv, nh) => {
+        const round = (x) => Math.round(x * 100) / 100;
+        words.distortion_mesh = nv.map(round).join(' ');
+        if (nh.some((x) => x !== 0) || words.vertex_handles) words.vertex_handles = nh.map(round).join(' ');
+        sendParameters();
+      } });
+      drawBoxes();
+    }
+    const edit = Object.assign(document.createElement('button'),
+      { textContent: mine ? 'Stop editing the mesh' : 'Edit the mesh on the viewer', className: mine ? 'on' : '' });
+    edit.title = 'While on, the mesh is drawn on the picture: drag a square to move a vertex, a round knob to move a handle; Escape drops a drag';
+    edit.setAttribute('aria-pressed', String(!!mine));
+    edit.onclick = () => {
+      meshEdit = mine ? null : { id: fx.instance_id, layer: layer.id, send: null, rows: 0, cols: 0, v: [], h: [] };
+      drawEffects();
+      drawBoxes();
+    };
+    const reset = Object.assign(document.createElement('button'), { textContent: 'Reset handles' });
+    reset.title = 'Put every handle back where the smooth mesh has it';
+    reset.onclick = () => { words.vertex_handles = ''; sendParameters(); };
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    dd.append(edit, ' ', reset);
+    dl.append(dd);
+  }
   // D-111: the graph of the curve picked above it, and its points as text under it, in then
   // out, a comma between points, for exact numbers and the keyboard. Enter or leaving the box
   // sends it; Escape puts it back. Points are not keyed.
@@ -16141,6 +16260,58 @@ $('regionbtn').onclick = () => {
   if (regionBox) setRegion(null);
   else { regionArmed = !regionArmed; drawRegion(); }
 };
+// D-701: a Mesh Warp vertex or handle dragged on the viewer, taken before the picture's own
+// presses as the brushing below is, and only when the press is on one of its marks. The marks
+// follow the hand; the picture follows at release.
+stage.addEventListener('pointerdown', (e) => {
+  const mesh = e.button === 0 && doc ? meshMarks() : null;
+  if (!mesh) return;
+  const [px, py] = atCanvas(e);
+  const reach = 6 * perScreenPixel();
+  let best = null;
+  for (const m of mesh.marks) {
+    const d = Math.hypot(m.view[0] - px, m.view[1] - py);
+    if (d <= reach && (!best || d < best.d)) best = { m, d };
+  }
+  if (!best) return;
+  e.stopImmediatePropagation();
+  e.preventDefault();
+  const { m } = best;
+  const was = [meshEdit.v.slice(), meshEdit.h.slice()];
+  const at = (p) => {
+    const [lx, ly] = mesh.space.toLayer(...atCanvas(p));
+    return [lx / mesh.space.w * 100, ly / mesh.space.h * 100];
+  };
+  try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+  $('status').textContent = 'Moving the mesh; let go to apply, or Escape to drop it.';
+  const move = (p) => {
+    const [x, y] = at(p);
+    if (m.which < 0) {
+      const n = 2 * (m.j * (meshEdit.cols + 1) + m.i);
+      meshEdit.v[n] = Math.min(500, Math.max(-400, x));
+      meshEdit.v[n + 1] = Math.min(500, Math.max(-400, y));
+    } else {
+      const n = 8 * (m.j * (meshEdit.cols + 1) + m.i) + 2 * m.which;
+      meshEdit.h[n] = Math.min(400, Math.max(-400, x - m.base[0]));
+      meshEdit.h[n + 1] = Math.min(400, Math.max(-400, y - m.base[1]));
+    }
+    drawBoxes();
+  };
+  const stop = (keep) => {
+    stage.removeEventListener('pointermove', move);
+    stage.removeEventListener('pointerup', up);
+    removeEventListener('keydown', escape, true);
+    $('status').textContent = '';
+    if (!meshEdit) return;
+    if (keep && meshEdit.send) meshEdit.send(meshEdit.v, meshEdit.h);
+    else { [meshEdit.v, meshEdit.h] = was; drawBoxes(); }
+  };
+  const up = () => stop(true);
+  const escape = (k) => { if (k.key === 'Escape') { k.stopPropagation(); stop(false); } };
+  stage.addEventListener('pointermove', move);
+  stage.addEventListener('pointerup', up);
+  addEventListener('keydown', escape, true);
+}, true);
 // D-700: a Liquify stroke brushed on the viewer, taken before the picture's own presses as the
 // box below is. Its points are per cent of the layer, a few pixels apart, and go at release, so
 // a stroke is one thing to undo. Escape lets go of it.

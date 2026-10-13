@@ -4029,11 +4029,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("vertical_distortion".into(), num(*vertical_distortion));
         }
         // D-603: the mesh as one flat list, empty at rest.
-        Effect::MeshWarp { rows, columns, quality, distortion_mesh } => {
+        Effect::MeshWarp { rows, columns, quality, distortion_mesh, vertex_handles } => {
             params.insert("rows".into(), num(*rows));
             params.insert("columns".into(), num(*columns));
             params.insert("quality".into(), num(*quality));
             params.insert("distortion_mesh".into(), J::Array(distortion_mesh.iter().map(|v| num(*v)).collect()));
+            // D-701: none moved and unkeyed is written only if the file had it, so a file from
+            // before it saves the same.
+            if !vertex_handles.is_empty() || instance.tracks.contains_key("vertex_handles") || params.contains_key("vertex_handles") {
+                params.insert("vertex_handles".into(), J::Array(vertex_handles.iter().map(|v| num(*v)).collect()));
+            }
         }
         // D-602: each point two numbers under its own name.
         Effect::BezierWarp { points, quality } => {
@@ -8690,6 +8695,11 @@ fn parse_effect(
             columns: effect_number(params, "columns", &at)?,
             quality: effect_number(params, "quality", &at)?,
             distortion_mesh: effect_list(params, "distortion_mesh", &at)?,
+            // D-701: added after the effect; a file without it is from before it.
+            vertex_handles: match params.and_then(|p| p.get("vertex_handles")) {
+                Some(_) => effect_list(params, "vertex_handles", &at)?,
+                None => Vec::new(),
+            },
         }),
         crate::effects::BEZIER_WARP => {
             let mut points = crate::effects::BEZIER_START;
