@@ -1393,6 +1393,8 @@ B-583 / Particle Playground's further mapper properties, D-713 (P0-6) / Done on 
 
 B-584 / Particle Plane's Textured Square, D-714 (P0-6) / Done on 2026-10-13 after the owner's decision that day on FX-PPLANE-055 (regenerated e0a07b9a, with FX-PPTEX-024). Particle Plane draws Textured Square, as Particle Space does. Fixtures dbb3233c (FX-PPSQ-001..018), code 648521af. `verification/D-714_particle_plane_square_table.md`: 98 of 98 checks, card against processor within 1 level; b492, b580, b155_gpu_chain; app tests 93 passed, the 2 known failures. **Timing** (`verification/B-584_particle_plane_square_timing_table.md`): quiet machine, one run, the same as textured discs. Playtest: `verification/B-584_playtest.md`.
 
+B-585 / Particle Playground's Mass, D-715 (P0-6) / Done on 2026-10-13 after the owner's decision that day on FX-PMAP-039 (regenerated 98d84560 to refuse "repel"). The property mappers set Mass, which divides the particle's force. Fixtures 14f30c38 (FX-PMASS-001..016), code 461be4c5. `verification/D-715_particle_mapper_mass_table.md`: 79 of 79 checks, card against processor within 1 level; b493, b494, b583, b155_gpu_chain; app tests 92 passed, the 2 known failures and one timing flake that passed alone. **Timing** (`verification/B-585_particle_mapper_mass_timing_table.md`): quiet machine, one run, no measurable cost. Playtest: `verification/B-585_playtest.md`.
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.

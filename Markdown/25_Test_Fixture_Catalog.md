@@ -214180,7 +214180,7 @@ FX-PMAP-037 (`fx_pmap_037.json`): Ephemeral Max Blue 10001, above 10000. The fil
 
 FX-PMAP-038 (`fx_pmap_038.json`): Persistent Age Feather -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-PMAP-039 (`fx_pmap_039.json`): Persistent Map Red To "mass", not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-PMAP-039 (`fx_pmap_039.json`): Persistent Map Red To "repel", not built (D-715, the owner, 2026-10-13: was "mass", which the mappers now drive). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PMAP-040 (`fx_pmap_040.json`): Ephemeral Operator "divide". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
