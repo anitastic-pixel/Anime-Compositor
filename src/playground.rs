@@ -16,6 +16,9 @@
 //!
 //! D-713 adds the separate X and Y Scale, Angular Velocity, Torque, Lifespan and Kinetic and
 //! Static Friction properties; `tools/particle_mapper_physics_reference.py` is their reference.
+//!
+//! D-715 adds Mass, which divides the particle's force (Gravity pulls every mass alike);
+//! `tools/particle_mapper_mass_reference.py` is its reference.
 
 use crate::effects::{Effect, PARTICLE_PLAYGROUND_FROM, PARTICLE_PLAYGROUND_OPERATORS, PARTICLE_PLAYGROUND_PROPERTIES, PARTICLE_PLAYGROUND_SETTINGS};
 use crate::WorkingBuffer;
@@ -119,6 +122,8 @@ struct Particle {
     life: f64,
     mk: f64,
     ms: f64,
+    /// D-715: its mass (1 when born); its force is divided by it, and does nothing at 0 or below.
+    m: f64,
 }
 
 impl Particle {
@@ -209,6 +214,7 @@ fn put(p: &mut Particle, prop: usize, v: f64) {
         17 => p.life = v,
         18 => p.mk = v,
         19 => p.ms = v,
+        20 => p.m = v,
         _ => {}
     }
 }
@@ -302,6 +308,7 @@ impl Run<'_> {
             life: f64::INFINITY,
             mk: 0.0,
             ms: 0.0,
+            m: 1.0,
         }
     }
 
@@ -445,7 +452,7 @@ impl Run<'_> {
                 let mut ch = self.particle(p.code + 4 * (i + 1), p.a, p.b, t, p.x, p.col, c);
                 ch.parent = p.code;
                 (ch.rgb, ch.opacity, ch.scale, ch.angle, ch.force) = (p.rgb, p.opacity, p.scale, p.angle, p.force);
-                (ch.sx, ch.sy, ch.w, ch.tq, ch.life, ch.mk, ch.ms) = (p.sx, p.sy, p.w, p.tq, p.life, p.mk, p.ms);
+                (ch.sx, ch.sy, ch.w, ch.tq, ch.life, ch.mk, ch.ms, ch.m) = (p.sx, p.sy, p.w, p.tq, p.life, p.mk, p.ms, p.m);
                 let speed = self.at(PE_DISPERSION, t) * self.r(&ch, 5);
                 let hd = heading(360.0 * self.r(&ch, 3));
                 ch.v = [p.v[0] + speed * hd[0], p.v[1] + speed * hd[1]];
@@ -508,10 +515,10 @@ impl Run<'_> {
         }
         // D-614: the particle's force, and the Ephemeral mapper's forces and speeds for this
         // step only; the change it made to the speed is taken off again after. D-713: and its
-        // angular velocity, torque and frictions the same way.
+        // angular velocity, torque and frictions the same way. D-715: and its mass.
         let (mut force, base) = (p.force, p.v);
         let mut v = base;
-        let (w_base, mut tq, mut mk, mut ms) = (p.w, p.tq, p.mk, p.ms);
+        let (w_base, mut tq, mut mk, mut ms, mut m) = (p.w, p.tq, p.mk, p.ms, p.m);
         let mut w = w_base;
         let op = self.i.operator;
         for (prop, val) in self.mapped(1, p, t0).into_iter().flatten() {
@@ -522,10 +529,12 @@ impl Run<'_> {
                 16 => tq = operate(op, tq, val),
                 18 => mk = operate(op, mk, val),
                 19 => ms = operate(op, ms, val),
+                20 => m = operate(op, m, val),
                 _ => {}
             }
         }
-        let a = [a[0] + force[0], a[1] + force[1]];
+        // D-715: the force divided by the mass; at 0 or below it does nothing.
+        let a = if m > 0.0 { [a[0] + force[0] / m, a[1] + force[1] / m] } else { a };
         // D-713: kinetic friction cuts a moving particle's speed by K h, never below 0.
         let mut vf = v;
         let speed = vf[0].hypot(vf[1]);

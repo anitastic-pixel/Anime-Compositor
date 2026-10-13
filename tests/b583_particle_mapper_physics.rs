@@ -144,7 +144,7 @@ fn b583_particle_mapper_physics() {
          its own axes), Angular Velocity and Torque (degrees a second, and a second a second), \
          Lifespan (seconds from its own birth), and Kinetic and Static Friction (pixels a second \
          a second: kinetic slows a moving particle, static holds a still one while the pull on it \
-         is no more). Mass, Gradient Velocity, Character and Font Size are not built and are \
+         is no more). Mass came later (D-715). Gradient Velocity, Character and Font Size are not built and are \
          refused by name. A file written before D-713 is the effect it was. The card draws within \
          1 level of the processor. Adobe publishes no formula, so the rules are ours, stated in \
          `tools/particle_mapper_physics_reference.py`. Every expected pixel is \

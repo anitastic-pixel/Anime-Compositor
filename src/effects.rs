@@ -5110,8 +5110,9 @@ pub const PARTICLE_PLAYGROUND_FROM: [&str; 15] = [
 /// (sRGB-coded, 0 to 1), opacity, scale, angle (degrees), place (pixels), speed (pixels a
 /// second) and force (pixels a second a second). D-713: then the separate X and Y Scale, Angular
 /// Velocity (degrees a second), Torque (degrees a second a second), Lifespan (seconds) and Kinetic
-/// and Static Friction (pixels a second a second).
-pub const PARTICLE_PLAYGROUND_PROPERTIES: [&str; 20] = [
+/// and Static Friction (pixels a second a second). D-715: then Mass (no unit; the particle's force
+/// is divided by it).
+pub const PARTICLE_PLAYGROUND_PROPERTIES: [&str; 21] = [
     "none",
     "red",
     "green",
@@ -5132,6 +5133,7 @@ pub const PARTICLE_PLAYGROUND_PROPERTIES: [&str; 20] = [
     "lifespan",
     "kinetic_friction",
     "static_friction",
+    "mass",
 ];
 /// D-614: the Ephemeral Property Mapper's operators on the property and the map's value.
 pub const PARTICLE_PLAYGROUND_OPERATORS: [&str; 7] = ["set", "add", "difference", "subtract", "multiply", "min", "max"];
@@ -9014,9 +9016,10 @@ impl Effect {
             Effect::ParticlePlayground { values, history, words, .. } => {
                 const PIXELS: [usize; 13] = [0, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17];
                 // D-614: and a mapper's Min and Max where its channel sets a place, a speed or a
-                // force (X to Y Force in the properties' list). D-713: or a friction.
+                // force (X to Y Force in the properties' list). D-713: or a friction. D-715: not
+                // Mass, which has no unit.
                 let mapped = (0..6)
-                    .filter(|&j| PARTICLE_PLAYGROUND_PROPERTIES.iter().position(|w| *w == words[7 + j]).is_some_and(|p| (7..13).contains(&p) || p >= 18))
+                    .filter(|&j| PARTICLE_PLAYGROUND_PROPERTIES.iter().position(|w| *w == words[7 + j]).is_some_and(|p| (7..13).contains(&p) || (18..20).contains(&p)))
                     .flat_map(|j| [33 + 2 * j, 34 + 2 * j]);
                 let pixels: Vec<usize> = PIXELS.into_iter().chain(mapped).collect();
                 for &k in &pixels {
