@@ -212527,6 +212527,34 @@ FX-WW-047 (`fx_ww_047.json`): Steepness keyed to 1.5 at frame 4. The file is rea
 
 FX-WW-048 (`fx_ww_048.json`): Producer 2 position with one number. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
 
+FX-WW-049 (`fx_ww_049.json`): Wireframe Preview with its controls as added: the water's grid seen from 30 degrees above, square-on; flat at frame 0, then the ripples raised, and a red cross on producer 1.
+
+FX-WW-050 (`fx_ww_050.json`): Vertical rotation 80: seen from nearly straight above, the grid almost the layer's own shape.
+
+FX-WW-051 (`fx_ww_051.json`): Vertical rotation 10: seen low, the ripples standing up.
+
+FX-WW-052 (`fx_ww_052.json`): Vertical rotation -30: seen from below the water, the grid upside down.
+
+FX-WW-053 (`fx_ww_053.json`): Horizontal rotation 30: the grid turned about the upright.
+
+FX-WW-054 (`fx_ww_054.json`): Horizontal rotation keyed 0 at frame 0 to 60 at frame 24: the view turns as the water runs.
+
+FX-WW-055 (`fx_ww_055.json`): Vertical scale 4: the ripples drawn four times higher.
+
+FX-WW-056 (`fx_ww_056.json`): Vertical scale 0: the ripples drawn flat, so frame 12 is FX-WW-049's frame 0.
+
+FX-WW-057 (`fx_ww_057.json`): Producer 2 switched on (amplitude 0.6): a blue cross on it as well.
+
+FX-WW-058 (`fx_ww_058.json`): The logo as ground, steepness 0.6, on a grid 15 across: the lines over the dry disc left out.
+
+FX-WW-059 (`fx_ww_059.json`): View "solid". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-060 (`fx_ww_060.json`): Vertical rotation 91, above 90. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-061 (`fx_ww_061.json`): Vertical scale -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
+FX-WW-062 (`fx_ww_062.json`): Horizontal rotation keyed to 3601 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening and every frame.
+
 ### Pixel Motion Blur (D-650)
 
 Pixel Motion Blur (`core.pixel_motion_blur`), after After Effects' Pixel Motion Blur (B-530), the estimate and the rule ours. Every case is a project of one composition 32 by 32, six frames, the drawing `holder`, either a soft shaded disc running 3 right and 1 down a frame across six drawings or a textured card sliding 1.5 to the right a frame, with the effect. `tools/pixel_motion_blur_reference.py` works the expected frames, `Fixtures/pixel_motion_blur/expected_pixel_motion_blur.json`, tolerance 2e-5, with the motion estimate worked a second way by `tools/flow_reference.py`; the rule is in document 21. The viewer cache on twos, the neighbour frames never saved, and the tiles are checked by `tests/b530_pixel_motion_blur.rs` on the build's own frames.
@@ -213007,7 +213035,7 @@ FX-SH-061 (`fx_sh_061.json`): Pattern "puzzle", not built yet (D-636). The file 
 
 FX-SH-062 (`fx_sh_062.json`): Pattern "lace". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-SH-063 (`fx_sh_063.json`): View "wireframe_front", not built yet (D-635). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-SH-063 (`fx_sh_063.json`): View Wireframe Front, as added (D-635): the bricks' outlines seen straight on; at rest at frame 0 every pixel lies on an outline (bricks ten across a layer 16 wide), and by frame 4 the middle pieces have flown. Frames 0, 4.
 
 FX-SH-064 (`fx_sh_064.json`): Render "most". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -213048,3 +213076,21 @@ FX-SH-081 (`fx_sh_081.json`): Corner Pins on a general four-sided shape, Auto Fo
 FX-SH-082 (`fx_sh_082.json`): Lower right corner [50, 1001], above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SH-083 (`fx_sh_083.json`): Auto focal length "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-084 (`fx_sh_084.json`): Wireframe Front, pattern bricks three across, every piece freed in place and turning in the picture's plane: the outlines turned. Frame 3.
+
+FX-SH-085 (`fx_sh_085.json`): Wireframe through the camera, the pieces tumbling about y: the outlines narrowing as they turn. Frame 3.
+
+FX-SH-086 (`fx_sh_086.json`): Wireframe Front + Forces, bricks four across: the bricks' outlines and force 1's sphere as a red circle about the middle; frame 0 at rest, frame 2 flying. Frames 0, 2.
+
+FX-SH-087 (`fx_sh_087.json`): Wireframe + Forces with FX-SH-018's two forces: a red and a blue circle, seen through the camera. Frame 3.
+
+FX-SH-088 (`fx_sh_088.json`): Wireframe Front with Render Layer: only the pieces not freed are outlined. Frame 3.
+
+FX-SH-089 (`fx_sh_089.json`): Wireframe through a Comp Camera 12 pixels back: FX-SH-053's flight outlined in strong perspective. Frame 3.
+
+FX-SH-090 (`fx_sh_090.json`): Wireframe through Corner Pins, FX-SH-080's pins: the outlines on the pinned shape. Frame 3.
+
+FX-SH-091 (`fx_sh_091.json`): Wireframe Front at rest with the custom map `cracks`: each colour region outlined, the clear corner no piece. Frame 0.
+
+FX-SH-092 (`fx_sh_092.json`): View "solid". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

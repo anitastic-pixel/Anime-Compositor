@@ -142,9 +142,9 @@ B-513, after After Effects' Shatter (Simulation), under the coordinator's approv
 | FX-SH-062 frame 0: Pattern "lace". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-SH-062 frame 4: Pattern "lace". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-SH-062: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-SH-063 frame 0: View "wireframe_front", not built yet (D-635). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
-| FX-SH-063 frame 4: View "wireframe_front", not built yet (D-635). The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
-| FX-SH-063: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-SH-063 frame 0: View Wireframe Front, as added (D-635): the bricks' outlines seen straight on; at rest at frame 0 every pixel lies on an outline (bricks ten across a layer 16 wide), and by frame 4 the middle pieces have flown. | largest difference 0.0e0 | yes |
+| FX-SH-063 frame 4: View Wireframe Front, as added (D-635): the bricks' outlines seen straight on; at rest at frame 0 every pixel lies on an outline (bricks ten across a layer 16 wide), and by frame 4 the middle pieces have flown. | largest difference 0.0e0 | yes |
+| FX-SH-063: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-SH-064 frame 0: Render "most". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-SH-064 frame 4: Render "most". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-SH-064: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
@@ -199,7 +199,6 @@ B-513, after After Effects' Shatter (Simulation), under the coordinator's approv
 | a half-size draft preview changes no setting, each a share of the layer, a count or a word (the composition camera, worked out each frame, is halved) | Shatter { view: "rendered", render: "all", pattern: "bricks", custom_shatter_map: String(""), custom_map: None, white_tiles_fixed: "off", repetitions: 10.0, direction: 0.0, origin: [50.0, 50.0], extrusion_depth: 0.2, force_1_position: [50.0, 50.0], force_1_depth: 0.1, force_1_radius: 0.4, force_1_strength: 5.0, force_2_position: [50.0, 50.0], force_2_depth: 0.1, force_2_radius: 0.0, force_2_strength: 5.0, gradient_layer: String(""), gradient_map: None, shatter_threshold: 0.0, invert_gradient: "off", rotation_speed: 0.2, tumble_axis: "free", randomness: 0.1, viscosity: 0.1, mass_variance: 30.0, gravity: 3.0, gravity_direction: 180.0, gravity_inclination: 0.0, color: "#ffffff", opacity: 1.0, front_mode: "layer", side_mode: "tinted_layer", back_mode: "layer", front_layer: String(""), front_map: None, side_layer: String(""), side_map: None, back_layer: String(""), back_map: None, camera_system: "camera_position", camera_x_rotation: 0.0, camera_y_rotation: 0.0, camera_z_rotation: 0.0, camera_xy_position: [50.0, 50.0], camera_z_position: 1.0, focal_length: 50.0, light_type: "distant", light_intensity: 1.0, light_color: "#ffffff", light_position: [50.0, 50.0], light_depth: 1.0, ambient_light: 0.25, diffuse_reflection: 0.75, specular_reflection: 0.0, upper_left_corner: [0.0, 0.0], upper_right_corner: [100.0, 0.0], lower_left_corner: [0.0, 100.0], lower_right_corner: [100.0, 100.0], auto_focal_length: "off", highlight_sharpness: 5.0, seen: [0.0, 0.0, 0.0], history: [], fps: 0.0 } | yes |
 | fx_sh_061.json is refused in a sentence naming not built yet (d-636) | Shatter's pattern "puzzle" is not built yet (D-636), so the effect is left out. | yes |
 | fx_sh_062.json is refused in a sentence naming pattern | Shatter's pattern is one of "bricks", "squares", "hexagons", "triangles_1", "triangles_2", "rhombus", "planks", "herringbone_1", "octagons_squares", "glass", "custom", and this is "lace". | yes |
-| fx_sh_063.json is refused in a sentence naming not built yet (d-635) | Shatter's view "wireframe_front" is not built yet (D-635), so the effect is left out. | yes |
 | fx_sh_064.json is refused in a sentence naming render | Shatter's render is one of "all", "layer", "pieces", and this is "most". | yes |
 | fx_sh_065.json is refused in a sentence naming tumble axis | Shatter's tumble axis is one of "free", "none", "x", "y", "z", "xy", "xz", "yz", and this is "w". | yes |
 | fx_sh_066.json is refused in a sentence naming front mode | Shatter's front mode is one of "color", "layer", "tinted_layer", "color_plus_opacity", "layer_plus_opacity", "tinted_layer_plus_opacity", and this is "glow". | yes |
@@ -318,4 +317,4 @@ B-513, after After Effects' Shatter (Simulation), under the coordinator's approv
 
 ## Result
 
-294 of 294 checks pass.
+293 of 293 checks pass.
