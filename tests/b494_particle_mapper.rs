@@ -27,6 +27,7 @@ use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::{
     Effect, PARTICLE_PLAYGROUND_COLORS, PARTICLE_PLAYGROUND_LAYERS, PARTICLE_PLAYGROUND_SETTINGS, PARTICLE_PLAYGROUND_WORDS,
 };
+use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, playground, png_out, OutputDepth};
@@ -147,7 +148,8 @@ fn b494_particle_mapper() {
          subtract, multiply, min or max) for one step or for the drawing only. Nothing is carried \
          from frame to frame: a property is worked out along the particle's own steps from its \
          birth (document 20). A file written before D-614 is the effect it was: every new \
-         setting is as added when left out. Drawn on the processor only. Adobe publishes no \
+         setting is as added when left out. The particles are worked out on the processor and \
+         drawn on the card too (D-619), within 1 level of the processor. Adobe publishes no \
          formula, so the rules and the settings when added are ours, stated in \
          `tools/particle_mapper_reference.py`. Every expected pixel is \
          `Fixtures/particle_mapper/expected_particle_mapper.json` and every expected particle \
@@ -256,6 +258,10 @@ fn b494_particle_mapper() {
             said.is_empty() && differing(&bytes, &street) > 0,
         );
     }
+    t.heading("On the card (D-619)");
+    let mut gpu = Gpu::new().expect("a graphics card");
+    let mine: fn(&Effect) -> bool = |e| matches!(e, Effect::ParticlePlayground { .. });
+    t.card_fixtures(&mut gpu, "expected_particle_mapper.json", &(36..=43).collect::<Vec<_>>(), mine);
     t.finish("D-614_particle_mapper_table.md");
 }
 

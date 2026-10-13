@@ -24,10 +24,11 @@ use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
 use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
-use anime_compositor::diagnostics::FrameLog;
+use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
 use anime_compositor::effects::{
     Effect, PARTICLE_PLAYGROUND_COLORS, PARTICLE_PLAYGROUND_LAYERS, PARTICLE_PLAYGROUND_SETTINGS, PARTICLE_PLAYGROUND_WORDS,
 };
+use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, playground, png_out, OutputDepth};
@@ -147,8 +148,9 @@ fn b493_particle_playground() {
          Gravity and kept inside a mask by the Wall, each force taking only the particles its \
          Affects choose. Nothing is carried from frame to frame: every frame works each particle \
          out from its birth (document 20), so a force that would need the frame before (Repel, \
-         and the maps and walls read as they move) is a gap, logged in the playtest. Drawn on \
-         the processor only. Adobe publishes no formula, so the rules and the settings when \
+         and the maps and walls read as they move) is a gap, logged in the playtest. The \
+         particles are worked out on the processor and drawn on the card too (D-619), within 1 \
+         level of the processor. Adobe publishes no formula, so the rules and the settings when \
          added are ours, stated in `tools/particle_playground_reference.py`. Every expected \
          pixel is `Fixtures/particle_playground/expected_particle_playground.json` and every \
          expected particle `Fixtures/particle_playground/particles_particle_playground.json`, \
@@ -265,6 +267,37 @@ fn b493_particle_playground() {
             said.is_empty() && differing(&bytes, &street) > 0,
         );
     }
+    t.heading("On the card (D-619)");
+    let mut gpu = Gpu::new().expect("a graphics card");
+    let mine: fn(&Effect) -> bool = |e| matches!(e, Effect::ParticlePlayground { .. });
+    t.card_fixtures(&mut gpu, "expected_particle_playground.json", &(49..=60).collect::<Vec<_>>(), mine);
+    let shots: Vec<(&str, Project, usize)> = [
+        ("Particle Playground as added", json!({})),
+        (
+            "a fountain and a grid of dots, falling",
+            json!({"cannon_position": [50, 95], "particles_per_second": 60, "velocity": 400, "direction_random_spread": 30, "cannon_particle_radius": 4,
+                "gravity_force": 220, "cannon_color": "#a0d8ff", "particles_across": 20, "particles_down": 5, "grid_width": 1200, "grid_height": 200,
+                "grid_position": [50, 20], "grid_particle_radius": 5, "gravity_particles_from": "cannon"}),
+        ),
+        (
+            "layer 2 exploded into turning pieces, falling",
+            json!({"particles_per_second": 0, "explode_layer": "layer-2", "explode_radius": 8, "explode_dispersion": 80, "gravity_force": 60, "auto_orient": "on"}),
+        ),
+        (
+            "fireworks bursting into sparks",
+            json!({"cannon_position": [50, 100], "particles_per_second": 3, "velocity": 600, "direction_random_spread": 40, "cannon_particle_radius": 6,
+                "cannon_color": "#ffe080", "gravity_force": 200, "particle_exploder_radius": 0.75, "particle_exploder_dispersion": 200,
+                "particle_exploder_older_younger_than": 0.8}),
+        ),
+        (
+            "copies of layer 2 shot from the cannon",
+            json!({"particles_per_second": 4, "velocity": 300, "direction_random_spread": 90, "layer_map": "layer-2", "auto_orient": "on"}),
+        ),
+    ]
+    .into_iter()
+    .map(|(what, p)| (what, reference(json!([fx("card", &p)])), 1))
+    .collect();
+    t.card_reference(&mut gpu, &reference(json!([])), &shots, mine);
     t.finish("D-613_particle_playground_table.md");
 }
 
@@ -282,17 +315,20 @@ fn reference(stack: J) -> Project {
 }
 
 /// The frame times, B-510's way: the reference shot (1920 by 1080, 24 a second) with Particle
-/// Playground on its first layer, frames 0, 60, 120 and 239 each drawn on the processor with
-/// empty caches, three times; the median of the three. A later frame steps every particle
-/// further from its birth, so it costs more.
+/// Playground on its first layer, frames 0, 60, 120 and 239 each drawn with empty caches, three
+/// times; the median of the three. A later frame steps every particle further from its birth, so
+/// it costs more. D-619: each shot drawn by the card and by the processor, the card after one
+/// frame unmeasured so its passes are built.
 #[test]
 #[ignore = "B-493: a measurement, run deliberately with --release --ignored"]
 fn b493_particle_playground_timing() {
     use std::fmt::Write as _;
 
+    let mut gpu = Gpu::new().expect("a usable card");
     let mut s = format!(
-        "- Processor: {}, {} threads\n- System: {}\n- Build: {}\n- Drawn by: the processor (Particle Playground has no card path)\n\n\
-         | Shot | Frame 0 | Frame 60 | Frame 120 | Frame 239 |\n|---|---:|---:|---:|---:|\n",
+        "- Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n- Drawn by: the card and the processor (D-619)\n\n\
+         | Shot | Drawn by | Frame 0 | Frame 60 | Frame 120 | Frame 239 |\n|---|---|---:|---:|---:|---:|\n",
+        gpu.about(),
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
@@ -303,11 +339,28 @@ fn b493_particle_playground_timing() {
         ("no effect", None),
         ("Particle Playground as added", Some(json!({}))),
         ("fireworks: 10 shells a second, each bursting into 16 sparks", Some(json!({"particles_per_second": 10, "particle_exploder_radius": 0.5, "particle_exploder_older_younger_than": 0.5}))),
-        ("the layer exploded into 16-pixel pieces, falling", Some(json!({"particles_per_second": 0, "explode_layer": "a", "explode_radius": 8, "explode_dispersion": 80, "gravity_force": 60}))),
+        ("the layer exploded into 16-pixel pieces, falling", Some(json!({"particles_per_second": 0, "explode_layer": "layer-2", "explode_radius": 8, "explode_dispersion": 80, "gravity_force": 60}))),
     ];
     for (name, p) in shots {
         let project = reference(p.map_or(json!([]), |p| json!([fx("timing", &p)])));
-        let _ = write!(s, "| {name} |");
+        let mut card = |frame| {
+            let mut log = FrameLog::new(3);
+            gpu.forget();
+            let t = std::time::Instant::now();
+            drop(
+                preview::preview_frame_srgb8(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer(), &mut gpu)
+                    .expect("GPU frame"),
+            );
+            let ms = t.elapsed().as_secs_f64() * 1000.0;
+            assert!(!log.finish().iter().any(|d| d.id == DiagnosticId::GpuPreviewOnCpu), "the card refused {name}");
+            ms
+        };
+        card(0);
+        let _ = write!(s, "| {name} | card |");
+        for frame in [0, 60, 120, 239] {
+            let _ = write!(s, " {:.1} ms |", median((0..3).map(|_| card(frame)).collect()));
+        }
+        let _ = write!(s, "\n| {name} | processor |");
         for frame in [0, 60, 120, 239] {
             let times: Vec<f64> = (0..3)
                 .map(|_| {

@@ -612,6 +612,44 @@ pub(crate) fn apply(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, us
     particle_playground(source, &i, (ox, oy));
 }
 
+/// D-619: `e`'s particles as the card's `particles` pass draws them, worked out here as
+/// [`apply`] works them out for a drawing of `size`: the sprite list (the head, laid normally
+/// over nothing, then a sprite each in the order born: 11 a dot, [kind, x, y, reach, radius, 0,
+/// 0, colour premultiplied], 12 a piece of the Explode layer, [kind, x, y, reach, cosine, sine,
+/// opacity, side, origin, scale], 13 a copy of the Layer Map, [kind, x, y, reach, cosine, sine,
+/// opacity, scale, half the drawing]); the two maps side by side, the Explode layer's at the
+/// corner and the Layer Map's right of it (a clear pixel with neither); and their sizes.
+pub(crate) fn sprites(e: &Effect, size: (f64, f64)) -> (Vec<f64>, WorkingBuffer, [usize; 4]) {
+    use crate::particles::{HEAD, STRIDE};
+    let Effect::ParticlePlayground { maps, wall, .. } = e else { unreachable!("Particle Playground of another effect") };
+    let values = numbers(e);
+    let i = inputs(e, &values, maps.each_ref().map(|m| m.as_ref().map(|m| &*m.0)), wall.as_deref(), size);
+    let mut k = vec![0.0; HEAD];
+    if let Some(r) = run(&i) {
+        for (look, x, [cs, sn], reach) in drawn(&r, &i) {
+            let s: [f64; STRIDE] = match look {
+                Look::Dot { rad, col } => [11.0, x[0], x[1], reach, rad, 0.0, 0.0, col[0], col[1], col[2], col[3]],
+                Look::Piece { side, origin, scale, k } => [12.0, x[0], x[1], reach, cs, sn, k, side, origin[0], origin[1], scale],
+                Look::Copy { scale, k } => [13.0, x[0], x[1], reach, cs, sn, k, scale, size.0 / 2.0, size.1 / 2.0, 0.0],
+            };
+            k.extend(s);
+        }
+    }
+    k[6] = ((k.len() - HEAD) / STRIDE) as f64;
+    let dims = |m: Option<&WorkingBuffer>| m.map_or((0, 0), |m| (m.width(), m.height()));
+    let ((ew, eh), (lw, lh)) = (dims(i.explode), dims(i.layer_map));
+    let mut atlas = WorkingBuffer::transparent((ew + lw).max(1), eh.max(lh).max(1));
+    let aw = atlas.width();
+    for (m, x0) in [(i.explode, 0), (i.layer_map, ew)] {
+        if let Some(m) = m {
+            for y in 0..m.height() {
+                atlas.data_mut()[(y * aw + x0) * 4..][..m.width() * 4].copy_from_slice(&m.data()[y * m.width() * 4..][..m.width() * 4]);
+            }
+        }
+    }
+    (k, atlas, [ew, eh, lw, lh])
+}
+
 /// How one particle is drawn; `scale` and `k` its scale and opacity (D-614).
 enum Look {
     Dot { rad: f64, col: [f64; 4] },
@@ -619,18 +657,12 @@ enum Look {
     Copy { scale: f64, k: f64 },
 }
 
-/// D-613: the particles laid over a clear layer, in the order born. `(ox, oy)` the drawing's
-/// corner in the buffer. Never grows.
-fn particle_playground(source: &mut WorkingBuffer, i: &Inputs, (ox, oy): (usize, usize)) {
-    let w = source.width();
-    let Some(r) = run(i) else {
-        source.data_mut().fill(0.0);
-        return;
-    };
+/// D-613: each particle's look, place, turn (cosine, sine) and reach, in the order born. D-619:
+/// the card's sprites are these too.
+fn drawn(r: &Run, i: &Inputs) -> Vec<(Look, [f64; 2], [f64; 2], f64)> {
     let u = i.u as f64;
     let (mw, mh) = i.size;
-    // Each particle's look, place, turn (cosine, sine) and reach.
-    let drawn: Vec<(Look, [f64; 2], [f64; 2], f64)> = r
+    r
         .everyone()
         .into_iter()
         .filter_map(|p| {
@@ -672,7 +704,19 @@ fn particle_playground(source: &mut WorkingBuffer, i: &Inputs, (ox, oy): (usize,
             let (rad, kk) = if rad < 0.7 { (0.7, (rad / 0.7).powi(2)) } else { (rad, 1.0) };
             Some((Look::Dot { rad, col: col.map(|c| c * kk * k) }, x, turn, rad + 0.5))
         })
-        .collect();
+        .collect()
+}
+
+/// D-613: the particles laid over a clear layer, in the order born. `(ox, oy)` the drawing's
+/// corner in the buffer. Never grows.
+fn particle_playground(source: &mut WorkingBuffer, i: &Inputs, (ox, oy): (usize, usize)) {
+    let w = source.width();
+    let Some(r) = run(i) else {
+        source.data_mut().fill(0.0);
+        return;
+    };
+    let (mw, mh) = i.size;
+    let drawn = drawn(&r, i);
     source.data_mut().par_chunks_mut(w * 4).enumerate().for_each(|(row, line)| {
         let y = row as f64 - oy as f64 + 0.5;
         let mut out = vec![[0.0f64; 4]; w];

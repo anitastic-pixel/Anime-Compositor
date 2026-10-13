@@ -1,6 +1,6 @@
 # D-613: Particle Playground
 
-B-493, the particle engine's third effect (P0-6), after what After Effects' Particle Playground (Simulation) is for: dots shot from a Cannon or laid out on a Grid, a layer cut into flying pieces by the Layer Exploder, any of them split again by the Particle Exploder, shown as a layer by the Layer Map, pulled by Gravity and kept inside a mask by the Wall, each force taking only the particles its Affects choose. Nothing is carried from frame to frame: every frame works each particle out from its birth (document 20), so a force that would need the frame before (Repel, and the maps and walls read as they move) is a gap, logged in the playtest. Drawn on the processor only. Adobe publishes no formula, so the rules and the settings when added are ours, stated in `tools/particle_playground_reference.py`. Every expected pixel is `Fixtures/particle_playground/expected_particle_playground.json` and every expected particle `Fixtures/particle_playground/particles_particle_playground.json`, written by the tool before this code existed and printed in document 25 as FX-PPG-001 to 060. Tolerances 2e-5 and 1e-7.
+B-493, the particle engine's third effect (P0-6), after what After Effects' Particle Playground (Simulation) is for: dots shot from a Cannon or laid out on a Grid, a layer cut into flying pieces by the Layer Exploder, any of them split again by the Particle Exploder, shown as a layer by the Layer Map, pulled by Gravity and kept inside a mask by the Wall, each force taking only the particles its Affects choose. Nothing is carried from frame to frame: every frame works each particle out from its birth (document 20), so a force that would need the frame before (Repel, and the maps and walls read as they move) is a gap, logged in the playtest. The particles are worked out on the processor and drawn on the card too (D-619), within 1 level of the processor. Adobe publishes no formula, so the rules and the settings when added are ours, stated in `tools/particle_playground_reference.py`. Every expected pixel is `Fixtures/particle_playground/expected_particle_playground.json` and every expected particle `Fixtures/particle_playground/particles_particle_playground.json`, written by the tool before this code existed and printed in document 25 as FX-PPG-001 to 060. Tolerances 2e-5 and 1e-7.
 
 ## FX-PPG-001 to 060 (document 25)
 
@@ -270,6 +270,106 @@ B-493, the particle engine's third effect (P0-6), after what After Effects' Part
 | 4_fireworks.png, frame 72: drawn without a warning, the street changed | 497 pixels changed; warnings [] | yes |
 | 5_wall_box.png, frame 72: drawn without a warning, the street changed | 2431 pixels changed; warnings [] | yes |
 
+## On the card (D-619)
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| FX-PPG-001, fx_ppg_001.json, frames [0, 2, 6] at Full and Draft | largest difference 0 of 255; on the card in 6 of 6 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-002, fx_ppg_002.json, frames [11, 13, 30] at Full and Draft | largest difference 0 of 255; on the card in 6 of 6 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-003, fx_ppg_003.json, frames [13] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-004, fx_ppg_004.json, frames [10] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-005, fx_ppg_005.json, frames [10] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-006, fx_ppg_006.json, frames [12, 24, 40] at Full and Draft | largest difference 0 of 255; on the card in 6 of 6 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-007, fx_ppg_007.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-008, fx_ppg_008.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-009, fx_ppg_009.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-010, fx_ppg_010.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-011, fx_ppg_011.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-012, fx_ppg_012.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-013, fx_ppg_013.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-014, fx_ppg_014.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-015, fx_ppg_015.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-016, fx_ppg_016.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-017, fx_ppg_017.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-018, fx_ppg_018.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-019, fx_ppg_019.json, frames [0, 6] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-020, fx_ppg_020.json, frames [12, 6] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-021, fx_ppg_021.json, frames [8] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-022, fx_ppg_022.json, frames [0, 12, 18, 6] at Full and Draft | largest difference 0 of 255; on the card in 4 of 8 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-023, fx_ppg_023.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-024, fx_ppg_024.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 1 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-025, fx_ppg_025.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 1 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-026, fx_ppg_026.json, frames [0, 12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-027, fx_ppg_027.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 1 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-028, fx_ppg_028.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 1 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-029, fx_ppg_029.json, frames [18, 30, 40] at Full and Draft | largest difference 0 of 255; on the card in 6 of 6 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-030, fx_ppg_030.json, frames [18] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-031, fx_ppg_031.json, frames [30] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-032, fx_ppg_032.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 1 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-033, fx_ppg_033.json, frames [30] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-034, fx_ppg_034.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-035, fx_ppg_035.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-036, fx_ppg_036.json, frames [36] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-037, fx_ppg_037.json, frames [3] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-038, fx_ppg_038.json, frames [2] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-039, fx_ppg_039.json, frames [12, 36] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-040, fx_ppg_040.json, frames [36] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-041, fx_ppg_041.json, frames [36] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-042, fx_ppg_042.json, frames [36] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-043, fx_ppg_043.json, frames [22, 9] at Full and Draft | largest difference 0 of 255; on the card in 2 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-044, fx_ppg_044.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-045, fx_ppg_045.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-046, fx_ppg_046.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-047, fx_ppg_047.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-048, fx_ppg_048.json, frames [36] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-049, fx_ppg_049.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-050, fx_ppg_050.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-051, fx_ppg_051.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-052, fx_ppg_052.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-053, fx_ppg_053.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-054, fx_ppg_054.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-055, fx_ppg_055.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-056, fx_ppg_056.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-057, fx_ppg_057.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-058, fx_ppg_058.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-059, fx_ppg_059.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PPG-060, fx_ppg_060.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| the reference shot, Particle Playground as added: the processor's frame 100 differs from the shot without it | 1967431 pixels changed | yes |
+| the reference shot, Particle Playground as added, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Playground as added, frame 100, Full | largest difference 1 of 255, 3 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Playground as added, frame 239, Full | largest difference 1 of 255, 9 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Playground as added, frame 0, Draft | largest difference 1 of 255, 525 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Playground as added, frame 100, Draft | largest difference 1 of 255, 525 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Playground as added, frame 239, Draft | largest difference 1 of 255, 452 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, a fountain and a grid of dots, falling: the processor's frame 100 differs from the shot without it | 1967431 pixels changed | yes |
+| the reference shot, a fountain and a grid of dots, falling, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, a fountain and a grid of dots, falling, frame 100, Full | largest difference 1 of 255, 30 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, a fountain and a grid of dots, falling, frame 239, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, a fountain and a grid of dots, falling, frame 0, Draft | largest difference 1 of 255, 525 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, a fountain and a grid of dots, falling, frame 100, Draft | largest difference 1 of 255, 518 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, a fountain and a grid of dots, falling, frame 239, Draft | largest difference 1 of 255, 448 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, layer 2 exploded into turning pieces, falling: the processor's frame 100 differs from the shot without it | 1967431 pixels changed | yes |
+| the reference shot, layer 2 exploded into turning pieces, falling, frame 0, Full | largest difference 1 of 255, 571 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, layer 2 exploded into turning pieces, falling, frame 100, Full | largest difference 1 of 255, 86 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, layer 2 exploded into turning pieces, falling, frame 239, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, layer 2 exploded into turning pieces, falling, frame 0, Draft | largest difference 1 of 255, 70 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, layer 2 exploded into turning pieces, falling, frame 100, Draft | largest difference 1 of 255, 468 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, layer 2 exploded into turning pieces, falling, frame 239, Draft | largest difference 1 of 255, 448 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, fireworks bursting into sparks: the processor's frame 100 differs from the shot without it | 1967431 pixels changed | yes |
+| the reference shot, fireworks bursting into sparks, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, fireworks bursting into sparks, frame 100, Full | largest difference 1 of 255, 5 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, fireworks bursting into sparks, frame 239, Full | largest difference 1 of 255, 12 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, fireworks bursting into sparks, frame 0, Draft | largest difference 1 of 255, 525 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, fireworks bursting into sparks, frame 100, Draft | largest difference 1 of 255, 529 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, fireworks bursting into sparks, frame 239, Draft | largest difference 1 of 255, 433 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, copies of layer 2 shot from the cannon: the processor's frame 100 differs from the shot without it | 1967220 pixels changed | yes |
+| the reference shot, copies of layer 2 shot from the cannon, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, copies of layer 2 shot from the cannon, frame 100, Full | largest difference 1 of 255, 600 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, copies of layer 2 shot from the cannon, frame 239, Full | largest difference 1 of 255, 1015 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, copies of layer 2 shot from the cannon, frame 0, Draft | largest difference 1 of 255, 525 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, copies of layer 2 shot from the cannon, frame 100, Draft | largest difference 1 of 255, 142 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, copies of layer 2 shot from the cannon, frame 239, Draft | largest difference 1 of 255, 64 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+
 ## Result
 
-243 of 243 checks pass.
+338 of 338 checks pass.

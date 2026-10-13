@@ -1,6 +1,6 @@
 # D-614: Particle Playground's property mappers
 
-B-494, the second step of Particle Playground (P0-6), after what After Effects' Persistent and Ephemeral Property Mappers are for: a layer's red, green and blue under each particle read into its colour, opacity, scale, angle, place, speed or force. The Persistent one sets the property and keeps it; the Ephemeral one works it through an operator (set, add, difference, subtract, multiply, min or max) for one step or for the drawing only. Nothing is carried from frame to frame: a property is worked out along the particle's own steps from its birth (document 20). A file written before D-614 is the effect it was: every new setting is as added when left out. Drawn on the processor only. Adobe publishes no formula, so the rules and the settings when added are ours, stated in `tools/particle_mapper_reference.py`. Every expected pixel is `Fixtures/particle_mapper/expected_particle_mapper.json` and every expected particle `Fixtures/particle_mapper/particles_particle_mapper.json`, written by the tool before this code existed and printed in document 25 as FX-PMAP-001 to 043. Tolerances 2e-5 and 1e-7.
+B-494, the second step of Particle Playground (P0-6), after what After Effects' Persistent and Ephemeral Property Mappers are for: a layer's red, green and blue under each particle read into its colour, opacity, scale, angle, place, speed or force. The Persistent one sets the property and keeps it; the Ephemeral one works it through an operator (set, add, difference, subtract, multiply, min or max) for one step or for the drawing only. Nothing is carried from frame to frame: a property is worked out along the particle's own steps from its birth (document 20). A file written before D-614 is the effect it was: every new setting is as added when left out. The particles are worked out on the processor and drawn on the card too (D-619), within 1 level of the processor. Adobe publishes no formula, so the rules and the settings when added are ours, stated in `tools/particle_mapper_reference.py`. Every expected pixel is `Fixtures/particle_mapper/expected_particle_mapper.json` and every expected particle `Fixtures/particle_mapper/particles_particle_mapper.json`, written by the tool before this code existed and printed in document 25 as FX-PMAP-001 to 043. Tolerances 2e-5 and 1e-7.
 
 ## FX-PMAP-001 to 043 (document 25)
 
@@ -192,6 +192,54 @@ B-494, the second step of Particle Playground (P0-6), after what After Effects' 
 | 4_fountain_painted_by_the_street.png, frame 48: drawn without a warning, the street changed | 1633 pixels changed; warnings [] | yes |
 | 5_ephemeral_push_sideways.png, frame 0: drawn without a warning, the street changed | 45950 pixels changed; warnings [] | yes |
 
+## On the card (D-619)
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| FX-PMAP-001, fx_pmap_001.json, frames [0, 6] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-002, fx_pmap_002.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-003, fx_pmap_003.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-004, fx_pmap_004.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-005, fx_pmap_005.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-006, fx_pmap_006.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-007, fx_pmap_007.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-008, fx_pmap_008.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-009, fx_pmap_009.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-010, fx_pmap_010.json, frames [2] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-011, fx_pmap_011.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 1 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-012, fx_pmap_012.json, frames [3] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-013, fx_pmap_013.json, frames [30] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-014, fx_pmap_014.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-015, fx_pmap_015.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-016, fx_pmap_016.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-017, fx_pmap_017.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-018, fx_pmap_018.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-019, fx_pmap_019.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-020, fx_pmap_020.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-021, fx_pmap_021.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-022, fx_pmap_022.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-023, fx_pmap_023.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-024, fx_pmap_024.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-025, fx_pmap_025.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-026, fx_pmap_026.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-027, fx_pmap_027.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 1 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-028, fx_pmap_028.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-029, fx_pmap_029.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-030, fx_pmap_030.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-031, fx_pmap_031.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-032, fx_pmap_032.json, frames [36] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-033, fx_pmap_033.json, frames [30] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-034, fx_pmap_034.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-035, fx_pmap_035.json, frames [6] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-036, fx_pmap_036.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-037, fx_pmap_037.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-038, fx_pmap_038.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-039, fx_pmap_039.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-040, fx_pmap_040.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-041, fx_pmap_041.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-042, fx_pmap_042.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PMAP-043, fx_pmap_043.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+
 ## Result
 
-165 of 165 checks pass.
+208 of 208 checks pass.

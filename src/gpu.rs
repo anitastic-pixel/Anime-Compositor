@@ -7047,11 +7047,82 @@ fn soft_cover(s: u32, x: f64, y: f64) -> vec4<f64> {
     return vec4(k[s + 7u] * a, k[s + 8u] * a, k[s + 9u] * a, a);
 }
 
+// D-619, render::sample_bilinear on the part of the atlas (other) at (l.x, l.y), l.z by l.w, at
+// the part's own point (x, y): taps outside the part count nothing.
+fn part_read(l: vec4<u32>, x: f64, y: f64) -> vec4<f64> {
+    let fx = x - 0.5lf;
+    let fy = y - 0.5lf;
+    let bx = floor(fx);
+    let by = floor(fy);
+    let ux = fx - bx;
+    let uy = fy - by;
+    var out = vec4(0.0lf);
+    for (var dy = 0; dy < 2; dy++) {
+        for (var dx = 0; dx < 2; dx++) {
+            let px = i32(bx) + dx;
+            let py = i32(by) + dy;
+            if px < 0 || py < 0 || px >= i32(l.z) || py >= i32(l.w) {
+                continue;
+            }
+            // Each part widened on its own (B-491).
+            let t = textureLoad(other, vec2(i32(l.x) + px, i32(l.y) + py), 0);
+            let q = vec4(f64(t.x), f64(t.y), f64(t.z), f64(t.w));
+            var wx = 1.0lf - ux;
+            if dx == 1 {
+                wx = ux;
+            }
+            var wy = 1.0lf - uy;
+            if dy == 1 {
+                wy = uy;
+            }
+            out += q * (wx * wy);
+        }
+    }
+    return out;
+}
+
+// D-619, playground::particle_playground's looks from k[s], premultiplied: a dot (11), a piece of
+// the Explode layer (12, at the atlas's corner, F.n by F.r) and a copy of the Layer Map (13, right
+// of it, F.base), each turned by its cosine and sine.
+fn playground_cover(s: u32, x: f64, y: f64) -> vec4<f64> {
+    let dx = x - k[s + 1u];
+    let dy = y - k[s + 2u];
+    if k[s] == 11.0lf {
+        let cv = clamp(k[s + 4u] - sqrt(dx * dx + dy * dy) + 0.5lf, 0.0lf, 1.0lf);
+        return vec4(k[s + 7u], k[s + 8u], k[s + 9u], k[s + 10u]) * cv;
+    }
+    let cs = k[s + 4u];
+    let sn = k[s + 5u];
+    let lx = dx * cs + dy * sn;
+    let ly = -dx * sn + dy * cs;
+    if k[s] == 12.0lf {
+        let side = k[s + 7u];
+        let scale = k[s + 10u];
+        let half = side * scale / 2.0lf;
+        let cv = clamp(half - abs(lx) + 0.5lf, 0.0lf, 1.0lf) * clamp(half - abs(ly) + 0.5lf, 0.0lf, 1.0lf);
+        if cv <= 0.0lf {
+            return vec4(0.0lf);
+        }
+        let hold = side / 2.0lf - 0.5lf;
+        let t = part_read(vec4(0u, 0u, F.n, u32(F.r)), k[s + 8u] + clamp(lx / scale, -hold, hold), k[s + 9u] + clamp(ly / scale, -hold, hold));
+        return t * (cv * k[s + 6u]);
+    }
+    let scale = k[s + 7u];
+    let t = part_read(vec4(F.n, 0u, F.base.x, F.base.y), k[s + 8u] + lx / scale, k[s + 9u] + ly / scale);
+    if t.w <= 0.0lf {
+        return vec4(0.0lf);
+    }
+    return t * k[s + 6u];
+}
+
 // D-610, particles::cover: sprite n of k (from 7, eleven each) at the own point (x, y),
 // premultiplied; nothing where it does not reach.
 fn sprite_cover(n: u32, x: f64, y: f64) -> vec4<f64> {
     let s = 7u + SPRITE_STRIDE * n;
     let kind = k[s];
+    if kind >= 11.0lf {
+        return playground_cover(s, x, y);
+    }
     if kind == 8.0lf {
         return star_cover(s, x, y);
     }
@@ -15472,6 +15543,19 @@ impl Gpu {
             // the lists after them. D-611: the texture's levels as the other picture, its size
             // as n by r (a clear 1 by 1 with none read).
             // D-612: Particle Plane's the same way. D-617: Particle Emitter's too. D-618: Particle Grid's.
+            // D-619: Particle Playground's particles worked out on the processor, drawn by the
+            // particles pass as dots, pieces of the Explode layer and copies of the Layer Map, the
+            // two maps side by side in its atlas.
+            e @ E::ParticlePlayground { .. } => {
+                let (mut k, atlas, [ew, eh, lw, lh]) = crate::playground::sprites(e, ((w - 2 * ox) as f64, (h - 2 * oy) as f64));
+                let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
+                k.extend(starts.iter().chain(&list).map(|&i| i as f64));
+                let atlas = self.map_texture(&atlas);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, n: ew as u32, r: eh as i32, base: [lw as u32, lh as u32], ..Default::default() };
+                let out = self.scratch("D-619 playground", w, h);
+                self.fx_step(steps, &passes.particles, p, Some(still), Some(&out), Some(&k), Some(&atlas), [None; 5], tiles(w, h));
+                (out, (w, h))
+            }
             e @ (E::ParticleSpace { .. } | E::ParticlePlane { .. } | E::ParticleEmitter { .. } | E::ParticleGrid { .. }) => {
                 let mut k = crate::particles::sprite_numbers(source, e, f.origin);
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
@@ -17276,6 +17360,20 @@ impl Gpu {
                             crate::effects::Effect::ParticleEmitter { values, .. } => {
                                 let alive = values[0] * values[15] * (1.0 + values[16] / 100.0) + 1.0;
                                 ((7.0 + 14.0 * alive + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
+                            }
+                            // D-619: Particle Playground's, a sprite for each particle the Cannon
+                            // shoots by now, each point of the Grid and each piece of the Explode
+                            // layer, and its two maps side by side (counted as sprites).
+                            // ponytail: the Particle Exploder's children are not counted; a frame
+                            // with many bursts can run above it.
+                            crate::effects::Effect::ParticlePlayground { values, clock, maps, .. } => {
+                                let shot = values[1] * (clock[0].max(0.0) / clock[1].max(1.0) + 1.0);
+                                let grid = values[9] * values[10];
+                                let side = (2.0 * values[12]).max(1.0);
+                                let px = |m: &Option<crate::layer_map::Map>| m.as_ref().map_or(0.0, |m| (m.0.width() * m.0.height()) as f64);
+                                let pieces = px(&maps[0]) / (side * side);
+                                let n = shot + grid + pieces + 1.0;
+                                ((7.0 + 14.0 * n + (w * h) as f64 / 256.0 + 1.0) * 8.0 + 16.0 * (px(&maps[0]) + px(&maps[1]))) as u64
                             }
                             // D-618: Particle Grid's, a sprite for each point of its grid.
                             crate::effects::Effect::ParticleGrid { values, .. } => {
