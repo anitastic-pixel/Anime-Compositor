@@ -212598,6 +212598,66 @@ FX-TURBTYPE-024 (`fx_turbtype_024.json`): Fractal type "Turbulent Basic", the na
 
 FX-TURBTYPE-025 (`fx_turbtype_025.json`): Noise type "soft linear", with a space and not the underscore. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Turbulent Noise, Overflow, Transform and Sub Settings (D-647)
+
+Turbulent Noise's further settings (B-526), more cases in the same folder: `tools/turbulent_more_reference.py` writes `Fixtures/turbulent_noise/expected_turbulent_more.json` and `fx_turbnoise_033.json` to `fx_turbnoise_060.json`, the 16 by 10 composition of D-445's cases, tolerance 2e-5. Its check also recomputes every FX-TURBNOISE and FX-TURBTYPE case with the new settings as added, bit for bit.
+
+FX-TURBNOISE-033 (`fx_turbnoise_033.json`): Size 4, contrast 300, Overflow clip: in an 8-bit composition the same as FX-TURBNOISE-009, allow_hdr holding to 0..1 there too. Frames 0.
+
+FX-TURBNOISE-034 (`fx_turbnoise_034.json`): Size 4, contrast 300, Overflow soft_clamp: the greys eased toward black and white, none reaching them. Frames 0.
+
+FX-TURBNOISE-035 (`fx_turbnoise_035.json`): Size 4, contrast 300, Overflow wrap_back: the greys past white and black fold back, light bands inside the dark. Frames 0.
+
+FX-TURBNOISE-036 (`fx_turbnoise_036.json`): Size 4, Rotation 90: FX-TURBNOISE-002's clouds turned a quarter clockwise round the card's middle. Frames 0.
+
+FX-TURBNOISE-037 (`fx_turbnoise_037.json`): Size 4, Rotation keyed from 0 at frame 0 to 90 at frame 4, linear: frame 0 is FX-TURBNOISE-002, frame 4 FX-TURBNOISE-036. Frames 0, 2, 4.
+
+FX-TURBNOISE-038 (`fx_turbnoise_038.json`): Size 4, Scale Width 200, Scale Height 50, Uniform Scaling on: the two scales left out, so it is FX-TURBNOISE-002. Frames 0.
+
+FX-TURBNOISE-039 (`fx_turbnoise_039.json`): Size 4, Offset (6, -4), Perspective Offset on: the coarse clouds slide 6 right and 4 up, each finer octave half as far as the last. Frames 0.
+
+FX-TURBNOISE-040 (`fx_turbnoise_040.json`): Size 4, Perspective Offset on with no offset: nothing slides, so it is FX-TURBNOISE-002 within the tolerance. Frames 0.
+
+FX-TURBNOISE-041 (`fx_turbnoise_041.json`): Size 4, Sub Influence 100: every octave as strong as the first, busier fine detail. Frames 0.
+
+FX-TURBNOISE-042 (`fx_turbnoise_042.json`): Size 4, Sub Influence 0: only the first octave counts, so it is FX-TURBNOISE-007 (complexity 1) within the tolerance. Frames 0.
+
+FX-TURBNOISE-043 (`fx_turbnoise_043.json`): Size 4, Sub Scaling 70: each octave only a little finer than the last, softer clouds. Frames 0.
+
+FX-TURBNOISE-044 (`fx_turbnoise_044.json`): Size 4, Sub Rotation 45: each finer octave turned an eighth more. Frames 0.
+
+FX-TURBNOISE-045 (`fx_turbnoise_045.json`): Size 4, Sub Offset (5, 3): each finer octave slid further. Frames 0.
+
+FX-TURBNOISE-046 (`fx_turbnoise_046.json`): Size 4, Center Subscale on: the octaves grow finer round the card's middle, not its corner. Frames 0.
+
+FX-TURBNOISE-047 (`fx_turbnoise_047.json`): Size 4, dynamic on spline, Rotation 30, Offset (3, 2) with Perspective Offset, Sub Influence 70, Sub Scaling 60, Sub Rotation 20, Sub Offset (1, -2), Center Subscale on: everything together. Frames 0.
+
+FX-TURBNOISE-048 (`fx_turbnoise_048.json`): Size 4, cloudy, Sub Influence 80: cloudy's 0.35 a step scaled to 0.56. Frames 0.
+
+FX-TURBNOISE-049 (`fx_turbnoise_049.json`): Size 4, blending mode soft_light: the card's shading lifted and lowered gently by the clouds. Frames 0.
+
+FX-TURBNOISE-050 (`fx_turbnoise_050.json`): Size 4, blending mode hard_light, opacity 70: as soft_light but harder. Frames 0.
+
+FX-TURBNOISE-051 (`fx_turbnoise_051.json`): Size 4, blending mode darken: each channel the darker of the card and the clouds. Frames 0.
+
+FX-TURBNOISE-052 (`fx_turbnoise_052.json`): Size 4, blending mode lighten: each channel the lighter. Frames 0.
+
+FX-TURBNOISE-053 (`fx_turbnoise_053.json`): Size 4, blending mode difference: each channel how far apart; the black patch shows the clouds themselves. Frames 0.
+
+FX-TURBNOISE-054 (`fx_turbnoise_054.json`): FX-TURBNOISE-036 moved three pixels right: turned round the drawing's own middle, so the turned clouds move with it. Frames 0.
+
+FX-TURBNOISE-055 (`fx_turbnoise_055.json`): FX-TURBNOISE-002 with every D-647 setting written as added: FX-TURBNOISE-002 to the bit. Frames 0.
+
+FX-TURBNOISE-056 (`fx_turbnoise_056.json`): Overflow "hdr", not one of the four. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-057 (`fx_turbnoise_057.json`): Sub Scaling 5, below 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-058 (`fx_turbnoise_058.json`): Sub Influence 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-059 (`fx_turbnoise_059.json`): Uniform Scaling "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-060 (`fx_turbnoise_060.json`): Blending mode "hue", which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Bezier Warp (D-602)
 
 Bezier Warp (`core.bezier_warp`, B-481, EFFECTS.md row 135), after After Effects' Bezier Warp, the rule ours. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size; the media are in `Fixtures/bezier_warp/media/`. `tools/bezier_warp_reference.py` works the expected frames, `Fixtures/bezier_warp/expected_bezier_warp.json`, tolerance 2e-5; the rule is in document 21.
