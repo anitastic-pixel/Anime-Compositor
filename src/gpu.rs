@@ -9324,15 +9324,34 @@ fn curlsoft(@builtin(global_invocation_id) id: vec3<u32>) {
 // field's size, its slide across and down, its depth, the four octaves' weights, the across and
 // down bias, the share of blocks in the seed and the swirl; F.base the seed nought's mix. D-583:
 // k[12] 1 reads the noise from the plane `input` (grade::CurlPlane), the drawing's corner at
-// k[13], k[14] on it, k[15] 1 to mirror at its edges.
+// k[13], k[14] on it, k[15] 1 to mirror at its edges. D-646: k[16] 1 turns the noise round
+// (k[20], k[21]) by cosine k[17], sine k[18] and 100 / Scale k[19]; k[22] 1 slides each finer
+// octave half as far (grade::Curl::point).
+fn curl_point(px: f64, py: f64, o: u32) -> vec2<f64> {
+    var w = 1.0lf;
+    if k[22] == 1.0lf {
+        w = 1.0lf / f64(1u << o);
+    }
+    let x = px - w * k[1];
+    let y = py - w * k[2];
+    if k[16] != 1.0lf {
+        return vec2(x, y);
+    }
+    let dx = x - k[20];
+    let dy = y - k[21];
+    return vec2(k[20] + (dx * k[17] + dy * k[18]) * k[19], k[21] + (-dx * k[18] + dy * k[17]) * k[19]);
+}
+
 @compute @workgroup_size(16, 16)
 fn curlfield(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
     if id.x >= size.x || id.y >= size.y {
         return;
     }
-    let x = f64(i32(id.x) - F.g - F.ox) + 0.5lf - k[1];
-    let y = f64(i32(id.y) - F.g - F.oy) + 0.5lf - k[2];
+    let px = f64(i32(id.x) - F.g - F.ox) + 0.5lf;
+    let py = f64(i32(id.y) - F.g - F.oy) + 0.5lf;
+    let x = px - k[1];
+    let y = py - k[2];
     let s = k[0];
     var n = 0.0lf;
     var gx = 0.0lf;
@@ -9352,7 +9371,8 @@ fn curlfield(@builtin(global_invocation_id) id: vec3<u32>) {
         var fine = 1.0lf;
         for (var o = 0u; o < 4u; o++) {
             let amp = k[4u + o];
-            let v = value_slope(8u * o, vec3(x / s * fine, y / s * fine, k[3] * fine));
+            let q = curl_point(px, py, o);
+            let v = value_slope(8u * o, vec3(q.x / s * fine, q.y / s * fine, k[3] * fine));
             n += amp * v.x;
             gx += amp * fine * v.y;
             gy += amp * fine * v.z;
@@ -9362,6 +9382,11 @@ fn curlfield(@builtin(global_invocation_id) id: vec3<u32>) {
         n = n / total;
         gx = gx / total / s;
         gy = gy / total / s;
+        if k[16] == 1.0lf {
+            let tx = (k[17] * gx - k[18] * gy) * k[19];
+            gy = (k[18] * gx + k[17] * gy) * k[19];
+            gx = tx;
+        }
     }
     let t = (-90.0lf + k[11] * n) * 0.017453292519943295lf;
     let c = cos64(t);
@@ -9374,7 +9399,8 @@ fn curlfield(@builtin(global_invocation_id) id: vec3<u32>) {
         d = vec2(vx / length, vy / length);
     }
     let cell = s / 50.0lf;
-    let q = vec3(x / cell, y / cell, k[3]);
+    let at = curl_point(px, py, 0u);
+    let q = vec3(at.x / cell, at.y / cell, k[3]);
     let e = k[10];
     var seed = 0.0lf;
     if e == 1.0lf {
@@ -16048,7 +16074,7 @@ impl Gpu {
             e @ E::CurlNoise {
                 source, softness, mirror_at_edge, map, sample_count, sample_radius, flow_softness, flow_falloff, view, contrast, brightness, clip_hdr_results, channel, float, ..
             } => {
-                let c = crate::grade::Curl::new(e).expect("a Curl Noise");
+                let c = crate::grade::Curl::new(e, (w - 2 * ox, h - 2 * oy)).expect("a Curl Noise");
                 let m = crate::grade::curl_margin(*sample_radius);
                 let (gw, gh) = (w + 2 * m, h + 2 * m);
                 let mut k = vec![c.size, c.shift[0], c.shift[1], c.z];
@@ -16082,6 +16108,11 @@ impl Gpu {
                 if plane.is_none() {
                     k.extend([0.0; 4]);
                 }
+                // D-646: k[16] 1 turns the noise by k[17..22] (grade::Curl::turn), k[22] 1 slides
+                // each finer octave half as far.
+                k.push(c.turn.is_some() as u8 as f64);
+                k.extend(c.turn.unwrap_or_default());
+                k.push(c.perspective as u8 as f64);
                 let base = crate::grade::mix(0);
                 let p = FxParams { g: m as i32, base: [base as u32, (base >> 32) as u32], ox: ox as i32, oy: oy as i32, ..Default::default() };
                 let field = self.scratch("D-446 field", gw, gh);

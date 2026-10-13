@@ -1245,7 +1245,8 @@ pub(crate) fn value_slope(base: u64, ch: u64, x: f64, y: f64, z: f64) -> [f64; 3
 
 /// D-446: Curl Noise's settings, read once for a frame: the field's size, how far it has slid,
 /// its depth, the four octaves' weights, the across and down bias, the share of blocks in the
-/// seed and the swirl.
+/// seed and the swirl. D-646: `turn`, None at Rotation 0 and Scale 100, else the turn's cosine
+/// and sine, 100 / Scale and the drawing's middle; `perspective`, Perspective Offset on.
 pub(crate) struct Curl {
     pub size: f64,
     pub shift: [f64; 2],
@@ -1254,12 +1255,15 @@ pub(crate) struct Curl {
     pub bias: [f64; 2],
     pub edge: f64,
     pub swirl: f64,
+    pub turn: Option<[f64; 5]>,
+    pub perspective: bool,
 }
 
 impl Curl {
-    pub(crate) fn new(e: &crate::effects::Effect) -> Option<Curl> {
+    /// `(dw, dh)`: the drawing's size, whose middle the noise turns round (D-646).
+    pub(crate) fn new(e: &crate::effects::Effect, (dw, dh): (usize, usize)) -> Option<Curl> {
         let crate::effects::Effect::CurlNoise {
-            speed, direction, size, offset, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, edge_definition, frame, ..
+            speed, direction, size, offset, rotation, scale, perspective_offset, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, edge_definition, frame, ..
         } = e
         else {
             return None;
@@ -1277,7 +1281,27 @@ impl Curl {
             bias: [(2.0 * (1.0 - b)).min(1.0), (2.0 * b).min(1.0)],
             edge: edge_definition / 100.0,
             swirl: *swirl,
+            turn: (*rotation != 0.0 || *scale != 100.0).then(|| {
+                let r = rotation.to_radians();
+                [r.cos(), r.sin(), 100.0 / scale, dw as f64 / 2.0, dh as f64 / 2.0]
+            }),
+            perspective: perspective_offset == "on",
         })
+    }
+
+    /// D-646: the point octave `o` of the noise is read at for the drawing's point `(px, py)`:
+    /// slid (half as far each octave with Perspective Offset), then turned and scaled round the
+    /// drawing's middle.
+    fn point(&self, px: f64, py: f64, o: usize) -> (f64, f64) {
+        let w = if self.perspective { 0.5f64.powi(o as i32) } else { 1.0 };
+        let (x, y) = (px - w * self.shift[0], py - w * self.shift[1]);
+        match self.turn {
+            None => (x, y),
+            Some([c, s, m, cx, cy]) => {
+                let (dx, dy) = (x - cx, y - cy);
+                (cx + (dx * c + dy * s) * m, cy + (-dx * s + dy * c) * m)
+            }
+        }
     }
 
     /// The flow across and down (one long, or nought), the noise and the seed at the drawing's
@@ -1285,12 +1309,13 @@ impl Curl {
     /// noise and its slope are the picture's.
     pub(crate) fn at(&self, px: f64, py: f64, plane: Option<&CurlPlane>) -> [f32; 4] {
         let base = mix(0);
-        let (x, y, s) = (px - self.shift[0], py - self.shift[1], self.size);
+        let s = self.size;
         let (n, gx, gy) = match plane {
-            Some(p) => p.noise(x, y),
+            Some(p) => p.noise(px - self.shift[0], py - self.shift[1]),
             None => {
                 let (mut n, mut gx, mut gy, mut total, mut fine) = (0.0, 0.0, 0.0, 0.0, 1.0);
                 for (o, amp) in self.amps.iter().enumerate() {
+                    let (x, y) = self.point(px, py, o);
                     let [v, a, b] = value_slope(base, 8 * o as u64, x / s * fine, y / s * fine, self.z * fine);
                     n += amp * v;
                     gx += amp * fine * a;
@@ -1298,7 +1323,13 @@ impl Curl {
                     total += amp;
                     fine *= 2.0;
                 }
-                (n / total, gx / total / s, gy / total / s)
+                let (gx, gy) = (gx / total / s, gy / total / s);
+                // D-646: the slope worked in the turned noise, brought back to the picture.
+                let (gx, gy) = match self.turn {
+                    None => (gx, gy),
+                    Some([c, sn, m, ..]) => ((c * gx - sn * gy) * m, (sn * gx + c * gy) * m),
+                };
+                (n / total, gx, gy)
             }
         };
         let t = (-90.0 + self.swirl * n).to_radians();
@@ -1308,6 +1339,7 @@ impl Curl {
         let length = vx.hypot(vy);
         let d = if length > 0.0 { [vx / length, vy / length] } else { [0.0, 0.0] };
         let cell = s / 50.0;
+        let (x, y) = self.point(px, py, 0);
         let (sx, sy, e) = (x / cell, y / cell, self.edge);
         let seed = if e == 1.0 {
             value(base, 7, sx, sy, self.z, true, 0)
@@ -1406,7 +1438,7 @@ pub(crate) fn curl_noise(source: &mut WorkingBuffer, e: &crate::effects::Effect,
     else {
         return;
     };
-    let Some(curl) = Curl::new(e) else { return };
+    let Some(curl) = Curl::new(e, (source.width() - 2 * ox, source.height() - 2 * oy)) else { return };
     // D-583: an Other Layer whose layer was not read draws nothing (D-189).
     let plane = CurlPlane::new(e, source, (ox, oy));
     if plane.is_none() && word != "internal" {

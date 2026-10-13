@@ -4253,6 +4253,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             direction,
             size,
             offset,
+            rotation,
+            scale,
+            perspective_offset,
             evolution,
             turbulence_speed,
             swirl,
@@ -4288,6 +4291,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("direction".into(), num(*direction));
             params.insert("size".into(), num(*size));
             params.insert("offset".into(), J::Array(offset.iter().map(|v| num(*v)).collect()));
+            // D-646: as D-304, written only if moved, keyed or already in the file.
+            for (key, value, start) in [("rotation", *rotation, 0.0), ("scale", *scale, 100.0)] {
+                if value != start || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(value));
+                }
+            }
+            if perspective_offset != "off" || params.contains_key("perspective_offset") {
+                params.insert("perspective_offset".into(), J::from(perspective_offset.as_str()));
+            }
             params.insert("evolution".into(), num(*evolution));
             params.insert("turbulence_speed".into(), num(*turbulence_speed));
             params.insert("swirl".into(), num(*swirl));
@@ -8719,6 +8731,10 @@ fn parse_effect(
             direction: effect_number(params, "direction", &at)?,
             size: effect_number(params, "size", &at)?,
             offset: effect_array(params, "offset", "two numbers, x then y", &at)?,
+            // D-646: a file without them reads them as added (D-304).
+            rotation: effect_number_or(params, "rotation", &at, 0.0)?,
+            scale: effect_number_or(params, "scale", &at, 100.0)?,
+            perspective_offset: effect_word_or(params, "perspective_offset", &at, "off")?,
             evolution: effect_number(params, "evolution", &at)?,
             turbulence_speed: effect_number(params, "turbulence_speed", &at)?,
             swirl: effect_number(params, "swirl", &at)?,

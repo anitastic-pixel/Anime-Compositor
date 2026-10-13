@@ -2604,8 +2604,11 @@ pub enum Effect {
     /// `flow_softness`, `edge_definition` and `flow_falloff`, 0 to 100; `sample_count`, 3 to 24,
     /// its floor; `sample_radius`, 0 to 200 pixels; `view`, one of [`CURL_VIEWS`]; `contrast`, 0
     /// to 1000; `brightness`, -1000 to 1000; `clip_hdr_results`, "on" or "off"; `channel`, one of
-    /// [`CURL_CHANNELS`]. `frame` and `float` are not settings and are never saved: the
-    /// composition frame the settings were resolved at, and whether it works in Float.
+    /// [`CURL_CHANNELS`]. D-646: `rotation`, -100000 to 100000 degrees, and `scale`, 1 to 10000
+    /// per cent, turn and scale the noise round the drawing's middle; `perspective_offset`, "off"
+    /// or "on", slides each finer octave half as far. `frame` and `float` are not settings and
+    /// are never saved: the composition frame the settings were resolved at, and whether it
+    /// works in Float.
     CurlNoise {
         source: String,
         source_layer: serde_json::Value,
@@ -2617,6 +2620,9 @@ pub enum Effect {
         direction: f64,
         size: f64,
         offset: [f64; 2],
+        rotation: f64,
+        scale: f64,
+        perspective_offset: String,
         evolution: f64,
         turbulence_speed: f64,
         swirl: f64,
@@ -6834,13 +6840,15 @@ impl Effect {
                 ("noise_phase", vec![noise_phase], -100000.0, 100000.0),
             ],
             Effect::CurlNoise {
-                softness, speed, direction, size, offset, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, sample_count, sample_radius, flow_softness, edge_definition, flow_falloff, contrast, brightness, ..
+                softness, speed, direction, size, offset, rotation, scale, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, sample_count, sample_radius, flow_softness, edge_definition, flow_falloff, contrast, brightness, ..
             } => vec![
                 ("softness", vec![softness], 0.0, 100.0),
                 ("speed", vec![speed], 0.0, 100.0),
                 ("direction", vec![direction], -100000.0, 100000.0),
                 ("size", vec![size], 1.0, 1000.0),
                 ("offset", offset.iter_mut().collect(), -100000.0, 100000.0),
+                ("rotation", vec![rotation], -100000.0, 100000.0),
+                ("scale", vec![scale], 1.0, 10000.0),
                 ("evolution", vec![evolution], -100000.0, 100000.0),
                 ("turbulence_speed", vec![turbulence_speed], 0.0, 200.0),
                 ("swirl", vec![swirl], -360.0, 360.0),
@@ -11294,6 +11302,9 @@ impl Effect {
             )),
             Effect::CurlNoise { mirror_at_edge: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "Curl Noise's mirror at edge is \"off\" or \"on\", and this is \"{v}\"."
+            )),
+            Effect::CurlNoise { perspective_offset: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Curl Noise's perspective offset is \"off\" or \"on\", and this is \"{v}\"."
             )),
             Effect::CurlNoise { view: v, .. } if !CURL_VIEWS.contains(&v.as_str()) => Some(format!(
                 "Curl Noise's view is one of {}, and this is \"{v}\".",
