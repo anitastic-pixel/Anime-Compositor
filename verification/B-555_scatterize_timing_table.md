@@ -1,7 +1,7 @@
 # B-555: frame times with Scatterize (D-676)
 
 Measured on 2026-10-13, built with `cargo test --release --test b555_scatterize` from lane C's
-commit b089f9c0, which holds b089f9c0 (B-555's code), and run with `--ignored b555_scatterize_timing`: once on the card, then once
+commit 2fd7d198, which holds 2fd7d198 (B-555's code), and run with `--ignored b555_scatterize_timing`: once on the card, then once
 with `B555_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, the graphics card had 4.1 GB of its memory in use by another program and these build or test programs were running: b532_warp_stabilizer-b6a2, cargo.exe. Between the card and processor runs, the graphics card had 6.0 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-bee64f3aec, cargo.exe. After the processor run, the graphics card had 6.2 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-bee64f3aec, cargo.exe. Treat them as an upper bound, to be measured again on a quiet machine.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
