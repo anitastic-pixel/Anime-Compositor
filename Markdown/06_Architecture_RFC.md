@@ -62,9 +62,9 @@ SP-02 is removed. It compared a CPU reference path against a GPU path; ADR-006 l
 
 Record toolchain, OS, driver, dependency versions, timings and observed defects for every spike. Write the minimum code that answers the question and quarantine it before production integration.
 
-## Sound (D-638, proposed)
+## Sound (D-638, accepted)
 
-Proposed on 2026-10-13 and not accepted; nothing here is built. If accepted, sound joins the media service and the export service rather than becoming a module of its own. The media service decodes a sound file once into 48,000 samples a second, two channels, 64-bit floats (WAV by the core, FLAC, MP3 and Vorbis by `symphonia`, AAC by the decoder Windows carries). The evaluator mixes a composition's sound for a range of samples from the same immutable snapshot a frame uses: each audio layer's samples, its sound effects in order, its level, its switch. Preview asks for a range ahead of the play head and the window only plays what it is given, from its audio clock, so it holds no authoritative sound state, as it holds none for pictures. Export asks for the whole range once and hands it to the MP4 writer or a WAV beside the frames. Sound requests carry sample positions worked from whole frames, as ADR-018 sets.
+Accepted by the owner on 2026-10-13, every recommendation, S-7 in the build; built in units S-1 to S-7. Sound joins the media service and the export service rather than becoming a module of its own. The media service decodes a sound file once into 48,000 samples a second, two channels, 64-bit floats (WAV by the core, FLAC, MP3 and Vorbis by `symphonia`, AAC by the decoder Windows carries). The evaluator mixes a composition's sound for a range of samples from the same immutable snapshot a frame uses: each audio layer's samples, its sound effects in order, its level, its switch. Preview asks for a range ahead of the play head and the window only plays what it is given, from its audio clock, so it holds no authoritative sound state, as it holds none for pictures. Export asks for the whole range once and hands it to the MP4 writer or a WAV beside the frames. Sound requests carry sample positions worked from whole frames, as ADR-018 sets.
 
 ## Decision rule for future changes
 
