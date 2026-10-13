@@ -2896,6 +2896,42 @@ FX-SOUND-EXP-010: a level of +12 dB: 30,000 values past full level written at fu
 
 FX-SOUND-EXP-011: a GIF with the WAV asked for: no WAV is written.
 
+### Noise Gate (D-642)
+
+S-4 of D-638 (B-521): the first sound effect (document 21). `tools/noise_gate_reference.py` writes four test sounds in `Fixtures/noise_gate/media` as 32-bit floating-point WAV, each on a steady floor at -70 dB, below every threshold: `burst.wav`, a 1 kHz tone at -6 dB on samples 12,000 to 23,999 of 1.5 s; `two_bursts.wav`, -26 dB on 12,000 to 23,999 and -6 dB on 48,000 to 59,999 of 2 s; `steady.wav`, a steady -28 dB; `right_burst.wav`, the burst in the right channel only. One project per case (a 4 x 2 composition, 48 frames), and `expected_noise_gate.json`: the length, the mix at named places in both channels (tolerance 2e-5), each channel's peak (within 0.01 dB), the warnings, and when the last gate rises, is full, last hears its threshold, starts closing and is shut.
+
+FX-GATE-001: the starting values on the burst: rises at 12,000, full at 12,479, last open 23,999, closing 25,920, shut 36,479.
+
+FX-GATE-002: Attack 0: full at once, at 12,000.
+
+FX-GATE-003: Hold 500 ms: closing at 48,000, shut at 58,559.
+
+FX-GATE-004: Hold 0, Release 5 ms: it dips at the tone's zero crossings; shut at 24,239.
+
+FX-GATE-005: Threshold -20 dB on two bursts: the quiet one stays shut, the loud one opens it at 48,000.
+
+FX-GATE-006: Threshold -60 dB on two bursts: both open it.
+
+FX-GATE-007: Threshold keyed from -40 dB (frame 0) to -20 dB (frame 10) over the steady -28 dB: last open at 12,041, shut at 24,521.
+
+FX-GATE-008: the right channel alone opens both: left peak -70 dB, right -6 dB.
+
+FX-GATE-009: frames 10 to 19 mixed alone are the whole mix there.
+
+FX-GATE-010: the layer starting on frame 6, at -6 dB, Threshold -10 dB: rises at 24,000; peak -11.99 dB (the gate works before the level).
+
+FX-GATE-011: the gate switched off: the sound unchanged, no timing.
+
+FX-GATE-012: Attack keyed from 0 to 100 ms at 30000 / 1001 a second: full at 16,192.
+
+FX-GATE-013: two gates, the second Threshold -20 dB, Attack 0: the second rises at 48,096, when the first has opened far enough.
+
+FX-GATE-014: Threshold +3 dB: kept, `EFFECT_PARAMETER_INVALID` on opening and mixing, the sound unchanged.
+
+FX-GATE-101 to 104, refused with `PROJECT_SCHEMA_INVALID`: Exposure on an audio layer; Noise Gate on a solid; an expression on a gate setting; a Mix on a gate.
+
+FX-GATE-201: an unknown effect on an audio layer: kept and saved as written, `EFFECT_UNSUPPORTED` on opening and mixing, the sound unchanged.
+
 ## Format fixtures
 
 D-72, proposed on 2026-09-19; nothing is built against these yet. `tools/formats_reference.py` writes `Fixtures/formats/` and prints what follows. The drawings are one 16 by 12 picture of smooth ramps, saved by Pillow in each format, and each twin is Pillow's own reading of that file.

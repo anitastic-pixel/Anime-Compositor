@@ -412,7 +412,7 @@ These came up while checking 2023-2026 releases. They are not image effects in t
 |---|---|---|---|---|---|---|
 | Audio | Compressor (new in AE 26.0, January 2026) — evens out loud and quiet sound | missing | P0-14 | not applicable (sound, not picture) | n/a | none yet; sound is read (D-639, S-1 of D-638) and this effect is S-5 of D-638 |
 | Audio | Distortion (new in AE 26.0, January 2026) — deliberately overdrives sound | missing | P0-14 | not applicable | n/a | none |
-| Audio | Noise Gate (new in AE 26.0, January 2026) — silences sound below a level | missing | P0-14 | not applicable | n/a | none |
+| Audio | Noise Gate (new in AE 26.0, January 2026) — silences sound below a level | done (D-642, B-521, `core.noise_gate`) | P0-14 | not applicable | n/a | none |
 | Tool | Object Matte (new in AE 26.2, April 2026) — AI tool: click an object once and it is cut out and followed through the shot. A tool, not an Effects-menu entry | skip: owner's choice (D-600) | P0-13 | not planned (AI segmentation) | n/a | none; skipped by the owner on 2026-10-12, motion from footage is "Blur + retiming only" |
 
 ## Ours, not in Adobe's list
