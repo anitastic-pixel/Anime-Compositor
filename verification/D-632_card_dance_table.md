@@ -115,9 +115,9 @@ B-512, after After Effects' Card Dance (Simulation), under the coordinator's app
 | FX-CD-051 frame 0: X position source "purple_1". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CD-051 frame 4: X position source "purple_1". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CD-051: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-CD-052 frame 0: Camera system "corner_pins", not built yet. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
-| FX-CD-052 frame 4: Camera system "corner_pins", not built yet. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
-| FX-CD-052: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-CD-052 frame 0: Camera system "corner_pins" with the pins as added (D-634): the camera as added, so the picture unchanged. | largest difference 1.5e-7 | yes |
+| FX-CD-052 frame 4: Camera system "corner_pins" with the pins as added (D-634): the camera as added, so the picture unchanged. | largest difference 1.5e-7 | yes |
+| FX-CD-052: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CD-053 frame 0: Rows 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CD-053 frame 4: Rows 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.5e-7 | yes |
 | FX-CD-053: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
@@ -160,11 +160,10 @@ B-512, after After Effects' Card Dance (Simulation), under the coordinator's app
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | Card Dance never grows the layer's bounds | 0 | yes |
-| a half-size draft preview changes no setting, each a share of the layer, a count or a word (the composition camera, worked out each frame, is halved) | CardDance { rows_columns: "independent", rows: 8.0, columns: 8.0, back_layer: String(""), back_map: None, gradient_layer_1: String(""), gradient_map_1: None, gradient_layer_2: String(""), gradient_map_2: None, rotation_order: "xyz", transformation_order: "scale_rotate_position", sources: ["none", "none", "intensity_1", "none", "none", "none", "none", "none"], multipliers: [1.0, 1.0, 1.0, 90.0, 90.0, 90.0, 0.5, 0.5], offsets: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0], camera_system: "camera_position", camera_x_rotation: 0.0, camera_y_rotation: 0.0, camera_z_rotation: 0.0, camera_xy_position: [50.0, 50.0], camera_z_position: 1.0, focal_length: 50.0, light_type: "distant", light_intensity: 1.0, light_color: "#ffffff", light_position: [50.0, 50.0], light_depth: 1.0, ambient_light: 0.25, diffuse_reflection: 0.75, specular_reflection: 0.0, highlight_sharpness: 5.0, view: [0.0, 0.0, 0.0] } | yes |
+| a half-size draft preview changes no setting, each a share of the layer, a count or a word (the composition camera, worked out each frame, is halved) | CardDance { rows_columns: "independent", rows: 8.0, columns: 8.0, back_layer: String(""), back_map: None, gradient_layer_1: String(""), gradient_map_1: None, gradient_layer_2: String(""), gradient_map_2: None, rotation_order: "xyz", transformation_order: "scale_rotate_position", sources: ["none", "none", "intensity_1", "none", "none", "none", "none", "none"], multipliers: [1.0, 1.0, 1.0, 90.0, 90.0, 90.0, 0.5, 0.5], offsets: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0], camera_system: "camera_position", camera_x_rotation: 0.0, camera_y_rotation: 0.0, camera_z_rotation: 0.0, camera_xy_position: [50.0, 50.0], camera_z_position: 1.0, focal_length: 50.0, light_type: "distant", light_intensity: 1.0, light_color: "#ffffff", light_position: [50.0, 50.0], light_depth: 1.0, ambient_light: 0.25, diffuse_reflection: 0.75, specular_reflection: 0.0, upper_left_corner: [0.0, 0.0], upper_right_corner: [100.0, 0.0], lower_left_corner: [0.0, 100.0], lower_right_corner: [100.0, 100.0], auto_focal_length: "off", highlight_sharpness: 5.0, view: [0.0, 0.0, 0.0] } | yes |
 | fx_cd_049.json is refused in a sentence naming rotation order | Card Dance's rotation order is one of "xyz", "xzy", "yxz", "yzx", "zxy", "zyx", and this is "xxy". | yes |
 | fx_cd_050.json is refused in a sentence naming transformation order | Card Dance's transformation order is one of "scale_rotate_position", "scale_position_rotate", "rotate_scale_position", "rotate_position_scale", "position_scale_rotate", "position_rotate_scale", and this is "scale". | yes |
 | fx_cd_051.json is refused in a sentence naming x position source | Card Dance's x position source is one of "none", "red_1", "green_1", "blue_1", "intensity_1", "alpha_1", "red_2", "green_2", "blue_2", "intensity_2", "alpha_2", and this is "purple_1". | yes |
-| fx_cd_052.json is refused in a sentence naming camera system | Card Dance's camera system is one of "camera_position", "comp_camera", and this is "corner_pins". | yes |
 | fx_cd_053.json is refused in a sentence naming rows | Card Dance's rows runs from 1 to 1000, and this is 0. | yes |
 | fx_cd_054.json is refused in a sentence naming columns | Card Dance's columns runs from 1 to 1000, and this is 1001. | yes |
 | fx_cd_055.json is refused in a sentence naming z position multiplier | Card Dance's z position multiplier runs from -100 to 100, and this is 101. | yes |
@@ -267,4 +266,4 @@ B-512, after After Effects' Card Dance (Simulation), under the coordinator's app
 
 ## Result
 
-243 of 243 checks pass.
+242 of 242 checks pass.

@@ -211669,6 +211669,32 @@ FX-CW-055 (`fx_cw_055.json`): Rows & Columns "both". The file is read, the effec
 
 FX-CW-056 (`fx_cw_056.json`): Completion keyed to 120 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID` on opening.
 
+FX-CW-057 (`fx_cw_057.json`): Camera system "corner_pins" with the pins as added: FX-CW-004 exactly. Frame 0.
+
+FX-CW-058 (`fx_cw_058.json`): Corner Pins, the upper corners pulled in to [20, 10] and [85, 0] and the lower right up to [100, 95], Auto Focal Length off: FX-CW-004 seen at a slant. Frame 0.
+
+FX-CW-059 (`fx_cw_059.json`): FX-CW-058 with Auto Focal Length on: the lens worked out from the pins. Frame 0.
+
+FX-CW-060 (`fx_cw_060.json`): Corner Pins on a parallelogram, Auto Focal Length on: no perspective to work a lens from, so the focal length is used. Frame 0.
+
+FX-CW-061 (`fx_cw_061.json`): FX-CW-060 with Auto Focal Length off: the same picture. Frame 0.
+
+FX-CW-062 (`fx_cw_062.json`): Corner Pins on a general four-sided shape, Auto Focal Length on, a point light at [20, 30] depth 0.3, specular 1, sharpness 20: the light stays on the layer. Frame 0.
+
+FX-CW-063 (`fx_cw_063.json`): FX-CW-059 with the camera turned 30 about y, at x 40, y 50, Z position 1.7: Corner Pins does not use them, so FX-CW-059. Frame 0.
+
+FX-CW-064 (`fx_cw_064.json`): Camera system "camera_position" written out: FX-CW-004. Frame 0.
+
+FX-CW-065 (`fx_cw_065.json`): Corner Pins with the upper right corner keyed [100, 0] at frame 0 to [80, 20] at frame 4: frame 0 FX-CW-004, frame 4 pulled in. Frames 0, 4.
+
+FX-CW-066 (`fx_cw_066.json`): Camera system "comp_camera", not built for Card Wipe (a gap). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CW-067 (`fx_cw_067.json`): Camera system "orbit". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CW-068 (`fx_cw_068.json`): Upper left corner [-1001, 0], below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CW-069 (`fx_cw_069.json`): Auto focal length "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Contour Paint, Match to Nearest Custom Color (D-584)
 
 Contour Paint's Match to Nearest Custom Color (B-462), more cases of Contour Paint (D-470) in the same folder and expected file: `tools/contour_paint_reference.py` writes `Fixtures/contour_paint/expected_contour_paint.json`, tolerance 2e-5; the rule is in document 21. FX-CONTOUR-001 to 032 are unchanged.
@@ -212803,7 +212829,7 @@ FX-CD-050 (`fx_cd_050.json`): Transformation order "scale". The file is read, th
 
 FX-CD-051 (`fx_cd_051.json`): X position source "purple_1". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-CD-052 (`fx_cd_052.json`): Camera system "corner_pins", not built yet. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-CD-052 (`fx_cd_052.json`): Camera system "corner_pins" with the pins as added (D-634): the camera as added, so the picture unchanged. Frames 0, 4.
 
 FX-CD-053 (`fx_cd_053.json`): Rows 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -212828,6 +212854,30 @@ FX-CD-062 (`fx_cd_062.json`): Gradient layer 2 written as the number 3, not a wo
 FX-CD-063 (`fx_cd_063.json`): Rows & Columns "both". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CD-064 (`fx_cd_064.json`): X position offset keyed to 120 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-065 (`fx_cd_065.json`): Corner Pins with the pins as added, three turns with the back layer: FX-CD-014 exactly. Frame 0.
+
+FX-CD-066 (`fx_cd_066.json`): Corner Pins, the upper corners pulled in to [20, 10] and [85, 0] and the lower right up to [100, 95], Auto Focal Length off: the layer seen leaning back and turned, the nearer cards larger. Frame 0.
+
+FX-CD-067 (`fx_cd_067.json`): FX-CD-066 with Auto Focal Length on: the focal length worked out from the pins. Frame 0.
+
+FX-CD-068 (`fx_cd_068.json`): Corner Pins turned and slanted with no perspective (a parallelogram), Auto Focal Length on: no focal length can be worked out, so Focal Length's. Frame 0.
+
+FX-CD-069 (`fx_cd_069.json`): FX-CD-068 with Auto Focal Length off: the same. Frame 0.
+
+FX-CD-070 (`fx_cd_070.json`): Corner Pins on a general four-sided shape, Auto Focal Length on, three turns with the back layer. Frame 0.
+
+FX-CD-071 (`fx_cd_071.json`): FX-CD-067 with a point light at the top left, depth 0.3, specular 1, sharpness 20: the light stays on the layer. Frame 0.
+
+FX-CD-072 (`fx_cd_072.json`): FX-CD-067 with the camera turned 30 about y, at x 40 per cent and Z position 3: Corner Pins does not use them, so FX-CD-067. Frame 0.
+
+FX-CD-073 (`fx_cd_073.json`): The upper right pin keyed from [100, 0] at frame 0 to [80, 20] at frame 4: frame 0 FX-CD-003. Frames 0, 4.
+
+FX-CD-074 (`fx_cd_074.json`): Upper left corner [-1001, 0], below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-075 (`fx_cd_075.json`): Auto focal length "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CD-076 (`fx_cd_076.json`): Lower right corner keyed to [100, 1200] at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 ### Shatter (D-633)
 
@@ -212965,7 +213015,7 @@ FX-SH-065 (`fx_sh_065.json`): Tumble axis "w". The file is read, the effect is k
 
 FX-SH-066 (`fx_sh_066.json`): Front mode "glow". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-SH-067 (`fx_sh_067.json`): Camera system "corner_pins", not built yet (D-634). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-SH-067 (`fx_sh_067.json`): Camera system "corner_pins" with the pins as added (D-634): the camera as added, so FX-SH-001's picture. Frames 0, 4.
 
 FX-SH-068 (`fx_sh_068.json`): Repetitions 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
@@ -212988,3 +213038,13 @@ FX-SH-076 (`fx_sh_076.json`): Gravity keyed to 200 at frame 4. The file is read,
 FX-SH-077 (`fx_sh_077.json`): Invert gradient "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SH-078 (`fx_sh_078.json`): Mass variance 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-079 (`fx_sh_079.json`): Corner Pins with the pins as added, thrown from the middle: FX-SH-052 exactly. Frame 3.
+
+FX-SH-080 (`fx_sh_080.json`): Corner Pins, the upper corners pulled in to [20, 10] and [85, 0] and the lower right up to [100, 95], Auto Focal Length on, thrown from the middle. Frame 3.
+
+FX-SH-081 (`fx_sh_081.json`): Corner Pins on a general four-sided shape, Auto Focal Length off, the pieces tumbling about y, with a point light at the top left, specular 1: the light stays on the layer. Frame 3.
+
+FX-SH-082 (`fx_sh_082.json`): Lower right corner [50, 1001], above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SH-083 (`fx_sh_083.json`): Auto focal length "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
