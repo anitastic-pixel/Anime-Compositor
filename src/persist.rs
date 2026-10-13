@@ -2368,6 +2368,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("additional_scale".into(), num(*additional_scale));
             params.insert("detailed_analysis".into(), J::from(detailed_analysis.as_str()));
         }
+        Effect::RollingShutterRepair { rolling_shutter_rate, scan_direction, method, detailed_analysis, pixel_motion_detail, .. } => {
+            params.insert("rolling_shutter_rate".into(), num(*rolling_shutter_rate));
+            params.insert("scan_direction".into(), J::from(scan_direction.as_str()));
+            params.insert("method".into(), J::from(method.as_str()));
+            params.insert("detailed_analysis".into(), J::from(detailed_analysis.as_str()));
+            params.insert("pixel_motion_detail".into(), num(*pixel_motion_detail));
+        }
         Effect::Caustics { bottom_layer, water_surface, sky_layer, light_position, bottom_repeat_mode, bottom_fit, surface_color, sky_repeat_mode, sky_fit, light_type, light_color, .. } => {
             for (n, v) in [("bottom_layer", bottom_layer), ("water_surface", water_surface), ("sky_layer", sky_layer)] {
                 params.insert(n.into(), v.clone());
@@ -6064,6 +6071,7 @@ fn parse_effect(
         crate::effects::PIXEL_MOTION_BLUR,
         crate::effects::TIMEWARP,
         crate::effects::WARP_STABILIZER,
+        crate::effects::ROLLING_SHUTTER_REPAIR,
         crate::effects::TIME_DIFFERENCE,
         crate::effects::CC_RAINFALL,
         crate::effects::WAVE_WORLD,
@@ -7093,6 +7101,14 @@ fn parse_effect(
             action_safe_margin: effect_number(params, "action_safe_margin", &at)?,
             additional_scale: effect_number(params, "additional_scale", &at)?,
             detailed_analysis: effect_word(params, "detailed_analysis", &at)?,
+            picture: None,
+        }),
+        crate::effects::ROLLING_SHUTTER_REPAIR => Some(crate::effects::Effect::RollingShutterRepair {
+            rolling_shutter_rate: effect_number(params, "rolling_shutter_rate", &at)?,
+            scan_direction: effect_word(params, "scan_direction", &at)?,
+            method: effect_word(params, "method", &at)?,
+            detailed_analysis: effect_word(params, "detailed_analysis", &at)?,
+            pixel_motion_detail: effect_number(params, "pixel_motion_detail", &at)?,
             picture: None,
         }),
         crate::effects::CAUSTICS => Some(crate::effects::Effect::Caustics {

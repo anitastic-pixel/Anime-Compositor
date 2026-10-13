@@ -1479,6 +1479,21 @@ pub enum Effect {
         detailed_analysis: String,
         picture: Option<crate::layer_map::Map>,
     },
+    /// D-654: after After Effects' Rolling Shutter Repair (Distort), its rule ours
+    /// (`tools/rolling_shutter_repair_reference.py`, `flow`, document 21). Numbers:
+    /// `rolling_shutter_rate` 0 to 100 per cent of a frame; `pixel_motion_detail` 0 to 100. Words:
+    /// `scan_direction` `top_to_bottom`, `bottom_to_top`, `left_to_right` or `right_to_left`;
+    /// `method` `warp` or `pixel_motion`; `detailed_analysis` `off` or `on`. `picture` is not a
+    /// setting and is never saved: compose makes the repaired picture into it for each frame
+    /// (`compose::fill_rolling_shutter_repair`).
+    RollingShutterRepair {
+        rolling_shutter_rate: f64,
+        scan_direction: String,
+        method: String,
+        detailed_analysis: String,
+        pixel_motion_detail: f64,
+        picture: Option<crate::layer_map::Map>,
+    },
     /// D-582: after CycoreFX's CC Rainfall (Simulation), its rule and its settings when added
     /// ours (`layer_fx::cc_rainfall`, document 21). `drops`, 0 to 50000, its whole part; `size`,
     /// 0 to 20 pixels; `scene_depth`, 0 to 20000 pixels; `speed`, 0 to 20000 pixels a second at
@@ -4307,6 +4322,7 @@ pub const FORCE_MOTION_BLUR: &str = "core.force_motion_blur";
 pub const PIXEL_MOTION_BLUR: &str = "core.pixel_motion_blur";
 pub const TIMEWARP: &str = "core.timewarp";
 pub const WARP_STABILIZER: &str = "core.warp_stabilizer";
+pub const ROLLING_SHUTTER_REPAIR: &str = "core.rolling_shutter_repair";
 pub const CC_RAINFALL: &str = "core.cc_rainfall";
 pub const WAVE_WORLD: &str = "core.wave_world";
 pub const CAUSTICS: &str = "core.caustics";
@@ -7645,6 +7661,10 @@ impl Effect {
                 ("action_safe_margin", vec![action_safe_margin], 0.0, 50.0),
                 ("additional_scale", vec![additional_scale], 1.0, 1000.0),
             ],
+            Effect::RollingShutterRepair { rolling_shutter_rate, pixel_motion_detail, .. } => vec![
+                ("rolling_shutter_rate", vec![rolling_shutter_rate], 0.0, 100.0),
+                ("pixel_motion_detail", vec![pixel_motion_detail], 0.0, 100.0),
+            ],
             Effect::CcRainfall {
                 drops,
                 size,
@@ -8944,6 +8964,7 @@ impl Effect {
             Effect::PixelMotionBlur { .. } => "Pixel Motion Blur",
             Effect::Timewarp { .. } => "Timewarp",
             Effect::WarpStabilizer { .. } => "Warp Stabilizer",
+            Effect::RollingShutterRepair { .. } => "Rolling Shutter Repair",
             Effect::CcRainfall { .. } => "CC Rainfall",
             Effect::WaveWorld { .. } => "Wave World",
             Effect::Caustics { .. } => "Caustics",
@@ -9216,6 +9237,7 @@ impl Effect {
             Effect::PixelMotionBlur { .. } => PIXEL_MOTION_BLUR,
             Effect::Timewarp { .. } => TIMEWARP,
             Effect::WarpStabilizer { .. } => WARP_STABILIZER,
+            Effect::RollingShutterRepair { .. } => ROLLING_SHUTTER_REPAIR,
             Effect::CcRainfall { .. } => CC_RAINFALL,
             Effect::WaveWorld { .. } => WAVE_WORLD,
             Effect::Caustics { .. } => CAUSTICS,
@@ -11509,6 +11531,15 @@ impl Effect {
             )),
             Effect::WarpStabilizer { detailed_analysis, .. } if !["off", "on"].contains(&detailed_analysis.as_str()) => Some(format!(
                 "Warp Stabilizer's detailed analysis is \"off\" or \"on\", and this is \"{detailed_analysis}\"."
+            )),
+            Effect::RollingShutterRepair { scan_direction, .. } if !["top_to_bottom", "bottom_to_top", "left_to_right", "right_to_left"].contains(&scan_direction.as_str()) => Some(format!(
+                "Rolling Shutter Repair's scan direction is \"top_to_bottom\", \"bottom_to_top\", \"left_to_right\" or \"right_to_left\", and this is \"{scan_direction}\"."
+            )),
+            Effect::RollingShutterRepair { method, .. } if !["warp", "pixel_motion"].contains(&method.as_str()) => Some(format!(
+                "Rolling Shutter Repair's method is \"warp\" or \"pixel_motion\", and this is \"{method}\"."
+            )),
+            Effect::RollingShutterRepair { detailed_analysis, .. } if !["off", "on"].contains(&detailed_analysis.as_str()) => Some(format!(
+                "Rolling Shutter Repair's detailed analysis is \"off\" or \"on\", and this is \"{detailed_analysis}\"."
             )),
             Effect::CcRainfall { transfer_mode, .. } if !["composite", "lighten"].contains(&transfer_mode.as_str()) => Some(format!(
                 "CC Rainfall's transfer mode is \"composite\" or \"lighten\", and this is \"{transfer_mode}\"."
@@ -15072,6 +15103,13 @@ pub(crate) fn apply_stack_at(
             Effect::WarpStabilizer { picture, .. } => {
                 if let Some(picture) = picture {
                     crate::perf::time(crate::perf::Stage::EffectWarpStabilizer, || crate::layer_fx::lay(source, &picture.0, (ox, oy)))
+                }
+            }
+            // D-654: the drawing-sized picture compose repaired, at the drawing's corner, as Warp
+            // Stabilizer's. None (rate 0, nothing moving, an adjustment layer) leaves the layer as it is.
+            Effect::RollingShutterRepair { picture, .. } => {
+                if let Some(picture) = picture {
+                    crate::perf::time(crate::perf::Stage::EffectRollingShutterRepair, || crate::layer_fx::lay(source, &picture.0, (ox, oy)))
                 }
             }
             // D-521: the target compose read at its offset; with none (no layer of its own on an

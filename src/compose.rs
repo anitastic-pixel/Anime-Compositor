@@ -2877,6 +2877,22 @@ fn resolve_rest(
             .with_remediation("Put the Warp Stabilizer on the layer itself, or precompose the layers beneath and put it on the composition layer."),
         );
     }
+    // D-654: nor the frames either side, so a Rolling Shutter Repair there changes nothing.
+    if layer.is_adjustment()
+        && effects.iter().any(|i| i.enabled && i.is_valid() && matches!(i.effect, crate::effects::Effect::RollingShutterRepair { .. }))
+    {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::TemporalSmoothingSkipped,
+                Severity::Warning,
+                format!("Adjustment layer {} has a Rolling Shutter Repair, which needs the frames either side an adjustment layer cannot read.", layer.name),
+                format!("Frame {frame} is drawn without it. The setting is kept as it is."),
+            )
+            .with_remediation("Put the Rolling Shutter Repair on the layer itself, or precompose the layers beneath and put it on the composition layer."),
+        );
+    }
     // D-581: CC Force Motion Blur blurs what moves inside a composition layer. On any other
     // layer, an adjustment layer included, and on one with a Time Remap, whose moments its rule
     // does not yet read, it leaves the layer as it is, and says so.
@@ -2918,6 +2934,7 @@ fn resolve_rest(
         fill_pixel_motion(&mut effects, project, root, comp, layer, at, quality, cache, log);
         fill_timewarp(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_warp_stabilizer(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
+        fill_rolling_shutter_repair(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_moment_maps(&mut effects, project, root, comp, layer, at, quality, step1, cache, log);
         fill_noise(&mut effects, project, root, comp, layer, at, quality, cache);
     }
@@ -4690,6 +4707,114 @@ fn fill_timewarp(
             out
         });
         if let Effect::Timewarp { picture, .. } = &mut effects[i].effect {
+            *picture = Some(crate::layer_map::Map(std::sync::Arc::new(done)));
+        }
+    }
+}
+
+/// D-654: each switched-on Rolling Shutter Repair's picture, by
+/// `tools/rolling_shutter_repair_reference.py`'s steps 2 to 4: this frame and the holder's frames
+/// either side inside its in and out points (drawn with the effects before this one, by the
+/// layer's own timing, cut to `size`), the motion toward each by `flow`'s estimate (Pixel Motion)
+/// or Warp Stabilizer's whole-frame fit (`ws_pair`, Warp), and each pixel read back along it by the
+/// part of a frame between its scan time and the frame's middle. A still side (outside the layer,
+/// or a held drawing) takes the other side's motion turned round; rate 0 or both sides still
+/// leaves `picture` empty, so the layer is as it is.
+#[allow(clippy::too_many_arguments)]
+fn fill_rolling_shutter_repair(
+    effects: &mut [crate::effects::EffectInstance],
+    project: &Project,
+    root: &Path,
+    comp: &crate::model::Composition,
+    holder: &crate::model::Layer,
+    frame: i32,
+    quality: PreviewQuality,
+    size: (usize, usize),
+    cache: &mut CelCache,
+    log: &mut FrameLog,
+) {
+    use crate::effects::Effect;
+    use rayon::prelude::*;
+    let (n0, m1, n) = (holder.in_frame, holder.out_frame - 1, frame);
+    if n < n0 || n > m1 {
+        return;
+    }
+    for i in 0..effects.len() {
+        if !effects[i].enabled || !effects[i].is_valid() {
+            continue;
+        }
+        let Effect::RollingShutterRepair { rolling_shutter_rate, scan_direction, method, detailed_analysis, pixel_motion_detail, .. } =
+            effects[i].effect.clone()
+        else {
+            continue;
+        };
+        let r = rolling_shutter_rate / 100.0;
+        if r == 0.0 {
+            continue;
+        }
+        let mut upto = holder.clone();
+        upto.effects.truncate(i);
+        let mut inside = FrameLog::new(usize::MAX);
+        let mut drawn = |m: i32, cache: &mut CelCache| {
+            resolve_layer(project, comp, &upto, m, root, quality, cache, &mut inside, &mut Vec::new(), false, true)
+                .map_or_else(|| crate::WorkingBuffer::transparent(size.0, size.1), |p| crate::layer_map::cut(&p.source, (0, 0), size))
+        };
+        let o = drawn(n, cache);
+        let ahead = (n < m1).then(|| drawn(n + 1, cache)).filter(|q| q.data() != o.data());
+        let back = (n > n0).then(|| drawn(n - 1, cache)).filter(|q| q.data() != o.data());
+        let mut said = Vec::new();
+        for d in inside.finish() {
+            if !said.contains(&d.id) {
+                said.push(d.id);
+                log.record(frame, holder.name.clone(), d);
+            }
+        }
+        if ahead.is_none() && back.is_none() {
+            continue;
+        }
+        let done = crate::perf::time(crate::perf::Stage::EffectRollingShutterRepair, || {
+            let (w, h) = size;
+            // Step 3: the motion from this frame to q, in pixels.
+            let motion = |q: &crate::WorkingBuffer| -> (Vec<f64>, Vec<f64>) {
+                if method == "pixel_motion" {
+                    let f = crate::flow::estimate(&o, q, &crate::flow::Tuning::added(pixel_motion_detail));
+                    return (f.x, f.y);
+                }
+                let tuning = crate::flow::Tuning::added(if detailed_analysis == "on" { 100.0 } else { 50.0 });
+                let m = ws_pair(&o, q, &tuning, "position_scale_rotation", false);
+                let (cx, cy, d) = (w as f64 / 2.0, h as f64 / 2.0, (w as f64).hypot(h as f64) / 2.0);
+                (0..w * h)
+                    .map(|i| {
+                        let (px, py) = (((i % w) as f64 + 0.5 - cx) / d, ((i / w) as f64 + 0.5 - cy) / d);
+                        let (x, y) = ws_apply(&m, px, py);
+                        ((x - px) * d, (y - py) * d)
+                    })
+                    .unzip()
+            };
+            let turned = |(x, y): &(Vec<f64>, Vec<f64>)| -> (Vec<f64>, Vec<f64>) {
+                (x.iter().map(|v| -v).collect(), y.iter().map(|v| -v).collect())
+            };
+            let ahead = ahead.as_ref().map(&motion);
+            let back = back.as_ref().map(&motion);
+            let ahead = ahead.unwrap_or_else(|| turned(back.as_ref().unwrap()));
+            let back = back.unwrap_or_else(|| turned(&ahead));
+            // Step 4.
+            let mut out = crate::WorkingBuffer::transparent(w, h);
+            out.data_mut().par_chunks_exact_mut(4).enumerate().for_each(|(i, px)| {
+                let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
+                let u = match scan_direction.as_str() {
+                    "bottom_to_top" => 1.0 - y / h as f64,
+                    "left_to_right" => x / w as f64,
+                    "right_to_left" => 1.0 - x / w as f64,
+                    _ => y / h as f64,
+                };
+                let tau = r * (u - 0.5);
+                let ((dx, dy), s) = if tau >= 0.0 { (&ahead, tau) } else { (&back, -tau) };
+                px.copy_from_slice(&render::sample_bilinear(&o, x + s * dx[i], y + s * dy[i]));
+            });
+            out
+        });
+        if let Effect::RollingShutterRepair { picture, .. } = &mut effects[i].effect {
             *picture = Some(crate::layer_map::Map(std::sync::Arc::new(done)));
         }
     }
