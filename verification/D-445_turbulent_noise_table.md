@@ -83,9 +83,8 @@ B-325: `core.turbulent_noise` takes After Effects' Turbulent Noise controls (Fra
 | FX-TURBNOISE-031 frame 0: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-031 frame 4: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-031: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-TURBNOISE-032 frame 0: Blend "overlay", which is not a blend here. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-032 frame 4: Blend "overlay", which is not a blend here. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-032: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-TURBNOISE-032 frame 0: Size 4, blend overlay: the card's light parts lightened and its dark parts darkened by the clouds, the black and white kept (the Timeline's Overlay, D-301, on the linear colour). | largest difference 3.8e-7 | yes |
+| FX-TURBNOISE-032: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 
 ## Fractal Noise, the engine under the second name: its fixtures, unchanged
 
@@ -203,7 +202,6 @@ B-325: `core.turbulent_noise` takes After Effects' Turbulent Noise controls (Fra
 | fx_turbnoise_029.json is refused in a sentence naming Turbulent Noise and its fractal type | Turbulent Noise's fractal type is one of "basic", "turbulent", "turbulent_smooth", "turbulent_sharp", "dynamic", "dynamic_progressive", "dynamic_twist", "max", "smeary", "swirly", "rocky", "cloudy", "terrain", "subscale", "small_bumps", "strings", "threads", and this is "plasma". | yes |
 | fx_turbnoise_030.json is refused in a sentence naming Turbulent Noise and its noise type | Turbulent Noise's noise type is one of "smooth", "block", "linear", "soft_linear", "spline", and this is "cubic". | yes |
 | fx_turbnoise_031.json is refused in a sentence naming Turbulent Noise and its invert | Turbulent Noise's invert is "off" or "on", and this is "yes". | yes |
-| fx_turbnoise_032.json is refused in a sentence naming Turbulent Noise and its blending mode | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "overlay". | yes |
 | a file with a Turbulent Noise whose contrast is a word is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with a Turbulent Noise without its evolution is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with a Turbulent Noise whose offset is one number is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
@@ -264,7 +262,7 @@ B-325: `core.turbulent_noise` takes After Effects' Turbulent Noise controls (Fra
 | fx_turbnoise_029.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_turbnoise_030.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_turbnoise_031.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
-| fx_turbnoise_032.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_turbnoise_032.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot, Turbulent Noise as added: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2072800 pixels changed | yes |
 | the reference shot, Turbulent Noise as added on three layers, frame 0, Full | largest difference 1 of 255, 1251 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise as added on three layers, frame 100, Full | largest difference 1 of 255, 1278 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
@@ -304,4 +302,4 @@ B-325: `core.turbulent_noise` takes After Effects' Turbulent Noise controls (Fra
 
 ## Result
 
-265 of 265 checks pass.
+263 of 263 checks pass.

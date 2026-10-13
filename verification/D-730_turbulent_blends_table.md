@@ -1,6 +1,6 @@
 # D-730: Turbulent Noise, six more blending modes
 
-B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil Alpha and Stencil Luma. Saturation, Color and Luminosity follow the W3C Compositing and Blending Level 1 non-separable rules (Lum = 0.3 R + 0.59 G + 0.11 B, SetLum with ClipColor, SetSat): this is our basis, not a match to After Effects, whose own rule is unpublished. Turbulent Noise's colour is a grey, so Saturation and Color both give the layer the noise's grey at the layer's own lightness, and Luminosity gives the layer's colour the noise's lightness; each mixes by Opacity as the other modes do. Adobe's help says Fractal Noise's modes are the Timeline's and None draws the noise only, so None replaces the layer with the noise at Opacity (D-413), and the stencils keep the layer where the noise's alpha (Stencil Alpha) or lightness (Stencil Luma) is, as the Timeline's stencils do (D-301). Silhouette Alpha and Silhouette Luma are refused: the program has no Timeline rule for them to follow. Hue (FX-TURBNOISE-060) and Overlay (FX-TURBNOISE-032) stay refused as their fixtures pin; adding either is the owner's fixture decision. Every expected pixel is `Fixtures/turbulent_noise/expected_turbulent_blends.json`, written by `tools/turbulent_blends_reference.py` before this code existed and printed in document 25 as FX-TURBNOISE-061 to 074. Tolerance 2e-5.
+B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil Alpha and Stencil Luma. Saturation, Color and Luminosity follow the W3C Compositing and Blending Level 1 non-separable rules (Lum = 0.3 R + 0.59 G + 0.11 B, SetLum with ClipColor, SetSat): this is our basis, not a match to After Effects, whose own rule is unpublished. Turbulent Noise's colour is a grey, so Saturation and Color both give the layer the noise's grey at the layer's own lightness, and Luminosity gives the layer's colour the noise's lightness; each mixes by Opacity as the other modes do. Adobe's help says Fractal Noise's modes are the Timeline's and None draws the noise only, so None replaces the layer with the noise at Opacity (D-413), and the stencils keep the layer where the noise's alpha (Stencil Alpha) or lightness (Stencil Luma) is, as the Timeline's stencils do (D-301). Silhouette Alpha and Silhouette Luma are refused: the program has no Timeline rule for them to follow. Hue (FX-TURBNOISE-060) and Overlay (FX-TURBNOISE-032) were refused here; D-731, by the owner's decision of 2026-10-13, regenerated both and builds them. Every expected pixel is `Fixtures/turbulent_noise/expected_turbulent_blends.json`, written by `tools/turbulent_blends_reference.py` before this code existed and printed in document 25 as FX-TURBNOISE-061 to 074. Tolerance 2e-5.
 
 ## FX-TURBNOISE-061 to 074 (document 25)
 
@@ -120,9 +120,8 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBNOISE-031 frame 0: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-031 frame 4: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-031: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-TURBNOISE-032 frame 0: Blend "overlay", which is not a blend here. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-032 frame 4: Blend "overlay", which is not a blend here. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-032: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-TURBNOISE-032 frame 0: Size 4, blend overlay: the card's light parts lightened and its dark parts darkened by the clouds, the black and white kept (the Timeline's Overlay, D-301, on the linear colour). | largest difference 3.8e-7 | yes |
+| FX-TURBNOISE-032: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-033 frame 0: Size 4, contrast 300, Overflow clip: in an 8-bit composition the same as FX-TURBNOISE-009, allow_hdr holding to 0..1 there too. | largest difference 3.0e-8 | yes |
 | FX-TURBNOISE-033: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBNOISE-034 frame 0: Size 4, contrast 300, Overflow soft_clamp: the greys eased toward black and white, none reaching them. | largest difference 3.0e-8 | yes |
@@ -183,9 +182,8 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | FX-TURBNOISE-059 frame 0: Uniform Scaling "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-059 frame 4: Uniform Scaling "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-059: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-TURBNOISE-060 frame 0: Blending mode "hue", which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-060 frame 4: Blending mode "hue", which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-060: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-TURBNOISE-060 frame 0: Size 4, blending mode hue, opacity 60: the noise is grey, so the card is drained towards its own grey at its own lightness, 60 per cent of the way (the W3C's Hue, our basis). | largest difference 1.4e-7 | yes |
+| FX-TURBNOISE-060: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBTYPE-001 frame 0: Size 4, fractal type turbulent_smooth: rounded creases, softer than turbulent's. | largest difference 3.0e-8 | yes |
 | FX-TURBTYPE-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBTYPE-002 frame 0: Size 4, fractal type turbulent_sharp: thin, sharp creases. | largest difference 3.0e-8 | yes |
@@ -266,18 +264,15 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 | fx_turbnoise_065.json is saved with blending mode none | "none" | yes |
 | fx_turbnoise_067.json is saved with blending mode stencil_alpha | "stencil_alpha" | yes |
 | fx_turbnoise_069.json is saved with blending mode stencil_luma | "stencil_luma" | yes |
-| fx_turbnoise_073.json is refused in a sentence naming Turbulent Noise, blending mode and "silhouette_alpha" | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "silhouette_alpha". | yes |
-| fx_turbnoise_074.json is refused in a sentence naming Turbulent Noise, blending mode and "silhouette_luma" | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "silhouette_luma". | yes |
-| fx_turbnoise_060.json is refused in a sentence naming Turbulent Noise, blending mode and "hue" | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "hue". | yes |
-| fx_turbnoise_032.json is refused in a sentence naming Turbulent Noise, blending mode and "overlay" | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "overlay". | yes |
+| fx_turbnoise_073.json is refused in a sentence naming Turbulent Noise, blending mode and "silhouette_alpha" | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", "overlay", "hue", and this is "silhouette_alpha". | yes |
+| fx_turbnoise_074.json is refused in a sentence naming Turbulent Noise, blending mode and "silhouette_luma" | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", "overlay", "hue", and this is "silhouette_luma". | yes |
 
 ## Commands
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| blending mode "silhouette_alpha" is refused with a sentence, and nothing changes | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "silhouette_alpha". | yes |
-| blending mode "hue" is refused with a sentence, and nothing changes | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "hue". | yes |
-| blending mode "overlay" is refused with a sentence, and nothing changes | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "overlay". | yes |
+| blending mode "silhouette_alpha" is refused with a sentence, and nothing changes | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", "overlay", "hue", and this is "silhouette_alpha". | yes |
+| blending mode "silhouette_luma" is refused with a sentence, and nothing changes | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", "overlay", "hue", and this is "silhouette_luma". | yes |
 | blending mode luminosity is taken | taken | yes |
 | blending mode stencil luma is taken | taken | yes |
 | undo 2 times: frame 0 is the frame it was | byte-identical | yes |
@@ -353,4 +348,4 @@ B-600: `core.turbulent_noise` takes Saturation, Color, Luminosity, None, Stencil
 
 ## Result
 
-314 of 314 checks pass.
+309 of 309 checks pass.

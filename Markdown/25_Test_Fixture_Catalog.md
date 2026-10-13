@@ -208241,7 +208241,7 @@ FX-TURBNOISE-030 (`fx_turbnoise_030.json`): Noise type "cubic", which is not one
 
 FX-TURBNOISE-031 (`fx_turbnoise_031.json`): Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-TURBNOISE-032 (`fx_turbnoise_032.json`): Blend "overlay", which is not a blend here. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-TURBNOISE-032 (`fx_turbnoise_032.json`): Size 4, blend overlay: the card's light parts lightened and its dark parts darkened by the clouds, the black and white kept (the Timeline's Overlay, D-301, on the linear colour). Frames 0. Regenerated on 2026-10-13 by the owner's specification decision (D-731); it was a refused Overlay.
 
 ### Match Grain (D-454)
 
@@ -212656,7 +212656,7 @@ FX-TURBNOISE-058 (`fx_turbnoise_058.json`): Sub Influence 101, above 100. The fi
 
 FX-TURBNOISE-059 (`fx_turbnoise_059.json`): Uniform Scaling "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-TURBNOISE-060 (`fx_turbnoise_060.json`): Blending mode "hue", which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-TURBNOISE-060 (`fx_turbnoise_060.json`): Size 4, blending mode hue, opacity 60: the noise is grey, so the card is drained towards its own grey at its own lightness, 60 per cent of the way (the W3C's Hue, our basis). Frames 0. Regenerated on 2026-10-13 by the owner's specification decision (D-731); it was a refused Hue.
 
 ### Turbulent Noise, more blending modes (D-730)
 

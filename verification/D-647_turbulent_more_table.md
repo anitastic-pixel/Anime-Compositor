@@ -1,6 +1,6 @@
 # D-647: Turbulent Noise, Overflow, Transform and Sub Settings
 
-B-526: `core.turbulent_noise` takes After Effects' Overflow (Allow HDR Results, Clip, Soft Clamp, Wrap Back), Rotation, Uniform Scaling, Perspective Offset, Sub Settings (Sub Influence, Sub Scaling, Sub Rotation, Sub Offset, Center Subscale) and five more blending modes (Soft Light, Hard Light, Darken, Lighten, Difference). With c the drawing's middle, octave o of the clouds is read at c + R(-t_o) (p - w_o Offset - o Sub Offset - c), t_o = Rotation + o Sub Rotation, w_o = 0.5^o with Perspective Offset on, else 1; each octave Sub Influence per cent of the last's strength (cloudy 0.35 scaled by Sub Influence / 50) and 100 / Sub Scaling times as fine, round c with Center Subscale on. Soft Clamp is 0.5 + 0.5 tanh(2 (v - 0.5)); Wrap Back folds at black and white. Every setting as added (Allow HDR Results, 0, off, off, 50, 50, 0, (0, 0), off) draws every file before D-647 as before; After Effects' own Sub Influence 70 and Sub Scaling 56 are not used for that reason. The rule is this program's own; Adobe publishes none. Overlay and the hue, saturation, color, luminosity, none and stencil modes are not built; adding Overlay needs the owner's fixture decision (FX-TURBNOISE-032). Every expected pixel is `Fixtures/turbulent_noise/expected_turbulent_more.json`, written by `tools/turbulent_more_reference.py` before this code existed and printed in document 25 as FX-TURBNOISE-033 to 060. Tolerance 2e-5.
+B-526: `core.turbulent_noise` takes After Effects' Overflow (Allow HDR Results, Clip, Soft Clamp, Wrap Back), Rotation, Uniform Scaling, Perspective Offset, Sub Settings (Sub Influence, Sub Scaling, Sub Rotation, Sub Offset, Center Subscale) and five more blending modes (Soft Light, Hard Light, Darken, Lighten, Difference). With c the drawing's middle, octave o of the clouds is read at c + R(-t_o) (p - w_o Offset - o Sub Offset - c), t_o = Rotation + o Sub Rotation, w_o = 0.5^o with Perspective Offset on, else 1; each octave Sub Influence per cent of the last's strength (cloudy 0.35 scaled by Sub Influence / 50) and 100 / Sub Scaling times as fine, round c with Center Subscale on. Soft Clamp is 0.5 + 0.5 tanh(2 (v - 0.5)); Wrap Back folds at black and white. Every setting as added (Allow HDR Results, 0, off, off, 50, 50, 0, (0, 0), off) draws every file before D-647 as before; After Effects' own Sub Influence 70 and Sub Scaling 56 are not used for that reason. The rule is this program's own; Adobe publishes none. Overlay and the hue, saturation, color, luminosity, none and stencil modes are not built here (D-730 builds the last six; D-731, by the owner's decision of 2026-10-13, builds Overlay and Hue, FX-TURBNOISE-032 and 060 regenerated). Every expected pixel is `Fixtures/turbulent_noise/expected_turbulent_more.json`, written by `tools/turbulent_more_reference.py` before this code existed and printed in document 25 as FX-TURBNOISE-033 to 060. Tolerance 2e-5.
 
 ## FX-TURBNOISE-033 to 060 (document 25)
 
@@ -66,9 +66,8 @@ B-526: `core.turbulent_noise` takes After Effects' Overflow (Allow HDR Results, 
 | FX-TURBNOISE-059 frame 0: Uniform Scaling "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-059 frame 4: Uniform Scaling "yes", not off or on. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-059: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-TURBNOISE-060 frame 0: Blending mode "hue", which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-060 frame 4: Blending mode "hue", which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-060: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-TURBNOISE-060 frame 0: Size 4, blending mode hue, opacity 60: the noise is grey, so the card is drained towards its own grey at its own lightness, 60 per cent of the way (the W3C's Hue, our basis). | largest difference 1.4e-7 | yes |
+| FX-TURBNOISE-060: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 
 ## Turbulent Noise's earlier fixtures, unchanged
 
@@ -151,9 +150,8 @@ B-526: `core.turbulent_noise` takes After Effects' Overflow (Allow HDR Results, 
 | FX-TURBNOISE-031 frame 0: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-031 frame 4: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-031: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-TURBNOISE-032 frame 0: Blend "overlay", which is not a blend here. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-032 frame 4: Blend "overlay", which is not a blend here. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-032: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-TURBNOISE-032 frame 0: Size 4, blend overlay: the card's light parts lightened and its dark parts darkened by the clouds, the black and white kept (the Timeline's Overlay, D-301, on the linear colour). | largest difference 3.8e-7 | yes |
+| FX-TURBNOISE-032: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBTYPE-001 frame 0: Size 4, fractal type turbulent_smooth: rounded creases, softer than turbulent's. | largest difference 3.0e-8 | yes |
 | FX-TURBTYPE-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-TURBTYPE-002 frame 0: Size 4, fractal type turbulent_sharp: thin, sharp creases. | largest difference 3.0e-8 | yes |
@@ -250,7 +248,6 @@ B-526: `core.turbulent_noise` takes After Effects' Overflow (Allow HDR Results, 
 | fx_turbnoise_057.json is refused in a sentence naming Turbulent Noise, sub_scaling and 5 | Turbulent Noise's sub scaling runs from 10 to 100, and this is 5. | yes |
 | fx_turbnoise_058.json is refused in a sentence naming Turbulent Noise, sub_influence and 101 | Turbulent Noise's sub influence runs from 0 to 100, and this is 101. | yes |
 | fx_turbnoise_059.json is refused in a sentence naming Turbulent Noise, uniform scaling and "yes" | Turbulent Noise's uniform scaling is "off" or "on", and this is "yes". | yes |
-| fx_turbnoise_060.json is refused in a sentence naming Turbulent Noise, blending mode and "hue" | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "hue". | yes |
 
 ## Commands
 
@@ -258,7 +255,6 @@ B-526: `core.turbulent_noise` takes After Effects' Overflow (Allow HDR Results, 
 | --- | --- | --- |
 | overflow "hdr" is refused with a sentence, and nothing changes | Turbulent Noise's overflow is one of "allow_hdr", "clip", "soft_clamp", "wrap_back", and this is "hdr". | yes |
 | sub scaling 5 is refused with a sentence, and nothing changes | Turbulent Noise's sub scaling runs from 10 to 100, and this is 5. | yes |
-| blending mode "overlay" is refused with a sentence, and nothing changes | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "overlay". | yes |
 | rotation -45, sub rotation 30, center subscale on, wrap back, difference is taken | taken | yes |
 | undo 1 times: frame 0 is the frame it was | byte-identical | yes |
 
@@ -303,7 +299,7 @@ B-526: `core.turbulent_noise` takes After Effects' Overflow (Allow HDR Results, 
 | fx_turbnoise_057.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_turbnoise_058.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_turbnoise_059.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
-| fx_turbnoise_060.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_turbnoise_060.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot, Turbulent Noise Rotation 30, Offset (40, -25) with Perspective Offset: the processor's frame 100 differs from the shot without it and from Turbulent Noise as added, so the comparisons below test D-647 | 2073137 pixels changed, 2055758 differ from as added | yes |
 | the reference shot, Turbulent Noise Rotation 30, Offset (40, -25) with Perspective Offset on three layers, frame 0, Full | largest difference 1 of 255, 1225 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Turbulent Noise Rotation 30, Offset (40, -25) with Perspective Offset on three layers, frame 100, Full | largest difference 1 of 255, 1241 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
@@ -348,4 +344,4 @@ B-526: `core.turbulent_noise` takes After Effects' Overflow (Allow HDR Results, 
 
 ## Result
 
-309 of 309 checks pass.
+305 of 305 checks pass.
