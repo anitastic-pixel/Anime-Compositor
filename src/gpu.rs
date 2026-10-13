@@ -14101,6 +14101,15 @@ impl Gpu {
                 self.fx_step(steps, &passes.warp, FxParams { mode: 17, ..Default::default() }, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
                 (out, (tw, th))
             }
+            // D-606, mesh::reshape, drawn the same way.
+            E::Reshape { percent, elasticity, paths, .. } => match paths.as_ref().filter(|_| *percent != 0.0) {
+                None => (still.clone(), (w, h)),
+                Some(paths) => {
+                    let field = crate::mesh::reshape(paths, *percent, elasticity, ((w - 2 * ox) as f64, (h - 2 * oy) as f64));
+                    let k = crate::mesh::field_numbers(&field, 1.0, [0.0, 0.0], (w, h), f.origin);
+                    same(steps, &passes.warp, FxParams { mode: 151, ..Default::default() }, &k, None)
+                }
+            },
             // D-605, mesh::liquify_field, drawn as mesh::draw_field draws it: warp mode 151.
             E::Liquify { tool, brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset } => {
                 if stroke.is_empty() || *distortion_percentage == 0.0 {

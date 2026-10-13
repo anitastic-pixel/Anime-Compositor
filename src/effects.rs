@@ -2314,6 +2314,14 @@ pub enum Effect {
     /// -100 to 200; `distortion_percentage`, 0 to 200; `distortion_mesh_offset`, pixels,
     /// -10000 to 10000.
     Liquify { tool: String, brush_size: f64, brush_pressure: f64, stroke: Vec<f64>, distortion_percentage: f64, distortion_mesh_offset: [f64; 2] },
+    /// D-606: after After Effects' Reshape (`mesh::reshape_field`, document 21). `source_mask`,
+    /// `destination_mask` and `boundary_mask`, 0 to 1000, the masks numbered so (their floors
+    /// taken), 0 for none; `percent`, 0 to 100; `elasticity`, one of the words in
+    /// [`crate::mesh::RESHAPE_ELASTICITY`]. `paths` is not a setting and is never saved:
+    /// compose fills it each frame with the source's and destination's outlines and, when one
+    /// is named, the boundary's, flattened, in the drawing's space at the size the effects run
+    /// at, `None` when there is no source or destination or a mask named is not there.
+    Reshape { source_mask: f64, destination_mask: f64, boundary_mask: f64, percent: f64, elasticity: String, paths: Option<Vec<Vec<(f64, f64)>>> },
     /// D-390: after CycoreFX's CC Ripple Pulse. `center`, per cent of the drawing, -1000 to 1000;
     /// `pulse_level`, -1000 to 1000; `time_span`, 0 to 10 seconds; `amplitude`, 0 to 1000;
     /// `render_bump_map`, "off" or "on". `levels` is not a setting and is never saved: the pulse
@@ -4423,6 +4431,7 @@ pub const BEZIER_WARP: &str = "core.bezier_warp";
 pub const MESH_WARP: &str = "core.mesh_warp";
 pub const WARP: &str = "core.warp";
 pub const LIQUIFY: &str = "core.liquify";
+pub const RESHAPE: &str = "core.reshape";
 /// D-602: Bezier Warp's twelve points as they are saved, round the outline from the top left:
 /// each edge's vertex, then its two tangents.
 pub const BEZIER_POINTS: [&str; 12] = [
@@ -6365,6 +6374,12 @@ impl Effect {
                 ("fold_radius", vec![fold_radius], 0.0, 1000.0),
                 ("light_direction", vec![light_direction], -3600.0, 3600.0),
                 ("back_opacity", vec![back_opacity], 0.0, 100.0),
+            ],
+            Effect::Reshape { source_mask, destination_mask, boundary_mask, percent, .. } => vec![
+                ("source_mask", vec![source_mask], 0.0, 1000.0),
+                ("destination_mask", vec![destination_mask], 0.0, 1000.0),
+                ("boundary_mask", vec![boundary_mask], 0.0, 1000.0),
+                ("percent", vec![percent], 0.0, 100.0),
             ],
             Effect::Liquify { brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset, .. } => vec![
                 ("brush_size", vec![brush_size], 1.0, 1000.0),
@@ -8670,6 +8685,7 @@ impl Effect {
             Effect::MeshWarp { .. } => "Mesh Warp",
             Effect::Warp { .. } => "Warp",
             Effect::Liquify { .. } => "Liquify",
+            Effect::Reshape { .. } => "Reshape",
             Effect::RipplePulse { .. } => "Ripple Pulse",
             Effect::Slant { .. } => "Slant",
             Effect::Smear { .. } => "Smear",
@@ -8933,6 +8949,7 @@ impl Effect {
             Effect::MeshWarp { .. } => MESH_WARP,
             Effect::Warp { .. } => WARP,
             Effect::Liquify { .. } => LIQUIFY,
+            Effect::Reshape { .. } => RESHAPE,
             Effect::RipplePulse { .. } => RIPPLE_PULSE,
             Effect::Slant { .. } => SLANT,
             Effect::Smear { .. } => SMEAR,
@@ -10165,6 +10182,10 @@ impl Effect {
             Effect::PageTurn { paper_color, .. } if hex_fault("Page Turn", "paper colour", paper_color).is_some() => {
                 hex_fault("Page Turn", "paper colour", paper_color)
             }
+            // D-606: the elasticity by name.
+            Effect::Reshape { elasticity, .. } if !crate::mesh::RESHAPE_ELASTICITY.iter().any(|(w, _)| w == elasticity) => Some(format!(
+                "Reshape's elasticity is stiff, less_stiff, below_normal, normal, above_normal, super_fluid or liquid, and this is \"{elasticity}\"."
+            )),
             // D-605: the brush by name, and the stroke in whole points.
             Effect::Liquify { tool, .. } if !LIQUIFY_TOOLS.contains(&tool.as_str()) => Some(format!(
                 "Liquify's tool is warp, twirl_clockwise, twirl_counterclockwise, pucker, bloat or shift_pixels, and this is \"{tool}\"."
@@ -12814,6 +12835,16 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
+            // D-606: the masks compose found for this frame, in the drawing's own space; with none,
+            // the layer is left as it is (EFFECT_PATH_MISSING was said when a mask named was not
+            // there). The layer never grows.
+            Effect::Reshape { percent, elasticity, paths, .. } => crate::perf::time(crate::perf::Stage::EffectReshape, || {
+                if let Some(paths) = paths.as_ref().filter(|_| *percent != 0.0) {
+                    let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+                    let field = crate::mesh::reshape(paths, *percent, elasticity, size);
+                    crate::mesh::draw_field(source, &field, 1.0, [0.0, 0.0], (ox, oy));
+                }
+            }),
             // D-605: the drawing pushed by the brush in its own space; the layer never grows.
             Effect::Liquify { tool, brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset } => crate::perf::time(crate::perf::Stage::EffectLiquify, || {
                 if !stroke.is_empty() && *distortion_percentage != 0.0 {

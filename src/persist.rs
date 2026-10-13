@@ -3836,6 +3836,14 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("back_opacity".into(), num(*back_opacity));
             params.insert("paper_color".into(), J::from(paper_color.as_str()));
         }
+        // D-606: the five settings; the outlines are the masks', never saved here.
+        Effect::Reshape { source_mask, destination_mask, boundary_mask, percent, elasticity, .. } => {
+            params.insert("source_mask".into(), num(*source_mask));
+            params.insert("destination_mask".into(), num(*destination_mask));
+            params.insert("boundary_mask".into(), num(*boundary_mask));
+            params.insert("percent".into(), num(*percent));
+            params.insert("elasticity".into(), J::from(elasticity.as_str()));
+        }
         // D-605: the stroke as one flat list, empty for none.
         Effect::Liquify { tool, brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset } => {
             params.insert("tool".into(), J::from(tool.as_str()));
@@ -6048,6 +6056,7 @@ fn parse_effect(
         crate::effects::MESH_WARP,
         crate::effects::WARP,
         crate::effects::LIQUIFY,
+        crate::effects::RESHAPE,
         crate::effects::RIPPLE_PULSE,
         crate::effects::SLANT,
         crate::effects::SMEAR,
@@ -8278,6 +8287,15 @@ fn parse_effect(
             expansion_left: effect_number(params, "expansion_left", &at)?,
             expansion_right: effect_number(params, "expansion_right", &at)?,
             expansion_bottom: effect_number(params, "expansion_bottom", &at)?,
+        }),
+        // D-606: the elasticity kept as written, so one outside the contract is refused by name.
+        crate::effects::RESHAPE => Some(crate::effects::Effect::Reshape {
+            source_mask: effect_number(params, "source_mask", &at)?,
+            destination_mask: effect_number(params, "destination_mask", &at)?,
+            boundary_mask: effect_number(params, "boundary_mask", &at)?,
+            percent: effect_number(params, "percent", &at)?,
+            elasticity: effect_word(params, "elasticity", &at)?,
+            paths: None,
         }),
         // D-605: the tool kept as written, so one outside the contract is refused by name.
         crate::effects::LIQUIFY => Some(crate::effects::Effect::Liquify {

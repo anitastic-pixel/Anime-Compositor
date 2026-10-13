@@ -1043,6 +1043,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Warp { .. }
                 // D-605: Liquify.
                 | crate::effects::Effect::Liquify { .. }
+                // D-606: Reshape.
+                | crate::effects::Effect::Reshape { .. }
                 | crate::effects::Effect::RipplePulse { .. }
                 // D-391..D-393: Slant, Smear and Split.
                 | crate::effects::Effect::Slant { .. }
@@ -1555,6 +1557,8 @@ fn card_effect(
                 E::BezierWarp { points, .. } => *points == crate::effects::BEZIER_START,
                 // D-603: the mesh at rest.
                 E::MeshWarp { rows, columns, distortion_mesh, .. } => crate::mesh::warp_rests(*rows, *columns, distortion_mesh),
+                // D-606: no source or destination, a mask named not found, or none of the way.
+                E::Reshape { paths, percent, .. } => paths.is_none() || *percent == 0.0,
                 // D-605: no stroke, or none of it drawn.
                 E::Liquify { stroke, distortion_percentage, .. } => stroke.is_empty() || *distortion_percentage == 0.0,
                 // D-604: no bend and no distortion.
@@ -3150,6 +3154,33 @@ fn resolve_rest(
                 );
             } else {
                 *paths = fg.map(|f| std::iter::once(f).chain(bg.flatten()).collect());
+            }
+        }
+    }
+    // D-606: each Reshape's source, destination and, when one is named, boundary masks, chosen
+    // as Fill's are, as they are at this frame and at the size the effects run at. A source or
+    // destination of 0 reshapes nothing and says nothing; a mask named and not found leaves the
+    // layer as it is and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::Reshape { source_mask, destination_mask, boundary_mask, paths, .. } = &mut instance.effect {
+            let usable = |n: f64| masks.get(n.floor() as usize - 1).filter(|m| m.enabled && m.points.len() >= 2).map(|m| m.outline());
+            *paths = None;
+            let named: Vec<f64> = [*source_mask, *destination_mask, *boundary_mask].into_iter().filter(|n| *n >= 1.0).collect();
+            let found: Vec<_> = named.iter().map(|n| usable(*n)).collect();
+            if let Some(i) = found.iter().position(Option::is_none) {
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!("Layer {}'s Reshape has no mask {} that is on with two points or more, so it reshapes nothing.", layer.name, named[i].floor()),
+                        format!("Frame {frame} is drawn without the reshape. The effect is kept as it is."),
+                    )
+                    .with_remediation("Draw the masks on the layer, or set Source, Destination and Boundary Mask to masks it has."),
+                );
+            } else if *source_mask >= 1.0 && *destination_mask >= 1.0 {
+                *paths = Some(found.into_iter().flatten().collect());
             }
         }
     }

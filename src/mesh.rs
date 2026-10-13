@@ -437,6 +437,103 @@ pub(crate) fn liquify_field(tool: &str, brush_size: f64, brush_pressure: f64, st
     Field { gx, gy, step }
 }
 
+/// D-606: how many points each of Reshape's outlines is resampled to.
+const RESHAPE_POINTS: usize = 64;
+
+/// D-606: `outline` resampled to [`RESHAPE_POINTS`] points equally spaced along it, closed,
+/// starting at its first point, as `tools/reshape_reference.py` lays them.
+pub(crate) fn resample(outline: &[(f64, f64)]) -> Vec<[f64; 2]> {
+    let n = outline.len();
+    let pieces: Vec<((f64, f64), (f64, f64))> = (0..n).map(|i| (outline[i], outline[(i + 1) % n])).collect();
+    let lengths: Vec<f64> = pieces.iter().map(|(a, b)| (b.0 - a.0).hypot(b.1 - a.1)).collect();
+    let total = lengths.iter().fold(0.0, |s, l| s + l);
+    let (mut i, mut c) = (0, 0.0);
+    (0..RESHAPE_POINTS)
+        .map(|m| {
+            let s = m as f64 * total / RESHAPE_POINTS as f64;
+            while i < n - 1 && c + lengths[i] <= s {
+                c += lengths[i];
+                i += 1;
+            }
+            let (a, b) = pieces[i];
+            let u = if lengths[i] > 0.0 { (s - c) / lengths[i] } else { 0.0 };
+            [a.0 + (b.0 - a.0) * u, a.1 + (b.1 - a.1) * u]
+        })
+        .collect()
+}
+
+/// D-606: the shoelace sum, its sign the way `outline` winds.
+fn winding(outline: &[(f64, f64)]) -> f64 {
+    let n = outline.len();
+    (0..n).fold(0.0, |s, i| {
+        let ((x0, y0), (x1, y1)) = (outline[i], outline[(i + 1) % n]);
+        s + (x0 * y1 - x1 * y0)
+    })
+}
+
+/// D-606: Reshape's source and destination outlines resampled, the destination first turned to
+/// wind the source's way, keeping its first point.
+pub(crate) fn reshape_points(source: &[(f64, f64)], destination: &[(f64, f64)]) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+    if winding(source) * winding(destination) < 0.0 {
+        let turned: Vec<(f64, f64)> = std::iter::once(destination[0]).chain(destination[1..].iter().rev().copied()).collect();
+        return (resample(source), resample(&turned));
+    }
+    (resample(source), resample(destination))
+}
+
+/// D-606: Reshape's field from compose's outlines (source, destination, then the boundary if
+/// one is named), `percent` of the way, at `elasticity`.
+pub(crate) fn reshape(paths: &[Vec<(f64, f64)>], percent: f64, elasticity: &str, size: (f64, f64)) -> Field {
+    let (src, dst) = reshape_points(&paths[0], &paths[1]);
+    let e = RESHAPE_ELASTICITY.iter().find(|(w, _)| *w == elasticity).map_or(2.5, |(_, e)| *e);
+    reshape_field(&src, &dst, paths.get(2).map(Vec::as_slice), percent / 100.0, e, size)
+}
+
+/// D-606: the power each elasticity gives the inverse-distance blend, stiff to liquid.
+pub(crate) const RESHAPE_ELASTICITY: [(&str, f64); 7] =
+    [("stiff", 1.0), ("less_stiff", 1.5), ("below_normal", 2.0), ("normal", 2.5), ("above_normal", 3.0), ("super_fluid", 4.0), ("liquid", 5.0)];
+
+/// D-606: Reshape's backward field over the drawing `dw` by `dh`: each source point `src[k]`
+/// pulled `t` of the way to `dst[k]` reads the drawing back at the source point; the boundary's
+/// points are held; the steps blended by inverse distance to the power `e` at each corner of a
+/// grid of cells two pixels across (at most 256 each way), 0 outside the boundary.
+pub(crate) fn reshape_field(src: &[[f64; 2]], dst: &[[f64; 2]], boundary: Option<&[(f64, f64)]>, t: f64, e: f64, (dw, dh): (f64, f64)) -> Field {
+    let (gx, gy) = ((dw / 2.0).ceil().min(256.0) as usize, (dh / 2.0).ceil().min(256.0) as usize);
+    let rect = [(0.0, 0.0), (dw, 0.0), (dw, dh), (0.0, dh)];
+    let mut anchors: Vec<([f64; 2], [f64; 2])> = src
+        .iter()
+        .zip(dst)
+        .map(|(s, d)| {
+            let q = [s[0] + t * (d[0] - s[0]), s[1] + t * (d[1] - s[1])];
+            (q, [s[0] - q[0], s[1] - q[1]])
+        })
+        .collect();
+    anchors.extend(resample(boundary.unwrap_or(&rect)).into_iter().map(|b| (b, [0.0, 0.0])));
+    let step = (0..(gx + 1) * (gy + 1))
+        .into_par_iter()
+        .map(|n| {
+            let p = [(n % (gx + 1)) as f64 * dw / gx as f64, (n / (gx + 1)) as f64 * dh / gy as f64];
+            if boundary.is_some_and(|b| !crate::mask::point_inside(b, p[0], p[1])) {
+                return [0.0, 0.0];
+            }
+            let (mut nx, mut ny, mut den) = (0.0, 0.0, 0.0);
+            for (q, v) in &anchors {
+                let (dx, dy) = (p[0] - q[0], p[1] - q[1]);
+                let d2 = dx * dx + dy * dy;
+                if d2 == 0.0 {
+                    return *v;
+                }
+                let w = d2.powf(-e / 2.0);
+                nx += w * v[0];
+                ny += w * v[1];
+                den += w;
+            }
+            [nx / den, ny / den]
+        })
+        .collect();
+    Field { gx, gy, step }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
