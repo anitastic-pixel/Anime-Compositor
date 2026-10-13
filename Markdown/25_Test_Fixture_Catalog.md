@@ -213468,3 +213468,127 @@ FX-PPLANE-056 (`fx_pplane_056.json`): Opacity Map "linear". The file is read, th
 FX-PPLANE-057 (`fx_pplane_057.json`): Birth Color "#12345": not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PPLANE-058 (`fx_pplane_058.json`): Transfer Mode "multiply". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Playground (D-613)
+
+Particle Playground (B-493, P0-6), after the purpose of After Effects' Particle Playground, the rules ours. Every case is a project of one composition 16 by 10 at 24 frames a second, the layer `holder` carrying the effect over the switched-off map layers. `tools/particle_playground_reference.py` works the expected frames, `Fixtures/particle_playground/expected_particle_playground.json`, tolerance 2e-5, and each particle's numbers for some cases, `Fixtures/particle_playground/particles_particle_playground.json`, tolerance 1e-7; the rule is in document 21.
+
+FX-PPG-001 (`fx_ppg_001.json`): The settings as added, at frames 0, 2 and 6: 20 red dots a second shot upwards from the middle at about 130 pixels a second, so fast they are out of the 16 by 10 layer within frames; the layer's own picture is gone. Frames 0, 2, 6.
+
+FX-PPG-002 (`fx_ppg_002.json`): One still red dot of radius 3 in the middle, born at frame 12: nothing at frame 11, the dot at frame 13 and the same at frame 30 (it never dies). Frames 11, 13, 30.
+
+FX-PPG-003 (`fx_ppg_003.json`): A tiny dot, radius 0.35: drawn at 0.7 and a quarter as strong. Frames 13.
+
+FX-PPG-004 (`fx_ppg_004.json`): A round barrel of radius 4 (Barrel Radius -4): dots born scattered in a disc about the middle. Frames 10.
+
+FX-PPG-005 (`fx_ppg_005.json`): A square barrel of radius 4: scattered in a square. Frames 10.
+
+FX-PPG-006 (`fx_ppg_006.json`): The fountain: shot upwards from near the bottom, spreading 20 degrees either side, slowing and falling back, at frames 12, 24 and 40. Frame 40 drawn alone is the same as after frames 0 to 39. Frames 12, 24, 40.
+
+FX-PPG-007 (`fx_ppg_007.json`): Direction 90: the fountain thrown to the right, falling. Frames 24.
+
+FX-PPG-008 (`fx_ppg_008.json`): Direction keyed from -60 to 60 over frames 0 to 24: the jet sweeps from upper left to upper right. Frames 24.
+
+FX-PPG-009 (`fx_ppg_009.json`): Particles Per Second keyed from 0 to 24 over frames 0 to 20. Frames 12, 24.
+
+FX-PPG-010 (`fx_ppg_010.json`): Cannon Color blue. Frames 24.
+
+FX-PPG-011 (`fx_ppg_011.json`): Gravity Direction 90: falling to the right. Frames 24.
+
+FX-PPG-012 (`fx_ppg_012.json`): Gravity Force Random Spread 40: each dot falls at its own rate. Frames 24.
+
+FX-PPG-013 (`fx_ppg_013.json`): Gravity keyed from 0 to 60 over frames 0 to 24. Frames 24.
+
+FX-PPG-014 (`fx_ppg_014.json`): Gravity only on dots older than about half a second (0.51): they rise straight, then fall. Frames 24.
+
+FX-PPG-015 (`fx_ppg_015.json`): Gravity only on dots younger than about half a second (0.51). Frames 24.
+
+FX-PPG-016 (`fx_ppg_016.json`): Gravity older than half a second with an Age Feather of 0.6: some dots start falling earlier, some later. Frames 24.
+
+FX-PPG-017 (`fx_ppg_017.json`): Gravity through the selection map: only dots over its white left half fall. Frames 24.
+
+FX-PPG-018 (`fx_ppg_018.json`): Gravity from the Grid only: the Cannon's dots fly on unbent. Frames 24.
+
+FX-PPG-019 (`fx_ppg_019.json`): The grid: 4 by 2 still yellow dots of radius 1 on a 12 by 6 grid, a new grid born on the last every frame, so the dots' soft edges fill in. Frames 0, 6.
+
+FX-PPG-020 (`fx_ppg_020.json`): The grid falling: a full grid born every frame, each falling from where it was born, streaks of dots under each grid point. Frames 6, 12.
+
+FX-PPG-021 (`fx_ppg_021.json`): Grid across keyed from 1 to 4 over frames 0 to 6, gravity 40. Frames 8.
+
+FX-PPG-022 (`fx_ppg_022.json`): The holder exploded into 2-pixel pieces: at frame 0 its own picture exactly, then flying apart slowly. Frames 0, 6, 12, 18.
+
+FX-PPG-023 (`fx_ppg_023.json`): Pieces of 4 pixels, Radius 2. Frames 12.
+
+FX-PPG-024 (`fx_ppg_024.json`): Pieces of 3 pixels, Radius 1.5: the right and bottom pieces cut short by the layer's edge. Frames 12.
+
+FX-PPG-025 (`fx_ppg_025.json`): The exploded pieces falling, gravity 20. Frames 12.
+
+FX-PPG-026 (`fx_ppg_026.json`): Exploding the logo layer, 4 by 4 in the middle: only its pieces. Frames 0, 12.
+
+FX-PPG-027 (`fx_ppg_027.json`): Exploding a layer that begins at frame 4, after the in point: nothing. Frames 12.
+
+FX-PPG-028 (`fx_ppg_028.json`): Auto-Orient on: each piece turned to the way it flies. Frames 12.
+
+FX-PPG-029 (`fx_ppg_029.json`): Fireworks: shells shot up, each bursting into 16 sparks about half a second (0.51) after it was shot, the sparks falling, at frames 18, 30 and 40. Frames 18, 30, 40.
+
+FX-PPG-030 (`fx_ppg_030.json`): Fireworks with no age limit on the exploder: every shell bursts at birth. Frames 18.
+
+FX-PPG-031 (`fx_ppg_031.json`): Exploder Radius 1: four sparks a shell. Frames 30.
+
+FX-PPG-032 (`fx_ppg_032.json`): The exploded pieces burst again into four sparks each about a quarter second (0.26) in. Frames 12.
+
+FX-PPG-033 (`fx_ppg_033.json`): Particles From for the exploder set to the Grid: the Cannon's shells fly on. Frames 30.
+
+FX-PPG-034 (`fx_ppg_034.json`): The Layer Map: each fountain dot shown as the 4 by 4 logo. Frames 24.
+
+FX-PPG-035 (`fx_ppg_035.json`): The Layer Map with Auto-Orient on: each logo turned to the way it flies. Frames 24.
+
+FX-PPG-036 (`fx_ppg_036.json`): The Layer Map only for dots older than about a second (1.01): young dots stay dots. Frames 36.
+
+FX-PPG-037 (`fx_ppg_037.json`): The Layer Map on the Grid: each still grid point the logo. Frames 3.
+
+FX-PPG-038 (`fx_ppg_038.json`): The Layer Map naming the late layer, at frame 2 (not yet begun): the dots affected are not drawn. Frames 2.
+
+FX-PPG-039 (`fx_ppg_039.json`): A wall: dots thrown every way inside the box mask bounce off its sides. Frames 12, 36.
+
+FX-PPG-040 (`fx_ppg_040.json`): The wall with gravity 40: dots bounce on the floor of the box. Frames 36.
+
+FX-PPG-041 (`fx_ppg_041.json`): The wall for the Grid only: the Cannon's dots go through it. Frames 36.
+
+FX-PPG-042 (`fx_ppg_042.json`): Wall Mask 0: no wall even with the mask there. Frames 36.
+
+FX-PPG-043 (`fx_ppg_043.json`): The fountain with the layer starting at frame 10: nothing at frame 9, frame 22 the same as PG-006's frame 12. Frames 9, 22.
+
+FX-PPG-044 (`fx_ppg_044.json`): The fountain with the layer moved 3 pixels right. Frames 24.
+
+FX-PPG-045 (`fx_ppg_045.json`): Random Seed 7: a different fountain. Frames 24.
+
+FX-PPG-046 (`fx_ppg_046.json`): Particles Per Second 0 and no grid: nothing. Frames 12.
+
+FX-PPG-047 (`fx_ppg_047.json`): The Explode Layer naming a layer that is not in the composition: no pieces, the fountain drawn, and EFFECT_LAYER_MISSING. Warning `EFFECT_LAYER_MISSING`. Frames 24.
+
+FX-PPG-048 (`fx_ppg_048.json`): Wall Mask 2 with only one mask: no wall, the dots drawn, and EFFECT_PATH_MISSING. Warning `EFFECT_PATH_MISSING`. Frames 36.
+
+FX-PPG-049 (`fx_ppg_049.json`): Particles Per Second -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPG-050 (`fx_ppg_050.json`): Direction Random Spread 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPG-051 (`fx_ppg_051.json`): Particles Across 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPG-052 (`fx_ppg_052.json`): Explode Radius 0.4, below 0.5. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPG-053 (`fx_ppg_053.json`): Gravity Older/Younger Than 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPG-054 (`fx_ppg_054.json`): Wall Mask -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPG-055 (`fx_ppg_055.json`): Particles From "everything". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPG-056 (`fx_ppg_056.json`): Auto-Orient "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPG-057 (`fx_ppg_057.json`): Cannon Color "#12345": not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPG-058 (`fx_ppg_058.json`): An Explode Layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPG-059 (`fx_ppg_059.json`): Cannon Position with one number. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPG-060 (`fx_ppg_060.json`): Velocity keyed to 20000 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
