@@ -87,7 +87,7 @@ B-484: `core.liquify` takes After Effects' Liquify controls (Tool, Brush Size, B
 | fx_liquify_020.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_liquify_021.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_liquify_001.json is saved with its six settings, the tool as a word and the stroke as an empty list | {"brush_pressure":50,"brush_size":64,"distortion_mesh_offset":[0,0],"distortion_percentage":100,"stroke":[],"tool":"warp"} | yes |
-| fx_liquify_016.json is refused in a sentence naming Liquify and its tool | Liquify's tool is warp, twirl_clockwise, twirl_counterclockwise, pucker, bloat or shift_pixels, and this is "freeze". | yes |
+| fx_liquify_016.json is refused in a sentence naming Liquify and its tool | Liquify's tool is warp, twirl_clockwise, twirl_counterclockwise, pucker, bloat, shift_pixels, turbulence, reflection, clone, reconstruction, freeze_area or thaw_area, and this is "freeze". | yes |
 | fx_liquify_017.json is refused in a sentence naming Liquify and its brush size | Liquify's brush size runs from 1 to 1000, and this is 0. | yes |
 | fx_liquify_018.json is refused in a sentence naming Liquify and its brush pressure | Liquify's brush pressure runs from 1 to 100, and this is 101. | yes |
 | fx_liquify_019.json is refused in a sentence naming Liquify and its stroke | Liquify's stroke is none, or x then y for each point, and this has 3 numbers. | yes |
@@ -101,7 +101,7 @@ B-484: `core.liquify` takes After Effects' Liquify controls (Tool, Brush Size, B
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| tool freeze is refused with a sentence, and nothing changes | Liquify's tool is warp, twirl_clockwise, twirl_counterclockwise, pucker, bloat or shift_pixels, and this is "freeze". | yes |
+| tool freeze is refused with a sentence, and nothing changes | Liquify's tool is warp, twirl_clockwise, twirl_counterclockwise, pucker, bloat, shift_pixels, turbulence, reflection, clone, reconstruction, freeze_area or thaw_area, and this is "freeze". | yes |
 | brush size 0 is refused with a sentence, and nothing changes | Liquify's brush size runs from 1 to 1000, and this is 0. | yes |
 | a stroke of three numbers is refused with a sentence, and nothing changes | Liquify's stroke is none, or x then y for each point, and this has 3 numbers. | yes |
 | the stroke keyed to end at 300 per cent across is refused with a sentence, and nothing changes | Liquify's stroke runs from -100 to 200, and this is 300. | yes |

@@ -3985,13 +3985,40 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("elasticity".into(), J::from(elasticity.as_str()));
         }
         // D-605: the stroke as one flat list, empty for none.
-        Effect::Liquify { tool, brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset } => {
+        Effect::Liquify {
+            tool,
+            brush_size,
+            brush_pressure,
+            stroke,
+            distortion_percentage,
+            distortion_mesh_offset,
+            turbulent_jitter,
+            clone_offset,
+            reconstruction_mode,
+            freeze_area_mask,
+            strokes,
+            ..
+        } => {
             params.insert("tool".into(), J::from(tool.as_str()));
             params.insert("brush_size".into(), num(*brush_size));
             params.insert("brush_pressure".into(), num(*brush_pressure));
             params.insert("stroke".into(), J::Array(stroke.iter().map(|v| num(*v)).collect()));
             params.insert("distortion_percentage".into(), num(*distortion_percentage));
             params.insert("distortion_mesh_offset".into(), J::Array(distortion_mesh_offset.iter().map(|c| num(*c)).collect()));
+            // D-700: a setting at its start, without keys, is written only if the file had it,
+            // so a file from before it saves the same. The freeze outline is the mask's, never
+            // saved here.
+            for (key, value, start) in [
+                ("turbulent_jitter", num(*turbulent_jitter), *turbulent_jitter == 70.0),
+                ("clone_offset", J::Array(clone_offset.iter().map(|c| num(*c)).collect()), *clone_offset == [0.0, 0.0]),
+                ("reconstruction_mode", J::from(reconstruction_mode.as_str()), reconstruction_mode == "revert"),
+                ("freeze_area_mask", num(*freeze_area_mask), *freeze_area_mask == 0.0),
+                ("strokes", J::Array(strokes.iter().map(|e| J::Array(e.iter().map(|v| num(*v)).collect())).collect()), strokes.is_empty()),
+            ] {
+                if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), value);
+                }
+            }
         }
         // D-604: the words as written.
         Effect::Warp { warp_style, warp_axis, bend, horizontal_distortion, vertical_distortion } => {
@@ -8639,6 +8666,16 @@ fn parse_effect(
             stroke: effect_list(params, "stroke", &at)?,
             distortion_percentage: effect_number(params, "distortion_percentage", &at)?,
             distortion_mesh_offset: effect_array(params, "distortion_mesh_offset", "two numbers, x then y", &at)?,
+            // D-700: settings added after the effect; a file without them is from before them.
+            turbulent_jitter: effect_number_or(params, "turbulent_jitter", &at, 70.0)?,
+            clone_offset: effect_pair_or(params, "clone_offset", &at, [0.0, 0.0])?,
+            reconstruction_mode: effect_word_or(params, "reconstruction_mode", &at, "revert")?,
+            freeze_area_mask: effect_number_or(params, "freeze_area_mask", &at, 0.0)?,
+            strokes: match params.and_then(|p| p.get("strokes")) {
+                Some(_) => effect_points(params, "strokes", &at)?,
+                None => Vec::new(),
+            },
+            freeze_path: None,
         }),
         // D-604: the words kept as written, so one outside the contract is refused by name.
         crate::effects::WARP => Some(crate::effects::Effect::Warp {

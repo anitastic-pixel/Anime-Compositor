@@ -398,43 +398,182 @@ fn liquify_dabs(stroke: &[f64], reach: f64, (dw, dh): (f64, f64)) -> Vec<([f64; 
     out
 }
 
-/// D-605: Liquify's backward field over the drawing `dw` by `dh`: each dab's step, by `tool`,
-/// added up at each corner of a grid of cells two pixels across (at most 256 each way).
-pub(crate) fn liquify_field(tool: &str, brush_size: f64, brush_pressure: f64, stroke: &[f64], (dw, dh): (f64, f64)) -> Field {
+/// D-605: the step one dab of D-605's six tools gives the corner `p`, `f` the brush's weight
+/// there, `c` the dab and `d` how far it moves.
+fn liquify_step(tool: &str, f: f64, p: [f64; 2], c: [f64; 2], d: [f64; 2]) -> [f64; 2] {
+    let (qx, qy) = (p[0] - c[0], p[1] - c[1]);
+    match tool {
+        "warp" => [-f * d[0], -f * d[1]],
+        "twirl_clockwise" | "twirl_counterclockwise" => {
+            let a = 0.2 * f * if tool == "twirl_clockwise" { -1.0 } else { 1.0 };
+            [qx * a.cos() - qy * a.sin() - qx, qx * a.sin() + qy * a.cos() - qy]
+        }
+        "pucker" => [0.2 * f * qx, 0.2 * f * qy],
+        "bloat" => [-0.2 * f * qx, -0.2 * f * qy],
+        _ => [-f * d[1], f * d[0]], // shift_pixels
+    }
+}
+
+/// D-700: Turbulence's value noise at (x, y) for channel `k`, as
+/// `tools/liquify_brushes_reference.py` has it: -1 to 1.
+fn liquify_noise(x: f64, y: f64, k: i64) -> f64 {
+    let hash = |i: i64, j: i64| {
+        let mut h = (73856093u32.wrapping_mul(i as u32)) ^ (19349663u32.wrapping_mul(j as u32)) ^ (83492791u32.wrapping_mul(k as u32));
+        h ^= h >> 13;
+        h = h.wrapping_mul(1540483477);
+        h ^= h >> 15;
+        2.0 * (h as f64 / 4294967296.0) - 1.0
+    };
+    let (i, j) = (x.floor(), y.floor());
+    let (u, v) = (x - i, y - j);
+    let (su, sv) = (u * u * (3.0 - 2.0 * u), v * v * (3.0 - 2.0 * v));
+    let (i, j) = (i as i64, j as i64);
+    let top = hash(i, j) + su * (hash(i + 1, j) - hash(i, j));
+    let bottom = hash(i, j + 1) + su * (hash(i + 1, j + 1) - hash(i, j + 1));
+    top + sv * (bottom - top)
+}
+
+/// D-700: what is wrong with one of Liquify's earlier strokes, if anything: its tool's number,
+/// brush size, brush pressure, turbulent jitter, clone offset x and y and mode's number, then
+/// one point or more, each held to its setting's range.
+pub(crate) fn liquify_stroke_fault(e: &[f64]) -> Option<String> {
+    if e.len() < 9 || e.len() % 2 == 0 {
+        return Some(format!("is its tool, brush size, brush pressure, turbulent jitter, clone offset x and y and reconstruction mode, then x then y for one point or more, and this has {} numbers", e.len()));
+    }
+    let whole = |v: f64, hi: f64| v.fract() == 0.0 && (0.0..=hi).contains(&v);
+    let limits = [("brush size", 1, 1.0, 1000.0), ("brush pressure", 2, 1.0, 100.0), ("turbulent jitter", 3, 1.0, 100.0), ("clone offset x", 4, -10000.0, 10000.0), ("clone offset y", 5, -10000.0, 10000.0)];
+    if !whole(e[0], 11.0) {
+        Some(format!("has tool number {}, and the tools are numbered 0 to 11", e[0]))
+    } else if !whole(e[6], 3.0) {
+        Some(format!("has reconstruction mode number {}, and the modes are numbered 0 to 3", e[6]))
+    } else if let Some((name, i, lo, hi)) = limits.into_iter().find(|&(_, i, lo, hi)| !(lo..=hi).contains(&e[i])) {
+        Some(format!("has {name} {}, and it is {lo} to {hi}", e[i]))
+    } else {
+        e[7..].iter().find(|v| !(-100.0..=200.0).contains(*v)).map(|v| format!("has a point at {v} per cent, and they are -100 to 200"))
+    }
+}
+
+/// D-605, D-700: Liquify's backward field over the drawing `dw` by `dh`, as
+/// `tools/liquify_brushes_reference.py` works it: each stroke in turn, `strokes` and then
+/// `stroke`, on a grid of cells two pixels across (at most 256 each way), held back where the
+/// freeze area mask or an earlier Freeze Area holds it. `None` when it draws nothing: no stroke,
+/// none of it drawn, or a freeze area mask named and not found.
+pub(crate) fn liquify(effect: &crate::effects::Effect, (dw, dh): (f64, f64)) -> Option<Field> {
+    let crate::effects::Effect::Liquify { tool, brush_size, brush_pressure, stroke, distortion_percentage, turbulent_jitter, clone_offset, reconstruction_mode, strokes, freeze_path, .. } = effect else {
+        return None;
+    };
+    if (stroke.is_empty() && strokes.is_empty()) || *distortion_percentage == 0.0 || freeze_path.as_ref().is_some_and(|p| p.is_empty()) {
+        return None;
+    }
+    use crate::effects::{LIQUIFY_MODES, LIQUIFY_TOOLS};
+    // Every stroke as (tool, brush size, pressure, jitter, clone offset, mode, points), oldest first.
+    let mut all: Vec<(&str, f64, f64, f64, [f64; 2], &str, &[f64])> =
+        strokes.iter().map(|e| (LIQUIFY_TOOLS[e[0] as usize], e[1], e[2], e[3], [e[4], e[5]], LIQUIFY_MODES[e[6] as usize], &e[7..])).collect();
+    if !stroke.is_empty() {
+        all.push((tool.as_str(), *brush_size, *brush_pressure, *turbulent_jitter, *clone_offset, reconstruction_mode.as_str(), stroke.as_slice()));
+    }
     let (gx, gy) = ((dw / 2.0).ceil().min(256.0) as usize, (dh / 2.0).ceil().min(256.0) as usize);
-    let reach = brush_size / 2.0;
-    let pressure = brush_pressure / 100.0;
-    let landed = liquify_dabs(stroke, reach, (dw, dh));
-    let step = (0..(gx + 1) * (gy + 1))
-        .into_par_iter()
-        .map(|n| {
-            let p = [(n % (gx + 1)) as f64 * dw / gx as f64, (n / (gx + 1)) as f64 * dh / gy as f64];
-            let mut s = [0.0, 0.0];
-            for &(c, d) in &landed {
-                let t = (p[0] - c[0]).hypot(p[1] - c[1]) / reach;
-                if t >= 1.0 {
-                    continue;
-                }
-                let e = 1.0 - t * t;
-                let f = pressure * (e * e);
-                let (qx, qy) = (p[0] - c[0], p[1] - c[1]);
-                let [a, b] = match tool {
-                    "warp" => [-f * d[0], -f * d[1]],
-                    "twirl_clockwise" | "twirl_counterclockwise" => {
-                        let a = 0.2 * f * if tool == "twirl_clockwise" { -1.0 } else { 1.0 };
-                        [qx * a.cos() - qy * a.sin() - qx, qx * a.sin() + qy * a.cos() - qy]
-                    }
-                    "pucker" => [0.2 * f * qx, 0.2 * f * qy],
-                    "bloat" => [-0.2 * f * qx, -0.2 * f * qy],
-                    _ => [-f * d[1], f * d[0]], // shift_pixels
-                };
-                s[0] += a;
-                s[1] += b;
+    let corner = |n: usize| [(n % (gx + 1)) as f64 * dw / gx as f64, (n / (gx + 1)) as f64 * dh / gy as f64];
+    let count = (gx + 1) * (gy + 1);
+    let inside: Vec<bool> = (0..count).map(|n| freeze_path.as_ref().is_some_and(|m| crate::mask::point_inside(m, corner(n)[0], corner(n)[1]))).collect();
+    let mut s = Field::still(gx, gy);
+    let mut z = vec![0.0; count];
+    for (tool, size, pressure, jitter, clone, mode, pts) in all {
+        let (reach, pressure) = (size / 2.0, pressure / 100.0);
+        let landed = liquify_dabs(pts, reach, (dw, dh));
+        let frozen: Vec<f64> = (0..count).map(|n| if inside[n] { 1.0 } else { z[n] }).collect();
+        let fall = |p: [f64; 2], c: [f64; 2]| {
+            let t = (p[0] - c[0]).hypot(p[1] - c[1]) / reach;
+            if t < 1.0 {
+                pressure * (1.0 - t * t).powi(2)
+            } else {
+                0.0
             }
-            s
-        })
-        .collect();
-    Field { gx, gy, step }
+        };
+        match tool {
+            "freeze_area" | "thaw_area" => {
+                for &(c, _) in &landed {
+                    for (n, z) in z.iter_mut().enumerate() {
+                        let f = fall(corner(n), c);
+                        *z = if tool == "freeze_area" { *z + f * (1.0 - *z) } else { *z - f * *z };
+                    }
+                }
+            }
+            "reflection" | "clone" | "reconstruction" => {
+                // Reconstruction's target, from the steps as the stroke began.
+                let a = [pts[0] / 100.0 * dw, pts[1] / 100.0 * dh];
+                let at = |x: f64, y: f64| s.at((dw, dh), x, y);
+                let (hx, hy) = (dw / gx as f64, dh / gy as f64);
+                let big_a = at(a[0], a[1]);
+                let (r, l, d, u) = (at(a[0] + hx, a[1]), at(a[0] - hx, a[1]), at(a[0], a[1] + hy), at(a[0], a[1] - hy));
+                let gxv = [0, 1].map(|k| (r[k] - l[k]) / (2.0 * hx));
+                let gyv = [0, 1].map(|k| (d[k] - u[k]) / (2.0 * hy));
+                let lin = if mode == "amplitwist" {
+                    let (al, be) = ((1.0 + gxv[0] + 1.0 + gyv[1]) / 2.0, (gxv[1] - gyv[0]) / 2.0);
+                    [[al - 1.0, -be], [be, al - 1.0]]
+                } else {
+                    [[gxv[0], gyv[0]], [gxv[1], gyv[1]]]
+                };
+                let target = |p: [f64; 2]| match mode {
+                    "revert" => [0.0, 0.0],
+                    "displace" => big_a,
+                    _ => [0, 1].map(|k| big_a[k] + lin[k][0] * (p[0] - a[0]) + lin[k][1] * (p[1] - a[1])),
+                };
+                let targets: Vec<[f64; 2]> = if tool == "reconstruction" { (0..count).map(|n| target(corner(n))).collect() } else { Vec::new() };
+                for &(c, d) in &landed {
+                    let before = Field { gx, gy, step: s.step.clone() };
+                    let ln = d[0].hypot(d[1]);
+                    s.step.par_iter_mut().enumerate().for_each(|(n, sn)| {
+                        let p = corner(n);
+                        let f = fall(p, c);
+                        if f == 0.0 {
+                            return;
+                        }
+                        let t = match tool {
+                            "reflection" => {
+                                if ln == 0.0 {
+                                    return;
+                                }
+                                let u = [d[0] / ln, d[1] / ln];
+                                let q = [p[0] - c[0], p[1] - c[1]];
+                                if u[0] * q[1] - u[1] * q[0] <= 0.0 {
+                                    return;
+                                }
+                                let dot = q[0] * u[0] + q[1] * u[1];
+                                [0, 1].map(|k| c[k] + 2.0 * dot * u[k] - q[k] - p[k])
+                            }
+                            "clone" => before.at((dw, dh), p[0] + clone[0], p[1] + clone[1]),
+                            _ => targets[n],
+                        };
+                        let g = f * (1.0 - frozen[n]);
+                        *sn = [0, 1].map(|k| sn[k] + g * (t[k] - sn[k]));
+                    });
+                }
+            }
+            _ => {
+                // D-605's six and Turbulence: every dab's step added, less the frozen share.
+                let jitter = jitter / 100.0;
+                s.step.par_iter_mut().enumerate().for_each(|(n, sn)| {
+                    let p = corner(n);
+                    for &(c, d) in &landed {
+                        let f = fall(p, c);
+                        if f == 0.0 {
+                            continue;
+                        }
+                        let st = if tool == "turbulence" {
+                            let a = 0.1 * f * jitter * reach;
+                            [a * liquify_noise(p[0] / reach, p[1] / reach, 0), a * liquify_noise(p[0] / reach, p[1] / reach, 1)]
+                        } else {
+                            liquify_step(tool, f, p, c, d)
+                        };
+                        sn[0] += (1.0 - frozen[n]) * st[0];
+                        sn[1] += (1.0 - frozen[n]) * st[1];
+                    }
+                });
+            }
+        }
+    }
+    Some(s)
 }
 
 /// D-606: how many points each of Reshape's outlines is resampled to.

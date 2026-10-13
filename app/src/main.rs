@@ -5008,6 +5008,13 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             stroke: Vec::new(),
             distortion_percentage: 100.0,
             distortion_mesh_offset: [0.0, 0.0],
+            // D-700: jitter 70, no clone offset, Revert, no freeze mask, no earlier stroke.
+            turbulent_jitter: 70.0,
+            clone_offset: [0.0, 0.0],
+            reconstruction_mode: "revert".to_string(),
+            freeze_area_mask: 0.0,
+            strokes: Vec::new(),
+            freeze_path: None,
         }),
         // D-604: Arc, horizontal, Bend 50, no distortion, as After Effects adds it.
         WARP => Some(Effect::Warp {
@@ -8033,6 +8040,13 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                 .filter(|p| !p.is_empty())
                 .map(|p| p.parse::<f64>().map_err(|_| format!("Stroke needs numbers, x then y for each point. Not \"{p}\".")))
                 .collect::<Result<Vec<_>, _>>()?;
+            // D-700: the new settings as added when the command leaves them out; the earlier
+            // strokes as the page sends them, a comma between strokes, none for none.
+            let or = |name: &str, start: f64| if parameter(query, name).is_some() { number(name) } else { Ok(start) };
+            let strokes = match parameter(query, "strokes") {
+                Some(t) if !t.trim().is_empty() => points("strokes")?,
+                _ => Vec::new(),
+            };
             Ok(Effect::Liquify {
                 tool: word("tool")?,
                 brush_size: number("brush_size")?,
@@ -8040,6 +8054,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                 stroke,
                 distortion_percentage: number("distortion_percentage")?,
                 distortion_mesh_offset: pair("distortion_mesh_offset")?,
+                turbulent_jitter: or("turbulent_jitter", 70.0)?,
+                clone_offset: if parameter(query, "clone_offset").is_some() { pair("clone_offset")? } else { [0.0, 0.0] },
+                reconstruction_mode: if parameter(query, "reconstruction_mode").is_some() { word("reconstruction_mode")? } else { "revert".to_string() },
+                freeze_area_mask: or("freeze_area_mask", 0.0)?,
+                strokes,
+                freeze_path: None,
             })
         }
         // D-604.
@@ -34881,10 +34901,22 @@ mod contract {
             "core.reshape",
             &[("source_mask", "1"), ("destination_mask", "2"), ("boundary_mask", "3"), ("percent", "60"), ("elasticity", "liquid")],
         ),
-        // D-605.
+        // D-605, D-700.
         (
             "core.liquify",
-            &[("tool", "pucker"), ("brush_size", "40"), ("brush_pressure", "70"), ("stroke", "50,50"), ("distortion_percentage", "120"), ("distortion_mesh_offset", "2,3")],
+            &[
+                ("tool", "pucker"),
+                ("brush_size", "40"),
+                ("brush_pressure", "70"),
+                ("stroke", "50,50"),
+                ("distortion_percentage", "120"),
+                ("distortion_mesh_offset", "2,3"),
+                ("turbulent_jitter", "40"),
+                ("clone_offset", "5,-5"),
+                ("reconstruction_mode", "displace"),
+                ("freeze_area_mask", "1"),
+                ("strokes", "10%2030%2050%2070%200%200%200%2020%2020"),
+            ],
         ),
         // D-604.
         (

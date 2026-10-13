@@ -2352,12 +2352,31 @@ pub enum Effect {
     /// one of [`WARP_STYLES`]; `warp_axis`, "horizontal" or "vertical"; `bend`,
     /// `horizontal_distortion` and `vertical_distortion`, -100 to 100.
     Warp { warp_style: String, warp_axis: String, bend: f64, horizontal_distortion: f64, vertical_distortion: f64 },
-    /// D-605: after After Effects' Liquify (`mesh::liquify_field`, document 21). `tool`, one of
+    /// D-605: after After Effects' Liquify (`mesh::liquify`, document 21). `tool`, one of
     /// [`LIQUIFY_TOOLS`]; `brush_size`, 1 to 1000 pixels; `brush_pressure`, 1 to 100;
     /// `stroke`, the brush's path, empty or x then y for each point, per cent of the drawing,
     /// -100 to 200; `distortion_percentage`, 0 to 200; `distortion_mesh_offset`, pixels,
-    /// -10000 to 10000.
-    Liquify { tool: String, brush_size: f64, brush_pressure: f64, stroke: Vec<f64>, distortion_percentage: f64, distortion_mesh_offset: [f64; 2] },
+    /// -10000 to 10000. D-700: `turbulent_jitter`, 1 to 100; `clone_offset`, pixels, -10000 to
+    /// 10000; `reconstruction_mode`, one of [`LIQUIFY_MODES`]; `freeze_area_mask`, 0 to 1000,
+    /// the mask numbered so, 0 for none; `strokes`, the strokes brushed before `stroke`, each
+    /// its tool's and mode's numbers in their lists with its settings, then its points
+    /// (`tools/liquify_brushes_reference.py`). `freeze_path` is not a setting and is never
+    /// saved: compose fills it each frame with the freeze area mask's outline, empty when the
+    /// mask named is not there.
+    Liquify {
+        tool: String,
+        brush_size: f64,
+        brush_pressure: f64,
+        stroke: Vec<f64>,
+        distortion_percentage: f64,
+        distortion_mesh_offset: [f64; 2],
+        turbulent_jitter: f64,
+        clone_offset: [f64; 2],
+        reconstruction_mode: String,
+        freeze_area_mask: f64,
+        strokes: Vec<Vec<f64>>,
+        freeze_path: Option<Vec<(f64, f64)>>,
+    },
     /// D-606: after After Effects' Reshape (`mesh::reshape_field`, document 21). `source_mask`,
     /// `destination_mask` and `boundary_mask`, 0 to 1000, the masks numbered so (their floors
     /// taken), 0 for none; `percent`, 0 to 100; `elasticity`, one of the words in
@@ -5595,8 +5614,26 @@ pub const PAGE_TURN_RENDERS: [&str; 3] = ["full", "front", "back"];
 pub const FLOW_MOTION_ANTIALIASING: [&str; 3] = ["low", "medium", "high"];
 /// D-377: Bend It's words for the drawing before Start, in the order the card numbers them.
 pub const BEND_IT_PRESTARTS: [&str; 4] = ["none", "static", "bend", "mirror"];
-/// D-605: Liquify's brushes, in After Effects' order.
-pub const LIQUIFY_TOOLS: [&str; 6] = ["warp", "twirl_clockwise", "twirl_counterclockwise", "pucker", "bloat", "shift_pixels"];
+/// D-605: Liquify's brushes, in After Effects' order; D-700's six more after them. A stroke in
+/// `strokes` names its tool by its place here.
+pub const LIQUIFY_TOOLS: [&str; 12] = [
+    "warp",
+    "twirl_clockwise",
+    "twirl_counterclockwise",
+    "pucker",
+    "bloat",
+    "shift_pixels",
+    "turbulence",
+    "reflection",
+    "clone",
+    "reconstruction",
+    "freeze_area",
+    "thaw_area",
+];
+
+/// D-700: what Liquify's Reconstruction brushes back toward; a stroke in `strokes` names its
+/// mode by its place here.
+pub const LIQUIFY_MODES: [&str; 4] = ["revert", "displace", "amplitwist", "affine"];
 
 /// D-604: Warp's styles, in After Effects' order.
 pub const WARP_STYLES: [&str; 15] = [
@@ -6853,12 +6890,16 @@ impl Effect {
                 ("boundary_mask", vec![boundary_mask], 0.0, 1000.0),
                 ("percent", vec![percent], 0.0, 100.0),
             ],
-            Effect::Liquify { brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset, .. } => vec![
+            Effect::Liquify { brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset, turbulent_jitter, clone_offset, freeze_area_mask, .. } => vec![
                 ("brush_size", vec![brush_size], 1.0, 1000.0),
                 ("brush_pressure", vec![brush_pressure], 1.0, 100.0),
                 ("stroke", stroke.iter_mut().collect(), -100.0, 200.0),
                 ("distortion_percentage", vec![distortion_percentage], 0.0, 200.0),
                 ("distortion_mesh_offset", distortion_mesh_offset.iter_mut().collect(), -10000.0, 10000.0),
+                // D-700.
+                ("turbulent_jitter", vec![turbulent_jitter], 1.0, 100.0),
+                ("clone_offset", clone_offset.iter_mut().collect(), -10000.0, 10000.0),
+                ("freeze_area_mask", vec![freeze_area_mask], 0.0, 1000.0),
             ],
             Effect::Warp { bend, horizontal_distortion, vertical_distortion, .. } => vec![
                 ("bend", vec![bend], -100.0, 100.0),
@@ -8843,9 +8884,16 @@ impl Effect {
             // D-607: the offset is a distance.
             Effect::MaskSmear { mask_offset, .. } => *mask_offset = mask_offset.map(scale),
             // D-605: the brush and the offset are distances; the stroke is a share of the drawing.
-            Effect::Liquify { brush_size, distortion_mesh_offset, .. } => {
+            // D-700: so are each earlier stroke's brush and clone offset, and the clone offset.
+            Effect::Liquify { brush_size, distortion_mesh_offset, clone_offset, strokes, .. } => {
                 *brush_size = scale(*brush_size);
-                *distortion_mesh_offset = distortion_mesh_offset.map(scale);
+                *distortion_mesh_offset = distortion_mesh_offset.map(&scale);
+                *clone_offset = clone_offset.map(&scale);
+                for e in strokes.iter_mut().filter(|e| e.len() >= 7) {
+                    for i in [1, 4, 5] {
+                        e[i] = scale(e[i]);
+                    }
+                }
             }
             // D-508: the paths as Path Stroke's; the points are shares of the drawing.
             Effect::EnergyStroke { core_size, glow_spread, distortion_amount, distortion_scale, .. } => {
@@ -10835,8 +10883,15 @@ impl Effect {
             )),
             // D-605: the brush by name, and the stroke in whole points.
             Effect::Liquify { tool, .. } if !LIQUIFY_TOOLS.contains(&tool.as_str()) => Some(format!(
-                "Liquify's tool is warp, twirl_clockwise, twirl_counterclockwise, pucker, bloat or shift_pixels, and this is \"{tool}\"."
+                "Liquify's tool is warp, twirl_clockwise, twirl_counterclockwise, pucker, bloat, shift_pixels, turbulence, reflection, clone, reconstruction, freeze_area or thaw_area, and this is \"{tool}\"."
             )),
+            // D-700: the mode by name, and each earlier stroke held to its settings' ranges.
+            Effect::Liquify { reconstruction_mode, .. } if !LIQUIFY_MODES.contains(&reconstruction_mode.as_str()) => Some(format!(
+                "Liquify's reconstruction mode is revert, displace, amplitwist or affine, and this is \"{reconstruction_mode}\"."
+            )),
+            Effect::Liquify { strokes, .. } if strokes.iter().any(|e| crate::mesh::liquify_stroke_fault(e).is_some()) => {
+                strokes.iter().enumerate().find_map(|(i, e)| crate::mesh::liquify_stroke_fault(e).map(|f| format!("Liquify's earlier stroke {} {f}.", i + 1)))
+            }
             Effect::Liquify { stroke, .. } if stroke.len() % 2 == 1 => Some(format!(
                 "Liquify's stroke is none, or x then y for each point, and this has {} numbers.",
                 stroke.len()
@@ -13540,10 +13595,10 @@ pub(crate) fn apply_stack_at(
                 }
             }),
             // D-605: the drawing pushed by the brush in its own space; the layer never grows.
-            Effect::Liquify { tool, brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset } => crate::perf::time(crate::perf::Stage::EffectLiquify, || {
-                if !stroke.is_empty() && *distortion_percentage != 0.0 {
-                    let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
-                    let field = crate::mesh::liquify_field(tool, *brush_size, *brush_pressure, stroke, size);
+            // D-700: every stroke, the freeze area mask compose found for this frame.
+            liquify @ Effect::Liquify { distortion_percentage, distortion_mesh_offset, .. } => crate::perf::time(crate::perf::Stage::EffectLiquify, || {
+                let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+                if let Some(field) = crate::mesh::liquify(liquify, size) {
                     crate::mesh::draw_field(source, &field, *distortion_percentage / 100.0, *distortion_mesh_offset, (ox, oy));
                 }
             }),

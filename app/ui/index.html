@@ -9778,7 +9778,7 @@ const EFFECT_SEARCH = {
   'core.page_turn': 'page turn cc page turn curl peel corner flip book paper fold turn over transition',
   'core.mask_smear': 'smear mask move turn scale rotate drag carry stretch boundary elasticity distort',
   'core.reshape': 'reshape morph mask shape pull stretch source destination boundary elasticity distort',
-  'core.liquify': 'liquify brush push smudge twirl pucker bloat pinch swell shift pixels warp paint distort',
+  'core.liquify': 'liquify brush push smudge twirl pucker bloat pinch swell shift pixels warp turbulence reflection clone reconstruction freeze thaw paint distort',
   'core.warp': 'warp arc arch bulge shell flag wave fish rise fisheye inflate squeeze twist bend envelope text warp',
   'core.mesh_warp': 'mesh warp grid vertices bend smooth liquify reshape distort warp lattice puppet',
   'core.bezier_warp': 'bezier warp curve curves bend outline edges tangents handles warp mesh distort reshape flag wave',
@@ -10069,7 +10069,7 @@ const EFFECT_ABOUT = {
   'core.page_turn': 'Curls a corner or an edge of the layer over like a page of a book, showing its back as paper or another layer.',
   'core.mask_smear': 'Carries the picture inside one of the layer\'s masks as that mask is moved, turned and scaled, the rest following; a second mask holds what lies outside it still. After Effects calls it Smear. Nothing moves until you choose the source mask and move it.',
   'core.reshape': 'Pulls the picture inside one of the layer\'s masks into the shape of another, the rest following; a third mask holds what lies outside it still. Nothing moves until you choose the source and destination masks.',
-  'core.liquify': 'Drags a brush along a stroke you type in to push, twirl, pinch or swell the layer under it.',
+  'core.liquify': 'Drags a brush along strokes you paint on the viewer or type in to push, twirl, pinch, swell, stir, mirror, copy or put back the layer under it; a Freeze Area stroke or a mask holds what it covers still.',
   'core.warp': 'Bends the layer into one of fifteen shapes, an arc, a flag, a bulge, a twist and more, by Bend, and leans it with the two Distortions.',
   'core.mesh_warp': 'Lays a grid over the layer and bends it smoothly with the grid\'s points, typed in as x then y for each.',
   'core.bezier_warp': 'Bends the layer to an outline of four curved edges: drag the corners and each edge\'s two handles.',
@@ -11623,9 +11623,12 @@ const EFFECT_PARAMS = {
     ['destination_mask', 'Destination Mask', 1, 1, 'the mask numbered so whose shape it is pulled into, 1 to 1000; 0 for none, nothing moves'],
     ['boundary_mask', 'Boundary Mask', 1, 1, 'the mask numbered so outside which nothing moves, 1 to 1000; 0 for the layer\'s own edge'],
     ['percent', 'Percent', 1, 1, '0 to 100, how far along the way to the destination']],
-  // D-605, After Effects' own controls; the tool and the stroke are in EFFECT_WORDS.
+  // D-605, D-700, After Effects' own controls; the tool, the mode and the strokes are in EFFECT_WORDS.
   'core.liquify': [['brush_size', 'Brush Size', 1, 1, '1 to 1000 pixels across'],
     ['brush_pressure', 'Brush Pressure', 1, 1, '1 to 100, how hard each dab pushes'],
+    ['turbulent_jitter', 'Turbulent Jitter', 1, 1, '1 to 100, how far the Turbulence brush stirs', 0, 70],
+    ['clone_offset', 'Clone Offset', 2, 1, 'pixels, where the Clone brush copies from, -10000 to 10000'],
+    ['freeze_area_mask', 'Freeze Area Mask', 1, 1, 'the mask numbered so whose inside never moves, 1 to 1000; 0 for none'],
     ['distortion_percentage', 'Distortion Percentage', 1, 1, '0 to 200, how much of the distortion is drawn'],
     ['distortion_mesh_offset', 'Distortion Mesh Offset', 2, 1, 'pixels, where the distortion sits, -10000 to 10000']],
   // D-604, After Effects' own controls; the style and axis are in EFFECT_WORDS.
@@ -12088,10 +12091,14 @@ const EFFECT_WORDS = {
   'core.mask_smear': { choices: [['elasticity', 'Elasticity', [['stiff', 'Stiff'], ['less_stiff', 'Less Stiff'], ['below_normal', 'Below Normal'], ['normal', 'Normal'], ['above_normal', 'Above Normal'], ['super_fluid', 'Super Fluid'], ['liquid', 'Liquid']]]] },
   // D-606: how far each edge's pull reaches.
   'core.reshape': { choices: [['elasticity', 'Elasticity', [['stiff', 'Stiff'], ['less_stiff', 'Less Stiff'], ['below_normal', 'Below Normal'], ['normal', 'Normal'], ['above_normal', 'Above Normal'], ['super_fluid', 'Super Fluid'], ['liquid', 'Liquid']]]] },
-  // D-605: the brush, and its path typed as one list.
-  'core.liquify': { choices: [['tool', 'Tool', [['warp', 'Warp'], ['twirl_clockwise', 'Twirl Clockwise'], ['twirl_counterclockwise', 'Twirl Counterclockwise'], ['pucker', 'Pucker'], ['bloat', 'Bloat'], ['shift_pixels', 'Shift Pixels']]]],
+  // D-605: the brush, and its path typed as one list. D-700: the rest of After Effects' brushes,
+  // Reconstruction's mode, and the strokes brushed before it, a comma between strokes.
+  'core.liquify': { choices: [['tool', 'Tool', [['warp', 'Warp'], ['twirl_clockwise', 'Twirl Clockwise'], ['twirl_counterclockwise', 'Twirl Counterclockwise'], ['pucker', 'Pucker'], ['bloat', 'Bloat'], ['shift_pixels', 'Shift Pixels'], ['turbulence', 'Turbulence'], ['reflection', 'Reflection'], ['clone', 'Clone'], ['reconstruction', 'Reconstruction'], ['freeze_area', 'Freeze Area'], ['thaw_area', 'Thaw Area']]],
+    ['reconstruction_mode', 'Reconstruction Mode', [['revert', 'Revert'], ['displace', 'Displace'], ['amplitwist', 'Amplitwist'], ['affine', 'Affine']]]],
     texts: [['stroke', 'Stroke', 'none: nothing painted', null,
-      'The brush\'s path, x then y for each point, per cent of the width and height, -100 to 200; one point is one dab']] },
+      'The brush\'s path, x then y for each point, per cent of the width and height, -100 to 200; one point is one dab'],
+    ['strokes', 'Earlier Strokes', 'none', null,
+      'Each stroke brushed before: its tool\'s number (0 Warp to 11 Thaw Area), brush size, pressure, jitter, clone offset x and y, mode number (0 Revert to 3 Affine), then its points; a comma between strokes']] },
   // D-604.
   'core.warp': { choices: [['warp_style', 'Warp Style', [['arc', 'Arc'], ['arc_lower', 'Arc Lower'], ['arc_upper', 'Arc Upper'], ['arch', 'Arch'], ['bulge', 'Bulge'], ['shell_lower', 'Shell Lower'], ['shell_upper', 'Shell Upper'], ['flag', 'Flag'], ['wave', 'Wave'], ['fish', 'Fish'], ['rise', 'Rise'], ['fisheye', 'Fisheye'], ['inflate', 'Inflate'], ['squeeze', 'Squeeze'], ['twist', 'Twist']]],
     ['warp_axis', 'Warp Axis', [['horizontal', 'Horizontal'], ['vertical', 'Vertical']]]] },
@@ -14425,6 +14432,39 @@ function effectRow(layer, fx, at, of) {
     dd.append(text);
     dl.append(dt, dd);
   }
+  // D-700: Liquify brushed on the viewer. While the button is on, each drag on the picture goes
+  // into the earlier strokes with the settings above as they are now, so changing the tool
+  // afterwards changes only the strokes still to come; a typed stroke goes in first, as drawn.
+  if (fxKey(fx) === 'core.liquify') {
+    const mine = liquifyBrush && liquifyBrush.id === fx.instance_id;
+    if (mine) {
+      liquifyBrush.send = (points) => {
+        const tools = EFFECT_WORDS['core.liquify'].choices[0][2].map((c) => c[0]);
+        const modes = EFFECT_WORDS['core.liquify'].choices[1][2].map((c) => c[0]);
+        const [cx, cy] = typed('clone_offset').split(',');
+        const kept = (p) => [tools.indexOf(words.tool), typed('brush_size'), typed('brush_pressure'),
+          typed('turbulent_jitter'), cx, cy, modes.indexOf(words.reconstruction_mode), ...p].join(' ');
+        const was = (words.stroke || '').split(/[\s,]+/).filter(Boolean);
+        words.strokes = [words.strokes, was.length ? kept(was) : '', kept(points)].filter(Boolean).join(', ');
+        words.stroke = '';
+        sendParameters();
+      };
+    }
+    const brush = Object.assign(document.createElement('button'),
+      { textContent: mine ? 'Stop brushing' : 'Brush on the viewer', className: mine ? 'on' : '' });
+    brush.title = 'While on, drag on the picture to paint a stroke with the brush above; Escape stops a stroke';
+    brush.setAttribute('aria-pressed', String(!!mine));
+    brush.onclick = () => {
+      liquifyBrush = mine ? null : { id: fx.instance_id, layer: layer.id, send: null };
+      drawEffects();
+    };
+    const clear = Object.assign(document.createElement('button'), { textContent: 'Clear strokes' });
+    clear.title = 'Take away every stroke, the one now and the earlier ones';
+    clear.onclick = () => { words.stroke = ''; words.strokes = ''; sendParameters(); };
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    dd.append(brush, ' ', clear);
+    dl.append(dd);
+  }
   // D-111: the graph of the curve picked above it, and its points as text under it, in then
   // out, a comma between points, for exact numbers and the keyboard. Enter or leaving the box
   // sends it; Escape puts it back. Points are not keyed.
@@ -16072,6 +16112,9 @@ $('guidebtn').onclick = () => look('guide');
 // D-255: the region box. The button arms a drag on the picture, or clears the box there is; the
 // box is the window's alone, like the looks, and is off while the view is turned (`drawRegion`).
 let regionArmed = false;
+// D-700: the Liquify brushing on the viewer, set by its button in the effect's controls, whose
+// `send` that panel puts in each time it is drawn.
+let liquifyBrush = null;
 function setRegion(box) {
   regionBox = box && box.map((v) => Math.round(v * 1e4) / 1e4);
   regionArmed = false;
@@ -16098,6 +16141,47 @@ $('regionbtn').onclick = () => {
   if (regionBox) setRegion(null);
   else { regionArmed = !regionArmed; drawRegion(); }
 };
+// D-700: a Liquify stroke brushed on the viewer, taken before the picture's own presses as the
+// box below is. Its points are per cent of the layer, a few pixels apart, and go at release, so
+// a stroke is one thing to undo. Escape lets go of it.
+stage.addEventListener('pointerdown', (e) => {
+  if (!liquifyBrush || e.button !== 0 || !doc) return;
+  const layer = layers().find((l) => l.id === liquifyBrush.layer);
+  const space = layer && layerSpace(layer);
+  if (!space || !liquifyBrush.send) {
+    liquifyBrush = null;
+    drawEffects();
+    return;
+  }
+  e.stopImmediatePropagation();
+  e.preventDefault();
+  const at = (m) => {
+    const [lx, ly] = space.toLayer(...atCanvas(m));
+    return [lx / space.w * 100, ly / space.h * 100];
+  };
+  const points = [at(e)];
+  const apart = 2 / Math.max(space.w, space.h) * 100;
+  try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+  $('status').textContent = 'Brushing; let go to apply the stroke, or Escape to drop it.';
+  const move = (m) => {
+    const p = at(m);
+    const last = points[points.length - 1];
+    if (Math.hypot(p[0] - last[0], p[1] - last[1]) >= apart) points.push(p);
+  };
+  const stop = (keep) => {
+    stage.removeEventListener('pointermove', move);
+    stage.removeEventListener('pointerup', up);
+    removeEventListener('keydown', escape, true);
+    $('status').textContent = '';
+    const inside = points.map(([x, y]) => [Math.min(200, Math.max(-100, x)), Math.min(200, Math.max(-100, y))]);
+    if (keep && liquifyBrush && liquifyBrush.send) liquifyBrush.send(inside.flat().map((v) => Math.round(v * 100) / 100));
+  };
+  const up = () => stop(true);
+  const escape = (k) => { if (k.key === 'Escape') { k.stopPropagation(); stop(false); } };
+  stage.addEventListener('pointermove', move);
+  stage.addEventListener('pointerup', up);
+  addEventListener('keydown', escape, true);
+}, true);
 // The press that draws the box is taken before the picture's own (selecting, moving, the
 // marquee), and goes nowhere else.
 stage.addEventListener('pointerdown', (e) => {

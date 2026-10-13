@@ -14748,16 +14748,15 @@ impl Gpu {
                     same(steps, &passes.warp, FxParams { mode: 151, ..Default::default() }, &k, None)
                 }
             },
-            // D-605, mesh::liquify_field, drawn as mesh::draw_field draws it: warp mode 151.
-            E::Liquify { tool, brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset } => {
-                if stroke.is_empty() || *distortion_percentage == 0.0 {
-                    (still.clone(), (w, h))
-                } else {
-                    let field = crate::mesh::liquify_field(tool, *brush_size, *brush_pressure, stroke, ((w - 2 * ox) as f64, (h - 2 * oy) as f64));
+            // D-605, D-700: mesh::liquify, worked on the processor, drawn as mesh::draw_field
+            // draws it: warp mode 151.
+            liquify @ E::Liquify { distortion_percentage, distortion_mesh_offset, .. } => match crate::mesh::liquify(liquify, ((w - 2 * ox) as f64, (h - 2 * oy) as f64)) {
+                None => (still.clone(), (w, h)),
+                Some(field) => {
                     let k = crate::mesh::field_numbers(&field, *distortion_percentage / 100.0, *distortion_mesh_offset, (w, h), f.origin);
                     same(steps, &passes.warp, FxParams { mode: 151, ..Default::default() }, &k, None)
                 }
-            }
+            },
             // D-604, mesh::warp_preset_mesh, drawn the same way.
             E::Warp { warp_style, warp_axis, bend, horizontal_distortion, vertical_distortion } => {
                 let size = ((w - 2 * ox) as f64, (h - 2 * oy) as f64);

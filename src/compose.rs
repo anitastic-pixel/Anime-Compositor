@@ -1581,8 +1581,11 @@ fn card_effect(
                 E::MaskSmear { paths, percent, .. } => paths.is_none() || *percent == 0.0,
                 // D-606: no source or destination, a mask named not found, or none of the way.
                 E::Reshape { paths, percent, .. } => paths.is_none() || *percent == 0.0,
-                // D-605: no stroke, or none of it drawn.
-                E::Liquify { stroke, distortion_percentage, .. } => stroke.is_empty() || *distortion_percentage == 0.0,
+                // D-605: no stroke, or none of it drawn; D-700: no earlier stroke either, or a
+                // freeze area mask named not found.
+                E::Liquify { stroke, strokes, distortion_percentage, freeze_path, .. } => {
+                    (stroke.is_empty() && strokes.is_empty()) || *distortion_percentage == 0.0 || freeze_path.as_ref().is_some_and(|p| p.is_empty())
+                }
                 // D-604: no bend and no distortion.
                 E::Warp { bend, horizontal_distortion, vertical_distortion, .. } => {
                     *bend == 0.0 && *horizontal_distortion == 0.0 && *vertical_distortion == 0.0
@@ -3336,6 +3339,30 @@ fn resolve_rest(
                 );
             } else if *source_mask >= 1.0 && *destination_mask >= 1.0 {
                 *paths = Some(found.into_iter().flatten().collect());
+            }
+        }
+    }
+    // D-700: each Liquify's freeze area mask, chosen as Reshape's are; a mask named and not
+    // found is an empty outline, which leaves the layer as it is, and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::Liquify { freeze_area_mask, freeze_path, .. } = &mut instance.effect {
+            *freeze_path = None;
+            if *freeze_area_mask >= 1.0 {
+                let found = masks.get(freeze_area_mask.floor() as usize - 1).filter(|m| m.enabled && m.points.len() >= 2).map(|m| m.outline());
+                if found.is_none() {
+                    log.record(
+                        frame,
+                        layer.name.clone(),
+                        Diagnostic::new(
+                            DiagnosticId::EffectPathMissing,
+                            Severity::Warning,
+                            format!("Layer {}'s Liquify has no mask {} that is on with two points or more, so it liquifies nothing.", layer.name, freeze_area_mask.floor()),
+                            format!("Frame {frame} is drawn without the liquify. The effect is kept as it is."),
+                        )
+                        .with_remediation("Draw the mask on the layer, or set Freeze Area Mask to a mask it has, or to 0."),
+                    );
+                }
+                *freeze_path = Some(found.unwrap_or_default());
             }
         }
     }
