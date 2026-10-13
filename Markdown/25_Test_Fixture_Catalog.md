@@ -213762,3 +213762,93 @@ FX-TW-031 (`fx_tw_031.json`): Red Weight 2, above 1. The file is read, the effec
 FX-TW-032 (`fx_tw_032.json`): Filtering written "sinc". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-TW-033 (`fx_tw_033.json`): Shutter Samples keyed to 100 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Playground's property mappers (D-614)
+
+Particle Playground's Persistent and Ephemeral Property Mappers (B-494, P0-6), the rules ours. Every case is a project of one composition 16 by 10 at 24 frames a second as D-613's, with a fourth map layer `ramp` (red rising left to right, green top to bottom, blue 128). `tools/particle_mapper_reference.py` works the expected frames, `Fixtures/particle_mapper/expected_particle_mapper.json`, tolerance 2e-5, and each particle's numbers for some cases, `Fixtures/particle_mapper/particles_particle_mapper.json`, tolerance 1e-7; the rule is in document 21.
+
+FX-PMAP-001 (`fx_pmap_001.json`): Persistent, red to Opacity 0 to 1: the still grid fades in from left to right. Frames 0, 6.
+
+FX-PMAP-002 (`fx_pmap_002.json`): Persistent, red to Scale 0.5 to 2: the grid's dots grow from left to right. Frames 6.
+
+FX-PMAP-003 (`fx_pmap_003.json`): Persistent, green to Red and blue to Blue: the yellow dots turn mint green, less red in the top row than the bottom, with the ramp's middle blue. Frames 6.
+
+FX-PMAP-004 (`fx_pmap_004.json`): Persistent, red to X 2.3 to 13.9: each fountain dot is pulled across to the place the ramp names under it, at every quarter frame. Frames 24.
+
+FX-PMAP-005 (`fx_pmap_005.json`): Persistent, green to Y Velocity -40 to 10: dots low on the ramp shot up, high ones slowed; the speed kept after they leave. Frames 24.
+
+FX-PMAP-006 (`fx_pmap_006.json`): Persistent, red to X Force -40 to 40: dots on the left pushed left, on the right pushed right, and kept pushed. Frames 24.
+
+FX-PMAP-007 (`fx_pmap_007.json`): Persistent for the Cannon only, red to Opacity: the grid stays solid, the fountain's dots fade by place. Frames 24.
+
+FX-PMAP-008 (`fx_pmap_008.json`): Persistent through the selection map: only the left half's dots take Scale 0.3. Frames 6.
+
+FX-PMAP-009 (`fx_pmap_009.json`): Persistent only for dots older than about half a second (0.51), red to Opacity: young dots solid, older ones faded by where they were. Frames 24.
+
+FX-PMAP-010 (`fx_pmap_010.json`): Persistent from the late layer (begins at frame 4) at frame 2: its map is clear, every channel 0, so Scale is its Min, 0.4, everywhere. Frames 2.
+
+FX-PMAP-011 (`fx_pmap_011.json`): Persistent, red to Angle 0 to 90 on the exploded holder: each piece turned by where it was. Frames 6.
+
+FX-PMAP-012 (`fx_pmap_012.json`): Persistent, red to Scale 0.5 to 1.5 on the Layer Map: each grid point the logo, smaller on the left. Frames 3.
+
+FX-PMAP-013 (`fx_pmap_013.json`): Fireworks, the shells coloured persistently by the ramp (green to Green 0 to 1): each burst's sparks keep their shell's colour. Frames 30.
+
+FX-PMAP-014 (`fx_pmap_014.json`): Persistent and the same property twice: red to Opacity, then green to Opacity 0.2 to 0.6; the green one wins, the grid fading by row. Frames 6.
+
+FX-PMAP-015 (`fx_pmap_015.json`): Persistent with every channel on None: the fountain as without it. Frames 24.
+
+FX-PMAP-016 (`fx_pmap_016.json`): Persistent, Max Red keyed 0 to 1 over frames 0 to 24, red to Opacity: the fountain's dots fainter the earlier they were mapped. Frames 24.
+
+FX-PMAP-017 (`fx_pmap_017.json`): Ephemeral Set, red to Opacity: the fountain's dots fade by where they are now. Frames 24.
+
+FX-PMAP-018 (`fx_pmap_018.json`): Ephemeral Add, green to Scale 0 to 1: dots bigger lower down. Frames 24.
+
+FX-PMAP-019 (`fx_pmap_019.json`): Ephemeral Difference, red to Opacity: |1 - red|, the dots fading to the right. Frames 6.
+
+FX-PMAP-020 (`fx_pmap_020.json`): Ephemeral Subtract, red to Scale 0 to 0.8: dots smaller to the right. Frames 6.
+
+FX-PMAP-021 (`fx_pmap_021.json`): Ephemeral Multiply, green to Opacity: the grid's top row fainter than its bottom. Frames 6.
+
+FX-PMAP-022 (`fx_pmap_022.json`): Ephemeral Min, red to Opacity 0.3 to 1: no dot more opaque than the ramp says. Frames 6.
+
+FX-PMAP-023 (`fx_pmap_023.json`): Ephemeral Max, red to Scale 0 to 2: dots on the right grown, those on the left kept at 1. Frames 6.
+
+FX-PMAP-024 (`fx_pmap_024.json`): Ephemeral Add, red to X -2 to 2: each dot drawn moved by the ramp, its path unchanged. Frames 24.
+
+FX-PMAP-025 (`fx_pmap_025.json`): Ephemeral Add, red to X Velocity -30 to 30: each step pushed by the ramp under it, the push not kept. Frames 24.
+
+FX-PMAP-026 (`fx_pmap_026.json`): Ephemeral Set, green to Y Force -60 to 60: dots high up pulled up, low ones down, only while there. Frames 24.
+
+FX-PMAP-027 (`fx_pmap_027.json`): Ephemeral Add, red to Angle 0 to 45 on the exploded holder with Auto-Orient: each piece turned a little more to the right. Frames 12.
+
+FX-PMAP-028 (`fx_pmap_028.json`): Ephemeral through the selection map, Scale 2: only dots over its white left half drawn twice the size. Frames 6.
+
+FX-PMAP-029 (`fx_pmap_029.json`): Ephemeral only for dots younger than about half a second (0.51), blue to Green 1: the young red dots yellow. Frames 24.
+
+FX-PMAP-030 (`fx_pmap_030.json`): Both: Persistent red to Opacity 0.3 to 1, then Ephemeral Multiply green to Opacity. Frames 24.
+
+FX-PMAP-031 (`fx_pmap_031.json`): Ephemeral Set Scale 0: nothing drawn. Frames 6.
+
+FX-PMAP-032 (`fx_pmap_032.json`): The wall with Ephemeral Add, red to X Velocity -20 to 20: the dots still bounce inside the box. Frames 36.
+
+FX-PMAP-033 (`fx_pmap_033.json`): Fireworks with Ephemeral Set, red to Red 0 to 1, for the Particle Exploder's sparks only. Frames 30.
+
+FX-PMAP-034 (`fx_pmap_034.json`): Persistent Map Layer naming a layer that is not in the composition: no mapping, the grid drawn as without it, and EFFECT_LAYER_MISSING. Warning `EFFECT_LAYER_MISSING`. Frames 6.
+
+FX-PMAP-035 (`fx_pmap_035.json`): Ephemeral Selection Map naming a missing layer: the mapper applies to every dot, and EFFECT_LAYER_MISSING. Warning `EFFECT_LAYER_MISSING`. Frames 6.
+
+FX-PMAP-036 (`fx_pmap_036.json`): Persistent Min Red -10001, below -10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMAP-037 (`fx_pmap_037.json`): Ephemeral Max Blue 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMAP-038 (`fx_pmap_038.json`): Persistent Age Feather -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMAP-039 (`fx_pmap_039.json`): Persistent Map Red To "mass", not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMAP-040 (`fx_pmap_040.json`): Ephemeral Operator "divide". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMAP-041 (`fx_pmap_041.json`): Ephemeral Particles From "everything". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMAP-042 (`fx_pmap_042.json`): A Persistent Map Layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PMAP-043 (`fx_pmap_043.json`): Ephemeral Max Green keyed to 20000 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
