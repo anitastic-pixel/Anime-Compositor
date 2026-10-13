@@ -54,6 +54,7 @@ Severity levels: INFO, WARNING, ERROR and FATAL. WARNING permits the current ope
 | GPU_OUT_OF_MEMORY | ERROR | GPU allocation failed | cancel request, free transient resources, advise lower preview scale |
 | EXPORT_WRITE_FAILED | ERROR | Output file could not be written | report completed frames and failing path |
 | EXPORT_CANCELLED | INFO | User cancelled export | preserve completed-frame list; no false success |
+| EXPORT_SOUND_CLIPPED | WARNING | An export's sound goes past full level (D-641) | write those samples at full level; say how many and from which frame; the file is written |
 | INVALID_PATH | ERROR | Path fails normalization/access policy | reject operation with remediation |
 | PACKAGE_DESTINATION_NOT_EMPTY | ERROR | Chosen package folder, or its `.partial` sibling, already holds something (D-61) | write nothing; ask for an empty or new folder |
 | PACKAGE_WRITE_FAILED | ERROR | A package file could not be written (D-61) | remove the partial folder; name the failing path; the open project is unchanged |

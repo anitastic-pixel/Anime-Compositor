@@ -640,6 +640,35 @@ impl Sound {
 // ponytail: the composition's own audio layers only. Sound through composition layers, keyed
 // level and pan are S-7 of D-638. A layer's stretch and time remap are not applied to its
 // sound, as D-71 never did.
+/// D-641: how many values of `sound` are past full level (above 1 or below -1), which an export
+/// writes at full level.
+pub fn clipped(sound: &[Vec<f64>; 2]) -> usize {
+    sound.iter().flatten().filter(|v| v.abs() > 1.0).count()
+}
+
+/// D-641: `sound` as a WAV, 48,000 a second, two channels, 24 bits: each value kept between -1
+/// and 1, times 8,388,607, rounded half away from nought.
+pub fn wav24(sound: &[Vec<f64>; 2]) -> Vec<u8> {
+    let n = sound[0].len();
+    let data = (n * 6) as u32;
+    let mut out = Vec::with_capacity(44 + n * 6);
+    out.extend_from_slice(b"RIFF");
+    out.extend_from_slice(&(36 + data).to_le_bytes());
+    out.extend_from_slice(b"WAVEfmt ");
+    for v in [16u32, 1 | 2 << 16, WORKING_RATE, WORKING_RATE * 6, 6 | 24 << 16] {
+        out.extend_from_slice(&v.to_le_bytes());
+    }
+    out.extend_from_slice(b"data");
+    out.extend_from_slice(&data.to_le_bytes());
+    for i in 0..n {
+        for c in sound {
+            let v = (c[i].clamp(-1.0, 1.0) * 8_388_607.0).round() as i32;
+            out.extend_from_slice(&v.to_le_bytes()[..3]);
+        }
+    }
+    out
+}
+
 pub fn mix(
     project: &crate::model::Project,
     root: &std::path::Path,

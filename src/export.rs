@@ -119,6 +119,22 @@ pub struct ExportChoices {
     /// D-231: how many frames are drawn at once. Nought, the default, lets the export choose
     /// from the machine and the picture's size. Every number writes the same bytes.
     pub frames_at_once: usize,
+    /// D-641: a PNG or EXR sequence, or an animated PNG, also writes the composition's sound as
+    /// a 24-bit WAV beside it, named by [`sound_file_name`]. Off is what was written before.
+    /// An MP4 carries its sound inside it, and a GIF carries none.
+    pub wav: bool,
+}
+
+/// D-641: the WAV beside a sequence: the naming up to its frame number (or its extension),
+/// without the separator before the number, then `.wav`. `shot_%04d.png` gives `shot.wav`,
+/// `film.png` gives `film.wav`, and a naming that is only a number gives `sound.wav`.
+pub fn sound_file_name(naming: &str) -> String {
+    let stem = match naming.find('%') {
+        Some(i) => &naming[..i],
+        None => naming.rsplit_once('.').map_or(naming, |(stem, _)| stem),
+    };
+    let stem = stem.trim_end_matches(['_', '-', '.', ' ']);
+    format!("{}.wav", if stem.is_empty() { "sound" } else { stem })
 }
 
 #[derive(Clone, Debug)]
@@ -240,7 +256,15 @@ pub fn export_sequence_watched(
     let frames: Vec<i32> = (request.first_frame..=request.last_frame).collect();
     report.frames_requested = frames.len();
     let one_file = request.format.is_one_file();
-    report.files_expected = if one_file { 1 } else { frames.len() };
+    // D-641: the WAV beside, when asked for and the format takes one.
+    let wav = request.choices.wav && !matches!(request.format, OutputFormat::Gif | OutputFormat::Mp4);
+    report.files_expected = if one_file { 1 } else { frames.len() } + wav as usize;
+    // D-641: the composition's sound goes into an MP4 when it has any audio layer switched on.
+    let sound_comp = project.composition(&request.composition);
+    let has_sound = sound_comp.is_some_and(|c| {
+        c.layers_in_order().any(|l| l.kind == crate::model::LayerKind::Audio && l.enabled)
+    });
+    let mut sound_said = SoundSaid::default();
     let film_path = request.output_dir.join(&request.naming);
     let mut film: Option<Film> = None;
 
@@ -485,6 +509,8 @@ pub fn export_sequence_watched(
                     },
                     OutputFormat::Mp4 => match crate::mp4_out::refusal(w, h) {
                         Some(why) => Err(why),
+                        None if has_sound => crate::mp4_out::Mp4::create_with_sound(&path, w, h, rate, request.choices.mp4_quality)
+                            .map(Film::Mp4),
                         None => crate::mp4_out::Mp4::create(&path, w, h, rate, request.choices.mp4_quality)
                             .map(Film::Mp4),
                     },
@@ -506,10 +532,19 @@ pub fn export_sequence_watched(
                 }
             }
             let written = match encoded {
-                Encoded::Film { srgb8, samples } => film
-                    .as_mut()
-                    .expect("the film was opened above")
-                    .push(buffer.width(), buffer.height(), &srgb8, &samples),
+                Encoded::Film { srgb8, samples } => {
+                    let film = film.as_mut().expect("the film was opened above");
+                    film.push(buffer.width(), buffer.height(), &srgb8, &samples).and_then(|()| match film {
+                        // D-641: each frame's sound goes in after its picture.
+                        Film::Mp4(mp4) if mp4.carries_sound() => {
+                            let comp = sound_comp.expect("an MP4 with sound has its composition");
+                            let (sound, left_out) = crate::audio::mix(project, root, comp, frame, 1);
+                            sound_said.heard(frame, &sound, left_out);
+                            mp4.push_sound(&sound)
+                        }
+                        _ => Ok(()),
+                    })
+                }
                 // A PNG was encoded with the fidelity mark its own frame's log called for. The job's
                 // log is the one that decides, and should an earlier frame have logged against this
                 // one, the file is encoded again here with the job's answer.
@@ -566,6 +601,42 @@ pub fn export_sequence_watched(
             done.fetch_add(1, Ordering::SeqCst);
         }
     }
+    if let Some(Film::Mp4(mp4)) = &film {
+        if has_sound && !mp4.carries_sound() {
+            report.diagnostics.push(Diagnostic::new(
+                DiagnosticId::MediaAudioPreviewOnly,
+                Severity::Warning,
+                "The MP4 was written with no sound.".to_string(),
+                "On this system an MP4 is written through ffmpeg, and this build gives that road \
+                 no sound."
+                    .to_string(),
+            ).with_remediation("Export a PNG sequence with its sound as a WAV beside it."));
+        }
+    }
+    // D-641: the WAV beside the frames, mixed in one go once every frame is written.
+    // ponytail: the whole range's sound is held at once (about 0.8 MB a second); write it in
+    // stretches if hour-long exports meet a short machine.
+    if let (true, Some(comp)) = (wav, sound_comp) {
+        let (sound, left_out) = crate::audio::mix(project, root, comp, request.first_frame, frames.len() as u32);
+        sound_said.heard(request.first_frame, &sound, left_out);
+        let path = request.output_dir.join(sound_file_name(&request.naming));
+        match std::fs::write(&path, crate::audio::wav24(&sound)) {
+            Ok(()) => report.written.push(path),
+            Err(e) => {
+                report.status = ExportStatus::Failed;
+                report.diagnostics.push(
+                    Diagnostic::new(
+                        DiagnosticId::ExportWriteFailed,
+                        Severity::Error,
+                        format!("The sound could not be written to {}.", path.display()),
+                        format!("{e}. The frames were written and were left in place."),
+                    )
+                    .with_remediation("Check that the folder is writable and has room, then export again."),
+                );
+            }
+        }
+    }
+    report.diagnostics.extend(sound_said.finish());
     if let Some(film) = film {
         match film.finish() {
             Ok(()) => report.written.push(film_path),
@@ -798,6 +869,52 @@ pub fn ranges(frames: &[i32]) -> String {
         i += 1;
     }
     out.join(", ")
+}
+
+/// D-641: what the sound of an export has to say: each layer left out, once, and how much went
+/// past full level.
+#[derive(Default)]
+struct SoundSaid {
+    left_out: Vec<(String, Diagnostic)>,
+    clipped: usize,
+    first: Option<i32>,
+}
+
+impl SoundSaid {
+    fn heard(&mut self, frame: i32, sound: &[Vec<f64>; 2], left_out: Vec<(String, Diagnostic)>) {
+        for (layer, d) in left_out {
+            if !self.left_out.iter().any(|(l, _)| *l == layer) {
+                self.left_out.push((layer, d));
+            }
+        }
+        let clipped = crate::audio::clipped(sound);
+        if clipped > 0 && self.first.is_none() {
+            self.first = Some(frame);
+        }
+        self.clipped += clipped;
+    }
+
+    fn finish(self) -> Vec<Diagnostic> {
+        let mut said: Vec<Diagnostic> = self.left_out.into_iter().map(|(_, d)| d).collect();
+        if let Some(first) = self.first {
+            said.push(
+                Diagnostic::new(
+                    DiagnosticId::ExportSoundClipped,
+                    Severity::Warning,
+                    format!(
+                        "The sound goes past full level in {} places, from frame {first} on, and was \
+                         written at full level there.",
+                        self.clipped
+                    ),
+                    "Sound layers add together, and a file cannot hold a value past full level, so \
+                     those samples were cut to it. That is heard as a crackle."
+                        .to_string(),
+                )
+                .with_remediation("Turn the loudest sound layers down and export again."),
+            );
+        }
+        said
+    }
 }
 
 fn invalid(message: String) -> Diagnostic {

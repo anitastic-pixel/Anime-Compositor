@@ -13244,13 +13244,19 @@ fn export_choices(query: Option<&str>) -> Result<ExportChoices, String> {
             }
         },
         gif_dither: parameter(query, "dither").as_deref() == Some("on"),
+        // D-641: the WAV beside a sequence or an animated PNG.
+        wav: parameter(query, "wav").as_deref() == Some("on"),
         ..ExportChoices::default()
     })
 }
 
 /// How the status line says what the job is written as, with the choice that was made.
 fn written_as(format: OutputFormat, choices: ExportChoices) -> String {
-    match format {
+    let beside = match format {
+        OutputFormat::Gif | OutputFormat::Mp4 => false,
+        _ => choices.wav,
+    };
+    let said = match format {
         OutputFormat::Png => String::new(),
         OutputFormat::Exr(ExrSamples::Half) => " as EXR, half float,".into(),
         OutputFormat::Exr(ExrSamples::Float) => " as EXR, full float,".into(),
@@ -13260,13 +13266,18 @@ fn written_as(format: OutputFormat, choices: ExportChoices) -> String {
         OutputFormat::Gif => " as one GIF, a preview of 256 colours a frame,".into(),
         OutputFormat::Apng => " as one animated PNG,".into(),
         OutputFormat::Mp4 => format!(
-            " as one MP4 at {} quality, over black and with no sound,",
+            " as one MP4 at {} quality, over black, with the composition's sound,",
             match choices.mp4_quality {
                 Mp4Quality::Preview => "Preview",
                 Mp4Quality::Standard => "Standard",
                 Mp4Quality::High => "High",
             }
         ),
+    };
+    if beside {
+        format!("{said} with its sound as a WAV beside it,")
+    } else {
+        said
     }
 }
 
@@ -13693,7 +13704,7 @@ struct QueueRow {
 
 /// The row's format as the panel names it, with the choice that was made.
 fn format_name(format: OutputFormat, choices: ExportChoices) -> String {
-    match format {
+    (match format {
         OutputFormat::Png => "PNG sequence".into(),
         OutputFormat::Exr(ExrSamples::Half) => "EXR sequence, half float".into(),
         OutputFormat::Exr(ExrSamples::Float) => "EXR sequence, full float".into(),
@@ -13701,7 +13712,7 @@ fn format_name(format: OutputFormat, choices: ExportChoices) -> String {
         OutputFormat::Gif => "GIF".into(),
         OutputFormat::Apng => "Animated PNG".into(),
         OutputFormat::Mp4 => format!("MP4, {:?}", choices.mp4_quality),
-    }
+    }) + if choices.wav && !matches!(format, OutputFormat::Gif | OutputFormat::Mp4) { ", with a WAV" } else { "" }
 }
 
 fn locked(export: &Mutex<Export>) -> std::sync::MutexGuard<'_, Export> {
@@ -21998,9 +22009,9 @@ mod editing {
         )
         .expect("the page");
         report.check(
-            "the list beside Export offers a GIF, and says it is a preview",
+            "the list beside Export offers a GIF, and says it is a preview with no sound (D-641)",
             true,
-            page.contains("<option value=\"gif\">GIF, a preview: 256 colours</option>"),
+            page.contains("<option value=\"gif\">GIF, a preview: 256 colours, no sound</option>"),
         );
         report.check(
             "and an animated PNG",
@@ -22137,8 +22148,28 @@ mod editing {
         let high = ExportChoices { mp4_quality: Mp4Quality::High, gif_dither: true, ..ExportChoices::default() };
         report.check(
             "the status line names the MP4's quality",
-            " as one MP4 at High quality, over black and with no sound,",
+            " as one MP4 at High quality, over black, with the composition's sound,",
             written_as(OutputFormat::Mp4, high),
+        );
+        report.check(
+            "D-641: `wav=on` asks for the WAV beside, and saying nothing does not",
+            "true, false",
+            format!(
+                "{}, {}",
+                export_choices(Some("format=png&wav=on")).expect("choices").wav,
+                export_choices(Some("format=png")).expect("choices").wav
+            ),
+        );
+        let wav = ExportChoices { wav: true, ..ExportChoices::default() };
+        report.check(
+            "D-641: the status line says the WAV is written beside a PNG sequence",
+            " with its sound as a WAV beside it,",
+            written_as(OutputFormat::Png, wav),
+        );
+        report.check(
+            "D-641: and says nothing of it beside a GIF, which carries no sound",
+            " as one GIF, a preview of 256 colours a frame,",
+            written_as(OutputFormat::Gif, wav),
         );
         report.check(
             "the status line says a GIF is dithered when it is",
@@ -22191,9 +22222,9 @@ mod editing {
         )
         .expect("the page");
         report.check(
-            "the list beside Export offers an MP4, and says what it leaves out",
+            "the list beside Export offers an MP4, and says it carries the sound (D-641)",
             true,
-            page.contains("<option value=\"mp4\">MP4 (H.264), over black, no sound</option>"),
+            page.contains("<option value=\"mp4\">MP4 (H.264), over black, with sound</option>"),
         );
         let into = std::env::temp_dir().join("anime_compositor_b21d_export");
         let _ = std::fs::remove_dir_all(&into);
@@ -35711,7 +35742,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 129] = [
+    const CONTROLS: [&str; 130] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -35825,6 +35856,7 @@ mod contract {
         "slatebtn",
         "snapshot",
         "solidcompsize",
+        "soundwav",
         "stripbtn",
         "tabboth",
         "tabgraph",

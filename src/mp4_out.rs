@@ -3,7 +3,8 @@
 //! Windows the frames go to an `ffmpeg` the user has installed instead (D-30's second road,
 //! B-21e), which ships no codec either.
 //!
-//! An MP4 has no alpha, so a frame is laid over black. It has no sound (D-71's ceiling).
+//! An MP4 has no alpha, so a frame is laid over black. D-641 (S-3 of D-638) gives it the
+//! composition's sound as AAC when the composition has any; Windows' road only.
 
 use std::path::Path;
 
@@ -61,7 +62,14 @@ fn starts_at(index: u64, rate: FrameRate) -> i64 {
 /// which is close to 24000/1001 and is not it. The pictures are untouched: only the numbers in
 /// the file's index (`moov`) change, each the same size as the one it replaces. Anything in the
 /// index this does not expect is an error rather than a guess.
-pub fn set_clock(path: &Path, rate: FrameRate, frames: u64) -> Result<(), String> {
+///
+/// D-641: `samples` is how much sound was written, 0 for a film without. The sound track keeps
+/// the encoder's own clock (48,000 a second); only its length in the film's clock is written,
+/// and an edit list is added that plays it from its first sample for exactly `samples`, so the
+/// encoder's padding after the end is not heard. Windows' AAC encoder hands its output already
+/// lined up with what it was given (the clicks land on their samples, FX-SOUND-EXP), so the
+/// start delay the edit list records is 0.
+pub fn set_clock(path: &Path, rate: FrameRate, frames: u64, samples: u64) -> Result<(), String> {
     use std::io::{Read, Seek, SeekFrom, Write};
     let (num, den) = (rate.numerator(), rate.denominator());
     let length = u32::try_from(frames * den as u64)
@@ -92,15 +100,58 @@ pub fn set_clock(path: &Path, rate: FrameRate, frames: u64) -> Result<(), String
     file.seek(SeekFrom::Start(at)).map_err(io)?;
     file.read_exact(&mut moov).map_err(io)?;
 
+    let heard = u32::try_from((samples as u128 * num as u128).div_ceil(48_000))
+        .map_err(|_| "the film is too long for an MP4's 32-bit clock".to_string())?;
     let mut seen = Vec::new();
-    patch(&mut moov, 8, moov_len as usize, num, den, length, frames, &mut seen)?;
+    patch(&mut moov, 8, moov_len as usize, num, den, length, frames, heard, &mut seen)?;
     for needed in ["mvhd", "tkhd", "mdhd", "stts"] {
         if seen.iter().filter(|s| *s == needed).count() != 1 {
             return Err(format!("the MP4's index does not hold exactly one {needed}"));
         }
     }
+    let tracks = seen.iter().filter(|s| *s == "soun").count();
+    if tracks != (samples > 0) as usize {
+        return Err(format!("the MP4 holds {tracks} sound tracks, and {} were written", (samples > 0) as usize));
+    }
+    if samples > 0 {
+        // The edit list goes straight after the sound track's header: one edit, from the
+        // track's time 0, lasting `heard`, at normal speed.
+        let mut edts = Vec::with_capacity(36);
+        for v in [36u32, u32::from_be_bytes(*b"edts"), 28, u32::from_be_bytes(*b"elst"), 0, 1, heard, 0, 0x0001_0000] {
+            edts.extend_from_slice(&v.to_be_bytes());
+        }
+        let (trak, tkhd_end) = sound_track(&moov).ok_or("the MP4's sound track has no header")?;
+        moov.splice(tkhd_end..tkhd_end, edts);
+        for box_at in [0, trak] {
+            let size = u32::from_be_bytes(moov[box_at..box_at + 4].try_into().unwrap()) + 36;
+            moov[box_at..box_at + 4].copy_from_slice(&size.to_be_bytes());
+        }
+        // Growing the index moves whatever follows it, so it must be last in the file.
+        if at + moov_len != file.metadata().map_err(io)?.len() {
+            return Err("the MP4's index is not at the end of the file, so it cannot grow".into());
+        }
+    }
     file.seek(SeekFrom::Start(at)).map_err(io)?;
     file.write_all(&moov).map_err(io)
+}
+
+/// Where the sound track (`trak` whose handler is `soun`) starts in `moov`, and where its
+/// header (`tkhd`) ends.
+fn sound_track(moov: &[u8]) -> Option<(usize, usize)> {
+    let get = |at: usize| u32::from_be_bytes(moov[at..at + 4].try_into().unwrap()) as usize;
+    let mut at = 8;
+    while at + 8 <= moov.len() {
+        let size = get(at);
+        let trak = &moov[at..at + size];
+        if &trak[4..8] == b"trak" && &trak[8 + 4..8 + 8] == b"tkhd" {
+            let hdlr = trak.windows(4).position(|w| w == b"hdlr")?;
+            if &trak[hdlr + 12..hdlr + 16] == b"soun" {
+                return Some((at, at + 8 + get(at + 8)));
+            }
+        }
+        at += size.max(8);
+    }
+    None
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -112,6 +163,7 @@ fn patch(
     den: u32,
     length: u32,
     frames: u64,
+    heard: u32,
     seen: &mut Vec<String>,
 ) -> Result<(), String> {
     let get = |b: &[u8], at: usize| u32::from_be_bytes(b[at..at + 4].try_into().unwrap());
@@ -123,8 +175,16 @@ fn patch(
             return Err(format!("the MP4's {name} box has a size that does not fit"));
         }
         let body = at + 8;
+        // D-641: the sound track keeps its own clock; only its length in the film's is written.
+        let sound = name == "trak" && b[body..at + size].windows(4).position(|w| w == b"hdlr").is_some_and(|h| &b[body + h + 12..body + h + 16] == b"soun");
         match name.as_str() {
-            "trak" | "mdia" | "minf" | "stbl" => patch(b, body, at + size, num, den, length, frames, seen)?,
+            "trak" if sound => {
+                sound_box(b, body, at + size, heard)?;
+                seen.push("soun".into());
+                at += size;
+                continue;
+            }
+            "trak" | "mdia" | "minf" | "stbl" => patch(b, body, at + size, num, den, length, frames, heard, seen)?,
             // version and flags, two dates, then the timescale and the duration.
             "mvhd" | "mdhd" => {
                 if b[body] != 0 {
@@ -161,6 +221,39 @@ fn patch(
             _ => {}
         }
         seen.push(name);
+        at += size;
+    }
+    Ok(())
+}
+
+/// D-641: inside the sound track: its header gets its length in the film's clock; a `ctts` is
+/// allowed only when every offset is 0 (what Windows writes); an edit list already there is
+/// refused, since `set_clock` adds its own.
+fn sound_box(b: &mut [u8], mut at: usize, end: usize, heard: u32) -> Result<(), String> {
+    let get = |b: &[u8], at: usize| u32::from_be_bytes(b[at..at + 4].try_into().unwrap());
+    while at + 8 <= end {
+        let size = get(b, at) as usize;
+        if size < 8 || at + size > end {
+            return Err("the MP4's sound track has a box with a size that does not fit".into());
+        }
+        let body = at + 8;
+        match &b[at + 4..at + 8] {
+            b"mdia" | b"minf" | b"stbl" => sound_box(b, body, at + size, heard)?,
+            b"tkhd" => {
+                if b[body] != 0 {
+                    return Err("the MP4's sound tkhd is a version this build does not rewrite".into());
+                }
+                b[body + 20..body + 24].copy_from_slice(&heard.to_be_bytes());
+            }
+            b"ctts" => {
+                let runs = get(b, body + 4) as usize;
+                if (0..runs).any(|r| get(b, body + 12 + r * 8) != 0) {
+                    return Err("the MP4's sound is reordered (a ctts with offsets), which this build does not rewrite".into());
+                }
+            }
+            b"edts" => return Err("the MP4's sound track already holds an edit list".into()),
+            _ => {}
+        }
         at += size;
     }
     Ok(())
@@ -249,6 +342,19 @@ pub mod through_ffmpeg {
                 })
         }
 
+        /// D-641: this road writes no sound (a gap); the export says so and the MP4 is silent.
+        pub fn create_with_sound(path: &Path, width: usize, height: usize, rate: FrameRate, quality: Mp4Quality) -> Result<Self, String> {
+            Self::create(path, width, height, rate, quality)
+        }
+
+        pub fn carries_sound(&self) -> bool {
+            false
+        }
+
+        pub fn push_sound(&mut self, _sound: &[Vec<f64>; 2]) -> Result<(), String> {
+            Ok(())
+        }
+
         pub fn push(&mut self, srgb8: &[u8]) -> Result<(), String> {
             let picture = nv12_bt709(srgb8, self.width, self.height);
             let sent = self.ffmpeg.stdin.as_mut().expect("opened piped").write_all(&picture);
@@ -300,6 +406,9 @@ mod on_windows {
         height: usize,
         rate: FrameRate,
         frames: u64,
+        /// D-641: the sound stream, when there is one, and the samples handed to it.
+        sound: Option<u32>,
+        samples: u64,
     }
 
     fn said(e: windows::core::Error) -> String {
@@ -327,13 +436,44 @@ mod on_windows {
         }
     }
 
+    /// D-641: 48,000 a second, two channels, 16 bits; AAC at 192 kilobits a second out, plain
+    /// samples in.
+    fn audio_type(format: &windows::core::GUID, bytes_a_second: u32) -> windows::core::Result<IMFMediaType> {
+        unsafe {
+            let t = MFCreateMediaType()?;
+            t.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Audio)?;
+            t.SetGUID(&MF_MT_SUBTYPE, format)?;
+            t.SetUINT32(&MF_MT_AUDIO_BITS_PER_SAMPLE, 16)?;
+            t.SetUINT32(&MF_MT_AUDIO_SAMPLES_PER_SECOND, 48_000)?;
+            t.SetUINT32(&MF_MT_AUDIO_NUM_CHANNELS, 2)?;
+            t.SetUINT32(&MF_MT_AUDIO_AVG_BYTES_PER_SECOND, bytes_a_second)?;
+            if *format == MFAudioFormat_PCM {
+                t.SetUINT32(&MF_MT_AUDIO_BLOCK_ALIGNMENT, 4)?;
+            }
+            Ok(t)
+        }
+    }
+
     impl Mp4 {
         pub fn create(path: &Path, width: usize, height: usize, rate: FrameRate, quality: Mp4Quality) -> Result<Self, String> {
+            Self::open(path, width, height, rate, quality, false)
+        }
+
+        /// D-641: the same film with a sound track, filled by [`Mp4::push_sound`].
+        pub fn create_with_sound(path: &Path, width: usize, height: usize, rate: FrameRate, quality: Mp4Quality) -> Result<Self, String> {
+            Self::open(path, width, height, rate, quality, true)
+        }
+
+        pub fn carries_sound(&self) -> bool {
+            self.sound.is_some()
+        }
+
+        fn open(path: &Path, width: usize, height: usize, rate: FrameRate, quality: Mp4Quality, with_sound: bool) -> Result<Self, String> {
             unsafe {
                 // Already initialised on this thread is an answer too, and not a failure.
                 let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
                 MFStartup(MF_VERSION, MFSTARTUP_FULL).map_err(said)?;
-                let open = || -> windows::core::Result<(IMFSinkWriter, u32)> {
+                let open = || -> windows::core::Result<(IMFSinkWriter, u32, Option<u32>)> {
                     let writer =
                         MFCreateSinkWriterFromURL(&HSTRING::from(path.as_os_str()), None, None)?;
                     let out = video_type(&MFVideoFormat_H264, width, height, rate)?;
@@ -349,11 +489,18 @@ mod on_windows {
                     let stream = writer.AddStream(&out)?;
                     let into = video_type(&MFVideoFormat_NV12, width, height, rate)?;
                     writer.SetInputMediaType(stream, &into, None)?;
+                    let sound = if with_sound {
+                        let sound = writer.AddStream(&audio_type(&MFAudioFormat_AAC, 24_000)?)?;
+                        writer.SetInputMediaType(sound, &audio_type(&MFAudioFormat_PCM, 192_000)?, None)?;
+                        Some(sound)
+                    } else {
+                        None
+                    };
                     writer.BeginWriting()?;
-                    Ok((writer, stream))
+                    Ok((writer, stream, sound))
                 };
                 match open() {
-                    Ok((writer, stream)) => Ok(Mp4 { path: path.to_path_buf(), writer, stream, width, height, rate, frames: 0 }),
+                    Ok((writer, stream, sound)) => Ok(Mp4 { path: path.to_path_buf(), writer, stream, width, height, rate, frames: 0, sound, samples: 0 }),
                     Err(e) => {
                         let _ = MFShutdown();
                         Err(said(e))
@@ -386,9 +533,45 @@ mod on_windows {
             write().map_err(said)
         }
 
+        /// D-641: the next stretch of the sound, 48,000 a second, left then right, each value
+        /// kept between -1 and 1 and rounded to 16 bits. Each stretch is stamped with the time of
+        /// its first sample, so the sound stays on its frames.
+        pub fn push_sound(&mut self, sound: &[Vec<f64>; 2]) -> Result<(), String> {
+            let Some(stream) = self.sound else { return Ok(()) };
+            let n = sound[0].len();
+            if n == 0 {
+                return Ok(());
+            }
+            let at = |s: u64| (s as u128 * 10_000_000 / 48_000) as i64;
+            let (from, to) = (at(self.samples), at(self.samples + n as u64));
+            self.samples += n as u64;
+            let mut bytes = Vec::with_capacity(n * 4);
+            for i in 0..n {
+                for c in sound {
+                    bytes.extend_from_slice(&((c[i].clamp(-1.0, 1.0) * 32767.0).round() as i16).to_le_bytes());
+                }
+            }
+            let write = || -> windows::core::Result<()> {
+                unsafe {
+                    let buffer = MFCreateMemoryBuffer(bytes.len() as u32)?;
+                    let mut data = std::ptr::null_mut();
+                    buffer.Lock(&mut data, None, None)?;
+                    std::ptr::copy_nonoverlapping(bytes.as_ptr(), data, bytes.len());
+                    buffer.Unlock()?;
+                    buffer.SetCurrentLength(bytes.len() as u32)?;
+                    let sample = MFCreateSample()?;
+                    sample.AddBuffer(&buffer)?;
+                    sample.SetSampleTime(from)?;
+                    sample.SetSampleDuration(to - from)?;
+                    self.writer.WriteSample(stream, &sample)
+                }
+            };
+            write().map_err(said)
+        }
+
         pub fn finish(self) -> Result<(), String> {
             unsafe { self.writer.Finalize() }.map_err(said)?;
-            set_clock(&self.path, self.rate, self.frames)
+            set_clock(&self.path, self.rate, self.frames, self.samples)
         }
     }
 

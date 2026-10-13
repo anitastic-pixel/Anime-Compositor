@@ -1842,8 +1842,8 @@
       <option value="exr-half">EXR, half float</option>
       <option value="exr-float">EXR, full float, lossless</option>
       <option value="apng">Animated PNG, 8-bit, lossless</option>
-      <option value="gif">GIF, a preview: 256 colours</option>
-      <option value="mp4">MP4 (H.264), over black, no sound</option>
+      <option value="gif">GIF, a preview: 256 colours, no sound</option>
+      <option value="mp4">MP4 (H.264), over black, with sound</option>
     </select>
     <select id="filmquality" hidden title="How many bits the MP4 may spend. High is for flat colour, where a low number shows as blocks; Preview is a small file to send someone">
       <option value="preview">Preview, smallest</option>
@@ -1851,6 +1851,7 @@
       <option value="high">High, largest</option>
     </select>
     <label id="ditherlabel" hidden title="Mixes dots of the 256 colours so soft shading does not fall into bands. A bigger file, and a fine grain in the picture"><input type="checkbox" id="gifdither">Dither</label>
+    <label id="wavlabel" hidden title="Also writes the composition's sound as a 24-bit WAV file in the same folder, named like the frames. An MP4 carries its sound inside it; a GIF cannot carry sound"><input type="checkbox" id="soundwav">Sound as a WAV beside it</label>
     <label><input type="checkbox" id="anyway">Write frames whose drawing is missing</label>
     </div>
   </div></span>
@@ -8781,7 +8782,7 @@ function drawInspector() {
     level.onchange = () => command('/layer.set_gain?layer=' + encodeURIComponent(layer.id)
       + '&value=' + encodeURIComponent(level.value));
     dl.lastChild.append(level, ' dB');
-    field(dl, 'Heard', 'in the window only: no sound goes into an export');
+    field(dl, 'Heard', 'in the window, in an MP4 export, and in a WAV beside frames when asked for');
     into.replaceChildren(dl);
     return;
   }
@@ -18582,6 +18583,8 @@ const exportChoices = () => 'format=' + $('exportformat').value
   // D-73: each choice travels only with the format it belongs to.
   + ($('exportformat').value === 'mp4' ? '&quality=' + $('filmquality').value : '')
   + ($('exportformat').value === 'gif' && $('gifdither').checked ? '&dither=on' : '')
+  // D-641: the WAV beside travels with the formats that take one.
+  + (!$('wavlabel').hidden && $('soundwav').checked ? '&wav=on' : '')
   + ($('anyway').checked ? '&missing=write' : '');
 $('export').onclick = () => command('/export?' + exportChoices());
 // D-251: the same choices, kept in a row of the Render panel's queue rather than written now.
@@ -18590,6 +18593,7 @@ $('addtoqueue').onclick = () => askQueue('do=add&' + exportChoices());
 const showExportChoices = () => {
   $('filmquality').hidden = $('exportformat').value !== 'mp4';
   $('ditherlabel').hidden = $('exportformat').value !== 'gif';
+  $('wavlabel').hidden = ['gif', 'mp4'].includes($('exportformat').value);
 };
 try {
   const kept = sessionStorage.getItem('exportformat');
@@ -18601,6 +18605,7 @@ try {
     $('filmquality').value = quality;
   }
   $('gifdither').checked = sessionStorage.getItem('gifdither') === 'on';
+  $('soundwav').checked = sessionStorage.getItem('soundwav') === 'on';
 } catch (e) { /* no storage: the list starts on PNG */ }
 showExportChoices();
 $('exportformat').onchange = (e) => {
@@ -18613,6 +18618,9 @@ $('filmquality').onchange = (e) => {
 };
 $('gifdither').onchange = (e) => {
   try { sessionStorage.setItem('gifdither', e.target.checked ? 'on' : 'off'); } catch (err) { /* as above */ }
+};
+$('soundwav').onchange = (e) => {
+  try { sessionStorage.setItem('soundwav', e.target.checked ? 'on' : 'off'); } catch (err) { /* as above */ }
 };
 $('cancelexport').onclick = () => command('/cancel-export');
 // W-45 (D-248): the Render panel. One item, the open composition, rendered by the same Export and

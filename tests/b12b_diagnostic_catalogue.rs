@@ -262,6 +262,11 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "D-639_sound_read_table.md",
     ),
     (
+        DiagnosticId::ExportSoundClipped,
+        "EXPORT_SOUND_CLIPPED",
+        "D-641_sound_export_table.md",
+    ),
+    (
         DiagnosticId::TimesheetNotFound,
         "TIMESHEET_NOT_FOUND",
         "B-28b_timesheet_table.md",
@@ -462,7 +467,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "66 identifiers",
+        "67 identifiers",
         format!("{} identifiers", listed.len()),
     );
 
