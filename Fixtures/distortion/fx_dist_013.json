@@ -1,0 +1,68 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx_dist_013",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-0",
+      "kind": "audio",
+      "name": "probe",
+      "path": "media/probe.wav"
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 4,
+      "height": 2,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 48,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 48
+      },
+      "layer_order": [
+        "sound0"
+      ],
+      "layers": [
+        {
+          "id": "sound0",
+          "kind": "audio",
+          "name": "sound 0",
+          "asset_id": "asset-0",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 48,
+          "source_offset_frames": 0,
+          "gain_db": 0,
+          "effects": [
+            {
+              "instance_id": "dist-0",
+              "type_id": "core.distortion",
+              "enabled": true,
+              "parameters": {
+                "type": "hard_clip",
+                "drive": 0,
+                "gain": 25.0,
+                "wet": 100.0,
+                "volume": 11.0,
+                "resolution": 24.0,
+                "downsample": 4
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
