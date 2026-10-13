@@ -204783,7 +204783,7 @@ FX-GRADE-032 (`fx_grade_032.json`): Shadow tint hue 361, past a full turn. The f
 
 FX-GRADE-033 (`fx_grade_033.json`): Vignette amount 5.5, above 5. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
-FX-GRADE-034 (`fx_grade_034.json`): Vignette roundness -20: Lumetri's squarer vignette, below 0, which this effect does not draw (a gap). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+FX-GRADE-034 (`fx_grade_034.json`): Vignette roundness -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 ### Color Grade, second unit (D-398)
 
@@ -211890,6 +211890,42 @@ FX-GRADE3-032 (`fx_grade3_032.json`): Key denoise 101, above 100. The file is re
 FX-GRADE3-033 (`fx_grade3_033.json`): Key blur -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-GRADE3-034 (`fx_grade3_034.json`): Secondary highlight lightness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Color Grade, fourth unit (D-637)
+
+Color Grade's fourth unit (B-517): Lumetri's Creative Sharpen (the Sharpen effect's rule at a 1-pixel blur, softening below 0), after the faded film and before the vibrance, and the vignette's roundness below 0, squarer, -100 a rectangle. The drawing and look file are FX-GRADE's (`media/colours.png`, `luts/look.cube`). `tools/color_grade_4_reference.py` writes the projects and `expected_color_grade_4.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-GRADE4-001 (`fx_grade4_001.json`): Every setting as added, sharpen written at 0: the drawing exactly as it is. Frame 0.
+
+FX-GRADE4-002 (`fx_grade4_002.json`): Sharpen 100: each colour pushed away from its 1-pixel blur, so the edges between the colour columns harder; flat runs untouched. Frame 0.
+
+FX-GRADE4-003 (`fx_grade4_003.json`): Sharpen 50: half FX-GRADE4-002's push. Frame 0.
+
+FX-GRADE4-004 (`fx_grade4_004.json`): Sharpen -100: each colour its 1-pixel blur, the drawing softened. Frame 0.
+
+FX-GRADE4-005 (`fx_grade4_005.json`): Sharpen -40: four tenths of the way to the blur. Frame 0.
+
+FX-GRADE4-006 (`fx_grade4_006.json`): Sharpen keyed from -100 at frame 0 to 100 at frame 4, linear: the blur at frame 0, the drawing at frame 2, FX-GRADE4-002 at frame 4. Frames 0, 2, 4.
+
+FX-GRADE4-007 (`fx_grade4_007.json`): Faded film 40, sharpen 80, vibrance 50: the sharpen works on the faded colours and the vibrance on the sharpened ones, in that order. Frame 0.
+
+FX-GRADE4-008 (`fx_grade4_008.json`): Sharpen 60 moved three pixels right: the same, moved. Frame 0.
+
+FX-GRADE4-009 (`fx_grade4_009.json`): A dark vignette (amount -3, feather 20) at roundness -100: a rectangle the layer's shape, so the corners darken no more than the edges' middles. Frame 0.
+
+FX-GRADE4-010 (`fx_grade4_010.json`): The same at roundness -50: between the rectangle and roundness 0's ellipse, the corners a little darker than the edges' middles. Frame 0.
+
+FX-GRADE4-011 (`fx_grade4_011.json`): A light vignette (amount 2, midpoint 20, feather 10) at roundness -20: just squarer than roundness 0. Frame 0.
+
+FX-GRADE4-012 (`fx_grade4_012.json`): FX-GRADE4-009's vignette with roundness keyed from -100 at frame 0 to 100 at frame 4, linear: the rectangle, roundness 0's ellipse, a circle. Frames 0, 2, 4.
+
+FX-GRADE4-013 (`fx_grade4_013.json`): A whole grade with sharpen 30 and roundness -60, every section in its order. Frame 0.
+
+FX-GRADE4-014 (`fx_grade4_014.json`): A D-571 file without sharpen, a strong vignette: D-571's own picture. Frame 0.
+
+FX-GRADE4-015 (`fx_grade4_015.json`): Sharpen 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRADE4-016 (`fx_grade4_016.json`): Sharpen -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 ### CC Force Motion Blur (D-581)
 
