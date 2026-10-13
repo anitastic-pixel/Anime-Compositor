@@ -3286,6 +3286,21 @@ pub enum Effect {
         values: [f64; 3],
         words: [String; 1],
     },
+    /// D-677: Star Burst, after CycoreFX's CC Star Burst, its rule and settings when added ours
+    /// (`simulate::star_burst`, document 21): the layer broken into a grid of stars, each the
+    /// picture's colour where it was, flying through space towards the eye and coming round
+    /// again from far off. `values`, the settings of [`STAR_BURST_SETTINGS`] in that order.
+    /// `clock`, `view` and `history` are not settings and are never saved, filled by compose as
+    /// Particle Space's are: the frames since the in point and the frames a second; the
+    /// composition camera in the layer's own pixels [1, x, y, distance] when the file has one,
+    /// else zeros; the settings at each frame from the in point to this one when any is keyed
+    /// (document 20).
+    StarBurst {
+        values: [f64; 6],
+        clock: [f64; 2],
+        view: [f64; 4],
+        history: Option<std::sync::Arc<Vec<[f64; 6]>>>,
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -5339,6 +5354,20 @@ pub const SCATTERIZE_SETTINGS: [(&str, f64, f64, f64); 3] = [
 ];
 /// D-676: Scatterize's words: name, the words, the word when added.
 pub const SCATTERIZE_WORDS: [(&str, &[&str], &str); 1] = [("transfer_mode", &["composite", "screen", "add", "alpha_add"], "composite")];
+pub const STAR_BURST: &str = "core.star_burst";
+/// D-677: Star Burst's keyable settings, in the order `values` holds them: name, lowest, highest,
+/// and the value when the effect is added. Scatter in per cent of the grid spacing and of the
+/// field's depth; speed in picture heights a second and phase in picture heights, towards the
+/// eye; grid spacing in 270ths of the picture's height; size in per cent of half the grid
+/// spacing; blend with original in per cent.
+pub const STAR_BURST_SETTINGS: [(&str, f64, f64, f64); 6] = [
+    ("scatter", 0.0, 100.0, 100.0),
+    ("speed", -100.0, 100.0, 1.0),
+    ("phase", -1000.0, 1000.0, 0.0),
+    ("grid_spacing", 0.5, 100.0, 4.0),
+    ("size", 0.0, 1000.0, 100.0),
+    ("blend_with_original", 0.0, 100.0, 0.0),
+];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -5868,6 +5897,11 @@ impl Effect {
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .collect(),
             Effect::Scatterize { values, .. } => SCATTERIZE_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .collect(),
+            Effect::StarBurst { values, .. } => STAR_BURST_SETTINGS
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
@@ -8940,6 +8974,13 @@ impl Effect {
                     *v = scale(*v);
                 }
             }
+            // D-677: every length a share of the picture's height; only the composition camera
+            // compose found is in pixels.
+            Effect::StarBurst { view, .. } => {
+                for v in &mut view[1..] {
+                    *v = scale(*v);
+                }
+            }
             // D-424: the stroke's width and the wobble are distances; the brush is a share.
             Effect::GlueGun { stroke_width, wobble_width, wobble_height, light_type, light_height, .. } => {
                 *stroke_width = scale(*stroke_width);
@@ -9231,6 +9272,7 @@ impl Effect {
             Effect::PolygonShards { .. } => "Polygon Shards",
             Effect::Foam { .. } => "Foam",
             Effect::Scatterize { .. } => "Scatterize",
+            Effect::StarBurst { .. } => "Star Burst",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -9506,6 +9548,7 @@ impl Effect {
             Effect::PolygonShards { .. } => POLYGON_SHARDS,
             Effect::Foam { .. } => FOAM,
             Effect::Scatterize { .. } => SCATTERIZE,
+            Effect::StarBurst { .. } => STAR_BURST,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -13846,6 +13889,11 @@ pub(crate) fn apply_stack_at(
             // D-676: the dots in the drawing's own space, cut at its edges; never grows.
             e @ Effect::Scatterize { .. } => {
                 crate::perf::time(crate::perf::Stage::EffectScatterize, || crate::simulate::scatterize(source, e, (ox, oy)))
+            }
+            // D-677: the stars through the composition camera or its own, in the drawing's own
+            // space, cut at its edges; never grows.
+            e @ Effect::StarBurst { .. } => {
+                crate::perf::time(crate::perf::Stage::EffectStarBurst, || crate::simulate::star_burst(source, e, (ox, oy)))
             }
             // D-610: the particles drawn through the composition camera or its own; never grows.
             e @ Effect::ParticleSpace { .. } => crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {

@@ -6,7 +6,7 @@
 //! No state is carried from frame to frame (document 20): every frame is worked from the layer's
 //! in point, so a frame drawn alone equals the same frame played from the start.
 
-use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS, HAIR_SETTINGS, MERCURY_SETTINGS, POLYGON_SHARDS_SETTINGS, FOAM_SETTINGS, SCATTERIZE_SETTINGS};
+use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS, HAIR_SETTINGS, MERCURY_SETTINGS, POLYGON_SHARDS_SETTINGS, FOAM_SETTINGS, SCATTERIZE_SETTINGS, STAR_BURST_SETTINGS};
 use crate::particles::{tile_lists, HEAD, STRIDE, TILE};
 use crate::WorkingBuffer;
 use rayon::prelude::*;
@@ -1349,4 +1349,115 @@ pub(crate) fn scatterize(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usiz
             *v = o as f32;
         }
     }
+}
+
+/// D-677: Star Burst's speed summed from the in point, in seconds (the reference's S), a
+/// trapezoid sum over the speed at each frame from the in point to this one; without a history
+/// (nothing keyed) the speed is steady, so it is the speed times the time.
+fn star_sum(now: &[f64; 6], [u, fps]: [f64; 2], history: Option<&[[f64; 6]]>) -> f64 {
+    if fps <= 0.0 || u <= 0.0 {
+        return 0.0;
+    }
+    let held = |v: &[f64; 6]| v[1].clamp(STAR_BURST_SETTINGS[1].1, STAR_BURST_SETTINGS[1].2);
+    match history {
+        Some(h) => {
+            let n = (u as usize).min(h.len().saturating_sub(1));
+            (0..n).map(|j| (held(&h[j]) + held(&h[j + 1])) / 2.0).sum::<f64>() / fps
+        }
+        None => held(now) * u / fps,
+    }
+}
+
+/// D-677: Star Burst's stars at this frame on a drawing `w` by `h`, farthest first, as sprite
+/// numbers the particle engine's binning reads: k[0] the share of the picture mixed back, k[2]
+/// and k[3] the drawing's size, k[6] the count; then `STRIDE` numbers a star, `[3, x, y, radius,
+/// gx, gy, opacity, 0 ..]`, its centre as seen, its grid point (where its colour is read) and its
+/// opacity, in the drawing's own pixels. A star whose grid point is clear changes nothing, so
+/// the list needs only the settings and the card reads the colours itself.
+pub(crate) fn star_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
+    let Effect::StarBurst { values, clock, view, history } = e else { unreachable!("Star Burst of another effect") };
+    let v: [f64; 6] = std::array::from_fn(|k| values[k].clamp(STAR_BURST_SETTINGS[k].1, STAR_BURST_SETTINGS[k].2));
+    let t = h * (star_sum(&v, *clock, history.as_deref().map(|h| h.as_slice())) + v[2]);
+    let g = v[3] * h / 270.0;
+    let (cols, rows) = ((w / g).ceil() as i64, (h / g).ceil() as i64);
+    let (s, f) = (v[0] / 100.0, 1.5 * h);
+    let (ax, ay, a) = if view[0] == 1.0 { (view[1], view[2], view[3]) } else { (w / 2.0, h / 2.0, f) };
+    let base = crate::grade::mix(0);
+    // ponytail: a star every grid point, about half a million at Grid Spacing 0.5 on 1920 by
+    // 1080 and growing as the square of the picture; cull stars off the picture here if a fine
+    // grid on a large layer shows in the timings.
+    let mut drawn: Vec<(f64, i64, [f64; STRIDE])> = (0..rows * cols)
+        .into_par_iter()
+        .filter_map(|n| {
+            let (i, j) = (n % cols, n / cols);
+            let (gx, gy) = (w / 2.0 + (i as f64 - (cols - 1) as f64 / 2.0) * g, h / 2.0 + (j as f64 - (rows - 1) as f64 / 2.0) * g);
+            let u = |k| (crate::grade::unit(base, i, j, 0, k) + 1.0) / 2.0;
+            let (x, y) = (gx + s * g * (u(0) - 0.5), gy + s * g * (u(1) - 0.5));
+            let z0 = s * (3.0 * f * u(2) - 0.9 * f);
+            let z = -0.9 * f + (z0 + 0.9 * f - t).rem_euclid(3.0 * f);
+            if a + z <= h / 100.0 {
+                return None;
+            }
+            let k = a / (a + z);
+            let r = v[4] / 100.0 * g / 4.0 * k;
+            let (r, op) = if r < 0.7 { (0.7, (r / 0.7) * (r / 0.7)) } else { (r, 1.0) };
+            Some((z, n, [3.0, ax + (x - ax) * k, ay + (y - ay) * k, r, gx, gy, op, 0.0, 0.0, 0.0, 0.0]))
+        })
+        .collect();
+    drawn.par_sort_unstable_by(|p, q| q.0.total_cmp(&p.0).then(p.1.cmp(&q.1)));
+    let mut k = vec![v[5] / 100.0, 0.0, w, h, 0.0, 0.0, drawn.len() as f64];
+    k.reserve(STRIDE * drawn.len());
+    for (_, _, s) in drawn {
+        k.extend(s);
+    }
+    k
+}
+
+/// D-677: Star Burst, after CycoreFX's CC Star Burst (document 21): the drawing broken into a
+/// grid of stars flying through space towards the eye, each the drawing's colour at its grid
+/// point, laid farthest first onto clear, then mixed with the drawing by Blend w. Original.
+/// `(ox, oy)` the drawing's corner in the buffer; the stars are cut at the drawing's edges.
+/// Never grows. `e`'s clock, view and history already filled as compose fills them.
+pub(crate) fn star_burst(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) {
+    let (bw, bh) = (source.width(), source.height());
+    let (w0, h0) = (bw.saturating_sub(2 * ox), bh.saturating_sub(2 * oy));
+    if w0 == 0 || h0 == 0 {
+        return;
+    }
+    let k = star_list(e, w0 as f64, h0 as f64);
+    let (starts, list) = tile_lists(&k, (ox, oy), bw, bh);
+    let drawing = source.data().to_vec();
+    let read = |x: f64, y: f64| -> [f64; 4] {
+        let (fx, fy) = ((x - 0.5).clamp(0.0, (w0 - 1) as f64), (y - 0.5).clamp(0.0, (h0 - 1) as f64));
+        let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
+        let (x1, y1) = ((x0 + 1).min(w0 - 1), (y0 + 1).min(h0 - 1));
+        let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
+        let at = |x: usize, y: usize, c: usize| drawing[((y + oy) * bw + x + ox) * 4 + c] as f64;
+        [0, 1, 2, 3].map(|c| (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty) + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty)
+    };
+    let colour: Vec<[f64; 4]> = k[HEAD..].par_chunks_exact(STRIDE).map(|s| read(s[4], s[5]).map(|c| c * s[6])).collect();
+    let (m, tw) = (k[0], bw.div_ceil(TILE));
+    source.data_mut().par_chunks_mut(bw * 4 * TILE).enumerate().for_each(|(ty, band)| {
+        for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
+            let by = ty * TILE + row;
+            let y = by as f64 - oy as f64 + 0.5;
+            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                let mut o = [0.0f64; 4];
+                if (ox..ox + w0).contains(&bx) && (oy..oy + h0).contains(&by) {
+                    let (t, x) = (ty * tw + bx / TILE, bx as f64 - ox as f64 + 0.5);
+                    for &n in &list[starts[t]..starts[t + 1]] {
+                        let s = &k[HEAD + STRIDE * n..][..STRIDE];
+                        let cv = (s[3] - (x - s[1]).hypot(y - s[2]) + 0.5).clamp(0.0, 1.0);
+                        if cv > 0.0 {
+                            let c = colour[n];
+                            o = [0, 1, 2, 3].map(|i| c[i] * cv + o[i] * (1.0 - c[3] * cv));
+                        }
+                    }
+                }
+                for (v, o) in px.iter_mut().zip(o) {
+                    *v = (o * (1.0 - m) + *v as f64 * m) as f32;
+                }
+            }
+        }
+    });
 }

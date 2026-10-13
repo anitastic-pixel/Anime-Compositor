@@ -1193,6 +1193,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Foam { .. }
                 // D-676.
                 | crate::effects::Effect::Scatterize { .. }
+                // D-677.
+                | crate::effects::Effect::StarBurst { .. }
                 // D-508 (the bits are found on the processor).
                 | crate::effects::Effect::EnergyStroke { .. }
                 // D-509.
@@ -2589,6 +2591,32 @@ fn effect_now(
                         .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
                             crate::effects::Effect::Foam { values, .. } => values,
                             _ => unreachable!("Foam's settings of another effect"),
+                        })
+                        .collect(),
+                )
+            });
+        }
+        // D-677: Star Burst's clock, the composition camera as Particle Space's, and the
+        // settings at each frame from the in point when any is keyed.
+        if let crate::effects::Effect::StarBurst { clock, view, history, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            *clock = [(at - layer.in_frame) as f64, fps];
+            *view = [0.0; 4];
+            if comp.camera.is_some() {
+                let m = world_transform(comp, &layer.id, at);
+                if let (Some(cam), Some(inv)) = (camera_at(comp, at), m.invert()) {
+                    let a = inv.apply(cam.position.0, cam.position.1);
+                    let away = (world_depth(comp, &layer.id, at) - cam.depth) / (m.a * m.d - m.b * m.c).abs().sqrt();
+                    *view = [1.0, a.0, a.1, away];
+                }
+            }
+            // ponytail: O(frames) as Bubbles'.
+            *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
+                std::sync::Arc::new(
+                    (layer.in_frame..=at)
+                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
+                            crate::effects::Effect::StarBurst { values, .. } => values,
+                            _ => unreachable!("Star Burst's settings of another effect"),
                         })
                         .collect(),
                 )

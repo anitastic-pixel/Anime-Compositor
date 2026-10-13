@@ -7786,6 +7786,41 @@ fn scatterize(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(d));
 }
 
+// D-677, simulate::star_burst, a pixel a thread (k as simulate::star_list has it: k[0] the share
+// of the picture mixed back, k[2] and k[3] the drawing's size, k[6] the count, the stars from 7,
+// SPRITE_STRIDE each, [3, x, y, r, gx, gy, opacity, ..], then each tile's start and the lists):
+// inside the drawing, the stars of its tile, each the drawing read at its grid point by Bubbles'
+// bilinear read, laid farthest first onto clear; then mixed with the picture.
+@compute @workgroup_size(16, 16)
+fn star_burst(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let tw = (size.x + 15u) / 16u;
+    let nt = tw * ((size.y + 15u) / 16u);
+    let t = (id.y / 16u) * tw + id.x / 16u;
+    let o = 7u + SPRITE_STRIDE * u32(k[6]);
+    let x = f64(i32(id.x) - F.ox) + 0.5lf;
+    let y = f64(i32(id.y) - F.oy) + 0.5lf;
+    var d = vec4(0.0lf);
+    if x > 0.0lf && y > 0.0lf && x < k[2] && y < k[3] {
+        for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
+            let s = 7u + SPRITE_STRIDE * u32(k[o + nt + 1u + j]);
+            let ex = x - k[s + 1u];
+            let ey = y - k[s + 2u];
+            let cv = clamp(k[s + 3u] - sqrt(ex * ex + ey * ey) + 0.5lf, 0.0lf, 1.0lf);
+            if cv <= 0.0lf {
+                continue;
+            }
+            let c = bubble_read(k[s + 4u], k[s + 5u]) * (k[s + 6u] * cv);
+            d = c + d * (1.0lf - c.w);
+        }
+    }
+    let m = k[0];
+    textureStore(output, id.xy, vec4<f32>(d * (1.0lf - m) + vec4<f64>(at(input, vec2<i32>(id.xy))) * m));
+}
+
 // B-151, median.rs's straight colour of a pixel, each channel over the covering in single
 // precision as the CPU divides it, or nothing where nothing shows.
 fn straight(p: vec4<f32>) -> vec4<f32> {
@@ -12067,6 +12102,8 @@ struct FxPasses {
     foam: Pass,
     /// D-676.
     scatterize: Pass,
+    /// D-677.
+    star_burst: Pass,
     /// B-151.
     median: Pass,
     smart: Pass,
@@ -12817,6 +12854,7 @@ impl Gpu {
                 shards: pass("shards", &[0, 1, 2, 3]),
                 foam: pass("foam", &[0, 1, 2, 3]),
                 scatterize: pass("scatterize", &[0, 1, 2, 3]),
+                star_burst: pass("star_burst", &[0, 1, 2, 3]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
@@ -15741,6 +15779,21 @@ impl Gpu {
                 self.fx_step(steps, &passes.scatterize, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
                 (out, (w, h))
             }
+            // D-677: the stars in the drawing's own space, binned into the card's tiles as the
+            // particles are, the lists after them; the card reads their colours from the drawing.
+            e @ E::StarBurst { .. } => {
+                let (w0, h0) = (w.saturating_sub(2 * ox), h.saturating_sub(2 * oy));
+                if w0 == 0 || h0 == 0 {
+                    return (still.clone(), (w, h));
+                }
+                let mut k = crate::simulate::star_list(e, w0 as f64, h0 as f64);
+                let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
+                k.extend(starts.iter().chain(&list).map(|&i| i as f64));
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let out = self.scratch("D-677 star burst", w, h);
+                self.fx_step(steps, &passes.star_burst, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                (out, (w, h))
+            }
             // B-151: ten of the fourth batch.
             E::Median { radius, operate_on_alpha } => {
                 let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
@@ -17503,6 +17556,20 @@ impl Gpu {
                             crate::effects::Effect::Scatterize { .. } => {
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
                                 ((7.0 + 7.0 * (w * h) as f64 + tiles + 1.0) * 8.0) as u64
+                            }
+                            // D-677: Star Burst's stars, one a grid point, STRIDE numbers each
+                            // and a place in the lists of the tiles the nearest star could
+                            // reach, and its tiles' starts.
+                            crate::effects::Effect::StarBurst { values, view, .. } => {
+                                let (wf, hf) = (w as f64, h as f64);
+                                let g = values[3].clamp(0.5, 100.0) * hf / 270.0;
+                                let n = (wf / g).ceil() * (hf / g).ceil();
+                                let a = if view[0] == 1.0 { view[3] } else { 1.5 * hf };
+                                let near = (a / (a - 1.35 * hf).max(hf / 100.0)).abs().max(1.0);
+                                let r = values[4].clamp(0.0, 1000.0) / 100.0 * g / 4.0 * near + 1.0;
+                                let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
+                                let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
+                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0) * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,

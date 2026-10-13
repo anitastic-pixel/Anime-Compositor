@@ -3336,6 +3336,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert((*name).into(), J::from(w.as_str()));
             }
         }
+        Effect::StarBurst { values, .. } => {
+            for ((name, ..), v) in crate::effects::STAR_BURST_SETTINGS.iter().zip(values) {
+                params.insert((*name).into(), num(*v));
+            }
+        }
         Effect::CcBallAction {
             scatter,
             rotation_axis,
@@ -6157,6 +6162,7 @@ fn parse_effect(
         crate::effects::POLYGON_SHARDS,
         crate::effects::FOAM,
         crate::effects::SCATTERIZE,
+        crate::effects::STAR_BURST,
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
         crate::effects::CC_SPHERE,
@@ -8131,6 +8137,14 @@ fn parse_effect(
                 *w = effect_word(params, name, &at)?;
             }
             Some(crate::effects::Effect::Scatterize { values, words })
+        }
+        // D-677: the clock, view and history are compose's, never saved.
+        crate::effects::STAR_BURST => {
+            let mut values = [0.0; 6];
+            for ((name, ..), v) in crate::effects::STAR_BURST_SETTINGS.iter().zip(values.iter_mut()) {
+                *v = effect_number(params, name, &at)?;
+            }
+            Some(crate::effects::Effect::StarBurst { values, clock: [0.0; 2], view: [0.0; 4], history: None })
         }
         crate::effects::CC_BALL_ACTION => Some(crate::effects::Effect::CcBallAction {
             scatter: effect_number(params, "scatter", &at)?,
