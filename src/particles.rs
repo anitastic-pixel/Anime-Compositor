@@ -512,7 +512,7 @@ fn closed(x: V, v: V, a: V, k: f64, h: f64) -> (V, V) {
 /// D-612: Particle Plane's settings (`effects::PARTICLE_PLANE_SETTINGS`) as Particle Space's: its
 /// own copied across, Direction as the axis (sin d, -cos d, 0), gravity straight down, no wind,
 /// turbulence, floor or Volume Shade, the light from 45 degrees at 45.
-pub(crate) fn plane_row(v: &[f64; 23]) -> [f64; 46] {
+pub(crate) fn plane_row(v: &[f64; 25]) -> [f64; 46] {
     let mut e = [0.0; 46];
     e[TURBULENCE_SCALE] = 0.25;
     e[LIGHT_DIRECTION] = 45.0;
@@ -538,6 +538,8 @@ pub(crate) fn plane_row(v: &[f64; 23]) -> [f64; 46] {
         (SIZE_VARIATION, 15),
         (OPACITY, 16),
         (SEED, 22),
+        (ROTATION_SPEED, 23),
+        (INITIAL_ROTATION, 24),
     ] {
         e[to] = v[from];
     }
@@ -574,7 +576,7 @@ fn run_of(e: &Effect) -> Option<(Run<'_>, Look<'_>)> {
             };
             Some((run, look))
         }
-        Effect::ParticlePlane { values, words, colors, clock, history } => {
+        Effect::ParticlePlane { values, words, colors, clock, history, .. } => {
             let u = clock[0] as i64;
             if u < 0 {
                 return None;
@@ -592,11 +594,12 @@ fn run_of(e: &Effect) -> Option<(Run<'_>, Look<'_>)> {
                 flat: true,
             };
             let look = Look {
-                kind: [0, 1, 2, 3, 4, STAR_KIND][w(1)],
+                // D-710: the textured disc and faded disc, Particle Space's 6 and 7.
+                kind: [0, 1, 2, 3, 4, STAR_KIND, 6, 7][w(1)],
                 cmap: w(3),
                 transfer: w(4),
                 cue: 0,
-                keep: false,
+                keep: w(5) == 1,
                 colors: std::array::from_fn(|i| colors.get(i).map_or("#000000", |c| c.as_str())),
                 fade: Some((w(2), std::array::from_fn(|i| values[17 + i] / 100.0))),
                 view: [0.0; 4],
@@ -965,18 +968,18 @@ pub(crate) fn particle_space(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (
 type Tex<'a> = (&'a WorkingBuffer, &'a [[usize; 4]]);
 
 fn texture_named(e: &Effect) -> bool {
-    matches!(e, Effect::ParticleSpace { texture_layer, .. } if texture_layer.as_str() != Some(""))
+    matches!(e, Effect::ParticleSpace { texture_layer, .. } | Effect::ParticlePlane { texture_layer, .. } if texture_layer.as_str() != Some(""))
 }
 
 /// D-611: a texture layer named but not read (not in the composition, which compose said, or a
 /// circle): the effect is left out (D-189's rule 4).
 pub(crate) fn texture_missing(e: &Effect) -> bool {
-    matches!(e, Effect::ParticleSpace { texture: None, .. }) && texture_named(e)
+    matches!(e, Effect::ParticleSpace { texture: None, .. } | Effect::ParticlePlane { texture: None, .. }) && texture_named(e)
 }
 
 /// D-611: the texture read, when it has a picture.
 pub(crate) fn texture(e: &Effect) -> Option<&WorkingBuffer> {
-    let Effect::ParticleSpace { texture: Some(t), .. } = e else { return None };
+    let (Effect::ParticleSpace { texture: Some(t), .. } | Effect::ParticlePlane { texture: Some(t), .. }) = e else { return None };
     (t.0.width() > 0 && t.0.height() > 0).then_some(&*t.0)
 }
 

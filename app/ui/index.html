@@ -11504,7 +11504,9 @@ const EFFECT_PARAMS = {
     ['custom_opacity_3', 'Custom Opacity 3', 1, 1, '0 to 100 per cent, the same halfway through its life'],
     ['custom_opacity_4', 'Custom Opacity 4', 1, 1, '0 to 100 per cent, the same three quarters of the way through its life'],
     ['custom_opacity_5', 'Custom Opacity 5', 1, 1, '0 to 100 per cent, the same when it dies'],
-    ['random_seed', 'Random Seed', 1, 1, '0 to 10000 a number, a different seed gives different particles']],
+    ['random_seed', 'Random Seed', 1, 1, '0 to 10000 a number, a different seed gives different particles'],
+    ['rotation_speed', 'Rotation Speed', 1, 1, '-3600 to 3600 degrees a second, how fast textured particles turn'],
+    ['initial_rotation', 'Initial Rotation', 1, 1, '0 to 360 degrees, how far each textured particle can start turned']],
   'core.cc_ball_action': [['scatter', 'Scatter', 1, 1, '0 to 1000 pixels, how far the balls are thrown out, each its own way'],
     ['rotation', 'Rotation', 1, 1, '-36000 to 36000 degrees, how far the grid is turned about the rotation axis'],
     ['twist_angle', 'Twist Angle', 1, 1, '-36000 to 36000 degrees, how far each ball is turned more, by the twist property'],
@@ -12508,15 +12510,19 @@ const EFFECT_WORDS = {
       ['transfer_mode', 'Transfer Mode', [['normal', 'Normal'], ['add', 'Add'], ['screen', 'Screen']]],
       ['floor_action', 'Floor Action', [['none', 'None'], ['bounce', 'Bounce'], ['slide', 'Slide'], ['stick', 'Stick']]]],
   },
+  // D-710: its texture layer, textured kinds and Composite With Original.
   'core.particle_plane': {
+    layers: [['texture_layer', 'Texture Layer', 'map_layer']],
     colours: [['birth_color', 'Birth Color'], ['death_color', 'Death Color'], ['custom_color_1', 'Custom Color 1'], ['custom_color_2', 'Custom Color 2'],
       ['custom_color_3', 'Custom Color 3'], ['custom_color_4', 'Custom Color 4'], ['custom_color_5', 'Custom Color 5']],
     choices: [['animation', 'Animation', [['explosive', 'Explosive'], ['direction', 'Direction'], ['cone', 'Cone'], ['viscous', 'Viscous'], ['twirl', 'Twirl'],
         ['twirly', 'Twirly'], ['vortex', 'Vortex'], ['fire', 'Fire'], ['jet_sideways', 'Jet Sideways'], ['fractal_omni', 'Fractal Omni'], ['fractal_uni', 'Fractal Uni']]],
-      ['particle_type', 'Particle Type', [['line', 'Line'], ['faded_sphere', 'Faded Sphere'], ['shaded_sphere', 'Shaded Sphere'], ['disc', 'Disc'], ['bubble', 'Bubble'], ['star', 'Star']]],
+      ['particle_type', 'Particle Type', [['line', 'Line'], ['faded_sphere', 'Faded Sphere'], ['shaded_sphere', 'Shaded Sphere'], ['disc', 'Disc'], ['bubble', 'Bubble'], ['star', 'Star'],
+        ['textured_disc', 'Textured Disc'], ['textured_faded_disc', 'Textured Faded Disc']]],
       ['opacity_map', 'Opacity Map', [['constant', 'Constant'], ['fade_in', 'Fade In'], ['fade_out', 'Fade Out'], ['fade_in_and_out', 'Fade In and Out'], ['custom', 'Custom']]],
       ['color_map', 'Color Map', [['birth_to_death', 'Birth to Death'], ['origin_to_death', 'Origin to Death'], ['birth_to_origin', 'Birth to Origin'], ['origin_constant', 'Origin Constant'], ['custom', 'Custom']]],
-      ['transfer_mode', 'Transfer Mode', [['composite', 'Composite'], ['screen', 'Screen'], ['add', 'Add']]]],
+      ['transfer_mode', 'Transfer Mode', [['composite', 'Composite'], ['screen', 'Screen'], ['add', 'Add']]],
+      ['composite_on_original', 'Composite With Original', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-551: CC Ball Action’s rotation axes and twist properties, as CycoreFX names them.
   'core.cc_ball_action': {

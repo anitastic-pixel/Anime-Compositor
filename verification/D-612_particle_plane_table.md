@@ -242,7 +242,7 @@ B-492, the particle engine's flat emitter (P0-6), after the purpose of CycoreFX'
 | fx_pplane_052.json is refused in a sentence naming custom opacity 3 | Particle Plane's custom opacity 3 runs from 0 to 100, and this is 120. | yes |
 | fx_pplane_053.json is refused in a sentence naming animation | Particle Plane's animation is one of "explosive", "direction", "cone", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni", "fractal_uni", and this is "direction_axis". | yes |
 | fx_pplane_054.json is refused in a sentence naming animation | Particle Plane's animation is one of "explosive", "direction", "cone", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni", "fractal_uni", and this is "Explosive". | yes |
-| fx_pplane_055.json is refused in a sentence naming particle type | Particle Plane's particle type is one of "line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star", and this is "textured_square". | yes |
+| fx_pplane_055.json is refused in a sentence naming particle type | Particle Plane's particle type is one of "line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star", "textured_disc", "textured_faded_disc", and this is "textured_square". | yes |
 | fx_pplane_056.json is refused in a sentence naming opacity map | Particle Plane's opacity map is one of "constant", "fade_in", "fade_out", "fade_in_and_out", "custom", and this is "linear". | yes |
 | fx_pplane_057.json is refused in a sentence naming birth colour | Particle Plane's birth colour is written #rrggbb, and this is "#12345". | yes |
 | fx_pplane_058.json is refused in a sentence naming transfer mode | Particle Plane's transfer mode is one of "composite", "screen", "add", and this is "multiply". | yes |

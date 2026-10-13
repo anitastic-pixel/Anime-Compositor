@@ -3159,13 +3159,16 @@ pub enum Effect {
     /// (`particles::particle_space`, document 21). `values`, the settings of
     /// [`PARTICLE_PLANE_SETTINGS`] in that order; `words`, those of [`PARTICLE_PLANE_WORDS`];
     /// `colors`, those of [`PARTICLE_PLANE_COLORS`], `#rrggbb`. Kept as written, so a file's wrong
-    /// one is reported. `clock` and `history` as Particle Space's: never saved.
+    /// one is reported. `clock` and `history` as Particle Space's: never saved. D-710:
+    /// `texture_layer` and `texture` as Particle Space's.
     ParticlePlane {
-        values: [f64; 23],
-        words: [String; 5],
+        values: [f64; 25],
+        words: [String; 6],
         colors: [String; 7],
         clock: [f64; 2],
-        history: Option<std::sync::Arc<Vec<[f64; 23]>>>,
+        history: Option<std::sync::Arc<Vec<[f64; 25]>>>,
+        texture_layer: serde_json::Value,
+        texture: Option<crate::layer_map::Map>,
     },
     /// D-613: Particle Playground, the particle engine's third effect (P0-6), after the purpose
     /// of After Effects' Particle Playground, its rules and settings ours
@@ -4936,7 +4939,8 @@ pub const PARTICLE_PLANE: &str = "core.particle_plane";
 /// highest, and the value when the effect is added. Distances are in the layer's widths, the
 /// origin its centre, Y down; sizes in hundredths of its width; times in seconds; Birth Rate in
 /// hundreds of particles a second; Direction in degrees, 0 up and 90 to the right.
-pub const PARTICLE_PLANE_SETTINGS: [(&str, f64, f64, f64); 23] = [
+/// D-710: the last two, the textured kinds' turn in degrees, as Particle Space's.
+pub const PARTICLE_PLANE_SETTINGS: [(&str, f64, f64, f64); 25] = [
     ("birth_rate", 0.0, 100.0, 2.0),
     ("longevity", 0.0, 30.0, 1.0),
     ("producer_x", -10.0, 10.0, 0.0),
@@ -4960,18 +4964,22 @@ pub const PARTICLE_PLANE_SETTINGS: [(&str, f64, f64, f64); 23] = [
     ("custom_opacity_4", 0.0, 100.0, 100.0),
     ("custom_opacity_5", 0.0, 100.0, 100.0),
     ("random_seed", 0.0, 10000.0, 0.0),
+    ("rotation_speed", -3600.0, 3600.0, 0.0),
+    ("initial_rotation", 0.0, 360.0, 0.0),
 ];
-/// D-612: Particle Plane's words: name, the words, the word when added.
-pub const PARTICLE_PLANE_WORDS: [(&str, &[&str], &str); 5] = [
+/// D-612: Particle Plane's words: name, the words, the word when added. D-710: the two textured
+/// kinds and Composite With Original.
+pub const PARTICLE_PLANE_WORDS: [(&str, &[&str], &str); 6] = [
     (
         "animation",
         &["explosive", "direction", "cone", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni", "fractal_uni"],
         "explosive",
     ),
-    ("particle_type", &["line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star"], "line"),
+    ("particle_type", &["line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star", "textured_disc", "textured_faded_disc"], "line"),
     ("opacity_map", &["constant", "fade_in", "fade_out", "fade_in_and_out", "custom"], "constant"),
     ("color_map", &["birth_to_death", "origin_to_death", "birth_to_origin", "origin_constant", "custom"], "birth_to_death"),
     ("transfer_mode", &["composite", "screen", "add"], "composite"),
+    ("composite_on_original", &["off", "on"], "off"),
 ];
 /// D-612: Particle Plane's colours and each when added: Particle Space's but Depth Cue's.
 pub const PARTICLE_PLANE_COLORS: [(&str, &str); 7] = [
@@ -9910,6 +9918,8 @@ impl Effect {
             Effect::CcEnvironment { environment: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
             // D-611: the texture read whole, at its own size.
             Effect::ParticleSpace { texture_layer: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
+            // D-710: the same for Particle Plane.
+            Effect::ParticlePlane { texture_layer: serde_json::Value::String(layer), .. } => Some((layer, "whole")),
             // D-524: the gradient lies on the drawing, centred.
             Effect::Fog3d { gradient_layer: serde_json::Value::String(layer), .. } => Some((layer, "center")),
             Effect::CompoundBlur { layer: serde_json::Value::String(layer), fit, .. }
@@ -10015,6 +10025,7 @@ impl Effect {
             Effect::WarpBlend { layer_to_reveal, map, .. } => Some((layer_to_reveal, map)),
             Effect::CcEnvironment { environment, map, .. } => Some((environment, map)),
             Effect::ParticleSpace { texture_layer, texture, .. } => Some((texture_layer, texture)),
+            Effect::ParticlePlane { texture_layer, texture, .. } => Some((texture_layer, texture)),
             Effect::ContourPaint { edge_map_layer, map, .. } => Some((edge_map_layer, map)),
             Effect::CurlNoise { source_layer, map, .. } => Some((source_layer, map)),
             _ => None,
@@ -10270,7 +10281,7 @@ impl Effect {
                 .or_else(|| (!texture_layer.is_string()).then(|| format!(
                     "Particle Space's texture layer is the name of a layer of this composition, and this is {texture_layer}."
                 ))),
-            Effect::ParticlePlane { words, colors, .. } => PARTICLE_PLANE_WORDS
+            Effect::ParticlePlane { words, colors, texture_layer, .. } => PARTICLE_PLANE_WORDS
                 .iter()
                 .zip(words)
                 .find(|((_, list, _), w)| !list.contains(&w.as_str()))
@@ -10283,7 +10294,10 @@ impl Effect {
                         .iter()
                         .zip(colors)
                         .find_map(|((name, _), c)| hex_fault("Particle Plane", &name.replace('_', " ").replace("color", "colour"), c))
-                }),
+                })
+                .or_else(|| (!texture_layer.is_string()).then(|| format!(
+                    "Particle Plane's texture layer is the name of a layer of this composition, and this is {texture_layer}."
+                ))),
             Effect::ParticlePlayground { words, colors, layers, cannon_position, grid_position, .. } => PARTICLE_PLAYGROUND_WORDS
                 .iter()
                 .zip(words)

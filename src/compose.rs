@@ -1656,7 +1656,7 @@ fn card_effect(
                 // D-531: no environment read, none named or one named but not read.
                 E::CcEnvironment { map, .. } => map.is_none(),
                 // D-611: a texture layer named but not read.
-                E::ParticleSpace { .. } => crate::particles::texture_missing(&effect),
+                E::ParticleSpace { .. } | E::ParticlePlane { .. } => crate::particles::texture_missing(&effect),
                 // D-502: no foreground, or a mask named not found.
                 E::InnerOuterKey { paths, .. } => paths.is_none(),
                 // D-408: as layer_fx::transform returns at once (the map is then the unchanged one).

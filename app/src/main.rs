@@ -5622,6 +5622,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             colors: PARTICLE_PLANE_COLORS.map(|c| c.1.to_string()),
             clock: [0.0; 2],
             history: None,
+            texture_layer: serde_json::Value::from(""),
+            texture: None,
         }),
         // D-613: as added (ours, Adobe's page gives no values we found): 20 red dots a second
         // shot upwards from the middle at 130 pixels a second, spread a little and falling, no
@@ -8678,11 +8680,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         }
         // D-612: every setting by its name; compose fills the clock and history.
         PARTICLE_PLANE => {
-            let mut values = [0.0; 23];
+            let mut values = [0.0; 25];
             for (v, s) in values.iter_mut().zip(PARTICLE_PLANE_SETTINGS) {
                 *v = number(s.0)?;
             }
-            let mut words: [String; 5] = Default::default();
+            let mut words: [String; 6] = Default::default();
             for (w, s) in words.iter_mut().zip(PARTICLE_PLANE_WORDS) {
                 *w = word(s.0)?;
             }
@@ -8690,7 +8692,15 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             for (c, s) in colors.iter_mut().zip(PARTICLE_PLANE_COLORS) {
                 *c = word(s.0)?;
             }
-            Ok(Effect::ParticlePlane { values, words, colors, clock: [0.0; 2], history: None })
+            Ok(Effect::ParticlePlane {
+                values,
+                words,
+                colors,
+                clock: [0.0; 2],
+                history: None,
+                texture_layer: serde_json::Value::from(parameter(query, "map_layer").unwrap_or_default().trim()),
+                texture: None,
+            })
         }
         // D-613: every setting by its name, the layers as written; compose fills the rest.
         PARTICLE_PLAYGROUND => {
@@ -33938,7 +33948,8 @@ mod contract {
                 ("shading", "darken"),
             ],
         ),
-        // D-612: every setting, the words and the colours.
+        // D-612: every setting, the words and the colours. D-710: the turn, the texture layer
+        // and Composite With Original.
         (
             "core.particle_plane",
             &[
@@ -33965,11 +33976,15 @@ mod contract {
                 ("custom_opacity_4", "30"),
                 ("custom_opacity_5", "0"),
                 ("random_seed", "7"),
+                ("rotation_speed", "90"),
+                ("initial_rotation", "180"),
+                ("map_layer", "layer-4"),
                 ("animation", "vortex"),
                 ("particle_type", "star"),
                 ("opacity_map", "custom"),
                 ("color_map", "custom"),
                 ("transfer_mode", "screen"),
+                ("composite_on_original", "on"),
                 ("birth_color", "#ffd933"),
                 ("death_color", "#cc1a00"),
                 ("custom_color_1", "#ffd933"),
