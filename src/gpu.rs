@@ -7152,12 +7152,25 @@ fn part_read(l: vec4<u32>, x: f64, y: f64) -> vec4<f64> {
 
 // D-619, playground::particle_playground's looks from k[s], premultiplied: a dot (11), a piece of
 // the Explode layer (12, at the atlas's corner, F.n by F.r) and a copy of the Layer Map (13, right
-// of it, F.base), each turned by its cosine and sine.
+// of it, F.base), each turned by its cosine and sine. D-713: a dot of two radii is an ellipse
+// turned by its turn (its cosine and sine in single precision); a piece's and a copy's scale
+// along each of its own axes; a piece's origin worked out from its number.
 fn playground_cover(s: u32, x: f64, y: f64) -> vec4<f64> {
     let dx = x - k[s + 1u];
     let dy = y - k[s + 2u];
     if k[s] == 11.0lf {
-        let cv = clamp(k[s + 4u] - sqrt(dx * dx + dy * dy) + 0.5lf, 0.0lf, 1.0lf);
+        let rx = k[s + 4u];
+        let ry = k[s + 5u];
+        var e = rx - sqrt(dx * dx + dy * dy);
+        if rx != ry {
+            let o = f32(k[s + 6u]);
+            let c = f64(cos(o));
+            let n = f64(sin(o));
+            let ex = (dx * c + dy * n) / rx;
+            let ey = (-dx * n + dy * c) / ry;
+            e = min(rx, ry) * (1.0lf - sqrt(ex * ex + ey * ey));
+        }
+        let cv = clamp(e + 0.5lf, 0.0lf, 1.0lf);
         return vec4(k[s + 7u], k[s + 8u], k[s + 9u], k[s + 10u]) * cv;
     }
     let cs = k[s + 4u];
@@ -7166,18 +7179,22 @@ fn playground_cover(s: u32, x: f64, y: f64) -> vec4<f64> {
     let ly = -dx * sn + dy * cs;
     if k[s] == 12.0lf {
         let side = k[s + 7u];
-        let scale = k[s + 10u];
-        let half = side * scale / 2.0lf;
-        let cv = clamp(half - abs(lx) + 0.5lf, 0.0lf, 1.0lf) * clamp(half - abs(ly) + 0.5lf, 0.0lf, 1.0lf);
+        let sx = k[s + 9u];
+        let sy = k[s + 10u];
+        let cv = clamp(side * sx / 2.0lf - abs(lx) + 0.5lf, 0.0lf, 1.0lf) * clamp(side * sy / 2.0lf - abs(ly) + 0.5lf, 0.0lf, 1.0lf);
         if cv <= 0.0lf {
             return vec4(0.0lf);
         }
         let hold = side / 2.0lf - 0.5lf;
-        let t = part_read(vec4(0u, 0u, F.n, u32(F.r)), k[s + 8u] + clamp(lx / scale, -hold, hold), k[s + 9u] + clamp(ly / scale, -hold, hold));
+        let across = ceil(f64(F.n) / side);
+        let j = k[s + 8u];
+        let row = floor(j / across);
+        let ox = (j - row * across + 0.5lf) * side;
+        let oy = (row + 0.5lf) * side;
+        let t = part_read(vec4(0u, 0u, F.n, u32(F.r)), ox + clamp(lx / sx, -hold, hold), oy + clamp(ly / sy, -hold, hold));
         return t * (cv * k[s + 6u]);
     }
-    let scale = k[s + 7u];
-    let t = part_read(vec4(F.n, 0u, F.base.x, F.base.y), k[s + 8u] + lx / scale, k[s + 9u] + ly / scale);
+    let t = part_read(vec4(F.n, 0u, F.base.x, F.base.y), k[s + 8u] + lx / k[s + 7u], k[s + 9u] + ly / k[s + 10u]);
     if t.w <= 0.0lf {
         return vec4(0.0lf);
     }

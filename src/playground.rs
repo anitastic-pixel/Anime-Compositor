@@ -13,6 +13,9 @@
 //! and blue under a particle into its properties (colour, opacity, scale, angle, place, speed or
 //! force); `tools/particle_mapper_reference.py` is their reference. A property is part of the
 //! particle, worked out along its own steps from its birth like its place.
+//!
+//! D-713 adds the separate X and Y Scale, Angular Velocity, Torque, Lifespan and Kinetic and
+//! Static Friction properties; `tools/particle_mapper_physics_reference.py` is their reference.
 
 use crate::effects::{Effect, PARTICLE_PLAYGROUND_FROM, PARTICLE_PLAYGROUND_OPERATORS, PARTICLE_PLAYGROUND_PROPERTIES, PARTICLE_PLAYGROUND_SETTINGS};
 use crate::WorkingBuffer;
@@ -107,6 +110,15 @@ struct Particle {
     scale: f64,
     angle: f64,
     force: [f64; 2],
+    /// D-713: its X and Y Scale, angular velocity (degrees a second), torque (degrees a second a
+    /// second), lifespan (seconds, endless when born) and kinetic and static friction.
+    sx: f64,
+    sy: f64,
+    w: f64,
+    tq: f64,
+    life: f64,
+    mk: f64,
+    ms: f64,
 }
 
 impl Particle {
@@ -190,6 +202,13 @@ fn put(p: &mut Particle, prop: usize, v: f64) {
         7 | 8 => p.x[prop - 7] = v,
         9 | 10 => p.v[prop - 9] = v,
         11 | 12 => p.force[prop - 11] = v,
+        13 => p.sx = v,
+        14 => p.sy = v,
+        15 => p.w = v,
+        16 => p.tq = v,
+        17 => p.life = v,
+        18 => p.mk = v,
+        19 => p.ms = v,
         _ => {}
     }
 }
@@ -276,6 +295,13 @@ impl Run<'_> {
             scale: 1.0,
             angle: 0.0,
             force: [0.0; 2],
+            sx: 1.0,
+            sy: 1.0,
+            w: 0.0,
+            tq: 0.0,
+            life: f64::INFINITY,
+            mk: 0.0,
+            ms: 0.0,
         }
     }
 
@@ -419,6 +445,7 @@ impl Run<'_> {
                 let mut ch = self.particle(p.code + 4 * (i + 1), p.a, p.b, t, p.x, p.col, c);
                 ch.parent = p.code;
                 (ch.rgb, ch.opacity, ch.scale, ch.angle, ch.force) = (p.rgb, p.opacity, p.scale, p.angle, p.force);
+                (ch.sx, ch.sy, ch.w, ch.tq, ch.life, ch.mk, ch.ms) = (p.sx, p.sy, p.w, p.tq, p.life, p.mk, p.ms);
                 let speed = self.at(PE_DISPERSION, t) * self.r(&ch, 5);
                 let hd = heading(360.0 * self.r(&ch, 3));
                 ch.v = [p.v[0] + speed * hd[0], p.v[1] + speed * hd[1]];
@@ -480,28 +507,51 @@ impl Run<'_> {
             a = [f * g[0], f * g[1]];
         }
         // D-614: the particle's force, and the Ephemeral mapper's forces and speeds for this
-        // step only; the change it made to the speed is taken off again after.
+        // step only; the change it made to the speed is taken off again after. D-713: and its
+        // angular velocity, torque and frictions the same way.
         let (mut force, base) = (p.force, p.v);
         let mut v = base;
+        let (w_base, mut tq, mut mk, mut ms) = (p.w, p.tq, p.mk, p.ms);
+        let mut w = w_base;
+        let op = self.i.operator;
         for (prop, val) in self.mapped(1, p, t0).into_iter().flatten() {
             match prop {
-                9 | 10 => v[prop - 9] = operate(self.i.operator, v[prop - 9], val),
-                11 | 12 => force[prop - 11] = operate(self.i.operator, force[prop - 11], val),
+                9 | 10 => v[prop - 9] = operate(op, v[prop - 9], val),
+                11 | 12 => force[prop - 11] = operate(op, force[prop - 11], val),
+                15 => w = operate(op, w, val),
+                16 => tq = operate(op, tq, val),
+                18 => mk = operate(op, mk, val),
+                19 => ms = operate(op, ms, val),
                 _ => {}
             }
         }
         let a = [a[0] + force[0], a[1] + force[1]];
-        p.v = v;
-        match self.i.wall {
-            Some(wall) if self.affected(3, p, t0) => self.bounce(p, wall, a, h),
-            _ => {
-                let x = p.x;
-                p.x = [0, 1].map(|i| x[i] + v[i] * h + a[i] * h * h / 2.0);
-                p.v = [0, 1].map(|i| v[i] + a[i] * h);
+        // D-713: kinetic friction cuts a moving particle's speed by K h, never below 0.
+        let mut vf = v;
+        let speed = vf[0].hypot(vf[1]);
+        if mk > 0.0 && speed > 0.0 {
+            let k = (speed - mk * h).max(0.0) / speed;
+            vf = [vf[0] * k, vf[1] * k];
+        }
+        p.v = vf;
+        p.angle = p.angle + w * h + tq * h * h / 2.0;
+        p.w = w + tq * h;
+        // D-713: static friction holds a still particle while the pull on it is S or less.
+        if !(vf == [0.0; 2] && a[0].hypot(a[1]) <= ms) {
+            match self.i.wall {
+                Some(wall) if self.affected(3, p, t0) => self.bounce(p, wall, a, h),
+                _ => {
+                    let x = p.x;
+                    p.x = [0, 1].map(|i| x[i] + vf[i] * h + a[i] * h * h / 2.0);
+                    p.v = [0, 1].map(|i| vf[i] + a[i] * h);
+                }
             }
         }
         if v != base {
             p.v = [0, 1].map(|i| p.v[i] - (v[i] - base[i]));
+        }
+        if w != w_base {
+            p.w -= w - w_base;
         }
     }
 
@@ -520,6 +570,10 @@ impl Run<'_> {
             // D-614: the Persistent mapper's values set, and kept.
             for (prop, val) in self.mapped(0, &p, t0).into_iter().flatten() {
                 put(&mut p, prop, val);
+            }
+            // D-713: a particle as old as its lifespan dies.
+            if (t0 - p.born) / self.i.fps >= p.life {
+                return Vec::new();
             }
             if let Some(&t1) = pts.get(i + 1) {
                 self.step(&mut p, t0, (t1 - t0) / self.i.fps);
@@ -614,10 +668,11 @@ pub(crate) fn apply(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, us
 
 /// D-619: `e`'s particles as the card's `particles` pass draws them, worked out here as
 /// [`apply`] works them out for a drawing of `size`: the sprite list (the head, laid normally
-/// over nothing, then a sprite each in the order born: 11 a dot, [kind, x, y, reach, radius, 0,
-/// 0, colour premultiplied], 12 a piece of the Explode layer, [kind, x, y, reach, cosine, sine,
-/// opacity, side, origin, scale], 13 a copy of the Layer Map, [kind, x, y, reach, cosine, sine,
-/// opacity, scale, half the drawing]); the two maps side by side, the Explode layer's at the
+/// over nothing, then a sprite each in the order born: 11 a dot, [kind, x, y, reach, x radius,
+/// y radius, turn, colour premultiplied], 12 a piece of the Explode layer, [kind, x, y, reach,
+/// cosine, sine, opacity, side, its number (D-713: its origin worked out from it), x scale, y
+/// scale], 13 a copy of the Layer Map, [kind, x, y, reach, cosine, sine, opacity, x scale, half
+/// the drawing, y scale]); the two maps side by side, the Explode layer's at the
 /// corner and the Layer Map's right of it (a clear pixel with neither); and their sizes.
 pub(crate) fn sprites(e: &Effect, size: (f64, f64)) -> (Vec<f64>, WorkingBuffer, [usize; 4]) {
     use crate::particles::{HEAD, STRIDE};
@@ -628,9 +683,9 @@ pub(crate) fn sprites(e: &Effect, size: (f64, f64)) -> (Vec<f64>, WorkingBuffer,
     if let Some(r) = run(&i) {
         for (look, x, [cs, sn], reach) in drawn(&r, &i) {
             let s: [f64; STRIDE] = match look {
-                Look::Dot { rad, col } => [11.0, x[0], x[1], reach, rad, 0.0, 0.0, col[0], col[1], col[2], col[3]],
-                Look::Piece { side, origin, scale, k } => [12.0, x[0], x[1], reach, cs, sn, k, side, origin[0], origin[1], scale],
-                Look::Copy { scale, k } => [13.0, x[0], x[1], reach, cs, sn, k, scale, size.0 / 2.0, size.1 / 2.0, 0.0],
+                Look::Dot { rx, ry, o, col } => [11.0, x[0], x[1], reach, rx, ry, o, col[0], col[1], col[2], col[3]],
+                Look::Piece { side, index, scale, k, .. } => [12.0, x[0], x[1], reach, cs, sn, k, side, index, scale[0], scale[1]],
+                Look::Copy { scale, k } => [13.0, x[0], x[1], reach, cs, sn, k, scale[0], size.0 / 2.0, size.1 / 2.0, scale[1]],
             };
             k.extend(s);
         }
@@ -650,11 +705,12 @@ pub(crate) fn sprites(e: &Effect, size: (f64, f64)) -> (Vec<f64>, WorkingBuffer,
     (k, atlas, [ew, eh, lw, lh])
 }
 
-/// How one particle is drawn; `scale` and `k` its scale and opacity (D-614).
+/// How one particle is drawn; `scale` and `k` its scale and opacity (D-614), D-713: the scale
+/// along its own x and y, and a dot's two radii and turn.
 enum Look {
-    Dot { rad: f64, col: [f64; 4] },
-    Piece { side: f64, origin: [f64; 2], scale: f64, k: f64 },
-    Copy { scale: f64, k: f64 },
+    Dot { rx: f64, ry: f64, o: f64, col: [f64; 4] },
+    Piece { side: f64, origin: [f64; 2], index: f64, scale: [f64; 2], k: f64 },
+    Copy { scale: [f64; 2], k: f64 },
 }
 
 /// D-613: each particle's look, place, turn (cosine, sine) and reach, in the order born. D-619:
@@ -668,6 +724,7 @@ fn drawn(r: &Run, i: &Inputs) -> Vec<(Look, [f64; 2], [f64; 2], f64)> {
         .filter_map(|p| {
             // D-614: the Ephemeral mapper's colour, opacity, scale, angle and place, for drawing.
             let (mut x, mut rgb, mut opacity, mut scale, mut angle) = (p.x, p.rgb, p.opacity, p.scale, p.angle);
+            let (mut sx, mut sy, mut life) = (p.sx, p.sy, p.life);
             let op = i.operator;
             for (prop, val) in r.mapped(1, &p, u).into_iter().flatten() {
                 match prop {
@@ -680,29 +737,41 @@ fn drawn(r: &Run, i: &Inputs) -> Vec<(Look, [f64; 2], [f64; 2], f64)> {
                     5 => scale = operate(op, scale, val),
                     6 => angle = operate(op, angle, val),
                     7 | 8 => x[prop - 7] = operate(op, x[prop - 7], val),
+                    13 => sx = operate(op, sx, val),
+                    14 => sy = operate(op, sy, val),
+                    17 => life = operate(op, life, val),
                     _ => {}
                 }
             }
             let k = clamp01(opacity);
-            if scale <= 0.0 || k <= 0.0 {
+            // D-713: an endless lifespan times 0 is no number, which no age reaches.
+            if scale <= 0.0 || k <= 0.0 || sx <= 0.0 || sy <= 0.0 || (u - p.born) / i.fps >= life {
                 return None;
             }
+            let s = [scale * sx, scale * sy];
             let o = (if i.orient && (p.v[0] != 0.0 || p.v[1] != 0.0) { p.v[0].atan2(-p.v[1]) } else { 0.0 }) + angle.to_radians();
             let turn = [o.cos(), o.sin()];
             if i.layer_map.is_some() && r.affected(1, &p, u) {
-                return Some((Look::Copy { scale, k }, x, turn, (mw / 2.0 + 1.0).hypot(mh / 2.0 + 1.0) * scale));
+                return Some((Look::Copy { scale: s, k }, x, turn, (mw / 2.0 + 1.0).hypot(mh / 2.0 + 1.0) * s[0].max(s[1])));
             }
             if p.code == 3 {
-                let reach = (p.side * scale / 2.0 + 0.5) * std::f64::consts::SQRT_2;
-                return Some((Look::Piece { side: p.side, origin: p.origin, scale, k }, x, turn, reach));
+                let reach = (p.side * s[0] / 2.0 + 0.5).hypot(p.side * s[1] / 2.0 + 0.5);
+                return Some((Look::Piece { side: p.side, origin: p.origin, index: p.a as f64, scale: s, k }, x, turn, reach));
             }
             let col = rgb.map_or(p.col, |c| {
                 let a = p.col[3];
                 [crate::grade::to_linear(clamp01(c[0])) * a, crate::grade::to_linear(clamp01(c[1])) * a, crate::grade::to_linear(clamp01(c[2])) * a, a]
             });
-            let rad = p.rad * scale;
-            let (rad, kk) = if rad < 0.7 { (0.7, (rad / 0.7).powi(2)) } else { (rad, 1.0) };
-            Some((Look::Dot { rad, col: col.map(|c| c * kk * k) }, x, turn, rad + 0.5))
+            // D-713: each radius below 0.7 drawn at 0.7, the colour times r / 0.7. The ellipse's
+            // cover falls by min(r) a radius out, so it reaches max(r) (1 + 1 / (2 min(r))).
+            let (mut rx, mut ry, mut kk) = (p.rad * s[0], p.rad * s[1], 1.0);
+            if rx < 0.7 {
+                (kk, rx) = (kk * (rx / 0.7), 0.7);
+            }
+            if ry < 0.7 {
+                (kk, ry) = (kk * (ry / 0.7), 0.7);
+            }
+            Some((Look::Dot { rx, ry, o, col: col.map(|c| c * kk * k) }, x, turn, rx.max(ry) * (1.0 + 0.5 / rx.min(ry))))
         })
         .collect()
 }
@@ -732,22 +801,23 @@ fn particle_playground(source: &mut WorkingBuffer, i: &Inputs, (ox, oy): (usize,
                 let (lx, ly) = (dx * cs + dy * sn, -dx * sn + dy * cs);
                 match look {
                     Look::Copy { scale, k } => {
-                        let s = bilinear(i.layer_map.unwrap(), mw / 2.0 + lx / scale, mh / 2.0 + ly / scale);
+                        let s = bilinear(i.layer_map.unwrap(), mw / 2.0 + lx / scale[0], mh / 2.0 + ly / scale[1]);
                         if s[3] > 0.0 {
                             *d = lay(*d, s.map(|v| v * k));
                         }
                     }
-                    Look::Piece { side, origin, scale, k } => {
-                        let half = side * scale / 2.0;
-                        let cv = clamp01(half - lx.abs() + 0.5) * clamp01(half - ly.abs() + 0.5);
+                    Look::Piece { side, origin, scale, k, .. } => {
+                        let cv = clamp01(side * scale[0] / 2.0 - lx.abs() + 0.5) * clamp01(side * scale[1] / 2.0 - ly.abs() + 0.5);
                         if cv > 0.0 {
                             let hold = side / 2.0 - 0.5;
-                            let s = bilinear(i.explode.unwrap(), origin[0] + (lx / scale).clamp(-hold, hold), origin[1] + (ly / scale).clamp(-hold, hold));
+                            let s = bilinear(i.explode.unwrap(), origin[0] + (lx / scale[0]).clamp(-hold, hold), origin[1] + (ly / scale[1]).clamp(-hold, hold));
                             *d = lay(*d, s.map(|v| v * cv * k));
                         }
                     }
-                    Look::Dot { rad, col } => {
-                        let cv = clamp01(rad - dx.hypot(dy) + 0.5);
+                    Look::Dot { rx, ry, col, .. } => {
+                        // D-713: D-613's disc, or an ellipse turned with the particle.
+                        let e = if rx == ry { rx - dx.hypot(dy) } else { rx.min(*ry) * (1.0 - (lx / rx).hypot(ly / ry)) };
+                        let cv = clamp01(e + 0.5);
                         if cv > 0.0 {
                             *d = lay(*d, col.map(|v| v * cv));
                         }

@@ -5108,9 +5108,31 @@ pub const PARTICLE_PLAYGROUND_FROM: [&str; 15] = [
 ];
 /// D-614: the properties a Property Mapper's channel can set: none, the colour's three channels
 /// (sRGB-coded, 0 to 1), opacity, scale, angle (degrees), place (pixels), speed (pixels a
-/// second) and force (pixels a second a second).
-pub const PARTICLE_PLAYGROUND_PROPERTIES: [&str; 13] =
-    ["none", "red", "green", "blue", "opacity", "scale", "angle", "x", "y", "x_velocity", "y_velocity", "x_force", "y_force"];
+/// second) and force (pixels a second a second). D-713: then the separate X and Y Scale, Angular
+/// Velocity (degrees a second), Torque (degrees a second a second), Lifespan (seconds) and Kinetic
+/// and Static Friction (pixels a second a second).
+pub const PARTICLE_PLAYGROUND_PROPERTIES: [&str; 20] = [
+    "none",
+    "red",
+    "green",
+    "blue",
+    "opacity",
+    "scale",
+    "angle",
+    "x",
+    "y",
+    "x_velocity",
+    "y_velocity",
+    "x_force",
+    "y_force",
+    "x_scale",
+    "y_scale",
+    "angular_velocity",
+    "torque",
+    "lifespan",
+    "kinetic_friction",
+    "static_friction",
+];
 /// D-614: the Ephemeral Property Mapper's operators on the property and the map's value.
 pub const PARTICLE_PLAYGROUND_OPERATORS: [&str; 7] = ["set", "add", "difference", "subtract", "multiply", "min", "max"];
 /// D-613: Particle Playground's words: name, the words, the word when added. D-614: then the
@@ -8989,9 +9011,9 @@ impl Effect {
             Effect::ParticlePlayground { values, history, words, .. } => {
                 const PIXELS: [usize; 13] = [0, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17];
                 // D-614: and a mapper's Min and Max where its channel sets a place, a speed or a
-                // force (from X on in the properties' list).
+                // force (X to Y Force in the properties' list). D-713: or a friction.
                 let mapped = (0..6)
-                    .filter(|&j| PARTICLE_PLAYGROUND_PROPERTIES.iter().position(|w| *w == words[7 + j]).is_some_and(|p| p >= 7))
+                    .filter(|&j| PARTICLE_PLAYGROUND_PROPERTIES.iter().position(|w| *w == words[7 + j]).is_some_and(|p| (7..13).contains(&p) || p >= 18))
                     .flat_map(|j| [33 + 2 * j, 34 + 2 * j]);
                 let pixels: Vec<usize> = PIXELS.into_iter().chain(mapped).collect();
                 for &k in &pixels {
