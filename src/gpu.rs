@@ -876,6 +876,46 @@ fn rem(a: f64, b: f64) -> f64 {
     return select(r, r - b, r >= b);
 }
 
+// D-730: grade::noise_whole, the W3C non-separable modes: Saturation (13), Color (14) and
+// Luminosity (15).
+fn w3c_lum(c: vec3<f64>) -> f64 {
+    return 0.3lf * c.x + 0.59lf * c.y + 0.11lf * c.z;
+}
+
+fn w3c_set_lum(c0: vec3<f64>, l0: f64) -> vec3<f64> {
+    var c = c0 + vec3<f64>(l0 - w3c_lum(c0));
+    let l = w3c_lum(c);
+    let n = min(min(c.x, c.y), c.z);
+    let x = max(max(c.x, c.y), c.z);
+    if n < 0.0lf && l > n {
+        c = vec3<f64>(l) + (c - vec3<f64>(l)) * l / (l - n);
+    }
+    if x > 1.0lf && x > l {
+        c = vec3<f64>(l) + (c - vec3<f64>(l)) * (1.0lf - l) / (x - l);
+    }
+    return c;
+}
+
+fn w3c_set_sat(c: vec3<f64>, s: f64) -> vec3<f64> {
+    let n = min(min(c.x, c.y), c.z);
+    let x = max(max(c.x, c.y), c.z);
+    if x > n {
+        return (c - vec3<f64>(n)) * s / (x - n);
+    }
+    return vec3<f64>(0.0lf);
+}
+
+fn noise_whole(m: u32, b: vec3<f64>, s: vec3<f64>) -> vec3<f64> {
+    if m == 13u {
+        let t = max(max(s.x, s.y), s.z) - min(min(s.x, s.y), s.z);
+        return w3c_set_lum(w3c_set_sat(b, t), w3c_lum(b));
+    }
+    if m == 14u {
+        return w3c_set_lum(s, w3c_lum(b));
+    }
+    return w3c_set_lum(b, w3c_lum(s));
+}
+
 // grade::mixer.
 fn mixed(b: f64, c: f64) -> f64 {
     return mixed_with(F.blend, b, c);
@@ -1354,7 +1394,9 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     let a = f64(p.w);
-    if a <= 0.0lf {
+    // D-730: Turbulent Noise's None draws on clear pixels too.
+    let noise_none = (F.mode == 9u || F.mode == 111u || F.mode == 112u) && F.blend == 10u;
+    if a <= 0.0lf && !noise_none {
         textureStore(output, id.xy, p);
         return;
     }
@@ -1439,10 +1481,37 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
             v = clamp(v, 0.0lf, 1.0lf);
         }
         var out = p;
+        var col = vec3<f64>(0.0lf);
         for (var c = 0u; c < 3u; c++) {
-            let color = to_linear(k[5u + c] + v * (k[8u + c] - k[5u + c]));
-            let b = px[c] / a;
-            out[c] = f32((b + k[4] * (mixed(b, color) - b)) * a);
+            col[c] = to_linear(k[5u + c] + v * (k[8u + c] - k[5u + c]));
+        }
+        // D-730: None (10), Stencil Alpha (11) and Stencil Luma (12), as grade::fractal_noise
+        // lays them through composite::blend_pixel.
+        if F.blend == 10u {
+            textureStore(output, id.xy, vec4<f32>(vec3<f32>(col * k[4]), f32(k[4])));
+            return;
+        }
+        if F.blend == 11u || F.blend == 12u {
+            var s = f32(k[4]);
+            if F.blend == 12u {
+                let q = vec3<f32>(col * k[4]);
+                let y = 0.2126lf * f64(q.x) + 0.7152lf * f64(q.y) + 0.0722lf * f64(q.z);
+                s = f32(to_srgb(clamp(y, 0.0lf, 1.0lf)));
+            }
+            textureStore(output, id.xy, p * s);
+            return;
+        }
+        var b = px / a;
+        var m = vec3<f64>(0.0lf);
+        if F.blend >= 13u {
+            m = noise_whole(F.blend, b, col);
+        } else {
+            for (var c = 0u; c < 3u; c++) {
+                m[c] = mixed(b[c], col[c]);
+            }
+        }
+        for (var c = 0u; c < 3u; c++) {
+            out[c] = f32((b[c] + k[4] * (m[c] - b[c])) * a);
         }
         textureStore(output, id.xy, out);
         return;
@@ -14270,6 +14339,13 @@ impl Gpu {
                     "darken" => 7,
                     "lighten" => 8,
                     "difference" => 9,
+                    // D-730.
+                    "none" => 10,
+                    "stencil_alpha" => 11,
+                    "stencil_luma" => 12,
+                    "saturation" => 13,
+                    "color" => 14,
+                    "luminosity" => 15,
                     _ => blend(b),
                 };
                 let p = FxParams {

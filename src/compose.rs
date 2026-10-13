@@ -1408,7 +1408,9 @@ fn card_effect(
                 E::TintMap { amount_to_tint, .. } => *amount_to_tint == 0.0,
                 E::CcVignette { amount, angle_of_view, .. } => *amount == 0.0 || *angle_of_view == 0.0,
                 E::Tritone { blend_with_original, .. } => *blend_with_original == 100.0,
-                E::FractalNoise { opacity, .. } | E::TurbulentNoise { opacity, .. } => *opacity == 0.0,
+                E::FractalNoise { opacity, .. } => *opacity == 0.0,
+                // D-730: None and the stencils still clear the layer at opacity 0.
+                E::TurbulentNoise { opacity, blend, .. } => *opacity == 0.0 && !["none", "stencil_alpha", "stencil_luma"].contains(&blend.as_str()),
                 E::ColorBalance { shadows, midtones, highlights, .. } => {
                     [shadows, midtones, highlights].iter().all(|t| t.iter().all(|v| *v == 0.0))
                 }

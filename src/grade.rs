@@ -337,6 +337,45 @@ pub(crate) fn noise_mixer(blend: &str) -> fn(f64, f64) -> f64 {
     }
 }
 
+/// D-730: Turbulent Noise's Saturation, Color and Luminosity, the W3C Compositing and Blending
+/// Level 1 non-separable modes, on the layer's straight colour `b` (the backdrop) and the noise's
+/// `s` (the source). Our basis; After Effects publishes no formula.
+pub(crate) fn noise_whole(blend: &str) -> Option<fn([f64; 3], [f64; 3]) -> [f64; 3]> {
+    let f: fn([f64; 3], [f64; 3]) -> [f64; 3] = match blend {
+        "saturation" => |b, s| w3c_set_lum(w3c_set_sat(b, w3c_sat(s)), w3c_lum(b)),
+        "color" => |b, s| w3c_set_lum(s, w3c_lum(b)),
+        "luminosity" => |b, s| w3c_set_lum(b, w3c_lum(s)),
+        _ => return None,
+    };
+    Some(f)
+}
+
+/// D-730: the W3C's Lum.
+fn w3c_lum(c: [f64; 3]) -> f64 {
+    0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]
+}
+
+/// D-730: the W3C's SetLum, then its ClipColor.
+fn w3c_set_lum(c: [f64; 3], l: f64) -> [f64; 3] {
+    let d = l - w3c_lum(c);
+    let c = c.map(|v| v + d);
+    let l = w3c_lum(c);
+    let (n, x) = (c[0].min(c[1]).min(c[2]), c[0].max(c[1]).max(c[2]));
+    let c = if n < 0.0 && l > n { c.map(|v| l + (v - l) * l / (l - n)) } else { c };
+    if x > 1.0 && x > l { c.map(|v| l + (v - l) * (1.0 - l) / (x - l)) } else { c }
+}
+
+/// D-730: the W3C's Sat.
+fn w3c_sat(c: [f64; 3]) -> f64 {
+    c[0].max(c[1]).max(c[2]) - c[0].min(c[1]).min(c[2])
+}
+
+/// D-730: the W3C's SetSat: the least 0, the most `s`, the middle in proportion; a grey all 0.
+fn w3c_set_sat(c: [f64; 3], s: f64) -> [f64; 3] {
+    let (n, x) = (c[0].min(c[1]).min(c[2]), c[0].max(c[1]).max(c[2]));
+    if x > n { c.map(|v| (v - n) * s / (x - n)) } else { [0.0; 3] }
+}
+
 /// D-185: `color` encoded 0 to 1 washed over the figure, the pixels at least half covered, from
 /// `direction` degrees clockwise from up, strongest at the figure's near edge and fading on a
 /// smoothstep to nothing `spread` per cent of the way across, at up to `opacity`, 0 to 100, by
@@ -1259,20 +1298,26 @@ pub(crate) fn overflowed(v: f64, overflow: u8, float: bool) -> f64 {
 /// space (its corner at `(ox, oy)` in `source`), mixed in by its blend at its opacity. The
 /// settings are already valid.
 pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (usize, usize)) {
-    if f.opacity == 0.0 {
+    // D-730: None replaces the layer with the noise, at every pixel; the stencils keep the layer
+    // by the noise as document 21's layer modes do; both still clear it at opacity 0.
+    let none = f.blend == "none";
+    let stencil = crate::model::BlendMode::from_str(&f.blend)
+        .filter(|m| matches!(m, crate::model::BlendMode::StencilAlpha | crate::model::BlendMode::StencilLuma));
+    if f.opacity == 0.0 && !none && stencil.is_none() {
         return;
     }
     let w = source.width();
     let base = mix(f.seed.floor() as u64);
     let (mixer, o) = (noise_mixer(&f.blend), f.opacity / 100.0);
     let mixer = if f.float && f.blend == "screen" { screen_float } else { mixer };
+    let whole = noise_whole(&f.blend);
     source
         .data_mut()
         .par_chunks_exact_mut(4)
         .enumerate()
         .for_each(|(i, px)| {
             let a = px[3] as f64;
-            if a <= 0.0 {
+            if a <= 0.0 && !none {
                 return;
             }
             let (cx, cy) = ((i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
@@ -1283,11 +1328,27 @@ pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (
             };
             let n = if f.invert { -n } else { n };
             let v = overflowed(0.5 + 0.5 * n * f.contrast / 100.0 + f.brightness / 100.0, f.overflow, f.float);
-            for c in 0..3 {
+            let color: [f64; 3] = std::array::from_fn(|c| {
                 let [d, l] = [f.colors[0][c], f.colors[1][c]];
-                let color = to_linear(d + v * (l - d));
-                let b = px[c] as f64 / a;
-                px[c] = ((b + o * (mixer(b, color) - b)) * a) as f32;
+                to_linear(d + v * (l - d))
+            });
+            if none || stencil.is_some() {
+                // D-730: the noise as an opaque layer at the opacity.
+                let s = [color[0] * o, color[1] * o, color[2] * o, o].map(|v| v as f32);
+                let out = match stencil {
+                    Some(m) => crate::composite::blend_pixel(m, s, [px[0], px[1], px[2], px[3]]),
+                    None => s,
+                };
+                px.copy_from_slice(&out);
+                return;
+            }
+            let b: [f64; 3] = std::array::from_fn(|c| px[c] as f64 / a);
+            let m = match whole {
+                Some(h) => h(b, color),
+                None => std::array::from_fn(|c| mixer(b[c], color[c])),
+            };
+            for c in 0..3 {
+                px[c] = ((b[c] + o * (m[c] - b[c])) * a) as f32;
             }
         });
 }

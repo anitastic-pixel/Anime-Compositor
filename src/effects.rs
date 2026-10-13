@@ -5418,7 +5418,24 @@ impl Default for NoiseMore {
 pub const OVERFLOWS: [&str; 4] = ["allow_hdr", "clip", "soft_clamp", "wrap_back"];
 
 /// D-647: Turbulent Noise's blending modes.
-const TURBULENT_BLENDS: [&str; 9] = ["normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference"];
+const TURBULENT_BLENDS: [&str; 15] = [
+    "normal",
+    "multiply",
+    "screen",
+    "add",
+    "soft_light",
+    "hard_light",
+    "darken",
+    "lighten",
+    "difference",
+    // D-730.
+    "none",
+    "stencil_alpha",
+    "stencil_luma",
+    "saturation",
+    "color",
+    "luminosity",
+];
 pub const BALL_AXES: [&str; 9] =["x", "y", "z", "xy", "xz", "yz", "xyz", "x15z", "xy15z"];
 /// D-551: CC Ball Action's twist properties, as CycoreFX lists them.
 pub const BALL_TWISTS: [&str; 13] = [
