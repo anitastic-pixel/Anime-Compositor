@@ -214723,3 +214723,129 @@ FX-RSR-024 (`fx_rsr_024.json`): Pixel Motion Detail 101, above 100. The file is 
 FX-RSR-025 (`fx_rsr_025.json`): Rolling Shutter Rate keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-RSR-026 (`fx_rsr_026.json`): Detailed Analysis written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Foam (D-678)
+
+Foam (B-557), after After Effects' Foam (Simulation): `tools/foam_reference.py` writes `Fixtures/foam/expected_foam.json`, tolerance 2e-5; the rule is in document 21. Every case is a composition 48 by 32 holding one drawing the same size, Bubbles' colour field or the field with its right half clear.
+
+FX-FOAM-001 (`fx_foam_001.json`): As added: the Draft view, the red producer in the middle and thirty tiny blue rings a second drifting right; frame 0 the producer alone. Frames 0, 12, 24, 35.
+
+FX-FOAM-002 (`fx_foam_002.json`): A close look, Rendered: bigger bubbles from a bigger producer, fifteen a second; frame 0 clear, frame 1 the first born, too small to see. Frames 0, 1, 12, 24.
+
+FX-FOAM-003 (`fx_foam_003.json`): The close look in the Draft view: rings. Frames 12.
+
+FX-FOAM-004 (`fx_foam_004.json`): The producer at 25, 75, wide and flat, turned 30 degrees. Frames 12.
+
+FX-FOAM-005 (`fx_foam_005.json`): Zoom 2, the producer kept where it was put on screen: bubbles twice as big, drifting twice as fast. Frames 12.
+
+FX-FOAM-006 (`fx_foam_006.json`): Zoom 2 with Zoom Producer Point on: the producer grown too. Frames 12.
+
+FX-FOAM-007 (`fx_foam_007.json`): Production Rate 2: sixty a second. Frames 12.
+
+FX-FOAM-008 (`fx_foam_008.json`): Size Variance 0: every bubble the same size. Frames 12.
+
+FX-FOAM-009 (`fx_foam_009.json`): Size 6: big bubbles crowding and pushing. Frames 12.
+
+FX-FOAM-010 (`fx_foam_010.json`): Lifespan 15 (half a second): the old ones popped. Frames 24.
+
+FX-FOAM-011 (`fx_foam_011.json`): Bubble Growth Speed 1: full size in a tenth of a second. Frames 6.
+
+FX-FOAM-012 (`fx_foam_012.json`): Strength 1 with Lifespan 30: most pop well before the second is out. Frames 24.
+
+FX-FOAM-013 (`fx_foam_013.json`): Initial Speed 2 towards 180 degrees: thrown down. Frames 12.
+
+FX-FOAM-014 (`fx_foam_014.json`): Wind 4 towards 0 degrees: blown up and away. Frames 24.
+
+FX-FOAM-015 (`fx_foam_015.json`): Turbulence 5: wandering. Frames 24.
+
+FX-FOAM-016 (`fx_foam_016.json`): Wobble 0.4: squashed and stretched. Frames 12.
+
+FX-FOAM-017 (`fx_foam_017.json`): Repulsion 0: bubbles overlap. Frames 24.
+
+FX-FOAM-018 (`fx_foam_018.json`): Repulsion 10: pushed hard apart. Frames 24.
+
+FX-FOAM-019 (`fx_foam_019.json`): Pop Velocity 20 with short lives: each pop shoves its neighbours. Frames 24.
+
+FX-FOAM-020 (`fx_foam_020.json`): Viscosity 1: the wind barely moves them. Frames 24.
+
+FX-FOAM-021 (`fx_foam_021.json`): Stickiness 0: neighbours do not drag each other. Frames 24.
+
+FX-FOAM-022 (`fx_foam_022.json`): Universe Size 0.5 with a strong wind: gone before the layer's edge. Frames 24.
+
+FX-FOAM-023 (`fx_foam_023.json`): Blend Mode Solid Old on Top. Frames 24.
+
+FX-FOAM-024 (`fx_foam_024.json`): Blend Mode Solid New on Top. Frames 24.
+
+FX-FOAM-025 (`fx_foam_025.json`): Bubble Texture Spit. Frames 24.
+
+FX-FOAM-026 (`fx_foam_026.json`): Bubble Texture Bubblegum. Frames 24.
+
+FX-FOAM-027 (`fx_foam_027.json`): Bubble Texture Dishwater. Frames 24.
+
+FX-FOAM-028 (`fx_foam_028.json`): Bubble Texture Layer: the picture in every bubble. Frames 24.
+
+FX-FOAM-029 (`fx_foam_029.json`): Layer texture, Bubble Orientation Physical: each picture turned its own way. Frames 24.
+
+FX-FOAM-030 (`fx_foam_030.json`): Layer texture, Bubble Orientation Velocity: each picture's top the way it moves. Frames 24.
+
+FX-FOAM-031 (`fx_foam_031.json`): Reflection Strength 0.7, Convergence 0: each bubble shows the picture round it. Frames 24.
+
+FX-FOAM-032 (`fx_foam_032.json`): Reflection Strength 0.7, Convergence 1: each bubble shows the whole picture. Frames 24.
+
+FX-FOAM-033 (`fx_foam_033.json`): Simulation Quality High: two steps a frame. Frames 24.
+
+FX-FOAM-034 (`fx_foam_034.json`): Simulation Quality Intense: four steps a frame. Frames 12.
+
+FX-FOAM-035 (`fx_foam_035.json`): Random Seed 7: other bubbles. Frames 24.
+
+FX-FOAM-036 (`fx_foam_036.json`): Production Rate keyed from 0 at frame 0 to 2 at frame 24: born slowly, then faster. Frames 24.
+
+FX-FOAM-037 (`fx_foam_037.json`): Wind Direction keyed from 0 to 180 over frames 0 to 24: blown up, then round and down. Frames 24.
+
+FX-FOAM-038 (`fx_foam_038.json`): FX-FOAM-002 moved 3 pixels right: the same, moved. Frames 12.
+
+FX-FOAM-039 (`fx_foam_039.json`): FX-FOAM-002 with the layer starting at frame 6: frame 6 clear, frame 18 002's frame 12. Frames 6, 18.
+
+FX-FOAM-040 (`fx_foam_040.json`): FX-FOAM-002 at 30 frames a second: frame 12 is two fifths of a second in. Frames 12.
+
+FX-FOAM-041 (`fx_foam_041.json`): The half picture with the Layer texture: half of each bubble's picture clear. Frames 24.
+
+FX-FOAM-042 (`fx_foam_042.json`): Production Rate -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-043 (`fx_foam_043.json`): Size 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-044 (`fx_foam_044.json`): Size Variance 2, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-045 (`fx_foam_045.json`): Lifespan 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-046 (`fx_foam_046.json`): Bubble Growth Speed 0, below 0.01. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-047 (`fx_foam_047.json`): Strength 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-048 (`fx_foam_048.json`): Wind Speed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-049 (`fx_foam_049.json`): Viscosity 2, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-050 (`fx_foam_050.json`): Zoom 0, below 0.05. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-051 (`fx_foam_051.json`): Universe Size 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-052 (`fx_foam_052.json`): Reflection Strength 1.5, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-053 (`fx_foam_053.json`): Random Seed -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-054 (`fx_foam_054.json`): Producer X 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-055 (`fx_foam_055.json`): A view written "flow". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-056 (`fx_foam_056.json`): A blend mode written "add". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-057 (`fx_foam_057.json`): A bubble texture written "soap". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-058 (`fx_foam_058.json`): A bubble orientation written "spin". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-059 (`fx_foam_059.json`): A quality written "ultra". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-060 (`fx_foam_060.json`): A zoom producer point written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-FOAM-061 (`fx_foam_061.json`): Production Rate keyed to 200 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
