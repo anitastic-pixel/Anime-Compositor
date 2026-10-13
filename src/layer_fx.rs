@@ -11150,6 +11150,113 @@ pub(crate) fn shatter(source: &mut WorkingBuffer, e: &crate::effects::Effect, (o
                             (0, fl(qx), fl(qy))
                         }
                     }
+                    // D-636: After Effects' other ten, our own shapes, as the tool's step 1.
+                    "herringbone_2" => {
+                        let (cx, cy) = (fl(2.0 * qx), fl(2.0 * qy));
+                        match (cx - cy).rem_euclid(4) {
+                            0 => (0, cx, cy),
+                            1 => (0, cx - 1, cy),
+                            2 => (1, cx, cy - 1),
+                            _ => (1, cx, cy),
+                        }
+                    }
+                    "squares_triangles" => {
+                        let (i, j) = (fl(qx), fl(qy));
+                        if (i + j).rem_euclid(2) == 0 {
+                            (4, i, j)
+                        } else {
+                            let (fx, fy) = (qx - i as f64, qy - j as f64);
+                            (2 * u8::from(fx > fy) + u8::from(fx + fy > 1.0), i, j)
+                        }
+                    }
+                    "stars_triangles" => {
+                        let (i, j) = (fl(b), fl(a));
+                        let up = (b - i as f64) + (a - j as f64) > 1.0;
+                        let third = if up { 2.0 / 3.0 } else { 1.0 / 3.0 };
+                        let (cb, ca) = (i as f64 + third, j as f64 + third);
+                        let mut key = (u8::from(up), i, j);
+                        for (di, dj) in [(0, 0), (3, 0), (0, 3), (3, 3)] {
+                            let (si, sj) = (3 * fl(cb / 3.0) + di, 3 * fl(ca / 3.0) + dj);
+                            let (db, da) = (cb - si as f64, ca - sj as f64);
+                            if (db + da / 2.0) * (db + da / 2.0) + (da * r3) * (da * r3) < 1.3 * 1.3 {
+                                key = (2, si, sj);
+                            }
+                        }
+                        key
+                    }
+                    "overlapping_squares" => {
+                        let (x, y) = (2.0 * qx, 2.0 * qy);
+                        let (m0, n0) = (fl((2.0 * x + y) / 5.0), fl((2.0 * y - x) / 5.0));
+                        let mut key = (0, 0, 0);
+                        for n in n0 - 2..=n0 + 2 {
+                            for m in m0 - 2..=m0 + 2 {
+                                let (ox, oy) = ((2 * m - n) as f64, (m + 2 * n) as f64);
+                                if ox <= x && x < ox + 2.0 && oy <= y && y < oy + 2.0 {
+                                    key = (0, m, n);
+                                } else if ox + 2.0 <= x && x < ox + 3.0 && oy <= y && y < oy + 1.0 {
+                                    key = (1, m, n);
+                                }
+                            }
+                        }
+                        key
+                    }
+                    "chevrons" => {
+                        let c = fl(qx);
+                        (0, c, fl(2.0 * qy - (2.0 * (qx - c as f64) - 1.0).abs()))
+                    }
+                    "puzzle" => {
+                        // Each edge's knob belongs to the square the hash picks and pokes into
+                        // the other.
+                        let (i, j) = (fl(qx), fl(qy));
+                        let mut key = (0, i, j);
+                        for (ei, ej, vertical) in [(i, j, true), (i - 1, j, true), (i, j, false), (i, j - 1, false)] {
+                            let first = glass(ei, ej, if vertical { 2 } else { 3 }) < 0.5;
+                            let s = if first { 1.0 } else { -1.0 };
+                            let (kx, ky, owner) = if vertical {
+                                (ei as f64 + 1.0 + 0.1 * s, ej as f64 + 0.5, if first { (ei, ej) } else { (ei + 1, ej) })
+                            } else {
+                                (ei as f64 + 0.5, ej as f64 + 1.0 + 0.1 * s, if first { (ei, ej) } else { (ei, ej + 1) })
+                            };
+                            if (qx - kx) * (qx - kx) + (qy - ky) * (qy - ky) < 0.04 {
+                                key = (0, owner.0, owner.1);
+                            }
+                        }
+                        key
+                    }
+                    "js" => {
+                        let (mut cx, cy) = (fl(2.0 * qx), fl(2.0 * qy));
+                        let band = cy.div_euclid(2);
+                        let (odd, mut ry) = (band.rem_euclid(2), cy - 2 * band);
+                        if odd == 1 {
+                            (cx, ry) = (cx + 2, 1 - ry);
+                        }
+                        let k = cx.div_euclid(4);
+                        let rx = cx - 4 * k;
+                        (2 * odd as u8 + u8::from(!((ry == 0 && rx <= 2) || (ry == 1 && rx == 0))), k, band)
+                    }
+                    "eggs" | "crescents" | "carpenters_wheel" => {
+                        let (i, j) = (fl(qx), fl(qy));
+                        let (u, v) = (qx - i as f64 - 0.5, qy - j as f64 - 0.5);
+                        let corner = (9, fl(qx + 0.5), fl(qy + 0.5));
+                        let rr = u * u + v * v;
+                        match kind {
+                            "eggs" => {
+                                let (eu, ev) = (u / (0.32 * (1.0 + 0.35 * v / 0.42)), v / 0.42);
+                                if eu * eu + ev * ev < 1.0 {
+                                    (1, i, j)
+                                } else {
+                                    corner
+                                }
+                            }
+                            "crescents" => (u8::from(rr < 0.45 * 0.45 && (u - 0.2) * (u - 0.2) + v * v >= 0.4 * 0.4), i, j),
+                            _ if rr < 0.12 * 0.12 => (8, i, j),
+                            _ if rr < 0.45 * 0.45 => {
+                                let pi = std::f64::consts::PI;
+                                ((8.0 * (v.atan2(u) + pi) / (2.0 * pi)).floor().rem_euclid(8.0) as u8, i, j)
+                            }
+                            _ => corner,
+                        }
+                    }
                     _ => {
                         // Glass: the nearest jittered seed of the cells within two.
                         let mut best = (f64::INFINITY, 0, 0);

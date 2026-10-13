@@ -91,7 +91,6 @@ fn b513_shatter() {
         draft == plain,
     );
     for (file, want) in [
-        ("fx_sh_061.json", "not built yet (d-636)"),
         ("fx_sh_062.json", "pattern"),
         ("fx_sh_064.json", "render"),
         ("fx_sh_065.json", "tumble axis"),

@@ -4049,8 +4049,8 @@ pub const WAVE_WORLD: &str = "core.wave_world";
 pub const CAUSTICS: &str = "core.caustics";
 pub const CARD_DANCE: &str = "core.card_dance";
 pub const SHATTER: &str = "core.shatter";
-/// D-633: Shatter's patterns built in B-513.
-pub const SHATTER_PATTERNS: [&str; 11] = [
+/// D-633: Shatter's patterns built in B-513, then D-636's ten built in B-516, their shapes ours.
+pub const SHATTER_PATTERNS: [&str; 21] = [
     "bricks",
     "squares",
     "hexagons",
@@ -4062,9 +4062,6 @@ pub const SHATTER_PATTERNS: [&str; 11] = [
     "octagons_squares",
     "glass",
     "custom",
-];
-/// D-633: After Effects' other ten patterns, refused until D-636 builds them.
-const SHATTER_LATER_PATTERNS: [&str; 10] = [
     "herringbone_2",
     "squares_triangles",
     "stars_triangles",
@@ -10520,10 +10517,6 @@ impl Effect {
                         format!("Shatter's {what} is one of {words}, and this is \"{w}\".")
                     })
                 };
-                // Words After Effects has that are not built yet: refused, never drawn as another.
-                let later = |what: &str, words: &[&str], w: &str, by: &str| {
-                    words.contains(&w).then(|| format!("Shatter's {what} \"{w}\" is not built yet ({by}), so the effect is left out."))
-                };
                 let modes = [("front mode", front_mode), ("side mode", side_mode), ("back mode", back_mode)];
                 [
                     ("custom shatter map", custom_shatter_map),
@@ -10537,7 +10530,6 @@ impl Effect {
                 .map(|(what, l)| format!("Shatter's {what} is the name of a layer of this composition, and this is {l}."))
                 .or_else(|| one_of("view", &["rendered", "wireframe_front", "wireframe", "wireframe_front_forces", "wireframe_forces"], view))
                 .or_else(|| one_of("render", &["all", "layer", "pieces"], render))
-                .or_else(|| later("pattern", &SHATTER_LATER_PATTERNS, pattern, "D-636"))
                 .or_else(|| one_of("pattern", &SHATTER_PATTERNS, pattern))
                 .or_else(|| one_of("white tiles fixed", &["off", "on"], white_tiles_fixed))
                 .or_else(|| one_of("invert gradient", &["off", "on"], invert_gradient))
