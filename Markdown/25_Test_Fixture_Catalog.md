@@ -212658,6 +212658,38 @@ FX-TURBNOISE-059 (`fx_turbnoise_059.json`): Uniform Scaling "yes", not off or on
 
 FX-TURBNOISE-060 (`fx_turbnoise_060.json`): Blending mode "hue", which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Turbulent Noise, more blending modes (D-730)
+
+Turbulent Noise's six more blending modes (B-600), more cases in the same folder: `tools/turbulent_blends_reference.py` writes `Fixtures/turbulent_noise/expected_turbulent_blends.json` and `fx_turbnoise_061.json` to `fx_turbnoise_074.json`, the 16 by 10 composition of D-445's cases, tolerance 2e-5. Saturation, Color and Luminosity follow the W3C non-separable rules (our basis, not a match to After Effects); None and the stencils follow the Timeline's rules, as Adobe's help says.
+
+FX-TURBNOISE-061 (`fx_turbnoise_061.json`): Size 4, blending mode saturation: the noise is grey, so the card takes its saturation, none, and goes to its own grey. Frames 0.
+
+FX-TURBNOISE-062 (`fx_turbnoise_062.json`): Size 4, blending mode color: the card's lightness in the noise's colour, grey, so the same as FX-TURBNOISE-061. Frames 0.
+
+FX-TURBNOISE-063 (`fx_turbnoise_063.json`): Size 4, blending mode luminosity: the card's colours at the clouds' lightness. Frames 0.
+
+FX-TURBNOISE-064 (`fx_turbnoise_064.json`): Size 4, blending mode luminosity, opacity 50: halfway from the card to FX-TURBNOISE-063. Frames 0.
+
+FX-TURBNOISE-065 (`fx_turbnoise_065.json`): Size 4, blending mode none: the clouds alone, the card gone, filling the clear corner too. Frames 0.
+
+FX-TURBNOISE-066 (`fx_turbnoise_066.json`): Size 4, blending mode none, opacity 60: the clouds alone at 60% everywhere. Frames 0.
+
+FX-TURBNOISE-067 (`fx_turbnoise_067.json`): Size 4, blending mode stencil_alpha: the noise is opaque, so the card is kept whole, the plain card. Frames 0.
+
+FX-TURBNOISE-068 (`fx_turbnoise_068.json`): Size 4, blending mode stencil_alpha, opacity 40: the card kept at 40%. Frames 0.
+
+FX-TURBNOISE-069 (`fx_turbnoise_069.json`): Size 4, blending mode stencil_luma: the card kept where the clouds are light and cut away where they are dark. Frames 0.
+
+FX-TURBNOISE-070 (`fx_turbnoise_070.json`): Size 4, blending mode stencil_luma, opacity 50: the clouds at half, so the card is kept less. Frames 0.
+
+FX-TURBNOISE-071 (`fx_turbnoise_071.json`): Size 4, blending mode none, opacity 0: nothing drawn and the card gone, a clear frame, not the card left as it was. Frames 0.
+
+FX-TURBNOISE-072 (`fx_turbnoise_072.json`): Size 4, blending mode stencil_luma, opacity keyed from 100 at frame 0 to 0 at frame 4, linear: FX-TURBNOISE-069 fading to a clear frame. Frames 0, 2, 4.
+
+FX-TURBNOISE-073 (`fx_turbnoise_073.json`): Blending mode "silhouette_alpha", which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-TURBNOISE-074 (`fx_turbnoise_074.json`): Blending mode "silhouette_luma", which is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Bezier Warp (D-602)
 
 Bezier Warp (`core.bezier_warp`, B-481, EFFECTS.md row 135), after After Effects' Bezier Warp, the rule ours. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size; the media are in `Fixtures/bezier_warp/media/`. `tools/bezier_warp_reference.py` works the expected frames, `Fixtures/bezier_warp/expected_bezier_warp.json`, tolerance 2e-5; the rule is in document 21.

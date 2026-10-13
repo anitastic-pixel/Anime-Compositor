@@ -74,11 +74,11 @@ B-325: `core.turbulent_noise` takes After Effects' Turbulent Noise controls (Fra
 | FX-TURBNOISE-028 frame 0: Scale width 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-028 frame 4: Scale width 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-028: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-TURBNOISE-029 frame 0: Fractal type "dynamic", one of After Effects' that is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-029 frame 4: Fractal type "dynamic", one of After Effects' that is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-TURBNOISE-029 frame 0: Fractal type "plasma", which is not one of the seventeen. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-TURBNOISE-029 frame 4: Fractal type "plasma", which is not one of the seventeen. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-029: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
-| FX-TURBNOISE-030 frame 0: Noise type "spline", one of After Effects' that is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
-| FX-TURBNOISE-030 frame 4: Noise type "spline", one of After Effects' that is not built. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-TURBNOISE-030 frame 0: Noise type "cubic", which is not one of the five. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-TURBNOISE-030 frame 4: Noise type "cubic", which is not one of the five. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-030: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-TURBNOISE-031 frame 0: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-TURBNOISE-031 frame 4: Invert "yes", which is not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -200,10 +200,10 @@ B-325: `core.turbulent_noise` takes After Effects' Turbulent Noise controls (Fra
 | fx_turbnoise_025.json is refused in a sentence naming Turbulent Noise and its contrast | Turbulent Noise's contrast runs from 0 to 1000, and this is 1001. | yes |
 | fx_turbnoise_027.json is refused in a sentence naming Turbulent Noise and its seed | Turbulent Noise's seed runs from 0 to 100000, and this is -1. | yes |
 | fx_turbnoise_028.json is refused in a sentence naming Turbulent Noise and its scale width | Turbulent Noise's scale width runs from 1 to 10000, and this is 0. | yes |
-| fx_turbnoise_029.json is refused in a sentence naming Turbulent Noise and its fractal type | Turbulent Noise's fractal type is "basic" or "turbulent", and this is "dynamic". | yes |
-| fx_turbnoise_030.json is refused in a sentence naming Turbulent Noise and its noise type | Turbulent Noise's noise type is "smooth" or "block", and this is "spline". | yes |
+| fx_turbnoise_029.json is refused in a sentence naming Turbulent Noise and its fractal type | Turbulent Noise's fractal type is one of "basic", "turbulent", "turbulent_smooth", "turbulent_sharp", "dynamic", "dynamic_progressive", "dynamic_twist", "max", "smeary", "swirly", "rocky", "cloudy", "terrain", "subscale", "small_bumps", "strings", "threads", and this is "plasma". | yes |
+| fx_turbnoise_030.json is refused in a sentence naming Turbulent Noise and its noise type | Turbulent Noise's noise type is one of "smooth", "block", "linear", "soft_linear", "spline", and this is "cubic". | yes |
 | fx_turbnoise_031.json is refused in a sentence naming Turbulent Noise and its invert | Turbulent Noise's invert is "off" or "on", and this is "yes". | yes |
-| fx_turbnoise_032.json is refused in a sentence naming Turbulent Noise and its blending mode | Turbulent Noise's blending mode is "normal", "multiply", "screen" or "add", and this is "overlay". | yes |
+| fx_turbnoise_032.json is refused in a sentence naming Turbulent Noise and its blending mode | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "overlay". | yes |
 | a file with a Turbulent Noise whose contrast is a word is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with a Turbulent Noise without its evolution is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with a Turbulent Noise whose offset is one number is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
@@ -213,7 +213,7 @@ B-325: `core.turbulent_noise` takes After Effects' Turbulent Noise controls (Fra
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | complexity 21 is refused with a sentence, and nothing changes | Turbulent Noise's complexity runs from 1 to 20, and this is 21. | yes |
-| noise type spline is refused with a sentence, and nothing changes | Turbulent Noise's noise type is "smooth" or "block", and this is "spline". | yes |
+| noise type cubic is refused with a sentence, and nothing changes | Turbulent Noise's noise type is one of "smooth", "block", "linear", "soft_linear", "spline", and this is "cubic". | yes |
 | opacity keyed to 150 is refused with a sentence, and nothing changes | Turbulent Noise's opacity runs from 0 to 100, and this is 150. | yes |
 | turbulent at size 4 is taken | taken | yes |
 | evolution keyed from 0 to 720 is taken | taken | yes |

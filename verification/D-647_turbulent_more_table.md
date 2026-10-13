@@ -250,7 +250,7 @@ B-526: `core.turbulent_noise` takes After Effects' Overflow (Allow HDR Results, 
 | fx_turbnoise_057.json is refused in a sentence naming Turbulent Noise, sub_scaling and 5 | Turbulent Noise's sub scaling runs from 10 to 100, and this is 5. | yes |
 | fx_turbnoise_058.json is refused in a sentence naming Turbulent Noise, sub_influence and 101 | Turbulent Noise's sub influence runs from 0 to 100, and this is 101. | yes |
 | fx_turbnoise_059.json is refused in a sentence naming Turbulent Noise, uniform scaling and "yes" | Turbulent Noise's uniform scaling is "off" or "on", and this is "yes". | yes |
-| fx_turbnoise_060.json is refused in a sentence naming Turbulent Noise, blending mode and "hue" | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", and this is "hue". | yes |
+| fx_turbnoise_060.json is refused in a sentence naming Turbulent Noise, blending mode and "hue" | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "hue". | yes |
 
 ## Commands
 
@@ -258,7 +258,7 @@ B-526: `core.turbulent_noise` takes After Effects' Overflow (Allow HDR Results, 
 | --- | --- | --- |
 | overflow "hdr" is refused with a sentence, and nothing changes | Turbulent Noise's overflow is one of "allow_hdr", "clip", "soft_clamp", "wrap_back", and this is "hdr". | yes |
 | sub scaling 5 is refused with a sentence, and nothing changes | Turbulent Noise's sub scaling runs from 10 to 100, and this is 5. | yes |
-| blending mode "overlay" is refused with a sentence, and nothing changes | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", and this is "overlay". | yes |
+| blending mode "overlay" is refused with a sentence, and nothing changes | Turbulent Noise's blending mode is one of "normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference", "none", "stencil_alpha", "stencil_luma", "saturation", "color", "luminosity", and this is "overlay". | yes |
 | rotation -45, sub rotation 30, center subscale on, wrap back, difference is taken | taken | yes |
 | undo 1 times: frame 0 is the frame it was | byte-identical | yes |
 
