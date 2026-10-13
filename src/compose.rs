@@ -1580,7 +1580,7 @@ fn card_effect(
                 // D-607: no source, a mask named not found, or none of the way.
                 E::MaskSmear { paths, percent, .. } => paths.is_none() || *percent == 0.0,
                 // D-606: no source or destination, a mask named not found, or none of the way.
-                E::Reshape { paths, percent, .. } => paths.is_none() || *percent == 0.0,
+                E::Reshape { paths, percent, between, .. } => paths.is_none() || if between.is_empty() { *percent == 0.0 } else { between.iter().all(|(p, _)| *p == 0.0) },
                 // D-605: no stroke, or none of it drawn; D-700: no earlier stroke either, or a
                 // freeze area mask named not found.
                 E::Liquify { stroke, strokes, distortion_percentage, freeze_path, .. } => {

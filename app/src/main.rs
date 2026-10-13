@@ -4998,6 +4998,9 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             boundary_mask: 0.0,
             percent: 100.0,
             elasticity: "normal".to_string(),
+            correspondence_points: Vec::new(),
+            interpolation: "discrete".to_string(),
+            between: Vec::new(),
             paths: None,
         }),
         // D-605: the Warp brush at 64 and 50 with nothing painted yet, as After Effects adds it.
@@ -8022,13 +8025,22 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             elasticity: word("elasticity")?,
             paths: None,
         }),
-        // D-606.
+        // D-606. D-702: the correspondence points as one list, commas or spaces between, none
+        // for none; pairs are the core's check, in its words; Discrete when not said.
         RESHAPE => Ok(Effect::Reshape {
             source_mask: number("source_mask")?,
             destination_mask: number("destination_mask")?,
             boundary_mask: number("boundary_mask")?,
             percent: number("percent")?,
             elasticity: word("elasticity")?,
+            correspondence_points: parameter(query, "correspondence_points")
+                .unwrap_or_default()
+                .split(|ch: char| ch == ',' || ch.is_whitespace())
+                .filter(|p| !p.is_empty())
+                .map(|p| p.parse::<f64>().map_err(|_| format!("Correspondence points need numbers, source then destination for each pair. Not \"{p}\".")))
+                .collect::<Result<Vec<_>, _>>()?,
+            interpolation: parameter(query, "interpolation").map_or_else(|| "discrete".to_string(), |t| t.trim().to_ascii_lowercase()),
+            between: Vec::new(),
             paths: None,
         }),
         // D-605: the stroke as one list, commas or spaces between, none for no stroke. Whole
@@ -34903,7 +34915,15 @@ mod contract {
         // D-606.
         (
             "core.reshape",
-            &[("source_mask", "1"), ("destination_mask", "2"), ("boundary_mask", "3"), ("percent", "60"), ("elasticity", "liquid")],
+            &[
+                ("source_mask", "1"),
+                ("destination_mask", "2"),
+                ("boundary_mask", "3"),
+                ("percent", "60"),
+                ("elasticity", "liquid"),
+                ("correspondence_points", "0,0,50,25"),
+                ("interpolation", "smooth"),
+            ],
         ),
         // D-605, D-700.
         (

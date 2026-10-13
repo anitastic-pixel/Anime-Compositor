@@ -270,6 +270,10 @@ impl EffectInstance {
                     *v = v.clamp(low, high);
                 }
             }
+            // D-702: Reshape's Interpolation between two of Percent's keys.
+            if let Effect::Reshape { interpolation, between, .. } = &mut effect {
+                *between = self.tracks.get("percent").map_or_else(Vec::new, |t| crate::mesh::reshape_between(interpolation, t[0].keyframes(), u));
+            }
             // D-119: the grain's frame, 0 when it does not move.
             if let Effect::Noise { animate, frame: f, .. } = &mut effect {
                 *f = if animate == "on" { frame } else { 0 };
@@ -2385,8 +2389,23 @@ pub enum Effect {
     /// [`crate::mesh::RESHAPE_ELASTICITY`]. `paths` is not a setting and is never saved:
     /// compose fills it each frame with the source's and destination's outlines and, when one
     /// is named, the boundary's, flattened, in the drawing's space at the size the effects run
-    /// at, `None` when there is no source or destination or a mask named is not there.
-    Reshape { source_mask: f64, destination_mask: f64, boundary_mask: f64, percent: f64, elasticity: String, paths: Option<Vec<Vec<(f64, f64)>>> },
+    /// at, `None` when there is no source or destination or a mask named is not there. D-702:
+    /// `correspondence_points`, none or pairs of per cent places along the source and the
+    /// destination that answer each other, 0 to 100, at most 32 pairs; `interpolation`,
+    /// `discrete`, `linear` or `smooth`. `between` is not a setting and is never saved: `at`
+    /// fills it with the Percents and weights [`crate::mesh::reshape_between`] gives, empty for
+    /// Percent alone.
+    Reshape {
+        source_mask: f64,
+        destination_mask: f64,
+        boundary_mask: f64,
+        percent: f64,
+        elasticity: String,
+        correspondence_points: Vec<f64>,
+        interpolation: String,
+        between: Vec<(f64, f64)>,
+        paths: Option<Vec<Vec<(f64, f64)>>>,
+    },
     /// D-607: after After Effects' Smear (`mesh::smear`, document 21); `core.smear` is D-392's.
     /// `source_mask` and `boundary_mask`, 0 to 1000, the masks numbered so (their floors taken), 0
     /// for none; `mask_offset`, pixels, -10000 to 10000; `mask_rotation`, degrees clockwise, -3600
@@ -6886,11 +6905,12 @@ impl Effect {
                 ("mask_scale", vec![mask_scale], 0.0, 1000.0),
                 ("percent", vec![percent], 0.0, 100.0),
             ],
-            Effect::Reshape { source_mask, destination_mask, boundary_mask, percent, .. } => vec![
+            Effect::Reshape { source_mask, destination_mask, boundary_mask, percent, correspondence_points, .. } => vec![
                 ("source_mask", vec![source_mask], 0.0, 1000.0),
                 ("destination_mask", vec![destination_mask], 0.0, 1000.0),
                 ("boundary_mask", vec![boundary_mask], 0.0, 1000.0),
                 ("percent", vec![percent], 0.0, 100.0),
+                ("correspondence_points", correspondence_points.iter_mut().collect(), 0.0, 100.0),
             ],
             Effect::Liquify { brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset, turbulent_jitter, clone_offset, freeze_area_mask, .. } => vec![
                 ("brush_size", vec![brush_size], 1.0, 1000.0),
@@ -10884,6 +10904,14 @@ impl Effect {
             Effect::Reshape { elasticity, .. } if !crate::mesh::RESHAPE_ELASTICITY.iter().any(|(w, _)| w == elasticity) => Some(format!(
                 "Reshape's elasticity is stiff, less_stiff, below_normal, normal, above_normal, super_fluid or liquid, and this is \"{elasticity}\"."
             )),
+            // D-702: the interpolation by name, and the correspondence points in pairs.
+            Effect::Reshape { interpolation, .. } if !matches!(interpolation.as_str(), "discrete" | "linear" | "smooth") => Some(format!(
+                "Reshape's interpolation is discrete, linear or smooth, and this is \"{interpolation}\"."
+            )),
+            Effect::Reshape { correspondence_points: c, .. } if c.len() % 2 == 1 || c.len() > 64 => Some(format!(
+                "Reshape's correspondence points are none, or pairs of numbers, at most 32 pairs, and this has {} numbers.",
+                c.len()
+            )),
             // D-605: the brush by name, and the stroke in whole points.
             Effect::Liquify { tool, .. } if !LIQUIFY_TOOLS.contains(&tool.as_str()) => Some(format!(
                 "Liquify's tool is warp, twirl_clockwise, twirl_counterclockwise, pucker, bloat, shift_pixels, turbulence, reflection, clone, reconstruction, freeze_area or thaw_area, and this is \"{tool}\"."
@@ -13600,11 +13628,12 @@ pub(crate) fn apply_stack_at(
             // D-606: the masks compose found for this frame, in the drawing's own space; with none,
             // the layer is left as it is (EFFECT_PATH_MISSING was said when a mask named was not
             // there). The layer never grows.
-            Effect::Reshape { percent, elasticity, paths, .. } => crate::perf::time(crate::perf::Stage::EffectReshape, || {
-                if let Some(paths) = paths.as_ref().filter(|_| *percent != 0.0) {
+            Effect::Reshape { percent, elasticity, correspondence_points, between, paths, .. } => crate::perf::time(crate::perf::Stage::EffectReshape, || {
+                if let Some(paths) = paths.as_ref() {
                     let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
-                    let field = crate::mesh::reshape(paths, *percent, elasticity, size);
-                    crate::mesh::draw_field(source, &field, 1.0, [0.0, 0.0], (ox, oy));
+                    if let Some(field) = crate::mesh::reshape(paths, *percent, between, correspondence_points, elasticity, size) {
+                        crate::mesh::draw_field(source, &field, 1.0, [0.0, 0.0], (ox, oy));
+                    }
                 }
             }),
             // D-605: the drawing pushed by the brush in its own space; the layer never grows.

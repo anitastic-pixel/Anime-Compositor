@@ -648,12 +648,96 @@ pub(crate) fn reshape_points(source: &[(f64, f64)], destination: &[(f64, f64)]) 
     (resample(source), resample(destination))
 }
 
+/// D-702: the place at the fraction `s` of `outline`'s length, closed, as [`resample`] finds
+/// its points.
+fn along(outline: &[(f64, f64)], s: f64) -> [f64; 2] {
+    let n = outline.len();
+    let pieces: Vec<((f64, f64), (f64, f64))> = (0..n).map(|i| (outline[i], outline[(i + 1) % n])).collect();
+    let lengths: Vec<f64> = pieces.iter().map(|(a, b)| (b.0 - a.0).hypot(b.1 - a.1)).collect();
+    let at = s * lengths.iter().fold(0.0, |s, l| s + l);
+    let (mut i, mut c) = (0, 0.0);
+    while i < n - 1 && c + lengths[i] <= at {
+        c += lengths[i];
+        i += 1;
+    }
+    let (a, b) = pieces[i];
+    let u = if lengths[i] > 0.0 { (at - c) / lengths[i] } else { 0.0 };
+    [a.0 + (b.0 - a.0) * u, a.1 + (b.1 - a.1) * u]
+}
+
+/// D-702: Reshape's points matched by the correspondence points, pairs of per cent places along
+/// the source and the destination as drawn; none is D-606's [`reshape_points`]. Between two
+/// pairs the source's points, equally spaced from the first pair's, answer places spread evenly
+/// along the destination between the pairs' own, as `tools/reshape_points_reference.py` does.
+pub(crate) fn reshape_matched(source: &[(f64, f64)], destination: &[(f64, f64)], pairs: &[f64]) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+    if pairs.len() < 2 {
+        return reshape_points(source, destination);
+    }
+    let flip = winding(source) * winding(destination) < 0.0;
+    let turned: Vec<(f64, f64)> = if flip { std::iter::once(destination[0]).chain(destination[1..].iter().rev().copied()).collect() } else { destination.to_vec() };
+    let frac = |p: f64| (p / 100.0).rem_euclid(1.0);
+    let mut ps: Vec<(f64, f64)> = pairs.chunks_exact(2).map(|c| (frac(c[0]), if flip { (1.0 - frac(c[1])).rem_euclid(1.0) } else { frac(c[1]) })).collect();
+    ps.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let a0 = ps[0].0;
+    let o: Vec<f64> = ps.iter().map(|p| p.0 - a0).chain(std::iter::once(1.0)).collect();
+    (0..RESHAPE_POINTS)
+        .map(|k| {
+            let r = k as f64 / RESHAPE_POINTS as f64;
+            let i = (0..ps.len()).rev().find(|&j| o[j] <= r).unwrap_or(0);
+            let next = ps[(i + 1) % ps.len()].1;
+            let f = (r - o[i]) / (o[i + 1] - o[i]);
+            let g = if ps.len() == 1 { 1.0 } else { (next - ps[i].1).rem_euclid(1.0) };
+            (along(source, (a0 + r).rem_euclid(1.0)), along(&turned, (ps[i].1 + f * g).rem_euclid(1.0)))
+        })
+        .unzip()
+}
+
+/// D-702: Reshape's Interpolation. `linear` or `smooth`, at the key time `u` strictly between
+/// two of Percent's keys: the Percents to work the field at (each key's, held inside 0 to 100)
+/// and their weights, a straight line between the two keys, or the uniform Catmull-Rom through
+/// the key before, the two and the key after (an end key standing in for one not there); the
+/// keys' eases are not read. Empty, for Percent at `u` alone (D-606), anywhere else.
+pub(crate) fn reshape_between(interpolation: &str, keys: &[crate::model::Keyframe], u: f64) -> Vec<(f64, f64)> {
+    if !matches!(interpolation, "linear" | "smooth") {
+        return Vec::new();
+    }
+    let Some(j) = keys.windows(2).position(|w| (w[0].frame as f64) < u && u < w[1].frame as f64) else {
+        return Vec::new();
+    };
+    let val = |i: isize| keys[i.clamp(0, keys.len() as isize - 1) as usize].value.as_scalar().unwrap_or(0.0).clamp(0.0, 100.0);
+    let j = j as isize;
+    let s = (u - keys[j as usize].frame as f64) / (keys[j as usize + 1].frame - keys[j as usize].frame) as f64;
+    if interpolation == "linear" {
+        return vec![(val(j), 1.0 - s), (val(j + 1), s)];
+    }
+    let (s2, s3) = (s * s, s * s * s);
+    vec![
+        (val(j - 1), (-s3 + 2.0 * s2 - s) / 2.0),
+        (val(j), (3.0 * s3 - 5.0 * s2 + 2.0) / 2.0),
+        (val(j + 1), (-3.0 * s3 + 4.0 * s2 + s) / 2.0),
+        (val(j + 2), (s3 - s2) / 2.0),
+    ]
+}
+
 /// D-606: Reshape's field from compose's outlines (source, destination, then the boundary if
-/// one is named), `percent` of the way, at `elasticity`.
-pub(crate) fn reshape(paths: &[Vec<(f64, f64)>], percent: f64, elasticity: &str, size: (f64, f64)) -> Field {
-    let (src, dst) = reshape_points(&paths[0], &paths[1]);
+/// one is named), `percent` of the way, at `elasticity`. D-702: matched by `pairs`, and, when
+/// `between` holds Percents and weights, those fields blended; `None` when every Percent is 0.
+pub(crate) fn reshape(paths: &[Vec<(f64, f64)>], percent: f64, between: &[(f64, f64)], pairs: &[f64], elasticity: &str, size: (f64, f64)) -> Option<Field> {
+    let parts = if between.is_empty() { vec![(percent, 1.0)] } else { between.to_vec() };
+    if parts.iter().all(|(p, _)| *p == 0.0) {
+        return None;
+    }
+    let (src, dst) = reshape_matched(&paths[0], &paths[1], pairs);
     let e = RESHAPE_ELASTICITY.iter().find(|(w, _)| *w == elasticity).map_or(2.5, |(_, e)| *e);
-    reshape_field(&src, &dst, paths.get(2).map(Vec::as_slice), percent / 100.0, e, size)
+    let mut total: Option<Field> = None;
+    for (p, w) in parts {
+        let f = reshape_field(&src, &dst, paths.get(2).map(Vec::as_slice), p / 100.0, e, size);
+        match &mut total {
+            None => total = Some(Field { step: f.step.iter().map(|v| [w * v[0], w * v[1]]).collect(), ..f }),
+            Some(t) => t.step.iter_mut().zip(&f.step).for_each(|(a, v)| *a = [a[0] + w * v[0], a[1] + w * v[1]]),
+        }
+    }
+    total
 }
 
 /// D-606: the power each elasticity gives the inverse-distance blend, stiff to liquid.

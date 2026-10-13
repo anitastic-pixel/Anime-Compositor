@@ -9855,7 +9855,7 @@ const EFFECT_SEARCH = {
   'core.fisheye': 'fisheye fish eye cc lens lens bulge sphere ball globe round warp',
   'core.page_turn': 'page turn cc page turn curl peel corner flip book paper fold turn over transition',
   'core.mask_smear': 'smear mask move turn scale rotate drag carry stretch boundary elasticity distort',
-  'core.reshape': 'reshape morph mask shape pull stretch source destination boundary elasticity distort',
+  'core.reshape': 'reshape morph mask shape pull stretch source destination boundary elasticity correspondence points interpolation distort',
   'core.liquify': 'liquify brush push smudge twirl pucker bloat pinch swell shift pixels warp turbulence reflection clone reconstruction freeze thaw paint distort',
   'core.warp': 'warp arc arch bulge shell flag wave fish rise fisheye inflate squeeze twist bend envelope text warp',
   'core.mesh_warp': 'mesh warp grid vertices handles bezier bend smooth liquify reshape distort warp lattice puppet',
@@ -10146,7 +10146,7 @@ const EFFECT_ABOUT = {
   'core.fisheye': 'Bends the layer into a round lens, as if seen through a glass ball; outside the circle is left clear.',
   'core.page_turn': 'Curls a corner or an edge of the layer over like a page of a book, showing its back as paper or another layer.',
   'core.mask_smear': 'Carries the picture inside one of the layer\'s masks as that mask is moved, turned and scaled, the rest following; a second mask holds what lies outside it still. After Effects calls it Smear. Nothing moves until you choose the source mask and move it.',
-  'core.reshape': 'Pulls the picture inside one of the layer\'s masks into the shape of another, the rest following; a third mask holds what lies outside it still. Nothing moves until you choose the source and destination masks.',
+  'core.reshape': 'Pulls the picture inside one of the layer\'s masks into the shape of another, the rest following; a third mask holds what lies outside it still. Correspondence points say which places on the two outlines answer each other, and Interpolation smooths Percent between its keys. Nothing moves until you choose the source and destination masks.',
   'core.liquify': 'Drags a brush along strokes you paint on the viewer or type in to push, twirl, pinch, swell, stir, mirror, copy or put back the layer under it; a Freeze Area stroke or a mask holds what it covers still.',
   'core.warp': 'Bends the layer into one of fifteen shapes, an arc, a flag, a bulge, a twist and more, by Bend, and leans it with the two Distortions.',
   'core.mesh_warp': 'Lays a grid over the layer and bends it smoothly with the grid\'s points and their handles, dragged on the viewer or typed in as numbers.',
@@ -12168,7 +12168,11 @@ const EFFECT_WORDS = {
   // D-607: how far each edge's pull reaches.
   'core.mask_smear': { choices: [['elasticity', 'Elasticity', [['stiff', 'Stiff'], ['less_stiff', 'Less Stiff'], ['below_normal', 'Below Normal'], ['normal', 'Normal'], ['above_normal', 'Above Normal'], ['super_fluid', 'Super Fluid'], ['liquid', 'Liquid']]]] },
   // D-606: how far each edge's pull reaches.
-  'core.reshape': { choices: [['elasticity', 'Elasticity', [['stiff', 'Stiff'], ['less_stiff', 'Less Stiff'], ['below_normal', 'Below Normal'], ['normal', 'Normal'], ['above_normal', 'Above Normal'], ['super_fluid', 'Super Fluid'], ['liquid', 'Liquid']]]] },
+  // D-702: the Interpolation by name, and the correspondence points typed as one list.
+  'core.reshape': { choices: [['elasticity', 'Elasticity', [['stiff', 'Stiff'], ['less_stiff', 'Less Stiff'], ['below_normal', 'Below Normal'], ['normal', 'Normal'], ['above_normal', 'Above Normal'], ['super_fluid', 'Super Fluid'], ['liquid', 'Liquid']]],
+    ['interpolation', 'Interpolation', [['discrete', 'Discrete'], ['linear', 'Linear'], ['smooth', 'Smooth']]]],
+    texts: [['correspondence_points', 'Correspondence Points', 'none: matched from each outline\'s first point', null,
+      'Pairs of places that answer each other, each how far along the source then the destination outline from its first point as drawn, per cent of the way round, 0 to 100; at most 32 pairs; or none']] },
   // D-605: the brush, and its path typed as one list. D-700: the rest of After Effects' brushes,
   // Reconstruction's mode, and the strokes brushed before it, a comma between strokes.
   'core.liquify': { choices: [['tool', 'Tool', [['warp', 'Warp'], ['twirl_clockwise', 'Twirl Clockwise'], ['twirl_counterclockwise', 'Twirl Counterclockwise'], ['pucker', 'Pucker'], ['bloat', 'Bloat'], ['shift_pixels', 'Shift Pixels'], ['turbulence', 'Turbulence'], ['reflection', 'Reflection'], ['clone', 'Clone'], ['reconstruction', 'Reconstruction'], ['freeze_area', 'Freeze Area'], ['thaw_area', 'Thaw Area']]],

@@ -14740,10 +14740,11 @@ impl Gpu {
                 }
             },
             // D-606, mesh::reshape, drawn the same way.
-            E::Reshape { percent, elasticity, paths, .. } => match paths.as_ref().filter(|_| *percent != 0.0) {
+            E::Reshape { percent, elasticity, correspondence_points, between, paths, .. } => match paths.as_ref().and_then(|paths| {
+                crate::mesh::reshape(paths, *percent, between, correspondence_points, elasticity, ((w - 2 * ox) as f64, (h - 2 * oy) as f64))
+            }) {
                 None => (still.clone(), (w, h)),
-                Some(paths) => {
-                    let field = crate::mesh::reshape(paths, *percent, elasticity, ((w - 2 * ox) as f64, (h - 2 * oy) as f64));
+                Some(field) => {
                     let k = crate::mesh::field_numbers(&field, 1.0, [0.0, 0.0], (w, h), f.origin);
                     same(steps, &passes.warp, FxParams { mode: 151, ..Default::default() }, &k, None)
                 }

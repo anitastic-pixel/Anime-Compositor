@@ -3977,12 +3977,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("elasticity".into(), J::from(elasticity.as_str()));
         }
         // D-606: the five settings; the outlines are the masks', never saved here.
-        Effect::Reshape { source_mask, destination_mask, boundary_mask, percent, elasticity, .. } => {
+        Effect::Reshape { source_mask, destination_mask, boundary_mask, percent, elasticity, correspondence_points, interpolation, .. } => {
             params.insert("source_mask".into(), num(*source_mask));
             params.insert("destination_mask".into(), num(*destination_mask));
             params.insert("boundary_mask".into(), num(*boundary_mask));
             params.insert("percent".into(), num(*percent));
             params.insert("elasticity".into(), J::from(elasticity.as_str()));
+            // D-702: none and Discrete are written only if the file had them, so a file from
+            // before it saves the same.
+            if !correspondence_points.is_empty() || instance.tracks.contains_key("correspondence_points") || params.contains_key("correspondence_points") {
+                params.insert("correspondence_points".into(), J::Array(correspondence_points.iter().map(|v| num(*v)).collect()));
+            }
+            if interpolation != "discrete" || params.contains_key("interpolation") {
+                params.insert("interpolation".into(), J::from(interpolation.as_str()));
+            }
         }
         // D-605: the stroke as one flat list, empty for none.
         Effect::Liquify {
@@ -8661,6 +8669,16 @@ fn parse_effect(
             boundary_mask: effect_number(params, "boundary_mask", &at)?,
             percent: effect_number(params, "percent", &at)?,
             elasticity: effect_word(params, "elasticity", &at)?,
+            // D-702: added after the effect; a file without them is from before it.
+            correspondence_points: match params.and_then(|p| p.get("correspondence_points")) {
+                Some(_) => effect_list(params, "correspondence_points", &at)?,
+                None => Vec::new(),
+            },
+            interpolation: match params.and_then(|p| p.get("interpolation")) {
+                Some(_) => effect_word(params, "interpolation", &at)?,
+                None => "discrete".to_string(),
+            },
+            between: Vec::new(),
             paths: None,
         }),
         // D-605: the tool kept as written, so one outside the contract is refused by name.
