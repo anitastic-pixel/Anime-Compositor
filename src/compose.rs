@@ -1171,6 +1171,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Bubbles { .. }
                 // D-672.
                 | crate::effects::Effect::Drizzle { .. }
+                // D-612.
+                | crate::effects::Effect::ParticlePlane { .. }
                 // D-508 (the bits are found on the processor).
                 | crate::effects::Effect::EnergyStroke { .. }
                 // D-509.
@@ -1772,6 +1774,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
                 | E::KiraKira { .. }
                 | E::CcBallAction { .. }
                 | E::ParticleSpace { .. }
+                | E::ParticlePlane { .. }
                 | E::HsvKey { .. }
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }
@@ -2437,6 +2440,21 @@ fn effect_now(
                         .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
                             crate::effects::Effect::Drizzle { values, .. } => values,
                             _ => unreachable!("Drizzle's settings of another effect"),
+                        })
+                        .collect(),
+                )
+            });
+        }
+        // D-612: Particle Plane's clock and settings history, as Particle Space's.
+        if let crate::effects::Effect::ParticlePlane { clock, history, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            *clock = [(at - layer.in_frame) as f64, fps];
+            *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
+                std::sync::Arc::new(
+                    (layer.in_frame..=at + 1)
+                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
+                            crate::effects::Effect::ParticlePlane { values, .. } => values,
+                            _ => unreachable!("Particle Plane's settings of another effect"),
                         })
                         .collect(),
                 )
@@ -3236,6 +3254,7 @@ fn resolve_rest(
                 | E::KiraKira { .. }
                 | E::CcBallAction { .. }
                 | E::ParticleSpace { .. }
+                | E::ParticlePlane { .. }
                 | E::HsvKey { .. }
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }

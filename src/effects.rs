@@ -3016,6 +3016,19 @@ pub enum Effect {
         clock: [f64; 2],
         history: Option<std::sync::Arc<Vec<[f64; 16]>>>,
     },
+    /// D-612: Particle Plane, Particle Space's engine flat in the layer's plane (P0-6), after the
+    /// purpose of CycoreFX's CC Particle Systems II, its rules and settings ours
+    /// (`particles::particle_space`, document 21). `values`, the settings of
+    /// [`PARTICLE_PLANE_SETTINGS`] in that order; `words`, those of [`PARTICLE_PLANE_WORDS`];
+    /// `colors`, those of [`PARTICLE_PLANE_COLORS`], `#rrggbb`. Kept as written, so a file's wrong
+    /// one is reported. `clock` and `history` as Particle Space's: never saved.
+    ParticlePlane {
+        values: [f64; 23],
+        words: [String; 5],
+        colors: [String; 7],
+        clock: [f64; 2],
+        history: Option<std::sync::Arc<Vec<[f64; 23]>>>,
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -4634,6 +4647,58 @@ pub const DRIZZLE_SETTINGS: [(&str, f64, f64, f64); 16] = [
 ];
 /// D-672: Drizzle's words: name, the words, the word when added.
 pub const DRIZZLE_WORDS: [(&str, &[&str], &str); 1] = [("light_type", &["distant", "point"], "distant")];
+pub const PARTICLE_PLANE: &str = "core.particle_plane";
+/// D-612: Particle Plane's keyable settings, in the order `values` holds them: name, lowest,
+/// highest, and the value when the effect is added. Distances are in the layer's widths, the
+/// origin its centre, Y down; sizes in hundredths of its width; times in seconds; Birth Rate in
+/// hundreds of particles a second; Direction in degrees, 0 up and 90 to the right.
+pub const PARTICLE_PLANE_SETTINGS: [(&str, f64, f64, f64); 23] = [
+    ("birth_rate", 0.0, 100.0, 2.0),
+    ("longevity", 0.0, 30.0, 1.0),
+    ("producer_x", -10.0, 10.0, 0.0),
+    ("producer_y", -10.0, 10.0, 0.0),
+    ("radius_x", 0.0, 10.0, 0.025),
+    ("radius_y", 0.0, 10.0, 0.025),
+    ("velocity", -10.0, 10.0, 1.0),
+    ("inherit_velocity", -10000.0, 10000.0, 0.0),
+    ("gravity", -10.0, 10.0, 0.5),
+    ("resistance", 0.0, 100.0, 0.0),
+    ("direction", -36000.0, 36000.0, 0.0),
+    ("extra", 0.0, 10.0, 0.5),
+    ("extra_angle", 0.0, 360.0, 360.0),
+    ("birth_size", 0.0, 100.0, 0.15),
+    ("death_size", 0.0, 100.0, 0.15),
+    ("size_variation", 0.0, 100.0, 0.0),
+    ("max_opacity", 0.0, 100.0, 75.0),
+    ("custom_opacity_1", 0.0, 100.0, 100.0),
+    ("custom_opacity_2", 0.0, 100.0, 100.0),
+    ("custom_opacity_3", 0.0, 100.0, 100.0),
+    ("custom_opacity_4", 0.0, 100.0, 100.0),
+    ("custom_opacity_5", 0.0, 100.0, 100.0),
+    ("random_seed", 0.0, 10000.0, 0.0),
+];
+/// D-612: Particle Plane's words: name, the words, the word when added.
+pub const PARTICLE_PLANE_WORDS: [(&str, &[&str], &str); 5] = [
+    (
+        "animation",
+        &["explosive", "direction", "cone", "viscous", "twirl", "twirly", "vortex", "fire", "jet_sideways", "fractal_omni", "fractal_uni"],
+        "explosive",
+    ),
+    ("particle_type", &["line", "faded_sphere", "shaded_sphere", "disc", "bubble", "star"], "line"),
+    ("opacity_map", &["constant", "fade_in", "fade_out", "fade_in_and_out", "custom"], "constant"),
+    ("color_map", &["birth_to_death", "origin_to_death", "birth_to_origin", "origin_constant", "custom"], "birth_to_death"),
+    ("transfer_mode", &["composite", "screen", "add"], "composite"),
+];
+/// D-612: Particle Plane's colours and each when added: Particle Space's but Depth Cue's.
+pub const PARTICLE_PLANE_COLORS: [(&str, &str); 7] = [
+    ("birth_color", "#ffd933"),
+    ("death_color", "#cc1a00"),
+    ("custom_color_1", "#ffd933"),
+    ("custom_color_2", "#f2a926"),
+    ("custom_color_3", "#e67a1a"),
+    ("custom_color_4", "#d94a0d"),
+    ("custom_color_5", "#cc1a00"),
+];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -5072,6 +5137,11 @@ impl Effect {
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .collect(),
             Effect::Drizzle { values, .. } => DRIZZLE_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .collect(),
+            Effect::ParticlePlane { values, .. } => PARTICLE_PLANE_SETTINGS
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
@@ -8265,6 +8335,7 @@ impl Effect {
             Effect::ParticleSpace { .. } => "Particle Space",
             Effect::Bubbles { .. } => "Bubbles",
             Effect::Drizzle { .. } => "Drizzle",
+            Effect::ParticlePlane { .. } => "Particle Plane",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -8523,6 +8594,7 @@ impl Effect {
             Effect::ParticleSpace { .. } => PARTICLE_SPACE,
             Effect::Bubbles { .. } => BUBBLES,
             Effect::Drizzle { .. } => DRIZZLE,
+            Effect::ParticlePlane { .. } => PARTICLE_PLANE,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -9176,6 +9248,20 @@ impl Effect {
                 .or_else(|| (!texture_layer.is_string()).then(|| format!(
                     "Particle Space's texture layer is the name of a layer of this composition, and this is {texture_layer}."
                 ))),
+            Effect::ParticlePlane { words, colors, .. } => PARTICLE_PLANE_WORDS
+                .iter()
+                .zip(words)
+                .find(|((_, list, _), w)| !list.contains(&w.as_str()))
+                .map(|((name, list, _), w)| {
+                    let list = list.iter().map(|a| format!("\"{a}\"")).collect::<Vec<_>>().join(", ");
+                    format!("Particle Plane's {} is one of {list}, and this is \"{w}\".", name.replace('_', " "))
+                })
+                .or_else(|| {
+                    PARTICLE_PLANE_COLORS
+                        .iter()
+                        .zip(colors)
+                        .find_map(|((name, _), c)| hex_fault("Particle Plane", &name.replace('_', " ").replace("color", "colour"), c))
+                }),
             Effect::CcBallAction { rotation_axis, twist_property, .. } => (!BALL_AXES.contains(&rotation_axis.as_str()))
                 .then(|| format!(
                     "CC Ball Action's rotation axis is one of {}, and this is \"{rotation_axis}\".",
@@ -12629,6 +12715,10 @@ pub(crate) fn apply_stack_at(
             }),
             // D-610: the particles drawn through the composition camera or its own; never grows.
             e @ Effect::ParticleSpace { .. } => crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {
+                crate::particles::particle_space(source, e, (ox, oy))
+            }),
+            // D-612: the particles drawn flat onto the layer; never grows.
+            e @ Effect::ParticlePlane { .. } => crate::perf::time(crate::perf::Stage::EffectParticlePlane, || {
                 crate::particles::particle_space(source, e, (ox, oy))
             }),
             // D-551: its own eye and light, no comp camera (P0-12); never grows.

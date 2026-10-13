@@ -6,8 +6,14 @@
 //! No state is carried from frame to frame (document 20): a particle at a frame is a pure
 //! function of the seed, its number and the settings history, so a frame drawn alone equals the
 //! same frame played from the start.
+//!
+//! D-612: Particle Plane (`core.particle_plane`), the same engine flat, after what CycoreFX's CC
+//! Particle Systems II is for: its settings worked as Particle Space's ([`plane_row`]), born,
+//! thrown and swirled in the layer's plane (`Run::flat`), drawn straight onto the layer, with an
+//! Opacity Map and a Star of its own; `tools/particle_plane_reference.py` is its reference.
 
-use crate::effects::{Effect, PARTICLE_SPACE_WORDS};
+use crate::effects::{Effect, PARTICLE_PLANE_WORDS, PARTICLE_SPACE_WORDS};
+use std::borrow::Cow;
 use crate::WorkingBuffer;
 use rayon::prelude::*;
 use std::f64::consts::PI;
@@ -105,15 +111,50 @@ pub(crate) const STRIDE: usize = 11;
 /// The tiles the sprites are binned into, as the card's workgroups.
 pub(crate) const TILE: usize = 16;
 
-/// The settings' history for one frame, as the reference's `Run`.
+/// D-612: the Star's kind in the sprite list.
+const STAR_KIND: usize = 8;
+/// D-612: the star's outline, point j 36 j degrees clockwise from up, the outer five 1 from the
+/// centre and the inner five 0.4: the reference's table, the rule itself.
+const STAR: [[f64; 2]; 10] = [
+    [0.0, -1.0],
+    [0.23511410091698925, -0.323606797749979],
+    [0.9510565162951535, -0.30901699437494745],
+    [0.3804226065180615, 0.12360679774997894],
+    [0.5877852522924732, 0.8090169943749473],
+    [4.898587196589413e-17, 0.4],
+    [-0.587785252292473, 0.8090169943749475],
+    [-0.3804226065180614, 0.12360679774997903],
+    [-0.9510565162951536, -0.30901699437494723],
+    [-0.23511410091698937, -0.32360679774997897],
+];
+
+/// The settings' history for one frame, as the reference's `Run`. D-612: `flat`, Particle
+/// Plane's, everything in the layer's plane; its settings are worked into Particle Space's, so
+/// the rows are owned or borrowed.
 struct Run<'a> {
-    now: &'a [f64; 46],
-    samples: Option<&'a [[f64; 46]]>,
+    now: [f64; 46],
+    samples: Option<Cow<'a, [[f64; 46]]>>,
     u: i64,
     fps: f64,
     seed: u64,
     mode: usize,
     floor_action: usize,
+    flat: bool,
+}
+
+/// D-612: how the sprites look, from either effect's words and colours: the kind, Color Map,
+/// transfer mode and Depth Cue as indices, Composite With Original, the eight colours in Particle
+/// Space's order, Particle Plane's Opacity Map with its five stops / 100, and the composition
+/// camera compose found.
+struct Look<'a> {
+    kind: usize,
+    cmap: usize,
+    transfer: usize,
+    cue: usize,
+    keep: bool,
+    colors: [&'a str; 8],
+    fade: Option<(usize, [f64; 5])>,
+    view: [f64; 4],
 }
 
 /// A particle as it moves.
@@ -138,11 +179,11 @@ fn word(words: &[String; 7], i: usize) -> usize {
 impl Run<'_> {
     /// The settings sample `i` frames after the in point, held at the last.
     fn sample(&self, i: usize, n: usize) -> f64 {
-        self.samples.map_or(self.now[n], |s| s[i.min(s.len() - 1)][n])
+        self.samples.as_deref().map_or(self.now[n], |s| s[i.min(s.len() - 1)][n])
     }
 
     fn at(&self, n: usize, t: f64) -> f64 {
-        let Some(s) = self.samples else {
+        let Some(s) = self.samples.as_deref() else {
             return self.now[n];
         };
         let last = s.len() - 1;
@@ -218,9 +259,15 @@ impl Run<'_> {
         let r = |s| self.r(k, s);
         let p = self.vec(PRODUCER, b);
         let rad = self.vec(RADIUS, b);
-        let rho = r(0).powf(1.0 / 3.0);
-        let d = sphere(1.0 - 2.0 * r(1), 2.0 * PI * r(2));
-        let x = [0, 1, 2].map(|i| p[i] + rad[i] * rho * d[i]);
+        let x = if self.flat {
+            // D-612: on the ellipse's disc in the plane.
+            let (rho, turn) = (r(0).sqrt(), 2.0 * PI * r(2));
+            [p[0] + rad[0] * rho * turn.cos(), p[1] + rad[1] * rho * turn.sin(), 0.0]
+        } else {
+            let rho = r(0).powf(1.0 / 3.0);
+            let d = sphere(1.0 - 2.0 * r(1), 2.0 * PI * r(2));
+            [0, 1, 2].map(|i| p[i] + rad[i] * rho * d[i])
+        };
         let a = self.axes(b);
         let h = if a[0].abs() >= 0.9 { [0.0, 1.0, 0.0] } else { [1.0, 0.0, 0.0] };
         let e1 = unit_or(cross(h, a), [1.0, 0.0, 0.0]);
@@ -231,12 +278,21 @@ impl Run<'_> {
             add(mul(a, cos_t), mul(add(mul(e1, phi.cos()), mul(e2, phi.sin())), sin_t))
         };
         let alpha = (self.at(EXTRA_ANGLE, b) / 2.0).to_radians();
-        let way = match self.mode {
-            DIRECTION_AXIS | FRACTAL_UNI => cap(1.0 - r(3) * (1.0 - alpha.cos())),
-            CONE_AXIS => cap(alpha.cos()),
-            FIRE => cap(1.0 - r(3) * (1.0 - 20f64.to_radians().cos())),
-            JET_SIDEWAYS => add(mul(e1, phi.cos()), mul(e2, phi.sin())),
-            _ => sphere(1.0 - 2.0 * r(3), phi),
+        // D-612: flat, turned in the plane from the axis towards a right angle clockwise of it.
+        let side = if r(4) < 0.5 { 1.0 } else { -1.0 };
+        let right = [-a[1], a[0], 0.0];
+        let turned = |t: f64| add(mul(a, t.cos()), mul(right, t.sin()));
+        let way = match (self.flat, self.mode) {
+            (true, DIRECTION_AXIS | FRACTAL_UNI) => turned(alpha * (2.0 * r(3) - 1.0)),
+            (true, CONE_AXIS) => turned(side * alpha),
+            (true, FIRE) => turned(20f64.to_radians() * (2.0 * r(3) - 1.0)),
+            (true, JET_SIDEWAYS) => mul(right, side),
+            (true, _) => [(2.0 * PI * r(3)).cos(), (2.0 * PI * r(3)).sin(), 0.0],
+            (false, DIRECTION_AXIS | FRACTAL_UNI) => cap(1.0 - r(3) * (1.0 - alpha.cos())),
+            (false, CONE_AXIS) => cap(alpha.cos()),
+            (false, FIRE) => cap(1.0 - r(3) * (1.0 - 20f64.to_radians().cos())),
+            (false, JET_SIDEWAYS) => add(mul(e1, phi.cos()), mul(e2, phi.sin())),
+            (false, _) => sphere(1.0 - 2.0 * r(3), phi),
         };
         let speed = self.at(VELOCITY, b) * (1.0 + self.at(EXTRA, b) * (r(5) - 0.5));
         let mut v = mul(way, speed);
@@ -269,7 +325,8 @@ impl Run<'_> {
         let (mut x, mut v) = (p.x, p.v);
         let mut push = [0.0; 3];
         if matches!(self.mode, TWIRL | TWIRLY | VORTEX | FIRE) {
-            let a = self.axes(t0);
+            // D-612: flat, the swirls turn about the plane's own axis.
+            let a = if self.flat && self.mode != FIRE { [0.0, 0.0, 1.0] } else { self.axes(t0) };
             let dd = sub(x, self.vec(PRODUCER, t0));
             let dp = sub(dd, mul(a, dot(dd, a)));
             let vel = at(VELOCITY);
@@ -294,7 +351,7 @@ impl Run<'_> {
         if strength > 0.0 {
             let (evo, sc) = (at(EVOLUTION), at(TURBULENCE_SCALE));
             let q = [x[0] / sc + evo * 0.31, x[1] / sc + evo * 0.57, x[2] / sc + evo * 0.77];
-            push = add(push, mul(curl(self.seed, q), strength));
+            push = add(push, mul(curl(self.seed, q, self.flat), strength));
         }
         if p.iced {
             push[1] = 0.0;
@@ -412,7 +469,8 @@ fn noise(seed: u64, c: u64, q: V) -> f64 {
     total
 }
 
-fn curl(seed: u64, q: V) -> V {
+/// The noise field's curl at `q`; D-612: flat, channel 2's gradient turned in the plane.
+fn curl(seed: u64, q: V, flat: bool) -> V {
     let e = 1e-3;
     let d = |c: u64, axis: usize| {
         let (mut hi, mut lo) = (q, q);
@@ -420,6 +478,9 @@ fn curl(seed: u64, q: V) -> V {
         lo[axis] -= e;
         (noise(seed, c, hi) - noise(seed, c, lo)) / (2.0 * e)
     };
+    if flat {
+        return [d(2, 1), -d(2, 0), 0.0];
+    }
     [d(2, 1) - d(1, 2), d(0, 2) - d(2, 0), d(1, 0) - d(0, 1)]
 }
 
@@ -434,24 +495,116 @@ fn closed(x: V, v: V, a: V, k: f64, h: f64) -> (V, V) {
     }
 }
 
-fn run_of<'a>(e: &'a Effect) -> Option<(Run<'a>, &'a [String; 7], &'a [String; 8], &'a [f64; 4])> {
-    let Effect::ParticleSpace { values, words, colors, clock, view, history, .. } = e else {
-        unreachable!("Particle Space's particles of another effect")
-    };
-    let u = clock[0] as i64;
-    if u < 0 {
-        return None;
+/// D-612: Particle Plane's settings (`effects::PARTICLE_PLANE_SETTINGS`) as Particle Space's: its
+/// own copied across, Direction as the axis (sin d, -cos d, 0), gravity straight down, no wind,
+/// turbulence, floor or Volume Shade, the light from 45 degrees at 45.
+pub(crate) fn plane_row(v: &[f64; 23]) -> [f64; 46] {
+    let mut e = [0.0; 46];
+    e[TURBULENCE_SCALE] = 0.25;
+    e[LIGHT_DIRECTION] = 45.0;
+    e[LIGHT_HEIGHT] = 45.0;
+    e[GRAVITY_VECTOR + 1] = 1.0;
+    let d = v[10].to_radians();
+    (e[AXIS], e[AXIS + 1]) = (d.sin(), -d.cos());
+    for (to, from) in [
+        (RATE, 0),
+        (LONGEVITY, 1),
+        (PRODUCER, 2),
+        (PRODUCER + 1, 3),
+        (RADIUS, 4),
+        (RADIUS + 1, 5),
+        (VELOCITY, 6),
+        (INHERIT, 7),
+        (GRAVITY, 8),
+        (RESISTANCE, 9),
+        (EXTRA, 11),
+        (EXTRA_ANGLE, 12),
+        (BIRTH_SIZE, 13),
+        (DEATH_SIZE, 14),
+        (SIZE_VARIATION, 15),
+        (OPACITY, 16),
+        (SEED, 22),
+    ] {
+        e[to] = v[from];
     }
-    let run = Run {
-        now: values,
-        samples: history.as_deref().map(|h| h.as_slice()),
-        u,
-        fps: clock[1],
-        seed: crate::grade::mix(values[SEED].floor() as u64),
-        mode: word(words, 0),
-        floor_action: word(words, 1),
-    };
-    Some((run, words, colors, view))
+    e
+}
+
+fn run_of(e: &Effect) -> Option<(Run<'_>, Look<'_>)> {
+    match e {
+        Effect::ParticleSpace { values, words, colors, clock, view, history, .. } => {
+            let u = clock[0] as i64;
+            if u < 0 {
+                return None;
+            }
+            let w = |i| word(words, i);
+            let run = Run {
+                now: *values,
+                samples: history.as_deref().map(|h| Cow::Borrowed(h.as_slice())),
+                u,
+                fps: clock[1],
+                seed: crate::grade::mix(values[SEED].floor() as u64),
+                mode: w(0),
+                floor_action: w(1),
+                flat: false,
+            };
+            let look = Look {
+                kind: w(2),
+                cmap: w(3),
+                transfer: w(4),
+                cue: w(5),
+                keep: w(6) == 1,
+                colors: std::array::from_fn(|i| colors[i].as_str()),
+                fade: None,
+                view: *view,
+            };
+            Some((run, look))
+        }
+        Effect::ParticlePlane { values, words, colors, clock, history } => {
+            let u = clock[0] as i64;
+            if u < 0 {
+                return None;
+            }
+            let w = |i: usize| PARTICLE_PLANE_WORDS[i].1.iter().position(|x| *x == words[i]).unwrap_or(0);
+            let now = plane_row(values);
+            let run = Run {
+                now,
+                samples: history.as_deref().map(|h| Cow::Owned(h.iter().map(plane_row).collect())),
+                u,
+                fps: clock[1],
+                seed: crate::grade::mix(now[SEED].floor() as u64),
+                mode: w(0),
+                floor_action: 0,
+                flat: true,
+            };
+            let look = Look {
+                kind: [0, 1, 2, 3, 4, STAR_KIND][w(1)],
+                cmap: w(3),
+                transfer: w(4),
+                cue: 0,
+                keep: false,
+                colors: std::array::from_fn(|i| colors.get(i).map_or("#000000", |c| c.as_str())),
+                fade: Some((w(2), std::array::from_fn(|i| values[17 + i] / 100.0))),
+                view: [0.0; 4],
+            };
+            Some((run, look))
+        }
+        _ => unreachable!("particles of another effect"),
+    }
+}
+
+/// D-612: Opacity Map `m` at age fraction `f`, `o` its Custom stops.
+fn opacity_map(m: usize, o: [f64; 5], f: f64) -> f64 {
+    match m {
+        0 => 1.0,
+        1 => f,
+        2 => 1.0 - f,
+        3 => 1.0 - (2.0 * f - 1.0).abs(),
+        _ => {
+            let i = ((f * 4.0).floor() as usize).min(3);
+            o[i] + (o[i + 1] - o[i]) * (f * 4.0 - i as f64)
+        }
+    }
 }
 
 /// The engine's own numbers for B-490's test: every alive particle at the frame, oldest first,
@@ -472,9 +625,10 @@ pub fn alive(e: &Effect) -> Vec<[f64; 8]> {
 /// as it reaches the effect, its corner at `(ox, oy)`. Before the in point, none and the drawing
 /// kept.
 pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) -> Vec<f64> {
-    let Some((run, words, colors, view)) = run_of(e) else {
+    let Some((run, look)) = run_of(e) else {
         return vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
     };
+    let view = look.view;
     let now = run.now;
     let (w0, h0) = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
     // The camera: a function from a world point to (X, Y, pixels a unit, depth).
@@ -489,6 +643,10 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
     let f = (w0 / 2.0) / (now[FOV].to_radians() / 2.0).tan();
     let dist = now[DISTANCE];
     let see = |x: V| -> Option<[f64; 4]> {
+        // D-612: flat, straight onto the layer, every particle at depth 1.
+        if run.flat {
+            return Some([w0 / 2.0 + x[0] * w0, h0 / 2.0 + x[1] * w0, w0, 1.0]);
+        }
         if view[0] != 0.0 {
             let (ax, ay, al) = (view[1], view[2], view[3]);
             let zp = x[2] * w0;
@@ -513,12 +671,14 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
         if p[3] > 0.0 { [p[0] / p[3], p[1] / p[3], p[2] / p[3]] } else { [0.0; 3] }
     };
     let mix3 = |a: V, b: V, t: f64| [0, 1, 2].map(|i| a[i] + (b[i] - a[i]) * t);
-    let (birth, death, cue_color) = (linear(&colors[0]), linear(&colors[1]), linear(&colors[7]));
-    let stops: Vec<V> = (2..7).map(|i| linear(&colors[i])).collect();
-    let (kind, cmap, cue) = (word(words, 2), word(words, 3), word(words, 5));
-    let (textured, read) = (kind >= 5, texture(e).is_some());
+    let colors = look.colors;
+    let (birth, death, cue_color) = (linear(colors[0]), linear(colors[1]), linear(colors[7]));
+    let stops: Vec<V> = (2..7).map(|i| linear(colors[i])).collect();
+    let (kind, cmap, cue) = (look.kind, look.cmap, look.cue);
+    let (transfer, keep) = (look.transfer as f64, if look.keep { 1.0 } else { 0.0 });
+    let (textured, read) = ((5..=7).contains(&kind), texture(e).is_some());
     if textured && !read && texture_named(e) {
-        return vec![0.0, 0.0, 0.0, 0.0, word(words, 4) as f64, if word(words, 6) == 1 { 1.0 } else { 0.0 }, 0.0];
+        return vec![0.0, 0.0, 0.0, 0.0, transfer, keep, 0.0];
     }
     let colour = |f: f64, org: V| match cmap {
         0 => mix3(birth, death, f),
@@ -539,7 +699,7 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
             let [x, y, ppu, depth] = see(p.x)?;
             let mut rad = size / 100.0 * ppu / 2.0;
             let mut col = colour(f, origin(p.x0));
-            let mut alpha = now[OPACITY] / 100.0;
+            let mut alpha = now[OPACITY] / 100.0 * look.fade.map_or(1.0, |(m, o)| opacity_map(m, o, f));
             let mut fog = 1.0;
             if cue != 0 {
                 let fd = (1.0 - depth / now[CUE_DISTANCE]).clamp(0.0, 1.0);
@@ -577,8 +737,8 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
         h.cos() * d.sin(),
         -h.cos() * d.cos(),
         -h.sin(),
-        word(words, 4) as f64,
-        if word(words, 6) == 1 { 1.0 } else { 0.0 },
+        transfer,
+        keep,
         drawn.len() as f64,
     ];
     k.reserve(STRIDE * drawn.len());
@@ -629,6 +789,14 @@ pub(crate) fn tile_lists(k: &[f64], (ox, oy): (usize, usize), w: usize, h: usize
 /// `tex` the texture's atlas and levels, when one is read.
 fn cover(k: &[f64], n: usize, x: f64, y: f64, tex: Option<Tex>) -> Option<[f64; 4]> {
     let s = &k[HEAD + STRIDE * n..][..STRIDE];
+    if s[0] == STAR_KIND as f64 {
+        let cv = star_cover(s[3], x - s[1], y - s[2]);
+        if cv <= 0.0 {
+            return None;
+        }
+        let a = s[6] * cv;
+        return Some([s[7] * a, s[8] * a, s[9] * a, a]);
+    }
     if s[0] >= 5.0 {
         let (rad, dx, dy) = (s[3], x - s[1], y - s[2]);
         let (a, c) = (dx * s[4] + dy * s[5], -dx * s[5] + dy * s[4]);
@@ -684,6 +852,25 @@ fn cover(k: &[f64], n: usize, x: f64, y: f64, tex: Option<Tex>) -> Option<[f64; 
     }
     let a = s[6] * cv;
     Some([s[7] * shade * a, s[8] * shade * a, s[9] * shade * a, a])
+}
+
+/// D-612: a star of outer radius `rad` at (dx, dy) from its centre: with e the distance to the
+/// nearest of its ten edges, 1/2 + e inside (the even-odd rule, a ray to the right), 1/2 - e
+/// outside, held to 0 to 1.
+fn star_cover(rad: f64, dx: f64, dy: f64) -> f64 {
+    let mut e = f64::INFINITY;
+    let mut inside = false;
+    for j in 0..10 {
+        let (a, b) = (STAR[j], STAR[(j + 1) % 10]);
+        let (ax, ay, bx, by) = (a[0] * rad, a[1] * rad, b[0] * rad, b[1] * rad);
+        let (ex, ey) = (bx - ax, by - ay);
+        let t = (((dx - ax) * ex + (dy - ay) * ey) / (ex * ex + ey * ey)).clamp(0.0, 1.0);
+        e = e.min((dx - ax - t * ex).hypot(dy - ay - t * ey));
+        if (ay > dy) != (by > dy) && dx < ax + (bx - ax) * (dy - ay) / (by - ay) {
+            inside = !inside;
+        }
+    }
+    (if inside { 0.5 + e } else { 0.5 - e }).clamp(0.0, 1.0)
 }
 
 /// D-610: the sprites `ids` of `k` laid over `d` at the own pixel centre (x, y), by the

@@ -6931,11 +6931,54 @@ fn textured_cover(s: u32, x: f64, y: f64) -> vec4<f64> {
 // `the_card_reads_sprites_by_the_processors_stride`).
 const SPRITE_STRIDE: u32 = 11u;
 
+// D-612, particles::star_cover: the star (kind 8) from k[s], never lit: 1/2 + e inside by the
+// even-odd rule, 1/2 - e outside, e the distance to the nearest of its ten edges.
+fn star_cover(s: u32, x: f64, y: f64) -> vec4<f64> {
+    var sx = array<f64, 10>(0.0lf, 0.23511410091698925lf, 0.9510565162951535lf, 0.3804226065180615lf,
+        0.5877852522924732lf, 4.898587196589413e-17lf, -0.587785252292473lf, -0.3804226065180614lf,
+        -0.9510565162951536lf, -0.23511410091698937lf);
+    var sy = array<f64, 10>(-1.0lf, -0.323606797749979lf, -0.30901699437494745lf, 0.12360679774997894lf,
+        0.8090169943749473lf, 0.4lf, 0.8090169943749475lf, 0.12360679774997903lf,
+        -0.30901699437494723lf, -0.32360679774997897lf);
+    let r = k[s + 3u];
+    let dx = x - k[s + 1u];
+    let dy = y - k[s + 2u];
+    var e = 1.0e300lf;
+    var inside = false;
+    for (var j = 0u; j < 10u; j++) {
+        let ax = sx[j] * r;
+        let ay = sy[j] * r;
+        let bx = sx[(j + 1u) % 10u] * r;
+        let by = sy[(j + 1u) % 10u] * r;
+        let ex = bx - ax;
+        let ey = by - ay;
+        let t = clamp(((dx - ax) * ex + (dy - ay) * ey) / (ex * ex + ey * ey), 0.0lf, 1.0lf);
+        let qx = dx - ax - t * ex;
+        let qy = dy - ay - t * ey;
+        e = min(e, sqrt(qx * qx + qy * qy));
+        if (ay > dy) != (by > dy) && dx < ax + (bx - ax) * (dy - ay) / (by - ay) {
+            inside = !inside;
+        }
+    }
+    var cv = clamp(0.5lf - e, 0.0lf, 1.0lf);
+    if inside {
+        cv = clamp(0.5lf + e, 0.0lf, 1.0lf);
+    }
+    if cv <= 0.0lf {
+        return vec4(0.0lf);
+    }
+    let a = k[s + 6u] * cv;
+    return vec4(k[s + 7u] * a, k[s + 8u] * a, k[s + 9u] * a, a);
+}
+
 // D-610, particles::cover: sprite n of k (from 7, eleven each) at the own point (x, y),
 // premultiplied; nothing where it does not reach.
 fn sprite_cover(n: u32, x: f64, y: f64) -> vec4<f64> {
     let s = 7u + SPRITE_STRIDE * n;
     let kind = k[s];
+    if kind == 8.0lf {
+        return star_cover(s, x, y);
+    }
     if kind >= 5.0lf {
         return textured_cover(s, x, y);
     }
@@ -14910,7 +14953,8 @@ impl Gpu {
             // D-610: the sprites from the drawing the layer sent, binned into the card's tiles,
             // the lists after them. D-611: the texture's levels as the other picture, its size
             // as n by r (a clear 1 by 1 with none read).
-            e @ E::ParticleSpace { .. } => {
+            // D-612: Particle Plane's the same way.
+            e @ (E::ParticleSpace { .. } | E::ParticlePlane { .. }) => {
                 let mut k = crate::particles::sprite_numbers(source, e, f.origin);
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
@@ -16626,6 +16670,11 @@ impl Gpu {
                                 let r = most(5).clamp(0.0, 1000.0) / 100.0 * h as f64 / 4.0;
                                 let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
                                 ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 15.0) * 8.0) as u64
+                            }
+                            // D-612: Particle Plane's the same.
+                            crate::effects::Effect::ParticlePlane { values, .. } => {
+                                let alive = 100.0 * values[0] * values[1] + 1.0;
+                                ((7.0 + 14.0 * alive + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,
