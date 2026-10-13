@@ -214212,3 +214212,83 @@ FX-PGRID-058 (`fx_pgrid_058.json`): Transfer Mode "lighten". The file is read, t
 FX-PGRID-059 (`fx_pgrid_059.json`): Color "#12345": not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PGRID-060 (`fx_pgrid_060.json`): Flow Evolution 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Mercury (D-674)
+
+Mercury (B-553), after CycoreFX's CC Mr. Mercury (Simulation): `tools/mercury_reference.py` writes `Fixtures/mercury/expected_mercury.json`, tolerance 2e-5; the rule is in document 21. Every case is a composition 48 by 32 holding one drawing the same size, Bubbles' colour field or the field with its right half clear.
+
+FX-MERCURY-001 (`fx_mercury_001.json`): As added: twenty drops a second from the middle, thrown every way at half the picture's height a second and falling, each 1.6 pixels across the radius here, swelling in and shrinking out over its two seconds; the picture replaced by them. At frame 0 none is born and the layer is clear. Frames 0, 12, 24.
+
+FX-MERCURY-002 (`fx_mercury_002.json`): A close look: about six drops a second, 5 pixels across the radius, lit from the top left; frame 6 one young drop, frame 24 several running together. Frames 6, 12, 24.
+
+FX-MERCURY-003 (`fx_mercury_003.json`): Animation Direction, Direction 90, Extra 0: every drop thrown to the right at one speed, falling. Frames 18.
+
+FX-MERCURY-004 (`fx_mercury_004.json`): Animation Direction, Direction 90, Extra 100: thrown to the right in a fan 90 degrees wide, at speeds from none to full. Frames 18.
+
+FX-MERCURY-005 (`fx_mercury_005.json`): Animation Twirl, no gravity: the drops thrown round the producer like a pinwheel. Frames 18.
+
+FX-MERCURY-006 (`fx_mercury_006.json`): Animation Vortex, no gravity: the drops spiralling out round the producer. Frames 18.
+
+FX-MERCURY-007 (`fx_mercury_007.json`): Animation Fixed: the drops stay where they are born, swelling and shrinking. Frames 18.
+
+FX-MERCURY-008 (`fx_mercury_008.json`): Gravity -50: the drops float up. Frames 18.
+
+FX-MERCURY-009 (`fx_mercury_009.json`): Resistance 300: the drops slow and hang closer to the producer. Frames 18.
+
+FX-MERCURY-010 (`fx_mercury_010.json`): Blob Influence 0: hard discs over each other, not running together. Frames 24.
+
+FX-MERCURY-011 (`fx_mercury_011.json`): Blob Influence 300: the drops reach far and run into one puddle. Frames 24.
+
+FX-MERCURY-012 (`fx_mercury_012.json`): Influence Map In: drops swell in and never shrink out. Frames 24.
+
+FX-MERCURY-013 (`fx_mercury_013.json`): Influence Map Out: drops born at full size, shrinking out. Frames 24.
+
+FX-MERCURY-014 (`fx_mercury_014.json`): Influence Map Constant: no swelling or shrinking but from the birth size to the death size. Frames 24.
+
+FX-MERCURY-015 (`fx_mercury_015.json`): Birth Size 0, Death Size 400: drops born as points, growing to 6.4 pixels across the radius. Frames 24.
+
+FX-MERCURY-016 (`fx_mercury_016.json`): Longevity 0: no drop lives, the layer clear. Frames 12.
+
+FX-MERCURY-017 (`fx_mercury_017.json`): Birth Rate 0: no drops, the layer clear. Frames 12.
+
+FX-MERCURY-018 (`fx_mercury_018.json`): The picture with its right half clear, the producer as wide as the picture: drops are born only on the left half. Frames 12.
+
+FX-MERCURY-019 (`fx_mercury_019.json`): Birth Rate keyed from 0 at frame 0 to 24 at frame 12: by frame 11 five drops have been born, the rate summed from the in point. Frames 6, 11.
+
+FX-MERCURY-020 (`fx_mercury_020.json`): The producer keyed from 20 per cent across at frame 0 to 80 at frame 24, no gravity or speed: the drops left in a trail behind it. Frames 24.
+
+FX-MERCURY-021 (`fx_mercury_021.json`): FX-MERCURY-002 moved 3 pixels right: the same, moved. Frames 24.
+
+FX-MERCURY-022 (`fx_mercury_022.json`): FX-MERCURY-002 with the layer starting at frame 6: frame 12 is 002's frame 6 and frame 30 its 24. Frames 12, 30.
+
+FX-MERCURY-023 (`fx_mercury_023.json`): An orange point light near the top left, 10 pixels up, Metal 0: white-ish drops lit orange on the side facing it. Frames 24.
+
+FX-MERCURY-024 (`fx_mercury_024.json`): Unlit: each drop the picture's colour where it was born, flat. Frames 24.
+
+FX-MERCURY-025 (`fx_mercury_025.json`): FX-MERCURY-002 at 30 frames a second: frame 24 is four fifths of a second in, not one. Frames 24.
+
+FX-MERCURY-026 (`fx_mercury_026.json`): Animation Direction, the direction keyed from 0 at frame 0 to 180 at frame 12, no gravity: the drops born early still go up, the late ones down. Frames 24.
+
+FX-MERCURY-027 (`fx_mercury_027.json`): Birth Rate -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MERCURY-028 (`fx_mercury_028.json`): Longevity 101, above 100 seconds. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MERCURY-029 (`fx_mercury_029.json`): Radius X -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MERCURY-030 (`fx_mercury_030.json`): Velocity -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MERCURY-031 (`fx_mercury_031.json`): Extra 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MERCURY-032 (`fx_mercury_032.json`): Gravity 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MERCURY-033 (`fx_mercury_033.json`): Blob Influence 401, above 400. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MERCURY-034 (`fx_mercury_034.json`): Death Size 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MERCURY-035 (`fx_mercury_035.json`): An animation written "spin". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MERCURY-036 (`fx_mercury_036.json`): An influence map written "both". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MERCURY-037 (`fx_mercury_037.json`): A light colour written "silver". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MERCURY-038 (`fx_mercury_038.json`): Gravity keyed to 2000 at frame 4, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
