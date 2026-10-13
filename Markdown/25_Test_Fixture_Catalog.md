@@ -2970,6 +2970,38 @@ FX-COMP-016: the right channel's step turns both channels down: left peak -40 dB
 
 FX-COMP-101 to 103, refused with `PROJECT_SCHEMA_INVALID`: Compressor on a solid; an expression on a Compressor number; a Mix on a Compressor.
 
+### Distortion (D-644)
+
+S-6 of D-638 (B-523): the third sound effect (document 21). `tools/distortion_reference.py` writes one test sound in `Fixtures/distortion/media` as 32-bit floating-point WAV: `probe.wav`, a 1 kHz sine at -6 dB on samples 0 to 23,999, then a straight ramp from -1 to +1 on samples 24,000 to 71,999, then silence to 2 s. One project per case (a 4 x 2 composition) and `expected_distortion.json`: the length, the mix at named places (2e-5), each channel's peak (0.01 dB), the warnings; for FX-DIST-001 to 006 also the 2nd and 3rd harmonics against the 1 kHz one over samples 4,800 to 23,999 (0.01 dB; below -100 dB written as none) and the ramp's output at 21 samples.
+
+FX-DIST-001 to 006: each type at the starting values (Drive 25%, +10 dB into the curve): Soft Clip, Hard Clip, Saturation 1, Saturation 2, Tube (the only one with a 2nd harmonic, -20.50 dB), Fuzz.
+
+FX-DIST-007: Hard Clip, Drive 0: nothing above full level, the sound unchanged.
+
+FX-DIST-008: Gain 100, Mix 50%, Volume 5.5.
+
+FX-DIST-009: Resolution 4 bits, Drive 0, Hard Clip: every sample a whole number of eighths, exactly.
+
+FX-DIST-010: Downsample 4, Drive 0, Hard Clip: each run of four samples from the layer's first one value, exactly.
+
+FX-DIST-011: Drive keyed from 0% (frame 0) to 100% (frame 10) on the sine.
+
+FX-DIST-012: Downsample keyed from 1 (frame 0) to 32 (frame 12) at 30000 / 1001 a second.
+
+FX-DIST-013: frames 5 to 14 of FX-DIST-010 mixed alone are the whole mix there (the hold counts from the layer's start).
+
+FX-DIST-014: the layer starting on frame 7 at -6 dB, Downsample 3: the hold counts from the layer's start, before the level.
+
+FX-DIST-015: Fuzz then Soft Clip.
+
+FX-DIST-016: switched off: the sound unchanged.
+
+FX-DIST-017: Drive 150: kept, `EFFECT_PARAMETER_INVALID` on opening and mixing, the sound unchanged.
+
+FX-DIST-018: Type "crunch": the same.
+
+FX-DIST-101 to 103, refused with `PROJECT_SCHEMA_INVALID`: Distortion on a solid; an expression on a Distortion number; a picture Mix on a Distortion.
+
 ## Format fixtures
 
 D-72, proposed on 2026-09-19; nothing is built against these yet. `tools/formats_reference.py` writes `Fixtures/formats/` and prints what follows. The drawings are one 16 by 12 picture of smooth ramps, saved by Pillow in each format, and each twin is Pillow's own reading of that file.
