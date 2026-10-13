@@ -1,0 +1,71 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx_sexp_004",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-0",
+      "kind": "audio",
+      "name": "click",
+      "path": "media/click.wav"
+    },
+    {
+      "id": "asset-1",
+      "kind": "audio",
+      "name": "click",
+      "path": "media/click.wav"
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 64,
+      "height": 64,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 30,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 30
+      },
+      "layer_order": [
+        "sound0",
+        "sound1"
+      ],
+      "layers": [
+        {
+          "id": "sound0",
+          "kind": "audio",
+          "name": "sound 0",
+          "asset_id": "asset-0",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 8,
+          "out_frame": 30,
+          "source_offset_frames": 0,
+          "gain_db": 0
+        },
+        {
+          "id": "sound1",
+          "kind": "audio",
+          "name": "sound 1",
+          "asset_id": "asset-1",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 20,
+          "out_frame": 30,
+          "source_offset_frames": 0,
+          "gain_db": 0
+        }
+      ]
+    }
+  ]
+}
