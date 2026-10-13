@@ -213592,3 +213592,71 @@ FX-PPG-058 (`fx_ppg_058.json`): An Explode Layer written as the number 3, not a 
 FX-PPG-059 (`fx_ppg_059.json`): Cannon Position with one number. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PPG-060 (`fx_ppg_060.json`): Velocity keyed to 20000 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Hair (D-673)
+
+Hair (B-552), after CycoreFX's CC Hair (Simulation): `tools/hair_reference.py` writes `Fixtures/hair/expected_hair.json`, tolerance 2e-5; the rule is in document 21. Every case is a composition 48 by 32 holding one drawing the same size, Bubbles' colour field or the field with its right half clear.
+
+FX-HAIR-001 (`fx_hair_001.json`): As added: on a picture 32 pixels high the hair is a short fuzz a pixel long and a twentieth of a pixel thick, 6000 strands, half the picture's colour and half brown. Frames 3.
+
+FX-HAIR-002 (`fx_hair_002.json`): A close look: about thirty strands of 6 to 10 pixels, a pixel thick, hanging by half their length. Frames 3.
+
+FX-HAIR-003 (`fx_hair_003.json`): Weight 0: the strands stand straight out, short where they face the viewer. Frames 3.
+
+FX-HAIR-004 (`fx_hair_004.json`): Weight -100: the strands curl upwards. Frames 3.
+
+FX-HAIR-005 (`fx_hair_005.json`): Weight 150 with Constant Mass: the longer strands hang further. Frames 3.
+
+FX-HAIR-006 (`fx_hair_006.json`): Color Inheritance 0: every strand brown. Frames 3.
+
+FX-HAIR-007 (`fx_hair_007.json`): Color Inheritance 100: every strand the picture's colour at its root. Frames 3.
+
+FX-HAIR-008 (`fx_hair_008.json`): Opacity 40: the picture shows through the strands. Frames 3.
+
+FX-HAIR-009 (`fx_hair_009.json`): Light Direction 135, from the bottom right. Frames 3.
+
+FX-HAIR-010 (`fx_hair_010.json`): Specular 100, Roughness 0.5, Metal 100: a broad shine in the strands' own colour. Frames 3.
+
+FX-HAIR-011 (`fx_hair_011.json`): Unlit: Ambient 100, no diffuse or specular light; each strand one flat colour. Frames 3.
+
+FX-HAIR-012 (`fx_hair_012.json`): Density 0: no hair, the picture untouched. Frames 3.
+
+FX-HAIR-013 (`fx_hair_013.json`): Length 0: no hair, the picture untouched. Frames 3.
+
+FX-HAIR-014 (`fx_hair_014.json`): The picture with its right half clear: hair roots only on the left half, the strands hanging a little across. Frames 3.
+
+FX-HAIR-015 (`fx_hair_015.json`): Weight keyed from 0 at frame 0 to 100 at frame 12: at frame 0 as FX-HAIR-003, then hanging lower. Frames 0, 6, 12.
+
+FX-HAIR-016 (`fx_hair_016.json`): FX-HAIR-002 moved 3 pixels right: the same, moved. Frames 3.
+
+FX-HAIR-017 (`fx_hair_017.json`): A blue hair colour, Color Inheritance 0. Frames 3.
+
+FX-HAIR-018 (`fx_hair_018.json`): Thickness 100: strands three pixels thick at the root. Frames 3.
+
+FX-HAIR-019 (`fx_hair_019.json`): A fur: density 3, length 150, so about 180 strands of 3 to 5 pixels. Frames 3.
+
+FX-HAIR-020 (`fx_hair_020.json`): Roughness 0.01: a thin, tight shine. Frames 3.
+
+FX-HAIR-021 (`fx_hair_021.json`): Length -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAIR-022 (`fx_hair_022.json`): Length 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAIR-023 (`fx_hair_023.json`): Thickness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAIR-024 (`fx_hair_024.json`): Weight 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAIR-025 (`fx_hair_025.json`): Density -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAIR-026 (`fx_hair_026.json`): Color Inheritance 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAIR-027 (`fx_hair_027.json`): Opacity 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAIR-028 (`fx_hair_028.json`): Roughness 0, below 0.001. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAIR-029 (`fx_hair_029.json`): Constant Mass written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAIR-030 (`fx_hair_030.json`): A hair colour written "brown". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAIR-031 (`fx_hair_031.json`): Light Direction 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-HAIR-032 (`fx_hair_032.json`): Weight keyed to 600 at frame 4, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
