@@ -441,6 +441,8 @@ pub enum Stage {
     EffectMercury,
     /// D-675: Polygon Shards.
     EffectPolygonShards,
+    /// D-678: Foam.
+    EffectFoam,
     /// D-508: Energy Stroke.
     EffectEnergyStroke,
     /// D-449's Block Load.
@@ -537,7 +539,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 264] = [
+    pub const ALL: [Stage; 265] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -758,6 +760,7 @@ impl Stage {
         Stage::EffectParticleGrid,
         Stage::EffectMercury,
         Stage::EffectPolygonShards,
+        Stage::EffectFoam,
         Stage::EffectEnergyStroke,
         Stage::EffectBlockLoad,
         Stage::EffectGlassMelt,
@@ -1027,6 +1030,7 @@ impl Stage {
             Stage::EffectParticleGrid => "effect: particle grid",
             Stage::EffectMercury => "effect: mercury",
             Stage::EffectPolygonShards => "effect: polygon shards",
+            Stage::EffectFoam => "effect: foam",
             Stage::EffectEnergyStroke => "effect: energy stroke",
             Stage::EffectBlockLoad => "effect: block load",
             Stage::EffectGlassMelt => "effect: glass melt",

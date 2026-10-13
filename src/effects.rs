@@ -3260,6 +3260,18 @@ pub enum Effect {
         clock: [f64; 2],
         view: [f64; 4],
     },
+    /// D-678: Foam, after After Effects' Foam, its rule and settings when added ours
+    /// (`simulate::foam`, document 21): bubbles born in a producer from the in point that grow,
+    /// drift, push and stick to each other, wobble and pop, drawn as rings or textured bubbles.
+    /// `values`, the settings of [`FOAM_SETTINGS`] in that order; `words`, those of
+    /// [`FOAM_WORDS`], kept as written. `clock` and `history` are not settings and are never
+    /// saved, filled by compose as Bubbles' are (document 20).
+    Foam {
+        values: [f64; 26],
+        words: [String; 6],
+        clock: [f64; 2],
+        history: Option<std::sync::Arc<Vec<[f64; 26]>>>,
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -5257,6 +5269,51 @@ pub const POLYGON_SHARDS_WORDS: [(&str, &[&str], &str); 2] = [
     ("object", &["polygon", "textured_polygon", "square", "textured_square"], "textured_polygon"),
     ("depth_sort", &["off", "on"], "on"),
 ];
+pub const FOAM: &str = "core.foam";
+/// D-678: Foam's keyable settings, in the order `values` holds them: name, lowest, highest, and
+/// the value when the effect is added. The producer's place in per cent of the drawing, its sizes
+/// as shares of the drawing's width and height, its turn in degrees; the production rate in
+/// thirties of bubbles a second; the size in fortieths of the height across the radius; the
+/// lifespan in thirtieths of a second; the growth speed in tenths of a second's growing a second;
+/// the speeds in quarters of the height a second, the directions in degrees; the turbulence in
+/// halves of the height a second a second; the zoom and universe size as shares.
+pub const FOAM_SETTINGS: [(&str, f64, f64, f64); 26] = [
+    ("producer_x", -1000.0, 1000.0, 50.0),
+    ("producer_y", -1000.0, 1000.0, 50.0),
+    ("producer_x_size", 0.0, 2.0, 0.05),
+    ("producer_y_size", 0.0, 2.0, 0.05),
+    ("producer_orientation", -3600.0, 3600.0, 0.0),
+    ("production_rate", 0.0, 100.0, 1.0),
+    ("size", 0.0, 10.0, 0.5),
+    ("size_variance", 0.0, 1.0, 0.5),
+    ("lifespan", 1.0, 3000.0, 300.0),
+    ("growth_speed", 0.01, 10.0, 0.1),
+    ("strength", 0.0, 100.0, 10.0),
+    ("initial_speed", 0.0, 100.0, 0.0),
+    ("initial_direction", -3600.0, 3600.0, 0.0),
+    ("wind_speed", 0.0, 100.0, 0.5),
+    ("wind_direction", -3600.0, 3600.0, 90.0),
+    ("turbulence", 0.0, 100.0, 0.5),
+    ("wobble", 0.0, 1.0, 0.05),
+    ("repulsion", 0.0, 100.0, 1.0),
+    ("pop_velocity", 0.0, 100.0, 0.0),
+    ("viscosity", 0.0, 1.0, 0.1),
+    ("stickiness", 0.0, 1.0, 0.75),
+    ("zoom", 0.05, 50.0, 1.0),
+    ("universe_size", 0.1, 10.0, 1.0),
+    ("reflection_strength", 0.0, 1.0, 0.0),
+    ("reflection_convergence", 0.0, 1.0, 0.0),
+    ("random_seed", 0.0, 10000.0, 1.0),
+];
+/// D-678: Foam's words: name, the words, the word when added.
+pub const FOAM_WORDS: [(&str, &[&str], &str); 6] = [
+    ("view", &["draft", "rendered"], "draft"),
+    ("zoom_producer_point", &["off", "on"], "off"),
+    ("blend_mode", &["transparent", "solid_old_on_top", "solid_new_on_top"], "transparent"),
+    ("bubble_texture", &["default_bubble", "spit", "bubblegum", "dishwater", "layer"], "default_bubble"),
+    ("bubble_orientation", &["fixed", "physical", "velocity"], "fixed"),
+    ("quality", &["normal", "high", "intense"], "normal"),
+];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -5736,6 +5793,11 @@ impl Effect {
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .collect(),
             Effect::PolygonShards { values, .. } => POLYGON_SHARDS_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .collect(),
+            Effect::Foam { values, .. } => FOAM_SETTINGS
                 .iter()
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
@@ -9090,6 +9152,7 @@ impl Effect {
             Effect::ParticleGrid { .. } => "Particle Grid",
             Effect::Mercury { .. } => "Mercury",
             Effect::PolygonShards { .. } => "Polygon Shards",
+            Effect::Foam { .. } => "Foam",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -9363,6 +9426,7 @@ impl Effect {
             Effect::ParticleGrid { .. } => PARTICLE_GRID,
             Effect::Mercury { .. } => MERCURY,
             Effect::PolygonShards { .. } => POLYGON_SHARDS,
+            Effect::Foam { .. } => FOAM,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -10030,6 +10094,13 @@ impl Effect {
                 })
                 .or_else(|| hex_fault(name, "light colour", light_color)),
             Effect::PolygonShards { words, .. } => POLYGON_SHARDS_WORDS
+                .iter()
+                .zip(words)
+                .find(|((_, allowed, _), w)| !allowed.contains(&w.as_str()))
+                .map(|((what, allowed, _), w)| {
+                    format!("{name}'s {} is {}, and this is \"{w}\".", what.replace('_', " "), allowed.join(", "))
+                }),
+            Effect::Foam { words, .. } => FOAM_WORDS
                 .iter()
                 .zip(words)
                 .find(|((_, allowed, _), w)| !allowed.contains(&w.as_str()))
@@ -13676,6 +13747,8 @@ pub(crate) fn apply_stack_at(
             e @ Effect::PolygonShards { .. } => crate::perf::time(crate::perf::Stage::EffectPolygonShards, || {
                 crate::simulate::polygon_shards(source, e, (ox, oy))
             }),
+            // D-678: the bubbles in the drawing's own space; never grows.
+            e @ Effect::Foam { .. } => crate::perf::time(crate::perf::Stage::EffectFoam, || crate::simulate::foam(source, e, (ox, oy))),
             // D-610: the particles drawn through the composition camera or its own; never grows.
             e @ Effect::ParticleSpace { .. } => crate::perf::time(crate::perf::Stage::EffectParticleSpace, || {
                 crate::particles::particle_space(source, e, (ox, oy))

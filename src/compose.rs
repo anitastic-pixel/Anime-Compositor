@@ -1187,6 +1187,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Mercury { .. }
                 // D-675.
                 | crate::effects::Effect::PolygonShards { .. }
+                // D-678.
+                | crate::effects::Effect::Foam { .. }
                 // D-508 (the bits are found on the processor).
                 | crate::effects::Effect::EnergyStroke { .. }
                 // D-509.
@@ -2570,6 +2572,22 @@ fn effect_now(
                     *view = [1.0, a.0, a.1, away];
                 }
             }
+        }
+        // D-678: Foam's clock and history, as Bubbles'.
+        if let crate::effects::Effect::Foam { clock, history, .. } = &mut now.effect {
+            let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+            *clock = [(at - layer.in_frame) as f64, fps];
+            // ponytail: O(frames) as Bubbles'.
+            *history = (!instance.tracks.is_empty() && at >= layer.in_frame).then(|| {
+                std::sync::Arc::new(
+                    (layer.in_frame..=at)
+                        .map(|f| match crate::expr::effect_at(comp, &layer.id, instance, f, layer.key_time(f as f64)).0.effect {
+                            crate::effects::Effect::Foam { values, .. } => values,
+                            _ => unreachable!("Foam's settings of another effect"),
+                        })
+                        .collect(),
+                )
+            });
         }
         // D-473: Basic Text's missing font is said each frame, as Numbers' is.
         if let crate::effects::Effect::BasicText { font, .. } = &now.effect {

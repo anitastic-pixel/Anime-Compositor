@@ -7510,6 +7510,115 @@ fn shards(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, vec4<f32>(acc));
 }
 
+// D-678, simulate::foam, a pixel a thread (k: k[0] where the shared numbers start, k[2] and k[3]
+// the drawing's size, k[6] the count, the bubbles from 7, SPRITE_STRIDE each, [3, x, y, reach, R, cos
+// theta, sin theta, cos 2 alpha, sin 2 alpha, 0], in the order laid down, then each tile's start
+// and the lists, then simulate::foam_list's twelve shared numbers): in the Draft view the
+// producer's red ring, then each bubble's blue ring; Rendered, each bubble's texture or the
+// drawing through it (Bubbles' read), with the reflection, screened or laid over. Clear where
+// nothing covers.
+@compute @workgroup_size(16, 16)
+fn foam(@builtin(global_invocation_id) id: vec3<u32>) {
+    let size = textureDimensions(output);
+    if id.x >= size.x || id.y >= size.y {
+        return;
+    }
+    let tw = (size.x + 15u) / 16u;
+    let nt = tw * ((size.y + 15u) / 16u);
+    let t = (id.y / 16u) * tw + id.x / 16u;
+    let o = 7u + SPRITE_STRIDE * u32(k[6]);
+    let g = u32(k[0]);
+    let x = f64(i32(id.x) - F.ox) + 0.5lf;
+    let y = f64(i32(id.y) - F.oy) + 0.5lf;
+    let w = k[2];
+    let h = k[3];
+    let draft = k[g] == 0.0lf;
+    var acc = vec4(0.0lf);
+    if draft {
+        let px = x - k[g + 6u];
+        let py = y - k[g + 7u];
+        let lx = px * k[g + 10u] + py * k[g + 11u];
+        let ly = -px * k[g + 11u] + py * k[g + 10u];
+        let a2 = lx / k[g + 8u];
+        let b2 = ly / k[g + 9u];
+        let kk = sqrt(a2 * a2 + b2 * b2);
+        let a3 = lx / (k[g + 8u] * k[g + 8u]);
+        let b3 = ly / (k[g + 9u] * k[g + 9u]);
+        let g2 = sqrt(a3 * a3 + b3 * b3);
+        if g2 > 0.0lf {
+            let cov = clamp(1.0lf - abs((kk * kk - kk) / g2), 0.0lf, 1.0lf);
+            acc = vec4(1.0lf, 0.15lf, 0.1lf, 1.0lf) * cov + acc * (1.0lf - cov);
+        }
+    }
+    let tex = k[g + 2u];
+    let fr = k[g + 4u];
+    let cv = k[g + 5u];
+    for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
+        let s = 7u + SPRITE_STRIDE * u32(k[o + nt + 1u + j]);
+        let dx = x - k[s + 1u];
+        let dy = y - k[s + 2u];
+        let e2 = dx * dx + dy * dy;
+        let e = sqrt(e2);
+        var rw = k[s + 4u];
+        if e2 > 0.0lf {
+            rw = k[s + 4u] * (1.0lf + k[g + 3u] * (k[s + 7u] * (dx * dx - dy * dy) + k[s + 8u] * 2.0lf * dx * dy) / e2);
+        }
+        if draft {
+            let cov = clamp(1.0lf - abs(e - rw), 0.0lf, 1.0lf);
+            if cov > 0.0lf {
+                acc = vec4(0.2lf, 0.5lf, 1.0lf, 1.0lf) * cov + acc * (1.0lf - cov);
+            }
+            continue;
+        }
+        let cov = clamp(rw - e + 0.5lf, 0.0lf, 1.0lf);
+        if cov == 0.0lf || !(rw > 0.0lf) {
+            continue;
+        }
+        let q0 = e / rw;
+        let cut = max(q0, 1.0lf);
+        let ux = (dx * k[s + 5u] + dy * k[s + 6u]) / rw / cut;
+        let uy = (-dx * k[s + 6u] + dy * k[s + 5u]) / rw / cut;
+        let q = min(q0, 1.0lf);
+        var col: vec4<f64>;
+        if tex == 4.0lf {
+            col = bubble_read((ux + 1.0lf) * w / 2.0lf, (uy + 1.0lf) * h / 2.0lf);
+        } else {
+            let hx = ux + 0.35lf;
+            let hy = uy + 0.35lf;
+            let h0 = max(0.0lf, 1.0lf - (hx * hx + hy * hy) / 0.0625lf);
+            let hl = h0 * h0;
+            var a = 0.3lf + 0.45lf * q * q * q;
+            var c = vec3(0.72lf, 0.68lf, 0.58lf);
+            if tex == 0.0lf {
+                a = 0.12lf + 0.68lf * q * q * q * q;
+                c = vec3(0.85lf + 0.15lf * q * q, 0.92lf, 1.0lf - 0.15lf * q * q);
+            } else if tex == 1.0lf {
+                a = 0.45lf + 0.45lf * q * q;
+                c = vec3(0.95lf, 0.95lf, 0.93lf);
+            } else if tex == 2.0lf {
+                let lit = 0.5lf + 0.5lf * max(0.0lf, -0.4lf * ux - 0.4lf * uy + 0.824lf * sqrt(max(0.0lf, 1.0lf - q * q)));
+                a = 0.95lf;
+                c = vec3(1.0lf, 0.45lf, 0.7lf) * lit;
+            }
+            a = a + (1.0lf - a) * 0.85lf * hl;
+            c = c + (vec3(1.0lf) - c) * hl;
+            col = vec4(c * a, a);
+        }
+        if fr > 0.0lf {
+            let ex = (1.0lf - cv) * (k[s + 1u] + 2.0lf * dx / cut) + cv * ((ux + 1.0lf) * w / 2.0lf);
+            let ey = (1.0lf - cv) * (k[s + 2u] + 2.0lf * dy / cut) + cv * ((uy + 1.0lf) * h / 2.0lf);
+            let r = bubble_read(ex, ey);
+            col = vec4(col.xyz * (1.0lf - fr) + r.xyz * col.w * fr, col.w);
+        }
+        if k[g + 1u] == 0.0lf {
+            acc = acc + col * cov - acc * col * cov;
+        } else {
+            acc = col * cov + acc * (1.0lf - col.w * cov);
+        }
+    }
+    textureStore(output, id.xy, vec4<f32>(acc));
+}
+
 // B-151, median.rs's straight colour of a pixel, each channel over the covering in single
 // precision as the CPU divides it, or nothing where nothing shows.
 fn straight(p: vec4<f32>) -> vec4<f32> {
@@ -11787,6 +11896,8 @@ struct FxPasses {
     mercury: Pass,
     /// D-675.
     shards: Pass,
+    /// D-678.
+    foam: Pass,
     /// B-151.
     median: Pass,
     smart: Pass,
@@ -12535,6 +12646,7 @@ impl Gpu {
                 hair: pass("hair", &[0, 1, 2, 3]),
                 mercury: pass("mercury", &[0, 1, 2, 3]),
                 shards: pass("shards", &[0, 1, 2, 3]),
+                foam: pass("foam", &[0, 1, 2, 3]),
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
@@ -15397,6 +15509,27 @@ impl Gpu {
                 self.fx_step(steps, &passes.shards, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
                 (out, (w, h))
             }
+            // D-678: the bubbles stepped on the processor and laid out on screen in the drawing's
+            // own space, binned into the card's tiles as the particles are, the lists after them,
+            // then the shared numbers; the card only draws.
+            e @ E::Foam { .. } => {
+                let (w0, h0) = (w.saturating_sub(2 * ox), h.saturating_sub(2 * oy));
+                if w0 == 0 || h0 == 0 {
+                    return (still.clone(), (w, h));
+                }
+                let (mut k, shared) = crate::simulate::foam_list(e, w0 as f64, h0 as f64);
+                let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
+                k[2] = w0 as f64;
+                k[3] = h0 as f64;
+                k[6] = ((k.len() - crate::particles::HEAD) / crate::particles::STRIDE) as f64;
+                k.extend(starts.iter().chain(&list).map(|&i| i as f64));
+                k[0] = k.len() as f64;
+                k.extend(shared);
+                let p = FxParams { ox: ox as i32, oy: oy as i32, ..Default::default() };
+                let out = self.scratch("D-678 foam", w, h);
+                self.fx_step(steps, &passes.foam, p, Some(still), Some(&out), Some(&k), None, [None; 5], tiles(w, h));
+                (out, (w, h))
+            }
             // B-151: ten of the fourth batch.
             E::Median { radius, operate_on_alpha } => {
                 let k: Vec<f64> = crate::layer_fx::disc_runs(*radius).iter().map(|&(_, hw)| hw as f64).collect();
@@ -17126,6 +17259,19 @@ impl Gpu {
                                 let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
                                 let reach = ((2.0 * s + 8.0) / 16.0 + 2.0).powi(2).min(tiles);
                                 ((7.0 + n * (26.0 + reach) + tiles + 1.0 + 7.0) * 8.0) as u64
+                            }
+                            // D-678: Foam's bubbles at most (the fastest rate over the longest
+                            // life), eleven numbers each and a place in a tile's list or several, its
+                            // tiles' starts and the shared numbers.
+                            crate::effects::Effect::Foam { values, history, .. } => {
+                                let most = |i: usize| history.as_deref().map_or(values[i], |hs| hs.iter().fold(values[i], |m, v| m.max(v[i])));
+                                let rate = 30.0 * most(5).clamp(0.0, 100.0);
+                                let secs = most(8).clamp(1.0, 3000.0) / 30.0 + 1.0;
+                                let n = (rate * secs).ceil() + 2.0;
+                                let tiles = ((w / 16 + 1) * (h / 16 + 1)) as f64;
+                                let r = most(6).clamp(0.0, 10.0) * 2.0 * h as f64 / 40.0 * most(21).clamp(0.05, 50.0) * 2.0;
+                                let reach = ((2.0 * r + 4.0) / 16.0 + 2.0).powi(2).min(tiles);
+                                ((7.0 + n * (crate::particles::STRIDE as f64 + reach) + tiles + 1.0 + 12.0) * 8.0) as u64
                             }
                             // B-151: Cell Pattern's points ride with its settings.
                             crate::effects::Effect::CellPattern { size, .. } => ((15.0 + 3.0 * (w as f64 / size + 5.0) * (h as f64 / size + 5.0)) * 8.0) as u64,

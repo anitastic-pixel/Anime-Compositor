@@ -6,7 +6,7 @@
 //! No state is carried from frame to frame (document 20): every frame is worked from the layer's
 //! in point, so a frame drawn alone equals the same frame played from the start.
 
-use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS, HAIR_SETTINGS, MERCURY_SETTINGS, POLYGON_SHARDS_SETTINGS};
+use crate::effects::{Effect, BUBBLES_SETTINGS, DRIZZLE_SETTINGS, HAIR_SETTINGS, MERCURY_SETTINGS, POLYGON_SHARDS_SETTINGS, FOAM_SETTINGS};
 use crate::particles::{tile_lists, HEAD, STRIDE, TILE};
 use crate::WorkingBuffer;
 use rayon::prelude::*;
@@ -831,6 +831,386 @@ pub(crate) fn polygon_shards(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (
                     o = [0, 1, 2, 3].map(|c| col[c] * cov + o[c] * (1.0 - col[3] * cov));
                 }
                 for (v, o) in px.iter_mut().zip(o) {
+                    *v = o as f32;
+                }
+            }
+        }
+    });
+}
+
+/// D-678: Foam's settings held inside their ranges.
+fn foam_held(v: &[f64; 26]) -> [f64; 26] {
+    std::array::from_fn(|k| v[k].clamp(FOAM_SETTINGS[k].1, FOAM_SETTINGS[k].2))
+}
+
+/// D-678: the way `deg` degrees points, After Effects' way (0 up, clockwise), worked as the
+/// reference works it (not [`crate::blurs::along`], which rounds the four quarters).
+fn foam_way(deg: f64) -> (f64, f64) {
+    let a = deg.to_radians();
+    (a.sin(), -a.cos())
+}
+
+/// D-678: the producer's centre and half sizes in the simulation's own space, from settings
+/// already held; `on` whether Zoom Producer Point is on.
+fn foam_producer(v: &[f64; 26], on: bool, w: f64, h: f64) -> (f64, f64, f64, f64) {
+    let (mut px, mut py) = (v[0] / 100.0 * w, v[1] / 100.0 * h);
+    let (mut a, mut b) = (v[2] * w / 2.0, v[3] * h / 2.0);
+    if !on {
+        let z = v[21];
+        px = w / 2.0 + (px - w / 2.0) / z;
+        py = h / 2.0 + (py - h / 2.0) / z;
+        a /= z;
+        b /= z;
+    }
+    (px, py, a, b)
+}
+
+/// D-678: a bubble as it moves: its birth time, place, velocity, full radius, life and
+/// its seven randoms.
+struct Foamed {
+    b: f64,
+    x: f64,
+    y: f64,
+    vx: f64,
+    vy: f64,
+    r: f64,
+    life: f64,
+    u: [f64; 7],
+}
+
+impl Foamed {
+    fn radius(&self, t: f64, g: f64) -> f64 {
+        self.r * ((t - self.b) * g * 10.0).min(1.0)
+    }
+}
+
+/// D-678: the places in `alive` that pop and those that leave the universe at `t`.
+fn foam_gone(alive: &[Foamed], t: f64, v: &[f64; 26], w: f64, h: f64) -> (Vec<usize>, Vec<usize>) {
+    let (mut pops, mut leaves) = (Vec::new(), Vec::new());
+    for (i, b) in alive.iter().enumerate() {
+        let r = b.radius(t, v[9]);
+        if t - b.b >= b.life {
+            pops.push(i);
+        } else if (b.x - w / 2.0).abs() - r > v[22] * w / 2.0 || (b.y - h / 2.0).abs() - r > v[22] * h / 2.0 {
+            leaves.push(i);
+        }
+    }
+    (pops, leaves)
+}
+
+/// D-678: Foam's bubbles alive at this frame in number order, stepped from the in point
+/// (document 20), and the time drawn. `w` and `h` the drawing's size.
+// ponytail: O(frames since the in point x bubbles x neighbours) a frame, the neighbours found
+// in a grid; keep the bubbles between frames if long shots grow slow.
+fn foam_simulate(e: &Effect, w: f64, h: f64) -> (Vec<Foamed>, f64) {
+    let Effect::Foam { values, words, clock: [u, fps], history } = e else { unreachable!("Foam of another effect") };
+    let history = history.as_deref().map(|h| h.as_slice());
+    let at_frame = |i: usize| foam_held(history.map_or(values, |h| &h[i.min(h.len() - 1)]));
+    let now = foam_held(values);
+    let on = words[1] == "on";
+    let q = match words[5].as_str() {
+        "high" => 2,
+        "intense" => 4,
+        _ => 1,
+    };
+    let (fps, uf) = (*fps, *u);
+    let steps = if fps > 0.0 && uf > 0.0 { uf as usize * q } else { 0 };
+    let dt = 1.0 / (fps * q as f64);
+    let base = crate::grade::mix(now[25].floor() as u64);
+    let mut alive: Vec<Foamed> = Vec::new();
+    let (mut born, mut total) = (0i64, 0.0);
+    for m in 0..steps {
+        let v = at_frame(m / q);
+        let t = m as f64 / (fps * q as f64);
+        let g = v[9];
+        let (pops, leaves) = foam_gone(&alive, t, &v, w, h);
+        let mut out = vec![false; alive.len()];
+        for &i in pops.iter().chain(&leaves) {
+            out[i] = true;
+        }
+        for &j in &pops {
+            let (xj, yj, rj) = (alive[j].x, alive[j].y, alive[j].radius(t, g));
+            for i in 0..alive.len() {
+                if out[i] {
+                    continue;
+                }
+                let bi = &mut alive[i];
+                let d2 = 2.0 * (bi.radius(t, g) + rj);
+                let (dx, dy) = (bi.x - xj, bi.y - yj);
+                let d = (dx * dx + dy * dy).sqrt();
+                if d2 > 0.0 && 0.0 < d && d < d2 {
+                    let k = v[18] * h / 4.0 * (1.0 - d / d2) / d;
+                    bi.vx += k * dx;
+                    bi.vy += k * dy;
+                }
+            }
+        }
+        let mut n = 0;
+        alive.retain(|_| {
+            n += 1;
+            !out[n - 1]
+        });
+        total += 30.0 * v[5] * dt;
+        let (px, py, a, b) = foam_producer(&v, on, w, h);
+        let (co, si) = (v[4].to_radians().cos(), v[4].to_radians().sin());
+        while born as f64 + 0.5 <= total {
+            let uq: [f64; 7] = std::array::from_fn(|n| (crate::grade::unit(base, born, n as i64, 0, 0) + 1.0) / 2.0);
+            let (rho, psi) = (uq[0].sqrt(), 2.0 * std::f64::consts::PI * uq[1]);
+            let (lx, ly) = (rho * psi.cos() * a, rho * psi.sin() * b);
+            let (sx, sy) = foam_way(v[12]);
+            let sp = v[11] * h / 4.0;
+            alive.push(Foamed {
+                b: t,
+                x: px + (lx * co - ly * si),
+                y: py + (lx * si + ly * co),
+                vx: sp * sx,
+                vy: sp * sy,
+                r: (v[6] * (h / 40.0) * (1.0 + v[7] * (2.0 * uq[2] - 1.0))).max(0.0),
+                life: if v[10] > 0.0 { v[8] / 30.0 * uq[3].powf(1.0 / v[10]) } else { 0.0 },
+                u: uq,
+            });
+            born += 1;
+        }
+        let (wx, wy) = foam_way(v[14]);
+        let wind = v[13] * h / 4.0;
+        let tu = v[15] * h / 2.0;
+        let l = h / 4.0;
+        let kmax = 0.5 / (dt * dt);
+        // The neighbours within 1.5 (r_i + r_j) lie in the cells round a bubble's own, each cell
+        // a hair wider than that reach can be; each bubble's are summed in number order, as the
+        // reference sums every other bubble.
+        let radii: Vec<f64> = alive.iter().map(|b| b.radius(t, g)).collect();
+        let cell = 3.0 * (1.0 + 1e-9) * radii.iter().fold(0.0f64, |m, &r| m.max(r));
+        let key = |b: &Foamed| ((b.x / cell).floor().clamp(-1e15, 1e15) as i64, (b.y / cell).floor().clamp(-1e15, 1e15) as i64);
+        let mut grid: Vec<((i64, i64), usize)> = if cell > 0.0 { alive.iter().enumerate().map(|(i, b)| (key(b), i)).collect() } else { Vec::new() };
+        grid.sort_unstable();
+        let acc: Vec<(f64, f64)> = (0..alive.len())
+            .into_par_iter()
+            .map(|i| {
+                let bi = &alive[i];
+                let ri = radii[i];
+                let mut ax = wind * wx + tu * crate::grade::value(base, 300, bi.x / l, bi.y / l, t, false, 0);
+                let mut ay = wind * wy + tu * crate::grade::value(base, 301, bi.x / l, bi.y / l, t, false, 0);
+                let (mut ws, mut vsx, mut vsy) = (0.0, 0.0, 0.0);
+                let mut near = Vec::new();
+                if cell > 0.0 {
+                    let (cx, cy) = key(bi);
+                    for gx in cx - 1..=cx + 1 {
+                        for gy in cy - 1..=cy + 1 {
+                            let lo = grid.partition_point(|e| e.0 < (gx, gy));
+                            near.extend(grid[lo..].iter().take_while(|e| e.0 == (gx, gy)).map(|e| e.1));
+                        }
+                    }
+                    near.sort_unstable();
+                }
+                for &j in &near {
+                    if j == i {
+                        continue;
+                    }
+                    let bj = &alive[j];
+                    let s = ri + radii[j];
+                    let (dx, dy) = (bi.x - bj.x, bi.y - bj.y);
+                    let d = (dx * dx + dy * dy).sqrt();
+                    if s > 0.0 && 0.0 < d && d < 1.5 * s {
+                        let wt = 1.0 - d / (1.5 * s);
+                        ws += wt;
+                        vsx += wt * bj.vx;
+                        vsy += wt * bj.vy;
+                        if d < s {
+                            let k = (v[17] * 4.0 * h / s).min(kmax) * (s - d) / d;
+                            ax += k * dx;
+                            ay += k * dy;
+                        }
+                    }
+                }
+                if ws > 0.0 {
+                    let rate = (v[20] * 10.0 * ws).min(0.5 / dt);
+                    ax += rate * (vsx / ws - bi.vx);
+                    ay += rate * (vsy / ws - bi.vy);
+                }
+                (ax, ay)
+            })
+            .collect();
+        let drag = (-10.0 * v[19] * dt).exp();
+        for (b, (ax, ay)) in alive.iter_mut().zip(acc) {
+            b.vx = (b.vx + ax * dt) * drag;
+            b.vy = (b.vy + ay * dt) * drag;
+            b.x += b.vx * dt;
+            b.y += b.vy * dt;
+        }
+    }
+    let tt = uf / fps;
+    let (pops, leaves) = foam_gone(&alive, tt, &now, w, h);
+    let mut out = vec![false; alive.len()];
+    for &i in pops.iter().chain(&leaves) {
+        out[i] = true;
+    }
+    let mut n = 0;
+    alive.retain(|_| {
+        n += 1;
+        !out[n - 1]
+    });
+    (alive, tt)
+}
+
+/// D-678: Foam's bubbles at this frame as sprite numbers the particle engine's binning reads, in
+/// the order they are laid down: the head left at zero, then `STRIDE` numbers a bubble, `[3, x, y,
+/// reach, R, cos theta, sin theta, cos 2 alpha, sin 2 alpha, 0]` on screen in the drawing's own
+/// pixels, and the twelve numbers every pixel shares: the view (1 rendered), the blend (1 over),
+/// the texture's place in [`crate::effects::FOAM_WORDS`], the wobble, the reflection's strength
+/// and convergence, the producer's centre and half sizes on screen and its turn's cosine and
+/// sine. `w` and `h` the drawing's size.
+pub(crate) fn foam_list(e: &Effect, w: f64, h: f64) -> (Vec<f64>, [f64; 12]) {
+    let Effect::Foam { values, words, .. } = e else { unreachable!("Foam of another effect") };
+    let (alive, tt) = foam_simulate(e, w, h);
+    let v = foam_held(values);
+    let z = v[21];
+    let (cx, cy) = (w / 2.0, h / 2.0);
+    let o = v[16];
+    let mut k = vec![0.0; HEAD];
+    for b in &alive {
+        let r = z * b.radius(tt, v[9]);
+        if !(r > 0.0) {
+            continue;
+        }
+        let age = tt - b.b;
+        let th = match words[4].as_str() {
+            "physical" => ((2.0 * b.u[5] - 1.0) * 180.0 * age).to_radians(),
+            "velocity" if b.vx != 0.0 || b.vy != 0.0 => b.vx.atan2(-b.vy),
+            _ => 0.0,
+        };
+        let al = th + 2.0 * std::f64::consts::PI * (b.u[4] + (0.5 + b.u[6]) * age);
+        k.extend([3.0, cx + z * (b.x - cx), cy + z * (b.y - cy), r * (1.0 + o), r, th.cos(), th.sin(), (2.0 * al).cos(), (2.0 * al).sin(), 0.0, 0.0]);
+    }
+    let rendered = words[0] == "rendered";
+    if rendered && words[2] == "solid_old_on_top" {
+        let n = (k.len() - HEAD) / STRIDE;
+        let sprites = k.split_off(HEAD);
+        for i in (0..n).rev() {
+            k.extend_from_slice(&sprites[STRIDE * i..STRIDE * i + STRIDE]);
+        }
+    }
+    let (px, py, a, b) = foam_producer(&v, words[1] == "on", w, h);
+    let po = v[4].to_radians();
+    let texture = crate::effects::FOAM_WORDS[3].1.iter().position(|t| *t == words[3]).unwrap_or(0);
+    let shared = [
+        rendered as u8 as f64,
+        (words[2] != "transparent") as u8 as f64,
+        texture as f64,
+        o,
+        v[23],
+        v[24],
+        cx + z * (px - cx),
+        cy + z * (py - cy),
+        (z * a).max(0.5),
+        (z * b).max(0.5),
+        po.cos(),
+        po.sin(),
+    ];
+    (k, shared)
+}
+
+/// D-678: one rendered bubble's colour, premultiplied, at the offset (dx, dy) from its centre
+/// on screen `(sx, sy)`, `rw` its radius that way and `e` the offset's length, by the texture's
+/// place `tex`, with the reflection; `read` the bilinear read of the drawing at an own point.
+fn foam_colour(s: &[f64], dx: f64, dy: f64, e: f64, rw: f64, sh: &[f64; 12], w: f64, h: f64, read: &impl Fn(f64, f64) -> [f64; 4]) -> [f64; 4] {
+    let (cth, sth) = (s[5], s[6]);
+    let qq = e / rw;
+    let cut = qq.max(1.0);
+    let ux = (dx * cth + dy * sth) / rw / cut;
+    let uy = (-dx * sth + dy * cth) / rw / cut;
+    let qq = qq.min(1.0);
+    let mut col = if sh[2] == 4.0 {
+        read((ux + 1.0) * w / 2.0, (uy + 1.0) * h / 2.0)
+    } else {
+        let hl = (1.0 - ((ux + 0.35).powf(2.0) + (uy + 0.35).powf(2.0)) / 0.0625).max(0.0).powf(2.0);
+        let (a, s) = match sh[2] as u8 {
+            0 => (0.12 + 0.68 * qq.powf(4.0), [0.85 + 0.15 * qq * qq, 0.92, 1.0 - 0.15 * qq * qq]),
+            1 => (0.45 + 0.45 * qq * qq, [0.95, 0.95, 0.93]),
+            2 => {
+                let lit = 0.5 + 0.5 * (-0.4 * ux - 0.4 * uy + 0.824 * (1.0 - qq * qq).max(0.0).sqrt()).max(0.0);
+                (0.95, [1.0 * lit, 0.45 * lit, 0.7 * lit])
+            }
+            _ => (0.3 + 0.45 * qq.powf(3.0), [0.72, 0.68, 0.58]),
+        };
+        let a = a + (1.0 - a) * 0.85 * hl;
+        let s = s.map(|x| x + (1.0 - x) * hl);
+        [s[0] * a, s[1] * a, s[2] * a, a]
+    };
+    let (fr, cv) = (sh[4], sh[5]);
+    if fr > 0.0 {
+        let ex = (1.0 - cv) * (s[1] + 2.0 * dx / cut) + cv * ((ux + 1.0) * w / 2.0);
+        let ey = (1.0 - cv) * (s[2] + 2.0 * dy / cut) + cv * ((uy + 1.0) * h / 2.0);
+        let ee = read(ex, ey);
+        for q in 0..3 {
+            col[q] = col[q] * (1.0 - fr) + ee[q] * col[3] * fr;
+        }
+    }
+    col
+}
+
+/// D-678: Foam, after After Effects' Foam (document 21): the layer becomes its bubbles alone,
+/// laid onto clear, as rings (Draft, with the producer in red) or textured bubbles (Rendered).
+/// `(ox, oy)` the drawing's corner in the buffer; the bubbles stay in the drawing's own space and
+/// read only the drawing. Never grows. `e`'s clock and history already filled as compose fills
+/// them.
+pub(crate) fn foam(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) {
+    let (bw, bh) = (source.width(), source.height());
+    let (w0, h0) = (bw.saturating_sub(2 * ox), bh.saturating_sub(2 * oy));
+    if w0 == 0 || h0 == 0 {
+        return;
+    }
+    let (w, h) = (w0 as f64, h0 as f64);
+    let (k, sh) = foam_list(e, w, h);
+    let (starts, list) = tile_lists(&k, (ox, oy), bw, bh);
+    let drawing = source.data().to_vec();
+    let read = |x: f64, y: f64| -> [f64; 4] {
+        let (fx, fy) = ((x - 0.5).clamp(0.0, (w0 - 1) as f64), (y - 0.5).clamp(0.0, (h0 - 1) as f64));
+        let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
+        let (x1, y1) = ((x0 + 1).min(w0 - 1), (y0 + 1).min(h0 - 1));
+        let (tx, ty) = (fx - x0 as f64, fy - y0 as f64);
+        let at = |x: usize, y: usize, c: usize| drawing[((y + oy) * bw + x + ox) * 4 + c] as f64;
+        [0, 1, 2, 3].map(|c| (at(x0, y0, c) * (1.0 - tx) + at(x1, y0, c) * tx) * (1.0 - ty) + (at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx) * ty)
+    };
+    let over = |o: [f64; 4], c: [f64; 4], cov: f64| -> [f64; 4] { std::array::from_fn(|q| c[q] * cov + o[q] * (1.0 - c[3] * cov)) };
+    let tw = bw.div_ceil(TILE);
+    source.data_mut().par_chunks_mut(bw * 4 * TILE).enumerate().for_each(|(ty, band)| {
+        for (row, line) in band.chunks_exact_mut(bw * 4).enumerate() {
+            let y = (ty * TILE + row) as f64 - oy as f64 + 0.5;
+            for (bx, px) in line.chunks_exact_mut(4).enumerate() {
+                let t = ty * tw + bx / TILE;
+                let x = bx as f64 - ox as f64 + 0.5;
+                let mut acc = [0.0f64; 4];
+                if sh[0] == 0.0 {
+                    let (lx, ly) = ((x - sh[6]) * sh[10] + (y - sh[7]) * sh[11], -(x - sh[6]) * sh[11] + (y - sh[7]) * sh[10]);
+                    let kk = ((lx / sh[8]).powf(2.0) + (ly / sh[9]).powf(2.0)).sqrt();
+                    let g2 = ((lx / (sh[8] * sh[8])).powf(2.0) + (ly / (sh[9] * sh[9])).powf(2.0)).sqrt();
+                    if g2 > 0.0 {
+                        acc = over(acc, [1.0, 0.15, 0.1, 1.0], (1.0 - ((kk * kk - kk) / g2).abs()).clamp(0.0, 1.0));
+                    }
+                }
+                for &n in &list[starts[t]..starts[t + 1]] {
+                    let s = &k[HEAD + STRIDE * n..HEAD + STRIDE * n + STRIDE];
+                    let (dx, dy) = (x - s[1], y - s[2]);
+                    let e2 = dx * dx + dy * dy;
+                    let e = e2.sqrt();
+                    let rw = if e2 > 0.0 { s[4] * (1.0 + sh[3] * (s[7] * (dx * dx - dy * dy) + s[8] * 2.0 * dx * dy) / e2) } else { s[4] };
+                    if sh[0] == 0.0 {
+                        let cov = (1.0 - (e - rw).abs()).clamp(0.0, 1.0);
+                        if cov > 0.0 {
+                            acc = over(acc, [0.2, 0.5, 1.0, 1.0], cov);
+                        }
+                        continue;
+                    }
+                    let cov = (rw - e + 0.5).clamp(0.0, 1.0);
+                    // A wobble of 1 can squash a bubble to nothing one way; nothing is drawn there.
+                    if cov == 0.0 || !(rw > 0.0) {
+                        continue;
+                    }
+                    let col = foam_colour(s, dx, dy, e, rw, &sh, w, h, &read);
+                    acc = if sh[1] == 0.0 { std::array::from_fn(|q| acc[q] + col[q] * cov - acc[q] * col[q] * cov) } else { over(acc, col, cov) };
+                }
+                for (v, o) in px.iter_mut().zip(acc) {
                     *v = o as f32;
                 }
             }

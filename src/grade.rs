@@ -510,7 +510,7 @@ pub(crate) fn unit(base: u64, x: i64, y: i64, f: i64, ch: u64) -> f64 {
 /// round `(x, y, z)`, mixed by the smoothed place inside it. D-299: `block`, each cell one
 /// number across and down, the depth still mixed so it evolves smoothly; `period`, when not 0,
 /// the depth's cells repeat after that many.
-fn value(base: u64, ch: u64, x: f64, y: f64, z: f64, block: bool, period: i64) -> f64 {
+pub(crate) fn value(base: u64, ch: u64, x: f64, y: f64, z: f64, block: bool, period: i64) -> f64 {
     let (i, j, k) = (x.floor(), y.floor(), z.floor());
     let fade = |t: f64| t * t * t * (t * (6.0 * t - 15.0) + 10.0);
     let s = if block { [0.0, 0.0, fade(z - k)] } else { [fade(x - i), fade(y - j), fade(z - k)] };
