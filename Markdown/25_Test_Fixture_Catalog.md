@@ -213312,3 +213312,123 @@ FX-LIQUIFY-019 (`fx_liquify_019.json`): A stroke of three numbers, half a point 
 FX-LIQUIFY-020 (`fx_liquify_020.json`): Distortion Percentage 201, above 200. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-LIQUIFY-021 (`fx_liquify_021.json`): The stroke keyed to end at 300 per cent across at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Plane (D-612)
+
+Particle Plane (B-492, P0-6), after the purpose of CC Particle Systems II, the rules ours. Every case is a project of one composition 16 by 10 at 24 frames a second, the drawing `art` carrying the effect. `tools/particle_plane_reference.py` works the expected frames, `Fixtures/particle_plane/expected_particle_plane.json`, tolerance 2e-5, and each alive particle's numbers for some cases, `Fixtures/particle_plane/particles_particle_plane.json`, tolerance 1e-7; the rule is in document 21.
+
+FX-PPLANE-001 (`fx_pplane_001.json`): The settings as they start, at frames 0, 12 and 24: nothing at frame 0, then 200 a second thrown out every way in the layer's plane as faint yellow-to-red streaks, falling a little. Frames 0, 12, 24.
+
+FX-PPLANE-002 (`fx_pplane_002.json`): One disc, still, in the middle: a round dot 8 pixels across, a fifth of the way from yellow to red, fully covering. Frames 20.
+
+FX-PPLANE-003 (`fx_pplane_003.json`): The same particle as a Faded Sphere: soft to its edge. Frames 20.
+
+FX-PPLANE-004 (`fx_pplane_004.json`): As a Shaded Sphere: lit from the upper right and in front. Frames 20.
+
+FX-PPLANE-005 (`fx_pplane_005.json`): As a Bubble: a lit rim, a nearly clear middle. Frames 20.
+
+FX-PPLANE-006 (`fx_pplane_006.json`): As a Star: five points up, 8 pixels from tip to tip across the top. Frames 20.
+
+FX-PPLANE-007 (`fx_pplane_007.json`): A still Line: no movement, so a round dot as wide as the size, the same as FX-PPLANE-002's disc. Frames 20.
+
+FX-PPLANE-008 (`fx_pplane_008.json`): A tiny star, size 3 (under a pixel's radius): drawn 1.4 pixels across and fainter by its true size. Frames 20.
+
+FX-PPLANE-009 (`fx_pplane_009.json`): Death Size 10: the disc a fifth of the way from 50 to 10, smaller. Frames 20.
+
+FX-PPLANE-010 (`fx_pplane_010.json`): Size Variation 80 on a spread of still discs: each its own size. Frames 20.
+
+FX-PPLANE-011 (`fx_pplane_011.json`): Opacity Map Fade In: at a fifth of its life, a fifth covering. Frames 20.
+
+FX-PPLANE-012 (`fx_pplane_012.json`): Fade Out: four fifths covering. Frames 20.
+
+FX-PPLANE-013 (`fx_pplane_013.json`): Fade In and Out: two fifths covering. Frames 20.
+
+FX-PPLANE-014 (`fx_pplane_014.json`): Custom opacity 0, 100, 40, 100, 0: at a fifth of its life, between the first two, about 80 per cent. Frames 20.
+
+FX-PPLANE-015 (`fx_pplane_015.json`): Custom opacity keyed: the second stop from 100 at frame 0 to 20 at frame 20, read at the frame drawn. Frames 20.
+
+FX-PPLANE-016 (`fx_pplane_016.json`): Birth and death colours blue to green. Frames 20.
+
+FX-PPLANE-017 (`fx_pplane_017.json`): Origin to Death over the yellow column: from the drawing's yellow towards red. Frames 20.
+
+FX-PPLANE-018 (`fx_pplane_018.json`): Birth to Origin over the blue column. Frames 20.
+
+FX-PPLANE-019 (`fx_pplane_019.json`): Origin Constant over the clear first column: black. Frames 20.
+
+FX-PPLANE-020 (`fx_pplane_020.json`): Custom colours white, yellow, orange, red, near-black: at a fifth of its life, between white and yellow. Frames 20.
+
+FX-PPLANE-021 (`fx_pplane_021.json`): Two overlapping discs, Composite: the newer over the older. Frames 20.
+
+FX-PPLANE-022 (`fx_pplane_022.json`): The two, Screen. Frames 20.
+
+FX-PPLANE-023 (`fx_pplane_023.json`): The two, Add. Frames 20.
+
+FX-PPLANE-024 (`fx_pplane_024.json`): Two overlapping stars, Composite. Frames 20.
+
+FX-PPLANE-025 (`fx_pplane_025.json`): A burst of discs falling: Explosive with gravity, at frames 6, 12, 24 and 40. Frame 40 drawn alone is the same as after frames 0 to 39. Frames 6, 12, 24, 40.
+
+FX-PPLANE-026 (`fx_pplane_026.json`): Resistance 3: the burst slows and stays tighter. Frames 12, 24.
+
+FX-PPLANE-027 (`fx_pplane_027.json`): Direction, Extra Angle 30: a jet upwards within 15 degrees. Frames 12, 24.
+
+FX-PPLANE-028 (`fx_pplane_028.json`): Direction 90, Extra Angle 30: the jet to the right. Frames 12, 24.
+
+FX-PPLANE-029 (`fx_pplane_029.json`): Cone, 60 degrees: two jets, 30 degrees either side of up. Frames 12, 24.
+
+FX-PPLANE-030 (`fx_pplane_030.json`): Viscous: Explosive held back hard. Frames 12, 24.
+
+FX-PPLANE-031 (`fx_pplane_031.json`): Twirl: swirling round the producer, clockwise on screen. Frames 12, 24.
+
+FX-PPLANE-032 (`fx_pplane_032.json`): Twirly: each particle swirling by its own amount. Frames 12, 24.
+
+FX-PPLANE-033 (`fx_pplane_033.json`): Vortex: swirling and pulled in. Frames 12, 24.
+
+FX-PPLANE-034 (`fx_pplane_034.json`): Fire: rising against gravity, narrowing and flickering. Frames 12, 24.
+
+FX-PPLANE-035 (`fx_pplane_035.json`): Jet Sideways: out to the left and right of up. Frames 12, 24.
+
+FX-PPLANE-036 (`fx_pplane_036.json`): Fractal Omni: Explosive in the turbulence. Frames 12, 24.
+
+FX-PPLANE-037 (`fx_pplane_037.json`): Fractal Uni: Direction in the turbulence. Frames 12, 24.
+
+FX-PPLANE-038 (`fx_pplane_038.json`): Inherit Velocity 100 with the producer keyed across: the particles carry its motion. Frames 12, 24.
+
+FX-PPLANE-039 (`fx_pplane_039.json`): Direction keyed from 0 to 180 over frames 0 to 24 on Direction, Extra Angle 20: the jet turns from up through right to down. Frames 12, 24.
+
+FX-PPLANE-040 (`fx_pplane_040.json`): Birth Rate keyed from 0 at frame 0 to 0.5 at frame 20: births start slowly and quicken. Frames 10, 20, 30.
+
+FX-PPLANE-041 (`fx_pplane_041.json`): Gravity keyed 0 to 3 over frames 0 to 24. Frames 12, 24.
+
+FX-PPLANE-042 (`fx_pplane_042.json`): FX-PPLANE-025 with the layer starting at frame 10: nothing before, frame 22 the same as FX-PPLANE-025's frame 12. Frames 10, 22.
+
+FX-PPLANE-043 (`fx_pplane_043.json`): FX-PPLANE-025 with the layer moved 3 pixels right. Frames 12.
+
+FX-PPLANE-044 (`fx_pplane_044.json`): Random Seed 7: a different burst. Frames 12.
+
+FX-PPLANE-045 (`fx_pplane_045.json`): Birth Rate 0: nothing. Frames 12.
+
+FX-PPLANE-046 (`fx_pplane_046.json`): Longevity 0: nothing. Frames 12.
+
+FX-PPLANE-047 (`fx_pplane_047.json`): Lines, larger: the streak's length follows the size. Frames 12.
+
+FX-PPLANE-048 (`fx_pplane_048.json`): A burst of stars, faded out over life, added. Frames 12.
+
+FX-PPLANE-049 (`fx_pplane_049.json`): Birth Rate -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPLANE-050 (`fx_pplane_050.json`): Longevity 31, above 30. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPLANE-051 (`fx_pplane_051.json`): Birth Size 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPLANE-052 (`fx_pplane_052.json`): Custom Opacity 3 at 120, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPLANE-053 (`fx_pplane_053.json`): Animation "direction_axis": Particle Space's word, not the plane's. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPLANE-054 (`fx_pplane_054.json`): Animation "Explosive": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPLANE-055 (`fx_pplane_055.json`): Particle Type "textured_square": not one of the plane's six. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPLANE-056 (`fx_pplane_056.json`): Opacity Map "linear". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPLANE-057 (`fx_pplane_057.json`): Birth Color "#12345": not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PPLANE-058 (`fx_pplane_058.json`): Transfer Mode "multiply". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
