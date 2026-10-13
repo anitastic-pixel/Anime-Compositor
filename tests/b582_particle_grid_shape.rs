@@ -214,8 +214,8 @@ fn b582_particle_grid_shape() {
         (
             "2_the_word_rippling_and_glowing",
             json!({"base_form": "layer", "base_layer": "word", "form_size_x": 480, "form_size_y": 270, "particles_in_x": 120, "particles_in_y": 68,
-                "form_rotation_y": 25, "size": 4, "displace": 12, "fractal_scale": 60, "flow_x": 30, "flow_evolution": 0.3, "particle_type": "glow_sphere",
-                "transfer_mode": "add", "color": "#80c0ff", "color_map": "under"}),
+                "form_rotation_y": 25, "size": 6, "displace": 12, "fractal_scale": 60, "flow_x": 30, "flow_evolution": 0.3, "particle_type": "glow_sphere",
+                "color": "#ff60c0"}),
             48,
         ),
         (

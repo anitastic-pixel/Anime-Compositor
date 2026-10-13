@@ -1385,6 +1385,8 @@ B-572 / Reshape's Correspondence Points and Interpolation, D-702 (`docs/effects/
 
 B-581 / Particle Emitter's second system, particles thrown by particles, D-711 (P0-6) / Done on 2026-10-13 under the owner's /loop request. Aux Emit Continuously (trails) or At Bounce (sparks), with Aux Particles/sec and /Bounce, Aux Life, Aux Velocity, Aux Inherit Velocity, Aux Size and Opacity with their at-death levels, Aux Particle Type, Aux Set Color and Aux Color. Fixtures 3bb4485d (FX-PEAUX-001..030), code 869c761f. `verification/D-711_particle_emitter_aux_table.md`: 173 of 173 checks, card against processor largest difference 0; D-615's table 368 of 368; b155_gpu_chain; app tests 93 passed, the 2 known failures. **Timing** (`verification/B-581_particle_emitter_aux_timing_table.md`): not usable, machine busy; a quiet re-measure is owed. Playtest: `verification/B-581_playtest.md`.
 
+B-582 / Particle Grid's points from a layer's shape, and strings, D-712 (P0-6) / Done on 2026-10-13 under the owner's /loop request. Base Form Box Strings (rows of points drawn as lines) and Layer (points only where the new Base Layer, a drawing, shape or text layer, is half opaque or more). Fixtures 0b6254a4 (FX-PGSHP-001..027), code c3f08101. `verification/D-712_particle_grid_shape_table.md`: 148 of 148 checks, card against processor within 1 level; D-616's table 332 of 332; b155_gpu_chain; app tests 93 passed, the 2 known failures. **Timing** (`verification/B-582_particle_grid_shape_timing_table.md`): PROVISIONAL, machine not quiet. Playtest: `verification/B-582_playtest.md`.
+
 ## Later, each its own project, from 2026-09-28
 
 Five big projects the owner asked to have on the roadmap and not built now (D-179). Each is parked whole: nothing of it is started.

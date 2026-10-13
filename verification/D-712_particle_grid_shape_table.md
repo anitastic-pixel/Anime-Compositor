@@ -130,7 +130,7 @@ B-582 (EFFECTS.md row 368), after what Trapcode Form's layer-shaped and string b
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | 1_points_in_the_word.png, frame 0: drawn without a warning, the street changed | 16533 pixels changed; warnings [] | yes |
-| 2_the_word_rippling_and_glowing.png, frame 48: drawn without a warning, the street changed | 3991 pixels changed; warnings [] | yes |
+| 2_the_word_rippling_and_glowing.png, frame 48: drawn without a warning, the street changed | 15962 pixels changed; warnings [] | yes |
 | 3_strings_rippling.png, frame 48: drawn without a warning, the street changed | 39910 pixels changed; warnings [] | yes |
 | 4_strings_coloured_by_the_street.png, frame 0: drawn without a warning, the street changed | 57217 pixels changed; warnings [] | yes |
 
