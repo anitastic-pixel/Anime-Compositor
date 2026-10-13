@@ -42,4 +42,4 @@ The pictures are in `verification/D-653 pictures/`: a striped scene filmed by a 
 
 ## Speed
 
-Warp Stabilizer is drawn by the processor only. Its speed is not yet measured: the timing run was still going when this sheet was written, and `verification/B-532_warp_stabilizer_timing_table.md` will follow. Each frame works out the motion between 12 pairs of neighbouring frames at the starting Smoothness (more at higher Smoothness), and none is kept for the next frame, so expect it to be slow, slower than Pixel Motion Blur. Switch the viewer to Half while you work.
+Warp Stabilizer is drawn by the processor only. A frame took about 6 seconds inside the effect at Full quality as added, about 1 second at Half, and about 13 seconds with Detailed Analysis on, on a partly busy machine (`verification/B-532_warp_stabilizer_timing_table.md`, PROVISIONAL). Each frame works out the motion between 12 pairs of neighbouring frames at the starting Smoothness (more at higher Smoothness), and none is kept for the next frame, so expect it to be slow, slower than Pixel Motion Blur. Switch the viewer to Half while you work.
