@@ -213852,3 +213852,133 @@ FX-PMAP-041 (`fx_pmap_041.json`): Ephemeral Particles From "everything". The fil
 FX-PMAP-042 (`fx_pmap_042.json`): A Persistent Map Layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PMAP-043 (`fx_pmap_043.json`): Ephemeral Max Green keyed to 20000 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Emitter (D-615)
+
+Particle Emitter (B-495, P0-6, PLUGINS.md pick #20), the rules ours. Every case is a project of one composition 16 by 10 at 24 frames a second, the layer `art` carrying the effect, one case with a composition camera and one with a late in point. `tools/particle_emitter_reference.py` works the expected frames, `Fixtures/particle_emitter/expected_particle_emitter.json`, tolerance 2e-5, and each particle's numbers for some cases, `Fixtures/particle_emitter/particles_particle_emitter.json`, tolerance 1e-7; the rule is in document 21.
+
+FX-PEMIT-001 (`fx_pemit_001.json`): The settings as added, at frames 0, 6 and 12: nothing at frame 0, then 100 white soft dots a second thrown every way at about 100 pixels a second, so fast most are out of the 16 by 10 layer within frames; the layer's own picture is gone. Frames 0, 6, 12.
+
+FX-PEMIT-002 (`fx_pemit_002.json`): One particle, still, in the middle: a white Sphere 8 pixels across, feathered by half its radius. Frames 20.
+
+FX-PEMIT-003 (`fx_pemit_003.json`): Sphere Feather 0: a hard-edged disc. Frames 20.
+
+FX-PEMIT-004 (`fx_pemit_004.json`): Sphere Feather 100: soft from the middle out. Frames 20.
+
+FX-PEMIT-005 (`fx_pemit_005.json`): A Glow Sphere: a solid core half as wide and a faint glow round it. Frames 20.
+
+FX-PEMIT-006 (`fx_pemit_006.json`): A Star: five points up. Frames 20.
+
+FX-PEMIT-007 (`fx_pemit_007.json`): A Cloudlet: soft all the way to its edge. Frames 20.
+
+FX-PEMIT-008 (`fx_pemit_008.json`): A still Streak: no movement, so a round dot as wide as the size. Frames 20.
+
+FX-PEMIT-009 (`fx_pemit_009.json`): A tiny sphere, size 1: drawn 1.4 pixels across and fainter by its true size. Frames 20.
+
+FX-PEMIT-010 (`fx_pemit_010.json`): Size Over Life 100, 30, 100, 100, 100: at a fifth of its life it is shrinking towards the second level, about 37 per cent of its size. Frames 20.
+
+FX-PEMIT-011 (`fx_pemit_011.json`): Opacity Over Life 0, 100, 100, 100, 100: fading in, about 90 per cent at a fifth of its life. Frames 20.
+
+FX-PEMIT-012 (`fx_pemit_012.json`): Opacity 50: half covering. Frames 20.
+
+FX-PEMIT-013 (`fx_pemit_013.json`): Opacity Over Life keyed: the second level from 100 at frame 0 to 10 at frame 20, read at the frame drawn. Frames 20.
+
+FX-PEMIT-014 (`fx_pemit_014.json`): Opacity Random 80 on a spread of still dots: each its own opacity. Frames 20.
+
+FX-PEMIT-015 (`fx_pemit_015.json`): Size Random 80 on the spread: each its own size. Frames 20.
+
+FX-PEMIT-016 (`fx_pemit_016.json`): Life Random 90 on the spread: some gone early, at frames 20 and 40. Frames 20, 40.
+
+FX-PEMIT-017 (`fx_pemit_017.json`): At Birth colour blue. Frames 20.
+
+FX-PEMIT-018 (`fx_pemit_018.json`): Over Life: at a fifth of its life, between white and yellow on the gradient. Frames 20.
+
+FX-PEMIT-019 (`fx_pemit_019.json`): Random From Gradient on the spread: each dot a colour from white to dark red. Frames 20.
+
+FX-PEMIT-020 (`fx_pemit_020.json`): Color Random 70 on the spread: each dot its own brightness. Frames 20.
+
+FX-PEMIT-021 (`fx_pemit_021.json`): A Sphere emitter 14 wide, 8 high and 30 deep: still dots in a ball, the far ones smaller and nearer the middle. Frames 20.
+
+FX-PEMIT-022 (`fx_pemit_022.json`): A Grid emitter 4 by 2 over 12 by 6 pixels: a dot a frame, filling the grid point by point in rows. Frames 6, 20.
+
+FX-PEMIT-023 (`fx_pemit_023.json`): The grid turned 30 degrees about Z. Frames 20.
+
+FX-PEMIT-024 (`fx_pemit_024.json`): The particle 11 pixels farther away and up the left: smaller, drawn nearer the middle. Frames 20.
+
+FX-PEMIT-025 (`fx_pemit_025.json`): Two overlapping blue dots, Normal: the newer over the older. Frames 20.
+
+FX-PEMIT-026 (`fx_pemit_026.json`): The two, Add: brighter where they overlap. Frames 20.
+
+FX-PEMIT-027 (`fx_pemit_027.json`): The two, Screen. Frames 20.
+
+FX-PEMIT-028 (`fx_pemit_028.json`): A burst every way, at frames 6, 12, 24 and 40. Frame 40 drawn alone is the same as after frames 0 to 39. Frames 6, 12, 24, 40.
+
+FX-PEMIT-029 (`fx_pemit_029.json`): Directional, spread 10: a jet upwards within 18 degrees. Frames 12, 24.
+
+FX-PEMIT-030 (`fx_pemit_030.json`): The jet turned 90 degrees about Z: to the right. Frames 12, 24.
+
+FX-PEMIT-031 (`fx_pemit_031.json`): Bi-Directional, spread 10: up and down at once. Frames 12, 24.
+
+FX-PEMIT-032 (`fx_pemit_032.json`): Disc, the emitter turned 90 degrees about X so the axis faces us: a ring spreading out on the screen. Frames 12, 24.
+
+FX-PEMIT-033 (`fx_pemit_033.json`): Outwards from a Sphere emitter 6 across: away from its middle. Frames 12, 24.
+
+FX-PEMIT-034 (`fx_pemit_034.json`): Inwards into a Sphere emitter 14 across, slowly: towards its middle. Frames 12, 24.
+
+FX-PEMIT-035 (`fx_pemit_035.json`): Gravity 60 on the jet: it arcs back down. Frames 12, 24.
+
+FX-PEMIT-036 (`fx_pemit_036.json`): Air Resistance 3: the burst slows and stays tight. Frames 12, 24.
+
+FX-PEMIT-037 (`fx_pemit_037.json`): Wind X 40 on the jet: it bends to the right. Frames 12, 24.
+
+FX-PEMIT-038 (`fx_pemit_038.json`): Turbulence 400 at scale 4 on the jet: it wanders. Frames 12, 24.
+
+FX-PEMIT-039 (`fx_pemit_039.json`): Bounce on a floor at 80 per cent: a fountain from the top falls and bounces. Frames 12, 24.
+
+FX-PEMIT-040 (`fx_pemit_040.json`): Slide: they land and slide along the floor. Frames 24.
+
+FX-PEMIT-041 (`fx_pemit_041.json`): Stick: they land and stay. Frames 24.
+
+FX-PEMIT-042 (`fx_pemit_042.json`): Velocity From Motion 100 with the emitter keyed across: the particles carry its motion. Frames 12, 24.
+
+FX-PEMIT-043 (`fx_pemit_043.json`): Particles Per Second keyed from 0 at frame 0 to 110 at frame 20: births start slowly and quicken. Frames 10, 20, 30.
+
+FX-PEMIT-044 (`fx_pemit_044.json`): The ball of FX-PEMIT-021 through a composition camera 12 pixels in front: the far dots much smaller, the near ones larger. Frames 20.
+
+FX-PEMIT-045 (`fx_pemit_045.json`): FX-PEMIT-028 with the layer starting at frame 10: nothing before, frame 22 the same as FX-PEMIT-028's frame 12. Frames 10, 22.
+
+FX-PEMIT-046 (`fx_pemit_046.json`): FX-PEMIT-028 with the layer moved 3 pixels right. Frames 12.
+
+FX-PEMIT-047 (`fx_pemit_047.json`): Random Seed 7: a different burst. Frames 12.
+
+FX-PEMIT-048 (`fx_pemit_048.json`): Particles Per Second 0: nothing. Frames 12.
+
+FX-PEMIT-049 (`fx_pemit_049.json`): Life 0: nothing. Frames 12.
+
+FX-PEMIT-050 (`fx_pemit_050.json`): Streaks on the burst: each a short line back along its last frame. Frames 12.
+
+FX-PEMIT-051 (`fx_pemit_051.json`): A burst of glowing sparks: Over Life colours, shrinking and fading, added. Frames 12.
+
+FX-PEMIT-052 (`fx_pemit_052.json`): Particles Per Second -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEMIT-053 (`fx_pemit_053.json`): Life 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEMIT-054 (`fx_pemit_054.json`): Size Over Life 3 at 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEMIT-055 (`fx_pemit_055.json`): Opacity Over Life 2 at 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEMIT-056 (`fx_pemit_056.json`): Emitter Type "light": not built. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEMIT-057 (`fx_pemit_057.json`): Direction "Uniform": the word is exact. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEMIT-058 (`fx_pemit_058.json`): Particle Type "sprite": not one of the five. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEMIT-059 (`fx_pemit_059.json`): Set Color "from_layer". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEMIT-060 (`fx_pemit_060.json`): Transfer Mode "lighten". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEMIT-061 (`fx_pemit_061.json`): Floor Action "collide". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEMIT-062 (`fx_pemit_062.json`): Gradient Color 2 "#12345": not a colour. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PEMIT-063 (`fx_pemit_063.json`): Grid X 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
