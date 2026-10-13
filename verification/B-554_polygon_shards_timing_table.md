@@ -1,7 +1,7 @@
 # B-554: frame times with Polygon Shards (D-675)
 
 Measured on 2026-10-13, built with `cargo test --release --test b554_polygon_shards` from lane C's
-commit 3a0ec185, which holds 3a0ec185 (B-554's code), and run with `--ignored b554_polygon_shards_timing`: once on the card, then once
+commit 52ffce8b, which holds 52ffce8b (B-554's code), and run with `--ignored b554_polygon_shards_timing`: once on the card, then once
 with `B554_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, these build or test programs were running: anime_compositor_app-7f89, b532_warp_stabilizer-b6a2, cargo.exe. Between the card and processor runs, these build or test programs were running: anime_compositor_app-7f89, b532_warp_stabilizer-b6a2, cargo.exe, rustc.exe. After the processor run, these build or test programs were running: anime_compositor_app-7f89, b532_warp_stabilizer-b6a2, cargo.exe, rustc.exe. Treat them as an upper bound, to be measured again on a quiet machine.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
