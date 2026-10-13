@@ -700,6 +700,58 @@ pub fn mix(
         let work = sound.working_kept();
         let gain = 10f64.powf(layer.gain_db / 20.0);
         let timing = layer.timing();
+        if !layer.effects.is_empty() {
+            // D-642: a sound effect needs what came before, so the layer is made from its
+            // first sample, run through its effects in order, then given its level.
+            // ponytail: each call starts again from the layer's first sample, so the window's
+            // stretches cost more the later they are; a kept state per layer if that is felt.
+            let (lo, hi) = (layer.in_frame as i64, to.min(layer.out_frame as i64));
+            if hi <= lo {
+                continue;
+            }
+            let start = first(lo);
+            let len = (first(hi) - start) as usize;
+            let mut y = [vec![0.0; len], vec![0.0; len]];
+            for f in lo..hi {
+                let Some(local) = timing.local_frame(f as i32) else { continue };
+                let (a, b, src) = (first(f), first(f + 1), first(local as i64));
+                for s in a..b {
+                    let i = src + (s - a);
+                    if i >= 0 && (i as usize) < work[0].len() {
+                        for c in 0..2 {
+                            y[c][(s - start) as usize] = work[c][i as usize];
+                        }
+                    }
+                }
+            }
+            for fx in layer.effects.iter().filter(|e| e.enabled) {
+                let id = layer.id.as_str().to_string();
+                let name = fx.effect.name();
+                if let crate::effects::Effect::Unsupported { type_id } = &fx.effect {
+                    left_out.push((id, Diagnostic::new(
+                        DiagnosticId::EffectUnsupported,
+                        Severity::Warning,
+                        format!("The layer \"{}\" uses the effect \"{type_id}\", which this build does not have.", layer.name),
+                        "The effect is kept in the project and its sound passes through unchanged.",
+                    )));
+                } else if let Some(why) = fx.fault() {
+                    left_out.push((id, Diagnostic::new(
+                        DiagnosticId::EffectParameterInvalid,
+                        Severity::Warning,
+                        format!("The layer \"{}\" has a {name} whose settings this build cannot use.", layer.name),
+                        format!("{why} The effect is kept and its sound passes through unchanged."),
+                    )));
+                } else {
+                    noise_gate(&mut y, lo, hi, &first, fx);
+                }
+            }
+            for s in s0.max(start)..(start + len as i64).min(first(to)) {
+                for c in 0..2 {
+                    out[c][(s - s0) as usize] += gain * y[c][(s - start) as usize];
+                }
+            }
+            continue;
+        }
         for f in from.max(layer.in_frame as i64)..to.min(layer.out_frame as i64) {
             let Some(local) = timing.local_frame(f as i32) else { continue };
             let (a, b, start) = (first(f), first(f + 1), first(local as i64));
@@ -715,4 +767,51 @@ pub fn mix(
         }
     }
     (out, left_out)
+}
+
+/// D-642, document 21: Noise Gate over `y`, the layer's frames `lo` to `hi` from its first
+/// sample. A gain from 0 (shut) rises by 1/attack while the louder channel is at or above the
+/// threshold or the hold is counting down, and falls by 1/release after; the times are whole
+/// samples. A keyed setting is read straight between its values on this frame and the next.
+fn noise_gate(
+    y: &mut [Vec<f64>; 2],
+    lo: i64,
+    hi: i64,
+    first: &dyn Fn(i64) -> i64,
+    fx: &crate::effects::EffectInstance,
+) {
+    let read = |f: i64| match fx.at(f as i32).effect {
+        crate::effects::Effect::NoiseGate { threshold, attack, hold, release } => [threshold, attack, hold, release],
+        _ => unreachable!("only Noise Gate is a sound effect"),
+    };
+    let whole = |ms: f64| (ms * 48.0 + 0.5).floor() as i64;
+    let start = first(lo);
+    let (mut g, mut held) = (0.0f64, 0i64);
+    for f in lo..hi {
+        let (s0, s1) = (first(f), first(f + 1));
+        let (a, b) = (read(f), read(f + 1));
+        for s in s0..s1 {
+            let v = |k: usize| a[k] + (b[k] - a[k]) * (s - s0) as f64 / (s1 - s0) as f64;
+            let (t, att, h, r) = (10f64.powf(v(0) / 20.0), whole(v(1)), whole(v(2)), whole(v(3)));
+            let i = (s - start) as usize;
+            let rise = |g: f64| if att == 0 { 1.0 } else { g + 1.0 / att as f64 };
+            if y[0][i].abs().max(y[1][i].abs()) >= t {
+                held = h;
+                g = rise(g);
+            } else if held > 0 {
+                held -= 1;
+                g = rise(g);
+            } else {
+                g -= 1.0 / r as f64;
+            }
+            if g >= 1.0 - 1e-12 {
+                g = 1.0;
+            }
+            if g <= 1e-12 {
+                g = 0.0;
+            }
+            y[0][i] *= g;
+            y[1][i] *= g;
+        }
+    }
 }

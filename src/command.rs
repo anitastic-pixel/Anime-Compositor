@@ -1225,7 +1225,6 @@ impl Command {
                 | Command::SetExposureSpans { .. }
                 | Command::SetMasks { .. }
                 | Command::SetShapes { .. }
-                | Command::AddEffect { .. }
                 | Command::SeparatePosition { .. }
                 | Command::SetPropertyBase { .. }
                 | Command::SetExpression { .. }
@@ -2157,6 +2156,20 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "D-71: an audio layer has no transform, mask, matte, blend mode, effects, \
                      parent or depth.",
                 ));
+            }
+            // D-642: a sound effect goes on an audio layer and only there.
+            if let Command::AddEffect { effect, .. } = command {
+                if is_audio != effect.effect.is_sound() {
+                    return Err(reject(
+                        &format!(
+                            "\"{}\" is {}, so it takes no {}.",
+                            layer.name,
+                            if is_audio { "an audio layer, which draws nothing" } else { "not an audio layer" },
+                            effect.effect.name()
+                        ),
+                        "D-638 decision 3: sound effects go only on an audio layer, picture effects \n                         only on a layer that draws.",
+                    ));
+                }
             }
             if !is_audio && matches!(command, Command::SetAudioGain { .. }) {
                 return Err(reject(
@@ -3554,6 +3567,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             if let Some(why) = effect.fault() {
                 return Err(invalid_effect(why));
             }
+            // D-642: a sound effect's numbers take keys only.
+            if effect.effect.is_sound() && effect.tracks.values().any(|t| t[0].expression().is_some()) {
+                return Err(invalid_effect(format!("{}'s numbers take keys only, not an expression.", effect.effect.name())));
+            }
             lookup_file_known(project, &effect.effect)?;
             let layer = layer_mut(project, &comp_id, layer_id)?;
             if layer
@@ -3739,7 +3756,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
             else {
                 return Err(missing_effect(layer_id, instance_id));
             };
-            if setting == "mix" || existing.effect.arity(setting) != Some(1) {
+            // D-642: a sound effect's numbers take keys only.
+            let sound = existing.effect.is_sound() && expression.is_some();
+            if sound || setting == "mix" || existing.effect.arity(setting) != Some(1) {
                 return Err(reject(
                     &format!(
                         "{}'s {setting} cannot carry an expression; it takes keys only.",

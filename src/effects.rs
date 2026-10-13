@@ -65,9 +65,11 @@ impl EffectInstance {
     }
 
     /// D-202: every effect has a Mix but Posterize Time, which has no picture to mix, and one
-    /// this build does not have. D-350: nor a text animator, which moves letters.
+    /// this build does not have. D-350: nor a text animator, which moves letters. D-642: nor a
+    /// sound effect.
     pub fn has_mix(&self) -> bool {
         !matches!(self.effect, Effect::PosterizeTime { .. } | Effect::TextAnimator { .. } | Effect::Unsupported { .. })
+            && !self.effect.is_sound()
     }
 
     /// [`Effect::arity`], with the Mix as a setting of one number.
@@ -101,7 +103,7 @@ impl EffectInstance {
         let keys: Vec<f64> = self.tracks.get("mix").map_or(Vec::new(), |t| {
             t[0].keyframes().iter().map(|k| k.value.as_scalar().unwrap_or(f64::NAN)).collect()
         });
-        if matches!(self.effect, Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }) {
+        if matches!(self.effect, Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }) || self.effect.is_sound() {
             return (self.mix != 100.0 || !keys.is_empty())
                 .then(|| keys.into_iter().chain([self.mix]).find(|m| *m != 100.0).unwrap_or(f64::NAN));
         }
@@ -126,10 +128,12 @@ impl EffectInstance {
     /// D-202: why the Mix, the constant or a key, is outside its range, when it is.
     pub(crate) fn mix_fault(&self) -> Option<String> {
         let m = self.bad_mix()?;
-        Some(if matches!(self.effect, Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }) {
+        Some(if matches!(self.effect, Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }) || self.effect.is_sound() {
             // A NaN here is `bad_mix`'s mark for a Mix of 100 with keys.
             let m = if m.is_nan() { "keyed".to_string() } else { format!("{m}") };
-            let what = if matches!(self.effect, Effect::TextAnimator { .. }) {
+            let what = if self.effect.is_sound() {
+                "A sound effect works on sound and has no picture to mix"
+            } else if matches!(self.effect, Effect::TextAnimator { .. }) {
                 "Text Animator moves the letters before there is a picture"
             } else {
                 "Posterize Time holds its layer in time and has no picture to mix"
@@ -2684,6 +2688,16 @@ pub enum Effect {
         animate: String,
         frame: i32,
     },
+    /// D-642: after After Effects 26.0's Noise Gate (Audio), a sound effect run by
+    /// `audio::mix` on an audio layer's sound (document 21); on a picture it does nothing.
+    /// `threshold`, -60 to 0 dB; `attack`, 0 to 1000 ms; `hold`, 0 to 2500 ms; `release`, 5 to
+    /// 4000 ms.
+    NoiseGate {
+        threshold: f64,
+        attack: f64,
+        hold: f64,
+        release: f64,
+    },
     /// D-448: after After Effects' Cartoon (`median::cartoon`, document 21). `render`, one of
     /// [`CARTOON_RENDERS`]; `detail_radius`, 0 to 50 pixels; `detail_threshold`, 0 to 255;
     /// `shading_steps`, 2 to 64, its floor; `shading_smoothness`, 0 to 100; `edge_threshold`, 0
@@ -4572,6 +4586,7 @@ pub const MATCH_GRAIN: &str = "core.match_grain";
 pub const REMOVE_GRAIN: &str = "core.remove_grain";
 pub const REMOVE_GRAIN_MODES: [&str; 2] = ["multichannel", "single_channel"];
 pub const BRUSH_STROKES: &str = "core.brush_strokes";
+pub const NOISE_GATE: &str = "core.noise_gate";
 /// D-447: Brush Strokes' paint surfaces, in the card's numbering.
 pub const BRUSH_SURFACES: [&str; 4] = ["original", "transparent", "white", "black"];
 pub const CARTOON: &str = "core.cartoon";
@@ -6788,6 +6803,12 @@ impl Effect {
                 ("unsharp_radius", vec![unsharp_radius], 0.0, 100.0),
                 ("unsharp_threshold", vec![unsharp_threshold], 0.0, 255.0),
             ],
+            Effect::NoiseGate { threshold, attack, hold, release } => vec![
+                ("threshold", vec![threshold], -60.0, 0.0),
+                ("attack", vec![attack], 0.0, 1000.0),
+                ("hold", vec![hold], 0.0, 2500.0),
+                ("release", vec![release], 5.0, 4000.0),
+            ],
             Effect::BrushStrokes { stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, blend_with_original, random_seed, .. } => vec![
                 ("stroke_angle", vec![stroke_angle], -100000.0, 100000.0),
                 ("brush_size", vec![brush_size], 0.5, 20.0),
@@ -8881,6 +8902,7 @@ impl Effect {
             Effect::MatchGrain { .. } => "Match Grain",
             Effect::RemoveGrain { .. } => "Remove Grain",
             Effect::BrushStrokes { .. } => "Brush Strokes",
+            Effect::NoiseGate { .. } => "Noise Gate",
             Effect::Cartoon { .. } => "Cartoon",
             Effect::Deband { .. } => "Deband",
             Effect::AdvancedSpillSuppressor { .. } => "Advanced Spill Suppressor",
@@ -9148,6 +9170,7 @@ impl Effect {
             Effect::MatchGrain { .. } => MATCH_GRAIN,
             Effect::RemoveGrain { .. } => REMOVE_GRAIN,
             Effect::BrushStrokes { .. } => BRUSH_STROKES,
+            Effect::NoiseGate { .. } => NOISE_GATE,
             Effect::Cartoon { .. } => CARTOON,
             Effect::Deband { .. } => DEBAND,
             Effect::AdvancedSpillSuppressor { .. } => ADVANCED_SPILL_SUPPRESSOR,
@@ -9365,6 +9388,11 @@ impl Effect {
             } => distance.ceil() as usize + kernel_radius(*softness / 3.0),
             _ => 0,
         }
+    }
+
+    /// D-642: a sound effect, which only an audio layer takes (D-638 decision 3).
+    pub fn is_sound(&self) -> bool {
+        matches!(self, Effect::NoiseGate { .. })
     }
 
     /// Whether the parameters are inside the ranges document 21 states.
@@ -14986,6 +15014,8 @@ pub(crate) fn apply_stack_at(
             Effect::PosterizeTime { .. } => {}
             // D-350: the letters were moved where the text was drawn.
             Effect::TextAnimator { .. } => {}
+            // D-642: a sound effect is run by `audio::mix`; a picture is left as it is.
+            Effect::NoiseGate { .. } => {}
             // D-351: by the whole picture's statistics, or the frames' compose added up.
             Effect::AutoTone { .. } => crate::perf::time(crate::perf::Stage::EffectAutoTone, || {
                 crate::frame_stats::apply(source, &instance.effect)

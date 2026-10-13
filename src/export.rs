@@ -265,6 +265,9 @@ pub fn export_sequence_watched(
         c.layers_in_order().any(|l| l.kind == crate::model::LayerKind::Audio && l.enabled)
     });
     let mut sound_said = SoundSaid::default();
+    // D-642: the MP4's sound is mixed once for the whole range, as a sound effect needs what
+    // came before, and each frame's share is handed over after its picture.
+    let mut film_sound: Option<[Vec<f64>; 2]> = None;
     let film_path = request.output_dir.join(&request.naming);
     let mut film: Option<Film> = None;
 
@@ -538,8 +541,17 @@ pub fn export_sequence_watched(
                         // D-641: each frame's sound goes in after its picture.
                         Film::Mp4(mp4) if mp4.carries_sound() => {
                             let comp = sound_comp.expect("an MP4 with sound has its composition");
-                            let (sound, left_out) = crate::audio::mix(project, root, comp, frame, 1);
-                            sound_said.heard(frame, &sound, left_out);
+                            let all = film_sound.get_or_insert_with(|| {
+                                let (sound, left_out) =
+                                    crate::audio::mix(project, root, comp, request.first_frame, frames.len() as u32);
+                                sound_said.heard(request.first_frame, &[vec![], vec![]], left_out);
+                                sound
+                            });
+                            let (num, den) = (comp.frame_rate.numerator() as i128, comp.frame_rate.denominator() as i128);
+                            let first = |f: i32| (f as i128 * crate::audio::WORKING_RATE as i128 * den).div_euclid(num) as i64;
+                            let (a, b) = ((first(frame) - first(request.first_frame)) as usize, (first(frame + 1) - first(request.first_frame)) as usize);
+                            let sound = [all[0][a..b].to_vec(), all[1][a..b].to_vec()];
+                            sound_said.heard(frame, &sound, Vec::new());
                             mp4.push_sound(&sound)
                         }
                         _ => Ok(()),
@@ -883,7 +895,7 @@ struct SoundSaid {
 impl SoundSaid {
     fn heard(&mut self, frame: i32, sound: &[Vec<f64>; 2], left_out: Vec<(String, Diagnostic)>) {
         for (layer, d) in left_out {
-            if !self.left_out.iter().any(|(l, _)| *l == layer) {
+            if !self.left_out.iter().any(|(l, e)| *l == layer && e.id == d.id) {
                 self.left_out.push((layer, d));
             }
         }

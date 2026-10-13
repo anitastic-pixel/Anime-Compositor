@@ -609,7 +609,18 @@ fn layer_json(base: Option<&J>, layer: &Layer) -> J {
         if layer.shy || base.is_some_and(|b| b.get("shy").is_some()) {
             owned.push(("shy", J::from(layer.shy)));
         }
-        return merge(base, owned);
+        // D-642: its sound effects, only when it has any; an emptied list is taken out.
+        if !layer.effects.is_empty() {
+            let effects = layer.effects.iter().map(|e| effect_json(effect_base(base, e.instance_id.as_str()), e));
+            owned.push(("effects", J::Array(effects.collect())));
+        }
+        let mut json = merge(base, owned);
+        if layer.effects.is_empty() {
+            if let Some(map) = json.as_object_mut() {
+                map.remove("effects");
+            }
+        }
+        return json;
     }
     let spans: Vec<J> = layer
         .exposure_spans
@@ -2527,6 +2538,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("unsharp_threshold".into(), num(*unsharp_threshold));
         }
         // D-447: the frame is never saved.
+        Effect::NoiseGate { threshold, attack, hold, release } => {
+            params.insert("threshold".into(), num(*threshold));
+            params.insert("attack".into(), num(*attack));
+            params.insert("hold".into(), num(*hold));
+            params.insert("release".into(), num(*release));
+        }
         Effect::BrushStrokes { stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, paint_surface, blend_with_original, random_seed, animate, .. } => {
             params.insert("stroke_angle".into(), num(*stroke_angle));
             params.insert("brush_size".into(), num(*brush_size));
@@ -6122,6 +6139,7 @@ fn parse_effect(
         crate::effects::TURBULENT_NOISE,
         crate::effects::NOISE_HLS_AUTO,
         crate::effects::BRUSH_STROKES,
+        crate::effects::NOISE_GATE,
         crate::effects::CARTOON,
         crate::effects::BLOCK_LOAD,
         crate::effects::BURN_FILM,
@@ -7239,6 +7257,12 @@ fn parse_effect(
             unsharp_radius: effect_number(params, "unsharp_radius", &at)?,
             unsharp_threshold: effect_number(params, "unsharp_threshold", &at)?,
             noise: None,
+        }),
+        crate::effects::NOISE_GATE => Some(crate::effects::Effect::NoiseGate {
+            threshold: effect_number(params, "threshold", &at)?,
+            attack: effect_number(params, "attack", &at)?,
+            hold: effect_number(params, "hold", &at)?,
+            release: effect_number(params, "release", &at)?,
         }),
         crate::effects::BRUSH_STROKES => Some(crate::effects::Effect::BrushStrokes {
             stroke_angle: effect_number(params, "stroke_angle", &at)?,
@@ -9075,6 +9099,18 @@ fn parse_effect(
     if let Some(track) = mix_track {
         tracks.insert("mix".into(), track);
     }
+    // D-642: a sound effect's numbers take keys only, and it has no picture to mix.
+    if parsed.as_ref().is_some_and(crate::effects::Effect::is_sound) {
+        if effect.get("mix").is_some() {
+            return Err(invalid(&format!("{at}/mix"), "no Mix on a sound effect, which has no picture to mix (D-642)"));
+        }
+        if let Some((key, _)) = tracks.iter().find(|(_, t)| t[0].expression().is_some()) {
+            return Err(invalid(
+                &format!("{at}/parameters/{key}"),
+                "no expression on a sound effect's number, which takes keys only (D-642)",
+            ));
+        }
+    }
     let effect_value = match parsed {
         Some(e) => {
             // Document 28: a parameter outside its contract is reported, and the record
@@ -9240,7 +9276,7 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
         }
     };
     if kind == LayerKind::Audio {
-        return parse_audio_layer(v, pointer, id);
+        return parse_audio_layer(v, pointer, id, warnings);
     }
     // D-66: an adjustment layer has no drawing. A file that gives one an asset is not a file
     // this build can read faithfully, so it is refused rather than drawn with the asset ignored.
@@ -9657,7 +9693,14 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     if let Some(effects_json) = v.get("effects") {
         let at = format!("{pointer}/effects");
         for (i, effect) in as_array(effects_json, &at)?.iter().enumerate() {
-            effects.push(parse_effect(effect, &format!("{at}/{i}"), &name, &id, warnings)?);
+            let parsed = parse_effect(effect, &format!("{at}/{i}"), &name, &id, warnings)?;
+            if parsed.effect.is_sound() {
+                return Err(invalid(
+                    &format!("{at}/{i}/type_id"),
+                    "a picture effect: a sound effect goes only on an audio layer (D-642)",
+                ));
+            }
+            effects.push(parsed);
         }
     }
 
@@ -10257,7 +10300,7 @@ fn parse_motion_blur(v: &J, pointer: &str) -> Result<crate::model::MotionBlur, D
     })
 }
 
-fn parse_audio_layer(v: &J, pointer: &str, id: Id) -> Result<Layer, Diagnostic> {
+fn parse_audio_layer(v: &J, pointer: &str, id: Id, warnings: &mut Vec<Diagnostic>) -> Result<Layer, Diagnostic> {
     for key in [
         "transform",
         "exposure_spans",
@@ -10265,7 +10308,6 @@ fn parse_audio_layer(v: &J, pointer: &str, id: Id) -> Result<Layer, Diagnostic> 
         "masks",
         "matte",
         "blend_mode",
-        "effects",
         "parent",
         "depth",
         "composition_id",
@@ -10323,6 +10365,26 @@ fn parse_audio_layer(v: &J, pointer: &str, id: Id) -> Result<Layer, Diagnostic> 
         layer.shy = as_bool(shy, &format!("{pointer}/shy"))?;
     }
     layer.label = parse_label(v, pointer)?;
+    // D-642: sound effects, and effects this build does not know (kept, as any are); a picture
+    // effect has nothing to draw on (D-638 decision 3). The list is written only when it holds
+    // one, so an empty one stays refused as D-71 had it (FX-AUD-031).
+    if let Some(effects_json) = v.get("effects") {
+        let at = format!("{pointer}/effects");
+        let list = as_array(effects_json, &at)?;
+        if list.is_empty() {
+            return Err(invalid(&at, "no empty effects list on an audio layer: leave it out, or give it a sound effect (D-71, D-642)"));
+        }
+        for (i, effect) in list.iter().enumerate() {
+            let parsed = parse_effect(effect, &format!("{at}/{i}"), &layer.name, &layer.id, warnings)?;
+            if !parsed.effect.is_sound() && !matches!(parsed.effect, crate::effects::Effect::Unsupported { .. }) {
+                return Err(invalid(
+                    &format!("{at}/{i}/type_id"),
+                    "a sound effect: an audio layer draws nothing, so it takes no picture effect (D-71, D-642)",
+                ));
+            }
+            layer.effects.push(parsed);
+        }
+    }
     Ok(layer)
 }
 
