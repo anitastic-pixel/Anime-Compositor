@@ -3220,6 +3220,21 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert((*name).into(), J::from(c.as_str()));
             }
         }
+        Effect::ParticleGrid { values, form_center, words, layers, colors, .. } => {
+            for ((name, ..), v) in crate::effects::PARTICLE_GRID_SETTINGS.iter().zip(values) {
+                params.insert((*name).into(), num(*v));
+            }
+            params.insert("form_center".into(), J::Array(form_center.iter().map(|c| num(*c)).collect()));
+            for ((name, ..), w) in crate::effects::PARTICLE_GRID_WORDS.iter().zip(words) {
+                params.insert((*name).into(), J::from(w.as_str()));
+            }
+            for (name, l) in crate::effects::PARTICLE_GRID_LAYERS.iter().zip(layers) {
+                params.insert((*name).into(), l.clone());
+            }
+            for ((name, _), c) in crate::effects::PARTICLE_GRID_COLORS.iter().zip(colors) {
+                params.insert((*name).into(), J::from(c.as_str()));
+            }
+        }
         Effect::CcBallAction {
             scatter,
             rotation_axis,
@@ -5996,6 +6011,7 @@ fn parse_effect(
         crate::effects::PARTICLE_PLAYGROUND,
         crate::effects::HAIR,
         crate::effects::PARTICLE_EMITTER,
+        crate::effects::PARTICLE_GRID,
         crate::effects::ENERGY_STROKE,
         crate::effects::CC_CYLINDER,
         crate::effects::CC_SPHERE,
@@ -7836,6 +7852,36 @@ fn parse_effect(
                 emitter_position: effect_list(params, "emitter_position", &at)?,
                 words,
                 colors,
+                clock: [0.0; 2],
+                view: [0.0; 4],
+                history: None,
+            })
+        }
+        // D-616: every setting by its name; the layers as written, as Particle Playground's.
+        crate::effects::PARTICLE_GRID => {
+            let mut values = [0.0; 28];
+            for ((name, ..), v) in crate::effects::PARTICLE_GRID_SETTINGS.iter().zip(values.iter_mut()) {
+                *v = effect_number(params, name, &at)?;
+            }
+            let mut words: [String; 3] = Default::default();
+            for ((name, ..), w) in crate::effects::PARTICLE_GRID_WORDS.iter().zip(words.iter_mut()) {
+                *w = effect_word(params, name, &at)?;
+            }
+            let mut layers: [J; 3] = Default::default();
+            for (name, l) in crate::effects::PARTICLE_GRID_LAYERS.iter().zip(layers.iter_mut()) {
+                *l = field(effect_params(params, &at)?, &format!("{at}/parameters"), name)?.clone();
+            }
+            let mut colors: [String; 1] = Default::default();
+            for ((name, _), c) in crate::effects::PARTICLE_GRID_COLORS.iter().zip(colors.iter_mut()) {
+                *c = effect_word(params, name, &at)?;
+            }
+            Some(crate::effects::Effect::ParticleGrid {
+                values,
+                form_center: effect_list(params, "form_center", &at)?,
+                words,
+                layers,
+                colors,
+                maps: Default::default(),
                 clock: [0.0; 2],
                 view: [0.0; 4],
                 history: None,

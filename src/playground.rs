@@ -128,7 +128,7 @@ fn clamp01(v: f64) -> f64 {
 /// level of. The map is held in single precision, which moves an 8-bit picture's level by up to
 /// about 1e-7, and a mapper's range multiplies that onto a particle's place. A value further from
 /// every level (a picture finer than 8 bits) is kept as it is.
-fn level(e: f64) -> f64 {
+pub(crate) fn level(e: f64) -> f64 {
     let k = (e * 255.0).round();
     if (e * 255.0 - k).abs() < 1e-4 { k / 255.0 } else { e }
 }

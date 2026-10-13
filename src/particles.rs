@@ -18,8 +18,15 @@
 //! life, size, opacity and colour, drawn as two new sprites (soft and glowing spheres, kinds 9
 //! and 10) or as the star, the faded sphere or the line; `tools/particle_emitter_reference.py` is
 //! its reference.
+//!
+//! D-616: Particle Grid (`core.particle_grid`), after what Trapcode Form is for: particles that
+//! stay put, in a grid of points or on layered spheres in 3D, scattered, twisted and rippled by
+//! the engine's noise, coloured, sized and pushed by other layers ([`grid_points`]), drawn with
+//! the Emitter's camera and sprites; `tools/particle_grid_reference.py` is its reference.
 
-use crate::effects::{Effect, PARTICLE_EMITTER_SETTINGS, PARTICLE_EMITTER_WORDS, PARTICLE_PLANE_WORDS, PARTICLE_SPACE_WORDS};
+use crate::effects::{
+    Effect, PARTICLE_EMITTER_SETTINGS, PARTICLE_EMITTER_WORDS, PARTICLE_GRID_SETTINGS, PARTICLE_GRID_WORDS, PARTICLE_PLANE_WORDS, PARTICLE_SPACE_WORDS,
+};
 use std::borrow::Cow;
 use crate::WorkingBuffer;
 use rayon::prelude::*;
@@ -635,6 +642,10 @@ pub(crate) fn sprite_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usiz
     // D-615: Particle Emitter's own.
     if let Effect::ParticleEmitter { .. } = e {
         return emitter_numbers(source, e, (ox, oy));
+    }
+    // D-616: Particle Grid's own.
+    if let Effect::ParticleGrid { .. } = e {
+        return grid_numbers(source, e, (ox, oy));
     }
     let Some((run, look)) = run_of(e) else {
         return vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
@@ -1291,17 +1302,7 @@ fn emitter_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize))
         return vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
     };
     let Effect::ParticleEmitter { colors, view, .. } = e else { unreachable!() };
-    let view = if view[0] != 0.0 { *view } else { [1.0, w0 / 2.0, h0 / 2.0, w0 * 50.0 / 36.0] };
-    let see = |x: V| -> Option<[f64; 4]> {
-        let (ax, ay, al) = (view[1], view[2], view[3]);
-        let zp = x[2] * w0;
-        let depth = (al + zp) / w0;
-        if al <= 0.0 || depth <= 0.01 {
-            return None;
-        }
-        let ratio = al / (al + zp);
-        Some([ax + (w0 / 2.0 + x[0] * w0 - ax) * ratio, ay + (h0 / 2.0 + x[1] * w0 - ay) * ratio, w0 * ratio, depth])
-    };
+    let see = seen(*view, w0, h0);
     let now = &em.own_now;
     let levels = |from: usize| -> [f64; 5] { std::array::from_fn(|i| now[from + i] / 100.0) };
     let (sizes, fades, feather) = (levels(19), levels(26), now[32] / 100.0);
@@ -1316,14 +1317,14 @@ fn emitter_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize))
         [0, 1, 2].map(|c| stops[i][c] + (stops[i + 1][c] - stops[i][c]) * (f * 4.0 - i as f64))
     };
     let (kind, set_color) = (em.kinds[2], em.kinds[3]);
-    let mut drawn: Vec<(f64, i64, [f64; STRIDE])> = em
+    let drawn: Vec<(f64, i64, [f64; STRIDE])> = em
         .alive()
         .into_iter()
         .filter_map(|(p, own, f)| {
             let [x, y, ppu, depth] = see(p.x)?;
             let size = own[1] * curve(sizes, f);
-            let mut rad = size * ppu / (2.0 * w0);
-            let mut alpha = own[2] * curve(fades, f);
+            let rad = size * ppu / (2.0 * w0);
+            let alpha = own[2] * curve(fades, f);
             let col = match set_color {
                 0 => linear(&colors[0]),
                 1 => gradient(f),
@@ -1334,23 +1335,214 @@ fn emitter_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize))
                 let tail = see(sub(p.x, mul(p.v, 1.0 / em.run.fps)))?;
                 [0.0, x, y, tail[0], tail[1], (2.0 * rad).max(1.0), alpha, col[0], col[1], col[2], 0.0]
             } else {
-                if rad < 0.7 {
-                    alpha *= (rad / 0.7) * (rad / 0.7);
-                    rad = 0.7;
-                }
-                let (k, w) = match kind {
-                    0 => (9.0, (feather * rad).max(1.0)),
-                    1 => (10.0, (feather * rad / 2.0).max(1.0)),
-                    2 => (STAR_KIND as f64, 0.0),
-                    _ => (1.0, 0.0),
-                };
-                [k, x, y, rad, w, 0.0, alpha, col[0], col[1], col[2], 0.0]
+                sprite_dot(kind, x, y, rad, alpha, col, feather)
             };
             Some((depth, p.k, sprite))
         })
         .collect();
+    sprite_list(drawn, em.kinds[4])
+}
+
+/// D-616: Particle Grid's numbers at one frame, as compose keeps them in its history: the
+/// settings of [`PARTICLE_GRID_SETTINGS`] in that order, then Form Center's x and y, each held
+/// inside its range.
+#[doc(hidden)]
+pub fn grid_numbers_row(e: &Effect) -> [f64; 30] {
+    let Effect::ParticleGrid { values, form_center, .. } = e else {
+        unreachable!("Particle Grid's numbers of another effect")
+    };
+    let mut out = [0.0; 30];
+    for (o, (v, (_, lo, hi, _))) in out.iter_mut().zip(values.iter().zip(PARTICLE_GRID_SETTINGS)) {
+        *o = v.clamp(lo, hi);
+    }
+    for c in 0..2 {
+        out[28 + c] = form_center.get(c).copied().unwrap_or(0.0).clamp(-1000.0, 1000.0);
+    }
+    out
+}
+
+/// D-616: document 21's bilinear sample of a map at (`sx`, `sy`), pixel centres at halves,
+/// transparent outside, worked in double precision.
+fn bilinear64(m: &WorkingBuffer, sx: f64, sy: f64) -> [f64; 4] {
+    let (fx, fy) = (sx - 0.5, sy - 0.5);
+    let (x0, y0) = (fx.floor(), fy.floor());
+    let (ux, uy) = (fx - x0, fy - y0);
+    let mut out = [0.0; 4];
+    for (dy, wy) in [(0.0, 1.0 - uy), (1.0, uy)] {
+        for (dx, wx) in [(0.0, 1.0 - ux), (1.0, ux)] {
+            let (x, y) = (x0 + dx, y0 + dy);
+            if x < 0.0 || y < 0.0 || x >= m.width() as f64 || y >= m.height() as f64 {
+                continue;
+            }
+            let s = m.pixel(x as usize, y as usize);
+            for c in 0..4 {
+                // D-616: an opaque pixel's colour put back on the 8-bit level it lies by, as D-614's mappers.
+                let v = f64::from(s[c]);
+                let v = if c < 3 && s[3] == 1.0 && (0.0..=1.0).contains(&v) {
+                    crate::grade::to_linear(crate::playground::level(crate::grade::to_srgb(v)))
+                } else {
+                    v
+                };
+                out[c] += v * wx * wy;
+            }
+        }
+    }
+    out
+}
+
+/// D-616: the compound blur's luminance of a premultiplied sample, sRGB-coded.
+fn luma(p: [f64; 4]) -> f64 {
+    crate::grade::to_srgb((0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2]).clamp(0.0, 1.0))
+}
+
+/// D-616: one point of the grid: its index, its place in the engine's units, its size in pixels,
+/// its opacity and its linear colour (none where the Color Map is clear).
+type GridPoint = (usize, V, f64, f64, Option<V>);
+
+/// D-616: every point of a Particle Grid on a layer `w` by `h`, the maps those of
+/// [`PARTICLE_GRID_LAYERS`] (none where none is named); with the frame's numbers and the words
+/// as indices in [`PARTICLE_GRID_WORDS`]' order. None before the layer's in point.
+fn grid_points(e: &Effect, maps: [Option<&WorkingBuffer>; 3], w: f64, h: f64) -> Option<([f64; 30], [usize; 3], Vec<GridPoint>)> {
+    let Effect::ParticleGrid { words, colors, clock, history, .. } = e else {
+        unreachable!("Particle Grid's points of another effect")
+    };
+    let u = clock[0] as i64;
+    if u < 0 {
+        return None;
+    }
+    let kinds: [usize; 3] = std::array::from_fn(|i| PARTICLE_GRID_WORDS[i].1.iter().position(|x| *x == words[i]).unwrap_or(0));
+    let s = grid_numbers_row(e);
+    // The Flow settings summed from the in point, in seconds: straight lines between frames.
+    let rows = history.as_deref().map(Vec::as_slice);
+    let at = |k: usize, n: usize| rows.map_or(s[n], |r| r[k.min(r.len() - 1)][n]);
+    let flow = |n: usize| (0..u as usize).map(|k| (at(k, n) + at(k + 1, n)) / 2.0).sum::<f64>() / clock[1];
+    let off = [flow(19), flow(20), flow(21)];
+    let evo = s[23] + flow(22);
+    let seed = crate::grade::mix(s[27].floor() as u64);
+    let r = |j: usize, st: u64| (crate::grade::unit(seed, j as i64, st as i64, 0, 0) + 1.0) / 2.0;
+    let m = turn3([s[7], s[8], s[9]]);
+    let centre = [s[28] / 100.0 - 0.5, (s[29] / 100.0 - 0.5) * h / w, s[6] / w];
+    let size = [s[0], s[1], s[2]];
+    let n = [s[3].floor() as usize, s[4].floor() as usize, s[5].floor() as usize];
+    let linear = crate::effects::encoded(&colors[0]).map(crate::grade::to_linear);
+    // ponytail: every point is worked every frame, up to 1000 by 1000 by 100 of them; cull the
+    // ones off the layer first if big grids are slow.
+    let points = (0..n[0] * n[1] * n[2])
+        .into_par_iter()
+        .map(|j| {
+            let (i, l, mm) = (j % n[0], (j / n[0]) % n[1], j / (n[0] * n[1]));
+            let d0 = if kinds[0] == 0 {
+                [
+                    size[0] * ((i as f64 + 0.5) / n[0] as f64 - 0.5),
+                    size[1] * ((l as f64 + 0.5) / n[1] as f64 - 0.5),
+                    size[2] * ((mm as f64 + 0.5) / n[2] as f64 - 0.5),
+                ]
+            } else {
+                let g = (mm + 1) as f64 / n[2] as f64;
+                let (th, ph) = (PI * (l as f64 + 0.5) / n[1] as f64, 2.0 * PI * i as f64 / n[0] as f64);
+                [g * size[0] / 2.0 * th.sin() * ph.cos(), -g * size[1] / 2.0 * th.cos(), g * size[2] / 2.0 * th.sin() * ph.sin()]
+            };
+            let front = |k: usize| if size[k] > 0.0 { d0[k] / size[k] + 0.5 } else { 0.5 };
+            let (a, b) = (front(0), front(1));
+            let got = maps.map(|mp| mp.map(|mp| bilinear64(mp, a * mp.width() as f64, b * mp.height() as f64)));
+            let q: V = std::array::from_fn(|k| (d0[k] + off[k]) / s[18] + evo * [0.31, 0.57, 0.77][k]);
+            let nn: [f64; 5] = std::array::from_fn(|c| noise(seed, c as u64, q));
+            let mut d: V = std::array::from_fn(|k| d0[k] + s[15] * (2.0 * r(j, k as u64) - 1.0));
+            if let Some(dm) = got[2] {
+                d[2] -= s[26] * luma(dm);
+            }
+            let t = if size[1] > 0.0 { d0[1] / size[1] } else { 0.0 };
+            let (sn, cs) = ((s[16] * t).to_radians().sin(), (s[16] * t).to_radians().cos());
+            let d = apply3([[cs, 0.0, sn], [0.0, 1.0, 0.0], [-sn, 0.0, cs]], d);
+            let d: V = std::array::from_fn(|k| d[k] + s[17] * nn[k]);
+            let md = apply3(m, d);
+            let x: V = std::array::from_fn(|k| centre[k] + md[k] / w);
+            let mut px = s[10] * (1.0 + s[11] / 100.0 * (2.0 * r(j, 3) - 1.0)) * (1.0 + s[24] / 100.0 * nn[3]).max(0.0);
+            if let Some(sm) = got[1] {
+                px *= luma(sm);
+            }
+            let mut alpha = s[12] / 100.0 * (1.0 - s[13] / 100.0 * r(j, 4)) * (1.0 + s[25] / 100.0 * nn[4]).clamp(0.0, 1.0);
+            let col = match got[0] {
+                None => Some(linear),
+                Some(cm) if cm[3] > 0.0 => {
+                    alpha *= cm[3];
+                    Some([cm[0] / cm[3], cm[1] / cm[3], cm[2] / cm[3]])
+                }
+                Some(_) => None,
+            };
+            (j, x, px, alpha, col)
+        })
+        .collect();
+    Some((s, kinds, points))
+}
+
+/// D-616: the Grid's points for B-496's test, as [`grid_points`]', each its index, place, size and
+/// opacity, on a layer `w` by `h` with the maps given.
+#[doc(hidden)]
+pub fn grid_alive(e: &Effect, maps: [Option<&WorkingBuffer>; 3], w: f64, h: f64) -> Vec<[f64; 6]> {
+    let Some((.., points)) = grid_points(e, maps, w, h) else { return Vec::new() };
+    points.into_iter().map(|(j, x, size, alpha, _)| [j as f64, x[0], x[1], x[2], size, alpha]).collect()
+}
+
+/// D-616: Particle Grid's sprite list, as [`sprite_numbers`]': the Emitter's camera and sprites
+/// (Sphere, Glow Sphere, Star, Cloudlet), farthest first, equal depths by index.
+fn grid_numbers(source: &WorkingBuffer, e: &Effect, (ox, oy): (usize, usize)) -> Vec<f64> {
+    let (w0, h0) = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+    let Effect::ParticleGrid { view, maps, .. } = e else { unreachable!() };
+    let maps = [0, 1, 2].map(|i| maps[i].as_ref().map(|m| &*m.0));
+    let Some((s, kinds, points)) = grid_points(e, maps, w0, h0) else {
+        return vec![0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+    };
+    let see = seen(*view, w0, h0);
+    let drawn = points
+        .into_iter()
+        .filter_map(|(j, x, size, alpha, col)| {
+            let [px, py, ppu, depth] = see(x)?;
+            Some((depth, j as i64, sprite_dot(kinds[1], px, py, size * ppu / (2.0 * w0), alpha, col?, s[14] / 100.0)))
+        })
+        .collect();
+    sprite_list(drawn, kinds[2])
+}
+
+/// D-615, D-616: a place in the engine's units as seen through the composition camera `view`
+/// (compose's, or straight on from 50/36 of the width in front when none): the pixel, pixels per
+/// unit and depth; none behind or too near the camera.
+fn seen(view: [f64; 4], w0: f64, h0: f64) -> impl Fn(V) -> Option<[f64; 4]> {
+    let view = if view[0] != 0.0 { view } else { [1.0, w0 / 2.0, h0 / 2.0, w0 * 50.0 / 36.0] };
+    move |x: V| {
+        let (ax, ay, al) = (view[1], view[2], view[3]);
+        let zp = x[2] * w0;
+        let depth = (al + zp) / w0;
+        if al <= 0.0 || depth <= 0.01 {
+            return None;
+        }
+        let ratio = al / (al + zp);
+        Some([ax + (w0 / 2.0 + x[0] * w0 - ax) * ratio, ay + (h0 / 2.0 + x[1] * w0 - ay) * ratio, w0 * ratio, depth])
+    }
+}
+
+/// D-615, D-616: one round sprite: Sphere (kind 9, its feather's width fifth), Glow Sphere (10,
+/// likewise), Star (8) or Cloudlet (1, the faded sphere); never smaller than 0.7 pixels across
+/// the radius, fainter by the true size below it.
+fn sprite_dot(kind: usize, x: f64, y: f64, mut rad: f64, mut alpha: f64, col: V, feather: f64) -> [f64; STRIDE] {
+    if rad < 0.7 {
+        alpha *= (rad / 0.7) * (rad / 0.7);
+        rad = 0.7;
+    }
+    let (k, w) = match kind {
+        0 => (9.0, (feather * rad).max(1.0)),
+        1 => (10.0, (feather * rad / 2.0).max(1.0)),
+        2 => (STAR_KIND as f64, 0.0),
+        _ => (1.0, 0.0),
+    };
+    [k, x, y, rad, w, 0.0, alpha, col[0], col[1], col[2], 0.0]
+}
+
+/// D-615, D-616: the sprites (depth, index, sprite) farthest first, equal depths by index, as
+/// [`sprite_numbers`]' list over a clear layer, the transfer Normal, Add or Screen.
+fn sprite_list(mut drawn: Vec<(f64, i64, [f64; STRIDE])>, transfer: usize) -> Vec<f64> {
     drawn.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
-    let mut k = vec![0.0, 0.0, 0.0, 0.0, [0.0, 2.0, 1.0][em.kinds[4]], 0.0, drawn.len() as f64];
+    let mut k = vec![0.0, 0.0, 0.0, 0.0, [0.0, 2.0, 1.0][transfer], 0.0, drawn.len() as f64];
     k.reserve(STRIDE * drawn.len());
     for (_, _, s) in drawn {
         k.extend(s);

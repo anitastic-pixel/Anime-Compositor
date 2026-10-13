@@ -3124,6 +3124,26 @@ pub enum Effect {
         view: [f64; 4],
         history: Option<std::sync::Arc<Vec<[f64; 47]>>>,
     },
+    /// D-616: Particle Grid, the particle engine's fifth effect (P0-6), after the purpose of
+    /// Trapcode Form, its rules and settings ours (`particles::particle_space`, document 21).
+    /// `values`, the settings of [`PARTICLE_GRID_SETTINGS`] in that order; `form_center`, x then
+    /// y, per cent of the drawing, -1000 to 1000; `words`, those of [`PARTICLE_GRID_WORDS`];
+    /// `layers`, D-189's layer settings of [`PARTICLE_GRID_LAYERS`] as written; `colors`, those of
+    /// [`PARTICLE_GRID_COLORS`], `#rrggbb`. Kept as written, so a file's wrong one is reported.
+    /// Not settings, never saved: `maps`, compose reads each layer into its own at the frame,
+    /// stretched to the drawing; `clock`, `view` and `history` as Particle Emitter's, the history
+    /// of `particles::grid_numbers_row`.
+    ParticleGrid {
+        values: [f64; 28],
+        form_center: Vec<f64>,
+        words: [String; 3],
+        layers: [serde_json::Value; 3],
+        colors: [String; 1],
+        maps: [Option<crate::layer_map::Map>; 3],
+        clock: [f64; 2],
+        view: [f64; 4],
+        history: Option<std::sync::Arc<Vec<[f64; 30]>>>,
+    },
     CcBallAction {
         scatter: f64,
         rotation_axis: String,
@@ -5006,6 +5026,51 @@ pub const PARTICLE_EMITTER_COLORS: [(&str, &str); 6] = [
     ("gradient_color_4", "#e6331a"),
     ("gradient_color_5", "#4d0d0d"),
 ];
+pub const PARTICLE_GRID: &str = "core.particle_grid";
+/// D-616: Particle Grid's keyable numbers, in the order `values` holds them: name, lowest,
+/// highest, and the value when the effect is added (a grid 820 by 620 pixels of 41 by 31 points,
+/// 4 pixels across, white, still). Lengths in the layer's pixels, Flow X, Y and Z in pixels a
+/// second, Flow Evolution in evolution a second, angles in degrees, the rest per cent.
+pub const PARTICLE_GRID_SETTINGS: [(&str, f64, f64, f64); 28] = [
+    ("form_size_x", 0.0, 100000.0, 820.0),
+    ("form_size_y", 0.0, 100000.0, 620.0),
+    ("form_size_z", 0.0, 100000.0, 0.0),
+    ("particles_in_x", 1.0, 1000.0, 41.0),
+    ("particles_in_y", 1.0, 1000.0, 31.0),
+    ("particles_in_z", 1.0, 100.0, 1.0),
+    ("form_center_z", -100000.0, 100000.0, 0.0),
+    ("form_rotation_x", -36000.0, 36000.0, 0.0),
+    ("form_rotation_y", -36000.0, 36000.0, 0.0),
+    ("form_rotation_z", -36000.0, 36000.0, 0.0),
+    ("size", 0.0, 10000.0, 4.0),
+    ("size_random", 0.0, 100.0, 0.0),
+    ("opacity", 0.0, 100.0, 100.0),
+    ("opacity_random", 0.0, 100.0, 0.0),
+    ("sphere_feather", 0.0, 100.0, 50.0),
+    ("disperse", 0.0, 100000.0, 0.0),
+    ("twist", -36000.0, 36000.0, 0.0),
+    ("displace", 0.0, 100000.0, 0.0),
+    ("fractal_scale", 1.0, 100000.0, 100.0),
+    ("flow_x", -100000.0, 100000.0, 0.0),
+    ("flow_y", -100000.0, 100000.0, 0.0),
+    ("flow_z", -100000.0, 100000.0, 0.0),
+    ("flow_evolution", -1000.0, 1000.0, 0.0),
+    ("evolution", -100000.0, 100000.0, 0.0),
+    ("affect_size", 0.0, 1000.0, 0.0),
+    ("affect_opacity", 0.0, 100.0, 0.0),
+    ("map_displace", -100000.0, 100000.0, 100.0),
+    ("random_seed", 0.0, 10000.0, 0.0),
+];
+/// D-616: Particle Grid's words: name, the words, the word when added.
+pub const PARTICLE_GRID_WORDS: [(&str, &[&str], &str); 3] = [
+    ("base_form", &["box_grid", "sphere_layered"], "box_grid"),
+    ("particle_type", &["sphere", "glow_sphere", "star", "cloudlet"], "sphere"),
+    ("transfer_mode", &["normal", "add", "screen"], "normal"),
+];
+/// D-616: Particle Grid's layer settings, each stretched to the drawing.
+pub const PARTICLE_GRID_LAYERS: [&str; 3] = ["color_map", "size_map", "displace_map"];
+/// D-616: Particle Grid's colour and its value when added.
+pub const PARTICLE_GRID_COLORS: [(&str, &str); 1] = [("color", "#ffffff")];
 pub const CC_BALL_ACTION: &str = "core.cc_ball_action";
 /// D-551: CC Ball Action's rotation axes, as CycoreFX lists them.
 /// D-567: Fractal Noise's and Turbulent Noise's fractal types, After Effects' seventeen;
@@ -5472,6 +5537,12 @@ impl Effect {
                 .zip(values.iter_mut())
                 .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
                 .chain([("emitter_position", emitter_position.iter_mut().collect(), -1000.0, 1000.0)])
+                .collect(),
+            Effect::ParticleGrid { values, form_center, .. } => PARTICLE_GRID_SETTINGS
+                .iter()
+                .zip(values.iter_mut())
+                .map(|((name, lo, hi, _), v)| (*name, vec![v], *lo, *hi))
+                .chain([("form_center", form_center.iter_mut().collect(), -1000.0, 1000.0)])
                 .collect(),
             Effect::CcBallAction { scatter, rotation, twist_angle, grid_spacing, ball_size, instability_state, .. } => vec![
                 ("scatter", vec![scatter], 0.0, 1000.0),
@@ -8420,6 +8491,24 @@ impl Effect {
                     *v = scale(*v);
                 }
             }
+            // D-616: its sizes, Form Center Z, Size, Disperse, Displace, Fractal Scale, Flow X, Y
+            // and Z and Map Displace are the layer's pixels, and so is every keyed one in its
+            // history; the centre is a share of it, the maps come at the draft's size, and the
+            // composition camera compose found is in pixels too.
+            Effect::ParticleGrid { values, view, history, .. } => {
+                const PIXELS: [usize; 12] = [0, 1, 2, 6, 10, 15, 17, 18, 19, 20, 21, 26];
+                for k in PIXELS {
+                    values[k] = scale(values[k]);
+                }
+                for row in history.iter_mut().flat_map(|h| std::sync::Arc::make_mut(h).iter_mut()) {
+                    for k in PIXELS {
+                        row[k] = scale(row[k]);
+                    }
+                }
+                for v in &mut view[1..] {
+                    *v = scale(*v);
+                }
+            }
             // D-551: a spacing below 1 is worked as 1.
             Effect::CcBallAction { scatter, grid_spacing, .. } => {
                 *scatter = scale(*scatter);
@@ -8741,6 +8830,7 @@ impl Effect {
             Effect::ParticlePlayground { .. } => "Particle Playground",
             Effect::Hair { .. } => "Hair",
             Effect::ParticleEmitter { .. } => "Particle Emitter",
+            Effect::ParticleGrid { .. } => "Particle Grid",
             Effect::CcBallAction { .. } => "CC Ball Action",
             Effect::EnergyStroke { .. } => "Energy Stroke",
             Effect::CcCylinder { .. } => "CC Cylinder",
@@ -9005,6 +9095,7 @@ impl Effect {
             Effect::ParticlePlayground { .. } => PARTICLE_PLAYGROUND,
             Effect::Hair { .. } => HAIR,
             Effect::ParticleEmitter { .. } => PARTICLE_EMITTER,
+            Effect::ParticleGrid { .. } => PARTICLE_GRID,
             Effect::CcBallAction { .. } => CC_BALL_ACTION,
             Effect::EnergyStroke { .. } => ENERGY_STROKE,
             Effect::CcCylinder { .. } => CC_CYLINDER,
@@ -9305,6 +9396,10 @@ impl Effect {
         if let Effect::ParticlePlayground { layers, .. } = self {
             return layers.iter().map(|l| (l.as_str().unwrap_or(""), "center")).collect();
         }
+        // D-616: Particle Grid's three, each stretched to the drawing.
+        if let Effect::ParticleGrid { layers, .. } = self {
+            return layers.iter().map(|l| (l.as_str().unwrap_or(""), "stretch")).collect();
+        }
         // D-506: the two views, each centred on the drawing.
         if let Effect::ThreeDGlasses { left_view, right_view, .. } = self {
             return [left_view, right_view].map(|l| (l.as_str().unwrap_or(""), "center")).to_vec();
@@ -9394,6 +9489,9 @@ impl Effect {
             return vec![(left_view, left_map), (right_view, right_map)];
         }
         if let Effect::ParticlePlayground { layers, maps, .. } = self {
+            return layers.iter_mut().zip(maps.iter_mut()).collect();
+        }
+        if let Effect::ParticleGrid { layers, maps, .. } = self {
             return layers.iter_mut().zip(maps.iter_mut()).collect();
         }
         if let Effect::GlassMelt { layer_to_reveal, reveal_map, gradient_layer, gradient_map, .. } = self {
@@ -9724,6 +9822,29 @@ impl Effect {
                     (emitter_position.len() != 2).then(|| {
                         format!("Particle Emitter's emitter position is two numbers, x then y, and this has {}.", emitter_position.len())
                     })
+                }),
+            Effect::ParticleGrid { words, colors, layers, form_center, .. } => PARTICLE_GRID_WORDS
+                .iter()
+                .zip(words)
+                .find(|((_, list, _), w)| !list.contains(&w.as_str()))
+                .map(|((name, list, _), w)| {
+                    let list = list.iter().map(|a| format!("\"{a}\"")).collect::<Vec<_>>().join(", ");
+                    format!("Particle Grid's {} is one of {list}, and this is \"{w}\".", name.replace('_', " "))
+                })
+                .or_else(|| {
+                    PARTICLE_GRID_COLORS
+                        .iter()
+                        .zip(colors)
+                        .find_map(|((name, _), c)| hex_fault("Particle Grid", &name.replace('_', " ").replace("color", "colour"), c))
+                })
+                .or_else(|| {
+                    PARTICLE_GRID_LAYERS.iter().zip(layers).find(|(_, l)| !l.is_string()).map(|(name, l)| {
+                        format!("Particle Grid's {} is the name of a layer of this composition, and this is {l}.", name.replace('_', " "))
+                    })
+                })
+                .or_else(|| {
+                    (form_center.len() != 2)
+                        .then(|| format!("Particle Grid's form center is two numbers, x then y, and this has {}.", form_center.len()))
                 }),
             Effect::CcBallAction { rotation_axis, twist_property, .. } => (!BALL_AXES.contains(&rotation_axis.as_str()))
                 .then(|| format!(
@@ -13230,6 +13351,11 @@ pub(crate) fn apply_stack_at(
             // D-615: the particles drawn over a clear layer through the composition camera, or
             // straight on; never grows.
             e @ Effect::ParticleEmitter { .. } => crate::perf::time(crate::perf::Stage::EffectParticleEmitter, || {
+                crate::particles::particle_space(source, e, (ox, oy))
+            }),
+            // D-616: the grid drawn over a clear layer through the composition camera, or
+            // straight on; never grows.
+            e @ Effect::ParticleGrid { .. } => crate::perf::time(crate::perf::Stage::EffectParticleGrid, || {
                 crate::particles::particle_space(source, e, (ox, oy))
             }),
             // D-551: its own eye and light, no comp camera (P0-12); never grows.
