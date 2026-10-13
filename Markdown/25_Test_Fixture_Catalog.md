@@ -214959,3 +214959,57 @@ FX-SCATZ-021 (`fx_scatz_021.json`): Left Twist -36001, below -36000. The file is
 FX-SCATZ-022 (`fx_scatz_022.json`): Transfer Mode written "multiply". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SCATZ-023 (`fx_scatz_023.json`): Amount keyed to 20000 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Star Burst (D-677)
+
+Star Burst (B-556), after CycoreFX's CC Star Burst (Simulation): `tools/star_burst_reference.py` writes `Fixtures/star_burst/expected_star_burst.json`, tolerance 2e-5; the rule is in document 21. Every case is a composition 48 by 32 holding one drawing the same size, Bubbles' colour field or the field with its right half clear.
+
+FX-SBURST-001 (`fx_sburst_001.json`): As added: a fine field of about 7000 faint star dots, the picture's colours, scattered through the depth and flying towards the viewer. Frames 0, 12.
+
+FX-SBURST-002 (`fx_sburst_002.json`): A close look: about 300 stars, nearer ones larger and further out from the middle. Frames 12.
+
+FX-SBURST-003 (`fx_sburst_003.json`): Scatter 0, Speed 0: the picture as a grid of dots on its own plane. Frames 12.
+
+FX-SBURST-004 (`fx_sburst_004.json`): Scatter 0, Speed 1 at frame 12: the plane of dots half a picture height nearer, so half as large again and spread from the middle. Frames 12.
+
+FX-SBURST-005 (`fx_sburst_005.json`): Scatter 0, Speed 0, Phase 0.5: the same as FX-SBURST-004. Frames 12.
+
+FX-SBURST-006 (`fx_sburst_006.json`): Scatter 0, Speed -1 at frame 12: the plane of dots further off, smaller and drawn in towards the middle. Frames 12.
+
+FX-SBURST-007 (`fx_sburst_007.json`): Size 300: the close look's stars three times as wide. Frames 12.
+
+FX-SBURST-008 (`fx_sburst_008.json`): Blend w. Original 50: the close look half over the picture. Frames 12.
+
+FX-SBURST-009 (`fx_sburst_009.json`): Blend w. Original 100: the picture alone. Frames 12.
+
+FX-SBURST-010 (`fx_sburst_010.json`): The picture with its right half clear: stars only from the left half. Frames 12.
+
+FX-SBURST-011 (`fx_sburst_011.json`): Speed keyed from 0 at frame 0 to 2 at frame 12: the field speeding up. Frames 0, 6, 12.
+
+FX-SBURST-012 (`fx_sburst_012.json`): FX-SBURST-002 moved 3 pixels right: the same, moved. Frames 12.
+
+FX-SBURST-013 (`fx_sburst_013.json`): The composition's camera in the middle, 48 pixels off, as the effect's own eye: the same as FX-SBURST-002. Frames 12.
+
+FX-SBURST-014 (`fx_sburst_014.json`): The camera moved to x 20: the field seen from the left of its middle. Frames 12.
+
+FX-SBURST-015 (`fx_sburst_015.json`): The camera dollied in to 24 pixels off: the near stars nearer, those behind it gone. Frames 12.
+
+FX-SBURST-016 (`fx_sburst_016.json`): In point at frame 6: at frame 12 the same as the close look at frame 6. Frames 12.
+
+FX-SBURST-017 (`fx_sburst_017.json`): Grid Spacing 100: a few large stars, 5 by 3. Frames 12.
+
+FX-SBURST-018 (`fx_sburst_018.json`): Scatter 0, Speed 3 at frame 24: the plane of dots has flown past the viewer and come round again behind, half its size. Frames 24.
+
+FX-SBURST-019 (`fx_sburst_019.json`): Scatter 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SBURST-020 (`fx_sburst_020.json`): Speed 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SBURST-021 (`fx_sburst_021.json`): Phase 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SBURST-022 (`fx_sburst_022.json`): Grid Spacing 0.4, below 0.5. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SBURST-023 (`fx_sburst_023.json`): Size -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SBURST-024 (`fx_sburst_024.json`): Blend w. Original 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SBURST-025 (`fx_sburst_025.json`): Speed keyed to 200 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
