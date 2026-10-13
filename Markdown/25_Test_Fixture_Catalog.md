@@ -3002,6 +3002,48 @@ FX-DIST-018: Type "crunch": the same.
 
 FX-DIST-101 to 103, refused with `PROJECT_SCHEMA_INVALID`: Distortion on a solid; an expression on a Distortion number; a picture Mix on a Distortion.
 
+### Sound through layers (D-645)
+
+S-7 of D-638 (B-524): the keyed level, the pan and composition layers' sound (document 21). `tools/sound_layer_reference.py` writes two test sounds in `Fixtures/sound_layer/media` as 32-bit floating-point WAV: `tone.wav`, a 1 kHz sine at -6 dB for 2 s, and `clicks.wav`, single samples of 0.5 every 24,000 samples. One project per case (the main composition first) and `expected_sound_layer.json`: the length, the mix at named places (2e-5), each channel's peak (0.01 dB), the warnings, and every sample louder than 0.1 (the click method: exactly where the reference has it).
+
+FX-SLAY-001: the level keyed from -24 dB (frame 0) to 0 dB (frame 24).
+
+FX-SLAY-002: the level keyed from 0 dB (frame 12) to -96 dB (frame 36), after a Noise Gate.
+
+FX-SLAY-003: pan -100: all left.
+
+FX-SLAY-004: pan +50: the left at half.
+
+FX-SLAY-005: pan keyed from -100 to +100 over 24 frames at 30000 / 1001 a second.
+
+FX-SLAY-006: level -6 dB, pan -30, both plain numbers.
+
+FX-SLAY-007: a composition layer showing the tone: the same as the tone alone.
+
+FX-SLAY-008: a composition layer starting on frame 12: the first click at sample 24,000.
+
+FX-SLAY-009: a source offset of 6 frames: the inner click at 24,000 heard at 12,000.
+
+FX-SLAY-010: the inner composition 24 frames long, its sound layer running on: nothing after frame 24.
+
+FX-SLAY-011: two deep, each at frame 6, the clicks at -6 dB: the first at 24,000, at 0.2506.
+
+FX-SLAY-012: a composition layer switched off: silence.
+
+FX-SLAY-013: a 30 fps composition inside a 24 fps one: frame by frame (clicks at 29,600 and 30,000).
+
+FX-SLAY-014: a stretch of 200: each inner frame played for two outer frames.
+
+FX-SLAY-015: frames 10 to 14 of FX-SLAY-001 mixed alone are the whole mix there.
+
+FX-SLAY-016: frames 20 to 29 of FX-SLAY-011 mixed alone are the whole mix there.
+
+FX-SLAY-017: one composition shown twice, at frames 0 and 6.
+
+FX-SLAY-018: a composition layer naming a missing composition beside the tone at -12 dB: the tone only, `COMPOSITION_REFERENCE_MISSING` on opening.
+
+FX-SLAY-101 to 105, refused with `PROJECT_SCHEMA_INVALID`: a level key at +20 dB; pan 150; an expression on the level; a pan key at -120; pan "left".
+
 ## Format fixtures
 
 D-72, proposed on 2026-09-19; nothing is built against these yet. `tools/formats_reference.py` writes `Fixtures/formats/` and prints what follows. The drawings are one 16 by 12 picture of smooth ramps, saved by Pillow in each format, and each twin is Pillow's own reading of that file.
