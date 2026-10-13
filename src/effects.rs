@@ -931,6 +931,8 @@ pub enum Effect {
         cycle: f64,
         frame: i32,
         float: bool,
+        /// D-647: Turbulent Noise's further settings; always as added for Fractal Noise's own.
+        more: NoiseMore,
     },
     /// D-445: after After Effects' Turbulent Noise, a second name over Fractal Noise's engine
     /// ([`turbulent_fractal`]): `fractal_type`, one of [`FRACTAL_TYPES`]; `noise_type`, one of
@@ -941,6 +943,8 @@ pub enum Effect {
     /// `evolution`, -100000 to 100000 degrees; `opacity`, 0 to 100; `blend`, "normal",
     /// "multiply", "screen" or "add". No speed, colours or cycle, as After Effects' has none.
     /// `float` is not a setting and is never saved: D-319's working depth, as Fractal Noise's.
+    /// D-647: `blend` also "soft_light", "hard_light", "darken", "lighten" or "difference";
+    /// `more`, the Overflow, Transform and Sub Settings.
     TurbulentNoise {
         fractal_type: String,
         noise_type: String,
@@ -957,6 +961,7 @@ pub enum Effect {
         opacity: f64,
         blend: String,
         float: bool,
+        more: NoiseMore,
     },
     /// D-129: `shadow_color`, `midtone_color` and `highlight_color`, `#rrggbb`, kept as written
     /// so a wrong one is reported; `midpoint`, 1 to 99; and `amount`, 0 to 100.
@@ -5325,6 +5330,46 @@ pub const FRACTAL_TYPES: [&str; 17] = [
 /// D-567: their noise types: this program's smooth (D-128), then After Effects' four. The place
 /// in the list is `grade::Look::noise`.
 pub const NOISE_TYPES: [&str; 5] = ["smooth", "block", "linear", "soft_linear", "spline"];
+
+/// D-647: Turbulent Noise's Overflow, Transform and Sub Settings, each kept as written; a file
+/// without them reads them as added, which draws as before D-647. `overflow`, one of
+/// [`OVERFLOWS`]; `rotation` and `sub_rotation`, -100000 to 100000 degrees; `uniform_scaling`,
+/// `perspective_offset` and `center_subscale`, "off" or "on"; `sub_influence`, 0 to 100 per
+/// cent; `sub_scaling`, 10 to 100 per cent; `sub_offset`, x then y in pixels, -100000 to 100000.
+#[derive(Clone, PartialEq, Debug)]
+pub struct NoiseMore {
+    pub overflow: String,
+    pub rotation: f64,
+    pub uniform_scaling: String,
+    pub perspective_offset: String,
+    pub sub_influence: f64,
+    pub sub_scaling: f64,
+    pub sub_rotation: f64,
+    pub sub_offset: [f64; 2],
+    pub center_subscale: String,
+}
+
+impl Default for NoiseMore {
+    fn default() -> Self {
+        NoiseMore {
+            overflow: "allow_hdr".into(),
+            rotation: 0.0,
+            uniform_scaling: "off".into(),
+            perspective_offset: "off".into(),
+            sub_influence: 50.0,
+            sub_scaling: 50.0,
+            sub_rotation: 0.0,
+            sub_offset: [0.0; 2],
+            center_subscale: "off".into(),
+        }
+    }
+}
+
+/// D-647: Turbulent Noise's Overflow, in [`crate::grade::Fractal`]'s order.
+pub const OVERFLOWS: [&str; 4] = ["allow_hdr", "clip", "soft_clamp", "wrap_back"];
+
+/// D-647: Turbulent Noise's blending modes.
+const TURBULENT_BLENDS: [&str; 9] = ["normal", "multiply", "screen", "add", "soft_light", "hard_light", "darken", "lighten", "difference"];
 pub const BALL_AXES: [&str; 9] =["x", "y", "z", "xy", "xz", "yz", "xyz", "x15z", "xy15z"];
 /// D-551: CC Ball Action's twist properties, as CycoreFX lists them.
 pub const BALL_TWISTS: [&str; 13] = [
@@ -6295,7 +6340,7 @@ impl Effect {
                 ("scale_height", vec![scale_height], 1.0, 10000.0),
                 ("cycle", vec![cycle], 0.0, 1000.0),
             ],
-            Effect::TurbulentNoise { contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, .. } => vec![
+            Effect::TurbulentNoise { contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, more, .. } => vec![
                 ("contrast", vec![contrast], 0.0, 1000.0),
                 ("brightness", vec![brightness], -1000.0, 1000.0),
                 ("size", vec![size], 1.0, 1000.0),
@@ -6306,6 +6351,12 @@ impl Effect {
                 ("evolution", vec![evolution], -100000.0, 100000.0),
                 ("seed", vec![seed], 0.0, 100000.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
+                // D-647.
+                ("rotation", vec![&mut more.rotation], -100000.0, 100000.0),
+                ("sub_influence", vec![&mut more.sub_influence], 0.0, 100.0),
+                ("sub_scaling", vec![&mut more.sub_scaling], 10.0, 100.0),
+                ("sub_rotation", vec![&mut more.sub_rotation], -100000.0, 100000.0),
+                ("sub_offset", more.sub_offset.iter_mut().collect(), -100000.0, 100000.0),
             ],
             Effect::GradientMap {
                 midpoint, amount, ..
@@ -8484,10 +8535,11 @@ impl Effect {
                 *amount = if units == "after_effects" { push * 100.0 / size.min(100.0) } else { push };
             }
             // D-128: held at one in a draft, as D-127's wave is.
-            Effect::FractalNoise { size, offset, .. } | Effect::TurbulentNoise { size, offset, .. } => {
+            Effect::FractalNoise { size, offset, more, .. } | Effect::TurbulentNoise { size, offset, more, .. } => {
                 *size = scale(*size).max(1.0);
-                // D-299: the slide in pixels, as Offset's.
+                // D-299: the slide in pixels, as Offset's; D-647: the Sub Offset as well.
                 *offset = offset.map(&scale);
+                more.sub_offset = more.sub_offset.map(&scale);
             }
             Effect::CellPattern { size, .. } => *size = scale(*size).max(1.0),
             // D-443: the grain keeps its size on the picture, below a pixel if need be.
@@ -10534,10 +10586,14 @@ impl Effect {
                 .or_else(|| hex_fault("Fractal Noise", "light colour", light_color))
                 .or_else(|| fractal_look_fault("Fractal Noise", fractal_type, noise_type, invert)),
             // D-445: in Turbulent Noise's own name.
-            Effect::TurbulentNoise { blend, .. } if !["normal", "multiply", "screen", "add"].contains(&blend.as_str()) => Some(format!(
-                "Turbulent Noise's blending mode is \"normal\", \"multiply\", \"screen\" or \"add\", and this is \"{blend}\"."
+            // D-647: the further modes.
+            Effect::TurbulentNoise { blend, .. } if !TURBULENT_BLENDS.contains(&blend.as_str()) => Some(format!(
+                "Turbulent Noise's blending mode is one of {}, and this is \"{blend}\".",
+                TURBULENT_BLENDS.map(|m| format!("\"{m}\"")).join(", ")
             )),
-            Effect::TurbulentNoise { fractal_type, noise_type, invert, .. } => fractal_look_fault("Turbulent Noise", fractal_type, noise_type, invert),
+            Effect::TurbulentNoise { fractal_type, noise_type, invert, more, .. } => {
+                fractal_look_fault("Turbulent Noise", fractal_type, noise_type, invert).or_else(|| more_fault(more))
+            }
             Effect::GradientMap {
                 shadow_color,
                 midtone_color,
@@ -13062,13 +13118,15 @@ pub(crate) fn apply_stack_at(
                 cycle,
                 frame,
                 float,
+                more,
             } => {
+                let look = fractal_look(fractal_type, noise_type, *cycle);
                 let f = crate::grade::Fractal {
                     size: size * (scale_width / 100.0),
                     size_y: size * (scale_height / 100.0),
                     offset: *offset,
                     invert: invert == "on",
-                    look: fractal_look(fractal_type, noise_type, *cycle),
+                    look,
                     octaves: complexity.floor() as usize,
                     seed: *seed,
                     z: depth(*evolution, *speed, *frame),
@@ -13078,6 +13136,8 @@ pub(crate) fn apply_stack_at(
                     opacity: *opacity,
                     blend: blend.clone(),
                     float: *float,
+                    overflow: OVERFLOWS.iter().position(|m| *m == more.overflow).unwrap_or(0) as u8,
+                    warp: noise_warp(more, *offset, complexity.floor() as usize, (source.width() - 2 * ox, source.height() - 2 * oy)),
                 };
                 crate::perf::time(crate::perf::Stage::EffectFractalNoise, || {
                     crate::grade::fractal_noise(source, &f, (ox, oy))
@@ -15543,9 +15603,11 @@ pub(crate) fn soft_glow_settings(e: &Effect) -> Option<crate::soft_glow::Setting
 /// D-445: Turbulent Noise as the Fractal Noise it is a second name for: no speed, black to
 /// white, never cycling; anything else is not one.
 pub(crate) fn turbulent_fractal(e: &Effect) -> Option<Effect> {
-    let Effect::TurbulentNoise { fractal_type, noise_type, invert, contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, blend, float } = e else {
+    let Effect::TurbulentNoise { fractal_type, noise_type, invert, contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, blend, float, more } = e else {
         return None;
     };
+    // D-647: Uniform Scaling draws Size both ways.
+    let uniform = more.uniform_scaling == "on";
     Some(Effect::FractalNoise {
         size: *size,
         complexity: *complexity,
@@ -15562,11 +15624,47 @@ pub(crate) fn turbulent_fractal(e: &Effect) -> Option<Effect> {
         noise_type: noise_type.clone(),
         invert: invert.clone(),
         offset: *offset,
-        scale_width: *scale_width,
-        scale_height: *scale_height,
+        scale_width: if uniform { 100.0 } else { *scale_width },
+        scale_height: if uniform { 100.0 } else { *scale_height },
         cycle: 0.0,
         frame: 0,
         float: *float,
+        more: more.clone(),
+    })
+}
+
+/// D-647: an Overflow or a switch not among its words.
+fn more_fault(more: &NoiseMore) -> Option<String> {
+    if !OVERFLOWS.contains(&more.overflow.as_str()) {
+        let quoted = OVERFLOWS.map(|m| format!("\"{m}\"")).join(", ");
+        return Some(format!("Turbulent Noise's overflow is one of {quoted}, and this is \"{}\".", more.overflow));
+    }
+    [("uniform scaling", &more.uniform_scaling), ("perspective offset", &more.perspective_offset), ("center subscale", &more.center_subscale)]
+        .into_iter()
+        .find(|(_, v)| !["off", "on"].contains(&v.as_str()))
+        .map(|(name, v)| format!("Turbulent Noise's {name} is \"off\" or \"on\", and this is \"{v}\"."))
+}
+
+/// D-647: the octaves' Transform and Sub Settings for [`crate::grade::fractal_warped`], or None
+/// when every one is as added and the clouds are read as before. `(dw, dh)`: the drawing's
+/// size, whose middle the clouds turn round.
+pub(crate) fn noise_warp(more: &NoiseMore, offset: [f64; 2], octaves: usize, (dw, dh): (usize, usize)) -> Option<crate::grade::Warp> {
+    let moved = more.rotation != 0.0
+        || more.perspective_offset == "on"
+        || more.sub_influence != 50.0
+        || more.sub_scaling != 50.0
+        || more.sub_rotation != 0.0
+        || more.sub_offset != [0.0; 2]
+        || more.center_subscale == "on";
+    moved.then(|| crate::grade::Warp {
+        middle: [dw as f64 / 2.0, dh as f64 / 2.0],
+        offset,
+        sub_offset: more.sub_offset,
+        perspective: more.perspective_offset == "on",
+        influence: more.sub_influence,
+        sub_scaling: more.sub_scaling,
+        center: more.center_subscale == "on",
+        turns: (0..octaves).map(|o| (more.rotation + o as f64 * more.sub_rotation).to_radians()).map(|t| [t.cos(), t.sin()]).collect(),
     })
 }
 

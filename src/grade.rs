@@ -326,6 +326,17 @@ pub(crate) fn mixer(blend: &str) -> fn(f64, f64) -> f64 {
     }
 }
 
+/// D-647: [`mixer`] with Turbulent Noise's further modes, on the layer's `b` and the noise's `c`.
+pub(crate) fn noise_mixer(blend: &str) -> fn(f64, f64) -> f64 {
+    match blend {
+        "hard_light" => |b, c| if c <= 0.5 { 2.0 * b * c } else { 1.0 - 2.0 * (1.0 - b) * (1.0 - c) },
+        "darken" => f64::min,
+        "lighten" => f64::max,
+        "difference" => |b, c| (b - c).abs(),
+        _ => mixer(blend),
+    }
+}
+
 /// D-185: `color` encoded 0 to 1 washed over the figure, the pixels at least half covered, from
 /// `direction` degrees clockwise from up, strongest at the figure's near edge and fading on a
 /// smoothstep to nothing `spread` per cent of the way across, at up to `opacity`, 0 to 100, by
@@ -1113,14 +1124,55 @@ fn value_kind(base: u64, ch: u64, x: f64, y: f64, z: f64, noise: usize, period: 
 /// program's own after its name (`tools/turbulent_noise_types_reference.py`). "So far" is the
 /// weighted octaves before this one over the sum of their strengths.
 fn fractal_kind(base: u64, ch: u64, (x, y, z): (f64, f64, f64), octaves: usize, look: Look) -> f64 {
+    let step = if look.kind == 11 { 0.35 } else { 0.5 };
+    fractal_octaves(base, ch, octaves, look, step, 2.0, |_, fine| (x * fine, y * fine, z * fine))
+}
+
+/// D-647: Turbulent Noise's Transform and Sub Settings, worked once a frame. Octave o of the
+/// clouds is read at c + R(-t_o) (p - w_o offset - o sub_offset - c), c the drawing's `middle`,
+/// t_o the Rotation and o Sub Rotations (`turns` holds each octave's cosine and sine), w_o
+/// 0.5^o with Perspective Offset on, else 1; each octave `influence` per cent of the last's
+/// strength and 100 / `sub_scaling` times as fine, round the middle with Center Subscale on.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Warp {
+    pub middle: [f64; 2],
+    pub offset: [f64; 2],
+    pub sub_offset: [f64; 2],
+    pub perspective: bool,
+    pub influence: f64,
+    pub sub_scaling: f64,
+    pub center: bool,
+    pub turns: Vec<[f64; 2]>,
+}
+
+/// D-647: the fractal at `(x, y)`, the pixel's centre in the drawing's own pixels, by `g`;
+/// `size` the clouds' size across and down. Document 21's rule, this program's own.
+pub(crate) fn fractal_warped(base: u64, ch: u64, (x, y, z): (f64, f64, f64), size: [f64; 2], octaves: usize, look: Look, g: &Warp) -> f64 {
+    let step = if look.kind == 11 { 0.35 * (g.influence / 50.0) } else { g.influence / 100.0 };
+    let [cx, cy] = g.middle;
+    fractal_octaves(base, ch, octaves, look, step, 100.0 / g.sub_scaling, |o, fine| {
+        let w = if g.perspective { 0.5f64.powi(o as i32) } else { 1.0 };
+        let (dx, dy) = (x - w * g.offset[0] - o as f64 * g.sub_offset[0] - cx, y - w * g.offset[1] - o as f64 * g.sub_offset[1] - cy);
+        let [c, s] = g.turns[o];
+        let (qx, qy) = (cx + dx * c + dy * s, cy - dx * s + dy * c);
+        if g.center {
+            ((cx + fine * (qx - cx)) / size[0], (cy + fine * (qy - cy)) / size[1], z * fine)
+        } else {
+            (fine * qx / size[0], fine * qy / size[1], z * fine)
+        }
+    })
+}
+
+/// D-567's octaves, each read at `at(o, fineness)`, each `step` times the last's strength and
+/// `ratio` times as fine (D-647).
+fn fractal_octaves(base: u64, ch: u64, octaves: usize, look: Look, step: f64, ratio: f64, at: impl Fn(usize, f64) -> (f64, f64, f64)) -> f64 {
     use std::f64::consts::PI;
     let kind = look.kind;
-    let step = if kind == 11 { 0.35 } else { 0.5 };
     let mut fine = if kind == 14 { 4.0 } else { 1.0 };
     let (mut sum, mut total, mut amp) = (0.0, 0.0, 1.0);
     let (mut so_far, mut prev, mut prev_ridge, mut best) = (0.0, 0.0, 1.0, 0.0);
     for o in 0..octaves {
-        let (mut px, mut py) = (x * fine, y * fine);
+        let (mut px, mut py, pz) = at(o, fine);
         match kind {
             4 => (px, py) = (px + 4.0 * so_far, py + 4.0 * prev),
             5 => (px, py) = (px + 2.0 * o as f64 * so_far, py + 2.0 * o as f64 * prev),
@@ -1128,7 +1180,7 @@ fn fractal_kind(base: u64, ch: u64, (x, y, z): (f64, f64, f64), octaves: usize, 
             8 if o > 0 => px = px / 4.0 + 2.0 * so_far,
             _ => {}
         }
-        let v = value_kind(base, 8 * o as u64 + ch, px, py, z * fine, look.noise, look.cycle << o);
+        let v = value_kind(base, 8 * o as u64 + ch, px, py, pz, look.noise, look.cycle << o);
         let ridge = (1.0 - v.abs()) * (1.0 - v.abs());
         let mut g = match kind {
             1 => v.abs(),
@@ -1147,7 +1199,7 @@ fn fractal_kind(base: u64, ch: u64, (x, y, z): (f64, f64, f64), octaves: usize, 
         best = if o == 0 { v } else { best + amp * (v - best).max(0.0) };
         (prev, prev_ridge) = (v, ridge);
         amp *= step;
-        fine *= 2.0;
+        fine *= ratio;
     }
     let b = sum / total;
     match kind {
@@ -1181,6 +1233,26 @@ pub(crate) struct Fractal {
     pub blend: String,
     /// D-319: the composition works in Float depth, so the pattern is not held to white.
     pub float: bool,
+    /// D-647: the Overflow's place in `effects::OVERFLOWS`, 0 as before.
+    pub overflow: u8,
+    /// D-647: the Transform and Sub Settings, None when all are as added.
+    pub warp: Option<Warp>,
+}
+
+/// D-647: the grey past black or white by the Overflow: 1 held, 2 eased by 0.5 + 0.5 tanh(2 (v -
+/// 0.5)), 3 folded back at each; 0 (`allow_hdr`) as before, held but past white in Float.
+pub(crate) fn overflowed(v: f64, overflow: u8, float: bool) -> f64 {
+    match overflow {
+        1 => v.clamp(0.0, 1.0),
+        2 => 0.5 + 0.5 * (2.0 * (v - 0.5)).tanh(),
+        3 => {
+            let t = v.rem_euclid(2.0);
+            if t <= 1.0 { t } else { 2.0 - t }
+        }
+        // D-319: in Float only black holds; past white stays past white.
+        _ if float => v.max(0.0),
+        _ => v.clamp(0.0, 1.0),
+    }
 }
 
 /// D-128: a cloudy pattern of two colours over each pixel that shows, fixed to the drawing's own
@@ -1192,7 +1264,7 @@ pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (
     }
     let w = source.width();
     let base = mix(f.seed.floor() as u64);
-    let (mixer, o) = (mixer(&f.blend), f.opacity / 100.0);
+    let (mixer, o) = (noise_mixer(&f.blend), f.opacity / 100.0);
     let mixer = if f.float && f.blend == "screen" { screen_float } else { mixer };
     source
         .data_mut()
@@ -1203,13 +1275,14 @@ pub(crate) fn fractal_noise(source: &mut WorkingBuffer, f: &Fractal, (ox, oy): (
             if a <= 0.0 {
                 return;
             }
-            let x = ((i % w) as f64 - ox as f64 + 0.5 - f.offset[0]) / f.size;
-            let y = ((i / w) as f64 - oy as f64 + 0.5 - f.offset[1]) / f.size_y;
-            let n = fractal_with(base, 0, (x, y, f.z), f.octaves, f.look);
+            let (cx, cy) = ((i % w) as f64 - ox as f64 + 0.5, (i / w) as f64 - oy as f64 + 0.5);
+            let n = match &f.warp {
+                // D-647.
+                Some(g) => fractal_warped(base, 0, (cx, cy, f.z), [f.size, f.size_y], f.octaves, f.look, g),
+                None => fractal_with(base, 0, ((cx - f.offset[0]) / f.size, (cy - f.offset[1]) / f.size_y, f.z), f.octaves, f.look),
+            };
             let n = if f.invert { -n } else { n };
-            let v = 0.5 + 0.5 * n * f.contrast / 100.0 + f.brightness / 100.0;
-            // D-319: in Float only black holds; past white stays past white.
-            let v = if f.float { v.max(0.0) } else { v.clamp(0.0, 1.0) };
+            let v = overflowed(0.5 + 0.5 * n * f.contrast / 100.0 + f.brightness / 100.0, f.overflow, f.float);
             for c in 0..3 {
                 let [d, l] = [f.colors[0][c], f.colors[1][c]];
                 let color = to_linear(d + v * (l - d));

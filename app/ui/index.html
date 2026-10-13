@@ -10407,7 +10407,13 @@ const EFFECT_PARAMS = {
     ['complexity', 'Complexity', 1, 1, '1 to 20'],
     ['evolution', 'Evolution', 1, 1, 'degrees; key it to move the clouds, a full turn a new one', 'dial'],
     ['seed', 'Random Seed', 1, 1, '0 to 100000'],
-    ['opacity', 'Opacity', 1, 0.5, '0 to 100']],
+    ['opacity', 'Opacity', 1, 0.5, '0 to 100'],
+    // D-647: the Transform and Sub Settings.
+    ['rotation', 'Rotation', 1, 1, 'degrees, turns the clouds round the layer’s middle', 'dial'],
+    ['sub_influence', 'Sub Influence', 1, 0.5, 'per cent, 0 to 100, how strong each finer layer of detail is'],
+    ['sub_scaling', 'Sub Scaling', 1, 0.5, 'per cent, 10 to 100, how much smaller each finer layer of detail is'],
+    ['sub_rotation', 'Sub Rotation', 1, 1, 'degrees, turns each finer layer of detail further', 'dial'],
+    ['sub_offset', 'Sub Offset', 2, 1, 'pixels, x then y, slides each finer layer of detail further']],
   // D-129.
   'core.gradient_map': [['midpoint', 'Midpoint', 1, 0.5, 'brightness of the midtone, 1 to 99'],
     ['amount', 'Amount', 1, 0.5, '0 to 100']],
@@ -12233,7 +12239,13 @@ const EFFECT_WORDS = {
     choices: [['fractal_type', 'Fractal Type', FRACTAL_TYPE_WORDS],
       ['noise_type', 'Noise Type', NOISE_TYPE_WORDS],
       ['invert', 'Invert', [['off', 'Off'], ['on', 'On']]],
-      ['blend', 'Blending Mode', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add']]]],
+      ['blend', 'Blending Mode', [['normal', 'Normal'], ['multiply', 'Multiply'], ['screen', 'Screen'], ['add', 'Add'],
+        ['soft_light', 'Soft Light'], ['hard_light', 'Hard Light'], ['darken', 'Darken'], ['lighten', 'Lighten'], ['difference', 'Difference']]],
+      // D-647.
+      ['overflow', 'Overflow', [['allow_hdr', 'Allow HDR Results'], ['clip', 'Clip'], ['soft_clamp', 'Soft Clamp'], ['wrap_back', 'Wrap Back']]],
+      ['uniform_scaling', 'Uniform Scaling', [['off', 'Off'], ['on', 'On']]],
+      ['perspective_offset', 'Perspective Offset', [['off', 'Off'], ['on', 'On']]],
+      ['center_subscale', 'Center Subscale', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-401.
   'core.tint': { colours: [['map_black_to', 'Map Black To'], ['map_white_to', 'Map White To']] },

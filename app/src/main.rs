@@ -3703,6 +3703,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             cycle: 0.0,
             frame: 0,
             float: false,
+            more: Default::default(),
         }),
         // D-129: black, grey and white, which turns the picture grey.
         GRADIENT_MAP => Some(Effect::GradientMap {
@@ -5957,6 +5958,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             opacity: 100.0,
             blend: "normal".to_string(),
             float: false,
+            more: Default::default(),
         }),
         // D-446: After Effects' Curl Noise controls (26.3 beta); the starting values are ours.
         CURL_NOISE => Some(Effect::CurlNoise {
@@ -6756,6 +6758,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             cycle: if parameter(query, "cycle").is_some() { number("cycle")? } else { 0.0 },
             frame: 0,
             float: false,
+            more: Default::default(),
         }),
         GRADIENT_MAP => Ok(Effect::GradientMap {
             shadow_color: word("shadow_color")?,
@@ -9060,6 +9063,23 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             opacity: number("opacity")?,
             blend: word("blend")?,
             float: false,
+            // D-647: those sent by a window before them read as added.
+            more: {
+                let start = anime_compositor::effects::NoiseMore::default();
+                let num = |key: &str, start: f64| if parameter(query, key).is_some() { number(key) } else { Ok(start) };
+                let choice = |key: &str, start: &str| if parameter(query, key).is_some() { word(key) } else { Ok(start.to_string()) };
+                anime_compositor::effects::NoiseMore {
+                    overflow: choice("overflow", &start.overflow)?,
+                    rotation: num("rotation", start.rotation)?,
+                    uniform_scaling: choice("uniform_scaling", &start.uniform_scaling)?,
+                    perspective_offset: choice("perspective_offset", &start.perspective_offset)?,
+                    sub_influence: num("sub_influence", start.sub_influence)?,
+                    sub_scaling: num("sub_scaling", start.sub_scaling)?,
+                    sub_rotation: num("sub_rotation", start.sub_rotation)?,
+                    sub_offset: if parameter(query, "sub_offset").is_some() { pair("sub_offset")? } else { start.sub_offset },
+                    center_subscale: choice("center_subscale", &start.center_subscale)?,
+                }
+            },
         }),
         // D-446: the frame and the depth are set by compose each frame.
         CURL_NOISE => Ok(Effect::CurlNoise {

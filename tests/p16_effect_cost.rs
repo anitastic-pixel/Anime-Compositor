@@ -375,6 +375,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 cycle: 0.0,
                 frame: 5,
                 float: false,
+                more: Default::default(),
             },
         ),
         (

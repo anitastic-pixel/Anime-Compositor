@@ -897,6 +897,11 @@ fn mixed_with(m: u32, b: f64, c: f64) -> f64 {
             }
             return b + (2.0lf * c - 1.0lf) * (d - b);
         }
+        // D-647: Turbulent Noise's hard light, darken, lighten and difference.
+        case 6u: { return select(1.0lf - 2.0lf * (1.0lf - b) * (1.0lf - c), 2.0lf * b * c, c <= 0.5lf); }
+        case 7u: { return min(b, c); }
+        case 8u: { return max(b, c); }
+        case 9u: { return abs(b - c); }
         default: { return c; }
     }
 }
@@ -1150,9 +1155,18 @@ fn cell_noise_kind(ch: u32, p: vec3<f64>, noise: u32, period: i32) -> f64 {
     return v;
 }
 
-fn fractal_kind(ch: u32, p: vec3<f64>, octaves: u32, kind: u32, noise: u32, cycle: i32) -> f64 {
+// D-647: with `warp`, `p` is the pixel's centre in the drawing's own pixels and octave o is read
+// where grade::fractal_warped reads it, by k[21..]: the middle, the Sub Offset, Perspective
+// Offset, Sub Influence, Sub Scaling, Center Subscale, then each octave's cosine and sine.
+fn fractal_kind(ch: u32, p: vec3<f64>, octaves: u32, kind: u32, noise: u32, cycle: i32, warp: bool) -> f64 {
     let pi = 3.141592653589793lf;
-    let step = select(0.5lf, 0.35lf, kind == 11u);
+    var step = select(0.5lf, 0.35lf, kind == 11u);
+    var ratio = 2.0lf;
+    if warp {
+        step = select(k[26] / 100.0lf, 0.35lf * (k[26] / 50.0lf), kind == 11u);
+        ratio = 100.0lf / k[27];
+    }
+    var w = 1.0lf;
     var fine = select(1.0lf, 4.0lf, kind == 14u);
     var sum = 0.0lf;
     var total = 0.0lf;
@@ -1165,6 +1179,24 @@ fn fractal_kind(ch: u32, p: vec3<f64>, octaves: u32, kind: u32, noise: u32, cycl
         var px = p.x * fine;
         var py = p.y * fine;
         let fo = f64(o);
+        if warp {
+            let dx = p.x - w * k[12] - fo * k[23] - k[21];
+            let dy = p.y - w * k[13] - fo * k[24] - k[22];
+            let c = k[29u + 2u * o];
+            let s = k[30u + 2u * o];
+            let qx = k[21] + dx * c + dy * s;
+            let qy = k[22] - dx * s + dy * c;
+            if k[28] == 1.0lf {
+                px = (k[21] + fine * (qx - k[21])) / k[0];
+                py = (k[22] + fine * (qy - k[22])) / k[11];
+            } else {
+                px = fine * qx / k[0];
+                py = fine * qy / k[11];
+            }
+            if k[25] == 1.0lf {
+                w *= 0.5lf;
+            }
+        }
         if kind == 4u {
             px += 4.0lf * so_far;
             py += 4.0lf * prev;
@@ -1201,7 +1233,7 @@ fn fractal_kind(ch: u32, p: vec3<f64>, octaves: u32, kind: u32, noise: u32, cycl
         prev = v;
         prev_ridge = ridge;
         amp *= step;
-        fine *= 2.0lf;
+        fine *= ratio;
     }
     let b = sum / total;
     if kind == 1u || kind == 2u || kind == 3u || kind == 12u {
@@ -1374,16 +1406,20 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, out);
         return;
     }
-    if F.mode == 9u || F.mode == 111u {
+    if F.mode == 9u || F.mode == 111u || F.mode == 112u {
         // k: the size, the depth, the contrast and brightness, the opacity as a share, the dark
         // and light colours encoded. `count` is the octaves. D-299: then the size down, the
         // offset, turbulent, block, the cycle and invert, each 1 when on. D-567: mode 111 is
-        // the types past basic, turbulent, smooth and block, their places then.
+        // the types past basic, turbulent, smooth and block, their places then. D-647: k[20] the
+        // Overflow; mode 112 the Transform and Sub Settings, k[21..] as fractal_kind's.
         let x = (f64(i32(id.x) - F.ox) + 0.5lf - k[12]) / k[0];
         let y = (f64(i32(id.y) - F.oy) + 0.5lf - k[13]) / k[11];
         var n = 0.0lf;
-        if F.mode == 111u {
-            n = fractal_kind(0u, vec3(x, y, k[1]), F.count, u32(k[18]), u32(k[19]), i32(k[16]));
+        if F.mode == 112u {
+            let c = vec3(f64(i32(id.x) - F.ox) + 0.5lf, f64(i32(id.y) - F.oy) + 0.5lf, k[1]);
+            n = fractal_kind(0u, c, F.count, u32(k[18]), u32(k[19]), i32(k[16]), true);
+        } else if F.mode == 111u {
+            n = fractal_kind(0u, vec3(x, y, k[1]), F.count, u32(k[18]), u32(k[19]), i32(k[16]), false);
         } else if k[14] == 0.0lf && k[15] == 0.0lf && k[16] == 0.0lf {
             n = fractal(0u, vec3(x, y, k[1]), F.count);
         } else {
@@ -1392,7 +1428,16 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
         if k[17] == 1.0lf {
             n = -n;
         }
-        let v = clamp(0.5lf + 0.5lf * n * k[2] / 100.0lf + k[3] / 100.0lf, 0.0lf, 1.0lf);
+        var v = 0.5lf + 0.5lf * n * k[2] / 100.0lf + k[3] / 100.0lf;
+        if k[20] == 2.0lf {
+            // single precision's tanh: within a level of the processor's.
+            v = 0.5lf + 0.5lf * f64(tanh(f32(2.0lf * (v - 0.5lf))));
+        } else if k[20] == 3.0lf {
+            v = v - 2.0lf * floor(v / 2.0lf);
+            v = select(v, 2.0lf - v, v > 1.0lf);
+        } else {
+            v = clamp(v, 0.0lf, 1.0lf);
+        }
         var out = p;
         for (var c = 0u; c < 3u; c++) {
             let color = to_linear(k[5u + c] + v * (k[8u + c] - k[5u + c]));
@@ -14036,7 +14081,7 @@ impl Gpu {
                 k.push(v.norm);
                 same(steps, &passes.grade, FxParams { mode: 8, ..Default::default() }, &k, None)
             }
-            E::FractalNoise { size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend: b, fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, frame, float: _ } => {
+            E::FractalNoise { size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend: b, fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, frame, float: _, more } => {
                 let base = crate::grade::mix(seed.floor() as u64);
                 let mut k = vec![size * (scale_width / 100.0), crate::effects::depth(*evolution, *speed, *frame), *contrast, *brightness, opacity / 100.0];
                 k.extend(crate::effects::encoded(dark_color));
@@ -14047,12 +14092,26 @@ impl Gpu {
                 k.extend([size * (scale_height / 100.0), offset[0], offset[1], on(look.kind == 1), on(look.noise == 1), look.cycle as f64, on(invert == "on")]);
                 // D-567: the types past basic, turbulent, smooth and block, mode 111.
                 let wide = look.kind > 1 || look.noise > 1;
-                if wide {
-                    k.extend([look.kind as f64, look.noise as f64]);
+                k.extend([look.kind as f64, look.noise as f64]);
+                // D-647: the Overflow, then the Transform and Sub Settings, mode 112.
+                k.push(crate::effects::OVERFLOWS.iter().position(|m| *m == more.overflow).unwrap_or(0) as f64);
+                let warp = crate::effects::noise_warp(more, *offset, complexity.floor() as usize, (w - 2 * ox, h - 2 * oy));
+                if let Some(g) = &warp {
+                    k.extend(g.middle);
+                    k.extend(g.sub_offset);
+                    k.extend([on(g.perspective), g.influence, g.sub_scaling, on(g.center)]);
+                    k.extend(g.turns.iter().flatten());
                 }
+                let noise_blend = match b.as_str() {
+                    "hard_light" => 6,
+                    "darken" => 7,
+                    "lighten" => 8,
+                    "difference" => 9,
+                    _ => blend(b),
+                };
                 let p = FxParams {
-                    mode: if wide { 111 } else { 9 },
-                    blend: blend(b),
+                    mode: if warp.is_some() { 112 } else if wide { 111 } else { 9 },
+                    blend: noise_blend,
                     count: complexity.floor() as u32,
                     base: [base as u32, (base >> 32) as u32],
                     ox: ox as i32,
