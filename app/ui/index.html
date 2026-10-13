@@ -2894,7 +2894,7 @@ async function show(url, keep = true) {
 }
 
 // -------------------------------------------------------------------------------------------
-// D-71: reference audio. The core keeps the layer and its level; the page decodes and plays.
+// D-71: reference audio. The core keeps the layer and its level and (D-640) mixes; the page plays.
 // -------------------------------------------------------------------------------------------
 let audio = null;          // the AudioContext, made when there is first a sound to decode
 const sounds = new Map();  // asset id and path -> { buffer, peaks }, or null while it is fetched
@@ -2955,40 +2955,79 @@ function waveform(comp, layer, heard) {
   return canvas;
 }
 
+let singing = 0;           // D-640: which sing() the stretches on their way belong to
+
 function hush() {
+  singing++;
   for (const voice of voices) { try { voice.stop(); } catch (e) { /* it never started */ } }
   voices = [];
   voicesFrom = null;
 }
 
-// Sound every audio layer from one composition frame: for `frames` frames, or to the end when
-// null. ADR-018: layer frame n of a file begins n * den / num seconds into it.
-// ponytail: a level changed while playing is heard from the next start; stretch is not applied.
+// D-640: sound the composition from one frame, for `frames` frames, or to its end when null. The
+// core mixes it (`/mix`, ADR-018, solo and levels applied) a second at a time and the page plays
+// each stretch on the audio clock where its first frame falls, so a level changed while playing
+// is heard from the next stretch. A stretch that comes late starts partway in, never late. An
+// Opus layer the core leaves out is still played from the file, as D-71 did.
+// ponytail: stretch is not applied to a layer's sound, as before.
 function sing(from, frames) {
   hush();
   const comp = composition();
   if (!comp || !audio) return;
   const fps = comp.frame_rate.numerator / comp.frame_rate.denominator;
-  const solo = doc.solo || [];
-  for (const layer of layers()) {
-    if (layer.kind !== 'audio' || !layer.enabled || (solo.length && !solo.includes(layer.id))) continue;
-    const heard = soundOf(layer.asset_id);
-    if (!heard) continue;
-    const begin = Math.max(from, layer.in_frame);
-    const end = frames === null ? layer.out_frame : Math.min(layer.out_frame, from + frames);
-    const into = (begin - layer.in_frame + (layer.source_offset_frames || 0)) / fps;
-    const late = Math.max(0, -into);
-    const lasts = (end - begin) / fps - late;
-    if (lasts <= 0 || into >= heard.buffer.duration) continue;
+  const end = frames === null ? (comp.start_frame || 0) + comp.duration_frames : from + frames;
+  const me = singing;
+  const at = audio.currentTime;
+  voicesFrom = { frame: from, at, open: frames === null };
+  const play = (buffer, start) => {
     const source = audio.createBufferSource();
-    source.buffer = heard.buffer;
-    const level = audio.createGain();
-    level.gain.value = Math.pow(10, (layer.gain_db || 0) / 20);
-    source.connect(level).connect(audio.destination);
-    source.start(audio.currentTime + (begin - from) / fps + late, Math.max(0, into), lasts);
-    voices.push(source);
-  }
-  voicesFrom = { frame: from, at: audio.currentTime, open: frames === null };
+    source.buffer = buffer;
+    source.connect(audio.destination);
+    const behind = Math.max(0, audio.currentTime - start);
+    if (behind < buffer.duration) { source.start(start + behind, behind); voices.push(source); }
+  };
+  const stretch = async (a) => {
+    const n = Math.min(Math.max(1, Math.round(fps)), end - a);
+    if (n <= 0 || me !== singing) return;
+    const answer = await fetch(FRAMES + '/mix?from=' + a + '&frames=' + n).catch(() => null);
+    if (!answer || !answer.ok || me !== singing) return;
+    const floats = new Float32Array(await answer.arrayBuffer());
+    if (me !== singing) return;
+    const half = floats.length / 2;
+    if (half > 0) {
+      const buffer = audio.createBuffer(2, half, 48000);
+      buffer.copyToChannel(floats.subarray(0, half), 0);
+      buffer.copyToChannel(floats.subarray(half), 1);
+      play(buffer, at + (a - from) / fps);
+    }
+    if (a === from) opus((answer.headers.get('x-left-out') || '').split(',').filter(Boolean));
+    // The next stretch is asked for half a second before this one ends.
+    const next = at + (a + n - from) / fps;
+    setTimeout(() => stretch(a + n), Math.max(0, (next - audio.currentTime - 0.5) * 1000));
+  };
+  const opus = (ids) => {
+    for (const layer of layers()) {
+      if (!ids.includes(layer.id)) continue;
+      const heard = soundOf(layer.asset_id);
+      if (!heard) continue;
+      const begin = Math.max(from, layer.in_frame);
+      const stop = Math.min(layer.out_frame, end);
+      const into = (begin - layer.in_frame + (layer.source_offset_frames || 0)) / fps;
+      const late = Math.max(0, -into);
+      const lasts = (stop - begin) / fps - late;
+      if (lasts <= 0 || into >= heard.buffer.duration) continue;
+      const source = audio.createBufferSource();
+      source.buffer = heard.buffer;
+      const level = audio.createGain();
+      level.gain.value = Math.pow(10, (layer.gain_db || 0) / 20);
+      source.connect(level).connect(audio.destination);
+      const start = at + (begin - from) / fps + late;
+      const behind = Math.max(0, audio.currentTime - start);
+      source.start(start + behind, Math.max(0, into) + behind, Math.max(0, lasts - behind));
+      voices.push(source);
+    }
+  };
+  stretch(from);
 }
 
 // Called with every frame that arrives. Playing: start the sound, and start it again when the

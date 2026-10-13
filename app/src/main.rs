@@ -3114,6 +3114,38 @@ fn sound(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
     }
 }
 
+/// D-640: `/mix?from=&frames=`, the sound of the composition on screen for those frames as the
+/// core mixes it (solo applied, as the picture is): 32-bit floats, the left channel then the
+/// right, at 48,000 a second. `x-left-out` names the layers left out with MEDIA_AUDIO_PREVIEW_ONLY
+/// (Opus), which the page still plays from the file itself.
+fn mix(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
+    let from = parameter(query, "from").and_then(|v| v.parse::<i32>().ok()).unwrap_or(0);
+    // ponytail: at most 10 seconds at 24 a second a call; the page asks for about one.
+    let frames = parameter(query, "frames").and_then(|v| v.parse::<u32>().ok()).unwrap_or(1).min(240);
+    let (project, root, id) = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        (shown(&held), held.root.clone(), held.composition.clone())
+    };
+    let Some(comp) = project.composition(&id) else {
+        return allow_the_page_to_read_this(Response::builder().status(404))
+            .header("content-type", "text/plain; charset=utf-8")
+            .body(b"no composition is on screen".to_vec())
+            .expect("build the missing composition response");
+    };
+    let (sound, left_out) = anime_compositor::audio::mix(&project, &root, comp, from, frames);
+    let opus: Vec<String> = left_out
+        .into_iter()
+        .filter(|(_, d)| d.id.as_str() == "MEDIA_AUDIO_PREVIEW_ONLY")
+        .map(|(layer, _)| layer)
+        .collect();
+    let body: Vec<u8> = sound.iter().flatten().flat_map(|v| (*v as f32).to_le_bytes()).collect();
+    allow_the_page_to_read_this(Response::builder())
+        .header("content-type", "application/octet-stream")
+        .header("x-left-out", opus.join(","))
+        .body(body)
+        .expect("build the mix response")
+}
+
 /// A relink that has been worked out and is waiting to be agreed to.
 ///
 /// W-02 requires the window to "present changed dimensions, frame range or alpha interpretation
@@ -16143,6 +16175,10 @@ fn main() {
             if request.uri().path().trim_matches('/') == "sound" {
                 return sound(&viewer, request.uri().query());
             }
+            // D-640: `/mix?from=&frames=`, the composition's sound as the core mixes it.
+            if request.uri().path().trim_matches('/') == "mix" {
+                return mix(&viewer, request.uri().query());
+            }
             // `/curve?layer=&prop=&from=&to=`, the graph editor's samples: the same kind of
             // question as `boxes` above, on the same scheme, for the same reason.
             if request.uri().path().trim_matches('/') == "curve" {
@@ -27404,6 +27440,27 @@ mod editing {
             "-6.0",
             format!("{:?}", shown_layer(&viewer, "Sound")["gain_db"].as_f64().unwrap_or(f64::NAN)),
         );
+        report.check(
+            "D-640: `/mix` gives the page the core's mix of frames 0 to 2, the level in it",
+            "200, the core's samples",
+            {
+                let answer = mix(&viewer, Some("from=0&frames=2"));
+                let core = {
+                    let held = viewer.lock().expect("the viewer lock was poisoned");
+                    let project = shown(&held);
+                    let comp = project.composition(&held.composition).cloned();
+                    comp.map(|c| anime_compositor::audio::mix(&project, &held.root, &c, 0, 2).0)
+                };
+                let want: Option<Vec<u8>> =
+                    core.map(|m| m.iter().flatten().flat_map(|v| (*v as f32).to_le_bytes()).collect());
+                let same = want.as_deref() == Some(answer.body().as_slice()) && answer.body().iter().any(|b| *b != 0);
+                format!(
+                    "{}, {}",
+                    answer.status().as_u16(),
+                    if same { "the core's samples" } else { "different samples" }
+                )
+            },
+        );
         let refused = run(&viewer, &format!("layer.set_gain?layer={id}&value=13"));
         report.check(
             "A level of 13 is refused and the level stays",
@@ -30441,6 +30498,8 @@ mod contract {
         "lut-choose",
         // B-48: the memory setting, which is the window's for the same reason.
         "memory",
+        // D-640: on the frame scheme, the composition's sound as the core mixes it.
+        "mix",
         "new",
         "open",
         "pause-export",
@@ -30662,10 +30721,10 @@ mod contract {
         // checked is that the shell has an arm of that name. `frame` and `state` are not in
         // that match: one is the other scheme, one is answered before it.
         for route in &routes {
-            // `frame`, `at`, `play`, `boxes`, `curve`, `sheet`, `sound` and `ready` belong to the
+            // `frame`, `at`, `play`, `boxes`, `curve`, `sheet`, `sound`, `mix` and `ready` belong to the
             // other scheme and are served beside `fn frame`, not by the command shell, so there is
             // no arm of that name to look for.
-            if matches!(route.as_str(), "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "ready") {
+            if matches!(route.as_str(), "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "mix" | "ready") {
                 continue;
             }
             let arm = format!("\"{route}\"");
@@ -35196,7 +35255,7 @@ mod contract {
         };
         let shell: Vec<String> = ROUTES
             .iter()
-            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "place" | "ready"))
+            .filter(|route| !matches!(**route, "frame" | "at" | "play" | "boxes" | "curve" | "sheet" | "sound" | "mix" | "place" | "ready"))
             .map(|route| route.to_string())
             .collect();
         report.check(

@@ -1,6 +1,7 @@
 //! D-71 and ADR-018: reference audio. Whole frames become whole samples, and a WAV header is
 //! read by hand. D-639 reads FLAC, MP3, Ogg Vorbis and AAC as well, and turns every sound into
-//! the working sound (48,000 a second, two channels). Nothing here plays sound; the window does.
+//! the working sound (48,000 a second, two channels). D-640 mixes a composition's sound from
+//! it; the window plays what it is handed.
 //!
 //! Pinned by FX-AUD-001 to 010, whose numbers come from `tools/audio_reference.py`.
 
@@ -152,6 +153,8 @@ pub struct Sound {
     bits: u16,
     pub rate: u32,
     pub samples: u64,
+    /// D-640: the working sound, worked out the first time it is mixed and kept with the sound.
+    kept: std::sync::OnceLock<std::sync::Arc<[Vec<f64>; 2]>>,
 }
 
 impl Sound {
@@ -167,6 +170,7 @@ impl Sound {
                 bits,
                 rate: sample_rate,
                 samples,
+                kept: Default::default(),
             }),
             (Wav::Other { .. }, _) => Err(unreadable("an encoding this build plays but does not read")),
         }
@@ -307,6 +311,7 @@ impl Sound {
             bits: 32,
             rate,
             samples: (x.len() / channels) as u64,
+            kept: Default::default(),
         }
     }
 
@@ -613,4 +618,72 @@ fn aac(path: &std::path::Path) -> Result<Sound, Diagnostic> {
         return Err(unreadable("ffmpeg could not read the sound track"));
     }
     Sound::read(out.stdout)
+}
+
+impl Sound {
+    /// D-640: `working`, worked out once and kept with the sound, so each stretch mixed reads
+    /// it rather than working it out again.
+    // ponytail: kept for as long as the sound is (the session, by `load`); 64-bit, so three
+    // minutes is about 140 MB. Keep 32-bit or drop unused sounds if long recordings pile up.
+    pub fn working_kept(&self) -> std::sync::Arc<[Vec<f64>; 2]> {
+        self.kept.get_or_init(|| std::sync::Arc::new(self.working())).clone()
+    }
+}
+
+/// D-640, document 21: the sound of composition `comp` for its frames `from .. from + frames`,
+/// samples `first_sample(from) .. first_sample(from + frames)` at 48,000 a second (ADR-018), as
+/// two channels. Each audio layer that is on is heard on the frames its span holds: frame f
+/// reads its working sound from local frame n's first sample on, f's samples in turn, silence
+/// before the sound's first sample and past its last, times its level; the layers are added
+/// and nothing is clipped. A sound left out is told with its layer's id: an Opus one
+/// (`MEDIA_AUDIO_PREVIEW_ONLY`, which the window plays itself) or one that cannot be read.
+// ponytail: the composition's own audio layers only. Sound through composition layers, keyed
+// level and pan are S-7 of D-638. A layer's stretch and time remap are not applied to its
+// sound, as D-71 never did.
+pub fn mix(
+    project: &crate::model::Project,
+    root: &std::path::Path,
+    comp: &crate::model::Composition,
+    from: i32,
+    frames: u32,
+) -> ([Vec<f64>; 2], Vec<(String, Diagnostic)>) {
+    let (num, den) = (comp.frame_rate.numerator() as i128, comp.frame_rate.denominator() as i128);
+    let first = |f: i64| (f as i128 * WORKING_RATE as i128 * den).div_euclid(num) as i64;
+    let (from, to) = (from as i64, from as i64 + frames as i64);
+    let s0 = first(from);
+    let n = (first(to) - s0) as usize;
+    let mut out = [vec![0.0; n], vec![0.0; n]];
+    let mut left_out = Vec::new();
+    for layer in comp.layers_in_order() {
+        if layer.kind != crate::model::LayerKind::Audio || !layer.enabled {
+            continue;
+        }
+        let Some(path) = project.assets.iter().find(|a| a.id == layer.asset_id).and_then(|a| a.path.as_ref()) else {
+            continue;
+        };
+        let sound = match load(&root.join(path)) {
+            Ok(sound) => sound,
+            Err(d) => {
+                left_out.push((layer.id.as_str().to_string(), d));
+                continue;
+            }
+        };
+        let work = sound.working_kept();
+        let gain = 10f64.powf(layer.gain_db / 20.0);
+        let timing = layer.timing();
+        for f in from.max(layer.in_frame as i64)..to.min(layer.out_frame as i64) {
+            let Some(local) = timing.local_frame(f as i32) else { continue };
+            let (a, b, start) = (first(f), first(f + 1), first(local as i64));
+            for s in a..b {
+                let i = start + (s - a);
+                if i < 0 || i as usize >= work[0].len() {
+                    continue;
+                }
+                for c in 0..2 {
+                    out[c][(s - s0) as usize] += gain * work[c][i as usize];
+                }
+            }
+        }
+    }
+    (out, left_out)
 }
