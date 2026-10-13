@@ -1,7 +1,7 @@
 # B-552: frame times with Hair (D-673)
 
 Measured on 2026-10-13, built with `cargo test --release --test b552_hair` from lane C's
-commit a96fb7b5, which holds a96fb7b5 (B-552's code), and run with `--ignored b552_hair_timing`: once on the card, then once
+commit 1ef3d81c, which holds 1ef3d81c (B-552's code), and run with `--ignored b552_hair_timing`: once on the card, then once
 with `B552_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, the graphics card had 14.6 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-0784c04478, b155_gpu_chain-e334744fb6, b530_pixel_motion_blur-70, cargo.exe, rustc.exe. Between the card and processor runs, the graphics card had 6.3 GB of its memory in use by another program and these build or test programs were running: anime_compositor_app-7f89, b531_timewarp-f9686d1f554, cargo.exe, rustc.exe. After the processor run, the graphics card had 7.4 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-e334744fb6, b531_timewarp-f9686d1f554, cargo.exe. Treat them as an upper bound, to be measured again on a quiet machine.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
