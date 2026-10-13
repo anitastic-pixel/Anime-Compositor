@@ -1,0 +1,302 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-pptex-013",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-colours",
+      "kind": "still",
+      "name": "colours",
+      "path": "media/colours.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-dot",
+      "kind": "still",
+      "name": "dot",
+      "path": "media/dot.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-big",
+      "kind": "still",
+      "name": "big",
+      "path": "media/big.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "Main",
+      "width": 16,
+      "height": 10,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 22,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 22
+      },
+      "layer_order": [
+        "art",
+        "dot",
+        "big",
+        "late"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "raster",
+          "name": "art",
+          "asset_id": "asset-colours",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 22,
+          "source_offset_frames": 0,
+          "transform": {
+            "anchor": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                8.0,
+                5.0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "exposure_spans": [],
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0-0",
+              "type_id": "core.particle_plane",
+              "enabled": true,
+              "parameters": {
+                "birth_rate": 0.026,
+                "longevity": 2,
+                "producer_x": 0,
+                "producer_y": 0,
+                "radius_x": 0.2,
+                "radius_y": 0.1,
+                "velocity": 0,
+                "inherit_velocity": 0,
+                "gravity": 0,
+                "resistance": 0,
+                "direction": 0,
+                "extra": 0.5,
+                "extra_angle": 360,
+                "birth_size": 40,
+                "death_size": 40,
+                "size_variation": 0,
+                "max_opacity": 100,
+                "custom_opacity_1": 100,
+                "custom_opacity_2": 100,
+                "custom_opacity_3": 100,
+                "custom_opacity_4": 100,
+                "custom_opacity_5": 100,
+                "random_seed": 0,
+                "rotation_speed": 0,
+                "initial_rotation": 0,
+                "animation": "explosive",
+                "particle_type": "textured_disc",
+                "opacity_map": "constant",
+                "color_map": "birth_to_death",
+                "transfer_mode": "composite",
+                "composite_on_original": "off",
+                "birth_color": "#ffd933",
+                "death_color": "#cc1a00",
+                "custom_color_1": "#ffd933",
+                "custom_color_2": "#f2a926",
+                "custom_color_3": "#e67a1a",
+                "custom_color_4": "#d94a0d",
+                "custom_color_5": "#cc1a00",
+                "texture_layer": "dot"
+              }
+            }
+          ]
+        },
+        {
+          "id": "dot",
+          "kind": "raster",
+          "name": "dot",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 22,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-dot",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "big",
+          "kind": "raster",
+          "name": "big",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 22,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-big",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        },
+        {
+          "id": "late",
+          "kind": "raster",
+          "name": "late",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 15,
+          "out_frame": 22,
+          "transform": {
+            "anchor": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                0,
+                0
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "mask": null,
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-dot",
+          "source_offset_frames": 0,
+          "exposure_spans": []
+        }
+      ]
+    }
+  ]
+}
