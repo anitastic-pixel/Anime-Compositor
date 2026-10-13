@@ -6,7 +6,7 @@ D-72 added an MP4 as a thing an export can be, written by the H.264 encoder Wind
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the list beside Export offers an MP4, and says what it leaves out | true | true | pass |
+| the list beside Export offers an MP4, and says it carries the sound (D-641) | true | true | pass |
 | the file is named | cel_holds_project.mp4 | cel_holds_project.mp4 | pass |
 | three frames are one file, and the window says so | Exported 3 frames as one file, the chosen folder's cel_holds_project.mp4. | Exported 3 frames as one file, the chosen folder's cel_holds_project.mp4. | pass |
 | the file is there and is not empty | true | true | pass |

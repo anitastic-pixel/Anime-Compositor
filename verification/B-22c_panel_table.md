@@ -15,9 +15,12 @@ D-73 gave an MP4 three qualities and a GIF a dithering choice, and `verification
 | `format=mp4&quality=high` is this quality | High | High | pass |
 | a quality the page does not offer is refused in a sentence | Nothing was exported: "ultra" is not an MP4 quality. Choose Preview, Standard or High. | Nothing was exported: "ultra" is not an MP4 quality. Choose Preview, Standard or High. | pass |
 | `dither=on` dithers, and saying nothing does not | true, false | true, false | pass |
-| the status line names the MP4's quality |  as one MP4 at High quality, over black and with no sound, |  as one MP4 at High quality, over black and with no sound, | pass |
+| the status line names the MP4's quality |  as one MP4 at High quality, over black, with the composition's sound, |  as one MP4 at High quality, over black, with the composition's sound, | pass |
+| D-641: `wav=on` asks for the WAV beside, and saying nothing does not | true, false | true, false | pass |
+| D-641: the status line says the WAV is written beside a PNG sequence |  with its sound as a WAV beside it, |  with its sound as a WAV beside it, | pass |
+| D-641: and says nothing of it beside a GIF, which carries no sound |  as one GIF, a preview of 256 colours a frame, |  as one GIF, a preview of 256 colours a frame, | pass |
 | the status line says a GIF is dithered when it is |  as one GIF, a preview of 256 colours a frame, dithered, |  as one GIF, a preview of 256 colours a frame, dithered, | pass |
 | and says nothing of it when it is not |  as one GIF, a preview of 256 colours a frame, |  as one GIF, a preview of 256 colours a frame, | pass |
 | a choice that belongs to another format changes nothing said of a PNG sequence |  |  | pass |
 
-**13 of 13 checks pass.**
+**16 of 16 checks pass.**

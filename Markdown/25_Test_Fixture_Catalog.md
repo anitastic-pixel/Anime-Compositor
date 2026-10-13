@@ -2870,6 +2870,32 @@ FX-SOUND-MIX-013: the 44,100 mono file: its working sound, in both channels.
 
 FX-SOUND-MIX-014: frames 10 to 14 of FX-SOUND-MIX-003 alone, from sample 20,000: the same samples as the whole mix there.
 
+### Exporting sound (D-641)
+
+S-3 of D-638 (B-520): a composition's sound in its export (document 21). `tools/sound_export_reference.py` writes the test sounds in `Fixtures/sound_export/media` as 32-bit floating-point WAV by hand (a click, one sample of 0.9 left and -0.5 right then silence, 0.5 s; a 1 kHz sine at -6 dB, 1 s; the ramp of FX-SOUND-MIX, 1 s) and an Opus file by ffmpeg, one project per case (a 64 x 64 composition), and `expected_sound_export.json`. An MP4 is checked by the click method only (ADR-018): decoded by ffmpeg 8.1 and by Windows' own decoder, the loudest sample within 1,000 of each click must be exactly that frame's first sample counted from the first frame exported; the stream must be AAC, 48,000 a second, two channels. A WAV is 24-bit, compared at named places (tolerance 2e-5 of full level), with its length and its count of values past full level. AAC files are never compared byte for byte.
+
+FX-SOUND-EXP-001: 24 a second, clicks on frames 2, 12 and 30 land on samples 4000, 24000 and 60000; 72,000 samples.
+
+FX-SOUND-EXP-002: 30000 / 1001 a second, clicks on frames 3 and 25 land on samples 4804 and 40040.
+
+FX-SOUND-EXP-003: 25 a second, clicks on frames 1 and 24 land on samples 1920 and 46080.
+
+FX-SOUND-EXP-004: frames 6 to 29 exported: the clicks on frames 8 and 20 land on samples 4000 and 28000 of the file.
+
+FX-SOUND-EXP-005: an Opus layer is left out with `MEDIA_AUDIO_PREVIEW_ONLY`; the click on frame 5 lands on sample 10000.
+
+FX-SOUND-EXP-006: no sound layer: the MP4 has one picture track and no sound track.
+
+FX-SOUND-EXP-007: a PNG sequence `shot_%04d.png` with `shot.wav`: the sine at -6 dB and a click at -6 dB on frame 2, 48,000 samples.
+
+FX-SOUND-EXP-008: an animated PNG `film.png` at 30000 / 1001 with `film.wav`: the ramp from frame 1, 20 frames, 32,032 samples.
+
+FX-SOUND-EXP-009: an EXR sequence of frames 4 to 15 with `plate.wav`: the ramp from its sample 8000, 24,000 samples.
+
+FX-SOUND-EXP-010: a level of +12 dB: 30,000 values past full level written at full level, with `EXPORT_SOUND_CLIPPED`.
+
+FX-SOUND-EXP-011: a GIF with the WAV asked for: no WAV is written.
+
 ## Format fixtures
 
 D-72, proposed on 2026-09-19; nothing is built against these yet. `tools/formats_reference.py` writes `Fixtures/formats/` and prints what follows. The drawings are one 16 by 12 picture of smooth ramps, saved by Pillow in each format, and each twin is Pillow's own reading of that file.

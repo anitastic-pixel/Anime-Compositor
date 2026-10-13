@@ -54,6 +54,7 @@ One row per identifier this build can print, and the table where a person can re
 | `MEDIA_AUDIO_CUT_SHORT` | yes | `verification/B-20b_audio_table.md` |
 | `MEDIA_AUDIO_UNREADABLE` | yes | `verification/B-20b_audio_table.md` |
 | `MEDIA_AUDIO_PREVIEW_ONLY` | yes | `verification/D-639_sound_read_table.md` |
+| `EXPORT_SOUND_CLIPPED` | yes | `verification/D-641_sound_export_table.md` |
 | `TIMESHEET_NOT_FOUND` | yes | `verification/B-28b_timesheet_table.md` |
 | `TIMESHEET_UNREADABLE` | yes | `verification/B-28b_timesheet_table.md` |
 | `TIMESHEET_NO_CELLS` | yes | `verification/B-28b_timesheet_table.md` |
@@ -109,7 +110,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 66 identifiers | 66 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 67 identifiers | 67 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |
@@ -248,6 +249,9 @@ One row per identifier this build can print, and the table where a person can re
 | MEDIA_AUDIO_PREVIEW_ONLY: the enum spells it the way the catalogue does | MEDIA_AUDIO_PREVIEW_ONLY | MEDIA_AUDIO_PREVIEW_ONLY | pass |
 | MEDIA_AUDIO_PREVIEW_ONLY: says truthfully whether document 28 lists it | true | true | pass |
 | MEDIA_AUDIO_PREVIEW_ONLY: a table somewhere shows a person this sentence | named in D-639_sound_read_table.md | named in D-639_sound_read_table.md | pass |
+| EXPORT_SOUND_CLIPPED: the enum spells it the way the catalogue does | EXPORT_SOUND_CLIPPED | EXPORT_SOUND_CLIPPED | pass |
+| EXPORT_SOUND_CLIPPED: says truthfully whether document 28 lists it | true | true | pass |
+| EXPORT_SOUND_CLIPPED: a table somewhere shows a person this sentence | named in D-641_sound_export_table.md | named in D-641_sound_export_table.md | pass |
 | TIMESHEET_NOT_FOUND: the enum spells it the way the catalogue does | TIMESHEET_NOT_FOUND | TIMESHEET_NOT_FOUND | pass |
 | TIMESHEET_NOT_FOUND: says truthfully whether document 28 lists it | true | true | pass |
 | TIMESHEET_NOT_FOUND: a table somewhere shows a person this sentence | named in B-28b_timesheet_table.md | named in B-28b_timesheet_table.md | pass |
@@ -331,7 +335,7 @@ One row per identifier this build can print, and the table where a person can re
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**221 of 221 checks pass.**
+**224 of 224 checks pass.**
 
 ## What this cannot cover
 

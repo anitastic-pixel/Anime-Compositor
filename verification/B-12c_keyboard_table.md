@@ -29,7 +29,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, addnote, addnull, addshape, addsolid, addtoqueue, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelprecomp, cancelprint, cancelrelink, checker, checkpackage, closecomp, closemap, closeprefs, collect, compadvtab, comparebtn, compbasictab, compfps, compframes, compguides, compheight, complock, comppreset, compwidth, delcomppreset, dellayer, down, emptyimport, emptynew, export, exportformat, fbswitch, filmquality, findcommand, findlayer, fit, fit100, fwd, fxsearch, gifdither, gpu, graphall, graphfit, graphmode, gridbtn, guidebtn, halfq, health, import, importcut, makecomp, makeprecomp, maptab, mbswitch, mirror, newcomp, newlayer, notedetails, onionbtn, open, play, precompmap, precompname, precompopen, prefcard, prefdisk, prefdiskfolder, preferences, prefmemory, prefram, printnow, printsheet, recent, recovery, redo, refine, regionbtn, relink, renderadd, renderpause, renderstart, renderstop, resetworkspace, save, saveas, savecomppreset, savepreset, saveworkspace, sessionlogbutton, sessionlogclear, sessionlogclose, sessionlogon, sessionlogsave, sheetclose, sheetcolumn, shyswitch, skover, slatebtn, snapshot, stripbtn, tabboth, tabgraph, tabsheet, timescroll, timezoom, toggle, turnleft, turnright, undo, unturn, up, workspace, workspacename, xsheet, zoomer | addadjust, addeffect, addexposure, addlayer, addnote, addnull, addshape, addsolid, addtoqueue, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelprecomp, cancelprint, cancelrelink, checker, checkpackage, closecomp, closemap, closeprefs, collect, compadvtab, comparebtn, compbasictab, compfps, compframes, compguides, compheight, complock, comppreset, compwidth, delcomppreset, dellayer, down, emptyimport, emptynew, export, exportformat, fbswitch, filmquality, findcommand, findlayer, fit, fit100, fwd, fxsearch, gifdither, gpu, graphall, graphfit, graphmode, gridbtn, guidebtn, halfq, health, import, importcut, makecomp, makeprecomp, maptab, mbswitch, mirror, newcomp, newlayer, notedetails, onionbtn, open, play, precompmap, precompname, precompopen, prefcard, prefdisk, prefdiskfolder, preferences, prefmemory, prefram, printnow, printsheet, recent, recovery, redo, refine, regionbtn, relink, renderadd, renderpause, renderstart, renderstop, resetworkspace, save, saveas, savecomppreset, savepreset, saveworkspace, sessionlogbutton, sessionlogclear, sessionlogclose, sessionlogon, sessionlogsave, sheetclose, sheetcolumn, shyswitch, skover, slatebtn, snapshot, stripbtn, tabboth, tabgraph, tabsheet, timescroll, timezoom, toggle, turnleft, turnright, undo, unturn, up, workspace, workspacename, xsheet, zoomer | pass |
+| the controls the page wires are the ones written down here | addadjust, addeffect, addexposure, addlayer, addnote, addnull, addshape, addsolid, addtoqueue, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelprecomp, cancelprint, cancelrelink, cancelsolid, checker, checkpackage, closecomp, closemap, closeprefs, collect, compadvtab, comparebtn, compbasictab, compbgon, compfps, compframes, compguides, compheight, complock, comppreset, compwidth, delcomppreset, dellayer, down, emptyimport, emptynew, export, exportformat, fbswitch, filmquality, findcommand, findlayer, fit, fit100, fwd, fxsearch, gifdither, gpu, graphall, graphfit, graphmode, gridbtn, guidebtn, halfq, health, import, importcut, makecomp, makeprecomp, makesolid, maptab, mbswitch, mirror, newcomp, newlayer, notedetails, onionbtn, open, play, precompmap, precompname, precompopen, prefcard, prefdisk, prefdiskfolder, preferences, prefmemory, prefram, printnow, printsheet, recent, recovery, redo, refine, regionbtn, relink, renderadd, renderpause, renderstart, renderstop, resetworkspace, save, saveas, savecomppreset, savepreset, saveworkspace, sessionlogbutton, sessionlogclear, sessionlogclose, sessionlogon, sessionlogsave, sheetclose, sheetcolumn, shyswitch, skover, slatebtn, snapshot, solidcompsize, soundwav, stripbtn, tabboth, tabgraph, tabsheet, timescroll, timezoom, toggle, turnleft, turnright, undo, unturn, up, workspace, workspacename, xsheet, zoomer | addadjust, addeffect, addexposure, addlayer, addnote, addnull, addshape, addsolid, addtoqueue, alpha, anyway, applyrelink, back, cancelcomp, cancelexport, cancelprecomp, cancelprint, cancelrelink, cancelsolid, checker, checkpackage, closecomp, closemap, closeprefs, collect, compadvtab, comparebtn, compbasictab, compbgon, compfps, compframes, compguides, compheight, complock, comppreset, compwidth, delcomppreset, dellayer, down, emptyimport, emptynew, export, exportformat, fbswitch, filmquality, findcommand, findlayer, fit, fit100, fwd, fxsearch, gifdither, gpu, graphall, graphfit, graphmode, gridbtn, guidebtn, halfq, health, import, importcut, makecomp, makeprecomp, makesolid, maptab, mbswitch, mirror, newcomp, newlayer, notedetails, onionbtn, open, play, precompmap, precompname, precompopen, prefcard, prefdisk, prefdiskfolder, preferences, prefmemory, prefram, printnow, printsheet, recent, recovery, redo, refine, regionbtn, relink, renderadd, renderpause, renderstart, renderstop, resetworkspace, save, saveas, savecomppreset, savepreset, saveworkspace, sessionlogbutton, sessionlogclear, sessionlogclose, sessionlogon, sessionlogsave, sheetclose, sheetcolumn, shyswitch, skover, slatebtn, snapshot, solidcompsize, soundwav, stripbtn, tabboth, tabgraph, tabsheet, timescroll, timezoom, toggle, turnleft, turnright, undo, unturn, up, workspace, workspacename, xsheet, zoomer | pass |
 | and every one of them is a control the Tab key stops at on its own | none of them is anything else | none of them is anything else | pass |
 | a row in the media bin or the layer list is put into the Tab order by hand | true | true | pass |
 | the number a drag changes is put into the Tab order by hand | true | true | pass |
@@ -56,6 +56,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `edit.undo` can be asked for without a mouse | yes | yes | pass |
 | `effect.add` can be asked for without a mouse | yes | yes | pass |
 | `effect.delete` can be asked for without a mouse | yes | yes | pass |
+| `effect.fit_scale` can be asked for without a mouse | yes | yes | pass |
 | `effect.move` can be asked for without a mouse | no - it is a drag, and a drag is a mouse | no - it is a drag, and a drag is a mouse | pass |
 | `effect.move_down` can be asked for without a mouse | yes | yes | pass |
 | `effect.move_up` can be asked for without a mouse | yes | yes | pass |
@@ -75,6 +76,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `item.set_label` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.add_remove` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.move` can be asked for without a mouse | yes | yes | pass |
+| `keyframe.reverse` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.set_interp` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.set_kind` can be asked for without a mouse | yes | yes | pass |
 | `keyframe.set_path` can be asked for without a mouse | yes | yes | pass |
@@ -89,6 +91,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.create` can be asked for without a mouse | yes | yes | pass |
 | `layer.delete` can be asked for without a mouse | yes | yes | pass |
 | `layer.duplicate` can be asked for without a mouse | yes | yes | pass |
+| `layer.freeze_frame` can be asked for without a mouse | yes | yes | pass |
 | `layer.move` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_down` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_up` can be asked for without a mouse | yes | yes | pass |
@@ -100,7 +103,9 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.set_gain` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_label` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_matte` can be asked for without a mouse | yes | yes | pass |
+| `layer.set_matte_mode` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_parent` can be asked for without a mouse | yes | yes | pass |
+| `layer.set_time_remap` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_time_stretch` can be asked for without a mouse | yes | yes | pass |
 | `layer.shift` can be asked for without a mouse | yes | yes | pass |
 | `layer.split` can be asked for without a mouse | yes | yes | pass |
@@ -120,6 +125,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `media.import` can be asked for without a mouse | yes | yes | pass |
 | `media.relink` can be asked for without a mouse | yes | yes | pass |
 | `memory` can be asked for without a mouse | yes | yes | pass |
+| `mix` can be asked for without a mouse | yes | yes | pass |
 | `new` can be asked for without a mouse | yes | yes | pass |
 | `open` can be asked for without a mouse | yes | yes | pass |
 | `path.add_point` can be asked for without a mouse | yes | yes | pass |
@@ -207,4 +213,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**177 of 177 checks pass.**
+**183 of 183 checks pass.**

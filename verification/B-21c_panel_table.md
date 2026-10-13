@@ -6,7 +6,7 @@ D-72 added a GIF and an animated PNG as things an export can be, and `verificati
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the list beside Export offers a GIF, and says it is a preview | true | true | pass |
+| the list beside Export offers a GIF, and says it is a preview with no sound (D-641) | true | true | pass |
 | and an animated PNG | true | true | pass |
 | gif: the file is named | cel_holds_project.gif | cel_holds_project.gif | pass |
 | gif: three frames are one file, and the window says so | Exported 3 frames as one file, the chosen folder's cel_holds_project.gif. | Exported 3 frames as one file, the chosen folder's cel_holds_project.gif. | pass |
