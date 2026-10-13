@@ -2322,6 +2322,15 @@ pub enum Effect {
     /// is named, the boundary's, flattened, in the drawing's space at the size the effects run
     /// at, `None` when there is no source or destination or a mask named is not there.
     Reshape { source_mask: f64, destination_mask: f64, boundary_mask: f64, percent: f64, elasticity: String, paths: Option<Vec<Vec<(f64, f64)>>> },
+    /// D-607: after After Effects' Smear (`mesh::smear`, document 21); `core.smear` is D-392's.
+    /// `source_mask` and `boundary_mask`, 0 to 1000, the masks numbered so (their floors taken), 0
+    /// for none; `mask_offset`, pixels, -10000 to 10000; `mask_rotation`, degrees clockwise, -3600
+    /// to 3600; `mask_scale`, per cent, 0 to 1000; `percent`, 0 to 100; `elasticity`, one of the
+    /// words in [`crate::mesh::RESHAPE_ELASTICITY`]. `paths` is not a setting and is never saved:
+    /// compose fills it each frame with the source's outline and, when one is named, the
+    /// boundary's, flattened, in the drawing's space at the size the effects run at, `None` when
+    /// there is no source or a mask named is not there.
+    MaskSmear { source_mask: f64, boundary_mask: f64, mask_offset: [f64; 2], mask_rotation: f64, mask_scale: f64, percent: f64, elasticity: String, paths: Option<Vec<Vec<(f64, f64)>>> },
     /// D-390: after CycoreFX's CC Ripple Pulse. `center`, per cent of the drawing, -1000 to 1000;
     /// `pulse_level`, -1000 to 1000; `time_span`, 0 to 10 seconds; `amplitude`, 0 to 1000;
     /// `render_bump_map`, "off" or "on". `levels` is not a setting and is never saved: the pulse
@@ -4465,6 +4474,7 @@ pub const MESH_WARP: &str = "core.mesh_warp";
 pub const WARP: &str = "core.warp";
 pub const LIQUIFY: &str = "core.liquify";
 pub const RESHAPE: &str = "core.reshape";
+pub const MASK_SMEAR: &str = "core.mask_smear";
 /// D-602: Bezier Warp's twelve points as they are saved, round the outline from the top left:
 /// each edge's vertex, then its two tangents.
 pub const BEZIER_POINTS: [&str; 12] = [
@@ -6504,6 +6514,14 @@ impl Effect {
                 ("light_direction", vec![light_direction], -3600.0, 3600.0),
                 ("back_opacity", vec![back_opacity], 0.0, 100.0),
             ],
+            Effect::MaskSmear { source_mask, boundary_mask, mask_offset, mask_rotation, mask_scale, percent, .. } => vec![
+                ("source_mask", vec![source_mask], 0.0, 1000.0),
+                ("boundary_mask", vec![boundary_mask], 0.0, 1000.0),
+                ("mask_offset", mask_offset.iter_mut().collect(), -10000.0, 10000.0),
+                ("mask_rotation", vec![mask_rotation], -3600.0, 3600.0),
+                ("mask_scale", vec![mask_scale], 0.0, 1000.0),
+                ("percent", vec![percent], 0.0, 100.0),
+            ],
             Effect::Reshape { source_mask, destination_mask, boundary_mask, percent, .. } => vec![
                 ("source_mask", vec![source_mask], 0.0, 1000.0),
                 ("destination_mask", vec![destination_mask], 0.0, 1000.0),
@@ -8461,6 +8479,8 @@ impl Effect {
             // D-356: the masks are scaled as they always are, before the stack.
             Effect::Stroke { brush_size, .. } => *brush_size = scale(*brush_size),
             Effect::Vegas { width, .. } => *width = scale(*width),
+            // D-607: the offset is a distance.
+            Effect::MaskSmear { mask_offset, .. } => *mask_offset = mask_offset.map(scale),
             // D-605: the brush and the offset are distances; the stroke is a share of the drawing.
             Effect::Liquify { brush_size, distortion_mesh_offset, .. } => {
                 *brush_size = scale(*brush_size);
@@ -8835,6 +8855,7 @@ impl Effect {
             Effect::Warp { .. } => "Warp",
             Effect::Liquify { .. } => "Liquify",
             Effect::Reshape { .. } => "Reshape",
+            Effect::MaskSmear { .. } => "Mask Smear",
             Effect::RipplePulse { .. } => "Ripple Pulse",
             Effect::Slant { .. } => "Slant",
             Effect::Smear { .. } => "Smear",
@@ -9101,6 +9122,7 @@ impl Effect {
             Effect::Warp { .. } => WARP,
             Effect::Liquify { .. } => LIQUIFY,
             Effect::Reshape { .. } => RESHAPE,
+            Effect::MaskSmear { .. } => MASK_SMEAR,
             Effect::RipplePulse { .. } => RIPPLE_PULSE,
             Effect::Slant { .. } => SLANT,
             Effect::Smear { .. } => SMEAR,
@@ -10373,6 +10395,10 @@ impl Effect {
             Effect::PageTurn { paper_color, .. } if hex_fault("Page Turn", "paper colour", paper_color).is_some() => {
                 hex_fault("Page Turn", "paper colour", paper_color)
             }
+            // D-607: the elasticity by name.
+            Effect::MaskSmear { elasticity, .. } if !crate::mesh::RESHAPE_ELASTICITY.iter().any(|(w, _)| w == elasticity) => Some(format!(
+                "Mask Smear's elasticity is stiff, less_stiff, below_normal, normal, above_normal, super_fluid or liquid, and this is \"{elasticity}\"."
+            )),
             // D-606: the elasticity by name.
             Effect::Reshape { elasticity, .. } if !crate::mesh::RESHAPE_ELASTICITY.iter().any(|(w, _)| w == elasticity) => Some(format!(
                 "Reshape's elasticity is stiff, less_stiff, below_normal, normal, above_normal, super_fluid or liquid, and this is \"{elasticity}\"."
@@ -13026,6 +13052,15 @@ pub(crate) fn apply_stack_at(
                     })
                 }
             }
+            // D-607: the masks compose found for this frame, in the drawing's own space; with none,
+            // the layer is left as it is. The layer never grows.
+            Effect::MaskSmear { mask_offset, mask_rotation, mask_scale, percent, elasticity, paths, .. } => crate::perf::time(crate::perf::Stage::EffectMaskSmear, || {
+                if let Some(paths) = paths.as_ref().filter(|_| *percent != 0.0) {
+                    let size = ((source.width() - 2 * ox) as f64, (source.height() - 2 * oy) as f64);
+                    let field = crate::mesh::smear(paths, *mask_offset, *mask_rotation, *mask_scale, *percent, elasticity, size);
+                    crate::mesh::draw_field(source, &field, 1.0, [0.0, 0.0], (ox, oy));
+                }
+            }),
             // D-606: the masks compose found for this frame, in the drawing's own space; with none,
             // the layer is left as it is (EFFECT_PATH_MISSING was said when a mask named was not
             // there). The layer never grows.

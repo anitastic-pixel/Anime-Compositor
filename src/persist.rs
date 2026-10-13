@@ -3860,6 +3860,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("back_opacity".into(), num(*back_opacity));
             params.insert("paper_color".into(), J::from(paper_color.as_str()));
         }
+        // D-607: the seven settings; the outlines are the masks', never saved here.
+        Effect::MaskSmear { source_mask, boundary_mask, mask_offset, mask_rotation, mask_scale, percent, elasticity, .. } => {
+            params.insert("source_mask".into(), num(*source_mask));
+            params.insert("boundary_mask".into(), num(*boundary_mask));
+            params.insert("mask_offset".into(), J::Array(mask_offset.iter().map(|c| num(*c)).collect()));
+            params.insert("mask_rotation".into(), num(*mask_rotation));
+            params.insert("mask_scale".into(), num(*mask_scale));
+            params.insert("percent".into(), num(*percent));
+            params.insert("elasticity".into(), J::from(elasticity.as_str()));
+        }
         // D-606: the five settings; the outlines are the masks', never saved here.
         Effect::Reshape { source_mask, destination_mask, boundary_mask, percent, elasticity, .. } => {
             params.insert("source_mask".into(), num(*source_mask));
@@ -6083,6 +6093,7 @@ fn parse_effect(
         crate::effects::WARP,
         crate::effects::LIQUIFY,
         crate::effects::RESHAPE,
+        crate::effects::MASK_SMEAR,
         crate::effects::RIPPLE_PULSE,
         crate::effects::SLANT,
         crate::effects::SMEAR,
@@ -8357,6 +8368,17 @@ fn parse_effect(
             expansion_left: effect_number(params, "expansion_left", &at)?,
             expansion_right: effect_number(params, "expansion_right", &at)?,
             expansion_bottom: effect_number(params, "expansion_bottom", &at)?,
+        }),
+        // D-607: the elasticity kept as written, so one outside the contract is refused by name.
+        crate::effects::MASK_SMEAR => Some(crate::effects::Effect::MaskSmear {
+            source_mask: effect_number(params, "source_mask", &at)?,
+            boundary_mask: effect_number(params, "boundary_mask", &at)?,
+            mask_offset: effect_array(params, "mask_offset", "two numbers, x then y", &at)?,
+            mask_rotation: effect_number(params, "mask_rotation", &at)?,
+            mask_scale: effect_number(params, "mask_scale", &at)?,
+            percent: effect_number(params, "percent", &at)?,
+            elasticity: effect_word(params, "elasticity", &at)?,
+            paths: None,
         }),
         // D-606: the elasticity kept as written, so one outside the contract is refused by name.
         crate::effects::RESHAPE => Some(crate::effects::Effect::Reshape {

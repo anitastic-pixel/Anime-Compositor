@@ -14196,6 +14196,15 @@ impl Gpu {
                 self.fx_step(steps, &passes.warp, FxParams { mode: 17, ..Default::default() }, Some(still), Some(&out), Some(&k), None, none, tiles(tw, th));
                 (out, (tw, th))
             }
+            // D-607, mesh::smear, drawn the same way.
+            E::MaskSmear { mask_offset, mask_rotation, mask_scale, percent, elasticity, paths, .. } => match paths.as_ref().filter(|_| *percent != 0.0) {
+                None => (still.clone(), (w, h)),
+                Some(paths) => {
+                    let field = crate::mesh::smear(paths, *mask_offset, *mask_rotation, *mask_scale, *percent, elasticity, ((w - 2 * ox) as f64, (h - 2 * oy) as f64));
+                    let k = crate::mesh::field_numbers(&field, 1.0, [0.0, 0.0], (w, h), f.origin);
+                    same(steps, &passes.warp, FxParams { mode: 151, ..Default::default() }, &k, None)
+                }
+            },
             // D-606, mesh::reshape, drawn the same way.
             E::Reshape { percent, elasticity, paths, .. } => match paths.as_ref().filter(|_| *percent != 0.0) {
                 None => (still.clone(), (w, h)),

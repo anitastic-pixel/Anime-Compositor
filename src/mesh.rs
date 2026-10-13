@@ -534,6 +534,37 @@ pub(crate) fn reshape_field(src: &[[f64; 2]], dst: &[[f64; 2]], boundary: Option
     Field { gx, gy, step }
 }
 
+/// D-607: Smear's source outline resampled as Reshape's is, and its destination: each point moved
+/// about the points' mean (summed in order), scaled by `scale` per cent, turned `rotation` degrees
+/// clockwise on the screen and moved by `offset` pixels, as `tools/mask_smear_reference.py` moves it.
+pub(crate) fn smear_points(source: &[(f64, f64)], offset: [f64; 2], rotation: f64, scale: f64) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+    let src = resample(source);
+    let (mut cx, mut cy) = (0.0, 0.0);
+    for p in &src {
+        cx += p[0];
+        cy += p[1];
+    }
+    let (cx, cy) = (cx / src.len() as f64, cy / src.len() as f64);
+    let (s, a) = (scale / 100.0, rotation.to_radians());
+    let (cos, sin) = (a.cos(), a.sin());
+    let dst = src
+        .iter()
+        .map(|p| {
+            let (dx, dy) = (s * (p[0] - cx), s * (p[1] - cy));
+            [cx + offset[0] + (dx * cos - dy * sin), cy + offset[1] + (dx * sin + dy * cos)]
+        })
+        .collect();
+    (src, dst)
+}
+
+/// D-607: Smear's field from compose's outlines (the source, then the boundary if one is named),
+/// drawn as Reshape's is.
+pub(crate) fn smear(paths: &[Vec<(f64, f64)>], offset: [f64; 2], rotation: f64, scale: f64, percent: f64, elasticity: &str, size: (f64, f64)) -> Field {
+    let (src, dst) = smear_points(&paths[0], offset, rotation, scale);
+    let e = RESHAPE_ELASTICITY.iter().find(|(w, _)| *w == elasticity).map_or(2.5, |(_, e)| *e);
+    reshape_field(&src, &dst, paths.get(1).map(Vec::as_slice), percent / 100.0, e, size)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

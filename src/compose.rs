@@ -1045,6 +1045,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Liquify { .. }
                 // D-606: Reshape.
                 | crate::effects::Effect::Reshape { .. }
+                // D-607: Mask Smear.
+                | crate::effects::Effect::MaskSmear { .. }
                 | crate::effects::Effect::RipplePulse { .. }
                 // D-391..D-393: Slant, Smear and Split.
                 | crate::effects::Effect::Slant { .. }
@@ -1559,6 +1561,8 @@ fn card_effect(
                 E::BezierWarp { points, .. } => *points == crate::effects::BEZIER_START,
                 // D-603: the mesh at rest.
                 E::MeshWarp { rows, columns, distortion_mesh, .. } => crate::mesh::warp_rests(*rows, *columns, distortion_mesh),
+                // D-607: no source, a mask named not found, or none of the way.
+                E::MaskSmear { paths, percent, .. } => paths.is_none() || *percent == 0.0,
                 // D-606: no source or destination, a mask named not found, or none of the way.
                 E::Reshape { paths, percent, .. } => paths.is_none() || *percent == 0.0,
                 // D-605: no stroke, or none of it drawn.
@@ -3220,6 +3224,32 @@ fn resolve_rest(
                     .with_remediation("Draw the masks on the layer, or set Source, Destination and Boundary Mask to masks it has."),
                 );
             } else if *source_mask >= 1.0 && *destination_mask >= 1.0 {
+                *paths = Some(found.into_iter().flatten().collect());
+            }
+        }
+    }
+    // D-607: each Mask Smear's source and, when one is named, boundary masks, chosen as
+    // Reshape's are. A source of 0 smears nothing and says nothing; a mask named and not found
+    // leaves the layer as it is and that is said every frame.
+    for instance in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::MaskSmear { source_mask, boundary_mask, paths, .. } = &mut instance.effect {
+            let usable = |n: f64| masks.get(n.floor() as usize - 1).filter(|m| m.enabled && m.points.len() >= 2).map(|m| m.outline());
+            *paths = None;
+            let named: Vec<f64> = [*source_mask, *boundary_mask].into_iter().filter(|n| *n >= 1.0).collect();
+            let found: Vec<_> = named.iter().map(|n| usable(*n)).collect();
+            if let Some(i) = found.iter().position(Option::is_none) {
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!("Layer {}'s Mask Smear has no mask {} that is on with two points or more, so it smears nothing.", layer.name, named[i].floor()),
+                        format!("Frame {frame} is drawn without the smear. The effect is kept as it is."),
+                    )
+                    .with_remediation("Draw the masks on the layer, or set Source and Boundary Mask to masks it has."),
+                );
+            } else if *source_mask >= 1.0 {
                 *paths = Some(found.into_iter().flatten().collect());
             }
         }
