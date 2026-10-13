@@ -214667,3 +214667,59 @@ FX-WS-028 (`fx_ws_028.json`): Additional Scale 0, below 1. The file is read, the
 FX-WS-029 (`fx_ws_029.json`): Result written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-WS-030 (`fx_ws_030.json`): Maximum Scale keyed to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Rolling Shutter Repair (D-654)
+
+Rolling Shutter Repair (`core.rolling_shutter_repair`), after After Effects' Rolling Shutter Repair (B-533), the scan's timing and both methods' rule ours. Every case is a project of one composition 32 by 32, six frames, the drawing `holder`, a textured card panning 3 right and 0.5 down a frame filmed by a camera scanning top to bottom in 80 per cent of a frame (`skew`), the same card panning 3 down and 0.5 right scanned left to right (`side`), or Pixel Motion Blur's soft disc, with the effect. `tools/rolling_shutter_repair_reference.py` works the expected frames, `Fixtures/rolling_shutter_repair/expected_rolling_shutter_repair.json`, tolerance 2e-5, with the motion estimate worked a second way by `tools/flow_reference.py` and Warp Stabilizer's fit by `tools/warp_stabilizer_reference.py`; the rule is in document 21. The viewer cache and the tiles are checked by `tests/b533_rolling_shutter_repair.rs` on the build's own frames.
+
+FX-RSR-001 (`fx_rsr_001.json`): As added: Warp at 50 per cent, scanned top to bottom, on the card filmed scanning in 80 per cent of a frame. Frame 0 is the layer's first, its motion before taken as the motion after turned round; frame 5 its last. Frames 0, 2, 5.
+
+FX-RSR-002 (`fx_rsr_002.json`): Rate 80, the camera's own: the slant taken out. Frames 2.
+
+FX-RSR-003 (`fx_rsr_003.json`): Rate 0: the layer exactly as it is. Frames 2.
+
+FX-RSR-004 (`fx_rsr_004.json`): Rate 100. Frames 2.
+
+FX-RSR-005 (`fx_rsr_005.json`): Bottom to Top on the card scanned top to bottom: the slant doubled, not taken out. Frames 2.
+
+FX-RSR-006 (`fx_rsr_006.json`): Left to Right on the card panning down and scanned left to right. Frames 2.
+
+FX-RSR-007 (`fx_rsr_007.json`): Right to Left on the same card. Frames 2.
+
+FX-RSR-008 (`fx_rsr_008.json`): Pixel Motion at 80 per cent. Frames 2.
+
+FX-RSR-009 (`fx_rsr_009.json`): Pixel Motion, Pixel Motion Detail 100. Frames 2.
+
+FX-RSR-010 (`fx_rsr_010.json`): Pixel Motion Detail keyed from 20 at frame 0 to 100 at frame 4: 60 at frame 2. Frames 2.
+
+FX-RSR-011 (`fx_rsr_011.json`): Warp with Detailed Analysis on. Frames 2.
+
+FX-RSR-012 (`fx_rsr_012.json`): Rate keyed from 0 at frame 0 to 100 at frame 4: 50 at frame 2, as added. Frames 2.
+
+FX-RSR-013 (`fx_rsr_013.json`): Pixel Motion Blur's disc running over nothing, Pixel Motion at 100: only its own pixels move. Frames 2.
+
+FX-RSR-014 (`fx_rsr_014.json`): An Exposure of +1 before Rolling Shutter Repair: the frames it reads are brightened too. Frames 2.
+
+FX-RSR-015 (`fx_rsr_015.json`): An Exposure of -1 after Rolling Shutter Repair darkens its picture. Frames 2.
+
+FX-RSR-016 (`fx_rsr_016.json`): The holder moved 3 right and 2 down: FX-RSR-001 moved. Frames 2.
+
+FX-RSR-017 (`fx_rsr_017.json`): The layer's in point at frame 2: frame 2 is its first, its motion before taken as the motion after turned round. Frames 2, 3.
+
+FX-RSR-018 (`fx_rsr_018.json`): The effect on an adjustment layer above the holder: nothing changes, and the frame says why. Frame warning `TEMPORAL_SMOOTHING_SKIPPED`. Frames 2.
+
+FX-RSR-019 (`fx_rsr_019.json`): The card on twos: each frame's held side takes the other side's motion turned round. Frames 2, 3.
+
+FX-RSR-020 (`fx_rsr_020.json`): Rolling Shutter Rate 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RSR-021 (`fx_rsr_021.json`): Rolling Shutter Rate -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RSR-022 (`fx_rsr_022.json`): Scan Direction written "diagonal". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RSR-023 (`fx_rsr_023.json`): Method written "optical". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RSR-024 (`fx_rsr_024.json`): Pixel Motion Detail 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RSR-025 (`fx_rsr_025.json`): Rolling Shutter Rate keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-RSR-026 (`fx_rsr_026.json`): Detailed Analysis written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
