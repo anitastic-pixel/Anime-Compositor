@@ -214603,3 +214603,67 @@ FX-POLYGON-SHARDS-034 (`fx_polygon_shards_034.json`): An object written "triangl
 FX-POLYGON-SHARDS-035 (`fx_polygon_shards_035.json`): A depth sort written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-POLYGON-SHARDS-036 (`fx_polygon_shards_036.json`): Force keyed to 2000 at frame 4, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Warp Stabilizer (D-653)
+
+Warp Stabilizer (`core.warp_stabilizer`), after After Effects' Warp Stabilizer (B-532), the fit, the smoothing window, the crop and the scale ours. Every case is a project of one composition 32 by 32, six frames, the drawing `holder`, a textured card shaken about a steady pan (`shake`), the same card also turned a little each frame (`turn`), or Pixel Motion Blur's soft disc, with the effect. `tools/warp_stabilizer_reference.py` works the expected frames, `Fixtures/warp_stabilizer/expected_warp_stabilizer.json`, tolerance 2e-5, with the motion estimate worked a second way by `tools/flow_reference.py`; the rule is in document 21. The viewer cache, nothing analysed being saved, and the tiles are checked by `tests/b532_warp_stabilizer.rs` on the build's own frames.
+
+FX-WS-001 (`fx_ws_001.json`): As added: Smooth Motion at Smoothness 50, Position, Scale, Rotation, Stabilize, Crop, Auto-scale, on the card shaken about a steady pan. Frames 0 and 5 are the layer's ends, where the window closes to nothing, so they are as drawn; frames 2 and 3 are steadied and scaled up past their moving edges. Frames 0, 2, 3, 5.
+
+FX-WS-002 (`fx_ws_002.json`): Stabilize Only: steadied, the edges the shake uncovers left clear. Frames 2, 3.
+
+FX-WS-003 (`fx_ws_003.json`): Stabilize, Crop: steadied, cut to the largest middle rectangle the shake never uncovers, not scaled. Frames 2.
+
+FX-WS-004 (`fx_ws_004.json`): Method Position, Stabilize Only: moves only. Frames 2.
+
+FX-WS-005 (`fx_ws_005.json`): The card also turned a little each frame, Position, Scale, Rotation, Stabilize Only. Frames 2.
+
+FX-WS-006 (`fx_ws_006.json`): The turned card, Perspective, Stabilize Only. Frames 2.
+
+FX-WS-007 (`fx_ws_007.json`): The turned card, Preserve Scale on, Stabilize Only. Frames 2.
+
+FX-WS-008 (`fx_ws_008.json`): No Motion, Stabilize Only: every frame held to the layer's first, the pan taken out too. Frames 1, 3.
+
+FX-WS-009 (`fx_ws_009.json`): Smoothness 0: the window is one frame, the layer exactly as it is. Frames 2.
+
+FX-WS-010 (`fx_ws_010.json`): Smoothness 8: one frame either side, where 50 reaches as far as the layer allows, two at frame 2. Frames 2.
+
+FX-WS-011 (`fx_ws_011.json`): Maximum Scale 101: the scale stops short, and the cut edges show clear. Frames 2.
+
+FX-WS-012 (`fx_ws_012.json`): Action-Safe Margin 10: scaled less, since a tenth of each side may stay cut. Frames 2.
+
+FX-WS-013 (`fx_ws_013.json`): Additional Scale 120 on Stabilize Only. Frames 2.
+
+FX-WS-014 (`fx_ws_014.json`): Additional Scale keyed from 100 at frame 0 to 140 at frame 4: 120 at frame 2. Frames 2.
+
+FX-WS-015 (`fx_ws_015.json`): Detailed Analysis on: the motion found with a vector for every pixel. Frames 2.
+
+FX-WS-016 (`fx_ws_016.json`): Pixel Motion Blur's disc running steadily over nothing, Stabilize Only: only its own pixels count, and a steady run is left nearly as it is. Frames 2.
+
+FX-WS-017 (`fx_ws_017.json`): An Exposure of +1 before Warp Stabilizer: the frames it reads are brightened too. Frames 2.
+
+FX-WS-018 (`fx_ws_018.json`): An Exposure of -1 after Warp Stabilizer darkens its picture. Frames 2.
+
+FX-WS-019 (`fx_ws_019.json`): The holder moved 3 right and 2 down: FX-WS-002 moved. Frames 2.
+
+FX-WS-020 (`fx_ws_020.json`): The layer's in point at frame 2: frame 2 is its first, as drawn; frame 3 has one frame either side. Frames 2, 3.
+
+FX-WS-021 (`fx_ws_021.json`): The effect on an adjustment layer above the holder: nothing changes, and the frame says why. Frame warning `TEMPORAL_SMOOTHING_SKIPPED`. Frames 2.
+
+FX-WS-022 (`fx_ws_022.json`): The shaken card on twos: the frames that repeat a drawing add no motion. Frames 2, 3.
+
+FX-WS-023 (`fx_ws_023.json`): Smoothness 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WS-024 (`fx_ws_024.json`): Method written "subspace_warp", which this program leaves out. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WS-025 (`fx_ws_025.json`): Framing written "stabilize_synthesize_edges", which this program leaves out. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WS-026 (`fx_ws_026.json`): Maximum Scale 99, below 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WS-027 (`fx_ws_027.json`): Action-Safe Margin 51, above 50. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WS-028 (`fx_ws_028.json`): Additional Scale 0, below 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WS-029 (`fx_ws_029.json`): Result written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-WS-030 (`fx_ws_030.json`): Maximum Scale keyed to 2000 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
