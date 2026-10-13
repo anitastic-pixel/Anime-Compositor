@@ -213190,3 +213190,79 @@ FX-BUBBLE-032 (`fx_bubble_032.json`): Reflection "mirror". The file is read, the
 FX-BUBBLE-033 (`fx_bubble_033.json`): Shading "Lighten": the word is exact, so capitals are not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BUBBLE-034 (`fx_bubble_034.json`): Speed keyed to 200 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Drizzle (D-672)
+
+Drizzle (B-551), after CycoreFX's CC Drizzle (Simulation): `tools/drizzle_reference.py` writes `Fixtures/drizzle/expected_drizzle.json`, tolerance 2e-5; the rule is in document 21. Every case is a composition 48 by 32 holding one drawing the same size, Bubbles' colour field or the field with its right half clear.
+
+FX-DRIZZLE-001 (`fx_drizzle_001.json`): As added: ten drops a second, each ripple spreading for a second to a radius of an eighth of the picture's height (4 pixels here), two rings, lit from the top left: at frame 0 no drop yet, the still water lit evenly; at frames 13 and 25 small rings over the picture. Frames 0, 13, 25.
+
+FX-DRIZZLE-002 (`fx_drizzle_002.json`): Four drops a second spreading to 24 pixels, Displacement 200, unlit: the picture bent by wide rings and untouched between them; frame 8 has one young ripple, frame 20 three. Frames 8, 14, 20.
+
+FX-DRIZZLE-003 (`fx_drizzle_003.json`): FX-DRIZZLE-002 lit as added: the rings stand out, lighter on the sides facing the top-left light. Frames 14.
+
+FX-DRIZZLE-004 (`fx_drizzle_004.json`): Rippling 0: one ring a ripple. Frames 14.
+
+FX-DRIZZLE-005 (`fx_drizzle_005.json`): Rippling 1080: four rings a ripple, closer together. Frames 14.
+
+FX-DRIZZLE-006 (`fx_drizzle_006.json`): Displacement 0: the picture is not bent, only lit by the rings. Frames 14.
+
+FX-DRIZZLE-007 (`fx_drizzle_007.json`): Displacement -200: bent the other way. Frames 14.
+
+FX-DRIZZLE-008 (`fx_drizzle_008.json`): Ripple Height 0: still water, so unlit the picture is untouched. Frames 14.
+
+FX-DRIZZLE-009 (`fx_drizzle_009.json`): Ripple Height -100: the rings dip where they rose, twice as deep. Frames 14.
+
+FX-DRIZZLE-010 (`fx_drizzle_010.json`): Longevity 0.5: each ripple spreads in half a second and is gone, so fewer live at once. Frames 14, 20.
+
+FX-DRIZZLE-011 (`fx_drizzle_011.json`): Longevity 0: no ripple lives; unlit, the picture untouched. Frames 14.
+
+FX-DRIZZLE-012 (`fx_drizzle_012.json`): Drip Rate 0: no drops; unlit, the picture untouched. Frames 14.
+
+FX-DRIZZLE-013 (`fx_drizzle_013.json`): Drip Rate keyed from 0 at frame 0 to 24 at frame 12: by frame 11 five drops have been born, the rate summed from the in point. Frames 6, 11.
+
+FX-DRIZZLE-014 (`fx_drizzle_014.json`): Longevity keyed from 1 at frame 0 to 0.25 at frame 12: it is read at the in point only, so the same as FX-DRIZZLE-002. Frames 14, 20.
+
+FX-DRIZZLE-015 (`fx_drizzle_015.json`): FX-DRIZZLE-002 with the layer starting at frame 6: frame 14 is 002's frame 8 and frame 26 its frame 20, because the drops start at the in point. Frames 14, 26.
+
+FX-DRIZZLE-016 (`fx_drizzle_016.json`): FX-DRIZZLE-003 moved 3 pixels right: the same, moved. Frames 14.
+
+FX-DRIZZLE-017 (`fx_drizzle_017.json`): FX-DRIZZLE-002 at 30 frames a second: frame 14 is seven fifteenths of a second in, not seven twelfths. Frames 14.
+
+FX-DRIZZLE-018 (`fx_drizzle_018.json`): A point light at the middle, 10 pixels up: the water brightest under it and darker towards the corners. Frames 14.
+
+FX-DRIZZLE-019 (`fx_drizzle_019.json`): An orange light, Specular 100, Roughness 0.5, Metal 0, Diffuse 0: broad highlights in the light's own orange on the rings. Frames 14.
+
+FX-DRIZZLE-020 (`fx_drizzle_020.json`): The picture with its right half clear: the clear half stays clear except where a ring bends the picture across the edge. Frames 14.
+
+FX-DRIZZLE-021 (`fx_drizzle_021.json`): Light Direction 135, from the bottom right: the other sides of the rings light. Frames 14.
+
+FX-DRIZZLE-022 (`fx_drizzle_022.json`): Spreading 0: no ripple has a size; lit as added, the still water. Frames 14.
+
+FX-DRIZZLE-023 (`fx_drizzle_023.json`): Spreading keyed from 300 at frame 0 to 100 at frame 12: every live ripple takes the spreading as it is now, so at frame 14 all are a third the size of FX-DRIZZLE-002's. Frames 14.
+
+FX-DRIZZLE-024 (`fx_drizzle_024.json`): Thirty drops a second, Rippling 720, lit as added: a downpour. Frames 25.
+
+FX-DRIZZLE-025 (`fx_drizzle_025.json`): Drip Rate -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DRIZZLE-026 (`fx_drizzle_026.json`): Drip Rate 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DRIZZLE-027 (`fx_drizzle_027.json`): Longevity 101, above 100 seconds. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DRIZZLE-028 (`fx_drizzle_028.json`): Rippling 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DRIZZLE-029 (`fx_drizzle_029.json`): Displacement 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DRIZZLE-030 (`fx_drizzle_030.json`): Ripple Height -1001, below -1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DRIZZLE-031 (`fx_drizzle_031.json`): Spreading 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DRIZZLE-032 (`fx_drizzle_032.json`): Roughness 0, below 0.001. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DRIZZLE-033 (`fx_drizzle_033.json`): A light type written "spot". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DRIZZLE-034 (`fx_drizzle_034.json`): A light colour written "white". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DRIZZLE-035 (`fx_drizzle_035.json`): Light position across 1001, past ten widths. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-DRIZZLE-036 (`fx_drizzle_036.json`): Drip Rate keyed to 2000 at frame 4, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
