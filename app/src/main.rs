@@ -7426,7 +7426,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         // setting the command does not name at its start. D-571: the other curves as the hue
         // curve, and the wheels' word.
         COLOR_GRADE => {
-            let mut values = [0.0; 54];
+            let mut values = [0.0; 55];
             for (i, ((name, _, _, start), v)) in COLOR_GRADE_SETTINGS.iter().zip(values.iter_mut()).enumerate() {
                 *v = if i < 22 || parameter(query, name).is_some() { number(name)? } else { *start };
             }

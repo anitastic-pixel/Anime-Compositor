@@ -2548,8 +2548,9 @@ pub(crate) fn kernel(source: &mut WorkingBuffer, grid: [[f64; 3]; 3], divider: f
 /// D-147: each pixel that shows pushed `amount` percent further from its colour blurred at
 /// sigma `radius`, both as written, the blur divided by its own covering. D-317: a channel
 /// nearer its blur than `threshold` levels of 255 is left alone. The settings are already valid.
+/// D-637: Color Grade's amount below 0 softens, toward the blur.
 pub(crate) fn sharpen(source: &mut WorkingBuffer, amount: f64, radius: f64, threshold: f64) {
-    if amount <= 0.0 || radius <= 0.0 {
+    if amount == 0.0 || radius <= 0.0 {
         return;
     }
     let mut blurred = source.clone();

@@ -1941,6 +1941,23 @@ pub(crate) struct Vignette {
     pub outer: f64,
     pub color: [f64; 3],
     pub amount: f64,
+    /// D-637: 1 / p of the p-norm the distance is measured by: 0.5 the circle's (D-126's), 0
+    /// the largest of the two, between them squarer shapes.
+    pub norm: f64,
+}
+
+/// D-637: the distance of `(dx, dy)` by the p-norm with p = 1 / `q`, over that of (1, 1).
+pub(crate) fn vignette_distance(dx: f64, dy: f64, q: f64) -> f64 {
+    if q == 0.5 {
+        return (dx * dx + dy * dy).sqrt() / 2f64.sqrt();
+    }
+    let (ax, ay) = (dx.abs(), dy.abs());
+    let most = ax.max(ay);
+    if q == 0.0 || most == 0.0 {
+        return most;
+    }
+    let p = 1.0 / q;
+    most * ((ax / most).powf(p) + (ay / most).powf(p)).powf(q) / 2f64.powf(q)
 }
 
 /// D-126: each pixel that shows mixed toward the colour by how far out it lies on the oval, 0
@@ -1963,7 +1980,7 @@ pub(crate) fn vignette(source: &mut WorkingBuffer, v: &Vignette) {
                 return;
             }
             let (dx, dy) = (((i % w) as f64 + 0.5 - cx) / rx, ((i / w) as f64 + 0.5 - cy) / ry);
-            let d = (dx * dx + dy * dy).sqrt() / 2f64.sqrt();
+            let d = vignette_distance(dx, dy, v.norm);
             let t = if v.inner == v.outer {
                 if d >= v.outer { 1.0 } else { 0.0 }
             } else {

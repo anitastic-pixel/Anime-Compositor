@@ -1232,7 +1232,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // D-571: the card draws a Color Grade a pixel at a time; its HSL Secondary key's denoise
         // and blur read the key round each pixel, so a grade with either stays on the CPU.
         // ponytail: teach the card the key's median and blur if a refined key is slow here.
-        && !matches!(&instance.effect, crate::effects::Effect::ColorGrade { values, .. } if values[52] > 0.0 || values[53] > 0.0)
+        // D-637: and its Sharpen reads the pixels round each, likewise.
+        // ponytail: split the card's grade round the Sharpen pass if a sharpened grade is slow.
+        && !matches!(&instance.effect, crate::effects::Effect::ColorGrade { values, .. } if values[52] > 0.0 || values[53] > 0.0 || values[54] != 0.0)
         // D-541: a Linear Color Key's Keep Colors reads the pixels before the keys above it,
         // which the processor keeps (`effects::apply_stack_at`).
         && !matches!(&instance.effect, crate::effects::Effect::LinearColorKey { key_operation, .. } if key_operation == "keep")

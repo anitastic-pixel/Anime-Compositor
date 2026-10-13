@@ -1347,10 +1347,19 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     if F.mode == 8u {
         // k: the centre, the half-axes, where the fall starts and ends, the amount, the root of
-        // 2, the colour in linear light.
+        // 2, the colour in linear light, and D-637's 1 / p of the norm (0.5 the circle's).
         let dx = (f64(id.x) + 0.5lf - k[0]) / k[2];
         let dy = (f64(id.y) + 0.5lf - k[1]) / k[3];
-        let d = sqrt(dx * dx + dy * dy) / k[7];
+        var d = sqrt(dx * dx + dy * dy) / k[7];
+        if k[11] != 0.5lf {
+            let most = max(abs(dx), abs(dy));
+            d = most;
+            if k[11] > 0.0lf && most > 0.0lf {
+                let p = f32(1.0lf / k[11]);
+                let sum = pow(f32(abs(dx) / most), p) + pow(f32(abs(dy) / most), p);
+                d = most * f64(pow(sum, f32(k[11])) / pow(2.0, f32(k[11])));
+            }
+        }
         var t = select(0.0lf, 1.0lf, d >= k[5]);
         if k[4] != k[5] {
             let u = clamp((d - k[4]) / (k[5] - k[4]), 0.0lf, 1.0lf);
@@ -13595,6 +13604,7 @@ impl Gpu {
                 let v = crate::effects::vignette_settings(*amount, color, [*size, *roundness, *softness], *center, (w, h), f.origin);
                 let mut k = vec![v.center.0, v.center.1, v.radii.0, v.radii.1, v.inner, v.outer, v.amount, 2f64.sqrt()];
                 k.extend(v.color.map(crate::grade::to_linear));
+                k.push(v.norm);
                 same(steps, &passes.grade, FxParams { mode: 8, ..Default::default() }, &k, None)
             }
             E::FractalNoise { size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend: b, fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, frame, float: _ } => {
@@ -14851,8 +14861,10 @@ impl Gpu {
                         G::Vignette(v) => {
                             let mut k = vec![v.center.0, v.center.1, v.radii.0, v.radii.1, v.inner, v.outer, v.amount, 2f64.sqrt()];
                             k.extend(v.color.map(crate::grade::to_linear));
+                            k.push(v.norm);
                             stage(0, 8, k)
                         }
+                        G::Sharpen(_) => unreachable!("D-637: compose keeps a sharpened grade on the processor"),
                     })
                     .collect();
                 if mine.is_empty() { (still.clone(), (w, h)) } else { (self.chain(steps, still, (w, h), &mine), (w, h)) }

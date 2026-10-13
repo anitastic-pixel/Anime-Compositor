@@ -1862,9 +1862,9 @@ pub enum Effect {
     /// (D-111's form); `hue_saturation`, 0 to 16 points [hue, saturation]; `key_invert`, "off" or
     /// "on"; `key_view`, "off" or "mask". Kept as written, so a file's wrong one is reported.
     /// D-571: `more_curves`, the curves of `COLOR_GRADE_MORE_CURVES` in that order, 0 to 16
-    /// points each; `secondary_wheels`, "one" or "three".
+    /// points each; `secondary_wheels`, "one" or "three". D-637: `sharpen`, the 55th setting.
     ColorGrade {
-        values: [f64; 54],
+        values: [f64; 55],
         look: String,
         curves: [Vec<Vec<f64>>; 4],
         hue_saturation: Vec<Vec<f64>>,
@@ -4183,8 +4183,9 @@ pub const PHOTO_FILTER: &str = "core.photo_filter";
 pub const COLOR_GRADE: &str = "core.color_grade";
 /// D-397: Color Grade's keyable settings, in the order `values` holds them: name, lowest,
 /// highest, and the value when the effect is added. D-398 adds the 24 after the vignette's, and
-/// D-571 the last 8, which a file from before either leaves at their start.
-pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 54] = [
+/// D-571 the last 8, which a file from before either leaves at their start. D-637 adds
+/// `sharpen` and takes the vignette's roundness below 0, its squarer shapes.
+pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 55] = [
     ("temperature", -100.0, 100.0, 0.0),
     ("tint", -100.0, 100.0, 0.0),
     ("exposure", -5.0, 5.0, 0.0),
@@ -4205,7 +4206,7 @@ pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 54] = [
     ("tint_balance", -100.0, 100.0, 0.0),
     ("vignette_amount", -5.0, 5.0, 0.0),
     ("vignette_midpoint", 0.0, 100.0, 50.0),
-    ("vignette_roundness", 0.0, 100.0, 0.0),
+    ("vignette_roundness", -100.0, 100.0, 0.0),
     ("vignette_feather", 0.0, 100.0, 50.0),
     ("shadow_wheel_hue", 0.0, 360.0, 0.0),
     ("shadow_wheel_amount", 0.0, 100.0, 0.0),
@@ -4239,6 +4240,7 @@ pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 54] = [
     ("secondary_highlight_lightness", -100.0, 100.0, 0.0),
     ("key_denoise", 0.0, 100.0, 0.0),
     ("key_blur", 0.0, 100.0, 0.0),
+    ("sharpen", -100.0, 100.0, 0.0),
 ];
 /// D-398: Color Grade's curves' names, in the order `curves` holds them.
 pub const COLOR_GRADE_CURVES: [&str; 4] = ["curve_master", "curve_red", "curve_green", "curve_blue"];
@@ -13471,6 +13473,7 @@ pub(crate) fn apply_stack_at(
                         GradeStep::Wheels(sh, mid, hi) => crate::grade::color_balance(source, sh, mid, hi, false),
                         GradeStep::Secondary(s) => crate::grade::secondary(source, &s),
                         GradeStep::Vignette(v) => crate::grade::vignette(source, &v),
+                        GradeStep::Sharpen(s) => crate::layer_fx::sharpen(source, s, 1.0, 0.0),
                     }
                 }
             }),
@@ -14611,11 +14614,13 @@ pub(crate) fn vignette_settings(
 ) -> crate::grade::Vignette {
     let w0 = (w - 2 * ox) as f64;
     let h0 = (h - 2 * oy) as f64;
-    let (m, r) = (roundness / 100.0, (w0 * h0).sqrt() / 2.0);
+    // D-637: a roundness below 0 (Color Grade's only) keeps 0's half-axes and squares the norm.
+    let (m, r) = (roundness.max(0.0) / 100.0, (w0 * h0).sqrt() / 2.0);
     let outer = size / 100.0;
     crate::grade::Vignette {
         center: radial_center(center, (w, h), (ox, oy)),
         radii: ((1.0 - m) * w0 / 2.0 + m * r, (1.0 - m) * h0 / 2.0 + m * r),
+        norm: (1.0 + roundness.min(0.0) / 100.0) / 2.0,
         inner: outer * (1.0 - softness / 100.0),
         outer,
         color: encoded(color),
@@ -14659,6 +14664,8 @@ pub(crate) enum GradeStep<'a> {
     Wheels([f64; 3], [f64; 3], [f64; 3]),
     Secondary(crate::grade::Secondary),
     Vignette(crate::grade::Vignette),
+    /// D-637: the Sharpen effect's rule at a 1-pixel blur, -100..100 (below 0 it softens).
+    Sharpen(f64),
 }
 
 /// D-397: Color Grade's steps for these settings, held to their ranges, in order; empty when
@@ -14666,12 +14673,13 @@ pub(crate) enum GradeStep<'a> {
 /// named, missing or refused, which `crate::lut::fill` said) is left out and the rest drawn.
 /// D-398: the curves, hue versus saturation, wheels and HSL Secondary before the vignette,
 /// which the mask view leaves out. D-571: the other four curves after hue versus saturation, and
-/// the HSL Secondary's three wheels and its key's denoise and blur.
+/// the HSL Secondary's three wheels and its key's denoise and blur. D-637: Sharpen after the
+/// faded film, before the vibrance, as Lumetri's Creative section.
 pub(crate) fn color_grade_steps(effect: &Effect, (w, h): (usize, usize), (ox, oy): (usize, usize)) -> Vec<GradeStep<'_>> {
     let Effect::ColorGrade { values, curves, hue_saturation, more_curves, key_invert, key_view, secondary_wheels, table, .. } = effect else {
         return Vec::new();
     };
-    let v: [f64; 54] = std::array::from_fn(|i| values[i].clamp(COLOR_GRADE_SETTINGS[i].1, COLOR_GRADE_SETTINGS[i].2));
+    let v: [f64; 55] = std::array::from_fn(|i| values[i].clamp(COLOR_GRADE_SETTINGS[i].1, COLOR_GRADE_SETTINGS[i].2));
     let [temperature, tint, exposure, contrast, highlights, shadows, whites, blacks, saturation, intensity, faded, vibrance, creative, shadow_hue, shadow_amount, highlight_hue, highlight_amount, balance, vignette, midpoint, roundness, feather] =
         std::array::from_fn(|i| v[i]);
     let gains = |temperature: f64, tint: f64, exposure: f64| {
@@ -14692,6 +14700,9 @@ pub(crate) fn color_grade_steps(effect: &Effect, (w, h): (usize, usize), (ox, oy
     }
     if faded != 0.0 {
         out.push(GradeStep::Tone([1.0; 3], [0.0, 0.0, 0.0, 0.0, 0.0, faded / 100.0]));
+    }
+    if v[54] != 0.0 {
+        out.push(GradeStep::Sharpen(v[54]));
     }
     if vibrance != 0.0 || creative != 100.0 {
         out.push(GradeStep::Vibrance(vibrance, creative - 100.0));
