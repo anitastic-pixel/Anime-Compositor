@@ -10,12 +10,15 @@ use std::path::{Path, PathBuf};
 
 use serde_json::Value as J;
 
+use anime_compositor::cache::CelCache;
 use anime_compositor::command::{Command, Document};
-use anime_compositor::compose::{plan_frame, render_frame};
-use anime_compositor::diagnostics::FrameLog;
+use anime_compositor::compose::{self, plan_frame, render_frame};
+use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
 use anime_compositor::effects::{Effect, EffectKey};
-use anime_compositor::model::{Id, Interp};
-use anime_compositor::persist;
+use anime_compositor::gpu::Gpu;
+use anime_compositor::model::{Id, Interp, Project};
+use anime_compositor::preview::{self, PreviewQuality};
+use anime_compositor::{persist, render};
 use anime_compositor::WorkingBuffer;
 
 pub const MAIN: &str = "comp-main";
@@ -391,4 +394,111 @@ pub const NINE: &[&str] = &[
 
 pub fn strings(v: &[&str]) -> Vec<String> {
     v.iter().map(|s| s.to_string()).collect()
+}
+
+/// D-617: the largest difference, of 255, between two straight 8-bit pictures over the pixels
+/// either covers, and the pixels differing.
+pub fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
+    assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
+    let (mut largest, mut pixels) = (0, 0);
+    for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
+        if p[3] == 0 && q[3] == 0 {
+            continue;
+        }
+        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
+        largest = largest.max(d);
+        pixels += (d > 0) as usize;
+    }
+    (largest, pixels)
+}
+
+fn said(log: FrameLog) -> String {
+    let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
+    ids.sort();
+    ids.dedup();
+    ids.join(", ")
+}
+
+/// D-617: the effects `mine` picks that the card's plan leaves to the card, over every layer.
+pub fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality, mine: fn(&Effect) -> bool) -> usize {
+    let mut log = FrameLog::new(3);
+    let plan = compose::plan_frame_for_card(project, comp, frame, root, quality, &mut log, &mut CelCache::viewer()).expect("plan the frame");
+    plan.layers.iter().flat_map(|l| &l.on_card).filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if mine(&f.instance.effect))).count()
+}
+
+/// D-617: the processor and the card, each drawing the frame the page receives: the largest
+/// difference and the pixels differing, whether the card refused the frame, and each one's warnings.
+pub fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
+    let mut cache = CelCache::viewer();
+    let mut log = FrameLog::new(3);
+    let c = preview::preview_frame_cached(project, comp, frame, root, quality, compose::DEFAULT_TILE_SIZE, &mut log, &mut cache)
+        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
+    let said_cpu = said(log);
+    let mut log = FrameLog::new(3);
+    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, compose::DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
+        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
+    let said_gpu = said(log);
+    let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
+    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
+}
+
+impl Table {
+    /// D-617: every fixture file of `expected` on the card against the processor, at each frame
+    /// its case draws, at Full and Draft. The files numbered in `none` (their effect left out)
+    /// have nothing on the card; every other has its effect, the one `mine` picks, there.
+    pub fn card_fixtures(&mut self, gpu: &mut Gpu, expected: &str, none: &[u32], mine: fn(&Effect) -> bool) {
+        let comp = Id::new(MAIN);
+        let expected: J = serde_json::from_str(&fs::read_to_string(self.root.join(expected)).unwrap()).unwrap();
+        for (name, case) in expected["cases"].as_object().unwrap() {
+            let n: u32 = name.rsplit('-').next().unwrap().parse().unwrap();
+            let file = case["project"].as_str().unwrap();
+            let frames: Vec<i32> = case["frames"].as_object().unwrap().keys().map(|f| f.parse().unwrap()).collect();
+            let project = persist::load(&self.root.join(file)).unwrap().document.project().clone();
+            let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
+            for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+                for &frame in &frames {
+                    let (d, r, a, b) = both(gpu, &project, &comp, &self.root, frame, quality);
+                    largest = largest.max(d.0);
+                    refused |= r;
+                    agree &= a == b;
+                    card += on_card(&project, &comp, &self.root, frame, quality, mine);
+                }
+            }
+            self.row(
+                &format!("{name}, {file}, frames {frames:?} at Full and Draft"),
+                &format!("largest difference {largest} of 255; on the card in {card} of {} frames; refused by the card: {refused}; the same warnings: {agree}", 2 * frames.len()),
+                largest <= 1 && !refused && agree && (card == 0) == none.contains(&n),
+            );
+        }
+    }
+
+    /// D-617: each of `shots`, the reference shot with the effect (`mine`) on its `want` layers,
+    /// frames 0, 100 and 239 at Full and Draft, on the card against the processor; first, that its
+    /// processor frame 100 differs from `plain`, so the comparisons test the effect.
+    pub fn card_reference(&mut self, gpu: &mut Gpu, plain: &Project, shots: &[(&str, Project, usize)], mine: fn(&Effect) -> bool) {
+        let comp = Id::new("comp-reference-shot");
+        let root = repo("Fixtures/reference_shot");
+        let cpu = |project: &Project| {
+            let mut log = FrameLog::new(3);
+            preview::preview_frame_cached(project, &comp, 100, &root, PreviewQuality::Full, compose::DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer())
+                .expect("the reference shot draws")
+                .to_srgb8_straight()
+        };
+        let without = cpu(plain);
+        for (what, project, want) in shots {
+            let changed = distance(&cpu(project), &without).1;
+            self.row(&format!("the reference shot, {what}: the processor's frame 100 differs from the shot without it"), &format!("{changed} pixels changed"), changed > 0);
+            for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+                for frame in [0, 100, 239] {
+                    let (d, r, a, b) = both(gpu, project, &comp, &root, frame, quality);
+                    let card = on_card(project, &comp, &root, frame, quality, mine);
+                    self.row(
+                        &format!("the reference shot, {what}, frame {frame}, {}", quality.label()),
+                        &format!("largest difference {} of 255, {} pixels differ; {card} of {want} on the card; warnings CPU [{a}] GPU [{b}]", d.0, d.1),
+                        d.0 <= 1 && !r && a == b && card == *want,
+                    );
+                }
+            }
+        }
+    }
 }

@@ -25,8 +25,9 @@ use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
 use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
-use anime_compositor::diagnostics::FrameLog;
+use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
 use anime_compositor::effects::{Effect, PARTICLE_EMITTER_COLORS, PARTICLE_EMITTER_SETTINGS, PARTICLE_EMITTER_WORDS};
+use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{particles, persist, png_out, OutputDepth};
@@ -124,8 +125,9 @@ fn b495_particle_emitter() {
          gravity, wind and swirling air, and bouncing, sliding or sticking on a floor; drawn as \
          soft or glowing spheres, stars, faded clouds or streaks over a clear layer, through the \
          composition camera when there is one. Nothing is carried from frame to frame: every \
-         frame works each particle out from its birth (document 20). Drawn on the processor \
-         only. Red Giant publishes no formula and no settings when added, so the rules, those \
+         frame works each particle out from its birth (document 20). The particles are worked \
+         out on the processor and drawn on the card too (D-617), within 1 level of the \
+         processor. Red Giant publishes no formula and no settings when added, so the rules, those \
          settings and the name are ours, stated in `tools/particle_emitter_reference.py`. Every \
          expected pixel is `Fixtures/particle_emitter/expected_particle_emitter.json` and every \
          expected particle `Fixtures/particle_emitter/particles_particle_emitter.json`, written \
@@ -251,6 +253,21 @@ fn b495_particle_emitter() {
             said.is_empty() && differing(&bytes, &street) > 0,
         );
     }
+    t.heading("On the card (D-617)");
+    let mut gpu = Gpu::new().expect("a graphics card");
+    let mine: fn(&Effect) -> bool = |e| matches!(e, Effect::ParticleEmitter { .. });
+    t.card_fixtures(&mut gpu, "expected_particle_emitter.json", &(52..=63).collect::<Vec<_>>(), mine);
+    let shots: Vec<(&str, Project, usize)> = [
+        ("Particle Emitter as added", json!({})),
+        ("glowing spheres added, turbulence", json!({"particles_per_second": 300, "particle_type": "glow_sphere", "size": 10, "transfer_mode": "add", "turbulence": 60})),
+        ("stars screened from a box", json!({"emitter_type": "box", "emitter_size_x": 600, "particles_per_second": 200, "particle_type": "star", "size": 14, "transfer_mode": "screen"})),
+        ("cloudlets bouncing on a floor", json!({"particles_per_second": 200, "particle_type": "cloudlet", "size": 20, "gravity": 300, "floor_position": 80, "floor_action": "bounce"})),
+        ("streaks from a ball", json!({"emitter_type": "sphere", "particles_per_second": 400, "particle_type": "streak", "velocity": 300, "size": 3})),
+    ]
+    .into_iter()
+    .map(|(what, p)| (what, reference(json!([fx("card", &p)])), 1))
+    .collect();
+    t.card_reference(&mut gpu, &reference(json!([])), &shots, mine);
     t.finish("D-615_particle_emitter_table.md");
 }
 
@@ -268,17 +285,20 @@ fn reference(stack: J) -> Project {
 }
 
 /// The frame times, B-493's way: the reference shot (1920 by 1080, 24 a second) with Particle
-/// Emitter on its first layer, frames 0, 60, 120 and 239 each drawn on the processor with empty
-/// caches, three times; the median of the three. A later frame steps every particle further from
-/// its birth, so it costs more.
+/// Emitter on its first layer, frames 0, 60, 120 and 239 each drawn with empty caches, three
+/// times; the median of the three. A later frame steps every particle further from its birth, so
+/// it costs more. D-617: each shot drawn by the card and by the processor, the card after one
+/// frame unmeasured so its passes are built.
 #[test]
 #[ignore = "B-495: a measurement, run deliberately with --release --ignored"]
 fn b495_particle_emitter_timing() {
     use std::fmt::Write as _;
 
+    let mut gpu = Gpu::new().expect("a usable card");
     let mut s = format!(
-        "- Processor: {}, {} threads\n- System: {}\n- Build: {}\n- Drawn by: the processor (Particle Emitter has no card path)\n\n\
-         | Shot | Frame 0 | Frame 60 | Frame 120 | Frame 239 |\n|---|---:|---:|---:|---:|\n",
+        "- Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n- Drawn by: the card and the processor (D-617)\n\n\
+         | Shot | Drawn by | Frame 0 | Frame 60 | Frame 120 | Frame 239 |\n|---|---|---:|---:|---:|---:|\n",
+        gpu.about(),
         std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
         std::thread::available_parallelism().map_or(0, |n| n.get()),
         std::env::consts::OS,
@@ -296,7 +316,24 @@ fn b495_particle_emitter_timing() {
     ];
     for (name, p) in shots {
         let project = reference(p.map_or(json!([]), |p| json!([fx("timing", &p)])));
-        let _ = write!(s, "| {name} |");
+        let mut card = |frame| {
+            let mut log = FrameLog::new(3);
+            gpu.forget();
+            let t = std::time::Instant::now();
+            drop(
+                preview::preview_frame_srgb8(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut CelCache::viewer(), &mut gpu)
+                    .expect("GPU frame"),
+            );
+            let ms = t.elapsed().as_secs_f64() * 1000.0;
+            assert!(!log.finish().iter().any(|d| d.id == DiagnosticId::GpuPreviewOnCpu), "the card refused {name}");
+            ms
+        };
+        card(0);
+        let _ = write!(s, "| {name} | card |");
+        for frame in [0, 60, 120, 239] {
+            let _ = write!(s, " {:.1} ms |", median((0..3).map(|_| card(frame)).collect()));
+        }
+        let _ = write!(s, "\n| {name} | processor |");
         for frame in [0, 60, 120, 239] {
             let times: Vec<f64> = (0..3)
                 .map(|_| {

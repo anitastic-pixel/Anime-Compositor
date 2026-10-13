@@ -1177,6 +1177,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::Drizzle { .. }
                 // D-612.
                 | crate::effects::Effect::ParticlePlane { .. }
+                // D-617.
+                | crate::effects::Effect::ParticleEmitter { .. }
                 // D-673.
                 | crate::effects::Effect::Hair { .. }
                 // D-674.
@@ -1789,6 +1791,7 @@ pub fn adjust_run(stack: &[crate::effects::EffectInstance], size: (usize, usize)
                 | E::CcBallAction { .. }
                 | E::ParticleSpace { .. }
                 | E::ParticlePlane { .. }
+                | E::ParticleEmitter { .. }
                 | E::HsvKey { .. }
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }
@@ -3431,6 +3434,7 @@ fn resolve_rest(
                 | E::CcBallAction { .. }
                 | E::ParticleSpace { .. }
                 | E::ParticlePlane { .. }
+                | E::ParticleEmitter { .. }
                 | E::HsvKey { .. }
                 | E::ColorKey { .. }
                 | E::SelectColor { .. }

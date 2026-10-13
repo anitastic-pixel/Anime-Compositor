@@ -6980,6 +6980,28 @@ fn star_cover(s: u32, x: f64, y: f64) -> vec4<f64> {
     return vec4(k[s + 7u] * a, k[s + 8u] * a, k[s + 9u] * a, a);
 }
 
+// D-617, particles::cover's Particle Emitter spheres from k[s], never lit: the soft sphere (9),
+// feathered over k[s + 4], and the glowing sphere (10), a core of half the radius feathered over
+// k[s + 4] and a glow out to the radius.
+fn soft_cover(s: u32, x: f64, y: f64) -> vec4<f64> {
+    let r = k[s + 3u];
+    let w = k[s + 4u];
+    let dx = x - k[s + 1u];
+    let dy = y - k[s + 2u];
+    let e = sqrt(dx * dx + dy * dy);
+    var cv = clamp((r - e) / w + 0.5lf, 0.0lf, 1.0lf);
+    if k[s] == 10.0lf {
+        let core = clamp((r / 2.0lf - e) / w + 0.5lf, 0.0lf, 1.0lf);
+        let g = max(1.0lf - e / r, 0.0lf);
+        cv = core + (1.0lf - core) * g * g / 2.0lf;
+    }
+    if cv <= 0.0lf {
+        return vec4(0.0lf);
+    }
+    let a = k[s + 6u] * cv;
+    return vec4(k[s + 7u] * a, k[s + 8u] * a, k[s + 9u] * a, a);
+}
+
 // D-610, particles::cover: sprite n of k (from 7, eleven each) at the own point (x, y),
 // premultiplied; nothing where it does not reach.
 fn sprite_cover(n: u32, x: f64, y: f64) -> vec4<f64> {
@@ -6987,6 +7009,9 @@ fn sprite_cover(n: u32, x: f64, y: f64) -> vec4<f64> {
     let kind = k[s];
     if kind == 8.0lf {
         return star_cover(s, x, y);
+    }
+    if kind == 9.0lf || kind == 10.0lf {
+        return soft_cover(s, x, y);
     }
     if kind >= 5.0lf {
         return textured_cover(s, x, y);
@@ -15176,8 +15201,8 @@ impl Gpu {
             // D-610: the sprites from the drawing the layer sent, binned into the card's tiles,
             // the lists after them. D-611: the texture's levels as the other picture, its size
             // as n by r (a clear 1 by 1 with none read).
-            // D-612: Particle Plane's the same way.
-            e @ (E::ParticleSpace { .. } | E::ParticlePlane { .. }) => {
+            // D-612: Particle Plane's the same way. D-617: Particle Emitter's too.
+            e @ (E::ParticleSpace { .. } | E::ParticlePlane { .. } | E::ParticleEmitter { .. }) => {
                 let mut k = crate::particles::sprite_numbers(source, e, f.origin);
                 let (starts, list) = crate::particles::tile_lists(&k, f.origin, w, h);
                 k.extend(starts.iter().chain(&list).map(|&i| i as f64));
@@ -16927,6 +16952,12 @@ impl Gpu {
                             // D-612: Particle Plane's the same.
                             crate::effects::Effect::ParticlePlane { values, .. } => {
                                 let alive = 100.0 * values[0] * values[1] + 1.0;
+                                ((7.0 + 14.0 * alive + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
+                            }
+                            // D-617: Particle Emitter's, as Particle Space's: a sprite for each
+                            // particle the rate and the longest life keep alive now.
+                            crate::effects::Effect::ParticleEmitter { values, .. } => {
+                                let alive = values[0] * values[15] * (1.0 + values[16] / 100.0) + 1.0;
                                 ((7.0 + 14.0 * alive + (w * h) as f64 / 256.0 + 1.0) * 8.0) as u64
                             }
                             // D-673: Hair's strands, eleven numbers each and a place in a tile's

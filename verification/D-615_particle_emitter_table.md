@@ -1,6 +1,6 @@
 # D-615: Particle Emitter
 
-B-495, the particle engine's fourth effect (P0-6, PLUGINS.md pick #20), after what Trapcode Particular is for: Particle Space's engine (D-610) with particles born from a point, a box, a ball or a grid of points in 3D, thrown out every way, one way, two ways, round a disc, or straight out or in, each with its own life, size and opacity changing over that life, coloured once or along a gradient, pushed by gravity, wind and swirling air, and bouncing, sliding or sticking on a floor; drawn as soft or glowing spheres, stars, faded clouds or streaks over a clear layer, through the composition camera when there is one. Nothing is carried from frame to frame: every frame works each particle out from its birth (document 20). Drawn on the processor only. Red Giant publishes no formula and no settings when added, so the rules, those settings and the name are ours, stated in `tools/particle_emitter_reference.py`. Every expected pixel is `Fixtures/particle_emitter/expected_particle_emitter.json` and every expected particle `Fixtures/particle_emitter/particles_particle_emitter.json`, written by the tool before this code existed and printed in document 25 as FX-PEMIT-001 to 063. Tolerances 2e-5 and 1e-7.
+B-495, the particle engine's fourth effect (P0-6, PLUGINS.md pick #20), after what Trapcode Particular is for: Particle Space's engine (D-610) with particles born from a point, a box, a ball or a grid of points in 3D, thrown out every way, one way, two ways, round a disc, or straight out or in, each with its own life, size and opacity changing over that life, coloured once or along a gradient, pushed by gravity, wind and swirling air, and bouncing, sliding or sticking on a floor; drawn as soft or glowing spheres, stars, faded clouds or streaks over a clear layer, through the composition camera when there is one. Nothing is carried from frame to frame: every frame works each particle out from its birth (document 20). The particles are worked out on the processor and drawn on the card too (D-617), within 1 level of the processor. Red Giant publishes no formula and no settings when added, so the rules, those settings and the name are ours, stated in `tools/particle_emitter_reference.py`. Every expected pixel is `Fixtures/particle_emitter/expected_particle_emitter.json` and every expected particle `Fixtures/particle_emitter/particles_particle_emitter.json`, written by the tool before this code existed and printed in document 25 as FX-PEMIT-001 to 063. Tolerances 2e-5 and 1e-7.
 
 ## FX-PEMIT-001 to 063 (document 25)
 
@@ -297,6 +297,109 @@ B-495, the particle engine's fourth effect (P0-6, PLUGINS.md pick #20), after wh
 | 6_grid_of_cloudlets.png, frame 36: drawn without a warning, the street changed | 32186 pixels changed; warnings [] | yes |
 | 7_stars_turned.png, frame 48: drawn without a warning, the street changed | 3758 pixels changed; warnings [] | yes |
 
+## On the card (D-617)
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| FX-PEMIT-001, fx_pemit_001.json, frames [0, 12, 6] at Full and Draft | largest difference 0 of 255; on the card in 6 of 6 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-002, fx_pemit_002.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-003, fx_pemit_003.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-004, fx_pemit_004.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-005, fx_pemit_005.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-006, fx_pemit_006.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-007, fx_pemit_007.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-008, fx_pemit_008.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-009, fx_pemit_009.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-010, fx_pemit_010.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-011, fx_pemit_011.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-012, fx_pemit_012.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-013, fx_pemit_013.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-014, fx_pemit_014.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-015, fx_pemit_015.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-016, fx_pemit_016.json, frames [20, 40] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-017, fx_pemit_017.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-018, fx_pemit_018.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-019, fx_pemit_019.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-020, fx_pemit_020.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-021, fx_pemit_021.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-022, fx_pemit_022.json, frames [20, 6] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-023, fx_pemit_023.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-024, fx_pemit_024.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-025, fx_pemit_025.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-026, fx_pemit_026.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-027, fx_pemit_027.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-028, fx_pemit_028.json, frames [12, 24, 40, 6] at Full and Draft | largest difference 0 of 255; on the card in 8 of 8 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-029, fx_pemit_029.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-030, fx_pemit_030.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-031, fx_pemit_031.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-032, fx_pemit_032.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-033, fx_pemit_033.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-034, fx_pemit_034.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-035, fx_pemit_035.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-036, fx_pemit_036.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-037, fx_pemit_037.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-038, fx_pemit_038.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-039, fx_pemit_039.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-040, fx_pemit_040.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-041, fx_pemit_041.json, frames [24] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-042, fx_pemit_042.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-043, fx_pemit_043.json, frames [10, 20, 30] at Full and Draft | largest difference 0 of 255; on the card in 6 of 6 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-044, fx_pemit_044.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-045, fx_pemit_045.json, frames [10, 22] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-046, fx_pemit_046.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-047, fx_pemit_047.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-048, fx_pemit_048.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-049, fx_pemit_049.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-050, fx_pemit_050.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-051, fx_pemit_051.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-052, fx_pemit_052.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-053, fx_pemit_053.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-054, fx_pemit_054.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-055, fx_pemit_055.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-056, fx_pemit_056.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-057, fx_pemit_057.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-058, fx_pemit_058.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-059, fx_pemit_059.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-060, fx_pemit_060.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-061, fx_pemit_061.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-062, fx_pemit_062.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-PEMIT-063, fx_pemit_063.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| the reference shot, Particle Emitter as added: the processor's frame 100 differs from the shot without it | 1967431 pixels changed | yes |
+| the reference shot, Particle Emitter as added, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Emitter as added, frame 100, Full | largest difference 1 of 255, 12 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Emitter as added, frame 239, Full | largest difference 1 of 255, 19 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Emitter as added, frame 0, Draft | largest difference 1 of 255, 525 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Emitter as added, frame 100, Draft | largest difference 1 of 255, 525 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Particle Emitter as added, frame 239, Draft | largest difference 1 of 255, 453 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing spheres added, turbulence: the processor's frame 100 differs from the shot without it | 1967426 pixels changed | yes |
+| the reference shot, glowing spheres added, turbulence, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing spheres added, turbulence, frame 100, Full | largest difference 1 of 255, 178 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing spheres added, turbulence, frame 239, Full | largest difference 1 of 255, 260 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing spheres added, turbulence, frame 0, Draft | largest difference 1 of 255, 525 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing spheres added, turbulence, frame 100, Draft | largest difference 1 of 255, 521 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, glowing spheres added, turbulence, frame 239, Draft | largest difference 1 of 255, 450 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars screened from a box: the processor's frame 100 differs from the shot without it | 1967431 pixels changed | yes |
+| the reference shot, stars screened from a box, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars screened from a box, frame 100, Full | largest difference 1 of 255, 117 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars screened from a box, frame 239, Full | largest difference 1 of 255, 107 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars screened from a box, frame 0, Draft | largest difference 1 of 255, 525 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars screened from a box, frame 100, Draft | largest difference 1 of 255, 514 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, stars screened from a box, frame 239, Draft | largest difference 1 of 255, 455 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets bouncing on a floor: the processor's frame 100 differs from the shot without it | 1967431 pixels changed | yes |
+| the reference shot, cloudlets bouncing on a floor, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets bouncing on a floor, frame 100, Full | largest difference 1 of 255, 466 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets bouncing on a floor, frame 239, Full | largest difference 1 of 255, 107 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets bouncing on a floor, frame 0, Draft | largest difference 1 of 255, 525 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets bouncing on a floor, frame 100, Draft | largest difference 1 of 255, 459 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, cloudlets bouncing on a floor, frame 239, Draft | largest difference 1 of 255, 454 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, streaks from a ball: the processor's frame 100 differs from the shot without it | 1967431 pixels changed | yes |
+| the reference shot, streaks from a ball, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, streaks from a ball, frame 100, Full | largest difference 1 of 255, 119 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, streaks from a ball, frame 239, Full | largest difference 1 of 255, 103 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, streaks from a ball, frame 0, Draft | largest difference 1 of 255, 525 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, streaks from a ball, frame 100, Draft | largest difference 1 of 255, 494 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, streaks from a ball, frame 239, Draft | largest difference 1 of 255, 450 pixels differ; 1 of 1 on the card; warnings CPU [] GPU [] | yes |
+
 ## Result
 
-270 of 270 checks pass.
+368 of 368 checks pass.
