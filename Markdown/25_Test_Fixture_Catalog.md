@@ -214909,3 +214909,53 @@ FX-FOAM-059 (`fx_foam_059.json`): A quality written "ultra". The file is read, t
 FX-FOAM-060 (`fx_foam_060.json`): A zoom producer point written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-FOAM-061 (`fx_foam_061.json`): Production Rate keyed to 200 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Scatterize (D-676)
+
+Scatterize (B-555), after CycoreFX's CC Scatterize (Simulation): `tools/scatterize_reference.py` writes `Fixtures/scatterize/expected_scatterize.json`, tolerance 2e-5; the rule is in document 21. Every case is a composition 48 by 32 holding one drawing the same size, Bubbles' colour field or the field with its right half clear.
+
+FX-SCATZ-001 (`fx_scatz_001.json`): As added: on a picture 32 pixels high each dot is thrown up to a pixel and a half, a fine dusting. Frames 3.
+
+FX-SCATZ-002 (`fx_scatz_002.json`): Amount 300: a cloud of dots thrown up to about 9 pixels. Frames 3.
+
+FX-SCATZ-003 (`fx_scatz_003.json`): Amount -300: every dot thrown the opposite way to FX-SCATZ-002. Frames 3.
+
+FX-SCATZ-004 (`fx_scatz_004.json`): Amount 0: every dot on its own pixel, the picture untouched. Frames 3.
+
+FX-SCATZ-005 (`fx_scatz_005.json`): Right Twist 90, Amount 0: the right edge turned edge-on, the picture squeezed towards the middle row more and more to the right. Frames 3.
+
+FX-SCATZ-006 (`fx_scatz_006.json`): Left Twist 180, Amount 0: the left edge turned upside down, the picture squeezed through the middle row a third of the way across. Frames 3.
+
+FX-SCATZ-007 (`fx_scatz_007.json`): Right Twist 60, Left Twist -60, Amount 100: the two ends turned opposite ways, dusted. Frames 3.
+
+FX-SCATZ-008 (`fx_scatz_008.json`): Screen: the cloud of FX-SCATZ-002, the dots screened. Frames 3.
+
+FX-SCATZ-009 (`fx_scatz_009.json`): Add: the dots' colours added, so where they bunch they brighten. Frames 3.
+
+FX-SCATZ-010 (`fx_scatz_010.json`): Alpha Add: colours and opacities added. Frames 3.
+
+FX-SCATZ-011 (`fx_scatz_011.json`): The picture with its right half clear: only the left half's dots, some thrown across into the clear half. Frames 3.
+
+FX-SCATZ-012 (`fx_scatz_012.json`): Amount keyed from 0 at frame 0 to 300 at frame 12: at frame 0 the picture untouched, then the cloud gathering out. Frames 0, 6, 12.
+
+FX-SCATZ-013 (`fx_scatz_013.json`): FX-SCATZ-002 moved 3 pixels right: the same, moved. Frames 3.
+
+FX-SCATZ-014 (`fx_scatz_014.json`): Both twists 360, Amount 0: a whole turn at every column, the picture untouched. Frames 3.
+
+FX-SCATZ-015 (`fx_scatz_015.json`): Right Twist 720, Amount 50: the ribbon turned twice over across the picture. Frames 3.
+
+FX-SCATZ-016 (`fx_scatz_016.json`): Amount 3000: most dots thrown past the edge, a thin scatter left. Frames 3.
+
+FX-SCATZ-017 (`fx_scatz_017.json`): Right Twist 90 with Add, Amount 0: the dots piled where the right edge is edge-on add up bright. Frames 3.
+
+FX-SCATZ-018 (`fx_scatz_018.json`): Amount 10001, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCATZ-019 (`fx_scatz_019.json`): Amount -10001, below -10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCATZ-020 (`fx_scatz_020.json`): Right Twist 36001, above 36000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCATZ-021 (`fx_scatz_021.json`): Left Twist -36001, below -36000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCATZ-022 (`fx_scatz_022.json`): Transfer Mode written "multiply". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SCATZ-023 (`fx_scatz_023.json`): Amount keyed to 20000 at frame 4, above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
