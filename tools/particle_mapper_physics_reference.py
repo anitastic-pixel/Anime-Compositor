@@ -42,7 +42,7 @@ file written before keeps its meaning. Nothing else is added.
   clamp(m (1 - |(L_x / r_x, L_y / r_y)|) + 1/2), m the smaller radius, an ellipse turned with the
   particle.
 
-Not built (D-713 says why): Mass (`FX-PMAP-039` refuses it, and that fixture stays), Gradient
+Not built (D-713 says why): Mass (came later by D-715, after the owner's decision on `FX-PMAP-039`), Gradient
 Velocity (no published rule for what a map's slope does), Character and Font Size (no text
 particles), Repel (the owner's choice).
 

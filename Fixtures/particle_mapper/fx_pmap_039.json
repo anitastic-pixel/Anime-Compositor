@@ -368,7 +368,7 @@
                 "auto_orient": "off",
                 "persistent_particles_from": "all",
                 "ephemeral_particles_from": "all",
-                "persistent_map_red_to": "mass",
+                "persistent_map_red_to": "repel",
                 "persistent_map_green_to": "none",
                 "persistent_map_blue_to": "none",
                 "ephemeral_map_red_to": "none",

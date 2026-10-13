@@ -50,6 +50,8 @@ out (a file written before D-614 is the effect it was), for m = `persistent` and
 Not built (D-614 says why): the Mass, Kinetic and Static Friction, Angular Velocity, Torque,
 Gradient Velocity, separate X and Y Scale and Lifespan properties (nothing in this playground has
 mass, friction or spin, or dies), and Character and Font Size (the text particles are not built).
+All but Gradient Velocity came later: D-713, and Mass by D-715 (the owner's decision of 2026-10-13,
+which regenerated FX-PMAP-039 to refuse "repel", the owner's gap, instead of "mass").
 
 **This file never runs the build's code path.** Every case is a project of one composition 16
 by 10 at 24 frames a second in `Fixtures/particle_mapper/`, as D-613's, with a fourth map layer,
@@ -466,7 +468,8 @@ INVALID = {
     "PM-036": ("Persistent Min Red -10001, below -10000.", case(persistent_min_red=-10001)),
     "PE-037": ("Ephemeral Max Blue 10001, above 10000.", case(ephemeral_max_blue=10001)),
     "PM-038": ("Persistent Age Feather -1, below 0.", case(persistent_age_feather=-1)),
-    "PM-039": ("Persistent Map Red To \"mass\", not built.", case(persistent_map_red_to="mass")),
+    "PM-039": ("Persistent Map Red To \"repel\", not built (D-715, the owner, 2026-10-13: was "
+               "\"mass\", which the mappers now drive).", case(persistent_map_red_to="repel")),
     "PE-040": ("Ephemeral Operator \"divide\".", case(ephemeral_operator="divide")),
     "PE-041": ("Ephemeral Particles From \"everything\".",
                case(ephemeral_particles_from="everything")),

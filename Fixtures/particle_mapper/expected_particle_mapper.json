@@ -40641,7 +40641,7 @@
    "warning": "EFFECT_PARAMETER_INVALID"
   },
   "FX-PMAP-039": {
-   "says": "Persistent Map Red To \"mass\", not built. The file is read, the effect is kept as written and left out of every frame, with a warning.",
+   "says": "Persistent Map Red To \"repel\", not built (D-715, the owner, 2026-10-13: was \"mass\", which the mappers now drive). The file is read, the effect is kept as written and left out of every frame, with a warning.",
    "project": "fx_pmap_039.json",
    "frames": {
     "0": [
