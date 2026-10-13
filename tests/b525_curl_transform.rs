@@ -297,3 +297,67 @@ fn b525_curl_transform() {
 
     t.finish("D-646_curl_transform_table.md");
 }
+
+fn median(mut v: Vec<f64>) -> f64 {
+    v.sort_by(f64::total_cmp);
+    v[v.len() / 2]
+}
+
+/// The frame times, B-461's way: the reference shot (1920 by 1080, 24 a second) with a Noise
+/// that changes every frame on its first three layers, then Curl Noise as added and with the
+/// Transform moved, every eighth frame asked for as the viewer asks, whole. With `B525_CPU`
+/// set, the processor draws instead.
+#[test]
+#[ignore = "B-525: a measurement, run deliberately with --release --ignored"]
+fn b525_curl_transform_timing() {
+    use std::fmt::Write as _;
+
+    let cpu = std::env::var("B525_CPU").is_ok();
+    let passes = if cpu { 3 } else { 8 };
+    let mut gpu = Gpu::new().expect("a usable card");
+    let mut s = format!(
+        "- Card: {}\n- Processor: {}, {} threads\n- System: {}\n- Build: {}\n- Drawn by: {}\n- Loops: {passes}\n\n\
+         | Shot | Quality | First | Again |\n|---|---|---:|---:|\n",
+        gpu.about(),
+        std::env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "not reported".into()),
+        std::thread::available_parallelism().map_or(0, |n| n.get()),
+        std::env::consts::OS,
+        if cfg!(debug_assertions) { "debug" } else { "release" },
+        if cpu { "the processor" } else { "the card" },
+    );
+    let shots: [(&str, Option<J>); 3] = [
+        ("Noise alone", None),
+        ("Noise, then Curl Noise as added", Some(json!({}))),
+        ("the same with Rotation 45, Scale 150, Perspective Offset on", Some(json!({"rotation": 45, "scale": 150, "perspective_offset": "on"}))),
+    ];
+    for (name, e) in shots {
+        let project = reference(|id| {
+            let mut v = vec![json!({"instance_id": format!("{id}n"), "type_id": "core.noise", "enabled": true,
+                "parameters": {"amount": 12, "mode": "color", "seed": 7, "animate": "on"}})];
+            if let Some(p) = &e {
+                v.push(fx(&format!("{id}c"), p));
+            }
+            J::Array(v)
+        });
+        let (comp, root) = (Id::new("comp-reference-shot"), repo("Fixtures/reference_shot"));
+        let mut cache = CelCache::viewer();
+        gpu.forget();
+        let (mut first, mut times) = (Vec::new(), Vec::new());
+        for pass in 0..passes {
+            for frame in (0..240).step_by(8) {
+                let mut log = FrameLog::new(3);
+                let t = std::time::Instant::now();
+                if cpu {
+                    drop(preview::preview_frame_cached(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache).expect("CPU frame"));
+                } else {
+                    drop(preview::preview_frame_srgb8(&project, &comp, frame, &root, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut log, &mut cache, &mut gpu).expect("GPU frame"));
+                }
+                let ms = t.elapsed().as_secs_f64() * 1000.0;
+                if pass > 0 { times.push(ms) } else { first.push(ms) }
+            }
+        }
+        let _ = writeln!(s, "| {name} | Full | {:.1} | {:.1} |", median(first), median(times));
+    }
+    let out = std::env::var("B525_OUT").map(std::path::PathBuf::from).unwrap_or_else(|_| repo("verification/B-525_timing_raw.md"));
+    fs::write(out, s).expect("write the timing table");
+}
