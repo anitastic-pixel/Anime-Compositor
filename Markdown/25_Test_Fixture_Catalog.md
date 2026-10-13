@@ -214292,3 +214292,51 @@ FX-MERCURY-036 (`fx_mercury_036.json`): An influence map written "both". The fil
 FX-MERCURY-037 (`fx_mercury_037.json`): A light colour written "silver". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-MERCURY-038 (`fx_mercury_038.json`): Gravity keyed to 2000 at frame 4, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Mask Smear (D-607)
+
+Mask Smear (`core.mask_smear`, B-486, EFFECTS.md row 164), after After Effects' Smear, the rule ours. Every case is a composition 16 by 10 holding Bulge's striped drawing, the same size, with masks of mode None; the media are in `Fixtures/mask_smear/media/`. `tools/mask_smear_reference.py` works the expected frames, `Fixtures/mask_smear/expected_mask_smear.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-SMEAR-001 (`fx_smear_001.json`): The settings as they start: no source mask: the drawing, untouched. Frames 0.
+
+FX-SMEAR-002 (`fx_smear_002.json`): Source mask 1, a square from (4, 3) to (8, 7), offset three pixels right: the stripes in the square carried right, the drawing's edges held; FX-RESHAPE-002's frame, whose destination is that square moved so. Frames 0.
+
+FX-SMEAR-003 (`fx_smear_003.json`): The square turned 45 degrees clockwise about its middle: the stripes in it twisted. Frames 0.
+
+FX-SMEAR-004 (`fx_smear_004.json`): The square scaled to 150 per cent: the middle swollen. Frames 0.
+
+FX-SMEAR-005 (`fx_smear_005.json`): The square scaled to 50 per cent, turned 90 degrees and offset by (2, 1). Frames 0.
+
+FX-SMEAR-006 (`fx_smear_006.json`): FX-SMEAR-002 with boundary mask 2, (3, 1) to (13, 9): nothing outside it moves, so columns 0 to 1 and 14 to 15 are the drawing's own. Frames 0.
+
+FX-SMEAR-007 (`fx_smear_007.json`): FX-SMEAR-002 at Percent 50: half way. Frames 0.
+
+FX-SMEAR-008 (`fx_smear_008.json`): FX-SMEAR-003 at Elasticity Liquid: the twist kept near the square's edges. Frames 0.
+
+FX-SMEAR-009 (`fx_smear_009.json`): Mask Offset keyed from (0, 0) at frame 0 to (3, 0) at frame 4, linear: frame 0 the drawing, frame 4 FX-SMEAR-002's. Frames 0, 2, 4.
+
+FX-SMEAR-010 (`fx_smear_010.json`): FX-SMEAR-002 with the layer moved three pixels right: the masks are the layer's, so all of it moves with the layer. Frames 0.
+
+FX-SMEAR-011 (`fx_smear_011.json`): Percent keyed from 20 at frame 0 to 100 at frame 4 by an ease that passes its end: held at 100 at frame 2, the same as frame 4. Frames 0, 2, 4.
+
+FX-SMEAR-012 (`fx_smear_012.json`): The source's path keyed from the square at frame 0 to two rows lower at frame 4, offset three right: frame 0 FX-SMEAR-002's. Frames 0, 2, 4.
+
+FX-SMEAR-013 (`fx_smear_013.json`): Percent 0, the square offset: the drawing, untouched. Frames 0.
+
+FX-SMEAR-014 (`fx_smear_014.json`): Source mask 3, of two. Nothing to smear: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-SMEAR-015 (`fx_smear_015.json`): Source mask 1, switched off. Nothing to smear: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-SMEAR-016 (`fx_smear_016.json`): Boundary mask 3 with two masks. Nothing to smear: the layer is drawn without the effect, which is kept as written, and EFFECT_PATH_MISSING is said every frame. Warning `EFFECT_PATH_MISSING` every frame. Frames 0, 4.
+
+FX-SMEAR-017 (`fx_smear_017.json`): Elasticity "rubber", not one of the seven. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMEAR-018 (`fx_smear_018.json`): Mask Scale 1001, above 1000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMEAR-019 (`fx_smear_019.json`): Mask Rotation 3601, above 3600. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMEAR-020 (`fx_smear_020.json`): Mask Offset (10001, 0), its x above 10000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMEAR-021 (`fx_smear_021.json`): Percent keyed to 101 at frame 4, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SMEAR-022 (`fx_smear_022.json`): Source mask -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
