@@ -1,7 +1,7 @@
 # B-556: frame times with Star Burst (D-677)
 
 Measured on 2026-10-13, built with `cargo test --release --test b556_star_burst` from lane C's
-commit 6f0825ee, which holds 6f0825ee (B-556's code), and run with `--ignored b556_star_burst_timing`: once on the card, then once
+commit fa7a59f8, which holds fa7a59f8 (B-556's code), and run with `--ignored b556_star_burst_timing`: once on the card, then once
 with `B556_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, nothing else was running. Between the card and processor runs, these build or test programs were running: b155_gpu_chain-bee64f3aec, cargo.exe. After the processor run, the graphics card had 6.2 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-bee64f3aec, cargo.exe. Treat them as an upper bound, to be measured again on a quiet machine.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
