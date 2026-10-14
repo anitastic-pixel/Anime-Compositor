@@ -1,17 +1,12 @@
 # B-283: frame times with Tiles
 
-Measured again on 2026-10-09 on a quiet machine, on the Magnify code commit (5f297f6c, dde134fc once rebased onto main), which
-leaves Tiles as its code commit (fd577a37, e9794507 once rebased onto main) wrote it. No other cargo or rustc process was running:
-checked before the card round and after each round, none; the owner's app was not touched. The
-first measurement, PROVISIONAL because another lane was building, is replaced by this one ("Noise
-alone" on the card was 16.7 ms then, 11.8 now, against 12.0 on the quiet B-273 run). The timing
-test is `b283_tiles_timing` in `tests/b283_tiles.rs`, built with
-`cargo test --release --test b283_tiles` and run with `--ignored b283_tiles_timing` (`B283_CPU`
-set for the processor). One round each, so these are single figures, not medians of rounds.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b283_tiles --no-run` and run with `--ignored b283_tiles_timing` (`tests/b283_tiles.rs`): once on the card, then once with `B283_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program, the card was idle (0 to 4% busy; about 4.1 GB of its memory held by the desktop and open programs) and the processor under 2% busy; the same after each run. Before the card run another program kept the card 13 to 29% busy, and the run waited about 4 minutes for it to settle. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier figures, again (2026-10-09, also quiet, at 5f297f6c): Noise alone card 11.8, processor 40.9; Motion Tile 25 card 138.5, processor 124.6; Tiles scale 25 card 49.8, processor 124.3; Tiles scale 7 card 517.6, processor 1662.3 ms. The first, provisional run (another lane building) had Noise alone on the card at 16.7.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
-- Processor: AMD Ryzen 9 9900X (AMD64 Family 26 Model 68), 24 threads
-- System: Windows 11
+- Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
+- System: windows
 - Build: release
 
 **What is timed.** As B-273: the reference shot `verification/B-08a_project.json`, 1920 by 1080,
@@ -22,18 +17,21 @@ the median of the loops after it (8 loops on the card, 3 on the processor). Mill
 
 | Shot | Card first | Card again | Processor first | Processor again |
 |---|---:|---:|---:|---:|
-| Noise alone | 16.1 | 11.8 | 40.4 | 40.9 |
-| Noise, then Motion Tile, tiles 25 per cent (its sized tile is drawn by the processor) | 127.6 | 138.5 | 124.6 | 124.6 |
-| Noise, then Tiles, scale 25 | 62.5 | 49.8 | 123.7 | 124.3 |
-| Noise, then Tiles, scale 7, blend 20 | 520.5 | 517.6 | 1643.1 | 1662.3 |
+| Noise alone | 19.7 | 13.0 | 43.0 | 45.9 |
+| Noise, then Motion Tile, tiles 25 per cent (its sized tile is drawn by the processor) | 126.9 | 126.6 | 125.6 | 126.8 |
+| Noise, then Tiles, scale 25 | 54.0 | 50.5 | 127.0 | 126.3 |
+| Noise, then Tiles, scale 7, blend 20 | 521.1 | 519.5 | 1654.7 | 1670.0 |
 
 **Reading it.** Per 1080p layer, from the "again" figures over three layers:
 
 | Effect | Card | Card against its target | Processor |
 |---|---|---|---|
-| Tiles, scale 25 (4 by 4 points a pixel) | about 13 ms (49.8 against 11.8) | over Target P2's 4 ms | about 28 ms (124.3 against 40.9) |
-| Tiles, scale 7 (15 by 15 points a pixel) | about 169 ms (517.6 against 11.8) | over P2 | about 541 ms (1662.3 against 40.9) |
-| Motion Tile, tiles 25 per cent, for comparison | about 42 ms (the layer goes to the processor and back) | not on the card | about 28 ms |
+| Tiles, scale 25 (4 by 4 points a pixel) | about 13 ms (50.5 against 13.0) | over Target P2's 4 ms | about 27 ms (126.3 against 45.9) |
+| Tiles, scale 7 (15 by 15 points a pixel) | about 169 ms (519.5 against 13.0) | over P2 | about 541 ms (1670.0 against 45.9) |
+| Motion Tile, tiles 25 per cent, for comparison | about 38 ms (the layer goes to the processor and back) | not on the card | about 27 ms |
+
+The quiet re-run of 2026-10-13 matches the quiet run of 2026-10-09 to within a few per cent on
+every row, so the reading below stands.
 
 The cost follows the number of points each pixel averages, ceil(100 / scale) squared, so it grows
 quickly below a scale of about 10. Motion Tile's rule fixes that count (D-304); an area average
