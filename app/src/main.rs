@@ -29527,6 +29527,24 @@ mod serving {
         rows.push(("an Echo put before the blur, which only the processor draws: still drawn on the GPU".into(), "GPU".into(), header(&echoed, "x-drawn-on")));
         rows.push(("and the viewer's note names it".into(), "partly on the processor (Echo)".into(), note(&echoed)));
         undo(&viewer);
+        // Audit W9: in 8 bpc the card runs none of a layer's effects; the note names them.
+        let comp = viewer.lock().unwrap().document.project().composition(&Id::new("comp-reference-shot")).unwrap().clone();
+        edit(&viewer, Command::SetCompositionSettings {
+            composition: comp.id.clone(),
+            name: comp.name.clone(),
+            width: comp.width,
+            height: comp.height,
+            frame_rate: comp.frame_rate,
+            duration_frames: comp.duration_frames,
+            sheet_details: comp.sheet_details.clone(),
+            background_color: comp.background_color,
+            float_depth: false,
+            eight_bpc: true,
+            ae_32bpc: false,
+        });
+        let eight = frame(Ask::Frame(100), PreviewQuality::Full);
+        rows.push(("the blur alone in an 8 bpc composition, where the card runs no effects: the note names it".into(), "partly on the processor (Gaussian Blur)".into(), note(&eight)));
+        undo(&viewer);
         undo(&viewer);
         let said = card.lock().unwrap().set(DrawOn::Cpu);
         let after = frame(Ask::Frame(100), PreviewQuality::Full);
