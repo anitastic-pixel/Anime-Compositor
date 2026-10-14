@@ -178,6 +178,30 @@ INVALID = {
                      "blue or alpha.", case(kind="levels", channel="luma")),
 }
 
+# Audit W14 (2026-10-14): each channel's input black, input white and gamma moved together, two
+# under each name. FX-LVLIC-001 to 020 are unchanged.
+CASES |= {
+    "FX-LVLIC-021": ("Levels (Individual Controls), red input black 30, input white 220 and "
+                     "gamma 1.6: reds at or below 30 go to 0, at or above 220 to full, the "
+                     "middle lifted; green and blue untouched.",
+                     case(red_input_black=30, red_input_white=220, red_gamma=1.6), [0]),
+    "FX-LVLIC-022": ("Levels (Individual Controls), green input black 20, input white 200 and "
+                     "gamma 0.6: greens at or below 20 go to 0, at or above 200 to full, the "
+                     "middle darkened; red and blue untouched.",
+                     case(green_input_black=20, green_input_white=200, green_gamma=0.6), [0]),
+    "FX-LVLIC-023": ("Levels with its Channel menu on Blue, blue input black 40, input white "
+                     "230 and gamma 2: blues at or below 40 go to 0, at or above 230 to full, "
+                     "the middle lifted; red and green untouched.",
+                     case(kind="levels", channel="blue", blue_input_black=40,
+                          blue_input_white=230, blue_gamma=2), [0]),
+    "FX-LVLIC-024": ("Levels with its Channel menu on Alpha, alpha input black 32, input white "
+                     "224 and gamma 0.5: the full coverings stay full, the yellow at half "
+                     "covering goes to a quarter, the empty column stays empty; every shown "
+                     "colour kept.",
+                     case(kind="levels", channel="alpha", alpha_input_black=32,
+                          alpha_input_white=224, alpha_gamma=0.5), [0]),
+}
+
 
 def main():
     expected = B.write_cases(OUT, "levels_individual", CASES, INVALID, render, plain,
@@ -246,6 +270,27 @@ def check(expected):
         for f in frames.values():
             for q in f:
                 assert all(-1e-12 <= v <= q[3] + 1e-12 for v in q[:3]), fx
+    # W14: each channel's black, white and gamma, worked by hand on the 0 to 255 scale.
+    for fx, ch, ib, iw, g in (("FX-LVLIC-021", 0, 30, 220, 1.6), ("FX-LVLIC-022", 1, 20, 200, 0.6),
+                              ("FX-LVLIC-023", 2, 40, 230, 2)):
+        f, lows, highs, middles = c[fx]["0"], 0, 0, 0
+        for i, p in enumerate(px):
+            if p[3]:
+                o, d = enc(f[i]), enc(drawn[i])
+                x = d[ch]
+                want = 0 if x <= ib else 255 if x >= iw else 255 * ((x - ib) / (iw - ib)) ** (1 / g)
+                assert near([o[ch]], [want], 1e-6), (fx, i, o, want)
+                assert near([o[k] for k in range(3) if k != ch], [d[k] for k in range(3) if k != ch], 1e-6)
+                lows, highs, middles = lows + (x <= ib), highs + (x >= iw), middles + (ib < x < iw)
+        assert lows and highs and middles, (fx, lows, highs, middles)  # all three settings matter
+    twenty_four = c["FX-LVLIC-024"]["0"]
+    for i, p in enumerate(px):
+        a = p[3]
+        want = 0 if a <= 32 else 255 if a >= 224 else 255 * ((a - 32) / 192) ** 2
+        assert abs(twenty_four[i][3] - want / 255) < 1e-12, (i, p)
+        if want:
+            assert near(enc(twenty_four[i]), enc(drawn[i]), 1e-6)
+    assert abs(twenty_four[at(15, 0)][3] - 0.25) < 1e-12  # 128 is half way from 32 to 224
     print("checked")
 
 

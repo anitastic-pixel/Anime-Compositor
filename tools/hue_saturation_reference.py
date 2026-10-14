@@ -13,6 +13,14 @@ With all three at 0 it changes nothing. It is this program's own method, modelle
 Effects' Hue/Saturation; nothing is ported. Document 21 is the rule in words; this file is the
 reference for the numbers document 25 pins against it.
 
+D-307 adds the colour ranges, worked here from document 21's words (audit W15, 2026-10-14):
+`reds_hsl` to `magentas_hsl`, each a hue, saturation and lightness of its own, centred at 0, 60,
+120, 180, 240 and 300 degrees. A colour with saturation above 0 takes each range at the weight
+(45 - d) / 30 held inside 0 and 1, d its hue's distance round the wheel from the range's centre:
+all of it within 15 degrees, none of it 45 or more away. The weighted ranges are added to the
+three above, the lightness held inside -100 and 100; a grey takes the three alone. With every
+range at 0 the rule above is unchanged, so FX-HUESAT-001 to 023 are as they were.
+
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, where the build works in single precision on its buffers.
 
@@ -42,6 +50,8 @@ W, H = R.W, R.H
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "hue_saturation"
 TOLERANCE = 2e-5  # document 25's default for a filter
 RANGES = {"hue": (-180, 180), "saturation": (-100, 100), "lightness": (-100, 100)}
+COLOURS = {"reds_hsl": 0, "yellows_hsl": 60, "greens_hsl": 120, "cyans_hsl": 180,
+           "blues_hsl": 240, "magentas_hsl": 300}
 
 
 # --- the rule -------------------------------------------------------------------------------
@@ -83,16 +93,38 @@ def grade(e, hue, saturation, lightness):
     return from_hsl(h, s, l)
 
 
-def hue_saturation(pixels, hue, saturation, lightness):
+def weight(h, centre):
+    """How much of a range a hue takes: all within 15 degrees of its centre, none 45 away."""
+    d = abs(h - centre) % 360
+    d = min(d, 360 - d)
+    return min(1.0, max(0.0, (45 - d) / 30))
+
+
+def with_ranges(e, hue, saturation, lightness, ranges):
+    """The three a colour is graded by, its ranges added (D-307)."""
+    h, s, _ = to_hsl(*e)
+    if s == 0:
+        return hue, saturation, lightness
+    for name, centre in COLOURS.items():
+        w = weight(h, centre)
+        hue += w * ranges[name][0]
+        saturation += w * ranges[name][1]
+        lightness += w * ranges[name][2]
+    return hue, saturation, min(100.0, max(-100.0, lightness))
+
+
+def hue_saturation(pixels, hue, saturation, lightness, ranges=None):
     out = [R.working(p) for p in pixels]
-    if hue == 0 and saturation == 0 and lightness == 0:
+    moved = ranges and any(v != 0 for r in ranges.values() for v in r)
+    if hue == 0 and saturation == 0 and lightness == 0 and not moved:
         return out  # the build exits early
     for w in out:
         a = w[3]
         if a > 0:
             e = [S.linear_to_srgb(min(1.0, max(0.0, v / a))) for v in w[:3]]
-            w[:3] = [srgb_to_linear(min(1.0, max(0.0, v))) * a
-                     for v in grade(e, hue, saturation, lightness)]
+            three = (with_ranges(e, hue, saturation, lightness, ranges) if moved
+                     else (hue, saturation, lightness))
+            w[:3] = [srgb_to_linear(min(1.0, max(0.0, v))) * a for v in grade(e, *three)]
     return out
 
 
@@ -115,14 +147,29 @@ def bands(x, y):
     return NONE if y in (0, 9) else BANDS[x]
 
 
-DRAWINGS = {"bands": [[bands(x, y) for x in range(W)] for y in range(H)]}
+# For the ranges: round the wheel every 30 degrees, so each range's centre is there and so is
+# the colour half way between two of them; then a grey, a pale cyan and cyan at half covering.
+WHEEL = [NONE, (255, 0, 0, 255), (255, 128, 0, 255), (255, 255, 0, 255), (128, 255, 0, 255),
+         (0, 255, 0, 255), (0, 255, 128, 255), (0, 255, 255, 255), (0, 128, 255, 255),
+         (0, 0, 255, 255), (128, 0, 255, 255), (255, 0, 255, 255), (255, 0, 128, 255),
+         GREY, (160, 224, 224, 255), (0, 255, 255, 128)]
+
+
+def wheel(x, y):
+    """Rows 0 and 9 and column 0 are empty. Columns 1 to 12 go round the wheel from red, every
+    30 degrees; 13 is grey, 14 a pale cyan #a0e0e0, and 15 cyan at half covering."""
+    return NONE if y in (0, 9) else WHEEL[x]
+
+
+DRAWINGS = {"bands": [[bands(x, y) for x in range(W)] for y in range(H)],
+            "wheel": [[wheel(x, y) for x in range(W)] for y in range(H)]}
 
 
 # --- the cases ------------------------------------------------------------------------------
 
-def case(hue=0, saturation=0, lightness=0, shift=0):
-    return {"drawing": "bands", "hue": hue, "saturation": saturation, "lightness": lightness,
-            "shift": shift}
+def case(hue=0, saturation=0, lightness=0, shift=0, drawing="bands", **ranges):
+    return {"drawing": drawing, "hue": hue, "saturation": saturation, "lightness": lightness,
+            "shift": shift, "ranges": ranges}
 
 
 def held(c, k, frame_no):
@@ -132,12 +179,14 @@ def held(c, k, frame_no):
 
 def render(c, frame_no):
     pixels = [p for row in DRAWINGS[c["drawing"]] for p in row]
-    return R.frame(hue_saturation(pixels, *(held(c, k, frame_no) for k in RANGES)), c["shift"])
+    ranges = {k: c["ranges"].get(k, (0, 0, 0)) for k in COLOURS}
+    return R.frame(hue_saturation(pixels, *(held(c, k, frame_no) for k in RANGES), ranges),
+                   c["shift"])
 
 
 def plain(c):
     """The drawing untouched, moved as the case moves it."""
-    return render(case(shift=c["shift"]), 0)
+    return render(case(shift=c["shift"], drawing=c["drawing"]), 0)
 
 
 CASES = {
@@ -198,6 +247,26 @@ INVALID = {
     "FX-HUESAT-023": ("Lightness 101, above 100.", case(lightness=101)),
 }
 
+# D-307's ranges, on the wheel (audit W15). Each moves one range's hue, saturation and lightness.
+CASES |= {
+    "FX-HUESAT-024": ("The wheel, greens hue +90, saturation -40, lightness +10: green, at 120, "
+                      "turns to 210, a sky blue, a little greyer and lighter; the yellow-green "
+                      "at 90 and the spring green at 150 take half of each; red, cyan, blue, "
+                      "magenta, the grey and the pale cyan stay as they are.",
+                      case(drawing="wheel", greens_hsl=(90, -40, 10)), [0]),
+    "FX-HUESAT-025": ("The wheel, cyans hue -120, saturation +50, lightness -20: cyan, at 180, "
+                      "turns to 60, a darker yellow, and so does the half-covered cyan at its "
+                      "half covering; the pale cyan turns to a pale yellow, more vivid and a "
+                      "little darker; the spring green at 150 and the azure at 210 take half; "
+                      "red, green, blue and the grey stay.",
+                      case(drawing="wheel", cyans_hsl=(-120, 50, -20)), [0]),
+    "FX-HUESAT-026": ("The wheel, magentas hue +60, saturation -100, lightness +30: magenta, at "
+                      "300, turns grey and lighter; the violet at 270 and the rose at 330 lose "
+                      "half their colour, turned half way on; red, green, cyan, blue and the "
+                      "grey stay.",
+                      case(drawing="wheel", magentas_hsl=(60, -100, 30)), [0]),
+}
+
 
 # --- the project files ----------------------------------------------------------------------
 
@@ -212,7 +281,8 @@ def project_json(fx, c):
     t["position"] = prop([W / 2 + c["shift"], H / 2])
     comp["layers"][0]["effects"] = [{
         "instance_id": "fx-0-0", "type_id": "core.hue_saturation", "enabled": True,
-        "parameters": {k: setting_json(c[k]) for k in RANGES}}]
+        "parameters": {k: setting_json(c[k]) for k in RANGES}
+        | {k: setting_json(v) for k, v in c["ranges"].items()}}]
     return p
 
 
@@ -319,7 +389,39 @@ def check(expected):
             assert px[at(*soft)][3] == 128 / 255 or name == "FX-HUESAT-017"
             for p in px:
                 assert 0 <= p[3] <= 1 and all(-1e-12 <= v <= p[3] + 1e-12 for v in p[:3]), (name, p)
+    check_ranges(c)
     print("checked")
+
+
+def check_ranges(c):
+    """D-307's claims on the wheel, the numbers worked another way: by the colour each pixel
+    should end as, through the master rule alone."""
+    at = lambda x, y: y * W + x  # noqa: E731
+    near = lambda p, q, e=1e-9: all(abs(u - v) < e for u, v in zip(p, q))  # noqa: E731
+    wheel = render(case(drawing="wheel"), 0)
+    px = [p for row in DRAWINGS["wheel"] for p in row]
+    master = lambda x, *three: hue_saturation([px[at(x, 4)]], *three)[0]  # noqa: E731
+    assert weight(90, 120) == 0.5 and weight(135, 120) == 1.0 and weight(165, 120) == 0.0
+    assert weight(10, 300) == 0.0 and weight(345, 0) == 1.0 and abs(weight(320, 300) - 5 / 6) < 1e-12
+    # Each range: its centre graded as the master would, the colours 30 degrees off at about half,
+    # the ones 60 or more off and the greys untouched.
+    for fx, (h, s, l), full, half, kept in (
+            ("FX-HUESAT-024", (90, -40, 10), [5], [4, 6], [1, 7, 9, 11, 13, 14]),
+            ("FX-HUESAT-025", (-120, 50, -20), [7, 14, 15], [6, 8], [1, 3, 5, 9, 11, 13]),
+            ("FX-HUESAT-026", (60, -100, 30), [11], [10, 12], [1, 3, 5, 7, 9, 13])):
+        f = c[fx]["0"]
+        for x in full:
+            assert near(f[at(x, 4)], master(x, h, s, l)), (fx, x)
+        centre = COLOURS[{"024": "greens_hsl", "025": "cyans_hsl", "026": "magentas_hsl"}[fx[-3:]]]
+        for x in half:
+            w = weight(to_hsl(*[v / 255 for v in px[at(x, 4)][:3]])[0], centre)
+            assert 0.49 < w < 0.51, (fx, x, w)  # 30 degrees off, give or take an 8-bit step
+            assert near(f[at(x, 4)], master(x, w * h, w * s, w * l)), (fx, x)
+        for x in kept:
+            assert near(f[at(x, 4)], wheel[at(x, 4)], 1e-12), (fx, x)
+        assert f[at(15, 4)][3] == 128 / 255 and f[at(0, 4)] == [0.0] * 4
+    # The pale cyan is not fully vivid, so the range's saturation still has room to raise it.
+    assert 0.4 < to_hsl(*[v / 255 for v in (160, 224, 224)])[1] < 0.7
 
 
 if __name__ == "__main__":

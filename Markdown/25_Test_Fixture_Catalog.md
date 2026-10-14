@@ -25207,6 +25207,47 @@ Frame 0: every pixel is the drawing's, unchanged.
 
 Frame 4: every pixel is the drawing's, unchanged.
 
+### Hue/Saturation's colour ranges (D-307)
+
+Audit W15 (2026-10-14): D-307's ranges, `reds_hsl` to `magentas_hsl`, worked from document 21's words and added to `tools/hue_saturation_reference.py`; FX-HUESAT-001 to 023 are unchanged. These cases hold a second drawing, `Fixtures/hue_saturation/media/wheel.png`: rows 0 and 9 and column 0 empty, and between them columns 1 to 12 round the colour wheel every 30 degrees from red (`#ff0000`, `#ff8000`, `#ffff00`, `#80ff00`, `#00ff00`, `#00ff80`, `#00ffff`, `#0080ff`, `#0000ff`, `#8000ff`, `#ff00ff`, `#ff0080`), grey `#808080` in 13, a pale cyan `#a0e0e0` in 14 and cyan at half covering in 15. Each case moves one range's hue, saturation and lightness. The tool checks that the range's own colour is graded exactly as the master would grade it by those three, a colour 30 degrees off by about half of them, and the colours 60 or more off and the grey not at all. A pixel not listed comes back within 1e-12 of the drawing's, through hue, saturation and lightness and back.
+
+FX-HUESAT-024: The wheel, greens hue +90, saturation -40, lightness +10: green, at 120, turns to 210, a sky blue, a little greyer and lighter; the yellow-green at 90 and the spring green at 150 take half of each; red, cyan, blue, magenta, the grey and the pale cyan stay as they are.
+
+Frame 0:
+
+Rows 1 to 8, each the same, the 3 pixels that change:
+
+| x | drawing | graded |
+| --- | --- | --- |
+| 4 | 0.2158605 1 0 1 | 0.01823586 0.7987512 0.08808439 1 |
+| 5 | 0 1 0 1 | 0.0637238 0.2632734 0.6382832 1 |
+| 6 | 0 1 0.2158605 1 | 0.01823586 0.4744078 0.7987512 1 |
+
+FX-HUESAT-025: The wheel, cyans hue -120, saturation +50, lightness -20: cyan, at 180, turns to 60, a darker yellow, and so does the half-covered cyan at its half covering; the pale cyan turns to a pale yellow, more vivid and a little darker; the spring green at 150 and the azure at 210 take half; red, green, blue and the grey stay.
+
+Frame 0:
+
+Rows 1 to 8, each the same, the 5 pixels that change:
+
+| x | drawing | graded |
+| --- | --- | --- |
+| 6 | 0 1 0.2158605 1 | 0.1746436 0.7858612 0 1 |
+| 7 | 0 1 1 1 | 0.6038273 0.6038273 0 1 |
+| 8 | 0 0.2158605 1 1 | 0 0.7858612 0.1632725 1 |
+| 14 | 0.3515326 0.7454042 0.7454042 1 | 0.797985 0.797985 0.0729342 1 |
+| 15 | 0 0.5019608 0.5019608 0.5019608 | 0.3030976 0.3030976 0 0.5019608 |
+
+FX-HUESAT-026: The wheel, magentas hue +60, saturation -100, lightness +30: magenta, at 300, turns grey and lighter; the violet at 270 and the rose at 330 lose half their colour, turned half way on; red, green, cyan, blue and the grey stay.
+
+Frame 0:
+
+Rows 1 to 8, each the same, the 3 pixels that change:
+
+| x | drawing | graded |
+| --- | --- | --- |
+| 10 | 0.2158605 0 1 1 | 0.5805843 0.1096752 0.5764895 1 |
+| 11 | 1 0 1 1 | 0.3800563 0.3800563 0.3800563 1 |
+| 12 | 1 0 0.2158605 1 | 0.5805843 0.1101933 0.1096752 1 |
 
 ## Gradient fixtures
 
@@ -204906,6 +204947,16 @@ FX-LVLIC-018 (`fx_lvlic_018.json`): Blue output white -1, below 0. The file is r
 FX-LVLIC-019 (`fx_lvlic_019.json`): Alpha gamma 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-LVLIC-020 (`fx_lvlic_020.json`): Levels with the channel "luma", which is not one of rgb, red, green, blue or alpha. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+Audit W14 (2026-10-14): each channel's input black, input white and gamma moved together, which FX-LVLIC-001 to 020 left mostly at their starts; added to `tools/levels_individual_reference.py` and worked the same way, 001 to 020 unchanged.
+
+FX-LVLIC-021 (`fx_lvlic_021.json`): Levels (Individual Controls), red input black 30, input white 220 and gamma 1.6: reds at or below 30 go to 0, at or above 220 to full, the middle lifted; green and blue untouched. Frames 0.
+
+FX-LVLIC-022 (`fx_lvlic_022.json`): Levels (Individual Controls), green input black 20, input white 200 and gamma 0.6: greens at or below 20 go to 0, at or above 200 to full, the middle darkened; red and blue untouched. Frames 0.
+
+FX-LVLIC-023 (`fx_lvlic_023.json`): Levels with its Channel menu on Blue, blue input black 40, input white 230 and gamma 2: blues at or below 40 go to 0, at or above 230 to full, the middle lifted; red and green untouched. Frames 0.
+
+FX-LVLIC-024 (`fx_lvlic_024.json`): Levels with its Channel menu on Alpha, alpha input black 32, input white 224 and gamma 0.5: the full coverings stay full, the yellow at half covering goes to a quarter, the empty column stays empty; every shown colour kept. Frames 0.
 
 ### Photo Filter (D-384)
 
