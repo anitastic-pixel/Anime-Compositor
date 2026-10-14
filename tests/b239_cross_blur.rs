@@ -15,7 +15,7 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{keys, set, Table, MAIN};
+use effect_table::{keys, median, said, set, Table, MAIN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -95,13 +95,6 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         pixels += (d > 0) as usize;
     }
     (largest, pixels)
-}
-
-fn said(log: FrameLog) -> String {
-    let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
-    ids.sort();
-    ids.dedup();
-    ids.join(", ")
 }
 
 /// The Cross Blurs the card's plan leaves to the card, over every layer.
@@ -327,11 +320,6 @@ fn b239_cross_blur() {
     );
 
     t.finish("D-360_cross_blur_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-237's way: the reference shot (1920 by 1080, 24 a second) with a Noise

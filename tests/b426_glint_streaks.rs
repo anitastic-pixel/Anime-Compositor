@@ -13,7 +13,7 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{keys, set, Table, MAIN, TOWN};
+use effect_table::{keys, median, said, set, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -44,13 +44,6 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         pixels += (d > 0) as usize;
     }
     (largest, pixels)
-}
-
-fn said(log: FrameLog) -> String {
-    let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
-    ids.sort();
-    ids.dedup();
-    ids.join(", ")
 }
 
 /// A Cross Glare as added with `changes` laid over it.
@@ -330,11 +323,6 @@ fn b426_glint_streaks() {
     fs::remove_file(dir.join("town.png")).unwrap();
 
     t.finish("D-546_glint_streaks_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-233's way: the reference shot with a changing Noise on its first three

@@ -412,7 +412,8 @@ pub fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
     (largest, pixels)
 }
 
-fn said(log: FrameLog) -> String {
+/// The warnings a frame gave, by id, each once.
+pub fn said(log: FrameLog) -> String {
     let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
     ids.sort();
     ids.dedup();
@@ -501,4 +502,29 @@ impl Table {
             }
         }
     }
+}
+
+/// The middle of `v` once sorted: the timing a table reports.
+pub fn median(mut v: Vec<f64>) -> f64 {
+    v.sort_by(f64::total_cmp);
+    v[v.len() / 2]
+}
+
+/// The reference shot, its three layers given the effects `stack` makes for each.
+pub fn reference(stack: impl Fn(&str) -> J) -> Project {
+    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
+    let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
+    let layers = &mut j["compositions"][0]["layers"];
+    for (i, id) in ["a", "b", "c"].iter().enumerate() {
+        layers[i]["effects"] = stack(id);
+    }
+    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
+}
+
+/// The first effect on layer `art` of fixture `file`, with `f` applied.
+pub fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
+    let d = t.load(file).document;
+    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone();
+    f(&mut e);
+    e
 }

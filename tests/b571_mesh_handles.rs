@@ -15,7 +15,7 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{distance, keys, repo, set, town, Table, MAIN, TOWN};
+use effect_table::{changed, distance, keys, median, reference, repo, set, town, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -70,17 +70,6 @@ fn fx(id: &str, p: &J) -> J {
     json!({"instance_id": id, "type_id": "core.mesh_warp", "enabled": true, "parameters": all})
 }
 
-/// The reference shot (1920 by 1080) with `stack` on its first three layers.
-fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
-    let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
-    let layers = &mut j["compositions"][0]["layers"];
-    for (i, id) in ["a", "b", "c"].iter().enumerate() {
-        layers[i]["effects"] = stack(id);
-    }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
-}
-
 /// `effects` on the street (in `dir`), drawn on the processor at frame 0, straight 8-bit, with
 /// what it warned of.
 fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
@@ -99,14 +88,6 @@ fn picture(dir: &Path, effects: J) -> (Vec<u8>, Vec<String>) {
     let frame = render_frame(loaded.document.project(), &Id::new(MAIN), 0, dir, 64, &mut log).expect("the picture draws");
     let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
     (frame.to_srgb8_straight(), said)
-}
-
-/// The `art` layer's effect in `file`, changed by `f`.
-fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
-    let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone();
-    f(&mut e);
-    e
 }
 
 #[test]
@@ -234,11 +215,6 @@ fn b571_mesh_handles() {
     );
 
     t.finish("D-701_mesh_handles_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-253's way, as B-482's: the reference shot with a Noise that changes every

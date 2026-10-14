@@ -16,7 +16,7 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{repo, Table, MAIN, TOWN};
+use effect_table::{median, repo, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -180,11 +180,6 @@ fn b513_shatter() {
         );
     }
     t.finish("D-633_shatter_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The reference shot (1920 by 1080) with `stack` on its first layer.

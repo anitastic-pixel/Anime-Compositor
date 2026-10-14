@@ -17,7 +17,7 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{repo, Table, MAIN, TOWN};
+use effect_table::{changed, distance, median, repo, said, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -28,27 +28,6 @@ use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, render, OutputDepth};
-
-fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
-    assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
-    let (mut largest, mut pixels) = (0, 0);
-    for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        if p[3] == 0 && q[3] == 0 {
-            continue;
-        }
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
-        largest = largest.max(d);
-        pixels += (d > 0) as usize;
-    }
-    (largest, pixels)
-}
-
-fn said(log: FrameLog) -> String {
-    let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
-    ids.sort();
-    ids.dedup();
-    ids.join(", ")
-}
 
 /// The Energy Strokes the card's plan leaves to the card, over every layer.
 fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
@@ -180,14 +159,6 @@ fn picture(dir: &Path, asset: &str, size: (usize, usize), masks: J, effects: J) 
     (frame.to_srgb8_straight(), said)
 }
 
-
-/// The `art` layer's effect in `file`, changed by `f`.
-fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
-    let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone();
-    f(&mut e);
-    e
-}
 
 /// The pixel at (x, y) of a picture at the street's size.
 fn at(bytes: &[u8], p: (usize, usize)) -> [u8; 4] {
@@ -336,11 +307,6 @@ fn b445_energy_stroke_extras() {
         before = bytes;
     }
     t.finish("D-565_energy_stroke_extras_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise

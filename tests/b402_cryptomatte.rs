@@ -10,7 +10,7 @@ mod effect_table;
 
 use std::fs;
 
-use effect_table::{Table, MAIN};
+use effect_table::{median, said, Table, MAIN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -87,13 +87,6 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         pixels += (d > 0) as usize;
     }
     (largest, pixels)
-}
-
-fn said(log: FrameLog) -> String {
-    let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
-    ids.sort();
-    ids.dedup();
-    ids.join(", ")
 }
 
 #[test]
@@ -240,11 +233,6 @@ fn b402_cryptomatte() {
     }
 
     t.finish("D-522_cryptomatte_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-229's way: a 1920 by 1080 EXR still with a picture and a CryptoObject

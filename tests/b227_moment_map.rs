@@ -10,7 +10,7 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{town, Table, MAIN, TOWN};
+use effect_table::{median, town, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::command::Command;
@@ -207,11 +207,6 @@ fn b227_moment_map() {
     fs::remove_file(dir.join("ramp.png")).unwrap();
 
     t.finish("D-347_moment_map_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-226's way: the reference shot (1920 by 1080, 24 a second) with the effect

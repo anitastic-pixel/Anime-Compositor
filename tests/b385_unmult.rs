@@ -15,38 +15,19 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{keys, repo, set, Table, MAIN, TOWN};
+use effect_table::{
+    both, changed, distance, keys, median, reference, repo, set, Table, MAIN, TOWN,
+};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
 use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
-use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
+use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::Effect;
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, render, OutputDepth};
-
-fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
-    assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
-    let (mut largest, mut pixels) = (0, 0);
-    for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        if p[3] == 0 && q[3] == 0 {
-            continue;
-        }
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
-        largest = largest.max(d);
-        pixels += (d > 0) as usize;
-    }
-    (largest, pixels)
-}
-
-fn said(log: FrameLog) -> String {
-    let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
-    ids.sort();
-    ids.dedup();
-    ids.join(", ")
-}
 
 /// The Unmults the card's plan leaves to the card, over every layer.
 fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
@@ -57,33 +38,6 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
         .flat_map(|l| &l.on_card)
         .filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if matches!(f.instance.effect, Effect::Unmult { .. })))
         .count()
-}
-
-/// The processor and the card, each drawing the frame the page receives: the largest
-/// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
-    let mut cache = CelCache::viewer();
-    let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
-    let said_cpu = said(log);
-    let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
-    let said_gpu = said(log);
-    let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
-}
-
-/// The reference shot (1920 by 1080) with `stack` on its first three layers.
-fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
-    let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
-    let layers = &mut j["compositions"][0]["layers"];
-    for (i, id) in ["a", "b", "c"].iter().enumerate() {
-        layers[i]["effects"] = stack(id);
-    }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
 }
 
 /// An Unmult with the settings `p`, every one `p` leaves out as it is added.
@@ -228,14 +182,6 @@ fn over_sky(bytes: &[u8]) -> Vec<u8> {
         out.push(255);
     }
     out
-}
-
-/// The `art` layer's effect in `file`, changed by `f`.
-fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
-    let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone();
-    f(&mut e);
-    e
 }
 
 /// The pixel at (x, y) of a picture at the street's size.
@@ -425,11 +371,6 @@ fn b385_unmult() {
     );
 
     t.finish("D-505_unmult_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise

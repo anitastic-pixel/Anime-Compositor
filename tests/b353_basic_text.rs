@@ -10,7 +10,7 @@ mod effect_table;
 
 use std::fs;
 
-use effect_table::{repo, Table, MAIN};
+use effect_table::{median, reference, repo, said, Table, MAIN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -112,24 +112,6 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         pixels += (d > 0) as usize;
     }
     (largest, pixels)
-}
-
-fn said(log: FrameLog) -> String {
-    let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
-    ids.sort();
-    ids.dedup();
-    ids.join(", ")
-}
-
-/// The reference shot (1920 by 1080) with `stack` on its first three layers.
-fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
-    let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
-    let layers = &mut j["compositions"][0]["layers"];
-    for (i, id) in ["a", "b", "c"].iter().enumerate() {
-        layers[i]["effects"] = stack(id);
-    }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
 }
 
 #[test]
@@ -323,11 +305,6 @@ fn b353_basic_text() {
     }
 
     t.finish("D-473_basic_text_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise

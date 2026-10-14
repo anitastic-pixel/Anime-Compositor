@@ -11,7 +11,7 @@ mod effect_table;
 
 use std::fs;
 
-use effect_table::{repo, Table, MAIN};
+use effect_table::{median, repo, Table, MAIN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -432,11 +432,6 @@ fn b230_text_animator() {
     }
 
     t.finish("D-350_text_animator_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times: FX-TXA-011's 30-character line in a 1920 by 1080 composition, its two

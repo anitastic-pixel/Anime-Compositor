@@ -19,7 +19,7 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{repo, town, Table, MAIN, TOWN};
+use effect_table::{distance, median, reference, repo, town, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -31,20 +31,6 @@ use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Interp, Project};
 use anime_compositor::preview::{self, PreviewQuality};
 use anime_compositor::{persist, png_out, render, OutputDepth};
-
-fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
-    assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
-    let (mut largest, mut pixels) = (0, 0);
-    for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        if p[3] == 0 && q[3] == 0 {
-            continue;
-        }
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
-        largest = largest.max(d);
-        pixels += (d > 0) as usize;
-    }
-    (largest, pixels)
-}
 
 /// What a frame warned of, the card's own `GPU_PREVIEW_ON_CPU` left out, and whether it said that.
 fn said(log: FrameLog) -> (String, bool) {
@@ -89,17 +75,6 @@ fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, qu
         .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
     let (said_gpu, refused) = said(log);
     (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
-}
-
-/// The reference shot (1920 by 1080) with `stack` on its first three layers.
-fn reference(stack: impl Fn(&str) -> J) -> Project {
-    let text = fs::read_to_string(repo("verification/B-08a_project.json")).expect("read the reference shot");
-    let mut j: J = serde_json::from_str(&text).expect("the reference shot is JSON");
-    let layers = &mut j["compositions"][0]["layers"];
-    for (i, id) in ["a", "b", "c"].iter().enumerate() {
-        layers[i]["effects"] = stack(id);
-    }
-    persist::load_str(&j.to_string()).unwrap_or_else(|d| panic!("the reference shot: {}", d.message)).document.project().clone()
 }
 
 /// A Channel Wipe with the settings `p`, every one `p` leaves out as it is added.
@@ -532,11 +507,6 @@ fn taken(t: &mut Table, document: &mut anime_compositor::command::Document, file
     }
     let same = t.render(document, 0, 64).data() == before.data();
     t.row(&format!("undo {n} times: frame 0 is the frame it was"), if same { "byte-identical" } else { "differ" }, same);
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-253's way: the reference shot (1920 by 1080, 24 a second) with a Noise

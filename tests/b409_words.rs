@@ -9,7 +9,7 @@ mod effect_table;
 
 use std::fs;
 
-use effect_table::{Table, MAIN};
+use effect_table::{median, Table, MAIN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -215,11 +215,6 @@ fn b409_words_fingerprints() {
         s.push_str(&format!("{name}\t{}\n", fingerprint(&frame(&project, at))));
     }
     fs::write(std::env::var("B409_FINGERPRINTS_OUT").expect("B409_FINGERPRINTS_OUT names the file"), s).unwrap();
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-229's way: a 1920 by 1080 still, the effect then a Noise that changes every

@@ -18,16 +18,16 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{repo, Table, MAIN, TOWN};
+use effect_table::{both, distance, repo, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
-use anime_compositor::compose::{self, render_frame, DEFAULT_TILE_SIZE};
-use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
+use anime_compositor::compose::{self, render_frame};
+use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::Effect;
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
-use anime_compositor::preview::{self, PreviewQuality};
+use anime_compositor::preview::PreviewQuality;
 use anime_compositor::{persist, png_out, render, OutputDepth};
 
 const PIN_KEYS: [&str; 6] = ["camera_system", "upper_left_corner", "upper_right_corner", "lower_left_corner", "lower_right_corner", "auto_focal_length"];
@@ -42,27 +42,6 @@ fn files(prefix: &str, numbers: std::ops::RangeInclusive<u32>) -> Vec<String> {
     numbers.map(|n| format!("{prefix}_{n:03}.json")).collect()
 }
 
-fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
-    assert_eq!(a.len(), b.len(), "the two pictures are different sizes");
-    let (mut largest, mut pixels) = (0, 0);
-    for (p, q) in a.chunks_exact(4).zip(b.chunks_exact(4)) {
-        if p[3] == 0 && q[3] == 0 {
-            continue;
-        }
-        let d = p.iter().zip(q).map(|(x, y)| x.abs_diff(*y)).max().unwrap_or(0);
-        largest = largest.max(d);
-        pixels += (d > 0) as usize;
-    }
-    (largest, pixels)
-}
-
-fn said(log: FrameLog) -> String {
-    let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
-    ids.sort();
-    ids.dedup();
-    ids.join(", ")
-}
-
 /// The Card Wipes the card's plan leaves to the card, over every layer.
 fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> usize {
     let mut log = FrameLog::new(3);
@@ -72,22 +51,6 @@ fn on_card(project: &Project, comp: &Id, root: &Path, frame: i32, quality: Previ
         .flat_map(|l| &l.on_card)
         .filter(|c| matches!(c.unmixed(), render::OnCard::Fx(f) if matches!(f.instance.effect, Effect::CardWipe { .. })))
         .count()
-}
-
-/// The processor and the card, each drawing the frame the page receives: the largest
-/// difference, the pixels differing, whether the card refused the frame, and each one's warnings.
-fn both(gpu: &mut Gpu, project: &Project, comp: &Id, root: &Path, frame: i32, quality: PreviewQuality) -> ((u8, usize), bool, String, String) {
-    let mut cache = CelCache::viewer();
-    let mut log = FrameLog::new(3);
-    let c = preview::preview_frame_cached(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache)
-        .unwrap_or_else(|d| panic!("frame {frame} on the CPU: {}", d.message));
-    let said_cpu = said(log);
-    let mut log = FrameLog::new(3);
-    let (g, ..) = preview::preview_frame_srgb8(project, comp, frame, root, quality, DEFAULT_TILE_SIZE, &mut log, &mut cache, gpu)
-        .unwrap_or_else(|d| panic!("frame {frame} on the GPU: {}", d.message));
-    let said_gpu = said(log);
-    let refused = said_gpu.contains(DiagnosticId::GpuPreviewOnCpu.as_str());
-    (distance(&c.to_srgb8_straight(), &g), refused, said_cpu, said_gpu)
 }
 
 /// `Fixtures/{folder}/{file}` at the street's size in `dir` (the street the holder's drawing,

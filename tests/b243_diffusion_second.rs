@@ -13,7 +13,7 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{keys, repo, set, town, Table, TOWN};
+use effect_table::{keys, median, repo, set, town, Table, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -191,11 +191,6 @@ fn b243_diffusion_second() {
     );
 
     t.finish("D-364_diffusion_second_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-239's way: the reference shot (1920 by 1080, 24 a second) with a Noise

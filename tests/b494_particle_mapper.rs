@@ -18,7 +18,7 @@ mod effect_table;
 use std::fs;
 use std::sync::Arc;
 
-use effect_table::{repo, Table, MAIN};
+use effect_table::{median, repo, Table, MAIN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -263,11 +263,6 @@ fn b494_particle_mapper() {
     let mine: fn(&Effect) -> bool = |e| matches!(e, Effect::ParticlePlayground { .. });
     t.card_fixtures(&mut gpu, "expected_particle_mapper.json", &(36..=43).collect::<Vec<_>>(), mine);
     t.finish("D-614_particle_mapper_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The reference shot (1920 by 1080) with `stack` on its first layer.

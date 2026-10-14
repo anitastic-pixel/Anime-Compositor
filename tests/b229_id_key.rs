@@ -10,7 +10,7 @@ mod effect_table;
 
 use std::fs;
 
-use effect_table::{Table, MAIN};
+use effect_table::{median, said, Table, MAIN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -92,13 +92,6 @@ fn distance(a: &[u8], b: &[u8]) -> (u8, usize) {
         pixels += (d > 0) as usize;
     }
     (largest, pixels)
-}
-
-fn said(log: FrameLog) -> String {
-    let mut ids: Vec<&str> = log.finish().iter().map(|d| d.id.as_str()).collect();
-    ids.sort();
-    ids.dedup();
-    ids.join(", ")
 }
 
 #[test]
@@ -261,11 +254,6 @@ fn b229_id_key() {
     }
 
     t.finish("D-349_id_key_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-228's way: a 1920 by 1080 EXR still laid out as Blender writes it, with

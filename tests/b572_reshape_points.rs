@@ -15,7 +15,7 @@ mod effect_table;
 use std::fs;
 use std::path::Path;
 
-use effect_table::{distance, keys, repo, set, town, Table, MAIN, TOWN};
+use effect_table::{changed, distance, keys, median, repo, set, town, Table, MAIN, TOWN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::cache::CelCache;
@@ -99,14 +99,6 @@ fn picture(dir: &Path, effects: J, frame: i32) -> (Vec<u8>, Vec<String>) {
     let frame = render_frame(loaded.document.project(), &Id::new(MAIN), frame, dir, 64, &mut log).expect("the picture draws");
     let said = log.finish().iter().map(|d| format!("{} {}", d.id.as_str(), d.message)).collect();
     (frame.to_srgb8_straight(), said)
-}
-
-/// The `art` layer's effect in `file`, changed by `f`.
-fn changed(t: &Table, file: &str, f: impl FnOnce(&mut Effect)) -> Effect {
-    let d = t.load(file).document;
-    let mut e = d.project().composition(&Id::new(MAIN)).unwrap().layer(&Id::new("art")).unwrap().effects[0].effect.clone();
-    f(&mut e);
-    e
 }
 
 #[test]
@@ -232,11 +224,6 @@ fn b572_reshape_points() {
     );
 
     t.finish("D-702_reshape_points_table.md");
-}
-
-fn median(mut v: Vec<f64>) -> f64 {
-    v.sort_by(f64::total_cmp);
-    v[v.len() / 2]
 }
 
 /// The frame times, B-253's way, as B-485's: the reference shot with a Noise that changes every
