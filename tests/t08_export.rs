@@ -62,7 +62,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use anime_compositor::command::{Command, Document, Target};
 use anime_compositor::compose::{render_frame, DEFAULT_TILE_SIZE};
 use anime_compositor::diagnostics::FrameLog;
-use anime_compositor::export::{export_sequence, ExportReport, ExportRequest, MissingSource, OutputFormat};
+use anime_compositor::export::{
+    export_sequence, files_in_the_way, ExportReport, ExportRequest, MissingSource, OutputFormat,
+};
 use anime_compositor::media::import_sequence;
 use anime_compositor::model::{Asset, AssetKind, Composition, Id, Layer, Project, Prop, Value};
 use anime_compositor::persist;
@@ -899,6 +901,44 @@ fn t08_exports_a_frame_range_to_a_png_sequence() {
         "a frame with nothing bypassed carries no such tag",
         "there is no such tag",
         f12.tag("Fidelity"),
+    );
+
+    // ---- audit B8: an export never writes over the project's own files -------------------
+    // On a copy of the drawings, so a refusal that failed could not touch the fixture.
+    let own = scratch("own_media");
+    fs::create_dir_all(own.join("layer1")).unwrap();
+    for entry in fs::read_dir(root().join("layer1")).unwrap() {
+        let from = entry.unwrap().path();
+        fs::copy(&from, own.join("layer1").join(from.file_name().unwrap())).unwrap();
+    }
+    let drawing = own.join("layer1/layer1_000.png");
+    let kept = fs::read(&drawing).unwrap();
+    let onto = export_sequence(
+        &project,
+        &own,
+        &request(COMP, 0, 0, &own.join("layer1"), "layer1_%03d.png"),
+        &AtomicBool::new(false),
+    );
+    report.check(
+        "an export named like a drawing of the project, into its folder, is refused and the drawing kept",
+        "Blocked, EXPORT_WRITE_FAILED, kept",
+        format!(
+            "{:?}, {}, {}",
+            onto.status,
+            ids(&onto),
+            if fs::read(&drawing).unwrap() == kept { "kept" } else { "written over" }
+        ),
+    );
+    let dir = scratch("in_the_way");
+    fs::write(dir.join("shot_0003.png"), b"someone's file").unwrap();
+    let in_the_way: Vec<String> = files_in_the_way(&request(COMP, 0, 5, &dir, "shot_%04d.png"))
+        .iter()
+        .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+        .collect();
+    report.check(
+        "a file already in the folder is named, so the window can ask before replacing it",
+        "shot_0003.png",
+        in_the_way.join(", "),
     );
 
     write_report(&report);

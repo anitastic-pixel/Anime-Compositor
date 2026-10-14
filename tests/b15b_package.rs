@@ -564,6 +564,34 @@ fn b15b_package() {
             && !String::from_utf8_lossy(&before.3).contains("renamed, not saved"),
     );
 
+    // Audit B1: a still that also lists numbered frames, as a hand-edited file can.
+    t.heading("A still that also lists frames (audit B1)");
+    let mut odd_still = saved.document.project().clone();
+    let bg = odd_still
+        .assets
+        .iter_mut()
+        .find(|a| a.id == Id::new("asset-bg"))
+        .unwrap();
+    bg.frames.insert(1, "media/cel_0001.png".into());
+    let both = scratch.join("still-and-frames");
+    let said = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        package::collect(&odd_still, &saved.preserved, Some(&source_file), &both)
+    }));
+    let mut files = Vec::new();
+    if both.exists() {
+        tree(&both, "", &mut files);
+    }
+    let media: Vec<&String> = files.iter().filter(|f| f.contains("asset-bg")).collect();
+    t.row(
+        "Collect Files on it finishes instead of closing the app, and copies both files",
+        &match &said {
+            Err(_) => "crashed".to_string(),
+            Ok(Err(d)) => format!("refused: {}", d.id),
+            Ok(Ok(())) => format!("collected: {}", media.len()),
+        },
+        matches!(said, Ok(Ok(()))) && media.len() == 2,
+    );
+
     let doc = format!(
         "# B-15b — collecting and checking a package (T-13)\n\n\
          **{} of {} checks pass.**\n\n\

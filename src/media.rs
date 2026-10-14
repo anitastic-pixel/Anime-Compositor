@@ -524,7 +524,7 @@ pub fn decode_png(path: &Path) -> Result<ImageBuffer, Diagnostic> {
 /// P-25: the largest drawing read, a 16384 by 16384 square, four times what a composition may
 /// be so a long pan still opens. A header claiming more asked for its buffer before a single
 /// pixel was read, and past the memory there is that ended the program rather than saying why.
-const LARGEST_DRAWING_PIXELS: u64 = 16_384 * 16_384;
+pub(crate) const LARGEST_DRAWING_PIXELS: u64 = 16_384 * 16_384;
 
 fn png_8bit(path: &Path) -> Result<(usize, usize, Vec<u8>), Diagnostic> {
     let mut reader = open_png(path)?;

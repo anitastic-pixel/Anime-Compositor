@@ -213,6 +213,24 @@ fn checked(path: &Path) -> Result<MetaData, Diagnostic> {
             "A channel is stored at less than full resolution.",
         ));
     }
+    // Audit B5: P-25's largest drawing, before any pixel buffer is asked for. A header claiming
+    // more used to ask for hundreds of GB and end the program.
+    let largest = crate::media::LARGEST_DRAWING_PIXELS;
+    for (what, size) in [
+        ("display window", header.shared_attributes.display_window.size),
+        ("data window", header.layer_size),
+    ] {
+        if size.0 as u64 * size.1 as u64 > largest {
+            return Err(refused(
+                path,
+                "too_large",
+                &format!(
+                    "Its {what} says {}x{}, past the {largest} pixels this build reads.",
+                    size.0, size.1
+                ),
+            ));
+        }
+    }
     Ok(meta)
 }
 

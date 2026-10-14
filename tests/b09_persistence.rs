@@ -1033,6 +1033,32 @@ fn b09_persistence() {
             Ok(_) => panic!("relinking an asset that is not in the project must be refused"),
         },
     );
+    // Audit B2: a still relinked to a picture whose name has a digit stays a still.
+    let mut with_still = Project::new(Id::new("proj-still"));
+    with_still
+        .assets
+        .push(Asset::still(Id::new("a-bg"), "BG", "gone/BG.png"));
+    let still = persist::relink_candidate(
+        &with_still,
+        &Id::new("a-bg"),
+        &chosen[1..2],
+        &repo("Fixtures/reference_shot"),
+    );
+    report.check(
+        "relinking a missing still to layer2_001.png keeps it one still picture (audit B2)",
+        "Still, layer2/layer2_001.png, 0 frames, 1920x1080",
+        match still {
+            Ok(c) => format!(
+                "{:?}, {}, {} frames, {}x{}",
+                c.asset.kind,
+                c.asset.path.unwrap_or_default(),
+                c.asset.frames.len(),
+                c.width,
+                c.height
+            ),
+            Err(d) => format!("refused: {}", d.message),
+        },
+    );
 
     // == 10. A project made here, with nothing preserved ====================================
     // The other direction: a project that was never a file has no preserved data, and must

@@ -92,6 +92,12 @@ D-84, accepted by the owner on 2026-09-24. Every expected value is `Fixtures/xdt
 | a project with no text columns is written without the key | absent | yes |
 | a record whose track is not a whole number is refused: PROJECT_SCHEMA_INVALID | Some("PROJECT_SCHEMA_INVALID") | yes |
 
+## A length past the composition limit (audit B6)
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| a sheet claiming 2,000,000,000 frames is refused at once, naming the 10000-frame limit | The timesheet could not be read: its length of 2000000000 frames is longer than the 10000 a composition can hold. | yes |
+
 ## Result
 
-65 of 65 checks pass.
+66 of 66 checks pass.

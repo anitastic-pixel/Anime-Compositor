@@ -404,6 +404,26 @@ fn b28b_timesheet() {
     );
 
     // -----------------------------------------------------------------------------------
+    t.heading("A length past the composition limit (audit B6)");
+    let sheet = fs::read_to_string(root().join("fx_xdts_040/fx_xdts_040.xdts")).unwrap();
+    let (magic, body) = sheet.split_once('\n').unwrap();
+    let mut huge: J = serde_json::from_str(body).unwrap();
+    huge["timeTables"][0]["duration"] = J::from(2_000_000_000_i64);
+    let folder = std::env::temp_dir().join("b28b_huge_length");
+    fs::create_dir_all(&folder).unwrap();
+    fs::write(folder.join("huge.xdts"), format!("{magic}\n{huge}")).unwrap();
+    let said = match timesheet::read_cut(&folder) {
+        Ok(_) => "imported".to_string(),
+        Err(refused) => refused.refusal.diagnostic().message,
+    };
+    t.row(
+        "a sheet claiming 2,000,000,000 frames is refused at once, naming the 10000-frame limit",
+        &said,
+        said.contains("longer than the 10000 a composition can hold"),
+    );
+    fs::remove_dir_all(&folder).ok();
+
+    // -----------------------------------------------------------------------------------
     t.out.push_str(&format!(
         "\n## Result\n\n{} of {} checks pass.\n",
         t.passed, t.checks

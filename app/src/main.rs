@@ -2477,8 +2477,10 @@ fn settle(viewer: &Mutex<Viewer>, touched: &[Id]) {
 fn undo(viewer: &Mutex<Viewer>) -> String {
     let (said, touched) = {
         let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+        let dragging = held.document.drag_in_progress();
         match held.document.undo() {
             Some(record) => (format!("Undone: {}", record.label), record.affected.clone()),
+            None if dragging => ("Let go of the drag first.".to_string(), Vec::new()),
             None => ("There is nothing to undo.".to_string(), Vec::new()),
         }
     };
@@ -2489,8 +2491,10 @@ fn undo(viewer: &Mutex<Viewer>) -> String {
 fn redo(viewer: &Mutex<Viewer>) -> String {
     let (said, touched) = {
         let held = &mut *viewer.lock().expect("the viewer lock was poisoned");
+        let dragging = held.document.drag_in_progress();
         match held.document.redo() {
             Some(record) => (format!("Redone: {}", record.label), record.affected.clone()),
+            None if dragging => ("Let go of the drag first.".to_string(), Vec::new()),
             None => ("There is nothing to redo.".to_string(), Vec::new()),
         }
     };
@@ -3287,6 +3291,8 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
 
     let count = candidate.asset.frames.len();
     let numbered = match candidate.range {
+        // Audit B2: a still stays one picture.
+        _ if candidate.asset.kind == AssetKind::Still => "this one picture".to_string(),
         Some((lo, hi)) => format!("{count} drawings, numbered {lo} to {hi}"),
         None => format!("{count} drawings"),
     };
@@ -13729,10 +13735,13 @@ fn start_export(
     let handle = app.clone();
     let started = said.clone();
     std::thread::spawn(move || {
-        let done = what_the_export_did(
-            &export::export_sequence_watched(&project, &root, &request, &cancel, &done, &watch),
-            &request.output_dir,
-        );
+        let done = contained(&handle, "exporting", || {
+            what_the_export_did(
+                &export::export_sequence_watched(&project, &root, &request, &cancel, &done, &watch),
+                &request.output_dir,
+            )
+        })
+        .unwrap_or_else(|said| said);
         {
             let state = handle.state::<Mutex<Export>>();
             let mut export = state.lock().expect("the export lock was poisoned");
@@ -13769,10 +13778,53 @@ fn ask_where_to_export(
             let Some(into) = chosen.and_then(|c| c.into_path().ok()) else {
                 return;
             };
-            let said = start_export(&handle, &into, missing, format, choices);
-            announce(&handle.state::<Mutex<Viewer>>(), said);
-            refresh(&handle);
+            // Audit B8: files already there are replaced only once the person says so.
+            let in_the_way = {
+                let viewer = handle.state::<Mutex<Viewer>>();
+                let viewer = viewer.lock().expect("the viewer lock was poisoned");
+                let (_, _, mut request) = export_job(&viewer, &into, missing, format);
+                request.choices = choices;
+                export::files_in_the_way(&request)
+            };
+            let go = move |handle: AppHandle| {
+                let said = start_export(&handle, &into, missing, format, choices);
+                announce(&handle.state::<Mutex<Viewer>>(), said);
+                refresh(&handle);
+            };
+            let Some(first) = in_the_way.first() else {
+                return go(handle);
+            };
+            let asked = handle.clone();
+            handle
+                .dialog()
+                .message(replace_question(first, in_the_way.len()))
+                .title("Replace files?")
+                .kind(tauri_plugin_dialog::MessageDialogKind::Warning)
+                .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom(
+                    "Replace".into(),
+                    "Cancel".into(),
+                ))
+                .show(move |replace| {
+                    if replace {
+                        go(asked);
+                    } else {
+                        announce(
+                            &asked.state::<Mutex<Viewer>>(),
+                            "Nothing was exported: the files already there were kept.".into(),
+                        );
+                        refresh(&asked);
+                    }
+                });
         });
+}
+
+/// Audit B8: what the export asks before writing over files already in the folder.
+fn replace_question(first: &Path, count: usize) -> String {
+    let name = first.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+    match count {
+        1 => format!("{name} is already in this folder. Replace it?"),
+        n => format!("{name} and {} more files this export writes are already in this folder. Replace them?", n - 1),
+    }
 }
 
 /// The file the open project is, or would be: stored drawing paths are relative to the media
@@ -14219,7 +14271,8 @@ fn start_queue(app: &AppHandle) -> String {
     let started = said.clone();
     std::thread::spawn(move || {
         let state = handle.state::<Mutex<Export>>();
-        let done = render_queue(&state, &cancel);
+        let done = contained(&handle, "rendering the queue", || render_queue(&state, &cancel))
+            .unwrap_or_else(|said| said);
         {
             let mut export = locked(&state);
             export.cancel = None;
@@ -15914,6 +15967,27 @@ fn imported_presets(text: &str, file: &str, have: &[String]) -> Result<(serde_js
 }
 
 #[cfg(test)]
+mod panics {
+    use super::*;
+
+    /// Audit B7: a panic is said as a sentence and the program keeps going.
+    #[test]
+    fn a_panic_is_said_and_the_window_keeps_going() {
+        assert_eq!(caught("drawing a frame", || 7), Ok(7));
+        let said = caught("drawing a frame", || -> u8 { panic!("the frame was {} pixels wide", 0) }).unwrap_err();
+        assert_eq!(
+            said,
+      "Something went wrong inside the program while drawing a frame: the frame was 0 pixels wide. That was stopped and the window kept going. If anything looks wrong, save under a new name."
+        );
+        let lock = std::sync::Mutex::new(1);
+        assert!(caught("exporting", || { let _held = lock.lock().unwrap(); panic!("x") }).is_err());
+        assert!(lock.is_poisoned());
+        lock.clear_poison();
+        assert_eq!(*lock.lock().unwrap(), 1);
+    }
+}
+
+#[cfg(test)]
 mod preset_files {
     use super::*;
 
@@ -16417,6 +16491,43 @@ fn quieten_the_web_view() {
     std::env::set_var(NAME, value);
 }
 
+/// Audit B7: `job`, with a panic inside it caught and said as a sentence instead of closing the
+/// window.
+fn caught<T>(what: &str, job: impl FnOnce() -> T) -> Result<T, String> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(job)).map_err(|e| {
+        let why = e
+            .downcast_ref::<&str>()
+            .map(|s| s.to_string())
+            .or_else(|| e.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "no reason was given".to_string());
+        format!(
+      "Something went wrong inside the program while {what}: {why}. That was stopped and the window kept going. If anything looks wrong, save under a new name."
+        )
+    })
+}
+
+/// [`caught`] in the running window: the locks the panic left marked are released as they
+/// stand, so the next request does not fail on them, and the status line says what happened.
+fn contained<T>(app: &AppHandle, what: &str, job: impl FnOnce() -> T) -> Result<T, String> {
+    caught(what, job).map_err(|said| {
+        app.state::<Mutex<Viewer>>().clear_poison();
+        app.state::<Mutex<Export>>().clear_poison();
+        app.state::<Mutex<SessionLog>>().clear_poison();
+        app.state::<Mutex<Card>>().clear_poison();
+        app.state::<Mutex<[Option<Placement>; 2]>>().clear_poison();
+        announce(&app.state::<Mutex<Viewer>>(), said.clone());
+        said
+    })
+}
+
+/// A request that panicked, answered with what [`contained`] said.
+fn failed_response(said: String) -> Response<Vec<u8>> {
+    allow_the_page_to_read_this(Response::builder().status(500))
+        .header("content-type", "text/plain; charset=utf-8")
+        .body(said.into_bytes())
+        .expect("build the failed response")
+}
+
 fn main() {
     quieten_the_web_view();
     // A project named on the command line goes through the same `take` a dropped one does, so
@@ -16453,11 +16564,13 @@ fn main() {
             let handle = app.handle().clone();
             std::thread::spawn(move || loop {
                 std::thread::sleep(AUTOSAVE_TICK);
-                let state = handle.state::<Mutex<Viewer>>();
-                let mut viewer = state.lock().expect("the viewer lock was poisoned");
-                if let Some(said) = autosave_tick(&mut viewer, Instant::now()) {
-                    viewer.autosaved = said;
-                }
+                let _ = contained(&handle, "autosaving", || {
+                    let state = handle.state::<Mutex<Viewer>>();
+                    let mut viewer = state.lock().expect("the viewer lock was poisoned");
+                    if let Some(said) = autosave_tick(&mut viewer, Instant::now()) {
+                        viewer.autosaved = said;
+                    }
+                });
             });
             open_window(app.handle())?;
             Ok(())
@@ -16490,6 +16603,7 @@ fn main() {
             refresh(window.app_handle());
         })
         .register_uri_scheme_protocol("project", |ctx, request: Request<Vec<u8>>| {
+            contained(ctx.app_handle(), "doing what was asked", || {
             // D-289: the page sends the sketch's PNG bytes as the body; the person chooses where.
             if request.uri().path().trim_matches('/') == "sketch-png" {
                 let said = ask_where_to_save_sketch(
@@ -16507,8 +16621,11 @@ fn main() {
                 request.uri().path(),
                 request.uri().query(),
             )
+            })
+            .unwrap_or_else(failed_response)
         })
         .register_uri_scheme_protocol("frame", |ctx, request: Request<Vec<u8>>| {
+            contained(ctx.app_handle(), "drawing a frame", || {
             let viewer = ctx.app_handle().state::<Mutex<Viewer>>();
             let export = ctx.app_handle().state::<Mutex<Export>>();
             // `/boxes/<n>` rides on the frame scheme rather than the command one because it is
@@ -16569,7 +16686,9 @@ fn main() {
                     if matches!(ask, Ask::At(_) | Ask::Play(_)) && !AHEAD.swap(true, Ordering::SeqCst) {
                         let app = ctx.app_handle().clone();
                         std::thread::spawn(move || {
-                            render_ahead(&app.state::<Mutex<Viewer>>(), Some(&app.state::<Mutex<Card>>()));
+                            let _ = contained(&app, "drawing frames ahead", || {
+                                render_ahead(&app.state::<Mutex<Viewer>>(), Some(&app.state::<Mutex<Card>>()))
+                            });
                             AHEAD.store(false, Ordering::SeqCst);
                         });
                     }
@@ -16580,6 +16699,8 @@ fn main() {
                     .body(b"ask for /at/<milliseconds>, /frame/<number> or /play/<number>".to_vec())
                     .expect("build the not-found response"),
             }
+            })
+            .unwrap_or_else(failed_response)
         })
         .run(tauri::generate_context!())
         .expect("the window could not be created");

@@ -12089,6 +12089,45 @@ pub fn relink_candidate(
             .with_remediation("Nothing was changed.")
         })?;
 
+    // Audit B2: a still is relinked to one picture and stays a still. Read as a sequence it
+    // became one, showing nothing when the new name had a digit and refused when it had none.
+    if existing.kind == AssetKind::Still {
+        let [file] = files else {
+            return Err(Diagnostic::new(
+                DiagnosticId::MediaMissing,
+                Severity::Error,
+                format!("\"{}\" is one picture, so choose one file for it.", existing.name),
+                format!("{} files were chosen.", files.len()),
+            )
+            .with_remediation("The project still points at the file it pointed at before."));
+        };
+        let image = media::decode(file)?;
+        let name = file.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+        let interpretation = if crate::exr_io::is_exr(&name)
+            == crate::exr_io::is_exr(existing.path.as_deref().unwrap_or_default())
+        {
+            existing.interpretation
+        } else {
+            Interpretation::for_file(&name)
+        };
+        let asset = Asset {
+            path: Some(stored_path(project_dir, file)),
+            interpretation,
+            ..existing.clone()
+        };
+        return Ok(RelinkCandidate {
+            asset_id: asset_id.clone(),
+            pattern: name,
+            range: None,
+            missing: Vec::new(),
+            width: image.width() as u32,
+            height: image.height() as u32,
+            interpretation,
+            diagnostics: Vec::new(),
+            asset,
+        });
+    }
+
     let result = media::import_sequence(files);
     let Some(sequence): Option<SequenceAsset> = result.asset else {
         return Err(Diagnostic::new(

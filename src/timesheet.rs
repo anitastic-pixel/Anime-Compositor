@@ -175,10 +175,19 @@ pub fn read_cut(folder: &Path) -> Result<Cut, Refused> {
     let Some(duration) = table
         .get("duration")
         .and_then(J::as_i64)
-        .filter(|d| (1..=i32::MAX as i64).contains(d))
+        .filter(|d| *d >= 1)
     else {
         refuse!(DiagnosticId::TimesheetUnreadable, { "reason": "its length is not a number of frames" });
     };
+    // Audit B6: refused here, before anything is sized by it. A length of two billion used to
+    // reserve gigabytes and walk every frame before the composition refused it.
+    let longest = crate::command::LONGEST_COMPOSITION;
+    if duration > i64::from(longest) {
+        let reason = format!(
+            "its length of {duration} frames is longer than the {longest} a composition can hold"
+        );
+        refuse!(DiagnosticId::TimesheetUnreadable, { "reason": reason });
+    }
     let duration = duration as i32;
 
     if !is(data.get("version"), 5.0) {

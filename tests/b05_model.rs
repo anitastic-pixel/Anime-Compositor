@@ -1245,6 +1245,40 @@ fn b05_model_and_undo() {
         doc.redo_depth()
     });
 
+    // -- Audit B3: Undo or Redo pressed while a drag is still held is refused --------------------
+    // Before, Undo went through mid-drag and the release then recorded the drag on top of the
+    // undone state, so the next Undo brought the undone change back and Redo was lost.
+    let held_from = layer_named(&doc, "layer-4").transform.position.base().to_string();
+    let depth_before_held = doc.undo_depth();
+    doc.begin_drag().expect("begin");
+    doc.update_drag(Command::SetPropertyBase {
+        composition: id(COMP),
+        target: Target::Layer(id("layer-4")),
+        prop: Prop::Position,
+        value: Value::Vec2(555.0, 0.0),
+    })
+    .expect("drag step");
+    report.check(
+        "drag held: Undo and Redo are refused until release",
+        "refused, refused",
+        format!(
+            "{}, {}",
+            if doc.undo().is_some() { "went through" } else { "refused" },
+            if doc.redo().is_some() { "went through" } else { "refused" }
+        ),
+    );
+    doc.end_drag();
+    doc.undo();
+    report.check(
+        "drag held then released: one record, and one Undo returns the value from before it",
+        format!("{}, {held_from}", depth_before_held),
+        format!(
+            "{}, {}",
+            doc.undo_depth(),
+            layer_named(&doc, "layer-4").transform.position.base()
+        ),
+    );
+
     fs::write(repo("verification/B-05_project_before.json"), &before_json).expect("write");
     fs::write(repo("verification/B-05_project_after.json"), &after_json).expect("write");
     fs::write(repo("verification/B-05_project_undone.json"), &undone_json).expect("write");

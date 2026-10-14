@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use serde_json::Value as J;
 
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
-use crate::model::{Asset, AssetKind, Project};
+use crate::model::{Asset, Project};
 use crate::persist::{self, Preserved};
 use crate::sha256;
 
@@ -64,11 +64,11 @@ fn unique(name: &str, taken: &mut HashSet<String>) -> String {
 
 /// An asset's stored paths with the frame numbers each stands for, in first-frame order.
 fn stored_files(asset: &Asset) -> Vec<(&str, Vec<u32>)> {
-    // A still and a sound file (D-71) are each one file at `path`.
-    if asset.kind != AssetKind::ImageSequence {
-        return asset.path.iter().map(|p| (p.as_str(), vec![])).collect();
-    }
-    let mut out: Vec<(&str, Vec<u32>)> = Vec::new();
+    // A still and a sound file (D-71) are each one file at `path`, a sequence its numbered
+    // frames. Audit B1: both are taken whatever the kind says, so a hand-edited file holding
+    // both cannot leave a path with no place in the package (that ended the program).
+    let mut out: Vec<(&str, Vec<u32>)> =
+        asset.path.iter().map(|p| (p.as_str(), vec![])).collect();
     for (number, path) in &asset.frames {
         match out.iter_mut().find(|(p, _)| *p == path) {
             Some((_, numbers)) => numbers.push(*number),

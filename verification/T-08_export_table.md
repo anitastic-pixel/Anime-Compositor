@@ -1,6 +1,6 @@
 # T-08 — exporting a frame range to a PNG sequence
 
-**47 of 47 checks passed.**
+**49 of 49 checks passed.**
 
 Produced by `tests/t08_export.rs`. Covers R-09: a declared inclusive frame range, written as PNGs with a chosen bit depth, naming and alpha policy, with failure reported and cancellation supported between frames.
 
@@ -70,8 +70,10 @@ Document 28 says the opposite for the same situation. That conflict is registere
 | an export cancelled while it is running stops and reports it | `Cancelled, EXPORT_CANCELLED` | `Cancelled, EXPORT_CANCELLED` | pass |
 | it stopped short of the hundred frames asked for | `true` | `true` | pass |
 | and every frame it had finished is a whole file, because the check is between frames | `all 320x180` | `all 320x180` | pass |
-| the frames it wrote are still on disk after the stop | `2` | `2` | pass |
+| the frames it wrote are still on disk after the stop | `4` | `4` | pass |
 | a frame drawn without a bypassed feature still exports | `Completed, 1 written` | `Completed, 1 written` | pass |
 | but the report says the fidelity is incomplete | `true` | `true` | pass |
 | and so does the file itself, where it cannot be separated from the picture | `incomplete: a layer carried something this build could not draw` | `incomplete: a layer carried something this build could not draw` | pass |
 | a frame with nothing bypassed carries no such tag | `there is no such tag` | `there is no such tag` | pass |
+| an export named like a drawing of the project, into its folder, is refused and the drawing kept | `Blocked, EXPORT_WRITE_FAILED, kept` | `Blocked, EXPORT_WRITE_FAILED, kept` | pass |
+| a file already in the folder is named, so the window can ask before replacing it | `shot_0003.png` | `shot_0003.png` | pass |

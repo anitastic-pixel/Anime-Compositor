@@ -226,6 +226,41 @@ pub fn small(full: &WorkingBuffer, most: usize) -> (usize, usize, Vec<u8>) {
 
 /// [`export_sequence_counting`], telling `watch` about each frame it writes and waiting while
 /// `watch.pause` is set. Pausing changes when frames are written, never what is written.
+/// Audit B8: the files an export of `request` would write that are already there, which the
+/// window asks about before replacing.
+pub fn files_in_the_way(request: &ExportRequest) -> Vec<PathBuf> {
+    let mut out: Vec<PathBuf> = if request.format.is_one_file() {
+        vec![request.output_dir.join(&request.naming)]
+    } else {
+        (request.first_frame..=request.last_frame)
+            .map(|f| request.output_dir.join(expand(&request.naming, f)))
+            .collect()
+    };
+    if request.choices.wav && !matches!(request.format, OutputFormat::Gif | OutputFormat::Mp4) {
+        out.push(request.output_dir.join(sound_file_name(&request.naming)));
+    }
+    out.retain(|p| p.is_file());
+    out.dedup();
+    out
+}
+
+/// The first file in the way of `request` that is one of `project`'s own media files.
+fn own_media_in_the_way(project: &Project, root: &Path, request: &ExportRequest) -> Option<PathBuf> {
+    let in_the_way = files_in_the_way(request);
+    if in_the_way.is_empty() {
+        return None;
+    }
+    let media: std::collections::HashSet<PathBuf> = project
+        .assets
+        .iter()
+        .flat_map(|a| a.path.iter().chain(a.frames.values()))
+        .filter_map(|p| root.join(p).canonicalize().ok())
+        .collect();
+    in_the_way
+        .into_iter()
+        .find(|p| p.canonicalize().is_ok_and(|c| media.contains(&c)))
+}
+
 pub fn export_sequence_watched(
     project: &Project,
     root: &Path,
@@ -288,6 +323,24 @@ pub fn export_sequence_watched(
              one file.",
             request.naming
         )));
+        return report;
+    }
+
+    // Audit B8: never written over the project's own drawings, pictures or sound.
+    if let Some(own) = own_media_in_the_way(project, root, request) {
+        report.status = ExportStatus::Blocked;
+        report.diagnostics.push(
+            Diagnostic::new(
+                DiagnosticId::ExportWriteFailed,
+                Severity::Error,
+                format!(
+                    "Nothing was exported: {} is one of this project's own files.",
+                    own.display()
+                ),
+                "The export would have written over it. Nothing was written.",
+            )
+            .with_remediation("Export into another folder, or under another name."),
+        );
         return report;
     }
 

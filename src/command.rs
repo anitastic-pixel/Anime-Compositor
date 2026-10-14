@@ -1698,6 +1698,11 @@ impl Document {
     /// Document 26: "Undo applies the stored inverse as one transaction and moves the item to
     /// redo."
     pub fn undo(&mut self) -> Option<&Record> {
+        // Audit B3: refused mid-drag, as `apply_all` is. Undoing under a held drag let the
+        // release record the drag on top of the undone state and lose Redo.
+        if self.drag.is_some() {
+            return None;
+        }
         let mut record = self.undo.pop()?;
         std::mem::swap(&mut self.project, &mut record.before);
         self.revision += 1;
@@ -1710,6 +1715,9 @@ impl Document {
     /// Reapplied, not restored from a stored after-image, which is the wording the document
     /// uses and the stricter of the two: it fails loudly if a command is not deterministic.
     pub fn redo(&mut self) -> Option<&Record> {
+        if self.drag.is_some() {
+            return None;
+        }
         let record = self.redo.pop()?;
         let before = self.project.clone();
         let mut working = self.project.clone();
