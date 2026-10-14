@@ -36,3 +36,21 @@ This follows B-227's, B-530's and B-531's method:
 - **Detailed Analysis on** costs about 5.6 s a frame inside the effect at Full, about 1.7 times as added.
 - First and Again now agree within 5% on every row with the effect. The earlier odd columns (Again far above First, and the reverse) were the other timing running at the same time.
 - Every row with the effect is far above the Target P4 (100 ms a frame on the processor) and far from real time (41.7 ms at 24 frames a second). Keeping each pair's motion from frame to frame, a card version and a faster estimate would each be separate pieces of work.
+
+## After audit P1 (moves kept, pairs worked four at a time, 7152d077)
+
+**Measured** on 2026-10-14 at 508a1d3d, built with `cargo test --release --test b532_warp_stabilizer --no-run` (own target folder) and run with `--ignored --exact b532_warp_stabilizer_timing`, one test at a time, nothing else of this work running. Just before the run the card was 8% busy and the processor about 3%. The run took 5 minutes 18 seconds (2858 s, 48 minutes, before). Same machine as above.
+
+| Shot | Quality | First, before | First, after | Again, before | Again, after | Stage "afresh", before | Stage "afresh", after |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Noise alone | Full | 16.1 | 16.1 | 12.3 | 12.2 | 0.0 | 0.0 |
+| Warp Stabilizer as added, then Noise | Full | 3442.7 | 419.3 | 3593.4 | 418.4 | 3224.4 | 48.0 |
+| Warp Stabilizer, Stabilize Only, Detailed Analysis on, then Noise | Full | 5958.4 | 426.8 | 5937.8 | 417.6 | 5611.9 | 47.0 |
+| Noise alone | Half | 31.6 | 28.3 | 18.1 | 19.0 | 0.0 | 0.0 |
+| Warp Stabilizer as added, then Noise | Half | 1158.3 | 260.3 | 1188.3 | 243.3 | 1018.7 | 28.0 |
+
+Whole frames "afresh", after: 42.2, 455.9, 458.7, 49.7, 289.3.
+
+**What changed in the columns.** "Afresh" empties the frame cache and the card before each frame, but not the moves P1 keeps, so after P1 the afresh frames reuse moves and the stage figure there is only the stabilizing itself. **First** (the first loop, every eighth frame from empty) is the figure to compare. Its frames are eight apart and each works the pairs within its Smoothness window, so neighbouring asked-for frames share pairs: First already gains from kept moves, as playing through a shot would.
+
+**Reading it.** At Full, a frame with Warp Stabilizer as added went from about 3.4 s to about 0.42 s (about 8 times quicker), with Detailed Analysis on from about 6.0 s to about 0.43 s (about 14 times), and at Half from about 1.2 s to about 0.26 s. This run does not time the kept moves and the four-at-a-time pairs apart. Every row with the effect is still far slower than real time (41.7 ms at 24 a second); a frame shown again spends only about 48 ms inside the effect. Pictures unchanged: `D-653_warp_stabilizer_table.md` 126 of 126, including a frame drawn after another byte-identical to it drawn cold.

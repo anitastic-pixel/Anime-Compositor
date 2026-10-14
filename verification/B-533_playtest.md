@@ -41,4 +41,4 @@ The pictures are in `verification/D-654 pictures/`: a striped scene filmed by a 
 
 ## Speed
 
-Rolling Shutter Repair is drawn by the processor only. A frame whose motion has to be worked out took about 1 second inside the effect at Full quality with Pixel Motion, and about 7 seconds with Warp (the setting when added), or about 0.4 seconds at Half, on a busy machine (`verification/B-533_rolling_shutter_repair_timing_table.md`, PROVISIONAL). The Warp figure at Full is not explained and is to be re-measured. Expect playback to stutter; switch the viewer to Half while you work.
+Rolling Shutter Repair is drawn by the processor only. On a quiet machine after audit P5, a whole frame took about 0.13 seconds at Full quality with Warp (the setting when added; about 0.74 before P5), about 0.08 seconds at Half, and about 0.26 seconds with Pixel Motion (`verification/B-533_rolling_shutter_repair_timing_table.md`). Expect playback to stutter; switch the viewer to Half while you work.
