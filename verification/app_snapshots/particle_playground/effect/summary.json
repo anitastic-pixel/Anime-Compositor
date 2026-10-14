@@ -1,0 +1,109 @@
+{
+  "project": "I:\\AI Coding\\Claude\\TotallyNotAfterEffects\\.claude\\worktrees\\agent-afe0dfca6896ba5fc\\verification\\app_snapshots\\particle_playground\\particle_playground.json",
+  "exe": "I:\\AI Coding\\Claude\\TotallyNotAfterEffects\\target\\release\\anime_compositor_app.exe",
+  "exe_written": "2026-10-13T19:29:39",
+  "port": 53190,
+  "started": "2026-10-13T20:09:45",
+  "shots": [
+    {
+      "name": "frame_0000_cpu",
+      "ms": 270,
+      "drawn_on": "CPU",
+      "error": null
+    },
+    {
+      "name": "frame_0012_cpu",
+      "ms": 281,
+      "drawn_on": "CPU",
+      "error": null
+    },
+    {
+      "name": "frame_0024_cpu",
+      "ms": 289,
+      "drawn_on": "CPU",
+      "error": null
+    },
+    {
+      "name": "frame_0000_card",
+      "ms": 485,
+      "drawn_on": "GPU",
+      "error": null
+    },
+    {
+      "name": "frame_0012_card",
+      "ms": 531,
+      "drawn_on": "GPU",
+      "error": null
+    },
+    {
+      "name": "frame_0024_card",
+      "ms": 574,
+      "drawn_on": "GPU",
+      "error": null
+    }
+  ],
+  "differences": [
+    {
+      "frame": 0,
+      "r": {
+        "max": 11,
+        "mean": 0.0281
+      },
+      "g": {
+        "max": 4,
+        "mean": 0.013
+      },
+      "b": {
+        "max": 7,
+        "mean": 0.0193
+      },
+      "a": {
+        "max": 0,
+        "mean": 0.0
+      }
+    },
+    {
+      "frame": 12,
+      "r": {
+        "max": 255,
+        "mean": 0.0282
+      },
+      "g": {
+        "max": 4,
+        "mean": 0.013
+      },
+      "b": {
+        "max": 7,
+        "mean": 0.0194
+      },
+      "a": {
+        "max": 0,
+        "mean": 0.0
+      }
+    },
+    {
+      "frame": 24,
+      "r": {
+        "max": 255,
+        "mean": 0.0225
+      },
+      "g": {
+        "max": 4,
+        "mean": 0.0112
+      },
+      "b": {
+        "max": 7,
+        "mean": 0.0157
+      },
+      "a": {
+        "max": 1,
+        "mean": 0.0
+      }
+    }
+  ],
+  "ready_ms": 2121,
+  "switch_cpu": "The preview is drawn on the CPU.",
+  "switch_card": "The preview is drawn on the graphics card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory. Exports are still drawn on the CPU. A frame the card cannot draw is drawn on the CPU, and the picture's label says so.",
+  "temp_folder_removed": true,
+  "total_ms": 6572
+}

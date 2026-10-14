@@ -1,0 +1,20 @@
+{
+  "status": 200,
+  "frame": 0,
+  "width": 1920,
+  "height": 1080,
+  "quality": "Full",
+  "drawn_on": "CPU",
+  "on_screen": false,
+  "from_memory": false,
+  "window_ms": 30,
+  "frame_notes": "",
+  "report": "",
+  "status_line": "The preview is drawn on the CPU.",
+  "asked_frame": 0,
+  "side": "cpu",
+  "picture": "frame_0000_cpu.png",
+  "picture_is": "preview, every k-th pixel; the cpu-vs-card difference uses the full frame",
+  "pixel_format": "8-bit straight sRGB RGBA",
+  "tool_ms": 315
+}

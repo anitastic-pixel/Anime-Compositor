@@ -1,0 +1,20 @@
+{
+  "status": 200,
+  "frame": 24,
+  "width": 1920,
+  "height": 1080,
+  "quality": "Full",
+  "drawn_on": "CPU",
+  "on_screen": false,
+  "from_memory": false,
+  "window_ms": 52.7,
+  "frame_notes": "",
+  "report": "",
+  "status_line": "The preview is drawn on the graphics card whenever it can be: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory. Exports are still drawn on the CPU. A frame the card cannot draw is drawn on the CPU, and the picture's label says so.",
+  "asked_frame": 24,
+  "side": "cpu",
+  "picture": "frame_0024_cpu.png",
+  "picture_is": "preview, every k-th pixel; the cpu-vs-card difference uses the full frame",
+  "pixel_format": "8-bit straight sRGB RGBA",
+  "tool_ms": 500
+}
