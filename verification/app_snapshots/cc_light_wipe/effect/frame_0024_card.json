@@ -1,0 +1,18 @@
+{
+  "frame": 24,
+  "width": 1920,
+  "height": 1080,
+  "quality": "Full",
+  "drawn_on": "GPU",
+  "painted_in_window": true,
+  "quality_tip": "Full — 1920×1080, same as export, drawn on GPU. Click for Full, Half or Draft and Refine when idle",
+  "cpu_note_shown": false,
+  "report": "",
+  "status_line": "The preview is drawn on the graphics card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory. Exports are still drawn on the CPU. A frame the card cannot draw is drawn on the CPU, and the picture's label says so.",
+  "asked_frame": 24,
+  "side": "card",
+  "picture": "frame_0024_card.png",
+  "picture_is": "preview, every k-th pixel; the cpu-vs-card difference uses the full frame",
+  "pixel_format": "8-bit straight sRGB RGBA",
+  "tool_ms": 630
+}
