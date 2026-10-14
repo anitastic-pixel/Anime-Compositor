@@ -1,6 +1,8 @@
 # B-429: frame times with Reduce Interlace Flicker (D-549)
 
-Measured on 2026-10-11, built with `cargo test --release --test b429_reduce_interlace_flicker` from 3f6e4b5f, and run with `--ignored b429_reduce_interlace_flicker_timing`: once on the card, then once with `B429_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. During the runs other lanes' build and test programs were running (cargo.exe, b350_contour_paint, b151_gpu_fx, b412_cc_sphere), and the graphics card had about 3.3 GB of its memory in use by other programs. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b429_reduce_interlace_flicker --no-run` and run with `--ignored b429_reduce_interlace_flicker_timing`: once on the card, then once with `B429_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0% busy; 3.6 GB of its memory held by the desktop and open programs); the same after each. The processor was 2% busy or less before each run. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-11, on a machine that was not quiet), again: Noise alone card 30.2, processor 63.3; Noise, then Reduce Interlace Flicker as added (softness 1) card 108.8, processor 112.1 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -12,10 +14,10 @@ Measured on 2026-10-11, built with `cargo test --release --test b429_reduce_inte
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 30.2 | 63.3 |
-| Noise, then Reduce Interlace Flicker as added (softness 1) | 108.8 | 112.1 |
-| Noise, then Reduce Interlace Flicker softness 2.5 | 112.5 | 134.2 |
+| Noise alone | 12.3 | 41.0 |
+| Noise, then Reduce Interlace Flicker as added (softness 1) | 71.2 | 63.6 |
+| Noise, then Reduce Interlace Flicker softness 2.5 | 74.2 | 64.4 |
 
-First loops (empty caches): card 58.6, 124.7, 157.2; processor 100.4, 123.1, 122.7.
+First loops (empty caches): card 15.9, 64.9, 89.0; processor 40.0, 63.5, 64.8.
 
-**Reading it.** Reduce Interlace Flicker is Gaussian Blur's one-way blur, which is drawn on the processor even on the card's path, so the card's lead over the Noise alone (30.2 against 63.3) is lost once it is added: about 109 to 113 ms a frame either way at softness 1, and 112.5 on the card against 134.2 on the processor at 2.5, three layers, on a busy machine. It has no measured stage of its own: in the perf report it is counted as Gaussian Blur's.
+**Reading it.** Reduce Interlace Flicker is Gaussian Blur's one-way blur, which is drawn on the processor even on the card's path, so the card's lead over the Noise alone (12.3 against 41.0) is lost once it is added. Quiet, the processor is now a little quicker than the card: 63.6 against 71.2 ms a frame at softness 1, and 64.4 against 74.2 at 2.5, three layers. The busy run had the two about equal at softness 1 and the card quicker at 2.5; that does not hold. It has no measured stage of its own: in the perf report it is counted as Gaussian Blur's.
