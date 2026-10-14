@@ -1,8 +1,8 @@
 # B-56: hue/saturation
 
-D-113, accepted by the owner on 2026-09-26 in the batch of ten. Every expected pixel is `Fixtures/hue_saturation/expected_hue_saturation.json`, written by `tools/hue_saturation_reference.py` before this code existed and printed in document 25 as FX-HUESAT-001 to 023. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
+D-113, accepted by the owner on 2026-09-26 in the batch of ten. Every expected pixel is `Fixtures/hue_saturation/expected_hue_saturation.json`, written by `tools/hue_saturation_reference.py` before this code existed and printed in document 25 as FX-HUESAT-001 to 026. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
 
-## FX-HUESAT-001 to 023 (document 25)
+## FX-HUESAT-001 to 026 (document 25)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -63,6 +63,12 @@ D-113, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | FX-HUESAT-023 frame 0: Lightness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-HUESAT-023 frame 4: Lightness 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-HUESAT-023: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-HUESAT-024 frame 0: The wheel, greens hue +90, saturation -40, lightness +10: green, at 120, turns to 210, a sky blue, a little greyer and lighter; the yellow-green at 90 and the spring green at 150 take half of each; red, cyan, blue, magenta, the grey and the pale cyan stay as they are. | largest difference 1.5e-7 | yes |
+| FX-HUESAT-024: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-HUESAT-025 frame 0: The wheel, cyans hue -120, saturation +50, lightness -20: cyan, at 180, turns to 60, a darker yellow, and so does the half-covered cyan at its half covering; the pale cyan turns to a pale yellow, more vivid and a little darker; the spring green at 150 and the azure at 210 take half; red, green, blue and the grey stay. | largest difference 2.3e-7 | yes |
+| FX-HUESAT-025: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-HUESAT-026 frame 0: The wheel, magentas hue +60, saturation -100, lightness +30: magenta, at 300, turns grey and lighter; the violet at 270 and the rose at 330 lose half their colour, turned half way on; red, green, cyan, blue and the grey stay. | largest difference 1.5e-7 | yes |
+| FX-HUESAT-026: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 
 ## How far it reaches
 
@@ -85,6 +91,9 @@ D-113, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | fx_huesat_018.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_huesat_022.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_huesat_023.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_huesat_024.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_huesat_025.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_huesat_026.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | a file with no `saturation` at all is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with a lightness written as a word is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 
@@ -114,4 +123,4 @@ D-113, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 
 ## Result
 
-85 of 85 checks pass.
+94 of 94 checks pass.

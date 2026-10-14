@@ -4,7 +4,7 @@
 //!
 //! Every expected pixel is `Fixtures/hue_saturation/expected_hue_saturation.json`, written by
 //! `tools/hue_saturation_reference.py` before this code existed and printed in document 25 as
-//! FX-HUESAT-001 to 023. Tolerance 2e-5. Nothing here is a snapshot of a run.
+//! FX-HUESAT-001 to 026. Tolerance 2e-5. Nothing here is a snapshot of a run.
 
 mod effect_table;
 
@@ -28,12 +28,12 @@ fn b56_hue_saturation() {
         "# B-56: hue/saturation\n\nD-113, accepted by the owner on 2026-09-26 in the batch of \
          ten. Every expected pixel is `Fixtures/hue_saturation/expected_hue_saturation.json`, \
          written by `tools/hue_saturation_reference.py` before this code existed and printed in \
-         document 25 as FX-HUESAT-001 to 023. The build's frame is compared sample by sample; \
+         document 25 as FX-HUESAT-001 to 026. The build's frame is compared sample by sample; \
          the answer is the largest difference over all of them, against the catalogue's \
          tolerance of 2e-5.\n",
     );
 
-    t.heading("FX-HUESAT-001 to 023 (document 25)");
+    t.heading("FX-HUESAT-001 to 026 (document 25)");
     t.fixtures("expected_hue_saturation.json");
 
     t.heading("How far it reaches");
@@ -64,6 +64,9 @@ fn b56_hue_saturation() {
         "fx_huesat_018.json",
         "fx_huesat_022.json",
         "fx_huesat_023.json",
+        "fx_huesat_024.json",
+        "fx_huesat_025.json",
+        "fx_huesat_026.json",
     ]);
     t.shape_refused(
         "fx_huesat_001.json",

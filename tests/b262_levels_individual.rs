@@ -9,7 +9,7 @@
 //!
 //! Every expected pixel is `Fixtures/levels_individual/expected_levels_individual.json`, written
 //! by `tools/levels_individual_reference.py` before this code existed and printed in document 25
-//! as FX-LVLIC-001 to 020. Nothing here is a snapshot of a run.
+//! as FX-LVLIC-001 to 024. Nothing here is a snapshot of a run.
 
 mod effect_table;
 
@@ -105,7 +105,7 @@ fn fx(id: &str, p: &J) -> J {
 /// files numbered in `none` are left out with a warning or stay on the processor.
 fn card_fixtures(t: &mut Table, gpu: &mut Gpu, none: &[u32]) {
     let comp = Id::new(MAIN);
-    for n in 1..=20 {
+    for n in 1..=24 {
         let file = format!("fx_lvlic_{n:03}.json");
         let project = persist::load(&t.root.join(&file)).unwrap().document.project().clone();
         let (mut largest, mut refused, mut agree, mut card) = (0, false, true, 0);
@@ -198,15 +198,15 @@ fn b262_levels_individual() {
          then the RGB set; the alpha set on the covering with the colour kept. Every expected pixel \
          is `Fixtures/levels_individual/expected_levels_individual.json`, written by \
          `tools/levels_individual_reference.py` before this code existed and printed in document 25 \
-         as FX-LVLIC-001 to 020. A Levels saved before D-383, with its five settings, opens as the \
+         as FX-LVLIC-001 to 024. A Levels saved before D-383, with its five settings, opens as the \
          RGB set and draws as it did: `tests/b55_levels.rs` and its fixtures are unchanged.\n",
     );
 
-    t.heading("FX-LVLIC-001 to 020 (document 25)");
-    t.fixtures_numbered("expected_levels_individual.json", 1..=20);
+    t.heading("FX-LVLIC-001 to 024 (document 25)");
+    t.fixtures_numbered("expected_levels_individual.json", 1..=24);
 
     t.heading("The file");
-    let files: Vec<String> = (1..=20).filter(|n| *n != 12).map(|n| format!("fx_lvlic_{n:03}.json")).collect();
+    let files: Vec<String> = (1..=24).filter(|n| *n != 12).map(|n| format!("fx_lvlic_{n:03}.json")).collect();
     t.round_trips(&files.iter().map(String::as_str).collect::<Vec<_>>());
     let saved = t.saved_parameters("fx_lvlic_012.json");
     t.row(
@@ -268,9 +268,9 @@ fn b262_levels_individual() {
 
     t.heading("On the card against the processor: within 1 level of 255");
     let mut gpu = Gpu::new().expect("a usable card");
-    // Untouched (001), an alpha set (007 to 009, 014, 015), a threshold (010) and refused (016
-    // to 020) leave nothing for the card.
-    let none: Vec<u32> = [1, 7, 8, 9, 10, 14, 15].into_iter().chain(16..=20).collect();
+    // Untouched (001), an alpha set (007 to 009, 014, 015, 024), a threshold (010) and refused
+    // (016 to 020) leave nothing for the card.
+    let none: Vec<u32> = [1, 7, 8, 9, 10, 14, 15, 24].into_iter().chain(16..=20).collect();
     card_fixtures(&mut t, &mut gpu, &none);
     card_reference(
         &mut t,

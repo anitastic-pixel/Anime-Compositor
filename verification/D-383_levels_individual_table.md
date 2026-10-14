@@ -1,8 +1,8 @@
 # D-383: Levels with a set for each channel, and Levels (Individual Controls)
 
-B-262, the owner's "Both names, one engine": a set of input black, input white, gamma, output black and output white for RGB, red, green, blue and alpha; Levels' Channel menu chooses the set its controls show, Levels (Individual Controls) shows all 25. Each channel's own set first, then the RGB set; the alpha set on the covering with the colour kept. Every expected pixel is `Fixtures/levels_individual/expected_levels_individual.json`, written by `tools/levels_individual_reference.py` before this code existed and printed in document 25 as FX-LVLIC-001 to 020. A Levels saved before D-383, with its five settings, opens as the RGB set and draws as it did: `tests/b55_levels.rs` and its fixtures are unchanged.
+B-262, the owner's "Both names, one engine": a set of input black, input white, gamma, output black and output white for RGB, red, green, blue and alpha; Levels' Channel menu chooses the set its controls show, Levels (Individual Controls) shows all 25. Each channel's own set first, then the RGB set; the alpha set on the covering with the colour kept. Every expected pixel is `Fixtures/levels_individual/expected_levels_individual.json`, written by `tools/levels_individual_reference.py` before this code existed and printed in document 25 as FX-LVLIC-001 to 024. A Levels saved before D-383, with its five settings, opens as the RGB set and draws as it did: `tests/b55_levels.rs` and its fixtures are unchanged.
 
-## FX-LVLIC-001 to 020 (document 25)
+## FX-LVLIC-001 to 024 (document 25)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -54,6 +54,14 @@ B-262, the owner's "Both names, one engine": a set of input black, input white, 
 | FX-LVLIC-020 frame 0: Levels with the channel "luma", which is not one of rgb, red, green, blue or alpha. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-LVLIC-020 frame 4: Levels with the channel "luma", which is not one of rgb, red, green, blue or alpha. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-LVLIC-020: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-LVLIC-021 frame 0: Levels (Individual Controls), red input black 30, input white 220 and gamma 1.6: reds at or below 30 go to 0, at or above 220 to full, the middle lifted; green and blue untouched. | largest difference 1.6e-7 | yes |
+| FX-LVLIC-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-LVLIC-022 frame 0: Levels (Individual Controls), green input black 20, input white 200 and gamma 0.6: greens at or below 20 go to 0, at or above 200 to full, the middle darkened; red and blue untouched. | largest difference 3.6e-7 | yes |
+| FX-LVLIC-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-LVLIC-023 frame 0: Levels with its Channel menu on Blue, blue input black 40, input white 230 and gamma 2: blues at or below 40 go to 0, at or above 230 to full, the middle lifted; red and green untouched. | largest difference 1.9e-7 | yes |
+| FX-LVLIC-023: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-LVLIC-024 frame 0: Levels with its Channel menu on Alpha, alpha input black 32, input white 224 and gamma 0.5: the full coverings stay full, the yellow at half covering goes to a quarter, the empty column stays empty; every shown colour kept. | largest difference 1.9e-7 | yes |
+| FX-LVLIC-024: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 
 ## The file
 
@@ -78,6 +86,10 @@ B-262, the owner's "Both names, one engine": a set of input black, input white, 
 | fx_lvlic_018.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_lvlic_019.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_lvlic_020.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_lvlic_021.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_lvlic_022.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_lvlic_023.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_lvlic_024.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_lvlic_012.json, a Levels with its Channel menu and only the RGB five, is saved with its channel and all 25 settings, the ones it left out at their starts | {"alpha_gamma":1,"alpha_input_black":0,"alpha_input_white":255,"alpha_output_black":0,"alpha_output_white":255,"blue_gamma":1,"blue_input_black":0,"blue_input_white":255,"blue_output_black":0,"blue_output_white":255,"channel":"alpha","gamma":1,"green_gamma":1,"green_input_black":0,"green_input_white":255,"green_output_black":0,"green_output_white":255,"input_black":0,"input_white":200,"output_black":0,"output_white":255,"red_gamma":1,"red_input_black":0,"red_input_white":255,"red_output_black":0,"red_output_white":255} | yes |
 | fx_lvlic_014.json, Levels (Individual Controls), is saved with its 25 settings and no channel | {"alpha_gamma":1,"alpha_input_black":0,"alpha_input_white":255,"alpha_output_black":0,"alpha_output_white":200,"blue_gamma":1.5,"blue_input_black":30,"blue_input_white":255,"blue_output_black":0,"blue_output_white":255,"gamma":1.2,"green_gamma":0.7,"green_input_black":0,"green_input_white":255,"green_output_black":0,"green_output_white":240,"input_black":10,"input_white":255,"output_black":0,"output_white":255,"red_gamma":1,"red_input_black":0,"red_input_white":230,"red_output_black":20,"red_output_white":255} | yes |
 | fx_lvlic_016.json is refused in a sentence naming red input black | Levels (Individual Controls)'s red input black runs from 0 to 255, and this is 256. | yes |
@@ -138,6 +150,10 @@ B-262, the owner's "Both names, one engine": a set of input black, input white, 
 | fx_lvlic_018.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_lvlic_019.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_lvlic_020.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_lvlic_021.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_lvlic_022.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_lvlic_023.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; refused by the card: false; the same warnings: true | yes |
+| fx_lvlic_024.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot, Levels RGB input 16 to 235 and gamma 1.1: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073597 pixels changed | yes |
 | the reference shot, Levels RGB input 16 to 235 and gamma 1.1 on three layers, frame 0, Full | largest difference 1 of 255, 1548 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Levels RGB input 16 to 235 and gamma 1.1 on three layers, frame 100, Full | largest difference 1 of 255, 1366 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
@@ -180,4 +196,4 @@ B-262, the owner's "Both names, one engine": a set of input black, input white, 
 
 ## Result
 
-146 of 146 checks pass.
+162 of 162 checks pass.
