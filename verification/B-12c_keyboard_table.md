@@ -98,6 +98,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.paste` can be asked for without a mouse | yes | yes | pass |
 | `layer.precompose` can be asked for without a mouse | yes | yes | pass |
 | `layer.rename` can be asked for without a mouse | yes | yes | pass |
+| `layer.replace_source` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_blend_mode` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_drawing_dissolve` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_gain` can be asked for without a mouse | yes | yes | pass |
@@ -214,4 +215,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**184 of 184 checks pass.**
+**185 of 185 checks pass.**

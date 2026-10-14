@@ -9575,6 +9575,7 @@ const ANSWERS: &[&str] = &[
     "layer.paste",
     "layer.precompose",
     "layer.rename",
+    "layer.replace_source",
     "layer.set_blend_mode",
     "layer.set_depth",
     "layer.set_drawing_dissolve",
@@ -12457,6 +12458,22 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             )
                         }
                     },
+                },
+                // D-734: After Effects' Replace Layer Source (Ctrl+Alt+/): the item picked in
+                // the Project panel takes the layer's place as its source; the core refuses a
+                // kind that does not fit.
+                "layer.replace_source" => match parameter(query, "asset") {
+                    Some(asset) if !asset.is_empty() => Command::SetLayerSource {
+                        composition,
+                        layer_id,
+                        asset: Id::new(&asset),
+                    },
+                    _ => {
+                        return Some(
+                            "Pick the picture, sequence or sound in the Project panel first, then press Ctrl+Alt+/."
+                                .to_string(),
+                        )
+                    }
                 },
                 // W-24: After Effects' label colours, 0 for none and 1 to 8.
                 "layer.set_label" => {
@@ -17749,6 +17766,93 @@ mod editing {
                applies is the text pinned in the first row; the rows after apply that rule to the \
                Sheet the window answers the page with."],
             &[],
+        );
+        let failed: Vec<&String> = report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
+    /// D-734: After Effects' Replace Layer Source (Ctrl+Alt+/). The layer shows the item picked
+    /// in the Project panel and keeps everything else; one undo puts the old source back.
+    #[test]
+    fn replace_layer_source_swaps_only_the_source() {
+        let mut report = Report { rows: Vec::new() };
+        let page = include_str!("../ui/index.html");
+        report.check(
+            "Ctrl+Alt+/ sends the selected layer and the item picked in the Project panel",
+            true,
+            page.contains("e.ctrlKey && e.altKey && !typing && e.code === 'Slash') { e.preventDefault(); replaceSource(); }")
+                && page.contains("command('/layer.replace_source?layer=' + encodeURIComponent(selectedLayer)\n    + '&asset=' + encodeURIComponent(selectedAsset));"),
+        );
+        let viewer = Mutex::new(demo());
+        let layer = |id: &str| {
+            let held = held(&viewer);
+            held.document.project().composition(&held.composition).and_then(|c| c.layer(&Id::new(id))).cloned().unwrap()
+        };
+        let sound = {
+            let held = held(&viewer);
+            let mut asset = Asset::still(unused_asset_id(held.document.project()), "line.wav".to_string(), "line.wav".to_string());
+            asset.kind = AssetKind::Audio;
+            asset
+        };
+        let sound_id = sound.id.to_string();
+        edit(&viewer, Command::AddAsset { asset: sound });
+        run(&viewer, "effect.add?layer=layer-1&type=core.tint");
+        let before = layer("layer-1");
+        let depth = held(&viewer).document.undo_depth();
+
+        let said = run(&viewer, "layer.replace_source?layer=layer-1&asset=asset-layer2");
+        report.check("replacing layer 1's drawings with layer 2's says", "Replace the layer's source with layer2", said);
+        let after = layer("layer-1");
+        report.check("layer 1 now shows", "asset-layer2", after.asset_id.to_string());
+        report.check(
+            "its name, keys, effects (a Tint was added first), transform, timing and Sheet are unchanged",
+            true,
+            Layer { asset_id: before.asset_id.clone(), ..after.clone() } == before,
+        );
+        report.check("entries added to undo", 1, held(&viewer).document.undo_depth() - depth);
+        run(&viewer, "edit.undo");
+        report.check("one undo puts the old source back, and the layer is exactly as it was", true, layer("layer-1") == before);
+
+        run(&viewer, "layer.add_solid");
+        let solid = {
+            let held = held(&viewer);
+            let comp = held.document.project().composition(&held.composition).unwrap();
+            let id = comp.layers_in_order().find(|l| l.kind == LayerKind::Solid).map(|l| l.id.to_string());
+            id.unwrap_or_default()
+        };
+        run(&viewer, "layer.toggle_lock?layer=layer-3");
+        for (what, query, expected) in [
+            ("no item picked", "layer=layer-1".to_string(), "Pick the picture, sequence or sound in the Project panel first, then press Ctrl+Alt+/.".to_string()),
+            ("an item that is not in the project", "layer=layer-1&asset=asset-gone".to_string(), "There is no imported item called asset-gone.".to_string()),
+            ("the item it already shows", "layer=layer-1&asset=asset-layer1".to_string(), "layer1 already shows layer1.".to_string()),
+            (
+                "a sound file on a drawing layer",
+                format!("layer=layer-1&asset={sound_id}"),
+                format!("layer1 cannot show line.wav: a drawing layer takes a picture or a sequence, a sound layer a sound file."),
+            ),
+            ("a solid, which shows no imported item", format!("layer={solid}&asset=asset-layer2"), "Solid 1 has no imported source to replace.".to_string()),
+        ] {
+            report.check(&format!("{what}: the window says"), expected, run(&viewer, &format!("layer.replace_source?{query}")));
+        }
+        let locked = run(&viewer, "layer.replace_source?layer=layer-3&asset=asset-layer2");
+        report.check("a locked layer is refused", true, layer("layer-3").asset_id.as_str() == "asset-layer3" && !locked.starts_with("Replace"));
+
+        write_artifact(
+            &report,
+            "verification/D-734_replace_source_table.md",
+            "D-734: Replace layer source (Ctrl+Alt+/)",
+            &["After Effects' Replace Layer Source. Select a layer, click a picture, sequence or \
+               sound in the Project panel, and press Ctrl+Alt+/ (or Layer > Replace layer source): \
+               the layer shows the new item and keeps its name, keys, effects, transform, timing \
+               and Sheet. A drawing layer takes a picture or a sequence and a sound layer a sound \
+               file; anything else is refused with a sentence, and nothing changes.",
+               "The project is `verification/B-08a_project.json` with a Tint added to layer 1 and \
+               a sound file added to the Project panel. The third row compares the whole layer \
+               before and after, apart from its source."],
+            &["## What to look at\n\n- **A drawing number the new sequence does not have** is \
+               not refused: the Sheet keeps its numbers, and a frame showing a number the new \
+               sequence lacks is reported as a missing drawing, as it is anywhere else.\n- **A \
+               composition layer's source** is not replaced by this; that is left for later."],
         );
         let failed: Vec<&String> = report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
@@ -31164,6 +31268,7 @@ mod contract {
         "layer.paste",
         "layer.precompose",
         "layer.rename",
+        "layer.replace_source",
         "layer.set_blend_mode",
         "layer.set_drawing_dissolve",
         "layer.set_gain",
@@ -31633,6 +31738,7 @@ mod contract {
         ("layer.split", "a command the window answers"),
         ("layer.toggle_solo", "a command the window answers"),
         ("layer.set_label", "a command the window answers"),
+        ("layer.replace_source", "a command the window answers"),
         ("layer.set_blend_mode", "a command the window answers"),
         ("layer.set_gain", "a command the window answers"),
         // D-66, accepted on 2026-09-17; B-17c put the button in the window the same day.
@@ -31814,6 +31920,7 @@ mod contract {
         ("effect.paste", "Ctrl+V", "pasteCopiedEffects()"),
         ("app.effects_console", "Ctrl+Space", "fxConsole()"),
         ("layer.toggle_lock", "Ctrl+L", "toggleLayers('lock')"),
+        ("layer.replace_source", "Ctrl+Alt+/", "e.code === 'Slash'"),
         (
             "layer.toggle_visibility",
             "Ctrl+Alt+V",

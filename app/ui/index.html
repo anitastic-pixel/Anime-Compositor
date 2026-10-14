@@ -1865,6 +1865,7 @@
     <button data-run="New null"></button>
     <hr>
     <button data-run="Rename layer"></button>
+    <button data-run="Replace layer source"></button>
     <button data-run="Split layers at the playhead"></button>
     <button data-run="Sequence the selected layers end to end"></button>
     <hr>
@@ -5243,6 +5244,7 @@ function paletteLines() {
     ['New null', 'Ctrl+Alt+Shift+Y', { key: 'Y', ctrlKey: true, altKey: true, shiftKey: true }],
     ['Pre-compose', 'Ctrl+Shift+C', { key: 'C', code: 'KeyC', ctrlKey: true, shiftKey: true }],
     ['Rename layer', 'F2', { key: 'F2' }],
+    ['Replace layer source', 'Ctrl+Alt+/', { key: '/', code: 'Slash', ctrlKey: true, altKey: true }],
     ['Delete layer or keys', 'Delete', { key: 'Delete' }],
     ['Duplicate layers', 'Ctrl+D', { key: 'd', code: 'KeyD', ctrlKey: true }],
     ['Split layers at the playhead', 'Ctrl+Shift+D', { key: 'D', code: 'KeyD', ctrlKey: true, shiftKey: true }],
@@ -16931,6 +16933,16 @@ $('addlayer').onclick = () => {
   command('/layer.create?asset=' + encodeURIComponent(selectedAsset)
     + '&name=' + encodeURIComponent(asset ? asset.name : 'New layer'));
 };
+// D-734: After Effects' Replace Layer Source. The item picked in the Project panel becomes the
+// selected layer's source; its keys, effects and settings stay, and one undo puts it back.
+function replaceSource() {
+  if (!selectedLayer || !selectedAsset) {
+    $('status').textContent = 'Select the layer, then the picture, sequence or sound in the Project panel, then press Ctrl+Alt+/.';
+    return;
+  }
+  command('/layer.replace_source?layer=' + encodeURIComponent(selectedLayer)
+    + '&asset=' + encodeURIComponent(selectedAsset));
+}
 $('dellayer').onclick = () => {
   if (!selectedLayer) return;
   command('/layer.delete?layer=' + encodeURIComponent(selectedLayer) + '&frame=' + frame);
@@ -19497,6 +19509,7 @@ addEventListener('keydown', (e) => {
   // copied last. Ctrl+Alt+V hides and shows, Ctrl+L locks, Ctrl+K is the composition's settings
   // and Ctrl+Home and Ctrl+Alt+F centre and fit.
   else if (e.ctrlKey && !typing && selection.length && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyLayers(); }
+  else if (e.ctrlKey && e.altKey && !typing && e.code === 'Slash') { e.preventDefault(); replaceSource(); }
   else if (e.ctrlKey && e.altKey && !typing && e.code === 'KeyV') { e.preventDefault(); toggleLayers('visibility'); }
   else if (e.ctrlKey && !typing && clip === 'keys' && copied.length && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteKeys(); }
   else if (e.ctrlKey && !typing && clip === 'layers' && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteLayers(); }

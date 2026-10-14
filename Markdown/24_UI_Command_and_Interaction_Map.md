@@ -48,6 +48,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.split | Split the selected layers at the playhead into two layers | Ctrl+Shift+D | yes |
 | layer.toggle_solo | Show only the soloed layers in the preview | none | no |
 | layer.set_label | Set a layer's label colour | none | yes |
+| layer.replace_source | Replace the selected layer's picture, sequence or sound with the item selected in the Project panel, keeping its keys, effects and settings, as After Effects' Replace Layer Source (D-734) | Ctrl+Alt+/ | yes |
 | layer.set_blend_mode | Set a layer's blend mode | none | yes |
 | layer.set_gain | Set an audio layer's level in decibels, from -96 to 12 | none | yes |
 | layer.add_adjustment | Add an adjustment layer above the selected layer, covering the frame (D-66; in the window since B-17c, 2026-09-17) | Ctrl+Alt+Y | yes |

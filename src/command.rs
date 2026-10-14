@@ -17,7 +17,7 @@
 use crate::diagnostics::{Diagnostic, DiagnosticId, Severity};
 use crate::keykind::{self, Side};
 use crate::model::{
-    Asset, BlendMode, Composition, Expression, Id, Interp, Keyframe, Kind, Layer, MatteMode, MatteReference,
+    Asset, AssetKind, BlendMode, Composition, Expression, Id, Interp, Keyframe, Kind, Layer, MatteMode, MatteReference,
     Project, Prop, Stroke, Value,
 };
 use crate::time::{ExposureMap, ExposureSpan, FrameRate};
@@ -139,6 +139,15 @@ pub enum Command {
         composition: Id,
         layer_id: Id,
         value: bool,
+    },
+    /// D-734: After Effects' Replace Footage on a layer (Ctrl+Alt+/): the layer shows another
+    /// imported item. Its keys, effects, masks, timing, Sheet and every setting stay as they
+    /// were; only `asset_id` changes. A drawing layer takes a still or a sequence, a sound layer
+    /// a sound file.
+    SetLayerSource {
+        composition: Id,
+        layer_id: Id,
+        asset: Id,
     },
     /// W-24: After Effects' label colour, 0 for none and 1 to 8.
     SetLayerLabel {
@@ -610,6 +619,7 @@ impl Command {
             Command::SetLayerEnabled { .. } => "SET_LAYER_ENABLED",
             Command::SetLayerLocked { .. } => "SET_LAYER_LOCKED",
             Command::SetLayerLabel { .. } => "SET_LAYER_LABEL",
+            Command::SetLayerSource { .. } => "SET_LAYER_SOURCE",
             Command::SetLayerShy { .. } => "SET_LAYER_SHY",
             Command::SetLayerMotionBlur { .. } => "SET_LAYER_MOTION_BLUR",
             Command::SetLayerTimeStretch { .. } => "SET_LAYER_TIME_STRETCH",
@@ -730,6 +740,10 @@ impl Command {
                 .and_then(|l| l.effects.iter().find(|e| &e.instance_id == instance_id))
                 .map(|e| self.effect_label(e.effect.name()))
                 .unwrap_or_else(|| self.label()),
+            Command::SetLayerSource { asset, .. } => match before.assets.iter().find(|a| &a.id == asset) {
+                Some(a) => format!("Replace the layer's source with {}", a.name),
+                None => self.label(),
+            },
             _ => self.label(),
         }
     }
@@ -808,6 +822,7 @@ impl Command {
             Command::RemoveSketchStrokes { strokes, .. } => format!("Erase {} sketch strokes", strokes.len()),
             Command::MoveSketchStrokes { strokes, .. } if strokes.len() == 1 => "Move a sketch stroke".to_string(),
             Command::MoveSketchStrokes { strokes, .. } => format!("Move {} sketch strokes", strokes.len()),
+            Command::SetLayerSource { asset, .. } => format!("Replace the layer's source with {asset}"),
             Command::SetLayerLabel { label, .. } => match label {
                 0 => "Clear the layer's label".to_string(),
                 n => format!("Set the layer's label to colour {n}"),
@@ -981,6 +996,7 @@ impl Command {
             | Command::SetLayerEnabled { composition, .. }
             | Command::SetLayerLocked { composition, .. }
             | Command::SetLayerLabel { composition, .. }
+            | Command::SetLayerSource { composition, .. }
             | Command::SetLayerShy { composition, .. }
             | Command::SetLayerMotionBlur { composition, .. }
             | Command::SetLayerTimeStretch { composition, .. }
@@ -1064,6 +1080,7 @@ impl Command {
             | Command::MoveSketchStrokes { sketch, .. } => ids.push(sketch.clone()),
             Command::RemoveLayer { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
+            | Command::SetLayerSource { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
             | Command::SetSolid { layer_id, .. }
             | Command::SetText { layer_id, .. }
@@ -1247,6 +1264,7 @@ impl Command {
             | Command::ShiftLayer { layer_id, .. }
             | Command::TrimLayer { layer_id, .. }
             | Command::SetLayerLabel { layer_id, .. }
+            | Command::SetLayerSource { layer_id, .. }
             | Command::SetBlendMode { layer_id, .. }
             | Command::SetSolid { layer_id, .. }
             | Command::SetText { layer_id, .. }
@@ -2625,6 +2643,39 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     p[1] += by[1];
                 }
             }
+        }
+        Command::SetLayerSource { layer_id, asset, .. } => {
+            let found = project.assets.iter().find(|a| &a.id == asset).map(|a| (a.kind, a.name.clone()));
+            let Some((kind, name)) = found else {
+                return Err(reject(
+                    &format!("There is no imported item called {asset}."),
+                    "D-734: a layer's source is one of the project's imported items.",
+                ));
+            };
+            let layer = layer_mut(project, &comp_id, layer_id)?;
+            let fits = match layer.kind {
+                crate::model::LayerKind::Raster => matches!(kind, AssetKind::Still | AssetKind::ImageSequence),
+                crate::model::LayerKind::Audio => kind == AssetKind::Audio,
+                _ => {
+                    return Err(reject(
+                        &format!("{} has no imported source to replace.", layer.name),
+                        "D-734: only a drawing layer or a sound layer shows an imported item.",
+                    ))
+                }
+            };
+            if !fits {
+                return Err(reject(
+                    &format!(
+                        "{} cannot show {name}: a drawing layer takes a picture or a sequence, a sound layer a sound file.",
+                        layer.name
+                    ),
+                    "D-734: a layer keeps its kind when its source is replaced.",
+                ));
+            }
+            if &layer.asset_id == asset {
+                return Err(reject(&format!("{} already shows {name}.", layer.name), "D-734"));
+            }
+            layer.asset_id = asset.clone();
         }
         Command::SetLayerLabel {
             layer_id, label, ..
