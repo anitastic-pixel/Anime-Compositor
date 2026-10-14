@@ -1,0 +1,50 @@
+{
+  "project": "I:\\AI Coding\\Claude\\TotallyNotAfterEffects\\verification\\app_snapshots\\three_d_glasses_offset\\three_d_glasses_offset.json",
+  "exe": "I:\\AI Coding\\Claude\\TotallyNotAfterEffects\\target\\lanes\\curl\\release\\anime_compositor_app.exe",
+  "exe_written": "2026-10-14T01:45:32",
+  "port": 61037,
+  "started": "2026-10-14T02:42:25",
+  "shots": [
+    {
+      "name": "frame_0012_cpu",
+      "ms": 302,
+      "drawn_on": "CPU",
+      "error": null
+    },
+    {
+      "name": "frame_0012_card",
+      "ms": 480,
+      "drawn_on": "GPU",
+      "error": null
+    }
+  ],
+  "differences": [
+    {
+      "frame": 12,
+      "r": {
+        "max": 1,
+        "mean": 0.0004
+      },
+      "g": {
+        "max": 1,
+        "mean": 0.0006
+      },
+      "b": {
+        "max": 1,
+        "mean": 0.0014
+      },
+      "a": {
+        "max": 1,
+        "mean": 0.0008
+      },
+      "solid": {
+        "max": 1
+      }
+    }
+  ],
+  "ready_ms": 2001,
+  "switch_cpu": "The preview is drawn on the CPU.",
+  "switch_card": "The preview is drawn on the graphics card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory. Exports are still drawn on the CPU. A frame the card cannot draw is drawn on the CPU, and the picture's label says so.",
+  "temp_folder_removed": true,
+  "total_ms": 5601
+}
