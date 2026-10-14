@@ -1,14 +1,8 @@
 # B-390: frame times with Tile Wipe (D-510) — PROVISIONAL
 
-Measured on 2026-10-11, built with `cargo test --release --test
-b390_tile_wipe` from c46d6557 (B-390's code), and run with `--ignored
-b390_tile_wipe_timing`: once on the card, then once with `B390_CPU` set on the processor.
-**The machine was not quiet.** Other lanes' cargo and rustc processes were running before,
-during and after both runs (four cargo builds and two rustc compiles were running before the
-first run; two cargo builds were still running when the second run ended). The numbers below
-are recorded as they came out. They are not a clean measurement of Tile Wipe: the card's Noise
-alone took 17.9 ms a frame here, against 11.8 ms on the quiet machine in B-387's table. A quiet
-re-measure is owed.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b390_tile_wipe --no-run` and run with `--ignored b390_tile_wipe_timing`: once on the card, then once with `B390_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (2 and 7% busy; 4.3 GB of its memory held by the desktop and open programs); the same after each. The processor was 2% busy or less before each run. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-11, on a machine that was not quiet), again: Noise alone card 17.9, processor 57.4; Noise, then Tile Wipe, completion 50 (as added otherwise) card 24.6, processor 63.8 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD Ryzen 9 9900X (AMD64 Family 26 Model 68), 24 threads
@@ -22,15 +16,15 @@ every eighth frame asked for whole at Full. **Again** is the median of the loops
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 17.9 | 57.4 |
-| Noise, then Tile Wipe, completion 50 (as added otherwise) | 24.6 | 63.8 |
-| Noise, then Tile Wipe, completion 50, 40 tiles, border 4, turned 30 | 22.6 | 71.9 |
-| Noise, then Tile Wipe, completion 50, rectangle, reversed | 28.1 | 119.8 |
+| Noise alone | 12.3 | 41.8 |
+| Noise, then Tile Wipe, completion 50 (as added otherwise) | 15.4 | 48.2 |
+| Noise, then Tile Wipe, completion 50, 40 tiles, border 4, turned 30 | 15.6 | 48.4 |
+| Noise, then Tile Wipe, completion 50, rectangle, reversed | 15.1 | 48.1 |
 
-First loops (empty caches): card 21.6, 32.7, 27.1, 25.8; processor 80.9, 64.1, 71.1, 145.5.
+First loops (empty caches): card 15.7, 19.6, 19.0, 18.3; processor 41.7, 47.3, 48.3, 47.9.
 
-**Reading it.** Every shot draws to the end on both, and the card ran each Tile Wipe shot
-between about two and a half and four times as fast as the processor. Tile Wipe's own share on
-the card (about 5 to 10 ms a frame over the Noise alone) cannot be trusted while other compiles
-share the machine. Re-run the two commands above when no other cargo, rustc or test process is
-running and the card is idle, and replace this table.
+**Reading it.** Every shot draws to the end on both, and the card ran each Tile Wipe shot about
+three times as fast as the processor (15.1 to 15.6 against 48.1 to 48.4 a frame). Tile Wipe's own
+share is about 1 ms a 1080p layer on the card (2.8 to 3.3 ms a frame over the Noise alone, three
+layers), within Target P1's 1 ms or just at it, and about 2 ms a layer on the processor. The busy
+run's 5 to 10 ms a frame on the card were the other compiles.
