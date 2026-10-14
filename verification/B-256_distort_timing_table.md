@@ -1,18 +1,10 @@
 # B-256..B-258: frame times with Bend It, Bender and Blobbylize
 
-**PROVISIONAL.** Measured on 2026-10-09 on the code of the code commit (053957e), on a machine
-that was not quiet. Another agent's cargo processes (PIDs 67100 and 31368) were running the whole
-time, with its test binary `b221_gpu_mix` (about 0.8 to 1.1 GB, using the same card) running
-before, during and after every round. Expect these figures to move when measured again on a quiet
-machine. The owner's app was not open. The timing test is `b256_distort_timing` in
-`tests/b256_bend_it_bender_blobbylize.rs`, built with
-`cargo test --release --test b256_bend_it_bender_blobbylize` and run with
-`--ignored b256_distort_timing`. Rounds: one by the card, then one by the processor (with
-`B256_CPU` set), then a second by the card. These are single figures per round, not medians of
-rounds.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b256_bend_it_bender_blobbylize --no-run` and run with `--ignored b256_distort_timing`: once on the card, then once with `B256_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0 and 4% busy; 2.9 GB of its memory held by the desktop and open programs); the same after each. The owner's app was not open. One run each, single figures, not medians of rounds.
 
-There is no "before" for the effects themselves, which are new. Noise alone is the shot without
-them, timed in the same run.
+Earlier provisional figures (2026-10-09, on a machine that was not quiet), again: Noise alone: card 12.9, processor 42.2, card, round 2 13.2; Noise, then Bend It as it starts (45, up the middle): card 21.0, processor 73.2, card, round 2 22.6 ms.
+
+There is no "before" for the effects themselves, which are new; Noise alone is the shot without them, timed in the same run.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD Ryzen 9 9900X (AMD64 Family 26 Model 68), 24 threads
@@ -31,20 +23,19 @@ worked every time. Every eighth frame is asked for whole at Full, as the viewer 
 is the median of the loops after it: seven on the card (210 frames), two on the processor (60
 frames). All figures are milliseconds a frame.
 
-| Shot | Card first | Card again | Processor first | Processor again | Card first, round 2 | Card again, round 2 |
-|---|---:|---:|---:|---:|---:|---:|
-| Noise alone | 18.2 | 12.9 | 41.1 | 42.2 | 45.0 | 13.2 |
-| Noise, then Bend It as it starts (45, up the middle) | 37.0 | 21.0 | 72.6 | 73.2 | 25.8 | 22.6 |
-| Noise, then Bender as it starts (bend 20, up the middle) | 18.9 | 15.5 | 84.1 | 61.9 | 19.2 | 15.3 |
-| Noise, then Blobbylize as it starts (its own alpha, softness 10) | 23.8 | 19.5 | 133.9 | 141.0 | 45.8 | 19.1 |
+| Shot | Card first | Card again | Processor first | Processor again |
+|---|---:|---:|---:|---:|
+| Noise alone | 16.0 | 12.5 | 41.3 | 41.7 |
+| Noise, then Bend It as it starts (45, up the middle) | 24.6 | 20.2 | 71.5 | 71.3 |
+| Noise, then Bender as it starts (bend 20, up the middle) | 18.7 | 15.2 | 60.6 | 61.1 |
+| Noise, then Blobbylize as it starts (its own alpha, softness 10) | 22.4 | 19.3 | 131.5 | 131.9 |
 
-**Reading it (provisional).** Per 1080p layer, from the "again" figures over three layers:
+**Reading it.** Per 1080p layer, from the "again" figures over three layers:
 
 | Effect | Card | Card against its target | Processor |
 |---|---|---|---|
-| Bend It | about 2.7 to 3.1 ms (21.0 and 22.6 against 12.9 and 13.2) | within Target P2's 4 ms | about 10.3 ms (73.2 against 42.2) |
-| Bender | about 0.7 to 0.9 ms | within P2 | about 6.6 ms |
-| Blobbylize | about 2.0 to 2.2 ms | within P3 | about 33 ms (its two blurs and lighting) |
+| Bend It | about 2.6 ms (20.2 against 12.5) | within Target P2's 4 ms | about 9.9 ms (71.3 against 41.7) |
+| Bender | about 0.9 ms (15.2 against 12.5) | within Target P2's 4 ms | about 6.5 ms (61.1 against 41.7) |
+| Blobbylize | about 2.3 ms (19.3 against 12.5) | within Target P3's 8 ms | about 30.1 ms (131.9 against 41.7) |
 
-The "first" figures swing (45.0 for Noise alone in round 2), most likely because of the other
-agent's test sharing the card. They are not a reading of these effects.
+The same as the busy run's reading: each effect within its target on the card, and the card several times quicker than the processor. The busy run's swinging "first" figures (45.0 for Noise alone in its round 2) are gone: on a quiet machine the first loop is 3 to 4 ms over the loops after it, as for other effects.
