@@ -1096,7 +1096,7 @@
   "name": "Curl Noise",
   "type_id": "core.curl_noise",
   "verdict": "looks wrong",
-  "note": "Full-size shot (verification/app_snapshots/curl_noise/full/frame_0012_card_full.png): at Size 140 most swirls are only about 40-100 pixels across on a 1920 frame, finer than the setting suggests, and the streaks carry a regular comb/ladder of dots (looks like the 12 flow samples showing as separate steps). CPU and card match.",
+  "note": "D-680 (91452ccd, 2026-10-14) removed the comb and most seams; swirl size is unchanged and is the owner's call (fix 3). Was: Full-size shot (verification/app_snapshots/curl_noise/full/frame_0012_card_full.png): at Size 140 most swirls are only about 40-100 pixels across on a 1920 frame, finer than the setting suggests, and the streaks carry a regular comb/ladder of dots (looks like the 12 flow samples showing as separate steps). CPU and card match.",
   "cpu_ms": 399,
   "card_ms": 488,
   "max_diff": 1,
