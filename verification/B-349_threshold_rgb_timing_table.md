@@ -1,8 +1,8 @@
 # B-349: frame times with Threshold RGB (D-469)
 
-Measured on 2026-10-11, built with `cargo test --release --test b349_threshold_rgb` from 8ee864d4
-(B-349's code), and run with `--ignored b349_threshold_rgb_timing`: once on the card, then once
-with `B349_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, the graphics card had 10.1 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-c4cee726c1, b221_gpu_mix-7be658513acc, cargo.exe. Between the card and processor runs, the graphics card had 10.2 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-c4cee726c1, b221_gpu_mix-7be658513acc, cargo.exe. After the processor run, the graphics card had 6.6 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-c4cee726c1, b221_gpu_mix-7be658513acc, cargo.exe. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b349_threshold_rgb --no-run` and run with `--ignored b349_threshold_rgb_timing`: once on the card, then once with `B349_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0% busy; 2.9 GB of its memory held by the desktop and open programs); the same after each. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-11, on a machine that was not quiet), again: Noise alone card 48.1, processor 94.6; Noise, then Threshold RGB as added (every level 128) card 61.8, processor 192.9 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -17,12 +17,10 @@ milliseconds a frame.
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 48.1 | 94.6 |
-| Noise, then Threshold RGB as added (every level 128) | 61.8 | 192.9 |
-| Noise, then Threshold RGB, red 200, green 90 turned over, blue 40, blend 30 | 23.8 | 178.6 |
+| Noise alone | 12.3 | 41.5 |
+| Noise, then Threshold RGB as added (every level 128) | 19.1 | 47.5 |
+| Noise, then Threshold RGB, red 200, green 90 turned over, blue 40, blend 30 | 19.2 | 47.9 |
 
-First loops (empty caches): card 92.7, 81.8, 38.4; processor 81.5, 206.7, 202.7.
+First loops (empty caches): card 17.2, 23.0, 22.2; processor 40.8, 47.4, 47.0.
 
-**Reading it.** On the card, Threshold RGB costs an unknown amount a frame (the machine was busy) over the Noise alone in the first setting
-(48.1 to 61.8, three layers), and the second setting takes 23.8: one tone pass, each pixel read once, whatever the levels.
-At these settings a busy machine cannot say whether the card is quicker than the processor here.
+**Reading it.** On the card, Threshold RGB adds 6.8 ms a frame over the Noise alone as added (12.3 to 19.1, three layers), about 2.3 ms a 1080p layer, and 6.9 ms in the second setting (19.2): one tone pass, each pixel read once, whatever the levels. On the processor it adds about 6 ms (41.5 to 47.5 and 47.9). The whole frame is about 2.5 times quicker on the card (19.1 against 47.5). The busy run could not say; this one can.

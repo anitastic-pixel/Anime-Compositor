@@ -1,6 +1,8 @@
 # B-450: frame times with Color Grade's third unit (D-571)
 
-Measured on 2026-10-12, built with `cargo test --release --test b450_color_grade_3` from 3aec1083, and run with `--ignored b450_color_grade_3_timing`: once on the card, then once with `B450_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. During the runs other lanes' build and test programs were running (ten cargo.exe, two b155_gpu_chain, b461_curl_sources and an app test program), two of them drawing on the same card, and the Noise alone came out at 107.4 ms a frame on the card where a quiet run gives about 30. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b450_color_grade_3 --no-run` and run with `--ignored b450_color_grade_3_timing`: once on the card, then once with `B450_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0 and 5% busy; 2.9 GB of its memory held by the desktop and open programs); the same after each. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-12, on a machine that was not quiet), again: Noise alone card 107.4, processor 111.0; Noise, then Color Grade: the four new curves and three secondary wheels card 136.4, processor 259.9 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -12,10 +14,10 @@ Measured on 2026-10-12, built with `cargo test --release --test b450_color_grade
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 107.4 | 111.0 |
-| Noise, then Color Grade: the four new curves and three secondary wheels | 136.4 | 259.9 |
-| Noise, then Color Grade: an HSL secondary, its key denoised 12 and blurred 8 (drawn by the processor either way) | 737.1 | 348.6 |
+| Noise alone | 12.3 | 42.4 |
+| Noise, then Color Grade: the four new curves and three secondary wheels | 34.5 | 105.3 |
+| Noise, then Color Grade: an HSL secondary, its key denoised 12 and blurred 8 (drawn by the processor either way) | 129.4 | 141.9 |
 
-First loops (empty caches): card 444.0, 135.4, 708.1; processor 72.7, 338.1, 470.0.
+First loops (empty caches): card 15.6, 38.5, 124.9; processor 42.0, 106.4, 141.5.
 
-**Reading it.** The four curves and the three wheels add about 29 ms a frame on the card over the Noise alone, about 10 ms a 1080p layer, against about 50 ms a layer on the processor, three layers, on a busy machine. A key with Denoise or Blur is worked out by the processor (D-571): on the processor's own path the whole secondary with its refined key adds about 80 ms a layer; on the card's path the frame took 737.1 ms against the processor path's 348.6, so with the card on, a refined key is slower than with it off. That is the hand-over to the processor and back for each such layer, on a card two other programs were also using; it is the first thing to measure again on a quiet machine, and the reason to teach the card the key's median and blur if it holds (the `ponytail:` note in `src/compose.rs`).
+**Reading it.** The four curves and the three wheels add about 22 ms a frame on the card over the Noise alone (12.3 to 34.5, three layers), about 7.4 ms a 1080p layer, against about 21 ms a layer on the processor (42.4 to 105.3). A key with Denoise or Blur is worked out by the processor (D-571): on the processor's own path the whole secondary with its refined key adds about 33 ms a layer (141.9); on the card's path, with the hand-over to the processor and back for each such layer, the frame takes 129.4 ms, a little quicker than the processor's path. This changes the busy run's reading, where the card's path came out at 737.1 ms against 348.6 and looked slower than having the card off: on a quiet machine it is not. Teaching the card the key's median and blur (the `ponytail:` note in `src/compose.rs`) would still save most of that 129.4, but nothing here makes it urgent.
