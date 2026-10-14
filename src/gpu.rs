@@ -9795,11 +9795,9 @@ fn curlfield(@builtin(global_invocation_id) id: vec3<u32>) {
     let sn = sin64(t);
     let vx = (c * gx - sn * gy) * k[8];
     let vy = (sn * gx + c * gy) * k[9];
-    let length = sqrt(vx * vx + vy * vy);
-    var d = vec2(0.0lf);
-    if length > 0.0lf {
-        d = vec2(vx / length, vy / length);
-    }
+    // D-680: at most one long, shorter where the slope falls under one per noise size.
+    let length = max(sqrt(vx * vx + vy * vy), 1.0lf / s);
+    let d = vec2(vx / length, vy / length);
     let cell = s / 50.0lf;
     let at = curl_point(px, py, 0u);
     let q = vec3(at.x / cell, at.y / cell, k[3]);
@@ -9874,14 +9872,22 @@ fn curlflow(@builtin(global_invocation_id) id: vec3<u32>) {
     var o = vec3(0.5lf + 0.5lf * n);
     let view = u32(k[4]);
     if view == 2u {
-        o = vec3(0.5lf + 0.5lf * dx, 0.5lf + 0.5lf * dy, 0.5lf + 0.5lf * n);
+        let length = sqrt(dx * dx + dy * dy);
+        var d = vec2(0.0lf);
+        if length > 0.0lf {
+            d = vec2(dx / length, dy / length);
+        }
+        o = vec3(0.5lf + 0.5lf * d.x, 0.5lf + 0.5lf * d.y, 0.5lf + 0.5lf * n);
     } else if view == 0u {
         let radius = k[0];
         let steps = u32(k[1]);
         let h = radius / k[1];
+        let subs = max(ceil(h), 1.0lf);
         var sw = 1.0lf;
         var sws = 1.0lf;
         var ss = f64(fp.w);
+        var tw = 1.0lf;
+        var walked = 0.0lf;
         for (var way = 0u; way < 2u; way++) {
             let sign = select(-1.0lf, 1.0lf, way == 0u);
             var qx = f64(id.x + m) + 0.5lf;
@@ -9893,18 +9899,29 @@ fn curlflow(@builtin(global_invocation_id) id: vec3<u32>) {
                 if length < 1e-6lf {
                     break;
                 }
-                qx += sign * h * ex / length;
-                qy += sign * h * ey / length;
-                let q = curl_sample(other, qx, qy);
-                ex = f64(q.x);
-                ey = f64(q.y);
+                walked += h * length;
+                let mx = sign * h * ex;
+                let my = sign * h * ey;
+                for (var j = 1u; j <= u32(subs); j++) {
+                    let f = f64(j) / subs;
+                    let q = curl_sample(other, qx + f * mx, qy + f * my);
+                    let wj = 1.0lf - (f64(i - 1u) + f) / (k[1] + 1.0lf);
+                    ss += wj * f64(q.w);
+                    tw += wj;
+                    if j == u32(subs) {
+                        ex = f64(q.x);
+                        ey = f64(q.y);
+                    }
+                }
+                qx += mx;
+                qy += my;
                 let wt = 1.0lf - f64(i) / (k[1] + 1.0lf);
-                ss += wt * f64(q.w);
                 sw += wt;
                 sws += wt * wt;
             }
         }
-        let lines = ss / sw * (sw / sqrt(sws));
+        let gain = 1.0lf + (sw / sqrt(sws) - 1.0lf) * min(walked / max(2.0lf * radius, 1e-9lf), 1.0lf);
+        let lines = ss / tw * gain;
         let mixed = n + (1.0lf - k[2]) * min(1.0lf, radius / 8.0lf) * (lines - n);
         o = vec3(0.5lf + 0.5lf * (mixed * (1.0lf - k[3] * (0.5lf - 0.5lf * n))));
     }

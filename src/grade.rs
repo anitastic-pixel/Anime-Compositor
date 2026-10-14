@@ -1440,7 +1440,7 @@ impl Curl {
         }
     }
 
-    /// The flow across and down (one long, or nought), the noise and the seed at the drawing's
+    /// The flow across and down (at most one long, D-680), the noise and the seed at the drawing's
     /// point `(px, py)`, in single precision as the card keeps them. D-583: with a `plane`, the
     /// noise and its slope are the picture's.
     pub(crate) fn at(&self, px: f64, py: f64, plane: Option<&CurlPlane>) -> [f32; 4] {
@@ -1472,8 +1472,10 @@ impl Curl {
         let (c, sn) = (t.cos(), t.sin());
         let vx = (c * gx - sn * gy) * self.bias[0];
         let vy = (sn * gx + c * gy) * self.bias[1];
-        let length = vx.hypot(vy);
-        let d = if length > 0.0 { [vx / length, vy / length] } else { [0.0, 0.0] };
+        // D-680: one long where the flow is strong, shorter where its slope falls under one per
+        // noise size, so a walk slows at the flow's crossing points.
+        let length = vx.hypot(vy).max(1.0 / s);
+        let d = [vx / length, vy / length];
         let cell = s / 50.0;
         let (x, y) = self.point(px, py, 0);
         let (sx, sy, e) = (x / cell, y / cell, self.edge);
@@ -1606,10 +1608,18 @@ pub(crate) fn curl_noise(source: &mut WorkingBuffer, e: &crate::effects::Effect,
             let [dx, dy, n, seed] = field.pixel(x + m, y + m).map(|v| v as f64);
             let o = match view {
                 1 => [0.5 + 0.5 * n; 3],
-                2 => [0.5 + 0.5 * dx, 0.5 + 0.5 * dy, 0.5 + 0.5 * n],
+                2 => {
+                    // D-680: the direction shown one long, as before.
+                    let length = dx.hypot(dy);
+                    let (dx, dy) = if length > 0.0 { (dx / length, dy / length) } else { (0.0, 0.0) };
+                    [0.5 + 0.5 * dx, 0.5 + 0.5 * dy, 0.5 + 0.5 * n]
+                }
                 _ => {
+                    // D-680: each step goes as far as the flow is strong, read at most a pixel
+                    // apart; the brightening grows with how far the walk got.
                     let step = radius / steps;
-                    let (mut sw, mut sws, mut ss) = (1.0, 1.0, seed);
+                    let subs = step.ceil().max(1.0);
+                    let (mut sw, mut sws, mut ss, mut tw, mut walked) = (1.0, 1.0, seed, 1.0, 0.0);
                     for way in [1.0, -1.0] {
                         let (mut qx, mut qy) = ((x + m) as f64 + 0.5, (y + m) as f64 + 0.5);
                         let (mut ex, mut ey) = (dx, dy);
@@ -1618,17 +1628,26 @@ pub(crate) fn curl_noise(source: &mut WorkingBuffer, e: &crate::effects::Effect,
                             if length < 1e-6 {
                                 break;
                             }
-                            qx += way * step * ex / length;
-                            qy += way * step * ey / length;
-                            let s = crate::render::sample_bilinear(field, qx, qy);
-                            (ex, ey) = (s[0] as f64, s[1] as f64);
+                            walked += step * length;
+                            let (mx, my) = (way * step * ex, way * step * ey);
+                            for j in 1..=subs as usize {
+                                let f = j as f64 / subs;
+                                let s = crate::render::sample_bilinear(field, qx + f * mx, qy + f * my);
+                                let wt = 1.0 - ((i - 1) as f64 + f) / (steps + 1.0);
+                                ss += wt * s[3] as f64;
+                                tw += wt;
+                                if j == subs as usize {
+                                    (ex, ey) = (s[0] as f64, s[1] as f64);
+                                }
+                            }
+                            (qx, qy) = (qx + mx, qy + my);
                             let wt = 1.0 - i as f64 / (steps + 1.0);
-                            ss += wt * s[3] as f64;
                             sw += wt;
                             sws += wt * wt;
                         }
                     }
-                    let lines = ss / sw * (sw / sws.sqrt());
+                    let gain = 1.0 + (sw / sws.sqrt() - 1.0) * (walked / (2.0 * radius).max(1e-9)).min(1.0);
+                    let lines = ss / tw * gain;
                     let mixed = n + (1.0 - fs) * (radius / 8.0).min(1.0) * (lines - n);
                     [0.5 + 0.5 * (mixed * (1.0 - ff * (0.5 - 0.5 * n))); 3]
                 }
