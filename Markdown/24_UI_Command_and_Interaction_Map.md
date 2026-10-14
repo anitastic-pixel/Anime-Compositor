@@ -4,7 +4,7 @@ Version 0.2 | 2026-09-04 | Proposed baseline
 
 ## Command architecture
 
-Every state-changing UI action invokes a stable command ID through the command layer. Widgets do not mutate the project model directly. Command IDs are persistence-independent and may be rebound to shortcuts. Undo semantics are defined in 26.
+Every state-changing UI action invokes a stable command ID through the command layer. Widgets do not mutate the project model directly. Command IDs are persistence-independent and may be rebound to shortcuts. Undo semantics are defined in 26. From D-735 (W-37) the shortcuts in this table are the defaults: Help > Keyboard shortcuts changes any command finder line's keys, and the changes are kept on that computer, never in the project; Reset all returns to this table.
 
 ## Core command IDs
 

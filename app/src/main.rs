@@ -17858,6 +17858,107 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// D-735: W-37's Keyboard shortcuts window. It lives wholly in the page and the browser's
+    /// storage, so this pins the page text each promise rests on, and reads the command finder's
+    /// lines for the defaults the window starts from.
+    #[test]
+    fn the_shortcut_window_changes_keys_on_this_computer_only() {
+        let mut report = Report { rows: Vec::new() };
+        let page = include_str!("../ui/index.html");
+        let has = |text: &str| page.contains(text);
+        for (what, holds) in [
+            ("the bottom strip's long list of keys is now a Keyboard shortcuts button",
+                has("title=\"Every shortcut, to look up, change or print\">Keyboard shortcuts</button>")
+                    && !has("<span class=\"hint\" id=\"keys\">")),
+            ("the Help menu and the command finder open the same window",
+                has("<button data-run=\"Keyboard shortcuts\"></button>")
+                    && has("['Keyboard shortcuts', '', () => shortcutsWindow()],")),
+            ("search by words, or by pressing a key", has("'Words'") && has("'A key'")),
+            ("a clash names what will lose its keys before anything changes",
+                has("will have no shortcut until you give") && has("'Replace'") && has("'Cancel'")),
+            ("a clash also offers the line's own default back", has("'Reset to its default, '")),
+            ("a key the window keeps fixed (arrows, A S R T M, Alt+Shift keys) is refused, not taken",
+                has("That key is not one this window changes; press other keys.")),
+            ("Reset all puts every line back", has("'Reset all'")),
+            ("changes are kept in this computer's browser storage under 'keymap', not in the project",
+                has("const KEYMAP_STORE = 'keymap';")),
+            ("the footer says how many are changed and where they are kept",
+                has(" changed from the defaults. Kept on this computer, not in the project.")
+                    && has("All at their defaults. Changes are kept on this computer, not in the project.")),
+            ("a changed key runs its line and the window's own handler does not see it",
+                has("stopImmediatePropagation();") && has("function shortcutsWindow(")),
+            ("typing in a field and the Sketch board keep their keys", has("if (sketchShown && !k.ctrlKey && !k.altKey) return;")),
+            ("the menus and the command finder show the keys in use", has("function markRunKeys(") && has("shownKey(")),
+            ("Print or save as PDF prints the list through the Sheet's paper",
+                has("'keylist'") && has("Print or save as PDF")),
+        ] {
+            report.check(what, true, holds);
+        }
+        let capture = page.find("// W-37 (D-735): the Keyboard shortcuts window.").unwrap_or(usize::MAX);
+        let own = page.find("addEventListener('keydown', (e) => {").unwrap_or(0);
+        report.check("the changed keys are read before the window's own key handler", true, capture < own);
+        // The finder's lines and their default keys, as the window lists them.
+        let lines: Vec<(String, String)> = page
+            .split("function paletteLines() {")
+            .nth(1)
+            .and_then(|rest| rest.split("function runAct(").next())
+            .unwrap_or("")
+            .lines()
+            .filter_map(|line| {
+                let rest = line.trim().strip_prefix("['")?;
+                let (label, rest) = rest.split_once("', '")?;
+                let (keys, _) = rest.split_once("', ")?;
+                Some((label.to_string(), keys.to_string()))
+            })
+            .collect();
+        let keyed: Vec<&(String, String)> = lines.iter().filter(|(_, k)| !k.is_empty()).collect();
+        report.check("command finder lines the window lists", "126 lines, 88 with keys of their own",
+            format!("{} lines, {} with keys of their own", lines.len(), keyed.len()));
+        let mut shared: Vec<String> = Vec::new();
+        for (_, keys) in &keyed {
+            let with: Vec<&str> = keyed.iter().filter(|(_, k)| k == keys).map(|(l, _)| l.as_str()).collect();
+            let row = format!("{keys}: {}", with.join(", "));
+            if with.len() > 1 && !shared.contains(&row) {
+                shared.push(row);
+            }
+        }
+        report.check(
+            "default keys two lines share (the one that acts is chosen by what is selected)",
+            "Ctrl+C: Copy keys, Copy layers; Ctrl+V: Paste keys, Paste layers, Paste effects",
+            shared.join("; "),
+        );
+        report.check("Keyboard shortcuts itself has no default key; it is a button, a menu line and a finder line",
+            "no key", lines.iter().find(|(l, _)| l == "Keyboard shortcuts").map_or("missing", |(_, k)| if k.is_empty() { "no key" } else { "has a key" }));
+
+        write_artifact(
+            &report,
+            "verification/D-735_shortcut_editor_table.md",
+            "D-735: the Keyboard shortcuts window (W-37)",
+            &["W-37 from `design/W-37_shortcuts.html`. The bottom strip's long line of key hints is \
+               now a Keyboard shortcuts button; the Help menu and the command finder open the same \
+               window. It lists every command finder line in areas (Project, Edit, New layers, \
+               Layers, Time, Keys, Properties, Timeline, Viewer, Tools, Finding, Sheet) with its \
+               keys, searches by words or by a pressed key, changes any line's keys (one that had \
+               none can be given some), names a clash before anything changes, and resets one line \
+               or all of them. Changes are kept on this computer, never in the project. Print or \
+               save as PDF prints the list.",
+               "The window is page code only, so the rows pin the page text each promise rests on; \
+               the last rows read the command finder's lines for the defaults. No default key \
+               changed. Pictures of the window, taken from the page in a browser with no project \
+               open, and the printed list as a PDF, are in `verification/D-735 pictures/`."],
+            &["## What was left out\n\n- **Keys that are not command finder lines** (the arrows, \
+               A S R T M, the Alt+Shift keys that set a key, the Sheet's and the Sketch board's \
+               keys) are named in a clash but cannot be changed.\n- **Ctrl+C and Ctrl+V** are \
+               shared by several lines and act on what is selected; giving one of those lines new \
+               keys does not take Ctrl+C or Ctrl+V away from the others.\n- **A changed key does \
+               not act while you type in a field or in the Sheet**, unless it uses Ctrl.\n- **The \
+               areas** are chosen from each line's name; a new command finder line with an unusual \
+               name lands in Layers."],
+        );
+        let failed: Vec<&String> = report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
     /// The prose around the layer table.
     ///
     /// Out here rather than inline so that the test above reads as the sequence of steps it is,
@@ -36711,7 +36812,7 @@ mod contract {
     }
 
     /// Every control the page wires a handler to, or clicks for the person, or reads.
-    const CONTROLS: [&str; 130] = [
+    const CONTROLS: [&str; 131] = [
         "addadjust",
         "addeffect",
         "addexposure",
@@ -36774,6 +36875,7 @@ mod contract {
         "health",
         "import",
         "importcut",
+        "keys",
         "makecomp",
         "makeprecomp",
         "makesolid",
