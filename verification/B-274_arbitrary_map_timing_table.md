@@ -1,15 +1,8 @@
 # B-274: frame times with Arbitrary Map (D-395)
 
-**PROVISIONAL: the machine was not quiet.** Measured on 2026-10-09, built with
-`cargo test --release --test b274_arbitrary_map` from the working copy that became ee2a7d55 (B-274's code
-1949635f and B-275's Selective Color), and run with `--ignored b274_arbitrary_map_timing --exact`, a copy
-of the test binary run twice: one round on the card, then one with `B274_CPU` set on the
-processor, each time. `tasklist` showed the other lane's test (`b221_gpu_mix`, with two cargo
-processes) running before and after every round, so these figures may be high; re-measure on a
-quiet machine before quoting them as final.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b274_arbitrary_map --no-run` and run with `--ignored b274_arbitrary_map_timing`: once on the card, then once with `B274_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0% busy; 2.9 GB of its memory held by the desktop and open programs); the same after each. The owner's app was not open. One run each, single figures, not medians of rounds.
 
-There is no "before" for the effect, which is new; Noise alone is the shot without it, timed in
-the same run.
+Earlier provisional figures (2026-10-09, on a machine that was not quiet), again: Noise alone card 12.4 and 13.4, processor 43.4 and 42.9; Noise, then Arbitrary Map, master_rgb_1024.amp, phase 40 card 15.6 and 16.6, processor 58.0 and 58.1 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD Ryzen 9 9900X (AMD64 Family 26 Model 68), 24 threads
@@ -21,40 +14,29 @@ a Noise that changes every frame on each of its first three layers, then the eff
 frame asked for whole at Full. **Again** is the median of the loops after the first (seven on
 the card, two on the processor), milliseconds a frame.
 
-| Shot | Card, round 1 | Card, round 2 | Processor, round 1 | Processor, round 2 |
-|---|---:|---:|---:|---:|
-| Noise alone | 12.4 | 13.4 | 43.4 | 42.9 |
-| Noise, then Arbitrary Map, master_rgb_1024.amp, phase 40 | 15.6 | 16.6 | 58.0 | 58.1 |
+| Shot | Card, again | Processor, again |
+|---|---:|---:|
+| Noise alone | 13.4 | 44.7 |
+| Noise, then Arbitrary Map, master_rgb_1024.amp, phase 40 | 21.3 | 59.1 |
 
-About 1.1 ms a layer on the card, within Target P1; about 4.9 to 5.1 ms a layer on the
-processor. Provisional.
+**Reading it.** Arbitrary Map adds 7.9 ms a frame over the Noise alone on the card (13.4 to 21.3,
+three layers), about 2.6 ms a 1080p layer, over Target P1's 1 ms; on the processor 14.4 ms (44.7
+to 59.1), about 4.8 ms a layer. This changes the busy run's reading of about 1.1 ms a layer within
+Target P1: the busy runs gave 15.6 and 16.6 ms for the frame, this quiet one 21.3. One quiet run,
+so a second would show whether the card figure moves this much from run to run.
 
 ## Raw
 
-### Round 1, card
+### Card
 
 | Shot | Quality | First | Again |
 |---|---|---:|---:|
-| Noise alone | Full | 16.9 | 12.4 |
-| Noise, then Arbitrary Map, master_rgb_1024.amp, phase 40 | Full | 26.8 | 15.6 |
+| Noise alone | Full | 16.7 | 13.4 |
+| Noise, then Arbitrary Map, master_rgb_1024.amp, phase 40 | Full | 25.3 | 21.3 |
 
-### Round 1, processor
-
-| Shot | Quality | First | Again |
-|---|---|---:|---:|
-| Noise alone | Full | 42.5 | 43.4 |
-| Noise, then Arbitrary Map, master_rgb_1024.amp, phase 40 | Full | 57.1 | 58.0 |
-
-### Round 2, card
+### Processor
 
 | Shot | Quality | First | Again |
 |---|---|---:|---:|
-| Noise alone | Full | 17.2 | 13.4 |
-| Noise, then Arbitrary Map, master_rgb_1024.amp, phase 40 | Full | 22.4 | 16.6 |
-
-### Round 2, processor
-
-| Shot | Quality | First | Again |
-|---|---|---:|---:|
-| Noise alone | Full | 42.5 | 42.9 |
-| Noise, then Arbitrary Map, master_rgb_1024.amp, phase 40 | Full | 58.7 | 58.1 |
+| Noise alone | Full | 44.4 | 44.7 |
+| Noise, then Arbitrary Map, master_rgb_1024.amp, phase 40 | Full | 58.8 | 59.1 |

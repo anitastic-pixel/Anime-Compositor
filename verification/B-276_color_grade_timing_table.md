@@ -1,15 +1,8 @@
-# B-276: frame times with Color Grade (D-397), PROVISIONAL
+# B-276: frame times with Color Grade (D-397)
 
-Measured on 2026-10-09 on the code commit 5facd83a, built with
-`cargo test --release --test b276_color_grade` and run with
-`--ignored b276_color_grade_timing --exact`, one round on the card, then one with `B276_CPU` set
-on the processor. **PROVISIONAL: the machine was not quiet.** `tasklist` showed other cargo
-processes and another lane's test (`b222_gpu_colour`, which draws on the same card) running
-through both rounds, so the card figures here are shared with that test and the processor
-figures with that lane's builds. They are an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b276_color_grade --no-run` and run with `--ignored b276_color_grade_timing`: once on the card, then once with `B276_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0% busy; 2.9 GB of its memory held by the desktop and open programs); the same after each. The owner's app was not open. One run each, single figures, not medians of rounds.
 
-There is no "before" for the effect, which is new; Noise alone is the shot without it, timed in
-the same run.
+Earlier provisional figures (2026-10-09, on a machine that was not quiet), again: Noise alone card 14.2, processor 54.3; Noise, then Color Grade, basic (temperature 30, exposure 0.5, contrast 40, saturation 120) card 25.4, processor 117.4; Noise, then Color Grade, every step but the look (basic, faded film, vibrance, tints, vignette) card 37.7, processor 203.3 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD Ryzen 9 9900X (AMD64 Family 26 Model 68), 24 threads
@@ -23,14 +16,16 @@ the card, two on the processor), milliseconds a frame.
 
 | Shot | Card, again | Processor, again |
 |---|---:|---:|
-| Noise alone | 14.2 | 54.3 |
-| Noise, then Color Grade, basic (temperature 30, exposure 0.5, contrast 40, saturation 120) | 25.4 | 117.4 |
-| Noise, then Color Grade, every step but the look (basic, faded film, vibrance, tints, vignette) | 37.7 | 203.3 |
+| Noise alone | 14.2 | 43.9 |
+| Noise, then Color Grade, basic (temperature 30, exposure 0.5, contrast 40, saturation 120) | 26.8 | 76.9 |
+| Noise, then Color Grade, every step but the look (basic, faded film, vibrance, tints, vignette) | 37.7 | 115.2 |
 
-With the card shared: about 3.7 ms a 1080p layer for the basic settings, within Target P2's 4 ms,
-and about 7.8 ms a layer with every step but the look, over it; each step is its own pass in
-double precision, so the cost grows with the steps used. On the processor about 21 and 50 ms a
-layer. To be confirmed on a quiet machine before any claim against Target P2.
+**Reading it.** On the card, the basic settings add 12.6 ms a frame over the Noise alone (14.2 to
+26.8, three layers), about 4.2 ms a 1080p layer, just over Target P2's 4 ms; every step but the
+look adds 23.5 ms (37.7), about 7.8 ms a layer, well over it. Each step is its own pass in double
+precision, so the cost grows with the steps used. The card figures are the same as the busy run's
+(25.4 and 37.7), so the reading against Target P2 holds. On the processor about 11 and 24 ms a
+layer (76.9 and 115.2 against 43.9), about half the busy run's 21 and 50.
 
 ## Raw
 
@@ -38,14 +33,14 @@ layer. To be confirmed on a quiet machine before any claim against Target P2.
 
 | Shot | Quality | First | Again |
 |---|---|---:|---:|
-| Noise alone | Full | 18.0 | 14.2 |
-| Noise, then Color Grade, basic (temperature 30, exposure 0.5, contrast 40, saturation 120) | Full | 29.7 | 25.4 |
-| Noise, then Color Grade, every step but the look (basic, faded film, vibrance, tints, vignette) | Full | 44.4 | 37.7 |
+| Noise alone | Full | 17.4 | 14.2 |
+| Noise, then Color Grade, basic (temperature 30, exposure 0.5, contrast 40, saturation 120) | Full | 29.8 | 26.8 |
+| Noise, then Color Grade, every step but the look (basic, faded film, vibrance, tints, vignette) | Full | 41.4 | 37.7 |
 
 ### Processor
 
 | Shot | Quality | First | Again |
 |---|---|---:|---:|
-| Noise alone | Full | 59.2 | 54.3 |
-| Noise, then Color Grade, basic (temperature 30, exposure 0.5, contrast 40, saturation 120) | Full | 103.0 | 117.4 |
-| Noise, then Color Grade, every step but the look (basic, faded film, vibrance, tints, vignette) | Full | 221.9 | 203.3 |
+| Noise alone | Full | 43.9 | 43.9 |
+| Noise, then Color Grade, basic (temperature 30, exposure 0.5, contrast 40, saturation 120) | Full | 76.1 | 76.9 |
+| Noise, then Color Grade, every step but the look (basic, faded film, vibrance, tints, vignette) | Full | 114.5 | 115.2 |
