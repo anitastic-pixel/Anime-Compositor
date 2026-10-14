@@ -30,3 +30,18 @@ grows with the grid's star count: at Grid Spacing 0.5 (about half a million star
 frame (283.7). On the processor Star Burst costs about 26 ms a frame as added (43.1 to 69.5) and about
 411 ms at Grid Spacing 0.5 (453.7). The card is about 3 times quicker as added and about 1.6 times quicker
 with half a million stars. The earlier keyed figure on the card (91.6) was from the busy machine.
+
+## After audit P2 (Star Burst's card maths in single precision, f410daa8)
+
+**Measured** on 2026-10-14 at 508a1d3d, built with `cargo test --release --test b556_star_burst --no-run` (own target folder) and run with `--ignored --exact b556_star_burst_timing`, one test at a time, nothing else of this work running, on the card only (P2 changed only the card; the processor's figures above still stand). Just before the run the card was 13% busy (programs outside this work) and the processor about 3%. Same machine as above. One run, eight loops; **Again** is the median of the seven after the first.
+
+| Shot | Card before (above) | Card after |
+|---|---:|---:|
+| Noise alone | 12.8 | 12.4 |
+| Noise, then Star Burst as added | 23.7 | 22.5 |
+| Noise, then Star Burst, Grid Spacing 0.5 (about half a million stars) | 283.7 | 247.3 |
+| Noise, then Star Burst, Speed keyed 0 to 5, Blend w. Original 30 | 24.7 | 23.1 |
+
+First loops: 16.1, 24.1, 242.7, 24.8.
+
+**Reading it.** As added, Star Burst was already cheap on the card (about 11 ms over the Noise alone) and stays so (about 10). The dense setting (about half a million stars) is about 13% quicker (283.7 to 247.3 ms); this is one run, so a gain this small is not certain. The pictures are the same within 1 level of 255 (`D-677_star_burst_table.md`, 43 checks).

@@ -27,14 +27,19 @@ never from the picture. The card now keeps that and works it out again only when
 time changes. `P9_curl_field_table.md` checks it: 12 of 12 checks pass, and every kept picture is
 byte for byte the same as one drawn from scratch.
 
-## Not measured here
+## Measured afterwards
 
-No timings were taken in this build (other work was building on the machine at the same time).
-To measure later, one at a time, release build, nothing else running:
+Timed on 2026-10-14 at 508a1d3d, release build in its own target folder, one test at a time with nothing else of this work running, on the card (these changes touch only the card). Same machine as each table's earlier runs: NVIDIA GeForce RTX 4070 Ti SUPER (driver 610.88, Vulkan), AMD Ryzen 9 9900X, Windows 11. One run each; each table's own section says how busy the card was before it. Milliseconds a 1080p frame, three layers, Full.
 
-- `b552_hair_timing` (tests/b552_hair.rs)
-- `b556_star_burst_timing` (tests/b556_star_burst.rs)
-- `b326_curl_noise_timing` (tests/b326_curl_noise.rs)
-- `b461_curl_sources_timing` (tests/b461_curl_sources.rs)
-- `b525_curl_transform_timing` (tests/b525_curl_transform.rs)
-- `b157_card_effect_timing` (tests/b157_f64_audit.rs), every card effect
+| Shot | Card before | Card after | Table |
+|---|---:|---:|---|
+| Hair as added | 220.0 | 32.8 | `B-552_hair_timing_table.md` |
+| Hair, a long fur (length 200, thickness 6, density 60) | 2828.0 | 166.3 | `B-552_hair_timing_table.md` |
+| Star Burst as added | 23.7 | 22.5 | `B-556_star_burst_timing_table.md` |
+| Star Burst, about half a million stars | 283.7 | 247.3 | `B-556_star_burst_timing_table.md` |
+| Curl Noise as added | 112.4 | 32.6 | `B-326_curl_noise_timing_table.md` |
+| Curl Noise, the longest lines | 264.6 | 48.6 | `B-326_curl_noise_timing_table.md` |
+| Curl Noise with Rotation, Scale, Perspective Offset | 110.2 | 32.3 | `B-525_curl_transform_timing_table.md` |
+| Curl Noise, Source This Layer (left in double) | 83.8 | 85.8 | `B-461_curl_sources_timing_table.md` |
+
+The five effects B-157 moved, run again with `b157_card_effect_timing`, match its figures within about 2 ms at Full (for example Bloom 57.1 then 59.3, Cross Glare 36.7 then 37.2); P2 did not touch them. Before each shot the Noise alone read 12.2 to 12.4 ms, as before (12.5 to 13.2).

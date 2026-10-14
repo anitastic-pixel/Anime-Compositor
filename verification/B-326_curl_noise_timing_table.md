@@ -36,3 +36,18 @@ went from 82.6 to 264.6 (+182, about 3.2 times) and the processor from 379.9 to 
 about 1.9 times). Because the earlier figures were inflated, the true slowdown is at least this
 much. Input Noise draws no lines, so D-680 should not touch it; its processor figure (205.5
 against 196.4) is about where it was.
+
+## After audits P2 and P9 (single precision 2928a020; field kept 0bd82a03)
+
+**Measured** on 2026-10-14 at 508a1d3d, built with `cargo test --release --test b326_curl_noise --no-run` (own target folder) and run with `--ignored --exact b326_curl_noise_timing`, one test at a time, nothing else of this work running, on the card only (P2 and P9 changed only the card; the processor's figures above still stand). Just before the run the card was 2% busy and the processor about 3%. Same machine as above. One run, eight loops; **Again** is the median of the seven after the first.
+
+| Shot | Card before (above) | Card after |
+|---|---:|---:|
+| Noise alone | 13.2 | 12.3 |
+| Noise, then Curl Noise as added (radius 30, 12 samples) | 112.4 | 32.6 |
+| Noise, then Curl Noise Input Noise (no lines) | 43.1 | 19.8 |
+| Noise, then Curl Noise radius 100, 24 samples (the longest lines) | 264.6 | 48.6 |
+
+First loops: 16.4, 35.0, 23.4, 52.4.
+
+**Reading it.** On the card, Curl Noise as added now costs about 20 ms a frame over the Noise alone (12.3 to 32.6), down from about 99; the longest lines about 36, down from about 251. Every shot but the longest lines (48.6) now fits in real time (41.7 ms at 24 a second). The two changes are timed together here, not apart. The pictures are the same within 1 level of 255 (`D-446_curl_noise_table.md`), and a kept field gives byte-identical pictures (`P9_curl_field_table.md`, 12 of 12).

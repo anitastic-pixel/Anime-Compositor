@@ -33,3 +33,17 @@ three times quicker than the processor here.
 to 83.8, processor 286.2 to 263.8 as added), but the earlier ones were taken on a busy machine
 (the card's Noise alone was 133.5 then against 12.6 now), so this table cannot say how much
 D-680 slowed this setting. B-326's table shows the slowdown on a like-for-like shot.
+
+## After audits P2 and P9 (2928a020, 0bd82a03)
+
+**Measured** on 2026-10-14 at 508a1d3d, built with `cargo test --release --test b461_curl_sources --no-run` (own target folder) and run with `--ignored --exact b461_curl_sources_timing`, one test at a time, nothing else of this work running, on the card only. Just before the run the card was 0% busy and the processor about 3%. Same machine as above. One run, eight loops; **Again** is the median of the seven after the first.
+
+| Shot | Card before (above) | Card after |
+|---|---:|---:|
+| Noise alone | 12.6 | 12.4 |
+| Noise, then Curl Noise This Layer as added | 83.8 | 85.8 |
+| the same with Softness 50 | 87.8 | 89.1 |
+
+First loops: 16.1, 91.2, 93.4.
+
+**Reading it.** No change, as planned: Source This Layer and Other Layer keep double precision (in single they were 7 levels off) and their field follows the picture, so it is drawn every time. The 1 to 2 ms differences are too small for one run to tell apart.

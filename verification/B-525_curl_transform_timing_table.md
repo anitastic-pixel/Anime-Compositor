@@ -28,3 +28,17 @@ First loops (empty caches): card 17.0, 115.0, 116.6; processor 42.0, 357.0, 377.
 (110.2). On the processor Curl Noise costs about 315 ms a frame (41.8 to 356.5), and the Transform
 adds about 15 ms (371.8). The earlier, lower card figure for Curl Noise (76.2) was before D-680;
 B-326 shows the same rise for the plain effect.
+
+## After audits P2 and P9 (2928a020, 0bd82a03)
+
+**Measured** on 2026-10-14 at 508a1d3d, built with `cargo test --release --test b525_curl_transform --no-run` (own target folder) and run with `--ignored --exact b525_curl_transform_timing`, one test at a time, nothing else of this work running, on the card only. One reading of the card just before the run said 81% busy; it was taken the moment the previous timing test (B-461) ended, so it probably caught that test's last frames, and the card read 1% a few minutes later. The as-added figure agrees with B-326's own run of the same shot that day (32.6 ms). Same machine as above. One run, eight loops; **Again** is the median of the seven after the first.
+
+| Shot | Card before (above) | Card after |
+|---|---:|---:|
+| Noise alone | 13.0 | 12.3 |
+| Noise, then Curl Noise as added | 111.8 | 32.4 |
+| the same with Rotation 45, Scale 150, Perspective Offset on | 110.2 | 32.3 |
+
+First loops: 15.9, 36.1, 36.2.
+
+**Reading it.** On the card, Curl Noise now costs about 20 ms a frame over the Noise alone, down from about 99, and Rotation, Scale and Perspective Offset still add nothing measurable. Both shots fit in real time (41.7 ms at 24 a second). The pictures are the same within 1 level of 255 (`D-646_curl_transform_table.md`).
