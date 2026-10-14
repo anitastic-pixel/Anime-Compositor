@@ -1,10 +1,8 @@
 # B-484: frame times with Liquify (D-605)
 
-Measured on 2026-10-12, built with `cargo test --release --test b484_liquify` from 759a4370
-(B-484's code), and run with `--ignored b484_liquify_timing`: once on the card, then once with
-`B484_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Other
-lanes were building and testing beside it, and before the runs the graphics card had 13.1 GB of its
-memory in use by other programs. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b484_liquify --no-run` and run with `--ignored b484_liquify_timing`: once on the card, then once with `B484_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0% busy; 2.9 GB to 3.0 GB of its memory held by the desktop and open programs); the same after each. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-12, on a machine that was not quiet), again: Noise alone card 66.1, processor 99.4; Noise, then Liquify Warp, brush 200, stroked across the middle card 158.0, processor 248.2 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -19,14 +17,15 @@ milliseconds a frame.
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 66.1 | 99.4 |
-| Noise, then Liquify Warp, brush 200, stroked across the middle | 158.0 | 248.2 |
-| Noise, then Liquify Twirl Clockwise, brush 600, one dab | 73.1 | 158.2 |
+| Noise alone | 14.5 | 41.5 |
+| Noise, then Liquify Warp, brush 200, stroked across the middle | 22.0 | 61.3 |
+| Noise, then Liquify Twirl Clockwise, brush 600, one dab | 19.0 | 59.8 |
 
-First loops (empty caches): card 85.7, 149.3, 89.7; processor 106.9, 218.7, 185.5.
+First loops (empty caches): card 17.9, 23.4, 22.4; processor 41.1, 60.4, 59.7.
 
 **Reading it.** Liquify is drawn by D-601's backward field, warp mode 151. On the card the Warp
-stroke added about 92 ms a frame over three layers, about 30 ms a 1080p layer, and the single Twirl
-dab about 7 ms; with the card's memory nearly full of other programs' work, even the Noise alone ran
-nearly four times slower than in B-483's run, so this run cannot say how much is the effect and how
-much the machine. On the processor the stroke added about 50 ms a layer and the dab about 20 ms.
+stroke adds about 7.5 ms a frame over three layers (14.5 to 22.0), about 2.5 ms a 1080p layer, and
+the single Twirl dab about 4.5 ms (19.0), 1.5 ms a layer. This changes the busy run's reading
+(about 30 ms a layer for the stroke), which was the card's memory nearly full of other programs'
+work, not the effect. On the processor the stroke adds about 6.6 ms a layer and the dab about 6.1
+(41.5 to 61.3 and 59.8), against the busy run's 50 and 20.

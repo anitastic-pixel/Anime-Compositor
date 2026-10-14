@@ -1,10 +1,8 @@
 # B-483: frame times with Warp (D-604)
 
-Measured on 2026-10-12, built with `cargo test --release --test b483_warp` from 7bc68a5a
-(B-483's code), and run with `--ignored b483_warp_timing`: once on the card, then once with
-`B483_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Other
-lanes were building and testing beside it, and before the runs the graphics card had 6.6 GB of its
-memory in use by other programs. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b483_warp --no-run` and run with `--ignored b483_warp_timing`: once on the card, then once with `B483_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0 and 2% busy; 3.0 GB of its memory held by the desktop and open programs); the same after each. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-12, on a machine that was not quiet), again: Noise alone card 18.0, processor 100.8; Noise, then Warp as added (Arc, Bend 50) card 27.0, processor 192.1 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -19,15 +17,15 @@ milliseconds a frame.
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 18.0 | 100.8 |
-| Noise, then Warp as added (Arc, Bend 50) | 27.0 | 192.1 |
-| Noise, then Warp Twist 80 with both distortions 30 | 56.5 | 189.5 |
+| Noise alone | 12.2 | 42.2 |
+| Noise, then Warp as added (Arc, Bend 50) | 23.1 | 70.3 |
+| Noise, then Warp Twist 80 with both distortions 30 | 23.7 | 71.7 |
 
-First loops (empty caches): card 25.5, 40.0, 95.8; processor 54.4, 197.0, 185.3.
+First loops (empty caches): card 16.5, 25.4, 25.1; processor 41.4, 69.6, 70.4.
 
-**Reading it.** On the card the Arc added about 9 ms a frame over three layers, about 3 ms a 1080p
-layer, as Bezier Warp did (both are drawn by D-601's forward mesh, warp mode 150, here 64 by 64).
-The Twist with both distortions measured about 13 ms a layer; with the card shared by other
-programs this run cannot say whether that is the shape or the machine. On the processor Warp added
-about 90 ms a frame over three layers, about 30 ms a 1080p layer, much the same for both shots;
-the Noise alone swung from 54.4 to 100.8 between loops.
+**Reading it.** On the card the Arc adds about 10.9 ms a frame over three layers (12.2 to 23.1),
+about 3.6 ms a 1080p layer, and the Twist with both distortions about the same, 11.5 ms (23.7),
+3.8 ms a layer: the busy run's 13 ms a layer for the Twist was the machine, not the shape. Both are
+drawn by D-601's forward mesh, warp mode 150, here 64 by 64, as Bezier Warp is. On the processor
+Warp adds about 28 to 30 ms a frame (42.2 to 70.3 and 71.7), about 9.5 ms a 1080p layer, a third
+of the busy run's 30.

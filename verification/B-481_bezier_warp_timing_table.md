@@ -1,10 +1,8 @@
 # B-481: frame times with Bezier Warp (D-602)
 
-Measured on 2026-10-12, built with `cargo test --release --test b481_bezier_warp` from f7ef346c
-(B-481's code), and run with `--ignored b481_bezier_warp_timing`: once on the card, then once with
-`B481_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Other
-lanes were building and testing beside it, and before the runs the graphics card had 2.2 GB of its
-memory in use by other programs. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b481_bezier_warp --no-run` and run with `--ignored b481_bezier_warp_timing`: once on the card, then once with `B481_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0% busy; 2.9 GB of its memory held by the desktop and open programs); the same after each. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-12, on a machine that was not quiet), again: Noise alone card 18.3, processor 199.2; Noise, then Bezier Warp with the top edge sagging card 27.2, processor 206.1 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -19,12 +17,14 @@ milliseconds a frame.
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 18.3 | 199.2 |
-| Noise, then Bezier Warp with the top edge sagging | 27.2 | 206.1 |
-| Noise, then Bezier Warp folded (bottom right vertex at (-20, -20)) | 29.7 | 189.8 |
+| Noise alone | 12.6 | 41.9 |
+| Noise, then Bezier Warp with the top edge sagging | 20.3 | 64.9 |
+| Noise, then Bezier Warp folded (bottom right vertex at (-20, -20)) | 22.1 | 68.8 |
 
-First loops (empty caches): card 21.1, 34.5, 28.7; processor 109.7, 256.6, 189.3.
+First loops (empty caches): card 16.1, 22.7, 23.5; processor 43.3, 64.3, 67.4.
 
-**Reading it.** On the card, Bezier Warp (warp mode 150) added about 9 to 11 ms a frame over three
-layers, about 3 to 4 ms a 1080p layer. On the processor the Noise alone swung from 109.7 to 199.2
-between loops, more than the effect costs, so this busy machine cannot say what the effect adds there.
+**Reading it.** On the card, Bezier Warp (warp mode 150) adds about 7.7 ms a frame over three
+layers with the top edge sagging (12.6 to 20.3) and 9.5 ms folded (22.1), about 2.6 to 3.2 ms a
+1080p layer, a little under the busy run's 3 to 4. On the processor it adds about 23 and 27 ms a
+frame (41.9 to 64.9 and 68.8), about 8 to 9 ms a layer: the busy run could not say, as its Noise
+alone swung by 90 ms between loops; the quiet one can. The card is about three times quicker.
