@@ -1341,6 +1341,8 @@ pub struct Finished {
     /// The card was asked and the CPU drew it.
     pub fell_back: bool,
     pub warnings: Vec<String>,
+    /// Audit W8, W9: the effects the processor ran on a frame the card drew, by name, joined.
+    pub on_processor: String,
 }
 
 /// B-154 (G3, document 33's RAM preview): finished viewer frames, so a loop that has been played
@@ -1476,7 +1478,7 @@ mod frame_cache {
     }
 
     fn finished(bytes: usize) -> Finished {
-        Finished { pixels: Arc::new(vec![7; bytes]), width: 1, height: 1, fell_back: false, warnings: Vec::new() }
+        Finished { pixels: Arc::new(vec![7; bytes]), width: 1, height: 1, fell_back: false, warnings: Vec::new(), on_processor: String::new() }
     }
 
     #[test]

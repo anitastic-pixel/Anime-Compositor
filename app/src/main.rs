@@ -1657,6 +1657,9 @@ fn serve_seen(
         // B-44: which processor drew these pixels, and the card, for the switch's label.
         .header("x-drawn-on", drawn_on)
         .header("x-card", for_a_header(&card_about))
+        // Audit W8, W9: on a frame the card drew, the effects the processor ran for it, which
+        // the viewer names beside the frame ("partly on the processor").
+        .header("x-partly", for_a_header(if drawn_on == "GPU" { &finished.on_processor } else { "" }))
         // B-45: the pixels are already in the window, under the page; the body is empty.
         .header("x-on-screen", if on_screen { "1" } else { "0" })
         // B-154: 1 when the frame was sent from memory rather than made.
@@ -1706,6 +1709,7 @@ fn finished(pixels: Vec<u8>, width: usize, height: usize, frame: i32, log: Frame
         width,
         height,
         fell_back: log.ids_at(frame).contains(&DiagnosticId::GpuPreviewOnCpu),
+        on_processor: log.on_processor().join(", "),
         warnings: log.finish().iter().map(|d| format!("{}: {}", d.id.as_str(), d.message)).collect(),
     }
 }
@@ -29502,6 +29506,28 @@ mod serving {
                 },
             ));
         }
+        // Audit W8: an effect the card does not draw runs on the processor, and so does every
+        // effect before it; the viewer's note names them. A stack the card draws whole has none.
+        let add = |id: &str, effect: Effect, index: Option<usize>| Command::AddEffect {
+            composition: Id::new("comp-reference-shot"),
+            layer_id: Id::new("layer-2"),
+            effect: EffectInstance::new(Id::new(id), effect),
+            index,
+        };
+        let note = |r: &Response<Vec<u8>>| match header(r, "x-partly") {
+            n if n.is_empty() => "no note".to_string(),
+            n => format!("partly on the processor ({n})"),
+        };
+        edit(&viewer, add("w8-blur", Effect::GaussianBlur { sigma_px: 4.0, edges: "transparent".into(), dimensions: "both".into(), units: "sigma".into() }, None));
+        let blurred = frame(Ask::Frame(100), PreviewQuality::Full);
+        rows.push(("a Gaussian Blur on layer 2, which the card draws: frame 100 is drawn on the GPU".into(), "GPU".into(), header(&blurred, "x-drawn-on")));
+        rows.push(("and the viewer has no processor note beside it".into(), "no note".into(), note(&blurred)));
+        edit(&viewer, add("w8-echo", new_effect(ECHO).expect("an Echo"), Some(0)));
+        let echoed = frame(Ask::Frame(100), PreviewQuality::Full);
+        rows.push(("an Echo put before the blur, which only the processor draws: still drawn on the GPU".into(), "GPU".into(), header(&echoed, "x-drawn-on")));
+        rows.push(("and the viewer's note names it".into(), "partly on the processor (Echo)".into(), note(&echoed)));
+        undo(&viewer);
+        undo(&viewer);
         let said = card.lock().unwrap().set(DrawOn::Cpu);
         let after = frame(Ask::Frame(100), PreviewQuality::Full);
         rows.push(("choosing CPU goes back to the CPU".into(), "CPU".into(), header(&after, "x-drawn-on")));

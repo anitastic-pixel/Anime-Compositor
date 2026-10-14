@@ -493,6 +493,10 @@ pub struct FrameLog {
     logged: Vec<Diagnostic>,
     /// D-231: every record whole and in order, kept only by [`FrameLog::journal`].
     journal: Option<Vec<(i32, String, Diagnostic)>>,
+    /// Audit W8, W9: the effects the processor ran on a frame the card was asked for, by name,
+    /// each once. Not a diagnostic: the viewer says it beside the frame ("partly on the
+    /// processor"), as it says which processor drew it.
+    on_processor: Vec<String>,
 }
 
 struct FrameGroup {
@@ -512,7 +516,20 @@ impl FrameLog {
             groups: Vec::new(),
             logged: Vec::new(),
             journal: None,
+            on_processor: Vec::new(),
         }
+    }
+
+    /// Audit W8, W9: `name`, an effect the processor ran on a frame planned for the card.
+    pub fn ran_on_processor(&mut self, name: &str) {
+        if !self.on_processor.iter().any(|n| n == name) {
+            self.on_processor.push(name.to_string());
+        }
+    }
+
+    /// The effects [`ran_on_processor`](Self::ran_on_processor) was told of, in order.
+    pub fn on_processor(&self) -> &[String] {
+        &self.on_processor
     }
 
     /// D-231: a log for one frame rendered on its own, beside others. It keeps every record
@@ -586,6 +603,9 @@ impl FrameLog {
     /// D-196: take in what resolving a layer at a held frame logged, as having happened at
     /// `frame`, the frame that was asked for.
     pub fn retime(&mut self, inner: FrameLog, frame: i32) {
+        for name in &inner.on_processor {
+            self.ran_on_processor(name);
+        }
         for group in inner.groups {
             for _ in &group.frames {
                 self.record(frame, group.subject.clone(), group.first.clone());

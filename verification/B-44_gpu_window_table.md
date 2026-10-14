@@ -2,7 +2,7 @@
 
 Written by `cargo test -p anime_compositor_app`. The reference shot, through `serve_logged`, the function every frame on screen comes from. Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory.
 
-**16 of 16 checks pass.**
+**20 of 20 checks pass.**
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
@@ -12,6 +12,10 @@ Written by `cargo test -p anime_compositor_app`. The reference shot, through `se
 | and is within 1 level of the CPU's picture, at the same size | at most 1, 1920×1080 or its draft | at most 1, 1920×1080 or its draft | PASS |
 | frame 100 at Draft says it was drawn on the GPU | GPU | GPU | PASS |
 | and is within 1 level of the CPU's picture, at the same size | at most 1, 1920×1080 or its draft | at most 1, 1920×1080 or its draft | PASS |
+| a Gaussian Blur on layer 2, which the card draws: frame 100 is drawn on the GPU | GPU | GPU | PASS |
+| and the viewer has no processor note beside it | no note | no note | PASS |
+| an Echo put before the blur, which only the processor draws: still drawn on the GPU | GPU | GPU | PASS |
+| and the viewer's note names it | partly on the processor (Echo) | partly on the processor (Echo) | PASS |
 | choosing CPU goes back to the CPU | CPU | CPU | PASS |
 | and says so | The preview is drawn on the CPU. | The preview is drawn on the CPU. | PASS |
 | choosing Auto says the card is used whenever it can be | yes | yes | PASS |

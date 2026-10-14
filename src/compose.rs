@@ -3758,6 +3758,15 @@ fn resolve_rest(
         }
         .map(|c| mixed(c, &effects[i])));
     }
+    // Audit W8, W9: on a frame planned for the card, the effects run above on the processor: one
+    // the card does not draw and every one before it, or every one of an 8 bpc or 32 bpc stack.
+    // The viewer names them beside the frame rather than saying only that the card drew it.
+    if card && !layer.is_adjustment() {
+        use crate::effects::Effect as E;
+        for instance in effects[..before].iter().filter(|i| i.enabled && i.is_valid() && i.has_mix() && !matches!(i.effect, E::LightWrap { .. })) {
+            log.ran_on_processor(instance.effect.name());
+        }
+    }
 
     // Step 6: the animated properties at this frame. A property holding the wrong kind of
     // value cannot come from a loaded project — persistence refuses it — so this reports

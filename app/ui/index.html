@@ -2768,7 +2768,10 @@ async function show(url, keep = true) {
     $('qualitymenu').title = h.get('x-quality') + ' — ' + width + '×' + height
       + (differs ? ', not final pixels' : ', same as export') + ', drawn on ' + drawnOn
       + '. Click for Full, Half or Draft and Refine when idle';
-    $('cpunote').hidden = drawnOn !== 'CPU, not GPU';
+    // Audit W8, W9: a frame the card drew with effects the processor ran names them.
+    const partly = decodeURIComponent(h.get('x-partly') || '');
+    $('cpunote').textContent = partly ? 'partly on the processor (' + partly + ')' : 'drawn on the CPU, not the card';
+    $('cpunote').hidden = drawnOn !== 'CPU, not GPU' && !partly;
     // B-44: the choice's tooltip names the card, or why there is none. The label above says
     // which of the two drew this frame.
     const card = decodeURIComponent(h.get('x-card') || '');
