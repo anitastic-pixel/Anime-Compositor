@@ -4801,6 +4801,10 @@ fn fill_timewarp(
 /// part of a frame between its scan time and the frame's middle. A still side (outside the layer,
 /// or a held drawing) takes the other side's motion turned round; rate 0 or both sides still
 /// leaves `picture` empty, so the layer is as it is.
+/// Audit P5 (2026-10-14): the two sides are worked at once, Warp's move is kept (`ws_pair_kept`)
+/// for a frame shown again, and its pixels are worked on the processor's threads. A frame's move
+/// toward the next is not the next frame's move back (each is measured from its own frame's
+/// pixels), so nothing is passed from one frame to the next.
 #[allow(clippy::too_many_arguments)]
 fn fill_rolling_shutter_repair(
     effects: &mut [crate::effects::EffectInstance],
@@ -4862,9 +4866,10 @@ fn fill_rolling_shutter_repair(
                     return (f.x, f.y);
                 }
                 let tuning = crate::flow::Tuning::added(if detailed_analysis == "on" { 100.0 } else { 50.0 });
-                let m = ws_pair(&o, q, &tuning, "position_scale_rotation", false);
+                let m = ws_pair_kept(&o, q, (ws_digest(&o), ws_digest(q)), &tuning, "position_scale_rotation", false);
                 let (cx, cy, d) = (w as f64 / 2.0, h as f64 / 2.0, (w as f64).hypot(h as f64) / 2.0);
                 (0..w * h)
+                    .into_par_iter()
                     .map(|i| {
                         let (px, py) = (((i % w) as f64 + 0.5 - cx) / d, ((i / w) as f64 + 0.5 - cy) / d);
                         let (x, y) = ws_apply(&m, px, py);
@@ -4875,8 +4880,7 @@ fn fill_rolling_shutter_repair(
             let turned = |(x, y): &(Vec<f64>, Vec<f64>)| -> (Vec<f64>, Vec<f64>) {
                 (x.iter().map(|v| -v).collect(), y.iter().map(|v| -v).collect())
             };
-            let ahead = ahead.as_ref().map(&motion);
-            let back = back.as_ref().map(&motion);
+            let (ahead, back) = rayon::join(|| ahead.as_ref().map(motion), || back.as_ref().map(motion));
             let ahead = ahead.unwrap_or_else(|| turned(back.as_ref().unwrap()));
             let back = back.unwrap_or_else(|| turned(&ahead));
             // Step 4.
@@ -4907,8 +4911,11 @@ fn fill_rolling_shutter_repair(
 /// pair fitted to `flow`'s estimate (`ws_pair`), chained to this frame, smoothed or held to the
 /// in point, and this frame moved back by the difference, cut and scaled. A frame that cannot be
 /// drawn is transparent. The settings are read at this frame, as the layer's keys are.
-// ponytail: every frame finds the moves its window needs afresh, and No Motion reaches back to the
-// in point; keep the pair moves by their two frames' content if long shots play slowly.
+/// Audit P1 (2026-10-14): each pair's move is kept (`ws_pair_kept`), so a frame played after the
+/// one before it works one new pair; the pairs it does work go four at a time on the processor's
+/// threads.
+// ponytail: No Motion still draws every frame back to the in point; keep the drawn frames too if
+// long No Motion shots play slowly.
 #[allow(clippy::too_many_arguments)]
 fn fill_warp_stabilizer(
     effects: &mut [crate::effects::EffectInstance],
@@ -4972,7 +4979,18 @@ fn fill_warp_stabilizer(
             let (cx, cy, d) = (w as f64 / 2.0, h as f64 / 2.0, (w as f64).hypot(h as f64) / 2.0);
             // Step 3: M_k for k from lo to hi - 1.
             let tuning = crate::flow::Tuning::added(if detailed_analysis == "on" { 100.0 } else { 50.0 });
-            let pairs: Vec<[[f64; 3]; 3]> = frames.windows(2).map(|ab| ws_pair(&ab[0], &ab[1], &tuning, &method, preserve_scale == "on")).collect();
+            let digests: Vec<u64> = frames.iter().map(ws_digest).collect();
+            let ks: Vec<usize> = (0..frames.len().saturating_sub(1)).collect();
+            // ponytail: four pairs at once, each a few hundred MB at 1080p while it is worked;
+            // more at once if memory allows and a first frame after an edit is still slow.
+            let pairs: Vec<[[f64; 3]; 3]> = ks
+                .chunks(4)
+                .flat_map(|four| {
+                    four.par_iter()
+                        .map(|&k| ws_pair_kept(&frames[k], &frames[k + 1], (digests[k], digests[k + 1]), &tuning, &method, preserve_scale == "on"))
+                        .collect::<Vec<_>>()
+                })
+                .collect();
             // Step 4: T_k, from this frame to frame k.
             let towards = |k: i32| {
                 let mut t = WS_ONE;
@@ -5062,6 +5080,74 @@ fn fill_warp_stabilizer(
 
 /// D-653: the unchanged map.
 const WS_ONE: [[f64; 3]; 3] = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
+
+/// Audit P1, P5: the moves [`ws_pair_kept`] keeps, most recently used last, and how many it has
+/// answered from them.
+static WS_KEPT: std::sync::Mutex<Vec<(String, [[f64; 3]; 3])>> = std::sync::Mutex::new(Vec::new());
+static WS_REUSED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Audit P1, P5: [`ws_pair`] kept by everything it is worked from: both pictures' contents
+/// (`digests`, by [`ws_digest`]), their size, the estimate's settings, the method and Preserve
+/// Scale. An edit, a rewritten drawing or another layer gives other pictures or settings, so what
+/// comes back is always what working it again would give. Warp Stabilizer's window moves on by
+/// one frame each frame played, so it works one new pair; Rolling Shutter Repair (Warp) works
+/// none when a frame is shown again.
+// ponytail: the last 1024 moves, about 200 KB, scanned in order, for every layer and export alike;
+// a map if the scan ever shows. Pictures are told apart by a 64-bit digest.
+fn ws_pair_kept(a: &WorkingBuffer, b: &WorkingBuffer, digests: (u64, u64), tuning: &crate::flow::Tuning, method: &str, preserve: bool) -> [[f64; 3]; 3] {
+    let key = format!("{:016x} {:016x} {}x{} {tuning:?} {method} {preserve}", digests.0, digests.1, a.width(), a.height());
+    let hit = |kept: &mut Vec<(String, [[f64; 3]; 3])>| {
+        let i = kept.iter().position(|(k, _)| *k == key)?;
+        let found = kept.remove(i);
+        let m = found.1;
+        kept.push(found);
+        Some(m)
+    };
+    if let Some(m) = hit(&mut WS_KEPT.lock().unwrap_or_else(|e| e.into_inner())) {
+        WS_REUSED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        return m;
+    }
+    let m = ws_pair(a, b, tuning, method, preserve);
+    let mut kept = WS_KEPT.lock().unwrap_or_else(|e| e.into_inner());
+    if hit(&mut kept).is_none() {
+        if kept.len() == 1024 {
+            kept.remove(0);
+        }
+        kept.push((key, m));
+    }
+    m
+}
+
+/// A digest of a picture's size and every sample's bits, worked in slices on the processor's
+/// threads and combined in order, so the same picture always gives the same number.
+fn ws_digest(p: &WorkingBuffer) -> u64 {
+    use rayon::prelude::*;
+    use std::hash::{Hash, Hasher};
+    let bytes: &[u8] = bytemuck::cast_slice(p.data());
+    let parts: Vec<u64> = bytes
+        .par_chunks(1 << 20)
+        .map(|c| {
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            c.hash(&mut h);
+            h.finish()
+        })
+        .collect();
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    (p.width(), p.height(), parts).hash(&mut h);
+    h.finish()
+}
+
+/// Audit P1, P5: let go of every move Warp Stabilizer and Rolling Shutter Repair have kept, so the
+/// next frame works them all afresh. For checks that compare a frame drawn after another with the
+/// same frame drawn cold.
+pub fn forget_kept_moves() {
+    WS_KEPT.lock().unwrap_or_else(|e| e.into_inner()).clear();
+}
+
+/// Audit P1, P5: how many moves have been answered from those kept, since the program started.
+pub fn kept_moves_reused() -> u64 {
+    WS_REUSED.load(std::sync::atomic::Ordering::Relaxed)
+}
 
 /// D-653's step 3: the camera's move from `a` to `b`, in points centred on the picture and divided
 /// by half its diagonal, fitted three times to `flow`'s estimate, each pixel weighted by `a`'s

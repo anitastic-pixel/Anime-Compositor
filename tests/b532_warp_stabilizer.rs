@@ -348,6 +348,48 @@ fn b532_warp_stabilizer() {
     );
     png_out::write_rgba(&scenes.join("scene_06.png"), w, h, OutputDepth::Eight, &[], &scene(5)).unwrap();
 
+    t.heading("Each pair's move kept from frame to frame (audit P1)");
+    use anime_compositor::compose::{forget_kept_moves, kept_moves_reused};
+    let added_fx = picture(effect("smooth_motion", "stabilize_crop_auto_scale"));
+    forget_kept_moves();
+    draw(&added_fx, &scenes, 3, full);
+    let was = kept_moves_reused();
+    let (_, after, _) = draw(&added_fx, &scenes, 4, full);
+    let reused = kept_moves_reused() - was;
+    forget_kept_moves();
+    let was = kept_moves_reused();
+    let (_, cold, _) = draw(&added_fx, &scenes, 4, full);
+    let cold_reused = kept_moves_reused() - was;
+    t.row(
+        "as added, frame 4 drawn right after frame 3 uses moves frame 3 worked, and is \
+         byte-identical to frame 4 drawn with nothing kept",
+        &format!(
+            "{reused} moves reused after frame 3, {cold_reused} cold; {}",
+            if after == cold { "byte-identical" } else { "differs" }
+        ),
+        reused > 0 && cold_reused == 0 && after == cold,
+    );
+    let mut detailed = added("smooth_motion", "stabilize_crop_auto_scale");
+    detailed.insert("detailed_analysis".into(), J::from("on"));
+    let detailed_fx =
+        picture(serde_json::json!([{"instance_id": "fx-1", "type_id": "core.warp_stabilizer", "enabled": true, "parameters": detailed}]));
+    let was = kept_moves_reused();
+    let (_, changed, _) = draw(&detailed_fx, &scenes, 4, full);
+    let changed_reused = kept_moves_reused() - was;
+    forget_kept_moves();
+    let (_, changed_cold, _) = draw(&detailed_fx, &scenes, 4, full);
+    t.row(
+        "Detailed Analysis switched on after frame 4 was drawn as added: no kept move is used, \
+         and frame 4 is byte-identical to frame 4 with Detailed Analysis drawn with nothing kept, \
+         and differs from as added",
+        &format!(
+            "{changed_reused} moves reused; {}; {}",
+            if changed == changed_cold { "byte-identical" } else { "differs" },
+            if changed != cold { "differs from as added" } else { "same as as added" }
+        ),
+        changed_reused == 0 && changed == changed_cold && changed != cold,
+    );
+
     t.heading("The frame does not depend on how it is cut up");
     t.tiles(&[("fx_ws_001.json", 2), ("fx_ws_003.json", 2), ("fx_ws_006.json", 2), ("fx_ws_019.json", 2)]);
 

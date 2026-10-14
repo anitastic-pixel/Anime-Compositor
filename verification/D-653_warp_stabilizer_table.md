@@ -152,6 +152,13 @@ D-653, under the owner's /loop request (P0-13, D-600: "Blur + retiming only"). E
 | as added, frames 0 to 7 asked for in order through one viewer's cache, as playing asks: each is byte-identical to the same frame drawn alone with no cache, as an export draws it | 8 of 8 byte-identical | yes |
 | drawing 6 (frame 5, inside frame 3's window) rewritten as drawing 1 after it was played: frame 3 through the same cache follows the new drawing, byte-identical to frame 3 drawn alone | byte-identical, changed | yes |
 
+## Each pair's move kept from frame to frame (audit P1)
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| as added, frame 4 drawn right after frame 3 uses moves frame 3 worked, and is byte-identical to frame 4 drawn with nothing kept | 6 moves reused after frame 3, 0 cold; byte-identical | yes |
+| Detailed Analysis switched on after frame 4 was drawn as added: no kept move is used, and frame 4 is byte-identical to frame 4 with Detailed Analysis drawn with nothing kept, and differs from as added | 0 moves reused; byte-identical; differs from as added | yes |
+
 ## The frame does not depend on how it is cut up
 
 | Check | The build's answer | Matches |
@@ -163,4 +170,4 @@ D-653, under the owner's /loop request (P0-13, D-600: "Blur + retiming only"). E
 
 ## Result
 
-124 of 124 checks pass.
+126 of 126 checks pass.

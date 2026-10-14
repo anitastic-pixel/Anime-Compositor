@@ -344,6 +344,42 @@ fn b533_rolling_shutter_repair() {
     );
     png_out::write_rgba(&pans.join("pan_05.png"), w, h, OutputDepth::Eight, &[], &scene(4)).unwrap();
 
+    t.heading("Warp's moves kept for a frame shown again (audit P5)");
+    use anime_compositor::compose::{forget_kept_moves, kept_moves_reused};
+    let added_fx = picture(effect(50.0, "top_to_bottom", "warp"));
+    forget_kept_moves();
+    let was = kept_moves_reused();
+    let (_, cold, _) = draw(&added_fx, &pans, 3, full);
+    let cold_reused = kept_moves_reused() - was;
+    let was = kept_moves_reused();
+    let (_, again, _) = draw(&added_fx, &pans, 3, full);
+    let reused = kept_moves_reused() - was;
+    t.row(
+        "as added, frame 3 drawn a second time uses both moves the first drawing worked, and is \
+         byte-identical to the first, drawn with nothing kept",
+        &format!("{reused} moves reused the second time, {cold_reused} the first; {}", if again == cold { "byte-identical" } else { "differs" }),
+        reused == 2 && cold_reused == 0 && again == cold,
+    );
+    let mut detailed = added();
+    detailed.insert("detailed_analysis".into(), J::from("on"));
+    let detailed_fx =
+        picture(serde_json::json!([{"instance_id": "fx-1", "type_id": "core.rolling_shutter_repair", "enabled": true, "parameters": detailed}]));
+    let was = kept_moves_reused();
+    let (_, changed, _) = draw(&detailed_fx, &pans, 3, full);
+    let changed_reused = kept_moves_reused() - was;
+    forget_kept_moves();
+    let (_, changed_cold, _) = draw(&detailed_fx, &pans, 3, full);
+    t.row(
+        "Detailed Analysis switched on after frame 3 was drawn as added: no kept move is used, \
+         and frame 3 is byte-identical to frame 3 with Detailed Analysis drawn with nothing kept",
+        &format!(
+            "{changed_reused} moves reused; {}; {}",
+            if changed == changed_cold { "byte-identical" } else { "differs" },
+            if changed != cold { "differs from as added" } else { "same as as added" }
+        ),
+        changed_reused == 0 && changed == changed_cold,
+    );
+
     t.heading("The frame does not depend on how it is cut up");
     t.tiles(&[("fx_rsr_001.json", 2), ("fx_rsr_008.json", 2), ("fx_rsr_013.json", 2), ("fx_rsr_019.json", 2)]);
 
