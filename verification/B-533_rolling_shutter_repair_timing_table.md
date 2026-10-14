@@ -35,3 +35,21 @@ This follows B-227's, B-530's and B-531's method:
 - **Pixel Motion** costs about 145 ms a frame inside the effect at Full, when D-650's motion estimate has to run for both neighbouring frames, so here it is about 4 times quicker than Warp.
 - First and Again now agree within 5% on every row with the effect. The earlier odd Warp columns (Again 7.3 s against First 2.7 s) were Warp Stabilizer's timing running at the same time.
 - Every row with the effect is above the Target P4 (100 ms a frame on the processor) and slower than real time (41.7 ms at 24 frames a second). A card version and a faster estimate would each be separate pieces of work.
+
+## After audit P5 (moves kept, both sides at once, 7152d077)
+
+**Measured** on 2026-10-14 at 508a1d3d, built with `cargo test --release --test b533_rolling_shutter_repair --no-run` (own target folder) and run with `--ignored --exact b533_rolling_shutter_repair_timing`, one test at a time, nothing else of this work running. The run took about 2 minutes 20 seconds (352 s before). One reading of the card just before the run said 70% busy; it was taken the moment the previous timing test ended, and the Noise alone rows (12.3 and 18.0) match a quiet card. Same machine as above.
+
+| Shot | Quality | First, before | First, after | Again, before | Again, after | Stage "afresh", before | Stage "afresh", after |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Noise alone | Full | 16.7 | 16.4 | 13.0 | 12.3 | 0.0 | 0.0 |
+| Rolling Shutter Repair as added (Warp), then Noise | Full | 742.5 | 129.8 | 714.0 | 130.0 | 609.9 | 34.5 |
+| Rolling Shutter Repair, Pixel Motion, then Noise | Full | 259.5 | 261.8 | 251.3 | 244.0 | 145.4 | 117.0 |
+| Noise alone | Half | 31.6 | 27.1 | 17.7 | 18.0 | 0.0 | 0.0 |
+| Rolling Shutter Repair as added (Warp), then Noise | Half | 225.1 | 77.0 | 214.9 | 57.5 | 164.0 | 11.3 |
+
+Whole frames "afresh", after: 41.7, 207.7, 286.2, 49.5, 120.1.
+
+**What changed in the columns.** "Afresh" empties the frame cache and the card before each frame, but the moves P5 keeps are not emptied, so after P5 the afresh frames are frames shown again, and the stage figure there is only the Warp's pixel work. **First** (the first loop, every eighth frame, nothing kept for those frames yet) is the cold figure to compare.
+
+**Reading it.** Warp as added, cold, is about 5.7 times quicker at Full (742.5 to 129.8 ms a frame) and about 2.9 at Half (225.1 to 77.0). P5 measures the two neighbours at once and works the Warp's pixels on all threads; this run does not time those two apart. Shown again, its own stage drops from about 610 ms to about 35. Pixel Motion is about the same (its estimate is D-650's, not changed here). Every row with the effect is still slower than real time (41.7 ms at 24 a second); Warp at Half comes closest (57.5 again). Pictures unchanged: `D-654_rolling_shutter_repair_table.md` 111 of 111, including frames shown again byte-identical to cold ones.
