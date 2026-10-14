@@ -147,23 +147,23 @@ B-556, after CycoreFX's CC Star Burst (Simulation): the layer broken into a grid
 | fx_sburst_024.json, frames [0, 4] at Full and Draft | largest difference 1 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | fx_sburst_025.json, frames [0, 4] at Full and Draft | largest difference 1 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot, Star Burst as added: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2069316 pixels changed | yes |
-| the reference shot, Star Burst as added on three layers, frame 0, Full | largest difference 1 of 255, 527 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst as added on three layers, frame 100, Full | largest difference 1 of 255, 419 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst as added on three layers, frame 239, Full | largest difference 1 of 255, 546 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst as added on three layers, frame 0, Draft | largest difference 1 of 255, 75 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst as added on three layers, frame 100, Draft | largest difference 1 of 255, 72 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst as added on three layers, frame 239, Draft | largest difference 1 of 255, 80 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst as added on three layers, frame 0, Full | largest difference 1 of 255, 786 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst as added on three layers, frame 100, Full | largest difference 1 of 255, 602 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst as added on three layers, frame 239, Full | largest difference 1 of 255, 814 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst as added on three layers, frame 0, Draft | largest difference 1 of 255, 85 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst as added on three layers, frame 100, Draft | largest difference 1 of 255, 81 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst as added on three layers, frame 239, Draft | largest difference 1 of 255, 91 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2045575 pixels changed | yes |
-| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 0, Full | largest difference 1 of 255, 51 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 100, Full | largest difference 1 of 255, 258 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 239, Full | largest difference 1 of 255, 27681 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 0, Draft | largest difference 1 of 255, 12 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 100, Draft | largest difference 1 of 255, 26 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 239, Draft | largest difference 1 of 255, 12 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 0, Full | largest difference 1 of 255, 65 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 100, Full | largest difference 1 of 255, 269 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 239, Full | largest difference 1 of 255, 27706 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 0, Draft | largest difference 1 of 255, 22 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 100, Draft | largest difference 1 of 255, 37 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst Grid Spacing 20, Size 300, flying away at Speed -3 on three layers, frame 239, Draft | largest difference 1 of 255, 21 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Star Burst Speed keyed 0 to 5, Blend w. Original 30: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2069518 pixels changed | yes |
-| the reference shot, Star Burst Speed keyed 0 to 5, Blend w. Original 30 on three layers, frame 0, Full | largest difference 1 of 255, 1674 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst Speed keyed 0 to 5, Blend w. Original 30 on three layers, frame 100, Full | largest difference 1 of 255, 1895 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Star Burst Speed keyed 0 to 5, Blend w. Original 30 on three layers, frame 239, Full | largest difference 1 of 255, 1800 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst Speed keyed 0 to 5, Blend w. Original 30 on three layers, frame 0, Full | largest difference 1 of 255, 1676 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst Speed keyed 0 to 5, Blend w. Original 30 on three layers, frame 100, Full | largest difference 1 of 255, 1896 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Star Burst Speed keyed 0 to 5, Blend w. Original 30 on three layers, frame 239, Full | largest difference 1 of 255, 1803 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Star Burst Speed keyed 0 to 5, Blend w. Original 30 on three layers, frame 0, Draft | largest difference 1 of 255, 560 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Star Burst Speed keyed 0 to 5, Blend w. Original 30 on three layers, frame 100, Draft | largest difference 1 of 255, 489 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Star Burst Speed keyed 0 to 5, Blend w. Original 30 on three layers, frame 239, Draft | largest difference 1 of 255, 571 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |

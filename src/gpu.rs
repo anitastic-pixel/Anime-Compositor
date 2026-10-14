@@ -7481,7 +7481,8 @@ fn hair_root(x: f64, y: f64) -> vec4<f64> {
 // d_x, d_y, d_z, L, b, u_2], then each tile's start and the lists, then simulate::hair_light's
 // fifteen numbers), each strand's coverage over its eight pieces, its root read for whether it
 // grows and its colour, lit as hair and laid over. The shine's power is single precision, as
-// Glue Gun's.
+// Glue Gun's. Audit P2 (after B-157): each strand's pieces and its light in single precision,
+// worked from its root so the numbers stay small; its root's read and the laying over stay double.
 @compute @workgroup_size(16, 16)
 fn hair(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -7495,59 +7496,61 @@ fn hair(@builtin(global_invocation_id) id: vec3<u32>) {
     let g = u32(k[0]);
     let x = f64(i32(id.x) - F.ox) + 0.5lf;
     let y = f64(i32(id.y) - F.oy) + 0.5lf;
-    let th = k[g + 5u];
-    let l = vec3(k[g + 7u], k[g + 8u], k[g + 9u]);
+    let th = f32(k[g + 5u]);
+    let l = vec3(f32(k[g + 7u]), f32(k[g + 8u]), f32(k[g + 9u]));
     var res = vec4<f64>(at(input, vec2<i32>(id.xy)));
     for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
         let s = 7u + SPRITE_STRIDE * u32(k[o + nt + 1u + j]);
         let rx = k[s + 1u];
         let ry = k[s + 2u];
-        let d = vec3(k[s + 4u], k[s + 5u], k[s + 6u]);
-        let sl = k[s + 7u];
-        let b = k[s + 8u];
-        var best = 0.0lf;
-        var sat = 0.0lf;
-        var a = vec2(rx, ry);
+        let qx = f32(x - rx);
+        let qy = f32(y - ry);
+        let d = vec3(f32(k[s + 4u]), f32(k[s + 5u]), f32(k[s + 6u]));
+        let sl = f32(k[s + 7u]);
+        let b = f32(k[s + 8u]);
+        var best = 0.0;
+        var sat = 0.0;
+        var a = vec2(0.0, 0.0);
         for (var n = 0u; n < 8u; n++) {
-            let q = f64(n + 1u) / 8.0lf;
-            let e2 = vec2(rx + sl * d.x * q, ry + sl * (d.y * q + b * q * q));
+            let q = f32(n + 1u) / 8.0;
+            let e2 = vec2(sl * d.x * q, sl * (d.y * q + b * q * q));
             let ex = e2.x - a.x;
             let ey = e2.y - a.y;
             let ee = ex * ex + ey * ey;
-            var sp = 0.0lf;
-            if ee != 0.0lf {
-                sp = clamp(((x - a.x) * ex + (y - a.y) * ey) / ee, 0.0lf, 1.0lf);
+            var sp = 0.0;
+            if ee != 0.0 {
+                sp = clamp(((qx - a.x) * ex + (qy - a.y) * ey) / ee, 0.0, 1.0);
             }
-            let px = x - (a.x + sp * ex);
-            let py = y - (a.y + sp * ey);
-            let at_s = (f64(n) + sp) / 8.0lf;
-            let cov = clamp(th / 2.0lf * (1.0lf - 0.75lf * at_s) - sqrt(px * px + py * py) + 0.5lf, 0.0lf, 1.0lf);
+            let px = qx - (a.x + sp * ex);
+            let py = qy - (a.y + sp * ey);
+            let at_s = (f32(n) + sp) / 8.0;
+            let cov = clamp(th / 2.0 * (1.0 - 0.75 * at_s) - sqrt(px * px + py * py) + 0.5, 0.0, 1.0);
             if cov > best {
                 best = cov;
                 sat = at_s;
             }
             a = e2;
         }
-        if best == 0.0lf {
+        if best == 0.0 {
             continue;
         }
         let c = hair_root(rx + f64(F.ox), ry + f64(F.oy));
         if !(k[s + 9u] < c.w) {
             continue;
         }
-        let dv0 = vec3(d.x, d.y + 2.0lf * b * sat, d.z);
+        let dv0 = vec3(d.x, d.y + 2.0 * b * sat, d.z);
         let dv = dv0 / sqrt(dv0.x * dv0.x + dv0.y * dv0.y + dv0.z * dv0.z);
         let al = dv.x * l.x + dv.y * l.y + dv.z * l.z;
-        let kd = sqrt(max(1.0lf - al * al, 0.0lf));
-        let br = kd * sqrt(max(1.0lf - dv.z * dv.z, 0.0lf)) - al * dv.z;
+        let kd = sqrt(max(1.0 - al * al, 0.0));
+        let br = kd * sqrt(max(1.0 - dv.z * dv.z, 0.0)) - al * dv.z;
         var ks = 0.0lf;
-        if br > 0.0lf {
-            ks = f64(pow(f32(br), f32(1.0lf / k[g + 13u])));
+        if br > 0.0 {
+            ks = f64(pow(br, f32(1.0lf / k[g + 13u])));
         }
-        let cover = best * k[g + 4u];
+        let cover = f64(best) * k[g + 4u];
         for (var ch = 0u; ch < 3u; ch++) {
             let col = k[g + ch] * (1.0lf - k[g + 3u]) + c[ch] / c.w * k[g + 3u];
-            let lit = col * (k[g + 10u] + k[g + 11u] * k[g + 6u] * kd) + k[g + 12u] * k[g + 6u] * (1.0lf + (col - 1.0lf) * k[g + 14u]) * ks;
+            let lit = col * (k[g + 10u] + k[g + 11u] * k[g + 6u] * f64(kd)) + k[g + 12u] * k[g + 6u] * (1.0lf + (col - 1.0lf) * k[g + 14u]) * ks;
             res[ch] = lit * cover + res[ch] * (1.0lf - cover);
         }
         res.w = cover + res.w * (1.0lf - cover);
@@ -7881,7 +7884,9 @@ fn scatterize(@builtin(global_invocation_id) id: vec3<u32>) {
 // of the picture mixed back, k[2] and k[3] the drawing's size, k[6] the count, the stars from 7,
 // SPRITE_STRIDE each, [3, x, y, r, gx, gy, opacity, ..], then each tile's start and the lists):
 // inside the drawing, the stars of its tile, each the drawing read at its grid point by Bubbles'
-// bilinear read, laid farthest first onto clear; then mixed with the picture.
+// bilinear read, laid farthest first onto clear; then mixed with the picture. Audit P2 (after
+// B-157): each star's edge, read and laying over in single precision, the distance taken from the
+// star's centre in double first so it stays small; the mix with the picture stays double.
 @compute @workgroup_size(16, 16)
 fn star_burst(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -7894,22 +7899,34 @@ fn star_burst(@builtin(global_invocation_id) id: vec3<u32>) {
     let o = 7u + SPRITE_STRIDE * u32(k[6]);
     let x = f64(i32(id.x) - F.ox) + 0.5lf;
     let y = f64(i32(id.y) - F.oy) + 0.5lf;
-    var d = vec4(0.0lf);
+    var d = vec4(0.0);
     if x > 0.0lf && y > 0.0lf && x < k[2] && y < k[3] {
         for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
             let s = 7u + SPRITE_STRIDE * u32(k[o + nt + 1u + j]);
-            let ex = x - k[s + 1u];
-            let ey = y - k[s + 2u];
-            let cv = clamp(k[s + 3u] - sqrt(ex * ex + ey * ey) + 0.5lf, 0.0lf, 1.0lf);
-            if cv <= 0.0lf {
+            let ex = f32(x - k[s + 1u]);
+            let ey = f32(y - k[s + 2u]);
+            let cv = clamp(f32(k[s + 3u]) - sqrt(ex * ex + ey * ey) + 0.5, 0.0, 1.0);
+            if cv <= 0.0 {
                 continue;
             }
-            let c = bubble_read(k[s + 4u], k[s + 5u]) * (k[s + 6u] * cv);
-            d = c + d * (1.0lf - c.w);
+            // Bubbles' read, its fraction single.
+            let fx = clamp(k[s + 4u] - 0.5lf, 0.0lf, k[2] - 1.0lf);
+            let fy = clamp(k[s + 5u] - 0.5lf, 0.0lf, k[3] - 1.0lf);
+            let x0 = i32(fx);
+            let y0 = i32(fy);
+            let x1 = min(x0 + 1, i32(k[2]) - 1);
+            let y1 = min(y0 + 1, i32(k[3]) - 1);
+            let tx = f32(fx - f64(x0));
+            let ty = f32(fy - f64(y0));
+            let p = vec2(F.ox, F.oy);
+            let r = (at(input, vec2(x0, y0) + p) * (1.0 - tx) + at(input, vec2(x1, y0) + p) * tx) * (1.0 - ty)
+                + (at(input, vec2(x0, y1) + p) * (1.0 - tx) + at(input, vec2(x1, y1) + p) * tx) * ty;
+            let c = r * (f32(k[s + 6u]) * cv);
+            d = c + d * (1.0 - c.w);
         }
     }
     let m = k[0];
-    textureStore(output, id.xy, vec4<f32>(d * (1.0lf - m) + vec4<f64>(at(input, vec2<i32>(id.xy))) * m));
+    textureStore(output, id.xy, vec4<f32>(vec4<f64>(d) * (1.0lf - m) + vec4<f64>(at(input, vec2<i32>(id.xy))) * m));
 }
 
 // B-151, median.rs's straight colour of a pixel, each channel over the covering in single

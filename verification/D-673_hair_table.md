@@ -184,26 +184,26 @@ B-552, after CycoreFX's CC Hair (Simulation): strands grown where the layer is o
 | fx_hair_031.json, frames [0, 4] at Full and Draft | largest difference 1 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | fx_hair_032.json, frames [0, 4] at Full and Draft | largest difference 1 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot, Hair as added: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 281668 pixels changed | yes |
-| the reference shot, Hair as added on three layers, frame 0, Full | largest difference 1 of 255, 3457 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair as added on three layers, frame 100, Full | largest difference 1 of 255, 1345 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair as added on three layers, frame 239, Full | largest difference 1 of 255, 1670 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair as added on three layers, frame 0, Full | largest difference 1 of 255, 3461 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair as added on three layers, frame 100, Full | largest difference 1 of 255, 1348 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair as added on three layers, frame 239, Full | largest difference 1 of 255, 1674 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Hair as added on three layers, frame 0, Draft | largest difference 1 of 255, 110 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Hair as added on three layers, frame 100, Draft | largest difference 1 of 255, 50 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Hair as added on three layers, frame 239, Draft | largest difference 1 of 255, 56 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Hair a long fur: length 200, thickness 6, density 60: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1345934 pixels changed | yes |
-| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 0, Full | largest difference 1 of 255, 2063 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 100, Full | largest difference 1 of 255, 1264 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 239, Full | largest difference 1 of 255, 1431 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 0, Draft | largest difference 1 of 255, 80 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 100, Draft | largest difference 1 of 255, 77 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 239, Draft | largest difference 1 of 255, 70 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 0, Full | largest difference 1 of 255, 2154 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 100, Full | largest difference 1 of 255, 1367 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 239, Full | largest difference 1 of 255, 1519 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 0, Draft | largest difference 1 of 255, 85 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 100, Draft | largest difference 1 of 255, 84 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair a long fur: length 200, thickness 6, density 60 on three layers, frame 239, Draft | largest difference 1 of 255, 75 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Hair weight keyed -100 to 200, constant mass, blue: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1269058 pixels changed | yes |
-| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 0, Full | largest difference 1 of 255, 1582 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 100, Full | largest difference 1 of 255, 1157 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 239, Full | largest difference 1 of 255, 981 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 0, Draft | largest difference 1 of 255, 54 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 100, Draft | largest difference 1 of 255, 61 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 239, Draft | largest difference 1 of 255, 61 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 0, Full | largest difference 1 of 255, 1740 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 100, Full | largest difference 1 of 255, 1258 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 239, Full | largest difference 1 of 255, 1098 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 0, Draft | largest difference 1 of 255, 59 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 100, Draft | largest difference 1 of 255, 65 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Hair weight keyed -100 to 200, constant mass, blue on three layers, frame 239, Draft | largest difference 1 of 255, 57 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures (verification/D-673 pictures)
 
