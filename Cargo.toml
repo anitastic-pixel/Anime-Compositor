@@ -16,6 +16,11 @@ description = "Cel exposure and finishing compositor. G1-core: colour, alpha and
 members = ["app"]
 exclude = ["spikes"]
 
+# Audit S6: line numbers only, which still names file and line in errors, at a fraction of
+# the disk each test program takes.
+[profile.dev]
+debug = "line-tables-only"
+
 [profile.release]
 opt-level = 3
 
