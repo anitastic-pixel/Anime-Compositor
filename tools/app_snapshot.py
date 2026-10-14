@@ -168,14 +168,23 @@ def shrink(rgba, w, h, k):
 
 
 def difference(a, b):
-    """Per channel R, G, B, A: the largest and the mean difference, in 8-bit steps."""
+    """Per channel R, G, B, A: the largest and the mean difference, in 8-bit steps, compared premultiplied.
+
+    The card's picture comes back through the page's 2D canvas, which keeps colour premultiplied in
+    8 bits, so a nearly clear pixel's straight colour comes back rounded to steps of about 255/alpha.
+    Premultiplying both sides compares what can actually be seen. "solid" is the straight largest
+    difference over fully opaque pixels only, so a real fault there still shows."""
     if not a or not b or len(a) != len(b):
         return None
+    pa = [round(a[i] * a[i | 3] / 255) if i & 3 != 3 else a[i] for i in range(len(a))]
+    pb = [round(b[i] * b[i | 3] / 255) if i & 3 != 3 else b[i] for i in range(len(b))]
     out = {}
     n = len(a) // 4
     for c, name in enumerate("rgba"):
-        d = [abs(x - y) for x, y in zip(a[c::4], b[c::4])]
+        d = [abs(x - y) for x, y in zip(pa[c::4], pb[c::4])]
         out[name] = {"max": max(d), "mean": round(sum(d) / n, 4)}
+    solid = [abs(a[i] - b[i]) for i in range(len(a)) if i & 3 != 3 and a[i | 3] == 255 and b[i | 3] == 255]
+    out["solid"] = {"max": max(solid, default=0)}
     return out
 
 
@@ -333,7 +342,7 @@ def main():
                 summary["differences"].append({"frame": n, **(d or {"error": "no pair of pictures of one size to compare"})})
                 if d:
                     print(f"frame {n} cpu vs card, largest/mean difference in 8-bit steps: "
-                          + " ".join(f"{c.upper()} {v['max']}/{v['mean']}" for c, v in d.items()), flush=True)
+                          + " ".join(f"{c.upper()} {v['max']}/{v.get('mean', '-')}" for c, v in d.items()), flush=True)
     except Exception as e:  # noqa: BLE001
         summary["error"] = str(e)
         print("ERROR:", e, flush=True)
@@ -364,5 +373,15 @@ def main():
     return 1 if summary.get("error") else 0
 
 
+def self_check():
+    # A nearly clear pixel the canvas rounded: invisible, so it must not count; a solid one must.
+    assert difference(bytes([16, 171, 3, 1]), bytes([0, 255, 0, 1]))["g"]["max"] == 0
+    d = difference(bytes([10, 20, 30, 255]), bytes([13, 20, 30, 255]))
+    assert d["r"]["max"] == 3 and d["solid"]["max"] == 3
+
+
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--self-check"]:
+        self_check()
+        sys.exit(print("self-check passed"))
     sys.exit(main())
