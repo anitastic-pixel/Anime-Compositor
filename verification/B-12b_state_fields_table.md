@@ -26,10 +26,12 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `doc.redo` is in the answer | present | present | pass |
 | `doc.solo` is in the answer | present | present | pass |
 | `doc.undo` is in the answer | present | present | pass |
-| the panels read 17 fields out of the composition on screen | true | true | pass |
+| the panels read 19 fields out of the composition on screen | true | true | pass |
+| `comp.ae_32bpc` is in the answer | present | present | pass |
 | `comp.background_color` is in the answer | present | present | pass |
 | `comp.camera` is in the answer | present | present | pass |
 | `comp.duration_frames` is in the answer | present | present | pass |
+| `comp.eight_bpc` is in the answer | present | present | pass |
 | `comp.float_depth` is in the answer | present | present | pass |
 | `comp.frame_blending` is in the answer | present | present | pass |
 | `comp.frame_rate` is in the answer | present | present | pass |
@@ -44,7 +46,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `comp.start_frame` is in the answer | present | present | pass |
 | `comp.width` is in the answer | present | present | pass |
 | `comp.work_area` is in the answer | present | present | pass |
-| the panels read 30 fields out of one of its layers | true | true | pass |
+| the panels read 31 fields out of one of its layers | true | true | pass |
 | `layer.asset_id` is in the answer | present | present | pass |
 | `layer.blend_mode` is in the answer | present | present | pass |
 | `layer.composition_id` is in the answer | present | present | pass |
@@ -65,6 +67,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `layer.motion_blur` is in the answer | present | present | pass |
 | `layer.name` is in the answer | present | present | pass |
 | `layer.out_frame` is in the answer | present | present | pass |
+| `layer.pan` is in the answer | present | present | pass |
 | `layer.parent` is in the answer | present | present | pass |
 | `layer.shapes` is in the answer | present | present | pass |
 | `layer.shy` is in the answer | present | present | pass |
@@ -102,7 +105,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.gaussian_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - sigma_px - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.exposure` is an effect this build has | added | added | pass |
-| and the settings it sends for it - stops - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - stops, offset, gamma, bypass - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.tint` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, amount - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.line_smooth` is an effect this build has | added | added | pass |
@@ -129,6 +132,10 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - master, red, green, blue, alpha - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.levels` is an effect this build has | added | added | pass |
 | and the settings it sends for it - input_black, input_white, gamma, output_black, output_white - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.levels` is an effect this build has | added | added | pass |
+| and the settings it sends for it - channel, input_black, input_white, gamma, output_black, output_white, red_input_white, alpha_output_white - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.levels_individual` is an effect this build has | added | added | pass |
+| and the settings it sends for it - input_black, input_white, gamma, output_black, output_white, green_gamma, blue_output_black - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.hue_saturation` is an effect this build has | added | added | pass |
 | and the settings it sends for it - hue, saturation, lightness, reds_hsl, blues_hsl - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.gradient` is an effect this build has | added | added | pass |
@@ -136,7 +143,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.drop_shadow` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, opacity, direction, distance, softness - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.lens_blur` is an effect this build has | added | added | pass |
-| and the settings it sends for it - radius, edges, iris, roundness, rotation, aspect, highlight_gain, highlight_threshold - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - radius, edges, iris, roundness, rotation, aspect, highlight_gain, highlight_threshold, blur_layer, fit, channel, focal_distance, invert - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.rim_light` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, direction, width, softness, intensity, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.outline` is an effect this build has | added | added | pass |
@@ -145,16 +152,20 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - amount, mode, seed, animate - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.chromatic_aberration` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, center - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.chromatic_aberration` is an effect this build has | added | added | pass |
+| and the settings it sends for it - mode, amount, center, angle, falloff, red_scale, green_scale, blue_scale, fringe_blur - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.distance_gradation` is an effect this build has | added | added | pass |
 | and the settings it sends for it - width, opacity, color, invert, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.light_rays` is an effect this build has | added | added | pass |
 | and the settings it sends for it - center, length, threshold, intensity, color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.light_rays` is an effect this build has | added | added | pass |
+| and the settings it sends for it - intensity, center, radius, warp_softness, shape, direction, color_from_source, allow_brightening, color, transfer_mode - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.exposure_flicker` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, hold, seed - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.vignette` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, color, size, roundness, softness, center - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.turbulent_displace` is an effect this build has | added | added | pass |
-| and the settings it sends for it - amount, size, complexity, evolution, speed, seed, edges, displacement, pinning - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - amount, size, complexity, evolution, speed, seed, edges, displacement, pinning, new_seed_every, drift_direction, drift_speed, units - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.fractal_noise` is an effect this build has | added | added | pass |
 | and the settings it sends for it - fractal_type, noise_type, invert, offset, scale_width, scale_height, cycle, size, complexity, contrast, brightness, evolution, speed, seed, dark_color, light_color, opacity, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.gradient_map` is an effect this build has | added | added | pass |
@@ -194,7 +205,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.sharpen` is an effect this build has | added | added | pass |
 | and the settings it sends for it - amount, radius, threshold - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.diffusion` is an effect this build has | added | added | pass |
-| and the settings it sends for it - radius, amount, blend - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - radius, amount, blend, second_blend, second_amount - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.wave_warp` is an effect this build has | added | added | pass |
 | and the settings it sends for it - shape, height, width, direction, speed, phase, edges - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.ripple` is an effect this build has | added | added | pass |
@@ -236,17 +247,41 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.kira_kira` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, spacing, density, size, shape, angle, twinkle, period, seed, opacity, color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.lightning_bolt` is an effect this build has | added | added | pass |
-| and the settings it sends for it - start, end, jagged, detail, branches, width, glow, opacity, hold, seed, color, glow_color, composite, kind, turbulence, decay, conductivity, obstacle - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - start, end, jagged, detail, branches, width, glow, opacity, hold, seed, color, glow_color, composite, kind, turbulence, decay, conductivity, obstacle, path, core, forks - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.compound_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - blur_layer, fit, max_blur, invert, edges - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.displacement_map` is an effect this build has | added | added | pass |
-| and the settings it sends for it - map_layer, fit, horizontal, max_horizontal, vertical, max_vertical, wrap - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - map_layer, fit, horizontal, max_horizontal, vertical, max_vertical, wrap, red_amount, green_amount, blue_amount, spectrum - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.gradient_wipe` is an effect this build has | added | added | pass |
 | and the settings it sends for it - map_layer, fit, completion, softness, invert - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.echo` is an effect this build has | added | added | pass |
 | and the settings it sends for it - echo_time, echoes, intensity, decay, operator - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.posterize_time` is an effect this build has | added | added | pass |
 | and the settings it sends for it - frame_rate - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cc_wide_time` is an effect this build has | added | added | pass |
+| and the settings it sends for it - forward_steps, backward_steps, native_motion_blur - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.force_motion_blur` is an effect this build has | added | added | pass |
+| and the settings it sends for it - motion_blur_samples, override_native_shutter, shutter_angle, native_motion_blur - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.pixel_motion_blur` is an effect this build has | added | added | pass |
+| and the settings it sends for it - shutter_control, shutter_angle, shutter_samples, vector_detail - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.timewarp` is an effect this build has | added | added | pass |
+| and the settings it sends for it - method, adjust_time_by, speed, source_frame, vector_detail, global_smoothness, local_smoothness, smoothing_iterations, build_from_one_image, correct_luminance_changes, filtering, error_threshold, block_size, red_weight, green_weight, blue_weight, enable_motion_blur, shutter_control, shutter_angle, shutter_samples - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.warp_stabilizer` is an effect this build has | added | added | pass |
+| and the settings it sends for it - result, smoothness, method, preserve_scale, framing, maximum_scale, action_safe_margin, additional_scale, detailed_analysis - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.rolling_shutter_repair` is an effect this build has | added | added | pass |
+| and the settings it sends for it - rolling_shutter_rate, scan_direction, method, detailed_analysis, pixel_motion_detail - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cc_rainfall` is an effect this build has | added | added | pass |
+| and the settings it sends for it - drops, size, scene_depth, speed, wind, wind_variation, spread, color, opacity, transfer_mode, composite_with_original, ground_level, random_seed - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.wave_world` is an effect this build has | added | added | pass |
+| and the settings it sends for it - brightness, contrast, gamma, render_dry_areas, transparency, grid_resolution, grid_res_downsamples, wave_speed, damping, reflect_edges, pre_roll, map_layer, steepness, height, wave_strength, producer_1_type, producer_1_position, producer_1_height, producer_1_width, producer_1_angle, producer_1_amplitude, producer_1_frequency, producer_1_phase, producer_2_type, producer_2_position, producer_2_height, producer_2_width, producer_2_angle, producer_2_amplitude, producer_2_frequency, producer_2_phase - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.shatter` is an effect this build has | added | added | pass |
+| and the settings it sends for it - view, render, pattern, custom_shatter_map, white_tiles_fixed, repetitions, direction, origin, extrusion_depth, force_1_position, force_1_depth, force_1_radius, force_1_strength, force_2_position, force_2_depth, force_2_radius, force_2_strength, gradient_layer, shatter_threshold, invert_gradient, rotation_speed, tumble_axis, randomness, viscosity, mass_variance, gravity, gravity_direction, gravity_inclination, color, opacity, front_mode, side_mode, back_mode, front_layer, side_layer, back_layer, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.card_dance` is an effect this build has | added | added | pass |
+| and the settings it sends for it - rows_columns, rows, columns, back_layer, gradient_layer_1, gradient_layer_2, rotation_order, transformation_order, x_position_source, y_position_source, z_position_source, x_rotation_source, y_rotation_source, z_rotation_source, x_scale_source, y_scale_source, x_position_multiplier, x_position_offset, y_position_multiplier, y_position_offset, z_position_multiplier, z_position_offset, x_rotation_multiplier, x_rotation_offset, y_rotation_multiplier, y_rotation_offset, z_rotation_multiplier, z_rotation_offset, x_scale_multiplier, x_scale_offset, y_scale_multiplier, y_scale_offset, camera_system, camera_x_rotation, camera_y_rotation, camera_z_rotation, camera_xy_position, camera_z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.caustics` is an effect this build has | added | added | pass |
+| and the settings it sends for it - bottom_layer, bottom_scaling, bottom_repeat_mode, bottom_fit, bottom_blur, water_surface, wave_height, smoothing, water_depth, refractive_index, surface_color, surface_opacity, caustics_strength, sky_layer, sky_scaling, sky_repeat_mode, sky_fit, sky_intensity, sky_convergence, light_type, light_intensity, light_color, light_position, light_height, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.time_difference` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, time_offset, contrast, absolute_difference, alpha_channel - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.change_to_color` is an effect this build has | added | added | pass |
 | and the settings it sends for it - from, to, change, change_by, hue_tolerance, lightness_tolerance, saturation_tolerance, softness, view_matte - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.corner_pin` is an effect this build has | added | added | pass |
@@ -259,8 +294,166 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - interpolation, conversion - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.median` is an effect this build has | added | added | pass |
 | and the settings it sends for it - radius, operate_on_alpha - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.dust_scratches` is an effect this build has | added | added | pass |
+| and the settings it sends for it - radius, threshold, operate_on_alpha - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.remove_grain` is an effect this build has | added | added | pass |
+| and the settings it sends for it - noise_reduction, passes, mode, unsharp_amount, unsharp_radius, unsharp_threshold - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.advanced_spill_suppressor` is an effect this build has | added | added | pass |
+| and the settings it sends for it - method, suppression, key_color, tolerance, desaturate, spill_range, spill_color_correction, luma_correction - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.color_difference_key` is an effect this build has | added | added | pass |
+| and the settings it sends for it - view, key_color, partial_a_in_black, partial_a_in_white, partial_a_gamma, partial_a_out_black, partial_a_out_white, partial_b_in_black, partial_b_in_white, partial_b_gamma, partial_b_out_black, partial_b_out_white, matte_in_black, matte_in_white, matte_gamma - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.color_range` is an effect this build has | added | added | pass |
+| and the settings it sends for it - color_space, fuzziness, min_1, max_1, min_2, max_2, min_3, max_3 - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.difference_matte` is an effect this build has | added | added | pass |
+| and the settings it sends for it - view, map_layer, fit, matching_tolerance, matching_softness, blur_before_difference - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.inner_outer_key` is an effect this build has | added | added | pass |
+| and the settings it sends for it - foreground, background, single_mask_highlight_radius, edge_thin, edge_feather, edge_threshold, invert_extraction, blend_with_original - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.key_cleaner` is an effect this build has | added | added | pass |
+| and the settings it sends for it - additional_edge_radius, alpha_contrast, strength - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.linear_color_key` is an effect this build has | added | added | pass |
+| and the settings it sends for it - view, key_color, match_colors, key_operation, matching_tolerance, matching_softness - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.screen_key` is an effect this build has | added | added | pass |
+| and the settings it sends for it - view, screen_color, screen_gain, screen_balance, clip_black, clip_white, despill_bias, despill, shrink_grow, softness, edge_refine - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.spill_suppressor` is an effect this build has | added | added | pass |
+| and the settings it sends for it - color_to_suppress, suppression - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.reduce_interlace_flicker` is an effect this build has | added | added | pass |
+| and the settings it sends for it - softness - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.unmult` is an effect this build has | added | added | pass |
+| and the settings it sends for it - background_color, black_level, white_level, softness, remove_color_matting, clip_hdr_results - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.energy_stroke` is an effect this build has | added | added | pass |
+| and the settings it sends for it - source, core_start, core_end, evolution, start_offset, end_offset, start_size, end_size, core_size, core_softness, glow_color, glow_intensity, glow_spread, flicker_amount, flicker_speed, distortion_amount, distortion_scale, distortion_speed, random_seed, composite, start_roundness, end_roundness, noise_along_path, alpha_mode, invert_masks - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.card_wipe` is an effect this build has | added | added | pass |
+| and the settings it sends for it - transition_completion, transition_width, back_layer, rows_columns, rows, columns, card_scale, flip_axis, flip_direction, flip_order, gradient_layer, timing_randomness, random_seed, x_rotation, y_rotation, z_rotation, xy_position, z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cc_sphere` is an effect this build has | added | added | pass |
+| and the settings it sends for it - radius, offset, rotation_x, rotation_y, rotation_z, render, light_intensity, light_color, light_height, light_direction, ambient, diffuse, specular, roughness, metal - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cc_environment` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, mapping, horizontal_pan, tilt, roll, field_of_view, filter_environment - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cc_cylinder` is an effect this build has | added | added | pass |
+| and the settings it sends for it - radius, position, position_z, rotation_x, rotation_y, rotation_z, render, light_intensity, light_color, light_height, light_direction, ambient, diffuse, specular, roughness, metal - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cc_spotlight` is an effect this build has | added | added | pass |
+| and the settings it sends for it - from, to, height, cone_angle, edge_softness, color, intensity, render, gel_layer - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cc_ball_action` is an effect this build has | added | added | pass |
+| and the settings it sends for it - scatter, rotation_axis, rotation, twist_property, twist_angle, grid_spacing, ball_size, instability_state - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.particle_space` is an effect this build has | added | added | pass |
+| and the settings it sends for it - birth_rate, longevity, producer_x, producer_y, producer_z, radius_x, radius_y, radius_z, velocity, inherit_velocity, gravity, resistance, axis_x, axis_y, axis_z, extra, extra_angle, gravity_x, gravity_y, gravity_z, floor_position, bounciness, random_bounciness, bounce_spread, wind_x, wind_y, wind_z, turbulence, turbulence_scale, turbulence_evolution, birth_size, death_size, size_variation, max_opacity, volume_shade, camera_distance, camera_rotation_x, camera_rotation_y, camera_rotation_z, camera_fov, depth_cue_distance, light_direction, light_height, random_seed, rotation_speed, initial_rotation, map_layer, animation, floor_action, particle_type, color_map, transfer_mode, depth_cue, composite_on_original, birth_color, death_color, custom_color_1, custom_color_2, custom_color_3, custom_color_4, custom_color_5, depth_cue_color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.star_burst` is an effect this build has | added | added | pass |
+| and the settings it sends for it - scatter, speed, phase, grid_spacing, size, blend_with_original - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.scatterize` is an effect this build has | added | added | pass |
+| and the settings it sends for it - amount, right_twist, left_twist, transfer_mode - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.foam` is an effect this build has | added | added | pass |
+| and the settings it sends for it - producer_x, producer_y, producer_x_size, producer_y_size, producer_orientation, production_rate, size, size_variance, lifespan, growth_speed, strength, initial_speed, initial_direction, wind_speed, wind_direction, turbulence, wobble, repulsion, pop_velocity, viscosity, stickiness, zoom, universe_size, reflection_strength, reflection_convergence, random_seed, view, zoom_producer_point, blend_mode, bubble_texture, bubble_orientation, quality - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.polygon_shards` is an effect this build has | added | added | pass |
+| and the settings it sends for it - force, gravity, spinning, force_center_x, force_center_y, direction_randomness, speed_randomness, grid_spacing, start_time, object, depth_sort - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.mercury` is an effect this build has | added | added | pass |
+| and the settings it sends for it - birth_rate, longevity, producer_x, producer_y, radius_x, radius_y, direction, velocity, extra, gravity, resistance, blob_influence, birth_size, death_size, light_intensity, light_height, light_position_x, light_position_y, light_direction, ambient, diffuse, specular, roughness, metal, animation, influence_map, light_type, light_color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.hair` is an effect this build has | added | added | pass |
+| and the settings it sends for it - length, thickness, weight, density, color_inheritance, opacity, light_intensity, light_direction, ambient, diffuse, specular, roughness, metal, constant_mass, hair_color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.drizzle` is an effect this build has | added | added | pass |
+| and the settings it sends for it - drip_rate, longevity, rippling, displacement, ripple_height, spreading, light_intensity, light_height, light_position_x, light_position_y, light_direction, ambient, diffuse, specular, roughness, metal, light_type, light_color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.bubbles` is an effect this build has | added | added | pass |
+| and the settings it sends for it - amount, speed, wobble_amplitude, wobble_frequency, size, random_seed, reflection, shading - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.particle_plane` is an effect this build has | added | added | pass |
+| and the settings it sends for it - birth_rate, longevity, producer_x, producer_y, radius_x, radius_y, velocity, inherit_velocity, gravity, resistance, direction, extra, extra_angle, birth_size, death_size, size_variation, max_opacity, custom_opacity_1, custom_opacity_2, custom_opacity_3, custom_opacity_4, custom_opacity_5, random_seed, rotation_speed, initial_rotation, map_layer, animation, particle_type, opacity_map, color_map, transfer_mode, composite_on_original, birth_color, death_color, custom_color_1, custom_color_2, custom_color_3, custom_color_4, custom_color_5 - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.particle_playground` is an effect this build has | added | added | pass |
+| and the settings it sends for it - barrel_radius, particles_per_second, cannon_direction, direction_random_spread, velocity, velocity_random_spread, cannon_particle_radius, grid_width, grid_height, particles_across, particles_down, grid_particle_radius, explode_radius, explode_dispersion, particle_exploder_radius, particle_exploder_dispersion, gravity_force, gravity_random_spread, gravity_direction, wall_mask, particle_exploder_older_younger_than, particle_exploder_age_feather, layer_map_older_younger_than, layer_map_age_feather, gravity_older_younger_than, gravity_age_feather, wall_older_younger_than, wall_age_feather, random_seed, cannon_position, grid_position, particle_exploder_particles_from, layer_map_particles_from, gravity_particles_from, wall_particles_from, auto_orient, explode_layer, layer_map, particle_exploder_selection_map, layer_map_selection_map, gravity_selection_map, wall_selection_map, cannon_color, grid_color, persistent_older_younger_than, persistent_age_feather, ephemeral_older_younger_than, ephemeral_age_feather, persistent_min_red, persistent_max_red, persistent_min_green, persistent_max_green, persistent_min_blue, persistent_max_blue, ephemeral_min_red, ephemeral_max_red, ephemeral_min_green, ephemeral_max_green, ephemeral_min_blue, ephemeral_max_blue, persistent_particles_from, ephemeral_particles_from, persistent_map_red_to, persistent_map_green_to, persistent_map_blue_to, ephemeral_map_red_to, ephemeral_map_green_to, ephemeral_map_blue_to, ephemeral_operator, persistent_map_layer, ephemeral_map_layer, persistent_selection_map, ephemeral_selection_map - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.particle_emitter` is an effect this build has | added | added | pass |
+| and the settings it sends for it - particles_per_second, emitter_z, emitter_size_x, emitter_size_y, emitter_size_z, emitter_rotation_x, emitter_rotation_y, emitter_rotation_z, grid_x, grid_y, grid_z, velocity, velocity_random, velocity_from_motion, direction_spread, life, life_random, size, size_random, size_over_life_1, size_over_life_2, size_over_life_3, size_over_life_4, size_over_life_5, opacity, opacity_random, opacity_over_life_1, opacity_over_life_2, opacity_over_life_3, opacity_over_life_4, opacity_over_life_5, color_random, sphere_feather, gravity, air_resistance, wind_x, wind_y, wind_z, turbulence, turbulence_scale, turbulence_evolution, floor_position, bounce, bounce_random, random_seed, aux_particles_per_second, aux_particles_per_bounce, aux_life, aux_velocity, aux_inherit_velocity, aux_size, aux_size_at_death, aux_opacity, aux_opacity_at_death, emitter_position, emitter_type, direction, particle_type, set_color, transfer_mode, floor_action, aux_emit, aux_particle_type, aux_set_color, color, gradient_color_1, gradient_color_2, gradient_color_3, gradient_color_4, gradient_color_5, aux_color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.particle_grid` is an effect this build has | added | added | pass |
+| and the settings it sends for it - form_size_x, form_size_y, form_size_z, particles_in_x, particles_in_y, particles_in_z, form_center_z, form_rotation_x, form_rotation_y, form_rotation_z, size, size_random, opacity, opacity_random, sphere_feather, disperse, twist, displace, fractal_scale, flow_x, flow_y, flow_z, flow_evolution, evolution, affect_size, affect_opacity, map_displace, random_seed, form_center, base_form, particle_type, transfer_mode, color_map, size_map, displace_map, base_layer, color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.warp_blend` is an effect this build has | added | added | pass |
+| and the settings it sends for it - completion, layer_to_reveal, reactor, smoothness, warp_amount, warp_direction, blend_span - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.twister` is an effect this build has | added | added | pass |
+| and the settings it sends for it - completion, backside, shading, center, axis - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.stretch_wipe` is an effect this build has | added | added | pass |
+| and the settings it sends for it - scale, center, direction - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.push_iris` is an effect this build has | added | added | pass |
+| and the settings it sends for it - completion, center, reverse - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.stripe_sweep` is an effect this build has | added | added | pass |
+| and the settings it sends for it - completion, direction, thickness, slant, flip - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.glow_wipe` is an effect this build has | added | added | pass |
+| and the settings it sends for it - completion, center, intensity, direction, shape, color_from_source, color, reverse - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.halation` is an effect this build has | added | added | pass |
+| and the settings it sends for it - threshold, threshold_smooth, radius, amount, color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.channel_wipe` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, fit, completion, softness, property, blur, invert - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.teeth_wipe` is an effect this build has | added | added | pass |
+| and the settings it sends for it - completion, center, direction, height, width, shape - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.tile_wipe` is an effect this build has | added | added | pass |
+| and the settings it sends for it - completion, center, rotation, border, tiles, shape, reverse - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.glass_melt` is an effect this build has | added | added | pass |
+| and the settings it sends for it - completion, layer_to_reveal, gradient_layer, softness, displacement_amount - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.three_d_glasses` is an effect this build has | added | added | pass |
+| and the settings it sends for it - left_view, right_view, scene_convergence, vertical_alignment, units, swap_left_right, three_d_view, balance - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.simple_wire_removal` is an effect this build has | added | added | pass |
+| and the settings it sends for it - point_a, point_b, removal_style, thickness, slope, mirror_blend, frame_offset - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.deband` is an effect this build has | added | added | pass |
+| and the settings it sends for it - view, edge_threshold, edge_softness, blur_amount, edge_blur_reduction, diffusion_amount, edge_diffusion_reduction, diffusion_reseed_interval, noise_amount, edge_noise_reduction, noise_reseed_interval - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.match_grain` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, intensity, size, softness, aspect_ratio, red_intensity, green_intensity, blue_intensity, monochromatic, saturation, blending_mode, shadows, midtones, highlights, midpoint, animation_speed, animate_smoothly, random_seed - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.brush_strokes` is an effect this build has | added | added | pass |
+| and the settings it sends for it - stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, paint_surface, blend_with_original, random_seed, animate - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cartoon` is an effect this build has | added | added | pass |
+| and the settings it sends for it - render, detail_radius, detail_threshold, shading_steps, shading_smoothness, edge_threshold, edge_width, edge_softness, edge_opacity, edge_enhancement, edge_black_level, edge_contrast - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.block_load` is an effect this build has | added | added | pass |
+| and the settings it sends for it - completion, scans, start_cleared, bilinear - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.burn_film` is an effect this build has | added | added | pass |
+| and the settings it sends for it - burn, center, seed - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.hex_tile` is an effect this build has | added | added | pass |
+| and the settings it sends for it - render, radius, center, lock_center, rotate, smearing - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.mr_smoothie` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, fit, property, smoothness, sample_a, sample_b, phase, color_loop - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.plastic` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, fit, property, softness, height, cut_min, cut_max, light_intensity, light_color, light_type, light_height, light_position, light_direction, ambient_light_color, ambient, diffuse, dust, specular, roughness, metal - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.repeat_tile` is an effect this build has | added | added | pass |
+| and the settings it sends for it - expand_right, expand_left, expand_down, expand_up, tiling, blend_borders - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.scatter` is an effect this build has | added | added | pass |
+| and the settings it sends for it - scatter_amount, grain, randomize - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.strobe_light` is an effect this build has | added | added | pass |
+| and the settings it sends for it - strobe_color, blend_with_original, strobe_duration, strobe_period, random_strobe_probability, strobe, strobe_operator, random_seed - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.threshold_rgb` is an effect this build has | added | added | pass |
+| and the settings it sends for it - red_threshold, green_threshold, blue_threshold, invert_red, invert_green, invert_blue, blend_with_original - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.contour_paint` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, view, stylization, cleanliness, smear_iterations, apply_to_alpha, draw_color_fills, reduction_method, posterization_level, low_strength, high_strength, offset_flow_angles, quantize_flow_angles - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cc_vignette` is an effect this build has | added | added | pass |
+| and the settings it sends for it - amount, angle_of_view, center, pin_highlights - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.channel_threshold` is an effect this build has | added | added | pass |
+| and the settings it sends for it - threshold, channel, invert, blend_with_original - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.texturize` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, fit, light_direction, texture_contrast - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.smart_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - radius, threshold - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.bilateral_blur` is an effect this build has | added | added | pass |
+| and the settings it sends for it - radius, threshold, colorize - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cross_blur` is an effect this build has | added | added | pass |
+| and the settings it sends for it - radius_x, radius_y, mode, edges - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.spin_zoom_blur` is an effect this build has | added | added | pass |
+| and the settings it sends for it - type, amount, quality, center - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.fast_zoom_blur` is an effect this build has | added | added | pass |
+| and the settings it sends for it - amount, center, zoom - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.broadcast_safe` is an effect this build has | added | added | pass |
+| and the settings it sends for it - locale, method, max_amplitude - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.color_neutralizer` is an effect this build has | added | added | pass |
+| and the settings it sends for it - shadows_unbalance, midtones_unbalance, highlights_unbalance, shadows, midtones, highlights, pinning, black_point, white_point - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.color_offset` is an effect this build has | added | added | pass |
+| and the settings it sends for it - red_phase, green_phase, blue_phase, overflow - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.kernel` is an effect this build has | added | added | pass |
+| and the settings it sends for it - line_1, line_2, line_3, divider, absolute_values - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.toner` is an effect this build has | added | added | pass |
+| and the settings it sends for it - tones, highlights, brights, midtones, darktones, shadows - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.change_color` is an effect this build has | added | added | pass |
+| and the settings it sends for it - view, hue_transform, lightness_transform, saturation_transform, color_to_change, tolerance, softness, match_colors, invert_mask - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.color_balance_hls` is an effect this build has | added | added | pass |
+| and the settings it sends for it - hue, lightness, saturation - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.gamma_pedestal_gain` is an effect this build has | added | added | pass |
+| and the settings it sends for it - black_stretch, red_gamma, red_pedestal, red_gain, green_gamma, green_pedestal, green_gain, blue_gamma, blue_pedestal, blue_gain - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.photo_filter` is an effect this build has | added | added | pass |
+| and the settings it sends for it - filter, color, density, preserve_luminosity - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.color_grade` is an effect this build has | added | added | pass |
+| and the settings it sends for it - look, temperature, tint, exposure, contrast, highlights, shadows, whites, blacks, saturation, look_intensity, faded_film, vibrance, creative_saturation, shadow_tint_hue, shadow_tint_amount, highlight_tint_hue, highlight_tint_amount, tint_balance, vignette_amount, vignette_midpoint, vignette_roundness, vignette_feather - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.color_link` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, sample, clip, stencil, opacity, blending_mode - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.color_stabilizer` is an effect this build has | added | added | pass |
+| and the settings it sends for it - stabilize, reference_frame, black_point, mid_point, white_point, sample_size - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.kaleidoscope` is an effect this build has | added | added | pass |
 | and the settings it sends for it - segments, rotation, size, center, mode - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.roughen_edges` is an effect this build has | added | added | pass |
@@ -289,11 +482,163 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - source_opacity, color, opacity, blend - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.channel_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, edges, dimensions - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.fast_box_blur` is an effect this build has | added | added | pass |
+| and the settings it sends for it - radius, iterations, edges, dimensions - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.fast_blur_legacy` is an effect this build has | added | added | pass |
+| and the settings it sends for it - blurriness, edges, dimensions - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.gaussian_blur_legacy` is an effect this build has | added | added | pass |
+| and the settings it sends for it - blurriness, dimensions - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.colorama` is an effect this build has | added | added | pass |
-| and the settings it sends for it - get_phase, map_layer, fit, phase_shift, cycle_repetitions, stops, color_1, color_2, color_3, color_4, color_5, blend_with_original - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - get_phase, map_layer, fit, phase_shift, cycle_repetitions, stops, color_1, color_2, color_3, color_4, color_5, blend_with_original, add_phase_from, add_mode, interpolate, opacity_1, opacity_2, opacity_3, opacity_4, opacity_5, modify, modify_alpha, change_empty, matching_mode, matching_color, matching_tolerance, matching_softness, mask_layer, masking_mode, composite_over - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.bend_it` is an effect this build has | added | added | pass |
+| and the settings it sends for it - bend, start, end, render_prestart, distort - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.bender` is an effect this build has | added | added | pass |
+| and the settings it sends for it - amount, style, adjust_to_distance, top, base - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.flow_motion` is an effect this build has | added | added | pass |
+| and the settings it sends for it - knot_1, amount_1, knot_2, amount_2, falloff, tile_edges, finer_controls, antialiasing - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.griddler` is an effect this build has | added | added | pass |
+| and the settings it sends for it - horizontal_scale, vertical_scale, tile_size, rotation, cut_tiles - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.fisheye` is an effect this build has | added | added | pass |
+| and the settings it sends for it - center, size, convergence - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.page_turn` is an effect this build has | added | added | pass |
+| and the settings it sends for it - controls, fold_position, fold_direction, fold_radius, light_direction, render, map_layer, back_opacity, paper_color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.power_pin` is an effect this build has | added | added | pass |
+| and the settings it sends for it - top_left, top_right, bottom_left, bottom_right, perspective, unstretch, expansion_top, expansion_left, expansion_right, expansion_bottom - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.mask_smear` is an effect this build has | added | added | pass |
+| and the settings it sends for it - source_mask, boundary_mask, mask_offset, mask_rotation, mask_scale, percent, elasticity - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.reshape` is an effect this build has | added | added | pass |
+| and the settings it sends for it - source_mask, destination_mask, boundary_mask, percent, elasticity, correspondence_points, interpolation - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.liquify` is an effect this build has | added | added | pass |
+| and the settings it sends for it - tool, brush_size, brush_pressure, stroke, distortion_percentage, distortion_mesh_offset, turbulent_jitter, clone_offset, reconstruction_mode, freeze_area_mask, strokes - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.warp` is an effect this build has | added | added | pass |
+| and the settings it sends for it - warp_style, warp_axis, bend, horizontal_distortion, vertical_distortion - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.mesh_warp` is an effect this build has | added | added | pass |
+| and the settings it sends for it - rows, columns, quality, distortion_mesh, vertex_handles - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.bezier_warp` is an effect this build has | added | added | pass |
+| and the settings it sends for it - top_left_vertex, top_left_tangent, top_right_tangent, right_top_vertex, right_top_tangent, right_bottom_tangent, bottom_right_vertex, bottom_right_tangent, bottom_left_tangent, left_bottom_vertex, left_bottom_tangent, left_top_tangent, quality - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.ripple_pulse` is an effect this build has | added | added | pass |
+| and the settings it sends for it - center, pulse_level, time_span, amplitude, render_bump_map - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.slant` is an effect this build has | added | added | pass |
+| and the settings it sends for it - slant, stretching, height, floor, set_color, color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.smear` is an effect this build has | added | added | pass |
+| and the settings it sends for it - from, to, reach, radius - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.split` is an effect this build has | added | added | pass |
+| and the settings it sends for it - point_a, point_b, split - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.split_2` is an effect this build has | added | added | pass |
+| and the settings it sends for it - point_a, point_b, split_1, split_2 - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.tiles` is an effect this build has | added | added | pass |
+| and the settings it sends for it - scale, center, blend - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.magnify` is an effect this build has | added | added | pass |
+| and the settings it sends for it - shape, center, magnification, link, size, feather, opacity, scaling, blending_mode, resize_layer - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.spherize` is an effect this build has | added | added | pass |
+| and the settings it sends for it - radius, center - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.checkerboard` is an effect this build has | added | added | pass |
+| and the settings it sends for it - anchor, size_from, corner, width, height, feather_width, feather_height, color, opacity, blending_mode - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.circle` is an effect this build has | added | added | pass |
+| and the settings it sends for it - center, radius, edge, edge_thickness, feather_outer, feather_inner, invert, color, opacity, blending_mode - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.ellipse` is an effect this build has | added | added | pass |
+| and the settings it sends for it - center, width, height, thickness, softness, inside_color, outside_color, composite - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.detail_upscale` is an effect this build has | added | added | pass |
+| and the settings it sends for it - scale, reduce_noise, detail - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.audio_spectrum` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, start_point, end_point, path, use_polar_path, start_frequency, end_frequency, frequency_bands, maximum_height, audio_duration, audio_offset, thickness, softness, inside_color, outside_color, blend_overlapping_colors, hue_interpolation, dynamic_hue_phase, color_symmetry, display_options, side_options, duration_averaging, composite - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.audio_waveform` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, start_point, end_point, path, displayed_samples, maximum_height, audio_duration, audio_offset, thickness, softness, random_seed, inside_color, outside_color, waveform_options, display_options, composite - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.fractal` is an effect this build has | added | added | pass |
+| and the settings it sends for it - set_choice, equation, mandelbrot_center, mandelbrot_magnification, mandelbrot_escape_limit, julia_center, julia_magnification, julia_escape_limit, overlay, transparency, palette, hue, cycle_steps, cycle_offset, edge_highlight, oversample_method, oversample_factor - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.eyedropper_fill` is an effect this build has | added | added | pass |
+| and the settings it sends for it - sample_point, sample_radius, average_pixel_colors, maintain_original_alpha, blend_with_original - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.paint_bucket` is an effect this build has | added | added | pass |
+| and the settings it sends for it - fill_point, fill_selector, tolerance, view_threshold, stroke, invert_fill, spread_radius, stroke_width, feather_softness, color, opacity, blending_mode - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.noise_alpha` is an effect this build has | added | added | pass |
+| and the settings it sends for it - noise, amount, original_alpha, overflow, random_seed, noise_phase, cycle_noise, cycle - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.noise_hls` is an effect this build has | added | added | pass |
+| and the settings it sends for it - noise, hue, lightness, saturation, grain_size, noise_phase - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.noise_hls_auto` is an effect this build has | added | added | pass |
+| and the settings it sends for it - noise, hue, lightness, saturation, grain_size, animation_speed - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.add_grain` is an effect this build has | added | added | pass |
+| and the settings it sends for it - intensity, size, softness, aspect_ratio, red_intensity, green_intensity, blue_intensity, monochromatic, saturation, blending_mode, shadows, midtones, highlights, midpoint, animation_speed, animate_smoothly, random_seed - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.scribble` is an effect this build has | added | added | pass |
+| and the settings it sends for it - scribble, mask, fill_type, edge_width, color, opacity, angle, stroke_width, curviness, curviness_variation, spacing, spacing_variation, path_overlap, path_overlap_variation, start, end, fill_paths_sequentially, wiggle_type, wiggles_per_second, random_seed, composite - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.write_on` is an effect this build has | added | added | pass |
+| and the settings it sends for it - brush_position, color, brush_size, brush_hardness, brush_opacity, stroke_length, brush_spacing, paint_time_properties, brush_time_properties, paint_style - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.fill` is an effect this build has | added | added | pass |
+| and the settings it sends for it - mask, all_masks, color, invert, horizontal_feather, vertical_feather, opacity - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.grid` is an effect this build has | added | added | pass |
+| and the settings it sends for it - anchor, size_from, corner, width, height, border, feather_width, feather_height, invert, color, opacity, blending_mode - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.lens_flare` is an effect this build has | added | added | pass |
+| and the settings it sends for it - flare_center, flare_brightness, lens_type, blend_with_original - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.turbulent_noise` is an effect this build has | added | added | pass |
+| and the settings it sends for it - fractal_type, noise_type, invert, contrast, brightness, size, scale_width, scale_height, offset, complexity, evolution, seed, opacity, blend - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.curl_noise` is an effect this build has | added | added | pass |
+| and the settings it sends for it - source, speed, direction, size, offset, evolution, turbulence_speed, swirl, density, smoothness, vertical_bias, sample_count, sample_radius, flow_softness, edge_definition, flow_falloff, view, contrast, brightness, clip_hdr_results, channel - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.vegas` is an effect this build has | added | added | pass |
+| and the settings it sends for it - stroke, mask, all_masks, segments, length, segment_distribution, rotation, random_phase, random_seed, blend_mode, color, width, hardness, start_opacity, mid_point_opacity, mid_point_position, end_opacity - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.threads` is an effect this build has | added | added | pass |
+| and the settings it sends for it - width, height, overlaps, direction, center, coverage, shadowing, texture - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.glue_gun` is an effect this build has | added | added | pass |
+| and the settings it sends for it - brush_position, stroke_width, density, time_span, reflection, strength, paint_style, wobble_width, wobble_height, wobble_speed, light_intensity, light_color, light_type, light_height, light_position, light_direction, ambient, diffuse, specular, roughness, metal - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.light_burst` is an effect this build has | added | added | pass |
+| and the settings it sends for it - center, intensity, ray_length, burst, set_color, color - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.arbitrary_map` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map, phase, apply_to_alpha - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.selective_color` is an effect this build has | added | added | pass |
+| and the settings it sends for it - method, reds, yellows, greens, cyans, blues, magentas, whites, neutrals, blacks - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.shadow_highlight` is an effect this build has | added | added | pass |
+| and the settings it sends for it - shadow_amount, highlight_amount, shadow_tonal_width, shadow_radius, highlight_tonal_width, highlight_radius, color_correction, midtone_contrast, black_clip, white_clip, auto_amounts, temporal_smoothing, scene_detect - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.tritone` is an effect this build has | added | added | pass |
+| and the settings it sends for it - highlights, midtones, shadows, blend_with_original - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.aerial_haze` is an effect this build has | added | added | pass |
+| and the settings it sends for it - haze_color, amount, map_layer, fit - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.transform` is an effect this build has | added | added | pass |
+| and the settings it sends for it - anchor_point, position, uniform_scale, scale_height, scale_width, skew, skew_axis, rotation, opacity, use_composition_shutter_angle, shutter_angle, sampling - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.blobbylize` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, fit, property, softness, cut_away, light_intensity, light_color, light_type, light_height, light_position, light_direction, ambient, diffuse, specular, roughness, metal - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.glass` is an effect this build has | added | added | pass |
-| and the settings it sends for it - map_layer, fit, property, softness, height, displacement, light_angle, light_color, light_intensity - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - map_layer, fit, property, softness, height, displacement, light_angle, light_color, light_intensity, light_type, light_height, light_position, ambient, diffuse, specular, roughness, metal - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.vector_blur` is an effect this build has | added | added | pass |
+| and the settings it sends for it - type, amount, angle_offset, ridge_smoothness, map_layer, fit, property, map_softness - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.moment_map` is an effect this build has | added | added | pass |
+| and the settings it sends for it - max_time, resolution, map_layer, fit - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.pass_extract` is an effect this build has | added | added | pass |
+| and the settings it sends for it - pass, black_point, white_point, invert, clamp, unmult - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.depth_key` is an effect this build has | added | added | pass |
+| and the settings it sends for it - depth, feather, invert - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.id_key` is an effect this build has | added | added | pass |
+| and the settings it sends for it - aux_channel, id, feather, invert - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.timecode` is an effect this build has | added | added | pass |
+| and the settings it sends for it - display_format, time_source, time_units, drop_frame, starting_frame, text_position, text_size, text_color, show_box, box_color, opacity, composite_on_original - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.numbers` is an effect this build has | added | added | pass |
+| and the settings it sends for it - number_type, random_values, value, decimal_places, position, display, fill_color, stroke_color, stroke_width, size, tracking, proportional_spacing, composite_on_original, font, alignment - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.basic_text` is an effect this build has | added | added | pass |
+| and the settings it sends for it - text, position, display, fill_color, stroke_color, stroke_width, size, tracking, composite_on_original, font, alignment - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.identifier` is an effect this build has | added | added | pass |
+| and the settings it sends for it - aux_channel, id, output - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cryptomatte` is an effect this build has | added | added | pass |
+| and the settings it sends for it - crypto_layer, selection, output - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.depth_of_field` is an effect this build has | added | added | pass |
+| and the settings it sends for it - focal_plane, maximum_radius, focal_plane_thickness, focal_bias - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.fog_3d` is an effect this build has | added | added | pass |
+| and the settings it sends for it - fog_color, fog_start_depth, fog_end_depth, fog_opacity, scattering_density, foggy_background, map_layer, layer_contribution - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.text_animator` is an effect this build has | added | added | pass |
+| and the settings it sends for it - position, scale, rotation, opacity, fill, color, tracking, start, end, offset, amount, based_on, shape, smoothness, ease_high, ease_low - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.stretch_levels` is an effect this build has | added | added | pass |
+| and the settings it sends for it - temporal_smoothing, scene_detect, black_clip, white_clip - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.stretch_contrast` is an effect this build has | added | added | pass |
+| and the settings it sends for it - temporal_smoothing, scene_detect, black_clip, white_clip - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.stretch_color` is an effect this build has | added | added | pass |
+| and the settings it sends for it - temporal_smoothing, scene_detect, black_clip, white_clip, snap_neutral_midtones - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.spread_tones` is an effect this build has | added | added | pass |
+| and the settings it sends for it - equalize, amount - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.matte_choker` is an effect this build has | added | added | pass |
+| and the settings it sends for it - geometric_softness_1, choke_1, gray_level_softness_1, geometric_softness_2, choke_2, gray_level_softness_2, iterations - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.refine_hard_matte` is an effect this build has | added | added | pass |
+| and the settings it sends for it - feather, contrast, shift_edge, decontaminate, decontamination_amount, decontamination_radius, view_decontamination_map - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.refine_soft_matte` is an effect this build has | added | added | pass |
+| and the settings it sends for it - edge_radius, view_edge_region, feather, contrast, shift_edge, decontaminate, decontamination_amount, decontamination_radius, view_decontamination_map - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.stroke` is an effect this build has | added | added | pass |
+| and the settings it sends for it - mask, all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, source - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color, density, spacing, size, depth, speed, wind, wiggle, period, seed, opacity - are the ones the command reads | accepted | accepted | pass |
 
-**275 of 275 checks pass.**
+**620 of 620 checks pass.**
