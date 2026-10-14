@@ -1,11 +1,8 @@
 # B-320: frame times with Paint Bucket (D-440)
 
-**PROVISIONAL.** Measured on 2026-10-10, built with `cargo test --release --test
-b320_paint_bucket` from 3e94b50d (B-320's code), and run with `--ignored
-b320_paint_bucket_timing`: once on the card, then once with `B320_CPU` set on the processor.
-The machine was not quiet: two other cargo processes and a b301_light_burst test were running.
-The processor's rows jump about (Feather 20 slower than Choke 40 again, and Choke's first loop
-2118 ms), so the busy machine shows in them most. To be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b320_paint_bucket --no-run` and run with `--ignored b320_paint_bucket_timing`: once on the card, then once with `B320_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0% busy; 4.1 GB to 4.2 GB of its memory held by the desktop and open programs); the same after each. The processor was 9% busy or less before each run. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-10, on a machine that was not quiet), again: Noise alone card 39.3, processor 50.4; Noise, then Paint Bucket as added card 96.6, processor 175.0 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD Ryzen 9 9900X (AMD64 Family 26 Model 68), 24 threads
@@ -19,13 +16,16 @@ loops after the first (seven on the card, two on the processor), milliseconds a 
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 39.3 | 50.4 |
-| Noise, then Paint Bucket as added | 96.6 | 175.0 |
-| Noise, then Paint Bucket, tolerance 30, Feather 20 | 111.4 | 958.3 |
-| Noise, then Paint Bucket, Alpha Channel, Choke 40 | 102.5 | 567.8 |
+| Noise alone | 12.5 | 42.7 |
+| Noise, then Paint Bucket as added | 37.7 | 152.4 |
+| Noise, then Paint Bucket, tolerance 30, Feather 20 | 34.6 | 185.8 |
+| Noise, then Paint Bucket, Alpha Channel, Choke 40 | 33.7 | 156.6 |
 
-First loops (empty caches): card 44.5, 309.1, 318.5, 297.7; processor 55.2, 185.5, 240.1, 2118.3.
+First loops (empty caches): card 16.7, 92.0, 101.8, 93.7; processor 41.9, 154.8, 182.0, 151.3.
 
-**Reading it.** On the card three Paint Buckets add about 57 to 72 ms a frame, about 20 ms a
-layer: the matching, flood fill and distances, made on the processor on either path, then sent up.
-The card's first loop is slow (about 300 ms) while its passes are first built.
+**Reading it.** On the card three Paint Buckets add about 21 to 25 ms a frame, about 7 to 8 ms a
+1080p layer (33.7 to 37.7 against 12.5); on the processor about 37 to 48 ms a layer (152.4 to
+185.8 against 42.7). The matching, flood fill and distances are made on the processor on either
+path, then sent up, so the card is about five times quicker only because it does the rest. The
+busy run's 20 ms a layer on the card, and its slow first loop of about 300 ms, were the machine:
+quiet, the first loop is about 92 to 102 ms a frame.
