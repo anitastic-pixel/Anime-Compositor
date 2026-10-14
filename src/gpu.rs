@@ -12816,6 +12816,10 @@ pub struct Gpu {
     working: Option<RefCell<Vec<(wgpu::Texture, u64)>>>,
     /// B-153: working textures lent again this frame, cleared before the passes run.
     to_clear: RefCell<Vec<wgpu::Texture>>,
+    /// Audit P9: Curl Noise's fields worked from its own noise, by the numbers that made them,
+    /// each with the last frame that used it. The field does not depend on the picture, so it
+    /// is drawn again only when those numbers (its settings, or the time when it moves) change.
+    fields: RefCell<Vec<(Vec<u64>, wgpu::TextureView, u64)>>,
 }
 
 fn entry(binding: u32, ty: wgpu::BindingType) -> wgpu::BindGroupLayoutEntry {
@@ -13202,6 +13206,7 @@ impl Gpu {
             fused: true,
             working: clear.then(|| RefCell::new(Vec::new())),
             to_clear: RefCell::new(Vec::new()),
+            fields: RefCell::new(Vec::new()),
         })
     }
 
@@ -13272,6 +13277,7 @@ impl Gpu {
     pub fn forget(&mut self) {
         self.store.clear();
         self.spare.clear();
+        self.fields.borrow_mut().clear();
     }
 
     /// `source` on the card, sending it first if it is not there. The view itself, not a place
@@ -16696,8 +16702,29 @@ impl Gpu {
                 k.push(c.perspective as u8 as f64);
                 let base = crate::grade::mix(0);
                 let p = FxParams { g: m as i32, base: [base as u32, (base >> 32) as u32], ox: ox as i32, oy: oy as i32, ..Default::default() };
-                let field = self.scratch("D-446 field", gw, gh);
-                self.fx_step(steps, &passes.curlfield, p, Some(plane.as_ref().unwrap_or(still)), Some(&field), Some(&k), None, none, tiles(gw, gh));
+                // Audit P9: a field from the noise alone is kept, and drawn again only when the
+                // numbers that make it change; a picture's plane is drawn each time.
+                let key: Option<Vec<u64>> = plane.is_none().then(|| k.iter().map(|v| v.to_bits()).chain([m, ox, oy, gw, gh].map(|v| v as u64)).collect());
+                let kept = key.as_ref().and_then(|key| {
+                    let mut fields = self.fields.borrow_mut();
+                    let f = fields.iter_mut().find(|f| &f.0 == key)?;
+                    f.2 = self.frame;
+                    Some(f.1.clone())
+                });
+                let field = match kept {
+                    Some(field) => field,
+                    None => {
+                        let field = self.scratch("D-446 field", gw, gh);
+                        self.fx_step(steps, &passes.curlfield, p, Some(plane.as_ref().unwrap_or(still)), Some(&field), Some(&k), None, none, tiles(gw, gh));
+                        if let Some(key) = key {
+                            if let Some(working) = &self.working {
+                                working.borrow_mut().retain(|(t, _)| t != field.texture());
+                            }
+                            self.fields.borrow_mut().push((key, field.clone(), self.frame));
+                        }
+                        field
+                    }
+                };
                 let at = |list: &[&str], v: &str| list.iter().position(|o| *o == v).unwrap_or(0) as f64;
                 let k = [
                     *sample_radius,
@@ -18216,6 +18243,14 @@ impl Gpu {
             if let Some(working) = &self.working {
                 working.borrow_mut().retain(|(t, used)| *used + 1 >= self.frame || self.keeps(t));
             }
+            // Audit P9: a Curl Noise field neither frame used goes back to the working textures.
+            self.fields.borrow_mut().retain(|(_, view, used)| {
+                let kept = *used + 1 >= self.frame;
+                if let (false, Some(working)) = (kept, &self.working) {
+                    working.borrow_mut().push((view.texture().clone(), *used));
+                }
+                kept
+            });
 
             let invalid = pollster::block_on(self.device.pop_error_scope());
             let memory = pollster::block_on(self.device.pop_error_scope());
@@ -18254,6 +18289,7 @@ impl Gpu {
             working.borrow_mut().clear();
         }
         self.to_clear.borrow_mut().clear();
+        self.fields.borrow_mut().clear();
         on_cpu(
             Severity::Warning,
             "The CPU drew this frame: the graphics card failed.".into(),
