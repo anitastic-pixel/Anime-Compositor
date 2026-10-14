@@ -1,13 +1,8 @@
 # B-572: frame times with Reshape's Correspondence Points and Interpolation (D-702)
 
-Measured on 2026-10-13. Built with `cargo test --release --test b572_reshape_points` from
-4c844e75 (B-572's code) and run with `--ignored b572_reshape_points_timing`: once on the card,
-then once on the processor with `B572_CPU` set.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b572_reshape_points --no-run` and run with `--ignored b572_reshape_points_timing`: once on the card, then once with `B572_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0% busy; 2.9 GB to 3.2 GB of its memory held by the desktop and open programs); the same after each. The owner's app was not open. One run each, single figures, not medians of rounds.
 
-**These numbers are PROVISIONAL.** The machine was not quiet: other lanes were building and
-testing alongside these runs. The Noise alone took 92.9 ms on the processor here, against 44.4 in
-B-571's run the same day. Treat these numbers as an upper bound and measure again on a quiet
-machine.
+Earlier provisional figures (2026-10-13, on a machine that was not quiet), again: Noise alone card 23.9, processor 92.9; Noise, then Reshape with pairs (0, 0) and (50, 25) card 56.7, processor 155.8 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -22,19 +17,21 @@ Every eighth frame is drawn whole at Full. **Again** is the median of the loops 
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 23.9 | 92.9 |
-| Noise, then Reshape with pairs (0, 0) and (50, 25) | 56.7 | 155.8 |
-| Noise, then Reshape, Percent keyed 20 to 100 and back to 40, Smooth | 179.3 | 274.6 |
+| Noise alone | 12.5 | 45.1 |
+| Noise, then Reshape with pairs (0, 0) and (50, 25) | 41.7 | 87.7 |
+| Noise, then Reshape, Percent keyed 20 to 100 and back to 40, Smooth | 121.7 | 134.1 |
 
-First loops (empty caches): card 27.7, 75.6 and 135.5; processor 107.7, 181.2 and 286.4.
+First loops (empty caches): card 16.2, 42.3, 113.7; processor 44.5, 81.0, 140.7.
 
 **Reading it.**
 
-- **With pairs.** The cost is in line with B-485's plain Reshape: about 11 ms per 1080p layer on the
-  card and about 20 ms on the processor. Matching points by pairs adds almost nothing.
-- **Smooth.** Between keys, Smooth works out four pulls and blends them, so a frame there costs
-  about four plain ones. On the card that comes to about 50 ms per layer; on the processor, about
-  60 ms per layer.
+- **With pairs.** The cost is in line with B-485's plain Reshape: about 9.7 ms per 1080p layer on
+  the card (12.5 to 41.7 over three layers) and about 14 ms on the processor (45.1 to 87.7).
+  Matching points by pairs adds almost nothing.
+- **Smooth.** Between keys, Smooth works out four pulls and blends them. On the card a frame there
+  costs about 36 ms per layer (121.7), close to four plain ones; on the processor about 30 ms per
+  layer (134.1), about twice a plain one. The busy run gave about 50 and 60; the reading is the
+  same, the figures lower.
 - **Where the time goes.** On both, the pulls are worked out on the processor; the card only
   draws them. A faster way would blend the matched points before working out one pull, but that
   would be a different rule from the one the fixtures hold. It is listed as a gap, not built.
