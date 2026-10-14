@@ -1,8 +1,8 @@
 # B-555: frame times with Scatterize (D-676)
 
-Measured on 2026-10-13, built with `cargo test --release --test b555_scatterize` from lane C's
-commit 2fd7d198, which holds 2fd7d198 (B-555's code), and run with `--ignored b555_scatterize_timing`: once on the card, then once
-with `B555_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, the graphics card had 4.1 GB of its memory in use by another program and these build or test programs were running: b532_warp_stabilizer-b6a2, cargo.exe. Between the card and processor runs, the graphics card had 6.0 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-bee64f3aec, cargo.exe. After the processor run, the graphics card had 6.2 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-bee64f3aec, cargo.exe. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-14 at 90a33e9a, built with `cargo test --release --test b555_scatterize --no-run` and run with `--ignored b555_scatterize_timing`: once on the card, then once with `B555_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0 and 7% busy; 3.8 GB to 4.0 GB of its memory held by the desktop and open programs); after a run no other build or test was running, but the card was 13% busy with another program (the timing test had ended). The processor was 6% busy or less before each run. Before that the machine was busy (the card 10 to 23% busy, from programs outside this work), and the runs waited up to 891 s for it to be quiet. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-13, on a machine that was not quiet), again: Noise alone card 16.3, processor 51.5; Noise, then Scatterize as added card 584.3, processor 620.9 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -17,12 +17,11 @@ milliseconds a frame.
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 16.3 | 51.5 |
-| Noise, then Scatterize as added | 584.3 | 620.9 |
-| Noise, then Scatterize, Amount 300, the right edge edge-on | 615.8 | 808.7 |
-| Noise, then Scatterize, Amount keyed 0 to 600, Add | 655.4 | 603.4 |
+| Noise alone | 13.1 | 43.4 |
+| Noise, then Scatterize as added | 519.1 | 372.5 |
+| Noise, then Scatterize, Amount 300, the right edge edge-on | 578.1 | 591.8 |
+| Noise, then Scatterize, Amount keyed 0 to 600, Add | 504.5 | 713.9 |
 
-First loops (empty caches): card 22.9, 591.8, 596.5, 492.3; processor 58.9, 538.7, 848.5, 629.8.
+First loops (empty caches): card 16.6, 533.7, 576.1, 515.9; processor 43.0, 373.7, 554.6, 655.9.
 
-**Reading it.** On the card, Scatterize costs an unknown amount a frame (the machine was busy) over the Noise alone as added
-(16.3 to 584.3, three layers); the cost grows with the layer's size (one dot per pixel). Here a busy machine cannot say whether the card is quicker.
+**Reading it.** Scatterize is costly either way: as added it adds about 506 ms a frame over the Noise alone on the card (13.1 to 519.1, three layers, about 170 ms a 1080p layer) and about 329 on the processor (43.4 to 372.5); with Amount 300 and the right edge edge-on, about 565 and 548 (578.1 and 591.8); with Amount keyed and Add, about 491 and 671 (504.5 and 713.9). So the processor is quicker as added, the two are about equal at Amount 300, and the card is quicker with Add. The cost grows with the layer's size (one dot per pixel), and every setting is far slower than real time (41.7 ms at 24 a second). The busy run could not say any of this; the quiet run can.
