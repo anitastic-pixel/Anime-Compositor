@@ -85,6 +85,8 @@ Every state-changing UI action invokes a stable command ID through the command l
 | sheet.print | Print the Sheet as a paper timesheet, six seconds a page, or save it as a PDF, through the system print dialog; also Print... on the Sheet (D-84d; in the window since B-28g, 2026-09-24) | Ctrl+P | no |
 | timeline.previous_frame | Step one composition frame back | Left | no |
 | timeline.next_frame | Step one composition frame forward | Right | no |
+| timeline.previous_drawing | Playhead to the frame before it where the selected layer's drawing changes, read off its Sheet column, as OpenToonz has it (D-733) | Shift+, | no |
+| timeline.next_drawing | Playhead to the frame after it where the selected layer's drawing changes (D-733) | Shift+. | no |
 | timeline.play_pause | Toggle work-area playback | Space | no |
 | timeline.set_work_start | Set work-area start | B | yes/project setting |
 | timeline.set_work_end | Set work-area end | N | yes/project setting |

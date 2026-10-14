@@ -1900,6 +1900,8 @@
     <button data-run="Paste keys"></button>
     <button data-run="Previous key"></button>
     <button data-run="Next key"></button>
+    <button data-run="Previous drawing"></button>
+    <button data-run="Next drawing"></button>
     <hr>
     <button data-run="Add a marker"></button>
     <button data-run="Name the marker at the playhead"></button>
@@ -4060,6 +4062,28 @@ function toKey(later) {
   if (Number.isFinite(next)) seek(next);
 }
 
+// D-733: OpenToonz's, Harmony's and TVPaint's previous and next drawing: the playhead to the frame
+// before or after it where the selected layer's drawing changes, read off its column of the Sheet
+// (a new drawing number, or a blank starting). With no drawing layer selected, the first column.
+async function toDrawing(later) {
+  let grid = null;
+  try {
+    const answer = await fetch(FRAMES + '/sheet');
+    grid = answer.ok ? await answer.json() : null;
+  } catch (e) {
+    grid = null;
+  }
+  const columns = (grid && grid.columns) || [];
+  const column = columns.find((c) => selection.includes(c.layer)) || columns[0];
+  if (!column) { $('status').textContent = 'This composition has no drawing layer to step through.'; return; }
+  const changes = column.cells.flatMap((mark, i) => (mark === null || mark === '|' || mark === '' ? [] : [grid.from + i]));
+  const next = later
+    ? Math.min(...changes.filter((f) => f > frame))
+    : Math.max(...changes.filter((f) => f < frame));
+  if (Number.isFinite(next)) seek(next);
+  else $('status').textContent = 'No drawing changes ' + (later ? 'after' : 'before') + ' this frame on ' + column.name + '.';
+}
+
 // W-20: Ctrl+C keeps the chosen keys, as they are now, in the page. Ctrl+V puts them back on the
 // layer and property each came from, the earliest on the playhead and the rest at their distances
 // from it, values, easing and path handles with them, as one entry to undo.
@@ -5250,6 +5274,8 @@ function paletteLines() {
     ['Remove the marker at the playhead', '', () => removeMarkerAt(frame)],
     ['Previous key', 'J', { key: 'j' }],
     ['Next key', 'K', { key: 'k' }],
+    ['Previous drawing', 'Shift+,', { key: '<', code: 'Comma', shiftKey: true }],
+    ['Next drawing', 'Shift+.', { key: '>', code: 'Period', shiftKey: true }],
     ['Selected layer in point', 'I', { key: 'i' }],
     ['Selected layer out point', 'O', { key: 'o' }],
     ['Copy keys', 'Ctrl+C', { key: 'c', ctrlKey: true }],
@@ -19612,6 +19638,9 @@ addEventListener('keydown', (e) => {
     if (maskPointPicked) { maskPointPicked = null; drawBoxes(); }
     else { pickKey(null, false); choose([]); }
   }
+  // D-733: Shift with the comma and the full stop, the previous and the next drawing, as
+  // OpenToonz has them.
+  else if (e.shiftKey && (e.code === 'Comma' || e.code === 'Period')) { e.preventDefault(); toDrawing(e.code === 'Period'); }
   else if (e.key === ',') zoomTo(shownScale() / 1.15, ...stageCentre());
   else if (e.key === '.') zoomTo(shownScale() * 1.15, ...stageCentre());
   else if (e.altKey && (e.key === 'PageUp' || e.key === 'PageDown')) { e.preventDefault(); shiftLayers((e.key === 'PageUp' ? -1 : 1) * (e.shiftKey ? 10 : 1)); }

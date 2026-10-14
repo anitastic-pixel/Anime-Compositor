@@ -17652,6 +17652,108 @@ mod editing {
         assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
+    /// D-733: previous and next drawing (Shift+, and Shift+.). The page reads the selected
+    /// layer's Sheet column and goes to the nearest frame before or after the playhead whose cell
+    /// is a drawing number or a blank's start. This asks the window for the same Sheet, applies
+    /// the rule pinned below, and checks it against frames worked out by hand from the exposures
+    /// written in `verification/B-08a_project.json`.
+    #[test]
+    fn previous_and_next_drawing_land_where_the_sheet_changes() {
+        let mut report = Report { rows: Vec::new() };
+        let page = include_str!("../ui/index.html");
+        report.check(
+            "the page counts a cell as a change unless it is outside the layer, a hold, or a blank held",
+            true,
+            page.contains("(mark === null || mark === '|' || mark === '' ? [] : [grid.from + i])"),
+        );
+        report.check(
+            "Shift+, and Shift+. reach it",
+            true,
+            page.contains("e.shiftKey && (e.code === 'Comma' || e.code === 'Period')) { e.preventDefault(); toDrawing(e.code === 'Period'); }"),
+        );
+        let viewer = Mutex::new(demo());
+        // A blank on layer 2 from frame 20 to 23, so that a blank's start is tried too.
+        for f in 20..24 {
+            run(&viewer, &format!("exposure.set_span?layer=layer-2&was={f}&start={f}&drawing="));
+        }
+        let grid = sheet_grid(&viewer);
+        let from = grid["from"].as_i64().unwrap_or(0);
+        let column = |layer: &str| {
+            grid["columns"].as_array().into_iter().flatten().find(|c| c["layer"] == layer).cloned().unwrap_or_default()
+        };
+        let lands = |layer: &str, at: i64, later: bool| -> String {
+            let changes: Vec<i64> = column(layer)["cells"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .enumerate()
+                .filter(|(_, c)| !matches!(c.as_str(), None | Some("|") | Some("")))
+                .map(|(i, _)| from + i as i64)
+                .collect();
+            let found = if later {
+                changes.iter().filter(|&&f| f > at).min()
+            } else {
+                changes.iter().filter(|&&f| f < at).max()
+            };
+            found.map_or("stays, and says there is none".to_string(), |f| f.to_string())
+        };
+        report.check(
+            "layer 2's Sheet column, frames 17 to 25",
+            "17, 18, 19, x, (blank), (blank), (blank), 0, 1",
+            column("layer-2")["cells"].as_array().map_or(String::new(), |cells| {
+                cells[17..26]
+                    .iter()
+                    .map(|c| match c.as_str() {
+                        Some("") => "(blank)".to_string(),
+                        Some(m) => m.to_string(),
+                        None => "(outside)".to_string(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            }),
+        );
+        for (what, layer, at, later, expected) in [
+            ("layer 1 (one drawing the whole shot), from frame 10, next", "layer-1", 10, true, "stays, and says there is none"),
+            ("layer 1, from frame 10, previous", "layer-1", 10, false, "0"),
+            ("layer 3 (on twos), from frame 10, next", "layer-3", 10, true, "12"),
+            ("layer 3, from frame 10, previous", "layer-3", 10, false, "8"),
+            ("layer 3, from frame 11 (a held frame), previous", "layer-3", 11, false, "10"),
+            ("layer 3, from frame 0, previous", "layer-3", 0, false, "stays, and says there is none"),
+            ("layer 4 (on threes), from frame 10, next", "layer-4", 10, true, "12"),
+            ("layer 4, from frame 10, previous", "layer-4", 10, false, "9"),
+            ("layer 4, from frame 150, next (a one-frame drawing at 152)", "layer-4", 150, true, "152"),
+            ("layer 4, from frame 152, next", "layer-4", 152, true, "153"),
+            ("layer 4, from frame 163, next (drawing 11 shown again at 165)", "layer-4", 163, true, "165"),
+            ("layer 2 (on ones, blank 20 to 23), from frame 19, next", "layer-2", 19, true, "20"),
+            ("layer 2, from frame 20, next (past the blank)", "layer-2", 20, true, "24"),
+            ("layer 2, from frame 22, previous", "layer-2", 22, false, "20"),
+            ("layer 2, from frame 24, previous", "layer-2", 24, false, "20"),
+            ("layer 2, from the last frame, next", "layer-2", 239, true, "stays, and says there is none"),
+        ] {
+            report.check(&format!("{what}: the playhead goes to"), expected, lands(layer, at, later));
+        }
+
+        write_artifact(
+            &report,
+            "verification/D-733_previous_next_drawing_table.md",
+            "D-733: previous and next drawing (Shift+, and Shift+.)",
+            &["OpenToonz's, Harmony's and TVPaint's previous and next drawing. Shift+, sends the \
+               playhead to the nearest frame before it where the selected layer's drawing \
+               changes; Shift+. to the nearest one after it. A change is a new drawing number on \
+               the layer's Sheet column, or the start of a blank; a held frame is not a change. \
+               With no drawing layer selected it uses the first column, as the sheet strip does.",
+               "The expected frames are worked out by hand from the exposures written in \
+               `verification/B-08a_project.json` (layer 1 one drawing, layer 2 on ones, layer 3 \
+               on twos, layer 4 on threes with a one-frame drawing at 152 and drawing 11 shown \
+               again at 165); a blank is cleared into layer 2 for the test. The rule the page \
+               applies is the text pinned in the first row; the rows after apply that rule to the \
+               Sheet the window answers the page with."],
+            &[],
+        );
+        let failed: Vec<&String> = report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
+    }
+
     /// The prose around the layer table.
     ///
     /// Out here rather than inline so that the test above reads as the sequence of steps it is,
@@ -31590,6 +31692,8 @@ mod contract {
         ("sheet.print", "the page, with no request"),
         ("timeline.previous_frame", "the page, with no request"),
         ("timeline.next_frame", "the page, with no request"),
+        ("timeline.previous_drawing", "the page, with no request"),
+        ("timeline.next_drawing", "the page, with no request"),
         ("timeline.play_pause", "the page, with no request"),
         ("timeline.set_work_start", "a command the window answers"),
         ("timeline.set_work_end", "a command the window answers"),
@@ -31692,6 +31796,8 @@ mod contract {
         ("layer.split", "Ctrl+Shift+D", "e.shiftKey ? splitLayers()"),
         ("timeline.previous_frame", "Left", "e.key === 'ArrowLeft'"),
         ("timeline.next_frame", "Right", "e.key === 'ArrowRight'"),
+        ("timeline.previous_drawing", "Shift+,", "e.code === 'Comma'"),
+        ("timeline.next_drawing", "Shift+.", "e.code === 'Period'"),
         ("timeline.play_pause", "Space", "e.key === ' '"),
         ("keyframe.set_interp", "F9", "e.key === 'F9'"),
         ("timeline.set_work_start", "B", "setWork('start')"),
@@ -31900,6 +32006,9 @@ mod contract {
     const PAGE_SIDE: &[&str] = &[
         "timeline.previous_frame",
         "timeline.next_frame",
+        // D-733: the previous and next drawing, read off the Sheet the page already asks for.
+        "timeline.previous_drawing",
+        "timeline.next_drawing",
         "timeline.play_pause",
         "render.preview_current",
         "viewer.fit",
