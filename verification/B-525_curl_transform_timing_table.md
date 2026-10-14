@@ -1,8 +1,8 @@
 # B-525: frame times with Curl Noise's Rotation, Scale and Perspective Offset (D-646)
 
-Measured on 2026-10-13, built with `cargo test --release --test b525_curl_transform` from 7b7655a8
-(B-525's code) plus the timing test, and run with `--ignored b525_curl_transform_timing`: once on
-the card, then once with `B525_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, the graphics card had 7.8 GB of its memory in use by other programs and these build or test programs were running: b155_gpu_chain, b532_warp_stabilizer, b533_rolling_shutter_repair, cargo.exe, rustc.exe. Between the card and processor runs, 7.9 GB, with b490_particle_space, b532_warp_stabilizer, b533_rolling_shutter_repair, cargo.exe. After the processor run, 8.2 GB, with b493_particle_playground, b495_particle_emitter, b532_warp_stabilizer, b533_rolling_shutter_repair, cargo.exe. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-14 at 91452ccd (after D-680, which makes Curl Noise's walk read up to ceil(radius / steps) points a step), built with `cargo test --release --test b525_curl_transform --no-run` and run with `--ignored b525_curl_transform_timing` on its own: once on the card, then once with `B525_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the owner's app was not open. Before the card run the check waited 516 s for the card to settle (it read 12 to 21% busy from desktop programs meanwhile) and started with the card 6% busy and the processor 4%; before the processor run the card was 4% busy and the processor 4%. After the runs the card was 1% and 11% busy and the processor 5% and 2%. One run each, the Again column a median of the loops after the first. The machine: NVIDIA GeForce RTX 4070 Ti SUPER (driver 610.88, Vulkan), AMD Ryzen 9 9900X (24 threads), Windows 11, release build.
+
+Earlier figures (2026-10-13, from 7b7655a8, before D-680, PROVISIONAL on a machine that was not quiet), Again, card / processor: Noise alone 27.1 / 57.7; as added 76.2 / 394.5; turned, scaled, Perspective Offset 76.7 / 316.7 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -17,14 +17,14 @@ milliseconds a frame.
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 27.1 | 57.7 |
-| Noise, then Curl Noise as added | 76.2 | 394.5 |
-| the same with Rotation 45, Scale 150, Perspective Offset on | 76.7 | 316.7 |
+| Noise alone | 13.0 | 41.8 |
+| Noise, then Curl Noise as added | 111.8 | 356.5 |
+| the same with Rotation 45, Scale 150, Perspective Offset on | 110.2 | 371.8 |
 
-First loops (empty caches): card 31.3, 87.9, 79.4; processor 54.4, 294.2, 341.7.
+First loops (empty caches): card 17.0, 115.0, 116.6; processor 42.0, 357.0, 377.0.
 
-**Reading it.** On the card, Curl Noise costs about 49 ms a frame over the Noise alone
-(27.1 to 76.2, three layers), and turning, scaling and Perspective Offset add nothing measurable
-(76.7). On the processor Curl Noise costs roughly 260 to 340 ms a frame; the two processor shots
-differ by more than the Transform could explain (the turned one is the quicker), so that spread is
-the busy machine, not the setting.
+**Reading it.** On the card, Curl Noise costs about 99 ms a frame over the Noise alone
+(13.0 to 111.8, three layers), and turning, scaling and Perspective Offset add nothing measurable
+(110.2). On the processor Curl Noise costs about 315 ms a frame (41.8 to 356.5), and the Transform
+adds about 15 ms (371.8). The earlier, lower card figure for Curl Noise (76.2) was before D-680;
+B-326 shows the same rise for the plain effect.
