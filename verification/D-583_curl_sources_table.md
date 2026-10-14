@@ -6,8 +6,8 @@ B-461: `core.curl_noise`'s Source takes After Effects' This Layer and Other Laye
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-CURL-033 frame 0: Source This Layer, small cells and lines, otherwise as added: the card's own lightness is the noise, so its flat patches are even greys streaked by the seed and its edges steer the flow lines; Speed 10 slides it 1 pixel up a frame. | largest difference 1.1e-7 | yes |
-| FX-CURL-033 frame 4: Source This Layer, small cells and lines, otherwise as added: the card's own lightness is the noise, so its flat patches are even greys streaked by the seed and its edges steer the flow lines; Speed 10 slides it 1 pixel up a frame. | largest difference 1.1e-7 | yes |
+| FX-CURL-033 frame 0: Source This Layer, small cells and lines, otherwise as added: the card's own lightness is the noise, so its flat patches are even greys streaked by the seed and its edges steer the flow lines; Speed 10 slides it 1 pixel up a frame. | largest difference 8.2e-8 | yes |
+| FX-CURL-033 frame 4: Source This Layer, small cells and lines, otherwise as added: the card's own lightness is the noise, so its flat patches are even greys streaked by the seed and its edges steer the flow lines; Speed 10 slides it 1 pixel up a frame. | largest difference 7.6e-8 | yes |
 | FX-CURL-033: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-034 frame 0: Source Other Layer, with Source Layer naming no layer. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-CURL-034 frame 4: Source Other Layer, with Source Layer naming no layer. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
@@ -20,7 +20,7 @@ B-461: `core.curl_noise`'s Source takes After Effects' This Layer and Other Laye
 | FX-CURL-047: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-048 frame 0: Source Other Layer, "ramp", Source Mapping Center, still, Input Noise: the ramp at its own size in the middle, black round it. | largest difference 1.4e-7 | yes |
 | FX-CURL-048: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CURL-049 frame 0: Source Other Layer, "ramp", Fill, still: flow lines across the ramp's slope. | largest difference 3.1e-7 | yes |
+| FX-CURL-049 frame 0: Source Other Layer, "ramp", Fill, still: flow lines across the ramp's slope. | largest difference 2.0e-7 | yes |
 | FX-CURL-049: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CURL-050 frame 0: Source This Layer, Softness 20, still, Input Noise: FX-CURL-045's greys blurred, sigma 2 pixels. | largest difference 1.5e-7 | yes |
 | FX-CURL-050: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -129,34 +129,34 @@ B-461: `core.curl_noise`'s Source takes After Effects' This Layer and Other Laye
 | fx_curl_058.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_curl_059.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_curl_060.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
-| the reference shot, Curl Noise This Layer as added: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2072787 pixels changed | yes |
-| the reference shot, Curl Noise This Layer as added on three layers, frame 0, Full | largest difference 1 of 255, 1234 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer as added on three layers, frame 100, Full | largest difference 1 of 255, 1249 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer as added on three layers, frame 239, Full | largest difference 1 of 255, 1250 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer as added on three layers, frame 0, Draft | largest difference 1 of 255, 70 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer as added on three layers, frame 100, Draft | largest difference 1 of 255, 89 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer as added on three layers, frame 239, Draft | largest difference 1 of 255, 70 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer as added: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2072781 pixels changed | yes |
+| the reference shot, Curl Noise This Layer as added on three layers, frame 0, Full | largest difference 1 of 255, 1270 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer as added on three layers, frame 100, Full | largest difference 1 of 255, 1273 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer as added on three layers, frame 239, Full | largest difference 1 of 255, 1186 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer as added on three layers, frame 0, Draft | largest difference 1 of 255, 67 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer as added on three layers, frame 100, Draft | largest difference 1 of 255, 81 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer as added on three layers, frame 239, Draft | largest difference 1 of 255, 84 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Curl Noise This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073599 pixels changed | yes |
-| the reference shot, Curl Noise This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20 on three layers, frame 0, Full | largest difference 1 of 255, 1488 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20 on three layers, frame 100, Full | largest difference 1 of 255, 968 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20 on three layers, frame 239, Full | largest difference 1 of 255, 1007 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20 on three layers, frame 0, Full | largest difference 1 of 255, 1487 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20 on three layers, frame 100, Full | largest difference 1 of 255, 964 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20 on three layers, frame 239, Full | largest difference 1 of 255, 1003 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Curl Noise This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20 on three layers, frame 0, Draft | largest difference 1 of 255, 76 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20 on three layers, frame 100, Draft | largest difference 1 of 255, 69 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20 on three layers, frame 100, Draft | largest difference 1 of 255, 70 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Curl Noise This Layer, Softness 20, Curl Generation, Mirror at Edge on, offset 30 and -20 on three layers, frame 239, Draft | largest difference 1 of 255, 54 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2072499 pixels changed | yes |
-| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12 on three layers, frame 0, Full | largest difference 1 of 255, 1246 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12 on three layers, frame 100, Full | largest difference 1 of 255, 1293 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12 on three layers, frame 239, Full | largest difference 1 of 255, 1352 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12 on three layers, frame 0, Draft | largest difference 1 of 255, 94 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2072497 pixels changed | yes |
+| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12 on three layers, frame 0, Full | largest difference 1 of 255, 1243 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12 on three layers, frame 100, Full | largest difference 1 of 255, 1288 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12 on three layers, frame 239, Full | largest difference 1 of 255, 1347 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12 on three layers, frame 0, Draft | largest difference 1 of 255, 93 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Curl Noise Other Layer layer4, Fill, radius 12 on three layers, frame 100, Draft | largest difference 1 of 255, 95 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12 on three layers, frame 239, Draft | largest difference 1 of 255, 97 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Other Layer layer4, Fill, radius 12 on three layers, frame 239, Draft | largest difference 1 of 255, 94 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073600 pixels changed | yes |
-| the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha on three layers, frame 0, Full | largest difference 1 of 255, 1489 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha on three layers, frame 100, Full | largest difference 1 of 255, 1592 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha on three layers, frame 239, Full | largest difference 1 of 255, 1538 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha on three layers, frame 0, Full | largest difference 1 of 255, 1492 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha on three layers, frame 100, Full | largest difference 1 of 255, 1616 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha on three layers, frame 239, Full | largest difference 1 of 255, 1547 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha on three layers, frame 0, Draft | largest difference 1 of 255, 341 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha on three layers, frame 100, Draft | largest difference 1 of 255, 300 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha on three layers, frame 239, Draft | largest difference 1 of 255, 355 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha on three layers, frame 100, Draft | largest difference 1 of 255, 302 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Curl Noise Other Layer layer4, Center, Softness keyed 0 to 40, channel Alpha on three layers, frame 239, Draft | largest difference 1 of 255, 352 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: the street, in `verification/D-583 pictures/`
 
