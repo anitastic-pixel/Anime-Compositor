@@ -10841,7 +10841,7 @@ const EFFECT_PARAMS = {
     ['decay', 'Decay', 1, 1, '0 to 100, how much the bolt thins toward its end', '', 0],
     ['conductivity', 'Conductivity State', 1, 0.1, '0 to 10000, moves the bolt smoothly through new shapes', '', 0],
     // D-329: below 0 the bolt stays inside what is solid.
-    ['obstacle', 'Alpha Obstacle', 1, 1, '-100 to 100, above 0 the bolt keeps out of what is solid, below 0 it keeps inside', '', 0]],
+    ['obstacle', 'Alpha Obstacle', 1, 1, '-100 to 100, above 0 the bolt keeps out of what is solid, below 0 it keeps inside; at 50 or more a fully solid layer blocks everywhere, so a bolt starting on it is not drawn', '', 0]],
   // D-191.
   'core.compound_blur': [['max_blur', 'Maximum Blur', 1, 0.5, '0 to 500 px, the blur where the map is white']],
   // D-193.
