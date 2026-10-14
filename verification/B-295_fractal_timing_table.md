@@ -22,8 +22,7 @@ after the first (seven on the card, two on the processor), milliseconds a frame.
 | Noise, then Fractal, Brute Force 4 by 4 | 131.5 | 254.5 |
 | Noise, then Fractal, magnification 20 at the seahorse valley, Escape Limit 1000 | 1209.1 | 1235.8 |
 
-First loops (empty caches): card 23.5, 42.7, 43.8, 139.1, 1232.3; processor 47.6, 72.0, 70.0, 249.5, 1238.3.3,
-307.2, 1473.7.
+First loops (empty caches): card 23.5, 42.7, 43.8, 139.1, 1232.3; processor 47.6, 72.0, 70.0, 249.5, 1238.3.
 
 **Reading it.** A Fractal as added costs about 8.5 ms a 1080p layer on the card (14.2 to 39.7, over
 three layers) and about 6 to 8 ms on the processor (69.0 against a Noise alone of 50.1 on this

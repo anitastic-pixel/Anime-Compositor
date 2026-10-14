@@ -1,11 +1,8 @@
 # B-332: frame times with Noise HLS Auto (D-452)
 
-**PROVISIONAL.** Measured on 2026-10-10, built with `cargo test --release --test
-b332_noisehlsauto` from fe54593f (B-332's code), and run with `--ignored
-b332_noisehlsauto_timing`: once on the card, then once with `B332_CPU` set on the processor.
-The machine was not quiet: no cargo or test process was running when it started, but the card was
-shared with other lanes' tests (Noise alone 15.8 ms against 12.9 in B-331's quiet run), and half an
-hour's wait found no quiet minute. To be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b332_noisehlsauto --no-run` and run with `--ignored b332_noisehlsauto_timing`: once on the card, then once with `B332_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (1 and 4% busy; 4.2 GB of its memory held by the desktop and open programs); the same after each. The processor was 8% busy or less before each run. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-10, on a machine that was not quiet), again: Noise alone card 15.8, processor 46.7; Noise, then Noise HLS Auto as added (Uniform, lightness 10, speed 1) card 21.2, processor 69.6 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD Ryzen 9 9900X (AMD64 Family 26 Model 68), 24 threads
@@ -19,13 +16,16 @@ of the loops after the first (seven on the card, two on the processor), millisec
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 15.8 | 46.7 |
-| Noise, then Noise HLS Auto as added (Uniform, lightness 10, speed 1) | 21.2 | 69.6 |
-| Noise, then Noise HLS Auto Squared, hue 40, lightness 20, saturation 40 | 24.5 | 68.8 |
-| Noise, then Noise HLS Auto Grain, grain size 2.5, hue 40, lightness 20, saturation 40 | 27.2 | 73.4 |
+| Noise alone | 12.4 | 41.8 |
+| Noise, then Noise HLS Auto as added (Uniform, lightness 10, speed 1) | 16.1 | 62.3 |
+| Noise, then Noise HLS Auto Squared, hue 40, lightness 20, saturation 40 | 17.1 | 63.0 |
+| Noise, then Noise HLS Auto Grain, grain size 2.5, hue 40, lightness 20, saturation 40 | 18.7 | 66.9 |
 
-First loops (empty caches): card 20.3, 26.6, 28.8, 31.2; processor 47.4, 69.1, 71.5, 72.6.
+First loops (empty caches): card 16.6, 20.8, 21.4, 22.1; processor 41.4, 61.8, 62.6, 66.7.
 
-**Reading it.** Three Noise HLS Autos add 5.4 to 11.4 ms a frame on the card over Noise alone,
-one grade pass each on a 1920 by 1080 layer; Target P1 asks 1 ms or less for one effect, so this is
-over Target P1: about 1.8 to 3.8 ms a layer on the card, against 1 ms (three value noises and an HSL round trip a pixel, in the grade pass's double precision, as Noise HLS).
+**Reading it.** Three Noise HLS Autos add 3.7 to 6.3 ms a frame on the card over Noise alone (16.1
+to 18.7 against 12.4), one grade pass each on a 1920 by 1080 layer: about 1.2 to 2.1 ms a layer,
+a little over Target P1's 1 ms for one effect (three value noises and an HSL round trip a pixel,
+in the grade pass's double precision, as Noise HLS). On the processor they cost about 7 to 8 ms a
+layer (62.3 to 66.9 against 41.8). The busy run's 1.8 to 3.8 ms a layer on the card were partly
+the machine; the reading, just over P1, stands.
