@@ -2160,6 +2160,34 @@ fn save_as(viewer: &Mutex<Viewer>, path: &Path) -> String {
     said
 }
 
+/// D-732: the file Increment and Save writes, as After Effects' Ctrl+Alt+Shift+S does: the name's
+/// trailing `_v<number>` goes up by one (`shot_v002.json` to `shot_v003.json`), a name without
+/// one gains `_v002`, and a number already taken on disk is skipped so nothing is overwritten.
+fn incremented(path: &Path) -> PathBuf {
+    let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+    let ext = path.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+    let (base, mut n) = match stem.rfind("_v") {
+        Some(at) if at + 2 < stem.len() && stem[at + 2..].bytes().all(|b| b.is_ascii_digit()) => {
+            (stem[..at].to_string(), stem[at + 2..].parse::<u64>().unwrap_or(1) + 1)
+        }
+        _ => (stem.clone(), 2),
+    };
+    loop {
+        let next = path.with_file_name(format!("{base}_v{n:03}{ext}"));
+        if !next.exists() {
+            return next;
+        }
+        n += 1;
+    }
+}
+
+/// D-732: Save As to the next version's name, so the window works on the copy and the file it
+/// came from is left as it was. `None` when the project has no file to count up from yet.
+fn increment_and_save(viewer: &Mutex<Viewer>) -> Option<String> {
+    let path = viewer.lock().expect("the viewer lock was poisoned").path.clone()?;
+    Some(save_as(viewer, &incremented(&path)))
+}
+
 /// A file the importer reads: PNG, EXR by D-62, or one of D-72's formats.
 fn is_drawing(path: &Path) -> bool {
     path.extension()
@@ -16370,6 +16398,23 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             ask_where_to_save(app);
             String::new()
         }
+        // D-732: Increment and Save. A project with no file yet has no name to count up from,
+        // so it asks where, as Save does.
+        "save-increment" => {
+            match increment_and_save(&viewer) {
+                Some(said) => {
+                    announce(&viewer, said.clone());
+                    if let Some(path) = viewer.lock().expect("the viewer lock was poisoned").path.clone() {
+                        remember(app, &path);
+                    }
+                    said
+                }
+                None => {
+                    ask_where_to_save(app);
+                    String::new()
+                }
+            }
+        }
         // D-180: the window's presets to a file and back. Neither touches the project.
         "presets-export" => ask_where_to_export_presets(
             app,
@@ -16445,7 +16490,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
             return allow_the_page_to_read_this(Response::builder().status(404))
                 .header("content-type", "text/plain; charset=utf-8")
                 .body(
-                    b"ask for /state, /open, /save, /save-as, /recover, /export, \
+                    b"ask for /state, /open, /save, /save-as, /save-increment, /recover, /export, \
                       /cancel-export, /pause-export, /export-watch, /export-frame, /collect, /check-package, /recent, /new, /session-log, /gpu-switch, /memory, \
                       /files-gone, /fonts, /font, /thumb, /alone, /queue, /presets-builtin, /presets-export, /presets-import, /lut-choose, /sketch-png, or one of \
                       document 24's command IDs"
@@ -17530,6 +17575,81 @@ mod editing {
             report.rows.len()
         ));
         std::fs::write(repo(file), out).expect("write the artifact");
+    }
+
+    /// D-732: Increment and Save (Ctrl+Alt+Shift+S).
+    #[test]
+    fn increment_and_save_writes_the_next_version_and_works_on_it() {
+        let mut report = Report { rows: Vec::new() };
+        let folder = std::env::temp_dir().join("anime_compositor_d732");
+        let _ = std::fs::remove_dir_all(&folder);
+        std::fs::create_dir_all(&folder).expect("make the scratch folder");
+        let name = |p: PathBuf| p.file_name().unwrap().to_string_lossy().into_owned();
+
+        for (from, to) in [
+            ("shot.json", "shot_v002.json"),
+            ("shot_v002.json", "shot_v003.json"),
+            ("shot_v009.json", "shot_v010.json"),
+            ("shot_v9.json", "shot_v010.json"),
+            ("shot_v1_final.json", "shot_v1_final_v002.json"),
+            ("shot_v.json", "shot_v_v002.json"),
+        ] {
+            report.check(&format!("the next version of `{from}` is called"), to, name(incremented(&folder.join(from))));
+        }
+        std::fs::write(folder.join("shot_v003.json"), "{}").expect("write a taken name");
+        std::fs::write(folder.join("shot_v004.json"), "{}").expect("write a taken name");
+        report.check(
+            "with shot_v003 and shot_v004 already on disk, the next version of `shot_v002.json` is called",
+            "shot_v005.json",
+            name(incremented(&folder.join("shot_v002.json"))),
+        );
+
+        let viewer = Mutex::new(demo());
+        report.check(
+            "a project with no file yet has nothing to count up from, so the window asks where to save",
+            "asks",
+            increment_and_save(&viewer).map_or("asks".to_string(), |said| said),
+        );
+        let first = folder.join("scene.json");
+        save_as(&viewer, &first);
+        let before = std::fs::read(&first).expect("read the first file");
+        let said = increment_and_save(&viewer).unwrap_or_default();
+        let second = folder.join("scene_v002.json");
+        let shown = |text: &str| text.replace(&folder.display().to_string(), "<scratch folder>");
+        report.check("pressing it once says", shown(&format!("Saved to {}", second.display())), shown(&said));
+        report.check("scene_v002.json is on disk", true, second.is_file());
+        report.check(
+            "the window now works on",
+            "scene_v002.json",
+            viewer.lock().unwrap().path.clone().map(name).unwrap_or_default(),
+        );
+        report.check("scene.json is left exactly as it was", true, std::fs::read(&first).ok() == Some(before));
+        increment_and_save(&viewer);
+        report.check(
+            "pressing it again, the window works on",
+            "scene_v003.json",
+            viewer.lock().unwrap().path.clone().map(name).unwrap_or_default(),
+        );
+        report.check(
+            "the copies hold the same project",
+            true,
+            std::fs::read_to_string(&second).ok() == std::fs::read_to_string(folder.join("scene_v003.json")).ok(),
+        );
+
+        write_artifact(
+            &report,
+            "verification/D-732_increment_save_table.md",
+            "D-732: Increment and Save (Ctrl+Alt+Shift+S)",
+            &["After Effects' File > Increment and Save: the project is saved under its name with \
+               the next version number, and the window carries on with that new file. A name with \
+               no `_v` number gains `_v002`; a number already used by a file in the folder is \
+               skipped, so an older version is never written over. Under the hood it is Save As \
+               to a name the window picks, so everything Save As promises (media paths kept, \
+               unknown data kept) holds here too."],
+            &[],
+        );
+        let failed: Vec<&String> = report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
+        assert!(failed.is_empty(), "these checks failed: {failed:#?}");
     }
 
     /// The prose around the layer table.
@@ -31055,6 +31175,8 @@ mod contract {
         "recover",
         "save",
         "save-as",
+        // D-732: Increment and Save.
+        "save-increment",
         // P-19: the session log panel's question, switch, Clear and Save a copy.
         "session-log",
         // D-84a: the seventh on the frame scheme, the Sheet tab's grid.
@@ -31368,6 +31490,7 @@ mod contract {
         ("project.open", "a route the shell answers"),
         ("project.save", "a route the shell answers"),
         ("project.save_as", "a route the shell answers"),
+        ("project.save_increment", "a route the shell answers"),
         ("composition.create", "a command the window answers"),
         ("composition.open", "a command the window answers"),
         ("composition.set_settings", "a command the window answers"),
@@ -31529,6 +31652,11 @@ mod contract {
         ("project.save", "Ctrl+S", "e.ctrlKey && (e.key === 's'"),
         ("project.save_as", "Ctrl+Shift+S", "e.shiftKey ? '/save-as'"),
         (
+            "project.save_increment",
+            "Ctrl+Alt+Shift+S",
+            "e.altKey && e.shiftKey ? '/save-increment'",
+        ),
+        (
             "composition.create",
             "Ctrl+N",
             "!e.shiftKey && (e.key === 'n'",
@@ -31674,6 +31802,7 @@ mod contract {
                 "project.open" => "open",
                 "project.save" => "save",
                 "project.save_as" => "save-as",
+                "project.save_increment" => "save-increment",
                 "export.sequence" => "export",
                 "project.collect" => "collect",
                 "package.check" => "check-package",

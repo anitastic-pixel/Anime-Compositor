@@ -149,6 +149,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `recover` can be asked for without a mouse | yes | yes | pass |
 | `save` can be asked for without a mouse | yes | yes | pass |
 | `save-as` can be asked for without a mouse | yes | yes | pass |
+| `save-increment` can be asked for without a mouse | yes | yes | pass |
 | `session-log` can be asked for without a mouse | yes | yes | pass |
 | `shape.add` can be asked for without a mouse | yes | yes | pass |
 | `shape.add_remove_key` can be asked for without a mouse | yes | yes | pass |
@@ -213,4 +214,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**183 of 183 checks pass.**
+**184 of 184 checks pass.**

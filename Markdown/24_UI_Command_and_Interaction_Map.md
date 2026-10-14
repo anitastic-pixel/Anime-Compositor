@@ -14,6 +14,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | project.open | Open project | Ctrl+O | no |
 | project.save | Save current project | Ctrl+S | no history item |
 | project.save_as | Save project to new path | Ctrl+Shift+S | no history item |
+| project.save_increment | Save a copy named with the next version number (_v002, _v003, skipping numbers already on disk) and work on the copy, as After Effects' Increment and Save (D-732) | Ctrl+Alt+Shift+S | no history item |
 | composition.create | Create a composition in the open project | Ctrl+N | yes |
 | composition.open | Put one of the project's compositions in the viewer | none | no |
 | composition.set_settings | Change the composition's name, size, frame rate and length | Ctrl+K | yes |

@@ -1803,6 +1803,7 @@
     <hr>
     <button data-run="Save"></button>
     <button id="saveas" data-key="Ctrl+Shift+S">Save As&hellip;</button>
+    <button data-run="Increment and save"></button>
     <!-- D-61: After Effects' File > Collect Files and a check of what was collected. -->
     <button id="collect" title="Copy the project and every drawing it uses into an empty folder">Collect Files&hellip;</button>
     <button id="checkpackage" title="Compare the drawings beside this project with its package manifest">Check Package</button>
@@ -5203,6 +5204,7 @@ function paletteLines() {
     ['Open project', 'Ctrl+O', { key: 'o', ctrlKey: true }],
     ['Save', 'Ctrl+S', { key: 's', ctrlKey: true }],
     ['Save as', 'Ctrl+Shift+S', { key: 'S', ctrlKey: true, shiftKey: true }],
+    ['Increment and save', 'Ctrl+Alt+Shift+S', { key: 'S', ctrlKey: true, altKey: true, shiftKey: true }],
     ['New composition', 'Ctrl+N', { key: 'n', ctrlKey: true }],
     ['Import drawings', 'Ctrl+I', { key: 'i', ctrlKey: true }],
     ['Export PNG sequence', 'Ctrl+M', { key: 'm', ctrlKey: true }],
@@ -8571,7 +8573,7 @@ function exprParts(layer, prop, where) {
     else if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
       e.preventDefault();
       text.onblur = null;
-      apply().then(() => command(e.shiftKey ? '/save-as' : '/save'));
+      apply().then(() => command(e.altKey && e.shiftKey ? '/save-increment' : e.shiftKey ? '/save-as' : '/save'));
     }
   };
   if (focusExpr && focusExpr.id === layer.id && focusExpr.prop === prop
@@ -19399,7 +19401,8 @@ addEventListener('keydown', (e) => {
   if (e.ctrlKey && (e.key === 'o' || e.key === 'O')) { e.preventDefault(); command('/open'); }
   else if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
     e.preventDefault();
-    command(e.shiftKey ? '/save-as' : '/save');
+    // D-732: Ctrl+Alt+Shift+S is After Effects' Increment and Save.
+    command(e.altKey && e.shiftKey ? '/save-increment' : e.shiftKey ? '/save-as' : '/save');
   }
   // Document 24 names Ctrl+M for the export and Ctrl+I for the import. Both were unbound until
   // B-12b read this file against that table; an accelerator a document promises and a window
