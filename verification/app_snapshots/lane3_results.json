@@ -565,10 +565,10 @@
   "name": "EXtractoR (Pass Extract's named channels)",
   "type_id": "core.pass_extract",
   "verdict": "works",
-  "note": "A soft pale picture of columns in green, yellow and pink, a different picture from the plain EXR's blue-to-pink gradient: the named channels pulled out. Settings: fixture FX-EXA-001 (Reflect.R/G/B/A, UnMult off); the fixture's own 8x6 EXR shown 60 times bigger (soft because it is scaled up)",
+  "note": "A soft pale picture of columns in green, yellow and pink, a different picture from the plain EXR's blue-to-pink gradient: the named channels pulled out. Settings: fixture FX-EXA-001 (Reflect.R/G/B/A, UnMult off); the fixture's own 8x6 EXR shown 60 times bigger (soft because it is scaled up) Re-checked 2026-10-14 with the fixed comparison (premultiplied; solid pixels within 1): the old figure was the 8-bit preview tool, not the effect. Was 130.",
   "cpu_ms": 49,
   "card_ms": 109,
-  "max_diff": 130,
+  "max_diff": 0,
   "picture": "verification/app_snapshots/3d_channel_extract/effect/frame_0000_card.png"
  },
  {
@@ -587,10 +587,10 @@
   "name": "Depth Matte",
   "type_id": "core.depth_key",
   "verdict": "works",
-  "note": "The near top-left part is cut away in a staircase along the depth, the farther part kept. Settings: fixture FX-DEPTH-023 (depth 6); the fixture's own 8x6 EXR shown 60 times bigger (soft because it is scaled up)",
+  "note": "The near top-left part is cut away in a staircase along the depth, the farther part kept. Settings: fixture FX-DEPTH-023 (depth 6); the fixture's own 8x6 EXR shown 60 times bigger (soft because it is scaled up) Re-checked 2026-10-14 with the fixed comparison (premultiplied; solid pixels within 1): the old figure was the 8-bit preview tool, not the effect. Was 188.",
   "cpu_ms": 119,
   "card_ms": 162,
-  "max_diff": 188,
+  "max_diff": 0,
   "picture": "verification/app_snapshots/depth_matte/effect/frame_0000_card.png"
  },
  {
@@ -620,10 +620,10 @@
   "name": "ID Matte",
   "type_id": "core.id_key",
   "verdict": "works",
-  "note": "Only the middle block of the lower row is kept, everything else see-through. Settings: fixture FX-DEPTH-038 (object id 4); the fixture's own 8x6 EXR shown 60 times bigger (soft because it is scaled up)",
+  "note": "Only the middle block of the lower row is kept, everything else see-through. Settings: fixture FX-DEPTH-038 (object id 4); the fixture's own 8x6 EXR shown 60 times bigger (soft because it is scaled up) Re-checked 2026-10-14 with the fixed comparison (premultiplied; solid pixels within 1): the old figure was the 8-bit preview tool, not the effect. Was 203.",
   "cpu_ms": 61,
   "card_ms": 122,
-  "max_diff": 203,
+  "max_diff": 0,
   "picture": "verification/app_snapshots/id_matte/effect/frame_0000_card.png"
  },
  {
@@ -741,10 +741,10 @@
   "name": "Camera Shake",
   "type_id": "core.camera_shake",
   "verdict": "works",
-  "note": "The painting shifted and tilted, a sliver of grey edge shows; average brightness changes frame to frame (139/137/143). Settings: Amount 40, rotation 5, on the painting",
+  "note": "The painting shifted and tilted, a sliver of grey edge shows; average brightness changes frame to frame (139/137/143). Settings: Amount 40, rotation 5, on the painting Re-checked 2026-10-14 with the fixed comparison (premultiplied; solid pixels within 1): the old figure was the 8-bit preview tool, not the effect. Was 255.",
   "cpu_ms": 288,
   "card_ms": 473,
-  "max_diff": 255,
+  "max_diff": 1,
   "picture": "verification/app_snapshots/camera_shake/effect/frame_0012_card.png"
  },
  {
@@ -950,10 +950,10 @@
   "name": "Select Color",
   "type_id": "core.select_color",
   "verdict": "works",
-  "note": "The painting goes flat grey except the green grass, which is kept. Settings: Keep #1fa102 (grass), tolerance 80, on the painting",
+  "note": "The painting goes flat grey except the green grass, which is kept. Settings: Keep #1fa102 (grass), tolerance 80, on the painting Re-checked 2026-10-14 with the fixed comparison (premultiplied; solid pixels within 1): the old figure was the 8-bit preview tool, not the effect. Was 11.",
   "cpu_ms": 260,
   "card_ms": 457,
-  "max_diff": 11,
+  "max_diff": 1,
   "picture": "verification/app_snapshots/select_color/effect/frame_0012_card.png"
  },
  {
