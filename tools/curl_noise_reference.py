@@ -23,21 +23,27 @@ effect above grew the buffer):
    slope 30 t^2 (1 - t)^2, over all eight corners of each cell.
 3. The flow: the slope turned by -90 degrees + swirl N degrees (at Swirl 0 exactly the curl,
    which never gathers or spreads), then its across part times min(1, 2 (1 - b)) and its down part
-   times min(1, 2 b), b = vertical_bias / 100, and made one long (left nought where it is
-   nought).
+   times min(1, 2 b), b = vertical_bias / 100, and divided by the larger of its length and 1 / s
+   (D-680): one long where the slope is at least one per noise size, shorter where it is weaker,
+   nought where it is nought. With a picture (S4) the same 1 / s, s from Size and Density.
 4. The seed: P0-19's value noise on channel 7 at (p' / (s / 50), z), blocks and smooth mixed by
    edge_definition / 100 (1 all blocks).
 5. These four numbers, the flow's two, N and the seed, are worked for every pixel of the buffer
    and M = ceil(sample_radius) + 2 round it, kept in single precision, as the card keeps them.
 6. Final Render: from the pixel's middle the flow is followed both ways, n = floor(sample_count)
-   steps of sample_radius / n each, reading the four numbers between pixels as
-   `render::sample_bilinear` does, until the flow is nought; the seed is averaged with weight
-   1 at the middle and 1 - i / (n + 1) at step i, and scaled by the weights' sum over the root of
-   their squares' sum, L. With f = flow_softness / 100, the lines are
+   steps, step i moving h = sample_radius / n times the flow read at its start (D-680: not made
+   one long, so the walk slows where the flow is weak), reading the four numbers between pixels
+   as `render::sample_bilinear` does, until the flow is under 1e-6 long. Each step is read at
+   u = max(1, ceil(h)) evenly spaced points (its j-th at j / u of the step), the last giving the
+   next step's flow; the seed is averaged with weight 1 at the middle and 1 - (i - 1 + j / u) /
+   (n + 1) at each point read. The brightening G = 1 + (W / sqrt(Q) - 1) min(1, D / (2
+   sample_radius)), W and Q the sum and the squares' sum of 1 and 1 - i / (n + 1) over the steps
+   taken, D the distance walked both ways (h times the flow's length, summed); L is the average
+   times G. With f = flow_softness / 100, the lines are
    N + (1 - f) min(1, sample_radius / 8) (L - N), then times 1 - flow_falloff / 100 (0.5 - 0.5 N),
    and the grey is 0.5 + 0.5 times that.
    Input Noise: the grey is 0.5 + 0.5 N. Curl Generation: red 0.5 + 0.5 the flow across, green
-   0.5 + 0.5 the flow down, blue 0.5 + 0.5 N.
+   0.5 + 0.5 the flow down, the flow made one long (D-680), blue 0.5 + 0.5 N.
 7. Each channel o becomes 0.5 + (o - 0.5) contrast / 100 + brightness / 100, held at 0, and at 1
    too unless Clip HDR Results is off in a composition that works in Float.
 8. Channel RGB: the colour, through the sRGB curve, replaces the pixel's at its covering; Red,
@@ -250,8 +256,8 @@ def field_at(k, swirl, px, py, src=None):
     c, sn = math.cos(t), math.sin(t)
     vx = (c * gx - sn * gy) * k["bias"][0]
     vy = (sn * gx + c * gy) * k["bias"][1]
-    length = math.hypot(vx, vy)
-    d = (vx / length, vy / length) if length > 0 else (0.0, 0.0)
+    length = max(math.hypot(vx, vy), 1 / s)
+    d = (vx / length, vy / length)
     cell, e = s / 50, k["edge"]
     sx, sy = x / cell, y / cell
     if e == 1:
@@ -364,10 +370,14 @@ def curl_noise(layer, n, w, frame_no, float_depth, src_map=None):
             if w["view"] == "input_noise":
                 o = [0.5 + 0.5 * nv] * 3
             elif w["view"] == "curl_generation":
-                o = [0.5 + 0.5 * dx, 0.5 + 0.5 * dy, 0.5 + 0.5 * nv]
+                # D-680: the direction is shown one long.
+                ln = math.hypot(dx, dy)
+                ux, uy = (dx / ln, dy / ln) if ln > 0 else (0.0, 0.0)
+                o = [0.5 + 0.5 * ux, 0.5 + 0.5 * uy, 0.5 + 0.5 * nv]
             else:
                 h = radius / steps
-                sw, sws, ss = 1.0, 1.0, seed
+                u = max(1, math.ceil(h))
+                sw, sws, ss, tw, walked = 1.0, 1.0, seed, 1.0, 0.0
                 for way in (1, -1):
                     qx, qy = i + margin + 0.5, j + margin + 0.5
                     ex, ey = dx, dy
@@ -375,14 +385,21 @@ def curl_noise(layer, n, w, frame_no, float_depth, src_map=None):
                         length = math.hypot(ex, ey)
                         if length < 1e-6:
                             break
-                        qx += way * h * ex / length
-                        qy += way * h * ey / length
-                        ex, ey, _, sv = bilinear(get, gw, gh, qx, qy)
+                        walked += h * length
+                        mx, my = way * h * ex, way * h * ey
+                        for sub in range(1, u + 1):
+                            f = sub / u
+                            ux, uy, _, sv = bilinear(get, gw, gh, qx + f * mx, qy + f * my)
+                            wt = 1 - (step - 1 + f) / (steps + 1)
+                            ss += wt * sv
+                            tw += wt
+                        ex, ey = ux, uy
+                        qx, qy = qx + mx, qy + my
                         wt = 1 - step / (steps + 1)
-                        ss += wt * sv
                         sw += wt
                         sws += wt * wt
-                lines = ss / sw * (sw / math.sqrt(sws))
+                gain = 1 + (sw / math.sqrt(sws) - 1) * min(1.0, walked / max(2 * radius, 1e-9))
+                lines = ss / tw * gain
                 mixed = nv + (1 - fs) * min(1.0, radius / 8) * (lines - nv)
                 v = 0.5 + 0.5 * (mixed * (1 - ff * (0.5 - 0.5 * nv)))
                 o = [v] * 3
