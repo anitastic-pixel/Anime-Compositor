@@ -1,8 +1,8 @@
 # B-341: frame times with Hex Tile (D-461)
 
-Measured on 2026-10-11, built with `cargo test --release --test b341_hex_tile` from 2b01e006
-(B-341's code), and run with `--ignored b341_hex_tile_timing`: once on the card, then once
-with `B341_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, the graphics card had 7.8 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-0784c04478, b155_gpu_chain-c4cee726c1, cargo.exe, rustc.exe. Between the card and processor runs, the graphics card had 8.6 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-0784c04478, b155_gpu_chain-c4cee726c1, cargo.exe. After the processor run, the graphics card had 10.0 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-0784c04478, b155_gpu_chain-c4cee726c1, cargo.exe. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b341_hex_tile --no-run` and run with `--ignored b341_hex_tile_timing`: once on the card, then once with `B341_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (2 and 3% busy; 4.2 GB of its memory held by the desktop and open programs); the same after each. The processor was 1% busy or less before each run. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-11, on a machine that was not quiet), again: Noise alone card 69.3, processor 97.0; Noise, then Hex Tile radius 50 card 57.6, processor 156.0 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -17,13 +17,14 @@ milliseconds a frame.
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 69.3 | 97.0 |
-| Noise, then Hex Tile radius 50 | 57.6 | 156.0 |
-| the same, Fold Seamlessly, rotate 20, smearing 30 | 61.0 | 129.4 |
+| Noise alone | 12.4 | 41.9 |
+| Noise, then Hex Tile radius 50 | 17.0 | 59.4 |
+| the same, Fold Seamlessly, rotate 20, smearing 30 | 17.3 | 62.2 |
 
-First loops (empty caches): card 68.3, 78.2, 69.9; processor 86.7, 159.3, 116.8.
+First loops (empty caches): card 15.6, 20.9, 20.4; processor 41.1, 58.6, 61.3.
 
-**Reading it.** On the card, Hex Tile costs an unknown amount a frame (the machine was busy) over the Noise alone at radius 50
-(69.3 to 57.6, three layers), and an unknown amount with Fold Seamlessly, a turn and smearing
-(61.0), drawn by the card's warp pass (mode 100), one bilinear read a pixel.
-At these settings a busy machine cannot say whether the card is quicker than the processor here.
+**Reading it.** On the card, Hex Tile at radius 50 costs about 1.5 ms a 1080p layer (12.4 to 17.0,
+three layers), and the same with Fold Seamlessly, a turn and smearing (17.3), drawn by the card's
+warp pass (mode 100), one bilinear read a pixel. On the processor it costs about 6 to 7 ms a layer
+(59.4 and 62.2 against 41.9), so the card is about four times quicker. The busy run could not say
+this.
