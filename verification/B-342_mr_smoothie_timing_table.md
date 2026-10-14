@@ -1,8 +1,8 @@
 # B-342: frame times with Mr. Smoothie (D-462)
 
-Measured on 2026-10-11, built with `cargo test --release --test b342_mr_smoothie` from 968fa56e
-(B-342's code), and run with `--ignored b342_mr_smoothie_timing`: once on the card, then once
-with `B342_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, the graphics card had 5.2 GB of its memory in use by another program and these build or test programs were running: b226_gpu_last_four-9751e2, cargo.exe, rustc.exe. Between the card and processor runs, the graphics card had 5.1 GB of its memory in use by another program and these build or test programs were running: b226_gpu_last_four-9751e2, cargo.exe, rustc.exe. After the processor run, these build or test programs were running: b389_glass_melt-c82e33c09, cargo.exe, rustc.exe. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b342_mr_smoothie --no-run` and run with `--ignored b342_mr_smoothie_timing`: once on the card, then once with `B342_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0 and 4% busy; 4.2 GB of its memory held by the desktop and open programs); the same after each. The processor was 5% busy or less before each run. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-11, on a machine that was not quiet), again: Noise alone card 17.7, processor 72.5; Noise, then Mr. Smoothie as added card 26.5, processor 109.0 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -17,13 +17,14 @@ milliseconds a frame.
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 17.7 | 72.5 |
-| Noise, then Mr. Smoothie as added | 26.5 | 109.0 |
-| the same, Hue, smoothness 30, BAB, phase 90 | 30.3 | 122.6 |
+| Noise alone | 12.5 | 43.7 |
+| Noise, then Mr. Smoothie as added | 17.5 | 98.9 |
+| the same, Hue, smoothness 30, BAB, phase 90 | 20.4 | 105.6 |
 
-First loops (empty caches): card 18.2, 30.1, 43.6; processor 99.3, 200.4, 115.1.
+First loops (empty caches): card 16.3, 21.9, 23.6; processor 43.6, 97.9, 103.9.
 
-**Reading it.** On the card, Mr. Smoothie costs an unknown amount a frame (the machine was busy) over the Noise alone as added
-(17.7 to 26.5, three layers, smoothness 5), and an unknown amount at Hue, smoothness 30
-(30.3): the channel read, the Gaussian's two passes, then one bilinear read a pixel.
-At these settings a busy machine cannot say whether the card is quicker than the processor here.
+**Reading it.** On the card, Mr. Smoothie as added costs about 1.7 ms a 1080p layer (12.5 to 17.5,
+three layers, smoothness 5), and about 2.6 ms at Hue, smoothness 30 (20.4): the channel read, the
+Gaussian's two passes, then one bilinear read a pixel. On the processor it costs about 18 and 21
+ms a layer (98.9 and 105.6 against 43.7), so the card is about eight to ten times quicker. The busy
+run could not say this.

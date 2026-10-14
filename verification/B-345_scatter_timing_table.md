@@ -1,8 +1,8 @@
 # B-345: frame times with Scatter (D-465)
 
-Measured on 2026-10-11, built with `cargo test --release --test b345_scatter` from 4f0859d9
-(B-345's code), and run with `--ignored b345_scatter_timing`: once on the card, then once
-with `B345_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, the graphics card had 14.0 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-c4cee726c1, cargo.exe. Between the card and processor runs, the graphics card had 11.2 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-c4cee726c1, cargo.exe. After the processor run, the graphics card had 14.1 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-c4cee726c1, cargo.exe. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b345_scatter --no-run` and run with `--ignored b345_scatter_timing`: once on the card, then once with `B345_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0 and 2% busy; 4.2 GB of its memory held by the desktop and open programs); the same after each. The processor was 2% busy or less before each run. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-11, on a machine that was not quiet), again: Noise alone card 71.2, processor 121.0; Noise, then Scatter as added (amount 10) card 72.3, processor 189.5 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -17,13 +17,13 @@ milliseconds a frame.
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 71.2 | 121.0 |
-| Noise, then Scatter as added (amount 10) | 72.3 | 189.5 |
-| the same, amount 127, Randomize Every Frame on | 79.7 | 363.0 |
+| Noise alone | 12.3 | 41.5 |
+| Noise, then Scatter as added (amount 10) | 14.0 | 60.6 |
+| the same, amount 127, Randomize Every Frame on | 14.2 | 62.0 |
 
-First loops (empty caches): card 132.6, 100.9, 102.7; processor 100.9, 160.5, 210.4.
+First loops (empty caches): card 16.1, 18.1, 17.7; processor 41.0, 55.7, 61.3.
 
-**Reading it.** On the card, Scatter costs an unknown amount a frame (the machine was busy) over the Noise alone as added
-(71.2 to 72.3, three layers), and an unknown amount at amount 127 with a new jumble each
-frame (79.7): one warp pass, each pixel read once, whatever the amount.
-At these settings a busy machine cannot say whether the card is quicker than the processor here.
+**Reading it.** On the card, Scatter costs under 1 ms a 1080p layer as added and at amount 127 with
+a new jumble each frame (14.0 and 14.2 against 12.3, three layers): one warp pass, each pixel read
+once, whatever the amount. On the processor it costs about 6.5 ms a layer (60.6 and 62.0 against
+41.5), so the card is about ten times quicker. The busy run could not say this.

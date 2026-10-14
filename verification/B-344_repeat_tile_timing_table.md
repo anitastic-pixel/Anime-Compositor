@@ -1,8 +1,8 @@
 # B-344: frame times with Repeat Tile (D-464)
 
-Measured on 2026-10-11, built with `cargo test --release --test b344_repeat_tile` from a435eef1
-(B-344's code), and run with `--ignored b344_repeat_tile_timing`: once on the card, then once
-with `B344_CPU` set on the processor. **These numbers are PROVISIONAL**: the machine was not quiet. Before the card run, the graphics card had 10.3 GB of its memory in use by another program and these build or test programs were running: anime_compositor_app-7254, b155_gpu_chain-c4cee726c1, b407_timecode-8caf3dc6b3c, cargo.exe. Between the card and processor runs, the graphics card had 9.6 GB of its memory in use by another program and these build or test programs were running: anime_compositor_app-7254, b155_gpu_chain-c4cee726c1, cargo.exe. After the processor run, the graphics card had 11.8 GB of its memory in use by another program and these build or test programs were running: b155_gpu_chain-c4cee726c1, cargo.exe. Treat them as an upper bound, to be measured again on a quiet machine.
+**Measured again on a quiet machine** on 2026-10-13 at 90a33e9a, built with `cargo test --release --test b344_repeat_tile --no-run` and run with `--ignored b344_repeat_tile_timing`: once on the card, then once with `B344_CPU` set on the processor. Before each run, `tasklist` showed no cargo, rustc or other test program and the card was idle (0 and 2% busy; 4.2 GB of its memory held by the desktop and open programs); the same after each. The processor was 2% busy or less before each run. The owner's app was not open. One run each, single figures, not medians of rounds.
+
+Earlier provisional figures (2026-10-11, on a machine that was not quiet), again: Noise alone card 43.8, processor 93.4; Noise, then Repeat Tile, Unfold grown 200 each way card 55.7, processor 154.6 ms.
 
 - Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory
 - Processor: AMD64 Family 26 Model 68 Stepping 0, AuthenticAMD, 24 threads
@@ -17,13 +17,14 @@ milliseconds a frame.
 
 | Shot | Card | Processor |
 |---|---:|---:|
-| Noise alone | 43.8 | 93.4 |
-| Noise, then Repeat Tile, Unfold grown 200 each way | 55.7 | 154.6 |
-| the same, Brick with Blend Borders 50 | 50.5 | 144.4 |
+| Noise alone | 12.6 | 41.7 |
+| Noise, then Repeat Tile, Unfold grown 200 each way | 14.6 | 61.2 |
+| the same, Brick with Blend Borders 50 | 16.6 | 64.2 |
 
-First loops (empty caches): card 57.2, 60.0, 69.9; processor 84.0, 137.6, 164.7.
+First loops (empty caches): card 16.3, 17.8, 20.3; processor 41.5, 60.4, 63.7.
 
-**Reading it.** On the card, Repeat Tile costs an unknown amount a frame (the machine was busy) over the Noise alone, Unfold grown
-200 each way (43.8 to 55.7, three layers), and an unknown amount as Brick with Blend
-Borders 50 (50.5): one warp pass into the grown layer, and the larger layers below it.
-At these settings a busy machine cannot say whether the card is quicker than the processor here.
+**Reading it.** On the card, Repeat Tile, Unfold grown 200 each way, costs under 1 ms a 1080p layer
+(12.6 to 14.6, three layers), and about 1.3 ms as Brick with Blend Borders 50 (16.6): one warp
+pass into the grown layer, and the larger layers below it. On the processor it costs about 6.5 to
+7.5 ms a layer (61.2 and 64.2 against 41.7), so the card is about six to nine times quicker. The
+busy run could not say this.
