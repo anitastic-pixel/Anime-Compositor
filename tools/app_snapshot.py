@@ -204,7 +204,9 @@ def cpu_js(n):
   const meta = { status: r.status, frame: +h.get('x-frame'), width: +h.get('x-width'), height: +h.get('x-height'),
     quality: h.get('x-quality'), drawn_on: h.get('x-drawn-on'), on_screen: h.get('x-on-screen') === '1',
     from_memory: h.get('x-cached') === '1', window_ms: +h.get('x-ms'), frame_notes: said(h.get('x-frame-notes')),
-    report: document.getElementById('report').textContent, status_line: document.getElementById('status').textContent };
+    report: document.getElementById('report').textContent, status_line: document.getElementById('status').textContent,
+    notes: [...document.querySelectorAll('#notes li')].map((li) => li.textContent),
+    note_codes: [...document.querySelectorAll('#notecodes li')].map((li) => li.textContent) };
   const body = new Uint8Array(await r.arrayBuffer());
   if (!r.ok) { meta.error = new TextDecoder().decode(body); return JSON.stringify(meta) + '\\n'; }
   if (meta.on_screen || body.length !== meta.width * meta.height * 4) {
@@ -240,7 +242,9 @@ def card_js(n, limit_ms):
     const meta = { frame, width: view.width, height: view.height, quality: document.getElementById('quality').textContent,
       drawn_on: on ? on[1] : null, painted_in_window: painted, quality_tip: title,
       cpu_note_shown: !document.getElementById('cpunote').hidden,
-      report: document.getElementById('report').textContent, status_line: document.getElementById('status').textContent };
+      report: document.getElementById('report').textContent, status_line: document.getElementById('status').textContent,
+    notes: [...document.querySelectorAll('#notes li')].map((li) => li.textContent),
+    note_codes: [...document.querySelectorAll('#notecodes li')].map((li) => li.textContent) };
     if (frame !== %d) meta.error = 'the viewer shows frame ' + frame + ', not %d';
     const px = new Uint8Array(paint.getImageData(0, 0, view.width, view.height).data.buffer);
     return JSON.stringify(meta) + '\\n' + b64(px);
